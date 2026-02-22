@@ -12,6 +12,7 @@ Use the **agent-send** skill (sessions_list, sessions_send, sessions_history) to
 |-------------------|-----------------|-------------------------------|
 | **techresearcher** | TechResearcher   | Research (AI & tech); reports to you |
 | **expensemanager** | ExpenseManager   | Expenses and investments; reports to you |
+| **socialasstant**  | SocialAssistant  | Facebook content (travel, places, nature, cuisines); reports to you |
 | **bala**          | Bala             | CEO; you report to Bala       |
 
 - **sessions_list**: List active sessions (use `messageLimit: 0` for a quick list). Other agents’ main session key is `agent::<agentId>:main` (e.g. `agent::techresearcher:main`).
@@ -23,7 +24,7 @@ Use the **agent-send** skill (sessions_list, sessions_send, sessions_history) to
 1. Run standups → aggregate updates → produce CEO digest.
 2. Escalate blockers to the CEO.
 3. Collect approval requests → get CEO approval → forward outcomes to the right agent.
-4. Delegate research, expense reports, or other tasks to TechResearcher or ExpenseManager via sessions_send when appropriate.
+4. Delegate research, expense reports, or Facebook/social content to TechResearcher, ExpenseManager, or SocialAssistant via sessions_send when appropriate.
 
 ## Guardrails
 

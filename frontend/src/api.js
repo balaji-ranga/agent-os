@@ -74,4 +74,21 @@ export const api = {
   // OpenClaw: list agents from config and sync to DB
   openclawAgents: () => get('/openclaw/agents'),
   openclawSync: (agentId) => post('/openclaw/sync', agentId ? { agent_id: agentId } : {}),
+  // Content tools: metadata (list, update, create, test)
+  contentToolsMeta: () => get('/tools/meta'),
+  contentToolsMetaUpdate: (name, patch) => patch(`/tools/meta/${encodeURIComponent(name)}`, patch),
+  contentToolsMetaCreate: (body) => post('/tools/meta', body),
+  contentToolsTest: (name, body = {}) => post(`/tools/test/${encodeURIComponent(name)}`, body),
+  // Content tools: monitor logs
+  contentToolsLogs: (params = {}) => {
+    const sp = new URLSearchParams();
+    if (params.limit != null) sp.set('limit', params.limit);
+    if (params.offset != null) sp.set('offset', params.offset);
+    if (params.tool) sp.set('tool', params.tool);
+    const q = sp.toString();
+    return get(q ? `/tools/logs?${q}` : '/tools/logs');
+  },
+  // Broadcast: send message to all or selected agents, collect replies
+  broadcastSend: (message, agentIds = null) =>
+    post('/broadcast', { message, agent_ids: agentIds && agentIds.length > 0 ? agentIds : undefined }),
 };

@@ -109,6 +109,31 @@ export function initDb() {
 
     CREATE INDEX IF NOT EXISTS idx_delegation_tasks_status ON agent_delegation_tasks(status);
     CREATE INDEX IF NOT EXISTS idx_delegation_tasks_request ON agent_delegation_tasks(request_id);
+
+    CREATE TABLE IF NOT EXISTS content_tool_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tool_name TEXT NOT NULL,
+      source TEXT,
+      request_payload TEXT,
+      response_payload TEXT,
+      status TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_content_tool_logs_created ON content_tool_logs(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_content_tool_logs_tool ON content_tool_logs(tool_name);
+
+    CREATE TABLE IF NOT EXISTS content_tools_meta (
+      name TEXT PRIMARY KEY,
+      display_name TEXT NOT NULL,
+      endpoint TEXT NOT NULL,
+      method TEXT DEFAULT 'POST',
+      purpose TEXT DEFAULT '',
+      model_used TEXT DEFAULT '',
+      enabled INTEGER DEFAULT 1,
+      is_builtin INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_content_tools_meta_enabled ON content_tools_meta(enabled);
   `);
 
   try {
@@ -134,6 +159,21 @@ export function initDb() {
   } catch (_) {}
   try {
     _db.exec(`CREATE TABLE delegation_callbacks (request_id TEXT PRIMARY KEY, posted_at TEXT DEFAULT (datetime('now')))`);
+  } catch (_) {}
+  try {
+    _db.exec(`CREATE TABLE content_tool_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, tool_name TEXT NOT NULL, source TEXT, request_payload TEXT, response_payload TEXT, status TEXT NOT NULL, created_at TEXT DEFAULT (datetime('now')))`);
+  } catch (_) {}
+  try {
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_content_tool_logs_created ON content_tool_logs(created_at DESC)`);
+  } catch (_) {}
+  try {
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_content_tool_logs_tool ON content_tool_logs(tool_name)`);
+  } catch (_) {}
+  try {
+    _db.exec(`CREATE TABLE content_tools_meta (name TEXT PRIMARY KEY, display_name TEXT NOT NULL, endpoint TEXT NOT NULL, method TEXT DEFAULT 'POST', purpose TEXT DEFAULT '', model_used TEXT DEFAULT '', enabled INTEGER DEFAULT 1, is_builtin INTEGER DEFAULT 0, created_at TEXT DEFAULT (datetime('now')))`);
+  } catch (_) {}
+  try {
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_content_tools_meta_enabled ON content_tools_meta(enabled)`);
   } catch (_) {}
 
   return _db;

@@ -25,7 +25,7 @@ From the **agents** repo (parent of `agent-os`), you can push only the `agent-os
    cd agent-os-repo
    ```
 
-2. Copy everything from `agents\agent-os` into `agent-os-repo` **except** `.git` (so you don’t overwrite the new repo’s `.git`). Exclude:
+2. Copy everything from `agents\agent-os` into `agent-os-repo` **except** `.git` (so you don't overwrite the new repo's `.git`). Exclude:
    - `agent-os/backend/node_modules`
    - `agent-os/frontend/node_modules`
    - `agent-os/backend/.env`

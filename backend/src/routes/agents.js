@@ -3,6 +3,7 @@ import { join } from 'path';
 import { getDb } from '../db/schema.js';
 import * as openclaw from '../gateway/openclaw.js';
 import * as workspace from '../workspace/adapter.js';
+import { normalizeReplyContent } from '../services/delegation-queue.js';
 
 const router = Router();
 const homedir = process.env.USERPROFILE || process.env.HOME || '';
@@ -127,7 +128,17 @@ router.patch('/:id', (req, res) => {
 
 router.delete('/:id', (req, res) => {
   try {
-    const r = db().prepare('DELETE FROM agents WHERE id = ?').run(req.params.id);
+    const id = req.params.id;
+    const agent = db().prepare('SELECT * FROM agents WHERE id = ?').get(id);
+    if (!agent) return res.status(404).json({ error: 'Agent not found' });
+    if (agent.is_coo) return res.status(400).json({ error: 'Cannot delete the COO agent' });
+
+    db().prepare('DELETE FROM activities WHERE agent_id = ?').run(id);
+    db().prepare('DELETE FROM chat_turns WHERE agent_id = ?').run(id);
+    db().prepare('DELETE FROM standup_responses WHERE agent_id = ?').run(id);
+    db().prepare('DELETE FROM agent_delegation_tasks WHERE to_agent_id = ?').run(id);
+    db().prepare('UPDATE agents SET parent_id = NULL WHERE parent_id = ?').run(id);
+    const r = db().prepare('DELETE FROM agents WHERE id = ?').run(id);
     if (r.changes === 0) return res.status(404).json({ error: 'Agent not found' });
     res.status(204).send();
   } catch (e) {
@@ -168,12 +179,13 @@ router.post('/:id/chat', async (req, res) => {
 
     const sessionUser = openclaw.sessionUserFor(agentId, userId);
     const { content: reply, usage } = await openclaw.chatCompletions(openclawAgentId, messages, sessionUser, false);
+    const replyText = normalizeReplyContent(reply);
 
-    // Persist user message and assistant reply
+    // Persist user message and assistant reply (same normalized string shape as standup chat)
     db().prepare('INSERT INTO chat_turns (agent_id, role, content) VALUES (?, ?, ?)').run(agentId, 'user', message);
-    db().prepare('INSERT INTO chat_turns (agent_id, role, content) VALUES (?, ?, ?)').run(agentId, 'assistant', reply);
+    db().prepare('INSERT INTO chat_turns (agent_id, role, content) VALUES (?, ?, ?)').run(agentId, 'assistant', replyText);
 
-    res.json({ reply, usage, agent_id: agentId });
+    res.json({ reply: replyText, usage, agent_id: agentId });
   } catch (e) {
     res.status(502).json({ error: e.message });
   }
@@ -205,9 +217,10 @@ router.post('/:id/chat/from-agent', async (req, res) => {
 
     const sessionUser = openclaw.sessionUserFor(agentId, userId);
     const { content: reply, usage } = await openclaw.chatCompletions(openclawAgentId, messages, sessionUser, false);
+    const replyText = normalizeReplyContent(reply);
 
     db().prepare('INSERT INTO chat_turns (agent_id, role, content) VALUES (?, ?, ?)').run(agentId, 'user', userContent);
-    db().prepare('INSERT INTO chat_turns (agent_id, role, content) VALUES (?, ?, ?)').run(agentId, 'assistant', reply);
+    db().prepare('INSERT INTO chat_turns (agent_id, role, content) VALUES (?, ?, ?)').run(agentId, 'assistant', replyText);
 
     res.json({ reply, usage, agent_id: agentId, from_agent_id: fromAgentId });
   } catch (e) {

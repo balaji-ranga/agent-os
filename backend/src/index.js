@@ -14,10 +14,15 @@ import agentsRoutes from './routes/agents.js';
 import standupsRoutes from './routes/standups.js';
 import cronRoutes from './routes/cron.js';
 import openclawRoutes from './routes/openclaw.js';
+import toolsRoutes from './routes/tools.js';
+import broadcastRoutes from './routes/broadcast.js';
 import { initDb } from './db/schema.js';
 import { seedDefaultAgentsIfEmpty } from './db/seed-default-agents.js';
+import { seedContentToolsMetaIfEmpty } from './db/seed-content-tools-meta.js';
+import { writeOpenClawToolsList } from './services/content-tools-meta.js';
 import { runScheduledStandup } from './cron/standup.js';
 import { processPendingDelegationTasks } from './services/delegation-queue.js';
+import { getLastIntentDebug } from './services/intent-classifier.js';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
@@ -28,6 +33,8 @@ app.use(express.text({ type: 'text/*' }));
 
 initDb();
 seedDefaultAgentsIfEmpty();
+seedContentToolsMetaIfEmpty();
+writeOpenClawToolsList();
 
 const healthHandler = (req, res) => {
   res.json({ status: 'ok', service: 'agent-os-backend', timestamp: new Date().toISOString() });
@@ -37,11 +44,21 @@ app.get('/health', healthHandler);
 // Single /api router so all /api/* routes are registered in one place
 const apiRouter = express.Router();
 apiRouter.get('/health', healthHandler);
+apiRouter.get('/debug/intent-last', (req, res) => {
+  try {
+    const debug = getLastIntentDebug();
+    res.json(debug != null ? debug : { error: 'No intent classification run yet' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 apiRouter.use('/workspace', workspaceRoutes);
 apiRouter.use('/agents', agentsRoutes);
 apiRouter.use('/standups', standupsRoutes);
 apiRouter.use('/cron', cronRoutes);
 apiRouter.use('/openclaw', openclawRoutes);
+apiRouter.use('/tools', toolsRoutes);
+apiRouter.use('/broadcast', broadcastRoutes);
 app.use('/api', apiRouter);
 
 // Also mount at root for VITE_API_URL without /api (e.g. http://127.0.0.1:3001)
@@ -50,6 +67,8 @@ app.use('/agents', agentsRoutes);
 app.use('/standups', standupsRoutes);
 app.use('/cron', cronRoutes);
 app.use('/openclaw', openclawRoutes);
+app.use('/tools', toolsRoutes);
+app.use('/broadcast', broadcastRoutes);
 
 const standupSchedule = process.env.STANDUP_CRON_SCHEDULE || '0 9 * * *';
 if (cron.validate(standupSchedule)) {

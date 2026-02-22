@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../api';
+import ChatMessageContent from '../components/ChatMessageContent';
 
 export default function AgentChat() {
   const { agentId } = useParams();
@@ -83,7 +84,7 @@ export default function AgentChat() {
             }}
           >
             <span style={{ fontSize: '0.75rem', color: 'var(--muted)', marginRight: '0.5rem' }}>{t.role}</span>
-            <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{t.content}</div>
+            <ChatMessageContent content={t.content} />
           </div>
         ))}
         {sending && <div style={{ color: 'var(--muted)' }}>…</div>}

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
+import ChatMessageContent from '../components/ChatMessageContent';
 
 // Build hierarchy: CEO (me) → COO → delegated agents
 function buildHierarchy(agents) {
@@ -60,6 +61,7 @@ function useEdgeTTS() {
 }
 
 export default function Dashboard() {
+  const { speak, stop, speaking } = useEdgeTTS();
   const [agents, setAgents] = useState([]);
   const [standups, setStandups] = useState([]);
   const [selectedStandup, setSelectedStandup] = useState(null);
@@ -84,7 +86,6 @@ export default function Dashboard() {
   const [openclawData, setOpenclawData] = useState(null);
   const [openclawLoading, setOpenclawLoading] = useState(false);
   const [openclawSyncing, setOpenclawSyncing] = useState(false);
-  const { speak, stop, speaking } = useEdgeTTS();
 
   const refreshStandup = () => {
     if (!selectedStandup?.id) return;
@@ -518,7 +519,9 @@ export default function Dashboard() {
                     selectedStandup.messages.map((m) => (
                       <div key={m.id}>
                         <span style={{ fontWeight: 600, color: m.role === 'coo' ? 'var(--accent)' : 'var(--text)', fontSize: '0.9rem' }}>{m.role === 'coo' ? 'COO' : 'You'}:</span>
-                        <p style={{ whiteSpace: 'pre-wrap', margin: '0.2rem 0 0', fontSize: '0.95rem' }}>{m.content}</p>
+                        <div style={{ margin: '0.2rem 0 0', fontSize: '0.95rem' }}>
+                          <ChatMessageContent content={m.content} />
+                        </div>
                       </div>
                     ))
                   ) : (

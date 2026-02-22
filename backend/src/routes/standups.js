@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { getDb } from '../db/schema.js';
 import { runCooSummarization } from '../services/coo.js';
 import * as openclaw from '../gateway/openclaw.js';
-import { scheduleCeoRequestViaOpenClawCron, enqueueGetWorkFromTeam, enqueueDelegationTask, postCallbackForRequestId } from '../services/delegation-queue.js';
+import { scheduleCeoRequestViaOpenClawCron, enqueueGetWorkFromTeam, enqueueDelegationTask, postCallbackForRequestId, appendToAgentMemory, extractTaskSummaryFromPrompt } from '../services/delegation-queue.js';
+import { getLastIntentDebug } from '../services/intent-classifier.js';
 
 const router = Router();
 const STANDUP_CHAT_SESSION = 'agent-os-standup-ceo';
@@ -63,6 +64,8 @@ router.post('/cron-callback', (req, res) => {
     db()
       .prepare('UPDATE agent_delegation_tasks SET status = ?, response_content = ?, completed_at = ? WHERE id = ?')
       .run('completed', responseContent, now, taskId);
+    const summary = extractTaskSummaryFromPrompt(task.prompt);
+    appendToAgentMemory(agent_id, summary).catch(() => {});
     postCallbackForRequestId(request_id);
     res.status(200).json({ ok: true });
   } catch (e) {
@@ -70,7 +73,7 @@ router.post('/cron-callback', (req, res) => {
   }
 });
 
-// Get one standup with responses and messages (for interactive standup)
+// Get one standup with responses and messages (for interactive standup). ?delegation_tasks=1 adds latest tasks.
 router.get('/:id', (req, res) => {
   try {
     const standup = db().prepare('SELECT * FROM standups WHERE id = ?').get(req.params.id);
@@ -84,7 +87,23 @@ router.get('/:id', (req, res) => {
     try {
       messages = db().prepare('SELECT id, role, content, created_at FROM standup_messages WHERE standup_id = ? ORDER BY created_at').all(standup.id);
     } catch (_) {}
-    res.json({ ...standup, responses, messages });
+    const out = { ...standup, responses, messages };
+    if (req.query.delegation_tasks === '1') {
+      const latest = db()
+        .prepare('SELECT request_id FROM agent_delegation_tasks WHERE standup_id = ? ORDER BY id DESC LIMIT 1')
+        .get(standup.id);
+      if (latest) {
+        out.delegation_tasks = db()
+          .prepare(
+            'SELECT id, to_agent_id, prompt, status FROM agent_delegation_tasks WHERE standup_id = ? AND request_id = ? ORDER BY id'
+          )
+          .all(standup.id, latest.request_id);
+        out.delegation_request_id = latest.request_id;
+      } else {
+        out.delegation_tasks = [];
+      }
+    }
+    res.json(out);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -250,7 +269,10 @@ router.post('/:id/messages', async (req, res) => {
       db().prepare('INSERT INTO standup_messages (standup_id, role, content) VALUES (?, ?, ?)').run(standupId, 'coo', cooReply);
       const messages = db().prepare('SELECT id, role, content, created_at FROM standup_messages WHERE standup_id = ? ORDER BY created_at').all(standupId);
       const updated = db().prepare('SELECT * FROM standups WHERE id = ?').get(standupId);
-      return res.status(201).json({ standup: updated, messages, coo_reply: cooReply });
+      const payload = { standup: updated, messages, coo_reply: cooReply };
+      const intentDebug = getLastIntentDebug();
+      if (intentDebug) payload.intent_debug = intentDebug;
+      return res.status(201).json(payload);
     }
 
     const cooReply = `I've asked ${result.agentNames.join(' and ')} to look into this. You'll see their responses here when ready.${result.pendingCount > 0 ? ' Some tasks are queued; click Check for updates to fetch responses.' : ''}`;
@@ -258,7 +280,10 @@ router.post('/:id/messages', async (req, res) => {
 
     const messages = db().prepare('SELECT id, role, content, created_at FROM standup_messages WHERE standup_id = ? ORDER BY created_at').all(standupId);
     const updated = db().prepare('SELECT * FROM standups WHERE id = ?').get(standupId);
-    return res.status(201).json({ standup: updated, messages, coo_reply: cooReply });
+    const payload = { standup: updated, messages, coo_reply: cooReply };
+    const intentDebug = getLastIntentDebug();
+    if (intentDebug) payload.intent_debug = intentDebug;
+    return res.status(201).json(payload);
   } catch (e) {
     res.status(502).json({ error: e.message });
   }

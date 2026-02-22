@@ -21,6 +21,8 @@ The backend uses the [OpenClaw Gateway](https://docs.openclaw.ai/gateway) HTTP A
 - **OPENAI_API_KEY** in backend `.env` for **Run COO** (standup + CEO summary via OpenAI). Optional: `OPENAI_COO_MODEL` (default `gpt-4o-mini`).
 - Optional: **STANDUP_CRON_SCHEDULE** (cron expression, e.g. `0 9 * * *` for 9 AM daily) to run standup collection and COO automatically.
 - Optional: **DELEGATION_CRON_SCHEDULE** (default `* * * * *` = every minute) — processes queued COO→agent messages and posts response callbacks to the standup so the COO never blocks on agent replies.
+- Optional: **AGENT_OS_BASE_URL** or **PUBLIC_URL** — base URL where the backend is reachable (for cron webhook callbacks). Defaults to `http://127.0.0.1:3001`.
+- Optional: **AGENT_OS_DATA_DIR** — directory for SQLite DB (default: `backend/data`).
 
 ## Quick start
 
@@ -63,6 +65,8 @@ openclaw gateway --port 18789
 Set in backend `.env`:
 
 - `OPENCLAW_GATEWAY_URL=http://127.0.0.1:18789`
+
+**Setting up OpenClaw from scratch:** Run `.\scripts\setup-openclaw-from-scratch.ps1` from the `agent-os` folder. It bootstraps OpenClaw, seeds the DB (all agents + ExpenseManager), installs agent-send and content-tools skills and extension, applies `openclaw.json` (agents, plugins, Ollama), ensures workspace templates (SOUL/MEMORY) and COO AGENTS.md, and ensures agent dirs. Then run `openclaw gateway --port 18789` and start backend + frontend.
 - `OPENCLAW_GATEWAY_TOKEN=<your gateway token or password>` (if you set `gateway.auth` in OpenClaw config)
 
 ## What’s included
@@ -72,7 +76,8 @@ Set in backend `.env`:
 | **Dashboard** | List agents (org chart); add agent; open **Chat** per agent. |
 | **Chat** | 1:1 chat with an OpenClaw agent via gateway; session affinity per agent; history stored in SQLite. |
 | **Workspace** | View/edit SOUL.md, AGENTS.md, MEMORY.md (and optional daily `memory/*.md`). Backups on save. |
-| **DB** | SQLite in `backend/data/agent-os.db`: agents, activities, chat_turns. |
+| **DB** | SQLite in `backend/data/agent-os.db`: agents (with `workspace_path`), activities, chat_turns, standups, standup_responses, standup_messages, agent_delegation_tasks, delegation_callbacks, content_tool_logs. |
+| **Agent memory** | Backend injects each agent’s MEMORY.md into delegation prompts and appends a one-line summary when a task completes (cron callback and process-delegations). Workspace path comes from DB per agent. |
 
 ## API (backend)
 
@@ -109,24 +114,39 @@ cd backend && npm run test:smoke   # quick: health, agents, standups
 cd backend && npm run test:full    # full: create agent, standups, workspace MD, chat (set SKIP_CHAT=1 if gateway not running)
 ```
 
-See **TESTING.md** for full test cases (including frontend manual tests) and restart steps.
+See **knowledgebase/TESTING.md** for full test cases (including frontend manual tests) and restart steps.
+
+## Database and scripts
+
+- **Schema and init:** `backend/src/db/schema.js` — creates all tables, `initDb()`, `getDb()`. DB file: `backend/data/agent-os.db` (or `AGENT_OS_DATA_DIR` in `.env`).
+- **Default seed:** `backend/src/db/seed-default-agents.js` — seeds default agents.
+- **Seed and utility scripts (use the DB):** `backend/scripts/` — e.g. `seed-all.js`, `seed-balserve.js`, `seed-techresearcher.js`, `seed-expenses.js`, `create-openclaw-agent.js`, `clear-schedules.js`, `ensure-techresearcher.js`, `ensure-coo-workspace.js`, `check-content-logs.js`, `start-gateway-with-env.js`.
+- **OpenClaw and workspace scripts (repo root):** `scripts/` — e.g. **`setup-openclaw-from-scratch.ps1`** (full setup: agents, skills, config, workspaces), `apply-openclaw-agents-config.js`, `ensure-all-agent-workspaces.js`, `fix-openclaw-ollama-models.js`, `ensure-openclaw-agent-dirs.js`, `restart-and-test.ps1`, `apply-openclaw-agents-and-restart.ps1`.
+
+No separate migration folder; schema changes are in `schema.js` (with optional `ALTER TABLE` blocks for existing DBs).
 
 ## Project layout
 
 ```
 agent-os/
-├── IMPLEMENTATION_PLAN.md
 ├── README.md
+├── knowledgebase/           # Docs: TESTING, GITHUB-SETUP, IMPLEMENTATION_PLAN, AGENT_REVIEW_AND_SKILLS, CONFIGURE-CLAUDE-OPUS (see knowledgebase/README.md)
+├── scripts/                    # OpenClaw/workspace scripts (apply config, ensure workspaces, fix Ollama models)
+├── openclaw-workspace-templates/  # SOUL.md, MEMORY.md (and AGENTS.md) per agent type
 ├── backend/
 │   ├── .env.example
 │   ├── package.json
-│   ├── data/               # SQLite DB (created on first run)
+│   ├── data/                   # SQLite DB: agent-os.db (or AGENT_OS_DATA_DIR)
+│   ├── scripts/                # DB seeds and utilities (seed-all, seed-*, ensure-*, clear-schedules, etc.)
 │   └── src/
 │       ├── index.js
-│       ├── db/schema.js
+│       ├── db/
+│       │   ├── schema.js       # DB init, table definitions, getDb
+│       │   └── seed-default-agents.js
 │       ├── workspace/adapter.js
 │       ├── gateway/openclaw.js
-│       └── routes/workspace.js, agents.js
+│       ├── services/delegation-queue.js, standup-delegate.js, coo.js
+│       └── routes/workspace.js, agents.js, standups.js, openclaw.js, tools.js
 └── frontend/
     ├── package.json
     ├── index.html
@@ -137,6 +157,10 @@ agent-os/
         ├── api.js
         └── pages/Dashboard.jsx, Workspace.jsx, AgentChat.jsx
 ```
+
+## Documentation (knowledge base)
+
+All project docs except this README live in **`knowledgebase/`**: testing, GitHub setup, implementation plan, agent/skills review, OpenClaw model config. See **knowledgebase/README.md** for the index. Cursor and other tools can refer to `knowledgebase/` for context.
 
 ## License
 
