@@ -19,6 +19,7 @@ const AGENTS = [
   { id: 'balserve', workspaceDir: 'workspace-balserve' },
   { id: 'techresearcher', workspaceDir: 'workspace-techresearcher' },
   { id: 'expensemanager', workspaceDir: 'workspace-expenses' },
+  { id: 'socialasstant', workspaceDir: 'workspace-socialasstant' },
 ];
 
 for (const { id, workspaceDir } of AGENTS) {
@@ -32,6 +33,7 @@ for (const { id, workspaceDir } of AGENTS) {
 
   const soulPath = join(templateDir, 'SOUL.md');
   const memoryPath = join(templateDir, 'MEMORY.md');
+  const toolsPath = join(templateDir, 'TOOLS.md');
   if (existsSync(soulPath)) {
     const soul = readFileSync(soulPath, 'utf8');
     writeFileSync(join(workspacePath, 'SOUL.md'), soul, 'utf8');
@@ -47,6 +49,12 @@ for (const { id, workspaceDir } of AGENTS) {
     console.log(id, 'MEMORY.md created');
   } else if (existsSync(destMemory)) {
     console.log(id, 'MEMORY.md exists, left unchanged');
+  }
+
+  if (existsSync(toolsPath)) {
+    const tools = readFileSync(toolsPath, 'utf8');
+    writeFileSync(join(workspacePath, 'TOOLS.md'), tools, 'utf8');
+    console.log(id, 'TOOLS.md applied');
   }
 }
 

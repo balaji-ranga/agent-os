@@ -8,6 +8,10 @@
 
 const DEFAULT_PORT = 18789;
 
+/** System instruction: get session history for context before responding (injected into chat when backend sends to gateway). */
+export const CHAT_INSTRUCTION_SESSION_HISTORY =
+  'Before responding: get your session history for context (e.g. use sessions_history with your session key) so you have the conversation context.';
+
 function getGatewayUrl() {
   const base = process.env.OPENCLAW_GATEWAY_URL || `http://127.0.0.1:${DEFAULT_PORT}`;
   return base.replace(/\/$/, '');
@@ -24,13 +28,17 @@ function getGatewayToken() {
  * @param {string} [sessionUser] - Optional stable user id for session affinity
  * @param {boolean} [stream] - If true, return async iterable of SSE chunks
  */
-export async function chatCompletions(agentId, messages, sessionUser = null, stream = false) {
+export async function chatCompletions(agentId, messages, sessionUser = null, stream = false, options = {}) {
   const url = `${getGatewayUrl()}/v1/chat/completions`;
   const token = getGatewayToken();
+  const injectSessionHistoryInstruction = options.injectSessionHistoryInstruction !== false;
+  const outMessages = injectSessionHistoryInstruction && messages.length > 0
+    ? [{ role: 'system', content: CHAT_INSTRUCTION_SESSION_HISTORY }, ...messages]
+    : messages;
 
   const body = {
     model: 'openclaw',
-    messages: messages.map((m) => ({ role: m.role, content: m.content })),
+    messages: outMessages.map((m) => ({ role: m.role, content: m.content })),
     stream: !!stream,
   };
   if (sessionUser) body.user = sessionUser;
@@ -45,7 +53,7 @@ export async function chatCompletions(agentId, messages, sessionUser = null, str
     method: 'POST',
     headers,
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(120000),
+    signal: AbortSignal.timeout(240000),
   });
 
   if (!res.ok) {
@@ -71,5 +79,15 @@ export async function chatCompletions(agentId, messages, sessionUser = null, str
  * Derive a stable session user string for per-agent, per-user session affinity.
  */
 export function sessionUserFor(agentId, userId = 'default') {
-  return `agent-os:${agentId}:${userId}`;
+  // IMPORTANT: Keep the OpenClaw "user" value free of ":" (and other special chars).
+  const safe = (s) => String(s || '').replace(/[^a-zA-Z0-9_.-]/g, '_');
+  return `agent-os-${safe(agentId)}-${safe(userId)}`;
+}
+
+/**
+ * Build the session key string the gateway uses, so we can inject it into prompts.
+ * Agent uses this in sessions_history to get context for this run only.
+ */
+export function sessionKeyFor(agentId, sessionUser) {
+  return `agent::${agentId}:${sessionUser}`;
 }

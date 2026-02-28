@@ -27,13 +27,16 @@ router.post('/', async (req, res) => {
     if (agents.length === 0) {
       return res.json({ results: [] });
     }
+    const broadcastId = `broadcast-${Date.now()}`;
     const messages = [{ role: 'user', content: message }];
     const results = await Promise.all(
       agents.map(async (agent) => {
         const openclawAgentId = agent.openclaw_agent_id || agent.id || 'main';
-        const sessionUser = openclaw.sessionUserFor(agent.id, 'broadcast');
+        const sessionUser = `${broadcastId}-${agent.id}`;
+        const sessionKeyLine = `\n\nYour session key for this run is ${openclaw.sessionKeyFor(openclawAgentId, sessionUser)}. Use this exact sessionKey when calling sessions_history.`;
+        const msgWithKey = messages[0].content + sessionKeyLine;
         try {
-          const { content: reply } = await openclaw.chatCompletions(openclawAgentId, messages, sessionUser, false);
+          const { content: reply } = await openclaw.chatCompletions(openclawAgentId, [{ role: 'user', content: msgWithKey }], sessionUser, false);
           return { agent_id: agent.id, name: agent.name || agent.id, reply };
         } catch (e) {
           return { agent_id: agent.id, name: agent.name || agent.id, error: e.message || 'Gateway error' };

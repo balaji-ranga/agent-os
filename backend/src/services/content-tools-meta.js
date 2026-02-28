@@ -20,12 +20,12 @@ export function listToolsMeta() {
 
 export function getToolMeta(name) {
   const db = getDb();
-  return db.prepare('SELECT name, display_name, endpoint, method, purpose, model_used, enabled, is_builtin, created_at FROM content_tools_meta WHERE name = ?').get(name);
+  return db.prepare('SELECT name, display_name, endpoint, method, purpose, model_used, enabled, is_builtin, created_at, auth_header FROM content_tools_meta WHERE name = ?').get(name);
 }
 
 export function updateToolMeta(name, patch) {
   const db = getDb();
-  const allowed = ['display_name', 'endpoint', 'method', 'purpose', 'model_used', 'enabled'];
+  const allowed = ['display_name', 'endpoint', 'method', 'purpose', 'model_used', 'enabled', 'auth_header'];
   const updates = [];
   const values = [];
   for (const key of allowed) {
@@ -48,12 +48,13 @@ export function updateToolMeta(name, patch) {
 
 export function createToolMeta(record) {
   const db = getDb();
-  const { name, display_name, endpoint, method = 'POST', purpose = '', model_used = '' } = record;
+  const { name, display_name, endpoint, method = 'POST', purpose = '', model_used = '', auth_header = '' } = record;
   if (!name || !display_name || !endpoint) throw new Error('name, display_name, and endpoint are required');
   const normalized = name.trim().toLowerCase().replace(/\s+/g, '_');
+  const auth = (auth_header || '').trim();
   db.prepare(
-    `INSERT INTO content_tools_meta (name, display_name, endpoint, method, purpose, model_used, enabled, is_builtin) VALUES (?, ?, ?, ?, ?, ?, 1, 0)`
-  ).run(normalized, display_name.trim(), endpoint.trim(), method, purpose.trim(), model_used.trim());
+    `INSERT INTO content_tools_meta (name, display_name, endpoint, method, purpose, model_used, enabled, is_builtin, auth_header) VALUES (?, ?, ?, ?, ?, ?, 1, 0, ?)`
+  ).run(normalized, display_name.trim(), endpoint.trim(), method, purpose.trim(), (model_used || '').trim(), auth || null);
   writeOpenClawToolsList();
   return getToolMeta(normalized);
 }

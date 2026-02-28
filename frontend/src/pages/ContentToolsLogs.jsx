@@ -84,6 +84,7 @@ export default function ContentToolsLogs() {
   const [limit] = useState(50);
   const [offset, setOffset] = useState(0);
   const [expandedId, setExpandedId] = useState(null);
+  const [cleanupLoading, setCleanupLoading] = useState(false);
 
   const fetchTools = () => {
     setToolsLoading(true);
@@ -503,6 +504,58 @@ export default function ContentToolsLogs() {
             }}
           >
             Refresh
+          </button>
+          <button
+            type="button"
+            title="Remove old or all API logs"
+            disabled={cleanupLoading || total === 0}
+            onClick={() => {
+              if (!window.confirm('Delete logs older than 7 days? (Cancel to abort)')) return;
+              setCleanupLoading(true);
+              api.contentToolsLogsCleanup({ older_than_days: 7 })
+                .then(({ deleted }) => {
+                  if (deleted != null) fetchLogs();
+                })
+                .catch((e) => setError(e.message))
+                .finally(() => setCleanupLoading(false));
+            }}
+            style={{
+              padding: '0.4rem 0.75rem',
+              background: 'var(--surface)',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              cursor: cleanupLoading || total === 0 ? 'not-allowed' : 'pointer',
+              fontSize: '0.9rem',
+            }}
+          >
+            {cleanupLoading ? '…' : 'Cleanup (older than 7 days)'}
+          </button>
+          <button
+            type="button"
+            title="Delete all logs"
+            disabled={cleanupLoading || total === 0}
+            onClick={() => {
+              if (!window.confirm('Delete ALL invocation logs? This cannot be undone.')) return;
+              setCleanupLoading(true);
+              api.contentToolsLogsCleanup({ all: true })
+                .then(({ deleted }) => {
+                  if (deleted != null) fetchLogs();
+                })
+                .catch((e) => setError(e.message))
+                .finally(() => setCleanupLoading(false));
+            }}
+            style={{
+              padding: '0.4rem 0.75rem',
+              background: 'var(--surface)',
+              color: '#e11',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              cursor: cleanupLoading || total === 0 ? 'not-allowed' : 'pointer',
+              fontSize: '0.9rem',
+            }}
+          >
+            Delete all logs
           </button>
           <span style={{ fontSize: '0.9rem', color: 'var(--muted)' }}>
             {total} log{total !== 1 ? 's' : ''}

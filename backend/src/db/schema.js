@@ -131,9 +131,40 @@ export function initDb() {
       model_used TEXT DEFAULT '',
       enabled INTEGER DEFAULT 1,
       is_builtin INTEGER DEFAULT 0,
-      created_at TEXT DEFAULT (datetime('now'))
+      created_at TEXT DEFAULT (datetime('now')),
+      auth_header TEXT DEFAULT ''
     );
     CREATE INDEX IF NOT EXISTS idx_content_tools_meta_enabled ON content_tools_meta(enabled);
+
+    CREATE TABLE IF NOT EXISTS kanban_tasks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      status TEXT DEFAULT 'open',
+      assigned_agent_id TEXT,
+      created_by TEXT DEFAULT 'user',
+      standup_id INTEGER,
+      agent_delegation_task_id INTEGER,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      due_date TEXT,
+      FOREIGN KEY (assigned_agent_id) REFERENCES agents(id),
+      FOREIGN KEY (standup_id) REFERENCES standups(id),
+      FOREIGN KEY (agent_delegation_task_id) REFERENCES agent_delegation_tasks(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_kanban_tasks_status ON kanban_tasks(status);
+    CREATE INDEX IF NOT EXISTS idx_kanban_tasks_assigned ON kanban_tasks(assigned_agent_id);
+    CREATE INDEX IF NOT EXISTS idx_kanban_tasks_created ON kanban_tasks(created_at);
+
+    CREATE TABLE IF NOT EXISTS task_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_id INTEGER NOT NULL,
+      role TEXT NOT NULL,
+      content TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (task_id) REFERENCES kanban_tasks(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_task_messages_task ON task_messages(task_id);
   `);
 
   try {
@@ -141,6 +172,12 @@ export function initDb() {
   } catch (_) {}
   try {
     _db.exec(`ALTER TABLE standups ADD COLUMN approved_at TEXT`);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE standups ADD COLUMN title TEXT`);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE standups ADD COLUMN outcomes TEXT`);
   } catch (_) {}
   try {
     _db.exec(`CREATE TABLE standup_messages (id INTEGER PRIMARY KEY AUTOINCREMENT, standup_id INTEGER NOT NULL, role TEXT NOT NULL, content TEXT NOT NULL, created_at TEXT DEFAULT (datetime('now')), FOREIGN KEY (standup_id) REFERENCES standups(id))`);
@@ -170,10 +207,31 @@ export function initDb() {
     _db.exec(`CREATE INDEX IF NOT EXISTS idx_content_tool_logs_tool ON content_tool_logs(tool_name)`);
   } catch (_) {}
   try {
-    _db.exec(`CREATE TABLE content_tools_meta (name TEXT PRIMARY KEY, display_name TEXT NOT NULL, endpoint TEXT NOT NULL, method TEXT DEFAULT 'POST', purpose TEXT DEFAULT '', model_used TEXT DEFAULT '', enabled INTEGER DEFAULT 1, is_builtin INTEGER DEFAULT 0, created_at TEXT DEFAULT (datetime('now')))`);
+    _db.exec(`CREATE TABLE content_tools_meta (name TEXT PRIMARY KEY, display_name TEXT NOT NULL, endpoint TEXT NOT NULL, method TEXT DEFAULT 'POST', purpose TEXT DEFAULT '', model_used TEXT DEFAULT '', enabled INTEGER DEFAULT 1, is_builtin INTEGER DEFAULT 0, created_at TEXT DEFAULT (datetime('now')), auth_header TEXT DEFAULT '')`);
   } catch (_) {}
   try {
     _db.exec(`CREATE INDEX IF NOT EXISTS idx_content_tools_meta_enabled ON content_tools_meta(enabled)`);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE content_tools_meta ADD COLUMN auth_header TEXT DEFAULT ''`);
+  } catch (_) {}
+  try {
+    _db.exec(`CREATE TABLE kanban_tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, description TEXT DEFAULT '', status TEXT DEFAULT 'open', assigned_agent_id TEXT, created_by TEXT DEFAULT 'user', standup_id INTEGER, agent_delegation_task_id INTEGER, created_at TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now')), due_date TEXT, FOREIGN KEY (assigned_agent_id) REFERENCES agents(id), FOREIGN KEY (standup_id) REFERENCES standups(id), FOREIGN KEY (agent_delegation_task_id) REFERENCES agent_delegation_tasks(id))`);
+  } catch (_) {}
+  try {
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_kanban_tasks_status ON kanban_tasks(status)`);
+  } catch (_) {}
+  try {
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_kanban_tasks_assigned ON kanban_tasks(assigned_agent_id)`);
+  } catch (_) {}
+  try {
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_kanban_tasks_created ON kanban_tasks(created_at)`);
+  } catch (_) {}
+  try {
+    _db.exec(`CREATE TABLE task_messages (id INTEGER PRIMARY KEY AUTOINCREMENT, task_id INTEGER NOT NULL, role TEXT NOT NULL, content TEXT NOT NULL, created_at TEXT DEFAULT (datetime('now')), FOREIGN KEY (task_id) REFERENCES kanban_tasks(id))`);
+  } catch (_) {}
+  try {
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_task_messages_task ON task_messages(task_id)`);
   } catch (_) {}
 
   return _db;

@@ -12,13 +12,30 @@ const CONFIG_PATH = join(OPENCLAW_DIR, 'openclaw.json');
 
 // Use forward slashes so JSON is valid and OpenClaw accepts them on Windows
 const toSlash = (p) => p.replace(/\\/g, '/');
+
+// Same tools config for all agents that should be able to invoke Agent OS tools.
+// IMPORTANT: keep this list to actual TOOL NAMES only. Non-tool entries can cause OpenClaw
+// to ignore the allowlist and the agent will not see the tools.
+const CONTENT_TOOLS_ALLOW = [
+  'summarize_url',
+  'generate_image',
+  'generate_video',
+  'kanban_move_status',
+  'kanban_reassign_to_coo',
+  'kanban_assign_task',
+  'intent_classify_and_delegate',
+];
+const CONTENT_TOOLS_CONFIG = { allow: [...CONTENT_TOOLS_ALLOW], deny: ['image'] };
+
+// Remove stale/unknown tool names that cause OpenClaw to ignore tools.allow completely.
+const REMOVE_FROM_ALLOWLIST = new Set(['cron.add', 'cron_add']);
+
 const AGENTS_LIST = [
   { id: 'bala', name: 'Bala', default: true, workspace: toSlash(join(OPENCLAW_DIR, 'workspace')) },
   { id: 'balserve', name: 'COO', workspace: toSlash(join(OPENCLAW_DIR, 'workspace-balserve')) },
-  { id: 'techresearcher', name: 'TechResearcher', workspace: toSlash(join(OPENCLAW_DIR, 'workspace-techresearcher')) },
-  { id: 'expensemanager', name: 'ExpenseManager', workspace: toSlash(join(OPENCLAW_DIR, 'workspace-expenses')) },
-  // Per-agent: allow content-tools plugin; deny built-in "image" (analyze-only) so the agent uses generate_image for creating images.
-  { id: 'socialasstant', name: 'SocialAssistant', workspace: toSlash(join(OPENCLAW_DIR, 'workspace-socialasstant')), tools: { allow: ['agent-os-content-tools'], deny: ['image'] } },
+  { id: 'techresearcher', name: 'TechResearcher', workspace: toSlash(join(OPENCLAW_DIR, 'workspace-techresearcher')), tools: { ...CONTENT_TOOLS_CONFIG } },
+  { id: 'expensemanager', name: 'ExpenseManager', workspace: toSlash(join(OPENCLAW_DIR, 'workspace-expenses')), tools: { ...CONTENT_TOOLS_CONFIG } },
+  { id: 'socialasstant', name: 'SocialAssistant', workspace: toSlash(join(OPENCLAW_DIR, 'workspace-socialasstant')), tools: { ...CONTENT_TOOLS_CONFIG } },
 ];
 
 const GATEWAY_DEFAULTS = {
@@ -56,7 +73,27 @@ const OLLAMA_FALLBACK = process.env.OPENCLAW_OLLAMA_FALLBACK_MODEL || 'llama3.2'
 const OLLAMA_FALLBACK_ID = `ollama/${OLLAMA_FALLBACK}`;
 
 if (!config.agents) config.agents = {};
-config.agents.list = AGENTS_LIST;
+// Merge AGENTS_LIST into existing list by id so we set tools for techresearcher/expensemanager/socialasstant like SocialAssistant, and don't drop other agents
+const existingList = Array.isArray(config.agents.list) ? config.agents.list : [];
+const byId = new Map(existingList.map((a) => [(a.id || '').toLowerCase(), a]));
+for (const agent of AGENTS_LIST) {
+  const id = (agent.id || '').toLowerCase();
+  const existing = byId.get(id);
+  if (existing) {
+    Object.assign(existing, agent);
+    byId.set(id, existing);
+  } else {
+    byId.set(id, { ...agent });
+  }
+}
+config.agents.list = Array.from(byId.values());
+
+// Ensure per-agent tool allowlists don't contain stale entries.
+for (const a of config.agents.list) {
+  if (a?.tools?.allow && Array.isArray(a.tools.allow)) {
+    a.tools.allow = a.tools.allow.filter((t) => !REMOVE_FROM_ALLOWLIST.has(String(t)));
+  }
+}
 if (!config.agents.defaults) config.agents.defaults = {};
 if (!config.agents.defaults.model) config.agents.defaults.model = {};
 config.agents.defaults.model.primary = DEFAULT_MODEL;
@@ -124,12 +161,43 @@ config.plugins.entries['agent-os-content-tools'] = {
 if (!config.plugins.allow) config.plugins.allow = [];
 if (!config.plugins.allow.includes('agent-os-content-tools')) config.plugins.allow.push('agent-os-content-tools');
 
-// Tools: allow content tools and cron.add so backend can delegate via /tools/invoke.
-const contentToolNames = ['summarize_url', 'generate_image', 'generate_video'];
-const cronToolNames = ['cron.add', 'cron_add'];
+// Tools: allow content tools, kanban tools, intent-classify-and-delegate.
+// Note: OpenClaw will ignore the entire tools.allow if it contains unknown tool names.
+// The Gateway cron tools (cron.add / cron_add) are not present in newer OpenClaw builds,
+// so we do NOT include them here.
+const contentToolNames = [
+  'summarize_url',
+  'generate_image',
+  'generate_video',
+  'kanban_move_status',
+  'kanban_reassign_to_coo',
+  'kanban_assign_task',
+  'intent_classify_and_delegate',
+];
 if (!Array.isArray(config.tools.allow)) config.tools.allow = [];
-for (const name of [...contentToolNames, ...cronToolNames]) {
+config.tools.allow = config.tools.allow.filter((t) => !REMOVE_FROM_ALLOWLIST.has(String(t)));
+for (const name of contentToolNames) {
   if (!config.tools.allow.includes(name)) config.tools.allow.push(name);
+}
+
+// Per-agent tool overrides: ~/.openclaw/agent-os-tool-overrides.json maps tool_name -> ["agent1","agent2"] or "All"
+const OVERRIDES_PATH = join(OPENCLAW_DIR, 'agent-os-tool-overrides.json');
+let toolOverrides = {};
+if (existsSync(OVERRIDES_PATH)) {
+  try {
+    toolOverrides = JSON.parse(readFileSync(OVERRIDES_PATH, 'utf8'));
+  } catch (_) {}
+}
+for (const a of config.agents.list) {
+  const aid = (a.id || '').toLowerCase();
+  const allow = Array.isArray(a.tools?.allow) ? [...a.tools.allow] : [...contentToolNames];
+  for (const [toolName, agentsSpec] of Object.entries(toolOverrides)) {
+    if (agentsSpec === 'All' || (Array.isArray(agentsSpec) && agentsSpec.some((id) => String(id).toLowerCase() === aid))) {
+      if (!allow.includes(toolName)) allow.push(toolName);
+    }
+  }
+  a.tools = a.tools || {};
+  a.tools.allow = allow;
 }
 
 // Bindings: optional. Route inbound channel messages (WhatsApp/Telegram/Discord) to agents.
@@ -141,6 +209,7 @@ mergeDeep(config.gateway, GATEWAY_DEFAULTS);
 if (!existsSync(OPENCLAW_DIR)) mkdirSync(OPENCLAW_DIR, { recursive: true });
 writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
 console.log('Written agents.list + model.primary:', DEFAULT_MODEL, '+ fallbacks:', OLLAMA_FALLBACK_ID, '+ tools.agentToAgent to', CONFIG_PATH);
+console.log('TechResearcher, ExpenseManager, SocialAssistant: same tools.allow (agent-os-content-tools + kanban/intent tools).');
 console.log('Restart the OpenClaw gateway so the dashboard picks up the agents:');
 console.log('  openclaw gateway restart');
 console.log('Or stop the gateway (Ctrl+C) and run: openclaw gateway --port 18789');

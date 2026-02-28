@@ -140,6 +140,20 @@ export function extractTaskSummaryFromPrompt(prompt) {
 }
 
 /**
+ * Append delegation task request and response to agent's chat_turns so Agent Chat page shows it.
+ */
+export function appendDelegationResponseToAgentChat(agentId, promptSnippet, responseContent) {
+  if (!agentId || responseContent == null) return;
+  const db = getDb();
+  const userMsg = (promptSnippet || 'Task from COO').trim().slice(0, 4000);
+  const assistantMsg = (typeof responseContent === 'string' ? responseContent : JSON.stringify(responseContent)).trim().slice(0, 100000);
+  try {
+    db.prepare('INSERT INTO chat_turns (agent_id, role, content) VALUES (?, ?, ?)').run(agentId, 'user', userMsg);
+    db.prepare('INSERT INTO chat_turns (agent_id, role, content) VALUES (?, ?, ?)').run(agentId, 'assistant', assistantMsg);
+  } catch (_) {}
+}
+
+/**
  * Append a completion line to the agent's MEMORY.md. Call when a delegation task completes.
  */
 export async function appendToAgentMemory(agentId, summaryLine) {
@@ -155,11 +169,12 @@ export async function appendToAgentMemory(agentId, summaryLine) {
 }
 
 /**
- * Build prompt instructing the agent to read its MEMORY.md and only respond if it has not already.
+ * Build prompt instructing the agent to get session history for context, read MEMORY.md, and only respond if not already done today.
  * We do not inject memory content here (it was truncated); the agent reads MEMORY.md from its workspace.
+ * Exported for use by standup-delegate and cron/standup so all COO-sent instructions include this.
  */
-async function getPromptWithMemoryInjected(agentId, basePrompt) {
-  return `Before responding: read your MEMORY.md file in your workspace. If you have already responded to this request or a very similar one (check the entries there), reply briefly that you already did so and ask whether to redo or reuse. If not, respond to the request below.
+export async function getPromptWithMemoryInjected(agentId, basePrompt) {
+  return `Before responding: get your session history for context (use sessions_history with your session key if available) so you have the conversation context. Then read your MEMORY.md file in your workspace. If you have already responded to this request or a very similar one today (check the entries there), reply briefly that you already did so and ask whether to redo or reuse. If not, respond to the request below.
 
 ---
 ${basePrompt.trim()}
@@ -235,6 +250,10 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage) {
   );
   const taskRows = [];
 
+  const kanbanIns = db().prepare(
+    `INSERT INTO kanban_tasks (title, description, status, assigned_agent_id, created_by, standup_id, agent_delegation_task_id) VALUES (?, ?, 'awaiting_confirmation', ?, 'coo', ?, ?)`
+  );
+
   // Intent-based: when classifier returns at least one agent, delegate only to those with a query.
   if (allocated && typeof allocated === 'object' && Object.keys(allocated).length > 0) {
     for (const a of agents) {
@@ -243,7 +262,11 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage) {
       const prompt = buildDetailedPromptForAgent(query, a.name || a.id, a.role);
       ins.run(standupId, requestId, a.id, prompt);
       const row = db().prepare('SELECT id FROM agent_delegation_tasks ORDER BY id DESC LIMIT 1').get();
-      if (row) taskRows.push({ taskId: row.id, agent: a });
+      if (row) {
+        taskRows.push({ taskId: row.id, agent: a, query });
+        const title = (query || '').trim().slice(0, 200);
+        kanbanIns.run(title, '', a.id, standupId, row.id);
+      }
     }
   } else if (allocated === null && agents.length > 0) {
     // Classifier failed (API error, no AGENTS.md, etc.): fall back to all agents.
@@ -251,7 +274,11 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage) {
       const prompt = buildDetailedPromptForAgent(ceoMessage.trim(), a.name || a.id, a.role);
       ins.run(standupId, requestId, a.id, prompt);
       const row = db().prepare('SELECT id FROM agent_delegation_tasks ORDER BY id DESC LIMIT 1').get();
-      if (row) taskRows.push({ taskId: row.id, agent: a });
+      if (row) {
+        taskRows.push({ taskId: row.id, agent: a, query: ceoMessage.trim() });
+        const title = (ceoMessage || '').trim().slice(0, 200);
+        kanbanIns.run(title, '', a.id, standupId, row.id);
+      }
     }
   } else if ((!allocated || Object.keys(allocated).length === 0) && agents.length > 0) {
     // No agent mapped (empty object or no keys): fall back to all agents with full message.
@@ -259,17 +286,35 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage) {
       const prompt = buildDetailedPromptForAgent(ceoMessage.trim(), a.name || a.id, a.role);
       ins.run(standupId, requestId, a.id, prompt);
       const row = db().prepare('SELECT id FROM agent_delegation_tasks ORDER BY id DESC LIMIT 1').get();
-      if (row) taskRows.push({ taskId: row.id, agent: a });
+      if (row) {
+        taskRows.push({ taskId: row.id, agent: a, query: ceoMessage.trim() });
+        const title = (ceoMessage || '').trim().slice(0, 200);
+        kanbanIns.run(title, '', a.id, standupId, row.id);
+      }
     }
   }
 
   const agentNames = taskRows.map((r) => r.agent.name || r.agent.id);
+  const kanbanTaskIds = [];
+  for (const r of taskRows) {
+    const k = db().prepare('SELECT id FROM kanban_tasks WHERE agent_delegation_task_id = ?').get(r.taskId);
+    if (k) kanbanTaskIds.push(k.id);
+  }
 
   let scheduledCount = 0;
   for (const { taskId, agent } of taskRows) {
     const task = db().prepare('SELECT * FROM agent_delegation_tasks WHERE id = ?').get(taskId);
     if (!task) continue;
-    const promptWithMemory = await getPromptWithMemoryInjected(agent.id, task.prompt);
+    const kanbanRow = db().prepare('SELECT id FROM kanban_tasks WHERE agent_delegation_task_id = ?').get(taskId);
+    const kanbanId = kanbanRow ? kanbanRow.id : null;
+    let promptWithMemory = await getPromptWithMemoryInjected(agent.id, task.prompt);
+    if (kanbanId) {
+      promptWithMemory =
+        `FIRST ACTION (before anything else): call the kanban_move_status tool with JSON:\n` +
+        `  {\"task_id\": ${kanbanId}, \"new_status\": \"in_progress\"}\n\n` +
+        promptWithMemory +
+        `\n\n---\nIMPORTANT — Kanban finish:\nWhen you are done, call ONE of:\n  {\"task_id\": ${kanbanId}, \"new_status\": \"completed\"}\n  {\"task_id\": ${kanbanId}, \"new_status\": \"failed\"}\n---`;
+    }
     const webhookUrl = `${baseUrl}/api/standups/cron-callback?standup_id=${standupId}&request_id=${encodeURIComponent(requestId)}&agent_id=${encodeURIComponent(agent.id)}&task_id=${taskId}`;
     const openclawAgentId = agent.openclaw_agent_id || agent.id;
     const result = await cronAddOneShotWebhook({
@@ -286,7 +331,7 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage) {
     // If cron failed, task stays pending; processPendingDelegationTasks will run it via chat (fallback).
   }
   const pendingCount = taskRows.length - scheduledCount;
-  return { requestId, count: taskRows.length, scheduledCount, pendingCount, agentNames };
+  return { requestId, count: taskRows.length, scheduledCount, pendingCount, agentNames, kanbanTaskIds };
 }
 
 /**
@@ -379,29 +424,43 @@ export async function processPendingDelegationTasks() {
   const pending = db().prepare('SELECT * FROM agent_delegation_tasks WHERE status = ? ORDER BY created_at LIMIT 20').all('pending');
   const now = new Date().toISOString();
 
-  for (const task of pending) {
+  async function runOne(task) {
     const agent = db().prepare('SELECT id, name, openclaw_agent_id FROM agents WHERE id = ?').get(task.to_agent_id);
     if (!agent) {
       db().prepare('UPDATE agent_delegation_tasks SET status = ?, error_message = ?, completed_at = ? WHERE id = ?').run('failed', 'Agent not found', now, task.id);
-      continue;
+      return;
     }
     const openclawId = agent.openclaw_agent_id || agent.id;
-    const promptWithMemory = await getPromptWithMemoryInjected(task.to_agent_id, task.prompt);
+    const sessionUser = `delegation-${task.id}`;
+    const sessionKeyLine = `\n\nYour session key for this run is ${openclaw.sessionKeyFor(openclawId, sessionUser)}. Use this exact sessionKey when calling sessions_history.`;
+    let promptWithMemory = await getPromptWithMemoryInjected(task.to_agent_id, task.prompt);
+    promptWithMemory = promptWithMemory + sessionKeyLine;
+    const kanbanRow = db().prepare('SELECT id FROM kanban_tasks WHERE agent_delegation_task_id = ?').get(task.id);
+    if (kanbanRow) {
+      promptWithMemory =
+        `FIRST ACTION (before anything else): call the kanban_move_status tool with JSON:\n` +
+        `  {\"task_id\": ${kanbanRow.id}, \"new_status\": \"in_progress\"}\n\n` +
+        promptWithMemory +
+        `\n\n---\nIMPORTANT — Kanban finish:\nWhen you are done, call ONE of:\n  {\"task_id\": ${kanbanRow.id}, \"new_status\": \"completed\"}\n  {\"task_id\": ${kanbanRow.id}, \"new_status\": \"failed\"}\n---`;
+    }
     try {
       const { content } = await openclaw.chatCompletions(
         openclawId,
         [{ role: 'user', content: promptWithMemory }],
-        openclaw.sessionUserFor(openclawId, SESSION_USER),
+        sessionUser,
         false
       );
       const responseText = normalizeReplyContent(content) || '(no response)';
       db().prepare('UPDATE agent_delegation_tasks SET status = ?, response_content = ?, completed_at = ? WHERE id = ?').run('completed', responseText, now, task.id);
+      appendDelegationResponseToAgentChat(task.to_agent_id, extractTaskSummaryFromPrompt(task.prompt), responseText);
       const summary = extractTaskSummaryFromPrompt(task.prompt);
       await appendToAgentMemory(task.to_agent_id, summary);
     } catch (err) {
       db().prepare('UPDATE agent_delegation_tasks SET status = ?, error_message = ?, completed_at = ? WHERE id = ?').run('failed', err.message, now, task.id);
     }
   }
+
+  await Promise.allSettled(pending.map((task) => runOne(task)));
 
   const allRequestIds = db().prepare('SELECT DISTINCT request_id FROM agent_delegation_tasks').all().map((r) => r.request_id);
   for (const requestId of allRequestIds) {

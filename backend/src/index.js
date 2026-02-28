@@ -16,9 +16,10 @@ import cronRoutes from './routes/cron.js';
 import openclawRoutes from './routes/openclaw.js';
 import toolsRoutes from './routes/tools.js';
 import broadcastRoutes from './routes/broadcast.js';
+import kanbanRoutes from './routes/kanban.js';
 import { initDb } from './db/schema.js';
 import { seedDefaultAgentsIfEmpty } from './db/seed-default-agents.js';
-import { seedContentToolsMetaIfEmpty } from './db/seed-content-tools-meta.js';
+import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, updateKanbanToolPurposes } from './db/seed-content-tools-meta.js';
 import { writeOpenClawToolsList } from './services/content-tools-meta.js';
 import { runScheduledStandup } from './cron/standup.js';
 import { processPendingDelegationTasks } from './services/delegation-queue.js';
@@ -34,6 +35,8 @@ app.use(express.text({ type: 'text/*' }));
 initDb();
 seedDefaultAgentsIfEmpty();
 seedContentToolsMetaIfEmpty();
+seedKanbanToolsIfMissing();
+updateKanbanToolPurposes();
 writeOpenClawToolsList();
 
 const healthHandler = (req, res) => {
@@ -59,6 +62,7 @@ apiRouter.use('/cron', cronRoutes);
 apiRouter.use('/openclaw', openclawRoutes);
 apiRouter.use('/tools', toolsRoutes);
 apiRouter.use('/broadcast', broadcastRoutes);
+apiRouter.use('/kanban', kanbanRoutes);
 app.use('/api', apiRouter);
 
 // Also mount at root for VITE_API_URL without /api (e.g. http://127.0.0.1:3001)
@@ -69,6 +73,7 @@ app.use('/cron', cronRoutes);
 app.use('/openclaw', openclawRoutes);
 app.use('/tools', toolsRoutes);
 app.use('/broadcast', broadcastRoutes);
+app.use('/kanban', kanbanRoutes);
 
 const standupSchedule = process.env.STANDUP_CRON_SCHEDULE || '0 9 * * *';
 if (cron.validate(standupSchedule)) {

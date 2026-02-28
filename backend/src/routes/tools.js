@@ -1,5 +1,6 @@
 /**
  * Content tools API: summarize-url (Phase 1). Image and video endpoints in later phases.
+ * Kanban tools: move-status, reassign-to-coo, assign-task, intent-classify-and-delegate.
  * Metadata (content_tools_meta), test, invoke, and OpenClaw tools list.
  */
 import { Router } from 'express';
@@ -7,8 +8,22 @@ import { getSummarizeUrlConfig, getToolsApiKey, getOpenAiConfig, getImageConfig,
 import { chatCompletions } from '../config/llm.js';
 import { getDb } from '../db/schema.js';
 import * as meta from '../services/content-tools-meta.js';
+import { scheduleCeoRequestViaOpenClawCron } from '../services/delegation-queue.js';
 
 const router = Router();
+const KANBAN_STATUSES = ['open', 'awaiting_confirmation', 'in_progress', 'completed', 'failed'];
+
+function getCallerAgent(req) {
+  const id = (req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || '').toString().trim();
+  if (!id) return null;
+  const db = getDb();
+  return db.prepare('SELECT id, name, is_coo FROM agents WHERE LOWER(id) = LOWER(?) OR LOWER(openclaw_agent_id) = LOWER(?)').get(id, id) || null;
+}
+
+function getCooAgentId() {
+  const row = getDb().prepare('SELECT id FROM agents WHERE is_coo = 1 LIMIT 1').get();
+  return row ? row.id : null;
+}
 const PORT = Number(process.env.PORT) || 3001;
 function getBackendBaseUrl() {
   const base = process.env.AGENT_OS_PUBLIC_URL || process.env.TOOLS_BASE_URL || `http://127.0.0.1:${PORT}`;
@@ -159,6 +174,29 @@ router.get('/logs', (req, res) => {
       ).all(limit, offset);
     }
     res.json({ logs: rows, total });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/**
+ * DELETE /logs — cleanup content_tool_logs. Query: older_than_days (keep logs newer than N days), or all=1 to delete all.
+ */
+router.delete('/logs', (req, res) => {
+  try {
+    const db = getDb();
+    const all = req.query.all === '1' || req.query.all === 'true';
+    let deleted = 0;
+    if (all) {
+      const result = db.prepare('DELETE FROM content_tool_logs').run();
+      deleted = result.changes;
+    } else {
+      const days = Math.max(0, parseInt(req.query.older_than_days, 10) || 7);
+      const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+      const result = db.prepare('DELETE FROM content_tool_logs WHERE created_at < ?').run(cutoff);
+      deleted = result.changes;
+    }
+    res.json({ deleted });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -405,10 +443,198 @@ router.post('/generate-video', optionalAuth, async (req, res) => {
 });
 
 /**
- * POST /invoke — invoke a tool by name (used by OpenClaw plugin). Body: { tool_name, ...params }.
+ * Kanban tool: move task status. Any agent can move status of a task they are assigned to; COO can move any task.
+ * Logged to content_tool_logs.
+ */
+router.post('/kanban-move-status', optionalAuth, (req, res) => {
+  let source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = req.body || {};
+  const taskId = Number(requestPayload.task_id);
+  const newStatus = (requestPayload.new_status || requestPayload.status || '').toString().trim();
+  try {
+    if (!taskId || !KANBAN_STATUSES.includes(newStatus)) {
+      const err = { error: 'task_id and new_status required; new_status one of: ' + KANBAN_STATUSES.join(', ') };
+      logContentTool('kanban_move_status', requestPayload, err, 'error', source);
+      return res.status(400).json(err);
+    }
+    const db = getDb();
+    const task = db.prepare('SELECT * FROM kanban_tasks WHERE id = ?').get(taskId);
+    if (!task) {
+      const err = { error: 'Task not found' };
+      logContentTool('kanban_move_status', requestPayload, err, 'error', source);
+      return res.status(404).json(err);
+    }
+    let caller = getCallerAgent(req);
+    // When invoked from gateway plugin without agent id: allow move if request is internal (from our /invoke) and task has assigned agent
+    if (!caller && task.assigned_agent_id && req.headers['x-internal-test'] === '1') {
+      caller = db.prepare('SELECT id, name, is_coo FROM agents WHERE LOWER(id) = LOWER(?) OR LOWER(openclaw_agent_id) = LOWER(?)').get(task.assigned_agent_id, task.assigned_agent_id) || null;
+      if (caller) source = caller.id;
+    }
+    const cooId = getCooAgentId();
+    const isCoo = caller && caller.is_coo;
+    const isAssigned = task.assigned_agent_id && caller && (task.assigned_agent_id === caller.id || task.assigned_agent_id === caller.name);
+    if (!isCoo && !isAssigned) {
+      const err = { error: 'Only COO or the assigned agent can move this task status' };
+      logContentTool('kanban_move_status', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    db.prepare("UPDATE kanban_tasks SET status = ?, updated_at = datetime('now') WHERE id = ?").run(newStatus, taskId);
+    const out = { ok: true, task_id: taskId, status: newStatus };
+    logContentTool('kanban_move_status', requestPayload, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logContentTool('kanban_move_status', requestPayload, err, 'error', source);
+    res.status(500).json(err);
+  }
+});
+
+/**
+ * Kanban tool: reassign task to COO. Only non-COO agents (assigned agent can hand back to COO).
+ */
+router.post('/kanban-reassign-to-coo', optionalAuth, (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = req.body || {};
+  const taskId = Number(requestPayload.task_id);
+  try {
+    if (!taskId) {
+      const err = { error: 'task_id required' };
+      logContentTool('kanban_reassign_to_coo', requestPayload, err, 'error', source);
+      return res.status(400).json(err);
+    }
+    const caller = getCallerAgent(req);
+    if (caller && caller.is_coo) {
+      const err = { error: 'COO cannot use reassign-to-coo; use assign-task to assign to another agent' };
+      logContentTool('kanban_reassign_to_coo', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const cooId = getCooAgentId();
+    if (!cooId) {
+      const err = { error: 'No COO agent in system' };
+      logContentTool('kanban_reassign_to_coo', requestPayload, err, 'error', source);
+      return res.status(502).json(err);
+    }
+    const db = getDb();
+    const task = db.prepare('SELECT * FROM kanban_tasks WHERE id = ?').get(taskId);
+    if (!task) {
+      const err = { error: 'Task not found' };
+      logContentTool('kanban_reassign_to_coo', requestPayload, err, 'error', source);
+      return res.status(404).json(err);
+    }
+    db.prepare("UPDATE kanban_tasks SET assigned_agent_id = ?, status = 'open', updated_at = datetime('now') WHERE id = ?").run(cooId, taskId);
+    const out = { ok: true, task_id: taskId, assigned_agent_id: cooId };
+    logContentTool('kanban_reassign_to_coo', requestPayload, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logContentTool('kanban_reassign_to_coo', requestPayload, err, 'error', source);
+    res.status(500).json(err);
+  }
+});
+
+/**
+ * Kanban tool: assign task to an agent. Only COO can assign to another agent.
+ */
+router.post('/kanban-assign-task', optionalAuth, (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = req.body || {};
+  const taskId = Number(requestPayload.task_id);
+  const toAgentId = (requestPayload.to_agent_id || requestPayload.agent_id || '').toString().trim().toLowerCase();
+  try {
+    if (!taskId || !toAgentId) {
+      const err = { error: 'task_id and to_agent_id required' };
+      logContentTool('kanban_assign_task', requestPayload, err, 'error', source);
+      return res.status(400).json(err);
+    }
+    const caller = getCallerAgent(req);
+    if (!caller || !caller.is_coo) {
+      const err = { error: 'Only COO can assign a task to another agent' };
+      logContentTool('kanban_assign_task', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const db = getDb();
+    const agent = db.prepare('SELECT id FROM agents WHERE LOWER(id) = ? OR LOWER(openclaw_agent_id) = ?').get(toAgentId, toAgentId);
+    if (!agent) {
+      const err = { error: 'Agent not found' };
+      logContentTool('kanban_assign_task', requestPayload, err, 'error', source);
+      return res.status(404).json(err);
+    }
+    const task = db.prepare('SELECT * FROM kanban_tasks WHERE id = ?').get(taskId);
+    if (!task) {
+      const err = { error: 'Task not found' };
+      logContentTool('kanban_assign_task', requestPayload, err, 'error', source);
+      return res.status(404).json(err);
+    }
+    db.prepare("UPDATE kanban_tasks SET assigned_agent_id = ?, status = 'awaiting_confirmation', updated_at = datetime('now') WHERE id = ?").run(agent.id, taskId);
+    const out = { ok: true, task_id: taskId, assigned_agent_id: agent.id };
+    logContentTool('kanban_assign_task', requestPayload, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logContentTool('kanban_assign_task', requestPayload, err, 'error', source);
+    res.status(500).json(err);
+  }
+});
+
+/**
+ * Intent classify and delegate: COO only. Runs intent classification and creates delegation + kanban tasks.
+ * Body: message (required), standup_id (optional; if omitted, creates a new standup).
+ */
+router.post('/intent-classify-and-delegate', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = req.body || {};
+  const message = (requestPayload.message || requestPayload.prompt || '').toString().trim();
+  let standupId = requestPayload.standup_id != null ? Number(requestPayload.standup_id) : null;
+  try {
+    if (!message) {
+      const err = { error: 'message required' };
+      logContentTool('intent_classify_and_delegate', requestPayload, err, 'error', source);
+      return res.status(400).json(err);
+    }
+    const caller = getCallerAgent(req);
+    if (!caller || !caller.is_coo) {
+      const err = { error: 'Only COO can use intent-classify-and-delegate' };
+      logContentTool('intent_classify_and_delegate', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const db = getDb();
+    if (standupId == null) {
+      db.prepare('INSERT INTO standups (scheduled_at, status, source) VALUES (datetime("now"), ?, ?)').run('scheduled', 'kanban');
+      standupId = db.prepare('SELECT id FROM standups ORDER BY id DESC LIMIT 1').get().id;
+    } else {
+      const standup = db.prepare('SELECT id FROM standups WHERE id = ?').get(standupId);
+      if (!standup) {
+        const err = { error: 'Standup not found' };
+        logContentTool('intent_classify_and_delegate', requestPayload, err, 'error', source);
+        return res.status(404).json(err);
+      }
+    }
+    const result = await scheduleCeoRequestViaOpenClawCron(standupId, message);
+    const out = {
+      ok: true,
+      request_id: result.requestId,
+      count: result.count,
+      agent_names: result.agentNames,
+      kanban_task_ids: result.kanbanTaskIds || [],
+    };
+    logContentTool('intent_classify_and_delegate', requestPayload, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logContentTool('intent_classify_and_delegate', requestPayload, err, 'error', source);
+    res.status(500).json(err);
+  }
+});
+
+/**
+ * POST /invoke — invoke a tool by name (used by OpenClaw plugin). Body: { tool_name, caller_agent_id?, ...params }.
+ * Uses x-openclaw-agent-id header or body.caller_agent_id so Kanban tools can authorize the calling agent.
  */
 router.post('/invoke', async (req, res) => {
-  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  let source = (req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || '').toString().trim() || null;
+  if (!source && req.body && (req.body.caller_agent_id != null || req.body.x_openclaw_agent_id != null)) {
+    source = String(req.body.caller_agent_id ?? req.body.x_openclaw_agent_id).trim() || null;
+  }
   try {
     const toolName = (req.body?.tool_name || req.body?.toolName || '').trim();
     if (!toolName) return res.status(400).json({ error: 'tool_name required' });
@@ -421,15 +647,33 @@ router.post('/invoke', async (req, res) => {
     const params = { ...req.body };
     delete params.tool_name;
     delete params.toolName;
+    delete params.caller_agent_id;
+    delete params.x_openclaw_agent_id;
     const baseUrl = getBackendBaseUrl();
     let targetUrl = row.endpoint;
     if (targetUrl.startsWith('/')) targetUrl = baseUrl + targetUrl;
-    const response = await fetch(targetUrl, {
-      method: row.method || 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(params),
-      signal: AbortSignal.timeout(90000),
-    });
+    const method = (row.method || 'POST').toUpperCase();
+    // Default base=USD for Frankfurter API when agent omits it
+    if (method === 'GET' && targetUrl.includes('frankfurter') && (params.base == null || params.base === '')) {
+      params.base = 'USD';
+    }
+    const headers = { 'Content-Type': 'application/json' };
+    if (source) headers['x-openclaw-agent-id'] = source;
+    if (row.auth_header && typeof row.auth_header === 'string' && row.auth_header.trim()) {
+      headers['Authorization'] = row.auth_header.trim();
+    }
+    if (targetUrl.startsWith(baseUrl)) headers['x-internal-test'] = '1';
+    const fetchOpts = { method, headers, signal: AbortSignal.timeout(90000) };
+    if (method === 'GET') {
+      const url = new URL(targetUrl);
+      for (const [k, v] of Object.entries(params)) {
+        if (v != null && v !== '') url.searchParams.set(k, String(v));
+      }
+      targetUrl = url.toString();
+    } else {
+      fetchOpts.body = JSON.stringify(params);
+    }
+    const response = await fetch(targetUrl, fetchOpts);
     const data = await response.json().catch(() => ({}));
     const status = response.ok ? 'ok' : 'error';
     logContentTool(toolName, params, data, status, source);

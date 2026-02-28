@@ -59,6 +59,7 @@ export const api = {
   standupsList: (limit) => get(limit ? `/standups?limit=${limit}` : '/standups'),
   standupGet: (id) => get(`/standups/${id}`),
   standupCreate: (body) => post('/standups', body),
+  standupNotifications: (limit) => get(limit ? `/standups/notifications?limit=${limit}` : '/standups/notifications'),
   standupUpdate: (id, body) => patch(`/standups/${id}`, body),
   standupResponses: (id) => get(`/standups/${id}/responses`),
   standupAddResponse: (id, agentId, content) => post(`/standups/${id}/responses`, { agent_id: agentId, content }),
@@ -68,6 +69,7 @@ export const api = {
   standupSendMessage: (id, body) => post(`/standups/${id}/messages`, body),
   standupApprove: (id) => post(`/standups/${id}/approve`, {}),
   standupDelete: (id) => del(`/standups/${id}`),
+  standupDeleteAll: () => del('/standups/all'),
   // Cron: trigger standup collection + COO (agent-to-agent)
   cronRunStandup: () => post('/cron/run-standup', {}),
   cronProcessDelegations: () => post('/cron/process-delegations', {}),
@@ -88,7 +90,35 @@ export const api = {
     const q = sp.toString();
     return get(q ? `/tools/logs?${q}` : '/tools/logs');
   },
+  contentToolsLogsCleanup: (params = {}) => {
+    const sp = new URLSearchParams();
+    if (params.older_than_days != null) sp.set('older_than_days', params.older_than_days);
+    if (params.all === true || params.all === '1') sp.set('all', '1');
+    const q = sp.toString();
+    return del(q ? `/tools/logs?${q}` : '/tools/logs');
+  },
   // Broadcast: send message to all or selected agents, collect replies
   broadcastSend: (message, agentIds = null) =>
     post('/broadcast', { message, agent_ids: agentIds && agentIds.length > 0 ? agentIds : undefined }),
+  // Kanban
+  kanbanTasks: (params = {}) => {
+    const sp = new URLSearchParams();
+    if (params.view) sp.set('view', params.view);
+    if (params.from) sp.set('from', params.from);
+    if (params.to) sp.set('to', params.to);
+    if (params.limit != null) sp.set('limit', params.limit);
+    const q = sp.toString();
+    return get(q ? `/kanban/tasks?${q}` : '/kanban/tasks');
+  },
+  kanbanSummary: (days = 1) => get(`/kanban/summary?days=${days}`),
+  kanbanTaskGet: (id) => get(`/kanban/tasks/${id}`),
+  kanbanTaskCreate: (body) => post('/kanban/tasks', body),
+  kanbanTaskUpdate: (id, body) => patch(`/kanban/tasks/${id}`, body),
+  kanbanTaskReopen: (id) => post(`/kanban/tasks/${id}/reopen`, {}),
+  kanbanTaskDelete: (id) => del(`/kanban/tasks/${id}`),
+  kanbanTasksDeleteBulk: (taskIds) => request('/kanban/tasks', { method: 'DELETE', body: JSON.stringify({ task_ids: taskIds }) }),
+  kanbanTaskMessages: (id) => get(`/kanban/tasks/${id}/messages`),
+  kanbanTaskAddMessage: (id, role, content) => post(`/kanban/tasks/${id}/messages`, { role, content }),
+  // Clear OpenClaw sessions for an agent (workspace UI)
+  agentSessionsClear: (agentId) => post(`/agents/${encodeURIComponent(agentId)}/sessions/clear`, {}),
 };

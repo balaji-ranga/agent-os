@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { join } from 'path';
+import { existsSync, rmSync, mkdirSync, writeFileSync } from 'fs';
 import { getDb } from '../db/schema.js';
 import * as openclaw from '../gateway/openclaw.js';
 import * as workspace from '../workspace/adapter.js';
@@ -75,6 +76,24 @@ router.put('/:id/workspace/files/:name', async (req, res) => {
     res.json({ path: read.path, text: read.text });
   } catch (e) {
     res.status(400).json({ error: e.message });
+  }
+});
+
+// POST /api/agents/:id/sessions/clear — clear OpenClaw sessions for this agent (deletes ~/.openclaw/agents/<id>/sessions)
+router.post('/:id/sessions/clear', (req, res) => {
+  try {
+    const agent = db().prepare('SELECT id, openclaw_agent_id FROM agents WHERE id = ?').get(req.params.id);
+    if (!agent) return res.status(404).json({ error: 'Agent not found' });
+    const openclawId = (agent.openclaw_agent_id || agent.id || '').toString().trim() || 'main';
+    const sessionsDir = join(homedir, '.openclaw', 'agents', openclawId, 'sessions');
+    if (existsSync(sessionsDir)) {
+      rmSync(sessionsDir, { recursive: true });
+    }
+    mkdirSync(sessionsDir, { recursive: true });
+    writeFileSync(join(sessionsDir, 'sessions.json'), '{}', 'utf8');
+    res.json({ ok: true, message: `Sessions cleared for agent ${req.params.id}` });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 
@@ -177,7 +196,7 @@ router.post('/:id/chat', async (req, res) => {
     const messages = history.map((t) => ({ role: t.role, content: t.content }));
     messages.push({ role: 'user', content: message });
 
-    const sessionUser = openclaw.sessionUserFor(agentId, userId);
+    const sessionUser = 'main';
     const { content: reply, usage } = await openclaw.chatCompletions(openclawAgentId, messages, sessionUser, false);
     const replyText = normalizeReplyContent(reply);
 
@@ -215,7 +234,7 @@ router.post('/:id/chat/from-agent', async (req, res) => {
     const messages = history.map((t) => ({ role: t.role, content: t.content }));
     messages.push({ role: 'user', content: userContent });
 
-    const sessionUser = openclaw.sessionUserFor(agentId, userId);
+    const sessionUser = 'main';
     const { content: reply, usage } = await openclaw.chatCompletions(openclawAgentId, messages, sessionUser, false);
     const replyText = normalizeReplyContent(reply);
 

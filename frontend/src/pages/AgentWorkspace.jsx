@@ -11,8 +11,19 @@ export default function AgentWorkspace() {
   const [selected, setSelected] = useState('soul');
   const [content, setContent] = useState('');
   const [saving, setSaving] = useState(false);
+  const [clearingSessions, setClearingSessions] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const clearSessions = () => {
+    if (!window.confirm('Clear all OpenClaw sessions for this agent? Chat and task session history will be reset.')) return;
+    setClearingSessions(true);
+    setError(null);
+    api.agentSessionsClear(agentId)
+      .then(() => setError(null))
+      .catch((e) => setError(e.message))
+      .finally(() => setClearingSessions(false));
+  };
 
   useEffect(() => {
     api.agentGet(agentId)
@@ -107,22 +118,37 @@ export default function AgentWorkspace() {
               }}
               spellCheck={false}
             />
-            <button
-              type="button"
-              onClick={save}
-              disabled={saving}
-              style={{
-                marginTop: '0.75rem',
-                padding: '0.5rem 1.25rem',
-                background: saving ? 'var(--muted)' : 'var(--accent)',
-                border: 'none',
-                borderRadius: 6,
-                color: '#fff',
-                alignSelf: 'flex-start',
-              }}
-            >
-              {saving ? 'Saving…' : 'Save'}
-            </button>
+            <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={save}
+                disabled={saving}
+                style={{
+                  padding: '0.5rem 1.25rem',
+                  background: saving ? 'var(--muted)' : 'var(--accent)',
+                  border: 'none',
+                  borderRadius: 6,
+                  color: '#fff',
+                }}
+              >
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+              <button
+                type="button"
+                onClick={clearSessions}
+                disabled={clearingSessions}
+                title="Clear OpenClaw session history for this agent"
+                style={{
+                  padding: '0.5rem 1.25rem',
+                  background: clearingSessions ? 'var(--muted)' : 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 6,
+                  color: 'var(--text)',
+                }}
+              >
+                {clearingSessions ? 'Clearing…' : 'Clear sessions'}
+              </button>
+            </div>
           </>
         )}
       </div>

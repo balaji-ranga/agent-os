@@ -82,6 +82,7 @@ export function getImageConfig() {
   return { primary, secondary };
 }
 
+// Zeroscope (free/open model on Replicate; you pay Replicate per run). Or use Google Veo on Replicate: e.g. google/veo-2, google/veo-3, google/veo-3-fast — set TOOLS_VIDEO_MODEL_VERSION from Replicate portal.
 const DEFAULT_VIDEO_MODEL_VERSION = 'anotherjesse/zeroscope-v2-xl:8ba52bde11300615f65e9591d7afc58816def12c93c870fa583ff67ae17afdda';
 const REPLICATE_DEFAULT_BASE = 'https://api.replicate.com/v1';
 
