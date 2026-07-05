@@ -6,12 +6,37 @@
 import { Router } from 'express';
 import { getDb } from '../db/schema.js';
 import * as openclaw from '../gateway/openclaw.js';
+import { resolveKanbanTaskArtifacts } from '../services/kanban-artifacts.js';
+import { parseAgentWorkflowMeta } from '../services/agent-workflow-kanban.js';
+import { formatServerDateTime, getServerTimezone } from '../utils/format-datetime.js';
 
 const router = Router();
 const VALID_STATUSES = ['open', 'awaiting_confirmation', 'in_progress', 'completed', 'failed'];
 
 function db() {
   return getDb();
+}
+
+function resolveWorkflowStepIo(description) {
+  const meta = parseAgentWorkflowMeta(description);
+  if (!meta.run_id || !meta.node_id) return { input: null, output: null };
+  const step = db()
+    .prepare('SELECT input_json, output_json FROM agent_workflow_run_steps WHERE run_id = ? AND node_id = ?')
+    .get(meta.run_id, meta.node_id);
+  if (!step) return { input: null, output: null };
+  let input = null;
+  let output = null;
+  try {
+    if (step.input_json) input = JSON.parse(step.input_json);
+  } catch {
+    input = { _raw: step.input_json };
+  }
+  try {
+    if (step.output_json) output = JSON.parse(step.output_json);
+  } catch {
+    output = { _raw: step.output_json };
+  }
+  return { input, output };
 }
 
 function parseViewRange(view, from, to) {
@@ -56,9 +81,15 @@ router.get('/tasks', (req, res) => {
       LEFT JOIN agents a ON a.id = k.assigned_agent_id
     `;
     const params = [];
+    const ceoReviewAlways =
+      " OR (k.status = 'awaiting_confirmation' AND k.description LIKE 'ceo_review_profile:%')";
+    const workflowAlways =
+      " OR k.description LIKE '[job_pipeline:%' OR k.description LIKE '%[agent_workflow:%' OR k.created_by IN ('job_workflow', 'job_pipeline', 'agent_workflow', 'agent_workflow_ceo')";
     if (range) {
-      sql += ` WHERE k.created_at >= ? AND k.created_at <= ?`;
-      params.push(range.start, range.end);
+      const startSql = range.start.replace('T', ' ').replace(/\.\d{3}Z$/, '').slice(0, 19);
+      const endSql = range.end.replace('T', ' ').replace(/\.\d{3}Z$/, '').slice(0, 19);
+      sql += ` WHERE ((k.created_at >= ? AND k.created_at <= ?)${ceoReviewAlways}${workflowAlways})`;
+      params.push(startSql, endSql);
     }
     sql += ` ORDER BY k.created_at DESC`;
     const limit = Math.min(Number(req.query.limit) || 200, 500);
@@ -66,7 +97,13 @@ router.get('/tasks', (req, res) => {
     params.push(limit);
 
     const rows = db().prepare(sql).all(...params);
-    res.json({ tasks: rows });
+    const server_timezone = getServerTimezone();
+    const tasks = rows.map((row) => ({
+      ...row,
+      created_at_display: formatServerDateTime(row.created_at),
+      updated_at_display: row.updated_at ? formatServerDateTime(row.updated_at) : null,
+    }));
+    res.json({ tasks, server_timezone });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -114,7 +151,28 @@ router.get('/tasks/:id', (req, res) => {
         delegation_response = d.response_content || null;
       }
     }
-    res.json({ ...task, messages, delegation_prompt, delegation_response });
+    const { artifacts, groups, count: artifact_count } = resolveKanbanTaskArtifacts(
+      task,
+      task.agent_delegation_task_id
+        ? { prompt: delegation_prompt, response_content: delegation_response }
+        : null,
+      messages
+    );
+    const { input: workflow_step_input, output: workflow_step_output } = resolveWorkflowStepIo(task.description);
+    res.json({
+      ...task,
+      created_at_display: formatServerDateTime(task.created_at),
+      updated_at_display: task.updated_at ? formatServerDateTime(task.updated_at) : null,
+      server_timezone: getServerTimezone(),
+      messages,
+      delegation_prompt,
+      delegation_response,
+      workflow_step_input,
+      workflow_step_output,
+      artifacts,
+      artifact_groups: groups,
+      artifact_count,
+    });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -237,7 +295,7 @@ router.get('/tasks/:id/messages', (req, res) => {
 // POST /api/kanban/tasks/:id/messages — add message (role, content). If task has assigned agent, continue session: call agent and append reply.
 router.post('/tasks/:id/messages', async (req, res) => {
   try {
-    const task = db().prepare('SELECT id, title, description, assigned_agent_id, agent_delegation_task_id FROM kanban_tasks WHERE id = ?').get(req.params.id);
+    const task = db().prepare('SELECT id, title, description, status, assigned_agent_id, agent_delegation_task_id FROM kanban_tasks WHERE id = ?').get(req.params.id);
     if (!task) return res.status(404).json({ error: 'Task not found' });
     const { role, content } = req.body;
     const r = (role || 'user').toString().toLowerCase();
@@ -260,10 +318,19 @@ router.post('/tasks/:id/messages', async (req, res) => {
         const taskMessages = db().prepare('SELECT role, content FROM task_messages WHERE task_id = ? ORDER BY created_at').all(req.params.id);
         const openclawAgentId = agent.openclaw_agent_id || agent.id;
         const sessionUser = `kanban-${req.params.id}`;
-        const sessionKeyLine = `Your session key for this run is ${openclaw.sessionKeyFor(openclawAgentId, sessionUser)}. Use this exact sessionKey when calling sessions_history.\n\n`;
+        const sessionKeyLine = `Your session key for this run is ${openclaw.sessionKeyFor(openclawAgentId, sessionUser)}. Use this exact sessionKey when calling sessions_history. The messages in this request already contain the full task conversation; if sessions_history returns empty, use these messages as your context and proceed.\n\n`;
+        const taskId = Number(req.params.id);
+        // For direct-assigned tasks (no COO delegation), inject same Kanban workflow instructions as delegation path
+        const isDirectAssign = !task.agent_delegation_task_id;
+        const kanbanInstructions = isDirectAssign
+          ? `FIRST ACTION (before anything else): call the kanban_move_status tool with JSON:\n  {"task_id": ${taskId}, "new_status": "in_progress"}\n\n`
+          : '';
+        const kanbanFinishBlock = isDirectAssign
+          ? `\n\n---\nIMPORTANT — Kanban finish:\nWhen you are done, call ONE of:\n  {"task_id": ${taskId}, "new_status": "completed"}\n  {"task_id": ${taskId}, "new_status": "failed"}\n---`
+          : '';
         const messages = [];
         const taskContext = delegationPrompt || [task.title, task.description].filter(Boolean).join('\n') || task.title;
-        messages.push({ role: 'user', content: sessionKeyLine + `Task: ${taskContext}` });
+        messages.push({ role: 'user', content: sessionKeyLine + kanbanInstructions + `Task: ${taskContext}` + kanbanFinishBlock });
         if (delegationResponse) messages.push({ role: 'assistant', content: delegationResponse });
         for (const m of taskMessages) messages.push({ role: m.role, content: m.content });
         try {

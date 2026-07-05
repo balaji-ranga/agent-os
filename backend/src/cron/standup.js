@@ -38,7 +38,7 @@ export async function runScheduledStandup() {
   for (const agent of delegated) {
     const openclawId = agent.openclaw_agent_id || 'main';
     const sessionUser = `standup-${standup.id}-${agent.id}`;
-    const sessionKeyLine = `\n\nYour session key for this run is ${openclaw.sessionKeyFor(openclawId, sessionUser)}. Use this exact sessionKey when calling sessions_history.`;
+    const sessionKeyLine = `\n\nYour session key for this run is ${openclaw.sessionKeyFor(openclawId, sessionUser)}. Use this exact sessionKey when calling sessions_history. If sessions_history returns empty, the conversation is in the messages above—proceed with those.`;
     let prompt = await getPromptWithMemoryInjected(agent.id, STANDUP_PROMPT_BASE);
     prompt = prompt + sessionKeyLine;
     try {

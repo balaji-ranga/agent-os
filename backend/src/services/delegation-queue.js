@@ -9,12 +9,27 @@ import { getDb } from '../db/schema.js';
 import * as openclaw from '../gateway/openclaw.js';
 import { cronAddOneShotWebhook } from '../gateway/openclaw-cron.js';
 import { classifyIntentAndAllocate } from './intent-classifier.js';
+import {
+  maybeHandoffJobPipeline,
+  filterPipelineDelegationsForProcessing,
+  failPipelineWorkflowForDelegation,
+  recoverStaleProcessingDelegations,
+} from './job-applicant-pipeline.js';
+import { completePipelineKanbanForDelegation } from './kanban-workflow-stage.js';
+import {
+  completeAgentWorkflowKanbanForDelegation,
+  isAgentWorkflowPrompt,
+} from './agent-workflow-kanban.js';
+import { maybeAdvanceAgentWorkflow, failAgentWorkflowForDelegation } from './agent-workflow-runner.js';
 
 const SESSION_USER = 'agent-os-delegation';
 const AGENTS_MD_NAME = 'AGENTS.md';
 const MEMORY_MD_NAME = 'MEMORY.md';
 const MEMORY_MAX_LINES = 35;
 const homedir = process.env.USERPROFILE || process.env.HOME || '';
+
+/** Prevent duplicate concurrent runs of the same delegation within this process. */
+const runningDelegationIds = new Set();
 
 function db() {
   return getDb();
@@ -421,18 +436,37 @@ export function postCallbackForRequestId(requestId) {
  * Call from "Check for updates" or node-cron (e.g. every minute).
  */
 export async function processPendingDelegationTasks() {
-  const pending = db().prepare('SELECT * FROM agent_delegation_tasks WHERE status = ? ORDER BY created_at LIMIT 20').all('pending');
+  recoverStaleProcessingDelegations();
+  const allPending = db().prepare('SELECT * FROM agent_delegation_tasks WHERE status = ? ORDER BY created_at LIMIT 20').all('pending');
+  const pending = filterPipelineDelegationsForProcessing(allPending);
   const now = new Date().toISOString();
 
   async function runOne(task) {
+    if (runningDelegationIds.has(task.id)) return;
+    const claim = db()
+      .prepare(`UPDATE agent_delegation_tasks SET status = 'processing' WHERE id = ? AND status = 'pending'`)
+      .run(task.id);
+    if (!claim.changes) return;
+
+    runningDelegationIds.add(task.id);
+    task = db().prepare('SELECT * FROM agent_delegation_tasks WHERE id = ?').get(task.id);
+
     const agent = db().prepare('SELECT id, name, openclaw_agent_id FROM agents WHERE id = ?').get(task.to_agent_id);
     if (!agent) {
       db().prepare('UPDATE agent_delegation_tasks SET status = ?, error_message = ?, completed_at = ? WHERE id = ?').run('failed', 'Agent not found', now, task.id);
+      if (isAgentWorkflowPrompt(task.prompt)) {
+        completeAgentWorkflowKanbanForDelegation(task.id, { ok: false });
+        failAgentWorkflowForDelegation({ ...task, status: 'failed', error_message: 'Agent not found' }).catch(() => {});
+      } else {
+        completePipelineKanbanForDelegation(task.id, { ok: false });
+        failPipelineWorkflowForDelegation({ ...task, status: 'failed', error_message: 'Agent not found' });
+      }
+      runningDelegationIds.delete(task.id);
       return;
     }
     const openclawId = agent.openclaw_agent_id || agent.id;
     const sessionUser = `delegation-${task.id}`;
-    const sessionKeyLine = `\n\nYour session key for this run is ${openclaw.sessionKeyFor(openclawId, sessionUser)}. Use this exact sessionKey when calling sessions_history.`;
+    const sessionKeyLine = `\n\nYour session key for this run is ${openclaw.sessionKeyFor(openclawId, sessionUser)}. Use this exact sessionKey when calling sessions_history. If sessions_history returns empty, the conversation is in the messages above—proceed with those.`;
     let promptWithMemory = await getPromptWithMemoryInjected(task.to_agent_id, task.prompt);
     promptWithMemory = promptWithMemory + sessionKeyLine;
     const kanbanRow = db().prepare('SELECT id FROM kanban_tasks WHERE agent_delegation_task_id = ?').get(task.id);
@@ -444,19 +478,46 @@ export async function processPendingDelegationTasks() {
         `\n\n---\nIMPORTANT — Kanban finish:\nWhen you are done, call ONE of:\n  {\"task_id\": ${kanbanRow.id}, \"new_status\": \"completed\"}\n  {\"task_id\": ${kanbanRow.id}, \"new_status\": \"failed\"}\n---`;
     }
     try {
+      const isDiscovery = String(task.to_agent_id).toLowerCase() === 'jobdiscovery';
+      const discoveryTimeout = Number(process.env.OPENCLAW_DISCOVERY_TIMEOUT_MS || 900000);
       const { content } = await openclaw.chatCompletions(
         openclawId,
         [{ role: 'user', content: promptWithMemory }],
         sessionUser,
-        false
+        false,
+        isDiscovery ? { timeoutMs: discoveryTimeout } : {}
       );
       const responseText = normalizeReplyContent(content) || '(no response)';
       db().prepare('UPDATE agent_delegation_tasks SET status = ?, response_content = ?, completed_at = ? WHERE id = ?').run('completed', responseText, now, task.id);
+      if (isAgentWorkflowPrompt(task.prompt)) {
+        completeAgentWorkflowKanbanForDelegation(task.id, { ok: true });
+        try {
+          await maybeAdvanceAgentWorkflow({ ...task, status: 'completed', response_content: responseText });
+        } catch (wfErr) {
+          console.warn('[agent-workflow] advance:', wfErr.message);
+        }
+      } else {
+        completePipelineKanbanForDelegation(task.id, { ok: true });
+        try {
+          await maybeHandoffJobPipeline({ ...task, status: 'completed', response_content: responseText });
+        } catch (handoffErr) {
+          console.warn('[job-pipeline] handoff:', handoffErr.message);
+        }
+      }
       appendDelegationResponseToAgentChat(task.to_agent_id, extractTaskSummaryFromPrompt(task.prompt), responseText);
       const summary = extractTaskSummaryFromPrompt(task.prompt);
       await appendToAgentMemory(task.to_agent_id, summary);
     } catch (err) {
       db().prepare('UPDATE agent_delegation_tasks SET status = ?, error_message = ?, completed_at = ? WHERE id = ?').run('failed', err.message, now, task.id);
+      if (isAgentWorkflowPrompt(task.prompt)) {
+        completeAgentWorkflowKanbanForDelegation(task.id, { ok: false });
+        await failAgentWorkflowForDelegation({ ...task, status: 'failed', error_message: err.message });
+      } else {
+        completePipelineKanbanForDelegation(task.id, { ok: false });
+        failPipelineWorkflowForDelegation({ ...task, status: 'failed', error_message: err.message }, { error: err.message });
+      }
+    } finally {
+      runningDelegationIds.delete(task.id);
     }
   }
 

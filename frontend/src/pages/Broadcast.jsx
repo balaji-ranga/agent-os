@@ -123,9 +123,9 @@ export default function Broadcast() {
       </button>
 
       {results && results.length > 0 && (
-        <div style={{ marginTop: '1.5rem' }}>
-          <h2 style={{ fontSize: '1.1rem', marginBottom: '0.75rem' }}>Responses</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ marginTop: '1.5rem', maxHeight: 'min(60vh, 520px)', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <h2 style={{ fontSize: '1.1rem', marginBottom: '0.75rem', flexShrink: 0 }}>Responses</h2>
+          <div className="chat-scroll-panel" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {results.map((r) => (
               <div
                 key={r.agent_id}

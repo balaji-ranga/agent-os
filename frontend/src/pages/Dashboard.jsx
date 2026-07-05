@@ -70,6 +70,7 @@ export default function Dashboard() {
   const [newName, setNewName] = useState('');
   const [newRole, setNewRole] = useState('');
   const [newParentId, setNewParentId] = useState('');
+  const [addAgentMessage, setAddAgentMessage] = useState(null);
   const [creatingStandup, setCreatingStandup] = useState(false);
   const [standupScheduledAt, setStandupScheduledAt] = useState(() => {
     const d = new Date();
@@ -158,6 +159,7 @@ export default function Dashboard() {
   const addAgent = (e) => {
     e.preventDefault();
     if (!newName.trim()) return;
+    setAddAgentMessage(null);
     const body = { name: newName.trim(), role: newRole.trim() || 'Agent' };
     if (newParentId) body.parent_id = newParentId;
     api.agentCreate(body)
@@ -166,6 +168,8 @@ export default function Dashboard() {
         setNewName('');
         setNewRole('');
         setNewParentId('');
+        setAddAgentMessage(`"${agent.name}" added. Restart the OpenClaw gateway (port 18789) for it to appear in OpenClaw.`);
+        setTimeout(() => setAddAgentMessage(null), 12000);
       })
       .catch((e) => setError(e.message));
   };
@@ -600,10 +604,10 @@ export default function Dashboard() {
               <p style={{ color: 'var(--muted)', padding: '0.75rem', margin: 0, fontSize: '0.9rem' }}>No standups. Create one above.</p>
             )}
           </div>
-          <div style={{ flex: '1 1 320px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <div style={{ flex: '1 1 320px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: 'min(70vh, 640px)', minHeight: 320 }}>
             {selectedStandup ? (
               <>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
                   <strong style={{ fontSize: '1rem' }}>
                     COO chat — {selectedStandup.title ? `${selectedStandup.title} · ` : ''}{new Date(selectedStandup.scheduled_at).toLocaleString()}
                   </strong>
@@ -626,7 +630,7 @@ export default function Dashboard() {
                     </button>
                   </span>
                 </div>
-                <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '1rem', minHeight: 280, maxHeight: 420, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div className="chat-scroll-panel" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   {Array.isArray(selectedStandup.messages) && selectedStandup.messages.length > 0 ? (
                     selectedStandup.messages.map((m) => (
                       <div key={m.id}>
@@ -640,7 +644,7 @@ export default function Dashboard() {
                     <p style={{ color: 'var(--muted)', margin: 0, fontSize: '0.9rem' }}>No messages yet. Send the day&apos;s tasks to the COO below.</p>
                   )}
                 </div>
-                <form onSubmit={handleStandupMessage} style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end' }}>
+                <form onSubmit={handleStandupMessage} style={{ flexShrink: 0, display: 'flex', gap: '0.5rem', alignItems: 'flex-end' }}>
                   <textarea
                     rows={3}
                     value={standupChatInput}
@@ -756,7 +760,10 @@ export default function Dashboard() {
 
       {/* Add agent (optional) */}
       <section>
-        <h2 style={{ fontSize: '1.25rem', marginBottom: '0.75rem' }}>Add agent</h2>
+        <h2 style={{ fontSize: '1.25rem', marginBottom: '0.25rem' }}>Add agent</h2>
+        <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '0.75rem' }}>
+          New agents are added to OpenClaw config and workspace. Restart the OpenClaw gateway (port 18789) for them to appear in OpenClaw.
+        </p>
         <form onSubmit={addAgent} style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
           <input
             type="text"
@@ -816,6 +823,28 @@ export default function Dashboard() {
             Add agent
           </button>
         </form>
+        {addAgentMessage && (
+          <div
+            style={{
+              marginTop: '0.5rem',
+              padding: '0.75rem 1rem',
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              fontSize: '0.9rem',
+              color: 'var(--text)',
+            }}
+          >
+            {addAgentMessage}
+            <button
+              type="button"
+              onClick={() => setAddAgentMessage(null)}
+              style={{ marginLeft: '0.75rem', padding: '0.2rem 0.5rem', fontSize: '0.85rem', cursor: 'pointer' }}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
       </section>
     </div>
   );

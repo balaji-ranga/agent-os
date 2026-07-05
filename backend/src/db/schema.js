@@ -234,6 +234,283 @@ export function initDb() {
     _db.exec(`CREATE INDEX IF NOT EXISTS idx_task_messages_task ON task_messages(task_id)`);
   } catch (_) {}
 
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS job_search_profiles (
+        id TEXT NOT NULL,
+        ceo_user_id TEXT NOT NULL DEFAULT 'default',
+        display_name TEXT DEFAULT '',
+        status TEXT DEFAULT 'draft',
+        intake_json TEXT DEFAULT '{}',
+        version INTEGER DEFAULT 1,
+        confirmed_at TEXT,
+        updated_at TEXT DEFAULT (datetime('now')),
+        PRIMARY KEY (ceo_user_id, id)
+      )
+    `);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE job_search_profiles ADD COLUMN ceo_user_id TEXT DEFAULT 'default'`);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE job_search_profiles ADD COLUMN display_name TEXT DEFAULT ''`);
+  } catch (_) {}
+  try {
+    _db.exec(`UPDATE job_search_profiles SET ceo_user_id = 'default' WHERE ceo_user_id IS NULL OR ceo_user_id = ''`);
+  } catch (_) {}
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS job_search_ceo_settings (
+        ceo_user_id TEXT PRIMARY KEY,
+        active_profile_id TEXT,
+        updated_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE job_applications ADD COLUMN profile_id TEXT`);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE job_applications ADD COLUMN ceo_user_id TEXT DEFAULT 'default'`);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE job_pipeline_state ADD COLUMN ceo_user_id TEXT DEFAULT 'default'`);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE job_pipeline_state ADD COLUMN active_profile_id TEXT`);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE job_pipeline_state ADD COLUMN active_workflow_run_id INTEGER`);
+  } catch (_) {}
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS job_applications (
+        job_id TEXT PRIMARY KEY,
+        status TEXT DEFAULT 'discovered',
+        source TEXT,
+        company TEXT,
+        title TEXT,
+        location TEXT,
+        url TEXT,
+        fit_score REAL,
+        fit_rationale TEXT,
+        why_me_summary TEXT,
+        cover_letter_text TEXT,
+        tailoring_notes TEXT,
+        owner_action TEXT,
+        application_notes TEXT,
+        extra_json TEXT,
+        discovered_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+  } catch (_) {}
+  try {
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_job_applications_status ON job_applications(status)`);
+  } catch (_) {}
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS job_pipeline_state (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        standup_id INTEGER,
+        enabled INTEGER DEFAULT 0,
+        last_discovery_at TEXT,
+        updated_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE job_search_profiles ADD COLUMN last_pipeline_run_at TEXT`);
+  } catch (_) {}
+  try {
+    _db.exec(`INSERT OR IGNORE INTO job_pipeline_state (id, enabled) VALUES (1, 0)`);
+  } catch (_) {}
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS job_workflow_runs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        workflow_number INTEGER NOT NULL,
+        ceo_user_id TEXT NOT NULL,
+        profile_id TEXT NOT NULL,
+        workflow_goal TEXT DEFAULT 'job_application',
+        status TEXT DEFAULT 'running',
+        trigger TEXT DEFAULT 'manual',
+        started_at TEXT DEFAULT (datetime('now')),
+        completed_at TEXT,
+        kanban_ceo_review_task_id INTEGER,
+        metadata_json TEXT,
+        updated_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS job_workflow_steps (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        workflow_run_id INTEGER NOT NULL,
+        step_key TEXT NOT NULL,
+        step_label TEXT NOT NULL,
+        step_order INTEGER NOT NULL,
+        status TEXT DEFAULT 'pending',
+        actor_type TEXT,
+        actor_id TEXT,
+        started_at TEXT,
+        completed_at TEXT,
+        detail_json TEXT,
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (workflow_run_id) REFERENCES job_workflow_runs(id)
+      )
+    `);
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_job_workflow_runs_profile ON job_workflow_runs(ceo_user_id, profile_id)`);
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_job_workflow_steps_run ON job_workflow_steps(workflow_run_id)`);
+  } catch (_) {}
+
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS platform_users (
+        id TEXT PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        name TEXT NOT NULL,
+        region TEXT DEFAULT '',
+        mobile TEXT DEFAULT '',
+        role TEXT NOT NULL CHECK (role IN ('admin', 'ceo')),
+        enabled INTEGER DEFAULT 1,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS platform_sessions (
+        token TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        created_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (user_id) REFERENCES platform_users(id)
+      )
+    `);
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS user_agents (
+        user_id TEXT NOT NULL,
+        agent_id TEXT NOT NULL,
+        enabled INTEGER DEFAULT 1,
+        granted_at TEXT DEFAULT (datetime('now')),
+        PRIMARY KEY (user_id, agent_id),
+        FOREIGN KEY (user_id) REFERENCES platform_users(id),
+        FOREIGN KEY (agent_id) REFERENCES agents(id)
+      )
+    `);
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_platform_users_email ON platform_users(email)`);
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_user_agents_user ON user_agents(user_id)`);
+  } catch (_) {}
+
+  try {
+    _db.exec(`ALTER TABLE agents ADD COLUMN agent_type TEXT DEFAULT 'standard'`);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE agents ADD COLUMN owner_user_id TEXT`);
+  } catch (_) {}
+  try {
+    _db.exec(`UPDATE agents SET agent_type = 'standard' WHERE agent_type IS NULL OR agent_type = ''`);
+  } catch (_) {}
+
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS agent_workflow_definitions (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        owner_user_id TEXT NOT NULL,
+        status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
+        draft_graph_json TEXT NOT NULL DEFAULT '{"nodes":[],"edges":[]}',
+        published_graph_json TEXT,
+        schedule_cron TEXT,
+        chat_trigger_phrase TEXT,
+        trigger_modes TEXT DEFAULT 'manual',
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS agent_workflow_audit (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        definition_id TEXT NOT NULL,
+        action TEXT NOT NULL,
+        summary TEXT DEFAULT '',
+        changed_by TEXT,
+        changed_by_name TEXT,
+        diff_json TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (definition_id) REFERENCES agent_workflow_definitions(id)
+      )
+    `);
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS agent_workflow_runs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        run_number INTEGER NOT NULL,
+        definition_id TEXT NOT NULL,
+        owner_user_id TEXT NOT NULL,
+        status TEXT DEFAULT 'running',
+        trigger TEXT DEFAULT 'manual',
+        progress_pct INTEGER DEFAULT 0,
+        context_json TEXT DEFAULT '{}',
+        standup_id INTEGER,
+        started_at TEXT DEFAULT (datetime('now')),
+        completed_at TEXT,
+        error_message TEXT,
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (definition_id) REFERENCES agent_workflow_definitions(id)
+      )
+    `);
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS agent_workflow_run_steps (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        run_id INTEGER NOT NULL,
+        node_id TEXT NOT NULL,
+        node_type TEXT NOT NULL,
+        node_label TEXT DEFAULT '',
+        status TEXT DEFAULT 'pending',
+        input_json TEXT,
+        output_json TEXT,
+        delegation_task_id INTEGER,
+        kanban_task_id INTEGER,
+        started_at TEXT,
+        completed_at TEXT,
+        error_message TEXT,
+        FOREIGN KEY (run_id) REFERENCES agent_workflow_runs(id)
+      )
+    `);
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_agent_wf_defs_owner ON agent_workflow_definitions(owner_user_id)`);
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_agent_wf_audit_def ON agent_workflow_audit(definition_id, created_at DESC)`);
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_agent_wf_runs_def ON agent_workflow_runs(definition_id, started_at DESC)`);
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_agent_wf_steps_run ON agent_workflow_run_steps(run_id)`);
+  } catch (_) {}
+
+  try {
+    _db.exec(`ALTER TABLE agent_workflow_definitions ADD COLUMN paused INTEGER DEFAULT 0`);
+  } catch (_) {}
+
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS agent_workflow_schedule_ticks (
+        definition_id TEXT NOT NULL,
+        tick_minute TEXT NOT NULL,
+        created_at TEXT DEFAULT (datetime('now')),
+        PRIMARY KEY (definition_id, tick_minute)
+      )
+    `);
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS agent_workflow_schedules (
+        definition_id TEXT PRIMARY KEY,
+        owner_user_id TEXT NOT NULL,
+        workflow_name TEXT DEFAULT '',
+        schedule_cron TEXT NOT NULL,
+        enabled INTEGER DEFAULT 1,
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (definition_id) REFERENCES agent_workflow_definitions(id) ON DELETE CASCADE
+      )
+    `);
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_agent_wf_schedules_enabled ON agent_workflow_schedules(enabled)`);
+  } catch (_) {}
+
   return _db;
 }
 

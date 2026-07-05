@@ -71,7 +71,7 @@ export default function AgentWorkspace() {
       </div>
       <h1 style={{ marginTop: 0 }}>Workspace — {agent?.name || agentId}</h1>
       <p style={{ color: 'var(--muted)', marginBottom: '1rem' }}>
-        Edit SOUL.md, AGENTS.md, MEMORY.md for this agent’s OpenClaw workspace. Backups are created on save.
+        Edit SOUL.md, AGENTS.md, MEMORY.md for this agent’s OpenClaw workspace. Saves write directly to these files (same files the OpenClaw gateway uses). Backups are created on save.
         {agent && !agent.workspace_path && ' (Using default workspace; set workspace_path on this agent for a separate folder.)'}
       </p>
 

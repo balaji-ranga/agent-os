@@ -74,16 +74,20 @@ router.post('/cron-callback', (req, res) => {
   }
 });
 
-// Notifications: recent completed delegation tasks (agent responded). For bell icon and "Chat" link to agent.
+// Notifications: recent completed delegation tasks (agent responded). For bell icon and Kanban/Chat links.
 router.get('/notifications', (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit) || 20, 50);
     const rows = db()
       .prepare(
         `SELECT t.id, t.standup_id, t.to_agent_id, t.prompt, t.response_content, t.completed_at, t.request_id,
-         s.scheduled_at, s.title
+         s.scheduled_at, s.title, s.source AS standup_source,
+         a.name AS agent_name,
+         k.id AS kanban_task_id
          FROM agent_delegation_tasks t
          JOIN standups s ON s.id = t.standup_id
+         LEFT JOIN agents a ON a.id = t.to_agent_id
+         LEFT JOIN kanban_tasks k ON k.agent_delegation_task_id = t.id
          WHERE t.status = 'completed' AND t.response_content IS NOT NULL AND t.response_content != ''
          ORDER BY t.completed_at DESC LIMIT ?`
       )
@@ -92,9 +96,13 @@ router.get('/notifications', (req, res) => {
       id: r.id,
       standup_id: r.standup_id,
       to_agent_id: r.to_agent_id,
+      agent_name: r.agent_name || r.to_agent_id,
       completed_at: r.completed_at,
       scheduled_at: r.scheduled_at,
       standup_title: r.title,
+      standup_source: r.standup_source,
+      kanban_task_id: r.kanban_task_id,
+      is_job_pipeline: r.standup_source === 'job_pipeline' || String(r.prompt || '').includes('[job_pipeline:'),
       prompt_snippet: (r.prompt || '').trim().slice(0, 120),
       response_snippet: (r.response_content || '').trim().slice(0, 150),
     }));

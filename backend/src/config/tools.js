@@ -39,15 +39,29 @@ export function getOpenAiConfig() {
   };
 }
 
+/** GPT-image models (gpt-image-1, gpt-image-1-mini, etc.) replace retired DALL·E for new OpenAI keys. */
+export function isGptImageModel(model) {
+  return /^gpt-image/i.test(String(model || '').trim());
+}
+
+/** Map legacy DALL·E quality env values to GPT-image quality. */
+export function mapGptImageQuality(quality) {
+  const q = String(quality || '').toLowerCase();
+  if (q === 'hd' || q === 'high') return 'high';
+  if (q === 'low' || q === 'medium' || q === 'auto') return q;
+  return 'medium';
+}
+
 /**
  * Image generation: primary and secondary providers (each base URL + API key + model). OpenAI SDK–compatible.
+ * Default model is gpt-image-1 (DALL·E 2/3 retired for many accounts as of 2026).
  * @returns {{ primary: { apiUrl: string, apiKey: string, model: string, size, quality, style, maxPromptChars }, secondary: object | null }}
  */
 export function getImageConfig() {
   const defaultBase = 'https://api.openai.com/v1';
   const primaryBase = normalizeBaseUrl(process.env.OPENAI_PRIMARY_BASE_URL || process.env.OPENAI_BASE_URL || process.env.OPENAI_API_URL || defaultBase) || defaultBase;
   const primaryKey = (process.env.OPENAI_PRIMARY_API_KEY || process.env.OPENAI_API_KEY || '').trim();
-  const primaryModel = (process.env.TOOLS_IMAGE_MODEL || 'dall-e-3').trim();
+  const primaryModel = (process.env.TOOLS_IMAGE_MODEL || 'gpt-image-1').trim();
   const size = process.env.TOOLS_IMAGE_SIZE || '1024x1024';
   const quality = process.env.TOOLS_IMAGE_QUALITY || 'standard';
   const style = process.env.TOOLS_IMAGE_STYLE || 'natural';
@@ -60,7 +74,7 @@ export function getImageConfig() {
   const primary = {
     apiUrl: primaryBase,
     apiKey: primaryKey,
-    model: primaryModel === 'dall-e-2' ? 'dall-e-2' : 'dall-e-3',
+    model: primaryModel,
     size: size || '1024x1024',
     quality: quality === 'hd' ? 'hd' : 'standard',
     style: style === 'vivid' ? 'vivid' : 'natural',
@@ -71,7 +85,7 @@ export function getImageConfig() {
     ? {
         apiUrl: secondaryBase,
         apiKey: secondaryKey,
-        model: secondaryModel === 'dall-e-2' ? 'dall-e-2' : 'dall-e-3',
+        model: secondaryModel,
         size: primary.size,
         quality: primary.quality,
         style: primary.style,

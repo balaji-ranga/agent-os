@@ -17,13 +17,25 @@ import openclawRoutes from './routes/openclaw.js';
 import toolsRoutes from './routes/tools.js';
 import broadcastRoutes from './routes/broadcast.js';
 import kanbanRoutes from './routes/kanban.js';
-import { initDb } from './db/schema.js';
+import mediaRoutes from './routes/media.js';
+import jobApplicantRoutes from './routes/job-applicant.js';
+import agentWorkflowRoutes from './routes/agent-workflows.js';
+import authRoutes from './routes/auth.js';
+import adminRoutes from './routes/admin.js';
+import { attachAuthUser } from './middleware/auth.js';
+import { ensureDefaultAdmin, ensureBalaCeoUser, grantStandardAgents } from './services/users.js';
+import { initDb, getDb } from './db/schema.js';
 import { seedDefaultAgentsIfEmpty } from './db/seed-default-agents.js';
-import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, updateKanbanToolPurposes } from './db/seed-content-tools-meta.js';
+import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, seedWorkflowToolsIfMissing, updateKanbanToolPurposes } from './db/seed-content-tools-meta.js';
+import { seedJobApplicantToolsIfMissing } from './db/seed-job-applicant-tools.js';
 import { writeOpenClawToolsList } from './services/content-tools-meta.js';
 import { runScheduledStandup } from './cron/standup.js';
 import { processPendingDelegationTasks } from './services/delegation-queue.js';
+import { runPipelineTick, runPipelineTickAll } from './services/job-applicant-pipeline.js';
 import { getLastIntentDebug } from './services/intent-classifier.js';
+import { initAgentWorkflowScheduler } from './services/agent-workflow-scheduler.js';
+import { syncWorkflowScheduleRegistry } from './services/agent-workflow-store.js';
+import { seedWorkflowBuilderAgent } from '../scripts/seed-workflow-builder-agent.js';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
@@ -31,13 +43,27 @@ const PORT = Number(process.env.PORT) || 3001;
 app.use(cors({ origin: true }));
 app.use(express.json());
 app.use(express.text({ type: 'text/*' }));
+app.use(attachAuthUser);
 
 initDb();
 seedDefaultAgentsIfEmpty();
+ensureDefaultAdmin();
+ensureBalaCeoUser();
+try {
+  const ceos = getDb().prepare(`SELECT id FROM platform_users WHERE role = 'ceo'`).all();
+  for (const { id } of ceos) grantStandardAgents(id);
+} catch (_) {}
 seedContentToolsMetaIfEmpty();
 seedKanbanToolsIfMissing();
+seedWorkflowToolsIfMissing();
 updateKanbanToolPurposes();
+seedJobApplicantToolsIfMissing();
 writeOpenClawToolsList();
+try {
+  seedWorkflowBuilderAgent();
+} catch (e) {
+  console.warn('[startup] workflow builder agent seed:', e.message);
+}
 
 const healthHandler = (req, res) => {
   res.json({ status: 'ok', service: 'agent-os-backend', timestamp: new Date().toISOString() });
@@ -55,6 +81,8 @@ apiRouter.get('/debug/intent-last', (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+apiRouter.use('/auth', authRoutes);
+apiRouter.use('/admin', adminRoutes);
 apiRouter.use('/workspace', workspaceRoutes);
 apiRouter.use('/agents', agentsRoutes);
 apiRouter.use('/standups', standupsRoutes);
@@ -63,6 +91,9 @@ apiRouter.use('/openclaw', openclawRoutes);
 apiRouter.use('/tools', toolsRoutes);
 apiRouter.use('/broadcast', broadcastRoutes);
 apiRouter.use('/kanban', kanbanRoutes);
+apiRouter.use('/job-applicant', jobApplicantRoutes);
+apiRouter.use('/agent-workflows', agentWorkflowRoutes);
+apiRouter.use('/media/openclaw', mediaRoutes);
 app.use('/api', apiRouter);
 
 // Also mount at root for VITE_API_URL without /api (e.g. http://127.0.0.1:3001)
@@ -74,6 +105,9 @@ app.use('/openclaw', openclawRoutes);
 app.use('/tools', toolsRoutes);
 app.use('/broadcast', broadcastRoutes);
 app.use('/kanban', kanbanRoutes);
+app.use('/job-applicant', jobApplicantRoutes);
+app.use('/agent-workflows', agentWorkflowRoutes);
+app.use('/media/openclaw', mediaRoutes);
 
 const standupSchedule = process.env.STANDUP_CRON_SCHEDULE || '0 9 * * *';
 if (cron.validate(standupSchedule)) {
@@ -103,10 +137,26 @@ if (cron.validate(delegationCronSchedule)) {
   console.log('Delegation cron scheduled (COO→agents):', delegationCronSchedule);
 }
 
+const jobPipelineCron = process.env.JOB_PIPELINE_CRON_SCHEDULE || '0 * * * *';
+if (cron.validate(jobPipelineCron)) {
+  cron.schedule(jobPipelineCron, async () => {
+    try {
+      const result = await runPipelineTickAll();
+      if (result.ran) console.log('[cron] Job pipeline tick:', JSON.stringify(result.results?.length ?? 0, 'profiles'));
+    } catch (e) {
+      console.error('[cron] Job pipeline tick error:', e.message);
+    }
+  });
+  console.log('Job Applicant pipeline cron scheduled:', jobPipelineCron);
+}
+
+syncWorkflowScheduleRegistry();
+initAgentWorkflowScheduler();
+
 app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message || 'Internal server error' });
 });
 
 app.listen(PORT, () => {
-  console.log(`Agent OS backend listening on http://127.0.0.1:${PORT}`);
+  console.log(`Agent OS backend listening on http://127.0.0.1:${PORT} (pid ${process.pid})`);
 });

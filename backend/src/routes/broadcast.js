@@ -33,7 +33,7 @@ router.post('/', async (req, res) => {
       agents.map(async (agent) => {
         const openclawAgentId = agent.openclaw_agent_id || agent.id || 'main';
         const sessionUser = `${broadcastId}-${agent.id}`;
-        const sessionKeyLine = `\n\nYour session key for this run is ${openclaw.sessionKeyFor(openclawAgentId, sessionUser)}. Use this exact sessionKey when calling sessions_history.`;
+        const sessionKeyLine = `\n\nYour session key for this run is ${openclaw.sessionKeyFor(openclawAgentId, sessionUser)}. Use this exact sessionKey when calling sessions_history. If sessions_history returns empty, the conversation is in the messages above—proceed with those.`;
         const msgWithKey = messages[0].content + sessionKeyLine;
         try {
           const { content: reply } = await openclaw.chatCompletions(openclawAgentId, [{ role: 'user', content: msgWithKey }], sessionUser, false);

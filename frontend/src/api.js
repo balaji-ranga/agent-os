@@ -1,11 +1,16 @@
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
+let _authToken = null;
+
+export function setAuthToken(token) {
+  _authToken = token || null;
+}
+
 async function request(path, options = {}) {
   const url = path.startsWith('http') ? path : `${API_BASE}${path}`;
-  const res = await fetch(url, {
-    ...options,
-    headers: { 'Content-Type': 'application/json', ...options.headers },
-  });
+  const headers = { 'Content-Type': 'application/json', ...options.headers };
+  if (_authToken) headers.Authorization = `Bearer ${_authToken}`;
+  const res = await fetch(url, { ...options, headers });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(err.error || res.statusText);
@@ -34,7 +39,26 @@ async function del(path) {
   return request(path, { method: 'DELETE' });
 }
 
+/** Fetch authenticated binary (PDF, image) and return a blob object URL. Caller should revoke when done. */
+async function fetchBlobUrl(path) {
+  const url = path.startsWith('http')
+    ? path
+    : path.startsWith('/api/')
+      ? path
+      : `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
+  const headers = {};
+  if (_authToken) headers.Authorization = `Bearer ${_authToken}`;
+  const res = await fetch(url, { headers });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || res.statusText);
+  }
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
+}
+
 export const api = {
+  fetchBlobUrl,
   health: () => get('/health'),
   // Workspace (OpenClaw MD files) — legacy single-workspace (optional)
   workspaceFiles: () => get('/workspace/files'),
@@ -51,7 +75,12 @@ export const api = {
   agentUpdate: (id, body) => patch(`/agents/${id}`, body),
   agentDelete: (id) => del(`/agents/${id}`),
   agentChatHistory: (id) => get(`/agents/${id}/chat`),
-  agentChatSend: (id, message, userId = 'default') => post(`/agents/${id}/chat`, { message, user_id: userId }),
+  agentChatSend: (id, message, userId = 'default', profileId = null) =>
+    post(`/agents/${id}/chat`, {
+      message,
+      user_id: userId,
+      ...(profileId ? { profile_id: profileId } : {}),
+    }),
   agentChatFromAgent: (toAgentId, fromAgentId, message) =>
     post(`/agents/${toAgentId}/chat/from-agent`, { from_agent_id: fromAgentId, message }),
   agentActivities: (id) => get(`/agents/${id}/activities`),
@@ -119,6 +148,87 @@ export const api = {
   kanbanTasksDeleteBulk: (taskIds) => request('/kanban/tasks', { method: 'DELETE', body: JSON.stringify({ task_ids: taskIds }) }),
   kanbanTaskMessages: (id) => get(`/kanban/tasks/${id}/messages`),
   kanbanTaskAddMessage: (id, role, content) => post(`/kanban/tasks/${id}/messages`, { role, content }),
+  jobCeoReviewConfirm: (body) => post('/tools/job-ceo-review-confirm', body),
+  jobCeoReviewInclude: (body) => post('/tools/job-ceo-review-include', body),
+  jobApplicantReviewQueue: (profileId, ceoUserId = 'default') =>
+    get(`/job-applicant/profiles/${encodeURIComponent(profileId)}/review-queue?ceo_user_id=${encodeURIComponent(ceoUserId)}`),
+  jobApplicantCeoReviewInclude: (profileId, body) =>
+    post(`/job-applicant/profiles/${encodeURIComponent(profileId)}/ceo-review/include`, body),
+  jobApplicantBrowserAuth: () => get('/job-applicant/browser-auth/status'),
+  jobApplicantBrowserStartLogin: (body = {}) => post('/job-applicant/browser-auth/start-login', body),
+  jobApplicantBrowserCompleteLogin: (body = {}) => post('/job-applicant/browser-auth/complete-login', body),
+  jobApplicantBrowserVerifyPortals: (body = {}) => post('/job-applicant/browser-auth/verify-portals', body),
+  jobApplicantBrowserSpawnLoginScript: () => post('/job-applicant/browser-auth/spawn-login-script', {}),
+  jobRunWorkflowNow: (body) => post('/tools/job-run-workflow-now', body),
+  jobApplicantWorkflowRun: (body) => post('/job-applicant/workflow/run', body),
+  jobApplicantPipelineStart: (body = {}) => post('/job-applicant/pipeline/start', body),
+  jobApplicantPipelineStatus: () => get('/job-applicant/pipeline/status'),
+  jobApplicantProfiles: () => get('/job-applicant/profiles'),
+  jobApplicantProfileGet: (profileId) => get(`/job-applicant/profiles/${encodeURIComponent(profileId)}`),
+  jobApplicantProfileCreate: (body) => post('/job-applicant/profiles', body),
+  jobApplicantProfileUpdate: (profileId, body) => patch(`/job-applicant/profiles/${encodeURIComponent(profileId)}`, body),
+  jobApplicantProfileConfirm: (profileId, body = {}) =>
+    post(`/job-applicant/profiles/${encodeURIComponent(profileId)}/confirm`, body),
+  jobApplicantProfileRename: (profileId, body) =>
+    post(`/job-applicant/profiles/${encodeURIComponent(profileId)}/rename`, body),
+  jobApplicantProfileDelete: (profileId, confirm = true) =>
+    post(`/job-applicant/profiles/${encodeURIComponent(profileId)}/delete`, { confirm }),
+  jobApplicantProfileDeactivate: (profileId) =>
+    post(`/job-applicant/profiles/${encodeURIComponent(profileId)}/deactivate`, {}),
+  jobApplicantWorkflowList: (profileId, limit = 20) =>
+    get(`/job-applicant/workflows?profile_id=${encodeURIComponent(profileId)}&limit=${limit}`),
+  jobApplicantWorkflowGet: (workflowId) => get(`/job-applicant/workflows/${workflowId}`),
+  jobApplicantPortalAuth: (profileId) => get(`/job-applicant/profiles/${encodeURIComponent(profileId)}/portal-auth`),
+  jobApplicantConnectPortals: (profileId, body = {}) =>
+    post(`/job-applicant/profiles/${encodeURIComponent(profileId)}/connect-portals`, body),
+  jobApplicantHarvestListings: (profileId, body = {}) =>
+    post(`/job-applicant/profiles/${encodeURIComponent(profileId)}/harvest-listings`, body),
+  jobApplicantMarkPortalsLoggedIn: (profileId, body = {}) =>
+    post(`/job-applicant/profiles/${encodeURIComponent(profileId)}/portals/mark-logged-in`, body),
+  authRegister: (body) => post('/auth/register', body),
+  authLogin: (body) => post('/auth/login', body),
+  authAdminLogin: (body) => post('/auth/admin/login', body),
+  authLogout: () => post('/auth/logout', {}),
+  authMe: () => get('/auth/me'),
+  authUpdateProfile: (body) => patch('/auth/me', body),
+  adminUsers: () => get('/admin/users'),
+  adminUserGet: (userId) => get(`/admin/users/${encodeURIComponent(userId)}`),
+  adminUserSetEnabled: (userId, enabled) => patch(`/admin/users/${encodeURIComponent(userId)}/enabled`, { enabled }),
+  adminRegisterUser: (body) => post('/admin/users', body),
+  adminGrantStandardAgents: (userId) => post(`/admin/users/${encodeURIComponent(userId)}/agents/grant-standard`, {}),
+  adminEnableAgent: (userId, agentId) => post(`/admin/users/${encodeURIComponent(userId)}/agents/${encodeURIComponent(agentId)}/enable`, {}),
+  adminDisableAgent: (userId, agentId) => post(`/admin/users/${encodeURIComponent(userId)}/agents/${encodeURIComponent(agentId)}/disable`, {}),
+  adminAgentsGrouped: () => get('/admin/agents'),
+  // Agent workflows (custom, separate from job workflows)
+  agentWorkflowList: () => get('/agent-workflows'),
+  agentWorkflowTemplates: () => get('/agent-workflows/meta/templates'),
+  agentWorkflowTemplateGet: (templateId) => get(`/agent-workflows/meta/templates/${encodeURIComponent(templateId)}`),
+  agentWorkflowTaskTypes: () => get('/agent-workflows/meta/task-types'),
+  agentWorkflowGet: (id) => get(`/agent-workflows/${encodeURIComponent(id)}`),
+  agentWorkflowCreate: (body) => post('/agent-workflows', body),
+  agentWorkflowUpdate: (id, body) => patch(`/agent-workflows/${encodeURIComponent(id)}`, body),
+  agentWorkflowPublish: (id) => post(`/agent-workflows/${encodeURIComponent(id)}/publish`, {}),
+  agentWorkflowDelete: (id) => del(`/agent-workflows/${encodeURIComponent(id)}`),
+  agentWorkflowAudit: (id, limit = 50) => get(`/agent-workflows/${encodeURIComponent(id)}/audit?limit=${limit}`),
+  agentWorkflowRuns: (limit = 50) => get(`/agent-workflows/runs?limit=${limit}`),
+  agentWorkflowRunGet: (runId) => get(`/agent-workflows/runs/${runId}`),
+  agentWorkflowRunsForDef: (id, limit = 30) => get(`/agent-workflows/${encodeURIComponent(id)}/runs?limit=${limit}`),
+  agentWorkflowRun: (id, body = {}) => post(`/agent-workflows/${encodeURIComponent(id)}/run`, body),
+  agentWorkflowApprovalRespond: (body) => post('/agent-workflows/approval/respond', body),
+  agentWorkflowPause: (id) => post(`/agent-workflows/${encodeURIComponent(id)}/pause`, {}),
+  agentWorkflowResume: (id) => post(`/agent-workflows/${encodeURIComponent(id)}/resume`, {}),
+  agentWorkflowUpdateTriggers: (id, body) => patch(`/agent-workflows/${encodeURIComponent(id)}/triggers`, body),
+  agentWorkflowRunPause: (runId) => post(`/agent-workflows/runs/${runId}/pause`, {}),
+  agentWorkflowRunDelete: (runId) => del(`/agent-workflows/runs/${runId}`),
+  agentWorkflowRunsPauseAll: (definitionId = null) =>
+    post('/agent-workflows/runs/pause-all', definitionId ? { definition_id: definitionId } : {}),
+  agentWorkflowRunsDeleteAll: (definitionId = null) => {
+    const q = definitionId ? `?definition_id=${encodeURIComponent(definitionId)}` : '';
+    return del(`/agent-workflows/runs/all${q}`);
+  },
+  agentWorkflowAgentChat: (body) => post('/agent-workflows/agent-chat', body),
+  agentWorkflowDraftGet: (id) => get(`/agent-workflows/draft/${encodeURIComponent(id)}`),
+  agentWorkflowMutate: (body) => post('/agent-workflows/mutate', body),
   // Clear OpenClaw sessions for an agent (workspace UI)
   agentSessionsClear: (agentId) => post(`/agents/${encodeURIComponent(agentId)}/sessions/clear`, {}),
 };

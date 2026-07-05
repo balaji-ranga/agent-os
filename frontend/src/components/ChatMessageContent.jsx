@@ -1,26 +1,29 @@
 import { useState } from 'react';
+import { resolveMediaSrc, isResolvableMediaUrl } from '../utils/resolveMediaSrc';
 
 /**
- * Renders chat message content: text plus inline images/videos (URLs and data: base64).
+ * Renders chat message content: text plus inline images/videos (URLs, data: base64, OpenClaw sandbox media).
  * Use in AgentChat, Broadcast, and standup chat so images/videos display instead of raw URLs.
  */
 
-function ImageWithFallback({ src }) {
+function ImageWithFallback({ src, alt = 'Image' }) {
+  const resolved = resolveMediaSrc(src);
   const [failed, setFailed] = useState(false);
-  if (failed && src.startsWith('http')) {
+  if (failed) {
     return (
       <span style={{ display: 'inline-block', marginTop: '0.5rem', marginBottom: '0.5rem' }}>
-        <a href={src} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.9rem', color: 'var(--accent)' }}>Open image</a>
+        <a href={resolved} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.9rem', color: 'var(--accent)' }}>
+          Open image
+        </a>
       </span>
     );
   }
-  if (failed) return null;
   return (
-    <span style={{ display: 'inline-block', marginTop: '0.5rem', marginBottom: '0.5rem' }}>
+    <span style={{ display: 'block', marginTop: '0.5rem', marginBottom: '0.5rem' }}>
       <img
-        src={src}
-        alt="Generated"
-        style={{ maxWidth: '100%', maxHeight: 320, borderRadius: 8, verticalAlign: 'middle' }}
+        src={resolved}
+        alt={alt}
+        style={{ maxWidth: '100%', maxHeight: 480, borderRadius: 8, verticalAlign: 'middle' }}
         onError={() => setFailed(true)}
       />
     </span>
@@ -59,6 +62,10 @@ function parseContentParts(str) {
   return { text, imageUrls };
 }
 
+function cleanMediaUrl(url) {
+  return String(url || '').trim().replace(/[:;.,]+$/g, '');
+}
+
 export default function ChatMessageContent({ content }) {
   const text = toText(content);
   if (!text) return null;
@@ -83,9 +90,9 @@ export default function ChatMessageContent({ content }) {
   let m;
   while ((m = reImgTag.exec(contentStr)) !== null) {
     const url = m[1].trim();
-    if (!overlaps(m.index, m[0].length) && (url.startsWith('data:') || url.startsWith('http'))) {
+    if (!overlaps(m.index, m[0].length) && isResolvableMediaUrl(url)) {
       const type = url.startsWith('data:video/') ? 'video' : 'image';
-      media.push({ index: m.index, length: m[0].length, type, src: url });
+      media.push({ index: m.index, length: m[0].length, type, src: url, alt: '' });
     }
   }
   // JSON {"url": "..."} (tool result often in reply)
@@ -103,13 +110,21 @@ export default function ChatMessageContent({ content }) {
   while ((m = reDataVid.exec(contentStr)) !== null) {
     if (!overlaps(m.index, m[0].length)) media.push({ index: m.index, length: m[0].length, type: 'video', src: m[0] });
   }
-  // Markdown image ![alt](url) — URL may include query params (? &)
-  const reMdImg = /!\[([^\]]*)\]\((https?:\/\/[^)\s]+)\)/g;
+  // Markdown image ![alt](url) — http(s), data:, or OpenClaw sandbox:/media/...
+  const reMdImg = /!\[([^\]]*)\]\(([^)\s]+)\)/g;
   while ((m = reMdImg.exec(contentStr)) !== null) {
-    const url = m[2];
+    const url = cleanMediaUrl(m[2]);
+    if (!overlaps(m.index, m[0].length) && isResolvableMediaUrl(url)) {
+      const resolved = resolveMediaSrc(url);
+      if (videoExt.test(resolved) || videoExt.test(url)) media.push({ index: m.index, length: m[0].length, type: 'video', src: url, alt: m[1] });
+      else media.push({ index: m.index, length: m[0].length, type: 'image', src: url, alt: m[1] });
+    }
+  }
+  // OpenClaw MEDIA: sandbox:/media/... or sandbox:/api/media/... lines
+  const reMediaLine = /^MEDIA:(sandbox:(?:\/api\/media\/|\/media\/)[^\s]+)/gm;
+  while ((m = reMediaLine.exec(contentStr)) !== null) {
     if (!overlaps(m.index, m[0].length)) {
-      if (videoExt.test(url)) media.push({ index: m.index, length: m[0].length, type: 'video', src: url });
-      else media.push({ index: m.index, length: m[0].length, type: 'image', src: url });
+      media.push({ index: m.index, length: m[0].length, type: 'image', src: m[1], alt: '' });
     }
   }
   const reHttp = /https?:\/\/[^\s<>"']+/g;
@@ -126,7 +141,7 @@ export default function ChatMessageContent({ content }) {
   let pos = 0;
   for (const med of media) {
     if (med.index > pos) segments.push({ type: 'text', value: contentStr.slice(pos, med.index) });
-    segments.push({ type: med.type, value: med.src });
+    segments.push({ type: med.type, value: med.src, alt: med.alt });
     pos = med.index + med.length;
   }
   if (pos < contentStr.length) segments.push({ type: 'text', value: contentStr.slice(pos) });
@@ -138,13 +153,13 @@ export default function ChatMessageContent({ content }) {
         if (seg.type === 'text') return <span key={i}>{seg.value}</span>;
         if (seg.type === 'image') {
           return (
-            <ImageWithFallback key={i} src={seg.value} />
+            <ImageWithFallback key={i} src={seg.value} alt={seg.alt || 'Image'} />
           );
         }
         if (seg.type === 'video') {
           return (
-            <span key={i} style={{ display: 'inline-block', marginTop: '0.5rem', marginBottom: '0.5rem' }}>
-              <video src={seg.value} controls style={{ maxWidth: '100%', maxHeight: 320, borderRadius: 8 }} />
+            <span key={i} style={{ display: 'block', marginTop: '0.5rem', marginBottom: '0.5rem' }}>
+              <video src={resolveMediaSrc(seg.value)} controls style={{ maxWidth: '100%', maxHeight: 480, borderRadius: 8 }} />
             </span>
           );
         }

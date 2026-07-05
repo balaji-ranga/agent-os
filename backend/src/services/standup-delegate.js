@@ -35,7 +35,7 @@ export async function delegateToAgents(contextFromConversation = '') {
   for (const agent of delegated) {
     const openclawId = agent.openclaw_agent_id || 'main';
     const sessionUser = `${runId}-${agent.id}`;
-    const sessionKeyLine = `\n\nYour session key for this run is ${openclaw.sessionKeyFor(openclawId, sessionUser)}. Use this exact sessionKey when calling sessions_history.`;
+    const sessionKeyLine = `\n\nYour session key for this run is ${openclaw.sessionKeyFor(openclawId, sessionUser)}. Use this exact sessionKey when calling sessions_history. If sessions_history returns empty, the conversation is in the messages above—proceed with those.`;
     const roleDesc = agent.role ? ` Your role: ${agent.role}.` : '';
     const basePrompt = contextFromConversation.trim()
       ? `The COO is requesting your update for the CEO standup.${roleDesc} Context from the standup: ${contextFromConversation.trim()}. Please provide your status and any deliverables for CEO review. Reply with actual content.`

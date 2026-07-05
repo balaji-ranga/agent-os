@@ -11,4 +11,8 @@ if ($conns) {
   Write-Host "No process found on port $port"
 }
 Write-Host "Starting OpenClaw gateway on port $port..."
-& openclaw gateway --port $port
+$AgentOsRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$AgentOsRoot'; openclaw gateway --port $port" -WindowStyle Normal
+Start-Sleep -Seconds 10
+Write-Host "Warming up managed browser..."
+node (Join-Path $AgentOsRoot "scripts\warmup-openclaw-browser.js")
