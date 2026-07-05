@@ -180,16 +180,18 @@ function Push-AgentOsMirror {
     $before = Get-RemoteHead -Remote $RemoteName -Ref "refs/heads/$Branch"
     git push origin $Branch
     if ($LASTEXITCODE -ne 0) { throw 'git push failed. Check GitHub auth.' }
-    $after = Get-RemoteHead -Remote $RemoteName -Ref "refs/heads/$Branch"
-    if (-not $after -or ($before -and $before -eq $after)) {
-      throw "Mirror push did not update remote $RemoteName/$Branch"
-    }
-    Write-Ok "Verified remote updated: $before -> $after"
   } finally {
     $ErrorActionPreference = $savedEap
     Pop-Location
     Remove-Item $tempRepo -Recurse -Force -ErrorAction SilentlyContinue
   }
+
+  Start-Sleep -Seconds 2
+  $after = Get-RemoteHead -Remote $RemoteName -Ref "refs/heads/$Branch"
+  if (-not $after -or ($before -and $before -eq $after)) {
+    throw "Mirror push did not update remote $RemoteName/$Branch (before=$before after=$after)"
+  }
+  Write-Ok "Verified remote updated: $before -> $after"
 }
 
 Write-Step 'Agent OS - commit and push'
