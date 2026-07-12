@@ -27,7 +27,11 @@ export const WORKFLOW_ID = 'ibkr-position-poller-paper';
 export const PARSE_SCRIPT_ID = 'script-ibkr-parse-checker';
 export const PARSE_EXIT_SCRIPT_ID = 'script-ibkr-parse-exit-reviews';
 
-const cfg = getIbkrTradingConfig();
+const cfg = {
+  ...getIbkrTradingConfig(),
+  makerModel: process.env.OPENAI_PRIMARY_MODEL || process.env.OPENAI_COO_MODEL || 'gpt-4o-mini',
+  checkerModel: process.env.OLLAMA_MODEL || 'llama3.2',
+};
 const backendBase = (process.env.AGENT_OS_API_URL || process.env.BACKEND_URL || 'http://127.0.0.1:3001').replace(
   /\/$/,
   ''
@@ -35,9 +39,18 @@ const backendBase = (process.env.AGENT_OS_API_URL || process.env.BACKEND_URL || 
 
 const MAKER_PROMPT = `You are the Maker for IBKR max-hold exit review. Output ONLY valid JSON.
 
+=== CHECKER REVISION RULES ===
+Checker feedback is injected at the TOP of the user message when present.
+- If feedback is non-empty: revise EACH review to address it; do not only rephrase notes.
+- If a request conflicts with max_hold / allowlist / order_learnings: keep the rule and explain in rationale.
+- Honor BRAIN HISTORY and ORDER HISTORY summaries in the user message — avoid repeating past reject / IB cancel themes.
+
 Positions at/over max_hold_days ({{var.max_hold_days}}) need a decision: SELL_TO_CLOSE or HOLD.
 HOLD may extend by at most {{var.max_hold_extension_days}} days (field extend_days).
-Allowlist: {{var.allowlist_keys}}
+Allowlist (instruments): {{var.allowlist}}
+Allowlist keys: {{var.allowlist_keys}}
+
+Use ORDER HISTORY (summarized cancels/fills) from the user message. Prefer exits that acknowledge prior IB cancel patterns when relevant.
 
 For each candidate provide detailed justification (thesis/risks/why_now style) so Checker can review.
 
@@ -60,15 +73,15 @@ Schema:
   "notes": "..."
 }
 
-Only include candidates from the user message. Checker feedback: {{parse-exit.adjustments}}
+Latest Checker adjustments (may be empty on first pass): {{parse-exit.adjustments}}
 `;
 
 const CHECKER_PROMPT = `You are the Checker for exit reviews. Output ONLY valid JSON:
 {"decision":"approved"|"rejected","adjustments":"...","notes":"..."}
 
-Approve only if each SELL/HOLD has clear justification. Reject vague HOLDs that dodge max_hold_days={{var.max_hold_days}}.
-Maker reviews:
-{{maker-exit.text}}
+Maker reviews are in the user message. Approve only if each SELL/HOLD has clear justification.
+Reject vague HOLDs that dodge max_hold_days={{var.max_hold_days}}.
+On reject: adjustments MUST be a non-empty concrete actionable string.
 `;
 
 export function buildIbkrPollerGraph({ parseScriptId = PARSE_SCRIPT_ID, parseExitId = PARSE_EXIT_SCRIPT_ID } = {}) {
@@ -103,7 +116,7 @@ export function buildIbkrPollerGraph({ parseScriptId = PARSE_SCRIPT_ID, parseExi
               id: 'body',
               mode: 'static',
               value:
-                '{"daily_budget_usd":{{var.daily_budget_usd}},"max_trades_per_day":{{var.max_trades_per_day}},"allowlist_keys":{{var.allowlist_keys}}}',
+                '{"daily_budget_usd":{{var.daily_budget_usd}},"max_trades_per_day":{{var.max_trades_per_day}},"allowlist":{{var.allowlist}},"allowlist_keys":{{var.allowlist_keys}}}',
             },
             {
               id: 'headers',
@@ -152,9 +165,65 @@ export function buildIbkrPollerGraph({ parseScriptId = PARSE_SCRIPT_ID, parseExi
         },
       },
       {
+        id: 'api-brain-history',
+        type: 'api',
+        position: { x: 740, y: 120 },
+        data: {
+          label: 'Brain history (summarized)',
+          inputBindings: [
+            { id: 'url', mode: 'static', value: `${backendBase}/api/agent-workflows/brain-history` },
+            {
+              id: 'body',
+              mode: 'static',
+              value: JSON.stringify({
+                workflow_id: ['ibkr-maker-checker-paper', 'ibkr-position-poller-paper'],
+                node_id: ['maker-1', 'checker-1', 'maker-exit', 'checker-exit'],
+                days: '{{var.brain_history_days}}',
+                response_type: 'summarized',
+                limit: 40,
+                purpose: 'IBKR poller Maker learning from prior maker/checker Brain audits',
+              }).replace('"{{var.brain_history_days}}"', '{{var.brain_history_days}}'),
+            },
+            {
+              id: 'headers',
+              mode: 'static',
+              value: JSON.stringify({ 'Content-Type': 'application/json', 'x-internal-test': '1' }),
+            },
+          ],
+          taskConfig: { method: 'POST', authType: 'none', timeoutMs: 120000 },
+        },
+      },
+      {
+        id: 'api-order-history',
+        type: 'api',
+        position: { x: 820, y: 120 },
+        data: {
+          label: 'Order history (summarized)',
+          inputBindings: [
+            { id: 'url', mode: 'static', value: `${backendBase}/api/ibkr-trading/order-learnings` },
+            {
+              id: 'body',
+              mode: 'static',
+              value: JSON.stringify({
+                days: '{{var.order_history_days}}',
+                response_type: 'summarized',
+                limit: 40,
+                purpose: 'IBKR poller Maker learning from prior order cancels/fills/rejects',
+              }).replace('"{{var.order_history_days}}"', '{{var.order_history_days}}'),
+            },
+            {
+              id: 'headers',
+              mode: 'static',
+              value: JSON.stringify({ 'Content-Type': 'application/json', 'x-internal-test': '1' }),
+            },
+          ],
+          taskConfig: { method: 'POST', authType: 'none', timeoutMs: 120000 },
+        },
+      },
+      {
         id: 'while-exit',
         type: 'while',
-        position: { x: 840, y: 120 },
+        position: { x: 900, y: 120 },
         data: {
           label: 'Exit maker↔checker',
           taskConfig: {
@@ -169,15 +238,15 @@ export function buildIbkrPollerGraph({ parseScriptId = PARSE_SCRIPT_ID, parseExi
       {
         id: 'maker-exit',
         type: 'brain',
-        position: { x: 1060, y: 40 },
+        position: { x: 1120, y: 40 },
         data: {
           label: 'Maker exit review',
           inputBindings: [
             {
               id: 'userMessage',
-              mode: 'dynamic',
-              sourceNodeId: 'api-candidates',
-              sourceOutputKey: 'bodyText',
+              mode: 'static',
+              value:
+                '=== CHECKER FEEDBACK (address every point on retries; empty on first pass) ===\n{{parse-exit.adjustments}}\n\n=== BRAIN HISTORY (prior maker/checker learnings, summarized) ===\n{{api-brain-history.body.context_text}}\n\n=== ORDER HISTORY (prior cancels/fills/rejects, summarized) ===\n{{api-order-history.body.context_text}}\n\n=== EXIT CANDIDATES / SNAPSHOT ===\n{{api-candidates.bodyText}}\n\n=== RUN REQUEST ===\n{{input}}',
             },
           ],
           taskConfig: {
@@ -195,15 +264,15 @@ export function buildIbkrPollerGraph({ parseScriptId = PARSE_SCRIPT_ID, parseExi
       {
         id: 'checker-exit',
         type: 'brain',
-        position: { x: 1280, y: 40 },
+        position: { x: 1340, y: 40 },
         data: {
           label: 'Checker exit review',
           inputBindings: [
             {
               id: 'userMessage',
-              mode: 'dynamic',
-              sourceNodeId: 'maker-exit',
-              sourceOutputKey: 'text',
+              mode: 'static',
+              value:
+                '=== MAKER EXIT REVIEWS ===\n{{maker-exit.text}}\n\n=== ORDER HISTORY (honor these) ===\n{{api-order-history.body.context_text}}',
             },
           ],
           taskConfig: {
@@ -343,7 +412,9 @@ export function buildIbkrPollerGraph({ parseScriptId = PARSE_SCRIPT_ID, parseExi
       { id: 'e1', source: 'trigger-1', target: 'api-snapshot' },
       { id: 'e2', source: 'api-snapshot', target: 'api-candidates' },
       { id: 'e3', source: 'api-candidates', target: 'if-candidates' },
-      { id: 'e4', source: 'if-candidates', target: 'while-exit', sourceHandle: 'true' },
+      { id: 'e4', source: 'if-candidates', target: 'api-brain-history', sourceHandle: 'true' },
+      { id: 'e4b', source: 'api-brain-history', target: 'api-order-history' },
+      { id: 'e4c', source: 'api-order-history', target: 'while-exit' },
       { id: 'e5', source: 'while-exit', target: 'maker-exit', sourceHandle: 'loop' },
       { id: 'e6', source: 'maker-exit', target: 'checker-exit' },
       { id: 'e7', source: 'checker-exit', target: 'parse-exit' },

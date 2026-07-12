@@ -10,15 +10,20 @@ Plan for connecting Interactive Brokers (IBKR) to Agent OS via MCP, and building
 
 Agreed scope for the first build. Hard gates are enforced in **custom_script** (and MCP write guards), not by LLM trust.
 
-### Markets & allowlist (no deviation)
+### Markets & allowlist (workflow variables — no code / .env)
 
-| Market | Symbols |
+Tradable instruments and trading policy are **workflow Variables** on the day-plan / poller definitions:
+
+| Variable | Purpose |
 |---|---|
-| US | `NASDAQ:NVDA`, `BATS:MAGS`, `NASDAQ:AMD` |
-| SG | `SGX:S68`, `SGX:S63` |
+| `allowlist` | Array of instruments: `key`, `symbol`, `exchange`, `market`, `currency`, `board_lot`, `sec_type` |
+| `allowlist_keys` | Derived keys (prompt convenience) |
+| `markets` | Labels for the maker |
+| `daily_budget_usd`, `max_trades_per_day`, `stop_pct_*`, `tp_pct_*`, `entry_slip_pct_max`, `max_hold_days`, … | Policy |
 
-- If SGX **minimum board lot** does not fit remaining budget → **fallback to US names only** for that plan slot.
-- Any ticker outside this list → reject.
+Seed scripts write an initial example universe into the definition once (`backend/scripts/ibkr-seed-variables.js`). After that, change tickers only in the Variables UI (or API) — not in code or `.env`.
+
+Gateway connection secrets stay in `.env`: `IBKR_HOST`, `IBKR_PORT`, `IBKR_CLIENT_ID`, `IBKR_ACCOUNT_ID`, `IBKR_IS_PAPER`, `IBKR_TRADING_ENABLED`.
 
 ### Capital & budget
 
@@ -73,7 +78,9 @@ Maker still needs OpenAI `apiKey` on the Brain node.
 
 | Piece | Location |
 |---|---|
-| Rules / allowlist / clamps | `backend/src/services/ibkr-trading-rules.js` |
+| Rules / clamps | `backend/src/services/ibkr-trading-rules.js` |
+| Variable helpers | `backend/src/services/ibkr-workflow-variables.js` |
+| Seed initial variables | `backend/scripts/ibkr-seed-variables.js` (written into definition once) |
 | Budget ledger (USD) | `backend/src/services/ibkr-trading-ledger.js` + SQLite tables |
 | HTTP API | `backend/src/routes/ibkr-trading.js` → `/api/ibkr-trading/*` |
 | Seed workflow | `backend/scripts/seed-ibkr-maker-checker-workflow.js` |
@@ -270,36 +277,55 @@ Pick one strategy and enforce it in code (not in LLM prompts alone).
 
 ---
 
-## 6. Environment variables
+## 6. Environment variables (Gateway connection only)
+
+Trading policy (allowlist, budget, stops, hold days, checker loops) is **not** in `.env` — set it on the workflow Variables panel.
 
 ```env
 # IB Gateway / TWS (paper first)
 IBKR_HOST=127.0.0.1
-IBKR_PORT=7497                    # 7497=paper, 7496=live
-IBKR_CLIENT_ID=1
+IBKR_PORT=4002                    # Gateway paper often 4002; TWS paper 7497
+IBKR_CLIENT_ID=17
+IBKR_ACCOUNT_ID=                  # optional; else first managed account
 IBKR_IS_PAPER=true
-
-# Trading guardrails (checked by custom_script / MCP write tools)
-IBKR_TRADING_ENABLED=0            # kill switch — 0 blocks all write tools
-IBKR_DAILY_BUDGET_USD=1000
-IBKR_MAX_TRADES_PER_DAY=10        # buy + sell placements
-IBKR_CHECKER_MAX_LOOPS=3
-IBKR_ALLOWLIST=NASDAQ:NVDA,BATS:MAGS,NASDAQ:AMD,SGX:S68,SGX:S63
-IBKR_STOP_PCT_MIN=1.5
-IBKR_STOP_PCT_MAX=2.0
-IBKR_TP_PCT_MIN=0.5
-IBKR_TP_PCT_MAX=2.0
-IBKR_ENTRY_SLIP_PCT_MAX=0.25      # max buy above reference
-IBKR_MAX_HOLD_DAYS=5
-IBKR_REQUIRE_CEO_DAY_PLAN=1
-IBKR_NO_MARGIN=1                  # cash only
-
-IBKR_MAKER_MODEL=gpt-5.5
-IBKR_CHECKER_MODEL=llama3.2
-IBKR_CHECKER_MODEL_SOURCE=ollama
+IBKR_TRADING_ENABLED=0            # kill switch — 0 = ledger dry-run only
+IBKR_ALLOW_LIVE=0                 # must be 1 to place if IBKR_IS_PAPER=false
 ```
 
-Add to `backend/.env.example` and `deploy/.env.example` when implementing.
+See `backend/.env.example`.
+
+### Order events + reconcile (30-day learnings)
+
+- Table `ibkr_order_events` stores place/cancel/fill/reconcile events (`status`, `reason_code`, `reason_text`, `source`, IB order id).
+- Retention: **30 days** (pruned on write).
+- Each `POST /account-snapshot` **reconciles** `reserved` ledger rows vs live open orders/positions and attaches `order_learnings` for the Maker.
+- Workflow cancels use standard reasons: `workflow_dayplan_cancel`, `workflow_poller_cancel`, `workflow_cancel_before_sell`, `workflow_e2e_cancel_all`.
+- APIs: `GET|POST /api/ibkr-trading/order-events`, `GET|POST /api/ibkr-trading/order-learnings`
+  - `days` (e.g. 3 / 7 / 30, max retention 30), optional `symbol_key`, `limit`
+  - `response_type`: `actual` (events + heuristic learnings + `context_text`) | `summarized` (platform LLM → `context_text` / `bodyText`)
+
+### Brain history (maker/checker audit → Maker context)
+
+- Platform API: `POST|GET /api/agent-workflows/brain-history`
+- Body: `workflow_id[]`, `node_id[]`, `days` (e.g. 7/30), `response_type`: `actual` | `summarized`, optional `limit`
+- `actual` returns Brain step I/O from `agent_workflow_run_steps`; `summarized` uses platform LLM (`.env` OPENAI_*) to compress into `context_text` for prompts
+- Day-plan / poller call this with `response_type=summarized` before the maker loop and inject `{{api-brain-history.body.context_text}}` into Maker user message
+- Variable: `brain_history_days` (default 7)
+
+### Order history in workflows
+
+- Day-plan / poller call `POST /api/ibkr-trading/order-learnings` with `response_type=summarized` after brain-history
+- Inject `{{api-order-history.body.context_text}}` into Maker and Checker user messages
+- Variable: `order_history_days` (default 7)
+
+### Portfolio analytics (fills / PnL / cash)
+
+- Durable tables: `ibkr_fills`, `ibkr_position_snapshots`, `ibkr_realized_pnl`, `ibkr_cash_events`
+- Snapshot persist + fill confirm wired from place watch / reconcile / `confirmFill`
+- Entitled APIs (session owner only):  
+  `GET|POST /api/ibkr-trading/analytics/summary`,  
+  `GET .../fills`, `/positions`, `/pnl`, `/cash-events`
+- Content tools for agents: `ibkr_portfolio_analytics`, `ibkr_fills_history`, `ibkr_pnl`, `ibkr_cash_events`
 
 ---
 

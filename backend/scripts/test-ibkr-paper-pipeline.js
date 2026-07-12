@@ -13,12 +13,15 @@ import { initDb } from '../src/db/schema.js';
 import { getBalaCeoAuthId } from '../src/services/job-applicant-ceo.js';
 import * as ledger from '../src/services/ibkr-trading-ledger.js';
 import { getIbkrTradingConfig } from '../src/services/ibkr-trading-rules.js';
+import { IBKR_DAY_PLAN_VARIABLES } from './ibkr-workflow-variables.js';
+import { resolveIbkrPolicy } from '../src/services/ibkr-workflow-variables.js';
 
 initDb();
 ledger.ensureIbkrLedgerTables();
 
 const owner = getBalaCeoAuthId();
 const cfg = getIbkrTradingConfig();
+const policy = resolveIbkrPolicy(IBKR_DAY_PLAN_VARIABLES);
 
 const samplePlan = {
   trades: [
@@ -30,6 +33,9 @@ const samplePlan = {
       entry_price: 120.2,
       stop_pct: 1.8,
       tp_pct: 1.0,
+      thesis: 'NVDA 1-3m uptrend with higher lows.',
+      risks: 'Chip cycle and valuation compression.',
+      why_now: 'Pullback offers a small paper probe.',
       rationale:
         'NVDA 1-3m uptrend with higher lows; semiconductor demand supports a small paper probe within budget.',
     },
@@ -40,22 +46,33 @@ const samplePlan = {
 
 console.log('=== IBKR paper pipeline test ===');
 console.log('owner', owner);
-console.log('config', {
+console.log('gateway', {
   paper: cfg.isPaper,
   tradingEnabled: cfg.tradingEnabled,
-  budget: cfg.dailyBudgetUsd,
-  maxTrades: cfg.maxTradesPerDay,
   port: process.env.IBKR_PORT || 7497,
 });
+console.log('policy budget', policy.daily_budget_usd, 'max trades', policy.max_trades_per_day);
 
-const pre = ledger.preflight(owner, { cashUsd: 1000 });
+const pre = ledger.preflight(owner, {
+  cashUsd: 1000,
+  budgetUsd: policy.daily_budget_usd,
+  maxTradesPerDay: policy.max_trades_per_day,
+});
 console.log('\n1) preflight', { ok: pre.ok, spendable: pre.status?.spendable_usd, trades_remaining: pre.status?.trades_remaining });
 if (!pre.ok) {
   console.error('FAIL preflight', pre.error);
   process.exit(1);
 }
 
-const val = ledger.validateAndPreview(owner, samplePlan, { cashUsd: 1000 });
+const val = ledger.validateAndPreview(owner, samplePlan, {
+  cashUsd: 1000,
+  allowlist: policy.allowlist,
+  allowlistKeys: policy.allowlist_keys,
+  policy,
+  budgetUsd: policy.daily_budget_usd,
+  maxTradesPerDay: policy.max_trades_per_day,
+  minRationaleChars: 40,
+});
 console.log('\n2) validate', {
   ok: val.ok,
   place: val.trades_to_place?.length,
@@ -67,7 +84,7 @@ if (!val.ok || !val.trades_to_place?.length) {
   process.exit(1);
 }
 
-const place = ledger.recordPlaceAttempt(owner, val.trades_to_place, { dryRun: true });
+const place = await ledger.recordPlaceAttempt(owner, val.trades_to_place, { dryRun: true });
 console.log('\n3) dry-run place', {
   ok: place.ok,
   dry_run: place.dry_run,

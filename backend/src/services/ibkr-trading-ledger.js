@@ -4,6 +4,8 @@
  */
 import { getDb } from '../db/schema.js';
 import { getIbkrTradingConfig, validateTradePlanStrict } from './ibkr-trading-rules.js';
+import { IBKR_POLICY_DEFAULTS } from './ibkr-workflow-variables.js';
+import { recordFill } from './ibkr-analytics.js';
 
 function todayUtc() {
   return new Date().toISOString().slice(0, 10);
@@ -40,15 +42,40 @@ export function ensureIbkrLedgerTables(db = getDb()) {
 
     CREATE INDEX IF NOT EXISTS idx_ibkr_reservations_owner_day
       ON ibkr_trade_reservations(owner_user_id, day, status);
+
+    CREATE TABLE IF NOT EXISTS ibkr_order_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      owner_user_id TEXT NOT NULL,
+      reservation_id INTEGER,
+      run_id INTEGER,
+      symbol_key TEXT,
+      symbol TEXT,
+      side TEXT,
+      ib_order_id INTEGER,
+      status TEXT NOT NULL,
+      reason_code TEXT,
+      reason_text TEXT,
+      source TEXT,
+      error_code INTEGER,
+      qty REAL,
+      detail_json TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_ibkr_order_events_owner_created
+      ON ibkr_order_events(owner_user_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_ibkr_order_events_symbol
+      ON ibkr_order_events(owner_user_id, symbol_key, created_at DESC);
   `);
 }
 
 function getOrCreateDay(ownerUserId, day = todayUtc(), { budgetUsd = null } = {}) {
   ensureIbkrLedgerTables();
   const db = getDb();
-  const cfg = getIbkrTradingConfig();
   const budget =
-    budgetUsd != null && Number.isFinite(Number(budgetUsd)) ? Number(budgetUsd) : cfg.dailyBudgetUsd;
+    budgetUsd != null && Number.isFinite(Number(budgetUsd))
+      ? Number(budgetUsd)
+      : IBKR_POLICY_DEFAULTS.daily_budget_usd;
   let row = db
     .prepare('SELECT * FROM ibkr_budget_days WHERE owner_user_id = ? AND day = ?')
     .get(ownerUserId, day);
@@ -71,7 +98,7 @@ function getOrCreateDay(ownerUserId, day = todayUtc(), { budgetUsd = null } = {}
 
 export function getDayStatus(
   ownerUserId,
-  { cashUsd = null, day = todayUtc(), budgetUsd = null, maxTradesPerDay = null } = {}
+  { cashUsd = null, day = todayUtc(), budgetUsd = null, maxTradesPerDay = null, allowlistKeys = null } = {}
 ) {
   const cfg = getIbkrTradingConfig();
   const row = getOrCreateDay(ownerUserId, day, { budgetUsd });
@@ -80,7 +107,8 @@ export function getDayStatus(
   const budgetRemaining = Math.max(0, Number(row.budget_usd) - reserved - consumed);
   const cash = cashUsd == null ? budgetRemaining : Number(cashUsd);
   const spendable = Math.max(0, Math.min(budgetRemaining, cash));
-  const maxTrades = maxTradesPerDay != null ? Number(maxTradesPerDay) : cfg.maxTradesPerDay;
+  const maxTrades =
+    maxTradesPerDay != null ? Number(maxTradesPerDay) : IBKR_POLICY_DEFAULTS.max_trades_per_day;
   return {
     day,
     budget_usd: Number(row.budget_usd),
@@ -94,7 +122,7 @@ export function getDayStatus(
     residual: JSON.parse(row.residual_json || '[]'),
     trading_enabled: cfg.tradingEnabled,
     is_paper: cfg.isPaper,
-    allowlist: cfg.allowlistKeys,
+    allowlist_keys: Array.isArray(allowlistKeys) ? allowlistKeys : [],
     max_trades_per_day: maxTrades,
   };
 }
@@ -124,7 +152,9 @@ export function validateAndPreview(
   {
     cashUsd = null,
     positions = [],
+    allowlist = null,
     allowlistKeys = null,
+    policy = null,
     pendingSellSymbols = [],
     blockDuplicateBuys = true,
     minRationaleChars = 80,
@@ -132,13 +162,20 @@ export function validateAndPreview(
     maxTradesPerDay = null,
   } = {}
 ) {
-  const status = getDayStatus(ownerUserId, { cashUsd, budgetUsd, maxTradesPerDay });
+  const status = getDayStatus(ownerUserId, {
+    cashUsd,
+    budgetUsd,
+    maxTradesPerDay,
+    allowlistKeys,
+  });
   const result = validateTradePlanStrict(plan, {
     cashUsd: cashUsd == null ? status.spendable_usd : cashUsd,
     budgetRemainingUsd: status.budget_remaining_usd,
     tradesUsed: status.trades_placed,
     positions,
+    allowlist: allowlist || undefined,
     allowlistKeys: allowlistKeys || undefined,
+    policy: policy || undefined,
     pendingSellSymbols,
     blockDuplicateBuys,
     minRationaleChars,
@@ -157,12 +194,12 @@ export function reserveTrades(
 ) {
   ensureIbkrLedgerTables();
   const db = getDb();
-  const cfg = getIbkrTradingConfig();
   const status = getDayStatus(ownerUserId, { day, budgetUsd, maxTradesPerDay });
   const list = Array.isArray(trades) ? trades : [];
   if (!list.length) return { ok: false, error: 'No trades to reserve', reservations: [] };
 
-  const maxTrades = maxTradesPerDay != null ? Number(maxTradesPerDay) : cfg.maxTradesPerDay;
+  const maxTrades =
+    maxTradesPerDay != null ? Number(maxTradesPerDay) : IBKR_POLICY_DEFAULTS.max_trades_per_day;
   if (status.trades_placed + list.length > maxTrades) {
     return { ok: false, error: 'Exceeds max trades per day', reservations: [] };
   }
@@ -238,8 +275,11 @@ export function releaseReservation(reservationId, { reason = 'rejected' } = {}) 
   return { ok: true, day_status: getDayStatus(row.owner_user_id, { day: row.day }) };
 }
 
-/** Mark reserved → filled (keep budget consumed). */
-export function confirmFill(reservationId) {
+/** Mark reserved → filled (keep budget consumed) and record durable fill. */
+export function confirmFill(
+  reservationId,
+  { fillPrice = null, fillQty = null, ibOrderId = null, source = 'confirm_fill', avgCostForPnl = null } = {}
+) {
   ensureIbkrLedgerTables();
   const db = getDb();
   const row = db.prepare('SELECT * FROM ibkr_trade_reservations WHERE id = ?').get(reservationId);
@@ -261,7 +301,42 @@ export function confirmFill(reservationId) {
     }
   });
   tx();
-  return { ok: true, day_status: getDayStatus(row.owner_user_id, { day: row.day }) };
+
+  let fillResult = null;
+  try {
+    const detail = row.detail_json ? JSON.parse(row.detail_json) : {};
+    const qty = fillQty != null ? Number(fillQty) : Number(row.qty);
+    const price =
+      fillPrice != null
+        ? Number(fillPrice)
+        : detail.entry_price != null
+          ? Number(detail.entry_price)
+          : Number(row.notional_usd) && qty
+            ? Number(row.notional_usd) / qty
+            : null;
+    fillResult = recordFill({
+      ownerUserId: row.owner_user_id,
+      reservationId: row.id,
+      runId: row.run_id,
+      symbolKey: row.symbol_key,
+      side: row.side,
+      qty,
+      fillPrice: price,
+      notionalUsd: price != null && qty ? Number((price * qty).toFixed(4)) : Number(row.notional_usd),
+      ibOrderId,
+      source,
+      avgCostForPnl,
+      detail: { reservation_detail: detail },
+    });
+  } catch (e) {
+    console.warn('[ibkr] recordFill after confirmFill:', e.message);
+  }
+
+  return {
+    ok: true,
+    day_status: getDayStatus(row.owner_user_id, { day: row.day }),
+    fill: fillResult,
+  };
 }
 
 export function saveResidual(ownerUserId, residual, { day = todayUtc() } = {}) {
@@ -320,10 +395,106 @@ export async function recordPlaceAttempt(
   }
 
   const { placeBracketTrades } = await import('./ibkr-gateway-client.js');
-  const submit = await placeBracketTrades(trades || []);
+  const {
+    recordOrderEvent,
+    IBKR_ORDER_REASON,
+    reasonFromIbMessage,
+  } = await import('./ibkr-order-events.js');
+
+  const submit = await placeBracketTrades(trades || [], {
+    ownerUserId,
+    runId,
+    // Post-ack watch catches immediate IB system cancels (crypto paper, etc.)
+    postAckWatchMs: 8000,
+  });
+
+  const byKey = new Map((reserved.reservations || []).map((r) => [String(r.key || r.symbol_key), r]));
+
+  for (const gr of submit.results || []) {
+    const resRow = byKey.get(String(gr.key || ''));
+    if (gr.ok) {
+      for (const oid of gr.orderIds || []) {
+        recordOrderEvent({
+          owner_user_id: ownerUserId,
+          reservation_id: resRow?.id ?? null,
+          run_id: runId,
+          symbol_key: gr.key,
+          symbol: gr.contract?.symbol || null,
+          side: gr.side || resRow?.side,
+          ib_order_id: oid,
+          status: gr.terminal_status || 'Submitted',
+          reason_code: gr.terminal_reason_code || IBKR_ORDER_REASON.PLACED_ACK,
+          reason_text: gr.terminal_reason_text || 'Gateway openOrder ack',
+          source: 'place',
+          qty: resRow?.qty,
+          detail: { orderIds: gr.orderIds, note: gr.note || null },
+        });
+      }
+      // Immediate cancel after ack → release reservation
+      if (gr.terminal_cancelled && resRow?.id) {
+        releaseReservation(resRow.id, { reason: 'cancelled' });
+        recordOrderEvent({
+          owner_user_id: ownerUserId,
+          reservation_id: resRow.id,
+          run_id: runId,
+          symbol_key: gr.key,
+          side: gr.side || resRow.side,
+          status: 'Cancelled',
+          ...reasonFromIbMessage(gr.terminal_reason_text || 'IB cancelled after place ack'),
+          source: 'place_watch',
+          qty: resRow.qty,
+        });
+      } else if (
+        !gr.terminal_cancelled &&
+        String(gr.terminal_status || '').toLowerCase() === 'filled' &&
+        resRow?.id
+      ) {
+        confirmFill(resRow.id, {
+          fillPrice: gr.avg_fill_price ?? resRow.entry_price ?? null,
+          fillQty: gr.filled_qty ?? resRow.qty,
+          ibOrderId: (gr.orderIds || [])[0] ?? null,
+          source: 'place_watch',
+        });
+        recordOrderEvent({
+          owner_user_id: ownerUserId,
+          reservation_id: resRow.id,
+          run_id: runId,
+          symbol_key: gr.key,
+          side: gr.side || resRow.side,
+          status: 'Filled',
+          reason_code: IBKR_ORDER_REASON.FILLED,
+          reason_text: gr.terminal_reason_text || 'Filled during post-ack watch',
+          source: 'place_watch',
+          qty: resRow.qty,
+          detail: { avg_fill_price: gr.avg_fill_price ?? null },
+        });
+      }
+    } else {
+      const parsed = reasonFromIbMessage(gr.error || 'place failed', { status: 'Rejected' });
+      recordOrderEvent({
+        owner_user_id: ownerUserId,
+        reservation_id: resRow?.id ?? null,
+        run_id: runId,
+        symbol_key: gr.key,
+        side: resRow?.side,
+        status: 'Rejected',
+        reason_code: IBKR_ORDER_REASON.PLACE_FAILED,
+        reason_text: gr.error || parsed.reason_text,
+        source: 'place',
+        qty: resRow?.qty,
+      });
+    }
+  }
+
   if (!submit.ok) {
     for (const r of reserved.reservations || []) {
-      releaseReservation(r.id, { reason: 'place_failed' });
+      // Skip already released by terminal_cancelled
+      const still = getDb()
+        .prepare('SELECT status FROM ibkr_trade_reservations WHERE id = ?')
+        .get(r.id);
+      if (still?.status === 'reserved') {
+        releaseReservation(r.id, { reason: 'place_failed' });
+      }
     }
     return {
       ok: false,
@@ -337,6 +508,7 @@ export async function recordPlaceAttempt(
     };
   }
 
+  // Partial: some ok some cancelled after ack — still report placed if any survived
   return {
     ok: true,
     placed: true,

@@ -256,7 +256,7 @@ export async function executeApiTask(resolvedInputs, nodeConfig = {}, context = 
   if (!url) throw new Error('API URL is required');
 
   const method = (cfg.method || 'POST').toUpperCase();
-  const timeoutMs = Number(cfg.timeoutMs || 60000);
+  const timeoutMs = Number(cfg.timeoutMs || 20 * 60 * 1000);
 
   let headers = buildApiRequestHeaders(cfg, context, resolvedInputs.headers);
 

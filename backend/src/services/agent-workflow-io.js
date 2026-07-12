@@ -127,6 +127,10 @@ export function resolveNodeInputs(node, graph, context) {
       }
     } else {
       value = binding.value != null ? String(binding.value) : '';
+      // Allow {{nodeId.key}} / {{var.key}} in static bindings (e.g. compose maker user message)
+      if (value.includes('{{')) {
+        value = renderWorkflowTemplates(value, context);
+      }
       source = 'static';
     }
 

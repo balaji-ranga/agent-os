@@ -1,52 +1,44 @@
 /**
  * Hard trading rules for IBKR maker/checker workflow (no LLM trust).
+ * Tradable instruments + policy come from workflow variables, not .env.
  */
+import {
+  findInAllowlist,
+  normalizeAllowlist,
+  allowlistKeysFrom,
+  resolveIbkrPolicy,
+  IBKR_POLICY_DEFAULTS,
+} from './ibkr-workflow-variables.js';
 
-export const IBKR_ALLOWLIST = Object.freeze([
-  { key: 'NASDAQ:NVDA', symbol: 'NVDA', exchange: 'NASDAQ', market: 'US', currency: 'USD', boardLot: 1 },
-  { key: 'BATS:MAGS', symbol: 'MAGS', exchange: 'BATS', market: 'US', currency: 'USD', boardLot: 1 },
-  { key: 'NASDAQ:AMD', symbol: 'AMD', exchange: 'NASDAQ', market: 'US', currency: 'USD', boardLot: 1 },
-  { key: 'SGX:S68', symbol: 'S68', exchange: 'SGX', market: 'SG', currency: 'SGD', boardLot: 100 },
-  { key: 'SGX:S63', symbol: 'S63', exchange: 'SGX', market: 'SG', currency: 'SGD', boardLot: 100 },
-]);
+function isQtyMultipleOfLot(qty, lot) {
+  const q = Number(qty);
+  const l = Number(lot);
+  if (!(q > 0)) return false;
+  if (!(l > 0)) return true;
+  const n = q / l;
+  return Math.abs(n - Math.round(n)) < 1e-8;
+}
 
+/**
+ * Gateway / process safety flags only (connection secrets stay in .env).
+ * Trading policy (budget, allowlist, stops) is NOT here — use resolveIbkrPolicy(workflow.variables).
+ */
 export function getIbkrTradingConfig() {
-  const allowlist = String(process.env.IBKR_ALLOWLIST || '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const keys = allowlist.length ? allowlist : IBKR_ALLOWLIST.map((a) => a.key);
   return {
     tradingEnabled: process.env.IBKR_TRADING_ENABLED === '1' || process.env.IBKR_TRADING_ENABLED === 'true',
     isPaper: process.env.IBKR_IS_PAPER !== '0' && process.env.IBKR_IS_PAPER !== 'false',
-    dailyBudgetUsd: Number(process.env.IBKR_DAILY_BUDGET_USD || 1000),
-    maxTradesPerDay: Number(process.env.IBKR_MAX_TRADES_PER_DAY || 10),
-    checkerMaxLoops: Number(process.env.IBKR_CHECKER_MAX_LOOPS || 3),
-    stopPctMin: Number(process.env.IBKR_STOP_PCT_MIN || 1.5),
-    stopPctMax: Number(process.env.IBKR_STOP_PCT_MAX || 2.0),
-    tpPctMin: Number(process.env.IBKR_TP_PCT_MIN || 0.5),
-    tpPctMax: Number(process.env.IBKR_TP_PCT_MAX || 2.0),
-    entrySlipPctMax: Number(process.env.IBKR_ENTRY_SLIP_PCT_MAX || 0.25),
-    maxHoldDays: Number(process.env.IBKR_MAX_HOLD_DAYS || 5),
-    noMargin: process.env.IBKR_NO_MARGIN !== '0',
-    sgdUsdRate: Number(process.env.IBKR_SGD_USD_RATE || 0.74),
-    allowlistKeys: keys,
-    makerModel: process.env.IBKR_MAKER_MODEL || 'gpt-5.5',
-    checkerModel: process.env.IBKR_CHECKER_MODEL || process.env.OLLAMA_MODEL || 'llama3.2',
-    checkerModelSource: process.env.IBKR_CHECKER_MODEL_SOURCE || 'ollama',
   };
 }
 
-export function findAllowlistEntry(symbolOrKey) {
-  const raw = String(symbolOrKey || '').trim().toUpperCase();
-  if (!raw) return null;
-  return (
-    IBKR_ALLOWLIST.find((a) => a.key === raw) ||
-    IBKR_ALLOWLIST.find((a) => a.symbol === raw) ||
-    IBKR_ALLOWLIST.find((a) => raw.endsWith(`:${a.symbol}`)) ||
-    null
-  );
+/**
+ * Resolve instrument meta from a workflow allowlist catalog.
+ * catalog required — empty/missing → not found.
+ */
+export function findAllowlistEntry(symbolOrKey, catalog = []) {
+  return findInAllowlist(symbolOrKey, catalog);
 }
+
+export { normalizeAllowlist, allowlistKeysFrom, resolveIbkrPolicy, IBKR_POLICY_DEFAULTS };
 
 export function toUsd(amount, currency, sgdUsdRate) {
   const n = Number(amount) || 0;
@@ -58,6 +50,24 @@ export function toUsd(amount, currency, sgdUsdRate) {
 
 function clamp(n, min, max) {
   return Math.min(max, Math.max(min, n));
+}
+
+function policyFromOpts(opts = {}) {
+  if (opts.policy) return opts.policy;
+  return resolveIbkrPolicy({
+    allowlist: opts.allowlist || opts.allowlistInstruments,
+    allowlist_keys: opts.allowlistKeys,
+    daily_budget_usd: opts.dailyBudgetUsd ?? opts.daily_budget_usd,
+    max_trades_per_day: opts.maxTradesPerDay ?? opts.max_trades_per_day,
+    stop_pct_min: opts.stopPctMin ?? opts.stop_pct_min,
+    stop_pct_max: opts.stopPctMax ?? opts.stop_pct_max,
+    tp_pct_min: opts.tpPctMin ?? opts.tp_pct_min,
+    tp_pct_max: opts.tpPctMax ?? opts.tp_pct_max,
+    entry_slip_pct_max: opts.entrySlipPctMax ?? opts.entry_slip_pct_max,
+    sgd_usd_rate: opts.sgdUsdRate ?? opts.sgd_usd_rate,
+    min_rationale_chars: opts.minRationaleChars ?? opts.min_rationale_chars,
+    block_duplicate_buys: opts.blockDuplicateBuys ?? opts.block_duplicate_buys,
+  });
 }
 
 /**
@@ -118,28 +128,33 @@ export function parseCheckerDecision(raw) {
 
 /**
  * Validate a day plan against hard gates. Does not touch the ledger.
- * opts.allowlistKeys — workflow variable override (subset of known meta).
- * opts.pendingSellSymbols — symbols with working SELL orders.
- * opts.blockDuplicateBuys — reject BUY if already long.
- * opts.minRationaleChars — default 80.
+ * opts.allowlist / opts.policy — from workflow variables (source of truth).
  */
 export function validateTradePlan(planInput, opts = {}) {
-  const cfg = getIbkrTradingConfig();
+  const policy = policyFromOpts(opts);
+  const catalog = policy.allowlist.length
+    ? policy.allowlist
+    : normalizeAllowlist(opts.allowlist || opts.allowlistInstruments || []);
   const allowlistKeys =
     Array.isArray(opts.allowlistKeys) && opts.allowlistKeys.length
       ? opts.allowlistKeys.map((k) => String(k).toUpperCase())
-      : cfg.allowlistKeys;
+      : catalog.map((a) => a.key);
   const cashUsd = Number(opts.cashUsd ?? opts.cash_usd ?? Infinity);
   const budgetRemainingUsd = Number(
-    opts.budgetRemainingUsd ?? opts.budget_remaining_usd ?? cfg.dailyBudgetUsd
+    opts.budgetRemainingUsd ?? opts.budget_remaining_usd ?? policy.daily_budget_usd
   );
   const tradesUsed = Number(opts.tradesUsed ?? opts.trades_used ?? 0);
   const positions = opts.positions || [];
   const pendingSellSymbols = new Set(
     (opts.pendingSellSymbols || opts.pending_sell_symbols || []).map((s) => String(s).toUpperCase())
   );
-  const blockDuplicateBuys = opts.blockDuplicateBuys !== false && opts.block_duplicate_buys !== false;
-  const minRationale = Number(opts.minRationaleChars ?? opts.min_rationale_chars ?? 80);
+  const blockDuplicateBuys =
+    opts.blockDuplicateBuys != null
+      ? opts.blockDuplicateBuys !== false
+      : policy.block_duplicate_buys !== false;
+  const minRationale = Number(
+    opts.minRationaleChars ?? opts.min_rationale_chars ?? policy.min_rationale_chars
+  );
 
   const { ok: parsedOk, error: parseError, plan } = parseTradePlan(planInput);
   if (!parsedOk) return { ok: false, error: parseError, trades_to_place: [], residual: [], spendable_usd: 0 };
@@ -157,15 +172,19 @@ export function validateTradePlan(planInput, opts = {}) {
         residual: residualOnly,
         spendable_usd: Number(Math.max(0, Math.min(budgetRemainingUsd, cashUsd)).toFixed(2)),
         reserved_usd: 0,
-        slots_left: Math.max(0, Number(opts.maxTradesPerDay ?? opts.max_trades_per_day ?? cfg.maxTradesPerDay) - tradesUsed),
+        slots_left: Math.max(
+          0,
+          Number(opts.maxTradesPerDay ?? opts.max_trades_per_day ?? policy.max_trades_per_day) - tradesUsed
+        ),
         us_only_fallback_hint: false,
         allowlist_keys: allowlistKeys,
+        allowlist: catalog,
         no_trade_day: true,
         config: {
-          daily_budget_usd: cfg.dailyBudgetUsd,
-          max_trades_per_day: cfg.maxTradesPerDay,
-          stop_pct: [cfg.stopPctMin, cfg.stopPctMax],
-          tp_pct: [cfg.tpPctMin, cfg.tpPctMax],
+          daily_budget_usd: policy.daily_budget_usd,
+          max_trades_per_day: policy.max_trades_per_day,
+          stop_pct: [policy.stop_pct_min, policy.stop_pct_max],
+          tp_pct: [policy.tp_pct_min, policy.tp_pct_max],
           min_rationale_chars: minRationale,
         },
       };
@@ -174,13 +193,13 @@ export function validateTradePlan(planInput, opts = {}) {
   }
 
   const spendable = Math.max(0, Math.min(budgetRemainingUsd, cashUsd));
-  const maxTrades = Number(opts.maxTradesPerDay ?? opts.max_trades_per_day ?? cfg.maxTradesPerDay);
+  const maxTrades = Number(opts.maxTradesPerDay ?? opts.max_trades_per_day ?? policy.max_trades_per_day);
   const slotsLeft = Math.max(0, maxTrades - tradesUsed);
   const held = new Set(
     (positions || []).map((p) => String(p.symbol || p.key || '').toUpperCase()).filter(Boolean)
   );
   for (const p of positions || []) {
-    const meta = findAllowlistEntry(p.key || p.symbol);
+    const meta = findAllowlistEntry(p.key || p.symbol, catalog);
     if (meta) {
       held.add(meta.key);
       held.add(meta.symbol);
@@ -193,7 +212,7 @@ export function validateTradePlan(planInput, opts = {}) {
 
   for (let i = 0; i < trades.length; i++) {
     const t = trades[i] || {};
-    const entryMeta = findAllowlistEntry(t.key || t.symbol || t.ticker);
+    const entryMeta = findAllowlistEntry(t.key || t.symbol || t.ticker, catalog);
     if (!entryMeta || !allowlistKeys.includes(entryMeta.key)) {
       errors.push(`Trade ${i + 1}: symbol not on allowlist (${t.key || t.symbol})`);
       continue;
@@ -241,26 +260,24 @@ export function validateTradePlan(planInput, opts = {}) {
       errors.push(`Trade ${i + 1}: reference_price, entry_price, qty required`);
       continue;
     }
-    if (qty % entryMeta.boardLot !== 0) {
-      if (entryMeta.market === 'SG') {
-        errors.push(`Trade ${i + 1}: SGX board lot is ${entryMeta.boardLot}; qty ${qty} invalid`);
-        continue;
-      }
-      errors.push(`Trade ${i + 1}: qty must be multiple of board lot ${entryMeta.boardLot}`);
+    if (!isQtyMultipleOfLot(qty, entryMeta.boardLot)) {
+      errors.push(
+        `Trade ${i + 1}: qty must be a multiple of board_lot ${entryMeta.boardLot} for ${entryMeta.key} (got ${qty})`
+      );
       continue;
     }
     if (side === 'BUY') {
-      const maxEntry = ref * (1 + cfg.entrySlipPctMax / 100);
+      const maxEntry = ref * (1 + policy.entry_slip_pct_max / 100);
       if (entry > maxEntry + 1e-9) {
-        errors.push(`Trade ${i + 1}: entry ${entry} exceeds +${cfg.entrySlipPctMax}% of ref ${ref}`);
+        errors.push(`Trade ${i + 1}: entry ${entry} exceeds +${policy.entry_slip_pct_max}% of ref ${ref}`);
         continue;
       }
-      if (stopPct < cfg.stopPctMin || stopPct > cfg.stopPctMax) {
-        errors.push(`Trade ${i + 1}: stop_pct must be ${cfg.stopPctMin}-${cfg.stopPctMax}`);
+      if (stopPct < policy.stop_pct_min || stopPct > policy.stop_pct_max) {
+        errors.push(`Trade ${i + 1}: stop_pct must be ${policy.stop_pct_min}-${policy.stop_pct_max}`);
         continue;
       }
-      if (tpPct < cfg.tpPctMin || tpPct > cfg.tpPctMax) {
-        errors.push(`Trade ${i + 1}: tp_pct must be ${cfg.tpPctMin}-${cfg.tpPctMax}`);
+      if (tpPct < policy.tp_pct_min || tpPct > policy.tp_pct_max) {
+        errors.push(`Trade ${i + 1}: tp_pct must be ${policy.tp_pct_min}-${policy.tp_pct_max}`);
         continue;
       }
       if (!thesis || !risks || !whyNow) {
@@ -276,10 +293,13 @@ export function validateTradePlan(planInput, opts = {}) {
     }
 
     const notionalNative = entry * qty;
-    const notionalUsd = side === 'BUY' ? toUsd(notionalNative, entryMeta.currency, cfg.sgdUsdRate) : 0;
+    const notionalUsd = side === 'BUY' ? toUsd(notionalNative, entryMeta.currency, policy.sgd_usd_rate) : 0;
     const stopPrice =
       side === 'BUY' ? entry * (1 - stopPct / 100) : entry * (1 + (stopPct || 0) / 100);
     const tpPrice = side === 'BUY' ? entry * (1 + tpPct / 100) : entry * (1 - (tpPct || 0) / 100);
+    const priceDecimals = entryMeta.secType === 'CRYPTO' ? 2 : 4;
+    const roundTick = (p) =>
+      entryMeta.secType === 'CRYPTO' ? Math.round(Number(p) * 4) / 4 : Number(Number(p).toFixed(priceDecimals));
 
     normalized.push({
       key: entryMeta.key,
@@ -287,14 +307,15 @@ export function validateTradePlan(planInput, opts = {}) {
       exchange: entryMeta.exchange,
       market: entryMeta.market,
       currency: entryMeta.currency,
+      secType: entryMeta.secType || 'STK',
       side,
       qty,
-      reference_price: ref,
-      entry_price: entry,
-      stop_pct: side === 'BUY' ? clamp(stopPct, cfg.stopPctMin, cfg.stopPctMax) : stopPct,
-      tp_pct: side === 'BUY' ? clamp(tpPct, cfg.tpPctMin, cfg.tpPctMax) : tpPct,
-      stop_price: Number(stopPrice.toFixed(4)),
-      tp_price: Number(tpPrice.toFixed(4)),
+      reference_price: roundTick(ref),
+      entry_price: roundTick(entry),
+      stop_pct: side === 'BUY' ? clamp(stopPct, policy.stop_pct_min, policy.stop_pct_max) : stopPct,
+      tp_pct: side === 'BUY' ? clamp(tpPct, policy.tp_pct_min, policy.tp_pct_max) : tpPct,
+      stop_price: roundTick(stopPrice),
+      tp_price: roundTick(tpPrice),
       notional_native: Number(notionalNative.toFixed(2)),
       notional_usd: Number(notionalUsd.toFixed(2)),
       rationale: combinedJustification,
@@ -306,8 +327,7 @@ export function validateTradePlan(planInput, opts = {}) {
     });
   }
 
-  const sgLotFails = errors.some((e) => e.includes('SGX board lot'));
-  const usOnlyFallbackHint = sgLotFails;
+  const usOnlyFallbackHint = errors.some((e) => /for SGX:/i.test(String(e)));
 
   const placeable = [];
   const residual = [];
@@ -326,7 +346,8 @@ export function validateTradePlan(planInput, opts = {}) {
     placeable.push(t);
   }
 
-  const blockingErrors = errors.filter((e) => !String(e).includes('SGX board lot'));
+  // SG board-lot misses are non-blocking so US/CRYPTO legs can still place
+  const blockingErrors = errors.filter((e) => !/for SGX:/i.test(String(e)));
   return {
     ok: blockingErrors.length === 0,
     error: errors.length ? errors.join('; ') : null,
@@ -338,11 +359,12 @@ export function validateTradePlan(planInput, opts = {}) {
     slots_left: slotsLeft,
     us_only_fallback_hint: usOnlyFallbackHint,
     allowlist_keys: allowlistKeys,
+    allowlist: catalog,
     config: {
-      daily_budget_usd: cfg.dailyBudgetUsd,
-      max_trades_per_day: cfg.maxTradesPerDay,
-      stop_pct: [cfg.stopPctMin, cfg.stopPctMax],
-      tp_pct: [cfg.tpPctMin, cfg.tpPctMax],
+      daily_budget_usd: policy.daily_budget_usd,
+      max_trades_per_day: policy.max_trades_per_day,
+      stop_pct: [policy.stop_pct_min, policy.stop_pct_max],
+      tp_pct: [policy.tp_pct_min, policy.tp_pct_max],
       min_rationale_chars: minRationale,
     },
   };

@@ -1,6 +1,6 @@
-/** Re-export for seed scripts. */
+/** Re-export seed variable payloads for seed scripts. */
 export {
-  DEFAULT_ALLOWLIST_KEYS,
+  SEED_ALLOWLIST,
   IBKR_DAY_PLAN_VARIABLES,
   IBKR_POLLER_VARIABLES,
-} from '../src/services/ibkr-workflow-variables.js';
+} from './ibkr-seed-variables.js';

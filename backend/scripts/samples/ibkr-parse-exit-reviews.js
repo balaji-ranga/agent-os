@@ -51,6 +51,8 @@ export async function run(inputs = {}, context = {}) {
     trades_to_place: sells,
     trades: sells,
     residual: [],
+    source: 'poller',
+    cancel_source: 'poller',
   };
 
   return {

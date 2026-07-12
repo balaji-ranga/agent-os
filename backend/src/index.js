@@ -34,6 +34,7 @@ import { initDb, getDb } from './db/schema.js';
 import { seedDefaultAgentsIfEmpty } from './db/seed-default-agents.js';
 import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, seedWorkflowToolsIfMissing, updateKanbanToolPurposes } from './db/seed-content-tools-meta.js';
 import { seedJobApplicantToolsIfMissing } from './db/seed-job-applicant-tools.js';
+import { seedIbkrTradingToolsIfMissing } from './db/seed-ibkr-trading-tools.js';
 import { writeOpenClawToolsList } from './services/content-tools-meta.js';
 import { importGrantsFromOpenClawConfig, syncAllowlistsFile } from './services/openclaw-agent-tools.js';
 import { runScheduledStandup } from './cron/standup.js';
@@ -66,6 +67,7 @@ seedKanbanToolsIfMissing();
 seedWorkflowToolsIfMissing();
 updateKanbanToolPurposes();
 seedJobApplicantToolsIfMissing();
+seedIbkrTradingToolsIfMissing();
 writeOpenClawToolsList();
 try {
   const imported = importGrantsFromOpenClawConfig();

@@ -8,6 +8,7 @@ export function run(inputs = {}, context = {}) {
     inputs.payload ||
     inputs.checker_text ||
     context?.node_outputs?.['checker-1']?.text ||
+    context?.node_outputs?.['checker-exit']?.text ||
     '';
   const raw = String(text || '').trim();
   let parsed = null;
@@ -31,9 +32,42 @@ export function run(inputs = {}, context = {}) {
     }
   }
 
-  const adjustments = String(parsed?.adjustments || parsed?.recommendations || raw).slice(0, 4000);
+  let adjustments = parsed?.adjustments ?? parsed?.recommendations ?? '';
+  if (Array.isArray(adjustments)) adjustments = adjustments.filter(Boolean).join('\n- ');
+  else if (adjustments && typeof adjustments === 'object') adjustments = JSON.stringify(adjustments);
+  else adjustments = String(adjustments || '').trim();
+
+  // Unwrap accidental nested JSON in adjustments
+  if (adjustments.startsWith('{')) {
+    try {
+      const nested = JSON.parse(adjustments);
+      if (nested && typeof nested === 'object') {
+        if (nested.adjustments != null) {
+          adjustments = Array.isArray(nested.adjustments)
+            ? nested.adjustments.filter(Boolean).join('\n- ')
+            : String(nested.adjustments);
+        }
+        if (!decision || decision === 'rejected') {
+          const d = String(nested.decision || '').toLowerCase();
+          if (d === 'approved' || d === 'rejected') decision = d;
+        }
+      }
+    } catch {
+      /* keep */
+    }
+  }
+
+  if (!adjustments && parsed?.notes) adjustments = String(parsed.notes);
+  // On reject with empty adjustments, fall back to raw checker text so maker still gets something actionable
+  if (decision === 'rejected' && !adjustments) {
+    adjustments = raw.slice(0, 1500);
+  }
+
   const plan = parsed?.plan || parsed?.trade_plan || null;
-  const makerText = context?.node_outputs?.['maker-1']?.text || '';
+  const makerText =
+    context?.node_outputs?.['maker-1']?.text ||
+    context?.node_outputs?.['maker-exit']?.text ||
+    '';
 
   return {
     ok: true,
@@ -41,6 +75,6 @@ export function run(inputs = {}, context = {}) {
     adjustments,
     plan_json: plan ? JSON.stringify(plan) : '',
     maker_text: String(makerText),
-    text: JSON.stringify({ decision, adjustments: adjustments.slice(0, 500) }),
+    text: JSON.stringify({ decision, adjustments: adjustments.slice(0, 800) }),
   };
 }
