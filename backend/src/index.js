@@ -24,8 +24,10 @@ import agentWorkflowHookRoutes from './routes/agent-workflow-hooks.js';
 import mcpIntegrationsRoutes from './routes/mcp-integrations.js';
 import customScriptsRoutes from './routes/custom-scripts.js';
 import externalAgentsRoutes from './routes/external-agents.js';
+import ibkrTradingRoutes from './routes/ibkr-trading.js';
 import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
+import platformNotificationsRoutes from './routes/platform-notifications.js';
 import { attachAuthUser } from './middleware/auth.js';
 import { ensureDefaultAdmin, ensureBalaCeoUser, grantStandardAgents } from './services/users.js';
 import { initDb, getDb } from './db/schema.js';
@@ -101,6 +103,7 @@ apiRouter.get('/debug/intent-last', (req, res) => {
 });
 apiRouter.use('/auth', authRoutes);
 apiRouter.use('/admin', adminRoutes);
+apiRouter.use('/platform-notifications', platformNotificationsRoutes);
 apiRouter.use('/workspace', workspaceRoutes);
 apiRouter.use('/agents', agentsRoutes);
 apiRouter.use('/standups', standupsRoutes);
@@ -115,6 +118,7 @@ apiRouter.use('/agent-workflows', agentWorkflowRoutes);
 apiRouter.use('/integrations/mcp', mcpIntegrationsRoutes);
 apiRouter.use('/integrations/custom-scripts', customScriptsRoutes);
 apiRouter.use('/integrations/external-agents', externalAgentsRoutes);
+apiRouter.use('/ibkr-trading', ibkrTradingRoutes);
 apiRouter.use('/media/openclaw', mediaRoutes);
 app.use('/api', apiRouter);
 

@@ -83,11 +83,19 @@ function deriveStatusFromScan(scan) {
   return { scan_status: 'approved', status: 'approved', risk_level: scan.risk_level || 'low' };
 }
 
+function isPlatformAdmin(authUser) {
+  return authUser?.role === 'admin' && !authUser?.impersonation;
+}
+
 export function listCustomScripts(authUser, { forWorkflow = false } = {}) {
   const db = getDb();
   let rows;
-  if (authUser.role === 'admin') {
-    rows = db.prepare('SELECT * FROM custom_scripts ORDER BY is_platform DESC, name ASC').all();
+  if (isPlatformAdmin(authUser)) {
+    rows = db
+      .prepare(
+        `SELECT * FROM custom_scripts WHERE is_platform = 1 AND owner_role = 'admin' ORDER BY name ASC`
+      )
+      .all();
   } else {
     rows = db
       .prepare(
@@ -317,14 +325,24 @@ export async function executeCustomScriptTask(resolvedInputs, nodeConfig = {}, c
     run_id: context?.run_id || null,
     node_outputs: context?.node_outputs || {},
     initial_input: context?.initial_input || '',
+    workflow_variables: context?.workflow_variables || context?.variables || {},
+    variables: context?.workflow_variables || context?.variables || {},
   };
   const result = await executeCustomScript(scriptId, authUser, { inputs, context: runContext });
   const out = result.output || {};
   return {
     text: out.text != null ? String(out.text) : JSON.stringify(out),
     result: out,
-    ok: true,
+    ok: out.ok !== false && out.ok !== 'false',
+    decision: out.decision != null ? String(out.decision) : '',
+    adjustments: out.adjustments != null ? String(out.adjustments) : '',
+    plan_json: out.plan_json != null ? String(out.plan_json) : '',
+    has_sells: out.has_sells != null ? String(out.has_sells) : '',
+    has_holds: out.has_holds != null ? String(out.has_holds) : '',
+    place_body: out.place_body != null ? String(out.place_body) : '',
+    holds_body: out.holds_body != null ? String(out.holds_body) : '',
     script_id: scriptId,
     language: result.language,
+    ...out,
   };
 }

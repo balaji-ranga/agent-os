@@ -116,16 +116,17 @@ function getOutgoingEdges(graph, nodeId) {
 }
 
 function isWhileLoopBodyNode(graph, nodeId) {
-  return getIncomingEdges(graph, nodeId).some((e) => {
-    const src = getNode(graph, e.source);
-    return src?.type === 'while' && (e.sourceHandle || 'default') === 'loop';
-  });
+  for (const n of graph.nodes || []) {
+    if (n.type !== 'while') continue;
+    if (getWhileLoopBodyNodeIds(graph, n.id).has(nodeId)) return true;
+  }
+  return false;
 }
 
 function getUpstreamWhileNode(graph, nodeId) {
-  for (const edge of getIncomingEdges(graph, nodeId)) {
-    const src = getNode(graph, edge.source);
-    if (src?.type === 'while' && (edge.sourceHandle || 'default') === 'loop') return src;
+  for (const n of graph.nodes || []) {
+    if (n.type !== 'while') continue;
+    if (getWhileLoopBodyNodeIds(graph, n.id).has(nodeId)) return n;
   }
   return null;
 }
@@ -161,6 +162,23 @@ function resolveLoopStepIteration(node, graph, context) {
 /** Set during executeNode so upsertStep can append per-iteration rows for while loops. */
 let activeStepMeta = null;
 
+/** Nodes reachable from a while node's loop handle (body), excluding the while itself. */
+function getWhileLoopBodyNodeIds(graph, whileNodeId) {
+  const body = new Set();
+  const stack = getOutgoingEdges(graph, whileNodeId)
+    .filter((e) => (e.sourceHandle || 'default') === 'loop')
+    .map((e) => e.target);
+  while (stack.length) {
+    const id = stack.pop();
+    if (!id || id === whileNodeId || body.has(id)) continue;
+    body.add(id);
+    for (const e of getOutgoingEdges(graph, id)) {
+      if (e.target !== whileNodeId) stack.push(e.target);
+    }
+  }
+  return body;
+}
+
 function allPredecessorsComplete(runId, graph, nodeId) {
   const incoming = getIncomingEdges(graph, nodeId);
   if (!incoming.length) return true;
@@ -168,24 +186,58 @@ function allPredecessorsComplete(runId, graph, nodeId) {
   const node = getNode(graph, nodeId);
   let loopBackSources = null;
   if (node?.type === 'while') {
-    const loopTargets = new Set(
-      getOutgoingEdges(graph, nodeId)
-        .filter((e) => (e.sourceHandle || 'default') === 'loop')
-        .map((e) => e.target)
-    );
-    loopBackSources = new Set(incoming.filter((e) => loopTargets.has(e.source)).map((e) => e.source));
+    // Loop-back edges may come from any body node (not only the direct loop target),
+    // e.g. while → maker → checker → parse → while. Skip those on first entry.
+    const bodyIds = getWhileLoopBodyNodeIds(graph, nodeId);
+    loopBackSources = new Set(incoming.filter((e) => bodyIds.has(e.source)).map((e) => e.source));
   }
 
   for (const edge of incoming) {
     const step = getLatestStepRow(runId, edge.source);
+    const srcNode = getNode(graph, edge.source);
+
+    // Exclusive IF/While branches: skip edges for branches that were not taken
+    if (srcNode && (srcNode.type === 'if' || srcNode.type === 'while') && step) {
+      let branch = null;
+      try {
+        const out = typeof step.output_json === 'string' ? JSON.parse(step.output_json || '{}') : step.output_json;
+        // steps table may not expose output_json on getLatestStepRow — reload
+      } catch {
+        /* ignore */
+      }
+    }
+
     if (!step) {
       if (loopBackSources?.has(edge.source)) continue;
+      // IF/While source not executed yet — if another exclusive branch already completed this node path, wait
+      if (srcNode && (srcNode.type === 'if' || srcNode.type === 'while')) {
+        // source hasn't completed — cannot take this edge yet
+        return false;
+      }
       return false;
     }
-    const srcNode = getNode(graph, edge.source);
+
     const isListen = srcNode?.type === 'sse_listen' || srcNode?.type === 'mcp_listen';
     if (isListen && step.status === 'listening') continue;
     if (!['completed', 'skipped'].includes(step.status)) return false;
+
+    if (srcNode && (srcNode.type === 'if' || srcNode.type === 'while')) {
+      const full = db()
+        .prepare(`SELECT output_json FROM agent_workflow_run_steps WHERE id = ?`)
+        .get(step.id);
+      let branch = null;
+      try {
+        const out = JSON.parse(full?.output_json || '{}');
+        branch = out.branch || out.text || null;
+      } catch {
+        branch = null;
+      }
+      const handle = edge.sourceHandle || 'default';
+      if (branch != null && String(branch) !== String(handle)) {
+        // This exclusive branch was not taken — do not block the target
+        continue;
+      }
+    }
   }
   return true;
 }
@@ -379,7 +431,14 @@ export async function startAgentWorkflowRun(definitionId, ownerUserId, { trigger
       .get(definitionId)?.n) || 1;
 
   const standupId = ensureWorkflowStandup();
-  const context = { initial_input: input, node_outputs: {}, actor };
+  const context = {
+    initial_input: input,
+    node_outputs: {},
+    actor,
+    workflow_variables: def.variables || {},
+    variables: def.variables || {},
+    definition_id: definitionId,
+  };
 
   db()
     .prepare(

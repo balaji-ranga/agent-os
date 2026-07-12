@@ -17,6 +17,7 @@ import { api } from '../api.js';
 import MaskedSecretInput from '../components/MaskedSecretInput.jsx';
 import HttpHeadersEditor from '../components/HttpHeadersEditor.jsx';
 import BrainMcpToolCallingPanel from '../components/workflow/BrainMcpToolCallingPanel.jsx';
+import WorkflowVariablesPanel from '../components/workflow/WorkflowVariablesPanel.jsx';
 import {
   workflowNodeTypes,
   PALETTE_ITEMS,
@@ -1248,6 +1249,7 @@ function EditorInner({ workflowId }) {
         name: workflow.name,
         description: workflow.description,
         graph,
+        variables: workflow.variables || {},
         ...triggerSettings,
       });
       const final =
@@ -1276,6 +1278,7 @@ function EditorInner({ workflowId }) {
         name: workflow.name,
         description: workflow.description,
         graph,
+        variables: workflow.variables || {},
         ...triggerSettings,
       });
       const updated = await api.agentWorkflowPublish(workflowId);
@@ -1500,6 +1503,12 @@ function EditorInner({ workflowId }) {
             hookInfo={hookInfo}
             onChange={updateNodeData}
             onDelete={deleteNode}
+          />
+
+          <WorkflowVariablesPanel
+            key={workflowId}
+            variables={workflow.variables || {}}
+            onChange={(variables) => setWorkflow((w) => (w ? { ...w, variables } : w))}
           />
 
           <div className="wf-audit">
