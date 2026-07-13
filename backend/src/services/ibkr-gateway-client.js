@@ -5,6 +5,16 @@
 import { IBApi, EventName, OrderType, OrderAction, SecType, TimeInForce } from '@stoqey/ib';
 import { getIbkrTradingConfig } from './ibkr-trading-rules.js';
 import { normalizeAllowlist } from './ibkr-workflow-variables.js';
+import {
+  isCommissionFreeRejectText,
+  extractAdvancedErrorOverride,
+  IBKR_ORDER_REASON,
+} from './ibkr-order-events.js';
+
+function autoRetryCommissionEnabled() {
+  const v = String(process.env.IBKR_AUTO_RETRY_COMMISSION ?? '1').trim().toLowerCase();
+  return !(v === '0' || v === 'false' || v === 'off');
+}
 
 function gatewayOptions() {
   return {
@@ -135,7 +145,7 @@ export async function withIbGateway(fn, { timeoutMs = 45000, requireTradingEnabl
 
 /**
  * After openOrder ack, briefly watch orderStatus/error for immediate cancel/reject.
- * @returns {Promise<{ terminal_cancelled?: boolean, terminal_status?: string, terminal_reason_text?: string, terminal_reason_code?: string, error_code?: number }>}
+ * @returns {Promise<{ terminal_cancelled?: boolean, terminal_status?: string, terminal_reason_text?: string, terminal_reason_code?: string, error_code?: number, advanced_error_override?: string|null, advanced_order_reject?: unknown }>}
  */
 function watchOrderTerminal(ib, orderIds, { watchMs = 8000 } = {}) {
   const ids = new Set((orderIds || []).map(Number).filter(Number.isFinite));
@@ -157,11 +167,15 @@ function watchOrderTerminal(ib, orderIds, { watchMs = 8000 } = {}) {
       if (!ids.has(Number(orderId))) return;
       const st = String(status || '');
       if (/Cancelled|Inactive|ApiCancelled/i.test(st)) {
+        const reasonText = whyHeld ? String(whyHeld) : `IB orderStatus=${st}`;
+        const commission = isCommissionFreeRejectText(reasonText);
         finish({
           terminal_cancelled: true,
           terminal_status: st,
-          terminal_reason_text: whyHeld ? String(whyHeld) : `IB orderStatus=${st}`,
-          terminal_reason_code: 'ib_system_cancel',
+          terminal_reason_text: reasonText,
+          terminal_reason_code: commission
+            ? IBKR_ORDER_REASON.IB_COMMISSION_FREE_REJECT
+            : 'ib_system_cancel',
         });
       } else if (/Filled/i.test(st) && Number(remaining) === 0) {
         const avg = avgFillPrice != null ? Number(avgFillPrice) : lastFillPrice != null ? Number(lastFillPrice) : null;
@@ -176,16 +190,22 @@ function watchOrderTerminal(ib, orderIds, { watchMs = 8000 } = {}) {
       }
     };
 
-    const onErr = (err, code, reqId) => {
+    const onErr = (err, code, reqId, advancedOrderReject) => {
       if (!ids.has(Number(reqId))) return;
       if ([2104, 2106, 2158, 2119, 10090, 10167, 354, 300].includes(Number(code))) return;
       const msg = err?.message || String(err);
+      const override = extractAdvancedErrorOverride(advancedOrderReject);
+      const commission = isCommissionFreeRejectText(msg) || isCommissionFreeRejectText(JSON.stringify(advancedOrderReject || ''));
       finish({
         terminal_cancelled: true,
         terminal_status: 'Rejected',
         terminal_reason_text: msg,
-        terminal_reason_code: 'place_rejected_ib',
+        terminal_reason_code: commission
+          ? IBKR_ORDER_REASON.IB_COMMISSION_FREE_REJECT
+          : 'place_rejected_ib',
         error_code: Number(code) || null,
+        advanced_error_override: override,
+        advanced_order_reject: advancedOrderReject ?? null,
       });
     };
 
@@ -324,7 +344,6 @@ export async function placeBracketTrade(trade, { postAckWatchMs = 0, cancelSourc
     if (!account) throw new Error('No IBKR account id (set IBKR_ACCOUNT_ID or wait for managedAccounts)');
     const contract = toContract(trade);
     let orderId = nextId;
-    const orderIds = [];
 
     const waitAck = (oid) =>
       new Promise((resolve, reject) => {
@@ -337,71 +356,166 @@ export async function placeBracketTrade(trade, { postAckWatchMs = 0, cancelSourc
             resolve();
           }
         };
-        const onErr = (err, code, reqId) => {
+        const onErr = (err, code, reqId, advancedOrderReject) => {
           if (reqId === oid && ![2104, 2106, 2158].includes(Number(code))) {
             clearTimeout(t);
             ib.off(EventName.openOrder, onOpen);
             ib.off(EventName.error, onErr);
-            reject(new Error(`Order ${oid} rejected (${code}): ${err?.message || err}`));
+            const override = extractAdvancedErrorOverride(advancedOrderReject);
+            const msg = `Order ${oid} rejected (${code}): ${err?.message || err}`;
+            const e = new Error(msg);
+            e.ib_error_code = Number(code) || null;
+            e.advanced_error_override = override;
+            e.advanced_order_reject = advancedOrderReject ?? null;
+            e.commission_free_reject =
+              isCommissionFreeRejectText(msg) ||
+              isCommissionFreeRejectText(JSON.stringify(advancedOrderReject || ''));
+            reject(e);
           }
         };
         ib.on(EventName.openOrder, onOpen);
         ib.on(EventName.error, onErr);
       });
 
-    // BUY bracket (equities)
-    const parentId = orderId++;
-    const tpId = orderId++;
-    const slId = orderId++;
-    orderIds.push(parentId, tpId, slId);
-
     const entry = roundPrice(trade.entry_price, secType);
     const tp = roundPrice(trade.tp_price, secType);
     const stop = roundPrice(trade.stop_price, secType);
 
-    const parent = {
-      orderId: parentId,
-      action: OrderAction.BUY,
-      orderType: OrderType.LMT,
-      totalQuantity: qty,
-      lmtPrice: entry,
-      tif: TimeInForce.DAY,
-      account,
-      transmit: false,
-      outsideRth: false,
-    };
-    const takeProfit = {
-      orderId: tpId,
-      action: OrderAction.SELL,
-      orderType: OrderType.LMT,
-      totalQuantity: qty,
-      lmtPrice: tp,
-      tif: TimeInForce.GTC,
-      account,
-      parentId,
-      transmit: false,
-      outsideRth: false,
-    };
-    const stopLoss = {
-      orderId: slId,
-      action: OrderAction.SELL,
-      orderType: OrderType.STP,
-      totalQuantity: qty,
-      auxPrice: stop,
-      tif: TimeInForce.GTC,
-      account,
-      parentId,
-      transmit: true,
-      outsideRth: false,
+    const makerRetry =
+      trade.retry_with_commission === true ||
+      trade.retry_with_commission === 1 ||
+      String(trade.retry_with_commission || '').toLowerCase() === 'true';
+    let override =
+      trade.advanced_error_override ||
+      trade.advancedErrorOverride ||
+      null;
+    if (makerRetry && !override && trade.owner_user_id) {
+      try {
+        const { getLastCommissionOverride } = await import('./ibkr-order-events.js');
+        override = getLastCommissionOverride(trade.owner_user_id, trade.key || trade.symbol);
+      } catch {
+        /* ignore */
+      }
+    }
+
+    const placeOnce = async (errorOverride) => {
+      const parentId = orderId++;
+      const tpId = orderId++;
+      const slId = orderId++;
+      const orderIds = [parentId, tpId, slId];
+      const ov = errorOverride ? String(errorOverride) : null;
+
+      const parent = {
+        orderId: parentId,
+        action: OrderAction.BUY,
+        orderType: OrderType.LMT,
+        totalQuantity: qty,
+        lmtPrice: entry,
+        tif: TimeInForce.DAY,
+        account,
+        transmit: false,
+        outsideRth: false,
+        ...(ov ? { advancedErrorOverride: ov } : {}),
+      };
+      const takeProfit = {
+        orderId: tpId,
+        action: OrderAction.SELL,
+        orderType: OrderType.LMT,
+        totalQuantity: qty,
+        lmtPrice: tp,
+        tif: TimeInForce.GTC,
+        account,
+        parentId,
+        transmit: false,
+        outsideRth: false,
+        ...(ov ? { advancedErrorOverride: ov } : {}),
+      };
+      const stopLoss = {
+        orderId: slId,
+        action: OrderAction.SELL,
+        orderType: OrderType.STP,
+        totalQuantity: qty,
+        auxPrice: stop,
+        tif: TimeInForce.GTC,
+        account,
+        parentId,
+        transmit: true,
+        outsideRth: false,
+        ...(ov ? { advancedErrorOverride: ov } : {}),
+      };
+
+      const ackParent = waitAck(parentId);
+      ib.placeOrder(parentId, contract, parent);
+      ib.placeOrder(tpId, contract, takeProfit);
+      ib.placeOrder(slId, contract, stopLoss);
+      await ackParent;
+      await new Promise((r) => setTimeout(r, 800));
+      const terminal = await watchOrderTerminal(ib, [parentId], { watchMs: postAckWatchMs });
+      return { orderIds, terminal, advanced_error_override: ov };
     };
 
-    const ackParent = waitAck(parentId);
-    ib.placeOrder(parentId, contract, parent);
-    ib.placeOrder(tpId, contract, takeProfit);
-    ib.placeOrder(slId, contract, stopLoss);
-    await ackParent;
-    await new Promise((r) => setTimeout(r, 800));
-    const terminal = await watchOrderTerminal(ib, [parentId], { watchMs: postAckWatchMs });
+    let attempt;
+    try {
+      attempt = await placeOnce(override);
+    } catch (e) {
+      if (
+        autoRetryCommissionEnabled() &&
+        (e.commission_free_reject || isCommissionFreeRejectText(e.message)) &&
+        (e.advanced_error_override || makerRetry)
+      ) {
+        const ov = e.advanced_error_override || override;
+        if (ov) {
+          attempt = await placeOnce(ov);
+          attempt.commission_retry_used = true;
+          attempt.commission_retry_from = 'ack_reject';
+          attempt.first_reject_text = e.message;
+        } else {
+          throw e;
+        }
+      } else {
+        throw e;
+      }
+    }
+
+    let { orderIds, terminal } = attempt;
+    let commissionRetryUsed = !!attempt.commission_retry_used;
+    let usedOverride = attempt.advanced_error_override;
+
+    // Same-session retry after post-ack commission cancel when IB gave override tags
+    const isCommTerminal =
+      terminal?.terminal_reason_code === IBKR_ORDER_REASON.IB_COMMISSION_FREE_REJECT ||
+      isCommissionFreeRejectText(terminal?.terminal_reason_text);
+    if (
+      autoRetryCommissionEnabled() &&
+      terminal?.terminal_cancelled &&
+      isCommTerminal &&
+      !commissionRetryUsed
+    ) {
+      let resolvedOv = terminal.advanced_error_override || override || null;
+      if (!resolvedOv && trade.owner_user_id) {
+        try {
+          const { getLastCommissionOverride } = await import('./ibkr-order-events.js');
+          resolvedOv = getLastCommissionOverride(trade.owner_user_id, trade.key || trade.symbol);
+        } catch {
+          /* ignore */
+        }
+      }
+      if (resolvedOv) {
+        for (const oid of orderIds || []) {
+          try {
+            ib.cancelOrder(oid);
+          } catch {
+            /* ignore */
+          }
+        }
+        await new Promise((r) => setTimeout(r, 500));
+        const retry = await placeOnce(resolvedOv);
+        orderIds = retry.orderIds;
+        terminal = retry.terminal;
+        usedOverride = resolvedOv;
+        commissionRetryUsed = true;
+      }
+    }
 
     return {
       orderIds,
@@ -412,6 +526,9 @@ export async function placeBracketTrade(trade, { postAckWatchMs = 0, cancelSourc
       entry,
       take_profit: tp,
       stop,
+      retry_with_commission: makerRetry,
+      commission_retry_used: commissionRetryUsed,
+      advanced_error_override: usedOverride || terminal?.advanced_error_override || null,
       ...terminal,
     };
   });

@@ -188,7 +188,15 @@ router.post('/test/:name', attachToolsAuth, requireAuth, requireCeoOrAdmin, asyn
     if (targetUrl.startsWith('/')) targetUrl = baseUrl + targetUrl;
     const method = String(row.method || 'POST').toUpperCase();
     const headers = { 'Content-Type': 'application/json' };
-    if (targetUrl.startsWith(baseUrl)) Object.assign(headers, internalAuthHeaders());
+    if (targetUrl.startsWith(baseUrl)) {
+      Object.assign(headers, internalAuthHeaders());
+      try {
+        const ownerUserId = resolveAuthenticatedCeoUserId(req, body);
+        if (ownerUserId) headers['x-ceo-user-id'] = ownerUserId;
+      } catch (_) {
+        /* admin without impersonation — leave unset; target may fall back */
+      }
+    }
 
     const fetchOpts = {
       method,

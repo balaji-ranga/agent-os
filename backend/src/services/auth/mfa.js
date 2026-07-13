@@ -1,12 +1,95 @@
 /**
- * MFA challenge + enrollment for CEO/admin accounts.
+ * MFA — EMAIL OTP (default) or TOTP authenticator (MFA_MODE=TOTP).
  */
-import { randomBytes } from 'crypto';
+import { createHash, randomBytes, randomInt, timingSafeEqual } from 'crypto';
 import { getDb } from '../../db/schema.js';
 import { generateTotpSecret, verifyTotp, totpOtpauthUrl } from './totp.js';
 import { createSession } from './session.js';
+import { sendSmtpMail, smtpFromEnv } from '../agent-workflow-tasks.js';
 
 const CHALLENGE_TTL_MS = 5 * 60 * 1000;
+
+export function getMfaMode() {
+  const raw = String(process.env.MFA_MODE || process.env.AGENT_OS_MFA_MODE || 'EMAIL')
+    .trim()
+    .toUpperCase();
+  return raw === 'TOTP' ? 'TOTP' : 'EMAIL';
+}
+
+export function requireMfaEnv() {
+  if (process.env.AGENT_OS_DISABLE_MFA === '1' || process.env.AGENT_OS_DISABLE_MFA === 'true') {
+    return false;
+  }
+  const v = String(process.env.AGENT_OS_REQUIRE_MFA ?? '').trim().toLowerCase();
+  if (v === '0' || v === 'false' || v === 'off') return false;
+  if (v === '1' || v === 'true' || v === 'on') return true;
+  // Unset: EMAIL OTP on by default; TOTP stays opt-in at platform level
+  return getMfaMode() === 'EMAIL';
+}
+
+export function normalizeMfaPolicy(raw) {
+  const v = String(raw ?? 'inherit').trim().toLowerCase();
+  if (v === 'on' || v === '1' || v === 'true' || v === 'enabled') return 'on';
+  if (v === 'off' || v === '0' || v === 'false' || v === 'disabled') return 'off';
+  return 'inherit';
+}
+
+export function normalizeMfaMode(raw) {
+  const v = String(raw ?? '').trim().toUpperCase();
+  if (v === 'EMAIL' || v === 'TOTP') return v;
+  return null; // inherit platform
+}
+
+/** Platform defaults from .env (for registration / profile UI). */
+export function getPlatformMfaDefaults() {
+  return {
+    platform_require_mfa: requireMfaEnv(),
+    platform_mfa_mode: getMfaMode(),
+    disable_mfa: process.env.AGENT_OS_DISABLE_MFA === '1' || process.env.AGENT_OS_DISABLE_MFA === 'true',
+  };
+}
+
+/**
+ * Resolve effective MFA for a user.
+ * - mfa_policy: inherit | on | off (overrides AGENT_OS_REQUIRE_MFA when not inherit)
+ * - mfa_mode: EMAIL | TOTP | null (null/empty inherits MFA_MODE env)
+ */
+export function resolveUserMfa(row) {
+  const platform = getPlatformMfaDefaults();
+  if (platform.disable_mfa) {
+    return {
+      enabled: false,
+      mode: platform.platform_mfa_mode,
+      policy: 'off',
+      ...platform,
+    };
+  }
+  const policy = normalizeMfaPolicy(row?.mfa_policy);
+  let enabled;
+  if (policy === 'on') enabled = true;
+  else if (policy === 'off') enabled = false;
+  else enabled = platform.platform_require_mfa;
+
+  const mode = normalizeMfaMode(row?.mfa_mode) || platform.platform_mfa_mode;
+  return {
+    enabled,
+    mode,
+    policy,
+    user_mfa_mode: normalizeMfaMode(row?.mfa_mode),
+    ...platform,
+  };
+}
+
+function userNeedsMfa(row) {
+  const resolved = resolveUserMfa(row);
+  if (!resolved.enabled) return false;
+  if (resolved.mode === 'TOTP') {
+    // TOTP needs enrolled secret unless we're about to force setup
+    return true;
+  }
+  return true;
+}
+
 
 export function ensureMfaTables() {
   const db = getDb();
@@ -28,6 +111,21 @@ export function ensureMfaTables() {
   try {
     db.exec(`ALTER TABLE platform_users ADD COLUMN mfa_pending_secret TEXT`);
   } catch (_) {}
+  try {
+    db.exec(`ALTER TABLE mfa_challenges ADD COLUMN code_hash TEXT`);
+  } catch (_) {}
+  try {
+    db.exec(`ALTER TABLE platform_users ADD COLUMN mfa_policy TEXT DEFAULT 'inherit'`);
+  } catch (_) {}
+  try {
+    db.exec(`ALTER TABLE platform_users ADD COLUMN mfa_mode TEXT`);
+  } catch (_) {}
+  try {
+    // Backfill: previously opted-in users
+    db.prepare(
+      `UPDATE platform_users SET mfa_policy = 'on' WHERE COALESCE(mfa_enabled, 0) = 1 AND (mfa_policy IS NULL OR mfa_policy = '' OR mfa_policy = 'inherit')`
+    ).run();
+  } catch (_) {}
 }
 
 function purgeExpired() {
@@ -36,25 +134,58 @@ function purgeExpired() {
     .run();
 }
 
-export function createMfaChallenge(userId, purpose = 'login') {
+function hashOtp(code) {
+  const pepper = process.env.AGENT_OS_INTERNAL_TOKEN || process.env.AGENT_OS_MFA_PEPPER || 'agent-os-mfa';
+  return createHash('sha256').update(`${String(code)}:${pepper}`).digest('hex');
+}
+
+function safeEqualHex(a, b) {
+  const aa = Buffer.from(String(a || ''), 'utf8');
+  const bb = Buffer.from(String(b || ''), 'utf8');
+  if (aa.length !== bb.length) return false;
+  return timingSafeEqual(aa, bb);
+}
+
+function generateEmailOtp() {
+  return String(randomInt(0, 1_000_000)).padStart(6, '0');
+}
+
+function maskEmail(email) {
+  const s = String(email || '');
+  const at = s.indexOf('@');
+  if (at <= 1) return '***';
+  return `${s[0]}***${s.slice(at)}`;
+}
+
+export function createMfaChallenge(userId, purpose = 'login', { codeHash = null } = {}) {
   ensureMfaTables();
   purgeExpired();
   const token = randomBytes(24).toString('hex');
   const expires = new Date(Date.now() + CHALLENGE_TTL_MS).toISOString();
   getDb()
     .prepare(
-      `INSERT INTO mfa_challenges (token, user_id, purpose, expires_at) VALUES (?, ?, ?, ?)`
+      `INSERT INTO mfa_challenges (token, user_id, purpose, expires_at, code_hash) VALUES (?, ?, ?, ?, ?)`
     )
-    .run(token, userId, purpose, expires);
+    .run(token, userId, purpose, expires, codeHash);
   return { mfa_token: token, expires_at: expires };
 }
 
-export function consumeMfaChallenge(token, purpose = null) {
+export function peekMfaChallenge(token, purpose = null) {
   ensureMfaTables();
   purgeExpired();
   const row = getDb().prepare(`SELECT * FROM mfa_challenges WHERE token = ?`).get(token);
   if (!row) return null;
   if (purpose && row.purpose !== purpose) return null;
+  if (new Date(row.expires_at).getTime() < Date.now()) {
+    getDb().prepare(`DELETE FROM mfa_challenges WHERE token = ?`).run(token);
+    return null;
+  }
+  return row;
+}
+
+export function consumeMfaChallenge(token, purpose = null) {
+  const row = peekMfaChallenge(token, purpose);
+  if (!row) return null;
   getDb().prepare(`DELETE FROM mfa_challenges WHERE token = ?`).run(token);
   return row;
 }
@@ -62,45 +193,160 @@ export function consumeMfaChallenge(token, purpose = null) {
 export function getUserMfa(userId) {
   ensureMfaTables();
   return getDb()
-    .prepare(`SELECT id, email, role, mfa_enabled, mfa_secret, mfa_pending_secret FROM platform_users WHERE id = ?`)
+    .prepare(
+      `SELECT id, email, role, name, mfa_enabled, mfa_secret, mfa_pending_secret, mfa_policy, mfa_mode
+       FROM platform_users WHERE id = ?`
+    )
     .get(userId);
 }
 
-export function requireMfaEnv() {
-  return process.env.AGENT_OS_REQUIRE_MFA === '1' || process.env.AGENT_OS_REQUIRE_MFA === 'true';
+/** Persist user MFA policy/mode; keeps mfa_enabled in sync for legacy readers. */
+export function updateUserMfaSettings(userId, { mfa_policy, mfa_mode } = {}) {
+  ensureMfaTables();
+  const row = getUserMfa(userId);
+  if (!row) {
+    const err = new Error('User not found');
+    err.status = 404;
+    throw err;
+  }
+  const policy =
+    mfa_policy !== undefined ? normalizeMfaPolicy(mfa_policy) : normalizeMfaPolicy(row.mfa_policy);
+  let modeCol = row.mfa_mode;
+  if (mfa_mode !== undefined) {
+    const normalized = String(mfa_mode).trim().toLowerCase();
+    modeCol =
+      normalized === '' || normalized === 'inherit' || normalized === 'platform'
+        ? null
+        : normalizeMfaMode(mfa_mode);
+    if (normalized && normalized !== 'inherit' && normalized !== 'platform' && !modeCol) {
+      const err = new Error('mfa_mode must be EMAIL, TOTP, or inherit');
+      err.status = 400;
+      throw err;
+    }
+  }
+  const enabledFlag = policy === 'on' ? 1 : 0;
+  getDb()
+    .prepare(
+      `UPDATE platform_users
+       SET mfa_policy = ?, mfa_mode = ?, mfa_enabled = ?, updated_at = datetime('now')
+       WHERE id = ?`
+    )
+    .run(policy, modeCol, enabledFlag, userId);
+  const updated = getUserMfa(userId);
+  return {
+    ...resolveUserMfa(updated),
+    mfa_policy: policy,
+    mfa_mode: modeCol,
+    mfa_enabled: enabledFlag === 1,
+  };
+}
+
+async function sendLoginOtpEmail(user, code) {
+  const smtp = smtpFromEnv();
+  const subject = 'Your Agent OS login code';
+  const body =
+    `Your Agent OS verification code is: ${code}\n\n` +
+    `It expires in 5 minutes. If you did not try to sign in, ignore this email.\n`;
+  const result = await sendSmtpMail({
+    ...smtp,
+    to: user.email,
+    subject,
+    body,
+  });
+  if (!result.sent) {
+    const err = new Error(result.error || 'Failed to send MFA email (check WORKFLOW_SMTP_* settings)');
+    err.status = 503;
+    throw err;
+  }
+  return result;
 }
 
 /**
- * After password success: either issue session, or MFA challenge / setup gate.
+ * After password success: issue session, or MFA challenge (email OTP / TOTP).
  */
-export function finishLoginAfterPassword(user) {
+export async function finishLoginAfterPassword(user) {
   ensureMfaTables();
   const row = getUserMfa(user.id);
-  const mfaOn = Number(row?.mfa_enabled) === 1 && row?.mfa_secret;
+  const resolved = resolveUserMfa(row);
+  const mode = resolved.mode;
 
-  if (mfaOn) {
-    const challenge = createMfaChallenge(user.id, 'login');
-    return {
-      mfa_required: true,
-      mfa_token: challenge.mfa_token,
-      expires_at: challenge.expires_at,
-      user: { id: user.id, email: user.email, role: user.role, name: user.name },
-    };
+  if (!resolved.enabled) {
+    const session = createSession(user.id);
+    return { user, session, mfa_mode: mode, mfa: resolved };
   }
 
-  if (requireMfaEnv()) {
+  if (mode === 'TOTP') {
+    const mfaOn = !!row?.mfa_secret;
+    if (mfaOn) {
+      const challenge = createMfaChallenge(user.id, 'login');
+      return {
+        mfa_required: true,
+        mfa_mode: 'TOTP',
+        mfa_token: challenge.mfa_token,
+        expires_at: challenge.expires_at,
+        user: { id: user.id, email: user.email, role: user.role, name: user.name },
+        mfa: resolved,
+      };
+    }
     const challenge = createMfaChallenge(user.id, 'setup');
     return {
       mfa_setup_required: true,
+      mfa_mode: 'TOTP',
       mfa_token: challenge.mfa_token,
       expires_at: challenge.expires_at,
       user: { id: user.id, email: user.email, role: user.role, name: user.name },
-      message: 'MFA enrollment required before session can be issued',
+      message: 'Authenticator MFA enrollment required before session can be issued',
+      mfa: resolved,
     };
   }
 
-  const session = createSession(user.id);
-  return { user, session };
+  // EMAIL mode
+  const code = generateEmailOtp();
+  const challenge = createMfaChallenge(user.id, 'login', { codeHash: hashOtp(code) });
+  await sendLoginOtpEmail(user, code);
+  return {
+    mfa_required: true,
+    mfa_mode: 'EMAIL',
+    mfa_token: challenge.mfa_token,
+    expires_at: challenge.expires_at,
+    email_hint: maskEmail(user.email),
+    user: { id: user.id, email: user.email, role: user.role, name: user.name },
+    message: `Enter the 6-digit code sent to ${maskEmail(user.email)}`,
+    mfa: resolved,
+  };
+}
+
+export async function resendEmailOtp({ mfa_token }) {
+  const challenge = peekMfaChallenge(mfa_token, 'login');
+  if (!challenge) {
+    const err = new Error('Invalid or expired MFA challenge');
+    err.status = 401;
+    throw err;
+  }
+  const user = getUserMfa(challenge.user_id);
+  const resolved = resolveUserMfa(user);
+  if (resolved.mode !== 'EMAIL') {
+    const err = new Error('Email OTP resend only applies when effective MFA mode is EMAIL');
+    err.status = 400;
+    throw err;
+  }
+  if (!user?.email) {
+    const err = new Error('User email missing');
+    err.status = 400;
+    throw err;
+  }
+  const code = generateEmailOtp();
+  getDb()
+    .prepare(`UPDATE mfa_challenges SET code_hash = ?, expires_at = ? WHERE token = ?`)
+    .run(hashOtp(code), new Date(Date.now() + CHALLENGE_TTL_MS).toISOString(), mfa_token);
+  await sendLoginOtpEmail(user, code);
+  return {
+    ok: true,
+    mfa_mode: 'EMAIL',
+    mfa_token,
+    email_hint: maskEmail(user.email),
+    expires_at: new Date(Date.now() + CHALLENGE_TTL_MS).toISOString(),
+  };
 }
 
 export function verifyMfaLogin({ mfa_token, code }) {
@@ -111,28 +357,58 @@ export function verifyMfaLogin({ mfa_token, code }) {
     throw err;
   }
   const row = getUserMfa(challenge.user_id);
-  if (!row?.mfa_secret || !verifyTotp(row.mfa_secret, code)) {
-    const err = new Error('Invalid MFA code');
-    err.status = 401;
-    throw err;
+  const resolved = resolveUserMfa(row);
+  const mode = resolved.mode;
+  const codeStr = String(code || '').replace(/\s/g, '');
+
+  if (mode === 'EMAIL') {
+    if (!challenge.code_hash || !safeEqualHex(challenge.code_hash, hashOtp(codeStr))) {
+      const err = new Error('Invalid MFA code');
+      err.status = 401;
+      throw err;
+    }
+  } else {
+    if (!row?.mfa_secret || !verifyTotp(row.mfa_secret, codeStr)) {
+      const err = new Error('Invalid MFA code');
+      err.status = 401;
+      throw err;
+    }
   }
+
   const session = createSession(row.id);
   const user = getDb()
     .prepare(
       `SELECT id, email, name, role, region, mobile, created_at FROM platform_users WHERE id = ?`
     )
     .get(row.id);
-  return { user, session };
+  return { user, session, mfa_mode: mode, mfa: resolved };
 }
 
-export function beginMfaSetup(userId) {
+/** Opt-in enrollment while authenticated. */
+export async function beginMfaSetup(userId) {
   ensureMfaTables();
+  const user = getUserMfa(userId);
+  const mode = resolveUserMfa(user).mode;
+
+  if (mode === 'EMAIL') {
+    const code = generateEmailOtp();
+    getDb()
+      .prepare(`UPDATE platform_users SET mfa_pending_secret = ? WHERE id = ?`)
+      .run(hashOtp(code), userId);
+    await sendLoginOtpEmail(user, code);
+    return {
+      mfa_mode: 'EMAIL',
+      email_hint: maskEmail(user.email),
+      message: `Confirmation code sent to ${maskEmail(user.email)}. POST /auth/mfa/enable with that code.`,
+    };
+  }
+
   const secret = generateTotpSecret();
   getDb()
     .prepare(`UPDATE platform_users SET mfa_pending_secret = ? WHERE id = ?`)
     .run(secret, userId);
-  const user = getUserMfa(userId);
   return {
+    mfa_mode: 'TOTP',
     secret,
     otpauth_url: totpOtpauthUrl({ secret, email: user?.email || userId }),
   };
@@ -141,23 +417,46 @@ export function beginMfaSetup(userId) {
 export function confirmMfaSetup(userId, code) {
   ensureMfaTables();
   const row = getUserMfa(userId);
-  const secret = row?.mfa_pending_secret || row?.mfa_secret;
-  if (!secret) {
+  const mode = resolveUserMfa(row).mode;
+  const pending = row?.mfa_pending_secret;
+  if (!pending) {
     const err = new Error('Call MFA setup first');
     err.status = 400;
     throw err;
   }
-  if (!verifyTotp(secret, code)) {
+  const codeStr = String(code || '').replace(/\s/g, '');
+
+  if (mode === 'EMAIL') {
+    if (!safeEqualHex(pending, hashOtp(codeStr))) {
+      const err = new Error('Invalid MFA code');
+      err.status = 401;
+      throw err;
+    }
+    getDb()
+      .prepare(
+        `UPDATE platform_users
+         SET mfa_secret = NULL, mfa_pending_secret = NULL, mfa_enabled = 1, mfa_policy = 'on',
+             updated_at = datetime('now')
+         WHERE id = ?`
+      )
+      .run(userId);
+    return { ok: true, mfa_enabled: true, mfa_mode: 'EMAIL', mfa_policy: 'on' };
+  }
+
+  if (!verifyTotp(pending, codeStr)) {
     const err = new Error('Invalid MFA code');
     err.status = 401;
     throw err;
   }
   getDb()
     .prepare(
-      `UPDATE platform_users SET mfa_secret = ?, mfa_pending_secret = NULL, mfa_enabled = 1 WHERE id = ?`
+      `UPDATE platform_users
+       SET mfa_secret = ?, mfa_pending_secret = NULL, mfa_enabled = 1, mfa_policy = 'on',
+           mfa_mode = 'TOTP', updated_at = datetime('now')
+       WHERE id = ?`
     )
-    .run(secret, userId);
-  return { ok: true, mfa_enabled: true };
+    .run(pending, userId);
+  return { ok: true, mfa_enabled: true, mfa_mode: 'TOTP', mfa_policy: 'on' };
 }
 
 function finishAfterSetup(userId) {
@@ -167,45 +466,55 @@ function finishAfterSetup(userId) {
       `SELECT id, email, name, role, region, mobile, created_at FROM platform_users WHERE id = ?`
     )
     .get(userId);
-  return { user, session, mfa_enabled: true };
+  const resolved = resolveUserMfa(getUserMfa(userId));
+  return { user, session, mfa_enabled: true, mfa_mode: resolved.mode, mfa: resolved };
 }
 
-/**
- * Setup-with-challenge: if pending secret missing, create one and return QR (no enable yet).
- * If code provided and valid, enable + session.
- */
+/** Forced TOTP enrollment when effective mode is TOTP and secret missing. */
 export function mfaSetupChallengeStep({ mfa_token, code }) {
   ensureMfaTables();
-  const row = getDb().prepare(`SELECT * FROM mfa_challenges WHERE token = ?`).get(mfa_token);
-  if (!row || row.purpose !== 'setup') {
+  const challengeRow = getDb().prepare(`SELECT * FROM mfa_challenges WHERE token = ?`).get(mfa_token);
+  if (!challengeRow || challengeRow.purpose !== 'setup') {
     const err = new Error('Invalid or expired MFA setup challenge');
     err.status = 401;
     throw err;
   }
-  if (new Date(row.expires_at).getTime() < Date.now()) {
+  if (new Date(challengeRow.expires_at).getTime() < Date.now()) {
     getDb().prepare(`DELETE FROM mfa_challenges WHERE token = ?`).run(mfa_token);
     const err = new Error('MFA setup challenge expired');
     err.status = 401;
     throw err;
   }
 
-  let user = getUserMfa(row.user_id);
+  let user = getUserMfa(challengeRow.user_id);
+  if (resolveUserMfa(user).mode === 'EMAIL') {
+    const err = new Error('EMAIL mode does not use setup-challenge; complete login OTP instead');
+    err.status = 400;
+    throw err;
+  }
+
   if (!user?.mfa_pending_secret) {
-    const started = beginMfaSetup(row.user_id);
+    const secret = generateTotpSecret();
+    getDb()
+      .prepare(`UPDATE platform_users SET mfa_pending_secret = ? WHERE id = ?`)
+      .run(secret, challengeRow.user_id);
     if (!code) {
       return {
         mfa_setup_required: true,
+        mfa_mode: 'TOTP',
         mfa_token,
-        ...started,
+        secret,
+        otpauth_url: totpOtpauthUrl({ secret, email: user?.email || challengeRow.user_id }),
         message: 'Scan otpauth_url / enter secret in authenticator, then POST code',
       };
     }
-    user = getUserMfa(row.user_id);
+    user = getUserMfa(challengeRow.user_id);
   }
 
   if (!code) {
     return {
       mfa_setup_required: true,
+      mfa_mode: 'TOTP',
       mfa_token,
       secret: user.mfa_pending_secret,
       otpauth_url: totpOtpauthUrl({ secret: user.mfa_pending_secret, email: user.email }),
@@ -220,27 +529,45 @@ export function mfaSetupChallengeStep({ mfa_token, code }) {
 
   getDb()
     .prepare(
-      `UPDATE platform_users SET mfa_secret = ?, mfa_pending_secret = NULL, mfa_enabled = 1 WHERE id = ?`
+      `UPDATE platform_users
+       SET mfa_secret = ?, mfa_pending_secret = NULL, mfa_enabled = 1, mfa_policy = 'on',
+           mfa_mode = COALESCE(mfa_mode, 'TOTP'), updated_at = datetime('now')
+       WHERE id = ?`
     )
-    .run(user.mfa_pending_secret, row.user_id);
+    .run(user.mfa_pending_secret, challengeRow.user_id);
   getDb().prepare(`DELETE FROM mfa_challenges WHERE token = ?`).run(mfa_token);
-  return finishAfterSetup(row.user_id);
+  return finishAfterSetup(challengeRow.user_id);
 }
 
-export function disableMfa(userId, code) {
+export async function disableMfa(userId, code) {
   ensureMfaTables();
   const row = getUserMfa(userId);
-  if (Number(row?.mfa_enabled) === 1 && row.mfa_secret) {
-    if (!verifyTotp(row.mfa_secret, code)) {
+  const resolved = resolveUserMfa(row);
+  if (!resolved.enabled && normalizeMfaPolicy(row?.mfa_policy) === 'off') {
+    return { ok: true, mfa_enabled: false, mfa_policy: 'off', mfa_mode: resolved.mode };
+  }
+
+  if (resolved.mode === 'TOTP' && row.mfa_secret) {
+    if (!code || !verifyTotp(row.mfa_secret, code)) {
+      const err = new Error('Invalid MFA code');
+      err.status = 401;
+      throw err;
+    }
+  } else if (code && row.mfa_pending_secret) {
+    if (!safeEqualHex(row.mfa_pending_secret, hashOtp(code))) {
       const err = new Error('Invalid MFA code');
       err.status = 401;
       throw err;
     }
   }
+
   getDb()
     .prepare(
-      `UPDATE platform_users SET mfa_enabled = 0, mfa_secret = NULL, mfa_pending_secret = NULL WHERE id = ?`
+      `UPDATE platform_users
+       SET mfa_enabled = 0, mfa_policy = 'off', mfa_secret = NULL, mfa_pending_secret = NULL,
+           updated_at = datetime('now')
+       WHERE id = ?`
     )
     .run(userId);
-  return { ok: true, mfa_enabled: false };
+  return { ok: true, mfa_enabled: false, mfa_policy: 'off', mfa_mode: resolved.mode };
 }

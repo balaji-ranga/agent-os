@@ -11,6 +11,7 @@ import {
   getCeoDbModeForUser,
   resolveRegisterCeoDbMode,
 } from '../db/ceo-db-config.js';
+import { ensureMfaTables, normalizeMfaPolicy, normalizeMfaMode, updateUserMfaSettings } from './auth/mfa.js';
 
 function slugId(prefix, email) {
   const base = String(email || '')
@@ -41,7 +42,18 @@ export function grantStandardAgents(userId) {
   return ids;
 }
 
-export function registerCeoUser({ email, password, name, region = '', mobile = '', db_mode, ceo_db_mode }) {
+export function registerCeoUser({
+  email,
+  password,
+  name,
+  region = '',
+  mobile = '',
+  db_mode,
+  ceo_db_mode,
+  mfa_policy = 'inherit',
+  mfa_mode = null,
+} = {}) {
+  ensureMfaTables();
   const db = getDb();
   const normalizedEmail = String(email || '').trim().toLowerCase();
   if (!normalizedEmail || !password || !name) {
@@ -52,10 +64,20 @@ export function registerCeoUser({ email, password, name, region = '', mobile = '
 
   const id = slugId('ceo', normalizedEmail);
   const mode = resolveRegisterCeoDbMode(ceo_db_mode ?? db_mode ?? defaultCeoDbMode());
+  const policy = normalizeMfaPolicy(mfa_policy);
+  const userMode =
+    mfa_mode == null || String(mfa_mode).trim() === '' || String(mfa_mode).toLowerCase() === 'inherit'
+      ? null
+      : normalizeMfaMode(mfa_mode);
+  if (mfa_mode && String(mfa_mode).toLowerCase() !== 'inherit' && !userMode) {
+    throw new Error('mfa_mode must be EMAIL, TOTP, or inherit');
+  }
+  const enabledFlag = policy === 'on' ? 1 : 0;
 
   db.prepare(
-    `INSERT INTO platform_users (id, email, password_hash, name, region, mobile, role, enabled, ceo_db_mode)
-     VALUES (?, ?, ?, ?, ?, ?, 'ceo', 1, ?)`
+    `INSERT INTO platform_users
+      (id, email, password_hash, name, region, mobile, role, enabled, ceo_db_mode, mfa_policy, mfa_mode, mfa_enabled)
+     VALUES (?, ?, ?, ?, ?, ?, 'ceo', 1, ?, ?, ?, ?)`
   ).run(
     id,
     normalizedEmail,
@@ -63,7 +85,10 @@ export function registerCeoUser({ email, password, name, region = '', mobile = '
     String(name).trim(),
     String(region).trim(),
     String(mobile).trim(),
-    mode
+    mode,
+    policy,
+    userMode,
+    enabledFlag
   );
 
   if (mode === 'tenant' && !isPlatformLegacyCeo(id)) initCeoDb(id);
@@ -78,6 +103,8 @@ export function registerCeoUser({ email, password, name, region = '', mobile = '
     role: 'ceo',
     enabled: true,
     ceo_db_mode: mode,
+    mfa_policy: policy,
+    mfa_mode: userMode,
     standard_agents_granted: agents,
   };
 }
@@ -126,6 +153,9 @@ export function userPublic(row) {
     role: row.role,
     enabled: !!row.enabled,
     created_at: row.created_at,
+    mfa_policy: row.mfa_policy || 'inherit',
+    mfa_mode: row.mfa_mode || null,
+    mfa_enabled: !!row.mfa_enabled,
   };
   if (row.role === 'ceo') {
     out.ceo_db_mode = getCeoDbModeForUser(row.id);
@@ -205,7 +235,10 @@ export function revokeUserAgent(userId, agentId) {
   return setUserAgentEnabled(userId, agentId, false);
 }
 
-export function updateUserProfile(userId, { name, email, region, mobile, current_password, new_password } = {}) {
+export function updateUserProfile(
+  userId,
+  { name, email, region, mobile, current_password, new_password, mfa_policy, mfa_mode } = {}
+) {
   const db = getDb();
   const row = db.prepare('SELECT * FROM platform_users WHERE id = ?').get(userId);
   if (!row) throw new Error('User not found');
@@ -234,14 +267,19 @@ export function updateUserProfile(userId, { name, email, region, mobile, current
     updates.password_hash = hashPassword(new_password);
   }
 
-  const fields = Object.keys(updates);
-  if (fields.length === 0) throw new Error('No fields to update');
+  const keys = Object.keys(updates);
+  if (keys.length) {
+    const set = keys.map((k) => `${k} = ?`).join(', ');
+    db.prepare(`UPDATE platform_users SET ${set}, updated_at = datetime('now') WHERE id = ?`).run(
+      ...keys.map((k) => updates[k]),
+      userId
+    );
+  }
 
-  const setClause = fields.map((f) => `${f} = ?`).join(', ');
-  db.prepare(`UPDATE platform_users SET ${setClause}, updated_at = datetime('now') WHERE id = ?`).run(
-    ...fields.map((f) => updates[f]),
-    userId
-  );
+  if (mfa_policy !== undefined || mfa_mode !== undefined) {
+    updateUserMfaSettings(userId, { mfa_policy, mfa_mode });
+  }
+
   return getUserById(userId);
 }
 

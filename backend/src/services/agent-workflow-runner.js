@@ -59,11 +59,16 @@ function getBackendBaseUrl() {
 }
 
 function parseContext(row) {
+  let ctx;
   try {
-    return JSON.parse(row?.context_json || '{}');
+    ctx = JSON.parse(row?.context_json || '{}');
   } catch {
-    return {};
+    ctx = {};
   }
+  if (row?.owner_user_id && !ctx.owner_user_id) {
+    ctx.owner_user_id = row.owner_user_id;
+  }
+  return ctx;
 }
 
 function saveContext(runId, context) {
@@ -384,7 +389,7 @@ function maybeNotifyWorkflowStep(runId, node, status, prevStatus) {
   }
 }
 
-async function invokeContentTool(toolName, body) {
+async function invokeContentTool(toolName, body, ownerUserId = null) {
   const row = getToolMeta(toolName);
   if (!row) throw new Error(`Tool not found: ${toolName}`);
   if (!row.enabled) throw new Error(`Tool disabled: ${toolName}`);
@@ -392,6 +397,7 @@ async function invokeContentTool(toolName, body) {
   let targetUrl = row.endpoint;
   if (targetUrl.startsWith('/')) targetUrl = baseUrl + targetUrl;
   const headers = internalAuthHeaders();
+  if (ownerUserId) headers['x-ceo-user-id'] = String(ownerUserId);
   const response = await fetch(targetUrl, {
     method: row.method || 'POST',
     headers,
@@ -615,6 +621,7 @@ export async function startAgentWorkflowRun(definitionId, ownerUserId, { trigger
     workflow_variables: def.variables || {},
     variables: def.variables || {},
     definition_id: definitionId,
+    owner_user_id: ownerUserId,
   };
 
   db()
@@ -914,7 +921,7 @@ async function executeNode(runId, nodeId, graph, context, def, runRow) {
 
     upsertStep(runId, node, 'in_progress', { input: inputRecord });
     try {
-      const result = await invokeContentTool(toolName, payload);
+      const result = await invokeContentTool(toolName, payload, runRow.owner_user_id);
       const outputs = { result, text: typeof result === 'string' ? result : JSON.stringify(result, null, 2) };
       storeNodeOutput(context, node.id, outputs);
       saveContext(runId, context);

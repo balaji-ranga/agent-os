@@ -19,12 +19,71 @@ export const IBKR_ORDER_REASON = Object.freeze({
   /** Generic workflow cancel when source unknown */
   WORKFLOW_CANCEL: 'workflow_cancel',
   IB_SYSTEM_CANCEL: 'ib_system_cancel',
+  /** IBKR Lite: order not eligible for commission-free; resubmit on Fixed/regular commission */
+  IB_COMMISSION_FREE_REJECT: 'ib_commission_free_reject',
   IB_TIF_DAY_EXPIRED: 'ib_tif_day_expired',
   IB_TIF_MINUTES_EXPIRED: 'ib_tif_minutes_expired',
   RECONCILE_MISSING: 'reconcile_missing_from_open_orders',
   FILLED: 'filled',
   RESERVATION_RELEASED: 'reservation_released',
 });
+
+/** Detect IBKR Lite commission-free eligibility rejects. */
+export function isCommissionFreeRejectText(text = '') {
+  const t = String(text || '').toLowerCase();
+  if (!t) return false;
+  return (
+    t.includes('commission free') ||
+    t.includes('commission-free') ||
+    t.includes('not eligible for commission') ||
+    (t.includes('regular commission') && (t.includes('resubmit') || t.includes('eligible'))) ||
+    (t.includes('fixed commission') && (t.includes('resubmit') || t.includes('eligible')))
+  );
+}
+
+/**
+ * Pull advancedErrorOverride tags from IB advancedOrderReject JSON (various shapes).
+ * @returns {string|null} comma-separated override tags
+ */
+export function extractAdvancedErrorOverride(reject) {
+  if (reject == null || reject === '') return null;
+  let obj = reject;
+  if (typeof reject === 'string') {
+    const s = reject.trim();
+    if (!s) return null;
+    try {
+      obj = JSON.parse(s);
+    } catch {
+      // bare tag list already?
+      if (/^[A-Za-z0-9_,]+$/.test(s) && s.length < 200) return s;
+      return null;
+    }
+  }
+  if (typeof obj !== 'object') return null;
+  if (typeof obj.advancedErrorOverride === 'string' && obj.advancedErrorOverride.trim()) {
+    return obj.advancedErrorOverride.trim();
+  }
+  if (typeof obj['8229'] === 'string' && obj['8229'].trim()) return obj['8229'].trim();
+  const tags = [];
+  const push = (v) => {
+    const s = String(v || '').trim();
+    if (s && !tags.includes(s)) tags.push(s);
+  };
+  for (const row of obj.rules || obj.errors || obj.args || []) {
+    if (!row || typeof row !== 'object') continue;
+    if (row.id != null) push(row.id);
+    if (row.tag != null) push(row.tag);
+    if (row.value != null && String(row.key || row.id || '') === '8229') push(row.value);
+    if (row.key === '8229' || row.key === 8229) push(row.value);
+  }
+  // Nested message blobs
+  for (const key of ['message', 'error', 'errorMsg', 'reason']) {
+    if (typeof obj[key] === 'string' && isCommissionFreeRejectText(obj[key])) {
+      /* keep searching tags */
+    }
+  }
+  return tags.length ? tags.join(',') : null;
+}
 
 const RETENTION_DAYS = 30;
 /** Don't reconcile away a just-placed reservation (seconds). */
@@ -142,6 +201,9 @@ export function listOrderEvents(
 function classifyReasonText(text = '') {
   const t = String(text || '').toLowerCase();
   if (!t) return null;
+  if (isCommissionFreeRejectText(t)) {
+    return IBKR_ORDER_REASON.IB_COMMISSION_FREE_REJECT;
+  }
   if (t.includes('margin calculation') || t.includes('not available for trading')) {
     return IBKR_ORDER_REASON.IB_SYSTEM_CANCEL;
   }
@@ -316,6 +378,13 @@ function summarizeAvoidHints(events = []) {
   for (const e of events) {
     const text = `${e.reason_text || ''} ${e.reason_code || ''}`.toLowerCase();
     const key = String(e.symbol_key || e.symbol || '').toUpperCase();
+    // Commission-free rejects are NOT hard avoids — Maker must decide (see commission_decisions)
+    if (
+      e.reason_code === IBKR_ORDER_REASON.IB_COMMISSION_FREE_REJECT ||
+      isCommissionFreeRejectText(text)
+    ) {
+      continue;
+    }
     if (
       text.includes('margin') ||
       text.includes('not available for trading') ||
@@ -351,6 +420,79 @@ function summarizeAvoidHints(events = []) {
 }
 
 /**
+ * Maker-facing commission decisions (IBKR Lite → Fixed).
+ * Maker chooses retry_with_commission vs avoid_this_run using market context.
+ */
+export function summarizeCommissionDecisions(events = []) {
+  const byKey = new Map();
+  for (const e of events) {
+    const text = `${e.reason_text || ''} ${e.reason_code || ''}`;
+    const isComm =
+      e.reason_code === IBKR_ORDER_REASON.IB_COMMISSION_FREE_REJECT ||
+      isCommissionFreeRejectText(text);
+    if (!isComm) continue;
+    const key = String(e.symbol_key || e.symbol || '').toUpperCase() || 'UNKNOWN';
+    let override = null;
+    try {
+      const detail = e.detail_json ? JSON.parse(e.detail_json) : null;
+      override = detail?.advanced_error_override || detail?.advancedErrorOverride || null;
+    } catch {
+      /* ignore */
+    }
+    const prev = byKey.get(key);
+    if (!prev || String(e.created_at || '') >= String(prev.created_at || '')) {
+      byKey.set(key, {
+        symbol_key: key,
+        created_at: e.created_at,
+        reason_text: String(e.reason_text || '').slice(0, 200),
+        advanced_error_override: override,
+        decision_required: true,
+        options: ['retry_with_commission', 'avoid_this_run'],
+        guidance:
+          'Decide from market context: set trade.retry_with_commission=true and widen tp_pct/stop_pct for round-trip Fixed commission drag, OR put the name in residual with residual_reason=avoid_commission_this_run.',
+      });
+    }
+  }
+  return [...byKey.values()].slice(0, 12);
+}
+
+/** Last known advancedErrorOverride for a symbol (from commission rejects). */
+export function getLastCommissionOverride(ownerUserId, symbolKey, { days = RETENTION_DAYS } = {}) {
+  const key = String(symbolKey || '').toUpperCase();
+  if (!ownerUserId || !key) return null;
+  const events = listOrderEvents(ownerUserId, { days, limit: 80, symbolKey: key });
+  for (const e of events) {
+    if (
+      e.reason_code !== IBKR_ORDER_REASON.IB_COMMISSION_FREE_REJECT &&
+      !isCommissionFreeRejectText(e.reason_text)
+    ) {
+      continue;
+    }
+    try {
+      const detail = e.detail_json ? JSON.parse(e.detail_json) : null;
+      const ov = detail?.advanced_error_override || detail?.advancedErrorOverride;
+      if (ov) return String(ov);
+    } catch {
+      /* ignore */
+    }
+  }
+  // Also try without symbol filter (key may be SMART:AMD vs NASDAQ:AMD)
+  const sym = key.includes(':') ? key.split(':').pop() : key;
+  for (const e of listOrderEvents(ownerUserId, { days, limit: 80 })) {
+    const sk = String(e.symbol_key || e.symbol || '').toUpperCase();
+    if (sk !== key && !sk.endsWith(`:${sym}`) && sk !== sym) continue;
+    try {
+      const detail = e.detail_json ? JSON.parse(e.detail_json) : null;
+      const ov = detail?.advanced_error_override || detail?.advancedErrorOverride;
+      if (ov) return String(ov);
+    } catch {
+      /* ignore */
+    }
+  }
+  return null;
+}
+
+/**
  * Maker-facing learnings blob (last N days, capped).
  * Heuristic digest — use getOrderHistory({ responseType: 'summarized' }) for LLM context.
  */
@@ -369,6 +511,7 @@ export function buildOrderLearnings(ownerUserId, { days = RETENTION_DAYS, limit 
     );
   }
   const windowDays = Math.min(Math.max(Number(days) || RETENTION_DAYS, 1), RETENTION_DAYS);
+  const commission_decisions = summarizeCommissionDecisions(events);
   return {
     retention_days: RETENTION_DAYS,
     window_days: windowDays,
@@ -376,6 +519,7 @@ export function buildOrderLearnings(ownerUserId, { days = RETENTION_DAYS, limit 
     cancel_or_reject_count: cancels.length,
     fill_count: fills.length,
     avoid_hints: summarizeAvoidHints(events),
+    commission_decisions,
     summary_bullets: bullets,
     recent_events: events.slice(0, 25).map((e) => ({
       id: e.id,
@@ -395,9 +539,22 @@ export function buildOrderLearnings(ownerUserId, { days = RETENTION_DAYS, limit 
 function buildActualOrderContextText(learnings) {
   const hints = learnings.avoid_hints || [];
   const bullets = learnings.summary_bullets || [];
+  const commissions = learnings.commission_decisions || [];
   const parts = [];
+  if (commissions.length) {
+    parts.push(
+      'COMMISSION DECISIONS (IBKR Lite — Maker must choose per symbol for THIS run):\n' +
+        commissions
+          .map(
+            (c) =>
+              `- ${c.symbol_key}: prior reject "${c.reason_text}". Choose retry_with_commission (widen tp_pct/stop_pct for Fixed commission drag) OR avoid_this_run (residual).` +
+              (c.advanced_error_override ? ' Override tags available from prior reject.' : '')
+          )
+          .join('\n')
+    );
+  }
   if (hints.length) {
-    parts.push('Avoid hints:\n' + hints.map((h) => `- ${h}`).join('\n'));
+    parts.push('Avoid hints (hard):\n' + hints.map((h) => `- ${h}`).join('\n'));
   }
   if (bullets.length) {
     parts.push('Recent cancels/rejects:\n' + bullets.map((b) => `- ${b}`).join('\n'));
@@ -425,7 +582,8 @@ async function llmSummarizeOrderHistory(learnings, { purpose } = {}) {
         role: 'system',
         content: `Compress IBKR order/cancel history into durable trading lessons for a Maker agent.
 Plain text only (no JSON, no fences). Short bullets.
-Focus on: products to avoid, TIF/session lessons, repeated reject codes, what worked (fills).
+Focus on: products to hard-avoid, IBKR Lite commission-free rejects that need Maker decision (retry_with_commission vs avoid_this_run), TIF/session lessons, repeated reject codes, what worked (fills).
+For commission rejects: do NOT say "never trade" — tell Maker to decide using market context and adjust tp/stop if retrying with Fixed commission.
 Max ~400 words.`,
       },
       {
@@ -513,6 +671,7 @@ export async function getOrderHistory(opts = {}) {
         cancel_or_reject_count: learnings.cancel_or_reject_count,
         fill_count: learnings.fill_count,
         avoid_hints: learnings.avoid_hints,
+        commission_decisions: learnings.commission_decisions,
       },
       summary,
       context_text: summary,

@@ -24,6 +24,11 @@ export const IBKR_POLICY_DEFAULTS = Object.freeze({
   entry_slip_pct_max: 0.25,
   no_margin: true,
   sgd_usd_rate: 0.74,
+  /** IBKR Fixed commission estimate when Maker sets retry_with_commission */
+  commission_usd_per_share: 0.005,
+  commission_min_usd: 1,
+  /** Round-trip legs (entry + exit) for net TP/stop accounting */
+  commission_round_trip_legs: 2,
   on_review_fail: 'hold',
   poll_interval_cron: '*/15 * * * *',
   require_ceo_on_exit: false,
@@ -164,6 +169,9 @@ export function resolveIbkrPolicy(variables = {}) {
     entry_slip_pct_max: num(vars.entry_slip_pct_max, d.entry_slip_pct_max),
     no_margin: bool(vars.no_margin, d.no_margin),
     sgd_usd_rate: num(vars.sgd_usd_rate, d.sgd_usd_rate),
+    commission_usd_per_share: num(vars.commission_usd_per_share, d.commission_usd_per_share),
+    commission_min_usd: num(vars.commission_min_usd, d.commission_min_usd),
+    commission_round_trip_legs: num(vars.commission_round_trip_legs, d.commission_round_trip_legs),
     on_review_fail: String(vars.on_review_fail || d.on_review_fail),
     poll_interval_cron: String(vars.poll_interval_cron || d.poll_interval_cron),
     require_ceo_on_exit: bool(vars.require_ceo_on_exit, d.require_ceo_on_exit),

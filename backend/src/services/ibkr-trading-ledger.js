@@ -440,12 +440,22 @@ export async function recordPlaceAttempt(
           reason_text: gr.terminal_reason_text || 'Gateway openOrder ack',
           source: 'place',
           qty: resRow?.qty,
-          detail: { orderIds: gr.orderIds, note: gr.note || null },
+          detail: {
+            orderIds: gr.orderIds,
+            note: gr.note || null,
+            retry_with_commission: gr.retry_with_commission || false,
+            commission_retry_used: gr.commission_retry_used || false,
+            advanced_error_override: gr.advanced_error_override || null,
+          },
         });
       }
       // Immediate cancel after ack → release reservation
       if (gr.terminal_cancelled && resRow?.id) {
         releaseReservation(resRow.id, { reason: 'cancelled' });
+        const parsed = reasonFromIbMessage(gr.terminal_reason_text || 'IB cancelled after place ack');
+        if (gr.terminal_reason_code === IBKR_ORDER_REASON.IB_COMMISSION_FREE_REJECT) {
+          parsed.reason_code = IBKR_ORDER_REASON.IB_COMMISSION_FREE_REJECT;
+        }
         recordOrderEvent({
           owner_user_id: ownerUserId,
           reservation_id: resRow.id,
@@ -453,9 +463,14 @@ export async function recordPlaceAttempt(
           symbol_key: gr.key,
           side: gr.side || resRow.side,
           status: 'Cancelled',
-          ...reasonFromIbMessage(gr.terminal_reason_text || 'IB cancelled after place ack'),
+          ...parsed,
           source: 'place_watch',
           qty: resRow.qty,
+          detail: {
+            advanced_error_override: gr.advanced_error_override || null,
+            advanced_order_reject: gr.advanced_order_reject || null,
+            commission_retry_used: gr.commission_retry_used || false,
+          },
         });
       } else if (
         !gr.terminal_cancelled &&

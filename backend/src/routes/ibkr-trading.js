@@ -2,12 +2,13 @@
  * IBKR paper trading budget / validate / reserve / snapshot API.
  */
 import { Router } from 'express';
-import { allowInternalOrAuth, isInternalRequest } from '../middleware/internal-auth.js';
+import { allowInternalOrAuth } from '../middleware/internal-auth.js';
 import { getIbkrTradingConfig, findAllowlistEntry } from '../services/ibkr-trading-rules.js';
 import * as ledger from '../services/ibkr-trading-ledger.js';
 import { getDb } from '../db/schema.js';
 import * as store from '../services/agent-workflow-store.js';
 import { resolveIbkrPolicy } from '../services/ibkr-workflow-variables.js';
+import { resolveEntitledOwnerUserId } from '../services/tool-owner-scope.js';
 
 const router = Router();
 
@@ -31,12 +32,14 @@ function resolveWorkflowBudgetOpts(_req) {
   };
 }
 
-/** Owner from session / internal service identity — never body/query spoof. */
+/**
+ * Owner from session / trusted headers (x-ceo-user-id set by /tools/invoke, /tools/test, workflow runner).
+ * Never body/query spoof.
+ */
 function entitledOwnerId(req) {
-  if (isInternalRequest(req) || req.isInternalService) {
-    return process.env.AGENT_OS_BALA_CEO_ID || 'ceo-bala';
-  }
-  return req.authUser?.id;
+  const owner = resolveEntitledOwnerUserId(req, { fallbackToBala: true });
+  if (!owner) throw new Error('owner_user_id could not be resolved');
+  return owner;
 }
 
 function enrichPositions(positions = [], catalog = null) {
@@ -90,7 +93,7 @@ router.get('/config', (req, res) => {
 
 router.get('/day-status', (req, res) => {
   try {
-    const owner = req.authUser.id;
+    const owner = entitledOwnerId(req);
     const cashUsd = req.query.cash_usd != null ? Number(req.query.cash_usd) : null;
     res.json(ledger.getDayStatus(owner, { cashUsd }));
   } catch (e) {

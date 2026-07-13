@@ -63,8 +63,9 @@ function isSameBackendUrl(url) {
 
 /**
  * Replace legacy x-internal-test with real internal token for same-host Agent OS URLs.
+ * When ownerUserId is set (workflow run owner), forward as x-ceo-user-id for entitled APIs.
  */
-export function injectInternalServiceAuth(headers = {}, url = '') {
+export function injectInternalServiceAuth(headers = {}, url = '', ownerUserId = null) {
   const out = { ...headers };
   delete out['x-internal-test'];
   delete out['X-Internal-Test'];
@@ -73,6 +74,10 @@ export function injectInternalServiceAuth(headers = {}, url = '') {
     out['x-agent-os-internal'] = token;
   } else if (out['x-agent-os-internal'] === '{{AGENT_OS_INTERNAL_TOKEN}}') {
     out['x-agent-os-internal'] = getInternalToken() || ensureInternalTokenConfigured();
+  }
+  const owner = String(ownerUserId || '').trim();
+  if (owner && !out['x-ceo-user-id'] && !out['X-Ceo-User-Id']) {
+    out['x-ceo-user-id'] = owner;
   }
   return out;
 }
@@ -98,5 +103,7 @@ export function buildApiRequestHeaders(cfg, context, resolvedInputHeadersJson, u
     nodeHeaders,
     bindingHeaders
   );
-  return injectInternalServiceAuth(merged, url);
+  const owner =
+    context?.owner_user_id || context?.ownerUserId || context?.ceo_user_id || context?.ceoUserId || null;
+  return injectInternalServiceAuth(merged, url, owner);
 }

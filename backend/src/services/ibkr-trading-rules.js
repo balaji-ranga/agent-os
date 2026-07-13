@@ -52,6 +52,36 @@ function clamp(n, min, max) {
   return Math.min(max, Math.max(min, n));
 }
 
+/**
+ * Estimate round-trip Fixed commission as % of notional (for Maker retry_with_commission).
+ * Uses IBKR-like $0.005/share, min $1 per leg, × legs (default 2).
+ */
+export function estimateCommissionPct(entryPrice, qty, policy = {}) {
+  const entry = Number(entryPrice) || 0;
+  const q = Number(qty) || 0;
+  const notional = entry * q;
+  if (!(notional > 0)) return { commission_pct: 0, commission_usd: 0, per_leg_usd: 0 };
+  const perShare = Number(policy.commission_usd_per_share ?? IBKR_POLICY_DEFAULTS.commission_usd_per_share);
+  const minUsd = Number(policy.commission_min_usd ?? IBKR_POLICY_DEFAULTS.commission_min_usd);
+  const legs = Math.max(
+    1,
+    Number(policy.commission_round_trip_legs ?? IBKR_POLICY_DEFAULTS.commission_round_trip_legs) || 2
+  );
+  const perLeg = Math.max(minUsd, q * perShare);
+  const commissionUsd = perLeg * legs;
+  const commissionPct = (commissionUsd / notional) * 100;
+  return {
+    commission_pct: Number(commissionPct.toFixed(4)),
+    commission_usd: Number(commissionUsd.toFixed(4)),
+    per_leg_usd: Number(perLeg.toFixed(4)),
+    legs,
+  };
+}
+
+function truthyFlag(v) {
+  return v === true || v === 1 || String(v || '').toLowerCase() === 'true' || String(v || '').toLowerCase() === 'yes';
+}
+
 function policyFromOpts(opts = {}) {
   if (opts.policy) return opts.policy;
   return resolveIbkrPolicy({
@@ -67,6 +97,9 @@ function policyFromOpts(opts = {}) {
     sgd_usd_rate: opts.sgdUsdRate ?? opts.sgd_usd_rate,
     min_rationale_chars: opts.minRationaleChars ?? opts.min_rationale_chars,
     block_duplicate_buys: opts.blockDuplicateBuys ?? opts.block_duplicate_buys,
+    commission_usd_per_share: opts.commissionUsdPerShare ?? opts.commission_usd_per_share,
+    commission_min_usd: opts.commissionMinUsd ?? opts.commission_min_usd,
+    commission_round_trip_legs: opts.commissionRoundTripLegs ?? opts.commission_round_trip_legs,
   });
 }
 
@@ -272,16 +305,49 @@ export function validateTradePlan(planInput, opts = {}) {
         errors.push(`Trade ${i + 1}: entry ${entry} exceeds +${policy.entry_slip_pct_max}% of ref ${ref}`);
         continue;
       }
-      if (stopPct < policy.stop_pct_min || stopPct > policy.stop_pct_max) {
-        errors.push(`Trade ${i + 1}: stop_pct must be ${policy.stop_pct_min}-${policy.stop_pct_max}`);
+      const retryCommission = truthyFlag(t.retry_with_commission);
+      const { commission_pct, commission_usd, per_leg_usd, legs } = estimateCommissionPct(
+        entry,
+        qty,
+        policy
+      );
+      // When paying Fixed commission, gross TP must still leave net >= tp_pct_min after round-trip fees.
+      // Stop band: allow up to stop_pct_max + half round-trip commission (entry leg drag on risk).
+      const tpMinEff = retryCommission
+        ? policy.tp_pct_min + commission_pct
+        : policy.tp_pct_min;
+      const tpMaxEff = retryCommission
+        ? Math.max(policy.tp_pct_max, tpMinEff)
+        : policy.tp_pct_max;
+      const stopMinEff = policy.stop_pct_min;
+      const stopMaxEff = retryCommission
+        ? policy.stop_pct_max + commission_pct / Math.max(1, legs)
+        : policy.stop_pct_max;
+
+      if (stopPct < stopMinEff || stopPct > stopMaxEff + 1e-9) {
+        errors.push(
+          `Trade ${i + 1}: stop_pct must be ${stopMinEff}-${Number(stopMaxEff.toFixed(3))}` +
+            (retryCommission ? ` (includes commission risk pad ${Number((commission_pct / legs).toFixed(3))}%)` : '')
+        );
         continue;
       }
-      if (tpPct < policy.tp_pct_min || tpPct > policy.tp_pct_max) {
-        errors.push(`Trade ${i + 1}: tp_pct must be ${policy.tp_pct_min}-${policy.tp_pct_max}`);
+      if (tpPct < tpMinEff - 1e-9 || tpPct > tpMaxEff + 1e-9) {
+        errors.push(
+          `Trade ${i + 1}: tp_pct must be ${Number(tpMinEff.toFixed(3))}-${Number(tpMaxEff.toFixed(3))}` +
+            (retryCommission
+              ? ` (retry_with_commission: gross TP must cover ~${Number(commission_pct.toFixed(3))}% round-trip Fixed commission ≈ $${commission_usd})`
+              : '')
+        );
         continue;
       }
       if (!thesis || !risks || !whyNow) {
         errors.push(`Trade ${i + 1}: BUY requires thesis, risks, and why_now for checker`);
+        continue;
+      }
+      if (retryCommission && !/commission|fixed|lite/i.test(`${risks} ${catalysts} ${rationale}`)) {
+        errors.push(
+          `Trade ${i + 1}: retry_with_commission=true requires mentioning Fixed commission impact in risks/rationale`
+        );
         continue;
       }
     }
@@ -301,6 +367,20 @@ export function validateTradePlan(planInput, opts = {}) {
     const roundTick = (p) =>
       entryMeta.secType === 'CRYPTO' ? Math.round(Number(p) * 4) / 4 : Number(Number(p).toFixed(priceDecimals));
 
+    const retryCommission = truthyFlag(t.retry_with_commission);
+    const commissionEst =
+      side === 'BUY' && retryCommission ? estimateCommissionPct(entry, qty, policy) : null;
+
+    const stopMaxForClamp = retryCommission
+      ? policy.stop_pct_max + (commissionEst?.commission_pct || 0) / Math.max(1, commissionEst?.legs || 2)
+      : policy.stop_pct_max;
+    const tpMinForClamp = retryCommission
+      ? policy.tp_pct_min + (commissionEst?.commission_pct || 0)
+      : policy.tp_pct_min;
+    const tpMaxForClamp = retryCommission
+      ? Math.max(policy.tp_pct_max, tpMinForClamp)
+      : policy.tp_pct_max;
+
     normalized.push({
       key: entryMeta.key,
       symbol: entryMeta.symbol,
@@ -312,8 +392,8 @@ export function validateTradePlan(planInput, opts = {}) {
       qty,
       reference_price: roundTick(ref),
       entry_price: roundTick(entry),
-      stop_pct: side === 'BUY' ? clamp(stopPct, policy.stop_pct_min, policy.stop_pct_max) : stopPct,
-      tp_pct: side === 'BUY' ? clamp(tpPct, policy.tp_pct_min, policy.tp_pct_max) : tpPct,
+      stop_pct: side === 'BUY' ? clamp(stopPct, policy.stop_pct_min, stopMaxForClamp) : stopPct,
+      tp_pct: side === 'BUY' ? clamp(tpPct, tpMinForClamp, tpMaxForClamp) : tpPct,
       stop_price: roundTick(stopPrice),
       tp_price: roundTick(tpPrice),
       notional_native: Number(notionalNative.toFixed(2)),
@@ -324,6 +404,22 @@ export function validateTradePlan(planInput, opts = {}) {
       risks,
       why_now: whyNow,
       board_lot: entryMeta.boardLot,
+      retry_with_commission: retryCommission,
+      ...(commissionEst
+        ? {
+            commission_pct: commissionEst.commission_pct,
+            commission_usd_est: commissionEst.commission_usd,
+            net_tp_pct: Number((tpPct - commissionEst.commission_pct).toFixed(4)),
+            net_stop_pct: Number(
+              (stopPct + commissionEst.commission_pct / Math.max(1, commissionEst.legs)).toFixed(4)
+            ),
+          }
+        : {}),
+      ...(t.advanced_error_override || t.advancedErrorOverride
+        ? {
+            advanced_error_override: String(t.advanced_error_override || t.advancedErrorOverride),
+          }
+        : {}),
     });
   }
 

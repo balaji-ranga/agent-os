@@ -4,7 +4,7 @@
 import { createConnection } from 'net';
 import { connect as tlsConnect } from 'tls';
 
-function smtpFromEnv() {
+export function smtpFromEnv() {
   return {
     host: process.env.WORKFLOW_SMTP_HOST || '',
     port: Number(process.env.WORKFLOW_SMTP_PORT || 587),
@@ -47,7 +47,7 @@ function isSmtpSuccess(code) {
 }
 
 /** Minimal SMTP client — attempts send; returns attempt result even on failure. */
-function sendSmtpMail({ host, port, secure, user, pass, from, to, cc, subject, body }) {
+export function sendSmtpMail({ host, port, secure, user, pass, from, to, cc, subject, body }) {
   return new Promise((resolve) => {
     const recipients = [to, cc].filter(Boolean).join(', ');
     const messageId = `<agent-os.${Date.now()}.${Math.random().toString(36).slice(2, 10)}@${String(from).split('@')[1] || 'localhost'}>`;

@@ -88,6 +88,9 @@ export const IBKR_DAY_PLAN_VARIABLES = withDerivedAllowlistKeys({
   entry_slip_pct_max: 0.25,
   no_margin: true,
   sgd_usd_rate: 0.74,
+  commission_usd_per_share: 0.005,
+  commission_min_usd: 1,
+  commission_round_trip_legs: 2,
   brain_history_days: 7,
   order_history_days: 7,
 });
@@ -110,6 +113,9 @@ export const IBKR_POLLER_VARIABLES = withDerivedAllowlistKeys({
   entry_slip_pct_max: 0.25,
   no_margin: true,
   sgd_usd_rate: 0.74,
+  commission_usd_per_share: 0.005,
+  commission_min_usd: 1,
+  commission_round_trip_legs: 2,
   brain_history_days: 7,
   order_history_days: 7,
 });

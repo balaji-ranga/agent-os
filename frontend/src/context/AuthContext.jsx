@@ -55,29 +55,47 @@ export function AuthProvider({ children }) {
     loadMe();
   }, [loadMe]);
 
+  const applySession = useCallback(
+    async (data) => {
+      if (!data?.session?.token) {
+        throw new Error(data?.message || data?.error || 'No session returned');
+      }
+      localStorage.removeItem(IMPERSONATOR_TOKEN_KEY);
+      localStorage.setItem(TOKEN_KEY, data.session.token);
+      setAuthToken(data.session.token);
+      setUser(data.user);
+      if (data.user?.role === 'ceo') {
+        const me = await api.authMe();
+        applyMe(me);
+        return me.user;
+      }
+      setImpersonation(null);
+      return data.user;
+    },
+    [applyMe]
+  );
+
   const login = async (email, password, admin = false) => {
     const data = admin ? await api.authAdminLogin({ email, password }) : await api.authLogin({ email, password });
-    localStorage.removeItem(IMPERSONATOR_TOKEN_KEY);
-    localStorage.setItem(TOKEN_KEY, data.session.token);
-    setAuthToken(data.session.token);
-    setUser(data.user);
-    if (data.user.role === 'ceo') {
-      const me = await api.authMe();
-      applyMe(me);
-    } else {
-      setImpersonation(null);
+    if (data.mfa_required || data.mfa_setup_required) {
+      return data; // caller shows OTP / setup UI
     }
-    return data.user;
+    return applySession(data);
   };
+
+  const completeMfa = async ({ mfa_token, code }) => {
+    const data = await api.authMfaVerify({ mfa_token, code });
+    return applySession(data);
+  };
+
+  const resendMfa = async (mfa_token) => api.authMfaResend({ mfa_token });
 
   const register = async (body) => {
     const data = await api.authRegister(body);
-    localStorage.removeItem(IMPERSONATOR_TOKEN_KEY);
-    localStorage.setItem(TOKEN_KEY, data.session.token);
-    setAuthToken(data.session.token);
-    const me = await api.authMe();
-    applyMe(me);
-    return data.user;
+    if (data.mfa_required || data.mfa_setup_required) {
+      return data;
+    }
+    return applySession(data);
   };
 
   const impersonateUser = async (userId) => {
@@ -144,6 +162,8 @@ export function AuthProvider({ children }) {
         impersonation,
         loading,
         login,
+        completeMfa,
+        resendMfa,
         register,
         logout,
         impersonateUser,

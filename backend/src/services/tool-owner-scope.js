@@ -4,6 +4,7 @@
  */
 import { extractOwnerUserIdFromText } from './agent-chat-scope.js';
 import { parseTenantOpenClawAgentId } from './openclaw-tenant.js';
+import { getBalaCeoAuthId } from './job-applicant-ceo.js';
 
 const SESSION_USER_PREFIX = 'agent-os-';
 const SESSION_OWNER_TTL_MS = Number(process.env.OPENCLAW_SESSION_OWNER_TTL_MS || 4 * 3600000);
@@ -64,8 +65,53 @@ export function parseOwnerUserIdFromSessionKey(sessionKey) {
   return parseOwnerUserIdFromSessionUser(m[2], m[1]);
 }
 
+/** True when authUser is the placeholder used for TOOLS_API_KEY / internal service calls. */
+export function isPlaceholderServiceUser(authUser) {
+  return !!(authUser?.internal);
+}
+
+/**
+ * Trusted owner for owner-scoped APIs (IBKR ledger/analytics, day-status, etc.).
+ * Never trusts body owner_user_id / ceo_user_id (LLM / client spoof).
+ * Order: real session CEO → trusted headers → OpenClaw session → tenant agent id → optional Bala fallback.
+ */
+export function resolveEntitledOwnerUserId(req, { fallbackToBala = true } = {}) {
+  if (req?.authUser?.role === 'ceo' && !isPlaceholderServiceUser(req.authUser)) {
+    return String(req.authUser.id).trim();
+  }
+  if (req?.authUser?.role === 'admin' && req.authUser.impersonation) {
+    return String(req.authUser.id).trim();
+  }
+
+  const fromHeader = String(
+    req?.headers?.['x-ceo-user-id'] || req?.headers?.['x-agent-os-user-id'] || ''
+  ).trim();
+  if (fromHeader) return fromHeader;
+
+  const fromRegistry = resolveOwnerFromOpenClawSession(req);
+  if (fromRegistry) return fromRegistry;
+
+  const sessionKey = req?.headers?.['x-openclaw-session-key'] || req?.headers?.['x-session-key'];
+  const fromSessionKey = parseOwnerUserIdFromSessionKey(String(sessionKey || ''));
+  if (fromSessionKey) return fromSessionKey;
+
+  const agentId = req?.headers?.['x-openclaw-agent-id'] || req?.headers?.['x-agent-id'];
+  const sessionUser = req?.headers?.['x-openclaw-session-user'];
+  const fromSessionUser = parseOwnerUserIdFromSessionUser(String(sessionUser || ''), agentId);
+  if (fromSessionUser) return fromSessionUser;
+
+  const tenant = parseTenantOpenClawAgentId(agentId);
+  if (tenant?.ceoUserId) return tenant.ceoUserId;
+
+  if (fallbackToBala) return getBalaCeoAuthId();
+  return null;
+}
+
 export function resolveToolOwnerUserId(req, body = {}, resolveAuthenticatedCeoUserId = null) {
-  if (req?.authUser?.role === 'ceo') return req.authUser.id;
+  // Skip placeholder internalServiceUser (always ceo-bala) — resolve from session/tenant/headers.
+  if (req?.authUser?.role === 'ceo' && !isPlaceholderServiceUser(req.authUser)) {
+    return req.authUser.id;
+  }
 
   if (req?.authUser?.role === 'admin') {
     if (req.authUser.impersonation) return req.authUser.id;
@@ -75,6 +121,11 @@ export function resolveToolOwnerUserId(req, body = {}, resolveAuthenticatedCeoUs
       } catch (_) {}
     }
   }
+
+  const fromHeader = String(
+    req?.headers?.['x-ceo-user-id'] || req?.headers?.['x-agent-os-user-id'] || ''
+  ).trim();
+  if (fromHeader) return fromHeader;
 
   const sessionKey = req?.headers?.['x-openclaw-session-key'] || req?.headers?.['x-session-key'];
   const fromRegistry = resolveOwnerFromOpenClawSession(req);
@@ -92,7 +143,7 @@ export function resolveToolOwnerUserId(req, body = {}, resolveAuthenticatedCeoUs
   const tenant = parseTenantOpenClawAgentId(agentId || body?.caller_agent_id || body?.x_openclaw_agent_id);
   if (tenant?.ceoUserId) return tenant.ceoUserId;
 
-  if (req?.authUser && resolveAuthenticatedCeoUserId) {
+  if (req?.authUser && !isPlaceholderServiceUser(req.authUser) && resolveAuthenticatedCeoUserId) {
     return resolveAuthenticatedCeoUserId(req, body);
   }
 

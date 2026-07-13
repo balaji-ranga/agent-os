@@ -13,7 +13,10 @@ function UserProfilePanel() {
     current_password: '',
     new_password: '',
     confirm_password: '',
+    mfa_policy: 'inherit',
+    mfa_mode: 'inherit',
   });
+  const [mfaInfo, setMfaInfo] = useState(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
@@ -26,7 +29,28 @@ function UserProfilePanel() {
       email: user.email || '',
       region: user.region || '',
       mobile: user.mobile || '',
+      mfa_policy: user.mfa_policy || 'inherit',
+      mfa_mode: user.mfa_mode || 'inherit',
     }));
+    api
+      .authMe()
+      .then((data) => {
+        const m = data.mfa || {};
+        setMfaInfo({
+          enabled: data.mfa_enabled ?? m.enabled,
+          effective_mode: data.mfa_mode || m.mode,
+          platform_require_mfa: m.platform_require_mfa,
+          platform_mfa_mode: m.platform_mfa_mode,
+          policy: m.policy || data.user?.mfa_policy || 'inherit',
+          user_mfa_mode: m.user_mfa_mode ?? data.user?.mfa_mode ?? null,
+        });
+        setForm((f) => ({
+          ...f,
+          mfa_policy: data.user?.mfa_policy || m.policy || 'inherit',
+          mfa_mode: data.user?.mfa_mode || m.user_mfa_mode || 'inherit',
+        }));
+      })
+      .catch(() => {});
   }, [user]);
 
   const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
@@ -46,13 +70,26 @@ function UserProfilePanel() {
         email: form.email,
         region: form.region,
         mobile: form.mobile,
+        mfa_policy: form.mfa_policy,
+        mfa_mode: form.mfa_mode === 'inherit' ? 'inherit' : form.mfa_mode,
       };
       if (form.new_password) {
         body.current_password = form.current_password;
         body.new_password = form.new_password;
       }
-      await api.authUpdateProfile(body);
+      const data = await api.authUpdateProfile(body);
       await reload();
+      if (data.mfa) {
+        setMfaInfo((prev) => ({
+          ...prev,
+          enabled: data.mfa.enabled,
+          effective_mode: data.mfa.mode,
+          platform_require_mfa: data.mfa.platform_require_mfa,
+          platform_mfa_mode: data.mfa.platform_mfa_mode,
+          policy: data.mfa.policy,
+          user_mfa_mode: data.mfa.user_mfa_mode,
+        }));
+      }
       setMessage('Profile updated.');
       setForm((f) => ({ ...f, current_password: '', new_password: '', confirm_password: '' }));
     } catch (err) {
@@ -61,6 +98,9 @@ function UserProfilePanel() {
       setBusy(false);
     }
   };
+
+  const platRequire = mfaInfo?.platform_require_mfa;
+  const platMode = mfaInfo?.platform_mfa_mode || 'EMAIL';
 
   return (
     <div style={{ padding: '1.5rem', maxWidth: 520, margin: '0 auto' }}>
@@ -108,6 +148,42 @@ function UserProfilePanel() {
             onChange={(e) => set('mobile', e.target.value)}
             style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
           />
+        </label>
+
+        <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '0.5rem 0' }} />
+        <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--muted)' }}>
+          Multi-factor authentication
+          {mfaInfo && (
+            <>
+              {' '}
+              — currently {mfaInfo.enabled ? 'on' : 'off'} via {mfaInfo.effective_mode}
+              {` (platform: ${platRequire ? 'required' : 'optional'} / ${platMode})`}
+            </>
+          )}
+        </p>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Require MFA</span>
+          <select
+            value={form.mfa_policy}
+            onChange={(e) => set('mfa_policy', e.target.value)}
+            style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+          >
+            <option value="inherit">Use platform default ({platRequire ? 'on' : 'off'})</option>
+            <option value="on">Always required</option>
+            <option value="off">Disabled for this account</option>
+          </select>
+        </label>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>MFA method</span>
+          <select
+            value={form.mfa_mode === null || form.mfa_mode === '' ? 'inherit' : form.mfa_mode}
+            onChange={(e) => set('mfa_mode', e.target.value)}
+            style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+          >
+            <option value="inherit">Use platform default ({platMode})</option>
+            <option value="EMAIL">Email OTP</option>
+            <option value="TOTP">Authenticator app (TOTP)</option>
+          </select>
         </label>
 
         <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '0.5rem 0' }} />

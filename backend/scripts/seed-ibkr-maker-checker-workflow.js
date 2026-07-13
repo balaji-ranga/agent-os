@@ -64,7 +64,11 @@ Hard constraints:
 - BUY entry ≤ reference_price + {{var.entry_slip_pct_max}}%
 - Respect cash/positions/pending sells/reference_prices from account snapshot in the user message
 - When snapshot.reference_prices[key].reference_price is present, USE it as reference_price (do not invent)
-- Read ORDER HISTORY (summarized) and any snapshot.order_learnings: honor avoid hints — do not repeat IB system cancels (e.g. paper crypto/PAXOS unavailable, margin calc unsupported)
+- Read ORDER HISTORY (summarized) and any snapshot.order_learnings:
+  - Hard avoid_hints: do not repeat those IB system cancels (e.g. paper crypto/PAXOS unavailable)
+  - commission_decisions: for each listed symbol, DECIDE for THIS run using market context:
+    (A) retry_with_commission=true on the BUY — place will resubmit on Fixed/regular commission; you MUST widen tp_pct so net TP after ~round-trip Fixed fees still ≥ tp_pct_min, and pad stop_pct for entry-leg fee drag; mention Fixed commission in risks/rationale
+    (B) avoid_this_run — omit from trades[] and add residual with residual_reason "avoid_commission_this_run" + short why
 - If already long a name, do not BUY again; use SELL_TO_CLOSE only to exit
 - If an SGX board lot does not fit budget, skip that name and use other allowlist markets
 
@@ -74,6 +78,7 @@ Each BUY trade MUST include rich justification for the Checker:
 - risks (what could go wrong)
 - why_now (why today vs wait)
 - rationale (short summary)
+- optional retry_with_commission (boolean) when ORDER HISTORY commission_decisions apply
 Combined justification must be substantial (≥{{var.min_rationale_chars}} chars).
 
 Schema:
@@ -87,6 +92,7 @@ Schema:
       "entry_price": 100.1,
       "stop_pct": 1.8,
       "tp_pct": 1.2,
+      "retry_with_commission": false,
       "thesis": "...",
       "catalysts": "...",
       "risks": "...",
@@ -95,7 +101,7 @@ Schema:
     }
   ],
   "residual": [],
-  "notes": "day thesis / why this subset / how you addressed checker feedback"
+  "notes": "day thesis / why this subset / commission decisions / how you addressed checker feedback"
 }
 
 Latest Checker adjustments (may be empty on first pass): {{parse-checker.adjustments}}
@@ -109,12 +115,14 @@ The Maker plan is in the user message (not only here). Also use ORDER HISTORY / 
 Approve when:
 - trades[] is empty AND notes/residual clearly cite ORDER HISTORY / prior IB system cancels (e.g. paper PAXOS unavailable, margin calc unsupported) — valid informed no-trade day
 - OR each BUY has solid thesis/risks/why_now and respects allowlist {{var.allowlist_keys}}, cash, stops, and learnings
+- commission_decisions symbols: Maker either set retry_with_commission with widened tp/stop + commission mentioned in risks, OR residual avoid_commission_this_run
 
 Reject if:
 - symbol outside allowlist {{var.allowlist_keys}}
 - weak/missing thesis, risks, or why_now on non-empty trades
 - stop/tp/entry rules look wrong
 - ignores cash, open positions, pending sells, or order_learnings avoid_hints (e.g. repeats PAXOS after ib_system_cancel)
+- ignores commission_decisions (retries Lite-rejected name without retry_with_commission / without padding tp for Fixed commission, and without residual avoid)
 - empty trades[] with NO explanation of why (vague skip)
 - Maker ignored your previous adjustments without explaining why
 

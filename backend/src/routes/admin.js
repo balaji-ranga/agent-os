@@ -32,11 +32,32 @@ router.get('/users', (req, res) => {
 
 router.post('/users', (req, res) => {
   try {
-    const { email, password, name, region, mobile, role = 'ceo', db_mode, ceo_db_mode } = req.body || {};
+    const {
+      email,
+      password,
+      name,
+      region,
+      mobile,
+      role = 'ceo',
+      db_mode,
+      ceo_db_mode,
+      mfa_policy,
+      mfa_mode,
+    } = req.body || {};
     if (role === 'admin') {
       return res.status(400).json({ error: 'Use platform seed for admin accounts' });
     }
-    const user = registerCeoUser({ email, password, name, region, mobile, db_mode, ceo_db_mode });
+    const user = registerCeoUser({
+      email,
+      password,
+      name,
+      region,
+      mobile,
+      db_mode,
+      ceo_db_mode,
+      mfa_policy,
+      mfa_mode,
+    });
     res.status(201).json({ user });
   } catch (e) {
     res.status(400).json({ error: e.message });

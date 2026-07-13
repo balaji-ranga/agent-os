@@ -300,6 +300,9 @@ See `backend/.env.example`.
 - Retention: **30 days** (pruned on write).
 - Each `POST /account-snapshot` **reconciles** `reserved` ledger rows vs live open orders/positions and attaches `order_learnings` for the Maker.
 - Workflow cancels use standard reasons: `workflow_dayplan_cancel`, `workflow_poller_cancel`, `workflow_cancel_before_sell`, `workflow_e2e_cancel_all`.
+- **IBKR Lite commission-free rejects** use `ib_commission_free_reject` (not a hard avoid). Learnings expose `commission_decisions[]` so the Maker chooses for **this run**:
+  - `retry_with_commission=true` on the BUY → place path applies `advancedErrorOverride` (same-session auto-retry when IB returns override tags; `IBKR_AUTO_RETRY_COMMISSION=1` default) and validation requires **gross** `tp_pct` / padded `stop_pct` to cover estimated Fixed round-trip commission (`commission_usd_per_share`, `commission_min_usd`, `commission_round_trip_legs` workflow vars).
+  - Or residual with `avoid_commission_this_run`.
 - APIs: `GET|POST /api/ibkr-trading/order-events`, `GET|POST /api/ibkr-trading/order-learnings`
   - `days` (e.g. 3 / 7 / 30, max retention 30), optional `symbol_key`, `limit`
   - `response_type`: `actual` (events + heuristic learnings + `context_text`) | `summarized` (platform LLM → `context_text` / `bodyText`)
@@ -322,8 +325,8 @@ See `backend/.env.example`.
 
 - Durable tables: `ibkr_fills`, `ibkr_position_snapshots`, `ibkr_realized_pnl`, `ibkr_cash_events`
 - Snapshot persist + fill confirm wired from place watch / reconcile / `confirmFill`
-- Entitled APIs (session owner only):  
-  `GET|POST /api/ibkr-trading/analytics/summary`,  
+- Entitled APIs (session owner, or `x-ceo-user-id` from `/tools/invoke` / workflow runner — never body spoof):
+  `GET|POST /api/ibkr-trading/analytics/summary`,
   `GET .../fills`, `/positions`, `/pnl`, `/cash-events`
 - Content tools for agents: `ibkr_portfolio_analytics`, `ibkr_fills_history`, `ibkr_pnl`, `ibkr_cash_events`
 
