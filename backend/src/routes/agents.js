@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { join } from 'path';
 import { existsSync, rmSync, writeFileSync, readFileSync } from 'fs';
 import { getDb } from '../db/schema.js';
-import { requireAuth, resolveAuthenticatedCeoUserId, resolveCeoDataUserIdFromRequest } from '../middleware/auth.js';
+import { requireAuth, requireCeoOrAdmin, resolveAuthenticatedCeoUserId, resolveCeoDataUserIdFromRequest } from '../middleware/auth.js';
+import { allowInternalOrAuth } from '../middleware/internal-auth.js';
 import { listAgentsForUser } from '../services/users.js';
 import {
   assertUserAgentAccess,
@@ -10,6 +11,7 @@ import {
   clearOpenClawSessionForUser,
   extractOwnerUserIdFromText,
   resolveChatOwnerUserId,
+  userCanAccessAgent,
 } from '../services/agent-chat-scope.js';
 import { registerOpenClawSessionOwner } from '../services/tool-owner-scope.js';
 import * as openclaw from '../gateway/openclaw.js';
@@ -19,6 +21,7 @@ import { normalizeReplyContent } from '../services/delegation-queue.js';
 import { createFullAgent } from '../services/create-full-agent.js';
 import { ensureManagedBrowserReady } from '../services/job-browser-auth.js';
 import * as agentTools from '../services/openclaw-agent-tools.js';
+import { ensureTenantOpenClawAgent } from '../services/openclaw-tenant.js';
 
 const router = Router();
 const homedir = process.env.USERPROFILE || process.env.HOME || '';
@@ -89,10 +92,13 @@ router.get('/:id', requireAuth, (req, res) => {
 });
 
 // Per-agent content tool grants (UI → DB → hot allowlists file, no gateway restart)
-router.get('/:id/tools', (req, res) => {
+router.get('/:id/tools', requireAuth, (req, res) => {
   try {
     const agent = db().prepare('SELECT * FROM agents WHERE id = ?').get(req.params.id);
     if (!agent) return res.status(404).json({ error: 'Agent not found' });
+    if (req.authUser.role === 'ceo' && !userCanAccessAgent(req.authUser, agent.id)) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
     res.json({
       grants: agentTools.getAgentToolGrants(agent.id),
       openclaw_agent_id: agentTools.resolveOpenClawAgentId(agent),
@@ -103,10 +109,13 @@ router.get('/:id/tools', (req, res) => {
   }
 });
 
-router.put('/:id/tools', async (req, res) => {
+router.put('/:id/tools', requireAuth, async (req, res) => {
   try {
     const agent = db().prepare('SELECT * FROM agents WHERE id = ?').get(req.params.id);
     if (!agent) return res.status(404).json({ error: 'Agent not found' });
+    if (req.authUser.role === 'ceo' && !userCanAccessAgent(req.authUser, agent.id)) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
     const names = Array.isArray(req.body?.tools) ? req.body.tools : req.body?.grants || [];
     const result = agentTools.setAgentToolGrants(agent, names);
     if (req.body?.sync_tools_md) {
@@ -121,7 +130,7 @@ router.put('/:id/tools', async (req, res) => {
   }
 });
 
-router.post('/:id/tools/sync-template-md', async (req, res) => {
+router.post('/:id/tools/sync-template-md', requireAuth, async (req, res) => {
   try {
     const agent = db().prepare('SELECT * FROM agents WHERE id = ?').get(req.params.id);
     if (!agent) return res.status(404).json({ error: 'Agent not found' });
@@ -133,32 +142,35 @@ router.post('/:id/tools/sync-template-md', async (req, res) => {
 });
 
 // Per-agent workspace (MD files)
-router.get('/:id/workspace/files', async (req, res) => {
+router.get('/:id/workspace/files', requireAuth, async (req, res) => {
   try {
+    assertUserAgentAccess(req.authUser, req.params.id);
     const agent = db().prepare('SELECT * FROM agents WHERE id = ?').get(req.params.id);
     if (!agent) return res.status(404).json({ error: 'Agent not found' });
     const root = getAgentWorkspaceRoot(agent);
     const result = await workspace.listWorkspaceFiles(root);
     res.json(result);
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(e.status || 500).json({ error: e.message });
   }
 });
 
-router.get('/:id/workspace/files/:name', async (req, res) => {
+router.get('/:id/workspace/files/:name', requireAuth, async (req, res) => {
   try {
+    assertUserAgentAccess(req.authUser, req.params.id);
     const agent = db().prepare('SELECT * FROM agents WHERE id = ?').get(req.params.id);
     if (!agent) return res.status(404).json({ error: 'Agent not found' });
     const root = getAgentWorkspaceRoot(agent);
     const result = await workspace.readWorkspaceFile(req.params.name, { workspaceRoot: root });
     res.json(result);
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(e.status || 500).json({ error: e.message });
   }
 });
 
-router.put('/:id/workspace/files/:name', async (req, res) => {
+router.put('/:id/workspace/files/:name', requireAuth, async (req, res) => {
   try {
+    assertUserAgentAccess(req.authUser, req.params.id);
     const agent = db().prepare('SELECT * FROM agents WHERE id = ?').get(req.params.id);
     if (!agent) return res.status(404).json({ error: 'Agent not found' });
     const root = getAgentWorkspaceRoot(agent);
@@ -167,7 +179,7 @@ router.put('/:id/workspace/files/:name', async (req, res) => {
     const read = await workspace.readWorkspaceFile(req.params.name, { workspaceRoot: root });
     res.json({ path: read.path, text: read.text });
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    res.status(e.status || 400).json({ error: e.message });
   }
 });
 
@@ -178,8 +190,8 @@ router.post('/:id/sessions/clear', requireAuth, (req, res) => {
     assertUserAgentAccess(req.authUser, req.params.id);
     const agent = db().prepare('SELECT id, openclaw_agent_id FROM agents WHERE id = ?').get(req.params.id);
     if (!agent) return res.status(404).json({ error: 'Agent not found' });
-    const openclawId = (agent.openclaw_agent_id || agent.id || '').toString().trim() || 'main';
-    clearOpenClawSessionForUser(agent.id, openclawId, ownerUserId);
+    const ensured = ensureTenantOpenClawAgent(agent, ownerUserId);
+    clearOpenClawSessionForUser(agent.id, ensured.openclawAgentId, ownerUserId);
     db()
       .prepare('DELETE FROM chat_turns WHERE agent_id = ? AND owner_user_id = ?')
       .run(agent.id, ownerUserId);
@@ -189,16 +201,31 @@ router.post('/:id/sessions/clear', requireAuth, (req, res) => {
   }
 });
 
-// POST /api/agents — create a full OpenClaw agent (workspace, SOUL, openclaw.json, tools, DB)
-router.post('/', async (req, res) => {
+// POST /api/agents — create a full OpenClaw agent owned by the signed-in CEO
+router.post('/', requireAuth, requireCeoOrAdmin, async (req, res) => {
   try {
-    const { id, name, role, parent_id, workspace_path, openclaw_agent_id, is_coo } = req.body;
-    // Full create: name required; creates workspace, SOUL with session/tool instructions, openclaw.json, default tools
+    const { id, name, role, parent_id, tools } = req.body || {};
+    let ownerUserId = null;
+    if (req.authUser.role === 'ceo') {
+      ownerUserId = req.authUser.id;
+    } else if (req.authUser.role === 'admin') {
+      ownerUserId = (req.body?.owner_user_id || req.body?.ownerUserId || '').trim() || null;
+      if (!ownerUserId) {
+        return res.status(400).json({ error: 'owner_user_id required when admin creates an agent' });
+      }
+    }
+    let parentId = parent_id || null;
+    if (!parentId) {
+      const coo = db().prepare('SELECT id FROM agents WHERE is_coo = 1 LIMIT 1').get();
+      parentId = coo?.id || null;
+    }
     const row = await createFullAgent({
       name: name || 'Unnamed',
       role: role || '',
-      parent_id: parent_id || null,
+      parent_id: parentId,
       id: id && String(id).trim() ? String(id).trim() : undefined,
+      ownerUserId,
+      tools: Array.isArray(tools) ? tools : undefined,
     });
     res.status(201).json(row);
   } catch (e) {
@@ -206,7 +233,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-router.patch('/:id', (req, res) => {
+router.patch('/:id', requireAuth, requireCeoOrAdmin, (req, res) => {
   try {
     const { id } = req.params;
     const row = db().prepare('SELECT * FROM agents WHERE id = ?').get(id);
@@ -231,7 +258,7 @@ router.patch('/:id', (req, res) => {
   }
 });
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', requireAuth, requireCeoOrAdmin, (req, res) => {
   try {
     const id = req.params.id;
     const agent = db().prepare('SELECT * FROM agents WHERE id = ?').get(id);
@@ -244,6 +271,8 @@ router.delete('/:id', (req, res) => {
     db().prepare('DELETE FROM chat_turns WHERE agent_id = ?').run(id);
     db().prepare('DELETE FROM standup_responses WHERE agent_id = ?').run(id);
     db().prepare('DELETE FROM agent_delegation_tasks WHERE to_agent_id = ?').run(id);
+    db().prepare('DELETE FROM user_agents WHERE agent_id = ?').run(id);
+    db().prepare('DELETE FROM agent_tool_grants WHERE agent_id = ?').run(id);
     db().prepare('UPDATE agents SET parent_id = NULL WHERE parent_id = ?').run(id);
     const r = db().prepare('DELETE FROM agents WHERE id = ?').run(id);
     if (r.changes === 0) return res.status(404).json({ error: 'Agent not found' });
@@ -301,7 +330,8 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
 
     const userId = resolveCeoDataUserIdFromRequest(req, req.body || {});
     const profileId = req.body?.profile_id || req.body?.profileId || null;
-    const openclawAgentId = agent.openclaw_agent_id || 'main';
+    const ensured = ensureTenantOpenClawAgent(agent, ownerUserId);
+    const openclawAgentId = ensured.openclawAgentId;
 
     // Load recent history from DB for context (last N turns, scoped to this user)
     const ownerIds = chatOwnerIdsForRead(ownerUserId);
@@ -390,8 +420,8 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
   }
 });
 
-// Chat from another agent
-router.post('/:id/chat/from-agent', async (req, res) => {
+// Chat from another agent (internal service or authenticated CEO)
+router.post('/:id/chat/from-agent', allowInternalOrAuth, async (req, res) => {
   try {
     const agentId = req.params.id;
     const agent = db().prepare('SELECT * FROM agents WHERE id = ?').get(agentId);
@@ -409,7 +439,8 @@ router.post('/:id/chat/from-agent', async (req, res) => {
       req.body?.owner_user_id ||
       req.body?.ceo_user_id ||
       extractOwnerUserIdFromText(message);
-    const openclawAgentId = agent.openclaw_agent_id || 'main';
+    const ensured = ensureTenantOpenClawAgent(agent, ownerUserId);
+    const openclawAgentId = ensured.openclawAgentId;
 
     const ownerIds = chatOwnerIdsForRead(ownerUserId);
     const ownerPlaceholders = ownerIds.map(() => '?').join(',');
@@ -442,18 +473,20 @@ router.post('/:id/chat/from-agent', async (req, res) => {
 });
 
 // Activities (append-only)
-router.get('/:id/activities', (req, res) => {
+router.get('/:id/activities', requireAuth, (req, res) => {
   try {
+    assertUserAgentAccess(req.authUser, req.params.id);
     const rows = db().prepare('SELECT * FROM activities WHERE agent_id = ? ORDER BY created_at DESC LIMIT 100')
       .all(req.params.id);
     res.json(rows);
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(e.status || 500).json({ error: e.message });
   }
 });
 
-router.post('/:id/activities', (req, res) => {
+router.post('/:id/activities', requireAuth, (req, res) => {
   try {
+    assertUserAgentAccess(req.authUser, req.params.id);
     const agentId = req.params.id;
     const agent = db().prepare('SELECT * FROM agents WHERE id = ?').get(agentId);
     if (!agent) return res.status(404).json({ error: 'Agent not found' });
@@ -465,7 +498,7 @@ router.post('/:id/activities', (req, res) => {
     );
     res.status(201).json({ ok: true });
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    res.status(e.status || 400).json({ error: e.message });
   }
 });
 

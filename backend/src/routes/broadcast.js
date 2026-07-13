@@ -5,9 +5,13 @@
  */
 import { Router } from 'express';
 import { getDb } from '../db/schema.js';
+import { requireAuth, requireCeoOrAdmin } from '../middleware/auth.js';
 import * as openclaw from '../gateway/openclaw.js';
 
 const router = Router();
+
+router.use(requireAuth);
+router.use(requireCeoOrAdmin);
 
 router.post('/', async (req, res) => {
   try {

@@ -2,6 +2,10 @@
  * Kanban integration for custom agent workflows (separate from job pipeline).
  */
 import { getDb } from '../db/schema.js';
+import {
+  notifyKanbanTaskCreated,
+  clearKanbanTaskNotification,
+} from './platform-notifications.js';
 
 export const AGENT_WORKFLOW_TAG = '[agent_workflow:';
 
@@ -43,7 +47,14 @@ export function createCeoApprovalKanbanTask({
        VALUES (?, ?, 'awaiting_confirmation', NULL, 'agent_workflow_ceo', ?)`
     )
     .run(title, description, standupId);
-  return db().prepare('SELECT id FROM kanban_tasks ORDER BY id DESC LIMIT 1').get()?.id;
+  const id = db().prepare('SELECT id FROM kanban_tasks ORDER BY id DESC LIMIT 1').get()?.id;
+  if (id && ownerUserId) {
+    notifyKanbanTaskCreated({
+      userId: ownerUserId,
+      task: { id, title, assigned_agent_id: null },
+    });
+  }
+  return id;
 }
 
 export function buildAgentWorkflowDescription({ runId, definitionId, definitionName, nodeId, nodeLabel, nodeType, ownerUserId, summary = '' }) {
@@ -76,7 +87,15 @@ export function createAgentWorkflowKanbanTask({
        VALUES (?, ?, 'awaiting_confirmation', ?, 'agent_workflow', ?, ?)`
     )
     .run(title, description, agentId, standupId, delegationTaskId);
-  return db().prepare('SELECT id FROM kanban_tasks WHERE agent_delegation_task_id = ?').get(delegationTaskId)?.id;
+  const id = db().prepare('SELECT id FROM kanban_tasks WHERE agent_delegation_task_id = ?').get(delegationTaskId)?.id;
+  const ownerMatch = String(description || '').match(/owner_user_id:\s*(\S+)/);
+  if (id && ownerMatch?.[1]) {
+    notifyKanbanTaskCreated({
+      userId: ownerMatch[1],
+      task: { id, title, assigned_agent_id: agentId },
+    });
+  }
+  return id;
 }
 
 export function completeAgentWorkflowKanbanForDelegation(delegationTaskId, { ok = true } = {}) {
@@ -87,6 +106,7 @@ export function completeAgentWorkflowKanbanForDelegation(delegationTaskId, { ok 
   db()
     .prepare(`UPDATE kanban_tasks SET status = ?, updated_at = datetime('now') WHERE id = ?`)
     .run(newStatus, row.id);
+  clearKanbanTaskNotification(row.id);
   return row.id;
 }
 

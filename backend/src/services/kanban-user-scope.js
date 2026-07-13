@@ -46,7 +46,11 @@ export function kanbanTaskBelongsToUser(task, authUser) {
     return agents.some((a) => a.id === task.assigned_agent_id);
   }
 
-  return task.created_by === 'user';
+  // Unassigned / CEO inbox: human-created OR agent-created for this owner (owner_user_id above)
+  if (task.created_by === 'user') return true;
+  // Agent-created CEO tasks without assignment: visible if created_by is one of user's agents
+  const agents = listAgentsForUser(authUser.id);
+  return agents.some((a) => a.id === task.created_by);
 }
 
 export function filterKanbanTasksForUser(tasks, authUser) {

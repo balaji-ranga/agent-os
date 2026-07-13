@@ -1,35 +1,35 @@
 /**
- * Create a full OpenClaw agent: workspace, SOUL/AGENTS/MEMORY (with session history + tool fallback),
- * openclaw.json entry, agent dirs, default tools, DB row.
- * Used by the Add Agent UI flow so new agents get the same behavior as TechResearcher/ExpenseManager.
+ * Create a full agent for a CEO (SaaS): DB row + tenant OpenClaw runtime under that CEO.
+ * When ownerUserId is set, OpenClaw entry is t-{ceo}--{id} with workspace under tenants/{ceo}/.
  */
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
+import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import { getDb } from '../db/schema.js';
 import * as workspace from '../workspace/adapter.js';
-import { setAgentToolGrants } from './openclaw-agent-tools.js';
+import { setAgentToolGrants, syncAllowlistsFile } from './openclaw-agent-tools.js';
+import { grantUserAgent } from './users.js';
+import {
+  ensureTenantOpenClawAgent,
+  tenantOpenClawAgentId,
+  tenantWorkspacePath,
+} from './openclaw-tenant.js';
+import { getOpenClawDir } from '../config/openclaw-paths.js';
 
-const homedir = process.env.USERPROFILE || process.env.HOME || '';
-const OPENCLAW_DIR = join(homedir, '.openclaw');
-const CONFIG_PATH = process.env.OPENCLAW_CONFIG_PATH || join(OPENCLAW_DIR, 'openclaw.json');
+const OPENCLAW_DIR = getOpenClawDir();
 
-const toSlash = (p) => p.replace(/\\/g, '/');
-
-/** Default tools for new agents (same as apply-openclaw-agents-config). */
+/** Default content tools for CEO-created custom agents (not COO-only tools). */
 const DEFAULT_TOOLS_ALLOW = [
   'summarize_url',
   'generate_image',
   'generate_video',
+  'kanban_create_task',
   'kanban_move_status',
   'kanban_reassign_to_coo',
-  'kanban_assign_task',
-  'intent_classify_and_delegate',
   'browser',
 ];
 
 /**
  * Append a new agent row to a manager's AGENTS.md table (so COO/parent can delegate).
- * Finds the last markdown table row (line starting with | and containing **) and inserts after it.
  */
 async function appendAgentRowToAgentsMd(workspaceRoot, agent, relationText = 'reports to you') {
   let content = '';
@@ -52,20 +52,17 @@ async function appendAgentRowToAgentsMd(workspaceRoot, agent, relationText = 're
   } else {
     lines.push('', '| Agent ID | Name | Role |', '|----------|------|------|', newRow, '');
   }
-  const newContent = lines.join('\n');
-  await workspace.writeWorkspaceFile('agents', newContent, { workspaceRoot, backup: true });
+  await workspace.writeWorkspaceFile('agents', lines.join('\n'), { workspaceRoot, backup: true });
 }
 
-/**
- * Derive a stable id from name (slug). Collision: append -2, -3, ...
- */
 function deriveId(name, getExistingIds) {
-  const base = String(name || '')
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9-]/g, '')
-    .slice(0, 32) || 'agent';
+  const base =
+    String(name || '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '')
+      .slice(0, 32) || 'agent';
   const existing = getExistingIds();
   if (!existing.has(base)) return base;
   let n = 2;
@@ -73,46 +70,8 @@ function deriveId(name, getExistingIds) {
   return `${base}-${n}`;
 }
 
-/**
- * Create full agent. Throws on error.
- * @param {{ name: string, role?: string, parent_id?: string, id?: string }} input - name required; id optional (else derived from name).
- * @returns {{ id: string, name: string, role: string, parent_id: string|null, workspace_path: string, openclaw_agent_id: string, is_coo: number, ... }}
- */
-export async function createFullAgent(input) {
-  const name = (input.name || 'Unnamed').trim();
-  if (!name) throw new Error('name is required');
-
-  const db = getDb();
-  const existingIds = new Set(db.prepare('SELECT id FROM agents').all().map((r) => r.id));
-
-  let config = {};
-  if (existsSync(CONFIG_PATH)) {
-    try {
-      config = JSON.parse(readFileSync(CONFIG_PATH, 'utf8'));
-    } catch (e) {
-      throw new Error('Could not read openclaw.json: ' + e.message);
-    }
-  }
-  const openclawList = Array.isArray(config?.agents?.list) ? config.agents.list : [];
-  const openclawIds = new Set(openclawList.map((a) => (a.id || '').toLowerCase()).filter(Boolean));
-
-  const getExistingIds = () => new Set([...existingIds, ...openclawIds]);
-
-  let id = (input.id || '').trim().toLowerCase();
-  if (!id) id = deriveId(name, getExistingIds);
-  else if (existingIds.has(id) || openclawIds.has(id)) throw new Error(`Agent id "${id}" already exists`);
-
-  const role = (input.role || 'Agent').trim();
-  const parentId = input.parent_id ? String(input.parent_id).trim() || null : null;
-
-  const workspaceDirName = `workspace-${id}`;
-  const WORKSPACE_PATH = join(OPENCLAW_DIR, workspaceDirName);
-  if (!existsSync(WORKSPACE_PATH)) mkdirSync(WORKSPACE_PATH, { recursive: true });
-  const memoryDir = join(WORKSPACE_PATH, 'memory');
-  if (!existsSync(memoryDir)) mkdirSync(memoryDir, { recursive: true });
-
-  // SOUL with session history + tool fallback (aligned with templates)
-  const soulMd = `# SOUL — ${name}
+function buildSoulMd(name, role, id) {
+  return `# SOUL — ${name}
 
 You are **${name}**. ${role || 'Specialist agent.'}
 
@@ -131,7 +90,8 @@ You are **${name}**. ${role || 'Specialist agent.'}
 
 ## Tools
 
-- **kanban_move_status** and other Agent OS tools are **API tools**. Invoke them by tool name with JSON parameters. Do **not** run them as shell commands.
+- **kanban_create_task**, **kanban_move_status** and other Agent OS tools are **API tools**. Invoke them by tool name with JSON parameters. Do **not** run them as shell commands.
+- Use **kanban_create_task** to create a Kanban task for the CEO (title required; optional description / assign_to).
 - **Tool choice:** Pick the tool that best matches the user's request (see TOOLS.md). If a tool's response is inadequate (error, empty, or doesn't answer the question), try the next best tool for that context instead of stopping.
 - **Browser:** Use the **browser** tool with **profile="openclaw"** only (managed Playwright). Never use profile="chrome" or ask for the Chrome extension unless the user explicitly wants their own Chrome tab attached.
 
@@ -140,7 +100,38 @@ You are **${name}**. ${role || 'Specialist agent.'}
 - Stay in role; escalate when needed. Do not change other agents' SOUL or AGENTS.
 - Avoid harmful, biased, or sexual content; keep outputs professional.
 `;
+}
 
+/**
+ * @param {{ name: string, role?: string, parent_id?: string, id?: string, ownerUserId?: string, tools?: string[] }} input
+ */
+export async function createFullAgent(input) {
+  const name = (input.name || 'Unnamed').trim();
+  if (!name) throw new Error('name is required');
+
+  const ownerUserId = input.ownerUserId ? String(input.ownerUserId).trim() : null;
+  if (!ownerUserId) {
+    throw new Error('ownerUserId is required — agents must be created for a CEO workspace');
+  }
+
+  const db = getDb();
+  const existingIds = new Set(db.prepare('SELECT id FROM agents').all().map((r) => r.id));
+  const getExistingIds = () => existingIds;
+
+  let id = (input.id || '').trim().toLowerCase();
+  if (!id) id = deriveId(name, getExistingIds);
+  else if (existingIds.has(id)) throw new Error(`Agent id "${id}" already exists`);
+
+  // Collision with this CEO's tenant runtime
+  const runtimeId = tenantOpenClawAgentId(ownerUserId, id);
+  const tenantWs = tenantWorkspacePath(ownerUserId, id);
+
+  let parentId = input.parent_id ? String(input.parent_id).trim() || null : null;
+  const coo = db.prepare('SELECT * FROM agents WHERE is_coo = 1 LIMIT 1').get();
+  if (!parentId && coo) parentId = coo.id;
+
+  const role = (input.role || 'Agent').trim();
+  const soulMd = buildSoulMd(name, role, id);
   const agentsMd = `# AGENTS — Operating contract (${name})
 
 ## Role
@@ -156,82 +147,82 @@ ${role || 'Specialist.'}
 
 - Do not change other agents' SOUL or AGENTS. Escalate approvals to COO/CEO.
 `;
-
   const memoryMd = `# MEMORY — ${name}
 
 ## Facts
 
 - Role: ${role || 'Specialist'}.
 - Reports to: ${parentId || 'COO'}.
+- CEO workspace: ${ownerUserId}.
 `;
 
-  await workspace.writeWorkspaceFile('soul', soulMd, { workspaceRoot: WORKSPACE_PATH });
-  await workspace.writeWorkspaceFile('agents', agentsMd, { workspaceRoot: WORKSPACE_PATH });
-  await workspace.writeWorkspaceFile('memory', memoryMd, { workspaceRoot: WORKSPACE_PATH });
+  // Custom agents belong to the creating CEO and are NOT auto-granted to all CEOs on signup.
+  db.prepare(
+    `INSERT INTO agents (id, name, role, parent_id, workspace_path, openclaw_agent_id, is_coo, agent_type, owner_user_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'custom', ?)`
+  ).run(id, name, role, parentId, tenantWs, id, 0, ownerUserId);
 
-  if (!config.agents) config.agents = {};
-  if (!config.agents.list) config.agents.list = [];
-  const inList = config.agents.list.find((a) => (a.id || '').toLowerCase() === id);
-  const agentEntry = {
-    id,
-    name,
-    workspace: toSlash(WORKSPACE_PATH),
-    tools: { allow: [...DEFAULT_TOOLS_ALLOW], deny: ['image'] },
-  };
-  if (!inList) {
-    config.agents.list.push(agentEntry);
-  } else {
-    inList.name = name;
-    inList.workspace = toSlash(WORKSPACE_PATH);
-    if (!inList.tools) inList.tools = {};
-    inList.tools.allow = agentEntry.tools.allow;
-    inList.tools.deny = agentEntry.tools.deny;
+  let row = db.prepare('SELECT * FROM agents WHERE id = ?').get(id);
+  const toolsToGrant = Array.isArray(input.tools) && input.tools.length ? input.tools : DEFAULT_TOOLS_ALLOW;
+  try {
+    setAgentToolGrants(row, toolsToGrant);
+  } catch (e) {
+    console.warn('setAgentToolGrants failed for', id, e?.message);
   }
 
-  if (!config.tools) config.tools = {};
-  if (!config.tools.agentToAgent) config.tools.agentToAgent = { enabled: true, allow: [] };
-  if (!Array.isArray(config.tools.agentToAgent.allow)) config.tools.agentToAgent.allow = [];
-  if (!config.tools.agentToAgent.allow.includes(id)) {
-    config.tools.agentToAgent.allow.push(id);
-  }
+  grantUserAgent(ownerUserId, id);
+  row = db.prepare('SELECT * FROM agents WHERE id = ?').get(id);
 
-  if (!existsSync(OPENCLAW_DIR)) mkdirSync(OPENCLAW_DIR, { recursive: true });
-  writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
+  // Provision tenant OpenClaw runtime (openclaw.json + tenants/{ceo}/workspace-{id})
+  const ensured = ensureTenantOpenClawAgent(row, ownerUserId);
 
+  // Write CEO-specific SOUL/AGENTS/MEMORY into the tenant workspace (overrides template stubs)
+  mkdirSync(join(ensured.workspacePath, 'memory'), { recursive: true });
+  await workspace.writeWorkspaceFile('soul', soulMd, { workspaceRoot: ensured.workspacePath });
+  await workspace.writeWorkspaceFile('agents', agentsMd, { workspaceRoot: ensured.workspacePath });
+  await workspace.writeWorkspaceFile('memory', memoryMd, { workspaceRoot: ensured.workspacePath });
+
+  // Session dirs for the tenant runtime id
   const AGENTS_ROOT = join(OPENCLAW_DIR, 'agents');
-  for (const dir of [join(AGENTS_ROOT, id, 'agent'), join(AGENTS_ROOT, id, 'sessions')]) {
+  for (const dir of [
+    join(AGENTS_ROOT, ensured.openclawAgentId, 'agent'),
+    join(AGENTS_ROOT, ensured.openclawAgentId, 'sessions'),
+  ]) {
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
       if (dir.endsWith('sessions')) writeFileSync(join(dir, 'sessions.json'), '{}', 'utf8');
     }
   }
 
-  db.prepare(
-    `INSERT INTO agents (id, name, role, parent_id, workspace_path, openclaw_agent_id, is_coo) VALUES (?, ?, ?, ?, ?, ?, ?)`
-  ).run(id, name, role, parentId, WORKSPACE_PATH, id, 0);
-
-  const row = db.prepare('SELECT * FROM agents WHERE id = ?').get(id);
-  try {
-    setAgentToolGrants(row, agentEntry.tools.allow);
-  } catch (e) {
-    console.warn('setAgentToolGrants failed for', id, e?.message);
-  }
-
-  // Add new agent to COO and parent AGENTS.md so they can delegate by intent
-  const coo = db.prepare('SELECT id, workspace_path FROM agents WHERE is_coo = 1').get();
-  const parent = parentId ? db.prepare('SELECT id, workspace_path FROM agents WHERE id = ?').get(parentId) : null;
+  // Register under this CEO's tenant COO AGENTS.md (not the shared global COO workspace)
   const agentInfo = { id, name, role: role || 'Agent' };
-  const seenRoots = new Set();
-  for (const rec of [coo, parent].filter(Boolean)) {
-    const root = rec?.workspace_path;
-    if (!root || seenRoots.has(root)) continue;
-    seenRoots.add(root);
+  if (coo) {
     try {
-      await appendAgentRowToAgentsMd(root, agentInfo, 'reports to you');
+      const cooTenant = ensureTenantOpenClawAgent(coo, ownerUserId);
+      await appendAgentRowToAgentsMd(cooTenant.workspacePath, agentInfo, 'reports to you');
     } catch (e) {
-      console.warn('appendAgentRowToAgentsMd failed for', rec?.id, e?.message);
+      console.warn('appendAgentRowToAgentsMd (tenant COO) failed', e?.message);
+    }
+  }
+  if (parentId && parentId !== coo?.id) {
+    const parent = db.prepare('SELECT * FROM agents WHERE id = ?').get(parentId);
+    if (parent) {
+      try {
+        const parentTenant = ensureTenantOpenClawAgent(parent, ownerUserId);
+        await appendAgentRowToAgentsMd(parentTenant.workspacePath, agentInfo, 'reports to you');
+      } catch (e) {
+        console.warn('appendAgentRowToAgentsMd (parent) failed', e?.message);
+      }
     }
   }
 
-  return row;
+  syncAllowlistsFile();
+  db.prepare('UPDATE agents SET workspace_path = ? WHERE id = ?').run(ensured.workspacePath, id);
+
+  return {
+    ...db.prepare('SELECT * FROM agents WHERE id = ?').get(id),
+    openclaw_runtime_id: ensured.openclawAgentId || runtimeId,
+    tenant_workspace_path: ensured.workspacePath,
+    granted_to_user_id: ownerUserId,
+  };
 }

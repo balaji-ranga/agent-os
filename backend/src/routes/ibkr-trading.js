@@ -2,7 +2,7 @@
  * IBKR paper trading budget / validate / reserve / snapshot API.
  */
 import { Router } from 'express';
-import { requireAuth } from '../middleware/auth.js';
+import { allowInternalOrAuth, isInternalRequest } from '../middleware/internal-auth.js';
 import { getIbkrTradingConfig, findAllowlistEntry } from '../services/ibkr-trading-rules.js';
 import * as ledger from '../services/ibkr-trading-ledger.js';
 import { getDb } from '../db/schema.js';
@@ -12,34 +12,12 @@ import { resolveIbkrPolicy } from '../services/ibkr-workflow-variables.js';
 const router = Router();
 
 /**
- * Policy from the IBKR day-plan workflow definition variables (+ request body overrides).
- * No platform .env policy / no hardcoded ticker catalog.
+ * Policy from the IBKR day-plan workflow definition variables only.
+ * Request body must not override allowlist/budget/limits (hardening).
  */
-function resolveWorkflowBudgetOpts(req) {
+function resolveWorkflowBudgetOpts(_req) {
   const def = store.getDefinition('ibkr-maker-checker-paper');
-  const body = req.body || {};
-  const merged = {
-    ...(def?.variables || {}),
-    ...(body.allowlist != null ? { allowlist: body.allowlist } : {}),
-    ...(body.allowlist_keys != null || body.allowlistKeys != null
-      ? { allowlist_keys: body.allowlist_keys || body.allowlistKeys }
-      : {}),
-    ...(body.daily_budget_usd != null || body.budget_usd != null
-      ? { daily_budget_usd: body.daily_budget_usd ?? body.budget_usd }
-      : {}),
-    ...(body.max_trades_per_day != null ? { max_trades_per_day: body.max_trades_per_day } : {}),
-    ...(body.min_rationale_chars != null ? { min_rationale_chars: body.min_rationale_chars } : {}),
-    ...(body.block_duplicate_buys != null ? { block_duplicate_buys: body.block_duplicate_buys } : {}),
-    ...(body.require_live_cash != null ? { require_live_cash: body.require_live_cash } : {}),
-    ...(body.stop_pct_min != null ? { stop_pct_min: body.stop_pct_min } : {}),
-    ...(body.stop_pct_max != null ? { stop_pct_max: body.stop_pct_max } : {}),
-    ...(body.tp_pct_min != null ? { tp_pct_min: body.tp_pct_min } : {}),
-    ...(body.tp_pct_max != null ? { tp_pct_max: body.tp_pct_max } : {}),
-    ...(body.entry_slip_pct_max != null ? { entry_slip_pct_max: body.entry_slip_pct_max } : {}),
-    ...(body.sgd_usd_rate != null ? { sgd_usd_rate: body.sgd_usd_rate } : {}),
-    ...(body.max_hold_days != null ? { max_hold_days: body.max_hold_days } : {}),
-  };
-  const policy = resolveIbkrPolicy(merged);
+  const policy = resolveIbkrPolicy(def?.variables || {});
   return {
     policy,
     dailyBudgetUsd: policy.daily_budget_usd,
@@ -53,21 +31,9 @@ function resolveWorkflowBudgetOpts(req) {
   };
 }
 
-function allowInternalOrAuth(req, res, next) {
-  if (req.headers['x-internal-test'] === '1') {
-    req.authUser = req.authUser || {
-      id: req.body?.owner_user_id || process.env.AGENT_OS_BALA_CEO_ID || 'ceo-bala',
-      role: 'ceo',
-    };
-    return next();
-  }
-  return requireAuth(req, res, next);
-}
-
-/** Analytics: owner from authenticated session only — never body/query owner_user_id. */
+/** Owner from session / internal service identity — never body/query spoof. */
 function entitledOwnerId(req) {
-  if (req.headers['x-internal-test'] === '1') {
-    // Internal workflow/tool calls: fixed paper CEO — ignore spoofed body owner
+  if (isInternalRequest(req) || req.isInternalService) {
     return process.env.AGENT_OS_BALA_CEO_ID || 'ceo-bala';
   }
   return req.authUser?.id;
@@ -134,7 +100,7 @@ router.get('/day-status', (req, res) => {
 
 router.post('/account-snapshot', async (req, res) => {
   try {
-    const owner = req.body?.owner_user_id || req.authUser.id;
+    const owner = entitledOwnerId(req);
     const budgetOpts = resolveWorkflowBudgetOpts(req);
     const { fetchAccountSnapshot } = await import('../services/ibkr-gateway-client.js');
     const {
@@ -217,7 +183,7 @@ router.post('/account-snapshot', async (req, res) => {
 
 router.post('/preflight', async (req, res) => {
   try {
-    const owner = req.body?.owner_user_id || req.authUser.id;
+    const owner = entitledOwnerId(req);
     const cfg = getIbkrTradingConfig();
     const budgetOpts = resolveWorkflowBudgetOpts(req);
     let cashUsd = req.body?.cash_usd != null ? Number(req.body.cash_usd) : null;
@@ -271,7 +237,7 @@ router.post('/preflight', async (req, res) => {
 
 router.post('/validate-plan', async (req, res) => {
   try {
-    const owner = req.body?.owner_user_id || req.authUser.id;
+    const owner = entitledOwnerId(req);
     const budgetOpts = resolveWorkflowBudgetOpts(req);
     let plan = req.body?.plan ?? req.body?.text ?? req.body;
     if (plan && typeof plan === 'object' && plan.trades == null && plan.plan == null && req.body?.trades) {
@@ -332,7 +298,7 @@ router.post('/validate-plan', async (req, res) => {
 
 router.post('/exit-candidates', (req, res) => {
   try {
-    const owner = req.body?.owner_user_id || req.authUser.id;
+    const owner = entitledOwnerId(req);
     const budgetOpts = resolveWorkflowBudgetOpts(req);
     const maxHoldDays = Number(
       req.query.max_hold_days || req.body?.max_hold_days || budgetOpts.maxHoldDays || 5
@@ -368,7 +334,7 @@ router.post('/exit-candidates', (req, res) => {
 
 router.post('/record-hold', (req, res) => {
   try {
-    const owner = req.body?.owner_user_id || req.authUser.id;
+    const owner = entitledOwnerId(req);
     const key = String(req.body?.key || '').toUpperCase();
     const extendDays = Number(req.body?.extend_days || 1);
     const db = getDb();
@@ -390,7 +356,7 @@ router.post('/record-hold', (req, res) => {
 
 router.post('/record-holds-batch', (req, res) => {
   try {
-    const owner = req.body?.owner_user_id || req.authUser.id;
+    const owner = entitledOwnerId(req);
     const holds = req.body?.holds || [];
     const db = getDb();
     const out = [];
@@ -418,11 +384,31 @@ router.post('/record-holds-batch', (req, res) => {
 
 router.post('/reserve', (req, res) => {
   try {
-    const owner = req.body?.owner_user_id || req.authUser.id;
+    const owner = entitledOwnerId(req);
+    const budgetOpts = resolveWorkflowBudgetOpts(req);
     const trades = req.body?.trades_to_place || req.body?.trades || [];
     const residual = req.body?.residual || [];
     const runId = req.body?.run_id ?? null;
-    const reserved = ledger.reserveTrades(owner, trades, { runId });
+    const plan = { trades_to_place: trades, residual };
+    const preview = ledger.validateAndPreview(owner, plan, {
+      cashUsd: req.body?.cash_usd != null ? Number(req.body.cash_usd) : null,
+      positions: req.body?.positions || [],
+      allowlist: budgetOpts.allowlist,
+      allowlistKeys: budgetOpts.allowlistKeys,
+      policy: budgetOpts.policy,
+      blockDuplicateBuys: budgetOpts.blockDuplicateBuys,
+      minRationaleChars: budgetOpts.minRationaleChars,
+      budgetUsd: budgetOpts.dailyBudgetUsd,
+      maxTradesPerDay: budgetOpts.maxTradesPerDay,
+    });
+    if (!preview.ok) {
+      return res.status(400).json({ ok: false, error: preview.error || 'Plan validation failed', validation: preview });
+    }
+    const reserved = ledger.reserveTrades(owner, trades, {
+      runId,
+      budgetUsd: budgetOpts.dailyBudgetUsd,
+      maxTradesPerDay: budgetOpts.maxTradesPerDay,
+    });
     if (reserved.ok && residual.length) ledger.saveResidual(owner, residual);
     res.status(reserved.ok ? 200 : 400).json(reserved);
   } catch (e) {
@@ -432,9 +418,11 @@ router.post('/reserve', (req, res) => {
 
 router.post('/release', (req, res) => {
   try {
+    const owner = entitledOwnerId(req);
     const id = Number(req.body?.reservation_id || req.body?.id);
     const reason = req.body?.reason || 'rejected';
-    res.json(ledger.releaseReservation(id, { reason }));
+    const result = ledger.releaseReservation(id, { reason, ownerUserId: owner });
+    res.status(result.ok ? 200 : 403).json(result);
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
@@ -442,8 +430,15 @@ router.post('/release', (req, res) => {
 
 router.post('/confirm-fill', (req, res) => {
   try {
+    const owner = entitledOwnerId(req);
     const id = Number(req.body?.reservation_id || req.body?.id);
-    res.json(ledger.confirmFill(id));
+    const result = ledger.confirmFill(id, {
+      ownerUserId: owner,
+      fillPrice: req.body?.fill_price,
+      fillQty: req.body?.fill_qty,
+      ibOrderId: req.body?.ib_order_id,
+    });
+    res.status(result.ok ? 200 : 403).json(result);
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
@@ -451,7 +446,7 @@ router.post('/confirm-fill', (req, res) => {
 
 router.post('/place', async (req, res) => {
   try {
-    const owner = req.body?.owner_user_id || req.authUser.id;
+    const owner = entitledOwnerId(req);
     const budgetOpts = resolveWorkflowBudgetOpts(req);
     const cancelSource =
       req.body?.cancel_source ||
@@ -483,6 +478,45 @@ router.post('/place', async (req, res) => {
     const residual = req.body?.residual || [];
     const runId = req.body?.run_id ?? null;
     const dryRun = req.body?.dry_run !== false && !getIbkrTradingConfig().tradingEnabled;
+
+    // Mandatory plan validation before any reservation / Gateway submission
+    let positions = req.body?.positions || [];
+    let cashUsd = req.body?.cash_usd != null ? Number(req.body.cash_usd) : null;
+    if (budgetOpts.requireLiveCash || cashUsd == null) {
+      try {
+        const { fetchAccountSnapshot } = await import('../services/ibkr-gateway-client.js');
+        const snap = await fetchAccountSnapshot({ allowlist: budgetOpts.allowlist });
+        cashUsd = snap.cash_usd;
+        positions = enrichPositions(snap.positions || [], budgetOpts.allowlist);
+      } catch (e) {
+        if (budgetOpts.requireLiveCash) {
+          return res.status(503).json({ ok: false, error: `Live cash required for place: ${e.message}` });
+        }
+      }
+    }
+    const preview = ledger.validateAndPreview(
+      owner,
+      { trades_to_place: trades, residual },
+      {
+        cashUsd,
+        positions,
+        allowlist: budgetOpts.allowlist,
+        allowlistKeys: budgetOpts.allowlistKeys,
+        policy: budgetOpts.policy,
+        blockDuplicateBuys: budgetOpts.blockDuplicateBuys,
+        minRationaleChars: budgetOpts.minRationaleChars,
+        budgetUsd: budgetOpts.dailyBudgetUsd,
+        maxTradesPerDay: budgetOpts.maxTradesPerDay,
+      }
+    );
+    if (!preview.ok && trades.length > 0) {
+      return res.status(400).json({
+        ok: false,
+        error: preview.error || 'Plan validation failed',
+        validation: preview,
+      });
+    }
+
     if (residual.length) ledger.saveResidual(owner, residual);
     const result = await ledger.recordPlaceAttempt(owner, trades, {
       runId,
@@ -498,7 +532,7 @@ router.post('/place', async (req, res) => {
 
 router.post('/reconcile-orders', async (req, res) => {
   try {
-    const owner = req.body?.owner_user_id || req.authUser.id;
+    const owner = entitledOwnerId(req);
     const budgetOpts = resolveWorkflowBudgetOpts(req);
     const { fetchAccountSnapshot } = await import('../services/ibkr-gateway-client.js');
     const { reconcileReservationsWithBroker, buildOrderLearnings } = await import(
@@ -528,7 +562,7 @@ router.post('/reconcile-orders', async (req, res) => {
 
 router.get('/order-events', async (req, res) => {
   try {
-    const owner = req.query.owner_user_id || req.authUser.id;
+    const owner = entitledOwnerId(req);
     const { getOrderHistory, ensureIbkrOrderEventTables } = await import('../services/ibkr-order-events.js');
     ensureIbkrOrderEventTables();
     const result = await getOrderHistory({
@@ -548,7 +582,7 @@ router.get('/order-events', async (req, res) => {
 router.post('/order-events', async (req, res) => {
   try {
     const body = req.body || {};
-    const owner = body.owner_user_id || req.authUser.id;
+    const owner = entitledOwnerId(req);
     const { getOrderHistory, ensureIbkrOrderEventTables } = await import('../services/ibkr-order-events.js');
     ensureIbkrOrderEventTables();
     const result = await getOrderHistory({
@@ -567,7 +601,7 @@ router.post('/order-events', async (req, res) => {
 
 router.get('/order-learnings', async (req, res) => {
   try {
-    const owner = req.query.owner_user_id || req.authUser.id;
+    const owner = entitledOwnerId(req);
     const { getOrderHistory, ensureIbkrOrderEventTables } = await import('../services/ibkr-order-events.js');
     ensureIbkrOrderEventTables();
     // Alias: default summarized-friendly context (heuristic + optional LLM)
@@ -588,7 +622,7 @@ router.get('/order-learnings', async (req, res) => {
 router.post('/order-learnings', async (req, res) => {
   try {
     const body = req.body || {};
-    const owner = body.owner_user_id || req.authUser.id;
+    const owner = entitledOwnerId(req);
     const { getOrderHistory, ensureIbkrOrderEventTables } = await import('../services/ibkr-order-events.js');
     ensureIbkrOrderEventTables();
     const result = await getOrderHistory({

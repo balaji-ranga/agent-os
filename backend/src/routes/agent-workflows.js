@@ -3,6 +3,7 @@
  */
 import { Router } from 'express';
 import { requireCeoOrAdmin, resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
+import { isInternalRequest, internalServiceUser } from '../middleware/internal-auth.js';
 import * as store from '../services/agent-workflow-store.js';
 import { syncWorkflowScheduleRegistry } from '../services/agent-workflow-store.js';
 import { startAgentWorkflowRun, completeCeoApprovalResponse, stopSseListen } from '../services/agent-workflow-runner.js';
@@ -31,13 +32,11 @@ function actorFromRequest(req) {
   };
 }
 
-/** Workflow API nodes may call with x-internal-test; otherwise CEO/admin auth. */
+/** Workflow API nodes may call with internal token; otherwise CEO/admin auth. */
 function allowInternalOrCeo(req, res, next) {
-  if (req.headers['x-internal-test'] === '1') {
-    req.authUser = req.authUser || {
-      id: req.body?.owner_user_id || process.env.AGENT_OS_BALA_CEO_ID || 'ceo-bala',
-      role: 'ceo',
-    };
+  if (isInternalRequest(req)) {
+    req.isInternalService = true;
+    req.authUser = req.authUser || internalServiceUser();
     return next();
   }
   return requireCeoOrAdmin(req, res, next);

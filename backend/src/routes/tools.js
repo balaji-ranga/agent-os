@@ -12,6 +12,16 @@ import { chatCompletions } from '../config/llm.js';
 import { getDb } from '../db/schema.js';
 import * as meta from '../services/content-tools-meta.js';
 import { assertCallerMayUseTool } from '../services/openclaw-agent-tools.js';
+import { parseTenantOpenClawAgentId, resolveAgentFromOpenClawCallerId } from '../services/openclaw-tenant.js';
+import { resolveOwnerFromOpenClawSession } from '../services/tool-owner-scope.js';
+
+function sanitizeTenantId(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
 import { scheduleCeoRequestViaOpenClawCron } from '../services/delegation-queue.js';
 import {
   listChatTriggerableWorkflows,
@@ -23,9 +33,14 @@ import {
 import { applyWorkflowBuilderActions, getWorkflowDraftForAgent } from '../services/agent-workflow-builder.js';
 import { resolveAuthenticatedCeoUserId, attachAuthUser, requireAuth, requireCeoOrAdmin } from '../middleware/auth.js';
 import { requireToolsAccess, attachToolsAuth } from '../middleware/tools-auth.js';
+import { internalAuthHeaders, isInternalRequest } from '../middleware/internal-auth.js';
 import { getPublicBaseUrl } from '../config/public-url.js';
 import { getOpenClawMediaDir } from '../config/openclaw-paths.js';
 import { resolveToolOwnerUserId, resolveToolOwnerUserIdOrNull, bodyWithoutSpoofedOwner } from '../services/tool-owner-scope.js';
+import {
+  notifyKanbanTaskCreated,
+  clearKanbanTaskNotification,
+} from '../services/platform-notifications.js';
 import jobApplicantTools from './job-applicant-tools.js';
 
 const router = Router();
@@ -42,8 +57,9 @@ function getCallerAgent(req) {
     .toString()
     .trim();
   if (!id) return null;
-  const db = getDb();
-  return db.prepare('SELECT id, name, is_coo FROM agents WHERE LOWER(id) = LOWER(?) OR LOWER(openclaw_agent_id) = LOWER(?)').get(id, id) || null;
+  const row = resolveAgentFromOpenClawCallerId(id);
+  if (!row) return null;
+  return { id: row.id, name: row.name, is_coo: row.is_coo };
 }
 
 function getCooAgentId() {
@@ -172,7 +188,7 @@ router.post('/test/:name', attachToolsAuth, requireAuth, requireCeoOrAdmin, asyn
     if (targetUrl.startsWith('/')) targetUrl = baseUrl + targetUrl;
     const method = String(row.method || 'POST').toUpperCase();
     const headers = { 'Content-Type': 'application/json' };
-    if (targetUrl.startsWith(baseUrl)) headers['x-internal-test'] = '1';
+    if (targetUrl.startsWith(baseUrl)) Object.assign(headers, internalAuthHeaders());
 
     const fetchOpts = {
       method,
@@ -577,7 +593,7 @@ router.post('/kanban-move-status', optionalAuth, (req, res) => {
     }
     let caller = getCallerAgent(req);
     // When invoked from gateway plugin without agent id: allow move if request is internal (from our /invoke) and task has assigned agent
-    if (!caller && task.assigned_agent_id && req.headers['x-internal-test'] === '1') {
+    if (!caller && task.assigned_agent_id && isInternalRequest(req)) {
       caller = db.prepare('SELECT id, name, is_coo FROM agents WHERE LOWER(id) = LOWER(?) OR LOWER(openclaw_agent_id) = LOWER(?)').get(task.assigned_agent_id, task.assigned_agent_id) || null;
       if (caller) source = caller.id;
     }
@@ -590,6 +606,9 @@ router.post('/kanban-move-status', optionalAuth, (req, res) => {
       return res.status(403).json(err);
     }
     db.prepare("UPDATE kanban_tasks SET status = ?, updated_at = datetime('now') WHERE id = ?").run(newStatus, taskId);
+    if (newStatus === 'completed' || newStatus === 'failed') {
+      clearKanbanTaskNotification(taskId);
+    }
     const out = { ok: true, task_id: taskId, status: newStatus };
     logTool(req,'kanban_move_status', requestPayload, out, 'ok', source);
     res.json(out);
@@ -639,6 +658,89 @@ router.post('/kanban-reassign-to-coo', optionalAuth, (req, res) => {
   } catch (e) {
     const err = { error: e.message };
     logTool(req,'kanban_reassign_to_coo', requestPayload, err, 'error', source);
+    res.status(500).json(err);
+  }
+});
+
+/**
+ * Kanban tool: create a task for the CEO (any granted agent may use if tool is granted).
+ * Body: title (required), description?, assign_to? (agent id | "coo" | omit for CEO inbox).
+ */
+router.post('/kanban-create-task', optionalAuth, (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = req.body || {};
+  try {
+    const caller = getCallerAgent(req);
+    if (!caller) {
+      const err = { error: 'Calling agent required (x-openclaw-agent-id)' };
+      logTool(req, 'kanban_create_task', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const title = String(requestPayload.title || '').trim();
+    if (!title) {
+      const err = { error: 'title required' };
+      logTool(req, 'kanban_create_task', requestPayload, err, 'error', source);
+      return res.status(400).json(err);
+    }
+    const ownerUserId =
+      resolveToolOwnerUserIdOrNull(req, requestPayload, resolveAuthenticatedCeoUserId) ||
+      parseTenantOpenClawAgentId(source)?.ceoUserId ||
+      null;
+    if (!ownerUserId) {
+      const err = { error: 'ceo_user_id could not be resolved for Kanban task' };
+      logTool(req, 'kanban_create_task', requestPayload, err, 'error', source);
+      return res.status(400).json(err);
+    }
+    const descriptionRaw = String(requestPayload.description || '').trim();
+    const description = [
+      descriptionRaw,
+      '',
+      `owner_user_id: ${ownerUserId}`,
+      `created_by_agent: ${caller.id}`,
+    ]
+      .filter((line, i, arr) => !(line === '' && i === 0))
+      .join('\n')
+      .trim();
+
+    let assignedAgentId = null;
+    const assignTo = String(requestPayload.assign_to || requestPayload.assigned_agent_id || '')
+      .trim()
+      .toLowerCase();
+    if (assignTo && assignTo !== 'coo' && assignTo !== 'ceo') {
+      const db = getDb();
+      const agent = db
+        .prepare('SELECT id FROM agents WHERE LOWER(id) = ? OR LOWER(openclaw_agent_id) = ?')
+        .get(assignTo, assignTo);
+      if (!agent) {
+        const err = { error: `assign_to agent not found: ${assignTo}` };
+        logTool(req, 'kanban_create_task', requestPayload, err, 'error', source);
+        return res.status(404).json(err);
+      }
+      assignedAgentId = agent.id;
+    }
+
+    const status = assignedAgentId ? 'awaiting_confirmation' : 'open';
+    const db = getDb();
+    db.prepare(
+      `INSERT INTO kanban_tasks (title, description, status, assigned_agent_id, created_by, due_date)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    ).run(title, description, status, assignedAgentId, caller.id, null);
+    const row = db.prepare('SELECT * FROM kanban_tasks ORDER BY id DESC LIMIT 1').get();
+    notifyKanbanTaskCreated({ userId: ownerUserId, task: row });
+    const out = {
+      ok: true,
+      task_id: row.id,
+      title: row.title,
+      status: row.status,
+      assigned_agent_id: row.assigned_agent_id,
+      owner_user_id: ownerUserId,
+      created_by: row.created_by,
+    };
+    logTool(req, 'kanban_create_task', requestPayload, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'kanban_create_task', requestPayload, err, 'error', source);
     res.status(500).json(err);
   }
 });
@@ -945,6 +1047,15 @@ router.post('/invoke', requireToolsAccess, async (req, res) => {
       logTool(req,toolName, req.body, { error: grantCheck.error }, 'error', source);
       return res.status(403).json({ error: grantCheck.error });
     }
+    const tenant = source ? parseTenantOpenClawAgentId(source) : null;
+    if (tenant) {
+      const sessionOwner = resolveOwnerFromOpenClawSession(req);
+      if (sessionOwner && sanitizeTenantId(sessionOwner) !== sanitizeTenantId(tenant.ceoUserId)) {
+        const err = `Tenant mismatch: session owner ${sessionOwner} vs agent ${source}`;
+        logTool(req, toolName, req.body, { error: err }, 'error', source);
+        return res.status(403).json({ error: err });
+      }
+    }
     const params = { ...req.body };
     delete params.tool_name;
     delete params.toolName;
@@ -973,7 +1084,7 @@ router.post('/invoke', requireToolsAccess, async (req, res) => {
     if (row.auth_header && typeof row.auth_header === 'string' && row.auth_header.trim()) {
       headers['Authorization'] = row.auth_header.trim();
     }
-    if (targetUrl.startsWith(baseUrl)) headers['x-internal-test'] = '1';
+    if (targetUrl.startsWith(baseUrl)) Object.assign(headers, internalAuthHeaders());
     const fetchOpts = { method, headers, signal: AbortSignal.timeout(90000) };
     if (method === 'GET') {
       const url = new URL(targetUrl);

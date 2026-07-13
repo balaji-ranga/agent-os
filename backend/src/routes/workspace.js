@@ -1,7 +1,11 @@
 import { Router } from 'express';
+import { requireAuth, requireCeoOrAdmin } from '../middleware/auth.js';
 import * as workspace from '../workspace/adapter.js';
 
 const router = Router();
+
+router.use(requireAuth);
+router.use(requireCeoOrAdmin);
 
 router.get('/files', async (req, res) => {
   try {

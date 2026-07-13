@@ -12,6 +12,10 @@ const GRAPH_ACTIONS = new Set([
 
 const LIFECYCLE_ACTIONS = new Set([
   'create_workflow',
+  'create_from_template',
+  'clone_workflow',
+  'copy_workflow',
+  'duplicate_workflow',
   'open_workflow',
   'load_workflow',
   'reload_workflow',
@@ -52,6 +56,10 @@ function toastForAction(action) {
   if (!action || action.ok === false) return null;
   const map = {
     create_workflow: 'Workflow created',
+    create_from_template: 'Workflow created from template',
+    clone_workflow: 'Workflow cloned',
+    copy_workflow: 'Workflow cloned',
+    duplicate_workflow: 'Workflow cloned',
     publish: 'Workflow published',
     unpublish: 'Workflow reverted to draft',
     revert_to_draft: 'Workflow reverted to draft',

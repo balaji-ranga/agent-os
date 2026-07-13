@@ -222,13 +222,19 @@ async function main() {
 
     if (!existing) {
       console.log('Creating agent in DB and openclaw.json...');
+      const { getBalaCeoAuthId } = await import('../backend/src/services/job-applicant-ceo.js');
       const row = await createFullAgent({
         id: spec.id,
         name: spec.name,
         role: spec.role,
         parent_id: parentId,
+        ownerUserId: getBalaCeoAuthId(),
       });
-      workspacePath = row.workspace_path;
+      // Job agents are platform standard agents, not CEO-private custom agents
+      db.prepare(
+        `UPDATE agents SET agent_type = 'standard', owner_user_id = NULL WHERE id = ?`
+      ).run(row.id);
+      workspacePath = row.tenant_workspace_path || row.workspace_path;
       console.log('Created:', row.id);
     } else {
       console.log('Agent exists; refreshing templates and tool allowlist only.');

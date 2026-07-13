@@ -15,6 +15,10 @@ import {
   kanbanTaskBelongsToUser,
   assertKanbanTaskAccess,
 } from '../services/kanban-user-scope.js';
+import {
+  notifyKanbanTaskCreated,
+  clearKanbanTaskNotification,
+} from '../services/platform-notifications.js';
 
 const router = Router();
 router.use(attachAuthUser);
@@ -205,6 +209,9 @@ router.post('/tasks', (req, res) => {
       )
       .run(title.trim(), desc, assigned_agent_id ? 'awaiting_confirmation' : 'open', assigned_agent_id, due);
     const row = db().prepare('SELECT * FROM kanban_tasks ORDER BY id DESC LIMIT 1').get();
+    if (req.authUser?.id) {
+      notifyKanbanTaskCreated({ userId: req.authUser.id, task: row });
+    }
     res.status(201).json(row);
   } catch (e) {
     res.status(e.status || 400).json({ error: e.message });
@@ -245,6 +252,9 @@ router.patch('/tasks/:id', (req, res) => {
     values.push(req.params.id);
     db().prepare(`UPDATE kanban_tasks SET ${updates.join(', ')} WHERE id = ?`).run(...values);
     const updated = db().prepare('SELECT k.*, a.name AS assigned_agent_name FROM kanban_tasks k LEFT JOIN agents a ON a.id = k.assigned_agent_id WHERE k.id = ?').get(req.params.id);
+    if (status === 'completed' || status === 'failed') {
+      clearKanbanTaskNotification(updated.id, req.authUser?.id);
+    }
     res.json(updated);
   } catch (e) {
     res.status(e.status || 400).json({ error: e.message });
@@ -272,6 +282,7 @@ router.delete('/tasks/:id', (req, res) => {
     if (!task) return res.status(404).json({ error: 'Task not found' });
     assertKanbanTaskAccess(task, req.authUser);
     const id = Number(req.params.id);
+    clearKanbanTaskNotification(id, req.authUser?.id);
     db().prepare('UPDATE kanban_tasks SET standup_id = NULL, agent_delegation_task_id = NULL WHERE id = ?').run(id);
     db().prepare('DELETE FROM task_messages WHERE task_id = ?').run(id);
     db().prepare('DELETE FROM kanban_tasks WHERE id = ?').run(id);

@@ -327,10 +327,34 @@ export function parseWorkflowAgentCommand(message, { workflowId = null } = {}) {
   const statusIntent = parseStatusChangeIntent(t, workflowId);
   if (statusIntent) return statusIntent;
 
+  // clone / copy / duplicate workflow X as Y
+  let cloneAs = t.match(/^(?:clone|copy|duplicate)\s+(?:workflow\s+)?(.+?)\s+(?:as|to)\s+(.+?)\s*$/i);
+  if (cloneAs) {
+    return {
+      cmd: 'clone_workflow',
+      workflow_name: cloneAs[1].replace(/^["'`]+|["'`]+$/g, '').trim(),
+      new_name: cloneAs[2].replace(/^["'`]+|["'`]+$/g, '').trim(),
+      workflow_id: workflowId || undefined,
+    };
+  }
+  let cloneOne = t.match(/^(?:clone|copy|duplicate)\s+(?:workflow\s+)?(.+?)\s*$/i);
+  if (cloneOne && !/^(?:this\s+)?workflow$/i.test(cloneOne[1].trim())) {
+    return {
+      cmd: 'clone_workflow',
+      workflow_name: cloneOne[1].replace(/^["'`]+|["'`]+$/g, '').trim(),
+      workflow_id: workflowId || undefined,
+    };
+  }
+  if (/^(?:clone|copy|duplicate)\s+(?:this\s+)?workflow\s*$/i.test(t) && workflowId) {
+    return { cmd: 'clone_workflow', workflow_id: workflowId };
+  }
+
   if (
     /(?:recent|latest|last|most recent)\s+failed\s+run/i.test(t) ||
     /failed\s+run\s+of/i.test(t) ||
-    /(?:why|how)\s+(?:did|does|was)\s+.+\s+fail/i.test(t)
+    /(?:why|how)\s+(?:did|does|was)\s+.+\s+fail/i.test(t) ||
+    /\b(?:rca|root\s*cause)\b/i.test(t) ||
+    /(?:analyze|analysis)\s+(?:the\s+)?(?:failed\s+)?(?:run|failure|error)/i.test(t)
   ) {
     const nameMatch =
       t.match(/(?:failed\s+run\s+of|failure\s+of)\s+(?:the\s+)?(?:workflow\s+)?[`"']?([a-zA-Z0-9_-]+)[`"']?/i) ||

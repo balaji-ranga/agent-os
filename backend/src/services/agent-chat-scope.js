@@ -8,8 +8,7 @@ import {
   resolveCeoDataUserId,
 } from './job-applicant-ceo.js';
 import * as openclaw from '../gateway/openclaw.js';
-
-const homedir = process.env.USERPROFILE || process.env.HOME || '';
+import { getOpenClawDir } from '../config/openclaw-paths.js';
 
 export function resolveChatOwnerUserId(req, body = {}) {
   if (!req?.authUser?.id) {
@@ -72,7 +71,7 @@ export function extractOwnerUserIdFromText(text, fallback = null) {
 export function clearOpenClawSessionForUser(agentId, openclawAgentId, ownerUserId) {
   const sessionUser = openclaw.sessionUserFor(agentId, ownerUserId);
   const sessionKey = openclaw.sessionKeyFor(openclawAgentId, sessionUser);
-  const sessionsDir = join(homedir, '.openclaw', 'agents', openclawAgentId, 'sessions');
+  const sessionsDir = join(getOpenClawDir(), 'agents', openclawAgentId, 'sessions');
   const sessionsJsonPath = join(sessionsDir, 'sessions.json');
   if (!existsSync(sessionsJsonPath)) return;
 

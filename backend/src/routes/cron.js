@@ -1,8 +1,13 @@
 import { Router } from 'express';
+import { requireAuth, requireCeoOrAdmin } from '../middleware/auth.js';
+import { allowInternalOrAuth } from '../middleware/internal-auth.js';
 import { runScheduledStandup } from '../cron/standup.js';
 import { processPendingDelegationTasks } from '../services/delegation-queue.js';
 
 const router = Router();
+
+router.use(allowInternalOrAuth);
+router.use(requireCeoOrAdmin);
 
 /** Manual trigger for standup flow (collect from agents + run COO). */
 router.post('/run-standup', async (req, res) => {

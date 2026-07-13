@@ -54,6 +54,7 @@ import {
   tryFailedRunQueryResponse,
   tryListRunsQueryResponse,
 } from './agent-workflow-agent-runs.js';
+import { tryTroubleshootWorkflowResponse } from './agent-workflow-agent-troubleshoot.js';
 import { tryCatalogQueryResponse, formatCatalogForPrompt } from './agent-workflow-builder-catalog.js';
 
 
@@ -74,6 +75,10 @@ Respond with a single JSON object (no markdown fences):
 ## Graph editing
 
 - create_workflow — { "action": "create_workflow", "name": "...", "chat_phrase": "...", "trigger_modes": ["manual","chat"] }
+
+- create_from_template — { "action": "create_from_template", "template_id": "template-job-applicant-pipeline", "name": "..." }
+
+- clone_workflow — { "action": "clone_workflow", "workflow_name": "source", "new_name": "Copy name" } — copy graph/variables from an existing definition (schedule not copied unless copy_schedule=true)
 
 - add_node — { "action": "add_node", "node_type": "...", "label": "...", "connect_from": "node-id", "agent_id": "...", "prompt": "...", "system_prompt": "...", "task_config": { } }
 
@@ -121,7 +126,10 @@ When user says "make draft", "unpublish", "revert to draft", or "change status t
 
 ## Test & fix
 
-inspect_run / test_workflow → read failed step errors → update_node / add_edge → unpublish if needed → edit → publish → test_workflow again.
+inspect_run / failed-run RCA → read failed step errors → update_node / add_edge → unpublish if needed → edit → publish → test_workflow again.
+For structural issues: diagnose orphans, missing agent_id, dangling edges — then apply add_edge / update_node fixes.
+Job applicant pipeline: prefer create_from_template with template_id "template-job-applicant-pipeline" (or say "create a job applicant pipeline workflow").
+Clone: use clone_workflow to copy an existing definition into a new draft.
 
 
 
@@ -509,6 +517,8 @@ async function executeFastPathCommand(ownerUserId, workflowId, command, actor) {
 
     pause_all_runs: 'pause_all_runs',
 
+    clone_workflow: 'clone_workflow',
+
   };
 
   const actionName = actionMap[command.cmd];
@@ -521,9 +531,19 @@ async function executeFastPathCommand(ownerUserId, workflowId, command, actor) {
 
     action: actionName,
 
-    workflow_id: command.workflow_id || workflowId || undefined,
+    workflow_id:
+      command.cmd === 'clone_workflow' && command.workflow_name
+        ? undefined
+        : command.workflow_id || workflowId || undefined,
 
     workflow_name: command.workflow_name,
+
+    source_workflow_id:
+      command.cmd === 'clone_workflow' ? command.workflow_id || (!command.workflow_name ? workflowId : undefined) : undefined,
+
+    source_workflow_name: command.cmd === 'clone_workflow' ? command.workflow_name : undefined,
+
+    new_name: command.new_name,
 
     run_number: command.run_number,
 
@@ -597,6 +617,16 @@ async function executeFastPathCommand(ownerUserId, workflowId, command, actor) {
 
       return `Paused ${pr?.paused ?? 0} run(s).`;
 
+    },
+
+    clone_workflow: () => {
+      const cl = result.results?.find((r) =>
+        ['clone_workflow', 'copy_workflow', 'duplicate_workflow'].includes(r.action)
+      );
+      if (cl?.ok) {
+        return `Cloned "${cl.cloned_from_name || cl.cloned_from}" → **${cl.name}** (id: \`${cl.workflow_id}\`, status: ${cl.status}).`;
+      }
+      return cl?.error ? `Clone failed: ${cl.error}` : 'Clone completed.';
     },
 
   };
@@ -750,6 +780,50 @@ export async function runWorkflowBuilderChat({
       }),
       reply: assistantText,
       thread_workflow_id: workflowChatThreadKey(workflowId),
+    };
+  }
+
+  const troubleshootResult = tryTroubleshootWorkflowResponse(ownerUserId, workflowId, trimmed);
+  if (troubleshootResult) {
+    let result = { results: [] };
+    let effectiveWorkflowId = troubleshootResult.workflow_id || workflowId;
+    if (troubleshootResult.actions?.length) {
+      result = await applyWorkflowBuilderActions(
+        ownerUserId,
+        effectiveWorkflowId,
+        troubleshootResult.actions,
+        actorNorm
+      );
+      effectiveWorkflowId = result.workflow_id || effectiveWorkflowId;
+    }
+    const workflow = effectiveWorkflowId ? store.getDefinition(effectiveWorkflowId, ownerUserId) : troubleshootResult.workflow;
+    const diagnosis =
+      workflow && troubleshootResult.actions?.length
+        ? null
+        : troubleshootResult.diagnosis;
+    let reply = troubleshootResult.reply;
+    if (troubleshootResult.actions?.length && workflow) {
+      const { diagnoseWorkflowGraph, formatTroubleshootReply } = await import(
+        './agent-workflow-agent-troubleshoot.js'
+      );
+      reply = formatTroubleshootReply(workflow, diagnoseWorkflowGraph(workflow), { applied: true });
+    }
+    const assistantText = formatAssistantReply(reply, result);
+    if (persist) {
+      appendWorkflowChatExchange(ownerUserId, effectiveWorkflowId || workflowId, trimmed, assistantText);
+    }
+    return {
+      ...buildChatResultPayload({
+        reply,
+        modelUsed: null,
+        effectiveWorkflowId,
+        workflow,
+        result,
+        workflowTriggered: null,
+      }),
+      reply: assistantText,
+      diagnosis,
+      thread_workflow_id: workflowChatThreadKey(effectiveWorkflowId || workflowId),
     };
   }
 

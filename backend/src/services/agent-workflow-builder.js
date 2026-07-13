@@ -184,6 +184,66 @@ export async function applyWorkflowBuilderActions(ownerUserId, workflowId, actio
       continue;
     }
 
+    if (op === 'clone_workflow' || op === 'copy_workflow' || op === 'duplicate_workflow') {
+      const source = resolveWorkflowForTrigger(ownerUserId, {
+        workflow_id: action.source_workflow_id || action.workflow_id || action.from_workflow_id || currentId,
+        workflow_name: action.source_workflow_name || action.workflow_name || action.from_name || action.name,
+      });
+      if (!source) throw new Error('Source workflow not found for clone');
+      const sourceGraph =
+        source.status === 'published' && source.published_graph?.nodes?.length
+          ? source.published_graph
+          : source.draft_graph;
+      if (!sourceGraph?.nodes?.length) throw new Error(`Source workflow "${source.name}" has an empty graph`);
+
+      const newName = String(
+        action.new_name || action.clone_name || (action.name && action.name !== source.name ? action.name : null) || `${source.name} (copy)`
+      ).trim();
+      let chatPhrase =
+        action.chat_phrase || action.chat_trigger_phrase || '';
+      if (!chatPhrase && source.chat_trigger_phrase) {
+        chatPhrase = `${source.chat_trigger_phrase} copy`.trim();
+      }
+      const triggerModes = action.trigger_modes || source.trigger_modes || ['manual'];
+      // Do not copy live schedules by default — avoid duplicate cron fires
+      const scheduleCron =
+        action.schedule_cron != null
+          ? action.schedule_cron
+          : action.copy_schedule
+            ? source.schedule_cron || ''
+            : '';
+
+      def = store.createDefinition({
+        name: newName,
+        description:
+          action.description ||
+          source.description ||
+          `Clone of "${source.name}" (${source.id})`,
+        ownerUserId,
+        actor,
+        graph: cloneGraph(sourceGraph),
+        trigger_modes: triggerModes,
+        chat_trigger_phrase: chatPhrase,
+        schedule_cron: scheduleCron,
+        variables: action.variables != null ? action.variables : source.variables || {},
+      });
+      currentId = def.id;
+      if (action.publish === true || action.auto_publish === true) {
+        def = store.publishDefinition(currentId, ownerUserId, actor);
+        refreshAgentWorkflowSchedules();
+      }
+      results.push({
+        action: op,
+        ok: true,
+        workflow_id: currentId,
+        name: def.name,
+        status: def.status,
+        cloned_from: source.id,
+        cloned_from_name: source.name,
+      });
+      continue;
+    }
+
     if (op === 'open_workflow' || op === 'load_workflow' || op === 'reload_workflow') {
       const target = resolveWorkflowForTrigger(ownerUserId, {
         workflow_id: action.workflow_id || currentId,

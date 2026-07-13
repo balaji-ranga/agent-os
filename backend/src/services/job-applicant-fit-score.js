@@ -1,11 +1,9 @@
-/**
- * LLM fit scoring for job applicant workflow (shared by tools + workflow runner).
- */
-import { chatCompletions } from '../config/llm.js';
+import { getPublicBaseUrl } from '../config/public-url.js';
 import { createJobApplicationsService } from './job-applications.js';
 import { enrichJobFromUrl } from './job-job-enrichment.js';
-import { getPublicBaseUrl } from '../config/public-url.js';
 import { buildCandidateContextForScoring, parseBorderlineReview } from './job-candidate-context.js';
+import { chatCompletions } from '../config/llm.js';
+import { internalAuthHeaders } from '../middleware/internal-auth.js';
 
 async function fetchUrlSummary(url) {
   if (!url) return '';
@@ -13,7 +11,7 @@ async function fetchUrlSummary(url) {
     const base = getPublicBaseUrl();
     const r = await fetch(`${base}/api/tools/summarize-url`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-internal-test': '1', 'x-openclaw-agent-id': 'fitscorer' },
+      headers: { ...internalAuthHeaders(), 'x-openclaw-agent-id': 'fitscorer' },
       body: JSON.stringify({ url }),
     });
     const data = await r.json().catch(() => ({}));

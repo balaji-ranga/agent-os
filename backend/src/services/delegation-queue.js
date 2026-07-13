@@ -22,7 +22,10 @@ import {
   isAgentWorkflowPrompt,
 } from './agent-workflow-kanban.js';
 import { getPublicBaseUrl } from '../config/public-url.js';
+import { ensureInternalTokenConfigured } from '../middleware/internal-auth.js';
 import { maybeAdvanceAgentWorkflow, failAgentWorkflowForDelegation } from './agent-workflow-runner.js';
+import { ensureTenantOpenClawAgent } from './openclaw-tenant.js';
+import { getBalaCeoAuthId } from './job-applicant-ceo.js';
 
 const SESSION_USER = 'agent-os-delegation';
 const AGENTS_MD_NAME = 'AGENTS.md';
@@ -340,8 +343,14 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage) {
         promptWithMemory +
         `\n\n---\nIMPORTANT — Kanban finish:\nWhen you are done, call ONE of:\n  {\"task_id\": ${kanbanId}, \"new_status\": \"completed\"}\n  {\"task_id\": ${kanbanId}, \"new_status\": \"failed\"}\n---`;
     }
-    const webhookUrl = `${baseUrl}/api/standups/cron-callback?standup_id=${standupId}&request_id=${encodeURIComponent(requestId)}&agent_id=${encodeURIComponent(agent.id)}&task_id=${taskId}`;
-    const openclawAgentId = agent.openclaw_agent_id || agent.id;
+    const internalToken = ensureInternalTokenConfigured();
+    const webhookUrl = `${baseUrl}/api/standups/cron-callback?standup_id=${standupId}&request_id=${encodeURIComponent(requestId)}&agent_id=${encodeURIComponent(agent.id)}&task_id=${taskId}&internal_token=${encodeURIComponent(internalToken)}`;
+    const ownerForTenant =
+      extractOwnerUserIdFromText(promptWithMemory, null) || getBalaCeoAuthId();
+    let openclawAgentId = agent.openclaw_agent_id || agent.id;
+    try {
+      openclawAgentId = ensureTenantOpenClawAgent(agent, ownerForTenant).openclawAgentId;
+    } catch (_) {}
     const result = await cronAddOneShotWebhook({
       name: `standup-${standupId}-${agent.id}-${taskId}`,
       agentId: openclawAgentId,
@@ -475,8 +484,16 @@ export async function processPendingDelegationTasks() {
       return;
     }
     const openclawId = agent.openclaw_agent_id || agent.id;
+    const ownerForTenant =
+      extractOwnerUserIdFromText(task.prompt, null) || getBalaCeoAuthId();
+    let runtimeOcId = openclawId;
+    try {
+      runtimeOcId = ensureTenantOpenClawAgent(agent, ownerForTenant).openclawAgentId;
+    } catch (e) {
+      console.warn('[delegation] tenant openclaw ensure failed:', e?.message || e);
+    }
     const sessionUser = `delegation-${task.id}`;
-    const sessionKeyLine = `\n\nYour session key for this run is ${openclaw.sessionKeyFor(openclawId, sessionUser)}. Use this exact sessionKey when calling sessions_history. If sessions_history returns empty, the conversation is in the messages above—proceed with those.`;
+    const sessionKeyLine = `\n\nYour session key for this run is ${openclaw.sessionKeyFor(runtimeOcId, sessionUser)}. Use this exact sessionKey when calling sessions_history. If sessions_history returns empty, the conversation is in the messages above—proceed with those.`;
     let promptWithMemory = await getPromptWithMemoryInjected(task.to_agent_id, task.prompt);
     promptWithMemory = promptWithMemory + sessionKeyLine;
     const kanbanRow = db().prepare('SELECT id FROM kanban_tasks WHERE agent_delegation_task_id = ?').get(task.id);
@@ -491,7 +508,7 @@ export async function processPendingDelegationTasks() {
       const isDiscovery = String(task.to_agent_id).toLowerCase() === 'jobdiscovery';
       const discoveryTimeout = Number(process.env.OPENCLAW_DISCOVERY_TIMEOUT_MS || 900000);
       const { content } = await openclaw.chatCompletions(
-        openclawId,
+        runtimeOcId,
         [{ role: 'user', content: promptWithMemory }],
         sessionUser,
         false,

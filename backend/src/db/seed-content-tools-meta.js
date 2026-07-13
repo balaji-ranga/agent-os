@@ -66,6 +66,17 @@ const BUILTIN_TOOLS = [
     is_builtin: 1,
   },
   {
+    name: 'kanban_create_task',
+    display_name: 'Kanban Create Task',
+    endpoint: '/api/tools/kanban-create-task',
+    method: 'POST',
+    purpose:
+      'API tool: create a Kanban task for the CEO. Invoke by name with title (required), optional description, optional assign_to (agent id or "coo"/omit for CEO inbox). Do not run via exec or shell.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
     name: 'intent_classify_and_delegate',
     display_name: 'Intent Classify and Delegate',
     endpoint: '/api/tools/intent-classify-and-delegate',
@@ -133,7 +144,13 @@ const BUILTIN_TOOLS = [
 ];
 
 const KANBAN_TOOLS = BUILTIN_TOOLS.filter((t) =>
-  ['kanban_move_status', 'kanban_reassign_to_coo', 'kanban_assign_task', 'intent_classify_and_delegate'].includes(t.name)
+  [
+    'kanban_move_status',
+    'kanban_reassign_to_coo',
+    'kanban_assign_task',
+    'kanban_create_task',
+    'intent_classify_and_delegate',
+  ].includes(t.name)
 );
 
 const WORKFLOW_TOOLS = BUILTIN_TOOLS.filter((t) =>

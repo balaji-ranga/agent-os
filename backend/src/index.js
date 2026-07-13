@@ -28,7 +28,9 @@ import ibkrTradingRoutes from './routes/ibkr-trading.js';
 import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
 import platformNotificationsRoutes from './routes/platform-notifications.js';
-import { attachAuthUser } from './middleware/auth.js';
+import { attachAuthUser, requireAuth, requireCeoOrAdmin } from './middleware/auth.js';
+import { ensureInternalTokenConfigured } from './middleware/internal-auth.js';
+import { ensureMfaTables } from './services/auth/mfa.js';
 import { ensureDefaultAdmin, ensureBalaCeoUser, grantStandardAgents } from './services/users.js';
 import { initDb, getDb } from './db/schema.js';
 import { seedDefaultAgentsIfEmpty } from './db/seed-default-agents.js';
@@ -43,7 +45,7 @@ import { runPipelineTick, runPipelineTickAll } from './services/job-applicant-pi
 import { getLastIntentDebug } from './services/intent-classifier.js';
 import { initAgentWorkflowScheduler } from './services/agent-workflow-scheduler.js';
 import { syncWorkflowScheduleRegistry } from './services/agent-workflow-store.js';
-import { resumeStuckWorkflowRuns } from './services/agent-workflow-runner.js';
+import { resumeStuckWorkflowRuns, startWorkflowTimeoutWatchdog } from './services/agent-workflow-runner.js';
 import { seedWorkflowBuilderAgent } from '../scripts/seed-workflow-builder-agent.js';
 
 const app = express();
@@ -55,6 +57,8 @@ app.use(express.text({ type: 'text/*' }));
 app.use(attachAuthUser);
 
 initDb();
+ensureInternalTokenConfigured();
+ensureMfaTables();
 seedDefaultAgentsIfEmpty();
 ensureDefaultAdmin();
 ensureBalaCeoUser();
@@ -83,6 +87,7 @@ try {
 }
 try {
   resumeStuckWorkflowRuns();
+  startWorkflowTimeoutWatchdog();
 } catch (e) {
   console.warn('[startup] workflow run resume:', e.message);
 }
@@ -95,7 +100,7 @@ app.get('/health', healthHandler);
 // Single /api router so all /api/* routes are registered in one place
 const apiRouter = express.Router();
 apiRouter.get('/health', healthHandler);
-apiRouter.get('/debug/intent-last', (req, res) => {
+apiRouter.get('/debug/intent-last', requireAuth, requireCeoOrAdmin, (req, res) => {
   try {
     const debug = getLastIntentDebug();
     res.json(debug != null ? debug : { error: 'No intent classification run yet' });

@@ -731,6 +731,29 @@ export function initDb() {
       `CREATE INDEX IF NOT EXISTS idx_platform_user_notifications_user ON platform_user_notifications(user_id, created_at DESC)`
     );
   } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE platform_user_notifications ADD COLUMN read_at TEXT`);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE platform_user_notifications ADD COLUMN source TEXT`);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE platform_user_notifications ADD COLUMN source_key TEXT`);
+  } catch (_) {}
+  try {
+    _db.exec(
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_platform_notif_source
+       ON platform_user_notifications(user_id, source, source_key)
+       WHERE source IS NOT NULL AND source_key IS NOT NULL`
+    );
+  } catch (_) {}
+  try {
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_platform_notif_unread
+       ON platform_user_notifications(user_id, created_at DESC)
+       WHERE read_at IS NULL`
+    );
+  } catch (_) {}
 
   try {
     _db.exec(`ALTER TABLE platform_sessions ADD COLUMN impersonator_user_id TEXT`);

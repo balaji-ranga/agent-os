@@ -116,6 +116,27 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, extern
         <input value={data.label || ''} onChange={(e) => set({ label: e.target.value })} />
       </label>
 
+      {node.type !== 'trigger' && (
+        <label className="wf-field" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <input
+            type="checkbox"
+            checked={!!(data.send_notification ?? data.sendNotification)}
+            onChange={(e) =>
+              set({
+                send_notification: e.target.checked,
+                sendNotification: e.target.checked,
+              })
+            }
+          />
+          <span>
+            Send notification
+            <small style={{ display: 'block', color: 'var(--muted)', fontWeight: 400 }}>
+              Notify the CEO when this step starts and when it completes (link to run audit)
+            </small>
+          </span>
+        </label>
+      )}
+
       {node.type === 'trigger' && (
         <>
           <fieldset className="wf-field">

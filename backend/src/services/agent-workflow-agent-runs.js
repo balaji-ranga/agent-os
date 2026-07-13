@@ -43,7 +43,10 @@ export function parseFailedRunQueryIntent(message) {
     /failed\s+run\s+of/i.test(t) ||
     /(?:why|how)\s+(?:did|does|was)\s+.+\s+fail/i.test(t) ||
     /(?:what|which)\s+(?:is|was)\s+(?:the\s+)?(?:recent|latest|last)?\s*failed/i.test(t) ||
-    /(?:inspect|show|check|explain)\s+(?:the\s+)?(?:recent|latest|last)?\s*failed/i.test(t);
+    /(?:inspect|show|check|explain)\s+(?:the\s+)?(?:recent|latest|last)?\s*failed/i.test(t) ||
+    /\b(?:rca|root\s*cause)\b/i.test(t) ||
+    /(?:analyze|analysis)\s+(?:the\s+)?(?:failed\s+)?(?:run|failure|error)/i.test(t) ||
+    /(?:what\s+caused|explain\s+(?:the\s+)?(?:failure|error))/i.test(t);
 
   if (!asksFailure) return null;
 
@@ -126,7 +129,108 @@ export function formatRunFailureReply(def, runSummary) {
     lines.push('', '_No step-level failure recorded — check run logs in the workflow UI._');
   }
 
+  lines.push('', formatRunRcaSection(def, runSummary));
+
   return lines.join('\n');
+}
+
+/** Heuristic RCA block for failed runs (deterministic — no LLM). */
+export function formatRunRcaSection(def, runSummary) {
+  const failedSteps = (runSummary.steps || []).filter((s) => s.status === 'failed');
+  const root = failedSteps[0] || null;
+  const err = String(root?.error_message || runSummary.error_message || '').toLowerCase();
+  const lines = ['## Root Cause Analysis (RCA)'];
+
+  lines.push(
+    `**Symptom:** Run #${runSummary.run_number} of **${def.name}** ended as \`${runSummary.status}\`.`
+  );
+  if (root) {
+    lines.push(
+      `**Failing step:** ${root.node_label || root.node_id} (\`${root.node_id}\`, type \`${root.node_type || '?'}\`)`
+    );
+    lines.push(`**Evidence:** ${root.error_message || runSummary.error_message || 'n/a'}`);
+  } else if (runSummary.error_message) {
+    lines.push(`**Evidence:** ${runSummary.error_message}`);
+  }
+
+  const { cause, fix } = inferRcaFromError(err, root?.node_type);
+  lines.push(`**Likely root cause:** ${cause}`);
+  lines.push(`**Recommended fix:** ${fix}`);
+  lines.push(
+    '',
+    '_Ask the Workflow Builder to apply fixes (update_node / reconnect / publish), then `test_workflow`._'
+  );
+  return lines.join('\n');
+}
+
+function inferRcaFromError(err, nodeType) {
+  if (/timed?\s*out|timeout|abort/i.test(err)) {
+    return {
+      cause: 'Step exceeded its node timeout (or HTTP/script abort) before completing.',
+      fix: 'Increase timeoutMs on the node, or set timeoutAction=default_output if a fallback is acceptable. Check downstream dependency health.',
+    };
+  }
+  if (/fetch failed|enotfound|econnrefused|network|dns|http\s*[45]\d\d/i.test(err)) {
+    return {
+      cause: 'Outbound HTTP call failed (bad URL, auth, or remote unavailable).',
+      fix: 'Verify API URL, auth headers/tokens on the API node, and that the target service is reachable from the backend.',
+    };
+  }
+  if (/mcp server|not healthy|mcp /i.test(err)) {
+    return {
+      cause: 'MCP server missing, unhealthy, or misconfigured for this user.',
+      fix: 'Open MCP integrations, reconnect the server, and confirm mcpServerId / toolName on the MCP node.',
+    };
+  }
+  if (/no agent|agent not found|agent_id|agentid/i.test(err)) {
+    return {
+      cause: 'Agent step has no valid agent_id (or agent was deleted).',
+      fix: 'update_node with a valid agent_id from the Agents list, then republish.',
+    };
+  }
+  if (/script|custom script|not approved|not accessible/i.test(err)) {
+    return {
+      cause: 'Custom script missing, not approved, or failed in sandbox.',
+      fix: 'Confirm customScriptId points to an approved script; inspect script last_error; re-run after fixing source.',
+    };
+  }
+  if (/api key|unauthorized|401|403|credentials|model source/i.test(err)) {
+    return {
+      cause: 'LLM/API credentials missing or rejected on the Brain/API node.',
+      fix: 'For Brain: set modelSource=ollama (local) or provide apiKey on the node. Platform .env keys are not used at run time.',
+    };
+  }
+  if (/condition|branch/i.test(err)) {
+    return {
+      cause: 'Branch/condition evaluation failed or took an unexpected path.',
+      fix: 'Inspect IF/WHILE sourceNodeId + compareValue; verify upstream output keys exist.',
+    };
+  }
+  if (nodeType === 'brain') {
+    return {
+      cause: 'Brain (LLM) step failed during model call or tool-calling loop.',
+      fix: 'Check modelSource/endpoint/model, Ollama availability, and MCP tool-calling config if enabled.',
+    };
+  }
+  return {
+    cause: 'Step failed with the error above; no higher-level pattern matched.',
+    fix: 'inspect_run the failed step, fix the node config or upstream input, publish, and test_workflow again.',
+  };
+}
+
+export function parseRcaIntent(message) {
+  const t = String(message || '').trim();
+  if (!t) return null;
+  const asks =
+    /\b(?:rca|root\s*cause|analyze|analysis|post[- ]?mortem)\b/i.test(t) ||
+    /(?:why\s+did|what\s+caused|explain\s+(?:the\s+)?(?:failure|error|fail))/i.test(t);
+  if (!asks) return null;
+  return parseFailedRunQueryIntent(t) || {
+    workflow_query: extractWorkflowNameFromRunQuery(t),
+    workflow_id: null,
+    inspect: true,
+    rca: true,
+  };
 }
 
 export function formatRunsListReply(def, runs) {

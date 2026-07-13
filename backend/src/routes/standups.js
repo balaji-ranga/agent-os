@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getDb } from '../db/schema.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireCeoOrAdmin } from '../middleware/auth.js';
+import { requireInternalToken } from '../middleware/internal-auth.js';
 import { resolveChatOwnerUserId } from '../services/agent-chat-scope.js';
 import { listAgentResponseNotificationsForUser } from '../services/agent-response-notifications.js';
 import { runCooSummarization } from '../services/coo.js';
@@ -20,24 +21,9 @@ function getCooAgent() {
   return db().prepare('SELECT id, name, openclaw_agent_id FROM agents WHERE is_coo = 1 LIMIT 1').get();
 }
 
-// List standups (latest first)
-router.get('/', (req, res) => {
-  try {
-    const limit = Math.min(Number(req.query.limit) || 50, 100);
-    const rows = db()
-      .prepare(
-        'SELECT id, scheduled_at, status, coo_summary, ceo_summary, source, title, outcomes, created_at FROM standups ORDER BY scheduled_at DESC LIMIT ?'
-      )
-      .all(limit);
-    res.json(rows);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
 // OpenClaw Gateway cron webhook: agent run finished → update task and maybe post COO callback
 // Must be before /:id so "cron-callback" is not captured as id
-router.post('/cron-callback', (req, res) => {
+router.post('/cron-callback', requireInternalToken, (req, res) => {
   try {
     const { standup_id, request_id, agent_id, task_id } = req.query;
     const standupId = Number(standup_id);
@@ -85,8 +71,27 @@ router.post('/cron-callback', (req, res) => {
   }
 });
 
+// All other standup routes require an authenticated CEO/admin session
+router.use(requireAuth);
+router.use(requireCeoOrAdmin);
+
+// List standups (latest first)
+router.get('/', (req, res) => {
+  try {
+    const limit = Math.min(Number(req.query.limit) || 50, 100);
+    const rows = db()
+      .prepare(
+        'SELECT id, scheduled_at, status, coo_summary, ceo_summary, source, title, outcomes, created_at FROM standups ORDER BY scheduled_at DESC LIMIT ?'
+      )
+      .all(limit);
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Notifications: recent completed delegation tasks for the signed-in user's agents.
-router.get('/notifications', requireAuth, (req, res) => {
+router.get('/notifications', (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit) || 20, 50);
     const notifications = listAgentResponseNotificationsForUser(req.authUser, { limit });

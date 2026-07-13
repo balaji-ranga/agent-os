@@ -256,12 +256,28 @@ export function listAllAgentsGrouped() {
   return { standard, custom };
 }
 
+function assertNonDefaultPassword(password, label, defaultValue) {
+  const strict =
+    process.env.NODE_ENV === 'production' ||
+    process.env.AGENT_OS_STRICT_SECRETS === '1' ||
+    process.env.AGENT_OS_STRICT_SECRETS === 'true';
+  if (!password || password === defaultValue) {
+    if (strict) {
+      throw new Error(
+        `${label} must be set to a non-default value when NODE_ENV=production or AGENT_OS_STRICT_SECRETS=1`
+      );
+    }
+    console.warn(`[security] ${label} is using a default/placeholder password — set a strong secret before exposing the API`);
+  }
+}
+
 export function ensureDefaultAdmin() {
   const email = (process.env.AGENT_OS_ADMIN_EMAIL || 'admin@agent-os.local').trim().toLowerCase();
   const password = process.env.AGENT_OS_ADMIN_PASSWORD || 'admin-change-me';
   const db = getDb();
   const existing = db.prepare('SELECT id FROM platform_users WHERE role = ? LIMIT 1').get('admin');
   if (existing) return null;
+  assertNonDefaultPassword(password, 'AGENT_OS_ADMIN_PASSWORD', 'admin-change-me');
   const user = registerAdminUser({ email, password, name: 'Platform Admin', region: 'global' });
   console.log(`Agent OS: seeded admin user ${user.email} (change AGENT_OS_ADMIN_PASSWORD)`);
   return user;
@@ -290,6 +306,7 @@ export function ensureBalaCeoUser() {
   }
 
   if (!row) {
+    assertNonDefaultPassword(password, 'AGENT_OS_BALA_PASSWORD', 'bala-change-me');
     db.prepare(
       `INSERT INTO platform_users (id, email, password_hash, name, region, mobile, role, enabled, ceo_db_mode)
        VALUES (?, ?, ?, ?, ?, ?, 'ceo', 1, 'shared')`

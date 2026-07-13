@@ -11,9 +11,15 @@ import { getDb } from '../db/schema.js';
 import * as meta from './content-tools-meta.js';
 import * as workspace from '../workspace/adapter.js';
 import { getOpenClawDir, getOpenClawConfigPath } from '../config/openclaw-paths.js';
+import {
+  parseTenantOpenClawAgentId,
+  resolveAgentFromOpenClawCallerId,
+  syncTenantAllowlists,
+  ensureTenantOpenClawAgent,
+} from './openclaw-tenant.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const REPO_TEMPLATES = join(__dirname, '..', '..', 'openclaw-workspace-templates');
+const REPO_TEMPLATES = join(__dirname, '..', '..', '..', 'openclaw-workspace-templates');
 
 const OPENCLAW_DIR = getOpenClawDir();
 const CONFIG_PATH = getOpenClawConfigPath();
@@ -66,16 +72,38 @@ export function isToolGrantedToAgent(agentOpenClawId, toolName) {
   return false;
 }
 
-/** Enforce per-agent grants on /api/tools/invoke (skip when caller is unknown). */
+/** Enforce per-agent grants on /api/tools/invoke (skip when caller is unknown non-tenant). */
 export function assertCallerMayUseTool(source, toolName) {
   if (!source || !toolName) return { ok: true };
-  const db = getDb();
-  const caller = db
-    .prepare('SELECT * FROM agents WHERE LOWER(id) = LOWER(?) OR LOWER(openclaw_agent_id) = LOWER(?)')
-    .get(source, source);
+  if (NATIVE_OPENCLAW_TOOLS.has(toolName)) return { ok: true };
+
+  const parsed = parseTenantOpenClawAgentId(source);
+  const caller = resolveAgentFromOpenClawCallerId(source);
+
+  if (parsed) {
+    if (!caller) {
+      return { ok: false, error: `Unknown tenant OpenClaw agent "${source}"` };
+    }
+    const entitled = getDb()
+      .prepare(
+        `SELECT 1 AS ok FROM user_agents WHERE user_id = ? AND agent_id = ? AND enabled = 1`
+      )
+      .get(parsed.ceoUserId, caller.id);
+    if (!entitled) {
+      return {
+        ok: false,
+        error: `Agent "${caller.id}" is not granted to tenant "${parsed.ceoUserId}"`,
+      };
+    }
+    if (isToolGrantedToAgent(source, toolName)) return { ok: true };
+    if (getAgentToolGrants(caller.id).includes(toolName)) return { ok: true };
+    return { ok: false, error: `Tool "${toolName}" is not granted to agent "${source}"` };
+  }
+
   if (!caller) return { ok: true };
   const ocId = resolveOpenClawAgentId(caller);
-  if (isToolGrantedToAgent(ocId, toolName)) return { ok: true };
+  if (isToolGrantedToAgent(ocId, toolName) || isToolGrantedToAgent(source, toolName)) return { ok: true };
+  if (getAgentToolGrants(caller.id).includes(toolName)) return { ok: true };
   return { ok: false, error: `Tool "${toolName}" is not granted to agent "${ocId}"` };
 }
 
@@ -92,13 +120,14 @@ export function readAllowlistsFile() {
 export function syncAllowlistsFile() {
   const db = getDb();
   const agents = db.prepare('SELECT id, openclaw_agent_id FROM agents').all();
-  const out = {};
+  let out = {};
   for (const a of agents) {
     const grants = getAgentToolGrants(a.id);
     if (!grants.length) continue;
     const ocId = resolveOpenClawAgentId(a);
     if (ocId) out[ocId] = grants;
   }
+  out = syncTenantAllowlists(out);
   if (!existsSync(OPENCLAW_DIR)) mkdirSync(OPENCLAW_DIR, { recursive: true });
   writeFileSync(ALLOWLISTS_PATH, JSON.stringify(out, null, 2), 'utf8');
   return out;
@@ -184,6 +213,15 @@ export function setAgentToolGrants(agent, toolNames) {
   for (const t of normalized) ins.run(agent.id, t);
   syncAllowlistsFile();
   const allow = syncOpenClawJsonForAgent(agent);
+  // Refresh tenant runtime projections for CEOs that have this agent
+  const ceos = db
+    .prepare(`SELECT user_id FROM user_agents WHERE agent_id = ? AND enabled = 1`)
+    .all(agent.id);
+  for (const { user_id } of ceos) {
+    try {
+      ensureTenantOpenClawAgent(agent, user_id);
+    } catch (_) {}
+  }
   return { grants: normalized, openclaw_allow: allow };
 }
 

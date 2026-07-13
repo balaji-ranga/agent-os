@@ -14,7 +14,7 @@ Exercises preflight → validate → dry-run place → day-status (`IBKR_TRADING
 HTTP (backend must be restarted after pulling IBKR routes):
 
 ```bash
-curl -X POST http://127.0.0.1:3001/api/ibkr-trading/preflight -H "Content-Type: application/json" -H "x-internal-test: 1" -d "{\"cash_usd\":1000}"
+curl -X POST http://127.0.0.1:3001/api/ibkr-trading/preflight -H "Content-Type: application/json" -H "x-agent-os-internal: $AGENT_OS_INTERNAL_TOKEN" -d "{\"cash_usd\":1000}"
 ```
 
 ## 1. Start IB Gateway / TWS (paper)

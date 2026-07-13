@@ -3,6 +3,7 @@
  * Owner must come from authenticated session or registered OpenClaw session — never another CEO.
  */
 import { extractOwnerUserIdFromText } from './agent-chat-scope.js';
+import { parseTenantOpenClawAgentId } from './openclaw-tenant.js';
 
 const SESSION_USER_PREFIX = 'agent-os-';
 const SESSION_OWNER_TTL_MS = Number(process.env.OPENCLAW_SESSION_OWNER_TTL_MS || 4 * 3600000);
@@ -86,6 +87,10 @@ export function resolveToolOwnerUserId(req, body = {}, resolveAuthenticatedCeoUs
   const sessionUser = req?.headers?.['x-openclaw-session-user'];
   const fromSessionUser = parseOwnerUserIdFromSessionUser(String(sessionUser || ''), agentId);
   if (fromSessionUser) return fromSessionUser;
+
+  // Tenant runtime ids encode the CEO: t-{ceoUserId}--{baseAgentId}
+  const tenant = parseTenantOpenClawAgentId(agentId || body?.caller_agent_id || body?.x_openclaw_agent_id);
+  if (tenant?.ceoUserId) return tenant.ceoUserId;
 
   if (req?.authUser && resolveAuthenticatedCeoUserId) {
     return resolveAuthenticatedCeoUserId(req, body);

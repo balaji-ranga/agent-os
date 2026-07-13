@@ -4,6 +4,12 @@
  */
 import { getDb } from './schema.js';
 import { writeOpenClawToolsList } from '../services/content-tools-meta.js';
+import {
+  getAgentToolGrants,
+  syncAllowlistsFile,
+  syncOpenClawJsonForAgent,
+  writeAgentToolsMd,
+} from '../services/openclaw-agent-tools.js';
 
 export const IBKR_TRADING_TOOLS = [
   {
@@ -230,6 +236,23 @@ export const IBKR_DEFAULT_TEST_BODIES = {
   ibkr_cash_events: {},
 };
 
+export const IBKR_ANALYTICS_TOOL_NAMES = [
+  'ibkr_portfolio_analytics',
+  'ibkr_fills_history',
+  'ibkr_pnl',
+  'ibkr_cash_events',
+];
+
+/** Read-only IBKR tools useful for COO chat (analytics + status). */
+export const IBKR_COO_TOOL_NAMES = [
+  ...IBKR_ANALYTICS_TOOL_NAMES,
+  'ibkr_gateway_ping',
+  'ibkr_config',
+  'ibkr_day_status',
+  'ibkr_account_snapshot',
+  'ibkr_preflight',
+];
+
 export function seedIbkrTradingToolsIfMissing() {
   const db = getDb();
   const stmt = db.prepare(
@@ -244,4 +267,32 @@ export function seedIbkrTradingToolsIfMissing() {
     upd.run(t.purpose, t.display_name, t.endpoint, t.method, t.name);
   }
   writeOpenClawToolsList();
+  grantIbkrToolsToCoo();
+}
+
+/** Grant IBKR analytics (+ read status) tools to COO without wiping other grants. */
+export function grantIbkrToolsToCoo(agentId = 'balserve') {
+  const db = getDb();
+  const agent = db.prepare('SELECT * FROM agents WHERE id = ? OR openclaw_agent_id = ?').get(agentId, agentId);
+  if (!agent) {
+    console.warn(`[ibkr-tools] skip COO grant — agent ${agentId} not found`);
+    return { granted: [], agent_id: null };
+  }
+  const ins = db.prepare(
+    'INSERT OR IGNORE INTO agent_tool_grants (agent_id, tool_name) VALUES (?, ?)'
+  );
+  let added = 0;
+  for (const name of IBKR_COO_TOOL_NAMES) {
+    const info = ins.run(agent.id, name);
+    if (info.changes) added += 1;
+  }
+  try {
+    syncAllowlistsFile();
+    syncOpenClawJsonForAgent(agent);
+    writeAgentToolsMd(agent, getAgentToolGrants(agent.id)).catch(() => {});
+  } catch (e) {
+    console.warn('[ibkr-tools] COO allowlist sync:', e?.message || e);
+  }
+  if (added) console.log(`[ibkr-tools] granted ${added} IBKR tool(s) to ${agent.id}`);
+  return { granted: IBKR_COO_TOOL_NAMES, agent_id: agent.id, added };
 }

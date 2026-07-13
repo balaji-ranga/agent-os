@@ -243,11 +243,14 @@ export function reserveTrades(
   return { ok: true, reservations, day_status: getDayStatus(ownerUserId, { day }) };
 }
 
-export function releaseReservation(reservationId, { reason = 'rejected' } = {}) {
+export function releaseReservation(reservationId, { reason = 'rejected', ownerUserId = null } = {}) {
   ensureIbkrLedgerTables();
   const db = getDb();
   const row = db.prepare('SELECT * FROM ibkr_trade_reservations WHERE id = ?').get(reservationId);
   if (!row) return { ok: false, error: 'Reservation not found' };
+  if (ownerUserId && row.owner_user_id !== ownerUserId) {
+    return { ok: false, error: 'Reservation owner mismatch' };
+  }
   if (row.status !== 'reserved') return { ok: false, error: `Cannot release status=${row.status}` };
 
   const tx = db.transaction(() => {
@@ -278,12 +281,22 @@ export function releaseReservation(reservationId, { reason = 'rejected' } = {}) 
 /** Mark reserved → filled (keep budget consumed) and record durable fill. */
 export function confirmFill(
   reservationId,
-  { fillPrice = null, fillQty = null, ibOrderId = null, source = 'confirm_fill', avgCostForPnl = null } = {}
+  {
+    fillPrice = null,
+    fillQty = null,
+    ibOrderId = null,
+    source = 'confirm_fill',
+    avgCostForPnl = null,
+    ownerUserId = null,
+  } = {}
 ) {
   ensureIbkrLedgerTables();
   const db = getDb();
   const row = db.prepare('SELECT * FROM ibkr_trade_reservations WHERE id = ?').get(reservationId);
   if (!row) return { ok: false, error: 'Reservation not found' };
+  if (ownerUserId && row.owner_user_id !== ownerUserId) {
+    return { ok: false, error: 'Reservation owner mismatch' };
+  }
   if (row.status !== 'reserved') return { ok: false, error: `Cannot fill status=${row.status}` };
 
   const tx = db.transaction(() => {

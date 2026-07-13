@@ -9,7 +9,9 @@
     "dev": "node src/index.js",
     "seed": "node scripts/seed-all.js",
     "test:smoke": "node ../tests/api-smoke.js",
-    "test:full": "node ../tests/api-full.js"
+    "test:full": "node ../tests/api-full.js",
+    "test:regression:minimal": "node ../tests/regression-minimal.js",
+    "test:regression:full": "node ../tests/regression-full.js"
   },
   "dependencies": {
     "@stoqey/ib": "^1.6.3",

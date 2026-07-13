@@ -1,0 +1,9 @@
+# Optional OpenClaw browser capabilities (Chromium / CDP).
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.browser.yml up -d
+services:
+  openclaw:
+    security_opt:
+      - seccomp=unconfined
+    cap_add:
+      - SYS_ADMIN

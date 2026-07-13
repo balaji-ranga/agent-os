@@ -6,6 +6,7 @@ import { Router } from 'express';
 import { join, normalize } from 'path';
 import { existsSync, createReadStream } from 'fs';
 import { stat } from 'fs/promises';
+import { requireAuth } from '../middleware/auth.js';
 import { getOpenClawMediaDir } from '../config/openclaw-paths.js';
 
 const router = Router();
@@ -32,7 +33,8 @@ function safeMediaPath(relativePath) {
   return abs;
 }
 
-// Express 4 does not reliably match mounted sub-routers with regex routes; use middleware.
+router.use(requireAuth);
+
 router.use(async (req, res) => {
   try {
     const rel = decodeURIComponent(req.path.replace(/^\//, ''));

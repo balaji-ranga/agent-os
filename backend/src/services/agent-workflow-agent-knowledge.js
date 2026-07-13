@@ -79,7 +79,8 @@ export function buildTaskCatalogDoc() {
 export function buildAgentActionsDoc() {
   return [
     'get_node_catalog', 'get_node_type', 'validate_publish',
-    'create_workflow', 'create_from_template', 'add_node', 'update_node', 'delete_node', 'add_edge', 'connect', 'delete_edge',
+    'create_workflow', 'create_from_template', 'clone_workflow', 'copy_workflow', 'duplicate_workflow',
+    'add_node', 'update_node', 'delete_node', 'add_edge', 'connect', 'delete_edge',
     'set_metadata', 'publish', 'unpublish', 'revert_to_draft',
     'open_workflow', 'load_workflow', 'reload_workflow',
     'pause_workflow', 'resume_workflow',

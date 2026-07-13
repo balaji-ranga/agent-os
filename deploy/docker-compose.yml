@@ -94,10 +94,11 @@ services:
     expose:
       - "18789"
     shm_size: "2gb"
+    # Hardened default: no seccomp=unconfined / SYS_ADMIN.
+    # For Chromium browser automation, start with:
+    #   docker compose -f docker-compose.yml -f docker-compose.browser.yml up -d
     security_opt:
-      - seccomp=unconfined
-    cap_add:
-      - SYS_ADMIN
+      - no-new-privileges:true
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:18789/ >/dev/null 2>&1 || exit 0"]
       interval: 30s

@@ -4,11 +4,19 @@ import { api } from '../api';
 import ChatMessageContent from '../components/ChatMessageContent';
 import { formatLocalDateTime, formatChatTimestamp, toLocalDateTimeInputValue } from '../utils/formatDateTime.js';
 
-// Build hierarchy: CEO (me) → COO → delegated agents
+// Build hierarchy: CEO (me) → COO → reports-to-COO + other granted agents (e.g. custom with no parent)
 function buildHierarchy(agents) {
   const coo = agents.find((a) => a.is_coo);
-  const delegated = agents.filter((a) => a.parent_id && a.parent_id === (coo?.id ?? ''));
-  return { ceo: { id: 'ceo', name: 'CEO (me)', role: 'You' }, coo, delegated };
+  const cooId = coo?.id ?? '';
+  const underCoo = agents.filter((a) => !a.is_coo && a.parent_id && a.parent_id === cooId);
+  const underIds = new Set(underCoo.map((a) => a.id));
+  // Custom / other agents granted to this CEO that aren't already shown under COO
+  const other = agents.filter((a) => !a.is_coo && !underIds.has(a.id));
+  return {
+    ceo: { id: 'ceo', name: 'CEO (me)', role: 'You' },
+    coo,
+    delegated: [...underCoo, ...other],
+  };
 }
 
 // Voice: browser Speech Synthesis API (Edge/Chrome TTS)
@@ -161,16 +169,24 @@ export default function Dashboard() {
     e.preventDefault();
     if (!newName.trim()) return;
     setAddAgentMessage(null);
+    const coo = agents.find((a) => a.is_coo);
     const body = { name: newName.trim(), role: newRole.trim() || 'Agent' };
-    if (newParentId) body.parent_id = newParentId;
+    // Default report-to COO so new agents appear under the org chart
+    body.parent_id = newParentId || coo?.id || undefined;
     api.agentCreate(body)
       .then((agent) => {
-        setAgents((prev) => [...prev, agent]);
-        setNewName('');
-        setNewRole('');
-        setNewParentId('');
-        setAddAgentMessage(`"${agent.name}" added. Restart the OpenClaw gateway (port 18789) for it to appear in OpenClaw.`);
-        setTimeout(() => setAddAgentMessage(null), 12000);
+        return api.agentsList().then((list) => {
+          setAgents(Array.isArray(list) ? list : list?.agents || []);
+          setNewName('');
+          setNewRole('');
+          setNewParentId('');
+          setAddAgentMessage(
+            `"${agent.name}" added to your workspace` +
+              (agent.openclaw_runtime_id ? ` (${agent.openclaw_runtime_id}).` : '.') +
+              ' Tool access can be managed in the agent workspace. Restart OpenClaw gateway if chat does not pick up the new agent immediately.'
+          );
+          setTimeout(() => setAddAgentMessage(null), 14000);
+        });
       })
       .catch((e) => setError(e.message));
   };
@@ -326,7 +342,7 @@ export default function Dashboard() {
       <section style={{ marginBottom: '2rem' }}>
         <h2 style={{ fontSize: '1.25rem', marginBottom: '0.75rem' }}>Org chart</h2>
         <p style={{ color: 'var(--muted)', marginBottom: '1rem', fontSize: '0.9rem' }}>
-          CEO (you) → agents by role (from DB) → delegated agents. Click Chat to talk to an agent.
+          CEO (you) → COO → all agents granted to your workspace (including custom agents you add). Click Chat to talk to an agent.
         </p>
         <div
           style={{
@@ -695,11 +711,12 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {/* Pull from OpenClaw — sync agents from openclaw.json into DB */}
+      {/* Sync from OpenClaw — this CEO's tenant agents only */}
       <section style={{ marginBottom: '2rem' }}>
         <h2 style={{ fontSize: '1.25rem', marginBottom: '0.75rem' }}>Sync from OpenClaw</h2>
         <p style={{ color: 'var(--muted)', marginBottom: '1rem', fontSize: '0.9rem' }}>
-          Load agents from <code style={{ background: 'var(--surface)', padding: '1px 4px', borderRadius: 4 }}>~/.openclaw/openclaw.json</code> and pull them into the agent-os database so the org chart and chat stay in sync.
+          Lists OpenClaw runtimes for <strong>your workspace only</strong> (<code style={{ background: 'var(--surface)', padding: '1px 4px', borderRadius: 4 }}>t-{'{you}'}--…</code>).
+          Pull refreshes your DB grants and tenant workspaces — it will not import other CEOs&apos; agents.
         </p>
         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
           <button
@@ -708,7 +725,7 @@ export default function Dashboard() {
             disabled={openclawLoading}
             style={{ padding: '0.5rem 1rem', background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 6, cursor: openclawLoading ? 'not-allowed' : 'pointer', fontSize: '0.9rem' }}
           >
-            {openclawLoading ? 'Loading…' : 'Load OpenClaw agents'}
+            {openclawLoading ? 'Loading…' : 'Load my OpenClaw agents'}
           </button>
           {openclawData && openclawData.openclaw?.length > 0 && (
             <button
@@ -717,23 +734,29 @@ export default function Dashboard() {
               disabled={openclawSyncing}
               style={{ padding: '0.5rem 1rem', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 6, cursor: openclawSyncing ? 'not-allowed' : 'pointer', fontSize: '0.9rem' }}
             >
-              {openclawSyncing ? 'Syncing…' : 'Pull all into DB'}
+              {openclawSyncing ? 'Syncing…' : 'Pull my agents into DB'}
             </button>
           )}
         </div>
         {openclawData && (
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
-            {openclawData.configPath && (
+            {openclawData.ceo_user_id && (
               <div style={{ padding: '0.5rem 0.75rem', fontSize: '0.8rem', color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                Config: {openclawData.configPath}
+                CEO workspace: {openclawData.ceo_user_id}
+                {openclawData.scope ? ` · scope=${openclawData.scope}` : ''}
               </div>
             )}
             {Array.isArray(openclawData.openclaw) && openclawData.openclaw.length === 0 ? (
-              <div style={{ padding: '1rem', color: 'var(--muted)', fontSize: '0.9rem' }}>No agents in OpenClaw config.</div>
+              <div style={{ padding: '1rem', color: 'var(--muted)', fontSize: '0.9rem' }}>
+                No tenant OpenClaw agents for your workspace yet. Use Add agent below, or chat with a standard agent to provision runtimes.
+              </div>
             ) : (
               <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                 {(openclawData.openclaw || []).map((a) => {
-                  const inDb = (openclawData.db || []).some((d) => (d.openclaw_agent_id || d.id) === (a.id || ''));
+                  const baseId = a.base_agent_id || a.id;
+                  const inDb = (openclawData.db || []).some(
+                    (d) => d.id === baseId || (d.openclaw_agent_id || d.id) === baseId || d.openclaw_runtime_id === a.id
+                  );
                   return (
                     <li
                       key={a.id || a.name}
@@ -750,7 +773,7 @@ export default function Dashboard() {
                       <span style={{ fontWeight: 500 }}>{a.name || a.id}</span>
                       <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>{a.id}</span>
                       {a.workspace && <span style={{ fontSize: '0.8rem', color: 'var(--muted)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }} title={a.workspace}>{a.workspace}</span>}
-                      <span style={{ fontSize: '0.8rem', color: inDb ? 'var(--accent)' : 'var(--muted)' }}>{inDb ? 'In DB' : 'Not in DB'}</span>
+                      <span style={{ fontSize: '0.8rem', color: inDb ? 'var(--accent)' : 'var(--muted)' }}>{inDb ? 'In your workspace' : 'Not in DB'}</span>
                       <button
                         type="button"
                         onClick={() => syncFromOpenClaw(a.id)}
@@ -768,11 +791,11 @@ export default function Dashboard() {
         )}
       </section>
 
-      {/* Add agent (optional) */}
+      {/* Add agent — creates under this CEO's OpenClaw tenant + under COO */}
       <section>
         <h2 style={{ fontSize: '1.25rem', marginBottom: '0.25rem' }}>Add agent</h2>
         <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '0.75rem' }}>
-          New agents are added to OpenClaw config and workspace. Restart the OpenClaw gateway (port 18789) for them to appear in OpenClaw.
+          Creates a custom agent in <strong>your</strong> OpenClaw tenant space (under your COO). Other CEOs will not see it.
         </p>
         <form onSubmit={addAgent} style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
           <input

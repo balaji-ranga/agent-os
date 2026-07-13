@@ -2,6 +2,10 @@
  * Create/update Kanban cards for synchronous workflow stages (fit scoring, resume tailoring).
  */
 import { getDb } from '../db/schema.js';
+import {
+  notifyKanbanTaskCreated,
+  clearKanbanTaskNotification,
+} from './platform-notifications.js';
 
 const PIPELINE_TAG = '[job_pipeline';
 
@@ -161,6 +165,7 @@ export function upsertWorkflowStageKanban({
         `UPDATE kanban_tasks SET title = ?, description = ?, status = ?, assigned_agent_id = ?, updated_at = datetime('now') WHERE id = ?`
       )
       .run(title, description, status, agentId, existing.id);
+    if (status === 'completed' || status === 'failed') clearKanbanTaskNotification(existing.id);
     return { kanban_task_id: existing.id, created: false, updated: true, status, assigned_agent_id: agentId };
   }
 
@@ -172,6 +177,15 @@ export function upsertWorkflowStageKanban({
     .run(title, description, status, agentId);
 
   const row = db().prepare('SELECT id FROM kanban_tasks ORDER BY id DESC LIMIT 1').get();
+  if (row?.id && status !== 'completed' && status !== 'failed') {
+    // Prefer auth-style owner: resolveCeoDataUserId maps bala→default; notify both if needed
+    notifyKanbanTaskCreated({
+      userId: ceoUserId === 'default' ? 'ceo-bala' : ceoUserId,
+      task: { id: row.id, title, assigned_agent_id: agentId },
+    });
+  } else if (row?.id && (status === 'completed' || status === 'failed')) {
+    clearKanbanTaskNotification(row.id);
+  }
   return { kanban_task_id: row?.id, created: true, updated: false, status, assigned_agent_id: agentId };
 }
 
@@ -183,5 +197,6 @@ export function completePipelineKanbanForDelegation(delegationTaskId, { ok = tru
   if (['completed', 'failed'].includes(row.status)) return row;
   const next = ok ? 'completed' : 'failed';
   db().prepare(`UPDATE kanban_tasks SET status = ?, updated_at = datetime('now') WHERE id = ?`).run(next, row.id);
+  clearKanbanTaskNotification(row.id);
   return { ...row, status: next };
 }
