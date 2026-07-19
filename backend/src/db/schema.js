@@ -418,7 +418,30 @@ export function initDb() {
     _db.exec(`ALTER TABLE agents ADD COLUMN owner_user_id TEXT`);
   } catch (_) {}
   try {
+    _db.exec(`ALTER TABLE agents ADD COLUMN department TEXT DEFAULT ''`);
+  } catch (_) {}
+  try {
     _db.exec(`UPDATE agents SET agent_type = 'standard' WHERE agent_type IS NULL OR agent_type = ''`);
+  } catch (_) {}
+  try {
+    // Backfill known standard agents when department is empty
+    const deptById = {
+      balserve: 'Executive',
+      techresearcher: 'Research',
+      expensemanager: 'Finance',
+      socialasstant: 'Social',
+      jobdiscovery: 'Job Pipeline',
+      fitscorer: 'Job Pipeline',
+      resumetailor: 'Job Pipeline',
+      applicationagent: 'Job Pipeline',
+      workflowbuilder: 'Engineering',
+    };
+    const upd = _db.prepare(
+      `UPDATE agents SET department = ? WHERE id = ? AND (department IS NULL OR department = '')`
+    );
+    for (const [id, dept] of Object.entries(deptById)) {
+      upd.run(dept, id);
+    }
   } catch (_) {}
 
   try {
@@ -844,6 +867,75 @@ export function initDb() {
     _db.exec(
       `CREATE INDEX IF NOT EXISTS idx_ibkr_order_events_symbol ON ibkr_order_events(owner_user_id, symbol_key, created_at DESC)`
     );
+  } catch (_) {}
+
+  try {
+    _db.exec(`ALTER TABLE platform_users ADD COLUMN llm_provider TEXT DEFAULT 'platform_decided'`);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE platform_users ADD COLUMN llm_api_key TEXT`);
+  } catch (_) {}
+
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS agent_response_feedback (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        owner_user_id TEXT NOT NULL,
+        agent_id TEXT NOT NULL,
+        source TEXT NOT NULL DEFAULT 'chat',
+        message_id TEXT,
+        message_role TEXT DEFAULT 'assistant',
+        message_content TEXT,
+        rating TEXT NOT NULL CHECK (rating IN ('up', 'down')),
+        comment TEXT DEFAULT '',
+        context_json TEXT DEFAULT '{}',
+        created_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_agent_feedback_owner_agent
+       ON agent_response_feedback(owner_user_id, agent_id, created_at DESC)`
+    );
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_agent_feedback_owner_created
+       ON agent_response_feedback(owner_user_id, created_at DESC)`
+    );
+  } catch (_) {}
+
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS workflow_file_pollers (
+        id TEXT PRIMARY KEY,
+        owner_user_id TEXT NOT NULL,
+        definition_id TEXT NOT NULL,
+        watch_dir TEXT NOT NULL,
+        glob_pattern TEXT DEFAULT '*',
+        interval_ms INTEGER DEFAULT 5000,
+        move_to_dir TEXT,
+        enabled INTEGER DEFAULT 1,
+        last_tick_at TEXT,
+        last_error TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (definition_id) REFERENCES agent_workflow_definitions(id) ON DELETE CASCADE
+      )
+    `);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_wf_file_pollers_owner ON workflow_file_pollers(owner_user_id)`
+    );
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_wf_file_pollers_enabled ON workflow_file_pollers(enabled)`
+    );
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS workflow_file_poller_seen (
+        poller_id TEXT NOT NULL,
+        file_key TEXT NOT NULL,
+        file_path TEXT,
+        seen_at TEXT DEFAULT (datetime('now')),
+        PRIMARY KEY (poller_id, file_key),
+        FOREIGN KEY (poller_id) REFERENCES workflow_file_pollers(id) ON DELETE CASCADE
+      )
+    `);
   } catch (_) {}
 
   return _db;

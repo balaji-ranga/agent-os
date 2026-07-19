@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 
 import { api } from '../../api.js';
 import ChatMessageContent from '../ChatMessageContent.jsx';
+import MessageFeedback from '../MessageFeedback.jsx';
 import { formatChatTimestamp } from '../../utils/formatDateTime.js';
 import { deriveWorkflowAgentUiEffects } from '../../utils/workflowAgentUiEffects.js';
 
@@ -326,7 +327,7 @@ export default function WorkflowAgentChat({
                 </p>
               )}
               {turns.map((t, i) => (
-                <div key={i} className={`wf-agent-msg wf-agent-msg-${t.role}`}>
+                <div key={t.id || i} className={`wf-agent-msg wf-agent-msg-${t.role}`}>
                   {t.created_at && (
                     <time
                       className="wf-agent-msg-time"
@@ -337,6 +338,16 @@ export default function WorkflowAgentChat({
                     </time>
                   )}
                   <ChatMessageContent content={t.content} />
+                  {t.role === 'assistant' && (
+                    <MessageFeedback
+                      agentId="workflowbuilder"
+                      source="workflow_builder"
+                      messageId={t.id}
+                      messageContent={t.content}
+                      context={workflowId ? { workflow_id: workflowId } : {}}
+                      compact
+                    />
+                  )}
                 </div>
               ))}
               {sending && <div className="wf-agent-msg wf-agent-msg-assistant wf-agent-thinking">Thinking…</div>}

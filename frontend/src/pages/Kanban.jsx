@@ -8,6 +8,7 @@ import { WorkflowIoDetailBlock } from '../components/WorkflowStepTooltip.jsx';
 import { taskCreatedAtDisplay, formatChatTimestamp } from '../utils/formatDateTime.js';
 import ActionFeedbackBanner from '../components/ActionFeedbackBanner.jsx';
 import { useActionFeedback } from '../hooks/useActionFeedback.js';
+import MessageFeedback from '../components/MessageFeedback.jsx';
 
 const STATUSES = ['open', 'awaiting_confirmation', 'in_progress', 'completed', 'failed'];
 const STATUS_LABELS = {
@@ -1074,6 +1075,16 @@ export default function Kanban() {
                     )}
                   </div>
                   <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: '0.9rem' }}>{m.content}</div>
+                  {m.role === 'assistant' && (
+                    <MessageFeedback
+                      agentId={taskDetail?.assigned_agent_id || selectedTask?.assigned_agent_id || 'balserve'}
+                      source="kanban"
+                      messageId={m.id}
+                      messageContent={m.content}
+                      context={{ task_id: taskDetail?.id || selectedTask?.id }}
+                      compact
+                    />
+                  )}
                 </div>
               ))}
             </div>

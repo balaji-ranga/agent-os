@@ -1732,3 +1732,91 @@ button {
 .mcp-pg-field .http-headers-title { color: inherit; font-weight: 500; }
 .wf-hook-info code { display: block; word-break: break-all; font-size: 0.75rem; margin: 0.25rem 0; padding: 0.35rem; background: var(--bg-muted, rgba(0,0,0,0.04)); border-radius: 4px; }
 .wf-hook-url { user-select: all; }
+.wf-hook-secret-masked { letter-spacing: 0.12em; user-select: none; }
+.wf-hook-secret-actions { display: flex; gap: 0.5rem; margin-top: 0.35rem; flex-wrap: wrap; }
+
+/* Org chart graph view */
+.org-graph-scroll {
+  overflow-x: auto;
+  padding: 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.org-graph-branch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 140px;
+}
+.org-graph-card {
+  background: var(--bg, #121216);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.65rem 0.85rem;
+  text-align: center;
+  min-width: 140px;
+  max-width: 200px;
+}
+.org-graph-card-ceo {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.25);
+}
+.org-graph-card-coo {
+  border-color: #a78bfa;
+}
+.org-graph-card-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.org-graph-card-role {
+  color: var(--muted);
+  font-size: 0.75rem;
+  margin-top: 2px;
+}
+.org-graph-card-dept {
+  color: var(--muted);
+  font-size: 0.68rem;
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  display: inline-block;
+  padding: 0 0.4rem;
+}
+.org-graph-card-actions {
+  margin-top: 0.4rem;
+  display: flex;
+  justify-content: center;
+}
+.org-graph-vline {
+  width: 2px;
+  height: 16px;
+  background: var(--border);
+}
+.org-graph-children {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 1rem;
+  position: relative;
+  padding-top: 0;
+}
+.org-graph-children::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 10%;
+  right: 10%;
+  height: 2px;
+  background: var(--border);
+}
+.org-graph-child-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.org-graph-hconnector {
+  width: 2px;
+  height: 12px;
+  background: var(--border);
+}

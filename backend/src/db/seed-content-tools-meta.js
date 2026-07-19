@@ -92,7 +92,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/agent-workflow-list',
     method: 'POST',
     purpose:
-      'API tool (COO only): list all published custom agent workflows for the CEO (manual, schedule, webhook, and chat triggers). Optional chat_only: true to limit to chat-phrase workflows. Optional ceo_user_id. Use agent_workflow_enquire to search by description.',
+      'API tool (COO or Workflow Builder): list custom agent workflows for the entitled CEO (owner from session — never spoof ceo_user_id). Workflow Builder includes drafts by default; COO sees published non-paused. Optional chat_only / include_drafts. Use agent_workflow_enquire to search by description.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -103,7 +103,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/agent-workflow-enquire',
     method: 'POST',
     purpose:
-      'API tool (COO only): find published workflows matching a natural-language query, or pass all: true to return every published workflow. Returns id, name, description, trigger_modes, chat_trigger_phrase, and trigger_hint. Use before agent_workflow_trigger when the CEO describes a workflow loosely.',
+      'API tool (COO or Workflow Builder): find workflows matching a natural-language query for the entitled CEO, or pass all: true. Workflow Builder includes drafts by default. Returns id, name, description, status, trigger_modes, chat_trigger_phrase, trigger_hint.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -114,7 +114,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/agent-workflow-trigger',
     method: 'POST',
     purpose:
-      'API tool (COO only): start a published custom agent workflow. Invoke with message containing the workflow chat phrase (e.g. "run brain approval test") OR workflow_id plus optional input. Parameters: message (required unless workflow_id), workflow_id (optional), ceo_user_id (optional). Do not run via exec or shell.',
+      'API tool (COO or Workflow Builder): start a published custom agent workflow for the entitled CEO. Invoke with message containing the chat phrase OR workflow_id plus optional input. Owner from session only.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -125,7 +125,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/agent-workflow-get-draft',
     method: 'POST',
     purpose:
-      'API tool (Workflow Builder agent): get draft graph and metadata for a workflow. Parameters: workflow_id (required), optional ceo_user_id.',
+      'API tool (Workflow Builder agent): get draft graph and metadata for a workflow owned by the entitled CEO. Parameters: workflow_id (required).',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -136,12 +136,46 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/agent-workflow-mutate',
     method: 'POST',
     purpose:
-      'API tool (Workflow Builder agent): add/update/delete workflow steps and edges. Parameters: workflow_id (optional for create_workflow action), actions (JSON array). Actions: create_workflow, add_node, update_node, delete_node, add_edge, set_metadata, publish, trigger_workflow. Do not run via exec.',
+      'API tool (Workflow Builder agent): create/update/test workflows for the entitled CEO. Parameters: workflow_id (optional for create_workflow), actions (JSON array). Actions include create_workflow, add_node, update_node, publish, test_workflow, until_success (build-test-iterate), list_runs, inspect_run. Do not run via exec.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'learnings_summary',
+    display_name: 'Learnings Summary',
+    endpoint: '/api/tools/learnings-summary',
+    method: 'POST',
+    purpose:
+      "API tool: summarize this user's past feedback (thumbs up/down) and Kanban approve/reject/comment actions for a topic. Invoke BEFORE starting any non-trivial task with optional topic and days (default 30). Owner is always the entitled CEO from session — never spoof ceo_user_id. Use the summary to avoid past mistakes and prefer patterns the user liked.",
+    model_used: 'platform LLM (user BYOK if set)',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'brain_history',
+    display_name: 'Brain History',
+    endpoint: '/api/agent-workflows/brain-history',
+    method: 'POST',
+    purpose:
+      'API tool: load prior Brain node I/O from workflow run-step audit for the entitled CEO. Body: workflow_id (string|array), node_id (string|array of brain node ids), days (default 7), response_type actual|summarized, optional limit/purpose. Only node_type=brain steps are returned — use summarized to compress maker/checker lessons into context_text.',
+    model_used: 'platform LLM when response_type=summarized',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'content_tools_enquire',
+    display_name: 'Enquire Content Tools',
+    endpoint: '/api/tools/content-tools-enquire',
+    method: 'POST',
+    purpose:
+      'API tool (Workflow Builder): list or search ALL registered content tools by purpose. Pass query (natural language intent) to rank recommendations, or all: true for the full catalog. Returns name, display_name, purpose, top_recommendation, and how to wire a tool node (toolName). Use before adding tool nodes or when advising which content tool fits a user request.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
   },
 ];
+
 
 const KANBAN_TOOLS = BUILTIN_TOOLS.filter((t) =>
   [
@@ -160,8 +194,12 @@ const WORKFLOW_TOOLS = BUILTIN_TOOLS.filter((t) =>
     'agent_workflow_trigger',
     'agent_workflow_get_draft',
     'agent_workflow_mutate',
+    'brain_history',
+    'content_tools_enquire',
   ].includes(t.name)
 );
+
+const LEARNINGS_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'learnings_summary');
 
 export function seedContentToolsMetaIfEmpty() {
   const db = getDb();
@@ -198,9 +236,11 @@ export function seedWorkflowToolsIfMissing() {
   for (const t of WORKFLOW_TOOLS) {
     stmt.run(t.name, t.display_name, t.endpoint, t.method, t.purpose, t.model_used, t.enabled, t.is_builtin);
   }
-  const update = db.prepare('UPDATE content_tools_meta SET purpose = ?, display_name = ? WHERE name = ?');
+  const update = db.prepare(
+    'UPDATE content_tools_meta SET purpose = ?, display_name = ?, endpoint = ?, method = ? WHERE name = ?'
+  );
   for (const t of WORKFLOW_TOOLS) {
-    update.run(t.purpose, t.display_name, t.name);
+    update.run(t.purpose, t.display_name, t.endpoint, t.method, t.name);
   }
 }
 
@@ -210,5 +250,21 @@ export function updateKanbanToolPurposes() {
   const update = db.prepare('UPDATE content_tools_meta SET purpose = ? WHERE name = ?');
   for (const t of KANBAN_TOOLS) {
     update.run(t.purpose, t.name);
+  }
+}
+
+/** Add learnings_summary tool if missing (for existing DBs). */
+export function seedLearningsToolsIfMissing() {
+  const db = getDb();
+  const stmt = db.prepare(
+    `INSERT OR IGNORE INTO content_tools_meta (name, display_name, endpoint, method, purpose, model_used, enabled, is_builtin)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  for (const t of LEARNINGS_TOOLS) {
+    stmt.run(t.name, t.display_name, t.endpoint, t.method, t.purpose, t.model_used, t.enabled, t.is_builtin);
+  }
+  const update = db.prepare('UPDATE content_tools_meta SET purpose = ?, display_name = ? WHERE name = ?');
+  for (const t of LEARNINGS_TOOLS) {
+    update.run(t.purpose, t.display_name, t.name);
   }
 }

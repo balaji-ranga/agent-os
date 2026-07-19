@@ -19,6 +19,10 @@ export const CHAT_INSTRUCTION_SESSION_HISTORY =
 export const CHAT_INSTRUCTION_BROWSER =
   'When using the browser tool, always set profile="openclaw" (managed Playwright/Chromium). Do NOT use profile="chrome" and do NOT ask the user to click the OpenClaw Chrome extension unless they explicitly requested attaching their own Chrome tab.';
 
+/** Before starting work: pull user+agent learnings (feedback + Kanban decisions). */
+export const CHAT_INSTRUCTION_LEARNINGS =
+  'Before starting any non-trivial task: call the learnings_summary tool with a short topic describing the task (optional days, default 30). Use that summary to avoid past mistakes and prefer patterns this user liked (including past Kanban approve/reject/comment decisions). Do this once at the start of the task, then proceed.';
+
 function getGatewayUrl() {
   const base = process.env.OPENCLAW_GATEWAY_URL || `http://127.0.0.1:${DEFAULT_PORT}`;
   return base.replace(/\/$/, '');
@@ -57,9 +61,11 @@ export async function chatCompletions(agentId, messages, sessionUser = null, str
   const token = getGatewayToken();
   const injectSessionHistoryInstruction = options.injectSessionHistoryInstruction !== false;
   const injectBrowserInstruction = options.injectBrowserInstruction !== false;
+  const injectLearningsInstruction = options.injectLearningsInstruction !== false;
   const systemParts = [];
   if (injectSessionHistoryInstruction) systemParts.push(CHAT_INSTRUCTION_SESSION_HISTORY);
   if (injectBrowserInstruction) systemParts.push(CHAT_INSTRUCTION_BROWSER);
+  if (injectLearningsInstruction) systemParts.push(CHAT_INSTRUCTION_LEARNINGS);
   const outMessages = systemParts.length > 0
     ? [{ role: 'system', content: systemParts.join('\n\n') }, ...messages]
     : messages;

@@ -6,16 +6,17 @@ import { getTaskCatalog } from './agent-workflow-task-catalog.js';
 export const WORKFLOW_AUTHORING_PLAYBOOK = `
 ## Cursor-style workflow authoring (CRITICAL)
 
-You are an expert workflow implementer. The user describes INTENT in plain language — you supply ALL missing technical detail.
+You are an expert workflow implementer. The user describes INTENT (+ optional SUCCESS CRITERIA) in plain language — you supply ALL missing technical detail and iterate until the workflow works.
 
 Rules:
-1. INFER, don't ask — pick sensible defaults from Runtime environment (agents, MCP servers, brain defaults). Never invent IDs not listed there.
+1. INFER, don't ask — pick sensible defaults from Runtime environment (agents, MCP servers, content tools, brain defaults). Never invent IDs not listed there.
 2. ALWAYS wire the graph end-to-end: trigger → steps → edges via connect_from / add_edge. Set input_bindings implicitly via connect_from chains.
 3. For brain nodes: use modelSource=ollama unless apiKey is set on the node. Copy Default brain config, customize systemPrompt (guardrails, summarization, etc.), set maxTokens 256–800.
 4. For agent nodes: set agent_id from Agents list and a complete prompt with {{input}}.
 5. For mcp_tool: set mcpServerId + toolName from MCP servers list; staticArguments '{}' unless task needs params.
+5b. For content tool nodes: set node_type "tool" and toolName from the Content tools list (exact name). Match user intent to purpose (e.g. summarize URL → summarize_url, generate image → generate_image, IBKR day status → ibkr_day_status). If unsure, emit enquire_content_tools / list_content_tools first, then recommend and wire the best match.
 6. For CEO gate: brain → ceo_approval → if (decision eq approved).
-7. After creating a new workflow: publish, then test_workflow if user wants it working/e2e.
+7. After creating a new workflow meant to work: publish, then until_success (or test_workflow). Prefer until_success when user states success criteria or wants it e2e-ready.
 8. Prefer create_from_template when a built-in template matches (job applicant pipeline, etc.).
 9. Prefer curated recipes patterns when similar: Brain+CEO approval, Brain+MCP, Brain summarize, Brain+API echo, Brain OpenRouter+API.
 10. Return ONE JSON object with reply + actions[] — execute everything in one batch; no prose-only plans.
@@ -23,16 +24,19 @@ Rules:
 11. DESCRIBE / EXPLAIN workflows: use only graph data from context (Referenced workflow details). Never guess nodes — if Brain/MCP are not in the graph, do not mention them.
 12. Before publish on complex graphs: include validate_publish action; fix all errors before publish.
 13. For content guardrails: brain node with systemPrompt rejecting sexual/abusive content; trigger → brain → publish.
+14. Full context: the user message lists ALL workflows for this entitled CEO (draft + published). You may open, edit, troubleshoot any of them — never another owner's.
+15. Build-test-iterate: on run failure diagnose (list_runs/inspect_run or until_success loop) → mutate → retest. Do not leave the user with a broken published workflow when they asked for a working one.
+16. CONTENT TOOL RECOMMENDATIONS: When the user asks which tool to use, or describes a capability (summarize page, place IBKR trade, list learnings, brain history, etc.), search Content tools by purpose and recommend the best name(s) with a one-line why. Prefer registered content tools over inventing raw api nodes to the same endpoints.
 
-Minimal create example (Brain summarize):
+Minimal create + until-success example (Brain summarize):
 actions: [
   { "action": "create_workflow", "name": "...", "chat_phrase": "run ...", "trigger_modes": ["manual","chat"], "graph": { "nodes": [...], "edges": [...] } },
-  { "action": "publish" },
-  { "action": "test_workflow", "input": "test topic", "wait": true }
+  { "action": "until_success", "success_criteria": "completed", "input": "test topic", "max_attempts": 3 }
 ]
 
 Use add_node + connect_from when editing an existing open workflow instead of resending full graph.
 `;
+
 
 export const WORKFLOW_LIFECYCLE_DOC = `
 Workflow lifecycle (definition level):
@@ -79,12 +83,13 @@ export function buildTaskCatalogDoc() {
 export function buildAgentActionsDoc() {
   return [
     'get_node_catalog', 'get_node_type', 'validate_publish',
+    'list_content_tools', 'enquire_content_tools',
     'create_workflow', 'create_from_template', 'clone_workflow', 'copy_workflow', 'duplicate_workflow',
     'add_node', 'update_node', 'delete_node', 'add_edge', 'connect', 'delete_edge',
     'set_metadata', 'publish', 'unpublish', 'revert_to_draft',
     'open_workflow', 'load_workflow', 'reload_workflow',
     'pause_workflow', 'resume_workflow',
-    'trigger_workflow', 'test_workflow', 'list_runs', 'inspect_run',
+    'trigger_workflow', 'test_workflow', 'until_success', 'list_runs', 'inspect_run',
     'pause_run', 'stop_run', 'cancel_run', 'delete_run', 'pause_all_runs', 'stop_listen',
     'delete_workflow',
   ];

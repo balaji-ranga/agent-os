@@ -1,7 +1,7 @@
 /**
  * Runtime environment snapshot for the Workflow Builder agent — agents, MCP, tools, defaults.
  */
-import { listToolsMeta } from './content-tools-meta.js';
+import { listEnabledContentTools } from './content-tools-meta.js';
 import { listAgentsForUser, getUserById } from './users.js';
 import { listMcpServersForWorkflow } from './mcp-servers.js';
 import { getWorkflowTemplates } from './agent-workflow-templates.js';
@@ -46,9 +46,7 @@ export function buildWorkflowAgentRuntimeContext(ownerUserId) {
     prompts: (s.prompts || []).slice(0, 8).map((p) => p.name),
   }));
 
-  const contentTools = listToolsMeta()
-    .filter((t) => t.enabled !== 0 && t.enabled !== false)
-    .map((t) => ({ name: t.name, display_name: t.display_name, purpose: t.purpose || '' }));
+  const contentTools = listEnabledContentTools();
 
   const templates = getWorkflowTemplates().map((t) => ({
     id: t.id,
@@ -103,10 +101,20 @@ export function formatRuntimeContextForPrompt(ctx) {
   }
 
   if (ctx.contentTools?.length) {
+    const purposeMax = 160;
     lines.push(
-      '\nContent tools:',
-      ctx.contentTools.slice(0, 15).map((t) => `- ${t.name}: ${t.purpose || t.display_name}`).join('\n')
+      `\nContent tools (ALL ${ctx.contentTools.length} enabled — pick toolName from this list for tool nodes; use enquire_content_tools if unsure):`,
+      ctx.contentTools
+        .map((t) => {
+          const purpose = String(t.purpose || t.display_name || '').trim();
+          const clipped =
+            purpose.length > purposeMax ? `${purpose.slice(0, purposeMax)}…` : purpose;
+          return `- ${t.name}: ${clipped}`;
+        })
+        .join('\n')
     );
+  } else {
+    lines.push('\nContent tools: (none registered)');
   }
 
   if (ctx.templates?.length) {

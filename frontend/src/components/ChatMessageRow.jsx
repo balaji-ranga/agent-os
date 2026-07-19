@@ -1,5 +1,6 @@
 import ChatMessageContent from './ChatMessageContent';
 import { formatChatTimestamp } from '../utils/formatDateTime.js';
+import MessageFeedback from './MessageFeedback';
 
 /**
  * Single chat bubble with role label and local timestamp.
@@ -11,6 +12,11 @@ export default function ChatMessageRow({
   roleLabel,
   className = '',
   style = {},
+  agentId = null,
+  messageId = null,
+  feedbackSource = 'chat',
+  feedbackContext = {},
+  showFeedback = true,
 }) {
   const label = roleLabel || role;
   const isUser = role === 'user';
@@ -37,6 +43,16 @@ export default function ChatMessageRow({
         )}
       </div>
       <ChatMessageContent content={content} />
+      {!isUser && showFeedback && agentId && (
+        <MessageFeedback
+          agentId={agentId}
+          source={feedbackSource}
+          messageId={messageId}
+          messageContent={content}
+          context={feedbackContext}
+          compact
+        />
+      )}
     </div>
   );
 }

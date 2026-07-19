@@ -17,10 +17,11 @@ import {
 import { getToolMeta } from './content-tools-meta.js';
 import { processPendingDelegationTasks } from './delegation-queue.js';
 import { resolveNodeInputs, resolveInputText, storeNodeOutput } from './agent-workflow-io.js';
-import { executeEmailTask, executeApiTask } from './agent-workflow-tasks.js';
+import { executeEmailTask, executeApiTask, executeFilesystemTask } from './agent-workflow-tasks.js';
 import { executeExternalAgentTask } from './agent-workflow-external-agent.js';
 import { executeBrainTask } from './agent-workflow-brain.js';
 import { executeCustomScriptTask } from './custom-scripts.js';
+import { runMasterDataQuery } from './master-data.js';
 import { getTaskTypeDef } from './agent-workflow-task-catalog.js';
 import { evaluateCondition } from './agent-workflow-conditions.js';
 import { validateWorkflowBrainCredentials } from './agent-workflow-brain-providers.js';
@@ -426,6 +427,8 @@ const RESUMABLE_IN_PROGRESS_TYPES = new Set([
   'email',
   'externalAgent',
   'tool',
+  'filesystem',
+  'masterdata',
   'sub_workflow',
 ]);
 
@@ -1178,6 +1181,40 @@ async function executeNode(runId, nodeId, graph, context, def, runRow) {
     return;
   }
 
+  if (node.type === 'filesystem') {
+    const inputRecord = buildStepInputRecord(node, graph, context);
+    const config = node.data?.taskConfig || node.data?.config || {};
+    upsertStep(runId, node, 'in_progress', { input: inputRecord });
+    try {
+      const outputs = executeFilesystemTask(inputRecord.resolved, config, context);
+      outputs.result = { ...outputs };
+      storeNodeOutput(context, node.id, outputs);
+      saveContext(runId, context);
+      upsertStep(runId, node, 'completed', { output: buildStepOutputRecord(outputs) });
+      upsertCompletedStepKanban({
+        runId,
+        definitionId: def.id,
+        definitionName: def.name,
+        nodeId: node.id,
+        nodeLabel: node.data?.label || 'Filesystem',
+        nodeType: 'filesystem',
+        agentId: null,
+        ownerUserId: runRow.owner_user_id,
+        summary:
+          outputs.operation === 'list'
+            ? `Listed ${outputs.count ?? 0} file(s)`
+            : `${outputs.operation}: ${outputs.ok ? 'ok' : outputs.error || 'failed'}`,
+        detail: { inputs: inputRecord.summary, outputs },
+      });
+      updateRunProgress(runId);
+      await advanceFromNode(runId, nodeId);
+    } catch (err) {
+      upsertStep(runId, node, 'failed', { error_message: err.message });
+      failRun(runId, err.message);
+    }
+    return;
+  }
+
   if (node.type === 'externalAgent') {
     const inputRecord = buildStepInputRecord(node, graph, context);
     const config = node.data?.taskConfig || node.data?.config || {};
@@ -1237,6 +1274,55 @@ async function executeNode(runId, nodeId, graph, context, def, runRow) {
       kanban: (outputs) => ({
         nodeLabel: node.data?.label || 'Custom Script',
         summary: `Script ${config.customScriptName || config.customScriptId}: ${(outputs.text || '').slice(0, 80)}`,
+        detail: { inputs: inputRecord.summary, outputs },
+      }),
+    });
+    return;
+  }
+
+  if (node.type === 'masterdata') {
+    const inputRecord = buildStepInputRecord(node, graph, context);
+    const config = node.data?.taskConfig || node.data?.config || {};
+    await completeTimedNodeStep({
+      runId,
+      node,
+      nodeId,
+      def,
+      runRow,
+      context,
+      inputRecord,
+      work: async () => {
+        const owner = runRow.owner_user_id;
+        if (!owner) throw new Error('Workflow owner_user_id required for masterdata node');
+        const resolved = inputRecord.resolved || {};
+        const out = await runMasterDataQuery(
+          owner,
+          {
+            mode: config.mode || 'auto',
+            tableId: config.tableId || config.table_id,
+            documentId: config.documentId || config.document_id,
+            topK: config.topK || config.top_k || 5,
+            column: config.column,
+            equals: config.equals,
+            summarize: config.summarize !== false && config.summarize !== 'false',
+            limit: config.limit,
+          },
+          {
+            query: resolved.query || resolved.text || config.query || '',
+            equals: resolved.equals,
+          }
+        );
+        return {
+          text: out.text || '',
+          mode: out.mode || '',
+          count: out.count ?? out.hit_count ?? 0,
+          result: out,
+          ok: !!out.ok,
+        };
+      },
+      kanban: (outputs) => ({
+        nodeLabel: node.data?.label || 'Master Data',
+        summary: `Master data ${outputs.mode}: ${(outputs.text || '').slice(0, 80)}`,
         detail: { inputs: inputRecord.summary, outputs },
       }),
     });

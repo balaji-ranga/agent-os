@@ -32,6 +32,7 @@ export function CeoNavMenu({ collapsed }) {
         <NavItem to="/" end title="Dashboard" collapsed={collapsed} label="Dashboard" short="⌂" />
         <NavItem to="/kanban" title="Kanban" collapsed={collapsed} label="Kanban" short="K" />
         <NavItem to="/broadcast" title="Broadcast" collapsed={collapsed} label="Broadcast" short="Bc" />
+        <NavItem to="/master-data" title="Master Data" collapsed={collapsed} label="Master Data" short="MD" />
       </NavSection>
 
       <NavSection title="Prebuilt Workflows" collapsed={collapsed}>

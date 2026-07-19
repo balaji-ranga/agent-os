@@ -1,5 +1,5 @@
 /**
- * Seed Workflow Builder agent (workflowbuilder).
+ * Seed Workflow Builder agent (workflowbuilder) + tool grants + workspace templates.
  * Usage: node scripts/seed-workflow-builder-agent.js
  */
 import { dirname, join } from 'path';
@@ -8,6 +8,8 @@ import { existsSync, mkdirSync, copyFileSync, readFileSync, writeFileSync } from
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 import { initDb, getDb } from '../src/db/schema.js';
+import { seedWorkflowToolsIfMissing } from '../src/db/seed-content-tools-meta.js';
+import { setAgentToolGrants } from '../src/services/openclaw-agent-tools.js';
 
 initDb();
 const db = getDb();
@@ -17,6 +19,16 @@ const WORKSPACE_PATH =
   join(process.env.USERPROFILE || process.env.HOME || '', '.openclaw', 'workspace-workflowbuilder');
 
 const TEMPLATES_DIR = join(__dirname, '..', '..', 'openclaw-workspace-templates', 'workflowbuilder');
+
+const WORKFLOW_BUILDER_TOOLS = [
+  'learnings_summary',
+  'content_tools_enquire',
+  'agent_workflow_list',
+  'agent_workflow_enquire',
+  'agent_workflow_trigger',
+  'agent_workflow_get_draft',
+  'agent_workflow_mutate',
+];
 
 function ensureWorkspace() {
   if (!existsSync(WORKSPACE_PATH)) mkdirSync(WORKSPACE_PATH, { recursive: true });
@@ -30,6 +42,7 @@ function ensureWorkspace() {
 
 export function seedWorkflowBuilderAgent() {
   ensureWorkspace();
+  seedWorkflowToolsIfMissing();
   const coo = db.prepare('SELECT id FROM agents WHERE is_coo = 1 LIMIT 1').get();
   const parentId = coo?.id || 'balserve';
   const existing = db.prepare('SELECT id FROM agents WHERE id = ?').get('workflowbuilder');
@@ -50,10 +63,21 @@ export function seedWorkflowBuilderAgent() {
       'workflowbuilder'
     );
   }
-  return db.prepare('SELECT * FROM agents WHERE id = ?').get('workflowbuilder');
+  const agent = db.prepare('SELECT * FROM agents WHERE id = ?').get('workflowbuilder');
+  try {
+    setAgentToolGrants(agent, WORKFLOW_BUILDER_TOOLS);
+  } catch (e) {
+    console.warn('[seed-workflow-builder] tool grants:', e.message);
+  }
+  return agent;
 }
 
 if (process.argv[1]?.includes('seed-workflow-builder-agent')) {
   const agent = seedWorkflowBuilderAgent();
   console.log('Seeded', agent.id, agent.name, '→', agent.workspace_path);
+  const grants = db
+    .prepare('SELECT tool_name FROM agent_tool_grants WHERE agent_id = ? ORDER BY tool_name')
+    .all('workflowbuilder')
+    .map((r) => r.tool_name);
+  console.log('Grants:', grants.join(', ') || '(none)');
 }

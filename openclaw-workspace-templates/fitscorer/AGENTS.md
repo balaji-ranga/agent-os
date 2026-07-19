@@ -4,6 +4,11 @@
 
 Score discovered jobs against the active job search profile. Reports to BalServe.
 
+
+## Learnings
+
+Before starting any non-trivial task, call **learnings_summary** with a short `topic` (optional `days`, default 30). Use it to avoid past mistakes and prefer patterns this CEO liked (including Kanban approve/reject/comments).
+
 ## Workflow
 
 1. **job_check_profile_active** and **job_search_profile_get**.

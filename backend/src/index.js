@@ -25,6 +25,8 @@ import mcpIntegrationsRoutes from './routes/mcp-integrations.js';
 import customScriptsRoutes from './routes/custom-scripts.js';
 import externalAgentsRoutes from './routes/external-agents.js';
 import ibkrTradingRoutes from './routes/ibkr-trading.js';
+import emailInboundRoutes from './routes/email-inbound.js';
+import openconnectorRoutes from './routes/openconnector.js';
 import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
 import platformNotificationsRoutes from './routes/platform-notifications.js';
@@ -33,12 +35,15 @@ import { ensureInternalTokenConfigured } from './middleware/internal-auth.js';
 import { ensureMfaTables } from './services/auth/mfa.js';
 import { ensureDefaultAdmin, ensureBalaCeoUser, grantStandardAgents } from './services/users.js';
 import { initDb, getDb } from './db/schema.js';
-import { seedDefaultAgentsIfEmpty } from './db/seed-default-agents.js';
-import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, seedWorkflowToolsIfMissing, updateKanbanToolPurposes } from './db/seed-content-tools-meta.js';
+import { seedDefaultAgentsIfEmpty, seedAgentDepartmentsIfMissing } from './db/seed-default-agents.js';
+import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, seedWorkflowToolsIfMissing, seedLearningsToolsIfMissing, updateKanbanToolPurposes } from './db/seed-content-tools-meta.js';
 import { seedJobApplicantToolsIfMissing } from './db/seed-job-applicant-tools.js';
 import { seedIbkrTradingToolsIfMissing } from './db/seed-ibkr-trading-tools.js';
 import { writeOpenClawToolsList } from './services/content-tools-meta.js';
 import { importGrantsFromOpenClawConfig, syncAllowlistsFile } from './services/openclaw-agent-tools.js';
+import { grantLearningsSummaryToAllAgents } from './services/agent-feedback.js';
+import feedbackRoutes from './routes/feedback.js';
+import masterDataRoutes from './routes/master-data.js';
 import { runScheduledStandup } from './cron/standup.js';
 import { processPendingDelegationTasks } from './services/delegation-queue.js';
 import { runPipelineTick, runPipelineTickAll } from './services/job-applicant-pipeline.js';
@@ -60,6 +65,10 @@ initDb();
 ensureInternalTokenConfigured();
 ensureMfaTables();
 seedDefaultAgentsIfEmpty();
+try {
+  const n = seedAgentDepartmentsIfMissing();
+  if (n) console.log(`[startup] backfilled department on ${n} agent(s)`);
+} catch (_) {}
 ensureDefaultAdmin();
 ensureBalaCeoUser();
 try {
@@ -69,9 +78,16 @@ try {
 seedContentToolsMetaIfEmpty();
 seedKanbanToolsIfMissing();
 seedWorkflowToolsIfMissing();
+seedLearningsToolsIfMissing();
 updateKanbanToolPurposes();
 seedJobApplicantToolsIfMissing();
 seedIbkrTradingToolsIfMissing();
+try {
+  const granted = grantLearningsSummaryToAllAgents();
+  if (granted) console.log(`[startup] granted learnings_summary to ${granted} agent(s)`);
+} catch (e) {
+  console.warn('[startup] learnings_summary grants:', e.message);
+}
 writeOpenClawToolsList();
 try {
   const imported = importGrantsFromOpenClawConfig();
@@ -111,6 +127,8 @@ apiRouter.get('/debug/intent-last', requireAuth, requireCeoOrAdmin, (req, res) =
 apiRouter.use('/auth', authRoutes);
 apiRouter.use('/admin', adminRoutes);
 apiRouter.use('/platform-notifications', platformNotificationsRoutes);
+apiRouter.use('/feedback', feedbackRoutes);
+apiRouter.use('/master-data', masterDataRoutes);
 apiRouter.use('/workspace', workspaceRoutes);
 apiRouter.use('/agents', agentsRoutes);
 apiRouter.use('/standups', standupsRoutes);
@@ -125,6 +143,8 @@ apiRouter.use('/agent-workflows', agentWorkflowRoutes);
 apiRouter.use('/integrations/mcp', mcpIntegrationsRoutes);
 apiRouter.use('/integrations/custom-scripts', customScriptsRoutes);
 apiRouter.use('/integrations/external-agents', externalAgentsRoutes);
+apiRouter.use('/integrations/email-inbound', emailInboundRoutes);
+apiRouter.use('/integrations/openconnector', openconnectorRoutes);
 apiRouter.use('/ibkr-trading', ibkrTradingRoutes);
 apiRouter.use('/media/openclaw', mediaRoutes);
 app.use('/api', apiRouter);
@@ -141,6 +161,7 @@ app.use('/kanban', kanbanRoutes);
 app.use('/job-applicant', jobApplicantRoutes);
 app.use('/agent-workflows/hooks', agentWorkflowHookRoutes);
 app.use('/agent-workflows', agentWorkflowRoutes);
+app.use('/integrations/email-inbound', emailInboundRoutes);
 app.use('/media/openclaw', mediaRoutes);
 
 const standupSchedule = process.env.STANDUP_CRON_SCHEDULE || '0 9 * * *';

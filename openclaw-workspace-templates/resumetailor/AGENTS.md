@@ -4,6 +4,10 @@
 
 Tailor resume PDFs and cover letter PDFs for shortlisted jobs. CEO reviews in Kanban before Application Agent submits.
 
+## Learnings
+
+Before starting any non-trivial task, call **learnings_summary** with a short `topic` (optional `days`, default 30). Use it to avoid past mistakes and prefer patterns this CEO liked (including Kanban approve/reject/comments).
+
 ## Workflow
 
 1. **job_check_profile_active** — profile must be `active`.

@@ -9,6 +9,7 @@ import {
   useEdgesState,
   useNodesState,
   ReactFlowProvider,
+  useReactFlow,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { useWorkflowEditorShortcuts } from '../hooks/useWorkflowEditorShortcuts.js';
@@ -70,7 +71,8 @@ function migrateNodeWithCatalog(node, catalog) {
   return { ...node, data };
 }
 
-function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, externalAgents, externalAgentsLoadError, customScripts, customScriptsLoadError, taskCatalog, allNodes, edges, hookInfo, onChange, onDelete }) {
+function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, externalAgents, externalAgentsLoadError, customScripts, customScriptsLoadError, taskCatalog, allNodes, edges, hookInfo, onChange, onDelete, onRegenerateHookSecret, regeneratingSecret }) {
+  const [secretVisible, setSecretVisible] = useState(false);
   if (!node) {
     return (
       <div className="wf-props">
@@ -162,16 +164,49 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, extern
           </fieldset>
           {(data.triggerModes || []).includes('event') && hookInfo && (
             <div className="wf-field wf-hook-info">
-              <strong>Event hook URL</strong>
+              <strong>Event webhook URL</strong>
               <code className="wf-hook-url">{hookInfo.hook_url}</code>
-              <small>POST JSON with header X-Workflow-Hook-Secret</small>
+              {hookInfo.email_inbound_url && (
+                <>
+                  <strong style={{ display: 'block', marginTop: '0.5rem' }}>Email inbound URL</strong>
+                  <code className="wf-hook-url">{hookInfo.email_inbound_url}</code>
+                  <small>Same secret — providers POST mail here</small>
+                </>
+              )}
+              <small>POST JSON with header X-Workflow-Hook-Secret. Each event-enabled workflow has its own URL (no central registry).</small>
               {hookInfo.webhook_secret && (
                 <>
                   <strong style={{ display: 'block', marginTop: '0.5rem' }}>Secret</strong>
-                  <code>{hookInfo.webhook_secret}</code>
+                  <code className={secretVisible ? '' : 'wf-hook-secret-masked'}>
+                    {secretVisible ? hookInfo.webhook_secret : '•'.repeat(Math.min(32, hookInfo.webhook_secret.length || 24))}
+                  </code>
+                  <div className="wf-hook-secret-actions">
+                    <button type="button" className="wf-btn-secondary" onClick={() => setSecretVisible((v) => !v)}>
+                      {secretVisible ? 'Hide' : 'Show'}
+                    </button>
+                    <button
+                      type="button"
+                      className="wf-btn-secondary"
+                      disabled={!!regeneratingSecret}
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            'Regenerate webhook secret? Existing callers with the old secret will stop working.'
+                          )
+                        ) {
+                          onRegenerateHookSecret?.();
+                          setSecretVisible(true);
+                        }
+                      }}
+                    >
+                      {regeneratingSecret ? 'Regenerating…' : 'Regenerate'}
+                    </button>
+                  </div>
                 </>
               )}
-              <small>Save & publish with event mode to generate/refresh secret</small>
+              {!hookInfo.webhook_secret && (
+                <small>Save draft with event mode enabled to create a secret</small>
+              )}
             </div>
           )}
           <label className="wf-field">
@@ -451,6 +486,110 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, extern
               </small>
             )}
           </label>
+        </>
+      )}
+
+      {node.type === 'masterdata' && (
+        <>
+          <label className="wf-field">
+            Mode
+            <select
+              value={data.taskConfig?.mode || 'auto'}
+              onChange={(e) => set({ taskConfig: { ...data.taskConfig, mode: e.target.value } })}
+            >
+              <option value="auto">Auto (table if table ID set, else RAG)</option>
+              <option value="table">Query table</option>
+              <option value="rag">RAG documents</option>
+            </select>
+          </label>
+          <label className="wf-field">
+            Table ID
+            <input
+              value={data.taskConfig?.tableId || ''}
+              onChange={(e) => set({ taskConfig: { ...data.taskConfig, tableId: e.target.value } })}
+              placeholder="mdt-… from Master Data"
+            />
+            <small>
+              Manage tables at{' '}
+              <a href="/master-data" target="_blank" rel="noreferrer">
+                Master Data
+              </a>
+            </small>
+          </label>
+          <label className="wf-field">
+            Document ID (optional RAG filter)
+            <input
+              value={data.taskConfig?.documentId || ''}
+              onChange={(e) => set({ taskConfig: { ...data.taskConfig, documentId: e.target.value } })}
+              placeholder="mdd-…"
+            />
+          </label>
+          <label className="wf-field">
+            RAG top-K
+            <input
+              type="number"
+              min={1}
+              max={20}
+              value={data.taskConfig?.topK ?? 5}
+              onChange={(e) => set({ taskConfig: { ...data.taskConfig, topK: Number(e.target.value) || 5 } })}
+            />
+          </label>
+          <label className="wf-field" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input
+              type="checkbox"
+              checked={data.taskConfig?.summarize !== false}
+              onChange={(e) => set({ taskConfig: { ...data.taskConfig, summarize: e.target.checked } })}
+            />
+            LLM summarize RAG hits
+          </label>
+        </>
+      )}
+
+      {node.type === 'filesystem' && (
+        <>
+          <label className="wf-field">
+            Operation
+            <select
+              value={data.taskConfig?.operation || 'list'}
+              onChange={(e) => set({ taskConfig: { ...data.taskConfig, operation: e.target.value } })}
+            >
+              <option value="list">List directory</option>
+              <option value="exists">Exists</option>
+              <option value="stat">Stat</option>
+              <option value="read_text">Read text</option>
+              <option value="move">Move</option>
+            </select>
+          </label>
+          <label className="wf-field">
+            Path
+            <input
+              value={data.taskConfig?.path || ''}
+              onChange={(e) => set({ taskConfig: { ...data.taskConfig, path: e.target.value } })}
+              placeholder="inbox or absolute path under WORKFLOW_FS_ROOTS"
+            />
+            <small>
+              Use with <strong>schedule</strong> trigger to poll a folder. Paths must be under{' '}
+              <code>WORKFLOW_FS_ROOTS</code>.
+            </small>
+          </label>
+          <label className="wf-field">
+            Glob (list)
+            <input
+              value={data.taskConfig?.glob || '*'}
+              onChange={(e) => set({ taskConfig: { ...data.taskConfig, glob: e.target.value } })}
+              placeholder="*.txt"
+            />
+          </label>
+          {(data.taskConfig?.operation || 'list') === 'move' && (
+            <label className="wf-field">
+              Destination
+              <input
+                value={data.taskConfig?.destination || ''}
+                onChange={(e) => set({ taskConfig: { ...data.taskConfig, destination: e.target.value } })}
+                placeholder="processed/"
+              />
+            </label>
+          )}
         </>
       )}
 
@@ -966,10 +1105,12 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, extern
 
 function EditorInner({ workflowId }) {
   const navigate = useNavigate();
+  const { setCenter, getZoom } = useReactFlow();
   const [workflow, setWorkflow] = useState(null);
   const [agents, setAgents] = useState([]);
   const [tools, setTools] = useState([]);
   const [hookInfo, setHookInfo] = useState(null);
+  const [regeneratingSecret, setRegeneratingSecret] = useState(false);
   const [audit, setAudit] = useState([]);
   const [saving, setSaving] = useState(false);
   const [inlineStatus, setInlineStatus] = useState(null);
@@ -1133,6 +1274,19 @@ function EditorInner({ workflowId }) {
       setHookInfo(null);
     }
   }, [workflowId, nodes]);
+
+  const regenerateHookSecret = useCallback(async () => {
+    setRegeneratingSecret(true);
+    try {
+      const info = await api.agentWorkflowHookRegenerateSecret(workflowId);
+      setHookInfo(info);
+      showSuccess('Webhook secret regenerated');
+    } catch (e) {
+      showError(e.message || 'Failed to regenerate secret');
+    } finally {
+      setRegeneratingSecret(false);
+    }
+  }, [workflowId, showSuccess, showError]);
 
   const updateNodeData = (nodeId, data) => {
     setNodes((nds) => nds.map((n) => (n.id === nodeId ? { ...n, data } : n)));
@@ -1607,6 +1761,14 @@ function EditorInner({ workflowId }) {
               position="bottom-left"
               maskColor="rgba(15, 15, 18, 0.75)"
               nodeColor={(n) => PALETTE_ITEMS.find((p) => p.type === n.type)?.color || '#6366f1'}
+              pannable
+              onClick={(_event, position) => {
+                if (!position || typeof position.x !== 'number' || typeof position.y !== 'number') return;
+                setCenter(position.x, position.y, {
+                  zoom: getZoom(),
+                  duration: 200,
+                });
+              }}
             />
           </ReactFlow>
         </div>
@@ -1628,6 +1790,8 @@ function EditorInner({ workflowId }) {
             hookInfo={hookInfo}
             onChange={updateNodeData}
             onDelete={deleteNode}
+            onRegenerateHookSecret={regenerateHookSecret}
+            regeneratingSecret={regeneratingSecret}
           />
 
           <WorkflowVariablesPanel

@@ -204,7 +204,7 @@ router.post('/:id/sessions/clear', requireAuth, (req, res) => {
 // POST /api/agents — create a full OpenClaw agent owned by the signed-in CEO
 router.post('/', requireAuth, requireCeoOrAdmin, async (req, res) => {
   try {
-    const { id, name, role, parent_id, tools } = req.body || {};
+    const { id, name, role, parent_id, reportingTo, reporting_to, department, tools } = req.body || {};
     let ownerUserId = null;
     if (req.authUser.role === 'ceo') {
       ownerUserId = req.authUser.id;
@@ -214,7 +214,7 @@ router.post('/', requireAuth, requireCeoOrAdmin, async (req, res) => {
         return res.status(400).json({ error: 'owner_user_id required when admin creates an agent' });
       }
     }
-    let parentId = parent_id || null;
+    let parentId = parent_id || reportingTo || reporting_to || null;
     if (!parentId) {
       const coo = db().prepare('SELECT id FROM agents WHERE is_coo = 1 LIMIT 1').get();
       parentId = coo?.id || null;
@@ -223,6 +223,7 @@ router.post('/', requireAuth, requireCeoOrAdmin, async (req, res) => {
       name: name || 'Unnamed',
       role: role || '',
       parent_id: parentId,
+      department: department || '',
       id: id && String(id).trim() ? String(id).trim() : undefined,
       ownerUserId,
       tools: Array.isArray(tools) ? tools : undefined,
@@ -238,8 +239,15 @@ router.patch('/:id', requireAuth, requireCeoOrAdmin, (req, res) => {
     const { id } = req.params;
     const row = db().prepare('SELECT * FROM agents WHERE id = ?').get(id);
     if (!row) return res.status(404).json({ error: 'Agent not found' });
-    const updates = req.body;
-    const allowed = ['name', 'role', 'parent_id', 'workspace_path', 'openclaw_agent_id', 'is_coo'];
+    const updates = { ...(req.body || {}) };
+    // reportingTo alias → parent_id
+    if (updates.reportingTo !== undefined && updates.parent_id === undefined) {
+      updates.parent_id = updates.reportingTo;
+    }
+    if (updates.reporting_to !== undefined && updates.parent_id === undefined) {
+      updates.parent_id = updates.reporting_to;
+    }
+    const allowed = ['name', 'role', 'parent_id', 'department', 'workspace_path', 'openclaw_agent_id', 'is_coo'];
     const set = [];
     const values = [];
     for (const k of allowed) {

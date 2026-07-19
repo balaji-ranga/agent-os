@@ -18,6 +18,118 @@ export function listToolsMeta() {
   return db.prepare('SELECT name, display_name, endpoint, method, purpose, model_used, enabled, is_builtin, created_at FROM content_tools_meta ORDER BY is_builtin DESC, name').all();
 }
 
+/** Enabled tools as a compact catalog for Workflow Builder / enquire. */
+export function listEnabledContentTools() {
+  return listToolsMeta()
+    .filter((t) => t.enabled !== 0 && t.enabled !== false)
+    .map((t) => ({
+      name: t.name,
+      display_name: t.display_name,
+      endpoint: t.endpoint,
+      method: t.method || 'POST',
+      purpose: t.purpose || '',
+      model_used: t.model_used || '',
+      is_builtin: !!t.is_builtin,
+    }));
+}
+
+function normText(s) {
+  return String(s || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function scoreContentToolMatch(tool, queryNorm, tokens) {
+  const hay = normText([tool.name, tool.display_name, tool.purpose, tool.endpoint].join(' '));
+  let score = 0;
+  if (!queryNorm) return 0;
+  if (hay.includes(queryNorm)) score += 10;
+  if (normText(tool.name) === queryNorm) score += 12;
+  if (normText(tool.name).includes(queryNorm)) score += 8;
+  if (normText(tool.display_name).includes(queryNorm)) score += 7;
+  if (normText(tool.purpose).includes(queryNorm)) score += 6;
+  for (const t of tokens) {
+    if (t.length < 2) continue;
+    if (hay.includes(t)) score += 2;
+  }
+  return score;
+}
+
+/**
+ * List or search content tools by natural language (name / display / purpose).
+ * @param {string} query
+ * @param {{ all?: boolean, limit?: number, enabledOnly?: boolean }} [opts]
+ */
+export function enquireContentTools(query, opts = {}) {
+  const { all = false, enabledOnly = true } = opts;
+  const hasLimit = Object.prototype.hasOwnProperty.call(opts, 'limit') && opts.limit != null && opts.limit !== '';
+  const tools = enabledOnly
+    ? listEnabledContentTools()
+    : listToolsMeta().map((t) => ({
+        name: t.name,
+        display_name: t.display_name,
+        endpoint: t.endpoint,
+        method: t.method || 'POST',
+        purpose: t.purpose || '',
+        model_used: t.model_used || '',
+        is_builtin: !!t.is_builtin,
+        enabled: t.enabled !== 0 && t.enabled !== false,
+      }));
+
+  const queryNorm = normText(query);
+  const tokens = queryNorm.split(/\s+/).filter(Boolean);
+  const lim = Math.min(Math.max(Number(hasLimit ? opts.limit : all ? tools.length : 15) || 15, 1), 200);
+
+  if (all || !queryNorm) {
+    const slice = tools.slice(0, all && !hasLimit ? tools.length : lim);
+    return {
+      query: query || '',
+      all: true,
+      count: tools.length,
+      tools: slice.map((t) => ({
+        ...t,
+        score: null,
+        recommendation: t.purpose
+          ? `Use \`${t.name}\` when: ${t.purpose}`
+          : `Use \`${t.name}\` (${t.display_name})`,
+      })),
+    };
+  }
+
+  const ranked = tools
+    .map((t) => {
+      const score = scoreContentToolMatch(t, queryNorm, tokens);
+      return {
+        ...t,
+        score,
+        recommendation:
+          score > 0
+            ? `Recommended for "${query}": \`${t.name}\` — ${t.purpose || t.display_name}`
+            : null,
+      };
+    })
+    .filter((t) => t.score > 0)
+    .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+    .slice(0, lim);
+
+  return {
+    query: String(query || '').trim(),
+    all: false,
+    count: ranked.length,
+    tools: ranked,
+    top_recommendation: ranked[0]
+      ? {
+          name: ranked[0].name,
+          display_name: ranked[0].display_name,
+          purpose: ranked[0].purpose,
+          score: ranked[0].score,
+          how_to_use: `Add a workflow node with node_type "tool" and toolName "${ranked[0].name}" (or call the content tool directly when chatting with an agent that has it granted).`,
+        }
+      : null,
+  };
+}
+
 export function getToolMeta(name) {
   const db = getDb();
   return db.prepare('SELECT name, display_name, endpoint, method, purpose, model_used, enabled, is_builtin, created_at, auth_header FROM content_tools_meta WHERE name = ?').get(name);

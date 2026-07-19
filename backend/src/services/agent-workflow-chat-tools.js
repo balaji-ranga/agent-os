@@ -37,9 +37,18 @@ function formatWorkflowForAgent(w) {
 
 /** List published workflows for COO tools. Default: all published; chatOnly limits to chat phrase triggers. */
 export function listPublishedWorkflows(ownerUserId, { chatOnly = false } = {}) {
-  let workflows = store
-    .listDefinitions(ownerUserId)
-    .filter((w) => w.status === 'published' && !w.paused);
+  return listWorkflowsForAgent(ownerUserId, { chatOnly, includeDrafts: false });
+}
+
+/**
+ * List workflows for entitled owner.
+ * Workflow Builder may include drafts; COO tools stay published-only by default.
+ */
+export function listWorkflowsForAgent(ownerUserId, { chatOnly = false, includeDrafts = false } = {}) {
+  let workflows = store.listDefinitions(ownerUserId);
+  if (!includeDrafts) {
+    workflows = workflows.filter((w) => w.status === 'published' && !w.paused);
+  }
   if (chatOnly) {
     workflows = workflows.filter(
       (w) =>
@@ -80,27 +89,28 @@ function scoreWorkflowMatch(w, queryNorm, tokens) {
 }
 
 /**
- * Find published workflows matching a description or natural-language query (COO tool).
+ * Find workflows matching a natural-language enquiry (owner-scoped).
  */
-export function enquireWorkflows(ownerUserId, query, { limit = 10, all = false } = {}) {
+export function enquireWorkflows(ownerUserId, query, { limit = 10, all = false, includeDrafts = false } = {}) {
   const q = String(query || '').trim();
   const queryNorm = normText(q);
   const tokens = tokenize(q);
 
   if (all || queryNorm === 'all' || queryNorm === '*') {
-    const matches = listPublishedWorkflows(ownerUserId).slice(0, Math.min(limit, 50));
-    return { query: q || 'all', matches, count: matches.length };
+    const matches = listWorkflowsForAgent(ownerUserId, { includeDrafts }).slice(0, Math.min(limit, 50));
+    return { query: q || 'all', matches, count: matches.length, include_drafts: !!includeDrafts };
   }
 
   if (!queryNorm) {
-    return { query: q, matches: [], count: 0 };
+    return { query: q, matches: [], count: 0, include_drafts: !!includeDrafts };
   }
 
-  const published = store
-    .listDefinitions(ownerUserId)
-    .filter((w) => w.status === 'published' && !w.paused);
+  let pool = store.listDefinitions(ownerUserId);
+  if (!includeDrafts) {
+    pool = pool.filter((w) => w.status === 'published' && !w.paused);
+  }
 
-  const matches = published
+  const matches = pool
     .map((w) => {
       const score = scoreWorkflowMatch(w, queryNorm, tokens);
       const formatted = formatWorkflowForAgent(w);
@@ -110,7 +120,7 @@ export function enquireWorkflows(ownerUserId, query, { limit = 10, all = false }
     .sort((a, b) => b.score - a.score)
     .slice(0, Math.min(limit, 25));
 
-  return { query: q, matches, count: matches.length };
+  return { query: q, matches, count: matches.length, include_drafts: !!includeDrafts };
 }
 
 /** Resolve a workflow by id, name (fuzzy), or chat phrase substring. */

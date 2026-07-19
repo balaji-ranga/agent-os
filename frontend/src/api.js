@@ -204,6 +204,39 @@ export const api = {
   authLogout: () => post('/auth/logout', {}),
   authMe: () => get('/auth/me'),
   authUpdateProfile: (body) => patch('/auth/me', body),
+  submitFeedback: (body) => post('/feedback', body),
+  listFeedback: (params = {}) => {
+    const q = new URLSearchParams();
+    if (params.agent_id) q.set('agent_id', params.agent_id);
+    if (params.days != null) q.set('days', String(params.days));
+    if (params.limit != null) q.set('limit', String(params.limit));
+    if (params.rating) q.set('rating', params.rating);
+    const qs = q.toString();
+    return get(`/feedback${qs ? `?${qs}` : ''}`);
+  },
+  masterDataTables: () => get('/master-data/tables'),
+  masterDataTableCreate: (body) => post('/master-data/tables', body),
+  masterDataTableGet: (id, params = {}) => {
+    const q = new URLSearchParams();
+    if (params.limit != null) q.set('limit', String(params.limit));
+    if (params.offset != null) q.set('offset', String(params.offset));
+    const qs = q.toString();
+    return get(`/master-data/tables/${encodeURIComponent(id)}${qs ? `?${qs}` : ''}`);
+  },
+  masterDataTableDelete: (id) => del(`/master-data/tables/${encodeURIComponent(id)}`),
+  masterDataImportCsv: (body) => post('/master-data/tables/import-csv', body),
+  masterDataTableQuery: (id, body) => post(`/master-data/tables/${encodeURIComponent(id)}/query`, body),
+  masterDataRowInsert: (tableId, data) =>
+    post(`/master-data/tables/${encodeURIComponent(tableId)}/rows`, { data }),
+  masterDataRowUpdate: (tableId, rowId, data) =>
+    patch(`/master-data/tables/${encodeURIComponent(tableId)}/rows/${encodeURIComponent(rowId)}`, { data }),
+  masterDataRowDelete: (tableId, rowId) =>
+    del(`/master-data/tables/${encodeURIComponent(tableId)}/rows/${encodeURIComponent(rowId)}`),
+  masterDataDocuments: () => get('/master-data/documents'),
+  masterDataDocumentUpload: (body) => post('/master-data/documents', body),
+  masterDataDocumentDelete: (id) => del(`/master-data/documents/${encodeURIComponent(id)}`),
+  masterDataRag: (body) => post('/master-data/rag', body),
+  masterDataQuery: (body) => post('/master-data/query', body),
   adminUsers: () => get('/admin/users'),
   adminUserGet: (userId) => get(`/admin/users/${encodeURIComponent(userId)}`),
   adminUserSetEnabled: (userId, enabled) => patch(`/admin/users/${encodeURIComponent(userId)}/enabled`, { enabled }),
@@ -227,6 +260,11 @@ export const api = {
   agentWorkflowTaskTypes: () => get('/agent-workflows/meta/task-types'),
   agentWorkflowGet: (id) => get(`/agent-workflows/${encodeURIComponent(id)}`),
   agentWorkflowHookInfo: (id) => get(`/agent-workflows/${encodeURIComponent(id)}/hook`),
+  agentWorkflowHookRegister: (id, body = {}) =>
+    post(`/agent-workflows/${encodeURIComponent(id)}/hooks/register`, body),
+  agentWorkflowHookRegenerateSecret: (id, body = {}) =>
+    post(`/agent-workflows/${encodeURIComponent(id)}/hooks/regenerate-secret`, body),
+  openconnectorStatus: () => get('/integrations/openconnector/status'),
   agentWorkflowCreate: (body) => post('/agent-workflows', body),
   agentWorkflowUpdate: (id, body) => patch(`/agent-workflows/${encodeURIComponent(id)}`, body),
   agentWorkflowPublish: (id) => post(`/agent-workflows/${encodeURIComponent(id)}/publish`, {}),

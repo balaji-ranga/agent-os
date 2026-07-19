@@ -18,6 +18,7 @@ import Admin from './pages/Admin';
 import McpIntegrations from './pages/McpIntegrations';
 import CustomScripts from './pages/CustomScripts';
 import ExternalAgents from './pages/ExternalAgents';
+import MasterData from './pages/MasterData';
 import NotificationBell from './components/NotificationBell';
 import { AdminNavMenu, CeoNavMenu } from './components/AppNavMenu';
 import ImpersonationBanner from './components/ImpersonationBanner';
@@ -118,6 +119,7 @@ function Shell() {
               <Route path="/integrations/external-agents" element={<ExternalAgents />} />
               <Route path="/broadcast" element={<Broadcast />} />
               <Route path="/kanban" element={<Kanban />} />
+              <Route path="/master-data" element={<MasterData />} />
               <Route path="/job-workflows" element={<JobWorkflows />} />
               <Route path="/workflows" element={<AgentWorkflows />} />
               <Route path="/workflows/:workflowId/edit" element={<AgentWorkflowEditor />} />

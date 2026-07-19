@@ -2,22 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
 import ChatMessageContent from '../components/ChatMessageContent';
+import MessageFeedback from '../components/MessageFeedback';
+import OrgChart from '../components/OrgChart';
+import DepartmentPicker from '../components/DepartmentPicker';
 import { formatLocalDateTime, formatChatTimestamp, toLocalDateTimeInputValue } from '../utils/formatDateTime.js';
-
-// Build hierarchy: CEO (me) → COO → reports-to-COO + other granted agents (e.g. custom with no parent)
-function buildHierarchy(agents) {
-  const coo = agents.find((a) => a.is_coo);
-  const cooId = coo?.id ?? '';
-  const underCoo = agents.filter((a) => !a.is_coo && a.parent_id && a.parent_id === cooId);
-  const underIds = new Set(underCoo.map((a) => a.id));
-  // Custom / other agents granted to this CEO that aren't already shown under COO
-  const other = agents.filter((a) => !a.is_coo && !underIds.has(a.id));
-  return {
-    ceo: { id: 'ceo', name: 'CEO (me)', role: 'You' },
-    coo,
-    delegated: [...underCoo, ...other],
-  };
-}
 
 // Voice: browser Speech Synthesis API (Edge/Chrome TTS)
 function useEdgeTTS() {
@@ -78,6 +66,7 @@ export default function Dashboard() {
   const [error, setError] = useState(null);
   const [newName, setNewName] = useState('');
   const [newRole, setNewRole] = useState('');
+  const [newDepartment, setNewDepartment] = useState('Operations');
   const [newParentId, setNewParentId] = useState('');
   const [addAgentMessage, setAddAgentMessage] = useState(null);
   const [creatingStandup, setCreatingStandup] = useState(false);
@@ -170,7 +159,12 @@ export default function Dashboard() {
     if (!newName.trim()) return;
     setAddAgentMessage(null);
     const coo = agents.find((a) => a.is_coo);
-    const body = { name: newName.trim(), role: newRole.trim() || 'Agent' };
+    const department = newDepartment.trim();
+    const body = {
+      name: newName.trim(),
+      role: newRole.trim() || 'Agent',
+      department: department || '',
+    };
     // Default report-to COO so new agents appear under the org chart
     body.parent_id = newParentId || coo?.id || undefined;
     api.agentCreate(body)
@@ -180,8 +174,10 @@ export default function Dashboard() {
           setNewName('');
           setNewRole('');
           setNewParentId('');
+          setNewDepartment('Operations');
           setAddAgentMessage(
             `"${agent.name}" added to your workspace` +
+              (agent.department ? ` · ${agent.department}` : '') +
               (agent.openclaw_runtime_id ? ` (${agent.openclaw_runtime_id}).` : '.') +
               ' Tool access can be managed in the agent workspace. Restart OpenClaw gateway if chat does not pick up the new agent immediately.'
           );
@@ -327,8 +323,6 @@ export default function Dashboard() {
       .finally(() => setOpenclawSyncing(false));
   };
 
-  const hierarchy = buildHierarchy(agents);
-
   if (loading) return <div style={{ padding: '2rem' }}>Loading…</div>;
   if (error) return <div style={{ padding: '2rem', color: '#f87171' }}>Error: {error}</div>;
 
@@ -338,125 +332,13 @@ export default function Dashboard() {
         <h1 style={{ marginTop: 0, marginBottom: 0 }}>Dashboard</h1>
       </div>
 
-      {/* Org chart: CEO → COO → delegated agents */}
+      {/* Org chart: recursive hierarchy with List | Graph */}
       <section style={{ marginBottom: '2rem' }}>
         <h2 style={{ fontSize: '1.25rem', marginBottom: '0.75rem' }}>Org chart</h2>
         <p style={{ color: 'var(--muted)', marginBottom: '1rem', fontSize: '0.9rem' }}>
-          CEO (you) → COO → all agents granted to your workspace (including custom agents you add). Click Chat to talk to an agent.
+          CEO (you) → reports-to chain for all agents in your workspace. Use List or Graph; optionally group by department.
         </p>
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 0,
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 12,
-            overflow: 'hidden',
-          }}
-        >
-          {/* CEO row */}
-          <div
-            style={{
-              padding: '1rem 1.25rem',
-              borderBottom: '1px solid var(--border)',
-              background: 'var(--surface)',
-              fontWeight: 600,
-            }}
-          >
-            <span style={{ color: 'var(--accent)' }}>👤 {hierarchy.ceo.name}</span>
-            <span style={{ color: 'var(--muted)', fontWeight: 400, marginLeft: '0.5rem' }}>— {hierarchy.ceo.role}</span>
-          </div>
-          {/* COO row — name and role from DB */}
-          {hierarchy.coo && (
-            <div
-              style={{
-                padding: '1rem 1.25rem',
-                borderBottom: hierarchy.delegated.length ? '1px solid var(--border)' : 'none',
-                paddingLeft: '2.5rem',
-                background: 'var(--surface)',
-              }}
-            >
-              <span style={{ fontWeight: 500 }}>{hierarchy.coo.name}</span>
-              {hierarchy.coo.role && <span style={{ color: 'var(--muted)', marginLeft: '0.5rem' }}>({hierarchy.coo.role})</span>}
-              <span style={{ marginLeft: '0.75rem' }}>
-                <Link to={`/agents/${hierarchy.coo.id}/workspace`} style={{ marginRight: '0.5rem', fontSize: '0.9rem' }}>
-                  Workspace
-                </Link>
-                <Link
-                  to={`/agents/${hierarchy.coo.id}/chat`}
-                  style={{
-                    padding: '0.25rem 0.6rem',
-                    background: 'var(--accent)',
-                    color: '#fff',
-                    borderRadius: 6,
-                    fontSize: '0.9rem',
-                  }}
-                >
-                  Chat
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => removeAgent(hierarchy.coo.id)}
-                  style={{
-                    marginLeft: '0.5rem',
-                    padding: '0.25rem 0.6rem',
-                    background: 'transparent',
-                    color: 'var(--muted)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 6,
-                    fontSize: '0.85rem',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Remove
-                </button>
-              </span>
-            </div>
-          )}
-          {/* Delegated agents */}
-          {hierarchy.delegated.length > 0 && (
-            <div style={{ padding: '0.75rem 1.25rem', paddingLeft: '3.5rem', background: 'var(--surface)' }}>
-              <div style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '0.5rem' }}>Delegated agents</div>
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {hierarchy.delegated.map((a) => (
-                  <li key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span style={{ fontWeight: 500 }}>{a.name}</span>
-                    {a.role && <span style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>({a.role})</span>}
-                    <Link to={`/agents/${a.id}/workspace`} style={{ fontSize: '0.85rem' }}>Workspace</Link>
-                    <Link
-                      to={`/agents/${a.id}/chat`}
-                      style={{
-                        padding: '0.2rem 0.5rem',
-                        background: 'var(--accent)',
-                        color: '#fff',
-                        borderRadius: 6,
-                        fontSize: '0.85rem',
-                      }}
-                    >
-                      Chat
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => removeAgent(a.id)}
-                      style={{
-                        padding: '0.2rem 0.5rem',
-                        background: 'transparent',
-                        color: 'var(--muted)',
-                        border: '1px solid var(--border)',
-                        borderRadius: 6,
-                        fontSize: '0.85rem',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      Remove
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
+        <OrgChart agents={agents} onRemove={removeAgent} />
         {agents.length === 0 && (
           <div style={{ marginTop: '0.75rem', padding: '1rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8 }}>
             <p style={{ color: 'var(--muted)', margin: '0 0 0.5rem' }}>No agents in the database.</p>
@@ -664,6 +546,16 @@ export default function Dashboard() {
                         <div style={{ margin: '0.2rem 0 0', fontSize: '0.95rem' }}>
                           <ChatMessageContent content={m.content} />
                         </div>
+                        {(m.role === 'coo' || m.role === 'assistant') && (
+                          <MessageFeedback
+                            agentId="balserve"
+                            source="standup"
+                            messageId={m.id}
+                            messageContent={m.content}
+                            context={{ standup_id: selectedStandup.id }}
+                            compact
+                          />
+                        )}
                       </div>
                     ))
                   ) : (
@@ -795,7 +687,7 @@ export default function Dashboard() {
       <section>
         <h2 style={{ fontSize: '1.25rem', marginBottom: '0.25rem' }}>Add agent</h2>
         <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '0.75rem' }}>
-          Creates a custom agent in <strong>your</strong> OpenClaw tenant space (under your COO). Other CEOs will not see it.
+          Creates a custom agent in <strong>your</strong> OpenClaw tenant space. Set department and who they report to for the org chart.
         </p>
         <form onSubmit={addAgent} style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
           <input
@@ -803,6 +695,7 @@ export default function Dashboard() {
             placeholder="Agent name"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
+            required
             style={{
               padding: '0.5rem 0.75rem',
               background: 'var(--surface)',
@@ -826,21 +719,29 @@ export default function Dashboard() {
               minWidth: 120,
             }}
           />
+          <DepartmentPicker
+            value={newDepartment}
+            onChange={setNewDepartment}
+            compact
+            ariaLabel="Department"
+            selectStyle={{ background: 'var(--surface)' }}
+          />
           <select
             value={newParentId}
             onChange={(e) => setNewParentId(e.target.value)}
+            aria-label="Reports to"
             style={{
               padding: '0.5rem 0.75rem',
               background: 'var(--surface)',
               border: '1px solid var(--border)',
               borderRadius: 6,
               color: 'var(--text)',
-              minWidth: 140,
+              minWidth: 160,
             }}
           >
-            <option value="">Report to (optional)</option>
+            <option value="">Reports to (COO default)</option>
             {agents.map((a) => (
-              <option key={a.id} value={a.id}>{a.name}{a.is_coo ? ' (COO)' : ''}</option>
+              <option key={a.id} value={a.id}>{a.name}{a.is_coo ? ' (COO)' : ''}{a.department ? ` · ${a.department}` : ''}</option>
             ))}
           </select>
           <button

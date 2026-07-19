@@ -353,6 +353,92 @@ export const WORKFLOW_TASK_TYPES = {
       { id: 'customScriptName', label: 'Script name (display)', type: 'text' },
     ]),
   },
+  masterdata: {
+    type: 'masterdata',
+    label: 'Master Data',
+    color: '#0f766e',
+    inputs: [
+      {
+        id: 'query',
+        label: 'Query / question',
+        required: false,
+        mode: 'dynamic',
+        description: 'Keyword or natural-language query over this CEO master tables/documents',
+      },
+    ],
+    outputs: [
+      { id: 'text', label: 'Answer / result text' },
+      { id: 'mode', label: 'Mode used (table|rag)' },
+      { id: 'count', label: 'Hit count' },
+      { id: 'result', label: 'Full result JSON' },
+    ],
+    configFields: withNodeTimeoutConfigFields([
+      {
+        id: 'mode',
+        label: 'Mode',
+        type: 'select',
+        options: ['auto', 'table', 'rag'],
+        default: 'auto',
+      },
+      { id: 'tableId', label: 'Table ID (table mode)', type: 'text', placeholder: 'mdt-…' },
+      { id: 'documentId', label: 'Document ID (optional RAG filter)', type: 'text', placeholder: 'mdd-…' },
+      { id: 'topK', label: 'RAG top-K chunks', type: 'number', default: 5 },
+      { id: 'column', label: 'Column filter (optional)', type: 'text' },
+      { id: 'equals', label: 'Column equals (optional)', type: 'text' },
+      { id: 'summarize', label: 'LLM summarize RAG hits', type: 'boolean', default: true },
+    ]),
+  },
+  filesystem: {
+    type: 'filesystem',
+    label: 'Filesystem',
+    color: '#57534e',
+    inputs: [
+      {
+        id: 'path',
+        label: 'Path',
+        required: true,
+        mode: 'static',
+        description: 'Directory or file under WORKFLOW_FS_ROOTS',
+      },
+      {
+        id: 'glob',
+        label: 'Glob (list)',
+        required: false,
+        mode: 'static',
+        description: 'e.g. *.txt when operation=list',
+      },
+      {
+        id: 'destination',
+        label: 'Destination (move)',
+        required: false,
+        mode: 'static',
+        description: 'Target path/dir for move',
+      },
+    ],
+    outputs: [
+      { id: 'ok', label: 'Success' },
+      { id: 'count', label: 'File count (list)' },
+      { id: 'names', label: 'File names (list)' },
+      { id: 'text', label: 'Text / names' },
+      { id: 'has_files', label: 'Has files (list)' },
+      { id: 'files', label: 'Files JSON (list)' },
+      { id: 'path', label: 'Resolved path' },
+      { id: 'result', label: 'Full result JSON' },
+    ],
+    configFields: [
+      {
+        id: 'operation',
+        label: 'Operation',
+        type: 'select',
+        options: ['list', 'exists', 'stat', 'read_text', 'move'],
+        default: 'list',
+      },
+      { id: 'path', label: 'Default path', type: 'text', placeholder: 'inbox' },
+      { id: 'glob', label: 'Default glob', type: 'text', default: '*', placeholder: '*.txt' },
+      { id: 'destination', label: 'Default destination (move)', type: 'text' },
+      { id: 'maxBytes', label: 'Max read bytes', type: 'number', default: 65536 },
+    ],
+  },
 };
 
 export function getTaskCatalog() {
@@ -389,7 +475,7 @@ export function defaultNodeConfig(type) {
     config.timeoutAction = config.timeoutAction || 'fail';
     config.defaultTimeoutOutput = config.defaultTimeoutOutput || '{}';
   }
-  if (type === 'brain' || type === 'mcp_tool' || type === 'custom_script') {
+  if (type === 'brain' || type === 'mcp_tool' || type === 'custom_script' || type === 'masterdata') {
     config.timeoutMs = config.timeoutMs || DEFAULT_NODE_TIMEOUT_MS;
     config.timeoutAction = config.timeoutAction || 'fail';
     config.defaultTimeoutOutput = config.defaultTimeoutOutput || '{}';

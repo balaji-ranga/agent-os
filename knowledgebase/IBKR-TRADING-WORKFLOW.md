@@ -328,7 +328,8 @@ See `backend/.env.example`.
 - Entitled APIs (session owner, or `x-ceo-user-id` from `/tools/invoke` / workflow runner — never body spoof):
   `GET|POST /api/ibkr-trading/analytics/summary`,
   `GET .../fills`, `/positions`, `/pnl`, `/cash-events`
-- Content tools for agents: `ibkr_portfolio_analytics`, `ibkr_fills_history`, `ibkr_pnl`, `ibkr_cash_events`
+- Content tools for agents: `ibkr_portfolio_analytics`, `ibkr_fills_history`, `ibkr_pnl`, `ibkr_cash_events`, `ibkr_order_learnings`
+- Related (workflow audit, not IBKR-only): content tool `brain_history` → `/api/agent-workflows/brain-history` (pass any brain `node_id[]`)
 
 ---
 

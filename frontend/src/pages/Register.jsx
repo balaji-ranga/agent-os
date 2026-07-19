@@ -15,6 +15,8 @@ export default function Register() {
     db_mode: 'tenant',
     mfa_policy: 'inherit',
     mfa_mode: 'inherit',
+    llm_provider: 'platform_decided',
+    llm_api_key: '',
   });
   const [platform, setPlatform] = useState(null);
   const [error, setError] = useState(null);
@@ -42,6 +44,7 @@ export default function Register() {
         ...form,
         mfa_mode: form.mfa_mode === 'inherit' ? null : form.mfa_mode,
       };
+      if (!body.llm_api_key) delete body.llm_api_key;
       const result = await register(body);
       if (result?.mfa_required) {
         setMfa(result);
@@ -195,6 +198,37 @@ export default function Register() {
             Workflows and MCP always use the shared platform database. This setting applies to jobs, kanban, and agent chat.
           </small>
         </label>
+
+        <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '0.25rem 0' }} />
+        <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--muted)' }}>
+          LLM provider (BYOK) — your choice overrides platform .env for Agent OS and OpenClaw agent space.
+        </p>
+        <label>
+          <span style={{ display: 'block', fontSize: '0.85rem', marginBottom: 4 }}>Provider</span>
+          <select
+            value={form.llm_provider}
+            onChange={(e) => set('llm_provider', e.target.value)}
+            style={{ width: '100%', padding: '0.5rem', borderRadius: 6, border: '1px solid var(--border)' }}
+          >
+            <option value="platform_decided">Platform decided (use .env)</option>
+            <option value="openai">OpenAI (BYOK)</option>
+            <option value="openrouter">OpenRouter (BYOK)</option>
+            <option value="ollama_free">Ollama Free (local)</option>
+          </select>
+        </label>
+        {(form.llm_provider === 'openai' || form.llm_provider === 'openrouter') && (
+          <label>
+            <span style={{ display: 'block', fontSize: '0.85rem', marginBottom: 4 }}>API key</span>
+            <input
+              type="password"
+              value={form.llm_api_key}
+              onChange={(e) => set('llm_api_key', e.target.value)}
+              required
+              autoComplete="off"
+              style={{ width: '100%', padding: '0.5rem', borderRadius: 6, border: '1px solid var(--border)' }}
+            />
+          </label>
+        )}
 
         <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '0.25rem 0' }} />
         <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--muted)' }}>

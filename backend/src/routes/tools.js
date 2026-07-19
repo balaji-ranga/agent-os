@@ -25,7 +25,7 @@ function sanitizeTenantId(value) {
 import { scheduleCeoRequestViaOpenClawCron } from '../services/delegation-queue.js';
 import {
   listChatTriggerableWorkflows,
-  listPublishedWorkflows,
+  listWorkflowsForAgent,
   triggerAgentWorkflowForOwner,
   resolveWorkflowOwnerUserId,
   enquireWorkflows,
@@ -42,6 +42,7 @@ import {
   clearKanbanTaskNotification,
 } from '../services/platform-notifications.js';
 import jobApplicantTools from './job-applicant-tools.js';
+import { summarizeLearnings } from '../services/agent-feedback.js';
 
 const router = Router();
 const KANBAN_STATUSES = ['open', 'awaiting_confirmation', 'in_progress', 'completed', 'failed'];
@@ -71,6 +72,11 @@ function isWorkflowBuilderCaller(caller) {
   if (!caller) return false;
   const id = String(caller.id || '').toLowerCase();
   return id === 'workflowbuilder';
+}
+
+/** COO or Workflow Builder may list/enquire/trigger — always scoped to entitled owner. */
+function canAccessWorkflowTools(caller) {
+  return !!(caller && (caller.is_coo || isWorkflowBuilderCaller(caller)));
 }
 function getBackendBaseUrl() {
   const override = process.env.TOOLS_BASE_URL || process.env.AGENT_OS_PUBLIC_URL;
@@ -201,7 +207,8 @@ router.post('/test/:name', attachToolsAuth, requireAuth, requireCeoOrAdmin, asyn
     const fetchOpts = {
       method,
       headers,
-      signal: AbortSignal.timeout(60000),
+      // LLM summarize paths (brain_history / ibkr_order_learnings) can exceed 60s
+      signal: AbortSignal.timeout(120000),
     };
     if (method === 'GET' || method === 'HEAD') {
       if (body && typeof body === 'object' && !Array.isArray(body) && Object.keys(body).length) {
@@ -798,6 +805,42 @@ router.post('/kanban-assign-task', optionalAuth, (req, res) => {
 });
 
 /**
+ * Learnings summary: summarize past user feedback + Kanban approve/reject/comments for this owner+agent.
+ * Body: topic (optional), days (default 30), agent_id (optional — defaults to caller).
+ * Owner always from session/tenant — never body spoof.
+ */
+router.post('/learnings-summary', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    const caller = getCallerAgent(req);
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
+    if (!ownerUserId) {
+      const err = { error: 'Could not resolve owner user for learnings summary' };
+      logTool(req, 'learnings_summary', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const topic = (requestPayload.topic || requestPayload.prompt || requestPayload.query || '').toString().trim();
+    const days = requestPayload.days != null ? Number(requestPayload.days) : 30;
+    let agentId =
+      (requestPayload.agent_id || requestPayload.agentId || '').toString().trim() ||
+      (caller?.id ? String(caller.id) : null);
+    const out = await summarizeLearnings({
+      ownerUserId,
+      agentId,
+      topic,
+      days,
+    });
+    logTool(req, 'learnings_summary', { ...requestPayload, owner_user_id: ownerUserId }, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'learnings_summary', requestPayload, err, 'error', source);
+    res.status(500).json(err);
+  }
+});
+
+/**
  * Intent classify and delegate: COO only. Runs intent classification and creates delegation + kanban tasks.
  * Body: message (required), standup_id (optional; if omitted, creates a new standup).
  */
@@ -848,15 +891,56 @@ router.post('/intent-classify-and-delegate', optionalAuth, async (req, res) => {
 });
 
 /**
- * Enquire about workflows by description or natural-language query (COO only).
+ * Enquire / list content tools by purpose (Workflow Builder).
+ * Helps recommend which registered tool fits a user intent when building tool nodes.
+ */
+router.post('/content-tools-enquire', optionalAuth, (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = req.body || {};
+  try {
+    const caller = getCallerAgent(req);
+    if (!isWorkflowBuilderCaller(caller) && !(caller && caller.is_coo)) {
+      const err = { error: 'Only Workflow Builder (or COO) can enquire content tools via this tool' };
+      logTool(req, 'content_tools_enquire', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const query =
+      requestPayload.query ||
+      requestPayload.description ||
+      requestPayload.message ||
+      requestPayload.q ||
+      requestPayload.purpose ||
+      '';
+    if (!String(query).trim() && !requestPayload.all) {
+      const err = { error: 'query required (or pass all: true to list every enabled content tool)' };
+      logTool(req, 'content_tools_enquire', requestPayload, err, 'error', source);
+      return res.status(400).json(err);
+    }
+    const ranked = meta.enquireContentTools(query, {
+      all: requestPayload.all === true,
+      limit: requestPayload.limit,
+    });
+    const out = { ok: true, ...ranked };
+    logTool(req, 'content_tools_enquire', requestPayload, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'content_tools_enquire', requestPayload, err, 'error', source);
+    res.status(e.status || 500).json(err);
+  }
+});
+
+/**
+ * Enquire about workflows by description or natural-language query (COO or Workflow Builder).
+ * Owner is always the entitled CEO from session — never body spoof fields.
  */
 router.post('/agent-workflow-enquire', optionalAuth, (req, res) => {
   const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
   const requestPayload = req.body || {};
   try {
     const caller = getCallerAgent(req);
-    if (!caller || !caller.is_coo) {
-      const err = { error: 'Only COO can enquire about agent workflows' };
+    if (!canAccessWorkflowTools(caller)) {
+      const err = { error: 'Only COO or Workflow Builder can enquire about agent workflows' };
       logTool(req,'agent_workflow_enquire', requestPayload, err, 'error', source);
       return res.status(403).json(err);
     }
@@ -872,12 +956,14 @@ router.post('/agent-workflow-enquire', optionalAuth, (req, res) => {
       return res.status(400).json(err);
     }
     const ownerUserId = resolveWorkflowOwner(req, requestPayload);
+    const includeDrafts = isWorkflowBuilderCaller(caller) && requestPayload.include_drafts !== false;
     const out = {
       ok: true,
       ceo_user_id: ownerUserId,
       ...enquireWorkflows(ownerUserId, query, {
         limit: requestPayload.limit,
         all: requestPayload.all === true,
+        includeDrafts,
       }),
     };
     logTool(req,'agent_workflow_enquire', requestPayload, out, 'ok', source);
@@ -890,25 +976,31 @@ router.post('/agent-workflow-enquire', optionalAuth, (req, res) => {
 });
 
 /**
- * List published agent workflows (COO only). Default: all published; pass chat_only: true for chat-phrase triggers only.
+ * List agent workflows (COO or Workflow Builder). Owner-scoped via session entitlements.
+ * Workflow Builder includes drafts by default; COO sees published (non-paused) only.
  */
 router.post('/agent-workflow-list', optionalAuth, (req, res) => {
   const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
   const requestPayload = req.body || {};
   try {
     const caller = getCallerAgent(req);
-    if (!caller || !caller.is_coo) {
-      const err = { error: 'Only COO can list agent workflows' };
+    if (!canAccessWorkflowTools(caller)) {
+      const err = { error: 'Only COO or Workflow Builder can list agent workflows' };
       logTool(req,'agent_workflow_list', requestPayload, err, 'error', source);
       return res.status(403).json(err);
     }
     const ownerUserId = resolveWorkflowOwner(req, requestPayload);
     const chatOnly = requestPayload.chat_only === true || requestPayload.chatOnly === true;
-    const workflows = listPublishedWorkflows(ownerUserId, { chatOnly });
+    const includeDrafts =
+      isWorkflowBuilderCaller(caller) &&
+      requestPayload.include_drafts !== false &&
+      requestPayload.includeDrafts !== false;
+    const workflows = listWorkflowsForAgent(ownerUserId, { chatOnly, includeDrafts });
     const out = {
       ok: true,
       ceo_user_id: ownerUserId,
       chat_only: chatOnly,
+      include_drafts: includeDrafts,
       workflows,
       count: workflows.length,
     };
@@ -922,15 +1014,15 @@ router.post('/agent-workflow-list', optionalAuth, (req, res) => {
 });
 
 /**
- * Trigger a published agent workflow by chat phrase or workflow_id (COO only).
+ * Trigger a published agent workflow by chat phrase or workflow_id (COO or Workflow Builder).
  */
 router.post('/agent-workflow-trigger', optionalAuth, async (req, res) => {
   const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
   const requestPayload = req.body || {};
   try {
     const caller = getCallerAgent(req);
-    if (!caller || !caller.is_coo) {
-      const err = { error: 'Only COO can trigger agent workflows' };
+    if (!canAccessWorkflowTools(caller)) {
+      const err = { error: 'Only COO or Workflow Builder can trigger agent workflows' };
       logTool(req,'agent_workflow_trigger', requestPayload, err, 'error', source);
       return res.status(403).json(err);
     }
@@ -946,7 +1038,11 @@ router.post('/agent-workflow-trigger', optionalAuth, async (req, res) => {
       message,
       workflow_id: workflowId,
       input: message,
-      actor: { id: caller.id, name: caller.name, type: 'coo' },
+      actor: {
+        id: caller.id,
+        name: caller.name,
+        type: isWorkflowBuilderCaller(caller) ? 'workflow_builder' : 'coo',
+      },
     });
     const out = {
       ok: true,

@@ -4,7 +4,7 @@
 import { randomBytes } from 'crypto';
 import { getDb } from '../db/schema.js';
 import { invokeMcpTool, invokeMcpPrompt, invokeMcpResource, probeMcpServer } from './mcp-client.js';
-import { redactMcpAuthForLog } from './mcp-auth.js';
+import { parseMcpAuth, redactMcpAuthForLog } from './mcp-auth.js';
 
 function sanitizeServerRow(row) {
   if (!row) return null;
@@ -128,6 +128,36 @@ function applyPermissions(server, authUser) {
   server.is_shared = !!row.is_platform && row.owner_role === 'admin';
 }
 
+function normalizeHeadersInput(body = {}) {
+  let headers = {};
+  if (body.headers && typeof body.headers === 'object' && !Array.isArray(body.headers)) {
+    headers = { ...body.headers };
+  } else if (typeof body.headers_json === 'string' && body.headers_json.trim()) {
+    headers = parseJson(body.headers_json, {});
+  }
+  const bearer = String(body.authBearer || body.bearer || body.auth_bearer || '').trim();
+  if (bearer) {
+    headers.Authorization = bearer.startsWith('Bearer ') ? bearer : `Bearer ${bearer}`;
+  }
+  const out = {};
+  for (const [k, v] of Object.entries(headers)) {
+    if (v != null && String(v).trim()) out[k] = String(v).trim();
+  }
+  return out;
+}
+
+/** Load stored HTTP headers for MCP calls (not exposed on sanitized API rows). */
+export function getStoredMcpAuth(serverId) {
+  const row = getDb().prepare('SELECT headers_json FROM mcp_servers WHERE id = ?').get(serverId);
+  return parseMcpAuth({ headers: parseJson(row?.headers_json, {}) });
+}
+
+export function mergeMcpAuth(serverId, authSource = null) {
+  const stored = getStoredMcpAuth(serverId);
+  const overlay = parseMcpAuth(authSource || {});
+  return { headers: { ...stored.headers, ...overlay.headers } };
+}
+
 export function createMcpServer(authUser, body = {}) {
   const name = String(body.name || '').trim();
   const url = String(body.url || '').trim();
@@ -136,6 +166,7 @@ export function createMcpServer(authUser, body = {}) {
   const db = getDb();
   const id = body.id?.trim() || slugId(name);
   const isPlatform = authUser.role === 'admin' ? 1 : 0;
+  const headers = normalizeHeadersInput(body);
 
   db.prepare(
     `INSERT INTO mcp_servers (
@@ -152,7 +183,7 @@ export function createMcpServer(authUser, body = {}) {
     JSON.stringify(body.args || []),
     body.cwd || null,
     '{}',
-    '{}',
+    JSON.stringify(headers),
     '',
     authUser.id,
     authUser.role,
@@ -188,6 +219,16 @@ export function updateMcpServer(id, authUser, patch = {}) {
   if (patch.args !== undefined) {
     fields.push('args_json = ?');
     values.push(JSON.stringify(patch.args));
+  }
+  if (
+    patch.headers !== undefined ||
+    patch.headers_json !== undefined ||
+    patch.authBearer !== undefined ||
+    patch.bearer !== undefined ||
+    patch.auth_bearer !== undefined
+  ) {
+    fields.push('headers_json = ?');
+    values.push(JSON.stringify(normalizeHeadersInput(patch)));
   }
   if (!fields.length) return getMcpServer(id, authUser);
   fields.push("updated_at = datetime('now')");
@@ -291,8 +332,9 @@ export async function connectMcpServer(id, authUser, authSource = null) {
   const server = getMcpServer(id, authUser);
   if (!server) throw new Error('MCP server not found');
   const db = getDb();
+  const auth = mergeMcpAuth(id, authSource);
   try {
-    const probe = await probeMcpServer(server, authSource);
+    const probe = await probeMcpServer(server, auth);
     cacheTools(id, probe.tools);
     cachePrompts(id, probe.prompts);
     cacheResources(id, probe.resources);
@@ -322,8 +364,9 @@ export async function callMcpServerTool(id, toolName, args, authUser, authSource
   if (!server) throw new Error('MCP server not found');
   if (server.status !== 'healthy') throw new Error('MCP server is not healthy — connect first');
   const started = Date.now();
+  const auth = mergeMcpAuth(id, authSource);
   try {
-    const out = await invokeMcpTool(server, toolName, args, authSource);
+    const out = await invokeMcpTool(server, toolName, args, auth);
     logMcpCall(id, toolName, authUser?.id, { arguments: args, auth: '***' }, out, 'ok', out.latency_ms);
     return out;
   } catch (err) {
@@ -345,8 +388,9 @@ export async function callMcpServerPrompt(id, promptName, args, authUser, authSo
   if (!server) throw new Error('MCP server not found');
   if (server.status !== 'healthy') throw new Error('MCP server is not healthy — connect first');
   const started = Date.now();
+  const auth = mergeMcpAuth(id, authSource);
   try {
-    const out = await invokeMcpPrompt(server, promptName, args, authSource);
+    const out = await invokeMcpPrompt(server, promptName, args, auth);
     logMcpCall(id, `prompt:${promptName}`, authUser?.id, { arguments: args, auth: '***' }, out, 'ok', out.latency_ms);
     return out;
   } catch (err) {
@@ -368,8 +412,9 @@ export async function callMcpServerResource(id, uri, authUser, authSource = null
   if (!server) throw new Error('MCP server not found');
   if (server.status !== 'healthy') throw new Error('MCP server is not healthy — connect first');
   const started = Date.now();
+  const auth = mergeMcpAuth(id, authSource);
   try {
-    const out = await invokeMcpResource(server, uri, authSource);
+    const out = await invokeMcpResource(server, uri, auth);
     logMcpCall(id, `resource:${uri}`, authUser?.id, { uri, auth: '***' }, out, 'ok', out.latency_ms);
     return out;
   } catch (err) {

@@ -1,8 +1,13 @@
 /**
- * Built-in workflow tasks: Send Email, Call API.
+ * Built-in workflow tasks: Send Email, Call API, Filesystem.
  */
 import { createConnection } from 'net';
 import { connect as tlsConnect } from 'tls';
+import { readdirSync, existsSync, statSync, readFileSync, renameSync, mkdirSync } from 'fs';
+import { resolve, relative, join, basename, isAbsolute } from 'path';
+import { renderWorkflowTemplates } from './agent-workflow-io.js';
+import { buildApiRequestHeaders, renderApiNodeConfig } from './agent-workflow-api-auth.js';
+import { assertHttpSuccess, wrapFetchError } from './workflow-http-errors.js';
 
 export function smtpFromEnv() {
   return {
@@ -248,10 +253,6 @@ export async function executeEmailTask(resolvedInputs, nodeConfig = {}) {
 /**
  * HTTP API call task.
  */
-import { renderWorkflowTemplates } from './agent-workflow-io.js';
-import { buildApiRequestHeaders, renderApiNodeConfig } from './agent-workflow-api-auth.js';
-import { assertHttpSuccess, wrapFetchError } from './workflow-http-errors.js';
-
 export async function executeApiTask(resolvedInputs, nodeConfig = {}, context = null) {
   const render = (v) => (context && v != null ? renderWorkflowTemplates(String(v), context) : v);
   const cfg = context ? renderApiNodeConfig(nodeConfig, context) : nodeConfig;
@@ -301,4 +302,146 @@ export async function executeApiTask(resolvedInputs, nodeConfig = {}, context = 
     // Keep full JSON for downstream API nodes (place/validate chains). Soft-cap huge payloads.
     bodyText: (typeof parsed === 'object' ? JSON.stringify(parsed) : String(text)).slice(0, 200000),
   };
+}
+
+/**
+ * Filesystem ops for scheduled/manual workflows (not a separate poller).
+ * Paths must resolve under WORKFLOW_FS_ROOTS (comma-separated). If unset, uses <cwd>/tmp/workflow-fs.
+ */
+function workflowFsRoots() {
+  const raw = String(process.env.WORKFLOW_FS_ROOTS || '').trim();
+  if (raw) {
+    return raw
+      .split(',')
+      .map((s) => resolve(s.trim()))
+      .filter(Boolean);
+  }
+  const fallback = resolve(process.cwd(), 'tmp', 'workflow-fs');
+  if (!existsSync(fallback)) mkdirSync(fallback, { recursive: true });
+  return [fallback];
+}
+
+function assertPathInRoots(targetPath, roots) {
+  const abs = resolve(targetPath);
+  for (const root of roots) {
+    const rel = relative(root, abs);
+    if (rel === '' || (!rel.startsWith('..') && !isAbsolute(rel))) {
+      return abs;
+    }
+  }
+  throw new Error(`Path not allowed outside WORKFLOW_FS_ROOTS: ${abs}`);
+}
+
+function matchSimpleGlob(name, pattern) {
+  const p = String(pattern || '*').trim() || '*';
+  if (p === '*') return true;
+  const re = new RegExp(
+    `^${p.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.')}$`,
+    'i'
+  );
+  return re.test(name);
+}
+
+export function executeFilesystemTask(resolvedInputs = {}, nodeConfig = {}, context = null) {
+  const render = (v) =>
+    context && v != null ? renderWorkflowTemplates(String(v), context) : v == null ? '' : String(v);
+  const roots = workflowFsRoots();
+  const op = String(nodeConfig.operation || resolvedInputs.operation || 'list').toLowerCase();
+  const pathInput = render(resolvedInputs.path || nodeConfig.path || '.');
+  const absPath = assertPathInRoots(pathInput || '.', roots);
+  const glob = render(resolvedInputs.glob || nodeConfig.glob || '*') || '*';
+
+  if (op === 'list') {
+    if (!existsSync(absPath)) {
+      return { ok: false, operation: 'list', path: absPath, count: 0, files: [], names: '', error: 'Directory not found' };
+    }
+    const st = statSync(absPath);
+    if (!st.isDirectory()) {
+      return { ok: false, operation: 'list', path: absPath, count: 0, files: [], names: '', error: 'Not a directory' };
+    }
+    const entries = readdirSync(absPath, { withFileTypes: true })
+      .filter((e) => e.isFile() && matchSimpleGlob(e.name, glob))
+      .map((e) => {
+        const full = join(absPath, e.name);
+        const s = statSync(full);
+        return { name: e.name, path: full, size: s.size, mtime: s.mtime.toISOString() };
+      });
+    return {
+      ok: true,
+      operation: 'list',
+      path: absPath,
+      count: entries.length,
+      files: entries,
+      names: entries.map((f) => f.name).join('\n'),
+      text: entries.map((f) => f.name).join('\n'),
+      has_files: entries.length > 0,
+    };
+  }
+
+  if (op === 'exists') {
+    const ok = existsSync(absPath);
+    return { ok, operation: 'exists', path: absPath, exists: ok, text: ok ? 'true' : 'false' };
+  }
+
+  if (op === 'stat') {
+    if (!existsSync(absPath)) {
+      return { ok: false, operation: 'stat', path: absPath, error: 'Not found' };
+    }
+    const s = statSync(absPath);
+    return {
+      ok: true,
+      operation: 'stat',
+      path: absPath,
+      is_file: s.isFile(),
+      is_directory: s.isDirectory(),
+      size: s.size,
+      mtime: s.mtime.toISOString(),
+      text: `${absPath} size=${s.size}`,
+    };
+  }
+
+  if (op === 'read_text') {
+    if (!existsSync(absPath)) {
+      return { ok: false, operation: 'read_text', path: absPath, error: 'Not found' };
+    }
+    const maxBytes = Math.min(Number(nodeConfig.maxBytes) || 65536, 1024 * 1024);
+    const buf = readFileSync(absPath);
+    const truncated = buf.length > maxBytes;
+    const text = buf.slice(0, maxBytes).toString('utf8');
+    return {
+      ok: true,
+      operation: 'read_text',
+      path: absPath,
+      size: buf.length,
+      truncated,
+      text,
+      content: text,
+    };
+  }
+
+  if (op === 'move') {
+    const destInput = render(resolvedInputs.destination || nodeConfig.destination || '');
+    if (!destInput) throw new Error('destination required for move');
+    const destAbs = assertPathInRoots(destInput, roots);
+    if (!existsSync(absPath)) {
+      return { ok: false, operation: 'move', path: absPath, error: 'Source not found' };
+    }
+    const destDir = destAbs.endsWith('/') || destAbs.endsWith('\\') || (!existsSync(destAbs) && !basename(destAbs).includes('.'))
+      ? destAbs
+      : null;
+    let finalDest = destAbs;
+    if (existsSync(destAbs) && statSync(destAbs).isDirectory()) {
+      finalDest = join(destAbs, basename(absPath));
+    } else if (destDir) {
+      if (!existsSync(destDir)) mkdirSync(destDir, { recursive: true });
+      finalDest = join(destDir, basename(absPath));
+    } else {
+      const parent = resolve(destAbs, '..');
+      if (!existsSync(parent)) mkdirSync(parent, { recursive: true });
+    }
+    renameSync(absPath, finalDest);
+    return { ok: true, operation: 'move', path: absPath, destination: finalDest, text: finalDest };
+  }
+
+  throw new Error(`Unknown filesystem operation: ${op}`);
 }

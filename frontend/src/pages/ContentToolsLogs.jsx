@@ -89,6 +89,26 @@ const DEFAULT_TEST_BODIES = {
   ibkr_release: { reservation_id: 0, reason: 'ui-test' },
   ibkr_confirm_fill: { reservation_id: 0 },
   ibkr_place: { trades: [], dry_run: true, residual: [] },
+  ibkr_portfolio_analytics: { days: 30, include_live: false },
+  ibkr_fills_history: {},
+  ibkr_pnl: {},
+  ibkr_cash_events: {},
+  ibkr_order_learnings: {
+    days: 7,
+    response_type: 'summarized',
+    limit: 40,
+    purpose: 'IBKR Maker order learnings (content-tools test)',
+  },
+  brain_history: {
+    workflow_id: ['ibkr-maker-checker-paper', 'ibkr-position-poller-paper'],
+    node_id: ['maker-1', 'checker-1', 'maker-exit', 'checker-exit'],
+    days: 7,
+    response_type: 'summarized',
+    limit: 40,
+    purpose: 'IBKR maker/checker Brain history (content-tools test)',
+  },
+  learnings_summary: { topic: 'workflow and trading preferences', days: 30 },
+  content_tools_enquire: { query: 'summarize a web page', limit: 8 },
 };
 
 export default function ContentToolsLogs() {

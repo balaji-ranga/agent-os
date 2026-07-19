@@ -85,7 +85,15 @@ export default function AgentChat() {
       >
         {turns.length === 0 && !sending && <div style={{ color: 'var(--muted)' }}>No messages yet. Send a message below.</div>}
         {turns.map((t, i) => (
-          <ChatMessageRow key={i} role={t.role} content={t.content} createdAt={t.created_at} />
+          <ChatMessageRow
+            key={t.id || i}
+            role={t.role}
+            content={t.content}
+            createdAt={t.created_at}
+            agentId={agentId}
+            messageId={t.id}
+            feedbackSource="chat"
+          />
         ))}
         {sending && <div style={{ color: 'var(--muted)' }}>…</div>}
       </div>

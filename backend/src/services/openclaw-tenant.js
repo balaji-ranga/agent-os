@@ -18,6 +18,10 @@ import { fileURLToPath } from 'url';
 import { getDb } from '../db/schema.js';
 import { getOpenClawDir, getOpenClawConfigPath } from '../config/openclaw-paths.js';
 import * as workspace from '../workspace/adapter.js';
+import {
+  applyByokModelToAgentEntry,
+  ensureByokProviderInConfig,
+} from './user-llm-settings.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_TEMPLATES = join(__dirname, '..', '..', '..', 'openclaw-workspace-templates');
@@ -161,8 +165,9 @@ export function ensureTenantOpenClawAgent(agent, ceoUserId) {
   syncEssentialWorkspaceDocs(baseOcId, workspacePath);
 
   const grants = grantsForAgentId(agent.id);
-  const config = readOpenClawConfig();
+  let config = readOpenClawConfig();
   if (!Array.isArray(config.agents?.list)) config.agents = { list: [] };
+  config = ensureByokProviderInConfig(config, ceoUserId);
 
   let entry = config.agents.list.find((a) => String(a.id || '').toLowerCase() === runtimeOcId);
   if (!entry) {
@@ -180,6 +185,7 @@ export function ensureTenantOpenClawAgent(agent, ceoUserId) {
   entry.tools = entry.tools || {};
   entry.tools.allow = mergeNativeTools(entry.tools.allow, grants);
   if (!entry.tools.deny) entry.tools.deny = ['image'];
+  applyByokModelToAgentEntry(entry, ceoUserId);
   writeOpenClawConfig(config);
 
   const allowPath = join(getOpenClawDir(), 'agent-tool-allowlists.json');

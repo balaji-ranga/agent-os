@@ -15,8 +15,12 @@ function UserProfilePanel() {
     confirm_password: '',
     mfa_policy: 'inherit',
     mfa_mode: 'inherit',
+    llm_provider: 'platform_decided',
+    llm_api_key: '',
+    clear_llm_api_key: false,
   });
   const [mfaInfo, setMfaInfo] = useState(null);
+  const [llmHint, setLlmHint] = useState(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
@@ -31,7 +35,11 @@ function UserProfilePanel() {
       mobile: user.mobile || '',
       mfa_policy: user.mfa_policy || 'inherit',
       mfa_mode: user.mfa_mode || 'inherit',
+      llm_provider: user.llm_provider || 'platform_decided',
+      llm_api_key: '',
+      clear_llm_api_key: false,
     }));
+    setLlmHint(user.llm_api_key_hint || null);
     api
       .authMe()
       .then((data) => {
@@ -48,7 +56,9 @@ function UserProfilePanel() {
           ...f,
           mfa_policy: data.user?.mfa_policy || m.policy || 'inherit',
           mfa_mode: data.user?.mfa_mode || m.user_mfa_mode || 'inherit',
+          llm_provider: data.user?.llm_provider || 'platform_decided',
         }));
+        setLlmHint(data.user?.llm_api_key_hint || null);
       })
       .catch(() => {});
   }, [user]);
@@ -72,10 +82,16 @@ function UserProfilePanel() {
         mobile: form.mobile,
         mfa_policy: form.mfa_policy,
         mfa_mode: form.mfa_mode === 'inherit' ? 'inherit' : form.mfa_mode,
+        llm_provider: form.llm_provider,
       };
       if (form.new_password) {
         body.current_password = form.current_password;
         body.new_password = form.new_password;
+      }
+      if (form.clear_llm_api_key) {
+        body.clear_llm_api_key = true;
+      } else if (form.llm_api_key && form.llm_api_key.trim()) {
+        body.llm_api_key = form.llm_api_key.trim();
       }
       const data = await api.authUpdateProfile(body);
       await reload();
@@ -90,8 +106,17 @@ function UserProfilePanel() {
           user_mfa_mode: data.mfa.user_mfa_mode,
         }));
       }
+      setLlmHint(data.user?.llm_api_key_hint || null);
       setMessage('Profile updated.');
-      setForm((f) => ({ ...f, current_password: '', new_password: '', confirm_password: '' }));
+      setForm((f) => ({
+        ...f,
+        current_password: '',
+        new_password: '',
+        confirm_password: '',
+        llm_api_key: '',
+        clear_llm_api_key: false,
+        llm_provider: data.user?.llm_provider || f.llm_provider,
+      }));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -185,6 +210,49 @@ function UserProfilePanel() {
             <option value="TOTP">Authenticator app (TOTP)</option>
           </select>
         </label>
+
+        <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '0.5rem 0' }} />
+        <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--muted)' }}>
+          LLM provider (BYOK) — used by Agent OS and your OpenClaw agent space. Platform .env is used only when Platform decided (or unset).
+        </p>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Provider</span>
+          <select
+            value={form.llm_provider}
+            onChange={(e) => set('llm_provider', e.target.value)}
+            style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+          >
+            <option value="platform_decided">Platform decided (use .env)</option>
+            <option value="openai">OpenAI (BYOK)</option>
+            <option value="openrouter">OpenRouter (BYOK)</option>
+            <option value="ollama_free">Ollama Free (local)</option>
+          </select>
+        </label>
+        {(form.llm_provider === 'openai' || form.llm_provider === 'openrouter') && (
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
+              API key {llmHint ? `(saved: ${llmHint})` : ''}
+            </span>
+            <input
+              type="password"
+              value={form.llm_api_key}
+              onChange={(e) => set('llm_api_key', e.target.value)}
+              placeholder={llmHint ? 'Leave blank to keep current key' : 'Paste API key'}
+              autoComplete="off"
+              style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+            />
+            {llmHint && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8rem', color: 'var(--muted)' }}>
+                <input
+                  type="checkbox"
+                  checked={form.clear_llm_api_key}
+                  onChange={(e) => set('clear_llm_api_key', e.target.checked)}
+                />
+                Clear saved API key
+              </label>
+            )}
+          </label>
+        )}
 
         <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '0.5rem 0' }} />
         <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--muted)' }}>Change password (optional)</p>

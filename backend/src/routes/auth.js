@@ -36,7 +36,7 @@ router.get('/mfa/defaults', (_req, res) => {
 
 router.post('/register', async (req, res) => {
   try {
-    const { email, password, name, region, mobile, db_mode, ceo_db_mode, mfa_policy, mfa_mode } =
+    const { email, password, name, region, mobile, db_mode, ceo_db_mode, mfa_policy, mfa_mode, llm_provider, llm_api_key } =
       req.body || {};
     const user = registerCeoUser({
       email,
@@ -48,6 +48,8 @@ router.post('/register', async (req, res) => {
       ceo_db_mode,
       mfa_policy,
       mfa_mode,
+      llm_provider,
+      llm_api_key,
     });
     let openclaw = null;
     try {
@@ -217,7 +219,7 @@ router.get('/me', requireAuth, (req, res) => {
 
 router.patch('/me', requireAuth, (req, res) => {
   try {
-    const { name, email, region, mobile, current_password, new_password, mfa_policy, mfa_mode } =
+    const { name, email, region, mobile, current_password, new_password, mfa_policy, mfa_mode, llm_provider, llm_api_key, clear_llm_api_key } =
       req.body || {};
     const user = updateUserProfile(req.authUser.id, {
       name,
@@ -228,6 +230,9 @@ router.patch('/me', requireAuth, (req, res) => {
       new_password,
       mfa_policy,
       mfa_mode,
+      llm_provider,
+      llm_api_key,
+      clear_llm_api_key,
     });
     const mfaRow = getUserMfa(req.authUser.id);
     res.json({ user, mfa: resolveUserMfa(mfaRow) });

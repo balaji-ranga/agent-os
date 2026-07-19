@@ -12,6 +12,13 @@ import {
   resolveRegisterCeoDbMode,
 } from '../db/ceo-db-config.js';
 import { ensureMfaTables, normalizeMfaPolicy, normalizeMfaMode, updateUserMfaSettings } from './auth/mfa.js';
+import {
+  normalizeLlmProvider,
+  providerNeedsApiKey,
+  updateUserLlmSettings,
+  userLlmPublic,
+  syncUserLlmToOpenClaw,
+} from './user-llm-settings.js';
 
 function slugId(prefix, email) {
   const base = String(email || '')
@@ -52,6 +59,8 @@ export function registerCeoUser({
   ceo_db_mode,
   mfa_policy = 'inherit',
   mfa_mode = null,
+  llm_provider = 'platform_decided',
+  llm_api_key = null,
 } = {}) {
   ensureMfaTables();
   const db = getDb();
@@ -73,11 +82,16 @@ export function registerCeoUser({
     throw new Error('mfa_mode must be EMAIL, TOTP, or inherit');
   }
   const enabledFlag = policy === 'on' ? 1 : 0;
+  const provider = normalizeLlmProvider(llm_provider);
+  const apiKey = llm_api_key != null && String(llm_api_key).trim() ? String(llm_api_key).trim() : null;
+  if (providerNeedsApiKey(provider) && !apiKey) {
+    throw new Error(`API key required for llm_provider=${provider}`);
+  }
 
   db.prepare(
     `INSERT INTO platform_users
-      (id, email, password_hash, name, region, mobile, role, enabled, ceo_db_mode, mfa_policy, mfa_mode, mfa_enabled)
-     VALUES (?, ?, ?, ?, ?, ?, 'ceo', 1, ?, ?, ?, ?)`
+      (id, email, password_hash, name, region, mobile, role, enabled, ceo_db_mode, mfa_policy, mfa_mode, mfa_enabled, llm_provider, llm_api_key)
+     VALUES (?, ?, ?, ?, ?, ?, 'ceo', 1, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     normalizedEmail,
@@ -88,11 +102,17 @@ export function registerCeoUser({
     mode,
     policy,
     userMode,
-    enabledFlag
+    enabledFlag,
+    provider,
+    apiKey
   );
 
   if (mode === 'tenant' && !isPlatformLegacyCeo(id)) initCeoDb(id);
   const agents = grantStandardAgents(id);
+
+  try {
+    syncUserLlmToOpenClaw(id);
+  } catch (_) {}
 
   return {
     id,
@@ -106,6 +126,7 @@ export function registerCeoUser({
     mfa_policy: policy,
     mfa_mode: userMode,
     standard_agents_granted: agents,
+    ...userLlmPublic({ llm_provider: provider, llm_api_key: apiKey }),
   };
 }
 
@@ -144,6 +165,7 @@ export function authenticateUser(email, password) {
 
 export function userPublic(row) {
   if (!row) return null;
+  const llm = userLlmPublic(row);
   const out = {
     id: row.id,
     email: row.email,
@@ -156,6 +178,9 @@ export function userPublic(row) {
     mfa_policy: row.mfa_policy || 'inherit',
     mfa_mode: row.mfa_mode || null,
     mfa_enabled: !!row.mfa_enabled,
+    llm_provider: llm.llm_provider,
+    llm_api_key_set: llm.llm_api_key_set,
+    llm_api_key_hint: llm.llm_api_key_hint,
   };
   if (row.role === 'ceo') {
     out.ceo_db_mode = getCeoDbModeForUser(row.id);
@@ -237,7 +262,19 @@ export function revokeUserAgent(userId, agentId) {
 
 export function updateUserProfile(
   userId,
-  { name, email, region, mobile, current_password, new_password, mfa_policy, mfa_mode } = {}
+  {
+    name,
+    email,
+    region,
+    mobile,
+    current_password,
+    new_password,
+    mfa_policy,
+    mfa_mode,
+    llm_provider,
+    llm_api_key,
+    clear_llm_api_key,
+  } = {}
 ) {
   const db = getDb();
   const row = db.prepare('SELECT * FROM platform_users WHERE id = ?').get(userId);
@@ -278,6 +315,10 @@ export function updateUserProfile(
 
   if (mfa_policy !== undefined || mfa_mode !== undefined) {
     updateUserMfaSettings(userId, { mfa_policy, mfa_mode });
+  }
+
+  if (llm_provider !== undefined || llm_api_key !== undefined || clear_llm_api_key) {
+    updateUserLlmSettings(userId, { llm_provider, llm_api_key, clear_llm_api_key });
   }
 
   return getUserById(userId);

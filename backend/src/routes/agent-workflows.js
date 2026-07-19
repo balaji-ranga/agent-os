@@ -17,10 +17,11 @@ import {
   deleteAllRuns,
   deleteDefinitionWithCleanup,
 } from '../services/agent-workflow-run-manager.js';
-import { getHookInfo } from '../services/agent-workflow-webhooks.js';
+import { getHookInfo, registerEventHook } from '../services/agent-workflow-webhooks.js';
 import { runWorkflowBuilderChat, getWorkflowBuilderChatHistory } from '../services/agent-workflow-agent.js';
 import { applyWorkflowBuilderActions, getWorkflowDraftForAgent } from '../services/agent-workflow-builder.js';
 import { getBrainHistory } from '../services/agent-workflow-brain-history.js';
+import { resolveEntitledOwnerUserId } from '../services/tool-owner-scope.js';
 
 const router = Router();
 
@@ -50,14 +51,8 @@ function allowInternalOrCeo(req, res, next) {
 async function brainHistoryHandler(req, res) {
   try {
     const src = req.method === 'GET' ? req.query : req.body || {};
-    let ownerUserId = src.owner_user_id || req.authUser?.id || null;
-    if (!ownerUserId) {
-      try {
-        ownerUserId = resolveAuthenticatedCeoUserId(req, src);
-      } catch {
-        ownerUserId = process.env.AGENT_OS_BALA_CEO_ID || 'ceo-bala';
-      }
-    }
+    // Session / trusted headers only — never body owner_user_id (LLM / client spoof).
+    const ownerUserId = resolveEntitledOwnerUserId(req, { fallbackToBala: true });
     const result = await getBrainHistory({
       ownerUserId,
       workflowIds: src.workflow_id ?? src.workflow_ids ?? src.workflowId,
@@ -329,6 +324,31 @@ router.get('/:id/hook', (req, res) => {
     res.json(info);
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+/** Enable event trigger + return webhook / email-inbound URLs (owner-entitled). */
+router.post('/:id/hooks/register', (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.body);
+    const info = registerEventHook(req.params.id, ownerUserId, actorFromRequest(req));
+    if (!info) return res.status(404).json({ error: 'Workflow not found' });
+    res.json(info);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+/** Rotate webhook secret (owner-entitled). Previous secret stops working immediately. */
+router.post('/:id/hooks/regenerate-secret', (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.body);
+    const secret = store.regenerateWebhookSecret(req.params.id, ownerUserId, actorFromRequest(req));
+    if (!secret) return res.status(404).json({ error: 'Workflow not found' });
+    const info = getHookInfo(req.params.id, ownerUserId);
+    res.json({ ...info, webhook_secret: secret, regenerated: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
   }
 });
 

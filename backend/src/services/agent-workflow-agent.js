@@ -56,6 +56,11 @@ import {
 } from './agent-workflow-agent-runs.js';
 import { tryTroubleshootWorkflowResponse } from './agent-workflow-agent-troubleshoot.js';
 import { tryCatalogQueryResponse, formatCatalogForPrompt } from './agent-workflow-builder-catalog.js';
+import {
+  parseUntilSuccessIntent,
+  executeUntilSuccess,
+  formatUntilSuccessReply,
+} from './agent-workflow-agent-until-success.js';
 
 
 
@@ -63,9 +68,13 @@ const WORKFLOW_BUILDER_AGENT_ID = 'workflowbuilder';
 
 
 
-const SYSTEM_PROMPT = `You are the Workflow Builder agent (workflow chatops SME) for Agent OS. You create, edit, test, and operate visual agent workflows — full parity with the workflow UI.
+const SYSTEM_PROMPT = `You are the Workflow Builder agent (workflow chatops SME) for Agent OS. You create, edit, test, troubleshoot, and operate visual agent workflows — full parity with the workflow UI.
 
-You work like Cursor: user gives intent, you produce a complete working workflow with all nodes wired, configs filled, published, and tested when asked. Use Runtime environment IDs and defaults — never ask the user for node attribute details you can infer.
+You work like Cursor for workflows: user gives INTENT + optional SUCCESS CRITERIA; you build a complete wired graph, publish, test, diagnose failures, fix, and retest until criteria are met (or budget exhausted). Use Runtime environment IDs and defaults — never ask the user for node attribute details you can infer. You already have full context of ALL this CEO's workflows (draft + published) in the user message.
+
+ENTITLEMENTS: You may only read/mutate/trigger workflows owned by the current entitled CEO. Never invent another owner's workflows or ask the user to spoof ceo_user_id.
+
+LEARNINGS: Before starting any non-trivial create/fix/until_success task, prefer calling the learnings_summary content tool (topic = short description of the request, days default 30) so you avoid past mistakes and honor this CEO's prior feedback and Kanban approve/reject comments. If the tool is unavailable in this chat path, still respect any learnings included in context.
 
 Respond with a single JSON object (no markdown fences):
 { "reply": "...", "actions": [ ... ] }
@@ -75,6 +84,7 @@ Respond with a single JSON object (no markdown fences):
 ## Graph editing
 
 - create_workflow — { "action": "create_workflow", "name": "...", "chat_phrase": "...", "trigger_modes": ["manual","chat"] }
+  Prefer create_workflow THEN add_node (do not omit create when no workflow is open). If you include graph.nodes, each node MUST be { id, type, position: { x, y }, data: { ... } } — never omit position.
 
 - create_from_template — { "action": "create_from_template", "template_id": "template-job-applicant-pipeline", "name": "..." }
 
@@ -92,8 +102,22 @@ Respond with a single JSON object (no markdown fences):
 
 - get_node_type — { "action": "get_node_type", "node_type": "brain" } — detailed spec + examples
 
+- list_content_tools — { "action": "list_content_tools" } — ALL enabled content tools (name + purpose)
+
+- enquire_content_tools — { "action": "enquire_content_tools", "query": "summarize a web page" } — rank tools by user intent; returns top_recommendation
+
 - validate_publish — { "action": "validate_publish" } — preflight publish errors before publishing
 
+
+
+## Content tools → tool nodes (CRITICAL)
+
+Runtime environment lists every enabled content tool with its purpose. When the user describes a capability:
+1. Match intent to a content tool purpose (or call enquire_content_tools).
+2. Recommend the tool by exact \`name\` and explain why (one sentence).
+3. To wire it into a workflow: add_node with node_type "tool", toolName "<exact name>", optional toolPayload.
+Example: { "action": "add_node", "node_type": "tool", "label": "Summarize URL", "toolName": "summarize_url", "connect_from": "trigger-1" }
+Do NOT invent tool names or raw /api/tools/... api nodes when a registered content tool exists.
 
 
 ## Definition lifecycle (CRITICAL)
@@ -114,6 +138,7 @@ Respond with a single JSON object (no markdown fences):
 
 - list_runs — { "action": "list_runs", "workflow_id": "...", "limit": 20 } — recent run instances (AUTHORITATIVE run numbers)
 - trigger_workflow, test_workflow (run + wait + diagnostics), inspect_run, pause_run, stop_run, pause_all_runs, stop_listen
+- until_success — { "action": "until_success", "success_criteria": "completed", "input": "...", "max_attempts": 3 } — publish → test → structural heal → retest until criteria met
 - delete_workflow
 
 NEVER invent run numbers or run ids. For failed-run questions: use list_runs or inspect_run with run_number from Recent runs context, or inspect_run with latest_failed on the named workflow.
@@ -124,9 +149,19 @@ When user says "make draft", "unpublish", "revert to draft", or "change status t
 
 
 
+## Build-test-iterate (CRITICAL — Cursor mode)
+
+When the user wants a working workflow, end-to-end validation, or states success criteria:
+1. Create/update the full graph in one actions batch (wired end-to-end).
+2. Include validate_publish then publish (or let until_success publish).
+3. End with until_success (preferred) OR test_workflow with wait:true.
+4. On failure: inspect failed steps, apply update_node/add_edge fixes, then until_success / test_workflow again — do not stop at "please try again".
+
+Default success criteria when unspecified: run status=completed with no failed steps.
+
 ## Test & fix
 
-inspect_run / failed-run RCA → read failed step errors → update_node / add_edge → unpublish if needed → edit → publish → test_workflow again.
+inspect_run / failed-run RCA → read failed step errors → update_node / add_edge → unpublish if needed → edit → publish → test_workflow / until_success again.
 For structural issues: diagnose orphans, missing agent_id, dangling edges — then apply add_edge / update_node fixes.
 Job applicant pipeline: prefer create_from_template with template_id "template-job-applicant-pipeline" (or say "create a job applicant pipeline workflow").
 Clone: use clone_workflow to copy an existing definition into a new draft.
@@ -134,6 +169,7 @@ Clone: use clone_workflow to copy an existing definition into a new draft.
 
 
 Use task_config for brain (modelSource, systemPrompt, mcpToolCalling, mcpServerIds), mcp_tool (mcpServerId, toolName), api, email, if/while conditions, etc.
+For tool nodes: set toolName to an exact Content tools catalog name (from Runtime or enquire_content_tools).
 
 Brain nodes (CRITICAL):
 - Default modelSource=ollama (local, no API key). Platform .env keys are NEVER used for workflow runs.
@@ -411,6 +447,11 @@ function formatAssistantReply(baseReply, result) {
   if (failed.length) {
     text += `\n\n**Errors:**\n${failed.map((f) => `- **${f.action}**: ${f.error}`).join('\n')}`;
     text += '\n\nGraph changes before the failed step were saved. Fix the error and retry publish.';
+  }
+
+  const untilResult = applied.find((a) => a.action === 'until_success');
+  if (untilResult) {
+    text += `\n\n${formatUntilSuccessReply(untilResult)}`;
   }
 
   const testResult = applied.find((a) => a.action === 'test_workflow' && a.run);
@@ -945,7 +986,7 @@ export async function runWorkflowBuilderChat({
 
 
 
-  const { content, modelUsed } = await chatCompletions({ messages, maxTokens: 4096 });
+  const { content, modelUsed } = await chatCompletions({ messages, maxTokens: 4096, ownerUserId });
 
   const parsed = parseAgentJson(content);
 
@@ -957,6 +998,22 @@ export async function runWorkflowBuilderChat({
 
   actions = enrichCreateWorkflowActions(trimmed, actions, runtime);
 
+  const untilIntent = parseUntilSuccessIntent(trimmed);
+  const hasUntilAction = actions.some((a) =>
+    ['until_success', 'build_until_success'].includes(String(a?.action || a?.op || '').toLowerCase())
+  );
+  if (untilIntent && !hasUntilAction) {
+    actions = [
+      ...actions,
+      {
+        action: 'until_success',
+        success_criteria: untilIntent.success_criteria || 'completed',
+        input: untilIntent.input || undefined,
+        max_attempts: untilIntent.max_attempts || 3,
+      },
+    ];
+  }
+
   let result = null;
 
   let effectiveWorkflowId = workflowId;
@@ -964,11 +1021,99 @@ export async function runWorkflowBuilderChat({
 
 
   if (actions.length) {
+    // Apply non-until actions first, then run LLM-aware until_success loop
+    const untilIdx = actions.findIndex((a) =>
+      ['until_success', 'build_until_success'].includes(String(a?.action || a?.op || '').toLowerCase())
+    );
+    const untilAction = untilIdx >= 0 ? actions[untilIdx] : null;
+    const prepActions = untilIdx >= 0 ? actions.filter((_, i) => i !== untilIdx) : actions;
 
-    result = await applyWorkflowBuilderActions(ownerUserId, effectiveWorkflowId, actions, actorNorm);
+    if (prepActions.length) {
+      result = await applyWorkflowBuilderActions(ownerUserId, effectiveWorkflowId, prepActions, actorNorm, {
+        message: trimmed,
+      });
+      effectiveWorkflowId = result.workflow_id || effectiveWorkflowId;
 
-    effectiveWorkflowId = result.workflow_id;
+      // One automatic retry when mutations ran without a workflow context
+      const contextMiss = (result.results || []).some(
+        (r) =>
+          r.ok === false &&
+          /no workflow in context/i.test(String(r.error || ''))
+      );
+      if (contextMiss && !effectiveWorkflowId) {
+        result = await applyWorkflowBuilderActions(ownerUserId, null, prepActions, actorNorm, {
+          message: trimmed,
+        });
+        effectiveWorkflowId = result.workflow_id || effectiveWorkflowId;
+      }
+    }
 
+    if (untilAction && effectiveWorkflowId) {
+      const llmFixFn = async (ctx) => {
+        const fixMessages = [
+          { role: 'system', content: SYSTEM_PROMPT },
+          {
+            role: 'user',
+            content: [
+              'Fix the workflow so the next test meets success criteria. Return JSON { "reply": "...", "actions": [...] } only.',
+              `Success criteria: ${ctx.successCriteria || untilAction.success_criteria || 'completed'}`,
+              `Phase: ${ctx.phase}`,
+              ctx.errors ? `Publish errors: ${JSON.stringify(ctx.errors).slice(0, 2000)}` : '',
+              ctx.run ? `Failed run: ${JSON.stringify(ctx.run).slice(0, 3000)}` : '',
+              ctx.diagnosis ? `Structural diagnosis: ${JSON.stringify(ctx.diagnosis.issues || []).slice(0, 2000)}` : '',
+              ctx.graph_summary ? `Graph summary: ${JSON.stringify(ctx.graph_summary).slice(0, 2500)}` : '',
+              'Do not include until_success or create_workflow. Prefer update_node, add_edge, delete_edge, set_metadata.',
+            ]
+              .filter(Boolean)
+              .join('\n'),
+          },
+        ];
+        try {
+          const { content: fixContent } = await chatCompletions({
+            messages: fixMessages,
+            maxTokens: 2048,
+            ownerUserId,
+          });
+          return parseAgentJson(fixContent).actions || [];
+        } catch {
+          return [];
+        }
+      };
+
+      const outcome = await executeUntilSuccess({
+        ownerUserId,
+        workflowId: effectiveWorkflowId,
+        actor: actorNorm,
+        input: untilAction.input || untilAction.message || untilIntent?.input || 'Until-success validation run',
+        successCriteria: untilAction.success_criteria || untilAction.criteria || untilIntent?.success_criteria || 'completed',
+        maxAttempts: untilAction.max_attempts || untilIntent?.max_attempts || 3,
+        timeoutMs: Number(untilAction.timeout_ms) || 45000,
+        applyStructuralFixes: untilAction.apply_fixes !== false,
+        llmFixFn,
+      });
+      effectiveWorkflowId = outcome.workflow_id || effectiveWorkflowId;
+      const untilRow = {
+        action: 'until_success',
+        ok: outcome.success,
+        success: outcome.success,
+        attempts: outcome.attempts,
+        last_run: outcome.last_run,
+        success_criteria: outcome.success_criteria,
+        workflow_id: effectiveWorkflowId,
+      };
+      result = {
+        ...(result || {}),
+        workflow_id: effectiveWorkflowId,
+        workflow: outcome.workflow,
+        draft_graph: outcome.workflow?.draft_graph,
+        graph_summary: summarizeGraphForAgent(outcome.workflow?.draft_graph),
+        results: [...(result?.results || []), untilRow],
+        has_errors: !outcome.success || !!(result?.has_errors),
+      };
+    } else if (untilIdx >= 0 && !effectiveWorkflowId) {
+      result = await applyWorkflowBuilderActions(ownerUserId, null, actions, actorNorm);
+      effectiveWorkflowId = result.workflow_id;
+    }
   }
 
 
@@ -979,19 +1124,19 @@ export async function runWorkflowBuilderChat({
 
     const tr = result.results.find((r) =>
 
-      ['trigger_workflow', 'trigger_run', 'test_workflow'].includes(r.action)
+      ['trigger_workflow', 'trigger_run', 'test_workflow', 'until_success'].includes(r.action)
 
     );
 
-    if (tr?.run_id) {
+    if (tr?.run_id || tr?.last_run?.run_id) {
 
       workflowTriggered = {
 
-        run_id: tr.run_id,
+        run_id: tr.run_id || tr.last_run?.run_id,
 
-        run_number: tr.run_number,
+        run_number: tr.run_number || tr.last_run?.run_number,
 
-        definition_id: tr.definition_id,
+        definition_id: tr.definition_id || tr.last_run?.definition_id,
 
       };
 

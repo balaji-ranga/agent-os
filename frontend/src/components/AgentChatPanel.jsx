@@ -89,7 +89,16 @@ export default function AgentChatPanel({
           </div>
         )}
         {turns.map((t, i) => (
-          <ChatMessageRow key={i} role={t.role} content={t.content} createdAt={t.created_at} />
+          <ChatMessageRow
+            key={t.id || i}
+            role={t.role}
+            content={t.content}
+            createdAt={t.created_at}
+            agentId={agentId}
+            messageId={t.id}
+            feedbackSource="chat"
+            feedbackContext={profileId ? { profile_id: profileId } : {}}
+          />
         ))}
         {sending && <div style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>…</div>}
       </div>

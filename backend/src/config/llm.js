@@ -1,17 +1,11 @@
 /**
  * Central LLM config: primary and secondary OpenAPI-compliant endpoints (base URL + API key + model).
- * Uses the same .env vars as OpenClaw gateway (start-gateway-with-env.js loads backend/.env):
+ * Precedence: per-user BYOK (openai / openrouter / ollama_free) → platform .env when platform_decided or unset.
+ * Uses the same .env vars as OpenClaw gateway when falling back:
  * OPENAI_API_KEY, OPENAI_BASE_URL, OPENCLAW_MODEL_PRIMARY — with OPENAI_PRIMARY_* as aliases.
  */
+import { resolveLlmConfigForUser } from '../services/user-llm-settings.js';
 
-function normalizeBaseUrl(url) {
-  if (!url || typeof url !== 'string') return '';
-  const u = url.trim().replace(/\/$/, '');
-  if (u.endsWith('/chat/completions')) return u.replace(/\/chat\/completions$/, '');
-  return u;
-}
-
-/** True if base URL is local Ollama (no API key required). */
 function isLocalOllama(baseUrl) {
   if (!baseUrl || typeof baseUrl !== 'string') return false;
   try {
@@ -22,69 +16,36 @@ function isLocalOllama(baseUrl) {
   }
 }
 
-/** Model slug from OPENCLAW_MODEL_PRIMARY (e.g. openai/gpt-4o-mini → gpt-4o-mini). */
-function modelFromOpenClawPrimary() {
-  const raw = (process.env.OPENCLAW_MODEL_PRIMARY || '').trim();
-  if (!raw) return '';
-  const slash = raw.indexOf('/');
-  return slash >= 0 ? raw.slice(slash + 1).trim() : raw;
-}
-
 /**
+ * @param {string} [ownerUserId] - CEO user id; when set, user BYOK takes precedence over .env
  * @returns {{
  *   primary: { baseUrl: string, apiKey: string, model: string },
- *   secondary: { baseUrl: string, apiKey: string, model: string } | null
+ *   secondary: { baseUrl: string, apiKey: string, model: string } | null,
+ *   provider?: string,
+ *   using_byok?: boolean
  * }}
  */
-export function getLlmConfig() {
-  const defaultBase = 'https://api.openai.com/v1';
-  const primaryBase =
-    normalizeBaseUrl(
-      process.env.OPENAI_BASE_URL ||
-        process.env.OPENAI_API_URL ||
-        process.env.OPENAI_PRIMARY_BASE_URL ||
-        defaultBase
-    ) || defaultBase;
-  // Same key OpenClaw gateway reads from backend/.env
-  let primaryKey = (process.env.OPENAI_API_KEY || process.env.OPENAI_PRIMARY_API_KEY || '').trim();
-  const primaryModel =
-    modelFromOpenClawPrimary() ||
-    (process.env.OPENAI_PRIMARY_MODEL || process.env.OPENAI_DEFAULT_MODEL || 'gpt-4o-mini').trim() ||
-    'gpt-4o-mini';
-
-  // Ollama (localhost) does not require a real API key; use placeholder so request is sent
-  if (!primaryKey && isLocalOllama(primaryBase)) primaryKey = 'ollama';
-
-  const secondaryBase = normalizeBaseUrl(process.env.OPENAI_SECONDARY_BASE_URL || '');
-  let secondaryKey = (process.env.OPENAI_SECONDARY_API_KEY || '').trim();
-  const secondaryModel = (process.env.OPENAI_SECONDARY_MODEL || '').trim();
-  if (!secondaryKey && isLocalOllama(secondaryBase)) secondaryKey = 'ollama';
-
-  // Secondary: full provider (url + key + model) or same endpoint as primary with different model only
-  let secondary = null;
-  if (secondaryModel && (secondaryBase && secondaryKey)) {
-    secondary = { baseUrl: secondaryBase, apiKey: secondaryKey, model: secondaryModel };
-  } else if (secondaryModel && primaryKey) {
-    secondary = { baseUrl: primaryBase, apiKey: primaryKey, model: secondaryModel };
-  }
-
+export function getLlmConfig(ownerUserId = null) {
+  const resolved = resolveLlmConfigForUser(ownerUserId || null);
   return {
     primary: {
-      baseUrl: primaryBase,
-      apiKey: primaryKey,
-      model: primaryModel,
+      baseUrl: resolved.primary.baseUrl,
+      apiKey: resolved.primary.apiKey,
+      model: resolved.primary.model,
     },
-    secondary,
+    secondary: resolved.secondary,
+    provider: resolved.provider,
+    using_byok: !!resolved.using_byok,
   };
 }
 
 /**
  * Call OpenAPI-compliant chat/completions with optional model override. Tries primary then secondary endpoint.
- * @param {{ messages: Array<{ role: string, content: string }>, modelOverride?: string, maxTokens?: number }}
+ * @param {{ messages: Array<{ role: string, content: string }>, modelOverride?: string, maxTokens?: number, ownerUserId?: string }}
  * @returns {Promise<{ content: string, modelUsed: string }>}
  */
-export async function chatCompletions({ messages, modelOverride, maxTokens = 1024 }) {
-  const cfg = getLlmConfig();
+export async function chatCompletions({ messages, modelOverride, maxTokens = 1024, ownerUserId = null }) {
+  const cfg = getLlmConfig(ownerUserId);
   const endpoints = [
     { ...cfg.primary, model: modelOverride || cfg.primary.model },
     cfg.secondary ? { ...cfg.secondary, model: modelOverride || cfg.secondary.model } : null,
@@ -93,7 +54,11 @@ export async function chatCompletions({ messages, modelOverride, maxTokens = 102
   const primary = endpoints[0];
   if (!primary?.baseUrl) throw new Error('OPENAI_PRIMARY_BASE_URL not set');
   if (!primary?.apiKey && !isLocalOllama(primary.baseUrl)) {
-    throw new Error('OPENAI_API_KEY or OPENAI_PRIMARY_API_KEY not set in backend/.env (same key used by OpenClaw gateway)');
+    throw new Error(
+      cfg.using_byok
+        ? 'User BYOK API key missing or invalid'
+        : 'OPENAI_API_KEY or OPENAI_PRIMARY_API_KEY not set in backend/.env (same key used by OpenClaw gateway), or set BYOK on your profile'
+    );
   }
 
   let lastErr;

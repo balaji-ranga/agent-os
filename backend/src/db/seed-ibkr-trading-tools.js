@@ -199,6 +199,17 @@ export const IBKR_TRADING_TOOLS = [
     enabled: 1,
     is_builtin: 0,
   },
+  {
+    name: 'ibkr_order_learnings',
+    display_name: 'IBKR Order Learnings',
+    endpoint: '/api/ibkr-trading/order-learnings',
+    method: 'POST',
+    purpose:
+      'Summarize prior IBKR order cancels/fills/rejects for the session CEO (Maker context). Body: days (default 7), response_type actual|summarized (default summarized), optional symbol_key, limit, purpose. Owner from session — never spoof owner_user_id.',
+    model_used: 'platform LLM when response_type=summarized',
+    enabled: 1,
+    is_builtin: 0,
+  },
 ];
 
 /** Sample bodies for Content tools UI Test panel. */
@@ -234,6 +245,12 @@ export const IBKR_DEFAULT_TEST_BODIES = {
   ibkr_fills_history: {},
   ibkr_pnl: {},
   ibkr_cash_events: {},
+  ibkr_order_learnings: {
+    days: 7,
+    response_type: 'summarized',
+    limit: 40,
+    purpose: 'IBKR Maker order learnings (content-tools test)',
+  },
 };
 
 export const IBKR_ANALYTICS_TOOL_NAMES = [
@@ -243,7 +260,7 @@ export const IBKR_ANALYTICS_TOOL_NAMES = [
   'ibkr_cash_events',
 ];
 
-/** Read-only IBKR tools useful for COO chat (analytics + status). */
+/** Read-only IBKR tools useful for COO chat (analytics + status + learnings). */
 export const IBKR_COO_TOOL_NAMES = [
   ...IBKR_ANALYTICS_TOOL_NAMES,
   'ibkr_gateway_ping',
@@ -251,6 +268,7 @@ export const IBKR_COO_TOOL_NAMES = [
   'ibkr_day_status',
   'ibkr_account_snapshot',
   'ibkr_preflight',
+  'ibkr_order_learnings',
 ];
 
 export function seedIbkrTradingToolsIfMissing() {

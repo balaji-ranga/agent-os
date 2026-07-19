@@ -4,11 +4,12 @@
 import { getTaskCatalog, getTaskTypeDef } from './agent-workflow-task-catalog.js';
 import { validateWorkflowBrainCredentials } from './agent-workflow-brain-providers.js';
 import { defaultBrainConfig } from './agent-workflow-agent-runtime-context.js';
+import { enquireContentTools, listEnabledContentTools } from './content-tools-meta.js';
 
 const NODE_PURPOSE = {
   trigger: 'Entry point. Starts runs via manual button, chat phrase, cron schedule, or webhook.',
   agent: 'Delegates work to a workspace agent with a prompt template. Use {{input}} for prior step text.',
-  tool: 'Runs a registered content tool (media, scraping, etc.).',
+  tool: 'Runs a registered content tool by exact toolName (see Content tools catalog / enquire_content_tools).',
   mcp_tool: 'Calls a tool on an MCP server. Requires mcpServerId + toolName from Runtime environment.',
   mcp_listen: 'Long-running SSE listener on an MCP stream; dispatches downstream on each event.',
   sse_listen: 'Long-running SSE HTTP listener; dispatches downstream on each event.',
@@ -17,6 +18,8 @@ const NODE_PURPOSE = {
   api: 'HTTP request (GET/POST/etc.) to an external API; supports auth headers and body templates.',
   externalAgent: 'Invokes a registered external agent via A2A JSON-RPC (skillId, message).',
   custom_script: 'Runs an approved Python/JS script in a sandbox (customScriptId).',
+  masterdata: 'Query this CEO master-data tables (CSV) or RAG over uploaded documents. Owner is always the workflow owner — never spoof.',
+  filesystem: 'List/stat/read/move files under WORKFLOW_FS_ROOTS. Prefer schedule trigger to poll a folder instead of a separate file-poller service.',
   parallel: 'Fans out to multiple branches concurrently.',
   merge: 'Joins parallel branches before continuing.',
   ceo_approval: 'Pauses for CEO approve/reject; outputs decision (approved/rejected).',
@@ -148,7 +151,10 @@ export function tryCatalogQueryResponse(message) {
   const t = String(message || '').trim();
   if (!t) return null;
 
-  const typeMatch = t.match(/\b(trigger|agent|brain|tool|mcp_tool|mcp_listen|sse_listen|sub_workflow|email|api|externalAgent|custom_script|parallel|merge|ceo_approval|if|while)\b/i);
+  const contentToolsHit = tryContentToolsQueryResponse(t);
+  if (contentToolsHit) return contentToolsHit;
+
+  const typeMatch = t.match(/\b(trigger|agent|brain|tool|mcp_tool|mcp_listen|sse_listen|sub_workflow|email|api|externalAgent|custom_script|masterdata|parallel|merge|ceo_approval|if|while)\b/i);
   const asksCatalog =
     /(?:what|explain|describe|how\s+(?:do|does)|tell\s+me\s+about).*(?:node|nodes|step|steps|catalog|attribute|config|task_config)/i.test(t) ||
     /(?:node|nodes)\s+(?:types?|catalog|reference)/i.test(t) ||
@@ -170,5 +176,66 @@ export function tryCatalogQueryResponse(message) {
     lines.push(`- **${c.label}** (\`${c.type}\`): ${c.purpose}`);
   }
   lines.push('', 'Ask about a specific type, e.g. "explain brain node config".');
+  return { reply: lines.join('\n'), actions: [] };
+}
+
+/**
+ * Fast-path: list/recommend content tools from natural language without an LLM round-trip.
+ */
+export function tryContentToolsQueryResponse(message) {
+  const t = String(message || '').trim();
+  if (!t) return null;
+
+  const asksList =
+    /(?:list|show|what(?:\s+are)?|which)\s+(?:all\s+)?(?:the\s+)?content\s+tools/i.test(t) ||
+    /content\s+tools?\s+(?:catalog|list|available)/i.test(t) ||
+    /(?:what|which)\s+tools?\s+(?:can|do)\s+(?:i|we|you)\s+use/i.test(t);
+
+  const recommendMatch = t.match(
+    /(?:which|what)\s+(?:content\s+)?tool(?:\s+should\s+i\s+use)?(?:\s+for|\s+to)?\s+(.+)/i
+  ) || t.match(
+    /(?:recommend|suggest|find)\s+(?:a\s+)?(?:content\s+)?tool(?:\s+for|\s+to)?\s+(.+)/i
+  ) || t.match(
+    /(?:content\s+)?tool\s+for\s+(.+)/i
+  );
+
+  if (!asksList && !recommendMatch) return null;
+
+  if (asksList && !recommendMatch) {
+    const tools = listEnabledContentTools();
+    const lines = [`## Content tools (${tools.length} enabled)`, ''];
+    for (const tool of tools) {
+      lines.push(`- **${tool.display_name}** (\`${tool.name}\`): ${tool.purpose || '(no purpose set)'}`);
+    }
+    lines.push(
+      '',
+      'To wire one into a workflow: `add_node` with `node_type: "tool"` and `toolName` set to the exact name.',
+      'Ask e.g. "which content tool for summarizing a URL?" for a ranked recommendation.'
+    );
+    return { reply: lines.join('\n'), actions: [] };
+  }
+
+  const query = String(recommendMatch?.[1] || t).trim();
+  const out = enquireContentTools(query, { limit: 8 });
+  if (!out.tools.length) {
+    return {
+      reply: `No content tool matched **${query}**. Try "list content tools" or a broader phrase (summarize, image, IBKR, learnings, brain history).`,
+      actions: [],
+    };
+  }
+
+  const lines = [`## Content tool recommendations for “${out.query}”`, ''];
+  if (out.top_recommendation) {
+    lines.push(
+      `**Top pick:** \`${out.top_recommendation.name}\` — ${out.top_recommendation.purpose}`,
+      '',
+      out.top_recommendation.how_to_use,
+      '',
+      'Other matches:'
+    );
+  }
+  for (const tool of out.tools) {
+    lines.push(`- \`${tool.name}\` (score ${tool.score}): ${tool.purpose || tool.display_name}`);
+  }
   return { reply: lines.join('\n'), actions: [] };
 }

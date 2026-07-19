@@ -161,21 +161,24 @@ router.post('/notifications', (req, res) => {
 
 router.post('/agents/custom', (req, res) => {
   try {
-    const { id, name, role, parent_id, workspace_path, openclaw_agent_id, owner_user_id } = req.body || {};
+    const { id, name, role, parent_id, reportingTo, reporting_to, department, workspace_path, openclaw_agent_id, owner_user_id } =
+      req.body || {};
     if (!id || !name) return res.status(400).json({ error: 'id and name required' });
+    const parentId = parent_id || reportingTo || reporting_to || null;
     getDb()
       .prepare(
-        `INSERT INTO agents (id, name, role, parent_id, workspace_path, openclaw_agent_id, is_coo, agent_type, owner_user_id)
-         VALUES (?, ?, ?, ?, ?, ?, 0, 'custom', ?)`
+        `INSERT INTO agents (id, name, role, parent_id, workspace_path, openclaw_agent_id, is_coo, agent_type, owner_user_id, department)
+         VALUES (?, ?, ?, ?, ?, ?, 0, 'custom', ?, ?)`
       )
       .run(
         id,
         name,
         role || '',
-        parent_id || null,
+        parentId,
         workspace_path || null,
         openclaw_agent_id || id,
-        owner_user_id || null
+        owner_user_id || null,
+        department != null ? String(department).trim() : ''
       );
     const agent = getDb().prepare('SELECT * FROM agents WHERE id = ?').get(id);
     res.status(201).json({ agent });

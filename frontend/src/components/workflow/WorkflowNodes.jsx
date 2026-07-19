@@ -118,6 +118,41 @@ export function CustomScriptNode({ id, data }) {
   );
 }
 
+export function MasterDataNode({ id, data }) {
+  const cfg = data.taskConfig || {};
+  const mode = cfg.mode || 'auto';
+  const sub =
+    mode === 'table'
+      ? `table · ${cfg.tableId || 'id'}`
+      : mode === 'rag'
+        ? `RAG · topK ${cfg.topK || 5}`
+        : `auto · ${cfg.tableId || 'tables/docs'}`;
+  return (
+    <NodeShell
+      nodeId={id}
+      color="#0f766e"
+      icon="🗄"
+      title={data.label || 'Master Data'}
+      subtitle={String(sub).slice(0, 42)}
+    />
+  );
+}
+
+export function FilesystemNode({ id, data }) {
+  const cfg = data.taskConfig || {};
+  const op = cfg.operation || 'list';
+  const path = cfg.path || data.inputBindings?.find((b) => b.id === 'path')?.value || '';
+  return (
+    <NodeShell
+      nodeId={id}
+      color="#57534e"
+      icon="📁"
+      title={data.label || 'Filesystem'}
+      subtitle={`${op}${path ? ` · ${String(path).slice(0, 28)}` : ''}`}
+    />
+  );
+}
+
 export function ParallelNode({ id, data }) {
   return (
     <NodeShell nodeId={id} color="#ea580c" icon="⑂" title={data.label || 'Parallel'} subtitle="Run branches concurrently" />
@@ -239,6 +274,8 @@ export const workflowNodeTypes = {
   api: ApiNode,
   externalAgent: ExternalAgentNode,
   custom_script: CustomScriptNode,
+  masterdata: MasterDataNode,
+  filesystem: FilesystemNode,
   parallel: ParallelNode,
   merge: MergeNode,
   ceo_approval: CeoApprovalNode,
@@ -258,6 +295,8 @@ export const PALETTE_ITEMS = [
   { type: 'api', label: 'Call API', color: '#7c3aed', desc: 'HTTP request with configurable URL/body' },
   { type: 'externalAgent', label: 'External Agent (A2A)', color: '#059669', desc: 'Invoke external agent via A2A protocol' },
   { type: 'custom_script', label: 'Custom Script', color: '#b45309', desc: 'Run approved LangGraph / Python / JS in sandbox' },
+  { type: 'masterdata', label: 'Master Data', color: '#0f766e', desc: 'Query CEO tables (CSV) or RAG over uploaded documents' },
+  { type: 'filesystem', label: 'Filesystem', color: '#57534e', desc: 'List/stat/read/move files (use with schedule to poll a folder)' },
   { type: 'tool', label: 'Content Tool', color: '#9333ea', desc: 'Invoke a content tool' },
   { type: 'mcp_tool', label: 'MCP', color: '#0ea5e9', desc: 'Call MCP tool, prompt, or resource' },
   { type: 'mcp_listen', label: 'SSE Listen', color: '#0284c7', desc: 'Long-running SSE stream — dispatches downstream on each event' },
@@ -279,8 +318,18 @@ export function defaultNodeData(type, extra = {}) {
   if (type === 'tool') {
     data = { ...data, toolName: '', toolPayload: {} };
   }
-  if (type === 'email' || type === 'brain' || type === 'ceo_approval' || type === 'mcp_tool' || type === 'mcp_listen' || type === 'sse_listen' || type === 'sub_workflow' || type === 'externalAgent' || type === 'custom_script') {
+  if (type === 'email' || type === 'brain' || type === 'ceo_approval' || type === 'mcp_tool' || type === 'mcp_listen' || type === 'sse_listen' || type === 'sub_workflow' || type === 'externalAgent' || type === 'custom_script' || type === 'masterdata' || type === 'filesystem') {
     data = { ...data, inputBindings: data.inputBindings || [], outputs: data.outputs || [], taskConfig: data.taskConfig || {} };
+  }
+  if (type === 'filesystem') {
+    data.taskConfig = {
+      operation: 'list',
+      path: '',
+      glob: '*',
+      destination: '',
+      maxBytes: 65536,
+      ...(data.taskConfig || {}),
+    };
   }
   if (type === 'externalAgent') {
     data.taskConfig = {
@@ -324,6 +373,32 @@ export function defaultNodeData(type, extra = {}) {
           { id: 'text', label: 'Script text' },
           { id: 'result', label: 'Full result' },
           { id: 'ok', label: 'Success' },
+        ];
+  }
+  if (type === 'masterdata') {
+    data.taskConfig = {
+      mode: 'auto',
+      tableId: '',
+      documentId: '',
+      topK: 5,
+      column: '',
+      equals: '',
+      summarize: true,
+      timeoutMs: 1200000,
+      timeoutAction: 'fail',
+      defaultTimeoutOutput: '{}',
+      ...(data.taskConfig || {}),
+    };
+    data.inputBindings = data.inputBindings?.length
+      ? data.inputBindings
+      : [{ id: 'query', label: 'Query', mode: 'dynamic', value: '{{input}}', sourceNodeId: '', sourceOutputKey: 'text' }];
+    data.outputs = data.outputs?.length
+      ? data.outputs
+      : [
+          { id: 'text', label: 'Answer text' },
+          { id: 'mode', label: 'Mode' },
+          { id: 'count', label: 'Hit count' },
+          { id: 'result', label: 'Full result' },
         ];
   }
   if (type === 'api') {
@@ -437,10 +512,30 @@ export function defaultNodeData(type, extra = {}) {
 
 export function graphToFlow(graph) {
   return {
-    nodes: (graph?.nodes || []).map((n) => ({
-      ...n,
-      type: n.type || 'agent',
-    })),
+    nodes: (graph?.nodes || []).map((n, i) => {
+      const position =
+        n?.position &&
+        typeof n.position.x === 'number' &&
+        typeof n.position.y === 'number' &&
+        !Number.isNaN(n.position.x) &&
+        !Number.isNaN(n.position.y)
+          ? n.position
+          : { x: 40 + i * 220, y: 120 };
+      const data =
+        n?.data && typeof n.data === 'object'
+          ? n.data
+          : {
+              label: n?.label || n?.type || 'Step',
+              ...(n?.toolName ? { toolName: n.toolName } : {}),
+            };
+      return {
+        ...n,
+        id: n?.id || `node-${i + 1}`,
+        type: n?.type || 'agent',
+        position,
+        data,
+      };
+    }),
     edges: (graph?.edges || []).map((e) => ({
       ...e,
       animated: true,

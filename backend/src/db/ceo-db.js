@@ -198,6 +198,72 @@ function runCeoSchema(db) {
       status TEXT NOT NULL,
       created_at TEXT DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS agent_response_feedback (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      owner_user_id TEXT NOT NULL,
+      agent_id TEXT NOT NULL,
+      source TEXT NOT NULL DEFAULT 'chat',
+      message_id TEXT,
+      message_role TEXT DEFAULT 'assistant',
+      message_content TEXT,
+      rating TEXT NOT NULL CHECK (rating IN ('up', 'down')),
+      comment TEXT DEFAULT '',
+      context_json TEXT DEFAULT '{}',
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_agent_feedback_owner_agent
+      ON agent_response_feedback(owner_user_id, agent_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_agent_feedback_owner_created
+      ON agent_response_feedback(owner_user_id, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS master_data_tables (
+      id TEXT PRIMARY KEY,
+      owner_user_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      columns_json TEXT NOT NULL DEFAULT '[]',
+      row_count INTEGER DEFAULT 0,
+      source TEXT DEFAULT 'manual',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_md_tables_owner ON master_data_tables(owner_user_id, updated_at DESC);
+    -- Unique per owner + lower(name); may be applied later in ensureMasterDataSchema if no legacy dupes
+
+    CREATE TABLE IF NOT EXISTS master_data_rows (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      table_id TEXT NOT NULL,
+      owner_user_id TEXT NOT NULL,
+      row_json TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_md_rows_table ON master_data_rows(owner_user_id, table_id);
+
+    CREATE TABLE IF NOT EXISTS master_data_documents (
+      id TEXT PRIMARY KEY,
+      owner_user_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      filename TEXT NOT NULL,
+      mime_type TEXT DEFAULT 'application/octet-stream',
+      size_bytes INTEGER DEFAULT 0,
+      storage_path TEXT NOT NULL,
+      text_excerpt TEXT DEFAULT '',
+      chunk_count INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_md_docs_owner ON master_data_documents(owner_user_id, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS master_data_doc_chunks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      document_id TEXT NOT NULL,
+      owner_user_id TEXT NOT NULL,
+      chunk_index INTEGER NOT NULL,
+      content TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_md_chunks_doc ON master_data_doc_chunks(owner_user_id, document_id);
   `);
 }
 

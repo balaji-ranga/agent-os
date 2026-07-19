@@ -103,7 +103,7 @@ You are **${name}**. ${role || 'Specialist agent.'}
 }
 
 /**
- * @param {{ name: string, role?: string, parent_id?: string, id?: string, ownerUserId?: string, tools?: string[] }} input
+ * @param {{ name: string, role?: string, parent_id?: string, reportingTo?: string, department?: string, id?: string, ownerUserId?: string, tools?: string[] }} input
  */
 export async function createFullAgent(input) {
   const name = (input.name || 'Unnamed').trim();
@@ -126,17 +126,27 @@ export async function createFullAgent(input) {
   const runtimeId = tenantOpenClawAgentId(ownerUserId, id);
   const tenantWs = tenantWorkspacePath(ownerUserId, id);
 
-  let parentId = input.parent_id ? String(input.parent_id).trim() || null : null;
+  let parentId =
+    (input.parent_id != null && String(input.parent_id).trim()) ||
+    (input.reportingTo != null && String(input.reportingTo).trim()) ||
+    (input.reporting_to != null && String(input.reporting_to).trim()) ||
+    null;
+  parentId = parentId || null;
   const coo = db.prepare('SELECT * FROM agents WHERE is_coo = 1 LIMIT 1').get();
   if (!parentId && coo) parentId = coo.id;
 
   const role = (input.role || 'Agent').trim();
+  const department = String(input.department || '').trim();
   const soulMd = buildSoulMd(name, role, id);
   const agentsMd = `# AGENTS — Operating contract (${name})
 
 ## Role
 
 ${role || 'Specialist.'}
+
+## Department
+
+${department || 'Unassigned'}
 
 ## Priorities
 
@@ -152,15 +162,16 @@ ${role || 'Specialist.'}
 ## Facts
 
 - Role: ${role || 'Specialist'}.
+- Department: ${department || 'Unassigned'}.
 - Reports to: ${parentId || 'COO'}.
 - CEO workspace: ${ownerUserId}.
 `;
 
   // Custom agents belong to the creating CEO and are NOT auto-granted to all CEOs on signup.
   db.prepare(
-    `INSERT INTO agents (id, name, role, parent_id, workspace_path, openclaw_agent_id, is_coo, agent_type, owner_user_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 'custom', ?)`
-  ).run(id, name, role, parentId, tenantWs, id, 0, ownerUserId);
+    `INSERT INTO agents (id, name, role, parent_id, workspace_path, openclaw_agent_id, is_coo, agent_type, owner_user_id, department)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'custom', ?, ?)`
+  ).run(id, name, role, parentId, tenantWs, id, 0, ownerUserId, department);
 
   let row = db.prepare('SELECT * FROM agents WHERE id = ?').get(id);
   const toolsToGrant = Array.isArray(input.tools) && input.tools.length ? input.tools : DEFAULT_TOOLS_ALLOW;

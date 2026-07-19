@@ -521,6 +521,23 @@ export function ensureWebhookSecret(definitionId) {
   return secret;
 }
 
+/** Force a new webhook secret (owner-entitled callers only). */
+export function regenerateWebhookSecret(definitionId, ownerUserId, actor = null) {
+  const def = getDefinition(definitionId, ownerUserId);
+  if (!def) return null;
+  const secret = generateWebhookSecret();
+  db()
+    .prepare(`UPDATE agent_workflow_definitions SET webhook_secret = ?, updated_at = datetime('now') WHERE id = ? AND owner_user_id = ?`)
+    .run(secret, definitionId, ownerUserId);
+  appendAudit(definitionId, {
+    action: 'webhook_secret_regenerated',
+    summary: 'Webhook secret regenerated',
+    changedBy: actor?.id || ownerUserId,
+    changedByName: actor?.name || 'user',
+  });
+  return secret;
+}
+
 export function isWorkflowTriggerable(def) {
   if (!def || def.paused) return false;
   if (def.status !== 'published') return false;

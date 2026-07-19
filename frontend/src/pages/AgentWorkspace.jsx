@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../api';
+import DepartmentPicker from '../components/DepartmentPicker';
 
 const FILE_NAMES = ['soul', 'agents', 'memory', 'tools'];
 const TOOLS_TAB = '__tool_access__';
@@ -8,6 +9,7 @@ const TOOLS_TAB = '__tool_access__';
 export default function AgentWorkspace() {
   const { agentId } = useParams();
   const [agent, setAgent] = useState(null);
+  const [allAgents, setAllAgents] = useState([]);
   const [files, setFiles] = useState({ files: [], daily: [] });
   const [selected, setSelected] = useState('soul');
   const [content, setContent] = useState('');
@@ -19,6 +21,10 @@ export default function AgentWorkspace() {
   const [toolGrants, setToolGrants] = useState(new Set());
   const [toolsSaving, setToolsSaving] = useState(false);
   const [syncingMd, setSyncingMd] = useState(false);
+  const [orgDept, setOrgDept] = useState('');
+  const [orgParentId, setOrgParentId] = useState('');
+  const [orgSaving, setOrgSaving] = useState(false);
+  const [orgMessage, setOrgMessage] = useState(null);
 
   const clearSessions = () => {
     if (!window.confirm('Clear all OpenClaw sessions for this agent? Chat and task session history will be reset.')) return;
@@ -32,8 +38,15 @@ export default function AgentWorkspace() {
 
   useEffect(() => {
     api.agentGet(agentId)
-      .then(setAgent)
+      .then((a) => {
+        setAgent(a);
+        setOrgDept(a.department || '');
+        setOrgParentId(a.parent_id || '');
+      })
       .catch((e) => setError(e.message));
+    api.agentsList()
+      .then((list) => setAllAgents(Array.isArray(list) ? list : list?.agents || []))
+      .catch(() => setAllAgents([]));
   }, [agentId]);
 
   useEffect(() => {
@@ -107,6 +120,24 @@ export default function AgentWorkspace() {
       .finally(() => setSyncingMd(false));
   };
 
+  const saveOrg = () => {
+    setOrgSaving(true);
+    setOrgMessage(null);
+    const department = String(orgDept || '').trim();
+    api
+      .agentUpdate(agentId, {
+        department,
+        parent_id: orgParentId || null,
+      })
+      .then((updated) => {
+        setAgent(updated);
+        setOrgMessage('Org settings saved.');
+        setTimeout(() => setOrgMessage(null), 4000);
+      })
+      .catch((e) => setError(e.message))
+      .finally(() => setOrgSaving(false));
+  };
+
   if (error && !agent) return <div style={{ padding: '2rem', color: '#f87171' }}>Error: {error}. <Link to="/">Dashboard</Link></div>;
 
   const tabs = [...(files.files || []).map((f) => f.name), ...(files.daily || []).map((f) => `memory/${f.name}`)];
@@ -126,6 +157,71 @@ export default function AgentWorkspace() {
       </p>
 
       {error && <div style={{ padding: '0.5rem 1rem', background: 'rgba(248,113,113,0.15)', borderRadius: 8, marginBottom: '1rem', color: '#f87171' }}>{error}</div>}
+
+      <section
+        style={{
+          marginBottom: '1.25rem',
+          padding: '1rem',
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderRadius: 10,
+        }}
+      >
+        <h2 style={{ margin: '0 0 0.5rem', fontSize: '1rem' }}>Org</h2>
+        <p style={{ margin: '0 0 0.75rem', fontSize: '0.85rem', color: 'var(--muted)' }}>
+          Department and reporting line for the Dashboard org chart.
+        </p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'flex-start' }}>
+          <DepartmentPicker
+            value={orgDept}
+            onChange={setOrgDept}
+            allowEmpty
+            emptyLabel="Unassigned"
+            compact
+            ariaLabel="Department"
+            selectStyle={{ background: 'var(--bg, #121216)' }}
+          />
+          <select
+            value={orgParentId}
+            onChange={(e) => setOrgParentId(e.target.value)}
+            aria-label="Reports to"
+            disabled={!!agent?.is_coo}
+            style={{
+              padding: '0.5rem 0.75rem',
+              background: 'var(--bg, #121216)',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              color: 'var(--text)',
+              minWidth: 160,
+            }}
+          >
+            <option value="">Reports to (none)</option>
+            {allAgents
+              .filter((a) => a.id !== agentId)
+              .map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}{a.is_coo ? ' (COO)' : ''}{a.department ? ` · ${a.department}` : ''}
+                </option>
+              ))}
+          </select>
+          <button
+            type="button"
+            onClick={saveOrg}
+            disabled={orgSaving}
+            style={{
+              padding: '0.5rem 1rem',
+              background: 'var(--accent)',
+              border: 'none',
+              borderRadius: 6,
+              color: '#fff',
+              cursor: orgSaving ? 'wait' : 'pointer',
+            }}
+          >
+            {orgSaving ? 'Saving…' : 'Save org'}
+          </button>
+          {orgMessage && <span style={{ color: '#22c55e', fontSize: '0.85rem' }}>{orgMessage}</span>}
+        </div>
+      </section>
 
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
         {activeTabs.map((name) => (
