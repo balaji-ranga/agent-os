@@ -52,13 +52,14 @@ const server = http.createServer(async (req, res) => {
   try {
     const path = req.url || '/';
     if (path === '/health' || path === '/health/') {
-      res.writeHead(API_KEY ? 200 : 503, { 'Content-Type': 'application/json' });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
-          ok: !!API_KEY,
+          ok: true,
           service: 'deepseek-proxy',
           upstream: UPSTREAM,
           key_configured: !!API_KEY,
+          ready: !!API_KEY,
         })
       );
       return;
