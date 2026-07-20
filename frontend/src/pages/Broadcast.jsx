@@ -51,7 +51,8 @@ export default function Broadcast() {
     <div style={{ padding: '1.5rem', maxWidth: 900 }}>
       <h1 style={{ marginTop: 0, marginBottom: '1rem' }}>Broadcast to agents</h1>
       <p style={{ color: 'var(--muted)', marginBottom: '1rem' }}>
-        Send a message to all or selected agents and see their replies in line. Requires the OpenClaw gateway to be running.
+        Send a message to all or selected agents and see their replies. Uses the same CEO-scoped OpenClaw sessions as Agent Chat,
+        so tools like <code>notify_ceo</code> can reach your notification bell. Requires the OpenClaw gateway to be running.
       </p>
 
       <div style={{ marginBottom: '1rem' }}>

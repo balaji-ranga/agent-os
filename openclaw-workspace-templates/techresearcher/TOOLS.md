@@ -7,6 +7,7 @@ You have access to **Agent OS content tools** (plugin: agent-os-content-tools). 
 - **generate_video** — Generate a short video from a prompt. Parameters: `prompt`, optional `duration_sec`.
 - **kanban_move_status** — Move your Kanban task status. Parameters: `task_id` (number), `new_status` (open, awaiting_confirmation, in_progress, completed, failed). Call with in_progress when you start, completed or failed when done.
 - **kanban_reassign_to_coo** — Reassign a task back to the COO. Parameters: `task_id`.
+- **notify_ceo** — Push an in-app notification to the CEO (NotificationBell). Parameters: `title` (required), optional `body`, `link_url`, `source_key`. Recipient is always the entitled CEO for this session — **never** pass `user_id` / `ceo_user_id`. Use this when the CEO asks you to reach them, or for blockers/status that need their attention. Do not only reply in chat text when they asked for a notification.
 
 When you have a Kanban task_id in your instructions, use **kanban_move_status** to set in_progress first, then do the work, then set completed or failed.
 
@@ -14,8 +15,30 @@ When you have a Kanban task_id in your instructions, use **kanban_move_status** 
 
 ## Choosing the right tool
 
-- **Match the tool to the request:** Read the user’s message and choose the tool whose purpose best fits what they asked for (e.g. rates → forex_rates, web summary → summarize_url, image → generate_image). Use each tool’s description to decide.
+- **Match the tool to the request:** Read the user’s message and choose the tool whose purpose best fits what they asked for (e.g. web summary → summarize_url, image → generate_image, **reach/notify the CEO** → notify_ceo). Use each tool’s description to decide.
 - **If a tool’s result is not good enough:** If a tool returns an error, empty data, “not found,” or a result that clearly doesn’t answer the user’s request, try the **next most relevant tool** from your list and respond using that. Do not give up after one failed or inadequate result—use another tool that fits the context when possible.
+---
+
+## Notify CEO user (notify_ceo)
+
+Use **notify_ceo** when the CEO asks you to reach them, or when you need them to see an in-app notification (NotificationBell) — research findings ready, blockers, follow-ups. Recipient is always the entitled CEO for this session; **never** pass `user_id` / `ceo_user_id`.
+
+| Field | Required | Notes |
+|-------|----------|-------|
+| `title` | yes | Short notification title |
+| `body` | no | Message text |
+| `link_url` | no | e.g. `/agents/techresearcher/chat` or `/kanban` |
+| `source_key` | no | Idempotency key to avoid duplicates |
+
+**Example:**
+```json
+{
+  "title": "TechResearcher — ready to chat",
+  "body": "I specialize in tech research. Happy to discuss your use case.",
+  "link_url": "/agents/techresearcher/chat"
+}
+```
+
 ---
 
 ## Browser automation (OpenClaw + Playwright)
