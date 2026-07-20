@@ -57,6 +57,10 @@ x-backend-env: &backend-env
   OPENCLAW_GATEWAY_URL: http://openclaw:18789
   OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
   TOOLS_API_KEY: ${TOOLS_API_KEY:-}
+  # In-container tool self-dispatch (must not use public HTTPS / self-signed URL)
+  TOOLS_BASE_URL: ${TOOLS_BASE_URL:-http://127.0.0.1:3001}
+  # Stable across restarts — required for workflow runner / tools / cron-callback auth
+  AGENT_OS_INTERNAL_TOKEN: ${AGENT_OS_INTERNAL_TOKEN:-}
   OPENAI_COO_MODEL: ${OPENAI_COO_MODEL:-}
   OPENAI_INTENT_MODEL: ${OPENAI_INTENT_MODEL:-}
   OPENROUTER_HTTP_REFERER: ${OPENROUTER_HTTP_REFERER:-}
@@ -65,7 +69,20 @@ x-backend-env: &backend-env
   REPLICATE_PRIMARY_BASE_URL: ${REPLICATE_PRIMARY_BASE_URL:-https://api.replicate.com/v1}
   REPLICATE_SECONDARY_BASE_URL: ${REPLICATE_SECONDARY_BASE_URL:-}
   REPLICATE_SECONDARY_API_TOKEN: ${REPLICATE_SECONDARY_API_TOKEN:-}
+  # Content tools: summarize / image / video
+  TOOLS_SUMMARIZE_MODEL: ${TOOLS_SUMMARIZE_MODEL:-}
+  TOOLS_SUMMARIZE_TIMEOUT_MS: ${TOOLS_SUMMARIZE_TIMEOUT_MS:-}
+  TOOLS_SUMMARIZE_MAX_BYTES: ${TOOLS_SUMMARIZE_MAX_BYTES:-}
+  TOOLS_SUMMARIZE_ALLOWED_DOMAINS: ${TOOLS_SUMMARIZE_ALLOWED_DOMAINS:-}
+  TOOLS_IMAGE_MODEL: ${TOOLS_IMAGE_MODEL:-gpt-image-1}
+  TOOLS_IMAGE_SIZE: ${TOOLS_IMAGE_SIZE:-1024x1024}
+  TOOLS_IMAGE_QUALITY: ${TOOLS_IMAGE_QUALITY:-medium}
+  TOOLS_IMAGE_STYLE: ${TOOLS_IMAGE_STYLE:-natural}
+  TOOLS_IMAGE_MAX_PROMPT_CHARS: ${TOOLS_IMAGE_MAX_PROMPT_CHARS:-1000}
+  TOOLS_IMAGE_SECONDARY_MODEL: ${TOOLS_IMAGE_SECONDARY_MODEL:-}
   TOOLS_VIDEO_MODEL_VERSION: ${TOOLS_VIDEO_MODEL_VERSION:-}
+  TOOLS_VIDEO_MAX_PROMPT_CHARS: ${TOOLS_VIDEO_MAX_PROMPT_CHARS:-500}
+  TOOLS_VIDEO_SECONDARY_MODEL_VERSION: ${TOOLS_VIDEO_SECONDARY_MODEL_VERSION:-}
   AGENT_OS_ADMIN_EMAIL: ${AGENT_OS_ADMIN_EMAIL:-admin@agent-os.local}
   AGENT_OS_ADMIN_PASSWORD: ${AGENT_OS_ADMIN_PASSWORD:-}
   OPENCLAW_DISCOVERY_TIMEOUT_MS: ${OPENCLAW_DISCOVERY_TIMEOUT_MS:-900000}
@@ -78,6 +95,25 @@ x-backend-env: &backend-env
   CUSTOM_SCRIPT_LLM_REVIEW: ${CUSTOM_SCRIPT_LLM_REVIEW:-1}
   CUSTOM_SCRIPT_LLM_REVIEW_REQUIRED: ${CUSTOM_SCRIPT_LLM_REVIEW_REQUIRED:-1}
   CUSTOM_SCRIPT_LLM_REVIEW_MAX_TOKENS: ${CUSTOM_SCRIPT_LLM_REVIEW_MAX_TOKENS:-768}
+  # SMTP (workflow Send Email + MFA email OTP)
+  WORKFLOW_SMTP_HOST: ${WORKFLOW_SMTP_HOST:-}
+  WORKFLOW_SMTP_PORT: ${WORKFLOW_SMTP_PORT:-587}
+  WORKFLOW_SMTP_SECURE: ${WORKFLOW_SMTP_SECURE:-0}
+  WORKFLOW_SMTP_USER: ${WORKFLOW_SMTP_USER:-}
+  WORKFLOW_SMTP_PASS: ${WORKFLOW_SMTP_PASS:-}
+  WORKFLOW_SMTP_FROM: ${WORKFLOW_SMTP_FROM:-}
+  MFA_MODE: ${MFA_MODE:-}
+  AGENT_OS_REQUIRE_MFA: ${AGENT_OS_REQUIRE_MFA:-}
+  AGENT_OS_DISABLE_MFA: ${AGENT_OS_DISABLE_MFA:-}
+  # Email inbound webhooks (SendGrid/Mailgun → /api/integrations/email-inbound/:id)
+  EMAIL_INBOUND_WEBHOOK_SECRET: ${EMAIL_INBOUND_WEBHOOK_SECRET:-}
+  # OpenConnector MCP (real gateway or optional-openconnector mock)
+  OPENCONNECTOR_MCP_URL: ${OPENCONNECTOR_MCP_URL:-}
+  OPENCONNECTOR_MCP_ID: ${OPENCONNECTOR_MCP_ID:-mcp-openconnector}
+  OPENCONNECTOR_MCP_BEARER: ${OPENCONNECTOR_MCP_BEARER:-}
+  OPENCONNECTOR_MCP_TRANSPORT: ${OPENCONNECTOR_MCP_TRANSPORT:-streamable_http}
+  # Filesystem workflow nodes (persisted volume)
+  WORKFLOW_FS_ROOTS: ${WORKFLOW_FS_ROOTS:-/data/workflow-fs}
 
 services:
   openclaw:
@@ -89,6 +125,11 @@ services:
     environment:
       <<: *openclaw-env
       ENABLE_VNC: ${ENABLE_VNC:-0}
+      # Official OpenAI: do NOT inject OPENAI_BASE_URL into the gateway.
+      # A base URL forces openai-compat completions while plugin tools use type "custom",
+      # which OpenAI rejects (400 invalid_request_error) and breaks all COO tool prompts.
+      OPENAI_BASE_URL: ""
+      OPENAI_PRIMARY_BASE_URL: ""
     volumes:
       - openclaw_home:/root/.openclaw:Z
     expose:
@@ -117,6 +158,7 @@ services:
     volumes:
       - agent_os_data:/data/agent-os:Z
       - openclaw_home:/root/.openclaw:Z
+      - workflow_fs:/data/workflow-fs:Z
     expose:
       - "3001"
     depends_on:
@@ -189,6 +231,21 @@ services:
     expose:
       - "3099"
 
+  # Mock OpenConnector MCP for e2e / staging (SaaS actions via MCP tools).
+  # Production: point OPENCONNECTOR_MCP_URL at a real OpenConnector /mcp endpoint instead.
+  openconnector-mcp-mock:
+    profiles: ["optional-openconnector"]
+    build:
+      context: ..
+      dockerfile: deploy/docker/openconnector-mcp-mock.Dockerfile
+    image: agent-os-openconnector-mcp-mock:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      OPENCONNECTOR_MOCK_PORT: "3105"
+      OPENCONNECTOR_MOCK_TOKEN: ${OPENCONNECTOR_MOCK_TOKEN:-}
+    expose:
+      - "3105"
+
   ollama:
     profiles: ["optional-ollama"]
     image: ollama/ollama:latest
@@ -215,4 +272,5 @@ services:
 volumes:
   agent_os_data:
   openclaw_home:
+  workflow_fs:
   ollama_data:

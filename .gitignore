@@ -37,3 +37,5 @@ Thumbs.db
 # Deploy secrets and generated TLS
 deploy/.env
 deploy/nginx/certs/*.pem
+
+deploy/.admin-password.txt

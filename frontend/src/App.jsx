@@ -19,10 +19,32 @@ import McpIntegrations from './pages/McpIntegrations';
 import CustomScripts from './pages/CustomScripts';
 import ExternalAgents from './pages/ExternalAgents';
 import MasterData from './pages/MasterData';
+import AiSnipper from './pages/AiSnipper';
 import NotificationBell from './components/NotificationBell';
 import { AdminNavMenu, CeoNavMenu } from './components/AppNavMenu';
 import ImpersonationBanner from './components/ImpersonationBanner';
 import { useAuth } from './context/AuthContext';
+
+/** Login/Register are top-level routes (outside Shell) — enable document scroll here. */
+function AuthLayout({ children }) {
+  useEffect(() => {
+    document.documentElement.classList.add('auth-route');
+    return () => document.documentElement.classList.remove('auth-route');
+  }, []);
+  return (
+    <div
+      className="auth-scroll"
+      style={{
+        minHeight: '100dvh',
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        WebkitOverflowScrolling: 'touch',
+      }}
+    >
+      {children}
+    </div>
+  );
+}
 
 function Shell() {
   const { user, logout, loading } = useAuth();
@@ -38,11 +60,13 @@ function Shell() {
 
   if (!user) {
     return (
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
+      <AuthLayout>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </AuthLayout>
     );
   }
 
@@ -120,6 +144,7 @@ function Shell() {
               <Route path="/broadcast" element={<Broadcast />} />
               <Route path="/kanban" element={<Kanban />} />
               <Route path="/master-data" element={<MasterData />} />
+              <Route path="/ai-snipper" element={<AiSnipper />} />
               <Route path="/job-workflows" element={<JobWorkflows />} />
               <Route path="/workflows" element={<AgentWorkflows />} />
               <Route path="/workflows/:workflowId/edit" element={<AgentWorkflowEditor />} />
@@ -137,8 +162,22 @@ function Shell() {
 export default function App() {
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+      <Route
+        path="/login"
+        element={
+          <AuthLayout>
+            <Login />
+          </AuthLayout>
+        }
+      />
+      <Route
+        path="/register"
+        element={
+          <AuthLayout>
+            <Register />
+          </AuthLayout>
+        }
+      />
       <Route path="/*" element={<Shell />} />
     </Routes>
   );

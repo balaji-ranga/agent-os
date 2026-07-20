@@ -27,6 +27,7 @@ const CONTENT_TOOLS_ALLOW = [
   'agent_workflow_list',
   'agent_workflow_enquire',
   'agent_workflow_trigger',
+  'learnings_summary',
 ];
 const CONTENT_TOOLS_CONFIG = { allow: [...CONTENT_TOOLS_ALLOW], deny: ['image'] };
 
@@ -116,7 +117,11 @@ for (const a of config.agents.list) {
 if (!config.agents.defaults) config.agents.defaults = {};
 if (!config.agents.defaults.model) config.agents.defaults.model = {};
 config.agents.defaults.model.primary = DEFAULT_MODEL;
-config.agents.defaults.model.fallbacks = [OLLAMA_FALLBACK_ID];
+// Ollama fallback dumps raw tool JSON when OpenAI tools fail — keep empty unless explicitly enabled.
+const enableOllamaFallback =
+  process.env.OPENCLAW_ENABLE_OLLAMA_FALLBACK === '1' ||
+  process.env.OPENCLAW_ENABLE_OLLAMA_FALLBACK === 'true';
+config.agents.defaults.model.fallbacks = enableOllamaFallback ? [OLLAMA_FALLBACK_ID] : [];
 
 // Ollama on localhost: optional explicit provider so fallback works without relying only on auto-discovery.
 // Set OLLAMA_API_KEY=ollama-local (or any value) so OpenClaw can use Ollama; baseUrl defaults to localhost:11434.
@@ -218,6 +223,9 @@ const contentToolNames = [
   'agent_workflow_trigger',
   'agent_workflow_get_draft',
   'agent_workflow_mutate',
+  'learnings_summary',
+  'brain_history',
+  'content_tools_enquire',
   'browser',
 ];
 if (!Array.isArray(config.tools.allow)) config.tools.allow = [];

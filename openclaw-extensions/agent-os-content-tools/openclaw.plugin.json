@@ -1,15 +1,56 @@
 {
   "id": "agent-os-content-tools",
   "name": "Agent OS Content Tools",
-  "description": "Register summarize_url, generate_image, generate_video tools that call the Agent OS backend. No hardcoded URLs; baseUrl and apiKey from config or env.",
-  "version": "1.0.0",
+  "description": "Register Agent OS content/workflow/kanban tools that call the backend. No hardcoded URLs; baseUrl and apiKey from config or env.",
+  "version": "1.1.0",
+  "activation": {
+    "onStartup": true
+  },
+  "contracts": {
+    "tools": [
+      "summarize_url",
+      "generate_image",
+      "generate_video",
+      "kanban_move_status",
+      "kanban_reassign_to_coo",
+      "kanban_assign_task",
+      "kanban_create_task",
+      "intent_classify_and_delegate",
+      "agent_workflow_list",
+      "agent_workflow_enquire",
+      "agent_workflow_trigger",
+      "agent_workflow_get_draft",
+      "agent_workflow_mutate",
+      "learnings_summary",
+      "brain_history",
+      "content_tools_enquire"
+    ]
+  },
+  "toolMetadata": {
+    "summarize_url": { "optional": true },
+    "generate_image": { "optional": true },
+    "generate_video": { "optional": true },
+    "kanban_move_status": { "optional": true },
+    "kanban_reassign_to_coo": { "optional": true },
+    "kanban_assign_task": { "optional": true },
+    "kanban_create_task": { "optional": true },
+    "intent_classify_and_delegate": { "optional": true },
+    "agent_workflow_list": { "optional": true },
+    "agent_workflow_enquire": { "optional": true },
+    "agent_workflow_trigger": { "optional": true },
+    "agent_workflow_get_draft": { "optional": true },
+    "agent_workflow_mutate": { "optional": true },
+    "learnings_summary": { "optional": true },
+    "brain_history": { "optional": true },
+    "content_tools_enquire": { "optional": true }
+  },
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
     "properties": {
       "baseUrl": {
         "type": "string",
-        "description": "Agent OS backend base URL (e.g. http://127.0.0.1:3001). Overrides AGENT_OS_API_URL env."
+        "description": "Agent OS backend base URL (e.g. http://backend:3001). Overrides AGENT_OS_API_URL env."
       },
       "apiKey": {
         "type": "string",

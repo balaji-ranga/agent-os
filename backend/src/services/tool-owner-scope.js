@@ -60,7 +60,9 @@ export function parseOwnerUserIdFromSessionUser(sessionUser, agentId = null) {
 
 export function parseOwnerUserIdFromSessionKey(sessionKey) {
   if (!sessionKey || typeof sessionKey !== 'string') return null;
-  const m = sessionKey.match(/^agent::([^:]+):(.+)$/);
+  // Prefer legacy agent:: then current agent: (OpenClaw 2026+).
+  const m =
+    sessionKey.match(/^agent::([^:]+):(.+)$/) || sessionKey.match(/^agent:([^:]+):(.+)$/);
   if (!m) return null;
   return parseOwnerUserIdFromSessionUser(m[2], m[1]);
 }

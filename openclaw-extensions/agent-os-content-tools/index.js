@@ -14,14 +14,14 @@ const DEFAULT_TOOLS_LIST_PATH = join(OPENCLAW_DIR, "agent-os-tools.json");
 const ALLOWLISTS_PATH = join(OPENCLAW_DIR, "agent-tool-allowlists.json");
 const OPENCLAW_CONFIG_PATH = process.env.OPENCLAW_CONFIG_PATH || join(OPENCLAW_DIR, "openclaw.json");
 
-let allowlistsCache: { mtime: number; data: Record<string, string[]> } = { mtime: 0, data: {} };
-let openclawConfigCache: { mtime: number; byAgent: Record<string, string[]> } = { mtime: 0, byAgent: {} };
+let allowlistsCache = { mtime: 0, data: {} };
+let openclawConfigCache = { mtime: 0, byAgent: {} };
 
-function getToolsListPath(): string {
+function getToolsListPath() {
   return process.env.OPENCLAW_TOOLS_LIST_PATH || DEFAULT_TOOLS_LIST_PATH;
 }
 
-function loadAllowlists(): Record<string, string[]> {
+function loadAllowlists() {
   try {
     if (!existsSync(ALLOWLISTS_PATH)) return {};
     const st = statSync(ALLOWLISTS_PATH);
@@ -34,13 +34,13 @@ function loadAllowlists(): Record<string, string[]> {
   }
 }
 
-function loadOpenClawAllowByAgent(): Record<string, string[]> {
+function loadOpenClawAllowByAgent() {
   try {
     if (!existsSync(OPENCLAW_CONFIG_PATH)) return {};
     const st = statSync(OPENCLAW_CONFIG_PATH);
     if (st.mtimeMs === openclawConfigCache.mtime) return openclawConfigCache.byAgent;
     const config = JSON.parse(readFileSync(OPENCLAW_CONFIG_PATH, "utf8"));
-    const byAgent: Record<string, string[]> = {};
+    const byAgent = {};
     for (const a of config?.agents?.list || []) {
       const id = String(a?.id || "").toLowerCase();
       if (!id) continue;
@@ -53,7 +53,7 @@ function loadOpenClawAllowByAgent(): Record<string, string[]> {
   }
 }
 
-function isToolAllowedForAgent(agentId: string | null | undefined, toolName: string): boolean {
+function isToolAllowedForAgent(agentId, toolName) {
   if (!agentId) return true;
   const key = String(agentId).toLowerCase();
   const allowlists = loadAllowlists();
@@ -63,15 +63,7 @@ function isToolAllowedForAgent(agentId: string | null | undefined, toolName: str
   return true;
 }
 
-interface ToolEntry {
-  name: string;
-  display_name?: string;
-  endpoint?: string;
-  method?: string;
-  purpose?: string;
-}
-
-function loadToolsFromFile(): ToolEntry[] {
+function loadToolsFromFile() {
   const path = getToolsListPath();
   if (!existsSync(path)) return [];
   try {
@@ -83,7 +75,7 @@ function loadToolsFromFile(): ToolEntry[] {
   }
 }
 
-function agentIdFromSessionKey(sessionKey: string | undefined): string | null {
+function agentIdFromSessionKey(sessionKey) {
   if (!sessionKey || typeof sessionKey !== "string") return null;
   const m = sessionKey.match(/^agent::([^:]+):/);
   return m ? m[1] : null;
@@ -91,7 +83,7 @@ function agentIdFromSessionKey(sessionKey: string | undefined): string | null {
 
 const SESSION_USER_PREFIX = "agent-os-";
 
-function ownerUserIdFromSessionUser(sessionUser: string | undefined, agentId: string | null): string | null {
+function ownerUserIdFromSessionUser(sessionUser, agentId) {
   if (!sessionUser || typeof sessionUser !== "string") return null;
   const s = sessionUser.trim();
   if (!s.startsWith(SESSION_USER_PREFIX)) return null;
@@ -106,23 +98,14 @@ function ownerUserIdFromSessionUser(sessionUser: string | undefined, agentId: st
   return null;
 }
 
-function ownerUserIdFromSessionKey(sessionKey: string | undefined): string | null {
+function ownerUserIdFromSessionKey(sessionKey) {
   if (!sessionKey || typeof sessionKey !== "string") return null;
   const m = sessionKey.match(/^agent::([^:]+):(.+)$/);
   if (!m) return null;
   return ownerUserIdFromSessionUser(m[2], m[1]);
 }
 
-type ToolCtx = { agentId?: string; sessionKey?: string };
-type PluginApi = {
-  registerTool: Function;
-  config: Record<string, unknown>;
-  context?: unknown;
-  sessionKey?: string;
-  getSessionKey?: () => string;
-};
-
-const PARAM_SCHEMAS: Record<string, Record<string, unknown>> = {
+const PARAM_SCHEMAS = {
   kanban_move_status: {
     type: "object",
     properties: {
@@ -205,54 +188,30 @@ const PARAM_SCHEMAS: Record<string, Record<string, unknown>> = {
   },
 };
 
-function resolvePluginConfig(api: PluginApi) {
-  const pluginConfig = (api.config?.plugins as Record<string, unknown>)?.entries?.["agent-os-content-tools"] as
-    | Record<string, unknown>
-    | undefined;
+function resolvePluginConfig(api) {
+  const pluginConfig = api.config?.plugins?.entries?.["agent-os-content-tools"];
   const baseUrl =
-    ((pluginConfig?.config as Record<string, unknown>)?.baseUrl as string | undefined) ||
-    process.env.AGENT_OS_API_URL ||
-    process.env.AGENT_OS_INTERNAL_API_URL ||
-    "";
-  const apiKey =
-    ((pluginConfig?.config as Record<string, unknown>)?.apiKey as string | undefined) ||
-    process.env.TOOLS_API_KEY ||
-    "";
+    pluginConfig?.config?.baseUrl || process.env.AGENT_OS_API_URL || process.env.AGENT_OS_INTERNAL_API_URL || "";
+  const apiKey = pluginConfig?.config?.apiKey || process.env.TOOLS_API_KEY || "";
   return { baseUrl, apiKey };
 }
 
-function resolveCallerAgentId(
-  api: PluginApi,
-  params: Record<string, unknown>,
-  toolCtx?: ToolCtx
-): string | null {
-  const fromParams =
-    (params?.__openclaw_agent_id as string) ||
-    (params?.caller_agent_id as string) ||
-    (params?.agent_id as string) ||
-    null;
+function resolveCallerAgentId(api, params, toolCtx) {
+  const fromParams = params?.__openclaw_agent_id || params?.caller_agent_id || params?.agent_id || null;
   if (fromParams && String(fromParams).trim()) return String(fromParams).trim();
   if (toolCtx?.agentId && String(toolCtx.agentId).trim()) return String(toolCtx.agentId).trim();
   const fromSession = agentIdFromSessionKey(toolCtx?.sessionKey);
   if (fromSession) return fromSession;
-  const sessionKey = (typeof api.getSessionKey === "function" ? api.getSessionKey() : api.sessionKey) as
-    | string
-    | undefined;
+  const sessionKey = typeof api.getSessionKey === "function" ? api.getSessionKey() : api.sessionKey;
   const fromApiSession = agentIdFromSessionKey(sessionKey);
   if (fromApiSession) return fromApiSession;
-  const ctx = api.context as Record<string, unknown> | undefined;
+  const ctx = api.context;
   const fromCtx = ctx?.agentId ?? ctx?.agent_id;
   if (fromCtx && typeof fromCtx === "string") return fromCtx;
   return null;
 }
 
-async function callInvoke(
-  api: PluginApi,
-  toolName: string,
-  params: Record<string, unknown>,
-  callerAgentId?: string | null,
-  toolCtx?: ToolCtx
-): Promise<{ ok: boolean; data?: unknown; error?: string }> {
+async function callInvoke(api, toolName, params, callerAgentId, toolCtx) {
   const { baseUrl, apiKey } = resolvePluginConfig(api);
   const url = (baseUrl?.trim() || "").replace(/\/$/, "");
   if (!url) {
@@ -269,14 +228,10 @@ async function callInvoke(
         "TOOLS_API_KEY not configured for agent-os-content-tools plugin (set plugins config apiKey or TOOLS_API_KEY env).",
     };
   }
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${apiKey}`,
-  };
+  const headers = { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` };
   if (callerAgentId) headers["x-openclaw-agent-id"] = callerAgentId;
   const sessionKey =
-    toolCtx?.sessionKey ||
-    (typeof api.getSessionKey === "function" ? api.getSessionKey() : api.sessionKey);
+    toolCtx?.sessionKey || (typeof api.getSessionKey === "function" ? api.getSessionKey() : api.sessionKey);
   if (sessionKey) {
     headers["x-openclaw-session-key"] = sessionKey;
     const ownerUserId = ownerUserIdFromSessionKey(sessionKey);
@@ -289,7 +244,7 @@ async function callInvoke(
         "OpenClaw session key unavailable — cannot scope this tool to the current CEO. Chat from Agent OS UI so the session is bound to the user.",
     };
   }
-  const body: Record<string, unknown> = { tool_name: toolName, ...params };
+  const body = { tool_name: toolName, ...params };
   if (callerAgentId) body.caller_agent_id = callerAgentId;
   const ownerFromHeader = headers["x-ceo-user-id"];
   if (ownerFromHeader && !body.ceo_user_id && !body.owner_user_id) {
@@ -304,10 +259,10 @@ async function callInvoke(
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      return { ok: false, error: (data as { error?: string }).error || res.statusText };
+      return { ok: false, error: data.error || res.statusText };
     }
     return { ok: true, data };
-  } catch (e: unknown) {
+  } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return { ok: false, error: msg };
   }
@@ -318,19 +273,17 @@ export default definePluginEntry({
   name: "Agent OS Content Tools",
   description:
     "Register Agent OS content/workflow/kanban tools that call the backend. baseUrl and apiKey from config or env.",
-  register(api: PluginApi) {
+  register(api) {
     const tools = loadToolsFromFile();
     const apiToolNote =
       " Invoke this tool by name with JSON parameters (API call); do not use exec or run as a shell command.";
     for (const t of tools) {
       const name = t?.name;
       if (!name || typeof name !== "string") continue;
-      const description = (t.purpose || t.display_name || name) as string;
-      const parameters =
-        PARAM_SCHEMAS[name] ||
-        ({ type: "object", properties: {}, additionalProperties: true } as Record<string, unknown>);
+      const description = t.purpose || t.display_name || name;
+      const parameters = PARAM_SCHEMAS[name] || { type: "object", properties: {}, additionalProperties: true };
       api.registerTool(
-        (toolCtx: ToolCtx) => {
+        (toolCtx) => {
           const callerAgentId = resolveCallerAgentId(api, {}, toolCtx);
           if (!isToolAllowedForAgent(callerAgentId, name)) return null;
           return {
@@ -338,13 +291,13 @@ export default definePluginEntry({
             description:
               description + apiToolNote + " Prefer this tool when applicable before using other built-in tools.",
             parameters,
-            async execute(_id: string, params: Record<string, unknown>) {
+            async execute(_id, params) {
               const raw = params || {};
               const invokeCaller = resolveCallerAgentId(api, raw, toolCtx);
               const { __openclaw_agent_id, caller_agent_id, agent_id, ...rest } = raw;
               const result = await callInvoke(api, name, rest, invokeCaller, toolCtx);
               const text = result.ok ? JSON.stringify(result.data) : JSON.stringify({ error: result.error });
-              return { content: [{ type: "text" as const, text }] };
+              return { content: [{ type: "text", text }] };
             },
           };
         },

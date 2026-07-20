@@ -237,6 +237,7 @@ export const api = {
   masterDataDocumentDelete: (id) => del(`/master-data/documents/${encodeURIComponent(id)}`),
   masterDataRag: (body) => post('/master-data/rag', body),
   masterDataQuery: (body) => post('/master-data/query', body),
+  aiSnipperSummary: (days = 7) => get(`/ai-snipper/summary?days=${days}`),
   adminUsers: () => get('/admin/users'),
   adminUserGet: (userId) => get(`/admin/users/${encodeURIComponent(userId)}`),
   adminUserSetEnabled: (userId, enabled) => patch(`/admin/users/${encodeURIComponent(userId)}/enabled`, { enabled }),

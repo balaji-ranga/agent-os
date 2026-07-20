@@ -29,6 +29,7 @@ const REQUIRED_GLOBAL_TOOLS = [
   'agent_workflow_list',
   'agent_workflow_trigger',
   'intent_classify_and_delegate',
+  'learnings_summary',
 ];
 
 const REQUIRED_SKILLS = ['agent-send', 'agent-os-content-tools', 'browser-automation'];
@@ -109,6 +110,39 @@ if (!apiKey) {
   fail('agent-os-content-tools config.apiKey / TOOLS_API_KEY not set — run ensure-tools-api-key.js or configure-openclaw-docker.js');
 } else if (process.env.TOOLS_API_KEY && apiKey !== process.env.TOOLS_API_KEY) {
   fail('agent-os-content-tools config.apiKey does not match TOOLS_API_KEY env — re-run configure-openclaw-docker.js or ensure-tools-api-key.js');
+}
+
+// OpenClaw 2026.7+ content-tools must use definePluginEntry + contracts.tools
+const contentToolsJs = join(OPENCLAW_DIR, 'extensions', 'agent-os-content-tools', 'index.js');
+const contentToolsManifest = join(OPENCLAW_DIR, 'extensions', 'agent-os-content-tools', 'openclaw.plugin.json');
+if (!existsSync(contentToolsJs)) {
+  fail('missing agent-os-content-tools/index.js — run sync-openclaw-extensions.js / restart openclaw gateway');
+} else {
+  const jsSrc = readFileSync(contentToolsJs, 'utf8');
+  if (!jsSrc.includes('definePluginEntry')) {
+    fail('agent-os-content-tools/index.js missing definePluginEntry (OpenClaw 2026.7+ tool plugin shape)');
+  }
+}
+if (existsSync(contentToolsManifest)) {
+  try {
+    const manifest = JSON.parse(readFileSync(contentToolsManifest, 'utf8'));
+    const tools = manifest.contracts?.tools || [];
+    if (!Array.isArray(tools) || tools.length === 0) {
+      fail('agent-os-content-tools openclaw.plugin.json missing contracts.tools');
+    } else if (!tools.includes('agent_workflow_list')) {
+      fail('contracts.tools missing agent_workflow_list');
+    }
+  } catch (e) {
+    fail(`agent-os-content-tools manifest unreadable: ${e.message}`);
+  }
+} else {
+  fail('missing agent-os-content-tools/openclaw.plugin.json');
+}
+
+if (!process.env.TOOLS_BASE_URL && process.env.AGENT_OS_PUBLIC_URL?.startsWith('https://')) {
+  warn(
+    'TOOLS_BASE_URL unset while AGENT_OS_PUBLIC_URL is HTTPS — set TOOLS_BASE_URL=http://127.0.0.1:3001 to avoid tool invoke fetch failed'
+  );
 }
 
 // Global tools.allow

@@ -2,7 +2,7 @@
  * Content tools metadata: read/write DB and write OpenClaw tools list file for the plugin.
  */
 import { getDb } from '../db/schema.js';
-import { writeFileSync, mkdirSync, existsSync } from 'fs';
+import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { getOpenClawDir } from '../config/openclaw-paths.js';
 
@@ -172,6 +172,54 @@ export function createToolMeta(record) {
 }
 
 /**
+ * Keep openclaw.plugin.json contracts.tools in sync so OpenClaw 2026.7+ can
+ * discover tool ownership without loading plugin runtime.
+ */
+function syncContentToolsPluginContracts(toolNames) {
+  const pluginPath = join(OPENCLAW_DIR, 'extensions', 'agent-os-content-tools', 'openclaw.plugin.json');
+  if (!existsSync(pluginPath)) return;
+  try {
+    const plugin = JSON.parse(readFileSync(pluginPath, 'utf8'));
+    const names = (toolNames || []).filter((n) => typeof n === 'string' && n.trim());
+    plugin.contracts = { ...(plugin.contracts || {}), tools: names };
+    plugin.activation = { ...(plugin.activation || {}), onStartup: true };
+    const toolMetadata = { ...(plugin.toolMetadata || {}) };
+    for (const name of names) {
+      toolMetadata[name] = { ...(toolMetadata[name] || {}), optional: true };
+    }
+    plugin.toolMetadata = toolMetadata;
+    writeFileSync(pluginPath, JSON.stringify(plugin, null, 2), 'utf8');
+  } catch (_) {
+    /* best-effort; plugin still loads from tools list at runtime */
+  }
+}
+
+/**
+ * Keep openclaw.json tools.allow in sync so OpenClaw core does not strip
+ * plugin tools that are granted per-agent but missing from the global allow list.
+ */
+function syncGlobalToolsAllow(toolNames) {
+  const configPath = join(OPENCLAW_DIR, 'openclaw.json');
+  if (!existsSync(configPath)) return;
+  try {
+    const config = JSON.parse(readFileSync(configPath, 'utf8'));
+    config.tools = config.tools || {};
+    if (!Array.isArray(config.tools.allow)) config.tools.allow = [];
+    let changed = false;
+    for (const name of toolNames || []) {
+      if (typeof name !== 'string' || !name.trim()) continue;
+      if (!config.tools.allow.includes(name)) {
+        config.tools.allow.push(name);
+        changed = true;
+      }
+    }
+    if (changed) writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+  } catch (_) {
+    /* best-effort */
+  }
+}
+
+/**
  * Write enabled tools to a JSON file for the OpenClaw plugin to read.
  */
 export function writeOpenClawToolsList() {
@@ -181,4 +229,7 @@ export function writeOpenClawToolsList() {
   const dir = join(path, '..');
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   writeFileSync(path, JSON.stringify(rows, null, 2), 'utf8');
+  const names = rows.map((r) => r.name);
+  syncContentToolsPluginContracts(names);
+  syncGlobalToolsAllow(names);
 }

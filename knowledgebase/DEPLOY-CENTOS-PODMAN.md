@@ -128,6 +128,20 @@ Set in `.env`: `OLLAMA_BASE_URL=http://ollama:11434` (default in compose). OpenC
 
 For workflow SSE/hook testing only — not required in production unless you host MCP integrations here.
 
+### OpenConnector mock (`optional-openconnector` profile)
+
+Registers SaaS-action MCP tools for workflows (list/search/execute). For staging:
+
+```bash
+# In deploy/.env:
+# OPENCONNECTOR_MCP_URL=http://openconnector-mcp-mock:3105/mcp
+
+podman compose --profile optional-openconnector up -d
+podman compose exec backend node scripts/seed-openconnector-mcp.js
+```
+
+Production: point `OPENCONNECTOR_MCP_URL` at a real OpenConnector `/mcp` endpoint (and set `OPENCONNECTOR_MCP_BEARER` if required). See **OPENCONNECTOR-WEBHOOKS.md**.
+
 ### Job Applicant browser login (`optional-browser-login`)
 
 LinkedIn/JobStreet login uses a **persistent Playwright profile** under `openclaw_home`. On a headless CentOS server you have three options:
@@ -150,12 +164,15 @@ After login, click **Save & connect** in Job Profiles so cookies persist in the 
 
 - [ ] `AGENT_OS_PUBLIC_URL` set to real HTTPS URL
 - [ ] Real TLS certs in `deploy/nginx/certs/`
-- [ ] Strong `OPENCLAW_GATEWAY_TOKEN`, `AGENT_OS_ADMIN_PASSWORD`
+- [ ] Strong `OPENCLAW_GATEWAY_TOKEN`, `TOOLS_API_KEY`, `AGENT_OS_INTERNAL_TOKEN`, `AGENT_OS_ADMIN_PASSWORD`
 - [ ] `OPENAI_API_KEY` (and optional OpenRouter/Replicate keys)
 - [ ] Firewall: only 443 (and 80 redirect) public
-- [ ] Back up volumes `agent_os_data` + `openclaw_home`
+- [ ] Back up volumes `agent_os_data` + `openclaw_home` (+ `workflow_fs` if using filesystem nodes)
 - [ ] `OPENCLAW_DISCOVERY_TIMEOUT_MS=900000` for long browser jobs
 - [ ] Monitor memory on `openclaw` container (Chromium)
+- [ ] Optional: `WORKFLOW_SMTP_*` for email workflows / MFA OTP
+- [ ] Optional: `EMAIL_INBOUND_WEBHOOK_SECRET` + provider webhook → `/api/integrations/email-inbound/:id`
+- [ ] Optional: `OPENCONNECTOR_MCP_URL` (+ `optional-openconnector` mock or real OpenConnector)
 
 ## Upgrades
 
@@ -163,10 +180,16 @@ After login, click **Save & connect** in Job Profiles so cookies persist in the 
 cd /opt/agent-os/agent-os
 git pull
 cd deploy
+# ensure new secrets exist (AGENT_OS_INTERNAL_TOKEN, etc.)
+node ../scripts/ensure-deploy-secrets.js --env-file .env
 podman compose build
 podman compose --profile init run --rm init
 podman compose up -d
+# If using OpenConnector:
+# podman compose exec backend node scripts/seed-openconnector-mcp.js
 ```
+
+After upgrades that add routes (master-data, feedback, email-inbound, openconnector), a **backend + frontend rebuild** is enough — nginx already proxies all `/api/*`.
 
 ## Troubleshooting
 
@@ -186,6 +209,7 @@ To start the stack on boot, create a systemd unit that runs `podman compose up -
 ## Related docs
 
 - **deploy/README.md** — Compose reference
+- **OPENCONNECTOR-WEBHOOKS.md** — OpenConnector MCP, email inbound, filesystem workflows
 - **GATEWAY-PAIRING-1008.md** — gateway auth
 - **JOB-APPLICANT-WORKFLOW.md** — browser pipeline
 - **TESTING.md** — smoke tests

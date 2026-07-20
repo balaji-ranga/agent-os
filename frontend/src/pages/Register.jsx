@@ -122,7 +122,7 @@ export default function Register() {
   if (mfa?.mfa_required || mfa?.mfa_setup_required) {
     const isEmail = (mfa.mfa_mode || 'EMAIL') === 'EMAIL';
     return (
-      <div style={{ maxWidth: 480, margin: '2rem auto', padding: '0 1rem' }}>
+      <div className="auth-page" style={{ maxWidth: 480, margin: '2rem auto', padding: '0 1rem' }}>
         <h1 style={{ marginBottom: '0.25rem' }}>Verification code</h1>
         <p style={{ color: 'var(--muted)', marginBottom: '1.5rem' }}>
           {isEmail
@@ -173,7 +173,7 @@ export default function Register() {
   const platMode = platform?.platform_mfa_mode || 'EMAIL';
 
   return (
-    <div style={{ maxWidth: 480, margin: '2rem auto', padding: '0 1rem' }}>
+    <div className="auth-page" style={{ maxWidth: 480, margin: '2rem auto', padding: '0 1rem' }}>
       <h1>Register CEO account</h1>
       <p style={{ color: 'var(--muted)', marginBottom: '1rem' }}>
         Choose where your job pipeline, kanban, and chat history are stored. Standard workspace agents are granted either way.

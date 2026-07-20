@@ -79,9 +79,15 @@ function canAccessWorkflowTools(caller) {
   return !!(caller && (caller.is_coo || isWorkflowBuilderCaller(caller)));
 }
 function getBackendBaseUrl() {
-  const override = process.env.TOOLS_BASE_URL || process.env.AGENT_OS_PUBLIC_URL;
+  // Prefer explicit internal URL for tool self-dispatch. Public HTTPS often fails inside
+  // the container (self-signed cert / hairpin NAT) and surfaces as "fetch failed".
+  const override =
+    process.env.TOOLS_BASE_URL ||
+    process.env.AGENT_OS_INTERNAL_URL ||
+    process.env.AGENT_OS_INTERNAL_API_URL;
   if (override) return String(override).replace(/\/$/, '');
-  return getPublicBaseUrl();
+  const port = process.env.PORT || '3001';
+  return `http://127.0.0.1:${port}`;
 }
 
 function logContentTool(toolName, requestPayload, responsePayload, status, source = null, ownerUserId = null) {

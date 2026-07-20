@@ -283,11 +283,13 @@ export function syncUserLlmToOpenClaw(ceoUserId) {
   }
 
   const primary = resolved.primary;
+  const modelId = String(primary.model || 'gpt-4o-mini').replace(/^[^/]+\//, '');
   config.models.providers[providerKey] = {
     baseUrl: primary.baseUrl,
     apiKey: primary.apiKey,
     api: 'openai-completions',
-    models: [{ id: String(primary.model || 'gpt-4o-mini').replace(/^[^/]+\//, '') }],
+    // OpenClaw 2026+ requires models[].name (non-empty string)
+    models: [{ id: modelId, name: modelId }],
   };
 
   const modelSlug = openClawModelSlug(providerKey, primary.model);
@@ -330,11 +332,12 @@ export function ensureByokProviderInConfig(config, ceoUserId) {
     return config;
   }
   const primary = resolved.primary;
+  const modelId = String(primary.model || 'gpt-4o-mini').replace(/^[^/]+\//, '');
   config.models.providers[providerKey] = {
     baseUrl: primary.baseUrl,
     apiKey: primary.apiKey,
     api: 'openai-completions',
-    models: [{ id: String(primary.model || 'gpt-4o-mini').replace(/^[^/]+\//, '') }],
+    models: [{ id: modelId, name: modelId }],
   };
   return config;
 }

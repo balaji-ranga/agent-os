@@ -83,7 +83,7 @@ You are **${name}**. ${role || 'Specialist agent.'}
 
 - **Before responding:** Get your session history for context. Use **sessions_history** with the session key that applies to this run:
   - If the user message says **"Your session key for this run is …"**, use that exact sessionKey (required when delegated or on a Kanban task).
-  - Otherwise use \`sessionKey: "agent::${id}:main"\` for Dashboard chat (full format required).
+  - Otherwise use \`sessionKey: "agent:${id}:main"\` for Dashboard chat (full format required).
   Then proceed with the task.
 - **Before starting a task:** Read MEMORY.md. If you see a recent completion for the same or very similar topic, state that and ask whether to redo or reuse.
 - **After completing a task:** Append a brief line to MEMORY.md: topic/request summary and date. Keep only recent entries (e.g. last 20–30).

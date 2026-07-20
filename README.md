@@ -136,15 +136,15 @@ Workflow hook URLs, cron webhooks, and MCP/API endpoints in graphs should use yo
 
 ## Production deploy (Docker / Podman)
 
-Container stack: **nginx** + **frontend** + **backend** + **OpenClaw gateway**, with optional **init**, **Ollama**, **MCP test server**, and **browser-login** profiles.
+Container stack: **nginx** + **frontend** + **backend** + **OpenClaw gateway**, with optional **init**, **Ollama**, **MCP / OpenConnector mock**, and **browser-login** profiles.
 
 ```bash
 cd deploy
 cp .env.example .env   # set AGENT_OS_PUBLIC_URL, OPENCLAW_GATEWAY_TOKEN, OPENAI_API_KEY
-./scripts/up.sh        # USE_PODMAN=1 on CentOS
+./scripts/up.sh        # auto-fills TOOLS_API_KEY + AGENT_OS_INTERNAL_TOKEN; USE_PODMAN=1 on CentOS
 ```
 
-- **deploy/README.md** — Compose services, volumes, profiles
+- **deploy/README.md** — Compose services, volumes, profiles, OpenConnector / email-inbound
 - **knowledgebase/DEPLOY-CENTOS-PODMAN.md** — CentOS, Podman, SELinux, Chromium/browser login
 - **scripts/setup-openclaw-from-scratch.sh** — Linux bootstrap (also runs in the `init` container)
 

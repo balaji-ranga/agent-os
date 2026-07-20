@@ -1,8 +1,8 @@
 # Agent OS — Container deployment
 
-Production stack for Agent OS: **nginx**, **frontend**, **backend**, **OpenClaw gateway**, plus optional **init**, **MCP**, **Ollama**, and **browser-login** services.
+Production stack for Agent OS: **nginx**, **frontend**, **backend**, **OpenClaw gateway**, plus optional **init**, **MCP**, **OpenConnector mock**, **Ollama**, and **browser-login** services.
 
-Works with **Docker Compose** and **Podman Compose** on CentOS/RHEL and other Linux hosts.
+Works with **Docker Compose** and **Podman Compose** on CentOS/RHEL, Ubuntu (Hostinger VPS), and other Linux hosts.
 
 ## Containers
 
@@ -10,19 +10,21 @@ Works with **Docker Compose** and **Podman Compose** on CentOS/RHEL and other Li
 |---------|----------|-------------|---------|
 | `nginx` | Yes | 80, 443 | TLS, `/` → frontend, `/api` → backend |
 | `frontend` | Yes | internal | React SPA (Vite build) |
-| `backend` | Yes | internal | API, cron, workflows, SQLite |
+| `backend` | Yes | internal | API, cron, workflows, SQLite, master-data, feedback, BYOK |
 | `openclaw` | Yes | internal | Gateway :18789, browser tool, skills/plugins |
 | `init` | First run | — | One-shot bootstrap (`--profile init`) |
 | `mcp-random-sse` | Optional | internal | Dev MCP + SSE test server |
-| `ollama` | Optional | internal | Local LLM fallback for OpenClaw |
+| `openconnector-mcp-mock` | Optional | internal | OpenConnector MCP mock (`:3105`) |
+| `ollama` | Optional | internal | Local LLM fallback for OpenClaw / BYOK |
 | `novnc` | Optional | 6080 | Desktop for manual job-portal login |
 
 ## Volumes (persist)
 
 | Volume | Mount | Contents |
 |--------|-------|----------|
-| `agent_os_data` | backend `/data/agent-os` | SQLite (`agent-os.db`) |
+| `agent_os_data` | backend `/data/agent-os` | SQLite (`agent-os.db`) — includes master-data, feedback, user LLM settings |
 | `openclaw_home` | backend + openclaw `/root/.openclaw` | `openclaw.json`, workspaces, browser profile, media, sessions |
+| `workflow_fs` | backend `/data/workflow-fs` | Filesystem workflow node roots (`WORKFLOW_FS_ROOTS`) |
 | `ollama_data` | ollama | Local models (optional profile) |
 
 ## OpenClaw feature parity (Docker init vs local setup)
@@ -45,6 +47,8 @@ The `init` container runs `setup-openclaw-from-scratch.sh --docker`, which match
 | Hot-reload workspace MD (bootstrap watcher) | ✓ | ✓ |
 | Custom workflow scripts (Python/JS sandbox) | ✓ | ✓ (`python3` in backend image) |
 | Per-agent tool grants / allowlists | backend startup sync | ✓ backend startup |
+| Master-data / feedback / BYOK LLM | ✓ (schema on startup) | ✓ rebuild backend image |
+| OpenConnector MCP registration | `seed-openconnector-mcp.js` | ✓ post-up when `OPENCONNECTOR_MCP_URL` set |
 
 Verify after init:
 
@@ -62,6 +66,7 @@ Skip Job Applicant in init: add `--no-job-applicant` to the bootstrap command in
 cd agent-os/deploy
 cp .env.example .env
 # Edit: AGENT_OS_PUBLIC_URL, OPENCLAW_GATEWAY_TOKEN, OPENAI_API_KEY, admin password
+# up.sh auto-fills TOOLS_API_KEY + AGENT_OS_INTERNAL_TOKEN if empty/placeholder
 
 ./scripts/generate-dev-certs.sh agent-os.example.com   # or use real certs in nginx/certs/
 
@@ -102,6 +107,16 @@ docker compose --profile init run --rm init
 docker compose restart openclaw backend
 ```
 
+**Routine image upgrades** (backend + OpenClaw plugins/fixes): a full init is usually **not** required. The OpenClaw gateway entrypoint runs `scripts/sync-openclaw-extensions.js` and `configure-openclaw-docker.js` on every start, so rebuilt images refresh volume-mounted extensions and plugin env config automatically:
+
+```bash
+docker compose build backend openclaw
+docker compose up -d backend openclaw
+docker compose exec openclaw node deploy/scripts/verify-openclaw-parity.js
+```
+
+Ensure `TOOLS_BASE_URL=http://127.0.0.1:3001` in `.env` (see `.env.example`) so backend tool self-invoke does not use public HTTPS.
+
 ## Environment & LLM secrets
 
 All secrets live in **`deploy/.env`** (gitignored). Compose injects them as **runtime environment variables** — they are **not** baked into images. At init, **`OPENCLAW_GATEWAY_TOKEN`** and **`TOOLS_API_KEY`** are also written into `openclaw.json` (gateway auth + content-tools plugin).
@@ -112,16 +127,18 @@ All secrets live in **`deploy/.env`** (gitignored). Compose injects them as **ru
 |-----|---------|----------|
 | `OPENCLAW_GATEWAY_TOKEN` | `OPENCLAW_GATEWAY_TOKEN` env | `gateway.auth.token` in openclaw.json |
 | `TOOLS_API_KEY` | `TOOLS_API_KEY` env | `plugins.entries['agent-os-content-tools'].config.apiKey` |
+| `TOOLS_BASE_URL` | backend tool self-dispatch (default `http://127.0.0.1:3001`) | — (backend-only) |
+| `AGENT_OS_INTERNAL_TOKEN` | workflow runner / tools / cron | — (backend-only; must be stable) |
 
-Both sides must match or COO/content-tools calls fail with 401.
+Both OpenClaw plugin keys must match or COO/content-tools calls fail with 401. Without a stable `AGENT_OS_INTERNAL_TOKEN`, workflow/internal auth breaks after every backend restart.
 
 **First deploy / auto-generate:**
 
 ```bash
 cd agent-os/deploy
 cp .env.example .env
-# up.sh runs this before init if TOOLS_API_KEY is missing:
-node ../scripts/ensure-tools-api-key.js --env-file .env --skip-openclaw
+# up.sh runs this before init:
+node ../scripts/ensure-deploy-secrets.js --env-file .env
 docker compose --profile init run --rm init
 ```
 
@@ -131,12 +148,13 @@ docker compose --profile init run --rm init
 cd agent-os
 node scripts/ensure-tools-api-key.js
 # syncs backend/.env + ~/.openclaw/openclaw.json
+# Also set AGENT_OS_INTERNAL_TOKEN in backend/.env for stable workflow auth
 ```
 
 **Rotate or fix a mismatch:**
 
 ```bash
-# 1. Set the same value in deploy/.env (or re-run ensure-tools-api-key.js)
+# 1. Set the same value in deploy/.env (or re-run ensure-deploy-secrets.js)
 # 2. Re-apply openclaw.json plugin config:
 docker compose run --rm openclaw node deploy/scripts/configure-openclaw-docker.js
 # 3. Recreate services so env is picked up:
@@ -160,20 +178,25 @@ Gets the same gateway LLM vars plus:
 
 | Variable | Purpose |
 |----------|---------|
+| `AGENT_OS_INTERNAL_TOKEN` | Workflow runner, tools proxy, cron-callback (required in production) |
 | `OPENAI_COO_MODEL`, `OPENAI_INTENT_MODEL` | COO / intent classifier |
 | `REPLICATE_API_TOKEN` | Video generation content tool |
-| `OPENROUTER_*` | Dev/test scripts only |
+| `OPENROUTER_*` | Dev/test scripts; Brain nodes still use per-node keys |
 | `CUSTOM_SCRIPT_*` | Python/JS workflow script sandbox (`python3` in image); includes LLM security review at registration |
-| `CUSTOM_SCRIPT_LLM_REVIEW` | `1` = LLM certifies scripts after regex scan (uses backend `OPENAI_*` / Ollama) |
-| `CUSTOM_SCRIPT_LLM_REVIEW_REQUIRED` | `1` = reject registration if LLM review unavailable |
+| `WORKFLOW_SMTP_*` | Send Email workflow task + MFA email OTP |
+| `MFA_MODE`, `AGENT_OS_REQUIRE_MFA`, `AGENT_OS_DISABLE_MFA` | Platform MFA defaults |
+| `EMAIL_INBOUND_WEBHOOK_SECRET` | Optional platform secret for email inbound webhooks |
+| `OPENCONNECTOR_MCP_*` | OpenConnector MCP URL / bearer / transport |
+| `WORKFLOW_FS_ROOTS` | Allowed roots for filesystem workflow nodes (default `/data/workflow-fs`) |
 
-**Workflow Brain nodes:** published workflows require API keys **on each Brain node** in the editor — platform `.env` keys are not used at run time (see `backend/.env.example`).
+**Workflow Brain nodes:** published workflows require API keys **on each Brain node** in the editor — platform `.env` keys are not used at run time (see `backend/.env.example`). User BYOK keys live in SQLite (User Profile).
 
 ### Critical production values
 
-- `AGENT_OS_PUBLIC_URL` — public HTTPS URL (workflow webhooks, callbacks)
+- `AGENT_OS_PUBLIC_URL` — public HTTPS URL (workflow webhooks, email-inbound, callbacks)
 - `OPENCLAW_GATEWAY_TOKEN` — must match `gateway.auth.token` in openclaw.json (set by init)
 - `TOOLS_API_KEY` — must match `plugins.entries['agent-os-content-tools'].config.apiKey` (set by init)
+- `AGENT_OS_INTERNAL_TOKEN` — stable secret (auto-generated by `up.sh` / `ensure-deploy-secrets.js`)
 - `VITE_API_URL=/api` — frontend calls nginx-relative API path
 - Do **not** publish OpenClaw port 18789 to the host
 
@@ -184,29 +207,61 @@ docker compose run --rm openclaw node deploy/scripts/configure-openclaw-docker.j
 docker compose up -d --force-recreate openclaw backend
 ```
 
+## Recent API surfaces (no extra nginx config)
+
+All proxied under `/api` (rebuild backend + frontend images after upgrade):
+
+| Feature | Path / notes |
+|---------|----------------|
+| Master data | `/api/master-data`, UI `/master-data` |
+| Chat feedback | `/api/feedback` |
+| OpenConnector | `/api/openconnector`, MCP via `OPENCONNECTOR_MCP_URL` |
+| Email inbound | `POST /api/integrations/email-inbound/:definitionId` |
+| BYOK LLM | User Profile → stored in DB; Ollama needs `optional-ollama` |
+
+Email inbound provider URL example:
+
+```text
+https://your-domain/api/integrations/email-inbound/<workflowDefinitionId>
+```
+
 ## Optional Compose profiles
 
 ```bash
 # Local MCP SSE test server (port 3099 internal)
 docker compose --profile optional-mcp up -d
 
-# Ollama fallback (pull a model after start: docker compose exec ollama ollama pull llama3.2)
+# OpenConnector MCP mock (port 3105 internal)
+# Set in .env: OPENCONNECTOR_MCP_URL=http://openconnector-mcp-mock:3105/mcp
+docker compose --profile optional-openconnector up -d
+docker compose exec backend node scripts/seed-openconnector-mcp.js
+
+# Ollama fallback / BYOK local models
 docker compose --profile optional-ollama up -d
+# pull a model after start: docker compose exec ollama ollama pull llama3.2
 
 # Browser login helper — set ENABLE_VNC=1 in .env, then:
 docker compose --profile optional-browser-login up -d
 # noVNC UI: http://host:6080 — see knowledgebase/DEPLOY-CENTOS-PODMAN.md
 ```
 
+Pass profiles to `up.sh`:
+
+```bash
+./scripts/up.sh --profile optional-openconnector
+```
+
 ## Build images only
 
 ```bash
 docker compose build backend frontend openclaw
+# include mock when using the profile:
+docker compose --profile optional-openconnector build openconnector-mcp-mock
 ```
 
-## CentOS / Podman
+## CentOS / Podman / Hostinger
 
-See **knowledgebase/DEPLOY-CENTOS-PODMAN.md** for SELinux (`:Z` volumes), rootless Podman, firewall, and browser-on-headless-server notes.
+See **knowledgebase/DEPLOY-CENTOS-PODMAN.md** for SELinux (`:Z` volumes), rootless Podman, firewall, and browser-on-headless-server notes. Same Compose stack works on Hostinger Ubuntu/Debian with Docker Engine.
 
 ```bash
 USE_PODMAN=1 ./scripts/up.sh

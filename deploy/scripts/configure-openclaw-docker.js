@@ -53,10 +53,105 @@ if (GATEWAY_TOKEN) {
   console.warn('OPENCLAW_GATEWAY_TOKEN not set — gateway may require device pairing (see GATEWAY-PAIRING-1008.md)');
 }
 
+// Codex app-server auto-enables for openai/* and rejects plugin tools with type "custom"
+// (OpenAI 400 invalid_request_error). Keep Agent OS content-tools on the embedded runner.
+if (!config.plugins) config.plugins = {};
+if (!config.plugins.entries) config.plugins.entries = {};
+config.plugins.entries.codex = { ...(config.plugins.entries.codex || {}), enabled: false };
+if (!Array.isArray(config.plugins.allow)) config.plugins.allow = [];
+for (const id of ['agent-os-content-tools', 'browser', 'agent-os-bootstrap-watcher']) {
+  if (!config.plugins.allow.includes(id)) config.plugins.allow.push(id);
+}
+config.plugins.allow = config.plugins.allow.filter((id) => id !== 'codex');
+console.log('Disabled plugins.entries.codex; plugins.allow=', config.plugins.allow.join(', '));
+
 if (!config.tools) config.tools = {};
 if (!config.tools.sessions) config.tools.sessions = {};
 config.tools.sessions.visibility = SESSION_VISIBILITY;
 console.log('Set tools.sessions.visibility:', SESSION_VISIBILITY);
+
+// OpenClaw intersects agent tools.allow with global tools.allow. Plugin tools missing
+ // from the global list are stripped (COO learnings_summary regressed this way).
+const REQUIRED_GLOBAL_CONTENT_TOOLS = [
+  'summarize_url',
+  'generate_image',
+  'generate_video',
+  'kanban_move_status',
+  'kanban_reassign_to_coo',
+  'kanban_assign_task',
+  'kanban_create_task',
+  'intent_classify_and_delegate',
+  'agent_workflow_list',
+  'agent_workflow_enquire',
+  'agent_workflow_trigger',
+  'agent_workflow_get_draft',
+  'agent_workflow_mutate',
+  'learnings_summary',
+  'brain_history',
+  'content_tools_enquire',
+  'browser',
+];
+if (!Array.isArray(config.tools.allow)) config.tools.allow = [];
+let globalAdded = 0;
+for (const name of REQUIRED_GLOBAL_CONTENT_TOOLS) {
+  if (!config.tools.allow.includes(name)) {
+    config.tools.allow.push(name);
+    globalAdded += 1;
+  }
+}
+if (globalAdded) {
+  console.log(`Added ${globalAdded} tool(s) to global tools.allow (incl. learnings_summary)`);
+} else {
+  console.log('Global tools.allow already includes required content tools');
+}
+
+// Keep COO / Workflow Builder agent allows current across volume-persisted configs.
+const AGENT_CONTENT_TOOLS = {
+  balserve: [
+    'summarize_url',
+    'generate_image',
+    'generate_video',
+    'kanban_move_status',
+    'kanban_reassign_to_coo',
+    'kanban_assign_task',
+    'intent_classify_and_delegate',
+    'agent_workflow_list',
+    'agent_workflow_enquire',
+    'agent_workflow_trigger',
+    'learnings_summary',
+    'browser',
+  ],
+  workflowbuilder: [
+    'agent_workflow_list',
+    'agent_workflow_enquire',
+    'agent_workflow_trigger',
+    'agent_workflow_get_draft',
+    'agent_workflow_mutate',
+    'summarize_url',
+    'learnings_summary',
+    'brain_history',
+    'content_tools_enquire',
+    'browser',
+  ],
+};
+if (Array.isArray(config.agents?.list)) {
+  for (const agent of config.agents.list) {
+    const id = String(agent?.id || '').toLowerCase();
+    const required = AGENT_CONTENT_TOOLS[id];
+    if (!required) continue;
+    agent.tools = agent.tools || {};
+    if (!Array.isArray(agent.tools.allow)) agent.tools.allow = [];
+    let n = 0;
+    for (const name of required) {
+      if (!agent.tools.allow.includes(name)) {
+        agent.tools.allow.push(name);
+        n += 1;
+      }
+    }
+    if (!agent.tools.deny) agent.tools.deny = ['image'];
+    if (n) console.log(`Added ${n} tool(s) to agents.list ${id} tools.allow`);
+  }
+}
 
 if (!config.plugins) config.plugins = {};
 if (!config.plugins.entries) config.plugins.entries = {};
@@ -83,7 +178,116 @@ console.log('Set agent-os-content-tools baseUrl:', INTERNAL_API);
 if (config.models?.providers?.ollama) {
   config.models.providers.ollama.baseUrl = `${OLLAMA_BASE}/v1`;
   console.log('Set Ollama baseUrl:', `${OLLAMA_BASE}/v1`);
+  // Agent bootstrap alone is often ~9k tokens; 4k/8k ollama defaults cause context overflow.
+  const ollamaModels = config.models.providers.ollama.models;
+  if (Array.isArray(ollamaModels)) {
+    config.models.providers.ollama.models = ollamaModels.map((m) => {
+      if (typeof m === 'string') {
+        return {
+          id: m,
+          name: m,
+          reasoning: false,
+          input: ['text'],
+          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+          contextWindow: 131072,
+          maxTokens: 8192,
+        };
+      }
+      return {
+        ...m,
+        contextWindow: Math.max(Number(m.contextWindow) || 0, 131072),
+        maxTokens: Math.max(Number(m.maxTokens) || 0, 8192),
+      };
+    });
+    console.log(
+      'Raised ollama contextWindow:',
+      config.models.providers.ollama.models.map((m) => `${m.id}:${m.contextWindow}`).join(', ')
+    );
+  }
 }
+
+// Register OpenAI provider from env so openai/gpt-4o-mini resolves (avoids silent ollama fallback).
+const openaiKey = String(process.env.OPENAI_API_KEY || process.env.OPENAI_PRIMARY_API_KEY || '').trim();
+const openaiBase = String(
+  process.env.OPENAI_BASE_URL || process.env.OPENAI_PRIMARY_BASE_URL || 'https://api.openai.com/v1'
+)
+  .trim()
+  .replace(/\/$/, '');
+const primarySlug = String(process.env.OPENCLAW_MODEL_PRIMARY || 'openai/gpt-4o-mini').trim();
+const primaryId = primarySlug.replace(/^openai\//, '') || 'gpt-4o-mini';
+if (openaiKey) {
+  if (!config.models) config.models = {};
+  if (!config.models.providers) config.models.providers = {};
+  const existing = config.models.providers.openai || {};
+  const models = Array.isArray(existing.models) ? existing.models.slice() : [];
+  const ids = new Set(models.map((m) => (typeof m === 'string' ? m : m?.id)).filter(Boolean));
+  for (const id of [primaryId, 'gpt-4o-mini', 'gpt-4o']) {
+    if (ids.has(id)) continue;
+    models.push({
+      id,
+      name: id,
+      reasoning: false,
+      input: ['text'],
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      contextWindow: 128000,
+      maxTokens: 16384,
+    });
+    ids.add(id);
+  }
+  config.models.providers.openai = {
+    ...existing,
+    // Do not set baseUrl for official OpenAI — a custom baseUrl can force completions
+    // while tools still use type "custom", which returns 400 and triggers ollama garbage replies.
+    apiKey: openaiKey,
+    api: existing.api || 'openai-responses',
+    models: models.map((m) =>
+      typeof m === 'string'
+        ? m
+        : { ...m, api: m.api || 'openai-responses' }
+    ),
+  };
+  // Prefer our catalog over the bundled openai plugin's completions defaults.
+  config.models.mode = 'replace';
+  delete config.models.providers.openai.baseUrl;
+  console.log('Set models.providers.openai from OPENAI_API_KEY; models=', models.map((m) => m.id || m).join(', '));
+} else {
+  console.warn('OPENAI_API_KEY not set — openai/* models may fall back to ollama and overflow context');
+}
+
+// Disable silent ollama fallback unless explicitly enabled (fallback emits raw tool JSON).
+if (config.agents?.defaults?.model) {
+  const enableOllamaFallback =
+    process.env.OPENCLAW_ENABLE_OLLAMA_FALLBACK === '1' ||
+    process.env.OPENCLAW_ENABLE_OLLAMA_FALLBACK === 'true';
+  if (!enableOllamaFallback) {
+    config.agents.defaults.model.fallbacks = [];
+    console.log('Cleared agents.defaults.model.fallbacks (set OPENCLAW_ENABLE_OLLAMA_FALLBACK=1 to restore)');
+  }
+}
+
+// Ensure Agent OS extensions are on plugins.load.paths; remap Windows paths for Linux containers.
+if (!config.plugins.load) config.plugins.load = {};
+const requiredExtPaths = [
+  join(OPENCLAW_DIR, 'extensions', 'agent-os-content-tools'),
+  join(OPENCLAW_DIR, 'extensions', 'agent-os-bootstrap-watcher'),
+];
+const pathSet = new Set(
+  (Array.isArray(config.plugins.load.paths) ? config.plugins.load.paths : []).map(String)
+);
+for (const p of requiredExtPaths) pathSet.add(p);
+config.plugins.load.paths = [...pathSet].map((p) => {
+  const s = String(p || '');
+  if (/^[A-Za-z]:[\\/]/.test(s) || s.includes('\\Users\\') || s.includes('/Users/')) {
+    const base = s.replace(/\\/g, '/').split('/extensions/').pop();
+    if (base) return join(OPENCLAW_DIR, 'extensions', base);
+  }
+  return s;
+});
+if (!Array.isArray(config.plugins.allow)) config.plugins.allow = [];
+for (const id of ['agent-os-content-tools', 'agent-os-bootstrap-watcher']) {
+  if (!config.plugins.allow.includes(id)) config.plugins.allow.push(id);
+}
+console.log('Normalized plugins.load.paths for container:', config.plugins.load.paths);
 
 if (!existsSync(OPENCLAW_DIR)) mkdirSync(OPENCLAW_DIR, { recursive: true });
 writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');

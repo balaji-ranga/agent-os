@@ -126,7 +126,8 @@ export function sessionUserFor(agentId, userId = 'default') {
 /**
  * Build the session key string the gateway uses, so we can inject it into prompts.
  * Agent uses this in sessions_history to get context for this run only.
+ * OpenClaw (2026+) requires: agent:<agent-id>:<session-key> (single colon after "agent").
  */
 export function sessionKeyFor(agentId, sessionUser) {
-  return `agent::${agentId}:${sessionUser}`;
+  return `agent:${agentId}:${sessionUser}`;
 }

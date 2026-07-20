@@ -27,6 +27,7 @@ import externalAgentsRoutes from './routes/external-agents.js';
 import ibkrTradingRoutes from './routes/ibkr-trading.js';
 import emailInboundRoutes from './routes/email-inbound.js';
 import openconnectorRoutes from './routes/openconnector.js';
+import aiSnipperRoutes from './routes/ai-snipper.js';
 import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
 import platformNotificationsRoutes from './routes/platform-notifications.js';
@@ -92,6 +93,16 @@ writeOpenClawToolsList();
 try {
   const imported = importGrantsFromOpenClawConfig();
   syncAllowlistsFile();
+  // Persist DB grants into openclaw.json per-agent tools.allow (volume-safe across deploys).
+  const { syncOpenClawJsonForAgent, getAgentToolGrants } = await import('./services/openclaw-agent-tools.js');
+  const agents = getDb().prepare('SELECT * FROM agents').all();
+  let synced = 0;
+  for (const agent of agents) {
+    if (!getAgentToolGrants(agent.id).length) continue;
+    syncOpenClawJsonForAgent(agent);
+    synced += 1;
+  }
+  if (synced) console.log(`[startup] synced openclaw.json tools.allow for ${synced} agent(s)`);
   if (imported) console.log(`[startup] imported ${imported} agent tool grant(s) from openclaw.json`);
 } catch (e) {
   console.warn('[startup] agent tool grants sync:', e.message);
@@ -146,6 +157,7 @@ apiRouter.use('/integrations/external-agents', externalAgentsRoutes);
 apiRouter.use('/integrations/email-inbound', emailInboundRoutes);
 apiRouter.use('/integrations/openconnector', openconnectorRoutes);
 apiRouter.use('/ibkr-trading', ibkrTradingRoutes);
+apiRouter.use('/ai-snipper', aiSnipperRoutes);
 apiRouter.use('/media/openclaw', mediaRoutes);
 app.use('/api', apiRouter);
 

@@ -38,6 +38,14 @@ Best regards,
 Job Discovery Agent`;
 
 function getOwnerUserId() {
+  if (process.env.WORKFLOW_TEST_OWNER_USER_ID) return process.env.WORKFLOW_TEST_OWNER_USER_ID;
+  // Prefer stable primary CEO — LIMIT 1 is non-deterministic when many seed CEOs exist.
+  const preferred = getDb()
+    .prepare(
+      `SELECT id FROM platform_users WHERE id = 'ceo-bala' OR email = 'bala@agent-os.local' LIMIT 1`
+    )
+    .get();
+  if (preferred?.id) return preferred.id;
   const ceo = getDb().prepare(`SELECT id FROM platform_users WHERE role = 'ceo' LIMIT 1`).get();
   return ceo?.id || 'ceo-bala';
 }
@@ -150,13 +158,18 @@ async function main() {
   const actor = { id: ownerUserId, name: 'test-script', type: 'system' };
   const graph = buildSampleGraph();
 
-  console.log('Owner:', ownerUserId);
+  // Reuse existing definition owner when id already exists (avoids UNIQUE on re-runs).
+  const existingRow = getDb()
+    .prepare(`SELECT id, owner_user_id FROM agent_workflow_definitions WHERE id = ?`)
+    .get(WORKFLOW_ID);
+  const effectiveOwnerId = existingRow?.owner_user_id || ownerUserId;
+  const effectiveActor = { ...actor, id: effectiveOwnerId };
+  console.log('Owner:', effectiveOwnerId);
 
-  const existing = store.getDefinition(WORKFLOW_ID, ownerUserId);
-  if (existing) {
+  if (existingRow) {
     store.updateDraft(
       WORKFLOW_ID,
-      ownerUserId,
+      effectiveOwnerId,
       {
         name: 'Job Discovery → Email',
         description: 'Sample: jobdiscovery agent then SMTP email',
@@ -165,7 +178,7 @@ async function main() {
         schedule_cron: '* * * * *',
         chat_trigger_phrase: CHAT_PHRASE,
       },
-      actor
+      effectiveActor
     );
     console.log('Updated existing workflow:', WORKFLOW_ID);
   } else {
@@ -178,26 +191,30 @@ async function main() {
         WORKFLOW_ID,
         'Job Discovery → Email',
         'Sample: jobdiscovery agent then SMTP email',
-        ownerUserId,
+        effectiveOwnerId,
         JSON.stringify(graph),
         '* * * * *',
         CHAT_PHRASE,
         'manual,schedule,chat'
       );
-    store.appendAudit(WORKFLOW_ID, { action: 'created', summary: 'Test script created workflow', changedBy: actor.id });
+    store.appendAudit(WORKFLOW_ID, {
+      action: 'created',
+      summary: 'Test script created workflow',
+      changedBy: effectiveActor.id,
+    });
     console.log('Created workflow:', WORKFLOW_ID);
   }
 
-  const published = store.publishDefinition(WORKFLOW_ID, ownerUserId, actor);
+  const published = store.publishDefinition(WORKFLOW_ID, effectiveOwnerId, effectiveActor);
   console.log('Published:', published.status);
 
   notifySchedulerConfigurationChanged();
   console.log('Scheduler refreshed (every minute + chat phrase registered)');
 
-  const run = await startAgentWorkflowRun(WORKFLOW_ID, ownerUserId, {
+  const run = await startAgentWorkflowRun(WORKFLOW_ID, effectiveOwnerId, {
     trigger: 'manual',
     input: 'Manual test run for job discovery email workflow',
-    actor,
+    actor: effectiveActor,
   });
   console.log('Started run #' + run.run_number, 'id=', run.id);
 
@@ -207,7 +224,7 @@ async function main() {
 
   while (Date.now() - start < maxWait) {
     await processPendingDelegationTasks().catch(() => {});
-    finalRun = store.getRun(run.id, ownerUserId);
+    finalRun = store.getRun(run.id, effectiveOwnerId);
     const discoveryStep = finalRun.steps?.find((s) => s.node_id === 'agent-discovery');
     if (discoveryStep?.status === 'completed') {
       console.log('Job discovery step completed via agent');
@@ -216,7 +233,7 @@ async function main() {
     if (discoveryStep?.status === 'failed') {
       console.warn('Discovery agent failed — injecting sample output for email step test');
       await injectWorkflowStepOutput(run.id, 'agent-discovery', SAMPLE_EMAIL_BODY);
-      finalRun = store.getRun(run.id, ownerUserId);
+      finalRun = store.getRun(run.id, effectiveOwnerId);
       break;
     }
     await sleep(1500);
@@ -226,11 +243,11 @@ async function main() {
   if (discoveryStep?.status === 'in_progress' || discoveryStep?.status === 'pending') {
     console.log('Discovery still running — injecting sample email body for step 2 test');
     await injectWorkflowStepOutput(run.id, 'agent-discovery', SAMPLE_EMAIL_BODY);
-    finalRun = store.getRun(run.id, ownerUserId);
+    finalRun = store.getRun(run.id, effectiveOwnerId);
   }
 
   await sleep(2000);
-  finalRun = store.getRun(run.id, ownerUserId);
+  finalRun = store.getRun(run.id, effectiveOwnerId);
 
   const emailStep = finalRun.steps?.find((s) => s.node_id === 'email-send');
   console.log('\n--- Results ---');
@@ -250,10 +267,10 @@ async function main() {
     if (step.error_message) console.log('  Error:', step.error_message);
   }
 
-  const chatRun = await startAgentWorkflowRun(WORKFLOW_ID, ownerUserId, {
+  const chatRun = await startAgentWorkflowRun(WORKFLOW_ID, effectiveOwnerId, {
     trigger: 'chat',
     input: `Please ${CHAT_PHRASE} now`,
-    actor,
+    actor: effectiveActor,
   }).catch((e) => {
     console.warn('Chat trigger run skipped:', e.message);
     return null;

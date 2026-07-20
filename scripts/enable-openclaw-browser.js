@@ -33,8 +33,19 @@ if (!config.browser.profiles) {
   };
 }
 
-// Root browser block activates the bundled browser tool under restrictive plugins.allow.
-// Do NOT add "browser" to plugins.allow — it is not a separate plugin id.
+// Bundled browser plugin is gated by plugins.allow — a restrictive allowlist without
+// "browser" makes isDefaultBrowserPluginEnabled() false → "browser control disabled".
+if (!config.plugins) config.plugins = {};
+if (!Array.isArray(config.plugins.allow)) config.plugins.allow = [];
+if (!config.plugins.allow.includes('browser')) config.plugins.allow.push('browser');
+if (!config.plugins.entries) config.plugins.entries = {};
+config.plugins.entries.browser = { enabled: true, ...config.plugins.entries.browser };
+
+// Headless Chromium in Docker (no DISPLAY).
+if (config.browser.headless == null && !process.env.DISPLAY) {
+  config.browser.headless = true;
+}
+if (config.browser.noSandbox == null) config.browser.noSandbox = true;
 
 if (!config.tools) config.tools = {};
 if (!Array.isArray(config.tools.allow)) config.tools.allow = [];
