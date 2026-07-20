@@ -210,6 +210,18 @@ export default function Login() {
           New CEO? <Link to="/register">Register</Link>
         </p>
       )}
+      <footer
+        style={{
+          marginTop: '2.5rem',
+          paddingTop: '1rem',
+          borderTop: '1px solid var(--border)',
+          textAlign: 'center',
+          fontSize: '0.85rem',
+          color: 'var(--muted)',
+        }}
+      >
+        Flowlah (Automate, Innovate, Elevate)
+      </footer>
     </div>
   );
 }

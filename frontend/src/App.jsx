@@ -49,11 +49,35 @@ function AuthLayout({ children }) {
 function Shell() {
   const { user, logout, loading } = useAuth();
   const [navCollapsed, setNavCollapsed] = useState(() => localStorage.getItem('agent-os-nav-collapsed') === '1');
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [isNarrow, setIsNarrow] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(max-width: 900px)').matches : false
+  );
 
   useEffect(() => {
     localStorage.setItem('agent-os-nav-collapsed', navCollapsed ? '1' : '0');
   }, [navCollapsed]);
 
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 900px)');
+    const onChange = () => {
+      setIsNarrow(mq.matches);
+      if (!mq.matches) setMobileNavOpen(false);
+    };
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
+  useEffect(() => {
+    if (!mobileNavOpen) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') setMobileNavOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mobileNavOpen]);
+
+  const menuCollapsed = isNarrow ? false : navCollapsed;
   if (loading) {
     return <div style={{ padding: '2rem' }}>Loading…</div>;
   }
@@ -70,52 +94,91 @@ function Shell() {
     );
   }
 
+  const closeMobileNav = () => setMobileNavOpen(false);
+
   return (
-    <div className={`app-shell ${navCollapsed ? 'nav-collapsed' : ''}`}>
-      <nav className={`app-nav ${navCollapsed ? 'collapsed' : ''}`}>
+    <div className={`app-shell ${navCollapsed && !isNarrow ? 'nav-collapsed' : ''} ${mobileNavOpen ? 'mobile-nav-open' : ''}`}>
+      {mobileNavOpen && (
+        <button
+          type="button"
+          className="app-nav-backdrop"
+          aria-label="Close menu"
+          onClick={closeMobileNav}
+        />
+      )}
+      <header className="app-mobile-topbar">
+        <button
+          type="button"
+          className="nav-toggle mobile-menu-btn"
+          onClick={() => setMobileNavOpen((o) => !o)}
+          aria-label={mobileNavOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={mobileNavOpen}
+        >
+          {mobileNavOpen ? '✕' : '☰'}
+        </button>
+        <div className="app-mobile-brand">Agent OS</div>
+        <div className="app-mobile-topbar-actions">
+          <NotificationBell />
+        </div>
+      </header>
+      <nav className={`app-nav ${menuCollapsed ? 'collapsed' : ''} ${mobileNavOpen ? 'mobile-open' : ''}`}>
         <div className="app-nav-header">
-          {!navCollapsed && (
+          {!menuCollapsed && (
             <div style={{ fontWeight: 600, fontSize: '1.1rem' }}>Agent OS</div>
           )}
           <button
             type="button"
-            className="nav-toggle"
+            className="nav-toggle desktop-nav-toggle"
             onClick={() => setNavCollapsed((c) => !c)}
             title={navCollapsed ? 'Expand menu' : 'Collapse menu'}
             aria-label={navCollapsed ? 'Expand menu' : 'Collapse menu'}
           >
             {navCollapsed ? '»' : '«'}
           </button>
+          <button
+            type="button"
+            className="nav-toggle mobile-nav-close"
+            onClick={closeMobileNav}
+            aria-label="Close menu"
+          >
+            ✕
+          </button>
         </div>
-        {!navCollapsed && (
+        {!menuCollapsed && (
           <>
         <div style={{ padding: '0 1rem', marginBottom: '0.5rem', fontSize: '0.8rem', color: 'var(--muted)' }}>
           {user.name} ({user.role})
         </div>
         <div style={{ padding: '0 1rem', marginBottom: '1rem' }}>
-          <NavLink to="/profile" style={({ isActive }) => ({ fontSize: '0.8rem', color: isActive ? 'var(--accent)' : 'var(--muted)' })}>
+          <NavLink
+            to="/profile"
+            onClick={closeMobileNav}
+            style={({ isActive }) => ({ fontSize: '0.8rem', color: isActive ? 'var(--accent)' : 'var(--muted)' })}
+          >
             Edit profile
           </NavLink>
         </div>
-        <div style={{ padding: '0 1rem', marginBottom: '1rem' }}>
+        <div className="app-nav-desktop-bell" style={{ padding: '0 1rem', marginBottom: '1rem' }}>
           <NotificationBell />
         </div>
           </>
         )}
-        {navCollapsed && (
-          <div style={{ padding: '0.35rem', marginBottom: '0.5rem', textAlign: 'center' }}>
+        {menuCollapsed && (
+          <div className="app-nav-desktop-bell" style={{ padding: '0.35rem', marginBottom: '0.5rem', textAlign: 'center' }}>
             <NotificationBell />
           </div>
         )}
-        {user.role === 'admin' && <AdminNavMenu collapsed={navCollapsed} />}
-        {user.role === 'ceo' && <CeoNavMenu collapsed={navCollapsed} />}
+        <div className="app-nav-links" onClick={closeMobileNav}>
+          {user.role === 'admin' && <AdminNavMenu collapsed={menuCollapsed} />}
+          {user.role === 'ceo' && <CeoNavMenu collapsed={menuCollapsed} />}
+        </div>
         <button
           type="button"
           onClick={logout}
           className="nav-logout"
           title="Logout"
         >
-          {navCollapsed ? '⎋' : 'Logout'}
+          {menuCollapsed ? '⎋' : 'Logout'}
         </button>
       </nav>
       <main className="app-main">

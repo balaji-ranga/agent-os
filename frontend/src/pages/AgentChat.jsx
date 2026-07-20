@@ -56,7 +56,7 @@ export default function AgentChat() {
   if (error && !agent) return <div style={{ padding: '2rem', color: '#f87171' }}>Error: {error}. <Link to="/">Back to Dashboard</Link></div>;
 
   return (
-    <div className="page-chat" style={{ padding: '2rem', maxWidth: 800, margin: '0 auto', width: '100%' }}>
+    <div className="page-chat page-chat-inner">
       <div style={{ flexShrink: 0, marginBottom: '1rem' }}>
         <Link to="/" style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>← Dashboard</Link>
         <h1 style={{ margin: '0.5rem 0 0 0' }}>{agent?.name || agentId} — Chat</h1>
@@ -99,7 +99,7 @@ export default function AgentChat() {
       </div>
 
       <form onSubmit={send} style={{ flexShrink: 0 }}>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <div className="chat-compose-row">
           <input
             type="text"
             placeholder="Message..."
@@ -107,7 +107,6 @@ export default function AgentChat() {
             onChange={(e) => setInput(e.target.value)}
             disabled={sending}
             style={{
-              flex: 1,
               padding: '0.75rem 1rem',
               background: 'var(--surface)',
               border: '1px solid var(--border)',

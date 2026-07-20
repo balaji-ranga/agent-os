@@ -1,34 +1,10 @@
-import { useState } from 'react';
 import { resolveMediaSrc, isResolvableMediaUrl } from '../utils/resolveMediaSrc';
+import AuthenticatedMediaImage, { AuthenticatedMediaVideo } from './AuthenticatedMediaImage';
 
 /**
  * Renders chat message content: text plus inline images/videos (URLs, data: base64, OpenClaw sandbox media).
- * Use in AgentChat, Broadcast, and standup chat so images/videos display instead of raw URLs.
+ * Auth-protected /api/media paths load via Bearer → blob so they render inline (not 401 links).
  */
-
-function ImageWithFallback({ src, alt = 'Image' }) {
-  const resolved = resolveMediaSrc(src);
-  const [failed, setFailed] = useState(false);
-  if (failed) {
-    return (
-      <span style={{ display: 'inline-block', marginTop: '0.5rem', marginBottom: '0.5rem' }}>
-        <a href={resolved} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.9rem', color: 'var(--accent)' }}>
-          Open image
-        </a>
-      </span>
-    );
-  }
-  return (
-    <span style={{ display: 'block', marginTop: '0.5rem', marginBottom: '0.5rem' }}>
-      <img
-        src={resolved}
-        alt={alt}
-        style={{ maxWidth: '100%', maxHeight: 480, borderRadius: 8, verticalAlign: 'middle' }}
-        onError={() => setFailed(true)}
-      />
-    </span>
-  );
-}
 
 function toText(content) {
   if (content == null) return '';
@@ -71,13 +47,11 @@ export default function ChatMessageContent({ content }) {
   if (!text) return null;
   let contentStr = typeof text === 'string' ? text : String(text);
 
-  // If backend stored OpenAI-style content parts as JSON string, use parsed text and inject image URLs as synthetic media.
   const parsed = parseContentParts(contentStr);
   const extraImageMedia = parsed.imageUrls.map(({ url, index }) => ({ index, length: 0, type: 'image', src: url }));
 
   const imageExt = /\.(png|jpe?g|gif|webp|bmp)(\?[^\s"'<>]*)?$/i;
   const videoExt = /\.(mp4|webm|ogg)(\?[^\s"'<>]*)?$/i;
-  // URL has image extension before ? & or end (for Azure blob etc.)
   const imageInPath = /\.(png|jpe?g|gif|webp|bmp)([\?&]|$)/i;
 
   const media = [...extraImageMedia];
@@ -85,7 +59,6 @@ export default function ChatMessageContent({ content }) {
 
   if (parsed.text !== contentStr) contentStr = parsed.text;
 
-  // HTML <img src="url"> or <img src='url'>
   const reImgTag = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
   let m;
   while ((m = reImgTag.exec(contentStr)) !== null) {
@@ -95,7 +68,6 @@ export default function ChatMessageContent({ content }) {
       media.push({ index: m.index, length: m[0].length, type, src: url, alt: '' });
     }
   }
-  // JSON {"url": "..."} (tool result often in reply)
   const reJson = /\{\s*"url"\s*:\s*"((?:[^"\\]|\\.)*)"\s*\}/g;
   while ((m = reJson.exec(contentStr)) !== null) {
     const url = m[1].replace(/\\"/g, '"');
@@ -110,7 +82,6 @@ export default function ChatMessageContent({ content }) {
   while ((m = reDataVid.exec(contentStr)) !== null) {
     if (!overlaps(m.index, m[0].length)) media.push({ index: m.index, length: m[0].length, type: 'video', src: m[0] });
   }
-  // Markdown image ![alt](url) — http(s), data:, or OpenClaw sandbox:/media/...
   const reMdImg = /!\[([^\]]*)\]\(([^)\s]+)\)/g;
   while ((m = reMdImg.exec(contentStr)) !== null) {
     const url = cleanMediaUrl(m[2]);
@@ -120,11 +91,20 @@ export default function ChatMessageContent({ content }) {
       else media.push({ index: m.index, length: m[0].length, type: 'image', src: url, alt: m[1] });
     }
   }
-  // OpenClaw MEDIA: sandbox:/media/... or sandbox:/api/media/... lines
   const reMediaLine = /^MEDIA:(sandbox:(?:\/api\/media\/|\/media\/)[^\s]+)/gm;
   while ((m = reMediaLine.exec(contentStr)) !== null) {
     if (!overlaps(m.index, m[0].length)) {
       media.push({ index: m.index, length: m[0].length, type: 'image', src: m[1], alt: '' });
+    }
+  }
+  // Bare relative /api/media/... paths (common in tool replies without markdown)
+  const reApiMedia = /(?:^|[\s"'(\[])(\/api\/media\/[^\s<>"'\)\]]+)/g;
+  while ((m = reApiMedia.exec(contentStr)) !== null) {
+    const url = cleanMediaUrl(m[1]);
+    const start = m.index + (m[0].length - url.length);
+    if (!overlaps(start, url.length) && isResolvableMediaUrl(url)) {
+      const type = videoExt.test(url) ? 'video' : 'image';
+      media.push({ index: start, length: url.length, type, src: url });
     }
   }
   const reHttp = /https?:\/\/[^\s<>"']+/g;
@@ -132,7 +112,9 @@ export default function ChatMessageContent({ content }) {
     const url = m[0];
     if (!overlaps(m.index, url.length)) {
       if (videoExt.test(url)) media.push({ index: m.index, length: url.length, type: 'video', src: url });
-      else if (imageExt.test(url) || imageInPath.test(url)) media.push({ index: m.index, length: url.length, type: 'image', src: url });
+      else if (imageExt.test(url) || imageInPath.test(url) || /\/api\/media\//i.test(url)) {
+        media.push({ index: m.index, length: url.length, type: 'image', src: url });
+      }
     }
   }
 
@@ -148,20 +130,14 @@ export default function ChatMessageContent({ content }) {
   if (segments.length === 0) segments.push({ type: 'text', value: contentStr });
 
   return (
-    <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+    <div className="chat-message-content" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
       {segments.map((seg, i) => {
         if (seg.type === 'text') return <span key={i}>{seg.value}</span>;
         if (seg.type === 'image') {
-          return (
-            <ImageWithFallback key={i} src={seg.value} alt={seg.alt || 'Image'} />
-          );
+          return <AuthenticatedMediaImage key={i} src={seg.value} alt={seg.alt || 'Image'} />;
         }
         if (seg.type === 'video') {
-          return (
-            <span key={i} style={{ display: 'block', marginTop: '0.5rem', marginBottom: '0.5rem' }}>
-              <video src={resolveMediaSrc(seg.value)} controls style={{ maxWidth: '100%', maxHeight: 480, borderRadius: 8 }} />
-            </span>
-          );
+          return <AuthenticatedMediaVideo key={i} src={seg.value} />;
         }
         return null;
       })}
