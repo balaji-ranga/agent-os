@@ -96,6 +96,8 @@ export const api = {
   standupGet: (id) => get(`/standups/${id}`),
   standupCreate: (body) => post('/standups', body),
   standupNotifications: (limit) => get(limit ? `/standups/notifications?limit=${limit}` : '/standups/notifications'),
+  standupNotificationsDismiss: (ids) => post('/standups/notifications/dismiss', { ids }),
+  standupNotificationsDismissAll: () => post('/standups/notifications/dismiss-all', {}),
   platformNotifications: (limit) =>
     get(limit ? `/platform-notifications?limit=${limit}` : '/platform-notifications'),
   platformNotificationsRead: (ids) => post('/platform-notifications/read', { ids }),

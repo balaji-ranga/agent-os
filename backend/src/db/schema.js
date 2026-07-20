@@ -807,6 +807,21 @@ export function initDb() {
   } catch (_) {}
 
   try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS user_feed_dismissals (
+        user_id TEXT NOT NULL,
+        feed_kind TEXT NOT NULL,
+        feed_id TEXT NOT NULL,
+        dismissed_at TEXT DEFAULT (datetime('now')),
+        PRIMARY KEY (user_id, feed_kind, feed_id)
+      )
+    `);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_user_feed_dismissals_user ON user_feed_dismissals(user_id, feed_kind)`
+    );
+  } catch (_) {}
+
+  try {
     _db.exec(`ALTER TABLE platform_sessions ADD COLUMN impersonator_user_id TEXT`);
   } catch (_) {}
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Post-deploy smoke: email_send + notify_ceo + org sync + workflow A2A / AgentExchange.
+# Post-deploy smoke: email_send + notify_ceo + master_data + org sync + workflow A2A / AgentExchange.
 # Runs inside the backend container (script is COPY'd via backend.Dockerfile).
 #
 # Usage (on VPS, from deploy/):
@@ -12,7 +12,7 @@ cd "$ROOT/deploy"
 export COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml:docker-compose.browser.yml}"
 PUBLIC_URL="${AGENT_OS_PUBLIC_URL:-https://127.0.0.1}"
 
-echo "==> smoke: email_send + notify_ceo + org sync + workflow A2A / AgentExchange"
+echo "==> smoke: email_send + notify_ceo + master_data + org sync + workflow A2A / AgentExchange"
 
 SMOKE_JS="/opt/agent-os/backend/scripts/vps-smoke-new-features.js"
 if ! docker compose exec -T backend test -f "$SMOKE_JS"; then
@@ -51,6 +51,13 @@ else
   echo "    WARN: Resync ORG button not found in frontend JS (rebuild frontend?)"
 fi
 
+# Master Data purpose/description UI in frontend bundle
+if docker compose exec -T frontend sh -c 'grep -Rql "Purpose / description" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: Master Data purpose UI OK"
+else
+  echo "    WARN: Master Data purpose UI not found in frontend JS (rebuild frontend?)"
+fi
+
 # Authenticated org sync (Dashboard button path)
 TOKEN=$(docker compose exec -T -w /opt/agent-os/backend backend node --input-type=module <<'NODE' 2>/dev/null || true
 import { initDb, getDb } from './src/db/schema.js';
@@ -73,27 +80,37 @@ if [[ -n "${TOKEN:-}" ]]; then
   fi
 fi
 
-# email_send + notify_ceo must be in OpenClaw allowlists (parity script source of truth)
+# email_send + notify_ceo + master_data must be in OpenClaw allowlists (parity script source of truth)
 verify_allowlists() {
   docker compose exec -T -w /opt/agent-os openclaw node -e "
 import { REQUIRED_GLOBAL_CONTENT_TOOLS, COO_CONTENT_TOOLS_ALLOW } from './scripts/lib/content-tools-allow.js';
-for (const t of ['email_send', 'notify_ceo']) {
+const tools = [
+  'email_send', 'notify_ceo',
+  'master_data_list_tables', 'master_data_list_rows', 'master_data_insert_row',
+  'master_data_update_row', 'master_data_delete_row', 'master_data_list_documents', 'master_data_rag',
+];
+for (const t of tools) {
   if (!REQUIRED_GLOBAL_CONTENT_TOOLS.includes(t)) { console.error('missing REQUIRED_GLOBAL', t); process.exit(2); }
   if (!COO_CONTENT_TOOLS_ALLOW.includes(t)) { console.error('missing COO allow', t); process.exit(3); }
 }
-console.log('email_send + notify_ceo in REQUIRED_GLOBAL + COO allowlists OK');
+console.log('email_send + notify_ceo + master_data in REQUIRED_GLOBAL + COO allowlists OK');
 "
 }
 
 if ! verify_allowlists 2>/dev/null; then
   docker compose exec -T openclaw node -e "
 import { REQUIRED_GLOBAL_CONTENT_TOOLS, COO_CONTENT_TOOLS_ALLOW } from './scripts/lib/content-tools-allow.js';
-for (const t of ['email_send', 'notify_ceo']) {
+const tools = [
+  'email_send', 'notify_ceo',
+  'master_data_list_tables', 'master_data_list_rows', 'master_data_insert_row',
+  'master_data_update_row', 'master_data_delete_row', 'master_data_list_documents', 'master_data_rag',
+];
+for (const t of tools) {
   if (!REQUIRED_GLOBAL_CONTENT_TOOLS.includes(t)) { console.error('missing REQUIRED_GLOBAL', t); process.exit(2); }
   if (!COO_CONTENT_TOOLS_ALLOW.includes(t)) { console.error('missing COO allow', t); process.exit(3); }
 }
-console.log('email_send + notify_ceo in REQUIRED_GLOBAL + COO allowlists OK');
-" || echo "WARN: could not verify email_send/notify_ceo allowlist inside openclaw"
+console.log('email_send + notify_ceo + master_data in REQUIRED_GLOBAL + COO allowlists OK');
+" || echo "WARN: could not verify content-tools allowlist inside openclaw"
 fi
 
 echo "SMOKE_NEW_FEATURES_DONE"

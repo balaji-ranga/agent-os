@@ -3,8 +3,8 @@
  * Usage: node scripts/vps-smoke-new-features.js
  */
 import { initDb, getDb } from '../src/db/schema.js';
-import { seedEmailSendToolIfMissing, seedNotifyCeoToolIfMissing } from '../src/db/seed-content-tools-meta.js';
-import { grantNotifyCeoToAllAgents } from '../src/services/agent-feedback.js';
+import { seedEmailSendToolIfMissing, seedNotifyCeoToolIfMissing, seedMasterDataToolsIfMissing } from '../src/db/seed-content-tools-meta.js';
+import { grantNotifyCeoToAllAgents, grantMasterDataToolsToAllAgents } from '../src/services/agent-feedback.js';
 import { executeNotifyCeo } from '../src/services/notify-ceo.js';
 import { listNotificationsForUser } from '../src/services/platform-notifications.js';
 import { syncOrgContextForCeo, buildOrgContextForCeo } from '../src/services/org-context.js';
@@ -16,12 +16,15 @@ import {
   listAllPublishedA2AAgents,
   handleA2AJsonRpc,
 } from '../src/services/workflow-a2a-publish.js';
+import { listRowsForAgent } from '../src/services/master-data-tools.js';
 import { randomUUID } from 'crypto';
 
 initDb();
 seedEmailSendToolIfMissing();
 seedNotifyCeoToolIfMissing();
+seedMasterDataToolsIfMissing();
 grantNotifyCeoToAllAgents();
+grantMasterDataToolsToAllAgents();
 
 const row = getDb().prepare(`SELECT name, endpoint, enabled FROM content_tools_meta WHERE name = 'email_send'`).get();
 if (!row) throw new Error('email_send missing from content_tools_meta');
@@ -42,7 +45,23 @@ const notifyGrants = getDb()
 if (!notifyGrants) throw new Error('notify_ceo not granted to any agents');
 console.log('OK notify_ceo grants', notifyGrants);
 
+const mdTools = getDb()
+  .prepare(`SELECT COUNT(*) AS n FROM content_tools_meta WHERE name LIKE 'master_data_%'`)
+  .get().n;
+if (mdTools < 7) throw new Error(`expected 7 master_data tools in meta, got ${mdTools}`);
+console.log('OK master_data tools meta', mdTools);
+
+const mdGrants = getDb()
+  .prepare(`SELECT COUNT(*) AS n FROM agent_tool_grants WHERE tool_name LIKE 'master_data_%'`)
+  .get().n;
+if (!mdGrants) throw new Error('master_data tools not granted to any agents');
+console.log('OK master_data grants', mdGrants);
+
 const owner = getBalaCeoAuthId();
+const deptOut = listRowsForAgent(owner, { table_name: 'departments', limit: 3 });
+const deptNames = (deptOut.rows || []).map((r) => r.data?.name).filter(Boolean);
+console.log('OK master_data_list_rows departments sample', deptNames.slice(0, 3).join(', ') || '(none)');
+
 const sourceKey = `vps-smoke-notify-ceo:${Date.now()}`;
 const notifyOut = executeNotifyCeo(
   {

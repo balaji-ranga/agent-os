@@ -20,7 +20,46 @@ function isJobPipelineRow(row) {
   return row.standup_source === 'job_pipeline' || String(row.prompt || '').includes('[job_pipeline:');
 }
 
-export function listAgentResponseNotificationsForUser(authUser, { limit = 20 } = {}) {
+const AGENT_FEED_KIND = 'agent_delegation';
+
+function dismissedAgentTaskIds(userId) {
+  return new Set(
+    db()
+      .prepare(
+        `SELECT feed_id FROM user_feed_dismissals
+         WHERE user_id = ? AND feed_kind = ?`
+      )
+      .all(userId, AGENT_FEED_KIND)
+      .map((r) => String(r.feed_id))
+  );
+}
+
+export function dismissAgentResponseNotifications(userId, ids = []) {
+  const uid = String(userId || '').trim();
+  if (!uid) return { dismissed: 0 };
+  const list = [...new Set((ids || []).map((id) => String(id).trim()).filter(Boolean))];
+  if (!list.length) return { dismissed: 0 };
+  const ins = db().prepare(
+    `INSERT OR IGNORE INTO user_feed_dismissals (user_id, feed_kind, feed_id) VALUES (?, ?, ?)`
+  );
+  let dismissed = 0;
+  for (const feedId of list) {
+    const r = ins.run(uid, AGENT_FEED_KIND, feedId);
+    if (r.changes) dismissed += 1;
+  }
+  return { dismissed };
+}
+
+export function dismissAllAgentResponseNotifications(authUser) {
+  if (!authUser?.id || authUser.role === 'admin') return { dismissed: 0 };
+  const visible = listAgentResponseNotificationsForUser(authUser, { limit: 50, includeDismissed: true });
+  return dismissAgentResponseNotifications(
+    authUser.id,
+    visible.map((n) => n.id)
+  );
+}
+
+export function listAgentResponseNotificationsForUser(authUser, { limit = 20, includeDismissed = false } = {}) {
   if (!authUser?.id) return [];
   if (authUser.role === 'admin') return [];
 
@@ -51,8 +90,11 @@ export function listAgentResponseNotificationsForUser(authUser, { limit = 20 } =
     )
     .all(...agentIds, authUser.id, cap * 4);
 
+  const dismissed = includeDismissed ? null : dismissedAgentTaskIds(authUser.id);
+
   return rows
     .filter((r) => !isJobPipelineRow(r) || promptBelongsToCeo(r.prompt, authUser.id))
+    .filter((r) => includeDismissed || !dismissed.has(String(r.id)))
     .slice(0, cap)
     .map((r) => ({
       id: r.id,

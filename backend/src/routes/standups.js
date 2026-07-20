@@ -3,7 +3,11 @@ import { getDb } from '../db/schema.js';
 import { requireAuth, requireCeoOrAdmin } from '../middleware/auth.js';
 import { requireInternalToken } from '../middleware/internal-auth.js';
 import { resolveChatOwnerUserId } from '../services/agent-chat-scope.js';
-import { listAgentResponseNotificationsForUser } from '../services/agent-response-notifications.js';
+import {
+  listAgentResponseNotificationsForUser,
+  dismissAgentResponseNotifications,
+  dismissAllAgentResponseNotifications,
+} from '../services/agent-response-notifications.js';
 import { runCooSummarization } from '../services/coo.js';
 import * as openclaw from '../gateway/openclaw.js';
 import { scheduleCeoRequestViaOpenClawCron, enqueueGetWorkFromTeam, enqueueDelegationTask, postCallbackForRequestId, appendToAgentMemory, extractTaskSummaryFromPrompt, extractTaskContentFromPrompt, appendDelegationResponseToAgentChat } from '../services/delegation-queue.js';
@@ -124,6 +128,27 @@ router.get('/notifications', (req, res) => {
     res.json({ notifications });
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+/** Dismiss agent-response notifications (completed delegation tasks). Body: { ids: number[] } */
+router.post('/notifications/dismiss', (req, res) => {
+  try {
+    const ids = req.body?.ids || req.body?.notification_ids || [];
+    const out = dismissAgentResponseNotifications(req.authUser.id, ids);
+    res.json({ ok: true, ...out });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+/** Dismiss all visible agent-response notifications for this user. */
+router.post('/notifications/dismiss-all', (req, res) => {
+  try {
+    const out = dismissAllAgentResponseNotifications(req.authUser);
+    res.json({ ok: true, ...out });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
   }
 });
 

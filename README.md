@@ -97,7 +97,8 @@ Set in backend `.env`:
 | **Job workflows** | Multi-agent **Job Applicant** pipeline (Discovery → Fit Scoring → Resume Tailoring → Application); Kanban-tracked stages; browser/Playwright apply path. See **knowledgebase/JOB-APPLICANT-WORKFLOW.md**. |
 | **MCP integrations** | Register MCP servers (admin/CEO); connect, test tools, playground; use in workflow **MCP Tool** and **SSE Listen** nodes. Local test server: `tools/local-mcp-random-sse/`. |
 | **External agents (A2A)** | Register external agent endpoints; invoke from workflow **External Agent** node. |
-| **Content tools** | Agent-callable tools: summarize URL, image/video gen, Kanban, **intent_classify_and_delegate**, workflow trigger/enquire/mutate, job applicant tools, **email_send**, **notify_ceo**, learnings, browser, etc.; owner-scoped logs UI; onboard new APIs via script. |
+| **Content tools** | Agent-callable tools: summarize URL, image/video gen, Kanban, **intent_classify_and_delegate**, workflow trigger/enquire/mutate, job applicant tools, **email_send**, **notify_ceo**, **Master Data** (`master_data_list_tables` / row CRUD / `master_data_rag`), learnings, browser, etc.; owner-scoped logs UI; onboard new APIs via script. |
+| **Master Data & RAG** | Per-CEO tables + documents (keyword RAG). UI captures **purpose/description** per table. Agents list tables with purpose and CRUD rows / RAG docs via content tools — **no create/alter/drop table**. |
 | **COO delegation** | COO uses `intent_classify_and_delegate` / AGENTS.md to allocate work; tasks enqueue with `owner_user_id`; per-CEO worker sends to OpenClaw, stores replies, posts COO callback into that CEO’s standup. |
 | **Email send** | `email_send` content tool — agents can send email via configured mail integration (owner-scoped logging). |
 | **Notify CEO** | `notify_ceo` content tool — agents push a platform notification to their CEO (bell feed). |

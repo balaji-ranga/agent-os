@@ -92,12 +92,19 @@ export default function NotificationBell() {
     fetchNotifications();
   };
 
+  const dismissAgentNotifications = async (ids) => {
+    const list = (ids || []).filter(Boolean);
+    if (!list.length) return;
+    try {
+      await api.standupNotificationsDismiss(list);
+    } catch (_) {}
+    fetchNotifications();
+  };
+
   const clearAll = async () => {
     try {
-      await api.platformNotificationsReadAll();
+      await Promise.all([api.platformNotificationsReadAll(), api.standupNotificationsDismissAll()]);
     } catch (_) {}
-    // Drop agent items from local view by refetching (agent items stay until 3 days lapse)
-    setNotifications((prev) => prev.filter((n) => n.kind !== 'agent'));
     fetchNotifications();
   };
 
@@ -188,23 +195,20 @@ export default function NotificationBell() {
                             </span>
                           </div>
                           {n.body && <div className="notification-overlay-snippet">{n.body}</div>}
-                          {n.link_url && (
-                            <div style={{ marginTop: '0.35rem' }}>
+                          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginTop: '0.35rem' }}>
+                            {n.link_url && (
                               <NotificationLink href={n.link_url} onNavigate={() => onOpenLink(n)}>
                                 Open →
                               </NotificationLink>
-                            </div>
-                          )}
-                          {!n.link_url && (
+                            )}
                             <button
                               type="button"
                               className="notification-overlay-clear"
-                              style={{ marginTop: '0.35rem' }}
                               onClick={() => markPlatformRead([n.id])}
                             >
-                              Mark read
+                              Dismiss
                             </button>
-                          )}
+                          </div>
                         </>
                       ) : (
                         <>
@@ -234,6 +238,13 @@ export default function NotificationBell() {
                             >
                               Chat →
                             </Link>
+                            <button
+                              type="button"
+                              className="notification-overlay-clear"
+                              onClick={() => dismissAgentNotifications([n.id])}
+                            >
+                              Dismiss
+                            </button>
                           </div>
                         </>
                       )}

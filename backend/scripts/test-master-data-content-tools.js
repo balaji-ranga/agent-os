@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * Smoke: ensure departments master table exists, exercise master_data_* tools
- * as an agent would (owner-scoped), then optionally chat COO with the departments prompt.
+ * Smoke: Master Data content tools (owner-scoped) + agent invoke path.
+ * Prompt covered: "get the latest list of departments in this organization"
  *
- * Usage:
  *   node backend/scripts/test-master-data-content-tools.js
  *   SKIP_CHAT=1 node backend/scripts/test-master-data-content-tools.js
  */
+import 'dotenv/config';
 import { initDb, getDb } from '../src/db/schema.js';
 import { getBalaCeoAuthId } from '../src/services/job-applicant-ceo.js';
 import {
@@ -24,6 +24,8 @@ import {
 import { seedMasterDataToolsIfMissing } from '../src/db/seed-content-tools-meta.js';
 import { grantMasterDataToolsToAllAgents } from '../src/services/agent-feedback.js';
 import { getAgentToolGrants, syncAllowlistsFile } from '../src/services/openclaw-agent-tools.js';
+import { getToolsApiKey } from '../src/config/tools.js';
+import * as openclaw from '../src/gateway/openclaw.js';
 
 initDb();
 seedMasterDataToolsIfMissing();
@@ -33,7 +35,6 @@ if (granted) syncAllowlistsFile();
 const owner = getBalaCeoAuthId();
 console.log('owner:', owner);
 
-// Refuse schema mutation
 try {
   assertNoSchemaMutation('drop_table');
   console.error('FAIL: drop_table should be blocked');
@@ -85,12 +86,7 @@ if (!names.length) {
 }
 
 const balserveGrants = getAgentToolGrants('balserve');
-const need = [
-  'master_data_list_tables',
-  'master_data_list_rows',
-  'master_data_rag',
-];
-for (const t of need) {
+for (const t of ['master_data_list_tables', 'master_data_list_rows', 'master_data_rag']) {
   if (!balserveGrants.includes(t)) {
     console.error('FAIL: balserve missing grant', t);
     process.exit(1);
@@ -98,50 +94,74 @@ for (const t of need) {
 }
 console.log('balserve grants OK for master_data_*');
 
-const meta = getDb()
-  .prepare(`SELECT name FROM content_tools_meta WHERE name LIKE 'master_data_%' ORDER BY name`)
-  .all()
-  .map((r) => r.name);
-console.log('seeded tools:', meta.join(', '));
+const ocId = 't-ceo-bala--balserve';
+const sessionUser = openclaw.sessionUserFor(ocId, owner);
+const sessionKey = openclaw.sessionKeyFor(ocId, sessionUser);
+const key = getToolsApiKey();
+const headers = {
+  'Content-Type': 'application/json',
+  Authorization: `Bearer ${key}`,
+  'x-openclaw-agent-id': ocId,
+  'x-ceo-user-id': owner,
+  'x-openclaw-session-key': sessionKey,
+};
+const inv1 = await fetch('http://127.0.0.1:3001/api/tools/invoke', {
+  method: 'POST',
+  headers,
+  body: JSON.stringify({ tool_name: 'master_data_list_tables', caller_agent_id: ocId }),
+});
+const j1 = await inv1.json();
+const inv2 = await fetch('http://127.0.0.1:3001/api/tools/invoke', {
+  method: 'POST',
+  headers,
+  body: JSON.stringify({
+    tool_name: 'master_data_list_rows',
+    caller_agent_id: ocId,
+    table_name: 'departments',
+  }),
+});
+const j2 = await inv2.json();
+const invokeNames = (j2.rows || []).map((r) => r.data?.name).filter(Boolean);
+console.log('agent invoke:', inv1.status, inv2.status, 'departments=', invokeNames.join(', ') || '(none)');
+if (inv1.status !== 200 || inv2.status !== 200 || !invokeNames.length) {
+  console.error('FAIL: agent invoke', j1, j2);
+  process.exit(1);
+}
+console.log('AGENT_INVOKE_PASS — departments list for org via master_data_* tools');
 
 if (process.env.SKIP_CHAT === '1') {
-  console.log('SKIP_CHAT=1 — tool path PASS');
+  console.log('PASS');
   process.exit(0);
 }
 
-// Optional: prompt COO via OpenClaw chat (requires gateway)
 try {
   const { ensureTenantOpenClawAgent } = await import('../src/services/openclaw-tenant.js');
-  const openclaw = await import('../src/gateway/openclaw.js');
+  const { registerOpenClawSessionOwner } = await import('../src/services/tool-owner-scope.js');
   const agent = getDb().prepare(`SELECT * FROM agents WHERE id = 'balserve' OR is_coo = 1 LIMIT 1`).get();
   if (!agent) {
-    console.warn('No COO agent — skipping chat test');
-    console.log('PASS (tools only)');
+    console.log('PASS');
     process.exit(0);
   }
   const runtime = ensureTenantOpenClawAgent(agent, owner);
+  const su = openclaw.sessionUserFor(runtime.openclawAgentId, owner);
+  registerOpenClawSessionOwner(openclaw.sessionKeyFor(runtime.openclawAgentId, su), owner);
   const prompt =
-    'get the latest list of departments in this organization. Use master_data_list_tables then master_data_list_rows on the departments table. Reply with the department names only.';
+    'get the latest list of departments in this organization. Use master_data_list_tables then master_data_list_rows with table_name departments. Do not use browser. Reply with department names only.';
   console.log('chatting COO', runtime.openclawAgentId, '…');
   const { content } = await openclaw.chatCompletions(
     runtime.openclawAgentId,
     [{ role: 'user', content: prompt }],
-    `md-test-${Date.now()}`,
+    su,
     false,
-    { timeoutMs: 300000 }
+    { timeoutMs: 180000 }
   );
   const text = typeof content === 'string' ? content : JSON.stringify(content);
   console.log('--- agent reply ---\n', text?.slice(0, 2000));
   const hit = names.some((n) => text && text.toLowerCase().includes(String(n).toLowerCase()));
-  if (!hit) {
-    console.warn('WARN: agent reply did not clearly include seeded department names (tools still OK)');
-  } else {
-    console.log('agent reply mentions department names — PASS');
-  }
+  if (!hit) console.warn('WARN: chat reply missing names (invoke already PASS)');
+  else console.log('chat mentions departments — PASS');
 } catch (e) {
-  console.warn('chat test skipped/failed:', e.message);
-  console.log('PASS (tools path verified; chat optional)');
-  process.exit(0);
+  console.warn('chat optional:', e.message);
 }
 
 console.log('PASS');

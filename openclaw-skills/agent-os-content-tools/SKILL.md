@@ -10,9 +10,16 @@ metadata:
 
 Use this skill to call the Agent OS backend for content tools. **Do not hardcode the backend URL** — it is configured via `AGENT_OS_API_URL` (or your OpenClaw/gateway env).
 
-## Critical: Invoke as API tools, never via exec
+## Critical: Invoke by tool name only — never browser, exec, or HTTP URLs
 
-**kanban_move_status**, **kanban_reassign_to_coo**, **kanban_assign_task**, **intent_classify_and_delegate**, **agent_workflow_list**, **agent_workflow_trigger**, **summarize_url**, **generate_image**, and **generate_video** are **registered API tools**. You must **invoke each by its tool name with JSON parameters** (e.g. `kanban_move_status` with `task_id` and `new_status`). The gateway then calls the Agent OS backend. **Do not use the exec tool or run any shell command** to "run" these—they are not commands; they are API tools. Calling them via exec will fail.
+All Agent OS content tools (**kanban_***, **master_data_***, **email_send**, **notify_ceo**, **agent_workflow_***, **summarize_url**, **generate_image**, **generate_video**, etc.) are **registered OpenClaw tools**. You must **invoke each by its exact tool name with JSON parameters**. The gateway plugin calls the Agent OS backend internally via `/api/tools/invoke`.
+
+**Never:**
+- Open a browser tab or use the **browser** tool to "fetch" a tool endpoint or `{AGENT_OS_API_URL}/…`
+- Construct URLs like `https://…/master_data_list_rows` — these are **not web pages**
+- Use **exec** or shell commands to run these tools
+
+**Do not** paste `POST {AGENT_OS_API_URL}/api/tools/…` URLs into browser or web_fetch; that pattern is for human operators only. Agents use **tool name + JSON args** only.
 
 ## Tool preference (use before default tools)
 
@@ -23,7 +30,7 @@ Use this skill to call the Agent OS backend for content tools. **Do not hardcode
 - **Generate or create a short video from text** → Use **generate_video**. Do not use web_search for video; use generate_video.
 - **Send an email or calendar/meeting invite** → Use **email_send** with `to`, `subject`, `body`, and optional `calendar: { title, start, end, ... }` (ISO 8601). Do **not** use the browser tool for Google Calendar login, and do **not** use agent_workflow_trigger for one-off email/invite requests.
 - **Reach the CEO user with a push/in-app notification** → Use **notify_ceo** with `title` and optional `body` / `link_url`. Do not invent another channel; the notification is delivered only to the entitled CEO for this session.
-- **Read or update Master Data / org tables / documents** → Use **master_data_list_tables** (see purpose/description), then **master_data_list_rows** / insert / update / delete. For documents use **master_data_list_documents** and **master_data_rag**. Never create/alter/drop tables via tools.
+- **Read or update Master Data / org tables / documents** → Use **master_data_list_tables** (see purpose/description), then **master_data_list_rows** / insert / update / delete. For documents use **master_data_list_documents** and **master_data_rag**. **Never use browser** for master data. Never create/alter/drop tables via tools.
 
 Only fall back to web_search, web_fetch, or other default tools when the task does not match (e.g. general web search, fetch raw page without summary, or analyze an existing image the user provided).
 
@@ -36,9 +43,9 @@ Only fall back to web_search, web_fetch, or other default tools when the task do
 
 ## Tools
 
-- **summarize_url** — Summarize a web page. Parameters: `url` (required, HTTPS). Returns `summary` and optional `title`. Call backend `POST {AGENT_OS_API_URL}/api/tools/summarize-url` with body `{ "url": "<url>" }`. Send `Authorization: Bearer <TOOLS_API_KEY>` if configured.
-- **generate_image** — Generate an image from a text prompt (Phase 2). Parameters: `prompt` (required), `style_hint` (optional). Call backend `POST {AGENT_OS_API_URL}/api/tools/generate-image` with body `{ "prompt", "style_hint?" }`.
-- **generate_video** — Generate a short video from a prompt (Phase 3). Parameters: `prompt` (required), `duration_sec` (optional). Call backend `POST {AGENT_OS_API_URL}/api/tools/generate-video` with body `{ "prompt", "duration_sec?" }`.
+- **summarize_url** — Summarize a web page. Parameters: `url` (required, HTTPS). Invoke tool **summarize_url** — do not browse the backend API URL.
+- **generate_image** — Generate an image from a text prompt. Parameters: `prompt` (required), `style_hint` (optional). Invoke tool **generate_image**.
+- **generate_video** — Generate a short video from a prompt. Parameters: `prompt` (required), `duration_sec` (optional). Invoke tool **generate_video**.
 - **kanban_move_status** — Move a Kanban task status. Parameters: `task_id` (required), `new_status` (one of: open, awaiting_confirmation, in_progress, completed, failed). Use when you start work (in_progress), need clarification (awaiting_confirmation), or finish (completed/failed).
 - **kanban_reassign_to_coo** — Reassign a task back to the COO. Parameters: `task_id` (required). Use when you cannot complete the task.
 - **kanban_assign_task** — (COO only.) Assign a task to an agent. Parameters: `task_id`, `to_agent_id`.
@@ -48,15 +55,14 @@ Only fall back to web_search, web_fetch, or other default tools when the task do
 - **agent_workflow_trigger** — (COO only.) Start a custom agent workflow. Parameters: `message` (chat phrase, e.g. `testMCP`) or `workflow_id`, optional `ceo_user_id`, optional `input`.
 - **email_send** — Send email via platform SMTP. Optional calendar/meeting invite via `calendar: { title, start, end, location?, description?, organizer?, attendees? }` (ISO 8601). Parameters: `to` (required), `subject`, `body`, optional `cc`/`bcc`. **Use for one-off email/invite requests — not agent_workflow_trigger.**
 - **notify_ceo** — Send an in-app push notification to the entitled CEO user for this session. Parameters: `title` (required), `body?`, `link_url?`, `source_key?`. Never pass a target user id.
-- **master_data_list_tables** — List this CEO's Master Data tables with purpose/description, columns, row_count. Call first when tasked with org/master data.
-- **master_data_list_rows** — List or keyword-query rows (`table_name` or `table_id`, optional `query` / `column`+`equals`). Example: `table_name=departments`.
+- **master_data_list_tables** — List this CEO's Master Data tables with purpose/description, columns, row_count. Call first when tasked with org/master data. **Not a URL — invoke by tool name.**
+- **master_data_list_rows** — List or keyword-query rows (`table_name` or `table_id`, optional `query` / `column`+`equals`). Example: `{ "table_name": "departments" }`. **Never browser.**
 - **master_data_insert_row** / **master_data_update_row** / **master_data_delete_row** — Row CRUD only (no schema alter/drop).
-- **master_data_list_documents** / **master_data_rag** — List documents; RAG search with `query`.
+- **master_data_list_documents** / **master_data_rag** — List documents; RAG search with `query`. **Never browser.**
 
-## Configuration (externalized)
+## Configuration (for operators — agents do not call these URLs)
 
-- **AGENT_OS_API_URL** — Base URL of the Agent OS backend (e.g. `http://127.0.0.1:3001`). Must be set in the environment or OpenClaw config; never hardcode in the skill.
-- **TOOLS_API_KEY** — Optional. If set, send as `Authorization: Bearer <TOOLS_API_KEY>` when calling the backend.
+Backend URL and API key are configured in the OpenClaw **agent-os-content-tools** plugin. Agents must **only** invoke registered tool names; they must never open API paths in a browser.
 
 ## Guidelines
 
