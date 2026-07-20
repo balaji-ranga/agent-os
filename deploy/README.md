@@ -251,6 +251,35 @@ Pass profiles to `up.sh`:
 ./scripts/up.sh --profile optional-openconnector
 ```
 
+## Deploy latest changes (VPS)
+
+After pushing to GitHub, rebuild and recreate on the server so images pick up source changes (OpenClaw entrypoint also re-runs `configure-openclaw-docker.js` on start).
+
+**On the VPS** (when `/opt/agent-os` can `git pull`):
+
+```bash
+cd /opt/agent-os/deploy
+bash scripts/vps-deploy-latest.sh
+# frontend only:
+SERVICES=frontend bash scripts/vps-deploy-latest.sh
+```
+
+**From a Windows laptop** (when the VPS cannot authenticate to GitHub):
+
+```powershell
+# from agent-os repo root
+.\deploy\scripts\sync-to-vps.ps1
+.\deploy\scripts\sync-to-vps.ps1 -Services frontend
+```
+
+Verify chat media + responsive CSS markers:
+
+```bash
+bash /opt/agent-os/deploy/scripts/vps-verify-frontend-media.sh
+```
+
+Always recreate **nginx** after recreating **frontend** so the reverse proxy picks up the new container IP (otherwise you may see HTTP 502).
+
 ## Build images only
 
 ```bash
