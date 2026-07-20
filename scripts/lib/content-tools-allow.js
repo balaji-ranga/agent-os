@@ -1,0 +1,54 @@
+/**
+ * Canonical Agent OS content-tool names that must appear in OpenClaw
+ * `tools.allow` (global) so core tool-policy does not strip them.
+ * Keep in sync with seed-content-tools-meta builtins + COO/Workflow Builder grants.
+ */
+export const REQUIRED_GLOBAL_CONTENT_TOOLS = [
+  'summarize_url',
+  'generate_image',
+  'generate_video',
+  'kanban_move_status',
+  'kanban_reassign_to_coo',
+  'kanban_assign_task',
+  'kanban_create_task',
+  'intent_classify_and_delegate',
+  'agent_workflow_list',
+  'agent_workflow_enquire',
+  'agent_workflow_trigger',
+  'agent_workflow_get_draft',
+  'agent_workflow_mutate',
+  'learnings_summary',
+  'brain_history',
+  'content_tools_enquire',
+  'browser',
+];
+
+/** Default COO (balserve) content tools.allow — merged on every container configure. */
+export const COO_CONTENT_TOOLS_ALLOW = [
+  'summarize_url',
+  'generate_image',
+  'generate_video',
+  'kanban_move_status',
+  'kanban_reassign_to_coo',
+  'kanban_assign_task',
+  'intent_classify_and_delegate',
+  'agent_workflow_list',
+  'agent_workflow_enquire',
+  'agent_workflow_trigger',
+  'learnings_summary',
+  'browser',
+];
+
+/** Default Workflow Builder content tools.allow. */
+export const WORKFLOW_BUILDER_CONTENT_TOOLS_ALLOW = [
+  'agent_workflow_list',
+  'agent_workflow_enquire',
+  'agent_workflow_trigger',
+  'agent_workflow_get_draft',
+  'agent_workflow_mutate',
+  'summarize_url',
+  'learnings_summary',
+  'brain_history',
+  'content_tools_enquire',
+  'browser',
+];

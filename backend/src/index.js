@@ -41,7 +41,12 @@ import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, seedWorkflowTool
 import { seedJobApplicantToolsIfMissing } from './db/seed-job-applicant-tools.js';
 import { seedIbkrTradingToolsIfMissing } from './db/seed-ibkr-trading-tools.js';
 import { writeOpenClawToolsList } from './services/content-tools-meta.js';
-import { importGrantsFromOpenClawConfig, syncAllowlistsFile } from './services/openclaw-agent-tools.js';
+import {
+  importGrantsFromOpenClawConfig,
+  syncAllowlistsFile,
+  syncOpenClawJsonForAgent,
+  getAgentToolGrants,
+} from './services/openclaw-agent-tools.js';
 import { grantLearningsSummaryToAllAgents } from './services/agent-feedback.js';
 import feedbackRoutes from './routes/feedback.js';
 import masterDataRoutes from './routes/master-data.js';
@@ -94,7 +99,6 @@ try {
   const imported = importGrantsFromOpenClawConfig();
   syncAllowlistsFile();
   // Persist DB grants into openclaw.json per-agent tools.allow (volume-safe across deploys).
-  const { syncOpenClawJsonForAgent, getAgentToolGrants } = await import('./services/openclaw-agent-tools.js');
   const agents = getDb().prepare('SELECT * FROM agents').all();
   let synced = 0;
   for (const agent of agents) {

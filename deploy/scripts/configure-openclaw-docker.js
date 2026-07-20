@@ -11,6 +11,11 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import { resolveOpenClawDir } from '../../scripts/lib/openclaw-paths.js';
+import {
+  REQUIRED_GLOBAL_CONTENT_TOOLS,
+  COO_CONTENT_TOOLS_ALLOW,
+  WORKFLOW_BUILDER_CONTENT_TOOLS_ALLOW,
+} from '../../scripts/lib/content-tools-allow.js';
 
 const OPENCLAW_DIR = resolveOpenClawDir();
 const CONFIG_PATH = process.env.OPENCLAW_CONFIG_PATH || join(OPENCLAW_DIR, 'openclaw.json');
@@ -71,26 +76,7 @@ config.tools.sessions.visibility = SESSION_VISIBILITY;
 console.log('Set tools.sessions.visibility:', SESSION_VISIBILITY);
 
 // OpenClaw intersects agent tools.allow with global tools.allow. Plugin tools missing
- // from the global list are stripped (COO learnings_summary regressed this way).
-const REQUIRED_GLOBAL_CONTENT_TOOLS = [
-  'summarize_url',
-  'generate_image',
-  'generate_video',
-  'kanban_move_status',
-  'kanban_reassign_to_coo',
-  'kanban_assign_task',
-  'kanban_create_task',
-  'intent_classify_and_delegate',
-  'agent_workflow_list',
-  'agent_workflow_enquire',
-  'agent_workflow_trigger',
-  'agent_workflow_get_draft',
-  'agent_workflow_mutate',
-  'learnings_summary',
-  'brain_history',
-  'content_tools_enquire',
-  'browser',
-];
+// from the global list are stripped (COO learnings_summary regressed this way).
 if (!Array.isArray(config.tools.allow)) config.tools.allow = [];
 let globalAdded = 0;
 for (const name of REQUIRED_GLOBAL_CONTENT_TOOLS) {
@@ -107,32 +93,8 @@ if (globalAdded) {
 
 // Keep COO / Workflow Builder agent allows current across volume-persisted configs.
 const AGENT_CONTENT_TOOLS = {
-  balserve: [
-    'summarize_url',
-    'generate_image',
-    'generate_video',
-    'kanban_move_status',
-    'kanban_reassign_to_coo',
-    'kanban_assign_task',
-    'intent_classify_and_delegate',
-    'agent_workflow_list',
-    'agent_workflow_enquire',
-    'agent_workflow_trigger',
-    'learnings_summary',
-    'browser',
-  ],
-  workflowbuilder: [
-    'agent_workflow_list',
-    'agent_workflow_enquire',
-    'agent_workflow_trigger',
-    'agent_workflow_get_draft',
-    'agent_workflow_mutate',
-    'summarize_url',
-    'learnings_summary',
-    'brain_history',
-    'content_tools_enquire',
-    'browser',
-  ],
+  balserve: COO_CONTENT_TOOLS_ALLOW,
+  workflowbuilder: WORKFLOW_BUILDER_CONTENT_TOOLS_ALLOW,
 };
 if (Array.isArray(config.agents?.list)) {
   for (const agent of config.agents.list) {
