@@ -24,8 +24,13 @@ import {
 import { getPublicBaseUrl } from '../config/public-url.js';
 import { ensureInternalTokenConfigured } from '../middleware/internal-auth.js';
 import { maybeAdvanceAgentWorkflow, failAgentWorkflowForDelegation } from './agent-workflow-runner.js';
-import { ensureTenantOpenClawAgent } from './openclaw-tenant.js';
+import { ensureTenantOpenClawAgent, tenantWorkspacePath } from './openclaw-tenant.js';
 import { getBalaCeoAuthId } from './job-applicant-ceo.js';
+import {
+  getAgentsUnderCooForCeo,
+  readCooAgentsMdForCeo,
+  withOwnerScope,
+} from './org-context.js';
 
 const SESSION_USER = 'agent-os-delegation';
 const AGENTS_MD_NAME = 'AGENTS.md';
@@ -84,19 +89,21 @@ function getBaseUrl() {
   return getPublicBaseUrl();
 }
 
-function getAgentsUnderCoo() {
-  const coo = db().prepare('SELECT id FROM agents WHERE is_coo = 1 LIMIT 1').get();
-  if (!coo) return [];
-  return db()
-    .prepare('SELECT id, name, role, openclaw_agent_id FROM agents WHERE parent_id = ? AND id != ?')
-    .all(coo.id, coo.id);
+function getStandupOwnerUserId(standupId) {
+  const row = db().prepare('SELECT owner_user_id FROM standups WHERE id = ?').get(standupId);
+  return row?.owner_user_id || getBalaCeoAuthId();
+}
+
+function getAgentsUnderCoo(ceoUserId) {
+  return getAgentsUnderCooForCeo(ceoUserId);
 }
 
 /**
  * Read the COO workspace AGENTS.md (lists agents and use cases). Used by the intent classifier.
  * @returns {Promise<string>} File content or empty string if missing/unreadable
  */
-async function readCooAgentsMd() {
+async function readCooAgentsMd(ceoUserId) {
+  if (ceoUserId) return readCooAgentsMdForCeo(ceoUserId);
   const coo = db().prepare('SELECT workspace_path FROM agents WHERE is_coo = 1 LIMIT 1').get();
   if (!coo?.workspace_path) return '';
   const path = join(coo.workspace_path, AGENTS_MD_NAME);
@@ -108,9 +115,16 @@ async function readCooAgentsMd() {
 }
 
 /**
- * Get workspace path for an agent (from DB or default under ~/.openclaw).
+ * Get workspace path for an agent (tenant when ceoUserId known, else legacy DB path).
  */
-function getAgentWorkspacePath(agentId) {
+function getAgentWorkspacePath(agentId, ceoUserId = null) {
+  if (ceoUserId) {
+    const agent = db().prepare('SELECT openclaw_agent_id, id FROM agents WHERE id = ?').get(agentId);
+    if (agent) {
+      const baseId = String(agent.openclaw_agent_id || agent.id).toLowerCase();
+      return tenantWorkspacePath(ceoUserId, baseId);
+    }
+  }
   const row = db().prepare('SELECT workspace_path FROM agents WHERE id = ?').get(agentId);
   if (row?.workspace_path) return row.workspace_path;
   const dir = agentId === 'bala' ? 'workspace' : `workspace-${agentId}`;
@@ -120,8 +134,8 @@ function getAgentWorkspacePath(agentId) {
 /**
  * Read agent's MEMORY.md (recent completions). Returns content to inject into prompt, or empty string.
  */
-async function readAgentMemory(agentId) {
-  const workspacePath = getAgentWorkspacePath(agentId);
+async function readAgentMemory(agentId, ceoUserId = null) {
+  const workspacePath = getAgentWorkspacePath(agentId, ceoUserId);
   const memoryPath = join(workspacePath, MEMORY_MD_NAME);
   try {
     const raw = await readFile(memoryPath, 'utf8');
@@ -184,8 +198,8 @@ export function appendDelegationResponseToAgentChat(agentId, promptSnippet, resp
 /**
  * Append a completion line to the agent's MEMORY.md. Call when a delegation task completes.
  */
-export async function appendToAgentMemory(agentId, summaryLine) {
-  const workspacePath = getAgentWorkspacePath(agentId);
+export async function appendToAgentMemory(agentId, summaryLine, ceoUserId = null) {
+  const workspacePath = getAgentWorkspacePath(agentId, ceoUserId);
   const memoryPath = join(workspacePath, MEMORY_MD_NAME);
   const date = new Date().toISOString().slice(0, 10);
   const line = `- ${summaryLine} – ${date}\n`;
@@ -265,16 +279,18 @@ function getStandupContextForIntent(standupId, ceoMessage = '') {
  * Passes recent user messages and agent responses as context for follow-up resolution.
  * @returns {{ requestId: string, count: number, scheduledCount: number, pendingCount: number, agentNames: string[] }}
  */
-export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage) {
-  const agents = getAgentsUnderCoo();
-  const agentsMdContent = await readCooAgentsMd();
-  const context = getStandupContextForIntent(standupId, ceoMessage);
-  const allocated = await classifyIntentAndAllocate(ceoMessage, agentsMdContent || '', context);
+export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, ceoUserId = null) {
+  const ownerUserId = ceoUserId || getStandupOwnerUserId(standupId);
+  const agents = getAgentsUnderCoo(ownerUserId);
+  const agentsMdContent = await readCooAgentsMd(ownerUserId);
+  const scopedMessage = withOwnerScope(ceoMessage, ownerUserId);
+  const context = getStandupContextForIntent(standupId, scopedMessage);
+  const allocated = await classifyIntentAndAllocate(scopedMessage, agentsMdContent || '', context);
 
   const requestId = `req-${standupId}-${Date.now()}`;
   const baseUrl = getBaseUrl();
   const ins = db().prepare(
-    `INSERT INTO agent_delegation_tasks (standup_id, request_id, to_agent_id, prompt, status) VALUES (?, ?, ?, ?, 'pending')`
+    `INSERT INTO agent_delegation_tasks (standup_id, request_id, to_agent_id, prompt, status, owner_user_id) VALUES (?, ?, ?, ?, 'pending', ?)`
   );
   const taskRows = [];
 
@@ -288,7 +304,8 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage) {
       const query = allocated[a.id?.toLowerCase()] ?? allocated[a.id];
       if (!query || typeof query !== 'string') continue;
       const prompt = buildDetailedPromptForAgent(query, a.name || a.id, a.role);
-      ins.run(standupId, requestId, a.id, prompt);
+      const scopedPrompt = withOwnerScope(prompt, ownerUserId);
+      ins.run(standupId, requestId, a.id, scopedPrompt, ownerUserId);
       const row = db().prepare('SELECT id FROM agent_delegation_tasks ORDER BY id DESC LIMIT 1').get();
       if (row) {
         taskRows.push({ taskId: row.id, agent: a, query });
@@ -299,24 +316,26 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage) {
   } else if (allocated === null && agents.length > 0) {
     // Classifier failed (API error, no AGENTS.md, etc.): fall back to all agents.
     for (const a of agents) {
-      const prompt = buildDetailedPromptForAgent(ceoMessage.trim(), a.name || a.id, a.role);
-      ins.run(standupId, requestId, a.id, prompt);
+      const prompt = buildDetailedPromptForAgent(scopedMessage.trim(), a.name || a.id, a.role);
+      const scopedPrompt = withOwnerScope(prompt, ownerUserId);
+      ins.run(standupId, requestId, a.id, scopedPrompt, ownerUserId);
       const row = db().prepare('SELECT id FROM agent_delegation_tasks ORDER BY id DESC LIMIT 1').get();
       if (row) {
-        taskRows.push({ taskId: row.id, agent: a, query: ceoMessage.trim() });
-        const title = (ceoMessage || '').trim().slice(0, 200);
+        taskRows.push({ taskId: row.id, agent: a, query: scopedMessage.trim() });
+        const title = (scopedMessage || '').trim().slice(0, 200);
         kanbanIns.run(title, '', a.id, standupId, row.id);
       }
     }
   } else if ((!allocated || Object.keys(allocated).length === 0) && agents.length > 0) {
     // No agent mapped (empty object or no keys): fall back to all agents with full message.
     for (const a of agents) {
-      const prompt = buildDetailedPromptForAgent(ceoMessage.trim(), a.name || a.id, a.role);
-      ins.run(standupId, requestId, a.id, prompt);
+      const prompt = buildDetailedPromptForAgent(scopedMessage.trim(), a.name || a.id, a.role);
+      const scopedPrompt = withOwnerScope(prompt, ownerUserId);
+      ins.run(standupId, requestId, a.id, scopedPrompt, ownerUserId);
       const row = db().prepare('SELECT id FROM agent_delegation_tasks ORDER BY id DESC LIMIT 1').get();
       if (row) {
-        taskRows.push({ taskId: row.id, agent: a, query: ceoMessage.trim() });
-        const title = (ceoMessage || '').trim().slice(0, 200);
+        taskRows.push({ taskId: row.id, agent: a, query: scopedMessage.trim() });
+        const title = (scopedMessage || '').trim().slice(0, 200);
         kanbanIns.run(title, '', a.id, standupId, row.id);
       }
     }
@@ -346,7 +365,7 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage) {
     const internalToken = ensureInternalTokenConfigured();
     const webhookUrl = `${baseUrl}/api/standups/cron-callback?standup_id=${standupId}&request_id=${encodeURIComponent(requestId)}&agent_id=${encodeURIComponent(agent.id)}&task_id=${taskId}&internal_token=${encodeURIComponent(internalToken)}`;
     const ownerForTenant =
-      extractOwnerUserIdFromText(promptWithMemory, null) || getBalaCeoAuthId();
+      extractOwnerUserIdFromText(promptWithMemory, null) || ownerUserId || getBalaCeoAuthId();
     let openclawAgentId = agent.openclaw_agent_id || agent.id;
     try {
       openclawAgentId = ensureTenantOpenClawAgent(agent, ownerForTenant).openclawAgentId;
@@ -371,14 +390,18 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage) {
 /**
  * Enqueue delegation tasks only (no Gateway cron). Uses COO AGENTS.md + OpenAI to allocate per agent.
  */
-export async function enqueueGetWorkFromTeam(standupId, contextFromConversation = '') {
-  const agents = getAgentsUnderCoo();
+export async function enqueueGetWorkFromTeam(standupId, contextFromConversation = '', ceoUserId = null) {
+  const ownerUserId = ceoUserId || getStandupOwnerUserId(standupId);
+  const agents = getAgentsUnderCoo(ownerUserId);
   const requestId = `req-${standupId}-${Date.now()}`;
   const ins = db().prepare(
-    `INSERT INTO agent_delegation_tasks (standup_id, request_id, to_agent_id, prompt, status) VALUES (?, ?, ?, ?, 'pending')`
+    `INSERT INTO agent_delegation_tasks (standup_id, request_id, to_agent_id, prompt, status, owner_user_id) VALUES (?, ?, ?, ?, 'pending', ?)`
   );
-  const fullContext = contextFromConversation.trim() || 'Provide your status and deliverables for the CEO standup.';
-  const agentsMdContent = await readCooAgentsMd();
+  const fullContext = withOwnerScope(
+    contextFromConversation.trim() || 'Provide your status and deliverables for the CEO standup.',
+    ownerUserId
+  );
+  const agentsMdContent = await readCooAgentsMd(ownerUserId);
   const context = getStandupContextForIntent(standupId, fullContext);
   const allocated = agentsMdContent && fullContext ? await classifyIntentAndAllocate(fullContext, agentsMdContent, context) : null;
 
@@ -388,19 +411,19 @@ export async function enqueueGetWorkFromTeam(standupId, contextFromConversation 
       const query = allocated[a.id?.toLowerCase()] ?? allocated[a.id];
       if (!query || typeof query !== 'string') continue;
       const prompt = buildDetailedPromptForAgent(query, a.name || a.id, a.role);
-      ins.run(standupId, requestId, a.id, prompt);
+      ins.run(standupId, requestId, a.id, withOwnerScope(prompt, ownerUserId), ownerUserId);
       count++;
     }
   } else if (allocated === null && agents.length > 0) {
     for (const a of agents) {
       const prompt = buildDetailedPromptForAgent(fullContext, a.name || a.id, a.role);
-      ins.run(standupId, requestId, a.id, prompt);
+      ins.run(standupId, requestId, a.id, withOwnerScope(prompt, ownerUserId), ownerUserId);
       count++;
     }
   } else if ((!allocated || Object.keys(allocated).length === 0) && agents.length > 0) {
     for (const a of agents) {
       const prompt = buildDetailedPromptForAgent(fullContext, a.name || a.id, a.role);
-      ins.run(standupId, requestId, a.id, prompt);
+      ins.run(standupId, requestId, a.id, withOwnerScope(prompt, ownerUserId), ownerUserId);
       count++;
     }
   }
@@ -409,12 +432,14 @@ export async function enqueueGetWorkFromTeam(standupId, contextFromConversation 
 
 /**
  * Enqueue a single task (e.g. deep research to one agent). Returns request_id.
+ * ownerUserId is required so the per-CEO delegation worker can claim it.
  */
-export function enqueueDelegationTask(standupId, toAgentId, prompt, requestId = null) {
+export function enqueueDelegationTask(standupId, toAgentId, prompt, requestId = null, ownerUserId = null) {
   const rid = requestId || `req-${standupId}-${Date.now()}`;
+  const owner = ownerUserId || getStandupOwnerUserId(standupId);
   db().prepare(
-    `INSERT INTO agent_delegation_tasks (standup_id, request_id, to_agent_id, prompt, status) VALUES (?, ?, ?, ?, 'pending')`
-  ).run(standupId, rid, toAgentId, prompt);
+    `INSERT INTO agent_delegation_tasks (standup_id, request_id, to_agent_id, prompt, status, owner_user_id) VALUES (?, ?, ?, ?, 'pending', ?)`
+  ).run(standupId, rid, toAgentId, prompt, owner);
   return rid;
 }
 
@@ -451,12 +476,20 @@ export function postCallbackForRequestId(requestId) {
 }
 
 /**
- * Process pending tasks: send to OpenClaw chat per agent, store response, then post COO callback for completed request_ids.
- * Call from "Check for updates" or node-cron (e.g. every minute).
+ * Process pending delegation tasks for a single CEO.
+ * Pulls only that CEO's tasks, mirrors the per-CEO standup cron pattern.
+ * @param {string} ceoUserId
  */
-export async function processPendingDelegationTasks() {
-  recoverStaleProcessingDelegations();
-  const allPending = db().prepare('SELECT * FROM agent_delegation_tasks WHERE status = ? ORDER BY created_at LIMIT 20').all('pending');
+export async function processPendingDelegationTasksForCeo(ceoUserId) {
+  if (!ceoUserId) return;
+  recoverStaleProcessingDelegations(ceoUserId);
+  const allPending = db()
+    .prepare(
+      `SELECT * FROM agent_delegation_tasks
+       WHERE status = ? AND (owner_user_id = ? OR (owner_user_id IS NULL AND standup_id IN (SELECT id FROM standups WHERE owner_user_id = ?)))
+       ORDER BY created_at LIMIT 20`
+    )
+    .all('pending', ceoUserId, ceoUserId);
   const pending = filterPipelineDelegationsForProcessing(allPending);
   const now = new Date().toISOString();
 
@@ -484,8 +517,11 @@ export async function processPendingDelegationTasks() {
       return;
     }
     const openclawId = agent.openclaw_agent_id || agent.id;
+    const standupOwner = db()
+      .prepare('SELECT owner_user_id FROM standups WHERE id = ?')
+      .get(task.standup_id)?.owner_user_id;
     const ownerForTenant =
-      extractOwnerUserIdFromText(task.prompt, null) || getBalaCeoAuthId();
+      extractOwnerUserIdFromText(task.prompt, null) || standupOwner || getBalaCeoAuthId();
     let runtimeOcId = openclawId;
     try {
       runtimeOcId = ensureTenantOpenClawAgent(agent, ownerForTenant).openclawAgentId;
@@ -540,7 +576,11 @@ export async function processPendingDelegationTasks() {
         extractOwnerUserIdFromText(task.prompt)
       );
       const summary = extractTaskSummaryFromPrompt(task.prompt);
-      await appendToAgentMemory(task.to_agent_id, summary);
+      await appendToAgentMemory(
+        task.to_agent_id,
+        summary,
+        extractOwnerUserIdFromText(task.prompt) || standupOwner
+      );
     } catch (err) {
       db().prepare('UPDATE agent_delegation_tasks SET status = ?, error_message = ?, completed_at = ? WHERE id = ?').run('failed', err.message, now, task.id);
       if (isAgentWorkflowPrompt(task.prompt)) {
@@ -557,8 +597,34 @@ export async function processPendingDelegationTasks() {
 
   await Promise.allSettled(pending.map((task) => runOne(task)));
 
-  const allRequestIds = db().prepare('SELECT DISTINCT request_id FROM agent_delegation_tasks').all().map((r) => r.request_id);
-  for (const requestId of allRequestIds) {
+  // Only scan request_ids that belong to this CEO so callbacks don't mix across tenants
+  const requestIds = db()
+    .prepare(
+      `SELECT DISTINCT request_id FROM agent_delegation_tasks
+       WHERE owner_user_id = ? OR (owner_user_id IS NULL AND standup_id IN (SELECT id FROM standups WHERE owner_user_id = ?))`
+    )
+    .all(ceoUserId, ceoUserId)
+    .map((r) => r.request_id);
+  for (const requestId of requestIds) {
     postCallbackForRequestId(requestId);
   }
 }
+
+/**
+ * Process pending delegation tasks for ALL enabled CEOs, one pass each.
+ * Called by the delegation cron. Mirrors runScheduledStandup() pattern.
+ */
+export async function processPendingDelegationTasksForAllCeos() {
+  const ceos = db()
+    .prepare(`SELECT id FROM platform_users WHERE role = 'ceo' AND enabled = 1`)
+    .all();
+  // Also handle orphaned tasks (owner_user_id NULL, not matched to any CEO above)
+  const results = await Promise.allSettled(
+    ceos.map(({ id }) => processPendingDelegationTasksForCeo(id))
+  );
+  const errors = results.filter((r) => r.status === 'rejected').map((r) => r.reason?.message);
+  if (errors.length) console.warn('[delegation] per-CEO errors:', errors.join('; '));
+}
+
+/** Backward-compatible alias — routes/scripts that import the old name continue to work. */
+export const processPendingDelegationTasks = processPendingDelegationTasksForAllCeos;

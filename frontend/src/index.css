@@ -191,9 +191,10 @@ html.auth-route #root {
 .chat-compose-row {
   display: flex;
   gap: 0.5rem;
-  align-items: stretch;
+  align-items: flex-end;
 }
-.chat-compose-row input {
+.chat-compose-row input,
+.chat-compose-row textarea {
   flex: 1;
   min-width: 0;
 }
@@ -513,6 +514,107 @@ button {
 }
 .wf-brain-mcp-tool-row strong { display: block; }
 .wf-brain-mcp-tool-row small { display: block; color: var(--muted); font-size: 0.75rem; }
+
+/* Publish A2A modal — portaled above workflow editor + property pane */
+.wf-a2a-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10100;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: max(1rem, env(safe-area-inset-top)) 1rem max(1rem, env(safe-area-inset-bottom));
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(2px);
+}
+
+.wf-a2a-modal {
+  width: min(580px, 100%);
+  max-height: min(92vh, 920px);
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.wf-a2a-modal-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.15rem 1.25rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.wf-a2a-modal-header h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.wf-a2a-modal-sub {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+  line-height: 1.45;
+  max-width: 46ch;
+}
+
+.wf-a2a-modal-close {
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.wf-a2a-modal-close:hover {
+  color: inherit;
+  border-color: var(--accent);
+}
+
+.wf-a2a-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1rem 1.25rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.wf-a2a-modal-live {
+  background: var(--surface-2, var(--bg));
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  word-break: break-all;
+}
+
+.wf-a2a-modal-live div + div {
+  margin-top: 0.35rem;
+}
+
+.wf-a2a-modal-footer {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.85rem 1.25rem 1.15rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
 
 .wf-editor-actions {
   display: flex;

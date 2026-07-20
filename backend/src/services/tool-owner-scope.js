@@ -1,12 +1,12 @@
-/**
+﻿/**
  * Resolve CEO user id for content-tool invocations (OpenClaw plugin, COO tools, logs).
- * Owner must come from authenticated session or registered OpenClaw session — never another CEO.
+ * Owner must come from authenticated session or registered OpenClaw session â€” never another CEO.
  */
 import { extractOwnerUserIdFromText } from './agent-chat-scope.js';
 import { parseTenantOpenClawAgentId } from './openclaw-tenant.js';
 import { getBalaCeoAuthId } from './job-applicant-ceo.js';
 
-const SESSION_USER_PREFIX = 'agent-os-';
+const SESSION_USER_PREFIXES = ['agent-os-user-', 'agent-os-'];
 const SESSION_OWNER_TTL_MS = Number(process.env.OPENCLAW_SESSION_OWNER_TTL_MS || 4 * 3600000);
 const sessionOwnerRegistry = new Map();
 
@@ -46,13 +46,31 @@ export function resolveOwnerFromOpenClawSession(req) {
 export function parseOwnerUserIdFromSessionUser(sessionUser, agentId = null) {
   if (!sessionUser || typeof sessionUser !== 'string') return null;
   const s = sessionUser.trim();
-  if (!s.startsWith(SESSION_USER_PREFIX)) return null;
-  const rest = s.slice(SESSION_USER_PREFIX.length);
+  let rest = null;
+  for (const prefix of SESSION_USER_PREFIXES) {
+    if (s.startsWith(prefix)) {
+      rest = s.slice(prefix.length);
+      break;
+    }
+  }
+  if (rest == null) return null;
+
   if (agentId) {
     const safeAgent = String(agentId).replace(/[^a-zA-Z0-9_.-]/g, '_');
-    const prefix = `${safeAgent}-`;
-    if (rest.startsWith(prefix)) return rest.slice(prefix.length) || null;
+    const agentPrefix = `${safeAgent}-`;
+    if (rest.startsWith(agentPrefix)) return rest.slice(agentPrefix.length) || null;
   }
+
+  // Tenant runtime: t-{ceo}--{base}-{owner} (ceo may contain dashes)
+  const dd = rest.indexOf('--');
+  if (dd >= 0) {
+    const afterTenant = rest.slice(dd + 2); // {base}-{owner}
+    const dash = afterTenant.indexOf('-');
+    if (dash >= 0 && dash < afterTenant.length - 1) {
+      return afterTenant.slice(dash + 1) || null;
+    }
+  }
+
   const dashIdx = rest.indexOf('-');
   if (dashIdx >= 0 && dashIdx < rest.length - 1) return rest.slice(dashIdx + 1);
   return null;
@@ -64,7 +82,11 @@ export function parseOwnerUserIdFromSessionKey(sessionKey) {
   const m =
     sessionKey.match(/^agent::([^:]+):(.+)$/) || sessionKey.match(/^agent:([^:]+):(.+)$/);
   if (!m) return null;
-  return parseOwnerUserIdFromSessionUser(m[2], m[1]);
+  const agentId = m[1];
+  const sessionUser = m[2];
+  const tenant = parseTenantOpenClawAgentId(agentId);
+  if (tenant?.ceoUserId) return tenant.ceoUserId;
+  return parseOwnerUserIdFromSessionUser(sessionUser, agentId);
 }
 
 /** True when authUser is the placeholder used for TOOLS_API_KEY / internal service calls. */
@@ -75,7 +97,7 @@ export function isPlaceholderServiceUser(authUser) {
 /**
  * Trusted owner for owner-scoped APIs (IBKR ledger/analytics, day-status, etc.).
  * Never trusts body owner_user_id / ceo_user_id (LLM / client spoof).
- * Order: real session CEO → trusted headers → OpenClaw session → tenant agent id → optional Bala fallback.
+ * Order: real session CEO â†’ trusted headers â†’ OpenClaw session â†’ tenant agent id â†’ optional Bala fallback.
  */
 export function resolveEntitledOwnerUserId(req, { fallbackToBala = true } = {}) {
   if (req?.authUser?.role === 'ceo' && !isPlaceholderServiceUser(req.authUser)) {
@@ -110,7 +132,7 @@ export function resolveEntitledOwnerUserId(req, { fallbackToBala = true } = {}) 
 }
 
 export function resolveToolOwnerUserId(req, body = {}, resolveAuthenticatedCeoUserId = null) {
-  // Skip placeholder internalServiceUser (always ceo-bala) — resolve from session/tenant/headers.
+  // Skip placeholder internalServiceUser (always ceo-bala) â€” resolve from session/tenant/headers.
   if (req?.authUser?.role === 'ceo' && !isPlaceholderServiceUser(req.authUser)) {
     return req.authUser.id;
   }
@@ -154,7 +176,7 @@ export function resolveToolOwnerUserId(req, body = {}, resolveAuthenticatedCeoUs
   if (fromText) return fromText;
 
   const err = new Error(
-    'ceo_user_id could not be resolved — chat with the agent from the UI so the session is registered, or pass x-openclaw-session-key from the active OpenClaw session'
+    'ceo_user_id could not be resolved â€” chat with the agent from the UI so the session is registered, or pass x-openclaw-session-key from the active OpenClaw session'
   );
   err.status = 400;
   throw err;
@@ -167,6 +189,10 @@ export function bodyWithoutSpoofedOwner(body = {}) {
   delete out.ceoUserId;
   delete out.owner_user_id;
   delete out.ownerUserId;
+  delete out.user_id;
+  delete out.userId;
+  delete out.target_user_id;
+  delete out.targetUserId;
   return out;
 }
 

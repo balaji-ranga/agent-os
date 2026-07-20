@@ -73,6 +73,27 @@ function tokenize(s) {
     .filter((t) => t.length > 1);
 }
 
+/** User wants to send email/invite directly — not look up a workflow. */
+function looksLikeDirectEmailSend(queryNorm) {
+  if (!queryNorm) return false;
+  const patterns = [
+    /\bsend\s+(an?\s+)?email\b/,
+    /\bsend\s+as\s+email\b/,
+    /\bemail\s+(with|and)\s+(a\s+)?calendar\b/,
+    /\bcalendar\s+invite\b/,
+    /\bmeeting\s+invite\b/,
+    /\bsend\s+(a\s+)?calendar\b/,
+    /\bemail\s+invite\b/,
+    /\binvite\s+via\s+email\b/,
+    /\bdinner\s+with\b.*\b(email|invite|calendar)\b/,
+  ];
+  if (patterns.some((p) => p.test(queryNorm))) return true;
+  // Short generic "email" query without "workflow" — prefer email_send over workflow search
+  if (!/\bworkflow\b/.test(queryNorm) && /^((send|email|mail)\b|email\b)/.test(queryNorm)) return true;
+  if (queryNorm === 'email' || queryNorm === 'send email') return true;
+  return false;
+}
+
 /** Score how well a workflow matches a natural-language enquiry. */
 function scoreWorkflowMatch(w, queryNorm, tokens) {
   const hay = normText([w.id, w.name, w.description, w.chat_trigger_phrase].join(' '));
@@ -84,6 +105,14 @@ function scoreWorkflowMatch(w, queryNorm, tokens) {
   if (normText(w.chat_trigger_phrase).includes(queryNorm)) score += 5;
   for (const t of tokens) {
     if (hay.includes(t)) score += 2;
+  }
+  // Demo/sample email workflows should not win on generic "email" alone
+  const idNorm = normText(w.id);
+  const isSampleEmailWorkflow =
+    /sample|demo|job.discovery/.test(idNorm) || /job discovery.*email/i.test(String(w.name || ''));
+  const hasWorkflowContext = /\b(workflow|job|discovery|pipeline)\b/.test(queryNorm);
+  if (isSampleEmailWorkflow && !hasWorkflowContext && tokens.includes('email') && tokens.length <= 4) {
+    score = Math.max(0, score - 20);
   }
   return score;
 }
@@ -103,6 +132,17 @@ export function enquireWorkflows(ownerUserId, query, { limit = 10, all = false, 
 
   if (!queryNorm) {
     return { query: q, matches: [], count: 0, include_drafts: !!includeDrafts };
+  }
+
+  if (looksLikeDirectEmailSend(queryNorm)) {
+    return {
+      query: q,
+      matches: [],
+      count: 0,
+      include_drafts: !!includeDrafts,
+      hint: 'Use email_send for direct email or calendar invites (to, subject, body, optional calendar object). Do not trigger workflows for one-off email/invite requests.',
+      use_email_send: true,
+    };
   }
 
   let pool = store.listDefinitions(ownerUserId);

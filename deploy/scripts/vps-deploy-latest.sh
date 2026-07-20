@@ -8,8 +8,13 @@
 #
 # Typical flow from a laptop when VPS cannot git-pull GitHub:
 #   1) git push origin main
-#   2) rsync/scp updated trees into /opt/agent-os
+#   2) .\deploy\scripts\sync-to-vps.ps1   (or rsync/scp)
 #   3) SKIP_GIT=1 bash /opt/agent-os/deploy/scripts/vps-deploy-latest.sh
+#
+# Env:
+#   SERVICES=frontend backend openclaw   # compose services to rebuild
+#   SKIP_GIT=1                           # skip git pull
+#   SKIP_SMOKE=1                         # skip email_send / notify_ceo / org sync / A2A smoke
 set -euo pipefail
 
 ROOT="${AGENT_OS_ROOT:-/opt/agent-os}"
@@ -19,10 +24,12 @@ cd "$ROOT/deploy"
 
 SERVICES="${SERVICES:-frontend backend openclaw}"
 SKIP_GIT="${SKIP_GIT:-0}"
+SKIP_SMOKE="${SKIP_SMOKE:-0}"
 PUBLIC_URL="${AGENT_OS_PUBLIC_URL:-https://127.0.0.1}"
 
 echo "==> Agent OS deploy latest $(date -Is)"
 echo "    root=$ROOT services=$SERVICES skip_git=$SKIP_GIT"
+echo "    features: notify_ceo, email_send, org sync (ORG.md/AGENTS.md), AgentExchange/A2A"
 
 if [[ "$SKIP_GIT" != "1" ]]; then
   if [[ -d "$ROOT/.git" ]]; then
@@ -79,6 +86,23 @@ else
   echo "    WARN: app-mobile-topbar not found in frontend CSS (rebuild frontend?)"
 fi
 
+# AgentExchange SPA shell + A2A modal CSS (PublishA2AModal)
+if docker compose exec -T frontend sh -c 'cat /usr/share/nginx/html/assets/*.css' 2>/dev/null | grep -q 'wf-a2a-modal'; then
+  echo "    frontend assets: wf-a2a-modal OK"
+else
+  echo "    WARN: wf-a2a-modal not found in frontend CSS (Publish A2A modal styles missing?)"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql agent-exchange /usr/share/nginx/html/assets/*.js 2>/dev/null || grep -Rql AgentExchange /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: AgentExchange route OK"
+else
+  echo "    WARN: AgentExchange not found in frontend JS bundle"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql "Resync ORG" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: Resync ORG.md button OK"
+else
+  echo "    WARN: Resync ORG button not found in frontend JS (Dashboard org sync UI missing?)"
+fi
+
 TOKEN=$(docker compose exec -T -w /opt/agent-os/backend backend node --input-type=module <<'NODE' 2>/dev/null || true
 import { initDb, getDb } from './src/db/schema.js';
 import { createSession } from './src/services/auth/session.js';
@@ -92,6 +116,18 @@ if [[ -n "${TOKEN:-}" ]]; then
   UNAUTH=$(docker compose exec -T backend curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3001/api/media/openclaw/generated/x.png || echo 000)
   AUTH=$(docker compose exec -T backend curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer ${TOKEN}" http://127.0.0.1:3001/api/media/openclaw/generated/x.png || echo 000)
   echo "    media unauth=$UNAUTH auth=$AUTH (expect 401 / 404)"
+  EX=$(docker compose exec -T backend curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer ${TOKEN}" http://127.0.0.1:3001/api/agent-exchange || echo 000)
+  echo "    agent-exchange auth=$EX (expect 200)"
+  ORG=$(docker compose exec -T backend curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer ${TOKEN}" -H "Content-Type: application/json" http://127.0.0.1:3001/api/agents/org/sync || echo 000)
+  echo "    agents/org/sync auth=$ORG (expect 200)"
+fi
+
+if [[ "$SKIP_SMOKE" != "1" ]]; then
+  if [[ -f "$ROOT/deploy/scripts/vps-smoke-new-features.sh" ]]; then
+    echo "==> new-features smoke (email_send + notify_ceo + org sync + A2A)"
+    sed -i 's/\r$//' "$ROOT/deploy/scripts/vps-smoke-new-features.sh" 2>/dev/null || true
+    bash "$ROOT/deploy/scripts/vps-smoke-new-features.sh" || echo "WARN: new-features smoke failed (non-fatal)"
+  fi
 fi
 
 docker compose ps

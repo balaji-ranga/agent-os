@@ -5,6 +5,16 @@
 #   ./scripts/generate-dev-certs.sh   # or place real certs in nginx/certs/
 #   docker compose --profile init run --rm init
 #   docker compose up -d
+#   # or: ./scripts/up.sh
+#
+# Deploy latest from laptop (no git pull on VPS):
+#   .\deploy\scripts\sync-to-vps.ps1
+# On VPS: bash scripts/vps-deploy-latest.sh
+#
+# Content tools baked into images + granted at backend boot:
+#   email_send, notify_ceo, Kanban/workflow tools, browser (see scripts/lib/content-tools-allow.js)
+# Org tenancy docs: POST /api/agents/org/sync (Dashboard Resync ORG.md & AGENTS.md)
+# AgentExchange / workflow A2A: /api/agent-exchange, /api/a2a/:publishId
 #
 # LLM keys: set in deploy/.env — injected at runtime into openclaw + backend containers.
 # Never committed; never baked into images.
@@ -27,6 +37,8 @@ x-llm-env: &llm-env
   ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-}
   OPENCLAW_MODEL_PRIMARY: ${OPENCLAW_MODEL_PRIMARY:-openai/gpt-4o-mini}
   OPENCLAW_OLLAMA_FALLBACK_MODEL: ${OPENCLAW_OLLAMA_FALLBACK_MODEL:-llama3.2}
+  # When unset/0, configure-openclaw-docker.js clears agents.defaults.model.fallbacks
+  OPENCLAW_ENABLE_OLLAMA_FALLBACK: ${OPENCLAW_ENABLE_OLLAMA_FALLBACK:-0}
   OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
   OLLAMA_API_KEY: ${OLLAMA_API_KEY:-ollama-local}
   OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
@@ -95,7 +107,8 @@ x-backend-env: &backend-env
   CUSTOM_SCRIPT_LLM_REVIEW: ${CUSTOM_SCRIPT_LLM_REVIEW:-1}
   CUSTOM_SCRIPT_LLM_REVIEW_REQUIRED: ${CUSTOM_SCRIPT_LLM_REVIEW_REQUIRED:-1}
   CUSTOM_SCRIPT_LLM_REVIEW_MAX_TOKENS: ${CUSTOM_SCRIPT_LLM_REVIEW_MAX_TOKENS:-768}
-  # SMTP (workflow Send Email + MFA email OTP)
+  # SMTP (workflow Send Email + email_send content tool + MFA email OTP)
+  # notify_ceo is in-app only (platform_user_notifications) — no SMTP required
   WORKFLOW_SMTP_HOST: ${WORKFLOW_SMTP_HOST:-}
   WORKFLOW_SMTP_PORT: ${WORKFLOW_SMTP_PORT:-587}
   WORKFLOW_SMTP_SECURE: ${WORKFLOW_SMTP_SECURE:-0}

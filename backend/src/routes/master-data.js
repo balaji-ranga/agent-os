@@ -39,6 +39,27 @@ router.post('/tables', requireAuth, requireCeoOrAdmin, (req, res) => {
   }
 });
 
+router.patch('/tables/:tableId', requireAuth, requireCeoOrAdmin, (req, res) => {
+  try {
+    const owner = ownerOr403(req, res);
+    if (!owner) return;
+    const description =
+      req.body?.description != null
+        ? req.body.description
+        : req.body?.purpose != null
+          ? req.body.purpose
+          : undefined;
+    if (description === undefined) {
+      return res.status(400).json({ error: 'description (purpose) required' });
+    }
+    const table = md.updateTableMeta(owner, req.params.tableId, { description });
+    res.json({ table });
+  } catch (e) {
+    const status = e.message === 'Table not found' ? 404 : 400;
+    res.status(status).json({ error: e.message });
+  }
+});
+
 router.get('/tables/:tableId', requireAuth, requireCeoOrAdmin, (req, res) => {
   try {
     const owner = ownerOr403(req, res);

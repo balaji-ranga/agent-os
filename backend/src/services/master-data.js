@@ -289,6 +289,35 @@ export function createTable(ownerUserId, { name, description = '', columns = [] 
   return getTable(owner, id);
 }
 
+/**
+ * Update table metadata only (purpose/description). Does not alter columns or drop the table.
+ */
+export function updateTableMeta(ownerUserId, tableId, { description } = {}) {
+  const { db, owner } = dbFor(ownerUserId);
+  const existing = getTable(owner, tableId);
+  if (!existing) throw new Error('Table not found');
+  if (description === undefined) return existing;
+  db.prepare(
+    `UPDATE master_data_tables SET description = ?, updated_at = datetime('now')
+     WHERE id = ? AND owner_user_id = ?`
+  ).run(String(description || ''), String(tableId), owner);
+  return getTable(owner, tableId);
+}
+
+/** Resolve table by id or case-insensitive name (canonical pick if duplicates). */
+export function resolveTable(ownerUserId, { tableId = null, tableName = null } = {}) {
+  if (tableId) {
+    const t = getTable(ownerUserId, tableId);
+    if (!t) throw new Error('Table not found');
+    return t;
+  }
+  const name = String(tableName || '').trim();
+  if (!name) throw new Error('table_id or table_name required');
+  const t = findTableByName(ownerUserId, name);
+  if (!t) throw new Error(`Table not found: ${name}`);
+  return t;
+}
+
 export function deleteTable(ownerUserId, tableId) {
   const { db, owner } = dbFor(ownerUserId);
   const existing = getTable(owner, tableId);

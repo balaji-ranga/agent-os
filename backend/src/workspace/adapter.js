@@ -4,6 +4,7 @@ import { existsSync } from 'fs';
 const FILE_MAP = {
   soul: 'SOUL.md',
   agents: 'AGENTS.md',
+  org: 'ORG.md',
   memory: 'MEMORY.md',
   identity: 'IDENTITY.md',
   user: 'USER.md',

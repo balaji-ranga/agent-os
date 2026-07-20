@@ -22,6 +22,8 @@ import {
   applyByokModelToAgentEntry,
   ensureByokProviderInConfig,
 } from './user-llm-settings.js';
+import { COO_CONTENT_TOOLS_ALLOW } from '../lib/content-tools-allow.js';
+import { syncOrgContextToWorkspace } from './org-context.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_TEMPLATES = join(__dirname, '..', '..', '..', 'openclaw-workspace-templates');
@@ -51,6 +53,15 @@ function grantsForAgentId(agentId) {
 /** Runtime OpenClaw agent id for a CEO + logical agent. */
 export function tenantOpenClawAgentId(ceoUserId, baseOpenClawId) {
   return `t-${sanitizeIdPart(ceoUserId)}--${sanitizeIdPart(baseOpenClawId)}`;
+}
+
+/** OpenClaw sessions_send / sessions_history key for a CEO-scoped agent. */
+export function tenantSessionKeyForAgent(ceoUserId, agentOrBaseId) {
+  const base =
+    typeof agentOrBaseId === 'string'
+      ? agentOrBaseId
+      : agentOrBaseId?.openclaw_agent_id || agentOrBaseId?.id;
+  return `agent::${tenantOpenClawAgentId(ceoUserId, base)}:main`;
 }
 
 /** Parse `t-{ceo}--{base}` → { ceoUserId, baseOpenClawId } or null. */
@@ -164,7 +175,11 @@ export function ensureTenantOpenClawAgent(agent, ceoUserId) {
   }
   syncEssentialWorkspaceDocs(baseOcId, workspacePath);
 
-  const grants = grantsForAgentId(agent.id);
+  let grants = grantsForAgentId(agent.id);
+  if (!grants.length && agent.is_coo) {
+    grants = [...COO_CONTENT_TOOLS_ALLOW];
+  }
+
   let config = readOpenClawConfig();
   if (!Array.isArray(config.agents?.list)) config.agents = { list: [] };
   config = ensureByokProviderInConfig(config, ceoUserId);
@@ -197,8 +212,12 @@ export function ensureTenantOpenClawAgent(agent, ceoUserId) {
       allow = {};
     }
   }
-  allow[runtimeOcId] = grants;
+  allow[runtimeOcId] = mergeNativeTools([], grants);
   writeFileSync(allowPath, JSON.stringify(allow, null, 2), 'utf8');
+
+  syncOrgContextToWorkspace(agent, ceoUserId, workspacePath).catch((e) => {
+    console.warn('[openclaw-tenant] org sync:', e?.message || e);
+  });
 
   return {
     agentId: agent.id,
@@ -251,6 +270,37 @@ export function syncTenantAllowlists(baseAllowlists = {}) {
     out[tenantOpenClawAgentId(row.user_id, base)] = grants;
   }
   return out;
+}
+
+/** Ensure every agent granted to a CEO has a tenant OpenClaw runtime entry (for sessions_send + tools). */
+export function ensureAllTenantOpenClawAgentsForCeo(ceoUserId) {
+  if (!ceoUserId) return 0;
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT a.* FROM agents a
+       INNER JOIN user_agents ua ON ua.agent_id = a.id AND ua.user_id = ? AND ua.enabled = 1`
+    )
+    .all(ceoUserId);
+  let n = 0;
+  for (const agent of rows) {
+    try {
+      ensureTenantOpenClawAgent(agent, ceoUserId);
+      n += 1;
+    } catch (e) {
+      console.warn('[openclaw-tenant] ensure failed', agent.id, ceoUserId, e?.message || e);
+    }
+  }
+  return n;
+}
+
+export function ensureAllTenantOpenClawAgentsForAllCeos() {
+  const ceos = getDb()
+    .prepare(`SELECT id FROM platform_users WHERE role = 'ceo' AND enabled = 1`)
+    .all();
+  let total = 0;
+  for (const { id } of ceos) total += ensureAllTenantOpenClawAgentsForCeo(id);
+  return total;
 }
 
 export async function writeTenantToolsMd(agent, ceoUserId, buildToolsMdContent) {

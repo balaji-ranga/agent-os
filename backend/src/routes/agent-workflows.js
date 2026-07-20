@@ -22,6 +22,11 @@ import { runWorkflowBuilderChat, getWorkflowBuilderChatHistory } from '../servic
 import { applyWorkflowBuilderActions, getWorkflowDraftForAgent } from '../services/agent-workflow-builder.js';
 import { getBrainHistory } from '../services/agent-workflow-brain-history.js';
 import { resolveEntitledOwnerUserId } from '../services/tool-owner-scope.js';
+import {
+  getPublicationByWorkflow,
+  publishWorkflowAsA2A,
+  unpublishWorkflowA2A,
+} from '../services/workflow-a2a-publish.js';
 
 const router = Router();
 
@@ -424,6 +429,36 @@ router.post('/:id/publish', (req, res) => {
     res.json(def);
   } catch (e) {
     res.status(400).json({ error: e.message });
+  }
+});
+
+router.get('/:id/a2a-publication', (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.query);
+    const pub = getPublicationByWorkflow(req.params.id, ownerUserId);
+    if (!pub) return res.status(404).json({ error: 'No A2A publication for this workflow' });
+    res.json(pub);
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+router.post('/:id/publish-a2a', (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.body);
+    const pub = publishWorkflowAsA2A(ownerUserId, req.params.id, req.body || {}, actorFromRequest(req));
+    res.status(201).json(pub);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+router.delete('/:id/a2a-publication', (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.query);
+    res.json(unpublishWorkflowA2A(ownerUserId, req.params.id, actorFromRequest(req)));
+  } catch (e) {
+    res.status(e.message.includes('No A2A') ? 404 : 400).json({ error: e.message });
   }
 });
 

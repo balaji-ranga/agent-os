@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 
 import { api } from '../../api.js';
 import ChatMessageContent from '../ChatMessageContent.jsx';
+import ChatComposeInput from '../ChatComposeInput.jsx';
 import MessageFeedback from '../MessageFeedback.jsx';
 import { formatChatTimestamp } from '../../utils/formatDateTime.js';
 import { deriveWorkflowAgentUiEffects } from '../../utils/workflowAgentUiEffects.js';
@@ -354,17 +355,13 @@ export default function WorkflowAgentChat({
             </div>
 
             <form className="wf-agent-input-row" onSubmit={send}>
-              <textarea
+              <ChatComposeInput
                 rows={2}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Edit workflow, run/test, pause, inspect runs, fix failures…"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    send(e);
-                  }
-                }}
+                onSend={send}
+                placeholder="Edit workflow, run/test, pause, inspect runs, fix failures… (Shift+Enter for new line)"
+                disabled={sending}
               />
               <button type="submit" className="wf-btn-primary" disabled={sending || !input.trim()}>
                 Send

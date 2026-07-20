@@ -169,6 +169,7 @@ docker compose up -d --force-recreate openclaw backend
 | `OPENAI_PRIMARY_*`, `OPENAI_SECONDARY_*` | Aliases / fallback endpoint |
 | `ANTHROPIC_API_KEY` | Claude models (e.g. `anthropic/claude-opus-4-6`) |
 | `OPENCLAW_MODEL_PRIMARY` | Default agent model slug (also in `openclaw.json` at init) |
+| `OPENCLAW_ENABLE_OLLAMA_FALLBACK` | `0` clears silent Ollama fallbacks (default); `1` to enable |
 | `OLLAMA_BASE_URL`, `OLLAMA_API_KEY` | Local Ollama fallback |
 | `OPENROUTER_*` | If using OpenRouter-backed models in OpenClaw config |
 
@@ -183,7 +184,8 @@ Gets the same gateway LLM vars plus:
 | `REPLICATE_API_TOKEN` | Video generation content tool |
 | `OPENROUTER_*` | Dev/test scripts; Brain nodes still use per-node keys |
 | `CUSTOM_SCRIPT_*` | Python/JS workflow script sandbox (`python3` in image); includes LLM security review at registration |
-| `WORKFLOW_SMTP_*` | Send Email workflow task + MFA email OTP |
+| `WORKFLOW_SMTP_*` | Send Email workflow task, `email_send` content tool (incl. ICS invites), MFA email OTP |
+| `OPENCLAW_ENABLE_OLLAMA_FALLBACK` | `0` (default) clears OpenClaw model fallbacks; `1` allows Ollama fallback |
 | `MFA_MODE`, `AGENT_OS_REQUIRE_MFA`, `AGENT_OS_DISABLE_MFA` | Platform MFA defaults |
 | `EMAIL_INBOUND_WEBHOOK_SECRET` | Optional platform secret for email inbound webhooks |
 | `OPENCONNECTOR_MCP_*` | OpenConnector MCP URL / bearer / transport |
@@ -218,6 +220,33 @@ All proxied under `/api` (rebuild backend + frontend images after upgrade):
 | OpenConnector | `/api/openconnector`, MCP via `OPENCONNECTOR_MCP_URL` |
 | Email inbound | `POST /api/integrations/email-inbound/:definitionId` |
 | BYOK LLM | User Profile → stored in DB; Ollama needs `optional-ollama` |
+| `email_send` tool | `POST /api/tools/email-send` (SMTP + optional calendar ICS); granted to agents at boot |
+| `notify_ceo` tool | `POST /api/tools/notify-ceo` (in-app push to entitled CEO user); granted to agents at boot |
+| Org doc sync | `POST /api/agents/org/sync` — rebuilds `ORG.md` + COO `AGENTS.md` (tenant session keys); Dashboard **Resync ORG.md & AGENTS.md** |
+| AgentExchange | `GET /api/agent-exchange` (CEO/Admin), UI `/agent-exchange` |
+| Workflow A2A | `POST /api/a2a/:publishId`, card at `/api/a2a/:publishId/.well-known/agent-card.json` |
+
+**Deploy / sync (laptop → VPS without git pull):**
+
+```powershell
+.\deploy\scripts\sync-to-vps.ps1
+# frontend-only:
+.\deploy\scripts\sync-to-vps.ps1 -Services frontend
+# skip post-deploy smoke:
+.\deploy\scripts\sync-to-vps.ps1 -SkipSmoke
+```
+
+On VPS after sync, `vps-deploy-latest.sh` rebuilds images and runs `vps-smoke-new-features.sh` (email_send + notify_ceo + org sync + A2A) unless `SKIP_SMOKE=1`.
+
+Manual org resync (CEO session) after delete/rename/grant changes:
+
+```bash
+# Dashboard → Org chart → Resync ORG.md & AGENTS.md
+# or:
+curl -k -X POST -H "Authorization: Bearer $TOKEN" https://your-domain/api/agents/org/sync
+# or inside backend container:
+node scripts/sync-org-context-ceo.js ceo-bala
+```
 
 Email inbound provider URL example:
 

@@ -4,9 +4,10 @@
 import { getDb } from '../db/schema.js';
 import { ensureTenantOpenClawAgent } from './openclaw-tenant.js';
 import { syncAllowlistsFile } from './openclaw-agent-tools.js';
+import { syncOrgContextForCeo } from './org-context.js';
 
 /** Ensure tenant OpenClaw agents + allowlists for every enabled user_agents row. */
-export function provisionCeoOpenClawAgents(ceoUserId) {
+export async function provisionCeoOpenClawAgents(ceoUserId) {
   const db = getDb();
   const rows = db
     .prepare(
@@ -31,5 +32,10 @@ export function provisionCeoOpenClawAgents(ceoUserId) {
     }
   }
   syncAllowlistsFile();
+  try {
+    await syncOrgContextForCeo(ceoUserId);
+  } catch (e) {
+    console.warn('[ceo-openclaw] org sync:', e?.message || e);
+  }
   return { ceo_user_id: ceoUserId, count: provisioned.length, agents: provisioned };
 }

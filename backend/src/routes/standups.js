@@ -11,14 +11,38 @@ import { isAgentWorkflowPrompt } from '../services/agent-workflow-kanban.js';
 import { extractOwnerUserIdFromText } from '../services/agent-chat-scope.js';
 import { getLastIntentDebug } from '../services/intent-classifier.js';
 
+import { ensureTenantOpenClawAgent } from '../services/openclaw-tenant.js';
+import { getAgentsUnderCooForCeo } from '../services/org-context.js';
+
 const router = Router();
 
 function db() {
   return getDb();
 }
 
+function resolveStandupOwnerUserId(req) {
+  if (req.authUser?.role === 'admin' && !req.authUser?.impersonation) {
+    return req.query.owner_user_id || req.body?.owner_user_id || null;
+  }
+  return req.authUser?.id || null;
+}
+
+function standupOwnerFilter(req) {
+  const owner = resolveStandupOwnerUserId(req);
+  if (req.authUser?.role === 'admin' && !owner) {
+    return { clause: '', params: [] };
+  }
+  if (!owner) return { clause: ' AND 1=0', params: [] };
+  return { clause: ' AND owner_user_id = ?', params: [owner] };
+}
+
+function getStandupForRequest(req, standupId) {
+  const { clause, params } = standupOwnerFilter(req);
+  return db().prepare(`SELECT * FROM standups WHERE id = ?${clause}`).get(standupId, ...params);
+}
+
 function getCooAgent() {
-  return db().prepare('SELECT id, name, openclaw_agent_id FROM agents WHERE is_coo = 1 LIMIT 1').get();
+  return db().prepare('SELECT id, name, openclaw_agent_id, is_coo FROM agents WHERE is_coo = 1 LIMIT 1').get();
 }
 
 // OpenClaw Gateway cron webhook: agent run finished → update task and maybe post COO callback
@@ -63,7 +87,7 @@ router.post('/cron-callback', requireInternalToken, (req, res) => {
       extractOwnerUserIdFromText(task.prompt)
     );
     const summary = extractTaskSummaryFromPrompt(task.prompt);
-    appendToAgentMemory(agent_id, summary).catch(() => {});
+      appendToAgentMemory(agent_id, summary, extractOwnerUserIdFromText(task.prompt)).catch(() => {});
     postCallbackForRequestId(request_id);
     res.status(200).json({ ok: true });
   } catch (e) {
@@ -79,11 +103,13 @@ router.use(requireCeoOrAdmin);
 router.get('/', (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit) || 50, 100);
+    const { clause, params } = standupOwnerFilter(req);
     const rows = db()
       .prepare(
-        'SELECT id, scheduled_at, status, coo_summary, ceo_summary, source, title, outcomes, created_at FROM standups ORDER BY scheduled_at DESC LIMIT ?'
+        `SELECT id, scheduled_at, status, coo_summary, ceo_summary, source, title, outcomes, created_at, owner_user_id
+         FROM standups WHERE 1=1${clause} ORDER BY scheduled_at DESC LIMIT ?`
       )
-      .all(limit);
+      .all(...params, limit);
     res.json(rows);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -104,7 +130,7 @@ router.get('/notifications', (req, res) => {
 // Get one standup with responses and messages (for interactive standup). ?delegation_tasks=1 adds latest tasks.
 router.get('/:id', (req, res) => {
   try {
-    const standup = db().prepare('SELECT * FROM standups WHERE id = ?').get(req.params.id);
+    const standup = getStandupForRequest(req, req.params.id);
     if (!standup) return res.status(404).json({ error: 'Standup not found' });
     const responses = db()
       .prepare(
@@ -158,14 +184,18 @@ router.get('/:id', (req, res) => {
 router.post('/', (req, res) => {
   try {
     const { scheduled_at, status, source, title, outcomes } = req.body;
+    const ownerUserId = resolveStandupOwnerUserId(req) || resolveChatOwnerUserId(req, req.body || {});
+    if (!ownerUserId) return res.status(401).json({ error: 'Authentication required' });
     const at = scheduled_at || new Date().toISOString();
     const src = source || 'manual';
     const titleStr = typeof title === 'string' ? title.trim() || null : null;
     const outcomesStr = typeof outcomes === 'string' ? outcomes.trim() || null : null;
     db()
-      .prepare('INSERT INTO standups (scheduled_at, status, source, title, outcomes) VALUES (?, ?, ?, ?, ?)')
-      .run(at, status || 'scheduled', src, titleStr, outcomesStr);
-    const row = db().prepare('SELECT * FROM standups ORDER BY id DESC LIMIT 1').get();
+      .prepare(
+        'INSERT INTO standups (scheduled_at, status, source, title, outcomes, owner_user_id) VALUES (?, ?, ?, ?, ?, ?)'
+      )
+      .run(at, status || 'scheduled', src, titleStr, outcomesStr, ownerUserId);
+    const row = db().prepare('SELECT * FROM standups WHERE id = last_insert_rowid()').get();
     res.status(201).json(row);
   } catch (e) {
     res.status(400).json({ error: e.message });
@@ -175,7 +205,7 @@ router.post('/', (req, res) => {
 // Update standup (e.g. set coo_summary, ceo_summary, status)
 router.patch('/:id', (req, res) => {
   try {
-    const row = db().prepare('SELECT * FROM standups WHERE id = ?').get(req.params.id);
+    const row = getStandupForRequest(req, req.params.id);
     if (!row) return res.status(404).json({ error: 'Standup not found' });
     const { coo_summary, ceo_summary, status } = req.body;
     if (coo_summary !== undefined)
@@ -193,7 +223,7 @@ router.patch('/:id', (req, res) => {
 // Add response to standup
 router.post('/:id/responses', (req, res) => {
   try {
-    const standup = db().prepare('SELECT * FROM standups WHERE id = ?').get(req.params.id);
+    const standup = getStandupForRequest(req, req.params.id);
     if (!standup) return res.status(404).json({ error: 'Standup not found' });
     const { agent_id, content } = req.body;
     if (!agent_id || content == null) return res.status(400).json({ error: 'agent_id and content required' });
@@ -224,7 +254,7 @@ router.get('/:id/responses', (req, res) => {
 // Get standup conversation (user/COO messages)
 router.get('/:id/messages', (req, res) => {
   try {
-    const standup = db().prepare('SELECT * FROM standups WHERE id = ?').get(req.params.id);
+    const standup = getStandupForRequest(req, req.params.id);
     if (!standup) return res.status(404).json({ error: 'Standup not found' });
     const rows = db()
       .prepare('SELECT id, role, content, created_at FROM standup_messages WHERE standup_id = ? ORDER BY created_at')
@@ -240,15 +270,16 @@ router.get('/:id/messages', (req, res) => {
 router.post('/:id/messages', requireAuth, async (req, res) => {
   try {
     const standupId = Number(req.params.id);
-    const standup = db().prepare('SELECT * FROM standups WHERE id = ?').get(standupId);
+    const standup = getStandupForRequest(req, standupId);
     if (!standup) return res.status(404).json({ error: 'Standup not found' });
 
     const coo = getCooAgent();
     if (!coo) return res.status(502).json({ error: 'No COO agent in DB' });
 
     const { content, action, context } = req.body;
-    const openclawId = coo.openclaw_agent_id || 'main';
-    const ownerUserId = resolveChatOwnerUserId(req, req.body || {});
+    const ownerUserId = standup.owner_user_id || resolveChatOwnerUserId(req, req.body || {});
+    const ensuredCoo = ensureTenantOpenClawAgent(coo, ownerUserId);
+    const openclawId = ensuredCoo.openclawAgentId;
     const sessionUser = openclaw.sessionUserFor(coo.id, ownerUserId);
 
     if (action === 'get_work_from_team') {
@@ -256,7 +287,7 @@ router.post('/:id/messages', requireAuth, async (req, res) => {
 
       const lastUser = db().prepare('SELECT content FROM standup_messages WHERE standup_id = ? AND role = ? ORDER BY created_at DESC LIMIT 1').get(standupId, 'user');
       const ceoRequest = (context || lastUser?.content || 'Provide your status and deliverables for the CEO standup.').trim().slice(0, 2000);
-      const result = await scheduleCeoRequestViaOpenClawCron(standupId, ceoRequest);
+      const result = await scheduleCeoRequestViaOpenClawCron(standupId, ceoRequest, ownerUserId);
 
       const cooReply = result.count === 0
         ? "You have no agents under you in the org. Reply briefly that there is no team to delegate to."
@@ -273,7 +304,7 @@ router.post('/:id/messages', requireAuth, async (req, res) => {
       if (!researchPrompt) return res.status(400).json({ error: 'content required for request_research' });
       db().prepare('INSERT INTO standup_messages (standup_id, role, content) VALUES (?, ?, ?)').run(standupId, 'user', `Request deep research: ${researchPrompt.slice(0, 200)}`);
 
-      const agents = db().prepare('SELECT id, name FROM agents WHERE parent_id = (SELECT id FROM agents WHERE is_coo = 1 LIMIT 1)').all();
+      const agents = getAgentsUnderCooForCeo(ownerUserId);
       const researchAgent = agents.find((a) => /research|tech/i.test(a.name || '') || /research|tech/i.test(a.id || ''));
       const toAgentId = researchAgent?.id || agents[0]?.id;
       if (!toAgentId) {
@@ -298,7 +329,7 @@ router.post('/:id/messages', requireAuth, async (req, res) => {
     const ceoMessage = content.trim();
     db().prepare('INSERT INTO standup_messages (standup_id, role, content) VALUES (?, ?, ?)').run(standupId, 'user', ceoMessage);
 
-    const result = await scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage);
+    const result = await scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, ownerUserId);
 
     if (result.count === 0) {
       // No agents allocated (generic message or no agents in AGENTS.md): COO answers directly via OpenClaw.
@@ -307,6 +338,13 @@ router.post('/:id/messages', requireAuth, async (req, res) => {
         role: m.role === 'coo' ? 'assistant' : 'user',
         content: typeof m.content === 'string' ? m.content : String(m.content),
       }));
+      if (openclawMessages.length && openclawMessages[openclawMessages.length - 1].role === 'user') {
+        const last = openclawMessages[openclawMessages.length - 1].content;
+        if (!last.includes('[ceo_user_id:')) {
+          openclawMessages[openclawMessages.length - 1].content =
+            `[ceo_user_id: ${ownerUserId}]\n[owner_user_id: ${ownerUserId}]\n${last}`;
+        }
+      }
       let cooReply;
       try {
         const out = await openclaw.chatCompletions(openclawId, openclawMessages, sessionUser, false);
@@ -340,7 +378,7 @@ router.post('/:id/messages', requireAuth, async (req, res) => {
 // Approve standup (CEO approval)
 router.post('/:id/approve', (req, res) => {
   try {
-    const standup = db().prepare('SELECT * FROM standups WHERE id = ?').get(req.params.id);
+    const standup = getStandupForRequest(req, req.params.id);
     if (!standup) return res.status(404).json({ error: 'Standup not found' });
     db().prepare('UPDATE standups SET approved_at = ?, status = ? WHERE id = ?').run(new Date().toISOString(), 'completed', standup.id);
     const updated = db().prepare('SELECT * FROM standups WHERE id = ?').get(standup.id);
@@ -354,9 +392,17 @@ router.post('/:id/approve', (req, res) => {
 // Order: clear kanban_tasks FKs first (they reference standups and agent_delegation_tasks), then delete children of standups, then standups.
 router.delete('/all', (req, res) => {
   try {
-    const ids = db().prepare('SELECT id FROM standups').all().map((r) => r.id);
+    const { clause, params } = standupOwnerFilter(req);
+    const ids = db().prepare(`SELECT id FROM standups WHERE 1=1${clause}`).all(...params).map((r) => r.id);
     if (ids.length === 0) return res.status(200).json({ deleted: 0 });
-    db().prepare('UPDATE kanban_tasks SET standup_id = NULL, agent_delegation_task_id = NULL WHERE standup_id IS NOT NULL OR agent_delegation_task_id IS NOT NULL').run();
+    const idPh = ids.map(() => '?').join(',');
+    db()
+      .prepare(
+        `UPDATE kanban_tasks SET standup_id = NULL, agent_delegation_task_id = NULL
+         WHERE standup_id IN (${idPh})
+            OR agent_delegation_task_id IN (SELECT id FROM agent_delegation_tasks WHERE standup_id IN (${idPh}))`
+      )
+      .run(...ids, ...ids);
     for (const id of ids) {
       const requestIds = db().prepare('SELECT DISTINCT request_id FROM agent_delegation_tasks WHERE standup_id = ?').all(id).map((r) => r.request_id);
       for (const rid of requestIds) {
@@ -366,7 +412,7 @@ router.delete('/all', (req, res) => {
       db().prepare('DELETE FROM standup_messages WHERE standup_id = ?').run(id);
       db().prepare('DELETE FROM standup_responses WHERE standup_id = ?').run(id);
     }
-    db().prepare('DELETE FROM standups').run();
+    db().prepare(`DELETE FROM standups WHERE 1=1${clause}`).run(...params);
     res.status(200).json({ deleted: ids.length });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -377,7 +423,7 @@ router.delete('/all', (req, res) => {
 // Order: clear kanban_tasks FKs first (they reference standup_id and agent_delegation_task_id), then delete children, then standup.
 router.delete('/:id', (req, res) => {
   try {
-    const standup = db().prepare('SELECT * FROM standups WHERE id = ?').get(req.params.id);
+    const standup = getStandupForRequest(req, req.params.id);
     if (!standup) return res.status(404).json({ error: 'Standup not found' });
     const id = standup.id;
     db().prepare('UPDATE kanban_tasks SET standup_id = NULL, agent_delegation_task_id = NULL WHERE standup_id = ? OR agent_delegation_task_id IN (SELECT id FROM agent_delegation_tasks WHERE standup_id = ?)').run(id, id);
@@ -398,7 +444,7 @@ router.delete('/:id', (req, res) => {
 // Run COO: generate standup summary and CEO digest via OpenAI (contextual to this standup's chat)
 router.post('/:id/run-coo', async (req, res) => {
   try {
-    const standup = db().prepare('SELECT * FROM standups WHERE id = ?').get(req.params.id);
+    const standup = getStandupForRequest(req, req.params.id);
     if (!standup) return res.status(404).json({ error: 'Standup not found' });
 
     const responses = db()

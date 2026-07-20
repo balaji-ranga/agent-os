@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { api } from '../api';
 import ChatMessageRow from './ChatMessageRow';
+import ChatComposeInput from './ChatComposeInput';
 import { useAuth } from '../context/AuthContext';
 
 /**
@@ -125,13 +126,14 @@ export default function AgentChatPanel({
           ))}
         </div>
       )}
-      <form onSubmit={send} style={{ display: 'flex', gap: '0.5rem' }}>
-        <input
-          type="text"
-          placeholder={placeholder}
+      <form onSubmit={send} style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end' }}>
+        <ChatComposeInput
+          placeholder={`${placeholder} (Shift+Enter for new line)`}
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          onSend={send}
           disabled={sending}
+          rows={3}
           style={{
             flex: 1,
             padding: '0.6rem 0.75rem',
@@ -139,6 +141,9 @@ export default function AgentChatPanel({
             border: '1px solid var(--border)',
             borderRadius: 6,
             color: 'var(--text)',
+            resize: 'vertical',
+            minHeight: 56,
+            font: 'inherit',
           }}
         />
         <button

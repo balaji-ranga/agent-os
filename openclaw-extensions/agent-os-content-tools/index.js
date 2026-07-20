@@ -75,23 +75,45 @@ function loadToolsFromFile() {
   }
 }
 
-function agentIdFromSessionKey(sessionKey) {
+/** Parse `agent:<id>:<user>` and legacy `agent::<id>:<user>`. */
+function parseSessionKeyParts(sessionKey) {
   if (!sessionKey || typeof sessionKey !== "string") return null;
-  const m = sessionKey.match(/^agent::([^:]+):/);
-  return m ? m[1] : null;
+  const m = sessionKey.match(/^agent::?([^:]+):(.+)$/);
+  return m ? { agentId: m[1], sessionUser: m[2] } : null;
 }
 
-const SESSION_USER_PREFIX = "agent-os-";
+function agentIdFromSessionKey(sessionKey) {
+  return parseSessionKeyParts(sessionKey)?.agentId ?? null;
+}
+
+/** CEO user id encoded in tenant runtime agent id `t-{ceo}--{base}`. */
+function ceoUserIdFromOpenClawAgentId(agentId) {
+  const raw = String(agentId || "").trim().toLowerCase();
+  const m = raw.match(/^t-(.+)--([a-z0-9_-]+)$/);
+  return m ? m[1] : null;
+}
 
 function ownerUserIdFromSessionUser(sessionUser, agentId) {
   if (!sessionUser || typeof sessionUser !== "string") return null;
   const s = sessionUser.trim();
-  if (!s.startsWith(SESSION_USER_PREFIX)) return null;
-  const rest = s.slice(SESSION_USER_PREFIX.length);
+  let rest = null;
+  for (const prefix of ["agent-os-user-", "agent-os-"]) {
+    if (s.startsWith(prefix)) {
+      rest = s.slice(prefix.length);
+      break;
+    }
+  }
+  if (rest == null) return null;
   if (agentId) {
     const safeAgent = String(agentId).replace(/[^a-zA-Z0-9_.-]/g, "_");
     const prefix = `${safeAgent}-`;
     if (rest.startsWith(prefix)) return rest.slice(prefix.length) || null;
+  }
+  const dd = rest.indexOf("--");
+  if (dd >= 0) {
+    const afterTenant = rest.slice(dd + 2);
+    const dash = afterTenant.indexOf("-");
+    if (dash >= 0 && dash < afterTenant.length - 1) return afterTenant.slice(dash + 1) || null;
   }
   const dashIdx = rest.indexOf("-");
   if (dashIdx >= 0 && dashIdx < rest.length - 1) return rest.slice(dashIdx + 1);
@@ -99,10 +121,11 @@ function ownerUserIdFromSessionUser(sessionUser, agentId) {
 }
 
 function ownerUserIdFromSessionKey(sessionKey) {
-  if (!sessionKey || typeof sessionKey !== "string") return null;
-  const m = sessionKey.match(/^agent::([^:]+):(.+)$/);
-  if (!m) return null;
-  return ownerUserIdFromSessionUser(m[2], m[1]);
+  const parts = parseSessionKeyParts(sessionKey);
+  if (!parts) return null;
+  const fromTenant = ceoUserIdFromOpenClawAgentId(parts.agentId);
+  if (fromTenant) return fromTenant;
+  return ownerUserIdFromSessionUser(parts.sessionUser, parts.agentId);
 }
 
 const PARAM_SCHEMAS = {
@@ -186,6 +209,142 @@ const PARAM_SCHEMAS = {
     },
     additionalProperties: true,
   },
+  email_send: {
+    type: "object",
+    properties: {
+      to: {
+        type: "string",
+        description: "Recipient email(s) — string or array. Required.",
+      },
+      cc: { type: "string", description: "Optional CC recipient(s)." },
+      bcc: { type: "string", description: "Optional BCC recipient(s)." },
+      subject: { type: "string", description: "Email subject line." },
+      body: { type: "string", description: "Plain-text email body only. Never paste BEGIN:VCALENDAR ICS markup here." },
+      calendar: {
+        type: "object",
+        description:
+          "Required for calendar invites. Use this JSON object — NOT raw ICS text in body. Fields: title, start, end (ISO 8601 e.g. 2026-08-01T21:00:00+08:00), location?, description?, organizer?, attendees?",
+        properties: {
+          title: { type: "string" },
+          start: { type: "string", description: "ISO 8601 start time, e.g. 2026-08-01T21:00:00+08:00" },
+          end: { type: "string", description: "ISO 8601 end time" },
+          location: { type: "string" },
+          description: { type: "string" },
+          organizer: { type: "string", description: "Organizer email" },
+          attendees: { type: "array", items: { type: "string" } },
+        },
+      },
+      attachments: {
+        type: "array",
+        description:
+          "Optional file attachments. Each item: { filename, content, contentType?, encoding? }. Use for .ics calendar files or other documents. content can be plain text or base64 with encoding: 'base64'.",
+        items: {
+          type: "object",
+          properties: {
+            filename: { type: "string" },
+            content: { type: "string" },
+            contentType: { type: "string" },
+            encoding: { type: "string", enum: ["8bit", "base64"] },
+          },
+        },
+      },
+      ics: {
+        type: "string",
+        description: "Shortcut: raw .ics calendar file content (attached as invite.ics). Alternative to calendar object.",
+      },
+    },
+    additionalProperties: true,
+  },
+  notify_ceo: {
+    type: "object",
+    properties: {
+      title: {
+        type: "string",
+        description: "Short notification title for the CEO user. Required.",
+      },
+      body: {
+        type: "string",
+        description: "Optional message body shown in the CEO's notification bell.",
+      },
+      link_url: {
+        type: "string",
+        description: "Optional in-app or absolute URL for the notification Open link (e.g. /kanban).",
+      },
+      source_key: {
+        type: "string",
+        description: "Optional idempotency key to avoid duplicate notifications for the same event.",
+      },
+    },
+    additionalProperties: true,
+  },
+  master_data_list_tables: {
+    type: "object",
+    properties: {},
+    additionalProperties: false,
+  },
+  master_data_list_rows: {
+    type: "object",
+    properties: {
+      table_name: {
+        type: "string",
+        description: "Master table name (e.g. departments). Prefer this or table_id.",
+      },
+      table_id: { type: "string", description: "Master table id (mdt-…)." },
+      query: { type: "string", description: "Optional keyword filter across row JSON." },
+      column: { type: "string", description: "Optional column name for equals filter." },
+      equals: { type: "string", description: "Exact match value when column is set." },
+      limit: { type: "number", description: "Page size (max 50)." },
+      offset: { type: "number", description: "Pagination offset." },
+    },
+    additionalProperties: true,
+  },
+  master_data_insert_row: {
+    type: "object",
+    properties: {
+      table_name: { type: "string" },
+      table_id: { type: "string" },
+      data: {
+        type: "object",
+        description: "Column → value map for the new row.",
+        additionalProperties: true,
+      },
+    },
+    additionalProperties: true,
+  },
+  master_data_update_row: {
+    type: "object",
+    properties: {
+      table_name: { type: "string" },
+      table_id: { type: "string" },
+      row_id: { type: "number", description: "Row id to update. Required." },
+      data: { type: "object", additionalProperties: true },
+    },
+    additionalProperties: true,
+  },
+  master_data_delete_row: {
+    type: "object",
+    properties: {
+      table_name: { type: "string" },
+      table_id: { type: "string" },
+      row_id: { type: "number", description: "Row id to delete. Required." },
+    },
+    additionalProperties: true,
+  },
+  master_data_list_documents: {
+    type: "object",
+    properties: {},
+    additionalProperties: false,
+  },
+  master_data_rag: {
+    type: "object",
+    properties: {
+      query: { type: "string", description: "Question or keywords to search documents. Required." },
+      top_k: { type: "number", description: "Max excerpts (default 5)." },
+      document_id: { type: "string", description: "Optional limit search to one document id." },
+      summarize: { type: "boolean", description: "LLM summary of hits (default true)." },
+    },
+    additionalProperties: true,
+  },
 };
 
 function resolvePluginConfig(api) {
@@ -232,17 +391,24 @@ async function callInvoke(api, toolName, params, callerAgentId, toolCtx) {
   if (callerAgentId) headers["x-openclaw-agent-id"] = callerAgentId;
   const sessionKey =
     toolCtx?.sessionKey || (typeof api.getSessionKey === "function" ? api.getSessionKey() : api.sessionKey);
+  let ownerUserId = null;
   if (sessionKey) {
     headers["x-openclaw-session-key"] = sessionKey;
-    const ownerUserId = ownerUserIdFromSessionKey(sessionKey);
-    if (ownerUserId) headers["x-ceo-user-id"] = ownerUserId;
+    ownerUserId = ownerUserIdFromSessionKey(sessionKey);
   }
-  if (!headers["x-openclaw-session-key"]) {
+  if (!ownerUserId && callerAgentId) {
+    ownerUserId = ceoUserIdFromOpenClawAgentId(callerAgentId);
+  }
+  if (ownerUserId) headers["x-ceo-user-id"] = ownerUserId;
+  if (!headers["x-openclaw-session-key"] && !ownerUserId) {
     return {
       ok: false,
       error:
-        "OpenClaw session key unavailable — cannot scope this tool to the current CEO. Chat from Agent OS UI so the session is bound to the user.",
+        "OpenClaw session key unavailable — cannot scope this tool to the current CEO. Chat from Agent OS UI so the session is bound to the user, or use a tenant session key (agent::t-{ceoId}--{agentId}:main).",
     };
+  }
+  if (!headers["x-openclaw-session-key"] && ownerUserId && callerAgentId) {
+    headers["x-openclaw-session-key"] = `agent:${callerAgentId}:tenant-scoped`;
   }
   const body = { tool_name: toolName, ...params };
   if (callerAgentId) body.caller_agent_id = callerAgentId;

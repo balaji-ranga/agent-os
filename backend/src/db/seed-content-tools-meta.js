@@ -174,6 +174,105 @@ const BUILTIN_TOOLS = [
     enabled: 1,
     is_builtin: 1,
   },
+  {
+    name: 'email_send',
+    display_name: 'Send Email & Calendar Invite',
+    endpoint: '/api/tools/email-send',
+    method: 'POST',
+    purpose:
+      'Send email via SMTP. For calendar invites pass calendar:{title,start,end,...} as ISO 8601 JSON — never paste BEGIN:VCALENDAR text in body. Optional attachments:[{filename,content}] or ics shortcut. Uses WORKFLOW_SMTP_* env.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'notify_ceo',
+    display_name: 'Notify CEO (Push)',
+    endpoint: '/api/tools/notify-ceo',
+    method: 'POST',
+    purpose:
+      'Send an in-app push notification to the entitled CEO user for this session (never spoof user_id). Use when you or another agent need to reach the CEO with a title and message. Parameters: title (required), body?, link_url?, source_key?.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'master_data_list_tables',
+    display_name: 'Master Data — List Tables',
+    endpoint: '/api/tools/master-data-list-tables',
+    method: 'POST',
+    purpose:
+      'API tool: list this CEO\'s Master Data tables with name, purpose/description, columns, and row_count. Use first to discover which table to read/write (e.g. departments). Strictly owner-scoped. Does NOT create/alter/drop tables.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'master_data_list_rows',
+    display_name: 'Master Data — List / Query Rows',
+    endpoint: '/api/tools/master-data-list-rows',
+    method: 'POST',
+    purpose:
+      'API tool: list or keyword-query rows in an existing Master Data table for this CEO. Parameters: table_name or table_id (required), query?, column?, equals?, limit?, offset?. Example: table_name=departments to get org departments. No schema changes.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'master_data_insert_row',
+    display_name: 'Master Data — Insert Row',
+    endpoint: '/api/tools/master-data-insert-row',
+    method: 'POST',
+    purpose:
+      'API tool: insert one row into an existing Master Data table for this CEO. Parameters: table_name or table_id, data:{column:value}. Cannot create tables or add columns.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'master_data_update_row',
+    display_name: 'Master Data — Update Row',
+    endpoint: '/api/tools/master-data-update-row',
+    method: 'POST',
+    purpose:
+      'API tool: update a row by row_id in an existing Master Data table for this CEO. Parameters: table_name or table_id, row_id, data:{column:value}. No alter/drop table.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'master_data_delete_row',
+    display_name: 'Master Data — Delete Row',
+    endpoint: '/api/tools/master-data-delete-row',
+    method: 'POST',
+    purpose:
+      'API tool: delete a row by row_id from an existing Master Data table for this CEO. Parameters: table_name or table_id, row_id. Never drops the table.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'master_data_list_documents',
+    display_name: 'Master Data — List Documents',
+    endpoint: '/api/tools/master-data-list-documents',
+    method: 'POST',
+    purpose:
+      'API tool: list this CEO\'s uploaded Master Data documents (title, filename, chunk_count). Use before master_data_rag when needed.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'master_data_rag',
+    display_name: 'Master Data — RAG Search',
+    endpoint: '/api/tools/master-data-rag',
+    method: 'POST',
+    purpose:
+      'API tool: keyword RAG over this CEO\'s Master Data documents (optional LLM summary). Parameters: query (required), top_k?, document_id?, summarize?. Owner-scoped only.',
+    model_used: 'platform LLM when summarize=true',
+    enabled: 1,
+    is_builtin: 1,
+  },
 ];
 
 
@@ -200,6 +299,9 @@ const WORKFLOW_TOOLS = BUILTIN_TOOLS.filter((t) =>
 );
 
 const LEARNINGS_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'learnings_summary');
+const EMAIL_SEND_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'email_send');
+const NOTIFY_CEO_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'notify_ceo');
+const MASTER_DATA_TOOLS = BUILTIN_TOOLS.filter((t) => String(t.name).startsWith('master_data_'));
 
 export function seedContentToolsMetaIfEmpty() {
   const db = getDb();
@@ -266,5 +368,59 @@ export function seedLearningsToolsIfMissing() {
   const update = db.prepare('UPDATE content_tools_meta SET purpose = ?, display_name = ? WHERE name = ?');
   for (const t of LEARNINGS_TOOLS) {
     update.run(t.purpose, t.display_name, t.name);
+  }
+}
+
+/** Add email_send tool if missing (for existing DBs). */
+export function seedEmailSendToolIfMissing() {
+  const db = getDb();
+  const stmt = db.prepare(
+    `INSERT OR IGNORE INTO content_tools_meta (name, display_name, endpoint, method, purpose, model_used, enabled, is_builtin)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  for (const t of EMAIL_SEND_TOOLS) {
+    stmt.run(t.name, t.display_name, t.endpoint, t.method, t.purpose, t.model_used, t.enabled, t.is_builtin);
+  }
+  const update = db.prepare(
+    'UPDATE content_tools_meta SET purpose = ?, display_name = ?, endpoint = ?, method = ? WHERE name = ?'
+  );
+  for (const t of EMAIL_SEND_TOOLS) {
+    update.run(t.purpose, t.display_name, t.endpoint, t.method, t.name);
+  }
+}
+
+/** Add notify_ceo tool if missing (for existing DBs). */
+export function seedNotifyCeoToolIfMissing() {
+  const db = getDb();
+  const stmt = db.prepare(
+    `INSERT OR IGNORE INTO content_tools_meta (name, display_name, endpoint, method, purpose, model_used, enabled, is_builtin)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  for (const t of NOTIFY_CEO_TOOLS) {
+    stmt.run(t.name, t.display_name, t.endpoint, t.method, t.purpose, t.model_used, t.enabled, t.is_builtin);
+  }
+  const update = db.prepare(
+    'UPDATE content_tools_meta SET purpose = ?, display_name = ?, endpoint = ?, method = ? WHERE name = ?'
+  );
+  for (const t of NOTIFY_CEO_TOOLS) {
+    update.run(t.purpose, t.display_name, t.endpoint, t.method, t.name);
+  }
+}
+
+/** Add Master Data + RAG content tools if missing (for existing DBs). */
+export function seedMasterDataToolsIfMissing() {
+  const db = getDb();
+  const stmt = db.prepare(
+    `INSERT OR IGNORE INTO content_tools_meta (name, display_name, endpoint, method, purpose, model_used, enabled, is_builtin)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  for (const t of MASTER_DATA_TOOLS) {
+    stmt.run(t.name, t.display_name, t.endpoint, t.method, t.purpose, t.model_used, t.enabled, t.is_builtin);
+  }
+  const update = db.prepare(
+    'UPDATE content_tools_meta SET purpose = ?, display_name = ?, endpoint = ?, method = ? WHERE name = ?'
+  );
+  for (const t of MASTER_DATA_TOOLS) {
+    update.run(t.purpose, t.display_name, t.endpoint, t.method, t.name);
   }
 }

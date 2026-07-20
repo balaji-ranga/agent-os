@@ -43,6 +43,18 @@ import {
 } from '../services/platform-notifications.js';
 import jobApplicantTools from './job-applicant-tools.js';
 import { summarizeLearnings } from '../services/agent-feedback.js';
+import { executeEmailSend } from '../services/email-send.js';
+import { executeNotifyCeo } from '../services/notify-ceo.js';
+import {
+  assertNoSchemaMutation,
+  listTablesForAgent,
+  listRowsForAgent,
+  insertRowForAgent,
+  updateRowForAgent,
+  deleteRowForAgent,
+  listDocumentsForAgent,
+  ragDocumentsForAgent,
+} from '../services/master-data-tools.js';
 
 const router = Router();
 const KANBAN_STATUSES = ['open', 'awaiting_confirmation', 'in_progress', 'completed', 'failed'];
@@ -811,6 +823,211 @@ router.post('/kanban-assign-task', optionalAuth, (req, res) => {
 });
 
 /**
+ * emailSend — send email and optional calendar/meeting invites to one or many recipients.
+ * Body: { to, cc?, bcc?, subject, body, calendar?: { title, start, end, location?, description?, organizer?, attendees? } }
+ */
+router.post('/email-send', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = req.body || {};
+  try {
+    const out = await executeEmailSend(requestPayload);
+    const status = out.sent ? 'ok' : out.attempted ? 'error' : 'error';
+    logTool(req, 'email_send', requestPayload, out, status, source);
+    if (!out.sent && out.error) return res.status(out.attempted ? 502 : 400).json(out);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'email_send', requestPayload, err, 'error', source);
+    res.status(500).json(err);
+  }
+});
+
+/**
+ * notifyCeo — in-app push notification to the entitled CEO user for this session.
+ * Body: { title, body?, link_url?, source_key? }. Never accepts target user_id (owner from session).
+ */
+router.post('/notify-ceo', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    const caller = getCallerAgent(req);
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
+    if (!ownerUserId) {
+      const err = { error: 'Could not resolve CEO user for this session' };
+      logTool(req, 'notify_ceo', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const out = executeNotifyCeo(requestPayload, {
+      ownerUserId,
+      callerAgentId: caller?.id || source || null,
+      callerAgentName: caller?.name || null,
+    });
+    const status = out.sent ? 'ok' : 'error';
+    logTool(req, 'notify_ceo', { ...requestPayload, owner_user_id: ownerUserId }, out, status, source);
+    if (!out.sent) return res.status(400).json(out);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'notify_ceo', requestPayload, err, 'error', source);
+    res.status(500).json(err);
+  }
+});
+
+function resolveMasterDataOwnerOr403(req, res, toolName, requestPayload, source) {
+  const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
+  if (!ownerUserId) {
+    const err = { error: 'Could not resolve CEO user for master data (session-scoped only)' };
+    logTool(req, toolName, requestPayload, err, 'error', source);
+    res.status(403).json(err);
+    return null;
+  }
+  return ownerUserId;
+}
+
+/**
+ * master_data_list_tables — list this CEO's master tables with purpose/description + columns.
+ * Agents must not create/alter/drop tables via tools.
+ */
+router.post('/master-data-list-tables', optionalAuth, (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    assertNoSchemaMutation(requestPayload.action);
+    const ownerUserId = resolveMasterDataOwnerOr403(req, res, 'master_data_list_tables', requestPayload, source);
+    if (!ownerUserId) return;
+    const out = listTablesForAgent(ownerUserId);
+    logTool(req, 'master_data_list_tables', { ...requestPayload, owner_user_id: ownerUserId }, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'master_data_list_tables', requestPayload, err, 'error', source);
+    res.status(400).json(err);
+  }
+});
+
+/**
+ * master_data_list_rows — list or keyword-query rows in a master table (table_name or table_id).
+ */
+router.post('/master-data-list-rows', optionalAuth, (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    assertNoSchemaMutation(requestPayload.action);
+    const ownerUserId = resolveMasterDataOwnerOr403(req, res, 'master_data_list_rows', requestPayload, source);
+    if (!ownerUserId) return;
+    const out = listRowsForAgent(ownerUserId, requestPayload);
+    logTool(req, 'master_data_list_rows', { ...requestPayload, owner_user_id: ownerUserId }, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'master_data_list_rows', requestPayload, err, 'error', source);
+    const status = /not found/i.test(e.message) ? 404 : 400;
+    res.status(status).json(err);
+  }
+});
+
+/**
+ * master_data_insert_row — insert a row into an existing master table (no schema change).
+ */
+router.post('/master-data-insert-row', optionalAuth, (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    assertNoSchemaMutation(requestPayload.action);
+    const ownerUserId = resolveMasterDataOwnerOr403(req, res, 'master_data_insert_row', requestPayload, source);
+    if (!ownerUserId) return;
+    const out = insertRowForAgent(ownerUserId, requestPayload);
+    logTool(req, 'master_data_insert_row', { ...requestPayload, owner_user_id: ownerUserId }, out, 'ok', source);
+    res.status(201).json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'master_data_insert_row', requestPayload, err, 'error', source);
+    const status = /not found/i.test(e.message) ? 404 : 400;
+    res.status(status).json(err);
+  }
+});
+
+/**
+ * master_data_update_row — update a row by row_id in an existing master table.
+ */
+router.post('/master-data-update-row', optionalAuth, (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    assertNoSchemaMutation(requestPayload.action);
+    const ownerUserId = resolveMasterDataOwnerOr403(req, res, 'master_data_update_row', requestPayload, source);
+    if (!ownerUserId) return;
+    const out = updateRowForAgent(ownerUserId, requestPayload);
+    logTool(req, 'master_data_update_row', { ...requestPayload, owner_user_id: ownerUserId }, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'master_data_update_row', requestPayload, err, 'error', source);
+    const status = /not found/i.test(e.message) ? 404 : 400;
+    res.status(status).json(err);
+  }
+});
+
+/**
+ * master_data_delete_row — delete a row by row_id (never drops the table).
+ */
+router.post('/master-data-delete-row', optionalAuth, (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    assertNoSchemaMutation(requestPayload.action);
+    const ownerUserId = resolveMasterDataOwnerOr403(req, res, 'master_data_delete_row', requestPayload, source);
+    if (!ownerUserId) return;
+    const out = deleteRowForAgent(ownerUserId, requestPayload);
+    logTool(req, 'master_data_delete_row', { ...requestPayload, owner_user_id: ownerUserId }, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'master_data_delete_row', requestPayload, err, 'error', source);
+    const status = /not found/i.test(e.message) ? 404 : 400;
+    res.status(status).json(err);
+  }
+});
+
+/**
+ * master_data_list_documents — list this CEO's uploaded master-data documents.
+ */
+router.post('/master-data-list-documents', optionalAuth, (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    const ownerUserId = resolveMasterDataOwnerOr403(req, res, 'master_data_list_documents', requestPayload, source);
+    if (!ownerUserId) return;
+    const out = listDocumentsForAgent(ownerUserId);
+    logTool(req, 'master_data_list_documents', { ...requestPayload, owner_user_id: ownerUserId }, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'master_data_list_documents', requestPayload, err, 'error', source);
+    res.status(400).json(err);
+  }
+});
+
+/**
+ * master_data_rag — keyword RAG over this CEO's documents (+ optional LLM summary).
+ */
+router.post('/master-data-rag', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    const ownerUserId = resolveMasterDataOwnerOr403(req, res, 'master_data_rag', requestPayload, source);
+    if (!ownerUserId) return;
+    const out = await ragDocumentsForAgent(ownerUserId, requestPayload);
+    logTool(req, 'master_data_rag', { ...requestPayload, owner_user_id: ownerUserId }, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'master_data_rag', requestPayload, err, 'error', source);
+    res.status(400).json(err);
+  }
+});
+
+/**
  * Learnings summary: summarize past user feedback + Kanban approve/reject/comments for this owner+agent.
  * Body: topic (optional), days (default 30), agent_id (optional — defaults to caller).
  * Owner always from session/tenant — never body spoof.
@@ -867,19 +1084,27 @@ router.post('/intent-classify-and-delegate', optionalAuth, async (req, res) => {
       logTool(req,'intent_classify_and_delegate', requestPayload, err, 'error', source);
       return res.status(403).json(err);
     }
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
     const db = getDb();
     if (standupId == null) {
-      db.prepare('INSERT INTO standups (scheduled_at, status, source) VALUES (datetime("now"), ?, ?)').run('scheduled', 'kanban');
+      db.prepare(
+        'INSERT INTO standups (scheduled_at, status, source, owner_user_id) VALUES (datetime("now"), ?, ?, ?)'
+      ).run('scheduled', 'kanban', ownerUserId);
       standupId = db.prepare('SELECT id FROM standups ORDER BY id DESC LIMIT 1').get().id;
     } else {
-      const standup = db.prepare('SELECT id FROM standups WHERE id = ?').get(standupId);
+      const standup = db.prepare('SELECT id, owner_user_id FROM standups WHERE id = ?').get(standupId);
       if (!standup) {
         const err = { error: 'Standup not found' };
         logTool(req,'intent_classify_and_delegate', requestPayload, err, 'error', source);
         return res.status(404).json(err);
       }
+      if (standup.owner_user_id && standup.owner_user_id !== ownerUserId) {
+        const err = { error: 'Standup belongs to another CEO' };
+        logTool(req,'intent_classify_and_delegate', requestPayload, err, 'error', source);
+        return res.status(403).json(err);
+      }
     }
-    const result = await scheduleCeoRequestViaOpenClawCron(standupId, message);
+    const result = await scheduleCeoRequestViaOpenClawCron(standupId, message, ownerUserId);
     const out = {
       ok: true,
       request_id: result.requestId,

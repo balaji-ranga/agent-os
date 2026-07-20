@@ -2,6 +2,7 @@
  * Canonical Agent OS content-tool names that must appear in OpenClaw
  * `tools.allow` (global) so core tool-policy does not strip them.
  * Keep in sync with seed-content-tools-meta builtins + COO/Workflow Builder grants.
+ * Keep in sync with backend/src/lib/content-tools-allow.js
  */
 export const REQUIRED_GLOBAL_CONTENT_TOOLS = [
   'summarize_url',
@@ -20,6 +21,15 @@ export const REQUIRED_GLOBAL_CONTENT_TOOLS = [
   'learnings_summary',
   'brain_history',
   'content_tools_enquire',
+  'email_send',
+  'notify_ceo',
+  'master_data_list_tables',
+  'master_data_list_rows',
+  'master_data_insert_row',
+  'master_data_update_row',
+  'master_data_delete_row',
+  'master_data_list_documents',
+  'master_data_rag',
   'browser',
 ];
 
@@ -36,6 +46,15 @@ export const COO_CONTENT_TOOLS_ALLOW = [
   'agent_workflow_enquire',
   'agent_workflow_trigger',
   'learnings_summary',
+  'email_send',
+  'notify_ceo',
+  'master_data_list_tables',
+  'master_data_list_rows',
+  'master_data_insert_row',
+  'master_data_update_row',
+  'master_data_delete_row',
+  'master_data_list_documents',
+  'master_data_rag',
   'browser',
 ];
 
@@ -50,5 +69,14 @@ export const WORKFLOW_BUILDER_CONTENT_TOOLS_ALLOW = [
   'learnings_summary',
   'brain_history',
   'content_tools_enquire',
+  'email_send',
+  'notify_ceo',
+  'master_data_list_tables',
+  'master_data_list_rows',
+  'master_data_insert_row',
+  'master_data_update_row',
+  'master_data_delete_row',
+  'master_data_list_documents',
+  'master_data_rag',
   'browser',
 ];

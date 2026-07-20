@@ -80,6 +80,46 @@ router.get('/', requireAuth, (req, res) => {
   }
 });
 
+/**
+ * POST /org/sync — rebuild ORG.md (all agent workspaces) + COO AGENTS.md (session keys) from DB.
+ * CEO: own org. Admin: pass owner_user_id.
+ */
+router.post('/org/sync', requireAuth, requireCeoOrAdmin, async (req, res) => {
+  try {
+    let ownerUserId = null;
+    if (req.authUser.role === 'ceo' || req.authUser.impersonation) {
+      ownerUserId = String(req.authUser.id).trim();
+    } else if (req.authUser.role === 'admin') {
+      ownerUserId = String(req.body?.owner_user_id || req.body?.ownerUserId || '').trim();
+      if (!ownerUserId) {
+        return res.status(400).json({ error: 'owner_user_id required when admin syncs org docs' });
+      }
+    }
+    if (!ownerUserId) return res.status(403).json({ error: 'Could not resolve CEO for org sync' });
+
+    const { syncOrgContextForCeo, buildOrgContextForCeo } = await import('../services/org-context.js');
+    const { ensureAllTenantOpenClawAgentsForCeo } = await import('../services/openclaw-tenant.js');
+    const { syncAllowlistsFile } = await import('../services/openclaw-agent-tools.js');
+
+    const tenantEnsured = ensureAllTenantOpenClawAgentsForCeo(ownerUserId);
+    const workspacesSynced = await syncOrgContextForCeo(ownerUserId);
+    syncAllowlistsFile();
+
+    const ctx = buildOrgContextForCeo(ownerUserId);
+    res.json({
+      ok: true,
+      owner_user_id: ownerUserId,
+      workspaces_synced: workspacesSynced,
+      tenant_agents_ensured: tenantEnsured,
+      agent_count: ctx.agents.length,
+      delegatee_count: ctx.delegatees.length,
+      message: `Refreshed ORG.md in ${workspacesSynced} workspace(s) and COO AGENTS.md (tenant session keys).`,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 router.get('/:id', requireAuth, (req, res) => {
   try {
     assertUserAgentAccess(req.authUser, req.params.id);

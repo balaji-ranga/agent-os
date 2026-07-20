@@ -53,7 +53,7 @@ router.post('/register', async (req, res) => {
     });
     let openclaw = null;
     try {
-      openclaw = provisionCeoOpenClawAgents(user.id);
+      openclaw = await provisionCeoOpenClawAgents(user.id);
     } catch (e) {
       console.warn('[auth/register] OpenClaw provision:', e.message);
     }

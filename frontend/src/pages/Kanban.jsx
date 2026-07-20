@@ -9,6 +9,7 @@ import { taskCreatedAtDisplay, formatChatTimestamp } from '../utils/formatDateTi
 import ActionFeedbackBanner from '../components/ActionFeedbackBanner.jsx';
 import { useActionFeedback } from '../hooks/useActionFeedback.js';
 import MessageFeedback from '../components/MessageFeedback.jsx';
+import ChatComposeInput from '../components/ChatComposeInput.jsx';
 
 const STATUSES = ['open', 'awaiting_confirmation', 'in_progress', 'completed', 'failed'];
 const STATUS_LABELS = {
@@ -1094,10 +1095,11 @@ export default function Kanban() {
                 {taskChatError && (
                   <div style={{ fontSize: '0.85rem', color: 'var(--error, #dc2626)' }}>{taskChatError}</div>
                 )}
-                <textarea
+                <ChatComposeInput
                   value={messageInput}
                   onChange={(e) => setMessageInput(e.target.value)}
-                  placeholder={selectedIsCeoReview ? 'Type confirm to approve, or add a note…' : 'Add message…'}
+                  onSend={sendMessage}
+                  placeholder={selectedIsCeoReview ? 'Type confirm to approve, or add a note… (Shift+Enter for new line)' : 'Add message… (Shift+Enter for new line)'}
                   rows={2}
                   style={{ width: '100%', padding: '0.5rem', borderRadius: 6, border: '1px solid var(--border)', resize: 'vertical' }}
                   disabled={sendingMessage}

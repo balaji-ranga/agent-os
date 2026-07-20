@@ -24,6 +24,8 @@ import agentWorkflowHookRoutes from './routes/agent-workflow-hooks.js';
 import mcpIntegrationsRoutes from './routes/mcp-integrations.js';
 import customScriptsRoutes from './routes/custom-scripts.js';
 import externalAgentsRoutes from './routes/external-agents.js';
+import workflowA2aRoutes from './routes/workflow-a2a.js';
+import agentExchangeRoutes from './routes/agent-exchange.js';
 import ibkrTradingRoutes from './routes/ibkr-trading.js';
 import emailInboundRoutes from './routes/email-inbound.js';
 import openconnectorRoutes from './routes/openconnector.js';
@@ -37,21 +39,22 @@ import { ensureMfaTables } from './services/auth/mfa.js';
 import { ensureDefaultAdmin, ensureBalaCeoUser, grantStandardAgents } from './services/users.js';
 import { initDb, getDb } from './db/schema.js';
 import { seedDefaultAgentsIfEmpty, seedAgentDepartmentsIfMissing } from './db/seed-default-agents.js';
-import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, seedWorkflowToolsIfMissing, seedLearningsToolsIfMissing, updateKanbanToolPurposes } from './db/seed-content-tools-meta.js';
+import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, seedWorkflowToolsIfMissing, seedLearningsToolsIfMissing, seedEmailSendToolIfMissing, seedNotifyCeoToolIfMissing, seedMasterDataToolsIfMissing, updateKanbanToolPurposes } from './db/seed-content-tools-meta.js';
 import { seedJobApplicantToolsIfMissing } from './db/seed-job-applicant-tools.js';
 import { seedIbkrTradingToolsIfMissing } from './db/seed-ibkr-trading-tools.js';
 import { writeOpenClawToolsList } from './services/content-tools-meta.js';
 import {
   importGrantsFromOpenClawConfig,
+  grantCooDelegationToolsIfMissing,
   syncAllowlistsFile,
   syncOpenClawJsonForAgent,
   getAgentToolGrants,
 } from './services/openclaw-agent-tools.js';
-import { grantLearningsSummaryToAllAgents } from './services/agent-feedback.js';
+import { grantLearningsSummaryToAllAgents, grantEmailSendToAllAgents, grantNotifyCeoToAllAgents, grantMasterDataToolsToAllAgents } from './services/agent-feedback.js';
 import feedbackRoutes from './routes/feedback.js';
 import masterDataRoutes from './routes/master-data.js';
 import { runScheduledStandup } from './cron/standup.js';
-import { processPendingDelegationTasks } from './services/delegation-queue.js';
+import { processPendingDelegationTasksForAllCeos } from './services/delegation-queue.js';
 import { runPipelineTick, runPipelineTickAll } from './services/job-applicant-pipeline.js';
 import { getLastIntentDebug } from './services/intent-classifier.js';
 import { initAgentWorkflowScheduler } from './services/agent-workflow-scheduler.js';
@@ -85,6 +88,9 @@ seedContentToolsMetaIfEmpty();
 seedKanbanToolsIfMissing();
 seedWorkflowToolsIfMissing();
 seedLearningsToolsIfMissing();
+seedEmailSendToolIfMissing();
+seedNotifyCeoToolIfMissing();
+seedMasterDataToolsIfMissing();
 updateKanbanToolPurposes();
 seedJobApplicantToolsIfMissing();
 seedIbkrTradingToolsIfMissing();
@@ -94,7 +100,34 @@ try {
 } catch (e) {
   console.warn('[startup] learnings_summary grants:', e.message);
 }
+try {
+  const emailGranted = grantEmailSendToAllAgents();
+  if (emailGranted) console.log(`[startup] granted email_send to ${emailGranted} agent(s)`);
+  if (emailGranted) syncAllowlistsFile();
+} catch (e) {
+  console.warn('[startup] email_send grants:', e.message);
+}
+try {
+  const notifyGranted = grantNotifyCeoToAllAgents();
+  if (notifyGranted) console.log(`[startup] granted notify_ceo to ${notifyGranted} agent(s)`);
+  if (notifyGranted) syncAllowlistsFile();
+} catch (e) {
+  console.warn('[startup] notify_ceo grants:', e.message);
+}
+try {
+  const mdGranted = grantMasterDataToolsToAllAgents();
+  if (mdGranted) console.log(`[startup] granted master_data tools to ${mdGranted} grant(s)`);
+  if (mdGranted) syncAllowlistsFile();
+} catch (e) {
+  console.warn('[startup] master_data tool grants:', e.message);
+}
 writeOpenClawToolsList();
+try {
+  const cooGranted = grantCooDelegationToolsIfMissing();
+  if (cooGranted) console.log(`[startup] granted ${cooGranted} COO delegation tool(s)`);
+} catch (e) {
+  console.warn('[startup] COO delegation tool grants:', e.message);
+}
 try {
   const imported = importGrantsFromOpenClawConfig();
   syncAllowlistsFile();
@@ -116,6 +149,24 @@ try {
 } catch (e) {
   console.warn('[startup] workflow builder agent seed:', e.message);
 }
+import('./services/org-context.js')
+  .then(async ({ syncOrgContextForCeo }) => {
+    const ceos = getDb()
+      .prepare(`SELECT id FROM platform_users WHERE role = 'ceo' AND enabled = 1`)
+      .all();
+    return Promise.all(ceos.map(({ id }) => syncOrgContextForCeo(id)));
+  })
+  .then((counts) => {
+    const total = (counts || []).reduce((n, c) => n + (c || 0), 0);
+    if (total) console.log(`[startup] synced org context to ${total} workspace(s)`);
+  })
+  .catch((e) => console.warn('[startup] org context sync:', e?.message || e));
+import('./services/openclaw-tenant.js')
+  .then(({ ensureAllTenantOpenClawAgentsForAllCeos }) => {
+    const ensured = ensureAllTenantOpenClawAgentsForAllCeos();
+    if (ensured) console.log(`[startup] ensured ${ensured} tenant OpenClaw agent(s)`);
+  })
+  .catch((e) => console.warn('[startup] tenant OpenClaw agents:', e?.message || e));
 try {
   resumeStuckWorkflowRuns();
   startWorkflowTimeoutWatchdog();
@@ -158,6 +209,8 @@ apiRouter.use('/agent-workflows', agentWorkflowRoutes);
 apiRouter.use('/integrations/mcp', mcpIntegrationsRoutes);
 apiRouter.use('/integrations/custom-scripts', customScriptsRoutes);
 apiRouter.use('/integrations/external-agents', externalAgentsRoutes);
+apiRouter.use('/agent-exchange', agentExchangeRoutes);
+apiRouter.use('/a2a', workflowA2aRoutes);
 apiRouter.use('/integrations/email-inbound', emailInboundRoutes);
 apiRouter.use('/integrations/openconnector', openconnectorRoutes);
 apiRouter.use('/ibkr-trading', ibkrTradingRoutes);
@@ -200,7 +253,7 @@ const delegationCronSchedule = process.env.DELEGATION_CRON_SCHEDULE || '* * * * 
 if (cron.validate(delegationCronSchedule)) {
   cron.schedule(delegationCronSchedule, async () => {
     try {
-      await processPendingDelegationTasks();
+      await processPendingDelegationTasksForAllCeos();
     } catch (e) {
       console.error('[cron] Delegation process error:', e.message);
     }

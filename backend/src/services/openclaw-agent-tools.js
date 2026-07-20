@@ -17,6 +17,7 @@ import {
   syncTenantAllowlists,
   ensureTenantOpenClawAgent,
 } from './openclaw-tenant.js';
+import { COO_CONTENT_TOOLS_ALLOW } from '../lib/content-tools-allow.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_TEMPLATES = join(__dirname, '..', '..', '..', 'openclaw-workspace-templates');
@@ -44,6 +45,23 @@ export function resolveOpenClawAgentId(agent) {
 
 function contentToolNamesSet() {
   return new Set(meta.listToolsMeta().map((t) => t.name));
+}
+
+export function grantCooDelegationToolsIfMissing() {
+  const db = getDb();
+  const coo = db.prepare('SELECT id FROM agents WHERE is_coo = 1 LIMIT 1').get();
+  if (!coo) return 0;
+  const existing = new Set(getAgentToolGrants(coo.id));
+  let added = 0;
+  const ins = db.prepare('INSERT OR IGNORE INTO agent_tool_grants (agent_id, tool_name) VALUES (?, ?)');
+  for (const tool of COO_CONTENT_TOOLS_ALLOW) {
+    if (!existing.has(tool)) {
+      ins.run(coo.id, tool);
+      added += 1;
+    }
+  }
+  if (added) syncAllowlistsFile();
+  return added;
 }
 
 export function getAgentToolGrants(agentId) {

@@ -713,6 +713,34 @@ export function initDb() {
 
   try {
     _db.exec(`
+      CREATE TABLE IF NOT EXISTS workflow_a2a_publications (
+        id TEXT PRIMARY KEY,
+        workflow_definition_id TEXT NOT NULL,
+        owner_user_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        skill_id TEXT DEFAULT 'default',
+        skill_name TEXT DEFAULT '',
+        skill_description TEXT DEFAULT '',
+        agent_card_json TEXT DEFAULT '{}',
+        metadata_json TEXT DEFAULT '{}',
+        auth_token TEXT,
+        status TEXT DEFAULT 'published' CHECK (status IN ('published', 'unpublished')),
+        published_at TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (workflow_definition_id) REFERENCES agent_workflow_definitions(id) ON DELETE CASCADE
+      )
+    `);
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_wf_a2a_pub_owner ON workflow_a2a_publications(owner_user_id)`);
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_wf_a2a_pub_status ON workflow_a2a_publications(status)`);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_wf_a2a_pub_workflow ON workflow_a2a_publications(workflow_definition_id, status)`
+    );
+  } catch (_) {}
+
+  try {
+    _db.exec(`
       CREATE TABLE IF NOT EXISTS custom_scripts (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
@@ -936,6 +964,41 @@ export function initDb() {
         FOREIGN KEY (poller_id) REFERENCES workflow_file_pollers(id) ON DELETE CASCADE
       )
     `);
+  } catch (_) {}
+
+  try {
+    _db.exec(`ALTER TABLE standups ADD COLUMN owner_user_id TEXT`);
+  } catch (_) {}
+  try {
+    const legacyOwner = (process.env.AGENT_OS_BALA_CEO_ID || 'ceo-bala').trim();
+    _db.prepare(
+      `UPDATE standups SET owner_user_id = ? WHERE owner_user_id IS NULL OR owner_user_id = ''`
+    ).run(legacyOwner);
+  } catch (_) {}
+  try {
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_standups_owner ON standups(owner_user_id, scheduled_at DESC)`
+    );
+  } catch (_) {}
+
+  // Per-CEO delegation task ownership
+  try {
+    _db.exec(`ALTER TABLE agent_delegation_tasks ADD COLUMN owner_user_id TEXT`);
+  } catch (_) {}
+  try {
+    // Backfill from standup owner for existing rows
+    _db.exec(
+      `UPDATE agent_delegation_tasks
+       SET owner_user_id = (
+         SELECT s.owner_user_id FROM standups s WHERE s.id = agent_delegation_tasks.standup_id
+       )
+       WHERE owner_user_id IS NULL OR owner_user_id = ''`
+    );
+  } catch (_) {}
+  try {
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_delegation_tasks_owner ON agent_delegation_tasks(owner_user_id, status, created_at)`
+    );
   } catch (_) {}
 
   return _db;

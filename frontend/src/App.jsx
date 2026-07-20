@@ -18,6 +18,7 @@ import Admin from './pages/Admin';
 import McpIntegrations from './pages/McpIntegrations';
 import CustomScripts from './pages/CustomScripts';
 import ExternalAgents from './pages/ExternalAgents';
+import AgentExchange from './pages/AgentExchange';
 import MasterData from './pages/MasterData';
 import AiSnipper from './pages/AiSnipper';
 import NotificationBell from './components/NotificationBell';
@@ -190,6 +191,7 @@ function Shell() {
               <Route path="/integrations/mcp/*" element={<McpIntegrations />} />
               <Route path="/integrations/custom-scripts" element={<CustomScripts />} />
               <Route path="/integrations/external-agents" element={<ExternalAgents />} />
+              <Route path="/agent-exchange" element={<AgentExchange />} />
               <Route path="/profile" element={<UserProfile />} />
               <Route path="*" element={<Navigate to="/admin" replace />} />
             </>
@@ -204,6 +206,7 @@ function Shell() {
               <Route path="/integrations/mcp/*" element={<McpIntegrations />} />
               <Route path="/integrations/custom-scripts" element={<CustomScripts />} />
               <Route path="/integrations/external-agents" element={<ExternalAgents />} />
+              <Route path="/agent-exchange" element={<AgentExchange />} />
               <Route path="/broadcast" element={<Broadcast />} />
               <Route path="/kanban" element={<Kanban />} />
               <Route path="/master-data" element={<MasterData />} />

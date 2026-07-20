@@ -60,6 +60,13 @@ export function CeoNavMenu({ collapsed }) {
           short="Py"
         />
         <NavItem
+          to="/agent-exchange"
+          title="AgentExchange — published A2A agents"
+          collapsed={collapsed}
+          label="AgentExchange"
+          short="AX"
+        />
+        <NavItem
           to="/integrations/external-agents"
           title="External agents (A2A)"
           collapsed={collapsed}
@@ -90,6 +97,13 @@ export function AdminNavMenu({ collapsed }) {
           collapsed={collapsed}
           label="Custom scripts"
           short="Py"
+        />
+        <NavItem
+          to="/agent-exchange"
+          title="AgentExchange — published A2A agents"
+          collapsed={collapsed}
+          label="AgentExchange"
+          short="AX"
         />
         <NavItem
           to="/integrations/external-agents"

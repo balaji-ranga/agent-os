@@ -3,6 +3,7 @@ import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import ChatMessageRow from '../components/ChatMessageRow';
+import ChatComposeInput from '../components/ChatComposeInput';
 
 export default function AgentChat() {
   const { agentId } = useParams();
@@ -100,18 +101,22 @@ export default function AgentChat() {
 
       <form onSubmit={send} style={{ flexShrink: 0 }}>
         <div className="chat-compose-row">
-          <input
-            type="text"
-            placeholder="Message..."
+          <ChatComposeInput
+            placeholder="Message… (Shift+Enter for new line)"
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onSend={send}
             disabled={sending}
+            rows={3}
             style={{
               padding: '0.75rem 1rem',
               background: 'var(--surface)',
               border: '1px solid var(--border)',
               borderRadius: 8,
               color: 'var(--text)',
+              resize: 'vertical',
+              minHeight: 56,
+              font: 'inherit',
             }}
           />
           <button

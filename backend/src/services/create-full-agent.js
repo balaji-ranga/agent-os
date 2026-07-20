@@ -11,8 +11,10 @@ import { grantUserAgent } from './users.js';
 import {
   ensureTenantOpenClawAgent,
   tenantOpenClawAgentId,
+  tenantSessionKeyForAgent,
   tenantWorkspacePath,
 } from './openclaw-tenant.js';
+import { writeAgentToolsMd } from './openclaw-agent-tools.js';
 import { getOpenClawDir } from '../config/openclaw-paths.js';
 
 const OPENCLAW_DIR = getOpenClawDir();
@@ -25,6 +27,15 @@ const DEFAULT_TOOLS_ALLOW = [
   'kanban_create_task',
   'kanban_move_status',
   'kanban_reassign_to_coo',
+  'email_send',
+  'notify_ceo',
+  'master_data_list_tables',
+  'master_data_list_rows',
+  'master_data_insert_row',
+  'master_data_update_row',
+  'master_data_delete_row',
+  'master_data_list_documents',
+  'master_data_rag',
   'browser',
 ];
 
@@ -70,7 +81,8 @@ function deriveId(name, getExistingIds) {
   return `${base}-${n}`;
 }
 
-function buildSoulMd(name, role, id) {
+function buildSoulMd(name, role, id, ownerUserId) {
+  const sessionKey = ownerUserId ? tenantSessionKeyForAgent(ownerUserId, id) : `agent::${id}:main`;
   return `# SOUL — ${name}
 
 You are **${name}**. ${role || 'Specialist agent.'}
@@ -78,20 +90,23 @@ You are **${name}**. ${role || 'Specialist agent.'}
 ## Role
 
 - Fulfill requests in your domain. Report to COO when relevant.
+- You operate in **one CEO tenant only**. Read **ORG.md** for peer agents and tenant session keys.
 
 ## Memory (avoid redoing recent work)
 
 - **Before responding:** Get your session history for context. Use **sessions_history** with the session key that applies to this run:
   - If the user message says **"Your session key for this run is …"**, use that exact sessionKey (required when delegated or on a Kanban task).
-  - Otherwise use \`sessionKey: "agent:${id}:main"\` for Dashboard chat (full format required).
+  - Otherwise use \`sessionKey: "${sessionKey}"\` for Dashboard chat (tenant format required).
   Then proceed with the task.
 - **Before starting a task:** Read MEMORY.md. If you see a recent completion for the same or very similar topic, state that and ask whether to redo or reuse.
 - **After completing a task:** Append a brief line to MEMORY.md: topic/request summary and date. Keep only recent entries (e.g. last 20–30).
 
 ## Tools
 
+- **notify_ceo**: Reach the CEO user with an in-app notification — \`title\` (required), optional \`body\`, \`link_url\`. Recipient is always this org's CEO; never pass a user id.
 - **kanban_create_task**, **kanban_move_status** and other Agent OS tools are **API tools**. Invoke them by tool name with JSON parameters. Do **not** run them as shell commands.
 - Use **kanban_create_task** to create a Kanban task for the CEO (title required; optional description / assign_to).
+- **Peer agents:** Use **sessions_send** with tenant session keys from **ORG.md** to reach COO or other agents in this org.
 - **Tool choice:** Pick the tool that best matches the user's request (see TOOLS.md). If a tool's response is inadequate (error, empty, or doesn't answer the question), try the next best tool for that context instead of stopping.
 - **Browser:** Use the **browser** tool with **profile="openclaw"** only (managed Playwright). Never use profile="chrome" or ask for the Chrome extension unless the user explicitly wants their own Chrome tab attached.
 
@@ -99,6 +114,37 @@ You are **${name}**. ${role || 'Specialist agent.'}
 
 - Stay in role; escalate when needed. Do not change other agents' SOUL or AGENTS.
 - Avoid harmful, biased, or sexual content; keep outputs professional.
+`;
+}
+
+function buildCustomAgentsMd(name, role, department, ownerUserId, cooId) {
+  const cooKey = tenantSessionKeyForAgent(ownerUserId, cooId || 'balserve');
+  return `# AGENTS — Operating contract (${name})
+
+## Role
+
+${role || 'Specialist.'}
+
+## Department
+
+${department || 'Unassigned'}
+
+## This org (tenancy)
+
+- Read **ORG.md** for all agents in this CEO account, peer **tenant session keys**, and delegation rules.
+- Your tenant session key is in ORG.md. COO session key: \`${cooKey}\`.
+- Use **sessions_send** with tenant keys from ORG.md to reach COO or peers — never bare agent ids.
+
+## Priorities
+
+1. Fulfill requests in your domain.
+2. Use **notify_ceo** when the CEO must be notified (title + optional body).
+3. Report to COO via **sessions_send** when you need coordination.
+
+## Boundaries
+
+- Do not change other agents' SOUL or AGENTS. Escalate approvals to COO/CEO.
+- Only interact with agents listed in ORG.md for this CEO.
 `;
 }
 
@@ -137,26 +183,8 @@ export async function createFullAgent(input) {
 
   const role = (input.role || 'Agent').trim();
   const department = String(input.department || '').trim();
-  const soulMd = buildSoulMd(name, role, id);
-  const agentsMd = `# AGENTS — Operating contract (${name})
-
-## Role
-
-${role || 'Specialist.'}
-
-## Department
-
-${department || 'Unassigned'}
-
-## Priorities
-
-1. Fulfill requests in your domain.
-2. Report to COO when relevant.
-
-## Boundaries
-
-- Do not change other agents' SOUL or AGENTS. Escalate approvals to COO/CEO.
-`;
+  const soulMd = buildSoulMd(name, role, id, ownerUserId);
+  const agentsMd = buildCustomAgentsMd(name, role, department, ownerUserId, coo?.id);
   const memoryMd = `# MEMORY — ${name}
 
 ## Facts
@@ -192,6 +220,11 @@ ${department || 'Unassigned'}
   await workspace.writeWorkspaceFile('soul', soulMd, { workspaceRoot: ensured.workspacePath });
   await workspace.writeWorkspaceFile('agents', agentsMd, { workspaceRoot: ensured.workspacePath });
   await workspace.writeWorkspaceFile('memory', memoryMd, { workspaceRoot: ensured.workspacePath });
+  try {
+    await writeAgentToolsMd({ ...row, workspace_path: ensured.workspacePath }, toolsToGrant);
+  } catch (e) {
+    console.warn('[create-full-agent] TOOLS.md write failed', e?.message);
+  }
 
   // Session dirs for the tenant runtime id
   const AGENTS_ROOT = join(OPENCLAW_DIR, 'agents');
@@ -228,11 +261,18 @@ ${department || 'Unassigned'}
   }
 
   syncAllowlistsFile();
+  try {
+    const { syncOrgContextForCeo } = await import('./org-context.js');
+    await syncOrgContextForCeo(ownerUserId);
+  } catch (e) {
+    console.warn('[create-full-agent] org sync:', e?.message);
+  }
   db.prepare('UPDATE agents SET workspace_path = ? WHERE id = ?').run(ensured.workspacePath, id);
 
   return {
     ...db.prepare('SELECT * FROM agents WHERE id = ?').get(id),
     openclaw_runtime_id: ensured.openclawAgentId || runtimeId,
+    tenant_session_key: tenantSessionKeyForAgent(ownerUserId, id),
     tenant_workspace_path: ensured.workspacePath,
     granted_to_user_id: ownerUserId,
   };

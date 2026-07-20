@@ -44,11 +44,12 @@ export function listAgentResponseNotificationsForUser(authUser, { limit = 20 } =
          AND t.response_content IS NOT NULL
          AND t.response_content != ''
          AND t.to_agent_id IN (${placeholders})
+         AND s.owner_user_id = ?
          AND datetime(t.completed_at) >= datetime('now', '-3 days')
        ORDER BY t.completed_at DESC
        LIMIT ?`
     )
-    .all(...agentIds, cap * 4);
+    .all(...agentIds, authUser.id, cap * 4);
 
   return rows
     .filter((r) => !isJobPipelineRow(r) || promptBelongsToCeo(r.prompt, authUser.id))

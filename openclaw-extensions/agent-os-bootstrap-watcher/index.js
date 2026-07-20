@@ -3,6 +3,7 @@ import { join, resolve } from "node:path";
 import { homedir } from "node:os";
 const BOOTSTRAP_FILE_NAMES = [
   "AGENTS.md",
+  "ORG.md",
   "SOUL.md",
   "TOOLS.md",
   "IDENTITY.md",

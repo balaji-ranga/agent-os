@@ -1,6 +1,8 @@
-# Agent OS — OpenClaw Agent Space
+# Flowlah — An Agent Company Setup
 
-Web platform for OpenClaw agents: org chart, human–agent chat (via OpenClaw gateway), workspace MD management (SOUL.md, AGENTS.md, MEMORY.md, TOOLS.md), **custom visual workflows**, **Job Applicant pipeline**, **MCP integrations**, Kanban, standups, and content tools. Metadata is stored in a **lightweight SQLite** database.
+**Flowlah (Automate, Innovate, Elevate)** is a web platform for running an AI agent company on [OpenClaw](https://docs.openclaw.ai/gateway): org-aware agents, human–agent chat, workspace MD management (`SOUL.md`, `AGENTS.md`, `ORG.md`, `MEMORY.md`, `TOOLS.md`), **custom visual workflows**, **AgentExchange (A2A)**, **Job Applicant pipeline**, **MCP integrations**, Kanban, standups, content tools, and multi-tenant CEO isolation. Metadata is stored in a **lightweight SQLite** database.
+
+> Browser tab title: **Flowlah - An Agent Company Setup**. Login footer: **Flowlah (Automate, Innovate, Elevate)**.
 
 ## Interface: OpenClaw Gateway
 
@@ -12,6 +14,7 @@ The backend uses the [OpenClaw Gateway](https://docs.openclaw.ai/gateway) HTTP A
   - Session: `user` in body for stable session (per-agent, per-user)
 - Enable in OpenClaw config: `gateway.http.endpoints.chatCompletions.enabled: true`
 - Default gateway port: **18789**
+- **Per-CEO tenants:** each CEO gets isolated OpenClaw agent runtimes and workspaces (`openclaw-tenant`); prompts are tagged with `owner_user_id` / `ceo_user_id`.
 
 ## Prerequisites
 
@@ -19,12 +22,13 @@ The backend uses the [OpenClaw Gateway](https://docs.openclaw.ai/gateway) HTTP A
 - **OpenClaw** installed and (for chat) **gateway** running with chat completions enabled
 - **Workspace path** where SOUL.md, AGENTS.md, MEMORY.md live (for MD editor)
 - **OPENAI_API_KEY** in backend `.env` for **Run COO** (standup + CEO summary via OpenAI). Optional: `OPENAI_COO_MODEL` (default `gpt-4o-mini`).
-- Optional: **STANDUP_CRON_SCHEDULE** (cron expression, e.g. `0 9 * * *` for 9 AM daily) to run standup collection and COO automatically.
-- Optional: **DELEGATION_CRON_SCHEDULE** (default `* * * * *` = every minute) — processes queued COO→agent messages and posts response callbacks to the standup so the COO never blocks on agent replies.
-- Optional: **AGENT_OS_BASE_URL**, **AGENT_OS_PUBLIC_URL**, or **PUBLIC_URL** — public DNS/HTTPS base URL for workflow event hooks, cron webhooks, and artifact links. Defaults to `http://127.0.0.1:3001` for local dev.
+- Optional: **STANDUP_CRON_SCHEDULE** (cron expression, e.g. `0 9 * * *` for 9 AM daily) — runs standup **per enabled CEO** (isolated standups + owner-scoped prompts).
+- Optional: **DELEGATION_CRON_SCHEDULE** (default `* * * * *` = every minute) — processes queued COO→agent tasks **per CEO** (each CEO worker only picks that CEO’s tasks) and posts response callbacks to the correct standup.
+- Optional: **JOB_PIPELINE_CRON_SCHEDULE** — Job Applicant pipeline tick across CEO profiles.
+- Optional: **AGENT_OS_BASE_URL**, **AGENT_OS_PUBLIC_URL**, or **PUBLIC_URL** — public DNS/HTTPS base URL for workflow event hooks, cron webhooks, A2A cards, and artifact links. Defaults to `http://127.0.0.1:3001` for local dev.
 - Optional: **AGENT_OS_DATA_DIR** — directory for SQLite DB (default: `backend/data`).
 - Optional: **AGENT_OS_ADMIN_EMAIL** / **AGENT_OS_ADMIN_PASSWORD** — platform admin seeded on first startup.
-- Optional: **AGENT_OS_BALA_CEO_*** — default CEO user for job profiles and workflows.
+- Optional: **AGENT_OS_BALA_CEO_*** — default CEO user for legacy job profiles and workflows.
 
 ## Quick start
 
@@ -53,7 +57,7 @@ Frontend runs at **http://127.0.0.1:3000** and proxies `/api` to the backend (ov
 
 ### 3. Log in
 
-Open **http://127.0.0.1:3000/login**. Default admin is seeded from `.env` (`AGENT_OS_ADMIN_*`). CEO users see Dashboard, Workflows, Kanban, Job profiles, etc. Admin users manage platform accounts and MCP registry.
+Open **http://127.0.0.1:3000/login**. Default admin is seeded from `.env` (`AGENT_OS_ADMIN_*`). CEO users see Dashboard, Workflows, Kanban, Job profiles, AgentExchange, etc. Admin users manage platform accounts and MCP registry. New CEOs register at `/register` and get provisioned OpenClaw agents + org context.
 
 ### 4. OpenClaw gateway (for chat)
 
@@ -77,24 +81,41 @@ Set in backend `.env`:
 
 | Feature | Description |
 |--------|-------------|
-| **Auth & roles** | Login/register; **admin** (user management, MCP registry) and **ceo** (agents, workflows, kanban, job pipeline). JWT sessions. |
-| **Dashboard** | List agents (org chart); add agent; open **Chat** per agent; standups with COO chat; **delete all standups**; sync from OpenClaw. |
-| **Chat** | 1:1 chat with an OpenClaw agent via gateway; session affinity per agent; history stored in SQLite. |
-| **Agent workspace** | Per-agent **SOUL.md, AGENTS.md, MEMORY.md, TOOLS.md** editor; **Tools access** panel (grant/revoke content tools per agent, hot-sync to OpenClaw without gateway restart). |
-| **Notifications** | **Bell icon** in nav: recent agent delegation responses; link to agent Chat; clear/dismiss. |
+| **Auth & roles** | Login/register; **admin** (user management, MCP registry) and **ceo** (agents, workflows, kanban, job pipeline). JWT sessions. New CEO registration provisions OpenClaw agents and syncs org context. |
+| **Multi-tenant isolation** | Standups and delegation tasks carry `owner_user_id`. Standup cron and delegation cron loop **per enabled CEO** so one CEO never sees another’s standups, chats, or queued agent work. APIs filter by authenticated CEO. |
+| **Org-aware agents** | Every agent in a CEO’s org gets **ORG.md** (CEO, departments, peers with soul/purpose/skills) plus a tenant-specific COO **AGENTS.md** (delegatees). Synced on provision, agent create, and backend startup. Bootstrap watcher reloads `ORG.md` each turn. |
+| **Dashboard** | List agents (org chart); add agent; open **Chat** per agent; standups with COO chat (owner-scoped only); sync from OpenClaw. |
+| **Chat** | 1:1 chat with an OpenClaw agent via gateway; session affinity per agent; history stored in SQLite; compose helpers for richer messages. |
+| **Agent workspace** | Per-agent **SOUL.md, AGENTS.md, ORG.md, MEMORY.md, TOOLS.md** editor; **Tools access** panel (grant/revoke content tools per agent, hot-sync to OpenClaw without gateway restart). |
+| **Notifications** | **Bell icon** in nav: recent agent delegation responses (owner-scoped) and **platform notifications** (e.g. `notify_ceo`); link to agent Chat; clear/dismiss. |
 | **Kanban** | Board view (tasks by agent and status); task detail with **task chat**, artifacts, workflow run links. Reopen task; create task (COO or direct to agent). |
-| **Custom workflows** | Visual **Workflows** editor (separate from Job workflows): trigger (manual / schedule / chat / event webhook), agent, API, MCP tool, **SSE listen**, **sub-workflow**, Brain (LLM + optional MCP tool calling), email, IF/While, parallel/merge, CEO approval, **external agent (A2A)**. Publish, run instances, paginated run history, search, **stop SSE listen** on active runs. |
+| **Custom workflows** | Visual **Workflows** editor: trigger (manual / schedule / chat / event webhook), agent, API, MCP tool, **SSE listen**, **sub-workflow**, Brain (LLM + optional MCP tool calling), email, IF/While, parallel/merge, CEO approval, **external agent (A2A)**. Publish, run instances, paginated run history, search, **stop SSE listen** on active runs. |
+| **Publish as A2A** | From the workflow editor, **Publish A2A** exposes a workflow as an A2A-compliant agent (agent card + JSON-RPC endpoint). Unpublish removes it from AgentExchange. |
+| **AgentExchange** | Browse all published A2A workflow agents across the platform (`/agent-exchange`). Public cards at `/a2a/:publishId/.well-known/agent-card.json`. |
 | **Workflow Builder chat** | LLM assistant in the workflow editor to create/edit graphs via natural language. |
 | **Job profiles** | CEO job search profiles (intake, resume, preferences); gate for Job Applicant pipeline. |
 | **Job workflows** | Multi-agent **Job Applicant** pipeline (Discovery → Fit Scoring → Resume Tailoring → Application); Kanban-tracked stages; browser/Playwright apply path. See **knowledgebase/JOB-APPLICANT-WORKFLOW.md**. |
 | **MCP integrations** | Register MCP servers (admin/CEO); connect, test tools, playground; use in workflow **MCP Tool** and **SSE Listen** nodes. Local test server: `tools/local-mcp-random-sse/`. |
 | **External agents (A2A)** | Register external agent endpoints; invoke from workflow **External Agent** node. |
-| **Content tools** | Agent-callable tools (summarize URL, image/video gen, Kanban, workflow trigger/enquire, job applicant tools, etc.); logs UI; onboard new APIs via script. |
+| **Content tools** | Agent-callable tools: summarize URL, image/video gen, Kanban, **intent_classify_and_delegate**, workflow trigger/enquire/mutate, job applicant tools, **email_send**, **notify_ceo**, learnings, browser, etc.; owner-scoped logs UI; onboard new APIs via script. |
+| **COO delegation** | COO uses `intent_classify_and_delegate` / AGENTS.md to allocate work; tasks enqueue with `owner_user_id`; per-CEO worker sends to OpenClaw, stores replies, posts COO callback into that CEO’s standup. |
+| **Email send** | `email_send` content tool — agents can send email via configured mail integration (owner-scoped logging). |
+| **Notify CEO** | `notify_ceo` content tool — agents push a platform notification to their CEO (bell feed). |
 | **Broadcast** | Send messages to multiple agents. |
 | **Tools onboarding** | Script `scripts/onboard-api-tool.js` onboards a new API as a tool from JSON (updates DB, OpenClaw tool list). See `scripts/tool-definitions/README.md`. |
 | **Workspace (legacy MD)** | Global workspace MD editor (older path); prefer **Agent workspace** per agent. |
-| **DB** | SQLite: agents, users, chat, standups, delegations, kanban, content tools, job profiles/applications, MCP servers, agent workflow definitions/runs, external agents, audit. |
-| **Agent memory** | Backend injects each agent’s MEMORY.md into delegation prompts and appends summaries on task completion. |
+| **DB** | SQLite: agents, users, chat, standups (`owner_user_id`), delegations (`owner_user_id`), kanban, content tools, job profiles/applications, MCP servers, agent workflow definitions/runs, A2A publications, external agents, platform notifications, audit. |
+| **Agent memory** | Backend injects each agent’s MEMORY.md into delegation prompts and appends summaries on task completion (tenant workspace path). |
+
+### Multi-tenancy & schedulers (high level)
+
+| Scheduler | Behavior |
+|-----------|----------|
+| **Standup cron** | For each enabled CEO: create standup with `owner_user_id`, run COO collection with owner tags. |
+| **Delegation cron** | For each enabled CEO: claim only that CEO’s `pending` `agent_delegation_tasks`, run agents in that CEO’s OpenClaw tenant, post callbacks only for that CEO’s request IDs. |
+| **Job pipeline cron** | Ticks job profiles / pipeline stages (see Job Applicant docs). |
+
+New CEOs start with **empty** standups (no other user’s chats or agents). Dashboard does not auto-open another CEO’s standup.
 
 ### Custom Agent Workflows (high level)
 
@@ -102,6 +123,7 @@ Set in backend `.env`:
 - **Triggers:** manual, cron schedule, chat phrase, **event webhook** (hook URL on Start node when event mode enabled; uses `AGENT_OS_BASE_URL`)
 - **Node types:** Trigger, Agent, Content Tool, MCP Tool, **SSE Listen** (long-running stream; dispatches downstream on each event), **Sub-workflow**, Call API (Basic/Bearer/API-key auth + custom headers), Brain, Email, IF, While, Parallel, Merge, CEO Approval, External Agent
 - **Data binding:** `{{nodeId.outputKey}}` templates; nested JSON paths (e.g. `{{api-1.body.users.0.name}}`)
+- **A2A publish:** Publish → AgentExchange + public agent card / JSON-RPC under `/a2a/:publishId`
 - **Runs:** Kanban tasks per step; fail run on API/MCP errors (non-2xx HTTP, SSL errors, MCP `is_error`)
 - **Tests:** `node backend/scripts/test-sse-workflow.js`, `node backend/scripts/demo-sse-hook-and-listen.js`
 
@@ -117,6 +139,7 @@ Set in backend `.env`:
 
 - **Tools access** (Workspace UI): enforcement — which Agent OS tools OpenClaw exposes to the agent (`agent_tool_grants`, `~/.openclaw/agent-tool-allowlists.json`).
 - **TOOLS.md**: instructions for the LLM — when and how to use granted tools. Sync from template via Workspace UI.
+- **COO defaults:** if a COO has no grants, backend applies `COO_CONTENT_TOOLS_ALLOW` (includes delegation, Kanban, `email_send`, `notify_ceo`).
 
 ### Hosting / DNS
 
@@ -132,7 +155,7 @@ For frontend production build:
 VITE_API_URL=https://your-domain.example/api
 ```
 
-Workflow hook URLs, cron webhooks, and MCP/API endpoints in graphs should use your public DNS — not `127.0.0.1`. See `backend/.env.example`.
+Workflow hook URLs, cron webhooks, A2A cards, and MCP/API endpoints in graphs should use your public DNS — not `127.0.0.1`. See `backend/.env.example` and `deploy/.env.example`.
 
 ## Production deploy (Docker / Podman)
 
@@ -142,6 +165,13 @@ Container stack: **nginx** + **frontend** + **backend** + **OpenClaw gateway**, 
 cd deploy
 cp .env.example .env   # set AGENT_OS_PUBLIC_URL, OPENCLAW_GATEWAY_TOKEN, OPENAI_API_KEY
 ./scripts/up.sh        # auto-fills TOOLS_API_KEY + AGENT_OS_INTERNAL_TOKEN; USE_PODMAN=1 on CentOS
+```
+
+Laptop sync (when VPS cannot `git pull`):
+
+```powershell
+.\deploy\scripts\sync-to-vps.ps1
+.\deploy\scripts\sync-to-vps.ps1 -Services backend
 ```
 
 - **deploy/README.md** — Compose services, volumes, profiles, OpenConnector / email-inbound
@@ -172,19 +202,22 @@ All routes below are also available under **`/api/...`** (frontend uses `/api` p
 
 - `GET/POST/PATCH/DELETE /agents` — agent CRUD
 - `GET/POST /agents/:id/chat` — chat history and send message (→ gateway)
-- `GET/PUT /agents/:id/workspace/:file` — SOUL, agents, memory, tools MD
+- `GET/PUT /agents/:id/workspace/:file` — soul, agents, **org**, memory, tools MD
 - `GET/PUT /agents/:id/tools` — per-agent content tool grants
 
 ### Standups, Kanban, cron
 
-- `GET/POST/PATCH/DELETE /standups`, `/standups/:id/messages`, `/standups/:id/run-coo`
-- `GET /standups/notifications` — bell feed
+- `GET/POST/PATCH/DELETE /standups`, `/standups/:id/messages`, `/standups/:id/run-coo` — **owner-scoped**
+- `GET /standups/notifications` — bell feed (delegation responses for this CEO)
 - `GET/PATCH /kanban/tasks`, task messages, reopen, artifacts
-- `POST /cron/run-standup`, `POST /cron/process-delegations`
+- `POST /cron/run-standup`, `POST /cron/process-delegations` — standup per CEO; delegations per CEO
+- `GET /platform-notifications` — CEO notify feed (`notify_ceo`)
 
 ### Content tools
 
 - `GET /tools/meta`, `POST /tools/invoke`, workflow chat tools (`agent_workflow_*`), job applicant tools
+- `POST /tools/intent-classify-and-delegate` — COO delegation (stamps `owner_user_id` on standup/tasks)
+- `POST /tools/...` — `email_send`, `notify_ceo`, Kanban helpers, etc. (owner resolved from auth / tenant, not spoofable body ids)
 
 ### Job applicant
 
@@ -199,6 +232,13 @@ All routes below are also available under **`/api/...`** (frontend uses `/api` p
 - `POST /agent-workflows/hooks/:definitionId` — event trigger (webhook secret header)
 - `POST /agent-workflows/agent-chat` — Workflow Builder LLM
 - `POST /agent-workflows/approval/respond` — CEO approval from Kanban
+- **A2A publish:** publish / unpublish workflow as A2A agent (used by Publish A2A modal)
+
+### AgentExchange & public A2A
+
+- `GET /agent-exchange` — list all published A2A workflow agents
+- `GET /a2a/:publishId/.well-known/agent-card.json` — public agent card
+- `POST /a2a/:publishId` — A2A JSON-RPC invoke
 
 ### MCP & external agents
 
@@ -223,10 +263,11 @@ See **knowledgebase/TESTING.md** for full test cases and restart steps.
 
 ## Database and scripts
 
-- **Schema:** `backend/src/db/schema.js` — `initDb()`, `getDb()`. DB: `backend/data/agent-os.db` (or `AGENT_OS_DATA_DIR`).
-- **Seeds:** `seed-default-agents.js`, `seed-content-tools-meta.js`, `seed-job-applicant-tools.js`, `seed-workflow-builder-agent.js`
-- **Backend scripts:** `backend/scripts/` — seeds, E2E tests, MCP seed, workflow tests, `cleanup-workflow-runs.js`
+- **Schema:** `backend/src/db/schema.js` — `initDb()`, `getDb()`. DB: `backend/data/agent-os.db` (or `AGENT_OS_DATA_DIR`). Includes `standups.owner_user_id`, `agent_delegation_tasks.owner_user_id`, A2A publications, platform notifications.
+- **Seeds:** `seed-default-agents.js`, `seed-content-tools-meta.js` (email_send, notify_ceo, Kanban, workflow tools), `seed-job-applicant-tools.js`, `seed-workflow-builder-agent.js`
+- **Backend scripts:** `backend/scripts/` — seeds, E2E tests, MCP seed, workflow tests, COO org/delegation smoke, `cleanup-workflow-runs.js`
 - **OpenClaw scripts:** `scripts/` — `setup-openclaw-from-scratch.ps1`, `onboard-api-tool.js`, `apply-openclaw-agents-config.js`, `setup-job-applicant-agents.js`, `sync-browser-tools-md.js`, `install-agent-os-content-tools-extension.js`, kill/restart helpers
+- **Allowlists:** `backend/src/lib/content-tools-allow.js` (Docker-safe; keep in sync with `scripts/lib/content-tools-allow.js`)
 
 No separate migration folder; schema changes use `ALTER TABLE` blocks in `schema.js`.
 
@@ -238,27 +279,33 @@ agent-os/
 ├── knowledgebase/              # Extended docs (see index below)
 ├── scripts/                    # OpenClaw/workspace; onboard-api-tool.js; tool-definitions/
 ├── tools/local-mcp-random-sse/ # Dev MCP + SSE test server (port 3099)
-├── openclaw-workspace-templates/  # SOUL, AGENTS, MEMORY, TOOLS per agent type
+├── openclaw-workspace-templates/  # SOUL, AGENTS, MEMORY, TOOLS, ORG per agent type
 ├── openclaw-skills/            # agent-send, agent-os-content-tools, etc.
-├── openclaw-extensions/        # agent-os-content-tools plugin, bootstrap watcher
+├── openclaw-extensions/        # agent-os-content-tools plugin, bootstrap watcher (ORG.md)
+├── deploy/                     # Docker Compose, nginx, sync-to-vps.ps1, up.sh
 ├── backend/
 │   ├── .env.example
 │   ├── data/                   # SQLite
 │   ├── scripts/                # seeds, E2E, workflow tests
 │   └── src/
-│       ├── index.js
+│       ├── index.js            # standup + delegation + job pipeline crons
 │       ├── config/             # llm, public-url, tools
 │       ├── db/
+│       ├── lib/                # content-tools-allow (COO / global / workflow builder)
 │       ├── routes/             # auth, admin, agents, kanban, job-applicant,
-│       │                         # agent-workflows, mcp-integrations, external-agents, …
-│       ├── services/             # workflow runner, MCP, job pipeline, delegation, …
+│       │                         # agent-workflows, workflow-a2a, agent-exchange,
+│       │                         # platform-notifications, mcp-integrations, …
+│       ├── services/           # org-context, openclaw-tenant, delegation-queue,
+│       │                         # email-send, notify-ceo, workflow-a2a-publish, …
 │       └── gateway/openclaw.js
 └── frontend/
     └── src/
-        ├── pages/              # Dashboard, AgentChat, AgentWorkspace, Kanban,
-        │                         # AgentWorkflows, AgentWorkflowEditor, JobProfiles,
+        ├── pages/              # Dashboard, Login (Flowlah footer), AgentChat,
+        │                         # AgentWorkspace, Kanban, AgentWorkflows,
+        │                         # AgentWorkflowEditor, AgentExchange, JobProfiles,
         │                         # JobWorkflows, McpIntegrations, ExternalAgents, …
-        └── components/           # NotificationBell, workflow editor nodes, Kanban artifacts
+        └── components/         # NotificationBell, PublishA2AModal, ChatComposeInput,
+                                # workflow editor nodes, Kanban artifacts
 ```
 
 ## Documentation (knowledge base)
@@ -277,6 +324,10 @@ All project docs except this README live in **`knowledgebase/`**:
 | **GITHUB-SETUP.md** | Push to GitHub |
 | **SOCIAL_POSTING_OPTIONS.md** | SocialAssistant posting options |
 | **ADD-AGENT-VS-RECENT-FIXES-VALIDATION.md** | Agent creation vs config scripts |
+| **DEPLOY-CENTOS-PODMAN.md** | CentOS / Podman / Docker production |
+| **OPENCONNECTOR-WEBHOOKS.md** | OpenConnector MCP, email-inbound, file pollers |
+| **IBKR-TRADING-WORKFLOW.md** | IBKR paper trading workflow |
+| **knowledgeGraph.md** | Neo4j knowledge graph / self-improvement |
 
 See **knowledgebase/README.md** for the full index.
 

@@ -477,13 +477,16 @@ export function failPipelineWorkflowForDelegation(failedTask, { error = null } =
 }
 
 /** Fail pipeline delegations stuck in processing (e.g. after backend restart mid-run). */
-export function recoverStaleProcessingDelegations() {
+export function recoverStaleProcessingDelegations(ceoUserId = null) {
   const timeoutSec = Math.ceil(Number(process.env.DELEGATION_PROCESSING_TIMEOUT_MS || 960000) / 1000);
+  const ownerClause = ceoUserId
+    ? ` AND (owner_user_id = '${ceoUserId.replace(/'/g, "''")}' OR (owner_user_id IS NULL AND standup_id IN (SELECT id FROM standups WHERE owner_user_id = '${ceoUserId.replace(/'/g, "''")}')))` 
+    : '';
   const rows = db()
     .prepare(
       `SELECT * FROM agent_delegation_tasks
        WHERE status = 'processing' AND prompt LIKE ?
-         AND datetime(created_at) < datetime('now', ? || ' seconds')`
+         AND datetime(created_at) < datetime('now', ? || ' seconds')${ownerClause}`
     )
     .all(`${PIPELINE_TAG}%`, `-${timeoutSec}`);
 

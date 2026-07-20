@@ -403,3 +403,58 @@ export function grantLearningsSummaryToAllAgents() {
   }
   return n;
 }
+
+export function grantEmailSendToAllAgents() {
+  const db = getDb();
+  const agents = db.prepare('SELECT id FROM agents').all();
+  const ins = db.prepare(
+    'INSERT OR IGNORE INTO agent_tool_grants (agent_id, tool_name) VALUES (?, ?)'
+  );
+  let n = 0;
+  for (const a of agents) {
+    const r = ins.run(a.id, 'email_send');
+    if (r.changes) n += 1;
+  }
+  return n;
+}
+
+export function grantNotifyCeoToAllAgents() {
+  const db = getDb();
+  const agents = db.prepare('SELECT id FROM agents').all();
+  const ins = db.prepare(
+    'INSERT OR IGNORE INTO agent_tool_grants (agent_id, tool_name) VALUES (?, ?)'
+  );
+  let n = 0;
+  for (const a of agents) {
+    const r = ins.run(a.id, 'notify_ceo');
+    if (r.changes) n += 1;
+  }
+  return n;
+}
+
+const MASTER_DATA_TOOL_NAMES = [
+  'master_data_list_tables',
+  'master_data_list_rows',
+  'master_data_insert_row',
+  'master_data_update_row',
+  'master_data_delete_row',
+  'master_data_list_documents',
+  'master_data_rag',
+];
+
+/** Grant Master Data + RAG content tools to all agents (owner-scoped at invoke time). */
+export function grantMasterDataToolsToAllAgents() {
+  const db = getDb();
+  const agents = db.prepare('SELECT id FROM agents').all();
+  const ins = db.prepare(
+    'INSERT OR IGNORE INTO agent_tool_grants (agent_id, tool_name) VALUES (?, ?)'
+  );
+  let n = 0;
+  for (const a of agents) {
+    for (const tool of MASTER_DATA_TOOL_NAMES) {
+      const r = ins.run(a.id, tool);
+      if (r.changes) n += 1;
+    }
+  }
+  return n;
+}

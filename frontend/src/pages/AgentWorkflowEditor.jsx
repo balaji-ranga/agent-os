@@ -43,6 +43,7 @@ import {
   parseWorkflowImportDocument,
   readJsonFile,
 } from '../utils/workflowDefinitionJson.js';
+import PublishA2AModal from '../components/workflow/PublishA2AModal.jsx';
 
 function migrateNodeWithCatalog(node, catalog) {
   const entry = catalog?.find((t) => t.type === node.type);
@@ -71,7 +72,7 @@ function migrateNodeWithCatalog(node, catalog) {
   return { ...node, data };
 }
 
-function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, externalAgents, externalAgentsLoadError, customScripts, customScriptsLoadError, taskCatalog, allNodes, edges, hookInfo, onChange, onDelete, onRegenerateHookSecret, regeneratingSecret }) {
+function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, externalAgents, externalAgentsLoadError, customScripts, customScriptsLoadError, taskCatalog, allNodes, edges, hookInfo, onChange, onDelete, onRegenerateHookSecret, onFetchHookInfo, regeneratingSecret }) {
   const [secretVisible, setSecretVisible] = useState(false);
   if (!node) {
     return (
@@ -156,56 +157,79 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, extern
                     if (mode === 'schedule' && !e.target.checked) patch.scheduleCron = '';
                     if (mode === 'chat' && !e.target.checked) patch.chatPhrase = '';
                     set(patch);
+                    // Immediately fetch hook info when user enables event mode on a saved workflow
+                    if (mode === 'event' && e.target.checked) {
+                      onFetchHookInfo?.();
+                    }
                   }}
                 />{' '}
                 {mode === 'event' ? 'event (webhook / SSE hook)' : mode}
               </label>
             ))}
           </fieldset>
-          {(data.triggerModes || []).includes('event') && hookInfo && (
+          {(data.triggerModes || []).includes('event') && (
             <div className="wf-field wf-hook-info">
-              <strong>Event webhook URL</strong>
-              <code className="wf-hook-url">{hookInfo.hook_url}</code>
-              {hookInfo.email_inbound_url && (
+              {hookInfo ? (
                 <>
-                  <strong style={{ display: 'block', marginTop: '0.5rem' }}>Email inbound URL</strong>
-                  <code className="wf-hook-url">{hookInfo.email_inbound_url}</code>
-                  <small>Same secret — providers POST mail here</small>
+                  <strong>Event webhook URL</strong>
+                  <code className="wf-hook-url">{hookInfo.hook_url}</code>
+                  {hookInfo.email_inbound_url && (
+                    <>
+                      <strong style={{ display: 'block', marginTop: '0.5rem' }}>Email inbound URL</strong>
+                      <code className="wf-hook-url">{hookInfo.email_inbound_url}</code>
+                      <small>Same secret — providers POST mail here</small>
+                    </>
+                  )}
+                  <small>POST JSON with header <code>X-Workflow-Hook-Secret</code>. Each event-enabled workflow has its own URL.</small>
+                  {hookInfo.webhook_secret ? (
+                    <>
+                      <strong style={{ display: 'block', marginTop: '0.5rem' }}>Secret</strong>
+                      <code className={secretVisible ? '' : 'wf-hook-secret-masked'}>
+                        {secretVisible ? hookInfo.webhook_secret : '•'.repeat(Math.min(32, hookInfo.webhook_secret.length || 24))}
+                      </code>
+                      <div className="wf-hook-secret-actions">
+                        <button type="button" className="wf-btn-secondary" onClick={() => setSecretVisible((v) => !v)}>
+                          {secretVisible ? 'Hide' : 'Show'}
+                        </button>
+                        <button
+                          type="button"
+                          className="wf-btn-secondary"
+                          disabled={!!regeneratingSecret}
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                'Regenerate webhook secret? Existing callers with the old secret will stop working.'
+                              )
+                            ) {
+                              onRegenerateHookSecret?.();
+                              setSecretVisible(true);
+                            }
+                          }}
+                        >
+                          {regeneratingSecret ? 'Regenerating…' : 'Regenerate'}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <small style={{ color: 'var(--muted)', display: 'block', marginTop: '0.35rem' }}>
+                      Save draft with event mode enabled to generate the webhook secret.
+                    </small>
+                  )}
                 </>
-              )}
-              <small>POST JSON with header X-Workflow-Hook-Secret. Each event-enabled workflow has its own URL (no central registry).</small>
-              {hookInfo.webhook_secret && (
-                <>
-                  <strong style={{ display: 'block', marginTop: '0.5rem' }}>Secret</strong>
-                  <code className={secretVisible ? '' : 'wf-hook-secret-masked'}>
-                    {secretVisible ? hookInfo.webhook_secret : '•'.repeat(Math.min(32, hookInfo.webhook_secret.length || 24))}
-                  </code>
-                  <div className="wf-hook-secret-actions">
-                    <button type="button" className="wf-btn-secondary" onClick={() => setSecretVisible((v) => !v)}>
-                      {secretVisible ? 'Hide' : 'Show'}
-                    </button>
-                    <button
-                      type="button"
-                      className="wf-btn-secondary"
-                      disabled={!!regeneratingSecret}
-                      onClick={() => {
-                        if (
-                          window.confirm(
-                            'Regenerate webhook secret? Existing callers with the old secret will stop working.'
-                          )
-                        ) {
-                          onRegenerateHookSecret?.();
-                          setSecretVisible(true);
-                        }
-                      }}
-                    >
-                      {regeneratingSecret ? 'Regenerating…' : 'Regenerate'}
-                    </button>
+              ) : (
+                <div style={{ color: 'var(--muted)', fontSize: '0.88rem', lineHeight: 1.5 }}>
+                  <strong style={{ color: 'var(--text)' }}>Event webhook enabled</strong>
+                  <div style={{ marginTop: '0.35rem' }}>
+                    A unique webhook URL and secret will appear here after you{' '}
+                    <strong>Save draft</strong>. The endpoint will be:
                   </div>
-                </>
-              )}
-              {!hookInfo.webhook_secret && (
-                <small>Save draft with event mode enabled to create a secret</small>
+                  <code className="wf-hook-url" style={{ marginTop: '0.35rem', opacity: 0.6 }}>
+                    {window.location.origin}/api/agent-workflows/hooks/{'{workflow-id}'}
+                  </code>
+                  <div style={{ marginTop: '0.35rem', fontSize: '0.82rem' }}>
+                    Call it via <code>POST</code> with header <code>X-Workflow-Hook-Secret: &lt;secret&gt;</code>
+                  </div>
+                </div>
               )}
             </div>
           )}
@@ -1127,6 +1151,8 @@ function EditorInner({ workflowId }) {
   const [customScripts, setCustomScripts] = useState([]);
   const [customScriptsLoadError, setCustomScriptsLoadError] = useState(null);
   const [runInput, setRunInput] = useState('');
+  const [a2aPublication, setA2aPublication] = useState(null);
+  const [a2aModalOpen, setA2aModalOpen] = useState(false);
 
   const loadMcpServers = useCallback(() => {
     return api
@@ -1210,6 +1236,20 @@ function EditorInner({ workflowId }) {
     [edges, selectedEdgeId]
   );
 
+  const loadA2aPublication = useCallback(() => {
+    if (!workflowId) return Promise.resolve(null);
+    return api
+      .agentWorkflowA2APublication(workflowId)
+      .then((pub) => {
+        setA2aPublication(pub);
+        return pub;
+      })
+      .catch(() => {
+        setA2aPublication(null);
+        return null;
+      });
+  }, [workflowId]);
+
   const load = useCallback(() => {
     if (!workflowId) return;
     Promise.all([
@@ -1221,7 +1261,7 @@ function EditorInner({ workflowId }) {
       loadMcpServers(),
       loadExternalAgents(),
     ])
-      .then(([wf, agentList, toolMeta, auditRes, catalogRes]) => {
+      .then(async ([wf, agentList, toolMeta, auditRes, catalogRes]) => {
         const catalog = catalogRes.task_types || [];
         setTaskCatalog(catalog);
         setWorkflow(wf);
@@ -1237,9 +1277,14 @@ function EditorInner({ workflowId }) {
         if ((wf.trigger_modes || []).includes('event')) {
           api.agentWorkflowHookInfo(workflowId).then(setHookInfo).catch(() => setHookInfo(null));
         }
+        if (wf.status === 'published') {
+          await loadA2aPublication();
+        } else {
+          setA2aPublication(null);
+        }
       })
       .catch((e) => showError(e.message || 'Failed to load workflow'));
-  }, [workflowId, setNodes, setEdges, showError, loadMcpServers, loadExternalAgents, seedHistory]);
+  }, [workflowId, setNodes, setEdges, showError, loadMcpServers, loadExternalAgents, seedHistory, loadA2aPublication]);
 
   useEffect(() => {
     load();
@@ -1262,7 +1307,10 @@ function EditorInner({ workflowId }) {
   }, [selectedNode?.id, selectedNode?.type, loadMcpServers, loadExternalAgents, loadCustomScripts]);
 
   const refreshHookInfo = useCallback(async (wf) => {
-    const modes = wf?.trigger_modes || nodes.find((n) => n.type === 'trigger')?.data?.triggerModes || [];
+    // Prefer trigger_modes from the saved workflow object; fall back to canvas trigger node.
+    const modesFromWf = Array.isArray(wf?.trigger_modes) ? wf.trigger_modes : (typeof wf?.trigger_modes === 'string' ? wf.trigger_modes.split(',').map((s) => s.trim()).filter(Boolean) : null);
+    const modesFromCanvas = nodes.find((n) => n.type === 'trigger')?.data?.triggerModes || [];
+    const modes = modesFromWf ?? modesFromCanvas;
     if (!modes.includes('event')) {
       setHookInfo(null);
       return;
@@ -1570,12 +1618,34 @@ function EditorInner({ workflowId }) {
     try {
       const updated = await api.agentWorkflowUnpublish(workflowId);
       setWorkflow(updated);
+      setA2aPublication(null);
       await refreshHookInfo(updated);
       const auditRes = await api.agentWorkflowAudit(workflowId);
       setAudit(auditRes.audit || []);
       showSuccess('Workflow reverted to draft');
     } catch (e) {
       showError(e.message || 'Failed to unpublish');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const publishA2A = async (body) => {
+    const pub = await api.agentWorkflowPublishA2A(workflowId, body);
+    setA2aPublication(pub);
+    showSuccess(`A2A agent published — ${pub.card_url}`);
+    return pub;
+  };
+
+  const unpublishA2A = async () => {
+    if (!window.confirm('Unpublish this workflow from AgentExchange? The A2A endpoint will stop working.')) return;
+    setSaving(true);
+    try {
+      await api.agentWorkflowUnpublishA2A(workflowId);
+      setA2aPublication(null);
+      showSuccess('A2A agent unpublished');
+    } catch (e) {
+      showError(e.message || 'Failed to unpublish A2A agent');
     } finally {
       setSaving(false);
     }
@@ -1668,6 +1738,24 @@ function EditorInner({ workflowId }) {
             <button type="button" className="wf-btn" onClick={unpublish} disabled={saving}>
               Revert to draft
             </button>
+          )}
+          {workflow.status === 'published' && (
+            <>
+              <button
+                type="button"
+                className="wf-btn"
+                onClick={() => setA2aModalOpen(true)}
+                disabled={saving}
+                title="Publish as A2A-compliant agent for AgentExchange"
+              >
+                {a2aPublication ? 'Update A2A' : 'Publish A2A'}
+              </button>
+              {a2aPublication && (
+                <button type="button" className="wf-btn" onClick={unpublishA2A} disabled={saving}>
+                  Unpublish A2A
+                </button>
+              )}
+            </>
           )}
           <button
             type="button"
@@ -1791,6 +1879,7 @@ function EditorInner({ workflowId }) {
             onChange={updateNodeData}
             onDelete={deleteNode}
             onRegenerateHookSecret={regenerateHookSecret}
+            onFetchHookInfo={() => refreshHookInfo(workflow)}
             regeneratingSecret={regeneratingSecret}
           />
 
@@ -1826,6 +1915,14 @@ function EditorInner({ workflowId }) {
           if (meta) setWorkflow((w) => (w ? { ...w, ...meta } : w));
         }}
         onAgentEffects={handleAgentEffects}
+      />
+
+      <PublishA2AModal
+        open={a2aModalOpen}
+        workflow={workflow}
+        existingPublication={a2aPublication}
+        onClose={() => setA2aModalOpen(false)}
+        onPublished={publishA2A}
       />
     </div>
   );

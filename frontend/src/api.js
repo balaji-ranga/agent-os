@@ -75,6 +75,8 @@ export const api = {
     post(`/agents/${encodeURIComponent(agentId)}/tools/sync-template-md`, templateId ? { template_id: templateId } : {}),
   // Agents
   agentsList: () => get('/agents'),
+  /** Rebuild ORG.md + COO AGENTS.md from DB for the signed-in CEO (admin: owner_user_id). */
+  orgSyncAgentDocs: (body) => post('/agents/org/sync', body || {}),
   agentGet: (id) => get(`/agents/${id}`),
   agentCreate: (body) => post('/agents', body),
   agentUpdate: (id, body) => patch(`/agents/${id}`, body),
@@ -216,6 +218,7 @@ export const api = {
   },
   masterDataTables: () => get('/master-data/tables'),
   masterDataTableCreate: (body) => post('/master-data/tables', body),
+  masterDataTableUpdate: (id, body) => patch(`/master-data/tables/${encodeURIComponent(id)}`, body),
   masterDataTableGet: (id, params = {}) => {
     const q = new URLSearchParams();
     if (params.limit != null) q.set('limit', String(params.limit));
@@ -332,6 +335,14 @@ export const api = {
   externalAgentDelete: (id) => del(`/integrations/external-agents/${encodeURIComponent(id)}`),
   externalAgentDiscover: (id) => post(`/integrations/external-agents/${encodeURIComponent(id)}/discover`, {}),
   externalAgentInvoke: (id, body) => post(`/integrations/external-agents/${encodeURIComponent(id)}/invoke`, body),
+
+  agentExchangeList: () => get('/agent-exchange'),
+  agentWorkflowA2APublication: (workflowId) =>
+    get(`/agent-workflows/${encodeURIComponent(workflowId)}/a2a-publication`),
+  agentWorkflowPublishA2A: (workflowId, body) =>
+    post(`/agent-workflows/${encodeURIComponent(workflowId)}/publish-a2a`, body),
+  agentWorkflowUnpublishA2A: (workflowId) =>
+    del(`/agent-workflows/${encodeURIComponent(workflowId)}/a2a-publication`),
 
   customScriptsList: (opts = {}) => {
     const q = opts.forWorkflow ? '?for_workflow=1' : '';

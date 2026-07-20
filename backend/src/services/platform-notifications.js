@@ -93,9 +93,11 @@ export function listNotificationsForUser(userId, { limit = 30 } = {}) {
     .prepare(
       `SELECT n.id, n.user_id, n.title, n.body, n.link_url, n.created_by, n.created_at,
               n.read_at, n.source, n.source_key,
-              u.name AS created_by_name
+              COALESCE(u.name, a.name, n.created_by) AS created_by_name,
+              CASE WHEN a.id IS NOT NULL THEN 1 ELSE 0 END AS created_by_is_agent
        FROM platform_user_notifications n
        LEFT JOIN platform_users u ON u.id = n.created_by
+       LEFT JOIN agents a ON a.id = n.created_by
        WHERE n.user_id = ?
          AND n.read_at IS NULL
          AND datetime(n.created_at) >= datetime('now', ?)
@@ -103,22 +105,27 @@ export function listNotificationsForUser(userId, { limit = 30 } = {}) {
        LIMIT ?`
     )
     .all(userId, `-${NOTIFY_WINDOW_DAYS} days`, cap)
-    .map((row) => ({
-      id: row.id,
-      kind: 'platform',
-      title: row.title,
-      body: row.body || '',
-      link_url: row.link_url || null,
-      created_at: row.created_at,
-      created_by: row.created_by,
-      created_by_name:
-        row.created_by === 'system'
-          ? 'System'
-          : row.created_by_name || (row.created_by === 'system' ? 'System' : 'Admin'),
-      source: row.source || null,
-      source_key: row.source_key || null,
-      read: false,
-    }));
+    .map((row) => {
+      const fromAgent = Number(row.created_by_is_agent) === 1 || row.source === 'agent_notify';
+      let createdByName = row.created_by_name;
+      if (row.created_by === 'system') createdByName = 'System';
+      else if (fromAgent) createdByName = row.created_by_name || row.created_by || 'Agent';
+      else if (!createdByName) createdByName = 'Admin';
+      return {
+        id: row.id,
+        kind: 'platform',
+        title: row.title,
+        body: row.body || '',
+        link_url: row.link_url || null,
+        created_at: row.created_at,
+        created_by: row.created_by,
+        created_by_name: createdByName,
+        created_by_is_agent: fromAgent,
+        source: row.source || null,
+        source_key: row.source_key || null,
+        read: false,
+      };
+    });
 }
 
 export function markNotificationsRead(userId, ids = []) {

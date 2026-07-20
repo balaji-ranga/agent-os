@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
 import ChatMessageContent from '../components/ChatMessageContent';
+import ChatComposeInput from '../components/ChatComposeInput';
 import MessageFeedback from '../components/MessageFeedback';
 import OrgChart from '../components/OrgChart';
 import DepartmentPicker from '../components/DepartmentPicker';
@@ -86,6 +87,8 @@ export default function Dashboard() {
   const [openclawData, setOpenclawData] = useState(null);
   const [openclawLoading, setOpenclawLoading] = useState(false);
   const [openclawSyncing, setOpenclawSyncing] = useState(false);
+  const [orgDocSyncing, setOrgDocSyncing] = useState(false);
+  const [orgDocSyncMessage, setOrgDocSyncMessage] = useState(null);
   const [showCreateStandupModal, setShowCreateStandupModal] = useState(false);
   const [standupTitle, setStandupTitle] = useState('');
   const [standupOutcomes, setStandupOutcomes] = useState('');
@@ -106,7 +109,7 @@ export default function Dashboard() {
       .then(([a, s]) => {
         setAgents(a);
         setStandups(s);
-        if (s.length > 0 && !selectedStandup) setSelectedStandup(s[0]);
+        // Do not auto-open another CEO's standup; user picks or creates one.
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -323,6 +326,22 @@ export default function Dashboard() {
       .finally(() => setOpenclawSyncing(false));
   };
 
+  const syncOrgAgentDocs = () => {
+    setOrgDocSyncing(true);
+    setOrgDocSyncMessage(null);
+    api
+      .orgSyncAgentDocs()
+      .then((out) => {
+        setOrgDocSyncMessage(
+          out.message ||
+            `Synced ${out.workspaces_synced ?? 0} workspace(s) — ${out.agent_count ?? 0} agents, ${out.delegatee_count ?? 0} COO delegatees.`
+        );
+        setTimeout(() => setOrgDocSyncMessage(null), 8000);
+      })
+      .catch((e) => setOrgDocSyncMessage(e.message || 'Org sync failed'))
+      .finally(() => setOrgDocSyncing(false));
+  };
+
   if (loading) return <div style={{ padding: '2rem' }}>Loading…</div>;
   if (error) return <div style={{ padding: '2rem', color: '#f87171' }}>Error: {error}</div>;
 
@@ -334,9 +353,43 @@ export default function Dashboard() {
 
       {/* Org chart: recursive hierarchy with List | Graph */}
       <section style={{ marginBottom: '2rem' }}>
-        <h2 style={{ fontSize: '1.25rem', marginBottom: '0.75rem' }}>Org chart</h2>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '0.75rem' }}>
+          <h2 style={{ fontSize: '1.25rem', margin: 0 }}>Org chart</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.35rem' }}>
+            <button
+              type="button"
+              onClick={syncOrgAgentDocs}
+              disabled={orgDocSyncing}
+              title="Rebuild ORG.md and COO AGENTS.md from the database (roster, tenant session keys)"
+              style={{
+                padding: '0.45rem 0.85rem',
+                background: 'var(--surface)',
+                color: 'var(--text)',
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                cursor: orgDocSyncing ? 'wait' : 'pointer',
+                fontSize: '0.85rem',
+              }}
+            >
+              {orgDocSyncing ? 'Syncing org docs…' : 'Resync ORG.md & AGENTS.md'}
+            </button>
+            {orgDocSyncMessage && (
+              <span
+                style={{
+                  fontSize: '0.8rem',
+                  color: orgDocSyncMessage.toLowerCase().includes('fail') ? '#f87171' : '#22c55e',
+                  maxWidth: 320,
+                  textAlign: 'right',
+                }}
+              >
+                {orgDocSyncMessage}
+              </span>
+            )}
+          </div>
+        </div>
         <p style={{ color: 'var(--muted)', marginBottom: '1rem', fontSize: '0.9rem' }}>
           CEO (you) → reports-to chain for all agents in your workspace. Use List or Graph; optionally group by department.
+          After adding, removing, or renaming agents, click <strong>Resync ORG.md &amp; AGENTS.md</strong> so every agent workspace gets an updated org roster and tenant session keys for COO delegation.
         </p>
         <OrgChart agents={agents} onRemove={removeAgent} />
         {agents.length === 0 && (
@@ -563,17 +616,13 @@ export default function Dashboard() {
                   )}
                 </div>
                 <form onSubmit={handleStandupMessage} style={{ flexShrink: 0, display: 'flex', gap: '0.5rem', alignItems: 'flex-end' }}>
-                  <textarea
+                  <ChatComposeInput
                     rows={3}
                     value={standupChatInput}
                     onChange={(e) => setStandupChatInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        if (standupChatInput.trim()) handleStandupMessage(e);
-                      }
-                    }}
-                    placeholder="Request AI or finance topics (e.g. research on X, expense summary for Y). Multi-intent: e.g. research AI trends and give me Q2 expense report."
+                    onSend={handleStandupMessage}
+                    placeholder="Request AI or finance topics (Shift+Enter for new line). Multi-intent: e.g. research AI trends and give me Q2 expense report."
+                    disabled={sendingMessage}
                     style={{ flex: 1, padding: '0.5rem 0.75rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', resize: 'vertical', minHeight: 56, font: 'inherit' }}
                   />
                   <button type="submit" disabled={sendingMessage || !standupChatInput.trim()} style={{ padding: '0.5rem 1rem', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, cursor: sendingMessage ? 'not-allowed' : 'pointer' }}>

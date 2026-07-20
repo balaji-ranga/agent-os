@@ -180,7 +180,11 @@ export default function NotificationBell() {
                           <div style={{ marginBottom: '0.25rem' }}>
                             <strong>{n.title}</strong>
                             <span style={{ marginLeft: '0.35rem', fontSize: '0.75rem', color: 'var(--accent)' }}>
-                              {n.created_by === 'system' || n.created_by_name === 'System' ? 'System' : 'Admin'}
+                              {n.created_by_is_agent || n.source === 'agent_notify'
+                                ? n.created_by_name || 'Agent'
+                                : n.created_by === 'system' || n.created_by_name === 'System'
+                                  ? 'System'
+                                  : 'Admin'}
                             </span>
                           </div>
                           {n.body && <div className="notification-overlay-snippet">{n.body}</div>}
