@@ -44,10 +44,10 @@ x-llm-env: &llm-env
   OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
   OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
   OPENROUTER_MODEL: ${OPENROUTER_MODEL:-}
-  DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
-  DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-http://deepseek:8080/v1}
-  DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-chat}
-  DEEPSEEK_UPSTREAM_URL: ${DEEPSEEK_UPSTREAM_URL:-https://api.deepseek.com/v1}
+  # DeepSeek V3 via local Ollama (no cloud API key) — requires optional-ollama
+  DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-http://ollama:11434/v1}
+  DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-v3}
+  OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2}
 
 x-openclaw-env: &openclaw-env
   <<: *llm-env
@@ -181,8 +181,8 @@ services:
     depends_on:
       openclaw:
         condition: service_started
-      deepseek:
-        condition: service_healthy
+      ollama:
+        condition: service_started
         required: false
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3001/health"]
@@ -266,6 +266,9 @@ services:
     expose:
       - "3105"
 
+  # Local Ollama — hosts llama3.2, deepseek-v3, etc. (no cloud API keys).
+  # Start: docker compose --profile optional-ollama up -d ollama
+  # Pull DeepSeek V3: docker compose exec ollama ollama pull deepseek-v3
   ollama:
     profiles: ["optional-ollama"]
     image: ollama/ollama:latest
@@ -274,28 +277,6 @@ services:
       - ollama_data:/root/.ollama:Z
     expose:
       - "11434"
-
-  # DeepSeek V3 — internal OpenAI-compatible proxy (injects DEEPSEEK_API_KEY).
-  # Start: docker compose --profile optional-deepseek up -d deepseek
-  deepseek:
-    profiles: ["optional-deepseek"]
-    build:
-      context: ..
-      dockerfile: deploy/docker/deepseek-proxy.Dockerfile
-    image: agent-os-deepseek-proxy:${IMAGE_TAG:-latest}
-    restart: unless-stopped
-    environment:
-      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
-      DEEPSEEK_UPSTREAM_URL: ${DEEPSEEK_UPSTREAM_URL:-https://api.deepseek.com/v1}
-      DEEPSEEK_PROXY_PORT: "8080"
-    expose:
-      - "8080"
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
 
   novnc:
     profiles: ["optional-browser-login"]

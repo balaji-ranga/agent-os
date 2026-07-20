@@ -34,7 +34,7 @@ fi
 
 echo "==> Agent OS deploy latest $(date -Is)"
 echo "    root=$ROOT services=$SERVICES skip_git=$SKIP_GIT"
-echo "    features: notify_ceo, email_send, org sync (ORG.md/AGENTS.md), AgentExchange/A2A"
+echo "    features: notify_ceo, email_send, org sync, Master Data tools/UI, per-CEO delegation, AgentExchange/A2A, DeepSeek@Ollama"
 
 if [[ "$SKIP_GIT" != "1" ]]; then
   if [[ -d "$ROOT/.git" ]]; then
@@ -57,11 +57,8 @@ echo "==> docker compose build $SERVICES"
 # shellcheck disable=SC2086
 docker compose build $SERVICES
 
-if grep -qE '^DEEPSEEK_API_KEY=.+' .env 2>/dev/null; then
-  echo "==> optional-deepseek profile (DEEPSEEK_API_KEY set)"
-  docker compose --profile optional-deepseek build deepseek
-  docker compose --profile optional-deepseek up -d deepseek
-fi
+# Remove obsolete DeepSeek cloud API proxy container (replaced by Ollama)
+docker rm -f agent-os-deepseek-1 2>/dev/null || true
 
 echo "==> recreate $SERVICES + nginx"
 # shellcheck disable=SC2086
@@ -113,6 +110,11 @@ if docker compose exec -T frontend sh -c 'grep -Rql "Resync ORG" /usr/share/ngin
 else
   echo "    WARN: Resync ORG button not found in frontend JS (Dashboard org sync UI missing?)"
 fi
+if docker compose exec -T frontend sh -c 'grep -Rql "Purpose / description" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: Master Data purpose UI OK"
+else
+  echo "    WARN: Master Data purpose UI not found in frontend JS (rebuild frontend?)"
+fi
 
 TOKEN=$(docker compose exec -T -w /opt/agent-os/backend backend node --input-type=module <<'NODE' 2>/dev/null || true
 import { initDb, getDb } from './src/db/schema.js';
@@ -139,10 +141,15 @@ if [[ "$SKIP_SMOKE" != "1" ]]; then
     sed -i 's/\r$//' "$ROOT/deploy/scripts/vps-smoke-new-features.sh" 2>/dev/null || true
     bash "$ROOT/deploy/scripts/vps-smoke-new-features.sh" || echo "WARN: new-features smoke failed (non-fatal)"
   fi
-  if grep -qE '^DEEPSEEK_API_KEY=.+' .env 2>/dev/null && [[ -f "$ROOT/deploy/scripts/vps-smoke-deepseek-brain.sh" ]]; then
-    echo "==> DeepSeek brain smoke"
+  if [[ -f "$ROOT/deploy/scripts/vps-smoke-deepseek-brain.sh" ]]; then
+    echo "==> DeepSeek (Ollama) brain smoke"
     sed -i 's/\r$//' "$ROOT/deploy/scripts/vps-smoke-deepseek-brain.sh" 2>/dev/null || true
-    bash "$ROOT/deploy/scripts/vps-smoke-deepseek-brain.sh" || echo "WARN: DeepSeek smoke failed (non-fatal)"
+    bash "$ROOT/deploy/scripts/vps-smoke-deepseek-brain.sh" || echo "WARN: DeepSeek Ollama smoke failed (non-fatal — check RAM/disk for deepseek-v3)"
+  fi
+  if [[ -f "$ROOT/deploy/scripts/vps-verify-platform.sh" ]]; then
+    echo "==> platform verify (Master Data, delegation, allowlists)"
+    sed -i 's/\r$//' "$ROOT/deploy/scripts/vps-verify-platform.sh" 2>/dev/null || true
+    bash "$ROOT/deploy/scripts/vps-verify-platform.sh" || echo "WARN: platform verify failed (non-fatal)"
   fi
 fi
 

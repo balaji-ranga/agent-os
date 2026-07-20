@@ -15,7 +15,13 @@ export const LLM_PROVIDERS = Object.freeze([
 
 const OPENAI_BASE = 'https://api.openai.com/v1';
 const OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
-const DEEPSEEK_DIRECT_BASE = 'https://api.deepseek.com/v1';
+
+function ollamaOpenAiBaseUrl() {
+  const raw =
+    normalizeBaseUrl(process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434') ||
+    'http://127.0.0.1:11434';
+  return raw.endsWith('/v1') ? raw : `${raw}/v1`;
+}
 
 function sanitizeIdPart(value) {
   return String(value || '')
@@ -206,9 +212,7 @@ export function resolveLlmConfigForUser(userId) {
   }
 
   if (provider === 'ollama_free') {
-    const baseUrl =
-      normalizeBaseUrl(process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434/v1') ||
-      'http://127.0.0.1:11434/v1';
+    const baseUrl = ollamaOpenAiBaseUrl();
     const model =
       (process.env.OLLAMA_MODEL || '').trim() ||
       envPrimary.model ||
@@ -227,29 +231,16 @@ export function resolveLlmConfigForUser(userId) {
   }
 
   if (provider === 'deepseek') {
-    const model = (process.env.DEEPSEEK_MODEL || 'deepseek-chat').trim() || 'deepseek-chat';
-    if (userKey) {
-      return {
-        primary: {
-          baseUrl: DEEPSEEK_DIRECT_BASE,
-          apiKey: userKey,
-          model,
-          source: 'user_byok',
-        },
-        secondary: null,
-        provider,
-        using_byok: true,
-      };
-    }
+    // Local Ollama deepseek-v3 — no cloud API key
     const baseUrl =
-      normalizeBaseUrl(process.env.DEEPSEEK_BASE_URL || 'http://deepseek:8080/v1') ||
-      'http://deepseek:8080/v1';
+      normalizeBaseUrl(process.env.DEEPSEEK_BASE_URL || '') || ollamaOpenAiBaseUrl();
+    const model = (process.env.DEEPSEEK_MODEL || 'deepseek-v3').trim() || 'deepseek-v3';
     return {
       primary: {
-        baseUrl,
-        apiKey: 'deepseek',
+        baseUrl: baseUrl.endsWith('/v1') ? baseUrl : `${baseUrl}/v1`,
+        apiKey: (process.env.OLLAMA_API_KEY || '').trim() || 'ollama',
         model,
-        source: 'user_deepseek_proxy',
+        source: 'user_ollama_deepseek',
       },
       secondary: null,
       provider,

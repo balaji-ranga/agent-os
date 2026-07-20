@@ -1,5 +1,5 @@
 /**
- * E2E: Brain node with DeepSeek V3 (platform proxy or direct API).
+ * E2E: Brain node with DeepSeek via local Ollama (no cloud API key).
  * Usage: node scripts/test-deepseek-brain-workflow.js
  */
 import { config } from 'dotenv';
@@ -20,14 +20,15 @@ const WORKFLOW_ID = 'test-deepseek-brain-summarize';
 const ownerUserId = process.env.WORKFLOW_TEST_OWNER_USER_ID || getBalaCeoAuthId();
 
 function deepseekEndpoint() {
-  return (process.env.DEEPSEEK_BASE_URL || 'http://deepseek:8080/v1').replace(/\/$/, '');
+  const raw = (process.env.DEEPSEEK_BASE_URL || process.env.OLLAMA_BASE_URL || 'http://ollama:11434/v1')
+    .trim()
+    .replace(/\/$/, '');
+  return raw.endsWith('/v1') ? raw : `${raw}/v1`;
 }
 
 function buildGraph() {
   const apiEndpoint = deepseekEndpoint();
-  const model = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
-  const directKey = (process.env.DEEPSEEK_API_KEY || '').trim();
-  const useDirect = apiEndpoint.includes('api.deepseek.com');
+  const model = process.env.DEEPSEEK_MODEL || 'deepseek-v3';
   return {
     nodes: [
       {
@@ -53,7 +54,7 @@ function buildGraph() {
           taskConfig: {
             modelSource: 'deepseek',
             apiEndpoint,
-            apiKey: useDirect ? directKey : '',
+            apiKey: '',
             model,
             maxTokens: 400,
             systemPrompt: 'Summarize the following text in exactly 3 short bullet points.\n\n{{input}}',
@@ -68,9 +69,9 @@ function buildGraph() {
   };
 }
 
-async function waitForRun(runId, maxMs = 120000) {
+async function waitForRun(runId, maxMs = 300000) {
   const start = Date.now();
-  while Date.now() - start < maxMs) {
+  while (Date.now() - start < maxMs) {
     const row = getDb()
       .prepare(`SELECT status, context_json FROM agent_workflow_runs WHERE id = ?`)
       .get(runId);
@@ -78,12 +79,12 @@ async function waitForRun(runId, maxMs = 120000) {
     if (row.status === 'completed' || row.status === 'failed' || row.status === 'cancelled') {
       return row;
     }
-    await new Promise((r) => setTimeout(r, 1500));
+    await new Promise((r) => setTimeout(r, 2000));
   }
   throw new Error(`run ${runId} timed out`);
 }
 
-const actor = { id: 'deepseek-test', name: 'DeepSeek Test' };
+const actor = { id: 'deepseek-test', name: 'DeepSeek Test', type: 'system' };
 const graph = buildGraph();
 let def = store.getDefinition(WORKFLOW_ID, ownerUserId);
 if (!def) {
@@ -96,25 +97,24 @@ if (!def) {
     trigger_modes: ['manual'],
   });
 } else {
-  store.updateDraft(WORKFLOW_ID, ownerUserId, { graph }, actor);
+  store.updateDraft(WORKFLOW_ID, ownerUserId, { graph, trigger_modes: ['manual'] }, actor);
 }
 store.publishDefinition(WORKFLOW_ID, ownerUserId, actor);
 
-console.log('DeepSeek endpoint:', deepseekEndpoint());
-console.log('Model:', process.env.DEEPSEEK_MODEL || 'deepseek-chat');
+console.log('DeepSeek (Ollama) endpoint:', deepseekEndpoint());
+console.log('Model:', process.env.DEEPSEEK_MODEL || 'deepseek-v3');
+console.log('Owner:', ownerUserId);
 
-const { runId } = await startAgentWorkflowRun({
-  definitionId: WORKFLOW_ID,
-  ownerUserId,
+const run = await startAgentWorkflowRun(WORKFLOW_ID, ownerUserId, {
   trigger: 'manual',
-  initialInput: 'deepseek smoke',
+  input: 'deepseek smoke',
   actor,
 });
 
-console.log('Started run', runId);
-const final = await waitForRun(runId);
+console.log('Started run', run.id);
+const final = await waitForRun(run.id);
 if (final.status !== 'completed') {
-  console.error('Run failed:', final.status, final.context_json?.slice?.(0, 500));
+  console.error('Run failed:', final.status, String(final.context_json || '').slice(0, 800));
   process.exit(1);
 }
 
@@ -133,9 +133,6 @@ console.log('Summary preview:', String(text).slice(0, 400));
 if (!text || String(text).trim().length < 20) {
   console.error('DeepSeek brain output too short');
   process.exit(1);
-}
-if (!String(text).includes('•') && !String(text).includes('-') && String(text).length < 40) {
-  console.warn('WARN: output may not be bullet summary format');
 }
 
 console.log('DEEPSEEK_BRAIN_WORKFLOW_OK');

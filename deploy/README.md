@@ -185,7 +185,7 @@ Gets the same gateway LLM vars plus:
 | `OPENROUTER_*` | Dev/test scripts; Brain nodes still use per-node keys |
 | `CUSTOM_SCRIPT_*` | Python/JS workflow script sandbox (`python3` in image); includes LLM security review at registration |
 | `WORKFLOW_SMTP_*` | Send Email workflow task, `email_send` content tool (incl. ICS invites), MFA email OTP |
-| `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`, `DEEPSEEK_MODEL` | DeepSeek V3 proxy (`optional-deepseek` profile) |
+| `DEEPSEEK_BASE_URL`, `DEEPSEEK_MODEL` | DeepSeek V3 via local Ollama (`optional-ollama`; default model `deepseek-v3`) |
 | `MFA_MODE`, `AGENT_OS_REQUIRE_MFA`, `AGENT_OS_DISABLE_MFA` | Platform MFA defaults |
 | `EMAIL_INBOUND_WEBHOOK_SECRET` | Optional platform secret for email inbound webhooks |
 | `OPENCONNECTOR_MCP_*` | OpenConnector MCP URL / bearer / transport |
@@ -220,7 +220,7 @@ All proxied under `/api` (rebuild backend + frontend images after upgrade):
 | OpenConnector | `/api/openconnector`, MCP via `OPENCONNECTOR_MCP_URL` |
 | Email inbound | `POST /api/integrations/email-inbound/:definitionId` |
 | BYOK LLM | User Profile → stored in DB; Ollama needs `optional-ollama` |
-| DeepSeek V3 | User Profile / Register / Brain `deepseek`; profile `optional-deepseek` |
+| DeepSeek V3 | User Profile / Register / Brain `deepseek` → local Ollama `deepseek-v3` (no API key) |
 | `email_send` tool | `POST /api/tools/email-send` (SMTP + optional calendar ICS); granted to agents at boot |
 | `notify_ceo` tool | `POST /api/tools/notify-ceo` (in-app push to entitled CEO user); granted to agents at boot |
 | Org doc sync | `POST /api/agents/org/sync` — rebuilds `ORG.md` + COO `AGENTS.md` (tenant session keys); Dashboard **Resync ORG.md & AGENTS.md** |
@@ -270,9 +270,9 @@ docker compose exec backend node scripts/seed-openconnector-mcp.js
 docker compose --profile optional-ollama up -d
 # pull a model after start: docker compose exec ollama ollama pull llama3.2
 
-# DeepSeek V3 proxy (Brain nodes + user profile "DeepSeek V3")
-# Set DEEPSEEK_API_KEY in .env, then:
-docker compose --profile optional-deepseek up -d deepseek
+# DeepSeek V3 on local Ollama (no cloud API key)
+docker compose --profile optional-ollama up -d ollama
+docker compose exec ollama ollama pull deepseek-v3
 docker compose exec backend node scripts/test-deepseek-brain-workflow.js
 
 # Browser login helper — set ENABLE_VNC=1 in .env, then:

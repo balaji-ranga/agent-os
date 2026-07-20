@@ -1,6 +1,12 @@
 /**
- * Brain node LLM provider presets (OpenAI-compatible, Anthropic, Ollama, OpenRouter).
+ * Brain node LLM provider presets (OpenAI-compatible, Anthropic, Ollama, OpenRouter, DeepSeek-via-Ollama).
  */
+
+function ollamaOpenAiBase() {
+  const raw = (process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434').trim().replace(/\/$/, '');
+  if (!raw) return 'http://127.0.0.1:11434/v1';
+  return raw.endsWith('/v1') ? raw : `${raw}/v1`;
+}
 
 export const BRAIN_PROVIDERS = {
   openai: {
@@ -48,16 +54,17 @@ export const BRAIN_PROVIDERS = {
       'X-Title': 'OPENROUTER_SITE_TITLE',
     },
   },
+  /** DeepSeek V3 served by local Ollama — no cloud API key. */
   deepseek: {
-    label: 'DeepSeek V3',
-    baseUrl: 'http://deepseek:8080/v1',
-    model: 'deepseek-chat',
-    envApiKey: ['DEEPSEEK_API_KEY'],
-    envBaseUrl: ['DEEPSEEK_BASE_URL'],
+    label: 'DeepSeek V3 (Ollama)',
+    baseUrl: 'http://ollama:11434/v1',
+    model: 'deepseek-v3',
+    envApiKey: [],
+    envBaseUrl: ['DEEPSEEK_BASE_URL', 'OLLAMA_BASE_URL'],
     envModel: ['DEEPSEEK_MODEL'],
     protocol: 'openai',
     requiresKey: false,
-    placeholderApiKey: 'deepseek',
+    placeholderApiKey: 'ollama',
   },
 };
 
@@ -69,34 +76,51 @@ function firstEnv(keys = []) {
   return '';
 }
 
+function normalizeOpenAiCompatBase(url) {
+  if (!url) return '';
+  const u = String(url).trim().replace(/\/$/, '');
+  if (!u) return '';
+  if (u.endsWith('/v1')) return u;
+  if (u.endsWith('/chat/completions')) return u.replace(/\/chat\/completions$/, '');
+  // Ollama host without /v1
+  try {
+    const parsed = new URL(u);
+    if (parsed.hostname === 'ollama' || parsed.port === '11434') {
+      return `${u}/v1`;
+    }
+  } catch {
+    /* ignore */
+  }
+  return u;
+}
+
 function isLocalOllamaBaseUrl(baseUrl) {
   if (!baseUrl) return false;
   try {
     const u = new URL(baseUrl);
-    return u.hostname === 'localhost' || u.hostname === '127.0.0.1';
+    return (
+      u.hostname === 'localhost' ||
+      u.hostname === '127.0.0.1' ||
+      u.hostname === 'ollama'
+    );
   } catch {
     return false;
   }
 }
 
-/** Platform DeepSeek proxy (compose service `deepseek` or DEEPSEEK_BASE_URL) — no per-node API key. */
+/** Local Ollama OpenAI-compat endpoint (Docker service or loopback) — no API key. */
+export function isOllamaServiceBaseUrl(baseUrl) {
+  return isLocalOllamaBaseUrl(baseUrl);
+}
+
+/** @deprecated use isOllamaServiceBaseUrl — kept for callers that imported the old name */
 export function isDeepSeekProxyBaseUrl(baseUrl) {
-  if (!baseUrl) return false;
-  try {
-    const u = new URL(baseUrl);
-    if (u.hostname === 'deepseek') return true;
-    const envBase = firstEnv(['DEEPSEEK_BASE_URL']);
-    if (envBase && String(baseUrl).replace(/\/$/, '') === String(envBase).replace(/\/$/, '')) return true;
-    if (isLocalOllamaBaseUrl(baseUrl) && u.port === '8080') return true;
-    return false;
-  } catch {
-    return false;
-  }
+  return isOllamaServiceBaseUrl(baseUrl);
 }
 
 function brainAllowsMissingKey(source, baseUrl) {
-  if (source === 'ollama' || isLocalOllamaBaseUrl(baseUrl)) return true;
-  if (source === 'deepseek' || isDeepSeekProxyBaseUrl(baseUrl)) return true;
+  if (source === 'ollama' || source === 'deepseek') return true;
+  if (isLocalOllamaBaseUrl(baseUrl)) return true;
   return false;
 }
 
@@ -120,10 +144,18 @@ export function resolveWorkflowBrainProviderConfig(modelSource, cfg = {}) {
   const source = (modelSource || 'openai').toLowerCase();
   const preset = BRAIN_PROVIDERS[source] || BRAIN_PROVIDERS.openai;
 
-  const baseUrl = (cfg.apiEndpoint || '').trim() || firstEnv(preset.envBaseUrl) || preset.baseUrl;
+  let baseUrl = (cfg.apiEndpoint || '').trim() || firstEnv(preset.envBaseUrl) || preset.baseUrl;
+  if (source === 'deepseek' && !cfg.apiEndpoint) {
+    baseUrl = firstEnv(['DEEPSEEK_BASE_URL']) || ollamaOpenAiBase() || preset.baseUrl;
+  }
+  if (source === 'ollama' && !cfg.apiEndpoint) {
+    baseUrl = ollamaOpenAiBase() || preset.baseUrl;
+  }
+  baseUrl = normalizeOpenAiCompatBase(baseUrl) || baseUrl;
+
   const configuredKey = nodeApiKey(cfg);
   let apiKey = configuredKey;
-  const model = (cfg.model || '').trim() || preset.model;
+  const model = (cfg.model || '').trim() || firstEnv(preset.envModel) || preset.model;
 
   if (!apiKey && preset.placeholderApiKey) apiKey = preset.placeholderApiKey;
 
@@ -168,6 +200,9 @@ export function resolveBrainProviderConfig(modelSource, cfg = {}) {
   const preset = BRAIN_PROVIDERS[source] || BRAIN_PROVIDERS.openai;
 
   let baseUrl = (cfg.apiEndpoint || '').trim() || firstEnv(preset.envBaseUrl) || preset.baseUrl;
+  if (source === 'deepseek' || source === 'ollama') {
+    baseUrl = normalizeOpenAiCompatBase(baseUrl) || ollamaOpenAiBase();
+  }
   let apiKey = nodeApiKey(cfg) || firstEnv(preset.envApiKey);
   let model = (cfg.model || '').trim() || firstEnv(preset.envModel) || preset.model;
 

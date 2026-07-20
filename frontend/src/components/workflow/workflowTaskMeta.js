@@ -26,10 +26,10 @@ export const BRAIN_PROVIDER_PRESETS = {
     siteTitle: 'Agent OS',
   },
   deepseek: {
-    label: 'DeepSeek V3',
-    apiEndpoint: 'http://deepseek:8080/v1',
-    model: 'deepseek-chat',
-    apiKeyHint: 'optional — platform proxy injects key when using http://deepseek:8080/v1',
+    label: 'DeepSeek V3 (Ollama)',
+    apiEndpoint: 'http://ollama:11434/v1',
+    model: 'deepseek-v3',
+    apiKeyHint: 'not required — local Ollama (pull deepseek-v3 first)',
   },
 };
 

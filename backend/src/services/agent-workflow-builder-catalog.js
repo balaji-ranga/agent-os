@@ -67,10 +67,13 @@ export function normalizeBrainTaskConfig(cfg = {}, runtimeDefaults = null) {
   }
   if (merged.modelSource === 'deepseek' && !merged.apiEndpoint) {
     merged.apiEndpoint =
-      defaults.apiEndpoint || process.env.DEEPSEEK_BASE_URL || 'http://deepseek:8080/v1';
+      defaults.apiEndpoint ||
+      process.env.DEEPSEEK_BASE_URL ||
+      process.env.OLLAMA_BASE_URL ||
+      'http://ollama:11434/v1';
   }
   if (merged.modelSource === 'deepseek' && !merged.model) {
-    merged.model = defaults.model || process.env.DEEPSEEK_MODEL || 'deepseek-chat';
+    merged.model = defaults.model || process.env.DEEPSEEK_MODEL || 'deepseek-v3';
   }
 
   delete merged.api_key;

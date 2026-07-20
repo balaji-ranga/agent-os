@@ -6,7 +6,8 @@
 #   .\deploy\scripts\sync-to-vps.ps1 -SkipSmoke   # skip post-deploy smoke (email_send / notify_ceo / org sync / A2A)
 #
 # Keeps VPS aligned with: notify_ceo, email_send, Dashboard org resync (ORG.md/AGENTS.md),
-# tenant session keys, AgentExchange/A2A, OpenClaw content-tools allowlists.
+# tenant session keys, AgentExchange/A2A, Master Data content tools + UI, per-CEO delegation,
+# OpenClaw content-tools allowlists + anti-browser SKILL.md guidance.
 param(
   [string]$HostIp = "76.13.209.30",
   [string]$Key = "$env:USERPROFILE\.ssh\agent-os-vps",
@@ -19,8 +20,8 @@ $ErrorActionPreference = "Stop"
 $Repo = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $ssh = @("-i", $Key, "-o", "IdentitiesOnly=yes", "-o", "BatchMode=yes")
 
-Write-Host "==> Sync frontend (Dashboard org resync, notify_ceo bell, email_send, A2A, AgentExchange)"
-ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/frontend/src/components/workflow $RemoteRoot/frontend/src/pages $RemoteRoot/frontend/src/utils $RemoteRoot/deploy/scripts $RemoteRoot/deploy/docker $RemoteRoot/deploy/nginx $RemoteRoot/backend/scripts $RemoteRoot/scripts/lib"
+Write-Host "==> Sync frontend (Dashboard org resync, Master Data UI, notify_ceo, email_send, A2A, AgentExchange)"
+ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/frontend/src/components/workflow $RemoteRoot/frontend/src/components $RemoteRoot/frontend/src/pages $RemoteRoot/frontend/src/utils $RemoteRoot/deploy/scripts $RemoteRoot/deploy/docker $RemoteRoot/deploy/nginx $RemoteRoot/backend/scripts $RemoteRoot/scripts/lib"
 scp @ssh `
   "$Repo\frontend\index.html" `
   "root@${HostIp}:$RemoteRoot/frontend/index.html"
@@ -36,7 +37,9 @@ scp @ssh `
   "$Repo\frontend\src\components\NotificationBell.jsx" `
   "$Repo\frontend\src\components\OrgChart.jsx" `
   "$Repo\frontend\src\components\MaskedSecretInput.jsx" `
+  "$Repo\frontend\src\components\DepartmentPicker.jsx" `
   "$Repo\frontend\src\utils\chatCompose.js" `
+  "$Repo\frontend\src\utils\departmentsMasterData.js" `
   "$Repo\frontend\src\utils\orgHierarchy.js" `
   "$Repo\frontend\src\components\workflow\PublishA2AModal.jsx" `
   "$Repo\frontend\src\components\workflow\WorkflowAgentChat.jsx" `
@@ -49,10 +52,11 @@ scp @ssh `
   "$Repo\frontend\src\pages\Register.jsx" `
   "$Repo\frontend\src\pages\UserProfile.jsx" `
   "$Repo\frontend\src\pages\Login.jsx" `
+  "$Repo\frontend\src\pages\MasterData.jsx" `
   "root@${HostIp}:/tmp/aos-fe/"
 ssh @ssh "root@$HostIp" @"
 set -e
-mkdir -p /tmp/aos-fe $RemoteRoot/frontend/src/components/workflow $RemoteRoot/frontend/src/pages $RemoteRoot/frontend/src/utils
+mkdir -p /tmp/aos-fe $RemoteRoot/frontend/src/components/workflow $RemoteRoot/frontend/src/components $RemoteRoot/frontend/src/pages $RemoteRoot/frontend/src/utils
 cp -f /tmp/aos-fe/App.jsx $RemoteRoot/frontend/src/App.jsx
 cp -f /tmp/aos-fe/api.js $RemoteRoot/frontend/src/api.js
 cp -f /tmp/aos-fe/index.css $RemoteRoot/frontend/src/index.css
@@ -64,7 +68,9 @@ cp -f /tmp/aos-fe/AgentChatPanel.jsx $RemoteRoot/frontend/src/components/AgentCh
 cp -f /tmp/aos-fe/NotificationBell.jsx $RemoteRoot/frontend/src/components/NotificationBell.jsx
 cp -f /tmp/aos-fe/OrgChart.jsx $RemoteRoot/frontend/src/components/OrgChart.jsx
 cp -f /tmp/aos-fe/MaskedSecretInput.jsx $RemoteRoot/frontend/src/components/MaskedSecretInput.jsx
+cp -f /tmp/aos-fe/DepartmentPicker.jsx $RemoteRoot/frontend/src/components/DepartmentPicker.jsx
 cp -f /tmp/aos-fe/chatCompose.js $RemoteRoot/frontend/src/utils/chatCompose.js
+cp -f /tmp/aos-fe/departmentsMasterData.js $RemoteRoot/frontend/src/utils/departmentsMasterData.js
 cp -f /tmp/aos-fe/orgHierarchy.js $RemoteRoot/frontend/src/utils/orgHierarchy.js
 cp -f /tmp/aos-fe/PublishA2AModal.jsx $RemoteRoot/frontend/src/components/workflow/PublishA2AModal.jsx
 cp -f /tmp/aos-fe/WorkflowAgentChat.jsx $RemoteRoot/frontend/src/components/workflow/WorkflowAgentChat.jsx
@@ -77,6 +83,7 @@ cp -f /tmp/aos-fe/AgentWorkflowEditor.jsx $RemoteRoot/frontend/src/pages/AgentWo
 cp -f /tmp/aos-fe/Register.jsx $RemoteRoot/frontend/src/pages/Register.jsx
 cp -f /tmp/aos-fe/UserProfile.jsx $RemoteRoot/frontend/src/pages/UserProfile.jsx
 cp -f /tmp/aos-fe/Login.jsx $RemoteRoot/frontend/src/pages/Login.jsx
+cp -f /tmp/aos-fe/MasterData.jsx $RemoteRoot/frontend/src/pages/MasterData.jsx
 "@
 
 Write-Host "==> Sync deploy compose + nginx + scripts + README"
@@ -92,6 +99,7 @@ scp @ssh `
   "root@${HostIp}:$RemoteRoot/deploy/nginx/"
 scp @ssh `
   "$Repo\deploy\scripts\vps-deploy-latest.sh" `
+  "$Repo\deploy\scripts\vps-verify-platform.sh" `
   "$Repo\deploy\scripts\vps-verify-frontend-media.sh" `
   "$Repo\deploy\scripts\vps-smoke-new-features.sh" `
   "$Repo\deploy\scripts\vps-smoke-deepseek-brain.sh" `
@@ -101,10 +109,9 @@ scp @ssh `
   "$Repo\deploy\scripts\verify-openclaw-parity.js" `
   "$Repo\deploy\scripts\up.sh" `
   "root@${HostIp}:$RemoteRoot/deploy/scripts/"
-scp @ssh `
-  "$Repo\deploy\docker\deepseek-proxy.js" `
-  "$Repo\deploy\docker\deepseek-proxy.Dockerfile" `
-  "root@${HostIp}:$RemoteRoot/deploy/docker/"
+
+# Remove obsolete DeepSeek cloud proxy artifacts on VPS
+ssh @ssh "root@$HostIp" "rm -f $RemoteRoot/deploy/docker/deepseek-proxy.js $RemoteRoot/deploy/docker/deepseek-proxy.Dockerfile; docker rm -f agent-os-deepseek-1 2>/dev/null || true"
 
 # Broader sync for backend/openclaw when doing full deploy
 if ($Services -match "backend|openclaw") {
@@ -120,6 +127,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-workflow-a2a-publish.js" `
     "$Repo\backend\scripts\test-coo-email-send-calendar.js" `
     "$Repo\backend\scripts\test-deepseek-brain-workflow.js" `
+    "$Repo\backend\scripts\test-master-data-content-tools.js" `
     "root@${HostIp}:$RemoteRoot/backend/scripts/"
   ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/scripts/lib"
   scp @ssh `
@@ -141,5 +149,5 @@ if ($Services -match "backend|openclaw") {
 
 $smokeEnv = if ($SkipSmoke) { "SKIP_SMOKE=1" } else { "SKIP_SMOKE=0" }
 Write-Host "==> Run vps-deploy-latest.sh (SERVICES=$Services $smokeEnv)"
-ssh @ssh "root@$HostIp" "sed -i 's/\r`$//' $RemoteRoot/deploy/scripts/vps-deploy-latest.sh $RemoteRoot/deploy/scripts/vps-verify-frontend-media.sh $RemoteRoot/deploy/scripts/vps-smoke-new-features.sh $RemoteRoot/deploy/scripts/up.sh; SKIP_GIT=1 $smokeEnv SERVICES='$Services' bash $RemoteRoot/deploy/scripts/vps-deploy-latest.sh"
+ssh @ssh "root@$HostIp" "sed -i 's/\r`$//' $RemoteRoot/deploy/scripts/vps-deploy-latest.sh $RemoteRoot/deploy/scripts/vps-verify-platform.sh $RemoteRoot/deploy/scripts/vps-verify-frontend-media.sh $RemoteRoot/deploy/scripts/vps-smoke-new-features.sh $RemoteRoot/deploy/scripts/up.sh; SKIP_GIT=1 $smokeEnv SERVICES='$Services' bash $RemoteRoot/deploy/scripts/vps-deploy-latest.sh"
 Write-Host "SYNC_DEPLOY_DONE"

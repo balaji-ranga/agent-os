@@ -3,7 +3,7 @@
  * Optional MCP tool-calling loop when mcpToolCalling is enabled.
  */
 
-import { resolveWorkflowBrainProviderConfig, isDeepSeekProxyBaseUrl } from './agent-workflow-brain-providers.js';
+import { resolveWorkflowBrainProviderConfig, isOllamaServiceBaseUrl } from './agent-workflow-brain-providers.js';
 import {
   buildMcpToolRegistry,
   dispatchToolCall,
@@ -17,7 +17,7 @@ function isLocalOllama(baseUrl) {
   if (!baseUrl) return false;
   try {
     const u = new URL(baseUrl);
-    return u.hostname === 'localhost' || u.hostname === '127.0.0.1';
+    return u.hostname === 'localhost' || u.hostname === '127.0.0.1' || u.hostname === 'ollama';
   } catch {
     return false;
   }
@@ -366,14 +366,12 @@ export async function executeBrainTask(taskConfig = {}, resolved = {}, context =
   const { source: modelSource, baseUrl, apiKey, model, protocol, requiresKey, extraHeaders, configuredKey } =
     resolveWorkflowBrainProviderConfig(cfg.modelSource, cfg);
 
-  if (requiresKey && !configuredKey && !isLocalOllama(baseUrl) && !isDeepSeekProxyBaseUrl(baseUrl) && modelSource !== 'deepseek') {
+  if (requiresKey && !configuredKey && !isLocalOllama(baseUrl) && !isOllamaServiceBaseUrl(baseUrl) && modelSource !== 'deepseek') {
     const keyHint =
       modelSource === 'openrouter'
         ? 'OpenRouter API key required on Brain node (platform .env keys are not used)'
         : modelSource === 'anthropic'
           ? 'Anthropic API key required on Brain node (platform .env keys are not used)'
-          : modelSource === 'deepseek'
-            ? 'DeepSeek: use platform proxy URL (http://deepseek:8080/v1) or set API key on node for direct api.deepseek.com'
           : 'OpenAI API key required on Brain node (platform .env keys are not used)';
     throw new Error(keyHint);
   }
@@ -412,9 +410,9 @@ export async function executeBrainTask(taskConfig = {}, resolved = {}, context =
       const openAiProvider =
         modelSource === 'openrouter'
           ? 'openrouter'
-          : modelSource === 'deepseek' || isDeepSeekProxyBaseUrl(baseUrl)
+          : modelSource === 'deepseek'
             ? 'deepseek'
-            : modelSource === 'ollama' || isLocalOllama(baseUrl)
+            : modelSource === 'ollama' || isLocalOllama(baseUrl) || isOllamaServiceBaseUrl(baseUrl)
               ? 'ollama'
               : 'openai';
       result = await runOpenAiWithMcpTools({
@@ -440,9 +438,9 @@ export async function executeBrainTask(taskConfig = {}, resolved = {}, context =
     const openAiProvider =
       modelSource === 'openrouter'
         ? 'openrouter'
-        : modelSource === 'deepseek' || isDeepSeekProxyBaseUrl(baseUrl)
+        : modelSource === 'deepseek'
           ? 'deepseek'
-          : modelSource === 'ollama' || isLocalOllama(baseUrl)
+          : modelSource === 'ollama' || isLocalOllama(baseUrl) || isOllamaServiceBaseUrl(baseUrl)
             ? 'ollama'
             : 'openai';
     result = await callOpenAiCompatible({
