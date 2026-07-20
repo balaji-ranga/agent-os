@@ -215,7 +215,8 @@ All proxied under `/api` (rebuild backend + frontend images after upgrade):
 
 | Feature | Path / notes |
 |---------|----------------|
-| Master data | `/api/master-data`, UI `/master-data` |
+| Master data | `/api/master-data`, UI `/master-data`; agents use `master_data_*` content tools (row CRUD + RAG, no schema alter) |
+| Notification dismiss | Shared bell feed (`NotificationProvider`): Clear dismisses platform + agent responses; composite standup+agent keys in `user_feed_dismissals` |
 | Chat feedback | `/api/feedback` |
 | OpenConnector | `/api/openconnector`, MCP via `OPENCONNECTOR_MCP_URL` |
 | Email inbound | `POST /api/integrations/email-inbound/:definitionId` |
@@ -223,21 +224,57 @@ All proxied under `/api` (rebuild backend + frontend images after upgrade):
 | DeepSeek V3 | User Profile / Register / Brain `deepseek` → local Ollama `deepseek-v3` (no API key) |
 | `email_send` tool | `POST /api/tools/email-send` (SMTP + optional calendar ICS); granted to agents at boot |
 | `notify_ceo` tool | `POST /api/tools/notify-ceo` (in-app push to entitled CEO user); granted to agents at boot |
-| Org doc sync | `POST /api/agents/org/sync` — rebuilds `ORG.md` + COO `AGENTS.md` (tenant session keys); Dashboard **Resync ORG.md & AGENTS.md** |
+| Broadcast | `POST /api/broadcast` (CEO/Admin); UI `/broadcast` — tenant OpenClaw sessions; LLM intent for status+notify; paced fan-out (avoids TPM 429) |
+| Org doc sync | `POST /api/agents/org/sync` — rebuilds `ORG.md` + COO `AGENTS.md` (tenant session keys); Dashboard **Resync ORG.md & AGENTS.md**; Workspace UI reads per-CEO tenant path |
+| COO specialty delegate | COO chat hard-path: AGENTS.md purpose intent classify → Kanban + delegation (max 1 specialist) |
+| Master Data + RAG | `master_data_list_*` / `master_data_rag` — purpose-driven list_tables→list_rows; RAG for documents |
+| Agent chat tools UI | Assistant bubbles show gear pills for Agent OS tool calls (`content_tool_logs`) |
+| Notification tooltips | Bell panel snippet hover shows full title/body / agent response |
 | AgentExchange | `GET /api/agent-exchange` (CEO/Admin), UI `/agent-exchange` |
 | Workflow A2A | `POST /api/a2a/:publishId`, card at `/api/a2a/:publishId/.well-known/agent-card.json` |
 
-**Deploy / sync (laptop → VPS without git pull):**
+**Repeatable deploy (laptop → VPS):**
 
 ```powershell
+# From repo root (default HostIp 76.13.209.30):
 .\deploy\scripts\sync-to-vps.ps1
 # frontend-only:
 .\deploy\scripts\sync-to-vps.ps1 -Services frontend
-# skip post-deploy smoke:
+# backend + OpenClaw (API / tools / templates):
+.\deploy\scripts\sync-to-vps.ps1 -Services "backend openclaw"
+# skip post-deploy smoke + platform verify:
 .\deploy\scripts\sync-to-vps.ps1 -SkipSmoke
+# force rebuild without Docker layer cache (stale images):
+.\deploy\scripts\sync-to-vps.ps1 -NoCache
 ```
 
-On VPS after sync, `vps-deploy-latest.sh` rebuilds images and runs `vps-smoke-new-features.sh` (email_send + notify_ceo + org sync + A2A) unless `SKIP_SMOKE=1`.
+`sync-to-vps.ps1` syncs **full build contexts**: `frontend/src` + package files, `backend/src` + key scripts, `deploy/*`, `scripts/`, OpenClaw extensions/skills/templates (COO, TechResearcher, ApplicationAgent) — then runs `vps-deploy-latest.sh`.
+
+On VPS after sync (or after `git pull` on the box), `vps-deploy-latest.sh` rebuilds images and runs:
+
+1. `vps-smoke-new-features.sh` — email_send, notify_ceo, master_data, org sync, A2A, shared notification dismiss
+2. `vps-smoke-broadcast-notify.sh` — Broadcast → TechResearcher → notify_ceo (needs OpenClaw + LLM; non-fatal)
+3. `vps-smoke-deepseek-brain.sh` — DeepSeek@Ollama (non-fatal if model not pulled)
+4. `vps-verify-platform.sh` — Master Data, per-CEO delegation, NotificationProvider + dismiss APIs, allowlists
+
+Skip all smoke: `SKIP_SMOKE=1` or `sync-to-vps.ps1 -SkipSmoke`. Force clean image build: `NO_CACHE=1` or `sync-to-vps.ps1 -NoCache`.
+
+Optional targeted smokes (after deploy):
+
+```bash
+docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-broadcast-routing.js
+docker compose exec -T -w /opt/agent-os/backend backend node scripts/vps-test-application-masterdata-notify.js
+docker compose exec -T -w /opt/agent-os/backend backend node scripts/vps-test-coo-biryani-delegate.js
+```
+
+Manual Broadcast→notify check:
+
+```bash
+bash scripts/vps-smoke-broadcast-notify.sh
+# or:
+docker compose exec -T -w /opt/agent-os/backend -e TOOLS_BASE_URL=http://127.0.0.1:3001 \
+  backend node scripts/test-broadcast-notify-ceo.js
+```
 
 Manual org resync (CEO session) after delete/rename/grant changes:
 
@@ -311,6 +348,18 @@ Verify chat media + responsive CSS markers:
 
 ```bash
 bash /opt/agent-os/deploy/scripts/vps-verify-frontend-media.sh
+```
+
+Full platform verify (Master Data, delegation, notifications, allowlists):
+
+```bash
+bash /opt/agent-os/deploy/scripts/vps-verify-platform.sh
+```
+
+Frontend-only rebuild + bundle markers:
+
+```bash
+bash /opt/agent-os/deploy/scripts/vps-rebuild-frontend.sh
 ```
 
 Always recreate **nginx** after recreating **frontend** so the reverse proxy picks up the new container IP (otherwise you may see HTTP 502).

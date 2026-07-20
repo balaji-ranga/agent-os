@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Post-deploy smoke: email_send + notify_ceo + master_data + org sync + workflow A2A / AgentExchange.
+# Post-deploy smoke: email_send + notify_ceo + master_data + org sync + workflow A2A / AgentExchange
+# + shared notification dismiss (NotificationProvider).
 # Runs inside the backend container (script is COPY'd via backend.Dockerfile).
 #
 # Usage (on VPS, from deploy/):
@@ -12,7 +13,7 @@ cd "$ROOT/deploy"
 export COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml:docker-compose.browser.yml}"
 PUBLIC_URL="${AGENT_OS_PUBLIC_URL:-https://127.0.0.1}"
 
-echo "==> smoke: email_send + notify_ceo + master_data + org sync + workflow A2A / AgentExchange"
+echo "==> smoke: email_send + notify_ceo + master_data + org sync + A2A + shared notification dismiss"
 
 SMOKE_JS="/opt/agent-os/backend/scripts/vps-smoke-new-features.js"
 if ! docker compose exec -T backend test -f "$SMOKE_JS"; then
@@ -58,7 +59,19 @@ else
   echo "    WARN: Master Data purpose UI not found in frontend JS (rebuild frontend?)"
 fi
 
-# Authenticated org sync (Dashboard button path)
+# Shared notification feed (NotificationProvider) + dismiss API client
+if docker compose exec -T frontend sh -c 'grep -Rql NotificationProvider /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: NotificationProvider (shared bell) OK"
+else
+  echo "    WARN: NotificationProvider not found in frontend JS (rebuild frontend? try NO_CACHE=1)"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql standupNotificationsDismiss /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: notification dismiss API client OK"
+else
+  echo "    WARN: notification dismiss UI not found in frontend JS (rebuild frontend?)"
+fi
+
+# Authenticated org sync + dismiss-all (Dashboard / bell Clear paths)
 TOKEN=$(docker compose exec -T -w /opt/agent-os/backend backend node --input-type=module <<'NODE' 2>/dev/null || true
 import { initDb, getDb } from './src/db/schema.js';
 import { createSession } from './src/services/auth/session.js';
@@ -78,6 +91,14 @@ if [[ -n "${TOKEN:-}" ]]; then
       || docker compose exec -T backend cat /tmp/org-sync.json 2>/dev/null | head -c 200 || true
     echo
   fi
+  DISMISS_AUTH=$(docker compose exec -T backend curl -s -o /dev/null -w '%{http_code}' \
+    -X POST -H "Authorization: Bearer ${TOKEN}" -H "Content-Type: application/json" \
+    -d '{}' http://127.0.0.1:3001/api/standups/notifications/dismiss-all || echo 000)
+  echo "    POST /api/standups/notifications/dismiss-all (CEO auth) -> HTTP ${DISMISS_AUTH} (expect 200)"
+  READALL_AUTH=$(docker compose exec -T backend curl -s -o /dev/null -w '%{http_code}' \
+    -X POST -H "Authorization: Bearer ${TOKEN}" -H "Content-Type: application/json" \
+    -d '{}' http://127.0.0.1:3001/api/platform-notifications/read-all || echo 000)
+  echo "    POST /api/platform-notifications/read-all (CEO auth) -> HTTP ${READALL_AUTH} (expect 200)"
 fi
 
 # email_send + notify_ceo + master_data must be in OpenClaw allowlists (parity script source of truth)

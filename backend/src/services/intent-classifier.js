@@ -12,7 +12,8 @@ function getIntentModelOverride() {
 }
 
 /**
- * Parse the agents table from COO AGENTS.md. Expects markdown table with columns Agent ID, Name, Role.
+ * Parse the agents table from COO AGENTS.md.
+ * Supports 3-col (Agent ID | Name | Role) or 4-col (Agent ID | Name | Department | Role).
  * @param {string} md - Full AGENTS.md content
  * @returns {{ id: string, name: string, role: string }[]}
  */
@@ -26,11 +27,17 @@ function parseAgentsFromAgentsMd(md) {
     if (parts.length < 4) continue;
     const rawId = (parts[1] || '').replace(/\*+/g, '').trim();
     const name = (parts[2] || '').trim();
-    const role = (parts[3] || '').trim();
     if (!rawId || rawId.toLowerCase() === 'agent id') continue;
     if (/^[-–—\s]+$/.test(rawId) || /^[-–—\s]+$/.test(name)) continue;
     const id = rawId.toLowerCase();
-    agents.push({ id, name, role });
+    const col3 = (parts[3] || '').trim();
+    const col4 = (parts[4] || '').trim();
+    const purpose =
+      col4 && !/^[-–—\s]+$/.test(col4)
+        ? `${col3 && col3 !== '—' && col3 !== '-' ? `${col3} — ` : ''}${col4}`
+        : col3;
+    if (!purpose || /^[-–—\s]+$/.test(purpose) || purpose.toLowerCase() === 'role') continue;
+    agents.push({ id, name, role: purpose });
   }
   return agents;
 }
@@ -104,29 +111,24 @@ function extractJsonFromModelResponse(raw) {
   }
 }
 
-const SYSTEM_PROMPT = `You are an intent classifier for a COO standup. You will receive:
-1. A list of agents and their purpose (parsed from the COO's AGENTS.md).
+const SYSTEM_PROMPT = `You are an intent classifier for a COO. You will receive:
+1. A list of agents and their purpose (from the COO's AGENTS.md — this is the source of truth).
 2. A message from the CEO.
 
-Your job: Map the CEO message to the right agent(s). For each agent that is relevant, output ONE key-value pair where the key is the exact Agent ID from the list and the value is ONLY the part of the CEO message that applies to that agent (redacted, context-specific). In multi-intent messages, split so each agent gets only their part—do not send the full message to every agent.
+Your job: Map the CEO message to the agent(s) whose **department + purpose** best matches. Match by meaning and domain fit (read each Purpose), not by isolated keywords.
 
 Critical:
-- If the CEO message explicitly names an agent (by Agent ID or Name from the list, e.g. "TechResearcher, ..." or "ask ExpenseManager to ..."), classify the intent to that named agent. Use the full message or the part after the agent name as that agent's task; map the name to the exact Agent ID from the list (e.g. TechResearcher -> techresearcher, ExpenseManager -> expensemanager). Do not assign the same message to other agents unless the message clearly addresses multiple named agents or has multiple distinct intents.
-- Each value must be the redacted, context-specific message for that agent only. Example: if the CEO says "Create an indian recipe with image and I need deep research on space science", then map techresearcher to only the research part ("I need deep research on space science") and the cuisine agent to only the cuisine part ("Create an indian recipe with image"). Do not give the full sentence to both.
-- Include only agents whose purpose matches some part of the message, or that are explicitly named in the message. Omit agents that are not relevant and not named.
-- Do not assign to the CEO (e.g. bala). Only delegate to agents that report to the COO.
-- Output valid JSON only, no markdown or extra text. Use the exact Agent ID from the list as each key (e.g. techresearcher, expensemanager, socialasstant). Do not add explanation before or after the JSON.
-- Format: { "agent_id": "redacted task query for that agent only", ... }
-- For deep research, tech research, or space/science research requests, assign ONLY to the agent whose purpose is research (e.g. techresearcher). Do not assign the same message to multiple agents unless the message clearly has multiple distinct intents (e.g. research + expenses).
-- If the message is generic (greeting, small talk, "who are you") or not relevant to any agent, output an empty object: {}.
-- You may receive recent user messages and agent responses as additional context. Use them to resolve follow-ups (e.g. "yes do that", "tell me more", "send that to TechResearcher") by mapping to the agent that was last addressed or last responded, or to the named agent.`;
-
-/** True if the CEO message clearly indicates a research-only request (so we can map to techresearcher when model returns {}). */
-function isClearlyResearchRequest(text) {
-  if (!text || typeof text !== 'string') return false;
-  const t = text.toLowerCase().trim();
-  return /deep\s+research|research\s+on|do\s+(a\s+)?research|tech\s+research|space\s+tech|science\s+research/.test(t) && !/expense|investment|facebook|social|recipe|cuisine/.test(t);
-}
+- Prefer **exactly one** best-fit agent. Only for clearly multi-intent messages may you return **at most 2** agents.
+- Never assign agents whose Purpose is only "Agent", "demo", or empty/placeholder — skip them unless the CEO named them.
+- If the CEO explicitly names an agent (by Agent ID or Name), map to that agent.
+- Each value must be ONLY the part of the CEO message that applies to that agent (split multi-intent).
+- Choose the **closest** specialist by department/purpose domain. Adjacent fit is OK (e.g. a food/cuisine question → Social/content agent whose purpose mentions cuisines or food; a science/engineering/space/technical question → Research agent; money/budget → Finance; software/code → code agent). Do not require the ask to be an exact copy of the purpose wording.
+- Include only agents that are meaningfully closer than others. Never fan out to all agents.
+- Do not use keyword shortcuts. Read each agent's Purpose and decide by semantic fit.
+- Return {} ONLY if the message is COO coordination (workflows, tools, standups, Kanban ops, greetings, "what can you do") OR no listed agent is a better fit than random.
+- Do not assign to the CEO. Only agents from the list.
+- Output valid JSON only: { "agent_id": "task query for that agent only", ... }
+- Use exact Agent IDs from the list as keys.`;
 
 /** When DEBUG_INTENT=1, last run's input and output (for API to return in response). */
 let lastIntentDebug = null;
@@ -201,11 +203,6 @@ export async function classifyIntentAndAllocate(ceoMessage, agentsMdContent, con
     const parsed = extractJsonFromModelResponse(raw);
     if (!parsed || typeof parsed !== 'object') {
       if (lastIntentDebug) lastIntentDebug.error = 'Could not parse JSON from model response';
-      // Apply research fallback so we don't send to all agents
-      if (agentsFromDoc.some((a) => a.id === 'techresearcher') && isClearlyResearchRequest(text)) {
-        if (lastIntentDebug) lastIntentDebug.finalMapping = { techresearcher: text };
-        return { techresearcher: text };
-      }
       if (lastIntentDebug) lastIntentDebug.finalMapping = {};
       return {};
     }
@@ -213,13 +210,7 @@ export async function classifyIntentAndAllocate(ceoMessage, agentsMdContent, con
     for (const [k, v] of Object.entries(parsed)) {
       if (typeof v === 'string' && v.trim()) withLowerKeys[String(k).trim().toLowerCase()] = v.trim();
     }
-    let result = normalizeKeysToDocIds(withLowerKeys, agentsFromDoc);
-    // When model returns {} for a clearly research-only message, map only to techresearcher so we don't fall back to "all agents"
-    const hasTechResearcher = agentsFromDoc.some((a) => a.id === 'techresearcher');
-    if (Object.keys(result).length === 0 && hasTechResearcher && isClearlyResearchRequest(text)) {
-      result = { techresearcher: text };
-      if (lastIntentDebug) lastIntentDebug.finalMapping = result;
-    }
+    const result = normalizeKeysToDocIds(withLowerKeys, agentsFromDoc);
     if (lastIntentDebug) lastIntentDebug.finalMapping = result;
     if (process.env.DEBUG_INTENT === '1') console.warn('[intent] Final mapping (agent_id -> message):', JSON.stringify(result, null, 2));
     return result;
@@ -227,11 +218,6 @@ export async function classifyIntentAndAllocate(ceoMessage, agentsMdContent, con
     const errMsg = e instanceof Error ? e.message : String(e);
     if (lastIntentDebug) lastIntentDebug.error = errMsg;
     if (process.env.DEBUG_INTENT === '1') console.warn('[intent] Error:', errMsg, e.stack);
-    // For clearly research-only messages, avoid fallback to "all agents" by returning techresearcher only
-    if (agentsFromDoc?.some((a) => a.id === 'techresearcher') && isClearlyResearchRequest(text)) {
-      if (lastIntentDebug) lastIntentDebug.finalMapping = { techresearcher: text };
-      return { techresearcher: text };
-    }
     return null;
   }
 }

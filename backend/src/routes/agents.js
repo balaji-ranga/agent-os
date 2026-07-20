@@ -13,7 +13,7 @@ import {
   resolveChatOwnerUserId,
   userCanAccessAgent,
 } from '../services/agent-chat-scope.js';
-import { registerOpenClawSessionOwner } from '../services/tool-owner-scope.js';
+import { registerOpenClawSessionOwner, registerActiveDashboardChat, clearActiveDashboardChat } from '../services/tool-owner-scope.js';
 import * as openclaw from '../gateway/openclaw.js';
 import { tryTriggerWorkflowFromChat } from '../services/agent-workflow-runner.js';
 import * as workspace from '../workspace/adapter.js';
@@ -22,6 +22,13 @@ import { createFullAgent } from '../services/create-full-agent.js';
 import { ensureManagedBrowserReady } from '../services/job-browser-auth.js';
 import * as agentTools from '../services/openclaw-agent-tools.js';
 import { ensureTenantOpenClawAgent } from '../services/openclaw-tenant.js';
+import { tryHandleCooReachMeRequest } from '../services/reach-me-delegation.js';
+import { tryHandleCooSpecialtyDelegation } from '../services/coo-specialty-delegation.js';
+import {
+  tryBuildSpecialtyReferral,
+  buildActiveChatNotifyHint,
+} from '../services/specialty-referral.js';
+import { attachToolCallsToChatTurns, listToolCallsSince } from '../services/chat-tool-calls.js';
 
 const router = Router();
 const homedir = process.env.USERPROFILE || process.env.HOME || '';
@@ -61,12 +68,19 @@ function db() {
   return getDb();
 }
 
-function getAgentWorkspaceRoot(agent) {
-  const raw = agent.workspace_path || process.env.OPENCLAW_WORKSPACE_PATH || process.env.OPENCLAW_WORKSPACE;
-  if (!raw) throw new Error('No workspace path for agent and OPENCLAW_WORKSPACE_PATH not set');
-  const path = String(raw).trim();
-  if (path.startsWith('~')) return join(homedir, path.slice(1).replace(/^[/\\]/, '') || '');
-  return path;
+/** Prefer per-CEO tenant workspace (where Resync writes ORG.md / AGENTS.md). */
+function getAgentWorkspaceRoot(agent, req = null) {
+  let ceoUserId = '';
+  if (req?.authUser) {
+    if (req.authUser.role === 'ceo' || req.authUser.impersonation) {
+      ceoUserId = String(req.authUser.id || '').trim();
+    } else if (req.authUser.role === 'admin') {
+      ceoUserId = String(
+        req.query?.owner_user_id || req.query?.ownerUserId || req.body?.owner_user_id || req.body?.ownerUserId || ''
+      ).trim();
+    }
+  }
+  return workspace.resolveAgentWorkspaceRoot(agent, { healDb: false, ceoUserId: ceoUserId || undefined });
 }
 
 router.get('/', requireAuth, (req, res) => {
@@ -187,9 +201,15 @@ router.get('/:id/workspace/files', requireAuth, async (req, res) => {
     assertUserAgentAccess(req.authUser, req.params.id);
     const agent = db().prepare('SELECT * FROM agents WHERE id = ?').get(req.params.id);
     if (!agent) return res.status(404).json({ error: 'Agent not found' });
-    const root = getAgentWorkspaceRoot(agent);
+    const root = getAgentWorkspaceRoot(agent, req);
+    // Persist remapped path only for non-tenant roots (agents.workspace_path is shared across CEOs).
+    const posix = root.replace(/\\/g, '/');
+    const isTenant = /\/tenants\//i.test(posix);
+    if (!isTenant && existsSync(root) && posix !== String(agent.workspace_path || '').replace(/\\/g, '/')) {
+      db().prepare('UPDATE agents SET workspace_path = ? WHERE id = ?').run(posix, agent.id);
+    }
     const result = await workspace.listWorkspaceFiles(root);
-    res.json(result);
+    res.json({ ...result, workspace_root: posix });
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message });
   }
@@ -200,7 +220,7 @@ router.get('/:id/workspace/files/:name', requireAuth, async (req, res) => {
     assertUserAgentAccess(req.authUser, req.params.id);
     const agent = db().prepare('SELECT * FROM agents WHERE id = ?').get(req.params.id);
     if (!agent) return res.status(404).json({ error: 'Agent not found' });
-    const root = getAgentWorkspaceRoot(agent);
+    const root = getAgentWorkspaceRoot(agent, req);
     const result = await workspace.readWorkspaceFile(req.params.name, { workspaceRoot: root });
     res.json(result);
   } catch (e) {
@@ -213,7 +233,7 @@ router.put('/:id/workspace/files/:name', requireAuth, async (req, res) => {
     assertUserAgentAccess(req.authUser, req.params.id);
     const agent = db().prepare('SELECT * FROM agents WHERE id = ?').get(req.params.id);
     if (!agent) return res.status(404).json({ error: 'Agent not found' });
-    const root = getAgentWorkspaceRoot(agent);
+    const root = getAgentWorkspaceRoot(agent, req);
     const text = typeof req.body === 'string' ? req.body : (req.body?.text ?? req.body?.content ?? '');
     await workspace.writeWorkspaceFile(req.params.name, text, { workspaceRoot: root });
     const read = await workspace.readWorkspaceFile(req.params.name, { workspaceRoot: root });
@@ -344,7 +364,7 @@ router.get('/:id/chat', requireAuth, (req, res) => {
          ORDER BY created_at`
       )
       .all(req.params.id, ...ownerIds);
-    res.json(turns);
+    res.json(attachToolCallsToChatTurns(turns, req.params.id, ownerUserId));
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message });
   }
@@ -361,6 +381,77 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
 
     const message = typeof req.body?.message === 'string' ? req.body.message : (req.body?.content ?? req.body?.text ?? '');
     if (!message.trim()) return res.status(400).json({ error: 'message is required' });
+
+    // Hard path: "ask social media expert to reach me" — notify as specialist, skip COO LLM notify_ceo
+    if (agent.is_coo) {
+      const reach = await tryHandleCooReachMeRequest(ownerUserId, message.trim());
+      if (reach?.ok) {
+        db()
+          .prepare('INSERT INTO chat_turns (agent_id, owner_user_id, role, content) VALUES (?, ?, ?, ?)')
+          .run(agentId, ownerUserId, 'user', message);
+        db()
+          .prepare('INSERT INTO chat_turns (agent_id, owner_user_id, role, content) VALUES (?, ?, ?, ?)')
+          .run(agentId, ownerUserId, 'assistant', reach.cooReply);
+        return res.json({
+          reply: reach.cooReply,
+          agent_id: agentId,
+          reach_me: {
+            specialist_id: reach.specialist?.id,
+            specialist_name: reach.specialist?.name,
+            chat_url: reach.chat_url,
+            notify_sent: reach.notify?.sent === true,
+          },
+          workflow_triggered: null,
+        });
+      }
+
+      // Hard path: specialty work / "delegate …" — schedule real agents, don't let COO do the work
+      const delegated = await tryHandleCooSpecialtyDelegation(ownerUserId, message.trim());
+      if (delegated?.ok) {
+        db()
+          .prepare('INSERT INTO chat_turns (agent_id, owner_user_id, role, content) VALUES (?, ?, ?, ?)')
+          .run(agentId, ownerUserId, 'user', message);
+        db()
+          .prepare('INSERT INTO chat_turns (agent_id, owner_user_id, role, content) VALUES (?, ?, ?, ?)')
+          .run(agentId, ownerUserId, 'assistant', delegated.cooReply);
+        return res.json({
+          reply: delegated.cooReply,
+          agent_id: agentId,
+          specialty_delegation: {
+            standup_id: delegated.standup_id,
+            request_id: delegated.result?.requestId,
+            agent_names: delegated.result?.agentNames || [],
+            kanban_task_ids: delegated.result?.kanbanTaskIds || [],
+            count: delegated.result?.count || 0,
+          },
+          workflow_triggered: null,
+        });
+      }
+    }
+
+    // Hard path: wrong specialist for a clear specialty ask (e.g. Social + "deep research")
+    if (!agent.is_coo) {
+      const referral = await tryBuildSpecialtyReferral(ownerUserId, agent, message.trim());
+      if (referral) {
+        db()
+          .prepare('INSERT INTO chat_turns (agent_id, owner_user_id, role, content) VALUES (?, ?, ?, ?)')
+          .run(agentId, ownerUserId, 'user', message);
+        db()
+          .prepare('INSERT INTO chat_turns (agent_id, owner_user_id, role, content) VALUES (?, ?, ?, ?)')
+          .run(agentId, ownerUserId, 'assistant', referral.reply);
+        return res.json({
+          reply: referral.reply,
+          agent_id: agentId,
+          specialty_referral: {
+            target_id: referral.target?.id,
+            target_name: referral.target?.name,
+            matched_specialty: referral.matchedSpecialty,
+            chat_url: referral.chat_url,
+          },
+          workflow_triggered: null,
+        });
+      }
+    }
 
     let workflowTrigger = null;
     if (req.authUser && (req.authUser.role === 'ceo' || req.authUser.role === 'admin')) {
@@ -413,6 +504,10 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       messages[messages.length - 1] = { role: 'user', content: userContent };
     }
 
+    // Stop agents from calling notify_ceo on ordinary Dashboard chat replies.
+    userContent += buildActiveChatNotifyHint(agentId);
+    messages[messages.length - 1] = { role: 'user', content: userContent };
+
     if (String(agentId).toLowerCase() === 'jobdiscovery') {
       try {
         const browser = await ensureManagedBrowserReady();
@@ -431,16 +526,25 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     const sessionUser = openclaw.sessionUserFor(agentId, ownerUserId);
     const sessionKey = openclaw.sessionKeyFor(openclawAgentId, sessionUser);
     registerOpenClawSessionOwner(sessionKey, ownerUserId);
+    registerActiveDashboardChat(agentId, ownerUserId, message.trim());
     const isDiscovery = String(agentId).toLowerCase() === 'jobdiscovery';
     const discoveryTimeout = Number(process.env.OPENCLAW_DISCOVERY_TIMEOUT_MS || 900000);
-    const { content: reply, usage } = await openclaw.chatCompletions(
-      openclawAgentId,
-      messages,
-      sessionUser,
-      false,
-      isDiscovery ? { timeoutMs: discoveryTimeout } : {}
-    );
+    const toolsSince = new Date().toISOString();
+    let reply;
+    let usage;
+    try {
+      ({ content: reply, usage } = await openclaw.chatCompletions(
+        openclawAgentId,
+        messages,
+        sessionUser,
+        false,
+        isDiscovery ? { timeoutMs: discoveryTimeout } : {}
+      ));
+    } finally {
+      clearActiveDashboardChat(agentId, ownerUserId);
+    }
     const replyText = normalizeReplyContent(reply);
+    const tool_calls = listToolCallsSince(agentId, ownerUserId, toolsSince);
 
     // Persist user message and assistant reply (same normalized string shape as standup chat)
     db()
@@ -454,6 +558,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       reply: replyText,
       usage,
       agent_id: agentId,
+      tool_calls,
       workflow_triggered: workflowTrigger
         ? {
             run_id: workflowTrigger.id,

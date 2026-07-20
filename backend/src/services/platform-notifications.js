@@ -116,7 +116,12 @@ export function listNotificationsForUser(userId, { limit = 30 } = {}) {
         kind: 'platform',
         title: row.title,
         body: row.body || '',
-        link_url: row.link_url || null,
+        link_url:
+          row.link_url ||
+          (fromAgent && row.created_by && row.created_by !== 'agent' && row.created_by !== 'system'
+            ? `/agents/${encodeURIComponent(row.created_by)}/chat`
+            : null),
+        chat_agent_id: fromAgent ? row.created_by : null,
         created_at: row.created_at,
         created_by: row.created_by,
         created_by_name: createdByName,

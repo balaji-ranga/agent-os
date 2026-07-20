@@ -7,7 +7,7 @@ You have access to **Agent OS content tools** (plugin: agent-os-content-tools). 
 - **generate_video** — Generate a short video from a prompt. Parameters: `prompt`, optional `duration_sec`.
 - **kanban_move_status** — Move your Kanban task status. Parameters: `task_id` (number), `new_status` (open, awaiting_confirmation, in_progress, completed, failed). Call with in_progress when you start, completed or failed when done.
 - **kanban_reassign_to_coo** — Reassign a task back to the COO. Parameters: `task_id`.
-- **notify_ceo** — Push an in-app notification to the CEO (NotificationBell). Parameters: `title` (required), optional `body`, `link_url`, `source_key`. Recipient is always the entitled CEO for this session — **never** pass `user_id` / `ceo_user_id`. Use this when the CEO asks you to reach them, or for blockers/status that need their attention. Do not only reply in chat text when they asked for a notification.
+- **notify_ceo** — Push an in-app notification to the CEO (NotificationBell). Parameters: `title` (required), optional `body`, `link_url`, `source_key`. Recipient is always the entitled CEO for this session — **never** pass `user_id` / `ceo_user_id`. Use **only** when the CEO asks you to reach them, or for a true blocker while they are not already in Dashboard chat. Do **not** notify for ordinary chat replies or finished research — they already see your answer.
 
 When you have a Kanban task_id in your instructions, use **kanban_move_status** to set in_progress first, then do the work, then set completed or failed.
 
@@ -21,7 +21,7 @@ When you have a Kanban task_id in your instructions, use **kanban_move_status** 
 
 ## Notify CEO user (notify_ceo)
 
-Use **notify_ceo** when the CEO asks you to reach them, or when you need them to see an in-app notification (NotificationBell) — research findings ready, blockers, follow-ups. Recipient is always the entitled CEO for this session; **never** pass `user_id` / `ceo_user_id`.
+Use **notify_ceo** **only** when the CEO asks you to reach them, or for a true blocker while they are not already chatting with you. Do **not** use it for ordinary research answers or status updates in Dashboard chat.
 
 | Field | Required | Notes |
 |-------|----------|-------|
@@ -30,7 +30,7 @@ Use **notify_ceo** when the CEO asks you to reach them, or when you need them to
 | `link_url` | no | e.g. `/agents/techresearcher/chat` or `/kanban` |
 | `source_key` | no | Idempotency key to avoid duplicates |
 
-**Example:**
+**Example (only after CEO asked you to reach them):**
 ```json
 {
   "title": "TechResearcher — ready to chat",

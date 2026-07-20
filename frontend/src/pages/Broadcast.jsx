@@ -7,13 +7,15 @@ export default function Broadcast() {
   const [message, setMessage] = useState('');
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [results, setResults] = useState(null);
+  const [routing, setRouting] = useState(null);
+  const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     api
       .agentsList()
-      .then(setAgents)
+      .then((list) => setAgents((list || []).filter((a) => !a.is_coo)))
       .catch((e) => setError(e.message));
   }, []);
 
@@ -27,10 +29,16 @@ export default function Broadcast() {
     }
     setError(null);
     setResults(null);
+    setRouting(null);
+    setSummary(null);
     setLoading(true);
     api
       .broadcastSend(message.trim(), agentIds)
-      .then((data) => setResults(data.results || []))
+      .then((data) => {
+        setResults(data.results || []);
+        setRouting(data.routing || null);
+        setSummary(data.summary || null);
+      })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   };
@@ -51,8 +59,11 @@ export default function Broadcast() {
     <div style={{ padding: '1.5rem', maxWidth: 900 }}>
       <h1 style={{ marginTop: 0, marginBottom: '1rem' }}>Broadcast to agents</h1>
       <p style={{ color: 'var(--muted)', marginBottom: '1rem' }}>
-        Send a message to all or selected agents and see their replies. Uses the same CEO-scoped OpenClaw sessions as Agent Chat,
-        so tools like <code>notify_ceo</code> can reach your notification bell. Requires the OpenClaw gateway to be running.
+        Send a message to all or selected agents (COO excluded by default) and see their replies. Uses CEO-scoped OpenClaw
+        sessions so <code>notify_ceo</code> can reach your bell. Status + “send notification” broadcasts require every
+        agent to call <code>notify_ceo</code>.         Delivery is paced (2 at a time) to avoid OpenAI rate limits — large fans may
+        take a few minutes. Whether agents must call <code>notify_ceo</code> is decided by
+        LLM intent on your message (not keywords).
       </p>
 
       <div style={{ marginBottom: '1rem' }}>
@@ -60,7 +71,7 @@ export default function Broadcast() {
         <textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          placeholder="e.g. What is your current status?"
+          placeholder='e.g. "Social media expert: reach me via notify_ceo" or "What is your current status?"'
           rows={3}
           style={{
             width: '100%',
@@ -122,6 +133,25 @@ export default function Broadcast() {
       >
         {loading ? 'Sending…' : 'Send to agents'}
       </button>
+
+      {routing?.filtered && (
+        <p style={{ marginTop: '1rem', color: 'var(--muted)', fontSize: '0.9rem' }}>
+          Routed to specialist{routing.recipient_ids?.length === 1 ? '' : 's'} ({routing.matched_specialty}):{' '}
+          {(routing.recipient_ids || []).join(', ')}
+        </p>
+      )}
+      {routing?.status_notify_all && (
+        <p style={{ marginTop: '0.5rem', color: 'var(--muted)', fontSize: '0.9rem' }}>
+          Status + notify broadcast: every selected agent was instructed to call notify_ceo when ready.
+        </p>
+      )}
+      {summary && (
+        <p style={{ marginTop: '0.5rem', color: summary.errors ? '#f87171' : 'var(--muted)', fontSize: '0.9rem' }}>
+          Delivered {summary.ok}/{summary.recipients}
+          {summary.errors ? ` · ${summary.errors} failed` : ''}
+          {summary.rate_limited ? ` · ${summary.rate_limited} rate-limited (retried)` : ''}
+        </p>
+      )}
 
       {results && results.length > 0 && (
         <div style={{ marginTop: '1.5rem', maxHeight: 'min(60vh, 520px)', display: 'flex', flexDirection: 'column', minHeight: 0 }}>

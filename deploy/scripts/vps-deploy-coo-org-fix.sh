@@ -2,7 +2,7 @@
 set -euo pipefail
 cd /opt/agent-os/deploy
 
-echo "=== rebuild backend + frontend + openclaw (email_send, notify_ceo, org sync, A2A) ==="
+echo "=== rebuild backend + frontend + openclaw (email_send, notify_ceo, Broadcast, org sync, A2A) ==="
 docker compose build backend frontend openclaw
 docker compose up -d --force-recreate backend openclaw frontend nginx
 sleep 8

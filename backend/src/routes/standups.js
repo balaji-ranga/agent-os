@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { getDb } from '../db/schema.js';
 import { requireAuth, requireCeoOrAdmin } from '../middleware/auth.js';
 import { requireInternalToken } from '../middleware/internal-auth.js';
-import { resolveChatOwnerUserId } from '../services/agent-chat-scope.js';
+import { resolveChatOwnerUserId, extractOwnerUserIdFromText } from '../services/agent-chat-scope.js';
 import {
   listAgentResponseNotificationsForUser,
   dismissAgentResponseNotifications,
@@ -10,13 +10,25 @@ import {
 } from '../services/agent-response-notifications.js';
 import { runCooSummarization } from '../services/coo.js';
 import * as openclaw from '../gateway/openclaw.js';
-import { scheduleCeoRequestViaOpenClawCron, enqueueGetWorkFromTeam, enqueueDelegationTask, postCallbackForRequestId, appendToAgentMemory, extractTaskSummaryFromPrompt, extractTaskContentFromPrompt, appendDelegationResponseToAgentChat } from '../services/delegation-queue.js';
-import { isAgentWorkflowPrompt } from '../services/agent-workflow-kanban.js';
-import { extractOwnerUserIdFromText } from '../services/agent-chat-scope.js';
+import {
+  scheduleCeoRequestViaOpenClawCron,
+  enqueueGetWorkFromTeam,
+  enqueueDelegationTask,
+  postCallbackForRequestId,
+  appendToAgentMemory,
+  extractTaskSummaryFromPrompt,
+  extractTaskContentFromPrompt,
+  appendDelegationResponseToAgentChat,
+} from '../services/delegation-queue.js';
+import {
+  isAgentWorkflowPrompt,
+  completeAgentWorkflowKanbanForDelegation,
+} from '../services/agent-workflow-kanban.js';
 import { getLastIntentDebug } from '../services/intent-classifier.js';
-
 import { ensureTenantOpenClawAgent } from '../services/openclaw-tenant.js';
 import { getAgentsUnderCooForCeo } from '../services/org-context.js';
+import { tryHandleCooReachMeRequest } from '../services/reach-me-delegation.js';
+import { completePipelineKanbanForDelegation } from '../services/kanban-workflow-stage.js';
 
 const router = Router();
 
@@ -82,6 +94,16 @@ router.post('/cron-callback', requireInternalToken, (req, res) => {
     db()
       .prepare('UPDATE agent_delegation_tasks SET status = ?, response_content = ?, completed_at = ? WHERE id = ?')
       .run('completed', responseContent, now, taskId);
+    // Sync Kanban board — cron path previously left cards stuck in awaiting_confirmation
+    try {
+      if (isAgentWorkflowPrompt(task.prompt)) {
+        completeAgentWorkflowKanbanForDelegation(taskId, { ok: true });
+      } else {
+        completePipelineKanbanForDelegation(taskId, { ok: true });
+      }
+    } catch (kanbanErr) {
+      console.warn('[cron-callback] kanban sync failed:', kanbanErr?.message || kanbanErr);
+    }
     appendDelegationResponseToAgentChat(
       agent_id,
       isAgentWorkflowPrompt(task.prompt)
@@ -353,6 +375,28 @@ router.post('/:id/messages', requireAuth, async (req, res) => {
 
     const ceoMessage = content.trim();
     db().prepare('INSERT INTO standup_messages (standup_id, role, content) VALUES (?, ?, ?)').run(standupId, 'user', ceoMessage);
+
+    // Hard path: ask specialist to reach CEO — notify as specialist (not COO)
+    const reach = await tryHandleCooReachMeRequest(ownerUserId, ceoMessage);
+    if (reach?.ok) {
+      db()
+        .prepare('INSERT INTO standup_messages (standup_id, role, content) VALUES (?, ?, ?)')
+        .run(standupId, 'coo', reach.cooReply);
+      const messages = db()
+        .prepare('SELECT id, role, content, created_at FROM standup_messages WHERE standup_id = ? ORDER BY created_at')
+        .all(standupId);
+      const updated = db().prepare('SELECT * FROM standups WHERE id = ?').get(standupId);
+      return res.status(201).json({
+        standup: updated,
+        messages,
+        coo_reply: reach.cooReply,
+        reach_me: {
+          specialist_id: reach.specialist?.id,
+          specialist_name: reach.specialist?.name,
+          chat_url: reach.chat_url,
+        },
+      });
+    }
 
     const result = await scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, ownerUserId);
 

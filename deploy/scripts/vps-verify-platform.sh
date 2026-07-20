@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Post-deploy platform verification: multi-tenant fixes, Master Data tools/UI, Flowlah branding.
+# Post-deploy platform verification: multi-tenant, Master Data, notifications, Flowlah branding.
 #
 # Usage (on VPS):
 #   bash /opt/agent-os/deploy/scripts/vps-verify-platform.sh
@@ -21,9 +21,30 @@ check() {
   printf '    %-28s ' "$label"
   if "$@"; then echo OK; else echo MISSING; fi
 }
-check "delegation per-CEO" grep -q processPendingDelegationTasksForAllCeos "$ROOT/backend/src/services/delegation-queue.js"
+check "kanban cron sync" grep -q completePipelineKanbanForDelegation "$ROOT/backend/src/routes/standups.js"
+check "kanban in_progress mark" grep -q markKanbanInProgressForDelegation "$ROOT/backend/src/services/delegation-queue.js"
+check "kanban stuck heal" grep -q healStuckKanbanForCompletedDelegations "$ROOT/backend/src/index.js"
+check "COO chat reach-me hook" grep -q tryHandleCooReachMeRequest "$ROOT/backend/src/routes/agents.js"
+check "standup reach-me hook" grep -q tryHandleCooReachMeRequest "$ROOT/backend/src/routes/standups.js"
+check "notify_ceo COO rewrite" grep -q tryRewriteCooNotifyAsSpecialist "$ROOT/backend/src/routes/tools.js"
+check "notify_ceo chat link" grep -q '/agents/' "$ROOT/backend/src/services/notify-ceo.js"
+check "COO reach-me guard" grep -q 'Do \*\*NOT\*\* call \*\*notify_ceo\*\* yourself' "$ROOT/openclaw-workspace-templates/balserve/AGENTS.md" || grep -q 'Do NOT call' "$ROOT/backend/src/services/org-context.js"
+check "workspace heal startup" grep -q healAgentWorkspacePaths "$ROOT/backend/src/index.js"
+check "AgentWorkspace UI" grep -q workspace_root "$ROOT/frontend/src/pages/AgentWorkspace.jsx" || grep -q agentWorkspaceFiles "$ROOT/frontend/src/pages/AgentWorkspace.jsx"
 check "master_data routes" grep -q master-data-list-tables "$ROOT/backend/src/routes/tools.js"
 check "master-data-tools.js" test -f "$ROOT/backend/src/services/master-data-tools.js"
+check "standups owner scope" grep -q 'owner_user_id = ?' "$ROOT/backend/src/routes/standups.js"
+check "notification dismiss API" grep -q 'notifications/dismiss' "$ROOT/backend/src/routes/standups.js"
+check "user_feed_dismissals" grep -q user_feed_dismissals "$ROOT/backend/src/db/schema.js"
+check "agent dismiss service" grep -q dismissAgentResponseNotifications "$ROOT/backend/src/services/agent-response-notifications.js"
+check "composite dismiss keys" grep -q agentStandupDismissKey "$ROOT/backend/src/services/agent-response-notifications.js"
+check "api standupNotificationsDismiss" grep -q standupNotificationsDismiss "$ROOT/frontend/src/api.js"
+check "NotificationProvider" grep -q NotificationProvider "$ROOT/frontend/src/App.jsx"
+check "NotificationContext" test -f "$ROOT/frontend/src/context/NotificationContext.jsx"
+check "shared bell dismiss" grep -q standupNotificationsDismiss "$ROOT/frontend/src/context/NotificationContext.jsx"
+check "broadcast route" grep -q "/api/broadcast" "$ROOT/backend/src/routes/broadcast.js" || test -f "$ROOT/backend/src/routes/broadcast.js"
+check "broadcast CEO session" grep -q registerOpenClawSessionOwner "$ROOT/backend/src/routes/broadcast.js"
+check "Broadcast UI" grep -q Broadcast "$ROOT/frontend/src/pages/Broadcast.jsx" || grep -q '/broadcast' "$ROOT/frontend/src/App.jsx"
 check "tool-owner-scope fix" grep -q SESSION_USER_PREFIXES "$ROOT/backend/src/services/tool-owner-scope.js"
 check "Master Data UI purpose" grep -q 'Purpose / description' "$ROOT/frontend/src/pages/MasterData.jsx"
 check "Flowlah title" grep -q 'Flowlah - An Agent Company Setup' "$ROOT/frontend/index.html"
@@ -42,6 +63,16 @@ if docker compose exec -T frontend sh -c 'grep -Rql "Flowlah - An Agent Company 
 else
   echo "    WARN: Flowlah title not in deployed index.html"
 fi
+if docker compose exec -T frontend sh -c 'grep -Rql NotificationProvider /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    NotificationProvider (shared bell feed) in bundle OK"
+else
+  echo "    WARN: NotificationProvider not found in frontend JS (rebuild frontend?)"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql standupNotificationsDismiss /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    Notification dismiss API client in bundle OK"
+else
+  echo "    WARN: standupNotificationsDismiss not found in frontend JS (rebuild frontend?)"
+fi
 
 echo "==> DB runtime"
 docker compose exec -T backend node <<'NODE'
@@ -50,10 +81,15 @@ initDb();
 const db = getDb();
 const mdTools = db.prepare("SELECT COUNT(*) AS c FROM content_tools_meta WHERE name LIKE 'master_data_%'").get().c;
 const mdGrants = db.prepare("SELECT COUNT(*) AS c FROM agent_tool_grants WHERE tool_name LIKE 'master_data_%'").get().c;
-const cols = db.prepare('PRAGMA table_info(agent_delegation_tasks)').all().map((c) => c.name);
+const delCols = db.prepare('PRAGMA table_info(agent_delegation_tasks)').all().map((c) => c.name);
+const standupCols = db.prepare('PRAGMA table_info(standups)').all().map((c) => c.name);
+const dismissTbl = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='user_feed_dismissals'").get();
 console.log('    master_data tools meta:', mdTools, 'grants:', mdGrants);
-console.log('    delegation owner_user_id:', cols.includes('owner_user_id') ? 'OK' : 'MISSING');
+console.log('    delegation owner_user_id:', delCols.includes('owner_user_id') ? 'OK' : 'MISSING');
+console.log('    standups owner_user_id:', standupCols.includes('owner_user_id') ? 'OK' : 'MISSING');
+console.log('    user_feed_dismissals table:', dismissTbl ? 'OK' : 'MISSING');
 if (mdTools < 7) throw new Error('expected at least 7 master_data tools in content_tools_meta');
+if (!dismissTbl) throw new Error('user_feed_dismissals table missing');
 NODE
 
 echo "==> master_data invoke smoke"
@@ -67,6 +103,33 @@ const out = listRowsForAgent(owner, { table_name: 'departments', limit: 5 });
 const names = (out.rows || []).map((r) => r.data?.name).filter(Boolean);
 console.log('    departments sample:', names.slice(0, 5).join(', ') || '(none)');
 NODE
+
+echo "==> agent workspace MD smoke"
+docker compose exec -T backend node <<'NODE'
+import { existsSync } from 'fs';
+import { initDb, getDb } from './src/db/schema.js';
+import { resolveAgentWorkspaceRoot, listWorkspaceFiles, readWorkspaceFile } from './src/workspace/adapter.js';
+initDb();
+const agent = getDb().prepare(`SELECT * FROM agents WHERE is_coo = 1 OR id = 'balserve' ORDER BY is_coo DESC LIMIT 1`).get();
+if (!agent) throw new Error('no COO agent');
+const root = resolveAgentWorkspaceRoot(agent, { healDb: false });
+const listed = await listWorkspaceFiles(root);
+const soul = await readWorkspaceFile('soul', { workspaceRoot: root });
+console.log('    agent:', agent.id, 'root:', root);
+console.log('    files:', (listed.files || []).map((f) => f.name).join(', ') || '(none)');
+console.log('    SOUL.md bytes:', (soul.text || '').length, existsSync(root) ? 'dir OK' : 'dir MISSING');
+if (!existsSync(root)) throw new Error('workspace root missing: ' + root);
+if (!(soul.text || '').trim()) throw new Error('SOUL.md empty or missing at ' + root);
+NODE
+
+echo "==> broadcast routing smoke"
+docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-broadcast-routing.js
+
+echo "==> Kanban delegation sync smoke"
+docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-kanban-delegation-sync.js
+
+echo "==> COO reach-me delegation smoke"
+docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-coo-reach-me-delegation.js
 
 echo "==> OpenClaw allowlists (master_data)"
 docker compose exec -T -w /opt/agent-os openclaw node -e "

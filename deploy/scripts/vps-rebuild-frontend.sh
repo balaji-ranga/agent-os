@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Rebuild frontend image on VPS after auth-scroll fix, then run regression scripts in backend.
+# Rebuild frontend image on VPS, refresh nginx upstream, verify key UI markers.
 set -euo pipefail
 cd /opt/agent-os/deploy
-export COMPOSE_FILE=docker-compose.yml:docker-compose.browser.yml
+export COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml:docker-compose.browser.yml}"
 
 echo "==> Rebuild frontend (+ nginx so upstream IP refreshes)"
 docker compose build frontend
@@ -10,8 +10,22 @@ docker compose up -d --force-recreate frontend nginx
 sleep 4
 curl -kfsS https://127.0.0.1/api/health
 echo
-# Register page should be scrollable HTML shell (SPA) — just verify route serves
 curl -kfsS -o /dev/null -w "register_http=%{http_code}\n" https://127.0.0.1/register
 curl -kfsS -o /dev/null -w "home_http=%{http_code}\n" https://127.0.0.1/ || true
-echo
+
+echo "==> frontend bundle markers"
+for marker in 'Resync ORG' 'Purpose / description' NotificationProvider standupNotificationsDismiss Broadcast 'Flowlah - An Agent Company Setup'; do
+  if [[ "$marker" == 'Flowlah - An Agent Company Setup' ]]; then
+    if docker compose exec -T frontend sh -c "grep -q '$marker' /usr/share/nginx/html/index.html 2>/dev/null"; then
+      echo "    $marker OK (index.html)"
+    else
+      echo "    WARN: $marker missing from index.html"
+    fi
+  elif docker compose exec -T frontend sh -c "grep -Rql '$marker' /usr/share/nginx/html/assets/*.js 2>/dev/null"; then
+    echo "    $marker OK"
+  else
+    echo "    WARN: $marker not in frontend JS bundle"
+  fi
+done
+
 echo FRONTEND_DONE

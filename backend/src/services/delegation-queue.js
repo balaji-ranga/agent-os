@@ -16,7 +16,10 @@ import {
   failPipelineWorkflowForDelegation,
   recoverStaleProcessingDelegations,
 } from './job-applicant-pipeline.js';
-import { completePipelineKanbanForDelegation } from './kanban-workflow-stage.js';
+import {
+  completePipelineKanbanForDelegation,
+  markKanbanInProgressForDelegation,
+} from './kanban-workflow-stage.js';
 import {
   completeAgentWorkflowKanbanForDelegation,
   isAgentWorkflowPrompt,
@@ -273,73 +276,119 @@ function getStandupContextForIntent(standupId, ceoMessage = '') {
 }
 
 /**
- * Schedule CEO request via OpenClaw Gateway cron. Reads COO AGENTS.md, uses OpenAI to classify
- * intent and allocate a task query per agent (no hardcoded list). Creates one task per agent
- * that the classifier assigned a non-empty query; fallback: if classifier fails, all agents get full message.
- * Passes recent user messages and agent responses as context for follow-up resolution.
- * @returns {{ requestId: string, count: number, scheduledCount: number, pendingCount: number, agentNames: string[] }}
+ * Cap an allocation map to at most maxAgents entries (prefer fewer specialists).
+ * @returns {Record<string, string>}
  */
-export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, ceoUserId = null) {
+function capAllocatedAgents(allocated, maxAgents = 2) {
+  if (!allocated || typeof allocated !== 'object') return {};
+  const entries = Object.entries(allocated).filter(([, v]) => typeof v === 'string' && v.trim());
+  if (entries.length <= maxAgents) {
+    return Object.fromEntries(entries.map(([k, v]) => [String(k).toLowerCase(), v.trim()]));
+  }
+  console.warn(
+    '[delegation] capping intent allocation',
+    entries.map(([k]) => k),
+    '→',
+    entries.slice(0, maxAgents).map(([k]) => k)
+  );
+  return Object.fromEntries(
+    entries.slice(0, maxAgents).map(([k, v]) => [String(k).toLowerCase(), v.trim()])
+  );
+}
+
+function enqueueAllocatedTasks({
+  agents,
+  allocated,
+  standupId,
+  requestId,
+  ownerUserId,
+  ins,
+  kanbanIns,
+}) {
+  const taskRows = [];
+  for (const a of agents) {
+    const query = allocated[a.id?.toLowerCase()] ?? allocated[a.id];
+    if (!query || typeof query !== 'string') continue;
+    const prompt = buildDetailedPromptForAgent(query, a.name || a.id, a.role);
+    const scopedPrompt = withOwnerScope(prompt, ownerUserId);
+    ins.run(standupId, requestId, a.id, scopedPrompt, ownerUserId);
+    const row = db().prepare('SELECT id FROM agent_delegation_tasks ORDER BY id DESC LIMIT 1').get();
+    if (row) {
+      taskRows.push({ taskId: row.id, agent: a, query });
+      const title = (query || '').trim().slice(0, 200);
+      kanbanIns.run(title, '', a.id, standupId, row.id);
+    }
+  }
+  return taskRows;
+}
+
+/**
+ * Schedule CEO request via OpenClaw Gateway cron. Reads COO AGENTS.md, uses OpenAI to classify
+ * intent and allocate a task query per agent. Never fans out to all agents.
+ * @param {number} standupId
+ * @param {string} ceoMessage
+ * @param {string|null} [ceoUserId]
+ * @param {{ restrictToAgentIds?: string[], preAllocated?: Record<string, string> }} [opts]
+ */
+export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, ceoUserId = null, opts = {}) {
   const ownerUserId = ceoUserId || getStandupOwnerUserId(standupId);
-  const agents = getAgentsUnderCoo(ownerUserId);
+  let agents = getAgentsUnderCoo(ownerUserId);
+  const restrict = (opts.restrictToAgentIds || []).map((id) => String(id).toLowerCase()).filter(Boolean);
+  if (restrict.length) {
+    const set = new Set(restrict);
+    agents = agents.filter((a) => set.has(String(a.id).toLowerCase()));
+  }
   const agentsMdContent = await readCooAgentsMd(ownerUserId);
   const scopedMessage = withOwnerScope(ceoMessage, ownerUserId);
   const context = getStandupContextForIntent(standupId, scopedMessage);
-  const allocated = await classifyIntentAndAllocate(scopedMessage, agentsMdContent || '', context);
+
+  let allocated =
+    opts.preAllocated && typeof opts.preAllocated === 'object' && Object.keys(opts.preAllocated).length
+      ? { ...opts.preAllocated }
+      : await classifyIntentAndAllocate(scopedMessage, agentsMdContent || '', context);
+
+  if (!allocated || typeof allocated !== 'object') allocated = {};
+  allocated = capAllocatedAgents(allocated, 2);
+
+  // When restrictToAgentIds is set, keep only those keys (or fill single restrict from message).
+  if (restrict.length && allocated && typeof allocated === 'object') {
+    const filtered = {};
+    for (const id of restrict) {
+      const q = allocated[id] || allocated[String(id).toLowerCase()];
+      if (q && typeof q === 'string') filtered[id] = q;
+    }
+    if (Object.keys(filtered).length) {
+      allocated = filtered;
+    } else if (restrict.length <= 2) {
+      allocated = Object.fromEntries(restrict.map((id) => [id, scopedMessage.trim()]));
+    } else {
+      allocated = {};
+    }
+  }
+
+  allocated = capAllocatedAgents(allocated, 2);
 
   const requestId = `req-${standupId}-${Date.now()}`;
   const baseUrl = getBaseUrl();
   const ins = db().prepare(
     `INSERT INTO agent_delegation_tasks (standup_id, request_id, to_agent_id, prompt, status, owner_user_id) VALUES (?, ?, ?, ?, 'pending', ?)`
   );
-  const taskRows = [];
-
   const kanbanIns = db().prepare(
-    `INSERT INTO kanban_tasks (title, description, status, assigned_agent_id, created_by, standup_id, agent_delegation_task_id) VALUES (?, ?, 'awaiting_confirmation', ?, 'coo', ?, ?)`
+    `INSERT INTO kanban_tasks (title, description, status, assigned_agent_id, created_by, standup_id, agent_delegation_task_id) VALUES (?, ?, 'in_progress', ?, 'coo', ?, ?)`
   );
 
-  // Intent-based: when classifier returns at least one agent, delegate only to those with a query.
-  if (allocated && typeof allocated === 'object' && Object.keys(allocated).length > 0) {
-    for (const a of agents) {
-      const query = allocated[a.id?.toLowerCase()] ?? allocated[a.id];
-      if (!query || typeof query !== 'string') continue;
-      const prompt = buildDetailedPromptForAgent(query, a.name || a.id, a.role);
-      const scopedPrompt = withOwnerScope(prompt, ownerUserId);
-      ins.run(standupId, requestId, a.id, scopedPrompt, ownerUserId);
-      const row = db().prepare('SELECT id FROM agent_delegation_tasks ORDER BY id DESC LIMIT 1').get();
-      if (row) {
-        taskRows.push({ taskId: row.id, agent: a, query });
-        const title = (query || '').trim().slice(0, 200);
-        kanbanIns.run(title, '', a.id, standupId, row.id);
-      }
-    }
-  } else if (allocated === null && agents.length > 0) {
-    // Classifier failed (API error, no AGENTS.md, etc.): fall back to all agents.
-    for (const a of agents) {
-      const prompt = buildDetailedPromptForAgent(scopedMessage.trim(), a.name || a.id, a.role);
-      const scopedPrompt = withOwnerScope(prompt, ownerUserId);
-      ins.run(standupId, requestId, a.id, scopedPrompt, ownerUserId);
-      const row = db().prepare('SELECT id FROM agent_delegation_tasks ORDER BY id DESC LIMIT 1').get();
-      if (row) {
-        taskRows.push({ taskId: row.id, agent: a, query: scopedMessage.trim() });
-        const title = (scopedMessage || '').trim().slice(0, 200);
-        kanbanIns.run(title, '', a.id, standupId, row.id);
-      }
-    }
-  } else if ((!allocated || Object.keys(allocated).length === 0) && agents.length > 0) {
-    // No agent mapped (empty object or no keys): fall back to all agents with full message.
-    for (const a of agents) {
-      const prompt = buildDetailedPromptForAgent(scopedMessage.trim(), a.name || a.id, a.role);
-      const scopedPrompt = withOwnerScope(prompt, ownerUserId);
-      ins.run(standupId, requestId, a.id, scopedPrompt, ownerUserId);
-      const row = db().prepare('SELECT id FROM agent_delegation_tasks ORDER BY id DESC LIMIT 1').get();
-      if (row) {
-        taskRows.push({ taskId: row.id, agent: a, query: scopedMessage.trim() });
-        const title = (scopedMessage || '').trim().slice(0, 200);
-        kanbanIns.run(title, '', a.id, standupId, row.id);
-      }
-    }
-  }
+  const taskRows =
+    allocated && Object.keys(allocated).length > 0
+      ? enqueueAllocatedTasks({
+          agents,
+          allocated,
+          standupId,
+          requestId,
+          ownerUserId,
+          ins,
+          kanbanIns,
+        })
+      : [];
 
   const agentNames = taskRows.map((r) => r.agent.name || r.agent.id);
   const kanbanTaskIds = [];
@@ -360,7 +409,10 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, c
         `FIRST ACTION (before anything else): call the kanban_move_status tool with JSON:\n` +
         `  {\"task_id\": ${kanbanId}, \"new_status\": \"in_progress\"}\n\n` +
         promptWithMemory +
-        `\n\n---\nIMPORTANT — Kanban finish:\nWhen you are done, call ONE of:\n  {\"task_id\": ${kanbanId}, \"new_status\": \"completed\"}\n  {\"task_id\": ${kanbanId}, \"new_status\": \"failed\"}\n---`;
+        `\n\n---\nIMPORTANT — Kanban finish:\n` +
+        `Do your specialist work and reply with the answer in this run. Do NOT say you are waiting for CEO acknowledgment — this task already runs automatically.\n` +
+        `When finished, you may call kanban_move_status with {\"task_id\": ${kanbanId}, \"new_status\": \"completed\"} or \"failed\". ` +
+        `The backend also marks the Kanban card completed/failed when this delegation run ends.\n---`;
     }
     const internalToken = ensureInternalTokenConfigured();
     const webhookUrl = `${baseUrl}/api/standups/cron-callback?standup_id=${standupId}&request_id=${encodeURIComponent(requestId)}&agent_id=${encodeURIComponent(agent.id)}&task_id=${taskId}&internal_token=${encodeURIComponent(internalToken)}`;
@@ -378,10 +430,10 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, c
     });
     if (result.ok) {
       scheduledCount++;
+      markKanbanInProgressForDelegation(taskId);
     } else {
       console.warn('[delegation] cron_add failed for', agent.id, result.error);
     }
-    // If cron failed, task stays pending; processPendingDelegationTasks will run it via chat (fallback).
   }
   const pendingCount = taskRows.length - scheduledCount;
   return { requestId, count: taskRows.length, scheduledCount, pendingCount, agentNames, kanbanTaskIds };
@@ -403,7 +455,8 @@ export async function enqueueGetWorkFromTeam(standupId, contextFromConversation 
   );
   const agentsMdContent = await readCooAgentsMd(ownerUserId);
   const context = getStandupContextForIntent(standupId, fullContext);
-  const allocated = agentsMdContent && fullContext ? await classifyIntentAndAllocate(fullContext, agentsMdContent, context) : null;
+  let allocated = agentsMdContent && fullContext ? await classifyIntentAndAllocate(fullContext, agentsMdContent, context) : null;
+  allocated = capAllocatedAgents(allocated, 2);
 
   let count = 0;
   if (allocated && typeof allocated === 'object' && Object.keys(allocated).length > 0) {
@@ -411,18 +464,6 @@ export async function enqueueGetWorkFromTeam(standupId, contextFromConversation 
       const query = allocated[a.id?.toLowerCase()] ?? allocated[a.id];
       if (!query || typeof query !== 'string') continue;
       const prompt = buildDetailedPromptForAgent(query, a.name || a.id, a.role);
-      ins.run(standupId, requestId, a.id, withOwnerScope(prompt, ownerUserId), ownerUserId);
-      count++;
-    }
-  } else if (allocated === null && agents.length > 0) {
-    for (const a of agents) {
-      const prompt = buildDetailedPromptForAgent(fullContext, a.name || a.id, a.role);
-      ins.run(standupId, requestId, a.id, withOwnerScope(prompt, ownerUserId), ownerUserId);
-      count++;
-    }
-  } else if ((!allocated || Object.keys(allocated).length === 0) && agents.length > 0) {
-    for (const a of agents) {
-      const prompt = buildDetailedPromptForAgent(fullContext, a.name || a.id, a.role);
       ins.run(standupId, requestId, a.id, withOwnerScope(prompt, ownerUserId), ownerUserId);
       count++;
     }
@@ -502,6 +543,7 @@ export async function processPendingDelegationTasksForCeo(ceoUserId) {
 
     runningDelegationIds.add(task.id);
     task = db().prepare('SELECT * FROM agent_delegation_tasks WHERE id = ?').get(task.id);
+    markKanbanInProgressForDelegation(task.id);
 
     const agent = db().prepare('SELECT id, name, openclaw_agent_id FROM agents WHERE id = ?').get(task.to_agent_id);
     if (!agent) {
@@ -538,7 +580,10 @@ export async function processPendingDelegationTasksForCeo(ceoUserId) {
         `FIRST ACTION (before anything else): call the kanban_move_status tool with JSON:\n` +
         `  {\"task_id\": ${kanbanRow.id}, \"new_status\": \"in_progress\"}\n\n` +
         promptWithMemory +
-        `\n\n---\nIMPORTANT — Kanban finish:\nWhen you are done, call ONE of:\n  {\"task_id\": ${kanbanRow.id}, \"new_status\": \"completed\"}\n  {\"task_id\": ${kanbanRow.id}, \"new_status\": \"failed\"}\n---`;
+        `\n\n---\nIMPORTANT — Kanban finish:\n` +
+        `Do your specialist work and reply with the answer in this run. Do NOT say you are waiting for CEO acknowledgment — this task already runs automatically.\n` +
+        `When finished, you may call kanban_move_status with {\"task_id\": ${kanbanRow.id}, \"new_status\": \"completed\"} or \"failed\". ` +
+        `The backend also marks the Kanban card completed/failed when this delegation run ends.\n---`;
     }
     try {
       const isDiscovery = String(task.to_agent_id).toLowerCase() === 'jobdiscovery';

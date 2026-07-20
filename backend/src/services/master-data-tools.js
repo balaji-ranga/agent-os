@@ -40,7 +40,11 @@ export function listTablesForAgent(ownerUserId) {
       source: t.source,
       updated_at: t.updated_at,
     })),
-    note: 'Use table name or id with master_data_list_rows / insert / update / delete. Schema alter/drop is not allowed.',
+    next_step:
+      'REQUIRED before answering the user: choose the table whose purpose best matches their question, then call master_data_list_rows with that table_name or table_id. Do not answer with this catalog alone.',
+    note:
+      'DISCOVERY ONLY. Next: pick the table whose purpose best matches the user question, then call master_data_list_rows with that table_name/table_id. ' +
+      'Do not answer with only this catalog. For document/PDF questions use master_data_rag. Schema alter/drop is not allowed.',
   };
 }
 

@@ -432,6 +432,29 @@ export function grantNotifyCeoToAllAgents() {
   return n;
 }
 
+const KANBAN_TOOL_NAMES = [
+  'kanban_create_task',
+  'kanban_move_status',
+  'kanban_reassign_to_coo',
+];
+
+/** Grant Kanban create/move/reassign tools to all agents (owner-scoped at invoke time). */
+export function grantKanbanToolsToAllAgents() {
+  const db = getDb();
+  const agents = db.prepare('SELECT id FROM agents').all();
+  const ins = db.prepare(
+    'INSERT OR IGNORE INTO agent_tool_grants (agent_id, tool_name) VALUES (?, ?)'
+  );
+  let n = 0;
+  for (const a of agents) {
+    for (const tool of KANBAN_TOOL_NAMES) {
+      const r = ins.run(a.id, tool);
+      if (r.changes) n += 1;
+    }
+  }
+  return n;
+}
+
 const MASTER_DATA_TOOL_NAMES = [
   'master_data_list_tables',
   'master_data_list_rows',

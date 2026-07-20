@@ -22,7 +22,14 @@ function isJobPipelineRow(row) {
 
 const AGENT_FEED_KIND = 'agent_delegation';
 
-function dismissedAgentTaskIds(userId) {
+function agentStandupDismissKey(toAgentId, standupId) {
+  const agent = String(toAgentId || '').trim();
+  const standup = String(standupId || '').trim();
+  if (!agent || !standup) return null;
+  return `standup:${standup}:agent:${agent}`;
+}
+
+function dismissedAgentKeys(userId) {
   return new Set(
     db()
       .prepare(
@@ -34,16 +41,40 @@ function dismissedAgentTaskIds(userId) {
   );
 }
 
-export function dismissAgentResponseNotifications(userId, ids = []) {
+function isAgentTaskDismissed(row, dismissed) {
+  const taskId = String(row.id);
+  if (dismissed.has(taskId)) return true;
+  const composite = agentStandupDismissKey(row.to_agent_id, row.standup_id);
+  return composite ? dismissed.has(composite) : false;
+}
+
+export function dismissAgentResponseNotifications(userId, ids = [], rows = []) {
   const uid = String(userId || '').trim();
   if (!uid) return { dismissed: 0 };
   const list = [...new Set((ids || []).map((id) => String(id).trim()).filter(Boolean))];
-  if (!list.length) return { dismissed: 0 };
+  const feedIds = new Set(list);
+  const rowById = new Map((rows || []).map((row) => [String(row.id), row]));
+
+  for (const id of list) {
+    if (rowById.has(id)) continue;
+    const row = db()
+      .prepare(`SELECT id, to_agent_id, standup_id FROM agent_delegation_tasks WHERE id = ?`)
+      .get(Number(id));
+    if (row) rowById.set(String(row.id), row);
+  }
+
+  for (const row of rowById.values()) {
+    if (!row?.id) continue;
+    feedIds.add(String(row.id));
+    const composite = agentStandupDismissKey(row.to_agent_id, row.standup_id);
+    if (composite) feedIds.add(composite);
+  }
+  if (!feedIds.size) return { dismissed: 0 };
   const ins = db().prepare(
     `INSERT OR IGNORE INTO user_feed_dismissals (user_id, feed_kind, feed_id) VALUES (?, ?, ?)`
   );
   let dismissed = 0;
-  for (const feedId of list) {
+  for (const feedId of feedIds) {
     const r = ins.run(uid, AGENT_FEED_KIND, feedId);
     if (r.changes) dismissed += 1;
   }
@@ -55,7 +86,8 @@ export function dismissAllAgentResponseNotifications(authUser) {
   const visible = listAgentResponseNotificationsForUser(authUser, { limit: 50, includeDismissed: true });
   return dismissAgentResponseNotifications(
     authUser.id,
-    visible.map((n) => n.id)
+    visible.map((n) => n.id),
+    visible.map((n) => ({ id: n.id, to_agent_id: n.to_agent_id, standup_id: n.standup_id }))
   );
 }
 
@@ -90,11 +122,11 @@ export function listAgentResponseNotificationsForUser(authUser, { limit = 20, in
     )
     .all(...agentIds, authUser.id, cap * 4);
 
-  const dismissed = includeDismissed ? null : dismissedAgentTaskIds(authUser.id);
+  const dismissed = includeDismissed ? null : dismissedAgentKeys(authUser.id);
 
   return rows
     .filter((r) => !isJobPipelineRow(r) || promptBelongsToCeo(r.prompt, authUser.id))
-    .filter((r) => includeDismissed || !dismissed.has(String(r.id)))
+    .filter((r) => includeDismissed || !isAgentTaskDismissed(r, dismissed))
     .slice(0, cap)
     .map((r) => ({
       id: r.id,
@@ -110,5 +142,7 @@ export function listAgentResponseNotificationsForUser(authUser, { limit = 20, in
       is_job_pipeline: isJobPipelineRow(r),
       prompt_snippet: (r.prompt || '').trim().slice(0, 120),
       response_snippet: (r.response_content || '').trim().slice(0, 150),
+      // Full text for UI hover tooltip (capped so payloads stay reasonable)
+      response_full: (r.response_content || '').trim().slice(0, 4000),
     }));
 }

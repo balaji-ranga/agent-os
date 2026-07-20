@@ -200,3 +200,43 @@ export function completePipelineKanbanForDelegation(delegationTaskId, { ok = tru
   clearKanbanTaskNotification(row.id);
   return { ...row, status: next };
 }
+
+/** Move linked Kanban card to in_progress when the agent run starts. */
+export function markKanbanInProgressForDelegation(delegationTaskId) {
+  if (!delegationTaskId) return null;
+  const row = db()
+    .prepare('SELECT id, status FROM kanban_tasks WHERE agent_delegation_task_id = ?')
+    .get(delegationTaskId);
+  if (!row) return null;
+  if (['completed', 'failed', 'in_progress'].includes(row.status)) return row;
+  db()
+    .prepare(`UPDATE kanban_tasks SET status = 'in_progress', updated_at = datetime('now') WHERE id = ?`)
+    .run(row.id);
+  return { ...row, status: 'in_progress' };
+}
+
+/**
+ * Heal cards stuck in awaiting_confirmation / open after the linked delegation already finished.
+ * @returns {{ healed: number }}
+ */
+export function healStuckKanbanForCompletedDelegations() {
+  const rows = db()
+    .prepare(
+      `SELECT k.id AS kanban_id, k.status AS kanban_status, d.id AS delegation_id, d.status AS delegation_status
+       FROM kanban_tasks k
+       JOIN agent_delegation_tasks d ON d.id = k.agent_delegation_task_id
+       WHERE k.status IN ('awaiting_confirmation', 'open', 'in_progress')
+         AND d.status IN ('completed', 'failed')`
+    )
+    .all();
+  let healed = 0;
+  for (const r of rows) {
+    const next = r.delegation_status === 'failed' ? 'failed' : 'completed';
+    db()
+      .prepare(`UPDATE kanban_tasks SET status = ?, updated_at = datetime('now') WHERE id = ?`)
+      .run(next, r.kanban_id);
+    clearKanbanTaskNotification(r.kanban_id);
+    healed += 1;
+  }
+  return { healed, scanned: rows.length };
+}

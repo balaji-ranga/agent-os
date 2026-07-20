@@ -45,6 +45,7 @@ import jobApplicantTools from './job-applicant-tools.js';
 import { summarizeLearnings } from '../services/agent-feedback.js';
 import { executeEmailSend } from '../services/email-send.js';
 import { executeNotifyCeo } from '../services/notify-ceo.js';
+import { tryRewriteCooNotifyAsSpecialist } from '../services/reach-me-delegation.js';
 import {
   assertNoSchemaMutation,
   listTablesForAgent,
@@ -857,7 +858,23 @@ router.post('/notify-ceo', optionalAuth, async (req, res) => {
       logTool(req, 'notify_ceo', requestPayload, err, 'error', source);
       return res.status(403).json(err);
     }
-    const out = executeNotifyCeo(requestPayload, {
+    // COO must not notify "on behalf of" a specialist — re-attribute to the specialist.
+    let out = null;
+    if (caller?.is_coo) {
+      out = tryRewriteCooNotifyAsSpecialist(ownerUserId, requestPayload, caller);
+      if (out?.sent) {
+        logTool(
+          req,
+          'notify_ceo',
+          { ...requestPayload, owner_user_id: ownerUserId, rewritten_from_coo: true },
+          out,
+          'ok',
+          source
+        );
+        return res.json({ ...out, rewritten_from_coo: true });
+      }
+    }
+    out = executeNotifyCeo(requestPayload, {
       ownerUserId,
       callerAgentId: caller?.id || source || null,
       callerAgentName: caller?.name || null,

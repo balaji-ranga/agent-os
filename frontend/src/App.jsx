@@ -25,6 +25,7 @@ import NotificationBell from './components/NotificationBell';
 import { AdminNavMenu, CeoNavMenu } from './components/AppNavMenu';
 import ImpersonationBanner from './components/ImpersonationBanner';
 import { useAuth } from './context/AuthContext';
+import { NotificationProvider } from './context/NotificationContext';
 
 /** Login/Register are top-level routes (outside Shell) — enable document scroll here. */
 function AuthLayout({ children }) {
@@ -98,6 +99,7 @@ function Shell() {
   const closeMobileNav = () => setMobileNavOpen(false);
 
   return (
+    <NotificationProvider>
     <div className={`app-shell ${navCollapsed && !isNarrow ? 'nav-collapsed' : ''} ${mobileNavOpen ? 'mobile-nav-open' : ''}`}>
       {mobileNavOpen && (
         <button
@@ -222,6 +224,7 @@ function Shell() {
         </Routes>
       </main>
     </div>
+    </NotificationProvider>
   );
 }
 

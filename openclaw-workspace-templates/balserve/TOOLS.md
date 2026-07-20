@@ -49,18 +49,22 @@ Use these for **org master tables** (e.g. departments) and **document RAG**. Dat
 
 | Tool | When to use |
 |------|-------------|
-| **master_data_list_tables** | Discover tables + **purpose/description** + columns. Call first. |
-| **master_data_list_rows** | Read rows: `table_name` (e.g. `departments`) or `table_id`; optional `query` / `column`+`equals`. |
+| **master_data_list_tables** | DISCOVERY only — tables + **purpose**. Then you **must** call list_rows on the purpose-matching table. Never answer with only the catalog. |
+| **master_data_list_rows** | READ rows after purpose match (`table_name` / `table_id`). This is how you answer "what departments…". |
 | **master_data_insert_row** | Insert `{ table_name, data:{…} }` into an existing table. |
 | **master_data_update_row** | Update `{ table_name, row_id, data:{…} }`. |
 | **master_data_delete_row** | Delete `{ table_name, row_id }` (row only — not the table). |
-| **master_data_list_documents** | List uploaded documents. |
-| **master_data_rag** | Search documents with `query` (optional `document_id`, `top_k`). |
+| **master_data_list_documents** | DISCOVERY for uploaded docs (optional before RAG). |
+| **master_data_rag** | Answer from **document** content (`query` required). Use for PDFs/policies/"what does the doc say" — not for structured tables. |
 
-**Example — latest departments:**
-1. Call **master_data_list_tables**
-2. Call **master_data_list_rows** with `{ "table_name": "departments" }`
-3. Reply with the `name` values from rows
+**Example — departments in this org:**
+1. **master_data_list_tables** → find table whose purpose/name matches departments
+2. **master_data_list_rows** `{ "table_name": "<that table>" }`
+3. Reply with department names from **rows** (not the table list)
+
+**Example — question about an uploaded document:**
+1. Prefer **master_data_rag** `{ "query": "<user question>" }`
+2. Or **master_data_list_documents** then rag with `document_id` if needed
 
 Do **not** use the browser tool for Master Data.
 
@@ -68,23 +72,29 @@ Do **not** use the browser tool for Master Data.
 
 ## Notify CEO user (notify_ceo)
 
-Use **notify_ceo** when you need the **CEO user** to see an in-app notification (NotificationBell) — blockers, approvals, status alerts. Recipient is always the entitled CEO for this session; **never** pass `user_id` / `ceo_user_id`.
+Use **notify_ceo** **only** when the CEO explicitly asked you to reach/notify/ping them, or for a true blocker/approval while they are **not** already in your Dashboard chat. Recipient is always the entitled CEO for this session; **never** pass `user_id` / `ceo_user_id`.
+
+**Do NOT call notify_ceo** for ordinary chat replies, acknowledgements, or finished research/content — the CEO already sees your answer in chat.
+
+**Always set `link_url` to your chat path** when you do notify: `/agents/<your-agent-id>/chat` (e.g. `/agents/socialasstant/chat`).
 
 | Field | Required | Notes |
 |-------|----------|-------|
 | `title` | yes | Short notification title |
 | `body` | no | Message text |
-| `link_url` | no | e.g. `/kanban` or `/agents/coo/chat` |
+| `link_url` | strongly recommended | `/agents/<your-id>/chat` so the bell opens your chat |
 | `source_key` | no | Idempotency key to avoid duplicates |
 
-**Example:**
+**Example (only after CEO asked you to reach them):**
 ```json
 {
-  "title": "Approval needed",
-  "body": "ExpenseManager flagged a $2,400 vendor invoice.",
-  "link_url": "/kanban"
+  "title": "SocialAssistant ready",
+  "body": "Happy to discuss your social media plan.",
+  "link_url": "/agents/socialasstant/chat"
 }
 ```
+
+**COO only:** If the CEO asks you to have *another* agent reach them, do **not** call notify_ceo yourself — **sessions_send** to that agent and instruct them to call notify_ceo.
 
 ---
 

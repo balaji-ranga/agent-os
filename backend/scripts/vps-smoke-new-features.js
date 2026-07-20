@@ -6,7 +6,7 @@ import { initDb, getDb } from '../src/db/schema.js';
 import { seedEmailSendToolIfMissing, seedNotifyCeoToolIfMissing, seedMasterDataToolsIfMissing } from '../src/db/seed-content-tools-meta.js';
 import { grantNotifyCeoToAllAgents, grantMasterDataToolsToAllAgents } from '../src/services/agent-feedback.js';
 import { executeNotifyCeo } from '../src/services/notify-ceo.js';
-import { listNotificationsForUser } from '../src/services/platform-notifications.js';
+import { listNotificationsForUser, markNotificationsRead } from '../src/services/platform-notifications.js';
 import { syncOrgContextForCeo, buildOrgContextForCeo } from '../src/services/org-context.js';
 import { ensureAllTenantOpenClawAgentsForCeo } from '../src/services/openclaw-tenant.js';
 import { getBalaCeoAuthId } from '../src/services/job-applicant-ceo.js';
@@ -17,7 +17,10 @@ import {
   handleA2AJsonRpc,
 } from '../src/services/workflow-a2a-publish.js';
 import { listRowsForAgent } from '../src/services/master-data-tools.js';
+import { dismissAgentResponseNotifications } from '../src/services/agent-response-notifications.js';
+import { healAgentWorkspacePaths, resolveAgentWorkspaceRoot, readWorkspaceFile } from '../src/workspace/adapter.js';
 import { randomUUID } from 'crypto';
+import { existsSync } from 'fs';
 
 initDb();
 seedEmailSendToolIfMissing();
@@ -25,6 +28,18 @@ seedNotifyCeoToolIfMissing();
 seedMasterDataToolsIfMissing();
 grantNotifyCeoToAllAgents();
 grantMasterDataToolsToAllAgents();
+
+const heal = healAgentWorkspacePaths(getDb());
+console.log('OK workspace path heal', heal);
+
+const coo = getDb().prepare(`SELECT * FROM agents WHERE is_coo = 1 OR id = 'balserve' ORDER BY is_coo DESC LIMIT 1`).get();
+if (!coo) throw new Error('COO agent missing');
+const wsRoot = resolveAgentWorkspaceRoot(coo, { healDb: false });
+const soul = await readWorkspaceFile('soul', { workspaceRoot: wsRoot });
+if (!existsSync(wsRoot) || !(soul.text || '').trim()) {
+  throw new Error(`COO workspace MD not loading: root=${wsRoot}`);
+}
+console.log('OK workspace SOUL.md', { agent: coo.id, root: wsRoot, bytes: soul.text.length });
 
 const row = getDb().prepare(`SELECT name, endpoint, enabled FROM content_tools_meta WHERE name = 'email_send'`).get();
 if (!row) throw new Error('email_send missing from content_tools_meta');
@@ -62,6 +77,23 @@ const deptOut = listRowsForAgent(owner, { table_name: 'departments', limit: 3 })
 const deptNames = (deptOut.rows || []).map((r) => r.data?.name).filter(Boolean);
 console.log('OK master_data_list_rows departments sample', deptNames.slice(0, 3).join(', ') || '(none)');
 
+const dismissTbl = getDb()
+  .prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='user_feed_dismissals'`)
+  .get();
+if (!dismissTbl) throw new Error('user_feed_dismissals table missing');
+const dismissOut = dismissAgentResponseNotifications(owner, []);
+if (dismissOut.dismissed !== 0) throw new Error('empty dismiss should return dismissed=0');
+// Composite standup+agent dismiss key must be present in service
+const { readFileSync } = await import('fs');
+const dismissSrc = readFileSync(
+  new URL('../src/services/agent-response-notifications.js', import.meta.url),
+  'utf8'
+);
+if (!dismissSrc.includes('agentStandupDismissKey')) {
+  throw new Error('agentStandupDismissKey missing from agent-response-notifications.js');
+}
+console.log('OK notification dismiss table + service + composite keys');
+
 const sourceKey = `vps-smoke-notify-ceo:${Date.now()}`;
 const notifyOut = executeNotifyCeo(
   {
@@ -78,6 +110,7 @@ const listed = listNotificationsForUser(owner, { limit: 30 });
 if (!listed.some((n) => n.source_key === sourceKey || n.title === 'VPS notify_ceo smoke')) {
   throw new Error('notify_ceo notification not listed for CEO');
 }
+markNotificationsRead(owner, listed.filter((n) => n.source_key === sourceKey).map((n) => n.id));
 console.log('OK notify_ceo delivered to', owner);
 
 const tenantEnsured = ensureAllTenantOpenClawAgentsForCeo(owner);

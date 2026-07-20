@@ -46,7 +46,15 @@ export default function AgentChatPanel({
     return api
       .agentChatSend(agentId, text, dataCeoUserId || 'default', profileId)
       .then((r) => {
-        setTurns((prev) => [...prev, { role: 'assistant', content: r.reply, created_at: new Date().toISOString() }]);
+        setTurns((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: r.reply,
+            created_at: new Date().toISOString(),
+            tool_calls: r.tool_calls || [],
+          },
+        ]);
       })
       .catch((e) => {
         setError(e.message);
@@ -99,6 +107,7 @@ export default function AgentChatPanel({
             messageId={t.id}
             feedbackSource="chat"
             feedbackContext={profileId ? { profile_id: profileId } : {}}
+            toolCalls={t.tool_calls}
           />
         ))}
         {sending && <div style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>…</div>}

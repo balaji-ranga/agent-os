@@ -191,7 +191,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/notify-ceo',
     method: 'POST',
     purpose:
-      'Send an in-app push notification to the entitled CEO user for this session (never spoof user_id). Use when you or another agent need to reach the CEO with a title and message. Parameters: title (required), body?, link_url?, source_key?.',
+      'Send an in-app push to the entitled CEO ONLY when they asked you to reach/notify/ping them, or for a true blocker/approval while they are NOT already in your Dashboard chat. Do NOT call this for ordinary chat replies, task acknowledgements, or research/content answers — reply in chat instead. Never pass user_id. Parameters: title (required), body?, link_url? (prefer /agents/<your-id>/chat), source_key?.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -202,7 +202,10 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/master-data-list-tables',
     method: 'POST',
     purpose:
-      'API tool: list this CEO\'s Master Data tables with name, purpose/description, columns, and row_count. Use first to discover which table to read/write (e.g. departments). Strictly owner-scoped. Does NOT create/alter/drop tables.',
+      'API tool: DISCOVERY ONLY — list this CEO\'s Master Data tables with name, purpose/description, columns, row_count. ' +
+      'After calling this, you MUST pick the table whose purpose best matches the user question, then call master_data_list_rows on that table. ' +
+      'Never answer the user with only the table catalog. Example: "what departments exist?" → list_tables → then list_rows on the departments (or purpose-matching) table. ' +
+      'For questions about uploaded PDFs/docs/policies, use master_data_rag (or list_documents then rag) — not this tool. Strictly owner-scoped. No schema create/alter/drop.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -213,7 +216,8 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/master-data-list-rows',
     method: 'POST',
     purpose:
-      'API tool: list or keyword-query rows in an existing Master Data table for this CEO. Parameters: table_name or table_id (required), query?, column?, equals?, limit?, offset?. Example: table_name=departments to get org departments. No schema changes.',
+      'API tool: READ DATA from an existing Master Data table. Required: table_name or table_id (from list_tables purpose match). Optional: query, column, equals, limit, offset. ' +
+      'Use this to answer factual org questions (departments, employees, lookup values). Do not stop after list_tables. No schema changes.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -257,7 +261,8 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/master-data-list-documents',
     method: 'POST',
     purpose:
-      'API tool: list this CEO\'s uploaded Master Data documents (title, filename, chunk_count). Use before master_data_rag when needed.',
+      'API tool: DISCOVERY for uploaded documents (title, filename, chunk_count). Use when the user asks about files/PDFs and you need an id, then call master_data_rag with query. ' +
+      'Do not use for structured table questions (departments etc.) — those use list_tables → list_rows.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -268,7 +273,10 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/master-data-rag',
     method: 'POST',
     purpose:
-      'API tool: keyword RAG over this CEO\'s Master Data documents (optional LLM summary). Parameters: query (required), top_k?, document_id?, summarize?. Owner-scoped only.',
+      'API tool: answer questions from this CEO\'s uploaded Master Data documents (PDF/text) via retrieval (+ optional summary). ' +
+      'Parameters: query (required), optional document_id, top_k, summarize. ' +
+      'Use when the ask is about document content, policies, resumes, handbooks, or "what does the doc say…". ' +
+      'Do NOT use for structured master tables (use list_tables → list_rows by purpose). Prefer rag directly with the user question; list_documents only if you need document_id.',
     model_used: 'platform LLM when summarize=true',
     enabled: 1,
     is_builtin: 1,

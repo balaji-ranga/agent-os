@@ -11,6 +11,7 @@ export default function AgentWorkspace() {
   const [agent, setAgent] = useState(null);
   const [allAgents, setAllAgents] = useState([]);
   const [files, setFiles] = useState({ files: [], daily: [] });
+  const [workspaceRoot, setWorkspaceRoot] = useState(null);
   const [selected, setSelected] = useState('soul');
   const [content, setContent] = useState('');
   const [saving, setSaving] = useState(false);
@@ -52,7 +53,10 @@ export default function AgentWorkspace() {
   useEffect(() => {
     if (!agentId) return;
     api.agentWorkspaceFiles(agentId)
-      .then((r) => setFiles(r))
+      .then((r) => {
+        setFiles(r);
+        if (r?.workspace_root) setWorkspaceRoot(r.workspace_root);
+      })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [agentId]);
@@ -153,7 +157,13 @@ export default function AgentWorkspace() {
       <h1 style={{ marginTop: 0 }}>Workspace — {agent?.name || agentId}</h1>
       <p style={{ color: 'var(--muted)', marginBottom: '1rem' }}>
         Edit workspace files and manage which Agent OS tools this agent can invoke. MD file saves write directly to OpenClaw workspace files and are picked up on the next agent message (bootstrap watcher). Tool access changes apply immediately without restart.
-        {agent && !agent.workspace_path && ' (Using default workspace; set workspace_path on this agent for a separate folder.)'}
+        {workspaceRoot && (
+          <>
+            {' '}
+            <span title={workspaceRoot}>Workspace: <code style={{ fontSize: '0.85rem' }}>{workspaceRoot}</code></span>
+          </>
+        )}
+        {agent && !agent.workspace_path && !workspaceRoot && ' (Using default workspace; set workspace_path on this agent for a separate folder.)'}
       </p>
 
       {error && <div style={{ padding: '0.5rem 1rem', background: 'rgba(248,113,113,0.15)', borderRadius: 8, marginBottom: '1rem', color: '#f87171' }}>{error}</div>}

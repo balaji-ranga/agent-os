@@ -1,5 +1,6 @@
 import { join, normalize, resolve } from 'path';
 import { existsSync } from 'fs';
+import { getOpenClawDir } from '../config/openclaw-paths.js';
 
 const FILE_MAP = {
   soul: 'SOUL.md',
@@ -13,10 +14,130 @@ const FILE_MAP = {
 
 const MAX_FILE_SIZE = 512 * 1024; // 500 KB
 
+function expandHomePath(raw) {
+  const path = String(raw || '').trim();
+  if (!path) return null;
+  if (path.startsWith('~')) {
+    const home = process.env.USERPROFILE || process.env.HOME || '';
+    return join(home, path.slice(1).replace(/^[/\\]/, '') || '');
+  }
+  return path;
+}
+
+/**
+ * Remap a stored workspace path onto the local OPENCLAW_DIR.
+ * Handles Windows host paths (C:/Users/.../.openclaw/...) that were copied into a Linux VPS DB.
+ */
+function remapOpenClawRelative(storedPath, openclawDir) {
+  const posix = String(storedPath || '').replace(/\\/g, '/');
+  const m = posix.match(/\.openclaw\/(.+)$/i);
+  if (!m?.[1]) return null;
+  return join(openclawDir, m[1]);
+}
+
+function looksForeignToHost(absPath) {
+  const p = String(absPath || '').replace(/\\/g, '/');
+  // Windows drive letter while running on non-Windows
+  if (/^[A-Za-z]:\//.test(p) && process.platform !== 'win32') return true;
+  return false;
+}
+
+/**
+ * Resolve the on-disk OpenClaw workspace root for an agent row.
+ * Prefers an existing path among: tenant workspace (when ceoUserId), stored path,
+ * remapped .openclaw suffix, default workspace-{ocId}.
+ *
+ * Multi-CEO: pass `ceoUserId` so Workspace UI / edits use
+ * `tenants/{ceo}/workspace-{id}` (where Resync ORG.md & AGENTS.md writes),
+ * not the shared legacy `workspace-{id}` template copy.
+ *
+ * @param {object} agent
+ * @param {{ healDb?: boolean, ceoUserId?: string }} [options]
+ * @returns {string}
+ */
+export function resolveAgentWorkspaceRoot(agent, options = {}) {
+  const openclawDir = getOpenClawDir();
+  const baseOcId = String(agent?.openclaw_agent_id || agent?.id || '')
+    .trim()
+    .toLowerCase();
+  const ceoUserId = String(options.ceoUserId || agent?.owner_user_id || '').trim();
+  const candidates = [];
+
+  // Prefer per-CEO tenant workspace when known (synced ORG.md / AGENTS.md live here).
+  if (ceoUserId && baseOcId) {
+    candidates.push(
+      join(openclawDir, 'tenants', ceoUserId.toLowerCase(), `workspace-${baseOcId}`)
+    );
+  }
+
+  const stored = expandHomePath(agent?.workspace_path);
+  if (stored) {
+    candidates.push(stored);
+    const remapped = remapOpenClawRelative(stored, openclawDir);
+    if (remapped && remapped !== stored) candidates.push(remapped);
+  }
+
+  if (baseOcId) {
+    candidates.push(join(openclawDir, `workspace-${baseOcId}`));
+    if (baseOcId === 'main' || baseOcId === 'bala') {
+      candidates.push(join(openclawDir, 'workspace'));
+    }
+  }
+
+  const envRoot = expandHomePath(process.env.OPENCLAW_WORKSPACE_PATH || process.env.OPENCLAW_WORKSPACE);
+  if (envRoot) candidates.push(envRoot);
+
+  const unique = [...new Set(candidates.filter(Boolean))];
+  let chosen = unique.find((p) => !looksForeignToHost(p) && existsSync(p));
+  if (!chosen) {
+    chosen = unique.find((p) => !looksForeignToHost(p)) || unique[0] || null;
+  }
+  if (!chosen) {
+    throw new Error('No workspace path for agent and OPENCLAW_WORKSPACE_PATH not set');
+  }
+
+  // Never heal DB workspace_path to a tenant path — agents are shared across CEOs.
+  const chosenIsTenant = /\/tenants\//i.test(String(chosen).replace(/\\/g, '/'));
+  if (options.healDb !== false && agent?.id && !chosenIsTenant) {
+    const posix = chosen.replace(/\\/g, '/');
+    const storedPosix = String(agent.workspace_path || '').replace(/\\/g, '/');
+    if (posix !== storedPosix && existsSync(chosen)) {
+      try {
+        agent.workspace_path = posix;
+      } catch (_) {}
+    }
+  }
+
+  return chosen;
+}
+
+/** Rewrite agents.workspace_path to locally existing OpenClaw dirs (fixes host→VPS path drift). */
+export function healAgentWorkspacePaths(db) {
+  if (!db) throw new Error('db required');
+  const rows = db.prepare('SELECT * FROM agents').all();
+  let healed = 0;
+  const upd = db.prepare('UPDATE agents SET workspace_path = ? WHERE id = ?');
+  for (const agent of rows) {
+    try {
+      const root = resolveAgentWorkspaceRoot(agent, { healDb: false });
+      const posix = root.replace(/\\/g, '/');
+      const prev = String(agent.workspace_path || '').replace(/\\/g, '/');
+      if (existsSync(root) && posix !== prev) {
+        upd.run(posix, agent.id);
+        healed += 1;
+      } else if (!agent.workspace_path && existsSync(root)) {
+        upd.run(posix, agent.id);
+        healed += 1;
+      }
+    } catch (_) {}
+  }
+  return { scanned: rows.length, healed };
+}
+
 function getWorkspaceRoot() {
   const root = process.env.OPENCLAW_WORKSPACE_PATH || process.env.OPENCLAW_WORKSPACE;
   if (!root) throw new Error('OPENCLAW_WORKSPACE_PATH or OPENCLAW_WORKSPACE not set');
-  return root;
+  return expandHomePath(root);
 }
 
 function resolvePath(workspaceRoot, name, subpath = null) {
@@ -120,4 +241,4 @@ export async function writeWorkspaceFile(name, text, options = {}) {
   return { path, backup: backup };
 }
 
-export { getWorkspaceRoot, FILE_MAP, resolvePath, safeJoinUnder };
+export { getWorkspaceRoot, FILE_MAP, resolvePath, safeJoinUnder, expandHomePath, remapOpenClawRelative };

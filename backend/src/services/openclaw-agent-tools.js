@@ -285,12 +285,7 @@ export function buildToolsMdContent(grantedToolNames) {
 }
 
 export async function writeAgentToolsMd(agent, grantedToolNames) {
-  const root = agent.workspace_path
-    ? agent.workspace_path.startsWith('~')
-      ? join(home, agent.workspace_path.slice(1).replace(/^[/\\]/, ''))
-      : agent.workspace_path
-    : null;
-  if (!root) return null;
+  const root = workspace.resolveAgentWorkspaceRoot(agent, { healDb: false });
   const text = buildToolsMdContent(grantedToolNames);
   await workspace.writeWorkspaceFile('tools', text, { workspaceRoot: root });
   return text;
@@ -302,11 +297,7 @@ export async function syncToolsMdFromTemplate(agent, templateId = null) {
   if (!existsSync(templatePath)) templatePath = join(REPO_TEMPLATES, 'balserve', 'TOOLS.md');
   if (!existsSync(templatePath)) throw new Error(`No TOOLS.md template for ${tid}`);
   const text = readFileSync(templatePath, 'utf8');
-  const root = agent.workspace_path
-    ? agent.workspace_path.startsWith('~')
-      ? join(home, agent.workspace_path.slice(1).replace(/^[/\\]/, ''))
-      : agent.workspace_path
-    : join(OPENCLAW_DIR, `workspace-${resolveOpenClawAgentId(agent)}`);
+  const root = workspace.resolveAgentWorkspaceRoot(agent, { healDb: false });
   await workspace.writeWorkspaceFile('tools', text, { workspaceRoot: root });
   return text;
 }

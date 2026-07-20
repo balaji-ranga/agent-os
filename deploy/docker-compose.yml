@@ -13,7 +13,10 @@
 #
 # Content tools baked into images + granted at backend boot:
 #   email_send, notify_ceo, Kanban/workflow tools, browser (see scripts/lib/content-tools-allow.js)
+# Broadcast UI /api/broadcast: CEO-scoped OpenClaw sessions (tenant agent + session owner) so notify_ceo works
 # Org tenancy docs: POST /api/agents/org/sync (Dashboard Resync ORG.md & AGENTS.md)
+# Notifications: shared NotificationProvider bell; dismiss via /api/standups/notifications/dismiss*
+#   and /api/platform-notifications/read* (user_feed_dismissals + composite standup+agent keys)
 # AgentExchange / workflow A2A: /api/agent-exchange, /api/a2a/:publishId
 #
 # LLM keys: set in deploy/.env — injected at runtime into openclaw + backend containers.

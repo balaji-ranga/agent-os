@@ -10,6 +10,40 @@ const SESSION_USER_PREFIXES = ['agent-os-user-', 'agent-os-'];
 const SESSION_OWNER_TTL_MS = Number(process.env.OPENCLAW_SESSION_OWNER_TTL_MS || 4 * 3600000);
 const sessionOwnerRegistry = new Map();
 
+/** Dashboard agent chat in flight — used to block notify_ceo spam while CEO is already talking. */
+const ACTIVE_DASHBOARD_CHAT_TTL_MS = Number(process.env.ACTIVE_DASHBOARD_CHAT_TTL_MS || 10 * 60 * 1000);
+const activeDashboardChat = new Map();
+
+function activeChatKey(agentId, ownerUserId) {
+  return `${String(agentId || '').trim()}::${String(ownerUserId || '').trim()}`;
+}
+
+/** Mark that the CEO is in Dashboard chat with this agent (call before OpenClaw completion). */
+export function registerActiveDashboardChat(agentId, ownerUserId, message = '') {
+  if (!agentId || !ownerUserId) return;
+  activeDashboardChat.set(activeChatKey(agentId, ownerUserId), {
+    message: String(message || '').trim(),
+    expiresAt: Date.now() + ACTIVE_DASHBOARD_CHAT_TTL_MS,
+  });
+}
+
+export function clearActiveDashboardChat(agentId, ownerUserId) {
+  if (!agentId || !ownerUserId) return;
+  activeDashboardChat.delete(activeChatKey(agentId, ownerUserId));
+}
+
+export function lookupActiveDashboardChat(agentId, ownerUserId) {
+  if (!agentId || !ownerUserId) return null;
+  const key = activeChatKey(agentId, ownerUserId);
+  const row = activeDashboardChat.get(key);
+  if (!row) return null;
+  if (row.expiresAt <= Date.now()) {
+    activeDashboardChat.delete(key);
+    return null;
+  }
+  return row;
+}
+
 function pruneSessionOwners() {
   const now = Date.now();
   for (const [key, row] of sessionOwnerRegistry) {

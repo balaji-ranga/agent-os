@@ -14,7 +14,8 @@
 # Env:
 #   SERVICES=frontend backend openclaw   # compose services to rebuild
 #   SKIP_GIT=1                           # skip git pull
-#   SKIP_SMOKE=1                         # skip email_send / notify_ceo / org sync / A2A smoke
+#   SKIP_SMOKE=1                         # skip smoke + platform verify
+#   NO_CACHE=1                           # docker compose build --no-cache (when layers stale)
 set -euo pipefail
 
 ROOT="${AGENT_OS_ROOT:-/opt/agent-os}"
@@ -25,6 +26,7 @@ cd "$ROOT/deploy"
 SERVICES="${SERVICES:-frontend backend openclaw}"
 SKIP_GIT="${SKIP_GIT:-0}"
 SKIP_SMOKE="${SKIP_SMOKE:-0}"
+NO_CACHE="${NO_CACHE:-0}"
 PUBLIC_URL="${AGENT_OS_PUBLIC_URL:-https://127.0.0.1}"
 
 if [[ -f "$ROOT/deploy/scripts/ensure-deepseek-env.sh" ]]; then
@@ -33,8 +35,11 @@ if [[ -f "$ROOT/deploy/scripts/ensure-deepseek-env.sh" ]]; then
 fi
 
 echo "==> Agent OS deploy latest $(date -Is)"
-echo "    root=$ROOT services=$SERVICES skip_git=$SKIP_GIT"
-echo "    features: notify_ceo, email_send, org sync, Master Data tools/UI, per-CEO delegation, AgentExchange/A2A, DeepSeek@Ollama"
+echo "    root=$ROOT services=$SERVICES skip_git=$SKIP_GIT no_cache=$NO_CACHE"
+echo "    features: notify_ceo, email_send, Broadcast (intent notify + paced fan-out), org sync,"
+echo "              AGENTS.md COO specialty delegation, Master Data + RAG purposes,"
+echo "              chat tool-call icons, notification tooltips, shared NotificationProvider,"
+echo "              AgentExchange/A2A, DeepSeek@Ollama"
 
 if [[ "$SKIP_GIT" != "1" ]]; then
   if [[ -d "$ROOT/.git" ]]; then
@@ -53,12 +58,26 @@ else
   echo "==> SKIP_GIT=1 (using files already on disk)"
 fi
 
-echo "==> docker compose build $SERVICES"
+BUILD_ARGS=()
+if [[ "$NO_CACHE" == "1" ]]; then
+  BUILD_ARGS+=(--no-cache)
+  echo "==> docker compose build --no-cache $SERVICES"
+else
+  echo "==> docker compose build $SERVICES"
+fi
 # shellcheck disable=SC2086
-docker compose build $SERVICES
+docker compose build "${BUILD_ARGS[@]}" $SERVICES
 
 # Remove obsolete DeepSeek cloud API proxy container (replaced by Ollama)
 docker rm -f agent-os-deepseek-1 2>/dev/null || true
+
+# Avoid Docker name conflicts on force-recreate (orphaned *agent-os-backend-1 leftovers)
+for c in $(docker ps -aq --filter "name=agent-os-backend" 2>/dev/null || true); do
+  name=$(docker inspect -f '{{.Name}}' "$c" 2>/dev/null | sed 's#^/##')
+  if [[ "$name" == *"_agent-os-backend-1" || "$name" == "agent-os-backend-1" ]]; then
+    docker rm -f "$c" 2>/dev/null || true
+  fi
+done
 
 echo "==> recreate $SERVICES + nginx"
 # shellcheck disable=SC2086
@@ -115,6 +134,21 @@ if docker compose exec -T frontend sh -c 'grep -Rql "Purpose / description" /usr
 else
   echo "    WARN: Master Data purpose UI not found in frontend JS (rebuild frontend?)"
 fi
+if docker compose exec -T frontend sh -c 'grep -Rql NotificationProvider /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: NotificationProvider (shared bell) OK"
+else
+  echo "    WARN: NotificationProvider not found in frontend JS (rebuild frontend? try NO_CACHE=1)"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql standupNotificationsDismiss /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: notification dismiss API client OK"
+else
+  echo "    WARN: notification dismiss UI not found in frontend JS (rebuild frontend? try NO_CACHE=1)"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql Broadcast /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: Broadcast page OK"
+else
+  echo "    WARN: Broadcast page not found in frontend JS (rebuild frontend?)"
+fi
 
 TOKEN=$(docker compose exec -T -w /opt/agent-os/backend backend node --input-type=module <<'NODE' 2>/dev/null || true
 import { initDb, getDb } from './src/db/schema.js';
@@ -133,13 +167,25 @@ if [[ -n "${TOKEN:-}" ]]; then
   echo "    agent-exchange auth=$EX (expect 200)"
   ORG=$(docker compose exec -T backend curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer ${TOKEN}" -H "Content-Type: application/json" http://127.0.0.1:3001/api/agents/org/sync || echo 000)
   echo "    agents/org/sync auth=$ORG (expect 200)"
+  if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/refresh-coo-workspace-docs.js 2>/dev/null; then
+    docker compose exec -T -w /opt/agent-os/backend backend node scripts/refresh-coo-workspace-docs.js >/tmp/coo-docs-refresh.log 2>&1 \
+      && echo "    COO workspace docs refresh OK" \
+      || echo "    WARN: COO workspace docs refresh failed"
+  fi
+  BC=$(docker compose exec -T backend curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer ${TOKEN}" -H "Content-Type: application/json" -d '{"message":"ping","agent_ids":["__deploy_smoke_no_agent__"]}' http://127.0.0.1:3001/api/broadcast || echo 000)
+  echo "    broadcast auth empty-target=$BC (expect 200)"
 fi
 
 if [[ "$SKIP_SMOKE" != "1" ]]; then
   if [[ -f "$ROOT/deploy/scripts/vps-smoke-new-features.sh" ]]; then
-    echo "==> new-features smoke (email_send + notify_ceo + org sync + A2A)"
+    echo "==> new-features smoke (email_send + notify_ceo + master_data + org sync + A2A + shared notification dismiss)"
     sed -i 's/\r$//' "$ROOT/deploy/scripts/vps-smoke-new-features.sh" 2>/dev/null || true
     bash "$ROOT/deploy/scripts/vps-smoke-new-features.sh" || echo "WARN: new-features smoke failed (non-fatal)"
+  fi
+  if [[ -f "$ROOT/deploy/scripts/vps-smoke-broadcast-notify.sh" ]]; then
+    echo "==> Broadcast → notify_ceo smoke (TechResearcher)"
+    sed -i 's/\r$//' "$ROOT/deploy/scripts/vps-smoke-broadcast-notify.sh" 2>/dev/null || true
+    bash "$ROOT/deploy/scripts/vps-smoke-broadcast-notify.sh" || echo "WARN: broadcast notify smoke failed (non-fatal — needs OpenClaw + GPT)"
   fi
   if [[ -f "$ROOT/deploy/scripts/vps-smoke-deepseek-brain.sh" ]]; then
     echo "==> DeepSeek (Ollama) brain smoke"

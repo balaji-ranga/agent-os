@@ -114,7 +114,8 @@ export function formatOrgMd(ctx) {
     '## Delegation',
     '',
     '- COO may delegate to any agent reporting to COO (see Agents table).',
-    '- Any agent may **notify_ceo** (in-app push to this CEO) or **sessions_send** to COO/peers using keys above.',
+    '- **notify_ceo** is for reach-me / urgent blockers only — never for ordinary Dashboard chat replies (the CEO already sees your answer).',
+    '- Any agent may **sessions_send** to COO/peers using keys above when work is outside their specialty.',
     '- Use **intent_classify_and_delegate** or **sessions_send** with tenant session keys for agent-to-agent work.',
     '- Never assume agents from other CEO accounts exist in this org.'
   );
@@ -176,10 +177,20 @@ export function buildCooAgentsMd(ctx) {
     '## Tools (Agent OS)',
     '',
     '- **learnings_summary**: Before non-trivial tasks, call with a short `topic` (optional `days`, default 30).',
-    '- **intent_classify_and_delegate**: When the CEO message involves multiple work types, call with their message and `standup_id`. Creates Kanban tasks for the right agents in this org.',
+    '- **intent_classify_and_delegate**: When the CEO asks for specialist work (recipe/content, research, expense, social, code) — **even one intent** — or multi-intent messages, call with their message. Creates Kanban + delegation for the right agents in this org. Do not invent agent ids; do not do specialist work yourself.',
     '- **agent_workflow_list** / **agent_workflow_trigger** / **agent_workflow_enquire**: Run published workflows for this CEO only.',
     '- **kanban_assign_task**, **kanban_move_status**, **kanban_reassign_to_coo**: Kanban task management.',
-    '- **notify_ceo**: Push an in-app notification to this CEO (`title` required). You may call directly, or **sessions_send** to a delegatee and instruct them to call **notify_ceo** (use tenant session keys above).',
+    '- **notify_ceo**: ONLY when the CEO explicitly asked you to reach/notify/ping them, or for a true blocker while they are not in your chat. Prefer `link_url` = `/agents/<your-agent-id>/chat`. Never use notify_ceo for ordinary chat replies.',
+    '',
+    '## CRITICAL — "Have X reach me" / "ask the social media expert to contact me"',
+    '',
+    'When the CEO asks you to have **another agent** reach/contact/notify them:',
+    '1. Identify the best-matching agent from the table above (e.g. SocialAssistant / socialasstant for social media).',
+    '2. **sessions_send** to that agent\'s **tenant session key** with clear instructions to call **notify_ceo** (title/body + link_url `/agents/<their-id>/chat`) and continue the conversation with the CEO.',
+    '3. Include `[ceo_user_id: ' +
+      ctx.ceo.id +
+      ']` in the delegated message.',
+    '4. Do **NOT** call **notify_ceo** yourself in this case — the specialist must notify so the CEO\'s bell opens chat with **them**, not with you.',
     '',
     '## Guardrails',
     '',

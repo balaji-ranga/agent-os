@@ -50,7 +50,7 @@ import {
   syncOpenClawJsonForAgent,
   getAgentToolGrants,
 } from './services/openclaw-agent-tools.js';
-import { grantLearningsSummaryToAllAgents, grantEmailSendToAllAgents, grantNotifyCeoToAllAgents, grantMasterDataToolsToAllAgents } from './services/agent-feedback.js';
+import { grantLearningsSummaryToAllAgents, grantEmailSendToAllAgents, grantNotifyCeoToAllAgents, grantMasterDataToolsToAllAgents, grantKanbanToolsToAllAgents } from './services/agent-feedback.js';
 import feedbackRoutes from './routes/feedback.js';
 import masterDataRoutes from './routes/master-data.js';
 import { runScheduledStandup } from './cron/standup.js';
@@ -61,6 +61,8 @@ import { initAgentWorkflowScheduler } from './services/agent-workflow-scheduler.
 import { syncWorkflowScheduleRegistry } from './services/agent-workflow-store.js';
 import { resumeStuckWorkflowRuns, startWorkflowTimeoutWatchdog } from './services/agent-workflow-runner.js';
 import { seedWorkflowBuilderAgent } from '../scripts/seed-workflow-builder-agent.js';
+import { healAgentWorkspacePaths } from './workspace/adapter.js';
+import { healStuckKanbanForCompletedDelegations } from './services/kanban-workflow-stage.js';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
@@ -74,6 +76,20 @@ initDb();
 ensureInternalTokenConfigured();
 ensureMfaTables();
 seedDefaultAgentsIfEmpty();
+try {
+  const heal = healAgentWorkspacePaths(getDb());
+  if (heal.healed) console.log(`[startup] healed ${heal.healed}/${heal.scanned} agent workspace path(s)`);
+} catch (e) {
+  console.warn('[startup] workspace path heal:', e.message);
+}
+try {
+  const kanbanHeal = healStuckKanbanForCompletedDelegations();
+  if (kanbanHeal.healed) {
+    console.log(`[startup] healed ${kanbanHeal.healed} stuck Kanban card(s) linked to finished delegations`);
+  }
+} catch (e) {
+  console.warn('[startup] kanban stuck-card heal:', e.message);
+}
 try {
   const n = seedAgentDepartmentsIfMissing();
   if (n) console.log(`[startup] backfilled department on ${n} agent(s)`);
@@ -113,6 +129,13 @@ try {
   if (notifyGranted) syncAllowlistsFile();
 } catch (e) {
   console.warn('[startup] notify_ceo grants:', e.message);
+}
+try {
+  const kanbanGranted = grantKanbanToolsToAllAgents();
+  if (kanbanGranted) console.log(`[startup] granted kanban tools to ${kanbanGranted} grant(s)`);
+  if (kanbanGranted) syncAllowlistsFile();
+} catch (e) {
+  console.warn('[startup] kanban tool grants:', e.message);
 }
 try {
   const mdGranted = grantMasterDataToolsToAllAgents();

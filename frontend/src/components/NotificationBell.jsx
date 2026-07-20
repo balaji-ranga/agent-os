@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
-import { api } from '../api';
+import { useNotifications } from '../context/NotificationContext';
 
 const PANEL_WIDTH = 320;
 const PANEL_MAX_HEIGHT = 360;
-const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
 
 function computePanelPosition(buttonEl) {
   if (!buttonEl) return null;
@@ -18,31 +17,6 @@ function computePanelPosition(buttonEl) {
   }
   if (left < margin) left = margin;
   return { top, left, width: PANEL_WIDTH };
-}
-
-function withinLast3Days(iso) {
-  if (!iso) return false;
-  const t = Date.parse(String(iso).includes('T') ? iso : String(iso).replace(' ', 'T') + 'Z');
-  if (!Number.isFinite(t)) return true;
-  return Date.now() - t <= THREE_DAYS_MS;
-}
-
-function normalizePlatformNotification(n) {
-  return {
-    ...n,
-    kind: 'platform',
-    feedId: `platform-${n.id}`,
-    sortAt: n.created_at || '',
-  };
-}
-
-function normalizeAgentNotification(n) {
-  return {
-    ...n,
-    kind: 'agent',
-    feedId: `agent-${n.id}`,
-    sortAt: n.completed_at || n.scheduled_at || '',
-  };
 }
 
 function NotificationLink({ href, onNavigate, children }) {
@@ -63,50 +37,10 @@ function NotificationLink({ href, onNavigate, children }) {
 }
 
 export default function NotificationBell() {
-  const [notifications, setNotifications] = useState([]);
+  const { notifications, markPlatformRead, dismissAgentNotifications, clearAll } = useNotifications();
   const [open, setOpen] = useState(false);
   const [panelPos, setPanelPos] = useState(null);
   const buttonRef = useRef(null);
-
-  const fetchNotifications = () => {
-    Promise.all([
-      api.platformNotifications(30).catch(() => ({ notifications: [] })),
-      api.standupNotifications(20).catch(() => ({ notifications: [] })),
-    ]).then(([platformRes, agentRes]) => {
-      const platform = (platformRes.notifications || []).map(normalizePlatformNotification);
-      // Agent feed: unread is not stored server-side; only show last 3 days
-      const agent = (agentRes.notifications || [])
-        .filter((n) => withinLast3Days(n.completed_at || n.scheduled_at))
-        .map(normalizeAgentNotification);
-      const merged = [...platform, ...agent].sort((a, b) => String(b.sortAt).localeCompare(String(a.sortAt)));
-      setNotifications(merged);
-    });
-  };
-
-  const markPlatformRead = async (ids) => {
-    const list = (ids || []).filter(Boolean);
-    if (!list.length) return;
-    try {
-      await api.platformNotificationsRead(list);
-    } catch (_) {}
-    fetchNotifications();
-  };
-
-  const dismissAgentNotifications = async (ids) => {
-    const list = (ids || []).filter(Boolean);
-    if (!list.length) return;
-    try {
-      await api.standupNotificationsDismiss(list);
-    } catch (_) {}
-    fetchNotifications();
-  };
-
-  const clearAll = async () => {
-    try {
-      await Promise.all([api.platformNotificationsReadAll(), api.standupNotificationsDismissAll()]);
-    } catch (_) {}
-    fetchNotifications();
-  };
 
   const updatePanelPosition = useCallback(() => {
     setPanelPos(computePanelPosition(buttonRef.current));
@@ -120,12 +54,6 @@ export default function NotificationBell() {
       return true;
     });
   };
-
-  useEffect(() => {
-    fetchNotifications();
-    const id = setInterval(fetchNotifications, 10000);
-    return () => clearInterval(id);
-  }, []);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -184,7 +112,7 @@ export default function NotificationBell() {
                     <div key={n.feedId} className="notification-overlay-item">
                       {n.kind === 'platform' ? (
                         <>
-                          <div style={{ marginBottom: '0.25rem' }}>
+                          <div style={{ marginBottom: '0.25rem' }} title={n.title || undefined}>
                             <strong>{n.title}</strong>
                             <span style={{ marginLeft: '0.35rem', fontSize: '0.75rem', color: 'var(--accent)' }}>
                               {n.created_by_is_agent || n.source === 'agent_notify'
@@ -194,13 +122,31 @@ export default function NotificationBell() {
                                   : 'Admin'}
                             </span>
                           </div>
-                          {n.body && <div className="notification-overlay-snippet">{n.body}</div>}
+                          {n.body && (
+                            <div
+                              className="notification-overlay-snippet"
+                              title={[n.title, n.body].filter(Boolean).join('\n\n')}
+                            >
+                              {n.body}
+                            </div>
+                          )}
                           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginTop: '0.35rem' }}>
-                            {n.link_url && (
-                              <NotificationLink href={n.link_url} onNavigate={() => onOpenLink(n)}>
-                                Open →
-                              </NotificationLink>
-                            )}
+                            {(() => {
+                              const chatAgentId =
+                                n.created_by_is_agent || n.source === 'agent_notify'
+                                  ? String(n.created_by || '').trim()
+                                  : '';
+                              const chatHref =
+                                n.link_url ||
+                                (chatAgentId && chatAgentId !== 'agent' && chatAgentId !== 'system'
+                                  ? `/agents/${encodeURIComponent(chatAgentId)}/chat`
+                                  : null);
+                              return chatHref ? (
+                                <NotificationLink href={chatHref} onNavigate={() => onOpenLink(n)}>
+                                  {chatAgentId ? 'Continue chat →' : 'Open →'}
+                                </NotificationLink>
+                              ) : null;
+                            })()}
                             <button
                               type="button"
                               className="notification-overlay-clear"
@@ -223,7 +169,15 @@ export default function NotificationBell() {
                             {n.standup_title || new Date(n.scheduled_at).toLocaleDateString()}
                           </div>
                           {n.response_snippet && (
-                            <div className="notification-overlay-snippet">{n.response_snippet}…</div>
+                            <div
+                              className="notification-overlay-snippet"
+                              title={
+                                String(n.response_full || n.response_content || n.response_snippet || '').trim() ||
+                                undefined
+                              }
+                            >
+                              {n.response_snippet}…
+                            </div>
                           )}
                           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
                             {n.kanban_task_id && (
