@@ -197,6 +197,7 @@ function syncContentToolsPluginContracts(toolNames) {
 /**
  * Keep openclaw.json tools.allow in sync so OpenClaw core does not strip
  * plugin tools that are granted per-agent but missing from the global allow list.
+ * Merges DB-enabled tools plus the canonical content-tool floor (learnings_summary etc.).
  */
 function syncGlobalToolsAllow(toolNames) {
   const configPath = join(OPENCLAW_DIR, 'openclaw.json');
@@ -206,7 +207,18 @@ function syncGlobalToolsAllow(toolNames) {
     config.tools = config.tools || {};
     if (!Array.isArray(config.tools.allow)) config.tools.allow = [];
     let changed = false;
-    for (const name of toolNames || []) {
+    const floor = [
+      'learnings_summary',
+      'brain_history',
+      'content_tools_enquire',
+      'kanban_create_task',
+      'agent_workflow_list',
+      'agent_workflow_enquire',
+      'agent_workflow_trigger',
+      'agent_workflow_get_draft',
+      'agent_workflow_mutate',
+    ];
+    for (const name of [...floor, ...(toolNames || [])]) {
       if (typeof name !== 'string' || !name.trim()) continue;
       if (!config.tools.allow.includes(name)) {
         config.tools.allow.push(name);
