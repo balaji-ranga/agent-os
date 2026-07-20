@@ -27,6 +27,11 @@ SKIP_GIT="${SKIP_GIT:-0}"
 SKIP_SMOKE="${SKIP_SMOKE:-0}"
 PUBLIC_URL="${AGENT_OS_PUBLIC_URL:-https://127.0.0.1}"
 
+if [[ -f "$ROOT/deploy/scripts/ensure-deepseek-env.sh" ]]; then
+  sed -i 's/\r$//' "$ROOT/deploy/scripts/ensure-deepseek-env.sh" 2>/dev/null || true
+  bash "$ROOT/deploy/scripts/ensure-deepseek-env.sh" "$ROOT/deploy/.env" || true
+fi
+
 echo "==> Agent OS deploy latest $(date -Is)"
 echo "    root=$ROOT services=$SERVICES skip_git=$SKIP_GIT"
 echo "    features: notify_ceo, email_send, org sync (ORG.md/AGENTS.md), AgentExchange/A2A"
@@ -51,6 +56,12 @@ fi
 echo "==> docker compose build $SERVICES"
 # shellcheck disable=SC2086
 docker compose build $SERVICES
+
+if grep -qE '^DEEPSEEK_API_KEY=.+' .env 2>/dev/null; then
+  echo "==> optional-deepseek profile (DEEPSEEK_API_KEY set)"
+  docker compose --profile optional-deepseek build deepseek
+  docker compose --profile optional-deepseek up -d deepseek
+fi
 
 echo "==> recreate $SERVICES + nginx"
 # shellcheck disable=SC2086
@@ -127,6 +138,11 @@ if [[ "$SKIP_SMOKE" != "1" ]]; then
     echo "==> new-features smoke (email_send + notify_ceo + org sync + A2A)"
     sed -i 's/\r$//' "$ROOT/deploy/scripts/vps-smoke-new-features.sh" 2>/dev/null || true
     bash "$ROOT/deploy/scripts/vps-smoke-new-features.sh" || echo "WARN: new-features smoke failed (non-fatal)"
+  fi
+  if grep -qE '^DEEPSEEK_API_KEY=.+' .env 2>/dev/null && [[ -f "$ROOT/deploy/scripts/vps-smoke-deepseek-brain.sh" ]]; then
+    echo "==> DeepSeek brain smoke"
+    sed -i 's/\r$//' "$ROOT/deploy/scripts/vps-smoke-deepseek-brain.sh" 2>/dev/null || true
+    bash "$ROOT/deploy/scripts/vps-smoke-deepseek-brain.sh" || echo "WARN: DeepSeek smoke failed (non-fatal)"
   fi
 fi
 

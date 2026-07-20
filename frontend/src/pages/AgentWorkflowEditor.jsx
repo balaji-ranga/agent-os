@@ -995,11 +995,17 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, extern
                   placeholder={
                     (data.taskConfig?.modelSource || 'openai') === 'ollama'
                       ? 'optional for local Ollama'
-                      : 'sk-... (not read from platform .env)'
+                      : (data.taskConfig?.modelSource || 'openai') === 'deepseek'
+                        ? 'optional for platform DeepSeek proxy'
+                        : 'sk-... (not read from platform .env)'
                   }
                 />
-                {(data.taskConfig?.modelSource || 'openai') !== 'ollama' && (
+                {(data.taskConfig?.modelSource || 'openai') !== 'ollama' &&
+                  (data.taskConfig?.modelSource || 'openai') !== 'deepseek' && (
                   <small>Workflow Brain nodes never use platform OPENAI_API_KEY / OPENROUTER_API_KEY from .env</small>
+                )}
+                {(data.taskConfig?.modelSource || 'openai') === 'deepseek' && (
+                  <small>Use http://deepseek:8080/v1 (Docker) — proxy adds DEEPSEEK_API_KEY. Or api.deepseek.com/v1 with your key.</small>
                 )}
               </label>
               <label className="wf-field">

@@ -291,7 +291,7 @@ export const WORKFLOW_TASK_TYPES = {
         id: 'modelSource',
         label: 'Model source',
         type: 'select',
-        options: ['openai', 'anthropic', 'ollama', 'openrouter'],
+        options: ['openai', 'anthropic', 'ollama', 'openrouter', 'deepseek'],
         default: 'ollama',
       },
       {

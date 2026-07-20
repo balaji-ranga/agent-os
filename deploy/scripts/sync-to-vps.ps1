@@ -40,11 +40,14 @@ scp @ssh `
   "$Repo\frontend\src\utils\orgHierarchy.js" `
   "$Repo\frontend\src\components\workflow\PublishA2AModal.jsx" `
   "$Repo\frontend\src\components\workflow\WorkflowAgentChat.jsx" `
+  "$Repo\frontend\src\components\workflow\workflowTaskMeta.js" `
   "$Repo\frontend\src\pages\AgentExchange.jsx" `
   "$Repo\frontend\src\pages\AgentChat.jsx" `
   "$Repo\frontend\src\pages\Dashboard.jsx" `
   "$Repo\frontend\src\pages\Kanban.jsx" `
   "$Repo\frontend\src\pages\AgentWorkflowEditor.jsx" `
+  "$Repo\frontend\src\pages\Register.jsx" `
+  "$Repo\frontend\src\pages\UserProfile.jsx" `
   "$Repo\frontend\src\pages\Login.jsx" `
   "root@${HostIp}:/tmp/aos-fe/"
 ssh @ssh "root@$HostIp" @"
@@ -65,11 +68,14 @@ cp -f /tmp/aos-fe/chatCompose.js $RemoteRoot/frontend/src/utils/chatCompose.js
 cp -f /tmp/aos-fe/orgHierarchy.js $RemoteRoot/frontend/src/utils/orgHierarchy.js
 cp -f /tmp/aos-fe/PublishA2AModal.jsx $RemoteRoot/frontend/src/components/workflow/PublishA2AModal.jsx
 cp -f /tmp/aos-fe/WorkflowAgentChat.jsx $RemoteRoot/frontend/src/components/workflow/WorkflowAgentChat.jsx
+cp -f /tmp/aos-fe/workflowTaskMeta.js $RemoteRoot/frontend/src/components/workflow/workflowTaskMeta.js
 cp -f /tmp/aos-fe/AgentExchange.jsx $RemoteRoot/frontend/src/pages/AgentExchange.jsx
 cp -f /tmp/aos-fe/AgentChat.jsx $RemoteRoot/frontend/src/pages/AgentChat.jsx
 cp -f /tmp/aos-fe/Dashboard.jsx $RemoteRoot/frontend/src/pages/Dashboard.jsx
 cp -f /tmp/aos-fe/Kanban.jsx $RemoteRoot/frontend/src/pages/Kanban.jsx
 cp -f /tmp/aos-fe/AgentWorkflowEditor.jsx $RemoteRoot/frontend/src/pages/AgentWorkflowEditor.jsx
+cp -f /tmp/aos-fe/Register.jsx $RemoteRoot/frontend/src/pages/Register.jsx
+cp -f /tmp/aos-fe/UserProfile.jsx $RemoteRoot/frontend/src/pages/UserProfile.jsx
 cp -f /tmp/aos-fe/Login.jsx $RemoteRoot/frontend/src/pages/Login.jsx
 "@
 
@@ -88,11 +94,17 @@ scp @ssh `
   "$Repo\deploy\scripts\vps-deploy-latest.sh" `
   "$Repo\deploy\scripts\vps-verify-frontend-media.sh" `
   "$Repo\deploy\scripts\vps-smoke-new-features.sh" `
+  "$Repo\deploy\scripts\vps-smoke-deepseek-brain.sh" `
+  "$Repo\deploy\scripts\ensure-deepseek-env.sh" `
   "$Repo\deploy\scripts\vps-deploy-coo-org-fix.sh" `
   "$Repo\deploy\scripts\configure-openclaw-docker.js" `
   "$Repo\deploy\scripts\verify-openclaw-parity.js" `
   "$Repo\deploy\scripts\up.sh" `
   "root@${HostIp}:$RemoteRoot/deploy/scripts/"
+scp @ssh `
+  "$Repo\deploy\docker\deepseek-proxy.js" `
+  "$Repo\deploy\docker\deepseek-proxy.Dockerfile" `
+  "root@${HostIp}:$RemoteRoot/deploy/docker/"
 
 # Broader sync for backend/openclaw when doing full deploy
 if ($Services -match "backend|openclaw") {
@@ -107,6 +119,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-tenancy-notify-new-agent-e2e.js" `
     "$Repo\backend\scripts\test-workflow-a2a-publish.js" `
     "$Repo\backend\scripts\test-coo-email-send-calendar.js" `
+    "$Repo\backend\scripts\test-deepseek-brain-workflow.js" `
     "root@${HostIp}:$RemoteRoot/backend/scripts/"
   ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/scripts/lib"
   scp @ssh `

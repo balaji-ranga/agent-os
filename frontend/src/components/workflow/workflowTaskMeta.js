@@ -25,6 +25,12 @@ export const BRAIN_PROVIDER_PRESETS = {
     httpReferer: '',
     siteTitle: 'Agent OS',
   },
+  deepseek: {
+    label: 'DeepSeek V3',
+    apiEndpoint: 'http://deepseek:8080/v1',
+    model: 'deepseek-chat',
+    apiKeyHint: 'optional — platform proxy injects key when using http://deepseek:8080/v1',
+  },
 };
 
 /** Client-side mirror of standard task I/O (also fetched from API). */

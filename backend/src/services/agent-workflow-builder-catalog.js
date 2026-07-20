@@ -65,6 +65,13 @@ export function normalizeBrainTaskConfig(cfg = {}, runtimeDefaults = null) {
   if (merged.modelSource === 'ollama' && !merged.model) {
     merged.model = defaults.model || 'llama3.2';
   }
+  if (merged.modelSource === 'deepseek' && !merged.apiEndpoint) {
+    merged.apiEndpoint =
+      defaults.apiEndpoint || process.env.DEEPSEEK_BASE_URL || 'http://deepseek:8080/v1';
+  }
+  if (merged.modelSource === 'deepseek' && !merged.model) {
+    merged.model = defaults.model || process.env.DEEPSEEK_MODEL || 'deepseek-chat';
+  }
 
   delete merged.api_key;
   return merged;

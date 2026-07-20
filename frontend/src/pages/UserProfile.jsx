@@ -226,6 +226,7 @@ function UserProfilePanel() {
             <option value="openai">OpenAI (BYOK)</option>
             <option value="openrouter">OpenRouter (BYOK)</option>
             <option value="ollama_free">Ollama Free (local)</option>
+            <option value="deepseek">DeepSeek V3 (platform proxy)</option>
           </select>
         </label>
         {(form.llm_provider === 'openai' || form.llm_provider === 'openrouter') && (
@@ -251,6 +252,22 @@ function UserProfilePanel() {
                 Clear saved API key
               </label>
             )}
+          </label>
+        )}
+
+        {form.llm_provider === 'deepseek' && (
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
+              API key (optional BYOK) {llmHint ? `(saved: ${llmHint})` : ''}
+            </span>
+            <input
+              type="password"
+              value={form.llm_api_key}
+              onChange={(e) => set('llm_api_key', e.target.value)}
+              placeholder={llmHint ? 'Leave blank to keep current key / use platform proxy' : 'Blank = platform DeepSeek proxy'}
+              autoComplete="off"
+              style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+            />
           </label>
         )}
 

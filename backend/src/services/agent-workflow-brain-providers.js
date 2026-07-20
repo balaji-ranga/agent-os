@@ -48,6 +48,17 @@ export const BRAIN_PROVIDERS = {
       'X-Title': 'OPENROUTER_SITE_TITLE',
     },
   },
+  deepseek: {
+    label: 'DeepSeek V3',
+    baseUrl: 'http://deepseek:8080/v1',
+    model: 'deepseek-chat',
+    envApiKey: ['DEEPSEEK_API_KEY'],
+    envBaseUrl: ['DEEPSEEK_BASE_URL'],
+    envModel: ['DEEPSEEK_MODEL'],
+    protocol: 'openai',
+    requiresKey: false,
+    placeholderApiKey: 'deepseek',
+  },
 };
 
 function firstEnv(keys = []) {
@@ -66,6 +77,27 @@ function isLocalOllamaBaseUrl(baseUrl) {
   } catch {
     return false;
   }
+}
+
+/** Platform DeepSeek proxy (compose service `deepseek` or DEEPSEEK_BASE_URL) — no per-node API key. */
+export function isDeepSeekProxyBaseUrl(baseUrl) {
+  if (!baseUrl) return false;
+  try {
+    const u = new URL(baseUrl);
+    if (u.hostname === 'deepseek') return true;
+    const envBase = firstEnv(['DEEPSEEK_BASE_URL']);
+    if (envBase && String(baseUrl).replace(/\/$/, '') === String(envBase).replace(/\/$/, '')) return true;
+    if (isLocalOllamaBaseUrl(baseUrl) && u.port === '8080') return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+function brainAllowsMissingKey(source, baseUrl) {
+  if (source === 'ollama' || isLocalOllamaBaseUrl(baseUrl)) return true;
+  if (source === 'deepseek' || isDeepSeekProxyBaseUrl(baseUrl)) return true;
+  return false;
 }
 
 function nodeApiKey(cfg = {}) {
@@ -88,7 +120,7 @@ export function resolveWorkflowBrainProviderConfig(modelSource, cfg = {}) {
   const source = (modelSource || 'openai').toLowerCase();
   const preset = BRAIN_PROVIDERS[source] || BRAIN_PROVIDERS.openai;
 
-  const baseUrl = (cfg.apiEndpoint || '').trim() || preset.baseUrl;
+  const baseUrl = (cfg.apiEndpoint || '').trim() || firstEnv(preset.envBaseUrl) || preset.baseUrl;
   const configuredKey = nodeApiKey(cfg);
   let apiKey = configuredKey;
   const model = (cfg.model || '').trim() || preset.model;
@@ -120,7 +152,7 @@ export function validateWorkflowBrainCredentials(graph) {
       cfg.modelSource,
       cfg
     );
-    if (requiresKey && !configuredKey && !isLocalOllamaBaseUrl(baseUrl)) {
+    if (requiresKey && !configuredKey && !brainAllowsMissingKey(source, baseUrl)) {
       const label = node.data?.label || node.id;
       errors.push(
         `Brain "${label}" (${node.id}): set ${source} API key on the Brain node — platform .env keys are not used for workflows`

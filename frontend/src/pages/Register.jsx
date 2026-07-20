@@ -214,6 +214,7 @@ export default function Register() {
             <option value="openai">OpenAI (BYOK)</option>
             <option value="openrouter">OpenRouter (BYOK)</option>
             <option value="ollama_free">Ollama Free (local)</option>
+            <option value="deepseek">DeepSeek V3 (platform proxy)</option>
           </select>
         </label>
         {(form.llm_provider === 'openai' || form.llm_provider === 'openrouter') && (
@@ -224,6 +225,20 @@ export default function Register() {
               value={form.llm_api_key}
               onChange={(e) => set('llm_api_key', e.target.value)}
               required
+              autoComplete="off"
+              style={{ width: '100%', padding: '0.5rem', borderRadius: 6, border: '1px solid var(--border)' }}
+            />
+          </label>
+        )}
+
+        {(form.llm_provider === 'deepseek') && (
+          <label>
+            <span style={{ display: 'block', fontSize: '0.85rem', marginBottom: 4 }}>API key (optional BYOK)</span>
+            <input
+              type="password"
+              value={form.llm_api_key}
+              onChange={(e) => set('llm_api_key', e.target.value)}
+              placeholder="Leave blank to use platform DeepSeek proxy"
               autoComplete="off"
               style={{ width: '100%', padding: '0.5rem', borderRadius: 6, border: '1px solid var(--border)' }}
             />

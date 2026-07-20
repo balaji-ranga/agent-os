@@ -10,10 +10,12 @@ export const LLM_PROVIDERS = Object.freeze([
   'openai',
   'openrouter',
   'ollama_free',
+  'deepseek',
 ]);
 
 const OPENAI_BASE = 'https://api.openai.com/v1';
 const OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
+const DEEPSEEK_DIRECT_BASE = 'https://api.deepseek.com/v1';
 
 function sanitizeIdPart(value) {
   return String(value || '')
@@ -34,9 +36,10 @@ export function normalizeLlmProvider(value) {
   if (raw === 'openai_byok' || raw === 'openai') return 'openai';
   if (raw === 'openrouter_byok' || raw === 'openrouter') return 'openrouter';
   if (raw === 'ollama' || raw === 'ollama_free' || raw === 'ollamafree') return 'ollama_free';
+  if (raw === 'deepseek' || raw === 'deepseek_v3' || raw === 'deepseekv3') return 'deepseek';
   if (LLM_PROVIDERS.includes(raw)) return raw;
   throw new Error(
-    `llm_provider must be one of: platform_decided, openai, openrouter, ollama_free`
+    `llm_provider must be one of: platform_decided, openai, openrouter, ollama_free, deepseek`
   );
 }
 
@@ -216,6 +219,37 @@ export function resolveLlmConfigForUser(userId) {
         apiKey: (process.env.OLLAMA_API_KEY || '').trim() || 'ollama',
         model,
         source: 'user_ollama',
+      },
+      secondary: null,
+      provider,
+      using_byok: true,
+    };
+  }
+
+  if (provider === 'deepseek') {
+    const model = (process.env.DEEPSEEK_MODEL || 'deepseek-chat').trim() || 'deepseek-chat';
+    if (userKey) {
+      return {
+        primary: {
+          baseUrl: DEEPSEEK_DIRECT_BASE,
+          apiKey: userKey,
+          model,
+          source: 'user_byok',
+        },
+        secondary: null,
+        provider,
+        using_byok: true,
+      };
+    }
+    const baseUrl =
+      normalizeBaseUrl(process.env.DEEPSEEK_BASE_URL || 'http://deepseek:8080/v1') ||
+      'http://deepseek:8080/v1';
+    return {
+      primary: {
+        baseUrl,
+        apiKey: 'deepseek',
+        model,
+        source: 'user_deepseek_proxy',
       },
       secondary: null,
       provider,
