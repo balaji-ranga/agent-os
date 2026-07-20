@@ -6,6 +6,11 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import { resolveOpenClawDir } from './lib/openclaw-paths.js';
+import {
+  REQUIRED_GLOBAL_CONTENT_TOOLS,
+  COO_CONTENT_TOOLS_ALLOW,
+  WORKFLOW_BUILDER_CONTENT_TOOLS_ALLOW,
+} from './lib/content-tools-allow.js';
 
 const OPENCLAW_DIR = resolveOpenClawDir();
 const CONFIG_PATH = join(OPENCLAW_DIR, 'openclaw.json');
@@ -16,19 +21,7 @@ const toSlash = (p) => p.replace(/\\/g, '/');
 // Same tools config for all agents that should be able to invoke Agent OS tools.
 // IMPORTANT: keep this list to actual TOOL NAMES only. Non-tool entries can cause OpenClaw
 // to ignore the allowlist and the agent will not see the tools.
-const CONTENT_TOOLS_ALLOW = [
-  'summarize_url',
-  'generate_image',
-  'generate_video',
-  'kanban_move_status',
-  'kanban_reassign_to_coo',
-  'kanban_assign_task',
-  'intent_classify_and_delegate',
-  'agent_workflow_list',
-  'agent_workflow_enquire',
-  'agent_workflow_trigger',
-  'learnings_summary',
-];
+const CONTENT_TOOLS_ALLOW = [...COO_CONTENT_TOOLS_ALLOW];
 const CONTENT_TOOLS_CONFIG = { allow: [...CONTENT_TOOLS_ALLOW], deny: ['image'] };
 
 // Remove stale/unknown tool names that cause OpenClaw to ignore tools.allow completely.
@@ -42,14 +35,7 @@ const AGENTS_LIST = [
     name: 'Workflow Builder',
     workspace: toSlash(join(OPENCLAW_DIR, 'workspace-workflowbuilder')),
     tools: {
-      allow: [
-        'agent_workflow_list',
-        'agent_workflow_enquire',
-        'agent_workflow_trigger',
-        'agent_workflow_get_draft',
-        'agent_workflow_mutate',
-        'summarize_url',
-      ],
+      allow: [...WORKFLOW_BUILDER_CONTENT_TOOLS_ALLOW],
       deny: ['image'],
     },
   },
@@ -210,24 +196,7 @@ if (!config.browser.profiles) {
 // Note: OpenClaw will ignore the entire tools.allow if it contains unknown tool names.
 // The Gateway cron tools (cron.add / cron_add) are not present in newer OpenClaw builds,
 // so we do NOT include them here.
-const contentToolNames = [
-  'summarize_url',
-  'generate_image',
-  'generate_video',
-  'kanban_move_status',
-  'kanban_reassign_to_coo',
-  'kanban_assign_task',
-  'intent_classify_and_delegate',
-  'agent_workflow_list',
-  'agent_workflow_enquire',
-  'agent_workflow_trigger',
-  'agent_workflow_get_draft',
-  'agent_workflow_mutate',
-  'learnings_summary',
-  'brain_history',
-  'content_tools_enquire',
-  'browser',
-];
+const contentToolNames = [...REQUIRED_GLOBAL_CONTENT_TOOLS];
 if (!Array.isArray(config.tools.allow)) config.tools.allow = [];
 config.tools.allow = config.tools.allow.filter((t) => !REMOVE_FROM_ALLOWLIST.has(String(t)));
 for (const name of contentToolNames) {

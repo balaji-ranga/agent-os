@@ -6,6 +6,7 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { resolveOpenClawDir, resolveOpenClawConfigPath } from '../../scripts/lib/openclaw-paths.js';
+import { REQUIRED_GLOBAL_CONTENT_TOOLS } from '../../scripts/lib/content-tools-allow.js';
 
 const OPENCLAW_DIR = resolveOpenClawDir();
 const CONFIG_PATH = resolveOpenClawConfigPath();
@@ -32,6 +33,8 @@ const REQUIRED_GLOBAL_TOOLS = [
   'learnings_summary',
 ];
 
+// Soft-check the full content-tool floor (configure-openclaw-docker maintains these).
+const EXPECTED_GLOBAL_CONTENT_TOOLS = REQUIRED_GLOBAL_CONTENT_TOOLS;
 const REQUIRED_SKILLS = ['agent-send', 'agent-os-content-tools', 'browser-automation'];
 
 const REQUIRED_PLUGINS = ['agent-os-content-tools', 'agent-os-bootstrap-watcher'];
@@ -149,6 +152,19 @@ if (!process.env.TOOLS_BASE_URL && process.env.AGENT_OS_PUBLIC_URL?.startsWith('
 const globalAllow = config.tools?.allow || [];
 for (const t of REQUIRED_GLOBAL_TOOLS) {
   if (!globalAllow.includes(t)) fail(`tools.allow missing: ${t}`);
+}
+for (const t of EXPECTED_GLOBAL_CONTENT_TOOLS) {
+  if (!globalAllow.includes(t)) warn(`tools.allow missing content tool (configure on next start): ${t}`);
+}
+if (config.plugins?.entries?.codex?.enabled) {
+  fail('plugins.entries.codex.enabled must be false (breaks Agent OS content tools)');
+}
+if (Array.isArray(config.plugins?.allow) && config.plugins.allow.includes('codex')) {
+  fail('plugins.allow must not include codex');
+}
+const balserve = (config.agents?.list || []).find((a) => String(a.id || '').toLowerCase() === 'balserve');
+if (balserve && !(balserve.tools?.allow || []).includes('learnings_summary')) {
+  fail('balserve tools.allow missing learnings_summary');
 }
 
 // Agents

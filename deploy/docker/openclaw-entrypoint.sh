@@ -20,7 +20,8 @@ sync_extensions_from_image() {
     echo "[openclaw] WARN: extension sync failed (gateway will still start)" >&2
     return 0
   }
-  # Keep plugin baseUrl / apiKey / gateway token aligned with container env when config exists.
+  # Keep plugin baseUrl / apiKey / gateway token / tools.allow aligned with container env
+  # when config exists (incl. learnings_summary on global + COO allow — volume-safe).
   local configure_js="${AGENT_OS_ROOT}/deploy/scripts/configure-openclaw-docker.js"
   local config_path="${OPENCLAW_CONFIG_PATH:-${OPENCLAW_DIR:-/root/.openclaw}/openclaw.json}"
   if [[ -f "${configure_js}" && -f "${config_path}" ]]; then
