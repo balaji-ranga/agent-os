@@ -1,4 +1,6 @@
 # Agent OS backend API
+# Rebuild after: Platform Help corpus, seed scripts, content-tools allowlists, master-data.
+# Image COPYs openclaw templates/skills/extensions + knowledgebase/platform-help for RAG seeding.
 FROM node:22-bookworm-slim
 
 # python3: custom workflow script sandbox (Python); make/g++: better-sqlite3 native build

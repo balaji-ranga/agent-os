@@ -296,10 +296,21 @@ Laptop sync (when VPS cannot `git pull`):
 
 ```powershell
 .\deploy\scripts\sync-to-vps.ps1
-.\deploy\scripts\sync-to-vps.ps1 -Services backend
+.\deploy\scripts\sync-to-vps.ps1 -Services frontend
+.\deploy\scripts\sync-to-vps.ps1 -Services "backend openclaw"
+.\deploy\scripts\sync-to-vps.ps1 -NoCache   # stale Docker layers
 ```
 
-- **deploy/README.md** — Compose services, volumes, profiles, OpenConnector / email-inbound, repeatable sync
+On VPS after sync / `git pull`:
+
+```bash
+bash /opt/agent-os/deploy/scripts/vps-deploy-latest.sh
+SERVICES=frontend bash /opt/agent-os/deploy/scripts/vps-rebuild-frontend.sh
+bash /opt/agent-os/deploy/scripts/vps-verify-frontend-media.sh   # hPanel + fullscreen + CTAs
+bash /opt/agent-os/deploy/scripts/vps-verify-platform.sh         # Platform Help + Master Data
+```
+
+- **deploy/README.md** — Compose services, volumes, profiles, UI redeploy markers, OpenConnector / email-inbound, repeatable sync
 - **knowledgebase/DEPLOY-CENTOS-PODMAN.md** — CentOS, Podman, SELinux, Chromium/browser login
 - **scripts/setup-openclaw-from-scratch.sh** — Linux bootstrap (also runs in the `init` container)
 

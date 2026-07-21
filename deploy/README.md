@@ -234,6 +234,9 @@ All proxied under `/api` (rebuild backend + frontend images after upgrade):
 | AgentExchange | `GET /api/agent-exchange` (CEO/Admin), UI `/agent-exchange` |
 | Workflow A2A | `POST /api/a2a/:publishId`, card at `/api/a2a/:publishId/.well-known/agent-card.json` |
 | hPanel light UI | White shell: left collapsible nav sections, topbar profile avatar menu, light CSS tokens (`--bg #f7f8f9`) |
+| Workflow fullscreen editor | `/workflows/:id/edit` hides platform nav/topbar (`shell-focus-mode`); compact nodes/panes; **Exit to workflows** |
+| Register MCP / Agents CTAs | Primary accent buttons + shared `page-hero` alignment on MCP registry and External Agents |
+| Platform Help | Agent `platformhelp` + `knowledgebase/platform-help/` corpus in backend image → Master Data RAG |
 
 **Repeatable deploy (laptop → VPS):**
 
@@ -369,6 +372,22 @@ Frontend-only rebuild + bundle markers:
 ```bash
 bash /opt/agent-os/deploy/scripts/vps-rebuild-frontend.sh
 ```
+
+Quick UI + media verify (hPanel, fullscreen editor, Register CTAs, media auth):
+
+```bash
+bash /opt/agent-os/deploy/scripts/vps-verify-frontend-media.sh
+```
+
+**Post-deploy frontend markers** (fail = rebuild with `NO_CACHE=1` / `-NoCache`):
+
+| Marker | Meaning |
+|--------|---------|
+| `app-topbar` / `profile-menu` / `#f7f8f9` | hPanel light shell |
+| `nav-section-chevron` | Collapsible left nav sections |
+| `shell-focus-mode` / `Exit to workflows` / `wf-editor-exit` | Fullscreen workflow editor |
+| `Register MCP` / `Register Agents` / `page-hero` | Aligned primary CTAs |
+| `NotificationProvider` / Broadcast / Resync ORG | Existing product UI |
 
 Always recreate **nginx** after recreating **frontend** so the reverse proxy picks up the new container IP (otherwise you may see HTTP 502).
 

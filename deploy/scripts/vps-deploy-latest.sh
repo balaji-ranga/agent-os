@@ -40,7 +40,10 @@ echo "    features: notify_ceo, email_send, Broadcast (intent notify + paced fan
 echo "              AGENTS.md COO specialty delegation, Master Data + RAG purposes,"
 echo "              Platform Help agent + knowledgebase/platform-help corpus,"
 echo "              chat tool-call icons, notification tooltips, shared NotificationProvider,"
-echo "              AgentExchange/A2A, DeepSeek@Ollama, hPanel light theme (app-topbar + profile-menu)"
+echo "              AgentExchange/A2A, DeepSeek@Ollama,"
+echo "              hPanel light theme (app-topbar + profile-menu + collapsible nav),"
+echo "              workflow editor fullscreen (shell-focus-mode + Exit to workflows),"
+echo "              Register MCP / Register Agents primary CTAs (page-hero)"
 
 if [[ "$SKIP_GIT" != "1" ]]; then
   if [[ -d "$ROOT/.git" ]]; then
@@ -186,6 +189,21 @@ if docker compose exec -T frontend sh -c 'grep -Rql "Register MCP" /usr/share/ng
   echo "    frontend assets: Register MCP CTA OK"
 else
   echo "    WARN: Register MCP CTA not found"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql "Register Agents" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: Register Agents CTA OK"
+else
+  echo "    WARN: Register Agents CTA not found"
+fi
+if docker compose exec -T frontend sh -c 'cat /usr/share/nginx/html/assets/*.css' 2>/dev/null | grep -q 'page-hero'; then
+  echo "    frontend assets: page-hero (aligned primary CTAs) OK"
+else
+  echo "    WARN: page-hero CSS missing (MCP/Agents hero alignment?)"
+fi
+if docker compose exec -T frontend sh -c 'cat /usr/share/nginx/html/assets/*.css' 2>/dev/null | grep -q 'wf-editor-exit'; then
+  echo "    frontend assets: wf-editor-exit OK"
+else
+  echo "    WARN: wf-editor-exit CSS missing (fullscreen exit control?)"
 fi
 if docker compose exec -T frontend sh -c 'grep -Rql Broadcast /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
   echo "    frontend assets: Broadcast page OK"
