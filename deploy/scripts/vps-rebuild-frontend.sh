@@ -14,7 +14,7 @@ curl -kfsS -o /dev/null -w "register_http=%{http_code}\n" https://127.0.0.1/regi
 curl -kfsS -o /dev/null -w "home_http=%{http_code}\n" https://127.0.0.1/ || true
 
 echo "==> frontend bundle markers"
-for marker in 'Resync ORG' 'Purpose / description' NotificationProvider standupNotificationsDismiss Broadcast 'Flowlah - An Agent Company Setup'; do
+for marker in 'Resync ORG' 'Purpose / description' NotificationProvider standupNotificationsDismiss Broadcast 'Exit to workflows' 'Register MCP' 'Flowlah - An Agent Company Setup'; do
   if [[ "$marker" == 'Flowlah - An Agent Company Setup' ]]; then
     if docker compose exec -T frontend sh -c "grep -q '$marker' /usr/share/nginx/html/index.html 2>/dev/null"; then
       echo "    $marker OK (index.html)"
@@ -25,6 +25,15 @@ for marker in 'Resync ORG' 'Purpose / description' NotificationProvider standupN
     echo "    $marker OK"
   else
     echo "    WARN: $marker not in frontend JS bundle"
+  fi
+done
+
+echo "==> hPanel light theme CSS markers"
+for css_marker in app-topbar profile-menu nav-section-chevron shell-focus-mode '#f7f8f9'; do
+  if docker compose exec -T frontend sh -c "cat /usr/share/nginx/html/assets/*.css" 2>/dev/null | grep -q "$css_marker"; then
+    echo "    CSS $css_marker OK"
+  else
+    echo "    WARN: CSS $css_marker missing (rebuild frontend?)"
   fi
 done
 

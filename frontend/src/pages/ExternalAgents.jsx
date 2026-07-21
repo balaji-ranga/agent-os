@@ -99,22 +99,24 @@ export default function ExternalAgents() {
 
   return (
     <div className="page" style={{ padding: '1.5rem', maxWidth: 960 }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '1.5rem' }}>
-        <div>
-          <p style={{ color: 'var(--muted)', margin: 0, fontSize: '0.85rem' }}>Integrations · A2A</p>
-          <h1 style={{ margin: '0.25rem 0 0' }}>External Agents</h1>
-          <p style={{ color: 'var(--muted)', marginTop: '0.5rem' }}>
-            Register third-party agents that speak the{' '}
-            <a href="https://a2a-protocol.org/" target="_blank" rel="noreferrer">
-              A2A protocol
-            </a>
-            . Discover their agent card, then use them in workflow <strong>External Agent (A2A)</strong> nodes.
-            {user?.role === 'admin' ? ' Admin registrations can be shared platform-wide.' : ''}
-          </p>
+      <header className="page-hero">
+        <div className="page-hero-top">
+          <div className="page-hero-titles">
+            <p className="page-hero-kicker">Integrations · A2A</p>
+            <h1>External Agents</h1>
+          </div>
+          <button type="button" className="wf-btn-primary page-hero-action" onClick={() => setModalOpen(true)}>
+            + Register Agents
+          </button>
         </div>
-        <button type="button" className="wf-btn-primary" onClick={() => setModalOpen(true)}>
-          + Register agent
-        </button>
+        <p className="page-hero-sub">
+          Register third-party agents that speak the{' '}
+          <a href="https://a2a-protocol.org/" target="_blank" rel="noreferrer">
+            A2A protocol
+          </a>
+          . Discover their agent card, then use them in workflow <strong>External Agent (A2A)</strong> nodes.
+          {user?.role === 'admin' ? ' Admin registrations can be shared platform-wide.' : ''}
+        </p>
       </header>
 
       {error && (

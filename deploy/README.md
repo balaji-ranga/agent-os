@@ -233,6 +233,7 @@ All proxied under `/api` (rebuild backend + frontend images after upgrade):
 | Notification tooltips | Bell panel snippet hover shows full title/body / agent response |
 | AgentExchange | `GET /api/agent-exchange` (CEO/Admin), UI `/agent-exchange` |
 | Workflow A2A | `POST /api/a2a/:publishId`, card at `/api/a2a/:publishId/.well-known/agent-card.json` |
+| hPanel light UI | White shell: left collapsible nav sections, topbar profile avatar menu, light CSS tokens (`--bg #f7f8f9`) |
 
 **Repeatable deploy (laptop → VPS):**
 
@@ -249,14 +250,16 @@ All proxied under `/api` (rebuild backend + frontend images after upgrade):
 .\deploy\scripts\sync-to-vps.ps1 -NoCache
 ```
 
-`sync-to-vps.ps1` syncs **full build contexts**: `frontend/src` + package files, `backend/src` + key scripts, `deploy/*`, `scripts/`, OpenClaw extensions/skills/templates (COO, TechResearcher, ApplicationAgent) — then runs `vps-deploy-latest.sh`.
+`sync-to-vps.ps1` syncs **full build contexts**: `frontend/src` + package files, `backend/src` + key scripts (incl. `seed-platform-help-agent.js`), `deploy/*`, `scripts/`, OpenClaw extensions/skills/templates (COO, TechResearcher, ApplicationAgent, Workflow Builder, **Platform Help**), and `knowledgebase/platform-help/` — then runs `vps-deploy-latest.sh`.
+
+The backend image (`deploy/docker/backend.Dockerfile`) **COPY**s `knowledgebase/platform-help` so Master Data RAG seeding works inside the container.
 
 On VPS after sync (or after `git pull` on the box), `vps-deploy-latest.sh` rebuilds images and runs:
 
-1. `vps-smoke-new-features.sh` — email_send, notify_ceo, master_data, org sync, A2A, shared notification dismiss
+1. `vps-smoke-new-features.sh` — email_send, notify_ceo, master_data, **platformhelp agent**, org sync, A2A, shared notification dismiss
 2. `vps-smoke-broadcast-notify.sh` — Broadcast → TechResearcher → notify_ceo (needs OpenClaw + LLM; non-fatal)
 3. `vps-smoke-deepseek-brain.sh` — DeepSeek@Ollama (non-fatal if model not pulled)
-4. `vps-verify-platform.sh` — Master Data, per-CEO delegation, NotificationProvider + dismiss APIs, allowlists
+4. `vps-verify-platform.sh` — Master Data, Platform Help docs/agent/RAG, per-CEO delegation, NotificationProvider + dismiss APIs, allowlists
 
 Skip all smoke: `SKIP_SMOKE=1` or `sync-to-vps.ps1 -SkipSmoke`. Force clean image build: `NO_CACHE=1` or `sync-to-vps.ps1 -NoCache`.
 
@@ -264,6 +267,10 @@ Optional targeted smokes (after deploy):
 
 ```bash
 docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-broadcast-routing.js
+docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-platform-help-seed.js
+docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-platform-help-rag.js
+docker compose exec -T -w /opt/agent-os/backend -e TOOLS_BASE_URL=http://127.0.0.1:3001 \
+  backend node scripts/vps-test-platform-help.js
 docker compose exec -T -w /opt/agent-os/backend backend node scripts/vps-test-application-masterdata-notify.js
 docker compose exec -T -w /opt/agent-os/backend backend node scripts/vps-test-coo-biryani-delegate.js
 ```

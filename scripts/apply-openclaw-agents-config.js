@@ -10,6 +10,7 @@ import {
   REQUIRED_GLOBAL_CONTENT_TOOLS,
   COO_CONTENT_TOOLS_ALLOW,
   WORKFLOW_BUILDER_CONTENT_TOOLS_ALLOW,
+  PLATFORM_HELP_CONTENT_TOOLS_ALLOW,
 } from './lib/content-tools-allow.js';
 
 const OPENCLAW_DIR = resolveOpenClawDir();
@@ -36,6 +37,15 @@ const AGENTS_LIST = [
     workspace: toSlash(join(OPENCLAW_DIR, 'workspace-workflowbuilder')),
     tools: {
       allow: [...WORKFLOW_BUILDER_CONTENT_TOOLS_ALLOW],
+      deny: ['image'],
+    },
+  },
+  {
+    id: 'platformhelp',
+    name: 'Platform Help',
+    workspace: toSlash(join(OPENCLAW_DIR, 'workspace-platformhelp')),
+    tools: {
+      allow: [...PLATFORM_HELP_CONTENT_TOOLS_ALLOW],
       deny: ['image'],
     },
   },
@@ -141,7 +151,7 @@ if (!config.models.providers.ollama) {
 if (!config.tools) config.tools = {};
 config.tools.agentToAgent = {
   enabled: true,
-  allow: ['bala', 'balserve', 'workflowbuilder', 'techresearcher', 'expensemanager', 'socialasstant'],
+  allow: ['bala', 'balserve', 'workflowbuilder', 'platformhelp', 'techresearcher', 'expensemanager', 'socialasstant'],
 };
 
 // Remove agents.defaults.subagents if present (can prevent gateway from starting).

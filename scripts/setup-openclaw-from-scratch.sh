@@ -95,6 +95,7 @@ if [[ "$SKIP_DB_SEED" -eq 0 ]]; then
   node scripts/seed-all.js
   node scripts/seed-expenses.js
   node scripts/seed-workflow-builder-agent.js
+  node scripts/seed-platform-help-agent.js
   cd "${AGENT_OS_ROOT}"
 else
   echo "Skipped (--skip-db-seed)"

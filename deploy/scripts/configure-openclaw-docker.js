@@ -15,6 +15,7 @@ import {
   REQUIRED_GLOBAL_CONTENT_TOOLS,
   COO_CONTENT_TOOLS_ALLOW,
   WORKFLOW_BUILDER_CONTENT_TOOLS_ALLOW,
+  PLATFORM_HELP_CONTENT_TOOLS_ALLOW,
 } from '../../scripts/lib/content-tools-allow.js';
 
 const OPENCLAW_DIR = resolveOpenClawDir();
@@ -95,6 +96,7 @@ if (globalAdded) {
 const AGENT_CONTENT_TOOLS = {
   balserve: COO_CONTENT_TOOLS_ALLOW,
   workflowbuilder: WORKFLOW_BUILDER_CONTENT_TOOLS_ALLOW,
+  platformhelp: PLATFORM_HELP_CONTENT_TOOLS_ALLOW,
 };
 if (Array.isArray(config.agents?.list)) {
   for (const agent of config.agents.list) {

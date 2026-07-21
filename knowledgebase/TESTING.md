@@ -1,5 +1,24 @@
 # Agent OS — Testing
 
+## Platform Help agent (local)
+
+After pulling Platform Help changes:
+
+```powershell
+cd backend
+node scripts/seed-platform-help-agent.js
+node scripts/test-platform-help-seed.js
+node scripts/test-platform-help-rag.js
+# Register temp CEO + list agent + Master Data docs (skips chat):
+$env:SKIP_CHAT='1'; node scripts/test-platform-help-chat.js
+# Full chat (needs OpenClaw gateway paired + content-tools plugin loaded):
+node scripts/test-platform-help-chat.js
+```
+
+Also run from repo root: `node scripts/ensure-all-agent-workspaces.js` and `node scripts/apply-openclaw-agents-config.js`, then restart the gateway.
+
+Help corpus: `knowledgebase/platform-help/` → Master Data docs titled `Flowlah Help — …`. Agent id: `platformhelp`.
+
 ## Restart services before testing
 
 Restart **backend**, **frontend**, and **OpenClaw gateway** so the latest code and config are loaded:

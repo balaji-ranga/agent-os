@@ -21,6 +21,8 @@ COPY openclaw-extensions ./openclaw-extensions
 COPY deploy ./deploy
 # Seeded as Master Data "Flowlah User Guide" for every CEO (register + startup backfill)
 COPY README.md ./README.md
+# Platform Help corpus → Master Data RAG (Platform Help agent / master_data_rag)
+COPY knowledgebase/platform-help ./knowledgebase/platform-help
 
 WORKDIR /opt/agent-os/backend
 

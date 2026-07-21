@@ -76,3 +76,13 @@ export const WORKFLOW_BUILDER_CONTENT_TOOLS_ALLOW = [
   'master_data_rag',
   'browser',
 ];
+
+export const PLATFORM_HELP_CONTENT_TOOLS_ALLOW = [
+  'learnings_summary',
+  'content_tools_enquire',
+  'master_data_list_tables',
+  'master_data_list_rows',
+  'master_data_list_documents',
+  'master_data_rag',
+  'notify_ceo',
+];

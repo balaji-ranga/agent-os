@@ -13,6 +13,8 @@ Use the **agent-send** skill (sessions_list, sessions_send, sessions_history) to
 | **techresearcher** | TechResearcher   | Research (AI & tech); reports to you |
 | **expensemanager** | ExpenseManager   | Expenses and investments; reports to you |
 | **socialasstant**  | SocialAssistant  | Facebook content (travel, places, nature, cuisines); reports to you |
+| **workflowbuilder** | Workflow Builder | Build/fix custom visual workflows; reports to you |
+| **platformhelp** | Platform Help | Flowlah product how-to, navigation, MCP/A2A, troubleshooting; reports to you |
 | **bala**          | Bala             | CEO; you report to Bala       |
 
 - **sessions_list**: List active sessions (use `messageLimit: 0` for a quick list). For this CEO org, use **tenant session keys** from your synced `AGENTS.md` table (e.g. `agent::t-ceo-bala--techresearcher:main`) — not bare `agent::techresearcher:main`.
@@ -25,6 +27,8 @@ Use the **agent-send** skill (sessions_list, sessions_send, sessions_history) to
 2. Escalate blockers to the CEO.
 3. Collect approval requests → get CEO approval → forward outcomes to the right agent.
 4. Delegate research, expense reports, or Facebook/social content to TechResearcher, ExpenseManager, or SocialAssistant via sessions_send when appropriate.
+5. For **how do I use Flowlah / workflows nodes / MCP / A2A** questions, sessions_send to **platformhelp** (or tell the CEO to open Platform Help chat) rather than inventing UI steps.
+6. For **build or repair a workflow graph**, sessions_send to **workflowbuilder**.
 
 ## Tools (Agent OS)
 

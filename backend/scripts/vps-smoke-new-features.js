@@ -72,6 +72,18 @@ const mdGrants = getDb()
 if (!mdGrants) throw new Error('master_data tools not granted to any agents');
 console.log('OK master_data grants', mdGrants);
 
+const platformHelp = getDb().prepare(`SELECT id, name, agent_type FROM agents WHERE id = 'platformhelp'`).get();
+if (!platformHelp || platformHelp.agent_type !== 'standard') {
+  throw new Error('platformhelp standard agent missing');
+}
+const helpRagGrants = getDb()
+  .prepare(
+    `SELECT COUNT(*) AS n FROM agent_tool_grants WHERE agent_id = 'platformhelp' AND tool_name IN ('master_data_rag','master_data_list_documents')`
+  )
+  .get().n;
+if (helpRagGrants < 2) throw new Error('platformhelp missing RAG tool grants');
+console.log('OK platformhelp agent + RAG grants', platformHelp.name);
+
 const owner = getBalaCeoAuthId();
 const deptOut = listRowsForAgent(owner, { table_name: 'departments', limit: 3 });
 const deptNames = (deptOut.rows || []).map((r) => r.data?.name).filter(Boolean);

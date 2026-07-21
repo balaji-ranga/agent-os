@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route, NavLink, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import Workspace from './pages/Workspace';
 import AgentWorkspace from './pages/AgentWorkspace';
@@ -22,6 +22,7 @@ import AgentExchange from './pages/AgentExchange';
 import MasterData from './pages/MasterData';
 import AiSnipper from './pages/AiSnipper';
 import NotificationBell from './components/NotificationBell';
+import ProfileMenu from './components/ProfileMenu';
 import { AdminNavMenu, CeoNavMenu } from './components/AppNavMenu';
 import ImpersonationBanner from './components/ImpersonationBanner';
 import { useAuth } from './context/AuthContext';
@@ -50,11 +51,15 @@ function AuthLayout({ children }) {
 
 function Shell() {
   const { user, logout, loading } = useAuth();
+  const location = useLocation();
   const [navCollapsed, setNavCollapsed] = useState(() => localStorage.getItem('agent-os-nav-collapsed') === '1');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [isNarrow, setIsNarrow] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia('(max-width: 900px)').matches : false
   );
+
+  /** Workflow editor uses the full viewport — hide platform nav/topbar. */
+  const focusMode = /^\/workflows\/[^/]+\/edit\/?$/.test(location.pathname);
 
   useEffect(() => {
     localStorage.setItem('agent-os-nav-collapsed', navCollapsed ? '1' : '0');
@@ -97,11 +102,12 @@ function Shell() {
   }
 
   const closeMobileNav = () => setMobileNavOpen(false);
+  const homePath = user.role === 'admin' ? '/admin' : '/';
 
   return (
     <NotificationProvider>
-    <div className={`app-shell ${navCollapsed && !isNarrow ? 'nav-collapsed' : ''} ${mobileNavOpen ? 'mobile-nav-open' : ''}`}>
-      {mobileNavOpen && (
+    <div className={`app-shell ${navCollapsed && !isNarrow ? 'nav-collapsed' : ''} ${mobileNavOpen ? 'mobile-nav-open' : ''} ${focusMode ? 'shell-focus-mode' : ''}`}>
+      {!focusMode && mobileNavOpen && (
         <button
           type="button"
           className="app-nav-backdrop"
@@ -109,26 +115,34 @@ function Shell() {
           onClick={closeMobileNav}
         />
       )}
-      <header className="app-mobile-topbar">
-        <button
-          type="button"
-          className="nav-toggle mobile-menu-btn"
-          onClick={() => setMobileNavOpen((o) => !o)}
-          aria-label={mobileNavOpen ? 'Close menu' : 'Open menu'}
-          aria-expanded={mobileNavOpen}
-        >
-          {mobileNavOpen ? '✕' : '☰'}
-        </button>
-        <div className="app-mobile-brand">Agent OS</div>
-        <div className="app-mobile-topbar-actions">
-          <NotificationBell />
-        </div>
-      </header>
+      {!focusMode && isNarrow && (
+        <header className="app-mobile-topbar">
+          <button
+            type="button"
+            className="nav-toggle mobile-menu-btn"
+            onClick={() => setMobileNavOpen((o) => !o)}
+            aria-label={mobileNavOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={mobileNavOpen}
+          >
+            {mobileNavOpen ? '✕' : '☰'}
+          </button>
+          <div className="app-mobile-brand">
+            <span className="app-nav-brand-mark" aria-hidden>F</span>
+            <span className="app-mobile-brand-text">Flowlah</span>
+          </div>
+          <div className="app-mobile-topbar-actions">
+            <NotificationBell compact />
+            <ProfileMenu user={user} logout={logout} />
+          </div>
+        </header>
+      )}
+      {!focusMode && (
       <nav className={`app-nav ${menuCollapsed ? 'collapsed' : ''} ${mobileNavOpen ? 'mobile-open' : ''}`}>
         <div className="app-nav-header">
-          {!menuCollapsed && (
-            <div style={{ fontWeight: 600, fontSize: '1.1rem' }}>Agent OS</div>
-          )}
+          <Link to={homePath} className="app-nav-brand" onClick={closeMobileNav}>
+            <span className="app-nav-brand-mark" aria-hidden>F</span>
+            {!menuCollapsed && <span className="app-nav-brand-name">Flowlah</span>}
+          </Link>
           <button
             type="button"
             className="nav-toggle desktop-nav-toggle"
@@ -147,82 +161,61 @@ function Shell() {
             ✕
           </button>
         </div>
-        {!menuCollapsed && (
-          <>
-        <div style={{ padding: '0 1rem', marginBottom: '0.5rem', fontSize: '0.8rem', color: 'var(--muted)' }}>
-          {user.name} ({user.role})
-        </div>
-        <div style={{ padding: '0 1rem', marginBottom: '1rem' }}>
-          <NavLink
-            to="/profile"
-            onClick={closeMobileNav}
-            style={({ isActive }) => ({ fontSize: '0.8rem', color: isActive ? 'var(--accent)' : 'var(--muted)' })}
-          >
-            Edit profile
-          </NavLink>
-        </div>
-        <div className="app-nav-desktop-bell" style={{ padding: '0 1rem', marginBottom: '1rem' }}>
-          <NotificationBell />
-        </div>
-          </>
-        )}
-        {menuCollapsed && (
-          <div className="app-nav-desktop-bell" style={{ padding: '0.35rem', marginBottom: '0.5rem', textAlign: 'center' }}>
-            <NotificationBell />
-          </div>
-        )}
         <div className="app-nav-links" onClick={closeMobileNav}>
           {user.role === 'admin' && <AdminNavMenu collapsed={menuCollapsed} />}
           {user.role === 'ceo' && <CeoNavMenu collapsed={menuCollapsed} />}
         </div>
-        <button
-          type="button"
-          onClick={logout}
-          className="nav-logout"
-          title="Logout"
-        >
-          {menuCollapsed ? '⎋' : 'Logout'}
-        </button>
       </nav>
-      <main className="app-main">
-        <ImpersonationBanner />
-        <Routes>
-          {user.role === 'admin' && (
-            <>
-              <Route path="/admin" element={<Admin />} />
-              <Route path="/integrations/mcp/*" element={<McpIntegrations />} />
-              <Route path="/integrations/custom-scripts" element={<CustomScripts />} />
-              <Route path="/integrations/external-agents" element={<ExternalAgents />} />
-              <Route path="/agent-exchange" element={<AgentExchange />} />
-              <Route path="/profile" element={<UserProfile />} />
-              <Route path="*" element={<Navigate to="/admin" replace />} />
-            </>
-          )}
-          {user.role === 'ceo' && (
-            <>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/profile" element={<UserProfile />} />
-              <Route path="/job-profiles" element={<JobProfiles />} />
-              <Route path="/workspace" element={<Workspace />} />
-              <Route path="/content-tools" element={<ContentToolsLogs />} />
-              <Route path="/integrations/mcp/*" element={<McpIntegrations />} />
-              <Route path="/integrations/custom-scripts" element={<CustomScripts />} />
-              <Route path="/integrations/external-agents" element={<ExternalAgents />} />
-              <Route path="/agent-exchange" element={<AgentExchange />} />
-              <Route path="/broadcast" element={<Broadcast />} />
-              <Route path="/kanban" element={<Kanban />} />
-              <Route path="/master-data" element={<MasterData />} />
-              <Route path="/ai-snipper" element={<AiSnipper />} />
-              <Route path="/job-workflows" element={<JobWorkflows />} />
-              <Route path="/workflows" element={<AgentWorkflows />} />
-              <Route path="/workflows/:workflowId/edit" element={<AgentWorkflowEditor />} />
-              <Route path="/agents/:agentId/workspace" element={<AgentWorkspace />} />
-              <Route path="/agents/:agentId/chat" element={<AgentChat />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </>
-          )}
-        </Routes>
-      </main>
+      )}
+      <div className="app-content">
+        {!focusMode && !isNarrow && (
+          <header className="app-topbar">
+            <div className="app-topbar-actions">
+              <NotificationBell compact />
+              <ProfileMenu user={user} logout={logout} />
+            </div>
+          </header>
+        )}
+        <main className="app-main">
+          {!focusMode && <ImpersonationBanner />}
+          <Routes>
+            {user.role === 'admin' && (
+              <>
+                <Route path="/admin" element={<Admin />} />
+                <Route path="/integrations/mcp/*" element={<McpIntegrations />} />
+                <Route path="/integrations/custom-scripts" element={<CustomScripts />} />
+                <Route path="/integrations/external-agents" element={<ExternalAgents />} />
+                <Route path="/agent-exchange" element={<AgentExchange />} />
+                <Route path="/profile" element={<UserProfile />} />
+                <Route path="*" element={<Navigate to="/admin" replace />} />
+              </>
+            )}
+            {user.role === 'ceo' && (
+              <>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/profile" element={<UserProfile />} />
+                <Route path="/job-profiles" element={<JobProfiles />} />
+                <Route path="/workspace" element={<Workspace />} />
+                <Route path="/content-tools" element={<ContentToolsLogs />} />
+                <Route path="/integrations/mcp/*" element={<McpIntegrations />} />
+                <Route path="/integrations/custom-scripts" element={<CustomScripts />} />
+                <Route path="/integrations/external-agents" element={<ExternalAgents />} />
+                <Route path="/agent-exchange" element={<AgentExchange />} />
+                <Route path="/broadcast" element={<Broadcast />} />
+                <Route path="/kanban" element={<Kanban />} />
+                <Route path="/master-data" element={<MasterData />} />
+                <Route path="/ai-snipper" element={<AiSnipper />} />
+                <Route path="/job-workflows" element={<JobWorkflows />} />
+                <Route path="/workflows" element={<AgentWorkflows />} />
+                <Route path="/workflows/:workflowId/edit" element={<AgentWorkflowEditor />} />
+                <Route path="/agents/:agentId/workspace" element={<AgentWorkspace />} />
+                <Route path="/agents/:agentId/chat" element={<AgentChat />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </>
+            )}
+          </Routes>
+        </main>
+      </div>
     </div>
     </NotificationProvider>
   );

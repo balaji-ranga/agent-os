@@ -18,6 +18,10 @@ node scripts/seed-all.js
 if ($LASTEXITCODE -ne 0) { Pop-Location; Pop-Location; exit $LASTEXITCODE }
 node scripts/seed-expenses.js
 if ($LASTEXITCODE -ne 0) { Pop-Location; Pop-Location; exit $LASTEXITCODE }
+node scripts/seed-workflow-builder-agent.js
+if ($LASTEXITCODE -ne 0) { Pop-Location; Pop-Location; exit $LASTEXITCODE }
+node scripts/seed-platform-help-agent.js
+if ($LASTEXITCODE -ne 0) { Pop-Location; Pop-Location; exit $LASTEXITCODE }
 Pop-Location
 
 Write-Host "`n=== 3. Skills (agent-send, agent-os-content-tools) ===" -ForegroundColor Cyan

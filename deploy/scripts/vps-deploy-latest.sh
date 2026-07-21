@@ -38,8 +38,9 @@ echo "==> Agent OS deploy latest $(date -Is)"
 echo "    root=$ROOT services=$SERVICES skip_git=$SKIP_GIT no_cache=$NO_CACHE"
 echo "    features: notify_ceo, email_send, Broadcast (intent notify + paced fan-out), org sync,"
 echo "              AGENTS.md COO specialty delegation, Master Data + RAG purposes,"
+echo "              Platform Help agent + knowledgebase/platform-help corpus,"
 echo "              chat tool-call icons, notification tooltips, shared NotificationProvider,"
-echo "              AgentExchange/A2A, DeepSeek@Ollama"
+echo "              AgentExchange/A2A, DeepSeek@Ollama, hPanel light theme (app-topbar + profile-menu)"
 
 if [[ "$SKIP_GIT" != "1" ]]; then
   if [[ -d "$ROOT/.git" ]]; then
@@ -113,6 +114,33 @@ else
   echo "    WARN: app-mobile-topbar not found in frontend CSS (rebuild frontend?)"
 fi
 
+# hPanel-style light shell (topbar + profile avatar menu + light tokens)
+if docker compose exec -T frontend sh -c 'cat /usr/share/nginx/html/assets/*.css' 2>/dev/null | grep -q 'app-topbar'; then
+  echo "    frontend assets: app-topbar (hPanel shell) OK"
+else
+  echo "    WARN: app-topbar not found in frontend CSS (hPanel theme missing? rebuild frontend)"
+fi
+if docker compose exec -T frontend sh -c 'cat /usr/share/nginx/html/assets/*.css' 2>/dev/null | grep -q 'profile-menu'; then
+  echo "    frontend assets: profile-menu OK"
+else
+  echo "    WARN: profile-menu not found in frontend CSS (rebuild frontend?)"
+fi
+if docker compose exec -T frontend sh -c 'cat /usr/share/nginx/html/assets/*.css' 2>/dev/null | grep -q '#f7f8f9'; then
+  echo "    frontend assets: light theme token (--bg #f7f8f9) OK"
+else
+  echo "    WARN: light theme bg token not found in frontend CSS (still dark theme?)"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql ProfileMenu /usr/share/nginx/html/assets/*.js 2>/dev/null || grep -Rql profile-menu /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: ProfileMenu JS OK"
+else
+  echo "    WARN: ProfileMenu not found in frontend JS (rebuild frontend?)"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql nav-section-chevron /usr/share/nginx/html/assets/*.css 2>/dev/null || cat /usr/share/nginx/html/assets/*.css 2>/dev/null | grep -q nav-section-chevron'; then
+  echo "    frontend assets: collapsible nav sections OK"
+else
+  echo "    WARN: nav-section-chevron not found (collapsible menus missing?)"
+fi
+
 # AgentExchange SPA shell + A2A modal CSS (PublishA2AModal)
 if docker compose exec -T frontend sh -c 'cat /usr/share/nginx/html/assets/*.css' 2>/dev/null | grep -q 'wf-a2a-modal'; then
   echo "    frontend assets: wf-a2a-modal OK"
@@ -143,6 +171,21 @@ if docker compose exec -T frontend sh -c 'grep -Rql standupNotificationsDismiss 
   echo "    frontend assets: notification dismiss API client OK"
 else
   echo "    WARN: notification dismiss UI not found in frontend JS (rebuild frontend? try NO_CACHE=1)"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql "Exit to workflows" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: workflow editor exit fullscreen OK"
+else
+  echo "    WARN: Exit to workflows not found (fullscreen editor missing?)"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql shell-focus-mode /usr/share/nginx/html/assets/*.js 2>/dev/null || cat /usr/share/nginx/html/assets/*.css 2>/dev/null | grep -q shell-focus-mode'; then
+  echo "    frontend assets: shell-focus-mode OK"
+else
+  echo "    WARN: shell-focus-mode not found (workflow fullscreen shell hide missing?)"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql "Register MCP" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: Register MCP CTA OK"
+else
+  echo "    WARN: Register MCP CTA not found"
 fi
 if docker compose exec -T frontend sh -c 'grep -Rql Broadcast /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
   echo "    frontend assets: Broadcast page OK"

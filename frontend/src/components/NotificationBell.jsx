@@ -36,7 +36,7 @@ function NotificationLink({ href, onNavigate, children }) {
   );
 }
 
-export default function NotificationBell() {
+export default function NotificationBell({ compact = false }) {
   const { notifications, markPlatformRead, dismissAgentNotifications, clearAll } = useNotifications();
   const [open, setOpen] = useState(false);
   const [panelPos, setPanelPos] = useState(null);
@@ -212,6 +212,8 @@ export default function NotificationBell() {
         )
       : null;
 
+  const hasUnread = notifications.length > 0;
+
   return (
     <>
       <button
@@ -221,23 +223,11 @@ export default function NotificationBell() {
         title="Notifications"
         aria-expanded={open}
         aria-haspopup="dialog"
-        style={{
-          padding: '0.4rem 0.6rem',
-          background: notifications.length ? 'var(--accent)' : 'var(--surface)',
-          color: notifications.length ? '#fff' : 'var(--text)',
-          border: '1px solid var(--border)',
-          borderRadius: 8,
-          cursor: 'pointer',
-          fontSize: '0.9rem',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.35rem',
-          width: '100%',
-          justifyContent: 'center',
-        }}
+        className={`header-icon-btn${hasUnread ? ' has-unread' : ''}`}
+        style={compact ? undefined : { width: '100%', borderRadius: 8 }}
       >
         <span aria-hidden>🔔</span>
-        {notifications.length > 0 && <span style={{ fontSize: '0.8rem', opacity: 0.9 }}>{notifications.length}</span>}
+        {hasUnread && <span className="header-icon-count">{notifications.length}</span>}
       </button>
       {panel}
     </>

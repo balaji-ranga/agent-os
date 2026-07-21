@@ -2,11 +2,12 @@
  * Default Master Data for every CEO:
  * - departments table (same presets as frontend DepartmentPicker)
  * - Flowlah User Guide document (repo README.md) for RAG
+ * - Platform Help docs (knowledgebase/platform-help/*.md) for the Platform Help agent
  *
  * Called on CEO register and on backend startup backfill.
  */
 import { createHash } from 'crypto';
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readdirSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import {
@@ -21,6 +22,7 @@ import {
 } from './master-data.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = join(__dirname, '..', '..', '..');
 
 export const DEPARTMENTS_TABLE_NAME = 'departments';
 export const DEPARTMENTS_COLUMN = 'name';
@@ -37,13 +39,46 @@ export const DEPARTMENT_PRESETS = [
 export const FLOWLAH_GUIDE_TITLE = 'Flowlah User Guide';
 export const FLOWLAH_GUIDE_FILENAME = 'README.md';
 
+/** Title prefix for Platform Help RAG documents. */
+export const PLATFORM_HELP_TITLE_PREFIX = 'Flowlah Help —';
+
+/** Logical help files under knowledgebase/platform-help/ (filename → doc title). */
+export const PLATFORM_HELP_DOCUMENTS = Object.freeze([
+  { filename: 'README.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Index` },
+  { filename: '01-getting-started.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Getting Started` },
+  { filename: '02-navigation-and-chrome.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Navigation` },
+  { filename: '03-dashboard-agents-chat.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Dashboard Agents Chat` },
+  { filename: '04-kanban-standups-broadcast.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Kanban Standups Broadcast` },
+  { filename: '05-master-data-rag.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Master Data RAG` },
+  { filename: '06-workflows-building.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Workflows Building` },
+  { filename: '07-workflow-nodes-reference.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Workflow Nodes Reference` },
+  { filename: '08-mcp-integrations.md', title: `${PLATFORM_HELP_TITLE_PREFIX}MCP Integrations` },
+  { filename: '09-a2a-agent-exchange.md', title: `${PLATFORM_HELP_TITLE_PREFIX}A2A AgentExchange` },
+  { filename: '10-job-applicant-pipeline.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Job Applicant Pipeline` },
+  { filename: '11-content-tools-scripts-profile.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Content Tools Scripts Profile` },
+  { filename: '12-troubleshooting.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Troubleshooting` },
+]);
+
 /** Resolve repo README.md (local: agent-os/README.md; Docker: /opt/agent-os/README.md). */
 export function resolveDefaultReadmePath() {
   const candidates = [
     process.env.AGENT_OS_README_PATH,
-    join(__dirname, '..', '..', '..', 'README.md'), // backend/src/services → repo root
+    join(REPO_ROOT, 'README.md'),
     join(__dirname, '..', '..', 'README.md'), // backend/README.md fallback
     '/opt/agent-os/README.md',
+  ].filter(Boolean);
+  for (const p of candidates) {
+    if (existsSync(p)) return p;
+  }
+  return null;
+}
+
+/** Resolve knowledgebase/platform-help directory. */
+export function resolvePlatformHelpDir() {
+  const candidates = [
+    process.env.AGENT_OS_PLATFORM_HELP_DIR,
+    join(REPO_ROOT, 'knowledgebase', 'platform-help'),
+    '/opt/agent-os/knowledgebase/platform-help',
   ].filter(Boolean);
   for (const p of candidates) {
     if (existsSync(p)) return p;
@@ -65,12 +100,53 @@ function contentHash(text) {
   return createHash('sha256').update(String(text || ''), 'utf8').digest('hex');
 }
 
-function findGuideDocument(ownerUserId) {
-  return listDocuments(ownerUserId).find(
+function findDocumentByTitleOrFilename(ownerUserId, title, filename) {
+  const docs = listDocuments(ownerUserId);
+  const fn = String(filename || '').toLowerCase();
+  return docs.find(
     (d) =>
-      d.title === FLOWLAH_GUIDE_TITLE ||
-      String(d.filename || '').toLowerCase() === FLOWLAH_GUIDE_FILENAME.toLowerCase()
+      d.title === title ||
+      (fn && String(d.filename || '').toLowerCase() === fn)
   );
+}
+
+/**
+ * Upload or refresh a single markdown Master Data document by title/filename.
+ */
+function ensureMarkdownDocument(ownerUserId, { title, filename, content }, { refresh = true } = {}) {
+  if (!content) {
+    return { document: null, created: false, updated: false, skipped: 'content_missing' };
+  }
+  const existing = findDocumentByTitleOrFilename(ownerUserId, title, filename);
+  if (existing) {
+    if (!refresh) {
+      return { document: existing, created: false, updated: false };
+    }
+    try {
+      const { buffer } = getDocumentFile(ownerUserId, existing.id);
+      if (contentHash(buffer.toString('utf8')) === contentHash(content)) {
+        return { document: existing, created: false, updated: false };
+      }
+    } catch (_) {
+      /* replace below */
+    }
+    try {
+      deleteDocument(ownerUserId, existing.id);
+    } catch (_) {
+      /* continue to upload */
+    }
+  }
+  const document = uploadDocument(ownerUserId, {
+    title,
+    filename,
+    mimeType: 'text/markdown',
+    contentText: content,
+  });
+  return {
+    document,
+    created: !existing,
+    updated: Boolean(existing),
+  };
 }
 
 /**
@@ -112,48 +188,70 @@ export function ensureDepartmentsMasterData(ownerUserId) {
 /**
  * Upload/refresh repo README.md as the CEO's default RAG document.
  */
-export function ensureDefaultReadmeDocument(ownerUserId, { refresh = true } = {}) {
+export function ensureDefaultReadmeDocument(ownerUserId, opts = {}) {
   const content = readDefaultReadmeContent();
   if (!content) {
     return { document: null, created: false, updated: false, skipped: 'readme_missing' };
   }
-  const existing = findGuideDocument(ownerUserId);
-  if (existing) {
-    if (!refresh) {
-      return { document: existing, created: false, updated: false };
-    }
-    try {
-      const { buffer } = getDocumentFile(ownerUserId, existing.id);
-      if (contentHash(buffer.toString('utf8')) === contentHash(content)) {
-        return { document: existing, created: false, updated: false };
-      }
-    } catch (_) {
-      /* replace below */
-    }
-    try {
-      deleteDocument(ownerUserId, existing.id);
-    } catch (_) {
-      /* continue to upload */
-    }
-  }
-  const document = uploadDocument(ownerUserId, {
-    title: FLOWLAH_GUIDE_TITLE,
-    filename: FLOWLAH_GUIDE_FILENAME,
-    mimeType: 'text/markdown',
-    contentText: content,
-  });
-  return {
-    document,
-    created: !existing,
-    updated: Boolean(existing),
-  };
+  return ensureMarkdownDocument(
+    ownerUserId,
+    { title: FLOWLAH_GUIDE_TITLE, filename: FLOWLAH_GUIDE_FILENAME, content },
+    opts
+  );
 }
 
-/** Departments + User Guide for one CEO. */
+/**
+ * Upload/refresh Platform Help markdown set for Master Data RAG (Platform Help agent).
+ */
+export function ensurePlatformHelpDocuments(ownerUserId, opts = {}) {
+  const dir = resolvePlatformHelpDir();
+  if (!dir) {
+    return { docs: [], created: 0, updated: 0, skipped: 'platform_help_dir_missing' };
+  }
+  let created = 0;
+  let updated = 0;
+  const docs = [];
+  const catalog = [...PLATFORM_HELP_DOCUMENTS];
+  // Also pick up any extra *.md dropped in the folder later.
+  try {
+    for (const name of readdirSync(dir)) {
+      if (!/\.md$/i.test(name)) continue;
+      if (catalog.some((c) => c.filename.toLowerCase() === name.toLowerCase())) continue;
+      catalog.push({
+        filename: name,
+        title: `${PLATFORM_HELP_TITLE_PREFIX}${name.replace(/\.md$/i, '')}`,
+      });
+    }
+  } catch (_) {
+    /* ignore */
+  }
+  for (const entry of catalog) {
+    const path = join(dir, entry.filename);
+    if (!existsSync(path)) continue;
+    let content;
+    try {
+      content = readFileSync(path, 'utf8');
+    } catch {
+      continue;
+    }
+    const result = ensureMarkdownDocument(
+      ownerUserId,
+      { title: entry.title, filename: `platform-help-${entry.filename}`, content },
+      opts
+    );
+    docs.push(result);
+    if (result.created) created += 1;
+    else if (result.updated) updated += 1;
+  }
+  return { docs, created, updated };
+}
+
+/** Departments + User Guide + Platform Help for one CEO. */
 export function ensureCeoDefaultMasterData(ownerUserId, opts = {}) {
   const departments = ensureDepartmentsMasterData(ownerUserId);
   const guide = ensureDefaultReadmeDocument(ownerUserId, opts);
-  return { departments, guide };
+  const platformHelp = ensurePlatformHelpDocuments(ownerUserId, opts);
+  return { departments, guide, platformHelp };
 }
 
 /**
@@ -166,17 +264,30 @@ export function ensureCeoDefaultMasterDataForAllCeos(listCeoIds, opts = {}) {
   let guidesCreated = 0;
   let guidesUpdated = 0;
   let guidesSkipped = 0;
+  let helpCreated = 0;
+  let helpUpdated = 0;
   for (const id of ids) {
     try {
-      const { departments, guide } = ensureCeoDefaultMasterData(id, opts);
+      const { departments, guide, platformHelp } = ensureCeoDefaultMasterData(id, opts);
       if (departments.created) deptCreated += 1;
       if (departments.inserted) deptSeeded += 1;
       if (guide.created) guidesCreated += 1;
       else if (guide.updated) guidesUpdated += 1;
       if (guide.skipped) guidesSkipped += 1;
+      helpCreated += platformHelp?.created || 0;
+      helpUpdated += platformHelp?.updated || 0;
     } catch (e) {
       console.warn(`[ceo-default-master-data] ${id}:`, e.message);
     }
   }
-  return { deptCreated, deptSeeded, guidesCreated, guidesUpdated, guidesSkipped, ceos: ids.length };
+  return {
+    deptCreated,
+    deptSeeded,
+    guidesCreated,
+    guidesUpdated,
+    guidesSkipped,
+    helpCreated,
+    helpUpdated,
+    ceos: ids.length,
+  };
 }

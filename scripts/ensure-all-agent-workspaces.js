@@ -22,6 +22,7 @@ const AGENTS = [
   { id: 'expensemanager', workspaceDir: 'workspace-expenses' },
   { id: 'socialasstant', workspaceDir: 'workspace-socialasstant' },
   { id: 'workflowbuilder', workspaceDir: 'workspace-workflowbuilder' },
+  { id: 'platformhelp', workspaceDir: 'workspace-platformhelp' },
 ];
 
 for (const { id, workspaceDir } of AGENTS) {
@@ -57,6 +58,12 @@ for (const { id, workspaceDir } of AGENTS) {
     const tools = readFileSync(toolsPath, 'utf8');
     writeFileSync(join(workspacePath, 'TOOLS.md'), tools, 'utf8');
     console.log(id, 'TOOLS.md applied');
+  }
+
+  const agentsPath = join(templateDir, 'AGENTS.md');
+  if (existsSync(agentsPath) && id !== 'balserve') {
+    writeFileSync(join(workspacePath, 'AGENTS.md'), readFileSync(agentsPath, 'utf8'), 'utf8');
+    console.log(id, 'AGENTS.md applied');
   }
 }
 

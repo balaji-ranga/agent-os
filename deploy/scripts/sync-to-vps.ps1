@@ -9,7 +9,9 @@
 # Syncs full build contexts: frontend/, backend/src + scripts, deploy/docker, scripts/,
 # openclaw extensions/skills/templates — then rebuilds via vps-deploy-latest.sh.
 #
-# Features covered: Flowlah branding, multi-tenant standups/delegation, Master Data + RAG tools,
+# Features covered: Flowlah branding, hPanel light theme (collapsible nav + profile menu),
+# workflow editor fullscreen (shell-focus-mode), Register MCP/Agents primary CTAs,
+# multi-tenant standups/delegation, Master Data + RAG tools, Platform Help agent + help corpus,
 # notify_ceo + email_send, Broadcast (intent-based notify + paced fan-out), AGENTS.md intent
 # COO specialty delegation, peer specialty referral, chat tool-call icons, notification tooltips,
 # org sync (tenant ORG.md/AGENTS.md), AgentExchange/A2A, DeepSeek@Ollama, shared notification dismiss.
@@ -75,6 +77,12 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\package-lock.json" `
     "root@${HostIp}:$RemoteRoot/backend/"
   scp @ssh `
+    "$Repo\backend\scripts\vps-test-platform-help.js" `
+    "$Repo\backend\scripts\seed-workflow-builder-agent.js" `
+    "$Repo\backend\scripts\seed-platform-help-agent.js" `
+    "$Repo\backend\scripts\test-platform-help-seed.js" `
+    "$Repo\backend\scripts\test-platform-help-rag.js" `
+    "$Repo\backend\scripts\test-platform-help-chat.js" `
     "$Repo\backend\scripts\vps-smoke-new-features.js" `
     "$Repo\backend\scripts\test-email-send-tool.js" `
     "$Repo\backend\scripts\test-notify-ceo-tool.js" `
@@ -100,11 +108,16 @@ if ($Services -match "backend|openclaw") {
   scp @ssh -r "$Repo\scripts" "root@${HostIp}:$RemoteRoot/"
   scp @ssh -r "$Repo\openclaw-extensions\agent-os-content-tools" "root@${HostIp}:$RemoteRoot/openclaw-extensions/"
   scp @ssh -r "$Repo\openclaw-extensions\agent-os-bootstrap-watcher" "root@${HostIp}:$RemoteRoot/openclaw-extensions/"
-  Write-Host "==> Sync workspace templates (COO + TechResearcher + ApplicationAgent + peers) + skills"
+  Write-Host "==> Sync workspace templates (COO + TechResearcher + ApplicationAgent + Workflow Builder + Platform Help) + skills + platform-help KB"
   ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/openclaw-workspace-templates $RemoteRoot/openclaw-skills/agent-os-content-tools $RemoteRoot/openclaw-skills/agent-send"
   scp @ssh -r "$Repo\openclaw-workspace-templates\balserve" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   scp @ssh -r "$Repo\openclaw-workspace-templates\techresearcher" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   scp @ssh -r "$Repo\openclaw-workspace-templates\applicationagent" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
+  scp @ssh -r "$Repo\openclaw-workspace-templates\workflowbuilder" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
+  scp @ssh -r "$Repo\openclaw-workspace-templates\platformhelp" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
+  ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/knowledgebase"
+  scp @ssh -r "$Repo\knowledgebase\platform-help" "root@${HostIp}:$RemoteRoot/knowledgebase/"
+  scp @ssh "$Repo\README.md" "root@${HostIp}:$RemoteRoot/README.md"
   scp @ssh -r "$Repo\openclaw-skills\agent-os-content-tools" "root@${HostIp}:$RemoteRoot/openclaw-skills/"
   scp @ssh -r "$Repo\openclaw-skills\agent-send" "root@${HostIp}:$RemoteRoot/openclaw-skills/"
 }

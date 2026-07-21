@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 
 function NavItem({ to, end, title, collapsed, label, short, nested = true }) {
@@ -15,12 +16,49 @@ function NavItem({ to, end, title, collapsed, label, short, nested = true }) {
   );
 }
 
-function NavSection({ title, collapsed, children }) {
+function sectionStorageKey(title) {
+  return `agent-os-nav-section:${title}`;
+}
+
+function NavSection({ title, collapsed, children, defaultOpen = true }) {
+  const [open, setOpen] = useState(() => {
+    try {
+      const stored = localStorage.getItem(sectionStorageKey(title));
+      if (stored === '0') return false;
+      if (stored === '1') return true;
+    } catch {
+      /* ignore */
+    }
+    return defaultOpen;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(sectionStorageKey(title), open ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
+  }, [open, title]);
+
   if (collapsed) return children;
+
   return (
-    <div className="nav-section">
-      <div className="nav-section-title">{title}</div>
-      <div className="nav-section-links">{children}</div>
+    <div className={`nav-section${open ? '' : ' collapsed-section'}`}>
+      <button
+        type="button"
+        className="nav-section-title"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((o) => !o);
+        }}
+        aria-expanded={open}
+      >
+        <span>{title}</span>
+        <span className="nav-section-chevron" aria-hidden>
+          ▾
+        </span>
+      </button>
+      {open && <div className="nav-section-links">{children}</div>}
     </div>
   );
 }

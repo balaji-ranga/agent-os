@@ -12,6 +12,7 @@ const AGENT_IDS = [
   'bala',
   'balserve',
   'workflowbuilder',
+  'platformhelp',
   'techresearcher',
   'expensemanager',
   'socialasstant',

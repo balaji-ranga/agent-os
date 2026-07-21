@@ -84,21 +84,23 @@ export default function McpRegistryView({ servers, loading, user, onRefresh }) {
 
   return (
     <div className="mcp-pg mcp-pg-registry">
-      <header className="mcp-pg-hero">
-        <div className="mcp-pg-hero-text">
-          <p className="mcp-pg-kicker">Agent OS · MCP Registry</p>
-          <h1>MCP Servers List</h1>
-          <p className="mcp-pg-subtitle">
-            Browse registered MCP servers, connect with transient auth, and test tools before wiring them into
-            workflows.
-            {user?.role === 'admin'
-              ? ' Admin registrations are shared platform-wide.'
-              : ' You see your servers plus admin-shared platform MCPs.'}
-          </p>
+      <header className="page-hero">
+        <div className="page-hero-top">
+          <div className="page-hero-titles">
+            <p className="page-hero-kicker">Agent OS · MCP Registry</p>
+            <h1>MCP Servers List</h1>
+          </div>
+          <button type="button" className="mcp-pg-btn-primary page-hero-action" onClick={() => setModalOpen(true)}>
+            + Register MCP
+          </button>
         </div>
-        <button type="button" className="mcp-pg-btn-primary" onClick={() => setModalOpen(true)}>
-          + Register server
-        </button>
+        <p className="page-hero-sub">
+          Browse registered MCP servers, connect with transient auth, and test tools before wiring them into
+          workflows.
+          {user?.role === 'admin'
+            ? ' Admin registrations are shared platform-wide.'
+            : ' You see your servers plus admin-shared platform MCPs.'}
+        </p>
       </header>
 
       {error && <div className="mcp-pg-alert mcp-pg-alert-error">{error}</div>}

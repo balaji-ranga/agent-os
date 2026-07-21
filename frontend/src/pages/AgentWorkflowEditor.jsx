@@ -1697,16 +1697,18 @@ function EditorInner({ workflowId }) {
   return (
     <div className="wf-editor-layout">
       <header className="wf-editor-header">
-        <div>
-          <Link to="/workflows" style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>
-            ← Workflows
+        <div className="wf-editor-header-meta">
+          <Link to="/workflows" className="wf-editor-exit" title="Exit fullscreen editor">
+            ← Exit to workflows
           </Link>
-          <h1 style={{ margin: '0.25rem 0' }}>{workflow.name}</h1>
-          <code style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{workflow.id}</code>
-          <span className={`wf-status wf-status-${workflow.status}`}>{workflow.status}</span>
-          <span className="wf-editor-kbd-hint" title="Keyboard shortcuts">
-            Del · Ctrl+X copy · Ctrl+V paste · Ctrl+Z undo
-          </span>
+          <h1>{workflow.name}</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <code style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{workflow.id}</code>
+            <span className={`wf-status wf-status-${workflow.status}`}>{workflow.status}</span>
+            <span className="wf-editor-kbd-hint" title="Keyboard shortcuts" style={{ marginTop: 0 }}>
+              Del · Ctrl+X · Ctrl+V · Ctrl+Z
+            </span>
+          </div>
         </div>
         <div className="wf-editor-actions">
           <input
@@ -1847,9 +1849,9 @@ function EditorInner({ workflowId }) {
             deleteKeyCode={null}
             fitView
             proOptions={{ hideAttribution: true }}
-            colorMode="dark"
+            colorMode="light"
           >
-            <Background gap={16} color="#2a2a2e" />
+            <Background gap={16} color="#e4e6ea" />
             <Controls position="top-left" showInteractive={false} />
             <MiniMap
               position="bottom-left"

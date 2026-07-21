@@ -51,6 +51,11 @@ check "Flowlah title" grep -q 'Flowlah - An Agent Company Setup' "$ROOT/frontend
 check "api masterDataTableUpdate" grep -q masterDataTableUpdate "$ROOT/frontend/src/api.js"
 check "SKILL anti-browser" grep -q 'never browser' "$ROOT/openclaw-skills/agent-os-content-tools/SKILL.md"
 check "TOOLS anti-browser" grep -q 'browser tool for Master Data' "$ROOT/openclaw-workspace-templates/balserve/TOOLS.md"
+check "platform-help docs on disk" test -f "$ROOT/knowledgebase/platform-help/01-getting-started.md"
+check "platformhelp SOUL template" test -f "$ROOT/openclaw-workspace-templates/platformhelp/SOUL.md"
+check "platformhelp seed script" test -f "$ROOT/backend/scripts/seed-platform-help-agent.js"
+check "platformhelp startup seed" grep -q seedPlatformHelpAgent "$ROOT/backend/src/index.js"
+check "backend Dockerfile help COPY" grep -q 'knowledgebase/platform-help' "$ROOT/deploy/docker/backend.Dockerfile"
 
 echo "==> frontend bundle"
 if docker compose exec -T frontend sh -c 'grep -Rql "Purpose / description" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
@@ -88,9 +93,27 @@ console.log('    master_data tools meta:', mdTools, 'grants:', mdGrants);
 console.log('    delegation owner_user_id:', delCols.includes('owner_user_id') ? 'OK' : 'MISSING');
 console.log('    standups owner_user_id:', standupCols.includes('owner_user_id') ? 'OK' : 'MISSING');
 console.log('    user_feed_dismissals table:', dismissTbl ? 'OK' : 'MISSING');
+const platformHelp = db.prepare(`SELECT id, name, agent_type FROM agents WHERE id = 'platformhelp'`).get();
+console.log('    platformhelp agent:', platformHelp ? `${platformHelp.name} (${platformHelp.agent_type})` : 'MISSING');
+const helpDocs = db
+  .prepare(`SELECT COUNT(*) AS c FROM master_data_documents WHERE title LIKE 'Flowlah Help —%' OR title LIKE 'Flowlah Help -%'`)
+  .get().c;
+console.log('    Flowlah Help Master Data docs:', helpDocs);
+const helpGrants = db
+  .prepare(
+    `SELECT COUNT(*) AS c FROM agent_tool_grants WHERE agent_id = 'platformhelp' AND tool_name IN ('master_data_rag','master_data_list_documents')`
+  )
+  .get().c;
+console.log('    platformhelp RAG grants:', helpGrants);
 if (mdTools < 7) throw new Error('expected at least 7 master_data tools in content_tools_meta');
 if (!dismissTbl) throw new Error('user_feed_dismissals table missing');
+if (!platformHelp) throw new Error('platformhelp agent missing from agents table');
+if (helpGrants < 2) throw new Error('platformhelp missing master_data_rag / list_documents grants');
 NODE
+
+echo "==> platform-help image + RAG smoke"
+docker compose exec -T backend sh -c 'test -f /opt/agent-os/knowledgebase/platform-help/07-workflow-nodes-reference.md'
+docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-platform-help-rag.js
 
 echo "==> master_data invoke smoke"
 docker compose exec -T backend node <<'NODE'

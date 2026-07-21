@@ -4,13 +4,18 @@
 
 > Browser tab title: **Flowlah - An Agent Company Setup**. Login footer: **Flowlah (Automate, Innovate, Elevate)**.
 
-When you register as a CEO, Flowlah automatically sets up your standard agents, a starter **departments** list, and this **User Guide** as a Master Data document so your agents can look it up.
+When you register as a CEO, Flowlah automatically sets up your standard agents (including **Platform Help** and **Workflow Builder**), a starter **departments** list, the **Flowlah User Guide** (this README), and the full **Platform Help** document set in Master Data so agents can look them up via RAG.
 
 ---
 
 ## Using Flowlah — guide for CEOs (from the UI)
 
-This section is for everyday use in the browser. You do not need to know APIs or Docker.
+This section is a short overview. For the complete end-user guide (navigation, every workflow node, input/output mapping, MCP, A2A, Job pipeline, troubleshooting), use:
+
+- **In-app:** chat with the **Platform Help** agent (`platformhelp`) — it searches Master Data help docs with `master_data_rag`.
+- **Docs:** [`knowledgebase/platform-help/`](knowledgebase/platform-help/README.md) (source of truth uploaded into each CEO’s Master Data on register/startup).
+
+You do not need to know APIs or Docker for everyday use.
 
 ### Sign in and first look
 
@@ -24,6 +29,13 @@ This section is for everyday use in the browser. You do not need to know APIs or
 2. Type your request in plain language and send.
 3. When the agent uses tools (Master Data, notify you, email, etc.), small **tool icons** may appear under the reply so you can see what it did.
 4. Prefer asking the **COO** for work that should be planned or handed to a specialist (research, applications, etc.).
+
+### Ask Platform Help (how-to)
+
+1. Open **Chat** with **Platform Help** (Dashboard org chart or Agent Workspaces).
+2. Ask in plain language (“How do I register an MCP server?”, “What does the IF node output?”).
+3. The agent searches your Master Data **Flowlah Help — …** documents and answers with UI steps.
+4. For *building* or *repairing* a workflow graph, prefer **Workflow Builder**; for standups/delegation, prefer the **COO**.
 
 ### Ask the COO to delegate specialty work
 
@@ -55,8 +67,8 @@ Tips:
 
 1. Open **Master Data**.
 2. **Tables** — structured lists (rows and columns). Your account starts with a **departments** table (Executive, Research, Finance, and so on). Add or edit departments here; they appear when you assign agents to a department.
-3. **Documents** — upload files your agents can search (policies, guides, handbooks). New accounts already include this **Flowlah User Guide (README)** so agents can answer “how do I use Flowlah?” style questions.
-4. When you chat with an agent that has Master Data tools, ask in plain language (“list departments”, “what does our PTO policy say?”). The agent lists tables or searches documents as needed.
+3. **Documents** — upload files your agents can search (policies, guides, handbooks). New accounts include this **Flowlah User Guide** plus the **Platform Help** set (`Flowlah Help — …`) so agents (especially Platform Help) can answer product how-to questions.
+4. When you chat with an agent that has Master Data tools, ask in plain language (“list departments”, “what does our PTO policy say?”, “how do I publish A2A?”).
 
 ### Org chart and Resync
 
@@ -104,9 +116,10 @@ Grant or revoke tools on each agent’s **Workspace → Tools access**.
 
 | Area | What you get in the UI |
 |------|-------------------------|
+| **Platform Help agent** | Dedicated `platformhelp` agent + Master Data help corpus (`knowledgebase/platform-help/`) via keyword RAG. |
 | **COO specialty routing** | COO chat routes specialty asks using agent purposes (org docs), not guesswork keywords. |
 | **Broadcast + notify** | Broadcast can ask agents to report back and ping your bell; quieter when you only want a rollup. |
-| **Master Data + document search** | Tables with purposes; documents agents can search; starter **departments** + this guide on register. |
+| **Master Data + document search** | Tables with purposes; documents agents can search; starter **departments** + User Guide + Platform Help docs on register. |
 | **Chat tool icons** | See which tools an agent used under a reply. |
 | **Notification tooltips** | Hover the bell snippet for the full message. |
 | **Tenant Workspace docs** | Your CEO workspace files stay in your space; Resync keeps ORG/AGENTS accurate. |
@@ -208,8 +221,9 @@ Set in backend `.env`:
 | **MCP integrations** | Register MCP servers (admin/CEO); connect, test tools, playground; use in workflow **MCP Tool** and **SSE Listen** nodes. Local test server: `tools/local-mcp-random-sse/`. |
 | **External agents (A2A)** | Register external agent endpoints; invoke from workflow **External Agent** node. |
 | **Content tools** | Agent-callable tools: summarize URL, image/video gen, Kanban, **intent_classify_and_delegate**, workflow trigger/enquire/mutate, job applicant tools, **email_send**, **notify_ceo**, **Master Data** (`master_data_list_tables` / row CRUD / `master_data_rag`), learnings, browser, etc.; owner-scoped logs UI; onboard new APIs via script. |
-| **Master Data & RAG** | Per-CEO tables + documents (keyword RAG). UI captures **purpose/description** per table. Agents list tables with purpose and CRUD rows / RAG docs via content tools — **no create/alter/drop table**. On register: starter **departments** table + default **Flowlah User Guide** document. |
-| **COO specialty delegation** | COO chat hard-path: AGENTS.md purpose intent → specialist (cap 1) + Kanban; peer specialty referral; COO-native work stays with COO. |
+| **Master Data & RAG** | Per-CEO tables + documents (keyword RAG). UI captures **purpose/description** per table. Agents list tables with purpose and CRUD rows / RAG docs via content tools — **no create/alter/drop table**. On register: starter **departments** table + **Flowlah User Guide** + **Platform Help** document set. |
+| **Platform Help** | Standard agent `platformhelp` — product how-to via `master_data_rag` over `knowledgebase/platform-help/`. See [`knowledgebase/platform-help/README.md`](knowledgebase/platform-help/README.md). |
+| **COO specialty delegation** | COO chat hard-path: AGENTS.md purpose intent → specialist (cap 1) + Kanban; peer specialty referral; COO-native work stays with COO; how-to → Platform Help; graph build → Workflow Builder. |
 | **Email send** | `email_send` content tool — agents can send email via configured mail integration (owner-scoped logging). |
 | **Notify CEO** | `notify_ceo` content tool — agents push a platform notification to their CEO (bell feed). |
 | **Broadcast** | Send messages to multiple agents; LLM intent for status+notify; paced fan-out; exclude COO by default. |
@@ -379,8 +393,8 @@ See **knowledgebase/TESTING.md** for full test cases and restart steps.
 ## Database and scripts
 
 - **Schema:** `backend/src/db/schema.js` — `initDb()`, `getDb()`. DB: `backend/data/agent-os.db` (or `AGENT_OS_DATA_DIR`). Includes `standups.owner_user_id`, `agent_delegation_tasks.owner_user_id`, A2A publications, platform notifications.
-- **Seeds:** `seed-default-agents.js`, `seed-content-tools-meta.js` (email_send, notify_ceo, Kanban, workflow tools), `seed-job-applicant-tools.js`, `seed-workflow-builder-agent.js`
-- **Default CEO Master Data:** `backend/src/services/ceo-default-master-data.js` — departments table + Flowlah User Guide (README) on register and startup backfill
+- **Seeds:** `seed-default-agents.js`, `seed-content-tools-meta.js` (email_send, notify_ceo, Kanban, workflow tools), `seed-job-applicant-tools.js`, `seed-workflow-builder-agent.js`, `seed-platform-help-agent.js`
+- **Default CEO Master Data:** `backend/src/services/ceo-default-master-data.js` — departments table + Flowlah User Guide (README) + Platform Help docs (`knowledgebase/platform-help/`) on register and startup backfill
 - **Backend scripts:** `backend/scripts/` — seeds, E2E tests, MCP seed, workflow tests, COO org/delegation smoke, `cleanup-workflow-runs.js`
 - **OpenClaw scripts:** `scripts/` — `setup-openclaw-from-scratch.ps1`, `onboard-api-tool.js`, `apply-openclaw-agents-config.js`, `setup-job-applicant-agents.js`, `sync-browser-tools-md.js`, `install-agent-os-content-tools-extension.js`, kill/restart helpers
 - **Allowlists:** `backend/src/lib/content-tools-allow.js` (Docker-safe; keep in sync with `scripts/lib/content-tools-allow.js`)
@@ -430,6 +444,7 @@ All project docs except this README live in **`knowledgebase/`**:
 
 | File | Purpose |
 |------|---------|
+| **platform-help/** | CEO end-user Platform Help corpus (RAG source for Platform Help agent) |
 | **TESTING.md** | Restart, API tests, frontend manual tests, smoke test |
 | **JOB-APPLICANT-WORKFLOW.md** | Job pipeline agents, tools, profile intake, setup |
 | **GATEWAY-PAIRING-1008.md** | Fix gateway pairing / token |

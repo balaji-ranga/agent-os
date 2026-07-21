@@ -435,6 +435,7 @@ export function initDb() {
       resumetailor: 'Job Pipeline',
       applicationagent: 'Job Pipeline',
       workflowbuilder: 'Engineering',
+      platformhelp: 'Operations',
     };
     const upd = _db.prepare(
       `UPDATE agents SET department = ? WHERE id = ? AND (department IS NULL OR department = '')`

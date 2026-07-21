@@ -62,6 +62,7 @@ import { initAgentWorkflowScheduler } from './services/agent-workflow-scheduler.
 import { syncWorkflowScheduleRegistry } from './services/agent-workflow-store.js';
 import { resumeStuckWorkflowRuns, startWorkflowTimeoutWatchdog } from './services/agent-workflow-runner.js';
 import { seedWorkflowBuilderAgent } from '../scripts/seed-workflow-builder-agent.js';
+import { seedPlatformHelpAgent } from '../scripts/seed-platform-help-agent.js';
 import { healAgentWorkspacePaths } from './workspace/adapter.js';
 import { healStuckKanbanForCompletedDelegations } from './services/kanban-workflow-stage.js';
 
@@ -101,11 +102,19 @@ try {
   const ceos = getDb().prepare(`SELECT id FROM platform_users WHERE role = 'ceo'`).all();
   for (const { id } of ceos) grantStandardAgents(id);
   const md = ensureCeoDefaultMasterDataForAllCeos(ceos.map((c) => c.id));
-  if (md.deptCreated || md.deptSeeded || md.guidesCreated || md.guidesUpdated) {
+  if (
+    md.deptCreated ||
+    md.deptSeeded ||
+    md.guidesCreated ||
+    md.guidesUpdated ||
+    md.helpCreated ||
+    md.helpUpdated
+  ) {
     console.log(
       `[startup] CEO default master data: departments created=${md.deptCreated} seeded=${md.deptSeeded}, ` +
         `guides created=${md.guidesCreated} updated=${md.guidesUpdated}` +
-        (md.guidesSkipped ? ` (readme missing=${md.guidesSkipped})` : '')
+        (md.guidesSkipped ? ` (readme missing=${md.guidesSkipped})` : '') +
+        `, platform-help created=${md.helpCreated || 0} updated=${md.helpUpdated || 0}`
     );
   }
 } catch (e) {
@@ -182,6 +191,11 @@ try {
   seedWorkflowBuilderAgent();
 } catch (e) {
   console.warn('[startup] workflow builder agent seed:', e.message);
+}
+try {
+  seedPlatformHelpAgent();
+} catch (e) {
+  console.warn('[startup] platform help agent seed:', e.message);
 }
 import('./services/org-context.js')
   .then(async ({ syncOrgContextForCeo }) => {

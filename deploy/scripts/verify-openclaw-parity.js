@@ -15,6 +15,7 @@ const REQUIRED_AGENTS = [
   'bala',
   'balserve',
   'workflowbuilder',
+  'platformhelp',
   'techresearcher',
   'expensemanager',
   'socialasstant',
@@ -165,6 +166,15 @@ if (Array.isArray(config.plugins?.allow) && config.plugins.allow.includes('codex
 const balserve = (config.agents?.list || []).find((a) => String(a.id || '').toLowerCase() === 'balserve');
 if (balserve && !(balserve.tools?.allow || []).includes('learnings_summary')) {
   fail('balserve tools.allow missing learnings_summary');
+}
+const platformhelp = (config.agents?.list || []).find((a) => String(a.id || '').toLowerCase() === 'platformhelp');
+if (platformhelp) {
+  const allow = platformhelp.tools?.allow || [];
+  for (const t of ['master_data_rag', 'master_data_list_documents', 'notify_ceo']) {
+    if (!allow.includes(t)) fail(`platformhelp tools.allow missing ${t}`);
+  }
+} else {
+  fail('agents.list missing platformhelp (cannot check tools.allow)');
 }
 
 // Agents

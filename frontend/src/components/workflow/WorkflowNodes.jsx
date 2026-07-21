@@ -1,39 +1,58 @@
 import { Handle, Position } from '@xyflow/react';
 
 const baseStyle = {
-  padding: '10px 14px',
-  borderRadius: 10,
-  border: '2px solid var(--border)',
+  padding: '6px 10px',
+  borderRadius: 8,
+  border: '1.5px solid var(--border)',
   background: 'var(--surface)',
-  minWidth: 160,
-  fontSize: '0.85rem',
-  boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+  minWidth: 118,
+  maxWidth: 168,
+  fontSize: '0.76rem',
+  boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
   position: 'relative',
+  lineHeight: 1.25,
 };
 
 function NodeShell({ color, icon, title, subtitle, nodeId, handles = {}, children }) {
   return (
     <div style={{ ...baseStyle, borderColor: color }}>
-      {handles.target !== false && <Handle type="target" position={Position.Left} style={{ background: color }} />}
-      <div style={{ fontWeight: 700, color, marginBottom: 4 }}>
+      {handles.target !== false && (
+        <Handle type="target" position={Position.Left} style={{ background: color, width: 7, height: 7 }} />
+      )}
+      <div style={{ fontWeight: 700, color, marginBottom: 2, fontSize: '0.78rem' }}>
         {icon} {title}
       </div>
       {nodeId && (
         <div
           style={{
             fontFamily: 'ui-monospace, monospace',
-            fontSize: '0.65rem',
+            fontSize: '0.58rem',
             color: 'var(--muted)',
-            marginBottom: subtitle ? 2 : 4,
+            marginBottom: subtitle ? 1 : 2,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
           }}
         >
           {nodeId}
         </div>
       )}
-      {subtitle && <div style={{ color: 'var(--muted)', fontSize: '0.75rem' }}>{subtitle}</div>}
+      {subtitle && (
+        <div
+          style={{
+            color: 'var(--muted)',
+            fontSize: '0.68rem',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {subtitle}
+        </div>
+      )}
       {children}
       {handles.source !== false && !handles.multiSource && (
-        <Handle type="source" position={Position.Right} style={{ background: color }} />
+        <Handle type="source" position={Position.Right} style={{ background: color, width: 7, height: 7 }} />
       )}
     </div>
   );
@@ -182,8 +201,8 @@ export function IfNode({ id, data }) {
   const sourceLabel = cfg.sourceNodeId || 'pick source step';
   return (
     <NodeShell nodeId={id} color="#0d9488" icon="◇" title={data.label || 'IF'} subtitle={`${cfg.operator || '?'} · ${sourceLabel}`} handles={{ multiSource: true }}>
-      <Handle type="source" position={Position.Right} id="true" style={{ top: '35%', background: '#16a34a' }} />
-      <Handle type="source" position={Position.Right} id="false" style={{ top: '65%', background: '#dc2626' }} />
+      <Handle type="source" position={Position.Right} id="true" style={{ top: '35%', background: '#16a34a', width: 7, height: 7 }} />
+      <Handle type="source" position={Position.Right} id="false" style={{ top: '65%', background: '#dc2626', width: 7, height: 7 }} />
       <div style={{ fontSize: '0.65rem', color: 'var(--muted)', marginTop: 4 }}>
         <span style={{ color: '#16a34a' }}>T</span> / <span style={{ color: '#dc2626' }}>F</span>
       </div>
@@ -202,8 +221,8 @@ export function WhileNode({ id, data }) {
       subtitle={`max ${cfg.maxIterations ?? 10}`}
       handles={{ multiSource: true }}
     >
-      <Handle type="source" position={Position.Right} id="loop" style={{ top: '35%', background: '#db2777' }} />
-      <Handle type="source" position={Position.Right} id="exit" style={{ top: '65%', background: '#6366f1' }} />
+      <Handle type="source" position={Position.Right} id="loop" style={{ top: '35%', background: '#db2777', width: 7, height: 7 }} />
+      <Handle type="source" position={Position.Right} id="exit" style={{ top: '65%', background: '#6366f1', width: 7, height: 7 }} />
       <div style={{ fontSize: '0.65rem', color: 'var(--muted)', marginTop: 4 }}>loop / exit</div>
     </NodeShell>
   );
@@ -520,7 +539,7 @@ export function graphToFlow(graph) {
         !Number.isNaN(n.position.x) &&
         !Number.isNaN(n.position.y)
           ? n.position
-          : { x: 40 + i * 220, y: 120 };
+          : { x: 40 + i * 170, y: 100 };
       const data =
         n?.data && typeof n.data === 'object'
           ? n.data

@@ -24,6 +24,7 @@ export const DEFAULT_AGENT_DEPARTMENTS = Object.freeze({
   resumetailor: 'Job Pipeline',
   applicationagent: 'Job Pipeline',
   workflowbuilder: 'Engineering',
+  platformhelp: 'Operations',
 });
 
 /** Backfill department for known agents when empty (safe on every startup). */
