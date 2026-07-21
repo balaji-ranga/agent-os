@@ -573,6 +573,7 @@ export function listScheduledFromRegistry() {
               d.status, d.paused, d.trigger_modes, d.chat_trigger_phrase
        FROM agent_workflow_schedules s
        INNER JOIN agent_workflow_definitions d ON d.id = s.definition_id
+       INNER JOIN platform_users u ON u.id = s.owner_user_id AND u.enabled = 1
        WHERE s.enabled = 1
          AND (d.paused IS NULL OR d.paused = 0)
          AND d.status = 'published'
@@ -603,6 +604,15 @@ export function removeWorkflowSchedule(definitionId) {
   return result.changes || 0;
 }
 
+/** Remove all scheduled workflows for a CEO (e.g. when Admin disables the user). */
+export function removeWorkflowSchedulesForOwner(ownerUserId) {
+  if (!ownerUserId) return 0;
+  const result = db()
+    .prepare('DELETE FROM agent_workflow_schedules WHERE owner_user_id = ?')
+    .run(ownerUserId);
+  return result.changes || 0;
+}
+
 /**
  * Rebuild central schedule registry from workflow definitions.
  * Call on backend startup and after any trigger/publish/pause change.
@@ -617,8 +627,12 @@ export function syncWorkflowScheduleRegistry(definitionId = null) {
       return;
     }
     const def = rowToDefinition(row);
+    const ownerEnabled = db()
+      .prepare(`SELECT enabled FROM platform_users WHERE id = ?`)
+      .get(def.owner_user_id)?.enabled;
     const cronExpr = String(def.schedule_cron || '').trim();
     const shouldRegister =
+      !!ownerEnabled &&
       def.status === 'published' &&
       !def.paused &&
       def.trigger_modes.includes('schedule') &&
@@ -666,6 +680,7 @@ export function isWorkflowInScheduleRegistry(definitionId) {
     .prepare(
       `SELECT s.definition_id FROM agent_workflow_schedules s
        INNER JOIN agent_workflow_definitions d ON d.id = s.definition_id
+       INNER JOIN platform_users u ON u.id = s.owner_user_id AND u.enabled = 1
        WHERE s.definition_id = ? AND s.enabled = 1
          AND (d.paused IS NULL OR d.paused = 0)
          AND d.status = 'published'

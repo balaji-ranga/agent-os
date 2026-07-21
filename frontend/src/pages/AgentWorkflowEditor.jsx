@@ -72,8 +72,74 @@ function migrateNodeWithCatalog(node, catalog) {
   return { ...node, data };
 }
 
-function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connectorApps, connectorSearchResults, connectorActions, connectorGuide, connectorLoadError, connectorSearchQuery, onConnectorSearchChange, externalAgents, externalAgentsLoadError, customScripts, customScriptsLoadError, taskCatalog, allNodes, edges, hookInfo, onChange, onDelete, onRegenerateHookSecret, onFetchHookInfo, regeneratingSecret }) {
+/** Client-side JSON Schema → example object (mirrors backend exampleInputFromSchema). */
+function exampleInputFromSchemaClient(schema) {
+  if (!schema || typeof schema !== 'object') return {};
+  if (Object.prototype.hasOwnProperty.call(schema, 'const')) return schema.const;
+  if (schema.default !== undefined) return schema.default;
+  if (Array.isArray(schema.enum) && schema.enum.length) return schema.enum[0];
+  if (Array.isArray(schema.anyOf) && schema.anyOf.length) {
+    return exampleInputFromSchemaClient(schema.anyOf[0] || {});
+  }
+  if (Array.isArray(schema.oneOf) && schema.oneOf.length) {
+    return exampleInputFromSchemaClient(schema.oneOf[0] || {});
+  }
+  const type = schema.type;
+  if (type === 'object' || schema.properties) {
+    const out = {};
+    for (const [key, prop] of Object.entries(schema.properties || {})) {
+      out[key] = exampleInputFromSchemaClient(prop || {});
+    }
+    return out;
+  }
+  if (type === 'array') return [exampleInputFromSchemaClient(schema.items || { type: 'string' })];
+  if (type === 'integer' || type === 'number') {
+    if (typeof schema.minimum === 'number') {
+      return schema.exclusiveMinimum === true ? schema.minimum + 1 : schema.minimum;
+    }
+    if (typeof schema.exclusiveMinimum === 'number') {
+      return schema.exclusiveMinimum + (type === 'integer' ? 1 : Number.EPSILON);
+    }
+    return type === 'integer' ? 1 : 0;
+  }
+  if (type === 'boolean') return false;
+  if (type === 'null') return null;
+  return '';
+}
+
+function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connectorApps, connectorSearchResults, connectorActions, connectorGuide, connectorInputSchema, connectorExampleInput, connectorActionDescription, connectorLoadError, connectorSearchQuery, onConnectorSearchChange, externalAgents, externalAgentsLoadError, customScripts, customScriptsLoadError, taskCatalog, allNodes, edges, hookInfo, onChange, onDelete, onRegenerateHookSecret, onFetchHookInfo, regeneratingSecret }) {
   const [secretVisible, setSecretVisible] = useState(false);
+
+  // Auto-fill empty connector input JSON once schema/example is available
+  useEffect(() => {
+    if (!node || node.type !== 'connector') return;
+    const cfg = node.data?.taskConfig || {};
+    if (!cfg.actionId) return;
+    const cur = String(cfg.staticInputJson || '').trim();
+    if (cur && cur !== '{}' && cur !== '{\n}' && cur !== '{\r\n}') return;
+    const example =
+      (connectorExampleInput && typeof connectorExampleInput === 'object' && connectorExampleInput) ||
+      (connectorInputSchema ? exampleInputFromSchemaClient(connectorInputSchema) : null);
+    if (!example || (typeof example === 'object' && !Object.keys(example).length && !connectorInputSchema?.required?.length)) {
+      return;
+    }
+    // Prefer a real username placeholder for github.get_user when blank
+    if (
+      String(cfg.actionId || '').includes('get_user') &&
+      Object.prototype.hasOwnProperty.call(example, 'username') &&
+      !example.username
+    ) {
+      example.username = 'balaji-ranga';
+    }
+    onChange(node.id, {
+      ...node.data,
+      taskConfig: {
+        ...cfg,
+        staticInputJson: JSON.stringify(example, null, 2),
+      },
+    });
+  }, [node?.id, node?.type, node?.data?.taskConfig?.actionId, connectorExampleInput, connectorInputSchema]);
+
   if (!node) {
     return (
       <div className="wf-props">
@@ -481,17 +547,41 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
               value={data.taskConfig?.actionId || ''}
               onChange={(e) => {
                 const value = e.target.value;
-                set({ taskConfig: { ...data.taskConfig, actionId: value } });
+                const action = (connectorActions || []).find((a) => a.id === value);
+                const next = {
+                  ...data.taskConfig,
+                  actionId: value,
+                  actionDescription: action?.description || '',
+                };
+                const cur = String(data.taskConfig?.staticInputJson || '').trim();
+                if (!cur || cur === '{}' || cur === '{\n}') {
+                  if (action?.example_input && typeof action.example_input === 'object') {
+                    next.staticInputJson = JSON.stringify(action.example_input, null, 2);
+                  } else if (action?.input_schema) {
+                    next.staticInputJson = JSON.stringify(
+                      exampleInputFromSchemaClient(action.input_schema),
+                      null,
+                      2
+                    );
+                  }
+                }
+                set({
+                  taskConfig: next,
+                  label: value ? value.split('.').slice(1).join('.') || value : data.label,
+                });
               }}
               disabled={!data.taskConfig?.appId}
             >
               <option value="">— select action —</option>
               {(connectorActions || []).map((action) => (
                 <option key={action.id} value={action.id}>
-                  {action.id}
+                  {action.id}{action.description ? ` — ${String(action.description).slice(0, 60)}` : ''}
                 </option>
               ))}
             </select>
+            <small>
+              Action guide (below) explains the action. Required fields must appear in Static input JSON.
+            </small>
           </label>
 
           <label className="wf-field">
@@ -504,19 +594,62 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
             <small>Leave blank to use your saved default connector alias.</small>
           </label>
 
+          {!!(connectorInputSchema || connectorExampleInput) && (
+            <div className="wf-field">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                <strong>Input schema</strong>
+                <button
+                  type="button"
+                  className="wf-btn"
+                  onClick={() => {
+                    const example =
+                      connectorExampleInput && typeof connectorExampleInput === 'object'
+                        ? connectorExampleInput
+                        : exampleInputFromSchemaClient(connectorInputSchema);
+                    set({
+                      taskConfig: {
+                        ...data.taskConfig,
+                        staticInputJson: JSON.stringify(example || {}, null, 2),
+                      },
+                    });
+                  }}
+                >
+                  Auto-fill input JSON
+                </button>
+              </div>
+              {!!connectorActionDescription && (
+                <p style={{ margin: '0.35rem 0', fontSize: '0.85rem', color: 'var(--muted)' }}>
+                  {connectorActionDescription}
+                </p>
+              )}
+              <textarea
+                rows={6}
+                readOnly
+                value={JSON.stringify(connectorInputSchema || { note: 'No schema returned for this action' }, null, 2)}
+              />
+              <small>Required properties must be present in Static input JSON (use Auto-fill, then edit values).</small>
+            </div>
+          )}
+
           <label className="wf-field">
             Static input JSON
             <textarea
-              rows={4}
+              rows={6}
               value={data.taskConfig?.staticInputJson || '{}'}
               onChange={(e) => set({ taskConfig: { ...data.taskConfig, staticInputJson: e.target.value } })}
+              placeholder='{"username":"octocat"}'
             />
+            <small>Sent as the action <code>input</code> object. Use Auto-fill from schema, then replace placeholders.</small>
           </label>
 
           {connectorLoadError && <small style={{ color: '#dc2626' }}>{connectorLoadError}</small>}
           {!!connectorGuide && (
             <div className="wf-field">
               <strong>Action guide</strong>
+              <small style={{ display: 'block', marginBottom: 4, color: 'var(--muted)' }}>
+                Docs from OpenConnector for this action (parameters, curl example, scopes). Use it to understand the
+                action; fill values in Static input JSON above.
+              </small>
               <textarea rows={8} value={connectorGuide} readOnly />
             </div>
           )}
@@ -1274,6 +1407,9 @@ function EditorInner({ workflowId }) {
   const [connectorSearchResults, setConnectorSearchResults] = useState([]);
   const [connectorActions, setConnectorActions] = useState([]);
   const [connectorGuide, setConnectorGuide] = useState('');
+  const [connectorInputSchema, setConnectorInputSchema] = useState(null);
+  const [connectorExampleInput, setConnectorExampleInput] = useState(null);
+  const [connectorActionDescription, setConnectorActionDescription] = useState('');
   const [connectorLoadError, setConnectorLoadError] = useState(null);
   const [connectorSearchQuery, setConnectorSearchQuery] = useState('');
   const [externalAgents, setExternalAgents] = useState([]);
@@ -1356,30 +1492,57 @@ function EditorInner({ workflowId }) {
     if (!id) {
       setConnectorActions([]);
       setConnectorGuide('');
+      setConnectorInputSchema(null);
+      setConnectorExampleInput(null);
+      setConnectorActionDescription('');
       return Promise.resolve([]);
     }
     return api
       .openconnectorActions(id)
       .then(async (res) => {
-        const actions = res.actions || [];
+        const actions = (res.actions || []).map((a) => ({
+          ...a,
+          example_input:
+            a.example_input ||
+            (a.input_schema ? exampleInputFromSchemaClient(a.input_schema) : undefined),
+        }));
         setConnectorActions(actions);
         setConnectorLoadError(null);
-        const selected = actionId || actions[0]?.id || '';
+        const selected = actionId || '';
         if (selected) {
           try {
             const guide = await api.openconnectorActionGuide(selected);
             setConnectorGuide(guide.guide || '');
+            setConnectorInputSchema(guide.input_schema || actions.find((a) => a.id === selected)?.input_schema || null);
+            setConnectorExampleInput(
+              guide.example_input ||
+                actions.find((a) => a.id === selected)?.example_input ||
+                null
+            );
+            setConnectorActionDescription(
+              guide.description || actions.find((a) => a.id === selected)?.description || ''
+            );
           } catch {
+            const hit = actions.find((a) => a.id === selected);
             setConnectorGuide('');
+            setConnectorInputSchema(hit?.input_schema || null);
+            setConnectorExampleInput(hit?.example_input || null);
+            setConnectorActionDescription(hit?.description || '');
           }
         } else {
           setConnectorGuide('');
+          setConnectorInputSchema(null);
+          setConnectorExampleInput(null);
+          setConnectorActionDescription('');
         }
         return actions;
       })
       .catch((e) => {
         setConnectorActions([]);
         setConnectorGuide('');
+        setConnectorInputSchema(null);
+        setConnectorExampleInput(null);
+        setConnectorActionDescription('');
         setConnectorLoadError(e.message || 'Failed to load connector actions');
         return [];
       });
@@ -2046,7 +2209,8 @@ function EditorInner({ workflowId }) {
 
           <h3 style={{ marginTop: '1.5rem' }}>Connectors</h3>
           <p style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
-            Connected apps first, then search the full catalog in node properties
+            Drag an app chip, or use the generic <strong>Connector</strong> node and search in properties.
+            Connected OAuth apps appear first; starters (HN/GitHub/Gmail) show when none are linked yet.
           </p>
           <div className="wf-agent-list">
             {(connectorApps || []).map((app) => (
@@ -2055,14 +2219,16 @@ function EditorInner({ workflowId }) {
                 className="wf-palette-item wf-agent-chip"
                 draggable
                 onDragStart={(e) => onConnectorDragStart(e, app)}
-                title={app.id}
+                title={app.connected ? `${app.id} (connected)` : `${app.id} (catalog)`}
               >
                 {app.name}
+                {app.suggested ? ' · starter' : app.connected ? '' : ''}
               </div>
             ))}
             {!(connectorApps || []).length && (
               <small style={{ color: 'var(--muted)' }}>
-                {connectorLoadError || 'No connected apps yet. Link a runtime token in your profile first.'}
+                {connectorLoadError ||
+                  'No apps loaded. Open Profile → Auto provision token, then refresh this page. Or drag Connector from Nodes and search hackernews in properties.'}
               </small>
             )}
           </div>
@@ -2123,6 +2289,9 @@ function EditorInner({ workflowId }) {
             connectorSearchResults={connectorSearchResults}
             connectorActions={connectorActions}
             connectorGuide={connectorGuide}
+            connectorInputSchema={connectorInputSchema}
+            connectorExampleInput={connectorExampleInput}
+            connectorActionDescription={connectorActionDescription}
             connectorLoadError={connectorLoadError}
             connectorSearchQuery={connectorSearchQuery}
             onConnectorSearchChange={loadConnectorSearch}

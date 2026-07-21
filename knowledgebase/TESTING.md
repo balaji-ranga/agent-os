@@ -17,7 +17,7 @@ node scripts/test-platform-help-chat.js
 
 Also run from repo root: `node scripts/ensure-all-agent-workspaces.js` and `node scripts/apply-openclaw-agents-config.js`, then restart the gateway.
 
-Help corpus: `knowledgebase/platform-help/` → Master Data docs titled `Flowlah Help — …`. Agent id: `platformhelp`.
+Help corpus: `knowledgebase/platform-help/` → Master Data docs titled `Flolah Help — …`. Agent id: `platformhelp`.
 
 ## Restart services before testing
 

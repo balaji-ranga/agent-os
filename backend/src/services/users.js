@@ -20,6 +20,9 @@ import {
   syncUserLlmToOpenClaw,
 } from './user-llm-settings.js';
 import { ensureCeoDefaultMasterData } from './ceo-default-master-data.js';
+import { removeWorkflowSchedulesForOwner, syncWorkflowScheduleRegistry } from './agent-workflow-store.js';
+
+export { isUserEnabled } from './user-enabled.js';
 
 function slugId(prefix, email) {
   const base = String(email || '')
@@ -113,7 +116,7 @@ export function registerCeoUser({
 
   let default_master_data = null;
   try {
-    default_master_data = ensureCeoDefaultMasterData(id);
+    default_master_data = ensureCeoDefaultMasterData(id, { refresh: true });
   } catch (e) {
     console.warn(`[registerCeoUser] default master data for ${id}:`, e.message);
   }
@@ -216,10 +219,31 @@ export function listUsers() {
     }));
 }
 
+/**
+ * Enable/disable a platform user. When disabling, stop that user's scheduled work
+ * (workflow cron registry, sessions). When re-enabling, rebuild workflow schedules.
+ */
 export function setUserEnabled(userId, enabled) {
   getDb()
     .prepare(`UPDATE platform_users SET enabled = ?, updated_at = datetime('now') WHERE id = ?`)
     .run(enabled ? 1 : 0, userId);
+
+  try {
+    if (!enabled) {
+      const removed = removeWorkflowSchedulesForOwner(userId);
+      if (removed) console.log(`[users] disabled ${userId}: removed ${removed} workflow schedule(s)`);
+      try {
+        getDb().prepare(`DELETE FROM platform_sessions WHERE user_id = ?`).run(userId);
+      } catch (_) {
+        /* ignore */
+      }
+    } else {
+      syncWorkflowScheduleRegistry();
+    }
+  } catch (e) {
+    console.warn('[users] schedule cleanup on enable/disable failed:', e?.message || e);
+  }
+
   return getUserById(userId);
 }
 

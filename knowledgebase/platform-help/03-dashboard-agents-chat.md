@@ -17,7 +17,7 @@
 | Expenses / finance | ExpenseManager |
 | Social / Facebook-style content | SocialAssistant |
 | Build or fix a visual workflow | **Workflow Builder** |
-| How to use Flowlah / MCP / A2A / nodes | **Platform Help** |
+| How to use Flolah / MCP / A2A / nodes | **Platform Help** |
 | Job discovery → apply pipeline | Job pipeline agents (via Job profiles/workflows) |
 
 Prefer the **COO** for work that should be planned or handed to a specialist. Vague “help me” may stay with the COO; clear specialty asks get routed using agent purposes from org docs.

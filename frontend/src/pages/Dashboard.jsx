@@ -471,7 +471,7 @@ export default function Dashboard() {
                     rows={3}
                     style={{ width: '100%', padding: '0.4rem 0.5rem', marginBottom: '0.75rem', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text)', resize: 'vertical', boxSizing: 'border-box' }}
                   />
-                  <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.85rem', color: 'var(--muted)' }}>Scheduled at</label>
+                  <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.85rem', color: 'var(--muted)' }}>Scheduled at (runs daily at this time)</label>
                   <input
                     type="datetime-local"
                     value={standupScheduledAt}

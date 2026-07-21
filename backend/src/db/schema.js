@@ -180,6 +180,9 @@ export function initDb() {
     _db.exec(`ALTER TABLE standups ADD COLUMN outcomes TEXT`);
   } catch (_) {}
   try {
+    _db.exec(`ALTER TABLE standups ADD COLUMN last_scheduled_run_at TEXT`);
+  } catch (_) {}
+  try {
     _db.exec(`CREATE TABLE standup_messages (id INTEGER PRIMARY KEY AUTOINCREMENT, standup_id INTEGER NOT NULL, role TEXT NOT NULL, content TEXT NOT NULL, created_at TEXT DEFAULT (datetime('now')), FOREIGN KEY (standup_id) REFERENCES standups(id))`);
   } catch (_) {}
   try {

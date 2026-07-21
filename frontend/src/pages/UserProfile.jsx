@@ -32,6 +32,14 @@ function UserProfilePanel() {
     runtime_token_set: false,
     last_error: null,
   });
+  const [ocConnections, setOcConnections] = useState([]);
+
+  const loadOcConnections = () => {
+    api
+      .openconnectorConnections()
+      .then((data) => setOcConnections(data.connections || []))
+      .catch(() => setOcConnections([]));
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -83,6 +91,7 @@ function UserProfilePanel() {
         }))
       )
       .catch(() => {});
+    loadOcConnections();
   }, [user]);
 
   const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
@@ -180,7 +189,12 @@ function UserProfilePanel() {
         runtime_token_set: !!data.runtime_token_set,
         last_error: data.last_error || null,
       }));
-      setMessage('OpenConnector runtime token provisioned.');
+      setMessage(
+        data.created_token === false && data.runtime_token_set
+          ? 'OpenConnector link refreshed (existing token kept).'
+          : 'OpenConnector runtime token provisioned.'
+      );
+      loadOcConnections();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -360,6 +374,11 @@ function UserProfilePanel() {
           </label>
         )}
         {oc.last_error && <p style={{ margin: 0, fontSize: '0.82rem', color: '#f87171' }}>{oc.last_error}</p>}
+        {(message || error) && (
+          <p style={{ margin: 0, fontSize: '0.85rem', color: error ? '#f87171' : '#16a34a' }}>
+            {error || message}
+          </p>
+        )}
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
           <button
             type="button"
@@ -370,6 +389,25 @@ function UserProfilePanel() {
             {busy ? 'Working…' : 'Auto provision token'}
           </button>
         </div>
+        {oc.runtime_token_set && (
+          <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--muted)' }}>
+            Linked{oc.runtime_token_hint ? ` (${oc.runtime_token_hint})` : ''}. Connection alias:{' '}
+            <code>{oc.connection_name || '—'}</code>
+          </p>
+        )}
+        {!!ocConnections.length && (
+          <div style={{ marginTop: '0.5rem' }}>
+            <p style={{ margin: '0 0 0.35rem', fontSize: '0.85rem', color: 'var(--muted)' }}>Connected apps</p>
+            <ul style={{ margin: 0, paddingLeft: '1.1rem', fontSize: '0.9rem' }}>
+              {ocConnections.map((c) => (
+                <li key={c.app_id}>{c.app_name || c.app_id}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <p style={{ margin: '0.5rem 0 0', fontSize: '0.85rem' }}>
+          <Link to="/connectors">Manage connectors (Gmail, Drive, GitHub…)</Link>
+        </p>
 
         <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '0.5rem 0' }} />
         <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--muted)' }}>Change password (optional)</p>

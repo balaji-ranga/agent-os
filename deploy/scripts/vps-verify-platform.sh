@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Post-deploy platform verification: multi-tenant, Master Data, notifications, Flowlah branding.
+# Post-deploy platform verification: multi-tenant, Master Data, notifications, Flolah branding.
 #
 # Usage (on VPS):
 #   bash /opt/agent-os/deploy/scripts/vps-verify-platform.sh
@@ -47,7 +47,7 @@ check "broadcast CEO session" grep -q registerOpenClawSessionOwner "$ROOT/backen
 check "Broadcast UI" grep -q Broadcast "$ROOT/frontend/src/pages/Broadcast.jsx" || grep -q '/broadcast' "$ROOT/frontend/src/App.jsx"
 check "tool-owner-scope fix" grep -q SESSION_USER_PREFIXES "$ROOT/backend/src/services/tool-owner-scope.js"
 check "Master Data UI purpose" grep -q 'Purpose / description' "$ROOT/frontend/src/pages/MasterData.jsx"
-check "Flowlah title" grep -q 'Flowlah - An Agent Company Setup' "$ROOT/frontend/index.html"
+check "Flolah title" grep -q 'Flolah - An Agent Company Setup' "$ROOT/frontend/index.html"
 check "api masterDataTableUpdate" grep -q masterDataTableUpdate "$ROOT/frontend/src/api.js"
 check "SKILL anti-browser" grep -q 'never browser' "$ROOT/openclaw-skills/agent-os-content-tools/SKILL.md"
 check "TOOLS anti-browser" grep -q 'browser tool for Master Data' "$ROOT/openclaw-workspace-templates/balserve/TOOLS.md"
@@ -63,10 +63,10 @@ if docker compose exec -T frontend sh -c 'grep -Rql "Purpose / description" /usr
 else
   echo "    WARN: Purpose / description not found in frontend JS (rebuild frontend?)"
 fi
-if docker compose exec -T frontend sh -c 'grep -Rql "Flowlah - An Agent Company Setup" /usr/share/nginx/html/index.html 2>/dev/null'; then
-  echo "    Flowlah title in index.html OK"
+if docker compose exec -T frontend sh -c 'grep -Rql "Flolah - An Agent Company Setup" /usr/share/nginx/html/index.html 2>/dev/null'; then
+  echo "    Flolah title in index.html OK"
 else
-  echo "    WARN: Flowlah title not in deployed index.html"
+  echo "    WARN: Flolah title not in deployed index.html"
 fi
 if docker compose exec -T frontend sh -c 'grep -Rql NotificationProvider /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
   echo "    NotificationProvider (shared bell feed) in bundle OK"
@@ -96,9 +96,9 @@ console.log('    user_feed_dismissals table:', dismissTbl ? 'OK' : 'MISSING');
 const platformHelp = db.prepare(`SELECT id, name, agent_type FROM agents WHERE id = 'platformhelp'`).get();
 console.log('    platformhelp agent:', platformHelp ? `${platformHelp.name} (${platformHelp.agent_type})` : 'MISSING');
 const helpDocs = db
-  .prepare(`SELECT COUNT(*) AS c FROM master_data_documents WHERE title LIKE 'Flowlah Help —%' OR title LIKE 'Flowlah Help -%'`)
+  .prepare(`SELECT COUNT(*) AS c FROM master_data_documents WHERE title LIKE 'Flolah Help —%' OR title LIKE 'Flolah Help -%'`)
   .get().c;
-console.log('    Flowlah Help Master Data docs:', helpDocs);
+console.log('    Flolah Help Master Data docs:', helpDocs);
 const helpGrants = db
   .prepare(
     `SELECT COUNT(*) AS c FROM agent_tool_grants WHERE agent_id = 'platformhelp' AND tool_name IN ('master_data_rag','master_data_list_documents')`

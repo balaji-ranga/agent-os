@@ -199,9 +199,38 @@ const server = http.createServer(async (req, res) => {
     return json(res, 200, reply);
   }
 
+  if (req.method === 'POST' && url.pathname.startsWith('/v1/actions/')) {
+    if (!authOk(req)) return json(res, 401, { error: 'Unauthorized' });
+    const actionId = decodeURIComponent(url.pathname.slice('/v1/actions/'.length));
+    let body = {};
+    try {
+      body = JSON.parse(await readBody(req) || '{}');
+    } catch {
+      body = {};
+    }
+    try {
+      const result = await handleToolsCall('execute_action', { actionId, input: body.input || {} });
+      return json(res, 200, result.structuredContent?.data || result.structuredContent || { ok: true });
+    } catch (e) {
+      return json(res, 400, { error: e.message });
+    }
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/runtime-tokens') {
+    if (!authOk(req)) return json(res, 401, { error: 'Unauthorized' });
+    const token = TOKEN || `oct_mock_${Date.now().toString(36)}`;
+    return json(res, 200, { token, runtime_token: token, plainToken: token });
+  }
+
   json(res, 404, { error: 'Not found' });
 });
 
-server.listen(PORT, '127.0.0.1', () => {
-  console.log(`[openconnector-mcp-mock] http://127.0.0.1:${PORT}/mcp`);
+async function readBody(req) {
+  let body = '';
+  for await (const chunk of req) body += chunk;
+  return body;
+}
+
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`[openconnector-mcp-mock] http://0.0.0.0:${PORT}/mcp`);
 });

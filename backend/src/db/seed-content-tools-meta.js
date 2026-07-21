@@ -175,6 +175,50 @@ const BUILTIN_TOOLS = [
     is_builtin: 1,
   },
   {
+    name: 'connector_list_apps',
+    display_name: 'Connectors — List Connected Apps',
+    endpoint: '/api/tools/connector-list-apps',
+    method: 'POST',
+    purpose:
+      'API tool: list OpenConnector apps already connected for the entitled CEO. Use before execute — owner is always session CEO. Prefer connector_* tools over raw mcp_tool for SaaS integrations.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'connector_search_actions',
+    display_name: 'Connectors — Search Actions',
+    endpoint: '/api/tools/connector-search-actions',
+    method: 'POST',
+    purpose:
+      'API tool: search the OpenConnector catalog for actions/apps. Pass query (e.g. gmail send, github issues). Returns action ids suitable for connector_execute_action.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'connector_get_action_guide',
+    display_name: 'Connectors — Action Guide',
+    endpoint: '/api/tools/connector-get-action-guide',
+    method: 'POST',
+    purpose:
+      'API tool: fetch markdown input guide for one OpenConnector action id before calling connector_execute_action.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'connector_execute_action',
+    display_name: 'Connectors — Execute Action',
+    endpoint: '/api/tools/connector-execute-action',
+    method: 'POST',
+    purpose:
+      'API tool: execute an OpenConnector action for the entitled CEO. Required: action_id (e.g. hackernews.get_top_stories). Optional: input (object), connection_name. Uses per-CEO runtime token + default connection alias.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
     name: 'email_send',
     display_name: 'Send Email & Calendar Invite',
     endpoint: '/api/tools/email-send',
@@ -309,6 +353,7 @@ const WORKFLOW_TOOLS = BUILTIN_TOOLS.filter((t) =>
 const LEARNINGS_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'learnings_summary');
 const EMAIL_SEND_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'email_send');
 const NOTIFY_CEO_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'notify_ceo');
+const CONNECTOR_TOOLS = BUILTIN_TOOLS.filter((t) => String(t.name).startsWith('connector_'));
 const MASTER_DATA_TOOLS = BUILTIN_TOOLS.filter((t) => String(t.name).startsWith('master_data_'));
 
 export function seedContentToolsMetaIfEmpty() {
@@ -429,6 +474,24 @@ export function seedMasterDataToolsIfMissing() {
     'UPDATE content_tools_meta SET purpose = ?, display_name = ?, endpoint = ?, method = ? WHERE name = ?'
   );
   for (const t of MASTER_DATA_TOOLS) {
+    update.run(t.purpose, t.display_name, t.endpoint, t.method, t.name);
+  }
+}
+
+/** Add OpenConnector connector content tools if missing (for existing DBs). */
+export function seedConnectorToolsIfMissing() {
+  const db = getDb();
+  const stmt = db.prepare(
+    `INSERT OR IGNORE INTO content_tools_meta (name, display_name, endpoint, method, purpose, model_used, enabled, is_builtin)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  for (const t of CONNECTOR_TOOLS) {
+    stmt.run(t.name, t.display_name, t.endpoint, t.method, t.purpose, t.model_used, t.enabled, t.is_builtin);
+  }
+  const update = db.prepare(
+    'UPDATE content_tools_meta SET purpose = ?, display_name = ?, endpoint = ?, method = ? WHERE name = ?'
+  );
+  for (const t of CONNECTOR_TOOLS) {
     update.run(t.purpose, t.display_name, t.endpoint, t.method, t.name);
   }
 }

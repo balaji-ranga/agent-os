@@ -9,7 +9,7 @@
 # Syncs full build contexts: frontend/, backend/src + scripts, deploy/docker, scripts/,
 # openclaw extensions/skills/templates — then rebuilds via vps-deploy-latest.sh.
 #
-# Features covered: Flowlah branding, hPanel light theme (collapsible nav + profile menu),
+# Features covered: Flolah branding, hPanel light theme (collapsible nav + profile menu),
 # workflow editor fullscreen (shell-focus-mode), Register MCP/Agents primary CTAs,
 # multi-tenant standups/delegation, Master Data + RAG tools, Platform Help agent + help corpus,
 # notify_ceo + email_send, Broadcast (intent-based notify + paced fan-out), AGENTS.md intent
@@ -58,6 +58,10 @@ scp @ssh `
   "$Repo\deploy\scripts\vps-smoke-broadcast-notify.sh" `
   "$Repo\deploy\scripts\vps-smoke-deepseek-brain.sh" `
   "$Repo\deploy\scripts\vps-smoke-brain-mcp.sh" `
+  "$Repo\deploy\scripts\vps-smoke-openconnector.sh" `
+  "$Repo\deploy\scripts\vps-smoke-openconnector-real.sh" `
+  "$Repo\deploy\scripts\vps-smoke-openconnector-selfservice.sh" `
+  "$Repo\deploy\scripts\vps-enable-real-openconnector.sh" `
   "$Repo\deploy\scripts\vps-rebuild-frontend.sh" `
   "$Repo\deploy\scripts\ensure-deepseek-env.sh" `
   "$Repo\deploy\scripts\vps-deploy-coo-org-fix.sh" `
@@ -101,6 +105,9 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-kanban-delegation-sync.js" `
     "$Repo\backend\scripts\heal-stuck-kanban-delegations.js" `
     "$Repo\backend\scripts\refresh-coo-workspace-docs.js" `
+    "$Repo\backend\scripts\test-openconnector-connectors-e2e.js" `
+    "$Repo\backend\scripts\test-openconnector-selfservice.js" `
+    "$Repo\backend\scripts\provision-openconnector-ceos.js" `
     "$Repo\backend\scripts\vps-test-balaji-agents-kanban.js" `
     "$Repo\backend\scripts\vps-test-coo-biryani-delegate.js" `
     "$Repo\backend\scripts\vps-test-coo-moon-fuel.js" `
@@ -135,6 +142,7 @@ sed -i 's/\r`$//' \
   $RemoteRoot/deploy/scripts/vps-smoke-broadcast-notify.sh \
   $RemoteRoot/deploy/scripts/vps-smoke-deepseek-brain.sh \
   $RemoteRoot/deploy/scripts/vps-smoke-brain-mcp.sh \
+  $RemoteRoot/deploy/scripts/vps-smoke-openconnector.sh \
   $RemoteRoot/deploy/scripts/ensure-deepseek-env.sh \
   $RemoteRoot/deploy/scripts/vps-rebuild-frontend.sh \
   $RemoteRoot/deploy/scripts/up.sh

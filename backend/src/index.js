@@ -29,6 +29,7 @@ import agentExchangeRoutes from './routes/agent-exchange.js';
 import ibkrTradingRoutes from './routes/ibkr-trading.js';
 import emailInboundRoutes from './routes/email-inbound.js';
 import openconnectorRoutes from './routes/openconnector.js';
+import { openConnectorConsoleProxy } from './services/openconnector-console-proxy.js';
 import aiSnipperRoutes from './routes/ai-snipper.js';
 import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
@@ -40,7 +41,7 @@ import { ensureDefaultAdmin, ensureBalaCeoUser, grantStandardAgents } from './se
 import { ensureCeoDefaultMasterDataForAllCeos } from './services/ceo-default-master-data.js';
 import { initDb, getDb } from './db/schema.js';
 import { seedDefaultAgentsIfEmpty, seedAgentDepartmentsIfMissing } from './db/seed-default-agents.js';
-import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, seedWorkflowToolsIfMissing, seedLearningsToolsIfMissing, seedEmailSendToolIfMissing, seedNotifyCeoToolIfMissing, seedMasterDataToolsIfMissing, updateKanbanToolPurposes } from './db/seed-content-tools-meta.js';
+import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, seedWorkflowToolsIfMissing, seedLearningsToolsIfMissing, seedEmailSendToolIfMissing, seedNotifyCeoToolIfMissing, seedMasterDataToolsIfMissing, seedConnectorToolsIfMissing, updateKanbanToolPurposes } from './db/seed-content-tools-meta.js';
 import { seedJobApplicantToolsIfMissing } from './db/seed-job-applicant-tools.js';
 import { seedIbkrTradingToolsIfMissing } from './db/seed-ibkr-trading-tools.js';
 import { writeOpenClawToolsList } from './services/content-tools-meta.js';
@@ -54,7 +55,7 @@ import {
 import { grantLearningsSummaryToAllAgents, grantEmailSendToAllAgents, grantNotifyCeoToAllAgents, grantMasterDataToolsToAllAgents, grantKanbanToolsToAllAgents } from './services/agent-feedback.js';
 import feedbackRoutes from './routes/feedback.js';
 import masterDataRoutes from './routes/master-data.js';
-import { runScheduledStandup } from './cron/standup.js';
+import { runScheduledStandup, runDueStandupSchedules } from './cron/standup.js';
 import { processPendingDelegationTasksForAllCeos } from './services/delegation-queue.js';
 import { runPipelineTick, runPipelineTickAll } from './services/job-applicant-pipeline.js';
 import { getLastIntentDebug } from './services/intent-classifier.js';
@@ -70,9 +71,18 @@ const app = express();
 const PORT = Number(process.env.PORT) || 3001;
 
 app.use(cors({ origin: true }));
-app.use(express.json());
-app.use(express.text({ type: 'text/*' }));
 app.use(attachAuthUser);
+
+// Admin-gated OpenConnector console + public OAuth callbacks under /openconnector/*
+// Raw body so OC console POSTs are not forced through express.json().
+app.use(
+  '/openconnector',
+  express.raw({ type: () => true, limit: '10mb' }),
+  openConnectorConsoleProxy()
+);
+
+app.use(express.json({ limit: '2mb' }));
+app.use(express.text({ type: 'text/*' }));
 
 initDb();
 ensureInternalTokenConfigured();
@@ -101,7 +111,10 @@ ensureBalaCeoUser();
 try {
   const ceos = getDb().prepare(`SELECT id FROM platform_users WHERE role = 'ceo'`).all();
   for (const { id } of ceos) grantStandardAgents(id);
-  const md = ensureCeoDefaultMasterDataForAllCeos(ceos.map((c) => c.id));
+  const md = ensureCeoDefaultMasterDataForAllCeos(
+    ceos.map((c) => c.id),
+    { refresh: true }
+  );
   if (
     md.deptCreated ||
     md.deptSeeded ||
@@ -127,6 +140,7 @@ seedLearningsToolsIfMissing();
 seedEmailSendToolIfMissing();
 seedNotifyCeoToolIfMissing();
 seedMasterDataToolsIfMissing();
+seedConnectorToolsIfMissing();
 updateKanbanToolPurposes();
 seedJobApplicantToolsIfMissing();
 seedIbkrTradingToolsIfMissing();
@@ -281,20 +295,38 @@ app.use('/agent-workflows', agentWorkflowRoutes);
 app.use('/integrations/email-inbound', emailInboundRoutes);
 app.use('/media/openclaw', mediaRoutes);
 
-const standupSchedule = process.env.STANDUP_CRON_SCHEDULE || '0 9 * * *';
-if (cron.validate(standupSchedule)) {
-  cron.schedule(standupSchedule, async () => {
+const standupScheduleCron = process.env.STANDUP_SCHEDULE_CRON || '* * * * *';
+if (cron.validate(standupScheduleCron)) {
+  cron.schedule(standupScheduleCron, async () => {
     try {
-      const { standup, error } = await runScheduledStandup();
-      if (error) console.error('[cron] Standup run error:', error);
-      else console.log('[cron] Standup completed, id:', standup?.id);
+      const { count, results } = await runDueStandupSchedules();
+      if (count > 0) {
+        console.log(
+          '[cron] Scheduled standup(s) ran:',
+          results.map((r) => r.standupId || r.error).join(', ')
+        );
+      }
     } catch (e) {
-      console.error('[cron] Standup failed:', e.message);
+      console.error('[cron] Standup schedule tick failed:', e.message);
     }
   });
-  console.log(`Standup cron scheduled: ${standupSchedule}`);
+  console.log(`Standup schedule cron: ${standupScheduleCron} (daily at each standup's scheduled_at time)`);
 } else {
-  console.warn('STANDUP_CRON_SCHEDULE invalid or not set; no automatic standup.');
+  console.warn('STANDUP_SCHEDULE_CRON invalid; no per-standup schedule runner.');
+}
+
+const legacyStandupCron = process.env.STANDUP_CRON_SCHEDULE || '';
+if (legacyStandupCron && cron.validate(legacyStandupCron)) {
+  cron.schedule(legacyStandupCron, async () => {
+    try {
+      const { standup, error } = await runScheduledStandup();
+      if (error) console.error('[cron] Legacy standup run error:', error);
+      else console.log('[cron] Legacy standup completed, id:', standup?.id);
+    } catch (e) {
+      console.error('[cron] Legacy standup failed:', e.message);
+    }
+  });
+  console.log(`Legacy standup auto-collect cron: ${legacyStandupCron} (set STANDUP_CRON_SCHEDULE= to disable)`);
 }
 
 const delegationCronSchedule = process.env.DELEGATION_CRON_SCHEDULE || '* * * * *';

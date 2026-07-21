@@ -5,7 +5,7 @@
 #   - hPanel light shell: app-topbar, profile-menu, nav-section-chevron, --bg #f7f8f9
 #   - Workflow fullscreen: shell-focus-mode, Exit to workflows, wf-editor-exit
 #   - Primary CTAs: Register MCP, Register Agents, page-hero
-#   - Existing: Resync ORG, Master Data purpose, NotificationProvider, Broadcast, Flowlah title
+#   - Existing: Resync ORG, Master Data purpose, NotificationProvider, Broadcast, Flolah title
 #
 # Usage:
 #   bash /opt/agent-os/deploy/scripts/vps-rebuild-frontend.sh
@@ -34,9 +34,9 @@ for marker in \
   'Exit to workflows' \
   'Register MCP' \
   'Register Agents' \
-  'Flowlah - An Agent Company Setup'
+  'Flolah - An Agent Company Setup'
 do
-  if [[ "$marker" == 'Flowlah - An Agent Company Setup' ]]; then
+  if [[ "$marker" == 'Flolah - An Agent Company Setup' ]]; then
     if docker compose exec -T frontend sh -c "grep -q '$marker' /usr/share/nginx/html/index.html 2>/dev/null"; then
       echo "    $marker OK (index.html)"
     else

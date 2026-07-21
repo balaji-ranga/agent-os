@@ -23,6 +23,7 @@ function sanitizeTenantId(value) {
     .replace(/^-+|-+$/g, '');
 }
 import { scheduleCeoRequestViaOpenClawCron } from '../services/delegation-queue.js';
+import { getOrCreateDelegationHubStandup } from '../services/standup-hub.js';
 import {
   listChatTriggerableWorkflows,
   listWorkflowsForAgent,
@@ -45,6 +46,12 @@ import jobApplicantTools from './job-applicant-tools.js';
 import { summarizeLearnings } from '../services/agent-feedback.js';
 import { executeEmailSend } from '../services/email-send.js';
 import { executeNotifyCeo } from '../services/notify-ceo.js';
+import {
+  executeConnectorAction,
+  getConnectedConnectorApps,
+  getConnectorActionGuide,
+  searchConnectorApps,
+} from '../services/openconnector.js';
 import { tryRewriteCooNotifyAsSpecialist } from '../services/reach-me-delegation.js';
 import {
   assertNoSchemaMutation,
@@ -1102,14 +1109,11 @@ router.post('/intent-classify-and-delegate', optionalAuth, async (req, res) => {
       return res.status(403).json(err);
     }
     const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
-    const db = getDb();
     if (standupId == null) {
-      db.prepare(
-        'INSERT INTO standups (scheduled_at, status, source, owner_user_id) VALUES (datetime("now"), ?, ?, ?)'
-      ).run('scheduled', 'kanban', ownerUserId);
-      standupId = db.prepare('SELECT id FROM standups ORDER BY id DESC LIMIT 1').get().id;
+      standupId = getOrCreateDelegationHubStandup(ownerUserId);
     } else {
-      const standup = db.prepare('SELECT id, owner_user_id FROM standups WHERE id = ?').get(standupId);
+      const db = getDb();
+      const standup = db.prepare('SELECT id, owner_user_id, source FROM standups WHERE id = ?').get(standupId);
       if (!standup) {
         const err = { error: 'Standup not found' };
         logTool(req,'intent_classify_and_delegate', requestPayload, err, 'error', source);
@@ -1175,6 +1179,104 @@ router.post('/content-tools-enquire', optionalAuth, (req, res) => {
     const err = { error: e.message };
     logTool(req, 'content_tools_enquire', requestPayload, err, 'error', source);
     res.status(e.status || 500).json(err);
+  }
+});
+
+function resolveConnectorOwner(req, body = {}) {
+  return resolveAuthenticatedCeoUserId(req, bodyWithoutSpoofedOwner(body));
+}
+
+function connectorToolError(req, toolName, requestPayload, res, e, source) {
+  const err = { error: e.message };
+  logTool(req, toolName, requestPayload, err, 'error', source);
+  res.status(e.status || 400).json(err);
+}
+
+/**
+ * OpenConnector content tools — same façade as workflow connector nodes.
+ * Owner is always the entitled CEO from session (never spoof ceo_user_id).
+ */
+router.post('/connector-list-apps', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = req.body || {};
+  try {
+    const ownerUserId = resolveConnectorOwner(req, requestPayload);
+    const out = { ok: true, ...(await getConnectedConnectorApps(ownerUserId)) };
+    logTool(req, 'connector_list_apps', requestPayload, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    connectorToolError(req, 'connector_list_apps', requestPayload, res, e, source);
+  }
+});
+
+router.post('/connector-search-actions', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = req.body || {};
+  try {
+    const ownerUserId = resolveConnectorOwner(req, requestPayload);
+    const query =
+      requestPayload.query ||
+      requestPayload.q ||
+      requestPayload.description ||
+      requestPayload.message ||
+      '';
+    const out = {
+      ok: true,
+      ...(await searchConnectorApps(ownerUserId, query)),
+    };
+    logTool(req, 'connector_search_actions', requestPayload, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    connectorToolError(req, 'connector_search_actions', requestPayload, res, e, source);
+  }
+});
+
+router.post('/connector-get-action-guide', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = req.body || {};
+  try {
+    const ownerUserId = resolveConnectorOwner(req, requestPayload);
+    const actionId = String(
+      requestPayload.action_id || requestPayload.actionId || requestPayload.id || ''
+    ).trim();
+    if (!actionId) {
+      const err = { error: 'action_id required' };
+      logTool(req, 'connector_get_action_guide', requestPayload, err, 'error', source);
+      return res.status(400).json(err);
+    }
+    const out = { ok: true, ...(await getConnectorActionGuide(ownerUserId, actionId)) };
+    logTool(req, 'connector_get_action_guide', requestPayload, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    connectorToolError(req, 'connector_get_action_guide', requestPayload, res, e, source);
+  }
+});
+
+router.post('/connector-execute-action', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = req.body || {};
+  try {
+    const ownerUserId = resolveConnectorOwner(req, requestPayload);
+    const actionId = String(
+      requestPayload.action_id || requestPayload.actionId || requestPayload.id || ''
+    ).trim();
+    if (!actionId) {
+      const err = { error: 'action_id required' };
+      logTool(req, 'connector_execute_action', requestPayload, err, 'error', source);
+      return res.status(400).json(err);
+    }
+    const input =
+      requestPayload.input && typeof requestPayload.input === 'object' ? requestPayload.input : {};
+    const out = {
+      ok: true,
+      ...(await executeConnectorAction(ownerUserId, actionId, input, {
+        connectionName: requestPayload.connection_name || requestPayload.connectionName || '',
+      })),
+    };
+    logTool(req, 'connector_execute_action', requestPayload, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    connectorToolError(req, 'connector_execute_action', requestPayload, res, e, source);
   }
 });
 

@@ -1,7 +1,7 @@
 /**
  * Default Master Data for every CEO:
  * - departments table (same presets as frontend DepartmentPicker)
- * - Flowlah User Guide document (repo README.md) for RAG
+ * - Flolah User Guide document (repo README.md) for RAG
  * - Platform Help docs (knowledgebase/platform-help/*.md) for the Platform Help agent
  *
  * Called on CEO register and on backend startup backfill.
@@ -36,11 +36,14 @@ export const DEPARTMENT_PRESETS = [
   'Job Pipeline',
 ];
 
-export const FLOWLAH_GUIDE_TITLE = 'Flowlah User Guide';
-export const FLOWLAH_GUIDE_FILENAME = 'README.md';
+export const FLOLAH_GUIDE_TITLE = 'Flolah User Guide';
+export const FLOLAH_GUIDE_FILENAME = 'README.md';
 
 /** Title prefix for Platform Help RAG documents. */
-export const PLATFORM_HELP_TITLE_PREFIX = 'Flowlah Help —';
+export const PLATFORM_HELP_TITLE_PREFIX = 'Flolah Help —';
+/** Legacy title prefix (pre-rename); removed on refresh. */
+export const LEGACY_PLATFORM_HELP_TITLE_PREFIX = 'Flowlah Help —';
+export const LEGACY_USER_GUIDE_TITLE = 'Flowlah User Guide';
 
 /** Logical help files under knowledgebase/platform-help/ (filename → doc title). */
 export const PLATFORM_HELP_DOCUMENTS = Object.freeze([
@@ -100,12 +103,14 @@ function contentHash(text) {
   return createHash('sha256').update(String(text || ''), 'utf8').digest('hex');
 }
 
-function findDocumentByTitleOrFilename(ownerUserId, title, filename) {
+function findDocumentByTitleOrFilename(ownerUserId, title, filename, legacyTitles = []) {
   const docs = listDocuments(ownerUserId);
   const fn = String(filename || '').toLowerCase();
+  const legacy = new Set((legacyTitles || []).filter(Boolean));
   return docs.find(
     (d) =>
       d.title === title ||
+      legacy.has(d.title) ||
       (fn && String(d.filename || '').toLowerCase() === fn)
   );
 }
@@ -113,18 +118,20 @@ function findDocumentByTitleOrFilename(ownerUserId, title, filename) {
 /**
  * Upload or refresh a single markdown Master Data document by title/filename.
  */
-function ensureMarkdownDocument(ownerUserId, { title, filename, content }, { refresh = true } = {}) {
+function ensureMarkdownDocument(ownerUserId, { title, filename, content, legacyTitles }, { refresh = true } = {}) {
   if (!content) {
     return { document: null, created: false, updated: false, skipped: 'content_missing' };
   }
-  const existing = findDocumentByTitleOrFilename(ownerUserId, title, filename);
+  const existing = findDocumentByTitleOrFilename(ownerUserId, title, filename, legacyTitles);
   if (existing) {
     if (!refresh) {
       return { document: existing, created: false, updated: false };
     }
     try {
       const { buffer } = getDocumentFile(ownerUserId, existing.id);
-      if (contentHash(buffer.toString('utf8')) === contentHash(content)) {
+      const sameContent = contentHash(buffer.toString('utf8')) === contentHash(content);
+      const sameTitle = existing.title === title;
+      if (sameContent && sameTitle) {
         return { document: existing, created: false, updated: false };
       }
     } catch (_) {
@@ -147,6 +154,27 @@ function ensureMarkdownDocument(ownerUserId, { title, filename, content }, { ref
     created: !existing,
     updated: Boolean(existing),
   };
+}
+
+/** Remove leftover docs still titled with the old Flowlah brand. */
+function cleanupLegacyBrandDocuments(ownerUserId) {
+  const docs = listDocuments(ownerUserId);
+  let removed = 0;
+  for (const d of docs) {
+    const title = String(d.title || '');
+    const isLegacyHelp =
+      title.startsWith(LEGACY_PLATFORM_HELP_TITLE_PREFIX) ||
+      title.startsWith('Flowlah Help -') ||
+      title === LEGACY_USER_GUIDE_TITLE;
+    if (!isLegacyHelp) continue;
+    try {
+      deleteDocument(ownerUserId, d.id);
+      removed += 1;
+    } catch (_) {
+      /* ignore */
+    }
+  }
+  return removed;
 }
 
 /**
@@ -195,7 +223,12 @@ export function ensureDefaultReadmeDocument(ownerUserId, opts = {}) {
   }
   return ensureMarkdownDocument(
     ownerUserId,
-    { title: FLOWLAH_GUIDE_TITLE, filename: FLOWLAH_GUIDE_FILENAME, content },
+    {
+      title: FLOLAH_GUIDE_TITLE,
+      filename: FLOLAH_GUIDE_FILENAME,
+      content,
+      legacyTitles: [LEGACY_USER_GUIDE_TITLE],
+    },
     opts
   );
 }
@@ -234,16 +267,23 @@ export function ensurePlatformHelpDocuments(ownerUserId, opts = {}) {
     } catch {
       continue;
     }
+    const legacyTitle = `${LEGACY_PLATFORM_HELP_TITLE_PREFIX}${entry.title.slice(PLATFORM_HELP_TITLE_PREFIX.length)}`;
     const result = ensureMarkdownDocument(
       ownerUserId,
-      { title: entry.title, filename: `platform-help-${entry.filename}`, content },
+      {
+        title: entry.title,
+        filename: `platform-help-${entry.filename}`,
+        content,
+        legacyTitles: [legacyTitle, entry.title.replace(PLATFORM_HELP_TITLE_PREFIX, 'Flowlah Help - ')],
+      },
       opts
     );
     docs.push(result);
     if (result.created) created += 1;
     else if (result.updated) updated += 1;
   }
-  return { docs, created, updated };
+  const legacyRemoved = cleanupLegacyBrandDocuments(ownerUserId);
+  return { docs, created, updated, legacyRemoved };
 }
 
 /** Departments + User Guide + Platform Help for one CEO. */

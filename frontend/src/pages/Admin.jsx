@@ -22,6 +22,7 @@ function AdminPanel() {
     user_ids: [],
   });
   const [notifySending, setNotifySending] = useState(false);
+  const [ocConsoleBusy, setOcConsoleBusy] = useState(false);
 
   const load = () => {
     api.adminUsers()
@@ -118,6 +119,19 @@ function AdminPanel() {
     }
   };
 
+  const openOpenConnectorConsole = async () => {
+    setOcConsoleBusy(true);
+    try {
+      const data = await api.openconnectorConsoleLaunch();
+      const url = data.url || '/openconnector/';
+      // Same-tab navigation is more reliable for Set-Cookie + oc_launch than a blocked popup.
+      window.location.assign(url);
+    } catch (err) {
+      showError(err.message || 'Failed to launch OpenConnector console');
+      setOcConsoleBusy(false);
+    }
+  };
+
   const enabledUsers = users.filter((u) => u.enabled);
 
   return (
@@ -125,10 +139,19 @@ function AdminPanel() {
       <ActionFeedbackBanner feedback={feedback} onDismiss={clearFeedback} />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
         <h1 style={{ margin: 0 }}>Admin</h1>
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <Link to="/integrations/mcp">MCP Integrations</Link>
-          <Link to="/">Dashboard</Link>
-          <button type="button" onClick={logout} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '0.35rem 0.65rem', cursor: 'pointer' }}>
+        <div className="admin-toolbar" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <Link to="/connectors" className="wf-btn">Connectors</Link>
+          <button
+            type="button"
+            className="wf-btn"
+            disabled={ocConsoleBusy}
+            onClick={openOpenConnectorConsole}
+          >
+            {ocConsoleBusy ? 'Opening…' : 'OpenConnector console'}
+          </button>
+          <Link to="/integrations/mcp" className="wf-btn">MCP Integrations</Link>
+          <Link to="/" className="wf-btn">Dashboard</Link>
+          <button type="button" className="wf-btn wf-btn-danger" onClick={logout}>
             Logout
           </button>
         </div>

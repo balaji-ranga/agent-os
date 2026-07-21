@@ -1,14 +1,14 @@
-# Flowlah — An Agent Company Setup
+# Flolah — An Agent Company Setup
 
-**Flowlah (Automate, Innovate, Elevate)** is a web platform for running an AI agent company on [OpenClaw](https://docs.openclaw.ai/gateway): org-aware agents, human–agent chat, workspace MD management (`SOUL.md`, `AGENTS.md`, `ORG.md`, `MEMORY.md`, `TOOLS.md`), **custom visual workflows**, **AgentExchange (A2A)**, **Job Applicant pipeline**, **MCP integrations**, Kanban, standups, content tools, and multi-tenant CEO isolation. Metadata is stored in a **lightweight SQLite** database.
+**Flolah (Automate, Innovate, Elevate)** is a web platform for running an AI agent company on [OpenClaw](https://docs.openclaw.ai/gateway): org-aware agents, human–agent chat, workspace MD management (`SOUL.md`, `AGENTS.md`, `ORG.md`, `MEMORY.md`, `TOOLS.md`), **custom visual workflows**, **AgentExchange (A2A)**, **Job Applicant pipeline**, **MCP integrations**, Kanban, standups, content tools, and multi-tenant CEO isolation. Metadata is stored in a **lightweight SQLite** database.
 
-> Browser tab title: **Flowlah - An Agent Company Setup**. Login footer: **Flowlah (Automate, Innovate, Elevate)**.
+> Browser tab title: **Flolah - An Agent Company Setup**. Login footer: **Flolah (Automate, Innovate, Elevate)**.
 
-When you register as a CEO, Flowlah automatically sets up your standard agents (including **Platform Help** and **Workflow Builder**), a starter **departments** list, the **Flowlah User Guide** (this README), and the full **Platform Help** document set in Master Data so agents can look them up via RAG.
+When you register as a CEO, Flolah automatically sets up your standard agents (including **Platform Help** and **Workflow Builder**), a starter **departments** list, the **Flolah User Guide** (this README), and the full **Platform Help** document set in Master Data so agents can look them up via RAG.
 
 ---
 
-## Using Flowlah — guide for CEOs (from the UI)
+## Using Flolah — guide for CEOs (from the UI)
 
 This section is a short overview. For the complete end-user guide (navigation, every workflow node, input/output mapping, MCP, A2A, Job pipeline, troubleshooting), use:
 
@@ -19,7 +19,7 @@ You do not need to know APIs or Docker for everyday use.
 
 ### Sign in and first look
 
-1. Open the Flowlah site and **Log in** (or **Register** if you are new).
+1. Open the Flolah site and **Log in** (or **Register** if you are new).
 2. After login you land on the **Dashboard** — your org chart of agents (COO and specialists).
 3. The **bell** in the top bar is your notification center (agent replies and messages pushed to you).
 
@@ -34,7 +34,7 @@ You do not need to know APIs or Docker for everyday use.
 
 1. Open **Chat** with **Platform Help** (Dashboard org chart or Agent Workspaces).
 2. Ask in plain language (“How do I register an MCP server?”, “What does the IF node output?”).
-3. The agent searches your Master Data **Flowlah Help — …** documents and answers with UI steps.
+3. The agent searches your Master Data **Flolah Help — …** documents and answers with UI steps.
 4. For *building* or *repairing* a workflow graph, prefer **Workflow Builder**; for standups/delegation, prefer the **COO**.
 
 ### Ask the COO to delegate specialty work
@@ -67,7 +67,7 @@ Tips:
 
 1. Open **Master Data**.
 2. **Tables** — structured lists (rows and columns). Your account starts with a **departments** table (Executive, Research, Finance, and so on). Add or edit departments here; they appear when you assign agents to a department.
-3. **Documents** — upload files your agents can search (policies, guides, handbooks). New accounts include this **Flowlah User Guide** plus the **Platform Help** set (`Flowlah Help — …`) so agents (especially Platform Help) can answer product how-to questions.
+3. **Documents** — upload files your agents can search (policies, guides, handbooks). New accounts include this **Flolah User Guide** plus the **Platform Help** set (`Flolah Help — …`) so agents (especially Platform Help) can answer product how-to questions.
 4. When you chat with an agent that has Master Data tools, ask in plain language (“list departments”, “what does our PTO policy say?”, “how do I publish A2A?”).
 
 ### Org chart and Resync
@@ -221,7 +221,7 @@ Set in backend `.env`:
 | **MCP integrations** | Register MCP servers (admin/CEO); connect, test tools, playground; use in workflow **MCP Tool** and **SSE Listen** nodes. Local test server: `tools/local-mcp-random-sse/`. |
 | **External agents (A2A)** | Register external agent endpoints; invoke from workflow **External Agent** node. |
 | **Content tools** | Agent-callable tools: summarize URL, image/video gen, Kanban, **intent_classify_and_delegate**, workflow trigger/enquire/mutate, job applicant tools, **email_send**, **notify_ceo**, **Master Data** (`master_data_list_tables` / row CRUD / `master_data_rag`), learnings, browser, etc.; owner-scoped logs UI; onboard new APIs via script. |
-| **Master Data & RAG** | Per-CEO tables + documents (keyword RAG). UI captures **purpose/description** per table. Agents list tables with purpose and CRUD rows / RAG docs via content tools — **no create/alter/drop table**. On register: starter **departments** table + **Flowlah User Guide** + **Platform Help** document set. |
+| **Master Data & RAG** | Per-CEO tables + documents (keyword RAG). UI captures **purpose/description** per table. Agents list tables with purpose and CRUD rows / RAG docs via content tools — **no create/alter/drop table**. On register: starter **departments** table + **Flolah User Guide** + **Platform Help** document set. |
 | **Platform Help** | Standard agent `platformhelp` — product how-to via `master_data_rag` over `knowledgebase/platform-help/`. See [`knowledgebase/platform-help/README.md`](knowledgebase/platform-help/README.md). |
 | **COO specialty delegation** | COO chat hard-path: AGENTS.md purpose intent → specialist (cap 1) + Kanban; peer specialty referral; COO-native work stays with COO; how-to → Platform Help; graph build → Workflow Builder. |
 | **Email send** | `email_send` content tool — agents can send email via configured mail integration (owner-scoped logging). |
@@ -405,7 +405,7 @@ See **knowledgebase/TESTING.md** for full test cases and restart steps.
 
 - **Schema:** `backend/src/db/schema.js` — `initDb()`, `getDb()`. DB: `backend/data/agent-os.db` (or `AGENT_OS_DATA_DIR`). Includes `standups.owner_user_id`, `agent_delegation_tasks.owner_user_id`, A2A publications, platform notifications.
 - **Seeds:** `seed-default-agents.js`, `seed-content-tools-meta.js` (email_send, notify_ceo, Kanban, workflow tools), `seed-job-applicant-tools.js`, `seed-workflow-builder-agent.js`, `seed-platform-help-agent.js`
-- **Default CEO Master Data:** `backend/src/services/ceo-default-master-data.js` — departments table + Flowlah User Guide (README) + Platform Help docs (`knowledgebase/platform-help/`) on register and startup backfill
+- **Default CEO Master Data:** `backend/src/services/ceo-default-master-data.js` — departments table + Flolah User Guide (README) + Platform Help docs (`knowledgebase/platform-help/`) on register and startup backfill
 - **Backend scripts:** `backend/scripts/` — seeds, E2E tests, MCP seed, workflow tests, COO org/delegation smoke, `cleanup-workflow-runs.js`
 - **OpenClaw scripts:** `scripts/` — `setup-openclaw-from-scratch.ps1`, `onboard-api-tool.js`, `apply-openclaw-agents-config.js`, `setup-job-applicant-agents.js`, `sync-browser-tools-md.js`, `install-agent-os-content-tools-extension.js`, kill/restart helpers
 - **Allowlists:** `backend/src/lib/content-tools-allow.js` (Docker-safe; keep in sync with `scripts/lib/content-tools-allow.js`)
@@ -441,7 +441,7 @@ agent-os/
 │       └── gateway/openclaw.js
 └── frontend/
     └── src/
-        ├── pages/              # Dashboard, Login (Flowlah footer), AgentChat,
+        ├── pages/              # Dashboard, Login (Flolah footer), AgentChat,
         │                         # AgentWorkspace, Kanban, AgentWorkflows,
         │                         # AgentWorkflowEditor, AgentExchange, JobProfiles,
         │                         # JobWorkflows, MasterData, Broadcast, …

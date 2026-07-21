@@ -12,6 +12,7 @@ import AgentWorkflows from './pages/AgentWorkflows';
 import AgentWorkflowEditor from './pages/AgentWorkflowEditor';
 import JobProfiles from './pages/JobProfiles';
 import UserProfile from './pages/UserProfile';
+import Connectors from './pages/Connectors';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Admin from './pages/Admin';
@@ -128,7 +129,7 @@ function Shell() {
           </button>
           <div className="app-mobile-brand">
             <span className="app-nav-brand-mark" aria-hidden>F</span>
-            <span className="app-mobile-brand-text">Flowlah</span>
+            <span className="app-mobile-brand-text">Flolah</span>
           </div>
           <div className="app-mobile-topbar-actions">
             <NotificationBell compact />
@@ -141,7 +142,7 @@ function Shell() {
         <div className="app-nav-header">
           <Link to={homePath} className="app-nav-brand" onClick={closeMobileNav}>
             <span className="app-nav-brand-mark" aria-hidden>F</span>
-            {!menuCollapsed && <span className="app-nav-brand-name">Flowlah</span>}
+            {!menuCollapsed && <span className="app-nav-brand-name">Flolah</span>}
           </Link>
           <button
             type="button"
@@ -186,6 +187,7 @@ function Shell() {
                 <Route path="/integrations/custom-scripts" element={<CustomScripts />} />
                 <Route path="/integrations/external-agents" element={<ExternalAgents />} />
                 <Route path="/agent-exchange" element={<AgentExchange />} />
+                <Route path="/connectors" element={<Connectors />} />
                 <Route path="/profile" element={<UserProfile />} />
                 <Route path="*" element={<Navigate to="/admin" replace />} />
               </>
@@ -194,6 +196,7 @@ function Shell() {
               <>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/profile" element={<UserProfile />} />
+                <Route path="/connectors" element={<Connectors />} />
                 <Route path="/job-profiles" element={<JobProfiles />} />
                 <Route path="/workspace" element={<Workspace />} />
                 <Route path="/content-tools" element={<ContentToolsLogs />} />

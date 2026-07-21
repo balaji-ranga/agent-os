@@ -1,12 +1,12 @@
 # Getting started (CEO)
 
-## What Flowlah is
+## What Flolah is
 
-Flowlah is your AI agent company: you (the CEO) chat with agents, run standups, track work on Kanban, store Master Data, build visual workflows, connect MCP servers, and publish or consume A2A agents.
+Flolah is your AI agent company: you (the CEO) chat with agents, run standups, track work on Kanban, store Master Data, build visual workflows, connect MCP servers, and publish or consume A2A agents.
 
 ## Register and log in
 
-1. Open the Flowlah site → **Register** (new CEO) or **Log in**.
+1. Open the Flolah site → **Register** (new CEO) or **Log in**.
 2. Registration provisions your tenant: standard agents (COO, specialists, Workflow Builder, Platform Help, …), org docs, starter **departments** Master Data table, and Platform Help documents for RAG.
 3. After login you land on the **Dashboard** (org chart).
 

@@ -253,6 +253,11 @@ if [[ "$SKIP_SMOKE" != "1" ]]; then
     sed -i 's/\r$//' "$ROOT/deploy/scripts/vps-smoke-deepseek-brain.sh" 2>/dev/null || true
     bash "$ROOT/deploy/scripts/vps-smoke-deepseek-brain.sh" || echo "WARN: DeepSeek Ollama smoke failed (non-fatal — check RAM/disk for deepseek-v3)"
   fi
+  if [[ -f "$ROOT/deploy/scripts/vps-smoke-openconnector.sh" ]]; then
+    echo "==> OpenConnector connectors smoke"
+    sed -i 's/\r$//' "$ROOT/deploy/scripts/vps-smoke-openconnector.sh" 2>/dev/null || true
+    bash "$ROOT/deploy/scripts/vps-smoke-openconnector.sh" || echo "WARN: OpenConnector smoke failed (non-fatal)"
+  fi
   if [[ -f "$ROOT/deploy/scripts/vps-verify-platform.sh" ]]; then
     echo "==> platform verify (Master Data, delegation, allowlists)"
     sed -i 's/\r$//' "$ROOT/deploy/scripts/vps-verify-platform.sh" 2>/dev/null || true

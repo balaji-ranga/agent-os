@@ -34,6 +34,7 @@ import {
   readCooAgentsMdForCeo,
   withOwnerScope,
 } from './org-context.js';
+import { isUserEnabled } from './user-enabled.js';
 
 const SESSION_USER = 'agent-os-delegation';
 const AGENTS_MD_NAME = 'AGENTS.md';
@@ -523,6 +524,7 @@ export function postCallbackForRequestId(requestId) {
  */
 export async function processPendingDelegationTasksForCeo(ceoUserId) {
   if (!ceoUserId) return;
+  if (!isUserEnabled(ceoUserId)) return;
   recoverStaleProcessingDelegations(ceoUserId);
   const allPending = db()
     .prepare(

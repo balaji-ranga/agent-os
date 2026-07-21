@@ -1,4 +1,4 @@
-# Flowlah Platform Help — Index
+# Flolah Platform Help — Index
 
 **Audience:** CEOs (end users) and the **Platform Help** agent.  
 **Consumption:** Uploaded into each CEO’s **Master Data → Documents** and searched with `master_data_rag` (keyword chunk RAG). Do not paste this entire tree into an agent’s SOUL.
@@ -18,6 +18,6 @@
 | [11-content-tools-scripts-profile.md](./11-content-tools-scripts-profile.md) | Content tools, custom scripts, AI Snipper, Profile |
 | [12-troubleshooting.md](./12-troubleshooting.md) | Common issues and who to ask |
 
-**Product name:** Flowlah (Automate, Innovate, Elevate) — Agent OS underneath.
+**Product name:** Flolah (Automate, Innovate, Elevate) — Agent OS underneath.
 
 **Specialist agent:** Chat with **Platform Help** (`platformhelp`) for how-to, navigation, workflow node questions, MCP/A2A onboarding, and light troubleshooting. For building or fixing graphs, prefer **Workflow Builder**. For day-to-day ops and delegation, prefer the **COO**.

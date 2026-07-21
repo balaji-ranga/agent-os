@@ -8,6 +8,7 @@ import { getDbForCeo } from '../db/request-db.js';
 import { createJobSearchProfileService } from './job-search-profile.js';
 import { createJobApplicationsService } from './job-applications.js';
 import { getDefaultCeoUserId } from './job-applicant-ceo.js';
+import { isUserEnabled } from './user-enabled.js';
 import {
   normalizeDiscoverySchedule,
   isScheduleDue,
@@ -955,6 +956,9 @@ function workflowDueForProfile(row) {
  * Run scheduled discovery for one active profile (if due per workflow_schedule).
  */
 export async function runPipelineTick(ceoUserId = getDefaultCeoUserId(), profileId = null) {
+  if (!isUserEnabled(ceoUserId)) {
+    return { ran: false, reason: 'owner_disabled', ceo_user_id: ceoUserId, profile_id: profileId };
+  }
   const gate = profileService(ceoUserId).assertActive(ceoUserId, profileId);
   if (!gate.active) return { ran: false, reason: 'profile_not_active', error: gate.error, ceo_user_id: ceoUserId, profile_id: profileId };
 

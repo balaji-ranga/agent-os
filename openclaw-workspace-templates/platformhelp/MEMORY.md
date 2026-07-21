@@ -2,8 +2,8 @@
 
 ## Product
 
-- Brand: **Flowlah** (Automate, Innovate, Elevate). Platform codebase: Agent OS.
-- CEO help corpus lives under Master Data documents titled like **Flowlah Help — …** (from `knowledgebase/platform-help/`).
+- Brand: **Flolah** (Automate, Innovate, Elevate). Platform codebase: Agent OS.
+- CEO help corpus lives under Master Data documents titled like **Flolah Help — …** (from `knowledgebase/platform-help/`).
 
 ## Quick TOC (search these topics via master_data_rag)
 

@@ -4,6 +4,7 @@
  */
 import { getDb } from '../db/schema.js';
 import { getMcpServer, listVisibleMcpServers } from './mcp-servers.js';
+import { McpHttpClient } from './mcp-client.js';
 
 function db() {
   return getDb();
@@ -55,12 +56,18 @@ function dedupeApps(rows = []) {
         id: appId,
         name: String(row.name || row.app_name || row.service_name || appId).trim() || appId,
         connected: !!row.connected,
+        suggested: !!row.suggested,
+        provider_name: row.provider_name || null,
+        account_name: row.account_name || null,
       });
       continue;
     }
     const existing = map.get(appId);
     if (!existing.name && row.name) existing.name = row.name;
     existing.connected = existing.connected || !!row.connected;
+    existing.suggested = existing.suggested || !!row.suggested;
+    if (!existing.provider_name && row.provider_name) existing.provider_name = row.provider_name;
+    if (!existing.account_name && row.account_name) existing.account_name = row.account_name;
   }
   return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -95,6 +102,9 @@ export function getOpenConnectorEnvConfig() {
   const baseUrl =
     trimOrNull(process.env.OPENCONNECTOR_URL) ||
     (mcpUrl ? mcpUrl.replace(/\/mcp\/?$/i, '') : null);
+  const publicOrigin =
+    trimOrNull(process.env.OPENCONNECTOR_PUBLIC_ORIGIN) ||
+    trimOrNull(process.env.OOMOL_CONNECT_ORIGIN);
   return {
     url: baseUrl,
     mcp_url: mcpUrl,
@@ -102,9 +112,12 @@ export function getOpenConnectorEnvConfig() {
     transport: String(process.env.OPENCONNECTOR_MCP_TRANSPORT || 'streamable_http').trim(),
     has_bearer: Boolean(String(process.env.OPENCONNECTOR_MCP_BEARER || '').trim()),
     has_admin_token: Boolean(String(process.env.OPENCONNECTOR_ADMIN_TOKEN || '').trim()),
-    origin: trimOrNull(process.env.OOMOL_CONNECT_ORIGIN),
+    origin: publicOrigin,
+    public_origin: publicOrigin,
   };
 }
+
+export { defaultConnectionName };
 
 export function getOpenConnectorLink(userId) {
   if (!userId) return null;
@@ -229,7 +242,11 @@ async function openConnectorFetch(path, { method = 'GET', headers = {}, body, au
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(data.error || data.message || `OpenConnector request failed (${res.status})`);
+    const msg =
+      typeof data.error === 'string'
+        ? data.error
+        : data.message || data.error?.message || JSON.stringify(data.error || data);
+    throw new Error(msg || `OpenConnector request failed (${res.status})`);
   }
   return data;
 }
@@ -238,30 +255,16 @@ async function callOpenConnectorMcpTool(userId, toolName, args = {}) {
   const env = getOpenConnectorEnvConfig();
   if (!env.mcp_url) throw new Error('OPENCONNECTOR_MCP_URL not configured');
   const runtime = getRuntimeTokenForUser(userId);
-  const body = {
-    jsonrpc: '2.0',
-    id: jsonRpcId(),
-    method: 'tools/call',
-    params: {
-      name: toolName,
-      arguments: args || {},
-    },
-  };
-  const res = await fetch(env.mcp_url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${runtime.token}`,
-      ...(runtime.connectionName ? { 'x-oo-connector-alias': runtime.connectionName } : {}),
-    },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(120000),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data.error || `OpenConnector MCP failed (${res.status})`);
-  }
-  const parsed = parseJsonRpcToolResult(data);
+  const extraHeaders = runtime.connectionName
+    ? { 'x-oo-connector-alias': runtime.connectionName }
+    : {};
+  const client = new McpHttpClient(
+    { url: env.mcp_url, transport: env.transport || 'streamable_http' },
+    { bearer: runtime.token, headers: extraHeaders }
+  );
+  await client.initialize();
+  const raw = await client.callTool(toolName, args || {});
+  const parsed = parseJsonRpcToolResult({ result: raw });
   if (parsed.is_error) {
     throw new Error(parsed.text || `OpenConnector tool failed: ${toolName}`);
   }
@@ -302,43 +305,286 @@ function parseAppsFromActionSearch(result) {
   return dedupeApps(rows);
 }
 
+function parseHttpActionList(payload) {
+  const rows = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : [];
+  return rows.map(normalizeActionHit).filter((a) => a.id || a.app_id);
+}
+
+const SUGGESTED_CONNECTOR_APPS = [
+  { id: 'hackernews', name: 'Hacker News', connected: false, suggested: true },
+  { id: 'github', name: 'GitHub', connected: false, suggested: true },
+  { id: 'gmail', name: 'Gmail', connected: false, suggested: true },
+];
+
+const PROVIDER_DISPLAY_NAMES = {
+  github: 'GitHub',
+  gmail: 'Gmail',
+  google_drive: 'Google Drive',
+  google_sheets: 'Google Sheets',
+  hackernews: 'Hacker News',
+  slack: 'Slack',
+};
+
+export function providerDisplayName(service) {
+  const s = String(service || '').trim();
+  if (!s) return '';
+  const known = PROVIDER_DISPLAY_NAMES[s.toLowerCase()];
+  if (known) return known;
+  return s
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/** Build a minimal editable example object from a JSON Schema. */
+export function exampleInputFromSchema(schema) {
+  if (!schema || typeof schema !== 'object') return {};
+  if (Object.prototype.hasOwnProperty.call(schema, 'const')) return schema.const;
+  if (schema.default !== undefined) return schema.default;
+  if (Array.isArray(schema.enum) && schema.enum.length) return schema.enum[0];
+  if (Array.isArray(schema.anyOf) && schema.anyOf.length) {
+    return exampleInputFromSchema(schema.anyOf[0] || {});
+  }
+  if (Array.isArray(schema.oneOf) && schema.oneOf.length) {
+    return exampleInputFromSchema(schema.oneOf[0] || {});
+  }
+  const type = schema.type;
+  if (type === 'object' || schema.properties) {
+    const out = {};
+    const required = new Set(Array.isArray(schema.required) ? schema.required : []);
+    for (const [key, prop] of Object.entries(schema.properties || {})) {
+      const p = prop || {};
+      // Include required fields, const/default fields, and simple primitives so samples are complete.
+      const include =
+        required.has(key) ||
+        Object.prototype.hasOwnProperty.call(p, 'const') ||
+        p.default !== undefined ||
+        true;
+      if (!include) continue;
+      out[key] = exampleInputFromSchema(p);
+    }
+    return out;
+  }
+  if (type === 'array') {
+    return [exampleInputFromSchema(schema.items || { type: 'string' })];
+  }
+  if (type === 'integer' || type === 'number') {
+    if (typeof schema.minimum === 'number') {
+      const min = schema.exclusiveMinimum === true ? schema.minimum + 1 : schema.minimum;
+      return min;
+    }
+    if (typeof schema.exclusiveMinimum === 'number') {
+      return schema.exclusiveMinimum + (type === 'integer' ? 1 : Number.EPSILON);
+    }
+    return type === 'integer' ? 1 : 0;
+  }
+  if (type === 'boolean') return false;
+  if (type === 'null') return null;
+  return '';
+}
+
+async function fetchHttpActionCatalog(userId, { service = '', query = '' } = {}) {
+  const path = service
+    ? `/v1/actions?service=${encodeURIComponent(service)}`
+    : '/v1/actions';
+  const payload = await openConnectorFetch(path, { auth: 'runtime', userId });
+  let actions = parseHttpActionList(payload);
+  const q = String(query || '').trim().toLowerCase();
+  if (q) {
+    actions = actions.filter(
+      (a) =>
+        a.id.toLowerCase().includes(q) ||
+        a.app_id.toLowerCase().includes(q) ||
+        a.description.toLowerCase().includes(q)
+    );
+  }
+  return actions;
+}
+
+async function fetchHttpServiceCatalog(userId, query = '') {
+  const q = String(query || '').trim().toLowerCase();
+  // Prefer service-scoped lookup (real OC /v1/actions without service= returns stubs only).
+  if (q && /^[a-z0-9_-]+$/i.test(q)) {
+    try {
+      const actions = await fetchHttpActionCatalog(userId, { service: q });
+      if (actions.length) {
+        return [{ id: q, name: actions[0].app_name || q, connected: false }];
+      }
+    } catch (_) {
+      /* fall through to service index */
+    }
+  }
+  const payload = await openConnectorFetch('/v1/actions', { auth: 'runtime', userId });
+  const rows = Array.isArray(payload?.data) ? payload.data : [];
+  return dedupeApps(
+    rows
+      .map((r) => ({
+        id: String(r.service || r.id || '').split('.')[0],
+        name: String(r.service || r.name || ''),
+        connected: false,
+      }))
+      .filter((r) => r.id && (!q || r.id.toLowerCase().includes(q) || r.name.toLowerCase().includes(q)))
+  );
+}
+
 export async function getConnectedConnectorApps(userId) {
-  const result = await callOpenConnectorMcpTool(userId, 'list_apps', {});
-  return { apps: parseAppsFromListApps(result), source: 'list_apps' };
+  const alias = getOpenConnectorLink(userId)?.connection_name || defaultConnectionName(userId);
+  // /api/connections requires admin bearer on real OC; runtime tokens only work on /v1/*.
+  try {
+    const payload = await openConnectorFetch('/api/connections', { auth: 'admin' });
+    const rows = Array.isArray(payload)
+      ? payload
+      : Array.isArray(payload?.data)
+        ? payload.data
+        : Array.isArray(payload?.connections)
+          ? payload.connections
+          : [];
+    const apps = dedupeApps(
+      rows
+        .filter((r) => {
+          if (!r || r.configured === false) return false;
+          const name = String(r.connectionName || r.connection_name || '').trim();
+          // Real OAuth/API-key connections namespaced to this CEO
+          if (name === alias) return true;
+          return false;
+        })
+        .map((r) => {
+          const service = r.service || r.app_id || r.provider || r.id;
+          const account =
+            r.profile?.displayName || r.profile?.accountId || r.account_name || '';
+          const providerName = providerDisplayName(service);
+          return {
+            id: service,
+            name: account ? `${providerName} (${account})` : providerName,
+            provider_name: providerName,
+            account_name: account || null,
+            connected: true,
+          };
+        })
+    );
+    if (apps.length) return { apps, source: 'http_connections' };
+  } catch (_) {
+    /* try MCP */
+  }
+  try {
+    const result = await callOpenConnectorMcpTool(userId, 'list_apps', {});
+    const apps = parseAppsFromListApps(result);
+    if (apps.length) return { apps, source: 'list_apps' };
+  } catch (_) {
+    /* none connected yet */
+  }
+  // Real OC with no OAuth yet: surface starter chips so the palette is usable.
+  return { apps: SUGGESTED_CONNECTOR_APPS, source: 'suggested' };
 }
 
 export async function searchConnectorApps(userId, query = '') {
   const q = String(query || '').trim();
-  const result = await callOpenConnectorMcpTool(userId, 'search_actions', q ? { query: q } : {});
-  return { apps: parseAppsFromActionSearch(result), source: 'search_actions', query: q };
+  try {
+    const apps = await fetchHttpServiceCatalog(userId, q);
+    return { apps, source: 'http', query: q };
+  } catch (httpErr) {
+    try {
+      const result = await callOpenConnectorMcpTool(userId, 'search_actions', q ? { query: q } : {});
+      return { apps: parseAppsFromActionSearch(result), source: 'search_actions', query: q };
+    } catch {
+      throw httpErr;
+    }
+  }
 }
 
 export async function listConnectorActions(userId, appId, query = '') {
   const q = String(query || '').trim();
-  const result = await callOpenConnectorMcpTool(userId, 'search_actions', {
-    query: q || String(appId || '').trim(),
-  });
-  const structuredActions = result?.structured?.actions;
-  const actions = Array.isArray(structuredActions)
-    ? structuredActions
-    : Array.isArray(result?.raw?.result?.actions)
-      ? result.raw.result.actions
-      : [];
-  const normalized = actions
-    .map(normalizeActionHit)
-    .filter((item) => !appId || item.app_id === appId || item.id.startsWith(`${appId}.`));
-  return {
-    app_id: appId,
-    actions: normalized,
-  };
+  const service = String(appId || '').trim();
+  try {
+    const actions = await fetchHttpActionCatalog(userId, { service, query: q });
+    if (actions.length) {
+      return {
+        app_id: appId,
+        actions: actions.map((a) => ({
+          ...a,
+          example_input: exampleInputFromSchema(a.input_schema || {}),
+        })),
+        source: 'http',
+      };
+    }
+  } catch (_) {
+    /* MCP fallback */
+  }
+  try {
+    const result = await callOpenConnectorMcpTool(userId, 'search_actions', {
+      query: q || service,
+    });
+    const structuredActions = result?.structured?.actions;
+    const rows = Array.isArray(structuredActions)
+      ? structuredActions
+      : Array.isArray(result?.raw?.result?.actions)
+        ? result.raw.result.actions
+        : [];
+    const normalized = rows
+      .map(normalizeActionHit)
+      .filter((item) => !service || item.app_id === service || item.id.startsWith(`${service}.`));
+    return {
+      app_id: appId,
+      actions: normalized,
+      source: 'search_actions',
+    };
+  } catch (e) {
+    return { app_id: appId, actions: [], source: 'error', error: e.message };
+  }
 }
 
 export async function getConnectorActionGuide(userId, actionId) {
-  const result = await callOpenConnectorMcpTool(userId, 'get_action_guide', { actionId });
+  const id = String(actionId || '').trim();
+  if (!id) throw new Error('action_id required');
+
+  let meta = null;
+  try {
+    meta = await openConnectorFetch(`/api/actions/${encodeURIComponent(id)}`, {
+      method: 'GET',
+      auth: 'admin',
+    });
+  } catch (_) {
+    meta = null;
+  }
+  const metaObj = meta?.data && typeof meta.data === 'object' ? meta.data : meta;
+  const inputSchema = metaObj?.inputSchema || metaObj?.input_schema || null;
+  const outputSchema = metaObj?.outputSchema || metaObj?.output_schema || null;
+  const description = String(metaObj?.description || '').trim();
+  const exampleInput = exampleInputFromSchema(inputSchema || {});
+
+  let guide = '';
+  try {
+    const result = await callOpenConnectorMcpTool(userId, 'get_action_guide', { actionId: id });
+    guide = result.structured?.guide || result.text || '';
+  } catch (_) {
+    try {
+      const payload = await openConnectorFetch(`/api/actions/${encodeURIComponent(id)}/agent.md`, {
+        auth: 'admin',
+      });
+      guide = typeof payload === 'string' ? payload : payload?.guide || payload?.data || '';
+    } catch (e) {
+      guide = description || '';
+      if (!guide) {
+        return {
+          action_id: id,
+          guide: '',
+          description,
+          input_schema: inputSchema,
+          output_schema: outputSchema,
+          example_input: exampleInput,
+          error: e.message,
+        };
+      }
+    }
+  }
+
   return {
-    action_id: actionId,
-    guide: result.structured?.guide || result.text || '',
-    raw: result.structured || result.raw?.result || null,
+    action_id: id,
+    guide: String(guide || ''),
+    description,
+    input_schema: inputSchema,
+    output_schema: outputSchema,
+    example_input: exampleInput,
+    raw: metaObj || null,
   };
 }
 
@@ -380,37 +626,298 @@ export async function executeConnectorAction(userId, actionId, input = {}, { con
   }
 }
 
-export async function provisionOpenConnectorForUser(user) {
+export async function getConnectorConnectionsForUser(userId) {
+  const link = getOpenConnectorLinkPublic(userId);
+  const connected = await getConnectedConnectorApps(userId);
+  const env = getOpenConnectorEnvConfig();
+  const apps = connected.apps || [];
+  const real = apps.filter((a) => a.connected && !a.suggested);
+  return {
+    connection_name: link.connection_name,
+    linked: link.linked,
+    origin: env.public_origin || env.origin || null,
+    source: connected.source,
+    connections: real.map((app) => ({
+      app_id: app.id,
+      app_name: app.name,
+      provider_name: app.provider_name || providerDisplayName(app.id),
+      account_name: app.account_name || null,
+      connected: true,
+      connection_name: link.connection_name,
+    })),
+    suggested: apps.filter((a) => a.suggested),
+  };
+}
+
+export async function getConnectorProvider(appId) {
+  const app = String(appId || '').trim();
+  if (!app) throw new Error('app_id required');
+  const data = await openConnectorFetch(`/api/providers/${encodeURIComponent(app)}`, {
+    method: 'GET',
+    auth: 'admin',
+  });
+  return { app_id: app, provider: data?.data || data };
+}
+
+function pickAuthModes(provider) {
+  const auth = provider?.auth || provider?.authentications || [];
+  if (Array.isArray(auth) && auth.length) return auth;
+  if (provider?.authType) return [{ type: provider.authType }];
+  return [{ type: 'no_auth' }];
+}
+
+export async function startConnectorOAuth(userId, appId) {
+  const app = String(appId || '').trim();
+  if (!app) throw new Error('app_id required');
+  const alias = getOpenConnectorLink(userId)?.connection_name || defaultConnectionName(userId);
+  const env = getOpenConnectorEnvConfig();
+  if (!env.public_origin && !env.origin) {
+    throw new Error(
+      'OPENCONNECTOR_PUBLIC_ORIGIN (or OOMOL_CONNECT_ORIGIN) must be set to a public HTTPS URL for OAuth callbacks'
+    );
+  }
+
+  // Ensure CEO has a real runtime token (not leftover mock)
+  const link = getOpenConnectorLink(userId);
+  if (!link?.runtime_token || String(link.runtime_token).startsWith('oct_mock_')) {
+    await provisionOpenConnectorForUser({ id: userId }, { ensureConnections: false });
+  }
+
+  const payload = await openConnectorFetch('/api/oauth/authorizations', {
+    method: 'POST',
+    auth: 'admin',
+    body: { service: app, connectionName: alias },
+  });
+  const data = payload?.data || payload;
+  const authorizationUrl =
+    data?.authorizationUrl || data?.authorization_url || data?.url || data?.authorizeUrl || null;
+  if (!authorizationUrl) {
+    throw new Error(payload?.message || 'OpenConnector did not return authorizationUrl — is OAuth client configured for this provider?');
+  }
+  return {
+    app_id: app,
+    connection_name: alias,
+    authorization_url: authorizationUrl,
+    oauth_ready: true,
+  };
+}
+
+export async function upsertConnectorConnection(userId, appId, body = {}) {
+  const app = String(appId || '').trim();
+  if (!app) throw new Error('app_id required');
+  const alias = getOpenConnectorLink(userId)?.connection_name || defaultConnectionName(userId);
+  const authType = String(body.authType || body.auth_type || '').trim();
+  if (!authType) throw new Error('authType required (api_key, oauth2, custom_credential, or no_auth)');
+
+  if (authType === 'no_auth') {
+    return {
+      app_id: app,
+      connection_name: alias,
+      auth_type: 'no_auth',
+      connected: true,
+      note: 'No credentials required for this provider',
+    };
+  }
+
+  const values = body.values && typeof body.values === 'object' ? body.values : {};
+  const payload = await openConnectorFetch(`/api/connections/${encodeURIComponent(app)}`, {
+    method: 'PUT',
+    auth: 'admin',
+    body: {
+      authType,
+      connectionName: alias,
+      values,
+      ...(body.extra && typeof body.extra === 'object' ? { extra: body.extra } : {}),
+    },
+  });
+  return {
+    app_id: app,
+    connection_name: alias,
+    auth_type: authType,
+    connected: true,
+    data: payload?.data || payload,
+  };
+}
+
+export async function deleteConnectorConnection(userId, appId) {
+  const app = String(appId || '').trim();
+  if (!app) throw new Error('app_id required');
+  const alias = getOpenConnectorLink(userId)?.connection_name || defaultConnectionName(userId);
+  try {
+    await openConnectorFetch(
+      `/api/connections/${encodeURIComponent(app)}?connectionName=${encodeURIComponent(alias)}`,
+      { method: 'DELETE', auth: 'admin' }
+    );
+  } catch (e) {
+    // Some OC builds use path-style named connections
+    await openConnectorFetch(`/api/connections/${encodeURIComponent(app)}/${encodeURIComponent(alias)}`, {
+      method: 'DELETE',
+      auth: 'admin',
+    }).catch(() => {
+      throw e;
+    });
+  }
+  return { app_id: app, connection_name: alias, deleted: true };
+}
+
+export async function upsertOAuthClientConfig(appId, body = {}) {
+  const app = String(appId || '').trim();
+  if (!app) throw new Error('app_id required');
+  const clientId = String(body.clientId || body.client_id || '').trim();
+  const clientSecret = String(body.clientSecret || body.client_secret || '').trim();
+  if (!clientId || !clientSecret) throw new Error('clientId and clientSecret required');
+  const payload = await openConnectorFetch(`/api/oauth/configs/${encodeURIComponent(app)}`, {
+    method: 'PUT',
+    auth: 'admin',
+    body: {
+      clientId,
+      clientSecret,
+      ...(body.extra && typeof body.extra === 'object' ? { extra: body.extra } : {}),
+    },
+  });
+  return { app_id: app, configured: true, data: payload?.data || payload };
+}
+
+export async function listOAuthClientConfigs() {
+  const payload = await openConnectorFetch('/api/oauth/configs', { method: 'GET', auth: 'admin' });
+  const rows = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : [];
+  const configs = rows
+    .map((r) => ({
+      service: r.service || r.app_id || r.id || '',
+      configured: r.configured === true || Boolean(r.clientId || r.client_id),
+      client_id_hint: maskClientId(r.clientId || r.client_id),
+      expected_redirect_uri: r.expectedRedirectUri || r.expected_redirect_uri || null,
+      auth_type: r.auth?.type || r.authType || null,
+    }))
+    .filter((r) => r.service);
+  return {
+    configs,
+    configured: configs.filter((c) => c.configured),
+  };
+}
+
+function maskClientId(value) {
+  const s = String(value || '').trim();
+  if (!s) return null;
+  if (s.length <= 8) return `${s.slice(0, 2)}…`;
+  return `${s.slice(0, 4)}…${s.slice(-4)}`;
+}
+
+/** @deprecated use startConnectorOAuth / upsertConnectorConnection */
+export async function startConnectorConnect(userId, appId) {
+  try {
+    const provider = await getConnectorProvider(appId);
+    const modes = pickAuthModes(provider.provider);
+    const types = modes.map((m) => String(m.type || m.authType || '').toLowerCase());
+    if (types.includes('no_auth') && types.length === 1) {
+      return {
+        app_id: appId,
+        connection_name: defaultConnectionName(userId),
+        auth_type: 'no_auth',
+        oauth_ready: true,
+        instructions: `${appId} needs no OAuth — use it in the workflow Connectors palette.`,
+      };
+    }
+    if (types.includes('oauth2') || types.includes('oauth')) {
+      return await startConnectorOAuth(userId, appId);
+    }
+    return {
+      app_id: appId,
+      connection_name: defaultConnectionName(userId),
+      auth_types: types,
+      instructions: `Open Connectors page and enter API credentials for ${appId}.`,
+      oauth_ready: false,
+    };
+  } catch (e) {
+    // Fallback: try oauth start directly
+    try {
+      return await startConnectorOAuth(userId, appId);
+    } catch {
+      throw e;
+    }
+  }
+}
+
+export async function ensureConnectorConnectionSlot(userId, appId) {
+  // Kept for compatibility — real setup goes through oauth/api_key façades.
+  return {
+    app_id: appId,
+    connection_name: getOpenConnectorLink(userId)?.connection_name || defaultConnectionName(userId),
+    ensured: false,
+    note: 'Use Connectors page OAuth or API key flow',
+  };
+}
+
+export async function provisionOpenConnectorForUser(user, { ensureConnections = true, appIds = [] } = {}) {
   const userId = String(user?.id || '').trim();
   if (!userId) throw new Error('Authenticated user required');
   const env = getOpenConnectorEnvConfig();
   if (!env.url) throw new Error('OpenConnector URL not configured');
 
-  const label = user?.email
-    ? `${user.email} (${userId})`
-    : `${user?.name || 'CEO'} (${userId})`;
-  const payload = await openConnectorFetch('/api/runtime-tokens', {
-    method: 'POST',
-    auth: 'admin',
-    body: { name: label },
-  });
-  const token =
-    trimOrNull(payload?.token) ||
-    trimOrNull(payload?.runtime_token) ||
-    trimOrNull(payload?.value) ||
-    trimOrNull(payload?.plainToken);
-  if (!token) {
-    throw new Error('OpenConnector did not return a runtime token');
+  const existing = getOpenConnectorLink(userId);
+  let token = String(existing?.runtime_token || '').trim();
+  let createdToken = false;
+
+  if (token.startsWith('oct_mock_')) {
+    token = '';
   }
+
+  if (!token) {
+    const label = user?.email
+      ? `${user.email} (${userId})`
+      : `${user?.name || 'CEO'} (${userId})`;
+    try {
+      const payload = await openConnectorFetch('/api/runtime-tokens', {
+        method: 'POST',
+        auth: 'admin',
+        body: { name: label },
+      });
+      const data = payload?.data && typeof payload.data === 'object' ? payload.data : payload;
+      token =
+        trimOrNull(data?.token) ||
+        trimOrNull(payload?.token) ||
+        trimOrNull(payload?.runtime_token) ||
+        trimOrNull(payload?.value) ||
+        trimOrNull(payload?.plainToken) ||
+        '';
+      if (!token) throw new Error('OpenConnector did not return a runtime token');
+      createdToken = true;
+    } catch (err) {
+      upsertOpenConnectorLink(userId, { last_error: err.message });
+      throw err;
+    }
+  }
+
   const provisioned = upsertOpenConnectorLink(userId, {
     runtime_token: token,
     connection_name: defaultConnectionName(userId),
     last_provisioned_at: new Date().toISOString(),
     last_error: null,
   });
+
+  const slots = [];
+  if (ensureConnections) {
+    const targets = (Array.isArray(appIds) ? appIds : [])
+      .map((id) => String(id || '').trim())
+      .filter(Boolean);
+    if (!targets.length) {
+      try {
+        const connected = await getConnectedConnectorApps(userId);
+        for (const app of connected.apps || []) targets.push(app.id);
+      } catch {
+        /* no connected apps yet */
+      }
+    }
+    for (const appId of targets) {
+      slots.push(await ensureConnectorConnectionSlot(userId, appId));
+    }
+  }
+
   return {
     ...provisioned,
     provisioned: true,
+    created_token: createdToken,
+    connection_slots: slots,
   };
 }
 

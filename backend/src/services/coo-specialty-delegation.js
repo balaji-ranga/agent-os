@@ -2,11 +2,11 @@
  * Hard path: COO chat delegates via AGENTS.md intent classification (LLM),
  * not keyword specialty hints. Cap at 1–2 specialists.
  */
-import { getDb } from '../db/schema.js';
 import { readCooAgentsMdForCeo } from './org-context.js';
 import { classifyIntentAndAllocate } from './intent-classifier.js';
 import { scheduleCeoRequestViaOpenClawCron } from './delegation-queue.js';
 import { isAskSpecialistToReachMe } from './reach-me-delegation.js';
+import { getOrCreateDelegationHubStandup } from './standup-hub.js';
 
 const MAX_DELEGATE_AGENTS = 1;
 
@@ -134,13 +134,12 @@ export async function tryHandleCooSpecialtyDelegation(ownerUserId, ceoMessage) {
     };
   }
 
-  const db = getDb();
-  db.prepare(
-    `INSERT INTO standups (scheduled_at, status, source, owner_user_id) VALUES (datetime('now'), ?, ?, ?)`
-  ).run('scheduled', 'coo_chat_delegate', ownerUserId);
-  const standupId = db.prepare('SELECT id FROM standups ORDER BY id DESC LIMIT 1').get()?.id;
-  if (!standupId) {
-    return { ok: false, error: 'could not create standup for delegation' };
+  // Delegate via internal hub — do not create a user-visible standup entry.
+  let standupId;
+  try {
+    standupId = getOrCreateDelegationHubStandup(ownerUserId);
+  } catch (err) {
+    return { ok: false, error: err.message || 'could not resolve delegation hub' };
   }
 
   const result = await scheduleCeoRequestViaOpenClawCron(standupId, t, ownerUserId, {
@@ -153,7 +152,7 @@ export async function tryHandleCooSpecialtyDelegation(ownerUserId, ceoMessage) {
       cooReply:
         "I classified this against AGENTS.md but couldn't queue the specialist run. Try again or name the agent.",
       result,
-      standup_id: standupId,
+      standup_id: null,
     };
   }
 
@@ -173,6 +172,6 @@ export async function tryHandleCooSpecialtyDelegation(ownerUserId, ceoMessage) {
     ok: true,
     cooReply,
     result,
-    standup_id: standupId,
+    standup_id: null,
   };
 }

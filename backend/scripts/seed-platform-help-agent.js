@@ -50,7 +50,7 @@ export function seedPlatformHelpAgent() {
       `UPDATE agents SET name = ?, role = ?, parent_id = ?, workspace_path = ?, openclaw_agent_id = ?, is_coo = 0, agent_type = 'standard', department = COALESCE(NULLIF(department, ''), ?) WHERE id = ?`
     ).run(
       'Platform Help',
-      'Flowlah product help & troubleshooting',
+      'Flolah product help & troubleshooting',
       parentId,
       WORKSPACE_PATH,
       'platformhelp',
@@ -64,7 +64,7 @@ export function seedPlatformHelpAgent() {
     ).run(
       'platformhelp',
       'Platform Help',
-      'Flowlah product help & troubleshooting',
+      'Flolah product help & troubleshooting',
       parentId,
       WORKSPACE_PATH,
       'platformhelp',

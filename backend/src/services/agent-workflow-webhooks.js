@@ -3,6 +3,7 @@ import { getPublicBaseUrl } from '../config/public-url.js';
 import { getDb } from '../db/schema.js';
 import * as store from './agent-workflow-store.js';
 import { startAgentWorkflowRun } from './agent-workflow-runner.js';
+import { isUserEnabled } from './user-enabled.js';
 
 function db() {
   return getDb();
@@ -38,6 +39,9 @@ export async function triggerWorkflowFromHook(definitionId, payload = {}, { acto
   const row = db().prepare('SELECT owner_user_id, status, paused FROM agent_workflow_definitions WHERE id = ?').get(definitionId);
   if (!row) throw new Error('Workflow not found');
   if (row.paused) throw new Error('Workflow is paused');
+  if (!isUserEnabled(row.owner_user_id)) {
+    throw new Error('Owner account is disabled — event triggers are stopped');
+  }
   const input = typeof payload === 'string' ? payload : JSON.stringify(payload ?? {}, null, 0);
   return startAgentWorkflowRun(definitionId, row.owner_user_id, {
     trigger: 'event',

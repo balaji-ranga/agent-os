@@ -65,7 +65,7 @@ async function main() {
 
   const docsRes = await api('GET', '/api/master-data/documents', null, token);
   const docs = Array.isArray(docsRes.data) ? docsRes.data : docsRes.data.documents || [];
-  const helpDocs = docs.filter((d) => String(d.title || '').includes('Flowlah Help'));
+  const helpDocs = docs.filter((d) => String(d.title || '').includes('Flolah Help'));
   console.log('OK Master Data help docs:', helpDocs.length, '(total docs', docs.length + ')');
   if (helpDocs.length < 5) {
     console.error(

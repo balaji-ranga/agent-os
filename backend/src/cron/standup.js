@@ -1,12 +1,14 @@
 /**
- * Standup cron: create per-CEO standups, collect status from that CEO's agents via tenant OpenClaw.
+ * Standup cron: legacy auto-collect + per-standup daily schedule runner.
  */
 import { getDb } from '../db/schema.js';
 import * as openclaw from '../gateway/openclaw.js';
 import { runCooSummarization } from '../services/coo.js';
-import { getPromptWithMemoryInjected } from '../services/delegation-queue.js';
+import { getPromptWithMemoryInjected, scheduleCeoRequestViaOpenClawCron } from '../services/delegation-queue.js';
 import { getAgentsUnderCooForCeo } from '../services/org-context.js';
 import { ensureTenantOpenClawAgent } from '../services/openclaw-tenant.js';
+import { isVisibleStandupSource } from '../services/standup-hub.js';
+import { isUserEnabled } from '../services/user-enabled.js';
 
 const STANDUP_PROMPT_BASE =
   "The COO is collecting today's standup. What is your status and a brief summary? Reply in 2–4 sentences: what you did, any blockers, and next steps.";
@@ -85,4 +87,109 @@ export async function runScheduledStandup() {
   }
   const last = results[results.length - 1];
   return { standup: last?.standup || null, results, error: last?.error };
+}
+
+function utcDateKey(d) {
+  return d.toISOString().slice(0, 10);
+}
+
+/** True when standup's scheduled_at hour:minute (UTC) matches now. */
+export function isStandupDueNow(scheduledAtIso, now = new Date()) {
+  if (!scheduledAtIso) return false;
+  const scheduled = new Date(scheduledAtIso);
+  if (Number.isNaN(scheduled.getTime())) return false;
+  return (
+    scheduled.getUTCHours() === now.getUTCHours() && scheduled.getUTCMinutes() === now.getUTCMinutes()
+  );
+}
+
+/** Skip if this standup already fired today (UTC day). */
+export function alreadyRanStandupToday(lastScheduledRunAt, now = new Date()) {
+  if (!lastScheduledRunAt) return false;
+  const last = new Date(lastScheduledRunAt);
+  if (Number.isNaN(last.getTime())) return false;
+  return utcDateKey(last) === utcDateKey(now);
+}
+
+function resolveStandupRunMessage(standup) {
+  const outcomes = String(standup.outcomes || '').trim();
+  if (outcomes) return outcomes;
+  const firstUser = db()
+    .prepare(
+      `SELECT content FROM standup_messages WHERE standup_id = ? AND role = 'user' ORDER BY created_at ASC LIMIT 1`
+    )
+    .get(standup.id);
+  if (firstUser?.content) return String(firstUser.content).trim();
+  return 'Provide your status and deliverables for the CEO standup.';
+}
+
+/**
+ * Run one user-created standup schedule: delegate outcomes to team via COO.
+ */
+export async function runStandupScheduleForStandup(standup) {
+  const ownerUserId = standup.owner_user_id;
+  if (!ownerUserId) return { standupId: standup.id, error: 'missing owner_user_id' };
+  if (!isUserEnabled(ownerUserId)) {
+    return { standupId: standup.id, skipped: true, reason: 'owner_disabled' };
+  }
+
+  const message = resolveStandupRunMessage(standup);
+  db()
+    .prepare('INSERT INTO standup_messages (standup_id, role, content) VALUES (?, ?, ?)')
+    .run(standup.id, 'user', `[Scheduled run] ${message}`);
+
+  const result = await scheduleCeoRequestViaOpenClawCron(standup.id, message, ownerUserId);
+  const cooReply =
+    result.count === 0
+      ? 'Scheduled standup: no agents were allocated for this request.'
+      : `Scheduled standup: I've asked ${result.agentNames.join(' and ')} to look into this. You'll see their responses here when ready.`;
+  db()
+    .prepare('INSERT INTO standup_messages (standup_id, role, content) VALUES (?, ?, ?)')
+    .run(standup.id, 'coo', cooReply);
+
+  const now = new Date().toISOString();
+  db()
+    .prepare('UPDATE standups SET last_scheduled_run_at = ?, status = ? WHERE id = ?')
+    .run(now, 'active', standup.id);
+
+  return {
+    standupId: standup.id,
+    requestId: result.requestId,
+    tasksQueued: result.count,
+    cooReply,
+  };
+}
+
+/**
+ * Fire user-created standups whose daily schedule matches the current minute.
+ * Skips standups owned by disabled platform users.
+ */
+export async function runDueStandupSchedules(now = new Date()) {
+  const rows = db()
+    .prepare(
+      `SELECT s.* FROM standups s
+       INNER JOIN platform_users u ON u.id = s.owner_user_id AND u.enabled = 1
+       WHERE s.source = 'manual'
+         AND s.status IN ('scheduled', 'active')
+         AND s.owner_user_id IS NOT NULL
+         AND s.scheduled_at IS NOT NULL`
+    )
+    .all();
+
+  const due = rows.filter(
+    (s) =>
+      isVisibleStandupSource(s.source) &&
+      isStandupDueNow(s.scheduled_at, now) &&
+      !alreadyRanStandupToday(s.last_scheduled_run_at, now)
+  );
+
+  const results = [];
+  for (const standup of due) {
+    try {
+      results.push(await runStandupScheduleForStandup(standup));
+    } catch (err) {
+      results.push({ standupId: standup.id, error: err.message });
+    }
+  }
+  return { count: results.length, results };
 }

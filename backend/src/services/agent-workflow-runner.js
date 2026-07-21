@@ -28,6 +28,7 @@ import { validateWorkflowBrainCredentials } from './agent-workflow-brain-provide
 import { getMcpServerForWorkflow, callMcpServerTool, callMcpServerPrompt, callMcpServerResource } from './mcp-servers.js';
 import { parseMcpAuthFromNodeConfig } from './mcp-auth.js';
 import { executeConnectorAction } from './openconnector.js';
+import { isUserEnabled } from './user-enabled.js';
 import {
   registerPendingListener,
   startPersistentListen,
@@ -581,6 +582,9 @@ function buildAgentPrompt(runId, definitionId, definitionName, node, inputText, 
  * Start a new workflow run from published definition.
  */
 export async function startAgentWorkflowRun(definitionId, ownerUserId, { trigger = 'manual', input = '', actor = null } = {}) {
+  if (!isUserEnabled(ownerUserId)) {
+    throw new Error('Owner account is disabled — workflow schedules and runs are stopped');
+  }
   const def = store.getDefinition(definitionId, ownerUserId);
   if (!def) throw new Error('Workflow not found');
   if (def.paused) throw new Error('Workflow is paused — resume it before running');
@@ -963,7 +967,12 @@ async function executeNode(runId, nodeId, graph, context, def, runRow) {
     }
     let staticInput = {};
     try {
-      staticInput = JSON.parse(config.staticInputJson || config.static_input_json || '{}');
+      const rawJson = config.staticInputJson ?? config.static_input_json;
+      const trimmed = String(rawJson ?? '').trim();
+      staticInput = trimmed ? JSON.parse(trimmed) : {};
+      if (!staticInput || typeof staticInput !== 'object' || Array.isArray(staticInput)) {
+        staticInput = {};
+      }
     } catch {
       staticInput = {};
     }

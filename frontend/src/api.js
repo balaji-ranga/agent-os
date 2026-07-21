@@ -287,6 +287,21 @@ export const api = {
     get(`/integrations/openconnector/actions/${encodeURIComponent(actionId)}/guide`),
   openconnectorExecute: (actionId, body = {}) =>
     post(`/integrations/openconnector/actions/${encodeURIComponent(actionId)}/execute`, body),
+  openconnectorConnections: () => get('/integrations/openconnector/connections'),
+  openconnectorConnectApp: (appId, body = {}) =>
+    post(`/integrations/openconnector/connections/${encodeURIComponent(appId)}/connect`, body),
+  openconnectorProvider: (appId) =>
+    get(`/integrations/openconnector/providers/${encodeURIComponent(appId)}`),
+  openconnectorOAuthStart: (appId, body = {}) =>
+    post(`/integrations/openconnector/connections/${encodeURIComponent(appId)}/oauth/start`, body),
+  openconnectorConnectionUpsert: (appId, body = {}) =>
+    put(`/integrations/openconnector/connections/${encodeURIComponent(appId)}`, body),
+  openconnectorConnectionDelete: (appId) =>
+    del(`/integrations/openconnector/connections/${encodeURIComponent(appId)}`),
+  openconnectorOAuthConfigs: () => get('/integrations/openconnector/oauth/configs'),
+  openconnectorOAuthConfigUpsert: (appId, body = {}) =>
+    put(`/integrations/openconnector/oauth/configs/${encodeURIComponent(appId)}`, body),
+  openconnectorConsoleLaunch: () => post('/integrations/openconnector/console-launch', {}),
   agentWorkflowCreate: (body) => post('/agent-workflows', body),
   agentWorkflowUpdate: (id, body) => patch(`/agent-workflows/${encodeURIComponent(id)}`, body),
   agentWorkflowPublish: (id) => post(`/agent-workflows/${encodeURIComponent(id)}/publish`, {}),

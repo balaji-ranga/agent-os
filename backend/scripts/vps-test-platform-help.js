@@ -67,7 +67,7 @@ const res = await fetch(`${BASE}/api/agents/platformhelp/chat`, {
   },
   body: JSON.stringify({
     message:
-      'In one short paragraph: where do I register an MCP server in Flowlah, and which workflow nodes use it? Use master_data_rag.',
+      'In one short paragraph: where do I register an MCP server in Flolah, and which workflow nodes use it? Use master_data_rag.',
   }),
   signal: AbortSignal.timeout(180000),
 });

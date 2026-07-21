@@ -1,6 +1,6 @@
 # MCP integrations onboarding
 
-## What MCP is in Flowlah
+## What MCP is in Flolah
 
 **MCP (Model Context Protocol)** servers expose tools, prompts, and resources. You register them once, test them, then use them in:
 

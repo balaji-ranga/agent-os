@@ -220,7 +220,7 @@ export default function Login() {
           color: 'var(--muted)',
         }}
       >
-        Flowlah (Automate, Innovate, Elevate)
+        Flolah (Automate, Innovate, Elevate)
       </footer>
     </div>
   );

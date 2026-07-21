@@ -28,7 +28,7 @@ import { getLastIntentDebug } from '../services/intent-classifier.js';
 import { ensureTenantOpenClawAgent } from '../services/openclaw-tenant.js';
 import { getAgentsUnderCooForCeo } from '../services/org-context.js';
 import { tryHandleCooReachMeRequest } from '../services/reach-me-delegation.js';
-import { completePipelineKanbanForDelegation } from '../services/kanban-workflow-stage.js';
+import { hiddenStandupSourcesSqlIn } from '../services/standup-hub.js';
 
 const router = Router();
 
@@ -132,8 +132,10 @@ router.get('/', (req, res) => {
     const { clause, params } = standupOwnerFilter(req);
     const rows = db()
       .prepare(
-        `SELECT id, scheduled_at, status, coo_summary, ceo_summary, source, title, outcomes, created_at, owner_user_id
-         FROM standups WHERE 1=1${clause} ORDER BY scheduled_at DESC LIMIT ?`
+        `SELECT id, scheduled_at, status, coo_summary, ceo_summary, source, title, outcomes, created_at, owner_user_id, last_scheduled_run_at
+         FROM standups WHERE 1=1${clause}
+         AND (source IS NULL OR source NOT IN (${hiddenStandupSourcesSqlIn()}))
+         ORDER BY scheduled_at DESC LIMIT ?`
       )
       .all(...params, limit);
     res.json(rows);

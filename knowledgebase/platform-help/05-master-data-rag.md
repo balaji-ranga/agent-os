@@ -19,7 +19,7 @@ Example asks: “list departments”, “add Engineering if missing”.
 ## Documents and RAG
 
 - Upload policies, handbooks, and guides.
-- New accounts include **Flowlah Platform Help** documents (and often a short User Guide) so agents can answer “how do I use Flowlah?”.
+- New accounts include **Flolah Platform Help** documents (and often a short User Guide) so agents can answer “how do I use Flolah?”.
 - RAG is **keyword chunk search** over SQLite chunks (not vector embeddings). Clear headings and repeated keywords improve hits.
 - UI may offer a RAG query box; agents use **`master_data_list_documents`** then **`master_data_rag`**.
 

@@ -461,9 +461,12 @@ export function listMcpCallLogs(serverId, authUser, limit = 20) {
     .all(serverId, Math.min(limit, 100));
 }
 
-/** Workflow-safe list: healthy only, same visibility rules. */
+/** Workflow-safe list: healthy only, same visibility rules. OpenConnector is hidden — use Connectors palette instead. */
 export function listMcpServersForWorkflow(authUser) {
-  return listVisibleMcpServers(authUser, { forWorkflow: true }).filter((s) => s.status === 'healthy');
+  const ocId = String(process.env.OPENCONNECTOR_MCP_ID || 'mcp-openconnector').trim();
+  return listVisibleMcpServers(authUser, { forWorkflow: true })
+    .filter((s) => s.status === 'healthy')
+    .filter((s) => s.id !== ocId && !/openconnector/i.test(String(s.name || '')));
 }
 
 export function getMcpServerForWorkflow(serverId, authUser) {

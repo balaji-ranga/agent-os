@@ -89,6 +89,7 @@ export function CeoNavMenu({ collapsed }) {
           short="AW"
         />
         <NavItem to="/content-tools" title="Content tools" collapsed={collapsed} label="Content tools" short="Ct" />
+        <NavItem to="/connectors" title="Connectors" collapsed={collapsed} label="Connectors" short="Cn" />
         <NavItem to="/integrations/mcp" title="MCP integrations" collapsed={collapsed} label="MCP" short="Mcp" />
         <NavItem
           to="/integrations/custom-scripts"
@@ -128,6 +129,7 @@ export function AdminNavMenu({ collapsed }) {
       </NavLink>
 
       <NavSection title="Agentic Workflows" collapsed={collapsed}>
+        <NavItem to="/connectors" title="Connectors" collapsed={collapsed} label="Connectors" short="Cn" />
         <NavItem to="/integrations/mcp" title="MCP" collapsed={collapsed} label="MCP" short="M" />
         <NavItem
           to="/integrations/custom-scripts"
