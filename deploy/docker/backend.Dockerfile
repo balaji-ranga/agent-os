@@ -19,6 +19,8 @@ COPY openclaw-workspace-templates ./openclaw-workspace-templates
 COPY openclaw-skills ./openclaw-skills
 COPY openclaw-extensions ./openclaw-extensions
 COPY deploy ./deploy
+# Seeded as Master Data "Flowlah User Guide" for every CEO (register + startup backfill)
+COPY README.md ./README.md
 
 WORKDIR /opt/agent-os/backend
 

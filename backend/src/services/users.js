@@ -19,6 +19,7 @@ import {
   userLlmPublic,
   syncUserLlmToOpenClaw,
 } from './user-llm-settings.js';
+import { ensureCeoDefaultMasterData } from './ceo-default-master-data.js';
 
 function slugId(prefix, email) {
   const base = String(email || '')
@@ -110,6 +111,13 @@ export function registerCeoUser({
   if (mode === 'tenant' && !isPlatformLegacyCeo(id)) initCeoDb(id);
   const agents = grantStandardAgents(id);
 
+  let default_master_data = null;
+  try {
+    default_master_data = ensureCeoDefaultMasterData(id);
+  } catch (e) {
+    console.warn(`[registerCeoUser] default master data for ${id}:`, e.message);
+  }
+
   try {
     syncUserLlmToOpenClaw(id);
   } catch (_) {}
@@ -126,6 +134,7 @@ export function registerCeoUser({
     mfa_policy: policy,
     mfa_mode: userMode,
     standard_agents_granted: agents,
+    default_master_data,
     ...userLlmPublic({ llm_provider: provider, llm_api_key: apiKey }),
   };
 }

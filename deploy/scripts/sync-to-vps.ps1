@@ -28,6 +28,7 @@ $ssh = @("-i", $Key, "-o", "IdentitiesOnly=yes", "-o", "BatchMode=yes")
 
 Write-Host "==> Sync frontend (full src tree + package files + index.html)"
 ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/frontend/src $RemoteRoot/deploy/scripts $RemoteRoot/deploy/docker $RemoteRoot/deploy/nginx $RemoteRoot/backend/scripts $RemoteRoot/scripts"
+scp @ssh "$Repo\README.md" "root@${HostIp}:$RemoteRoot/"
 scp @ssh -r "$Repo\frontend\src" "root@${HostIp}:$RemoteRoot/frontend/"
 scp @ssh `
   "$Repo\frontend\index.html" `

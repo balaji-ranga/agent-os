@@ -184,9 +184,10 @@ Gets the same gateway LLM vars plus:
 | `REPLICATE_API_TOKEN` | Video generation content tool |
 | `OPENROUTER_*` | Dev/test scripts; Brain nodes still use per-node keys |
 | `CUSTOM_SCRIPT_*` | Python/JS workflow script sandbox (`python3` in image); includes LLM security review at registration |
-| `WORKFLOW_SMTP_*` | Send Email workflow task, `email_send` content tool (incl. ICS invites), MFA email OTP |
+| `WORKFLOW_SMTP_*` | Send Email workflow task, `email_send` content tool (incl. ICS invites), MFA email OTP. Production sender: `WORKFLOW_SMTP_FROM=admin@flolah.com` (domain must be verified with provider) |
+| `WORKFLOW_TEST_EMAIL_TO` | Optional recipient for SMTP smoke scripts (`test-email-send-tool.js`) |
 | `DEEPSEEK_BASE_URL`, `DEEPSEEK_MODEL` | DeepSeek V3 via local Ollama (`optional-ollama`; default model `deepseek-v3`) |
-| `MFA_MODE`, `AGENT_OS_REQUIRE_MFA`, `AGENT_OS_DISABLE_MFA` | Platform MFA defaults |
+| `MFA_MODE`, `AGENT_OS_REQUIRE_MFA`, `AGENT_OS_DISABLE_MFA` | Platform MFA defaults (production: `MFA_MODE=TOTP`, `AGENT_OS_REQUIRE_MFA=1`) |
 | `EMAIL_INBOUND_WEBHOOK_SECRET` | Optional platform secret for email inbound webhooks |
 | `OPENCONNECTOR_MCP_*` | OpenConnector MCP URL / bearer / transport |
 | `WORKFLOW_FS_ROOTS` | Allowed roots for filesystem workflow nodes (default `/data/workflow-fs`) |

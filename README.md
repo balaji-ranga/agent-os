@@ -4,6 +4,116 @@
 
 > Browser tab title: **Flowlah - An Agent Company Setup**. Login footer: **Flowlah (Automate, Innovate, Elevate)**.
 
+When you register as a CEO, Flowlah automatically sets up your standard agents, a starter **departments** list, and this **User Guide** as a Master Data document so your agents can look it up.
+
+---
+
+## Using Flowlah — guide for CEOs (from the UI)
+
+This section is for everyday use in the browser. You do not need to know APIs or Docker.
+
+### Sign in and first look
+
+1. Open the Flowlah site and **Log in** (or **Register** if you are new).
+2. After login you land on the **Dashboard** — your org chart of agents (COO and specialists).
+3. The **bell** in the top bar is your notification center (agent replies and messages pushed to you).
+
+### Chat with an agent
+
+1. On the **Dashboard**, click an agent (or open **Chat**).
+2. Type your request in plain language and send.
+3. When the agent uses tools (Master Data, notify you, email, etc.), small **tool icons** may appear under the reply so you can see what it did.
+4. Prefer asking the **COO** for work that should be planned or handed to a specialist (research, applications, etc.).
+
+### Ask the COO to delegate specialty work
+
+1. Open **Chat** with your **COO**.
+2. Describe the outcome you want (for example: research a topic, draft something, check company data).
+3. The COO matches your ask to the right specialist using each agent’s purpose (from org docs), starts a Kanban card, and tracks the work.
+4. Watch progress on **Kanban**; when something is ready for you, check the **bell**.
+
+Tips:
+- One clear request works best (“Research X and summarize findings”).
+- Vague “help me” messages may stay with the COO instead of going to a specialist.
+- COO-native asks (workflows, tools, Kanban, standups) usually stay with the COO.
+
+### Broadcast to several agents
+
+1. Open **Broadcast** from the navigation.
+2. Write a message to send to multiple agents (for example a status check or announcement).
+3. If you want each agent to **notify you** when they finish (bell), say so clearly in the message (e.g. “report status and notify me”).
+4. Review results in agent chats and in the **bell**.
+
+### Notifications (bell)
+
+1. Click the **bell** to see recent items (platform alerts and agent responses).
+2. Hover a short snippet to read the **full** title or message.
+3. Open the linked chat when you want to continue the conversation.
+4. Use **Clear** / dismiss to tidy items you have already handled.
+
+### Master Data (tables) and documents (RAG)
+
+1. Open **Master Data**.
+2. **Tables** — structured lists (rows and columns). Your account starts with a **departments** table (Executive, Research, Finance, and so on). Add or edit departments here; they appear when you assign agents to a department.
+3. **Documents** — upload files your agents can search (policies, guides, handbooks). New accounts already include this **Flowlah User Guide (README)** so agents can answer “how do I use Flowlah?” style questions.
+4. When you chat with an agent that has Master Data tools, ask in plain language (“list departments”, “what does our PTO policy say?”). The agent lists tables or searches documents as needed.
+
+### Org chart and Resync
+
+1. On the **Dashboard**, review who reports to whom.
+2. After you add, rename, or reorganize agents, use **Resync ORG.md & AGENTS.md** so every agent’s org docs stay current (who the CEO is, peers, and who the COO may delegate to).
+3. Open an agent’s **Workspace** to review or edit personality and tool instructions (`SOUL`, `AGENTS`, `TOOLS`, etc.).
+
+### Kanban and standups
+
+1. **Kanban** — board of tasks by agent and status. Open a card for detail, artifacts, and task chat.
+2. **Standups** — team check-ins with COO chat. Daily standups can also run on a schedule when configured by your admin.
+3. Tasks created when the COO delegates appear on the board so you can track specialty work end to end.
+
+### Workflows and AgentExchange
+
+1. **Workflows** — build visual automations (triggers, agents, APIs, approvals). Publish a run and watch it on Kanban.
+2. **Publish as A2A** from a workflow if you want it listed for others.
+3. **AgentExchange** — browse published workflow agents across the platform.
+
+### Job search pipeline (optional)
+
+1. Set up a **Job profile** with preferences and resume context.
+2. Use **Job workflows** for discovery → scoring → tailoring → application, tracked on Kanban.
+3. Review candidates and applications in the Job UIs when the pipeline finds matches.
+
+### Tools, email, and “notify me”
+
+Agents you grant tools to can:
+- Send email (when mail is configured for your environment)
+- **Notify you** in the bell (`notify_ceo`)
+- Read/update Master Data and search documents
+- Move Kanban cards and trigger workflows (when allowed)
+
+Grant or revoke tools on each agent’s **Workspace → Tools access**.
+
+### Profile and AI model
+
+1. Open your **Profile**.
+2. Choose how the platform picks models (platform default, your API key, or local options like DeepSeek on Ollama when available).
+3. Keep MFA settings as required by your organization.
+
+---
+
+## What’s new (recent product highlights)
+
+| Area | What you get in the UI |
+|------|-------------------------|
+| **COO specialty routing** | COO chat routes specialty asks using agent purposes (org docs), not guesswork keywords. |
+| **Broadcast + notify** | Broadcast can ask agents to report back and ping your bell; quieter when you only want a rollup. |
+| **Master Data + document search** | Tables with purposes; documents agents can search; starter **departments** + this guide on register. |
+| **Chat tool icons** | See which tools an agent used under a reply. |
+| **Notification tooltips** | Hover the bell snippet for the full message. |
+| **Tenant Workspace docs** | Your CEO workspace files stay in your space; Resync keeps ORG/AGENTS accurate. |
+| **Shared notification dismiss** | Clear/dismiss keeps the bell feed tidy across platform + agent items. |
+
+---
+
 ## Interface: OpenClaw Gateway
 
 The backend uses the [OpenClaw Gateway](https://docs.openclaw.ai/gateway) HTTP API:
@@ -57,7 +167,7 @@ Frontend runs at **http://127.0.0.1:3000** and proxies `/api` to the backend (ov
 
 ### 3. Log in
 
-Open **http://127.0.0.1:3000/login**. Default admin is seeded from `.env` (`AGENT_OS_ADMIN_*`). CEO users see Dashboard, Workflows, Kanban, Job profiles, AgentExchange, etc. Admin users manage platform accounts and MCP registry. New CEOs register at `/register` and get provisioned OpenClaw agents + org context.
+Open **http://127.0.0.1:3000/login**. Default admin is seeded from `.env` (`AGENT_OS_ADMIN_*`). CEO users see Dashboard, Workflows, Kanban, Job profiles, AgentExchange, etc. Admin users manage platform accounts and MCP registry. New CEOs register at `/register` and get provisioned OpenClaw agents, org context, starter **departments**, and this README as a Master Data document.
 
 ### 4. OpenClaw gateway (for chat)
 
@@ -81,14 +191,14 @@ Set in backend `.env`:
 
 | Feature | Description |
 |--------|-------------|
-| **Auth & roles** | Login/register; **admin** (user management, MCP registry) and **ceo** (agents, workflows, kanban, job pipeline). JWT sessions. New CEO registration provisions OpenClaw agents and syncs org context. |
+| **Auth & roles** | Login/register; **admin** (user management, MCP registry) and **ceo** (agents, workflows, kanban, job pipeline). JWT sessions. New CEO registration provisions OpenClaw agents, syncs org context, seeds **departments** + default **User Guide** document. |
 | **Multi-tenant isolation** | Standups and delegation tasks carry `owner_user_id`. Standup cron and delegation cron loop **per enabled CEO** so one CEO never sees another’s standups, chats, or queued agent work. APIs filter by authenticated CEO. |
 | **Org-aware agents** | Every agent in a CEO’s org gets **ORG.md** (CEO, departments, peers with soul/purpose/skills) plus a tenant-specific COO **AGENTS.md** (delegatees). Synced on provision, agent create, and backend startup. Bootstrap watcher reloads `ORG.md` each turn. |
-| **Dashboard** | List agents (org chart); add agent; open **Chat** per agent; standups with COO chat (owner-scoped only); sync from OpenClaw. |
-| **Chat** | 1:1 chat with an OpenClaw agent via gateway; session affinity per agent; history stored in SQLite; compose helpers for richer messages. |
-| **Agent workspace** | Per-agent **SOUL.md, AGENTS.md, ORG.md, MEMORY.md, TOOLS.md** editor; **Tools access** panel (grant/revoke content tools per agent, hot-sync to OpenClaw without gateway restart). |
-| **Notifications** | **Bell icon** in nav: recent agent delegation responses (owner-scoped) and **platform notifications** (e.g. `notify_ceo`); link to agent Chat; clear/dismiss. |
-| **Kanban** | Board view (tasks by agent and status); task detail with **task chat**, artifacts, workflow run links. Reopen task; create task (COO or direct to agent). |
+| **Dashboard** | List agents (org chart); add agent; open **Chat** per agent; standups with COO chat (owner-scoped only); **Resync ORG.md & AGENTS.md**. |
+| **Chat** | 1:1 chat with an OpenClaw agent via gateway; session affinity per agent; history stored in SQLite; **tool-call icons** on assistant replies when Agent OS tools ran. |
+| **Agent workspace** | Per-agent **SOUL.md, AGENTS.md, ORG.md, MEMORY.md, TOOLS.md** editor (tenant path for signed-in CEO); **Tools access** panel (grant/revoke content tools per agent, hot-sync to OpenClaw without gateway restart). |
+| **Notifications** | **Bell icon** in nav: agent responses + platform notifications; hover for full text; link to agent Chat; clear/dismiss (shared feed). |
+| **Kanban** | Board view (tasks by agent and status); task detail with **task chat**, artifacts, workflow run links. Reopen task; create task (COO or direct to agent). Auto-completes when COO chat delegations finish. |
 | **Custom workflows** | Visual **Workflows** editor: trigger (manual / schedule / chat / event webhook), agent, API, MCP tool, **SSE listen**, **sub-workflow**, Brain (LLM + optional MCP tool calling), email, IF/While, parallel/merge, CEO approval, **external agent (A2A)**. Publish, run instances, paginated run history, search, **stop SSE listen** on active runs. |
 | **Publish as A2A** | From the workflow editor, **Publish A2A** exposes a workflow as an A2A-compliant agent (agent card + JSON-RPC endpoint). Unpublish removes it from AgentExchange. |
 | **AgentExchange** | Browse all published A2A workflow agents across the platform (`/agent-exchange`). Public cards at `/a2a/:publishId/.well-known/agent-card.json`. |
@@ -98,11 +208,11 @@ Set in backend `.env`:
 | **MCP integrations** | Register MCP servers (admin/CEO); connect, test tools, playground; use in workflow **MCP Tool** and **SSE Listen** nodes. Local test server: `tools/local-mcp-random-sse/`. |
 | **External agents (A2A)** | Register external agent endpoints; invoke from workflow **External Agent** node. |
 | **Content tools** | Agent-callable tools: summarize URL, image/video gen, Kanban, **intent_classify_and_delegate**, workflow trigger/enquire/mutate, job applicant tools, **email_send**, **notify_ceo**, **Master Data** (`master_data_list_tables` / row CRUD / `master_data_rag`), learnings, browser, etc.; owner-scoped logs UI; onboard new APIs via script. |
-| **Master Data & RAG** | Per-CEO tables + documents (keyword RAG). UI captures **purpose/description** per table. Agents list tables with purpose and CRUD rows / RAG docs via content tools — **no create/alter/drop table**. |
-| **COO delegation** | COO uses `intent_classify_and_delegate` / AGENTS.md to allocate work; tasks enqueue with `owner_user_id`; per-CEO worker sends to OpenClaw, stores replies, posts COO callback into that CEO’s standup. |
+| **Master Data & RAG** | Per-CEO tables + documents (keyword RAG). UI captures **purpose/description** per table. Agents list tables with purpose and CRUD rows / RAG docs via content tools — **no create/alter/drop table**. On register: starter **departments** table + default **Flowlah User Guide** document. |
+| **COO specialty delegation** | COO chat hard-path: AGENTS.md purpose intent → specialist (cap 1) + Kanban; peer specialty referral; COO-native work stays with COO. |
 | **Email send** | `email_send` content tool — agents can send email via configured mail integration (owner-scoped logging). |
 | **Notify CEO** | `notify_ceo` content tool — agents push a platform notification to their CEO (bell feed). |
-| **Broadcast** | Send messages to multiple agents. |
+| **Broadcast** | Send messages to multiple agents; LLM intent for status+notify; paced fan-out; exclude COO by default. |
 | **Tools onboarding** | Script `scripts/onboard-api-tool.js` onboards a new API as a tool from JSON (updates DB, OpenClaw tool list). See `scripts/tool-definitions/README.md`. |
 | **Workspace (legacy MD)** | Global workspace MD editor (older path); prefer **Agent workspace** per agent. |
 | **DB** | SQLite: agents, users, chat, standups (`owner_user_id`), delegations (`owner_user_id`), kanban, content tools, job profiles/applications, MCP servers, agent workflow definitions/runs, A2A publications, external agents, platform notifications, audit. |
@@ -116,7 +226,7 @@ Set in backend `.env`:
 | **Delegation cron** | For each enabled CEO: claim only that CEO’s `pending` `agent_delegation_tasks`, run agents in that CEO’s OpenClaw tenant, post callbacks only for that CEO’s request IDs. |
 | **Job pipeline cron** | Ticks job profiles / pipeline stages (see Job Applicant docs). |
 
-New CEOs start with **empty** standups (no other user’s chats or agents). Dashboard does not auto-open another CEO’s standup.
+New CEOs start with **empty** standups (no other user’s chats or agents), starter Master Data (**departments** + User Guide document). Dashboard does not auto-open another CEO’s standup.
 
 ### Custom Agent Workflows (high level)
 
@@ -175,7 +285,7 @@ Laptop sync (when VPS cannot `git pull`):
 .\deploy\scripts\sync-to-vps.ps1 -Services backend
 ```
 
-- **deploy/README.md** — Compose services, volumes, profiles, OpenConnector / email-inbound
+- **deploy/README.md** — Compose services, volumes, profiles, OpenConnector / email-inbound, repeatable sync
 - **knowledgebase/DEPLOY-CENTOS-PODMAN.md** — CentOS, Podman, SELinux, Chromium/browser login
 - **scripts/setup-openclaw-from-scratch.sh** — Linux bootstrap (also runs in the `init` container)
 
@@ -201,7 +311,7 @@ All routes below are also available under **`/api/...`** (frontend uses `/api` p
 
 ### Agents & workspace
 
-- `GET/POST/PATCH/DELETE /agents` — agent CRUD
+- `GET/POST /agents` — agent CRUD
 - `GET/POST /agents/:id/chat` — chat history and send message (→ gateway)
 - `GET/PUT /agents/:id/workspace/:file` — soul, agents, **org**, memory, tools MD
 - `GET/PUT /agents/:id/tools` — per-agent content tool grants
@@ -246,6 +356,10 @@ All routes below are also available under **`/api/...`** (frontend uses `/api` p
 - `/integrations/mcp/*` — MCP server registry, connect, test, call tool
 - `/external-agents/*` — A2A agent registry and task invoke
 
+### Master Data
+
+- `/master-data/*` — tables, rows, documents, RAG (per CEO). Default User Guide document + departments seeded on CEO register / backend startup backfill.
+
 ### Media
 
 - `GET /media/openclaw/*` — proxied OpenClaw media for chat/kanban display
@@ -266,6 +380,7 @@ See **knowledgebase/TESTING.md** for full test cases and restart steps.
 
 - **Schema:** `backend/src/db/schema.js` — `initDb()`, `getDb()`. DB: `backend/data/agent-os.db` (or `AGENT_OS_DATA_DIR`). Includes `standups.owner_user_id`, `agent_delegation_tasks.owner_user_id`, A2A publications, platform notifications.
 - **Seeds:** `seed-default-agents.js`, `seed-content-tools-meta.js` (email_send, notify_ceo, Kanban, workflow tools), `seed-job-applicant-tools.js`, `seed-workflow-builder-agent.js`
+- **Default CEO Master Data:** `backend/src/services/ceo-default-master-data.js` — departments table + Flowlah User Guide (README) on register and startup backfill
 - **Backend scripts:** `backend/scripts/` — seeds, E2E tests, MCP seed, workflow tests, COO org/delegation smoke, `cleanup-workflow-runs.js`
 - **OpenClaw scripts:** `scripts/` — `setup-openclaw-from-scratch.ps1`, `onboard-api-tool.js`, `apply-openclaw-agents-config.js`, `setup-job-applicant-agents.js`, `sync-browser-tools-md.js`, `install-agent-os-content-tools-extension.js`, kill/restart helpers
 - **Allowlists:** `backend/src/lib/content-tools-allow.js` (Docker-safe; keep in sync with `scripts/lib/content-tools-allow.js`)
@@ -297,16 +412,16 @@ agent-os/
 │       │                         # agent-workflows, workflow-a2a, agent-exchange,
 │       │                         # platform-notifications, mcp-integrations, …
 │       ├── services/           # org-context, openclaw-tenant, delegation-queue,
-│       │                         # email-send, notify-ceo, workflow-a2a-publish, …
+│       │                         # email-send, notify-ceo, ceo-default-master-data, …
 │       └── gateway/openclaw.js
 └── frontend/
     └── src/
         ├── pages/              # Dashboard, Login (Flowlah footer), AgentChat,
         │                         # AgentWorkspace, Kanban, AgentWorkflows,
         │                         # AgentWorkflowEditor, AgentExchange, JobProfiles,
-        │                         # JobWorkflows, McpIntegrations, ExternalAgents, …
+        │                         # JobWorkflows, MasterData, Broadcast, …
         └── components/         # NotificationBell, PublishA2AModal, ChatComposeInput,
-                                # workflow editor nodes, Kanban artifacts
+                                # ChatToolCalls, workflow editor nodes, Kanban artifacts
 ```
 
 ## Documentation (knowledge base)

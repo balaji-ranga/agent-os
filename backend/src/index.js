@@ -37,6 +37,7 @@ import { attachAuthUser, requireAuth, requireCeoOrAdmin } from './middleware/aut
 import { ensureInternalTokenConfigured } from './middleware/internal-auth.js';
 import { ensureMfaTables } from './services/auth/mfa.js';
 import { ensureDefaultAdmin, ensureBalaCeoUser, grantStandardAgents } from './services/users.js';
+import { ensureCeoDefaultMasterDataForAllCeos } from './services/ceo-default-master-data.js';
 import { initDb, getDb } from './db/schema.js';
 import { seedDefaultAgentsIfEmpty, seedAgentDepartmentsIfMissing } from './db/seed-default-agents.js';
 import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, seedWorkflowToolsIfMissing, seedLearningsToolsIfMissing, seedEmailSendToolIfMissing, seedNotifyCeoToolIfMissing, seedMasterDataToolsIfMissing, updateKanbanToolPurposes } from './db/seed-content-tools-meta.js';
@@ -99,7 +100,17 @@ ensureBalaCeoUser();
 try {
   const ceos = getDb().prepare(`SELECT id FROM platform_users WHERE role = 'ceo'`).all();
   for (const { id } of ceos) grantStandardAgents(id);
-} catch (_) {}
+  const md = ensureCeoDefaultMasterDataForAllCeos(ceos.map((c) => c.id));
+  if (md.deptCreated || md.deptSeeded || md.guidesCreated || md.guidesUpdated) {
+    console.log(
+      `[startup] CEO default master data: departments created=${md.deptCreated} seeded=${md.deptSeeded}, ` +
+        `guides created=${md.guidesCreated} updated=${md.guidesUpdated}` +
+        (md.guidesSkipped ? ` (readme missing=${md.guidesSkipped})` : '')
+    );
+  }
+} catch (e) {
+  console.warn('[startup] CEO default master data:', e.message);
+}
 seedContentToolsMetaIfEmpty();
 seedKanbanToolsIfMissing();
 seedWorkflowToolsIfMissing();
