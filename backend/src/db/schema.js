@@ -922,6 +922,26 @@ export function initDb() {
 
   try {
     _db.exec(`
+      CREATE TABLE IF NOT EXISTS openconnector_user_links (
+        user_id TEXT PRIMARY KEY,
+        runtime_token TEXT,
+        connection_name TEXT DEFAULT '',
+        oc_user_id TEXT DEFAULT '',
+        linked_at TEXT,
+        last_provisioned_at TEXT,
+        last_error TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (user_id) REFERENCES platform_users(id) ON DELETE CASCADE
+      )
+    `);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_openconnector_links_connection ON openconnector_user_links(connection_name)`
+    );
+  } catch (_) {}
+
+  try {
+    _db.exec(`
       CREATE TABLE IF NOT EXISTS agent_response_feedback (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         owner_user_id TEXT NOT NULL,

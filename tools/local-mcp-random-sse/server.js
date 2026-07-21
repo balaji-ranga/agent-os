@@ -288,8 +288,10 @@ const server = http.createServer(async (req, res) => {
   res.end(JSON.stringify({ error: 'Not found', paths: ['POST /mcp', 'GET /events/stream', 'GET /health'] }));
 });
 
-server.listen(PORT, '127.0.0.1', () => {
-  console.log(`[local-mcp-random-sse] http://127.0.0.1:${PORT}`);
+const HOST = process.env.MCP_RANDOM_HOST || '0.0.0.0';
+
+server.listen(PORT, HOST, () => {
+  console.log(`[local-mcp-random-sse] http://${HOST}:${PORT}`);
   console.log(`  POST /mcp`);
   console.log(`  GET  /events/stream`);
   if (WORKFLOW_HOOK_URL) console.log(`  Hook → ${WORKFLOW_HOOK_URL}`);

@@ -57,6 +57,7 @@ scp @ssh `
   "$Repo\deploy\scripts\vps-smoke-new-features.sh" `
   "$Repo\deploy\scripts\vps-smoke-broadcast-notify.sh" `
   "$Repo\deploy\scripts\vps-smoke-deepseek-brain.sh" `
+  "$Repo\deploy\scripts\vps-smoke-brain-mcp.sh" `
   "$Repo\deploy\scripts\vps-rebuild-frontend.sh" `
   "$Repo\deploy\scripts\ensure-deepseek-env.sh" `
   "$Repo\deploy\scripts\vps-deploy-coo-org-fix.sh" `
@@ -133,6 +134,7 @@ sed -i 's/\r`$//' \
   $RemoteRoot/deploy/scripts/vps-smoke-new-features.sh \
   $RemoteRoot/deploy/scripts/vps-smoke-broadcast-notify.sh \
   $RemoteRoot/deploy/scripts/vps-smoke-deepseek-brain.sh \
+  $RemoteRoot/deploy/scripts/vps-smoke-brain-mcp.sh \
   $RemoteRoot/deploy/scripts/ensure-deepseek-env.sh \
   $RemoteRoot/deploy/scripts/vps-rebuild-frontend.sh \
   $RemoteRoot/deploy/scripts/up.sh

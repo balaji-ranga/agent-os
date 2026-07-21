@@ -31,6 +31,11 @@ if (!server) {
   console.log('Created MCP:', server.id);
 } else {
   console.log('MCP already exists:', server.id);
+  if (URL && server.url !== URL) {
+    const { updateMcpServer } = await import('../src/services/mcp-servers.js');
+    server = updateMcpServer(MCP_ID, authUser, { url: URL });
+    console.log('Updated MCP URL:', URL);
+  }
 }
 
 console.log('Connecting to', URL, '...');

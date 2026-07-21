@@ -40,6 +40,7 @@ export const TASK_TYPES = {
   tool: { label: 'Content Tool', color: '#9333ea', icon: '🔧' },
   email: { label: 'Send Email', color: '#dc2626', icon: '✉' },
   api: { label: 'Call API', color: '#7c3aed', icon: '⇄' },
+  connector: { label: 'Connector', color: '#f59e0b', icon: '🔌' },
   parallel: { label: 'Parallel', color: '#ea580c', icon: '⑂' },
   merge: { label: 'Merge', color: '#0891b2', icon: '⊕' },
 };

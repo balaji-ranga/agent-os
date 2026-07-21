@@ -271,6 +271,22 @@ export const api = {
   agentWorkflowHookRegenerateSecret: (id, body = {}) =>
     post(`/agent-workflows/${encodeURIComponent(id)}/hooks/regenerate-secret`, body),
   openconnectorStatus: () => get('/integrations/openconnector/status'),
+  openconnectorLink: () => get('/integrations/openconnector/link'),
+  openconnectorLinkUpdate: (body) => post('/integrations/openconnector/link', body),
+  openconnectorProvision: (body = {}) => post('/integrations/openconnector/provision', body),
+  openconnectorApps: () => get('/integrations/openconnector/apps'),
+  openconnectorAppsSearch: (q = '') =>
+    get(`/integrations/openconnector/apps/search?q=${encodeURIComponent(q)}`),
+  openconnectorActions: (appId, q = '') =>
+    get(
+      `/integrations/openconnector/apps/${encodeURIComponent(appId)}/actions${
+        q ? `?q=${encodeURIComponent(q)}` : ''
+      }`
+    ),
+  openconnectorActionGuide: (actionId) =>
+    get(`/integrations/openconnector/actions/${encodeURIComponent(actionId)}/guide`),
+  openconnectorExecute: (actionId, body = {}) =>
+    post(`/integrations/openconnector/actions/${encodeURIComponent(actionId)}/execute`, body),
   agentWorkflowCreate: (body) => post('/agent-workflows', body),
   agentWorkflowUpdate: (id, body) => patch(`/agent-workflows/${encodeURIComponent(id)}`, body),
   agentWorkflowPublish: (id) => post(`/agent-workflows/${encodeURIComponent(id)}/publish`, {}),

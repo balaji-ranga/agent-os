@@ -24,6 +24,14 @@ function UserProfilePanel() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
+  const [oc, setOc] = useState({
+    runtime_token: '',
+    clear_runtime_token: false,
+    connection_name: '',
+    runtime_token_hint: null,
+    runtime_token_set: false,
+    last_error: null,
+  });
 
   useEffect(() => {
     if (!user) return;
@@ -61,6 +69,20 @@ function UserProfilePanel() {
         setLlmHint(data.user?.llm_api_key_hint || null);
       })
       .catch(() => {});
+    api
+      .openconnectorLink()
+      .then((data) =>
+        setOc((prev) => ({
+          ...prev,
+          runtime_token: '',
+          clear_runtime_token: false,
+          connection_name: data.connection_name || '',
+          runtime_token_hint: data.runtime_token_hint || null,
+          runtime_token_set: !!data.runtime_token_set,
+          last_error: data.last_error || null,
+        }))
+      )
+      .catch(() => {});
   }, [user]);
 
   const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
@@ -94,6 +116,22 @@ function UserProfilePanel() {
         body.llm_api_key = form.llm_api_key.trim();
       }
       const data = await api.authUpdateProfile(body);
+      if (oc.clear_runtime_token || (oc.runtime_token && oc.runtime_token.trim()) || oc.connection_name) {
+        const link = await api.openconnectorLinkUpdate({
+          runtime_token: oc.runtime_token && oc.runtime_token.trim() ? oc.runtime_token.trim() : undefined,
+          clear_runtime_token: oc.clear_runtime_token,
+          connection_name: oc.connection_name,
+        });
+        setOc((prev) => ({
+          ...prev,
+          runtime_token: '',
+          clear_runtime_token: false,
+          connection_name: link.connection_name || prev.connection_name,
+          runtime_token_hint: link.runtime_token_hint || null,
+          runtime_token_set: !!link.runtime_token_set,
+          last_error: link.last_error || null,
+        }));
+      }
       await reload();
       if (data.mfa) {
         setMfaInfo((prev) => ({
@@ -126,6 +164,29 @@ function UserProfilePanel() {
 
   const platRequire = mfaInfo?.platform_require_mfa;
   const platMode = mfaInfo?.platform_mfa_mode || 'EMAIL';
+
+  const provisionOpenConnector = async () => {
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const data = await api.openconnectorProvision();
+      setOc((prev) => ({
+        ...prev,
+        runtime_token: '',
+        clear_runtime_token: false,
+        connection_name: data.connection_name || prev.connection_name,
+        runtime_token_hint: data.runtime_token_hint || null,
+        runtime_token_set: !!data.runtime_token_set,
+        last_error: data.last_error || null,
+      }));
+      setMessage('OpenConnector runtime token provisioned.');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <div style={{ padding: '1.5rem', maxWidth: 520, margin: '0 auto' }}>
@@ -261,6 +322,54 @@ function UserProfilePanel() {
             <code>ollama pull deepseek-v3</code>.
           </p>
         )}
+
+        <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '0.5rem 0' }} />
+        <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--muted)' }}>
+          OpenConnector link — used by Connector workflow nodes and connector-backed tools.
+        </p>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
+            Runtime token {oc.runtime_token_hint ? `(saved: ${oc.runtime_token_hint})` : ''}
+          </span>
+          <input
+            type="password"
+            value={oc.runtime_token}
+            onChange={(e) => setOc((v) => ({ ...v, runtime_token: e.target.value }))}
+            placeholder={oc.runtime_token_set ? 'Leave blank to keep current token' : 'Paste oct_... token'}
+            autoComplete="off"
+            style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+          />
+        </label>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Default connection name</span>
+          <input
+            value={oc.connection_name}
+            onChange={(e) => setOc((v) => ({ ...v, connection_name: e.target.value }))}
+            placeholder="ceo-yourid"
+            style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+          />
+        </label>
+        {oc.runtime_token_set && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8rem', color: 'var(--muted)' }}>
+            <input
+              type="checkbox"
+              checked={oc.clear_runtime_token}
+              onChange={(e) => setOc((v) => ({ ...v, clear_runtime_token: e.target.checked }))}
+            />
+            Clear saved OpenConnector token
+          </label>
+        )}
+        {oc.last_error && <p style={{ margin: 0, fontSize: '0.82rem', color: '#f87171' }}>{oc.last_error}</p>}
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={provisionOpenConnector}
+            style={{ padding: '0.65rem 1rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+          >
+            {busy ? 'Working…' : 'Auto provision token'}
+          </button>
+        </div>
 
         <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '0.5rem 0' }} />
         <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--muted)' }}>Change password (optional)</p>

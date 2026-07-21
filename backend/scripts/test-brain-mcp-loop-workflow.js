@@ -51,8 +51,12 @@ async function checkLlm() {
   const { baseUrl, apiKey, model, requiresKey } = resolveBrainProviderConfig(brainCfg.modelSource, brainCfg);
   const url = `${baseUrl.replace(/\/$/, '')}/models`.replace('/v1/models', '/api/tags');
   if (brainCfg.modelSource === 'ollama') {
-    const r = await fetch('http://127.0.0.1:11434/api/tags', { signal: AbortSignal.timeout(5000) }).catch(() => null);
-    if (!r?.ok) throw new Error('Ollama not reachable at http://127.0.0.1:11434 — start Ollama or set BRAIN_MCP_TEST_PROVIDER=openai');
+    const ollamaRoot = (process.env.OLLAMA_BASE_URL || brainCfg.apiEndpoint || 'http://127.0.0.1:11434/v1')
+      .replace(/\/v1\/?$/, '')
+      .replace(/\/$/, '');
+    const tagsUrl = `${ollamaRoot}/api/tags`;
+    const r = await fetch(tagsUrl, { signal: AbortSignal.timeout(8000) }).catch(() => null);
+    if (!r?.ok) throw new Error(`Ollama not reachable at ${ollamaRoot} — start Ollama or set BRAIN_MCP_TEST_PROVIDER=openai`);
     const data = await r.json().catch(() => ({}));
     const names = (data.models || []).map((m) => m.name);
     console.log('Ollama models:', names.slice(0, 5).join(', ') || '(none listed)');
@@ -65,7 +69,8 @@ async function checkLlm() {
 }
 
 async function ensureMcp(admin) {
-  const health = await fetch('http://127.0.0.1:3099/health').catch(() => null);
+  const mcpBase = process.env.MCP_RANDOM_URL?.replace(/\/mcp$/, '') || 'http://127.0.0.1:3099';
+  const health = await fetch(`${mcpBase}/health`).catch(() => null);
   if (!health?.ok) {
     throw new Error('Local MCP not running — start: node tools/local-mcp-random-sse/server.js');
   }

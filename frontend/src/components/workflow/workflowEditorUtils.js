@@ -7,6 +7,7 @@ const NODE_HANDLES_HINT = {
   mcp_listen: 'Long-running SSE — connect downstream IF / Parallel / Sub-workflow to handle each event',
   sse_listen: 'Long-running SSE — connect downstream IF / Parallel / Sub-workflow to handle each event',
   sub_workflow: 'Invoke another workflow by ID using manual, event, or chat trigger',
+  connector: 'Runs an OpenConnector app action using the signed-in CEO connector link',
   externalAgent: 'Invoke a registered external agent via A2A protocol (JSON-RPC)',
   custom_script: 'Run an approved custom LangGraph / Python / JS script in a sandbox',
   parallel: 'Runs all outgoing branches concurrently',

@@ -8,6 +8,6 @@ ENV MCP_RANDOM_PORT=3099
 EXPOSE 3099
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-  CMD curl -fsS "http://127.0.0.1:${MCP_RANDOM_PORT}/health" || exit 1
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.MCP_RANDOM_PORT||3099)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 CMD ["node", "server.js"]

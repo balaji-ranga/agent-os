@@ -72,7 +72,7 @@ function migrateNodeWithCatalog(node, catalog) {
   return { ...node, data };
 }
 
-function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, externalAgents, externalAgentsLoadError, customScripts, customScriptsLoadError, taskCatalog, allNodes, edges, hookInfo, onChange, onDelete, onRegenerateHookSecret, onFetchHookInfo, regeneratingSecret }) {
+function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connectorApps, connectorSearchResults, connectorActions, connectorGuide, connectorLoadError, connectorSearchQuery, onConnectorSearchChange, externalAgents, externalAgentsLoadError, customScripts, customScriptsLoadError, taskCatalog, allNodes, edges, hookInfo, onChange, onDelete, onRegenerateHookSecret, onFetchHookInfo, regeneratingSecret }) {
   const [secretVisible, setSecretVisible] = useState(false);
   if (!node) {
     return (
@@ -402,6 +402,124 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, extern
           <small className="wf-field-hint">
             Use HTTP Headers for Postman-style auth (e.g. Authorization: Basic …) with Authentication set to None.
           </small>
+        </>
+      )}
+
+      {node.type === 'connector' && (
+        <>
+          <label className="wf-field">
+            Connected connector
+            <select
+              value={data.taskConfig?.appId || ''}
+              onChange={(e) => {
+                const id = e.target.value;
+                const app = (connectorApps || []).find((x) => x.id === id) || (connectorSearchResults || []).find((x) => x.id === id);
+                set({
+                  taskConfig: {
+                    ...data.taskConfig,
+                    appId: id,
+                    appName: app?.name || id,
+                    actionId: '',
+                  },
+                  label: app?.name || data.label || 'Connector',
+                });
+              }}
+            >
+              <option value="">— select connected app —</option>
+              {(connectorApps || []).map((app) => (
+                <option key={app.id} value={app.id}>
+                  {app.name}
+                </option>
+              ))}
+            </select>
+            <small>Connected apps for this CEO appear here first.</small>
+          </label>
+
+          <label className="wf-field">
+            Search all connectors
+            <input
+              value={connectorSearchQuery || ''}
+              onChange={(e) => onConnectorSearchChange?.(e.target.value)}
+              placeholder="gmail, github, notion…"
+            />
+            <small>Search the full OpenConnector catalog for more apps.</small>
+          </label>
+
+          {!!(connectorSearchResults || []).length && (
+            <label className="wf-field">
+              Search results
+              <select
+                value=""
+                onChange={(e) => {
+                  const id = e.target.value;
+                  if (!id) return;
+                  const app = (connectorSearchResults || []).find((x) => x.id === id);
+                  set({
+                    taskConfig: {
+                      ...data.taskConfig,
+                      appId: id,
+                      appName: app?.name || id,
+                      actionId: '',
+                    },
+                    label: app?.name || data.label || 'Connector',
+                  });
+                }}
+              >
+                <option value="">— pick from search —</option>
+                {(connectorSearchResults || []).map((app) => (
+                  <option key={app.id} value={app.id}>
+                    {app.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          <label className="wf-field">
+            Action
+            <select
+              value={data.taskConfig?.actionId || ''}
+              onChange={(e) => {
+                const value = e.target.value;
+                set({ taskConfig: { ...data.taskConfig, actionId: value } });
+              }}
+              disabled={!data.taskConfig?.appId}
+            >
+              <option value="">— select action —</option>
+              {(connectorActions || []).map((action) => (
+                <option key={action.id} value={action.id}>
+                  {action.id}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="wf-field">
+            Connection name (optional)
+            <input
+              value={data.taskConfig?.connectionName || ''}
+              onChange={(e) => set({ taskConfig: { ...data.taskConfig, connectionName: e.target.value } })}
+              placeholder="ceo-..."
+            />
+            <small>Leave blank to use your saved default connector alias.</small>
+          </label>
+
+          <label className="wf-field">
+            Static input JSON
+            <textarea
+              rows={4}
+              value={data.taskConfig?.staticInputJson || '{}'}
+              onChange={(e) => set({ taskConfig: { ...data.taskConfig, staticInputJson: e.target.value } })}
+            />
+          </label>
+
+          {connectorLoadError && <small style={{ color: '#dc2626' }}>{connectorLoadError}</small>}
+          {!!connectorGuide && (
+            <div className="wf-field">
+              <strong>Action guide</strong>
+              <textarea rows={8} value={connectorGuide} readOnly />
+            </div>
+          )}
         </>
       )}
 
@@ -1152,6 +1270,12 @@ function EditorInner({ workflowId }) {
   const [taskCatalog, setTaskCatalog] = useState([]);
   const [mcpServers, setMcpServers] = useState([]);
   const [mcpLoadError, setMcpLoadError] = useState(null);
+  const [connectorApps, setConnectorApps] = useState([]);
+  const [connectorSearchResults, setConnectorSearchResults] = useState([]);
+  const [connectorActions, setConnectorActions] = useState([]);
+  const [connectorGuide, setConnectorGuide] = useState('');
+  const [connectorLoadError, setConnectorLoadError] = useState(null);
+  const [connectorSearchQuery, setConnectorSearchQuery] = useState('');
   const [externalAgents, setExternalAgents] = useState([]);
   const [externalAgentsLoadError, setExternalAgentsLoadError] = useState(null);
   const [customScripts, setCustomScripts] = useState([]);
@@ -1190,6 +1314,74 @@ function EditorInner({ workflowId }) {
       .catch((e) => {
         setExternalAgents([]);
         setExternalAgentsLoadError(e.message || 'Failed to load external agents');
+      });
+  }, []);
+
+  const loadConnectorApps = useCallback(() => {
+    return api
+      .openconnectorApps()
+      .then((res) => {
+        setConnectorApps(res.apps || []);
+        setConnectorLoadError(null);
+      })
+      .catch((e) => {
+        setConnectorApps([]);
+        setConnectorLoadError(e.message || 'Failed to load connected connectors');
+      });
+  }, []);
+
+  const loadConnectorSearch = useCallback((query) => {
+    const q = String(query || '').trim();
+    setConnectorSearchQuery(q);
+    if (!q) {
+      setConnectorSearchResults([]);
+      return Promise.resolve([]);
+    }
+    return api
+      .openconnectorAppsSearch(q)
+      .then((res) => {
+        setConnectorSearchResults(res.apps || []);
+        setConnectorLoadError(null);
+        return res.apps || [];
+      })
+      .catch((e) => {
+        setConnectorSearchResults([]);
+        setConnectorLoadError(e.message || 'Failed to search connectors');
+        return [];
+      });
+  }, []);
+
+  const loadConnectorActions = useCallback((appId, actionId = '') => {
+    const id = String(appId || '').trim();
+    if (!id) {
+      setConnectorActions([]);
+      setConnectorGuide('');
+      return Promise.resolve([]);
+    }
+    return api
+      .openconnectorActions(id)
+      .then(async (res) => {
+        const actions = res.actions || [];
+        setConnectorActions(actions);
+        setConnectorLoadError(null);
+        const selected = actionId || actions[0]?.id || '';
+        if (selected) {
+          try {
+            const guide = await api.openconnectorActionGuide(selected);
+            setConnectorGuide(guide.guide || '');
+          } catch {
+            setConnectorGuide('');
+          }
+        } else {
+          setConnectorGuide('');
+        }
+        return actions;
+      })
+      .catch((e) => {
+        setConnectorActions([]);
+        setConnectorGuide('');
+        setConnectorLoadError(e.message || 'Failed to load connector actions');
+        return [];
       });
   }, []);
 
@@ -1265,6 +1457,7 @@ function EditorInner({ workflowId }) {
       api.agentWorkflowAudit(workflowId),
       api.agentWorkflowTaskTypes(),
       loadMcpServers(),
+      loadConnectorApps(),
       loadExternalAgents(),
     ])
       .then(async ([wf, agentList, toolMeta, auditRes, catalogRes]) => {
@@ -1290,7 +1483,7 @@ function EditorInner({ workflowId }) {
         }
       })
       .catch((e) => showError(e.message || 'Failed to load workflow'));
-  }, [workflowId, setNodes, setEdges, showError, loadMcpServers, loadExternalAgents, seedHistory, loadA2aPublication]);
+  }, [workflowId, setNodes, setEdges, showError, loadMcpServers, loadConnectorApps, loadExternalAgents, seedHistory, loadA2aPublication]);
 
   useEffect(() => {
     load();
@@ -1308,9 +1501,13 @@ function EditorInner({ workflowId }) {
 
   useEffect(() => {
     if (selectedNode?.type === 'mcp_tool' || selectedNode?.type === 'mcp_listen' || selectedNode?.type === 'sse_listen' || selectedNode?.type === 'brain') loadMcpServers();
+    if (selectedNode?.type === 'connector') {
+      loadConnectorApps();
+      loadConnectorActions(selectedNode?.data?.taskConfig?.appId, selectedNode?.data?.taskConfig?.actionId);
+    }
     if (selectedNode?.type === 'externalAgent') loadExternalAgents();
     if (selectedNode?.type === 'custom_script' || selectedNode?.type === 'brain') loadCustomScripts();
-  }, [selectedNode?.id, selectedNode?.type, loadMcpServers, loadExternalAgents, loadCustomScripts]);
+  }, [selectedNode?.id, selectedNode?.type, selectedNode?.data?.taskConfig?.appId, selectedNode?.data?.taskConfig?.actionId, loadMcpServers, loadConnectorApps, loadConnectorActions, loadExternalAgents, loadCustomScripts]);
 
   const refreshHookInfo = useCallback(async (wf) => {
     // Prefer trigger_modes from the saved workflow object; fall back to canvas trigger node.
@@ -1423,6 +1620,11 @@ function EditorInner({ workflowId }) {
     event.dataTransfer.effectAllowed = 'move';
   };
 
+  const onConnectorDragStart = (event, app) => {
+    event.dataTransfer.setData('application/workflow-connector', JSON.stringify(app));
+    event.dataTransfer.effectAllowed = 'move';
+  };
+
   const onDragOver = (event) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
@@ -1432,6 +1634,7 @@ function EditorInner({ workflowId }) {
     event.preventDefault();
     const raw = event.dataTransfer.getData('application/workflow-node');
     const agentRaw = event.dataTransfer.getData('application/workflow-agent');
+    const connectorRaw = event.dataTransfer.getData('application/workflow-connector');
     const bounds = event.currentTarget.getBoundingClientRect();
     const position = { x: event.clientX - bounds.left - 80, y: event.clientY - bounds.top - 20 };
 
@@ -1444,6 +1647,23 @@ function EditorInner({ workflowId }) {
       node.data.label = agent.name;
       node.data.prompt =
         'Write an email body with a warm greeting and a bullet list of job opportunities you discovered. Plain text only, ready to send.\n\n{{input}}';
+      pushHistory();
+      setNodes((nds) => [...nds, node]);
+      setSelectedId(node.id);
+      setSelectedEdgeId(null);
+      return;
+    }
+
+    if (connectorRaw) {
+      const app = JSON.parse(connectorRaw);
+      const entry = taskCatalog.find((t) => t.type === 'connector');
+      const node = entry ? applyCatalogToNewNode('connector', entry, position) : defaultNodeData('connector', { position });
+      node.data.taskConfig = {
+        ...(node.data.taskConfig || {}),
+        appId: app.id,
+        appName: app.name,
+      };
+      node.data.label = app.name || 'Connector';
       pushHistory();
       setNodes((nds) => [...nds, node]);
       setSelectedId(node.id);
@@ -1823,6 +2043,29 @@ function EditorInner({ workflowId }) {
                 </div>
               ))}
           </div>
+
+          <h3 style={{ marginTop: '1.5rem' }}>Connectors</h3>
+          <p style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
+            Connected apps first, then search the full catalog in node properties
+          </p>
+          <div className="wf-agent-list">
+            {(connectorApps || []).map((app) => (
+              <div
+                key={app.id}
+                className="wf-palette-item wf-agent-chip"
+                draggable
+                onDragStart={(e) => onConnectorDragStart(e, app)}
+                title={app.id}
+              >
+                {app.name}
+              </div>
+            ))}
+            {!(connectorApps || []).length && (
+              <small style={{ color: 'var(--muted)' }}>
+                {connectorLoadError || 'No connected apps yet. Link a runtime token in your profile first.'}
+              </small>
+            )}
+          </div>
         </aside>
 
         <div className="wf-canvas" onDragOver={onDragOver} onDrop={onDrop}>
@@ -1876,6 +2119,13 @@ function EditorInner({ workflowId }) {
             tools={tools}
             mcpServers={mcpServers}
             mcpLoadError={mcpLoadError}
+            connectorApps={connectorApps}
+            connectorSearchResults={connectorSearchResults}
+            connectorActions={connectorActions}
+            connectorGuide={connectorGuide}
+            connectorLoadError={connectorLoadError}
+            connectorSearchQuery={connectorSearchQuery}
+            onConnectorSearchChange={loadConnectorSearch}
             externalAgents={externalAgents}
             externalAgentsLoadError={externalAgentsLoadError}
             customScripts={customScripts}

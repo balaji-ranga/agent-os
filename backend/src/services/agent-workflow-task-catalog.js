@@ -159,6 +159,34 @@ export const WORKFLOW_TASK_TYPES = {
       { id: 'authType', label: 'Auth type', type: 'select', options: ['none', 'basic', 'bearer', 'api_key'], default: 'none' },
     ]),
   },
+  connector: {
+    type: 'connector',
+    label: 'Connector',
+    color: '#f59e0b',
+    inputs: [
+      {
+        id: 'input',
+        label: 'Action input (JSON)',
+        required: false,
+        mode: 'dynamic',
+        description: 'Optional dynamic JSON merged with static action input.',
+      },
+    ],
+    outputs: [
+      { id: 'text', label: 'Connector response text' },
+      { id: 'result', label: 'Full connector result JSON' },
+      { id: 'ok', label: 'Success' },
+      { id: 'action_id', label: 'Executed action ID' },
+      { id: 'transport', label: 'Transport used (http|mcp)' },
+    ],
+    configFields: withNodeTimeoutConfigFields([
+      { id: 'appId', label: 'Connector app ID', type: 'text' },
+      { id: 'appName', label: 'Connector app name', type: 'text' },
+      { id: 'actionId', label: 'Action ID', type: 'text' },
+      { id: 'connectionName', label: 'Connection name (optional)', type: 'text', placeholder: 'ceo-...' },
+      { id: 'staticInputJson', label: 'Static input JSON', type: 'textarea', placeholder: '{}' },
+    ]),
+  },
   externalAgent: {
     type: 'externalAgent',
     label: 'External Agent (A2A)',

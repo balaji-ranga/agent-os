@@ -27,6 +27,7 @@ import { evaluateCondition } from './agent-workflow-conditions.js';
 import { validateWorkflowBrainCredentials } from './agent-workflow-brain-providers.js';
 import { getMcpServerForWorkflow, callMcpServerTool, callMcpServerPrompt, callMcpServerResource } from './mcp-servers.js';
 import { parseMcpAuthFromNodeConfig } from './mcp-auth.js';
+import { executeConnectorAction } from './openconnector.js';
 import {
   registerPendingListener,
   startPersistentListen,
@@ -427,6 +428,7 @@ const RESUMABLE_IN_PROGRESS_TYPES = new Set([
   'email',
   'externalAgent',
   'tool',
+  'connector',
   'filesystem',
   'masterdata',
   'sub_workflow',
@@ -947,6 +949,62 @@ async function executeNode(runId, nodeId, graph, context, def, runRow) {
       upsertStep(runId, node, 'failed', { error_message: err.message });
       failRun(runId, err.message);
     }
+    return;
+  }
+
+  if (node.type === 'connector') {
+    const inputRecord = buildStepInputRecord(node, graph, context);
+    const config = node.data?.taskConfig || node.data?.config || {};
+    const actionId = String(config.actionId || config.action_id || '').trim();
+    if (!actionId) {
+      upsertStep(runId, node, 'failed', { error_message: 'Connector action ID required' });
+      failRun(runId, `Node ${node.id}: connector action not configured`);
+      return;
+    }
+    let staticInput = {};
+    try {
+      staticInput = JSON.parse(config.staticInputJson || config.static_input_json || '{}');
+    } catch {
+      staticInput = {};
+    }
+    let dynamicInput = {};
+    const inputRaw = inputRecord.resolved?.input || inputRecord.resolved?.payload || inputRecord.resolved?.body;
+    if (inputRaw) {
+      try {
+        dynamicInput = typeof inputRaw === 'string' ? JSON.parse(inputRaw) : inputRaw;
+      } catch {
+        dynamicInput = { input: inputRaw };
+      }
+    }
+    await completeTimedNodeStep({
+      runId,
+      node,
+      nodeId,
+      def,
+      runRow,
+      context,
+      inputRecord,
+      work: async () => {
+        const out = await executeConnectorAction(
+          runRow.owner_user_id,
+          actionId,
+          { ...staticInput, ...dynamicInput },
+          { connectionName: config.connectionName || config.connection_name || '' }
+        );
+        return {
+          text: out.text || '',
+          result: out.data || out,
+          ok: !!out.ok,
+          action_id: out.action_id || actionId,
+          transport: out.transport || 'http',
+        };
+      },
+      kanban: (outputs) => ({
+        nodeLabel: node.data?.label || config.appName || config.appId || 'Connector',
+        summary: `${outputs.action_id || actionId} completed`,
+        detail: { inputs: inputRecord.summary, outputs },
+      }),
+    });
     return;
   }
 

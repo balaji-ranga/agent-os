@@ -130,10 +130,12 @@ x-backend-env: &backend-env
   # Email inbound webhooks (SendGrid/Mailgun → /api/integrations/email-inbound/:id)
   EMAIL_INBOUND_WEBHOOK_SECRET: ${EMAIL_INBOUND_WEBHOOK_SECRET:-}
   # OpenConnector MCP (real gateway or optional-openconnector mock)
+  OPENCONNECTOR_URL: ${OPENCONNECTOR_URL:-}
   OPENCONNECTOR_MCP_URL: ${OPENCONNECTOR_MCP_URL:-}
   OPENCONNECTOR_MCP_ID: ${OPENCONNECTOR_MCP_ID:-mcp-openconnector}
   OPENCONNECTOR_MCP_BEARER: ${OPENCONNECTOR_MCP_BEARER:-}
   OPENCONNECTOR_MCP_TRANSPORT: ${OPENCONNECTOR_MCP_TRANSPORT:-streamable_http}
+  OPENCONNECTOR_ADMIN_TOKEN: ${OPENCONNECTOR_ADMIN_TOKEN:-}
   # Filesystem workflow nodes (persisted volume)
   WORKFLOW_FS_ROOTS: ${WORKFLOW_FS_ROOTS:-/data/workflow-fs}
 
@@ -256,10 +258,27 @@ services:
     expose:
       - "3099"
 
-  # Mock OpenConnector MCP for e2e / staging (SaaS actions via MCP tools).
-  # Production: point OPENCONNECTOR_MCP_URL at a real OpenConnector /mcp endpoint instead.
-  openconnector-mcp-mock:
+  # Real self-hosted OpenConnector runtime (admin UI should stay private; use a tunnel for v1 OAuth setup).
+  openconnector:
     profiles: ["optional-openconnector"]
+    image: ghcr.io/oomol-lab/open-connector:latest
+    restart: unless-stopped
+    environment:
+      PORT: "3000"
+      HOST: "0.0.0.0"
+      OOMOL_CONNECT_DATA_DIR: /app/data
+      OOMOL_CONNECT_ADMIN_TOKEN: ${OPENCONNECTOR_ADMIN_TOKEN:-}
+      OOMOL_CONNECT_ENCRYPTION_KEY: ${OPENCONNECTOR_ENCRYPTION_KEY:-}
+      OOMOL_CONNECT_ORIGIN: ${OOMOL_CONNECT_ORIGIN:-}
+      OOMOL_CONNECT_RUNTIME_TOKEN: ${OPENCONNECTOR_BOOTSTRAP_RUNTIME_TOKEN:-}
+    volumes:
+      - openconnector_data:/app/data:Z
+    expose:
+      - "3000"
+
+  # Mock OpenConnector MCP for e2e / staging.
+  openconnector-mcp-mock:
+    profiles: ["optional-openconnector-mock"]
     build:
       context: ..
       dockerfile: deploy/docker/openconnector-mcp-mock.Dockerfile
@@ -301,4 +320,5 @@ volumes:
   agent_os_data:
   openclaw_home:
   workflow_fs:
+  openconnector_data:
   ollama_data:

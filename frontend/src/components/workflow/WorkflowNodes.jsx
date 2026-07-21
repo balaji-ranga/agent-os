@@ -109,6 +109,21 @@ export function ApiNode({ id, data }) {
   );
 }
 
+export function ConnectorNode({ id, data }) {
+  const cfg = data.taskConfig || {};
+  const app = cfg.appName || cfg.appId || 'select connector';
+  const action = cfg.actionId || 'choose action';
+  return (
+    <NodeShell
+      nodeId={id}
+      color="#f59e0b"
+      icon="🔌"
+      title={data.label || 'Connector'}
+      subtitle={`${String(app).slice(0, 18)} · ${String(action).slice(0, 18)}`}
+    />
+  );
+}
+
 export function ExternalAgentNode({ id, data }) {
   const cfg = data.taskConfig || {};
   const name = cfg.externalAgentName || cfg.externalAgentId || 'select agent';
@@ -291,6 +306,7 @@ export const workflowNodeTypes = {
   sub_workflow: SubWorkflowNode,
   email: EmailNode,
   api: ApiNode,
+  connector: ConnectorNode,
   externalAgent: ExternalAgentNode,
   custom_script: CustomScriptNode,
   masterdata: MasterDataNode,
@@ -312,6 +328,7 @@ export const PALETTE_ITEMS = [
   { type: 'while', label: 'While', color: '#db2777', desc: 'Loop while condition (loop/exit handles)' },
   { type: 'email', label: 'Send Email', color: '#dc2626', desc: 'SMTP email with static + dynamic inputs' },
   { type: 'api', label: 'Call API', color: '#7c3aed', desc: 'HTTP request with configurable URL/body' },
+  { type: 'connector', label: 'Connector', color: '#f59e0b', desc: 'Run an OpenConnector app action as this CEO' },
   { type: 'externalAgent', label: 'External Agent (A2A)', color: '#059669', desc: 'Invoke external agent via A2A protocol' },
   { type: 'custom_script', label: 'Custom Script', color: '#b45309', desc: 'Run approved LangGraph / Python / JS in sandbox' },
   { type: 'masterdata', label: 'Master Data', color: '#0f766e', desc: 'Query CEO tables (CSV) or RAG over uploaded documents' },
@@ -337,7 +354,7 @@ export function defaultNodeData(type, extra = {}) {
   if (type === 'tool') {
     data = { ...data, toolName: '', toolPayload: {} };
   }
-  if (type === 'email' || type === 'brain' || type === 'ceo_approval' || type === 'mcp_tool' || type === 'mcp_listen' || type === 'sse_listen' || type === 'sub_workflow' || type === 'externalAgent' || type === 'custom_script' || type === 'masterdata' || type === 'filesystem') {
+  if (type === 'email' || type === 'brain' || type === 'ceo_approval' || type === 'mcp_tool' || type === 'mcp_listen' || type === 'sse_listen' || type === 'sub_workflow' || type === 'externalAgent' || type === 'custom_script' || type === 'masterdata' || type === 'filesystem' || type === 'connector') {
     data = { ...data, inputBindings: data.inputBindings || [], outputs: data.outputs || [], taskConfig: data.taskConfig || {} };
   }
   if (type === 'filesystem') {
@@ -444,6 +461,31 @@ export function defaultNodeData(type, extra = {}) {
       { id: 'body', label: 'Response body' },
       { id: 'ok', label: 'Success (2xx)' },
     ];
+  }
+  if (type === 'connector') {
+    data.taskConfig = {
+      appId: '',
+      appName: '',
+      actionId: '',
+      connectionName: '',
+      staticInputJson: '{}',
+      timeoutMs: 1200000,
+      timeoutAction: 'fail',
+      defaultTimeoutOutput: '{}',
+      ...(data.taskConfig || {}),
+    };
+    data.inputBindings = data.inputBindings?.length
+      ? data.inputBindings
+      : [{ id: 'input', label: 'Action input (JSON)', mode: 'dynamic', value: '{{input}}', sourceNodeId: '', sourceOutputKey: 'result' }];
+    data.outputs = data.outputs?.length
+      ? data.outputs
+      : [
+          { id: 'text', label: 'Connector response text' },
+          { id: 'result', label: 'Full connector result JSON' },
+          { id: 'ok', label: 'Success' },
+          { id: 'action_id', label: 'Executed action ID' },
+          { id: 'transport', label: 'Transport used' },
+        ];
   }
   if (type === 'if' || type === 'while') {
     data = {

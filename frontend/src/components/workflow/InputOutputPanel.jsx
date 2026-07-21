@@ -153,6 +153,9 @@ export function InputOutputPanel({ node, taskCatalog, allNodes, edges, onChange 
               if (node.type === 'api') {
                 return !['method', 'authType', 'httpHeadersJson', 'basicUsername', 'basicPassword', 'bearerToken', 'apiKeyHeader', 'apiKeyValue'].includes(f.id);
               }
+              if (node.type === 'connector') {
+                return !['appId', 'appName', 'actionId', 'connectionName', 'staticInputJson'].includes(f.id);
+              }
               if (node.type === 'brain') {
                 return ![
                   'modelSource',

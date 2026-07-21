@@ -13,8 +13,9 @@ Works with **Docker Compose** and **Podman Compose** on CentOS/RHEL, Ubuntu (Hos
 | `backend` | Yes | internal | API, cron, workflows, SQLite, master-data, feedback, BYOK |
 | `openclaw` | Yes | internal | Gateway :18789, browser tool, skills/plugins |
 | `init` | First run | — | One-shot bootstrap (`--profile init`) |
-| `mcp-random-sse` | Optional | internal | Dev MCP + SSE test server |
-| `openconnector-mcp-mock` | Optional | internal | OpenConnector MCP mock (`:3105`) |
+| `mcp-random-sse` | Optional | internal | Dev MCP + SSE test server (`optional-mcp`) |
+| `openconnector` | Optional | internal | Real OpenConnector runtime, `:3000` (`optional-openconnector`) |
+| `openconnector-mcp-mock` | Optional | internal | OpenConnector MCP mock, `:3105` (`optional-openconnector-mock`) |
 | `ollama` | Optional | internal | Local LLM fallback for OpenClaw / BYOK |
 | `novnc` | Optional | 6080 | Desktop for manual job-portal login |
 
@@ -25,6 +26,7 @@ Works with **Docker Compose** and **Podman Compose** on CentOS/RHEL, Ubuntu (Hos
 | `agent_os_data` | backend `/data/agent-os` | SQLite (`agent-os.db`) — includes master-data, feedback, user LLM settings |
 | `openclaw_home` | backend + openclaw `/root/.openclaw` | `openclaw.json`, workspaces, browser profile, media, sessions |
 | `workflow_fs` | backend `/data/workflow-fs` | Filesystem workflow node roots (`WORKFLOW_FS_ROOTS`) |
+| `openconnector_data` | openconnector `/app/data` | OpenConnector runtime DB + OAuth tokens (`optional-openconnector`) |
 | `ollama_data` | ollama | Local models (optional profile) |
 
 ## OpenClaw feature parity (Docker init vs local setup)
@@ -189,7 +191,10 @@ Gets the same gateway LLM vars plus:
 | `DEEPSEEK_BASE_URL`, `DEEPSEEK_MODEL` | DeepSeek V3 via local Ollama (`optional-ollama`; default model `deepseek-v3`) |
 | `MFA_MODE`, `AGENT_OS_REQUIRE_MFA`, `AGENT_OS_DISABLE_MFA` | Platform MFA defaults (production: `MFA_MODE=TOTP`, `AGENT_OS_REQUIRE_MFA=1`) |
 | `EMAIL_INBOUND_WEBHOOK_SECRET` | Optional platform secret for email inbound webhooks |
-| `OPENCONNECTOR_MCP_*` | OpenConnector MCP URL / bearer / transport |
+| `OPENCONNECTOR_URL` | Base URL of the OpenConnector runtime (e.g. `http://openconnector:3000`). Enables Connector workflow nodes + User Profile auto-provision. |
+| `OPENCONNECTOR_ADMIN_TOKEN` | Admin token for the OpenConnector runtime (bootstraps user runtime tokens) |
+| `OPENCONNECTOR_ENCRYPTION_KEY` | Encryption key for OpenConnector token store |
+| `OPENCONNECTOR_MCP_*` | OpenConnector MCP URL / bearer / transport (Brain+MCP tool-calling) |
 | `WORKFLOW_FS_ROOTS` | Allowed roots for filesystem workflow nodes (default `/data/workflow-fs`) |
 
 **Workflow Brain nodes:** published workflows require API keys **on each Brain node** in the editor — platform `.env` keys are not used at run time (see `backend/.env.example`). User BYOK keys live in SQLite (User Profile).
@@ -306,12 +311,17 @@ https://your-domain/api/integrations/email-inbound/<workflowDefinitionId>
 ## Optional Compose profiles
 
 ```bash
-# Local MCP SSE test server (port 3099 internal)
+# Local MCP SSE test server (port 3099 internal) — used for Brain+MCP smoke test
 docker compose --profile optional-mcp up -d
+# Seed into registry: docker compose exec backend node scripts/seed-local-mcp-random-sse.js
 
-# OpenConnector MCP mock (port 3105 internal)
-# Set in .env: OPENCONNECTOR_MCP_URL=http://openconnector-mcp-mock:3105/mcp
+# Real OpenConnector runtime (port 3000 internal)
+# Set OPENCONNECTOR_URL=http://openconnector:3000 and OPENCONNECTOR_ADMIN_TOKEN in .env
 docker compose --profile optional-openconnector up -d
+
+# OpenConnector MCP mock (port 3105 internal) — staging/e2e only
+# Set OPENCONNECTOR_MCP_URL=http://openconnector-mcp-mock:3105/mcp in .env
+docker compose --profile optional-openconnector-mock up -d
 docker compose exec backend node scripts/seed-openconnector-mcp.js
 
 # Ollama fallback / BYOK local models
