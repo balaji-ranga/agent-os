@@ -59,11 +59,15 @@ export function parseCookieHeader(cookieHeader) {
   return out;
 }
 
-export function createOcConsoleLaunchCookie(adminUser) {
+export function createOcConsoleLaunchCookie(adminUser, sessionToken) {
+  const st = String(sessionToken || '').trim();
+  if (!st) throw new Error('OpenConnector console launch requires an active admin session');
   const payload = {
     uid: adminUser.id,
     role: 'admin',
     exp: Date.now() + COOKIE_TTL_MS,
+    // Bound to Flowlah session so admin logout immediately ends console access
+    st,
   };
   return {
     name: COOKIE_NAME,
@@ -72,11 +76,27 @@ export function createOcConsoleLaunchCookie(adminUser) {
   };
 }
 
+/** Clear HttpOnly OC console cookie (call on Flowlah logout / OC logout). */
+export function clearOcConsoleCookieHeader(secure = false) {
+  return `${COOKIE_NAME}=; Path=/openconnector; HttpOnly; SameSite=Lax; Max-Age=0${secure ? '; Secure' : ''}`;
+}
+
+export function isRequestSecure(req) {
+  return String(req.protocol || '').includes('https') || req.headers?.['x-forwarded-proto'] === 'https';
+}
+
+/**
+ * Cookie grants console access only while the bound Flowlah admin session is still valid.
+ * After Admin → Logout (session revoked), this returns null even if the cookie is still present.
+ */
 export function adminFromOcConsoleCookie(req) {
   const cookies = parseCookieHeader(req.headers?.cookie);
   const payload = verifySigned(cookies[COOKIE_NAME]);
-  if (!payload) return null;
-  return { id: payload.uid, role: 'admin' };
+  if (!payload?.st) return null;
+  const user = getSessionUser(payload.st);
+  if (!user || user.role !== 'admin') return null;
+  if (String(user.id) !== String(payload.uid)) return null;
+  return user;
 }
 
 function ocUpstreamBase() {
@@ -112,8 +132,8 @@ export function getOcConsolePublicUrl() {
 }
 
 /** One-time launch URL so window.open can set the cookie via top-level navigation. */
-export function createOcConsoleLaunchUrl(adminUser) {
-  const cookie = createOcConsoleLaunchCookie(adminUser);
+export function createOcConsoleLaunchUrl(adminUser, sessionToken) {
+  const cookie = createOcConsoleLaunchCookie(adminUser, sessionToken);
   const base = getOcConsolePublicUrl();
   const join = base.includes('?') ? '&' : '?';
   return {
@@ -124,33 +144,17 @@ export function createOcConsoleLaunchUrl(adminUser) {
 
 const OC_PUBLIC_PREFIX = '/openconnector';
 
-/** Prefix absolute OC paths so the console works behind /openconnector/ */
+/**
+ * Prefix absolute OC *API/asset* paths for subpath hosting.
+ * Do NOT rewrite SPA routes (/overview, /providers, …) — React Router needs those
+ * unchanged when BrowserRouter basename is /openconnector (see injectOcRouterBasename).
+ */
 export function rewriteOcPublicPaths(text) {
   if (!text || typeof text !== 'string') return text;
   const P = OC_PUBLIC_PREFIX;
   let out = text;
 
-  // Longer SPA routes first so /providers/:service is not partially mishandled
-  const spaPaths = [
-    '/providers/:service',
-    '/actions/:actionId',
-    '/overview',
-    '/providers',
-    '/actions',
-    '/runs',
-    '/access',
-    '/resources',
-    '/openapi.json',
-    '/docs',
-  ];
-  for (const from of spaPaths) {
-    const to = `${P}${from}`;
-    for (const q of ['"', "'", '`']) {
-      out = out.replaceAll(`${q}${from}`, `${q}${to}`);
-    }
-  }
-
-  const segs = ['api/', 'v1/', 'oauth/', 'mcp/', 'assets/', 'favicon'];
+  const segs = ['api/', 'v1/', 'oauth/', 'mcp/', 'assets/', 'favicon', 'openapi.json', 'docs'];
   for (const seg of segs) {
     const from = `/${seg}`;
     const to = `${P}${from}`;
@@ -170,9 +174,43 @@ export function rewriteOcPublicPaths(text) {
   return out;
 }
 
+/**
+ * Inject BrowserRouter basename so useLocation().pathname stays /overview (not /openconnector/overview).
+ * OC's shell parses the first path segment as the page id — rewriting routes broke that and leaked /api to Flowlah.
+ */
+export function injectOcRouterBasename(text) {
+  if (!text || typeof text !== 'string') return text;
+  const basenames = [
+    `basename:"${OC_PUBLIC_PREFIX}"`,
+    `basename:'${OC_PUBLIC_PREFIX}'`,
+    `basename:\`${OC_PUBLIC_PREFIX}\``,
+  ];
+  if (basenames.some((b) => text.includes(b))) return text;
+
+  const markers = ['getElementById(`root`)', 'getElementById("root")', "getElementById('root')"];
+  let idx = -1;
+  for (const m of markers) {
+    idx = text.indexOf(m);
+    if (idx >= 0) break;
+  }
+  if (idx < 0) return text;
+
+  const end = Math.min(text.length, idx + 500);
+  const before = text.slice(0, idx);
+  const region = text.slice(idx, end);
+  const after = text.slice(end);
+  // <BrowserRouter><App /></BrowserRouter> minified: (ur,{children:(0,V.jsx)(gy,{})})
+  const updated = region.replace(
+    /\((\w+),\{children:(\(0,\w+\.jsx\)\(\w+,\{\}\))\}\)/,
+    `($1,{basename:"${OC_PUBLIC_PREFIX}",children:$2})`
+  );
+  return before + updated + after;
+}
+
 function injectOcFetchPatch(html) {
-  // Keep SPA under /openconnector: rewrite fetch, XHR, and history so API/routes never hit Flowlah root.
-  const patch = `<script data-oc-path-patch>(function(){var P="${OC_PUBLIC_PREFIX}";function fixPath(u){if(typeof u!=="string")return u;if(u.startsWith("http")){try{var x=new URL(u);if(x.origin===location.origin){x.pathname=fixPath(x.pathname);return x.toString();}}catch(e){}return u;}if(!u.startsWith("/")||u.startsWith("//")||u.startsWith(P+"/")||u===P)return u;if(/^\\/(api|v1|oauth|mcp|assets|favicon|overview|providers|actions|runs|access|resources|docs|openapi\\.json)/.test(u))return P+u;return u;}if(!location.pathname.startsWith(P)){var spa=/^\\/(overview|providers|actions|runs|access|resources|docs)(\\/|$)/;if(spa.test(location.pathname)){location.replace(P+location.pathname+location.search+location.hash);return;}}var f=window.fetch;window.fetch=function(i,n){if(typeof i==="string")i=fixPath(i);else if(i&&typeof i.url==="string"){try{i=new Request(fixPath(i.url),i);}catch(e){}}return f.call(this,i,n);};var XO=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(m,u){if(typeof u==="string")arguments[1]=fixPath(u);return XO.apply(this,arguments);};var ps=history.pushState.bind(history);var rs=history.replaceState.bind(history);history.pushState=function(s,t,u){return ps(s,t,u==null?u:fixPath(String(u)));};history.replaceState=function(s,t,u){return rs(s,t,u==null?u:fixPath(String(u)));};})();</script>`;
+  // Keep SPA under /openconnector: rewrite fetch/XHR for APIs; hard-fix if URL escapes the prefix.
+  // History is NOT rewritten here — BrowserRouter basename owns client navigations.
+  const patch = `<script data-oc-path-patch>(function(){var P="${OC_PUBLIC_PREFIX}";function fixPath(u){if(typeof u!=="string")return u;if(u.startsWith("http")){try{var x=new URL(u);if(x.origin===location.origin){x.pathname=fixPath(x.pathname);return x.toString();}}catch(e){}return u;}if(!u.startsWith("/")||u.startsWith("//")||u.startsWith(P+"/")||u===P)return u;if(/^\\/(api|v1|oauth|mcp|assets|favicon|docs|openapi\\.json)/.test(u))return P+u;return u;}if(!location.pathname.startsWith(P)){var spa=/^\\/(overview|providers|actions|runs|access|resources|docs)(\\/|$)/;if(spa.test(location.pathname)){location.replace(P+location.pathname+location.search+location.hash);return;}}var f=window.fetch;window.fetch=function(i,n){if(typeof i==="string")i=fixPath(i);else if(i&&typeof i.url==="string"){try{i=new Request(fixPath(i.url),i);}catch(e){}}return f.call(this,i,n);};var XO=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(m,u){if(typeof u==="string")arguments[1]=fixPath(u);return XO.apply(this,arguments);};})();</script>`;
   if (html.includes('data-oc-path-patch')) return html;
   if (/<head[^>]*>/i.test(html)) {
     return html.replace(/<head([^>]*)>/i, `<head$1>${patch}`);
@@ -221,16 +259,17 @@ export function openConnectorConsoleProxy() {
       })();
     if (launchToken) {
       const payload = verifySigned(decodeURIComponent(String(launchToken)));
-      if (!payload || payload.role !== 'admin') {
+      if (!payload || payload.role !== 'admin' || !payload.st) {
         return res.status(401).send('Invalid or expired OpenConnector console launch link. Use Admin → OpenConnector console.');
       }
-      const cookie = {
-        name: COOKIE_NAME,
-        value: signPayload({ uid: payload.uid, role: 'admin', exp: Date.now() + COOKIE_TTL_MS }),
-        maxAgeMs: COOKIE_TTL_MS,
-      };
-      const secure =
-        String(req.protocol || '').includes('https') || req.headers['x-forwarded-proto'] === 'https';
+      const sessionUser = getSessionUser(payload.st);
+      if (!sessionUser || sessionUser.role !== 'admin' || String(sessionUser.id) !== String(payload.uid)) {
+        return res
+          .status(401)
+          .send('Admin session expired. Sign in to Flowlah Admin, then open OpenConnector console again.');
+      }
+      const cookie = createOcConsoleLaunchCookie(sessionUser, payload.st);
+      const secure = isRequestSecure(req);
       res.setHeader(
         'Set-Cookie',
         `${cookie.name}=${encodeURIComponent(cookie.value)}; Path=/openconnector; HttpOnly; SameSite=Lax; Max-Age=${Math.floor(cookie.maxAgeMs / 1000)}${secure ? '; Secure' : ''}`
@@ -251,9 +290,14 @@ export function openConnectorConsoleProxy() {
         }
       }
       if (!admin) {
+        res.setHeader('Set-Cookie', clearOcConsoleCookieHeader(isRequestSecure(req)));
         return res.status(401).send('Admin session required. Open console from Flowlah Admin → OpenConnector console.');
       }
     }
+
+    const isOcAuthLogout =
+      (req.method || 'GET').toUpperCase() === 'POST' &&
+      (pathAfter === '/api/auth/logout' || pathAfter === '/auth/logout');
 
     let upstream;
     try {
@@ -316,12 +360,24 @@ export function openConnectorConsoleProxy() {
           res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
         } else {
           text = rewriteOcPublicPaths(text);
-          if (pathAfter.includes('/assets/') && pathAfter.endsWith('.js')) {
+          if (
+            pathAfter.includes('/assets/') &&
+            (pathAfter.endsWith('.js') || ct.includes('javascript') || ct.includes('ecmascript'))
+          ) {
+            text = injectOcRouterBasename(text);
             res.setHeader('Cache-Control', 'no-store');
           }
         }
         buf = Buffer.from(text, 'utf8');
         res.setHeader('Content-Length', buf.length);
+      }
+      if (isOcAuthLogout) {
+        // Drop Flowlah OC launch cookie so console cannot stay open after OC Logout
+        const prev = res.getHeader('Set-Cookie');
+        const clear = clearOcConsoleCookieHeader(isRequestSecure(req));
+        if (!prev) res.setHeader('Set-Cookie', clear);
+        else if (Array.isArray(prev)) res.setHeader('Set-Cookie', [...prev, clear]);
+        else res.setHeader('Set-Cookie', [String(prev), clear]);
       }
       res.end(buf);
     } catch (e) {

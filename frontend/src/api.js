@@ -239,6 +239,8 @@ export const api = {
     del(`/master-data/tables/${encodeURIComponent(tableId)}/rows/${encodeURIComponent(rowId)}`),
   masterDataDocuments: () => get('/master-data/documents'),
   masterDataDocumentUpload: (body) => post('/master-data/documents', body),
+  masterDataDocumentReindex: (id) => post(`/master-data/documents/${encodeURIComponent(id)}/reindex`, {}),
+  masterDataDocumentsReindexAll: () => post('/master-data/documents/reindex-all', {}),
   masterDataDocumentDelete: (id) => del(`/master-data/documents/${encodeURIComponent(id)}`),
   masterDataRag: (body) => post('/master-data/rag', body),
   masterDataQuery: (body) => post('/master-data/query', body),

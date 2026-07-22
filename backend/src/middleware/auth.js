@@ -1,5 +1,6 @@
 import { getSessionUser, revokeSession } from '../services/auth/session.js';
 import { resolveCeoUserId as legacyResolveCeoUserId, resolveCeoDataUserId } from '../services/job-applicant-ceo.js';
+import { clearOcConsoleCookieHeader, isRequestSecure } from '../services/openconnector-console-proxy.js';
 
 export function bearerToken(req) {
   const auth = req.headers?.authorization || '';
@@ -67,5 +68,7 @@ export function resolveCeoDataUserIdFromRequest(req, body = {}) {
 
 export function logout(req, res) {
   if (req.sessionToken) revokeSession(req.sessionToken);
+  // End OpenConnector console access tied to this admin session
+  res.setHeader('Set-Cookie', clearOcConsoleCookieHeader(isRequestSecure(req)));
   res.json({ ok: true });
 }

@@ -53,7 +53,7 @@ export function grantStandardAgents(userId) {
   return ids;
 }
 
-export function registerCeoUser({
+export async function registerCeoUser({
   email,
   password,
   name,
@@ -116,7 +116,7 @@ export function registerCeoUser({
 
   let default_master_data = null;
   try {
-    default_master_data = ensureCeoDefaultMasterData(id, { refresh: true });
+    default_master_data = await ensureCeoDefaultMasterData(id, { refresh: true });
   } catch (e) {
     console.warn(`[registerCeoUser] default master data for ${id}:`, e.message);
   }

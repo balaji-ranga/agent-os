@@ -30,7 +30,7 @@ router.get('/users', (req, res) => {
   }
 });
 
-router.post('/users', (req, res) => {
+router.post('/users', async (req, res) => {
   try {
     const {
       email,
@@ -47,7 +47,7 @@ router.post('/users', (req, res) => {
     if (role === 'admin') {
       return res.status(400).json({ error: 'Use platform seed for admin accounts' });
     }
-    const user = registerCeoUser({
+    const user = await registerCeoUser({
       email,
       password,
       name,

@@ -21,7 +21,7 @@ const db = getDb();
 
 const ceos = db.prepare(`SELECT id FROM platform_users WHERE role = 'ceo' AND enabled = 1`).all();
 for (const c of ceos) grantStandardAgents(c.id);
-const md = ensureCeoDefaultMasterDataForAllCeos(
+const md = await ensureCeoDefaultMasterDataForAllCeos(
   ceos.map((c) => c.id),
   { refresh: false }
 );

@@ -15,6 +15,7 @@ import { join, dirname, basename, extname } from 'path';
 import { fileURLToPath } from 'url';
 import { getDbForCeo } from '../db/request-db.js';
 import { chatCompletions } from '../config/llm.js';
+import { extractTextFromBuffer } from './master-data-extract.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -564,21 +565,6 @@ function chunkText(text, size = 900, overlap = 120) {
   return chunks;
 }
 
-function extractTextFromBuffer(buf, mime, filename) {
-  const name = String(filename || '').toLowerCase();
-  const m = String(mime || '').toLowerCase();
-  if (
-    m.startsWith('text/') ||
-    m.includes('json') ||
-    m.includes('csv') ||
-    /\.(txt|md|csv|json|log|xml|html|htm)$/i.test(name)
-  ) {
-    return buf.toString('utf8');
-  }
-  // Binary: store file only; RAG excerpt from filename + note
-  return `[Binary file: ${filename || 'document'} (${m || 'unknown type'}, ${buf.length} bytes). Text content is not indexed; metadata only.]`;
-}
-
 export function listDocuments(ownerUserId) {
   const { db, owner } = dbFor(ownerUserId);
   return db
@@ -611,11 +597,34 @@ export function getDocumentFile(ownerUserId, documentId) {
   };
 }
 
+function replaceDocumentChunks(db, owner, documentId, text) {
+  const chunks = chunkText(text);
+  const excerpt = text.slice(0, 500);
+  db.prepare(`DELETE FROM master_data_doc_chunks WHERE document_id = ? AND owner_user_id = ?`).run(
+    documentId,
+    owner
+  );
+  const ins = db.prepare(
+    `INSERT INTO master_data_doc_chunks (document_id, owner_user_id, chunk_index, content) VALUES (?, ?, ?, ?)`
+  );
+  const tx = db.transaction((list) => {
+    list.forEach((c, i) => ins.run(documentId, owner, i, c));
+  });
+  tx(chunks);
+  db.prepare(
+    `UPDATE master_data_documents
+     SET text_excerpt = ?, chunk_count = ?, updated_at = datetime('now')
+     WHERE id = ? AND owner_user_id = ?`
+  ).run(excerpt, chunks.length, documentId, owner);
+  return { chunks, excerpt };
+}
+
 /**
  * Upload document: metadata in SQLite, bytes under master-data/{ceo}/docs/{id}/
+ * Extracts text from PDF / DOCX / Excel for keyword RAG chunking.
  * @param {{ title?, filename, mimeType?, contentBase64?, contentText? }}
  */
-export function uploadDocument(ownerUserId, input = {}) {
+export async function uploadDocument(ownerUserId, input = {}) {
   const { db, owner } = dbFor(ownerUserId);
   const filename = basename(String(input.filename || 'document.txt'));
   let buffer;
@@ -635,7 +644,7 @@ export function uploadDocument(ownerUserId, input = {}) {
   writeFileSync(storagePath, buffer);
 
   const mime = String(input.mimeType || 'application/octet-stream');
-  const text = extractTextFromBuffer(buffer, mime, filename);
+  const text = await extractTextFromBuffer(buffer, mime, filename);
   const chunks = chunkText(text);
   const excerpt = text.slice(0, 500);
   const title = safeName(input.title || filename.replace(extname(filename), '') || 'Document');
@@ -655,6 +664,40 @@ export function uploadDocument(ownerUserId, input = {}) {
   tx(chunks);
 
   return getDocument(owner, id);
+}
+
+/**
+ * Re-extract text from the file on disk and rebuild RAG chunks (for docs uploaded before office support).
+ */
+export async function reindexDocument(ownerUserId, documentId) {
+  const { db, owner } = dbFor(ownerUserId);
+  const row = db
+    .prepare(`SELECT * FROM master_data_documents WHERE id = ? AND owner_user_id = ?`)
+    .get(String(documentId), owner);
+  if (!row) throw new Error('Document not found');
+  if (!row.storage_path || !existsSync(row.storage_path)) {
+    throw new Error('Document file missing on disk');
+  }
+  const buffer = readFileSync(row.storage_path);
+  const text = await extractTextFromBuffer(buffer, row.mime_type, row.filename);
+  replaceDocumentChunks(db, owner, row.id, text);
+  return getDocument(owner, row.id);
+}
+
+/** Reindex all documents for an owner. Returns { reindexed, failed[] }. */
+export async function reindexAllDocuments(ownerUserId) {
+  const docs = listDocuments(ownerUserId);
+  const failed = [];
+  let reindexed = 0;
+  for (const d of docs) {
+    try {
+      await reindexDocument(ownerUserId, d.id);
+      reindexed += 1;
+    } catch (err) {
+      failed.push({ id: d.id, title: d.title, error: err?.message || String(err) });
+    }
+  }
+  return { reindexed, failed, total: docs.length };
 }
 
 export function deleteDocument(ownerUserId, documentId) {

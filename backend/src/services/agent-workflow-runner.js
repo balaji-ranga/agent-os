@@ -967,6 +967,8 @@ async function executeNode(runId, nodeId, graph, context, def, runRow) {
     }
     let staticInput = {};
     try {
+      // Legacy: older graphs stored action JSON in taskConfig.staticInputJson.
+      // New editor uses Inputs → Action input only; keep reading legacy as a fallback base.
       const rawJson = config.staticInputJson ?? config.static_input_json;
       const trimmed = String(rawJson ?? '').trim();
       staticInput = trimmed ? JSON.parse(trimmed) : {};

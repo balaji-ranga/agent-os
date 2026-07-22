@@ -166,10 +166,12 @@ export const WORKFLOW_TASK_TYPES = {
     inputs: [
       {
         id: 'input',
-        label: 'Action input (JSON)',
+        label: 'Action input',
         required: false,
-        mode: 'dynamic',
-        description: 'Optional dynamic JSON merged with static action input.',
+        mode: 'static',
+        placeholder: '{"username":"octocat"}',
+        description:
+          'JSON for the connector action. Use mode Static for fixed JSON (supports {{trigger-1.trigger_input}}), or From previous step to take a prior node’s output.',
       },
     ],
     outputs: [
@@ -184,7 +186,6 @@ export const WORKFLOW_TASK_TYPES = {
       { id: 'appName', label: 'Connector app name', type: 'text' },
       { id: 'actionId', label: 'Action ID', type: 'text' },
       { id: 'connectionName', label: 'Connection name (optional)', type: 'text', placeholder: 'ceo-...' },
-      { id: 'staticInputJson', label: 'Static input JSON', type: 'textarea', placeholder: '{}' },
     ]),
   },
   externalAgent: {

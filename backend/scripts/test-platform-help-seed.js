@@ -43,7 +43,7 @@ if (!ceos.length) {
   process.exit(0);
 }
 
-const md = ensureCeoDefaultMasterDataForAllCeos(
+const md = await ensureCeoDefaultMasterDataForAllCeos(
   ceos.map((c) => c.id),
   { refresh: true }
 );

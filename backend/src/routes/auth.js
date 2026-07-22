@@ -38,7 +38,7 @@ router.post('/register', async (req, res) => {
   try {
     const { email, password, name, region, mobile, db_mode, ceo_db_mode, mfa_policy, mfa_mode, llm_provider, llm_api_key } =
       req.body || {};
-    const user = registerCeoUser({
+    const user = await registerCeoUser({
       email,
       password,
       name,

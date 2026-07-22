@@ -107,36 +107,71 @@ function exampleInputFromSchemaClient(schema) {
   return '';
 }
 
+function isEmptyConnectorActionInput(value) {
+  const cur = String(value ?? '').trim();
+  return !cur || cur === '{}' || cur === '{\n}' || cur === '{\r\n}' || cur === '{{input}}';
+}
+
+function withConnectorActionInput(data, jsonText, { forceStatic = false } = {}) {
+  const bindings = Array.isArray(data?.inputBindings) ? [...data.inputBindings] : [];
+  const idx = bindings.findIndex((b) => b.id === 'input');
+  const prev = idx >= 0 ? bindings[idx] : null;
+  const keepDynamic = !forceStatic && prev?.mode === 'dynamic' && prev?.sourceNodeId;
+  const nextBinding = {
+    id: 'input',
+    label: 'Action input',
+    mode: keepDynamic ? 'dynamic' : 'static',
+    value: keepDynamic ? prev.value || '' : String(jsonText ?? '{}'),
+    sourceNodeId: keepDynamic ? prev.sourceNodeId || '' : '',
+    sourceOutputKey: keepDynamic ? prev.sourceOutputKey || 'result' : 'result',
+  };
+  if (idx >= 0) bindings[idx] = { ...prev, ...nextBinding };
+  else bindings.push(nextBinding);
+  return bindings;
+}
+
 function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connectorApps, connectorSearchResults, connectorActions, connectorGuide, connectorInputSchema, connectorExampleInput, connectorActionDescription, connectorLoadError, connectorSearchQuery, onConnectorSearchChange, externalAgents, externalAgentsLoadError, customScripts, customScriptsLoadError, taskCatalog, allNodes, edges, hookInfo, onChange, onDelete, onRegenerateHookSecret, onFetchHookInfo, regeneratingSecret }) {
   const [secretVisible, setSecretVisible] = useState(false);
 
-  // Auto-fill empty connector input JSON once schema/example is available
+  // Migrate legacy staticInputJson → Inputs binding; auto-fill empty Action input from schema
   useEffect(() => {
     if (!node || node.type !== 'connector') return;
     const cfg = node.data?.taskConfig || {};
+    const bindings = Array.isArray(node.data?.inputBindings) ? node.data.inputBindings : [];
+    const inputBinding = bindings.find((b) => b.id === 'input');
+    const legacy = String(cfg.staticInputJson || '').trim();
+    const hasLegacy = legacy && legacy !== '{}' && legacy !== '{\n}' && legacy !== '{\r\n}';
+
+    if (hasLegacy && (!inputBinding || isEmptyConnectorActionInput(inputBinding.value))) {
+      onChange(node.id, {
+        ...node.data,
+        inputBindings: withConnectorActionInput(node.data, legacy, { forceStatic: true }),
+        taskConfig: { ...cfg, staticInputJson: '{}' },
+      });
+      return;
+    }
+
     if (!cfg.actionId) return;
-    const cur = String(cfg.staticInputJson || '').trim();
-    if (cur && cur !== '{}' && cur !== '{\n}' && cur !== '{\r\n}') return;
+    if (inputBinding?.mode === 'dynamic' && inputBinding?.sourceNodeId) return;
+    if (inputBinding && !isEmptyConnectorActionInput(inputBinding.value)) return;
+
     const example =
       (connectorExampleInput && typeof connectorExampleInput === 'object' && connectorExampleInput) ||
       (connectorInputSchema ? exampleInputFromSchemaClient(connectorInputSchema) : null);
     if (!example || (typeof example === 'object' && !Object.keys(example).length && !connectorInputSchema?.required?.length)) {
       return;
     }
-    // Prefer a real username placeholder for github.get_user when blank
     if (
       String(cfg.actionId || '').includes('get_user') &&
       Object.prototype.hasOwnProperty.call(example, 'username') &&
       !example.username
     ) {
-      example.username = 'balaji-ranga';
+      example.username = 'octocat';
     }
     onChange(node.id, {
       ...node.data,
-      taskConfig: {
-        ...cfg,
-        staticInputJson: JSON.stringify(example, null, 2),
-      },
+      inputBindings: withConnectorActionInput(node.data, JSON.stringify(example, null, 2), { forceStatic: true }),
+      taskConfig: { ...cfg, staticInputJson: '{}' },
     });
   }, [node?.id, node?.type, node?.data?.taskConfig?.actionId, connectorExampleInput, connectorInputSchema]);
 
@@ -552,23 +587,34 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
                   ...data.taskConfig,
                   actionId: value,
                   actionDescription: action?.description || '',
+                  staticInputJson: '{}',
                 };
-                const cur = String(data.taskConfig?.staticInputJson || '').trim();
-                if (!cur || cur === '{}' || cur === '{\n}') {
+                const patch = {
+                  taskConfig: next,
+                  label: value ? value.split('.').slice(1).join('.') || value : data.label,
+                };
+                const existing = (data.inputBindings || []).find((b) => b.id === 'input');
+                const canFill =
+                  !existing ||
+                  existing.mode !== 'dynamic' ||
+                  !existing.sourceNodeId ||
+                  isEmptyConnectorActionInput(existing.value);
+                if (canFill) {
+                  let example = null;
                   if (action?.example_input && typeof action.example_input === 'object') {
-                    next.staticInputJson = JSON.stringify(action.example_input, null, 2);
+                    example = action.example_input;
                   } else if (action?.input_schema) {
-                    next.staticInputJson = JSON.stringify(
-                      exampleInputFromSchemaClient(action.input_schema),
-                      null,
-                      2
+                    example = exampleInputFromSchemaClient(action.input_schema);
+                  }
+                  if (example) {
+                    patch.inputBindings = withConnectorActionInput(
+                      data,
+                      JSON.stringify(example, null, 2),
+                      { forceStatic: true }
                     );
                   }
                 }
-                set({
-                  taskConfig: next,
-                  label: value ? value.split('.').slice(1).join('.') || value : data.label,
-                });
+                set(patch);
               }}
               disabled={!data.taskConfig?.appId}
             >
@@ -580,7 +626,7 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
               ))}
             </select>
             <small>
-              Action guide (below) explains the action. Required fields must appear in Static input JSON.
+              Set parameters in <strong>Inputs → Action input</strong> (Static JSON or From previous step).
             </small>
           </label>
 
@@ -607,14 +653,16 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
                         ? connectorExampleInput
                         : exampleInputFromSchemaClient(connectorInputSchema);
                     set({
-                      taskConfig: {
-                        ...data.taskConfig,
-                        staticInputJson: JSON.stringify(example || {}, null, 2),
-                      },
+                      taskConfig: { ...data.taskConfig, staticInputJson: '{}' },
+                      inputBindings: withConnectorActionInput(
+                        data,
+                        JSON.stringify(example || {}, null, 2),
+                        { forceStatic: true }
+                      ),
                     });
                   }}
                 >
-                  Auto-fill input JSON
+                  Auto-fill Action input
                 </button>
               </div>
               {!!connectorActionDescription && (
@@ -627,28 +675,20 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
                 readOnly
                 value={JSON.stringify(connectorInputSchema || { note: 'No schema returned for this action' }, null, 2)}
               />
-              <small>Required properties must be present in Static input JSON (use Auto-fill, then edit values).</small>
+              <small>
+                Auto-fill writes sample JSON into <strong>Inputs → Action input</strong> (Static). Edit values or switch
+                to From previous step / templates there.
+              </small>
             </div>
           )}
-
-          <label className="wf-field">
-            Static input JSON
-            <textarea
-              rows={6}
-              value={data.taskConfig?.staticInputJson || '{}'}
-              onChange={(e) => set({ taskConfig: { ...data.taskConfig, staticInputJson: e.target.value } })}
-              placeholder='{"username":"octocat"}'
-            />
-            <small>Sent as the action <code>input</code> object. Use Auto-fill from schema, then replace placeholders.</small>
-          </label>
 
           {connectorLoadError && <small style={{ color: '#dc2626' }}>{connectorLoadError}</small>}
           {!!connectorGuide && (
             <div className="wf-field">
               <strong>Action guide</strong>
               <small style={{ display: 'block', marginBottom: 4, color: 'var(--muted)' }}>
-                Docs from OpenConnector for this action (parameters, curl example, scopes). Use it to understand the
-                action; fill values in Static input JSON above.
+                Docs from OpenConnector for this action (parameters, curl example, scopes). Fill values in{' '}
+                <strong>Inputs → Action input</strong>.
               </small>
               <textarea rows={8} value={connectorGuide} readOnly />
             </div>

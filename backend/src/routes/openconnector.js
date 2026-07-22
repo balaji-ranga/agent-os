@@ -41,7 +41,7 @@ router.get('/console-auth', (req, res) => {
 
 router.post('/console-launch', requireRole('admin'), (req, res) => {
   try {
-    const launch = createOcConsoleLaunchUrl(req.authUser);
+    const launch = createOcConsoleLaunchUrl(req.authUser, req.sessionToken);
     const secure = String(req.protocol || '').includes('https') || req.headers['x-forwarded-proto'] === 'https';
     res.setHeader(
       'Set-Cookie',
@@ -60,7 +60,7 @@ router.post('/console-launch', requireRole('admin'), (req, res) => {
 /** Top-level navigation launch (sets cookie via redirect). */
 router.get('/console', requireRole('admin'), (req, res) => {
   try {
-    const launch = createOcConsoleLaunchUrl(req.authUser);
+    const launch = createOcConsoleLaunchUrl(req.authUser, req.sessionToken);
     const secure = String(req.protocol || '').includes('https') || req.headers['x-forwarded-proto'] === 'https';
     res.setHeader(
       'Set-Cookie',

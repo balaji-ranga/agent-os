@@ -111,7 +111,7 @@ ensureBalaCeoUser();
 try {
   const ceos = getDb().prepare(`SELECT id FROM platform_users WHERE role = 'ceo'`).all();
   for (const { id } of ceos) grantStandardAgents(id);
-  const md = ensureCeoDefaultMasterDataForAllCeos(
+  const md = await ensureCeoDefaultMasterDataForAllCeos(
     ceos.map((c) => c.id),
     { refresh: true }
   );

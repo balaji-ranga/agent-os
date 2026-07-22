@@ -51,7 +51,7 @@ Services (SVC-*):
 Contact support@agent-os.local for RMA numbers.
 `;
 
-export function ensureDemoMasterData(ownerUserId) {
+export async function ensureDemoMasterData(ownerUserId) {
   let table = listTables(ownerUserId).find((t) => t.name === TABLE_NAME);
   if (!table) {
     const imported = importCsv(ownerUserId, {
@@ -64,7 +64,7 @@ export function ensureDemoMasterData(ownerUserId) {
 
   let doc = listDocuments(ownerUserId).find((d) => d.title === DOC_TITLE);
   if (!doc) {
-    doc = uploadDocument(ownerUserId, {
+    doc = await uploadDocument(ownerUserId, {
       title: DOC_TITLE,
       filename: 'demo-refund-policy.txt',
       mimeType: 'text/plain',
@@ -184,7 +184,7 @@ If the context is insufficient, say what is missing.
 }
 
 export async function seedMasterdataRagBrainWorkflow(ownerUserId = getBalaCeoAuthId(), { publish = true } = {}) {
-  const { table, document } = ensureDemoMasterData(ownerUserId);
+  const { table, document } = await ensureDemoMasterData(ownerUserId);
   const graph = buildMasterdataRagBrainGraph({
     tableId: table.id,
     documentId: document.id,

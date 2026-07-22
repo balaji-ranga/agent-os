@@ -60,6 +60,11 @@ export function InputOutputPanel({ node, taskCatalog, allNodes, edges, onChange 
             <option value="static">Static</option>
             <option value="dynamic">From previous step</option>
           </select>
+          {catalog.inputs?.find((i) => i.id === b.id)?.description ? (
+            <small style={{ display: 'block', color: 'var(--muted)', gridColumn: '1 / -1' }}>
+              {catalog.inputs.find((i) => i.id === b.id).description}
+            </small>
+          ) : null}
           {b.mode === 'dynamic' ? (
             <>
               <select
@@ -121,12 +126,12 @@ export function InputOutputPanel({ node, taskCatalog, allNodes, edges, onChange 
               })()}
             </>
           ) : (
-            b.id === 'body' || b.id === 'payload' ? (
+            b.id === 'body' || b.id === 'payload' || b.id === 'input' || b.id === 'headers' ? (
               <textarea
-                rows={3}
+                rows={b.id === 'input' ? 5 : 3}
                 value={b.value || ''}
                 onChange={(e) => updateBinding(idx, { value: e.target.value })}
-                placeholder={catalog.inputs?.[idx]?.placeholder || ''}
+                placeholder={catalog.inputs?.[idx]?.placeholder || catalog.inputs?.find((i) => i.id === b.id)?.placeholder || ''}
               />
             ) : (
               <input

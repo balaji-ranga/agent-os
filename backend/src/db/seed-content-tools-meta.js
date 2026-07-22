@@ -317,7 +317,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/master-data-rag',
     method: 'POST',
     purpose:
-      'API tool: answer questions from this CEO\'s uploaded Master Data documents (PDF/text) via retrieval (+ optional summary). ' +
+      'API tool: answer questions from this CEO\'s uploaded Master Data documents (PDF, Word .docx, Excel, text) via keyword retrieval (+ optional summary). ' +
       'Parameters: query (required), optional document_id, top_k, summarize. ' +
       'Use when the ask is about document content, policies, resumes, handbooks, or "what does the doc say…". ' +
       'Do NOT use for structured master tables (use list_tables → list_rows by purpose). Prefer rag directly with the user question; list_documents only if you need document_id.',

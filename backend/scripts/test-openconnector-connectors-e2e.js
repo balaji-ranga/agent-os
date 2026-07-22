@@ -87,7 +87,16 @@ function connectorGraph() {
         position: { x: 300, y: 80 },
         data: {
           label: 'Hacker News',
-          inputBindings: [{ id: 'input', label: 'Action input (JSON)', mode: 'static', value: '{}', sourceNodeId: '', sourceOutputKey: 'result' }],
+          inputBindings: [
+            {
+              id: 'input',
+              label: 'Action input',
+              mode: 'static',
+              value: JSON.stringify({ print: 'pretty' }),
+              sourceNodeId: '',
+              sourceOutputKey: 'result',
+            },
+          ],
           outputs: [
             { id: 'text', label: 'Connector response text' },
             { id: 'result', label: 'Full connector result JSON' },
@@ -97,7 +106,6 @@ function connectorGraph() {
             appId: 'hackernews',
             appName: 'Hacker News',
             actionId: 'hackernews.get_top_stories',
-            staticInputJson: '{}',
             connectionName: '',
           },
         },

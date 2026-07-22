@@ -468,15 +468,24 @@ export function defaultNodeData(type, extra = {}) {
       appName: '',
       actionId: '',
       connectionName: '',
-      staticInputJson: '{}',
       timeoutMs: 1200000,
       timeoutAction: 'fail',
       defaultTimeoutOutput: '{}',
       ...(data.taskConfig || {}),
     };
+    // Legacy graphs may still carry staticInputJson; runner reads it as fallback only.
     data.inputBindings = data.inputBindings?.length
       ? data.inputBindings
-      : [{ id: 'input', label: 'Action input (JSON)', mode: 'dynamic', value: '{{input}}', sourceNodeId: '', sourceOutputKey: 'result' }];
+      : [
+          {
+            id: 'input',
+            label: 'Action input',
+            mode: 'static',
+            value: '{}',
+            sourceNodeId: '',
+            sourceOutputKey: 'result',
+          },
+        ];
     data.outputs = data.outputs?.length
       ? data.outputs
       : [

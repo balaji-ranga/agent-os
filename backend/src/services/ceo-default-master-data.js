@@ -118,7 +118,7 @@ function findDocumentByTitleOrFilename(ownerUserId, title, filename, legacyTitle
 /**
  * Upload or refresh a single markdown Master Data document by title/filename.
  */
-function ensureMarkdownDocument(ownerUserId, { title, filename, content, legacyTitles }, { refresh = true } = {}) {
+async function ensureMarkdownDocument(ownerUserId, { title, filename, content, legacyTitles }, { refresh = true } = {}) {
   if (!content) {
     return { document: null, created: false, updated: false, skipped: 'content_missing' };
   }
@@ -143,7 +143,7 @@ function ensureMarkdownDocument(ownerUserId, { title, filename, content, legacyT
       /* continue to upload */
     }
   }
-  const document = uploadDocument(ownerUserId, {
+  const document = await uploadDocument(ownerUserId, {
     title,
     filename,
     mimeType: 'text/markdown',
@@ -216,7 +216,7 @@ export function ensureDepartmentsMasterData(ownerUserId) {
 /**
  * Upload/refresh repo README.md as the CEO's default RAG document.
  */
-export function ensureDefaultReadmeDocument(ownerUserId, opts = {}) {
+export async function ensureDefaultReadmeDocument(ownerUserId, opts = {}) {
   const content = readDefaultReadmeContent();
   if (!content) {
     return { document: null, created: false, updated: false, skipped: 'readme_missing' };
@@ -236,7 +236,7 @@ export function ensureDefaultReadmeDocument(ownerUserId, opts = {}) {
 /**
  * Upload/refresh Platform Help markdown set for Master Data RAG (Platform Help agent).
  */
-export function ensurePlatformHelpDocuments(ownerUserId, opts = {}) {
+export async function ensurePlatformHelpDocuments(ownerUserId, opts = {}) {
   const dir = resolvePlatformHelpDir();
   if (!dir) {
     return { docs: [], created: 0, updated: 0, skipped: 'platform_help_dir_missing' };
@@ -268,7 +268,7 @@ export function ensurePlatformHelpDocuments(ownerUserId, opts = {}) {
       continue;
     }
     const legacyTitle = `${LEGACY_PLATFORM_HELP_TITLE_PREFIX}${entry.title.slice(PLATFORM_HELP_TITLE_PREFIX.length)}`;
-    const result = ensureMarkdownDocument(
+    const result = await ensureMarkdownDocument(
       ownerUserId,
       {
         title: entry.title,
@@ -287,17 +287,17 @@ export function ensurePlatformHelpDocuments(ownerUserId, opts = {}) {
 }
 
 /** Departments + User Guide + Platform Help for one CEO. */
-export function ensureCeoDefaultMasterData(ownerUserId, opts = {}) {
+export async function ensureCeoDefaultMasterData(ownerUserId, opts = {}) {
   const departments = ensureDepartmentsMasterData(ownerUserId);
-  const guide = ensureDefaultReadmeDocument(ownerUserId, opts);
-  const platformHelp = ensurePlatformHelpDocuments(ownerUserId, opts);
+  const guide = await ensureDefaultReadmeDocument(ownerUserId, opts);
+  const platformHelp = await ensurePlatformHelpDocuments(ownerUserId, opts);
   return { departments, guide, platformHelp };
 }
 
 /**
  * Backfill all CEO users. Returns counts for logging.
  */
-export function ensureCeoDefaultMasterDataForAllCeos(listCeoIds, opts = {}) {
+export async function ensureCeoDefaultMasterDataForAllCeos(listCeoIds, opts = {}) {
   const ids = Array.isArray(listCeoIds) ? listCeoIds : [];
   let deptCreated = 0;
   let deptSeeded = 0;
@@ -308,7 +308,7 @@ export function ensureCeoDefaultMasterDataForAllCeos(listCeoIds, opts = {}) {
   let helpUpdated = 0;
   for (const id of ids) {
     try {
-      const { departments, guide, platformHelp } = ensureCeoDefaultMasterData(id, opts);
+      const { departments, guide, platformHelp } = await ensureCeoDefaultMasterData(id, opts);
       if (departments.created) deptCreated += 1;
       if (departments.inserted) deptSeeded += 1;
       if (guide.created) guidesCreated += 1;

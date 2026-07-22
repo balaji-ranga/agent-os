@@ -430,8 +430,47 @@ function MasterDataPanel() {
           <h2 style={{ marginTop: 0, fontSize: '1.05rem' }}>Documents</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: '1rem' }}>
             <input style={fieldStyle} placeholder="Title (optional)" value={docTitle} onChange={(e) => setDocTitle(e.target.value)} />
-            <input type="file" accept=".txt,.md,.csv,.json,.log,.html,.xml,text/*" onChange={(e) => onDocFile(e.target.files?.[0])} />
-            <small style={{ color: 'var(--muted)' }}>Stored under your data folder; metadata + chunks in your SQLite.</small>
+            <input
+              type="file"
+              accept=".txt,.md,.csv,.json,.log,.html,.xml,.pdf,.docx,.xlsx,.xls,text/*,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+              onChange={(e) => onDocFile(e.target.files?.[0])}
+            />
+            <small style={{ color: 'var(--muted)' }}>
+              PDF, Word (.docx), Excel (.xlsx/.xls), and text files are indexed for RAG. Legacy .doc is not supported — convert to .docx.
+            </small>
+          </div>
+          <div style={{ marginBottom: '0.75rem' }}>
+            <button
+              type="button"
+              disabled={busy || !documents.length}
+              onClick={async () => {
+                setBusy(true);
+                setError(null);
+                try {
+                  const res = await api.masterDataDocumentsReindexAll();
+                  await refresh();
+                  flash(
+                    `Reindexed ${res.reindexed || 0}/${res.total || 0} document(s)` +
+                      (res.failed?.length ? ` (${res.failed.length} failed)` : '')
+                  );
+                } catch (err) {
+                  setError(err.message);
+                } finally {
+                  setBusy(false);
+                }
+              }}
+              style={{
+                padding: '0.4rem 0.75rem',
+                borderRadius: 6,
+                border: '1px solid var(--border)',
+                background: 'transparent',
+                color: 'var(--text)',
+                cursor: busy || !documents.length ? 'default' : 'pointer',
+                fontSize: '0.8rem',
+              }}
+            >
+              Reindex all for RAG
+            </button>
           </div>
           <ul style={{ listStyle: 'none', padding: 0, margin: 0, marginBottom: '1rem' }}>
             {documents.map((d) => (
@@ -440,17 +479,38 @@ function MasterDataPanel() {
                 <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
                   {d.filename} · {d.chunk_count} chunks · {d.id}
                 </div>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (!window.confirm(`Delete ${d.title}?`)) return;
-                    await api.masterDataDocumentDelete(d.id);
-                    await refresh();
-                  }}
-                  style={{ marginTop: 4, background: 'none', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--muted)', cursor: 'pointer', fontSize: '0.75rem' }}
-                >
-                  Delete
-                </button>
+                <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setBusy(true);
+                      setError(null);
+                      try {
+                        await api.masterDataDocumentReindex(d.id);
+                        await refresh();
+                        flash(`Reindexed ${d.title}`);
+                      } catch (err) {
+                        setError(err.message);
+                      } finally {
+                        setBusy(false);
+                      }
+                    }}
+                    style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--muted)', cursor: 'pointer', fontSize: '0.75rem' }}
+                  >
+                    Reindex
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!window.confirm(`Delete ${d.title}?`)) return;
+                      await api.masterDataDocumentDelete(d.id);
+                      await refresh();
+                    }}
+                    style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--muted)', cursor: 'pointer', fontSize: '0.75rem' }}
+                  >
+                    Delete
+                  </button>
+                </div>
               </li>
             ))}
             {!documents.length && <li style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>No documents yet.</li>}

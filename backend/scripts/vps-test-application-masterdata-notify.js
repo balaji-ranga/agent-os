@@ -74,7 +74,7 @@ if (!dept) {
   console.log('using departments table', dept.name, dept.id);
 }
 
-const ptoDoc = md.uploadDocument(CEO, {
+const ptoDoc = await md.uploadDocument(CEO, {
   title: 'PTO Policy (test)',
   filename: 'pto-policy.txt',
   mimeType: 'text/plain',

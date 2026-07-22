@@ -12,7 +12,7 @@ import { listDocuments } from '../src/services/master-data.js';
 
 initDb();
 const ceos = getDb().prepare(`SELECT id FROM platform_users WHERE role = 'ceo'`).all();
-const result = ensureCeoDefaultMasterDataForAllCeos(
+const result = await ensureCeoDefaultMasterDataForAllCeos(
   ceos.map((c) => c.id),
   { refresh: true }
 );

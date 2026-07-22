@@ -188,13 +188,13 @@ router.get('/documents', requireAuth, requireCeoOrAdmin, (req, res) => {
   }
 });
 
-router.post('/documents', requireAuth, requireCeoOrAdmin, (req, res) => {
+router.post('/documents', requireAuth, requireCeoOrAdmin, async (req, res) => {
   try {
     const owner = ownerOr403(req, res);
     if (!owner) return;
     const { title, filename, mime_type, mimeType, content_base64, contentBase64, content_text, contentText } =
       req.body || {};
-    const doc = md.uploadDocument(owner, {
+    const doc = await md.uploadDocument(owner, {
       title,
       filename: filename || 'document.txt',
       mimeType: mime_type || mimeType,
@@ -204,6 +204,29 @@ router.post('/documents', requireAuth, requireCeoOrAdmin, (req, res) => {
     res.status(201).json({ document: doc });
   } catch (e) {
     res.status(400).json({ error: e.message });
+  }
+});
+
+router.post('/documents/reindex-all', requireAuth, requireCeoOrAdmin, async (req, res) => {
+  try {
+    const owner = ownerOr403(req, res);
+    if (!owner) return;
+    const result = await md.reindexAllDocuments(owner);
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+router.post('/documents/:documentId/reindex', requireAuth, requireCeoOrAdmin, async (req, res) => {
+  try {
+    const owner = ownerOr403(req, res);
+    if (!owner) return;
+    const document = await md.reindexDocument(owner, req.params.documentId);
+    res.json({ document });
+  } catch (e) {
+    const status = /not found|missing/i.test(e.message || '') ? 404 : 400;
+    res.status(status).json({ error: e.message });
   }
 });
 
