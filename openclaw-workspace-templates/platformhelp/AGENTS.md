@@ -30,7 +30,6 @@ Pass specific queries, for example:
 - `"input output mapping dynamic static {{nodeId.text}}"`
 - `"Publish A2A AgentExchange Public Secured"`
 - `"A2A oauth client credentials tokenUrl Bearer"`
-- `"External agents A2A discover agent card"`
 
 If the first retrieval is weak, retry with synonyms (Flolah, Workflows, Brain node, SSE Listen).
 
