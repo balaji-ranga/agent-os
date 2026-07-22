@@ -255,6 +255,7 @@ export const api = {
   adminDisableAgent: (userId, agentId) => post(`/admin/users/${encodeURIComponent(userId)}/agents/${encodeURIComponent(agentId)}/disable`, {}),
   adminAgentsGrouped: () => get('/admin/agents'),
   adminSendNotifications: (body) => post('/admin/notifications', body),
+  adminRefreshDefaultAgents: (body) => post('/admin/default-agents/refresh', body),
   adminImpersonateUser: (userId) => post(`/admin/users/${encodeURIComponent(userId)}/impersonate`, {}),
   authExitImpersonation: () => post('/auth/exit-impersonation', {}),
   // Agent workflows (custom, separate from job workflows)

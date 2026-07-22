@@ -165,6 +165,41 @@ router.post('/notifications', (req, res) => {
   }
 });
 
+/**
+ * Push default-agent template MD + tool allowlists to all CEOs or selected user_ids.
+ * Body: { all_users?, user_ids?, agent_ids?, force_identity_md?, sync_org?, regrant_defaults? }
+ */
+router.post('/default-agents/refresh', async (req, res) => {
+  try {
+    const {
+      all_users,
+      allUsers,
+      user_ids,
+      userIds,
+      agent_ids,
+      agentIds,
+      force_identity_md,
+      forceIdentityMd,
+      sync_org,
+      syncOrg,
+      regrant_defaults,
+      regrantDefaults,
+    } = req.body || {};
+    const { refreshDefaultAgentsForUsers } = await import('../services/admin-refresh-default-agents.js');
+    const result = await refreshDefaultAgentsForUsers({
+      allUsers: all_users === true || allUsers === true,
+      userIds: user_ids ?? userIds ?? [],
+      agentIds: agent_ids ?? agentIds,
+      forceIdentityMd: force_identity_md ?? forceIdentityMd,
+      syncOrg: sync_org ?? syncOrg,
+      regrantDefaults: regrant_defaults ?? regrantDefaults,
+    });
+    res.status(result.ok ? 200 : 207).json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 router.post('/agents/custom', (req, res) => {
   try {
     const { id, name, role, parent_id, reportingTo, reporting_to, department, workspace_path, openclaw_agent_id, owner_user_id } =

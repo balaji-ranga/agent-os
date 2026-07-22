@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { api } from '../api';
-import { Link } from 'react-router-dom';
 import KanbanTaskDescription, { isCeoJobReviewTask, isWorkflowCeoApprovalTask, parseCeoReviewContext } from '../components/KanbanTaskDescription.jsx';
 import KanbanTaskArtifacts from '../components/KanbanTaskArtifacts.jsx';
 import KanbanBoardCell from '../components/KanbanBoardCell.jsx';
@@ -49,13 +48,11 @@ export default function Kanban() {
   const [dropTargetStatus, setDropTargetStatus] = useState(null);
   const [selectedTaskIds, setSelectedTaskIds] = useState(() => new Set());
   const [deleting, setDeleting] = useState(false);
-  const [ceoReviewOnly, setCeoReviewOnly] = useState(false);
   const [approvingReview, setApprovingReview] = useState(false);
   const [approveError, setApproveError] = useState(null);
   const [approveSuccess, setApproveSuccess] = useState(null);
   const [reviewQueue, setReviewQueue] = useState(null);
   const [includingJobId, setIncludingJobId] = useState(null);
-  const [pipelineStatus, setPipelineStatus] = useState(null);
   const [wfApprovalComment, setWfApprovalComment] = useState('');
   const [wfApproving, setWfApproving] = useState(false);
   const [drawerTab, setDrawerTab] = useState('details');
@@ -108,7 +105,6 @@ export default function Kanban() {
     setLoading(true);
     api.agentsList().then(setAgents).catch(() => setAgents([]));
     fetchTasks();
-    api.jobApplicantPipelineStatus().then(setPipelineStatus).catch(() => setPipelineStatus(null));
     setLoading(false);
   }, [view, rangeFrom, rangeTo]);
 
@@ -154,19 +150,13 @@ export default function Kanban() {
   }, [taskDetail?.messages]);
 
   const totalCount = tasks.length;
-  const ceoReviewTasks = tasks.filter(
-    (t) => t.status === 'awaiting_confirmation' && isCeoJobReviewTask(t)
-  );
-  const displayTasks = ceoReviewOnly
-    ? tasks.filter((t) => isCeoJobReviewTask(t))
-    : tasks;
   const byAgentAndStatus = {};
   const agentIds = ['__unassigned__', ...agents.map((a) => a.id)];
   agentIds.forEach((aid) => {
     byAgentAndStatus[aid] = {};
     STATUSES.forEach((s) => (byAgentAndStatus[aid][s] = []));
   });
-  displayTasks.forEach((t) => {
+  tasks.forEach((t) => {
     const aid = t.assigned_agent_id || '__unassigned__';
     if (!byAgentAndStatus[aid]) {
       byAgentAndStatus[aid] = {};
@@ -503,125 +493,7 @@ export default function Kanban() {
         >
           + New task
         </button>
-        <button
-          type="button"
-          onClick={() => setCeoReviewOnly((v) => !v)}
-          style={{
-            padding: '0.5rem 1rem',
-            borderRadius: 6,
-            border: `1px solid ${ceoReviewOnly ? 'var(--accent)' : 'var(--border)'}`,
-            background: ceoReviewOnly ? 'var(--accent)' : 'transparent',
-            color: ceoReviewOnly ? 'white' : 'inherit',
-            cursor: 'pointer',
-          }}
-        >
-          Job applications {ceoReviewTasks.length > 0 ? `(${ceoReviewTasks.length})` : ''}
-        </button>
       </div>
-
-      {pipelineStatus?.job_counts && (
-        <div
-          style={{
-            marginBottom: '1rem',
-            padding: '0.75rem 1rem',
-            borderRadius: 8,
-            border: '1px solid var(--border)',
-            background: 'var(--surface)',
-            fontSize: '0.85rem',
-          }}
-        >
-          <div style={{ fontWeight: 600, marginBottom: 4 }}>
-            Job search pipeline
-            {pipelineStatus.active_profile_id && (
-              <>
-                {' · '}
-                <Link
-                  to={`/job-workflows?profile_id=${encodeURIComponent(pipelineStatus.active_profile_id)}`}
-                  style={{ color: 'var(--accent)', fontWeight: 500, fontSize: '0.85rem' }}
-                >
-                  View workflows
-                </Link>
-              </>
-            )}
-          </div>
-          <div style={{ color: 'var(--muted)', marginBottom: 6 }}>
-            Profile:{' '}
-            <strong>
-              {pipelineStatus.active_profile_display_name || pipelineStatus.active_profile_id || 'none'}
-            </strong>
-            {pipelineStatus.active_profile_id && pipelineStatus.active_profile_display_name !== pipelineStatus.active_profile_id && (
-              <span style={{ fontSize: '0.8rem' }}> ({pipelineStatus.active_profile_id})</span>
-            )}
-            {pipelineStatus.profile_status ? ` · ${pipelineStatus.profile_status}` : ''}
-            {' · '}
-            {pipelineStatus.job_counts.discovered} discovered → {pipelineStatus.job_counts.shortlisted} shortlisted →{' '}
-            {pipelineStatus.job_counts.awaiting_approval} awaiting your approval → {pipelineStatus.job_counts.approved} approved
-          </div>
-          {pipelineStatus.pending_pipeline_tasks && pipelineStatus.current_pipeline_stage && (
-            <div style={{ color: 'var(--accent)', marginBottom: 6 }}>
-              Running: <strong>{pipelineStatus.current_pipeline_stage}</strong>
-              {pipelineStatus.current_pipeline_stage === 'discovery' && (
-                <span style={{ color: 'var(--muted)' }}>
-                  {' '}— Fit Scoring and Resume Tailoring start automatically when discovery finishes.
-                </span>
-              )}
-            </div>
-          )}
-          {pipelineStatus.job_counts.discovered > 0 && pipelineStatus.job_counts.awaiting_approval === 0 && (
-            <div style={{ color: '#b45309' }}>
-              Jobs found but no Kanban review yet — ask Job Discovery to run <strong>job_run_workflow_now</strong> for this profile.
-            </div>
-          )}
-          {ceoReviewTasks.length === 0 && pipelineStatus.job_counts.awaiting_approval > 0 && (
-            <div style={{ color: '#b45309' }}>
-              {pipelineStatus.job_counts.awaiting_approval} job(s) awaiting approval but no CEO review task — run workflow again from Job Discovery.
-            </div>
-          )}
-        </div>
-      )}
-
-      {ceoReviewTasks.length > 0 && (
-        <div
-          style={{
-            marginBottom: '1rem',
-            padding: '1rem',
-            borderRadius: 8,
-            border: '1px solid var(--accent)',
-            background: 'rgba(124, 58, 237, 0.08)',
-          }}
-        >
-          <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>
-            Awaiting your confirmation — job applications ({ceoReviewTasks.length})
-          </div>
-          <p style={{ margin: '0 0 0.75rem', fontSize: '0.9rem', color: 'var(--muted)' }}>
-            Open a task below → use the green <strong>Approve applications</strong> button at the top of the panel,
-            or type <strong>confirm</strong> in the task chat. Tasks live in the <strong>Awaiting confirmation</strong> column (usually under <strong>Unassigned</strong>).
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {ceoReviewTasks.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setSelectedTask(t)}
-                style={{
-                  textAlign: 'left',
-                  padding: '0.65rem 0.85rem',
-                  borderRadius: 6,
-                  border: '1px solid var(--border)',
-                  background: 'var(--surface)',
-                  cursor: 'pointer',
-                  color: 'inherit',
-                }}
-              >
-                <div style={{ fontWeight: 600 }}>{t.title}</div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--muted)', marginTop: 2 }}>
-                  {taskCreatedAtDisplay(t, serverTimezone)} · Click to review jobs &amp; approve
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {loading && <div style={{ color: 'var(--muted)' }}>Loading…</div>}
 

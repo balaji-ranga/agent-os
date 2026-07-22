@@ -1,9 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { RequireAuth } from '../context/AuthContext';
 
 const PAGE_SIZE = 50;
+const DOC_PAGE_SIZE = 10;
+
+const RAG_SUPPORTED_FORMATS = [
+  { ext: '.pdf', label: 'PDF' },
+  { ext: '.docx', label: 'Word' },
+  { ext: '.xlsx / .xls', label: 'Excel' },
+  { ext: '.txt / .md', label: 'Text / Markdown' },
+  { ext: '.csv / .json', label: 'CSV / JSON' },
+  { ext: '.html / .xml / .log', label: 'HTML / XML / Log' },
+];
 
 function emptyRowDraft(columns = []) {
   const draft = {};
@@ -14,6 +24,7 @@ function emptyRowDraft(columns = []) {
 function MasterDataPanel() {
   const [tables, setTables] = useState([]);
   const [documents, setDocuments] = useState([]);
+  const [docPage, setDocPage] = useState(0);
   const [selectedTable, setSelectedTable] = useState(null);
   const [rows, setRows] = useState([]);
   const [rowTotal, setRowTotal] = useState(0);
@@ -334,8 +345,21 @@ function MasterDataPanel() {
     else goBrowsePage(next);
   };
 
+  const docPageCount = Math.max(1, Math.ceil(documents.length / DOC_PAGE_SIZE));
+  const safeDocPage = Math.min(docPage, docPageCount - 1);
+  const pagedDocuments = useMemo(
+    () => documents.slice(safeDocPage * DOC_PAGE_SIZE, safeDocPage * DOC_PAGE_SIZE + DOC_PAGE_SIZE),
+    [documents, safeDocPage]
+  );
+  const docRangeStart = documents.length === 0 ? 0 : safeDocPage * DOC_PAGE_SIZE + 1;
+  const docRangeEnd = Math.min((safeDocPage + 1) * DOC_PAGE_SIZE, documents.length);
+
+  useEffect(() => {
+    setDocPage(0);
+  }, [documents.length]);
+
   return (
-    <div style={{ padding: '1.5rem', maxWidth: 1100, margin: '0 auto' }}>
+    <div className="mcp-pg">
       <Link to="/" style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>
         ← Dashboard
       </Link>
@@ -427,17 +451,38 @@ function MasterDataPanel() {
         </section>
 
         <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '1rem' }}>
-          <h2 style={{ marginTop: 0, fontSize: '1.05rem' }}>Documents</h2>
+          <h2 style={{ marginTop: 0, fontSize: '1.05rem' }}>Documents (RAG)</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: '1rem' }}>
             <input style={fieldStyle} placeholder="Title (optional)" value={docTitle} onChange={(e) => setDocTitle(e.target.value)} />
-            <input
-              type="file"
-              accept=".txt,.md,.csv,.json,.log,.html,.xml,.pdf,.docx,.xlsx,.xls,text/*,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-              onChange={(e) => onDocFile(e.target.files?.[0])}
-            />
-            <small style={{ color: 'var(--muted)' }}>
-              PDF, Word (.docx), Excel (.xlsx/.xls), and text files are indexed for RAG. Legacy .doc is not supported — convert to .docx.
-            </small>
+            <div>
+              <div style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: 6 }}>Supported upload formats</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                {RAG_SUPPORTED_FORMATS.map((f) => (
+                  <span
+                    key={f.ext}
+                    title={f.ext}
+                    style={{
+                      fontSize: '0.75rem',
+                      padding: '0.2rem 0.55rem',
+                      borderRadius: 999,
+                      border: '1px solid var(--border)',
+                      background: 'var(--bg, transparent)',
+                      color: 'var(--text)',
+                    }}
+                  >
+                    {f.label} <span style={{ color: 'var(--muted)' }}>{f.ext}</span>
+                  </span>
+                ))}
+              </div>
+              <input
+                type="file"
+                accept=".txt,.md,.csv,.json,.log,.html,.xml,.pdf,.docx,.xlsx,.xls,text/*,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                onChange={(e) => onDocFile(e.target.files?.[0])}
+              />
+              <small style={{ display: 'block', color: 'var(--muted)', marginTop: 6 }}>
+                Files are chunked and indexed for RAG. Legacy <code>.doc</code> is not supported — convert to <code>.docx</code>.
+              </small>
+            </div>
           </div>
           <div style={{ marginBottom: '0.75rem' }}>
             <button
@@ -472,8 +517,13 @@ function MasterDataPanel() {
               Reindex all for RAG
             </button>
           </div>
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0, marginBottom: '1rem' }}>
-            {documents.map((d) => (
+          <p style={{ margin: '0 0 0.5rem', fontSize: '0.85rem', color: 'var(--muted)' }}>
+            {documents.length === 0
+              ? 'No documents yet'
+              : `Showing ${docRangeStart}–${docRangeEnd} of ${documents.length}`}
+          </p>
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, marginBottom: '0.75rem' }}>
+            {pagedDocuments.map((d) => (
               <li key={d.id} style={{ padding: '0.5rem 0', borderBottom: '1px solid var(--border)' }}>
                 <div style={{ fontWeight: 600 }}>{d.title}</div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
@@ -513,8 +563,31 @@ function MasterDataPanel() {
                 </div>
               </li>
             ))}
-            {!documents.length && <li style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>No documents yet.</li>}
+            {!pagedDocuments.length && <li style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>No documents yet.</li>}
           </ul>
+          {documents.length > DOC_PAGE_SIZE && (
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="wf-btn"
+                disabled={safeDocPage <= 0}
+                onClick={() => setDocPage((p) => Math.max(0, p - 1))}
+              >
+                Previous
+              </button>
+              <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
+                Page {safeDocPage + 1} of {docPageCount}
+              </span>
+              <button
+                type="button"
+                className="wf-btn"
+                disabled={safeDocPage >= docPageCount - 1}
+                onClick={() => setDocPage((p) => Math.min(docPageCount - 1, p + 1))}
+              >
+                Next
+              </button>
+            </div>
+          )}
 
           <form onSubmit={runRag} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <strong style={{ fontSize: '0.85rem' }}>RAG query</strong>

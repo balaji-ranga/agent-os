@@ -37,7 +37,7 @@ function sanitizeIdPart(value) {
     .replace(/^-+|-+$/g, '') || 'unknown';
 }
 
-function baseOcIdFromAgent(agent) {
+export function baseOcIdFromAgent(agent) {
   return String(agent?.openclaw_agent_id || agent?.id || '')
     .trim()
     .toLowerCase();
@@ -102,22 +102,31 @@ function writeOpenClawConfig(config) {
 }
 
 function copyTemplateWorkspace(baseId, destDir) {
-  const candidates = [join(REPO_TEMPLATES, baseId), join(REPO_TEMPLATES, 'balserve')];
-  const src = candidates.find((p) => existsSync(p));
+  const ownTpl = join(REPO_TEMPLATES, baseId);
+  const hasOwnTemplate = existsSync(ownTpl);
+  const src = hasOwnTemplate ? ownTpl : join(REPO_TEMPLATES, 'balserve');
   mkdirSync(destDir, { recursive: true });
-  if (!src) return;
+  if (!existsSync(src)) return;
+  // Custom agents without a product template must not inherit BalServe COO identity files.
+  const skipIdentity = !hasOwnTemplate
+    ? new Set(['SOUL.md', 'MEMORY.md', 'IDENTITY.md', 'soul.md', 'memory.md', 'identity.md'])
+    : null;
   for (const name of readdirSync(src)) {
+    if (skipIdentity?.has(name)) continue;
     const from = join(src, name);
     const to = join(destDir, name);
     if (!existsSync(to)) cpSync(from, to, { recursive: true });
   }
 }
 
-/** Keep COO/agent skill docs in sync — OpenClaw may seed a stub TOOLS.md that hides API tools. */
+/** Keep standard-agent skill docs in sync. Never overwrite custom-agent identity with balserve. */
 function syncEssentialWorkspaceDocs(baseId, destDir) {
-  const candidates = [join(REPO_TEMPLATES, baseId), join(REPO_TEMPLATES, 'balserve')];
-  const src = candidates.find((p) => existsSync(p));
-  if (!src) return;
+  const ownTpl = join(REPO_TEMPLATES, baseId);
+  const hasOwnTemplate = existsSync(ownTpl);
+  // No agent-specific template ⇒ custom/onboarded agent. Do not sync from balserve fallback.
+  if (!hasOwnTemplate) return;
+
+  const src = ownTpl;
   mkdirSync(destDir, { recursive: true });
   for (const name of ['TOOLS.md', 'AGENTS.md', 'SOUL.md', 'MEMORY.md', 'IDENTITY.md']) {
     const from = join(src, name);
@@ -133,21 +142,40 @@ function syncEssentialWorkspaceDocs(baseId, destDir) {
           ) ||
           (name === 'TOOLS.md' &&
             !/agent_workflow_list|kanban_move_status|Granted tools/i.test(existing) &&
-            existing.length < 2000) ||
-          (name === 'SOUL.md' && !/BalServe|COO/i.test(existing)) ||
-          (name === 'AGENTS.md' && !/Operating contract|COO/i.test(existing));
-        // Always keep TOOLS/AGENTS/SOUL aligned with product templates for standard agents
-        shouldWrite =
-          looksLikeStub ||
-          name === 'TOOLS.md' ||
-          name === 'AGENTS.md' ||
-          name === 'SOUL.md';
+            existing.length < 2000);
+        // Refresh product TOOLS/AGENTS for standard templates; never force SOUL/MEMORY overwrite.
+        shouldWrite = looksLikeStub || name === 'TOOLS.md' || name === 'AGENTS.md';
       } catch {
         shouldWrite = true;
       }
     }
     if (shouldWrite) cpSync(from, to, { recursive: true });
   }
+}
+
+/**
+ * Admin / ops: force-copy template MD files into a tenant workspace.
+ * @param {string} baseId - template folder name (balserve, workflowbuilder, platformhelp, …)
+ * @param {string} destDir - tenant workspace path
+ * @param {{ forceIdentity?: boolean }} [opts] - when true, also overwrite SOUL/MEMORY/IDENTITY
+ */
+export function forcePushTemplateDocs(baseId, destDir, { forceIdentity = true } = {}) {
+  const ownTpl = join(REPO_TEMPLATES, baseId);
+  if (!existsSync(ownTpl)) {
+    throw new Error(`No workspace template for agent "${baseId}"`);
+  }
+  mkdirSync(destDir, { recursive: true });
+  const names = ['TOOLS.md', 'AGENTS.md'];
+  if (forceIdentity) names.push('SOUL.md', 'MEMORY.md', 'IDENTITY.md');
+  const copied = [];
+  for (const name of names) {
+    const from = join(ownTpl, name);
+    if (!existsSync(from)) continue;
+    const to = join(destDir, name);
+    cpSync(from, to, { recursive: true });
+    copied.push(name);
+  }
+  return { template: ownTpl, copied };
 }
 
 function mergeNativeTools(existingAllow = [], contentGrants = []) {

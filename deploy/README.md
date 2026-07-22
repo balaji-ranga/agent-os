@@ -234,6 +234,7 @@ All proxied under `/api` (rebuild backend + frontend images after upgrade):
 | Org doc sync | `POST /api/agents/org/sync` — rebuilds `ORG.md` + COO `AGENTS.md` (tenant session keys); Dashboard **Resync ORG.md & AGENTS.md**; Workspace UI reads per-CEO tenant path |
 | COO specialty delegate | COO chat hard-path: AGENTS.md purpose intent classify → Kanban + delegation (max 1 specialist) |
 | Kanban multi-tenant | `kanban_tasks.owner_user_id` — list/get/SQL-scoped; standup/COO/tools/job/workflow creates stamp owner; shared agent grants never imply ownership; orphans without owner stay hidden |
+| Lean Kanban board | Generic task board for agent / workflow / pipeline cards — no Job applications filter button or job-pipeline status banner (job setup stays under Job profiles / Job workflows) |
 | Lean CEO onboard | Default grants: COO (`balserve`) + Workflow Builder + Platform Help; `pruneSharedStandardAgentGrants` at boot; Dashboard **OrgDesigner** for departments / agents |
 | Master Data + RAG | `master_data_list_*` / `master_data_rag` — purpose-driven list_tables→list_rows; RAG for documents |
 | Agent chat tools UI | Assistant bubbles show gear pills for Agent OS tool calls (`content_tool_logs`) |

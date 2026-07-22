@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
@@ -13,10 +13,17 @@ const EMPTY_FORM = {
   auth_header: '',
 };
 
+function statusClass(status) {
+  if (status === 'healthy') return 'mcp-pg-status-healthy';
+  if (status === 'disabled') return 'mcp-pg-status-disabled';
+  return 'mcp-pg-status-draft';
+}
+
 export default function ExternalAgents() {
   const { user } = useAuth();
   const [agents, setAgents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
@@ -40,6 +47,18 @@ export default function ExternalAgents() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return agents;
+    return agents.filter((a) => {
+      const hay = [a.name, a.description, a.id, a.endpoint_url, a.card_url, a.status]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }, [agents, search]);
 
   const register = async (e) => {
     e.preventDefault();
@@ -98,14 +117,14 @@ export default function ExternalAgents() {
   };
 
   return (
-    <div className="page" style={{ padding: '1.5rem', maxWidth: 960 }}>
+    <div className="mcp-pg mcp-pg-registry">
       <header className="page-hero">
         <div className="page-hero-top">
           <div className="page-hero-titles">
             <p className="page-hero-kicker">Integrations · A2A</p>
             <h1>External Agents</h1>
           </div>
-          <button type="button" className="wf-btn-primary page-hero-action" onClick={() => setModalOpen(true)}>
+          <button type="button" className="mcp-pg-btn-primary page-hero-action" onClick={() => setModalOpen(true)}>
             + Register Agents
           </button>
         </div>
@@ -119,154 +138,175 @@ export default function ExternalAgents() {
         </p>
       </header>
 
-      {error && (
-        <div style={{ padding: '0.75rem 1rem', background: 'rgba(248,113,113,0.12)', borderRadius: 8, marginBottom: '1rem', color: '#f87171' }}>
-          {error}
-        </div>
-      )}
+      {error && <div className="mcp-pg-alert mcp-pg-alert-error">{error}</div>}
+
+      <div className="mcp-pg-toolbar">
+        <input
+          type="search"
+          className="mcp-pg-search"
+          placeholder="Search external agents…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
 
       {loading ? (
-        <p style={{ color: 'var(--muted)' }}>Loading…</p>
-      ) : !agents.length ? (
-        <p style={{ color: 'var(--muted)' }}>No external agents registered yet.</p>
+        <div className="mcp-pg-loading">
+          <div className="mcp-pg-spinner" />
+          <p>Loading external agents…</p>
+        </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {agents.map((a) => (
-            <div key={a.id} className="wf-card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
-                <div>
-                  <strong>{a.name}</strong>
-                  <span
-                    style={{
-                      marginLeft: 8,
-                      fontSize: '0.7rem',
-                      padding: '2px 8px',
-                      borderRadius: 999,
-                      background: a.status === 'healthy' ? 'rgba(22,163,74,0.15)' : 'rgba(163,163,163,0.2)',
-                      color: a.status === 'healthy' ? '#16a34a' : 'var(--muted)',
-                    }}
-                  >
-                    {a.status}
-                  </span>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--muted)', marginTop: 4 }}>{a.description || '—'}</div>
-                  <code style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{a.id}</code>
-                  {a.endpoint_url && (
-                    <div style={{ fontSize: '0.8rem', marginTop: 4, wordBreak: 'break-all' }}>
-                      Endpoint: {a.endpoint_url}
-                    </div>
-                  )}
-                  {a.agent_card?.skills?.length > 0 && (
-                    <div style={{ fontSize: '0.8rem', marginTop: 4 }}>
-                      Skills: {a.agent_card.skills.map((s) => s.name || s.id).filter(Boolean).join(', ')}
-                    </div>
-                  )}
+        <>
+          <p className="mcp-pg-count">
+            {filtered.length} agent{filtered.length === 1 ? '' : 's'}
+          </p>
+          <div className="mcp-pg-grid">
+            {filtered.map((a) => (
+              <article key={a.id} className="mcp-pg-card" style={{ cursor: 'default' }}>
+                <div className="mcp-pg-card-head">
+                  <div className="mcp-pg-card-icon">{a.name?.charAt(0)?.toUpperCase() || 'A'}</div>
+                  <div className="mcp-pg-card-badges">
+                    <span className={`mcp-pg-status ${statusClass(a.status)}`}>{a.status}</span>
+                    <span className="mcp-pg-transport">A2A</span>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-                  <button type="button" className="wf-btn" disabled={!!busy} onClick={() => discover(a.id)}>
+                <h3>{a.name}</h3>
+                <p className="mcp-pg-card-desc">{a.description || 'No description'}</p>
+                {a.endpoint_url ? (
+                  <code className="mcp-pg-card-url">{a.endpoint_url}</code>
+                ) : (
+                  <code className="mcp-pg-card-url">{a.id}</code>
+                )}
+                <div className="mcp-pg-card-meta">
+                  {a.agent_card?.skills?.length > 0 && (
+                    <span>{a.agent_card.skills.length} skill{a.agent_card.skills.length === 1 ? '' : 's'}</span>
+                  )}
+                  {a.is_shared && <span className="mcp-pg-tag platform">Platform</span>}
+                  {a.is_mine && !a.is_shared && <span className="mcp-pg-tag mine">Yours</span>}
+                </div>
+                {a.agent_card?.skills?.length > 0 && (
+                  <p className="mcp-pg-card-desc" style={{ marginTop: 0 }}>
+                    Skills: {a.agent_card.skills.map((s) => s.name || s.id).filter(Boolean).join(', ')}
+                  </p>
+                )}
+                <div className="mcp-pg-card-actions">
+                  <button
+                    type="button"
+                    className="mcp-pg-btn-primary mcp-pg-btn-sm"
+                    disabled={!!busy}
+                    onClick={() => discover(a.id)}
+                  >
                     {busy === `discover-${a.id}` ? 'Discovering…' : 'Discover'}
                   </button>
-                  <button type="button" className="wf-btn wf-btn-danger" disabled={!!busy || !a.can_delete} onClick={() => remove(a.id)}>
+                  <button
+                    type="button"
+                    className="mcp-pg-btn-ghost mcp-pg-btn-sm mcp-pg-btn-danger"
+                    disabled={!!busy || !a.can_delete}
+                    onClick={() => remove(a.id)}
+                  >
                     Delete
                   </button>
                 </div>
-              </div>
-              {a.status === 'healthy' && (
-                <div style={{ marginTop: '0.75rem', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <input
-                    value={testMessage}
-                    onChange={(e) => setTestMessage(e.target.value)}
-                    style={{ flex: 1, minWidth: 200, padding: '0.4rem 0.6rem', borderRadius: 6, border: '1px solid var(--border)' }}
-                    placeholder="Test message"
-                  />
-                  <button type="button" className="wf-btn-accent" disabled={!!busy} onClick={() => testInvoke(a.id)}>
-                    {busy === `test-${a.id}` ? 'Sending…' : 'Test A2A invoke'}
-                  </button>
-                </div>
-              )}
+                {a.status === 'healthy' && (
+                  <div style={{ marginTop: '0.75rem', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <input
+                      value={testMessage}
+                      onChange={(e) => setTestMessage(e.target.value)}
+                      className="mcp-pg-search"
+                      style={{ flex: 1, minWidth: 140 }}
+                      placeholder="Test message"
+                    />
+                    <button
+                      type="button"
+                      className="mcp-pg-btn-primary mcp-pg-btn-sm"
+                      disabled={!!busy}
+                      onClick={() => testInvoke(a.id)}
+                    >
+                      {busy === `test-${a.id}` ? 'Sending…' : 'Test invoke'}
+                    </button>
+                  </div>
+                )}
+              </article>
+            ))}
+          </div>
+          {!filtered.length && (
+            <div className="mcp-pg-empty">
+              <p>{agents.length ? 'No external agents match your search.' : 'No external agents registered yet.'}</p>
+              <button type="button" className="mcp-pg-btn-primary" onClick={() => setModalOpen(true)}>
+                Register your first agent
+              </button>
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
 
       {testResult && (
-        <div className="wf-card" style={{ marginTop: '1rem' }}>
+        <div className="mcp-pg-card" style={{ marginTop: '1rem', cursor: 'default' }}>
           <h3 style={{ marginTop: 0 }}>Last test result</h3>
-          <pre style={{ fontSize: '0.8rem', overflow: 'auto', maxHeight: 240 }}>{JSON.stringify(testResult, null, 2)}</pre>
+          <pre style={{ fontSize: '0.8rem', overflow: 'auto', maxHeight: 240, margin: 0 }}>
+            {JSON.stringify(testResult, null, 2)}
+          </pre>
         </div>
       )}
 
       <p style={{ marginTop: '1.5rem', fontSize: '0.85rem', color: 'var(--muted)' }}>
-        Use registered agents in the <Link to="/workflows">Workflow editor</Link> → add <strong>External Agent (A2A)</strong> node.
+        Use registered agents in the <Link to="/workflows">Workflow editor</Link> → add{' '}
+        <strong>External Agent (A2A)</strong> node.
       </p>
 
       {modalOpen && (
-        <div
-          role="dialog"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: '1rem',
-          }}
-          onClick={() => setModalOpen(false)}
-        >
-          <form
-            className="wf-card"
-            style={{ width: '100%', maxWidth: 480 }}
-            onClick={(e) => e.stopPropagation()}
-            onSubmit={register}
-          >
-            <h2 style={{ marginTop: 0 }}>Register external agent</h2>
-            <label className="wf-field">
-              Name
+        <div className="mcp-pg-modal-backdrop" onClick={() => setModalOpen(false)}>
+          <form className="mcp-pg-modal" onSubmit={register} onClick={(e) => e.stopPropagation()}>
+            <div className="mcp-pg-modal-header">
+              <h2>Register external agent</h2>
+              <button type="button" className="mcp-pg-btn-icon" onClick={() => setModalOpen(false)} aria-label="Close">
+                ×
+              </button>
+            </div>
+            <label className="mcp-pg-field">
+              <span>Name</span>
               <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             </label>
-            <label className="wf-field">
-              Description
+            <label className="mcp-pg-field">
+              <span>Description</span>
               <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
             </label>
-            <label className="wf-field">
-              Agent card URL (base or full)
+            <label className="mcp-pg-field">
+              <span>Agent card URL (base or full)</span>
               <input
                 value={form.card_url}
                 onChange={(e) => setForm({ ...form, card_url: e.target.value })}
                 placeholder="https://hello-world-gxfr.onrender.com"
               />
-              <small>
-                Base URL or full path — tries /.well-known/agent-card.json then /.well-known/agent.json (Hello World uses
-                agent.json)
+              <small className="mcp-pg-hint" style={{ margin: 0 }}>
+                Tries /.well-known/agent-card.json then /.well-known/agent.json
               </small>
             </label>
-            <label className="wf-field">
-              A2A endpoint URL (optional if in card)
+            <label className="mcp-pg-field">
+              <span>A2A endpoint URL (optional if in card)</span>
               <input
                 value={form.endpoint_url}
                 onChange={(e) => setForm({ ...form, endpoint_url: e.target.value })}
                 placeholder="https://agent.example.com/"
               />
-              <small>JSON-RPC service root — not the agent.json card URL</small>
             </label>
-            <label className="wf-field">
-              Default skill ID
+            <label className="mcp-pg-field">
+              <span>Default skill ID</span>
               <input value={form.skill_id} onChange={(e) => setForm({ ...form, skill_id: e.target.value })} />
             </label>
-            <label className="wf-field">
-              Auth (Bearer token)
+            <label className="mcp-pg-field">
+              <span>Auth (Bearer token)</span>
               <MaskedSecretInput
                 value={form.auth_header}
                 onChange={(e) => setForm({ ...form, auth_header: e.target.value })}
                 placeholder="optional"
               />
             </label>
-            <div style={{ display: 'flex', gap: 8, marginTop: '1rem' }}>
-              <button type="submit" className="wf-btn-primary" disabled={saving}>
+            <div className="mcp-pg-card-actions" style={{ marginTop: '0.5rem' }}>
+              <button type="submit" className="mcp-pg-btn-primary" disabled={saving}>
                 {saving ? 'Saving…' : 'Register'}
               </button>
-              <button type="button" className="wf-btn" onClick={() => setModalOpen(false)}>
+              <button type="button" className="mcp-pg-btn-ghost" onClick={() => setModalOpen(false)}>
                 Cancel
               </button>
             </div>

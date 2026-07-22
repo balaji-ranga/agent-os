@@ -1,15 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth, RequireAuth } from '../context/AuthContext';
 import ActionFeedbackBanner from '../components/ActionFeedbackBanner';
 import { useActionFeedback } from '../hooks/useActionFeedback';
 
+const USERS_PAGE_SIZE = 10;
+
 function AdminPanel() {
   const { logout, impersonateUser } = useAuth();
   const navigate = useNavigate();
   const { feedback, showSuccess, showError, clearFeedback } = useActionFeedback();
   const [users, setUsers] = useState([]);
+  const [userSearch, setUserSearch] = useState('');
+  const [userPage, setUserPage] = useState(0);
   const [selected, setSelected] = useState(null);
   const [selectedAgents, setSelectedAgents] = useState([]);
   const [impersonatingUserId, setImpersonatingUserId] = useState(null);
@@ -23,6 +27,15 @@ function AdminPanel() {
   });
   const [notifySending, setNotifySending] = useState(false);
   const [ocConsoleBusy, setOcConsoleBusy] = useState(false);
+  const [refreshForm, setRefreshForm] = useState({
+    scope: 'all',
+    user_ids: [],
+    force_identity_md: true,
+    sync_org: true,
+    regrant_defaults: true,
+  });
+  const [refreshBusy, setRefreshBusy] = useState(false);
+  const [refreshResult, setRefreshResult] = useState(null);
 
   const load = () => {
     api.adminUsers()
@@ -106,6 +119,40 @@ function AdminPanel() {
     }
   };
 
+  const toggleRefreshUser = (userId) => {
+    setRefreshForm((prev) => {
+      const has = prev.user_ids.includes(userId);
+      return {
+        ...prev,
+        user_ids: has ? prev.user_ids.filter((id) => id !== userId) : [...prev.user_ids, userId],
+      };
+    });
+  };
+
+  const refreshDefaultAgents = async (e) => {
+    e.preventDefault();
+    setRefreshBusy(true);
+    setRefreshResult(null);
+    try {
+      const result = await api.adminRefreshDefaultAgents({
+        all_users: refreshForm.scope === 'all',
+        user_ids: refreshForm.scope === 'selected' ? refreshForm.user_ids : [],
+        force_identity_md: refreshForm.force_identity_md,
+        sync_org: refreshForm.sync_org,
+        regrant_defaults: refreshForm.regrant_defaults,
+      });
+      setRefreshResult(result);
+      showSuccess(
+        `Default agents refreshed for ${result.users_ok}/${result.users_targeted} CEO(s)` +
+          (result.users_failed ? ` (${result.users_failed} failed)` : '')
+      );
+    } catch (err) {
+      showError(err.message || 'Failed to refresh default agents');
+    } finally {
+      setRefreshBusy(false);
+    }
+  };
+
   const viewAsUser = async (userId) => {
     setImpersonatingUserId(userId);
     try {
@@ -133,9 +180,35 @@ function AdminPanel() {
   };
 
   const enabledUsers = users.filter((u) => u.enabled);
+  const enabledCeos = enabledUsers.filter((u) => u.role === 'ceo');
+
+  const filteredUsers = useMemo(() => {
+    const q = userSearch.trim().toLowerCase();
+    if (!q) return users;
+    return users.filter((u) => {
+      const hay = [u.name, u.email, u.role, u.id, u.region, u.mobile, u.industry, u.business_name]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }, [users, userSearch]);
+
+  const userPageCount = Math.max(1, Math.ceil(filteredUsers.length / USERS_PAGE_SIZE));
+  const safeUserPage = Math.min(userPage, userPageCount - 1);
+  const pagedUsers = filteredUsers.slice(
+    safeUserPage * USERS_PAGE_SIZE,
+    safeUserPage * USERS_PAGE_SIZE + USERS_PAGE_SIZE
+  );
+  const userRangeStart = filteredUsers.length === 0 ? 0 : safeUserPage * USERS_PAGE_SIZE + 1;
+  const userRangeEnd = Math.min((safeUserPage + 1) * USERS_PAGE_SIZE, filteredUsers.length);
+
+  useEffect(() => {
+    setUserPage(0);
+  }, [userSearch]);
 
   return (
-    <div style={{ padding: '1.5rem', maxWidth: 1100, margin: '0 auto' }}>
+    <div className="mcp-pg">
       <ActionFeedbackBanner feedback={feedback} onDismiss={clearFeedback} />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
         <h1 style={{ margin: 0 }}>Admin</h1>
@@ -160,8 +233,24 @@ function AdminPanel() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
         <section>
           <h2>Users</h2>
+          <div className="mcp-pg-toolbar" style={{ marginBottom: '0.75rem' }}>
+            <input
+              type="search"
+              className="mcp-pg-search"
+              placeholder="Search users by name, email, role…"
+              value={userSearch}
+              onChange={(e) => setUserSearch(e.target.value)}
+              aria-label="Search users"
+            />
+          </div>
+          <p className="mcp-pg-count" style={{ marginTop: 0 }}>
+            {filteredUsers.length === 0
+              ? 'No users match'
+              : `Showing ${userRangeStart}–${userRangeEnd} of ${filteredUsers.length}`}
+            {userSearch.trim() ? ` (filtered from ${users.length})` : ''}
+          </p>
           <div style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
-            {users.map((u) => (
+            {pagedUsers.map((u) => (
               <div
                 key={u.id}
                 onClick={() => loadUser(u.id)}
@@ -207,7 +296,35 @@ function AdminPanel() {
                 </div>
               </div>
             ))}
+            {!pagedUsers.length && (
+              <div style={{ padding: '0.85rem', color: 'var(--muted)', fontSize: '0.9rem' }}>
+                {users.length ? 'No users match your search.' : 'No users yet.'}
+              </div>
+            )}
           </div>
+          {filteredUsers.length > USERS_PAGE_SIZE && (
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: '0.65rem', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="wf-btn"
+                disabled={safeUserPage <= 0}
+                onClick={() => setUserPage((p) => Math.max(0, p - 1))}
+              >
+                Previous
+              </button>
+              <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
+                Page {safeUserPage + 1} of {userPageCount}
+              </span>
+              <button
+                type="button"
+                className="wf-btn"
+                disabled={safeUserPage >= userPageCount - 1}
+                onClick={() => setUserPage((p) => Math.min(userPageCount - 1, p + 1))}
+              >
+                Next
+              </button>
+            </div>
+          )}
 
           <h3 style={{ marginTop: '1.5rem' }}>Register CEO user</h3>
           <form onSubmit={registerUser} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -309,6 +426,136 @@ function AdminPanel() {
           )}
         </section>
       </div>
+
+      <section style={{ marginTop: '2rem', padding: '1rem', border: '1px solid var(--border)', borderRadius: 8 }}>
+        <h2 style={{ marginTop: 0 }}>Refresh default agents</h2>
+        <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginTop: 0 }}>
+          Push template MD files (TOOLS, AGENTS, SOUL, MEMORY, IDENTITY) and tool allowlists for{' '}
+          <strong>COO</strong>, <strong>Workflow Builder</strong>, and <strong>Platform Help</strong> into each CEO&apos;s
+          tenant OpenClaw workspace. Use after updating <code>openclaw-workspace-templates/</code> or tool grants.
+        </p>
+        <form onSubmit={refreshDefaultAgents} style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 640 }}>
+          <fieldset style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '0.65rem 0.85rem', margin: 0 }}>
+            <legend style={{ fontSize: '0.85rem', padding: '0 0.35rem' }}>Target CEOs</legend>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, cursor: 'pointer' }}>
+              <input
+                type="radio"
+                name="refresh-scope"
+                checked={refreshForm.scope === 'all'}
+                onChange={() => setRefreshForm({ ...refreshForm, scope: 'all', user_ids: [] })}
+              />
+              All enabled CEOs ({enabledCeos.length})
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+              <input
+                type="radio"
+                name="refresh-scope"
+                checked={refreshForm.scope === 'selected'}
+                onChange={() => setRefreshForm({ ...refreshForm, scope: 'selected' })}
+              />
+              Selected CEOs
+            </label>
+          </fieldset>
+          {refreshForm.scope === 'selected' && (
+            <div
+              style={{
+                maxHeight: 180,
+                overflowY: 'auto',
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                padding: '0.5rem',
+              }}
+            >
+              {enabledCeos.map((u) => (
+                <label
+                  key={u.id}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0.25rem 0', cursor: 'pointer' }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={refreshForm.user_ids.includes(u.id)}
+                    onChange={() => toggleRefreshUser(u.id)}
+                  />
+                  <span>
+                    {u.name} <span style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>({u.email})</span>
+                  </span>
+                </label>
+              ))}
+              {!enabledCeos.length && (
+                <div style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>No enabled CEO users.</div>
+              )}
+            </div>
+          )}
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.9rem', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={refreshForm.force_identity_md}
+              onChange={(e) => setRefreshForm({ ...refreshForm, force_identity_md: e.target.checked })}
+            />
+            Overwrite SOUL / MEMORY / IDENTITY from templates
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.9rem', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={refreshForm.sync_org}
+              onChange={(e) => setRefreshForm({ ...refreshForm, sync_org: e.target.checked })}
+            />
+            Rebuild ORG.md (and COO AGENTS.md) per CEO
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.9rem', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={refreshForm.regrant_defaults}
+              onChange={(e) => setRefreshForm({ ...refreshForm, regrant_defaults: e.target.checked })}
+            />
+            Re-grant default agent entitlements
+          </label>
+          <button
+            type="submit"
+            disabled={refreshBusy || (refreshForm.scope === 'selected' && refreshForm.user_ids.length === 0)}
+            style={{
+              padding: '0.5rem',
+              borderRadius: 6,
+              background: 'var(--accent)',
+              color: '#fff',
+              border: 'none',
+              cursor: refreshBusy ? 'wait' : 'pointer',
+              opacity:
+                refreshBusy || (refreshForm.scope === 'selected' && refreshForm.user_ids.length === 0) ? 0.65 : 1,
+            }}
+          >
+            {refreshBusy ? 'Refreshing…' : 'Refresh default agents'}
+          </button>
+        </form>
+        {refreshResult && (
+          <pre
+            style={{
+              marginTop: 12,
+              padding: '0.75rem',
+              borderRadius: 8,
+              background: 'var(--bg, #121216)',
+              border: '1px solid var(--border)',
+              fontSize: '0.75rem',
+              maxHeight: 220,
+              overflow: 'auto',
+              whiteSpace: 'pre-wrap',
+            }}
+          >
+            {JSON.stringify(
+              {
+                users_ok: refreshResult.users_ok,
+                users_failed: refreshResult.users_failed,
+                default_agent_ids: refreshResult.default_agent_ids,
+                failures: (refreshResult.results || [])
+                  .filter((r) => r.error)
+                  .map((r) => ({ user_id: r.user_id, error: r.error })),
+              },
+              null,
+              2
+            )}
+          </pre>
+        )}
+      </section>
 
       <section style={{ marginTop: '2rem', padding: '1rem', border: '1px solid var(--border)', borderRadius: 8 }}>
         <h2 style={{ marginTop: 0 }}>Send notification</h2>

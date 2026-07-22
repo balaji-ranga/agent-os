@@ -344,11 +344,11 @@ export default function Dashboard() {
       .finally(() => setOrgDocSyncing(false));
   };
 
-  if (loading) return <div style={{ padding: '2rem' }}>Loading…</div>;
-  if (error) return <div style={{ padding: '2rem', color: '#f87171' }}>Error: {error}</div>;
+  if (loading) return <div className="mcp-pg">Loading…</div>;
+  if (error) return <div className="mcp-pg" style={{ color: '#f87171' }}>Error: {error}</div>;
 
   return (
-    <div style={{ padding: '2rem', maxWidth: 960 }}>
+    <div className="mcp-pg" style={{ paddingTop: '2rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
         <h1 style={{ marginTop: 0, marginBottom: 0 }}>Dashboard</h1>
       </div>

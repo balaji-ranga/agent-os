@@ -40,6 +40,7 @@ echo "    features: notify_ceo, email_send, Broadcast (intent notify + paced fan
 echo "              AGENTS.md COO specialty delegation, Master Data + RAG purposes,"
 echo "              Platform Help agent + knowledgebase/platform-help corpus,"
 echo "              Kanban owner_user_id isolation (SQL-scoped; shared agents never imply ownership),"
+echo "              lean Kanban board (generic tasks; no Job applications filter / pipeline banner),"
 echo "              lean CEO onboard + OrgDesigner, pruneSharedStandardAgentGrants at boot,"
 echo "              chat tool-call icons, notification tooltips, shared NotificationProvider,"
 echo "              AgentExchange/A2A (public + OAuth client credentials → Bearer),"

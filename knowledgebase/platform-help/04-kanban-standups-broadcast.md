@@ -2,12 +2,13 @@
 
 ## Kanban (`/kanban`)
 
-Board of tasks by agent and status.
+Board of tasks by agent and status — shared for agent work, workflow steps, and pipeline tasks.
 
 - Open a card for detail, **task chat**, artifacts, and workflow run links.
-- Tasks appear when the COO delegates specialty work, when you create tasks, or when workflows create step tasks.
-- **CEO Approval** workflow nodes pause here until you approve or reject (with optional comment).
+- Tasks appear when the COO delegates specialty work, when you create tasks, or when workflows / pipelines create step tasks.
+- **CEO Approval** workflow nodes (and similar awaiting-confirmation cards) pause here until you approve or reject (with optional comment).
 - Reopen a task if work must continue; move status as your process requires.
+- Job profile setup and pipeline runs live under **Job profiles** / **Job workflows** — Kanban itself stays a generic task board.
 
 ## Standups (on Dashboard)
 

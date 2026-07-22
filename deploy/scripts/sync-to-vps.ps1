@@ -12,6 +12,7 @@
 # Features covered: Flolah branding, hPanel light theme (collapsible nav + profile menu),
 # workflow editor fullscreen (shell-focus-mode), Register MCP/Agents primary CTAs,
 # multi-tenant standups/delegation, Kanban owner_user_id isolation (no shared-agent leak),
+# lean Kanban board (no Job applications filter / pipeline status banner),
 # lean CEO onboard (COO + Workflow Builder + Platform Help), OrgDesigner dashboard,
 # Master Data + RAG tools, Platform Help agent + help corpus,
 # notify_ceo + email_send, Broadcast (intent-based notify + paced fan-out), AGENTS.md intent

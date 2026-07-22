@@ -14,7 +14,7 @@
 | Label | Route | Use for |
 |-------|-------|---------|
 | Dashboard | `/` | Org chart, add agent, standups + COO chat, Resync ORG/AGENTS |
-| Kanban | `/kanban` | Task board, CEO approvals from workflows, artifacts |
+| Kanban | `/kanban` | Generic task board (agent / workflow / pipeline cards), CEO approvals, artifacts |
 | Broadcast | `/broadcast` | Message many agents at once |
 | Master Data | `/master-data` | Tables, documents, RAG |
 | AI Snipper | `/ai-snipper` | Token / prompt / activity analytics |
