@@ -1,7 +1,8 @@
 import ChatMessageContent from './ChatMessageContent';
 import { formatChatTimestamp } from '../utils/formatDateTime.js';
 import MessageFeedback from './MessageFeedback';
-import ChatToolCalls from './ChatToolCalls';
+import ChatToolCalls, { collectChartUrlsFromToolCalls } from './ChatToolCalls';
+import AuthenticatedMediaImage from './AuthenticatedMediaImage';
 
 /**
  * Single chat bubble with role label and local timestamp.
@@ -22,6 +23,8 @@ export default function ChatMessageRow({
 }) {
   const label = roleLabel || role;
   const isUser = role === 'user';
+  const chartUrls = !isUser ? collectChartUrlsFromToolCalls(toolCalls) : [];
+
   return (
     <div
       className={className}
@@ -44,8 +47,15 @@ export default function ChatMessageRow({
           </time>
         )}
       </div>
+      {chartUrls.length > 0 && (
+        <div className="chat-message-chart-previews" style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginBottom: '0.75rem' }}>
+          {chartUrls.map((src) => (
+            <AuthenticatedMediaImage key={src} src={src} alt="Chart" />
+          ))}
+        </div>
+      )}
       <ChatMessageContent content={content} />
-      {!isUser && <ChatToolCalls toolCalls={toolCalls} />}
+      {!isUser && <ChatToolCalls toolCalls={toolCalls} showChartPreviews={false} />}
       {!isUser && showFeedback && agentId && (
         <MessageFeedback
           agentId={agentId}

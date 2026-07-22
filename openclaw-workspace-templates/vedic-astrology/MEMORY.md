@@ -3,7 +3,7 @@
 ## Defaults
 
 - Ayanāṁśa: **Lahiri** unless CEO overrides
-- Visuals: `vedic_compute_chart` → `chart_spec` → **`generate_chart`** (North + South Indian)
+- Chart visuals: auto from `vedic_compute_chart` (`visuals_markdown`); never `generate_image`
 - Persist repeat clients in Master Data table `vedic_birth_charts`
 
 ## Session habits

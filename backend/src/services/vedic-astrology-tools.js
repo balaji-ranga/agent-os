@@ -5,7 +5,7 @@ export const VEDIC_ASTROLOGY_TOOLS = [
   'vedic_compute_chart',
   'generate_chart',
   'summarize_url',
-  'generate_image',
+  // Intentionally no generate_image — models spam empty prompts; use generate_chart / vedic visuals.
   'kanban_create_task',
   'kanban_move_status',
   'kanban_reassign_to_coo',

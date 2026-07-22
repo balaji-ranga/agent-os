@@ -8,7 +8,7 @@ import {
   GeoVector,
   Ecliptic,
 } from 'astronomy-engine';
-import { CHART_SPEC_VERSION } from './chart-spec.js';
+import { CHART_SPEC_VERSION, generateChartsFromSpec } from './chart-spec.js';
 
 const SIGN_NAMES = [
   'Aries',
@@ -243,9 +243,9 @@ export function buildVedicChartSpec({ lagna, planets, navamsa, subtitle, style =
 
 /**
  * @param {object} input
- * @param {{ mediaDir?: string }} [_opts] - mediaDir ignored (use generate_chart for visuals)
+ * @param {{ mediaDir?: string }} [opts] - when set, also render chart_spec → SVG URLs
  */
-export function computeVedicChart(input = {}, _opts = {}) {
+export function computeVedicChart(input = {}, opts = {}) {
   const birthDate = String(input.birth_date || input.birthDate || '').trim();
   const birthTime = String(input.birth_time || input.birthTime || '12:00').trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
@@ -342,8 +342,25 @@ export function computeVedicChart(input = {}, _opts = {}) {
     style,
   });
 
+  /** @type {Record<string, string>} */
+  let chart_urls = {};
+  let visuals_markdown = null;
+  const mediaDir = opts.mediaDir;
+  const skipRender =
+    input.render_charts === false ||
+    input.renderCharts === false ||
+    String(input.skip_render || '').toLowerCase() === 'true';
+  if (mediaDir && !skipRender && chart_spec.charts?.length) {
+    const rendered = generateChartsFromSpec({ spec: chart_spec }, { mediaDir });
+    chart_urls = rendered.chart_urls || {};
+    visuals_markdown = rendered.visuals_markdown || null;
+  }
+
   return {
     ok: true,
+    // Put visuals first so the model sees URLs before interpretive fields
+    visuals_markdown,
+    chart_urls,
     ayanamsa: 'lahiri',
     ayanamsa_degrees: Number(ayan.toFixed(4)),
     birth: {
@@ -370,12 +387,12 @@ export function computeVedicChart(input = {}, _opts = {}) {
         }
       : null,
     dasha,
-    /** Ready-to-pass JSON for generate_chart (visuals). */
     chart_spec,
-    next_step:
-      'Call generate_chart with { "spec": <chart_spec> }. Paste returned visuals_markdown at the TOP of your reply, then interpret.',
+    next_step: visuals_markdown
+      ? 'Paste visuals_markdown (chart SVG URLs) at the TOP of your reply, then interpret. Do NOT call generate_image.'
+      : 'Call generate_chart with { "spec": <chart_spec> }, paste visuals_markdown at the TOP of your reply. Do NOT call generate_image.',
     notes:
-      'Sidereal positions use tropical ephemeris minus Lahiri ayanāṁśa. Houses are whole-sign from Lagna. Visuals come from generate_chart + chart_spec — do not invent SVG URLs.',
+      'Sidereal positions use tropical ephemeris minus Lahiri ayanāṁśa. Houses are whole-sign from Lagna. Never use generate_image for kundli — paste chart URLs from this tool (or generate_chart).',
   };
 }
 

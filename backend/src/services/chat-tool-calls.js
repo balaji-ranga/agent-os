@@ -25,7 +25,31 @@ function safeJson(raw, max = 4000) {
   try {
     const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
     const s = JSON.stringify(parsed);
-    return s.length > max ? `${s.slice(0, max)}…` : parsed;
+    if (s.length <= max) return parsed;
+    // Keep chart media fields intact so the chat UI can render SVGs even when the
+    // full ephemeris payload is large.
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      const slim = {
+        ok: parsed.ok,
+        visuals_markdown: parsed.visuals_markdown ?? null,
+        chart_urls: parsed.chart_urls ?? null,
+        charts: Array.isArray(parsed.charts)
+          ? parsed.charts.map((c) => ({ id: c?.id, type: c?.type, title: c?.title, url: c?.url }))
+          : undefined,
+        north_chart_url: parsed.north_chart_url,
+        south_chart_url: parsed.south_chart_url,
+        navamsa_north_chart_url: parsed.navamsa_north_chart_url,
+        navamsa_south_chart_url: parsed.navamsa_south_chart_url,
+        error: parsed.error,
+        lagna: parsed.lagna ? { sign: parsed.lagna.sign, sign_index: parsed.lagna.sign_index } : undefined,
+        _truncated: true,
+      };
+      Object.keys(slim).forEach((k) => {
+        if (slim[k] === undefined || slim[k] === null) delete slim[k];
+      });
+      return slim;
+    }
+    return `${s.slice(0, max)}…`;
   } catch {
     const s = String(raw);
     return s.length > max ? `${s.slice(0, max)}…` : s;

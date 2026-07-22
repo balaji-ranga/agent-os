@@ -578,7 +578,8 @@ router.post('/vedic-compute-chart', optionalAuth, async (req, res) => {
   const requestPayload = req.body || {};
   try {
     const { computeVedicChart } = await import('../services/vedic-chart.js');
-    const out = computeVedicChart(req.body || {});
+    mkdirSync(GENERATED_MEDIA_DIR, { recursive: true });
+    const out = computeVedicChart(req.body || {}, { mediaDir: GENERATED_MEDIA_DIR });
     logTool(req, 'vedic_compute_chart', requestPayload, out, 'ok', source);
     res.json(out);
   } catch (e) {

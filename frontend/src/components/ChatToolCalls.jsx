@@ -1,12 +1,77 @@
+import AuthenticatedMediaImage from './AuthenticatedMediaImage';
+
 /**
  * Expandable tool-call icons for agent chat (from content_tool_logs).
+ * Also surfaces chart SVG URLs from successful vedic_compute_chart / generate_chart responses
+ * so visuals appear even when the model forgets to paste them into the reply text.
  */
-export default function ChatToolCalls({ toolCalls }) {
+
+function parseJsonMaybe(value) {
+  if (value == null) return null;
+  if (typeof value === 'object') return value;
+  if (typeof value !== 'string') return null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
+export function collectChartUrlsFromToolCalls(toolCalls) {
+  const urls = [];
+  const seen = new Set();
+  for (const tc of toolCalls || []) {
+    const name = String(tc.tool_name || '');
+    if (name !== 'vedic_compute_chart' && name !== 'generate_chart') continue;
+    if (String(tc.status || '').toLowerCase() !== 'ok') continue;
+    const resp = parseJsonMaybe(tc.response);
+    if (!resp || typeof resp !== 'object') continue;
+    const candidates = [];
+    if (resp.visuals_markdown) {
+      const m = String(resp.visuals_markdown).match(/\/api\/media\/[^\s)]+/g);
+      if (m) candidates.push(...m);
+    }
+    if (resp.chart_urls && typeof resp.chart_urls === 'object') {
+      candidates.push(...Object.values(resp.chart_urls).filter(Boolean));
+    }
+    for (const key of [
+      'north_chart_url',
+      'south_chart_url',
+      'navamsa_north_chart_url',
+      'navamsa_south_chart_url',
+    ]) {
+      if (resp[key]) candidates.push(resp[key]);
+    }
+    if (Array.isArray(resp.charts)) {
+      for (const c of resp.charts) {
+        if (c?.url) candidates.push(c.url);
+      }
+    }
+    for (const u of candidates) {
+      const url = String(u || '').trim();
+      if (!url || seen.has(url)) continue;
+      if (!/\/api\/media\//i.test(url) && !/\.svg(\?|$)/i.test(url)) continue;
+      seen.add(url);
+      urls.push(url);
+    }
+  }
+  return urls;
+}
+
+export default function ChatToolCalls({ toolCalls, showChartPreviews = true }) {
   const list = Array.isArray(toolCalls) ? toolCalls : [];
   if (!list.length) return null;
+  const chartUrls = showChartPreviews ? collectChartUrlsFromToolCalls(list) : [];
 
   return (
     <div className="chat-tool-calls" style={{ marginTop: '0.55rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+      {chartUrls.length > 0 && (
+        <div className="chat-tool-chart-previews" style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginBottom: '0.35rem' }}>
+          {chartUrls.map((src) => (
+            <AuthenticatedMediaImage key={src} src={src} alt="Chart" />
+          ))}
+        </div>
+      )}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', alignItems: 'center' }}>
         <span style={{ fontSize: '0.7rem', color: 'var(--muted)', marginRight: 2 }} title="Agent OS tools used for this reply">
           Tools

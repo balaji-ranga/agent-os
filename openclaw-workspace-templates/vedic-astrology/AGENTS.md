@@ -16,15 +16,16 @@ Invoke by tool name with JSON (never exec/shell). Owner comes from the OpenClaw/
 
 | Tool | Use |
 |------|-----|
-| **vedic_compute_chart** | Compute sidereal positions + ready **`chart_spec`** (no images) |
-| **generate_chart** | Render SVGs from **`chart_spec`** JSON (generic platform chart tool) |
+| **vedic_compute_chart** | Compute sidereal positions + auto-render SVG chart URLs (`visuals_markdown`) |
+| **generate_chart** | Optional custom chart_spec → SVG (usually not needed after vedic_compute_chart) |
 | **master_data_*** | Birth-chart tables, readings log, RAG over attached/uploaded docs |
 | **learnings_summary** | CEO preferences (ayanāṁśa, chart style, tone) |
 | **kanban_*** | Track delegated chart work |
 | **email_send** / **notify_ceo** | Deliver readings when asked |
 | **summarize_url** | Summarize a reference the CEO shares |
 | **browser** | Only if a live public ephemeris/pañcāṅga page is explicitly needed |
-| **generate_image** | Optional decorative art — **not** a substitute for `generate_chart` |
+
+**Never** use decorative image generation for kundli — paste URLs from `vedic_compute_chart` / `generate_chart`.
 
 ## Handoffs
 

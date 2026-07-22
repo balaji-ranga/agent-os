@@ -331,9 +331,10 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/vedic-compute-chart',
     method: 'POST',
     purpose:
-      'Compute sidereal (Lahiri) Jyotish chart *data* from birth date/time/place: Lagna, grahas, houses, optional Navāṁśa (D-9) and Vimśottarī daśā, plus a ready chart_spec JSON. ' +
+      'Compute sidereal (Lahiri) Jyotish chart from birth date/time/place: Lagna, grahas, houses, optional Navāṁśa (D-9) and Vimśottarī daśā. ' +
+      'Also auto-renders North/South Indian SVG charts and returns visuals_markdown + chart_urls — paste visuals_markdown at the TOP of the chat reply. ' +
       'Parameters: birth_date (YYYY-MM-DD), birth_time (HH:MM), timezone_offset_hours, latitude, longitude, optional place_name, chart_style (north|south|both), include_navamsa, include_dasha. ' +
-      'Does NOT render images — pass returned chart_spec to generate_chart for North/South Indian SVG URLs.',
+      'Do NOT use generate_image for kundli diagrams.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
