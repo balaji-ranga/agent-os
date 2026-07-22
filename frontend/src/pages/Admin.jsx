@@ -27,6 +27,8 @@ function AdminPanel() {
   });
   const [notifySending, setNotifySending] = useState(false);
   const [ocConsoleBusy, setOcConsoleBusy] = useState(false);
+  const [offboardBusy, setOffboardBusy] = useState(false);
+  const [offboardConfirmEmail, setOffboardConfirmEmail] = useState('');
   const [refreshForm, setRefreshForm] = useState({
     scope: 'all',
     user_ids: [],
@@ -51,6 +53,7 @@ function AdminPanel() {
     api.adminUserGet(userId).then((r) => {
       setSelected(r.user);
       setSelectedAgents(r.agents || []);
+      setOffboardConfirmEmail('');
     });
   };
 
@@ -62,6 +65,32 @@ function AdminPanel() {
       if (selected?.id === userId) loadUser(userId);
     } catch (err) {
       showError(err.message || 'Failed to update user');
+    }
+  };
+
+  const offboardSelectedUser = async () => {
+    if (!selected) return;
+    const email = String(offboardConfirmEmail || '').trim();
+    if (!email || email.toLowerCase() !== String(selected.email || '').toLowerCase()) {
+      showError('Type the user email exactly to confirm offboard.');
+      return;
+    }
+    const ok = window.confirm(
+      `Permanently offboard ${selected.name} (${selected.email})?\n\nThis deletes standups, workflow schedules, workflows, grants, tenant DB, and the user account. This cannot be undone.`
+    );
+    if (!ok) return;
+    setOffboardBusy(true);
+    try {
+      await api.adminUserOffboard(selected.id, { confirm_email: email });
+      showSuccess(`Offboarded ${selected.name}. Associated data and schedules removed.`);
+      setSelected(null);
+      setSelectedAgents([]);
+      setOffboardConfirmEmail('');
+      load();
+    } catch (err) {
+      showError(err.message || 'Offboard failed');
+    } finally {
+      setOffboardBusy(false);
     }
   };
 
@@ -388,6 +417,52 @@ function AdminPanel() {
                   <p style={{ fontSize: '0.8rem', color: '#f87171', margin: '0.5rem 0 0' }}>
                     Enable the user before opening their platform view.
                   </p>
+                )}
+
+                {selected.role === 'ceo' && (
+                  <div
+                    style={{
+                      marginTop: '1rem',
+                      padding: '0.85rem',
+                      border: '1px solid rgba(248,113,113,0.45)',
+                      borderRadius: 8,
+                      background: 'rgba(248,113,113,0.08)',
+                    }}
+                  >
+                    <div style={{ fontWeight: 650, marginBottom: 6, color: '#b91c1c' }}>Offboard user</div>
+                    <p style={{ margin: '0 0 0.65rem', fontSize: '0.85rem', color: 'var(--muted)' }}>
+                      Permanently remove this CEO and all associated data: standups, workflow schedules, workflows,
+                      agent grants, notifications, tenant DB, Master Data files, and OpenClaw tenant workspaces.
+                      Protected accounts (Balaji Ranganathan, Admin, Aru, Senthil Loganathan) cannot be offboarded.
+                    </p>
+                    <input
+                      type="email"
+                      placeholder={`Type ${selected.email} to confirm`}
+                      value={offboardConfirmEmail}
+                      onChange={(e) => setOffboardConfirmEmail(e.target.value)}
+                      disabled={offboardBusy}
+                      style={{
+                        width: '100%',
+                        padding: '0.45rem 0.6rem',
+                        borderRadius: 6,
+                        border: '1px solid var(--border)',
+                        marginBottom: 8,
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="wf-btn wf-btn-danger"
+                      disabled={
+                        offboardBusy ||
+                        String(offboardConfirmEmail).trim().toLowerCase() !==
+                          String(selected.email || '').trim().toLowerCase()
+                      }
+                      onClick={offboardSelectedUser}
+                    >
+                      {offboardBusy ? 'Offboarding…' : 'Offboard & delete all data'}
+                    </button>
+                  </div>
                 )}
               </div>
 

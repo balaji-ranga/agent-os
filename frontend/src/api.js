@@ -249,6 +249,7 @@ export const api = {
   adminUsers: () => get('/admin/users'),
   adminUserGet: (userId) => get(`/admin/users/${encodeURIComponent(userId)}`),
   adminUserSetEnabled: (userId, enabled) => patch(`/admin/users/${encodeURIComponent(userId)}/enabled`, { enabled }),
+  adminUserOffboard: (userId, body) => post(`/admin/users/${encodeURIComponent(userId)}/offboard`, body),
   adminRegisterUser: (body) => post('/admin/users', body),
   adminGrantStandardAgents: (userId) => post(`/admin/users/${encodeURIComponent(userId)}/agents/grant-standard`, {}),
   adminEnableAgent: (userId, agentId) => post(`/admin/users/${encodeURIComponent(userId)}/agents/${encodeURIComponent(agentId)}/enable`, {}),

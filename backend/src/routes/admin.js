@@ -16,6 +16,11 @@ import { createSession } from '../services/auth/session.js';
 import { getDb } from '../db/schema.js';
 import { initCeoDb } from '../db/ceo-db.js';
 import { usesTenantCeoDb } from '../db/ceo-db-config.js';
+import {
+  offboardUser,
+  isProtectedFromOffboard,
+  PROTECTED_OFFBOARD_NAMES,
+} from '../services/user-offboard.js';
 
 const router = Router();
 
@@ -88,6 +93,31 @@ router.patch('/users/:userId/enabled', (req, res) => {
     res.json({ user });
   } catch (e) {
     res.status(400).json({ error: e.message });
+  }
+});
+
+/**
+ * Full offboard: purge schedules/workflows/standups/grants/tenant data and delete the user.
+ * Body: { confirm_email: string } must match the target user's email.
+ */
+router.post('/users/:userId/offboard', (req, res) => {
+  try {
+    const target = getUserById(req.params.userId);
+    if (!target) return res.status(404).json({ error: 'User not found' });
+    if (isProtectedFromOffboard(target)) {
+      return res.status(400).json({
+        error: `Protected user — cannot offboard. Protected names: ${PROTECTED_OFFBOARD_NAMES.join(', ')} (plus all admins).`,
+        protected: true,
+      });
+    }
+    const result = offboardUser(req.params.userId, {
+      confirmEmail: req.body?.confirm_email || req.body?.confirmEmail,
+      actor: req.authUser,
+      dryRun: req.body?.dry_run === true,
+    });
+    res.json(result);
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Offboard failed' });
   }
 });
 

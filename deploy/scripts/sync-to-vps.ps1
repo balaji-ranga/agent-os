@@ -121,6 +121,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\vps-test-coo-biryani-delegate.js" `
     "$Repo\backend\scripts\vps-test-coo-moon-fuel.js" `
     "$Repo\backend\scripts\vps-test-application-masterdata-notify.js" `
+    "$Repo\backend\scripts\offboard-users-except-keepers.js" `
     "$Repo\backend\scripts\onboard-vedic-astrology-agent.js" `
     "$Repo\backend\scripts\vps-onboard-specialty-agents-bala.js" `
     "$Repo\backend\scripts\test-vedic-compute-chart.js" `
