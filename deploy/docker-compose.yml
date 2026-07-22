@@ -15,8 +15,10 @@
 #   email_send, notify_ceo, Kanban/workflow tools, browser (see scripts/lib/content-tools-allow.js)
 # Broadcast UI /api/broadcast: CEO-scoped OpenClaw sessions (tenant agent + session owner) so notify_ceo works
 # Org tenancy docs: POST /api/agents/org/sync (Dashboard Resync ORG.md & AGENTS.md)
-# Notifications: shared NotificationProvider bell; dismiss via /api/standups/notifications/dismiss*
-#   and /api/platform-notifications/read* (user_feed_dismissals + composite standup+agent keys)
+# Notifications: shared NotificationProvider bell (shows datetime); dismiss via
+#   /api/standups/notifications/dismiss* and /api/platform-notifications/read*
+#   (user_feed_dismissals + composite standup+agent keys). Deploy verify smokes
+#   self-clean so CEO Dashboard/bell are not polluted.
 # AgentExchange / workflow A2A: /api/agent-exchange, /api/a2a/:publishId
 #   Public invoke open; secured uses POST /api/a2a/:id/oauth/token (client credentials) → Bearer
 #

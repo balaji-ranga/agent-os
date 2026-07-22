@@ -8,6 +8,7 @@ import OrgChart from '../components/OrgChart';
 import OrgDesigner from '../components/OrgDesigner';
 import DepartmentPicker from '../components/DepartmentPicker';
 import { formatLocalDateTime, formatChatTimestamp, toLocalDateTimeInputValue } from '../utils/formatDateTime.js';
+import { buildMessageWithAttachments, uploadChatAttachments } from '../utils/chatAttachments.js';
 
 // Voice: browser Speech Synthesis API (Edge/Chrome TTS)
 function useEdgeTTS() {
@@ -83,6 +84,7 @@ export default function Dashboard() {
   const [getWorkLoading, setGetWorkLoading] = useState(false);
   const [checkUpdatesLoading, setCheckUpdatesLoading] = useState(false);
   const [standupChatInput, setStandupChatInput] = useState('');
+  const [standupAttachments, setStandupAttachments] = useState([]);
   const [deletingStandupId, setDeletingStandupId] = useState(null);
   const [deletingAllStandups, setDeletingAllStandups] = useState(false);
   const [openclawData, setOpenclawData] = useState(null);
@@ -276,18 +278,25 @@ export default function Dashboard() {
       .finally(() => setRunningCronStandup(false));
   };
 
-  const handleStandupMessage = (e) => {
+  const handleStandupMessage = async (e) => {
     e.preventDefault();
-    if (!selectedStandup?.id || !standupChatInput.trim()) return;
+    if (!selectedStandup?.id || (!standupChatInput.trim() && !standupAttachments.length)) return;
+    const text = standupChatInput.trim();
+    const files = [...standupAttachments];
     setSendingMessage(true);
     setError(null);
-    api.standupSendMessage(selectedStandup.id, { content: standupChatInput.trim() })
-      .then(() => {
-        setStandupChatInput('');
-        refreshStandup();
-      })
-      .catch((e) => setError(e.message))
-      .finally(() => setSendingMessage(false));
+    try {
+      const uploaded = files.length ? await uploadChatAttachments(files) : [];
+      const content = buildMessageWithAttachments(text, uploaded);
+      await api.standupSendMessage(selectedStandup.id, { content });
+      setStandupChatInput('');
+      setStandupAttachments([]);
+      refreshStandup();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSendingMessage(false);
+    }
   };
 
   const handleGetWorkFromTeam = () => {
@@ -665,11 +674,13 @@ export default function Dashboard() {
                     value={standupChatInput}
                     onChange={(e) => setStandupChatInput(e.target.value)}
                     onSend={handleStandupMessage}
-                    placeholder="Request AI or finance topics (Shift+Enter for new line). Multi-intent: e.g. research AI trends and give me Q2 expense report."
+                    placeholder="Request AI or finance topics (Shift+Enter for new line). Attach images/docs for Master Data RAG."
                     disabled={sendingMessage}
+                    attachments={standupAttachments}
+                    onAttachmentsChange={setStandupAttachments}
                     style={{ flex: 1, padding: '0.5rem 0.75rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', resize: 'vertical', minHeight: 56, font: 'inherit' }}
                   />
-                  <button type="submit" disabled={sendingMessage || !standupChatInput.trim()} style={{ padding: '0.5rem 1rem', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, cursor: sendingMessage ? 'not-allowed' : 'pointer' }}>
+                  <button type="submit" disabled={sendingMessage || (!standupChatInput.trim() && !standupAttachments.length)} style={{ padding: '0.5rem 1rem', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, cursor: sendingMessage ? 'not-allowed' : 'pointer' }}>
                     {sendingMessage ? 'Sending…' : 'Send'}
                   </button>
                 </form>

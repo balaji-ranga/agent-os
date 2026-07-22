@@ -429,6 +429,117 @@ html.auth-route #root {
   flex: 1;
   min-width: 0;
 }
+
+/* Composer with in-box attach icon */
+.chat-compose-shell {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  min-width: 0;
+}
+.chat-compose-shell.is-dragover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+.chat-compose-shell.is-disabled {
+  opacity: 0.7;
+}
+.chat-compose-shell textarea {
+  font: inherit;
+  color: var(--text);
+}
+.chat-compose-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.2rem 0.45rem 0.45rem;
+  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+.chat-attach-icon-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.chat-attach-icon-btn:hover:not(:disabled) {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.chat-attach-icon-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.chat-attach-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.65rem;
+  line-height: 14px;
+  text-align: center;
+  font-weight: 600;
+}
+.chat-compose-hint {
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chat-compose-chip-icon {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.chat-compose-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 0.2rem 0.45rem 0.2rem 0.4rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 0.8rem;
+  color: var(--text);
+}
+.chat-compose-chip-name {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-compose-chip-remove {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 2px;
+}
+.chat-compose-chip-remove:hover {
+  color: var(--text);
+}
 @media (max-width: 900px) {
   .app-shell {
     flex-direction: column;
@@ -674,6 +785,13 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
   cursor: help;
+}
+
+.notification-overlay-time {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin: 0.1rem 0 0.35rem;
 }
 
 .notification-overlay-list {

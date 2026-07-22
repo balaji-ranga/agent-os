@@ -4,6 +4,7 @@ import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import ChatMessageRow from '../components/ChatMessageRow';
 import ChatComposeInput from '../components/ChatComposeInput';
+import { buildMessageWithAttachments, uploadChatAttachments } from '../utils/chatAttachments.js';
 
 export default function AgentChat() {
   const { agentId } = useParams();
@@ -13,6 +14,7 @@ export default function AgentChat() {
   const [agent, setAgent] = useState(null);
   const [turns, setTurns] = useState([]);
   const [input, setInput] = useState('');
+  const [attachments, setAttachments] = useState([]);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState(null);
   const scrollRef = useRef(null);
@@ -35,31 +37,39 @@ export default function AgentChat() {
     if (el) el.scrollTop = el.scrollHeight;
   }, [turns, sending]);
 
-  const send = (e) => {
-    e.preventDefault();
-    if (!input.trim() || sending) return;
-    const msg = input.trim();
+  const send = async (e) => {
+    e?.preventDefault?.();
+    if ((!input.trim() && !attachments.length) || sending) return;
+    const userText = input.trim();
+    const displayMsg =
+      userText || `(Attached ${attachments.length} file${attachments.length === 1 ? '' : 's'})`;
+    const pendingFiles = [...attachments];
     setInput('');
+    setAttachments([]);
     setSending(true);
     setError(null);
-    setTurns((prev) => [...prev, { role: 'user', content: msg, created_at: new Date().toISOString() }]);
-    api.agentChatSend(agentId, msg, dataCeoUserId || 'default', profileId)
-      .then((r) => {
-        setTurns((prev) => [
-          ...prev,
-          {
-            role: 'assistant',
-            content: r.reply,
-            created_at: new Date().toISOString(),
-            tool_calls: r.tool_calls || [],
-          },
-        ]);
-      })
-      .catch((e) => {
-        setError(e.message);
-        setTurns((prev) => prev.filter((t) => t.role !== 'user' || t.content !== msg));
-      })
-      .finally(() => setSending(false));
+    setTurns((prev) => [...prev, { role: 'user', content: displayMsg, created_at: new Date().toISOString() }]);
+    try {
+      const uploaded = pendingFiles.length ? await uploadChatAttachments(pendingFiles) : [];
+      const outbound = buildMessageWithAttachments(userText, uploaded);
+      const r = await api.agentChatSend(agentId, outbound, dataCeoUserId || 'default', profileId);
+      setTurns((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: r.reply,
+          created_at: new Date().toISOString(),
+          tool_calls: r.tool_calls || [],
+        },
+      ]);
+    } catch (err) {
+      setError(err.message);
+      setTurns((prev) => prev.filter((t) => t.role !== 'user' || t.content !== displayMsg));
+      setAttachments(pendingFiles);
+      setInput(userText);
+    } finally {
+      setSending(false);
+    }
   };
 
   if (error && !agent) return <div style={{ padding: '2rem', color: '#f87171' }}>Error: {error}. <Link to="/">Back to Dashboard</Link></div>;
@@ -70,7 +80,7 @@ export default function AgentChat() {
         <Link to="/" style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>← Dashboard</Link>
         <h1 style={{ margin: '0.5rem 0 0 0' }}>{agent?.name || agentId} — Chat</h1>
         <p style={{ color: 'var(--muted)', margin: 0 }}>
-          Human–agent interaction via OpenClaw gateway.
+          Human–agent chat via OpenClaw. Use the paperclip in the composer to attach images/docs (Master Data RAG).
           {profileId && <> Profile context: <code>{profileId}</code></>}
         </p>
       </div>
@@ -116,6 +126,8 @@ export default function AgentChat() {
             onChange={(e) => setInput(e.target.value)}
             onSend={send}
             disabled={sending}
+            attachments={attachments}
+            onAttachmentsChange={setAttachments}
             rows={3}
             style={{
               padding: '0.75rem 1rem',
@@ -130,10 +142,10 @@ export default function AgentChat() {
           />
           <button
             type="submit"
-            disabled={sending || !input.trim()}
+            disabled={sending || (!input.trim() && !attachments.length)}
             style={{
               padding: '0.75rem 1.25rem',
-              background: (sending || !input.trim()) ? 'var(--border)' : 'var(--accent)',
+              background: sending || (!input.trim() && !attachments.length) ? 'var(--border)' : 'var(--accent)',
               border: 'none',
               borderRadius: 8,
               color: '#fff',

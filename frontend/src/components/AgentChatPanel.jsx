@@ -3,13 +3,10 @@ import { api } from '../api';
 import ChatMessageRow from './ChatMessageRow';
 import ChatComposeInput from './ChatComposeInput';
 import { useAuth } from '../context/AuthContext';
+import { buildMessageWithAttachments, uploadChatAttachments } from '../utils/chatAttachments.js';
 
 /**
  * Embeddable chat panel for an OpenClaw agent.
- * @param {string} agentId - e.g. jobdiscovery
- * @param {string} [profileId] - job search profile context
- * @param {string} [placeholder] - input placeholder
- * @param {number} [minHeight] - scroll panel min height px
  */
 export default function AgentChatPanel({
   agentId,
@@ -21,6 +18,7 @@ export default function AgentChatPanel({
   const { dataCeoUserId } = useAuth();
   const [turns, setTurns] = useState([]);
   const [input, setInput] = useState('');
+  const [attachments, setAttachments] = useState([]);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState(null);
   const scrollRef = useRef(null);
@@ -37,38 +35,49 @@ export default function AgentChatPanel({
     if (el) el.scrollTop = el.scrollHeight;
   }, [turns, sending]);
 
-  const sendMessage = (msg) => {
-    const text = String(msg || '').trim();
-    if (!text || sending) return;
+  const sendMessage = async (msg, files = []) => {
+    const userText = String(msg || '').trim();
+    if ((!userText && !files.length) || sending) return;
+    const displayMsg =
+      userText || `(Attached ${files.length} file${files.length === 1 ? '' : 's'})`;
     setSending(true);
     setError(null);
-    setTurns((prev) => [...prev, { role: 'user', content: text, created_at: new Date().toISOString() }]);
-    return api
-      .agentChatSend(agentId, text, dataCeoUserId || 'default', profileId)
-      .then((r) => {
-        setTurns((prev) => [
-          ...prev,
-          {
-            role: 'assistant',
-            content: r.reply,
-            created_at: new Date().toISOString(),
-            tool_calls: r.tool_calls || [],
-          },
-        ]);
-      })
-      .catch((e) => {
-        setError(e.message);
-        setTurns((prev) => prev.filter((t) => t.role !== 'user' || t.content !== text));
-      })
-      .finally(() => setSending(false));
+    setTurns((prev) => [...prev, { role: 'user', content: displayMsg, created_at: new Date().toISOString() }]);
+    try {
+      const uploaded = files.length ? await uploadChatAttachments(files) : [];
+      const outbound = buildMessageWithAttachments(userText, uploaded);
+      const r = await api.agentChatSend(agentId, outbound, dataCeoUserId || 'default', profileId);
+      setTurns((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: r.reply,
+          created_at: new Date().toISOString(),
+          tool_calls: r.tool_calls || [],
+        },
+      ]);
+    } catch (e) {
+      setError(e.message);
+      setTurns((prev) => prev.filter((t) => t.role !== 'user' || t.content !== displayMsg));
+      throw e;
+    } finally {
+      setSending(false);
+    }
   };
 
-  const send = (e) => {
+  const send = async (e) => {
     e.preventDefault();
-    if (!input.trim()) return;
-    const msg = input.trim();
+    if ((!input.trim() && !attachments.length) || sending) return;
+    const text = input.trim();
+    const files = [...attachments];
     setInput('');
-    sendMessage(msg);
+    setAttachments([]);
+    try {
+      await sendMessage(text, files);
+    } catch (_) {
+      setInput(text);
+      setAttachments(files);
+    }
   };
 
   return (
@@ -94,7 +103,7 @@ export default function AgentChatPanel({
       >
         {turns.length === 0 && !sending && (
           <div style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>
-            Chat with Job Discovery to create or refine profiles. Profile context is sent automatically when selected.
+            Chat with the agent. Attach images/docs to upload into Master Data for RAG.
           </div>
         )}
         {turns.map((t, i) => (
@@ -142,6 +151,8 @@ export default function AgentChatPanel({
           onChange={(e) => setInput(e.target.value)}
           onSend={send}
           disabled={sending}
+          attachments={attachments}
+          onAttachmentsChange={setAttachments}
           rows={3}
           style={{
             flex: 1,
@@ -157,10 +168,10 @@ export default function AgentChatPanel({
         />
         <button
           type="submit"
-          disabled={sending || !input.trim()}
+          disabled={sending || (!input.trim() && !attachments.length)}
           style={{
             padding: '0.6rem 1rem',
-            background: sending || !input.trim() ? 'var(--border)' : 'var(--accent)',
+            background: sending || (!input.trim() && !attachments.length) ? 'var(--border)' : 'var(--accent)',
             border: 'none',
             borderRadius: 6,
             color: '#fff',

@@ -45,7 +45,9 @@ check_css 'wf-editor-exit'
 check_css 'page-hero'
 check_js 'Exit to workflows'
 check_js 'Register MCP'
-check_js 'Register Agents'
+check_css 'chat-attach-icon-btn'
+check_js 'chat-attach-icon-btn'
+check_js 'chat_attachments'
 
 HTML=$(curl -skL "https://${PUBLIC_HOST}/" 2>/dev/null || true)
 echo "title: $(echo "$HTML" | sed -n 's/.*<title>\([^<]*\)<\/title>.*/\1/p' | head -1)"

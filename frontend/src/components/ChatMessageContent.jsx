@@ -50,9 +50,9 @@ export default function ChatMessageContent({ content }) {
   const parsed = parseContentParts(contentStr);
   const extraImageMedia = parsed.imageUrls.map(({ url, index }) => ({ index, length: 0, type: 'image', src: url }));
 
-  const imageExt = /\.(png|jpe?g|gif|webp|bmp)(\?[^\s"'<>]*)?$/i;
+  const imageExt = /\.(png|jpe?g|gif|webp|bmp|svg)(\?[^\s"'<>]*)?$/i;
   const videoExt = /\.(mp4|webm|ogg)(\?[^\s"'<>]*)?$/i;
-  const imageInPath = /\.(png|jpe?g|gif|webp|bmp)([\?&]|$)/i;
+  const imageInPath = /\.(png|jpe?g|gif|webp|bmp|svg)([\?&]|$)/i;
 
   const media = [...extraImageMedia];
   const overlaps = (start, len) => media.some((x) => start < x.index + x.length && start + len > x.index);

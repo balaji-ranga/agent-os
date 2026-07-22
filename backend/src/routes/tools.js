@@ -569,6 +569,55 @@ router.post('/generate-image', optionalAuth, async (req, res) => {
 });
 
 /**
+ * Vedic / Jyotish ephemeris: sidereal positions + suggested chart_spec for generate_chart.
+ * Body: birth_date, birth_time, timezone_offset_hours, latitude, longitude, place_name?,
+ *       ayanamsa?, chart_style?, include_navamsa?, include_dasha?
+ */
+router.post('/vedic-compute-chart', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-request-source'] || null;
+  const requestPayload = req.body || {};
+  try {
+    const { computeVedicChart } = await import('../services/vedic-chart.js');
+    const out = computeVedicChart(req.body || {});
+    logTool(req, 'vedic_compute_chart', requestPayload, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const errMsg = e.message || 'Chart computation failed';
+    logTool(req, 'vedic_compute_chart', requestPayload, { error: errMsg }, 'error', source);
+    res.status(400).json({ error: errMsg });
+  }
+});
+
+/**
+ * Generic chart renderer from chart_spec JSON (schema_version 1.0).
+ * Body: { spec: { schema_version, charts: [...] } } or the spec object itself.
+ * Pass return_schema: true to receive the JSON schema without rendering.
+ */
+router.post('/generate-chart', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-request-source'] || null;
+  const requestPayload = req.body || {};
+  try {
+    const {
+      generateChartsFromSpec,
+      chartSpecSchemaSummary,
+    } = await import('../services/chart-spec.js');
+    if (req.body?.return_schema === true || req.body?.schema_only === true) {
+      const out = chartSpecSchemaSummary();
+      logTool(req, 'generate_chart', requestPayload, { schema_only: true }, 'ok', source);
+      return res.json(out);
+    }
+    mkdirSync(GENERATED_MEDIA_DIR, { recursive: true });
+    const out = generateChartsFromSpec(req.body || {}, { mediaDir: GENERATED_MEDIA_DIR });
+    logTool(req, 'generate_chart', requestPayload, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const errMsg = e.message || 'Chart generation failed';
+    logTool(req, 'generate_chart', requestPayload, { error: errMsg }, 'error', source);
+    res.status(400).json({ error: errMsg });
+  }
+});
+
+/**
  * Phase 3: POST /generate-video — Replicate (async). Primary then secondary endpoint/token/model.
  * Body: { prompt, duration_sec? }. Returns: { job_id, status, url? } or { error }.
  */

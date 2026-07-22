@@ -9,6 +9,7 @@ import ActionFeedbackBanner from '../components/ActionFeedbackBanner.jsx';
 import { useActionFeedback } from '../hooks/useActionFeedback.js';
 import MessageFeedback from '../components/MessageFeedback.jsx';
 import ChatComposeInput from '../components/ChatComposeInput.jsx';
+import { buildMessageWithAttachments, uploadChatAttachments } from '../utils/chatAttachments.js';
 
 const STATUSES = ['open', 'awaiting_confirmation', 'in_progress', 'completed', 'failed'];
 const STATUS_LABELS = {
@@ -41,6 +42,7 @@ export default function Kanban() {
   const [createSubmitting, setCreateSubmitting] = useState(false);
   const [createError, setCreateError] = useState(null);
   const [messageInput, setMessageInput] = useState('');
+  const [messageAttachments, setMessageAttachments] = useState([]);
   const [sendingMessage, setSendingMessage] = useState(false);
   const [taskChatError, setTaskChatError] = useState(null);
   const [reopeningId, setReopeningId] = useState(null);
@@ -338,36 +340,41 @@ export default function Kanban() {
       .finally(() => setIncludingJobId(null));
   };
 
-  const sendMessage = (e) => {
+  const sendMessage = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
-    if (!messageInput.trim() || !selectedTask) return;
+    if ((!messageInput.trim() && !messageAttachments.length) || !selectedTask) return;
 
     const trimmed = messageInput.trim();
+    const files = [...messageAttachments];
     const isCeoReview =
       (taskDetail?.status ?? selectedTask.status) === 'awaiting_confirmation' &&
       isCeoJobReviewTask(taskDetail || selectedTask);
 
-    if (isCeoReview && isConfirmApprovalMessage(trimmed)) {
+    if (isCeoReview && isConfirmApprovalMessage(trimmed) && !files.length) {
       setMessageInput('');
+      setMessageAttachments([]);
       approveJobReview();
       return;
     }
 
     setTaskChatError(null);
     setSendingMessage(true);
-    api.kanbanTaskAddMessage(selectedTask.id, 'user', trimmed)
-      .then(() => api.kanbanTaskGet(selectedTask.id))
-      .then((detail) => {
-        setTaskDetail(detail);
-        setMessageInput('');
-        showSuccess('Message sent');
-      })
-      .catch((err) => {
-        const msg = err?.message || 'Failed to send message';
-        setTaskChatError(msg);
-        showError(msg);
-      })
-      .finally(() => setSendingMessage(false));
+    try {
+      const uploaded = files.length ? await uploadChatAttachments(files) : [];
+      const content = buildMessageWithAttachments(trimmed, uploaded);
+      await api.kanbanTaskAddMessage(selectedTask.id, 'user', content);
+      const detail = await api.kanbanTaskGet(selectedTask.id);
+      setTaskDetail(detail);
+      setMessageInput('');
+      setMessageAttachments([]);
+      showSuccess('Message sent');
+    } catch (err) {
+      const msg = err?.message || 'Failed to send message';
+      setTaskChatError(msg);
+      showError(msg);
+    } finally {
+      setSendingMessage(false);
+    }
   };
 
   const reopenTask = (task) => {
@@ -971,13 +978,15 @@ export default function Kanban() {
                   value={messageInput}
                   onChange={(e) => setMessageInput(e.target.value)}
                   onSend={sendMessage}
-                  placeholder={selectedIsCeoReview ? 'Type confirm to approve, or add a note… (Shift+Enter for new line)' : 'Add message… (Shift+Enter for new line)'}
+                  placeholder={selectedIsCeoReview ? 'Type confirm to approve, or add a note… (Shift+Enter for new line)' : 'Add message… Attach images/docs for Master Data RAG.'}
                   rows={2}
                   style={{ width: '100%', padding: '0.5rem', borderRadius: 6, border: '1px solid var(--border)', resize: 'vertical' }}
                   disabled={sendingMessage}
+                  attachments={messageAttachments}
+                  onAttachmentsChange={setMessageAttachments}
                 />
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  <button type="submit" disabled={sendingMessage || !messageInput.trim()} style={{ padding: '0.4rem 0.75rem', borderRadius: 6, background: 'var(--accent)', color: 'white', border: 'none', cursor: 'pointer' }}>
+                  <button type="submit" disabled={sendingMessage || (!messageInput.trim() && !messageAttachments.length)} style={{ padding: '0.4rem 0.75rem', borderRadius: 6, background: 'var(--accent)', color: 'white', border: 'none', cursor: 'pointer' }}>
                     {sendingMessage ? 'Sending…' : 'Send'}
                   </button>
                 {selectedTask && (taskDetail?.status ?? selectedTask.status) !== 'open' && (

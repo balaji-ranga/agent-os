@@ -345,6 +345,42 @@ const PARAM_SCHEMAS = {
     },
     additionalProperties: true,
   },
+  vedic_compute_chart: {
+    type: "object",
+    properties: {
+      birth_date: { type: "string", description: "Birth date YYYY-MM-DD" },
+      birth_time: { type: "string", description: "Birth time HH:MM or HH:MM:SS (local)" },
+      timezone_offset_hours: {
+        type: "number",
+        description: "Offset from UTC (e.g. 5.5 for IST, -5 for EST)",
+      },
+      latitude: { type: "number", description: "Birth place latitude" },
+      longitude: { type: "number", description: "Birth place longitude" },
+      place_name: { type: "string", description: "Optional place label" },
+      ayanamsa: { type: "string", description: "lahiri (default)" },
+      chart_style: { type: "string", description: "north | south | both (default both) — shapes chart_spec only" },
+      include_navamsa: { type: "boolean", description: "Include D-9 (default true)" },
+      include_dasha: { type: "boolean", description: "Include Vimśottarī overview (default true)" },
+    },
+    additionalProperties: true,
+  },
+  generate_chart: {
+    type: "object",
+    properties: {
+      spec: {
+        type: "object",
+        description:
+          'Chart spec JSON: { schema_version: "1.0", charts: [{ type, title?, lagna_sign_index?, planets? | columns?, cells? }] }. Types: vedic_north_indian, vedic_south_indian, labeled_grid.',
+      },
+      schema_version: { type: "string", description: 'If sending spec at top level: "1.0"' },
+      charts: { type: "array", description: "If sending spec at top level: array of chart objects" },
+      return_schema: {
+        type: "boolean",
+        description: "If true, return JSON schema + example without rendering",
+      },
+    },
+    additionalProperties: true,
+  },
 };
 
 function resolvePluginConfig(api) {

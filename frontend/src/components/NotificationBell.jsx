@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { useNotifications } from '../context/NotificationContext';
+import { formatChatTimestamp } from '../utils/formatDateTime';
 
 const PANEL_WIDTH = 320;
 const PANEL_MAX_HEIGHT = 360;
@@ -122,6 +123,11 @@ export default function NotificationBell({ compact = false }) {
                                   : 'Admin'}
                             </span>
                           </div>
+                          {n.sortAt || n.created_at ? (
+                            <time className="notification-overlay-time" dateTime={n.sortAt || n.created_at}>
+                              {formatChatTimestamp(n.sortAt || n.created_at)}
+                            </time>
+                          ) : null}
                           {n.body && (
                             <div
                               className="notification-overlay-snippet"
@@ -168,6 +174,14 @@ export default function NotificationBell({ compact = false }) {
                             {' — '}
                             {n.standup_title || new Date(n.scheduled_at).toLocaleDateString()}
                           </div>
+                          {n.sortAt || n.completed_at || n.scheduled_at ? (
+                            <time
+                              className="notification-overlay-time"
+                              dateTime={n.sortAt || n.completed_at || n.scheduled_at}
+                            >
+                              {formatChatTimestamp(n.sortAt || n.completed_at || n.scheduled_at)}
+                            </time>
+                          ) : null}
                           {n.response_snippet && (
                             <div
                               className="notification-overlay-snippet"

@@ -41,7 +41,7 @@ import { ensureDefaultAdmin, ensureBalaCeoUser, grantStandardAgents, pruneShared
 import { ensureCeoDefaultMasterDataForAllCeos } from './services/ceo-default-master-data.js';
 import { initDb, getDb } from './db/schema.js';
 import { seedDefaultAgentsIfEmpty, seedAgentDepartmentsIfMissing } from './db/seed-default-agents.js';
-import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, seedWorkflowToolsIfMissing, seedLearningsToolsIfMissing, seedEmailSendToolIfMissing, seedNotifyCeoToolIfMissing, seedMasterDataToolsIfMissing, seedConnectorToolsIfMissing, updateKanbanToolPurposes } from './db/seed-content-tools-meta.js';
+import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, seedWorkflowToolsIfMissing, seedLearningsToolsIfMissing, seedEmailSendToolIfMissing, seedNotifyCeoToolIfMissing, seedMasterDataToolsIfMissing, seedConnectorToolsIfMissing, seedVedicChartToolIfMissing, updateKanbanToolPurposes } from './db/seed-content-tools-meta.js';
 import { seedJobApplicantToolsIfMissing } from './db/seed-job-applicant-tools.js';
 import { seedIbkrTradingToolsIfMissing } from './db/seed-ibkr-trading-tools.js';
 import { writeOpenClawToolsList } from './services/content-tools-meta.js';
@@ -150,6 +150,7 @@ seedLearningsToolsIfMissing();
 seedEmailSendToolIfMissing();
 seedNotifyCeoToolIfMissing();
 seedMasterDataToolsIfMissing();
+seedVedicChartToolIfMissing();
 seedConnectorToolsIfMissing();
 updateKanbanToolPurposes();
 seedJobApplicantToolsIfMissing();

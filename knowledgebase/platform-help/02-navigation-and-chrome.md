@@ -3,7 +3,7 @@
 ## Top bar
 
 - **Left nav toggle** — collapse/expand the sidebar (icons only when collapsed).
-- **Notification bell** — platform alerts (`notify_ceo`) and agent/standup responses. Hover a short snippet for the full title/body. Open linked chat or Kanban. Clear/dismiss items you have handled.
+- **Notification bell** — platform alerts (`notify_ceo`) and agent/standup responses. Each item shows its datetime. Hover a short snippet for the full title/body. Open linked chat or Kanban. Clear/dismiss items you have handled.
 - **Profile menu** — Edit profile (`/profile`), Logout.
 - **Impersonation banner** — only when an admin is impersonating a CEO.
 

@@ -325,6 +325,32 @@ const BUILTIN_TOOLS = [
     enabled: 1,
     is_builtin: 1,
   },
+  {
+    name: 'vedic_compute_chart',
+    display_name: 'Vedic Astrology — Compute Chart Data',
+    endpoint: '/api/tools/vedic-compute-chart',
+    method: 'POST',
+    purpose:
+      'Compute sidereal (Lahiri) Jyotish chart *data* from birth date/time/place: Lagna, grahas, houses, optional Navāṁśa (D-9) and Vimśottarī daśā, plus a ready chart_spec JSON. ' +
+      'Parameters: birth_date (YYYY-MM-DD), birth_time (HH:MM), timezone_offset_hours, latitude, longitude, optional place_name, chart_style (north|south|both), include_navamsa, include_dasha. ' +
+      'Does NOT render images — pass returned chart_spec to generate_chart for North/South Indian SVG URLs.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'generate_chart',
+    display_name: 'Generate Chart (from JSON spec)',
+    endpoint: '/api/tools/generate-chart',
+    method: 'POST',
+    purpose:
+      'Generic chart renderer: pass a chart_spec JSON (schema_version "1.0") with charts[].type = vedic_north_indian | vedic_south_indian | labeled_grid. ' +
+      'Body: { spec: { schema_version, charts } } or the spec object; optional return_schema:true to fetch the JSON schema + example. ' +
+      'Returns chart_urls and visuals_markdown — paste URLs at the top of the chat reply. Not Vedic-specific; granted only to agents that need diagrams.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
 ];
 
 
@@ -355,6 +381,8 @@ const EMAIL_SEND_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'email_send');
 const NOTIFY_CEO_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'notify_ceo');
 const CONNECTOR_TOOLS = BUILTIN_TOOLS.filter((t) => String(t.name).startsWith('connector_'));
 const MASTER_DATA_TOOLS = BUILTIN_TOOLS.filter((t) => String(t.name).startsWith('master_data_'));
+const VEDIC_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'vedic_compute_chart');
+const CHART_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'generate_chart');
 
 export function seedContentToolsMetaIfEmpty() {
   const db = getDb();
@@ -494,4 +522,25 @@ export function seedConnectorToolsIfMissing() {
   for (const t of CONNECTOR_TOOLS) {
     update.run(t.purpose, t.display_name, t.endpoint, t.method, t.name);
   }
+}
+
+/** Add Vedic ephemeris + generic generate_chart tools if missing. */
+export function seedVedicChartToolIfMissing() {
+  const db = getDb();
+  const stmt = db.prepare(
+    `INSERT OR IGNORE INTO content_tools_meta (name, display_name, endpoint, method, purpose, model_used, enabled, is_builtin)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  const update = db.prepare(
+    'UPDATE content_tools_meta SET purpose = ?, display_name = ?, endpoint = ?, method = ? WHERE name = ?'
+  );
+  for (const t of [...VEDIC_TOOLS, ...CHART_TOOLS]) {
+    stmt.run(t.name, t.display_name, t.endpoint, t.method, t.purpose, t.model_used, t.enabled, t.is_builtin);
+    update.run(t.purpose, t.display_name, t.endpoint, t.method, t.name);
+  }
+}
+
+/** Alias — seed generic chart tool (same as seedVedicChartToolIfMissing for generate_chart). */
+export function seedGenerateChartToolIfMissing() {
+  seedVedicChartToolIfMissing();
 }

@@ -6,7 +6,7 @@ import { initDb, getDb } from '../src/db/schema.js';
 import { seedEmailSendToolIfMissing, seedNotifyCeoToolIfMissing, seedMasterDataToolsIfMissing } from '../src/db/seed-content-tools-meta.js';
 import { grantNotifyCeoToAllAgents, grantMasterDataToolsToAllAgents } from '../src/services/agent-feedback.js';
 import { executeNotifyCeo } from '../src/services/notify-ceo.js';
-import { listNotificationsForUser, markNotificationsRead } from '../src/services/platform-notifications.js';
+import { listNotificationsForUser, markNotificationsRead, deleteNotificationsBySource } from '../src/services/platform-notifications.js';
 import { syncOrgContextForCeo, buildOrgContextForCeo } from '../src/services/org-context.js';
 import { ensureAllTenantOpenClawAgentsForCeo } from '../src/services/openclaw-tenant.js';
 import { getBalaCeoAuthId } from '../src/services/job-applicant-ceo.js';
@@ -124,6 +124,7 @@ if (!listed.some((n) => n.source_key === sourceKey || n.title === 'VPS notify_ce
   throw new Error('notify_ceo notification not listed for CEO');
 }
 markNotificationsRead(owner, listed.filter((n) => n.source_key === sourceKey).map((n) => n.id));
+deleteNotificationsBySource('agent_notify', sourceKey, owner);
 console.log('OK notify_ceo delivered to', owner);
 
 const tenantEnsured = ensureAllTenantOpenClawAgentsForCeo(owner);

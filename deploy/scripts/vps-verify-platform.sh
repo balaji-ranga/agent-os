@@ -67,6 +67,11 @@ check "platformhelp SOUL template" test -f "$ROOT/openclaw-workspace-templates/p
 check "platformhelp seed script" test -f "$ROOT/backend/scripts/seed-platform-help-agent.js"
 check "platformhelp startup seed" grep -q seedPlatformHelpAgent "$ROOT/backend/src/index.js"
 check "backend Dockerfile help COPY" grep -q 'knowledgebase/platform-help' "$ROOT/deploy/docker/backend.Dockerfile"
+check "chat attach icon UI" grep -q chat-attach-icon-btn "$ROOT/frontend/src/components/ChatComposeInput.jsx"
+check "chat attachments util" test -f "$ROOT/frontend/src/utils/chatAttachments.js"
+check "generate_chart tool" grep -q generate_chart "$ROOT/backend/src/routes/tools.js"
+check "chart-spec service" test -f "$ROOT/backend/src/services/chart-spec.js"
+check "vedic template SOUL" test -f "$ROOT/openclaw-workspace-templates/vedic-astrology/SOUL.md"
 
 echo "==> frontend bundle"
 if docker compose exec -T frontend sh -c 'grep -Rql "Purpose / description" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
@@ -93,6 +98,11 @@ if docker compose exec -T frontend sh -c 'grep -Rql OrgDesigner /usr/share/nginx
   echo "    OrgDesigner dashboard in bundle OK"
 else
   echo "    WARN: OrgDesigner not found in frontend JS (rebuild frontend?)"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql chat-attach-icon-btn /usr/share/nginx/html/assets/*.js 2>/dev/null || cat /usr/share/nginx/html/assets/*.css 2>/dev/null | grep -q chat-attach-icon-btn'; then
+  echo "    Chat attach paperclip icon in bundle OK"
+else
+  echo "    WARN: chat-attach-icon-btn not found in frontend assets (rebuild frontend?)"
 fi
 
 echo "==> DB runtime"
@@ -175,7 +185,7 @@ NODE
 echo "==> broadcast routing smoke"
 docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-broadcast-routing.js
 
-echo "==> Kanban delegation sync smoke"
+echo "==> Kanban delegation sync smoke (self-cleaning; no CEO Dashboard standup left behind)"
 docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-kanban-delegation-sync.js
 
 echo "==> Kanban owner isolation smoke"
@@ -192,7 +202,7 @@ else
   echo "    WARN: test-workflow-a2a-oauth.js missing on disk (sync scripts?)"
 fi
 
-echo "==> COO reach-me delegation smoke"
+echo "==> COO reach-me delegation smoke (self-cleaning; deletes smoke SocialAgent notifications)"
 docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-coo-reach-me-delegation.js
 
 echo "==> OpenClaw allowlists (master_data)"

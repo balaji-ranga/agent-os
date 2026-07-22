@@ -16,9 +16,11 @@
 # lean CEO onboard (COO + Workflow Builder + Platform Help), OrgDesigner dashboard,
 # Master Data + RAG tools, Platform Help agent + help corpus,
 # notify_ceo + email_send, Broadcast (intent-based notify + paced fan-out), AGENTS.md intent
-# COO specialty delegation, peer specialty referral, chat tool-call icons, notification tooltips,
+# COO specialty delegation, peer specialty referral, chat tool-call icons,
+# notification tooltips + datetime, deploy smokes self-clean (no CEO standup/notify pollution),
 # org sync (tenant ORG.md/AGENTS.md), AgentExchange/A2A (public + OAuth client credentials),
-# DeepSeek@Ollama, shared notification dismiss.
+# DeepSeek@Ollama, shared notification dismiss,
+# chat paperclip attach → Master Data RAG, Vedic Astrology + generate_chart (JSON chart_spec).
 param(
   [string]$HostIp = "76.13.209.30",
   [string]$Key = "$env:USERPROFILE\.ssh\agent-os-vps",
@@ -121,19 +123,22 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\vps-test-application-masterdata-notify.js" `
     "$Repo\backend\scripts\onboard-vedic-astrology-agent.js" `
     "$Repo\backend\scripts\vps-onboard-specialty-agents-bala.js" `
+    "$Repo\backend\scripts\test-vedic-compute-chart.js" `
+    "$Repo\backend\scripts\test-generate-chart.js" `
     "$Repo\backend\scripts\test-weather-agent-ui-onboard-e2e.js" `
     "$Repo\backend\scripts\test-master-data-office-extract.js" `
     "root@${HostIp}:$RemoteRoot/backend/scripts/"
   scp @ssh -r "$Repo\scripts" "root@${HostIp}:$RemoteRoot/"
   scp @ssh -r "$Repo\openclaw-extensions\agent-os-content-tools" "root@${HostIp}:$RemoteRoot/openclaw-extensions/"
   scp @ssh -r "$Repo\openclaw-extensions\agent-os-bootstrap-watcher" "root@${HostIp}:$RemoteRoot/openclaw-extensions/"
-  Write-Host "==> Sync workspace templates (COO + TechResearcher + ApplicationAgent + Workflow Builder + Platform Help) + skills + platform-help KB"
+  Write-Host "==> Sync workspace templates (COO + TechResearcher + ApplicationAgent + Workflow Builder + Platform Help + Vedic Astrology) + skills + platform-help KB"
   ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/openclaw-workspace-templates $RemoteRoot/openclaw-skills/agent-os-content-tools $RemoteRoot/openclaw-skills/agent-send"
   scp @ssh -r "$Repo\openclaw-workspace-templates\balserve" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   scp @ssh -r "$Repo\openclaw-workspace-templates\techresearcher" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   scp @ssh -r "$Repo\openclaw-workspace-templates\applicationagent" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   scp @ssh -r "$Repo\openclaw-workspace-templates\workflowbuilder" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   scp @ssh -r "$Repo\openclaw-workspace-templates\platformhelp" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
+  scp @ssh -r "$Repo\openclaw-workspace-templates\vedic-astrology" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/knowledgebase"
   scp @ssh -r "$Repo\knowledgebase\platform-help" "root@${HostIp}:$RemoteRoot/knowledgebase/"
   scp @ssh "$Repo\README.md" "root@${HostIp}:$RemoteRoot/README.md"

@@ -7,6 +7,7 @@ import ChatComposeInput from '../ChatComposeInput.jsx';
 import MessageFeedback from '../MessageFeedback.jsx';
 import { formatChatTimestamp } from '../../utils/formatDateTime.js';
 import { deriveWorkflowAgentUiEffects } from '../../utils/workflowAgentUiEffects.js';
+import { buildMessageWithAttachments, uploadChatAttachments } from '../../utils/chatAttachments.js';
 
 function chatStorageKey(workflowId) {
   return `wf-agent-chat:${workflowId || 'global'}`;
@@ -30,6 +31,7 @@ export default function WorkflowAgentChat({
   const [workflowId, setWorkflowId] = useState(initialWorkflowId);
   const [turns, setTurns] = useState([]);
   const [input, setInput] = useState('');
+  const [attachments, setAttachments] = useState([]);
   const [sending, setSending] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [error, setError] = useState(null);
@@ -225,17 +227,23 @@ export default function WorkflowAgentChat({
 
   const send = async (e) => {
     e?.preventDefault();
-    if (!input.trim() || sending) return;
+    if ((!input.trim() && !attachments.length) || sending) return;
 
-    const msg = input.trim();
+    const userText = input.trim();
+    const pendingFiles = [...attachments];
+    const displayMsg =
+      userText || `(Attached ${pendingFiles.length} file${pendingFiles.length === 1 ? '' : 's'})`;
     setInput('');
+    setAttachments([]);
     setSending(true);
     setError(null);
 
     const history = turns.map((t) => ({ role: t.role, content: t.content }));
-    setTurns((prev) => [...prev, { role: 'user', content: msg, created_at: new Date().toISOString() }]);
+    setTurns((prev) => [...prev, { role: 'user', content: displayMsg, created_at: new Date().toISOString() }]);
 
     try {
+      const uploaded = pendingFiles.length ? await uploadChatAttachments(pendingFiles) : [];
+      const msg = buildMessageWithAttachments(userText, uploaded);
       const res = await api.agentWorkflowAgentChat({
         message: msg,
         workflow_id: workflowId,
@@ -250,6 +258,8 @@ export default function WorkflowAgentChat({
     } catch (err) {
       const errMsg = err.message || 'Chat failed';
       setError(errMsg);
+      setAttachments(pendingFiles);
+      setInput(userText);
       setTurns((prev) => [
         ...prev,
         {
@@ -360,10 +370,12 @@ export default function WorkflowAgentChat({
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onSend={send}
-                placeholder="Edit workflow, run/test, pause, inspect runs, fix failures… (Shift+Enter for new line)"
+                placeholder="Edit workflow, run/test, pause, inspect runs… Attach docs for Master Data RAG."
                 disabled={sending}
+                attachments={attachments}
+                onAttachmentsChange={setAttachments}
               />
-              <button type="submit" className="wf-btn-primary" disabled={sending || !input.trim()}>
+              <button type="submit" className="wf-btn-primary" disabled={sending || (!input.trim() && !attachments.length)}>
                 Send
               </button>
             </form>
