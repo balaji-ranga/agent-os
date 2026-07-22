@@ -11,7 +11,9 @@
 #
 # Features covered: Flolah branding, hPanel light theme (collapsible nav + profile menu),
 # workflow editor fullscreen (shell-focus-mode), Register MCP/Agents primary CTAs,
-# multi-tenant standups/delegation, Master Data + RAG tools, Platform Help agent + help corpus,
+# multi-tenant standups/delegation, Kanban owner_user_id isolation (no shared-agent leak),
+# lean CEO onboard (COO + Workflow Builder + Platform Help), OrgDesigner dashboard,
+# Master Data + RAG tools, Platform Help agent + help corpus,
 # notify_ceo + email_send, Broadcast (intent-based notify + paced fan-out), AGENTS.md intent
 # COO specialty delegation, peer specialty referral, chat tool-call icons, notification tooltips,
 # org sync (tenant ORG.md/AGENTS.md), AgentExchange/A2A, DeepSeek@Ollama, shared notification dismiss.
@@ -103,6 +105,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-broadcast-routing.js" `
     "$Repo\backend\scripts\test-coo-reach-me-delegation.js" `
     "$Repo\backend\scripts\test-kanban-delegation-sync.js" `
+    "$Repo\backend\scripts\test-kanban-owner-isolation.js" `
     "$Repo\backend\scripts\heal-stuck-kanban-delegations.js" `
     "$Repo\backend\scripts\refresh-coo-workspace-docs.js" `
     "$Repo\backend\scripts\test-openconnector-connectors-e2e.js" `

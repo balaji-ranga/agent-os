@@ -24,6 +24,13 @@ check() {
 check "kanban cron sync" grep -q completePipelineKanbanForDelegation "$ROOT/backend/src/routes/standups.js"
 check "kanban in_progress mark" grep -q markKanbanInProgressForDelegation "$ROOT/backend/src/services/delegation-queue.js"
 check "kanban stuck heal" grep -q healStuckKanbanForCompletedDelegations "$ROOT/backend/src/index.js"
+check "kanban owner SQL filter" grep -q kanbanOwnerSqlFilter "$ROOT/backend/src/services/kanban-user-scope.js"
+check "kanban owner list route" grep -q kanbanOwnerSqlFilter "$ROOT/backend/src/routes/kanban.js"
+check "kanban owner stamp create" grep -q 'owner_user_id' "$ROOT/backend/src/routes/kanban.js"
+check "kanban owner schema" grep -q 'ALTER TABLE kanban_tasks ADD COLUMN owner_user_id' "$ROOT/backend/src/db/schema.js"
+check "lean onboard defaults" grep -q DEFAULT_ONBOARD_AGENT_IDS "$ROOT/backend/src/services/users.js"
+check "prune shared grants" grep -q pruneSharedStandardAgentGrants "$ROOT/backend/src/index.js"
+check "OrgDesigner UI" test -f "$ROOT/frontend/src/components/OrgDesigner.jsx"
 check "COO chat reach-me hook" grep -q tryHandleCooReachMeRequest "$ROOT/backend/src/routes/agents.js"
 check "standup reach-me hook" grep -q tryHandleCooReachMeRequest "$ROOT/backend/src/routes/standups.js"
 check "notify_ceo COO rewrite" grep -q tryRewriteCooNotifyAsSpecialist "$ROOT/backend/src/routes/tools.js"
@@ -78,6 +85,11 @@ if docker compose exec -T frontend sh -c 'grep -Rql standupNotificationsDismiss 
 else
   echo "    WARN: standupNotificationsDismiss not found in frontend JS (rebuild frontend?)"
 fi
+if docker compose exec -T frontend sh -c 'grep -Rql OrgDesigner /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    OrgDesigner dashboard in bundle OK"
+else
+  echo "    WARN: OrgDesigner not found in frontend JS (rebuild frontend?)"
+fi
 
 echo "==> DB runtime"
 docker compose exec -T backend node <<'NODE'
@@ -92,6 +104,9 @@ const dismissTbl = db.prepare("SELECT name FROM sqlite_master WHERE type='table'
 console.log('    master_data tools meta:', mdTools, 'grants:', mdGrants);
 console.log('    delegation owner_user_id:', delCols.includes('owner_user_id') ? 'OK' : 'MISSING');
 console.log('    standups owner_user_id:', standupCols.includes('owner_user_id') ? 'OK' : 'MISSING');
+const kanbanCols = db.prepare('PRAGMA table_info(kanban_tasks)').all().map((c) => c.name);
+console.log('    kanban_tasks owner_user_id:', kanbanCols.includes('owner_user_id') ? 'OK' : 'MISSING');
+if (!kanbanCols.includes('owner_user_id')) throw new Error('kanban_tasks.owner_user_id column missing');
 console.log('    user_feed_dismissals table:', dismissTbl ? 'OK' : 'MISSING');
 const platformHelp = db.prepare(`SELECT id, name, agent_type FROM agents WHERE id = 'platformhelp'`).get();
 console.log('    platformhelp agent:', platformHelp ? `${platformHelp.name} (${platformHelp.agent_type})` : 'MISSING');
@@ -150,6 +165,13 @@ docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-broadc
 
 echo "==> Kanban delegation sync smoke"
 docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-kanban-delegation-sync.js
+
+echo "==> Kanban owner isolation smoke"
+if [[ -f "$ROOT/backend/scripts/test-kanban-owner-isolation.js" ]]; then
+  docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-kanban-owner-isolation.js
+else
+  echo "    WARN: test-kanban-owner-isolation.js missing on disk (sync scripts?)"
+fi
 
 echo "==> COO reach-me delegation smoke"
 docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-coo-reach-me-delegation.js

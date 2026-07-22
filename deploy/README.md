@@ -23,7 +23,7 @@ Works with **Docker Compose** and **Podman Compose** on CentOS/RHEL, Ubuntu (Hos
 
 | Volume | Mount | Contents |
 |--------|-------|----------|
-| `agent_os_data` | backend `/data/agent-os` | SQLite (`agent-os.db`) — includes master-data, feedback, user LLM settings |
+| `agent_os_data` | backend `/data/agent-os` | SQLite (`agent-os.db`) — master-data, feedback, user LLM settings, **Kanban `owner_user_id`**, standups/delegation owners |
 | `openclaw_home` | backend + openclaw `/root/.openclaw` | `openclaw.json`, workspaces, browser profile, media, sessions |
 | `workflow_fs` | backend `/data/workflow-fs` | Filesystem workflow node roots (`WORKFLOW_FS_ROOTS`) |
 | `openconnector_data` | openconnector `/app/data` | OpenConnector runtime DB + OAuth tokens (`optional-openconnector`) |
@@ -233,6 +233,8 @@ All proxied under `/api` (rebuild backend + frontend images after upgrade):
 | Broadcast | `POST /api/broadcast` (CEO/Admin); UI `/broadcast` — tenant OpenClaw sessions; LLM intent for status+notify; paced fan-out (avoids TPM 429) |
 | Org doc sync | `POST /api/agents/org/sync` — rebuilds `ORG.md` + COO `AGENTS.md` (tenant session keys); Dashboard **Resync ORG.md & AGENTS.md**; Workspace UI reads per-CEO tenant path |
 | COO specialty delegate | COO chat hard-path: AGENTS.md purpose intent classify → Kanban + delegation (max 1 specialist) |
+| Kanban multi-tenant | `kanban_tasks.owner_user_id` — list/get/SQL-scoped; standup/COO/tools/job/workflow creates stamp owner; shared agent grants never imply ownership; orphans without owner stay hidden |
+| Lean CEO onboard | Default grants: COO (`balserve`) + Workflow Builder + Platform Help; `pruneSharedStandardAgentGrants` at boot; Dashboard **OrgDesigner** for departments / agents |
 | Master Data + RAG | `master_data_list_*` / `master_data_rag` — purpose-driven list_tables→list_rows; RAG for documents |
 | Agent chat tools UI | Assistant bubbles show gear pills for Agent OS tool calls (`content_tool_logs`) |
 | Notification tooltips | Bell panel snippet hover shows full title/body / agent response |
