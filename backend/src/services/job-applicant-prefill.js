@@ -153,11 +153,14 @@ export async function runPrefillForApprovedJobs(ceoUserId, profileId, profileOve
   return { ok: true, count: results.length, results, linkedin_profile: linkedinCheck.url };
 }
 
-function createPrefillKanbanTask(profile, prefillResults) {
+function createPrefillKanbanTask(profile, prefillResults, ceoUserId = null) {
   const db = getDb();
+  const ownerId = ceoUserId || profile?.ceo_user_id || null;
   const lines = [
     `ceo_prefill_profile:${profile.id}`,
     `profile_id: ${profile.id}`,
+    ownerId ? `owner_user_id: ${ownerId}` : null,
+    ownerId ? `ceo_user_id: ${ownerId}` : null,
     '',
     '## Application prefill complete',
     'Forms prepared from **resume** + **LinkedIn profile**. Application Agent will open portals per submit_policy.',
@@ -166,7 +169,7 @@ function createPrefillKanbanTask(profile, prefillResults) {
     `- **Resume:** ${profile.intake?.master_resume_path}`,
     `- **Jobs prefilled:** ${prefillResults.filter((r) => r.prefill).length}`,
     '',
-  ];
+  ].filter((x) => x != null);
   for (const r of prefillResults) {
     if (!r.prefill) {
       lines.push(`- ❌ ${r.job_id}: ${r.error}`);
@@ -179,11 +182,12 @@ function createPrefillKanbanTask(profile, prefillResults) {
   }
 
   db.prepare(
-    `INSERT INTO kanban_tasks (title, description, status, assigned_agent_id, created_by, due_date)
-     VALUES (?, ?, 'in_progress', 'applicationagent', 'job_pipeline', NULL)`
+    `INSERT INTO kanban_tasks (title, description, status, assigned_agent_id, created_by, due_date, owner_user_id)
+     VALUES (?, ?, 'in_progress', 'applicationagent', 'job_pipeline', NULL, ?)`
   ).run(
     `Application prefill — ${prefillResults.filter((r) => r.prefill).length} job(s)`,
-    lines.join('\n')
+    lines.join('\n'),
+    ownerId
   );
   const row = db.prepare('SELECT id FROM kanban_tasks ORDER BY id DESC LIMIT 1').get();
   return { kanban_task_id: row?.id };
@@ -204,7 +208,7 @@ export async function onCeoReviewApproved(ceoUserId, profileId, profileOverride 
   }
 
   const prefill = await runPrefillForApprovedJobs(ceoUserId, profile.id, profile);
-  const prefillKanban = createPrefillKanbanTask(profile, prefill.results);
+  const prefillKanban = createPrefillKanbanTask(profile, prefill.results, ceoUserId);
 
   if (profile.status === 'active') {
     startPipeline(ceoUserId);

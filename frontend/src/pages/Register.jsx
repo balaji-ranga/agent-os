@@ -13,11 +13,15 @@ export default function Register() {
     region: '',
     mobile: '',
     db_mode: 'tenant',
+    industry: 'personal',
+    industry_other: '',
+    business_name: '',
     mfa_policy: 'inherit',
     mfa_mode: 'inherit',
     llm_provider: 'platform_decided',
     llm_api_key: '',
   });
+  const [industries, setIndustries] = useState([]);
   const [platform, setPlatform] = useState(null);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -29,6 +33,9 @@ export default function Register() {
     api.authMfaDefaults()
       .then(setPlatform)
       .catch(() => setPlatform(null));
+    api.authIndustries()
+      .then((d) => setIndustries(d.industries || []))
+      .catch(() => setIndustries([]));
   }, []);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -176,7 +183,7 @@ export default function Register() {
     <div className="auth-page" style={{ maxWidth: 480, margin: '2rem auto', padding: '0 1rem' }}>
       <h1>Register CEO account</h1>
       <p style={{ color: 'var(--muted)', marginBottom: '1rem' }}>
-        Choose where your job pipeline, kanban, and chat history are stored. Standard workspace agents are granted either way.
+        You get COO, Workflow Builder, and Platform Help in <strong>your</strong> workspace (user-scoped — not shared with other CEOs).
       </p>
       <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         {field('Full name', 'name', 'text', true)}
@@ -184,6 +191,29 @@ export default function Register() {
         {field('Password', 'password', 'password', true)}
         {field('Region', 'region')}
         {field('Mobile', 'mobile', 'tel')}
+        <label>
+          <span style={{ display: 'block', fontSize: '0.85rem', marginBottom: 4 }}>Industry</span>
+          <select
+            value={form.industry}
+            onChange={(e) => set('industry', e.target.value)}
+            required
+            style={{ width: '100%', padding: '0.5rem', borderRadius: 6, border: '1px solid var(--border)' }}
+          >
+            {(industries.length
+              ? industries
+              : [
+                  { id: 'personal', label: 'Personal' },
+                  { id: 'others', label: 'Others' },
+                ]
+            ).map((i) => (
+              <option key={i.id} value={i.id}>
+                {i.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        {form.industry === 'others' && field('Industry (describe)', 'industry_other', 'text', true)}
+        {form.industry && form.industry !== 'personal' && field('Business name', 'business_name', 'text', true)}
         <label>
           <span style={{ display: 'block', fontSize: '0.85rem', marginBottom: 4 }}>Tenancy Model</span>
           <select

@@ -43,10 +43,10 @@ export function createCeoApprovalKanbanTask({
 }) {
   db()
     .prepare(
-      `INSERT INTO kanban_tasks (title, description, status, assigned_agent_id, created_by, standup_id)
-       VALUES (?, ?, 'awaiting_confirmation', NULL, 'agent_workflow_ceo', ?)`
+      `INSERT INTO kanban_tasks (title, description, status, assigned_agent_id, created_by, standup_id, owner_user_id)
+       VALUES (?, ?, 'awaiting_confirmation', NULL, 'agent_workflow_ceo', ?, ?)`
     )
-    .run(title, description, standupId);
+    .run(title, description, standupId, ownerUserId || null);
   const id = db().prepare('SELECT id FROM kanban_tasks ORDER BY id DESC LIMIT 1').get()?.id;
   if (id && ownerUserId) {
     notifyKanbanTaskCreated({
@@ -81,17 +81,18 @@ export function createAgentWorkflowKanbanTask({
   standupId,
   delegationTaskId,
 }) {
+  const ownerMatch = String(description || '').match(/owner_user_id:\s*(\S+)/);
+  const ownerUserId = ownerMatch?.[1] || null;
   db()
     .prepare(
-      `INSERT INTO kanban_tasks (title, description, status, assigned_agent_id, created_by, standup_id, agent_delegation_task_id)
-       VALUES (?, ?, 'awaiting_confirmation', ?, 'agent_workflow', ?, ?)`
+      `INSERT INTO kanban_tasks (title, description, status, assigned_agent_id, created_by, standup_id, agent_delegation_task_id, owner_user_id)
+       VALUES (?, ?, 'awaiting_confirmation', ?, 'agent_workflow', ?, ?, ?)`
     )
-    .run(title, description, agentId, standupId, delegationTaskId);
+    .run(title, description, agentId, standupId, delegationTaskId, ownerUserId);
   const id = db().prepare('SELECT id FROM kanban_tasks WHERE agent_delegation_task_id = ?').get(delegationTaskId)?.id;
-  const ownerMatch = String(description || '').match(/owner_user_id:\s*(\S+)/);
-  if (id && ownerMatch?.[1]) {
+  if (id && ownerUserId) {
     notifyKanbanTaskCreated({
-      userId: ownerMatch[1],
+      userId: ownerUserId,
       task: { id, title, assigned_agent_id: agentId },
     });
   }
@@ -139,18 +140,22 @@ export function upsertCompletedStepKanban({
 
   if (existing?.id) {
     db()
-      .prepare(`UPDATE kanban_tasks SET status = 'completed', description = ?, updated_at = datetime('now') WHERE id = ?`)
-      .run(description, existing.id);
+      .prepare(
+        `UPDATE kanban_tasks SET status = 'completed', description = ?,
+         owner_user_id = COALESCE(NULLIF(owner_user_id, ''), ?),
+         updated_at = datetime('now') WHERE id = ?`
+      )
+      .run(description, ownerUserId || null, existing.id);
     return existing.id;
   }
 
   const title = `${definitionName || 'Workflow'} · ${nodeLabel || nodeId}`;
   db()
     .prepare(
-      `INSERT INTO kanban_tasks (title, description, status, assigned_agent_id, created_by)
-       VALUES (?, ?, 'completed', ?, 'agent_workflow')`
+      `INSERT INTO kanban_tasks (title, description, status, assigned_agent_id, created_by, owner_user_id)
+       VALUES (?, ?, 'completed', ?, 'agent_workflow', ?)`
     )
-    .run(title, description, agentId || null);
+    .run(title, description, agentId || null, ownerUserId || null);
   return db().prepare('SELECT id FROM kanban_tasks ORDER BY id DESC LIMIT 1').get()?.id;
 }
 

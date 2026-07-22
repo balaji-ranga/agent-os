@@ -1,56 +1,48 @@
-import { listAgentsForUser } from './users.js';
-import { resolveCeoDataUserId, getDefaultCeoUserId } from './job-applicant-ceo.js';
+/**
+ * Per-CEO Kanban isolation.
+ * Tasks must have owner_user_id. Shared agent grants alone NEVER imply ownership.
+ */
+import { resolveCeoDataUserId } from './job-applicant-ceo.js';
 
 export function getKanbanScopeIds(authUserId) {
   const dataUserId = resolveCeoDataUserId(authUserId);
   return [...new Set([authUserId, dataUserId].filter(Boolean))];
 }
 
-function textHasScopedId(text, ids) {
-  return ids.some((id) => text.includes(`ceo_user_id: ${id}`) || text.includes(`ceo_user_id:${id}`));
+/** Extract owner from description / prompt text tags. */
+export function extractOwnerUserIdFromKanbanText(text) {
+  const raw = String(text || '');
+  const owner = raw.match(/owner_user_id:\s*(\S+)/i);
+  if (owner?.[1]) return owner[1].trim();
+  const ceo = raw.match(/ceo_user_id:\s*(\S+)/i);
+  if (ceo?.[1]) return ceo[1].trim();
+  return null;
 }
 
-function textHasOwnerId(text, ids) {
-  const match = text.match(/owner_user_id:\s*(\S+)/);
-  if (!match) return false;
-  return ids.includes(match[1]);
+/**
+ * Resolve effective owner for a task row (column first, then text / linked delegation).
+ * @param {object} task
+ * @param {{ delegation_prompt?: string, delegation_owner_user_id?: string } | null} [extra]
+ */
+export function resolveKanbanTaskOwnerId(task, extra = null) {
+  if (!task) return null;
+  const col = String(task.owner_user_id || '').trim();
+  if (col) return col;
+  const fromDelegationCol = String(extra?.delegation_owner_user_id || task.delegation_owner_user_id || '').trim();
+  if (fromDelegationCol) return fromDelegationCol;
+  const combined = `${task.description || ''}\n${extra?.delegation_prompt || task.delegation_prompt || ''}`;
+  return extractOwnerUserIdFromKanbanText(combined);
 }
 
 export function kanbanTaskBelongsToUser(task, authUser) {
   if (!authUser?.id || !task) return false;
+  // Platform admin without impersonation does not share a CEO Kanban board
   if (authUser.role === 'admin' && !authUser.impersonation) return false;
 
   const scopeIds = getKanbanScopeIds(authUser.id);
-  const desc = String(task.description || '');
-  const combined = `${desc}\n${task.delegation_prompt || ''}`;
-
-  if (textHasOwnerId(combined, scopeIds)) return true;
-  if (combined.includes('ceo_user_id') && textHasScopedId(combined, scopeIds)) return true;
-
-  const isScopedPipeline =
-    combined.includes('[job_pipeline:') ||
-    combined.includes('[agent_workflow:') ||
-    combined.includes('ceo_review_profile:') ||
-    combined.includes('ceo_prefill_profile:') ||
-    ['job_workflow', 'job_pipeline', 'agent_workflow', 'agent_workflow_ceo'].includes(task.created_by);
-
-  if (isScopedPipeline) {
-    if (!combined.includes('ceo_user_id') && !combined.includes('owner_user_id')) {
-      return scopeIds.includes(getDefaultCeoUserId()) || scopeIds.includes('default');
-    }
-    return false;
-  }
-
-  if (task.assigned_agent_id) {
-    const agents = listAgentsForUser(authUser.id);
-    return agents.some((a) => a.id === task.assigned_agent_id);
-  }
-
-  // Unassigned / CEO inbox: human-created OR agent-created for this owner (owner_user_id above)
-  if (task.created_by === 'user') return true;
-  // Agent-created CEO tasks without assignment: visible if created_by is one of user's agents
-  const agents = listAgentsForUser(authUser.id);
-  return agents.some((a) => a.id === task.created_by);
+  const ownerId = resolveKanbanTaskOwnerId(task);
+  if (!ownerId) return false;
+  return scopeIds.includes(ownerId);
 }
 
 export function filterKanbanTasksForUser(tasks, authUser) {
@@ -63,4 +55,21 @@ export function assertKanbanTaskAccess(task, authUser) {
     err.status = 404;
     throw err;
   }
+}
+
+/** SQL fragment + params for owner-scoped Kanban list queries. */
+export function kanbanOwnerSqlFilter(authUser, { alias = 'k' } = {}) {
+  if (!authUser?.id) {
+    return { clause: '1=0', params: [] };
+  }
+  if (authUser.role === 'admin' && !authUser.impersonation) {
+    return { clause: '1=0', params: [] };
+  }
+  const scopeIds = getKanbanScopeIds(authUser.id);
+  if (!scopeIds.length) return { clause: '1=0', params: [] };
+  const placeholders = scopeIds.map(() => '?').join(',');
+  return {
+    clause: `${alias}.owner_user_id IN (${placeholders})`,
+    params: scopeIds,
+  };
 }

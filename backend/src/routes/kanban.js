@@ -9,11 +9,12 @@ import * as openclaw from '../gateway/openclaw.js';
 import { resolveKanbanTaskArtifacts } from '../services/kanban-artifacts.js';
 import { parseAgentWorkflowMeta } from '../services/agent-workflow-kanban.js';
 import { formatServerDateTime, getServerTimezone } from '../utils/format-datetime.js';
-import { attachAuthUser, requireAuth } from '../middleware/auth.js';
+import { attachAuthUser, requireAuth, resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
 import {
   filterKanbanTasksForUser,
   kanbanTaskBelongsToUser,
   assertKanbanTaskAccess,
+  kanbanOwnerSqlFilter,
 } from '../services/kanban-user-scope.js';
 import {
   notifyKanbanTaskCreated,
@@ -28,6 +29,14 @@ const VALID_STATUSES = ['open', 'awaiting_confirmation', 'in_progress', 'complet
 function db() {
   return getDb();
 }
+
+const KANBAN_SELECT = `
+  SELECT k.id, k.title, k.description, k.status, k.assigned_agent_id, k.created_by, k.standup_id,
+         k.agent_delegation_task_id, k.owner_user_id, k.created_at, k.updated_at, k.due_date,
+         a.name AS assigned_agent_name
+  FROM kanban_tasks k
+  LEFT JOIN agents a ON a.id = k.assigned_agent_id
+`;
 
 function resolveWorkflowStepIo(description) {
   const meta = parseAgentWorkflowMeta(description);
@@ -84,28 +93,24 @@ router.get('/tasks', (req, res) => {
     const from = req.query.from;
     const to = req.query.to;
     const range = parseViewRange(view, from, to);
+    const ownerFilter = kanbanOwnerSqlFilter(req.authUser);
 
-    let sql = `
-      SELECT k.id, k.title, k.description, k.status, k.assigned_agent_id, k.created_by, k.standup_id,
-             k.agent_delegation_task_id, k.created_at, k.updated_at, k.due_date,
-             a.name AS assigned_agent_name
-      FROM kanban_tasks k
-      LEFT JOIN agents a ON a.id = k.assigned_agent_id
-    `;
-    const params = [];
+    let sql = `${KANBAN_SELECT} WHERE ${ownerFilter.clause}`;
+    const params = [...ownerFilter.params];
     if (range) {
       const startSql = range.start.replace('T', ' ').replace(/\.\d{3}Z$/, '').slice(0, 19);
       const endSql = range.end.replace('T', ' ').replace(/\.\d{3}Z$/, '').slice(0, 19);
-      sql += ` WHERE k.created_at >= ? AND k.created_at <= ?`;
+      sql += ` AND k.created_at >= ? AND k.created_at <= ?`;
       params.push(startSql, endSql);
     }
     sql += ` ORDER BY k.created_at DESC`;
     const limit = Math.min(Number(req.query.limit) || 200, 500);
     sql += ` LIMIT ?`;
-    params.push(limit * 4);
+    params.push(limit);
 
     const rows = db().prepare(sql).all(...params);
-    const scoped = filterKanbanTasksForUser(rows, req.authUser).slice(0, limit);
+    // Soft filter as defense-in-depth for any legacy/ambiguous rows
+    const scoped = filterKanbanTasksForUser(rows, req.authUser);
     const server_timezone = getServerTimezone();
     const tasks = scoped.map((row) => ({
       ...row,
@@ -123,18 +128,16 @@ router.get('/summary', (req, res) => {
   try {
     const days = Math.min(Number(req.query.days) || 1, 31);
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const ownerFilter = kanbanOwnerSqlFilter(req.authUser);
     const rows = db()
       .prepare(
-        `SELECT k.id, k.title, k.description, k.status, k.assigned_agent_id, k.created_by, k.standup_id,
-                k.agent_delegation_task_id, k.created_at, k.updated_at, k.due_date,
-                a.name AS assigned_agent_name
-         FROM kanban_tasks k
-         LEFT JOIN agents a ON a.id = k.assigned_agent_id
-         WHERE k.created_at >= ? AND k.assigned_agent_id IS NOT NULL
+        `${KANBAN_SELECT}
+         WHERE ${ownerFilter.clause}
+           AND k.created_at >= ? AND k.assigned_agent_id IS NOT NULL
          ORDER BY k.created_at DESC
          LIMIT ?`
       )
-      .all(since, 2000);
+      .all(...ownerFilter.params, since, 2000);
     const scoped = filterKanbanTasksForUser(rows, req.authUser);
     const counts = {};
     for (const r of scoped) {
@@ -155,7 +158,17 @@ router.get('/summary', (req, res) => {
 // GET /api/kanban/tasks/:id — one task with messages and delegation context (prompt/response given to agent)
 router.get('/tasks/:id', (req, res) => {
   try {
-    const task = db().prepare('SELECT k.*, a.name AS assigned_agent_name FROM kanban_tasks k LEFT JOIN agents a ON a.id = k.assigned_agent_id WHERE k.id = ?').get(req.params.id);
+    const task = db()
+      .prepare(
+        `SELECT k.*, a.name AS assigned_agent_name,
+                d.prompt AS delegation_prompt_preview,
+                d.owner_user_id AS delegation_owner_user_id
+         FROM kanban_tasks k
+         LEFT JOIN agents a ON a.id = k.assigned_agent_id
+         LEFT JOIN agent_delegation_tasks d ON d.id = k.agent_delegation_task_id
+         WHERE k.id = ?`
+      )
+      .get(req.params.id);
     if (!task) return res.status(404).json({ error: 'Task not found' });
     assertKanbanTaskAccess(task, req.authUser);
     const messages = db().prepare('SELECT id, role, content, created_at FROM task_messages WHERE task_id = ? ORDER BY created_at').all(task.id);
@@ -198,6 +211,8 @@ router.get('/tasks/:id', (req, res) => {
 // POST /api/kanban/tasks — create. Body: title, description?, assign_to: 'coo' | agent_id
 router.post('/tasks', (req, res) => {
   try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.body);
+    if (!ownerUserId) return res.status(403).json({ error: 'CEO session required to create Kanban tasks' });
     const { title, description, assign_to, due_date } = req.body;
     if (!title || typeof title !== 'string' || !title.trim()) return res.status(400).json({ error: 'title required' });
     const assigned_agent_id = assign_to && assign_to !== 'coo' ? String(assign_to).trim() || null : null;
@@ -205,13 +220,12 @@ router.post('/tasks', (req, res) => {
     const due = due_date ? new Date(due_date).toISOString().slice(0, 10) : null;
     db()
       .prepare(
-        `INSERT INTO kanban_tasks (title, description, status, assigned_agent_id, created_by, due_date) VALUES (?, ?, ?, ?, 'user', ?)`
+        `INSERT INTO kanban_tasks (title, description, status, assigned_agent_id, created_by, due_date, owner_user_id)
+         VALUES (?, ?, ?, ?, 'user', ?, ?)`
       )
-      .run(title.trim(), desc, assigned_agent_id ? 'awaiting_confirmation' : 'open', assigned_agent_id, due);
+      .run(title.trim(), desc, assigned_agent_id ? 'awaiting_confirmation' : 'open', assigned_agent_id, due, ownerUserId);
     const row = db().prepare('SELECT * FROM kanban_tasks ORDER BY id DESC LIMIT 1').get();
-    if (req.authUser?.id) {
-      notifyKanbanTaskCreated({ userId: req.authUser.id, task: row });
-    }
+    notifyKanbanTaskCreated({ userId: ownerUserId, task: row });
     res.status(201).json(row);
   } catch (e) {
     res.status(e.status || 400).json({ error: e.message });

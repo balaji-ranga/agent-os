@@ -171,10 +171,10 @@ export function upsertWorkflowStageKanban({
 
   db()
     .prepare(
-      `INSERT INTO kanban_tasks (title, description, status, assigned_agent_id, created_by, due_date)
-       VALUES (?, ?, ?, ?, 'job_workflow', NULL)`
+      `INSERT INTO kanban_tasks (title, description, status, assigned_agent_id, created_by, due_date, owner_user_id)
+       VALUES (?, ?, ?, ?, 'job_workflow', NULL, ?)`
     )
-    .run(title, description, status, agentId);
+    .run(title, description, status, agentId, ceoUserId || null);
 
   const row = db().prepare('SELECT id FROM kanban_tasks ORDER BY id DESC LIMIT 1').get();
   if (row?.id && status !== 'completed' && status !== 'failed') {

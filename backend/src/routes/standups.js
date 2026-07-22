@@ -194,12 +194,16 @@ router.get('/:id', (req, res) => {
     if (req.query.kanban_summary === '1') {
       try {
         const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-        const rows = db()
-          .prepare(
-            `SELECT assigned_agent_id, status, COUNT(*) AS count FROM kanban_tasks
-             WHERE created_at >= ? AND assigned_agent_id IS NOT NULL GROUP BY assigned_agent_id, status`
-          )
-          .all(since);
+        const ownerId = standup.owner_user_id || null;
+        const rows = ownerId
+          ? db()
+              .prepare(
+                `SELECT assigned_agent_id, status, COUNT(*) AS count FROM kanban_tasks
+                 WHERE created_at >= ? AND assigned_agent_id IS NOT NULL AND owner_user_id = ?
+                 GROUP BY assigned_agent_id, status`
+              )
+              .all(since, ownerId)
+          : [];
         const byAgent = {};
         for (const r of rows) {
           if (!byAgent[r.assigned_agent_id]) byAgent[r.assigned_agent_id] = { open: 0, awaiting_confirmation: 0, in_progress: 0, completed: 0, failed: 0 };

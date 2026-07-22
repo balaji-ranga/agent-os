@@ -37,7 +37,7 @@ import platformNotificationsRoutes from './routes/platform-notifications.js';
 import { attachAuthUser, requireAuth, requireCeoOrAdmin } from './middleware/auth.js';
 import { ensureInternalTokenConfigured } from './middleware/internal-auth.js';
 import { ensureMfaTables } from './services/auth/mfa.js';
-import { ensureDefaultAdmin, ensureBalaCeoUser, grantStandardAgents } from './services/users.js';
+import { ensureDefaultAdmin, ensureBalaCeoUser, grantStandardAgents, pruneSharedStandardAgentGrants } from './services/users.js';
 import { ensureCeoDefaultMasterDataForAllCeos } from './services/ceo-default-master-data.js';
 import { initDb, getDb } from './db/schema.js';
 import { seedDefaultAgentsIfEmpty, seedAgentDepartmentsIfMissing } from './db/seed-default-agents.js';
@@ -111,6 +111,16 @@ ensureBalaCeoUser();
 try {
   const ceos = getDb().prepare(`SELECT id FROM platform_users WHERE role = 'ceo'`).all();
   for (const { id } of ceos) grantStandardAgents(id);
+  try {
+    const pruned = pruneSharedStandardAgentGrants();
+    if (pruned.revoked) {
+      console.log(
+        `[startup] pruned ${pruned.revoked} non-default standard agent grant(s); lean defaults=[${pruned.leanDefaults.join(', ')}]`
+      );
+    }
+  } catch (e) {
+    console.warn('[startup] prune shared agent grants:', e.message);
+  }
   const md = await ensureCeoDefaultMasterDataForAllCeos(
     ceos.map((c) => c.id),
     { refresh: true }

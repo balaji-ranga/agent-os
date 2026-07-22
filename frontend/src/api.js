@@ -208,6 +208,7 @@ export const api = {
   authLogout: () => post('/auth/logout', {}),
   authMe: () => get('/auth/me'),
   authUpdateProfile: (body) => patch('/auth/me', body),
+  authIndustries: () => get('/auth/industries'),
   submitFeedback: (body) => post('/feedback', body),
   listFeedback: (params = {}) => {
     const q = new URLSearchParams();

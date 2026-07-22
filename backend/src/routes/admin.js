@@ -43,6 +43,9 @@ router.post('/users', async (req, res) => {
       ceo_db_mode,
       mfa_policy,
       mfa_mode,
+      industry = 'personal',
+      industry_other = '',
+      business_name = '',
     } = req.body || {};
     if (role === 'admin') {
       return res.status(400).json({ error: 'Use platform seed for admin accounts' });
@@ -57,6 +60,9 @@ router.post('/users', async (req, res) => {
       ceo_db_mode,
       mfa_policy,
       mfa_mode,
+      industry,
+      industry_other,
+      business_name,
     });
     res.status(201).json({ user });
   } catch (e) {

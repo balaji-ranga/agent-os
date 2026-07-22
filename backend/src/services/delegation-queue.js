@@ -317,7 +317,8 @@ function enqueueAllocatedTasks({
     if (row) {
       taskRows.push({ taskId: row.id, agent: a, query });
       const title = (query || '').trim().slice(0, 200);
-      kanbanIns.run(title, '', a.id, standupId, row.id);
+      const desc = ownerUserId ? `owner_user_id: ${ownerUserId}` : '';
+      kanbanIns.run(title, desc, a.id, standupId, row.id, ownerUserId || null);
     }
   }
   return taskRows;
@@ -375,7 +376,8 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, c
     `INSERT INTO agent_delegation_tasks (standup_id, request_id, to_agent_id, prompt, status, owner_user_id) VALUES (?, ?, ?, ?, 'pending', ?)`
   );
   const kanbanIns = db().prepare(
-    `INSERT INTO kanban_tasks (title, description, status, assigned_agent_id, created_by, standup_id, agent_delegation_task_id) VALUES (?, ?, 'in_progress', ?, 'coo', ?, ?)`
+    `INSERT INTO kanban_tasks (title, description, status, assigned_agent_id, created_by, standup_id, agent_delegation_task_id, owner_user_id)
+     VALUES (?, ?, 'in_progress', ?, 'coo', ?, ?, ?)`
   );
 
   const taskRows =

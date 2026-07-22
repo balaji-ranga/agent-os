@@ -10,6 +10,9 @@ function UserProfilePanel() {
     email: '',
     region: '',
     mobile: '',
+    industry: 'personal',
+    industry_other: '',
+    business_name: '',
     current_password: '',
     new_password: '',
     confirm_password: '',
@@ -19,6 +22,8 @@ function UserProfilePanel() {
     llm_api_key: '',
     clear_llm_api_key: false,
   });
+  const [industries, setIndustries] = useState([]);
+  const [lastLoginAt, setLastLoginAt] = useState(null);
   const [mfaInfo, setMfaInfo] = useState(null);
   const [llmHint, setLlmHint] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -49,13 +54,21 @@ function UserProfilePanel() {
       email: user.email || '',
       region: user.region || '',
       mobile: user.mobile || '',
+      industry: user.industry || 'personal',
+      industry_other: user.industry_other || '',
+      business_name: user.business_name || '',
       mfa_policy: user.mfa_policy || 'inherit',
       mfa_mode: user.mfa_mode || 'inherit',
       llm_provider: user.llm_provider || 'platform_decided',
       llm_api_key: '',
       clear_llm_api_key: false,
     }));
+    setLastLoginAt(user.last_login_at || null);
     setLlmHint(user.llm_api_key_hint || null);
+    api
+      .authIndustries()
+      .then((d) => setIndustries(d.industries || []))
+      .catch(() => setIndustries([]));
     api
       .authMe()
       .then((data) => {
@@ -73,7 +86,11 @@ function UserProfilePanel() {
           mfa_policy: data.user?.mfa_policy || m.policy || 'inherit',
           mfa_mode: data.user?.mfa_mode || m.user_mfa_mode || 'inherit',
           llm_provider: data.user?.llm_provider || 'platform_decided',
+          industry: data.user?.industry || f.industry || 'personal',
+          industry_other: data.user?.industry_other || '',
+          business_name: data.user?.business_name || '',
         }));
+        setLastLoginAt(data.user?.last_login_at || null);
         setLlmHint(data.user?.llm_api_key_hint || null);
       })
       .catch(() => {});
@@ -111,6 +128,9 @@ function UserProfilePanel() {
         email: form.email,
         region: form.region,
         mobile: form.mobile,
+        industry: form.industry,
+        industry_other: form.industry_other,
+        business_name: form.business_name,
         mfa_policy: form.mfa_policy,
         mfa_mode: form.mfa_mode === 'inherit' ? 'inherit' : form.mfa_mode,
         llm_provider: form.llm_provider,
@@ -209,6 +229,12 @@ function UserProfilePanel() {
       <p style={{ color: 'var(--muted)', marginTop: '0.25rem' }}>
         Account: {user?.id} · Role: {user?.role}
       </p>
+      <p style={{ color: 'var(--muted)', marginTop: '0.25rem', fontSize: '0.9rem' }}>
+        Last login:{' '}
+        {lastLoginAt
+          ? new Date(lastLoginAt.endsWith('Z') || lastLoginAt.includes('+') ? lastLoginAt : `${lastLoginAt}Z`).toLocaleString()
+          : '—'}
+      </p>
 
       {error && <div style={{ color: '#f87171', marginTop: '1rem' }}>{error}</div>}
       {message && <div style={{ color: '#22c55e', marginTop: '1rem' }}>{message}</div>}
@@ -249,6 +275,48 @@ function UserProfilePanel() {
             style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
           />
         </label>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Industry</span>
+          <select
+            value={form.industry || 'personal'}
+            onChange={(e) => set('industry', e.target.value)}
+            style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+          >
+            {(industries.length
+              ? industries
+              : [
+                  { id: 'personal', label: 'Personal' },
+                  { id: 'others', label: 'Others' },
+                ]
+            ).map((i) => (
+              <option key={i.id} value={i.id}>
+                {i.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        {form.industry === 'others' && (
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Industry (describe)</span>
+            <input
+              value={form.industry_other}
+              onChange={(e) => set('industry_other', e.target.value)}
+              required
+              style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+            />
+          </label>
+        )}
+        {form.industry && form.industry !== 'personal' && (
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Business name</span>
+            <input
+              value={form.business_name}
+              onChange={(e) => set('business_name', e.target.value)}
+              required
+              style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+            />
+          </label>
+        )}
 
         <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '0.5rem 0' }} />
         <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--muted)' }}>

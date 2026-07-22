@@ -5,6 +5,7 @@ import ChatMessageContent from '../components/ChatMessageContent';
 import ChatComposeInput from '../components/ChatComposeInput';
 import MessageFeedback from '../components/MessageFeedback';
 import OrgChart from '../components/OrgChart';
+import OrgDesigner from '../components/OrgDesigner';
 import DepartmentPicker from '../components/DepartmentPicker';
 import { formatLocalDateTime, formatChatTimestamp, toLocalDateTimeInputValue } from '../utils/formatDateTime.js';
 
@@ -89,6 +90,7 @@ export default function Dashboard() {
   const [openclawSyncing, setOpenclawSyncing] = useState(false);
   const [orgDocSyncing, setOrgDocSyncing] = useState(false);
   const [orgDocSyncMessage, setOrgDocSyncMessage] = useState(null);
+  const [orgMode, setOrgMode] = useState('chart'); // chart | design
   const [showCreateStandupModal, setShowCreateStandupModal] = useState(false);
   const [standupTitle, setStandupTitle] = useState('');
   const [standupOutcomes, setStandupOutcomes] = useState('');
@@ -388,10 +390,52 @@ export default function Dashboard() {
           </div>
         </div>
         <p style={{ color: 'var(--muted)', marginBottom: '1rem', fontSize: '0.9rem' }}>
-          CEO (you) → reports-to chain for all agents in your workspace. Use List or Graph; optionally group by department.
-          After adding, removing, or renaming agents, click <strong>Resync ORG.md &amp; AGENTS.md</strong> so every agent workspace gets an updated org roster and tenant session keys for COO delegation.
+          CEO (you) → reports-to chain for agents in <strong>your</strong> workspace only. Use Chart or Design to arrange departments.
+          After structural changes, click <strong>Resync ORG.md &amp; AGENTS.md</strong> so workspaces get an updated roster.
         </p>
-        <OrgChart agents={agents} onRemove={removeAgent} />
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+          <button
+            type="button"
+            onClick={() => setOrgMode('chart')}
+            style={{
+              padding: '0.35rem 0.75rem',
+              borderRadius: 6,
+              border: `1px solid ${orgMode === 'chart' ? 'var(--accent)' : 'var(--border)'}`,
+              background: orgMode === 'chart' ? 'var(--accent)' : 'transparent',
+              color: orgMode === 'chart' ? '#fff' : 'var(--text)',
+              cursor: 'pointer',
+              fontSize: '0.85rem',
+            }}
+          >
+            Chart
+          </button>
+          <button
+            type="button"
+            onClick={() => setOrgMode('design')}
+            style={{
+              padding: '0.35rem 0.75rem',
+              borderRadius: 6,
+              border: `1px solid ${orgMode === 'design' ? 'var(--accent)' : 'var(--border)'}`,
+              background: orgMode === 'design' ? 'var(--accent)' : 'transparent',
+              color: orgMode === 'design' ? '#fff' : 'var(--text)',
+              cursor: 'pointer',
+              fontSize: '0.85rem',
+            }}
+          >
+            Design
+          </button>
+        </div>
+        {orgMode === 'design' ? (
+          <OrgDesigner
+            agents={agents}
+            onRemove={removeAgent}
+            onChanged={() =>
+              api.agentsList().then((list) => setAgents(Array.isArray(list) ? list : list?.agents || []))
+            }
+          />
+        ) : (
+          <OrgChart agents={agents} onRemove={removeAgent} />
+        )}
         {agents.length === 0 && (
           <div style={{ marginTop: '0.75rem', padding: '1rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8 }}>
             <p style={{ color: 'var(--muted)', margin: '0 0 0.5rem' }}>No agents in the database.</p>
@@ -652,85 +696,7 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {/* Sync from OpenClaw — this CEO's tenant agents only */}
-      <section style={{ marginBottom: '2rem' }}>
-        <h2 style={{ fontSize: '1.25rem', marginBottom: '0.75rem' }}>Sync from OpenClaw</h2>
-        <p style={{ color: 'var(--muted)', marginBottom: '1rem', fontSize: '0.9rem' }}>
-          Lists OpenClaw runtimes for <strong>your workspace only</strong> (<code style={{ background: 'var(--surface)', padding: '1px 4px', borderRadius: 4 }}>t-{'{you}'}--…</code>).
-          Pull refreshes your DB grants and tenant workspaces — it will not import other CEOs&apos; agents.
-        </p>
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            onClick={fetchOpenClawAgents}
-            disabled={openclawLoading}
-            style={{ padding: '0.5rem 1rem', background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 6, cursor: openclawLoading ? 'not-allowed' : 'pointer', fontSize: '0.9rem' }}
-          >
-            {openclawLoading ? 'Loading…' : 'Load my OpenClaw agents'}
-          </button>
-          {openclawData && openclawData.openclaw?.length > 0 && (
-            <button
-              type="button"
-              onClick={() => syncFromOpenClaw()}
-              disabled={openclawSyncing}
-              style={{ padding: '0.5rem 1rem', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 6, cursor: openclawSyncing ? 'not-allowed' : 'pointer', fontSize: '0.9rem' }}
-            >
-              {openclawSyncing ? 'Syncing…' : 'Pull my agents into DB'}
-            </button>
-          )}
-        </div>
-        {openclawData && (
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
-            {openclawData.ceo_user_id && (
-              <div style={{ padding: '0.5rem 0.75rem', fontSize: '0.8rem', color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                CEO workspace: {openclawData.ceo_user_id}
-                {openclawData.scope ? ` · scope=${openclawData.scope}` : ''}
-              </div>
-            )}
-            {Array.isArray(openclawData.openclaw) && openclawData.openclaw.length === 0 ? (
-              <div style={{ padding: '1rem', color: 'var(--muted)', fontSize: '0.9rem' }}>
-                No tenant OpenClaw agents for your workspace yet. Use Add agent below, or chat with a standard agent to provision runtimes.
-              </div>
-            ) : (
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                {(openclawData.openclaw || []).map((a) => {
-                  const baseId = a.base_agent_id || a.id;
-                  const inDb = (openclawData.db || []).some(
-                    (d) => d.id === baseId || (d.openclaw_agent_id || d.id) === baseId || d.openclaw_runtime_id === a.id
-                  );
-                  return (
-                    <li
-                      key={a.id || a.name}
-                      style={{
-                        padding: '0.6rem 0.75rem',
-                        borderBottom: '1px solid var(--border)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: '0.5rem',
-                        flexWrap: 'wrap',
-                      }}
-                    >
-                      <span style={{ fontWeight: 500 }}>{a.name || a.id}</span>
-                      <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>{a.id}</span>
-                      {a.workspace && <span style={{ fontSize: '0.8rem', color: 'var(--muted)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }} title={a.workspace}>{a.workspace}</span>}
-                      <span style={{ fontSize: '0.8rem', color: inDb ? 'var(--accent)' : 'var(--muted)' }}>{inDb ? 'In your workspace' : 'Not in DB'}</span>
-                      <button
-                        type="button"
-                        onClick={() => syncFromOpenClaw(a.id)}
-                        disabled={openclawSyncing}
-                        style={{ padding: '0.25rem 0.6rem', background: inDb ? 'var(--surface)' : 'var(--accent)', color: inDb ? 'var(--text)' : '#fff', border: '1px solid var(--border)', borderRadius: 6, cursor: openclawSyncing ? 'not-allowed' : 'pointer', fontSize: '0.85rem' }}
-                      >
-                        {inDb ? 'Refresh' : 'Pull'}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-        )}
-      </section>
+      {/* Sync from OpenClaw — hidden from Dashboard (API still available for admin/scripts) */}
 
       {/* Add agent — creates under this CEO's OpenClaw tenant + under COO */}
       <section>

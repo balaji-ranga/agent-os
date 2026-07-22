@@ -345,9 +345,10 @@ export function enqueuePipelineStage(stage, context = '', ceoUserId = getDefault
 
   db()
     .prepare(
-      `INSERT INTO agent_delegation_tasks (standup_id, request_id, to_agent_id, prompt, status) VALUES (?, ?, ?, ?, 'pending')`
+      `INSERT INTO agent_delegation_tasks (standup_id, request_id, to_agent_id, prompt, status, owner_user_id)
+       VALUES (?, ?, ?, ?, 'pending', ?)`
     )
-    .run(standupId, requestId, agentId, prompt);
+    .run(standupId, requestId, agentId, prompt, ceoUserId || null);
 
   const delegation = db().prepare('SELECT id FROM agent_delegation_tasks ORDER BY id DESC LIMIT 1').get();
 
@@ -356,6 +357,7 @@ export function enqueuePipelineStage(stage, context = '', ceoUserId = getDefault
   const descriptionLines = [
     `[job_pipeline:${stage}]`,
     `ceo_user_id: ${ceoUserId}`,
+    `owner_user_id: ${ceoUserId}`,
     `profile_id: ${resolvedProfileId}`,
     `stage: ${stage}`,
   ];
@@ -364,10 +366,10 @@ export function enqueuePipelineStage(stage, context = '', ceoUserId = getDefault
   const description = descriptionLines.join('\n');
   db()
     .prepare(
-      `INSERT INTO kanban_tasks (title, description, status, assigned_agent_id, created_by, standup_id, agent_delegation_task_id)
-       VALUES (?, ?, 'awaiting_confirmation', ?, 'job_pipeline', ?, ?)`
+      `INSERT INTO kanban_tasks (title, description, status, assigned_agent_id, created_by, standup_id, agent_delegation_task_id, owner_user_id)
+       VALUES (?, ?, 'awaiting_confirmation', ?, 'job_pipeline', ?, ?, ?)`
     )
-    .run(title, description, agentId, standupId, delegation.id);
+    .run(title, description, agentId, standupId, delegation.id, ceoUserId || null);
 
   return {
     skipped: false,

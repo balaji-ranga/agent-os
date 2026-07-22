@@ -10,6 +10,16 @@ export function createSession(userId, { impersonatorUserId = null } = {}) {
   db.prepare(
     `INSERT INTO platform_sessions (token, user_id, expires_at, impersonator_user_id) VALUES (?, ?, ?, ?)`
   ).run(token, userId, expires, impersonatorUserId || null);
+  // Real logins only (not admin impersonation)
+  if (!impersonatorUserId) {
+    try {
+      db.prepare(
+        `UPDATE platform_users SET last_login_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`
+      ).run(userId);
+    } catch (_) {
+      /* column may be missing on very old DBs before migrate */
+    }
+  }
   return { token, expires_at: expires };
 }
 

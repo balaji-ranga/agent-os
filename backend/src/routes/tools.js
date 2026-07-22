@@ -42,6 +42,7 @@ import {
   notifyKanbanTaskCreated,
   clearKanbanTaskNotification,
 } from '../services/platform-notifications.js';
+import { resolveKanbanTaskOwnerId } from '../services/kanban-user-scope.js';
 import jobApplicantTools from './job-applicant-tools.js';
 import { summarizeLearnings } from '../services/agent-feedback.js';
 import { executeEmailSend } from '../services/email-send.js';
@@ -132,6 +133,26 @@ function ownerForToolLog(req, body = {}) {
 
 function logTool(req, toolName, requestPayload, responsePayload, status, source = null) {
   logContentTool(toolName, requestPayload, responsePayload, status, source, ownerForToolLog(req, requestPayload));
+}
+
+/** Ensure tool caller may mutate this Kanban task (owner must match resolved CEO). */
+function assertToolOwnsKanbanTask(req, task, body = {}) {
+  const ownerUserId =
+    resolveToolOwnerUserIdOrNull(req, body, resolveAuthenticatedCeoUserId) ||
+    parseTenantOpenClawAgentId(req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || '')?.ceoUserId ||
+    null;
+  const taskOwner = resolveKanbanTaskOwnerId(task);
+  if (!taskOwner) {
+    const err = new Error('Task has no owner — refuse cross-tenant mutation');
+    err.status = 403;
+    throw err;
+  }
+  if (!ownerUserId || ownerUserId !== taskOwner) {
+    const err = new Error('Task not found');
+    err.status = 404;
+    throw err;
+  }
+  return ownerUserId;
 }
 
 function stripHtml(html) {
@@ -632,6 +653,13 @@ router.post('/kanban-move-status', optionalAuth, (req, res) => {
       logTool(req,'kanban_move_status', requestPayload, err, 'error', source);
       return res.status(404).json(err);
     }
+    try {
+      assertToolOwnsKanbanTask(req, task, requestPayload);
+    } catch (e) {
+      const err = { error: e.message };
+      logTool(req, 'kanban_move_status', requestPayload, err, 'error', source);
+      return res.status(e.status || 403).json(err);
+    }
     let caller = getCallerAgent(req);
     // When invoked from gateway plugin without agent id: allow move if request is internal (from our /invoke) and task has assigned agent
     if (!caller && task.assigned_agent_id && isInternalRequest(req)) {
@@ -691,6 +719,13 @@ router.post('/kanban-reassign-to-coo', optionalAuth, (req, res) => {
       const err = { error: 'Task not found' };
       logTool(req,'kanban_reassign_to_coo', requestPayload, err, 'error', source);
       return res.status(404).json(err);
+    }
+    try {
+      assertToolOwnsKanbanTask(req, task, requestPayload);
+    } catch (e) {
+      const err = { error: e.message };
+      logTool(req, 'kanban_reassign_to_coo', requestPayload, err, 'error', source);
+      return res.status(e.status || 403).json(err);
     }
     db.prepare("UPDATE kanban_tasks SET assigned_agent_id = ?, status = 'open', updated_at = datetime('now') WHERE id = ?").run(cooId, taskId);
     const out = { ok: true, task_id: taskId, assigned_agent_id: cooId };
@@ -763,9 +798,9 @@ router.post('/kanban-create-task', optionalAuth, (req, res) => {
     const status = assignedAgentId ? 'awaiting_confirmation' : 'open';
     const db = getDb();
     db.prepare(
-      `INSERT INTO kanban_tasks (title, description, status, assigned_agent_id, created_by, due_date)
-       VALUES (?, ?, ?, ?, ?, ?)`
-    ).run(title, description, status, assignedAgentId, caller.id, null);
+      `INSERT INTO kanban_tasks (title, description, status, assigned_agent_id, created_by, due_date, owner_user_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).run(title, description, status, assignedAgentId, caller.id, null, ownerUserId);
     const row = db.prepare('SELECT * FROM kanban_tasks ORDER BY id DESC LIMIT 1').get();
     notifyKanbanTaskCreated({ userId: ownerUserId, task: row });
     const out = {
@@ -818,6 +853,13 @@ router.post('/kanban-assign-task', optionalAuth, (req, res) => {
       const err = { error: 'Task not found' };
       logTool(req,'kanban_assign_task', requestPayload, err, 'error', source);
       return res.status(404).json(err);
+    }
+    try {
+      assertToolOwnsKanbanTask(req, task, requestPayload);
+    } catch (e) {
+      const err = { error: e.message };
+      logTool(req, 'kanban_assign_task', requestPayload, err, 'error', source);
+      return res.status(e.status || 403).json(err);
     }
     db.prepare("UPDATE kanban_tasks SET assigned_agent_id = ?, status = 'awaiting_confirmation', updated_at = datetime('now') WHERE id = ?").run(agent.id, taskId);
     const out = { ok: true, task_id: taskId, assigned_agent_id: agent.id };

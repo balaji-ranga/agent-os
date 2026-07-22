@@ -24,6 +24,9 @@ import { removeWorkflowSchedulesForOwner, syncWorkflowScheduleRegistry } from '.
 
 export { isUserEnabled } from './user-enabled.js';
 
+/** Default agents granted on CEO register/onboard (user-scoped grants; tenant OpenClaw runtimes). */
+export const DEFAULT_ONBOARD_AGENT_IDS = ['balserve', 'workflowbuilder', 'platformhelp'];
+
 function slugId(prefix, email) {
   const base = String(email || '')
     .split('@')[0]
@@ -31,6 +34,36 @@ function slugId(prefix, email) {
     .slice(0, 24)
     .toLowerCase();
   return `${prefix}-${base || 'user'}-${randomBytes(3).toString('hex')}`;
+}
+
+/**
+ * Privileged CEOs keep the full standard catalog grants (legacy shared roster).
+ * Everyone else gets only DEFAULT_ONBOARD_AGENT_IDS.
+ */
+export function isPrivilegedFullAgentGrantUser(userOrId) {
+  const db = getDb();
+  let row = null;
+  if (userOrId && typeof userOrId === 'object') {
+    row = userOrId;
+  } else if (userOrId) {
+    row = db.prepare('SELECT id, email, name, role FROM platform_users WHERE id = ?').get(String(userOrId));
+  }
+  if (!row) return false;
+  if (row.role === 'admin') return true;
+  const id = String(row.id || '');
+  const name = String(row.name || '').trim().toLowerCase();
+  const email = String(row.email || '').trim().toLowerCase();
+  const balaId = getBalaCeoAuthId();
+  if (id === balaId || id === 'ceo-bala') return true;
+  if (name === 'balaji ranganathan' || name.includes('balaji ranganathan')) return true;
+  if (name === 'balanew' || name === 'bala new' || /^bala\s*new$/i.test(String(row.name || ''))) return true;
+  if (email.includes('balanew')) return true;
+  const extra = String(process.env.AGENT_OS_FULL_AGENT_GRANT_USER_IDS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (extra.includes(id)) return true;
+  return false;
 }
 
 export function listStandardAgentIds() {
@@ -41,9 +74,26 @@ export function listStandardAgentIds() {
   return rows.map((r) => r.id);
 }
 
+export function listDefaultOnboardAgentIds() {
+  const db = getDb();
+  const existing = new Set(
+    db
+      .prepare(`SELECT id FROM agents WHERE agent_type = 'standard' OR agent_type IS NULL OR agent_type = ''`)
+      .all()
+      .map((r) => r.id)
+  );
+  return DEFAULT_ONBOARD_AGENT_IDS.filter((id) => existing.has(id));
+}
+
+/**
+ * Grant standard agents for a CEO. Lean defaults for normal users; full catalog for privileged.
+ * Grants are per-user (user_agents); OpenClaw runtimes remain tenant-scoped.
+ */
 export function grantStandardAgents(userId) {
   const db = getDb();
-  const ids = listStandardAgentIds();
+  const ids = isPrivilegedFullAgentGrantUser(userId)
+    ? listStandardAgentIds()
+    : listDefaultOnboardAgentIds();
   const insert = db.prepare(
     `INSERT OR IGNORE INTO user_agents (user_id, agent_id, enabled) VALUES (?, ?, 1)`
   );
@@ -51,6 +101,75 @@ export function grantStandardAgents(userId) {
     insert.run(userId, agentId);
   }
   return ids;
+}
+
+/**
+ * Remove non-default standard agent grants from non-privileged CEOs.
+ * Keeps custom (owner-scoped) agents and lean defaults.
+ */
+export function pruneSharedStandardAgentGrants() {
+  const db = getDb();
+  const lean = new Set(listDefaultOnboardAgentIds());
+  const ceos = db.prepare(`SELECT id, email, name, role FROM platform_users WHERE role = 'ceo'`).all();
+  let revoked = 0;
+  const del = db.prepare(`DELETE FROM user_agents WHERE user_id = ? AND agent_id = ?`);
+  for (const ceo of ceos) {
+    if (isPrivilegedFullAgentGrantUser(ceo)) continue;
+    const grants = db
+      .prepare(
+        `SELECT ua.agent_id, a.agent_type, a.owner_user_id
+         FROM user_agents ua
+         JOIN agents a ON a.id = ua.agent_id
+         WHERE ua.user_id = ?`
+      )
+      .all(ceo.id);
+    for (const g of grants) {
+      const isCustom = g.agent_type === 'custom' || (g.owner_user_id && g.owner_user_id === ceo.id);
+      if (isCustom) continue;
+      if (lean.has(g.agent_id)) continue;
+      // Revoke shared/standard catalog agents outside the lean default set
+      del.run(ceo.id, g.agent_id);
+      revoked += 1;
+    }
+  }
+  return { revoked, leanDefaults: [...lean] };
+}
+
+export function listIndustries() {
+  const db = getDb();
+  return db
+    .prepare(
+      `SELECT id, label, sort_order FROM platform_industries WHERE enabled = 1 ORDER BY sort_order ASC, label ASC`
+    )
+    .all();
+}
+
+function normalizeIndustryFields({ industry, industry_other, business_name } = {}) {
+  const ind = String(industry || '').trim().toLowerCase();
+  const other = String(industry_other || '').trim();
+  const biz = String(business_name || '').trim();
+  if (ind && ind !== 'personal' && ind !== 'others' && !biz) {
+    // business name required when not Personal (and not empty industry)
+  }
+  return {
+    industry: ind,
+    industry_other: ind === 'others' ? other : '',
+    business_name: ind === 'personal' ? '' : biz,
+  };
+}
+
+function assertIndustryValid(fields) {
+  const { industry, industry_other, business_name } = fields;
+  if (!industry) return fields;
+  const row = getDb().prepare(`SELECT id FROM platform_industries WHERE id = ? AND enabled = 1`).get(industry);
+  if (!row) throw new Error(`Unknown industry: ${industry}`);
+  if (industry === 'others' && !industry_other) {
+    throw new Error('industry_other is required when industry is Others');
+  }
+  if (industry !== 'personal' && !business_name) {
+    throw new Error('business_name is required when industry is not Personal');
+  }
+  return fields;
 }
 
 export async function registerCeoUser({
@@ -65,6 +184,9 @@ export async function registerCeoUser({
   mfa_mode = null,
   llm_provider = 'platform_decided',
   llm_api_key = null,
+  industry = '',
+  industry_other = '',
+  business_name = '',
 } = {}) {
   ensureMfaTables();
   const db = getDb();
@@ -74,6 +196,14 @@ export async function registerCeoUser({
   }
   const existing = db.prepare('SELECT id FROM platform_users WHERE email = ?').get(normalizedEmail);
   if (existing) throw new Error('Email already registered');
+
+  const industryFields = assertIndustryValid(
+    normalizeIndustryFields({
+      industry: industry || 'personal',
+      industry_other,
+      business_name,
+    })
+  );
 
   const id = slugId('ceo', normalizedEmail);
   const mode = resolveRegisterCeoDbMode(ceo_db_mode ?? db_mode ?? defaultCeoDbMode());
@@ -94,8 +224,8 @@ export async function registerCeoUser({
 
   db.prepare(
     `INSERT INTO platform_users
-      (id, email, password_hash, name, region, mobile, role, enabled, ceo_db_mode, mfa_policy, mfa_mode, mfa_enabled, llm_provider, llm_api_key)
-     VALUES (?, ?, ?, ?, ?, ?, 'ceo', 1, ?, ?, ?, ?, ?, ?)`
+      (id, email, password_hash, name, region, mobile, role, enabled, ceo_db_mode, mfa_policy, mfa_mode, mfa_enabled, llm_provider, llm_api_key, industry, industry_other, business_name)
+     VALUES (?, ?, ?, ?, ?, ?, 'ceo', 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     normalizedEmail,
@@ -108,7 +238,10 @@ export async function registerCeoUser({
     userMode,
     enabledFlag,
     provider,
-    apiKey
+    apiKey,
+    industryFields.industry,
+    industryFields.industry_other,
+    industryFields.business_name
   );
 
   if (mode === 'tenant' && !isPlatformLegacyCeo(id)) initCeoDb(id);
@@ -136,6 +269,9 @@ export async function registerCeoUser({
     ceo_db_mode: mode,
     mfa_policy: policy,
     mfa_mode: userMode,
+    industry: industryFields.industry,
+    industry_other: industryFields.industry_other,
+    business_name: industryFields.business_name,
     standard_agents_granted: agents,
     default_master_data,
     ...userLlmPublic({ llm_provider: provider, llm_api_key: apiKey }),
@@ -187,6 +323,10 @@ export function userPublic(row) {
     role: row.role,
     enabled: !!row.enabled,
     created_at: row.created_at,
+    last_login_at: row.last_login_at || null,
+    industry: row.industry || '',
+    industry_other: row.industry_other || '',
+    business_name: row.business_name || '',
     mfa_policy: row.mfa_policy || 'inherit',
     mfa_mode: row.mfa_mode || null,
     mfa_enabled: !!row.mfa_enabled,
@@ -208,7 +348,7 @@ export function getUserById(id) {
 export function listUsers() {
   return getDb()
     .prepare(
-      `SELECT id, email, name, region, mobile, role, enabled, ceo_db_mode, created_at, updated_at
+      `SELECT id, email, name, region, mobile, role, enabled, ceo_db_mode, industry, industry_other, business_name, last_login_at, created_at, updated_at
        FROM platform_users ORDER BY created_at DESC`
     )
     .all()
@@ -307,6 +447,9 @@ export function updateUserProfile(
     llm_provider,
     llm_api_key,
     clear_llm_api_key,
+    industry,
+    industry_other,
+    business_name,
   } = {}
 ) {
   const db = getDb();
@@ -328,6 +471,20 @@ export function updateUserProfile(
     const existing = db.prepare('SELECT id FROM platform_users WHERE email = ? AND id != ?').get(normalizedEmail, userId);
     if (existing) throw new Error('Email already in use');
     updates.email = normalizedEmail;
+  }
+
+  if (industry !== undefined || industry_other !== undefined || business_name !== undefined) {
+    const fields = assertIndustryValid(
+      normalizeIndustryFields({
+        industry: industry !== undefined ? industry : row.industry,
+        industry_other: industry_other !== undefined ? industry_other : row.industry_other,
+        business_name: business_name !== undefined ? business_name : row.business_name,
+      })
+    );
+    if (!fields.industry) throw new Error('industry is required');
+    updates.industry = fields.industry;
+    updates.industry_other = fields.industry_other;
+    updates.business_name = fields.business_name;
   }
 
   if (new_password !== undefined && String(new_password).length > 0) {

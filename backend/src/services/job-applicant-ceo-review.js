@@ -82,6 +82,7 @@ export function buildCeoReviewDescription(jobs, profile, spreadsheetInfo, workfl
   const lines = [
     `${REVIEW_TAG}${profile.id}`,
     `ceo_user_id: ${profile.ceo_user_id}`,
+    `owner_user_id: ${profile.ceo_user_id}`,
     `profile_id: ${profile.id}`,
     ...(workflowMeta?.workflow_id
       ? [`workflow_id: ${workflowMeta.workflow_id}`, `workflow_number: ${workflowMeta.workflow_number}`]
@@ -264,18 +265,16 @@ export function createConsolidatedCeoReviewKanban(ceoUserId, profileId, jobs, pr
   const title = `CEO Review: Confirm applications (${titleSuffix}) — ${profile.display_name || profileId}`;
 
   if (existing) {
-    db.prepare(`UPDATE kanban_tasks SET title = ?, description = ?, status = 'awaiting_confirmation', updated_at = datetime('now') WHERE id = ?`).run(
-      title,
-      description,
-      existing.id
-    );
+    db.prepare(
+      `UPDATE kanban_tasks SET title = ?, description = ?, status = 'awaiting_confirmation', owner_user_id = COALESCE(owner_user_id, ?), updated_at = datetime('now') WHERE id = ?`
+    ).run(title, description, ceoUserId || null, existing.id);
     return { kanban_task_id: existing.id, created: false, updated: true, title, status: 'awaiting_confirmation' };
   }
 
   db.prepare(
-    `INSERT INTO kanban_tasks (title, description, status, assigned_agent_id, created_by, due_date)
-     VALUES (?, ?, 'awaiting_confirmation', NULL, 'job_pipeline', NULL)`
-  ).run(title, description);
+    `INSERT INTO kanban_tasks (title, description, status, assigned_agent_id, created_by, due_date, owner_user_id)
+     VALUES (?, ?, 'awaiting_confirmation', NULL, 'job_pipeline', NULL, ?)`
+  ).run(title, description, ceoUserId || null);
 
   const row = db.prepare('SELECT id FROM kanban_tasks ORDER BY id DESC LIMIT 1').get();
   return { kanban_task_id: row?.id, created: true, updated: false, title, status: 'awaiting_confirmation' };

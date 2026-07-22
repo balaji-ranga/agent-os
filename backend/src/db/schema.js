@@ -145,6 +145,7 @@ export function initDb() {
       created_by TEXT DEFAULT 'user',
       standup_id INTEGER,
       agent_delegation_task_id INTEGER,
+      owner_user_id TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now')),
       due_date TEXT,
@@ -922,6 +923,48 @@ export function initDb() {
   try {
     _db.exec(`ALTER TABLE platform_users ADD COLUMN llm_api_key TEXT`);
   } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE platform_users ADD COLUMN last_login_at TEXT`);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE platform_users ADD COLUMN industry TEXT DEFAULT ''`);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE platform_users ADD COLUMN industry_other TEXT DEFAULT ''`);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE platform_users ADD COLUMN business_name TEXT DEFAULT ''`);
+  } catch (_) {}
+
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS platform_industries (
+        id TEXT PRIMARY KEY,
+        label TEXT NOT NULL,
+        sort_order INTEGER DEFAULT 0,
+        enabled INTEGER DEFAULT 1
+      )
+    `);
+    const industrySeed = [
+      ['personal', 'Personal', 10],
+      ['technology', 'Technology', 20],
+      ['finance', 'Finance', 30],
+      ['healthcare', 'Healthcare', 40],
+      ['education', 'Education', 50],
+      ['retail', 'Retail', 60],
+      ['manufacturing', 'Manufacturing', 70],
+      ['consulting', 'Consulting', 80],
+      ['real_estate', 'Real Estate', 90],
+      ['media', 'Media & Entertainment', 100],
+      ['nonprofit', 'Non-profit', 110],
+      ['government', 'Government', 120],
+      ['others', 'Others', 999],
+    ];
+    const insInd = _db.prepare(
+      `INSERT OR IGNORE INTO platform_industries (id, label, sort_order, enabled) VALUES (?, ?, ?, 1)`
+    );
+    for (const [id, label, sort] of industrySeed) insInd.run(id, label, sort);
+  } catch (_) {}
 
   try {
     _db.exec(`
@@ -1037,6 +1080,53 @@ export function initDb() {
   try {
     _db.exec(
       `CREATE INDEX IF NOT EXISTS idx_delegation_tasks_owner ON agent_delegation_tasks(owner_user_id, status, created_at)`
+    );
+  } catch (_) {}
+
+  // Per-CEO Kanban ownership (required for multi-tenant isolation)
+  try {
+    _db.exec(`ALTER TABLE kanban_tasks ADD COLUMN owner_user_id TEXT`);
+  } catch (_) {}
+  try {
+    _db.exec(
+      `UPDATE kanban_tasks
+       SET owner_user_id = (
+         SELECT d.owner_user_id FROM agent_delegation_tasks d
+         WHERE d.id = kanban_tasks.agent_delegation_task_id
+       )
+       WHERE (owner_user_id IS NULL OR owner_user_id = '')
+         AND agent_delegation_task_id IS NOT NULL`
+    );
+  } catch (_) {}
+  try {
+    _db.exec(
+      `UPDATE kanban_tasks
+       SET owner_user_id = (
+         SELECT s.owner_user_id FROM standups s WHERE s.id = kanban_tasks.standup_id
+       )
+       WHERE (owner_user_id IS NULL OR owner_user_id = '')
+         AND standup_id IS NOT NULL`
+    );
+  } catch (_) {}
+  try {
+    const orphanRows = _db
+      .prepare(
+        `SELECT id, description FROM kanban_tasks
+         WHERE owner_user_id IS NULL OR owner_user_id = ''`
+      )
+      .all();
+    const upd = _db.prepare(`UPDATE kanban_tasks SET owner_user_id = ? WHERE id = ?`);
+    for (const row of orphanRows) {
+      const text = String(row.description || '');
+      const ownerMatch = text.match(/owner_user_id:\s*(\S+)/i);
+      const ceoMatch = text.match(/ceo_user_id:\s*(\S+)/i);
+      const owner = (ownerMatch?.[1] || ceoMatch?.[1] || '').trim();
+      if (owner) upd.run(owner, row.id);
+    }
+  } catch (_) {}
+  try {
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_kanban_tasks_owner ON kanban_tasks(owner_user_id, created_at DESC)`
     );
   } catch (_) {}
 

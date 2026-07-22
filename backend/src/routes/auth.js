@@ -6,6 +6,7 @@ import {
   getUserById,
   listAgentsForUser,
   updateUserProfile,
+  listIndustries,
 } from '../services/users.js';
 import { resolveCeoDataUserId, getBalaCeoAuthId } from '../services/job-applicant-ceo.js';
 import { getCeoDbModeForUser, usesTenantCeoDb } from '../db/ceo-db-config.js';
@@ -29,6 +30,14 @@ const router = Router();
 
 router.use(attachAuthUser);
 
+router.get('/industries', (_req, res) => {
+  try {
+    res.json({ industries: listIndustries() });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 /** Public platform MFA defaults for registration UI. */
 router.get('/mfa/defaults', (_req, res) => {
   res.json(getPlatformMfaDefaults());
@@ -36,7 +45,7 @@ router.get('/mfa/defaults', (_req, res) => {
 
 router.post('/register', async (req, res) => {
   try {
-    const { email, password, name, region, mobile, db_mode, ceo_db_mode, mfa_policy, mfa_mode, llm_provider, llm_api_key } =
+    const { email, password, name, region, mobile, db_mode, ceo_db_mode, mfa_policy, mfa_mode, llm_provider, llm_api_key, industry, industry_other, business_name } =
       req.body || {};
     const user = await registerCeoUser({
       email,
@@ -50,6 +59,9 @@ router.post('/register', async (req, res) => {
       mfa_mode,
       llm_provider,
       llm_api_key,
+      industry,
+      industry_other,
+      business_name,
     });
     let openclaw = null;
     try {
@@ -219,7 +231,7 @@ router.get('/me', requireAuth, (req, res) => {
 
 router.patch('/me', requireAuth, (req, res) => {
   try {
-    const { name, email, region, mobile, current_password, new_password, mfa_policy, mfa_mode, llm_provider, llm_api_key, clear_llm_api_key } =
+    const { name, email, region, mobile, current_password, new_password, mfa_policy, mfa_mode, llm_provider, llm_api_key, clear_llm_api_key, industry, industry_other, business_name } =
       req.body || {};
     const user = updateUserProfile(req.authUser.id, {
       name,
@@ -233,6 +245,9 @@ router.patch('/me', requireAuth, (req, res) => {
       llm_provider,
       llm_api_key,
       clear_llm_api_key,
+      industry,
+      industry_other,
+      business_name,
     });
     const mfaRow = getUserMfa(req.authUser.id);
     res.json({ user, mfa: resolveUserMfa(mfaRow) });
