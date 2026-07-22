@@ -15,7 +15,7 @@
 6. Workflows lifecycle — publish, run, I/O mapping, templates `{{nodeId.key}}`
 7. Node reference — trigger, agent, brain, ceo_approval, if, while, email, api, externalAgent, custom_script, masterdata, filesystem, tool, mcp_tool, sse_listen, sub_workflow, parallel, merge
 8. MCP onboarding — register, test, workflow/Brain/SSE
-9. A2A — external agents, Publish A2A, AgentExchange
+9. A2A — external agents, Publish A2A (Public / Secured OAuth client credentials), AgentExchange
 10. Job profiles / job workflows
 11. Content tools, custom scripts, AI Snipper
 12. Troubleshooting + handoffs (Workflow Builder, COO, admin)

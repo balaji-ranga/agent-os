@@ -89,6 +89,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\seed-workflow-builder-agent.js" `
     "$Repo\backend\scripts\seed-platform-help-agent.js" `
     "$Repo\backend\scripts\test-platform-help-seed.js" `
+    "$Repo\backend\scripts\reupload-platform-help-docs.js" `
     "$Repo\backend\scripts\test-platform-help-rag.js" `
     "$Repo\backend\scripts\test-platform-help-chat.js" `
     "$Repo\backend\scripts\vps-smoke-new-features.js" `

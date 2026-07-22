@@ -2,7 +2,7 @@
 
 ## What Flolah is
 
-Flolah is your AI agent company: you (the CEO) chat with agents, run standups, track work on Kanban, store Master Data, build visual workflows, connect MCP servers, and publish or consume A2A agents.
+Flolah is your AI agent company: you (the CEO) chat with agents, run standups, track work on Kanban, store Master Data, build visual workflows, connect MCP servers, and publish or consume A2A agents (Public or Secured with OAuth client credentials).
 
 ## Register and log in
 

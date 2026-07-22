@@ -20,7 +20,7 @@ This doc is about **custom Workflows**.
 6. **Publish** (required before Run). Use **Unpublish** to take offline.
 7. **Run** with optional run input; watch progress on the runs panel (`?run_id=`).
 8. **Import / Export JSON** for backup or sharing definitions.
-9. Optional: **Publish as A2A** to list on AgentExchange.
+9. Optional: **Publish as A2A** (Public or Secured OAuth) to list on AgentExchange.
 
 ## Workflow Builder agent
 

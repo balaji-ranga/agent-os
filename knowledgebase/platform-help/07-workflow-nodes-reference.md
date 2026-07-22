@@ -126,7 +126,7 @@ Non-2xx / SSL failures typically fail the run.
 |--------|---------|
 | `message`, optional `contextId` | `text`, `result`, `task_id`, `task_state`, `ok` |
 
-Register agents under **External agents** first.
+Register agents under **External agents** first. For Flolah **secured** publishes (and similar OAuth A2A peers), put a Bearer **access token** (from the agent’s token URL) in the registry auth header — not the long-lived `client_secret`.
 
 ---
 

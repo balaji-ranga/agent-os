@@ -86,8 +86,8 @@ Tips:
 ### Workflows and AgentExchange
 
 1. **Workflows** — build visual automations (triggers, agents, APIs, approvals). Publish a run and watch it on Kanban.
-2. **Publish as A2A** from a workflow if you want it listed for others.
-3. **AgentExchange** — browse published workflow agents across the platform.
+2. **Publish as A2A** from a published workflow to list it for others. Choose **Public** (open invoke) or **Secured** (OAuth `client_id` + `client_secret` → Bearer access token; secret shown once).
+3. **AgentExchange** — browse published workflow agents (Public / Secured badges and token URL when secured).
 
 ### Job search pipeline (optional)
 
@@ -249,7 +249,7 @@ New CEOs start with **empty** standups (no other user’s chats or agents), star
 - **Triggers:** manual, cron schedule, chat phrase, **event webhook** (hook URL on Start node when event mode enabled; uses `AGENT_OS_BASE_URL`)
 - **Node types:** Trigger, Agent, Content Tool, MCP Tool, **SSE Listen** (long-running stream; dispatches downstream on each event), **Sub-workflow**, Call API (Basic/Bearer/API-key auth + custom headers), Brain, Email, IF, While, Parallel, Merge, CEO Approval, External Agent
 - **Data binding:** `{{nodeId.outputKey}}` templates; nested JSON paths (e.g. `{{api-1.body.users.0.name}}`)
-- **A2A publish:** Publish → AgentExchange + public agent card / JSON-RPC under `/a2a/:publishId`
+- **A2A publish:** Publish → AgentExchange + agent card / JSON-RPC under `/api/a2a/:publishId`. **Public** or **Secured** (OAuth client credentials at `/api/a2a/:publishId/oauth/token`, then `Authorization: Bearer <access_token>`).
 - **Runs:** Kanban tasks per step; fail run on API/MCP errors (non-2xx HTTP, SSL errors, MCP `is_error`)
 - **Tests:** `node backend/scripts/test-sse-workflow.js`, `node backend/scripts/demo-sse-hook-and-listen.js`
 
@@ -369,14 +369,15 @@ All routes below are also available under **`/api/...`** (frontend uses `/api` p
 - `POST /agent-workflows/hooks/:definitionId` — event trigger (webhook secret header)
 - `POST /agent-workflows/agent-chat` — Workflow Builder LLM
 - `POST /agent-workflows/approval/respond` — CEO approval from Kanban
-- **A2A publish:** publish / unpublish workflow as A2A agent (used by Publish A2A modal)
+- **A2A publish:** `POST /agent-workflows/:id/publish-a2a` with `auth_mode: public|secured` (optional `rotate_credentials`); `DELETE .../a2a-publication` to unpublish
 
-### AgentExchange & public A2A
+### AgentExchange & A2A
 
-- `GET /agent-exchange` — list all published A2A workflow agents
-- `GET /a2a/:publishId/.well-known/agent-card.json` — agent card (secured cards include OAuth2 client-credentials metadata)
-- `POST /a2a/:publishId/oauth/token` — client credentials → Bearer access token (secured publications)
-- `POST /a2a/:publishId` — A2A JSON-RPC invoke (Bearer required when secured)
+- `GET /agent-exchange` — list published A2A workflow agents (CEO/Admin)
+- `GET /a2a/:publishId/.well-known/agent-card.json` — agent card (secured cards include OAuth2 client-credentials `tokenUrl`)
+- `POST /a2a/:publishId/oauth/token` — `grant_type=client_credentials` + `client_id` / `client_secret` → Bearer access token
+- `POST /a2a/:publishId` — A2A JSON-RPC invoke (no auth when public; Bearer access token when secured)
+- Optional env: `A2A_ACCESS_TOKEN_TTL_SEC` (default `3600`)
 
 ### MCP & external agents
 

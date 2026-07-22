@@ -39,6 +39,14 @@ Open **Kanban**, find the approval card, approve or reject with a comment. IF no
 2. Test invoke from External agents page?
 3. Workflow `externalAgentId` matches registry?
 4. Timeout / `waitForCompletion` appropriate?
+5. If the remote agent is **secured**: did you obtain a fresh Bearer **access token** from its token URL (client credentials)? Do not use `client_secret` as the invoke Bearer.
+
+## Publish A2A / AgentExchange
+
+1. Workflow itself must be **Published** before **Publish A2A**.
+2. **Secured**: save `client_secret` when shown — it is not listed again on AgentExchange.
+3. Invoke without a token on a secured agent → Unauthorized; rotate credentials if the secret was lost.
+4. Token expired → request a new one from `/api/a2a/:publishId/oauth/token`.
 
 ## Notifications missing
 

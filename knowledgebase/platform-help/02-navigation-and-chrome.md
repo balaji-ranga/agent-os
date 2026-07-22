@@ -35,7 +35,7 @@
 | Content tools | `/content-tools` | Catalog, test invoke, logs |
 | MCP | `/integrations/mcp` | Register and test MCP servers |
 | Custom scripts | `/integrations/custom-scripts` | Sandboxed Python/JS/LangGraph scripts |
-| AgentExchange | `/agent-exchange` | Browse published A2A workflow agents |
+| AgentExchange | `/agent-exchange` | Browse published A2A workflow agents (Public / Secured) |
 | External agents | `/integrations/external-agents` | Onboard third-party A2A agents |
 
 ### Direct agent routes (not always in nav)
