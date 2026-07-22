@@ -2062,7 +2062,11 @@ function EditorInner({ workflowId }) {
   const publishA2A = async (body) => {
     const pub = await api.agentWorkflowPublishA2A(workflowId, body);
     setA2aPublication(pub);
-    showSuccess(`A2A agent published — ${pub.card_url}`);
+    if (pub?.credentials?.client_secret) {
+      showSuccess(`A2A agent published (secured) — save client_secret now; card ${pub.card_url}`);
+    } else {
+      showSuccess(`A2A agent published — ${pub.card_url}`);
+    }
     return pub;
   };
 

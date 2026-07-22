@@ -42,7 +42,8 @@ echo "              Platform Help agent + knowledgebase/platform-help corpus,"
 echo "              Kanban owner_user_id isolation (SQL-scoped; shared agents never imply ownership),"
 echo "              lean CEO onboard + OrgDesigner, pruneSharedStandardAgentGrants at boot,"
 echo "              chat tool-call icons, notification tooltips, shared NotificationProvider,"
-echo "              AgentExchange/A2A, DeepSeek@Ollama,"
+echo "              AgentExchange/A2A (public + OAuth client credentials → Bearer),"
+echo "              DeepSeek@Ollama,"
 echo "              hPanel light theme (app-topbar + profile-menu + collapsible nav),"
 echo "              workflow editor fullscreen (shell-focus-mode + Exit to workflows),"
 echo "              Register MCP / Register Agents primary CTAs (page-hero)"
@@ -157,6 +158,11 @@ if docker compose exec -T frontend sh -c 'grep -Rql agent-exchange /usr/share/ng
 else
   echo "    WARN: AgentExchange not found in frontend JS bundle"
 fi
+if docker compose exec -T frontend sh -c 'grep -Rql "OAuth client credentials" /usr/share/nginx/html/assets/*.js 2>/dev/null || grep -Rql rotate_credentials /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: A2A Public/Secured (OAuth) UI OK"
+else
+  echo "    WARN: A2A OAuth publish UI strings not found (rebuild frontend?)"
+fi
 if docker compose exec -T frontend sh -c 'grep -Rql "Resync ORG" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
   echo "    frontend assets: Resync ORG.md button OK"
 else
@@ -241,7 +247,7 @@ fi
 
 if [[ "$SKIP_SMOKE" != "1" ]]; then
   if [[ -f "$ROOT/deploy/scripts/vps-smoke-new-features.sh" ]]; then
-    echo "==> new-features smoke (email_send + notify_ceo + master_data + org sync + A2A + shared notification dismiss)"
+    echo "==> new-features smoke (email_send + notify_ceo + master_data + org sync + A2A public/OAuth + shared notification dismiss)"
     sed -i 's/\r$//' "$ROOT/deploy/scripts/vps-smoke-new-features.sh" 2>/dev/null || true
     bash "$ROOT/deploy/scripts/vps-smoke-new-features.sh" || echo "WARN: new-features smoke failed (non-fatal)"
   fi

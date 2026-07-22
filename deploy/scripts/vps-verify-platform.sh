@@ -28,6 +28,10 @@ check "kanban owner SQL filter" grep -q kanbanOwnerSqlFilter "$ROOT/backend/src/
 check "kanban owner list route" grep -q kanbanOwnerSqlFilter "$ROOT/backend/src/routes/kanban.js"
 check "kanban owner stamp create" grep -q 'owner_user_id' "$ROOT/backend/src/routes/kanban.js"
 check "kanban owner schema" grep -q 'ALTER TABLE kanban_tasks ADD COLUMN owner_user_id' "$ROOT/backend/src/db/schema.js"
+check "a2a auth_mode schema" grep -q 'ALTER TABLE workflow_a2a_publications ADD COLUMN auth_mode' "$ROOT/backend/src/db/schema.js"
+check "a2a access tokens schema" grep -q 'workflow_a2a_access_tokens' "$ROOT/backend/src/db/schema.js"
+check "a2a oauth token route" grep -q 'oauth/token' "$ROOT/backend/src/routes/workflow-a2a.js"
+check "a2a issueA2AAccessToken" grep -q 'issueA2AAccessToken' "$ROOT/backend/src/services/workflow-a2a-publish.js"
 check "lean onboard defaults" grep -q DEFAULT_ONBOARD_AGENT_IDS "$ROOT/backend/src/services/users.js"
 check "prune shared grants" grep -q pruneSharedStandardAgentGrants "$ROOT/backend/src/index.js"
 check "OrgDesigner UI" test -f "$ROOT/frontend/src/components/OrgDesigner.jsx"
@@ -107,6 +111,14 @@ console.log('    standups owner_user_id:', standupCols.includes('owner_user_id')
 const kanbanCols = db.prepare('PRAGMA table_info(kanban_tasks)').all().map((c) => c.name);
 console.log('    kanban_tasks owner_user_id:', kanbanCols.includes('owner_user_id') ? 'OK' : 'MISSING');
 if (!kanbanCols.includes('owner_user_id')) throw new Error('kanban_tasks.owner_user_id column missing');
+const a2aCols = db.prepare('PRAGMA table_info(workflow_a2a_publications)').all().map((c) => c.name);
+for (const col of ['auth_mode', 'client_id', 'client_secret_hash']) {
+  console.log(`    workflow_a2a_publications.${col}:`, a2aCols.includes(col) ? 'OK' : 'MISSING');
+  if (!a2aCols.includes(col)) throw new Error(`workflow_a2a_publications.${col} missing`);
+}
+const a2aTok = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='workflow_a2a_access_tokens'").get();
+console.log('    workflow_a2a_access_tokens table:', a2aTok ? 'OK' : 'MISSING');
+if (!a2aTok) throw new Error('workflow_a2a_access_tokens table missing');
 console.log('    user_feed_dismissals table:', dismissTbl ? 'OK' : 'MISSING');
 const platformHelp = db.prepare(`SELECT id, name, agent_type FROM agents WHERE id = 'platformhelp'`).get();
 console.log('    platformhelp agent:', platformHelp ? `${platformHelp.name} (${platformHelp.agent_type})` : 'MISSING');
@@ -171,6 +183,13 @@ if [[ -f "$ROOT/backend/scripts/test-kanban-owner-isolation.js" ]]; then
   docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-kanban-owner-isolation.js
 else
   echo "    WARN: test-kanban-owner-isolation.js missing on disk (sync scripts?)"
+fi
+
+echo "==> A2A OAuth client-credentials smoke"
+if [[ -f "$ROOT/backend/scripts/test-workflow-a2a-oauth.js" ]]; then
+  docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-workflow-a2a-oauth.js
+else
+  echo "    WARN: test-workflow-a2a-oauth.js missing on disk (sync scripts?)"
 fi
 
 echo "==> COO reach-me delegation smoke"

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Post-deploy smoke: email_send + notify_ceo + master_data + org sync + workflow A2A / AgentExchange
-# + shared notification dismiss (NotificationProvider).
+# (public invoke + secured OAuth client credentials) + shared notification dismiss.
 # Runs inside the backend container (script is COPY'd via backend.Dockerfile).
 #
 # Usage (on VPS, from deploy/):
@@ -13,7 +13,7 @@ cd "$ROOT/deploy"
 export COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml:docker-compose.browser.yml}"
 PUBLIC_URL="${AGENT_OS_PUBLIC_URL:-https://127.0.0.1}"
 
-echo "==> smoke: email_send + notify_ceo + master_data + org sync + A2A + shared notification dismiss"
+echo "==> smoke: email_send + notify_ceo + master_data + org sync + A2A (public+oauth) + shared notification dismiss"
 
 SMOKE_JS="/opt/agent-os/backend/scripts/vps-smoke-new-features.js"
 if ! docker compose exec -T backend test -f "$SMOKE_JS"; then
@@ -44,6 +44,25 @@ spa=$(curl -ksS -o /dev/null -w '%{http_code}' "${PUBLIC_URL%/}/agent-exchange" 
   || curl -ksS -o /dev/null -w '%{http_code}' https://127.0.0.1/agent-exchange \
   || echo 000)
 echo "    GET /agent-exchange (SPA) -> HTTP ${spa}"
+
+# A2A OAuth token path exists (404 for unknown publish id is fine; not 404 route-missing)
+A2A_TOKEN=$(curl -ksS -o /dev/null -w '%{http_code}' -X POST \
+  -H 'Content-Type: application/json' \
+  -d '{"grant_type":"client_credentials","client_id":"x","client_secret":"y"}' \
+  "${PUBLIC_URL%/}/api/a2a/__smoke_missing__/oauth/token" 2>/dev/null \
+  || curl -ksS -o /dev/null -w '%{http_code}' -X POST \
+  -H 'Content-Type: application/json' \
+  -d '{"grant_type":"client_credentials","client_id":"x","client_secret":"y"}' \
+  "https://127.0.0.1/api/a2a/__smoke_missing__/oauth/token" \
+  || echo 000)
+echo "    POST /api/a2a/:id/oauth/token (unknown) -> HTTP ${A2A_TOKEN} (expect 401)"
+
+# SPA route should serve index (200) for AgentExchange — OAuth UI in bundle
+if docker compose exec -T frontend sh -c 'grep -Rql "OAuth client credentials" /usr/share/nginx/html/assets/*.js 2>/dev/null || grep -Rql "client_secret" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: A2A Secured / OAuth publish UI OK"
+else
+  echo "    WARN: A2A OAuth UI strings not found in frontend JS (rebuild frontend?)"
+fi
 
 # Dashboard org resync button must be in the frontend bundle
 if docker compose exec -T frontend sh -c 'grep -Rql "Resync ORG" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then

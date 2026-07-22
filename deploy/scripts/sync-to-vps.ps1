@@ -16,7 +16,8 @@
 # Master Data + RAG tools, Platform Help agent + help corpus,
 # notify_ceo + email_send, Broadcast (intent-based notify + paced fan-out), AGENTS.md intent
 # COO specialty delegation, peer specialty referral, chat tool-call icons, notification tooltips,
-# org sync (tenant ORG.md/AGENTS.md), AgentExchange/A2A, DeepSeek@Ollama, shared notification dismiss.
+# org sync (tenant ORG.md/AGENTS.md), AgentExchange/A2A (public + OAuth client credentials),
+# DeepSeek@Ollama, shared notification dismiss.
 param(
   [string]$HostIp = "76.13.209.30",
   [string]$Key = "$env:USERPROFILE\.ssh\agent-os-vps",
@@ -97,6 +98,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\sync-org-context-ceo.js" `
     "$Repo\backend\scripts\test-tenancy-notify-new-agent-e2e.js" `
     "$Repo\backend\scripts\test-workflow-a2a-publish.js" `
+    "$Repo\backend\scripts\test-workflow-a2a-oauth.js" `
     "$Repo\backend\scripts\test-coo-email-send-calendar.js" `
     "$Repo\backend\scripts\test-deepseek-brain-workflow.js" `
     "$Repo\backend\scripts\test-broadcast-notify-ceo.js" `
@@ -115,6 +117,10 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\vps-test-coo-biryani-delegate.js" `
     "$Repo\backend\scripts\vps-test-coo-moon-fuel.js" `
     "$Repo\backend\scripts\vps-test-application-masterdata-notify.js" `
+    "$Repo\backend\scripts\onboard-vedic-astrology-agent.js" `
+    "$Repo\backend\scripts\vps-onboard-specialty-agents-bala.js" `
+    "$Repo\backend\scripts\test-weather-agent-ui-onboard-e2e.js" `
+    "$Repo\backend\scripts\test-master-data-office-extract.js" `
     "root@${HostIp}:$RemoteRoot/backend/scripts/"
   scp @ssh -r "$Repo\scripts" "root@${HostIp}:$RemoteRoot/"
   scp @ssh -r "$Repo\openclaw-extensions\agent-os-content-tools" "root@${HostIp}:$RemoteRoot/openclaw-extensions/"

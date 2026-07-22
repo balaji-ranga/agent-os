@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 
 export default function AgentExchange() {
+  const navigate = useNavigate();
   const [agents, setAgents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [search, setSearch] = useState('');
   const [copied, setCopied] = useState(null);
 
   const load = useCallback(() => {
@@ -24,6 +26,19 @@ export default function AgentExchange() {
     load();
   }, [load]);
 
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return agents;
+    return agents.filter((a) => {
+      const tags = (a.metadata?.tags || []).join(' ');
+      const hay = [a.name, a.description, a.owner_name, a.owner_email, a.workflow_name, a.skill_id, a.endpoint_url, tags]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }, [agents, search]);
+
   const copy = async (text, key) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -33,11 +48,22 @@ export default function AgentExchange() {
   };
 
   return (
-    <div className="page" style={{ padding: '1.5rem', maxWidth: 1040 }}>
-      <header style={{ marginBottom: '1.5rem' }}>
-        <p style={{ color: 'var(--muted)', margin: 0, fontSize: '0.85rem' }}>Agentic Workflows · Marketplace</p>
-        <h1 style={{ margin: '0.25rem 0 0' }}>AgentExchange</h1>
-        <p style={{ color: 'var(--muted)', marginTop: '0.5rem', maxWidth: 720 }}>
+    <div className="mcp-pg mcp-pg-registry">
+      <header className="page-hero">
+        <div className="page-hero-top">
+          <div className="page-hero-titles">
+            <p className="page-hero-kicker">Agentic Workflows · Marketplace</p>
+            <h1>AgentExchange</h1>
+          </div>
+          <button
+            type="button"
+            className="mcp-pg-btn-primary page-hero-action"
+            onClick={() => navigate('/workflows')}
+          >
+            + Publish from Workflow
+          </button>
+        </div>
+        <p className="page-hero-sub">
           Browse all published A2A agent cards across the platform — workflows exposed as{' '}
           <a href="https://a2a-protocol.org/" target="_blank" rel="noreferrer">
             A2A-compliant
@@ -46,116 +72,118 @@ export default function AgentExchange() {
         </p>
       </header>
 
-      {error && (
-        <div className="wf-editor-inline-status wf-editor-inline-status--error" style={{ marginBottom: '1rem' }}>
-          {error}
-        </div>
-      )}
+      {error && <div className="mcp-pg-alert mcp-pg-alert-error">{error}</div>}
+
+      <div className="mcp-pg-toolbar">
+        <input
+          type="search"
+          className="mcp-pg-search"
+          placeholder="Search published agents…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
 
       {loading ? (
-        <p style={{ color: 'var(--muted)' }}>Loading published agents…</p>
-      ) : agents.length === 0 ? (
-        <div
-          style={{
-            border: '1px dashed var(--border)',
-            borderRadius: 8,
-            padding: '2rem',
-            textAlign: 'center',
-            color: 'var(--muted)',
-          }}
-        >
-          <p>No A2A agents published yet.</p>
-          <p style={{ fontSize: '0.9rem' }}>
-            Open a published workflow in the{' '}
-            <Link to="/workflows">Workflow editor</Link> and use <strong>Publish A2A</strong> to list it here.
-          </p>
+        <div className="mcp-pg-loading">
+          <div className="mcp-pg-spinner" />
+          <p>Loading published agents…</p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gap: '1rem' }}>
-          {agents.map((a) => (
-            <article
-              key={a.id}
-              style={{
-                border: '1px solid var(--border)',
-                borderRadius: 10,
-                padding: '1rem 1.25rem',
-                background: 'var(--surface)',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
-                <div>
-                  <h2 style={{ margin: 0, fontSize: '1.15rem' }}>{a.name}</h2>
-                  <p style={{ margin: '0.35rem 0 0', color: 'var(--muted)', fontSize: '0.85rem' }}>
-                    by {a.owner_name}
-                    {a.owner_email ? ` · ${a.owner_email}` : ''}
-                    {a.workflow_name ? ` · workflow: ${a.workflow_name}` : ''}
-                  </p>
+        <>
+          <p className="mcp-pg-count">
+            {filtered.length} published agent{filtered.length === 1 ? '' : 's'}
+          </p>
+          <div className="mcp-pg-grid">
+            {filtered.map((a) => (
+              <article key={a.id} className="mcp-pg-card" style={{ cursor: 'default' }}>
+                <div className="mcp-pg-card-head">
+                  <div className="mcp-pg-card-icon">{a.name?.charAt(0)?.toUpperCase() || 'A'}</div>
+                  <div className="mcp-pg-card-badges">
+                    <span className="mcp-pg-status mcp-pg-status-healthy">published</span>
+                    <span className="mcp-pg-transport">A2A</span>
+                    {(a.auth_mode === 'secured' || a.has_auth) && (
+                      <span className="mcp-pg-tag platform">Secured</span>
+                    )}
+                    {a.auth_mode !== 'secured' && !a.has_auth && (
+                      <span className="mcp-pg-tag mine">Public</span>
+                    )}
+                  </div>
                 </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--muted)', textAlign: 'right' }}>
-                  skill: <code>{a.skill_id}</code>
-                  {a.published_at && (
-                    <>
-                      <br />
-                      published {new Date(a.published_at).toLocaleString()}
-                    </>
+                <h3>{a.name}</h3>
+                <p className="mcp-pg-card-desc">{a.description || 'No description'}</p>
+                <code className="mcp-pg-card-url">{a.endpoint_url}</code>
+                <div className="mcp-pg-card-meta">
+                  <span>by {a.owner_name || 'Unknown'}</span>
+                  {a.workflow_name && <span>{a.workflow_name}</span>}
+                  {(a.auth_mode === 'secured' || a.has_auth) && (
+                    <span className="mcp-pg-tag platform">OAuth client credentials</span>
                   )}
                 </div>
-              </div>
-
-              {a.description && (
-                <p style={{ margin: '0.75rem 0 0', fontSize: '0.95rem' }}>{a.description}</p>
-              )}
-
-              {(a.metadata?.tags || []).length > 0 && (
-                <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
-                  {a.metadata.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      style={{
-                        fontSize: '0.75rem',
-                        padding: '0.15rem 0.5rem',
-                        borderRadius: 999,
-                        background: 'var(--surface-2)',
-                        border: '1px solid var(--border)',
-                      }}
-                    >
-                      {tag}
+                {a.auth_mode === 'secured' && a.token_url && (
+                  <div className="mcp-pg-card-meta">
+                    <span>
+                      token: <code style={{ wordBreak: 'break-all' }}>{a.token_url}</code>
                     </span>
-                  ))}
-                </div>
-              )}
-
-              <div
-                style={{
-                  marginTop: '1rem',
-                  display: 'grid',
-                  gap: '0.5rem',
-                  fontSize: '0.85rem',
-                }}
-              >
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <strong>Endpoint:</strong>
-                  <code style={{ wordBreak: 'break-all' }}>{a.endpoint_url}</code>
-                  <button type="button" className="wf-btn" style={{ padding: '0.2rem 0.5rem' }} onClick={() => copy(a.endpoint_url, `${a.id}-ep`)}>
-                    {copied === `${a.id}-ep` ? 'Copied' : 'Copy'}
-                  </button>
-                </div>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <strong>Agent card:</strong>
-                  <a href={a.card_url} target="_blank" rel="noreferrer">
-                    {a.card_url}
-                  </a>
-                  <button type="button" className="wf-btn" style={{ padding: '0.2rem 0.5rem' }} onClick={() => copy(a.card_url, `${a.id}-card`)}>
-                    {copied === `${a.id}-card` ? 'Copied' : 'Copy'}
-                  </button>
-                </div>
-                {a.has_auth && (
-                  <p style={{ margin: 0, color: 'var(--muted)' }}>🔒 Endpoint requires Bearer auth token</p>
+                  </div>
                 )}
-              </div>
-            </article>
-          ))}
-        </div>
+                {(a.metadata?.tags || []).length > 0 && (
+                  <div className="mcp-pg-card-meta">
+                    {(a.metadata.tags || []).map((tag) => (
+                      <span key={tag} className="mcp-pg-tag mine">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div className="mcp-pg-card-meta">
+                  <span>
+                    skill: <code>{a.skill_id}</code>
+                  </span>
+                  {a.published_at && <span>{new Date(a.published_at).toLocaleString()}</span>}
+                </div>
+                <div className="mcp-pg-card-actions">
+                  <button
+                    type="button"
+                    className="mcp-pg-btn-primary mcp-pg-btn-sm"
+                    onClick={() => copy(a.endpoint_url, `${a.id}-ep`)}
+                  >
+                    {copied === `${a.id}-ep` ? 'Copied endpoint' : 'Copy endpoint'}
+                  </button>
+                  <button
+                    type="button"
+                    className="mcp-pg-btn-ghost mcp-pg-btn-sm"
+                    onClick={() => copy(a.card_url, `${a.id}-card`)}
+                  >
+                    {copied === `${a.id}-card` ? 'Copied card' : 'Copy card URL'}
+                  </button>
+                  {a.card_url && (
+                    <a
+                      className="mcp-pg-btn-ghost mcp-pg-btn-sm"
+                      href={a.card_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}
+                    >
+                      Open card
+                    </a>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+          {!filtered.length && (
+            <div className="mcp-pg-empty">
+              <p>{agents.length ? 'No published agents match your search.' : 'No A2A agents published yet.'}</p>
+              <p style={{ fontSize: '0.9rem', color: 'var(--muted)' }}>
+                Open a published workflow and use <strong>Publish A2A</strong> to list it here.
+              </p>
+              <Link to="/workflows" className="mcp-pg-btn-primary" style={{ display: 'inline-block', textDecoration: 'none' }}>
+                Go to Workflows
+              </Link>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

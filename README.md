@@ -214,8 +214,8 @@ Set in backend `.env`:
 | **Notifications** | **Bell icon** in nav: agent responses + platform notifications; hover for full text; link to agent Chat; clear/dismiss (shared feed). |
 | **Kanban** | Board view (tasks by agent and status); task detail with **task chat**, artifacts, workflow run links. Reopen task; create task (COO or direct to agent). Auto-completes when COO chat delegations finish. |
 | **Custom workflows** | Visual **Workflows** editor: trigger (manual / schedule / chat / event webhook), agent, API, MCP tool, **SSE listen**, **sub-workflow**, Brain (LLM + optional MCP tool calling), email, IF/While, parallel/merge, CEO approval, **external agent (A2A)**. Publish, run instances, paginated run history, search, **stop SSE listen** on active runs. |
-| **Publish as A2A** | From the workflow editor, **Publish A2A** exposes a workflow as an A2A-compliant agent (agent card + JSON-RPC endpoint). Unpublish removes it from AgentExchange. |
-| **AgentExchange** | Browse all published A2A workflow agents across the platform (`/agent-exchange`). Public cards at `/a2a/:publishId/.well-known/agent-card.json`. |
+| **Publish as A2A** | From the workflow editor, **Publish A2A** exposes a workflow as an A2A agent (agent card + JSON-RPC). Choose **Public** or **Secured** (OAuth client credentials → Bearer). Unpublish removes it from AgentExchange. |
+| **AgentExchange** | Browse published A2A workflow agents (`/agent-exchange`). Cards at `/api/a2a/:publishId/.well-known/agent-card.json`. Secured agents: `POST /api/a2a/:publishId/oauth/token`. |
 | **Workflow Builder chat** | LLM assistant in the workflow editor to create/edit graphs via natural language. |
 | **Job profiles** | CEO job search profiles (intake, resume, preferences); gate for Job Applicant pipeline. |
 | **Job workflows** | Multi-agent **Job Applicant** pipeline (Discovery → Fit Scoring → Resume Tailoring → Application); Kanban-tracked stages; browser/Playwright apply path. See **knowledgebase/JOB-APPLICANT-WORKFLOW.md**. |
@@ -374,8 +374,9 @@ All routes below are also available under **`/api/...`** (frontend uses `/api` p
 ### AgentExchange & public A2A
 
 - `GET /agent-exchange` — list all published A2A workflow agents
-- `GET /a2a/:publishId/.well-known/agent-card.json` — public agent card
-- `POST /a2a/:publishId` — A2A JSON-RPC invoke
+- `GET /a2a/:publishId/.well-known/agent-card.json` — agent card (secured cards include OAuth2 client-credentials metadata)
+- `POST /a2a/:publishId/oauth/token` — client credentials → Bearer access token (secured publications)
+- `POST /a2a/:publishId` — A2A JSON-RPC invoke (Bearer required when secured)
 
 ### MCP & external agents
 

@@ -238,8 +238,8 @@ All proxied under `/api` (rebuild backend + frontend images after upgrade):
 | Master Data + RAG | `master_data_list_*` / `master_data_rag` — purpose-driven list_tables→list_rows; RAG for documents |
 | Agent chat tools UI | Assistant bubbles show gear pills for Agent OS tool calls (`content_tool_logs`) |
 | Notification tooltips | Bell panel snippet hover shows full title/body / agent response |
-| AgentExchange | `GET /api/agent-exchange` (CEO/Admin), UI `/agent-exchange` |
-| Workflow A2A | `POST /api/a2a/:publishId`, card at `/api/a2a/:publishId/.well-known/agent-card.json` |
+| AgentExchange | `GET /api/agent-exchange` (CEO/Admin), UI `/agent-exchange` — Public vs Secured badges |
+| Workflow A2A | `POST /api/a2a/:publishId` (public or Bearer); card at `/.well-known/agent-card.json`; secured: `POST /api/a2a/:publishId/oauth/token` (client credentials → access token). Optional `A2A_ACCESS_TOKEN_TTL_SEC` (default 3600) |
 | hPanel light UI | White shell: left collapsible nav sections, topbar profile avatar menu, light CSS tokens (`--bg #f7f8f9`) |
 | Workflow fullscreen editor | `/workflows/:id/edit` hides platform nav/topbar (`shell-focus-mode`); compact nodes/panes; **Exit to workflows** |
 | Register MCP / Agents CTAs | Primary accent buttons + shared `page-hero` alignment on MCP registry and External Agents |
@@ -266,7 +266,7 @@ The backend image (`deploy/docker/backend.Dockerfile`) **COPY**s `knowledgebase/
 
 On VPS after sync (or after `git pull` on the box), `vps-deploy-latest.sh` rebuilds images and runs:
 
-1. `vps-smoke-new-features.sh` — email_send, notify_ceo, master_data, **platformhelp agent**, org sync, A2A, shared notification dismiss
+1. `vps-smoke-new-features.sh` — email_send, notify_ceo, master_data, **platformhelp agent**, org sync, A2A public + OAuth secured, shared notification dismiss
 2. `vps-smoke-broadcast-notify.sh` — Broadcast → TechResearcher → notify_ceo (needs OpenClaw + LLM; non-fatal)
 3. `vps-smoke-deepseek-brain.sh` — DeepSeek@Ollama (non-fatal if model not pulled)
 4. `vps-verify-platform.sh` — Master Data, Platform Help docs/agent/RAG, per-CEO delegation, NotificationProvider + dismiss APIs, allowlists

@@ -730,6 +730,9 @@ export function initDb() {
         agent_card_json TEXT DEFAULT '{}',
         metadata_json TEXT DEFAULT '{}',
         auth_token TEXT,
+        auth_mode TEXT DEFAULT 'public',
+        client_id TEXT,
+        client_secret_hash TEXT,
         status TEXT DEFAULT 'published' CHECK (status IN ('published', 'unpublished')),
         published_at TEXT,
         created_at TEXT DEFAULT (datetime('now')),
@@ -741,6 +744,47 @@ export function initDb() {
     _db.exec(`CREATE INDEX IF NOT EXISTS idx_wf_a2a_pub_status ON workflow_a2a_publications(status)`);
     _db.exec(
       `CREATE INDEX IF NOT EXISTS idx_wf_a2a_pub_workflow ON workflow_a2a_publications(workflow_definition_id, status)`
+    );
+  } catch (_) {}
+
+  try {
+    _db.exec(`ALTER TABLE workflow_a2a_publications ADD COLUMN auth_mode TEXT DEFAULT 'public'`);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE workflow_a2a_publications ADD COLUMN client_id TEXT`);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE workflow_a2a_publications ADD COLUMN client_secret_hash TEXT`);
+  } catch (_) {}
+  try {
+    _db.exec(
+      `UPDATE workflow_a2a_publications
+       SET auth_mode = 'secured'
+       WHERE (auth_mode IS NULL OR auth_mode = '' OR auth_mode = 'public')
+         AND auth_token IS NOT NULL AND TRIM(auth_token) != ''`
+    );
+  } catch (_) {}
+  try {
+    _db.exec(
+      `UPDATE workflow_a2a_publications SET auth_mode = 'public' WHERE auth_mode IS NULL OR auth_mode = ''`
+    );
+  } catch (_) {}
+  try {
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_wf_a2a_pub_client ON workflow_a2a_publications(client_id)`);
+  } catch (_) {}
+
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS workflow_a2a_access_tokens (
+        token_hash TEXT PRIMARY KEY,
+        publish_id TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        created_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (publish_id) REFERENCES workflow_a2a_publications(id) ON DELETE CASCADE
+      )
+    `);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_wf_a2a_tokens_publish ON workflow_a2a_access_tokens(publish_id, expires_at)`
     );
   } catch (_) {}
 

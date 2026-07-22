@@ -18,6 +18,7 @@
 # Notifications: shared NotificationProvider bell; dismiss via /api/standups/notifications/dismiss*
 #   and /api/platform-notifications/read* (user_feed_dismissals + composite standup+agent keys)
 # AgentExchange / workflow A2A: /api/agent-exchange, /api/a2a/:publishId
+#   Public invoke open; secured uses POST /api/a2a/:id/oauth/token (client credentials) → Bearer
 #
 # LLM keys: set in deploy/.env — injected at runtime into openclaw + backend containers.
 # Never committed; never baked into images.
@@ -73,6 +74,8 @@ x-backend-env: &backend-env
   AGENT_OS_DATA_DIR: /data/agent-os
   AGENT_OS_BASE_URL: ${AGENT_OS_PUBLIC_URL}
   AGENT_OS_PUBLIC_URL: ${AGENT_OS_PUBLIC_URL}
+  # Secured A2A access-token TTL (seconds); default in code is 3600 if unset
+  A2A_ACCESS_TOKEN_TTL_SEC: ${A2A_ACCESS_TOKEN_TTL_SEC:-}
   OPENCLAW_GATEWAY_URL: http://openclaw:18789
   OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
   TOOLS_API_KEY: ${TOOLS_API_KEY:-}

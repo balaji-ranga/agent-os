@@ -59,7 +59,7 @@ echo "  org sync (/api/agents/org/sync) — Dashboard: Resync ORG.md & AGENTS.md
 echo "  master_data_* content tools, shared notification dismiss (NotificationProvider),"
 echo "  /standups/notifications/dismiss[-all] + /platform-notifications/read[-all],"
 echo "  AgentExchange (/api/agent-exchange),"
-echo "  workflow A2A (/api/a2a/:publishId + /.well-known/agent-card.json)"
+echo "  workflow A2A (/api/a2a/:publishId + card; secured: /oauth/token client credentials)"
 echo "Post-deploy smoke (on VPS): bash scripts/vps-smoke-new-features.sh"
 echo "Broadcast notify smoke: bash scripts/vps-smoke-broadcast-notify.sh"
 echo "Platform verify (on VPS): bash scripts/vps-verify-platform.sh"

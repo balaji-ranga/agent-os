@@ -15,6 +15,7 @@ import {
   publishWorkflowAsA2A,
   listAllPublishedA2AAgents,
   handleA2AJsonRpc,
+  issueA2AAccessToken,
 } from '../src/services/workflow-a2a-publish.js';
 import { listRowsForAgent } from '../src/services/master-data-tools.js';
 import { dismissAgentResponseNotifications } from '../src/services/agent-response-notifications.js';
@@ -163,10 +164,10 @@ store.publishDefinition(id, owner, actor);
 const pub = publishWorkflowAsA2A(
   owner,
   id,
-  { name: 'VPS A2A Smoke', description: 'VPS smoke test agent', skill_id: 'default' },
+  { name: 'VPS A2A Smoke', description: 'VPS smoke test agent', skill_id: 'default', auth_mode: 'public' },
   actor
 );
-console.log('OK a2a published', pub.id);
+console.log('OK a2a published', pub.id, 'auth_mode=', pub.auth_mode);
 console.log('   card', pub.card_url);
 
 const listedA2a = listAllPublishedA2AAgents();
@@ -183,6 +184,53 @@ const rpc = await handleA2AJsonRpc(pub.id, {
   },
 });
 if (rpc.error) throw new Error(rpc.error.message);
-console.log('OK a2a invoke', (rpc.result?.parts?.[0]?.text || '').slice(0, 80));
+console.log('OK a2a public invoke', (rpc.result?.parts?.[0]?.text || '').slice(0, 80));
+
+const secured = publishWorkflowAsA2A(
+  owner,
+  id,
+  {
+    name: 'VPS A2A Secured Smoke',
+    description: 'Secured A2A smoke',
+    skill_id: 'default',
+    auth_mode: 'secured',
+  },
+  actor
+);
+if (secured.auth_mode !== 'secured' || !secured.credentials?.client_secret) {
+  throw new Error('secured A2A publish must return client credentials once');
+}
+if (!secured.agent_card?.securitySchemes?.oauth2) {
+  throw new Error('secured agent card missing oauth2 securitySchemes');
+}
+const denied = await handleA2AJsonRpc(secured.id, {
+  jsonrpc: '2.0',
+  id: randomUUID(),
+  method: 'message/send',
+  params: {
+    message: { role: 'user', messageId: randomUUID(), parts: [{ kind: 'text', text: 'no token' }] },
+    metadata: { skillId: 'default' },
+  },
+});
+if (denied.error?.code !== -32003) throw new Error('secured invoke without token must be Unauthorized');
+const token = issueA2AAccessToken(secured.id, {
+  clientId: secured.credentials.client_id,
+  clientSecret: secured.credentials.client_secret,
+});
+const securedRpc = await handleA2AJsonRpc(
+  secured.id,
+  {
+    jsonrpc: '2.0',
+    id: randomUUID(),
+    method: 'message/send',
+    params: {
+      message: { role: 'user', messageId: randomUUID(), parts: [{ kind: 'text', text: 'with token' }] },
+      metadata: { skillId: 'default' },
+    },
+  },
+  { authHeader: `Bearer ${token.access_token}` }
+);
+if (securedRpc.error?.code === -32003) throw new Error('secured invoke with access token failed');
+console.log('OK a2a oauth client_credentials + Bearer invoke');
 
 console.log('VPS_SMOKE_NEW_FEATURES_OK');
