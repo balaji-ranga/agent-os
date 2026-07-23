@@ -7,7 +7,8 @@ Board of tasks by agent and status — shared for agent work, workflow steps, an
 - Open a card for detail, **task chat**, artifacts, and workflow run links.
 - Tasks appear when the COO delegates specialty work, when you create tasks, or when workflows / pipelines create step tasks.
 - **CEO Approval** workflow nodes (and similar awaiting-confirmation cards) pause here until you approve or reject (with optional comment).
-- Reopen a task if work must continue. After reopen, the next agent reply moves the card to **in_progress** (delegated or direct-assign). Cards in **awaiting confirmation** stay there until you confirm — the agent will not auto-advance them.
+- Reopen a task if work must continue. After reopen, the next agent reply moves the card to **in_progress**, and **short Q&A / clarification** replies auto-**complete** the card. Longer research/implementation work stays **in_progress** until the agent (or you) finishes it. Cards in **awaiting confirmation** stay there until you confirm — the agent will not auto-advance them.
+- Kanban task chat with an assigned agent is also mirrored into that agent’s **Dashboard chat** (tagged `[Kanban #id]`) so you can see the same exchange there. OpenClaw still keeps a per-task session for isolation.
 - Job profile setup and pipeline runs live under **Job profiles** / **Job workflows** — Kanban itself stays a generic task board.
 
 ## Standups (on Dashboard)

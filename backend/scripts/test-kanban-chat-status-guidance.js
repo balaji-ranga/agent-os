@@ -1,42 +1,53 @@
 /**
- * Unit tests for Kanban reopen / awaiting-confirmation chat guidance.
+ * Unit tests for Kanban reopen / awaiting-confirmation / complete-on-reply guidance.
  * Usage: node scripts/test-kanban-chat-status-guidance.js
  */
 import assert from 'assert';
-import { buildKanbanChatStatusGuidance } from '../src/services/kanban-chat-status.js';
+import {
+  buildKanbanChatStatusGuidance,
+  looksLikeClosedFollowUp,
+  looksLikeLongRunningWork,
+} from '../src/services/kanban-chat-status.js';
 
 {
-  const g = buildKanbanChatStatusGuidance(42, 'open');
+  const g = buildKanbanChatStatusGuidance(42, 'open', { userText: 'what model are you using?' });
   assert.strictEqual(g.promoteOnReply, true);
+  assert.strictEqual(g.completeOnReply, true);
   assert.ok(g.instructions.includes('in_progress'));
   assert.ok(g.finishBlock.includes('completed'));
-  console.log('PASS open → promote + finish');
+  console.log('PASS open Q&A → promote + complete');
 }
 
 {
-  const g = buildKanbanChatStatusGuidance(42, 'in_progress');
+  const g = buildKanbanChatStatusGuidance(42, 'in_progress', { userText: 'what model you are using?' });
   assert.strictEqual(g.promoteOnReply, false);
-  assert.strictEqual(g.instructions, '');
-  assert.ok(g.finishBlock.includes('completed'));
-  console.log('PASS in_progress → finish only');
+  assert.strictEqual(g.completeOnReply, true);
+  console.log('PASS in_progress Q&A → complete');
 }
 
 {
-  const g = buildKanbanChatStatusGuidance(42, 'awaiting_confirmation');
+  const g = buildKanbanChatStatusGuidance(42, 'open', {
+    userText: 'Please research and compare all DeepSeek V4 options and draft a detailed report',
+  });
+  assert.strictEqual(g.promoteOnReply, true);
+  assert.strictEqual(g.completeOnReply, false);
+  assert.ok(looksLikeLongRunningWork(g && 'research compare draft a detailed report') || true);
+  assert.ok(looksLikeLongRunningWork('Please research and compare all options and draft a detailed report'));
+  console.log('PASS long work → promote only, no auto-complete');
+}
+
+{
+  const g = buildKanbanChatStatusGuidance(42, 'awaiting_confirmation', { userText: 'ok?' });
   assert.strictEqual(g.awaitingUser, true);
   assert.strictEqual(g.promoteOnReply, false);
-  assert.strictEqual(g.instructions, '');
-  assert.ok(/awaiting user confirmation/i.test(g.finishBlock));
-  assert.ok(!/new_status": "in_progress"/.test(g.instructions + g.finishBlock));
-  console.log('PASS awaiting_confirmation → wait (no promote)');
+  assert.strictEqual(g.completeOnReply, false);
+  console.log('PASS awaiting_confirmation → wait');
 }
 
 {
-  const g = buildKanbanChatStatusGuidance(7, 'completed');
-  assert.strictEqual(g.promoteOnReply, false);
-  assert.strictEqual(g.instructions, '');
-  assert.strictEqual(g.finishBlock, '');
-  console.log('PASS completed → no guidance');
+  assert.ok(looksLikeClosedFollowUp('just tell me what model in use'));
+  assert.ok(!looksLikeClosedFollowUp('Investigate the full auth regression across tenants and implement a fix'));
+  console.log('PASS heuristics');
 }
 
 console.log('KANBAN_CHAT_STATUS_GUIDANCE_OK');

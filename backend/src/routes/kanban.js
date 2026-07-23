@@ -21,6 +21,8 @@ import {
   clearKanbanTaskNotification,
 } from '../services/platform-notifications.js';
 import { buildKanbanChatStatusGuidance } from '../services/kanban-chat-status.js';
+import { ensureTenantOpenClawAgent } from '../services/openclaw-tenant.js';
+import { registerOpenClawSessionOwner } from '../services/tool-owner-scope.js';
 
 const router = Router();
 router.use(attachAuthUser);
@@ -29,6 +31,22 @@ const VALID_STATUSES = ['open', 'awaiting_confirmation', 'in_progress', 'complet
 
 function db() {
   return getDb();
+}
+
+/** Mirror Kanban task chat into Dashboard chat_turns so Agent Chat shows the same exchange. */
+function mirrorKanbanTurnToAgentChat({ agentId, ownerUserId, role, content, taskId, taskTitle }) {
+  if (!agentId || !ownerUserId || !content) return;
+  const prefix =
+    role === 'user'
+      ? `[Kanban #${taskId}${taskTitle ? ` · ${String(taskTitle).slice(0, 80)}` : ''}]\n`
+      : `[Kanban #${taskId}]\n`;
+  try {
+    db()
+      .prepare('INSERT INTO chat_turns (agent_id, owner_user_id, role, content) VALUES (?, ?, ?, ?)')
+      .run(agentId, ownerUserId, role, `${prefix}${content}`);
+  } catch (e) {
+    console.warn('[kanban] mirror to chat_turns failed:', e.message);
+  }
 }
 
 const KANBAN_SELECT = `
@@ -341,10 +359,14 @@ router.get('/tasks/:id/messages', (req, res) => {
   }
 });
 
-// POST /api/kanban/tasks/:id/messages — add message (role, content). If task has assigned agent, continue session: call agent and append reply.
+// POST /api/kanban/tasks/:id/messages — add message (role, content). If task has assigned agent, continue session: call agent and append its reply.
 router.post('/tasks/:id/messages', async (req, res) => {
   try {
-    const task = db().prepare('SELECT id, title, description, status, assigned_agent_id, agent_delegation_task_id FROM kanban_tasks WHERE id = ?').get(req.params.id);
+    const task = db()
+      .prepare(
+        'SELECT id, title, description, status, assigned_agent_id, agent_delegation_task_id, owner_user_id FROM kanban_tasks WHERE id = ?'
+      )
+      .get(req.params.id);
     if (!task) return res.status(404).json({ error: 'Task not found' });
     assertKanbanTaskAccess(task, req.authUser);
     const { role, content } = req.body;
@@ -352,6 +374,27 @@ router.post('/tasks/:id/messages', async (req, res) => {
     const c = content != null ? (typeof content === 'string' ? content : JSON.stringify(content)) : '';
     db().prepare('INSERT INTO task_messages (task_id, role, content) VALUES (?, ?, ?)').run(req.params.id, r, c);
     const userRow = db().prepare('SELECT id, role, content, created_at FROM task_messages WHERE task_id = ? ORDER BY id DESC LIMIT 1').get(req.params.id);
+
+    let ownerUserId = task.owner_user_id || null;
+    if (!ownerUserId && req.authUser?.role === 'ceo') ownerUserId = req.authUser.id;
+    if (!ownerUserId) {
+      try {
+        ownerUserId = resolveAuthenticatedCeoUserId(req, req.body || {});
+      } catch {
+        ownerUserId = null;
+      }
+    }
+
+    if (task.assigned_agent_id && r === 'user' && ownerUserId) {
+      mirrorKanbanTurnToAgentChat({
+        agentId: task.assigned_agent_id,
+        ownerUserId,
+        role: 'user',
+        content: c,
+        taskId: task.id,
+        taskTitle: task.title,
+      });
+    }
 
     if (task.assigned_agent_id && r === 'user') {
       const agent = db().prepare('SELECT id, openclaw_agent_id FROM agents WHERE id = ?').get(task.assigned_agent_id);
@@ -366,13 +409,19 @@ router.post('/tasks/:id/messages', async (req, res) => {
           }
         }
         const taskMessages = db().prepare('SELECT role, content FROM task_messages WHERE task_id = ? ORDER BY created_at').all(req.params.id);
-        const openclawAgentId = agent.openclaw_agent_id || agent.id;
-        const sessionUser = `kanban-${req.params.id}`;
-        const sessionKeyLine = `Your session key for this run is ${openclaw.sessionKeyFor(openclawAgentId, sessionUser)}. Use this exact sessionKey when calling sessions_history. The messages in this request already contain the full task conversation; if sessions_history returns empty, use these messages as your context and proceed.\n\n`;
         const taskId = Number(req.params.id);
-        // Same reopen / follow-up guidance for direct-assign and COO-delegated tasks.
-        // Skip promote when awaiting_confirmation (CEO/user must confirm first).
-        const guidance = buildKanbanChatStatusGuidance(taskId, task.status);
+        const ceoOwner = ownerUserId || task.owner_user_id || null;
+        // Per-CEO tenant OpenClaw agent (same as Dashboard) so tools/BYOK/workspace match.
+        const ensured = ceoOwner ? ensureTenantOpenClawAgent(agent, ceoOwner) : null;
+        const openclawAgentId = ensured?.openclawAgentId || agent.openclaw_agent_id || agent.id;
+        const sessionUser = ceoOwner
+          ? openclaw.sessionUserFor(agent.id, ceoOwner, `kanban-${taskId}`)
+          : `kanban-${taskId}`;
+        const sessionKey = openclaw.sessionKeyFor(openclawAgentId, sessionUser);
+        if (ceoOwner) registerOpenClawSessionOwner(sessionKey, ceoOwner);
+
+        const sessionKeyLine = `Your session key for this run is ${sessionKey}. Use this exact sessionKey when calling sessions_history. The messages in this request already contain the full task conversation; if sessions_history returns empty, use these messages as your context and proceed.\n\n`;
+        const guidance = buildKanbanChatStatusGuidance(taskId, task.status, { userText: c });
         const messages = [];
         const taskContext = delegationPrompt || [task.title, task.description].filter(Boolean).join('\n') || task.title;
         messages.push({
@@ -385,8 +434,16 @@ router.post('/tasks/:id/messages', async (req, res) => {
           const { content: replyContent } = await openclaw.chatCompletions(openclawAgentId, messages, sessionUser, false);
           const reply = (replyContent && String(replyContent).trim()) || '(No reply.)';
           db().prepare('INSERT INTO task_messages (task_id, role, content) VALUES (?, ?, ?)').run(req.params.id, 'assistant', reply);
-          // Reliable reopen UX: once the assigned agent replies on an open card, move to in_progress
-          // even if the model skipped kanban_move_status. Never auto-move awaiting_confirmation.
+          if (ceoOwner) {
+            mirrorKanbanTurnToAgentChat({
+              agentId: agent.id,
+              ownerUserId: ceoOwner,
+              role: 'assistant',
+              content: reply,
+              taskId,
+              taskTitle: task.title,
+            });
+          }
           if (guidance.promoteOnReply) {
             db()
               .prepare(
@@ -394,6 +451,15 @@ router.post('/tasks/:id/messages', async (req, res) => {
                  WHERE id = ? AND status = 'open'`
               )
               .run(taskId);
+          }
+          if (guidance.completeOnReply && !String(reply).startsWith('[Error from agent:')) {
+            db()
+              .prepare(
+                `UPDATE kanban_tasks SET status = 'completed', updated_at = datetime('now')
+                 WHERE id = ? AND status IN ('open', 'in_progress')`
+              )
+              .run(taskId);
+            clearKanbanTaskNotification(taskId, req.authUser?.id);
           }
         } catch (err) {
           const errMsg = err?.message || String(err);
