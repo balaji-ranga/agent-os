@@ -1,6 +1,7 @@
 /**
  * Optional JSON Schema for workflow trigger / A2A / webhook input.
- * Supports a practical Draft-07 subset (object/array/string/number/integer/boolean/null).
+ * Supports a practical Draft-07 subset (object/array/string/number/integer/boolean/null),
+ * plus string formats `date` (YYYY-MM-DD) and `date-time`.
  * No schema → validation skipped (legacy free-form input).
  */
 
@@ -104,6 +105,21 @@ function validateAgainstSchema(value, schema, path, errors) {
       } catch {
         /* ignore bad pattern */
       }
+    }
+    if (schema.format === 'date') {
+      // JSON Schema date: full-date YYYY-MM-DD (calendar-valid)
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        errors.push(`${path}: format date requires YYYY-MM-DD`);
+      } else {
+        const [y, m, d] = value.split('-').map(Number);
+        const dt = new Date(Date.UTC(y, m - 1, d));
+        if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) {
+          errors.push(`${path}: format date is not a valid calendar date`);
+        }
+      }
+    } else if (schema.format === 'date-time') {
+      const t = Date.parse(value);
+      if (!Number.isFinite(t)) errors.push(`${path}: format date-time is not a valid ISO datetime`);
     }
   }
 
