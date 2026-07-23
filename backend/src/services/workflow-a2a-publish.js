@@ -8,6 +8,12 @@ import { getPublicBaseUrl } from '../config/public-url.js';
 import { hashPassword, verifyPassword } from './auth/password.js';
 import { startAgentWorkflowRun } from './agent-workflow-runner.js';
 import * as store from './agent-workflow-store.js';
+import {
+  extractInputSchemaFromGraph,
+  normalizeInputSchema,
+  parseInputSchemaJson,
+  WorkflowInputSchemaError,
+} from './workflow-input-schema.js';
 
 const a2aTasks = new Map();
 const ACCESS_TOKEN_TTL_SEC = Math.max(
@@ -88,6 +94,11 @@ export function buildAgentCard(publication, def = null) {
   const secured = authMode === 'secured';
   const hasOauth = secured && publication.client_id;
   const hasLegacyBearer = secured && publication.auth_token && String(publication.auth_token).trim();
+  const inputSchema =
+    parseInputSchemaJson(publication.input_schema_json) ||
+    extractInputSchemaFromGraph(def?.published_graph || def?.draft_graph) ||
+    def?.input_schema ||
+    null;
 
   const out = {
     name: publication.name || def?.name || 'Agent OS Workflow',
@@ -102,7 +113,7 @@ export function buildAgentCard(publication, def = null) {
       pushNotifications: false,
       ...(card.capabilities || {}),
     },
-    defaultInputModes: ['text/plain', 'text'],
+    defaultInputModes: inputSchema ? ['application/json', 'text/plain', 'text'] : ['text/plain', 'text'],
     defaultOutputModes: ['text/plain', 'text'],
     skills: [
       {
@@ -114,6 +125,12 @@ export function buildAgentCard(publication, def = null) {
           'Invoke this workflow with a natural-language message',
         tags: ['workflow', 'agent-os', ...(metadata.tags || [])],
         examples: metadata.examples || [`Run ${publication.name || 'workflow'}`],
+        ...(inputSchema
+          ? {
+              inputModes: ['application/json', 'text/plain'],
+              inputSchema,
+            }
+          : {}),
       },
       ...(Array.isArray(card.skills) ? card.skills.filter((s) => s?.id && s.id !== skillId) : []),
     ],
@@ -170,6 +187,7 @@ function sanitizePublication(row, def = null, extras = {}) {
     card_url: urls.card_url,
     token_url: secured ? urls.token_url : null,
     agent_card: buildAgentCard(row, def),
+    input_schema: parseInputSchemaJson(row.input_schema_json) || def?.input_schema || null,
     metadata: parseJson(row.metadata_json, {}),
     auth_mode: authMode,
     has_auth: secured,
@@ -251,6 +269,20 @@ export function publishWorkflowAsA2A(ownerUserId, workflowId, body = {}, actor =
   const agentCardOverrides =
     body.agent_card && typeof body.agent_card === 'object' ? body.agent_card : body.agentCard || {};
 
+  let inputSchema = null;
+  try {
+    if (body.input_schema !== undefined || body.inputSchema !== undefined) {
+      inputSchema = normalizeInputSchema(body.input_schema ?? body.inputSchema);
+    } else {
+      inputSchema =
+        def.input_schema ||
+        extractInputSchemaFromGraph(def.published_graph || def.draft_graph) ||
+        null;
+    }
+  } catch (e) {
+    throw new Error(e.message || 'Invalid input_schema');
+  }
+
   const rawMode = String(body.auth_mode || body.authMode || existing?.auth_mode || 'public')
     .trim()
     .toLowerCase();
@@ -300,6 +332,7 @@ export function publishWorkflowAsA2A(ownerUserId, workflowId, body = {}, actor =
     ).trim(),
     agent_card_json: JSON.stringify(agentCardOverrides),
     metadata_json: JSON.stringify(metadata),
+    input_schema_json: inputSchema ? JSON.stringify(inputSchema) : null,
     auth_mode: authMode,
     client_id: clientId,
     client_secret_hash: clientSecretHash,
@@ -317,7 +350,8 @@ export function publishWorkflowAsA2A(ownerUserId, workflowId, body = {}, actor =
     db.prepare(
       `UPDATE workflow_a2a_publications SET
         name = ?, description = ?, skill_id = ?, skill_name = ?, skill_description = ?,
-        agent_card_json = ?, metadata_json = ?, auth_mode = ?, client_id = ?, client_secret_hash = ?,
+        agent_card_json = ?, metadata_json = ?, input_schema_json = ?,
+        auth_mode = ?, client_id = ?, client_secret_hash = ?,
         auth_token = ?, status = 'published', published_at = ?, updated_at = datetime('now')
        WHERE id = ?`
     ).run(
@@ -328,6 +362,7 @@ export function publishWorkflowAsA2A(ownerUserId, workflowId, body = {}, actor =
       patch.skill_description,
       patch.agent_card_json,
       patch.metadata_json,
+      patch.input_schema_json,
       patch.auth_mode,
       patch.client_id,
       patch.client_secret_hash,
@@ -340,9 +375,9 @@ export function publishWorkflowAsA2A(ownerUserId, workflowId, body = {}, actor =
     db.prepare(
       `INSERT INTO workflow_a2a_publications (
         id, workflow_definition_id, owner_user_id, name, description,
-        skill_id, skill_name, skill_description, agent_card_json, metadata_json,
+        skill_id, skill_name, skill_description, agent_card_json, metadata_json, input_schema_json,
         auth_mode, client_id, client_secret_hash, auth_token, status, published_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'published', ?, datetime('now'))`
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'published', ?, datetime('now'))`
     ).run(
       publishId,
       workflowId,
@@ -354,6 +389,7 @@ export function publishWorkflowAsA2A(ownerUserId, workflowId, body = {}, actor =
       patch.skill_description,
       patch.agent_card_json,
       patch.metadata_json,
+      patch.input_schema_json,
       patch.auth_mode,
       patch.client_id,
       patch.client_secret_hash,
@@ -477,17 +513,27 @@ export function issueA2AAccessToken(publishId, { clientId, clientSecret } = {}) 
   };
 }
 
-function extractMessageText(params) {
+function extractMessageInput(params) {
   const message = params?.message;
   if (!message) return '';
   if (typeof message === 'string') return message.trim();
   if (Array.isArray(message.parts)) {
+    const dataPart = message.parts.find(
+      (p) =>
+        p &&
+        (p.kind === 'data' || p.type === 'data' || p.kind === 'json' || p.mimeType === 'application/json') &&
+        (p.data != null || p.json != null || p.content != null)
+    );
+    if (dataPart) {
+      return dataPart.data ?? dataPart.json ?? dataPart.content;
+    }
     return message.parts
       .map((p) => (p?.kind === 'text' || p?.type === 'text' ? String(p.text || p.content || '') : ''))
       .filter(Boolean)
       .join('\n')
       .trim();
   }
+  if (message.data != null && typeof message.data === 'object') return message.data;
   if (typeof message.text === 'string') return message.text.trim();
   return '';
 }
@@ -585,9 +631,13 @@ export async function handleA2AJsonRpc(publishId, body, { authHeader = null } = 
     return { jsonrpc: '2.0', id: rpcId, error: { code: -32601, message: `Method not found: ${method}` } };
   }
 
-  const messageText = extractMessageText(params);
-  if (!messageText) {
-    return { jsonrpc: '2.0', id: rpcId, error: { code: -32602, message: 'Message text is required' } };
+  const messageInput = extractMessageInput(params);
+  if (
+    messageInput === '' ||
+    messageInput == null ||
+    (typeof messageInput === 'string' && !messageInput.trim())
+  ) {
+    return { jsonrpc: '2.0', id: rpcId, error: { code: -32602, message: 'Message text or data is required' } };
   }
 
   const skillId = params.metadata?.skillId || params.skillId || row.skill_id || 'default';
@@ -604,8 +654,9 @@ export async function handleA2AJsonRpc(publishId, body, { authHeader = null } = 
 
   try {
     const run = await startAgentWorkflowRun(row.workflow_definition_id, row.owner_user_id, {
-      trigger: 'manual',
-      input: messageText,
+      trigger: 'a2a',
+      input: messageInput,
+      publicationSchema: parseInputSchemaJson(row.input_schema_json),
       actor: { id: `a2a:${publishId}`, name: row.name, type: 'a2a_client' },
     });
     const finalRun = await waitForRunCompletion(run.id, row.owner_user_id);
@@ -613,7 +664,19 @@ export async function handleA2AJsonRpc(publishId, body, { authHeader = null } = 
     a2aTasks.set(taskId, { state: 'completed', text, runId: run.id });
     return buildA2ATaskResponse(taskId, 'completed', text, { rpcId });
   } catch (e) {
-    a2aTasks.set(taskId, { state: 'failed', text: e.message });
-    return buildA2ATaskResponse(taskId, 'failed', e.message || 'Workflow failed', { rpcId });
+    const msg = e?.message || 'Workflow failed';
+    a2aTasks.set(taskId, { state: 'failed', text: msg });
+    if (e instanceof WorkflowInputSchemaError || e?.code === 'INPUT_SCHEMA_VALIDATION') {
+      return {
+        jsonrpc: '2.0',
+        id: rpcId,
+        error: {
+          code: -32602,
+          message: msg,
+          data: e.details || null,
+        },
+      };
+    }
+    return buildA2ATaskResponse(taskId, 'failed', msg, { rpcId });
   }
 }

@@ -40,10 +40,11 @@ If the remote agent is **secured with OAuth client credentials** (as Flolah secu
    - **Public** — anyone with the endpoint can invoke (no token).
    - **Secured** — OAuth2 **client credentials**: platform issues `client_id` + `client_secret` (**secret shown once** — copy it immediately). Clients POST to the token URL, then call A2A with `Authorization: Bearer <access_token>`.
 5. The workflow becomes reachable via agent card + JSON-RPC under `/api/a2a/:publishId`.
-6. **Update A2A** can rotate the client secret (invalidates the old secret and outstanding tokens).
-7. **Unpublish** removes it from AgentExchange and revokes access tokens.
+6. Optional: set **Input JSON Schema** on the Trigger (or override in Publish A2A). It is advertised on the agent card skill as `inputSchema` and validates invocations.
+7. **Update A2A** can rotate the client secret (invalidates the old secret and outstanding tokens).
+8. **Unpublish** removes it from AgentExchange and revokes access tokens.
 
-Agent card: `/api/a2a/:publishId/.well-known/agent-card.json`.
+Agent card: `/api/a2a/:publishId/.well-known/agent-card.json`. When a schema is set, the skill includes `inputSchema` and `defaultInputModes` prefer `application/json`.
 
 ### Secured invoke (client credentials)
 

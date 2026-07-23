@@ -19,7 +19,7 @@ router.post('/:definitionId', async (req, res) => {
     });
     res.status(202).json({ ok: true, run_id: run.id, run_number: run.run_number, status: run.status });
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    res.status(400).json({ error: e.message, details: e.details || undefined });
   }
 });
 

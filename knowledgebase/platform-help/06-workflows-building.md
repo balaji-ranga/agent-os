@@ -24,7 +24,7 @@ This doc is about **custom Workflows**.
 
 ## Workflow Builder agent
 
-Chat with **Workflow Builder** (or the in-editor agent chat) to create/update graphs in natural language: add nodes, wire edges, validate, publish, test, and `until_success` loops. Prefer Workflow Builder for *building*; Platform Help for *explaining* nodes and mapping.
+Chat with **Workflow Builder** (or the in-editor agent chat) to create/update graphs in natural language: add nodes, wire edges, validate, publish, test, and `until_success` loops. For **end-to-end autonomous certify** (Maker/Checker + status-on-request), see [13-workflow-autonomous-certify.md](./13-workflow-autonomous-certify.md). Prefer Workflow Builder for *building*; Platform Help for *explaining* nodes and mapping.
 
 ## Trigger modes (Trigger node)
 
@@ -40,6 +40,15 @@ Output of Trigger: **`trigger_input`** (initial payload / message / schedule con
 ## Input / output mapping (critical)
 
 Open the node’s **Input / Output** panel.
+
+### Optional trigger input JSON Schema
+
+On the **Trigger** start node you can set an **optional input JSON Schema**. When present:
+
+- Webhook (`event`), manual **Run**, A2A invoke, and COO `agent_workflow_trigger` validate the payload before the run starts.
+- **Publish as A2A** copies the schema into the agent card skill (`inputSchema`) and AgentExchange listing.
+- Leave empty to keep free-form text / any JSON (legacy behavior).
+- Prefer a schema with a `message` string property if chat/A2A clients send plain text — the platform wraps text as `{ "message": "..." }`.
 
 ### Input modes
 

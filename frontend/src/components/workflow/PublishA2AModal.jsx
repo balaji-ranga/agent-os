@@ -14,6 +14,7 @@ const EMPTY = {
   examples: '',
   auth_mode: 'public',
   rotate_credentials: false,
+  input_schema_text: '',
 };
 
 export default function PublishA2AModal({ open, workflow, existingPublication, onClose, onPublished }) {
@@ -36,6 +37,14 @@ export default function PublishA2AModal({ open, workflow, existingPublication, o
     if (!open) return;
     const pub = existingPublication;
     const meta = pub?.metadata || {};
+    const trigger = workflow?.draft_graph?.nodes?.find((n) => n.type === 'trigger')
+      || workflow?.published_graph?.nodes?.find((n) => n.type === 'trigger');
+    const fromTrigger = trigger?.data?.inputSchema || trigger?.data?.input_schema || null;
+    const schema =
+      pub?.input_schema ||
+      workflow?.input_schema ||
+      fromTrigger ||
+      null;
     setForm({
       name: pub?.name || workflow?.name || '',
       description: pub?.description || workflow?.description || '',
@@ -49,6 +58,7 @@ export default function PublishA2AModal({ open, workflow, existingPublication, o
       examples: (meta.examples || []).join('\n'),
       auth_mode: pub?.auth_mode === 'secured' || pub?.has_auth ? 'secured' : 'public',
       rotate_credentials: false,
+      input_schema_text: schema ? JSON.stringify(schema, null, 2) : '',
     });
     setIssuedCredentials(null);
     setError(null);
@@ -80,6 +90,16 @@ export default function PublishA2AModal({ open, workflow, existingPublication, o
         .split('\n')
         .map((t) => t.trim())
         .filter(Boolean);
+      let input_schema = null;
+      if (form.input_schema_text.trim()) {
+        try {
+          input_schema = JSON.parse(form.input_schema_text);
+        } catch {
+          setError('Input JSON Schema must be valid JSON');
+          setSaving(false);
+          return;
+        }
+      }
       const body = {
         name: form.name.trim(),
         description: form.description.trim(),
@@ -87,6 +107,7 @@ export default function PublishA2AModal({ open, workflow, existingPublication, o
         skill_name: form.skill_name.trim() || form.name.trim(),
         skill_description: form.skill_description.trim() || form.description.trim(),
         auth_mode: form.auth_mode,
+        input_schema,
         metadata: {
           version: form.version.trim() || '1.0.0',
           tags,
@@ -313,6 +334,20 @@ export default function PublishA2AModal({ open, workflow, existingPublication, o
                     onChange={(e) => set('skill_description', e.target.value)}
                     rows={2}
                   />
+                </label>
+                <label className="mcp-pg-field">
+                  <span>Input JSON Schema (optional)</span>
+                  <textarea
+                    value={form.input_schema_text}
+                    onChange={(e) => set('input_schema_text', e.target.value)}
+                    rows={8}
+                    spellCheck={false}
+                    placeholder='{"type":"object","required":["message"],"properties":{"message":{"type":"string"}},"additionalProperties":false}'
+                  />
+                  <small style={{ display: 'block', marginTop: 4, opacity: 0.8 }}>
+                    Prefills from the Trigger node. When set, appears on the A2A agent card skill and validates
+                    invocations.
+                  </small>
                 </label>
                 <div className="mcp-pg-segment">
                   <label className="mcp-pg-field">

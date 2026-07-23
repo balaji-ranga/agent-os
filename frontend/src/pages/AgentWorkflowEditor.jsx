@@ -352,6 +352,38 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
             />
             <small>Message containing this phrase starts the workflow</small>
           </label>
+          <label className="wf-field">
+            Optional input JSON Schema
+            <textarea
+              rows={8}
+              spellCheck={false}
+              placeholder={`{\n  "type": "object",\n  "required": ["message"],\n  "properties": {\n    "message": { "type": "string" }\n  },\n  "additionalProperties": false\n}`}
+              value={
+                data.inputSchema == null
+                  ? ''
+                  : typeof data.inputSchema === 'string'
+                    ? data.inputSchema
+                    : JSON.stringify(data.inputSchema, null, 2)
+              }
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (!raw.trim()) {
+                  set({ inputSchema: null });
+                  return;
+                }
+                try {
+                  set({ inputSchema: JSON.parse(raw) });
+                } catch {
+                  // Keep typing; store raw string until valid JSON
+                  set({ inputSchema: raw });
+                }
+              }}
+            />
+            <small>
+              When set, webhook / manual run / A2A / chat tools validate input before starting. Leave empty for free-form
+              text. Use a <code>message</code> property to accept plain chat text.
+            </small>
+          </label>
         </>
       )}
 
@@ -1940,10 +1972,24 @@ function EditorInner({ workflowId }) {
   const extractTriggerSettings = () => {
     const trigger = nodes.find((n) => n.type === 'trigger');
     const modes = trigger?.data?.triggerModes || ['manual'];
+    let input_schema = null;
+    const rawSchema = trigger?.data?.inputSchema;
+    if (rawSchema != null && rawSchema !== '') {
+      if (typeof rawSchema === 'string') {
+        try {
+          input_schema = JSON.parse(rawSchema);
+        } catch {
+          throw new Error('Trigger input JSON Schema is not valid JSON');
+        }
+      } else {
+        input_schema = rawSchema;
+      }
+    }
     return {
       trigger_modes: modes,
       schedule_cron: modes.includes('schedule') ? trigger?.data?.scheduleCron || '' : '',
       chat_trigger_phrase: modes.includes('chat') ? trigger?.data?.chatPhrase || '' : '',
+      input_schema,
     };
   };
 
@@ -1978,6 +2024,7 @@ function EditorInner({ workflowId }) {
           triggerModes: modes,
           scheduleCron: modes.includes('schedule') ? parsed.schedule_cron || '' : '',
           chatPhrase: modes.includes('chat') ? parsed.chat_trigger_phrase || '' : '',
+          inputSchema: parsed.input_schema || migrated.data?.inputSchema || null,
         },
       };
     });
@@ -1995,6 +2042,7 @@ function EditorInner({ workflowId }) {
             trigger_modes: modes,
             schedule_cron: parsed.schedule_cron || '',
             chat_trigger_phrase: parsed.chat_trigger_phrase || '',
+            input_schema: parsed.input_schema || null,
           }
         : w
     );

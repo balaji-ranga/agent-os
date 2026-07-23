@@ -531,6 +531,9 @@ export function initDb() {
     _db.exec(`ALTER TABLE agent_workflow_definitions ADD COLUMN variables_json TEXT DEFAULT '{}'`);
   } catch (_) {}
   try {
+    _db.exec(`ALTER TABLE agent_workflow_definitions ADD COLUMN input_schema_json TEXT`);
+  } catch (_) {}
+  try {
     _db.exec(`
       CREATE TABLE IF NOT EXISTS ibkr_position_meta (
         owner_user_id TEXT NOT NULL,
@@ -755,6 +758,9 @@ export function initDb() {
   } catch (_) {}
   try {
     _db.exec(`ALTER TABLE workflow_a2a_publications ADD COLUMN client_secret_hash TEXT`);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE workflow_a2a_publications ADD COLUMN input_schema_json TEXT`);
   } catch (_) {}
   try {
     _db.exec(
@@ -1185,6 +1191,36 @@ export function initDb() {
         FOREIGN KEY (ceo_user_id) REFERENCES platform_users(id) ON DELETE CASCADE
       )
     `);
+  } catch (_) {}
+
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS agent_workflow_certify_jobs (
+        id TEXT PRIMARY KEY,
+        owner_user_id TEXT NOT NULL,
+        workflow_id TEXT,
+        status TEXT NOT NULL DEFAULT 'pending',
+        goal_json TEXT NOT NULL DEFAULT '{}',
+        report_json TEXT,
+        attempt INTEGER DEFAULT 0,
+        max_attempts INTEGER DEFAULT 5,
+        last_error TEXT,
+        created_by TEXT,
+        created_by_name TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        completed_at TEXT
+      )
+    `);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_wf_certify_owner ON agent_workflow_certify_jobs(owner_user_id, updated_at DESC)`
+    );
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_wf_certify_wf ON agent_workflow_certify_jobs(workflow_id, updated_at DESC)`
+    );
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE agent_workflow_definitions ADD COLUMN certify_state TEXT`);
   } catch (_) {}
 
   return _db;

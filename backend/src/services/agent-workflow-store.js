@@ -4,6 +4,11 @@
 import { randomBytes } from 'crypto';
 import { getDb } from '../db/schema.js';
 import { validateWorkflowBrainCredentials } from './agent-workflow-brain-providers.js';
+import {
+  extractInputSchemaFromGraph,
+  normalizeInputSchema,
+  parseInputSchemaJson,
+} from './workflow-input-schema.js';
 
 function db() {
   return getDb();
@@ -56,6 +61,8 @@ function rowToDefinition(row) {
     paused: !!row.paused,
     webhook_secret: row.webhook_secret || '',
     variables: parseVariables(row.variables_json),
+    input_schema: parseInputSchemaJson(row.input_schema_json),
+    certify_state: row.certify_state || null,
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
@@ -129,19 +136,26 @@ export function createDefinition({
   schedule_cron = '',
   chat_trigger_phrase = '',
   variables = {},
+  input_schema = undefined,
   id: forcedId = null,
 }) {
   const id = forcedId || slugify(name);
   const normalized = normalizeTriggerSettings(trigger_modes, schedule_cron, chat_trigger_phrase);
+  let inputSchema = null;
+  if (input_schema !== undefined) {
+    inputSchema = normalizeInputSchema(input_schema);
+  } else {
+    inputSchema = extractInputSchemaFromGraph(graph);
+  }
   const draftGraph = syncTriggerNodeInGraph(
     graph || { nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 } },
-    normalized
+    { ...normalized, input_schema: inputSchema }
   );
   const varsJson = JSON.stringify(normalizeWorkflowVariables(variables));
   db()
     .prepare(
-      `INSERT INTO agent_workflow_definitions (id, name, description, owner_user_id, draft_graph_json, status, schedule_cron, chat_trigger_phrase, trigger_modes, variables_json)
-       VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?)`
+      `INSERT INTO agent_workflow_definitions (id, name, description, owner_user_id, draft_graph_json, status, schedule_cron, chat_trigger_phrase, trigger_modes, variables_json, input_schema_json)
+       VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?)`
     )
     .run(
       id,
@@ -152,7 +166,8 @@ export function createDefinition({
       normalized.schedule_cron,
       normalized.chat_trigger_phrase,
       normalized.trigger_modes.join(','),
-      varsJson
+      varsJson,
+      inputSchema ? JSON.stringify(inputSchema) : null
     );
   appendAudit(id, {
     action: 'created',
@@ -179,21 +194,34 @@ export function updateDraft(id, ownerUserId, patch, actor) {
   const variables =
     patch.variables != null ? normalizeWorkflowVariables(patch.variables) : existing.variables || {};
 
+  let inputSchema;
+  if (patch.input_schema !== undefined) {
+    inputSchema = normalizeInputSchema(patch.input_schema);
+  } else if (patch.graph != null) {
+    inputSchema = extractInputSchemaFromGraph(draftGraph) ?? existing.input_schema ?? null;
+  } else {
+    inputSchema = existing.input_schema ?? null;
+  }
+
+  const syncedGraph = syncTriggerNodeInGraph(draftGraph, { ...normalized, input_schema: inputSchema });
+
   db()
     .prepare(
       `UPDATE agent_workflow_definitions
        SET name = ?, description = ?, draft_graph_json = ?, schedule_cron = ?,
-           chat_trigger_phrase = ?, trigger_modes = ?, variables_json = ?, updated_at = datetime('now')
+           chat_trigger_phrase = ?, trigger_modes = ?, variables_json = ?, input_schema_json = ?,
+           updated_at = datetime('now')
        WHERE id = ? AND owner_user_id = ?`
     )
     .run(
       name,
       description,
-      JSON.stringify(draftGraph),
+      JSON.stringify(syncedGraph),
       schedule_cron,
       chat_trigger_phrase,
       trigger_modes.join(','),
       JSON.stringify(variables),
+      inputSchema ? JSON.stringify(inputSchema) : null,
       id,
       ownerUserId
     );
@@ -224,13 +252,32 @@ export function publishDefinition(id, ownerUserId, actor) {
     throw new Error(`Cannot publish: ${brainErrors.join('; ')}`);
   }
 
+  const inputSchema =
+    extractInputSchemaFromGraph(def.draft_graph) ?? def.input_schema ?? null;
+  const syncedDraft = syncTriggerNodeInGraph(def.draft_graph, {
+    trigger_modes: def.trigger_modes,
+    schedule_cron: def.schedule_cron,
+    chat_trigger_phrase: def.chat_trigger_phrase,
+    input_schema: inputSchema,
+  });
+
   db()
     .prepare(
       `UPDATE agent_workflow_definitions
-       SET status = 'published', published_graph_json = draft_graph_json, updated_at = datetime('now')
+       SET status = 'published',
+           draft_graph_json = ?,
+           published_graph_json = ?,
+           input_schema_json = ?,
+           updated_at = datetime('now')
        WHERE id = ? AND owner_user_id = ?`
     )
-    .run(id, ownerUserId);
+    .run(
+      JSON.stringify(syncedDraft),
+      JSON.stringify(syncedDraft),
+      inputSchema ? JSON.stringify(inputSchema) : null,
+      id,
+      ownerUserId
+    );
 
   appendAudit(id, {
     action: 'published',
@@ -417,23 +464,29 @@ export function setPaused(id, ownerUserId, paused, actor) {
   return getDefinition(id, ownerUserId);
 }
 
-function syncTriggerNodeInGraph(graph, { trigger_modes, schedule_cron, chat_trigger_phrase }) {
+function syncTriggerNodeInGraph(graph, { trigger_modes, schedule_cron, chat_trigger_phrase, input_schema }) {
   if (!graph?.nodes?.length) return graph;
+  const schema =
+    input_schema === undefined
+      ? undefined
+      : input_schema
+        ? normalizeInputSchema(input_schema)
+        : null;
   return {
     ...graph,
-    nodes: graph.nodes.map((n) =>
-      n.type === 'trigger'
-        ? {
-            ...n,
-            data: {
-              ...n.data,
-              triggerModes: trigger_modes,
-              scheduleCron: schedule_cron,
-              chatPhrase: chat_trigger_phrase,
-            },
-          }
-        : n
-    ),
+    nodes: graph.nodes.map((n) => {
+      if (n.type !== 'trigger') return n;
+      const data = {
+        ...n.data,
+        triggerModes: trigger_modes,
+        scheduleCron: schedule_cron,
+        chatPhrase: chat_trigger_phrase,
+      };
+      if (schema !== undefined) {
+        data.inputSchema = schema;
+      }
+      return { ...n, data };
+    }),
   };
 }
 
@@ -472,16 +525,25 @@ export function updateTriggers(id, ownerUserId, patch, actor) {
     patch.chat_trigger_phrase != null ? patch.chat_trigger_phrase : def.chat_trigger_phrase
   );
   const { trigger_modes, schedule_cron, chat_trigger_phrase } = normalized;
+  const inputSchema =
+    patch.input_schema !== undefined
+      ? normalizeInputSchema(patch.input_schema)
+      : def.input_schema ?? extractInputSchemaFromGraph(def.draft_graph);
 
-  const draftGraph = syncTriggerNodeInGraph(def.draft_graph, normalized);
-  const publishedGraph = def.published_graph ? syncTriggerNodeInGraph(def.published_graph, normalized) : null;
+  const draftGraph = syncTriggerNodeInGraph(def.draft_graph, {
+    ...normalized,
+    input_schema: inputSchema,
+  });
+  const publishedGraph = def.published_graph
+    ? syncTriggerNodeInGraph(def.published_graph, { ...normalized, input_schema: inputSchema })
+    : null;
 
   db()
     .prepare(
       `UPDATE agent_workflow_definitions
        SET trigger_modes = ?, schedule_cron = ?, chat_trigger_phrase = ?,
            draft_graph_json = ?, published_graph_json = COALESCE(?, published_graph_json),
-           updated_at = datetime('now')
+           input_schema_json = ?, updated_at = datetime('now')
        WHERE id = ? AND owner_user_id = ?`
     )
     .run(
@@ -490,6 +552,7 @@ export function updateTriggers(id, ownerUserId, patch, actor) {
       chat_trigger_phrase,
       JSON.stringify(draftGraph),
       publishedGraph ? JSON.stringify(publishedGraph) : null,
+      inputSchema ? JSON.stringify(inputSchema) : null,
       id,
       ownerUserId
     );
@@ -499,7 +562,7 @@ export function updateTriggers(id, ownerUserId, patch, actor) {
     summary: `Triggers updated: ${trigger_modes.join(', ')}${schedule_cron ? ` cron=${schedule_cron}` : ''}`,
     changedBy: actor?.id,
     changedByName: actor?.name,
-    diff: { trigger_modes, schedule_cron, chat_trigger_phrase },
+    diff: { trigger_modes, schedule_cron, chat_trigger_phrase, input_schema: !!inputSchema },
   });
   syncWorkflowScheduleRegistry(id);
   if (trigger_modes.includes('event')) ensureWebhookSecret(id);

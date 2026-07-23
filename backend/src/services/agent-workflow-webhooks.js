@@ -42,7 +42,8 @@ export async function triggerWorkflowFromHook(definitionId, payload = {}, { acto
   if (!isUserEnabled(row.owner_user_id)) {
     throw new Error('Owner account is disabled — event triggers are stopped');
   }
-  const input = typeof payload === 'string' ? payload : JSON.stringify(payload ?? {}, null, 0);
+  // Pass object through so optional input_schema can validate structured JSON.
+  const input = typeof payload === 'string' ? payload : payload ?? {};
   return startAgentWorkflowRun(definitionId, row.owner_user_id, {
     trigger: 'event',
     input,

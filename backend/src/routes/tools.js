@@ -1502,7 +1502,7 @@ router.post('/agent-workflow-trigger', optionalAuth, async (req, res) => {
     logTool(req,'agent_workflow_trigger', requestPayload, out, 'ok', source);
     res.json(out);
   } catch (e) {
-    const err = { error: e.message };
+    const err = { error: e.message, details: e.details || undefined };
     logTool(req,'agent_workflow_trigger', requestPayload, err, 'error', source);
     res.status(400).json(err);
   }
@@ -1570,6 +1570,112 @@ router.post('/agent-workflow-mutate', optionalAuth, async (req, res) => {
   } catch (e) {
     const err = { error: e.message };
     logTool(req,'agent_workflow_mutate', requestPayload, err, 'error', source);
+    res.status(400).json(err);
+  }
+});
+
+/**
+ * Start autonomous certify job (Workflow Builder). Async Maker/Checker loop.
+ */
+router.post('/agent-workflow-certify-start', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = req.body || {};
+  try {
+    const caller = getCallerAgent(req);
+    if (!isWorkflowBuilderCaller(caller)) {
+      const err = { error: 'Only Workflow Builder agent can start certify jobs' };
+      logTool(req, 'agent_workflow_certify_start', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const ownerUserId = resolveWorkflowOwner(req, requestPayload);
+    const { startCertifyJob } = await import('../services/agent-workflow-certify.js');
+    const out = startCertifyJob({
+      ownerUserId,
+      message: requestPayload.message || requestPayload.intent || requestPayload.prompt || '',
+      workflowId: requestPayload.workflow_id || requestPayload.workflowId || null,
+      goal: requestPayload.goal || null,
+      actor: { id: caller.id, name: caller.name, type: 'workflow_builder' },
+      async: requestPayload.async !== false,
+      maxAttempts: requestPayload.max_attempts || requestPayload.maxAttempts || null,
+    });
+    logTool(req, 'agent_workflow_certify_start', requestPayload, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'agent_workflow_certify_start', requestPayload, err, 'error', source);
+    res.status(400).json(err);
+  }
+});
+
+/**
+ * Poll certify job status (Workflow Builder). Pull-on-request updates.
+ */
+router.post('/agent-workflow-certify-status', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = req.body || {};
+  try {
+    const caller = getCallerAgent(req);
+    if (!isWorkflowBuilderCaller(caller) && !caller?.is_coo) {
+      const err = { error: 'Workflow Builder or COO required for certify status' };
+      logTool(req, 'agent_workflow_certify_status', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const ownerUserId = resolveWorkflowOwner(req, requestPayload);
+    const { getCertifyStatusForOwner, formatCertifyReply, getCertifyJob } = await import(
+      '../services/agent-workflow-certify.js'
+    );
+    const status = getCertifyStatusForOwner(ownerUserId, {
+      jobId: requestPayload.job_id || requestPayload.jobId || null,
+      workflowId: requestPayload.workflow_id || requestPayload.workflowId || null,
+      query: requestPayload.query || requestPayload.message || null,
+    });
+    if (!status.ok) {
+      logTool(req, 'agent_workflow_certify_status', requestPayload, status, 'error', source);
+      return res.status(404).json(status);
+    }
+    const job = getCertifyJob(status.job_id, ownerUserId);
+    const out = { ...status, reply: formatCertifyReply(job) };
+    logTool(req, 'agent_workflow_certify_status', requestPayload, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'agent_workflow_certify_status', requestPayload, err, 'error', source);
+    res.status(400).json(err);
+  }
+});
+
+/**
+ * Resume blocked certify job after providing inputs (Workflow Builder).
+ */
+router.post('/agent-workflow-certify-resume', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = req.body || {};
+  try {
+    const caller = getCallerAgent(req);
+    if (!isWorkflowBuilderCaller(caller)) {
+      const err = { error: 'Only Workflow Builder agent can resume certify jobs' };
+      logTool(req, 'agent_workflow_certify_resume', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const ownerUserId = resolveWorkflowOwner(req, requestPayload);
+    const jobId = requestPayload.job_id || requestPayload.jobId;
+    if (!jobId) {
+      const err = { error: 'job_id required' };
+      logTool(req, 'agent_workflow_certify_resume', requestPayload, err, 'error', source);
+      return res.status(400).json(err);
+    }
+    const { resumeCertifyJob } = await import('../services/agent-workflow-certify.js');
+    const out = await resumeCertifyJob({
+      ownerUserId,
+      jobId,
+      inputs: requestPayload.inputs || requestPayload.input || {},
+      actor: { id: caller.id, name: caller.name, type: 'workflow_builder' },
+    });
+    logTool(req, 'agent_workflow_certify_resume', requestPayload, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'agent_workflow_certify_resume', requestPayload, err, 'error', source);
     res.status(400).json(err);
   }
 });

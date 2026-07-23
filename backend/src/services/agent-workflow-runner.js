@@ -25,6 +25,11 @@ import { runMasterDataQuery } from './master-data.js';
 import { getTaskTypeDef } from './agent-workflow-task-catalog.js';
 import { evaluateCondition } from './agent-workflow-conditions.js';
 import { validateWorkflowBrainCredentials } from './agent-workflow-brain-providers.js';
+import {
+  resolveWorkflowInputSchema,
+  validateWorkflowInput,
+  WorkflowInputSchemaError,
+} from './workflow-input-schema.js';
 import { getMcpServerForWorkflow, callMcpServerTool, callMcpServerPrompt, callMcpServerResource } from './mcp-servers.js';
 import { parseMcpAuthFromNodeConfig } from './mcp-auth.js';
 import { executeConnectorAction } from './openconnector.js';
@@ -581,7 +586,11 @@ function buildAgentPrompt(runId, definitionId, definitionName, node, inputText, 
 /**
  * Start a new workflow run from published definition.
  */
-export async function startAgentWorkflowRun(definitionId, ownerUserId, { trigger = 'manual', input = '', actor = null } = {}) {
+export async function startAgentWorkflowRun(
+  definitionId,
+  ownerUserId,
+  { trigger = 'manual', input = '', actor = null, inputSchemaOverride = undefined, publicationSchema = null } = {}
+) {
   if (!isUserEnabled(ownerUserId)) {
     throw new Error('Owner account is disabled — workflow schedules and runs are stopped');
   }
@@ -617,14 +626,39 @@ export async function startAgentWorkflowRun(definitionId, ownerUserId, { trigger
   const triggerNode = graph.nodes.find((n) => n.type === 'trigger');
   if (!triggerNode) throw new Error('Published workflow has no trigger node');
 
+  let validatedInput = input;
+  try {
+    const schema = resolveWorkflowInputSchema({
+      def,
+      graph,
+      publicationSchema,
+      override: inputSchemaOverride,
+    });
+    const validated = validateWorkflowInput(schema, input, { trigger });
+    // Prefer structured value for bindings; keep string for plain text.
+    validatedInput =
+      validated.value != null && typeof validated.value === 'object'
+        ? validated.value
+        : validated.display != null
+          ? validated.display
+          : input;
+  } catch (e) {
+    if (e instanceof WorkflowInputSchemaError) throw e;
+    throw e;
+  }
+
   const runNumber =
     (db()
       .prepare('SELECT COALESCE(MAX(run_number), 0) + 1 AS n FROM agent_workflow_runs WHERE definition_id = ?')
       .get(definitionId)?.n) || 1;
 
   const standupId = ensureWorkflowStandup();
+  const triggerInputForStep =
+    validatedInput != null && typeof validatedInput === 'object'
+      ? validatedInput
+      : validatedInput || `Triggered via ${trigger}`;
   const context = {
-    initial_input: input,
+    initial_input: validatedInput,
     node_outputs: {},
     actor,
     workflow_variables: def.variables || {},
@@ -650,11 +684,17 @@ export async function startAgentWorkflowRun(definitionId, ownerUserId, { trigger
   });
 
   upsertStep(runId, triggerNode, 'completed', {
-    input: { trigger, initial_input: input },
-    output: buildStepOutputRecord({ trigger_input: input || `Triggered via ${trigger}` }),
+    input: { trigger, initial_input: validatedInput },
+    output: buildStepOutputRecord({ trigger_input: triggerInputForStep }),
   });
   if (!context.node_outputs) context.node_outputs = {};
-  context.node_outputs[triggerNode.id] = { trigger_input: input || `Triggered via ${trigger}`, text: input || `Triggered via ${trigger}` };
+  context.node_outputs[triggerNode.id] = {
+    trigger_input: triggerInputForStep,
+    text:
+      typeof triggerInputForStep === 'object'
+        ? JSON.stringify(triggerInputForStep)
+        : String(triggerInputForStep || `Triggered via ${trigger}`),
+  };
   saveContext(runId, context);
   updateRunProgress(runId);
 

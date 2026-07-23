@@ -197,6 +197,7 @@ router.post('/', (req, res) => {
       trigger_modes,
       schedule_cron,
       chat_trigger_phrase,
+      input_schema,
     } = req.body || {};
     let workflowName = name?.trim();
     let workflowGraph = graph;
@@ -217,6 +218,7 @@ router.post('/', (req, res) => {
       if (trigger_modes != null) triggerPatch.trigger_modes = trigger_modes;
       if (schedule_cron != null) triggerPatch.schedule_cron = schedule_cron;
       if (chat_trigger_phrase != null) triggerPatch.chat_trigger_phrase = chat_trigger_phrase;
+      if (input_schema !== undefined) triggerPatch.input_schema = input_schema;
     }
 
     if (!workflowName) return res.status(400).json({ error: 'name required' });
@@ -499,15 +501,22 @@ router.get('/:id/runs', (req, res) => {
 router.post('/:id/run', async (req, res) => {
   try {
     const ownerUserId = resolveAuthenticatedCeoUserId(req, req.body);
-    const input = req.body?.input ?? req.body?.message ?? '';
+    const raw = req.body?.input ?? req.body?.message ?? '';
+    const input =
+      raw != null && typeof raw === 'object'
+        ? raw
+        : typeof req.body === 'object' && req.body?.payload != null
+          ? req.body.payload
+          : raw;
     const run = await startAgentWorkflowRun(req.params.id, ownerUserId, {
       trigger: 'manual',
-      input: String(input),
+      input,
       actor: actorFromRequest(req),
     });
     res.status(201).json(run);
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    const status = e?.code === 'INPUT_SCHEMA_VALIDATION' ? 400 : 400;
+    res.status(status).json({ error: e.message, details: e.details || undefined });
   }
 });
 
