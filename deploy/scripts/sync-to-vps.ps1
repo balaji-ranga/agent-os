@@ -104,6 +104,8 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-tenancy-notify-new-agent-e2e.js" `
     "$Repo\backend\scripts\test-workflow-a2a-publish.js" `
     "$Repo\backend\scripts\test-workflow-a2a-oauth.js" `
+    "$Repo\backend\scripts\test-workflow-input-schema.js" `
+    "$Repo\backend\scripts\test-workflow-input-schema-e2e.js" `
     "$Repo\backend\scripts\test-coo-email-send-calendar.js" `
     "$Repo\backend\scripts\test-deepseek-brain-workflow.js" `
     "$Repo\backend\scripts\test-broadcast-notify-ceo.js" `
