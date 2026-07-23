@@ -10,6 +10,7 @@ import { registerOpenClawSessionOwner } from './tool-owner-scope.js';
 import { selectBroadcastRecipients, isReachMeRequest } from './broadcast-routing.js';
 import * as openclaw from '../gateway/openclaw.js';
 import { normalizeReplyContent } from './delegation-queue.js';
+import { insertChatTurn } from './chat-history.js';
 
 /** CEO wants another agent (not COO) to reach/contact them. */
 export function isAskSpecialistToReachMe(message) {
@@ -116,21 +117,18 @@ export async function executeReachMeViaSpecialist({
       );
       specialistReply = normalizeReplyContent(content);
       if (specialistReply) {
-        getDb()
-          .prepare(
-            'INSERT INTO chat_turns (agent_id, owner_user_id, role, content) VALUES (?, ?, ?, ?)'
-          )
-          .run(
-            specialist.id,
-            ownerUserId,
-            'user',
-            `[System] CEO asked you to reach them via COO: ${String(ceoMessage || '').trim().slice(0, 500)}`
-          );
-        getDb()
-          .prepare(
-            'INSERT INTO chat_turns (agent_id, owner_user_id, role, content) VALUES (?, ?, ?, ?)'
-          )
-          .run(specialist.id, ownerUserId, 'assistant', specialistReply);
+        insertChatTurn({
+          agentId: specialist.id,
+          ownerUserId,
+          role: 'user',
+          content: `[System] CEO asked you to reach them via COO: ${String(ceoMessage || '').trim().slice(0, 500)}`,
+        });
+        insertChatTurn({
+          agentId: specialist.id,
+          ownerUserId,
+          role: 'assistant',
+          content: specialistReply,
+        });
       }
     } catch (e) {
       console.warn('[reach-me] specialist ping failed:', e?.message || e);

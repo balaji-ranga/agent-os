@@ -17,6 +17,7 @@ import { userCanAccessAgent } from '../services/agent-chat-scope.js';
 import { registerOpenClawSessionOwner } from '../services/tool-owner-scope.js';
 import { ensureTenantOpenClawAgent } from '../services/openclaw-tenant.js';
 import { normalizeReplyContent } from '../services/delegation-queue.js';
+import { insertChatTurn } from '../services/chat-history.js';
 import {
   selectBroadcastRecipients,
   isReachMeRequest,
@@ -75,13 +76,9 @@ async function chatWithRetry(openclawAgentId, messages, sessionUser) {
 
 function persistBroadcastChat(db, agentId, ownerUserId, userContent, replyText) {
   try {
-    db.prepare(
-      'INSERT INTO chat_turns (agent_id, owner_user_id, role, content) VALUES (?, ?, ?, ?)'
-    ).run(agentId, ownerUserId, 'user', userContent);
+    insertChatTurn({ agentId, ownerUserId, role: 'user', content: userContent });
     if (replyText) {
-      db.prepare(
-        'INSERT INTO chat_turns (agent_id, owner_user_id, role, content) VALUES (?, ?, ?, ?)'
-      ).run(agentId, ownerUserId, 'assistant', replyText);
+      insertChatTurn({ agentId, ownerUserId, role: 'assistant', content: replyText });
     }
   } catch (e) {
     console.warn('[broadcast] chat persist failed', agentId, e?.message || e);

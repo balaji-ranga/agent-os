@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
@@ -18,6 +18,17 @@ const secondaryBtn = {
   whiteSpace: 'nowrap',
 };
 
+function formatArchivedAt(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(String(iso).includes('T') ? iso : `${String(iso).replace(' ', 'T')}Z`);
+    if (Number.isNaN(d.getTime())) return String(iso);
+    return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  } catch {
+    return String(iso);
+  }
+}
+
 export default function AgentChat() {
   const { agentId } = useParams();
   const [searchParams] = useSearchParams();
@@ -25,6 +36,9 @@ export default function AgentChat() {
   const { dataCeoUserId } = useAuth();
   const [agent, setAgent] = useState(null);
   const [turns, setTurns] = useState([]);
+  const [history, setHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [restoreBusyId, setRestoreBusyId] = useState(null);
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState([]);
   const [sending, setSending] = useState(false);
@@ -32,6 +46,32 @@ export default function AgentChat() {
   const [error, setError] = useState(null);
   const [banner, setBanner] = useState(null);
   const scrollRef = useRef(null);
+
+  const refreshHistory = useCallback(async () => {
+    if (!agentId) return;
+    setHistoryLoading(true);
+    try {
+      const r = await api.agentChatSessions(agentId);
+      setHistory(Array.isArray(r?.sessions) ? r.sessions : []);
+    } catch {
+      setHistory([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [agentId]);
+
+  const loadActiveChat = useCallback(async () => {
+    if (!agentId) return;
+    const r = await api.agentChatHistory(agentId);
+    setTurns(r.turns || []);
+    if (r.rolled_over) {
+      setBanner({
+        type: 'info',
+        text: 'A new day started — previous chat was archived. You are on a fresh conversation.',
+      });
+      refreshHistory();
+    }
+  }, [agentId, refreshHistory]);
 
   useEffect(() => {
     api.agentGet(agentId)
@@ -41,11 +81,10 @@ export default function AgentChat() {
 
   useEffect(() => {
     if (!agentId) return;
-    api.agentChatHistory(agentId)
-      .then(setTurns)
-      .catch(() => setTurns([]));
     setBanner(null);
-  }, [agentId]);
+    loadActiveChat().catch(() => setTurns([]));
+    refreshHistory();
+  }, [agentId, loadActiveChat, refreshHistory]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -56,23 +95,51 @@ export default function AgentChat() {
     if (clearing || sending) return;
     if (
       turns.length > 0 &&
-      !window.confirm('Start a new chat? This clears the current conversation for this agent (helps avoid TPM/context limits).')
+      !window.confirm('Start a new chat? The current conversation will move to History with an auto-generated title.')
     ) {
       return;
     }
     setClearing(true);
     setError(null);
     try {
-      await api.agentSessionsNew(agentId);
+      const result = await api.agentSessionsNew(agentId);
       setTurns([]);
       setBanner({
         type: 'info',
-        text: 'New chat started. Previous session cleared.',
+        text: result?.message || 'New chat started. Previous session archived.',
       });
+      await refreshHistory();
     } catch (err) {
       setError(err.message);
     } finally {
       setClearing(false);
+    }
+  };
+
+  const restoreSession = async (session, mode) => {
+    if (!session?.id || restoreBusyId || sending || clearing) return;
+    const label = mode === 'summarized' ? 'summarized context' : 'full history';
+    if (
+      !window.confirm(
+        `Restore "${session.title || 'chat'}" with ${label}? Your current chat will be archived first if it has messages.`
+      )
+    ) {
+      return;
+    }
+    setRestoreBusyId(`${session.id}:${mode}`);
+    setError(null);
+    try {
+      const r = await api.agentChatRestore(agentId, session.id, mode);
+      setTurns(r.turns || []);
+      setBanner({
+        type: 'info',
+        text: r.message || `Restored ${label}.`,
+      });
+      await refreshHistory();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setRestoreBusyId(null);
     }
   };
 
@@ -98,6 +165,7 @@ export default function AgentChat() {
           type: 'warn',
           text: r.session_reset.message || 'Chat was reset automatically to protect TPM/context limits.',
         });
+        refreshHistory();
       }
       if (r.topic_hint?.hint) {
         setBanner({
@@ -138,160 +206,201 @@ export default function AgentChat() {
   }
 
   return (
-    <div className="page-chat page-chat-inner">
-      <div style={{ flexShrink: 0, marginBottom: '1rem' }}>
-        <Link to="/" style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>
-          ← Dashboard
-        </Link>
-        <div
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            alignItems: 'flex-start',
-            justifyContent: 'space-between',
-            gap: '0.75rem',
-            marginTop: '0.5rem',
-          }}
-        >
-          <div style={{ minWidth: 0, flex: '1 1 220px' }}>
-            <h1 style={{ margin: 0 }}>{agent?.name || agentId} — Chat</h1>
-            <p style={{ color: 'var(--muted)', margin: '0.35rem 0 0 0' }}>
-              Human–agent chat via OpenClaw. Use the paperclip in the composer to attach images/docs (Master Data RAG).
-              {profileId && (
-                <>
-                  {' '}
-                  Profile context: <code>{profileId}</code>
-                </>
-              )}
-            </p>
-          </div>
-          <button type="button" onClick={startNewChat} disabled={clearing || sending} style={secondaryBtn}>
-            {clearing ? 'Starting…' : 'New chat'}
-          </button>
-        </div>
-      </div>
-
-      {banner && (
-        <div
-          style={{
-            flexShrink: 0,
-            padding: '0.65rem 1rem',
-            background:
-              banner.type === 'warn'
-                ? 'rgba(251, 191, 36, 0.12)'
-                : banner.type === 'hint'
-                  ? 'rgba(96, 165, 250, 0.12)'
-                  : 'rgba(52, 211, 153, 0.12)',
-            border: '1px solid var(--border)',
-            borderRadius: 8,
-            marginBottom: '1rem',
-            color: 'var(--text)',
-            fontSize: '0.9rem',
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: '0.5rem',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <span style={{ flex: '1 1 200px' }}>{banner.text}</span>
-          <span style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            {banner.chatUrl && (
-              <Link
-                to={banner.chatUrl}
-                style={{ ...secondaryBtn, textDecoration: 'none', display: 'inline-block' }}
-              >
-                Open {banner.suggestedAgentId || 'specialist'}
-              </Link>
-            )}
-            <button type="button" onClick={() => setBanner(null)} style={secondaryBtn}>
-              Dismiss
-            </button>
-          </span>
-        </div>
-      )}
-
-      {error && (
-        <div
-          style={{
-            flexShrink: 0,
-            padding: '0.5rem 1rem',
-            background: 'rgba(248,113,113,0.15)',
-            borderRadius: 8,
-            marginBottom: '1rem',
-            color: '#f87171',
-          }}
-        >
-          {error}
-        </div>
-      )}
-
-      <div
-        ref={scrollRef}
-        className="chat-scroll-panel"
-        style={{
-          background: 'var(--surface)',
-          border: '1px solid var(--border)',
-          borderRadius: 8,
-          padding: '1rem',
-          marginBottom: '1rem',
-        }}
-      >
-        {turns.length === 0 && !sending && (
-          <div style={{ color: 'var(--muted)' }}>No messages yet. Send a message below.</div>
-        )}
-        {turns.map((t, i) => (
-          <ChatMessageRow
-            key={t.id || i}
-            role={t.role}
-            content={t.content}
-            createdAt={t.created_at}
-            agentId={agentId}
-            messageId={t.id}
-            feedbackSource="chat"
-            toolCalls={t.tool_calls}
-          />
-        ))}
-        {sending && <div style={{ color: 'var(--muted)' }}>…</div>}
-      </div>
-
-      <form onSubmit={send} style={{ flexShrink: 0 }}>
-        <div className="chat-compose-row">
-          <ChatComposeInput
-            placeholder="Message… (Shift+Enter for new line)"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onSend={send}
-            disabled={sending}
-            attachments={attachments}
-            onAttachmentsChange={setAttachments}
-            rows={3}
+    <div className="page-chat page-chat-inner page-chat-with-history">
+      <div className="chat-main-column">
+        <div style={{ flexShrink: 0, marginBottom: '1rem' }}>
+          <Link to="/" style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>
+            ← Dashboard
+          </Link>
+          <div
             style={{
-              padding: '0.75rem 1rem',
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderRadius: 8,
-              color: 'var(--text)',
-              resize: 'vertical',
-              minHeight: 56,
-              font: 'inherit',
-            }}
-          />
-          <button
-            type="submit"
-            disabled={sending || (!input.trim() && !attachments.length)}
-            style={{
-              padding: '0.75rem 1.25rem',
-              background: sending || (!input.trim() && !attachments.length) ? 'var(--border)' : 'var(--accent)',
-              border: 'none',
-              borderRadius: 8,
-              color: '#fff',
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              gap: '0.75rem',
+              marginTop: '0.5rem',
             }}
           >
-            Send
-          </button>
+            <div style={{ minWidth: 0, flex: '1 1 220px' }}>
+              <h1 style={{ margin: 0 }}>{agent?.name || agentId} — Chat</h1>
+              <p style={{ color: 'var(--muted)', margin: '0.35rem 0 0 0' }}>
+                Human–agent chat via OpenClaw. Use the paperclip in the composer to attach images/docs (Master Data RAG).
+                {profileId && (
+                  <>
+                    {' '}
+                    Profile context: <code>{profileId}</code>
+                  </>
+                )}
+              </p>
+            </div>
+            <button type="button" onClick={startNewChat} disabled={clearing || sending} style={secondaryBtn}>
+              {clearing ? 'Archiving…' : 'New chat'}
+            </button>
+          </div>
         </div>
-      </form>
+
+        {banner && (
+          <div
+            style={{
+              flexShrink: 0,
+              padding: '0.65rem 1rem',
+              background:
+                banner.type === 'warn'
+                  ? 'rgba(251, 191, 36, 0.12)'
+                  : banner.type === 'hint'
+                    ? 'rgba(96, 165, 250, 0.12)'
+                    : 'rgba(52, 211, 153, 0.12)',
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              marginBottom: '1rem',
+              color: 'var(--text)',
+              fontSize: '0.9rem',
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '0.5rem',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <span style={{ flex: '1 1 200px' }}>{banner.text}</span>
+            <span style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              {banner.chatUrl && (
+                <Link
+                  to={banner.chatUrl}
+                  style={{ ...secondaryBtn, textDecoration: 'none', display: 'inline-block' }}
+                >
+                  Open {banner.suggestedAgentId || 'specialist'}
+                </Link>
+              )}
+              <button type="button" onClick={() => setBanner(null)} style={secondaryBtn}>
+                Dismiss
+              </button>
+            </span>
+          </div>
+        )}
+
+        {error && (
+          <div
+            style={{
+              flexShrink: 0,
+              padding: '0.5rem 1rem',
+              background: 'rgba(248,113,113,0.15)',
+              borderRadius: 8,
+              marginBottom: '1rem',
+              color: '#f87171',
+            }}
+          >
+            {error}
+          </div>
+        )}
+
+        <div
+          ref={scrollRef}
+          className="chat-scroll-panel"
+          style={{
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            borderRadius: 8,
+            padding: '1rem',
+            marginBottom: '1rem',
+          }}
+        >
+          {turns.length === 0 && !sending && (
+            <div style={{ color: 'var(--muted)' }}>No messages yet. Send a message below.</div>
+          )}
+          {turns.map((t, i) => (
+            <ChatMessageRow
+              key={t.id || i}
+              role={t.role}
+              content={t.content}
+              createdAt={t.created_at}
+              agentId={agentId}
+              messageId={t.id}
+              feedbackSource="chat"
+              toolCalls={t.tool_calls}
+            />
+          ))}
+          {sending && <div style={{ color: 'var(--muted)' }}>…</div>}
+        </div>
+
+        <form onSubmit={send} style={{ flexShrink: 0 }}>
+          <div className="chat-compose-row">
+            <ChatComposeInput
+              placeholder="Message… (Shift+Enter for new line)"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onSend={send}
+              disabled={sending}
+              attachments={attachments}
+              onAttachmentsChange={setAttachments}
+              rows={3}
+              style={{
+                padding: '0.75rem 1rem',
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: 8,
+                color: 'var(--text)',
+                resize: 'vertical',
+                minHeight: 56,
+                font: 'inherit',
+              }}
+            />
+            <button
+              type="submit"
+              disabled={sending || (!input.trim() && !attachments.length)}
+              style={{
+                padding: '0.75rem 1.25rem',
+                background: sending || (!input.trim() && !attachments.length) ? 'var(--border)' : 'var(--accent)',
+                border: 'none',
+                borderRadius: 8,
+                color: '#fff',
+              }}
+            >
+              Send
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <aside className="chat-history-panel" aria-label="Chat history">
+        <div className="chat-history-header">
+          <h2>History</h2>
+          <span className="chat-history-meta">Last 30 days</span>
+        </div>
+        <div className="chat-history-scroll">
+          {historyLoading && <div className="chat-history-empty">Loading…</div>}
+          {!historyLoading && history.length === 0 && (
+            <div className="chat-history-empty">No archived chats yet. Use New chat to archive the current conversation.</div>
+          )}
+          {history.map((s) => (
+            <div key={s.id} className="chat-history-item">
+              <div className="chat-history-title" title={s.title}>
+                {s.title || 'Untitled chat'}
+              </div>
+              <div className="chat-history-date">{formatArchivedAt(s.archived_at || s.started_at)}</div>
+              <div className="chat-history-actions">
+                <button
+                  type="button"
+                  style={secondaryBtn}
+                  disabled={!!restoreBusyId || sending || clearing}
+                  onClick={() => restoreSession(s, 'as_is')}
+                >
+                  {restoreBusyId === `${s.id}:as_is` ? '…' : 'Open as-is'}
+                </button>
+                <button
+                  type="button"
+                  style={secondaryBtn}
+                  disabled={!!restoreBusyId || sending || clearing}
+                  onClick={() => restoreSession(s, 'summarized')}
+                >
+                  {restoreBusyId === `${s.id}:summarized` ? '…' : 'Summarize'}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </aside>
     </div>
   );
 }

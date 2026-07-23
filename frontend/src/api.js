@@ -81,7 +81,24 @@ export const api = {
   agentCreate: (body) => post('/agents', body),
   agentUpdate: (id, body) => patch(`/agents/${id}`, body),
   agentDelete: (id) => del(`/agents/${id}`),
-  agentChatHistory: (id) => get(`/agents/${id}/chat`),
+  agentChatHistory: async (id) => {
+    const tz =
+      typeof Intl !== 'undefined'
+        ? Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+        : 'UTC';
+    const data = await get(`/agents/${id}/chat?tz=${encodeURIComponent(tz)}`);
+    if (Array.isArray(data)) return { turns: data, session: null, rolled_over: false };
+    return {
+      turns: Array.isArray(data?.turns) ? data.turns : [],
+      session: data?.session || null,
+      rolled_over: !!data?.rolled_over,
+    };
+  },
+  agentChatSessions: (id) => get(`/agents/${encodeURIComponent(id)}/chat/history`),
+  agentChatRestore: (id, sessionId, mode = 'as_is') =>
+    post(`/agents/${encodeURIComponent(id)}/chat/history/${encodeURIComponent(sessionId)}/restore`, {
+      mode,
+    }),
   agentChatSend: (id, message, userId = 'default', profileId = null) =>
     post(`/agents/${id}/chat`, {
       message,

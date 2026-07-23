@@ -23,6 +23,7 @@ import {
 import { buildKanbanChatStatusGuidance } from '../services/kanban-chat-status.js';
 import { ensureTenantOpenClawAgent } from '../services/openclaw-tenant.js';
 import { registerOpenClawSessionOwner } from '../services/tool-owner-scope.js';
+import { insertChatTurn } from '../services/chat-history.js';
 
 const router = Router();
 router.use(attachAuthUser);
@@ -41,9 +42,12 @@ function mirrorKanbanTurnToAgentChat({ agentId, ownerUserId, role, content, task
       ? `[Kanban #${taskId}${taskTitle ? ` · ${String(taskTitle).slice(0, 80)}` : ''}]\n`
       : `[Kanban #${taskId}]\n`;
   try {
-    db()
-      .prepare('INSERT INTO chat_turns (agent_id, owner_user_id, role, content) VALUES (?, ?, ?, ?)')
-      .run(agentId, ownerUserId, role, `${prefix}${content}`);
+    insertChatTurn({
+      agentId,
+      ownerUserId,
+      role,
+      content: `${prefix}${content}`,
+    });
   } catch (e) {
     console.warn('[kanban] mirror to chat_turns failed:', e.message);
   }

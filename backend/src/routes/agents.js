@@ -7,8 +7,6 @@ import { allowInternalOrAuth } from '../middleware/internal-auth.js';
 import { listAgentsForUser } from '../services/users.js';
 import {
   assertUserAgentAccess,
-  chatOwnerIdsForRead,
-  clearOpenClawSessionForUser,
   extractOwnerUserIdFromText,
   resolveChatOwnerUserId,
   userCanAccessAgent,
@@ -37,6 +35,14 @@ import {
   getChatThreadId,
   detectTopicShiftHeuristic,
 } from '../services/chat-session-policy.js';
+import {
+  ensureActiveChatSession,
+  listActiveSessionTurns,
+  listArchivedChatSessions,
+  restoreChatSession,
+  insertChatTurn,
+  formatSessionForApi,
+} from '../services/chat-history.js';
 import { resolveLlmConfigForUser } from '../services/user-llm-settings.js';
 
 const router = Router();
@@ -265,15 +271,15 @@ router.put('/:id/workspace/files/:name', requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/agents/:id/sessions/clear — clear this user's OpenClaw session + chat history for the agent
-router.post('/:id/sessions/clear', requireAuth, (req, res) => {
+// POST /api/agents/:id/sessions/clear — archive current chat + start fresh (entitlements)
+router.post('/:id/sessions/clear', requireAuth, async (req, res) => {
   try {
     const ownerUserId = resolveChatOwnerUserId(req, req.body || {});
     assertUserAgentAccess(req.authUser, req.params.id);
     const agent = db().prepare('SELECT id, openclaw_agent_id FROM agents WHERE id = ?').get(req.params.id);
     if (!agent) return res.status(404).json({ error: 'Agent not found' });
     const ensured = ensureTenantOpenClawAgent(agent, ownerUserId);
-    const result = startNewChatSession({
+    const result = await startNewChatSession({
       agentId: agent.id,
       openclawAgentId: ensured.openclawAgentId,
       ownerUserId,
@@ -284,20 +290,60 @@ router.post('/:id/sessions/clear', requireAuth, (req, res) => {
   }
 });
 
-// POST /api/agents/:id/sessions/new — New chat (same as clear + explicit new thread); entitlements required
-router.post('/:id/sessions/new', requireAuth, (req, res) => {
+// POST /api/agents/:id/sessions/new — New chat: archive current (LLM title) + fresh thread
+router.post('/:id/sessions/new', requireAuth, async (req, res) => {
   try {
     const ownerUserId = resolveChatOwnerUserId(req, req.body || {});
     assertUserAgentAccess(req.authUser, req.params.id);
     const agent = db().prepare('SELECT id, openclaw_agent_id FROM agents WHERE id = ?').get(req.params.id);
     if (!agent) return res.status(404).json({ error: 'Agent not found' });
     const ensured = ensureTenantOpenClawAgent(agent, ownerUserId);
-    const result = startNewChatSession({
+    const result = await startNewChatSession({
       agentId: agent.id,
       openclawAgentId: ensured.openclawAgentId,
       ownerUserId,
     });
     res.json(result);
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+// GET /api/agents/:id/chat/history — archived sessions (last 30 days), user+agent scoped
+router.get('/:id/chat/history', requireAuth, (req, res) => {
+  try {
+    const ownerUserId = resolveChatOwnerUserId(req, req.query || {});
+    assertUserAgentAccess(req.authUser, req.params.id);
+    const days = Math.min(30, Math.max(1, parseInt(req.query?.days, 10) || 30));
+    const rows = listArchivedChatSessions(req.params.id, ownerUserId, { days });
+    res.json({ sessions: rows.map(formatSessionForApi), days });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+// POST /api/agents/:id/chat/history/:sessionId/restore — restore as_is | summarized into new active chat
+router.post('/:id/chat/history/:sessionId/restore', requireAuth, async (req, res) => {
+  try {
+    const ownerUserId = resolveChatOwnerUserId(req, req.body || {});
+    assertUserAgentAccess(req.authUser, req.params.id);
+    const agent = db().prepare('SELECT id, openclaw_agent_id FROM agents WHERE id = ?').get(req.params.id);
+    if (!agent) return res.status(404).json({ error: 'Agent not found' });
+    const mode = String(req.body?.mode || 'as_is').toLowerCase() === 'summarized' ? 'summarized' : 'as_is';
+    const ensured = ensureTenantOpenClawAgent(agent, ownerUserId);
+    const result = await restoreChatSession({
+      sessionId: req.params.sessionId,
+      ownerUserId,
+      agentId: agent.id,
+      openclawAgentId: ensured.openclawAgentId,
+      mode,
+    });
+    res.json({
+      ...result,
+      session: formatSessionForApi(result.session),
+      source: formatSessionForApi(result.source),
+      turns: attachToolCallsToChatTurns(result.turns || [], agent.id, ownerUserId),
+    });
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message });
   }
@@ -392,21 +438,32 @@ router.delete('/:id', requireAuth, requireCeoOrAdmin, (req, res) => {
   }
 });
 
-// Chat: get recent turns for an agent (scoped to signed-in user)
-router.get('/:id/chat', requireAuth, (req, res) => {
+// Chat: active session turns (+ visit-time daily rollover). User+agent entitlements.
+router.get('/:id/chat', requireAuth, async (req, res) => {
   try {
     const ownerUserId = resolveChatOwnerUserId(req, req.query || {});
     assertUserAgentAccess(req.authUser, req.params.id);
-    const ownerIds = chatOwnerIdsForRead(ownerUserId);
-    const placeholders = ownerIds.map(() => '?').join(',');
-    const turns = db()
-      .prepare(
-        `SELECT id, role, content, created_at FROM chat_turns
-         WHERE agent_id = ? AND owner_user_id IN (${placeholders})
-         ORDER BY created_at`
-      )
-      .all(req.params.id, ...ownerIds);
-    res.json(attachToolCallsToChatTurns(turns, req.params.id, ownerUserId));
+    const agent = db().prepare('SELECT id, openclaw_agent_id FROM agents WHERE id = ?').get(req.params.id);
+    if (!agent) return res.status(404).json({ error: 'Agent not found' });
+    const ensured = ensureTenantOpenClawAgent(agent, ownerUserId);
+    const tz =
+      String(req.query?.tz || req.headers['x-timezone'] || process.env.TZ || 'UTC').trim() || 'UTC';
+    const { session, rolled_over } = await ensureActiveChatSession({
+      agentId: agent.id,
+      ownerUserId,
+      openclawAgentId: ensured.openclawAgentId,
+      timeZone: tz,
+      generateTitle: true,
+    });
+    const { turns } = listActiveSessionTurns(agent.id, ownerUserId);
+    const asArray = String(req.query?.format || '').toLowerCase() === 'array';
+    const payloadTurns = attachToolCallsToChatTurns(turns, agent.id, ownerUserId);
+    if (asArray) return res.json(payloadTurns);
+    res.json({
+      turns: payloadTurns,
+      session: formatSessionForApi(session),
+      rolled_over: !!rolled_over,
+    });
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message });
   }
@@ -428,12 +485,8 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     if (agent.is_coo) {
       const reach = await tryHandleCooReachMeRequest(ownerUserId, message.trim());
       if (reach?.ok) {
-        db()
-          .prepare('INSERT INTO chat_turns (agent_id, owner_user_id, role, content) VALUES (?, ?, ?, ?)')
-          .run(agentId, ownerUserId, 'user', message);
-        db()
-          .prepare('INSERT INTO chat_turns (agent_id, owner_user_id, role, content) VALUES (?, ?, ?, ?)')
-          .run(agentId, ownerUserId, 'assistant', reach.cooReply);
+        insertChatTurn({ agentId, ownerUserId, role: 'user', content: message });
+        insertChatTurn({ agentId, ownerUserId, role: 'assistant', content: reach.cooReply });
         return res.json({
           reply: reach.cooReply,
           agent_id: agentId,
@@ -450,12 +503,8 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       // Hard path: "what agents are in the org?" — list from DB (Ollama often confuses this with workflows)
       const orgList = tryHandleCooOrgAgentsList(ownerUserId, message.trim());
       if (orgList?.ok) {
-        db()
-          .prepare('INSERT INTO chat_turns (agent_id, owner_user_id, role, content) VALUES (?, ?, ?, ?)')
-          .run(agentId, ownerUserId, 'user', message);
-        db()
-          .prepare('INSERT INTO chat_turns (agent_id, owner_user_id, role, content) VALUES (?, ?, ?, ?)')
-          .run(agentId, ownerUserId, 'assistant', orgList.cooReply);
+        insertChatTurn({ agentId, ownerUserId, role: 'user', content: message });
+        insertChatTurn({ agentId, ownerUserId, role: 'assistant', content: orgList.cooReply });
         return res.json({
           reply: orgList.cooReply,
           agent_id: agentId,
@@ -467,12 +516,8 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       // Hard path: specialty work / "delegate …" — schedule real agents, don't let COO do the work
       const delegated = await tryHandleCooSpecialtyDelegation(ownerUserId, message.trim());
       if (delegated?.ok) {
-        db()
-          .prepare('INSERT INTO chat_turns (agent_id, owner_user_id, role, content) VALUES (?, ?, ?, ?)')
-          .run(agentId, ownerUserId, 'user', message);
-        db()
-          .prepare('INSERT INTO chat_turns (agent_id, owner_user_id, role, content) VALUES (?, ?, ?, ?)')
-          .run(agentId, ownerUserId, 'assistant', delegated.cooReply);
+        insertChatTurn({ agentId, ownerUserId, role: 'user', content: message });
+        insertChatTurn({ agentId, ownerUserId, role: 'assistant', content: delegated.cooReply });
         return res.json({
           reply: delegated.cooReply,
           agent_id: agentId,
@@ -492,12 +537,8 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     if (!agent.is_coo) {
       const referral = await tryBuildSpecialtyReferral(ownerUserId, agent, message.trim());
       if (referral) {
-        db()
-          .prepare('INSERT INTO chat_turns (agent_id, owner_user_id, role, content) VALUES (?, ?, ?, ?)')
-          .run(agentId, ownerUserId, 'user', message);
-        db()
-          .prepare('INSERT INTO chat_turns (agent_id, owner_user_id, role, content) VALUES (?, ?, ?, ?)')
-          .run(agentId, ownerUserId, 'assistant', referral.reply);
+        insertChatTurn({ agentId, ownerUserId, role: 'user', content: message });
+        insertChatTurn({ agentId, ownerUserId, role: 'assistant', content: referral.reply });
         return res.json({
           reply: referral.reply,
           agent_id: agentId,
@@ -531,17 +572,20 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     const ensured = ensureTenantOpenClawAgent(agent, ownerUserId);
     const openclawAgentId = ensured.openclawAgentId;
 
-    // Load recent history from DB for context (last N turns, scoped to this user)
-    const ownerIds = chatOwnerIdsForRead(ownerUserId);
-    const ownerPlaceholders = ownerIds.map(() => '?').join(',');
-    let history = db()
-      .prepare(
-        `SELECT role, content FROM chat_turns
-         WHERE agent_id = ? AND owner_user_id IN (${ownerPlaceholders})
-         ORDER BY created_at DESC LIMIT 20`
-      )
-      .all(agentId, ...ownerIds)
-      .reverse();
+    await ensureActiveChatSession({
+      agentId,
+      ownerUserId,
+      openclawAgentId,
+      generateTitle: false,
+    });
+
+    // Load recent history from active session only
+    let history = listActiveSessionTurns(agentId, ownerUserId, { limit: 20 }).turns.map((t) => ({
+      role: t.role,
+      content: t.content,
+    }));
+    // listActive returns ASC; take last 20
+    if (history.length > 20) history = history.slice(-20);
 
     let sessionMeta = null;
     let topicHint = null;
@@ -551,22 +595,18 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       topicHint = detectTopicShiftHeuristic(message.trim(), agentId);
     }
 
-    // Fat-context auto-split (TPM protection)
+    // Fat-context auto-split (TPM protection) — archives full session, keeps recent turns
     if (shouldAutoSplitFatContext(history, message)) {
-      sessionMeta = autoSplitFatChatSession({
+      sessionMeta = await autoSplitFatChatSession({
         agentId,
         openclawAgentId,
         ownerUserId,
         historyTurns: history,
       });
-      history = db()
-        .prepare(
-          `SELECT role, content FROM chat_turns
-           WHERE agent_id = ? AND owner_user_id = ?
-           ORDER BY created_at DESC LIMIT 20`
-        )
-        .all(agentId, ownerUserId)
-        .reverse();
+      history = listActiveSessionTurns(agentId, ownerUserId, { limit: 20 }).turns.map((t) => ({
+        role: t.role,
+        content: t.content,
+      }));
     }
 
     const messages = history.map((t) => ({ role: t.role, content: t.content }));
@@ -665,12 +705,8 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     const tool_calls = listToolCallsSince(agentId, ownerUserId, toolsSince);
 
     // Persist user message and assistant reply (same normalized string shape as standup chat)
-    db()
-      .prepare('INSERT INTO chat_turns (agent_id, owner_user_id, role, content) VALUES (?, ?, ?, ?)')
-      .run(agentId, ownerUserId, 'user', message);
-    db()
-      .prepare('INSERT INTO chat_turns (agent_id, owner_user_id, role, content) VALUES (?, ?, ?, ?)')
-      .run(agentId, ownerUserId, 'assistant', replyText);
+    insertChatTurn({ agentId, ownerUserId, role: 'user', content: message });
+    insertChatTurn({ agentId, ownerUserId, role: 'assistant', content: replyText });
 
     res.json({
       reply: replyText,
@@ -744,16 +780,18 @@ router.post('/:id/chat/from-agent', allowInternalOrAuth, async (req, res) => {
     const ensured = ensureTenantOpenClawAgent(agent, ownerUserId);
     const openclawAgentId = ensured.openclawAgentId;
 
-    const ownerIds = chatOwnerIdsForRead(ownerUserId);
-    const ownerPlaceholders = ownerIds.map(() => '?').join(',');
-    const history = db()
-      .prepare(
-        `SELECT role, content FROM chat_turns
-         WHERE agent_id = ? AND owner_user_id IN (${ownerPlaceholders})
-         ORDER BY created_at DESC LIMIT 20`
-      )
-      .all(agentId, ...ownerIds)
-      .reverse();
+    await ensureActiveChatSession({
+      agentId,
+      ownerUserId,
+      openclawAgentId,
+      generateTitle: false,
+    });
+
+    let history = listActiveSessionTurns(agentId, ownerUserId, { limit: 20 }).turns.map((t) => ({
+      role: t.role,
+      content: t.content,
+    }));
+    if (history.length > 20) history = history.slice(-20);
     const messages = history.map((t) => ({ role: t.role, content: t.content }));
     messages.push({ role: 'user', content: userContent });
 
@@ -761,12 +799,8 @@ router.post('/:id/chat/from-agent', allowInternalOrAuth, async (req, res) => {
     const { content: reply, usage } = await openclaw.chatCompletions(openclawAgentId, messages, sessionUser, false);
     const replyText = normalizeReplyContent(reply);
 
-    db()
-      .prepare('INSERT INTO chat_turns (agent_id, owner_user_id, role, content) VALUES (?, ?, ?, ?)')
-      .run(agentId, ownerUserId, 'user', userContent);
-    db()
-      .prepare('INSERT INTO chat_turns (agent_id, owner_user_id, role, content) VALUES (?, ?, ?, ?)')
-      .run(agentId, ownerUserId, 'assistant', replyText);
+    insertChatTurn({ agentId, ownerUserId, role: 'user', content: userContent });
+    insertChatTurn({ agentId, ownerUserId, role: 'assistant', content: replyText });
 
     res.json({ reply, usage, agent_id: agentId, from_agent_id: fromAgentId });
   } catch (e) {

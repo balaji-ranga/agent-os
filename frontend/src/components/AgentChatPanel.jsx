@@ -25,8 +25,9 @@ export default function AgentChatPanel({
 
   useEffect(() => {
     if (!agentId) return;
-    api.agentChatHistory(agentId)
-      .then(setTurns)
+    api
+      .agentChatHistory(agentId)
+      .then((r) => setTurns(Array.isArray(r) ? r : r.turns || []))
       .catch(() => setTurns([]));
   }, [agentId]);
 

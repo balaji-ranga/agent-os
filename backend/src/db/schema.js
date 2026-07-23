@@ -1223,6 +1223,36 @@ export function initDb() {
     _db.exec(`ALTER TABLE agent_workflow_definitions ADD COLUMN certify_state TEXT`);
   } catch (_) {}
 
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS chat_sessions (
+        id TEXT PRIMARY KEY,
+        agent_id TEXT NOT NULL,
+        owner_user_id TEXT NOT NULL,
+        title TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'archived')),
+        started_at TEXT NOT NULL DEFAULT (datetime('now')),
+        archived_at TEXT,
+        summary TEXT,
+        oc_thread_id TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_chat_sessions_owner_agent ON chat_sessions(owner_user_id, agent_id, status, archived_at DESC)`
+    );
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_chat_sessions_active ON chat_sessions(agent_id, owner_user_id, status)`
+    );
+    try {
+      _db.exec(`ALTER TABLE chat_turns ADD COLUMN session_id TEXT`);
+    } catch (_) {}
+    try {
+      _db.exec(`CREATE INDEX IF NOT EXISTS idx_chat_turns_session ON chat_turns(session_id, created_at)`);
+    } catch (_) {}
+  } catch (_) {}
+
   return _db;
 }
 

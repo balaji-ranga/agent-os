@@ -8,6 +8,7 @@ import { join } from 'path';
 import { getDb } from '../db/schema.js';
 import * as openclaw from '../gateway/openclaw.js';
 import { extractOwnerUserIdFromText } from './agent-chat-scope.js';
+import { insertChatTurn } from './chat-history.js';
 import { cronAddOneShotWebhook } from '../gateway/openclaw-cron.js';
 import { classifyIntentAndAllocate } from './intent-classifier.js';
 import {
@@ -186,7 +187,6 @@ export function extractTaskSummaryFromPrompt(prompt) {
  */
 export function appendDelegationResponseToAgentChat(agentId, promptSnippet, responseContent, ownerUserId = null) {
   if (!agentId || responseContent == null) return;
-  const db = getDb();
   const owner =
     ownerUserId ||
     extractOwnerUserIdFromText(promptSnippet) ||
@@ -194,8 +194,8 @@ export function appendDelegationResponseToAgentChat(agentId, promptSnippet, resp
   const userMsg = (promptSnippet || 'Task from COO').trim().slice(0, 4000);
   const assistantMsg = (typeof responseContent === 'string' ? responseContent : JSON.stringify(responseContent)).trim().slice(0, 100000);
   try {
-    db.prepare('INSERT INTO chat_turns (agent_id, owner_user_id, role, content) VALUES (?, ?, ?, ?)').run(agentId, owner, 'user', userMsg);
-    db.prepare('INSERT INTO chat_turns (agent_id, owner_user_id, role, content) VALUES (?, ?, ?, ?)').run(agentId, owner, 'assistant', assistantMsg);
+    insertChatTurn({ agentId, ownerUserId: owner, role: 'user', content: userMsg });
+    insertChatTurn({ agentId, ownerUserId: owner, role: 'assistant', content: assistantMsg });
   } catch (_) {}
 }
 

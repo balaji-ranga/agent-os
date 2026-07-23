@@ -419,6 +419,105 @@ html.auth-route #root {
   margin: 0 auto;
   width: 100%;
 }
+.page-chat-with-history {
+  max-width: 1180px;
+  display: flex;
+  flex-direction: row;
+  gap: 1rem;
+  align-items: stretch;
+}
+.chat-main-column {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.chat-history-panel {
+  flex: 0 0 280px;
+  width: 280px;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;  overflow: hidden;
+}
+.chat-history-header {
+  flex-shrink: 0;
+  padding: 0.85rem 1rem 0.65rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.chat-history-header h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+.chat-history-meta {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+.chat-history-scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.5rem;
+}
+.chat-history-empty {
+  color: var(--muted);
+  font-size: 0.85rem;
+  padding: 0.75rem 0.5rem;
+  line-height: 1.4;
+}
+.chat-history-item {
+  padding: 0.65rem 0.55rem;
+  border-radius: 6px;
+  border: 1px solid transparent;
+}
+.chat-history-item + .chat-history-item {
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+}
+.chat-history-title {
+  font-size: 0.88rem;
+  font-weight: 500;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.chat-history-date {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.chat-history-actions {
+  margin-top: 0.45rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.chat-history-actions button {
+  padding: 0.3rem 0.55rem !important;
+  font-size: 0.78rem !important;
+}
+@media (max-width: 900px) {
+  .page-chat-with-history {
+    flex-direction: column;
+  }
+  .chat-history-panel {
+    flex: 0 0 auto;
+    width: 100%;
+    max-height: 240px;
+  }
+}
 .chat-compose-row {
   display: flex;
   gap: 0.5rem;
@@ -941,7 +1040,7 @@ button {
 .wf-brain-mcp-tool-row strong { display: block; }
 .wf-brain-mcp-tool-row small { display: block; color: var(--muted); font-size: 0.75rem; }
 
-/* Publish A2A modal — portaled above workflow editor + property pane */
+/* Publish A2A modal ? portaled above workflow editor + property pane */
 .wf-a2a-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -1059,7 +1158,7 @@ button {
 
 .wf-editor-body {
   display: grid;
-  /* Compact side panes → maximize canvas */
+  /* Compact side panes ? maximize canvas */
   grid-template-columns: minmax(140px, 168px) minmax(0, 1fr) minmax(200px, 240px);
   flex: 1;
   min-height: 0;
@@ -1122,7 +1221,7 @@ button {
   height: 100%;
 }
 
-/* React Flow controls — dark theme (default panel is white) */
+/* React Flow controls ? dark theme (default panel is white) */
 .wf-canvas .react-flow__controls {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -2826,7 +2925,7 @@ button {
   }
 }
 
-/* Admin two-column layout � stack on narrow screens */
+/* Admin two-column layout ? stack on narrow screens */
 @media (max-width: 900px) {
   .admin-grid-2 {
     grid-template-columns: 1fr !important;

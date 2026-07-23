@@ -3,7 +3,6 @@
  */
 import { getDb } from '../db/schema.js';
 import * as openclaw from '../gateway/openclaw.js';
-import { clearOpenClawSessionForUser } from './agent-chat-scope.js';
 
 const FAT_CONTEXT_CHAR_LIMIT = Math.max(
   20000,
@@ -63,54 +62,25 @@ export function shouldAutoSplitFatContext(historyTurns = [], nextMessage = '') {
 }
 
 /**
- * Start a fresh chat thread: clear OpenClaw session for current thread, wipe DB turns, mint new thread id.
+ * Start a fresh chat: archive current session (LLM title) instead of deleting turns.
  */
-export function startNewChatSession({ agentId, openclawAgentId, ownerUserId }) {
-  const prevThread = getChatThreadId(agentId, ownerUserId);
-  clearOpenClawSessionForUser(agentId, openclawAgentId, ownerUserId, prevThread);
-  getDb()
-    .prepare('DELETE FROM chat_turns WHERE agent_id = ? AND owner_user_id = ?')
-    .run(agentId, ownerUserId);
-  const threadId = newChatThreadId();
-  setChatThreadId(agentId, ownerUserId, threadId);
-  return {
-    ok: true,
-    thread_id: threadId,
-    previous_thread_id: prevThread,
-    message: 'New chat started — previous session cleared to protect TPM/context limits.',
-  };
+export async function startNewChatSession({ agentId, openclawAgentId, ownerUserId }) {
+  const { startArchivingNewChatSession } = await import('./chat-history.js');
+  return startArchivingNewChatSession({ agentId, openclawAgentId, ownerUserId, generateTitle: true });
 }
 
 /**
- * Auto-split: clear OC fat session, keep only last N DB turns, new thread id.
+ * Auto-split: archive full session, keep only last N turns in a new active session.
  */
-export function autoSplitFatChatSession({ agentId, openclawAgentId, ownerUserId, historyTurns = [] }) {
-  const prevThread = getChatThreadId(agentId, ownerUserId);
-  clearOpenClawSessionForUser(agentId, openclawAgentId, ownerUserId, prevThread);
-
-  const keep = historyTurns.slice(-HISTORY_KEEP_AFTER_SPLIT);
-  getDb()
-    .prepare('DELETE FROM chat_turns WHERE agent_id = ? AND owner_user_id = ?')
-    .run(agentId, ownerUserId);
-  const insert = getDb().prepare(
-    'INSERT INTO chat_turns (agent_id, owner_user_id, role, content) VALUES (?, ?, ?, ?)'
-  );
-  for (const t of keep) {
-    insert.run(agentId, ownerUserId, t.role === 'assistant' ? 'assistant' : 'user', String(t.content || ''));
-  }
-
-  const threadId = newChatThreadId();
-  setChatThreadId(agentId, ownerUserId, threadId);
-
-  return {
-    ok: true,
-    auto_split: true,
-    thread_id: threadId,
-    previous_thread_id: prevThread,
-    kept_turns: keep.length,
-    message:
-      'Chat context was reset automatically because the conversation grew too large (TPM/context protection). Recent messages were kept.',
-  };
+export async function autoSplitFatChatSession({ agentId, openclawAgentId, ownerUserId, historyTurns = [] }) {
+  const { autoSplitArchivingChatSession } = await import('./chat-history.js');
+  return autoSplitArchivingChatSession({
+    agentId,
+    openclawAgentId,
+    ownerUserId,
+    historyTurns,
+    keepCount: HISTORY_KEEP_AFTER_SPLIT,
+  });
 }
 
 export function sessionUserForThread(agentId, ownerUserId, threadId = null) {
