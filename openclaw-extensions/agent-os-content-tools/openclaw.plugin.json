@@ -21,6 +21,9 @@
       "agent_workflow_trigger",
       "agent_workflow_get_draft",
       "agent_workflow_mutate",
+      "agent_workflow_certify_start",
+      "agent_workflow_certify_status",
+      "agent_workflow_certify_resume",
       "learnings_summary",
       "brain_history",
       "content_tools_enquire"
@@ -40,6 +43,9 @@
     "agent_workflow_trigger": { "optional": true },
     "agent_workflow_get_draft": { "optional": true },
     "agent_workflow_mutate": { "optional": true },
+    "agent_workflow_certify_start": { "optional": true },
+    "agent_workflow_certify_status": { "optional": true },
+    "agent_workflow_certify_resume": { "optional": true },
     "learnings_summary": { "optional": true },
     "brain_history": { "optional": true },
     "content_tools_enquire": { "optional": true }

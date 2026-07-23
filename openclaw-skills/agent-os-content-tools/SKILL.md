@@ -50,9 +50,13 @@ Only fall back to web_search, web_fetch, or other default tools when the task do
 - **kanban_reassign_to_coo** — Reassign a task back to the COO. Parameters: `task_id` (required). Use when you cannot complete the task.
 - **kanban_assign_task** — (COO only.) Assign a task to an agent. Parameters: `task_id`, `to_agent_id`.
 - **intent_classify_and_delegate** — (COO only.) Classify message intent and delegate to agents; creates Kanban tasks. Parameters: `message` (required), `standup_id` (optional).
-- **agent_workflow_enquire** — (COO only.) Find workflows by natural-language description. Parameters: `query` or `description`, optional `ceo_user_id`, optional `limit`.
-- **agent_workflow_list** — (COO only.) List published workflows + chat phrases. Optional `ceo_user_id`.
-- **agent_workflow_trigger** — (COO only.) Start a custom agent workflow. Parameters: `message` (chat phrase, e.g. `testMCP`) or `workflow_id`, optional `ceo_user_id`, optional `input`.
+- **agent_workflow_enquire** — (COO or Workflow Builder.) Find workflows by natural-language description. Parameters: `query` or `description`, optional `ceo_user_id`, optional `limit`.
+- **agent_workflow_list** — (COO or Workflow Builder.) List workflows + chat phrases. Optional `ceo_user_id`.
+- **agent_workflow_trigger** — (COO or Workflow Builder.) Start a custom agent workflow. Parameters: `message` (chat phrase, e.g. `testMCP`) or `workflow_id`, optional `ceo_user_id`, optional `input`.
+- **agent_workflow_get_draft** / **agent_workflow_mutate** — (Workflow Builder.) Read draft / apply builder actions.
+- **agent_workflow_certify_start** — (Workflow Builder.) Start async Maker/Checker certify job (`message`, optional `workflow_id`). Returns `job_id`.
+- **agent_workflow_certify_status** — (Workflow Builder or COO.) Poll certify job (`job_id` / `workflow_id` / `query`).
+- **agent_workflow_certify_resume** — (Workflow Builder.) Resume blocked job with `inputs` map.
 - **email_send** — Send email via platform SMTP. Optional calendar/meeting invite via `calendar: { title, start, end, location?, description?, organizer?, attendees? }` (ISO 8601). Parameters: `to` (required), `subject`, `body`, optional `cc`/`bcc`. **Use for one-off email/invite requests — not agent_workflow_trigger.**
 - **notify_ceo** — Send an in-app push notification to the entitled CEO for this session. Parameters: `title` (required), `body?`, `link_url?` (prefer `/agents/<your-id>/chat`), `source_key?`. Never pass a target user id. COO: when CEO asks another agent to reach them, delegate via sessions_send — do not notify yourself.
 - **master_data_list_tables** — List this CEO's Master Data tables with purpose/description, columns, row_count. Call first when tasked with org/master data. **Not a URL — invoke by tool name.**

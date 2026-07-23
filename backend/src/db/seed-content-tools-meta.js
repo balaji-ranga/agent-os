@@ -136,7 +136,40 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/agent-workflow-mutate',
     method: 'POST',
     purpose:
-      'API tool (Workflow Builder agent): create/update/test workflows for the entitled CEO. Parameters: workflow_id (optional for create_workflow), actions (JSON array). Actions include create_workflow, add_node, update_node, publish, test_workflow, until_success (build-test-iterate), list_runs, inspect_run. Do not run via exec.',
+      'API tool (Workflow Builder agent): create/update/test workflows for the entitled CEO. Parameters: workflow_id (optional for create_workflow), actions (JSON array). Actions include create_workflow, add_node, update_node, publish, test_workflow, until_success, until_certified (Maker/Checker certify). Prefer agent_workflow_certify_start for long autonomous builds so status can be polled. Do not run via exec.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'agent_workflow_certify_start',
+    display_name: 'Start Workflow Certify',
+    endpoint: '/api/tools/agent-workflow-certify-start',
+    method: 'POST',
+    purpose:
+      'API tool (Workflow Builder): start an autonomous Maker/Checker certify job for the entitled CEO. Parameters: message (intent), optional workflow_id, optional max_attempts. Returns job_id immediately; poll with agent_workflow_certify_status. Do not run via exec.',
+    model_used: 'platform LLM (Maker/Checker)',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'agent_workflow_certify_status',
+    display_name: 'Workflow Certify Status',
+    endpoint: '/api/tools/agent-workflow-certify-status',
+    method: 'POST',
+    purpose:
+      'API tool (Workflow Builder or COO): get status of a certify job. Parameters: job_id and/or workflow_id and/or query (workflow name / intent substring). Returns status, attempt, input_requests, verdict. Pull-on-request — call when the CEO asks for an update.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'agent_workflow_certify_resume',
+    display_name: 'Resume Workflow Certify',
+    endpoint: '/api/tools/agent-workflow-certify-resume',
+    method: 'POST',
+    purpose:
+      'API tool (Workflow Builder): resume a blocked certify job after the CEO provides inputs. Parameters: job_id (required), inputs (object keyed by request keys e.g. nodes.brain-1.task_config.apiKey).',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -372,6 +405,9 @@ const WORKFLOW_TOOLS = BUILTIN_TOOLS.filter((t) =>
     'agent_workflow_trigger',
     'agent_workflow_get_draft',
     'agent_workflow_mutate',
+    'agent_workflow_certify_start',
+    'agent_workflow_certify_status',
+    'agent_workflow_certify_resume',
     'brain_history',
     'content_tools_enquire',
   ].includes(t.name)

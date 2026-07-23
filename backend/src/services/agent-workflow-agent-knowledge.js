@@ -16,7 +16,7 @@ Rules:
 5. For mcp_tool: set mcpServerId + toolName from MCP servers list; staticArguments '{}' unless task needs params.
 5b. For content tool nodes: set node_type "tool" and toolName from the Content tools list (exact name). Match user intent to purpose (e.g. summarize URL → summarize_url, generate image → generate_image, IBKR day status → ibkr_day_status). If unsure, emit enquire_content_tools / list_content_tools first, then recommend and wire the best match.
 6. For CEO gate: brain → ceo_approval → if (decision eq approved).
-7. After creating a new workflow meant to work: publish, then until_success (or test_workflow). Prefer until_success when user states success criteria or wants it e2e-ready.
+7. After creating a new workflow meant to work: prefer agent_workflow_certify_start (async Maker/Checker) so the CEO can ask for status; for short sync loops use publish + until_success or until_certified without async.
 8. Prefer create_from_template when a built-in template matches (job applicant pipeline, etc.).
 9. Prefer curated recipes patterns when similar: Brain+CEO approval, Brain+MCP, Brain summarize, Brain+API echo, Brain OpenRouter+API.
 10. Return ONE JSON object with reply + actions[] — execute everything in one batch; no prose-only plans.
@@ -25,13 +25,20 @@ Rules:
 12. Before publish on complex graphs: include validate_publish action; fix all errors before publish.
 13. For content guardrails: brain node with systemPrompt rejecting sexual/abusive content; trigger → brain → publish.
 14. Full context: the user message lists ALL workflows for this entitled CEO (draft + published). You may open, edit, troubleshoot any of them — never another owner's.
-15. Build-test-iterate: on run failure diagnose (list_runs/inspect_run or until_success loop) → mutate → retest. Do not leave the user with a broken published workflow when they asked for a working one.
+15. Build-test-iterate: on run failure diagnose (list_runs/inspect_run or until_success / until_certified) → mutate → retest. Do not leave the user with a broken published workflow when they asked for a working one.
 16. CONTENT TOOL RECOMMENDATIONS: When the user asks which tool to use, or describes a capability (summarize page, place IBKR trade, list learnings, brain history, etc.), search Content tools by purpose and recommend the best name(s) with a one-line why. Prefer registered content tools over inventing raw api nodes to the same endpoints.
+17. AUTONOMOUS CERTIFY: For end-to-end "make it work / certify / fully autonomous", prefer until_certified with async:true in mutate OR tell the OpenClaw face to use certify_start. Ask for secrets/identity only when Checker returns blocked_on_input — never invent API keys.
 
 Minimal create + until-success example (Brain summarize):
 actions: [
   { "action": "create_workflow", "name": "...", "chat_phrase": "run ...", "trigger_modes": ["manual","chat"], "graph": { "nodes": [...], "edges": [...] } },
   { "action": "until_success", "success_criteria": "completed", "input": "test topic", "max_attempts": 3 }
+]
+
+Autonomous certify (async job — preferred for long runs):
+actions: [
+  { "action": "create_workflow", "name": "...", "chat_phrase": "run ...", "trigger_modes": ["manual","chat"], "graph": { "nodes": [...], "edges": [...] } },
+  { "action": "until_certified", "async": true, "message": "certify end to end", "max_attempts": 5 }
 ]
 
 Use add_node + connect_from when editing an existing open workflow instead of resending full graph.
@@ -45,6 +52,7 @@ Workflow lifecycle (definition level):
 - paused=1 (while published): triggers disabled; active runs paused; use resume_workflow to re-enable.
 - unpublish / revert_to_draft: sets status back to draft; stops schedules; draft_graph unchanged; use before major edits.
 - publish: copies draft_graph to published_graph and sets status=published.
+- certify_state (overlay): testing | blocked_on_input | certified — set by autonomous Maker/Checker jobs (does not replace draft/published).
 
 Run instance level (separate from definition status):
 - list_runs: recent run instances for a workflow (AUTHORITATIVE run numbers — never guess).
@@ -52,6 +60,7 @@ Run instance level (separate from definition status):
 - pause_run / stop_run: pause or delete a specific run.
 - pause_all_runs: pause all active runs (optionally for one workflow).
 - inspect_run: step-level status and errors for debugging (use run_number from list_runs or context).
+- until_certified / certify jobs: autonomous build-test-checker loop with optional blocked_on_input asks.
 
 For "latest failed run" / "why did X fail" questions: call list_runs then inspect_run on the failed run_number from DB — never invent run ids or numbers.
 
@@ -89,7 +98,8 @@ export function buildAgentActionsDoc() {
     'set_metadata', 'publish', 'unpublish', 'revert_to_draft',
     'open_workflow', 'load_workflow', 'reload_workflow',
     'pause_workflow', 'resume_workflow',
-    'trigger_workflow', 'test_workflow', 'until_success', 'list_runs', 'inspect_run',
+    'trigger_workflow', 'test_workflow', 'until_success', 'until_certified', 'compile_goal', 'check_goal',
+    'list_runs', 'inspect_run',
     'pause_run', 'stop_run', 'cancel_run', 'delete_run', 'pause_all_runs', 'stop_listen',
     'delete_workflow',
   ];

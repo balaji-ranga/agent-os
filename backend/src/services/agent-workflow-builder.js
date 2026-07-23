@@ -166,6 +166,9 @@ export function prepareBuilderActions(actions, { workflowId = null, message = ''
       'test_workflow',
       'until_success',
       'build_until_success',
+      'until_certified',
+      'check_goal',
+      'certify_workflow',
     ].includes(op);
   };
   const isCreate = (a) => {
@@ -741,6 +744,102 @@ export async function applyWorkflowBuilderActions(ownerUserId, workflowId, actio
         last_run: outcome.last_run,
         success_criteria: outcome.success_criteria,
         workflow_id: currentId,
+      });
+      continue;
+    }
+
+    if (op === 'compile_goal') {
+      const { compileGoal } = await import('./agent-workflow-certify.js');
+      const goal = compileGoal(action.message || action.intent || action.raw || '', {
+        workflowId: action.workflow_id || currentId,
+        existingGoal: action.goal || null,
+      });
+      results.push({ action: op, ok: true, goal });
+      continue;
+    }
+
+    if (op === 'check_goal') {
+      const targetId = action.workflow_id || currentId;
+      if (!targetId) throw new Error('check_goal requires a workflow in context');
+      const { compileGoal, checkGoal } = await import('./agent-workflow-certify.js');
+      const target = store.getDefinition(targetId, ownerUserId);
+      if (!target) throw new Error(`Workflow not found: ${targetId}`);
+      const goal =
+        action.goal ||
+        compileGoal(action.message || 'Certify workflow', { workflowId: targetId });
+      let lastRun = action.run || null;
+      if (!lastRun && (action.run_id || action.run_number)) {
+        const run = resolveRunForOwner(ownerUserId, {
+          run_id: action.run_id,
+          run_number: action.run_number,
+          workflow_id: targetId,
+        });
+        lastRun = run ? summarizeRunForAgent(run) : null;
+      }
+      const report = checkGoal({ goal, def: target, lastRun });
+      results.push({ action: op, ok: report.verdict === 'certified', report, goal });
+      continue;
+    }
+
+    if (op === 'until_certified' || op === 'certify_workflow') {
+      const targetId = action.workflow_id || currentId;
+      const { startCertifyJob, executeUntilCertified, formatCertifyReply } = await import(
+        './agent-workflow-certify.js'
+      );
+      const asyncJob = action.async === true || action.background === true;
+      if (asyncJob) {
+        const started = startCertifyJob({
+          ownerUserId,
+          workflowId: targetId,
+          message: action.message || action.input || action.intent || '',
+          goal: action.goal || null,
+          actor,
+          async: true,
+          maxAttempts: action.max_attempts || action.maxAttempts || null,
+        });
+        results.push({
+          action: 'until_certified',
+          ok: true,
+          async: true,
+          job: started,
+          reply: formatCertifyReply({
+            status: started.status,
+            id: started.job_id,
+            goal: { intent: { summary: started.goal_summary } },
+            workflow_id: started.workflow_id,
+            attempt: started.attempt,
+            max_attempts: started.max_attempts,
+            report: { input_requests: started.input_requests },
+          }),
+        });
+        continue;
+      }
+      if (!targetId && op === 'certify_workflow') {
+        throw new Error('certify_workflow requires a workflow in context');
+      }
+      const outcome = await executeUntilCertified({
+        ownerUserId,
+        workflowId: targetId,
+        actor,
+        message: action.message || action.input || '',
+        goal: action.goal || null,
+        maxAttempts: action.max_attempts || action.maxAttempts || null,
+        applyMakerFixes: action.apply_maker_fixes !== false,
+      });
+      currentId = outcome.workflow_id || currentId;
+      def = currentId ? store.getDefinition(currentId, ownerUserId) : def;
+      results.push({
+        action: 'until_certified',
+        ok: outcome.success,
+        success: outcome.success,
+        verdict: outcome.verdict,
+        attempts: outcome.attempts,
+        report: outcome.report,
+        goal: outcome.goal,
+        last_run: outcome.last_run,
+        input_requests: outcome.input_requests || [],
+        workflow_id: currentId,
+        reply: formatCertifyReply(outcome),
       });
       continue;
     }

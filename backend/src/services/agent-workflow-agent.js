@@ -61,6 +61,7 @@ import {
   executeUntilSuccess,
   formatUntilSuccessReply,
 } from './agent-workflow-agent-until-success.js';
+import { formatCertifyReply } from './agent-workflow-certify.js';
 
 
 
@@ -139,7 +140,8 @@ Do NOT invent tool names or raw /api/tools/... api nodes when a registered conte
 - list_runs — { "action": "list_runs", "workflow_id": "...", "limit": 20 } — recent run instances (AUTHORITATIVE run numbers)
 - trigger_workflow, test_workflow (run + wait + diagnostics), inspect_run, pause_run, stop_run, pause_all_runs, stop_listen
 - until_success — { "action": "until_success", "success_criteria": "completed", "input": "...", "max_attempts": 3 } — publish → test → structural heal → retest until criteria met
-- delete_workflow
+- until_certified — { "action": "until_certified", "async": true, "message": "...", "max_attempts": 5 } — Maker/Checker certify (prefer async so OpenClaw can poll status). Sync when async omitted/false.
+- compile_goal / check_goal — compile or grade a WorkflowGoal against the current graph + last run
 
 NEVER invent run numbers or run ids. For failed-run questions: use list_runs or inspect_run with run_number from Recent runs context, or inspect_run with latest_failed on the named workflow.
 
@@ -452,6 +454,11 @@ function formatAssistantReply(baseReply, result) {
   const untilResult = applied.find((a) => a.action === 'until_success');
   if (untilResult) {
     text += `\n\n${formatUntilSuccessReply(untilResult)}`;
+  }
+
+  const certifyResult = applied.find((a) => a.action === 'until_certified');
+  if (certifyResult) {
+    text += `\n\n${certifyResult.reply || formatCertifyReply(certifyResult.job || certifyResult)}`;
   }
 
   const testResult = applied.find((a) => a.action === 'test_workflow' && a.run);
@@ -999,19 +1006,37 @@ export async function runWorkflowBuilderChat({
   actions = enrichCreateWorkflowActions(trimmed, actions, runtime);
 
   const untilIntent = parseUntilSuccessIntent(trimmed);
+  const certifyIntent =
+    /\bcertif(?:y|ication|ied)\b/i.test(trimmed) ||
+    /\bfully\s+autonomous\b/i.test(trimmed) ||
+    /\bend\s*to\s*end\b.*\b(work|pass|ready)\b/i.test(trimmed);
   const hasUntilAction = actions.some((a) =>
-    ['until_success', 'build_until_success'].includes(String(a?.action || a?.op || '').toLowerCase())
+    ['until_success', 'build_until_success', 'until_certified', 'certify_workflow'].includes(
+      String(a?.action || a?.op || '').toLowerCase()
+    )
   );
-  if (untilIntent && !hasUntilAction) {
-    actions = [
-      ...actions,
-      {
-        action: 'until_success',
-        success_criteria: untilIntent.success_criteria || 'completed',
-        input: untilIntent.input || undefined,
-        max_attempts: untilIntent.max_attempts || 3,
-      },
-    ];
+  if (!hasUntilAction) {
+    if (certifyIntent) {
+      actions = [
+        ...actions,
+        {
+          action: 'until_certified',
+          async: true,
+          message: trimmed,
+          max_attempts: untilIntent?.max_attempts || undefined,
+        },
+      ];
+    } else if (untilIntent) {
+      actions = [
+        ...actions,
+        {
+          action: 'until_success',
+          success_criteria: untilIntent.success_criteria || 'completed',
+          input: untilIntent.input || undefined,
+          max_attempts: untilIntent.max_attempts || 3,
+        },
+      ];
+    }
   }
 
   let result = null;
@@ -1124,7 +1149,7 @@ export async function runWorkflowBuilderChat({
 
     const tr = result.results.find((r) =>
 
-      ['trigger_workflow', 'trigger_run', 'test_workflow', 'until_success'].includes(r.action)
+      ['trigger_workflow', 'trigger_run', 'test_workflow', 'until_success', 'until_certified'].includes(r.action)
 
     );
 

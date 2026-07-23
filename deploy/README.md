@@ -198,6 +198,8 @@ Gets the same gateway LLM vars plus:
 | `OPENCONNECTOR_ENCRYPTION_KEY` | Encryption key for OpenConnector token store |
 | `OPENCONNECTOR_MCP_*` | OpenConnector MCP URL / bearer / transport (Brain+MCP tool-calling) |
 | `WORKFLOW_FS_ROOTS` | Allowed roots for filesystem workflow nodes (default `/data/workflow-fs`) |
+| `WORKFLOW_CERTIFY_USE_LLM_CHECKER` | Autonomous Maker/Checker certify: `0`/unset = LLM Checker **OFF** (default; deterministic Checker always runs). `1` = enable soft LLM Checker (secondary model unless `WORKFLOW_CERTIFY_CHECKER_MODEL` set) |
+| `WORKFLOW_CERTIFY_MAX_ATTEMPTS`, `WORKFLOW_CERTIFY_*_MODEL`, `WORKFLOW_CERTIFY_*_MS` | Optional certify budgets / model overrides (see `.env.example`) |
 
 **Workflow Brain nodes:** published workflows require API keys **on each Brain node** in the editor — platform `.env` keys are not used at run time (see `backend/.env.example`). User BYOK keys live in SQLite (User Profile). DeepSeek/OpenRouter Brain nodes also support **Thinking mode** / **Thinking effort** in the editor.
 

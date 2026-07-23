@@ -22,6 +22,8 @@
 # CEO Policies (/policies): ceo_guardrails → POLICY.md in agent workspaces + Brain system-prompt prepend.
 # AgentExchange / workflow A2A: /api/agent-exchange, /api/a2a/:publishId
 #   Public invoke open; secured uses POST /api/a2a/:id/oauth/token (client credentials) → Bearer
+# Workflow certify (Maker/Checker): WORKFLOW_CERTIFY_* in deploy/.env (LLM Checker default OFF).
+#   Tools: agent_workflow_certify_start / _status / _resume (Workflow Builder).
 #
 # LLM keys: set in deploy/.env — injected at runtime into openclaw + backend containers.
 # Never committed; never baked into images.
@@ -148,6 +150,13 @@ x-backend-env: &backend-env
   OPENCONNECTOR_PUBLIC_ORIGIN: ${OPENCONNECTOR_PUBLIC_ORIGIN:-}
   # Filesystem workflow nodes (persisted volume)
   WORKFLOW_FS_ROOTS: ${WORKFLOW_FS_ROOTS:-/data/workflow-fs}
+  # Autonomous workflow certify (Maker / Checker). LLM checker default OFF when unset/0.
+  WORKFLOW_CERTIFY_MAX_ATTEMPTS: ${WORKFLOW_CERTIFY_MAX_ATTEMPTS:-5}
+  WORKFLOW_CERTIFY_MAX_WALL_MS: ${WORKFLOW_CERTIFY_MAX_WALL_MS:-300000}
+  WORKFLOW_CERTIFY_TEST_TIMEOUT_MS: ${WORKFLOW_CERTIFY_TEST_TIMEOUT_MS:-45000}
+  WORKFLOW_CERTIFY_MAKER_MODEL: ${WORKFLOW_CERTIFY_MAKER_MODEL:-}
+  WORKFLOW_CERTIFY_CHECKER_MODEL: ${WORKFLOW_CERTIFY_CHECKER_MODEL:-}
+  WORKFLOW_CERTIFY_USE_LLM_CHECKER: ${WORKFLOW_CERTIFY_USE_LLM_CHECKER:-0}
 
 services:
   openclaw:

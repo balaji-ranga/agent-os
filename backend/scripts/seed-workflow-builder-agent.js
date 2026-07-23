@@ -28,6 +28,9 @@ const WORKFLOW_BUILDER_TOOLS = [
   'agent_workflow_trigger',
   'agent_workflow_get_draft',
   'agent_workflow_mutate',
+  'agent_workflow_certify_start',
+  'agent_workflow_certify_status',
+  'agent_workflow_certify_resume',
 ];
 
 function ensureWorkspace() {

@@ -33,6 +33,10 @@ if [[ -f "$ROOT/deploy/scripts/ensure-deepseek-env.sh" ]]; then
   sed -i 's/\r$//' "$ROOT/deploy/scripts/ensure-deepseek-env.sh" 2>/dev/null || true
   bash "$ROOT/deploy/scripts/ensure-deepseek-env.sh" "$ROOT/deploy/.env" || true
 fi
+if [[ -f "$ROOT/deploy/scripts/ensure-workflow-certify-env.sh" ]]; then
+  sed -i 's/\r$//' "$ROOT/deploy/scripts/ensure-workflow-certify-env.sh" 2>/dev/null || true
+  bash "$ROOT/deploy/scripts/ensure-workflow-certify-env.sh" "$ROOT/deploy/.env" || true
+fi
 
 echo "==> Agent OS deploy latest $(date -Is)"
 echo "    root=$ROOT services=$SERVICES skip_git=$SKIP_GIT no_cache=$NO_CACHE"
@@ -46,6 +50,7 @@ echo "              chat tool-call icons, notification tooltips + datetime, shar
 echo "              CEO Policies/guardrails (POLICY.md + Brain prepend),"
 echo "              deploy smokes clean up CEO standup/notify pollution,"
 echo "              AgentExchange/A2A (public + OAuth client credentials → Bearer),"
+echo "              Workflow certify Maker/Checker (LLM Checker default OFF),"
 echo "              DeepSeek@Ollama,"
 echo "              hPanel light theme (app-topbar + profile-menu + collapsible nav),"
 echo "              workflow editor fullscreen (shell-focus-mode + Exit to workflows),"

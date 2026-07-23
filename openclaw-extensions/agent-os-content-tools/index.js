@@ -197,6 +197,43 @@ const PARAM_SCHEMAS = {
     },
     additionalProperties: true,
   },
+  agent_workflow_certify_start: {
+    type: "object",
+    properties: {
+      message: {
+        type: "string",
+        description: "Natural-language intent for the workflow to build/certify end-to-end.",
+      },
+      workflow_id: { type: "string", description: "Optional existing workflow id to certify." },
+      max_attempts: { type: "number", description: "Max Maker/Checker attempts (default from env)." },
+      async: { type: "boolean", description: "Default true — returns job_id immediately." },
+    },
+    additionalProperties: true,
+  },
+  agent_workflow_certify_status: {
+    type: "object",
+    properties: {
+      job_id: { type: "string", description: "Certify job id from certify_start." },
+      workflow_id: { type: "string", description: "Optional workflow id — returns latest job for it." },
+      query: {
+        type: "string",
+        description: "Fuzzy match on job id, workflow id/name, or intent text.",
+      },
+    },
+    additionalProperties: true,
+  },
+  agent_workflow_certify_resume: {
+    type: "object",
+    properties: {
+      job_id: { type: "string", description: "Blocked certify job id (required)." },
+      inputs: {
+        type: "object",
+        description:
+          "Key/value inputs matching input_requests keys (e.g. nodes.brain-1.task_config.apiKey).",
+      },
+    },
+    additionalProperties: true,
+  },
   learnings_summary: {
     type: "object",
     properties: {

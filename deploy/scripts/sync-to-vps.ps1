@@ -21,7 +21,8 @@
 # CEO Policies/guardrails (POLICY.md + Brain prepend), org sync (tenant ORG.md/AGENTS.md/POLICY.md),
 # AgentExchange/A2A (public + OAuth client credentials),
 # DeepSeek@Ollama, shared notification dismiss,
-# chat paperclip attach → Master Data RAG, Vedic Astrology + generate_chart (JSON chart_spec).
+# chat paperclip attach → Master Data RAG, Vedic Astrology + generate_chart (JSON chart_spec),
+# Workflow autonomous certify (Maker/Checker; LLM Checker default OFF — WORKFLOW_CERTIFY_*).
 param(
   [string]$HostIp = "76.13.209.30",
   [string]$Key = "$env:USERPROFILE\.ssh\agent-os-vps",
@@ -71,6 +72,7 @@ scp @ssh `
   "$Repo\deploy\scripts\vps-enable-real-openconnector.sh" `
   "$Repo\deploy\scripts\vps-rebuild-frontend.sh" `
   "$Repo\deploy\scripts\ensure-deepseek-env.sh" `
+  "$Repo\deploy\scripts\ensure-workflow-certify-env.sh" `
   "$Repo\deploy\scripts\vps-deploy-coo-org-fix.sh" `
   "$Repo\deploy\scripts\configure-openclaw-docker.js" `
   "$Repo\deploy\scripts\verify-openclaw-parity.js" `
@@ -131,6 +133,9 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-vedic-compute-chart.js" `
     "$Repo\backend\scripts\test-generate-chart.js" `
     "$Repo\backend\scripts\test-weather-agent-ui-onboard-e2e.js" `
+    "$Repo\backend\scripts\test-workflow-builder-until-success.js" `
+    "$Repo\backend\scripts\test-workflow-certify.js" `
+    "$Repo\backend\scripts\test-workflow-certify-ibkr-e2e.js" `
     "$Repo\backend\scripts\test-master-data-office-extract.js" `
     "root@${HostIp}:$RemoteRoot/backend/scripts/"
   scp @ssh -r "$Repo\scripts" "root@${HostIp}:$RemoteRoot/"
