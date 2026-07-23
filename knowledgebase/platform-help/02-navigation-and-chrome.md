@@ -17,6 +17,7 @@
 | Kanban | `/kanban` | Generic task board (agent / workflow / pipeline cards), CEO approvals, artifacts |
 | Broadcast | `/broadcast` | Message many agents at once |
 | Master Data | `/master-data` | Tables, documents, RAG |
+| Policies | `/policies` | CEO common guardrails for all agents + Brain nodes |
 | AI Snipper | `/ai-snipper` | Token / prompt / activity analytics |
 
 ### Prebuilt Workflows

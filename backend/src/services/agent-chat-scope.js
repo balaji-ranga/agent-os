@@ -68,8 +68,8 @@ export function extractOwnerUserIdFromText(text, fallback = null) {
   return fallback ?? getDefaultCeoUserId();
 }
 
-export function clearOpenClawSessionForUser(agentId, openclawAgentId, ownerUserId) {
-  const sessionUser = openclaw.sessionUserFor(agentId, ownerUserId);
+export function clearOpenClawSessionForUser(agentId, openclawAgentId, ownerUserId, threadId = null) {
+  const sessionUser = openclaw.sessionUserFor(agentId, ownerUserId, threadId);
   const sessionKey = openclaw.sessionKeyFor(openclawAgentId, sessionUser);
   const sessionsDir = join(getOpenClawDir(), 'agents', openclawAgentId, 'sessions');
   const sessionsJsonPath = join(sessionsDir, 'sessions.json');
@@ -79,6 +79,14 @@ export function clearOpenClawSessionForUser(agentId, openclawAgentId, ownerUserI
     const map = JSON.parse(readFileSync(sessionsJsonPath, 'utf8'));
     const entry = map[sessionKey];
     delete map[sessionKey];
+    // Also clear legacy main thread key when rotating threads
+    if (threadId && threadId !== 'main') {
+      const mainKey = openclaw.sessionKeyFor(
+        openclawAgentId,
+        openclaw.sessionUserFor(agentId, ownerUserId, 'main')
+      );
+      delete map[mainKey];
+    }
     writeFileSync(sessionsJsonPath, JSON.stringify(map, null, 2), 'utf8');
 
     if (!entry) return;

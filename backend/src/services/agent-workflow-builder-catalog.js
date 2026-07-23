@@ -69,11 +69,22 @@ export function normalizeBrainTaskConfig(cfg = {}, runtimeDefaults = null) {
     merged.apiEndpoint =
       defaults.apiEndpoint ||
       process.env.DEEPSEEK_BASE_URL ||
-      process.env.OLLAMA_BASE_URL ||
-      'http://ollama:11434/v1';
+      'https://api.deepseek.com/v1';
   }
   if (merged.modelSource === 'deepseek' && !merged.model) {
-    merged.model = defaults.model || process.env.DEEPSEEK_MODEL || 'deepseek-v3';
+    merged.model = defaults.model || process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash';
+  }
+  if (
+    (merged.modelSource === 'deepseek' || merged.modelSource === 'openrouter') &&
+    !merged.thinkingMode
+  ) {
+    merged.thinkingMode = 'enabled';
+  }
+  if (
+    (merged.modelSource === 'deepseek' || merged.modelSource === 'openrouter') &&
+    !merged.thinkingEffort
+  ) {
+    merged.thinkingEffort = 'high';
   }
 
   delete merged.api_key;

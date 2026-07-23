@@ -2,9 +2,18 @@
  * Shared internal service auth — replaces spoofable x-internal-test: 1.
  * Callers must send header x-agent-os-internal: <AGENT_OS_INTERNAL_TOKEN>
  * (or Authorization: Bearer <same token>).
+ *
+ * Query `internal_token` / `token` is ONLY accepted on registered callback paths
+ * (OpenClaw standup cron-callback cannot set custom headers today).
  */
 import { timingSafeEqual, randomBytes } from 'crypto';
 import { bearerToken, requireAuth } from './auth.js';
+
+/** Paths (no query) where internal auth may arrive via ?internal_token= / ?token= */
+const INTERNAL_QUERY_TOKEN_PATHS = new Set([
+  '/api/standups/cron-callback',
+  '/standups/cron-callback',
+]);
 
 export function getInternalToken() {
   return String(process.env.AGENT_OS_INTERNAL_TOKEN || '').trim();
@@ -34,11 +43,25 @@ function safeEqualStr(a, b) {
   return timingSafeEqual(aa, bb);
 }
 
+function requestPathOnly(req) {
+  const raw = String(req?.originalUrl || req?.url || req?.path || '');
+  const q = raw.indexOf('?');
+  return q >= 0 ? raw.slice(0, q) : raw;
+}
+
+export function allowsInternalQueryToken(req) {
+  return INTERNAL_QUERY_TOKEN_PATHS.has(requestPathOnly(req));
+}
+
 export function extractInternalToken(req) {
   const header = req.headers?.['x-agent-os-internal'];
   if (header) return String(header).trim();
-  const q = req.query?.internal_token || req.query?.token;
-  if (q) return String(q).trim();
+
+  if (allowsInternalQueryToken(req)) {
+    const q = req.query?.internal_token || req.query?.token;
+    if (q) return String(q).trim();
+  }
+
   const bearer = bearerToken(req);
   const expected = getInternalToken();
   if (bearer && expected && safeEqualStr(bearer, expected)) return bearer;
@@ -84,7 +107,7 @@ export function allowInternalOrAuth(req, res, next) {
   return requireAuth(req, res, next);
 }
 
-/** Cron/gateway callbacks: internal token required (query or header). */
+/** Cron/gateway callbacks: internal token required (header, or query on allowlisted paths). */
 export function requireInternalToken(req, res, next) {
   if (isInternalRequest(req)) {
     req.isInternalService = true;
@@ -92,6 +115,8 @@ export function requireInternalToken(req, res, next) {
   }
   return res.status(401).json({
     error: 'Internal service authentication required',
-    hint: 'Send x-agent-os-internal header or internal_token query matching AGENT_OS_INTERNAL_TOKEN',
+    hint: allowsInternalQueryToken(req)
+      ? 'Send x-agent-os-internal header or internal_token query matching AGENT_OS_INTERNAL_TOKEN'
+      : 'Send x-agent-os-internal header (or Bearer) matching AGENT_OS_INTERNAL_TOKEN',
   });
 }

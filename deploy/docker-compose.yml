@@ -19,6 +19,7 @@
 #   /api/standups/notifications/dismiss* and /api/platform-notifications/read*
 #   (user_feed_dismissals + composite standup+agent keys). Deploy verify smokes
 #   self-clean so CEO Dashboard/bell are not polluted.
+# CEO Policies (/policies): ceo_guardrails → POLICY.md in agent workspaces + Brain system-prompt prepend.
 # AgentExchange / workflow A2A: /api/agent-exchange, /api/a2a/:publishId
 #   Public invoke open; secured uses POST /api/a2a/:id/oauth/token (client credentials) → Bearer
 #
@@ -45,6 +46,8 @@ x-llm-env: &llm-env
   OPENCLAW_OLLAMA_FALLBACK_MODEL: ${OPENCLAW_OLLAMA_FALLBACK_MODEL:-llama3.2}
   # When unset/0, configure-openclaw-docker.js clears agents.defaults.model.fallbacks
   OPENCLAW_ENABLE_OLLAMA_FALLBACK: ${OPENCLAW_ENABLE_OLLAMA_FALLBACK:-0}
+  # Comma-separated OpenClaw model slugs tried after primary (e.g. ollama/llama3.2,openrouter/openai/gpt-4o-mini)
+  OPENCLAW_MODEL_FALLBACKS: ${OPENCLAW_MODEL_FALLBACKS:-}
   OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
   OLLAMA_API_KEY: ${OLLAMA_API_KEY:-ollama-local}
   OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
@@ -156,11 +159,11 @@ services:
     environment:
       <<: *openclaw-env
       ENABLE_VNC: ${ENABLE_VNC:-0}
-      # Official OpenAI: do NOT inject OPENAI_BASE_URL into the gateway.
-      # A base URL forces openai-compat completions while plugin tools use type "custom",
-      # which OpenAI rejects (400 invalid_request_error) and breaks all COO tool prompts.
-      OPENAI_BASE_URL: ""
-      OPENAI_PRIMARY_BASE_URL: ""
+      # Official OpenAI: leave BASE_URL empty so configure-openclaw-docker.js uses Responses API
+      # (a custom api.openai.com baseUrl breaks tool calls). For DeepSeek / other compatible
+      # hosts, set OPENAI_BASE_URL / OPENAI_PRIMARY_BASE_URL in deploy/.env — they pass through.
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+      OPENAI_PRIMARY_BASE_URL: ${OPENAI_PRIMARY_BASE_URL:-}
     volumes:
       - openclaw_home:/root/.openclaw:Z
     expose:
@@ -264,6 +267,31 @@ services:
       WORKFLOW_HOOK_SECRET: ${WORKFLOW_HOOK_SECRET:-}
     expose:
       - "3099"
+
+  # Brave Search MCP (HTTP). Requires BRAVE_API_KEY in deploy/.env.
+  # Start: docker compose --profile optional-brave-mcp up -d brave-search-mcp
+  brave-search-mcp:
+    profiles: ["optional-brave-mcp"]
+    build:
+      context: ..
+      dockerfile: deploy/docker/brave-search-mcp.Dockerfile
+    image: agent-os-brave-search-mcp:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      BRAVE_API_KEY: ${BRAVE_API_KEY:-}
+      BRAVE_MCP_TRANSPORT: http
+      BRAVE_MCP_HOST: "0.0.0.0"
+      BRAVE_MCP_PORT: "8080"
+      BRAVE_MCP_STATELESS: "true"
+      BRAVE_MCP_ENABLED_TOOLS: ${BRAVE_MCP_ENABLED_TOOLS:-brave_web_search brave_news_search brave_llm_context}
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8080/').then(r=>process.exit(r.ok||r.status===404||r.status===405?0:1)).catch(()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
 
   # Real self-hosted OpenConnector runtime (admin UI should stay private; use a tunnel for v1 OAuth setup).
   openconnector:

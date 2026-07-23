@@ -12,6 +12,7 @@ import {
   parseBrainMcpConfig,
 } from './agent-workflow-brain-mcp.js';
 import { executeCustomScript } from './custom-scripts.js';
+import { prependCeoGuardrailsToSystemPrompt } from './ceo-guardrails.js';
 
 function isLocalOllama(baseUrl) {
   if (!baseUrl) return false;
@@ -111,6 +112,52 @@ function openAiTokenLimitFields(model, maxTokens) {
   return { max_tokens: maxTokens };
 }
 
+/**
+ * Thinking / reasoning body fields for DeepSeek + OpenRouter Brain nodes.
+ * @param {'deepseek'|'openrouter'|string} provider
+ * @param {{ thinkingMode?: string, thinkingEffort?: string }} cfg
+ */
+export function buildBrainThinkingFields(provider, cfg = {}) {
+  const src = String(provider || '').toLowerCase();
+  if (src !== 'deepseek' && src !== 'openrouter') return {};
+  const mode = String(cfg.thinkingMode || 'enabled').trim().toLowerCase();
+  if (mode === 'off' || mode === 'omit' || mode === 'default') return {};
+  const enabled = mode !== 'disabled' && mode !== 'false' && mode !== '0';
+  const effortRaw = String(cfg.thinkingEffort || '').trim().toLowerCase();
+
+  if (src === 'deepseek') {
+    const fields = { thinking: { type: enabled ? 'enabled' : 'disabled' } };
+    if (enabled) {
+      fields.reasoning_effort = effortRaw === 'max' ? 'max' : 'high';
+    }
+    return fields;
+  }
+
+  if (!enabled) {
+    return { reasoning: { effort: 'none', enabled: false } };
+  }
+  const effort = ['max', 'xhigh', 'high', 'medium', 'low', 'minimal'].includes(effortRaw)
+    ? effortRaw
+    : 'high';
+  return { reasoning: { enabled: true, effort } };
+}
+
+function extractAssistantText(msg) {
+  if (!msg) return { text: '', reasoning_content: '' };
+  const content = msg.content ?? '';
+  const reasoning =
+    msg.reasoning_content ||
+    msg.reasoning ||
+    (Array.isArray(msg.reasoning_details)
+      ? msg.reasoning_details.map((d) => d?.text || d?.content || '').filter(Boolean).join('\n')
+      : '') ||
+    '';
+  return {
+    text: typeof content === 'string' ? content : String(content),
+    reasoning_content: typeof reasoning === 'string' ? reasoning : String(reasoning || ''),
+  };
+}
+
 async function callOpenAiCompatible({
   baseUrl,
   apiKey,
@@ -120,6 +167,7 @@ async function callOpenAiCompatible({
   maxTokens,
   provider = 'openai',
   extraHeaders = {},
+  thinkingFields = {},
 }) {
   const url = `${normalizeBaseUrl(baseUrl)}/chat/completions`;
   const headers = { 'Content-Type': 'application/json', ...extraHeaders };
@@ -130,13 +178,18 @@ async function callOpenAiCompatible({
   const res = await fetch(url, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ model, ...openAiTokenLimitFields(model, maxTokens), messages }),
+    body: JSON.stringify({
+      model,
+      ...openAiTokenLimitFields(model, maxTokens),
+      messages,
+      ...thinkingFields,
+    }),
     signal: AbortSignal.timeout(provider === 'ollama' ? 300000 : 180000),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error?.message || data?.error || res.statusText);
-  const content = data?.choices?.[0]?.message?.content ?? '';
-  return { text: typeof content === 'string' ? content : String(content), model_used: model, provider };
+  const { text, reasoning_content } = extractAssistantText(data?.choices?.[0]?.message);
+  return { text, reasoning_content, model_used: model, provider };
 }
 
 async function runOpenAiWithMcpTools({
@@ -154,6 +207,7 @@ async function runOpenAiWithMcpTools({
   serverAuthMap,
   legacyAuth,
   maxRounds,
+  thinkingFields = {},
 }) {
   const url = `${normalizeBaseUrl(baseUrl)}/chat/completions`;
   const headers = { 'Content-Type': 'application/json', ...extraHeaders };
@@ -164,6 +218,7 @@ async function runOpenAiWithMcpTools({
   messages.push({ role: 'user', content: userMessage });
 
   const toolCallLog = [];
+  let lastReasoning = '';
   for (let round = 0; round < maxRounds; round++) {
     const res = await fetch(url, {
       method: 'POST',
@@ -174,6 +229,7 @@ async function runOpenAiWithMcpTools({
         messages,
         tools: openAiTools,
         tool_choice: 'auto',
+        ...thinkingFields,
       }),
       signal: AbortSignal.timeout(180000),
     });
@@ -182,12 +238,14 @@ async function runOpenAiWithMcpTools({
 
     const msg = data?.choices?.[0]?.message;
     if (!msg) throw new Error('No message from LLM');
+    const extracted = extractAssistantText(msg);
+    if (extracted.reasoning_content) lastReasoning = extracted.reasoning_content;
 
     const toolCalls = msg.tool_calls || [];
     if (!toolCalls.length) {
-      const content = msg.content ?? '';
       return {
-        text: typeof content === 'string' ? content : String(content),
+        text: extracted.text,
+        reasoning_content: lastReasoning,
         model_used: model,
         provider,
         toolCallLog,
@@ -365,14 +423,17 @@ export async function executeBrainTask(taskConfig = {}, resolved = {}, context =
   const maxTokens = Number(cfg.maxTokens) || 1024;
   const { source: modelSource, baseUrl, apiKey, model, protocol, requiresKey, extraHeaders, configuredKey } =
     resolveWorkflowBrainProviderConfig(cfg.modelSource, cfg);
+  const thinkingFields = buildBrainThinkingFields(modelSource, cfg);
 
-  if (requiresKey && !configuredKey && !isLocalOllama(baseUrl) && !isOllamaServiceBaseUrl(baseUrl) && modelSource !== 'deepseek') {
+  if (requiresKey && !configuredKey && !isLocalOllama(baseUrl) && !isOllamaServiceBaseUrl(baseUrl)) {
     const keyHint =
       modelSource === 'openrouter'
         ? 'OpenRouter API key required on Brain node (platform .env keys are not used)'
         : modelSource === 'anthropic'
           ? 'Anthropic API key required on Brain node (platform .env keys are not used)'
-          : 'OpenAI API key required on Brain node (platform .env keys are not used)';
+          : modelSource === 'deepseek'
+            ? 'DeepSeek API key required on Brain node for cloud endpoint (leave blank only for local Ollama)'
+            : 'OpenAI API key required on Brain node (platform .env keys are not used)';
     throw new Error(keyHint);
   }
 
@@ -383,6 +444,11 @@ export async function executeBrainTask(taskConfig = {}, resolved = {}, context =
   }
 
   let systemPrompt = renderBrainPrompt(cfg.systemPrompt || '', context, graph, resolved);
+  const ownerId =
+    String(authUser?.id || context?.owner_user_id || context?.ceo_user_id || '').trim() || null;
+  if (ownerId) {
+    systemPrompt = prependCeoGuardrailsToSystemPrompt(systemPrompt, ownerId);
+  }
 
   if (mcpEntries.length) {
     systemPrompt = appendMcpToolsHint(systemPrompt, mcpEntries);
@@ -430,6 +496,7 @@ export async function executeBrainTask(taskConfig = {}, resolved = {}, context =
         serverAuthMap: mcpCfg.serverAuthMap,
         legacyAuth: mcpCfg.legacyAuth,
         maxRounds: mcpCfg.maxRounds,
+        thinkingFields,
       });
     }
   } else if (protocol === 'anthropic') {
@@ -452,6 +519,7 @@ export async function executeBrainTask(taskConfig = {}, resolved = {}, context =
       maxTokens,
       provider: openAiProvider,
       extraHeaders,
+      thinkingFields,
     });
   }
 
@@ -468,8 +536,10 @@ export async function executeBrainTask(taskConfig = {}, resolved = {}, context =
 
   return {
     text: result.text,
+    reasoning_content: result.reasoning_content || '',
     model_used: result.model_used,
     provider: result.provider,
+    thinking_mode: thinkingFields.thinking?.type || (thinkingFields.reasoning ? (thinkingFields.reasoning.enabled === false ? 'disabled' : 'enabled') : 'off'),
     // Keep enough of the rendered prompt to debug {{node}} feedback injection (was 500 — truncated mid-allowlist)
     system_prompt_rendered: systemPrompt.slice(0, 8000),
     user_message_preview: String(userMessage || '').slice(0, 2000),

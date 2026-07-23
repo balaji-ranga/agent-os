@@ -57,4 +57,5 @@ Path: **MCP** → `/integrations/mcp`.
 - Prefer Content Tool nodes when an Agent OS catalog tool already wraps the capability.
 - Keep secrets out of exported workflow JSON when sharing definitions.
 - Local/dev: a random SSE MCP test server may run on port 3099 (`tools/local-mcp-random-sse/`).
+- **Brave Search MCP:** Agent OS supports HTTP MCP only (not stdio). Use compose profile `optional-brave-mcp` with `BRAVE_API_KEY` in `deploy/.env`, then `node backend/scripts/seed-brave-search-mcp.js` and `seed-brain-brave-search-workflow.js`.
 - OpenConnector and other ops MCP setups: see operator docs in `knowledgebase/OPENCONNECTOR-WEBHOOKS.md` (admin/ops; CEOs still use the MCP UI the same way).

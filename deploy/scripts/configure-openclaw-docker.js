@@ -142,7 +142,15 @@ console.log('Set agent-os-content-tools baseUrl:', INTERNAL_API);
 if (config.models?.providers?.ollama) {
   config.models.providers.ollama.baseUrl = `${OLLAMA_BASE}/v1`;
   console.log('Set Ollama baseUrl:', `${OLLAMA_BASE}/v1`);
-  // Agent bootstrap alone is often ~9k tokens; 4k/8k ollama defaults cause context overflow.
+  // Agent bootstrap is large, but forcing 128k makes small VPS Ollama thrash / "fetch failed".
+  const ollamaCtx = Math.max(
+    8192,
+    Number(process.env.OLLAMA_CONTEXT_WINDOW || process.env.OPENCLAW_OLLAMA_CONTEXT_WINDOW || 32768) || 32768
+  );
+  const ollamaMaxTok = Math.max(
+    1024,
+    Number(process.env.OLLAMA_MAX_TOKENS || process.env.OPENCLAW_OLLAMA_MAX_TOKENS || 4096) || 4096
+  );
   const ollamaModels = config.models.providers.ollama.models;
   if (Array.isArray(ollamaModels)) {
     config.models.providers.ollama.models = ollamaModels.map((m) => {
@@ -153,80 +161,225 @@ if (config.models?.providers?.ollama) {
           reasoning: false,
           input: ['text'],
           cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-          contextWindow: 131072,
-          maxTokens: 8192,
+          contextWindow: ollamaCtx,
+          maxTokens: ollamaMaxTok,
         };
       }
       return {
         ...m,
-        contextWindow: Math.max(Number(m.contextWindow) || 0, 131072),
-        maxTokens: Math.max(Number(m.maxTokens) || 0, 8192),
+        contextWindow: Math.min(Math.max(Number(m.contextWindow) || 0, 8192), ollamaCtx) || ollamaCtx,
+        maxTokens: Math.min(Math.max(Number(m.maxTokens) || 0, 1024), ollamaMaxTok) || ollamaMaxTok,
       };
     });
     console.log(
-      'Raised ollama contextWindow:',
+      'Set ollama contextWindow:',
       config.models.providers.ollama.models.map((m) => `${m.id}:${m.contextWindow}`).join(', ')
     );
   }
 }
 
-// Register OpenAI provider from env so openai/gpt-4o-mini resolves (avoids silent ollama fallback).
-const openaiKey = String(process.env.OPENAI_API_KEY || process.env.OPENAI_PRIMARY_API_KEY || '').trim();
-const openaiBase = String(
-  process.env.OPENAI_BASE_URL || process.env.OPENAI_PRIMARY_BASE_URL || 'https://api.openai.com/v1'
-)
-  .trim()
-  .replace(/\/$/, '');
-const primarySlug = String(process.env.OPENCLAW_MODEL_PRIMARY || 'openai/gpt-4o-mini').trim();
-const primaryId = primarySlug.replace(/^openai\//, '') || 'gpt-4o-mini';
+// Register OpenAI-compatible provider from env (official OpenAI or DeepSeek / other bases).
+// When admin has switched to secondary, honor platform-llm-active.json (written by syncPlatformEndpointToOpenClaw)
+// so restart does not wipe openai/gpt-4o back to OPENCLAW_MODEL_PRIMARY=deepseek.
+let platformActive = 'primary';
+let markerPrimarySlug = '';
+try {
+  const markerPath = join(OPENCLAW_DIR, 'platform-llm-active.json');
+  if (existsSync(markerPath)) {
+    const marker = JSON.parse(readFileSync(markerPath, 'utf8'));
+    if (String(marker?.active || '').toLowerCase() === 'secondary') platformActive = 'secondary';
+    markerPrimarySlug = String(marker?.primary || '').trim();
+  }
+} catch {
+  /* ignore */
+}
+const useSecondaryPlatform =
+  platformActive === 'secondary' &&
+  String(process.env.OPENAI_SECONDARY_API_KEY || '').trim() &&
+  String(process.env.OPENAI_SECONDARY_MODEL || '').trim();
+
+const openaiKey = useSecondaryPlatform
+  ? String(process.env.OPENAI_SECONDARY_API_KEY || '').trim()
+  : String(process.env.OPENAI_API_KEY || process.env.OPENAI_PRIMARY_API_KEY || '').trim();
+const primarySlug = useSecondaryPlatform
+  ? markerPrimarySlug && markerPrimarySlug.startsWith('openai/')
+    ? markerPrimarySlug
+    : `openai/${String(process.env.OPENAI_SECONDARY_MODEL || 'gpt-4o').trim().replace(/^[^/]+\//, '')}`
+  : markerPrimarySlug || String(process.env.OPENCLAW_MODEL_PRIMARY || 'openai/gpt-4o-mini').trim();
+const primaryId = primarySlug.includes('/')
+  ? primarySlug.slice(primarySlug.indexOf('/') + 1)
+  : primarySlug || 'gpt-4o-mini';
+const primaryModelHint = `${primarySlug} ${useSecondaryPlatform ? process.env.OPENAI_SECONDARY_MODEL : process.env.OPENAI_PRIMARY_MODEL || ''}`.toLowerCase();
+const looksLikeDeepSeek = primaryModelHint.includes('deepseek');
+let openaiBaseRaw = useSecondaryPlatform
+  ? String(process.env.OPENAI_SECONDARY_BASE_URL || '')
+      .trim()
+      .replace(/\/$/, '')
+  : String(process.env.OPENAI_BASE_URL || process.env.OPENAI_PRIMARY_BASE_URL || '')
+      .trim()
+      .replace(/\/$/, '');
+if (!openaiBaseRaw && looksLikeDeepSeek) {
+  openaiBaseRaw = 'https://api.deepseek.com/v1';
+}
+if (!openaiBaseRaw) {
+  openaiBaseRaw = 'https://api.openai.com/v1';
+}
+const openaiBase = openaiBaseRaw.endsWith('/v1') ? openaiBaseRaw : `${openaiBaseRaw}/v1`;
+function isOfficialOpenAiBase(baseUrl) {
+  try {
+    const host = new URL(baseUrl).hostname.toLowerCase();
+    return host === 'api.openai.com';
+  } catch {
+    return false;
+  }
+}
+const useOfficialOpenAi = isOfficialOpenAiBase(openaiBase) && !looksLikeDeepSeek;
+if (useSecondaryPlatform) {
+  console.log(
+    'Honoring platform-llm-active.json secondary → primary=',
+    primarySlug,
+    'base=',
+    openaiBase
+  );
+}
 if (openaiKey) {
   if (!config.models) config.models = {};
   if (!config.models.providers) config.models.providers = {};
   const existing = config.models.providers.openai || {};
-  const models = Array.isArray(existing.models) ? existing.models.slice() : [];
-  const ids = new Set(models.map((m) => (typeof m === 'string' ? m : m?.id)).filter(Boolean));
-  for (const id of [primaryId, 'gpt-4o-mini', 'gpt-4o']) {
-    if (ids.has(id)) continue;
-    models.push({
+  // Custom bases (e.g. DeepSeek) only catalog the configured primary — avoid bogus gpt-* ids.
+  const catalogIds = useOfficialOpenAi
+    ? [primaryId, 'gpt-4o-mini', 'gpt-4o']
+    : [primaryId, 'deepseek-v4-flash', 'deepseek-v4-pro'].filter(
+        (id, i, arr) => id && arr.indexOf(id) === i
+      );
+  const ctxWindow = useOfficialOpenAi ? 128000 : 1000000;
+  const maxTok = useOfficialOpenAi ? 16384 : 65536;
+  let models;
+  if (useOfficialOpenAi) {
+    models = Array.isArray(existing.models) ? existing.models.slice() : [];
+    const ids = new Set(models.map((m) => (typeof m === 'string' ? m : m?.id)).filter(Boolean));
+    for (const id of catalogIds) {
+      if (ids.has(id)) continue;
+      models.push({
+        id,
+        name: id,
+        reasoning: false,
+        input: ['text'],
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+        contextWindow: ctxWindow,
+        maxTokens: maxTok,
+      });
+      ids.add(id);
+    }
+  } else {
+    models = catalogIds.map((id) => ({
       id,
       name: id,
       reasoning: false,
       input: ['text'],
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-      contextWindow: 128000,
-      maxTokens: 16384,
-    });
-    ids.add(id);
+      contextWindow: ctxWindow,
+      maxTokens: maxTok,
+    }));
   }
-  config.models.providers.openai = {
-    ...existing,
-    // Do not set baseUrl for official OpenAI — a custom baseUrl can force completions
-    // while tools still use type "custom", which returns 400 and triggers ollama garbage replies.
-    apiKey: openaiKey,
-    api: existing.api || 'openai-responses',
-    models: models.map((m) =>
-      typeof m === 'string'
-        ? m
-        : { ...m, api: m.api || 'openai-responses' }
-    ),
-  };
-  // Prefer our catalog over the bundled openai plugin's completions defaults.
+  if (useOfficialOpenAi) {
+    // Official OpenAI Responses API. Keep explicit api.openai.com baseUrl when admin
+    // secondary is active — otherwise gateway may fall back to container OPENAI_BASE_URL
+    // (often DeepSeek primary) and gpt-4o-mini requests fail.
+    config.models.providers.openai = {
+      ...existing,
+      apiKey: openaiKey,
+      api: existing.api || 'openai-responses',
+      models: models.map((m) =>
+        typeof m === 'string' ? m : { ...m, api: m.api || 'openai-responses' }
+      ),
+    };
+    if (useSecondaryPlatform) {
+      config.models.providers.openai.baseUrl = 'https://api.openai.com/v1';
+    } else {
+      delete config.models.providers.openai.baseUrl;
+    }
+    console.log(
+      'Set models.providers.openai (official Responses); models=',
+      models.map((m) => m.id || m).join(', '),
+      useSecondaryPlatform ? 'baseUrl=https://api.openai.com/v1' : 'baseUrl=(omitted)'
+    );
+  } else {
+    // DeepSeek / OpenAI-compatible: Chat Completions + baseUrl required.
+    config.models.providers.openai = {
+      baseUrl: openaiBase,
+      apiKey: openaiKey,
+      api: 'openai-completions',
+      models: models.map((m) => ({ ...m, api: 'openai-completions' })),
+    };
+    console.log(
+      'Set models.providers.openai (completions + baseUrl=',
+      openaiBase,
+      '); models=',
+      models.map((m) => m.id || m).join(', ')
+    );
+  }
   config.models.mode = 'replace';
-  delete config.models.providers.openai.baseUrl;
-  console.log('Set models.providers.openai from OPENAI_API_KEY; models=', models.map((m) => m.id || m).join(', '));
+  // Gateway prefers process env OPENAI_API_KEY over providers.openai.apiKey — write a
+  // runtime env file that openclaw-entrypoint.sh sources after configure.
+  try {
+    const runtimePath = join(OPENCLAW_DIR, 'platform-llm-runtime.env');
+    const lines = [`OPENAI_API_KEY=${openaiKey}`];
+    if (useOfficialOpenAi || useSecondaryPlatform) {
+      lines.push('OPENAI_BASE_URL=https://api.openai.com/v1');
+    } else if (openaiBase) {
+      lines.push(`OPENAI_BASE_URL=${openaiBase}`);
+    }
+    writeFileSync(runtimePath, `${lines.join('\n')}\n`, 'utf8');
+    console.log(
+      'Wrote',
+      runtimePath,
+      'keyPrefix=',
+      `${openaiKey.slice(0, 10)}...`,
+      useSecondaryPlatform ? '(secondary)' : '(primary)'
+    );
+  } catch (e) {
+    console.warn('Could not write platform-llm-runtime.env:', e?.message || e);
+  }
 } else {
   console.warn('OPENAI_API_KEY not set — openai/* models may fall back to ollama and overflow context');
 }
 
-// Disable silent ollama fallback unless explicitly enabled (fallback emits raw tool JSON).
-if (config.agents?.defaults?.model) {
+// Always align default primary model with OPENCLAW_MODEL_PRIMARY.
+if (!config.agents) config.agents = {};
+if (!config.agents.defaults) config.agents.defaults = {};
+if (!config.agents.defaults.model) config.agents.defaults.model = {};
+config.agents.defaults.model.primary = primarySlug;
+console.log('Set agents.defaults.model.primary=', primarySlug);
+
+// Model fallbacks: OPENCLAW_MODEL_FALLBACKS (comma-separated) or optional Ollama toggle.
+// OPENCLAW_ENABLE_OLLAMA_FALLBACK=0 strips ollama/* even if listed in OPENCLAW_MODEL_FALLBACKS
+// (otherwise Admin LLM auth failures silently dump tool schemas via llama).
+{
   const enableOllamaFallback =
     process.env.OPENCLAW_ENABLE_OLLAMA_FALLBACK === '1' ||
     process.env.OPENCLAW_ENABLE_OLLAMA_FALLBACK === 'true';
+  const primary = String(config.agents.defaults.model.primary || primarySlug || '').trim();
+  let fallbacks = String(process.env.OPENCLAW_MODEL_FALLBACKS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s && s !== primary);
   if (!enableOllamaFallback) {
-    config.agents.defaults.model.fallbacks = [];
-    console.log('Cleared agents.defaults.model.fallbacks (set OPENCLAW_ENABLE_OLLAMA_FALLBACK=1 to restore)');
+    fallbacks = fallbacks.filter((s) => !String(s).toLowerCase().startsWith('ollama/'));
+  } else if (!fallbacks.some((s) => String(s).toLowerCase().startsWith('ollama/'))) {
+    const ollamaModel = (
+      process.env.OPENCLAW_OLLAMA_FALLBACK_MODEL ||
+      process.env.OLLAMA_MODEL ||
+      'llama3.2'
+    ).trim();
+    fallbacks.push(`ollama/${ollamaModel}`);
   }
+  config.agents.defaults.model.fallbacks = fallbacks;
+  console.log(
+    fallbacks.length
+      ? `Set agents.defaults.model.fallbacks: ${fallbacks.join(', ')}`
+      : 'Cleared agents.defaults.model.fallbacks (OPENCLAW_ENABLE_OLLAMA_FALLBACK=0)'
+  );
 }
 
 // Ensure Agent OS extensions are on plugins.load.paths; remap Windows paths for Linux containers.

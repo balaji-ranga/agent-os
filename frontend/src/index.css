@@ -2825,3 +2825,10 @@ button {
     grid-template-columns: 1fr;
   }
 }
+
+/* Admin two-column layout — stack on narrow screens */
+@media (max-width: 900px) {
+  .admin-grid-2 {
+    grid-template-columns: 1fr !important;
+  }
+}

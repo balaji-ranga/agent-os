@@ -5,12 +5,17 @@
  * OPENAI_API_KEY, OPENAI_BASE_URL, OPENCLAW_MODEL_PRIMARY — with OPENAI_PRIMARY_* as aliases.
  */
 import { resolveLlmConfigForUser } from '../services/user-llm-settings.js';
+import { getEffectivePlatformLlmEndpoints } from '../services/platform-llm-settings.js';
 
 function isLocalOllama(baseUrl) {
   if (!baseUrl || typeof baseUrl !== 'string') return false;
   try {
     const u = new URL(baseUrl);
-    return u.hostname === 'localhost' || u.hostname === '127.0.0.1';
+    return (
+      u.hostname === 'localhost' ||
+      u.hostname === '127.0.0.1' ||
+      u.hostname === 'ollama'
+    );
   } catch (_) {
     return false;
   }
@@ -18,15 +23,30 @@ function isLocalOllama(baseUrl) {
 
 /**
  * @param {string} [ownerUserId] - CEO user id; when set, user BYOK takes precedence over .env
- * @returns {{
- *   primary: { baseUrl: string, apiKey: string, model: string },
- *   secondary: { baseUrl: string, apiKey: string, model: string } | null,
- *   provider?: string,
- *   using_byok?: boolean
- * }}
  */
 export function getLlmConfig(ownerUserId = null) {
   const resolved = resolveLlmConfigForUser(ownerUserId || null);
+  // Platform-decided: honor admin primary/secondary switch
+  if (!resolved.using_byok || resolved.provider === 'platform_decided') {
+    const effective = getEffectivePlatformLlmEndpoints();
+    return {
+      primary: {
+        baseUrl: effective.primary.baseUrl,
+        apiKey: effective.primary.apiKey,
+        model: effective.primary.model,
+      },
+      secondary: effective.secondary
+        ? {
+            baseUrl: effective.secondary.baseUrl,
+            apiKey: effective.secondary.apiKey,
+            model: effective.secondary.model,
+          }
+        : null,
+      provider: 'platform_decided',
+      using_byok: false,
+      platform_endpoint: effective.active,
+    };
+  }
   return {
     primary: {
       baseUrl: resolved.primary.baseUrl,

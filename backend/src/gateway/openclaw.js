@@ -88,12 +88,24 @@ export async function chatCompletions(agentId, messages, sessionUser = null, str
   const timeoutMs = Number(
     options.timeoutMs || process.env.OPENCLAW_FETCH_TIMEOUT_MS || 240000
   );
-  const res = await fetch(url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(timeoutMs),
-  });
+  let res;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch (e) {
+    const name = e?.name || 'Error';
+    const msg = e?.message || String(e);
+    if (name === 'TimeoutError' || name === 'AbortError') {
+      throw new Error(
+        `OpenClaw gateway timeout after ${timeoutMs}ms (${getGatewayUrl()}). Local Ollama BYOK chats can be slow on first load — retry or use New chat.`
+      );
+    }
+    throw new Error(`OpenClaw gateway unreachable (${getGatewayUrl()}): ${msg}`);
+  }
 
   if (!res.ok) {
     const errText = await res.text();
@@ -116,11 +128,15 @@ export async function chatCompletions(agentId, messages, sessionUser = null, str
 
 /**
  * Derive a stable session user string for per-agent, per-user session affinity.
+ * Optional threadId isolates New chat / auto-split sessions (TPM mitigation).
  */
-export function sessionUserFor(agentId, userId = 'default') {
+export function sessionUserFor(agentId, userId = 'default', threadId = null) {
   // IMPORTANT: Keep the OpenClaw "user" value free of ":" (and other special chars).
   const safe = (s) => String(s || '').replace(/[^a-zA-Z0-9_.-]/g, '_');
-  return `agent-os-${safe(agentId)}-${safe(userId)}`;
+  const base = `agent-os-${safe(agentId)}-${safe(userId)}`;
+  const tid = threadId != null ? String(threadId).trim() : '';
+  if (!tid || tid === 'main') return base;
+  return `${base}-t${safe(tid)}`;
 }
 
 /**

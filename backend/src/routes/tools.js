@@ -425,7 +425,8 @@ router.post('/summarize-url', async (req, res) => {
     const title = extractTitle(body);
     const rawText = stripHtml(body).slice(0, 50000);
 
-    const openai = getOpenAiConfig();
+    const ownerUserId = resolveToolOwnerUserIdOrNull(req, req.body || {}, resolveAuthenticatedCeoUserId);
+    const openai = getOpenAiConfig(ownerUserId);
     if (openai.apiKey && rawText.length > 100) {
       try {
         const { content: summaryText } = await chatCompletions({
@@ -437,6 +438,7 @@ router.post('/summarize-url', async (req, res) => {
           ],
           modelOverride: openai.summaryModel || undefined,
           maxTokens: 300,
+          ownerUserId,
         });
         const summary = (summaryText && summaryText.trim()) || rawText.slice(0, 500);
         const out = { summary, title: title || undefined };
@@ -520,7 +522,8 @@ router.post('/generate-image', optionalAuth, async (req, res) => {
       logTool(req,'generate_image', requestPayload, { error: 'prompt is required' }, 'error', source);
       return res.status(400).json({ error: 'prompt is required' });
     }
-    const { primary, secondary } = getImageConfig();
+    const ownerUserId = resolveToolOwnerUserIdOrNull(req, req.body || {}, resolveAuthenticatedCeoUserId);
+    const { primary, secondary } = getImageConfig(ownerUserId);
     const endpoints = [primary, secondary].filter((ep) => ep && ep.apiKey);
     if (endpoints.length === 0) {
       logTool(req,'generate_image', requestPayload, { error: 'Image generation not configured (OPENAI_API_KEY or primary/secondary)' }, 'error', source);
@@ -631,7 +634,8 @@ router.post('/generate-video', optionalAuth, async (req, res) => {
       logTool(req,'generate_video', requestPayload, { error: 'prompt is required' }, 'error', source);
       return res.status(400).json({ error: 'prompt is required' });
     }
-    const { primary, secondary } = getVideoConfig();
+    const ownerUserId = resolveToolOwnerUserIdOrNull(req, req.body || {}, resolveAuthenticatedCeoUserId);
+    const { primary, secondary } = getVideoConfig(ownerUserId);
     const endpoints = [primary, secondary].filter((ep) => ep && ep.apiToken && ep.modelVersion);
     if (endpoints.length === 0) {
       logTool(req,'generate_video', requestPayload, { error: 'Video generation not configured (REPLICATE_API_TOKEN or primary/secondary)' }, 'error', source);

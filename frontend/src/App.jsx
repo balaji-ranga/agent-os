@@ -21,6 +21,7 @@ import CustomScripts from './pages/CustomScripts';
 import ExternalAgents from './pages/ExternalAgents';
 import AgentExchange from './pages/AgentExchange';
 import MasterData from './pages/MasterData';
+import Policies from './pages/Policies';
 import AiSnipper from './pages/AiSnipper';
 import NotificationBell from './components/NotificationBell';
 import ProfileMenu from './components/ProfileMenu';
@@ -207,6 +208,7 @@ function Shell() {
                 <Route path="/broadcast" element={<Broadcast />} />
                 <Route path="/kanban" element={<Kanban />} />
                 <Route path="/master-data" element={<MasterData />} />
+                <Route path="/policies" element={<Policies />} />
                 <Route path="/ai-snipper" element={<AiSnipper />} />
                 <Route path="/job-workflows" element={<JobWorkflows />} />
                 <Route path="/workflows" element={<AgentWorkflows />} />

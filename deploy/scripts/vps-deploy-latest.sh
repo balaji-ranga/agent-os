@@ -43,6 +43,7 @@ echo "              Kanban owner_user_id isolation (SQL-scoped; shared agents ne
 echo "              lean Kanban board (generic tasks; no Job applications filter / pipeline banner),"
 echo "              lean CEO onboard + OrgDesigner, pruneSharedStandardAgentGrants at boot,"
 echo "              chat tool-call icons, notification tooltips + datetime, shared NotificationProvider,"
+echo "              CEO Policies/guardrails (POLICY.md + Brain prepend),"
 echo "              deploy smokes clean up CEO standup/notify pollution,"
 echo "              AgentExchange/A2A (public + OAuth client credentials → Bearer),"
 echo "              DeepSeek@Ollama,"
@@ -229,6 +230,11 @@ if docker compose exec -T frontend sh -c 'grep -Rql chat_attachments /usr/share/
   echo "    frontend assets: chat attachments → Master Data RAG OK"
 else
   echo "    WARN: chat_attachments not found in frontend JS"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql ceoGuardrailsSave /usr/share/nginx/html/assets/*.js 2>/dev/null || grep -Rql "/policies" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: CEO Policies / guardrails OK"
+else
+  echo "    WARN: CEO Policies UI not found in frontend JS"
 fi
 
 TOKEN=$(docker compose exec -T -w /opt/agent-os/backend backend node --input-type=module <<'NODE' 2>/dev/null || true

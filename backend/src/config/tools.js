@@ -3,6 +3,7 @@
  * LLM (chat) uses config/llm.js with primary/secondary base URL, API key, model.
  * Image and video each have primary + secondary endpoint and key/model (OpenAI SDK–compatible or Replicate).
  */
+import { randomBytes } from 'crypto';
 import { getLlmConfig } from './llm.js';
 
 function normalizeBaseUrl(url) {
@@ -25,17 +26,41 @@ export function getSummarizeUrlConfig() {
 }
 
 export function getToolsApiKey() {
-  return process.env.TOOLS_API_KEY || '';
+  return String(process.env.TOOLS_API_KEY || '').trim();
+}
+
+/**
+ * OpenClaw content-tools plugin auth. Required in production / strict mode
+ * (same fail-closed posture as AGENT_OS_INTERNAL_TOKEN).
+ */
+export function ensureToolsApiKeyConfigured() {
+  let key = getToolsApiKey();
+  if (key) return key;
+  if (process.env.NODE_ENV === 'production' || process.env.AGENT_OS_STRICT_SECRETS === '1') {
+    throw new Error(
+      'TOOLS_API_KEY is required in production (set a long random secret in deploy/.env; must match OpenClaw content-tools plugin apiKey)'
+    );
+  }
+  // Dev-only ephemeral — OpenClaw plugin will not match until .env is set.
+  key = randomBytes(24).toString('hex');
+  process.env.TOOLS_API_KEY = key;
+  console.warn(
+    '[security] TOOLS_API_KEY was unset — generated an ephemeral key for this process. Set it in .env and sync OpenClaw plugin apiKey.'
+  );
+  return key;
 }
 
 /** Summary model override for summarize-url (otherwise LLM primary/secondary from llm.js). */
-export function getOpenAiConfig() {
-  const llm = getLlmConfig();
+export function getOpenAiConfig(ownerUserId = null) {
+  const llm = getLlmConfig(ownerUserId);
   const summaryModel = (process.env.TOOLS_SUMMARIZE_MODEL || '').trim() || llm.primary.model;
   return {
     summaryModel: summaryModel || undefined,
     primaryModel: llm.primary.model,
     secondaryModel: llm.secondary?.model,
+    apiKey: llm.primary.apiKey || llm.secondary?.apiKey || '',
+    baseUrl: llm.primary.baseUrl,
+    using_byok: !!llm.using_byok,
   };
 }
 
@@ -52,20 +77,50 @@ export function mapGptImageQuality(quality) {
   return 'medium';
 }
 
+function isLocalOllamaUrl(baseUrl) {
+  try {
+    const u = new URL(baseUrl);
+    return u.hostname === 'localhost' || u.hostname === '127.0.0.1' || u.hostname === 'ollama';
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Image generation: primary and secondary providers (each base URL + API key + model). OpenAI SDK–compatible.
- * Default model is gpt-image-1 (DALL·E 2/3 retired for many accounts as of 2026).
- * @returns {{ primary: { apiUrl: string, apiKey: string, model: string, size, quality, style, maxPromptChars }, secondary: object | null }}
+ * Image generation: primary and secondary providers.
+ * When ownerUserId has OpenAI/OpenRouter BYOK, use that key as primary (billing isolation).
  */
-export function getImageConfig() {
+export function getImageConfig(ownerUserId = null) {
   const defaultBase = 'https://api.openai.com/v1';
-  const primaryBase = normalizeBaseUrl(process.env.OPENAI_PRIMARY_BASE_URL || process.env.OPENAI_BASE_URL || process.env.OPENAI_API_URL || defaultBase) || defaultBase;
-  const primaryKey = (process.env.OPENAI_PRIMARY_API_KEY || process.env.OPENAI_API_KEY || '').trim();
-  const primaryModel = (process.env.TOOLS_IMAGE_MODEL || 'gpt-image-1').trim();
   const size = process.env.TOOLS_IMAGE_SIZE || '1024x1024';
   const quality = process.env.TOOLS_IMAGE_QUALITY || 'standard';
   const style = process.env.TOOLS_IMAGE_STYLE || 'natural';
   const maxPromptChars = Math.min(parseInt(process.env.TOOLS_IMAGE_MAX_PROMPT_CHARS || '1000', 10) || 1000, 4000);
+  const primaryModel = (process.env.TOOLS_IMAGE_MODEL || 'gpt-image-1').trim();
+
+  let primaryBase =
+    normalizeBaseUrl(process.env.OPENAI_PRIMARY_BASE_URL || process.env.OPENAI_BASE_URL || process.env.OPENAI_API_URL || defaultBase) ||
+    defaultBase;
+  let primaryKey = (process.env.OPENAI_PRIMARY_API_KEY || process.env.OPENAI_API_KEY || '').trim();
+
+  // BYOK: prefer user OpenAI / OpenRouter key for image gen (not local Ollama — no image API).
+  if (ownerUserId) {
+    try {
+      const llm = getLlmConfig(ownerUserId);
+      if (
+        llm.using_byok &&
+        llm.primary?.apiKey &&
+        llm.primary?.baseUrl &&
+        !isLocalOllamaUrl(llm.primary.baseUrl) &&
+        (llm.provider === 'openai' || llm.provider === 'openrouter')
+      ) {
+        primaryBase = normalizeBaseUrl(llm.primary.baseUrl) || primaryBase;
+        primaryKey = llm.primary.apiKey;
+      }
+    } catch {
+      /* keep platform */
+    }
+  }
 
   const secondaryBase = normalizeBaseUrl(process.env.OPENAI_SECONDARY_BASE_URL || '');
   const secondaryKey = (process.env.OPENAI_SECONDARY_API_KEY || '').trim();
@@ -81,17 +136,18 @@ export function getImageConfig() {
     maxPromptChars,
   };
 
-  const secondary = secondaryBase && secondaryKey && secondaryModel
-    ? {
-        apiUrl: secondaryBase,
-        apiKey: secondaryKey,
-        model: secondaryModel,
-        size: primary.size,
-        quality: primary.quality,
-        style: primary.style,
-        maxPromptChars,
-      }
-    : null;
+  const secondary =
+    secondaryBase && secondaryKey && secondaryModel
+      ? {
+          apiUrl: secondaryBase,
+          apiKey: secondaryKey,
+          model: secondaryModel,
+          size: primary.size,
+          quality: primary.quality,
+          style: primary.style,
+          maxPromptChars,
+        }
+      : null;
 
   return { primary, secondary };
 }
@@ -101,19 +157,30 @@ const DEFAULT_VIDEO_MODEL_VERSION = 'anotherjesse/zeroscope-v2-xl:8ba52bde113006
 const REPLICATE_DEFAULT_BASE = 'https://api.replicate.com/v1';
 
 /**
- * Video generation: primary and secondary (each base URL + API token + model version). Replicate API.
- * @returns {{ primary: { apiUrl: string, apiToken: string, modelVersion: string, maxPromptChars: number }, secondary: object | null }}
+ * Video generation via Replicate.
+ * When owner has BYOK openai/openrouter, still use platform Replicate tokens unless
+ * REPLICATE_BYOK_ALLOW=0; optional per-user override via env is not stored — platform keys
+ * remain for Replicate. If user BYOK is set we prefer not falling back to shared OpenAI for
+ * anything else; video stays Replicate (separate billing).
+ *
+ * @param {string|null} [ownerUserId] - reserved for future per-user Replicate; currently scopes logging
  */
-export function getVideoConfig() {
+export function getVideoConfig(ownerUserId = null) {
+  void ownerUserId;
   const maxPromptChars = Math.min(parseInt(process.env.TOOLS_VIDEO_MAX_PROMPT_CHARS || '500', 10) || 500, 2000);
 
-  const primaryBase = normalizeBaseUrl(process.env.REPLICATE_PRIMARY_BASE_URL || process.env.REPLICATE_BASE_URL || REPLICATE_DEFAULT_BASE) || REPLICATE_DEFAULT_BASE;
+  const primaryBase =
+    normalizeBaseUrl(process.env.REPLICATE_PRIMARY_BASE_URL || process.env.REPLICATE_BASE_URL || REPLICATE_DEFAULT_BASE) ||
+    REPLICATE_DEFAULT_BASE;
   const primaryToken = (process.env.REPLICATE_API_TOKEN || process.env.REPLICATE_PRIMARY_API_TOKEN || '').trim();
   const primaryVersion = (process.env.TOOLS_VIDEO_MODEL_VERSION || '').trim() || DEFAULT_VIDEO_MODEL_VERSION;
 
   const secondaryBase = normalizeBaseUrl(process.env.REPLICATE_SECONDARY_BASE_URL || '');
   const secondaryToken = (process.env.REPLICATE_SECONDARY_API_TOKEN || '').trim();
   const secondaryVersion = (process.env.TOOLS_VIDEO_SECONDARY_MODEL_VERSION || '').trim();
+
+  // Optional: user-scoped Replicate token header from tools request is not used — keys stay env.
+  // When CEO has OpenAI BYOK, image uses their key; video remains platform Replicate (different vendor).
 
   const primary = {
     apiUrl: primaryBase,
@@ -122,14 +189,15 @@ export function getVideoConfig() {
     maxPromptChars,
   };
 
-  const secondary = secondaryBase && secondaryToken && secondaryVersion
-    ? {
-        apiUrl: secondaryBase,
-        apiToken: secondaryToken,
-        modelVersion: secondaryVersion,
-        maxPromptChars,
-      }
-    : null;
+  const secondary =
+    secondaryBase && secondaryToken && secondaryVersion
+      ? {
+          apiUrl: secondaryBase,
+          apiToken: secondaryToken,
+          modelVersion: secondaryVersion,
+          maxPromptChars,
+        }
+      : null;
 
   return { primary, secondary };
 }

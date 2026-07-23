@@ -60,7 +60,7 @@ async function runStandupForCeo(ceoUserId) {
     .all(standup.id);
 
   try {
-    const { coo_summary, ceo_summary } = await runCooSummarization(responses, []);
+    const { coo_summary, ceo_summary } = await runCooSummarization(responses, [], [], ceoUserId);
     db()
       .prepare('UPDATE standups SET coo_summary = ?, ceo_summary = ?, status = ? WHERE id = ?')
       .run(coo_summary, ceo_summary, 'completed', standup.id);

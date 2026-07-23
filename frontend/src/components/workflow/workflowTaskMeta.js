@@ -26,10 +26,10 @@ export const BRAIN_PROVIDER_PRESETS = {
     siteTitle: 'Agent OS',
   },
   deepseek: {
-    label: 'DeepSeek V3 (Ollama)',
-    apiEndpoint: 'http://ollama:11434/v1',
-    model: 'deepseek-v3',
-    apiKeyHint: 'not required — local Ollama (pull deepseek-v3 first)',
+    label: 'DeepSeek',
+    apiEndpoint: 'https://api.deepseek.com/v1',
+    model: 'deepseek-v4-flash',
+    apiKeyHint: 'DeepSeek API key for cloud; blank only if using local Ollama endpoint',
   },
 };
 

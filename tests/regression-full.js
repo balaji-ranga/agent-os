@@ -144,6 +144,20 @@ async function main() {
   const internalToken = loadInternalToken();
   if (internalToken) {
     await runner.expectStatus(
+      'query internal_token rejected off cron-callback',
+      'GET',
+      `/api/ibkr-trading/config?internal_token=${encodeURIComponent(internalToken)}`,
+      {},
+      401
+    );
+    await runner.expectStatus(
+      'query internal_token accepted on cron-callback path (auth ok; bad ids may 4xx)',
+      'POST',
+      `/api/standups/cron-callback?standup_id=1&request_id=x&agent_id=coo&task_id=1&internal_token=${encodeURIComponent(internalToken)}`,
+      { body: {} },
+      [200, 400, 404]
+    );
+    await runner.expectStatus(
       'internal token accepted on IBKR config',
       'GET',
       '/api/ibkr-trading/config',

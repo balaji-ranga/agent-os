@@ -2,9 +2,11 @@
  * Apply agents.list (Bala, COO, TechResearcher) to OpenClaw config and restart the gateway.
  * Run from agent-os: node scripts/apply-openclaw-agents-config.js
  * Requires: write access to ~/.openclaw/openclaw.json
+ * Loads backend/.env (and deploy/.env if present) so OPENAI_* / OPENCLAW_MODEL_PRIMARY apply.
  */
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
-import { join } from 'path';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { resolveOpenClawDir } from './lib/openclaw-paths.js';
 import {
   REQUIRED_GLOBAL_CONTENT_TOOLS,
@@ -12,6 +14,32 @@ import {
   WORKFLOW_BUILDER_CONTENT_TOOLS_ALLOW,
   PLATFORM_HELP_CONTENT_TOOLS_ALLOW,
 } from './lib/content-tools-allow.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const AGENT_OS_ROOT = join(__dirname, '..');
+
+/** Minimal .env loader (no dotenv dependency in scripts/). Does not override existing env. */
+function loadEnvFile(path) {
+  if (!existsSync(path)) return;
+  const text = readFileSync(path, 'utf8');
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    const eq = line.indexOf('=');
+    if (eq <= 0) continue;
+    const key = line.slice(0, eq).trim();
+    let val = line.slice(eq + 1).trim();
+    if (
+      (val.startsWith('"') && val.endsWith('"')) ||
+      (val.startsWith("'") && val.endsWith("'"))
+    ) {
+      val = val.slice(1, -1);
+    }
+    if (process.env[key] === undefined) process.env[key] = val;
+  }
+}
+loadEnvFile(join(AGENT_OS_ROOT, 'backend', '.env'));
+loadEnvFile(join(AGENT_OS_ROOT, 'deploy', '.env'));
 
 const OPENCLAW_DIR = resolveOpenClawDir();
 const CONFIG_PATH = join(OPENCLAW_DIR, 'openclaw.json');
@@ -113,16 +141,89 @@ for (const a of config.agents.list) {
 if (!config.agents.defaults) config.agents.defaults = {};
 if (!config.agents.defaults.model) config.agents.defaults.model = {};
 config.agents.defaults.model.primary = DEFAULT_MODEL;
-// Ollama fallback dumps raw tool JSON when OpenAI tools fail — keep empty unless explicitly enabled.
+// Fallbacks: OPENCLAW_MODEL_FALLBACKS (comma-separated) or optional Ollama toggle.
 const enableOllamaFallback =
   process.env.OPENCLAW_ENABLE_OLLAMA_FALLBACK === '1' ||
   process.env.OPENCLAW_ENABLE_OLLAMA_FALLBACK === 'true';
-config.agents.defaults.model.fallbacks = enableOllamaFallback ? [OLLAMA_FALLBACK_ID] : [];
+const extraFallbacks = String(process.env.OPENCLAW_MODEL_FALLBACKS || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+if (extraFallbacks.length) {
+  config.agents.defaults.model.fallbacks = extraFallbacks.filter((s) => s && s !== DEFAULT_MODEL);
+} else {
+  config.agents.defaults.model.fallbacks = enableOllamaFallback ? [OLLAMA_FALLBACK_ID] : [];
+}
+
+if (!config.models) config.models = {};
+if (!config.models.providers) config.models.providers = {};
+
+// OpenAI-compatible primary (official OpenAI or DeepSeek / custom base from backend .env).
+{
+  const openaiKey = String(process.env.OPENAI_API_KEY || process.env.OPENAI_PRIMARY_API_KEY || '').trim();
+  const openaiBaseRaw = String(
+    process.env.OPENAI_BASE_URL || process.env.OPENAI_PRIMARY_BASE_URL || 'https://api.openai.com/v1'
+  )
+    .trim()
+    .replace(/\/$/, '');
+  const openaiBase = openaiBaseRaw.endsWith('/v1') ? openaiBaseRaw : `${openaiBaseRaw}/v1`;
+  let useOfficialOpenAi = false;
+  try {
+    useOfficialOpenAi = new URL(openaiBase).hostname.toLowerCase() === 'api.openai.com';
+  } catch {
+    useOfficialOpenAi = false;
+  }
+  const primaryId = DEFAULT_MODEL.includes('/')
+    ? DEFAULT_MODEL.slice(DEFAULT_MODEL.indexOf('/') + 1)
+    : DEFAULT_MODEL || 'gpt-4o-mini';
+  if (openaiKey) {
+    const existing = config.models.providers.openai || {};
+    const catalogIds = useOfficialOpenAi
+      ? [primaryId, 'gpt-4o-mini', 'gpt-4o']
+      : [primaryId, 'deepseek-v4-flash', 'deepseek-v4-pro'].filter(
+          (id, i, arr) => id && arr.indexOf(id) === i
+        );
+    const ctxWindow = useOfficialOpenAi ? 128000 : 1000000;
+    const maxTok = useOfficialOpenAi ? 16384 : 65536;
+    const models = catalogIds.map((id) => ({
+      id,
+      name: id,
+      reasoning: false,
+      input: ['text'],
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      contextWindow: ctxWindow,
+      maxTokens: maxTok,
+      api: useOfficialOpenAi ? 'openai-responses' : 'openai-completions',
+    }));
+    if (useOfficialOpenAi) {
+      config.models.providers.openai = {
+        ...existing,
+        apiKey: openaiKey,
+        api: 'openai-responses',
+        models,
+      };
+      delete config.models.providers.openai.baseUrl;
+    } else {
+      config.models.providers.openai = {
+        ...existing,
+        baseUrl: openaiBase,
+        apiKey: openaiKey,
+        api: 'openai-completions',
+        models,
+      };
+    }
+    config.models.mode = 'replace';
+    console.log(
+      'Set models.providers.openai',
+      useOfficialOpenAi ? '(official Responses)' : `(completions ${openaiBase})`,
+      'primary=',
+      DEFAULT_MODEL
+    );
+  }
+}
 
 // Ollama on localhost: optional explicit provider so fallback works without relying only on auto-discovery.
 // Set OLLAMA_API_KEY=ollama-local (or any value) so OpenClaw can use Ollama; baseUrl defaults to localhost:11434.
-if (!config.models) config.models = {};
-if (!config.models.providers) config.models.providers = {};
 // OpenClaw requires models.providers.ollama.models to be an array of model objects (not strings).
 function ollamaModelObject(id) {
   return {
@@ -241,7 +342,14 @@ mergeDeep(config.gateway, GATEWAY_DEFAULTS);
 
 if (!existsSync(OPENCLAW_DIR)) mkdirSync(OPENCLAW_DIR, { recursive: true });
 writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
-console.log('Written agents.list + model.primary:', DEFAULT_MODEL, '+ fallbacks:', OLLAMA_FALLBACK_ID, '+ tools.agentToAgent to', CONFIG_PATH);
+console.log(
+  'Written agents.list + model.primary:',
+  DEFAULT_MODEL,
+  '+ fallbacks:',
+  JSON.stringify(config.agents.defaults.model.fallbacks || []),
+  '+ tools.agentToAgent to',
+  CONFIG_PATH
+);
 console.log('TechResearcher, ExpenseManager, SocialAssistant: same tools.allow (agent-os-content-tools + kanban/intent tools).');
 console.log('Restart the OpenClaw gateway so the dashboard picks up the agents:');
 console.log('  openclaw gateway restart');

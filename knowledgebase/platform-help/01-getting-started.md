@@ -25,7 +25,8 @@ Admin accounts manage platform users; CEOs get the full product nav.
 Path: avatar → **Profile** (`/profile`).
 
 - Update display name, email, region, mobile, password.
-- **Model preference:** platform default, or your own OpenAI / OpenRouter (and similar) API key when offered.
+- **Model preference:** platform default, or your own OpenAI / OpenRouter API key when offered. (Profile “DeepSeek” still means local Ollama when that profile is enabled.)
+- **Workflow Brain:** for DeepSeek or OpenRouter nodes you can set **Thinking mode** (and effort) in the node attributes — see [07-workflow-nodes-reference](./07-workflow-nodes-reference.md).
 - MFA settings as required by your org.
 
 Agents still run through OpenClaw; your BYOK preference affects how the platform selects models for eligible paths.

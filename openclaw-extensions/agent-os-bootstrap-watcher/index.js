@@ -4,6 +4,7 @@ import { homedir } from "node:os";
 const BOOTSTRAP_FILE_NAMES = [
   "AGENTS.md",
   "ORG.md",
+  "POLICY.md",
   "SOUL.md",
   "TOOLS.md",
   "IDENTITY.md",

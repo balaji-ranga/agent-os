@@ -11,9 +11,10 @@ const COO_MODEL_OVERRIDE = process.env.OPENAI_COO_MODEL || null;
  * @param {Array<{ agent_id: string, content: string }>} responses - standup responses
  * @param {Array<{ agent_id: string, type: string, payload: string }>} [activities] - optional recent activities
  * @param {Array<{ role: string, content: string }>} [conversation] - optional standup chat (user/COO messages) for context
+ * @param {string} [ownerUserId] - CEO id for BYOK
  * @returns {Promise<{ coo_summary: string, ceo_summary: string }>}
  */
-export async function runCooSummarization(responses, activities = [], conversation = []) {
+export async function runCooSummarization(responses, activities = [], conversation = [], ownerUserId = null) {
   const userContent = buildPrompt(responses, activities, conversation);
   const messages = [
     {
@@ -32,6 +33,7 @@ Base your summary on this standup's conversation and agent responses only. Keep 
     messages,
     modelOverride: COO_MODEL_OVERRIDE || undefined,
     maxTokens: 1024,
+    ownerUserId,
   });
   return parseCooOutput(text);
 }
@@ -80,7 +82,7 @@ function parseCooOutput(text) {
  * @param {Record<string, string>} [agentNames] - optional map agent_id -> name for display
  * @returns {Promise<string>} COO reply to show to CEO
  */
-export async function runCooInteractiveStandup(conversation, agentResponses = [], agentNames = {}) {
+export async function runCooInteractiveStandup(conversation, agentResponses = [], agentNames = {}, ownerUserId = null) {
   let userContent = '';
   if (conversation.length > 0) {
     userContent = 'Conversation so far:\n' + conversation.map((m) => `${m.role}: ${m.content}`).join('\n\n') + '\n\n';
@@ -108,6 +110,7 @@ Be concise and conversational. Address the CEO directly. If there is no agent wo
     messages,
     modelOverride: COO_MODEL_OVERRIDE || undefined,
     maxTokens: 1024,
+    ownerUserId,
   });
   return (content ?? '').trim() || 'Standup updated. What would you like to delegate today?';
 }

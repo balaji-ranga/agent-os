@@ -181,14 +181,16 @@ Gets the same gateway LLM vars plus:
 
 | Variable | Purpose |
 |----------|---------|
-| `AGENT_OS_INTERNAL_TOKEN` | Workflow runner, tools proxy, cron-callback (required in production) |
+| `AGENT_OS_INTERNAL_TOKEN` | Workflow runner, tools proxy, cron-callback (required in production). Query `internal_token` is only accepted on `/api/standups/cron-callback`; elsewhere use `x-agent-os-internal`. |
+| `TOOLS_API_KEY` | OpenClaw content-tools ↔ backend (required in production; must match plugin `apiKey`) |
 | `OPENAI_COO_MODEL`, `OPENAI_INTENT_MODEL` | COO / intent classifier |
 | `REPLICATE_API_TOKEN` | Video generation content tool |
 | `OPENROUTER_*` | Dev/test scripts; Brain nodes still use per-node keys |
 | `CUSTOM_SCRIPT_*` | Python/JS workflow script sandbox (`python3` in image); includes LLM security review at registration |
-| `WORKFLOW_SMTP_*` | Send Email workflow task, `email_send` content tool (incl. ICS invites), MFA email OTP. Production sender: `WORKFLOW_SMTP_FROM=admin@flolah.com` (domain must be verified with provider) |
+| `WORKFLOW_SMTP_*` | Send Email workflow task, `email_send` content tool (incl. ICS invites), MFA email OTP. Use a verified sender domain with your SMTP provider. |
 | `WORKFLOW_TEST_EMAIL_TO` | Optional recipient for SMTP smoke scripts (`test-email-send-tool.js`) |
-| `DEEPSEEK_BASE_URL`, `DEEPSEEK_MODEL` | DeepSeek V3 via local Ollama (`optional-ollama`; default model `deepseek-v3`) |
+| `DEEPSEEK_BASE_URL`, `DEEPSEEK_MODEL` | Optional DeepSeek override. Brain `deepseek` defaults to cloud V4 (`https://api.deepseek.com/v1`, `deepseek-v4-flash`) with per-node API key; set these to Ollama for local. Profile BYOK `deepseek` still uses local Ollama when pointed here. |
+| `BRAVE_API_KEY` | Brave Search MCP (`optional-brave-mcp` profile). Seed with `backend/scripts/seed-brave-search-mcp.js`. |
 | `MFA_MODE`, `AGENT_OS_REQUIRE_MFA`, `AGENT_OS_DISABLE_MFA` | Platform MFA defaults (production: `MFA_MODE=TOTP`, `AGENT_OS_REQUIRE_MFA=1`) |
 | `EMAIL_INBOUND_WEBHOOK_SECRET` | Optional platform secret for email inbound webhooks |
 | `OPENCONNECTOR_URL` | Base URL of the OpenConnector runtime (e.g. `http://openconnector:3000`). Enables Connector workflow nodes + User Profile auto-provision. |
@@ -197,7 +199,7 @@ Gets the same gateway LLM vars plus:
 | `OPENCONNECTOR_MCP_*` | OpenConnector MCP URL / bearer / transport (Brain+MCP tool-calling) |
 | `WORKFLOW_FS_ROOTS` | Allowed roots for filesystem workflow nodes (default `/data/workflow-fs`) |
 
-**Workflow Brain nodes:** published workflows require API keys **on each Brain node** in the editor — platform `.env` keys are not used at run time (see `backend/.env.example`). User BYOK keys live in SQLite (User Profile).
+**Workflow Brain nodes:** published workflows require API keys **on each Brain node** in the editor — platform `.env` keys are not used at run time (see `backend/.env.example`). User BYOK keys live in SQLite (User Profile). DeepSeek/OpenRouter Brain nodes also support **Thinking mode** / **Thinking effort** in the editor.
 
 ### Critical production values
 
@@ -227,7 +229,8 @@ All proxied under `/api` (rebuild backend + frontend images after upgrade):
 | OpenConnector | `/api/openconnector`, MCP via `OPENCONNECTOR_MCP_URL` |
 | Email inbound | `POST /api/integrations/email-inbound/:definitionId` |
 | BYOK LLM | User Profile → stored in DB; Ollama needs `optional-ollama` |
-| DeepSeek V3 | User Profile / Register / Brain `deepseek` → local Ollama `deepseek-v3` (no API key) |
+| DeepSeek | Platform/OpenClaw: set `OPENAI_*` + `OPENCLAW_MODEL_PRIMARY` to DeepSeek V4 cloud. Brain `deepseek`: cloud V4 + thinking mode UI; or Ollama endpoint without key. Profile BYOK `deepseek` → local Ollama |
+| Brain thinking | DeepSeek / OpenRouter only: `thinkingMode` + `thinkingEffort` on Brain node; outputs `reasoning_content`, `thinking_mode` |
 | `email_send` tool | `POST /api/tools/email-send` (SMTP + optional calendar ICS); granted to agents at boot |
 | `notify_ceo` tool | `POST /api/tools/notify-ceo` (in-app push to entitled CEO user); granted to agents at boot |
 | Broadcast | `POST /api/broadcast` (CEO/Admin); UI `/broadcast` — tenant OpenClaw sessions; LLM intent for status+notify; paced fan-out (avoids TPM 429) |
@@ -331,10 +334,11 @@ docker compose exec backend node scripts/seed-openconnector-mcp.js
 docker compose --profile optional-ollama up -d
 # pull a model after start: docker compose exec ollama ollama pull llama3.2
 
-# DeepSeek V3 on local Ollama (no cloud API key)
+# DeepSeek on Brain: prefer cloud V4 (API key on the Brain node in the editor).
+# Optional local Ollama DeepSeek (Profile BYOK "deepseek" / legacy Brain Ollama endpoint):
 docker compose --profile optional-ollama up -d ollama
 docker compose exec ollama ollama pull deepseek-v3
-docker compose exec backend node scripts/test-deepseek-brain-workflow.js
+# docker compose exec backend node scripts/test-deepseek-brain-workflow.js
 
 # Browser login helper — set ENABLE_VNC=1 in .env, then:
 docker compose --profile optional-browser-login up -d

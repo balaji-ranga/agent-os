@@ -14,6 +14,7 @@
 | [07-workflow-nodes-reference.md](./07-workflow-nodes-reference.md) | Every node type: attributes, inputs, outputs |
 | [08-mcp-integrations.md](./08-mcp-integrations.md) | Register MCP, test, use in workflows / Brain |
 | [09-a2a-agent-exchange.md](./09-a2a-agent-exchange.md) | External agents, Publish A2A (Public / Secured OAuth), AgentExchange |
+| [10-policies-guardrails.md](./10-policies-guardrails.md) | CEO common guardrails for all agents + Brain nodes |
 | [10-job-applicant-pipeline.md](./10-job-applicant-pipeline.md) | Job profiles & prebuilt job workflows |
 | [11-content-tools-scripts-profile.md](./11-content-tools-scripts-profile.md) | Content tools, custom scripts, AI Snipper, Profile |
 | [12-troubleshooting.md](./12-troubleshooting.md) | Common issues and who to ask |

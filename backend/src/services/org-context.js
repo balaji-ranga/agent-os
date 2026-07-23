@@ -7,6 +7,7 @@ import { mkdirSync } from 'fs';
 import { listAgentsForUser, getUserById } from './users.js';
 import { tenantOpenClawAgentId, tenantWorkspacePath } from './openclaw-tenant.js';
 import * as workspace from '../workspace/adapter.js';
+import { formatCeoPolicyMd } from './ceo-guardrails.js';
 
 export function getCooAgentRow() {
   return getDb().prepare('SELECT * FROM agents WHERE is_coo = 1 LIMIT 1').get();
@@ -117,7 +118,11 @@ export function formatOrgMd(ctx) {
     '- **notify_ceo** is for reach-me / urgent blockers only — never for ordinary Dashboard chat replies (the CEO already sees your answer).',
     '- Any agent may **sessions_send** to COO/peers using keys above when work is outside their specialty.',
     '- Use **intent_classify_and_delegate** or **sessions_send** with tenant session keys for agent-to-agent work.',
-    '- Never assume agents from other CEO accounts exist in this org.'
+    '- Never assume agents from other CEO accounts exist in this org.',
+    '',
+    '## CEO common guardrails',
+    '',
+    'Read and obey **POLICY.md** in this workspace. It is a prerequisite for every task — if a request conflicts with POLICY.md, refuse or escalate.'
   );
   return lines.join('\n');
 }
@@ -194,6 +199,7 @@ export function buildCooAgentsMd(ctx) {
     '',
     '## Guardrails',
     '',
+    '- Obey **POLICY.md** (CEO common guardrails) before any other instructions.',
     '- Ask clarifying questions when the request is ambiguous.',
     '- Never change other agents\' SOUL.md or AGENTS.md.',
     '- Delegate execution to the appropriate agent; do not do their specialist work yourself.',
@@ -213,12 +219,16 @@ export function withOwnerScope(text, ceoUserId) {
   return `${ownerScopePrefix(ceoUserId)}${body}`;
 }
 
-/** Write ORG.md (+ COO AGENTS.md) into one tenant workspace. */
+/** Write ORG.md + POLICY.md (+ COO AGENTS.md) into one tenant workspace. */
 export async function syncOrgContextToWorkspace(agent, ceoUserId, workspacePath) {
   if (!ceoUserId || !workspacePath) return;
   mkdirSync(workspacePath, { recursive: true });
   const ctx = buildOrgContextForCeo(ceoUserId);
   await workspace.writeWorkspaceFile('org', formatOrgMd(ctx), { workspaceRoot: workspacePath, backup: false });
+  await workspace.writeWorkspaceFile('policy', formatCeoPolicyMd(ceoUserId, ctx.ceo?.name), {
+    workspaceRoot: workspacePath,
+    backup: false,
+  });
   if (agent?.is_coo) {
     await workspace.writeWorkspaceFile('agents', buildCooAgentsMd(ctx), {
       workspaceRoot: workspacePath,

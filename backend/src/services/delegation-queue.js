@@ -347,7 +347,7 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, c
   let allocated =
     opts.preAllocated && typeof opts.preAllocated === 'object' && Object.keys(opts.preAllocated).length
       ? { ...opts.preAllocated }
-      : await classifyIntentAndAllocate(scopedMessage, agentsMdContent || '', context);
+      : await classifyIntentAndAllocate(scopedMessage, agentsMdContent || '', { ...context, ownerUserId }, ownerUserId);
 
   if (!allocated || typeof allocated !== 'object') allocated = {};
   allocated = capAllocatedAgents(allocated, 2);
@@ -458,7 +458,9 @@ export async function enqueueGetWorkFromTeam(standupId, contextFromConversation 
   );
   const agentsMdContent = await readCooAgentsMd(ownerUserId);
   const context = getStandupContextForIntent(standupId, fullContext);
-  let allocated = agentsMdContent && fullContext ? await classifyIntentAndAllocate(fullContext, agentsMdContent, context) : null;
+  let allocated = agentsMdContent && fullContext
+    ? await classifyIntentAndAllocate(fullContext, agentsMdContent, { ...context, ownerUserId }, ownerUserId)
+    : null;
   allocated = capAllocatedAgents(allocated, 2);
 
   let count = 0;

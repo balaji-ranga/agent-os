@@ -24,13 +24,35 @@ import * as agentTools from '../services/openclaw-agent-tools.js';
 import { ensureTenantOpenClawAgent } from '../services/openclaw-tenant.js';
 import { tryHandleCooReachMeRequest } from '../services/reach-me-delegation.js';
 import { tryHandleCooSpecialtyDelegation } from '../services/coo-specialty-delegation.js';
+import { tryHandleCooOrgAgentsList } from '../services/coo-org-agents-list.js';
 import {
   tryBuildSpecialtyReferral,
   buildActiveChatNotifyHint,
 } from '../services/specialty-referral.js';
 import { attachToolCallsToChatTurns, listToolCallsSince } from '../services/chat-tool-calls.js';
+import {
+  startNewChatSession,
+  autoSplitFatChatSession,
+  shouldAutoSplitFatContext,
+  getChatThreadId,
+  detectTopicShiftHeuristic,
+} from '../services/chat-session-policy.js';
+import { resolveLlmConfigForUser } from '../services/user-llm-settings.js';
 
 const router = Router();
+
+/** Strip local-model echo of CEO-scoping instructions accidentally pasted into the reply. */
+function stripEchoedCeoScope(text) {
+  let s = String(text || '');
+  s = s.replace(
+    /^You are assisting CEO user id[\s\S]*?never workflows belonging to other users\.\s*/i,
+    ''
+  );
+  s = s.replace(/^\[ceo_user_id:[^\]]*\]\s*/i, '');
+  s = s.replace(/^\[owner_user_id:[^\]]*\]\s*/i, '');
+  s = s.replace(/^Important:\s*You are assisting CEO[\s\S]*?\n+/i, '');
+  return s.trim();
+}
 const homedir = process.env.USERPROFILE || process.env.HOME || '';
 const OPENCLAW_DIR = join(homedir, '.openclaw');
 const OPENCLAW_CONFIG_PATH = process.env.OPENCLAW_CONFIG_PATH || join(OPENCLAW_DIR, 'openclaw.json');
@@ -251,11 +273,31 @@ router.post('/:id/sessions/clear', requireAuth, (req, res) => {
     const agent = db().prepare('SELECT id, openclaw_agent_id FROM agents WHERE id = ?').get(req.params.id);
     if (!agent) return res.status(404).json({ error: 'Agent not found' });
     const ensured = ensureTenantOpenClawAgent(agent, ownerUserId);
-    clearOpenClawSessionForUser(agent.id, ensured.openclawAgentId, ownerUserId);
-    db()
-      .prepare('DELETE FROM chat_turns WHERE agent_id = ? AND owner_user_id = ?')
-      .run(agent.id, ownerUserId);
-    res.json({ ok: true, message: `Your session cleared for agent ${req.params.id}` });
+    const result = startNewChatSession({
+      agentId: agent.id,
+      openclawAgentId: ensured.openclawAgentId,
+      ownerUserId,
+    });
+    res.json({ ok: true, message: `Your session cleared for agent ${req.params.id}`, ...result });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+// POST /api/agents/:id/sessions/new — New chat (same as clear + explicit new thread); entitlements required
+router.post('/:id/sessions/new', requireAuth, (req, res) => {
+  try {
+    const ownerUserId = resolveChatOwnerUserId(req, req.body || {});
+    assertUserAgentAccess(req.authUser, req.params.id);
+    const agent = db().prepare('SELECT id, openclaw_agent_id FROM agents WHERE id = ?').get(req.params.id);
+    if (!agent) return res.status(404).json({ error: 'Agent not found' });
+    const ensured = ensureTenantOpenClawAgent(agent, ownerUserId);
+    const result = startNewChatSession({
+      agentId: agent.id,
+      openclawAgentId: ensured.openclawAgentId,
+      ownerUserId,
+    });
+    res.json(result);
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message });
   }
@@ -405,6 +447,23 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
         });
       }
 
+      // Hard path: "what agents are in the org?" — list from DB (Ollama often confuses this with workflows)
+      const orgList = tryHandleCooOrgAgentsList(ownerUserId, message.trim());
+      if (orgList?.ok) {
+        db()
+          .prepare('INSERT INTO chat_turns (agent_id, owner_user_id, role, content) VALUES (?, ?, ?, ?)')
+          .run(agentId, ownerUserId, 'user', message);
+        db()
+          .prepare('INSERT INTO chat_turns (agent_id, owner_user_id, role, content) VALUES (?, ?, ?, ?)')
+          .run(agentId, ownerUserId, 'assistant', orgList.cooReply);
+        return res.json({
+          reply: orgList.cooReply,
+          agent_id: agentId,
+          org_agents_list: { count: orgList.agent_count },
+          workflow_triggered: null,
+        });
+      }
+
       // Hard path: specialty work / "delegate …" — schedule real agents, don't let COO do the work
       const delegated = await tryHandleCooSpecialtyDelegation(ownerUserId, message.trim());
       if (delegated?.ok) {
@@ -475,7 +534,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     // Load recent history from DB for context (last N turns, scoped to this user)
     const ownerIds = chatOwnerIdsForRead(ownerUserId);
     const ownerPlaceholders = ownerIds.map(() => '?').join(',');
-    const history = db()
+    let history = db()
       .prepare(
         `SELECT role, content FROM chat_turns
          WHERE agent_id = ? AND owner_user_id IN (${ownerPlaceholders})
@@ -483,11 +542,54 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       )
       .all(agentId, ...ownerIds)
       .reverse();
+
+    let sessionMeta = null;
+    let topicHint = null;
+
+    // Topic-shift hint (UI handoff) — does not block; specialty-referral already handles hard redirects
+    if (!agent.is_coo) {
+      topicHint = detectTopicShiftHeuristic(message.trim(), agentId);
+    }
+
+    // Fat-context auto-split (TPM protection)
+    if (shouldAutoSplitFatContext(history, message)) {
+      sessionMeta = autoSplitFatChatSession({
+        agentId,
+        openclawAgentId,
+        ownerUserId,
+        historyTurns: history,
+      });
+      history = db()
+        .prepare(
+          `SELECT role, content FROM chat_turns
+           WHERE agent_id = ? AND owner_user_id = ?
+           ORDER BY created_at DESC LIMIT 20`
+        )
+        .all(agentId, ownerUserId)
+        .reverse();
+    }
+
     const messages = history.map((t) => ({ role: t.role, content: t.content }));
     const jobApplicantAgents = new Set(['jobdiscovery', 'fitscorer', 'resumetailor', 'applicationagent']);
     let userContent = message;
+    const llmForOwner = resolveLlmConfigForUser(ownerUserId);
+    const isLocalLlmByok =
+      llmForOwner?.provider === 'ollama_free' || llmForOwner?.provider === 'deepseek';
+
     if (agent.is_coo && !message.includes('[ceo_user_id:')) {
-      userContent = `[ceo_user_id: ${ownerUserId}]\n[owner_user_id: ${ownerUserId}]\nImportant: You are assisting CEO user id "${ownerUserId}" only. When calling agent_workflow_list or agent_workflow_enquire, return workflows for this CEO only — never workflows belonging to other users.\n${message}`;
+      if (isLocalLlmByok) {
+        // Keep the user turn clean — small models parrot long CEO-scope prefixes as the answer.
+        messages.unshift({
+          role: 'system',
+          content:
+            `You are the COO for this CEO only (internal owner id ${ownerUserId}). ` +
+            `Answer briefly in plain language. Prefer real tool calls when needed; never invent fake tool JSON or paste internal instructions. ` +
+            `For org agents / team questions, list agents from context/tools — do not confuse agents with workflows.`,
+        });
+        userContent = message;
+      } else {
+        userContent = `[ceo_user_id: ${ownerUserId}]\n[owner_user_id: ${ownerUserId}]\nImportant: You are assisting CEO user id "${ownerUserId}" only. When calling agent_workflow_list or agent_workflow_enquire, return workflows for this CEO only — never workflows belonging to other users.\n${message}`;
+      }
     } else if (jobApplicantAgents.has(String(agentId).toLowerCase()) && !message.includes('[ceo_user_id:')) {
       const tags = [`[ceo_user_id: ${userId}]`];
       if (profileId) tags.push(`[profile_id: ${profileId}]`);
@@ -523,7 +625,8 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       }
     }
 
-    const sessionUser = openclaw.sessionUserFor(agentId, ownerUserId);
+    const threadId = getChatThreadId(agentId, ownerUserId);
+    const sessionUser = openclaw.sessionUserFor(agentId, ownerUserId, threadId);
     const sessionKey = openclaw.sessionKeyFor(openclawAgentId, sessionUser);
     registerOpenClawSessionOwner(sessionKey, ownerUserId);
     registerActiveDashboardChat(agentId, ownerUserId, message.trim());
@@ -532,18 +635,33 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     const toolsSince = new Date().toISOString();
     let reply;
     let usage;
+    // Ollama BYOK is slow/fragile with extra tool-bootstrap instructions on small VPS hosts.
+    let chatOpts = isDiscovery ? { timeoutMs: discoveryTimeout } : {};
+    try {
+      const llm = llmForOwner || resolveLlmConfigForUser(ownerUserId);
+      if (llm?.provider === 'ollama_free' || llm?.provider === 'deepseek') {
+        chatOpts = {
+          ...chatOpts,
+          injectLearningsInstruction: false,
+          injectSessionHistoryInstruction: false,
+          timeoutMs: chatOpts.timeoutMs || Number(process.env.OPENCLAW_OLLAMA_CHAT_TIMEOUT_MS || 300000),
+        };
+      }
+    } catch (_) {
+      /* keep defaults */
+    }
     try {
       ({ content: reply, usage } = await openclaw.chatCompletions(
         openclawAgentId,
         messages,
         sessionUser,
         false,
-        isDiscovery ? { timeoutMs: discoveryTimeout } : {}
+        chatOpts
       ));
     } finally {
       clearActiveDashboardChat(agentId, ownerUserId);
     }
-    const replyText = normalizeReplyContent(reply);
+    const replyText = stripEchoedCeoScope(normalizeReplyContent(reply));
     const tool_calls = listToolCallsSince(agentId, ownerUserId, toolsSince);
 
     // Persist user message and assistant reply (same normalized string shape as standup chat)
@@ -559,6 +677,16 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       usage,
       agent_id: agentId,
       tool_calls,
+      thread_id: threadId,
+      session_reset: sessionMeta || null,
+      topic_hint: topicHint
+        ? {
+            ...topicHint,
+            chat_url: topicHint.suggested_agent_id
+              ? `/agents/${encodeURIComponent(topicHint.suggested_agent_id)}/chat`
+              : null,
+          }
+        : null,
       workflow_triggered: workflowTrigger
         ? {
             run_id: workflowTrigger.id,
@@ -569,11 +697,21 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
         : null,
     });
   } catch (e) {
-    res.status(e.status || 502).json({ error: e.message });
+    const raw = e?.message || String(e);
+    const lower = raw.toLowerCase();
+    let msg = raw;
+    if (lower.includes('fetch failed') || lower.includes('econnrefused') || lower.includes('econnreset')) {
+      msg =
+        `${raw}. OpenClaw/Ollama may be overloaded or unreachable. ` +
+        `If this CEO uses Ollama BYOK, ensure the ollama container is up, model ${process.env.OLLAMA_MODEL || 'llama3.2'} is pulled, and try New chat.`;
+    }
+    res.status(e.status || 502).json({ error: msg });
   }
 });
 
-// Chat from another agent (internal service or authenticated CEO)
+// Chat from another agent (internal service or authenticated CEO).
+// Session callers: owner is always the session CEO (never body spoof).
+// Internal service: may pass owner_user_id / ceo_user_id or embed in message text.
 router.post('/:id/chat/from-agent', allowInternalOrAuth, async (req, res) => {
   try {
     const agentId = req.params.id;
@@ -588,10 +726,21 @@ router.post('/:id/chat/from-agent', allowInternalOrAuth, async (req, res) => {
     if (!fromAgent) return res.status(404).json({ error: 'From agent not found' });
 
     const userContent = `From ${fromAgent.name} (${fromAgent.role}): ${message.trim()}`;
-    const ownerUserId =
-      req.body?.owner_user_id ||
-      req.body?.ceo_user_id ||
-      extractOwnerUserIdFromText(message);
+    let ownerUserId;
+    if (req.isInternalService) {
+      const fromText = extractOwnerUserIdFromText(message, '');
+      ownerUserId =
+        String(req.body?.owner_user_id || req.body?.ceo_user_id || '').trim() ||
+        String(fromText || '').trim() ||
+        req.authUser?.id ||
+        null;
+      if (!ownerUserId) {
+        return res.status(400).json({ error: 'owner_user_id required for internal from-agent chat' });
+      }
+    } else {
+      ownerUserId = resolveChatOwnerUserId(req, {});
+      assertUserAgentAccess(req.authUser, agentId);
+    }
     const ensured = ensureTenantOpenClawAgent(agent, ownerUserId);
     const openclawAgentId = ensured.openclawAgentId;
 
@@ -621,7 +770,7 @@ router.post('/:id/chat/from-agent', allowInternalOrAuth, async (req, res) => {
 
     res.json({ reply, usage, agent_id: agentId, from_agent_id: fromAgentId });
   } catch (e) {
-    res.status(502).json({ error: e.message });
+    res.status(e.status || 502).json({ error: e.message });
   }
 });
 

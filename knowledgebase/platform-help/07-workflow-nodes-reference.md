@@ -36,13 +36,27 @@ Palette types in the visual editor. Use this when configuring nodes or answering
 
 - `modelSource`: openai | anthropic | ollama | openrouter | deepseek
 - `apiEndpoint`, `apiKey`, `model`, `maxTokens`, `systemPrompt`
+- `thinkingMode` / `thinkingEffort` — **DeepSeek & OpenRouter only** (see below)
 - `mcpToolCalling`, `mcpServerIds`, `mcpToolAllowlist`, `mcpMaxToolRounds`, `mcpServerAuth`
 - `customScriptMode`: off | fallback | post | only; `customScriptId`
 - Timeouts: `timeoutMs`, `timeoutAction`, `defaultTimeoutOutput`
 
+### Thinking mode (DeepSeek / OpenRouter)
+
+Shown in the editor only when **Model source** is `deepseek` or `openrouter`.
+
+| Attribute | Values | Effect |
+|-----------|--------|--------|
+| `thinkingMode` | `enabled` (default) · `disabled` · `off` | DeepSeek: sends `thinking.type`. OpenRouter: sends unified `reasoning`. `off` omits the param (provider default). |
+| `thinkingEffort` | `high` · `max` · `xhigh` · `medium` · `low` | DeepSeek uses `high`/`max`. OpenRouter also accepts `xhigh`/`medium`/`low`. Ignored when mode is disabled/off. |
+
+**DeepSeek defaults:** cloud endpoint `https://api.deepseek.com/v1`, model `deepseek-v4-flash`, API key on the node. For local Ollama, set endpoint to `http://ollama:11434/v1` and model `deepseek-v3` (no key).
+
+**OpenAI / Anthropic / Ollama:** no thinking controls (not applicable the same way).
+
 | Inputs | Outputs |
 |--------|---------|
-| `userMessage` | `text`, `model_used`, `provider`, `mcp_tools_available`, `mcp_tool_calls`, `custom_script_ran`, `custom_script_output` |
+| `userMessage` | `text`, `reasoning_content` (thinking trace when returned), `thinking_mode`, `model_used`, `provider`, `mcp_tools_available`, `mcp_tool_calls`, `custom_script_ran`, `custom_script_output` |
 
 ---
 

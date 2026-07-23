@@ -140,11 +140,13 @@ export function getLastIntentDebug() {
 /**
  * @param {string} ceoMessage - Raw message from the CEO
  * @param {string} agentsMdContent - Full content of the COO's AGENTS.md (lists agents and their use cases)
- * @param {{ lastUserMessages?: string[], agentResponses?: { agent_id: string, content: string }[] }} [context] - Optional: recent user messages and agent responses for follow-up resolution
+ * @param {{ lastUserMessages?: string[], agentResponses?: { agent_id: string, content: string }[], ownerUserId?: string }} [context] - Optional context + BYOK owner
+ * @param {string} [ownerUserId] - CEO id for BYOK (also accepted via context.ownerUserId)
  * @returns {Promise<{ [agentId: string]: string } | null>} Map of agent_id -> task query, or null on error
  */
-export async function classifyIntentAndAllocate(ceoMessage, agentsMdContent, context = undefined) {
-  const cfg = getLlmConfig();
+export async function classifyIntentAndAllocate(ceoMessage, agentsMdContent, context = undefined, ownerUserId = null) {
+  const owner = ownerUserId || context?.ownerUserId || null;
+  const cfg = getLlmConfig(owner);
   const apiKey = cfg.primary?.apiKey || cfg.secondary?.apiKey;
   if (!apiKey) {
     lastIntentDebug = { systemPrompt: SYSTEM_PROMPT, userMessage: '(CEO message: ' + (ceoMessage || '').slice(0, 100) + ')', modelRawResponse: null, finalMapping: {}, error: 'No LLM API key (OPENAI_API_KEY or OPENAI_PRIMARY_API_KEY)' };
@@ -193,6 +195,7 @@ export async function classifyIntentAndAllocate(ceoMessage, agentsMdContent, con
       ],
       modelOverride: getIntentModelOverride(),
       maxTokens: 512,
+      ownerUserId: owner,
     });
 
     const raw = (content ?? '').trim();

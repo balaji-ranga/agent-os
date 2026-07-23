@@ -25,7 +25,7 @@ export async function tryBuildSpecialtyReferral(ownerUserId, currentAgent, messa
   const md = await readCooAgentsMdForCeo(ownerUserId);
   if (!md?.trim()) return null;
 
-  const allocated = await classifyIntentAndAllocate(msg, md, undefined);
+  const allocated = await classifyIntentAndAllocate(msg, md, { ownerUserId }, ownerUserId);
   if (!allocated || typeof allocated !== 'object') return null;
   const ids = Object.keys(allocated).map((id) => String(id).toLowerCase());
   if (!ids.length) return null;
@@ -50,6 +50,7 @@ export async function tryBuildSpecialtyReferral(ownerUserId, currentAgent, messa
     (why ? ` (${why})` : '') +
     `.\n\n` +
     `Open their chat: ${chatPath}\n\n` +
+    `Tip: use **New chat** on that agent so you start with a clean session (avoids TPM/context bloat).\n\n` +
     `I did **not** send a notification — please continue with ${name} for this work.`;
 
   return {

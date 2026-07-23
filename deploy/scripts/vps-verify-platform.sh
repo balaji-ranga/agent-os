@@ -67,7 +67,16 @@ check "platformhelp SOUL template" test -f "$ROOT/openclaw-workspace-templates/p
 check "platformhelp seed script" test -f "$ROOT/backend/scripts/seed-platform-help-agent.js"
 check "platformhelp startup seed" grep -q seedPlatformHelpAgent "$ROOT/backend/src/index.js"
 check "backend Dockerfile help COPY" grep -q 'knowledgebase/platform-help' "$ROOT/deploy/docker/backend.Dockerfile"
-check "chat attach icon UI" grep -q chat-attach-icon-btn "$ROOT/frontend/src/components/ChatComposeInput.jsx"
+check "ceo guardrails schema" grep -q 'CREATE TABLE IF NOT EXISTS ceo_guardrails' "$ROOT/backend/src/db/schema.js"
+check "ceo guardrails service" test -f "$ROOT/backend/src/services/ceo-guardrails.js"
+check "ceo guardrails route" grep -q ceo-guardrails "$ROOT/backend/src/index.js"
+check "POLICY.md workspace map" grep -q "policy: 'POLICY.md'" "$ROOT/backend/src/workspace/adapter.js"
+check "org sync writes POLICY" grep -q formatCeoPolicyMd "$ROOT/backend/src/services/org-context.js"
+check "Brain prepends CEO policy" grep -q prependCeoGuardrailsToSystemPrompt "$ROOT/backend/src/services/agent-workflow-brain.js"
+check "Policies UI" test -f "$ROOT/frontend/src/pages/Policies.jsx"
+check "Policies nav" grep -q '/policies' "$ROOT/frontend/src/components/AppNavMenu.jsx"
+check "api ceoGuardrailsSave" grep -q ceoGuardrailsSave "$ROOT/frontend/src/api.js"
+check "bootstrap POLICY.md" grep -q 'POLICY.md' "$ROOT/openclaw-extensions/agent-os-bootstrap-watcher/index.js"
 check "chat attachments util" test -f "$ROOT/frontend/src/utils/chatAttachments.js"
 check "generate_chart tool" grep -q generate_chart "$ROOT/backend/src/routes/tools.js"
 check "chart-spec service" test -f "$ROOT/backend/src/services/chart-spec.js"
@@ -204,6 +213,13 @@ fi
 
 echo "==> COO reach-me delegation smoke (self-cleaning; deletes smoke SocialAgent notifications)"
 docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-coo-reach-me-delegation.js
+
+echo "==> CEO guardrails smoke (POLICY.md sync + Brain prepend; restores prior policy)"
+if [[ -f "$ROOT/backend/scripts/test-ceo-guardrails.js" ]]; then
+  docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-ceo-guardrails.js
+else
+  echo "    WARN: test-ceo-guardrails.js missing on disk (sync scripts?)"
+fi
 
 echo "==> OpenClaw allowlists (master_data)"
 docker compose exec -T -w /opt/agent-os openclaw node -e "

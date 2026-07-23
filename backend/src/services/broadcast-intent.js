@@ -18,9 +18,10 @@ Rules:
 
 /**
  * @param {string} message
+ * @param {string} [ownerUserId] - CEO id for BYOK
  * @returns {Promise<{ require_notify: boolean, status_rollup: boolean, reason: string, source: string }>}
  */
-export async function classifyBroadcastNotifyIntent(message) {
+export async function classifyBroadcastNotifyIntent(message, ownerUserId = null) {
   const text = String(message || '').trim();
   if (!text) {
     return { require_notify: false, status_rollup: false, reason: 'empty', source: 'empty' };
@@ -33,6 +34,7 @@ export async function classifyBroadcastNotifyIntent(message) {
         { role: 'user', content: `CEO broadcast message:\n\n"${text}"` },
       ],
       maxTokens: 120,
+      ownerUserId,
     });
     const raw = String(content || '').trim();
     const start = raw.indexOf('{');

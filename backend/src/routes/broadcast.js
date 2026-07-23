@@ -129,7 +129,7 @@ router.post('/', async (req, res) => {
     // When CEO did not explicitly pick a subset, route "reach me / specialist" messages
     // to the matching agent(s) only — prevents every agent from calling notify_ceo.
     const explicitSelection = !!(agentIds && agentIds.length > 0);
-    const notifyIntent = await classifyBroadcastNotifyIntent(message);
+    const notifyIntent = await classifyBroadcastNotifyIntent(message, ownerUserId);
     const statusNotifyAll = notifyIntent.status_rollup === true;
     const reachMe = notifyIntent.require_notify === true || isReachMeRequest(message);
 

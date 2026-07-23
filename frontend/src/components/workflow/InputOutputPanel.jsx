@@ -167,6 +167,8 @@ export function InputOutputPanel({ node, taskCatalog, allNodes, edges, onChange 
                   'apiEndpoint',
                   'apiKey',
                   'model',
+                  'thinkingMode',
+                  'thinkingEffort',
                   'maxTokens',
                   'systemPrompt',
                   'mcpToolCalling',

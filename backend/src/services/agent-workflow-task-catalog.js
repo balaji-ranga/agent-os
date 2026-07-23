@@ -308,6 +308,8 @@ export const WORKFLOW_TASK_TYPES = {
     ],
     outputs: [
       { id: 'text', label: 'LLM response' },
+      { id: 'reasoning_content', label: 'Thinking / reasoning text' },
+      { id: 'thinking_mode', label: 'Thinking mode used' },
       { id: 'model_used', label: 'Model used' },
       { id: 'provider', label: 'Provider' },
       { id: 'mcp_tools_available', label: 'MCP tools available' },
@@ -335,6 +337,23 @@ export const WORKFLOW_TASK_TYPES = {
         label: 'Model name',
         type: 'text',
         placeholder: 'gpt-4o-mini or openai/gpt-4o-mini (OpenRouter)',
+      },
+      {
+        id: 'thinkingMode',
+        label: 'Thinking mode (DeepSeek / OpenRouter)',
+        type: 'select',
+        options: ['enabled', 'disabled', 'off'],
+        default: 'enabled',
+        description:
+          'DeepSeek: thinking toggle. OpenRouter: unified reasoning. Off = omit param (provider default). Hidden for other sources in the editor.',
+      },
+      {
+        id: 'thinkingEffort',
+        label: 'Thinking effort',
+        type: 'select',
+        options: ['high', 'max', 'xhigh', 'medium', 'low'],
+        default: 'high',
+        description: 'DeepSeek: high|max. OpenRouter: high|xhigh|medium|low. Ignored when thinking is disabled/off.',
       },
       { id: 'maxTokens', label: 'Max tokens', type: 'number', default: 1024 },
       {

@@ -36,7 +36,10 @@ import adminRoutes from './routes/admin.js';
 import platformNotificationsRoutes from './routes/platform-notifications.js';
 import { attachAuthUser, requireAuth, requireCeoOrAdmin } from './middleware/auth.js';
 import { ensureInternalTokenConfigured } from './middleware/internal-auth.js';
+import { ensureToolsApiKeyConfigured } from './config/tools.js';
+import { attachRedactedRequestUrl } from './utils/redact-secrets.js';
 import { ensureMfaTables } from './services/auth/mfa.js';
+import { ensurePlatformSettingsTable } from './services/platform-llm-settings.js';
 import { ensureDefaultAdmin, ensureBalaCeoUser, grantStandardAgents, pruneSharedStandardAgentGrants } from './services/users.js';
 import { ensureCeoDefaultMasterDataForAllCeos } from './services/ceo-default-master-data.js';
 import { initDb, getDb } from './db/schema.js';
@@ -55,6 +58,7 @@ import {
 import { grantLearningsSummaryToAllAgents, grantEmailSendToAllAgents, grantNotifyCeoToAllAgents, grantMasterDataToolsToAllAgents, grantKanbanToolsToAllAgents } from './services/agent-feedback.js';
 import feedbackRoutes from './routes/feedback.js';
 import masterDataRoutes from './routes/master-data.js';
+import ceoGuardrailsRoutes from './routes/ceo-guardrails.js';
 import { runScheduledStandup, runDueStandupSchedules } from './cron/standup.js';
 import { processPendingDelegationTasksForAllCeos } from './services/delegation-queue.js';
 import { runPipelineTick, runPipelineTickAll } from './services/job-applicant-pipeline.js';
@@ -71,6 +75,7 @@ const app = express();
 const PORT = Number(process.env.PORT) || 3001;
 
 app.use(cors({ origin: true }));
+app.use(attachRedactedRequestUrl);
 app.use(attachAuthUser);
 
 // Admin-gated OpenConnector console + public OAuth callbacks under /openconnector/*
@@ -86,7 +91,9 @@ app.use(express.text({ type: 'text/*' }));
 
 initDb();
 ensureInternalTokenConfigured();
+ensureToolsApiKeyConfigured();
 ensureMfaTables();
+ensurePlatformSettingsTable();
 seedDefaultAgentsIfEmpty();
 try {
   const heal = healAgentWorkspacePaths(getDb());
@@ -268,6 +275,7 @@ apiRouter.use('/admin', adminRoutes);
 apiRouter.use('/platform-notifications', platformNotificationsRoutes);
 apiRouter.use('/feedback', feedbackRoutes);
 apiRouter.use('/master-data', masterDataRoutes);
+apiRouter.use('/ceo-guardrails', ceoGuardrailsRoutes);
 apiRouter.use('/workspace', workspaceRoutes);
 apiRouter.use('/agents', agentsRoutes);
 apiRouter.use('/standups', standupsRoutes);

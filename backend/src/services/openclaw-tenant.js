@@ -20,6 +20,7 @@ import { getOpenClawDir, getOpenClawConfigPath } from '../config/openclaw-paths.
 import * as workspace from '../workspace/adapter.js';
 import {
   applyByokModelToAgentEntry,
+  applyByokAuthToProvisionedAgent,
   ensureByokProviderInConfig,
 } from './user-llm-settings.js';
 import { COO_CONTENT_TOOLS_ALLOW } from '../lib/content-tools-allow.js';
@@ -230,6 +231,12 @@ export function ensureTenantOpenClawAgent(agent, ceoUserId) {
   if (!entry.tools.deny) entry.tools.deny = ['image'];
   applyByokModelToAgentEntry(entry, ceoUserId);
   writeOpenClawConfig(config);
+
+  try {
+    applyByokAuthToProvisionedAgent(runtimeOcId, ceoUserId);
+  } catch (e) {
+    console.warn('[openclaw-tenant] BYOK auth sync:', e?.message || e);
+  }
 
   const allowPath = join(getOpenClawDir(), 'agent-tool-allowlists.json');
   let allow = {};

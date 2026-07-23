@@ -71,6 +71,7 @@ export function CeoNavMenu({ collapsed }) {
         <NavItem to="/kanban" title="Kanban" collapsed={collapsed} label="Kanban" short="K" />
         <NavItem to="/broadcast" title="Broadcast" collapsed={collapsed} label="Broadcast" short="Bc" />
         <NavItem to="/master-data" title="Master Data" collapsed={collapsed} label="Master Data" short="MD" />
+        <NavItem to="/policies" title="Policies & guardrails" collapsed={collapsed} label="Policies" short="Po" />
         <NavItem to="/ai-snipper" title="AI Snipper" collapsed={collapsed} label="AI Snipper" short="AI" />
       </NavSection>
 

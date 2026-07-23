@@ -18,7 +18,8 @@
 # notify_ceo + email_send, Broadcast (intent-based notify + paced fan-out), AGENTS.md intent
 # COO specialty delegation, peer specialty referral, chat tool-call icons,
 # notification tooltips + datetime, deploy smokes self-clean (no CEO standup/notify pollution),
-# org sync (tenant ORG.md/AGENTS.md), AgentExchange/A2A (public + OAuth client credentials),
+# CEO Policies/guardrails (POLICY.md + Brain prepend), org sync (tenant ORG.md/AGENTS.md/POLICY.md),
+# AgentExchange/A2A (public + OAuth client credentials),
 # DeepSeek@Ollama, shared notification dismiss,
 # chat paperclip attach → Master Data RAG, Vedic Astrology + generate_chart (JSON chart_spec).
 param(
@@ -110,6 +111,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\heal-agent-workspace-paths.js" `
     "$Repo\backend\scripts\test-broadcast-routing.js" `
     "$Repo\backend\scripts\test-coo-reach-me-delegation.js" `
+    "$Repo\backend\scripts\test-ceo-guardrails.js" `
     "$Repo\backend\scripts\test-kanban-delegation-sync.js" `
     "$Repo\backend\scripts\test-kanban-owner-isolation.js" `
     "$Repo\backend\scripts\heal-stuck-kanban-delegations.js" `

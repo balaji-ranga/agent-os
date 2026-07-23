@@ -5,6 +5,12 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { getDb } from '../db/schema.js';
 import { getOpenClawDir, getOpenClawConfigPath } from '../config/openclaw-paths.js';
+import {
+  syncByokAuthProfiles,
+  ensureAgentByokAuthFromUser,
+  scrubOpenClawAuthProfileMetadata,
+  clearAgentByokAuthProfile,
+} from './openclaw-byok-auth.js';
 export const LLM_PROVIDERS = Object.freeze([
   'platform_decided',
   'openai',
@@ -279,8 +285,8 @@ function openClawModelSlug(providerKey, modelId) {
 }
 
 /**
- * Sync CEO BYOK into OpenClaw: dedicated models.providers[byok-{ceo}] + tenant agent model.primary.
- * platform_decided clears the override so agents use gateway defaults (.env / openclaw defaults).
+ * Sync CEO BYOK into OpenClaw: models.providers[byok-{ceo}] + tenant model.primary
+ * + per-agent auth profiles (SQLite). platform_decided clears overrides.
  */
 export function syncUserLlmToOpenClaw(ceoUserId) {
   const id = String(ceoUserId || '').trim();
@@ -303,18 +309,43 @@ export function syncUserLlmToOpenClaw(ceoUserId) {
       if (!String(entry.id || '').toLowerCase().startsWith(tenantPrefix)) continue;
       if (entry.model) delete entry.model;
     }
+    const authSync = syncByokAuthProfiles(id, { config, clear: true });
     writeOpenClawConfig(config);
-    return { ok: true, cleared: true, provider: 'platform_decided' };
+    return { ok: true, cleared: true, provider: 'platform_decided', auth: authSync };
   }
 
   const primary = resolved.primary;
   const modelId = String(primary.model || 'gpt-4o-mini').replace(/^[^/]+\//, '');
+  const isLocalOllamaByok =
+    resolved.provider === 'ollama_free' ||
+    resolved.provider === 'deepseek' ||
+    /ollama|127\.0\.0\.1|localhost/i.test(String(primary.baseUrl || ''));
+  const ollamaCtx = Math.max(
+    8192,
+    Number(process.env.OLLAMA_CONTEXT_WINDOW || process.env.OPENCLAW_OLLAMA_CONTEXT_WINDOW || 32768) || 32768
+  );
+  const ollamaMaxTok = Math.max(
+    1024,
+    Number(process.env.OLLAMA_MAX_TOKENS || process.env.OPENCLAW_OLLAMA_MAX_TOKENS || 4096) || 4096
+  );
   config.models.providers[providerKey] = {
     baseUrl: primary.baseUrl,
     apiKey: primary.apiKey,
     api: 'openai-completions',
     // OpenClaw 2026+ requires models[].name (non-empty string)
-    models: [{ id: modelId, name: modelId }],
+    models: [
+      isLocalOllamaByok
+        ? {
+            id: modelId,
+            name: modelId,
+            reasoning: false,
+            input: ['text'],
+            cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+            contextWindow: ollamaCtx,
+            maxTokens: ollamaMaxTok,
+          }
+        : { id: modelId, name: modelId },
+    ],
   };
 
   const modelSlug = openClawModelSlug(providerKey, primary.model);
@@ -323,6 +354,11 @@ export function syncUserLlmToOpenClaw(ceoUserId) {
     entry.model = { primary: modelSlug };
   }
 
+  const authSync = syncByokAuthProfiles(id, {
+    config,
+    apiKey: primary.apiKey,
+    clear: false,
+  });
   writeOpenClawConfig(config);
   return {
     ok: true,
@@ -330,6 +366,7 @@ export function syncUserLlmToOpenClaw(ceoUserId) {
     provider: resolved.provider,
     providerKey,
     model: modelSlug,
+    auth: authSync,
   };
 }
 
@@ -346,6 +383,31 @@ export function applyByokModelToAgentEntry(entry, ceoUserId) {
   return entry;
 }
 
+/**
+ * After a tenant agent is provisioned, write its OpenClaw auth profile for CEO BYOK.
+ * Safe no-op when platform_decided.
+ */
+export function applyByokAuthToProvisionedAgent(openclawAgentId, ceoUserId) {
+  const resolved = resolveLlmConfigForUser(ceoUserId);
+  const providerKey = byokProviderId(ceoUserId);
+  const config = readOpenClawConfig();
+
+  if (!resolved.using_byok || resolved.provider === 'platform_decided') {
+    scrubOpenClawAuthProfileMetadata(config, providerKey);
+    writeOpenClawConfig(config);
+    clearAgentByokAuthProfile(openclawAgentId, providerKey);
+    return { ok: true, skipped: true, cleared: true };
+  }
+
+  if (!config.auth) config.auth = {};
+  if (!config.auth.profiles) config.auth.profiles = {};
+  scrubOpenClawAuthProfileMetadata(config, providerKey);
+  const profileId = `${providerKey}:manual`;
+  config.auth.profiles[profileId] = { provider: providerKey, mode: 'api_key' };
+  writeOpenClawConfig(config);
+  return ensureAgentByokAuthFromUser(openclawAgentId, ceoUserId, resolved.primary.apiKey);
+}
+
 /** Ensure provider block exists when provisioning a tenant agent. */
 export function ensureByokProviderInConfig(config, ceoUserId) {
   const resolved = resolveLlmConfigForUser(ceoUserId);
@@ -354,6 +416,7 @@ export function ensureByokProviderInConfig(config, ceoUserId) {
   const providerKey = byokProviderId(ceoUserId);
   if (!resolved.using_byok || resolved.provider === 'platform_decided') {
     delete config.models.providers[providerKey];
+    scrubOpenClawAuthProfileMetadata(config, providerKey);
     return config;
   }
   const primary = resolved.primary;
@@ -364,6 +427,10 @@ export function ensureByokProviderInConfig(config, ceoUserId) {
     api: 'openai-completions',
     models: [{ id: modelId, name: modelId }],
   };
+  if (!config.auth) config.auth = {};
+  if (!config.auth.profiles) config.auth.profiles = {};
+  scrubOpenClawAuthProfileMetadata(config, providerKey);
+  config.auth.profiles[`${providerKey}:manual`] = { provider: providerKey, mode: 'api_key' };
   return config;
 }
 

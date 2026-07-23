@@ -1174,6 +1174,19 @@ export function initDb() {
     );
   } catch (_) {}
 
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS ceo_guardrails (
+        ceo_user_id TEXT PRIMARY KEY,
+        policy_text TEXT NOT NULL DEFAULT '',
+        enabled INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (ceo_user_id) REFERENCES platform_users(id) ON DELETE CASCADE
+      )
+    `);
+  } catch (_) {}
+
   return _db;
 }
 

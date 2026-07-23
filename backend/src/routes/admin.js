@@ -21,11 +21,36 @@ import {
   isProtectedFromOffboard,
   PROTECTED_OFFBOARD_NAMES,
 } from '../services/user-offboard.js';
+import {
+  getPlatformLlmStatusPublic,
+  setPlatformLlmActiveEndpoint,
+  ensurePlatformSettingsTable,
+} from '../services/platform-llm-settings.js';
 
 const router = Router();
 
 router.use(attachAuthUser);
 router.use(requireRole('admin'));
+ensurePlatformSettingsTable();
+
+/** Platform LLM primary/secondary switch (OpenAI ↔ Ollama/secondary). */
+router.get('/platform-llm', (req, res) => {
+  try {
+    res.json(getPlatformLlmStatusPublic());
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.put('/platform-llm', (req, res) => {
+  try {
+    const endpoint = req.body?.llm_active_endpoint || req.body?.endpoint || req.body?.active;
+    const result = setPlatformLlmActiveEndpoint(endpoint);
+    res.json(result);
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message });
+  }
+});
 
 router.get('/users', (req, res) => {
   try {

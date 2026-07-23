@@ -541,7 +541,12 @@ router.post('/:id/run-coo', async (req, res) => {
       }
     }
 
-    const { coo_summary, ceo_summary } = await runCooSummarization(responses, activities, conversation);
+    const { coo_summary, ceo_summary } = await runCooSummarization(
+      responses,
+      activities,
+      conversation,
+      standup.owner_user_id || null
+    );
 
     db().prepare('UPDATE standups SET coo_summary = ?, ceo_summary = ?, status = ? WHERE id = ?').run(
       coo_summary,

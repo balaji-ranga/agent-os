@@ -38,11 +38,17 @@ function AdminPanel() {
   });
   const [refreshBusy, setRefreshBusy] = useState(false);
   const [refreshResult, setRefreshResult] = useState(null);
+  const [platformLlm, setPlatformLlm] = useState(null);
+  const [platformLlmBusy, setPlatformLlmBusy] = useState(false);
 
   const load = () => {
     api.adminUsers()
       .then((r) => setUsers(r.users || []))
       .catch((e) => showError(e.message || 'Failed to load users'));
+    api
+      .adminPlatformLlmGet()
+      .then(setPlatformLlm)
+      .catch(() => setPlatformLlm(null));
   };
 
   useEffect(() => {
@@ -232,6 +238,46 @@ function AdminPanel() {
   const userRangeStart = filteredUsers.length === 0 ? 0 : safeUserPage * USERS_PAGE_SIZE + 1;
   const userRangeEnd = Math.min((safeUserPage + 1) * USERS_PAGE_SIZE, filteredUsers.length);
 
+  const switchPlatformLlm = async (endpoint) => {
+    if (platformLlmBusy) return;
+    setPlatformLlmBusy(true);
+    try {
+      const result = await api.adminPlatformLlmSet(endpoint);
+      setPlatformLlm({
+        llm_active_endpoint: result.llm_active_endpoint,
+        primary: result.endpoints?.primary
+          ? {
+              baseUrl: result.endpoints.primary.baseUrl,
+              model: result.endpoints.primary.model,
+              configured: true,
+            }
+          : platformLlm?.primary,
+        secondary: result.endpoints?.secondary
+          ? {
+              baseUrl: result.endpoints.secondary.baseUrl,
+              model: result.endpoints.secondary.model,
+              configured: true,
+            }
+          : platformLlm?.secondary,
+        effective_primary: {
+          baseUrl: result.endpoints?.primary?.baseUrl,
+          model: result.endpoints?.primary?.model,
+          source: result.endpoints?.primary?.source,
+        },
+      });
+      // Refresh canonical status
+      const status = await api.adminPlatformLlmGet();
+      setPlatformLlm(status);
+      showSuccess(
+        `Platform LLM set to ${result.llm_active_endpoint} (${result.openclaw?.primary || 'synced'})`
+      );
+    } catch (e) {
+      showError(e.message);
+    } finally {
+      setPlatformLlmBusy(false);
+    }
+  };
+
   useEffect(() => {
     setUserPage(0);
   }, [userSearch]);
@@ -259,7 +305,88 @@ function AdminPanel() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+      <section
+        style={{
+          marginBottom: '1.5rem',
+          padding: '1rem',
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderRadius: 8,
+        }}
+      >
+        <h2 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem' }}>Platform LLM (Agent OS)</h2>
+        <p style={{ margin: '0 0 0.75rem 0', color: 'var(--muted)', fontSize: '0.9rem' }}>
+          Switch the shared platform model for CEOs on platform default (not BYOK). Options come from deploy{' '}
+          <code>.env</code> (<code>OPENAI_*</code> / <code>OPENAI_SECONDARY_*</code>). OpenClaw defaults update when you
+          switch.
+        </p>
+        {platformLlm ? (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'flex-start' }}>
+            <div style={{ flex: '1 1 220px', fontSize: '0.9rem' }}>
+              <div>
+                Active slot:{' '}
+                <strong>{platformLlm.llm_active_endpoint || 'primary'}</strong>
+                {platformLlm.effective_primary?.label ? (
+                  <>
+                    {' '}
+                    → <strong>{platformLlm.effective_primary.label}</strong>
+                  </>
+                ) : null}
+              </div>
+              <div style={{ color: 'var(--muted)', marginTop: 4, wordBreak: 'break-all' }}>
+                {platformLlm.effective_primary?.baseUrl || '—'}
+              </div>
+              <div style={{ color: 'var(--muted)', marginTop: 6, fontSize: '0.85rem' }}>
+                <div>
+                  Primary: {platformLlm.primary?.label || platformLlm.primary?.model || '—'}
+                  {!platformLlm.primary?.configured ? ' (key missing)' : ''}
+                </div>
+                <div>
+                  Secondary:{' '}
+                  {platformLlm.secondary?.label ||
+                    (platformLlm.secondary ? platformLlm.secondary.model : 'not configured in .env')}
+                  {platformLlm.secondary && !platformLlm.secondary.configured ? ' (key missing)' : ''}
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="wf-btn"
+                disabled={
+                  platformLlmBusy ||
+                  !platformLlm.primary?.configured ||
+                  platformLlm.llm_active_endpoint === 'primary'
+                }
+                onClick={() => switchPlatformLlm('primary')}
+                title={platformLlm.primary?.baseUrl || ''}
+              >
+                Use primary
+                {platformLlm.primary?.label ? ` (${platformLlm.primary.label})` : ''}
+              </button>
+              <button
+                type="button"
+                className="wf-btn"
+                disabled={
+                  platformLlmBusy ||
+                  !platformLlm.secondary?.configured ||
+                  platformLlm.llm_active_endpoint === 'secondary'
+                }
+                onClick={() => switchPlatformLlm('secondary')}
+                title={platformLlm.secondary?.baseUrl || 'Set OPENAI_SECONDARY_* in deploy/.env'}
+              >
+                {platformLlm.secondary?.configured
+                  ? `Use secondary (${platformLlm.secondary.label})`
+                  : 'Secondary not configured'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p style={{ color: 'var(--muted)', margin: 0 }}>Unable to load platform LLM status.</p>
+        )}
+      </section>
+
+      <div className="admin-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
         <section>
           <h2>Users</h2>
           <div className="mcp-pg-toolbar" style={{ marginBottom: '0.75rem' }}>

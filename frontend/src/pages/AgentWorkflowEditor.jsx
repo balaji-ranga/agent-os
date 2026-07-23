@@ -1249,6 +1249,12 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
                         modelSource,
                         apiEndpoint: preset.apiEndpoint || data.taskConfig?.apiEndpoint || '',
                         model: preset.model || data.taskConfig?.model || '',
+                        ...(modelSource === 'openrouter' || modelSource === 'deepseek'
+                          ? {
+                              thinkingMode: data.taskConfig?.thinkingMode || 'enabled',
+                              thinkingEffort: data.taskConfig?.thinkingEffort || 'high',
+                            }
+                          : {}),
                         ...(modelSource === 'openrouter'
                           ? {
                               httpReferer: preset.httpReferer ?? data.taskConfig?.httpReferer ?? '',
@@ -1287,7 +1293,7 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
                     (data.taskConfig?.modelSource || 'openai') === 'ollama'
                       ? 'optional for local Ollama'
                       : (data.taskConfig?.modelSource || 'openai') === 'deepseek'
-                        ? 'not required — local Ollama'
+                        ? 'sk-... DeepSeek cloud key (or blank for local Ollama endpoint)'
                         : 'sk-... (not read from platform .env)'
                   }
                 />
@@ -1296,7 +1302,10 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
                   <small>Workflow Brain nodes never use platform OPENAI_API_KEY / OPENROUTER_API_KEY from .env</small>
                 )}
                 {(data.taskConfig?.modelSource || 'openai') === 'deepseek' && (
-                  <small>Uses local Ollama at http://ollama:11434/v1 — model deepseek-v3 (no API key). Ensure optional-ollama is up and the model is pulled.</small>
+                  <small>
+                    Cloud: https://api.deepseek.com/v1 + API key (e.g. deepseek-v4-flash). Local Ollama: set endpoint to
+                    http://ollama:11434/v1 and model deepseek-v3 (no key).
+                  </small>
                 )}
               </label>
               <label className="wf-field">
@@ -1330,6 +1339,44 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
                       placeholder="Agent OS or OPENROUTER_SITE_TITLE"
                     />
                   </label>
+                </>
+              )}
+              {((data.taskConfig?.modelSource || 'openai') === 'deepseek' ||
+                (data.taskConfig?.modelSource || 'openai') === 'openrouter') && (
+                <>
+                  <label className="wf-field">
+                    Thinking mode
+                    <select
+                      value={data.taskConfig?.thinkingMode || 'enabled'}
+                      onChange={(e) => set({ taskConfig: { ...data.taskConfig, thinkingMode: e.target.value } })}
+                    >
+                      <option value="enabled">Enabled</option>
+                      <option value="disabled">Disabled</option>
+                      <option value="off">Off (omit — provider default)</option>
+                    </select>
+                    <small>
+                      {(data.taskConfig?.modelSource || '') === 'deepseek'
+                        ? 'DeepSeek API: thinking toggle (+ reasoning_effort). Best with cloud https://api.deepseek.com/v1.'
+                        : 'OpenRouter: unified reasoning param (works for DeepSeek / Claude / OpenAI reasoning models).'}
+                    </small>
+                  </label>
+                  {(data.taskConfig?.thinkingMode || 'enabled') === 'enabled' && (
+                    <label className="wf-field">
+                      Thinking effort
+                      <select
+                        value={data.taskConfig?.thinkingEffort || 'high'}
+                        onChange={(e) =>
+                          set({ taskConfig: { ...data.taskConfig, thinkingEffort: e.target.value } })
+                        }
+                      >
+                        <option value="high">high</option>
+                        <option value="max">max (DeepSeek)</option>
+                        <option value="xhigh">xhigh (OpenRouter)</option>
+                        <option value="medium">medium</option>
+                        <option value="low">low</option>
+                      </select>
+                    </label>
+                  )}
                 </>
               )}
               <label className="wf-field">

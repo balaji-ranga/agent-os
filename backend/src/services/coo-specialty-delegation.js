@@ -84,7 +84,7 @@ export async function classifyCooDelegationTargets(ownerUserId, ceoMessage) {
   const md = await readCooAgentsMdForCeo(ownerUserId);
   if (!md?.trim()) return {};
   const msg = String(ceoMessage || '').trim();
-  let allocated = await classifyIntentAndAllocate(msg, md, undefined);
+  let allocated = await classifyIntentAndAllocate(msg, md, { ownerUserId }, ownerUserId);
   if (!allocated || typeof allocated !== 'object') allocated = {};
 
   // Second pass: force closest-fit when first pass is empty (model often too strict on purpose wording).
@@ -93,7 +93,7 @@ export async function classifyCooDelegationTargets(ownerUserId, ceoMessage) {
       `${msg}\n\n` +
       `[System: Pick exactly ONE agent from the list whose department/purpose domain is closest to this ask. ` +
       `Never pick agents whose purpose is only "Agent" or "demo". Adjacent domain fit is required when any specialist is closer than none. Return {} only for COO-ops questions.]`;
-    const narrowed = await classifyIntentAndAllocate(closest, md, undefined);
+    const narrowed = await classifyIntentAndAllocate(closest, md, { ownerUserId }, ownerUserId);
     if (narrowed && Object.keys(narrowed).length > 0) allocated = narrowed;
   }
 
@@ -101,7 +101,7 @@ export async function classifyCooDelegationTargets(ownerUserId, ceoMessage) {
     const refine =
       `${msg}\n\n` +
       `[System: Return JSON for exactly ONE best-fit agent. Omit vague-purpose agents (purpose "Agent"/"demo"). Prefer Research for deep research / science / engineering analysis.]`;
-    const narrowed = await classifyIntentAndAllocate(refine, md, undefined);
+    const narrowed = await classifyIntentAndAllocate(refine, md, { ownerUserId }, ownerUserId);
     if (narrowed && Object.keys(narrowed).length > 0) allocated = narrowed;
   }
 

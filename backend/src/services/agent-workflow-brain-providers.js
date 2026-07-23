@@ -54,16 +54,16 @@ export const BRAIN_PROVIDERS = {
       'X-Title': 'OPENROUTER_SITE_TITLE',
     },
   },
-  /** DeepSeek V3 served by local Ollama — no cloud API key. */
+  /** DeepSeek cloud (V4) by default; override apiEndpoint to local Ollama if needed. */
   deepseek: {
-    label: 'DeepSeek V3 (Ollama)',
-    baseUrl: 'http://ollama:11434/v1',
-    model: 'deepseek-v3',
-    envApiKey: [],
-    envBaseUrl: ['DEEPSEEK_BASE_URL', 'OLLAMA_BASE_URL'],
+    label: 'DeepSeek',
+    baseUrl: 'https://api.deepseek.com/v1',
+    model: 'deepseek-v4-flash',
+    envApiKey: ['DEEPSEEK_API_KEY', 'OPENAI_API_KEY', 'OPENAI_PRIMARY_API_KEY'],
+    envBaseUrl: ['DEEPSEEK_BASE_URL'],
     envModel: ['DEEPSEEK_MODEL'],
     protocol: 'openai',
-    requiresKey: false,
+    requiresKey: true,
     placeholderApiKey: 'ollama',
   },
 };
@@ -119,7 +119,9 @@ export function isDeepSeekProxyBaseUrl(baseUrl) {
 }
 
 function brainAllowsMissingKey(source, baseUrl) {
-  if (source === 'ollama' || source === 'deepseek') return true;
+  if (source === 'ollama') return true;
+  // DeepSeek cloud needs a key; local Ollama DeepSeek does not.
+  if (source === 'deepseek') return isLocalOllamaBaseUrl(baseUrl);
   if (isLocalOllamaBaseUrl(baseUrl)) return true;
   return false;
 }
@@ -146,7 +148,8 @@ export function resolveWorkflowBrainProviderConfig(modelSource, cfg = {}) {
 
   let baseUrl = (cfg.apiEndpoint || '').trim() || firstEnv(preset.envBaseUrl) || preset.baseUrl;
   if (source === 'deepseek' && !cfg.apiEndpoint) {
-    baseUrl = firstEnv(['DEEPSEEK_BASE_URL']) || ollamaOpenAiBase() || preset.baseUrl;
+    // Prefer node/env DeepSeek URL; default to cloud V4 (not Ollama) unless DEEPSEEK_BASE_URL is set.
+    baseUrl = firstEnv(['DEEPSEEK_BASE_URL']) || preset.baseUrl;
   }
   if (source === 'ollama' && !cfg.apiEndpoint) {
     baseUrl = ollamaOpenAiBase() || preset.baseUrl;

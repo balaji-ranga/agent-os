@@ -209,6 +209,8 @@ export const api = {
   authMe: () => get('/auth/me'),
   authUpdateProfile: (body) => patch('/auth/me', body),
   authIndustries: () => get('/auth/industries'),
+  ceoGuardrailsGet: () => get('/ceo-guardrails'),
+  ceoGuardrailsSave: (body) => put('/ceo-guardrails', body),
   submitFeedback: (body) => post('/feedback', body),
   listFeedback: (params = {}) => {
     const q = new URLSearchParams();
@@ -257,6 +259,9 @@ export const api = {
   adminAgentsGrouped: () => get('/admin/agents'),
   adminSendNotifications: (body) => post('/admin/notifications', body),
   adminRefreshDefaultAgents: (body) => post('/admin/default-agents/refresh', body),
+  adminPlatformLlmGet: () => get('/admin/platform-llm'),
+  adminPlatformLlmSet: (llm_active_endpoint) =>
+    put('/admin/platform-llm', { llm_active_endpoint }),
   adminImpersonateUser: (userId) => post(`/admin/users/${encodeURIComponent(userId)}/impersonate`, {}),
   authExitImpersonation: () => post('/auth/exit-impersonation', {}),
   // Agent workflows (custom, separate from job workflows)
@@ -346,6 +351,7 @@ export const api = {
   agentWorkflowMutate: (body) => post('/agent-workflows/mutate', body),
   // Clear OpenClaw sessions for an agent (workspace UI)
   agentSessionsClear: (agentId) => post(`/agents/${encodeURIComponent(agentId)}/sessions/clear`, {}),
+  agentSessionsNew: (agentId) => post(`/agents/${encodeURIComponent(agentId)}/sessions/new`, {}),
   // MCP integrations
   mcpServersList: (opts = {}) => {
     const q = opts.forWorkflow ? '?for_workflow=1' : '';

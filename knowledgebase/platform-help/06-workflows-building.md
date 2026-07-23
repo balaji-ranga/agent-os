@@ -58,6 +58,8 @@ Use placeholders:
 
 Each node type exposes named outputs (see nodes reference). Downstream nodes bind to those keys. After a run, inspect step diagnostics if a binding was empty or wrong.
 
+**Brain tip:** For DeepSeek or OpenRouter, set **Thinking mode** on the node (Enabled / Disabled / Off). Bind downstream fields to `text` for the final answer, or `reasoning_content` if you need the thinking trace.
+
 ### Timeouts (many long-running nodes)
 
 Shared fields often include:
