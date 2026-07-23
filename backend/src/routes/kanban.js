@@ -20,6 +20,7 @@ import {
   notifyKanbanTaskCreated,
   clearKanbanTaskNotification,
 } from '../services/platform-notifications.js';
+import { buildKanbanChatStatusGuidance } from '../services/kanban-chat-status.js';
 
 const router = Router();
 router.use(attachAuthUser);
@@ -369,23 +370,31 @@ router.post('/tasks/:id/messages', async (req, res) => {
         const sessionUser = `kanban-${req.params.id}`;
         const sessionKeyLine = `Your session key for this run is ${openclaw.sessionKeyFor(openclawAgentId, sessionUser)}. Use this exact sessionKey when calling sessions_history. The messages in this request already contain the full task conversation; if sessions_history returns empty, use these messages as your context and proceed.\n\n`;
         const taskId = Number(req.params.id);
-        // For direct-assigned tasks (no COO delegation), inject same Kanban workflow instructions as delegation path
-        const isDirectAssign = !task.agent_delegation_task_id;
-        const kanbanInstructions = isDirectAssign
-          ? `FIRST ACTION (before anything else): call the kanban_move_status tool with JSON:\n  {"task_id": ${taskId}, "new_status": "in_progress"}\n\n`
-          : '';
-        const kanbanFinishBlock = isDirectAssign
-          ? `\n\n---\nIMPORTANT — Kanban finish:\nWhen you are done, call ONE of:\n  {"task_id": ${taskId}, "new_status": "completed"}\n  {"task_id": ${taskId}, "new_status": "failed"}\n---`
-          : '';
+        // Same reopen / follow-up guidance for direct-assign and COO-delegated tasks.
+        // Skip promote when awaiting_confirmation (CEO/user must confirm first).
+        const guidance = buildKanbanChatStatusGuidance(taskId, task.status);
         const messages = [];
         const taskContext = delegationPrompt || [task.title, task.description].filter(Boolean).join('\n') || task.title;
-        messages.push({ role: 'user', content: sessionKeyLine + kanbanInstructions + `Task: ${taskContext}` + kanbanFinishBlock });
+        messages.push({
+          role: 'user',
+          content: sessionKeyLine + guidance.instructions + `Task: ${taskContext}` + guidance.finishBlock,
+        });
         if (delegationResponse) messages.push({ role: 'assistant', content: delegationResponse });
         for (const m of taskMessages) messages.push({ role: m.role, content: m.content });
         try {
           const { content: replyContent } = await openclaw.chatCompletions(openclawAgentId, messages, sessionUser, false);
           const reply = (replyContent && String(replyContent).trim()) || '(No reply.)';
           db().prepare('INSERT INTO task_messages (task_id, role, content) VALUES (?, ?, ?)').run(req.params.id, 'assistant', reply);
+          // Reliable reopen UX: once the assigned agent replies on an open card, move to in_progress
+          // even if the model skipped kanban_move_status. Never auto-move awaiting_confirmation.
+          if (guidance.promoteOnReply) {
+            db()
+              .prepare(
+                `UPDATE kanban_tasks SET status = 'in_progress', updated_at = datetime('now')
+                 WHERE id = ? AND status = 'open'`
+              )
+              .run(taskId);
+          }
         } catch (err) {
           const errMsg = err?.message || String(err);
           db().prepare('INSERT INTO task_messages (task_id, role, content) VALUES (?, ?, ?)').run(req.params.id, 'assistant', `[Error from agent: ${errMsg}]`);
