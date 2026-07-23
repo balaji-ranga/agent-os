@@ -132,6 +132,30 @@ function withConnectorActionInput(data, jsonText, { forceStatic = false } = {}) 
 
 function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connectorApps, connectorSearchResults, connectorActions, connectorGuide, connectorInputSchema, connectorExampleInput, connectorActionDescription, connectorLoadError, connectorSearchQuery, onConnectorSearchChange, externalAgents, externalAgentsLoadError, customScripts, customScriptsLoadError, taskCatalog, allNodes, edges, hookInfo, onChange, onDelete, onRegenerateHookSecret, onFetchHookInfo, regeneratingSecret }) {
   const [secretVisible, setSecretVisible] = useState(false);
+  // Keep a string draft for trigger input schema so typing isn't fought by JSON.parse→stringify.
+  const [inputSchemaDraft, setInputSchemaDraft] = useState('');
+  const [inputSchemaJsonError, setInputSchemaJsonError] = useState('');
+
+  useEffect(() => {
+    if (node?.type !== 'trigger') {
+      setInputSchemaDraft('');
+      setInputSchemaJsonError('');
+      return;
+    }
+    const schema = node.data?.inputSchema;
+    if (schema == null || schema === '') {
+      setInputSchemaDraft('');
+    } else if (typeof schema === 'string') {
+      setInputSchemaDraft(schema);
+    } else {
+      try {
+        setInputSchemaDraft(JSON.stringify(schema, null, 2));
+      } catch {
+        setInputSchemaDraft(String(schema));
+      }
+    }
+    setInputSchemaJsonError('');
+  }, [node?.id, node?.type]);
 
   // Migrate legacy staticInputJson → Inputs binding; auto-fill empty Action input from schema
   useEffect(() => {
@@ -358,31 +382,33 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
               rows={8}
               spellCheck={false}
               placeholder={`{\n  "type": "object",\n  "required": ["message"],\n  "properties": {\n    "message": { "type": "string" }\n  },\n  "additionalProperties": false\n}`}
-              value={
-                data.inputSchema == null
-                  ? ''
-                  : typeof data.inputSchema === 'string'
-                    ? data.inputSchema
-                    : JSON.stringify(data.inputSchema, null, 2)
-              }
+              value={inputSchemaDraft}
               onChange={(e) => {
                 const raw = e.target.value;
+                setInputSchemaDraft(raw);
                 if (!raw.trim()) {
+                  setInputSchemaJsonError('');
                   set({ inputSchema: null });
                   return;
                 }
                 try {
-                  set({ inputSchema: JSON.parse(raw) });
+                  JSON.parse(raw);
+                  setInputSchemaJsonError('');
                 } catch {
-                  // Keep typing; store raw string until valid JSON
-                  set({ inputSchema: raw });
+                  setInputSchemaJsonError('Invalid JSON — fix before Save / Publish');
                 }
+                // Store raw string while editing (parsed on save in extractTriggerSettings)
+                set({ inputSchema: raw });
               }}
             />
-            <small>
-              When set, webhook / manual run / A2A / chat tools validate input before starting. Leave empty for free-form
-              text. Use a <code>message</code> property to accept plain chat text.
-            </small>
+            {inputSchemaJsonError ? (
+              <small style={{ color: 'var(--danger, #b42318)' }}>{inputSchemaJsonError}</small>
+            ) : (
+              <small>
+                When set, webhook / manual run / A2A / chat tools validate input before starting. Leave empty for
+                free-form text. Use a <code>message</code> property to accept plain chat text.
+              </small>
+            )}
           </label>
         </>
       )}
