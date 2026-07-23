@@ -53,25 +53,66 @@ function deepseekEndpoint() {
 }
 
 function deepseekModel() {
-  return (
-    process.env.DEEPSEEK_MODEL ||
-    process.env.OPENCLAW_MODEL_PRIMARY?.replace(/^openai\//, '') ||
-    process.env.OPENAI_PRIMARY_MODEL ||
-    'deepseek-v4-flash'
-  );
+  // Prefer cloud/platform models — avoid Ollama tags like deepseek-r1:8b for Brain nodes in certify e2e.
+  const candidates = [
+    process.env.WORKFLOW_CERTIFY_BRAIN_MODEL,
+    process.env.OPENAI_PRIMARY_MODEL,
+    process.env.OPENCLAW_MODEL_PRIMARY?.replace(/^openai\//, ''),
+    process.env.DEEPSEEK_MODEL,
+    'deepseek-v4-flash',
+  ].filter(Boolean);
+  for (const m of candidates) {
+    if (!String(m).includes(':')) return String(m);
+  }
+  return 'deepseek-v4-flash';
+}
+
+/** Prefer OpenAI-compatible cloud for Brain when base URL is not local Ollama. */
+function brainProviderForCertify() {
+  const key = deepseekKey();
+  const deepseekBase = (process.env.DEEPSEEK_BASE_URL || '').replace(/\/$/, '');
+  const openaiBase = (
+    process.env.OPENAI_PRIMARY_BASE_URL ||
+    process.env.OPENAI_BASE_URL ||
+    ''
+  ).replace(/\/$/, '');
+  const secondaryBase = (process.env.OPENAI_SECONDARY_BASE_URL || '').replace(/\/$/, '');
+
+  const pickCloud = () => {
+    // Prefer DeepSeek cloud, then OpenAI primary base, then secondary
+    for (const base of [openaiBase, deepseekBase, secondaryBase]) {
+      if (base && !/ollama|11434|127\.0\.0\.1|localhost/i.test(base)) return base;
+    }
+    return 'https://api.deepseek.com/v1';
+  };
+
+  const endpoint = pickCloud();
+  const isDeepseek = /deepseek\.com/i.test(endpoint);
+  const model = isDeepseek
+    ? process.env.OPENCLAW_MODEL_PRIMARY?.replace(/^openai\//, '') ||
+      process.env.DEEPSEEK_CLOUD_MODEL ||
+      'deepseek-v4-flash'
+    : process.env.OPENAI_PRIMARY_MODEL ||
+      process.env.OPENAI_SECONDARY_MODEL ||
+      'gpt-4o-mini';
+
+  return {
+    modelSource: isDeepseek ? 'deepseek' : 'openai',
+    apiEndpoint: endpoint,
+    apiKey: key,
+    model: String(model).includes(':') ? (isDeepseek ? 'deepseek-v4-flash' : 'gpt-4o-mini') : model,
+  };
 }
 
 /** IBKR-inspired multi-node graph: parallel stubs → merge → maker → checker → if. Intentionally broken when broken=true. */
 function buildIbkrLikeGraph({ broken = true, enhanced = false } = {}) {
-  const key = deepseekKey();
-  const endpoint = deepseekEndpoint();
-  const model = deepseekModel();
+  const provider = brainProviderForCertify();
 
   const brainCfg = (systemPrompt, maxTokens = 400) => ({
-    modelSource: 'deepseek',
-    apiEndpoint: endpoint,
-    apiKey: key,
-    model,
+    modelSource: provider.modelSource,
+    apiEndpoint: provider.apiEndpoint,
+    apiKey: provider.apiKey,
+    model: provider.model,
     maxTokens,
     systemPrompt,
     mcpToolCalling: false,
@@ -425,10 +466,11 @@ async function main() {
   console.log('owner', owner);
   const cfg = getLlmConfig(owner);
   console.log('LLM primary', cfg.primary?.model, 'secondary', cfg.secondary?.model || '(none)');
-  console.log('DeepSeek brain key set', !!deepseekKey(), 'model', deepseekModel());
+  const bp = brainProviderForCertify();
+  console.log('Brain provider', bp.modelSource, bp.model, 'endpoint', (bp.apiEndpoint || '').slice(0, 48), 'hasKey', !!bp.apiKey);
 
-  if (!deepseekKey()) {
-    console.error('FAIL: need DEEPSEEK_API_KEY or OPENAI_API_KEY for brain nodes');
+  if (!bp.apiKey && bp.modelSource !== 'ollama') {
+    console.error('FAIL: need API key for Brain nodes (OPENAI_API_KEY / DEEPSEEK_API_KEY)');
     process.exit(1);
   }
 
