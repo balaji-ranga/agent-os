@@ -115,6 +115,8 @@ Grant or revoke tools on each agent’s **Workspace → Tools access**.
 
 ## What’s new (recent product highlights)
 
+> **Milestone (pre–local desktop workflow):** commit [`487f236`](https://github.com/balaji-ranga/agent-os/commit/487f236) — platform API logging (`PLATFORM_LOG_LEVEL=off|error|info`) + secret redaction. Use this as the baseline **before** local-desktop workflow changes.
+
 | Area | What you get in the UI |
 |------|-------------------------|
 | **Platform Help agent** | Dedicated `platformhelp` agent + Master Data help corpus (`knowledgebase/platform-help/`) via keyword RAG. |
