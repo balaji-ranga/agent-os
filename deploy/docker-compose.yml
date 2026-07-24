@@ -75,6 +75,8 @@ x-backend-env: &backend-env
   <<: *llm-env
   PORT: "3001"
   NODE_ENV: production
+  # Platform API access logs: off | error | info (default info)
+  PLATFORM_LOG_LEVEL: ${PLATFORM_LOG_LEVEL:-info}
   HOME: /root
   OPENCLAW_DIR: /root/.openclaw
   OPENCLAW_CONFIG_PATH: /root/.openclaw/openclaw.json

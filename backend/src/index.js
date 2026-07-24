@@ -40,6 +40,7 @@ import { attachAuthUser, requireAuth, requireCeoOrAdmin } from './middleware/aut
 import { ensureInternalTokenConfigured } from './middleware/internal-auth.js';
 import { ensureToolsApiKeyConfigured } from './config/tools.js';
 import { attachRedactedRequestUrl } from './utils/redact-secrets.js';
+import { log, platformApiAccessLogger, getPlatformLogLevel, refreshPlatformLogLevel } from './utils/logger.js';
 import { ensureMfaTables } from './services/auth/mfa.js';
 import { ensurePlatformSettingsTable } from './services/platform-llm-settings.js';
 import { ensureDefaultAdmin, ensureBalaCeoUser, grantStandardAgents, pruneSharedStandardAgentGrants } from './services/users.js';
@@ -76,10 +77,12 @@ import { seedPlatformStandardWorkspaceTemplate } from './services/platform-agent
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
+refreshPlatformLogLevel();
 
 app.use(cors({ origin: true }));
 app.use(attachRedactedRequestUrl);
 app.use(attachAuthUser);
+app.use(platformApiAccessLogger);
 
 // Admin-gated OpenConnector console + public OAuth callbacks under /openconnector/*
 // Raw body so OC console POSTs are not forced through express.json().
@@ -387,9 +390,28 @@ syncWorkflowScheduleRegistry();
 initAgentWorkflowScheduler();
 
 app.use((err, req, res, next) => {
+  // Never log req.body / headers — may contain API keys, passwords, auth tokens.
+  log.error(
+    '[api] unhandled',
+    req.method,
+    req.logUrl || sanitizeSafeUrl(req),
+    err?.message || err
+  );
   res.status(500).json({ error: err.message || 'Internal server error' });
 });
 
+function sanitizeSafeUrl(req) {
+  try {
+    return req.logUrl || req.path || '/';
+  } catch {
+    return '/';
+  }
+}
+
 app.listen(PORT, () => {
-  console.log(`Agent OS backend listening on http://127.0.0.1:${PORT} (pid ${process.pid})`);
+  log.info(`Agent OS backend listening on http://127.0.0.1:${PORT} (pid ${process.pid}) PLATFORM_LOG_LEVEL=${getPlatformLogLevel()}`);
+  // Always print listen line even when level=off so ops can confirm process is up.
+  if (getPlatformLogLevel() === 'off') {
+    console.log(`Agent OS backend listening on http://127.0.0.1:${PORT} (pid ${process.pid}) PLATFORM_LOG_LEVEL=off`);
+  }
 });
