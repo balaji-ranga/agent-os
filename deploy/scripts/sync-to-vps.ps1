@@ -119,6 +119,8 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\heal-agent-workspace-paths.js" `
     "$Repo\backend\scripts\test-broadcast-routing.js" `
     "$Repo\backend\scripts\test-coo-reach-me-delegation.js" `
+    "$Repo\backend\scripts\apply-platform-standard-to-bala.js" `
+    "$Repo\backend\scripts\repair-bala-ops-after-standard-apply.js" `
     "$Repo\backend\scripts\test-ceo-guardrails.js" `
     "$Repo\backend\scripts\test-kanban-delegation-sync.js" `
     "$Repo\backend\scripts\test-kanban-owner-isolation.js" `
@@ -154,14 +156,21 @@ if ($Services -match "backend|openclaw") {
   scp @ssh "$Repo\tools\brave-search-mcp-byok\server.js" "root@${HostIp}:$RemoteRoot/tools/brave-search-mcp-byok/"
   scp @ssh -r "$Repo\openclaw-extensions\agent-os-content-tools" "root@${HostIp}:$RemoteRoot/openclaw-extensions/"
   scp @ssh -r "$Repo\openclaw-extensions\agent-os-bootstrap-watcher" "root@${HostIp}:$RemoteRoot/openclaw-extensions/"
-  Write-Host "==> Sync workspace templates (COO + TechResearcher + ApplicationAgent + Workflow Builder + Platform Help + Vedic Astrology) + skills + platform-help KB"
+  Write-Host "==> Sync workspace templates (shared ops + COO + TechResearcher + ApplicationAgent + Workflow Builder + Platform Help + Vedic Astrology) + skills + platform-help KB"
   ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/openclaw-workspace-templates $RemoteRoot/openclaw-skills/agent-os-content-tools $RemoteRoot/openclaw-skills/agent-send"
+  scp @ssh -r "$Repo\openclaw-workspace-templates\_shared" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   scp @ssh -r "$Repo\openclaw-workspace-templates\balserve" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   scp @ssh -r "$Repo\openclaw-workspace-templates\techresearcher" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   scp @ssh -r "$Repo\openclaw-workspace-templates\applicationagent" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   scp @ssh -r "$Repo\openclaw-workspace-templates\workflowbuilder" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   scp @ssh -r "$Repo\openclaw-workspace-templates\platformhelp" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   scp @ssh -r "$Repo\openclaw-workspace-templates\vedic-astrology" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
+  scp @ssh -r "$Repo\openclaw-workspace-templates\socialasstant" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
+  scp @ssh -r "$Repo\openclaw-workspace-templates\expensemanager" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
+  scp @ssh -r "$Repo\openclaw-workspace-templates\fitscorer" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
+  scp @ssh -r "$Repo\openclaw-workspace-templates\jobdiscovery" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
+  scp @ssh -r "$Repo\openclaw-workspace-templates\resumetailor" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
+  scp @ssh -r "$Repo\openclaw-workspace-templates\bala" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/knowledgebase"
   scp @ssh -r "$Repo\knowledgebase\platform-help" "root@${HostIp}:$RemoteRoot/knowledgebase/"
   scp @ssh "$Repo\README.md" "root@${HostIp}:$RemoteRoot/README.md"

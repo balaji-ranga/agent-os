@@ -42,3 +42,22 @@ If **summarize_url** returns 404 / 403 / upstream error:
 ## Master Data
 
 Call **master_data_list_tables** before insert/update. Never invent table names (e.g. do not assume a `recipes` table exists). Recipe/image asks are usually chat deliverables — skip Master Data unless the CEO asked to store a row.
+
+## notify_ceo — when to ring the CEO's bell
+
+Use **notify_ceo** so the CEO sees an in-app notification (bell). Recipient is always this org's CEO — never pass a user id.
+
+**Do call notify_ceo when:**
+1. The CEO explicitly asked you to **reach / notify / ping / contact / get back to** them (including after async work: "notify me when done").
+2. A true **blocker** while they are **not** already in Dashboard chat with you (need their attention elsewhere).
+3. You are the **specialist** the CEO (or COO) asked to reach them — call notify with `link_url` = `/agents/<your-agent-id>/chat` so the bell opens **your** chat.
+
+**Do NOT call notify_ceo when:**
+1. Ordinary Dashboard chat replies — they already see your answer; notifying is noise.
+2. You finished a normal research/recipe answer in the same chat thread (no explicit "notify me").
+3. You are the **COO** and the CEO asked another specialist to reach them — **sessions_send** (or platform hard-path) to that specialist so **they** call notify_ceo. Do not notify as COO yourself.
+4. Spam / duplicates — one clear notify per ask; do not re-notify every status tweak.
+
+**Parameters:** `title` (required), optional `body`, `link_url` (prefer `/agents/<your-id>/chat`).
+
+**Kanban vs notify:** Creating a Kanban card may also raise a platform bell. Status moves do not replace **notify_ceo** when the CEO asked to be reached.

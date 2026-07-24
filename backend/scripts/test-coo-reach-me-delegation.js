@@ -20,6 +20,23 @@ import {
 
 initDb();
 
+const detectorCases = [
+  ['ask the social media expert agent to reach me', true],
+  ['ask TechResearcher to reach me via notification', true],
+  ['Can you ask TechResearcher to reach me via notification', true],
+  ['Could you ask the social assistant to notify me', true],
+  ['please reach me', false],
+  ['you reach me when ready', false],
+  ['COO please notify me', false],
+];
+for (const [phrase, expect] of detectorCases) {
+  const got = isAskSpecialistToReachMe(phrase);
+  if (got !== expect) {
+    throw new Error(`detector: "${phrase}" expected ${expect} got ${got}`);
+  }
+}
+console.log('COO_REACH_ME_DETECTOR_OK', { cases: detectorCases.length });
+
 const msg = 'ask the social media expert agent to reach me';
 if (!isAskSpecialistToReachMe(msg)) throw new Error('detector failed');
 
@@ -31,7 +48,6 @@ if (!specialist || !/social/i.test(`${specialist.id} ${specialist.name || ''}`))
 
 const before = Date.now();
 const keysToDelete = [];
-let rewrittenKey = null;
 
 try {
   const out = await executeReachMeViaSpecialist({
@@ -67,8 +83,16 @@ try {
   if (!rewritten?.sent || rewritten.agent_id !== specialist.id) {
     throw new Error(`COO rewrite failed: ${JSON.stringify(rewritten)}`);
   }
-  rewrittenKey = rewritten.source_key || null;
-  if (rewrittenKey) keysToDelete.push(rewrittenKey);
+  if (rewritten.source_key) keysToDelete.push(rewritten.source_key);
+
+  const polite = 'Can you ask TechResearcher to reach me via notification';
+  if (!isAskSpecialistToReachMe(polite)) throw new Error('polite reach-me detector failed');
+  const tech = resolveReachMeSpecialist(owner, polite);
+  if (tech && /tech|research/i.test(`${tech.id} ${tech.name || ''}`)) {
+    console.log('COO_REACH_ME_POLITE_OK', { specialist: tech.id });
+  } else {
+    console.warn('COO_REACH_ME_TECH_RESOLVE_WARN', { id: tech?.id, name: tech?.name });
+  }
 
   console.log('COO_REACH_ME_DELEGATION_OK', {
     specialist: specialist.id,
@@ -79,7 +103,6 @@ try {
   for (const key of [...new Set(keysToDelete.filter(Boolean))]) {
     deleteNotificationsBySource('agent_notify', key, owner);
   }
-  // Also mark-read any leftover reach-me smoke rows from older deploys (same specialist, last hour)
   const recent = listNotificationsForUser(owner, { limit: 30 }).filter(
     (n) =>
       n.created_by === specialist.id &&

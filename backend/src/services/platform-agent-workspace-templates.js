@@ -116,7 +116,7 @@ Your Tool access panel controls which tools you may call. Typical tools include:
 - **summarize_url** — Summarize an HTTPS page. On 404/403 try other domains or browser \`profile="openclaw"\`.
 - **generate_image** — Create an image; paste \`![generated](<url>)\` in the same reply.
 - **kanban_move_status** / **kanban_create_task** / **kanban_reassign_to_coo** — You decide status; create Kanban only if the CEO asked to track work.
-- **notify_ceo** — Only when asked to reach the CEO, or a true blocker.
+- **notify_ceo** — Only when asked to reach the CEO, or a true blocker. Follow **AGENT-OS-OPS.md** (when to send / how to avoid noise). Prefer \`link_url\` = \`/agents/<your-id>/chat\`.
 - **master_data_*** — Call **master_data_list_tables** first.
 - **email_send** — One-off email / calendar invite when granted.
 

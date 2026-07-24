@@ -36,6 +36,7 @@ import {
   withOwnerScope,
 } from './org-context.js';
 import { isUserEnabled } from './user-enabled.js';
+import { notifyKanbanTaskCreated } from './platform-notifications.js';
 
 const SESSION_USER = 'agent-os-delegation';
 const AGENTS_MD_NAME = 'AGENTS.md';
@@ -319,6 +320,12 @@ function enqueueAllocatedTasks({
       const title = (query || '').trim().slice(0, 200);
       const desc = ownerUserId ? `owner_user_id: ${ownerUserId}` : '';
       kanbanIns.run(title, desc, a.id, standupId, row.id, ownerUserId || null);
+      if (ownerUserId) {
+        const krow = db()
+          .prepare('SELECT * FROM kanban_tasks WHERE agent_delegation_task_id = ?')
+          .get(row.id);
+        if (krow) notifyKanbanTaskCreated({ userId: ownerUserId, task: krow });
+      }
     }
   }
   return taskRows;

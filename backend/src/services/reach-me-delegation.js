@@ -16,16 +16,31 @@ import { insertChatTurn } from './chat-history.js';
 export function isAskSpecialistToReachMe(message) {
   const t = String(message || '').trim();
   if (!t) return false;
-  if (!isReachMeRequest(t) && !/\b(ask|have|tell|get)\b.+\b(agent|expert|assistant|researcher|manager)\b/i.test(t)) {
+
+  // Must be a handoff ("ask/have/tell …") or a named specialty + reach-me
+  const handoff =
+    /\b(ask|have|tell)\b/i.test(t) ||
+    /\b(social\s*media|tech\s*research|expense|vedic|astrolog).+\b(reach|contact|notify)\s+me\b/i.test(t);
+  if (!handoff) return false;
+
+  // Must look like reach / notify intent
+  if (
+    !isReachMeRequest(t) &&
+    !/\b(reach|contact|notify|ping|get\s+(back\s+)?to)\s+me\b/i.test(t) &&
+    !/\bvia\s+notif/i.test(t)
+  ) {
     return false;
   }
-  // Must look like asking someone else (not "COO reach me" / "you reach me")
-  if (/\b(you|coo|balserve|bal\s*serve)\b.+\b(reach|contact|notify)\s+me\b/i.test(t)) return false;
-  return (
-    isReachMeRequest(t) ||
-    /\b(ask|have|tell)\b.+\b(reach|contact|notify|get\s+(back\s+)?to)\s+me\b/i.test(t) ||
-    /\b(social\s*media|tech\s*research|expense).+\b(reach|contact|notify)\s+me\b/i.test(t)
-  );
+
+  // Reject ONLY direct "you/COO reach me" — keep "Can you ask <specialist> to reach me"
+  if (
+    /\b(you|coo|balserve|bal\s*serve)\b.+\b(reach|contact|notify)\s+me\b/i.test(t) &&
+    !/\b(ask|have|tell)\b/i.test(t)
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
 /**
