@@ -57,9 +57,12 @@ export const PLATFORM_HELP_DOCUMENTS = Object.freeze([
   { filename: '07-workflow-nodes-reference.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Workflow Nodes Reference` },
   { filename: '08-mcp-integrations.md', title: `${PLATFORM_HELP_TITLE_PREFIX}MCP Integrations` },
   { filename: '09-a2a-agent-exchange.md', title: `${PLATFORM_HELP_TITLE_PREFIX}A2A AgentExchange` },
+  { filename: '10-policies-guardrails.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Policies Guardrails` },
   { filename: '10-job-applicant-pipeline.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Job Applicant Pipeline` },
   { filename: '11-content-tools-scripts-profile.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Content Tools Scripts Profile` },
   { filename: '12-troubleshooting.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Troubleshooting` },
+  { filename: '13-workflow-autonomous-certify.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Workflow Autonomous Certify` },
+  { filename: '14-workflow-dynamic-values.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Workflow Dynamic Values` },
 ]);
 
 /** Resolve repo README.md (local: agent-os/README.md; Docker: /opt/agent-os/README.md). */

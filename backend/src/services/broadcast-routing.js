@@ -315,6 +315,7 @@ export function buildBroadcastToolHint({
       `1) Write a short status summary in your reply. ` +
       `2) You MUST call **notify_ceo** when ready with title like "${name}: status ready", ` +
       `body = your summary, link_url "${chatLink}", and source_key "broadcast:${agent.id}". ` +
+      `(Re-using that source_key is fine — the platform refreshes the unread bell item.) ` +
       `Do not only reply in text — the CEO is waiting on the notification bell. ` +
       `Recipient is always this CEO — never pass user_id.`
     );

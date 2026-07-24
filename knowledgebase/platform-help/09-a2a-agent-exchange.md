@@ -19,15 +19,19 @@ Path: **External agents** → `/integrations/external-agents`.
 3. **Test A2A invoke** with a sample message.
 4. Note the registered id for workflow nodes.
 
-If the remote agent is **secured with OAuth client credentials** (as Flolah secured publishes are), obtain an access token from their `tokenUrl` first, then put `Authorization: Bearer <access_token>` in the external-agent auth header (refresh when the token expires).
-
 ### Workflow wiring
 
 1. Add **External Agent (A2A)**.
 2. Set `externalAgentId` (and optional `skillId`).
 3. Bind `message` from previous step; optional `contextId` for conversation continuity.
 4. Configure `waitForCompletion` and `timeoutMs`.
-5. Use outputs: `text`, `result`, `task_id`, `task_state`, `ok`.
+5. **Auth (static or dynamic):**
+   - **Static (registry):** put Bearer / headers on **External agents** when registering (used if the node leaves overrides blank).
+   - **Static (node):** set **Bearer token override** or extra headers on the External Agent node.
+   - **Dynamic:** set Bearer to `{{api-login.body.accessToken}}` (or put the same in a header value) after an upstream **API** login step that returns the token in `body`. Node overrides merge over registry auth; a node Bearer wins for `Authorization`.
+6. Use outputs: `text`, `result`, `task_id`, `task_state`, `ok`.
+
+If the remote agent is **secured with OAuth client credentials** (as Flolah secured publishes are), use an **API** node against their `tokenUrl`, then pass `{{api-….body.access_token}}` into the External Agent node Bearer field (or refresh the registry header manually when tokens expire).
 
 ---
 

@@ -6,7 +6,7 @@ Documentation lives here so Cursor and humans can find it. **Root README.md** st
 
 | File | Purpose |
 |------|---------|
-| **platform-help/** | CEO end-user Platform Help guide (navigation, workflows/nodes, MCP, A2A, troubleshooting). Consumed by **Platform Help** agent via Master Data RAG. |
+| **platform-help/** | CEO end-user Platform Help guide (navigation, workflows/nodes, **dynamic `{{…}}` values**, MCP, A2A, troubleshooting). Consumed by **Platform Help** agent via Master Data RAG. See especially `platform-help/14-workflow-dynamic-values.md`. |
 | **TESTING.md** | Restart steps, full API test, frontend manual tests, smoke test, standup→COO→TechResearcher test, standup UI checklist. |
 | **GITHUB-SETUP.md** | One-time: create agent-os repo on GitHub and push (Options A/B, security check). |
 | **IMPLEMENTATION_PLAN.md** | Product/roadmap: vision, architecture, phases (1–5), skills, TTS, token monitoring, references. |

@@ -1,19 +1,33 @@
 /**
  * Parse transient or workflow-node MCP auth (no .env dependency).
+ * When `context` is provided, bearer + header values are rendered with {{nodeId.path}} templates.
  * @returns {{ headers: Record<string,string> }}
  */
-export function parseMcpAuth(source = {}) {
+import { renderWorkflowTemplates } from './agent-workflow-io.js';
+import { renderHttpHeadersJson, parseHttpHeadersJson } from './http-headers.js';
+
+export function parseMcpAuth(source = {}, context = null) {
   const auth = source.auth && typeof source.auth === 'object' ? source.auth : source;
-  const bearer = String(auth.bearer || auth.bearerToken || auth.bearer_token || '').trim();
+  let bearer = String(auth.bearer || auth.bearerToken || auth.bearer_token || '').trim();
+  if (context && bearer) bearer = renderWorkflowTemplates(bearer, context).trim();
+
   let headers = auth.headers || {};
   if (typeof headers === 'string') {
-    try {
-      headers = JSON.parse(headers);
-    } catch {
-      headers = {};
+    headers = context ? renderHttpHeadersJson(headers, context) : parseHttpHeadersJson(headers);
+  } else if (headers && typeof headers === 'object' && !Array.isArray(headers)) {
+    if (context) {
+      const rendered = {};
+      for (const [k, v] of Object.entries(headers)) {
+        if (!String(k || '').trim()) continue;
+        rendered[String(k).trim()] = renderWorkflowTemplates(String(v ?? ''), context);
+      }
+      headers = rendered;
+    } else {
+      headers = { ...headers };
     }
+  } else {
+    headers = {};
   }
-  if (!headers || typeof headers !== 'object' || Array.isArray(headers)) headers = {};
 
   const out = {};
   for (const [k, v] of Object.entries(headers)) {
@@ -25,7 +39,7 @@ export function parseMcpAuth(source = {}) {
   return { headers: out };
 }
 
-export function parseMcpAuthFromNodeConfig(config = {}) {
+export function parseMcpAuthFromNodeConfig(config = {}, context = null) {
   let headersRaw =
     config.httpHeadersJson ||
     config.http_headers_json ||
@@ -35,10 +49,13 @@ export function parseMcpAuthFromNodeConfig(config = {}) {
   if (config.authHeaders && typeof config.authHeaders === 'object') {
     headersRaw = JSON.stringify(config.authHeaders);
   }
-  return parseMcpAuth({
-    bearer: config.authBearer || config.auth_bearer || '',
-    headers: headersRaw || '{}',
-  });
+  return parseMcpAuth(
+    {
+      bearer: config.authBearer || config.auth_bearer || config.bearerToken || config.bearer_token || '',
+      headers: headersRaw || '{}',
+    },
+    context
+  );
 }
 
 export function redactMcpAuthForLog(obj) {

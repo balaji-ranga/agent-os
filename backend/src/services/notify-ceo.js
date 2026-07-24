@@ -87,17 +87,22 @@ export function executeNotifyCeo(body = {}, ctx = {}) {
       source: 'agent_notify',
       sourceKey,
     });
+    const created = Number(out.sent) || 0;
     return {
-      sent: true,
+      sent: created > 0,
       notified_user_id: ownerUserId,
       title,
       agent_id: agentId,
       agent_name: agentName,
-      notifications_created: out.sent,
+      notifications_created: created,
+      notifications_refreshed: Number(out.refreshed) || 0,
       source: 'agent_notify',
       source_key: sourceKey,
       link_url: linkUrl,
       chat_url: defaultChatLink,
+      ...(created > 0
+        ? {}
+        : { error: 'Notification was not created (no matching enabled user or write failed)' }),
     };
   } catch (e) {
     return { sent: false, error: e.message || String(e) };

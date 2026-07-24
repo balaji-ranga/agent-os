@@ -18,9 +18,10 @@
 
 1. Is it **Published**? Drafts do not run.
 2. Trigger mode fields filled (cron / chat phrase / event secret)?
-3. Required inputs bound? Check empty `{{…}}` templates.
-4. Inspect run step errors (API non-2xx, MCP error, approval waiting).
-5. Ask **Workflow Builder** to inspect the draft and heal.
+3. Required inputs bound? Check empty `{{…}}` templates (node id typo? nested path?). See **Workflow Dynamic Values** help (`14-workflow-dynamic-values`).
+4. Auth failures: confirm Bearer/header uses `{{api-….body.token}}` (or Trigger `trigger_input`) — MCP Brave needs BYOK headers, not platform env.
+5. Inspect run step errors (API non-2xx, MCP error, approval waiting).
+6. Ask **Workflow Builder** to inspect the draft and heal (or Platform Help for how-to).
 
 ## CEO Approval stuck
 

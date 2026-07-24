@@ -2,8 +2,9 @@
  * Register Brave Search MCP (HTTP) in the platform MCP registry.
  *
  * Prerequisites:
- *   - Brave MCP container running (compose profile optional-brave-mcp)
- *   - BRAVE_API_KEY set on that container (not needed in Agent OS — key stays in MCP process)
+ *   - Brave MCP BYOK container running (compose profile optional-brave-mcp)
+ *   - API keys are supplied per workflow MCP request (X-Subscription-Token / Bearer)
+ *     — do NOT rely on BRAVE_API_KEY in the MCP container
  *
  * Run: node backend/scripts/seed-brave-search-mcp.js
  */
@@ -17,11 +18,13 @@ config({ path: join(__dirname, '../../deploy/.env') });
 
 import { initDb, getDb } from '../src/db/schema.js';
 import {
-  connectMcpServer,
   createMcpServer,
-  getMcpServer,
   updateMcpServer,
+  getMcpServer,
+  connectMcpServer,
 } from '../src/services/mcp-servers.js';
+
+initDb();
 
 export const BRAVE_MCP_ID = 'mcp-brave-search';
 
@@ -30,10 +33,10 @@ export function getBraveMcpUrl() {
 }
 
 export async function seedBraveSearchMcp() {
-  initDb();
-  const db = getDb();
-  const admin = db.prepare(`SELECT id, role FROM platform_users WHERE role = 'admin' LIMIT 1`).get();
-  if (!admin) throw new Error('No admin user');
+  const admin =
+    getDb().prepare(`SELECT id, role FROM platform_users WHERE role = 'admin' AND enabled = 1 LIMIT 1`).get() ||
+    getDb().prepare(`SELECT id, role FROM platform_users WHERE role = 'ceo' AND enabled = 1 LIMIT 1`).get();
+  if (!admin) throw new Error('No admin/CEO user for MCP seed');
   const authUser = { id: admin.id, role: admin.role };
   const url = getBraveMcpUrl();
 
@@ -42,32 +45,35 @@ export async function seedBraveSearchMcp() {
     server = createMcpServer(authUser, {
       id: BRAVE_MCP_ID,
       name: 'Brave Search',
-      description: 'Official Brave Search MCP (web / news / LLM context) over HTTP',
+      description:
+        'Brave Search MCP (BYOK). Pass X-Subscription-Token or Authorization Bearer from the workflow — platform BRAVE_API_KEY is not used.',
       url,
       transport: 'streamable_http',
     });
-    console.log('Created MCP:', server.id, server.url);
   } else {
-    console.log('MCP already exists:', server.id);
-    if (url && server.url !== url) {
-      server = updateMcpServer(BRAVE_MCP_ID, authUser, { url, transport: 'streamable_http' });
-      console.log('Updated MCP URL:', url);
+    try {
+      server = updateMcpServer(BRAVE_MCP_ID, authUser, {
+        url,
+        transport: 'streamable_http',
+        description:
+          'Brave Search MCP (BYOK). Pass X-Subscription-Token or Authorization Bearer from the workflow — platform BRAVE_API_KEY is not used.',
+      });
+    } catch (_) {
+      /* keep existing */
     }
   }
 
-  console.log('Probing', url, '...');
   const result = await connectMcpServer(BRAVE_MCP_ID, authUser);
-  console.log('Status:', result.status);
-  console.log('Tools:', (result.tools || []).map((t) => t.name).join(', ') || '(none)');
-  if (result.status !== 'healthy') {
-    throw new Error('MCP not healthy — ensure brave-search-mcp is up and BRAVE_API_KEY is set');
+  const status = result?.status || getMcpServer(BRAVE_MCP_ID, authUser)?.status;
+  if (status !== 'healthy') {
+    throw new Error('MCP not healthy — ensure brave-search-mcp BYOK container is up (no env key required)');
   }
-  return result;
+  return getMcpServer(BRAVE_MCP_ID, authUser);
 }
 
 if (process.argv[1]?.includes('seed-brave-search-mcp')) {
   seedBraveSearchMcp()
-    .then(() => console.log('OK', BRAVE_MCP_ID))
+    .then((s) => console.log('OK', BRAVE_MCP_ID, s?.status, s?.url))
     .catch((e) => {
       console.error(e);
       process.exit(1);

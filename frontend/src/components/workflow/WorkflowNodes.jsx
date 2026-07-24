@@ -374,6 +374,8 @@ export function defaultNodeData(type, extra = {}) {
       skillId: '',
       waitForCompletion: true,
       timeoutMs: 120000,
+      authBearer: '',
+      httpHeadersJson: '{}',
       ...(data.taskConfig || {}),
     };
     data.inputBindings = data.inputBindings?.length
@@ -562,6 +564,7 @@ export function defaultNodeData(type, extra = {}) {
       promptName: '',
       resourceUri: '',
       staticArguments: '{}',
+      authBearer: '',
       httpHeadersJson: '{}',
       timeoutMs: 1200000,
       timeoutAction: 'fail',

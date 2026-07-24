@@ -277,8 +277,9 @@ services:
     expose:
       - "3099"
 
-  # Brave Search MCP (HTTP). Requires BRAVE_API_KEY in deploy/.env.
-  # Start: docker compose --profile optional-brave-mcp up -d brave-search-mcp
+  # Brave Search MCP (HTTP) — BYOK only. Pass X-Subscription-Token / Bearer from workflow MCP node.
+  # Platform BRAVE_API_KEY is NOT injected into this container (no env-key fallback).
+  # Start: docker compose --profile optional-brave-mcp up -d --build brave-search-mcp
   brave-search-mcp:
     profiles: ["optional-brave-mcp"]
     build:
@@ -287,20 +288,15 @@ services:
     image: agent-os-brave-search-mcp:${IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
-      BRAVE_API_KEY: ${BRAVE_API_KEY:-}
-      BRAVE_MCP_TRANSPORT: http
-      BRAVE_MCP_HOST: "0.0.0.0"
       BRAVE_MCP_PORT: "8080"
-      BRAVE_MCP_STATELESS: "true"
-      BRAVE_MCP_ENABLED_TOOLS: ${BRAVE_MCP_ENABLED_TOOLS:-brave_web_search brave_news_search brave_llm_context}
     expose:
       - "8080"
     healthcheck:
-      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8080/').then(r=>process.exit(r.ok||r.status===404||r.status===405?0:1)).catch(()=>process.exit(1))\""]
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
       interval: 30s
       timeout: 5s
       retries: 5
-      start_period: 40s
+      start_period: 15s
 
   # Real self-hosted OpenConnector runtime (admin UI should stay private; use a tunnel for v1 OAuth setup).
   openconnector:

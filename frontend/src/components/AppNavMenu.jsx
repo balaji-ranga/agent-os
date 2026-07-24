@@ -73,6 +73,7 @@ export function CeoNavMenu({ collapsed }) {
         <NavItem to="/master-data" title="Master Data" collapsed={collapsed} label="Master Data" short="MD" />
         <NavItem to="/policies" title="Policies & guardrails" collapsed={collapsed} label="Policies" short="Po" />
         <NavItem to="/ai-snipper" title="AI Snipper" collapsed={collapsed} label="AI Snipper" short="AI" />
+        <NavItem to="/efficiency" title="Efficiency View" collapsed={collapsed} label="Efficiency View" short="Ef" />
       </NavSection>
 
       <NavSection title="Prebuilt Workflows" collapsed={collapsed}>

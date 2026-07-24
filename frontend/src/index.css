@@ -442,7 +442,8 @@ html.auth-route #root {
   min-height: 0;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;  overflow: hidden;
+  border-radius: 8px;
+  overflow: hidden;
 }
 .chat-history-header {
   flex-shrink: 0;
@@ -465,8 +466,11 @@ html.auth-route #root {
 .chat-history-scroll {
   flex: 1 1 0;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   padding: 0.5rem;
 }
 .chat-history-empty {
@@ -511,11 +515,29 @@ html.auth-route #root {
 @media (max-width: 900px) {
   .page-chat-with-history {
     flex-direction: column;
+    gap: 0.75rem;
   }
+  .chat-main-column {
+    flex: 1 1 0;
+    min-height: 0;
+  }
+  /* Fixed flex basis so nested overflow-y scroll works on iOS/Android */
   .chat-history-panel {
     flex: 0 0 auto;
     width: 100%;
-    max-height: 240px;
+    height: min(220px, 32vh);
+    max-height: min(220px, 32vh);
+    min-height: 160px;
+    overflow: hidden;
+  }
+  .chat-history-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+    overflow-y: scroll;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    overscroll-behavior: contain;
   }
 }
 .chat-compose-row {
@@ -2922,6 +2944,64 @@ button {
   }
   .ai-snip-breakdown {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Efficiency View */
+.eff-page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.eff-range-select {
+  margin-top: 0.15rem;
+}
+.eff-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  padding: 0.25rem 0 0.35rem;
+}
+.eff-split {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+.eff-ok {
+  color: #22c55e;
+}
+.eff-bad {
+  color: #ef4444;
+}
+.eff-sep {
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 1.1rem;
+}
+.eff-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.1rem;
+  margin-top: 0.65rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.eff-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.eff-legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+@media (max-width: 720px) {
+  .eff-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

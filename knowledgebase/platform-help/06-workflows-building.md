@@ -52,22 +52,32 @@ On the **Trigger** start node you can set an **optional input JSON Schema**. Whe
 
 ### Input modes
 
-- **Static** — fixed value you type (URL, subject, JSON args).
+- **Static** — fixed value you type (URL, subject, JSON args). May still include `{{…}}` templates.
 - **Dynamic (From previous step)** — pick **source node** + **output key** (or auto = direct predecessor).
+- **Workflow variable** — when the binding mode is offered, read from the definition’s variables panel.
 
 ### Templates in prompts and fields
 
-Use placeholders:
+Full guide: **[14-workflow-dynamic-values.md](./14-workflow-dynamic-values.md)**.
 
-- `{{input}}` — common shorthand for prior text / trigger payload
-- `{{nodeId.outputKey}}` — e.g. `{{brain-1.text}}`, `{{api-1.body}}`
-- Nested paths when supported: `{{api-1.body.users.0.name}}`
+Quick reference:
+
+| Pattern | Example |
+|---------|---------|
+| Prior step output | `{{brain-1.text}}`, `{{api-1.body}}` |
+| Nested JSON | `{{api-login.body.accessToken}}`, `{{trigger-1.trigger_input.query}}` |
+| Workflow variable | `{{var.budget_usd}}` / `{{variables.api_base}}` |
+| Trigger / run shorthand | `{{input}}` |
+
+**Workflow variables** (editor panel) are shared static config for **this** workflow — there is no separate platform-wide global store. Use them for budgets, base URLs, allowlists; use prior-step templates for run-time tokens and results.
+
+**Auth:** API, MCP, Brain (`apiKey` + MCP headers), SSE Listen, and External Agent (optional override) all accept `{{nodeId.path}}` in bearer/header fields. Values look static in the UI; the runner substitutes at execute time.
 
 ### Outputs
 
 Each node type exposes named outputs (see nodes reference). Downstream nodes bind to those keys. After a run, inspect step diagnostics if a binding was empty or wrong.
 
-**Brain tip:** For DeepSeek or OpenRouter, set **Thinking mode** on the node (Enabled / Disabled / Off). Bind downstream fields to `text` for the final answer, or `reasoning_content` if you need the thinking trace.
+**Brain tip:** For DeepSeek or OpenRouter, set **Thinking mode** on the node (Enabled / Disabled / Off). Bind downstream fields to `text` for the final answer, or `reasoning_content` if you need the thinking trace. Brain `apiKey` can be `{{trigger-1.trigger_input.brainApiKey}}` (BYOK) — platform `.env` keys are not used for workflow Brain.
 
 ### Timeouts (many long-running nodes)
 

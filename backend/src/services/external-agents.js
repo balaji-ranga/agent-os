@@ -71,6 +71,33 @@ function buildAuthHeaders(row) {
   return headers;
 }
 
+/** Merge registry auth with optional per-invoke overrides (node-level / dynamic templates). */
+export function mergeExternalAgentAuthHeaders(row, authOverride = null) {
+  const headers = buildAuthHeaders(row);
+  if (!authOverride || typeof authOverride !== 'object') return headers;
+
+  const extra =
+    authOverride.headers && typeof authOverride.headers === 'object' && !Array.isArray(authOverride.headers)
+      ? authOverride.headers
+      : parseJson(authOverride.headersJson || authOverride.httpHeadersJson || '{}', {});
+  for (const [k, v] of Object.entries(extra || {})) {
+    if (k && v != null && String(v).trim()) headers[String(k).trim()] = String(v).trim();
+  }
+
+  const bearer = String(
+    authOverride.authHeader ||
+      authOverride.auth_header ||
+      authOverride.bearerToken ||
+      authOverride.bearer_token ||
+      authOverride.bearer ||
+      ''
+  ).trim();
+  if (bearer) {
+    headers.Authorization = bearer.toLowerCase().startsWith('bearer ') ? bearer : `Bearer ${bearer}`;
+  }
+  return headers;
+}
+
 function isPlatformAdmin(authUser) {
   return authUser?.role === 'admin' && !authUser?.impersonation;
 }
@@ -244,14 +271,18 @@ function isLikelyAgentCardUrl(url) {
   return u.includes('/.well-known/') || /\.json(\?|$)/i.test(u);
 }
 
-export async function invokeExternalAgent(id, ownerUserId, { message, skillId, contextId, timeoutMs, waitForCompletion } = {}) {
+export async function invokeExternalAgent(
+  id,
+  ownerUserId,
+  { message, skillId, contextId, timeoutMs, waitForCompletion, authOverride } = {}
+) {
   const row = getExternalAgentForRun(id, ownerUserId);
   if (!row) throw new Error(`External agent not found: ${id}`);
   if (row.status !== 'healthy') throw new Error(`External agent "${row.name}" is not healthy — run Discover first`);
 
   const card = parseJson(row.agent_card_json, {});
   const endpoint = resolveA2AEndpoint(card, row.endpoint_url);
-  const headers = buildAuthHeaders(row);
+  const headers = mergeExternalAgentAuthHeaders(row, authOverride);
   const skill = skillId || row.skill_id || null;
 
   if (waitForCompletion === false) {

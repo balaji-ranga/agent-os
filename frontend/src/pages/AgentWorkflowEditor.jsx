@@ -821,6 +821,26 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
               }
             />
           </label>
+          <label className="wf-field">
+            Bearer token override (optional)
+            <MaskedSecretInput
+              value={data.taskConfig?.authBearer || data.taskConfig?.bearerToken || ''}
+              onChange={(e) => set({ taskConfig: { ...data.taskConfig, authBearer: e.target.value } })}
+              placeholder="token or {{api-login.body.accessToken}}"
+            />
+            <small className="wf-field-hint">
+              Overrides registry auth for this node. Supports {'{{nodeId.path}}'} templates (e.g. token from a prior API
+              login step). Leave blank to use External Agents registry auth.
+            </small>
+          </label>
+          <HttpHeadersEditor
+            className="wf-field"
+            value={data.taskConfig?.httpHeadersJson || '{}'}
+            onChange={(httpHeadersJson) => set({ taskConfig: { ...data.taskConfig, httpHeadersJson } })}
+          />
+          <small className="wf-field-hint">
+            Extra headers merged over registry auth. Values support {'{{api-login.body.accessToken}}'} templates.
+          </small>
         </>
       )}
 
@@ -1090,6 +1110,17 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
               />
             </label>
           )}
+          <label className="wf-field">
+            Bearer token (optional)
+            <MaskedSecretInput
+              value={data.taskConfig?.authBearer || ''}
+              onChange={(e) => set({ taskConfig: { ...data.taskConfig, authBearer: e.target.value } })}
+              placeholder="token or {{api-login.body.accessToken}}"
+            />
+            <small className="wf-field-hint">
+              Static token or {'{{nodeId.path}}'} from a prior step. Applied as Authorization: Bearer …
+            </small>
+          </label>
           <HttpHeadersEditor
             className="wf-field"
             value={
@@ -1102,7 +1133,10 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
               set({ taskConfig: { ...data.taskConfig, httpHeadersJson, authHeadersJson: httpHeadersJson } })
             }
           />
-          <small className="wf-field-hint">Auth headers for MCP transport — saved on this workflow node only.</small>
+          <small className="wf-field-hint">
+            Auth headers for MCP transport (node-only). Header values support {'{{api-login.body.accessToken}}'}{' '}
+            templates at run time.
+          </small>
         </>
       )}
 
@@ -1144,7 +1178,8 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
             onChange={(httpHeadersJson) => set({ taskConfig: { ...data.taskConfig, httpHeadersJson } })}
           />
           <small className="wf-field-hint">
-            Long-running listen — run stays active until stream ends or you stop listen on the Runs page. Wire IF → Parallel → Sub-workflow / API downstream.
+            Long-running listen — run stays active until stream ends or you stop listen on the Runs page. Header values
+            support {'{{nodeId.path}}'} templates. Wire IF → Parallel → Sub-workflow / API downstream.
           </small>
         </>
       )}

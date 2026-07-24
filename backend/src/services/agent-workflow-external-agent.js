@@ -2,6 +2,7 @@
  * Workflow task: invoke external agent via A2A protocol.
  */
 import { renderWorkflowTemplates } from './agent-workflow-io.js';
+import { renderHttpHeadersJson } from './http-headers.js';
 import { invokeExternalAgent } from './external-agents.js';
 
 export async function executeExternalAgentTask(resolvedInputs, nodeConfig = {}, context = null, ownerUserId = null) {
@@ -23,12 +24,27 @@ export async function executeExternalAgentTask(resolvedInputs, nodeConfig = {}, 
   const waitForCompletion = nodeConfig.waitForCompletion !== false && nodeConfig.wait_for_completion !== false;
   const timeoutMs = Number(nodeConfig.timeoutMs || nodeConfig.timeout_ms || 120000);
 
+  const authBearer = render(
+    nodeConfig.authBearer ||
+      nodeConfig.auth_bearer ||
+      nodeConfig.bearerToken ||
+      nodeConfig.bearer_token ||
+      nodeConfig.auth_header ||
+      ''
+  ).trim();
+  const headers = renderHttpHeadersJson(
+    nodeConfig.httpHeadersJson || nodeConfig.http_headers_json || nodeConfig.authHeadersJson || '{}',
+    context
+  );
+  const hasOverride = !!authBearer || Object.keys(headers).length > 0;
+
   const out = await invokeExternalAgent(externalAgentId, owner, {
     message,
     skillId,
     contextId,
     timeoutMs,
     waitForCompletion,
+    authOverride: hasOverride ? { authHeader: authBearer, headers } : null,
   });
 
   return {

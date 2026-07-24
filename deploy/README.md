@@ -190,7 +190,7 @@ Gets the same gateway LLM vars plus:
 | `WORKFLOW_SMTP_*` | Send Email workflow task, `email_send` content tool (incl. ICS invites), MFA email OTP. Use a verified sender domain with your SMTP provider. |
 | `WORKFLOW_TEST_EMAIL_TO` | Optional recipient for SMTP smoke scripts (`test-email-send-tool.js`) |
 | `DEEPSEEK_BASE_URL`, `DEEPSEEK_MODEL` | Optional DeepSeek override. Brain `deepseek` defaults to cloud V4 (`https://api.deepseek.com/v1`, `deepseek-v4-flash`) with per-node API key; set these to Ollama for local. Profile BYOK `deepseek` still uses local Ollama when pointed here. |
-| `BRAVE_API_KEY` | Brave Search MCP (`optional-brave-mcp` profile). Seed with `backend/scripts/seed-brave-search-mcp.js`. |
+| `BRAVE_API_KEY` | Used by **test scripts / workflow run input only**. Brave MCP container is BYOK (workflow headers). Profile `optional-brave-mcp`. Seed: `seed-brave-search-mcp.js`. Demo: `seed-balaji-brave-byok-workflow.js`. |
 | `MFA_MODE`, `AGENT_OS_REQUIRE_MFA`, `AGENT_OS_DISABLE_MFA` | Platform MFA defaults (production: `MFA_MODE=TOTP`, `AGENT_OS_REQUIRE_MFA=1`) |
 | `EMAIL_INBOUND_WEBHOOK_SECRET` | Optional platform secret for email inbound webhooks |
 | `OPENCONNECTOR_URL` | Base URL of the OpenConnector runtime (e.g. `http://openconnector:3000`). Enables Connector workflow nodes + User Profile auto-provision. |

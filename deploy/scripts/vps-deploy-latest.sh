@@ -50,6 +50,8 @@ echo "              chat tool-call icons, notification tooltips + datetime, shar
 echo "              CEO Policies/guardrails (POLICY.md + Brain prepend),"
 echo "              deploy smokes clean up CEO standup/notify pollution,"
 echo "              AgentExchange/A2A (public + OAuth client credentials → Bearer),"
+echo "              workflow API/MCP/A2A auth templates ({{nodeId.path}} bearer/headers),"
+echo "              Brave Search MCP BYOK (workflow keys only; no env key fallback),"
 echo "              Workflow certify Maker/Checker (LLM Checker default OFF),"
 echo "              DeepSeek@Ollama,"
 echo "              hPanel light theme (app-topbar + profile-menu + collapsible nav),"
@@ -99,6 +101,13 @@ echo "==> recreate $SERVICES + nginx"
 docker compose up -d --force-recreate $SERVICES
 docker compose up -d --force-recreate nginx
 # OpenClaw entrypoint re-applies configure-openclaw-docker.js (tools.allow, codex off, etc.)
+
+# Brave Search MCP BYOK (optional profile) — rebuild when Dockerfile/tool source changed
+if [[ -f "$ROOT/tools/brave-search-mcp-byok/server.js" ]]; then
+  echo "==> rebuild brave-search-mcp (BYOK; profile optional-brave-mcp)"
+  docker compose --profile optional-brave-mcp build "${BUILD_ARGS[@]}" brave-search-mcp || echo "WARN: brave-search-mcp build failed"
+  docker compose --profile optional-brave-mcp up -d --force-recreate brave-search-mcp || echo "WARN: brave-search-mcp up failed"
+fi
 
 echo "==> wait for backend health"
 ok=0
@@ -288,6 +297,11 @@ if [[ "$SKIP_SMOKE" != "1" ]]; then
     echo "==> OpenConnector connectors smoke"
     sed -i 's/\r$//' "$ROOT/deploy/scripts/vps-smoke-openconnector.sh" 2>/dev/null || true
     bash "$ROOT/deploy/scripts/vps-smoke-openconnector.sh" || echo "WARN: OpenConnector smoke failed (non-fatal)"
+  fi
+  if [[ -f "$ROOT/deploy/scripts/vps-smoke-brave-byok.sh" && -n "${BRAVE_API_KEY:-}" ]]; then
+    echo "==> Brave BYOK workflow smoke (Balaji)"
+    sed -i 's/\r$//' "$ROOT/deploy/scripts/vps-smoke-brave-byok.sh" 2>/dev/null || true
+    bash "$ROOT/deploy/scripts/vps-smoke-brave-byok.sh" || echo "WARN: Brave BYOK smoke failed (non-fatal)"
   fi
   if [[ -f "$ROOT/deploy/scripts/vps-verify-platform.sh" ]]; then
     echo "==> platform verify (Master Data, delegation, allowlists)"

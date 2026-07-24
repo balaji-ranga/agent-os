@@ -50,7 +50,9 @@ Shown in the editor only when **Model source** is `deepseek` or `openrouter`.
 | `thinkingMode` | `enabled` (default) · `disabled` · `off` | DeepSeek: sends `thinking.type`. OpenRouter: sends unified `reasoning`. `off` omits the param (provider default). |
 | `thinkingEffort` | `high` · `max` · `xhigh` · `medium` · `low` | DeepSeek uses `high`/`max`. OpenRouter also accepts `xhigh`/`medium`/`low`. Ignored when mode is disabled/off. |
 
-**DeepSeek defaults:** cloud endpoint `https://api.deepseek.com/v1`, model `deepseek-v4-flash`, API key on the node. For local Ollama, set endpoint to `http://ollama:11434/v1` and model `deepseek-v3` (no key).
+**DeepSeek defaults:** cloud endpoint `https://api.deepseek.com/v1`, model `deepseek-v4-flash`, API key **on the node** (supports `{{trigger-1.trigger_input.brainApiKey}}` / `{{var.llm_key}}` — platform `.env` is not used). For local Ollama, set endpoint to `http://ollama:11434/v1` and model `deepseek-v3` (no key).
+
+**MCP auth on Brain:** per-server headers in MCP tool-calling also accept `{{nodeId.path}}` templates (same as MCP node).
 
 **OpenAI / Anthropic / Ollama:** no thinking controls (not applicable the same way).
 
@@ -120,7 +122,9 @@ For one-off CEO email from chat, prefer COO **`email_send`** tool — not a work
 
 **Purpose:** HTTP request.
 
-**Key attributes:** `method` GET/POST/PUT/PATCH/DELETE; `authType` none/basic/bearer/api_key (+ credentials); timeouts.
+**Key attributes:** `method` GET/POST/PUT/PATCH/DELETE; `authType` none/basic/bearer/api_key (+ credentials); `httpHeadersJson`; timeouts.
+
+**Dynamic auth:** Bearer / basic / API-key values and header values support `{{nodeId.path}}` (e.g. `{{api-login.body.accessToken}}`). See [14-workflow-dynamic-values.md](./14-workflow-dynamic-values.md).
 
 | Inputs | Outputs |
 |--------|---------|
@@ -134,14 +138,13 @@ Non-2xx / SSL failures typically fail the run.
 
 **Purpose:** Invoke a registered third-party A2A agent.
 
-**Key attributes:** `externalAgentId`, optional `skillId`, `waitForCompletion`, `timeoutMs`.
+**Key attributes:** `externalAgentId`, optional `skillId`, `waitForCompletion`, `timeoutMs`; optional **Bearer override** + `httpHeadersJson` (templates OK). Blank override → registry auth.
 
 | Inputs | Outputs |
 |--------|---------|
 | `message`, optional `contextId` | `text`, `result`, `task_id`, `task_state`, `ok` |
 
-Register agents under **External agents** first. For Flolah **secured** publishes (and similar OAuth A2A peers), put a Bearer **access token** (from the agent’s token URL) in the registry auth header — not the long-lived `client_secret`.
-
+Register agents under **External agents** first. For Flolah **secured** publishes (and similar OAuth A2A peers), obtain an access token (API node → `tokenUrl`), then set node Bearer to `{{api-….body.access_token}}` or keep a static registry header.
 ---
 
 ## Custom Script (`custom_script`)

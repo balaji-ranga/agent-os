@@ -42,48 +42,49 @@ export function sendPlatformNotifications({
   const src = source != null ? String(source).trim() || null : null;
   const key = sourceKey != null ? String(sourceKey).trim() || null : null;
 
-  const insert = db().prepare(
-    `INSERT OR IGNORE INTO platform_user_notifications
-       (user_id, title, body, link_url, created_by, source, source_key)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  const findBySource = db().prepare(
+    `SELECT id FROM platform_user_notifications
+     WHERE user_id = ? AND source = ? AND source_key = ?
+     LIMIT 1`
   );
-  // Fallback when unique index missing / NULL source (always insert)
+  const refreshExisting = db().prepare(
+    `UPDATE platform_user_notifications
+     SET title = ?, body = ?, link_url = ?, created_by = ?,
+         created_at = datetime('now'), read_at = NULL
+     WHERE id = ?`
+  );
   const insertPlain = db().prepare(
     `INSERT INTO platform_user_notifications (user_id, title, body, link_url, created_by, source, source_key)
      VALUES (?, ?, ?, ?, ?, ?, ?)`
   );
 
   let sent = 0;
+  let refreshed = 0;
+  const bodyText = String(body || '').trim();
+  const link = String(linkUrl || '').trim() || null;
   const tx = db().transaction((ids) => {
     for (const userId of ids) {
       if (src && key) {
-        const r = insert.run(
-          userId,
-          trimmedTitle,
-          String(body || '').trim(),
-          String(linkUrl || '').trim() || null,
-          createdBy,
-          src,
-          key
-        );
-        if (r.changes) sent += 1;
+        const existing = findBySource.get(userId, src, key);
+        if (existing?.id) {
+          // Same logical event key (e.g. broadcast:techresearcher): revive as unread with fresh content.
+          // Without this, INSERT OR IGNORE silently drops repeats after the first notify.
+          refreshExisting.run(trimmedTitle, bodyText, link, createdBy, existing.id);
+          refreshed += 1;
+          sent += 1;
+        } else {
+          insertPlain.run(userId, trimmedTitle, bodyText, link, createdBy, src, key);
+          sent += 1;
+        }
       } else {
-        insertPlain.run(
-          userId,
-          trimmedTitle,
-          String(body || '').trim(),
-          String(linkUrl || '').trim() || null,
-          createdBy,
-          src,
-          key
-        );
+        insertPlain.run(userId, trimmedTitle, bodyText, link, createdBy, src, key);
         sent += 1;
       }
     }
   });
   tx(targets);
 
-  return { sent, user_ids: targets };
+  return { sent, refreshed, user_ids: targets };
 }
 
 /** Unread notifications from the last NOTIFY_WINDOW_DAYS days. */

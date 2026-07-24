@@ -81,6 +81,16 @@ check "chat attachments util" test -f "$ROOT/frontend/src/utils/chatAttachments.
 check "generate_chart tool" grep -q generate_chart "$ROOT/backend/src/routes/tools.js"
 check "chart-spec service" test -f "$ROOT/backend/src/services/chart-spec.js"
 check "vedic template SOUL" test -f "$ROOT/openclaw-workspace-templates/vedic-astrology/SOUL.md"
+check "MCP auth templates" grep -q 'renderHttpHeadersJson' "$ROOT/backend/src/services/mcp-auth.js"
+check "A2A auth override merge" grep -q mergeExternalAgentAuthHeaders "$ROOT/backend/src/services/external-agents.js"
+check "A2A node auth UI" grep -q 'Bearer token override' "$ROOT/frontend/src/pages/AgentWorkflowEditor.jsx"
+check "workflow auth templates smoke script" test -f "$ROOT/backend/scripts/test-workflow-auth-templates.js"
+check "Brave BYOK MCP server" test -f "$ROOT/tools/brave-search-mcp-byok/server.js"
+check "Brave BYOK Dockerfile" grep -q 'brave-search-mcp-byok' "$ROOT/deploy/docker/brave-search-mcp.Dockerfile"
+check "Brave BYOK compose (no BRAVE_API_KEY inject)" ! grep -q 'BRAVE_API_KEY: \${BRAVE_API_KEY' "$ROOT/deploy/docker-compose.yml"
+check "Balaji Brave BYOK seed" test -f "$ROOT/backend/scripts/seed-balaji-brave-byok-workflow.js"
+check "Balaji Brave BYOK test" test -f "$ROOT/backend/scripts/test-balaji-brave-byok-workflow.js"
+check "Brain apiKey templates" grep -q "renderWorkflowTemplates(String(renderedCfg" "$ROOT/backend/src/services/agent-workflow-brain.js"
 
 echo "==> frontend bundle"
 if docker compose exec -T frontend sh -c 'grep -Rql "Purpose / description" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
@@ -112,6 +122,16 @@ if docker compose exec -T frontend sh -c 'grep -Rql chat-attach-icon-btn /usr/sh
   echo "    Chat attach paperclip icon in bundle OK"
 else
   echo "    WARN: chat-attach-icon-btn not found in frontend assets (rebuild frontend?)"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql "Bearer token override" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    A2A External Agent auth override UI in bundle OK"
+else
+  echo "    WARN: Bearer token override not found in frontend JS (rebuild frontend?)"
+fi
+if docker compose exec -T backend node scripts/test-workflow-auth-templates.js >/dev/null 2>&1; then
+  echo "    Workflow MCP/A2A auth templates smoke OK"
+else
+  echo "    WARN: test-workflow-auth-templates.js failed"
 fi
 
 echo "==> DB runtime"

@@ -1,19 +1,9 @@
-# Brave Search MCP (HTTP) — Agent OS cannot use stdio MCP yet.
-# Docs: https://github.com/brave/brave-search-mcp-server
+# Brave Search MCP — bring-your-own-key (workflow headers only; no BRAVE_API_KEY fallback).
 FROM node:22-bookworm-slim
-
 WORKDIR /app
-RUN npm install --omit=dev @brave/brave-search-mcp-server@latest \
-  && npm cache clean --force
-
-ENV BRAVE_MCP_TRANSPORT=http \
-    BRAVE_MCP_HOST=0.0.0.0 \
-    BRAVE_MCP_PORT=8080 \
-    BRAVE_MCP_LOG_LEVEL=info \
-    BRAVE_MCP_STATELESS=true \
-    BRAVE_MCP_ENABLED_TOOLS="brave_web_search brave_news_search brave_llm_context"
-
+COPY tools/brave-search-mcp-byok/server.js ./server.js
+ENV BRAVE_MCP_PORT=8080
 EXPOSE 8080
-
-# Package bin is typically `brave-search-mcp-server`
-CMD ["npx", "--no-install", "brave-search-mcp-server", "--transport", "http", "--host", "0.0.0.0", "--port", "8080"]
+HEALTHCHECK --interval=30s --timeout=5s --retries=5 --start-period=10s \
+  CMD node -e "fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+CMD ["node", "server.js"]

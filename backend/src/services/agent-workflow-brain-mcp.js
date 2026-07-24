@@ -21,7 +21,7 @@ function parseJsonArray(raw, fallback = []) {
   return fallback;
 }
 
-function parseMcpServerAuthMap(cfg = {}) {
+function parseMcpServerAuthMap(cfg = {}, context = null) {
   let raw = cfg.mcpServerAuth ?? cfg.mcp_server_auth;
   if (typeof raw === 'string') {
     try {
@@ -36,10 +36,17 @@ function parseMcpServerAuthMap(cfg = {}) {
       if (!serverId) continue;
       const headersJson =
         typeof val === 'string' ? val : val?.httpHeadersJson ?? val?.http_headers_json ?? '{}';
-      map.set(serverId, parseMcpAuthFromNodeConfig({ httpHeadersJson: headersJson }));
+      const bearer =
+        typeof val === 'object' && val
+          ? val.authBearer || val.auth_bearer || val.bearerToken || val.bearer_token || ''
+          : '';
+      map.set(
+        serverId,
+        parseMcpAuthFromNodeConfig({ httpHeadersJson: headersJson, authBearer: bearer }, context)
+      );
     }
   }
-  const legacyAuth = parseMcpAuthFromNodeConfig(cfg);
+  const legacyAuth = parseMcpAuthFromNodeConfig(cfg, context);
   return { map, legacyAuth };
 }
 
@@ -48,7 +55,7 @@ export function resolveServerMcpAuth(serverId, serverAuthMap, legacyAuth) {
   return legacyAuth;
 }
 
-export function parseBrainMcpConfig(cfg = {}) {
+export function parseBrainMcpConfig(cfg = {}, context = null) {
   const serverIds = parseJsonArray(cfg.mcpServerIds ?? cfg.mcp_server_ids, []).filter(Boolean);
   const allowlistRaw = parseJsonArray(cfg.mcpToolAllowlist ?? cfg.mcp_tool_allowlist, []).filter(Boolean);
   const enabled =
@@ -57,7 +64,7 @@ export function parseBrainMcpConfig(cfg = {}) {
     cfg.mcp_tool_calling === true ||
     String(cfg.mcpToolMode || '').toLowerCase() === 'auto';
 
-  const { map: serverAuthMap, legacyAuth } = parseMcpServerAuthMap(cfg);
+  const { map: serverAuthMap, legacyAuth } = parseMcpServerAuthMap(cfg, context);
 
   return {
     enabled,

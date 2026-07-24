@@ -224,7 +224,7 @@ Set in backend `.env`:
 | **Content tools** | Agent-callable tools: summarize URL, image/video gen, Kanban, **intent_classify_and_delegate**, workflow trigger/enquire/mutate, job applicant tools, **email_send**, **notify_ceo**, **Master Data** (`master_data_list_tables` / row CRUD / `master_data_rag`), learnings, browser, etc.; owner-scoped logs UI; onboard new APIs via script. |
 | **Master Data & RAG** | Per-CEO tables + documents (keyword RAG over PDF/DOCX/Excel/text). UI captures **purpose/description** per table. Agents list tables with purpose and CRUD rows / RAG docs via content tools — **no create/alter/drop table**. On register: starter **departments** table + **Flolah User Guide** + **Platform Help** document set. |
 | **Platform Help** | Standard agent `platformhelp` — product how-to via `master_data_rag` over `knowledgebase/platform-help/`. See [`knowledgebase/platform-help/README.md`](knowledgebase/platform-help/README.md). |
-| **COO specialty delegation** | COO chat hard-path: AGENTS.md purpose intent → specialist (cap 1) + Kanban; peer specialty referral; COO-native work stays with COO; how-to → Platform Help; graph build → Workflow Builder. |
+| **COO specialty delegation** | COO chat hard-path: AGENTS.md purpose intent → specialist(s) (cap 2 for multi-intent) + Kanban; peer specialty referral; COO-native work stays with COO; how-to → Platform Help; graph build → Workflow Builder. |
 | **Email send** | `email_send` content tool — agents can send email via configured mail integration (owner-scoped logging). |
 | **Notify CEO** | `notify_ceo` content tool — agents push a platform notification to their CEO (bell feed). |
 | **Broadcast** | Send messages to multiple agents; LLM intent for status+notify; paced fan-out; exclude COO by default. |
@@ -248,10 +248,12 @@ New CEOs start with **empty** standups (no other user’s chats or agents), star
 - **Editor:** `/workflows` → create from template or blank → `/workflows/:id/edit`
 - **Triggers:** manual, cron schedule, chat phrase, **event webhook** (hook URL on Start node when event mode enabled; uses `AGENT_OS_BASE_URL`)
 - **Node types:** Trigger, Agent, Content Tool, MCP Tool, **SSE Listen** (long-running stream; dispatches downstream on each event), **Sub-workflow**, Call API (Basic/Bearer/API-key auth + custom headers), Brain, Email, IF, While, Parallel, Merge, CEO Approval, External Agent
-- **Data binding:** `{{nodeId.outputKey}}` templates; nested JSON paths (e.g. `{{api-1.body.users.0.name}}`)
+- **Data binding:** `{{nodeId.outputKey}}` and nested paths (e.g. `{{api-1.body.accessToken}}`, `{{trigger-1.trigger_input.query}}`); workflow variables `{{var.key}}` (editor **Workflow variables** panel — shared static config for that definition, not platform-wide globals). Full guide: `knowledgebase/platform-help/14-workflow-dynamic-values.md`.
+- **Dynamic auth:** API / MCP / Brain `apiKey` / External Agent override / SSE headers accept the same `{{…}}` templates (values look static in the UI; runner substitutes at execute time). Brave Search MCP is **BYOK** (workflow headers only — no container `BRAVE_API_KEY` fallback).
 - **A2A publish:** Publish → AgentExchange + agent card / JSON-RPC under `/api/a2a/:publishId`. **Public** or **Secured** (OAuth client credentials at `/api/a2a/:publishId/oauth/token`, then `Authorization: Bearer <access_token>`).
 - **Runs:** Kanban tasks per step; fail run on API/MCP errors (non-2xx HTTP, SSL errors, MCP `is_error`)
-- **Tests:** `node backend/scripts/test-sse-workflow.js`, `node backend/scripts/demo-sse-hook-and-listen.js`
+- **Help:** Platform Help agent RAG over `knowledgebase/platform-help/` (re-upload with `node backend/scripts/reupload-platform-help-docs.js` after doc changes).
+- **Tests:** `node backend/scripts/test-sse-workflow.js`, `node backend/scripts/test-balaji-brave-byok-workflow.js`, `node backend/scripts/test-workflow-auth-templates.js`
 
 ### Job Applicant vs Custom Workflows
 

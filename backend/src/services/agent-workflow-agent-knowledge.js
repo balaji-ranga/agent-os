@@ -13,8 +13,10 @@ Rules:
 2. ALWAYS wire the graph end-to-end: trigger → steps → edges via connect_from / add_edge. Set input_bindings implicitly via connect_from chains.
 3. For brain nodes: use modelSource=ollama unless apiKey is set on the node. Copy Default brain config, customize systemPrompt (guardrails, summarization, etc.), set maxTokens 256–800.
 4. For agent nodes: set agent_id from Agents list and a complete prompt with {{input}}.
-5. For mcp_tool: set mcpServerId + toolName from MCP servers list; staticArguments '{}' unless task needs params.
+5. For mcp_tool: set mcpServerId + toolName from MCP servers list; staticArguments '{}' unless task needs params. Auth: authBearer / httpHeadersJson with {{api-login.body.accessToken}} or {{trigger-1.trigger_input.*}} when keys come from prior steps (BYOK — never rely on platform env for Brave).
+5a. For api nodes needing auth from a prior login: bearerToken or headers use {{nodeId.path}} templates. For brain: apiKey from {{trigger-1.trigger_input.brainApiKey}} or {{var.llm_key}} — platform .env keys are not used.
 5b. For content tool nodes: set node_type "tool" and toolName from the Content tools list (exact name). Match user intent to purpose (e.g. summarize URL → summarize_url, generate image → generate_image, IBKR day status → ibkr_day_status). If unsure, emit enquire_content_tools / list_content_tools first, then recommend and wire the best match.
+5c. Prefer workflow variables ({{var.key}}) for static shared config; prefer prior-step / trigger_input templates for per-run secrets and results. See dynamic-values help patterns.
 6. For CEO gate: brain → ceo_approval → if (decision eq approved).
 7. After creating a new workflow meant to work: prefer agent_workflow_certify_start (async Maker/Checker) so the CEO can ask for status; for short sync loops use publish + until_success or until_certified without async.
 8. Prefer create_from_template when a built-in template matches (job applicant pipeline, etc.).
@@ -67,7 +69,10 @@ For "latest failed run" / "why did X fail" questions: call list_runs then inspec
 To edit graph on a published workflow: either unpublish first OR edit draft_graph directly (save via update_node); re-publish when ready.
 
 Node configuration: use update_node with task_config for brain/api/mcp_tool/etc., prompt for agent nodes, label for display.
-Bind prior step outputs via input_bindings or {{nodeId.outputKey}} in prompts.
+Bind prior step outputs via input_bindings or {{nodeId.outputKey}} in prompts (nested OK: {{api-1.body.accessToken}}, {{trigger-1.trigger_input.query}}).
+Workflow variables (definition-level): {{var.key}} / {{variables.key}} — set via editor Variables panel or set_metadata when supported; use for shared static config (not platform-wide globals).
+Dynamic auth (CRITICAL): API bearer/headers, MCP authBearer/httpHeadersJson, Brain apiKey + mcpServerAuth headers, External Agent authBearer override, SSE Listen headers — all accept {{nodeId.path}} templates. Never hard-code secrets when a prior login/trigger supplies them. Brave MCP is BYOK (headers only; no platform BRAVE_API_KEY).
+Help corpus doc: platform-help/14-workflow-dynamic-values.md (Platform Help RAG) — follow it when wiring tokens and variables.
 `;
 
 export function buildTaskCatalogDoc() {

@@ -37,6 +37,17 @@ Invoke by tool name with JSON parameters (never exec/shell). Owner is resolved f
 - `check_goal` / `compile_goal` — grade or compile a WorkflowGoal
 - `list_runs`, `inspect_run`, `pause_run`, `stop_run`
 
+### Dynamic values (templates)
+
+When wiring attributes, use canvas **node ids** (not `steps.*`):
+
+- Prior output: `{{api-1.body}}`, `{{brain-1.text}}`, nested `{{api-login.body.accessToken}}`
+- Trigger JSON: `{{trigger-1.trigger_input.query}}`
+- Workflow variables panel: `{{var.budget_usd}}`
+- Auth on API / MCP / Brain `apiKey` / External Agent override / SSE headers: same `{{…}}` syntax
+
+Prefer variables for shared static config; prefer prior-step/trigger templates for tokens and run data. Brave MCP is BYOK (pass headers from the workflow — no platform env key).
+
 ### Content tool nodes
 
 When the CEO wants a capability that matches a registered content tool (summarize URL, generate image, IBKR snapshot, brain history, order learnings, etc.):

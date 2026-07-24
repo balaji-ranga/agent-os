@@ -20,6 +20,9 @@
 # notification tooltips + datetime, deploy smokes self-clean (no CEO standup/notify pollution),
 # CEO Policies/guardrails (POLICY.md + Brain prepend), org sync (tenant ORG.md/AGENTS.md/POLICY.md),
 # AgentExchange/A2A (public + OAuth client credentials),
+# workflow API/MCP/A2A auth templates ({{nodeId.path}} bearer/headers — static or from prior step),
+# Brave Search MCP BYOK (no platform BRAVE_API_KEY fallback; workflow headers only),
+# Admin refresh default agents MD+tools, Master Data office extract (pdf/docx/xlsx),
 # DeepSeek@Ollama, shared notification dismiss,
 # chat paperclip attach → Master Data RAG, Vedic Astrology + generate_chart (JSON chart_spec),
 # Workflow autonomous certify (Maker/Checker; LLM Checker default OFF — WORKFLOW_CERTIFY_*).
@@ -74,6 +77,7 @@ scp @ssh `
   "$Repo\deploy\scripts\ensure-deepseek-env.sh" `
   "$Repo\deploy\scripts\ensure-workflow-certify-env.sh" `
   "$Repo\deploy\scripts\vps-deploy-coo-org-fix.sh" `
+  "$Repo\deploy\scripts\vps-smoke-brave-byok.sh" `
   "$Repo\deploy\scripts\configure-openclaw-docker.js" `
   "$Repo\deploy\scripts\verify-openclaw-parity.js" `
   "$Repo\deploy\scripts\up.sh" `
@@ -137,8 +141,17 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-workflow-certify.js" `
     "$Repo\backend\scripts\test-workflow-certify-ibkr-e2e.js" `
     "$Repo\backend\scripts\test-master-data-office-extract.js" `
+    "$Repo\backend\scripts\test-workflow-auth-templates.js" `
+    "$Repo\backend\scripts\seed-brave-search-mcp.js" `
+    "$Repo\backend\scripts\seed-balaji-brave-byok-workflow.js" `
+    "$Repo\backend\scripts\test-balaji-brave-byok-workflow.js" `
+    "$Repo\backend\scripts\seed-brain-brave-search-workflow.js" `
+    "$Repo\backend\scripts\test-brain-brave-search-workflow.js" `
     "root@${HostIp}:$RemoteRoot/backend/scripts/"
   scp @ssh -r "$Repo\scripts" "root@${HostIp}:$RemoteRoot/"
+  Write-Host "==> Sync Brave BYOK MCP tool source (compose build context)"
+  ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/tools/brave-search-mcp-byok"
+  scp @ssh "$Repo\tools\brave-search-mcp-byok\server.js" "root@${HostIp}:$RemoteRoot/tools/brave-search-mcp-byok/"
   scp @ssh -r "$Repo\openclaw-extensions\agent-os-content-tools" "root@${HostIp}:$RemoteRoot/openclaw-extensions/"
   scp @ssh -r "$Repo\openclaw-extensions\agent-os-bootstrap-watcher" "root@${HostIp}:$RemoteRoot/openclaw-extensions/"
   Write-Host "==> Sync workspace templates (COO + TechResearcher + ApplicationAgent + Workflow Builder + Platform Help + Vedic Astrology) + skills + platform-help KB"

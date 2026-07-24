@@ -1122,7 +1122,7 @@ async function executeNode(runId, nodeId, graph, context, def, runRow) {
       context,
       inputRecord,
       work: async () => {
-        const nodeAuth = parseMcpAuthFromNodeConfig(config);
+        const nodeAuth = parseMcpAuthFromNodeConfig(config, context);
         let out;
         let stepLabel;
         if (invokeKind === 'prompt') {
@@ -1182,7 +1182,7 @@ async function executeNode(runId, nodeId, graph, context, def, runRow) {
       failRun(runId, err.message);
       return;
     }
-    const nodeAuth = parseMcpAuthFromNodeConfig(config);
+    const nodeAuth = parseMcpAuthFromNodeConfig(config, context);
 
     upsertStep(runId, node, 'listening', {
       input: { stream_url: streamUrl, mcp_server_id: mcpServerId || null },

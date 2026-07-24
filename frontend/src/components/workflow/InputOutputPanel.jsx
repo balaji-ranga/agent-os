@@ -149,6 +149,9 @@ export function InputOutputPanel({ node, taskCatalog, allNodes, edges, onChange 
               if (node.type === 'mcp_tool') {
                 return !['mcpServerId', 'toolName', 'authBearer', 'authHeadersJson', 'httpHeadersJson', 'staticArguments'].includes(f.id);
               }
+              if (node.type === 'externalAgent') {
+                return !['externalAgentId', 'skillId', 'waitForCompletion', 'timeoutMs', 'authBearer', 'httpHeadersJson', 'bearerToken'].includes(f.id);
+              }
               if (node.type === 'mcp_listen' || node.type === 'sse_listen') {
                 return !['streamUrl', 'mcpServerId', 'eventsPath', 'httpHeadersJson', 'fanOutSpawn', 'spawnWorkflowOdd', 'spawnWorkflowEven', 'timeoutMs'].includes(f.id);
               }

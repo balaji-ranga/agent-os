@@ -23,6 +23,7 @@ import AgentExchange from './pages/AgentExchange';
 import MasterData from './pages/MasterData';
 import Policies from './pages/Policies';
 import AiSnipper from './pages/AiSnipper';
+import EfficiencyView from './pages/EfficiencyView';
 import NotificationBell from './components/NotificationBell';
 import ProfileMenu from './components/ProfileMenu';
 import { AdminNavMenu, CeoNavMenu } from './components/AppNavMenu';
@@ -210,6 +211,7 @@ function Shell() {
                 <Route path="/master-data" element={<MasterData />} />
                 <Route path="/policies" element={<Policies />} />
                 <Route path="/ai-snipper" element={<AiSnipper />} />
+                <Route path="/efficiency" element={<EfficiencyView />} />
                 <Route path="/job-workflows" element={<JobWorkflows />} />
                 <Route path="/workflows" element={<AgentWorkflows />} />
                 <Route path="/workflows/:workflowId/edit" element={<AgentWorkflowEditor />} />

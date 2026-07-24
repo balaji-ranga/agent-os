@@ -13,6 +13,7 @@ import {
 } from './agent-workflow-brain-mcp.js';
 import { executeCustomScript } from './custom-scripts.js';
 import { prependCeoGuardrailsToSystemPrompt } from './ceo-guardrails.js';
+import { renderWorkflowTemplates } from './agent-workflow-io.js';
 
 function isLocalOllama(baseUrl) {
   if (!baseUrl) return false;
@@ -49,37 +50,12 @@ export function resolveBrainInputPlaceholder(context, resolved = {}) {
 /** Replace {{input}}, {{nodeId.outputKey}}, {{var.key}} in system prompt. */
 export function renderBrainPrompt(template, context, graph, resolved = {}) {
   if (!template) return '';
-  let out = String(template);
-  out = out.replace(/\{\{input\}\}/g, resolveBrainInputPlaceholder(context, resolved));
-  out = out.replace(/\{\{var(?:iables)?\.([\w.-]+)\}\}/g, (_, path) => {
-    const vars = context.workflow_variables || context.variables || {};
-    const parts = String(path).split('.');
-    let cur = vars;
-    for (const p of parts) {
-      if (cur == null) return '';
-      cur = cur[p];
-    }
-    if (cur == null) return '';
-    return typeof cur === 'object' ? JSON.stringify(cur) : String(cur);
-  });
-  out = out.replace(/\{\{([\w.-]+)\.([\w.-]+)\}\}/g, (_, nodeId, key) => {
-    if (nodeId === 'var' || nodeId === 'variables') {
-      const vars = context.workflow_variables || context.variables || {};
-      const v = vars[key];
-      if (v == null) return '';
-      return typeof v === 'object' ? JSON.stringify(v) : String(v);
-    }
-    const raw = context.node_outputs?.[nodeId];
-    if (raw == null) return '';
-    if (typeof raw === 'object' && key in raw) {
-      const v = raw[key];
-      return v != null && typeof v === 'object' ? JSON.stringify(v) : String(v ?? '');
-    }
-    if (key === 'text' && typeof raw === 'string') return raw;
-    if (typeof raw === 'object' && raw.text != null) return String(raw.text);
-    return typeof raw === 'string' ? raw : JSON.stringify(raw);
-  });
-  return out;
+  const inputText = resolveBrainInputPlaceholder(context, resolved);
+  const ctx = {
+    ...(context || {}),
+    initial_input: inputText != null && inputText !== '' ? inputText : context?.initial_input,
+  };
+  return renderWorkflowTemplates(String(template), ctx);
 }
 
 function buildUserMessage(resolved) {
@@ -421,8 +397,16 @@ export async function executeBrainTask(taskConfig = {}, resolved = {}, context =
   }
 
   const maxTokens = Number(cfg.maxTokens) || 1024;
+  const renderedCfg = { ...cfg };
+  if (context) {
+    for (const key of ['apiKey', 'api_key', 'apiEndpoint', 'api_endpoint', 'model']) {
+      if (renderedCfg[key] != null) {
+        renderedCfg[key] = renderWorkflowTemplates(String(renderedCfg[key]), context);
+      }
+    }
+  }
   const { source: modelSource, baseUrl, apiKey, model, protocol, requiresKey, extraHeaders, configuredKey } =
-    resolveWorkflowBrainProviderConfig(cfg.modelSource, cfg);
+    resolveWorkflowBrainProviderConfig(renderedCfg.modelSource, renderedCfg);
   const thinkingFields = buildBrainThinkingFields(modelSource, cfg);
 
   if (requiresKey && !configuredKey && !isLocalOllama(baseUrl) && !isOllamaServiceBaseUrl(baseUrl)) {
@@ -437,13 +421,20 @@ export async function executeBrainTask(taskConfig = {}, resolved = {}, context =
     throw new Error(keyHint);
   }
 
-  const mcpCfg = parseBrainMcpConfig(cfg);
+  const mcpCfg = parseBrainMcpConfig(cfg, context);
   let mcpEntries = [];
   if (mcpCfg.enabled && authUser && mcpCfg.serverIds.length) {
     mcpEntries = buildMcpToolRegistry(mcpCfg.serverIds, mcpCfg.allowlist, authUser);
   }
 
   let systemPrompt = renderBrainPrompt(cfg.systemPrompt || '', context, graph, resolved);
+  const maxPromptChars = Math.min(
+    Math.max(Number(process.env.BRAIN_MAX_SYSTEM_PROMPT_CHARS || 14000), 2000),
+    100000
+  );
+  if (systemPrompt.length > maxPromptChars) {
+    systemPrompt = `${systemPrompt.slice(0, maxPromptChars)}\n…[truncated for model context window]`;
+  }
   const ownerId =
     String(authUser?.id || context?.owner_user_id || context?.ceo_user_id || '').trim() || null;
   if (ownerId) {

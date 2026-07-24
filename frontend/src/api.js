@@ -265,6 +265,7 @@ export const api = {
   masterDataRag: (body) => post('/master-data/rag', body),
   masterDataQuery: (body) => post('/master-data/query', body),
   aiSnipperSummary: (days = 7) => get(`/ai-snipper/summary?days=${days}`),
+  efficiencySummary: (days = 14) => get(`/efficiency/summary?days=${encodeURIComponent(days)}`),
   adminUsers: () => get('/admin/users'),
   adminUserGet: (userId) => get(`/admin/users/${encodeURIComponent(userId)}`),
   adminUserSetEnabled: (userId, enabled) => patch(`/admin/users/${encodeURIComponent(userId)}/enabled`, { enabled }),

@@ -1,6 +1,6 @@
 /**
  * Hard path: COO chat delegates via AGENTS.md intent classification (LLM),
- * not keyword specialty hints. Cap at 1–2 specialists.
+ * not keyword specialty hints. Cap at 2 specialists (same as standup / intent tool).
  */
 import { readCooAgentsMdForCeo } from './org-context.js';
 import { classifyIntentAndAllocate } from './intent-classifier.js';
@@ -8,7 +8,8 @@ import { scheduleCeoRequestViaOpenClawCron } from './delegation-queue.js';
 import { isAskSpecialistToReachMe } from './reach-me-delegation.js';
 import { getOrCreateDelegationHubStandup } from './standup-hub.js';
 
-const MAX_DELEGATE_AGENTS = 1;
+/** Match intent-classifier + delegation-queue multi-intent cap. */
+const MAX_DELEGATE_AGENTS = 2;
 
 /** Explicit "please delegate …" / "assign to specialist". */
 export function isExplicitDelegateRequest(message) {
@@ -50,7 +51,7 @@ function isVaguePurpose(purpose) {
 }
 
 /**
- * Prefer a single specialist; drop vague-purpose agents when a clearer peer exists.
+ * Drop vague-purpose agents when a clearer peer exists; keep up to MAX_DELEGATE_AGENTS.
  */
 function refineAllocationAgainstAgentsMd(allocated, agentsMdContent) {
   if (!allocated || typeof allocated !== 'object') return {};
@@ -77,7 +78,7 @@ function refineAllocationAgainstAgentsMd(allocated, agentsMdContent) {
 }
 
 /**
- * Classify CEO message against COO AGENTS.md purposes; return agent_id → task query (max 1).
+ * Classify CEO message against COO AGENTS.md purposes; return agent_id → task query (max 2).
  * @returns {Promise<Record<string, string>>}
  */
 export async function classifyCooDelegationTargets(ownerUserId, ceoMessage) {
@@ -97,10 +98,13 @@ export async function classifyCooDelegationTargets(ownerUserId, ceoMessage) {
     if (narrowed && Object.keys(narrowed).length > 0) allocated = narrowed;
   }
 
-  if (Object.keys(allocated).length > 1) {
+  // Over-cap only: keep clearly multi-intent pairs (≤2). When >2, ask model to keep at most 2 distinct intents.
+  if (Object.keys(allocated).length > MAX_DELEGATE_AGENTS) {
     const refine =
       `${msg}\n\n` +
-      `[System: Return JSON for exactly ONE best-fit agent. Omit vague-purpose agents (purpose "Agent"/"demo"). Prefer Research for deep research / science / engineering analysis.]`;
+      `[System: Return JSON for at most ${MAX_DELEGATE_AGENTS} agents. Keep only clearly distinct intents ` +
+      `(split the CEO message per agent). Omit vague-purpose agents (purpose "Agent"/"demo"). ` +
+      `Do not collapse a true multi-intent ask into a single agent.]`;
     const narrowed = await classifyIntentAndAllocate(refine, md, { ownerUserId }, ownerUserId);
     if (narrowed && Object.keys(narrowed).length > 0) allocated = narrowed;
   }

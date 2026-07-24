@@ -49,7 +49,18 @@ export const WORKFLOW_TASK_TYPES = {
       { id: 'promptName', label: 'Prompt name', type: 'text' },
       { id: 'resourceUri', label: 'Resource URI', type: 'text' },
       { id: 'staticArguments', label: 'Static arguments (JSON)', type: 'textarea', placeholder: '{}' },
-      { id: 'httpHeadersJson', label: 'HTTP headers (JSON)', type: 'textarea', placeholder: '{}' },
+      {
+        id: 'authBearer',
+        label: 'Bearer token (optional)',
+        type: 'text',
+        placeholder: 'token or {{api-login.body.accessToken}}',
+      },
+      {
+        id: 'httpHeadersJson',
+        label: 'HTTP headers (JSON)',
+        type: 'textarea',
+        placeholder: '{"Authorization":"Bearer {{api-login.body.accessToken}}"}',
+      },
     ]),
   },
   mcp_listen: {
@@ -214,6 +225,18 @@ export const WORKFLOW_TASK_TYPES = {
       { id: 'skillId', label: 'Skill ID (optional)', type: 'text' },
       { id: 'waitForCompletion', label: 'Wait for task completion', type: 'boolean', default: true },
       { id: 'timeoutMs', label: 'Timeout (ms)', type: 'number', default: 120000 },
+      {
+        id: 'authBearer',
+        label: 'Bearer token override (optional)',
+        type: 'text',
+        placeholder: 'token or {{api-login.body.accessToken}}',
+      },
+      {
+        id: 'httpHeadersJson',
+        label: 'Extra auth headers (JSON)',
+        type: 'textarea',
+        placeholder: '{}',
+      },
     ],
   },
   parallel: {

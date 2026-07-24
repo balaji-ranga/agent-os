@@ -19,6 +19,7 @@
 | [11-content-tools-scripts-profile.md](./11-content-tools-scripts-profile.md) | Content tools, custom scripts, AI Snipper, Profile |
 | [12-troubleshooting.md](./12-troubleshooting.md) | Common issues and who to ask |
 | [13-workflow-autonomous-certify.md](./13-workflow-autonomous-certify.md) | Maker/Checker certify jobs, status-on-request, resume inputs |
+| [14-workflow-dynamic-values.md](./14-workflow-dynamic-values.md) | **How to reference prior steps, `{{var.*}}`, trigger input, and dynamic auth** |
 
 **Product name:** Flolah (Automate, Innovate, Elevate) — Agent OS underneath.
 
