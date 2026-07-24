@@ -447,6 +447,40 @@ export const api = {
   agentWorkflowUnpublishA2A: (workflowId) =>
     del(`/agent-workflows/${encodeURIComponent(workflowId)}/a2a-publication`),
 
+  agentWorkflowDesktopTokens: (id) =>
+    get(`/agent-workflows/${encodeURIComponent(id)}/desktop-tokens`),
+  agentWorkflowDesktopTokenRevoke: (id, tokenId) =>
+    del(`/agent-workflows/${encodeURIComponent(id)}/desktop-tokens/${encodeURIComponent(tokenId)}`),
+  agentWorkflowDesktopIpWhitelist: (id) =>
+    get(`/agent-workflows/${encodeURIComponent(id)}/desktop-ip-whitelist`),
+  agentWorkflowDesktopIpWhitelistAdd: (id, body) =>
+    post(`/agent-workflows/${encodeURIComponent(id)}/desktop-ip-whitelist`, body),
+  agentWorkflowDesktopIpWhitelistRemove: (id, entryId) =>
+    del(
+      `/agent-workflows/${encodeURIComponent(id)}/desktop-ip-whitelist/${encodeURIComponent(entryId)}`
+    ),
+  /** Download Windows desktop zip (mints token into package).
+   * @param {{ includeRuntime?: boolean }} [opts]
+   */
+  agentWorkflowDesktopPackageDownload: async (id, filenameHint, opts = {}) => {
+    const includeRuntime = opts.includeRuntime !== false;
+    const q = `include_runtime=${includeRuntime ? '1' : '0'}`;
+    const path = `/agent-workflows/${encodeURIComponent(id)}/desktop-package?${q}`;
+    const objectUrl = await fetchBlobUrl(path);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    const base = `${String(filenameHint || id)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 48) || 'workflow'}`;
+    a.download = `${base}-${includeRuntime ? 'desktop' : 'desktop-lite'}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+  },
+
   customScriptsList: (opts = {}) => {
     const q = opts.forWorkflow ? '?for_workflow=1' : '';
     return get(`/integrations/custom-scripts${q}`);

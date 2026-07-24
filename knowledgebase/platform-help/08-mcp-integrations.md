@@ -56,7 +56,7 @@ Path: **MCP** → `/integrations/mcp`.
 ## Tips
 
 - Prefer Content Tool nodes when an Agent OS catalog tool already wraps the capability.
-- Keep secrets out of exported workflow JSON when sharing definitions.
+- Keep secrets out of exported workflow JSON when sharing definitions — use **API Keys** vault refs where possible ([15-api-keys-vault.md](./15-api-keys-vault.md)).
 - Local/dev: a random SSE MCP test server may run on port 3099 (`tools/local-mcp-random-sse/`).
-- **Brave Search MCP:** BYOK HTTP MCP (`optional-brave-mcp`). Rebuild with `docker compose --profile optional-brave-mcp up -d --build brave-search-mcp`. Pass `X-Subscription-Token` or Bearer from the workflow MCP / Brain auth headers — the container does **not** use `BRAVE_API_KEY`. Seed: `node backend/scripts/seed-brave-search-mcp.js`. Demo: `seed-balaji-brave-byok-workflow.js` / `test-balaji-brave-byok-workflow.js`.
-- OpenConnector and other ops MCP setups: see operator docs in `knowledgebase/OPENCONNECTOR-WEBHOOKS.md` (admin/ops; CEOs still use the MCP UI the same way).
+- **Brave Search MCP:** BYOK HTTP MCP (`optional-brave-mcp`). Rebuild with `docker compose --profile optional-brave-mcp up -d --build brave-search-mcp`. Pass `X-Subscription-Token` or Bearer from the workflow MCP / Brain auth headers (or vault) — the container does **not** use `BRAVE_API_KEY`. Seed: `node backend/scripts/seed-brave-search-mcp.js`. Demo: `seed-balaji-brave-byok-workflow.js` / `test-balaji-brave-byok-workflow.js`.
+- **Connectors (SaaS apps)** are separate from MCP — see [16-connectors-openconnector.md](./16-connectors-openconnector.md). Operator OpenConnector webhooks: `knowledgebase/OPENCONNECTOR-WEBHOOKS.md`.

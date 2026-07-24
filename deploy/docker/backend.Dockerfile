@@ -1,7 +1,8 @@
 # Agent OS backend API
 # Rebuild after: Platform Help corpus, seed scripts, content-tools allowlists, master-data,
 # Kanban owner_user_id isolation (schema + kanban-user-scope + routes/tools/delegation),
-# lean CEO onboard (DEFAULT_ONBOARD_AGENT_IDS / pruneSharedStandardAgentGrants).
+# lean CEO onboard (DEFAULT_ONBOARD_AGENT_IDS / pruneSharedStandardAgentGrants),
+# desktop-workflow-runner (Windows PS1 packages + optional portable Node baked at download time).
 # Image COPYs openclaw templates/skills/extensions + knowledgebase/platform-help for RAG seeding.
 FROM node:22-bookworm-slim
 

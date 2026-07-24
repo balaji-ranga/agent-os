@@ -119,8 +119,12 @@ Grant or revoke tools on each agent’s **Workspace → Tools access**.
 
 | Area | What you get in the UI |
 |------|-------------------------|
+| **API Keys vault** | Management → API Keys — named secrets, optional encryption, required `Platform_BYOK` for OpenAI/OpenRouter. |
+| **Connectors** | Link SaaS apps (OpenConnector) and call them from workflow **Connector** nodes. |
+| **Efficiency View** | Ops metrics: agents, automated tasks, feedback, workflow run success/fail (7d–All). |
+| **Workspace templates** | Apply / publish SOUL–OPS templates from Agent Workspace (ORG/POLICY preserved). |
 | **Platform Help agent** | Dedicated `platformhelp` agent + Master Data help corpus (`knowledgebase/platform-help/`) via keyword RAG. |
-| **COO specialty routing** | COO chat routes specialty asks using agent purposes (org docs), not guesswork keywords. |
+| **COO specialty routing** | COO chat routes specialty asks using agent purposes (org docs), not guesswork keywords (multi-intent up to 2). |
 | **Broadcast + notify** | Broadcast can ask agents to report back and ping your bell; quieter when you only want a rollup. |
 | **Master Data + document search** | Tables with purposes; documents agents can search; starter **departments** + User Guide + Platform Help docs on register. |
 | **Chat tool icons** | See which tools an agent used under a reply. |
@@ -216,6 +220,7 @@ Set in backend `.env`:
 | **Notifications** | **Bell icon** in nav: agent responses + platform notifications; hover for full text; link to agent Chat; clear/dismiss (shared feed). |
 | **Kanban** | Board view (tasks by agent and status); task detail with **task chat**, artifacts, workflow run links. Reopen task; create task (COO or direct to agent). Auto-completes when COO chat delegations finish. |
 | **Custom workflows** | Visual **Workflows** editor: trigger (manual / schedule / chat / event webhook), agent, API, MCP tool, **SSE listen**, **sub-workflow**, Brain (LLM + optional MCP tool calling; **Thinking mode** for DeepSeek/OpenRouter), email, IF/While, parallel/merge, CEO approval, **external agent (A2A)**. Publish, run instances, paginated run history, search, **stop SSE listen** on active runs. |
+| **Download for Windows** | From a **published** workflow: download a PS1 + params package (optional portable Node 18). Local graph orchestration + localhost API / filesystem; run state and other nodes on Flolah. Desktop token + optional IP whitelist. See `knowledgebase/platform-help/17-desktop-windows-download.md`. |
 | **Publish as A2A** | From the workflow editor, **Publish A2A** exposes a workflow as an A2A agent (agent card + JSON-RPC). Choose **Public** or **Secured** (OAuth client credentials → Bearer). Unpublish removes it from AgentExchange. |
 | **AgentExchange** | Browse published A2A workflow agents (`/agent-exchange`). Cards at `/api/a2a/:publishId/.well-known/agent-card.json`. Secured agents: `POST /api/a2a/:publishId/oauth/token`. |
 | **Workflow Builder chat** | LLM assistant in the workflow editor to create/edit graphs via natural language. |
@@ -253,9 +258,10 @@ New CEOs start with **empty** standups (no other user’s chats or agents), star
 - **Data binding:** `{{nodeId.outputKey}}` and nested paths (e.g. `{{api-1.body.accessToken}}`, `{{trigger-1.trigger_input.query}}`); workflow variables `{{var.key}}` (editor **Workflow variables** panel — shared static config for that definition, not platform-wide globals). Full guide: `knowledgebase/platform-help/14-workflow-dynamic-values.md`.
 - **Dynamic auth:** API / MCP / Brain `apiKey` / External Agent override / SSE headers accept the same `{{…}}` templates (values look static in the UI; runner substitutes at execute time). Brave Search MCP is **BYOK** (workflow headers only — no container `BRAVE_API_KEY` fallback).
 - **A2A publish:** Publish → AgentExchange + agent card / JSON-RPC under `/api/a2a/:publishId`. **Public** or **Secured** (OAuth client credentials at `/api/a2a/:publishId/oauth/token`, then `Authorization: Bearer <access_token>`).
+- **Download for Windows:** Published workflow → **Download for Windows** (lite or with portable Node 18). Local orchestrator; Flolah holds run state + remote nodes. Guide: `knowledgebase/platform-help/17-desktop-windows-download.md`.
 - **Runs:** Kanban tasks per step; fail run on API/MCP errors (non-2xx HTTP, SSL errors, MCP `is_error`)
 - **Help:** Platform Help agent RAG over `knowledgebase/platform-help/` (re-upload with `node backend/scripts/reupload-platform-help-docs.js` after doc changes).
-- **Tests:** `node backend/scripts/test-sse-workflow.js`, `node backend/scripts/test-balaji-brave-byok-workflow.js`, `node backend/scripts/test-workflow-auth-templates.js`
+- **Tests:** `node backend/scripts/test-sse-workflow.js`, `node backend/scripts/test-balaji-brave-byok-workflow.js`, `node backend/scripts/test-workflow-auth-templates.js`, `node backend/scripts/test-workflow-desktop-package.js`
 
 ### Job Applicant vs Custom Workflows
 
@@ -374,6 +380,8 @@ All routes below are also available under **`/api/...`** (frontend uses `/api` p
 - `POST /agent-workflows/agent-chat` — Workflow Builder LLM
 - `POST /agent-workflows/approval/respond` — CEO approval from Kanban
 - **A2A publish:** `POST /agent-workflows/:id/publish-a2a` with `auth_mode: public|secured` (optional `rotate_credentials`); `DELETE .../a2a-publication` to unpublish
+- **Desktop Windows package (CEO session):** `GET /agent-workflows/:id/desktop-package?include_runtime=0|1` — zip (mints token); `GET/DELETE .../desktop-tokens`; `GET/POST/DELETE .../desktop-ip-whitelist`
+- **Desktop client API (Bearer `dsk_…` + optional IP whitelist):** `/agent-workflows/desktop/v1/runs`, `.../steps`, `.../execute-node`, `.../complete`
 
 ### AgentExchange & A2A
 

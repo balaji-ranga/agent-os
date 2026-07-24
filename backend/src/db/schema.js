@@ -1304,6 +1304,47 @@ export function initDb() {
     );
   } catch (_) {}
 
+  /** Desktop workflow packages: bearer tokens (hashed) + optional client IP allowlist. */
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS workflow_desktop_tokens (
+        id TEXT PRIMARY KEY,
+        definition_id TEXT NOT NULL,
+        owner_user_id TEXT NOT NULL,
+        name TEXT DEFAULT '',
+        token_hash TEXT NOT NULL UNIQUE,
+        token_prefix TEXT NOT NULL,
+        expires_at TEXT,
+        revoked_at TEXT,
+        last_used_at TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (definition_id) REFERENCES agent_workflow_definitions(id) ON DELETE CASCADE
+      )
+    `);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_wf_desktop_tokens_def ON workflow_desktop_tokens(definition_id, owner_user_id)`
+    );
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_wf_desktop_tokens_hash ON workflow_desktop_tokens(token_hash)`
+    );
+  } catch (_) {}
+
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS workflow_desktop_ip_whitelist (
+        id TEXT PRIMARY KEY,
+        owner_user_id TEXT NOT NULL,
+        definition_id TEXT,
+        cidr_or_ip TEXT NOT NULL,
+        label TEXT DEFAULT '',
+        created_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_wf_desktop_ip_owner ON workflow_desktop_ip_whitelist(owner_user_id, definition_id)`
+    );
+  } catch (_) {}
+
   return _db;
 }
 

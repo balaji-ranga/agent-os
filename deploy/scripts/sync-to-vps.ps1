@@ -6,8 +6,8 @@
 #   .\deploy\scripts\sync-to-vps.ps1 -SkipSmoke   # skip post-deploy smoke + platform verify
 #   .\deploy\scripts\sync-to-vps.ps1 -NoCache     # force docker compose build --no-cache
 #
-# Syncs full build contexts: frontend/, backend/src + scripts, deploy/docker, scripts/,
-# openclaw extensions/skills/templates — then rebuilds via vps-deploy-latest.sh.
+# Syncs full build contexts: frontend/, backend/src + backend/desktop-workflow-runner + scripts,
+# deploy/docker, scripts/, openclaw extensions/skills/templates — then rebuilds via vps-deploy-latest.sh.
 #
 # Features covered: Flolah branding, hPanel light theme (collapsible nav + profile menu),
 # workflow editor fullscreen (shell-focus-mode), Register MCP/Agents primary CTAs,
@@ -25,7 +25,8 @@
 # Admin refresh default agents MD+tools, Master Data office extract (pdf/docx/xlsx),
 # DeepSeek@Ollama, shared notification dismiss,
 # chat paperclip attach → Master Data RAG, Vedic Astrology + generate_chart (JSON chart_spec),
-# Workflow autonomous certify (Maker/Checker; LLM Checker default OFF — WORKFLOW_CERTIFY_*).
+# Workflow autonomous certify (Maker/Checker; LLM Checker default OFF — WORKFLOW_CERTIFY_*),
+# Desktop Windows packages (PS1 + optional portable Node 18; token + IP whitelist; ASCII-safe PS1).
 param(
   [string]$HostIp = "76.13.209.30",
   [string]$Key = "$env:USERPROFILE\.ssh\agent-os-vps",
@@ -88,13 +89,15 @@ ssh @ssh "root@$HostIp" "rm -f $RemoteRoot/deploy/docker/deepseek-proxy.js $Remo
 
 # Broader sync for backend/openclaw when doing full deploy
 if ($Services -match "backend|openclaw") {
-  Write-Host "==> Sync backend/src + package files + backend/scripts + scripts/ + openclaw-*"
+  Write-Host "==> Sync backend/src + desktop-workflow-runner + package files + backend/scripts + scripts/ + openclaw-*"
   scp @ssh -r "$Repo\backend\src" "root@${HostIp}:$RemoteRoot/backend/"
+  scp @ssh -r "$Repo\backend\desktop-workflow-runner" "root@${HostIp}:$RemoteRoot/backend/"
   scp @ssh `
     "$Repo\backend\package.json" `
     "$Repo\backend\package-lock.json" `
     "root@${HostIp}:$RemoteRoot/backend/"
   scp @ssh `
+    "$Repo\backend\scripts\test-workflow-desktop-package.js" `
     "$Repo\backend\scripts\vps-test-platform-help.js" `
     "$Repo\backend\scripts\seed-workflow-builder-agent.js" `
     "$Repo\backend\scripts\seed-platform-help-agent.js" `

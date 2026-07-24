@@ -31,7 +31,9 @@ Prefer the **COO** for work that should be planned or handed to a specialist. Va
 
 Tips:
 - One clear outcome per message works best (“Research X and summarize”).
-- Ask the agent to **notify you** when you want a bell ping after async work.
+- Multi-intent to the COO (two clear specialties) can create **two** Kanban cards.
+- Ask the agent to **notify you** when you want a bell ping after async work — ordinary live chat replies should not spam the bell.
+- If you want a specialist to **reach you**, say so (e.g. “have TechResearcher contact me”); that specialist rings the bell with a link to **their** chat.
 - COO-native asks (workflows list/trigger, tools, Kanban, standups) usually stay with the COO.
 
 ## Agent Workspaces (`/workspace` → `/agents/:id/workspace`)
@@ -45,13 +47,24 @@ Edit personality and operating docs:
 | **ORG.md** | Synced org roster (CEO, departments, peers) — prefer Resync over hand-edit |
 | **MEMORY.md** | Long-lived facts |
 | **TOOLS.md** | Instructions for when/how to use granted tools |
+| **AGENT-OS-OPS.md** | Shared operating rules for all specialists (learnings, Kanban self-check, Master Data, `notify_ceo`) — synced from platform templates; prefer not to hand-edit |
 
 ### Tools access
 
 Workspace → **Tools access**: grant or revoke Agent OS content tools for that agent. Changes sync to OpenClaw allowlists (often without gateway restart).  
 
 - **Tools access** = enforcement (what the agent may call).  
-- **TOOLS.md** = instructions (how the LLM should use them). Sync TOOLS from template when needed.
+- **TOOLS.md** = instructions (how the LLM should use them). Use **Sync TOOLS.md from template** to refresh tool instructions from a workspace template without wiping SOUL/MEMORY.
+
+### Workspace templates
+
+On the agent workspace page:
+
+1. **Apply template** — pick a **platform** template (visible to all CEOs). This **overwrites** SOUL, AGENTS, MEMORY, TOOLS, IDENTITY, and AGENT-OS-OPS. **ORG.md** and **POLICY.md** are left alone (org + your Policies page stay authoritative).
+2. **Publish this agent as template** — share the current MD set as a new platform template (name it). Other CEOs can then Apply it.
+3. Admins can also manage the template catalog under Admin (create / publish / unpublish).
+
+Use templates to bootstrap a new specialist’s personality and ops rules, then edit. Prefer **Resync ORG** after Apply if peers look stale.
 
 ## Org chart and Resync
 

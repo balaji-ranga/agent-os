@@ -45,6 +45,7 @@ import {
   readJsonFile,
 } from '../utils/workflowDefinitionJson.js';
 import PublishA2AModal from '../components/workflow/PublishA2AModal.jsx';
+import DesktopPackageModal from '../components/workflow/DesktopPackageModal.jsx';
 
 function migrateNodeWithCatalog(node, catalog) {
   const entry = catalog?.find((t) => t.type === node.type);
@@ -1674,6 +1675,7 @@ function EditorInner({ workflowId }) {
   const [runInput, setRunInput] = useState('');
   const [a2aPublication, setA2aPublication] = useState(null);
   const [a2aModalOpen, setA2aModalOpen] = useState(false);
+  const [desktopModalOpen, setDesktopModalOpen] = useState(false);
   const [vaultKeys, setVaultKeys] = useState([]);
 
   useEffect(() => {
@@ -2443,6 +2445,17 @@ function EditorInner({ workflowId }) {
           <button type="button" className="wf-btn" onClick={exportWorkflowJson} disabled={saving}>
             Export JSON
           </button>
+          {workflow.status === 'published' && (
+            <button
+              type="button"
+              className="wf-btn"
+              onClick={() => setDesktopModalOpen(true)}
+              disabled={saving}
+              title="Download PS1 + Node package to run this workflow on Windows"
+            >
+              Download for Windows
+            </button>
+          )}
           <button
             type="button"
             className="wf-btn"
@@ -2715,6 +2728,13 @@ function EditorInner({ workflowId }) {
         existingPublication={a2aPublication}
         onClose={() => setA2aModalOpen(false)}
         onPublished={publishA2A}
+      />
+
+      <DesktopPackageModal
+        open={desktopModalOpen}
+        workflowId={workflow?.id}
+        workflowName={workflow?.name}
+        onClose={() => setDesktopModalOpen(false)}
       />
     </div>
   );

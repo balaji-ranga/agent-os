@@ -27,6 +27,14 @@ import {
   publishWorkflowAsA2A,
   unpublishWorkflowA2A,
 } from '../services/workflow-a2a-publish.js';
+import { buildDesktopPackageZip } from '../services/agent-workflow-desktop-package.js';
+import {
+  listDesktopTokens,
+  revokeDesktopToken,
+  listIpWhitelist,
+  addIpWhitelistEntry,
+  removeIpWhitelistEntry,
+} from '../services/agent-workflow-desktop-auth.js';
 
 const router = Router();
 
@@ -495,6 +503,95 @@ router.get('/:id/runs', (req, res) => {
     res.json({ runs: store.listRuns(req.params.id, ownerUserId, limit) });
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+/** Download Windows desktop package (PS1 + params + Node runner + bundled Node). Mints a new desktop token into the zip. */
+router.get('/:id/desktop-package', async (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req);
+    const def = store.getDefinition(req.params.id, ownerUserId);
+    if (!def) return res.status(404).json({ error: 'Not found' });
+    const proto = String(req.headers['x-forwarded-proto'] || req.protocol || 'http').split(',')[0].trim();
+    const host = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim();
+    const fromReq = host ? `${proto}://${host}` : null;
+    const includeRuntimeRaw = String(req.query.include_runtime ?? req.query.with_runtime ?? '1').toLowerCase();
+    const includeRuntime = !['0', 'false', 'no', 'lite'].includes(includeRuntimeRaw);
+    const { zip, filename, token_id, token_prefix } = await buildDesktopPackageZip(req.params.id, ownerUserId, {
+      actor: actorFromRequest(req),
+      tokenName: req.query.token_name || '',
+      baseUrlOverride: fromReq,
+      includeRuntime,
+    });
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('X-Desktop-Token-Id', token_id);
+    res.setHeader('X-Desktop-Token-Prefix', token_prefix);
+    res.setHeader('X-Desktop-Include-Runtime', includeRuntime ? '1' : '0');
+    res.send(zip);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+router.get('/:id/desktop-tokens', (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req);
+    const def = store.getDefinition(req.params.id, ownerUserId);
+    if (!def) return res.status(404).json({ error: 'Not found' });
+    res.json({ tokens: listDesktopTokens(req.params.id, ownerUserId) });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+router.delete('/:id/desktop-tokens/:tokenId', (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req);
+    const ok = revokeDesktopToken(req.params.tokenId, ownerUserId);
+    if (!ok) return res.status(404).json({ error: 'Token not found' });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+router.get('/:id/desktop-ip-whitelist', (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req);
+    const def = store.getDefinition(req.params.id, ownerUserId);
+    if (!def) return res.status(404).json({ error: 'Not found' });
+    res.json({ entries: listIpWhitelist(ownerUserId, req.params.id) });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+router.post('/:id/desktop-ip-whitelist', (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req);
+    const def = store.getDefinition(req.params.id, ownerUserId);
+    if (!def) return res.status(404).json({ error: 'Not found' });
+    const scope = req.body?.scope === 'owner' ? null : req.params.id;
+    const entry = addIpWhitelistEntry(ownerUserId, {
+      cidrOrIp: req.body?.cidr_or_ip || req.body?.ip,
+      label: req.body?.label || '',
+      definitionId: scope,
+    });
+    res.status(201).json({ entry });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+router.delete('/:id/desktop-ip-whitelist/:entryId', (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req);
+    const ok = removeIpWhitelistEntry(req.params.entryId, ownerUserId);
+    if (!ok) return res.status(404).json({ error: 'Entry not found' });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
   }
 });
 

@@ -63,6 +63,9 @@ export const PLATFORM_HELP_DOCUMENTS = Object.freeze([
   { filename: '12-troubleshooting.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Troubleshooting` },
   { filename: '13-workflow-autonomous-certify.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Workflow Autonomous Certify` },
   { filename: '14-workflow-dynamic-values.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Workflow Dynamic Values` },
+  { filename: '15-api-keys-vault.md', title: `${PLATFORM_HELP_TITLE_PREFIX}API Keys Vault` },
+  { filename: '16-connectors-openconnector.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Connectors OpenConnector` },
+  { filename: '17-desktop-windows-download.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Desktop Windows Download` },
 ]);
 
 /** Resolve repo README.md (local: agent-os/README.md; Docker: /opt/agent-os/README.md). */

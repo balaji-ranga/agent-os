@@ -21,6 +21,7 @@ This doc is about **custom Workflows**.
 7. **Run** with optional run input; watch progress on the runs panel (`?run_id=`).
 8. **Import / Export JSON** for backup or sharing definitions.
 9. Optional: **Publish as A2A** (Public or Secured OAuth) to list on AgentExchange.
+10. Optional: **Download for Windows** — run a published workflow from a laptop (local graph + localhost/filesystem; state and remote nodes on Flolah). See [17-desktop-windows-download.md](./17-desktop-windows-download.md).
 
 ## Workflow Builder agent
 
@@ -71,7 +72,7 @@ Quick reference:
 
 **Workflow variables** (editor panel) are shared static config for **this** workflow — there is no separate platform-wide global store. Use them for budgets, base URLs, allowlists; use prior-step templates for run-time tokens and results.
 
-**Auth:** API, MCP, Brain (`apiKey` + MCP headers), SSE Listen, and External Agent (optional override) all accept `{{nodeId.path}}` in bearer/header fields. Values look static in the UI; the runner substitutes at execute time.
+**Auth:** Prefer **Management → API Keys** vault refs for long-lived secrets ([15-api-keys-vault.md](./15-api-keys-vault.md)). API, MCP, Brain (`apiKey` + MCP headers), SSE Listen, External Agent (optional override), and **Connector** nodes also accept `{{nodeId.path}}` in bearer/header fields. Values look static in the UI; the runner substitutes at execute time. SaaS apps: connect under **Connectors** before using a **Connector** node ([16-connectors-openconnector.md](./16-connectors-openconnector.md)).
 
 ### Outputs
 

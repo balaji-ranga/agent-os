@@ -23,6 +23,16 @@
 5. Inspect run step errors (API non-2xx, MCP error, approval waiting).
 6. Ask **Workflow Builder** to inspect the draft and heal (or Platform Help for how-to).
 
+## Download for Windows fails or package won’t start
+
+1. Workflow must be **Published** before **Download for Windows**.
+2. Re-download after Flolah updates if `Run-Workflow.ps1` errors on special characters (use a fresh zip).
+3. Lite package: Node 18+ must be on PATH. Full package: use `runtime\node.exe` (no install).
+4. `403` / IP whitelist: your public IP must match a rule, or clear whitelist entries.
+5. `401` invalid/revoked token: re-download a new package or check **Revoke** list in the modal.
+6. Connector / Brain failures are **service-side** (credentials, OpenConnector link) — desktop path reached Flolah; fix the integration, then re-run the PS1.
+7. Full guide: [17-desktop-windows-download.md](./17-desktop-windows-download.md).
+
 ## CEO Approval stuck
 
 Open **Kanban**, find the approval card, approve or reject with a comment. IF nodes using `approved`/`rejected` then continue.
@@ -54,10 +64,32 @@ Open **Kanban**, find the approval card, approve or reject with a comment. IF no
 1. Did you ask the agent to **notify you** / call `notify_ceo`?
 2. Check bell clear/dismiss — item may have been cleared.
 3. For “have X contact me”, COO must **sessions_send** to X so **X** notifies (not the COO).
+4. Ordinary live chat replies intentionally **do not** notify (shared ops) — say “notify me when done” if you want a bell ping after async work.
+
+## Kanban stuck or wrong status
+
+1. Research/build cards stay **in_progress** until the agent posts a real deliverable and moves to **completed**.
+2. **awaiting confirmation** needs **your** approve/reject — agents will not auto-advance those.
+3. Optional side failures (missing Master Data table, notify/email) should not leave a good deliverable as **failed**.
+4. Agents should not invent Kanban from a casual Dashboard chat unless you asked to track it.
+
+## API Keys / BYOK not working
+
+1. Create **`Platform_BYOK`** under **API Keys** before selecting OpenAI/OpenRouter on Profile.
+2. Key name spelling must match (case-sensitive vault names).
+3. After rotate, re-select or re-save the workflow node that references the vault key.
+4. Delete blocked by dependencies → review the confirm list (workflows / MCP / Connectors / External agents).
+
+## Connectors / Connector node fails
+
+1. Provision runtime token on **Connectors**.
+2. App connected for **this** CEO? OAuth expired → reconnect.
+3. Workflow **Connector** node has the correct app + action.
+4. Admin may need to configure OAuth client id/secret for that app.
 
 ## Wrong agent got the work
 
-Rephrase with a clear specialty outcome, or name the agent. Use **Broadcast** only when many agents should hear the same message. Resync org docs after adding agents.
+Rephrase with a clear specialty outcome, or name the agent. Multi-intent COO asks can go to **two** specialists. Use **Broadcast** only when many agents should hear the same message. Resync org docs after adding agents.
 
 ## Job pipeline idle
 

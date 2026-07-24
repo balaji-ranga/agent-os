@@ -17,8 +17,10 @@
 | Kanban | `/kanban` | Generic task board (agent / workflow / pipeline cards), CEO approvals, artifacts |
 | Broadcast | `/broadcast` | Message many agents at once |
 | Master Data | `/master-data` | Tables, documents, RAG |
+| **API Keys** | `/api-keys` | Named secret vault (BYOK `Platform_BYOK`, workflow/MCP/Connector secrets) |
 | Policies | `/policies` | CEO common guardrails for all agents + Brain nodes |
-| AI Snipper | `/ai-snipper` | Token / prompt / activity analytics |
+| AI Snipper | `/ai-snipper` | Prompt / token / tool-call usage timeline |
+| **Efficiency View** | `/efficiency` | Agents, automated tasks, feedback, workflow run success/fail |
 
 ### Prebuilt Workflows
 
@@ -32,8 +34,9 @@
 | Label | Route | Use for |
 |-------|-------|---------|
 | Workflows | `/workflows` | Custom visual workflows; editor at `/workflows/:id/edit` |
-| Agent Workspaces | `/workspace` | List agents → workspace MD / tools |
+| Agent Workspaces | `/workspace` | List agents → workspace MD / tools / **templates** |
 | Content tools | `/content-tools` | Catalog, test invoke, logs |
+| **Connectors** | `/connectors` | Link SaaS apps (OpenConnector) for **Connector** workflow nodes |
 | MCP | `/integrations/mcp` | Register and test MCP servers |
 | Custom scripts | `/integrations/custom-scripts` | Sandboxed Python/JS/LangGraph scripts |
 | AgentExchange | `/agent-exchange` | Browse published A2A workflow agents (Public / Secured) |
@@ -44,17 +47,20 @@
 | Route | Purpose |
 |-------|---------|
 | `/agents/:agentId/chat` | 1:1 chat |
-| `/agents/:agentId/workspace` | Edit SOUL / AGENTS / MEMORY / TOOLS, tool grants |
+| `/agents/:agentId/workspace` | Edit SOUL / AGENTS / MEMORY / TOOLS / OPS, tool grants, **Apply / Publish templates** |
 
 ## Admin navigation (admins only)
 
-Admin home `/admin` (users), plus shared MCP / custom scripts / AgentExchange / external agents / profile.
+Admin home `/admin` (users, platform LLM switch, workspace templates admin), plus Connectors (OAuth client config), MCP / custom scripts / AgentExchange / external agents / profile.
 
 ## Mental model
 
 - **Talk to people (agents)** → Dashboard / Chat / Broadcast  
 - **Track work** → Kanban / Standups  
 - **Company facts** → Master Data  
+- **Secrets** → API Keys (vault)  
 - **Automate** → Workflows (+ Workflow Builder agent)  
-- **Integrate** → MCP, External agents, Custom scripts, Content tools  
+- **Integrate SaaS** → Connectors  
+- **Integrate tools/protocol** → MCP, External agents, Custom scripts, Content tools  
+- **Measure** → AI Snipper (usage) + Efficiency View (ops outcomes)  
 - **How do I…?** → Platform Help agent or Master Data RAG docs

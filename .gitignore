@@ -14,6 +14,10 @@ backend/data/
 *.db-shm
 *.db-wal
 
+# Desktop package: cached portable Node (downloaded at package-build time)
+backend/data/cache/
+**/cache/desktop-node-win-x64/
+
 # Logs and build
 *.log
 npm-debug.log*

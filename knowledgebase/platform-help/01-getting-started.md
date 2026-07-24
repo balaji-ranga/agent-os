@@ -2,7 +2,7 @@
 
 ## What Flolah is
 
-Flolah is your AI agent company: you (the CEO) chat with agents, run standups, track work on Kanban, store Master Data, build visual workflows, connect MCP servers, and publish or consume A2A agents (Public or Secured with OAuth client credentials).
+Flolah is your AI agent company: you (the CEO) chat with agents, run standups, track work on Kanban, store Master Data, build visual workflows, connect MCP servers and SaaS **Connectors**, and publish or consume A2A agents (Public or Secured with OAuth client credentials).
 
 ## Register and log in
 
@@ -12,11 +12,19 @@ Flolah is your AI agent company: you (the CEO) chat with agents, run standups, t
 
 Admin accounts manage platform users; CEOs get the full product nav.
 
+### MFA (multi-factor)
+
+Your org may **require** MFA or leave it optional (**inherit** platform default).
+
+1. On first login (when required), choose **EMAIL** (OTP to your address) or **TOTP** (authenticator app) as offered.
+2. Complete the code challenge; use **resend** if the email OTP is delayed.
+3. Later: **Profile** → MFA settings (enable/disable when policy allows).
+
 ## First five minutes
 
-1. Click **COO** (BalServe) on the Dashboard → Chat — introduce yourself and ask what agents you have.
+1. Click **COO** on the Dashboard → Chat — introduce yourself and ask what agents you have.
 2. Open the **bell** (top bar) — empty until agents notify you or standups produce updates.
-3. Open **Profile** (avatar menu) — set name, MFA prefs, and AI model source if you use your own API key (BYOK).
+3. Open **Profile** (avatar menu) — set name and MFA prefs. For OpenAI/OpenRouter BYOK, go to **Management → API Keys** and create **`Platform_BYOK`** (do not paste keys on Profile).
 4. Open **Master Data** — confirm **departments** and Platform Help documents exist.
 5. Open **Workflows** or ask **Platform Help**: “How do I build a workflow?”
 
@@ -24,13 +32,16 @@ Admin accounts manage platform users; CEOs get the full product nav.
 
 Path: avatar → **Profile** (`/profile`).
 
-- Update display name, email, region, mobile, password.
-- **Model preference:** platform default, or your own OpenAI / OpenRouter API key when offered. (Profile “DeepSeek” still means local Ollama when that profile is enabled.)
+- Update display name, email, region, mobile, password, MFA.
+- **Model preference:**
+  - **Platform default** — uses the admin-selected platform LLM (no personal key).
+  - **OpenAI / OpenRouter** — requires vault key **`Platform_BYOK`** under **API Keys** (`/api-keys`). Profile only selects the provider.
 - **Workflow Brain:** for DeepSeek or OpenRouter nodes you can set **Thinking mode** (and effort) in the node attributes — see [07-workflow-nodes-reference](./07-workflow-nodes-reference.md).
-- MFA settings as required by your org.
+
+Full vault guide: [15-api-keys-vault.md](./15-api-keys-vault.md).
 
 Agents still run through OpenClaw; your BYOK preference affects how the platform selects models for eligible paths.
 
 ## Multi-tenant isolation
 
-Your standups, Kanban tasks, Master Data, workflows, and MCP registrations belong to **you**. Other CEOs cannot see them. Resync and agent workspaces are scoped to your tenant OpenClaw agents (`t-{you}--{agentId}`).
+Your standups, Kanban tasks, Master Data, workflows, API Keys, Connectors, and MCP registrations belong to **you**. Other CEOs cannot see them. Resync and agent workspaces are scoped to your tenant OpenClaw agents (`t-{you}--{agentId}`).

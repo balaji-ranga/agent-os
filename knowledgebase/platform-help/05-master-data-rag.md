@@ -13,6 +13,7 @@ Two pillars:
 - Add columns and rows; import CSV when available.
 - Capture a **purpose/description** on the table so agents know what it is for.
 - Agents with Master Data tools can list tables, list/insert/update/delete **rows**. They generally **cannot** create/alter/drop tables from chat — that stays in the UI.
+- Before insert/update, agents should call **`master_data_list_tables`** and use a real table name. They must **not** invent tables (e.g. do not assume a `recipes` table exists). Recipe/image asks are usually chat deliverables unless you asked to store a row.
 
 Example asks: “list departments”, “add Engineering if missing”.
 

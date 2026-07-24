@@ -118,7 +118,13 @@ Prefer Dynamic bindings for whole fields (URL from prior step). Prefer templates
 
 ## Patterns that work well
 
-### BYOK keys from Trigger
+### Prefer API Keys vault (recommended)
+
+Store secrets under **Management → API Keys**, then select the vault key on Brain / API / MCP / External agent auth fields. See [15-api-keys-vault.md](./15-api-keys-vault.md).
+
+For OpenAI/OpenRouter **agent chat** BYOK, create vault name **`Platform_BYOK`** and pick the provider on Profile.
+
+### BYOK keys from Trigger (per-run)
 
 Run input:
 
@@ -129,13 +135,13 @@ Run input:
 - Brain `apiKey`: `{{trigger-1.trigger_input.brainApiKey}}`
 - MCP / API Brave header: `{{trigger-1.trigger_input.braveApiKey}}`
 
-Do **not** rely on platform `.env` for workflow Brain keys or Brave MCP (Brave MCP is BYOK — headers only).
+Do **not** rely on platform `.env` for workflow Brain keys or Brave MCP (Brave MCP is BYOK — headers / vault only). Prefer vault over putting secrets in Trigger when the key is long-lived.
 
 ### API → MCP → Brain
 
 1. API login → token in `body`
 2. MCP tool with `Authorization` / `X-Subscription-Token` = `{{api-login.body.accessToken}}`
-3. Brain summarizes `{{mcp-1.text}}` with its own `apiKey` from trigger or var
+3. Brain summarizes `{{mcp-1.text}}` with its own `apiKey` from vault, trigger, or var
 
 ### Workflow variable + prior step
 
@@ -151,8 +157,8 @@ GET {{var.api_base}}/v1/items/{{api-create.body.id}}
 |---------|--------|
 | Literal `{{api-1.body.token}}` sent to server | Field not on a template-aware attribute, or typo in node id |
 | Empty string | Upstream not connected / not completed; wrong output key; nested path missing |
-| Auth rejected | Token path wrong (`access_token` vs `accessToken`); Bearer vs raw token |
-| Brain “API key required” | `apiKey` blank after render — pass key via trigger/var/template, not platform `.env` |
+| Auth rejected | Token path wrong (`access_token` vs `accessToken`); Bearer vs raw token; vault key missing/rotated |
+| Brain “API key required” | `apiKey` blank after render — use vault / trigger / template, not platform `.env` |
 
 After a run, open the step’s input/output diagnostics to see resolved values (secrets may be redacted in logs).
 
@@ -165,8 +171,8 @@ Workflow Builder already wires `{{input}}`, `input_bindings`, and Maker/Checker 
 When **building** graphs, Builder should:
 
 - Use canvas **node ids** in templates
-- Put tokens in API/MCP/A2A/Brain auth fields as `{{nodeId.path}}`
+- Put tokens in API/MCP/A2A/Brain auth fields as vault refs or `{{nodeId.path}}`
 - Prefer workflow **variables** for static shared config
-- Prefer Trigger `trigger_input.*` for per-run secrets and parameters
+- Prefer Trigger `trigger_input.*` for per-run parameters (and only for one-off secrets)
 
 If a generated graph hard-codes secrets or omits bindings, ask Builder to fix using this guide (or run certify / `until_success`).

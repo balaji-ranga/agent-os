@@ -1,0 +1,7 @@
+{
+  "name": "flolah-desktop-workflow-runner",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Local graph orchestrator for Flolah desktop packages (no npm deps)"
+}

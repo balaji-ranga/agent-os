@@ -239,6 +239,20 @@ Stop listen from run UI when needed.
 
 ---
 
+## Connector (`connector`)
+
+**Purpose:** Run an **OpenConnector** SaaS app action as the signed-in CEO (GitHub, Gmail, Drive, …).
+
+**Prerequisite:** Connect the app under **Connectors** (`/connectors`) and provision the runtime token. See [16-connectors-openconnector.md](./16-connectors-openconnector.md).
+
+**Key attributes:** `appId` / `appName`, `actionId`, optional connection alias; action input fields (static or `{{…}}`).
+
+| Inputs | Outputs |
+|--------|---------|
+| action-specific (bound in I/O panel) | `text` — response text; `result` — full JSON |
+
+---
+
 ## Parallel (`parallel`) / Merge (`merge`)
 
 | Type | Inputs | Outputs |
@@ -255,3 +269,4 @@ Stop listen from run UI when needed.
 3. **CEO Approval → IF:** operator `approved` / `rejected` on approval outputs.
 4. **API → Agent:** Agent prompt `Summarize: {{api-1.body}}`.
 5. **MCP tool → Brain:** Brain `userMessage` from MCP `text` or `result`.
+6. **Connector → Brain:** Brain summarizes `{{connector-1.text}}` after a GitHub/Gmail action.
