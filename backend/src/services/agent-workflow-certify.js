@@ -350,7 +350,8 @@ export function checkGoal({ goal, def, lastRun = null }) {
   const acceptance = Array.isArray(goal?.acceptance) && goal.acceptance.length
     ? goal.acceptance
     : defaultAcceptanceCriteria();
-  const publishErrors = validateWorkflowForPublish(def?.draft_graph || def?.published_graph) || [];
+  const ownerUserId = def?.owner_user_id || def?.ownerUserId || null;
+  const publishErrors = validateWorkflowForPublish(def?.draft_graph || def?.published_graph, ownerUserId) || [];
     const diagnosis = diagnoseWorkflowGraph(def);
   const structuralIssues = (diagnosis.issues || []).filter((i) => i.severity !== 'info');
   const criteria_results = [];

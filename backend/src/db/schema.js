@@ -1253,6 +1253,57 @@ export function initDb() {
     } catch (_) {}
   } catch (_) {}
 
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS user_api_keys (
+        id TEXT PRIMARY KEY,
+        owner_user_id TEXT NOT NULL,
+        key_name TEXT NOT NULL,
+        secret_value TEXT NOT NULL,
+        is_encrypted INTEGER NOT NULL DEFAULT 0,
+        phrase_wrapped TEXT,
+        salt_b64 TEXT,
+        iv_b64 TEXT,
+        tag_b64 TEXT,
+        key_hint TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(owner_user_id, key_name)
+      )
+    `);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_user_api_keys_owner ON user_api_keys(owner_user_id, key_name)`
+    );
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE external_agents ADD COLUMN auth_header_ref TEXT`);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE openconnector_user_links ADD COLUMN runtime_token_ref TEXT`);
+  } catch (_) {}
+
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS platform_agent_workspace_templates (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
+        is_default INTEGER NOT NULL DEFAULT 0,
+        source TEXT NOT NULL DEFAULT 'admin' CHECK (source IN ('platform', 'admin', 'ceo')),
+        files_json TEXT NOT NULL DEFAULT '{}',
+        created_by TEXT,
+        created_by_name TEXT,
+        published_at TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_plat_ws_tpl_status ON platform_agent_workspace_templates(status, updated_at DESC)`
+    );
+  } catch (_) {}
+
   return _db;
 }
 

@@ -1,7 +1,7 @@
 import ChatMessageContent from './ChatMessageContent';
 import { formatChatTimestamp } from '../utils/formatDateTime.js';
 import MessageFeedback from './MessageFeedback';
-import ChatToolCalls, { collectChartUrlsFromToolCalls } from './ChatToolCalls';
+import ChatToolCalls, { collectChartUrlsFromToolCalls, collectGeneratedMediaUrlsFromToolCalls } from './ChatToolCalls';
 import AuthenticatedMediaImage from './AuthenticatedMediaImage';
 
 /**
@@ -24,6 +24,7 @@ export default function ChatMessageRow({
   const label = roleLabel || role;
   const isUser = role === 'user';
   const chartUrls = !isUser ? collectChartUrlsFromToolCalls(toolCalls) : [];
+  const mediaUrls = !isUser ? collectGeneratedMediaUrlsFromToolCalls(toolCalls) : [];
 
   return (
     <div
@@ -54,8 +55,15 @@ export default function ChatMessageRow({
           ))}
         </div>
       )}
+      {mediaUrls.length > 0 && (
+        <div className="chat-message-media-previews" style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginBottom: '0.75rem' }}>
+          {mediaUrls.map((src) => (
+            <AuthenticatedMediaImage key={src} src={src} alt="Generated image" />
+          ))}
+        </div>
+      )}
       <ChatMessageContent content={content} />
-      {!isUser && <ChatToolCalls toolCalls={toolCalls} showChartPreviews={false} />}
+      {!isUser && <ChatToolCalls toolCalls={toolCalls} showChartPreviews={false} showMediaPreviews={false} />}
       {!isUser && showFeedback && agentId && (
         <MessageFeedback
           agentId={agentId}

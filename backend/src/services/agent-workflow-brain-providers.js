@@ -2,6 +2,8 @@
  * Brain node LLM provider presets (OpenAI-compatible, Anthropic, Ollama, OpenRouter, DeepSeek-via-Ollama).
  */
 
+import { resolveLiteralOrKeyRef, tryResolveUserApiKey } from './user-api-keys.js';
+
 function ollamaOpenAiBase() {
   const raw = (process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434').trim().replace(/\/$/, '');
   if (!raw) return 'http://127.0.0.1:11434/v1';
@@ -141,8 +143,9 @@ function buildOpenRouterHeaders(cfg = {}) {
 
 /**
  * Workflow Brain — credentials come only from the node's taskConfig (never platform .env).
+ * Optional ownerUserId resolves cfg.apiKeyRef from the per-CEO API key vault.
  */
-export function resolveWorkflowBrainProviderConfig(modelSource, cfg = {}) {
+export function resolveWorkflowBrainProviderConfig(modelSource, cfg = {}, ownerUserId = null) {
   const source = (modelSource || 'openai').toLowerCase();
   const preset = BRAIN_PROVIDERS[source] || BRAIN_PROVIDERS.openai;
 
@@ -156,7 +159,10 @@ export function resolveWorkflowBrainProviderConfig(modelSource, cfg = {}) {
   }
   baseUrl = normalizeOpenAiCompatBase(baseUrl) || baseUrl;
 
-  const configuredKey = nodeApiKey(cfg);
+  const configuredKey = resolveLiteralOrKeyRef(ownerUserId, {
+    literal: nodeApiKey(cfg),
+    keyRef: cfg.apiKeyRef || cfg.api_key_ref,
+  });
   let apiKey = configuredKey;
   const model = (cfg.model || '').trim() || firstEnv(preset.envModel) || preset.model;
 
@@ -178,19 +184,30 @@ export function resolveWorkflowBrainProviderConfig(modelSource, cfg = {}) {
 }
 
 /** Validate Brain nodes have per-node API keys before publish/run (no platform .env fallback). */
-export function validateWorkflowBrainCredentials(graph) {
+export function validateWorkflowBrainCredentials(graph, ownerUserId = null) {
   const errors = [];
   for (const node of graph?.nodes || []) {
     if (node.type !== 'brain') continue;
     const cfg = node.data?.taskConfig || node.data?.config || {};
-    const { source, requiresKey, baseUrl, configuredKey } = resolveWorkflowBrainProviderConfig(
+    // Resolve base/source without keyRef so missing vault keys don't throw during validation.
+    const { source, requiresKey, baseUrl } = resolveWorkflowBrainProviderConfig(
       cfg.modelSource,
-      cfg
+      { ...cfg, apiKeyRef: '', api_key_ref: '' },
+      null
     );
+    const literal = nodeApiKey(cfg);
+    const keyRef = String(cfg.apiKeyRef || cfg.api_key_ref || '').trim();
+    let configuredKey = literal;
+    if (!configuredKey && keyRef) {
+      configuredKey =
+        (ownerUserId && tryResolveUserApiKey(ownerUserId, keyRef)?.value) || '';
+    }
     if (requiresKey && !configuredKey && !brainAllowsMissingKey(source, baseUrl)) {
       const label = node.data?.label || node.id;
       errors.push(
-        `Brain "${label}" (${node.id}): set ${source} API key on the Brain node — platform .env keys are not used for workflows`
+        keyRef
+          ? `Brain "${label}" (${node.id}): API key ref "${keyRef}" could not be resolved — set ${source} API key or a valid vault key on the Brain node`
+          : `Brain "${label}" (${node.id}): set ${source} API key on the Brain node — platform .env keys are not used for workflows`
       );
     }
   }

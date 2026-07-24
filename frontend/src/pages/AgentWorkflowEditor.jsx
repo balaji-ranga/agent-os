@@ -17,6 +17,7 @@ import { formatLocalDateTime } from '../utils/formatDateTime.js';
 import { api } from '../api.js';
 import MaskedSecretInput from '../components/MaskedSecretInput.jsx';
 import HttpHeadersEditor from '../components/HttpHeadersEditor.jsx';
+import VaultOrLiteralSecret from '../components/VaultOrLiteralSecret.jsx';
 import BrainMcpToolCallingPanel from '../components/workflow/BrainMcpToolCallingPanel.jsx';
 import WorkflowVariablesPanel from '../components/workflow/WorkflowVariablesPanel.jsx';
 import {
@@ -130,7 +131,7 @@ function withConnectorActionInput(data, jsonText, { forceStatic = false } = {}) 
   return bindings;
 }
 
-function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connectorApps, connectorSearchResults, connectorActions, connectorGuide, connectorInputSchema, connectorExampleInput, connectorActionDescription, connectorLoadError, connectorSearchQuery, onConnectorSearchChange, externalAgents, externalAgentsLoadError, customScripts, customScriptsLoadError, taskCatalog, allNodes, edges, hookInfo, onChange, onDelete, onRegenerateHookSecret, onFetchHookInfo, regeneratingSecret }) {
+function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connectorApps, connectorSearchResults, connectorActions, connectorGuide, connectorInputSchema, connectorExampleInput, connectorActionDescription, connectorLoadError, connectorSearchQuery, onConnectorSearchChange, externalAgents, externalAgentsLoadError, customScripts, customScriptsLoadError, taskCatalog, allNodes, edges, hookInfo, onChange, onDelete, onRegenerateHookSecret, onFetchHookInfo, regeneratingSecret, vaultKeys = [] }) {
   const [secretVisible, setSecretVisible] = useState(false);
   // Keep a string draft for trigger input schema so typing isn't fought by JSON.parse→stringify.
   const [inputSchemaDraft, setInputSchemaDraft] = useState('');
@@ -512,9 +513,17 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
               </label>
               <label className="wf-field">
                 Basic password
-                <MaskedSecretInput
-                  value={data.taskConfig?.basicPassword || ''}
-                  onChange={(e) => set({ taskConfig: { ...data.taskConfig, basicPassword: e.target.value } })}
+                <VaultOrLiteralSecret
+                  literalValue={data.taskConfig?.basicPassword || ''}
+                  keyRef={data.taskConfig?.basicPasswordRef || ''}
+                  onLiteralChange={(v) =>
+                    set({ taskConfig: { ...data.taskConfig, basicPassword: v, basicPasswordRef: '' } })
+                  }
+                  onKeyRefChange={(v) =>
+                    set({ taskConfig: { ...data.taskConfig, basicPasswordRef: v, basicPassword: '' } })
+                  }
+                  vaultKeys={vaultKeys}
+                  MaskedInput={MaskedSecretInput}
                   placeholder="password"
                 />
               </label>
@@ -523,9 +532,17 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
           {(data.taskConfig?.authType || 'none') === 'bearer' && (
             <label className="wf-field">
               Bearer token
-              <MaskedSecretInput
-                value={data.taskConfig?.bearerToken || ''}
-                onChange={(e) => set({ taskConfig: { ...data.taskConfig, bearerToken: e.target.value } })}
+              <VaultOrLiteralSecret
+                literalValue={data.taskConfig?.bearerToken || ''}
+                keyRef={data.taskConfig?.bearerTokenRef || ''}
+                onLiteralChange={(v) =>
+                  set({ taskConfig: { ...data.taskConfig, bearerToken: v, bearerTokenRef: '' } })
+                }
+                onKeyRefChange={(v) =>
+                  set({ taskConfig: { ...data.taskConfig, bearerTokenRef: v, bearerToken: '' } })
+                }
+                vaultKeys={vaultKeys}
+                MaskedInput={MaskedSecretInput}
                 placeholder="token or {{api-login.body.token}}"
               />
             </label>
@@ -541,9 +558,17 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
               </label>
               <label className="wf-field">
                 API key value
-                <MaskedSecretInput
-                  value={data.taskConfig?.apiKeyValue || ''}
-                  onChange={(e) => set({ taskConfig: { ...data.taskConfig, apiKeyValue: e.target.value } })}
+                <VaultOrLiteralSecret
+                  literalValue={data.taskConfig?.apiKeyValue || ''}
+                  keyRef={data.taskConfig?.apiKeyValueRef || ''}
+                  onLiteralChange={(v) =>
+                    set({ taskConfig: { ...data.taskConfig, apiKeyValue: v, apiKeyValueRef: '' } })
+                  }
+                  onKeyRefChange={(v) =>
+                    set({ taskConfig: { ...data.taskConfig, apiKeyValueRef: v, apiKeyValue: '' } })
+                  }
+                  vaultKeys={vaultKeys}
+                  MaskedInput={MaskedSecretInput}
                   placeholder="MySecretKey123"
                 />
               </label>
@@ -551,6 +576,7 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
           )}
           <HttpHeadersEditor
             className="wf-field"
+            vaultKeys={vaultKeys}
             value={
               data.taskConfig?.httpHeadersJson ||
               data.taskConfig?.http_headers_json ||
@@ -823,9 +849,17 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
           </label>
           <label className="wf-field">
             Bearer token override (optional)
-            <MaskedSecretInput
-              value={data.taskConfig?.authBearer || data.taskConfig?.bearerToken || ''}
-              onChange={(e) => set({ taskConfig: { ...data.taskConfig, authBearer: e.target.value } })}
+            <VaultOrLiteralSecret
+              literalValue={data.taskConfig?.authBearer || data.taskConfig?.bearerToken || ''}
+              keyRef={data.taskConfig?.authBearerRef || ''}
+              onLiteralChange={(v) =>
+                set({ taskConfig: { ...data.taskConfig, authBearer: v, authBearerRef: '' } })
+              }
+              onKeyRefChange={(v) =>
+                set({ taskConfig: { ...data.taskConfig, authBearerRef: v, authBearer: '' } })
+              }
+              vaultKeys={vaultKeys}
+              MaskedInput={MaskedSecretInput}
               placeholder="token or {{api-login.body.accessToken}}"
             />
             <small className="wf-field-hint">
@@ -835,6 +869,7 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
           </label>
           <HttpHeadersEditor
             className="wf-field"
+            vaultKeys={vaultKeys}
             value={data.taskConfig?.httpHeadersJson || '{}'}
             onChange={(httpHeadersJson) => set({ taskConfig: { ...data.taskConfig, httpHeadersJson } })}
           />
@@ -1112,9 +1147,17 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
           )}
           <label className="wf-field">
             Bearer token (optional)
-            <MaskedSecretInput
-              value={data.taskConfig?.authBearer || ''}
-              onChange={(e) => set({ taskConfig: { ...data.taskConfig, authBearer: e.target.value } })}
+            <VaultOrLiteralSecret
+              literalValue={data.taskConfig?.authBearer || ''}
+              keyRef={data.taskConfig?.authBearerRef || ''}
+              onLiteralChange={(v) =>
+                set({ taskConfig: { ...data.taskConfig, authBearer: v, authBearerRef: '' } })
+              }
+              onKeyRefChange={(v) =>
+                set({ taskConfig: { ...data.taskConfig, authBearerRef: v, authBearer: '' } })
+              }
+              vaultKeys={vaultKeys}
+              MaskedInput={MaskedSecretInput}
               placeholder="token or {{api-login.body.accessToken}}"
             />
             <small className="wf-field-hint">
@@ -1123,6 +1166,7 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
           </label>
           <HttpHeadersEditor
             className="wf-field"
+            vaultKeys={vaultKeys}
             value={
               data.taskConfig?.httpHeadersJson ||
               data.taskConfig?.authHeadersJson ||
@@ -1174,6 +1218,7 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
           </label>
           <HttpHeadersEditor
             className="wf-field"
+            vaultKeys={vaultKeys}
             value={data.taskConfig?.httpHeadersJson || '{}'}
             onChange={(httpHeadersJson) => set({ taskConfig: { ...data.taskConfig, httpHeadersJson } })}
           />
@@ -1379,9 +1424,17 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
               </label>
               <label className="wf-field">
                 API key (required on Brain node)
-                <MaskedSecretInput
-                  value={data.taskConfig?.apiKey || ''}
-                  onChange={(e) => set({ taskConfig: { ...data.taskConfig, apiKey: e.target.value } })}
+                <VaultOrLiteralSecret
+                  literalValue={data.taskConfig?.apiKey || ''}
+                  keyRef={data.taskConfig?.apiKeyRef || ''}
+                  onLiteralChange={(v) =>
+                    set({ taskConfig: { ...data.taskConfig, apiKey: v, apiKeyRef: '' } })
+                  }
+                  onKeyRefChange={(v) =>
+                    set({ taskConfig: { ...data.taskConfig, apiKeyRef: v, apiKey: '' } })
+                  }
+                  vaultKeys={vaultKeys}
+                  MaskedInput={MaskedSecretInput}
                   placeholder={
                     (data.taskConfig?.modelSource || 'openai') === 'ollama'
                       ? 'optional for local Ollama'
@@ -1564,9 +1617,31 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
   );
 }
 
+const PROPS_PANE_LS_KEY = 'agent-os-wf-props-pane-width';
+const PROPS_PANE_DEFAULT = 280;
+const PROPS_PANE_MIN = 200;
+const PROPS_PANE_MAX = 720;
+
+function clampPropsPaneWidth(w) {
+  return Math.min(PROPS_PANE_MAX, Math.max(PROPS_PANE_MIN, Math.round(Number(w) || PROPS_PANE_DEFAULT)));
+}
+
+function readStoredPropsPaneWidth() {
+  try {
+    const n = Number(localStorage.getItem(PROPS_PANE_LS_KEY));
+    if (Number.isFinite(n) && n > 0) return clampPropsPaneWidth(n);
+  } catch {
+    /* ignore */
+  }
+  return PROPS_PANE_DEFAULT;
+}
+
 function EditorInner({ workflowId }) {
   const navigate = useNavigate();
   const { setCenter, getZoom } = useReactFlow();
+  const [propsPaneWidth, setPropsPaneWidth] = useState(readStoredPropsPaneWidth);
+  const propsPaneWidthRef = useRef(propsPaneWidth);
+  const propsResizeActiveRef = useRef(false);
   const [workflow, setWorkflow] = useState(null);
   const [agents, setAgents] = useState([]);
   const [tools, setTools] = useState([]);
@@ -1599,6 +1674,64 @@ function EditorInner({ workflowId }) {
   const [runInput, setRunInput] = useState('');
   const [a2aPublication, setA2aPublication] = useState(null);
   const [a2aModalOpen, setA2aModalOpen] = useState(false);
+  const [vaultKeys, setVaultKeys] = useState([]);
+
+  useEffect(() => {
+    api
+      .userApiKeysList()
+      .then((r) => setVaultKeys(r.keys || []))
+      .catch(() => setVaultKeys([]));
+  }, [workflowId]);
+
+  useEffect(() => {
+    propsPaneWidthRef.current = propsPaneWidth;
+  }, [propsPaneWidth]);
+
+  const onPropsPaneResizePointerDown = useCallback((e) => {
+    if (e.button != null && e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const handle = e.currentTarget;
+    const pointerId = e.pointerId;
+    const startX = e.clientX;
+    const startW = propsPaneWidthRef.current;
+    propsResizeActiveRef.current = true;
+    document.body.classList.add('wf-props-resizing');
+    try {
+      handle.setPointerCapture(pointerId);
+    } catch {
+      /* ignore */
+    }
+
+    const onMove = (ev) => {
+      if (!propsResizeActiveRef.current) return;
+      // Dragging the left edge: move left → wider pane
+      const next = clampPropsPaneWidth(startW + (startX - ev.clientX));
+      propsPaneWidthRef.current = next;
+      setPropsPaneWidth(next);
+    };
+    const onUp = () => {
+      propsResizeActiveRef.current = false;
+      document.body.classList.remove('wf-props-resizing');
+      handle.removeEventListener('pointermove', onMove);
+      handle.removeEventListener('pointerup', onUp);
+      handle.removeEventListener('pointercancel', onUp);
+      try {
+        handle.releasePointerCapture(pointerId);
+      } catch {
+        /* ignore */
+      }
+      try {
+        localStorage.setItem(PROPS_PANE_LS_KEY, String(propsPaneWidthRef.current));
+      } catch {
+        /* ignore */
+      }
+    };
+
+    handle.addEventListener('pointermove', onMove);
+    handle.addEventListener('pointerup', onUp);
+    handle.addEventListener('pointercancel', onUp);
+  }, []);
 
   const loadMcpServers = useCallback(() => {
     return api
@@ -2371,7 +2504,10 @@ function EditorInner({ workflowId }) {
 
       <ActionFeedbackBanner feedback={feedback} onDismiss={clearFeedback} />
 
-      <div className="wf-editor-body">
+      <div
+        className="wf-editor-body"
+        style={{ '--wf-props-pane-width': `${propsPaneWidth}px` }}
+      >
         <aside className="wf-palette">
           <h3>Nodes</h3>
           {PALETTE_ITEMS.map((item) => (
@@ -2478,7 +2614,35 @@ function EditorInner({ workflowId }) {
           </ReactFlow>
         </div>
 
-        <aside className="wf-sidebar-right">
+        <aside className="wf-sidebar-right" aria-label="Node attributes">
+          <div
+            className="wf-props-resize-handle"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize attributes pane"
+            aria-valuemin={PROPS_PANE_MIN}
+            aria-valuemax={PROPS_PANE_MAX}
+            aria-valuenow={propsPaneWidth}
+            tabIndex={0}
+            onPointerDown={onPropsPaneResizePointerDown}
+            onKeyDown={(e) => {
+              const step = e.shiftKey ? 40 : 16;
+              let next = propsPaneWidthRef.current;
+              if (e.key === 'ArrowLeft') next = clampPropsPaneWidth(next + step);
+              else if (e.key === 'ArrowRight') next = clampPropsPaneWidth(next - step);
+              else if (e.key === 'Home') next = PROPS_PANE_MAX;
+              else if (e.key === 'End') next = PROPS_PANE_MIN;
+              else return;
+              e.preventDefault();
+              propsPaneWidthRef.current = next;
+              setPropsPaneWidth(next);
+              try {
+                localStorage.setItem(PROPS_PANE_LS_KEY, String(next));
+              } catch {
+                /* ignore */
+              }
+            }}
+          />
           <PropertiesPanel
             node={selectedNode}
             agents={agents}
@@ -2508,6 +2672,7 @@ function EditorInner({ workflowId }) {
             onRegenerateHookSecret={regenerateHookSecret}
             onFetchHookInfo={() => refreshHookInfo(workflow)}
             regeneratingSecret={regeneratingSecret}
+            vaultKeys={vaultKeys}
           />
 
           <WorkflowVariablesPanel

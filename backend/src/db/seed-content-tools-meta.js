@@ -10,7 +10,7 @@ const BUILTIN_TOOLS = [
     display_name: 'Summarize URL',
     endpoint: '/api/tools/summarize-url',
     method: 'POST',
-    purpose: 'Fetch a web page (HTTPS) and return a short summary and title. Use for research and citing sources.',
+    purpose: 'Fetch a web page (HTTPS) and return a short summary and title. Retired URLs (e.g. old nasa.gov/mission_pages) may auto-remap; on 404 returns hint + suggested_url — try that or browser. Never invent page content.',
     model_used: 'gpt-4o-mini (optional, for summary)',
     enabled: 1,
     is_builtin: 1,

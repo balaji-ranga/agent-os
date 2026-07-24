@@ -8,6 +8,7 @@ import { resolve, relative, join, basename, isAbsolute } from 'path';
 import { renderWorkflowTemplates } from './agent-workflow-io.js';
 import { buildApiRequestHeaders, renderApiNodeConfig } from './agent-workflow-api-auth.js';
 import { assertHttpSuccess, wrapFetchError } from './workflow-http-errors.js';
+import { resolveLiteralOrKeyRef } from './user-api-keys.js';
 
 export function smtpFromEnv() {
   return {
@@ -20,7 +21,7 @@ export function smtpFromEnv() {
   };
 }
 
-function resolveSmtpConfig(nodeConfig = {}) {
+function resolveSmtpConfig(nodeConfig = {}, ownerUserId = null) {
   if (nodeConfig.useEnvSmtp !== false) {
     const env = smtpFromEnv();
     return {
@@ -28,7 +29,10 @@ function resolveSmtpConfig(nodeConfig = {}) {
       port: Number(nodeConfig.smtpPort || env.port || 587),
       secure: nodeConfig.smtpSecure ?? env.secure,
       user: nodeConfig.smtpUser || env.user,
-      pass: nodeConfig.smtpPass || env.pass,
+      pass: resolveLiteralOrKeyRef(ownerUserId, {
+        literal: nodeConfig.smtpPass || env.pass,
+        keyRef: nodeConfig.smtpPassRef || nodeConfig.smtp_pass_ref,
+      }),
       from: nodeConfig.fromAddress || env.from,
     };
   }
@@ -37,7 +41,10 @@ function resolveSmtpConfig(nodeConfig = {}) {
     port: Number(nodeConfig.smtpPort || 587),
     secure: !!nodeConfig.smtpSecure,
     user: nodeConfig.smtpUser || '',
-    pass: nodeConfig.smtpPass || '',
+    pass: resolveLiteralOrKeyRef(ownerUserId, {
+      literal: nodeConfig.smtpPass || '',
+      keyRef: nodeConfig.smtpPassRef || nodeConfig.smtp_pass_ref,
+    }),
     from: nodeConfig.fromAddress || nodeConfig.smtpUser || 'agent-os@localhost',
   };
 }
@@ -216,7 +223,7 @@ export function sendSmtpMail({ host, port, secure, user, pass, from, to, cc, sub
 /**
  * Send email task. Always returns outputs object; does not throw on SMTP failure.
  */
-export async function executeEmailTask(resolvedInputs, nodeConfig = {}) {
+export async function executeEmailTask(resolvedInputs, nodeConfig = {}, context = null) {
   const to = resolvedInputs.to?.trim();
   const subject = resolvedInputs.subject?.trim() || '(no subject)';
   const body = resolvedInputs.body?.trim() || '';
@@ -229,7 +236,9 @@ export async function executeEmailTask(resolvedInputs, nodeConfig = {}) {
     return { sent: false, attempted: false, error: 'Email body is required', messageId: null };
   }
 
-  const smtp = resolveSmtpConfig(nodeConfig);
+  const owner =
+    context?.owner_user_id || context?.ownerUserId || context?.ceo_user_id || context?.ceoUserId || null;
+  const smtp = resolveSmtpConfig(nodeConfig, owner);
   const result = await sendSmtpMail({
     ...smtp,
     to,

@@ -20,6 +20,23 @@ function sourceMatchesAgent(source, agentId) {
   return key === base || key.includes(base) || base.includes(key);
 }
 
+function hasChartMedia(parsed) {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return false;
+  return Boolean(
+    parsed.visuals_markdown ||
+      parsed.chart_urls ||
+      parsed.north_chart_url ||
+      parsed.south_chart_url ||
+      (Array.isArray(parsed.charts) && parsed.charts.length)
+  );
+}
+
+function clipText(v, n) {
+  if (v == null) return undefined;
+  const s = String(v);
+  return s.length > n ? `${s.slice(0, n)}…` : s;
+}
+
 function safeJson(raw, max = 4000) {
   if (raw == null) return null;
   try {
@@ -28,7 +45,7 @@ function safeJson(raw, max = 4000) {
     if (s.length <= max) return parsed;
     // Keep chart media fields intact so the chat UI can render SVGs even when the
     // full ephemeris payload is large.
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && hasChartMedia(parsed)) {
       const slim = {
         ok: parsed.ok,
         visuals_markdown: parsed.visuals_markdown ?? null,
@@ -48,6 +65,29 @@ function safeJson(raw, max = 4000) {
         if (slim[k] === undefined || slim[k] === null) delete slim[k];
       });
       return slim;
+    }
+    // General tools (e.g. learnings_summary): keep the human-readable core, not only _truncated.
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      const slim = {
+        ok: parsed.ok,
+        error: parsed.error,
+        topic: parsed.topic,
+        days: parsed.days,
+        owner_user_id: parsed.owner_user_id,
+        agent_id: parsed.agent_id,
+        feedback_count: parsed.feedback_count,
+        kanban_action_count: parsed.kanban_action_count,
+        summary: clipText(parsed.summary, Math.min(1800, max)),
+        message: clipText(parsed.message, 800),
+        result: clipText(parsed.result, 800),
+        _truncated: true,
+        _preview: clipText(s, Math.max(400, max - 200)),
+      };
+      Object.keys(slim).forEach((k) => {
+        if (slim[k] === undefined || slim[k] === null) delete slim[k];
+      });
+      const slimStr = JSON.stringify(slim);
+      if (slimStr.length <= max + 500) return slim;
     }
     return `${s.slice(0, max)}…`;
   } catch {

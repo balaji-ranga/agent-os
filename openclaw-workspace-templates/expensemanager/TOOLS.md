@@ -2,13 +2,14 @@
 
 You have access to **Agent OS content tools** (plugin: agent-os-content-tools). Use them by **invoking the tool by name with JSON parameters**; do not use exec or run as shell commands.
 
-- **summarize_url** — Summarize a web page. Parameters: `url` (HTTPS).
+- **learnings_summary** — **Call first** before non-trivial work. Parameters: `topic`, optional `days` (default 30).
+- **summarize_url** — Summarize a web page. Parameters: `url` (HTTPS). On 404, use `suggested_url` / browser.
 - **generate_image** — Generate an image from a text prompt. Parameters: `prompt`, optional `style_hint`.
 - **generate_video** — Generate a short video from a prompt. Parameters: `prompt`, optional `duration_sec`.
-- **kanban_move_status** — Move your Kanban task status. Parameters: `task_id` (number), `new_status` (open, awaiting_confirmation, in_progress, completed, failed). Call with in_progress when you start, completed or failed when done.
+- **kanban_move_status** — You decide. Parameters: `task_id`, `new_status` (open, awaiting_confirmation, in_progress, completed, failed). → `in_progress` when you start; → `completed` only after the deliverable is done.
 - **kanban_reassign_to_coo** — Reassign a task back to the COO. Parameters: `task_id`.
 
-When you have a Kanban task_id in your instructions, use **kanban_move_status** to set in_progress first, then do the work, then set completed or failed.
+When you have a Kanban task_id: start → do the work → self-check → completed or failed. Never mark completed without doing the work.
 
 ---
 

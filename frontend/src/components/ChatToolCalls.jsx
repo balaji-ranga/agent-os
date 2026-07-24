@@ -58,10 +58,34 @@ export function collectChartUrlsFromToolCalls(toolCalls) {
   return urls;
 }
 
-export default function ChatToolCalls({ toolCalls, showChartPreviews = true }) {
+/** Inline generated images/videos from tool responses when the model forgets to paste URLs. */
+export function collectGeneratedMediaUrlsFromToolCalls(toolCalls) {
+  const urls = [];
+  const seen = new Set();
+  for (const tc of toolCalls || []) {
+    const name = String(tc.tool_name || '');
+    if (name !== 'generate_image' && name !== 'generate_video') continue;
+    if (String(tc.status || '').toLowerCase() !== 'ok') continue;
+    const resp = parseJsonMaybe(tc.response);
+    if (!resp || typeof resp !== 'object') continue;
+    const candidates = [resp.url, resp.image_url, resp.video_url, resp.media_url].filter(Boolean);
+    if (Array.isArray(resp.urls)) candidates.push(...resp.urls);
+    for (const u of candidates) {
+      const url = String(u || '').trim();
+      if (!url || seen.has(url)) continue;
+      if (!/\/api\/media\//i.test(url) && !/^https?:\/\//i.test(url)) continue;
+      seen.add(url);
+      urls.push(url);
+    }
+  }
+  return urls;
+}
+
+export default function ChatToolCalls({ toolCalls, showChartPreviews = true, showMediaPreviews = true }) {
   const list = Array.isArray(toolCalls) ? toolCalls : [];
   if (!list.length) return null;
   const chartUrls = showChartPreviews ? collectChartUrlsFromToolCalls(list) : [];
+  const mediaUrls = showMediaPreviews ? collectGeneratedMediaUrlsFromToolCalls(list) : [];
 
   return (
     <div className="chat-tool-calls" style={{ marginTop: '0.55rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
@@ -69,6 +93,13 @@ export default function ChatToolCalls({ toolCalls, showChartPreviews = true }) {
         <div className="chat-tool-chart-previews" style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginBottom: '0.35rem' }}>
           {chartUrls.map((src) => (
             <AuthenticatedMediaImage key={src} src={src} alt="Chart" />
+          ))}
+        </div>
+      )}
+      {mediaUrls.length > 0 && (
+        <div className="chat-tool-media-previews" style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginBottom: '0.35rem' }}>
+          {mediaUrls.map((src) => (
+            <AuthenticatedMediaImage key={src} src={src} alt="Generated media" />
           ))}
         </div>
       )}

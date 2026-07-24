@@ -35,6 +35,7 @@ import efficiencyRoutes from './routes/efficiency.js';
 import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
 import platformNotificationsRoutes from './routes/platform-notifications.js';
+import userApiKeysRoutes from './routes/user-api-keys.js';
 import { attachAuthUser, requireAuth, requireCeoOrAdmin } from './middleware/auth.js';
 import { ensureInternalTokenConfigured } from './middleware/internal-auth.js';
 import { ensureToolsApiKeyConfigured } from './config/tools.js';
@@ -71,6 +72,7 @@ import { seedWorkflowBuilderAgent } from '../scripts/seed-workflow-builder-agent
 import { seedPlatformHelpAgent } from '../scripts/seed-platform-help-agent.js';
 import { healAgentWorkspacePaths } from './workspace/adapter.js';
 import { healStuckKanbanForCompletedDelegations } from './services/kanban-workflow-stage.js';
+import { seedPlatformStandardWorkspaceTemplate } from './services/platform-agent-workspace-templates.js';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
@@ -116,6 +118,11 @@ try {
 } catch (_) {}
 ensureDefaultAdmin();
 ensureBalaCeoUser();
+try {
+  seedPlatformStandardWorkspaceTemplate();
+} catch (e) {
+  console.warn('[startup] platform workspace templates:', e.message);
+}
 try {
   const ceos = getDb().prepare(`SELECT id FROM platform_users WHERE role = 'ceo'`).all();
   for (const { id } of ceos) grantStandardAgents(id);
@@ -274,6 +281,7 @@ apiRouter.get('/debug/intent-last', requireAuth, requireCeoOrAdmin, (req, res) =
 apiRouter.use('/auth', authRoutes);
 apiRouter.use('/admin', adminRoutes);
 apiRouter.use('/platform-notifications', platformNotificationsRoutes);
+apiRouter.use('/user-api-keys', userApiKeysRoutes);
 apiRouter.use('/feedback', feedbackRoutes);
 apiRouter.use('/master-data', masterDataRoutes);
 apiRouter.use('/ceo-guardrails', ceoGuardrailsRoutes);

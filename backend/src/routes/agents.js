@@ -44,6 +44,12 @@ import {
   formatSessionForApi,
 } from '../services/chat-history.js';
 import { resolveLlmConfigForUser } from '../services/user-llm-settings.js';
+import {
+  listPublishedTemplates,
+  getTemplate,
+  publishAgentWorkspaceAsTemplate,
+  applyTemplateToAgentWorkspace,
+} from '../services/platform-agent-workspace-templates.js';
 
 const router = Router();
 
@@ -162,6 +168,27 @@ router.post('/org/sync', requireAuth, requireCeoOrAdmin, async (req, res) => {
   }
 });
 
+/** Published platform workspace templates (must be before /:id). */
+router.get('/workspace-templates', requireAuth, requireCeoOrAdmin, (req, res) => {
+  try {
+    res.json({ templates: listPublishedTemplates() });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.get('/workspace-templates/:templateId', requireAuth, requireCeoOrAdmin, (req, res) => {
+  try {
+    const tpl = getTemplate(req.params.templateId, { includeFiles: true });
+    if (!tpl || (tpl.status !== 'published' && req.authUser.role !== 'admin')) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+    res.json(tpl);
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
 router.get('/:id', requireAuth, (req, res) => {
   try {
     assertUserAgentAccess(req.authUser, req.params.id);
@@ -220,6 +247,49 @@ router.post('/:id/tools/sync-template-md', requireAuth, async (req, res) => {
     res.json({ ok: true, bytes: text.length });
   } catch (e) {
     res.status(400).json({ error: e.message });
+  }
+});
+
+/** POST /api/agents/:id/workspace/apply-template — prepopulate workspace MD from a published template */
+router.post('/:id/workspace/apply-template', requireAuth, requireCeoOrAdmin, async (req, res) => {
+  try {
+    assertUserAgentAccess(req.authUser, req.params.id);
+    const agent = db().prepare('SELECT * FROM agents WHERE id = ?').get(req.params.id);
+    if (!agent) return res.status(404).json({ error: 'Agent not found' });
+    const ownerUserId = resolveChatOwnerUserId(req, req.body || {});
+    const templateId = String(req.body?.template_id || req.body?.templateId || '').trim();
+    if (!templateId) return res.status(400).json({ error: 'template_id required' });
+    const result = await applyTemplateToAgentWorkspace({
+      agent,
+      ownerUserId,
+      templateId,
+      authUser: req.authUser,
+    });
+    res.json(result);
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message });
+  }
+});
+
+/** POST /api/agents/:id/workspace/publish-template — CEO publishes this agent's MD as a platform template */
+router.post('/:id/workspace/publish-template', requireAuth, requireCeoOrAdmin, async (req, res) => {
+  try {
+    assertUserAgentAccess(req.authUser, req.params.id);
+    const agent = db().prepare('SELECT * FROM agents WHERE id = ?').get(req.params.id);
+    if (!agent) return res.status(404).json({ error: 'Agent not found' });
+    const ownerUserId = resolveChatOwnerUserId(req, req.body || {});
+    const name = String(req.body?.name || `${agent.name} template`).trim();
+    const description = String(req.body?.description || '').trim();
+    const tpl = await publishAgentWorkspaceAsTemplate({
+      agent,
+      ownerUserId,
+      name,
+      description,
+      actor: req.authUser,
+    });
+    res.status(201).json(tpl);
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message });
   }
 });
 
@@ -576,6 +646,8 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       agentId,
       ownerUserId,
       openclawAgentId,
+      timeZone:
+        String(req.body?.tz || req.headers['x-timezone'] || process.env.TZ || 'UTC').trim() || 'UTC',
       generateTitle: false,
     });
 
@@ -784,6 +856,8 @@ router.post('/:id/chat/from-agent', allowInternalOrAuth, async (req, res) => {
       agentId,
       ownerUserId,
       openclawAgentId,
+      timeZone:
+        String(req.body?.tz || req.headers['x-timezone'] || process.env.TZ || 'UTC').trim() || 'UTC',
       generateTitle: false,
     });
 

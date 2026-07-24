@@ -11,6 +11,7 @@ const FILE_MAP = {
   identity: 'IDENTITY.md',
   user: 'USER.md',
   tools: 'TOOLS.md',
+  ops: 'AGENT-OS-OPS.md',
 };
 
 const MAX_FILE_SIZE = 512 * 1024; // 500 KB

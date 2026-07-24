@@ -136,14 +136,14 @@ export function getWorkflowNodeTypeSpec(nodeType) {
   };
 }
 
-export function validateWorkflowForPublish(graph) {
+export function validateWorkflowForPublish(graph, ownerUserId = null) {
   const errors = [];
   const nodes = graph?.nodes || [];
 
   if (!nodes.length) errors.push('Workflow has no nodes.');
   if (!nodes.some((n) => n.type === 'trigger')) errors.push('Workflow must include a Trigger node.');
 
-  errors.push(...validateWorkflowBrainCredentials(graph));
+  errors.push(...validateWorkflowBrainCredentials(graph, ownerUserId));
 
   for (const node of nodes) {
     if (node.type === 'mcp_tool') {

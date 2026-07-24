@@ -26,6 +26,15 @@ import {
   setPlatformLlmActiveEndpoint,
   ensurePlatformSettingsTable,
 } from '../services/platform-llm-settings.js';
+import {
+  listAllTemplates,
+  getTemplate,
+  createTemplate,
+  updateTemplate,
+  deleteTemplate,
+  seedPlatformStandardWorkspaceTemplate,
+  TEMPLATE_FILE_KEYS,
+} from '../services/platform-agent-workspace-templates.js';
 
 const router = Router();
 
@@ -280,6 +289,81 @@ router.post('/agents/custom', (req, res) => {
     res.status(201).json({ agent });
   } catch (e) {
     res.status(400).json({ error: e.message });
+  }
+});
+
+/** Platform agent workspace MD templates (shared catalog). */
+router.get('/workspace-templates', (req, res) => {
+  try {
+    seedPlatformStandardWorkspaceTemplate();
+    res.json({ templates: listAllTemplates(), file_keys: TEMPLATE_FILE_KEYS });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.get('/workspace-templates/:id', (req, res) => {
+  try {
+    const tpl = getTemplate(req.params.id, { includeFiles: true });
+    if (!tpl) return res.status(404).json({ error: 'Template not found' });
+    res.json(tpl);
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+router.post('/workspace-templates', (req, res) => {
+  try {
+    const { name, description, files, status } = req.body || {};
+    if (!name || !String(name).trim()) return res.status(400).json({ error: 'name required' });
+    const tpl = createTemplate({
+      name,
+      description,
+      files,
+      status: status === 'published' ? 'published' : 'draft',
+      actor: req.authUser,
+    });
+    res.status(201).json(tpl);
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message });
+  }
+});
+
+router.put('/workspace-templates/:id', (req, res) => {
+  try {
+    const tpl = updateTemplate(req.params.id, req.body || {}, req.authUser);
+    res.json(tpl);
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message });
+  }
+});
+
+router.post('/workspace-templates/:id/publish', (req, res) => {
+  try {
+    const tpl = updateTemplate(req.params.id, { status: 'published' }, req.authUser);
+    res.json(tpl);
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message });
+  }
+});
+
+router.post('/workspace-templates/:id/unpublish', (req, res) => {
+  try {
+    const existing = getTemplate(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Template not found' });
+    if (existing.is_default) return res.status(400).json({ error: 'Cannot unpublish Platform standard template' });
+    const tpl = updateTemplate(req.params.id, { status: 'draft' }, req.authUser);
+    res.json(tpl);
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message });
+  }
+});
+
+router.delete('/workspace-templates/:id', (req, res) => {
+  try {
+    res.json(deleteTemplate(req.params.id));
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message });
   }
 });
 

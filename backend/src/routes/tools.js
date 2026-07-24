@@ -5,7 +5,7 @@
  */
 import { Router } from 'express';
 import { randomUUID } from 'crypto';
-import { join } from 'path';
+import { join, extname } from 'path';
 import { mkdirSync, writeFileSync } from 'fs';
 import { getSummarizeUrlConfig, getToolsApiKey, getOpenAiConfig, getImageConfig, getVideoConfig, isGptImageModel, mapGptImageQuality } from '../config/tools.js';
 import { chatCompletions } from '../config/llm.js';
@@ -173,6 +173,89 @@ function stripHtml(html) {
 function extractTitle(html) {
   const match = html && typeof html === 'string' ? html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) : null;
   return match ? stripHtml(match[1]).slice(0, 300) : '';
+}
+
+/** Known moved/retired pages → current equivalents (summarize_url remaps). */
+const SUMMARIZE_URL_REMAPS = [
+  {
+    test: (u) => /nasa\.gov$/i.test(u.hostname) && /\/mission_pages\/planets\b/i.test(u.pathname),
+    to: 'https://science.nasa.gov/solar-system/planets/',
+  },
+  {
+    test: (u) => /nasa\.gov$/i.test(u.hostname) && /\/mission_pages\//i.test(u.pathname),
+    to: 'https://science.nasa.gov/',
+  },
+];
+
+function summarizeUrlCandidates(rawUrl) {
+  const out = [];
+  const seen = new Set();
+  const push = (u) => {
+    const s = String(u || '').trim();
+    if (!s || seen.has(s)) return;
+    seen.add(s);
+    out.push(s);
+  };
+  push(rawUrl);
+  try {
+    const u = new URL(rawUrl);
+    for (const rule of SUMMARIZE_URL_REMAPS) {
+      if (rule.test(u)) push(rule.to);
+    }
+    // Variant paths for dead index pages
+    if (/\/index\.html?$/i.test(u.pathname)) {
+      const stripped = new URL(u.href);
+      stripped.pathname = u.pathname.replace(/\/index\.html?$/i, '/');
+      push(stripped.href);
+      stripped.pathname = u.pathname.replace(/\/index\.html?$/i, '');
+      push(stripped.href);
+    }
+    if (u.pathname.endsWith('/')) {
+      const noSlash = new URL(u.href);
+      noSlash.pathname = u.pathname.replace(/\/+$/, '') || '/';
+      push(noSlash.href);
+    }
+  } catch {
+    /* ignore */
+  }
+  return out.slice(0, 6);
+}
+
+const SUMMARIZE_FETCH_HEADERS = {
+  'User-Agent':
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 AgentOS-ContentTools/1.1',
+  Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.9',
+};
+
+async function fetchSummarizeUrlBody(url, { timeoutMs, maxBytes }) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      redirect: 'follow',
+      headers: SUMMARIZE_FETCH_HEADERS,
+    });
+    if (!response.ok) {
+      return { ok: false, status: response.status, finalUrl: response.url || url };
+    }
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder('utf-8', { fatal: false });
+    let body = '';
+    let contentLength = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      contentLength += value.length;
+      if (contentLength > maxBytes) break;
+      body += decoder.decode(value, { stream: true });
+    }
+    if (contentLength > maxBytes) body = body.slice(0, maxBytes);
+    return { ok: true, status: response.status, body, finalUrl: response.url || url };
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 function optionalAuth(req, res, next) {
@@ -353,7 +436,7 @@ router.use(jobApplicantTools);
 /**
  * POST /summarize-url
  * Body: { url: string }
- * Returns: { summary: string, title?: string } or { error: string }
+ * Returns: { summary: string, title?: string, url?: string } or { error, hint?, tried_urls? }
  */
 router.post('/summarize-url', async (req, res) => {
   const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
@@ -361,18 +444,18 @@ router.post('/summarize-url', async (req, res) => {
   try {
     const url = typeof req.body?.url === 'string' ? req.body.url.trim() : '';
     if (!url) {
-      logTool(req,'summarize_url', requestPayload, { error: 'url is required' }, 'error', source);
+      logTool(req, 'summarize_url', requestPayload, { error: 'url is required' }, 'error', source);
       return res.status(400).json({ error: 'url is required' });
     }
     let parsed;
     try {
       parsed = new URL(url);
     } catch (_) {
-      logTool(req,'summarize_url', requestPayload, { error: 'Invalid URL' }, 'error', source);
+      logTool(req, 'summarize_url', requestPayload, { error: 'Invalid URL' }, 'error', source);
       return res.status(400).json({ error: 'Invalid URL' });
     }
     if (parsed.protocol !== 'https:') {
-      logTool(req,'summarize_url', requestPayload, { error: 'Only HTTPS URLs are allowed' }, 'error', source);
+      logTool(req, 'summarize_url', requestPayload, { error: 'Only HTTPS URLs are allowed' }, 'error', source);
       return res.status(400).json({ error: 'Only HTTPS URLs are allowed' });
     }
 
@@ -380,46 +463,50 @@ router.post('/summarize-url', async (req, res) => {
     if (allowedDomains && allowedDomains.length > 0) {
       const host = parsed.hostname.toLowerCase();
       if (!allowedDomains.some((d) => host === d || host.endsWith('.' + d))) {
-        logTool(req,'summarize_url', requestPayload, { error: 'URL domain not allowed' }, 'error', source);
+        logTool(req, 'summarize_url', requestPayload, { error: 'URL domain not allowed' }, 'error', source);
         return res.status(400).json({ error: 'URL domain not allowed' });
       }
     }
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    const candidates = summarizeUrlCandidates(url);
+    const tried = [];
     let body = '';
-    let contentLength = 0;
-    try {
-      const response = await fetch(url, {
-        signal: controller.signal,
-        redirect: 'follow',
-        headers: { 'User-Agent': 'AgentOS-ContentTools/1.0' },
-      });
-      clearTimeout(timeoutId);
-      if (!response.ok) {
-        logTool(req,'summarize_url', requestPayload, { error: `Upstream returned ${response.status}` }, 'error', source);
-        return res.status(502).json({ error: `Upstream returned ${response.status}` });
+    let usedUrl = url;
+    let lastStatus = null;
+    let fetchErr = null;
+
+    for (const candidate of candidates) {
+      try {
+        const got = await fetchSummarizeUrlBody(candidate, { timeoutMs, maxBytes });
+        tried.push({ url: candidate, status: got.status, ok: got.ok });
+        if (got.ok && got.body) {
+          body = got.body;
+          usedUrl = got.finalUrl || candidate;
+          lastStatus = got.status;
+          break;
+        }
+        lastStatus = got.status;
+      } catch (e) {
+        fetchErr = e.name === 'AbortError' ? 'Request timeout' : 'Failed to fetch URL';
+        tried.push({ url: candidate, error: fetchErr });
+        if (e.name === 'AbortError') {
+          logTool(req, 'summarize_url', requestPayload, { error: 'Request timeout', tried_urls: tried }, 'error', source);
+          return res.status(504).json({ error: 'Request timeout', tried_urls: tried });
+        }
       }
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder('utf-8', { fatal: false });
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        contentLength += value.length;
-        if (contentLength > maxBytes) break;
-        body += decoder.decode(value, { stream: true });
-      }
-      if (contentLength > maxBytes) {
-        body = body.slice(0, maxBytes);
-      }
-    } catch (e) {
-      clearTimeout(timeoutId);
-      const errMsg = e.name === 'AbortError' ? 'Request timeout' : 'Failed to fetch URL';
-      logTool(req,'summarize_url', requestPayload, { error: errMsg }, 'error', source);
-      if (e.name === 'AbortError') {
-        return res.status(504).json({ error: 'Request timeout' });
-      }
-      return res.status(502).json({ error: 'Failed to fetch URL' });
+    }
+
+    if (!body) {
+      const remapped = candidates.find((c) => c !== url);
+      const err = {
+        error: lastStatus ? `Upstream returned ${lastStatus}` : fetchErr || 'Failed to fetch URL',
+        tried_urls: tried,
+        hint:
+          'This URL may be retired or blocked. Try ≥3 other live domains (en.wikipedia.org, bbc.com, reuters.com, relevant *.gov.in), follow suggested_url if present, or use browser with profile="openclaw". Do not invent page content. Still deliver a brief with gaps noted if some sources work.',
+        suggested_url: remapped || undefined,
+      };
+      logTool(req, 'summarize_url', requestPayload, err, 'error', source);
+      return res.status(502).json(err);
     }
 
     const title = extractTitle(body);
@@ -441,8 +528,13 @@ router.post('/summarize-url', async (req, res) => {
           ownerUserId,
         });
         const summary = (summaryText && summaryText.trim()) || rawText.slice(0, 500);
-        const out = { summary, title: title || undefined };
-        logTool(req,'summarize_url', requestPayload, out, 'ok', source);
+        const out = {
+          summary,
+          title: title || undefined,
+          url: usedUrl,
+          remapped: usedUrl !== url ? true : undefined,
+        };
+        logTool(req, 'summarize_url', { ...requestPayload, resolved_url: usedUrl }, out, 'ok', source);
         return res.json(out);
       } catch (_) {
         // fall through to raw extract
@@ -450,11 +542,16 @@ router.post('/summarize-url', async (req, res) => {
     }
 
     const summary = rawText.slice(0, 1500).trim() || 'No text content could be extracted.';
-    const out = { summary, title: title || undefined };
-    logTool(req,'summarize_url', requestPayload, out, 'ok', source);
+    const out = {
+      summary,
+      title: title || undefined,
+      url: usedUrl,
+      remapped: usedUrl !== url ? true : undefined,
+    };
+    logTool(req, 'summarize_url', { ...requestPayload, resolved_url: usedUrl }, out, 'ok', source);
     res.json(out);
   } catch (e) {
-    logTool(req,'summarize_url', requestPayload, { error: 'Internal error' }, 'error', source);
+    logTool(req, 'summarize_url', requestPayload, { error: 'Internal error' }, 'error', source);
     res.status(500).json({ error: 'Internal error' });
   }
 });
@@ -497,13 +594,44 @@ function persistGeneratedImage(b64Json, format = 'png') {
   return `/api/media/openclaw/generated/${filename}`;
 }
 
-function imageResultFromApi(data) {
+async function persistRemoteImageUrl(remoteUrl) {
+  const url = String(remoteUrl || '').trim();
+  if (!url) throw new Error('empty image url');
+  if (/^\/api\/media\//i.test(url)) return url;
+  const imgRes = await fetch(url, { signal: AbortSignal.timeout(60000) });
+  if (!imgRes.ok) throw new Error(`Failed to download image (${imgRes.status})`);
+  const buf = Buffer.from(await imgRes.arrayBuffer());
+  const ct = String(imgRes.headers.get('content-type') || '').toLowerCase();
+  let ext = 'png';
+  if (ct.includes('jpeg') || ct.includes('jpg')) ext = 'jpg';
+  else if (ct.includes('webp')) ext = 'webp';
+  else if (ct.includes('gif')) ext = 'gif';
+  else {
+    const fromPath = extname(new URL(url).pathname || '').replace('.', '').toLowerCase();
+    if (['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(fromPath)) {
+      ext = fromPath === 'jpeg' ? 'jpg' : fromPath;
+    }
+  }
+  mkdirSync(GENERATED_MEDIA_DIR, { recursive: true });
+  const filename = `${randomUUID()}.${ext}`;
+  writeFileSync(join(GENERATED_MEDIA_DIR, filename), buf);
+  return `/api/media/openclaw/generated/${filename}`;
+}
+
+async function imageResultFromApi(data) {
   const item = data?.data?.[0];
   if (!item) return { error: 'No image in response' };
-  if (item.url) return { url: item.url };
   if (item.b64_json) {
     const format = data?.output_format || 'png';
     return { url: persistGeneratedImage(item.b64_json, format) };
+  }
+  if (item.url) {
+    try {
+      return { url: await persistRemoteImageUrl(item.url) };
+    } catch (e) {
+      // Fall back to remote URL so the agent still gets something, but prefer local.
+      return { url: item.url, warning: e.message };
+    }
   }
   return { error: 'No image URL in response' };
 }
@@ -550,7 +678,7 @@ router.post('/generate-image', optionalAuth, async (req, res) => {
           lastErr = data?.error?.message || data?.error || imgRes.statusText;
           continue;
         }
-        const result = imageResultFromApi(data);
+        const result = await imageResultFromApi(data);
         if (result.error) {
           lastErr = result.error;
           continue;

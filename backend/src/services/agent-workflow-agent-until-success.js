@@ -133,7 +133,7 @@ export async function executeUntilSuccess({
       }
     }
 
-    const publishErrors = validateWorkflowForPublish(def?.draft_graph) || [];
+    const publishErrors = validateWorkflowForPublish(def?.draft_graph, ownerUserId) || [];
     if (publishErrors.length) {
       attempts.push({
         attempt,

@@ -2,14 +2,17 @@
 
 You have access to **Agent OS content tools** (plugin: agent-os-content-tools). Use them by **invoking the tool by name with JSON parameters**; do not use exec or run as shell commands.
 
-- **summarize_url** — Summarize a web page. Parameters: `url` (HTTPS).
-- **generate_image** — Generate an image from a text prompt. Parameters: `prompt`, optional `style_hint`.
+- **learnings_summary** — **Call first** before non-trivial work. Parameters: `topic` (short description), optional `days` (default 30). Apply the returned summary.
+- **summarize_url** — Summarize a web page. Parameters: `url` (HTTPS). On 404, use `suggested_url` / a current page / **browser** — never invent content.
+- **generate_image** — Generate an image from a text prompt. Parameters: `prompt`, optional `style_hint`. Paste `![image](<url>)` after success.
 - **generate_video** — Generate a short video from a prompt. Parameters: `prompt`, optional `duration_sec`.
-- **kanban_move_status** — Move your Kanban task status. Parameters: `task_id` (number), `new_status` (open, awaiting_confirmation, in_progress, completed, failed). Call with in_progress when you start, completed or failed when done.
+- **kanban_move_status** — You decide. Parameters: `task_id`, `new_status` (`open` | `awaiting_confirmation` | `in_progress` | `completed` | `failed`). → `in_progress` when you start; → `completed` **only after** the deliverable is done; → `failed` **only** if you produced no usable brief. After summarize_url 404/403, try ≥3 domains (wikipedia, bbc, reuters, *.gov.in) or browser — still deliver a brief with gaps noted, then complete.
 - **kanban_reassign_to_coo** — Reassign a task back to the COO. Parameters: `task_id`.
 - **notify_ceo** — Push an in-app notification to the CEO (NotificationBell). Parameters: `title` (required), optional `body`, `link_url`, `source_key`. Recipient is always the entitled CEO for this session — **never** pass `user_id` / `ceo_user_id`. Use **only** when the CEO asks you to reach them, or for a true blocker while they are not already in Dashboard chat. Do **not** notify for ordinary chat replies or finished research — they already see your answer.
 
-When you have a Kanban task_id in your instructions, use **kanban_move_status** to set in_progress first, then do the work, then set completed or failed.
+When you have a Kanban `task_id`: `in_progress` → do the work with tools → self-check → `completed` or `failed`. Do not mark completed without the research/deliverable. Do not mark failed after delivering a substantive brief just because some URLs 404'd.
+
+See also: `openclaw-workspace-templates/_shared/AGENT-OS-OPS.md` (same rules for all agents).
 
 ---
 

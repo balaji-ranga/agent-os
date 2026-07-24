@@ -30,6 +30,8 @@ function parseMcpServerAuthMap(cfg = {}, context = null) {
       raw = {};
     }
   }
+  const owner =
+    context?.owner_user_id || context?.ownerUserId || context?.ceo_user_id || context?.ceoUserId || null;
   const map = new Map();
   if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
     for (const [serverId, val] of Object.entries(raw)) {
@@ -40,13 +42,21 @@ function parseMcpServerAuthMap(cfg = {}, context = null) {
         typeof val === 'object' && val
           ? val.authBearer || val.auth_bearer || val.bearerToken || val.bearer_token || ''
           : '';
+      const bearerRef =
+        typeof val === 'object' && val
+          ? val.authBearerRef || val.auth_bearer_ref || val.bearerTokenRef || ''
+          : '';
       map.set(
         serverId,
-        parseMcpAuthFromNodeConfig({ httpHeadersJson: headersJson, authBearer: bearer }, context)
+        parseMcpAuthFromNodeConfig(
+          { httpHeadersJson: headersJson, authBearer: bearer, authBearerRef: bearerRef },
+          context,
+          owner
+        )
       );
     }
   }
-  const legacyAuth = parseMcpAuthFromNodeConfig(cfg, context);
+  const legacyAuth = parseMcpAuthFromNodeConfig(cfg, context, owner);
   return { map, legacyAuth };
 }
 

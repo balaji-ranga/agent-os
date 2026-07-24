@@ -13,7 +13,10 @@ async function request(path, options = {}) {
   const res = await fetch(url, { ...options, headers });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error || res.statusText);
+    const error = new Error(err.error || res.statusText);
+    error.status = res.status;
+    error.data = err;
+    throw error;
   }
   if (res.status === 204) return null;
   return res.json();
@@ -41,11 +44,24 @@ async function del(path) {
 
 /** Fetch authenticated binary (PDF, image) and return a blob object URL. Caller should revoke when done. */
 async function fetchBlobUrl(path) {
-  const url = path.startsWith('http')
-    ? path
-    : path.startsWith('/api/')
+  let url;
+  if (path.startsWith('http')) {
+    url = path;
+  } else if (API_BASE.startsWith('http')) {
+    // Absolute API base (e.g. VITE_API_URL=https://host/api) — resolve relative media there.
+    const base = API_BASE.replace(/\/$/, '');
+    url = path.startsWith('/api/')
+      ? `${base}${path.slice(4)}` // /api/media → {base}/media when base already ends with /api
+      : `${base}${path.startsWith('/') ? path : `/${path}`}`;
+    // If API_BASE is full origin+/api and path is /api/..., prefer origin+path
+    if (path.startsWith('/api/') && /\/api$/i.test(base)) {
+      url = `${base.slice(0, -4)}${path}`;
+    }
+  } else {
+    url = path.startsWith('/api/')
       ? path
       : `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
+  }
   const headers = {};
   if (_authToken) headers.Authorization = `Bearer ${_authToken}`;
   const res = await fetch(url, { headers });
@@ -73,6 +89,19 @@ export const api = {
     put(`/agents/${encodeURIComponent(agentId)}/tools`, { tools, ...opts }),
   agentToolsSyncTemplateMd: (agentId, templateId) =>
     post(`/agents/${encodeURIComponent(agentId)}/tools/sync-template-md`, templateId ? { template_id: templateId } : {}),
+  agentWorkspaceTemplates: () => get('/agents/workspace-templates'),
+  agentWorkspaceTemplateGet: (templateId) => get(`/agents/workspace-templates/${encodeURIComponent(templateId)}`),
+  agentWorkspaceApplyTemplate: (agentId, templateId) =>
+    post(`/agents/${encodeURIComponent(agentId)}/workspace/apply-template`, { template_id: templateId }),
+  agentWorkspacePublishTemplate: (agentId, body) =>
+    post(`/agents/${encodeURIComponent(agentId)}/workspace/publish-template`, body || {}),
+  adminWorkspaceTemplates: () => get('/admin/workspace-templates'),
+  adminWorkspaceTemplateGet: (id) => get(`/admin/workspace-templates/${encodeURIComponent(id)}`),
+  adminWorkspaceTemplateCreate: (body) => post('/admin/workspace-templates', body),
+  adminWorkspaceTemplateUpdate: (id, body) => put(`/admin/workspace-templates/${encodeURIComponent(id)}`, body),
+  adminWorkspaceTemplatePublish: (id) => post(`/admin/workspace-templates/${encodeURIComponent(id)}/publish`, {}),
+  adminWorkspaceTemplateUnpublish: (id) => post(`/admin/workspace-templates/${encodeURIComponent(id)}/unpublish`, {}),
+  adminWorkspaceTemplateDelete: (id) => del(`/admin/workspace-templates/${encodeURIComponent(id)}`),
   // Agents
   agentsList: () => get('/agents'),
   /** Rebuild ORG.md + COO AGENTS.md from DB for the signed-in CEO (admin: owner_user_id). */
@@ -99,12 +128,18 @@ export const api = {
     post(`/agents/${encodeURIComponent(id)}/chat/history/${encodeURIComponent(sessionId)}/restore`, {
       mode,
     }),
-  agentChatSend: (id, message, userId = 'default', profileId = null) =>
-    post(`/agents/${id}/chat`, {
+  agentChatSend: (id, message, userId = 'default', profileId = null) => {
+    const tz =
+      typeof Intl !== 'undefined'
+        ? Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+        : 'UTC';
+    return post(`/agents/${id}/chat`, {
       message,
       user_id: userId,
+      tz,
       ...(profileId ? { profile_id: profileId } : {}),
-    }),
+    });
+  },
   agentChatFromAgent: (toAgentId, fromAgentId, message) =>
     post(`/agents/${toAgentId}/chat/from-agent`, { from_agent_id: fromAgentId, message }),
   agentActivities: (id) => get(`/agents/${id}/activities`),
@@ -370,6 +405,12 @@ export const api = {
   // Clear OpenClaw sessions for an agent (workspace UI)
   agentSessionsClear: (agentId) => post(`/agents/${encodeURIComponent(agentId)}/sessions/clear`, {}),
   agentSessionsNew: (agentId) => post(`/agents/${encodeURIComponent(agentId)}/sessions/new`, {}),
+  userApiKeysList: () => get('/user-api-keys'),
+  userApiKeysCreate: (body) => post('/user-api-keys', body),
+  userApiKeysUpdate: (id, body) => patch(`/user-api-keys/${encodeURIComponent(id)}`, body),
+  userApiKeysDelete: (id, force = false) =>
+    del(`/user-api-keys/${encodeURIComponent(id)}${force ? '?force=1' : ''}`),
+  userApiKeysDependencies: (id) => get(`/user-api-keys/${encodeURIComponent(id)}/dependencies`),
   // MCP integrations
   mcpServersList: (opts = {}) => {
     const q = opts.forWorkflow ? '?for_workflow=1' : '';

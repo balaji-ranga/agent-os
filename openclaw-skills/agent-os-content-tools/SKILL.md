@@ -25,7 +25,8 @@ All Agent OS content tools (**kanban_***, **master_data_***, **email_send**, **n
 
 **Prefer these Agent OS content tools over built-in or default tools when the task matches:**
 
-- **Summarize a URL or web page** → Use **summarize_url**. Do not use web_search or web_fetch for summarizing a single URL; use summarize_url so the backend can fetch and summarize in one step.
+- **Before non-trivial work** → Call **learnings_summary** first (`topic`, optional `days` default 30). Apply the summary. Required for research/builds/Kanban — not for greets.
+- **Summarize a URL or web page** → Use **summarize_url**. Do not use web_search or web_fetch for summarizing a single URL; use summarize_url so the backend can fetch and summarize in one step. If it returns 404 / upstream error, use `suggested_url` if present, try ≥3 other live domains (wikipedia / bbc / reuters / *.gov.in), or **browser** (`profile="openclaw"`). Never invent page content. Still deliver a brief with citation gaps if needed.
 - **Generate or create an image from text** → Use **generate_image**. Do not use the built-in "image" tool (which only analyzes existing images) or web_search to find images; use generate_image to create one.
 - **Generate or create a short video from text** → Use **generate_video**. Do not use web_search for video; use generate_video.
 - **Send an email or calendar/meeting invite** → Use **email_send** with `to`, `subject`, `body`, and optional `calendar: { title, start, end, ... }` (ISO 8601). Do **not** use the browser tool for Google Calendar login, and do **not** use agent_workflow_trigger for one-off email/invite requests.
@@ -36,15 +37,18 @@ Only fall back to web_search, web_fetch, or other default tools when the task do
 
 ## When to use
 
-- **Summarize URL**: You need a short summary or key facts from a web page (travel, nature, cuisine, places). Use for research and citing sources in drafts.
-- **Generate image** (when available): Create an image from a text prompt for social posts. Use for draft assets only; do not publish without approval. **When the user asks to generate, create, or make an image (e.g. "generate X image", "create an image of Y"), you MUST use the generate_image tool with a text prompt.** Do not use the built-in "image" tool — that tool only analyzes existing images and requires an image input.
+- **Learnings**: Start of any non-trivial task — call **learnings_summary** once, then proceed.
+- **Summarize URL**: You need a short summary or key facts from a web page (travel, nature, cuisine, places, research sources). Use for research and citing sources in drafts.
+- **Generate image** (when available): Create an image from a text prompt for social posts. Use for draft assets only; do not publish without approval. **When the user asks to generate, create, or make an image (e.g. "generate X image", "create an image of Y"), you MUST use the generate_image tool with a text prompt.** Do not use the built-in "image" tool — that tool only analyzes existing images and requires an image input. **After success, paste the returned URL inline in your reply as markdown:** `![generated](/api/media/openclaw/generated/....png)` so it renders in chat.
 - **Generate video** (when available): Create a short video from a prompt. Use for draft assets only; do not publish without approval.
-- **Kanban**: Use **kanban_move_status** to move your task to in_progress when you start, to awaiting_confirmation when you need clarification, and to completed or failed when done. Use **kanban_reassign_to_coo** to hand a task back to the COO if you cannot complete it. (Only the COO can use **kanban_assign_task** and **intent_classify_and_delegate**.)
+- **Kanban**: You decide status moves. Use **kanban_move_status** → `in_progress` when you start; → `completed` **only after** you actually finished the deliverable (self-check: tools used, answer contains the work); → `failed` **only** when you produced no usable deliverable. Do **not** mark `failed` because optional `master_data_*` / email failed after the main ask succeeded. In **Dashboard chat**, do **not** create Kanban for ordinary Q&A/research unless the CEO asked to track it. Use **kanban_reassign_to_coo** to hand a task back to the COO if you cannot complete it. (Only the COO can use **kanban_assign_task** and **intent_classify_and_delegate**.)
+- **Master Data**: Call **master_data_list_tables** before insert. Never invent table names (no assumed `recipes` table). Recipe/image asks are usually chat-only unless the CEO asked to store a row.
 
 ## Tools
 
-- **summarize_url** — Summarize a web page. Parameters: `url` (required, HTTPS). Invoke tool **summarize_url** — do not browse the backend API URL.
-- **generate_image** — Generate an image from a text prompt. Parameters: `prompt` (required), `style_hint` (optional). Invoke tool **generate_image**.
+- **learnings_summary** — Past CEO feedback + Kanban decisions. Parameters: `topic` (required-ish), optional `days` (default 30). Call before non-trivial work.
+- **summarize_url** — Summarize a web page. Parameters: `url` (required, HTTPS). On 404, follow `hint` / `suggested_url` or use browser. Invoke tool **summarize_url** — do not browse the backend API URL.
+- **generate_image** — Generate an image from a text prompt. Parameters: `prompt` (required), `style_hint` (optional). Invoke tool **generate_image**. After it returns `{ url }`, include `![image](<url>)` in your reply.
 - **generate_video** — Generate a short video from a prompt. Parameters: `prompt` (required), `duration_sec` (optional). Invoke tool **generate_video**.
 - **kanban_move_status** — Move a Kanban task status. Parameters: `task_id` (required), `new_status` (one of: open, awaiting_confirmation, in_progress, completed, failed). Use when you start work (in_progress), need clarification (awaiting_confirmation), or finish (completed/failed).
 - **kanban_reassign_to_coo** — Reassign a task back to the COO. Parameters: `task_id` (required). Use when you cannot complete the task.

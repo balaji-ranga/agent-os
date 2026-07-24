@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import MaskedSecretInput from '../components/MaskedSecretInput';
+import VaultOrLiteralSecret from '../components/VaultOrLiteralSecret';
 
 const EMPTY_FORM = {
   name: '',
@@ -11,6 +12,7 @@ const EMPTY_FORM = {
   endpoint_url: '',
   skill_id: '',
   auth_header: '',
+  auth_header_ref: '',
 };
 
 function statusClass(status) {
@@ -31,6 +33,14 @@ export default function ExternalAgents() {
   const [busy, setBusy] = useState(null);
   const [testMessage, setTestMessage] = useState('Hello from Agent OS');
   const [testResult, setTestResult] = useState(null);
+  const [vaultKeys, setVaultKeys] = useState([]);
+
+  useEffect(() => {
+    api
+      .userApiKeysList()
+      .then((r) => setVaultKeys(r.keys || []))
+      .catch(() => setVaultKeys([]));
+  }, []);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -294,14 +304,18 @@ export default function ExternalAgents() {
               <span>Default skill ID</span>
               <input value={form.skill_id} onChange={(e) => setForm({ ...form, skill_id: e.target.value })} />
             </label>
-            <label className="mcp-pg-field">
-              <span>Auth (Bearer token)</span>
-              <MaskedSecretInput
-                value={form.auth_header}
-                onChange={(e) => setForm({ ...form, auth_header: e.target.value })}
+            <div className="mcp-pg-field">
+              <VaultOrLiteralSecret
+                label="Auth (Bearer token)"
+                literalValue={form.auth_header}
+                keyRef={form.auth_header_ref}
+                onLiteralChange={(v) => setForm({ ...form, auth_header: v, auth_header_ref: '' })}
+                onKeyRefChange={(v) => setForm({ ...form, auth_header_ref: v, auth_header: '' })}
+                vaultKeys={vaultKeys}
                 placeholder="optional"
+                MaskedInput={MaskedSecretInput}
               />
-            </label>
+            </div>
             <div className="mcp-pg-card-actions" style={{ marginTop: '0.5rem' }}>
               <button type="submit" className="mcp-pg-btn-primary" disabled={saving}>
                 {saving ? 'Saving…' : 'Register'}

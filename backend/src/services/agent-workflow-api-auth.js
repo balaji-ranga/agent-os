@@ -2,9 +2,26 @@
  * API node auth — stored on workflow node taskConfig (not .env).
  */
 import { renderWorkflowTemplates } from './agent-workflow-io.js';
-import { renderHttpHeadersJson, mergeHttpHeaders, parseHttpHeadersJson } from './http-headers.js';
+import { mergeHttpHeaders, parseHttpHeadersJson } from './http-headers.js';
 import { getInternalToken, ensureInternalTokenConfigured } from '../middleware/internal-auth.js';
 import { getPublicBaseUrl } from '../config/public-url.js';
+import { resolveLiteralOrKeyRef, resolveHeadersObject } from './user-api-keys.js';
+
+/** Render string header values; leave { $keyRef } objects for vault resolution. */
+function renderHeadersPreserveKeyRef(raw, context = null) {
+  const obj = parseHttpHeadersJson(raw);
+  const out = {};
+  for (const [k, v] of Object.entries(obj)) {
+    const name = String(k || '').trim();
+    if (!name) continue;
+    if (v != null && typeof v === 'object' && !Array.isArray(v) && v.$keyRef) {
+      out[name] = v;
+    } else {
+      out[name] = context ? renderWorkflowTemplates(String(v ?? ''), context) : String(v ?? '');
+    }
+  }
+  return out;
+}
 
 export function renderApiNodeConfig(config = {}, context = null) {
   if (!config || !context) return config || {};
@@ -26,24 +43,33 @@ export function renderApiNodeConfig(config = {}, context = null) {
   return out;
 }
 
-export function buildApiAuthHeaders(nodeConfig = {}) {
+export function buildApiAuthHeaders(nodeConfig = {}, ownerUserId = null) {
   const authType = String(nodeConfig.authType || nodeConfig.auth_type || 'none').toLowerCase();
   const headers = {};
 
   if (authType === 'basic') {
     const user = String(nodeConfig.basicUsername || nodeConfig.basic_username || '');
-    const pass = String(nodeConfig.basicPassword || nodeConfig.basic_password || '');
+    const pass = resolveLiteralOrKeyRef(ownerUserId, {
+      literal: nodeConfig.basicPassword || nodeConfig.basic_password || '',
+      keyRef: nodeConfig.basicPasswordRef || nodeConfig.basic_password_ref,
+    });
     if (user || pass) {
       headers.Authorization = `Basic ${Buffer.from(`${user}:${pass}`, 'utf8').toString('base64')}`;
     }
   } else if (authType === 'bearer') {
-    const token = String(nodeConfig.bearerToken || nodeConfig.bearer_token || '').trim();
+    const token = resolveLiteralOrKeyRef(ownerUserId, {
+      literal: nodeConfig.bearerToken || nodeConfig.bearer_token || '',
+      keyRef: nodeConfig.bearerTokenRef || nodeConfig.bearer_token_ref,
+    });
     if (token) {
       headers.Authorization = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
     }
   } else if (authType === 'api_key' || authType === 'apikey') {
     const name = String(nodeConfig.apiKeyHeader || nodeConfig.api_key_header || 'X-API-Key').trim();
-    const value = String(nodeConfig.apiKeyValue || nodeConfig.api_key_value || '').trim();
+    const value = resolveLiteralOrKeyRef(ownerUserId, {
+      literal: nodeConfig.apiKeyValue || nodeConfig.api_key_value || '',
+      keyRef: nodeConfig.apiKeyValueRef || nodeConfig.api_key_value_ref,
+    });
     if (name && value) headers[name] = value;
   }
 
@@ -84,16 +110,22 @@ export function injectInternalServiceAuth(headers = {}, url = '', ownerUserId = 
 
 /** Merge auth preset, node HTTP headers (Postman), and optional input-binding headers. */
 export function buildApiRequestHeaders(cfg, context, resolvedInputHeadersJson, url = '') {
-  const authHeaders = buildApiAuthHeaders(cfg);
-  const nodeHeaders = renderHttpHeadersJson(cfg.httpHeadersJson || cfg.http_headers_json, context);
+  const owner =
+    context?.owner_user_id || context?.ownerUserId || context?.ceo_user_id || context?.ceoUserId || null;
+  const authHeaders = buildApiAuthHeaders(cfg, owner);
+  const nodeHeaders = resolveHeadersObject(
+    owner,
+    renderHeadersPreserveKeyRef(cfg.httpHeadersJson || cfg.http_headers_json, context)
+  );
   let bindingHeaders = {};
   if (resolvedInputHeadersJson) {
     try {
       const raw = context
         ? renderWorkflowTemplates(String(resolvedInputHeadersJson), context)
         : String(resolvedInputHeadersJson);
-      bindingHeaders = parseHttpHeadersJson(raw);
-    } catch {
+      bindingHeaders = resolveHeadersObject(owner, parseHttpHeadersJson(raw));
+    } catch (e) {
+      if (e?.message && /API key|decrypt/i.test(e.message)) throw e;
       throw new Error('headers must be valid JSON');
     }
   }
@@ -103,7 +135,5 @@ export function buildApiRequestHeaders(cfg, context, resolvedInputHeadersJson, u
     nodeHeaders,
     bindingHeaders
   );
-  const owner =
-    context?.owner_user_id || context?.ownerUserId || context?.ceo_user_id || context?.ceoUserId || null;
   return injectInternalServiceAuth(merged, url, owner);
 }

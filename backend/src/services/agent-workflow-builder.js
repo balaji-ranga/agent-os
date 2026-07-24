@@ -425,7 +425,7 @@ export async function applyWorkflowBuilderActions(ownerUserId, workflowId, actio
 
     if (op === 'validate_publish') {
       if (!currentId || !def) throw new Error('No workflow in context for validate_publish');
-      const errors = validateWorkflowForPublish(def.draft_graph);
+      const errors = validateWorkflowForPublish(def.draft_graph, ownerUserId);
       results.push({ action: op, ok: errors.length === 0, errors });
       continue;
     }

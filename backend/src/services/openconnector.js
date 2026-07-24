@@ -5,6 +5,7 @@
 import { getDb } from '../db/schema.js';
 import { getMcpServer, listVisibleMcpServers } from './mcp-servers.js';
 import { McpHttpClient } from './mcp-client.js';
+import { resolveUserApiKey, tryResolveUserApiKey } from './user-api-keys.js';
 
 function db() {
   return getDb();
@@ -121,19 +122,43 @@ export { defaultConnectionName };
 
 export function getOpenConnectorLink(userId) {
   if (!userId) return null;
-  const row = db()
-    .prepare(
-      `SELECT user_id, runtime_token, connection_name, oc_user_id, linked_at, last_provisioned_at, last_error, created_at, updated_at
-       FROM openconnector_user_links WHERE user_id = ?`
-    )
-    .get(String(userId).trim());
+  let row;
+  try {
+    row = db()
+      .prepare(
+        `SELECT user_id, runtime_token, runtime_token_ref, connection_name, oc_user_id, linked_at, last_provisioned_at, last_error, created_at, updated_at
+         FROM openconnector_user_links WHERE user_id = ?`
+      )
+      .get(String(userId).trim());
+  } catch (_) {
+    row = db()
+      .prepare(
+        `SELECT user_id, runtime_token, connection_name, oc_user_id, linked_at, last_provisioned_at, last_error, created_at, updated_at
+         FROM openconnector_user_links WHERE user_id = ?`
+      )
+      .get(String(userId).trim());
+  }
   if (!row) return null;
+  const token = String(row.runtime_token || '').trim();
+  const tokenRef = String(row.runtime_token_ref || '').trim();
   return {
     ...row,
-    runtime_token_set: !!String(row.runtime_token || '').trim(),
-    runtime_token_hint: maskSecret(row.runtime_token),
+    runtime_token_ref: tokenRef || null,
+    runtime_token_set: !!(token || tokenRef),
+    runtime_token_hint: token ? maskSecret(token) : tokenRef ? `vault:${tokenRef}` : null,
     connection_name: String(row.connection_name || '').trim() || defaultConnectionName(userId),
   };
+}
+
+/** Resolve plaintext OpenConnector runtime token (literal or vault ref). */
+export function resolveOpenConnectorRuntimeToken(userId) {
+  const row = getOpenConnectorLink(userId);
+  if (!row) return '';
+  const ref = String(row.runtime_token_ref || '').trim();
+  if (ref) {
+    return resolveUserApiKey(userId, ref).value;
+  }
+  return String(row.runtime_token || '').trim();
 }
 
 export function getOpenConnectorLinkPublic(userId) {
@@ -154,6 +179,7 @@ export function getOpenConnectorLinkPublic(userId) {
     linked: !!row.runtime_token_set,
     runtime_token_set: row.runtime_token_set,
     runtime_token_hint: row.runtime_token_hint,
+    runtime_token_ref: row.runtime_token_ref || null,
     connection_name: row.connection_name,
     oc_user_id: row.oc_user_id || '',
     linked_at: row.linked_at || null,
@@ -166,20 +192,35 @@ export function upsertOpenConnectorLink(userId, patch = {}) {
   const id = String(userId || '').trim();
   if (!id) throw new Error('user_id required');
   const existing = getOpenConnectorLink(id);
-  const runtimeToken =
+  let runtimeToken =
     patch.clear_runtime_token
       ? null
       : patch.runtime_token !== undefined
         ? String(patch.runtime_token || '').trim() || null
         : existing?.runtime_token || null;
+  let runtimeTokenRef =
+    patch.clear_runtime_token
+      ? null
+      : patch.runtime_token_ref !== undefined
+        ? String(patch.runtime_token_ref || '').trim() || null
+        : existing?.runtime_token_ref || null;
+  if (runtimeTokenRef) {
+    // Prefer vault ref; clear literal when ref is set
+    runtimeToken = null;
+    // ensure key exists
+    if (!tryResolveUserApiKey(id, runtimeTokenRef)) {
+      throw Object.assign(new Error(`API key "${runtimeTokenRef}" not found`), { status: 400 });
+    }
+  }
   const connectionName =
     patch.connection_name !== undefined
       ? String(patch.connection_name || '').trim() || defaultConnectionName(id)
       : existing?.connection_name || defaultConnectionName(id);
   const ocUserId =
     patch.oc_user_id !== undefined ? String(patch.oc_user_id || '').trim() : existing?.oc_user_id || '';
+  const hasCreds = !!(runtimeToken || runtimeTokenRef);
   const linkedAt =
-    runtimeToken && !existing?.linked_at ? new Date().toISOString() : existing?.linked_at || null;
+    hasCreds && !existing?.linked_at ? new Date().toISOString() : existing?.linked_at || null;
   const lastProvisionedAt =
     patch.last_provisioned_at !== undefined
       ? patch.last_provisioned_at
@@ -190,10 +231,11 @@ export function upsertOpenConnectorLink(userId, patch = {}) {
   db()
     .prepare(
       `INSERT INTO openconnector_user_links
-        (user_id, runtime_token, connection_name, oc_user_id, linked_at, last_provisioned_at, last_error, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        (user_id, runtime_token, runtime_token_ref, connection_name, oc_user_id, linked_at, last_provisioned_at, last_error, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
        ON CONFLICT(user_id) DO UPDATE SET
          runtime_token = excluded.runtime_token,
+         runtime_token_ref = excluded.runtime_token_ref,
          connection_name = excluded.connection_name,
          oc_user_id = excluded.oc_user_id,
          linked_at = excluded.linked_at,
@@ -201,15 +243,24 @@ export function upsertOpenConnectorLink(userId, patch = {}) {
          last_error = excluded.last_error,
          updated_at = datetime('now')`
     )
-    .run(id, runtimeToken, connectionName, ocUserId, linkedAt, lastProvisionedAt, lastError);
+    .run(
+      id,
+      runtimeToken,
+      runtimeTokenRef,
+      connectionName,
+      ocUserId,
+      linkedAt,
+      lastProvisionedAt,
+      lastError
+    );
   return getOpenConnectorLinkPublic(id);
 }
 
 function getRuntimeTokenForUser(userId) {
   const row = getOpenConnectorLink(userId);
-  const token = String(row?.runtime_token || '').trim();
+  const token = resolveOpenConnectorRuntimeToken(userId);
   if (!token) throw new Error('OpenConnector runtime token not linked for this CEO');
-  return { token, connectionName: row.connection_name || defaultConnectionName(userId) };
+  return { token, connectionName: row?.connection_name || defaultConnectionName(userId) };
 }
 
 async function openConnectorFetch(path, { method = 'GET', headers = {}, body, auth = 'runtime', userId = null } = {}) {

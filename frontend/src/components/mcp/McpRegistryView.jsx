@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api';
-import MaskedSecretInput from '../MaskedSecretInput';
+import HttpHeadersEditor from '../HttpHeadersEditor';
 
 const TRANSPORT_FILTERS = [
   { id: 'all', label: 'All' },
@@ -10,7 +10,13 @@ const TRANSPORT_FILTERS = [
   { id: 'stdio', label: 'STDIO' },
 ];
 
-const EMPTY_FORM = { name: '', description: '', url: '', transport: 'streamable_http' };
+const EMPTY_FORM = {
+  name: '',
+  description: '',
+  url: '',
+  transport: 'streamable_http',
+  headers_json: '{}',
+};
 
 function transportLabel(t) {
   if (t === 'sse') return 'SSE';
@@ -33,6 +39,14 @@ export default function McpRegistryView({ servers, loading, user, onRefresh }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [deleting, setDeleting] = useState(null);
+  const [vaultKeys, setVaultKeys] = useState([]);
+
+  useEffect(() => {
+    api
+      .userApiKeysList()
+      .then((r) => setVaultKeys(r.keys || []))
+      .catch(() => setVaultKeys([]));
+  }, []);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -57,6 +71,7 @@ export default function McpRegistryView({ servers, loading, user, onRefresh }) {
         description: form.description,
         url: form.url,
         transport: form.transport,
+        headers_json: form.headers_json || '{}',
       });
       setModalOpen(false);
       setForm(EMPTY_FORM);
@@ -216,7 +231,8 @@ export default function McpRegistryView({ servers, loading, user, onRefresh }) {
               </button>
             </div>
             <p className="mcp-pg-hint">
-              Auth tokens are not stored here. Provide them on the test screen or per workflow node.
+              Prefer vault keys under Management → API Keys. Literal headers are stored on this server;
+              you can still override on the test screen or per workflow node.
             </p>
             <label className="mcp-pg-field">
               <span>Name</span>
@@ -259,6 +275,13 @@ export default function McpRegistryView({ servers, loading, user, onRefresh }) {
                   <small>Server-Sent Events</small>
                 </button>
               </div>
+            </div>
+            <div className="mcp-pg-field">
+              <HttpHeadersEditor
+                value={form.headers_json}
+                onChange={(headers_json) => setForm({ ...form, headers_json })}
+                vaultKeys={vaultKeys}
+              />
             </div>
             <div className="mcp-pg-modal-actions">
               <button type="button" className="mcp-pg-btn-ghost" onClick={() => setModalOpen(false)}>

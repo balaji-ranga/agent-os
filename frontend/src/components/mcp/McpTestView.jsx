@@ -43,6 +43,14 @@ export default function McpTestView() {
   const [testResult, setTestResult] = useState(null);
   const [testLoading, setTestLoading] = useState(false);
   const [callLog, setCallLog] = useState([]);
+  const [vaultKeys, setVaultKeys] = useState([]);
+
+  useEffect(() => {
+    api
+      .userApiKeysList()
+      .then((r) => setVaultKeys(r.keys || []))
+      .catch(() => setVaultKeys([]));
+  }, []);
 
   const loadServer = useCallback(async (preserveAuth = false) => {
     setLoading(true);
@@ -186,7 +194,10 @@ export default function McpTestView() {
 
       <section className="mcp-pg-connect-card">
         <h2>Connect to MCP Server</h2>
-        <p className="mcp-pg-hint">Enter auth if required — tokens are never stored, only sent per request.</p>
+        <p className="mcp-pg-hint">
+          Enter overlay auth if required. Vault keys resolve server-side; literals are only sent per request
+          (not saved from this screen). Registry-stored headers are merged automatically.
+        </p>
 
         <div className="mcp-pg-connect-grid">
           <div className="mcp-pg-field">
@@ -208,8 +219,11 @@ export default function McpTestView() {
             <HttpHeadersEditor
               value={auth.httpHeadersJson}
               onChange={(httpHeadersJson) => setAuth({ ...auth, httpHeadersJson })}
+              vaultKeys={vaultKeys}
             />
-            <small className="mcp-pg-hint">Add Authorization, API keys, etc. — never stored, only sent per request.</small>
+            <small className="mcp-pg-hint">
+              Overlay Authorization / API keys — prefer vault keys from Management → API Keys.
+            </small>
           </div>
         </div>
 

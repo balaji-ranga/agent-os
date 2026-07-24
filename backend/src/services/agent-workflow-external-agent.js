@@ -2,8 +2,24 @@
  * Workflow task: invoke external agent via A2A protocol.
  */
 import { renderWorkflowTemplates } from './agent-workflow-io.js';
-import { renderHttpHeadersJson } from './http-headers.js';
+import { parseHttpHeadersJson } from './http-headers.js';
 import { invokeExternalAgent } from './external-agents.js';
+import { resolveLiteralOrKeyRef, resolveHeadersObject } from './user-api-keys.js';
+
+function renderHeadersPreserveKeyRef(raw, context = null) {
+  const obj = parseHttpHeadersJson(raw);
+  const out = {};
+  for (const [k, v] of Object.entries(obj)) {
+    const name = String(k || '').trim();
+    if (!name) continue;
+    if (v != null && typeof v === 'object' && !Array.isArray(v) && v.$keyRef) {
+      out[name] = v;
+    } else {
+      out[name] = context ? renderWorkflowTemplates(String(v ?? ''), context) : String(v ?? '');
+    }
+  }
+  return out;
+}
 
 export async function executeExternalAgentTask(resolvedInputs, nodeConfig = {}, context = null, ownerUserId = null) {
   const render = (v) => (context && v != null ? renderWorkflowTemplates(String(v), context) : String(v ?? ''));
@@ -24,17 +40,28 @@ export async function executeExternalAgentTask(resolvedInputs, nodeConfig = {}, 
   const waitForCompletion = nodeConfig.waitForCompletion !== false && nodeConfig.wait_for_completion !== false;
   const timeoutMs = Number(nodeConfig.timeoutMs || nodeConfig.timeout_ms || 120000);
 
-  const authBearer = render(
-    nodeConfig.authBearer ||
-      nodeConfig.auth_bearer ||
-      nodeConfig.bearerToken ||
-      nodeConfig.bearer_token ||
-      nodeConfig.auth_header ||
-      ''
-  ).trim();
-  const headers = renderHttpHeadersJson(
-    nodeConfig.httpHeadersJson || nodeConfig.http_headers_json || nodeConfig.authHeadersJson || '{}',
-    context
+  const authBearer = resolveLiteralOrKeyRef(owner, {
+    literal: render(
+      nodeConfig.authBearer ||
+        nodeConfig.auth_bearer ||
+        nodeConfig.bearerToken ||
+        nodeConfig.bearer_token ||
+        nodeConfig.auth_header ||
+        ''
+    ).trim(),
+    keyRef:
+      nodeConfig.authBearerRef ||
+      nodeConfig.auth_bearer_ref ||
+      nodeConfig.authHeaderRef ||
+      nodeConfig.auth_header_ref ||
+      '',
+  });
+  const headers = resolveHeadersObject(
+    owner,
+    renderHeadersPreserveKeyRef(
+      nodeConfig.httpHeadersJson || nodeConfig.http_headers_json || nodeConfig.authHeadersJson || '{}',
+      context
+    )
   );
   const hasOverride = !!authBearer || Object.keys(headers).length > 0;
 

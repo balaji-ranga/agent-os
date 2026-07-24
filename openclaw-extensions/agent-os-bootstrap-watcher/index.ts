@@ -17,6 +17,7 @@ const BOOTSTRAP_FILE_NAMES = [
   "USER.md",
   "MEMORY.md",
   "memory.md",
+  "AGENT-OS-OPS.md",
   "HEARTBEAT.md",
   "BOOTSTRAP.md",
 ] as const;

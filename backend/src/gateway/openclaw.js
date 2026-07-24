@@ -21,7 +21,11 @@ export const CHAT_INSTRUCTION_BROWSER =
 
 /** Before starting work: pull user+agent learnings (feedback + Kanban decisions). */
 export const CHAT_INSTRUCTION_LEARNINGS =
-  'Before starting any non-trivial task: call the learnings_summary tool with a short topic describing the task (optional days, default 30). Use that summary to avoid past mistakes and prefer patterns this user liked (including past Kanban approve/reject/comment decisions). Do this once at the start of the task, then proceed.';
+  'REQUIRED before any non-trivial task (research, recipes, builds, Kanban work, multi-step asks): call the learnings_summary tool first with JSON {"topic":"<short topic>","days":30}. Read the summary and apply it (avoid past mistakes; prefer what this CEO liked, including Kanban approve/reject comments). Skip only for trivial greets. Do this once at the start, then proceed with tools and the answer.';
+
+/** Agent owns Kanban status — complete only after real deliverable. */
+export const CHAT_INSTRUCTION_KANBAN =
+  'When you have a Kanban task_id: move to in_progress when you start; move to completed ONLY after you actually finished the deliverable (research written, recipe+image, etc.). If summarize_url 404/403: try ≥3 different reputable domains (e.g. wikipedia.org, bbc.com, reuters.com, *.gov.in) or browser profile=openclaw — then still deliver your best brief with citations/gaps noted. Use failed ONLY when you produced no usable deliverable. Optional side tools (master_data_*, email) must NOT cause failed if the main ask succeeded — skip inventing tables; call master_data_list_tables first if needed.';
 
 function getGatewayUrl() {
   const base = process.env.OPENCLAW_GATEWAY_URL || `http://127.0.0.1:${DEFAULT_PORT}`;
@@ -62,10 +66,12 @@ export async function chatCompletions(agentId, messages, sessionUser = null, str
   const injectSessionHistoryInstruction = options.injectSessionHistoryInstruction !== false;
   const injectBrowserInstruction = options.injectBrowserInstruction !== false;
   const injectLearningsInstruction = options.injectLearningsInstruction !== false;
+  const injectKanbanInstruction = options.injectKanbanInstruction !== false;
   const systemParts = [];
   if (injectSessionHistoryInstruction) systemParts.push(CHAT_INSTRUCTION_SESSION_HISTORY);
   if (injectBrowserInstruction) systemParts.push(CHAT_INSTRUCTION_BROWSER);
   if (injectLearningsInstruction) systemParts.push(CHAT_INSTRUCTION_LEARNINGS);
+  if (injectKanbanInstruction) systemParts.push(CHAT_INSTRUCTION_KANBAN);
   const outMessages = systemParts.length > 0
     ? [{ role: 'system', content: systemParts.join('\n\n') }, ...messages]
     : messages;

@@ -40,6 +40,19 @@ function AdminPanel() {
   const [refreshResult, setRefreshResult] = useState(null);
   const [platformLlm, setPlatformLlm] = useState(null);
   const [platformLlmBusy, setPlatformLlmBusy] = useState(false);
+  const [wsTemplates, setWsTemplates] = useState([]);
+  const [wsTplBusy, setWsTplBusy] = useState(false);
+  const [wsTplForm, setWsTplForm] = useState({ name: '', description: '', publish: true });
+  const [wsTplSelected, setWsTplSelected] = useState(null);
+  const [wsTplEditFiles, setWsTplEditFiles] = useState({});
+  const [wsTplFileKey, setWsTplFileKey] = useState('tools');
+
+  const loadWsTemplates = () => {
+    api
+      .adminWorkspaceTemplates()
+      .then((r) => setWsTemplates(r.templates || []))
+      .catch((e) => showError(e.message || 'Failed to load workspace templates'));
+  };
 
   const load = () => {
     api.adminUsers()
@@ -49,6 +62,7 @@ function AdminPanel() {
       .adminPlatformLlmGet()
       .then(setPlatformLlm)
       .catch(() => setPlatformLlm(null));
+    loadWsTemplates();
   };
 
   useEffect(() => {
@@ -628,6 +642,238 @@ function AdminPanel() {
           )}
         </section>
       </div>
+
+      <section style={{ marginTop: '2rem', padding: '1rem', border: '1px solid var(--border)', borderRadius: 8 }}>
+        <h2 style={{ marginTop: 0 }}>Agent workspace templates</h2>
+        <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginTop: 0 }}>
+          Platform-shared MD templates (SOUL, AGENTS, MEMORY, TOOLS, IDENTITY, AGENT-OS-OPS). CEOs apply these in Agent Workspace.
+          Create drafts or publish immediately. Published templates appear for every CEO.
+        </p>
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (!wsTplForm.name.trim()) return showError('Template name required');
+            setWsTplBusy(true);
+            try {
+              await api.adminWorkspaceTemplateCreate({
+                name: wsTplForm.name.trim(),
+                description: wsTplForm.description,
+                status: wsTplForm.publish ? 'published' : 'draft',
+              });
+              showSuccess('Template created (seeded from Platform standard content).');
+              setWsTplForm({ name: '', description: '', publish: true });
+              loadWsTemplates();
+            } catch (err) {
+              showError(err.message || 'Create failed');
+            } finally {
+              setWsTplBusy(false);
+            }
+          }}
+          style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-end', marginBottom: 16 }}
+        >
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: '0.85rem' }}>
+            Name
+            <input
+              value={wsTplForm.name}
+              onChange={(e) => setWsTplForm({ ...wsTplForm, name: e.target.value })}
+              style={{ padding: '0.4rem 0.6rem', borderRadius: 6, border: '1px solid var(--border)', minWidth: 180 }}
+            />
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: '0.85rem', flex: 1 }}>
+            Description
+            <input
+              value={wsTplForm.description}
+              onChange={(e) => setWsTplForm({ ...wsTplForm, description: e.target.value })}
+              style={{ padding: '0.4rem 0.6rem', borderRadius: 6, border: '1px solid var(--border)', minWidth: 200 }}
+            />
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.85rem' }}>
+            <input
+              type="checkbox"
+              checked={wsTplForm.publish}
+              onChange={(e) => setWsTplForm({ ...wsTplForm, publish: e.target.checked })}
+            />
+            Publish now
+          </label>
+          <button
+            type="submit"
+            disabled={wsTplBusy}
+            style={{ padding: '0.45rem 0.9rem', borderRadius: 6, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer' }}
+          >
+            {wsTplBusy ? 'Saving…' : 'Create template'}
+          </button>
+        </form>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {wsTemplates.map((t) => (
+            <div
+              key={t.id}
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 8,
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '0.65rem 0.75rem',
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+              }}
+            >
+              <div>
+                <strong>{t.name}</strong>
+                {t.is_default ? (
+                  <span style={{ marginLeft: 8, fontSize: '0.75rem', color: '#22c55e' }}>default</span>
+                ) : null}
+                <span style={{ marginLeft: 8, fontSize: '0.75rem', color: 'var(--muted)' }}>
+                  {t.status} · {t.source} · {t.id}
+                </span>
+                {t.description ? (
+                  <div style={{ fontSize: '0.85rem', color: 'var(--muted)', marginTop: 2 }}>{t.description}</div>
+                ) : null}
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWsTplBusy(true);
+                    api
+                      .adminWorkspaceTemplateGet(t.id)
+                      .then((full) => {
+                        setWsTplSelected(full);
+                        setWsTplEditFiles(full.files || {});
+                        setWsTplFileKey('tools');
+                      })
+                      .catch((err) => showError(err.message))
+                      .finally(() => setWsTplBusy(false));
+                  }}
+                  style={{ padding: '0.25rem 0.55rem', borderRadius: 4, border: '1px solid var(--border)', cursor: 'pointer' }}
+                >
+                  Edit files
+                </button>
+                {t.status !== 'published' ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      api
+                        .adminWorkspaceTemplatePublish(t.id)
+                        .then(() => {
+                          showSuccess('Published.');
+                          loadWsTemplates();
+                        })
+                        .catch((err) => showError(err.message))
+                    }
+                    style={{ padding: '0.25rem 0.55rem', borderRadius: 4, border: '1px solid var(--border)', cursor: 'pointer' }}
+                  >
+                    Publish
+                  </button>
+                ) : !t.is_default ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      api
+                        .adminWorkspaceTemplateUnpublish(t.id)
+                        .then(() => {
+                          showSuccess('Unpublished (draft).');
+                          loadWsTemplates();
+                        })
+                        .catch((err) => showError(err.message))
+                    }
+                    style={{ padding: '0.25rem 0.55rem', borderRadius: 4, border: '1px solid var(--border)', cursor: 'pointer' }}
+                  >
+                    Unpublish
+                  </button>
+                ) : null}
+                {!t.is_default ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!window.confirm(`Delete template ${t.name}?`)) return;
+                      api
+                        .adminWorkspaceTemplateDelete(t.id)
+                        .then(() => {
+                          showSuccess('Deleted.');
+                          if (wsTplSelected?.id === t.id) setWsTplSelected(null);
+                          loadWsTemplates();
+                        })
+                        .catch((err) => showError(err.message));
+                    }}
+                    style={{ padding: '0.25rem 0.55rem', borderRadius: 4, border: '1px solid #f87171', color: '#f87171', cursor: 'pointer' }}
+                  >
+                    Delete
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          ))}
+        </div>
+        {wsTplSelected && (
+          <div style={{ marginTop: 16, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+            <h3 style={{ marginTop: 0 }}>Edit: {wsTplSelected.name}</h3>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+              {['soul', 'agents', 'memory', 'identity', 'tools', 'ops'].map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setWsTplFileKey(k)}
+                  style={{
+                    padding: '0.3rem 0.6rem',
+                    borderRadius: 4,
+                    border: `1px solid ${wsTplFileKey === k ? 'var(--accent)' : 'var(--border)'}`,
+                    background: wsTplFileKey === k ? 'var(--accent)' : 'transparent',
+                    color: wsTplFileKey === k ? '#fff' : 'var(--text)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {k}
+                </button>
+              ))}
+            </div>
+            <textarea
+              value={wsTplEditFiles[wsTplFileKey] || ''}
+              onChange={(e) => setWsTplEditFiles({ ...wsTplEditFiles, [wsTplFileKey]: e.target.value })}
+              rows={16}
+              style={{
+                width: '100%',
+                fontFamily: 'ui-monospace, monospace',
+                fontSize: '0.85rem',
+                padding: '0.75rem',
+                borderRadius: 6,
+                border: '1px solid var(--border)',
+                background: 'var(--bg, #121216)',
+                color: 'var(--text)',
+              }}
+            />
+            <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                disabled={wsTplBusy}
+                onClick={() => {
+                  setWsTplBusy(true);
+                  api
+                    .adminWorkspaceTemplateUpdate(wsTplSelected.id, { files: wsTplEditFiles })
+                    .then((full) => {
+                      setWsTplSelected(full);
+                      setWsTplEditFiles(full.files || {});
+                      showSuccess('Template files saved.');
+                      loadWsTemplates();
+                    })
+                    .catch((err) => showError(err.message))
+                    .finally(() => setWsTplBusy(false));
+                }}
+                style={{ padding: '0.45rem 0.9rem', borderRadius: 6, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer' }}
+              >
+                Save file changes
+              </button>
+              <button
+                type="button"
+                onClick={() => setWsTplSelected(null)}
+                style={{ padding: '0.45rem 0.9rem', borderRadius: 6, border: '1px solid var(--border)', cursor: 'pointer' }}
+              >
+                Close editor
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
 
       <section style={{ marginTop: '2rem', padding: '1rem', border: '1px solid var(--border)', borderRadius: 8 }}>
         <h2 style={{ marginTop: 0 }}>Refresh default agents</h2>

@@ -619,7 +619,7 @@ export async function startAgentWorkflowRun(
   }
 
   const graph = def.published_graph;
-  const brainErrors = validateWorkflowBrainCredentials(graph);
+  const brainErrors = validateWorkflowBrainCredentials(graph, ownerUserId);
   if (brainErrors.length) {
     throw new Error(`Cannot run workflow: ${brainErrors.join('; ')}`);
   }
@@ -1122,7 +1122,7 @@ async function executeNode(runId, nodeId, graph, context, def, runRow) {
       context,
       inputRecord,
       work: async () => {
-        const nodeAuth = parseMcpAuthFromNodeConfig(config, context);
+        const nodeAuth = parseMcpAuthFromNodeConfig(config, context, runRow.owner_user_id);
         let out;
         let stepLabel;
         if (invokeKind === 'prompt') {
@@ -1182,7 +1182,7 @@ async function executeNode(runId, nodeId, graph, context, def, runRow) {
       failRun(runId, err.message);
       return;
     }
-    const nodeAuth = parseMcpAuthFromNodeConfig(config, context);
+    const nodeAuth = parseMcpAuthFromNodeConfig(config, context, runRow.owner_user_id);
 
     upsertStep(runId, node, 'listening', {
       input: { stream_url: streamUrl, mcp_server_id: mcpServerId || null },
@@ -1254,7 +1254,7 @@ async function executeNode(runId, nodeId, graph, context, def, runRow) {
       runRow,
       context,
       inputRecord,
-      work: () => executeEmailTask(inputRecord.resolved, config),
+      work: () => executeEmailTask(inputRecord.resolved, config, context),
       kanban: (outputs) => ({
         nodeLabel: node.data?.label || 'Send Email',
         summary: outputs.sent

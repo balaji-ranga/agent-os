@@ -247,7 +247,7 @@ export function publishDefinition(id, ownerUserId, actor) {
   const hasTrigger = def.draft_graph.nodes.some((n) => n.type === 'trigger');
   if (!hasTrigger) throw new Error('Workflow must include a Trigger node');
 
-  const brainErrors = validateWorkflowBrainCredentials(def.draft_graph);
+  const brainErrors = validateWorkflowBrainCredentials(def.draft_graph, ownerUserId);
   if (brainErrors.length) {
     throw new Error(`Cannot publish: ${brainErrors.join('; ')}`);
   }

@@ -397,6 +397,8 @@ export async function executeBrainTask(taskConfig = {}, resolved = {}, context =
   }
 
   const maxTokens = Number(cfg.maxTokens) || 1024;
+  const ownerId =
+    String(authUser?.id || context?.owner_user_id || context?.ceo_user_id || '').trim() || null;
   const renderedCfg = { ...cfg };
   if (context) {
     for (const key of ['apiKey', 'api_key', 'apiEndpoint', 'api_endpoint', 'model']) {
@@ -406,7 +408,7 @@ export async function executeBrainTask(taskConfig = {}, resolved = {}, context =
     }
   }
   const { source: modelSource, baseUrl, apiKey, model, protocol, requiresKey, extraHeaders, configuredKey } =
-    resolveWorkflowBrainProviderConfig(renderedCfg.modelSource, renderedCfg);
+    resolveWorkflowBrainProviderConfig(renderedCfg.modelSource, renderedCfg, ownerId);
   const thinkingFields = buildBrainThinkingFields(modelSource, cfg);
 
   if (requiresKey && !configuredKey && !isLocalOllama(baseUrl) && !isOllamaServiceBaseUrl(baseUrl)) {
@@ -435,8 +437,6 @@ export async function executeBrainTask(taskConfig = {}, resolved = {}, context =
   if (systemPrompt.length > maxPromptChars) {
     systemPrompt = `${systemPrompt.slice(0, maxPromptChars)}\n…[truncated for model context window]`;
   }
-  const ownerId =
-    String(authUser?.id || context?.owner_user_id || context?.ceo_user_id || '').trim() || null;
   if (ownerId) {
     systemPrompt = prependCeoGuardrailsToSystemPrompt(systemPrompt, ownerId);
   }

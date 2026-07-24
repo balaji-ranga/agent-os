@@ -53,6 +53,7 @@ export function diagnoseWorkflowGraph(def) {
   const edges = graph.edges || [];
   const issues = [];
   const fixActions = [];
+  const ownerUserId = def?.owner_user_id || def?.ownerUserId || null;
 
   const trigger = nodes.find((n) => n.type === 'trigger');
   if (!trigger) {
@@ -176,7 +177,7 @@ export function diagnoseWorkflowGraph(def) {
   }
 
   // Publish validation errors
-  const publishErrors = validateWorkflowForPublish(graph) || [];
+  const publishErrors = validateWorkflowForPublish(graph, ownerUserId) || [];
   for (const err of publishErrors) {
     const msg = typeof err === 'string' ? err : err?.message || JSON.stringify(err);
     if (!issues.some((i) => i.message === msg)) {

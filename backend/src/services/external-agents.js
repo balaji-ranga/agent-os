@@ -9,6 +9,7 @@ import {
   a2aSendAndWait,
   resolveA2AEndpoint,
 } from './a2a-client.js';
+import { resolveLiteralOrKeyRef, resolveHeadersObject } from './user-api-keys.js';
 
 function parseJson(raw, fallback) {
   if (raw == null || raw === '') return fallback;
@@ -62,8 +63,12 @@ function applyPermissions(server, authUser, row) {
 }
 
 function buildAuthHeaders(row) {
-  const headers = { ...(parseJson(row.headers_json, {})) };
-  const auth = String(row.auth_header || '').trim();
+  const owner = row?.owner_user_id || null;
+  const headers = resolveHeadersObject(owner, parseJson(row.headers_json, {}));
+  const auth = resolveLiteralOrKeyRef(owner, {
+    literal: row.auth_header || '',
+    keyRef: row.auth_header_ref || '',
+  });
   if (auth) {
     if (auth.toLowerCase().startsWith('bearer ')) headers.Authorization = auth;
     else headers.Authorization = `Bearer ${auth}`;
@@ -75,23 +80,32 @@ function buildAuthHeaders(row) {
 export function mergeExternalAgentAuthHeaders(row, authOverride = null) {
   const headers = buildAuthHeaders(row);
   if (!authOverride || typeof authOverride !== 'object') return headers;
+  const owner = row?.owner_user_id || null;
 
-  const extra =
+  const extraRaw =
     authOverride.headers && typeof authOverride.headers === 'object' && !Array.isArray(authOverride.headers)
       ? authOverride.headers
       : parseJson(authOverride.headersJson || authOverride.httpHeadersJson || '{}', {});
+  const extra = resolveHeadersObject(owner, extraRaw);
   for (const [k, v] of Object.entries(extra || {})) {
     if (k && v != null && String(v).trim()) headers[String(k).trim()] = String(v).trim();
   }
 
-  const bearer = String(
-    authOverride.authHeader ||
+  const bearer = resolveLiteralOrKeyRef(owner, {
+    literal:
+      authOverride.authHeader ||
       authOverride.auth_header ||
       authOverride.bearerToken ||
       authOverride.bearer_token ||
       authOverride.bearer ||
-      ''
-  ).trim();
+      '',
+    keyRef:
+      authOverride.authBearerRef ||
+      authOverride.auth_bearer_ref ||
+      authOverride.authHeaderRef ||
+      authOverride.auth_header_ref ||
+      '',
+  });
   if (bearer) {
     headers.Authorization = bearer.toLowerCase().startsWith('bearer ') ? bearer : `Bearer ${bearer}`;
   }
@@ -159,11 +173,16 @@ export function createExternalAgent(authUser, body = {}) {
 
   const db = getDb();
   const id = body.id?.trim() || slugId(name);
+  const authHeaderRef = String(body.auth_header_ref || body.authHeaderRef || '').trim() || null;
+  const authHeader = authHeaderRef
+    ? null
+    : String(body.auth_header || body.authHeader || '').trim() || null;
+
   db.prepare(
     `INSERT INTO external_agents (
-      id, name, description, card_url, endpoint_url, skill_id, auth_header, headers_json,
+      id, name, description, card_url, endpoint_url, skill_id, auth_header, auth_header_ref, headers_json,
       owner_user_id, owner_role, is_platform, status, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', datetime('now'))`
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', datetime('now'))`
   ).run(
     id,
     name,
@@ -171,7 +190,8 @@ export function createExternalAgent(authUser, body = {}) {
     cardUrl || null,
     endpointUrl || null,
     String(body.skill_id || body.skillId || '').trim() || null,
-    String(body.auth_header || body.authHeader || '').trim() || null,
+    authHeader,
+    authHeaderRef,
     JSON.stringify(body.headers || {}),
     authUser.id,
     authUser.role,
@@ -185,6 +205,17 @@ export function updateExternalAgent(id, authUser, body = {}) {
   const row = db.prepare('SELECT * FROM external_agents WHERE id = ?').get(id);
   if (!row || !canEdit(row, authUser)) throw new Error('Not allowed to edit this external agent');
 
+  let authHeader = row.auth_header;
+  let authHeaderRef = row.auth_header_ref;
+  if (body.auth_header_ref != null || body.authHeaderRef != null) {
+    authHeaderRef = String(body.auth_header_ref || body.authHeaderRef || '').trim() || null;
+    if (authHeaderRef) authHeader = null;
+  }
+  if (body.auth_header != null || body.authHeader != null) {
+    authHeader = String(body.auth_header || body.authHeader || '').trim() || null;
+    if (authHeader) authHeaderRef = null;
+  }
+
   const patch = {
     name: body.name != null ? String(body.name).trim() : row.name,
     description: body.description != null ? String(body.description).trim() : row.description,
@@ -192,7 +223,8 @@ export function updateExternalAgent(id, authUser, body = {}) {
     endpoint_url:
       body.endpoint_url != null ? String(body.endpoint_url || body.endpointUrl || '').trim() : row.endpoint_url,
     skill_id: body.skill_id != null ? String(body.skill_id || body.skillId || '').trim() || null : row.skill_id,
-    auth_header: body.auth_header != null ? String(body.auth_header || body.authHeader || '').trim() || null : row.auth_header,
+    auth_header: authHeader,
+    auth_header_ref: authHeaderRef,
     headers_json: body.headers != null ? JSON.stringify(body.headers) : row.headers_json,
     status: body.status != null ? body.status : row.status,
   };
@@ -200,7 +232,7 @@ export function updateExternalAgent(id, authUser, body = {}) {
   db.prepare(
     `UPDATE external_agents SET
       name = ?, description = ?, card_url = ?, endpoint_url = ?, skill_id = ?,
-      auth_header = ?, headers_json = ?, status = ?, updated_at = datetime('now')
+      auth_header = ?, auth_header_ref = ?, headers_json = ?, status = ?, updated_at = datetime('now')
      WHERE id = ?`
   ).run(
     patch.name,
@@ -209,6 +241,7 @@ export function updateExternalAgent(id, authUser, body = {}) {
     patch.endpoint_url,
     patch.skill_id,
     patch.auth_header,
+    patch.auth_header_ref,
     patch.headers_json,
     patch.status,
     id

@@ -21,6 +21,12 @@ import {
   clearKanbanTaskNotification,
 } from '../services/platform-notifications.js';
 import { buildKanbanChatStatusGuidance } from '../services/kanban-chat-status.js';
+import {
+  enrichReplyWithRecentImages,
+  looksStatusOnlyReply,
+  taskExpectsRichDeliverable,
+  RICH_DELIVERABLE_NUDGE,
+} from '../services/kanban-reply-enrich.js';
 import { ensureTenantOpenClawAgent } from '../services/openclaw-tenant.js';
 import { registerOpenClawSessionOwner } from '../services/tool-owner-scope.js';
 import { insertChatTurn } from '../services/chat-history.js';
@@ -435,8 +441,48 @@ router.post('/tasks/:id/messages', async (req, res) => {
         if (delegationResponse) messages.push({ role: 'assistant', content: delegationResponse });
         for (const m of taskMessages) messages.push({ role: m.role, content: m.content });
         try {
-          const { content: replyContent } = await openclaw.chatCompletions(openclawAgentId, messages, sessionUser, false);
-          const reply = (replyContent && String(replyContent).trim()) || '(No reply.)';
+          const turnStartedAt = new Date().toISOString();
+          let { content: replyContent } = await openclaw.chatCompletions(openclawAgentId, messages, sessionUser, false);
+          let reply = (replyContent && String(replyContent).trim()) || '(No reply.)';
+          const statusOnlyBeforeEnrich = looksStatusOnlyReply(reply);
+          reply = enrichReplyWithRecentImages(reply, {
+            ownerUserId: ceoOwner,
+            agentId: agent.id,
+            sinceIso: turnStartedAt,
+          });
+          // One nudge if model only said "done" but the task expects recipe/research/image body
+          // (check status-only on the raw reply — image enrich must not suppress the nudge)
+          if (
+            !String(reply).startsWith('[Error from agent:') &&
+            taskExpectsRichDeliverable(task.title, task.description, c) &&
+            statusOnlyBeforeEnrich
+          ) {
+            try {
+              const nudged = await openclaw.chatCompletions(
+                openclawAgentId,
+                [
+                  ...messages,
+                  { role: 'assistant', content: reply },
+                  { role: 'user', content: RICH_DELIVERABLE_NUDGE },
+                ],
+                sessionUser,
+                false
+              );
+              let nudgedReply = (nudged.content && String(nudged.content).trim()) || '';
+              if (nudgedReply && !nudgedReply.startsWith('[Error from agent:')) {
+                nudgedReply = enrichReplyWithRecentImages(nudgedReply, {
+                  ownerUserId: ceoOwner,
+                  agentId: agent.id,
+                  sinceIso: turnStartedAt,
+                });
+                if (nudgedReply.length > reply.length || !looksStatusOnlyReply(nudgedReply)) {
+                  reply = nudgedReply;
+                }
+              }
+            } catch (nudgeErr) {
+              console.warn('[kanban] deliverable nudge failed:', nudgeErr?.message || nudgeErr);
+            }
+          }
           db().prepare('INSERT INTO task_messages (task_id, role, content) VALUES (?, ?, ?)').run(req.params.id, 'assistant', reply);
           if (ceoOwner) {
             mirrorKanbanTurnToAgentChat({

@@ -31,6 +31,7 @@ function UserProfilePanel() {
   const [error, setError] = useState(null);
   const [oc, setOc] = useState({
     runtime_token: '',
+    runtime_token_ref: '',
     clear_runtime_token: false,
     connection_name: '',
     runtime_token_hint: null,
@@ -38,6 +39,7 @@ function UserProfilePanel() {
     last_error: null,
   });
   const [ocConnections, setOcConnections] = useState([]);
+  const [vaultKeys, setVaultKeys] = useState([]);
 
   const loadOcConnections = () => {
     api
@@ -100,6 +102,7 @@ function UserProfilePanel() {
         setOc((prev) => ({
           ...prev,
           runtime_token: '',
+          runtime_token_ref: data.runtime_token_ref || '',
           clear_runtime_token: false,
           connection_name: data.connection_name || '',
           runtime_token_hint: data.runtime_token_hint || null,
@@ -108,6 +111,10 @@ function UserProfilePanel() {
         }))
       )
       .catch(() => {});
+    api
+      .userApiKeysList()
+      .then((r) => setVaultKeys(r.keys || []))
+      .catch(() => setVaultKeys([]));
     loadOcConnections();
   }, [user]);
 
@@ -141,19 +148,25 @@ function UserProfilePanel() {
       }
       if (form.clear_llm_api_key) {
         body.clear_llm_api_key = true;
-      } else if (form.llm_api_key && form.llm_api_key.trim()) {
-        body.llm_api_key = form.llm_api_key.trim();
       }
+      // llm_api_key no longer accepted — use Management → API Keys (Platform_BYOK)
       const data = await api.authUpdateProfile(body);
-      if (oc.clear_runtime_token || (oc.runtime_token && oc.runtime_token.trim()) || oc.connection_name) {
+      if (
+        oc.clear_runtime_token ||
+        (oc.runtime_token && oc.runtime_token.trim()) ||
+        oc.runtime_token_ref ||
+        oc.connection_name
+      ) {
         const link = await api.openconnectorLinkUpdate({
           runtime_token: oc.runtime_token && oc.runtime_token.trim() ? oc.runtime_token.trim() : undefined,
+          runtime_token_ref: oc.runtime_token_ref || undefined,
           clear_runtime_token: oc.clear_runtime_token,
           connection_name: oc.connection_name,
         });
         setOc((prev) => ({
           ...prev,
           runtime_token: '',
+          runtime_token_ref: link.runtime_token_ref || '',
           clear_runtime_token: false,
           connection_name: link.connection_name || prev.connection_name,
           runtime_token_hint: link.runtime_token_hint || null,
@@ -356,7 +369,8 @@ function UserProfilePanel() {
 
         <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '0.5rem 0' }} />
         <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--muted)' }}>
-          LLM provider (BYOK) — used by Agent OS and your OpenClaw agent space. Platform .env is used only when Platform decided (or unset).
+          LLM provider — Platform default / free models need no key. OpenAI/OpenRouter require vault key{' '}
+          <code>Platform_BYOK</code> under <Link to="/api-keys">Management → API Keys</Link>.
         </p>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Provider</span>
@@ -366,36 +380,19 @@ function UserProfilePanel() {
             style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
           >
             <option value="platform_decided">Platform decided (use .env)</option>
-            <option value="openai">OpenAI (BYOK)</option>
-            <option value="openrouter">OpenRouter (BYOK)</option>
+            <option value="openai">OpenAI (BYOK via Platform_BYOK)</option>
+            <option value="openrouter">OpenRouter (BYOK via Platform_BYOK)</option>
             <option value="ollama_free">Ollama Free (local)</option>
             <option value="deepseek">DeepSeek V3 (Ollama local)</option>
           </select>
         </label>
         {(form.llm_provider === 'openai' || form.llm_provider === 'openrouter') && (
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
-              API key {llmHint ? `(saved: ${llmHint})` : ''}
-            </span>
-            <input
-              type="password"
-              value={form.llm_api_key}
-              onChange={(e) => set('llm_api_key', e.target.value)}
-              placeholder={llmHint ? 'Leave blank to keep current key' : 'Paste API key'}
-              autoComplete="off"
-              style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
-            />
-            {llmHint && (
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8rem', color: 'var(--muted)' }}>
-                <input
-                  type="checkbox"
-                  checked={form.clear_llm_api_key}
-                  onChange={(e) => set('clear_llm_api_key', e.target.checked)}
-                />
-                Clear saved API key
-              </label>
-            )}
-          </label>
+          <p style={{ margin: 0, fontSize: '0.85rem', color: llmHint ? 'var(--muted)' : '#b45309' }}>
+            {llmHint
+              ? `Platform_BYOK on file (${llmHint}). Manage under `
+              : 'Platform_BYOK is required before this provider will work. Create it under '}
+            <Link to="/api-keys">API Keys</Link>.
+          </p>
         )}
 
         {form.llm_provider === 'deepseek' && (
@@ -407,21 +404,56 @@ function UserProfilePanel() {
 
         <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '0.5rem 0' }} />
         <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--muted)' }}>
-          OpenConnector link — used by Connector workflow nodes and connector-backed tools.
+          OpenConnector link — paste a runtime token or select a vault key from{' '}
+          <Link to="/api-keys">API Keys</Link>.
         </p>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
-            Runtime token {oc.runtime_token_hint ? `(saved: ${oc.runtime_token_hint})` : ''}
-          </span>
-          <input
-            type="password"
-            value={oc.runtime_token}
-            onChange={(e) => setOc((v) => ({ ...v, runtime_token: e.target.value }))}
-            placeholder={oc.runtime_token_set ? 'Leave blank to keep current token' : 'Paste oct_... token'}
-            autoComplete="off"
+          <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Runtime token source</span>
+          <select
+            value={oc.runtime_token_ref ? 'vault' : 'literal'}
+            onChange={(e) => {
+              if (e.target.value === 'literal') setOc((v) => ({ ...v, runtime_token_ref: '' }));
+              else setOc((v) => ({ ...v, runtime_token: '', runtime_token_ref: vaultKeys[0]?.key_name || '' }));
+            }}
             style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
-          />
+          >
+            <option value="literal">Literal token</option>
+            <option value="vault">Vault key</option>
+          </select>
         </label>
+        {oc.runtime_token_ref ? (
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
+              Vault key {oc.runtime_token_hint ? `(${oc.runtime_token_hint})` : ''}
+            </span>
+            <select
+              value={oc.runtime_token_ref}
+              onChange={(e) => setOc((v) => ({ ...v, runtime_token_ref: e.target.value, runtime_token: '' }))}
+              style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+            >
+              <option value="">Select…</option>
+              {vaultKeys.map((k) => (
+                <option key={k.id} value={k.key_name}>
+                  {k.key_name} {k.key_hint ? `(${k.key_hint})` : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
+              Runtime token {oc.runtime_token_hint ? `(saved: ${oc.runtime_token_hint})` : ''}
+            </span>
+            <input
+              type="password"
+              value={oc.runtime_token}
+              onChange={(e) => setOc((v) => ({ ...v, runtime_token: e.target.value }))}
+              placeholder={oc.runtime_token_set ? 'Leave blank to keep current token' : 'Paste oct_... token'}
+              autoComplete="off"
+              style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+            />
+          </label>
+        )}
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Default connection name</span>
           <input

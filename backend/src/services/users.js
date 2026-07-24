@@ -21,6 +21,7 @@ import {
 } from './user-llm-settings.js';
 import { ensureCeoDefaultMasterData } from './ceo-default-master-data.js';
 import { removeWorkflowSchedulesForOwner, syncWorkflowScheduleRegistry } from './agent-workflow-store.js';
+import { PLATFORM_BYOK_KEY_NAME } from './user-api-keys.js';
 
 export { isUserEnabled } from './user-enabled.js';
 
@@ -217,10 +218,18 @@ export async function registerCeoUser({
   }
   const enabledFlag = policy === 'on' ? 1 : 0;
   const provider = normalizeLlmProvider(llm_provider);
-  const apiKey = llm_api_key != null && String(llm_api_key).trim() ? String(llm_api_key).trim() : null;
-  if (providerNeedsApiKey(provider) && !apiKey) {
-    throw new Error(`API key required for llm_provider=${provider}`);
+  // BYOK secrets live in Management → API Keys (Platform_BYOK). Do not accept pasted keys at register.
+  if (llm_api_key != null && String(llm_api_key).trim()) {
+    throw new Error(
+      `Do not send llm_api_key during registration. Register with Platform default or a free model, then create "${PLATFORM_BYOK_KEY_NAME}" under Management → API Keys and switch provider in Profile.`
+    );
   }
+  if (providerNeedsApiKey(provider)) {
+    throw new Error(
+      `llm_provider=${provider} requires API key "${PLATFORM_BYOK_KEY_NAME}" under Management → API Keys. During registration choose Platform default, Ollama free, or DeepSeek free; then add the key and switch provider in Profile.`
+    );
+  }
+  const apiKey = null;
 
   db.prepare(
     `INSERT INTO platform_users

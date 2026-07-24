@@ -46,6 +46,9 @@ export function ensureChatHistorySchema() {
   try {
     db.exec(`CREATE INDEX IF NOT EXISTS idx_chat_turns_session ON chat_turns(session_id, created_at)`);
   } catch (_) {}
+  try {
+    db.exec(`ALTER TABLE chat_sessions ADD COLUMN restored INTEGER NOT NULL DEFAULT 0`);
+  } catch (_) {}
 }
 
 function db() {
@@ -89,27 +92,44 @@ export function getActiveChatSession(agentId, ownerUserId) {
   );
 }
 
-function createActiveSessionRow(agentId, ownerUserId, { title = '', ocThreadId = null, startedAt = null } = {}) {
+function createActiveSessionRow(
+  agentId,
+  ownerUserId,
+  { title = '', ocThreadId = null, startedAt = null, restored = false } = {}
+) {
   const id = randomUUID();
   const threadId = ocThreadId || getChatThreadId(agentId, ownerUserId) || newChatThreadId();
   const started = startedAt && String(startedAt).trim() ? String(startedAt).trim() : null;
+  const restoredFlag = restored ? 1 : 0;
   if (started) {
     db()
       .prepare(
-        `INSERT INTO chat_sessions (id, agent_id, owner_user_id, title, status, started_at, oc_thread_id, updated_at)
-         VALUES (?, ?, ?, ?, 'active', ?, ?, datetime('now'))`
+        `INSERT INTO chat_sessions (id, agent_id, owner_user_id, title, status, started_at, oc_thread_id, updated_at, restored)
+         VALUES (?, ?, ?, ?, 'active', ?, ?, datetime('now'), ?)`
       )
-      .run(id, agentId, ownerUserId, title || 'Current chat', started, threadId);
+      .run(id, agentId, ownerUserId, title || 'Current chat', started, threadId, restoredFlag);
   } else {
     db()
       .prepare(
-        `INSERT INTO chat_sessions (id, agent_id, owner_user_id, title, status, started_at, oc_thread_id, updated_at)
-         VALUES (?, ?, ?, ?, 'active', datetime('now'), ?, datetime('now'))`
+        `INSERT INTO chat_sessions (id, agent_id, owner_user_id, title, status, started_at, oc_thread_id, updated_at, restored)
+         VALUES (?, ?, ?, ?, 'active', datetime('now'), ?, datetime('now'), ?)`
       )
-      .run(id, agentId, ownerUserId, title || 'Current chat', threadId);
+      .run(id, agentId, ownerUserId, title || 'Current chat', threadId, restoredFlag);
   }
   setChatThreadId(agentId, ownerUserId, threadId);
   return getSessionById(id, ownerUserId);
+}
+
+/** Day anchor for rollover: restored chats use started_at; normal chats use earliest turn. */
+function sessionDayAnchorAt(session) {
+  if (!session) return null;
+  if (Number(session.restored) === 1 || String(session.title || '').startsWith('Restored ·')) {
+    return session.started_at;
+  }
+  const turnMin = earliestTurnCreatedAt({ sessionId: session.id });
+  if (!turnMin) return session.started_at;
+  if (!session.started_at) return turnMin;
+  return turnMin < session.started_at ? turnMin : session.started_at;
 }
 
 /** Earliest turn timestamp for a session (or agent/owner orphans). */
@@ -133,19 +153,6 @@ function earliestTurnCreatedAt({ sessionId = null, agentId = null, ownerUserId =
   return null;
 }
 
-/**
- * Effective chat-day anchor: earliest of session.started_at and first turn.
- * Prevents legacy backfill (started_at=now wrapping old turns) from skipping daily rollover.
- */
-function effectiveSessionStartAt(session) {
-  if (!session) return null;
-  const turnMin = earliestTurnCreatedAt({ sessionId: session.id });
-  if (!turnMin) return session.started_at;
-  if (!session.started_at) return turnMin;
-  // SQLite datetime strings compare lexicographically when 'YYYY-MM-DD HH:MM:SS'
-  return turnMin < session.started_at ? turnMin : session.started_at;
-}
-
 export function getSessionById(sessionId, ownerUserId = null) {
   if (ownerUserId) {
     return db()
@@ -162,20 +169,32 @@ export function getSessionById(sessionId, ownerUserId = null) {
 function backfillActiveSession(agentId, ownerUserId) {
   const existing = getActiveChatSession(agentId, ownerUserId);
   if (existing) {
-    db()
+    const orphanInfo = db()
       .prepare(
-        `UPDATE chat_turns SET session_id = ?
+        `SELECT COUNT(*) AS n, MIN(created_at) AS earliest
+         FROM chat_turns
          WHERE agent_id = ? AND owner_user_id = ? AND (session_id IS NULL OR session_id = '')`
       )
-      .run(existing.id, agentId, ownerUserId);
-    const eff = effectiveSessionStartAt(existing);
-    if (eff && eff !== existing.started_at) {
+      .get(agentId, ownerUserId);
+    const orphanCount = orphanInfo?.n || 0;
+    if (orphanCount > 0) {
       db()
         .prepare(
-          `UPDATE chat_sessions SET started_at = ?, updated_at = datetime('now') WHERE id = ?`
+          `UPDATE chat_turns SET session_id = ?
+           WHERE agent_id = ? AND owner_user_id = ? AND (session_id IS NULL OR session_id = '')`
         )
-        .run(eff, existing.id);
-      return getSessionById(existing.id, ownerUserId);
+        .run(existing.id, agentId, ownerUserId);
+      // Only pull started_at backward when real orphans were attached — never for
+      // restored copies that intentionally keep historical created_at under a fresh session day.
+      const earliest = orphanInfo?.earliest;
+      if (earliest && (!existing.started_at || earliest < existing.started_at)) {
+        db()
+          .prepare(
+            `UPDATE chat_sessions SET started_at = ?, updated_at = datetime('now') WHERE id = ?`
+          )
+          .run(earliest, existing.id);
+        return getSessionById(existing.id, ownerUserId);
+      }
     }
     return existing;
   }
@@ -203,9 +222,10 @@ function backfillActiveSession(agentId, ownerUserId) {
 }
 
 /**
- * Ensure an active session exists. If the chat's effective start day is before today
- * (session.started_at or earliest turn — whichever is older), archive and open a fresh chat.
- * Visit-time daily rollover — no cron.
+ * Ensure an active session exists. If the chat's day anchor is before today,
+ * archive and open a fresh chat. Visit-time daily rollover — no cron.
+ * Restored sessions anchor on restore day (started_at); normal sessions use
+ * earliest turn so multi-day active chats still roll on open.
  */
 export async function ensureActiveChatSession({
   agentId,
@@ -216,7 +236,7 @@ export async function ensureActiveChatSession({
 } = {}) {
   let active = backfillActiveSession(agentId, ownerUserId);
   const today = calendarDayKey(new Date().toISOString(), timeZone);
-  const startedDay = calendarDayKey(effectiveSessionStartAt(active), timeZone);
+  const startedDay = calendarDayKey(sessionDayAnchorAt(active), timeZone);
   if (today && startedDay && today !== startedDay) {
     const turnCount = countSessionTurns(active.id);
     if (turnCount > 0) {
@@ -428,7 +448,8 @@ export async function autoSplitArchivingChatSession({
   const session = createActiveSessionRow(agentId, ownerUserId, { ocThreadId: threadId });
   const keep = (historyTurns || []).slice(-Math.max(2, keepCount));
   const insert = db().prepare(
-    `INSERT INTO chat_turns (agent_id, owner_user_id, role, content, session_id) VALUES (?, ?, ?, ?, ?)`
+    `INSERT INTO chat_turns (agent_id, owner_user_id, role, content, session_id, created_at)
+     VALUES (?, ?, ?, ?, ?, COALESCE(?, datetime('now')))`
   );
   for (const t of keep) {
     insert.run(
@@ -436,7 +457,8 @@ export async function autoSplitArchivingChatSession({
       ownerUserId,
       t.role === 'assistant' ? 'assistant' : 'user',
       String(t.content || ''),
-      session.id
+      session.id,
+      t.created_at || null
     );
   }
 
@@ -507,10 +529,12 @@ export async function restoreChatSession({
   const session = createActiveSessionRow(agentId, ownerUserId, {
     title: `Restored · ${archived.title || 'chat'}`.slice(0, TITLE_MAX),
     ocThreadId: threadId,
+    restored: true,
   });
 
   const insert = db().prepare(
-    `INSERT INTO chat_turns (agent_id, owner_user_id, role, content, session_id) VALUES (?, ?, ?, ?, ?)`
+    `INSERT INTO chat_turns (agent_id, owner_user_id, role, content, session_id, created_at)
+     VALUES (?, ?, ?, ?, ?, COALESCE(?, datetime('now')))`
   );
 
   if (mode === 'summarized') {
@@ -528,19 +552,22 @@ export async function restoreChatSession({
       ownerUserId,
       'user',
       `Continue from this archived chat summary (restored):\n\n${summary}`,
-      session.id
+      session.id,
+      null
     );
     insert.run(
       agentId,
       ownerUserId,
       'assistant',
       'Understood — I have the archived summary as context. How would you like to continue?',
-      session.id
+      session.id,
+      null
     );
   } else {
     const turns = listSessionTurns(archived.id);
     for (const t of turns) {
-      insert.run(agentId, ownerUserId, t.role, t.content, session.id);
+      // Preserve original timestamps so restored history does not look like "chatted today".
+      insert.run(agentId, ownerUserId, t.role, t.content, session.id, t.created_at || null);
     }
   }
 

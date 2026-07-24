@@ -141,20 +141,36 @@ function normalizeHeadersInput(body = {}) {
   }
   const out = {};
   for (const [k, v] of Object.entries(headers)) {
-    if (v != null && String(v).trim()) out[k] = String(v).trim();
+    const name = String(k || '').trim();
+    if (!name || v == null) continue;
+    // Preserve vault refs: { "$keyRef": "name" } for resolveHeadersObject at run time.
+    if (typeof v === 'object' && !Array.isArray(v) && v.$keyRef) {
+      const ref = String(v.$keyRef || '').trim();
+      if (ref) out[name] = { $keyRef: ref };
+      continue;
+    }
+    const s = String(v).trim();
+    if (s) out[name] = s;
   }
   return out;
 }
 
 /** Load stored HTTP headers for MCP calls (not exposed on sanitized API rows). */
-export function getStoredMcpAuth(serverId) {
-  const row = getDb().prepare('SELECT headers_json FROM mcp_servers WHERE id = ?').get(serverId);
-  return parseMcpAuth({ headers: parseJson(row?.headers_json, {}) });
+export function getStoredMcpAuth(serverId, ownerUserId = null) {
+  const row = getDb()
+    .prepare('SELECT headers_json, owner_user_id FROM mcp_servers WHERE id = ?')
+    .get(serverId);
+  const owner = String(ownerUserId || row?.owner_user_id || '').trim() || null;
+  return parseMcpAuth({ headers: parseJson(row?.headers_json, {}) }, null, owner);
 }
 
-export function mergeMcpAuth(serverId, authSource = null) {
-  const stored = getStoredMcpAuth(serverId);
-  const overlay = parseMcpAuth(authSource || {});
+export function mergeMcpAuth(serverId, authSource = null, ownerUserId = null) {
+  const row = getDb()
+    .prepare('SELECT headers_json, owner_user_id FROM mcp_servers WHERE id = ?')
+    .get(serverId);
+  const owner = String(ownerUserId || row?.owner_user_id || '').trim() || null;
+  const stored = parseMcpAuth({ headers: parseJson(row?.headers_json, {}) }, null, owner);
+  const overlay = parseMcpAuth(authSource || {}, null, owner);
   return { headers: { ...stored.headers, ...overlay.headers } };
 }
 
@@ -332,7 +348,7 @@ export async function connectMcpServer(id, authUser, authSource = null) {
   const server = getMcpServer(id, authUser);
   if (!server) throw new Error('MCP server not found');
   const db = getDb();
-  const auth = mergeMcpAuth(id, authSource);
+  const auth = mergeMcpAuth(id, authSource, authUser?.id);
   try {
     const probe = await probeMcpServer(server, auth);
     cacheTools(id, probe.tools);
@@ -364,7 +380,7 @@ export async function callMcpServerTool(id, toolName, args, authUser, authSource
   if (!server) throw new Error('MCP server not found');
   if (server.status !== 'healthy') throw new Error('MCP server is not healthy — connect first');
   const started = Date.now();
-  const auth = mergeMcpAuth(id, authSource);
+  const auth = mergeMcpAuth(id, authSource, authUser?.id);
   try {
     const out = await invokeMcpTool(server, toolName, args, auth);
     logMcpCall(id, toolName, authUser?.id, { arguments: args, auth: '***' }, out, 'ok', out.latency_ms);
@@ -388,7 +404,7 @@ export async function callMcpServerPrompt(id, promptName, args, authUser, authSo
   if (!server) throw new Error('MCP server not found');
   if (server.status !== 'healthy') throw new Error('MCP server is not healthy — connect first');
   const started = Date.now();
-  const auth = mergeMcpAuth(id, authSource);
+  const auth = mergeMcpAuth(id, authSource, authUser?.id);
   try {
     const out = await invokeMcpPrompt(server, promptName, args, auth);
     logMcpCall(id, `prompt:${promptName}`, authUser?.id, { arguments: args, auth: '***' }, out, 'ok', out.latency_ms);
@@ -412,7 +428,7 @@ export async function callMcpServerResource(id, uri, authUser, authSource = null
   if (!server) throw new Error('MCP server not found');
   if (server.status !== 'healthy') throw new Error('MCP server is not healthy — connect first');
   const started = Date.now();
-  const auth = mergeMcpAuth(id, authSource);
+  const auth = mergeMcpAuth(id, authSource, authUser?.id);
   try {
     const out = await invokeMcpResource(server, uri, auth);
     logMcpCall(id, `resource:${uri}`, authUser?.id, { uri, auth: '***' }, out, 'ok', out.latency_ms);

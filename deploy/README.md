@@ -23,7 +23,7 @@ Works with **Docker Compose** and **Podman Compose** on CentOS/RHEL, Ubuntu (Hos
 
 | Volume | Mount | Contents |
 |--------|-------|----------|
-| `agent_os_data` | backend `/data/agent-os` | SQLite (`agent-os.db`) — master-data, feedback, user LLM settings, **Kanban `owner_user_id`**, standups/delegation owners |
+| `agent_os_data` | backend `/data/agent-os` | SQLite (`agent-os.db`) — master-data, feedback, user LLM settings, **Kanban `owner_user_id`**, standups/delegation owners, **platform agent workspace templates** |
 | `openclaw_home` | backend + openclaw `/root/.openclaw` | `openclaw.json`, workspaces, browser profile, media, sessions |
 | `workflow_fs` | backend `/data/workflow-fs` | Filesystem workflow node roots (`WORKFLOW_FS_ROOTS`) |
 | `openconnector_data` | openconnector `/app/data` | OpenConnector runtime DB + OAuth tokens (`optional-openconnector`) |
@@ -46,7 +46,8 @@ The `init` container runs `setup-openclaw-from-scratch.sh --docker`, which match
 | Browser TOOLS.md sections | manual sync script | ✓ |
 | Session visibility (`tools.sessions.visibility`) | manual one-off | ✓ `agent` |
 | Ollama fallback provider | ✓ | ✓ (use `optional-ollama` profile) |
-| Hot-reload workspace MD (bootstrap watcher) | ✓ | ✓ |
+| Hot-reload workspace MD (bootstrap watcher) | ✓ | ✓ (includes `AGENT-OS-OPS.md`) |
+| Platform agent workspace templates (Admin + CEO apply/publish) | ✓ | ✓ (DB table `platform_agent_workspace_templates`) |
 | Custom workflow scripts (Python/JS sandbox) | ✓ | ✓ (`python3` in backend image) |
 | Per-agent tool grants / allowlists | backend startup sync | ✓ backend startup |
 | Master-data / feedback / BYOK LLM | ✓ (schema on startup) | ✓ rebuild backend image |

@@ -21,6 +21,7 @@ const OPENCLAW_DIR = getOpenClawDir();
 
 /** Default content tools for CEO-created custom agents (not COO-only tools). */
 const DEFAULT_TOOLS_ALLOW = [
+  'learnings_summary',
   'summarize_url',
   'generate_image',
   'generate_video',
@@ -103,10 +104,11 @@ You are **${name}**. ${role || 'Specialist agent.'}
 
 ## Tools
 
+- **Before non-trivial work:** call **learnings_summary** with a short \`topic\` (optional \`days\`). Apply the summary.
 - **notify_ceo**: ONLY when the CEO explicitly asked you to reach/notify/ping them, or for a true blocker while they are not already in Dashboard chat. Never call it for ordinary chat replies — they already see your answer. Parameters: \`title\` (required), optional \`body\`, \`link_url\` (prefer \`/agents/<your-id>/chat\`). Recipient is always this org's CEO; never pass a user id.
 - **Out of specialty:** If the CEO asks for work that clearly belongs to another agent in **ORG.md** (e.g. deep tech research → TechResearcher), tell them which agent to use or **sessions_send** to that peer. Do **not** call notify_ceo on yourself.
 - **kanban_create_task**, **kanban_move_status** and other Agent OS tools are **API tools**. Invoke them by tool name with JSON parameters. Do **not** run them as shell commands.
-- Use **kanban_create_task** to create a Kanban task for the CEO (title required; optional description / assign_to).
+- Use **kanban_create_task** only when the CEO asked to track work on Kanban. **kanban_move_status**: \`in_progress\` when you start; \`completed\` only after you finished the deliverable; \`failed\` if blocked.
 - **Peer agents:** Use **sessions_send** with tenant session keys from **ORG.md** to reach COO or other agents in this org.
 - **Tool choice:** Pick the tool that best matches the user's request (see TOOLS.md). If a tool's response is inadequate (error, empty, or doesn't answer the question), try the next best tool for that context instead of stopping.
 - **Browser:** Use the **browser** tool with **profile="openclaw"** only (managed Playwright). Never use profile="chrome" or ask for the Chrome extension unless the user explicitly wants their own Chrome tab attached.

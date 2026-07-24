@@ -1180,8 +1180,8 @@ button {
 
 .wf-editor-body {
   display: grid;
-  /* Compact side panes ? maximize canvas */
-  grid-template-columns: minmax(140px, 168px) minmax(0, 1fr) minmax(200px, 240px);
+  /* Compact left palette; right attributes pane width is user-resizable */
+  grid-template-columns: minmax(140px, 168px) minmax(0, 1fr) var(--wf-props-pane-width, 280px);
   flex: 1;
   min-height: 0;
 }
@@ -1270,6 +1270,7 @@ button {
 }
 
 .wf-sidebar-right {
+  position: relative;
   border-left: 1px solid var(--border);
   overflow-y: auto;
   overflow-x: hidden;
@@ -1277,6 +1278,57 @@ button {
   min-height: 0;
   height: 100%;
   color: var(--text);
+  min-width: 0;
+}
+
+.wf-props-resize-handle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  z-index: 6;
+  cursor: col-resize;
+  touch-action: none;
+  background: transparent;
+  transition: background 0.12s ease;
+}
+
+.wf-props-resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 1px;
+  width: 2px;
+  height: 36px;
+  margin-top: -18px;
+  border-radius: 1px;
+  background: var(--border);
+  opacity: 0.7;
+}
+
+.wf-props-resize-handle:hover,
+.wf-props-resize-handle:focus-visible,
+body.wf-props-resizing .wf-props-resize-handle {
+  background: color-mix(in srgb, var(--accent, #2563eb) 28%, transparent);
+  outline: none;
+}
+
+.wf-props-resize-handle:hover::after,
+.wf-props-resize-handle:focus-visible::after,
+body.wf-props-resizing .wf-props-resize-handle::after {
+  background: var(--accent, #2563eb);
+  opacity: 1;
+}
+
+body.wf-props-resizing {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+body.wf-props-resizing .wf-canvas,
+body.wf-props-resizing .react-flow {
+  pointer-events: none !important;
 }
 
 .wf-sidebar-right .wf-props,
@@ -1288,7 +1340,7 @@ button {
 
 @media (max-width: 1100px) {
   .wf-editor-body {
-    grid-template-columns: minmax(120px, 148px) minmax(0, 1fr) minmax(180px, 220px);
+    grid-template-columns: minmax(120px, 148px) minmax(0, 1fr) var(--wf-props-pane-width, 260px);
   }
 }
 
@@ -1305,6 +1357,9 @@ button {
   .wf-sidebar-right {
     border-left: none;
     border-top: 1px solid var(--border);
+  }
+  .wf-props-resize-handle {
+    display: none;
   }
 }
 

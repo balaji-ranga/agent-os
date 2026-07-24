@@ -31,9 +31,19 @@ import {
   });
   assert.strictEqual(g.promoteOnReply, true);
   assert.strictEqual(g.completeOnReply, false);
-  assert.ok(looksLikeLongRunningWork(g && 'research compare draft a detailed report') || true);
   assert.ok(looksLikeLongRunningWork('Please research and compare all options and draft a detailed report'));
-  console.log('PASS long work → promote only, no auto-complete');
+  assert.ok(looksLikeLongRunningWork('do a deep space research'));
+  console.log('PASS research deliverable → promote only, NO auto-complete');
+}
+
+{
+  const g = buildKanbanChatStatusGuidance(42, 'open', {
+    userText: 'Keep working on the auth regression across tenants — I will come back later',
+  });
+  assert.strictEqual(g.promoteOnReply, true);
+  assert.strictEqual(g.completeOnReply, false);
+  assert.ok(looksLikeLongRunningWork('Keep working on the auth regression across tenants'));
+  console.log('PASS explicit continue → promote only, no auto-complete');
 }
 
 {

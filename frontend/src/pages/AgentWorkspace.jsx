@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { api } from '../api';
 import DepartmentPicker from '../components/DepartmentPicker';
 
-const FILE_NAMES = ['soul', 'agents', 'memory', 'tools'];
+const FILE_NAMES = ['soul', 'agents', 'memory', 'tools', 'ops', 'identity'];
 const TOOLS_TAB = '__tool_access__';
 
 export default function AgentWorkspace() {
@@ -26,6 +26,12 @@ export default function AgentWorkspace() {
   const [orgParentId, setOrgParentId] = useState('');
   const [orgSaving, setOrgSaving] = useState(false);
   const [orgMessage, setOrgMessage] = useState(null);
+  const [wsTemplates, setWsTemplates] = useState([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('platform-standard');
+  const [applyingTemplate, setApplyingTemplate] = useState(false);
+  const [publishingTemplate, setPublishingTemplate] = useState(false);
+  const [publishName, setPublishName] = useState('');
+  const [templateMessage, setTemplateMessage] = useState(null);
 
   const clearSessions = () => {
     if (!window.confirm('Clear all OpenClaw sessions for this agent? Chat and task session history will be reset.')) return;
@@ -72,6 +78,72 @@ export default function AgentWorkspace() {
   }, [agentId]);
 
   useEffect(() => {
+    api
+      .agentWorkspaceTemplates()
+      .then((r) => {
+        const list = r.templates || [];
+        setWsTemplates(list);
+        const def = list.find((t) => t.is_default) || list[0];
+        if (def) setSelectedTemplateId(def.id);
+      })
+      .catch(() => setWsTemplates([]));
+  }, []);
+
+  const refreshWorkspaceFiles = () =>
+    api.agentWorkspaceFiles(agentId).then((r) => {
+      setFiles(r);
+      if (r?.workspace_root) setWorkspaceRoot(r.workspace_root);
+      return r;
+    });
+
+  const applyWorkspaceTemplate = () => {
+    if (!selectedTemplateId) return;
+    const tpl = wsTemplates.find((t) => t.id === selectedTemplateId);
+    if (
+      !window.confirm(
+        `Apply "${tpl?.name || selectedTemplateId}" to this agent?\n\nThis overwrites SOUL, AGENTS, MEMORY, TOOLS, IDENTITY, and AGENT-OS-OPS in the workspace (ORG/POLICY unchanged).`
+      )
+    ) {
+      return;
+    }
+    setApplyingTemplate(true);
+    setError(null);
+    setTemplateMessage(null);
+    api
+      .agentWorkspaceApplyTemplate(agentId, selectedTemplateId)
+      .then(async (r) => {
+        setTemplateMessage(`Applied ${r.template_name}: wrote ${(r.written || []).join(', ')}`);
+        await refreshWorkspaceFiles();
+        if (selected !== TOOLS_TAB) {
+          const read = await api.agentWorkspaceRead(agentId, selected);
+          setContent(read.text ?? '');
+        }
+      })
+      .catch((e) => setError(e.message))
+      .finally(() => setApplyingTemplate(false));
+  };
+
+  const publishAsPlatformTemplate = () => {
+    const name = String(publishName || `${agent?.name || agentId} template`).trim();
+    if (!window.confirm(`Publish current workspace MD files as platform template "${name}"?\n\nVisible to all CEOs in Agent Workspace.`)) {
+      return;
+    }
+    setPublishingTemplate(true);
+    setError(null);
+    setTemplateMessage(null);
+    api
+      .agentWorkspacePublishTemplate(agentId, { name, description: `From agent ${agent?.name || agentId}` })
+      .then((tpl) => {
+        setTemplateMessage(`Published platform template: ${tpl.name} (${tpl.id})`);
+        setPublishName('');
+        return api.agentWorkspaceTemplates();
+      })
+      .then((r) => setWsTemplates(r.templates || []))
+      .catch((e) => setError(e.message))
+      .finally(() => setPublishingTemplate(false));
+  };
+
+  useEffect(() => {
     if (!agentId || !selected || selected === TOOLS_TAB) return;
     setLoading(true);
     api.agentWorkspaceRead(agentId, selected)
@@ -102,7 +174,7 @@ export default function AgentWorkspace() {
   const saveTools = () => {
     setToolsSaving(true);
     setError(null);
-    api.agentToolsSet(agentId, [...toolGrants])
+    api.agentToolsSet(agentId, [...toolGrants], { sync_tools_md: true })
       .then((r) => {
         setToolCatalog(r.tools || []);
         setToolGrants(new Set((r.grants || []).map(String)));
@@ -231,6 +303,93 @@ export default function AgentWorkspace() {
           </button>
           {orgMessage && <span style={{ color: '#22c55e', fontSize: '0.85rem' }}>{orgMessage}</span>}
         </div>
+      </section>
+
+      <section
+        style={{
+          marginBottom: '1.25rem',
+          padding: '1rem',
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderRadius: 10,
+        }}
+      >
+        <h2 style={{ margin: '0 0 0.5rem', fontSize: '1rem' }}>Workspace templates</h2>
+        <p style={{ margin: '0 0 0.75rem', fontSize: '0.85rem', color: 'var(--muted)' }}>
+          Prepopulate SOUL / AGENTS / MEMORY / TOOLS / IDENTITY / AGENT-OS-OPS from a platform template, then edit.
+          Templates are shared platform-wide (not per-CEO).
+        </p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
+          <select
+            value={selectedTemplateId}
+            onChange={(e) => setSelectedTemplateId(e.target.value)}
+            aria-label="Workspace template"
+            style={{
+              padding: '0.5rem 0.75rem',
+              background: 'var(--bg, #121216)',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              color: 'var(--text)',
+              minWidth: 220,
+            }}
+          >
+            {wsTemplates.length === 0 && <option value="">No templates</option>}
+            {wsTemplates.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}{t.is_default ? ' (default)' : ''} · {t.source}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={applyWorkspaceTemplate}
+            disabled={applyingTemplate || !selectedTemplateId}
+            style={{
+              padding: '0.5rem 1rem',
+              background: 'var(--accent)',
+              border: 'none',
+              borderRadius: 6,
+              color: '#fff',
+              cursor: applyingTemplate ? 'wait' : 'pointer',
+            }}
+          >
+            {applyingTemplate ? 'Applying…' : 'Apply template'}
+          </button>
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', marginTop: '0.75rem' }}>
+          <input
+            type="text"
+            placeholder="New template name (optional)"
+            value={publishName}
+            onChange={(e) => setPublishName(e.target.value)}
+            style={{
+              padding: '0.5rem 0.75rem',
+              background: 'var(--bg, #121216)',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              color: 'var(--text)',
+              minWidth: 200,
+            }}
+          />
+          <button
+            type="button"
+            onClick={publishAsPlatformTemplate}
+            disabled={publishingTemplate}
+            style={{
+              padding: '0.5rem 1rem',
+              background: 'transparent',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              color: 'var(--text)',
+              cursor: publishingTemplate ? 'wait' : 'pointer',
+            }}
+          >
+            {publishingTemplate ? 'Publishing…' : 'Publish this agent as template'}
+          </button>
+        </div>
+        {templateMessage && (
+          <p style={{ color: '#22c55e', fontSize: '0.85rem', margin: '0.75rem 0 0' }}>{templateMessage}</p>
+        )}
       </section>
 
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>

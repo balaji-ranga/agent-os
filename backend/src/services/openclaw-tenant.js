@@ -176,6 +176,12 @@ export function forcePushTemplateDocs(baseId, destDir, { forceIdentity = true } 
     cpSync(from, to, { recursive: true });
     copied.push(name);
   }
+  // Shared ops doc (Kanban / learnings / summarize_url) — always refresh when present
+  const sharedOps = join(REPO_TEMPLATES, '_shared', 'AGENT-OS-OPS.md');
+  if (existsSync(sharedOps)) {
+    cpSync(sharedOps, join(destDir, 'AGENT-OS-OPS.md'), { recursive: true });
+    copied.push('AGENT-OS-OPS.md');
+  }
   return { template: ownTpl, copied };
 }
 

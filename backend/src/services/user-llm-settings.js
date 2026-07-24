@@ -11,6 +11,13 @@ import {
   scrubOpenClawAuthProfileMetadata,
   clearAgentByokAuthProfile,
 } from './openclaw-byok-auth.js';
+import {
+  PLATFORM_BYOK_KEY_NAME,
+  tryResolveUserApiKey,
+  getUserApiKeyRow,
+  assertPlatformByokPresent,
+  resolvePlatformByokSecret,
+} from './user-api-keys.js';
 export const LLM_PROVIDERS = Object.freeze([
   'platform_decided',
   'openai',
@@ -123,7 +130,7 @@ export function getUserLlmRow(userId) {
 }
 
 /**
- * Public-safe BYOK view (never returns full key — only masked hint).
+ * Public-safe BYOK view — key lives in API Keys vault as Platform_BYOK (never return full key).
  */
 export function userLlmPublic(row) {
   if (!row) {
@@ -131,24 +138,22 @@ export function userLlmPublic(row) {
       llm_provider: 'platform_decided',
       llm_api_key_set: false,
       llm_api_key_hint: null,
+      platform_byok_key_name: PLATFORM_BYOK_KEY_NAME,
     };
   }
   const provider = normalizeLlmProvider(row.llm_provider || 'platform_decided');
-  const key = String(row.llm_api_key || '').trim();
-  let hint = null;
-  if (key) {
-    hint = key.length <= 8 ? '••••' : `${key.slice(0, 4)}…${key.slice(-4)}`;
-  }
+  const vault = row.id ? getUserApiKeyRow(row.id, PLATFORM_BYOK_KEY_NAME) : null;
   return {
     llm_provider: provider,
-    llm_api_key_set: !!key,
-    llm_api_key_hint: hint,
+    llm_api_key_set: !!vault,
+    llm_api_key_hint: vault?.key_hint || null,
+    platform_byok_key_name: PLATFORM_BYOK_KEY_NAME,
   };
 }
 
 /**
  * Resolve effective LLM endpoint for a user.
- * Precedence: user BYOK (openai / openrouter / ollama_free) → platform .env (platform_decided / empty).
+ * OpenAI/OpenRouter BYOK keys come from vault Platform_BYOK (not platform_users.llm_api_key).
  */
 export function resolveLlmConfigForUser(userId) {
   const envPrimary = envLlmPrimary();
@@ -165,7 +170,8 @@ export function resolveLlmConfigForUser(userId) {
 
   const row = userId ? getUserLlmRow(userId) : null;
   const provider = normalizeLlmProvider(row?.llm_provider || 'platform_decided');
-  const userKey = String(row?.llm_api_key || '').trim();
+  const vault = userId ? tryResolveUserApiKey(userId, PLATFORM_BYOK_KEY_NAME) : null;
+  const userKey = vault?.value || '';
 
   if (provider === 'openai') {
     if (!userKey) {
@@ -174,7 +180,7 @@ export function resolveLlmConfigForUser(userId) {
         secondary,
         provider,
         using_byok: false,
-        fallback_reason: 'openai_selected_but_no_key',
+        fallback_reason: 'openai_selected_but_no_platform_byok_key',
       };
     }
     return {
@@ -182,7 +188,7 @@ export function resolveLlmConfigForUser(userId) {
         baseUrl: OPENAI_BASE,
         apiKey: userKey,
         model: envPrimary.model || 'gpt-4o-mini',
-        source: 'user_byok',
+        source: 'user_byok_vault',
       },
       secondary: null,
       provider,
@@ -197,7 +203,7 @@ export function resolveLlmConfigForUser(userId) {
         secondary,
         provider,
         using_byok: false,
-        fallback_reason: 'openrouter_selected_but_no_key',
+        fallback_reason: 'openrouter_selected_but_no_platform_byok_key',
       };
     }
     const model =
@@ -209,7 +215,7 @@ export function resolveLlmConfigForUser(userId) {
         baseUrl: OPENROUTER_BASE,
         apiKey: userKey,
         model,
-        source: 'user_byok',
+        source: 'user_byok_vault',
       },
       secondary: null,
       provider,
@@ -443,18 +449,25 @@ export function updateUserLlmSettings(userId, { llm_provider, llm_api_key, clear
     llm_provider !== undefined
       ? normalizeLlmProvider(llm_provider)
       : normalizeLlmProvider(row.llm_provider || 'platform_decided');
-  let apiKey = row.llm_api_key || null;
 
-  if (clear_llm_api_key) {
-    apiKey = null;
-  } else if (llm_api_key !== undefined && llm_api_key !== null) {
-    const trimmed = String(llm_api_key).trim();
-    // Empty string means "leave unchanged" when key already set; explicit clear via clear_llm_api_key
-    if (trimmed) apiKey = trimmed;
+  // API keys are managed only via Management → API Keys (Platform_BYOK). Ignore pasted keys.
+  if (llm_api_key !== undefined && llm_api_key !== null && String(llm_api_key).trim()) {
+    throw Object.assign(
+      new Error(
+        `Do not send llm_api_key here. Create "${PLATFORM_BYOK_KEY_NAME}" under Management → API Keys, then select ${provider}.`
+      ),
+      { status: 400 }
+    );
   }
 
-  if (providerNeedsApiKey(provider) && !apiKey) {
-    throw new Error(`API key required for llm_provider=${provider}`);
+  // Clear legacy column when switching providers / explicit clear
+  let apiKey = row.llm_api_key || null;
+  if (clear_llm_api_key || providerNeedsApiKey(provider)) {
+    apiKey = null;
+  }
+
+  if (providerNeedsApiKey(provider)) {
+    assertPlatformByokPresent(userId, provider);
   }
 
   db.prepare(
@@ -469,7 +482,7 @@ export function updateUserLlmSettings(userId, { llm_provider, llm_api_key, clear
   }
 
   return {
-    ...userLlmPublic({ llm_provider: provider, llm_api_key: apiKey }),
+    ...userLlmPublic({ id: userId, llm_provider: provider }),
     openclaw_sync: openclawSync,
   };
 }

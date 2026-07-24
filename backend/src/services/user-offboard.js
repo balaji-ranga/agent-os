@@ -25,6 +25,7 @@ function sanitizeIdPart(value) {
 export const PROTECTED_OFFBOARD_NAMES = [
   'Balaji Ranganathan',
   'Admin',
+  'Platform Admin',
   'Aru',
   'Senthil Loganathan',
 ];
