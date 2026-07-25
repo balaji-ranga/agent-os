@@ -172,6 +172,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-kanban-timezone-and-chat-context.js" `
     "$Repo\backend\scripts\test-a2a-private-local-delegation.js" `
     "$Repo\backend\scripts\test-kanban-orphan-watcher.js" `
+    "$Repo\backend\scripts\test-a2a-leaf-kanban-complete.js" `
     "$Repo\backend\scripts\vps-test-private-ops-echo-delegation.js" `
     "$Repo\backend\scripts\test-org-member-delegation-e2e.js" `
     "$Repo\backend\scripts\test-help-doc-accuracy.js" `

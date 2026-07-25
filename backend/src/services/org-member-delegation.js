@@ -109,9 +109,16 @@ function finishKanbanTask(taskId, out) {
     const ok = out?.ok !== false && !out?.pending;
     const pending = !!out?.pending;
     const text = String(out?.text || '').trim();
-    // External/A2A replies that are only status chatter must not complete the card.
+    const state = String(out?.state || '').toLowerCase();
+    // A2A / external leaves report a protocol terminal state (and usually task/run ids).
+    // Trust that over the specialty-agent "status-only chatter" gate — otherwise a sync
+    // workflow that returns "Workflow completed successfully." stays in_progress forever.
+    const trustA2ATerminal =
+      !!out?.taskId ||
+      out?.runId != null ||
+      ['completed', 'complete', 'success', 'failed', 'rejected', 'canceled', 'cancelled'].includes(state);
     let status = pending ? 'in_progress' : ok ? 'completed' : 'failed';
-    if (status === 'completed' && !shouldCompleteKanbanForReply(text)) {
+    if (status === 'completed' && !trustA2ATerminal && !shouldCompleteKanbanForReply(text)) {
       status = 'in_progress';
       console.warn(
         `[org-delegation] skip auto-complete kanban=${taskId} — status-only / empty A2A reply`

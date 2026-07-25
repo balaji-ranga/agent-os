@@ -18,6 +18,7 @@ import {
 } from './delegation-status-only-retry.js';
 import { isAgentWorkflowPrompt } from './agent-workflow-kanban.js';
 import { healStuckKanbanForCompletedDelegations } from './kanban-workflow-stage.js';
+import { reconcileA2AKanbanForOwner } from './coo-status-checker.js';
 
 const ORPHAN_TAG_RE = /\[orphan_retry:(\d+)\]/i;
 const PIPELINE_TAG = '[job_pipeline';
@@ -402,6 +403,14 @@ export function runKanbanOrphanWatcher({ ownerUserId = null, limit = 25 } = {}) 
     console.warn('[orphan-watcher] heal:', e?.message || e);
   }
   const orphans = reinitiateOrphanKanbanCards({ ownerUserId: owner, limit });
+  let a2aLeaf = [];
+  try {
+    // Move ext:/a2a: leaf cards to completed/failed from workflow_a2a_tasks / run status
+    // (and heal "Workflow completed successfully." left in_progress by the old status-only gate).
+    if (owner) a2aLeaf = reconcileA2AKanbanForOwner(owner) || [];
+  } catch (e) {
+    console.warn('[orphan-watcher] A2A leaf reconcile:', e?.message || e);
+  }
   return {
     owner_user_id: owner,
     stale_processing: stale,
@@ -409,6 +418,7 @@ export function runKanbanOrphanWatcher({ ownerUserId = null, limit = 25 } = {}) 
     infra_repend: infra,
     heal,
     orphans,
+    a2a_leaf_reconcile: a2aLeaf,
   };
 }
 

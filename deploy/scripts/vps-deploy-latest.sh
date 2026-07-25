@@ -509,6 +509,11 @@ if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-
     && echo "    Kanban orphan watcher (stuck processing + reinitiate) OK" \
     || echo "    WARN: Kanban orphan watcher check failed (see /tmp/kanban-orphan.log)"
 fi
+if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-a2a-leaf-kanban-complete.js 2>/dev/null; then
+  docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-a2a-leaf-kanban-complete.js >/tmp/a2a-leaf-kanban.log 2>&1 \
+    && echo "    A2A/external leaf Kanban complete-from-run OK" \
+    || echo "    WARN: A2A leaf Kanban complete check failed (see /tmp/a2a-leaf-kanban.log)"
+fi
 if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-a2a-private-local-delegation.js 2>/dev/null; then
   docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-a2a-private-local-delegation.js >/tmp/a2a-private.log 2>&1 \
     && echo "    private A2A leaf reachable from COO delegation OK" \

@@ -18,9 +18,41 @@ function isA2AMemberKey(key) {
   return String(key || '').startsWith('a2a:');
 }
 
+function isExtMemberKey(key) {
+  return String(key || '').startsWith('ext:');
+}
+
 function publishIdFromMemberKey(key) {
   const k = String(key || '');
   return k.startsWith('a2a:') ? k.slice(4) : null;
+}
+
+function publishIdFromExternalMember(ownerUserId, memberKey) {
+  const k = String(memberKey || '');
+  if (!k.startsWith('ext:')) return null;
+  const refId = k.slice(4);
+  const row = getDb()
+    .prepare(
+      `SELECT ea.endpoint_url
+       FROM external_agents ea
+       WHERE ea.id = ? AND ea.owner_user_id = ?`
+    )
+    .get(refId, String(ownerUserId));
+  if (!row?.endpoint_url) return null;
+  try {
+    // Lazy import avoided — parse path inline to keep this sync.
+    const m = String(row.endpoint_url).match(/\/api\/a2a\/([^/?#]+)/i);
+    return m ? decodeURIComponent(m[1]) : null;
+  } catch {
+    return null;
+  }
+}
+
+function resolvePublishIdForLeafTask(ownerUserId, task) {
+  return (
+    publishIdFromMemberKey(task.assigned_member_key) ||
+    publishIdFromExternalMember(ownerUserId, task.assigned_member_key)
+  );
 }
 
 function parseMetaFromDescription(description) {
@@ -58,8 +90,9 @@ function assigneeLabel(task) {
 }
 
 /**
- * Reconcile Kanban leaf cards that belong to A2A publications against workflow_a2a_tasks /
- * agent_workflow_runs. Fixes premature "completed" on async accept.
+ * Reconcile Kanban leaf cards (a2a:* and ext:* that point at a local publication) against
+ * workflow_a2a_tasks / agent_workflow_runs. Also heals cards left in_progress after a sync
+ * A2A success whose reply was only "Workflow completed successfully." (no run ids stored).
  */
 export function reconcileA2AKanbanForOwner(ownerUserId) {
   const owner = String(ownerUserId || '').trim();
@@ -69,7 +102,7 @@ export function reconcileA2AKanbanForOwner(ownerUserId) {
       `SELECT * FROM kanban_tasks
        WHERE owner_user_id = ?
          AND assigned_member_key IS NOT NULL
-         AND assigned_member_key LIKE 'a2a:%'
+         AND (assigned_member_key LIKE 'a2a:%' OR assigned_member_key LIKE 'ext:%')
          AND status IN ('completed', 'in_progress', 'failed', 'open', 'awaiting_confirmation')
        ORDER BY updated_at DESC
        LIMIT 200`
@@ -93,7 +126,7 @@ export function reconcileA2AKanbanForOwner(ownerUserId) {
         .get(runId, owner);
     }
     if (!a2aRow) {
-      const publishId = publishIdFromMemberKey(task.assigned_member_key);
+      const publishId = resolvePublishIdForLeafTask(owner, task);
       if (publishId) {
         a2aRow = db
           .prepare(
@@ -106,7 +139,75 @@ export function reconcileA2AKanbanForOwner(ownerUserId) {
           .get(owner, publishId, task.created_at, task.created_at);
       }
     }
-    if (!a2aRow) continue;
+
+    // Heal: sync A2A invoke wrote a success line but status-only gate left the card in_progress
+    // and never stored task/run ids (older builds). Trust the Result block.
+    if (
+      !a2aRow &&
+      task.status === 'in_progress' &&
+      /---\nResult:\nWorkflow completed successfully\.?/i.test(String(task.description || ''))
+    ) {
+      db.prepare(
+        `UPDATE kanban_tasks
+         SET status = 'completed',
+             description = description || ?,
+             updated_at = datetime('now')
+         WHERE id = ?`
+      ).run(
+        `\n\n---\nOrphan watcher: marked completed — A2A/workflow reported success.`,
+        task.id
+      );
+      changes.push({
+        kanban_id: task.id,
+        from: 'in_progress',
+        to: 'completed',
+        a2a_task_id: null,
+        run_id: null,
+        reason: 'result_workflow_completed_successfully',
+      });
+      console.log(`[status-checker] kanban=${task.id} in_progress→completed (A2A success text heal)`);
+      continue;
+    }
+
+    if (!a2aRow) {
+      // Direct workflow_run_id on the card (no a2a row) — still reconcile.
+      if (runId) {
+        const run = db
+          .prepare(`SELECT id, status, error_message FROM agent_workflow_runs WHERE id = ?`)
+          .get(runId);
+        const runState = String(run?.status || '').toLowerCase();
+        let nextStatus = null;
+        let reason = null;
+        if (runState === 'failed') {
+          nextStatus = 'failed';
+          reason = String(run?.error_message || '').trim() || 'Workflow run failed';
+        } else if (runState === 'running' || runState === 'waiting') {
+          nextStatus = 'in_progress';
+        } else if (runState === 'completed') {
+          nextStatus = 'completed';
+        }
+        if (nextStatus && nextStatus !== task.status) {
+          db.prepare(
+            `UPDATE kanban_tasks SET status = ?, description = description || ?, updated_at = datetime('now') WHERE id = ?`
+          ).run(
+            nextStatus,
+            nextStatus === 'failed' && reason
+              ? `\n\n---\nStatus checker: marked failed.\nReason: ${reason.slice(0, 1500)}`
+              : '',
+            task.id
+          );
+          changes.push({
+            kanban_id: task.id,
+            from: task.status,
+            to: nextStatus,
+            a2a_task_id: null,
+            run_id: runId,
+            reason: reason || null,
+          });
+        }
+      }
+      continue;
+    }
 
     const state = String(a2aRow.state || '').toLowerCase();
     let runStatus = null;
@@ -141,6 +242,8 @@ export function reconcileA2AKanbanForOwner(ownerUserId) {
         descSuffix = `\n\n---\nStatus checker: marked failed.\nReason: ${reason.slice(0, 1500)}`;
       } else if (nextStatus === 'in_progress' && task.status === 'completed') {
         descSuffix = `\n\n---\nStatus checker: A2A/workflow still ${state || runState} — moved back to in_progress.`;
+      } else if (nextStatus === 'completed' && task.status === 'in_progress') {
+        descSuffix = `\n\n---\nStatus checker / orphan watcher: A2A/workflow ${state || runState} — marked completed.`;
       }
       db.prepare(
         `UPDATE kanban_tasks
@@ -236,7 +339,7 @@ function mapTaskBrief(t, extra = {}) {
     assignee: assigneeLabel(t),
     status: t.status,
     updated_at: t.updated_at,
-    a2a: isA2AMemberKey(t.assigned_member_key),
+    a2a: isA2AMemberKey(t.assigned_member_key) || isExtMemberKey(t.assigned_member_key),
     ...extra,
   };
 }
