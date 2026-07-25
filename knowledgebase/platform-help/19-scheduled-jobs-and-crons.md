@@ -56,8 +56,9 @@ crashing the process; the startup log prints each active schedule.
 
 Manual equivalents (no waiting for the clock):
 
-- **Dashboard → Run status checker** — builds your report now, pops it up as an HTML page, posts to
-  the standup and emails you. COO-entitled (`status_checker` content tool), CEO-scoped.
+- **Dashboard → Run status checker** — builds your report now, pops it up as an HTML page, and posts
+  to the standup. Email is sent **only** by the daily batch cron (not by this button).
+  COO-entitled (`status_checker` content tool), CEO-scoped.
 - **Dashboard → Purge data older than N days** and **Profile → Purge aged data now** — run your own
   retention purge immediately.
 - **Kanban / Standups → Run COO** — collect a standup on demand.

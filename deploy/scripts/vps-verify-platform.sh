@@ -122,6 +122,11 @@ check "help doc: scheduled jobs" test -f "$ROOT/knowledgebase/platform-help/19-s
 check "knowledgebase index synced" test -f "$ROOT/knowledgebase/README.md"
 check "README documents log level" grep -q 'PLATFORM_LOG_LEVEL' "$ROOT/README.md"
 check "README documents Admin crons" grep -q '/admin/crons' "$ROOT/README.md"
+check "compose injects COO_STATUS_CHECKER_CRON" grep -q 'COO_STATUS_CHECKER_CRON' "$ROOT/deploy/docker-compose.yml"
+check "compose injects DATA_RETENTION_CRON" grep -q 'DATA_RETENTION_CRON' "$ROOT/deploy/docker-compose.yml"
+check "compose injects TZ into backend" grep -qE '^\s+TZ: \$\{TZ' "$ROOT/deploy/docker-compose.yml"
+check "status-only Kanban gate" grep -q 'shouldCompleteKanbanForReply' "$ROOT/backend/src/services/kanban-workflow-stage.js"
+check "status-only Kanban unit test" test -f "$ROOT/backend/scripts/test-kanban-status-only-reply.js"
 
 echo "==> frontend bundle"
 if docker compose exec -T frontend sh -c 'grep -Rql "Purpose / description" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then

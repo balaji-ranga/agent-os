@@ -6,6 +6,7 @@ import {
   notifyKanbanTaskCreated,
   clearKanbanTaskNotification,
 } from './platform-notifications.js';
+import { shouldCompleteKanbanForReply } from './kanban-reply-enrich.js';
 
 const PIPELINE_TAG = '[job_pipeline';
 
@@ -190,11 +191,29 @@ export function upsertWorkflowStageKanban({
 }
 
 /** Mark pipeline delegation Kanban completed when agent finishes (if still open). */
-export function completePipelineKanbanForDelegation(delegationTaskId, { ok = true } = {}) {
+export function completePipelineKanbanForDelegation(delegationTaskId, { ok = true, replyText = null } = {}) {
   if (!delegationTaskId) return null;
-  const row = db().prepare('SELECT id, status FROM kanban_tasks WHERE agent_delegation_task_id = ?').get(delegationTaskId);
+  const row = db()
+    .prepare('SELECT id, status FROM kanban_tasks WHERE agent_delegation_task_id = ?')
+    .get(delegationTaskId);
   if (!row) return null;
+
+  // Status-only "I marked it completed" must NOT stick — reopen even if the agent
+  // already called kanban_move_status → completed during the same turn.
+  if (ok && replyText != null && !shouldCompleteKanbanForReply(replyText)) {
+    if (row.status !== 'in_progress') {
+      db()
+        .prepare(`UPDATE kanban_tasks SET status = 'in_progress', updated_at = datetime('now') WHERE id = ?`)
+        .run(row.id);
+    }
+    console.warn(
+      `[kanban] skip auto-complete for delegation=${delegationTaskId} kanban=${row.id} — status-only reply (was ${row.status})`
+    );
+    return { ...row, status: 'in_progress', skipped_status_only: true };
+  }
+
   if (['completed', 'failed'].includes(row.status)) return row;
+
   const next = ok ? 'completed' : 'failed';
   db().prepare(`UPDATE kanban_tasks SET status = ?, updated_at = datetime('now') WHERE id = ?`).run(next, row.id);
   clearKanbanTaskNotification(row.id);
@@ -222,7 +241,8 @@ export function markKanbanInProgressForDelegation(delegationTaskId) {
 export function healStuckKanbanForCompletedDelegations() {
   const rows = db()
     .prepare(
-      `SELECT k.id AS kanban_id, k.status AS kanban_status, d.id AS delegation_id, d.status AS delegation_status
+      `SELECT k.id AS kanban_id, k.status AS kanban_status, d.id AS delegation_id, d.status AS delegation_status,
+              d.response_content AS response_content
        FROM kanban_tasks k
        JOIN agent_delegation_tasks d ON d.id = k.agent_delegation_task_id
        WHERE k.status IN ('awaiting_confirmation', 'open', 'in_progress')
@@ -230,7 +250,16 @@ export function healStuckKanbanForCompletedDelegations() {
     )
     .all();
   let healed = 0;
+  let skippedStatusOnly = 0;
   for (const r of rows) {
+    if (
+      r.delegation_status === 'completed' &&
+      !shouldCompleteKanbanForReply(r.response_content)
+    ) {
+      // Leave specialty cards in_progress when the agent only posted status chatter.
+      skippedStatusOnly += 1;
+      continue;
+    }
     const next = r.delegation_status === 'failed' ? 'failed' : 'completed';
     db()
       .prepare(`UPDATE kanban_tasks SET status = ?, updated_at = datetime('now') WHERE id = ?`)
@@ -238,5 +267,29 @@ export function healStuckKanbanForCompletedDelegations() {
     clearKanbanTaskNotification(r.kanban_id);
     healed += 1;
   }
-  return { healed, scanned: rows.length };
+
+  // Repair cards already wrongly marked completed with status-only chatter.
+  const badDone = db()
+    .prepare(
+      `SELECT k.id AS kanban_id, d.response_content AS response_content
+       FROM kanban_tasks k
+       JOIN agent_delegation_tasks d ON d.id = k.agent_delegation_task_id
+       WHERE k.status = 'completed'
+         AND d.status = 'completed'
+         AND d.response_content IS NOT NULL
+         AND d.response_content != ''`
+    )
+    .all();
+  let reopened = 0;
+  for (const r of badDone) {
+    if (shouldCompleteKanbanForReply(r.response_content)) continue;
+    db()
+      .prepare(`UPDATE kanban_tasks SET status = 'in_progress', updated_at = datetime('now') WHERE id = ?`)
+      .run(r.kanban_id);
+    reopened += 1;
+  }
+  if (reopened) {
+    console.warn(`[kanban] reopened ${reopened} status-only completed card(s)`);
+  }
+  return { healed, scanned: rows.length, skipped_status_only: skippedStatusOnly, reopened_status_only: reopened };
 }

@@ -206,6 +206,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-internal-delegation-budget-gate.js" `
     "$Repo\backend\scripts\test-department-efficiency.js" `
     "$Repo\backend\scripts\test-token-usage-reset.js" `
+    "$Repo\backend\scripts\test-kanban-status-only-reply.js" `
     "$Repo\backend\scripts\verify-coo-agents-md.js" `
     "$Repo\backend\scripts\cleanup-agents-md-backups.js" `
     "$Repo\backend\scripts\probe-get-work-from-team.js" `

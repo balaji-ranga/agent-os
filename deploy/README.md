@@ -355,7 +355,15 @@ docker compose --profile optional-ollama up -d ollama
 docker compose exec ollama ollama pull deepseek-v3
 # docker compose exec backend node scripts/test-deepseek-brain-workflow.js
 
-# Browser login helper — set ENABLE_VNC=1 in .env, then:
+# Brave Search MCP (BYOK HTTP wrapper — no BRAVE_API_KEY in the container):
+docker compose --profile optional-brave-mcp up -d --build brave-search-mcp
+# docker compose exec backend node scripts/seed-brave-search-mcp.js
+
+# Browser login helpers (two different things — do not conflate):
+#   A) ENABLE_VNC=1 → Xvfb+x11vnc inside the openclaw container (Playwright display).
+#      Compose does not publish :5900 by default; use docker compose exec / add ports if needed.
+#   B) --profile optional-browser-login → linuxserver webtop on NOVNC_PORT (default 6080)
+#      for manual cookie/profile work — shares openclaw_home, not OpenClaw's DISPLAY.
 docker compose --profile optional-browser-login up -d
 # noVNC UI: http://host:6080 — see knowledgebase/DEPLOY-CENTOS-PODMAN.md
 ```

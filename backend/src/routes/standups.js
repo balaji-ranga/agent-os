@@ -25,6 +25,7 @@ import {
   isAgentWorkflowPrompt,
   completeAgentWorkflowKanbanForDelegation,
 } from '../services/agent-workflow-kanban.js';
+import { completePipelineKanbanForDelegation } from '../services/kanban-workflow-stage.js';
 import { getLastIntentDebug } from '../services/intent-classifier.js';
 import { ensureTenantOpenClawAgent } from '../services/openclaw-tenant.js';
 import { getAgentsUnderCooForCeo } from '../services/org-context.js';
@@ -100,7 +101,7 @@ router.post('/cron-callback', requireInternalToken, (req, res) => {
       if (isAgentWorkflowPrompt(task.prompt)) {
         completeAgentWorkflowKanbanForDelegation(taskId, { ok: true });
       } else {
-        completePipelineKanbanForDelegation(taskId, { ok: true });
+        completePipelineKanbanForDelegation(taskId, { ok: true, replyText: responseContent });
       }
     } catch (kanbanErr) {
       console.warn('[cron-callback] kanban sync failed:', kanbanErr?.message || kanbanErr);

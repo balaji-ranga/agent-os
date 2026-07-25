@@ -22,6 +22,10 @@ import {
   markKanbanInProgressForDelegation,
 } from './kanban-workflow-stage.js';
 import {
+  buildDelegationKanbanFinishPrompt,
+  nudgeIfStatusOnlyReply,
+} from './kanban-reply-enrich.js';
+import {
   completeAgentWorkflowKanbanForDelegation,
   isAgentWorkflowPrompt,
 } from './agent-workflow-kanban.js';
@@ -525,10 +529,7 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, c
         `FIRST ACTION (before anything else): call the kanban_move_status tool with JSON:\n` +
         `  {\"task_id\": ${kanbanId}, \"new_status\": \"in_progress\"}\n\n` +
         promptWithMemory +
-        `\n\n---\nIMPORTANT — Kanban finish:\n` +
-        `Do your specialist work and reply with the answer in this run. Do NOT say you are waiting for CEO acknowledgment — this task already runs automatically.\n` +
-        `When finished, you may call kanban_move_status with {\"task_id\": ${kanbanId}, \"new_status\": \"completed\"} or \"failed\". ` +
-        `The backend also marks the Kanban card completed/failed when this delegation run ends.\n---`;
+        buildDelegationKanbanFinishPrompt(kanbanId);
     }
     const internalToken = ensureInternalTokenConfigured();
     const webhookUrl = `${baseUrl}/api/standups/cron-callback?standup_id=${standupId}&request_id=${encodeURIComponent(requestId)}&agent_id=${encodeURIComponent(agent.id)}&task_id=${taskId}&internal_token=${encodeURIComponent(internalToken)}`;
@@ -722,10 +723,7 @@ export async function processPendingDelegationTasksForCeo(ceoUserId) {
         `FIRST ACTION (before anything else): call the kanban_move_status tool with JSON:\n` +
         `  {\"task_id\": ${kanbanRow.id}, \"new_status\": \"in_progress\"}\n\n` +
         promptWithMemory +
-        `\n\n---\nIMPORTANT — Kanban finish:\n` +
-        `Do your specialist work and reply with the answer in this run. Do NOT say you are waiting for CEO acknowledgment — this task already runs automatically.\n` +
-        `When finished, you may call kanban_move_status with {\"task_id\": ${kanbanRow.id}, \"new_status\": \"completed\"} or \"failed\". ` +
-        `The backend also marks the Kanban card completed/failed when this delegation run ends.\n---`;
+        buildDelegationKanbanFinishPrompt(kanbanRow.id);
     }
     const budgetState = enforceBudget(ownerForTenant, task.to_agent_id, {
       action: 'delegation',
@@ -768,7 +766,23 @@ export async function processPendingDelegationTasksForCeo(ceoUserId) {
         replyText: content,
         sessionId: sessionUser,
       });
-      const responseText = normalizeReplyContent(content) || '(no response)';
+      let responseText = normalizeReplyContent(content) || '(no response)';
+      // Same guard as Kanban task-chat: status-only "marked completed" is not a deliverable.
+      if (kanbanRow) {
+        const nudged = await nudgeIfStatusOnlyReply({
+          chatCompletions: openclaw.chatCompletions.bind(openclaw),
+          openclawAgentId: runtimeOcId,
+          sessionUser,
+          priorMessages: [{ role: 'user', content: promptWithMemory }],
+          reply: responseText,
+        });
+        responseText = nudged.reply;
+        if (nudged.stillStatusOnly) {
+          console.warn(
+            `[delegation] status-only reply after nudge task=${task.id} agent=${task.to_agent_id}`
+          );
+        }
+      }
       db().prepare('UPDATE agent_delegation_tasks SET status = ?, response_content = ?, completed_at = ? WHERE id = ?').run('completed', responseText, now, task.id);
       if (isAgentWorkflowPrompt(task.prompt)) {
         completeAgentWorkflowKanbanForDelegation(task.id, { ok: true });
@@ -778,7 +792,7 @@ export async function processPendingDelegationTasksForCeo(ceoUserId) {
           console.warn('[agent-workflow] advance:', wfErr.message);
         }
       } else {
-        completePipelineKanbanForDelegation(task.id, { ok: true });
+        completePipelineKanbanForDelegation(task.id, { ok: true, replyText: responseText });
         try {
           await maybeHandoffJobPipeline({ ...task, status: 'completed', response_content: responseText });
         } catch (handoffErr) {
