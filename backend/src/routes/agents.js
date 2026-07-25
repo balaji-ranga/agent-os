@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { join } from 'path';
-import { existsSync, rmSync, writeFileSync, readFileSync } from 'fs';
+import { existsSync, rmSync, writeFileSync, readFileSync, readdirSync } from 'fs';
 import { getDb } from '../db/schema.js';
 import { requireAuth, requireCeoOrAdmin, resolveAuthenticatedCeoUserId, resolveCeoDataUserIdFromRequest } from '../middleware/auth.js';
 import { allowInternalOrAuth } from '../middleware/internal-auth.js';
@@ -17,6 +17,8 @@ import { tryTriggerWorkflowFromChat } from '../services/agent-workflow-runner.js
 import * as workspace from '../workspace/adapter.js';
 import { normalizeReplyContent } from '../services/delegation-queue.js';
 import { createFullAgent } from '../services/create-full-agent.js';
+import { deleteAgentCascade } from '../services/agent-delete.js';
+import { log } from '../utils/logger.js';
 import { ensureManagedBrowserReady } from '../services/job-browser-auth.js';
 import * as agentTools from '../services/openclaw-agent-tools.js';
 import { ensureTenantOpenClawAgent } from '../services/openclaw-tenant.js';
@@ -44,6 +46,8 @@ import {
   formatSessionForApi,
 } from '../services/chat-history.js';
 import { resolveLlmConfigForUser } from '../services/user-llm-settings.js';
+import { meterOpenClawUsage } from '../services/token-usage.js';
+import { BudgetBlockedError, enforceBudget } from '../services/agent-budgets.js';
 import {
   listPublishedTemplates,
   getTemplate,
@@ -69,25 +73,61 @@ const homedir = process.env.USERPROFILE || process.env.HOME || '';
 const OPENCLAW_DIR = join(homedir, '.openclaw');
 const OPENCLAW_CONFIG_PATH = process.env.OPENCLAW_CONFIG_PATH || join(OPENCLAW_DIR, 'openclaw.json');
 
-/** Remove agent from openclaw.json (agents.list, tools.agentToAgent.allow) and delete its workspace + agent dirs. */
-function removeAgentFromOpenClaw(id) {
+/**
+ * Remove an agent from openclaw.json (agents.list, tools.agentToAgent.allow) and
+ * delete its workspace + agent dirs.
+ *
+ * Also strips the per-CEO runtime entries `t-{ceo}--{base}`. Those were left
+ * behind before, and `POST /api/openclaw/sync` reads exactly that list — so a
+ * deleted agent was re-inserted on the next sync.
+ *
+ * @param {string[]} baseIds ids this agent alone used, from `deleteAgentCascade`.
+ *   Shared runtimes such as `main` are excluded there and must not be purged.
+ */
+function removeAgentFromOpenClaw(agentId, baseIds) {
+  if (!Array.isArray(baseIds) || baseIds.length === 0) {
+    log.info(
+      `[agents] openclaw purge skipped for ${agentId}: runtime id is shared or reserved`
+    );
+    return;
+  }
+  const matches = (raw) => {
+    const value = String(raw || '').toLowerCase();
+    if (baseIds.includes(value)) return true;
+    const parsed = value.match(/^t-(.+)--([a-z0-9_-]+)$/);
+    return parsed ? baseIds.includes(parsed[2]) : false;
+  };
+
   if (existsSync(OPENCLAW_CONFIG_PATH)) {
     try {
-      let config = JSON.parse(readFileSync(OPENCLAW_CONFIG_PATH, 'utf8'));
+      const config = JSON.parse(readFileSync(OPENCLAW_CONFIG_PATH, 'utf8'));
       if (Array.isArray(config?.agents?.list)) {
-        config.agents.list = config.agents.list.filter((a) => (a.id || '').toLowerCase() !== id.toLowerCase());
+        config.agents.list = config.agents.list.filter((a) => !matches(a?.id));
       }
       if (Array.isArray(config?.tools?.agentToAgent?.allow)) {
-        config.tools.agentToAgent.allow = config.tools.agentToAgent.allow.filter((a) => String(a).toLowerCase() !== id.toLowerCase());
+        config.tools.agentToAgent.allow = config.tools.agentToAgent.allow.filter((a) => !matches(a));
       }
       writeFileSync(OPENCLAW_CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
     } catch (e) {
       console.warn('removeAgentFromOpenClaw: could not update openclaw.json', e?.message);
     }
   }
-  const workspacePath = join(OPENCLAW_DIR, `workspace-${id}`);
-  const agentsSubDir = join(OPENCLAW_DIR, 'agents', id);
-  for (const dir of [workspacePath, agentsSubDir]) {
+
+  const dirs = [];
+  for (const baseId of baseIds) {
+    dirs.push(join(OPENCLAW_DIR, `workspace-${baseId}`), join(OPENCLAW_DIR, 'agents', baseId));
+    const tenantsDir = join(OPENCLAW_DIR, 'tenants');
+    if (existsSync(tenantsDir)) {
+      try {
+        for (const tenant of readdirSync(tenantsDir)) {
+          dirs.push(join(tenantsDir, tenant, `workspace-${baseId}`));
+        }
+      } catch (e) {
+        console.warn('removeAgentFromOpenClaw: could not list tenants dir', e?.message);
+      }
+    }
+  }
+  for (const dir of dirs) {
     if (existsSync(dir)) {
       try {
         rmSync(dir, { recursive: true });
@@ -422,7 +462,18 @@ router.post('/:id/chat/history/:sessionId/restore', requireAuth, async (req, res
 // POST /api/agents — create a full OpenClaw agent owned by the signed-in CEO
 router.post('/', requireAuth, requireCeoOrAdmin, async (req, res) => {
   try {
-    const { id, name, role, parent_id, reportingTo, reporting_to, department, tools } = req.body || {};
+    const {
+      id,
+      name,
+      role,
+      parent_id,
+      reportingTo,
+      reporting_to,
+      department,
+      tools,
+      monthly_token_budget,
+      error_budget_pct,
+    } = req.body || {};
     let ownerUserId = null;
     if (req.authUser.role === 'ceo') {
       ownerUserId = req.authUser.id;
@@ -445,6 +496,8 @@ router.post('/', requireAuth, requireCeoOrAdmin, async (req, res) => {
       id: id && String(id).trim() ? String(id).trim() : undefined,
       ownerUserId,
       tools: Array.isArray(tools) ? tools : undefined,
+      monthly_token_budget: monthly_token_budget ?? null,
+      error_budget_pct: error_budget_pct ?? null,
     });
     res.status(201).json(row);
   } catch (e) {
@@ -489,22 +542,27 @@ router.delete('/:id', requireAuth, requireCeoOrAdmin, (req, res) => {
     const id = req.params.id;
     const agent = db().prepare('SELECT * FROM agents WHERE id = ?').get(id);
     if (!agent) return res.status(404).json({ error: 'Agent not found' });
-    if (agent.is_coo) return res.status(400).json({ error: 'Cannot delete the COO agent' });
 
-    removeAgentFromOpenClaw(id);
+    // A CEO may only delete an agent they hold (owned or granted); admins may delete any.
+    const isAdmin = req.authUser?.role === 'admin' && !req.authUser?.impersonation;
+    if (!isAdmin && !userCanAccessAgent(req.authUser, id)) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
 
-    db().prepare('DELETE FROM activities WHERE agent_id = ?').run(id);
-    db().prepare('DELETE FROM chat_turns WHERE agent_id = ?').run(id);
-    db().prepare('DELETE FROM standup_responses WHERE agent_id = ?').run(id);
-    db().prepare('DELETE FROM agent_delegation_tasks WHERE to_agent_id = ?').run(id);
-    db().prepare('DELETE FROM user_agents WHERE agent_id = ?').run(id);
-    db().prepare('DELETE FROM agent_tool_grants WHERE agent_id = ?').run(id);
-    db().prepare('UPDATE agents SET parent_id = NULL WHERE parent_id = ?').run(id);
-    const r = db().prepare('DELETE FROM agents WHERE id = ?').run(id);
-    if (r.changes === 0) return res.status(404).json({ error: 'Agent not found' });
+    // DB first: the OpenClaw purge inspects surviving agents to decide which
+    // runtime ids are safe to remove, and a failed delete must leave config intact.
+    const result = deleteAgentCascade(db(), id, { deletedBy: req.authUser?.id || '' });
+    removeAgentFromOpenClaw(id, result.openclaw_base_ids);
+
     res.status(204).send();
+    log.info(
+      `[agents] DELETE ${id} by ${req.authUser?.id || 'unknown'} ok; ` +
+        `children_reparented_to=${result.children_reparented_to || 'none'}`
+    );
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    const status = e.status || 500;
+    if (status >= 500) log.error(`[agents] DELETE ${req.params.id} failed: ${e.message}`);
+    res.status(status).json({ error: e.message, code: e.code || undefined });
   }
 });
 
@@ -550,6 +608,15 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
 
     const message = typeof req.body?.message === 'string' ? req.body.message : (req.body?.content ?? req.body?.text ?? '');
     if (!message.trim()) return res.status(400).json({ error: 'message is required' });
+
+    try {
+      enforceBudget(ownerUserId, agentId, { action: 'chat', memberLabel: agent.name });
+    } catch (budgetErr) {
+      if (budgetErr instanceof BudgetBlockedError) {
+        return res.status(429).json({ error: budgetErr.message, budget: budgetErr.details });
+      }
+      throw budgetErr;
+    }
 
     // Hard path: "ask social media expert to reach me" — notify as specialist, skip COO LLM notify_ceo
     if (agent.is_coo) {
@@ -773,6 +840,13 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     } finally {
       clearActiveDashboardChat(agentId, ownerUserId);
     }
+    meterOpenClawUsage(ownerUserId, agentId, {
+      usage,
+      source: 'openclaw_chat',
+      promptText: messages.map((m) => m.content || '').join('\n'),
+      replyText: reply,
+      sessionId: threadId,
+    });
     const replyText = stripEchoedCeoScope(normalizeReplyContent(reply));
     const tool_calls = listToolCallsSince(agentId, ownerUserId, toolsSince);
 

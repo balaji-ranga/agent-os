@@ -694,6 +694,23 @@ export function initDb() {
     _db.exec(`CREATE INDEX IF NOT EXISTS idx_agent_tool_grants_agent ON agent_tool_grants(agent_id)`);
   } catch (_) {}
 
+  // Tombstones for deliberately deleted agents. Startup catalog re-grants and
+  // OpenClaw sync both recreate agents from leftover state, which resurrected
+  // deleted agents; they consult this table before recreating an id.
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS deleted_agents (
+        agent_id TEXT PRIMARY KEY,
+        name TEXT DEFAULT '',
+        openclaw_agent_id TEXT DEFAULT '',
+        owner_user_id TEXT DEFAULT '',
+        deleted_by TEXT DEFAULT '',
+        deleted_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_deleted_agents_oc ON deleted_agents(openclaw_agent_id)`);
+  } catch (_) {}
+
   try {
     _db.exec(`
       CREATE TABLE IF NOT EXISTS external_agents (
@@ -808,6 +825,22 @@ export function initDb() {
       `UPDATE workflow_a2a_publications
        SET access_policy = 'deny_all'
        WHERE access_policy IS NULL OR access_policy NOT IN ('deny_all', 'allow_all', 'whitelist')`
+    );
+  } catch (_) {}
+  /**
+   * Marketplace / org visibility for published A2A agents.
+   * public (default): AgentExchange + public card/oauth/invoke subject to access_policy.
+   * private: public endpoints always denied; only COO or the org leaf's reports-to lead may
+   * invoke via the org/delegation path (or the owner via AgentExchange Test).
+   */
+  try {
+    _db.exec(`ALTER TABLE workflow_a2a_publications ADD COLUMN visibility TEXT DEFAULT 'public'`);
+  } catch (_) {}
+  try {
+    _db.exec(
+      `UPDATE workflow_a2a_publications
+       SET visibility = 'public'
+       WHERE visibility IS NULL OR visibility NOT IN ('public', 'private')`
     );
   } catch (_) {}
 
@@ -1444,6 +1477,116 @@ export function initDb() {
     `);
     _db.exec(
       `CREATE INDEX IF NOT EXISTS idx_wf_desktop_ip_owner ON workflow_desktop_ip_whitelist(owner_user_id, definition_id)`
+    );
+  } catch (_) {}
+
+  /** Monthly token + error-rate budgets per org member (internal agent or org leaf member). */
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS agent_ops_budgets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        owner_user_id TEXT NOT NULL,
+        member_key TEXT NOT NULL,
+        period TEXT NOT NULL,
+        monthly_token_budget INTEGER,
+        error_budget_pct REAL,
+        warn_token_pct REAL DEFAULT 80,
+        warn_error_pct REAL DEFAULT 80,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(owner_user_id, member_key, period)
+      )
+    `);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_agent_ops_budgets_owner ON agent_ops_budgets(owner_user_id, period)`
+    );
+  } catch (_) {}
+
+  /** Durable token usage ledger (actual provider usage when available, else estimated). */
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS token_usage (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        owner_user_id TEXT NOT NULL,
+        member_key TEXT NOT NULL,
+        agent_id TEXT,
+        source TEXT NOT NULL DEFAULT 'unknown',
+        model_id TEXT,
+        input_tokens INTEGER DEFAULT 0,
+        output_tokens INTEGER DEFAULT 0,
+        total_tokens INTEGER DEFAULT 0,
+        tokens_estimated INTEGER DEFAULT 0,
+        session_id TEXT,
+        run_id TEXT,
+        created_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_token_usage_owner_created ON token_usage(owner_user_id, created_at DESC)`
+    );
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_token_usage_member ON token_usage(owner_user_id, member_key, created_at DESC)`
+    );
+  } catch (_) {}
+
+  /** External / published-A2A agents that sit in the org chart as leaf reports. */
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS org_agent_members (
+        id TEXT PRIMARY KEY,
+        owner_user_id TEXT NOT NULL,
+        kind TEXT NOT NULL CHECK (kind IN ('external', 'a2a_publish')),
+        ref_id TEXT NOT NULL,
+        display_name TEXT NOT NULL,
+        purpose TEXT DEFAULT '',
+        department TEXT DEFAULT '',
+        parent_id TEXT,
+        monthly_token_budget INTEGER,
+        error_budget_pct REAL,
+        enabled INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(owner_user_id, kind, ref_id)
+      )
+    `);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_org_agent_members_owner ON org_agent_members(owner_user_id, enabled)`
+    );
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_org_agent_members_parent ON org_agent_members(owner_user_id, parent_id)`
+    );
+  } catch (_) {}
+
+  /** Terminal outcomes for org leaf members (external / A2A) — feeds error-budget math. */
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS org_member_invocations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        owner_user_id TEXT NOT NULL,
+        member_key TEXT NOT NULL,
+        source TEXT DEFAULT 'delegation',
+        status TEXT NOT NULL,
+        error_message TEXT,
+        latency_ms INTEGER,
+        task_id TEXT,
+        created_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_org_member_inv_member ON org_member_invocations(owner_user_id, member_key, created_at DESC)`
+    );
+  } catch (_) {}
+
+  /**
+   * Kanban cards for work delegated to org leaf members. `assigned_agent_id` has a foreign key to
+   * `agents`, which leaf members are deliberately not in, so their `ext:`/`a2a:` key lives here.
+   */
+  try {
+    _db.exec(`ALTER TABLE kanban_tasks ADD COLUMN assigned_member_key TEXT`);
+  } catch (_) {}
+  try {
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_kanban_tasks_member_key ON kanban_tasks(assigned_member_key)`
     );
   } catch (_) {}
 

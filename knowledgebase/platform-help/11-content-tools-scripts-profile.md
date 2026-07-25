@@ -78,7 +78,9 @@ Use when you care about **LLM spend / activity**. For ops outcomes (task success
 
 ## Efficiency View (`/efficiency`)
 
-Ops dashboard next to AI Snipper:
+Ops dashboard next to AI Snipper, with two tabs: **Org** and **Agent View**.
+
+### Org tab
 
 | Metric | Meaning |
 |--------|---------|
@@ -90,6 +92,17 @@ Ops dashboard next to AI Snipper:
 | Successful / failed / total runs | Workflow run outcomes |
 
 **Time switch:** last 7 days, 14 days, 1 month, 3 months, or **All**. Charts: Tasks, Feedback, Workflow runs.
+
+### Agent View tab
+
+Pick one member — internal agent **or** external/A2A leaf member — to see its prompts, tool calls,
+tasks ok/failed, feedback, average delegation latency, **tokens used vs monthly budget**, and
+**failure rate vs error budget**, plus Activity / Outcomes / Token budget / Reliability charts and
+top tools. **Edit budget** sets the monthly token allowance and error budget %.
+
+Budgets warn at 80% and **block** new chat/delegated work at 100% tokens (or at the error budget
+after at least 10 terminal calls). See
+[18-agent-budgets-and-org-members.md](./18-agent-budgets-and-org-members.md).
 
 ## Profile (`/profile`)
 

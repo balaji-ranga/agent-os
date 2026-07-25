@@ -8,6 +8,15 @@ export function apiBase() {
 }
 
 export async function ceoLogin() {
+  // VPS / CI: mint a session outside login (see deploy/scripts/vps-regression-full.sh).
+  const minted = String(process.env.AGENT_OS_REGRESSION_TOKEN || '').trim();
+  if (minted) {
+    const { status, data } = await request('GET', '/api/auth/me', { token: minted });
+    if (status !== 200 || !data?.user?.id) {
+      throw new Error(`minted CEO session rejected: ${status} ${JSON.stringify(data)?.slice(0, 120)}`);
+    }
+    return { user: data.user, token: minted };
+  }
   const email = process.env.AGENT_OS_BALA_EMAIL || 'bala@agent-os.local';
   const password = process.env.AGENT_OS_BALA_PASSWORD || 'bala-change-me';
   const res = await fetch(`${apiBase()}/api/auth/login`, {

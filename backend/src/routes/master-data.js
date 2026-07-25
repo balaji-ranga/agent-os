@@ -218,6 +218,21 @@ router.post('/documents/reindex-all', requireAuth, requireCeoOrAdmin, async (req
   }
 });
 
+/**
+ * Delete all user-uploaded documents (DB + disk). Platform Help / User Guide are retained.
+ * POST body unused — owner always from session / admin impersonation.
+ */
+router.post('/documents/purge-all', requireAuth, requireCeoOrAdmin, (req, res) => {
+  try {
+    const owner = ownerOr403(req, res);
+    if (!owner) return;
+    const result = md.purgeAllUserDocuments(owner);
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 router.post('/documents/:documentId/reindex', requireAuth, requireCeoOrAdmin, async (req, res) => {
   try {
     const owner = ownerOr403(req, res);
@@ -264,7 +279,8 @@ router.delete('/documents/:documentId', requireAuth, requireCeoOrAdmin, (req, re
     if (!owner) return;
     res.json(md.deleteDocument(owner, req.params.documentId));
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    const status = e.status || (e.code === 'PROTECTED_DOCUMENT' ? 403 : 400);
+    res.status(status).json({ error: e.message, code: e.code || undefined });
   }
 });
 

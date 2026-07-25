@@ -13,6 +13,7 @@ const EMPTY = {
   tags: '',
   examples: '',
   auth_mode: 'public',
+  visibility: 'public',
   rotate_credentials: false,
   input_schema_text: '',
   invoke_mode: 'sync',
@@ -82,6 +83,7 @@ export default function PublishA2AModal({
       tags: (meta.tags || []).join(', '),
       examples: (meta.examples || []).join('\n'),
       auth_mode: pub?.auth_mode === 'secured' || pub?.has_auth ? 'secured' : 'public',
+      visibility: pub?.visibility === 'private' ? 'private' : 'public',
       rotate_credentials: false,
       input_schema_text: schema ? JSON.stringify(schema, null, 2) : '',
       invoke_mode: pub?.invoke_mode === 'async' ? 'async' : 'sync',
@@ -174,6 +176,7 @@ export default function PublishA2AModal({
         skill_name: form.skill_name.trim() || form.name.trim(),
         skill_description: form.skill_description.trim() || form.description.trim(),
         auth_mode: form.auth_mode,
+        visibility: form.visibility === 'private' ? 'private' : 'public',
         invoke_mode: form.invoke_mode === 'async' ? 'async' : 'sync',
         callback_url: form.invoke_mode === 'async' ? form.callback_url.trim() || null : null,
         input_schema,
@@ -444,6 +447,34 @@ export default function PublishA2AModal({
                   </label>
                 )}
 
+                <fieldset className="mcp-pg-field" style={{ border: 'none', padding: 0, margin: '0 0 1rem' }}>
+                  <legend style={{ fontSize: '0.85rem', marginBottom: '0.35rem' }}>Visibility</legend>
+                  <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                    <input
+                      type="radio"
+                      name="a2a-visibility"
+                      checked={form.visibility !== 'private'}
+                      onChange={() => set('visibility', 'public')}
+                    />
+                    <span>
+                      <strong>Public</strong> — listed on AgentExchange; public card / invoke subject to Security
+                      (IP deny / allow / whitelist). Default.
+                    </span>
+                  </label>
+                  <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                    <input
+                      type="radio"
+                      name="a2a-visibility"
+                      checked={form.visibility === 'private'}
+                      onChange={() => set('visibility', 'private')}
+                    />
+                    <span>
+                      <strong>Private</strong> — public calling disabled. Only the COO or the org reports-to lead
+                      (after <em>Add to org</em>) can invoke it. Hidden from other CEOs on AgentExchange.
+                    </span>
+                  </label>
+                </fieldset>
+
                 <fieldset className="mcp-pg-field" style={{ border: 'none', padding: 0, margin: 0 }}>
                   <legend style={{ fontSize: '0.85rem', marginBottom: '0.35rem' }}>Access</legend>
                   <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
@@ -454,7 +485,8 @@ export default function PublishA2AModal({
                       onChange={() => set('auth_mode', 'public')}
                     />
                     <span>
-                      <strong>Public</strong> — anyone with the endpoint can invoke (no token).
+                      <strong>Public auth</strong> — anyone with the endpoint can invoke (no token). Ignored when
+                      Visibility is Private.
                     </span>
                   </label>
                   <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>

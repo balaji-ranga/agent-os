@@ -13,6 +13,7 @@ import {
 } from 'fs';
 import { join, dirname, basename, extname } from 'path';
 import { fileURLToPath } from 'url';
+import { isProtectedPlatformDocument } from './master-data-protected-docs.js';
 import { getDbForCeo } from '../db/request-db.js';
 import { chatCompletions } from '../config/llm.js';
 import { extractTextFromBuffer } from './master-data-extract.js';
@@ -187,7 +188,7 @@ function mapTable(row) {
 
 function mapDoc(row) {
   if (!row) return null;
-  return {
+  const mapped = {
     id: row.id,
     owner_user_id: row.owner_user_id,
     title: row.title,
@@ -199,6 +200,8 @@ function mapDoc(row) {
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
+  mapped.is_protected = isProtectedPlatformDocument(mapped);
+  return mapped;
 }
 
 /** Simple CSV parser (handles quoted fields). */
@@ -303,6 +306,32 @@ export function updateTableMeta(ownerUserId, tableId, { description } = {}) {
      WHERE id = ? AND owner_user_id = ?`
   ).run(String(description || ''), String(tableId), owner);
   return getTable(owner, tableId);
+}
+
+/**
+ * Append missing column names to an existing table (schema upgrade for seeded tables).
+ * Existing rows keep their data; new columns read as empty until edited.
+ */
+export function ensureTableColumns(ownerUserId, tableId, columns = []) {
+  const { db, owner } = dbFor(ownerUserId);
+  const table = getTable(owner, tableId);
+  if (!table) throw new Error('Table not found');
+  const next = Array.isArray(table.columns) ? [...table.columns] : [];
+  const seen = new Set(next.map((c) => String(c).toLowerCase()));
+  const added = [];
+  for (const raw of Array.isArray(columns) ? columns : []) {
+    const col = String(raw || '').trim();
+    if (!col || seen.has(col.toLowerCase())) continue;
+    next.push(col);
+    seen.add(col.toLowerCase());
+    added.push(col);
+  }
+  if (!added.length) return { table, added };
+  db.prepare(
+    `UPDATE master_data_tables SET columns_json = ?, updated_at = datetime('now')
+     WHERE id = ? AND owner_user_id = ?`
+  ).run(JSON.stringify(next), table.id, owner);
+  return { table: getTable(owner, table.id), added };
 }
 
 /** Resolve table by id or case-insensitive name (canonical pick if duplicates). */
@@ -700,12 +729,24 @@ export async function reindexAllDocuments(ownerUserId) {
   return { reindexed, failed, total: docs.length };
 }
 
-export function deleteDocument(ownerUserId, documentId) {
+/**
+ * Delete one document (DB row + chunks + disk). Platform Help / User Guide are
+ * blocked unless `{ force: true }` (seed/refresh only).
+ */
+export function deleteDocument(ownerUserId, documentId, { force = false } = {}) {
   const { db, owner } = dbFor(ownerUserId);
   const row = db
     .prepare(`SELECT * FROM master_data_documents WHERE id = ? AND owner_user_id = ?`)
     .get(String(documentId), owner);
   if (!row) throw new Error('Document not found');
+  if (!force && isProtectedPlatformDocument(row)) {
+    const err = new Error(
+      'Platform Help and User Guide documents cannot be deleted. Use Purge all to remove your uploaded documents only.'
+    );
+    err.code = 'PROTECTED_DOCUMENT';
+    err.status = 403;
+    throw err;
+  }
   db.prepare(`DELETE FROM master_data_doc_chunks WHERE document_id = ? AND owner_user_id = ?`).run(
     row.id,
     owner
@@ -717,6 +758,48 @@ export function deleteDocument(ownerUserId, documentId) {
     if (existsSync(dir)) rmSync(dir, { recursive: true, force: true });
   } catch (_) {}
   return { ok: true, id: documentId };
+}
+
+/**
+ * Delete every user-uploaded document for the CEO (table + chunks + disk).
+ * Platform Help / Flolah User Guide are retained.
+ */
+export function purgeAllUserDocuments(ownerUserId) {
+  const { db, owner } = dbFor(ownerUserId);
+  const rows = db
+    .prepare(`SELECT * FROM master_data_documents WHERE owner_user_id = ? ORDER BY created_at DESC`)
+    .all(owner);
+  const deleted = [];
+  const retained = [];
+  const failed = [];
+  for (const row of rows) {
+    if (isProtectedPlatformDocument(row)) {
+      retained.push({ id: row.id, title: row.title, filename: row.filename });
+      continue;
+    }
+    try {
+      deleteDocument(owner, row.id, { force: false });
+      deleted.push({ id: row.id, title: row.title, filename: row.filename });
+    } catch (e) {
+      failed.push({ id: row.id, title: row.title, error: e?.message || String(e) });
+    }
+  }
+  console.info(
+    '[master-data] purgeAllUserDocuments owner=%s deleted=%d retained=%d failed=%d',
+    owner,
+    deleted.length,
+    retained.length,
+    failed.length
+  );
+  return {
+    ok: true,
+    deleted_count: deleted.length,
+    retained_count: retained.length,
+    failed_count: failed.length,
+    deleted,
+    retained,
+    failed,
+  };
 }
 
 function scoreChunk(content, queryTerms) {

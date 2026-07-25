@@ -34,6 +34,7 @@ import openconnectorRoutes from './routes/openconnector.js';
 import { openConnectorConsoleProxy } from './services/openconnector-console-proxy.js';
 import aiSnipperRoutes from './routes/ai-snipper.js';
 import efficiencyRoutes from './routes/efficiency.js';
+import orgMembersRoutes from './routes/org-members.js';
 import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
 import platformNotificationsRoutes from './routes/platform-notifications.js';
@@ -313,6 +314,7 @@ apiRouter.use('/integrations/openconnector', openconnectorRoutes);
 apiRouter.use('/ibkr-trading', ibkrTradingRoutes);
 apiRouter.use('/ai-snipper', aiSnipperRoutes);
 apiRouter.use('/efficiency', efficiencyRoutes);
+apiRouter.use('/org-members', orgMembersRoutes);
 apiRouter.use('/media/openclaw', mediaRoutes);
 app.use('/api', apiRouter);
 

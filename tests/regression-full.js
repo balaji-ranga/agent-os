@@ -90,6 +90,43 @@ async function main() {
   await runner.expectStatus('custom scripts', 'GET', '/api/integrations/custom-scripts', { token }, 200);
   await runner.expectStatus('external agents', 'GET', '/api/integrations/external-agents', { token }, 200);
 
+  // --- Efficiency Agent View + budgets + org leaf members ---
+  await runner.expectStatus('efficiency summary', 'GET', '/api/efficiency/summary?days=14', { token }, 200);
+  await runner.expectStatus('efficiency agents list', 'GET', '/api/efficiency/agents', { token }, 200);
+  await runner.expectStatus('org-members list', 'GET', '/api/org-members', { token }, 200);
+  await runner.expectStatus('org-members unauth → 401', 'GET', '/api/org-members', {}, 401);
+  await runner.expectStatus('efficiency agents unauth → 401', 'GET', '/api/efficiency/agents', {}, 401);
+  await runner.check('Agent View for first member + unknown rejected', async () => {
+    const list = await request('GET', '/api/efficiency/agents', { token });
+    if (list.status !== 200 || !Array.isArray(list.data?.members)) {
+      throw new Error(`bad agents list ${list.status}`);
+    }
+    if (!list.data.members.length) throw new Error('no efficiency members');
+    const key = list.data.members[0].member_key;
+    const detail = await request('GET', `/api/efficiency/agents/${encodeURIComponent(key)}?days=30`, { token });
+    if (detail.status !== 200) throw new Error(`detail ${detail.status}`);
+    if (!detail.data?.totals || !Array.isArray(detail.data.timeline)) {
+      throw new Error('detail missing totals/timeline');
+    }
+    if (!detail.data.budget) throw new Error('detail missing budget');
+    if (detail.data.member?.member_key !== key) throw new Error('detail member mismatch');
+    const unknown = await request('GET', '/api/efficiency/agents/__regression_missing__?days=30', { token });
+    if (unknown.status !== 404) throw new Error(`expected 404 for unknown member, got ${unknown.status}`);
+  });
+  await runner.check('budget PUT round-trip for first member', async () => {
+    const list = await request('GET', '/api/efficiency/agents', { token });
+    const key = list.data?.members?.[0]?.member_key;
+    if (!key) throw new Error('no member for budget put');
+    const put = await request('PUT', `/api/efficiency/agents/${encodeURIComponent(key)}/budget`, {
+      token,
+      body: { monthly_token_budget: 250000, error_budget_pct: 5 },
+    });
+    if (put.status !== 200) throw new Error(`budget put ${put.status}`);
+    if (Number(put.data?.budget?.monthly_token_budget) !== 250000) {
+      throw new Error(`budget not persisted: ${JSON.stringify(put.data?.budget)}`);
+    }
+  });
+
   // --- IBKR ---
   await runner.expectStatus('IBKR config', 'GET', '/api/ibkr-trading/config', { token }, 200);
   await runner.expectStatus('IBKR day status', 'GET', '/api/ibkr-trading/day-status', { token }, 200);

@@ -13,6 +13,7 @@ import { fileURLToPath } from 'url';
 import {
   createTable,
   deleteDocument,
+  ensureTableColumns,
   findTableByName,
   getDocumentFile,
   insertRow,
@@ -26,15 +27,26 @@ const REPO_ROOT = join(__dirname, '..', '..', '..');
 
 export const DEPARTMENTS_TABLE_NAME = 'departments';
 export const DEPARTMENTS_COLUMN = 'name';
-export const DEPARTMENT_PRESETS = [
-  'Executive',
-  'Research',
-  'Finance',
-  'Social',
-  'Engineering',
-  'Operations',
-  'Job Pipeline',
+export const DEPARTMENTS_PURPOSE_COLUMN = 'purpose';
+export const DEPARTMENTS_BUDGET_COLUMN = 'monthly_token_budget';
+export const DEPARTMENTS_COLUMNS = [
+  DEPARTMENTS_COLUMN,
+  DEPARTMENTS_PURPOSE_COLUMN,
+  DEPARTMENTS_BUDGET_COLUMN,
 ];
+
+/** Seed departments: name + purpose. Monthly token budget is left for the CEO to set. */
+export const DEPARTMENT_PRESET_ROWS = [
+  { name: 'Executive', purpose: 'Company direction, priorities, approvals and escalations.' },
+  { name: 'Research', purpose: 'Market, technical and competitive research; briefs and summaries.' },
+  { name: 'Finance', purpose: 'Expenses, invoices, budgets and financial reporting.' },
+  { name: 'Social', purpose: 'Social content creation, scheduling and community engagement.' },
+  { name: 'Engineering', purpose: 'Build, automate and maintain workflows, integrations and code.' },
+  { name: 'Operations', purpose: 'Day-to-day execution, coordination and process follow-through.' },
+  { name: 'Job Pipeline', purpose: 'Sourcing, screening and tracking of job or candidate pipelines.' },
+];
+
+export const DEPARTMENT_PRESETS = DEPARTMENT_PRESET_ROWS.map((d) => d.name);
 
 export const FLOLAH_GUIDE_TITLE = 'Flolah User Guide';
 export const FLOLAH_GUIDE_FILENAME = 'README.md';
@@ -66,6 +78,10 @@ export const PLATFORM_HELP_DOCUMENTS = Object.freeze([
   { filename: '15-api-keys-vault.md', title: `${PLATFORM_HELP_TITLE_PREFIX}API Keys Vault` },
   { filename: '16-connectors-openconnector.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Connectors OpenConnector` },
   { filename: '17-desktop-windows-download.md', title: `${PLATFORM_HELP_TITLE_PREFIX}Desktop Windows Download` },
+  {
+    filename: '18-agent-budgets-and-org-members.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}Agent Budgets Org Members`,
+  },
 ]);
 
 /** Resolve repo README.md (local: agent-os/README.md; Docker: /opt/agent-os/README.md). */
@@ -144,7 +160,7 @@ async function ensureMarkdownDocument(ownerUserId, { title, filename, content, l
       /* replace below */
     }
     try {
-      deleteDocument(ownerUserId, existing.id);
+      deleteDocument(ownerUserId, existing.id, { force: true });
     } catch (_) {
       /* continue to upload */
     }
@@ -174,7 +190,7 @@ function cleanupLegacyBrandDocuments(ownerUserId) {
       title === LEGACY_USER_GUIDE_TITLE;
     if (!isLegacyHelp) continue;
     try {
-      deleteDocument(ownerUserId, d.id);
+      deleteDocument(ownerUserId, d.id, { force: true });
       removed += 1;
     } catch (_) {
       /* ignore */
@@ -192,10 +208,28 @@ export function ensureDepartmentsMasterData(ownerUserId) {
   if (!table) {
     table = createTable(ownerUserId, {
       name: DEPARTMENTS_TABLE_NAME,
-      columns: [DEPARTMENTS_COLUMN],
-      description: 'Org departments for agent onboarding (dynamic list)',
+      columns: DEPARTMENTS_COLUMNS,
+      description: 'Org departments (name, purpose, monthly token budget) for agent onboarding',
     });
     created = true;
+  }
+  let addedColumns = [];
+  if (!created) {
+    try {
+      const res = ensureTableColumns(ownerUserId, table.id, DEPARTMENTS_COLUMNS);
+      table = res.table || table;
+      addedColumns = res.added || [];
+      if (addedColumns.length) {
+        console.log(
+          '[master-data] departments table upgraded with columns',
+          addedColumns.join(', '),
+          'owner=',
+          ownerUserId
+        );
+      }
+    } catch (e) {
+      console.warn('[master-data] departments column upgrade failed:', e?.message || e);
+    }
   }
   const existingNames = new Set();
   if (!created && (table.row_count || 0) > 0) {
@@ -208,15 +242,47 @@ export function ensureDepartmentsMasterData(ownerUserId) {
   }
   let inserted = 0;
   if (created || (table.row_count || 0) === 0 || existingNames.size === 0) {
-    for (const name of DEPARTMENT_PRESETS) {
-      if (existingNames.has(name.toLowerCase())) continue;
-      insertRow(ownerUserId, table.id, { [DEPARTMENTS_COLUMN]: name });
+    for (const preset of DEPARTMENT_PRESET_ROWS) {
+      if (existingNames.has(preset.name.toLowerCase())) continue;
+      insertRow(ownerUserId, table.id, {
+        [DEPARTMENTS_COLUMN]: preset.name,
+        [DEPARTMENTS_PURPOSE_COLUMN]: preset.purpose,
+        [DEPARTMENTS_BUDGET_COLUMN]: '',
+      });
       inserted += 1;
-      existingNames.add(name.toLowerCase());
+      existingNames.add(preset.name.toLowerCase());
     }
     table = findTableByName(ownerUserId, DEPARTMENTS_TABLE_NAME) || table;
   }
-  return { table, created, inserted };
+  return { table, created, inserted, addedColumns };
+}
+
+/** Departments (name → purpose / monthly token budget) from the CEO's master-data table. */
+export function listDepartmentsForOwner(ownerUserId) {
+  const table = findTableByName(ownerUserId, DEPARTMENTS_TABLE_NAME);
+  if (!table) return [];
+  const out = [];
+  let offset = 0;
+  for (;;) {
+    const page = listRows(ownerUserId, table.id, { limit: 50, offset });
+    const rows = page.rows || [];
+    for (const r of rows) {
+      const data = r.data || {};
+      const name = String(data.name ?? data.Name ?? data.department ?? '').trim();
+      if (!name) continue;
+      const budgetRaw = String(data[DEPARTMENTS_BUDGET_COLUMN] ?? '').replace(/[,\s]/g, '');
+      const budget = budgetRaw && Number.isFinite(Number(budgetRaw)) ? Number(budgetRaw) : null;
+      out.push({
+        id: r.id,
+        name,
+        purpose: String(data[DEPARTMENTS_PURPOSE_COLUMN] ?? '').trim(),
+        monthly_token_budget: budget,
+      });
+    }
+    offset += rows.length;
+    if (!rows.length || offset >= (page.total ?? offset)) break;
+  }
+  return out.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /**

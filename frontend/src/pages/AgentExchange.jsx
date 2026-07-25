@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import {
@@ -7,6 +7,88 @@ import {
   ENQUIRE_SKILL_ID,
   buildA2ATestSample,
 } from '../utils/a2aTestSample';
+import AddToOrgDialog from '../components/AddToOrgDialog';
+
+/** Inline ⋯ menu for AgentExchange card actions (keeps the card uncluttered). */
+function CardActionsMenu({ items }) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef(null);
+  const visible = (items || []).filter((it) => it && !it.hidden);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDoc = (e) => {
+      if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false);
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  if (!visible.length) return null;
+
+  return (
+    <div className="mcp-pg-card-menu" ref={rootRef}>
+      <button
+        type="button"
+        className="mcp-pg-card-menu-btn"
+        aria-label="Agent actions"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        title="Actions"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((o) => !o);
+        }}
+      >
+        <span aria-hidden>⋯</span>
+      </button>
+      {open && (
+        <div className="mcp-pg-card-menu-dropdown" role="menu">
+          {visible.map((it) => {
+            const closeAndRun = () => {
+              setOpen(false);
+              it.onClick?.();
+            };
+            if (it.href) {
+              return (
+                <a
+                  key={it.id}
+                  role="menuitem"
+                  className={`mcp-pg-card-menu-item${it.danger ? ' danger' : ''}`}
+                  href={it.href}
+                  target={it.external ? '_blank' : undefined}
+                  rel={it.external ? 'noreferrer' : undefined}
+                  onClick={() => setOpen(false)}
+                >
+                  {it.label}
+                </a>
+              );
+            }
+            return (
+              <button
+                key={it.id}
+                type="button"
+                role="menuitem"
+                className={`mcp-pg-card-menu-item${it.danger ? ' danger' : ''}`}
+                disabled={it.disabled}
+                onClick={closeAndRun}
+              >
+                {it.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /** Sample Flolah async A2A callback body (not A2A JSON-RPC). */
 export const A2A_CALLBACK_JSON_SAMPLE = {
@@ -146,15 +228,14 @@ function EnquireTip() {
   );
 }
 
-function AgentAccessControls({ agent, onChanged }) {
-  const [open, setOpen] = useState(false);
+function AgentAccessControls({ agent, open, onClose, onChanged }) {
   const [settings, setSettings] = useState(null);
   const [rule, setRule] = useState('');
   const [label, setLabel] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setError(null);
     try {
       const next = await api.agentExchangeAccessGet(agent.id);
@@ -162,13 +243,12 @@ function AgentAccessControls({ agent, onChanged }) {
     } catch (e) {
       setError(e.message || 'Failed to load access settings');
     }
-  };
+  }, [agent.id]);
 
-  const toggle = async () => {
-    const next = !open;
-    setOpen(next);
-    if (next && !settings) await load();
-  };
+  useEffect(() => {
+    if (!open) return;
+    load();
+  }, [open, load]);
 
   const setPolicy = async (policy) => {
     setSaving(true);
@@ -179,6 +259,20 @@ function AgentAccessControls({ agent, onChanged }) {
       await onChanged();
     } catch (e) {
       setError(e.message || 'Failed to update access policy');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const setVisibility = async (visibility) => {
+    setSaving(true);
+    setError(null);
+    try {
+      const next = await api.agentExchangeVisibilitySet(agent.id, visibility);
+      setSettings(next);
+      await onChanged();
+    } catch (e) {
+      setError(e.message || 'Failed to update visibility');
     } finally {
       setSaving(false);
     }
@@ -222,150 +316,152 @@ function AgentAccessControls({ agent, onChanged }) {
     }
   };
 
-  const unpublish = async () => {
-    if (
-      !window.confirm(
-        `Unpublish "${agent.name}"? Its public card, invoke, token and enquiry endpoints will stop immediately. The workflow remains published for authenticated UI/API use.`
-      )
-    ) {
-      return;
-    }
-    setSaving(true);
-    setError(null);
-    try {
-      await api.agentExchangeUnpublish(agent.id);
-      await onChanged();
-    } catch (e) {
-      setError(e.message || 'Failed to unpublish agent');
-      setSaving(false);
-    }
-  };
+  if (!open) return null;
 
   const policy = settings?.access_policy || agent.access_policy || 'deny_all';
+  const visibility = settings?.visibility || agent.visibility || 'public';
+  const isPrivate = visibility === 'private';
 
   return (
     <div className="a2a-access-controls">
-      <div className="mcp-pg-card-actions">
-        <button
-          type="button"
-          className="mcp-pg-btn-ghost mcp-pg-btn-sm"
-          onClick={toggle}
-          disabled={saving}
-        >
-          {open ? 'Close security' : 'Security'}
-        </button>
-        <button
-          type="button"
-          className="mcp-pg-btn-ghost mcp-pg-btn-sm a2a-unpublish-btn"
-          onClick={unpublish}
-          disabled={saving}
-        >
-          Unpublish
-        </button>
-      </div>
-
-      {open && (
-        <div className="a2a-access-panel">
-          <strong>Public endpoint access</strong>
-          <p className="a2a-access-help">
-            New agents deny all by default. This policy protects the card, invoke, OAuth token and
-            enquiry endpoints.
-          </p>
-          {error && <div className="mcp-pg-alert mcp-pg-alert-error">{error}</div>}
-          {!settings ? (
-            <p className="a2a-access-help">Loading…</p>
-          ) : (
-            <>
-              <div className="a2a-access-options">
-                {[
-                  ['deny_all', 'Deny all'],
-                  ['allow_all', 'Allow all'],
-                  ['whitelist', 'IP whitelist'],
-                ].map(([value, text]) => (
-                  <label key={value}>
-                    <input
-                      type="radio"
-                      name={`a2a-access-${agent.id}`}
-                      checked={policy === value}
-                      onChange={() => setPolicy(value)}
-                      disabled={saving}
-                    />
-                    <span>{text}</span>
-                  </label>
-                ))}
-              </div>
-
-              {policy === 'whitelist' && (
-                <>
-                  {settings.current_ip && (
-                    <div className="a2a-access-current">
-                      Current IP: <code>{settings.current_ip}</code>{' '}
-                      <button
-                        type="button"
-                        className="mcp-pg-btn-ghost mcp-pg-btn-sm"
-                        onClick={() => setRule(settings.current_ip)}
-                      >
-                        Use
-                      </button>
-                    </div>
-                  )}
-                  <form className="a2a-access-add" onSubmit={addRule}>
-                    <input
-                      value={rule}
-                      onChange={(e) => setRule(e.target.value)}
-                      placeholder="IP or IPv4 CIDR, e.g. 203.0.113.10"
-                      required
-                    />
-                    <input
-                      value={label}
-                      onChange={(e) => setLabel(e.target.value)}
-                      placeholder="Label (optional)"
-                    />
-                    <button
-                      type="submit"
-                      className="mcp-pg-btn-primary mcp-pg-btn-sm"
-                      disabled={saving || !rule.trim()}
-                    >
-                      Add
-                    </button>
-                  </form>
-                  <div className="a2a-access-rules">
-                    {(settings.entries || []).length ? (
-                      settings.entries.map((entry) => (
-                        <div key={entry.id} className="a2a-access-rule">
-                          <span>
-                            <code>{entry.cidr_or_ip}</code>
-                            {entry.label ? ` — ${entry.label}` : ''}
-                          </span>
-                          <button
-                            type="button"
-                            className="mcp-pg-btn-ghost mcp-pg-btn-sm"
-                            onClick={() => removeRule(entry.id)}
-                            disabled={saving}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="a2a-access-help">
-                        Empty whitelist — all public requests are denied.
-                      </p>
-                    )}
-                  </div>
-                </>
-              )}
-            </>
-          )}
+      <div className="a2a-access-panel">
+        <div className="a2a-panel-head">
+          <strong>Security</strong>
+          {onClose ? (
+            <button type="button" className="mcp-pg-btn-ghost mcp-pg-btn-sm" onClick={onClose}>
+              Close
+            </button>
+          ) : null}
         </div>
-      )}
+        <p className="a2a-access-help">
+          Public (default) lists the agent on AgentExchange for other CEOs. Private disables all
+          public calling — only the COO or the org reports-to lead can invoke (after Add to org).
+          Owner Test agent still works.
+        </p>
+        {error && <div className="mcp-pg-alert mcp-pg-alert-error">{error}</div>}
+        {!settings ? (
+          <p className="a2a-access-help">Loading…</p>
+        ) : (
+          <>
+            <strong>Visibility</strong>
+            <div className="a2a-access-options">
+              {[
+                ['public', 'Public'],
+                ['private', 'Private (org only)'],
+              ].map(([value, text]) => (
+                <label key={value}>
+                  <input
+                    type="radio"
+                    name={`a2a-visibility-${agent.id}`}
+                    checked={visibility === value}
+                    onChange={() => setVisibility(value)}
+                    disabled={saving}
+                  />
+                  <span>{text}</span>
+                </label>
+              ))}
+            </div>
+
+            <strong style={{ display: 'block', marginTop: '0.85rem' }}>Public endpoint access</strong>
+            {isPrivate ? (
+              <p className="a2a-access-help">
+                Visibility is Private — public card / invoke / OAuth / enquiry are always denied.
+                IP policy below applies only after you switch back to Public.
+              </p>
+            ) : (
+              <p className="a2a-access-help">
+                New agents deny all by default. This policy protects the card, invoke, OAuth token
+                and enquiry endpoints.
+              </p>
+            )}
+            <div className="a2a-access-options">
+              {[
+                ['deny_all', 'Deny all'],
+                ['allow_all', 'Allow all'],
+                ['whitelist', 'IP whitelist'],
+              ].map(([value, text]) => (
+                <label key={value}>
+                  <input
+                    type="radio"
+                    name={`a2a-access-${agent.id}`}
+                    checked={policy === value}
+                    onChange={() => setPolicy(value)}
+                    disabled={saving || isPrivate}
+                  />
+                  <span>{text}</span>
+                </label>
+              ))}
+            </div>
+
+            {!isPrivate && policy === 'whitelist' && (
+              <>
+                {settings.current_ip && (
+                  <div className="a2a-access-current">
+                    Current IP: <code>{settings.current_ip}</code>{' '}
+                    <button
+                      type="button"
+                      className="mcp-pg-btn-ghost mcp-pg-btn-sm"
+                      onClick={() => setRule(settings.current_ip)}
+                    >
+                      Use
+                    </button>
+                  </div>
+                )}
+                <form className="a2a-access-add" onSubmit={addRule}>
+                  <input
+                    value={rule}
+                    onChange={(e) => setRule(e.target.value)}
+                    placeholder="IP or IPv4 CIDR, e.g. 203.0.113.10"
+                    required
+                  />
+                  <input
+                    value={label}
+                    onChange={(e) => setLabel(e.target.value)}
+                    placeholder="Label (optional)"
+                  />
+                  <button
+                    type="submit"
+                    className="mcp-pg-btn-primary mcp-pg-btn-sm"
+                    disabled={saving || !rule.trim()}
+                  >
+                    Add
+                  </button>
+                </form>
+                <div className="a2a-access-rules">
+                  {(settings.entries || []).length ? (
+                    settings.entries.map((entry) => (
+                      <div key={entry.id} className="a2a-access-rule">
+                        <span>
+                          <code>{entry.cidr_or_ip}</code>
+                          {entry.label ? ` — ${entry.label}` : ''}
+                        </span>
+                        <button
+                          type="button"
+                          className="mcp-pg-btn-ghost mcp-pg-btn-sm"
+                          onClick={() => removeRule(entry.id)}
+                          disabled={saving}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="a2a-access-help">
+                      Empty whitelist — all public requests are denied.
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
 
-function AgentTestPanel({ agent }) {
+function AgentTestPanel({ agent, open, onClose }) {
   const seed = useMemo(() => buildA2ATestSample(agent), [agent]);
-  const [open, setOpen] = useState(false);
   const [skillId, setSkillId] = useState(seed.skillId);
   const [inputText, setInputText] = useState(
     seed.mode === 'json' ? JSON.stringify(seed.value, null, 2) : String(seed.value)
@@ -402,29 +498,35 @@ function AgentTestPanel({ agent }) {
     );
   };
 
-  const openPanel = async () => {
-    const next = !open;
-    setOpen(next);
-    setError(null);
-    setResult(null);
-    if (!next) return;
-    try {
-      const sample = await api.agentExchangeTestSample(agent.id);
-      setMeta(sample);
-      const sid = sample.skill_id || seed.skillId;
-      applySample(sid);
-      if (sample.help) setInputHelp(sample.help);
-      if (sample.mode === 'json' || sample.sample != null) {
-        setInputText(
-          sample.mode === 'json'
-            ? JSON.stringify(sample.sample, null, 2)
-            : String(sample.sample ?? '')
-        );
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      setError(null);
+      setResult(null);
+      try {
+        const sample = await api.agentExchangeTestSample(agent.id);
+        if (cancelled) return;
+        setMeta(sample);
+        const sid = sample.skill_id || seed.skillId;
+        applySample(sid);
+        if (sample.help) setInputHelp(sample.help);
+        if (sample.mode === 'json' || sample.sample != null) {
+          setInputText(
+            sample.mode === 'json'
+              ? JSON.stringify(sample.sample, null, 2)
+              : String(sample.sample ?? '')
+          );
+        }
+      } catch (_) {
+        if (!cancelled) applySample(seed.skillId);
       }
-    } catch (_) {
-      applySample(seed.skillId);
-    }
-  };
+    })();
+    return () => {
+      cancelled = true;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- reload sample when panel opens
+  }, [open, agent.id]);
 
   const runTest = async (e) => {
     e?.preventDefault?.();
@@ -474,154 +576,351 @@ function AgentTestPanel({ agent }) {
     result?.result?.task?.id ||
     null;
 
+  if (!open) return null;
+
   return (
     <div className="a2a-test-controls">
-      <button
-        type="button"
-        className="mcp-pg-btn-primary mcp-pg-btn-sm"
-        onClick={openPanel}
-        disabled={busy}
-      >
-        {open ? 'Close test' : 'Test agent'}
-      </button>
-      {open && (
-        <form className="a2a-access-panel a2a-test-panel" onSubmit={runTest}>
+      <form className="a2a-access-panel a2a-test-panel" onSubmit={runTest}>
+        <div className="a2a-panel-head">
           <strong>Test invoke</strong>
-          <p className="a2a-access-help">
-            Choose a skill, then use the autofilled sample. Primary skill runs the workflow;{' '}
-            <code>{ENQUIRE_SKILL_ID}</code> polls an async task.
-            {agent.can_manage
-              ? ' As owner, this bypasses public IP deny/whitelist and OAuth so you can verify the agent.'
-              : ' Public IP and OAuth rules still apply for non-owners.'}
-          </p>
-          {meta?.can_bypass_access && (
-            <p className="a2a-access-help">Owner bypass active for this call.</p>
-          )}
-          {error && <div className="mcp-pg-alert mcp-pg-alert-error">{error}</div>}
-          <label className="a2a-test-label">
-            Skill
-            <select
-              value={skillId}
-              onChange={(e) => applySample(e.target.value)}
-              disabled={busy}
-            >
-              {skills.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.id === ENQUIRE_SKILL_ID ? `${s.name} (poll async)` : s.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          {selectedSkill?.description ? (
-            <p className="a2a-access-help">{selectedSkill.description}</p>
+          {onClose ? (
+            <button type="button" className="mcp-pg-btn-ghost mcp-pg-btn-sm" onClick={onClose}>
+              Close
+            </button>
           ) : null}
-          <div className="a2a-test-input-head">
-            <span className="a2a-test-input-title">
-              {isEnquire ? 'Enquiry input (taskId or runId)' : 'Agent input (JSON object or text)'}
+        </div>
+        <p className="a2a-access-help">
+          Choose a skill, then use the autofilled sample. Primary skill runs the workflow;{' '}
+          <code>{ENQUIRE_SKILL_ID}</code> polls an async task.
+          {agent.can_manage
+            ? ' As owner, this bypasses public IP deny/whitelist and OAuth so you can verify the agent.'
+            : ' Public IP and OAuth rules still apply for non-owners.'}
+        </p>
+        {meta?.can_bypass_access && (
+          <p className="a2a-access-help">Owner bypass active for this call.</p>
+        )}
+        {error && <div className="mcp-pg-alert mcp-pg-alert-error">{error}</div>}
+        <label className="a2a-test-label">
+          Skill
+          <select
+            value={skillId}
+            onChange={(e) => applySample(e.target.value)}
+            disabled={busy}
+          >
+            {skills.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.id === ENQUIRE_SKILL_ID ? `${s.name} (poll async)` : s.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        {selectedSkill?.description ? (
+          <p className="a2a-access-help">{selectedSkill.description}</p>
+        ) : null}
+        <div className="a2a-test-input-head">
+          <span className="a2a-test-input-title">
+            {isEnquire ? 'Enquiry input (taskId or runId)' : 'Agent input (JSON object or text)'}
+          </span>
+          <span className="a2a-test-input-tips">
+            {isEnquire ? (
+              <EnquireTip />
+            ) : (
+              <JsonSampleTip
+                title="Primary skill input"
+                ariaLabel="Primary skill input help"
+                note={inputHelp || 'Use the agent card inputSchema / examples for this skill.'}
+                sample={
+                  (() => {
+                    try {
+                      return JSON.parse(inputText);
+                    } catch {
+                      return { text: inputText };
+                    }
+                  })()
+                }
+              />
+            )}
+            {isAsyncAgent(agent) && <CallbackTip agent={agent} />}
+          </span>
+        </div>
+        {inputHelp ? <p className="a2a-access-help">{inputHelp}</p> : null}
+        <label className="a2a-test-label a2a-test-label-bare">
+          <textarea
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            rows={8}
+            spellCheck={false}
+            disabled={busy}
+            placeholder={
+              isEnquire
+                ? '{\n  "taskId": "<uuid from async accept>"\n}'
+                : '{\n  …fields from agent card inputSchema\n}'
+            }
+          />
+        </label>
+        {isAsyncAgent(agent) && !isEnquire && (
+          <label className="a2a-test-label">
+            <span className="a2a-test-label-row">
+              Callback URL (optional override)
+              <CallbackTip agent={agent} />
             </span>
-            <span className="a2a-test-input-tips">
-              {isEnquire ? (
-                <EnquireTip />
-              ) : (
-                <JsonSampleTip
-                  title="Primary skill input"
-                  ariaLabel="Primary skill input help"
-                  note={inputHelp || 'Use the agent card inputSchema / examples for this skill.'}
-                  sample={
-                    (() => {
-                      try {
-                        return JSON.parse(inputText);
-                      } catch {
-                        return { text: inputText };
-                      }
-                    })()
-                  }
-                />
-              )}
-              {isAsyncAgent(agent) && <CallbackTip agent={agent} />}
-            </span>
-          </div>
-          {inputHelp ? <p className="a2a-access-help">{inputHelp}</p> : null}
-          <label className="a2a-test-label a2a-test-label-bare">
-            <textarea
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              rows={8}
-              spellCheck={false}
+            <input
+              value={callbackUrl}
+              onChange={(e) => setCallbackUrl(e.target.value)}
+              placeholder={agent.callback_url || 'https://… or leave blank to poll enquire-progress'}
               disabled={busy}
-              placeholder={
-                isEnquire
-                  ? '{\n  "taskId": "<uuid from async accept>"\n}'
-                  : '{\n  …fields from agent card inputSchema\n}'
-              }
             />
           </label>
-          {isAsyncAgent(agent) && !isEnquire && (
-            <label className="a2a-test-label">
-              <span className="a2a-test-label-row">
-                Callback URL (optional override)
-                <CallbackTip agent={agent} />
-              </span>
-              <input
-                value={callbackUrl}
-                onChange={(e) => setCallbackUrl(e.target.value)}
-                placeholder={agent.callback_url || 'https://… or leave blank to poll enquire-progress'}
-                disabled={busy}
-              />
-            </label>
-          )}
-          {(agent.auth_mode === 'secured' || agent.has_auth) && (
-            <label className="a2a-test-label">
-              Access token{needsTokenHint ? ' (required)' : ' (optional if you own this agent)'}
-              <input
-                type="password"
-                value={accessToken}
-                onChange={(e) => setAccessToken(e.target.value)}
-                placeholder="Bearer token from /token"
-                autoComplete="off"
-                disabled={busy}
-              />
-            </label>
-          )}
-          <div className="mcp-pg-card-actions">
+        )}
+        {(agent.auth_mode === 'secured' || agent.has_auth) && (
+          <label className="a2a-test-label">
+            Access token{needsTokenHint ? ' (required)' : ' (optional if you own this agent)'}
+            <input
+              type="password"
+              value={accessToken}
+              onChange={(e) => setAccessToken(e.target.value)}
+              placeholder="Bearer token from /token"
+              autoComplete="off"
+              disabled={busy}
+            />
+          </label>
+        )}
+        <div className="mcp-pg-card-actions">
+          <button
+            type="button"
+            className="mcp-pg-btn-ghost mcp-pg-btn-sm"
+            disabled={busy}
+            onClick={() => applySample(skillId)}
+          >
+            Reset sample
+          </button>
+          <button type="submit" className="mcp-pg-btn-primary mcp-pg-btn-sm" disabled={busy}>
+            {busy ? 'Invoking…' : isEnquire ? 'Enquire' : 'Run test'}
+          </button>
+        </div>
+        {acceptedTaskId && !isEnquire && (
+          <p className="a2a-access-help">
+            Async task id: <code>{acceptedTaskId}</code>. Switch skill to{' '}
             <button
               type="button"
-              className="mcp-pg-btn-ghost mcp-pg-btn-sm"
-              disabled={busy}
-              onClick={() => applySample(skillId)}
+              className="a2a-inline-link"
+              onClick={() => {
+                const next = buildA2ATestSample(agent, ENQUIRE_SKILL_ID);
+                setSkillId(ENQUIRE_SKILL_ID);
+                setInputHelp(next.help || '');
+                setInputText(JSON.stringify({ taskId: acceptedTaskId }, null, 2));
+              }}
             >
-              Reset sample
-            </button>
-            <button type="submit" className="mcp-pg-btn-primary mcp-pg-btn-sm" disabled={busy}>
-              {busy ? 'Invoking…' : isEnquire ? 'Enquire' : 'Run test'}
-            </button>
-          </div>
-          {acceptedTaskId && !isEnquire && (
-            <p className="a2a-access-help">
-              Async task id: <code>{acceptedTaskId}</code>. Switch skill to{' '}
-              <button
-                type="button"
-                className="a2a-inline-link"
-                onClick={() => {
-                  const next = buildA2ATestSample(agent, ENQUIRE_SKILL_ID);
-                  setSkillId(ENQUIRE_SKILL_ID);
-                  setInputHelp(next.help || '');
-                  setInputText(JSON.stringify({ taskId: acceptedTaskId }, null, 2));
-                }}
-              >
-                {ENQUIRE_SKILL_ID}
-              </button>{' '}
-              to poll.
-            </p>
-          )}
-          {result && (
-            <pre className="a2a-callback-tip-pre a2a-test-result">
-              {JSON.stringify(result, null, 2)}
-            </pre>
-          )}
-        </form>
-      )}
+              {ENQUIRE_SKILL_ID}
+            </button>{' '}
+            to poll.
+          </p>
+        )}
+        {result && (
+          <pre className="a2a-callback-tip-pre a2a-test-result">
+            {JSON.stringify(result, null, 2)}
+          </pre>
+        )}
+      </form>
     </div>
+  );
+}
+
+function PublishedAgentCard({
+  agent: a,
+  copied,
+  onCopy,
+  orgMember,
+  onOrgDialog,
+  onChanged,
+}) {
+  const [panel, setPanel] = useState(null); // 'test' | 'security' | null
+  const asyncMode = isAsyncAgent(a);
+  const callbackOn = hasCallback(a);
+  const [busyUnpublish, setBusyUnpublish] = useState(false);
+
+  const unpublish = async () => {
+    if (
+      !window.confirm(
+        `Unpublish "${a.name}"? Its public card, invoke, token and enquiry endpoints will stop immediately. The workflow remains published for authenticated UI/API use.`
+      )
+    ) {
+      return;
+    }
+    setBusyUnpublish(true);
+    try {
+      await api.agentExchangeUnpublish(a.id);
+      await onChanged();
+    } catch (e) {
+      window.alert(e.message || 'Failed to unpublish agent');
+    } finally {
+      setBusyUnpublish(false);
+    }
+  };
+
+  const menuItems = [
+    {
+      id: 'copy-ep',
+      label: copied === `${a.id}-ep` ? 'Copied endpoint' : 'Copy endpoint',
+      onClick: () => onCopy(a.endpoint_url, `${a.id}-ep`),
+    },
+    {
+      id: 'copy-card',
+      label: copied === `${a.id}-card` ? 'Copied card URL' : 'Copy card URL',
+      onClick: () => onCopy(a.card_url, `${a.id}-card`),
+      hidden: !a.card_url,
+    },
+    {
+      id: 'open-card',
+      label: 'Open card',
+      href: a.card_url,
+      external: true,
+      hidden: !a.card_url,
+    },
+    {
+      id: 'test',
+      label: panel === 'test' ? 'Close test' : 'Test agent',
+      onClick: () => setPanel((p) => (p === 'test' ? null : 'test')),
+    },
+    {
+      id: 'org',
+      label: orgMember ? 'Edit org placement' : 'Add to org',
+      hidden: !a.can_manage,
+      onClick: () =>
+        onOrgDialog({
+          refId: a.id,
+          defaultName: a.name,
+          defaultPurpose: a.description || '',
+          existing: orgMember,
+        }),
+    },
+    {
+      id: 'security',
+      label: panel === 'security' ? 'Close security' : 'Security',
+      hidden: !a.can_manage,
+      onClick: () => setPanel((p) => (p === 'security' ? null : 'security')),
+    },
+    {
+      id: 'unpublish',
+      label: busyUnpublish ? 'Unpublishing…' : 'Unpublish',
+      danger: true,
+      hidden: !a.can_manage,
+      disabled: busyUnpublish,
+      onClick: unpublish,
+    },
+  ];
+
+  return (
+    <article className="mcp-pg-card" style={{ cursor: 'default' }}>
+      <div className="mcp-pg-card-head">
+        <div className="mcp-pg-card-icon">{a.name?.charAt(0)?.toUpperCase() || 'A'}</div>
+        <div className="mcp-pg-card-head-end">
+          <div className="mcp-pg-card-badges">
+            <span className="mcp-pg-status mcp-pg-status-healthy">published</span>
+            <span className="mcp-pg-transport">A2A</span>
+            {asyncMode ? (
+              <span className="mcp-pg-tag platform" title="Async invoke">
+                Async
+              </span>
+            ) : (
+              <span className="mcp-pg-tag mine">Sync</span>
+            )}
+            {(a.auth_mode === 'secured' || a.has_auth) && (
+              <span className="mcp-pg-tag platform">Secured</span>
+            )}
+            {a.auth_mode !== 'secured' && !a.has_auth && (
+              <span className="mcp-pg-tag mine">Public auth</span>
+            )}
+            {a.visibility === 'private' ? (
+              <span className="mcp-pg-tag platform">Private</span>
+            ) : (
+              <span className="mcp-pg-tag mine">Listed</span>
+            )}
+            <span
+              className={`mcp-pg-tag ${
+                a.visibility === 'private'
+                  ? 'platform'
+                  : (a.access_policy || 'deny_all') === 'allow_all'
+                    ? 'mine'
+                    : 'platform'
+              }`}
+            >
+              {a.visibility === 'private'
+                ? 'Org only'
+                : (a.access_policy || 'deny_all') === 'allow_all'
+                  ? 'Allow all IPs'
+                  : (a.access_policy || 'deny_all') === 'whitelist'
+                    ? 'IP whitelist'
+                    : 'Deny all IPs'}
+            </span>
+          </div>
+          <CardActionsMenu items={menuItems} />
+        </div>
+      </div>
+      <h3>{a.name}</h3>
+      <p className="mcp-pg-card-desc">{a.description || 'No description'}</p>
+      <code className="mcp-pg-card-url">{a.endpoint_url}</code>
+      <div className="mcp-pg-card-meta">
+        <span>by {a.owner_name || 'Unknown'}</span>
+        {a.workflow_name && <span>{a.workflow_name}</span>}
+        {(a.auth_mode === 'secured' || a.has_auth) && (
+          <span className="mcp-pg-tag platform">OAuth client credentials</span>
+        )}
+      </div>
+      {asyncMode && (
+        <div className="mcp-pg-card-meta a2a-async-help-row">
+          <span className="a2a-async-help-item">
+            {callbackOn ? 'Callback' : 'Callback (optional)'} <CallbackTip agent={a} />
+          </span>
+          <span className="a2a-async-help-item">
+            Enquire <EnquireTip />
+          </span>
+          {!callbackOn && (
+            <span className="a2a-access-help" style={{ margin: 0 }}>
+              Poll <code>{ENQUIRE_SKILL_ID}</code> / <code>tasks/get</code>
+            </span>
+          )}
+        </div>
+      )}
+      {a.auth_mode === 'secured' && a.token_url && (
+        <div className="mcp-pg-card-meta">
+          <span>
+            token: <code style={{ wordBreak: 'break-all' }}>{a.token_url}</code>
+          </span>
+        </div>
+      )}
+      {(a.metadata?.tags || []).length > 0 && (
+        <div className="mcp-pg-card-meta">
+          {(a.metadata.tags || []).map((tag) => (
+            <span key={tag} className="mcp-pg-tag mine">
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="mcp-pg-card-meta">
+        <span>
+          skill: <code>{a.skill_id}</code>
+        </span>
+        {a.published_at && <span>{new Date(a.published_at).toLocaleString()}</span>}
+      </div>
+      {orgMember && (
+        <div className="mcp-pg-card-meta">
+          <span>
+            In org: {orgMember.department || 'Unassigned'} · reports to {orgMember.parent_id}
+          </span>
+        </div>
+      )}
+      <AgentTestPanel agent={a} open={panel === 'test'} onClose={() => setPanel(null)} />
+      {a.can_manage && (
+        <AgentAccessControls
+          agent={a}
+          open={panel === 'security'}
+          onClose={() => setPanel(null)}
+          onChanged={onChanged}
+        />
+      )}
+    </article>
   );
 }
 
@@ -632,6 +931,8 @@ export default function AgentExchange() {
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
   const [copied, setCopied] = useState(null);
+  const [orgMembers, setOrgMembers] = useState([]);
+  const [orgDialog, setOrgDialog] = useState(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -648,6 +949,20 @@ export default function AgentExchange() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const loadOrgMembers = useCallback(() => {
+    api
+      .orgMembers()
+      .then((r) => setOrgMembers(r.members || []))
+      .catch(() => setOrgMembers([]));
+  }, []);
+
+  useEffect(() => {
+    loadOrgMembers();
+  }, [loadOrgMembers]);
+
+  const orgMemberFor = (publishId) =>
+    orgMembers.find((m) => m.kind === 'a2a_publish' && m.ref_id === publishId) || null;
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -728,121 +1043,17 @@ export default function AgentExchange() {
             {filtered.length} published agent{filtered.length === 1 ? '' : 's'}
           </p>
           <div className="mcp-pg-grid">
-            {filtered.map((a) => {
-              const asyncMode = isAsyncAgent(a);
-              const callbackOn = hasCallback(a);
-              return (
-                <article key={a.id} className="mcp-pg-card" style={{ cursor: 'default' }}>
-                  <div className="mcp-pg-card-head">
-                    <div className="mcp-pg-card-icon">{a.name?.charAt(0)?.toUpperCase() || 'A'}</div>
-                    <div className="mcp-pg-card-badges">
-                      <span className="mcp-pg-status mcp-pg-status-healthy">published</span>
-                      <span className="mcp-pg-transport">A2A</span>
-                      {asyncMode ? (
-                        <span className="mcp-pg-tag platform" title="Async invoke">
-                          Async
-                        </span>
-                      ) : (
-                        <span className="mcp-pg-tag mine">Sync</span>
-                      )}
-                      {(a.auth_mode === 'secured' || a.has_auth) && (
-                        <span className="mcp-pg-tag platform">Secured</span>
-                      )}
-                      {a.auth_mode !== 'secured' && !a.has_auth && (
-                        <span className="mcp-pg-tag mine">Public</span>
-                      )}
-                      <span
-                        className={`mcp-pg-tag ${
-                          (a.access_policy || 'deny_all') === 'allow_all' ? 'mine' : 'platform'
-                        }`}
-                      >
-                        {(a.access_policy || 'deny_all') === 'allow_all'
-                          ? 'Allow all IPs'
-                          : (a.access_policy || 'deny_all') === 'whitelist'
-                            ? 'IP whitelist'
-                            : 'Deny all IPs'}
-                      </span>
-                    </div>
-                  </div>
-                  <h3>{a.name}</h3>
-                  <p className="mcp-pg-card-desc">{a.description || 'No description'}</p>
-                  <code className="mcp-pg-card-url">{a.endpoint_url}</code>
-                  <div className="mcp-pg-card-meta">
-                    <span>by {a.owner_name || 'Unknown'}</span>
-                    {a.workflow_name && <span>{a.workflow_name}</span>}
-                    {(a.auth_mode === 'secured' || a.has_auth) && (
-                      <span className="mcp-pg-tag platform">OAuth client credentials</span>
-                    )}
-                  </div>
-                  {asyncMode && (
-                    <div className="mcp-pg-card-meta a2a-async-help-row">
-                      <span className="a2a-async-help-item">
-                        {callbackOn ? 'Callback' : 'Callback (optional)'} <CallbackTip agent={a} />
-                      </span>
-                      <span className="a2a-async-help-item">
-                        Enquire <EnquireTip />
-                      </span>
-                      {!callbackOn && (
-                        <span className="a2a-access-help" style={{ margin: 0 }}>
-                          Poll <code>{ENQUIRE_SKILL_ID}</code> / <code>tasks/get</code>
-                        </span>
-                      )}
-                    </div>
-                  )}
-                  {a.auth_mode === 'secured' && a.token_url && (
-                    <div className="mcp-pg-card-meta">
-                      <span>
-                        token: <code style={{ wordBreak: 'break-all' }}>{a.token_url}</code>
-                      </span>
-                    </div>
-                  )}
-                  {(a.metadata?.tags || []).length > 0 && (
-                    <div className="mcp-pg-card-meta">
-                      {(a.metadata.tags || []).map((tag) => (
-                        <span key={tag} className="mcp-pg-tag mine">
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  <div className="mcp-pg-card-meta">
-                    <span>
-                      skill: <code>{a.skill_id}</code>
-                    </span>
-                    {a.published_at && <span>{new Date(a.published_at).toLocaleString()}</span>}
-                  </div>
-                  <div className="mcp-pg-card-actions">
-                    <button
-                      type="button"
-                      className="mcp-pg-btn-primary mcp-pg-btn-sm"
-                      onClick={() => copy(a.endpoint_url, `${a.id}-ep`)}
-                    >
-                      {copied === `${a.id}-ep` ? 'Copied endpoint' : 'Copy endpoint'}
-                    </button>
-                    <button
-                      type="button"
-                      className="mcp-pg-btn-ghost mcp-pg-btn-sm"
-                      onClick={() => copy(a.card_url, `${a.id}-card`)}
-                    >
-                      {copied === `${a.id}-card` ? 'Copied card' : 'Copy card URL'}
-                    </button>
-                    {a.card_url && (
-                      <a
-                        className="mcp-pg-btn-ghost mcp-pg-btn-sm"
-                        href={a.card_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}
-                      >
-                        Open card
-                      </a>
-                    )}
-                  </div>
-                  <AgentTestPanel agent={a} />
-                  {a.can_manage && <AgentAccessControls agent={a} onChanged={load} />}
-                </article>
-              );
-            })}
+            {filtered.map((a) => (
+              <PublishedAgentCard
+                key={a.id}
+                agent={a}
+                copied={copied}
+                onCopy={copy}
+                orgMember={orgMemberFor(a.id)}
+                onOrgDialog={setOrgDialog}
+                onChanged={load}
+              />
+            ))}
           </div>
           {!filtered.length && (
             <div className="mcp-pg-empty">
@@ -856,6 +1067,18 @@ export default function AgentExchange() {
             </div>
           )}
         </>
+      )}
+
+      {orgDialog && (
+        <AddToOrgDialog
+          kind="a2a_publish"
+          refId={orgDialog.refId}
+          defaultName={orgDialog.defaultName}
+          defaultPurpose={orgDialog.defaultPurpose}
+          existing={orgDialog.existing}
+          onClose={() => setOrgDialog(null)}
+          onSaved={loadOrgMembers}
+        />
       )}
     </div>
   );

@@ -3,8 +3,9 @@
 ## Dashboard (`/`)
 
 - **Org chart** of your agents (COO and specialists).
-- **Add agent** — creates a full OpenClaw tenant agent for your CEO account (custom agent), with workspace files and default tool grants.
+- **Add agent** — creates a full OpenClaw tenant agent for your CEO account (custom agent), with workspace files and default tool grants. Optionally set a **monthly token budget** and **error budget %** at creation (see [18-agent-budgets-and-org-members.md](./18-agent-budgets-and-org-members.md)).
 - **Standups** — create standup, chat with COO, get work from team, run COO summary, approve, delete.
+- **Remove agent** — deletes the agent's chat history, standup responses, delegation records and tool grants. **Kanban cards are kept and unassigned** so the board history survives, and any agents reporting to it move up to its parent. The COO cannot be removed. Removal sticks: the agent does not reappear after a restart or a **Sync from OpenClaw**.
 - **Resync ORG.md & AGENTS.md** — after add/rename/reorganize agents, resync so every agent’s org docs list the correct CEO, peers, and COO delegatees.
 - Per-agent **Chat** shortcuts; optional Edge TTS to read replies.
 
@@ -44,7 +45,7 @@ Edit personality and operating docs:
 |------|---------|
 | **SOUL.md** | Voice, capabilities, boundaries |
 | **AGENTS.md** | Operating contract, peers, tool playbook |
-| **ORG.md** | Synced org roster (CEO, departments, peers) — prefer Resync over hand-edit |
+| **ORG.md** | Synced org roster (CEO, departments + purpose, peers, external/A2A leaf members) — prefer Resync over hand-edit |
 | **MEMORY.md** | Long-lived facts |
 | **TOOLS.md** | Instructions for when/how to use granted tools |
 | **AGENT-OS-OPS.md** | Shared operating rules for all specialists (learnings, Kanban self-check, Master Data, `notify_ceo`) — synced from platform templates; prefer not to hand-edit |

@@ -16,6 +16,7 @@ import {
   getA2AAccessSettings,
   removeA2AIpWhitelistEntry,
   setA2AAccessPolicy,
+  setA2AVisibility,
 } from '../services/workflow-a2a-access.js';
 import { clientIpFromRequest } from '../services/agent-workflow-desktop-auth.js';
 import {
@@ -57,10 +58,12 @@ function actor(req) {
 router.get('/', (req, res) => {
   try {
     const ownerUserId = entitledOwnerUserId(req);
-    const agents = listAllPublishedA2AAgents().map((agent) => ({
-      ...agent,
-      can_manage: !!ownerUserId && agent.owner_user_id === ownerUserId,
-    }));
+    const agents = listAllPublishedA2AAgents({ includePrivateForOwnerId: ownerUserId }).map(
+      (agent) => ({
+        ...agent,
+        can_manage: !!ownerUserId && agent.owner_user_id === ownerUserId,
+      })
+    );
     res.json({ agents, count: agents.length });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -83,10 +86,41 @@ router.put('/:publishId/access', (req, res) => {
   try {
     const ownerUserId = requireEntitledOwner(req, res);
     if (!ownerUserId) return;
-    const settings = setA2AAccessPolicy(
+    let settings = null;
+    if (req.body?.visibility != null || req.body?.Visibility != null) {
+      settings = setA2AVisibility(
+        req.params.publishId,
+        ownerUserId,
+        req.body?.visibility ?? req.body?.Visibility
+      );
+      if (!settings) return res.status(404).json({ error: 'Agent not found or not owned by this user' });
+    }
+    if (req.body?.access_policy != null || req.body?.accessPolicy != null) {
+      settings = setA2AAccessPolicy(
+        req.params.publishId,
+        ownerUserId,
+        req.body?.access_policy ?? req.body?.accessPolicy
+      );
+      if (!settings) return res.status(404).json({ error: 'Agent not found or not owned by this user' });
+    }
+    if (!settings) {
+      settings = getA2AAccessSettings(req.params.publishId, ownerUserId);
+    }
+    if (!settings) return res.status(404).json({ error: 'Agent not found or not owned by this user' });
+    res.json({ ...settings, current_ip: clientIpFromRequest(req) });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+router.put('/:publishId/visibility', (req, res) => {
+  try {
+    const ownerUserId = requireEntitledOwner(req, res);
+    if (!ownerUserId) return;
+    const settings = setA2AVisibility(
       req.params.publishId,
       ownerUserId,
-      req.body?.access_policy ?? req.body?.accessPolicy
+      req.body?.visibility ?? req.body?.Visibility
     );
     if (!settings) return res.status(404).json({ error: 'Agent not found or not owned by this user' });
     res.json({ ...settings, current_ip: clientIpFromRequest(req) });
@@ -129,7 +163,9 @@ router.delete('/:publishId/ip-whitelist/:entryId', (req, res) => {
  */
 router.get('/:publishId/test-sample', (req, res) => {
   try {
-    const pub = listAllPublishedA2AAgents().find((a) => a.id === req.params.publishId);
+    const pub = listAllPublishedA2AAgents({
+      includePrivateForOwnerId: entitledOwnerUserId(req),
+    }).find((a) => a.id === req.params.publishId);
     if (!pub) return res.status(404).json({ error: 'Agent not found or unpublished' });
 
     const skills = Array.isArray(pub.agent_card?.skills) ? pub.agent_card.skills : [];
@@ -179,6 +215,7 @@ router.get('/:publishId/test-sample', (req, res) => {
       invoke_mode: pub.invoke_mode || 'sync',
       auth_mode: pub.auth_mode || 'public',
       access_policy: pub.access_policy || 'deny_all',
+      visibility: pub.visibility || 'public',
       can_bypass_access: !!ownerUserId && pub.owner_user_id === ownerUserId,
       mode,
       sample,

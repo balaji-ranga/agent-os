@@ -11,8 +11,13 @@
 ## Agent gave wrong how-to steps
 
 1. Ask **Platform Help** explicitly; it should call `master_data_rag`.
-2. Open **Master Data → Documents** and confirm Platform Help docs are present.
+2. Open **Master Data → Documents** and confirm Platform Help docs are present (they show a **protected** badge and cannot be deleted/purged).
 3. Re-ask with keywords from the doc title (“workflow nodes IF operator”, “MCP register”).
+4. If help docs are missing: restart backend or re-run `node backend/scripts/reupload-platform-help-docs.js` (admin/ops) — register/startup also re-seeds them.
+
+## Purge removed the wrong files?
+
+**Purge all uploads** only deletes **your** uploaded documents. Platform Help and the Flolah User Guide are skipped. If you purged by mistake, re-upload your files — help/guide docs remain.
 
 ## Workflow won’t run
 
@@ -89,6 +94,43 @@ Open **Kanban**, find the approval card, approve or reject with a comment. IF no
 2. App connected for **this** CEO? OAuth expired → reconnect.
 3. Workflow **Connector** node has the correct app + action.
 4. Admin may need to configure OAuth client id/secret for that app.
+
+## Agent blocked: "budget exhausted"
+
+An agent refuses chat (HTTP 429) or its delegated Kanban card fails with a budget reason when it
+hits **100% of its monthly token budget**, or its monthly failure rate reaches the **error budget**
+after at least 10 terminal calls.
+
+1. Open **Efficiency View → Agent View**, pick the agent, and read the two gauges.
+2. **Edit budget** to raise the monthly token allowance or error budget %, or clear the field for
+   unlimited.
+3. If tokens look wrong, note that rows without provider-reported usage are **estimated**
+   (`chars/4`) — the token total shows how much is estimated.
+4. Budgets reset each calendar month and carry the previous month's values forward.
+5. Failure rate high but tasks look fine? Check Kanban for cards left in **failed** by optional side
+   errors and correct them — see "Kanban stuck or wrong status" above.
+
+## COO won't delegate to my external / A2A agent
+
+1. The agent must be added via **Add to org** (External Agents or AgentExchange) — registry entries
+   alone are not routable.
+2. It needs a **purpose**; the COO classifies on purpose text.
+3. It needs a **department** and an internal **reports-to** agent.
+4. Run **Resync ORG.md & AGENTS.md** from the Dashboard so the COO's roster picks it up.
+5. Check its budget state in **Efficiency View → Agent View** — a blocked member is skipped before
+   the outbound call.
+6. Confirm a direct **Test agent** / external test invoke succeeds; delegation uses the same path.
+
+## Agent won't delete, or comes back after deleting
+
+Removing an agent is now a single all-or-nothing step, so this should no longer happen. What you may still see:
+
+- **"Cannot delete the COO agent"** — the COO is the delegation root and is never deletable. Remove the specialists under it instead.
+- **"Agent not found"** — the agent is not in your workspace. You can only remove agents you own or were granted.
+
+What removal does: the agent's chat history, standup responses, delegation records and tool grants are deleted; its **Kanban cards are kept and simply unassigned** so your board history survives; and any agents reporting to it move up to its parent. Removal is recorded, so the agent will not reappear after a platform restart or after **Sync from OpenClaw**.
+
+To bring the same agent back, create it again from **Dashboard → Add agent** — recreating an agent explicitly clears the removal record.
 
 ## Wrong agent got the work
 

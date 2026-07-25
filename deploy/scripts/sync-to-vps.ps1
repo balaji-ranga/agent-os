@@ -28,7 +28,13 @@
 # DeepSeek@Ollama, shared notification dismiss,
 # chat paperclip attach → Master Data RAG, Vedic Astrology + generate_chart (JSON chart_spec),
 # Workflow autonomous certify (Maker/Checker; LLM Checker default OFF — WORKFLOW_CERTIFY_*),
-# Desktop Windows packages (PS1 + optional portable Node 18; token + IP whitelist; ASCII-safe PS1).
+# Desktop Windows packages (PS1 + optional portable Node 18; token + IP whitelist; ASCII-safe PS1),
+# department purpose + monthly_token_budget, agent monthly token/error budgets (token_usage ledger,
+# warn-then-block), Efficiency View Agent View tab, external/A2A agents as org leaf members
+# (Add to org) + COO delegation to them, A2A visibility public|private (private = org COO/reports-to only),
+# Master Data Purge all uploads (CEO uploads only; Platform Help + User Guide protected from delete/purge),
+# agent delete cascade (transactional, clears kanban assignments) + deleted_agents tombstone
+# (startup catalog re-grant and OpenClaw sync no longer resurrect a deleted agent).
 param(
   [string]$HostIp = "76.13.209.30",
   [string]$Key = "$env:USERPROFILE\.ssh\agent-os-vps",
@@ -69,6 +75,8 @@ scp @ssh `
 scp @ssh `
   "$Repo\deploy\scripts\vps-deploy-latest.sh" `
   "$Repo\deploy\scripts\vps-verify-platform.sh" `
+  "$Repo\deploy\scripts\vps-verify-a2a-private.sh" `
+  "$Repo\deploy\scripts\vps-verify-org-delegation.sh" `
   "$Repo\deploy\scripts\vps-verify-frontend-media.sh" `
   "$Repo\deploy\scripts\vps-smoke-new-features.sh" `
   "$Repo\deploy\scripts\vps-smoke-broadcast-notify.sh" `
@@ -77,6 +85,8 @@ scp @ssh `
   "$Repo\deploy\scripts\vps-smoke-openconnector.sh" `
   "$Repo\deploy\scripts\vps-smoke-openconnector-real.sh" `
   "$Repo\deploy\scripts\vps-smoke-openconnector-selfservice.sh" `
+  "$Repo\deploy\scripts\vps-smoke-budgets-org-members.sh" `
+  "$Repo\deploy\scripts\vps-regression-full.sh" `
   "$Repo\deploy\scripts\vps-enable-real-openconnector.sh" `
   "$Repo\deploy\scripts\vps-rebuild-frontend.sh" `
   "$Repo\deploy\scripts\ensure-deepseek-env.sh" `
@@ -157,13 +167,37 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-workflow-certify.js" `
     "$Repo\backend\scripts\test-workflow-certify-ibkr-e2e.js" `
     "$Repo\backend\scripts\test-master-data-office-extract.js" `
+    "$Repo\backend\scripts\test-purge-all-documents.js" `
+    "$Repo\backend\scripts\test-agent-delete-cascade.js" `
+    "$Repo\backend\scripts\test-learnings-cache.js" `
+    "$Repo\backend\scripts\test-history-summary-cache.js" `
     "$Repo\backend\scripts\test-workflow-auth-templates.js" `
     "$Repo\backend\scripts\seed-brave-search-mcp.js" `
     "$Repo\backend\scripts\seed-balaji-brave-byok-workflow.js" `
     "$Repo\backend\scripts\test-balaji-brave-byok-workflow.js" `
     "$Repo\backend\scripts\seed-brain-brave-search-workflow.js" `
     "$Repo\backend\scripts\test-brain-brave-search-workflow.js" `
+    "$Repo\backend\scripts\verify-budgets-org-members.js" `
+    "$Repo\backend\scripts\verify-module-graph.js" `
+    "$Repo\backend\scripts\verify-agent-view-api.js" `
+    "$Repo\backend\scripts\test-org-member-delegation-e2e.js" `
+    "$Repo\backend\scripts\test-a2a-private-visibility.js" `
+    "$Repo\backend\scripts\test-balaji-org-delegation-live.js" `
+    "$Repo\backend\scripts\repair-live-echo-workflows.js" `
+    "$Repo\backend\scripts\probe-balaji-org.js" `
+    "$Repo\backend\scripts\probe-balaji-live-artifacts.js" `
+    "$Repo\backend\scripts\probe-budgets-org-ready.js" `
+    "$Repo\backend\scripts\list-ceos.js" `
     "root@${HostIp}:$RemoteRoot/backend/scripts/"
+  Write-Host "==> Sync tests/ (regression packs)"
+  ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/tests/lib"
+  scp @ssh `
+    "$Repo\tests\regression-full.js" `
+    "$Repo\tests\regression-minimal.js" `
+    "$Repo\tests\api-smoke.js" `
+    "$Repo\tests\api-full.js" `
+    "root@${HostIp}:$RemoteRoot/tests/"
+  scp @ssh "$Repo\tests\lib\ceo-session.js" "root@${HostIp}:$RemoteRoot/tests/lib/"
   scp @ssh -r "$Repo\scripts" "root@${HostIp}:$RemoteRoot/"
   Write-Host "==> Sync Brave BYOK MCP tool source (compose build context)"
   ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/tools/brave-search-mcp-byok"
@@ -195,19 +229,29 @@ if ($Services -match "backend|openclaw") {
 $smokeEnv = if ($SkipSmoke) { "SKIP_SMOKE=1" } else { "SKIP_SMOKE=0" }
 $cacheEnv = if ($NoCache) { "NO_CACHE=1" } else { "NO_CACHE=0" }
 Write-Host "==> Run vps-deploy-latest.sh (SERVICES=$Services $smokeEnv $cacheEnv)"
+# docker compose logs progress on stderr; with ErrorActionPreference=Stop that would abort the
+# deploy mid-flight, so fold stderr into stdout and gate on the remote exit code instead.
+$ErrorActionPreference = "Continue"
 ssh @ssh "root@$HostIp" @"
 sed -i 's/\r`$//' \
   $RemoteRoot/deploy/scripts/vps-deploy-latest.sh \
   $RemoteRoot/deploy/scripts/vps-verify-platform.sh \
   $RemoteRoot/deploy/scripts/vps-verify-frontend-media.sh \
+  $RemoteRoot/deploy/scripts/vps-verify-org-delegation.sh \
   $RemoteRoot/deploy/scripts/vps-smoke-new-features.sh \
   $RemoteRoot/deploy/scripts/vps-smoke-broadcast-notify.sh \
   $RemoteRoot/deploy/scripts/vps-smoke-deepseek-brain.sh \
   $RemoteRoot/deploy/scripts/vps-smoke-brain-mcp.sh \
   $RemoteRoot/deploy/scripts/vps-smoke-openconnector.sh \
+  $RemoteRoot/deploy/scripts/vps-smoke-budgets-org-members.sh \
+  $RemoteRoot/deploy/scripts/vps-regression-full.sh \
   $RemoteRoot/deploy/scripts/ensure-deepseek-env.sh \
   $RemoteRoot/deploy/scripts/vps-rebuild-frontend.sh \
   $RemoteRoot/deploy/scripts/up.sh
 SKIP_GIT=1 $smokeEnv $cacheEnv SERVICES='$Services' bash $RemoteRoot/deploy/scripts/vps-deploy-latest.sh
-"@
+"@ 2>&1
+if ($LASTEXITCODE -ne 0) {
+  Write-Error "vps-deploy-latest.sh failed with exit code $LASTEXITCODE"
+  exit $LASTEXITCODE
+}
 Write-Host "SYNC_DEPLOY_DONE"

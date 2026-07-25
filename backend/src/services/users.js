@@ -22,6 +22,7 @@ import {
 import { ensureCeoDefaultMasterData } from './ceo-default-master-data.js';
 import { removeWorkflowSchedulesForOwner, syncWorkflowScheduleRegistry } from './agent-workflow-store.js';
 import { PLATFORM_BYOK_KEY_NAME } from './user-api-keys.js';
+import { isAgentTombstoned } from './agent-delete.js';
 
 export { isUserEnabled } from './user-enabled.js';
 
@@ -72,7 +73,9 @@ export function listStandardAgentIds() {
   const rows = db
     .prepare(`SELECT id FROM agents WHERE agent_type = 'standard' OR agent_type IS NULL OR agent_type = ''`)
     .all();
-  return rows.map((r) => r.id);
+  // Privileged CEOs are re-granted the whole catalog on every boot, which used to
+  // undo a deliberate delete if a seed script recreated the row. Tombstones win.
+  return rows.map((r) => r.id).filter((id) => !isAgentTombstoned(db, id));
 }
 
 export function listDefaultOnboardAgentIds() {

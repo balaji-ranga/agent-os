@@ -9,7 +9,7 @@
 | [02-navigation-and-chrome.md](./02-navigation-and-chrome.md) | Left nav map (API Keys, Efficiency, Connectors), bell, profile |
 | [03-dashboard-agents-chat.md](./03-dashboard-agents-chat.md) | Org chart, chat, workspace MD, **templates** Apply/Publish, tools access, Resync |
 | [04-kanban-standups-broadcast.md](./04-kanban-standups-broadcast.md) | Kanban (agent-owned status), standups → COO, Broadcast, `notify_ceo` when/when-not |
-| [05-master-data-rag.md](./05-master-data-rag.md) | Tables, CSV, documents, RAG query; agents list tables before insert |
+| [05-master-data-rag.md](./05-master-data-rag.md) | Tables, CSV, documents, RAG; **Purge all uploads**; protected Help/User Guide docs |
 | [06-workflows-building.md](./06-workflows-building.md) | Create / edit / publish / run workflows, I/O mapping, templates |
 | [07-workflow-nodes-reference.md](./07-workflow-nodes-reference.md) | Every node type incl. **Connector**; attributes, inputs, outputs |
 | [08-mcp-integrations.md](./08-mcp-integrations.md) | Register MCP, test, use in workflows / Brain (vs Connectors) |
@@ -23,6 +23,7 @@
 | [15-api-keys-vault.md](./15-api-keys-vault.md) | **API Keys** vault, `Platform_BYOK`, workflow/MCP/Connector secrets |
 | [16-connectors-openconnector.md](./16-connectors-openconnector.md) | **Connectors** SaaS apps + workflow Connector node |
 | [17-desktop-windows-download.md](./17-desktop-windows-download.md) | **Download for Windows** — local orchestrator, tokens, IP whitelist |
+| [18-agent-budgets-and-org-members.md](./18-agent-budgets-and-org-members.md) | Department purpose/budget, **agent token + error budgets** (warn-then-block), **Efficiency → Agent View**, external/A2A agents as org leaf members |
 
 **Product name:** Flolah (Automate, Innovate, Elevate) — Agent OS underneath.
 

@@ -14,6 +14,12 @@ import {
 import { executeCustomScript } from './custom-scripts.js';
 import { prependCeoGuardrailsToSystemPrompt } from './ceo-guardrails.js';
 import { renderWorkflowTemplates } from './agent-workflow-io.js';
+import {
+  addUsage,
+  estimateTokens,
+  normalizeProviderUsage,
+  recordTokenUsage,
+} from './token-usage.js';
 
 function isLocalOllama(baseUrl) {
   if (!baseUrl) return false;
@@ -165,7 +171,13 @@ async function callOpenAiCompatible({
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error?.message || data?.error || res.statusText);
   const { text, reasoning_content } = extractAssistantText(data?.choices?.[0]?.message);
-  return { text, reasoning_content, model_used: model, provider };
+  return {
+    text,
+    reasoning_content,
+    model_used: model,
+    provider,
+    usage: normalizeProviderUsage(data?.usage),
+  };
 }
 
 async function runOpenAiWithMcpTools({
@@ -195,6 +207,7 @@ async function runOpenAiWithMcpTools({
 
   const toolCallLog = [];
   let lastReasoning = '';
+  let usage = null;
   for (let round = 0; round < maxRounds; round++) {
     const res = await fetch(url, {
       method: 'POST',
@@ -212,6 +225,8 @@ async function runOpenAiWithMcpTools({
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error?.message || data?.error || res.statusText);
 
+    usage = addUsage(usage, normalizeProviderUsage(data?.usage));
+
     const msg = data?.choices?.[0]?.message;
     if (!msg) throw new Error('No message from LLM');
     const extracted = extractAssistantText(msg);
@@ -225,6 +240,7 @@ async function runOpenAiWithMcpTools({
         model_used: model,
         provider,
         toolCallLog,
+        usage,
       };
     }
 
@@ -262,7 +278,12 @@ async function callAnthropic({ baseUrl, apiKey, model, systemPrompt, userMessage
   if (!res.ok) throw new Error(data?.error?.message || data?.error?.type || res.statusText);
   const block = data?.content?.find((c) => c.type === 'text');
   const text = block?.text ?? '';
-  return { text, model_used: model, provider: 'anthropic' };
+  return {
+    text,
+    model_used: model,
+    provider: 'anthropic',
+    usage: normalizeProviderUsage(data?.usage),
+  };
 }
 
 async function runAnthropicWithMcpTools({
@@ -282,6 +303,7 @@ async function runAnthropicWithMcpTools({
   const url = `${normalizeBaseUrl(baseUrl || 'https://api.anthropic.com/v1')}/messages`;
   const messages = [{ role: 'user', content: userMessage }];
   const toolCallLog = [];
+  let usage = null;
 
   for (let round = 0; round < maxRounds; round++) {
     const res = await fetch(url, {
@@ -303,6 +325,8 @@ async function runAnthropicWithMcpTools({
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error?.message || data?.error?.type || res.statusText);
 
+    usage = addUsage(usage, normalizeProviderUsage(data?.usage));
+
     const content = data?.content || [];
     const toolUses = content.filter((b) => b.type === 'tool_use');
     const textBlock = content.find((b) => b.type === 'text');
@@ -313,6 +337,7 @@ async function runAnthropicWithMcpTools({
         model_used: model,
         provider: 'anthropic',
         toolCallLog,
+        usage,
       };
     }
 
@@ -352,6 +377,39 @@ function appendMcpToolsHint(systemPrompt, entries) {
  * @param {object} graph - workflow graph
  * @param {{ authUser?: object }} options - workflow owner for MCP registry access
  */
+/**
+ * Attribute one Brain call to the token ledger. Uses provider usage when returned,
+ * otherwise a chars/4 estimate flagged as estimated. Never throws.
+ */
+function meterBrainUsage({ ownerId, context, result, model, systemPrompt, userMessage }) {
+  if (!ownerId) return null;
+  const provided = result?.usage || null;
+  const usage =
+    provided ||
+    (() => {
+      const input = estimateTokens(`${systemPrompt || ''}\n${userMessage || ''}`);
+      const output = estimateTokens(result?.text || '');
+      return input || output
+        ? { input_tokens: input, output_tokens: output, total_tokens: input + output }
+        : null;
+    })();
+  if (!usage) return null;
+  const memberKey =
+    String(context?.agent_id || context?.member_key || '').trim() ||
+    (context?.definition_id ? `workflow:${context.definition_id}` : 'workflow:unknown');
+  recordTokenUsage(ownerId, {
+    memberKey,
+    agentId: context?.agent_id || null,
+    source: 'workflow_brain',
+    modelId: result?.model_used || model || null,
+    inputTokens: usage.input_tokens,
+    outputTokens: usage.output_tokens,
+    estimated: !provided,
+    runId: context?.run_id ?? null,
+  });
+  return { ...usage, estimated: !provided };
+}
+
 export async function executeBrainTask(taskConfig = {}, resolved = {}, context = {}, graph = {}, options = {}) {
   const cfg = taskConfig || {};
   const { authUser } = options;
@@ -525,11 +583,21 @@ export async function executeBrainTask(taskConfig = {}, resolved = {}, context =
     }
   }
 
+  const usage = meterBrainUsage({
+    ownerId,
+    context,
+    result,
+    model,
+    systemPrompt,
+    userMessage,
+  });
+
   return {
     text: result.text,
     reasoning_content: result.reasoning_content || '',
     model_used: result.model_used,
     provider: result.provider,
+    token_usage: usage,
     thinking_mode: thinkingFields.thinking?.type || (thinkingFields.reasoning ? (thinkingFields.reasoning.enabled === false ? 'disabled' : 'enabled') : 'off'),
     // Keep enough of the rendered prompt to debug {{node}} feedback injection (was 500 — truncated mid-allowlist)
     system_prompt_rendered: systemPrompt.slice(0, 8000),

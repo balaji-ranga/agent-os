@@ -77,6 +77,26 @@ if docker compose exec -T frontend sh -c 'grep -Rql "Purpose / description" /usr
 else
   echo "    WARN: Master Data purpose UI not found in frontend JS (rebuild frontend?)"
 fi
+if docker compose exec -T frontend sh -c 'grep -Rql "Purge all uploads" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: Master Data Purge all uploads OK"
+else
+  echo "    WARN: Purge all uploads not found in frontend JS (rebuild frontend?)"
+fi
+if [[ -f "$ROOT/backend/src/services/master-data-protected-docs.js" ]] \
+  && grep -q purgeAllUserDocuments "$ROOT/backend/src/services/master-data.js" 2>/dev/null; then
+  echo "    backend source: purge-all + protected docs OK"
+else
+  echo "    WARN: purge-all / protected docs helpers missing in backend source"
+fi
+
+# Agent delete: FK cascade + tombstone (no "FOREIGN KEY constraint failed", no resurrection)
+if [[ -f "$ROOT/backend/src/services/agent-delete.js" ]] \
+  && grep -q deleteAgentCascade "$ROOT/backend/src/routes/agents.js" 2>/dev/null \
+  && grep -q isAgentTombstoned "$ROOT/backend/src/routes/openclaw.js" 2>/dev/null; then
+  echo "    backend source: agent delete cascade + tombstone OK"
+else
+  echo "    WARN: agent delete cascade / tombstone missing in backend source"
+fi
 
 # Shared notification feed (NotificationProvider) + dismiss API client
 if docker compose exec -T frontend sh -c 'grep -Rql NotificationProvider /usr/share/nginx/html/assets/*.js 2>/dev/null'; then

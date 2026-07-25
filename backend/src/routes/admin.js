@@ -14,6 +14,7 @@ import {
 import { sendPlatformNotifications } from '../services/platform-notifications.js';
 import { createSession } from '../services/auth/session.js';
 import { getDb } from '../db/schema.js';
+import { clearAgentTombstone } from '../services/agent-delete.js';
 import { initCeoDb } from '../db/ceo-db.js';
 import { usesTenantCeoDb } from '../db/ceo-db-config.js';
 import {
@@ -271,6 +272,7 @@ router.post('/agents/custom', (req, res) => {
       req.body || {};
     if (!id || !name) return res.status(400).json({ error: 'id and name required' });
     const parentId = parent_id || reportingTo || reporting_to || null;
+    clearAgentTombstone(getDb(), id);
     getDb()
       .prepare(
         `INSERT INTO agents (id, name, role, parent_id, workspace_path, openclaw_agent_id, is_coo, agent_type, owner_user_id, department)

@@ -20,7 +20,7 @@
 | **API Keys** | `/api-keys` | Named secret vault (BYOK `Platform_BYOK`, workflow/MCP/Connector secrets) |
 | Policies | `/policies` | CEO common guardrails for all agents + Brain nodes |
 | AI Snipper | `/ai-snipper` | Prompt / token / tool-call usage timeline |
-| **Efficiency View** | `/efficiency` | Agents, automated tasks, feedback, workflow run success/fail |
+| **Efficiency View** | `/efficiency` | **Org** tab: agents, automated tasks, feedback, workflow run success/fail. **Agent View** tab: per-agent activity, outcomes, token/error budgets |
 
 ### Prebuilt Workflows
 
@@ -62,5 +62,6 @@ Admin home `/admin` (users, platform LLM switch, workspace templates admin), plu
 - **Automate** → Workflows (+ Workflow Builder agent)  
 - **Integrate SaaS** → Connectors  
 - **Integrate tools/protocol** → MCP, External agents, Custom scripts, Content tools  
-- **Measure** → AI Snipper (usage) + Efficiency View (ops outcomes)  
+- **Measure** → AI Snipper (usage) + Efficiency View (ops outcomes, per-agent budgets)
+- **Cap agent spend / failures** → Efficiency View → Agent View → Edit budget  
 - **How do I…?** → Platform Help agent or Master Data RAG docs

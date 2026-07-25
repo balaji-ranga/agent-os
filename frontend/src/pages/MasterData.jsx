@@ -484,7 +484,7 @@ function MasterDataPanel() {
               </small>
             </div>
           </div>
-          <div style={{ marginBottom: '0.75rem' }}>
+          <div style={{ marginBottom: '0.75rem', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <button
               type="button"
               disabled={busy || !documents.length}
@@ -516,6 +516,51 @@ function MasterDataPanel() {
             >
               Reindex all for RAG
             </button>
+            <button
+              type="button"
+              disabled={busy || !documents.some((d) => !d.is_protected)}
+              onClick={async () => {
+                const purgeable = documents.filter((d) => !d.is_protected).length;
+                const retained = documents.filter((d) => d.is_protected).length;
+                if (
+                  !window.confirm(
+                    `Purge all uploaded documents?\n\n` +
+                      `This permanently deletes ${purgeable} user-uploaded document(s) from the database and disk.\n` +
+                      `${retained} Platform Help / User Guide document(s) will be kept.\n\n` +
+                      `This cannot be undone.`
+                  )
+                ) {
+                  return;
+                }
+                setBusy(true);
+                setError(null);
+                try {
+                  const res = await api.masterDataDocumentsPurgeAll();
+                  await refresh();
+                  flash(
+                    `Purged ${res.deleted_count || 0} uploaded document(s)` +
+                      (res.retained_count ? `; kept ${res.retained_count} help/guide doc(s)` : '') +
+                      (res.failed_count ? `; ${res.failed_count} failed` : '')
+                  );
+                } catch (err) {
+                  setError(err.message);
+                } finally {
+                  setBusy(false);
+                }
+              }}
+              style={{
+                padding: '0.4rem 0.75rem',
+                borderRadius: 6,
+                border: '1px solid var(--border)',
+                background: 'transparent',
+                color: 'var(--danger, #b91c1c)',
+                cursor: busy || !documents.some((d) => !d.is_protected) ? 'default' : 'pointer',
+                fontSize: '0.8rem',
+              }}
+              title="Deletes your uploaded documents only. Platform Help and User Guide are never removed."
+            >
+              Purge all uploads
+            </button>
           </div>
           <p style={{ margin: '0 0 0.5rem', fontSize: '0.85rem', color: 'var(--muted)' }}>
             {documents.length === 0
@@ -525,7 +570,25 @@ function MasterDataPanel() {
           <ul style={{ listStyle: 'none', padding: 0, margin: 0, marginBottom: '0.75rem' }}>
             {pagedDocuments.map((d) => (
               <li key={d.id} style={{ padding: '0.5rem 0', borderBottom: '1px solid var(--border)' }}>
-                <div style={{ fontWeight: 600 }}>{d.title}</div>
+                <div style={{ fontWeight: 600 }}>
+                  {d.title}
+                  {d.is_protected ? (
+                    <span
+                      style={{
+                        marginLeft: 8,
+                        fontSize: '0.7rem',
+                        fontWeight: 500,
+                        color: 'var(--muted)',
+                        border: '1px solid var(--border)',
+                        borderRadius: 4,
+                        padding: '0.1rem 0.35rem',
+                      }}
+                      title="Platform Help / User Guide — cannot be deleted or purged"
+                    >
+                      protected
+                    </span>
+                  ) : null}
+                </div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
                   {d.filename} · {d.chunk_count} chunks · {d.id}
                 </div>
@@ -549,17 +612,27 @@ function MasterDataPanel() {
                   >
                     Reindex
                   </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (!window.confirm(`Delete ${d.title}?`)) return;
-                      await api.masterDataDocumentDelete(d.id);
-                      await refresh();
-                    }}
-                    style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--muted)', cursor: 'pointer', fontSize: '0.75rem' }}
-                  >
-                    Delete
-                  </button>
+                  {d.is_protected ? (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--muted)', alignSelf: 'center' }}>
+                      Cannot delete
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!window.confirm(`Delete ${d.title}?`)) return;
+                        try {
+                          await api.masterDataDocumentDelete(d.id);
+                          await refresh();
+                        } catch (err) {
+                          setError(err.message);
+                        }
+                      }}
+                      style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--muted)', cursor: 'pointer', fontSize: '0.75rem' }}
+                    >
+                      Delete
+                    </button>
+                  )}
                 </div>
               </li>
             ))}

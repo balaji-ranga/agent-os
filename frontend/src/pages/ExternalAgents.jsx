@@ -4,6 +4,7 @@ import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import MaskedSecretInput from '../components/MaskedSecretInput';
 import VaultOrLiteralSecret from '../components/VaultOrLiteralSecret';
+import AddToOrgDialog from '../components/AddToOrgDialog';
 
 const EMPTY_FORM = {
   name: '',
@@ -34,6 +35,8 @@ export default function ExternalAgents() {
   const [testMessage, setTestMessage] = useState('Hello from Agent OS');
   const [testResult, setTestResult] = useState(null);
   const [vaultKeys, setVaultKeys] = useState([]);
+  const [orgMembers, setOrgMembers] = useState([]);
+  const [orgDialog, setOrgDialog] = useState(null);
 
   useEffect(() => {
     api
@@ -41,6 +44,33 @@ export default function ExternalAgents() {
       .then((r) => setVaultKeys(r.keys || []))
       .catch(() => setVaultKeys([]));
   }, []);
+
+  const loadOrgMembers = useCallback(() => {
+    api
+      .orgMembers()
+      .then((r) => setOrgMembers(r.members || []))
+      .catch(() => setOrgMembers([]));
+  }, []);
+
+  useEffect(() => {
+    loadOrgMembers();
+  }, [loadOrgMembers]);
+
+  const orgMemberFor = (externalId) =>
+    orgMembers.find((m) => m.kind === 'external' && m.ref_id === externalId) || null;
+
+  const removeFromOrg = async (memberId) => {
+    if (!window.confirm('Remove this agent from the org chart?')) return;
+    setBusy(`org-${memberId}`);
+    try {
+      await api.orgMemberDelete(memberId);
+      loadOrgMembers();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const load = useCallback(() => {
     setLoading(true);
@@ -210,6 +240,33 @@ export default function ExternalAgents() {
                   </button>
                   <button
                     type="button"
+                    className="mcp-pg-btn-ghost mcp-pg-btn-sm"
+                    disabled={!!busy}
+                    onClick={() =>
+                      setOrgDialog({
+                        kind: 'external',
+                        refId: a.id,
+                        defaultName: a.name,
+                        defaultPurpose: a.description || '',
+                        existing: orgMemberFor(a.id),
+                      })
+                    }
+                    title="Place this agent in your org chart so the COO can delegate to it"
+                  >
+                    {orgMemberFor(a.id) ? 'Edit org placement' : 'Add to org'}
+                  </button>
+                  {orgMemberFor(a.id) && (
+                    <button
+                      type="button"
+                      className="mcp-pg-btn-ghost mcp-pg-btn-sm"
+                      disabled={!!busy}
+                      onClick={() => removeFromOrg(orgMemberFor(a.id).id)}
+                    >
+                      Remove from org
+                    </button>
+                  )}
+                  <button
+                    type="button"
                     className="mcp-pg-btn-ghost mcp-pg-btn-sm mcp-pg-btn-danger"
                     disabled={!!busy || !a.can_delete}
                     onClick={() => remove(a.id)}
@@ -217,6 +274,12 @@ export default function ExternalAgents() {
                     Delete
                   </button>
                 </div>
+                {orgMemberFor(a.id) && (
+                  <p className="mcp-pg-card-desc" style={{ marginTop: '0.4rem' }}>
+                    In org: {orgMemberFor(a.id).department || 'Unassigned'} · reports to{' '}
+                    {orgMemberFor(a.id).parent_id}
+                  </p>
+                )}
                 {a.status === 'healthy' && (
                   <div style={{ marginTop: '0.75rem', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                     <input
@@ -263,6 +326,18 @@ export default function ExternalAgents() {
         Use registered agents in the <Link to="/workflows">Workflow editor</Link> → add{' '}
         <strong>External Agent (A2A)</strong> node.
       </p>
+
+      {orgDialog && (
+        <AddToOrgDialog
+          kind={orgDialog.kind}
+          refId={orgDialog.refId}
+          defaultName={orgDialog.defaultName}
+          defaultPurpose={orgDialog.defaultPurpose}
+          existing={orgDialog.existing}
+          onClose={() => setOrgDialog(null)}
+          onSaved={loadOrgMembers}
+        />
+      )}
 
       {modalOpen && (
         <div className="mcp-pg-modal-backdrop" onClick={() => setModalOpen(false)}>

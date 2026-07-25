@@ -71,6 +71,8 @@ export default function Dashboard() {
   const [newRole, setNewRole] = useState('');
   const [newDepartment, setNewDepartment] = useState('Operations');
   const [newParentId, setNewParentId] = useState('');
+  const [newTokenBudget, setNewTokenBudget] = useState('');
+  const [newErrorBudget, setNewErrorBudget] = useState('');
   const [addAgentMessage, setAddAgentMessage] = useState(null);
   const [creatingStandup, setCreatingStandup] = useState(false);
   const [standupScheduledAt, setStandupScheduledAt] = useState(() => {
@@ -171,6 +173,8 @@ export default function Dashboard() {
       name: newName.trim(),
       role: newRole.trim() || 'Agent',
       department: department || '',
+      monthly_token_budget: newTokenBudget || null,
+      error_budget_pct: newErrorBudget || null,
     };
     // Default report-to COO so new agents appear under the org chart
     body.parent_id = newParentId || coo?.id || undefined;
@@ -182,6 +186,8 @@ export default function Dashboard() {
           setNewRole('');
           setNewParentId('');
           setNewDepartment('Operations');
+          setNewTokenBudget('');
+          setNewErrorBudget('');
           setAddAgentMessage(
             `"${agent.name}" added to your workspace` +
               (agent.department ? ` · ${agent.department}` : '') +
@@ -770,6 +776,40 @@ export default function Dashboard() {
               <option key={a.id} value={a.id}>{a.name}{a.is_coo ? ' (COO)' : ''}{a.department ? ` · ${a.department}` : ''}</option>
             ))}
           </select>
+          <input
+            type="number"
+            min="0"
+            placeholder="Monthly tokens"
+            title="Monthly token budget — warn at 80%, block new work at 100%"
+            value={newTokenBudget}
+            onChange={(e) => setNewTokenBudget(e.target.value)}
+            style={{
+              padding: '0.5rem 0.75rem',
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              color: 'var(--text)',
+              width: 150,
+            }}
+          />
+          <input
+            type="number"
+            min="0"
+            max="100"
+            step="0.5"
+            placeholder="Error budget %"
+            title="Max monthly failure rate before new work is blocked"
+            value={newErrorBudget}
+            onChange={(e) => setNewErrorBudget(e.target.value)}
+            style={{
+              padding: '0.5rem 0.75rem',
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              color: 'var(--text)',
+              width: 130,
+            }}
+          />
           <button
             type="submit"
             style={{

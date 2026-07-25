@@ -37,26 +37,40 @@ If the remote agent is **secured with OAuth client credentials** (as Flolah secu
 
 ## Publish your workflow as A2A
 
+From a **Published** workflow, open **Publish A2A**.
+
+### Visibility (Public vs Private)
+
+| Visibility | Default | Behaviour |
+|------------|---------|-----------|
+| **Public** | Yes | Listed on AgentExchange for other CEOs. Public card / invoke / OAuth / enquiry follow the **Security** IP policy (`Deny all` / `Allow all` / `IP whitelist`). |
+| **Private** | No | **Public calling is disabled** (card, invoke, token, enquire always denied). Hidden from other CEOs on AgentExchange. Only the **COO** or the agent's **org reports-to lead** (after **Add to org**) can invoke it via COO delegation / org path. Owner **Test agent** still works. |
+
+Set visibility in the Publish A2A modal, or later under AgentExchange → **⋯** menu → **Security**.
+
+### Auth mode (orthogonal to visibility)
+
 1. Build and **Publish** the workflow (normal publish first).
 2. Open **Publish A2A** in the editor.
 3. Confirm card metadata / skill id as prompted.
-4. Choose **Invoke mode**:
+4. Choose **Visibility**: **Public** (default, listed) or **Private** (org-only; public endpoints denied).
+5. Choose **Invoke mode**:
    - **Sync** — HTTP holds until the run finishes (or ~2 minutes timeout). Response text is the final step output; `result.metadata.run` includes run id, status, steps, etc.
    - **Async** — returns immediately with `task.status.state = working` and a `task.id`. Callers can:
      1. Set a **Callback URL** (at publish time, or per-invoke via `params.metadata.callbackUrl`) — Flolah POSTs final output + run metadata when the run completes/fails.
      2. Poll with skill **`enquire-progress`** (on the agent card) or JSON-RPC **`tasks/get`** / **`tasks/enquire`** using `taskId` (or `runId`).
-5. Choose **Access**:
-   - **Public** — anyone with the endpoint can invoke (no token).
+6. Choose **Access** (auth mode — only meaningful when Visibility is Public):
+   - **Public auth** — anyone with the endpoint can invoke (no token), subject to Security IP policy.
    - **Secured** — OAuth2 **client credentials**: platform issues `client_id` + `client_secret` (**secret shown once** — copy it immediately). Clients POST to the token URL, then call A2A with `Authorization: Bearer <access_token>`.
-6. The workflow becomes reachable via agent card + JSON-RPC under `/api/a2a/:publishId`.
-7. Optional: set **Input JSON Schema** on the Trigger (or override in Publish A2A). It is advertised on the A2A agent card skill as `inputSchema` and validates invocations.
-8. **Publish as a new agent** — same workflow can be published multiple times under different agent names/endpoints (e.g. one sync + one async). Pass `as_new_agent: true` (UI checkbox) or `publish_id` when updating a specific listing.
-9. **Update A2A** can rotate the client secret (invalidates the old secret and outstanding tokens).
-10. **Network access defaults to Deny all.** In **AgentExchange → Security**, the owner can choose:
+7. The workflow becomes reachable via agent card + JSON-RPC under `/api/a2a/:publishId` (unless Private).
+8. Optional: set **Input JSON Schema** on the Trigger (or override in Publish A2A). It is advertised on the A2A agent card skill as `inputSchema` and validates invocations.
+9. **Publish as a new agent** — same workflow can be published multiple times under different agent names/endpoints (e.g. one sync + one async). Pass `as_new_agent: true` (UI checkbox) or `publish_id` when updating a specific listing.
+10. **Update A2A** can rotate the client secret (invalidates the old secret and outstanding tokens).
+10. **Network access defaults to Deny all.** In **AgentExchange → ⋯ → Security**, the owner can choose:
     - **Deny all** — card, invoke, OAuth token and enquiry endpoints return `403`.
     - **Allow all** — any client IP may reach the A2A endpoints (authentication still applies for Secured agents).
     - **IP whitelist** — add exact IPv4/IPv6 addresses or **IPv4 CIDR** ranges; all other IPs are denied. **IPv6 must be an exact address** (CIDR ranges like `2001:db8::/32` are rejected — the matcher does not support IPv6 subnets yet).
-11. **Unpublish** from AgentExchange removes that agent and disables all its public A2A endpoints, revokes OAuth access tokens and deletes its IP whitelist. The underlying workflow remains published and private to authenticated UI/API use.
+11. **Unpublish** from the AgentExchange card **⋯** menu removes that agent and disables all its public A2A endpoints, revokes OAuth access tokens and deletes its IP whitelist. The underlying workflow remains published and private to authenticated UI/API use.
 
 Agent card: `/api/a2a/:publishId/.well-known/agent-card.json`. When a schema is set, the skill includes `inputSchema` and `defaultInputModes` prefer `application/json`. Async cards also advertise the `enquire-progress` skill and set `capabilities.pushNotifications` when a callback URL is configured.
 
@@ -200,12 +214,12 @@ Secured agent cards include `securitySchemes.oauth2` (client credentials) and `t
 - Copy card URL, skill id, and endpoints for partners.
 - Use discovered endpoints when registering an external agent in another tenant or system.
 - `client_secret` is never listed on AgentExchange (only shown once at publish/rotate time to the publisher).
-- Agent owners see **Security**, **Test agent**, and **Unpublish** controls. Other users can browse listings but cannot modify another owner's agent.
+- Agent owners open the card **⋯** menu for **Copy endpoint**, **Copy card URL**, **Open card**, **Test agent**, **Add to org** / **Edit org placement**, **Security**, and **Unpublish**. Other users see copy/open/test actions but cannot modify another owner's agent.
 - Every newly published A2A agent starts with **Deny all IPs**. Explicitly switch to **Allow all** or configure an **IP whitelist** before external clients can access its card/invoke/token/enquiry endpoints.
 
 ### Test agent (owner vs non-owner)
 
-Each listing has a **Test agent** panel:
+Each listing’s **⋯** menu opens a **Test agent** panel:
 
 1. **Autofill** — loads `GET /api/agent-exchange/:publishId/test-sample` (optional `?skillId=enquire-progress`) and pre-fills input from the skill’s **`inputSchema`** / examples. Primary skill runs the workflow; **`enquire-progress`** polls with `{ "taskId": "…" }`.
 2. **Help tips** — async cards show **Callback (i)** and **Enquire (i)** with sample payloads. Inside Test agent, skill-specific input help explains which JSON to send; after an async accept, use the one-click link to switch to enquire with that `taskId`.
@@ -230,6 +244,23 @@ Every public A2A **card**, **OAuth token**, and **invoke** attempt is written to
 
 **API:** `GET /api/admin/a2a-invocations` (admin role). Owner Test agent calls are logged with `source=agent_exchange_test` and `bypass_access=1` when the owner bypass applies.
 
+### Add to org (leaf member)
+
+Both **External Agents** and your own AgentExchange publications have an **Add to org** action. It
+places the agent in your org chart as a **leaf member**: department + reports-to an internal agent,
+with optional monthly token and error budgets. Leaf members cannot manage other agents.
+
+Once placed, the member is written into **ORG.md** and the COO's **AGENTS.md** with a member key
+(`ext:<id>` / `a2a:<id>`) and its purpose, so the **COO can delegate work to it** like an internal
+specialist: budget guard → Kanban card → A2A invoke → outcome recorded. Delegation to your own
+publications uses the same owner bypass as **Test agent**, so your IP policy does not block you.
+
+**Private A2A publications:** if the listing is marked **Private**, public endpoints stay denied.
+Only the **COO** or this leaf's **reports-to** internal lead may invoke it through the org path.
+Peers that do not manage the leaf are refused.
+
+Full details: [18-agent-budgets-and-org-members.md](./18-agent-budgets-and-org-members.md).
+
 ### VPS: real client IP for whitelist
 
 On Docker VPS hosts, the default bridge proxy can make every client look like the gateway IP — **IP whitelist would never match**. Production deploy scripts set:
@@ -248,7 +279,9 @@ That override runs **nginx in host network mode** and binds backend/frontend to 
 |------|-----|
 | Call your own OpenClaw specialist | **Agent** node |
 | Call a third-party A2A service | **External Agent** node |
-| Expose your automation openly | **Publish A2A** → Public |
-| Expose your automation with credentials | **Publish A2A** → Secured (OAuth) |
+| Expose your automation openly | **Publish A2A** → Visibility Public + Public auth |
+| Expose your automation with credentials | **Publish A2A** → Visibility Public + Secured (OAuth) |
+| Keep an A2A agent org-only | **Publish A2A** → Visibility **Private** + **Add to org** (COO / reports-to lead only) |
 | Browse marketplace of published workflows | **AgentExchange** |
 | Call MCP tools (not full agents) | **MCP** node / Brain MCP loop |
+| Let the COO delegate to an external/A2A agent | **Add to org** → department + reports-to |

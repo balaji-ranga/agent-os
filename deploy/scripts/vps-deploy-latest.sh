@@ -58,7 +58,14 @@ echo "              Workflow certify Maker/Checker (LLM Checker default OFF),"
 echo "              DeepSeek@Ollama,"
 echo "              hPanel light theme (app-topbar + profile-menu + collapsible nav),"
 echo "              workflow editor fullscreen (shell-focus-mode + Exit to workflows),"
-echo "              Register MCP / Register Agents primary CTAs (page-hero)"
+echo "              Register MCP / Register Agents primary CTAs (page-hero),"
+echo "              department purpose + monthly_token_budget (Master Data departments),"
+echo "              agent monthly token + error budgets (token_usage ledger, warn-then-block),"
+echo "              Efficiency View Agent View tab (per-agent KPIs, budget gauges, charts),"
+echo "              external/A2A agents as org leaf members (Add to org) + COO delegation to them,"
+echo "              A2A visibility public|private (private = org COO/reports-to only; public endpoints denied),"
+echo "              Master Data Purge all uploads (CEO uploads only; Help + User Guide protected),"
+echo "              agent delete cascade + deleted_agents tombstone (no FK error, no resurrection)"
 
 if [[ "$SKIP_GIT" != "1" ]]; then
   if [[ -d "$ROOT/.git" ]]; then
@@ -224,6 +231,50 @@ if docker compose exec -T frontend sh -c 'grep -Rql "Purpose / description" /usr
 else
   echo "    WARN: Master Data purpose UI not found in frontend JS (rebuild frontend?)"
 fi
+if docker compose exec -T frontend sh -c 'grep -Rql "Purge all uploads" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: Master Data Purge all uploads OK"
+else
+  echo "    WARN: Purge all uploads not found in frontend JS (rebuild frontend?)"
+fi
+if [[ -f "$ROOT/backend/src/services/master-data-protected-docs.js" ]] \
+  && grep -q 'isProtectedPlatformDocument' "$ROOT/backend/src/services/master-data-protected-docs.js"; then
+  echo "    backend source: protected Master Data docs helper OK"
+else
+  echo "    WARN: master-data-protected-docs.js missing"
+fi
+if [[ -f "$ROOT/backend/src/services/master-data.js" ]] \
+  && grep -q 'purgeAllUserDocuments' "$ROOT/backend/src/services/master-data.js"; then
+  echo "    backend source: purgeAllUserDocuments OK"
+else
+  echo "    WARN: purgeAllUserDocuments missing in master-data.js"
+fi
+if [[ -f "$ROOT/backend/src/routes/master-data.js" ]] \
+  && grep -q 'documents/purge-all' "$ROOT/backend/src/routes/master-data.js"; then
+  echo "    backend source: POST /documents/purge-all route OK"
+else
+  echo "    WARN: /documents/purge-all route missing"
+fi
+if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-purge-all-documents.js 2>/dev/null; then
+  docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-purge-all-documents.js >/tmp/purge-all-verify.log 2>&1 \
+    && echo "    Master Data purge-all + protected docs unit test OK" \
+    || echo "    WARN: purge-all unit test failed (see /tmp/purge-all-verify.log)"
+fi
+if [[ -f "$ROOT/backend/src/services/agent-delete.js" ]] \
+  && grep -q 'deleteAgentCascade' "$ROOT/backend/src/services/agent-delete.js"; then
+  echo "    backend source: agent delete cascade service OK"
+else
+  echo "    WARN: agent-delete.js (deleteAgentCascade) missing"
+fi
+if grep -q 'isAgentTombstoned' "$ROOT/backend/src/routes/openclaw.js" 2>/dev/null; then
+  echo "    backend source: OpenClaw sync honours deleted_agents tombstones OK"
+else
+  echo "    WARN: openclaw sync does not check tombstones (deleted agents can come back)"
+fi
+if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-agent-delete-cascade.js 2>/dev/null; then
+  docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-agent-delete-cascade.js >/tmp/agent-delete-verify.log 2>&1 \
+    && echo "    agent delete cascade + tombstone unit test OK" \
+    || echo "    WARN: agent delete unit test failed (see /tmp/agent-delete-verify.log)"
+fi
 if docker compose exec -T frontend sh -c 'grep -Rql NotificationProvider /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
   echo "    frontend assets: NotificationProvider (shared bell) OK"
 else
@@ -285,6 +336,88 @@ else
   echo "    WARN: CEO Policies UI not found in frontend JS"
 fi
 
+if docker compose exec -T frontend sh -c 'grep -Rql "Private (org only)" /usr/share/nginx/html/assets/*.js 2>/dev/null || grep -Rql "mcp-pg-card-menu" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: A2A Private visibility + card ⋯ menu UI OK"
+else
+  echo "    WARN: A2A Private / card menu UI not found in frontend JS (rebuild frontend?)"
+fi
+if [[ -f "$ROOT/backend/src/services/workflow-a2a-access.js" ]] \
+  && grep -q "normalizeA2AVisibility" "$ROOT/backend/src/services/workflow-a2a-access.js"; then
+  echo "    backend source: A2A visibility helpers OK"
+else
+  echo "    WARN: A2A visibility helpers missing in backend source"
+fi
+if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-a2a-private-visibility.js 2>/dev/null; then
+  docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-a2a-private-visibility.js >/tmp/a2a-private-verify.log 2>&1 \
+    && echo "    A2A private visibility e2e OK" \
+    || echo "    WARN: A2A private visibility e2e failed (see /tmp/a2a-private-verify.log)"
+fi
+
+# Efficiency Agent View + agent budgets + org leaf members
+if docker compose exec -T frontend sh -c 'grep -Rql "Agent View" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: Efficiency Agent View tab OK"
+else
+  echo "    WARN: Agent View tab not found in frontend JS (rebuild frontend?)"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql efficiencyAgents /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: efficiencyAgents API client OK"
+else
+  echo "    WARN: efficiencyAgents API client not found in frontend JS"
+fi
+if docker compose exec -T frontend sh -c 'cat /usr/share/nginx/html/assets/*.css' 2>/dev/null | grep -q 'eff-gauge'; then
+  echo "    frontend assets: Agent View budget gauges CSS OK"
+else
+  echo "    WARN: eff-gauge CSS missing (budget gauges?)"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql "Monthly token budget" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: monthly token budget fields OK"
+else
+  echo "    WARN: Monthly token budget field not found in frontend JS"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql "Add to org" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: Add to org (external/A2A leaf members) OK"
+else
+  echo "    WARN: Add to org action not found in frontend JS"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql "org-leaf-badge" /usr/share/nginx/html/assets/*.js /usr/share/nginx/html/assets/*.css 2>/dev/null'; then
+  echo "    frontend assets: org chart leaf badges (list/graph) OK"
+else
+  echo "    WARN: org chart leaf badges not found in frontend assets"
+fi
+if [[ -f "$ROOT/frontend/src/utils/orgHierarchy.js" ]] \
+  && grep -q "mergeAgentsWithLeafMembers" "$ROOT/frontend/src/utils/orgHierarchy.js"; then
+  echo "    frontend source: mergeAgentsWithLeafMembers helper OK"
+else
+  echo "    WARN: mergeAgentsWithLeafMembers missing from orgHierarchy.js"
+fi
+if [[ -f "$ROOT/backend/src/routes/efficiency.js" ]] \
+  && grep -q "agents/:memberKey" "$ROOT/backend/src/routes/efficiency.js"; then
+  echo "    backend source: GET /efficiency/agents/:memberKey OK"
+else
+  echo "    WARN: efficiency agent-view route not found in backend source"
+fi
+if [[ -f "$ROOT/backend/src/routes/org-members.js" ]]; then
+  echo "    backend source: /org-members routes OK"
+else
+  echo "    WARN: backend/src/routes/org-members.js missing"
+fi
+if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/verify-budgets-org-members.js 2>/dev/null; then
+  docker compose exec -T -w /opt/agent-os/backend backend node scripts/verify-budgets-org-members.js >/tmp/budgets-verify.log 2>&1 \
+    && echo "    budgets/org-members schema + warn-then-block verify OK" \
+    || echo "    WARN: budgets/org-members verify failed (see /tmp/budgets-verify.log)"
+fi
+if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-org-member-delegation-e2e.js 2>/dev/null; then
+  docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-org-member-delegation-e2e.js >/tmp/org-delegation-e2e.log 2>&1 \
+    && echo "    COO → external/A2A leaf delegation e2e OK" \
+    || echo "    WARN: org member delegation e2e failed (see /tmp/org-delegation-e2e.log)"
+fi
+if grep -q "extractA2AReply" "$ROOT/backend/src/services/org-member-delegation.js" 2>/dev/null \
+  && grep -q "normalizeAllocationKey" "$ROOT/backend/src/services/coo-specialty-delegation.js" 2>/dev/null; then
+  echo "    backend source: A2A reply extraction + COO classifier key normalisation OK"
+else
+  echo "    WARN: org delegation reply/classifier fixes missing in backend source"
+fi
+
 TOKEN=$(docker compose exec -T -w /opt/agent-os/backend backend node --input-type=module <<'NODE' 2>/dev/null || true
 import { initDb, getDb } from './src/db/schema.js';
 import { createSession } from './src/services/auth/session.js';
@@ -309,6 +442,12 @@ if [[ -n "${TOKEN:-}" ]]; then
   fi
   BC=$(docker compose exec -T backend curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer ${TOKEN}" -H "Content-Type: application/json" -d '{"message":"ping","agent_ids":["__deploy_smoke_no_agent__"]}' http://127.0.0.1:3001/api/broadcast || echo 000)
   echo "    broadcast auth empty-target=$BC (expect 200)"
+  EFFA=$(docker compose exec -T backend curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer ${TOKEN}" http://127.0.0.1:3001/api/efficiency/agents || echo 000)
+  echo "    efficiency/agents auth=$EFFA (expect 200)"
+  OM=$(docker compose exec -T backend curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer ${TOKEN}" http://127.0.0.1:3001/api/org-members || echo 000)
+  echo "    org-members auth=$OM (expect 200)"
+  OMU=$(docker compose exec -T backend curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3001/api/org-members || echo 000)
+  echo "    org-members unauth=$OMU (expect 401)"
 fi
 
 if [[ "$SKIP_SMOKE" != "1" ]]; then
@@ -331,6 +470,11 @@ if [[ "$SKIP_SMOKE" != "1" ]]; then
     echo "==> OpenConnector connectors smoke"
     sed -i 's/\r$//' "$ROOT/deploy/scripts/vps-smoke-openconnector.sh" 2>/dev/null || true
     bash "$ROOT/deploy/scripts/vps-smoke-openconnector.sh" || echo "WARN: OpenConnector smoke failed (non-fatal)"
+  fi
+  if [[ -f "$ROOT/deploy/scripts/vps-smoke-budgets-org-members.sh" ]]; then
+    echo "==> budgets / Agent View / org leaf members smoke"
+    sed -i 's/\r$//' "$ROOT/deploy/scripts/vps-smoke-budgets-org-members.sh" 2>/dev/null || true
+    bash "$ROOT/deploy/scripts/vps-smoke-budgets-org-members.sh" || echo "WARN: budgets/org-members smoke failed (non-fatal)"
   fi
   if [[ -f "$ROOT/deploy/scripts/vps-smoke-brave-byok.sh" && -n "${BRAVE_API_KEY:-}" ]]; then
     echo "==> Brave BYOK workflow smoke (Balaji)"

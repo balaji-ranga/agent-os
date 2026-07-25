@@ -58,6 +58,17 @@ check "broadcast CEO session" grep -q registerOpenClawSessionOwner "$ROOT/backen
 check "Broadcast UI" grep -q Broadcast "$ROOT/frontend/src/pages/Broadcast.jsx" || grep -q '/broadcast' "$ROOT/frontend/src/App.jsx"
 check "tool-owner-scope fix" grep -q SESSION_USER_PREFIXES "$ROOT/backend/src/services/tool-owner-scope.js"
 check "Master Data UI purpose" grep -q 'Purpose / description' "$ROOT/frontend/src/pages/MasterData.jsx"
+check "Master Data Purge all UI" grep -q 'Purge all uploads' "$ROOT/frontend/src/pages/MasterData.jsx"
+check "api masterDataDocumentsPurgeAll" grep -q masterDataDocumentsPurgeAll "$ROOT/frontend/src/api.js"
+check "protected docs helper" test -f "$ROOT/backend/src/services/master-data-protected-docs.js"
+check "purgeAllUserDocuments" grep -q purgeAllUserDocuments "$ROOT/backend/src/services/master-data.js"
+check "purge-all route" grep -q 'documents/purge-all' "$ROOT/backend/src/routes/master-data.js"
+check "purge-all unit test" test -f "$ROOT/backend/scripts/test-purge-all-documents.js"
+check "agent delete cascade service" grep -q deleteAgentCascade "$ROOT/backend/src/services/agent-delete.js"
+check "agent delete uses cascade" grep -q deleteAgentCascade "$ROOT/backend/src/routes/agents.js"
+check "deleted_agents table" grep -q 'CREATE TABLE IF NOT EXISTS deleted_agents' "$ROOT/backend/src/db/schema.js"
+check "openclaw sync honours tombstones" grep -q isAgentTombstoned "$ROOT/backend/src/routes/openclaw.js"
+check "agent delete unit test" test -f "$ROOT/backend/scripts/test-agent-delete-cascade.js"
 check "Flolah title" grep -q 'Flolah - An Agent Company Setup' "$ROOT/frontend/index.html"
 check "api masterDataTableUpdate" grep -q masterDataTableUpdate "$ROOT/frontend/src/api.js"
 check "SKILL anti-browser" grep -q 'never browser' "$ROOT/openclaw-skills/agent-os-content-tools/SKILL.md"
@@ -113,7 +124,12 @@ if docker compose exec -T frontend sh -c 'grep -Rql standupNotificationsDismiss 
 else
   echo "    WARN: standupNotificationsDismiss not found in frontend JS (rebuild frontend?)"
 fi
-if docker compose exec -T frontend sh -c 'grep -Rql OrgDesigner /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+if docker compose exec -T frontend sh -c 'grep -Rql "org-leaf-badge\|External / A2A leaf" /usr/share/nginx/html/assets/*.js /usr/share/nginx/html/assets/*.css 2>/dev/null'; then
+  echo "    frontend assets: org chart leaf members (External/A2A) OK"
+else
+  echo "    WARN: org chart leaf-member badges not found in frontend assets"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql "New department" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
   echo "    OrgDesigner dashboard in bundle OK"
 else
   echo "    WARN: OrgDesigner not found in frontend JS (rebuild frontend?)"

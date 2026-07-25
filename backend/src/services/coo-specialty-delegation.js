@@ -2,11 +2,12 @@
  * Hard path: COO chat delegates via AGENTS.md intent classification (LLM),
  * not keyword specialty hints. Cap at 2 specialists (same as standup / intent tool).
  */
-import { readCooAgentsMdForCeo } from './org-context.js';
+import { getCooAgentRow, readCooAgentsMdForCeo } from './org-context.js';
 import { classifyIntentAndAllocate } from './intent-classifier.js';
 import { scheduleCeoRequestViaOpenClawCron } from './delegation-queue.js';
 import { isAskSpecialistToReachMe } from './reach-me-delegation.js';
 import { getOrCreateDelegationHubStandup } from './standup-hub.js';
+import { splitAllocationByKind } from './org-member-keys.js';
 
 /** Match intent-classifier + delegation-queue multi-intent cap. */
 const MAX_DELEGATE_AGENTS = 2;
@@ -29,15 +30,27 @@ export function isCooNativeWork(message) {
   );
 }
 
+/**
+ * The model copies ids straight out of the AGENTS.md table, so they arrive wrapped in the
+ * cell's markdown — `` `a2a:wf-…` `` for leaf members and `**techresearcher**` for internal
+ * agents. Strip the decoration, otherwise the key matches no agent and no member-key prefix.
+ */
+function normalizeAllocationKey(key) {
+  return String(key || '')
+    .replace(/[`*]/g, '')
+    .trim()
+    .replace(/^['"]+|['"]+$/g, '')
+    .trim()
+    .toLowerCase();
+}
+
 function capAllocation(allocated, max = MAX_DELEGATE_AGENTS) {
   if (!allocated || typeof allocated !== 'object') return {};
-  const entries = Object.entries(allocated).filter(([, v]) => typeof v === 'string' && v.trim());
-  if (entries.length <= max) {
-    return Object.fromEntries(entries.map(([k, v]) => [String(k).toLowerCase(), v.trim()]));
-  }
-  return Object.fromEntries(
-    entries.slice(0, max).map(([k, v]) => [String(k).toLowerCase(), v.trim()])
-  );
+  const entries = Object.entries(allocated)
+    .filter(([, v]) => typeof v === 'string' && v.trim())
+    .map(([k, v]) => [normalizeAllocationKey(k), v.trim()])
+    .filter(([k]) => k);
+  return Object.fromEntries(entries.slice(0, max));
 }
 
 /** Drop agents with empty/placeholder purposes (e.g. BalaSocial "Agent"). */
@@ -55,7 +68,10 @@ function isVaguePurpose(purpose) {
  */
 function refineAllocationAgainstAgentsMd(allocated, agentsMdContent) {
   if (!allocated || typeof allocated !== 'object') return {};
-  const entries = Object.entries(allocated).filter(([, v]) => typeof v === 'string' && v.trim());
+  const entries = Object.entries(allocated)
+    .filter(([, v]) => typeof v === 'string' && v.trim())
+    .map(([k, v]) => [normalizeAllocationKey(k), v.trim()])
+    .filter(([k]) => k);
   if (!entries.length) return {};
 
   // Parse purposes from AGENTS.md table lines.
@@ -64,8 +80,8 @@ function refineAllocationAgainstAgentsMd(allocated, agentsMdContent) {
     if (!line.includes('|')) continue;
     const parts = line.split('|').map((p) => p.trim());
     if (parts.length < 4) continue;
-    const id = (parts[1] || '').replace(/\*+/g, '').trim().toLowerCase();
-    if (!id || id === 'agent id' || /^[-–—\s]+$/.test(id)) continue;
+    const id = normalizeAllocationKey(parts[1]);
+    if (!id || id === 'agent id' || id === 'member key' || /^[-–—\s]+$/.test(id)) continue;
     const col3 = (parts[3] || '').trim();
     const col4 = (parts[4] || '').trim();
     const purpose = col4 && !/^[-–—\s]+$/.test(col4) ? `${col3} — ${col4}` : col3;
@@ -124,8 +140,26 @@ export async function tryHandleCooSpecialtyDelegation(ownerUserId, ceoMessage) {
 
   // Generic: match intent to agents listed in COO AGENTS.md (purposes), not keywords.
   const allocated = await classifyCooDelegationTargets(ownerUserId, t);
-  const restrictToAgentIds = Object.keys(allocated);
+  const { internal, leaf } = splitAllocationByKind(allocated);
+
+  // External / published-A2A leaf members run outside OpenClaw — call them directly.
+  let leafOutcome = null;
+  if (Object.keys(leaf).length) {
+    try {
+      const { delegateToOrgMembers } = await import('./org-member-delegation.js');
+      leafOutcome = await delegateToOrgMembers(ownerUserId, leaf, {
+        callerAgentId: getCooAgentRow()?.id,
+      });
+    } catch (e) {
+      console.warn('[coo-delegation] external member delegation failed:', e?.message || e);
+    }
+  }
+
+  const restrictToAgentIds = Object.keys(internal);
   if (!restrictToAgentIds.length) {
+    if (leafOutcome) {
+      return { ok: true, ...buildLeafOnlyReply(leafOutcome) };
+    }
     // No specialist fit — leave to COO LLM (answer, clarify, or tool use).
     // Explicit "delegate" with no match: still tell the CEO we couldn't map it.
     if (!isExplicitDelegateRequest(t)) return null;
@@ -148,7 +182,7 @@ export async function tryHandleCooSpecialtyDelegation(ownerUserId, ceoMessage) {
 
   const result = await scheduleCeoRequestViaOpenClawCron(standupId, t, ownerUserId, {
     restrictToAgentIds,
-    preAllocated: allocated,
+    preAllocated: internal,
   });
   if (!result?.count) {
     return {
@@ -170,12 +204,58 @@ export async function tryHandleCooSpecialtyDelegation(ownerUserId, ceoMessage) {
     ` They'll pick it up via the delegation run — track progress on Kanban.${kanbanHint}` +
     (result.pendingCount > 0
       ? ' Some work is queued; refresh Kanban or Check for updates shortly.'
-      : '');
+      : '') +
+    (leafOutcome ? ` ${describeLeafOutcome(leafOutcome)}` : '');
 
   return {
     ok: true,
     cooReply,
-    result,
+    result: {
+      ...result,
+      external_delegated: leafOutcome?.delegated?.map((d) => d.member.id) || [],
+      external_blocked: leafOutcome?.blocked?.map((b) => b.member.id) || [],
+      external_failed: leafOutcome?.failed?.map((f) => f.member.id) || [],
+    },
+    standup_id: null,
+  };
+}
+
+/** One-line summary of external/A2A leaf delegation for the COO reply. */
+function describeLeafOutcome(outcome) {
+  const parts = [];
+  if (outcome.delegated?.length) {
+    parts.push(
+      `Also ran external agent(s) ${outcome.delegated.map((d) => d.member.display_name).join(', ')}.`
+    );
+  }
+  if (outcome.failed?.length) {
+    parts.push(
+      `External agent(s) ${outcome.failed.map((f) => f.member.display_name).join(', ')} failed — see Kanban.`
+    );
+  }
+  if (outcome.blocked?.length) {
+    parts.push(
+      `Blocked by budget: ${outcome.blocked.map((b) => `${b.member.display_name} (${b.reasons.join('; ')})`).join(', ')}.`
+    );
+  }
+  return parts.join(' ');
+}
+
+function buildLeafOnlyReply(outcome) {
+  const first = outcome.delegated?.[0];
+  const summary = describeLeafOutcome(outcome);
+  const cooReply = first?.text
+    ? `${summary}\n\n${String(first.text).slice(0, 4000)}`
+    : summary || 'No external agent could take this on.';
+  return {
+    cooReply,
+    result: {
+      count: outcome.delegated?.length || 0,
+      agentNames: (outcome.delegated || []).map((d) => d.member.display_name),
+      kanbanTaskIds: (outcome.delegated || []).map((d) => d.taskId).filter(Boolean),
+      external_blocked: (outcome.blocked || []).map((b) => b.member.id),
+      external_failed: (outcome.failed || []).map((f) => f.member.id),
+    },
     standup_id: null,
   };
 }

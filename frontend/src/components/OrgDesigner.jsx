@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { ensureDepartmentsTable, loadDepartments, addDepartment } from '../utils/departmentsMasterData.js';
-import { DEPARTMENT_PRESETS } from '../utils/orgHierarchy.js';
+import { DEPARTMENT_PRESETS, mapOrgLeafMembersToAgents } from '../utils/orgHierarchy.js';
 
 /**
  * Visual org designer: department columns, drag-drop agents, create dept / add agent.
@@ -13,6 +13,8 @@ export default function OrgDesigner({
   onRemove,
 }) {
   const [departments, setDepartments] = useState([...DEPARTMENT_PRESETS]);
+  const [deptMeta, setDeptMeta] = useState(new Map());
+  const [leafMembers, setLeafMembers] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
@@ -23,6 +25,8 @@ export default function OrgDesigner({
     role: '',
     department: 'Operations',
     parent_id: '',
+    monthly_token_budget: '',
+    error_budget_pct: '',
   });
   const [dragId, setDragId] = useState(null);
 
@@ -32,6 +36,7 @@ export default function OrgDesigner({
       const { departments: rows } = await loadDepartments();
       const names = (rows || []).map((d) => d.name).filter(Boolean);
       if (names.length) setDepartments(names);
+      setDeptMeta(new Map((rows || []).map((d) => [d.name, d])));
     } catch (_) {
       /* presets remain */
     }
@@ -39,6 +44,10 @@ export default function OrgDesigner({
 
   useEffect(() => {
     loadDepts();
+    api
+      .orgMembers()
+      .then((r) => setLeafMembers(r.members || []))
+      .catch(() => setLeafMembers([]));
   }, []);
 
   const byDept = useMemo(() => {
@@ -48,10 +57,15 @@ export default function OrgDesigner({
     for (const a of agents) {
       const d = String(a.department || '').trim() || 'Unassigned';
       if (!map.has(d)) map.set(d, []);
-      map.get(d).push(a);
+      map.get(d).push({ ...a, _leaf: false });
+    }
+    for (const leaf of mapOrgLeafMembersToAgents(leafMembers)) {
+      const d = String(leaf.department || '').trim() || 'Unassigned';
+      if (!map.has(d)) map.set(d, []);
+      map.get(d).push(leaf);
     }
     return [...map.entries()];
-  }, [agents, departments]);
+  }, [agents, departments, leafMembers]);
 
   const flash = (msg) => {
     setMessage(msg);
@@ -103,9 +117,18 @@ export default function OrgDesigner({
         role: draft.role.trim() || undefined,
         department: draft.department || undefined,
         parent_id: draft.parent_id || undefined,
+        monthly_token_budget: draft.monthly_token_budget || null,
+        error_budget_pct: draft.error_budget_pct || null,
       });
       setShowAdd(false);
-      setDraft({ name: '', role: '', department: departments[0] || 'Operations', parent_id: '' });
+      setDraft({
+        name: '',
+        role: '',
+        department: departments[0] || 'Operations',
+        parent_id: '',
+        monthly_token_budget: '',
+        error_budget_pct: '',
+      });
       await onChanged?.();
       flash(`Agent “${draft.name.trim()}” created`);
     } catch (err) {
@@ -203,14 +226,24 @@ export default function OrgDesigner({
             <div style={{ fontWeight: 600, marginBottom: 8, fontSize: '0.95rem' }}>
               {department}{' '}
               <span style={{ color: 'var(--muted)', fontWeight: 400 }}>({members.length})</span>
+              {deptMeta.get(department)?.purpose && (
+                <div style={{ fontSize: '0.72rem', color: 'var(--muted)', fontWeight: 400, marginTop: 2 }}>
+                  {deptMeta.get(department).purpose}
+                </div>
+              )}
+              {deptMeta.get(department)?.monthly_token_budget != null && (
+                <div style={{ fontSize: '0.72rem', color: 'var(--muted)', fontWeight: 400 }}>
+                  Budget {deptMeta.get(department).monthly_token_budget.toLocaleString()} tokens/mo
+                </div>
+              )}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {members.map((a) => (
                 <div
                   key={a.id}
-                  draggable={!a.is_coo}
+                  draggable={!a.is_coo && !a._leaf}
                   onDragStart={(e) => {
-                    if (a.is_coo) {
+                    if (a.is_coo || a._leaf) {
                       e.preventDefault();
                       return;
                     }
@@ -221,16 +254,48 @@ export default function OrgDesigner({
                   style={{
                     padding: '0.55rem 0.65rem',
                     borderRadius: 8,
-                    border: '1px solid var(--border)',
+                    border: a._leaf ? '1px dashed var(--border)' : '1px solid var(--border)',
                     background: 'var(--bg, #121216)',
-                    cursor: a.is_coo ? 'default' : 'grab',
-                    opacity: dragId === a.id ? 0.6 : 1,
+                    cursor: a.is_coo || a._leaf ? 'default' : 'grab',
+                    opacity: dragId === a.id ? 0.6 : a._leaf && !a._enabled ? 0.6 : 1,
                   }}
                 >
-                  <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{a.name}</div>
+                  <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>
+                    {a.name}
+                    {a._leaf && (
+                      <span
+                        style={{
+                          marginLeft: 6,
+                          fontSize: '0.65rem',
+                          fontWeight: 500,
+                          padding: '1px 6px',
+                          borderRadius: 999,
+                          border: '1px solid var(--border)',
+                          color: 'var(--muted)',
+                        }}
+                        title="External / published A2A agent — leaf member, cannot manage others"
+                      >
+                        {a._kind === 'a2a_publish' ? 'A2A' : 'External'}
+                      </span>
+                    )}
+                  </div>
                   {a.role && (
                     <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{a.role}</div>
                   )}
+                  {a._leaf ? (
+                    <div style={{ marginTop: 6, fontSize: '0.72rem', color: 'var(--muted)' }}>
+                      Reports to {a.parent_id || 'COO'} · manage on{' '}
+                      {a._kind === 'a2a_publish' ? (
+                        <Link to="/agent-exchange" style={{ fontSize: '0.72rem' }}>
+                          AgentExchange
+                        </Link>
+                      ) : (
+                        <Link to="/external-agents" style={{ fontSize: '0.72rem' }}>
+                          External Agents
+                        </Link>
+                      )}
+                    </div>
+                  ) : (
                   <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     <Link to={`/agents/${a.id}/workspace`} style={{ fontSize: '0.75rem' }}>
                       Workspace
@@ -255,6 +320,7 @@ export default function OrgDesigner({
                       </button>
                     )}
                   </div>
+                  )}
                 </div>
               ))}
               {!members.length && (
@@ -384,6 +450,52 @@ export default function OrgDesigner({
                 ))}
               </select>
             </label>
+            <label style={{ fontSize: '0.85rem' }}>
+              Monthly token budget
+              <input
+                type="number"
+                min="0"
+                value={draft.monthly_token_budget}
+                onChange={(e) => setDraft((d) => ({ ...d, monthly_token_budget: e.target.value }))}
+                placeholder="e.g. 500000 (leave blank for no limit)"
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  marginTop: 4,
+                  padding: '0.5rem',
+                  borderRadius: 6,
+                  border: '1px solid var(--border)',
+                  background: 'var(--bg, #121216)',
+                  color: 'var(--text)',
+                }}
+              />
+            </label>
+            <label style={{ fontSize: '0.85rem' }}>
+              Error budget (max monthly failure %)
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.5"
+                value={draft.error_budget_pct}
+                onChange={(e) => setDraft((d) => ({ ...d, error_budget_pct: e.target.value }))}
+                placeholder="e.g. 5"
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  marginTop: 4,
+                  padding: '0.5rem',
+                  borderRadius: 6,
+                  border: '1px solid var(--border)',
+                  background: 'var(--bg, #121216)',
+                  color: 'var(--text)',
+                }}
+              />
+            </label>
+            <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--muted)' }}>
+              You get a warning at 80% of either budget; new delegated or chat work is blocked at
+              100% until next month or a higher budget.
+            </p>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
               <button
                 type="button"

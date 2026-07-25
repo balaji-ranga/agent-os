@@ -37,6 +37,9 @@ import {
 } from './org-context.js';
 import { isUserEnabled } from './user-enabled.js';
 import { notifyKanbanTaskCreated } from './platform-notifications.js';
+import { meterOpenClawUsage } from './token-usage.js';
+import { enforceBudget } from './agent-budgets.js';
+import { splitAllocationByKind } from './org-member-keys.js';
 
 const SESSION_USER = 'agent-os-delegation';
 const AGENTS_MD_NAME = 'AGENTS.md';
@@ -377,6 +380,24 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, c
 
   allocated = capAllocatedAgents(allocated, 2);
 
+  // External / published-A2A leaf members are not OpenClaw agents — invoke them directly.
+  let externalOutcome = null;
+  const { internal: internalAllocated, leaf: leafAllocated } = splitAllocationByKind(allocated);
+  if (Object.keys(leafAllocated).length) {
+    try {
+      // Lazy import: org-member-delegation pulls in the A2A publish service, which transitively
+      // imports this module.
+      const { delegateToOrgMembers } = await import('./org-member-delegation.js');
+      const { getCooAgentRow } = await import('./org-context.js');
+      externalOutcome = await delegateToOrgMembers(ownerUserId, leafAllocated, {
+        callerAgentId: getCooAgentRow()?.id,
+      });
+    } catch (e) {
+      console.warn('[delegation] external member delegation failed:', e?.message || e);
+    }
+    allocated = internalAllocated;
+  }
+
   const requestId = `req-${standupId}-${Date.now()}`;
   const baseUrl = getBaseUrl();
   const ins = db().prepare(
@@ -446,7 +467,20 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, c
     }
   }
   const pendingCount = taskRows.length - scheduledCount;
-  return { requestId, count: taskRows.length, scheduledCount, pendingCount, agentNames, kanbanTaskIds };
+  const externalNames = (externalOutcome?.delegated || []).map((d) => d.member.display_name);
+  return {
+    requestId,
+    count: taskRows.length + externalNames.length,
+    scheduledCount,
+    pendingCount,
+    agentNames: [...agentNames, ...externalNames],
+    kanbanTaskIds: [
+      ...kanbanTaskIds,
+      ...(externalOutcome?.delegated || []).map((d) => d.taskId).filter(Boolean),
+    ],
+    externalBlocked: (externalOutcome?.blocked || []).map((b) => b.member.id),
+    externalFailed: (externalOutcome?.failed || []).map((f) => f.member.id),
+  };
 }
 
 /**
@@ -598,16 +632,47 @@ export async function processPendingDelegationTasksForCeo(ceoUserId) {
         `When finished, you may call kanban_move_status with {\"task_id\": ${kanbanRow.id}, \"new_status\": \"completed\"} or \"failed\". ` +
         `The backend also marks the Kanban card completed/failed when this delegation run ends.\n---`;
     }
+    const budgetState = enforceBudget(ownerForTenant, task.to_agent_id, {
+      action: 'delegation',
+      memberLabel: agent.name,
+      throwOnBlock: false,
+    });
+    if (budgetState?.state === 'blocked') {
+      const reason = `Budget exceeded for ${agent.name}: ${budgetState.reasons.join('; ')}`;
+      db()
+        .prepare(
+          'UPDATE agent_delegation_tasks SET status = ?, error_message = ?, completed_at = ? WHERE id = ?'
+        )
+        .run('failed', reason, now, task.id);
+      if (isAgentWorkflowPrompt(task.prompt)) {
+        completeAgentWorkflowKanbanForDelegation(task.id, { ok: false });
+        failAgentWorkflowForDelegation({ ...task, status: 'failed', error_message: reason }).catch(() => {});
+      } else {
+        completePipelineKanbanForDelegation(task.id, { ok: false });
+        failPipelineWorkflowForDelegation({ ...task, status: 'failed', error_message: reason });
+      }
+      console.warn(`[delegation] task ${task.id} blocked by budget for agent=${task.to_agent_id}`);
+      runningDelegationIds.delete(task.id);
+      return;
+    }
+
     try {
       const isDiscovery = String(task.to_agent_id).toLowerCase() === 'jobdiscovery';
       const discoveryTimeout = Number(process.env.OPENCLAW_DISCOVERY_TIMEOUT_MS || 900000);
-      const { content } = await openclaw.chatCompletions(
+      const { content, usage } = await openclaw.chatCompletions(
         runtimeOcId,
         [{ role: 'user', content: promptWithMemory }],
         sessionUser,
         false,
         isDiscovery ? { timeoutMs: discoveryTimeout } : {}
       );
+      meterOpenClawUsage(ownerForTenant, task.to_agent_id, {
+        usage,
+        source: 'delegation',
+        promptText: promptWithMemory,
+        replyText: content,
+        sessionId: sessionUser,
+      });
       const responseText = normalizeReplyContent(content) || '(no response)';
       db().prepare('UPDATE agent_delegation_tasks SET status = ?, response_content = ?, completed_at = ? WHERE id = ?').run('completed', responseText, now, task.id);
       if (isAgentWorkflowPrompt(task.prompt)) {

@@ -192,7 +192,348 @@ const CHART_TABS = [
   },
 ];
 
+const AGENT_CHART_TABS = [
+  {
+    id: 'activity',
+    label: 'Activity',
+    series: [
+      { key: 'prompts', label: 'Prompts', color: 'var(--accent)' },
+      { key: 'tool_calls', label: 'Tool calls', color: '#38bdf8' },
+    ],
+  },
+  {
+    id: 'outcomes',
+    label: 'Outcomes',
+    series: [
+      { key: 'tasks_completed', label: 'Successful', color: '#22c55e' },
+      { key: 'tasks_failed', label: 'Failed', color: '#ef4444' },
+    ],
+  },
+  {
+    id: 'budget',
+    label: 'Token budget',
+    series: [
+      { key: 'tokens_cumulative', label: 'Tokens used (cumulative)', color: 'var(--accent)' },
+      { key: 'budget_line', label: 'Monthly budget', color: '#f59e0b' },
+    ],
+  },
+  {
+    id: 'reliability',
+    label: 'Reliability',
+    series: [
+      { key: 'failure_rate', label: 'Failure rate %', color: '#ef4444' },
+      { key: 'error_budget_line', label: 'Error budget %', color: '#f59e0b' },
+    ],
+  },
+];
+
+const BUDGET_STATE_COLOR = { ok: '#22c55e', warn: '#f59e0b', blocked: '#ef4444' };
+
+function BudgetGauge({ label, used, limit, unit = '', tip }) {
+  const pct = limit && limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : null;
+  const color = pct == null ? 'var(--muted)' : pct >= 100 ? '#ef4444' : pct >= 80 ? '#f59e0b' : '#22c55e';
+  return (
+    <div className="eff-gauge">
+      <div className="eff-gauge-head">
+        <span>
+          {label} {tip ? <InfoTip text={tip} /> : null}
+        </span>
+        <span style={{ color }}>{pct == null ? 'No budget set' : `${pct}%`}</span>
+      </div>
+      <div className="eff-gauge-track">
+        <div className="eff-gauge-fill" style={{ width: `${pct ?? 0}%`, background: color }} />
+      </div>
+      <div className="eff-gauge-foot">
+        {formatCompact(used)}
+        {unit} {limit ? `of ${formatCompact(limit)}${unit}` : '(unlimited)'}
+      </div>
+    </div>
+  );
+}
+
+function AgentView({ range, rangeLabelText }) {
+  const [members, setMembers] = useState([]);
+  const [selected, setSelected] = useState('');
+  const [data, setData] = useState(null);
+  const [chartTab, setChartTab] = useState('activity');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [editBudget, setEditBudget] = useState(false);
+  const [tokenBudget, setTokenBudget] = useState('');
+  const [errorBudget, setErrorBudget] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .efficiencyAgents()
+      .then((res) => {
+        if (cancelled) return;
+        const list = res?.members || [];
+        setMembers(list);
+        setSelected((cur) => cur || list[0]?.member_key || '');
+      })
+      .catch((e) => !cancelled && setError(e.message || 'Failed to load agents'));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!selected) {
+      setLoading(false);
+      return undefined;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    api
+      .efficiencyAgent(selected, range)
+      .then((res) => {
+        if (cancelled) return;
+        setData(res);
+        setTokenBudget(
+          res?.budget?.monthly_token_budget == null ? '' : String(res.budget.monthly_token_budget)
+        );
+        setErrorBudget(res?.budget?.error_budget_pct == null ? '' : String(res.budget.error_budget_pct));
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setError(e.message || 'Failed to load agent metrics');
+        setData(null);
+      })
+      .finally(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [selected, range]);
+
+  const member = members.find((m) => m.member_key === selected) || null;
+  const budget = data?.budget || null;
+  const totals = data?.totals || {};
+
+  const timeline = useMemo(() => {
+    const rows = data?.timeline || [];
+    const tokenLimit = budget?.monthly_token_budget || 0;
+    const errLimit = budget?.error_budget_pct || 0;
+    return rows.map((r) => ({ ...r, budget_line: tokenLimit, error_budget_line: errLimit }));
+  }, [data?.timeline, budget?.monthly_token_budget, budget?.error_budget_pct]);
+
+  const activeChart = AGENT_CHART_TABS.find((t) => t.id === chartTab) || AGENT_CHART_TABS[0];
+
+  const saveBudget = async () => {
+    if (!selected) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await api.efficiencyAgentBudgetSet(selected, {
+        monthly_token_budget: tokenBudget || null,
+        error_budget_pct: errorBudget || null,
+      });
+      const refreshed = await api.efficiencyAgent(selected, range);
+      setData(refreshed);
+      setEditBudget(false);
+    } catch (e) {
+      setError(e.message || 'Failed to save budget');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <>
+      <section className="ai-snip-card">
+        <div className="ai-snip-card-head">
+          <h2>Agent</h2>
+          <div className="ai-snip-range-static">{rangeLabelText}</div>
+        </div>
+        <div className="eff-agent-controls">
+          <select
+            className="ai-snip-select"
+            value={selected}
+            onChange={(e) => setSelected(e.target.value)}
+            aria-label="Agent"
+          >
+            {!members.length && <option value="">No agents</option>}
+            {members.map((m) => (
+              <option key={m.member_key} value={m.member_key}>
+                {m.name}
+                {m.department ? ` · ${m.department}` : ''}
+                {m.kind === 'external' || m.kind === 'a2a_publish' ? ' (external)' : ''}
+              </option>
+            ))}
+          </select>
+          {member && (
+            <span
+              className="eff-badge"
+              style={{ borderColor: BUDGET_STATE_COLOR[member.budget_state] || 'var(--border)' }}
+            >
+              {member.budget_state === 'blocked'
+                ? 'Blocked — over budget'
+                : member.budget_state === 'warn'
+                  ? 'Warning — near budget'
+                  : 'Within budget'}
+            </span>
+          )}
+          <button type="button" className="ai-snip-pill" onClick={() => setEditBudget((v) => !v)}>
+            {editBudget ? 'Close budget' : 'Edit budget'}
+          </button>
+        </div>
+
+        {budget?.reasons?.length ? (
+          <p className="ai-snip-note" style={{ color: BUDGET_STATE_COLOR[budget.state] }}>
+            {budget.reasons.join(' · ')}
+          </p>
+        ) : null}
+
+        {editBudget && (
+          <div className="eff-budget-form">
+            <label>
+              Monthly token budget
+              <input
+                type="number"
+                min="0"
+                value={tokenBudget}
+                onChange={(e) => setTokenBudget(e.target.value)}
+                placeholder="blank = unlimited"
+              />
+            </label>
+            <label>
+              Error budget (max failure %)
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.5"
+                value={errorBudget}
+                onChange={(e) => setErrorBudget(e.target.value)}
+                placeholder="e.g. 5"
+              />
+            </label>
+            <button type="button" onClick={saveBudget} disabled={saving} className="ai-snip-pill active">
+              {saving ? 'Saving…' : 'Save budget'}
+            </button>
+            <span className="ai-snip-note">
+              Applies to {budget?.period || 'this month'} and carries forward to later months.
+            </span>
+          </div>
+        )}
+
+        <div className="eff-metrics">
+          <div className="ai-snip-metric">
+            <div className="ai-snip-metric-value">{formatCompact(totals.prompts || 0)}</div>
+            <div className="ai-snip-metric-label">
+              Prompts <InfoTip text="Messages sent to this agent in the selected range" />
+            </div>
+          </div>
+          <div className="ai-snip-metric">
+            <div className="ai-snip-metric-value">{formatCompact(totals.tool_calls || 0)}</div>
+            <div className="ai-snip-metric-label">
+              Tool calls{' '}
+              <InfoTip text={`${totals.tool_errors || 0} failed tool calls in this range`} />
+            </div>
+          </div>
+          <div className="ai-snip-metric">
+            <div className="ai-snip-metric-value eff-split">
+              <span className="eff-ok">{formatCompact(totals.tasks_completed || 0)}</span>
+              <span className="eff-sep">/</span>
+              <span className="eff-bad">{formatCompact(totals.tasks_failed || 0)}</span>
+            </div>
+            <div className="ai-snip-metric-label">Tasks ok / failed</div>
+          </div>
+          <div className="ai-snip-metric">
+            <div className="ai-snip-metric-value">
+              {totals.feedback_positive_pct != null ? `${totals.feedback_positive_pct}%` : '—'}
+            </div>
+            <div className="ai-snip-metric-label">
+              Feedback positive{' '}
+              <InfoTip text={`${totals.feedback_up || 0} up / ${totals.feedback_down || 0} down`} />
+            </div>
+          </div>
+          <div className="ai-snip-metric">
+            <div className="ai-snip-metric-value">
+              {totals.avg_latency_ms == null ? '—' : `${Math.round(totals.avg_latency_ms / 1000)}s`}
+            </div>
+            <div className="ai-snip-metric-label">
+              Avg delegation latency{' '}
+              <InfoTip text={`${totals.latency_samples || 0} completed delegations sampled`} />
+            </div>
+          </div>
+        </div>
+
+        <div className="eff-gauges">
+          <BudgetGauge
+            label="Tokens this month"
+            used={budget?.tokens_used || 0}
+            limit={budget?.monthly_token_budget || 0}
+            tip={`${budget?.token_calls || 0} metered calls in ${budget?.period || 'this month'}. Estimated tokens: ${formatCompact(budget?.tokens_estimated || 0)}.`}
+          />
+          <BudgetGauge
+            label="Failure rate this month"
+            used={budget?.failure_rate || 0}
+            limit={budget?.error_budget_pct || 0}
+            unit="%"
+            tip={`${budget?.failed || 0} failed of ${budget?.terminal_calls || 0} terminal calls. Blocking only applies from ${budget?.min_terminal_calls_for_error_block || 10} calls.`}
+          />
+        </div>
+      </section>
+
+      {error && <div className="ai-snip-error">{error}</div>}
+      {loading && !data && <div className="ai-snip-loading">Loading…</div>}
+
+      <section className="ai-snip-card">
+        <div className="ai-snip-card-head">
+          <div className="ai-snip-pills" role="tablist" aria-label="Agent chart metric">
+            {AGENT_CHART_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={chartTab === tab.id}
+                className={`ai-snip-pill${chartTab === tab.id ? ' active' : ''}`}
+                onClick={() => setChartTab(tab.id)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          <div className="ai-snip-range-static">{rangeLabelText}</div>
+        </div>
+        {!loading && timeline.length === 0 ? (
+          <p className="ai-snip-note">No activity for this agent in the selected range.</p>
+        ) : (
+          <MultiSeriesChart timeline={timeline} series={activeChart.series} />
+        )}
+      </section>
+
+      {data?.top_tools?.length ? (
+        <section className="ai-snip-card">
+          <div className="ai-snip-card-head">
+            <h2>Top tools</h2>
+          </div>
+          <div className="eff-tool-list">
+            {data.top_tools.map((t) => (
+              <div key={t.tool_name} className="eff-tool-row">
+                <span>{t.tool_name}</span>
+                <span>
+                  <span className="eff-ok">{t.ok} ok</span>
+                  {t.error ? <span className="eff-bad"> · {t.error} error</span> : null}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+    </>
+  );
+}
+
 export default function EfficiencyView() {
+  const [view, setView] = useState(() =>
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('tab') === 'agent'
+      ? 'agent'
+      : 'org'
+  );
   const [range, setRange] = useState('14');
   const [chartTab, setChartTab] = useState('tasks');
   const [data, setData] = useState(null);
@@ -265,8 +606,30 @@ export default function EfficiencyView() {
         <div>
           <h1>Efficiency View</h1>
           <p className="ai-snip-sub">
-            Agents, automated tasks, feedback quality, and AI workflow run outcomes.
+            {view === 'agent'
+              ? 'Per-agent activity, outcomes, and monthly token / error budgets.'
+              : 'Agents, automated tasks, feedback quality, and AI workflow run outcomes.'}
           </p>
+          <div className="ai-snip-pills" role="tablist" aria-label="Efficiency view">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={view === 'org'}
+              className={`ai-snip-pill${view === 'org' ? ' active' : ''}`}
+              onClick={() => setView('org')}
+            >
+              Org
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={view === 'agent'}
+              className={`ai-snip-pill${view === 'agent' ? ' active' : ''}`}
+              onClick={() => setView('agent')}
+            >
+              Agent View
+            </button>
+          </div>
         </div>
         <select
           className="ai-snip-select eff-range-select"
@@ -282,6 +645,10 @@ export default function EfficiencyView() {
         </select>
       </header>
 
+      {view === 'agent' && <AgentView range={range} rangeLabelText={label} />}
+
+      {view === 'org' && (
+        <>
       {error && (
         <div className="ai-snip-error">
           {error}
@@ -381,6 +748,8 @@ export default function EfficiencyView() {
           <MultiSeriesChart timeline={timeline} series={activeChart.series} granularity={granularity} />
         )}
       </section>
+        </>
+      )}
     </div>
   );
 }

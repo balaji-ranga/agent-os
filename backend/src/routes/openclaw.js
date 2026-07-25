@@ -14,6 +14,8 @@ import {
 } from '../services/openclaw-tenant.js';
 import { getOpenClawConfigPath } from '../config/openclaw-paths.js';
 import { syncAllowlistsFile } from '../services/openclaw-agent-tools.js';
+import { isAgentTombstoned } from '../services/agent-delete.js';
+import { log } from '../utils/logger.js';
 
 const router = Router();
 router.use(attachAuthUser);
@@ -113,9 +115,20 @@ router.post('/sync', (req, res) => {
     const coo = db.prepare('SELECT id FROM agents WHERE is_coo = 1 LIMIT 1').get();
     const parentId = coo?.id || null;
     const updated = [];
+    const skipped = [];
 
     for (const a of tenantList) {
       const logicalId = a.base_agent_id;
+
+      // A deleted agent must stay deleted. Config entries can outlive the DB row
+      // (stale tenant entries, deploy-time config merges), and recreating from
+      // them is what used to resurrect agents after a delete.
+      if (isAgentTombstoned(db, logicalId)) {
+        skipped.push({ id: logicalId, reason: 'deleted_by_user' });
+        log.info(`[openclaw/sync] skipped tombstoned agent ${logicalId} for ${ceoUserId}`);
+        continue;
+      }
+
       const name = String(a.name || logicalId)
         .replace(/\s*\([^)]*\)\s*$/, '')
         .trim() || logicalId;
@@ -183,6 +196,7 @@ router.post('/sync', (req, res) => {
     res.json({
       synced: updated.length,
       agents: updated,
+      skipped,
       ceo_user_id: ceoUserId,
       scope: 'tenant',
     });

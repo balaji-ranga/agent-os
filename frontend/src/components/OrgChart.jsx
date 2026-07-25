@@ -1,11 +1,25 @@
 import { Link } from 'react-router-dom';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { api } from '../api';
 import {
   buildOrgTree,
   flattenOrgTree,
   groupAgentsByDepartment,
+  mergeAgentsWithLeafMembers,
   CEO_NODE_ID,
 } from '../utils/orgHierarchy.js';
+
+function LeafBadge({ kind }) {
+  if (!kind) return null;
+  return (
+    <span
+      className="org-leaf-badge"
+      title="External / published A2A agent — leaf member, cannot manage others"
+    >
+      {kind === 'a2a_publish' ? 'A2A' : 'External'}
+    </span>
+  );
+}
 
 function DeptBadge({ department }) {
   if (!department) return null;
@@ -28,6 +42,20 @@ function DeptBadge({ department }) {
 
 function AgentActions({ agent, onRemove, isCeo }) {
   if (isCeo) return null;
+  if (agent._leaf) {
+    const manageTo = agent._kind === 'a2a_publish' ? '/agent-exchange' : '/external-agents';
+    const manageLabel = agent._kind === 'a2a_publish' ? 'AgentExchange' : 'External Agents';
+    return (
+      <span style={{ marginLeft: '0.5rem', display: 'inline-flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+        <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
+          reports to {agent.parent_id || 'COO'} · manage on{' '}
+          <Link to={manageTo} style={{ fontSize: '0.75rem' }}>
+            {manageLabel}
+          </Link>
+        </span>
+      </span>
+    );
+  }
   return (
     <span style={{ marginLeft: '0.5rem', display: 'inline-flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
       <Link to={`/agents/${agent.id}/workspace`} style={{ fontSize: '0.85rem' }}>
@@ -69,10 +97,16 @@ function AgentActions({ agent, onRemove, isCeo }) {
 /** Recursive graph card with children in a horizontal row. */
 function GraphCard({ node, onRemove }) {
   const kids = node.children || [];
+  const leafClass = node._leaf ? ' org-graph-card-leaf' : '';
   return (
     <div className="org-graph-branch">
-      <div className={`org-graph-card${node.isCeo ? ' org-graph-card-ceo' : ''}${node.is_coo ? ' org-graph-card-coo' : ''}`}>
-        <div className="org-graph-card-name">{node.name}</div>
+      <div
+        className={`org-graph-card${node.isCeo ? ' org-graph-card-ceo' : ''}${node.is_coo ? ' org-graph-card-coo' : ''}${leafClass}`}
+      >
+        <div className="org-graph-card-name">
+          {node.name}
+          {node._leaf && <LeafBadge kind={node._kind} />}
+        </div>
         {node.role && <div className="org-graph-card-role">{node.role}</div>}
         {node.department && <div className="org-graph-card-dept">{node.department}</div>}
         {!node.isCeo && (
@@ -100,13 +134,34 @@ function GraphCard({ node, onRemove }) {
 
 /**
  * Org structure viewer: List | Graph, optional group-by-department.
+ * Merges external / published-A2A leaf members under their reports-to parent.
  */
 export default function OrgChart({ agents = [], onRemove }) {
   const [view, setView] = useState('list');
   const [groupByDept, setGroupByDept] = useState(false);
+  const [leafMembers, setLeafMembers] = useState([]);
 
-  const tree = useMemo(() => buildOrgTree(agents), [agents]);
-  const deptGroups = useMemo(() => groupAgentsByDepartment(agents), [agents]);
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .orgMembers()
+      .then((r) => {
+        if (!cancelled) setLeafMembers(r.members || []);
+      })
+      .catch(() => {
+        if (!cancelled) setLeafMembers([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const chartAgents = useMemo(
+    () => mergeAgentsWithLeafMembers(agents, leafMembers),
+    [agents, leafMembers]
+  );
+  const tree = useMemo(() => buildOrgTree(chartAgents), [chartAgents]);
+  const deptGroups = useMemo(() => groupAgentsByDepartment(chartAgents), [chartAgents]);
 
   const toggleBtn = (id, label) => (
     <button
@@ -162,8 +217,9 @@ export default function OrgChart({ agents = [], onRemove }) {
                 {members.map((a) => (
                   <li key={a.id} style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
                     <span style={{ fontWeight: 500 }}>{a.name}</span>
+                    {a._leaf && <LeafBadge kind={a._kind} />}
                     {a.role && <span style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>({a.role})</span>}
-                    {a.parent_id && (
+                    {a.parent_id && !a._leaf && (
                       <span style={{ color: 'var(--muted)', fontSize: '0.75rem' }}>→ reports to {a.parent_id}</span>
                     )}
                     <AgentActions agent={a} onRemove={onRemove} />
@@ -183,6 +239,7 @@ export default function OrgChart({ agents = [], onRemove }) {
             }}
           >
             CEO (you) sits above all departments. Reporting lines still use each agent&apos;s Reports to field.
+            External / A2A leaf members hang under their reports-to parent and cannot manage others.
           </div>
         </div>
       ) : view === 'list' ? (
@@ -194,7 +251,6 @@ export default function OrgChart({ agents = [], onRemove }) {
             overflow: 'hidden',
           }}
         >
-          {/* Render CEO once, then children recursively without nesting ListNode wrappers incorrectly */}
           <ListTreeRoot tree={tree} onRemove={onRemove} />
         </div>
       ) : (
@@ -208,7 +264,6 @@ export default function OrgChart({ agents = [], onRemove }) {
 
 function ListTreeRoot({ tree, onRemove }) {
   const rows = flattenOrgTree(tree).filter((n) => n.id !== CEO_NODE_ID || n.isCeo);
-  // flatten includes root; render each row flat with indent (avoid nested ListNode duplicate children)
   return (
     <>
       {rows.map((node) => {
@@ -224,6 +279,7 @@ function ListTreeRoot({ tree, onRemove }) {
               alignItems: 'center',
               flexWrap: 'wrap',
               gap: 4,
+              opacity: node._leaf && node.raw?._enabled === false ? 0.6 : 1,
             }}
           >
             <span
@@ -234,6 +290,7 @@ function ListTreeRoot({ tree, onRemove }) {
             >
               {node.isCeo ? `👤 ${node.name}` : node.name}
             </span>
+            {node._leaf && <LeafBadge kind={node._kind} />}
             {node.role && <span style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>— {node.role}</span>}
             <DeptBadge department={node.department} />
             <AgentActions agent={node} onRemove={onRemove} isCeo={node.isCeo} />

@@ -70,6 +70,7 @@ Tips:
 3. **Documents** — upload files your agents can search (policies, guides, handbooks). New accounts include this **Flolah User Guide** plus the **Platform Help** set (`Flolah Help — …`) so agents (especially Platform Help) can answer product how-to questions.
 4. When you chat with an agent that has Master Data tools, ask in plain language (“list departments”, “what does our PTO policy say?”, “how do I publish A2A?”).
 5. Documents: upload **PDF, Word (.docx), Excel, or text** — content is extracted for keyword RAG. Reindex older office uploads from the Documents panel if needed.
+6. **Purge all uploads** (Documents panel) permanently deletes your uploaded files from the database and disk. **Platform Help** (`Flolah Help — …`) and the **Flolah User Guide** are protected — they cannot be deleted or purged (startup re-seeds them if missing).
 
 ### Org chart and Resync
 
@@ -87,11 +88,12 @@ Tips:
 
 1. **Workflows** — build visual automations (triggers, agents, APIs, approvals). Publish a run and watch it on Kanban.
 2. **Publish as A2A** from a published workflow to list it for others:
+   - **Visibility:** **Public** (default — listed on AgentExchange) or **Private** (public calling disabled; only COO or the org reports-to lead can invoke after **Add to org**; hidden from other CEOs).
    - **Invoke mode:** **Sync** (HTTP holds until the run finishes, ~2 min cap) or **Async** (immediate `working` + `task.id`; poll with **`enquire-progress`** / `tasks/get`, or receive a **callback URL** webhook when the run completes/fails/cancels). Final step text: enquire/sync → **`result.parts[0].text`**; callback webhook → **`final_output`**.
    - **Callback URL** at publish time, or per-invoke override via `params.metadata.callbackUrl` (plain JSON webhook — not A2A JSON-RPC).
-   - **Access:** new listings default to **Deny all** (card, invoke, OAuth token, and enquiry return `403` until you open access). Switch to **Allow all** or an **IP whitelist** (IPv4 + CIDR; IPv6 exact match only) under **AgentExchange → Security**.
-   - **Public** (no token) or **Secured** (OAuth `client_id` + `client_secret` → Bearer access token; secret shown once). **Publish as new agent** or update an existing listing with `publish_id`.
-3. **AgentExchange** — browse published workflow agents (Public / Secured badges, token URL when secured). Owners manage **Security** and **Unpublish** (removes public A2A endpoints; the workflow stays published for your UI). **Test agent** autofills sample input from the agent card schema; **owners bypass IP/OAuth** for testing — non-owners still hit IP + OAuth policy. Mock callback inbox for async tests: `POST/GET /api/a2a-callback-inbox`. **Admins** see platform-wide card/token/invoke success & denial history at **`/admin/a2a-invocations`**.
+   - **Access (IP):** new listings default to **Deny all** (card, invoke, OAuth token, and enquiry return `403` until you open access). Switch to **Allow all** or an **IP whitelist** under **AgentExchange → ⋯ → Security** (ignored while Visibility is Private).
+   - **Auth:** **Public auth** (no token) or **Secured** (OAuth `client_id` + `client_secret` → Bearer access token; secret shown once). **Publish as new agent** or update an existing listing with `publish_id`.
+3. **AgentExchange** — browse published workflow agents (Public / Private / Secured badges, token URL when secured). Card **⋯** menu: copy/open, **Test agent**, **Add to org**, **Security** (visibility + IP), **Unpublish**. **Test agent** autofills sample input; **owners bypass IP/OAuth/private** for testing — non-owners still hit policy. Mock callback inbox: `POST/GET /api/a2a-callback-inbox`. **Admins** see history at **`/admin/a2a-invocations`**.
 
 ### Job search pipeline (optional)
 
@@ -125,7 +127,9 @@ Grant or revoke tools on each agent’s **Workspace → Tools access**.
 |------|-------------------------|
 | **API Keys vault** | Management → API Keys — named secrets, optional encryption, required `Platform_BYOK` for OpenAI/OpenRouter. |
 | **Connectors** | Link SaaS apps (OpenConnector) and call them from workflow **Connector** nodes. |
-| **Efficiency View** | Ops metrics: agents, automated tasks, feedback, workflow run success/fail (7d–All). |
+| **Efficiency View** | **Org** tab: agents, automated tasks, feedback, workflow run success/fail (7d–All). **Agent View** tab: per-agent activity, outcomes, token/error budget gauges. |
+| **Agent budgets** | Monthly **token budget** + **error budget %** per agent (and per department, as a planning figure). Warn at 80% via bell, **block** new chat/delegated work at 100% tokens or at the error budget (min 10 terminal calls). Refused calls never spend the error budget. Backed by a durable `token_usage` ledger. |
+| **External/A2A agents in your org** | **Add to org** on External Agents / AgentExchange places them as **leaf members** (department + reports-to an internal agent). They show in the org chart, sync into ORG.md / COO AGENTS.md, and the **COO can delegate to them** with Kanban mirroring and budget guard. **Private** A2A listings stay off public endpoints — only COO or the reports-to lead can invoke. |
 | **Workspace templates** | Apply / publish SOUL–OPS templates from Agent Workspace (ORG/POLICY preserved). |
 | **Platform Help agent** | Dedicated `platformhelp` agent + Master Data help corpus (`knowledgebase/platform-help/`) via keyword RAG. |
 | **COO specialty routing** | COO chat routes specialty asks using agent purposes (org docs), not guesswork keywords (multi-intent up to 2). |
@@ -225,15 +229,15 @@ Set in backend `.env`:
 | **Kanban** | Board view (tasks by agent and status); task detail with **task chat**, artifacts, workflow run links. Reopen task; create task (COO or direct to agent). Auto-completes when COO chat delegations finish. |
 | **Custom workflows** | Visual **Workflows** editor: trigger (manual / schedule / chat / event webhook), agent, API, MCP tool, **SSE listen**, **sub-workflow**, Brain (LLM + optional MCP tool calling; **Thinking mode** for DeepSeek/OpenRouter), email, IF/While, parallel/merge, CEO approval, **external agent (A2A)**. Publish, run instances, paginated run history, search, **stop SSE listen** on active runs. |
 | **Download for Windows** | From a **published** workflow: download a PS1 + params package (optional portable Node 18). Local graph orchestration + localhost API / filesystem; run state and other nodes on Flolah. Desktop token + optional IP whitelist. See `knowledgebase/platform-help/17-desktop-windows-download.md`. |
-| **Publish as A2A** | **Publish A2A** exposes a workflow as an A2A agent (agent card + JSON-RPC). **Sync** or **Async** invoke; optional **callback URL** (+ per-request `callbackUrl`). **Deny all** access by default; **Allow all** or **IP whitelist**. **Public** or **Secured** (OAuth client credentials → Bearer). **Publish as new agent** or update by `publish_id`. Unpublish removes public endpoints; workflow stays published. |
-| **AgentExchange** | Browse published A2A workflow agents (`/agent-exchange`). **Security** (access policy + IP whitelist), **Test agent** (schema autofill; owners bypass IP/OAuth), **Unpublish**. Cards at `/api/a2a/:publishId/.well-known/agent-card.json`. Mock callback inbox: `/api/a2a-callback-inbox`. Admin **A2A logs** (`/admin/a2a-invocations`) for success/denial history. |
+| **Publish as A2A** | **Publish A2A** exposes a workflow as an A2A agent (agent card + JSON-RPC). **Visibility** Public (default) or **Private** (org-only). **Sync** or **Async** invoke; optional **callback URL**. **Deny all** IP access by default; **Allow all** or **IP whitelist**. **Public auth** or **Secured** (OAuth). **Publish as new agent** or update by `publish_id`. |
+| **AgentExchange** | Browse published A2A workflow agents (`/agent-exchange`). Card **⋯** menu for copy/open, **Security**, **Test agent**, **Add to org**, **Unpublish**. Private listings are hidden from other CEOs. Admin **A2A logs** (`/admin/a2a-invocations`). |
 | **Workflow Builder chat** | LLM assistant in the workflow editor to create/edit graphs via natural language. |
 | **Job profiles** | CEO job search profiles (intake, resume, preferences); gate for Job Applicant pipeline. |
 | **Job workflows** | Multi-agent **Job Applicant** pipeline (Discovery → Fit Scoring → Resume Tailoring → Application); Kanban-tracked stages; browser/Playwright apply path. See **knowledgebase/JOB-APPLICANT-WORKFLOW.md**. |
 | **MCP integrations** | Register MCP servers (admin/CEO); connect, test tools, playground; use in workflow **MCP Tool** and **SSE Listen** nodes. Local test server: `tools/local-mcp-random-sse/`. |
 | **External agents (A2A)** | Register external agent endpoints; invoke from workflow **External Agent** node. |
 | **Content tools** | Agent-callable tools: summarize URL, image/video gen, Kanban, **intent_classify_and_delegate**, workflow trigger/enquire/mutate, job applicant tools, **email_send**, **notify_ceo**, **Master Data** (`master_data_list_tables` / row CRUD / `master_data_rag`), learnings, browser, etc.; owner-scoped logs UI; onboard new APIs via script. |
-| **Master Data & RAG** | Per-CEO tables + documents (keyword RAG over PDF/DOCX/Excel/text). UI captures **purpose/description** per table. Agents list tables with purpose and CRUD rows / RAG docs via content tools — **no create/alter/drop table**. On register: starter **departments** table + **Flolah User Guide** + **Platform Help** document set. |
+| **Master Data & RAG** | Per-CEO tables + documents (keyword RAG over PDF/DOCX/Excel/text). UI captures **purpose/description** per table. Agents list tables with purpose and CRUD rows / RAG docs via content tools — **no create/alter/drop table**. On register: starter **departments** table + **Flolah User Guide** + **Platform Help** document set. **Purge all uploads** removes CEO uploads only; help/guide docs are protected. |
 | **Platform Help** | Standard agent `platformhelp` — product how-to via `master_data_rag` over `knowledgebase/platform-help/`. See [`knowledgebase/platform-help/README.md`](knowledgebase/platform-help/README.md). |
 | **COO specialty delegation** | COO chat hard-path: AGENTS.md purpose intent → specialist(s) (cap 2 for multi-intent) + Kanban; peer specialty referral; COO-native work stays with COO; how-to → Platform Help; graph build → Workflow Builder. |
 | **Email send** | `email_send` content tool — agents can send email via configured mail integration (owner-scoped logging). |
@@ -261,7 +265,7 @@ New CEOs start with **empty** standups (no other user’s chats or agents), star
 - **Node types:** Trigger, Agent, Content Tool, MCP Tool, **SSE Listen** (long-running stream; dispatches downstream on each event), **Sub-workflow**, Call API (Basic/Bearer/API-key auth + custom headers), Brain, Email, IF, While, Parallel, Merge, CEO Approval, External Agent
 - **Data binding:** `{{nodeId.outputKey}}` and nested paths (e.g. `{{api-1.body.accessToken}}`, `{{trigger-1.trigger_input.query}}`); workflow variables `{{var.key}}` (editor **Workflow variables** panel — shared static config for that definition, not platform-wide globals). Full guide: `knowledgebase/platform-help/14-workflow-dynamic-values.md`.
 - **Dynamic auth:** API / MCP / Brain `apiKey` / External Agent override / SSE headers accept the same `{{…}}` templates (values look static in the UI; runner substitutes at execute time). Brave Search MCP is **BYOK** (workflow headers only — no container `BRAVE_API_KEY` fallback).
-- **A2A publish:** Publish → AgentExchange + agent card / JSON-RPC under `/api/a2a/:publishId`. **Sync** or **Async**; optional callback URL (+ per-invoke `params.metadata.callbackUrl`). **Deny all** default; **Allow all** or IP whitelist (VPS: real client IP via `docker-compose.vps-client-ip.yml`). **Public** or **Secured** (OAuth at `/api/a2a/:publishId/oauth/token`, then `Authorization: Bearer <access_token>`). Async: `enquire-progress` / `tasks/get`; callback JSON events `a2a.workflow.completed|failed|cancelled`.
+- **A2A publish:** Publish → AgentExchange + agent card / JSON-RPC under `/api/a2a/:publishId`. **Visibility** `public` (default) or `private` (public endpoints always denied; COO / reports-to lead via org path only). **Sync** or **Async**; optional callback URL. **Deny all** IP default; **Allow all** or IP whitelist. **Public auth** or **Secured** OAuth.
 - **Download for Windows:** Published workflow → **Download for Windows** (lite or with portable Node 18). Local orchestrator; Flolah holds run state + remote nodes. Guide: `knowledgebase/platform-help/17-desktop-windows-download.md`.
 - **Runs:** Kanban tasks per step; fail run on API/MCP errors (non-2xx HTTP, SSL errors, MCP `is_error`)
 - **Help:** Platform Help agent RAG over `knowledgebase/platform-help/` (re-upload with `node backend/scripts/reupload-platform-help-docs.js` after doc changes).
@@ -393,14 +397,15 @@ All routes below are also available under **`/api/...`** (frontend uses `/api` p
 - `GET /agent-exchange/:publishId/test-sample` — sample input from agent card `inputSchema` (Test UI autofill)
 - `POST /agent-exchange/:publishId/test` — authenticated test invoke (owners bypass IP deny/whitelist and OAuth; logged as `source=agent_exchange_test`)
 - `GET /admin/a2a-invocations` — admin report of all A2A attempts (`denied` / `error` / `success` / `failed`), including blocks before a workflow run starts
-- `GET/PUT /agent-exchange/:publishId/access` — access policy (`deny_all` | `allow_all` | `whitelist`)
+- `GET/PUT /agent-exchange/:publishId/access` — access policy (`deny_all` | `allow_all` | `whitelist`); body may also set `visibility`
+- `PUT /agent-exchange/:publishId/visibility` — `public` (default) | `private` (disables public calling; org COO / reports-to lead only)
 - `POST/DELETE /agent-exchange/:publishId/ip-whitelist` — whitelist entries (IPv4 CIDR ok; IPv6 exact only)
 - `DELETE /agent-exchange/:publishId` — unpublish A2A listing (workflow remains published)
-- `GET /a2a/:publishId/.well-known/agent-card.json` — agent card (secured cards include OAuth2 client-credentials `tokenUrl`)
+- `GET /a2a/:publishId/.well-known/agent-card.json` — agent card (403 when visibility=private or IP denied)
 - `POST /a2a/:publishId/oauth/token` — `grant_type=client_credentials` + `client_id` / `client_secret` → Bearer access token
-- `POST /a2a/:publishId` — A2A JSON-RPC invoke (blocked when `deny_all` or IP not whitelisted; no auth when public + allowed; Bearer when secured). Async enquire / `tasks/get`: final step text in **`result.parts[0].text`**; state in **`result.task.status.state`**; run meta in **`result.metadata.run`**. Callback webhook: same text in **`final_output`**.
+- `POST /a2a/:publishId` — A2A JSON-RPC invoke (blocked when `visibility=private`, `deny_all`, or IP not whitelisted; no auth when public auth + allowed; Bearer when secured). Async enquire / `tasks/get`: final step text in **`result.parts[0].text`**; state in **`result.task.status.state`**; run meta in **`result.metadata.run`**. Callback webhook: same text in **`final_output`**.
 - `POST/GET /a2a-callback-inbox` — mock async callback receiver (GET requires CEO auth; sample webhook JSON in response)
-- **Publish body:** `invoke_mode: sync|async`, `callback_url`, `as_new_agent`, `publish_id` (update), `auth_mode: public|secured`
+- **Publish body:** `visibility: public|private`, `invoke_mode: sync|async`, `callback_url`, `as_new_agent`, `publish_id` (update), `auth_mode: public|secured`
 - Optional env: `A2A_ACCESS_TOKEN_TTL_SEC` (default `3600`), `A2A_SYNC_TIMEOUT_MS`, `A2A_ASYNC_WATCH_TIMEOUT_MS`, `A2A_CALLBACK_TIMEOUT_MS`
 
 ### MCP & external agents
@@ -408,9 +413,26 @@ All routes below are also available under **`/api/...`** (frontend uses `/api` p
 - `/integrations/mcp/*` — MCP server registry, connect, test, call tool
 - `/external-agents/*` — A2A agent registry and task invoke
 
+### Org members (external / A2A leaf agents)
+
+- `GET /org-members` — leaf members in the CEO's org chart
+- `POST /org-members` — add/update a leaf member (`kind: external|a2a_publish`, `ref_id`, `display_name`, `purpose`, `department`, `parent_id` internal agent, `monthly_token_budget`, `error_budget_pct`)
+- `DELETE /org-members/:id` — remove from the org chart (registry entry untouched)
+
+### Efficiency & budgets
+
+- `GET /efficiency` — fleet-level Org metrics (existing)
+- `GET /efficiency/agents` — selectable members (internal + leaf) with current-month budget state
+- `GET /efficiency/agents/:memberKey?days=30` — Agent View metrics (activity, outcomes, tokens, reliability, top tools)
+- `PUT /efficiency/agents/:memberKey/budget` — set `monthly_token_budget` / `error_budget_pct`
+- Ledger `token_usage` sources: `openclaw_chat`, `delegation`, `workflow_brain`, `a2a_outbound`; provider usage when returned, otherwise a flagged `chars/4` estimate
+
 ### Master Data
 
 - `/master-data/*` — tables, rows, documents, RAG (per CEO). Default User Guide document + departments seeded on CEO register / backend startup backfill.
+- `departments` table carries `name`, `purpose`, `monthly_token_budget`; purpose is synced into agent workspaces via ORG.md.
+- `POST /master-data/documents/purge-all` — delete all **user-uploaded** documents (DB + disk); Platform Help / User Guide retained.
+- `DELETE /master-data/documents/:id` — blocked with `403` / `PROTECTED_DOCUMENT` for help/guide docs (`is_protected` on list responses).
 
 ### Media
 
@@ -433,7 +455,9 @@ See **knowledgebase/TESTING.md** for full test cases and restart steps.
 - **Schema:** `backend/src/db/schema.js` — `initDb()`, `getDb()`. DB: `backend/data/agent-os.db` (or `AGENT_OS_DATA_DIR`). Includes `standups.owner_user_id`, `agent_delegation_tasks.owner_user_id`, A2A publications, platform notifications.
 - **Seeds:** `seed-default-agents.js`, `seed-content-tools-meta.js` (email_send, notify_ceo, Kanban, workflow tools), `seed-job-applicant-tools.js`, `seed-workflow-builder-agent.js`, `seed-platform-help-agent.js`
 - **Default CEO Master Data:** `backend/src/services/ceo-default-master-data.js` — departments table + Flolah User Guide (README) + Platform Help docs (`knowledgebase/platform-help/`) on register and startup backfill
-- **Backend scripts:** `backend/scripts/` — seeds, E2E tests, MCP seed, workflow tests, COO org/delegation smoke, `cleanup-workflow-runs.js`
+- **Protected docs:** `backend/src/services/master-data-protected-docs.js` — help/guide titles & filenames cannot be deleted by CEOs (seed refresh uses `{ force: true }`)
+- **Agent delete:** `backend/src/services/agent-delete.js` — `deleteAgentCascade()` runs in one transaction and clears every table that references `agents(id)` (kanban cards are **unassigned**, not deleted; children reparent to the deleted agent's parent). Deletes are recorded in `deleted_agents`, so the startup catalog re-grant (`grantStandardAgents`) and `POST /api/openclaw/sync` will not recreate the agent; an explicit create clears the tombstone
+- **Backend scripts:** `backend/scripts/` — seeds, E2E tests (`test-purge-all-documents.js`, `test-agent-delete-cascade.js`, learnings/history cache, …), MCP seed, workflow tests, COO org/delegation smoke, `cleanup-workflow-runs.js`
 - **OpenClaw scripts:** `scripts/` — `setup-openclaw-from-scratch.ps1`, `onboard-api-tool.js`, `apply-openclaw-agents-config.js`, `setup-job-applicant-agents.js`, `sync-browser-tools-md.js`, `install-agent-os-content-tools-extension.js`, kill/restart helpers
 - **Allowlists:** `backend/src/lib/content-tools-allow.js` (Docker-safe; keep in sync with `scripts/lib/content-tools-allow.js`)
 

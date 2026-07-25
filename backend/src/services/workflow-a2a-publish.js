@@ -27,7 +27,7 @@ import {
   waitForRunCompletion,
   watchA2ATaskInBackground,
 } from './workflow-a2a-async.js';
-import { checkA2AClientIp } from './workflow-a2a-access.js';
+import { checkA2AClientIp, normalizeA2AVisibility } from './workflow-a2a-access.js';
 
 /** In-memory cache for quick sync lookups; durable source of truth is workflow_a2a_tasks. */
 const a2aTasks = new Map();
@@ -249,6 +249,7 @@ function sanitizePublication(row, def = null, extras = {}) {
     invoke_mode: invokeMode,
     callback_url: row.callback_url || null,
     access_policy: row.access_policy || 'deny_all',
+    visibility: normalizeA2AVisibility(row.visibility),
     endpoint_url: urls.endpoint_url,
     card_url: urls.card_url,
     token_url: secured ? urls.token_url : null,
@@ -292,7 +293,7 @@ export function getPublicationById(publishId) {
   return sanitizePublication(row, def);
 }
 
-export function listAllPublishedA2AAgents() {
+export function listAllPublishedA2AAgents({ includePrivateForOwnerId = null } = {}) {
   const db = getDb();
   const rows = db
     .prepare(
@@ -304,19 +305,26 @@ export function listAllPublishedA2AAgents() {
        ORDER BY p.published_at DESC, p.name ASC`
     )
     .all();
-  return rows.map((row) => {
-    const pub = sanitizePublication(
-      row,
-      { name: row.workflow_name, description: row.description },
-      { includeClientId: false }
-    );
-    return {
-      ...pub,
-      owner_name: row.owner_name || row.owner_user_id,
-      owner_email: row.owner_email || '',
-      workflow_name: row.workflow_name,
-    };
-  });
+  const ownerFilter = includePrivateForOwnerId ? String(includePrivateForOwnerId) : null;
+  return rows
+    .map((row) => {
+      const pub = sanitizePublication(
+        row,
+        { name: row.workflow_name, description: row.description },
+        { includeClientId: false }
+      );
+      return {
+        ...pub,
+        owner_name: row.owner_name || row.owner_user_id,
+        owner_email: row.owner_email || '',
+        workflow_name: row.workflow_name,
+      };
+    })
+    .filter((agent) => {
+      if (agent.visibility !== 'private') return true;
+      // Private listings are only visible to the owning CEO (and admins impersonating them).
+      return ownerFilter && agent.owner_user_id === ownerFilter;
+    });
 }
 
 export function publishWorkflowAsA2A(ownerUserId, workflowId, body = {}, actor = null) {
@@ -399,6 +407,10 @@ export function publishWorkflowAsA2A(ownerUserId, workflowId, body = {}, actor =
     }
   }
 
+  const visibility = normalizeA2AVisibility(
+    body.visibility ?? existing?.visibility ?? 'public'
+  );
+
   let clientId = existing?.client_id || null;
   let clientSecretHash = existing?.client_secret_hash || null;
   // Legacy plaintext auth_token: keep for existing rows / invoke compat; do not accept new values from API.
@@ -449,6 +461,7 @@ export function publishWorkflowAsA2A(ownerUserId, workflowId, body = {}, actor =
     auth_token: authToken,
     invoke_mode: invokeMode,
     callback_url: callbackUrl,
+    visibility,
     status: 'published',
     published_at: new Date().toISOString(),
   };
@@ -464,7 +477,7 @@ export function publishWorkflowAsA2A(ownerUserId, workflowId, body = {}, actor =
         name = ?, description = ?, skill_id = ?, skill_name = ?, skill_description = ?,
         agent_card_json = ?, metadata_json = ?, input_schema_json = ?,
         auth_mode = ?, client_id = ?, client_secret_hash = ?,
-        auth_token = ?, invoke_mode = ?, callback_url = ?,
+        auth_token = ?, invoke_mode = ?, callback_url = ?, visibility = ?,
         status = 'published', published_at = ?, updated_at = datetime('now')
        WHERE id = ?`
     ).run(
@@ -482,6 +495,7 @@ export function publishWorkflowAsA2A(ownerUserId, workflowId, body = {}, actor =
       patch.auth_token,
       patch.invoke_mode,
       patch.callback_url,
+      patch.visibility,
       patch.published_at,
       publishId
     );
@@ -493,9 +507,9 @@ export function publishWorkflowAsA2A(ownerUserId, workflowId, body = {}, actor =
       `INSERT INTO workflow_a2a_publications (
         id, workflow_definition_id, owner_user_id, name, description,
         skill_id, skill_name, skill_description, agent_card_json, metadata_json, input_schema_json,
-        auth_mode, client_id, client_secret_hash, auth_token, invoke_mode, callback_url,
+        auth_mode, client_id, client_secret_hash, auth_token, invoke_mode, callback_url, visibility,
         status, published_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'published', ?, datetime('now'))`
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'published', ?, datetime('now'))`
     ).run(
       publishId,
       workflowId,
@@ -514,6 +528,7 @@ export function publishWorkflowAsA2A(ownerUserId, workflowId, body = {}, actor =
       patch.auth_token,
       patch.invoke_mode,
       patch.callback_url,
+      patch.visibility,
       patch.published_at
     );
   }
@@ -524,7 +539,7 @@ export function publishWorkflowAsA2A(ownerUserId, workflowId, body = {}, actor =
 
   store.appendAudit(workflowId, {
     action: 'a2a_published',
-    summary: `Published as A2A agent "${name}" (${publishId}, auth=${authMode}, invoke=${invokeMode})`,
+    summary: `Published as A2A agent "${name}" (${publishId}, auth=${authMode}, invoke=${invokeMode}, visibility=${visibility})`,
     changedBy: actor?.id,
     changedByName: actor?.name,
   });
@@ -828,7 +843,7 @@ export async function handleA2AJsonRpc(
         error: {
           code: -32005,
           message: ipAccess.reason || 'Client IP is not allowed',
-          data: { access_policy: ipAccess.policy },
+          data: { access_policy: ipAccess.policy, visibility: ipAccess.visibility || row.visibility },
         },
       };
     }

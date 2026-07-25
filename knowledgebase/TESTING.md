@@ -19,6 +19,28 @@ Also run from repo root: `node scripts/ensure-all-agent-workspaces.js` and `node
 
 Help corpus: `knowledgebase/platform-help/` → Master Data docs titled `Flolah Help — …`. Agent id: `platformhelp`.
 
+## Master Data purge-all + protected help docs
+
+```powershell
+cd backend
+node scripts/test-purge-all-documents.js
+```
+
+UI: **Master Data → Documents → Purge all uploads** deletes CEO uploads only. Platform Help / User Guide show a **protected** badge and cannot be deleted.
+
+## Agent delete: FK cascade + no resurrection
+
+```powershell
+cd backend
+node scripts/test-agent-delete-cascade.js
+```
+
+Covers the two bugs this replaced: a bare `DELETE FROM agents` still fails with `FOREIGN KEY constraint failed` when the agent has Kanban assignments (the test asserts that), while `deleteAgentCascade()` succeeds, unassigns the cards instead of deleting them, reparents children, and leaves nothing behind when it rejects a COO delete.
+
+It also asserts the agent stays deleted: `deleted_agents` tombstones keep the id out of `listStandardAgentIds()` (so the boot-time full-catalog re-grant for privileged CEOs cannot take it back) and `POST /api/openclaw/sync` skips tombstoned ids instead of re-inserting them.
+
+UI: **Dashboard → org chart → Remove**. After removing, restart the backend and hit **Sync from OpenClaw** — the agent must not return.
+
 ## Restart services before testing
 
 Restart **backend**, **frontend**, and **OpenClaw gateway** so the latest code and config are loaded:
@@ -91,6 +113,35 @@ npm run test:smoke
 ```
 
 Runs GET /health, GET /agents, GET /standups. Backend must be running.
+
+## Budgets / Agent View / org leaf members
+
+No running backend needed — these hit the DB and module graph directly:
+
+```powershell
+node backend/scripts/verify-budgets-org-members.js   # tables + ledger + warn-then-block + allocation split
+node backend/scripts/verify-module-graph.js          # routers/services import cleanly (no circular breaks)
+node backend/scripts/verify-agent-view-api.js        # authenticated Agent View / budgets / org-members (backend up)
+node backend/scripts/test-org-member-delegation-e2e.js  # mock A2A leaf member + COO delegation + budget block
+```
+
+On VPS after deploy:
+
+```bash
+bash /opt/agent-os/deploy/scripts/vps-smoke-budgets-org-members.sh
+bash /opt/agent-os/deploy/scripts/vps-regression-full.sh   # full post-CEO regression (mints session; no password needed)
+```
+
+`vps-regression-full.sh` sets `AGENT_OS_REGRESSION_TOKEN` so `tests/lib/ceo-session.js` skips password login (needed when MFA is on or the default password is not in env).
+
+Manual UI checks:
+
+1. **Departments** — Dashboard department picker → **Edit**: set purpose + monthly token budget; confirm the row updates in **Master Data → `departments`**.
+2. **Agent budgets** — Dashboard → **Add agent** with a monthly token budget and error budget %; confirm they appear in **Efficiency View → Agent View → Edit budget**.
+3. **Agent View** — `/efficiency` → **Agent View** tab: selector lists internal agents plus any leaf members, gauges render, and the Activity / Outcomes / Token budget / Reliability charts switch.
+4. **Warn-then-block** — set a tiny token budget (e.g. 100) on a test agent, chat with it twice; the second turn should be refused with a budget message (HTTP 429) and a bell warning should have arrived at 80%.
+5. **Org leaf members** — External Agents (or AgentExchange for your own publication) → **Add to org** with department + reports-to; confirm the badge shows in the org designer, then **Resync ORG.md & AGENTS.md** and check the COO's ORG.md lists the member key.
+6. **COO delegation to a leaf member** — ask the COO for work matching the leaf member's purpose; a Kanban card should be created, the agent invoked, and the card completed or failed with the outcome.
 
 ---
 

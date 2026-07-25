@@ -5,7 +5,7 @@
 #   - hPanel light shell: app-topbar, profile-menu, nav-section-chevron, --bg #f7f8f9
 #   - Workflow fullscreen: shell-focus-mode, Exit to workflows, wf-editor-exit
 #   - Primary CTAs: Register MCP, Register Agents, page-hero
-#   - Existing: Resync ORG, Master Data purpose, NotificationProvider, Broadcast, Flolah title
+#   - Existing: Resync ORG, Master Data purpose, Purge all uploads, NotificationProvider, Broadcast, Flolah title
 #
 # Usage:
 #   bash /opt/agent-os/deploy/scripts/vps-rebuild-frontend.sh

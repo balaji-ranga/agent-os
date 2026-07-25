@@ -4,6 +4,7 @@ import {
   ensureDepartmentName,
   loadDepartments,
   removeDepartment,
+  updateDepartment,
 } from '../utils/departmentsMasterData.js';
 
 const controlStyle = {
@@ -27,12 +28,19 @@ export default function DepartmentPicker({
   ariaLabel = 'Department',
   selectStyle,
   compact = false,
+  showDetails,
 }) {
+  const withDetails = showDetails === undefined ? !compact : !!showDetails;
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [newName, setNewName] = useState('');
+  const [newPurpose, setNewPurpose] = useState('');
+  const [newBudget, setNewBudget] = useState('');
+  const [editing, setEditing] = useState(false);
+  const [editPurpose, setEditPurpose] = useState('');
+  const [editBudget, setEditBudget] = useState('');
 
   const refresh = useCallback(async () => {
     const { departments: list, table, duplicates } = await loadDepartments();
@@ -93,16 +101,47 @@ export default function DepartmentPicker({
 
   const selectedRow = departments.find((d) => d.name === value) || null;
 
+  useEffect(() => {
+    setEditing(false);
+    setEditPurpose(selectedRow?.purpose || '');
+    setEditBudget(
+      selectedRow?.monthly_token_budget == null ? '' : String(selectedRow.monthly_token_budget)
+    );
+  }, [selectedRow?.id, selectedRow?.purpose, selectedRow?.monthly_token_budget]);
+
   const handleAdd = async () => {
     const label = newName.trim();
     if (!label) return;
     setBusy(true);
     setError(null);
     try {
-      const res = await addDepartment(label);
+      const res = await addDepartment(label, {
+        purpose: newPurpose,
+        monthlyTokenBudget: newBudget,
+      });
       await refresh();
       setNewName('');
+      setNewPurpose('');
+      setNewBudget('');
       onChange?.(res.department.name);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSaveDetails = async () => {
+    if (!selectedRow) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const list = await updateDepartment(selectedRow.id, {
+        purpose: editPurpose,
+        monthlyTokenBudget: editBudget,
+      });
+      setDepartments(list.departments);
+      setEditing(false);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -164,7 +203,65 @@ export default function DepartmentPicker({
         >
           Remove
         </button>
+        {withDetails && selectedRow && (
+          <button
+            type="button"
+            onClick={() => setEditing((v) => !v)}
+            disabled={disabled || busy || loading}
+            title="Edit department purpose and monthly token budget"
+            style={{ ...controlStyle, cursor: 'pointer', fontSize: '0.8rem' }}
+          >
+            {editing ? 'Close' : 'Edit'}
+          </button>
+        )}
       </div>
+      {withDetails && selectedRow && !editing && (
+        <div style={{ fontSize: '0.75rem', color: 'var(--muted)', maxWidth: 420 }}>
+          {selectedRow.purpose || 'No purpose set — click Edit to describe this department.'}
+          {' · '}
+          {selectedRow.monthly_token_budget == null
+            ? 'No monthly token budget'
+            : `Budget ${selectedRow.monthly_token_budget.toLocaleString()} tokens/month`}
+        </div>
+      )}
+      {withDetails && selectedRow && editing && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 420 }}>
+          <textarea
+            value={editPurpose}
+            onChange={(e) => setEditPurpose(e.target.value)}
+            placeholder="What this department is responsible for…"
+            rows={2}
+            disabled={disabled || busy}
+            style={{ ...controlStyle, resize: 'vertical' }}
+          />
+          <div style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center' }}>
+            <input
+              type="number"
+              min="0"
+              value={editBudget}
+              onChange={(e) => setEditBudget(e.target.value)}
+              placeholder="Monthly token budget"
+              disabled={disabled || busy}
+              style={{ ...controlStyle, minWidth: 180 }}
+            />
+            <button
+              type="button"
+              onClick={handleSaveDetails}
+              disabled={disabled || busy}
+              style={{
+                ...controlStyle,
+                background: 'var(--accent)',
+                border: 'none',
+                color: '#fff',
+                cursor: busy ? 'default' : 'pointer',
+                fontSize: '0.8rem',
+              }}
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      )}
       <div style={{ display: 'inline-flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
         <input
           type="text"
@@ -180,6 +277,27 @@ export default function DepartmentPicker({
           }}
           style={{ ...controlStyle, minWidth: 140 }}
         />
+        {withDetails && (
+          <>
+            <input
+              type="text"
+              value={newPurpose}
+              onChange={(e) => setNewPurpose(e.target.value)}
+              placeholder="Purpose"
+              disabled={disabled || busy || loading}
+              style={{ ...controlStyle, minWidth: 180 }}
+            />
+            <input
+              type="number"
+              min="0"
+              value={newBudget}
+              onChange={(e) => setNewBudget(e.target.value)}
+              placeholder="Tokens/month"
+              disabled={disabled || busy || loading}
+              style={{ ...controlStyle, minWidth: 130 }}
+            />
+          </>
+        )}
         <button
           type="button"
           onClick={handleAdd}

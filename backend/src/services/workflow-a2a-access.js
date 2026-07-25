@@ -1,9 +1,14 @@
 /**
- * Per-publication A2A network access policy.
+ * Per-publication A2A network access policy + marketplace visibility.
  *
  * deny_all (default): no public A2A endpoint is reachable.
  * allow_all: any client IP is accepted.
  * whitelist: client IP must match an exact IP or CIDR entry.
+ *
+ * visibility:
+ *   public (default) — AgentExchange + public endpoints subject to access_policy.
+ *   private — public card / oauth / invoke always denied; only COO or the org leaf's
+ *             reports-to lead may call via org delegation (owner Test still bypasses).
  */
 import { randomUUID } from 'crypto';
 import { isIP } from 'net';
@@ -11,6 +16,7 @@ import { getDb } from '../db/schema.js';
 import { ipMatchesCidrOrIp } from './agent-workflow-desktop-auth.js';
 
 export const A2A_ACCESS_POLICIES = new Set(['deny_all', 'allow_all', 'whitelist']);
+export const A2A_VISIBILITIES = new Set(['public', 'private']);
 
 function db() {
   return getDb();
@@ -22,6 +28,21 @@ export function normalizeA2AAccessPolicy(raw) {
     throw new Error('access_policy must be deny_all, allow_all, or whitelist');
   }
   return policy;
+}
+
+export function normalizeA2AVisibility(raw) {
+  const v = String(raw || 'public').trim().toLowerCase();
+  if (!A2A_VISIBILITIES.has(v)) {
+    throw new Error('visibility must be public or private');
+  }
+  return v;
+}
+
+export function isA2APrivate(publicationOrVisibility) {
+  if (publicationOrVisibility && typeof publicationOrVisibility === 'object') {
+    return normalizeA2AVisibility(publicationOrVisibility.visibility) === 'private';
+  }
+  return normalizeA2AVisibility(publicationOrVisibility) === 'private';
 }
 
 export function validateIpOrCidr(raw) {
@@ -72,6 +93,7 @@ export function getA2AAccessSettings(publishId, ownerUserId) {
   return {
     publish_id: publishId,
     access_policy: normalizeA2AAccessPolicy(publication.access_policy),
+    visibility: normalizeA2AVisibility(publication.visibility),
     entries,
   };
 }
@@ -86,6 +108,23 @@ export function setA2AAccessPolicy(publishId, ownerUserId, rawPolicy) {
     )
     .run(policy, publishId, ownerUserId);
   if (!result.changes) return null;
+  return getA2AAccessSettings(publishId, ownerUserId);
+}
+
+/** Set marketplace / public-calling visibility (public | private). */
+export function setA2AVisibility(publishId, ownerUserId, rawVisibility) {
+  const visibility = normalizeA2AVisibility(rawVisibility);
+  const result = db()
+    .prepare(
+      `UPDATE workflow_a2a_publications
+       SET visibility = ?, updated_at = datetime('now')
+       WHERE id = ? AND owner_user_id = ? AND status = 'published'`
+    )
+    .run(visibility, publishId, ownerUserId);
+  if (!result.changes) return null;
+  console.log(
+    `[a2a-access] visibility=${visibility} publish=${publishId} owner=${ownerUserId}`
+  );
   return getA2AAccessSettings(publishId, ownerUserId);
 }
 
@@ -128,12 +167,27 @@ export function removeA2AIpWhitelistEntry(publishId, entryId, ownerUserId) {
 
 /**
  * Enforce policy from a raw publication row.
+ * Private agents always fail public IP checks (callers must use org bypass / owner test).
  */
 export function checkA2AClientIp(publication, clientIp) {
+  if (isA2APrivate(publication)) {
+    return {
+      ok: false,
+      policy: 'private',
+      visibility: 'private',
+      reason:
+        'This A2A agent is private — public calling is disabled. Only the COO or its org reports-to lead can invoke it.',
+    };
+  }
   const policy = normalizeA2AAccessPolicy(publication?.access_policy);
-  if (policy === 'allow_all') return { ok: true, policy };
+  if (policy === 'allow_all') return { ok: true, policy, visibility: 'public' };
   if (policy === 'deny_all') {
-    return { ok: false, policy, reason: 'This A2A agent currently denies all public access' };
+    return {
+      ok: false,
+      policy,
+      visibility: 'public',
+      reason: 'This A2A agent currently denies all public access',
+    };
   }
 
   const entries = db()
@@ -143,10 +197,10 @@ export function checkA2AClientIp(publication, clientIp) {
     )
     .all(publication.id, publication.owner_user_id);
   if (!entries.length) {
-    return { ok: false, policy, reason: 'This A2A agent whitelist is empty' };
+    return { ok: false, policy, visibility: 'public', reason: 'This A2A agent whitelist is empty' };
   }
   const hit = entries.some((entry) => ipMatchesCidrOrIp(clientIp, entry.cidr_or_ip));
   return hit
-    ? { ok: true, policy }
-    : { ok: false, policy, reason: 'Client IP is not allowed for this A2A agent' };
+    ? { ok: true, policy, visibility: 'public' }
+    : { ok: false, policy, visibility: 'public', reason: 'Client IP is not allowed for this A2A agent' };
 }

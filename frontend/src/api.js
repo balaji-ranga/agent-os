@@ -296,11 +296,20 @@ export const api = {
   masterDataDocumentUpload: (body) => post('/master-data/documents', body),
   masterDataDocumentReindex: (id) => post(`/master-data/documents/${encodeURIComponent(id)}/reindex`, {}),
   masterDataDocumentsReindexAll: () => post('/master-data/documents/reindex-all', {}),
+  masterDataDocumentsPurgeAll: () => post('/master-data/documents/purge-all', {}),
   masterDataDocumentDelete: (id) => del(`/master-data/documents/${encodeURIComponent(id)}`),
   masterDataRag: (body) => post('/master-data/rag', body),
   masterDataQuery: (body) => post('/master-data/query', body),
   aiSnipperSummary: (days = 7) => get(`/ai-snipper/summary?days=${days}`),
   efficiencySummary: (days = 14) => get(`/efficiency/summary?days=${encodeURIComponent(days)}`),
+  efficiencyAgents: () => get('/efficiency/agents'),
+  efficiencyAgent: (memberKey, days = 30) =>
+    get(`/efficiency/agents/${encodeURIComponent(memberKey)}?days=${encodeURIComponent(days)}`),
+  efficiencyAgentBudgetSet: (memberKey, body) =>
+    put(`/efficiency/agents/${encodeURIComponent(memberKey)}/budget`, body),
+  orgMembers: () => get('/org-members'),
+  orgMemberUpsert: (body) => post('/org-members', body),
+  orgMemberDelete: (id) => del(`/org-members/${encodeURIComponent(id)}`),
   adminUsers: () => get('/admin/users'),
   adminUserGet: (userId) => get(`/admin/users/${encodeURIComponent(userId)}`),
   adminUserSetEnabled: (userId, enabled) => patch(`/admin/users/${encodeURIComponent(userId)}/enabled`, { enabled }),
@@ -459,6 +468,10 @@ export const api = {
   agentExchangeAccessSet: (publishId, accessPolicy) =>
     put(`/agent-exchange/${encodeURIComponent(publishId)}/access`, {
       access_policy: accessPolicy,
+    }),
+  agentExchangeVisibilitySet: (publishId, visibility) =>
+    put(`/agent-exchange/${encodeURIComponent(publishId)}/visibility`, {
+      visibility,
     }),
   agentExchangeIpAdd: (publishId, body) =>
     post(`/agent-exchange/${encodeURIComponent(publishId)}/ip-whitelist`, body),

@@ -1,4 +1,6 @@
-# Agent OS frontend — Vite SPA (hPanel light shell, fullscreen workflow editor, OrgDesigner dashboard)
+# Agent OS frontend — Vite SPA (hPanel light shell, fullscreen workflow editor, OrgDesigner dashboard,
+# Efficiency Agent View, Add-to-org for external/A2A leaf members, department purpose/budget UI,
+# Master Data Purge all uploads + protected help/guide badges).
 # Build context: repo root (see docker-compose.yml). No special build-args beyond VITE_API_URL.
 # After rebuild, always recreate nginx so the reverse proxy picks up the new container IP.
 FROM node:22-bookworm-slim AS build

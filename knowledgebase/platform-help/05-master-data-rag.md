@@ -9,7 +9,7 @@ Two pillars:
 
 ## Tables
 
-- New CEOs get a **departments** table (Executive, Research, Finance, Social, Engineering, Operations, Job Pipeline, …).
+- New CEOs get a **departments** table (Executive, Research, Finance, Social, Engineering, Operations, Job Pipeline, …) with `name`, **`purpose`** and **`monthly_token_budget`** columns. Purpose is synced into agent workspaces via ORG.md — see [18-agent-budgets-and-org-members.md](./18-agent-budgets-and-org-members.md).
 - Add columns and rows; import CSV when available.
 - Capture a **purpose/description** on the table so agents know what it is for.
 - Agents with Master Data tools can list tables, list/insert/update/delete **rows**. They generally **cannot** create/alter/drop tables from chat — that stays in the UI.
@@ -24,7 +24,17 @@ Example asks: “list departments”, “add Engineering if missing”.
 - If you uploaded office files before this support existed, use **Reindex** (or **Reindex all for RAG**) on Master Data so chunks are rebuilt from the stored files.
 - New accounts include **Flolah Platform Help** documents (and often a short User Guide) so agents can answer “how do I use Flolah?”.
 - RAG is **keyword chunk search** over SQLite chunks (not vector embeddings). Clear headings and repeated keywords improve hits.
-- UI may offer a RAG query box; agents use **`master_data_list_documents`** then **`master_data_rag`**.
+- UI may offer a RAG query box; agents use **`master_data_list_documents`** then **`master_data_rag`**. Prefer omitting `summarize` (defaults **false**) and answer from returned `chunks[]` yourself.
+
+### Purge uploads vs protected help docs
+
+| Action | What happens |
+|--------|----------------|
+| **Delete** on one of your uploads | Removes that document from Master Data **and** disk. |
+| **Purge all uploads** | Removes **all** of your uploaded documents (DB + disk) in one step. Confirm carefully — it cannot be undone. |
+| Platform Help (`Flolah Help — …`) / **Flolah User Guide** | Marked **protected**. No Delete button; purge skips them. API returns `403` / `PROTECTED_DOCUMENT` if someone tries to delete them. Startup/register re-seeds them if missing. |
+
+Protected docs are identified by title/filename conventions (User Guide / `README.md`, `Flolah Help —…` / `platform-help-*.md`), not by inventing a special owner.
 
 ### Agent pattern for help questions
 

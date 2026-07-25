@@ -15,6 +15,7 @@ import {
   tenantWorkspacePath,
 } from './openclaw-tenant.js';
 import { writeAgentToolsMd } from './openclaw-agent-tools.js';
+import { clearAgentTombstone } from './agent-delete.js';
 import { getOpenClawDir } from '../config/openclaw-paths.js';
 
 const OPENCLAW_DIR = getOpenClawDir();
@@ -153,7 +154,7 @@ ${department || 'Unassigned'}
 }
 
 /**
- * @param {{ name: string, role?: string, parent_id?: string, reportingTo?: string, department?: string, id?: string, ownerUserId?: string, tools?: string[] }} input
+ * @param {{ name: string, role?: string, parent_id?: string, reportingTo?: string, department?: string, id?: string, ownerUserId?: string, tools?: string[], monthly_token_budget?: number|string|null, error_budget_pct?: number|string|null }} input
  */
 export async function createFullAgent(input) {
   const name = (input.name || 'Unnamed').trim();
@@ -198,6 +199,9 @@ export async function createFullAgent(input) {
 - Reports to: ${parentId || 'COO'}.
 - CEO workspace: ${ownerUserId}.
 `;
+
+  // Re-creating an id the user deleted earlier is deliberate, so drop its tombstone.
+  clearAgentTombstone(db, id);
 
   // Custom agents belong to the creating CEO and are NOT auto-granted to all CEOs on signup.
   db.prepare(
@@ -261,6 +265,18 @@ export async function createFullAgent(input) {
       } catch (e) {
         console.warn('appendAgentRowToAgentsMd (parent) failed', e?.message);
       }
+    }
+  }
+
+  if (input.monthly_token_budget != null || input.error_budget_pct != null) {
+    try {
+      const { setAgentBudget } = await import('./agent-budgets.js');
+      setAgentBudget(ownerUserId, id, {
+        monthly_token_budget: input.monthly_token_budget,
+        error_budget_pct: input.error_budget_pct,
+      });
+    } catch (e) {
+      console.warn('[create-full-agent] budget setup failed', id, e?.message || e);
     }
   }
 

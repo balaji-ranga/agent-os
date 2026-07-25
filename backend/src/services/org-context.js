@@ -8,6 +8,8 @@ import { listAgentsForUser, getUserById } from './users.js';
 import { tenantOpenClawAgentId, tenantWorkspacePath } from './openclaw-tenant.js';
 import * as workspace from '../workspace/adapter.js';
 import { formatCeoPolicyMd } from './ceo-guardrails.js';
+import { listDepartmentsForOwner } from './ceo-default-master-data.js';
+import { listOrgAgentMembers } from './org-agent-members.js';
 
 export function getCooAgentRow() {
   return getDb().prepare('SELECT * FROM agents WHERE is_coo = 1 LIMIT 1').get();
@@ -41,6 +43,18 @@ export function buildOrgContextForCeo(ceoUserId) {
     agent_type: a.agent_type || 'standard',
     owner_user_id: a.owner_user_id || '',
   }));
+  let departments = [];
+  try {
+    departments = listDepartmentsForOwner(ceoUserId);
+  } catch (e) {
+    console.warn('[org-context] departments lookup failed', ceoUserId, e?.message || e);
+  }
+  let leafMembers = [];
+  try {
+    leafMembers = listOrgAgentMembers(ceoUserId, { enabledOnly: true });
+  } catch (e) {
+    console.warn('[org-context] org leaf members lookup failed', ceoUserId, e?.message || e);
+  }
   return {
     ceo: ceo
       ? { id: ceo.id, name: ceo.name, email: ceo.email || '' }
@@ -48,6 +62,8 @@ export function buildOrgContextForCeo(ceoUserId) {
     coo_id: coo?.id || 'balserve',
     coo_name: coo?.name || 'BalServe',
     agents,
+    departments,
+    leaf_members: leafMembers,
     delegatees: getAgentsUnderCooForCeo(ceoUserId),
   };
 }
@@ -93,6 +109,40 @@ export function formatOrgMd(ctx) {
     lines.push(
       `| **${a.id}** | ${String(a.name).replace(/\|/g, ' ')} | ${a.department || '—'} | ${String(a.role || '—').replace(/\|/g, ' ')} | ${reportsTo} | ${toolGrantsSummary(a.id)} |`
     );
+  }
+  const departments = Array.isArray(ctx.departments) ? ctx.departments : [];
+  if (departments.length) {
+    lines.push(
+      '',
+      '## Departments',
+      '',
+      '| Department | Purpose | Monthly token budget |',
+      '|------------|---------|----------------------|'
+    );
+    for (const d of departments) {
+      lines.push(
+        `| **${String(d.name).replace(/\|/g, ' ')}** | ${String(d.purpose || '—').replace(/\|/g, ' ')} | ${
+          d.monthly_token_budget == null ? '—' : d.monthly_token_budget.toLocaleString('en-US')
+        } |`
+      );
+    }
+  }
+  const leafMembers = Array.isArray(ctx.leaf_members) ? ctx.leaf_members : [];
+  if (leafMembers.length) {
+    lines.push(
+      '',
+      '## External / A2A agents (leaf members)',
+      '',
+      'These agents are **outside** OpenClaw. They cannot manage others and are reached over A2A, not sessions_send.',
+      '',
+      '| Member key | Name | Kind | Department | Purpose | Reports to |',
+      '|------------|------|------|------------|---------|------------|'
+    );
+    for (const m of leafMembers) {
+      lines.push(
+        `| \`${m.id}\` | ${String(m.display_name).replace(/\|/g, ' ')} | ${m.kind} | ${m.department || '—'} | ${String(m.purpose || '—').replace(/\|/g, ' ')} | ${m.parent_id || ctx.coo_id} |`
+      );
+    }
   }
   lines.push(
     '',
@@ -151,6 +201,25 @@ export function buildCooAgentsMd(ctx) {
     lines.push(
       `| **${a.id}** | ${String(a.name || a.id).replace(/\|/g, ' ')} | ${a.department || '—'} | ${roleCell} |`
     );
+  }
+  const leafMembers = (Array.isArray(ctx.leaf_members) ? ctx.leaf_members : []).filter(
+    (m) => !m.parent_id || m.parent_id === ctx.coo_id || ctx.delegatees.some((d) => d.id === m.parent_id)
+  );
+  if (leafMembers.length) {
+    lines.push(
+      '',
+      '## External / A2A agents you can delegate to (leaf members)',
+      '',
+      'Delegate to these with **intent_classify_and_delegate** (use the member key). They run outside OpenClaw — do **not** use sessions_send for them.',
+      '',
+      '| Member key | Name | Department | Purpose |',
+      '|------------|------|------------|---------|'
+    );
+    for (const m of leafMembers) {
+      lines.push(
+        `| \`${m.id}\` | ${String(m.display_name).replace(/\|/g, ' ')} | ${m.department || '—'} | ${String(m.purpose || '—').replace(/\|/g, ' ')} |`
+      );
+    }
   }
   lines.push(
     '',

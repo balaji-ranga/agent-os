@@ -60,11 +60,15 @@ function mirrorKanbanTurnToAgentChat({ agentId, ownerUserId, role, content, task
 }
 
 const KANBAN_SELECT = `
-  SELECT k.id, k.title, k.description, k.status, k.assigned_agent_id, k.created_by, k.standup_id,
+  SELECT k.id, k.title, k.description, k.status, k.assigned_agent_id, k.assigned_member_key,
+         k.created_by, k.standup_id,
          k.agent_delegation_task_id, k.owner_user_id, k.created_at, k.updated_at, k.due_date,
-         a.name AS assigned_agent_name
+         COALESCE(a.name, om.display_name) AS assigned_agent_name,
+         om.kind AS assigned_member_kind
   FROM kanban_tasks k
   LEFT JOIN agents a ON a.id = k.assigned_agent_id
+  LEFT JOIN org_agent_members om
+    ON om.id = k.assigned_member_key AND om.owner_user_id = k.owner_user_id
 `;
 
 function resolveWorkflowStepIo(description) {
@@ -162,7 +166,8 @@ router.get('/summary', (req, res) => {
       .prepare(
         `${KANBAN_SELECT}
          WHERE ${ownerFilter.clause}
-           AND k.created_at >= ? AND k.assigned_agent_id IS NOT NULL
+           AND k.created_at >= ?
+           AND (k.assigned_agent_id IS NOT NULL OR k.assigned_member_key IS NOT NULL)
          ORDER BY k.created_at DESC
          LIMIT ?`
       )
@@ -170,14 +175,18 @@ router.get('/summary', (req, res) => {
     const scoped = filterKanbanTasksForUser(rows, req.authUser);
     const counts = {};
     for (const r of scoped) {
-      if (!counts[r.assigned_agent_id]) {
-        counts[r.assigned_agent_id] = { open: 0, awaiting_confirmation: 0, in_progress: 0, completed: 0, failed: 0 };
+      const key = r.assigned_agent_id || r.assigned_member_key;
+      if (!counts[key]) {
+        counts[key] = { open: 0, awaiting_confirmation: 0, in_progress: 0, completed: 0, failed: 0 };
       }
-      if (VALID_STATUSES.includes(r.status)) counts[r.assigned_agent_id][r.status] += 1;
+      if (VALID_STATUSES.includes(r.status)) counts[key][r.status] += 1;
     }
     const byAgent = counts;
     const agentNames = db().prepare('SELECT id, name FROM agents').all();
     const names = Object.fromEntries(agentNames.map((a) => [a.id, a.name]));
+    for (const r of scoped) {
+      if (r.assigned_member_key && r.assigned_agent_name) names[r.assigned_member_key] = r.assigned_agent_name;
+    }
     res.json({ since, by_agent: byAgent, agent_names: names });
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message });
@@ -189,11 +198,14 @@ router.get('/tasks/:id', (req, res) => {
   try {
     const task = db()
       .prepare(
-        `SELECT k.*, a.name AS assigned_agent_name,
+        `SELECT k.*, COALESCE(a.name, om.display_name) AS assigned_agent_name,
+                om.kind AS assigned_member_kind,
                 d.prompt AS delegation_prompt_preview,
                 d.owner_user_id AS delegation_owner_user_id
          FROM kanban_tasks k
          LEFT JOIN agents a ON a.id = k.assigned_agent_id
+         LEFT JOIN org_agent_members om
+           ON om.id = k.assigned_member_key AND om.owner_user_id = k.owner_user_id
          LEFT JOIN agent_delegation_tasks d ON d.id = k.agent_delegation_task_id
          WHERE k.id = ?`
       )

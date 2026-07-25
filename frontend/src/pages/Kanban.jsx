@@ -153,13 +153,19 @@ export default function Kanban() {
 
   const totalCount = tasks.length;
   const byAgentAndStatus = {};
-  const agentIds = ['__unassigned__', ...agents.map((a) => a.id)];
+  const memberKeys = [...new Set(tasks.map((t) => t.assigned_member_key).filter(Boolean))];
+  const agentIds = ['__unassigned__', ...agents.map((a) => a.id), ...memberKeys];
   agentIds.forEach((aid) => {
     byAgentAndStatus[aid] = {};
     STATUSES.forEach((s) => (byAgentAndStatus[aid][s] = []));
   });
+  // External / A2A leaf members are not in `agents`, so their cards are keyed by member key.
+  const memberRowNames = {};
   tasks.forEach((t) => {
-    const aid = t.assigned_agent_id || '__unassigned__';
+    const aid = t.assigned_agent_id || t.assigned_member_key || '__unassigned__';
+    if (t.assigned_member_key && t.assigned_agent_name) {
+      memberRowNames[t.assigned_member_key] = t.assigned_agent_name;
+    }
     if (!byAgentAndStatus[aid]) {
       byAgentAndStatus[aid] = {};
       STATUSES.forEach((s) => (byAgentAndStatus[aid][s] = []));
@@ -171,7 +177,9 @@ export default function Kanban() {
   const agentName = (id) => {
     if (id === '__unassigned__') return 'Unassigned';
     const a = agents.find((x) => x.id === id);
-    return a ? a.name : id;
+    if (a) return a.name;
+    if (memberRowNames[id]) return `${memberRowNames[id]} (external)`;
+    return id;
   };
 
   const handleDragStart = (e, task) => {

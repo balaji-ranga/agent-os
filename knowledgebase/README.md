@@ -6,7 +6,8 @@ Documentation lives here so Cursor and humans can find it. **Root README.md** st
 
 | File | Purpose |
 |------|---------|
-| **platform-help/** | CEO end-user Platform Help guide (navigation, workflows/nodes, **dynamic `{{…}}` values**, MCP, **A2A / AgentExchange** (sync/async, deny_all, Test agent), **Download for Windows**, summary-cache tools, troubleshooting). Consumed by **Platform Help** agent via Master Data RAG. See especially `platform-help/09-a2a-agent-exchange.md`, `platform-help/11-content-tools-scripts-profile.md`, `platform-help/14-workflow-dynamic-values.md`, and `platform-help/17-desktop-windows-download.md`. |
+| **VISION.md** | Product purpose, vision, core strengths, differentiator, and strategic focuses (agent company OS + governed A2A). |
+| **platform-help/** | CEO end-user Platform Help guide (navigation, workflows/nodes, **dynamic `{{…}}` values**, MCP, **A2A / AgentExchange** (sync/async, deny_all, **visibility public|private**, Test agent), **Download for Windows**, summary-cache tools, troubleshooting). Consumed by **Platform Help** agent via Master Data RAG. See especially `platform-help/09-a2a-agent-exchange.md`, `platform-help/11-content-tools-scripts-profile.md`, `platform-help/14-workflow-dynamic-values.md`, `platform-help/17-desktop-windows-download.md`, and `platform-help/18-agent-budgets-and-org-members.md` (**agent token/error budgets, Efficiency Agent View, external/A2A org leaf members, private A2A org-only invoke**). |
 | **AGENT-WORKSPACE-TEMPLATES.md** | Platform-shared agent workspace MD templates: apply in Agent Workspace, Admin CRUD, CEO publish-as-template. |
 | **TESTING.md** | Restart steps, full API test, frontend manual tests, smoke test, standup→COO→TechResearcher test, standup UI checklist. |
 | **GITHUB-SETUP.md** | One-time: create agent-os repo on GitHub and push (Options A/B, security check). |

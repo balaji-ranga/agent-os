@@ -11,6 +11,7 @@ import { setUserEnabled, getUserById } from './users.js';
 import { revokeAllSessions } from './auth/session.js';
 import { removeWorkflowSchedulesForOwner } from './agent-workflow-store.js';
 import { deleteDefinitionWithCleanup } from './agent-workflow-run-manager.js';
+import { deleteAgentCascade } from './agent-delete.js';
 import { getOpenClawDir, getOpenClawConfigPath } from '../config/openclaw-paths.js';
 
 function sanitizeIdPart(value) {
@@ -100,10 +101,14 @@ function deleteOwnedCustomAgents(db, ownerUserId) {
   ]);
   let deleted = 0;
   for (const a of agents) {
-    tryRun(db, `DELETE FROM agent_tool_grants WHERE agent_id = ?`, [a.id]);
-    tryRun(db, `DELETE FROM user_agents WHERE agent_id = ?`, [a.id]);
-    tryRun(db, `DELETE FROM agents WHERE id = ?`, [a.id]);
-    deleted += 1;
+    try {
+      // Shared cascade: clears every FK referrer (kanban assignments included) in
+      // one transaction. Cleaning only grants left `DELETE FROM agents` to fail.
+      deleteAgentCascade(db, a.id, { deletedBy: `offboard:${ownerUserId}`, allowCoo: true });
+      deleted += 1;
+    } catch (e) {
+      console.warn('[offboard] agent delete failed', a.id, e?.message || e);
+    }
   }
   return deleted;
 }
