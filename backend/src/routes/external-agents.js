@@ -83,6 +83,8 @@ router.post('/:id/invoke', async (req, res) => {
       skillId: req.body?.skill_id || req.body?.skillId || agent.skill_id,
       contextId: req.body?.context_id || req.body?.contextId,
       timeoutMs: req.body?.timeout_ms || req.body?.timeoutMs,
+      // Owner testing their own registration may target one of their own private publications.
+      allowLocalBypass: agent.owner_user_id === req.authUser?.id,
     });
     res.json({ ok: true, ...out });
   } catch (e) {

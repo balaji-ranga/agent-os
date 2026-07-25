@@ -504,6 +504,16 @@ if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-
     && echo "    Kanban platform-timezone dates + archived-chat activity OK" \
     || echo "    WARN: Kanban timezone / chat_context check failed (see /tmp/kanban-tz.log)"
 fi
+if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-a2a-private-local-delegation.js 2>/dev/null; then
+  docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-a2a-private-local-delegation.js >/tmp/a2a-private.log 2>&1 \
+    && echo "    private A2A leaf reachable from COO delegation OK" \
+    || echo "    WARN: private A2A delegation check failed (see /tmp/a2a-private.log)"
+fi
+if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-org-member-delegation-e2e.js 2>/dev/null; then
+  docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-org-member-delegation-e2e.js >/tmp/org-member-e2e.log 2>&1 \
+    && echo "    org leaf delegation e2e OK" \
+    || echo "    WARN: org leaf delegation e2e failed (see /tmp/org-member-e2e.log)"
+fi
 if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-help-doc-accuracy.js 2>/dev/null; then
   docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-help-doc-accuracy.js >/tmp/help-accuracy.log 2>&1 \
     && echo "    platform help corpus answers ambiguous questions correctly" \

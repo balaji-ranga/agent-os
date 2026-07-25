@@ -16,6 +16,7 @@ import { invokeExternalAgent } from './external-agents.js';
 import { handleA2AJsonRpc } from './workflow-a2a-publish.js';
 import { getCooAgentRow } from './org-context.js';
 import { normalizeA2AVisibility } from './workflow-a2a-access.js';
+import { extractA2AReply, findLocalA2APublication } from './a2a-local-invoke.js';
 import { shouldCompleteKanbanForReply } from './kanban-reply-enrich.js';
 
 export { isOrgMemberKey, splitAllocationByKind } from './org-member-keys.js';
@@ -45,17 +46,42 @@ function getPublicationVisibility(publishId) {
   return normalizeA2AVisibility(row?.visibility);
 }
 
+function getExternalAgentEndpoint(ownerUserId, externalAgentId) {
+  const row = getDb()
+    .prepare(`SELECT endpoint_url FROM external_agents WHERE id = ? AND owner_user_id = ?`)
+    .get(String(externalAgentId), String(ownerUserId));
+  return row?.endpoint_url || null;
+}
+
 /**
- * Private A2A leaf members may only be invoked by the COO or their reports-to parent.
- * External leaves and public A2A leaves are unrestricted at this layer.
+ * Publication behind an `external` leaf that is really one of this CEO's own A2A endpoints
+ * (registered by URL rather than picked from the workflow list). Null for real third parties.
+ */
+function localPublicationForExternalMember(ownerUserId, member) {
+  if (!member || member.kind !== 'external') return null;
+  const endpoint = getExternalAgentEndpoint(ownerUserId, member.ref_id);
+  if (!endpoint) return null;
+  return findLocalA2APublication(endpoint, ownerUserId);
+}
+
+/**
+ * Private A2A leaf members may only be invoked by the COO or their reports-to parent — including
+ * leaves registered as External Agents that point back at one of this CEO's own publications.
+ * Third-party external leaves and public A2A leaves are unrestricted at this layer.
  *
  * @returns {{ ok: boolean, reason?: string, visibility?: string }}
  */
 export function canCallerInvokeOrgMember(ownerUserId, member, callerAgentId) {
-  if (!member || member.kind !== 'a2a_publish') {
+  if (!member) return { ok: true, visibility: 'n/a' };
+  let visibility;
+  if (member.kind === 'a2a_publish') {
+    visibility = getPublicationVisibility(member.ref_id);
+  } else if (member.kind === 'external') {
+    const pub = localPublicationForExternalMember(ownerUserId, member);
+    visibility = pub ? normalizeA2AVisibility(pub.visibility) : 'n/a';
+  } else {
     return { ok: true, visibility: 'n/a' };
   }
-  const visibility = getPublicationVisibility(member.ref_id);
   if (visibility !== 'private') {
     return { ok: true, visibility };
   }
@@ -75,62 +101,6 @@ export function canCallerInvokeOrgMember(ownerUserId, member, callerAgentId) {
     visibility,
     reason: `Private A2A agent "${member.display_name}" can only be invoked by the COO or its reports-to lead (${parent || 'unset'}).`,
   };
-}
-
-const A2A_FAILED_STATES = new Set(['failed', 'rejected', 'canceled', 'cancelled', 'unknown']);
-
-function partsToText(parts) {
-  if (!Array.isArray(parts)) return '';
-  return parts
-    .map((p) => p?.text || '')
-    .join('\n')
-    .trim();
-}
-
-/**
- * Pull the reply out of an A2A JSON-RPC result. Our own publications answer with the
- * `kind: 'message'` shape (`result.parts`); third-party agents commonly answer with the
- * `kind: 'task'` shape (`result.status.message.parts`) or artifacts.
- */
-function extractA2AReply(body) {
-  const result = body?.result;
-  if (body?.error) {
-    return { ok: false, text: `Error: ${body.error.message || body.error.code}` };
-  }
-  const text =
-    partsToText(result?.parts) ||
-    partsToText(result?.status?.message?.parts) ||
-    partsToText(result?.artifacts?.flatMap((a) => a?.parts || [])) ||
-    (typeof result?.text === 'string' ? result.text.trim() : '');
-  const state = String(result?.task?.status?.state || result?.status?.state || '').toLowerCase();
-  const taskId = result?.task?.id || result?.id || result?.metadata?.taskId || null;
-  const runId =
-    result?.metadata?.runId ??
-    result?.metadata?.run_id ??
-    result?.task?.metadata?.runId ??
-    null;
-  if (state && A2A_FAILED_STATES.has(state)) {
-    return {
-      ok: false,
-      pending: false,
-      text: text || `A2A task ended in state "${state}"`,
-      state,
-      taskId,
-      runId,
-    };
-  }
-  const pendingStates = new Set(['working', 'submitted', 'input-required', 'input_required', 'queued']);
-  if (state && pendingStates.has(state)) {
-    return {
-      ok: true,
-      pending: true,
-      text: text || `A2A task accepted (state "${state}")`,
-      state,
-      taskId,
-      runId,
-    };
-  }
-  return { ok: true, pending: false, text, state: state || 'completed', taskId, runId };
 }
 
 function finishKanbanTask(taskId, out) {
@@ -176,11 +146,23 @@ function finishKanbanTask(taskId, out) {
 
 async function invokeMember(ownerUserId, member, query) {
   if (member.kind === 'external') {
+    // allowLocalBypass: leaves registered by URL may point back at one of this CEO's own
+    // publications; a private / deny_all pub refuses the public hop, so invoke it in-process.
+    // Entitlement is already enforced above by canCallerInvokeOrgMember.
     const out = await invokeExternalAgent(member.ref_id, ownerUserId, {
       message: query,
       waitForCompletion: true,
+      allowLocalBypass: true,
     });
-    return { ok: out.ok !== false, text: out.text || '', raw: out };
+    return {
+      ok: out.ok !== false,
+      pending: !!out.pending,
+      text: out.text || '',
+      taskId: out.task_id || null,
+      runId: out.run_id ?? null,
+      state: out.task_state || null,
+      raw: out,
+    };
   }
   const rpc = {
     jsonrpc: '2.0',

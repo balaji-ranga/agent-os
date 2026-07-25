@@ -10,6 +10,7 @@ import {
   resolveA2AEndpoint,
 } from './a2a-client.js';
 import { resolveLiteralOrKeyRef, resolveHeadersObject } from './user-api-keys.js';
+import { resolveLocalA2ABypass, invokeLocalA2APublication } from './a2a-local-invoke.js';
 
 function parseJson(raw, fallback) {
   if (raw == null || raw === '') return fallback;
@@ -307,7 +308,7 @@ function isLikelyAgentCardUrl(url) {
 export async function invokeExternalAgent(
   id,
   ownerUserId,
-  { message, skillId, contextId, timeoutMs, waitForCompletion, authOverride } = {}
+  { message, skillId, contextId, timeoutMs, waitForCompletion, authOverride, allowLocalBypass = false } = {}
 ) {
   const row = getExternalAgentForRun(id, ownerUserId);
   if (!row) throw new Error(`External agent not found: ${id}`);
@@ -317,6 +318,33 @@ export async function invokeExternalAgent(
   const endpoint = resolveA2AEndpoint(card, row.endpoint_url);
   const headers = mergeExternalAgentAuthHeaders(row, authOverride);
   const skill = skillId || row.skill_id || null;
+
+  // Registration points at one of this CEO's own publications and the public door would refuse
+  // (private / deny_all / whitelist). Trusted callers invoke it in-process instead of self-HTTP.
+  if (allowLocalBypass) {
+    const local = resolveLocalA2ABypass(endpoint, row.owner_user_id);
+    if (local) {
+      console.log(
+        `[external-agents] local A2A bypass agent=${id} publish=${local.publish_id} visibility=${local.visibility} policy=${local.policy} owner=${row.owner_user_id}`
+      );
+      const { reply } = await invokeLocalA2APublication(local.publish_id, message, {
+        skillId: skill,
+        contextId,
+      });
+      return {
+        ok: reply.ok !== false,
+        pending: !!reply.pending,
+        text: reply.text || '',
+        task_id: reply.taskId || null,
+        task_state: reply.state || null,
+        run_id: reply.runId ?? null,
+        endpoint,
+        agent_id: id,
+        agent_name: row.name,
+        local_bypass: true,
+      };
+    }
+  }
 
   if (waitForCompletion === false) {
     const sendResult = await a2aSendMessage(endpoint, message, {

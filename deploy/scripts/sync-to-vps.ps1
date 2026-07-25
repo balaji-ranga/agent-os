@@ -10,7 +10,9 @@
 # deploy/docker + compose overlays (incl. docker-compose.vps-client-ip.yml for real client IP / A2A whitelist),
 # scripts/, openclaw extensions/skills/templates — then rebuilds via vps-deploy-latest.sh.
 #
-# Features covered: Kanban platform-timezone dates (PLATFORM_TIMEZONE) + task activity that survives
+# Features covered: private A2A publications reachable from COO delegation when registered as an
+# External Agent (loopback endpoints invoke in-process instead of self-HTTP 403),
+# Kanban platform-timezone dates (PLATFORM_TIMEZONE) + task activity that survives
 # archived agent chats (chat_context), Admin Crons console (/admin/crons pause/resume/run now, persisted pause state),
 # platform API logging (PLATFORM_LOG_LEVEL=off|error|info + secret redaction),
 # Brave Search MCP BYOK wrapper (tools/brave-search-mcp-byok, profile optional-brave-mcp),
@@ -166,6 +168,9 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-kanban-delegation-sync.js" `
     "$Repo\backend\scripts\test-kanban-owner-isolation.js" `
     "$Repo\backend\scripts\test-kanban-timezone-and-chat-context.js" `
+    "$Repo\backend\scripts\test-a2a-private-local-delegation.js" `
+    "$Repo\backend\scripts\vps-test-private-ops-echo-delegation.js" `
+    "$Repo\backend\scripts\test-org-member-delegation-e2e.js" `
     "$Repo\backend\scripts\test-help-doc-accuracy.js" `
     "$Repo\backend\scripts\heal-platform-help-docs.js" `
     "$Repo\backend\scripts\heal-stuck-kanban-delegations.js" `

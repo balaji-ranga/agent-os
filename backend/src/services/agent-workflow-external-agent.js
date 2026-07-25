@@ -72,6 +72,9 @@ export async function executeExternalAgentTask(resolvedInputs, nodeConfig = {}, 
     timeoutMs,
     waitForCompletion,
     authOverride: hasOverride ? { authHeader: authBearer, headers } : null,
+    // The registration may point back at one of this owner's own publications; a private /
+    // deny_all pub refuses the public hop, so the owner's own workflow calls it in-process.
+    allowLocalBypass: true,
   });
 
   return {

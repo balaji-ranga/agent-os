@@ -259,6 +259,13 @@ publications uses the same owner bypass as **Test agent**, so your IP policy doe
 Only the **COO** or this leaf's **reports-to** internal lead may invoke it through the org path.
 Peers that do not manage the leaf are refused.
 
+**Registered your own publication as an External Agent?** That works too. When the endpoint URL of
+an External Agent points back at this platform (`…/api/a2a/<publishId>`) and the publication belongs
+to you, the org path, your own workflows' **External Agent** node, and your own **Invoke** test call
+it **in-process** instead of going out over HTTP — so **Private**, **deny_all** and IP-whitelist
+publications no longer answer `A2A HTTP 403` to their own COO. Entitlement is unchanged: the COO or
+the leaf's reports-to lead only, and endpoints belonging to another CEO always take the public route.
+
 Full details: [18-agent-budgets-and-org-members.md](./18-agent-budgets-and-org-members.md).
 
 ### VPS: real client IP for whitelist

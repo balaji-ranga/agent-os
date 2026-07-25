@@ -18,7 +18,12 @@ import { getAgentEfficiency } from '../src/services/agent-efficiency.js';
 
 const OWNER = '__e2e_org_delegation_owner__';
 const PARENT_AGENT = '__e2e_org_delegation_parent__';
-const REPLY = 'Mock external agent completed the research.';
+// A real deliverable: a status-only sentence would (correctly) leave the card in_progress.
+const REPLY =
+  'Mock external agent research brief on small language models:\n' +
+  '- Phi-3 and Gemma run on a single consumer GPU with 4-bit quantisation.\n' +
+  '- Distillation from a larger teacher recovers most reasoning quality.\n' +
+  '- Best fit: on-device assistants and high-volume classification.';
 
 let failures = 0;
 function check(label, ok, extra = '') {

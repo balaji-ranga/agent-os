@@ -173,7 +173,9 @@ AGENTS.md. The COO's intent classifier can then pick leaf members for matching w
 2. A Kanban card is created and moved to in-progress.
 3. The agent is invoked over A2A: external agents through the registered endpoint, your own
    publications through the owner-authenticated path (same bypass the AgentExchange **Test agent**
-   uses, so your own IP allowlist does not block your own delegation).
+   uses, so your own IP allowlist does not block your own delegation). An external agent whose
+   endpoint points back at one of your own publications (`…/api/a2a/<publishId>`) takes that same
+   in-process path, so a **Private** / `deny_all` publication cannot 403 its own COO.
 4. The outcome is recorded for the error budget, a token estimate is written to the ledger, and the
    Kanban card is completed or failed with the result.
 
