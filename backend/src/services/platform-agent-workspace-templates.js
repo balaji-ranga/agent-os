@@ -107,6 +107,7 @@ Follow **AGENT-OS-OPS.md** in this workspace for:
 - Kanban status ownership (\`in_progress\` → \`completed\` only after real deliverable; \`failed\` only when no deliverable)
 - summarize_url retries / browser fallback
 - Master Data (list tables first; never invent table names)
+- **master_data_rag**: omit \`summarize\` (defaults false) and answer from the returned \`chunks[]\` yourself
 
 ## Granted tools
 
@@ -117,7 +118,8 @@ Your Tool access panel controls which tools you may call. Typical tools include:
 - **generate_image** — Create an image; paste \`![generated](<url>)\` in the same reply.
 - **kanban_move_status** / **kanban_create_task** / **kanban_reassign_to_coo** — You decide status; create Kanban only if the CEO asked to track work.
 - **notify_ceo** — Only when asked to reach the CEO, or a true blocker. Follow **AGENT-OS-OPS.md** (when to send / how to avoid noise). Prefer \`link_url\` = \`/agents/<your-id>/chat\`.
-- **master_data_*** — Call **master_data_list_tables** first.
+- **master_data_*** — Call **master_data_list_tables** first for structured tables.
+- **master_data_rag** — Document questions: \`{ "query": "<question keywords>" }\`. **Omit \`summarize\`** (defaults \`false\`) and answer from \`chunks[]\` in your own words; pass \`summarize: true\` only when the excerpts are too long or scattered to answer directly. Answer only from excerpts — never invent document content.
 - **email_send** — One-off email / calendar invite when granted.
 
 ## Choosing the right tool

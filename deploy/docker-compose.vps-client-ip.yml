@@ -1,0 +1,20 @@
+# VPS-only networking override (included in vps-deploy-latest.sh COMPOSE_FILE by default).
+#
+# Docker's userland port proxy masks external client IPs as the bridge gateway.
+# Run nginx in host networking and expose only backend/frontend loopback ports so
+# nginx receives the real remote address for A2A deny_all / whitelist IP policy.
+services:
+  backend:
+    ports:
+      - "127.0.0.1:3001:3001"
+
+  frontend:
+    ports:
+      - "127.0.0.1:8080:80"
+
+  nginx:
+    network_mode: host
+    ports: !reset []
+    volumes:
+      - ./nginx/nginx.host-network.conf:/etc/nginx/conf.d/default.conf:ro,Z
+      - ./nginx/certs:/etc/nginx/certs:ro,Z

@@ -33,8 +33,9 @@ Only if you need a custom diagram beyond the auto-rendered `vedic_compute_chart`
 
 - **master_data_list_tables** / **master_data_list_rows** — find `vedic_birth_charts`, `vedic_readings`
 - **master_data_insert_row** / **update_row** — save client birth data and reading notes
-- **master_data_list_documents** / **master_data_rag** — search uploaded/attached docs  
+- **master_data_list_documents** / **master_data_rag** — search uploaded/attached docs
   When the user message includes `[chat_attachments]` with `document_id=…`, call **master_data_rag** before answering from those files.
+  Omit `summarize` (defaults `false`) and answer from the returned `chunks[]` yourself; pass `summarize: true` only when the excerpts are too long or scattered.
 
 ## Collaboration
 

@@ -15,14 +15,32 @@ const EMPTY = {
   auth_mode: 'public',
   rotate_credentials: false,
   input_schema_text: '',
+  invoke_mode: 'sync',
+  callback_url: '',
+  as_new_agent: false,
+  publish_id: '',
 };
 
-export default function PublishA2AModal({ open, workflow, existingPublication, onClose, onPublished }) {
+export default function PublishA2AModal({
+  open,
+  workflow,
+  existingPublication,
+  existingPublications = [],
+  onClose,
+  onPublished,
+}) {
   const [form, setForm] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [issuedCredentials, setIssuedCredentials] = useState(null);
   const [copied, setCopied] = useState(null);
+
+  const pubs =
+    existingPublications?.length > 0
+      ? existingPublications
+      : existingPublication
+        ? [existingPublication]
+        : [];
 
   useEffect(() => {
     if (!open) return undefined;
@@ -35,10 +53,17 @@ export default function PublishA2AModal({ open, workflow, existingPublication, o
 
   useEffect(() => {
     if (!open) return;
-    const pub = existingPublication;
+    const list =
+      existingPublications?.length > 0
+        ? existingPublications
+        : existingPublication
+          ? [existingPublication]
+          : [];
+    const pub = list[0] || null;
     const meta = pub?.metadata || {};
-    const trigger = workflow?.draft_graph?.nodes?.find((n) => n.type === 'trigger')
-      || workflow?.published_graph?.nodes?.find((n) => n.type === 'trigger');
+    const trigger =
+      workflow?.draft_graph?.nodes?.find((n) => n.type === 'trigger') ||
+      workflow?.published_graph?.nodes?.find((n) => n.type === 'trigger');
     const fromTrigger = trigger?.data?.inputSchema || trigger?.data?.input_schema || null;
     const schema =
       pub?.input_schema ||
@@ -59,15 +84,47 @@ export default function PublishA2AModal({ open, workflow, existingPublication, o
       auth_mode: pub?.auth_mode === 'secured' || pub?.has_auth ? 'secured' : 'public',
       rotate_credentials: false,
       input_schema_text: schema ? JSON.stringify(schema, null, 2) : '',
+      invoke_mode: pub?.invoke_mode === 'async' ? 'async' : 'sync',
+      callback_url: pub?.callback_url || '',
+      as_new_agent: false,
+      publish_id: pub?.id || '',
     });
     setIssuedCredentials(null);
     setError(null);
     setCopied(null);
-  }, [open, workflow, existingPublication]);
+  }, [open, workflow, existingPublication, existingPublications]);
 
   if (!open) return null;
 
   const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
+
+  const selectPublication = (pubId) => {
+    const pub = pubs.find((p) => p.id === pubId);
+    if (!pub) {
+      set('publish_id', pubId);
+      return;
+    }
+    const meta = pub.metadata || {};
+    setForm((f) => ({
+      ...f,
+      as_new_agent: false,
+      publish_id: pub.id,
+      name: pub.name || f.name,
+      description: pub.description || '',
+      skill_id: pub.skill_id || 'default',
+      skill_name: pub.skill_name || pub.name || '',
+      skill_description: pub.skill_description || pub.description || '',
+      auth_mode: pub.auth_mode === 'secured' || pub.has_auth ? 'secured' : 'public',
+      invoke_mode: pub.invoke_mode === 'async' ? 'async' : 'sync',
+      callback_url: pub.callback_url || '',
+      version: pub.agent_card?.version || meta.version || f.version,
+      tags: (meta.tags || []).join(', '),
+      examples: (meta.examples || []).join('\n'),
+      input_schema_text: pub.input_schema
+        ? JSON.stringify(pub.input_schema, null, 2)
+        : f.input_schema_text,
+    }));
+  };
 
   const copyText = async (text, key) => {
     try {
@@ -82,6 +139,16 @@ export default function PublishA2AModal({ open, workflow, existingPublication, o
     setSaving(true);
     setError(null);
     try {
+      if (form.invoke_mode === 'async' && form.callback_url.trim()) {
+        try {
+          // eslint-disable-next-line no-new
+          new URL(form.callback_url.trim());
+        } catch {
+          setError('Callback URL must be a valid absolute URL');
+          setSaving(false);
+          return;
+        }
+      }
       const tags = form.tags
         .split(',')
         .map((t) => t.trim())
@@ -107,6 +174,8 @@ export default function PublishA2AModal({ open, workflow, existingPublication, o
         skill_name: form.skill_name.trim() || form.name.trim(),
         skill_description: form.skill_description.trim() || form.description.trim(),
         auth_mode: form.auth_mode,
+        invoke_mode: form.invoke_mode === 'async' ? 'async' : 'sync',
+        callback_url: form.invoke_mode === 'async' ? form.callback_url.trim() || null : null,
         input_schema,
         metadata: {
           version: form.version.trim() || '1.0.0',
@@ -123,6 +192,11 @@ export default function PublishA2AModal({ open, workflow, existingPublication, o
             : {}),
         },
       };
+      if (form.as_new_agent) {
+        body.as_new_agent = true;
+      } else if (form.publish_id) {
+        body.publish_id = form.publish_id;
+      }
       if (form.auth_mode === 'secured' && form.rotate_credentials) {
         body.rotate_credentials = true;
       }
@@ -138,6 +212,11 @@ export default function PublishA2AModal({ open, workflow, existingPublication, o
       setSaving(false);
     }
   };
+
+  const selectedPub = !form.as_new_agent && form.publish_id
+    ? pubs.find((p) => p.id === form.publish_id)
+    : null;
+  const isUpdate = !form.as_new_agent && !!selectedPub;
 
   return createPortal(
     <div
@@ -171,7 +250,8 @@ export default function PublishA2AModal({ open, workflow, existingPublication, o
                     <a href="https://a2a-protocol.org/" target="_blank" rel="noreferrer">
                       A2A-compliant
                     </a>{' '}
-                    agent. Choose Public (open invoke) or Secured (OAuth client credentials → Bearer token).
+                    agent. Choose sync or async invoke, Public or Secured access. You can publish the same
+                    workflow as multiple agents with different names.
                   </>
                 )}
             </p>
@@ -225,30 +305,74 @@ export default function PublishA2AModal({ open, workflow, existingPublication, o
             </div>
           ) : (
             <>
-              {existingPublication && (
+              {pubs.length > 0 && (
+                <div className="wf-a2a-modal-live">
+                  <strong>Existing A2A agents for this workflow</strong>
+                  <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.1rem' }}>
+                    {pubs.map((p) => (
+                      <li key={p.id} style={{ marginBottom: '0.35rem' }}>
+                        <button
+                          type="button"
+                          className="wf-btn"
+                          style={{ marginRight: '0.35rem' }}
+                          onClick={() => selectPublication(p.id)}
+                          disabled={form.as_new_agent}
+                        >
+                          {form.publish_id === p.id && !form.as_new_agent ? 'Selected' : 'Edit'}
+                        </button>
+                        {p.name}{' '}
+                        <code style={{ fontSize: '0.8rem' }}>{p.id}</code>
+                        {' · '}
+                        {p.invoke_mode || 'sync'}
+                        {' · '}
+                        <a href={p.card_url} target="_blank" rel="noreferrer">
+                          card
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                  <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginTop: '0.75rem' }}>
+                    <input
+                      type="checkbox"
+                      checked={form.as_new_agent}
+                      onChange={(e) => {
+                        const on = e.target.checked;
+                        setForm((f) => ({
+                          ...f,
+                          as_new_agent: on,
+                          publish_id: on ? '' : f.publish_id || pubs[0]?.id || '',
+                        }));
+                      }}
+                    />
+                    <span>Publish as a <strong>new</strong> agent (different name / endpoint)</span>
+                  </label>
+                </div>
+              )}
+
+              {selectedPub && !form.as_new_agent && (
                 <div className="wf-a2a-modal-live">
                   <div>
                     <strong>Live endpoint:</strong>{' '}
-                    <a href={existingPublication.endpoint_url} target="_blank" rel="noreferrer">
-                      {existingPublication.endpoint_url}
+                    <a href={selectedPub.endpoint_url} target="_blank" rel="noreferrer">
+                      {selectedPub.endpoint_url}
                     </a>
                   </div>
                   <div>
                     <strong>Agent card:</strong>{' '}
-                    <a href={existingPublication.card_url} target="_blank" rel="noreferrer">
-                      {existingPublication.card_url}
+                    <a href={selectedPub.card_url} target="_blank" rel="noreferrer">
+                      {selectedPub.card_url}
                     </a>
                   </div>
-                  {existingPublication.auth_mode === 'secured' && existingPublication.client_id && (
+                  {selectedPub.auth_mode === 'secured' && selectedPub.client_id && (
                     <div>
-                      <strong>client_id:</strong> <code>{existingPublication.client_id}</code>
+                      <strong>client_id:</strong> <code>{selectedPub.client_id}</code>
                     </div>
                   )}
-                  {existingPublication.token_url && existingPublication.auth_mode === 'secured' && (
+                  {selectedPub.token_url && selectedPub.auth_mode === 'secured' && (
                     <div>
                       <strong>token_url:</strong>{' '}
-                      <a href={existingPublication.token_url} target="_blank" rel="noreferrer">
-                        {existingPublication.token_url}
+                      <a href={selectedPub.token_url} target="_blank" rel="noreferrer">
+                        {selectedPub.token_url}
                       </a>
                     </div>
                   )}
@@ -276,6 +400,50 @@ export default function PublishA2AModal({ open, workflow, existingPublication, o
                   />
                 </label>
 
+                <fieldset className="mcp-pg-field" style={{ border: 'none', padding: 0, margin: '0 0 0.75rem' }}>
+                  <legend style={{ fontSize: '0.85rem', marginBottom: '0.35rem' }}>Invoke mode</legend>
+                  <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                    <input
+                      type="radio"
+                      name="a2a-invoke-mode"
+                      checked={form.invoke_mode === 'sync'}
+                      onChange={() => set('invoke_mode', 'sync')}
+                    />
+                    <span>
+                      <strong>Sync</strong> — HTTP waits for the run (up to ~2 minutes). Response includes final
+                      output and run metadata.
+                    </span>
+                  </label>
+                  <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                    <input
+                      type="radio"
+                      name="a2a-invoke-mode"
+                      checked={form.invoke_mode === 'async'}
+                      onChange={() => set('invoke_mode', 'async')}
+                    />
+                    <span>
+                      <strong>Async</strong> — returns immediately with a task id. Callers poll{' '}
+                      <code>enquire-progress</code> / <code>tasks/get</code>, and/or receive a callback POST.
+                    </span>
+                  </label>
+                </fieldset>
+
+                {form.invoke_mode === 'async' && (
+                  <label className="mcp-pg-field">
+                    <span>Callback URL (optional)</span>
+                    <input
+                      type="url"
+                      value={form.callback_url}
+                      onChange={(e) => set('callback_url', e.target.value)}
+                      placeholder="https://example.com/hooks/a2a-result"
+                    />
+                    <small style={{ display: 'block', marginTop: 4, opacity: 0.8 }}>
+                      When the run finishes, Flolah POSTs final output + run status/metadata here. Callers may
+                      also override per-invoke via <code>params.metadata.callbackUrl</code>.
+                    </small>
+                  </label>
+                )}
+
                 <fieldset className="mcp-pg-field" style={{ border: 'none', padding: 0, margin: 0 }}>
                   <legend style={{ fontSize: '0.85rem', marginBottom: '0.35rem' }}>Access</legend>
                   <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
@@ -301,7 +469,7 @@ export default function PublishA2AModal({ open, workflow, existingPublication, o
                       <code>client_secret</code> for a Bearer access token, then call A2A.
                     </span>
                   </label>
-                  {form.auth_mode === 'secured' && existingPublication?.auth_mode === 'secured' && (
+                  {form.auth_mode === 'secured' && selectedPub?.auth_mode === 'secured' && !form.as_new_agent && (
                     <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginTop: '0.75rem' }}>
                       <input
                         type="checkbox"
@@ -403,7 +571,13 @@ export default function PublishA2AModal({ open, workflow, existingPublication, o
                 className="wf-btn-primary"
                 disabled={saving || !form.name.trim()}
               >
-                {saving ? 'Publishing…' : existingPublication ? 'Update A2A agent' : 'Publish A2A agent'}
+                {saving
+                  ? 'Publishing…'
+                  : form.as_new_agent
+                    ? 'Publish new A2A agent'
+                    : isUpdate
+                      ? 'Update A2A agent'
+                      : 'Publish A2A agent'}
               </button>
             </>
           )}

@@ -55,7 +55,7 @@ Use these for **org master tables** (e.g. departments) and **document RAG**. Dat
 | **master_data_update_row** | Update `{ table_name, row_id, data:{…} }`. |
 | **master_data_delete_row** | Delete `{ table_name, row_id }` (row only — not the table). |
 | **master_data_list_documents** | DISCOVERY for uploaded docs (optional before RAG). |
-| **master_data_rag** | Answer from **document** content (`query` required). Use for PDFs/policies/"what does the doc say" — not for structured tables. |
+| **master_data_rag** | Answer from **document** content (`query` required). Use for PDFs/policies/"what does the doc say" — not for structured tables. Omit `summarize` (defaults `false`) and answer from `chunks[]` yourself. |
 
 **Example — departments in this org:**
 1. **master_data_list_tables** → find table whose purpose/name matches departments

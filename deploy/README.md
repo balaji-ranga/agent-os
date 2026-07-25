@@ -118,7 +118,7 @@ docker compose up -d backend openclaw
 docker compose exec openclaw node deploy/scripts/verify-openclaw-parity.js
 ```
 
-Ensure `TOOLS_BASE_URL=http://127.0.0.1:3001` in `.env` (see `.env.example`) so backend tool self-invoke does not use public HTTPS.
+Ensure `TOOLS_BASE_URL=http://127.0.0.1:3001` in `.env` (see `.env.example`) so backend tool self-invoke does not use public HTTPS. For VPS A2A IP whitelist, see **[VPS client IP overlay](#vps-client-ip-overlay-a2a-ip-policy)** (`COMPOSE_FILE` includes `docker-compose.vps-client-ip.yml`).
 
 ## Environment & LLM secrets
 
@@ -201,6 +201,8 @@ Gets the same gateway LLM vars plus:
 | `WORKFLOW_FS_ROOTS` | Allowed roots for filesystem workflow nodes (default `/data/workflow-fs`) |
 | `WORKFLOW_CERTIFY_USE_LLM_CHECKER` | Autonomous Maker/Checker certify: `0`/unset = LLM Checker **OFF** (default; deterministic Checker always runs). `1` = enable soft LLM Checker (secondary model unless `WORKFLOW_CERTIFY_CHECKER_MODEL` set) |
 | `WORKFLOW_CERTIFY_MAX_ATTEMPTS`, `WORKFLOW_CERTIFY_*_MODEL`, `WORKFLOW_CERTIFY_*_MS` | Optional certify budgets / model overrides (see `.env.example`) |
+| `A2A_ACCESS_TOKEN_TTL_SEC`, `A2A_SYNC_TIMEOUT_MS`, `A2A_ASYNC_WATCH_TIMEOUT_MS`, `A2A_CALLBACK_TIMEOUT_MS` | Published workflow A2A: OAuth token TTL, sync hold, async background watch, outbound callback POST timeout |
+| `LEARNINGS_FULL_REBUILD_DAYS`, `ORDER_LEARNINGS_FULL_REBUILD_DAYS`, `BRAIN_HISTORY_FULL_REBUILD_DAYS` | Full rebuild cadence for `learnings_summary` / `ibkr_order_learnings` / `brain_history` summary caches (default 7 days) |
 
 **Workflow Brain nodes:** published workflows require API keys **on each Brain node** in the editor — platform `.env` keys are not used at run time (see `backend/.env.example`). User BYOK keys live in SQLite (User Profile). DeepSeek/OpenRouter Brain nodes also support **Thinking mode** / **Thinking effort** in the editor.
 
@@ -245,8 +247,10 @@ All proxied under `/api` (rebuild backend + frontend images after upgrade):
 | Master Data + RAG | `master_data_list_*` / `master_data_rag` — purpose-driven list_tables→list_rows; RAG for documents |
 | Agent chat tools UI | Assistant bubbles show gear pills for Agent OS tool calls (`content_tool_logs`) |
 | Notification tooltips | Bell panel snippet hover shows full title/body / agent response |
-| AgentExchange | `GET /api/agent-exchange` (CEO/Admin), UI `/agent-exchange` — Public vs Secured badges |
-| Workflow A2A | `POST /api/a2a/:publishId` (public or Bearer); card at `/.well-known/agent-card.json`; secured: `POST /api/a2a/:publishId/oauth/token` (client credentials → access token). Optional `A2A_ACCESS_TOKEN_TTL_SEC` (default 3600) |
+| AgentExchange | `GET /api/agent-exchange` (CEO/Admin), UI `/agent-exchange` — Public vs Secured badges; **Test agent** panel; IP policy default **deny_all** (allow_all / whitelist); owner unpublish; Admin **A2A logs** `/admin/a2a-invocations` |
+| Admin A2A logs | `GET /api/admin/a2a-invocations` — card/token/invoke audit including IP/OAuth denials |
+| AgentExchange test | `GET /api/agent-exchange/:publishId/test-sample`, `POST /api/agent-exchange/:publishId/test` — authenticated owner test invoke (sync or async + callback; owner bypasses IP/OAuth for testing) |
+| Workflow A2A | `POST /api/a2a/:publishId` (sync/async; public or Bearer); card at `/.well-known/agent-card.json`; secured: `POST /api/a2a/:publishId/oauth/token`. Default **deny_all** until policy changed. Async callbacks: `a2a.workflow.completed|failed|cancelled` webhook JSON; mock inbox `POST/GET /api/a2a-callback-inbox`. Env: `A2A_*` + `*_FULL_REBUILD_DAYS` in `.env.example`. VPS real client IP: `docker-compose.vps-client-ip.yml`. |
 | hPanel light UI | White shell: left collapsible nav sections, topbar profile avatar menu, light CSS tokens (`--bg #f7f8f9`) |
 | Workflow fullscreen editor | `/workflows/:id/edit` hides platform nav/topbar (`shell-focus-mode`); compact nodes/panes; **Exit to workflows** |
 | Register MCP / Agents CTAs | Primary accent buttons + shared `page-hero` alignment on MCP registry and External Agents |
@@ -408,8 +412,58 @@ bash /opt/agent-os/deploy/scripts/vps-verify-frontend-media.sh
 | `shell-focus-mode` / `Exit to workflows` / `wf-editor-exit` | Fullscreen workflow editor |
 | `Register MCP` / `Register Agents` / `page-hero` | Aligned primary CTAs |
 | `NotificationProvider` / Broadcast / Resync ORG | Existing product UI |
+| `Test agent` / `agentExchangeTest` / `Deny all` | AgentExchange test panel + deny_all IP badge |
+| `A2A logs` / `adminA2AInvocations` / `a2a-invocations` | Admin A2A invocation report page |
 
 Always recreate **nginx** after recreating **frontend** so the reverse proxy picks up the new container IP (otherwise you may see HTTP 502).
+
+## VPS client IP overlay (A2A IP policy)
+
+On production VPS hosts, `vps-deploy-latest.sh` and `sync-to-vps.ps1` include **`docker-compose.vps-client-ip.yml`** in `COMPOSE_FILE` by default:
+
+```bash
+export COMPOSE_FILE="docker-compose.yml:docker-compose.browser.yml:docker-compose.vps-client-ip.yml"
+```
+
+Docker’s bridge port proxy makes nginx see the gateway IP instead of the real remote address. The overlay:
+
+- Runs **nginx** in `network_mode: host` with `nginx.host-network.conf`
+- Publishes **backend** and **frontend** on loopback only (`127.0.0.1:3001`, `127.0.0.1:8080`)
+
+That lets AgentExchange **deny_all / whitelist** IP checks use the actual client IP. Without it, every external caller can look like the same bridge address and whitelist rules will not work as intended.
+
+Local dev (non-VPS) usually omits this file — use the base `docker-compose.yml` only.
+
+## A2A / AgentExchange testing
+
+After deploy, verify UI markers in `vps-deploy-latest.sh` smoke output: `Test agent`, `agentExchangeTest`, `Deny all`, Admin `A2A logs` / `adminA2AInvocations`, and backend `/:publishId/test` route.
+
+**In the UI (CEO/Admin):** open **AgentExchange** → expand an agent → **Test agent**. Owners can invoke even when public A2A is **Deny all** (test path bypasses IP/OAuth). Use callback URL for async workflows.
+
+**Admin denial / success report:** open **A2A logs** (`/admin/a2a-invocations`) for platform-wide card, OAuth, and invoke history (including blocks that never start a workflow).
+
+**API (authenticated):**
+
+```bash
+# Sample input for Test panel autofill
+curl -k -H "Authorization: Bearer $TOKEN" \
+  "https://your-domain/api/agent-exchange/$PUBLISH_ID/test-sample"
+
+# Owner test invoke (sync or async + optional callbackUrl)
+curl -k -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"message":"hello"}' \
+  "https://your-domain/api/agent-exchange/$PUBLISH_ID/test"
+```
+
+**Backend scripts (inside container):**
+
+```bash
+docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-a2a-agent-exchange-security.js
+docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-workflow-a2a-async-publish.js
+docker compose exec -T -w /opt/agent-os/backend backend node scripts/vps-publish-async-a2a-callback-test.js
+```
+
+Public A2A (`POST /api/a2a/:publishId`) stays blocked until access policy is **allow_all** or **whitelist** (and IP passes whitelist when set).
 
 ## Build images only
 

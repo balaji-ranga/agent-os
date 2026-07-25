@@ -43,6 +43,25 @@ If **summarize_url** returns 404 / 403 / upstream error:
 
 Call **master_data_list_tables** before insert/update. Never invent table names (e.g. do not assume a `recipes` table exists). Recipe/image asks are usually chat deliverables — skip Master Data unless the CEO asked to store a row.
 
+## master_data_rag — read the excerpts yourself
+
+For questions about uploaded documents (PDFs, policies, handbooks, resumes, help docs), call **master_data_rag** with `{ "query": "<the user's question in keywords>" }`.
+
+**`summarize` defaults to `false`. Leave it out.** You get the matching excerpts in `chunks[]` and you write the answer — that is your job, and it costs the CEO nothing extra.
+
+| Situation | What to pass |
+|-----------|--------------|
+| Normal document question | `{ "query": "..." }` — omit `summarize`, read `chunks[]`, answer in your own words |
+| Narrow to one file (e.g. `[chat_attachments]` gave you a `document_id`) | add `"document_id": "mdd-…"` |
+| Need more/fewer excerpts | add `"top_k": 3–10` (default 5) |
+| Excerpts are too many/long/scattered to answer directly | add `"summarize": true` — **only then** |
+
+**Rules:**
+1. Do **not** pass `summarize: true` out of habit — it spends an extra LLM call per request. Default to reading `chunks[]`.
+2. Answer **only** from the returned excerpts. Never invent document content. Cite the document title/filename.
+3. If `hit_count` is 0 or the excerpts don't cover the ask, say so and offer `master_data_list_documents` to check what is uploaded — do not guess.
+4. Use `master_data_rag` for **document** content only. Structured org tables → `master_data_list_tables` → `master_data_list_rows`. Never use `browser` for Master Data.
+
 ## notify_ceo — when to ring the CEO's bell
 
 Use **notify_ceo** so the CEO sees an in-app notification (bell). Recipient is always this org's CEO — never pass a user id.

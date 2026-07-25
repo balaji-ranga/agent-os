@@ -164,7 +164,8 @@ export async function ragDocumentsForAgent(ownerUserId, params = {}) {
     query: String(query).trim(),
     topK: params.top_k ?? params.topK ?? params.limit,
     documentId: params.document_id || params.documentId || null,
-    summarize: params.summarize !== false,
+    // Opt-in: agents get excerpts by default and must ask for the LLM answer.
+    summarize: params.summarize === true || String(params.summarize).toLowerCase() === 'true',
   });
   return { ok: true, ...result };
 }

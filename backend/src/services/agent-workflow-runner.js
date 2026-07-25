@@ -34,6 +34,7 @@ import { getMcpServerForWorkflow, callMcpServerTool, callMcpServerPrompt, callMc
 import { parseMcpAuthFromNodeConfig } from './mcp-auth.js';
 import { executeConnectorAction } from './openconnector.js';
 import { isUserEnabled } from './user-enabled.js';
+import { notifyA2ARunTerminal } from './workflow-a2a-async.js';
 import {
   registerPendingListener,
   startPersistentListen,
@@ -423,6 +424,9 @@ function failRun(runId, message) {
       `UPDATE agent_workflow_runs SET status = 'failed', error_message = ?, completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`
     )
     .run(message, runId);
+  void notifyA2ARunTerminal(runId).catch((e) =>
+    console.warn('[a2a] notify on fail failed', runId, e?.message || e)
+  );
 }
 
 /** Node types that can safely re-dispatch after a process restart. */
@@ -562,6 +566,9 @@ function completeRun(runId) {
       `UPDATE agent_workflow_runs SET status = 'completed', completed_at = datetime('now'), progress_pct = 100, updated_at = datetime('now') WHERE id = ?`
     )
     .run(runId);
+  void notifyA2ARunTerminal(runId).catch((e) =>
+    console.warn('[a2a] notify on complete failed', runId, e?.message || e)
+  );
 }
 
 function buildAgentPrompt(runId, definitionId, definitionName, node, inputText, ownerUserId) {

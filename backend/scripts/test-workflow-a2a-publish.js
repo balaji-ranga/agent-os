@@ -19,6 +19,7 @@ import {
   listAllPublishedA2AAgents,
   handleA2AJsonRpc,
 } from '../src/services/workflow-a2a-publish.js';
+import { setA2AAccessPolicy } from '../src/services/workflow-a2a-access.js';
 
 initDb();
 
@@ -61,6 +62,7 @@ const pub = publishWorkflowAsA2A(owner, WORKFLOW_ID, {
   skill_id: 'default',
   metadata: { tags: ['test', 'smoke'] },
 }, actor);
+setA2AAccessPolicy(pub.id, owner, 'allow_all');
 
 console.log('Published:', pub.id);
 console.log('  card:', pub.card_url);

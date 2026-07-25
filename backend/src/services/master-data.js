@@ -731,10 +731,13 @@ function scoreChunk(content, queryTerms) {
 
 /**
  * RAG over owner documents: keyword retrieval + optional LLM summary (user BYOK aware).
+ *
+ * `summarize` is opt-in: retrieval is free, the summary costs an LLM call per request.
+ * Callers that want a synthesized answer (CEO UI, workflow nodes) pass it explicitly.
  */
 export async function ragDocuments(
   ownerUserId,
-  { query, topK = 5, documentId = null, summarize = true } = {}
+  { query, topK = 5, documentId = null, summarize = false } = {}
 ) {
   const { db, owner } = dbFor(ownerUserId);
   const q = String(query || '').trim();

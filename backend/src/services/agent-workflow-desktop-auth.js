@@ -26,13 +26,23 @@ function normalizeIp(raw) {
   return ip;
 }
 
-/** First public-ish client IP from Express request (honors X-Forwarded-For). */
+/**
+ * Client IP from the trusted reverse-proxy headers.
+ * Prefer X-Real-IP because nginx overwrites it with $remote_addr. For XFF use
+ * the right-most hop so a caller-supplied left-most value cannot spoof policy.
+ */
 export function clientIpFromRequest(req) {
+  const real = req.headers?.['x-real-ip'];
+  if (typeof real === 'string' && real.trim()) return normalizeIp(real);
   const xf = req.headers?.['x-forwarded-for'];
   if (typeof xf === 'string' && xf.trim()) {
-    return normalizeIp(xf.split(',')[0]);
+    const parts = xf.split(',').map((value) => value.trim()).filter(Boolean);
+    return normalizeIp(parts[parts.length - 1]);
   }
-  if (Array.isArray(xf) && xf[0]) return normalizeIp(String(xf[0]).split(',')[0]);
+  if (Array.isArray(xf) && xf.length) {
+    const parts = String(xf[xf.length - 1]).split(',').map((value) => value.trim()).filter(Boolean);
+    return normalizeIp(parts[parts.length - 1]);
+  }
   return normalizeIp(req.socket?.remoteAddress || req.ip || '');
 }
 

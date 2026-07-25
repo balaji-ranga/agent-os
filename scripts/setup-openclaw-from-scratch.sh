@@ -13,6 +13,10 @@
 #   - browser tool allowlists + TOOLS.md browser sections
 #   - Docker gateway auth / plugin baseUrl / session visibility
 #
+# Not configured here (platform backend only):
+#   AgentExchange / workflow A2A (publish, IP deny_all/whitelist, Test agent, async/callback,
+#   Admin A2A invocation logs at /admin/a2a-invocations)
+#
 # Usage:
 #   ./scripts/setup-openclaw-from-scratch.sh
 #   ./scripts/setup-openclaw-from-scratch.sh --docker

@@ -14,11 +14,34 @@ import {
   parseInputSchemaJson,
   WorkflowInputSchemaError,
 } from './workflow-input-schema.js';
+import {
+  ENQUIRE_SKILL_ID,
+  buildEnquireSkill,
+  buildRunMetadata,
+  createA2ATaskRow,
+  extractRunOutputText,
+  finalizeA2ATask,
+  getA2ATaskRow,
+  getA2ATasksByRunId,
+  updateA2ATaskRow,
+  waitForRunCompletion,
+  watchA2ATaskInBackground,
+} from './workflow-a2a-async.js';
+import { checkA2AClientIp } from './workflow-a2a-access.js';
 
+/** In-memory cache for quick sync lookups; durable source of truth is workflow_a2a_tasks. */
 const a2aTasks = new Map();
 const ACCESS_TOKEN_TTL_SEC = Math.max(
   60,
   Number(process.env.A2A_ACCESS_TOKEN_TTL_SEC) || 3600
+);
+const SYNC_INVOKE_TIMEOUT_MS = Math.max(
+  5000,
+  Number(process.env.A2A_SYNC_TIMEOUT_MS) || 120000
+);
+const ASYNC_WATCH_TIMEOUT_MS = Math.max(
+  SYNC_INVOKE_TIMEOUT_MS,
+  Number(process.env.A2A_ASYNC_WATCH_TIMEOUT_MS) || 24 * 60 * 60 * 1000
 );
 
 function parseJson(raw, fallback = null) {
@@ -85,6 +108,28 @@ export function buildA2AUrls(publishId) {
   };
 }
 
+function resolveInvokeMode(rowOrBody) {
+  const mode = String(rowOrBody?.invoke_mode || rowOrBody?.invokeMode || 'sync')
+    .trim()
+    .toLowerCase();
+  return mode === 'async' ? 'async' : 'sync';
+}
+
+function normalizeCallbackUrl(raw) {
+  const url = String(raw || '').trim();
+  if (!url) return null;
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error('callback_url must be a valid absolute URL');
+  }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    throw new Error('callback_url must use http or https');
+  }
+  return parsed.toString();
+}
+
 export function buildAgentCard(publication, def = null) {
   const urls = buildA2AUrls(publication.id);
   const skillId = publication.skill_id || 'default';
@@ -94,11 +139,41 @@ export function buildAgentCard(publication, def = null) {
   const secured = authMode === 'secured';
   const hasOauth = secured && publication.client_id;
   const hasLegacyBearer = secured && publication.auth_token && String(publication.auth_token).trim();
+  const invokeMode = resolveInvokeMode(publication);
+  const callbackUrl = publication.callback_url ? String(publication.callback_url).trim() : '';
   const inputSchema =
     parseInputSchemaJson(publication.input_schema_json) ||
     extractInputSchemaFromGraph(def?.published_graph || def?.draft_graph) ||
     def?.input_schema ||
     null;
+
+  const primarySkill = {
+    id: skillId,
+    name: publication.skill_name || publication.name || 'Default',
+    description:
+      publication.skill_description ||
+      publication.description ||
+      'Invoke this workflow with a natural-language message',
+    tags: ['workflow', 'agent-os', invokeMode, ...(metadata.tags || [])],
+    examples: metadata.examples || [`Run ${publication.name || 'workflow'}`],
+    ...(inputSchema
+      ? {
+          inputModes: ['application/json', 'text/plain'],
+          inputSchema,
+        }
+      : {}),
+  };
+
+  const extraSkills = Array.isArray(card.skills)
+    ? card.skills.filter(
+        (s) => s?.id && s.id !== skillId && s.id !== ENQUIRE_SKILL_ID
+      )
+    : [];
+
+  const skills = [primarySkill, ...extraSkills];
+  if (invokeMode === 'async') {
+    skills.push(buildEnquireSkill());
+  }
 
   const out = {
     name: publication.name || def?.name || 'Agent OS Workflow',
@@ -110,30 +185,17 @@ export function buildAgentCard(publication, def = null) {
     version: card.version || metadata.version || '1.0.0',
     capabilities: {
       streaming: false,
-      pushNotifications: false,
+      pushNotifications: invokeMode === 'async' && !!callbackUrl,
       ...(card.capabilities || {}),
     },
     defaultInputModes: inputSchema ? ['application/json', 'text/plain', 'text'] : ['text/plain', 'text'],
-    defaultOutputModes: ['text/plain', 'text'],
-    skills: [
-      {
-        id: skillId,
-        name: publication.skill_name || publication.name || 'Default',
-        description:
-          publication.skill_description ||
-          publication.description ||
-          'Invoke this workflow with a natural-language message',
-        tags: ['workflow', 'agent-os', ...(metadata.tags || [])],
-        examples: metadata.examples || [`Run ${publication.name || 'workflow'}`],
-        ...(inputSchema
-          ? {
-              inputModes: ['application/json', 'text/plain'],
-              inputSchema,
-            }
-          : {}),
-      },
-      ...(Array.isArray(card.skills) ? card.skills.filter((s) => s?.id && s.id !== skillId) : []),
-    ],
+    defaultOutputModes: ['text/plain', 'text', 'application/json'],
+    skills,
+    metadata: {
+      invokeMode,
+      ...(callbackUrl ? { callbackUrlConfigured: true } : {}),
+      ...(metadata || {}),
+    },
     ...(card.provider ? { provider: card.provider } : {}),
     ...(metadata.provider ? { provider: metadata.provider } : {}),
   };
@@ -171,6 +233,7 @@ function sanitizePublication(row, def = null, extras = {}) {
   const urls = buildA2AUrls(row.id);
   const authMode = resolveAuthMode(row);
   const secured = authMode === 'secured';
+  const invokeMode = resolveInvokeMode(row);
   const includeClientId = extras.includeClientId !== false;
   const { includeClientId: _omit, ...safeExtras } = extras;
   return {
@@ -183,6 +246,9 @@ function sanitizePublication(row, def = null, extras = {}) {
     skill_name: row.skill_name,
     skill_description: row.skill_description,
     status: row.status,
+    invoke_mode: invokeMode,
+    callback_url: row.callback_url || null,
+    access_policy: row.access_policy || 'deny_all',
     endpoint_url: urls.endpoint_url,
     card_url: urls.card_url,
     token_url: secured ? urls.token_url : null,
@@ -199,18 +265,23 @@ function sanitizePublication(row, def = null, extras = {}) {
   };
 }
 
-export function getPublicationByWorkflow(workflowId, ownerUserId) {
+export function listPublicationsForWorkflow(workflowId, ownerUserId) {
   const db = getDb();
-  const row = db
+  const def = store.getDefinition(workflowId, ownerUserId);
+  if (!def) return [];
+  const rows = db
     .prepare(
       `SELECT * FROM workflow_a2a_publications
        WHERE workflow_definition_id = ? AND owner_user_id = ? AND status = 'published'
-       ORDER BY published_at DESC LIMIT 1`
+       ORDER BY published_at DESC, created_at DESC`
     )
-    .get(workflowId, ownerUserId);
-  if (!row) return null;
-  const def = store.getDefinition(workflowId, ownerUserId);
-  return sanitizePublication(row, def);
+    .all(workflowId, ownerUserId);
+  return rows.map((row) => sanitizePublication(row, def));
+}
+
+export function getPublicationByWorkflow(workflowId, ownerUserId) {
+  const pubs = listPublicationsForWorkflow(workflowId, ownerUserId);
+  return pubs[0] || null;
 }
 
 export function getPublicationById(publishId) {
@@ -257,12 +328,39 @@ export function publishWorkflowAsA2A(ownerUserId, workflowId, body = {}, actor =
   if (!name) throw new Error('Agent name is required');
 
   const db = getDb();
-  const existing = db
+  const publishedRows = db
     .prepare(
       `SELECT * FROM workflow_a2a_publications
-       WHERE workflow_definition_id = ? AND owner_user_id = ? AND status = 'published'`
+       WHERE workflow_definition_id = ? AND owner_user_id = ? AND status = 'published'
+       ORDER BY published_at DESC`
     )
-    .get(workflowId, ownerUserId);
+    .all(workflowId, ownerUserId);
+
+  const asNewAgent = !!(body.as_new_agent || body.asNewAgent || body.create_new);
+  const requestedPublishId = String(body.publish_id || body.publishId || body.id || '').trim();
+
+  let existing = null;
+  if (!asNewAgent) {
+    if (requestedPublishId) {
+      existing = publishedRows.find((r) => r.id === requestedPublishId) || null;
+      if (!existing) {
+        const any = db
+          .prepare(
+            `SELECT * FROM workflow_a2a_publications
+             WHERE id = ? AND workflow_definition_id = ? AND owner_user_id = ?`
+          )
+          .get(requestedPublishId, workflowId, ownerUserId);
+        if (any && any.status === 'published') existing = any;
+        else throw new Error(`A2A publication not found: ${requestedPublishId}`);
+      }
+    } else if (publishedRows.length === 1) {
+      existing = publishedRows[0];
+    } else if (publishedRows.length > 1) {
+      throw new Error(
+        'Multiple A2A agents are published for this workflow. Pass publish_id to update one, or as_new_agent:true to create another.'
+      );
+    }
+  }
 
   const skillId = String(body.skill_id || body.skillId || 'default').trim() || 'default';
   const metadata = body.metadata && typeof body.metadata === 'object' ? body.metadata : {};
@@ -288,6 +386,18 @@ export function publishWorkflowAsA2A(ownerUserId, workflowId, body = {}, actor =
     .toLowerCase();
   const authMode = rawMode === 'secured' ? 'secured' : 'public';
   const rotateCredentials = !!(body.rotate_credentials || body.rotateCredentials);
+
+  const invokeMode = resolveInvokeMode({
+    invoke_mode: body.invoke_mode ?? body.invokeMode ?? existing?.invoke_mode ?? 'sync',
+  });
+  let callbackUrl = null;
+  if (invokeMode === 'async') {
+    if (body.callback_url !== undefined || body.callbackUrl !== undefined) {
+      callbackUrl = normalizeCallbackUrl(body.callback_url ?? body.callbackUrl);
+    } else if (existing?.callback_url) {
+      callbackUrl = existing.callback_url;
+    }
+  }
 
   let clientId = existing?.client_id || null;
   let clientSecretHash = existing?.client_secret_hash || null;
@@ -337,6 +447,8 @@ export function publishWorkflowAsA2A(ownerUserId, workflowId, body = {}, actor =
     client_id: clientId,
     client_secret_hash: clientSecretHash,
     auth_token: authToken,
+    invoke_mode: invokeMode,
+    callback_url: callbackUrl,
     status: 'published',
     published_at: new Date().toISOString(),
   };
@@ -352,7 +464,8 @@ export function publishWorkflowAsA2A(ownerUserId, workflowId, body = {}, actor =
         name = ?, description = ?, skill_id = ?, skill_name = ?, skill_description = ?,
         agent_card_json = ?, metadata_json = ?, input_schema_json = ?,
         auth_mode = ?, client_id = ?, client_secret_hash = ?,
-        auth_token = ?, status = 'published', published_at = ?, updated_at = datetime('now')
+        auth_token = ?, invoke_mode = ?, callback_url = ?,
+        status = 'published', published_at = ?, updated_at = datetime('now')
        WHERE id = ?`
     ).run(
       patch.name,
@@ -367,17 +480,22 @@ export function publishWorkflowAsA2A(ownerUserId, workflowId, body = {}, actor =
       patch.client_id,
       patch.client_secret_hash,
       patch.auth_token,
+      patch.invoke_mode,
+      patch.callback_url,
       patch.published_at,
       publishId
     );
   } else {
-    publishId = body.id?.trim() || slugPublishId(workflowId, name);
+    // Never reuse body.id when creating a second agent for the same workflow — always mint a new id
+    // unless caller is republishing a previously unpublished row (handled above).
+    publishId = slugPublishId(workflowId, name);
     db.prepare(
       `INSERT INTO workflow_a2a_publications (
         id, workflow_definition_id, owner_user_id, name, description,
         skill_id, skill_name, skill_description, agent_card_json, metadata_json, input_schema_json,
-        auth_mode, client_id, client_secret_hash, auth_token, status, published_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'published', ?, datetime('now'))`
+        auth_mode, client_id, client_secret_hash, auth_token, invoke_mode, callback_url,
+        status, published_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'published', ?, datetime('now'))`
     ).run(
       publishId,
       workflowId,
@@ -394,6 +512,8 @@ export function publishWorkflowAsA2A(ownerUserId, workflowId, body = {}, actor =
       patch.client_id,
       patch.client_secret_hash,
       patch.auth_token,
+      patch.invoke_mode,
+      patch.callback_url,
       patch.published_at
     );
   }
@@ -404,7 +524,7 @@ export function publishWorkflowAsA2A(ownerUserId, workflowId, body = {}, actor =
 
   store.appendAudit(workflowId, {
     action: 'a2a_published',
-    summary: `Published as A2A agent "${name}" (${publishId}, auth=${authMode})`,
+    summary: `Published as A2A agent "${name}" (${publishId}, auth=${authMode}, invoke=${invokeMode})`,
     changedBy: actor?.id,
     changedByName: actor?.name,
   });
@@ -413,14 +533,32 @@ export function publishWorkflowAsA2A(ownerUserId, workflowId, body = {}, actor =
   return sanitizePublication(row, def, issuedCredentials ? { credentials: issuedCredentials } : {});
 }
 
-export function unpublishWorkflowA2A(ownerUserId, workflowId, actor = null) {
+export function unpublishWorkflowA2A(ownerUserId, workflowId, actor = null, opts = {}) {
   const db = getDb();
-  const row = db
-    .prepare(
-      `SELECT * FROM workflow_a2a_publications
-       WHERE workflow_definition_id = ? AND owner_user_id = ? AND status = 'published'`
-    )
-    .get(workflowId, ownerUserId);
+  const publishId = String(opts.publishId || opts.publish_id || '').trim();
+  let row;
+  if (publishId) {
+    row = db
+      .prepare(
+        `SELECT * FROM workflow_a2a_publications
+         WHERE id = ? AND workflow_definition_id = ? AND owner_user_id = ? AND status = 'published'`
+      )
+      .get(publishId, workflowId, ownerUserId);
+  } else {
+    const rows = db
+      .prepare(
+        `SELECT * FROM workflow_a2a_publications
+         WHERE workflow_definition_id = ? AND owner_user_id = ? AND status = 'published'
+         ORDER BY published_at DESC`
+      )
+      .all(workflowId, ownerUserId);
+    if (rows.length > 1) {
+      throw new Error(
+        'Multiple A2A agents are published for this workflow. Pass publish_id to unpublish a specific agent.'
+      );
+    }
+    row = rows[0] || null;
+  }
   if (!row) throw new Error('No A2A publication found for this workflow');
 
   revokeAccessTokens(db, row.id);
@@ -436,6 +574,43 @@ export function unpublishWorkflowA2A(ownerUserId, workflowId, actor = null) {
   });
 
   return { ok: true, id: row.id };
+}
+
+/**
+ * Owner-scoped AgentExchange unpublish. The workflow definition remains published
+ * and usable through authenticated UI/API; only this A2A publication becomes private.
+ */
+export function unpublishA2APublicationById(ownerUserId, publishId, actor = null) {
+  const db = getDb();
+  const row = db
+    .prepare(
+      `SELECT * FROM workflow_a2a_publications
+       WHERE id = ? AND owner_user_id = ? AND status = 'published'`
+    )
+    .get(publishId, ownerUserId);
+  if (!row) throw new Error('A2A publication not found or not owned by this user');
+
+  revokeAccessTokens(db, row.id);
+  db.prepare(`DELETE FROM workflow_a2a_ip_whitelist WHERE publish_id = ?`).run(row.id);
+  db.prepare(
+    `UPDATE workflow_a2a_publications
+     SET status = 'unpublished', updated_at = datetime('now')
+     WHERE id = ? AND owner_user_id = ?`
+  ).run(row.id, ownerUserId);
+
+  store.appendAudit(row.workflow_definition_id, {
+    action: 'a2a_unpublished',
+    summary: `Unpublished A2A agent "${row.name}" (${row.id}); workflow remains private to authenticated UI/API`,
+    changedBy: actor?.id,
+    changedByName: actor?.name,
+  });
+
+  return {
+    ok: true,
+    id: row.id,
+    workflow_definition_id: row.workflow_definition_id,
+    workflow_remains_published: true,
+  };
 }
 
 function extractBearerToken(authHeader) {
@@ -538,36 +713,8 @@ function extractMessageInput(params) {
   return '';
 }
 
-async function waitForRunCompletion(runId, ownerUserId, timeoutMs = 120000) {
-  const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
-    const run = store.getRun(runId, ownerUserId);
-    if (!run) throw new Error('Workflow run not found');
-    if (run.status === 'completed') return run;
-    if (run.status === 'failed' || run.status === 'cancelled') {
-      throw new Error(run.error_message || `Workflow run ${run.status}`);
-    }
-    await new Promise((r) => setTimeout(r, 1500));
-  }
-  throw new Error('Workflow run timed out');
-}
-
-function extractRunOutputText(run) {
-  const steps = run.steps || [];
-  for (let i = steps.length - 1; i >= 0; i -= 1) {
-    const out = steps[i]?.output;
-    if (!out) continue;
-    if (typeof out.text === 'string' && out.text.trim()) return out.text.trim();
-    if (typeof out.result === 'string' && out.result.trim()) return out.result.trim();
-    if (out.result && typeof out.result === 'object') {
-      const t = out.result.text || out.result.summary || out.result.message;
-      if (typeof t === 'string' && t.trim()) return t.trim();
-    }
-  }
-  return run.status === 'completed' ? 'Workflow completed successfully.' : '';
-}
-
 function buildA2ATaskResponse(taskId, state, text, extra = {}) {
+  const runMeta = extra.runMetadata || null;
   return {
     jsonrpc: '2.0',
     id: extra.rpcId || randomUUID(),
@@ -580,12 +727,88 @@ function buildA2ATaskResponse(taskId, state, text, extra = {}) {
         id: taskId,
         status: { state },
       },
+      metadata: {
+        ...(runMeta ? { run: runMeta } : {}),
+        ...(extra.metadata || {}),
+      },
       ...extra.resultExtras,
     },
   };
 }
 
-export async function handleA2AJsonRpc(publishId, body, { authHeader = null } = {}) {
+function resolveEnquireIds(messageInput, params) {
+  let taskId =
+    params?.id ||
+    params?.taskId ||
+    params?.metadata?.taskId ||
+    params?.metadata?.task_id ||
+    null;
+  let runId =
+    params?.runId ||
+    params?.metadata?.runId ||
+    params?.metadata?.run_id ||
+    null;
+  if (messageInput && typeof messageInput === 'object' && !Array.isArray(messageInput)) {
+    taskId = taskId || messageInput.taskId || messageInput.task_id || null;
+    runId = runId || messageInput.runId || messageInput.run_id || null;
+  }
+  if (typeof messageInput === 'string') {
+    const m = messageInput.match(
+      /(?:task[_ ]?id|taskId)\s*[:=]\s*([0-9a-f-]{8,})/i
+    );
+    if (m) taskId = taskId || m[1];
+    const r = messageInput.match(/(?:run[_ ]?id|runId)\s*[:=]\s*(\d+)/i);
+    if (r) runId = runId || Number(r[1]);
+  }
+  return { taskId: taskId ? String(taskId).trim() : null, runId: runId != null ? Number(runId) : null };
+}
+
+function taskResponseFromRow(taskRow, rpcId, publishId) {
+  if (!taskRow || taskRow.publish_id !== publishId) {
+    return { jsonrpc: '2.0', id: rpcId, error: { code: -32004, message: 'Task not found' } };
+  }
+  // Refresh from run if still working
+  if (['working', 'submitted'].includes(taskRow.state)) {
+    const run = store.getRun(taskRow.run_id, taskRow.owner_user_id);
+    if (run && ['completed', 'failed', 'cancelled'].includes(run.status)) {
+      // sync finalize without waiting for async callback path
+      const text =
+        run.status === 'completed'
+          ? extractRunOutputText(run)
+          : run.error_message || `Workflow run ${run.status}`;
+      const meta = buildRunMetadata(run);
+      const state =
+        run.status === 'completed' ? 'completed' : run.status === 'cancelled' ? 'cancelled' : 'failed';
+      updateA2ATaskRow(taskRow.task_id, { state, output_text: text, run_metadata: meta });
+      a2aTasks.set(taskRow.task_id, { state, text, runId: run.id });
+      void finalizeA2ATask(taskRow.task_id).catch(() => {});
+      taskRow = getA2ATaskRow(taskRow.task_id);
+    } else if (run) {
+      const meta = buildRunMetadata(run);
+      updateA2ATaskRow(taskRow.task_id, { run_metadata: meta });
+      taskRow = getA2ATaskRow(taskRow.task_id);
+      return buildA2ATaskResponse(taskRow.task_id, 'working', 'Workflow still running.', {
+        rpcId,
+        runMetadata: meta,
+        metadata: { invoke_mode: 'async', run_id: run.id },
+      });
+    }
+  }
+  return buildA2ATaskResponse(taskRow.task_id, taskRow.state, taskRow.output_text || '', {
+    rpcId,
+    runMetadata: taskRow.run_metadata || null,
+    metadata: {
+      run_id: taskRow.run_id,
+      callback_delivered: !!taskRow.callback_at,
+    },
+  });
+}
+
+export async function handleA2AJsonRpc(
+  publishId,
+  body,
+  { authHeader = null, clientIp = '', bypassAccessChecks = false } = {}
+) {
   const db = getDb();
   const row = db.prepare(`SELECT * FROM workflow_a2a_publications WHERE id = ? AND status = 'published'`).get(publishId);
   if (!row) {
@@ -596,13 +819,28 @@ export async function handleA2AJsonRpc(publishId, body, { authHeader = null } = 
     };
   }
 
-  const auth = authorizeA2AInvoke(row, authHeader);
-  if (!auth.ok) {
-    return {
-      jsonrpc: '2.0',
-      id: body?.id || null,
-      error: { code: -32003, message: auth.message || 'Unauthorized' },
-    };
+  if (!bypassAccessChecks) {
+    const ipAccess = checkA2AClientIp(row, clientIp);
+    if (!ipAccess.ok) {
+      return {
+        jsonrpc: '2.0',
+        id: body?.id || null,
+        error: {
+          code: -32005,
+          message: ipAccess.reason || 'Client IP is not allowed',
+          data: { access_policy: ipAccess.policy },
+        },
+      };
+    }
+
+    const auth = authorizeA2AInvoke(row, authHeader);
+    if (!auth.ok) {
+      return {
+        jsonrpc: '2.0',
+        id: body?.id || null,
+        error: { code: -32003, message: auth.message || 'Unauthorized' },
+      };
+    }
   }
 
   const def = store.getDefinition(row.workflow_definition_id, row.owner_user_id);
@@ -617,21 +855,46 @@ export async function handleA2AJsonRpc(publishId, body, { authHeader = null } = 
   const method = body?.method;
   const params = body?.params || {};
   const rpcId = body?.id ?? randomUUID();
+  const invokeMode = resolveInvokeMode(row);
 
-  if (method === 'tasks/get' || method === 'GetTask') {
-    const taskId = params.id || params.taskId;
-    const task = a2aTasks.get(taskId);
-    if (!task) {
+  if (method === 'tasks/get' || method === 'GetTask' || method === 'tasks/enquire') {
+    const { taskId, runId } = resolveEnquireIds(null, params);
+    let taskRow = taskId ? getA2ATaskRow(taskId) : null;
+    if (!taskRow && runId) {
+      taskRow = getA2ATasksByRunId(runId).find((t) => t.publish_id === publishId) || null;
+    }
+    if (!taskRow) {
+      const mem = taskId ? a2aTasks.get(taskId) : null;
+      if (mem) {
+        return buildA2ATaskResponse(taskId, mem.state, mem.text || '', {
+          rpcId,
+          metadata: { run_id: mem.runId || null },
+        });
+      }
       return { jsonrpc: '2.0', id: rpcId, error: { code: -32004, message: 'Task not found' } };
     }
-    return buildA2ATaskResponse(taskId, task.state, task.text, { rpcId });
+    return taskResponseFromRow(taskRow, rpcId, publishId);
   }
 
   if (method !== 'message/send' && method !== 'SendMessage') {
     return { jsonrpc: '2.0', id: rpcId, error: { code: -32601, message: `Method not found: ${method}` } };
   }
 
+  const skillId = params.metadata?.skillId || params.skillId || row.skill_id || 'default';
   const messageInput = extractMessageInput(params);
+
+  if (skillId === ENQUIRE_SKILL_ID) {
+    const { taskId, runId } = resolveEnquireIds(messageInput, params);
+    let taskRow = taskId ? getA2ATaskRow(taskId) : null;
+    if (!taskRow && runId) {
+      taskRow = getA2ATasksByRunId(runId).find((t) => t.publish_id === publishId) || null;
+    }
+    if (!taskRow) {
+      return { jsonrpc: '2.0', id: rpcId, error: { code: -32004, message: 'Task not found — pass taskId or runId' } };
+    }
+    return taskResponseFromRow(taskRow, rpcId, publishId);
+  }
+
   if (
     messageInput === '' ||
     messageInput == null ||
@@ -640,13 +903,24 @@ export async function handleA2AJsonRpc(publishId, body, { authHeader = null } = 
     return { jsonrpc: '2.0', id: rpcId, error: { code: -32602, message: 'Message text or data is required' } };
   }
 
-  const skillId = params.metadata?.skillId || params.skillId || row.skill_id || 'default';
   if (row.skill_id && skillId !== row.skill_id) {
     return {
       jsonrpc: '2.0',
       id: rpcId,
-      error: { code: -32602, message: `Unknown skillId "${skillId}" — expected "${row.skill_id}"` },
+      error: { code: -32602, message: `Unknown skillId "${skillId}" — expected "${row.skill_id}" or "${ENQUIRE_SKILL_ID}"` },
     };
+  }
+
+  let invokeCallbackUrl = row.callback_url || null;
+  try {
+    const override =
+      params.metadata?.callbackUrl ||
+      params.metadata?.callback_url ||
+      params.callbackUrl ||
+      params.callback_url;
+    if (override) invokeCallbackUrl = normalizeCallbackUrl(override);
+  } catch (e) {
+    return { jsonrpc: '2.0', id: rpcId, error: { code: -32602, message: e.message } };
   }
 
   const taskId = randomUUID();
@@ -659,13 +933,62 @@ export async function handleA2AJsonRpc(publishId, body, { authHeader = null } = 
       publicationSchema: parseInputSchemaJson(row.input_schema_json),
       actor: { id: `a2a:${publishId}`, name: row.name, type: 'a2a_client' },
     });
-    const finalRun = await waitForRunCompletion(run.id, row.owner_user_id);
+
+    createA2ATaskRow({
+      taskId,
+      publishId,
+      runId: run.id,
+      ownerUserId: row.owner_user_id,
+      callbackUrl: invokeMode === 'async' ? invokeCallbackUrl : null,
+    });
+    a2aTasks.set(taskId, { state: 'working', text: '', publishId, runId: run.id, startedAt: Date.now() });
+
+    if (invokeMode === 'async') {
+      watchA2ATaskInBackground(taskId, row.owner_user_id, ASYNC_WATCH_TIMEOUT_MS);
+      const acceptingText =
+        'Accepted. Workflow is running asynchronously. Enquire with skill enquire-progress or method tasks/get using this task id' +
+        (invokeCallbackUrl ? '; final result will also POST to your callback URL.' : '.');
+      return buildA2ATaskResponse(taskId, 'working', acceptingText, {
+        rpcId,
+        runMetadata: buildRunMetadata(run),
+        metadata: {
+          invoke_mode: 'async',
+          run_id: run.id,
+          callback_url: invokeCallbackUrl || null,
+          enquire: {
+            skillId: ENQUIRE_SKILL_ID,
+            methods: ['tasks/get', 'tasks/enquire'],
+            taskId,
+          },
+        },
+      });
+    }
+
+    const finalRun = await waitForRunCompletion(run.id, row.owner_user_id, SYNC_INVOKE_TIMEOUT_MS);
     const text = extractRunOutputText(finalRun);
+    const meta = buildRunMetadata(finalRun);
+    updateA2ATaskRow(taskId, { state: 'completed', output_text: text, run_metadata: meta });
     a2aTasks.set(taskId, { state: 'completed', text, runId: run.id });
-    return buildA2ATaskResponse(taskId, 'completed', text, { rpcId });
+    return buildA2ATaskResponse(taskId, 'completed', text, {
+      rpcId,
+      runMetadata: meta,
+      metadata: { invoke_mode: 'sync', run_id: run.id },
+    });
   } catch (e) {
     const msg = e?.message || 'Workflow failed';
     a2aTasks.set(taskId, { state: 'failed', text: msg });
+    const existingTask = getA2ATaskRow(taskId);
+    if (existingTask) {
+      const run = store.getRun(existingTask.run_id, row.owner_user_id);
+      updateA2ATaskRow(taskId, {
+        state: 'failed',
+        output_text: msg,
+        run_metadata: buildRunMetadata(run) || { error_message: msg },
+      });
+      if (invokeMode === 'async') {
+        void finalizeA2ATask(taskId).catch(() => {});
+      }
+    }
     if (e instanceof WorkflowInputSchemaError || e?.code === 'INPUT_SCHEMA_VALIDATION') {
       return {
         jsonrpc: '2.0',
@@ -677,6 +1000,14 @@ export async function handleA2AJsonRpc(publishId, body, { authHeader = null } = 
         },
       };
     }
-    return buildA2ATaskResponse(taskId, 'failed', msg, { rpcId });
+    const failedTask = getA2ATaskRow(taskId);
+    return buildA2ATaskResponse(taskId, 'failed', msg, {
+      rpcId,
+      runMetadata: failedTask?.run_metadata || null,
+      metadata: {
+        invoke_mode: invokeMode,
+        run_id: failedTask?.run_id || null,
+      },
+    });
   }
 }

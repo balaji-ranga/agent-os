@@ -13,11 +13,11 @@
 | [06-workflows-building.md](./06-workflows-building.md) | Create / edit / publish / run workflows, I/O mapping, templates |
 | [07-workflow-nodes-reference.md](./07-workflow-nodes-reference.md) | Every node type incl. **Connector**; attributes, inputs, outputs |
 | [08-mcp-integrations.md](./08-mcp-integrations.md) | Register MCP, test, use in workflows / Brain (vs Connectors) |
-| [09-a2a-agent-exchange.md](./09-a2a-agent-exchange.md) | External agents, Publish A2A (Public / Secured OAuth), AgentExchange |
+| [09-a2a-agent-exchange.md](./09-a2a-agent-exchange.md) | External agents, Publish A2A (sync/async, callback, deny_all/whitelist), AgentExchange **Test agent**, Admin **A2A invocation logs**, mock callback inbox |
 | [10-policies-guardrails.md](./10-policies-guardrails.md) | CEO common guardrails for all agents + Brain nodes |
 | [10-job-applicant-pipeline.md](./10-job-applicant-pipeline.md) | Job profiles & prebuilt job workflows |
-| [11-content-tools-scripts-profile.md](./11-content-tools-scripts-profile.md) | Content tools, AGENT-OS-OPS, scripts, AI Snipper, Efficiency View, Profile |
-| [12-troubleshooting.md](./12-troubleshooting.md) | Common issues (notify, Kanban, API Keys, Connectors) |
+| [11-content-tools-scripts-profile.md](./11-content-tools-scripts-profile.md) | Content tools, AGENT-OS-OPS, **summary caches** (`learnings_summary`, `brain_history`), scripts, AI Snipper, Efficiency View, Profile |
+| [12-troubleshooting.md](./12-troubleshooting.md) | Common issues (A2A deny_all 403, notify, Kanban, API Keys, Connectors) |
 | [13-workflow-autonomous-certify.md](./13-workflow-autonomous-certify.md) | Maker/Checker certify jobs, status-on-request, resume inputs |
 | [14-workflow-dynamic-values.md](./14-workflow-dynamic-values.md) | `{{…}}` templates, variables, trigger input, **vault** auth |
 | [15-api-keys-vault.md](./15-api-keys-vault.md) | **API Keys** vault, `Platform_BYOK`, workflow/MCP/Connector secrets |

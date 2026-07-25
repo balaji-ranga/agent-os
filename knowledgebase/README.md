@@ -6,7 +6,7 @@ Documentation lives here so Cursor and humans can find it. **Root README.md** st
 
 | File | Purpose |
 |------|---------|
-| **platform-help/** | CEO end-user Platform Help guide (navigation, workflows/nodes, **dynamic `{{…}}` values**, MCP, A2A, **Download for Windows**, troubleshooting). Consumed by **Platform Help** agent via Master Data RAG. See especially `platform-help/14-workflow-dynamic-values.md` and `platform-help/17-desktop-windows-download.md`. |
+| **platform-help/** | CEO end-user Platform Help guide (navigation, workflows/nodes, **dynamic `{{…}}` values**, MCP, **A2A / AgentExchange** (sync/async, deny_all, Test agent), **Download for Windows**, summary-cache tools, troubleshooting). Consumed by **Platform Help** agent via Master Data RAG. See especially `platform-help/09-a2a-agent-exchange.md`, `platform-help/11-content-tools-scripts-profile.md`, `platform-help/14-workflow-dynamic-values.md`, and `platform-help/17-desktop-windows-download.md`. |
 | **AGENT-WORKSPACE-TEMPLATES.md** | Platform-shared agent workspace MD templates: apply in Agent Workspace, Admin CRUD, CEO publish-as-template. |
 | **TESTING.md** | Restart steps, full API test, frontend manual tests, smoke test, standup→COO→TechResearcher test, standup UI checklist. |
 | **GITHUB-SETUP.md** | One-time: create agent-os repo on GitHub and push (Options A/B, security check). |

@@ -315,6 +315,20 @@ export const api = {
   adminPlatformLlmGet: () => get('/admin/platform-llm'),
   adminPlatformLlmSet: (llm_active_endpoint) =>
     put('/admin/platform-llm', { llm_active_endpoint }),
+  adminA2AInvocations: (params = {}) => {
+    const q = new URLSearchParams();
+    if (params.outcome) q.set('outcome', params.outcome);
+    if (params.endpoint) q.set('endpoint', params.endpoint);
+    if (params.source) q.set('source', params.source);
+    if (params.q) q.set('q', params.q);
+    if (params.client_ip) q.set('client_ip', params.client_ip);
+    if (params.publish_id) q.set('publish_id', params.publish_id);
+    if (params.owner_user_id) q.set('owner_user_id', params.owner_user_id);
+    if (params.limit != null) q.set('limit', String(params.limit));
+    if (params.offset != null) q.set('offset', String(params.offset));
+    const qs = q.toString();
+    return get(`/admin/a2a-invocations${qs ? `?${qs}` : ''}`);
+  },
   adminImpersonateUser: (userId) => post(`/admin/users/${encodeURIComponent(userId)}/impersonate`, {}),
   authExitImpersonation: () => post('/auth/exit-impersonation', {}),
   // Agent workflows (custom, separate from job workflows)
@@ -440,12 +454,36 @@ export const api = {
   externalAgentInvoke: (id, body) => post(`/integrations/external-agents/${encodeURIComponent(id)}/invoke`, body),
 
   agentExchangeList: () => get('/agent-exchange'),
+  agentExchangeAccessGet: (publishId) =>
+    get(`/agent-exchange/${encodeURIComponent(publishId)}/access`),
+  agentExchangeAccessSet: (publishId, accessPolicy) =>
+    put(`/agent-exchange/${encodeURIComponent(publishId)}/access`, {
+      access_policy: accessPolicy,
+    }),
+  agentExchangeIpAdd: (publishId, body) =>
+    post(`/agent-exchange/${encodeURIComponent(publishId)}/ip-whitelist`, body),
+  agentExchangeIpRemove: (publishId, entryId) =>
+    del(
+      `/agent-exchange/${encodeURIComponent(publishId)}/ip-whitelist/${encodeURIComponent(entryId)}`
+    ),
+  agentExchangeUnpublish: (publishId) =>
+    del(`/agent-exchange/${encodeURIComponent(publishId)}`),
+  agentExchangeTestSample: (publishId) =>
+    get(`/agent-exchange/${encodeURIComponent(publishId)}/test-sample`),
+  agentExchangeTest: (publishId, body) =>
+    post(`/agent-exchange/${encodeURIComponent(publishId)}/test`, body),
   agentWorkflowA2APublication: (workflowId) =>
     get(`/agent-workflows/${encodeURIComponent(workflowId)}/a2a-publication`),
+  agentWorkflowA2APublications: (workflowId) =>
+    get(`/agent-workflows/${encodeURIComponent(workflowId)}/a2a-publications`),
   agentWorkflowPublishA2A: (workflowId, body) =>
     post(`/agent-workflows/${encodeURIComponent(workflowId)}/publish-a2a`, body),
-  agentWorkflowUnpublishA2A: (workflowId) =>
-    del(`/agent-workflows/${encodeURIComponent(workflowId)}/a2a-publication`),
+  agentWorkflowUnpublishA2A: (workflowId, opts = {}) => {
+    const q = opts.publishId
+      ? `?publish_id=${encodeURIComponent(opts.publishId)}`
+      : '';
+    return del(`/agent-workflows/${encodeURIComponent(workflowId)}/a2a-publication${q}`);
+  },
 
   agentWorkflowDesktopTokens: (id) =>
     get(`/agent-workflows/${encodeURIComponent(id)}/desktop-tokens`),

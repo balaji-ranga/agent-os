@@ -9,6 +9,7 @@ import { getDb } from '../db/schema.js';
 import * as store from '../services/agent-workflow-store.js';
 import { resolveIbkrPolicy } from '../services/ibkr-workflow-variables.js';
 import { resolveEntitledOwnerUserId } from '../services/tool-owner-scope.js';
+import { parseForceFlag } from '../services/tool-summary-cache.js';
 
 const router = Router();
 
@@ -575,6 +576,7 @@ router.get('/order-events', async (req, res) => {
       symbolKey: req.query.symbol_key || req.query.key || null,
       responseType: req.query.response_type || req.query.responseType || 'actual',
       purpose: req.query.purpose || undefined,
+      force: parseForceFlag(req.query),
     });
     res.json(result);
   } catch (e) {
@@ -595,6 +597,7 @@ router.post('/order-events', async (req, res) => {
       symbolKey: body.symbol_key || body.key || null,
       responseType: body.response_type || body.responseType || 'actual',
       purpose: body.purpose || undefined,
+      force: parseForceFlag(body),
     });
     res.json(result);
   } catch (e) {
@@ -615,6 +618,7 @@ router.get('/order-learnings', async (req, res) => {
       symbolKey: req.query.symbol_key || req.query.key || null,
       responseType: req.query.response_type || req.query.responseType || 'actual',
       purpose: req.query.purpose || 'IBKR Maker order learnings',
+      force: parseForceFlag(req.query),
     });
     res.json(result);
   } catch (e) {
@@ -635,6 +639,7 @@ router.post('/order-learnings', async (req, res) => {
       symbolKey: body.symbol_key || body.key || null,
       responseType: body.response_type || body.responseType || 'summarized',
       purpose: body.purpose || 'IBKR Maker order learnings',
+      force: parseForceFlag(body),
     });
     res.json(result);
   } catch (e) {

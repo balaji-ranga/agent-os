@@ -795,6 +795,108 @@ export function initDb() {
   } catch (_) {}
 
   try {
+    _db.exec(`ALTER TABLE workflow_a2a_publications ADD COLUMN invoke_mode TEXT DEFAULT 'sync'`);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE workflow_a2a_publications ADD COLUMN callback_url TEXT`);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE workflow_a2a_publications ADD COLUMN access_policy TEXT DEFAULT 'deny_all'`);
+  } catch (_) {}
+  try {
+    _db.exec(
+      `UPDATE workflow_a2a_publications
+       SET access_policy = 'deny_all'
+       WHERE access_policy IS NULL OR access_policy NOT IN ('deny_all', 'allow_all', 'whitelist')`
+    );
+  } catch (_) {}
+
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS workflow_a2a_ip_whitelist (
+        id TEXT PRIMARY KEY,
+        publish_id TEXT NOT NULL,
+        owner_user_id TEXT NOT NULL,
+        cidr_or_ip TEXT NOT NULL,
+        label TEXT DEFAULT '',
+        created_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (publish_id) REFERENCES workflow_a2a_publications(id) ON DELETE CASCADE
+      )
+    `);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_wf_a2a_ip_whitelist_publish
+       ON workflow_a2a_ip_whitelist(publish_id, owner_user_id)`
+    );
+  } catch (_) {}
+
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS workflow_a2a_tasks (
+        task_id TEXT PRIMARY KEY,
+        publish_id TEXT NOT NULL,
+        run_id INTEGER NOT NULL,
+        owner_user_id TEXT NOT NULL,
+        callback_url TEXT,
+        state TEXT NOT NULL DEFAULT 'working',
+        output_text TEXT DEFAULT '',
+        run_metadata_json TEXT DEFAULT '{}',
+        callback_status INTEGER,
+        callback_error TEXT,
+        callback_at TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (publish_id) REFERENCES workflow_a2a_publications(id) ON DELETE CASCADE
+      )
+    `);
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_wf_a2a_tasks_run ON workflow_a2a_tasks(run_id)`);
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_wf_a2a_tasks_publish ON workflow_a2a_tasks(publish_id, created_at DESC)`);
+  } catch (_) {}
+
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS workflow_a2a_invocation_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        publish_id TEXT,
+        owner_user_id TEXT,
+        workflow_definition_id TEXT,
+        agent_name TEXT,
+        client_ip TEXT,
+        endpoint TEXT NOT NULL,
+        rpc_method TEXT,
+        skill_id TEXT,
+        outcome TEXT NOT NULL,
+        reason_code TEXT,
+        reason_message TEXT,
+        auth_mode TEXT,
+        access_policy TEXT,
+        http_status INTEGER,
+        jsonrpc_code INTEGER,
+        jsonrpc_id TEXT,
+        task_id TEXT,
+        run_id INTEGER,
+        request_json TEXT,
+        response_json TEXT,
+        latency_ms INTEGER,
+        source TEXT DEFAULT 'public',
+        bypass_access INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_wf_a2a_inv_created ON workflow_a2a_invocation_logs(created_at DESC)`
+    );
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_wf_a2a_inv_publish ON workflow_a2a_invocation_logs(publish_id, created_at DESC)`
+    );
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_wf_a2a_inv_outcome ON workflow_a2a_invocation_logs(outcome, created_at DESC)`
+    );
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_wf_a2a_inv_owner ON workflow_a2a_invocation_logs(owner_user_id, created_at DESC)`
+    );
+  } catch (_) {}
+
+  try {
     _db.exec(`
       CREATE TABLE IF NOT EXISTS custom_scripts (
         id TEXT PRIMARY KEY,

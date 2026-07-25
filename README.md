@@ -86,8 +86,12 @@ Tips:
 ### Workflows and AgentExchange
 
 1. **Workflows** — build visual automations (triggers, agents, APIs, approvals). Publish a run and watch it on Kanban.
-2. **Publish as A2A** from a published workflow to list it for others. Choose **Public** (open invoke) or **Secured** (OAuth `client_id` + `client_secret` → Bearer access token; secret shown once).
-3. **AgentExchange** — browse published workflow agents (Public / Secured badges and token URL when secured).
+2. **Publish as A2A** from a published workflow to list it for others:
+   - **Invoke mode:** **Sync** (HTTP holds until the run finishes, ~2 min cap) or **Async** (immediate `working` + `task.id`; poll with **`enquire-progress`** / `tasks/get`, or receive a **callback URL** webhook when the run completes/fails/cancels). Final step text: enquire/sync → **`result.parts[0].text`**; callback webhook → **`final_output`**.
+   - **Callback URL** at publish time, or per-invoke override via `params.metadata.callbackUrl` (plain JSON webhook — not A2A JSON-RPC).
+   - **Access:** new listings default to **Deny all** (card, invoke, OAuth token, and enquiry return `403` until you open access). Switch to **Allow all** or an **IP whitelist** (IPv4 + CIDR; IPv6 exact match only) under **AgentExchange → Security**.
+   - **Public** (no token) or **Secured** (OAuth `client_id` + `client_secret` → Bearer access token; secret shown once). **Publish as new agent** or update an existing listing with `publish_id`.
+3. **AgentExchange** — browse published workflow agents (Public / Secured badges, token URL when secured). Owners manage **Security** and **Unpublish** (removes public A2A endpoints; the workflow stays published for your UI). **Test agent** autofills sample input from the agent card schema; **owners bypass IP/OAuth** for testing — non-owners still hit IP + OAuth policy. Mock callback inbox for async tests: `POST/GET /api/a2a-callback-inbox`. **Admins** see platform-wide card/token/invoke success & denial history at **`/admin/a2a-invocations`**.
 
 ### Job search pipeline (optional)
 
@@ -221,8 +225,8 @@ Set in backend `.env`:
 | **Kanban** | Board view (tasks by agent and status); task detail with **task chat**, artifacts, workflow run links. Reopen task; create task (COO or direct to agent). Auto-completes when COO chat delegations finish. |
 | **Custom workflows** | Visual **Workflows** editor: trigger (manual / schedule / chat / event webhook), agent, API, MCP tool, **SSE listen**, **sub-workflow**, Brain (LLM + optional MCP tool calling; **Thinking mode** for DeepSeek/OpenRouter), email, IF/While, parallel/merge, CEO approval, **external agent (A2A)**. Publish, run instances, paginated run history, search, **stop SSE listen** on active runs. |
 | **Download for Windows** | From a **published** workflow: download a PS1 + params package (optional portable Node 18). Local graph orchestration + localhost API / filesystem; run state and other nodes on Flolah. Desktop token + optional IP whitelist. See `knowledgebase/platform-help/17-desktop-windows-download.md`. |
-| **Publish as A2A** | From the workflow editor, **Publish A2A** exposes a workflow as an A2A agent (agent card + JSON-RPC). Choose **Public** or **Secured** (OAuth client credentials → Bearer). Unpublish removes it from AgentExchange. |
-| **AgentExchange** | Browse published A2A workflow agents (`/agent-exchange`). Cards at `/api/a2a/:publishId/.well-known/agent-card.json`. Secured agents: `POST /api/a2a/:publishId/oauth/token`. |
+| **Publish as A2A** | **Publish A2A** exposes a workflow as an A2A agent (agent card + JSON-RPC). **Sync** or **Async** invoke; optional **callback URL** (+ per-request `callbackUrl`). **Deny all** access by default; **Allow all** or **IP whitelist**. **Public** or **Secured** (OAuth client credentials → Bearer). **Publish as new agent** or update by `publish_id`. Unpublish removes public endpoints; workflow stays published. |
+| **AgentExchange** | Browse published A2A workflow agents (`/agent-exchange`). **Security** (access policy + IP whitelist), **Test agent** (schema autofill; owners bypass IP/OAuth), **Unpublish**. Cards at `/api/a2a/:publishId/.well-known/agent-card.json`. Mock callback inbox: `/api/a2a-callback-inbox`. Admin **A2A logs** (`/admin/a2a-invocations`) for success/denial history. |
 | **Workflow Builder chat** | LLM assistant in the workflow editor to create/edit graphs via natural language. |
 | **Job profiles** | CEO job search profiles (intake, resume, preferences); gate for Job Applicant pipeline. |
 | **Job workflows** | Multi-agent **Job Applicant** pipeline (Discovery → Fit Scoring → Resume Tailoring → Application); Kanban-tracked stages; browser/Playwright apply path. See **knowledgebase/JOB-APPLICANT-WORKFLOW.md**. |
@@ -257,7 +261,7 @@ New CEOs start with **empty** standups (no other user’s chats or agents), star
 - **Node types:** Trigger, Agent, Content Tool, MCP Tool, **SSE Listen** (long-running stream; dispatches downstream on each event), **Sub-workflow**, Call API (Basic/Bearer/API-key auth + custom headers), Brain, Email, IF, While, Parallel, Merge, CEO Approval, External Agent
 - **Data binding:** `{{nodeId.outputKey}}` and nested paths (e.g. `{{api-1.body.accessToken}}`, `{{trigger-1.trigger_input.query}}`); workflow variables `{{var.key}}` (editor **Workflow variables** panel — shared static config for that definition, not platform-wide globals). Full guide: `knowledgebase/platform-help/14-workflow-dynamic-values.md`.
 - **Dynamic auth:** API / MCP / Brain `apiKey` / External Agent override / SSE headers accept the same `{{…}}` templates (values look static in the UI; runner substitutes at execute time). Brave Search MCP is **BYOK** (workflow headers only — no container `BRAVE_API_KEY` fallback).
-- **A2A publish:** Publish → AgentExchange + agent card / JSON-RPC under `/api/a2a/:publishId`. **Public** or **Secured** (OAuth client credentials at `/api/a2a/:publishId/oauth/token`, then `Authorization: Bearer <access_token>`).
+- **A2A publish:** Publish → AgentExchange + agent card / JSON-RPC under `/api/a2a/:publishId`. **Sync** or **Async**; optional callback URL (+ per-invoke `params.metadata.callbackUrl`). **Deny all** default; **Allow all** or IP whitelist (VPS: real client IP via `docker-compose.vps-client-ip.yml`). **Public** or **Secured** (OAuth at `/api/a2a/:publishId/oauth/token`, then `Authorization: Bearer <access_token>`). Async: `enquire-progress` / `tasks/get`; callback JSON events `a2a.workflow.completed|failed|cancelled`.
 - **Download for Windows:** Published workflow → **Download for Windows** (lite or with portable Node 18). Local orchestrator; Flolah holds run state + remote nodes. Guide: `knowledgebase/platform-help/17-desktop-windows-download.md`.
 - **Runs:** Kanban tasks per step; fail run on API/MCP errors (non-2xx HTTP, SSL errors, MCP `is_error`)
 - **Help:** Platform Help agent RAG over `knowledgebase/platform-help/` (re-upload with `node backend/scripts/reupload-platform-help-docs.js` after doc changes).
@@ -343,7 +347,7 @@ All routes below are also available under **`/api/...`** (frontend uses `/api` p
 
 - `GET /health` — liveness
 - **Auth:** `POST /auth/login`, `POST /auth/register`, `GET /auth/me`, profile update
-- **Admin:** `GET/POST /admin/users`, enable/disable users, grant agents
+- **Admin:** `GET/POST /admin/users`, enable/disable users, grant agents; **`GET /admin/a2a-invocations`** — A2A card/token/invoke audit (denials included)
 
 ### Agents & workspace
 
@@ -385,11 +389,19 @@ All routes below are also available under **`/api/...`** (frontend uses `/api` p
 
 ### AgentExchange & A2A
 
-- `GET /agent-exchange` — list published A2A workflow agents (CEO/Admin)
+- `GET /agent-exchange` — list published A2A workflow agents (CEO/Admin); owner `can_manage` for Security / Unpublish
+- `GET /agent-exchange/:publishId/test-sample` — sample input from agent card `inputSchema` (Test UI autofill)
+- `POST /agent-exchange/:publishId/test` — authenticated test invoke (owners bypass IP deny/whitelist and OAuth; logged as `source=agent_exchange_test`)
+- `GET /admin/a2a-invocations` — admin report of all A2A attempts (`denied` / `error` / `success` / `failed`), including blocks before a workflow run starts
+- `GET/PUT /agent-exchange/:publishId/access` — access policy (`deny_all` | `allow_all` | `whitelist`)
+- `POST/DELETE /agent-exchange/:publishId/ip-whitelist` — whitelist entries (IPv4 CIDR ok; IPv6 exact only)
+- `DELETE /agent-exchange/:publishId` — unpublish A2A listing (workflow remains published)
 - `GET /a2a/:publishId/.well-known/agent-card.json` — agent card (secured cards include OAuth2 client-credentials `tokenUrl`)
 - `POST /a2a/:publishId/oauth/token` — `grant_type=client_credentials` + `client_id` / `client_secret` → Bearer access token
-- `POST /a2a/:publishId` — A2A JSON-RPC invoke (no auth when public; Bearer access token when secured)
-- Optional env: `A2A_ACCESS_TOKEN_TTL_SEC` (default `3600`)
+- `POST /a2a/:publishId` — A2A JSON-RPC invoke (blocked when `deny_all` or IP not whitelisted; no auth when public + allowed; Bearer when secured). Async enquire / `tasks/get`: final step text in **`result.parts[0].text`**; state in **`result.task.status.state`**; run meta in **`result.metadata.run`**. Callback webhook: same text in **`final_output`**.
+- `POST/GET /a2a-callback-inbox` — mock async callback receiver (GET requires CEO auth; sample webhook JSON in response)
+- **Publish body:** `invoke_mode: sync|async`, `callback_url`, `as_new_agent`, `publish_id` (update), `auth_mode: public|secured`
+- Optional env: `A2A_ACCESS_TOKEN_TTL_SEC` (default `3600`), `A2A_SYNC_TIMEOUT_MS`, `A2A_ASYNC_WATCH_TIMEOUT_MS`, `A2A_CALLBACK_TIMEOUT_MS`
 
 ### MCP & external agents
 

@@ -21,7 +21,9 @@
 #   self-clean so CEO Dashboard/bell are not polluted.
 # CEO Policies (/policies): ceo_guardrails → POLICY.md in agent workspaces + Brain system-prompt prepend.
 # AgentExchange / workflow A2A: /api/agent-exchange, /api/a2a/:publishId
-#   Public invoke open; secured uses POST /api/a2a/:id/oauth/token (client credentials) → Bearer
+#   New A2A agents default to deny_all IP until changed in AgentExchange UI.
+#   VPS production: add docker-compose.vps-client-ip.yml (see deploy/README.md) so nginx
+#   sees real client IPs for whitelist / deny_all enforcement.
 # Workflow certify (Maker/Checker): WORKFLOW_CERTIFY_* in deploy/.env (LLM Checker default OFF).
 #   Tools: agent_workflow_certify_start / _status / _resume (Workflow Builder).
 #
@@ -85,6 +87,12 @@ x-backend-env: &backend-env
   AGENT_OS_PUBLIC_URL: ${AGENT_OS_PUBLIC_URL}
   # Secured A2A access-token TTL (seconds); default in code is 3600 if unset
   A2A_ACCESS_TOKEN_TTL_SEC: ${A2A_ACCESS_TOKEN_TTL_SEC:-}
+  A2A_SYNC_TIMEOUT_MS: ${A2A_SYNC_TIMEOUT_MS:-}
+  A2A_ASYNC_WATCH_TIMEOUT_MS: ${A2A_ASYNC_WATCH_TIMEOUT_MS:-}
+  A2A_CALLBACK_TIMEOUT_MS: ${A2A_CALLBACK_TIMEOUT_MS:-}
+  LEARNINGS_FULL_REBUILD_DAYS: ${LEARNINGS_FULL_REBUILD_DAYS:-}
+  ORDER_LEARNINGS_FULL_REBUILD_DAYS: ${ORDER_LEARNINGS_FULL_REBUILD_DAYS:-}
+  BRAIN_HISTORY_FULL_REBUILD_DAYS: ${BRAIN_HISTORY_FULL_REBUILD_DAYS:-}
   OPENCLAW_GATEWAY_URL: http://openclaw:18789
   OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
   TOOLS_API_KEY: ${TOOLS_API_KEY:-}

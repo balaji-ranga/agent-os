@@ -35,6 +35,7 @@ import {
   seedPlatformStandardWorkspaceTemplate,
   TEMPLATE_FILE_KEYS,
 } from '../services/platform-agent-workspace-templates.js';
+import { listA2AInvocations } from '../services/workflow-a2a-invocation-log.js';
 
 const router = Router();
 
@@ -364,6 +365,30 @@ router.delete('/workspace-templates/:id', (req, res) => {
     res.json(deleteTemplate(req.params.id));
   } catch (e) {
     res.status(e.status || 400).json({ error: e.message });
+  }
+});
+
+/**
+ * Platform-wide A2A invocation audit (card / OAuth / invoke), including denials
+ * that never start a workflow run.
+ * GET /admin/a2a-invocations?outcome=&endpoint=&publish_id=&owner_user_id=&client_ip=&source=&q=&limit=&offset=
+ */
+router.get('/a2a-invocations', (req, res) => {
+  try {
+    const result = listA2AInvocations({
+      publishId: req.query.publish_id || req.query.publishId || '',
+      ownerUserId: req.query.owner_user_id || req.query.ownerUserId || '',
+      outcome: req.query.outcome || '',
+      endpoint: req.query.endpoint || '',
+      clientIp: req.query.client_ip || req.query.clientIp || '',
+      source: req.query.source || '',
+      q: req.query.q || req.query.search || '',
+      limit: req.query.limit,
+      offset: req.query.offset,
+    });
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 

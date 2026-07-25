@@ -17,6 +17,7 @@ import {
   handleA2AJsonRpc,
   issueA2AAccessToken,
 } from '../src/services/workflow-a2a-publish.js';
+import { setA2AAccessPolicy } from '../src/services/workflow-a2a-access.js';
 import { listRowsForAgent } from '../src/services/master-data-tools.js';
 import { dismissAgentResponseNotifications } from '../src/services/agent-response-notifications.js';
 import { healAgentWorkspacePaths, resolveAgentWorkspaceRoot, readWorkspaceFile } from '../src/workspace/adapter.js';
@@ -168,6 +169,7 @@ const pub = publishWorkflowAsA2A(
   { name: 'VPS A2A Smoke', description: 'VPS smoke test agent', skill_id: 'default', auth_mode: 'public' },
   actor
 );
+setA2AAccessPolicy(pub.id, owner, 'allow_all');
 console.log('OK a2a published', pub.id, 'auth_mode=', pub.auth_mode);
 console.log('   card', pub.card_url);
 
@@ -198,6 +200,7 @@ const secured = publishWorkflowAsA2A(
   },
   actor
 );
+setA2AAccessPolicy(secured.id, owner, 'allow_all');
 if (secured.auth_mode !== 'secured' || !secured.credentials?.client_secret) {
   throw new Error('secured A2A publish must return client credentials once');
 }

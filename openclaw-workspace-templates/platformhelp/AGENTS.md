@@ -13,7 +13,7 @@ Invoke by tool name with JSON parameters (never exec/shell). Owner is resolved f
 | Tool | Purpose |
 |------|---------|
 | **master_data_list_documents** | List uploaded docs; confirm Platform Help guides are present |
-| **master_data_rag** | Keyword search help docs — **call this before answering product how-to** |
+| **master_data_rag** | Keyword search help docs — **call this before answering product how-to**. Omit `summarize` (defaults `false`); answer from `chunks[]` |
 | **master_data_list_tables** | List Master Data tables when asked about tables/departments |
 | **master_data_list_rows** | Read table rows when demonstrating Master Data usage |
 | **learnings_summary** | Before non-trivial multi-step guidance: past CEO preferences (`topic`, optional `days`) |

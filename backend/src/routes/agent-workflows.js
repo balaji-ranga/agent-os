@@ -21,9 +21,11 @@ import { getHookInfo, registerEventHook } from '../services/agent-workflow-webho
 import { runWorkflowBuilderChat, getWorkflowBuilderChatHistory } from '../services/agent-workflow-agent.js';
 import { applyWorkflowBuilderActions, getWorkflowDraftForAgent } from '../services/agent-workflow-builder.js';
 import { getBrainHistory } from '../services/agent-workflow-brain-history.js';
+import { parseForceFlag } from '../services/tool-summary-cache.js';
 import { resolveEntitledOwnerUserId } from '../services/tool-owner-scope.js';
 import {
   getPublicationByWorkflow,
+  listPublicationsForWorkflow,
   publishWorkflowAsA2A,
   unpublishWorkflowA2A,
 } from '../services/workflow-a2a-publish.js';
@@ -74,6 +76,7 @@ async function brainHistoryHandler(req, res) {
       limit: src.limit != null ? Number(src.limit) : 40,
       responseType: src.response_type || src.responseType || 'actual',
       purpose: src.purpose || undefined,
+      force: parseForceFlag(src),
     });
     res.json(result);
   } catch (e) {
@@ -453,6 +456,16 @@ router.get('/:id/a2a-publication', (req, res) => {
   }
 });
 
+router.get('/:id/a2a-publications', (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.query);
+    const publications = listPublicationsForWorkflow(req.params.id, ownerUserId);
+    res.json({ publications });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
 router.post('/:id/publish-a2a', (req, res) => {
   try {
     const ownerUserId = resolveAuthenticatedCeoUserId(req, req.body);
@@ -466,7 +479,12 @@ router.post('/:id/publish-a2a', (req, res) => {
 router.delete('/:id/a2a-publication', (req, res) => {
   try {
     const ownerUserId = resolveAuthenticatedCeoUserId(req, req.query);
-    res.json(unpublishWorkflowA2A(ownerUserId, req.params.id, actorFromRequest(req)));
+    const publishId = req.query.publish_id || req.query.publishId || null;
+    res.json(
+      unpublishWorkflowA2A(ownerUserId, req.params.id, actorFromRequest(req), {
+        publishId,
+      })
+    );
   } catch (e) {
     res.status(e.message.includes('No A2A') ? 404 : 400).json({ error: e.message });
   }

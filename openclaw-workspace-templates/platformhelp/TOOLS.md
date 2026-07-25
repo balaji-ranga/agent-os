@@ -5,7 +5,7 @@ All tools are **owner-scoped** to the entitled CEO from the OpenClaw/UI session.
 ## Granted tools
 
 - **master_data_list_documents** — `{ }` or filters as supported; use first when confirming Platform Help docs.
-- **master_data_rag** — `{ "query": "...", "top_k": 5 }` (or equivalent); **required** for product how-to answers.
+- **master_data_rag** — `{ "query": "...", "top_k": 5 }`; **required** for product how-to answers. Omit `summarize` (defaults `false`) and write the answer from the returned `chunks[]` yourself — only pass `summarize: true` when the excerpts are too long or scattered to answer directly.
 - **master_data_list_tables** — list tables with purpose.
 - **master_data_list_rows** — `{ "table_id": "..." }` when showing table contents.
 - **learnings_summary** — `{ "topic": "platform help", "days": 30 }` before long multi-step coaching.

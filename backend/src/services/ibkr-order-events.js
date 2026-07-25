@@ -2,6 +2,18 @@
  * IBKR order event log (30-day retention) + reservation reconcile + maker learnings.
  */
 import { getDb } from '../db/schema.js';
+import {
+  ensureToolSummaryCacheTable,
+  fullRebuildDays,
+  planSummaryCache,
+  readToolSummaryCache,
+  scopeKeyFor,
+  todayUtc,
+  watermarkFor,
+  writeToolSummaryCache,
+} from './tool-summary-cache.js';
+
+const ORDER_SUMMARY_CACHE_KIND = 'order_learnings';
 
 /** Standard reason codes for cancel / lifecycle events. */
 export const IBKR_ORDER_REASON = Object.freeze({
@@ -565,7 +577,7 @@ function buildActualOrderContextText(learnings) {
   return `IBKR order history (last ${learnings.window_days} day(s), ${learnings.event_count} events):\n\n${parts.join('\n\n')}`;
 }
 
-async function llmSummarizeOrderHistory(learnings, { purpose } = {}) {
+async function llmSummarizeOrderHistory(learnings, { purpose, ownerUserId = null } = {}) {
   const { chatCompletions } = await import('../config/llm.js');
   const raw = buildActualOrderContextText(learnings);
   const eventsBlob = (learnings.recent_events || [])
@@ -600,6 +612,7 @@ Write the learning context now.`,
       },
     ],
     maxTokens: 900,
+    ownerUserId,
   });
   return {
     summary: String(content || '').trim() || raw,
@@ -626,6 +639,7 @@ export async function getOrderHistory(opts = {}) {
   const limit = opts.limit != null ? Number(opts.limit) : 40;
   const symbolKey = opts.symbolKey || opts.symbol_key || opts.key || null;
   const responseType = String(opts.responseType || opts.response_type || 'actual').toLowerCase();
+  const force = opts.force === true || opts.refresh === true;
 
   const events = listOrderEvents(ownerUserId, { days, limit, symbolKey });
   const learnings = buildOrderLearnings(ownerUserId, { days, limit });
@@ -650,33 +664,104 @@ export async function getOrderHistory(opts = {}) {
         context_text: empty,
         bodyText: empty,
         model_used: null,
+        cached: false,
+        cache_mode: 'no_data',
       };
     }
+
+    const slimEvents = events.map((e) => ({
+      id: e.id,
+      created_at: e.created_at,
+      symbol_key: e.symbol_key,
+      status: e.status,
+      reason_code: e.reason_code,
+      source: e.source,
+    }));
+    const slimLearnings = {
+      window_days: learnings.window_days,
+      event_count: learnings.event_count,
+      cancel_or_reject_count: learnings.cancel_or_reject_count,
+      fill_count: learnings.fill_count,
+      avoid_hints: learnings.avoid_hints,
+      commission_decisions: learnings.commission_decisions,
+    };
+
+    const db = getDb();
+    ensureToolSummaryCacheTable(db);
+    const scopeKey = scopeKeyFor([days, symbolKey || '*']);
+    const watermark = watermarkFor(events);
+    const today = todayUtc();
+    const cache = readToolSummaryCache(db, {
+      ownerUserId,
+      kind: ORDER_SUMMARY_CACHE_KIND,
+      scopeKey,
+    });
+    const plan = planSummaryCache({
+      cache,
+      watermark,
+      today,
+      maxBaseAgeDays: fullRebuildDays('ORDER_LEARNINGS_FULL_REBUILD_DAYS', 7),
+      force,
+    });
+
+    if (plan.mode !== 'rebuild') {
+      if (plan.mode === 'no_new') {
+        writeToolSummaryCache(db, {
+          owner_user_id: ownerUserId,
+          kind: ORDER_SUMMARY_CACHE_KIND,
+          scope_key: scopeKey,
+          summary: cache.summary,
+          model: cache.model || '',
+          watermark,
+          item_count: events.length,
+          base_generated_at: cache.base_generated_at,
+          valid_date: today,
+          updated_at: new Date().toISOString(),
+        });
+      }
+      return {
+        ...base,
+        events: slimEvents,
+        order_learnings: slimLearnings,
+        summary: cache.summary,
+        context_text: cache.summary,
+        bodyText: cache.summary,
+        model_used: cache.model || null,
+        cached: true,
+        cache_mode: plan.mode,
+        generated_at: cache.base_generated_at || null,
+      };
+    }
+
     const { summary, model_used } = await llmSummarizeOrderHistory(learnings, {
       purpose: opts.purpose,
+      ownerUserId,
+    });
+    const generatedAt = new Date().toISOString();
+    writeToolSummaryCache(db, {
+      owner_user_id: ownerUserId,
+      kind: ORDER_SUMMARY_CACHE_KIND,
+      scope_key: scopeKey,
+      summary,
+      model: model_used || '',
+      watermark,
+      item_count: events.length,
+      base_generated_at: generatedAt,
+      valid_date: today,
+      updated_at: generatedAt,
     });
     return {
       ...base,
-      events: events.map((e) => ({
-        id: e.id,
-        created_at: e.created_at,
-        symbol_key: e.symbol_key,
-        status: e.status,
-        reason_code: e.reason_code,
-        source: e.source,
-      })),
-      order_learnings: {
-        window_days: learnings.window_days,
-        event_count: learnings.event_count,
-        cancel_or_reject_count: learnings.cancel_or_reject_count,
-        fill_count: learnings.fill_count,
-        avoid_hints: learnings.avoid_hints,
-        commission_decisions: learnings.commission_decisions,
-      },
+      events: slimEvents,
+      order_learnings: slimLearnings,
       summary,
       context_text: summary,
       bodyText: summary,
       model_used,
+      cached: false,
+      cache_mode: 'rebuild',
+      cache_reason: plan.reason,
+      generated_at: generatedAt,
     };
   }
 

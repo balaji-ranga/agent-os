@@ -80,7 +80,11 @@ Respond JSON only:
 }`;
 
   try {
-    const { content } = await chatCompletions({ messages: [{ role: 'user', content: prompt }], maxTokens: 800 });
+    const { content } = await chatCompletions({
+      messages: [{ role: 'user', content: prompt }],
+      maxTokens: 800,
+      ownerUserId: profile.ceo_user_id || null,
+    });
     const jsonMatch = (content || '').match(/\{[\s\S]*\}/);
     const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : content || '{}');
     if (parsed.fields) {

@@ -55,9 +55,12 @@ Open **Kanban**, find the approval card, approve or reject with a comment. IF no
 ## Publish A2A / AgentExchange
 
 1. Workflow itself must be **Published** before **Publish A2A**.
-2. **Secured**: save `client_secret` when shown — it is not listed again on AgentExchange.
-3. Invoke without a token on a secured agent → Unauthorized; rotate credentials if the secret was lost.
-4. Token expired → request a new one from `/api/a2a/:publishId/oauth/token`.
+2. **Deny all 403** — new A2A listings default to **Deny all**. External clients see `403` on card, invoke, OAuth token, and enquiry until the owner sets **Allow all** or adds their IP to the **whitelist** (check **Your IP** on the Security panel). On VPS Docker, ensure deploy uses `docker-compose.vps-client-ip.yml` so whitelist sees real client IPs, not the bridge gateway. **Admins** can inspect every blocked/successful attempt under **Admin → A2A logs** (`/admin/a2a-invocations`).
+3. **Test agent** — owners can invoke from AgentExchange **Test agent** even while **Deny all** is on (`bypassed_access: true`). Use this to validate before opening public access. Non-owners testing someone else's agent still need IP allow + OAuth token.
+4. **Secured**: save `client_secret` when shown — it is not listed again on AgentExchange.
+5. Invoke without a token on a secured agent → Unauthorized; rotate credentials if the secret was lost.
+6. Token expired → request a new one from `/api/a2a/:publishId/oauth/token`.
+7. **Async callbacks** — use `/api/a2a-callback-inbox` as the callback URL for smoke tests; GET (CEO auth) lists received webhook JSON.
 
 ## Notifications missing
 

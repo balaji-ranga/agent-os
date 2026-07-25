@@ -1296,11 +1296,16 @@ router.post('/learnings-summary', optionalAuth, async (req, res) => {
     let agentId =
       (requestPayload.agent_id || requestPayload.agentId || '').toString().trim() ||
       (caller?.id ? String(caller.id) : null);
+    const force =
+      requestPayload.force === true ||
+      requestPayload.refresh === true ||
+      String(requestPayload.force || requestPayload.refresh || '').toLowerCase() === 'true';
     const out = await summarizeLearnings({
       ownerUserId,
       agentId,
       topic,
       days,
+      force,
     });
     logTool(req, 'learnings_summary', { ...requestPayload, owner_user_id: ownerUserId }, out, 'ok', source);
     res.json(out);

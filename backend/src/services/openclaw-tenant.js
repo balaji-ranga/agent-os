@@ -124,6 +124,19 @@ function copyTemplateWorkspace(baseId, destDir) {
 function syncEssentialWorkspaceDocs(baseId, destDir) {
   const ownTpl = join(REPO_TEMPLATES, baseId);
   const hasOwnTemplate = existsSync(ownTpl);
+
+  // Shared ops doc is platform-owned (not agent-editable) and every TOOLS.md points at it,
+  // so refresh it for custom agents too — before the no-template bail-out below.
+  const sharedOps = join(REPO_TEMPLATES, '_shared', 'AGENT-OS-OPS.md');
+  if (existsSync(sharedOps)) {
+    try {
+      mkdirSync(destDir, { recursive: true });
+      cpSync(sharedOps, join(destDir, 'AGENT-OS-OPS.md'), { recursive: true });
+    } catch {
+      /* non-fatal — agent still has TOOLS.md guidance */
+    }
+  }
+
   // No agent-specific template ⇒ custom/onboarded agent. Do not sync from balserve fallback.
   if (!hasOwnTemplate) return;
 

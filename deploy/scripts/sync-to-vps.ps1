@@ -7,7 +7,8 @@
 #   .\deploy\scripts\sync-to-vps.ps1 -NoCache     # force docker compose build --no-cache
 #
 # Syncs full build contexts: frontend/, backend/src + backend/desktop-workflow-runner + scripts,
-# deploy/docker, scripts/, openclaw extensions/skills/templates — then rebuilds via vps-deploy-latest.sh.
+# deploy/docker + compose overlays (incl. docker-compose.vps-client-ip.yml for real client IP / A2A whitelist),
+# scripts/, openclaw extensions/skills/templates — then rebuilds via vps-deploy-latest.sh.
 #
 # Features covered: Flolah branding, hPanel light theme (collapsible nav + profile menu),
 # workflow editor fullscreen (shell-focus-mode), Register MCP/Agents primary CTAs,
@@ -19,7 +20,8 @@
 # COO specialty delegation, peer specialty referral, chat tool-call icons,
 # notification tooltips + datetime, deploy smokes self-clean (no CEO standup/notify pollution),
 # CEO Policies/guardrails (POLICY.md + Brain prepend), org sync (tenant ORG.md/AGENTS.md/POLICY.md),
-# AgentExchange/A2A (public + OAuth client credentials),
+# AgentExchange/A2A (Test agent UI; sync/async + callback/enquire; deny_all default IP;
+# Admin A2A invocation logs; allow/whitelist via vps-client-ip compose on VPS; owner unpublish),
 # workflow API/MCP/A2A auth templates ({{nodeId.path}} bearer/headers — static or from prior step),
 # Brave Search MCP BYOK (no platform BRAVE_API_KEY fallback; workflow headers only),
 # Admin refresh default agents MD+tools, Master Data office extract (pdf/docx/xlsx),
@@ -54,12 +56,14 @@ Write-Host "==> Sync deploy compose + nginx + dockerfiles + scripts + README"
 scp @ssh `
   "$Repo\deploy\docker-compose.yml" `
   "$Repo\deploy\docker-compose.browser.yml" `
+  "$Repo\deploy\docker-compose.vps-client-ip.yml" `
   "$Repo\deploy\.env.example" `
   "$Repo\deploy\README.md" `
   "root@${HostIp}:$RemoteRoot/deploy/"
 scp @ssh -r "$Repo\deploy\docker" "root@${HostIp}:$RemoteRoot/deploy/"
 scp @ssh `
   "$Repo\deploy\nginx\nginx.conf" `
+  "$Repo\deploy\nginx\nginx.host-network.conf" `
   "$Repo\deploy\nginx\frontend.conf" `
   "root@${HostIp}:$RemoteRoot/deploy/nginx/"
 scp @ssh `
@@ -113,6 +117,13 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-tenancy-notify-new-agent-e2e.js" `
     "$Repo\backend\scripts\test-workflow-a2a-publish.js" `
     "$Repo\backend\scripts\test-workflow-a2a-oauth.js" `
+    "$Repo\backend\scripts\test-workflow-a2a-async-publish.js" `
+    "$Repo\backend\scripts\vps-publish-async-a2a-callback-test.js" `
+    "$Repo\backend\scripts\check-a2a-callback-inbox.js" `
+    "$Repo\backend\scripts\laptop-test-a2a-async-callback.js" `
+    "$Repo\backend\scripts\test-a2a-agent-exchange-security.js" `
+    "$Repo\backend\scripts\vps-test-agent-exchange-security.js" `
+    "$Repo\backend\scripts\vps-test-agent-exchange-test-invoke.js" `
     "$Repo\backend\scripts\test-workflow-input-schema.js" `
     "$Repo\backend\scripts\test-workflow-input-schema-e2e.js" `
     "$Repo\backend\scripts\test-coo-email-send-calendar.js" `

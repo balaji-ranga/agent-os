@@ -20,6 +20,7 @@ import {
   issueA2AAccessToken,
   unpublishWorkflowA2A,
 } from '../src/services/workflow-a2a-publish.js';
+import { setA2AAccessPolicy } from '../src/services/workflow-a2a-access.js';
 
 initDb();
 
@@ -84,6 +85,7 @@ const publicPub = publishWorkflowAsA2A(
   },
   actor
 );
+setA2AAccessPolicy(publicPub.id, owner, 'allow_all');
 if (publicPub.auth_mode !== 'public') throw new Error('Expected public auth_mode');
 if (publicPub.credentials) throw new Error('Public publish must not return credentials');
 if (publicPub.agent_card?.securitySchemes) throw new Error('Public card must not require oauth');
@@ -104,6 +106,7 @@ const secured = publishWorkflowAsA2A(
   },
   actor
 );
+setA2AAccessPolicy(secured.id, owner, 'allow_all');
 if (secured.auth_mode !== 'secured') throw new Error('Expected secured auth_mode');
 if (!secured.credentials?.client_id || !secured.credentials?.client_secret) {
   throw new Error('Secured publish must return client credentials once');

@@ -1674,6 +1674,7 @@ function EditorInner({ workflowId }) {
   const [customScriptsLoadError, setCustomScriptsLoadError] = useState(null);
   const [runInput, setRunInput] = useState('');
   const [a2aPublication, setA2aPublication] = useState(null);
+  const [a2aPublications, setA2aPublications] = useState([]);
   const [a2aModalOpen, setA2aModalOpen] = useState(false);
   const [desktopModalOpen, setDesktopModalOpen] = useState(false);
   const [vaultKeys, setVaultKeys] = useState([]);
@@ -1915,12 +1916,15 @@ function EditorInner({ workflowId }) {
   const loadA2aPublication = useCallback(() => {
     if (!workflowId) return Promise.resolve(null);
     return api
-      .agentWorkflowA2APublication(workflowId)
-      .then((pub) => {
-        setA2aPublication(pub);
-        return pub;
+      .agentWorkflowA2APublications(workflowId)
+      .then((res) => {
+        const list = res?.publications || [];
+        setA2aPublications(list);
+        setA2aPublication(list[0] || null);
+        return list[0] || null;
       })
       .catch(() => {
+        setA2aPublications([]);
         setA2aPublication(null);
         return null;
       });
@@ -1958,6 +1962,7 @@ function EditorInner({ workflowId }) {
           await loadA2aPublication();
         } else {
           setA2aPublication(null);
+          setA2aPublications([]);
         }
       })
       .catch((e) => showError(e.message || 'Failed to load workflow'));
@@ -2339,6 +2344,7 @@ function EditorInner({ workflowId }) {
       const updated = await api.agentWorkflowUnpublish(workflowId);
       setWorkflow(updated);
       setA2aPublication(null);
+      setA2aPublications([]);
       await refreshHookInfo(updated);
       const auditRes = await api.agentWorkflowAudit(workflowId);
       setAudit(auditRes.audit || []);
@@ -2352,7 +2358,7 @@ function EditorInner({ workflowId }) {
 
   const publishA2A = async (body) => {
     const pub = await api.agentWorkflowPublishA2A(workflowId, body);
-    setA2aPublication(pub);
+    await loadA2aPublication();
     if (pub?.credentials?.client_secret) {
       showSuccess(`A2A agent published (secured) — save client_secret now; card ${pub.card_url}`);
     } else {
@@ -2362,14 +2368,33 @@ function EditorInner({ workflowId }) {
   };
 
   const unpublishA2A = async () => {
-    if (!window.confirm('Unpublish this workflow from AgentExchange? The A2A endpoint will stop working.')) return;
+    const list = a2aPublications.length ? a2aPublications : a2aPublication ? [a2aPublication] : [];
+    if (!list.length) return;
+    let publishId = list[0].id;
+    if (list.length > 1) {
+      const choices = list.map((p, i) => `${i + 1}. ${p.name} (${p.id})`).join('\n');
+      const pick = window.prompt(
+        `Multiple A2A agents are published. Enter 1–${list.length} to unpublish one:\n${choices}`,
+        '1'
+      );
+      const idx = Number(pick) - 1;
+      if (!Number.isInteger(idx) || idx < 0 || idx >= list.length) return;
+      publishId = list[idx].id;
+    }
+    if (
+      !window.confirm(
+        `Unpublish A2A agent "${list.find((p) => p.id === publishId)?.name || publishId}" from AgentExchange? The endpoint will stop working.`
+      )
+    ) {
+      return;
+    }
     setSaving(true);
     try {
-      await api.agentWorkflowUnpublishA2A(workflowId);
-      setA2aPublication(null);
+      await api.agentWorkflowUnpublishA2A(workflowId, { publishId });
+      await loadA2aPublication();
       showSuccess('A2A agent unpublished');
     } catch (e) {
-      showError(e.message || 'Failed to unpublish A2A agent');
+      showError(e.message || 'Failed to unpublish A2A');
     } finally {
       setSaving(false);
     }
@@ -2485,7 +2510,11 @@ function EditorInner({ workflowId }) {
                 disabled={saving}
                 title="Publish as A2A-compliant agent for AgentExchange"
               >
-                {a2aPublication ? 'Update A2A' : 'Publish A2A'}
+                {a2aPublications.length > 1
+                  ? `Update A2A (${a2aPublications.length})`
+                  : a2aPublication
+                    ? 'Update A2A'
+                    : 'Publish A2A'}
               </button>
               {a2aPublication && (
                 <button type="button" className="wf-btn" onClick={unpublishA2A} disabled={saving}>
@@ -2726,6 +2755,7 @@ function EditorInner({ workflowId }) {
         open={a2aModalOpen}
         workflow={workflow}
         existingPublication={a2aPublication}
+        existingPublications={a2aPublications}
         onClose={() => setA2aModalOpen(false)}
         onPublished={publishA2A}
       />

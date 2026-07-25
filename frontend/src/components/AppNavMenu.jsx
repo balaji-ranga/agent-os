@@ -130,6 +130,13 @@ export function AdminNavMenu({ collapsed }) {
       >
         {collapsed ? 'A' : 'Admin'}
       </NavLink>
+      <NavLink
+        to="/admin/a2a-invocations"
+        className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+        title="A2A invocation logs"
+      >
+        {collapsed ? 'AL' : 'A2A logs'}
+      </NavLink>
 
       <NavSection title="Agentic Workflows" collapsed={collapsed}>
         <NavItem to="/connectors" title="Connectors" collapsed={collapsed} label="Connectors" short="Cn" />

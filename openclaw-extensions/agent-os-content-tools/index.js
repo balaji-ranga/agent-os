@@ -378,7 +378,11 @@ const PARAM_SCHEMAS = {
       query: { type: "string", description: "Question or keywords to search documents. Required." },
       top_k: { type: "number", description: "Max excerpts (default 5)." },
       document_id: { type: "string", description: "Optional limit search to one document id." },
-      summarize: { type: "boolean", description: "LLM summary of hits (default true)." },
+      summarize: {
+        type: "boolean",
+        description:
+          "Default false — returns raw excerpts you read yourself (no LLM cost). Set true only when the excerpts are too long or scattered to answer directly.",
+      },
     },
     additionalProperties: true,
   },

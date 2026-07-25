@@ -277,7 +277,9 @@ router.post('/rag', requireAuth, requireCeoOrAdmin, async (req, res) => {
       query,
       topK: top_k || topK,
       documentId: document_id || documentId,
-      summarize,
+      // CEO-initiated search is low volume and expects an answer, so the summary
+      // stays on here unless explicitly disabled. Agent tool calls opt in instead.
+      summarize: summarize === undefined ? true : summarize,
     });
     res.json(result);
   } catch (e) {

@@ -20,7 +20,7 @@ set -euo pipefail
 
 ROOT="${AGENT_OS_ROOT:-/opt/agent-os}"
 cd "$ROOT"
-export COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml:docker-compose.browser.yml}"
+export COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml:docker-compose.browser.yml:docker-compose.vps-client-ip.yml}"
 cd "$ROOT/deploy"
 
 SERVICES="${SERVICES:-frontend backend openclaw}"
@@ -49,7 +49,9 @@ echo "              lean CEO onboard + OrgDesigner, pruneSharedStandardAgentGran
 echo "              chat tool-call icons, notification tooltips + datetime, shared NotificationProvider,"
 echo "              CEO Policies/guardrails (POLICY.md + Brain prepend),"
 echo "              deploy smokes clean up CEO standup/notify pollution,"
-echo "              AgentExchange/A2A (public + OAuth client credentials → Bearer),"
+echo "              AgentExchange/A2A (Test agent UI, sync/async+callback, deny_all default IP,"
+echo "              Admin A2A logs /admin/a2a-invocations,"
+echo "              allow/whitelist; vps-client-ip compose; owner unpublish),"
 echo "              workflow API/MCP/A2A auth templates ({{nodeId.path}} bearer/headers),"
 echo "              Brave Search MCP BYOK (workflow keys only; no env key fallback),"
 echo "              Workflow certify Maker/Checker (LLM Checker default OFF),"
@@ -175,6 +177,38 @@ if docker compose exec -T frontend sh -c 'grep -Rql agent-exchange /usr/share/ng
 else
   echo "    WARN: AgentExchange not found in frontend JS bundle"
 fi
+if docker compose exec -T frontend sh -c 'grep -Rql "Test agent" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: AgentExchange Test agent UI OK"
+else
+  echo "    WARN: Test agent button not found in frontend JS (rebuild frontend?)"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql agentExchangeTest /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: agentExchangeTest API client OK"
+else
+  echo "    WARN: agentExchangeTest not found in frontend JS (rebuild frontend?)"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql "Deny all" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: deny_all access policy badge OK"
+else
+  echo "    WARN: Deny all IP policy label not found in frontend JS (rebuild frontend?)"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql "A2A invocation logs" /usr/share/nginx/html/assets/*.js 2>/dev/null || grep -Rql adminA2AInvocations /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: Admin A2A invocation logs OK"
+else
+  echo "    WARN: Admin A2A logs page not found in frontend JS (rebuild frontend?)"
+fi
+if [[ -f "$ROOT/backend/src/routes/admin.js" ]] \
+  && grep -q 'a2a-invocations' "$ROOT/backend/src/routes/admin.js"; then
+  echo "    backend source: GET /admin/a2a-invocations OK"
+else
+  echo "    WARN: admin a2a-invocations route not found"
+fi
+if [[ -f "$ROOT/backend/src/routes/agent-exchange.js" ]] \
+  && grep -q '/:publishId/test' "$ROOT/backend/src/routes/agent-exchange.js"; then
+  echo "    backend source: agent-exchange /:publishId/test route OK"
+else
+  echo "    WARN: agent-exchange test route not found in backend source"
+fi
 if docker compose exec -T frontend sh -c 'grep -Rql "OAuth client credentials" /usr/share/nginx/html/assets/*.js 2>/dev/null || grep -Rql rotate_credentials /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
   echo "    frontend assets: A2A Public/Secured (OAuth) UI OK"
 else
@@ -279,7 +313,7 @@ fi
 
 if [[ "$SKIP_SMOKE" != "1" ]]; then
   if [[ -f "$ROOT/deploy/scripts/vps-smoke-new-features.sh" ]]; then
-    echo "==> new-features smoke (email_send + notify_ceo + master_data + org sync + A2A public/OAuth + shared notification dismiss)"
+    echo "==> new-features smoke (email_send + notify_ceo + master_data + org sync + A2A public/OAuth/async + shared notification dismiss)"
     sed -i 's/\r$//' "$ROOT/deploy/scripts/vps-smoke-new-features.sh" 2>/dev/null || true
     bash "$ROOT/deploy/scripts/vps-smoke-new-features.sh" || echo "WARN: new-features smoke failed (non-fatal)"
   fi

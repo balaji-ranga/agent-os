@@ -1,6 +1,8 @@
 # Set up OpenClaw from scratch with all Agent OS agents, skills, and config.
 # Run from agent-os: .\scripts\setup-openclaw-from-scratch.ps1
 # Prereq: Node.js 18+, OpenClaw CLI (npm install -g openclaw@latest). Optional: backend .env (OPENCLAW_WORKSPACE_PATH, etc.).
+# AgentExchange / workflow A2A is platform (backend API + UI), not OpenClaw openclaw.json config
+# (publish, deny_all/whitelist, Test agent, async/callback, Admin A2A invocation logs).
 
 $ErrorActionPreference = "Stop"
 $AgentOsRoot = (Get-Item $PSScriptRoot).Parent.FullName

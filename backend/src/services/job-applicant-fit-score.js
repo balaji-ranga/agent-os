@@ -89,6 +89,7 @@ Respond with JSON only:
   const { content } = await chatCompletions({
     messages: [{ role: 'user', content: prompt }],
     maxTokens: 500,
+    ownerUserId: profile.ceo_user_id || null,
   });
 
   let parsed = {};

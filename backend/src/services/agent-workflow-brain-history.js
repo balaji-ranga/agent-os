@@ -3,7 +3,18 @@
  */
 import { getDb } from '../db/schema.js';
 import { chatCompletions } from '../config/llm.js';
+import {
+  ensureToolSummaryCacheTable,
+  fullRebuildDays,
+  planSummaryCache,
+  readToolSummaryCache,
+  scopeKeyFor,
+  todayUtc,
+  watermarkFor,
+  writeToolSummaryCache,
+} from './tool-summary-cache.js';
 
+const BRAIN_SUMMARY_CACHE_KIND = 'brain_history';
 const MAX_ENTRIES = 80;
 const MAX_IO_CHARS = 2500;
 const MAX_SUMMARY_ENTRIES = 40;
@@ -167,7 +178,7 @@ function buildActualContextText(entries) {
   return parts.join('\n\n');
 }
 
-async function summarizeEntries(entries, { purpose = 'trading_maker' } = {}) {
+async function summarizeEntries(entries, { purpose = 'trading_maker', ownerUserId = null } = {}) {
   const slice = entries.slice(0, MAX_SUMMARY_ENTRIES);
   const raw = buildActualContextText(slice);
   const system = `You compress Brain workflow audit history into durable lessons for a downstream agent.
@@ -189,6 +200,7 @@ Write the learning context now.`;
       { role: 'user', content: user },
     ],
     maxTokens: 1200,
+    ownerUserId,
   });
   return {
     summary: String(content || '').trim() || 'No summary produced.',
@@ -212,9 +224,11 @@ export async function getBrainHistory(opts = {}) {
   const days = Number(opts.days) || 7;
   const workflowIds = asArray(opts.workflowIds ?? opts.workflow_id ?? opts.workflow_ids);
   const nodeIds = asArray(opts.nodeIds ?? opts.node_id ?? opts.node_ids);
+  const ownerUserId = opts.ownerUserId || opts.owner_user_id;
+  const force = opts.force === true || opts.refresh === true;
 
   const entries = queryBrainHistoryEntries({
-    ownerUserId: opts.ownerUserId || opts.owner_user_id,
+    ownerUserId,
     workflowIds,
     nodeIds,
     days,
@@ -241,26 +255,95 @@ export async function getBrainHistory(opts = {}) {
         context_text: empty,
         bodyText: empty,
         model_used: null,
+        cached: false,
+        cache_mode: 'no_data',
       };
     }
+
+    // Compact entry index; full I/O lives in the summary.
+    const slimEntries = entries.map((e) => ({
+      step_id: e.step_id,
+      run_id: e.run_id,
+      workflow_id: e.workflow_id,
+      node_id: e.node_id,
+      iteration: e.iteration,
+      completed_at: e.completed_at,
+    }));
+
+    const db = getDb();
+    ensureToolSummaryCacheTable(db);
+    const scopeKey = scopeKeyFor([days, workflowIds, nodeIds, opts.limit ?? '']);
+    const watermark = watermarkFor(entries, 'step_id');
+    const today = todayUtc();
+    const cache = readToolSummaryCache(db, {
+      ownerUserId,
+      kind: BRAIN_SUMMARY_CACHE_KIND,
+      scopeKey,
+    });
+    const plan = planSummaryCache({
+      cache,
+      watermark,
+      today,
+      maxBaseAgeDays: fullRebuildDays('BRAIN_HISTORY_FULL_REBUILD_DAYS', 7),
+      force,
+    });
+
+    if (plan.mode !== 'rebuild') {
+      if (plan.mode === 'no_new') {
+        writeToolSummaryCache(db, {
+          owner_user_id: ownerUserId,
+          kind: BRAIN_SUMMARY_CACHE_KIND,
+          scope_key: scopeKey,
+          summary: cache.summary,
+          model: cache.model || '',
+          watermark,
+          item_count: entries.length,
+          base_generated_at: cache.base_generated_at,
+          valid_date: today,
+          updated_at: new Date().toISOString(),
+        });
+      }
+      return {
+        ...base,
+        entries: slimEntries,
+        summary: cache.summary,
+        context_text: cache.summary,
+        bodyText: cache.summary,
+        model_used: cache.model || null,
+        cached: true,
+        cache_mode: plan.mode,
+        generated_at: cache.base_generated_at || null,
+      };
+    }
+
     const { summary, model_used } = await summarizeEntries(entries, {
       purpose: opts.purpose || 'IBKR maker day-plan / poller learning context',
+      ownerUserId,
+    });
+    const generatedAt = new Date().toISOString();
+    writeToolSummaryCache(db, {
+      owner_user_id: ownerUserId,
+      kind: BRAIN_SUMMARY_CACHE_KIND,
+      scope_key: scopeKey,
+      summary,
+      model: model_used || '',
+      watermark,
+      item_count: entries.length,
+      base_generated_at: generatedAt,
+      valid_date: today,
+      updated_at: generatedAt,
     });
     return {
       ...base,
-      // Keep compact entry index; full I/O is summarized
-      entries: entries.map((e) => ({
-        step_id: e.step_id,
-        run_id: e.run_id,
-        workflow_id: e.workflow_id,
-        node_id: e.node_id,
-        iteration: e.iteration,
-        completed_at: e.completed_at,
-      })),
+      entries: slimEntries,
       summary,
       context_text: summary,
       bodyText: summary,
       model_used,
+      cached: false,
+      cache_mode: 'rebuild',
+      cache_reason: plan.reason,
+      generated_at: generatedAt,
     };
   }
 

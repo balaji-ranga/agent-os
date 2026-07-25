@@ -191,8 +191,9 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/agent-workflows/brain-history',
     method: 'POST',
     purpose:
-      'API tool: load prior Brain node I/O from workflow run-step audit for the entitled CEO. Body: workflow_id (string|array), node_id (string|array of brain node ids), days (default 7), response_type actual|summarized, optional limit/purpose. Only node_type=brain steps are returned — use summarized to compress maker/checker lessons into context_text.',
-    model_used: 'platform LLM when response_type=summarized',
+      'API tool: load prior Brain node I/O from workflow run-step audit for the entitled CEO. Body: workflow_id (string|array), node_id (string|array of brain node ids), days (default 7), response_type actual|summarized, optional limit/purpose. Only node_type=brain steps are returned — use summarized to compress maker/checker lessons into context_text. ' +
+      'response_type=summarized is cached once per UTC day per scope and rebuilt automatically when new brain steps land, so repeat calls are free; pass force=true only if you must bypass the cache.',
+    model_used: 'platform/BYOK LLM when response_type=summarized (daily cache)',
     enabled: 1,
     is_builtin: 1,
   },
@@ -350,11 +351,12 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/master-data-rag',
     method: 'POST',
     purpose:
-      'API tool: answer questions from this CEO\'s uploaded Master Data documents (PDF, Word .docx, Excel, text) via keyword retrieval (+ optional summary). ' +
+      'API tool: answer questions from this CEO\'s uploaded Master Data documents (PDF, Word .docx, Excel, text) via keyword retrieval. ' +
       'Parameters: query (required), optional document_id, top_k, summarize. ' +
+      'summarize defaults to FALSE — you get raw excerpts in chunks[] and write the answer yourself; only pass summarize=true when excerpts are too long or scattered to answer directly. ' +
       'Use when the ask is about document content, policies, resumes, handbooks, or "what does the doc say…". ' +
       'Do NOT use for structured master tables (use list_tables → list_rows by purpose). Prefer rag directly with the user question; list_documents only if you need document_id.',
-    model_used: 'platform LLM when summarize=true',
+    model_used: 'platform/BYOK LLM only when summarize=true',
     enabled: 1,
     is_builtin: 1,
   },
@@ -457,10 +459,10 @@ export function seedWorkflowToolsIfMissing() {
     stmt.run(t.name, t.display_name, t.endpoint, t.method, t.purpose, t.model_used, t.enabled, t.is_builtin);
   }
   const update = db.prepare(
-    'UPDATE content_tools_meta SET purpose = ?, display_name = ?, endpoint = ?, method = ? WHERE name = ?'
+    'UPDATE content_tools_meta SET purpose = ?, display_name = ?, endpoint = ?, method = ?, model_used = ? WHERE name = ?'
   );
   for (const t of WORKFLOW_TOOLS) {
-    update.run(t.purpose, t.display_name, t.endpoint, t.method, t.name);
+    update.run(t.purpose, t.display_name, t.endpoint, t.method, t.model_used, t.name);
   }
 }
 
@@ -536,10 +538,10 @@ export function seedMasterDataToolsIfMissing() {
     stmt.run(t.name, t.display_name, t.endpoint, t.method, t.purpose, t.model_used, t.enabled, t.is_builtin);
   }
   const update = db.prepare(
-    'UPDATE content_tools_meta SET purpose = ?, display_name = ?, endpoint = ?, method = ? WHERE name = ?'
+    'UPDATE content_tools_meta SET purpose = ?, display_name = ?, endpoint = ?, method = ?, model_used = ? WHERE name = ?'
   );
   for (const t of MASTER_DATA_TOOLS) {
-    update.run(t.purpose, t.display_name, t.endpoint, t.method, t.name);
+    update.run(t.purpose, t.display_name, t.endpoint, t.method, t.model_used, t.name);
   }
 }
 
