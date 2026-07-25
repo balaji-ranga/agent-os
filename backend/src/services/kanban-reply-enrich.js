@@ -33,7 +33,7 @@ export function taskExpectsRichDeliverable(title, description, userText) {
   if (!blob) return false;
   if (/^(hi|hello|hey|thanks|thank you|ok|okay)[.!]?\s*$/i.test(blob)) return false;
   return (
-    /recipe|research|brief|image|generate|deep research|overview|ingredients|\?|rag|embedding|keyword|how (do|does|is|are)|what (is|are|does)|explain|compare|find|look up|summar/i.test(
+    /recipe|research|brief|image|generate|deep research|overview|ingredients|rag|embedding|keyword|how (do|does|is|are)|what (is|are|does)|explain|compare|find|look up|summar|platform|master.?data/i.test(
       blob
     ) || blob.length > 40
   );

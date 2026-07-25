@@ -25,13 +25,17 @@ Workflow Builder can recommend tools via `content_tools_enquire`.
 
 All specialists share platform rules in workspace **`AGENT-OS-OPS.md`** (also summarized in TOOLS.md). Expect agents to:
 
-1. **`learnings_summary`** once at the start of non-trivial work (`topic` + ~30 days) and apply past CEO likes/rejects — skip for one-word greets.
+1. **`learnings_summary`** once at the start of non-trivial work and apply past CEO likes/rejects — skip for one-word greets. **Feedback lookback window = 30 days by default** (the `days` parameter; valid range 1–365). This 30-day window is what decides *how far back feedback is read* — do **not** confuse it with the 7-day cache rebuild cadence below (`LEARNINGS_FULL_REBUILD_DAYS`), which only controls how often the cached summary is fully regenerated.
 2. **Own Kanban status** — `completed` only after a real deliverable; do not mark `failed` just because an optional Master Data insert/notify/email step failed.
 3. **`master_data_list_tables` before insert** — never invent table names.
 4. **`master_data_rag` without `summarize`** — `summarize` defaults to `false`, so agents get raw excerpts in `chunks[]` and write the answer themselves (no extra LLM cost). They only pass `summarize: true` when excerpts are too long or scattered to answer directly.
 5. **`notify_ceo`** only when you asked to be reached / for true blockers / specialist “contact me” handoffs — not for ordinary live chat replies.
 
 ### LLM cost controls on summary tools
+
+> **Two different "days" — do not conflate:**
+> - **Lookback window** (`days`, default **30** for `learnings_summary`, range 1–365): how far back feedback / history is *read*.
+> - **Full-rebuild cadence** (`*_FULL_REBUILD_DAYS`, default **7**): how old the cached base may get before it is fully regenerated instead of incrementally merged. This is a caching knob, **not** the feedback window.
 
 Three tools call an LLM to summarize history. All three cache the summary **once per UTC day per scope**, so repeated calls in the same day cost nothing extra when nothing new happened:
 

@@ -127,6 +127,8 @@ check "compose injects DATA_RETENTION_CRON" grep -q 'DATA_RETENTION_CRON' "$ROOT
 check "compose injects TZ into backend" grep -qE '^\s+TZ: \$\{TZ' "$ROOT/deploy/docker-compose.yml"
 check "status-only Kanban gate" grep -q 'shouldCompleteKanbanForReply' "$ROOT/backend/src/services/kanban-workflow-stage.js"
 check "status-only Kanban unit test" test -f "$ROOT/backend/scripts/test-kanban-status-only-reply.js"
+check "status-only auto-requeue service" test -f "$ROOT/backend/src/services/delegation-status-only-retry.js"
+check "status-only auto-requeue unit test" test -f "$ROOT/backend/scripts/test-delegation-status-only-retry.js"
 
 echo "==> frontend bundle"
 if docker compose exec -T frontend sh -c 'grep -Rql "Purpose / description" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then

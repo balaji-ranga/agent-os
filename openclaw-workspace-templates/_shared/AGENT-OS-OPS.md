@@ -15,7 +15,7 @@
 
 You own card status. Mark **`completed` only after your reply contains the deliverable**.
 
-The platform **rejects status-only completions**: if your reply is just “task marked as completed” (no answer body), the card stays **`in_progress`** even if you called `kanban_move_status` → completed.
+The platform **rejects status-only completions**: if your reply is just “task marked as completed” (no answer body), the card stays **`in_progress`** and the same ask is **auto-retried once** (no CEO nudge required). After the retry cap, the card stays in progress for the CEO/COO status report.
 
 | When | Action |
 |------|--------|

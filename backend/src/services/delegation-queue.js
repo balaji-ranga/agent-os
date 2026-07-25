@@ -26,6 +26,14 @@ import {
   nudgeIfStatusOnlyReply,
 } from './kanban-reply-enrich.js';
 import {
+  requeueKanbanAfterStatusOnlyReply,
+  requeueStuckStatusOnlyKanbanCards,
+  rependInfraFailedStatusOnlyRetries,
+  isTransientOpenClawError,
+  getTransientAttempt,
+  maxGatewayTransientRetries,
+} from './delegation-status-only-retry.js';
+import {
   completeAgentWorkflowKanbanForDelegation,
   isAgentWorkflowPrompt,
 } from './agent-workflow-kanban.js';
@@ -667,6 +675,13 @@ export async function processPendingDelegationTasksForCeo(ceoUserId) {
   if (!ceoUserId) return;
   if (!isUserEnabled(ceoUserId)) return;
   recoverStaleProcessingDelegations(ceoUserId);
+  // Pick up cards left in_progress after status-only chatter (no CEO nudge required).
+  try {
+    requeueStuckStatusOnlyKanbanCards({ ownerUserId: ceoUserId, limit: 10 });
+    rependInfraFailedStatusOnlyRetries({ ownerUserId: ceoUserId, limit: 10 });
+  } catch (e) {
+    console.warn('[delegation] status-only stuck requeue:', e?.message || e);
+  }
   const allPending = db()
     .prepare(
       `SELECT * FROM agent_delegation_tasks
@@ -768,6 +783,7 @@ export async function processPendingDelegationTasksForCeo(ceoUserId) {
       });
       let responseText = normalizeReplyContent(content) || '(no response)';
       // Same guard as Kanban task-chat: status-only "marked completed" is not a deliverable.
+      let stillStatusOnly = false;
       if (kanbanRow) {
         const nudged = await nudgeIfStatusOnlyReply({
           chatCompletions: openclaw.chatCompletions.bind(openclaw),
@@ -777,7 +793,8 @@ export async function processPendingDelegationTasksForCeo(ceoUserId) {
           reply: responseText,
         });
         responseText = nudged.reply;
-        if (nudged.stillStatusOnly) {
+        stillStatusOnly = !!nudged.stillStatusOnly;
+        if (stillStatusOnly) {
           console.warn(
             `[delegation] status-only reply after nudge task=${task.id} agent=${task.to_agent_id}`
           );
@@ -792,7 +809,21 @@ export async function processPendingDelegationTasksForCeo(ceoUserId) {
           console.warn('[agent-workflow] advance:', wfErr.message);
         }
       } else {
-        completePipelineKanbanForDelegation(task.id, { ok: true, replyText: responseText });
+        const kanbanResult = completePipelineKanbanForDelegation(task.id, {
+          ok: true,
+          replyText: responseText,
+        });
+        // Auto-retry so the CEO does not have to nudge — requeues same agent (capped).
+        if (kanbanResult?.skipped_status_only || stillStatusOnly) {
+          try {
+            requeueKanbanAfterStatusOnlyReply({
+              kanbanId: kanbanRow?.id || kanbanResult?.id,
+              delegationTaskId: task.id,
+            });
+          } catch (retryErr) {
+            console.warn('[delegation] status-only requeue failed:', retryErr?.message || retryErr);
+          }
+        }
         try {
           await maybeHandoffJobPipeline({ ...task, status: 'completed', response_content: responseText });
         } catch (handoffErr) {
@@ -814,13 +845,33 @@ export async function processPendingDelegationTasksForCeo(ceoUserId) {
         extractOwnerUserIdFromText(task.prompt) || standupOwner
       );
     } catch (err) {
-      db().prepare('UPDATE agent_delegation_tasks SET status = ?, error_message = ?, completed_at = ? WHERE id = ?').run('failed', err.message, now, task.id);
+      const errMsg = err?.message || String(err);
+      // During OpenClaw restarts, leave the task pending so status-only auto-retries
+      // (and normal delegations) are not burned by a transient gateway outage.
+      if (isTransientOpenClawError(err)) {
+        const attempt = getTransientAttempt(task.error_message) + 1;
+        const maxT = maxGatewayTransientRetries();
+        if (attempt <= maxT) {
+          db()
+            .prepare(
+              `UPDATE agent_delegation_tasks
+               SET status = 'pending', error_message = ?, completed_at = NULL
+               WHERE id = ?`
+            )
+            .run(`[transient:${attempt}] ${errMsg}`, task.id);
+          console.warn(
+            `[delegation] task ${task.id} gateway transient — re-pending (${attempt}/${maxT}): ${errMsg}`
+          );
+          return;
+        }
+      }
+      db().prepare('UPDATE agent_delegation_tasks SET status = ?, error_message = ?, completed_at = ? WHERE id = ?').run('failed', errMsg, now, task.id);
       if (isAgentWorkflowPrompt(task.prompt)) {
         completeAgentWorkflowKanbanForDelegation(task.id, { ok: false });
-        await failAgentWorkflowForDelegation({ ...task, status: 'failed', error_message: err.message });
+        await failAgentWorkflowForDelegation({ ...task, status: 'failed', error_message: errMsg });
       } else {
         completePipelineKanbanForDelegation(task.id, { ok: false });
-        failPipelineWorkflowForDelegation({ ...task, status: 'failed', error_message: err.message }, { error: err.message });
+        failPipelineWorkflowForDelegation({ ...task, status: 'failed', error_message: errMsg }, { error: errMsg });
       }
     } finally {
       runningDelegationIds.delete(task.id);

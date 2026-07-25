@@ -387,8 +387,8 @@ function topicFocusNote(topic) {
  * Summarize past feedback (+ kanban actions) for agent learnings.
  *
  * Caching (per CEO tenant DB, keyed by owner+agent, topic-agnostic):
- *  - Cache hit (same UTC day): return cached summary, no LLM call.
- *  - New day + new feedback since watermark: incremental merge (prev summary + delta).
+ *  - Cache hit (same UTC day, no new feedback/Kanban since watermark): return cached summary, no LLM.
+ *  - New feedback since watermark (same day or new day): incremental merge (prev summary + delta).
  *  - New day + no new feedback: bump valid_date, return cached summary (no LLM call).
  *  - No cache / stale base (> LEARNINGS_FULL_REBUILD_DAYS): full rebuild.
  *  - No stored feedback at all: cheap canned message (no LLM, not cached).
@@ -447,8 +447,19 @@ export async function summarizeLearnings({
   const today = todayUtc();
   const cache = readLearningsCache(db, owner, agentKey);
 
-  // Daily-only cache hit: same UTC day → serve cached summary, no LLM.
-  if (!force && cache && cache.valid_date === today && cache.summary) {
+  const maxFeedbackId = feedback.reduce((m, f) => Math.max(m, Number(f.id) || 0), 0);
+  const maxKanbanAt = kanbanActions.reduce(
+    (m, a) => (String(a.created_at || '') > m ? String(a.created_at) : m),
+    ''
+  );
+  const hasNewSinceCache =
+    !!cache &&
+    (feedback.some((f) => Number(f.id) > Number(cache.last_feedback_id || 0)) ||
+      kanbanActions.some((a) => String(a.created_at || '') > String(cache.last_kanban_at || '')));
+
+  // Same UTC day cache hit — but only if no new feedback/Kanban actions since watermark.
+  // (Previously same-day always returned stale summary, so same-day thumbs-down comments were invisible.)
+  if (!force && cache && cache.valid_date === today && cache.summary && !hasNewSinceCache) {
     return {
       ...baseResult,
       summary: cache.summary + note,
@@ -458,12 +469,6 @@ export async function summarizeLearnings({
     };
   }
 
-  const maxFeedbackId = feedback.reduce((m, f) => Math.max(m, Number(f.id) || 0), 0);
-  const maxKanbanAt = kanbanActions.reduce(
-    (m, a) => (String(a.created_at || '') > m ? String(a.created_at) : m),
-    ''
-  );
-
   const needFull =
     force ||
     !cache ||
@@ -471,7 +476,7 @@ export async function summarizeLearnings({
     !cache.base_generated_at ||
     ageInDays(cache.base_generated_at) >= LEARNINGS_FULL_REBUILD_DAYS;
 
-  // Incremental path: new day, cache exists and base is fresh enough.
+  // Incremental path: cache exists and base is fresh enough (same day or new day with new signal).
   if (!needFull) {
     const newFeedback = feedback.filter((f) => Number(f.id) > Number(cache.last_feedback_id || 0));
     const lastKanbanAt = String(cache.last_kanban_at || '');

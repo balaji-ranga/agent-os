@@ -6,6 +6,7 @@
  */
 import { getDb } from '../db/schema.js';
 import { getUserById } from './users.js';
+import { requeueStuckStatusOnlyKanbanCards, rependInfraFailedStatusOnlyRetries } from './delegation-status-only-retry.js';
 import { getOrCreateDelegationHubStandup } from './standup-hub.js';
 import { executeEmailSend } from './email-send.js';
 
@@ -477,6 +478,21 @@ export async function runCooStatusChecker(ownerUserId, { email = false, postStan
     throw err;
   }
 
+  // Auto-retry specialty cards stuck after status-only chatter (no CEO nudge).
+  let statusOnlyRetry = null;
+  try {
+    statusOnlyRetry = requeueStuckStatusOnlyKanbanCards({ ownerUserId: owner, limit: 15 });
+    const recovered = rependInfraFailedStatusOnlyRetries({ ownerUserId: owner, limit: 15 });
+    if (recovered?.repended) {
+      statusOnlyRetry = {
+        ...(statusOnlyRetry || {}),
+        repended: recovered.repended,
+      };
+    }
+  } catch (e) {
+    console.warn('[status-checker] status-only requeue:', e?.message || e);
+  }
+
   const digest = buildStatusDigest(owner, { reconcile: true });
   const markdown = formatDigestMarkdown(digest);
   const html = formatDigestHtml(digest);
@@ -506,9 +522,9 @@ export async function runCooStatusChecker(ownerUserId, { email = false, postStan
   console.log(
     `[status-checker] owner=${owner} standup=${standupId} awaiting=${digest.counts.awaiting_ceo} email=${
       email ? (emailResult?.sent ? 'sent' : emailResult?.error || 'skipped/failed') : 'disabled'
-    }`
+    } status_only_requeued=${statusOnlyRetry?.requeued || 0}`
   );
-  return { digest, markdown, html, standup_id: standupId, email: emailResult };
+  return { digest, markdown, html, standup_id: standupId, email: emailResult, status_only_retry: statusOnlyRetry };
 }
 
 /** Daily cron batch: every enabled CEO — the only path that emails the HTML digest. */

@@ -16,6 +16,7 @@ import { invokeExternalAgent } from './external-agents.js';
 import { handleA2AJsonRpc } from './workflow-a2a-publish.js';
 import { getCooAgentRow } from './org-context.js';
 import { normalizeA2AVisibility } from './workflow-a2a-access.js';
+import { shouldCompleteKanbanForReply } from './kanban-reply-enrich.js';
 
 export { isOrgMemberKey, splitAllocationByKind } from './org-member-keys.js';
 
@@ -137,12 +138,20 @@ function finishKanbanTask(taskId, out) {
   try {
     const ok = out?.ok !== false && !out?.pending;
     const pending = !!out?.pending;
-    const status = pending ? 'in_progress' : ok ? 'completed' : 'failed';
+    const text = String(out?.text || '').trim();
+    // External/A2A replies that are only status chatter must not complete the card.
+    let status = pending ? 'in_progress' : ok ? 'completed' : 'failed';
+    if (status === 'completed' && !shouldCompleteKanbanForReply(text)) {
+      status = 'in_progress';
+      console.warn(
+        `[org-delegation] skip auto-complete kanban=${taskId} — status-only / empty A2A reply`
+      );
+    }
     const metaBits = [];
     if (out?.taskId) metaBits.push(`[a2a_task_id: ${out.taskId}]`);
     if (out?.runId != null) metaBits.push(`[workflow_run_id: ${out.runId}]`);
     const metaLine = metaBits.length ? `\n${metaBits.join(' ')}` : '';
-    const resultBlock = `\n\n---\nResult:\n${String(out?.text || '').slice(0, 2000)}${metaLine}`;
+    const resultBlock = `\n\n---\nResult:\n${text.slice(0, 2000)}${metaLine}`;
     getDb()
       .prepare(
         `UPDATE kanban_tasks

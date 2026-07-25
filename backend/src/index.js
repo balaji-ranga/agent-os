@@ -76,6 +76,7 @@ import { seedWorkflowBuilderAgent } from '../scripts/seed-workflow-builder-agent
 import { seedPlatformHelpAgent } from '../scripts/seed-platform-help-agent.js';
 import { healAgentWorkspacePaths } from './workspace/adapter.js';
 import { healStuckKanbanForCompletedDelegations } from './services/kanban-workflow-stage.js';
+import { requeueStuckStatusOnlyKanbanCards, rependInfraFailedStatusOnlyRetries } from './services/delegation-status-only-retry.js';
 import { seedPlatformStandardWorkspaceTemplate } from './services/platform-agent-workspace-templates.js';
 
 const app = express();
@@ -115,8 +116,32 @@ try {
   if (kanbanHeal.healed) {
     console.log(`[startup] healed ${kanbanHeal.healed} stuck Kanban card(s) linked to finished delegations`);
   }
+  if (kanbanHeal.reopened_status_only) {
+    console.log(`[startup] reopened ${kanbanHeal.reopened_status_only} status-only completed Kanban card(s)`);
+  }
 } catch (e) {
   console.warn('[startup] kanban stuck-card heal:', e.message);
+}
+// Defer until OpenClaw is likely up after a joint backend+openclaw redeploy.
+{
+  const delayMs = Number(process.env.STATUS_ONLY_REQUEUE_STARTUP_DELAY_MS);
+  const waitMs = Number.isFinite(delayMs) && delayMs >= 0 ? delayMs : 60000;
+  setTimeout(() => {
+    try {
+      const retry = requeueStuckStatusOnlyKanbanCards({ limit: 40 });
+      if (retry.requeued) {
+        console.log(
+          `[startup] requeued ${retry.requeued} status-only Kanban card(s) for agent retry (after ${waitMs}ms)`
+        );
+      }
+      const recovered = rependInfraFailedStatusOnlyRetries({ limit: 40 });
+      if (recovered.repended) {
+        console.log(`[startup] re-pended ${recovered.repended} infra-failed status-only retry task(s)`);
+      }
+    } catch (e) {
+      console.warn('[startup] status-only requeue:', e.message);
+    }
+  }, waitMs).unref?.();
 }
 try {
   const n = seedAgentDepartmentsIfMissing();

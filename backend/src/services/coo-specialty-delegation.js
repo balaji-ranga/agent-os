@@ -26,7 +26,7 @@ export function isExplicitDelegateRequest(message) {
  */
 export function isCooNativeWork(message) {
   const t = String(message || '');
-  return /\b(workflow|workflows|agent_workflow|trigger\s+(a\s+)?workflow|run\s+(a\s+)?workflow|list\s+workflows|what\s+workflows|publish\s+workflow|(?:what|list|which)\s+(?:your\s+)?tools?|tools?\s+(?:do\s+you\s+)?(?:have|access)|kanban|stand-?up|digest|org\.md|resync\s+org|who\s+(are|is)\s+(on\s+)?(the\s+)?(team|agents)|email_send|send\s+(an?\s+)?email|calendar|meeting\s+invite|notify_ceo|master\s*data|what\s+can\s+you\s+do|your\s+(role|purpose)|as\s+coo|coo\s+chat)\b/i.test(
+  return /\b(workflow|workflows|agent_workflow|trigger\s+(a\s+)?workflow|run\s+(a\s+)?workflow|list\s+workflows|what\s+workflows|publish\s+workflow|(?:what|list|which)\s+(?:your\s+)?tools?|tools?\s+(?:do\s+you\s+)?(?:have|access)|kanban|stand-?up|digest|org\.md|resync\s+org|who\s+(are|is)\s+(on\s+)?(the\s+)?(team|agents)|email_send|send\s+(an?\s+)?email|calendar|meeting\s+invite|notify_ceo|master_data_\w+|master\s*data\s+(list|tables?|upload|import|tool|api)|what\s+can\s+you\s+do|your\s+(role|purpose)|as\s+coo|coo\s+chat)\b/i.test(
     t
   );
 }

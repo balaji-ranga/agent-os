@@ -60,4 +60,16 @@ import {
   console.log('PASS heuristics');
 }
 
+{
+  // Regression: short CEO nudge on a research/RAG card must NOT auto-complete.
+  const g = buildKanbanChatStatusGuidance(99, 'in_progress', {
+    userText: 'please answer',
+    title: 'is the platform RAG embedding or keyword based?',
+    description: 'owner_user_id: ceo-bala',
+  });
+  assert.strictEqual(g.completeOnReply, false);
+  assert.strictEqual(g.expectsDeliverable, true);
+  console.log('PASS short nudge on RAG card → no auto-complete');
+}
+
 console.log('KANBAN_CHAT_STATUS_GUIDANCE_OK');

@@ -443,7 +443,11 @@ router.post('/tasks/:id/messages', async (req, res) => {
         if (ceoOwner) registerOpenClawSessionOwner(sessionKey, ceoOwner);
 
         const sessionKeyLine = `Your session key for this run is ${sessionKey}. Use this exact sessionKey when calling sessions_history. The messages in this request already contain the full task conversation; if sessions_history returns empty, use these messages as your context and proceed.\n\n`;
-        const guidance = buildKanbanChatStatusGuidance(taskId, task.status, { userText: c });
+        const guidance = buildKanbanChatStatusGuidance(taskId, task.status, {
+          userText: c,
+          title: task.title || '',
+          description: task.description || '',
+        });
         const messages = [];
         const taskContext = delegationPrompt || [task.title, task.description].filter(Boolean).join('\n') || task.title;
         messages.push({
@@ -506,6 +510,10 @@ router.post('/tasks/:id/messages', async (req, res) => {
               taskTitle: task.title,
             });
           }
+          const stillStatusOnly = looksStatusOnlyReply(reply);
+          const expectsDeliverable =
+            guidance.expectsDeliverable ||
+            taskExpectsRichDeliverable(task.title, task.description, c);
           if (guidance.promoteOnReply) {
             db()
               .prepare(
@@ -514,7 +522,23 @@ router.post('/tasks/:id/messages', async (req, res) => {
               )
               .run(taskId);
           }
-          if (guidance.completeOnReply && !String(reply).startsWith('[Error from agent:')) {
+          // Status-only chatter must never complete a deliverable card — even if the agent
+          // called kanban_move_status → completed during this turn (CEO reopen/nudge path).
+          if (stillStatusOnly && expectsDeliverable && !String(reply).startsWith('[Error from agent:')) {
+            db()
+              .prepare(
+                `UPDATE kanban_tasks SET status = 'in_progress', updated_at = datetime('now')
+                 WHERE id = ? AND status IN ('open', 'in_progress', 'completed')`
+              )
+              .run(taskId);
+            console.warn(
+              `[kanban] chat reply status-only — keep in_progress task=${taskId} (will not auto-complete)`
+            );
+          } else if (
+            guidance.completeOnReply &&
+            !stillStatusOnly &&
+            !String(reply).startsWith('[Error from agent:')
+          ) {
             db()
               .prepare(
                 `UPDATE kanban_tasks SET status = 'completed', updated_at = datetime('now')
