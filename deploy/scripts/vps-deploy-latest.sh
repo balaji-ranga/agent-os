@@ -499,6 +499,21 @@ if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-
     && echo "    standup get_work_from_team fanout OK" \
     || echo "    WARN: get_work_from_team check failed (see /tmp/get-work.log)"
 fi
+if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-kanban-timezone-and-chat-context.js 2>/dev/null; then
+  docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-kanban-timezone-and-chat-context.js >/tmp/kanban-tz.log 2>&1 \
+    && echo "    Kanban platform-timezone dates + archived-chat activity OK" \
+    || echo "    WARN: Kanban timezone / chat_context check failed (see /tmp/kanban-tz.log)"
+fi
+if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-help-doc-accuracy.js 2>/dev/null; then
+  docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-help-doc-accuracy.js >/tmp/help-accuracy.log 2>&1 \
+    && echo "    platform help corpus answers ambiguous questions correctly" \
+    || echo "    WARN: help doc accuracy check failed (see /tmp/help-accuracy.log)"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql "Times in " /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: Kanban timezone hint OK"
+else
+  echo "    WARN: Kanban timezone hint missing from frontend bundle"
+fi
 if docker compose exec -T frontend sh -c 'grep -Rql "/admin/crons" /usr/share/nginx/html/assets/*.js 2>/dev/null' \
   && docker compose exec -T frontend sh -c 'grep -Rql "Platform crons" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
   echo "    frontend assets: Admin Crons page OK"
@@ -565,6 +580,12 @@ if [[ -n "${TOKEN:-}" ]]; then
     docker compose exec -T -w /opt/agent-os/backend backend node scripts/reupload-platform-help-docs.js >/tmp/help-reupload.log 2>&1 \
       && echo "    platform help + user guide re-upload OK" \
       || echo "    WARN: platform help re-upload failed (see /tmp/help-reupload.log)"
+  fi
+  # Drop duplicate/stale help docs so RAG can only retrieve the freshly uploaded versions.
+  if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/heal-platform-help-docs.js 2>/dev/null; then
+    docker compose exec -T -w /opt/agent-os/backend backend node scripts/heal-platform-help-docs.js >/tmp/help-heal.log 2>&1 \
+      && echo "    platform help dedupe OK" \
+      || echo "    WARN: platform help dedupe failed (see /tmp/help-heal.log)"
   fi
   if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/refresh-coo-workspace-docs.js 2>/dev/null; then
     docker compose exec -T -w /opt/agent-os/backend backend node scripts/refresh-coo-workspace-docs.js >/tmp/coo-docs-refresh.log 2>&1 \

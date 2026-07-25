@@ -24,7 +24,7 @@ Example asks: “list departments”, “add Engineering if missing”.
 - If you uploaded office files before this support existed, use **Reindex** (or **Reindex all for RAG**) on Master Data so chunks are rebuilt from the stored files.
 - New accounts include **Flolah Platform Help** documents (and often a short User Guide) so agents can answer “how do I use Flolah?”.
 - RAG is **keyword chunk search** over SQLite chunks (not vector embeddings). Clear headings and repeated keywords improve hits.
-- UI may offer a RAG query box; agents use **`master_data_list_documents`** then **`master_data_rag`**. Prefer omitting `summarize` (defaults **false**) and answer from returned `chunks[]` yourself.
+- UI may offer a RAG query box; agents use **`master_data_list_documents`** then **`master_data_rag`**. For the **agent tool**, prefer omitting `summarize` (defaults **false**) and answer from returned `chunks[]` yourself. The **Master Data UI** RAG box and the workflow **Master Data** node default to `summarize: true` (LLM answer) — same retrieval, different default.
 
 ### Purge uploads vs protected help docs
 

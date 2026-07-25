@@ -127,8 +127,9 @@ Grant or revoke tools on each agent’s **Workspace → Tools access**.
 
 | Area | What you get in the UI |
 |------|-------------------------|
+| **Kanban timezone + archived-chat activity** | Every Kanban date (board tooltips, card **Created**/**Updated**, task chat) renders in the platform timezone (`PLATFORM_TIMEZONE`, else `TZ`) with the zone shown in the board header — no raw UTC. A card's **Activity** tab now also pulls the linked agent-chat turns, so work done in a chat that was later **archived** still shows (tagged `archived`); cards with genuinely no activity say so instead of rendering blank, and a failed detail load shows an error + **Retry**. |
 | **COO status checker** | Dashboard → **Run status checker** (COO-entitled `status_checker` tool) opens an HTML CEO report: needs-attention, awaiting-you, **all failed Kanban cards of any age** with failure reason / A2A task + workflow run ids, and recent completions. Also runs daily (`COO_STATUS_CHECKER_CRON`, default 09:00) → standup chat post + HTML email. |
-| **Data retention** | Profile → **Data persistence** (30/60/90/120/365 days). Nightly purge (`DATA_RETENTION_CRON`, default 03:15) permanently deletes older chats, chat history, standup conversations and workflow runs per user; manual **Purge** buttons on Dashboard and Profile. |
+| **Data retention** | Profile → **Data persistence** (30/60/90/120/365 days, default 90). Nightly purge (`DATA_RETENTION_CRON`, default 03:15) permanently deletes aged chat turns, standup **messages** and workflow run/step records per user (Kanban, Master Data and API keys untouched); manual **Purge** buttons on Dashboard and Profile. |
 | **Storage (MB)** | Efficiency View → **Org** tab shows storage consumed by your tenant (chats, standups, workflow runs, Master Data, OpenClaw workspace files). |
 | **Admin → Crons** | `/admin/crons` lists every platform cron (standup dispatcher, legacy standup, delegation queue, job pipeline, COO status checker, data retention, workflow scheduler) with **Pause** / **Resume** / **Run now**. Pause state persists across restarts. |
 | **Platform API logging** | `PLATFORM_LOG_LEVEL=off\|error\|info` controls backend access/error logs. Keys, tokens, `Authorization` headers, passwords and MFA codes are redacted, and sensitive paths (API Keys, auth) log method + route only. |
@@ -237,7 +238,7 @@ Set in backend `.env`:
 | **Chat** | 1:1 chat with an OpenClaw agent via gateway; session affinity per agent; history stored in SQLite; **tool-call icons** on assistant replies when Agent OS tools ran. |
 | **Agent workspace** | Per-agent **SOUL.md, AGENTS.md, ORG.md, MEMORY.md, TOOLS.md** editor (tenant path for signed-in CEO); **Tools access** panel (grant/revoke content tools per agent, hot-sync to OpenClaw without gateway restart). |
 | **Notifications** | **Bell icon** in nav: agent responses + platform notifications; hover for full text; link to agent Chat; clear/dismiss (shared feed). |
-| **Kanban** | Board view (tasks by agent and status); task detail with **task chat**, artifacts, workflow run links. Reopen task; create task (COO or direct to agent). Auto-completes when COO chat delegations finish. |
+| **Kanban** | Board view (tasks by agent and status); task detail with **task chat**, artifacts, workflow run links, and linked agent-chat turns (including chats archived later). Reopen task; create task (COO or direct to agent). Auto-completes when COO chat delegations finish. All dates in the platform timezone. |
 | **Custom workflows** | Visual **Workflows** editor: trigger (manual / schedule / chat / event webhook), agent, API, MCP tool, **SSE listen**, **sub-workflow**, Brain (LLM + optional MCP tool calling; **Thinking mode** for DeepSeek/OpenRouter), email, IF/While, parallel/merge, CEO approval, **external agent (A2A)**. Publish, run instances, paginated run history, search, **stop SSE listen** on active runs. |
 | **Download for Windows** | From a **published** workflow: download a PS1 + params package (optional portable Node 18). Local graph orchestration + localhost API / filesystem; run state and other nodes on Flolah. Desktop token + optional IP whitelist. See `knowledgebase/platform-help/17-desktop-windows-download.md`. |
 | **Publish as A2A** | **Publish A2A** exposes a workflow as an A2A agent (agent card + JSON-RPC). **Visibility** Public (default) or **Private** (org-only). **Sync** or **Async** invoke; optional **callback URL**. **Deny all** IP access by default; **Allow all** or **IP whitelist**. **Public auth** or **Secured** (OAuth). **Publish as new agent** or update by `publish_id`. |
@@ -271,7 +272,9 @@ Set in backend `.env`:
 | `AGENT_WORKFLOW_SCHEDULER_CRON` | `* * * * *` | Master tick for custom agent workflows | definition `schedule_cron` + `schedule` trigger mode |
 | `JOB_PIPELINE_CRON_SCHEDULE` | `0 * * * *` | Job Applicant pipeline tick across active profiles | profile `workflow_schedule` (hourly/daily/weekly) |
 | `COO_STATUS_CHECKER_CRON` | `0 9 * * *` | COO status digest per enabled CEO → standup post + HTML email | CEO email, own Kanban/A2A state |
-| `DATA_RETENTION_CRON` | `15 3 * * *` | Retention purge per enabled CEO (chats, chat history, standup conversations, workflow runs) | Profile `data_retention_days` (30/60/90/120/365) |
+| `DATA_RETENTION_CRON` | `15 3 * * *` | Retention purge per enabled CEO (chat turns, standup messages, workflow runs/steps) | Profile `data_retention_days` (30/60/90/120/365, default 90) |
+
+Cron expressions use the container clock (`TZ`). Dates **shown to users** (Kanban, task chat, reports) use `PLATFORM_TIMEZONE` when set, otherwise `TZ` — so the UI never renders raw UTC.
 
 Not crons: workflow **timeout watchdog** (30s `setInterval`, reaps timed-out steps after restarts) and **one-shot OpenClaw Gateway cron jobs** created per delegated task (fire once, then gone).
 

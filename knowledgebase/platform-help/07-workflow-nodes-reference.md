@@ -165,7 +165,7 @@ Upload/approve scripts under **Custom scripts**.
 
 **Purpose:** Query CEO tables or RAG documents.
 
-**Key attributes:** `mode` auto|table|rag; `tableId`; `documentId`; `topK`; `column`/`equals` filters; `summarize`.
+**Key attributes:** `mode` auto|table|rag; `tableId`; `documentId`; `topK` (default **5**, range 1–20); `column`/`equals` filters; `summarize` (default **true** in this node — the `master_data_rag` agent tool defaults to `false`).
 
 | Inputs | Outputs |
 |--------|---------|

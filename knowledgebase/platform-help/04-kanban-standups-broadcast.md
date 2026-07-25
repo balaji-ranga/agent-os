@@ -11,6 +11,8 @@ Board of tasks by agent and status — shared for agent work, workflow steps, an
 - **Agents own card status** for research/build work: they move to `in_progress` when they start, `awaiting_confirmation` when they need you, `completed` only after a real deliverable, or `failed` only when they could not produce the main deliverable at all. Optional side steps (e.g. saving to a missing Master Data table, notify, email) must **not** flip a good deliverable to `failed`. If an agent only posts “marked completed” with no answer, the platform keeps the card **in progress** and **auto-retries the same agent once** (you do not need to nudge).
 - Short clarification Q&A on an already-open card may auto-complete; longer research/implementation stays **in_progress** until the agent finishes the deliverable (or you close it).
 - Kanban task chat with an assigned agent is also mirrored into that agent’s **Dashboard chat** (tagged `[Kanban #id]`) so you can see the same exchange there. OpenClaw still keeps a per-task session for isolation.
+- **Archiving an agent chat never empties a card.** The card's **Activity** tab reads the linked agent-chat turns straight from chat history, so work done in a chat that was later archived still shows (each turn is tagged `archived` with the archived chat's title). When a card genuinely has no delegation exchange, task chat, or linked chat, Activity says so instead of rendering blank.
+- **All dates on the board and in cards use the platform timezone** (`PLATFORM_TIMEZONE`, else the server `TZ`) — never raw UTC. The board header shows which zone is in effect, e.g. "Times in Asia/Singapore".
 - Job profile setup and pipeline runs live under **Job profiles** / **Job workflows** — Kanban itself stays a generic task board.
 - Dashboard chat alone: agents should **not** invent Kanban cards unless you asked to track the work.
 
@@ -27,8 +29,8 @@ Standups are **owner-scoped** — only your CEO’s standups appear.
 
 ## Data retention (Dashboard + Profile)
 
-- Set **Data persistence** on **Profile** to 30 / 60 / 90 / 120 / 365 days.
-- After that window, chats, standup history, and workflow run instances are **permanently deleted**.
+- Set **Data persistence** on **Profile** to 30 / 60 / 90 / 120 / 365 days (**default 90**).
+- After that window, agent chat turns, standup **messages**, and workflow run/step records are **permanently deleted** (Kanban cards, Master Data and API keys are untouched).
 - A daily retention job runs automatically; you can also **Purge** from the Dashboard or Profile.
 - Schedules, defaults, and what each job touches: [19-scheduled-jobs-and-crons.md](./19-scheduled-jobs-and-crons.md).
 

@@ -17,8 +17,27 @@ if [[ ! -f "$ENV_FILE" ]]; then
   exit 0
 fi
 
+TZ_MARKER="Display timezone for user-facing dates"
+
+# Timezone reference block is tracked separately so existing installs still get it.
+ensure_timezone_block() {
+  if grep -qF "$TZ_MARKER" "$ENV_FILE"; then
+    echo "ENSURE_TZ_ENV_OK already_present=$ENV_FILE"
+    return
+  fi
+  cat >> "$ENV_FILE" <<'TZEOF'
+
+# ---- Display timezone for user-facing dates ----
+# TZ drives cron expressions and the container clock. PLATFORM_TIMEZONE (optional) drives dates
+# rendered for users — Kanban cards and task chat, status reports. Falls back to TZ when unset.
+# PLATFORM_TIMEZONE=Asia/Singapore
+TZEOF
+  echo "ENSURE_TZ_ENV_ADDED file=$ENV_FILE"
+}
+
 if grep -qF "$MARKER" "$ENV_FILE"; then
   echo "ENSURE_CRON_ENV_OK already_present=$ENV_FILE"
+  ensure_timezone_block
   exit 0
 fi
 
@@ -39,3 +58,4 @@ cat >> "$ENV_FILE" <<'EOF'
 EOF
 
 echo "ENSURE_CRON_ENV_ADDED file=$ENV_FILE"
+ensure_timezone_block

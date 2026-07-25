@@ -10,7 +10,8 @@
 # deploy/docker + compose overlays (incl. docker-compose.vps-client-ip.yml for real client IP / A2A whitelist),
 # scripts/, openclaw extensions/skills/templates — then rebuilds via vps-deploy-latest.sh.
 #
-# Features covered: Admin Crons console (/admin/crons pause/resume/run now, persisted pause state),
+# Features covered: Kanban platform-timezone dates (PLATFORM_TIMEZONE) + task activity that survives
+# archived agent chats (chat_context), Admin Crons console (/admin/crons pause/resume/run now, persisted pause state),
 # platform API logging (PLATFORM_LOG_LEVEL=off|error|info + secret redaction),
 # Brave Search MCP BYOK wrapper (tools/brave-search-mcp-byok, profile optional-brave-mcp),
 # cron reference block in deploy/.env (ensure-cron-env.sh) + platform-help 19
@@ -98,6 +99,7 @@ scp @ssh `
   "$Repo\deploy\scripts\vps-smoke-openconnector-selfservice.sh" `
   "$Repo\deploy\scripts\vps-smoke-budgets-org-members.sh" `
   "$Repo\deploy\scripts\vps-verify-status-retention-ui.sh" `
+  "$Repo\deploy\scripts\vps-inspect-frontend-bundle.sh" `
   "$Repo\deploy\scripts\vps-regression-full.sh" `
   "$Repo\deploy\scripts\vps-enable-real-openconnector.sh" `
   "$Repo\deploy\scripts\vps-rebuild-frontend.sh" `
@@ -163,6 +165,9 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-ceo-guardrails.js" `
     "$Repo\backend\scripts\test-kanban-delegation-sync.js" `
     "$Repo\backend\scripts\test-kanban-owner-isolation.js" `
+    "$Repo\backend\scripts\test-kanban-timezone-and-chat-context.js" `
+    "$Repo\backend\scripts\test-help-doc-accuracy.js" `
+    "$Repo\backend\scripts\heal-platform-help-docs.js" `
     "$Repo\backend\scripts\heal-stuck-kanban-delegations.js" `
     "$Repo\backend\scripts\refresh-coo-workspace-docs.js" `
     "$Repo\backend\scripts\test-openconnector-connectors-e2e.js" `

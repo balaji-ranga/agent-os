@@ -4,7 +4,11 @@ import KanbanTaskDescription, { isCeoJobReviewTask, isWorkflowCeoApprovalTask, p
 import KanbanTaskArtifacts from '../components/KanbanTaskArtifacts.jsx';
 import KanbanBoardCell from '../components/KanbanBoardCell.jsx';
 import { WorkflowIoDetailBlock } from '../components/WorkflowStepTooltip.jsx';
-import { taskCreatedAtDisplay, formatChatTimestamp } from '../utils/formatDateTime.js';
+import {
+  taskCreatedAtDisplay,
+  taskUpdatedAtDisplay,
+  rowTimestampDisplay,
+} from '../utils/formatDateTime.js';
 import ActionFeedbackBanner from '../components/ActionFeedbackBanner.jsx';
 import { useActionFeedback } from '../hooks/useActionFeedback.js';
 import MessageFeedback from '../components/MessageFeedback.jsx';
@@ -59,6 +63,8 @@ export default function Kanban() {
   const [wfApproving, setWfApproving] = useState(false);
   const [drawerTab, setDrawerTab] = useState('details');
   const [serverTimezone, setServerTimezone] = useState(null);
+  const [detailError, setDetailError] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const taskChatScrollRef = useRef(null);
 
   const toggleTaskSelection = (taskId, e) => {
@@ -110,11 +116,30 @@ export default function Kanban() {
     setLoading(false);
   }, [view, rangeFrom, rangeTo]);
 
+  const loadTaskDetail = (taskId) => {
+    if (!taskId) return Promise.resolve();
+    setDetailLoading(true);
+    setDetailError(null);
+    return api
+      .kanbanTaskGet(taskId)
+      .then((detail) => {
+        setTaskDetail(detail);
+        if (detail.server_timezone) setServerTimezone(detail.server_timezone);
+      })
+      .catch((err) => {
+        // Never leave a silently empty drawer — the CEO must see why it is blank.
+        setTaskDetail(null);
+        setDetailError(err?.message || 'Could not load this task');
+      })
+      .finally(() => setDetailLoading(false));
+  };
+
   useEffect(() => {
     if (!selectedTask) {
       setTaskDetail(null);
       setApproveError(null);
       setApproveSuccess(null);
+      setDetailError(null);
       setDrawerTab('details');
       return;
     }
@@ -122,10 +147,7 @@ export default function Kanban() {
     setApproveSuccess(null);
     setReviewQueue(null);
     setDrawerTab('details');
-    api.kanbanTaskGet(selectedTask.id).then((detail) => {
-      setTaskDetail(detail);
-      if (detail.server_timezone) setServerTimezone(detail.server_timezone);
-    }).catch(() => setTaskDetail(null));
+    loadTaskDetail(selectedTask.id);
   }, [selectedTask?.id]);
 
   useEffect(() => {
@@ -437,11 +459,26 @@ export default function Kanban() {
   const ceoReviewCtx = parseCeoReviewContext(taskDetail?.description || selectedTask?.description || '');
   const confirmIsApplication = ceoReviewCtx.requiresJobApplication !== false;
 
+  const chatContextTurns = taskDetail?.chat_context?.turns || [];
+  const archivedChatTitles = (taskDetail?.chat_context?.archived_sessions || [])
+    .map((s) => s.title)
+    .filter(Boolean);
+  const activityIsEmpty =
+    !taskDetail?.delegation_prompt &&
+    !taskDetail?.delegation_response &&
+    (taskDetail?.messages || []).length === 0 &&
+    chatContextTurns.length === 0;
+
   return (
     <div style={{ padding: '1rem', maxWidth: '100%', overflow: 'auto' }}>
       <ActionFeedbackBanner feedback={feedback} onDismiss={clearFeedback} />
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
         <h1 style={{ margin: 0, fontSize: '1.5rem' }}>Kanban</h1>
+        {serverTimezone && (
+          <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }} title="All Kanban dates are shown in the platform timezone">
+            Times in {serverTimezone}
+          </span>
+        )}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           {['daily', 'weekly', 'monthly'].map((v) => (
             <button
@@ -644,6 +681,9 @@ export default function Kanban() {
                   {(taskDetail?.created_at || selectedTask.created_at) && (
                     <span> · Created {taskCreatedAtDisplay(taskDetail || selectedTask, serverTimezone)}</span>
                   )}
+                  {(taskDetail?.updated_at || selectedTask.updated_at) && (
+                    <span> · Updated {taskUpdatedAtDisplay(taskDetail || selectedTask, serverTimezone)}</span>
+                  )}
                 </div>
                 {drawerTab === 'details' && selectedIsCeoReview && (
                   <div style={{ marginTop: 6, fontSize: '0.8rem', color: 'var(--accent)' }}>
@@ -700,6 +740,28 @@ export default function Kanban() {
               className="chat-scroll-panel"
               style={{ padding: '1rem', flex: '1 1 0', minHeight: 0, overflowY: 'auto' }}
             >
+            {detailError && (
+              <div
+                style={{
+                  marginBottom: '1rem',
+                  padding: '0.75rem',
+                  borderRadius: 8,
+                  border: '1px solid var(--error, #dc2626)',
+                  background: 'rgba(220, 38, 38, 0.08)',
+                  fontSize: '0.85rem',
+                }}
+              >
+                <div style={{ marginBottom: 6 }}>Could not load the full task: {detailError}</div>
+                <button
+                  type="button"
+                  onClick={() => loadTaskDetail(selectedTask.id)}
+                  disabled={detailLoading}
+                  style={{ padding: '0.3rem 0.6rem', borderRadius: 6, border: '1px solid var(--border)', cursor: 'pointer' }}
+                >
+                  {detailLoading ? 'Retrying…' : 'Retry'}
+                </button>
+              </div>
+            )}
             {drawerTab === 'details' && selectedIsWorkflowApproval && (
               <div
                 style={{
@@ -921,7 +983,7 @@ export default function Kanban() {
                   )}
                 </div>
               )}
-            {drawerTab === 'details' && (taskDetail?.description || selectedTask.description) && (
+            {drawerTab === 'details' && (
                 <div
                   style={{
                     marginBottom: '1rem',
@@ -958,7 +1020,7 @@ export default function Kanban() {
                     <span style={{ fontSize: '0.75rem', color: 'var(--muted)', fontWeight: 600 }}>{m.role}</span>
                     {m.created_at && (
                       <time dateTime={m.created_at} style={{ fontSize: '0.68rem', color: 'var(--muted)' }}>
-                        {formatChatTimestamp(m.created_at)}
+                        {rowTimestampDisplay(m, serverTimezone)}
                       </time>
                     )}
                   </div>
@@ -975,6 +1037,43 @@ export default function Kanban() {
                   )}
                 </div>
               ))}
+            {drawerTab === 'activity' && chatContextTurns.length > 0 && (
+              <div style={{ marginTop: (taskDetail?.messages || []).length ? '1rem' : 0 }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginBottom: 6, fontWeight: 600 }}>
+                  From the agent chat
+                  {archivedChatTitles.length > 0 && (
+                    <span style={{ fontWeight: 500 }}>
+                      {' '}· archived chat{archivedChatTitles.length > 1 ? 's' : ''}: {archivedChatTitles.join(', ')}
+                    </span>
+                  )}
+                </div>
+                {chatContextTurns.map((t) => (
+                  <div key={`chat-${t.id}`} style={{ marginBottom: '0.75rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', flexWrap: 'wrap', marginBottom: 2 }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--muted)', fontWeight: 600 }}>{t.role}</span>
+                      {t.created_at && (
+                        <time dateTime={t.created_at} style={{ fontSize: '0.68rem', color: 'var(--muted)' }}>
+                          {rowTimestampDisplay(t, serverTimezone)}
+                        </time>
+                      )}
+                      {t.session_archived && (
+                        <span style={{ fontSize: '0.62rem', color: 'var(--muted)', border: '1px solid var(--border)', borderRadius: 4, padding: '0 4px' }}>
+                          archived
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: '0.88rem' }}>{t.content}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {drawerTab === 'activity' && activityIsEmpty && (
+              <p style={{ fontSize: '0.85rem', color: 'var(--muted)', fontStyle: 'italic', margin: 0 }}>
+                {detailLoading
+                  ? 'Loading activity…'
+                  : 'No activity recorded for this task yet — no delegation exchange, task chat, or linked agent chat. Send a message below to start one.'}
+              </p>
+            )}
             </div>
             </div>
             <div style={{ flexShrink: 0, padding: '1rem', borderTop: '1px solid var(--border)' }}>

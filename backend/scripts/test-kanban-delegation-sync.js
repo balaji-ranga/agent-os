@@ -40,8 +40,27 @@ try {
   const mid = markKanbanInProgressForDelegation(delId);
   if (mid?.status !== 'in_progress') throw new Error(`expected in_progress, got ${JSON.stringify(mid)}`);
 
-  db.prepare(`UPDATE agent_delegation_tasks SET status = 'completed', completed_at = datetime('now') WHERE id = ?`).run(delId);
-  // Simulate stuck awaiting_confirmation after completed delegation
+  // Status-only chatter must NOT complete the card — it stays in_progress for a retry.
+  db.prepare(
+    `UPDATE agent_delegation_tasks
+     SET status = 'completed', completed_at = datetime('now'), response_content = 'Marked the task completed.'
+     WHERE id = ?`
+  ).run(delId);
+  db.prepare(`UPDATE kanban_tasks SET status = 'awaiting_confirmation' WHERE agent_delegation_task_id = ?`).run(delId);
+  const statusOnlyHeal = healStuckKanbanForCompletedDelegations();
+  const afterStatusOnly = db
+    .prepare('SELECT status FROM kanban_tasks WHERE agent_delegation_task_id = ?')
+    .get(delId);
+  if (afterStatusOnly.status === 'completed') {
+    throw new Error(`status-only reply must not complete the card (heal=${JSON.stringify(statusOnlyHeal)})`);
+  }
+
+  // A real deliverable heals the stuck card to completed.
+  db.prepare(
+    `UPDATE agent_delegation_tasks
+     SET response_content = 'Here is the full research brief with findings, sources and a recommendation the CEO asked for.'
+     WHERE id = ?`
+  ).run(delId);
   db.prepare(`UPDATE kanban_tasks SET status = 'awaiting_confirmation' WHERE agent_delegation_task_id = ?`).run(delId);
   const healed = healStuckKanbanForCompletedDelegations();
   const row = db.prepare('SELECT status FROM kanban_tasks WHERE agent_delegation_task_id = ?').get(delId);

@@ -8,7 +8,8 @@ import { getDb } from '../db/schema.js';
 import * as openclaw from '../gateway/openclaw.js';
 import { resolveKanbanTaskArtifacts } from '../services/kanban-artifacts.js';
 import { parseAgentWorkflowMeta } from '../services/agent-workflow-kanban.js';
-import { formatServerDateTime, getServerTimezone } from '../utils/format-datetime.js';
+import { formatServerDateTime, formatServerDate, getServerTimezone } from '../utils/format-datetime.js';
+import { resolveKanbanChatContext } from '../services/kanban-chat-context.js';
 import { attachAuthUser, requireAuth, resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
 import {
   filterKanbanTasksForUser,
@@ -57,6 +58,20 @@ function mirrorKanbanTurnToAgentChat({ agentId, ownerUserId, role, content, task
   } catch (e) {
     console.warn('[kanban] mirror to chat_turns failed:', e.message);
   }
+}
+
+/** Add platform-timezone display strings so the UI never renders raw UTC. */
+function withDisplayTimes(row) {
+  return {
+    ...row,
+    created_at_display: formatServerDateTime(row.created_at),
+    updated_at_display: row.updated_at ? formatServerDateTime(row.updated_at) : null,
+    due_date_display: row.due_date ? formatServerDate(row.due_date) : null,
+  };
+}
+
+function messagesWithDisplayTimes(rows) {
+  return (rows || []).map((m) => ({ ...m, created_at_display: formatServerDateTime(m.created_at) }));
 }
 
 const KANBAN_SELECT = `
@@ -145,11 +160,7 @@ router.get('/tasks', (req, res) => {
     // Soft filter as defense-in-depth for any legacy/ambiguous rows
     const scoped = filterKanbanTasksForUser(rows, req.authUser);
     const server_timezone = getServerTimezone();
-    const tasks = scoped.map((row) => ({
-      ...row,
-      created_at_display: formatServerDateTime(row.created_at),
-      updated_at_display: row.updated_at ? formatServerDateTime(row.updated_at) : null,
-    }));
+    const tasks = scoped.map(withDisplayTimes);
     res.json({ tasks, server_timezone });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -230,12 +241,12 @@ router.get('/tasks/:id', (req, res) => {
       messages
     );
     const { input: workflow_step_input, output: workflow_step_output } = resolveWorkflowStepIo(task.description);
+    const chat_context = resolveKanbanChatContext(db(), task);
     res.json({
-      ...task,
-      created_at_display: formatServerDateTime(task.created_at),
-      updated_at_display: task.updated_at ? formatServerDateTime(task.updated_at) : null,
+      ...withDisplayTimes(task),
       server_timezone: getServerTimezone(),
-      messages,
+      messages: messagesWithDisplayTimes(messages),
+      chat_context,
       delegation_prompt,
       delegation_response,
       workflow_step_input,
@@ -375,7 +386,7 @@ router.get('/tasks/:id/messages', (req, res) => {
     if (!task) return res.status(404).json({ error: 'Task not found' });
     assertKanbanTaskAccess(task, req.authUser);
     const rows = db().prepare('SELECT id, role, content, created_at FROM task_messages WHERE task_id = ? ORDER BY created_at').all(req.params.id);
-    res.json(rows);
+    res.json(messagesWithDisplayTimes(rows));
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message });
   }

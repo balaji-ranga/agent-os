@@ -33,7 +33,10 @@ every deploy).
 
 Admin operators can **list / pause / resume / Run now** every platform cron under **Admin → Crons** (`/admin/crons`). Pause state persists across restarts.
 
-Times are evaluated in the backend container's timezone (UTC on the VPS unless `TZ` is set).
+**Timezones.** Cron expressions are evaluated in the backend container's clock timezone (`TZ`, UTC
+when unset). Dates *shown to you* (Kanban cards and task chat, status reports) use
+`PLATFORM_TIMEZONE` when set, otherwise `TZ` — so the UI never displays raw UTC. On this deployment
+both are `Asia/Singapore`.
 
 Not a cron, but worth knowing: a **workflow timeout watchdog** runs on a 30-second interval to reap
 workflow steps whose node timeout elapsed (covers restarts and lost timers), and COO delegation also
@@ -52,7 +55,7 @@ crashing the process; the startup log prints each active schedule.
 | **Kanban / Standups** → standup | Scheduled time (`scheduled_at`) | Your standup auto-runs daily at that time and delegates outcomes via the COO |
 | **Workflows** → editor → trigger | `schedule_cron` + `schedule` trigger mode | Your workflow starts when its cron is due; pause removes it from the registry |
 | **Job workflows** → profile | `workflow_schedule` = hourly / daily / weekly | Discovery + pipeline stages run at that cadence |
-| **Profile** → Data persistence | `data_retention_days` = 30 / 60 / 90 / 120 / 365 | Nightly purge window for your chats, chat history, standup chats and workflow runs |
+| **Profile** → Data persistence | `data_retention_days` = 30 / 60 / 90 / 120 / 365 (**default 90**) | Nightly purge window for your chat turns, standup messages and workflow runs |
 
 Manual equivalents (no waiting for the clock):
 
@@ -89,11 +92,12 @@ session — an agent cannot request another CEO's report.
 
 ## 4. Data retention purge
 
-Set **Profile → Data persistence** to 30, 60, 90, 120 or 365 days. Every night the retention job
-permanently deletes, for your tenant only, anything older than that window:
+Set **Profile → Data persistence** to 30, 60, 90, 120 or 365 days (**default 90** if you never
+changed it). Every night the retention job permanently deletes, for your tenant only, anything
+older than that window:
 
-- Agent chat messages and chat history
-- Standup conversations and their messages
+- Agent chat turns (`chat_turns`) — the chat history itself
+- Standup **messages** (the standup records stay; their aged messages go)
 - Workflow run instances and their step records
 
 Deletion is permanent — there is no undo and no archive copy. Kanban cards, Master Data documents and

@@ -141,6 +141,8 @@ x-backend-env: &backend-env
   DATA_RETENTION_CRON: ${DATA_RETENTION_CRON:-}
   # Timezone for cron expressions + chat day boundaries (default UTC)
   TZ: ${TZ:-UTC}
+  # Timezone used to render dates for users (Kanban, task chat, reports); falls back to TZ
+  PLATFORM_TIMEZONE: ${PLATFORM_TIMEZONE:-}
   # Optional Ollama context window for BYOK / local models
   OLLAMA_CONTEXT_WINDOW: ${OLLAMA_CONTEXT_WINDOW:-}
   OPENCLAW_OLLAMA_CHAT_TIMEOUT_MS: ${OPENCLAW_OLLAMA_CHAT_TIMEOUT_MS:-}

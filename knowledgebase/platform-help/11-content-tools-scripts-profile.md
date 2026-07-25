@@ -28,22 +28,28 @@ All specialists share platform rules in workspace **`AGENT-OS-OPS.md`** (also su
 1. **`learnings_summary`** once at the start of non-trivial work and apply past CEO likes/rejects — skip for one-word greets. **Feedback lookback window = 30 days by default** (the `days` parameter; valid range 1–365). This 30-day window is what decides *how far back feedback is read* — do **not** confuse it with the 7-day cache rebuild cadence below (`LEARNINGS_FULL_REBUILD_DAYS`), which only controls how often the cached summary is fully regenerated.
 2. **Own Kanban status** — `completed` only after a real deliverable; do not mark `failed` just because an optional Master Data insert/notify/email step failed.
 3. **`master_data_list_tables` before insert** — never invent table names.
-4. **`master_data_rag` without `summarize`** — `summarize` defaults to `false`, so agents get raw excerpts in `chunks[]` and write the answer themselves (no extra LLM cost). They only pass `summarize: true` when excerpts are too long or scattered to answer directly.
+4. **`master_data_rag` without `summarize`** — for the **agent tool**, `summarize` defaults to `false`, so agents get raw excerpts in `chunks[]` and write the answer themselves (no extra LLM cost). They only pass `summarize: true` when excerpts are too long or scattered to answer directly. (The Master Data UI RAG box and the workflow **Master Data** node default to `summarize: true` — different path, different default.)
 5. **`notify_ceo`** only when you asked to be reached / for true blockers / specialist “contact me” handoffs — not for ordinary live chat replies.
 
 ### LLM cost controls on summary tools
 
 > **Two different "days" — do not conflate:**
-> - **Lookback window** (`days`, default **30** for `learnings_summary`, range 1–365): how far back feedback / history is *read*.
-> - **Full-rebuild cadence** (`*_FULL_REBUILD_DAYS`, default **7**): how old the cached base may get before it is fully regenerated instead of incrementally merged. This is a caching knob, **not** the feedback window.
+>
+> - **Lookback window** (the `days` parameter): how far back feedback / history is *read*. Per tool:
+>   - `learnings_summary` — default **30** days (range 1–365).
+>   - `brain_history` — default **7** days (range 1–90).
+>   - `ibkr_order_learnings` — default **7** days (max 30, the order-event retention window).
+> - **Full-rebuild cadence** (`*_FULL_REBUILD_DAYS`, default **7** for all three): how old the cached base may get before it is fully regenerated instead of incrementally merged. This is a caching knob, **not** the lookback window — even when both numbers happen to be 7.
+>
+> If asked "how many days of feedback does the learnings summary use?", the answer is **30 days**.
 
 Three tools call an LLM to summarize history. All three cache the summary **once per UTC day per scope**, so repeated calls in the same day cost nothing extra when nothing new happened:
 
-| Tool | Cache scope | Rebuilds when | Bypass |
-|------|-------------|---------------|--------|
-| `learnings_summary` | owner + agent | new UTC day **with new feedback** (incremental merge), or base older than `LEARNINGS_FULL_REBUILD_DAYS` (default 7) | `force: true` or `refresh: true` |
-| `ibkr_order_learnings` | owner + `days` + `symbol_key` | **any new order event** (same day included — trading must not act on stale rejects), or base older than `ORDER_LEARNINGS_FULL_REBUILD_DAYS` (default 7) | `force: true` or `refresh: true` |
-| `brain_history` | owner + `days` + workflow/node ids | **any new brain step**, or base older than `BRAIN_HISTORY_FULL_REBUILD_DAYS` (default 7) | `force: true` or `refresh: true` |
+| Tool | Lookback default | Cache scope | Rebuilds when | Bypass |
+|------|------------------|-------------|---------------|--------|
+| `learnings_summary` | **30 days** (1–365) | owner + agent | new UTC day **with new feedback** (incremental merge), or base older than `LEARNINGS_FULL_REBUILD_DAYS` (default 7) | `force: true` or `refresh: true` |
+| `ibkr_order_learnings` | **7 days** (max 30) | owner + `days` + `symbol_key` | **any new order event** (same day included — trading must not act on stale rejects), or base older than `ORDER_LEARNINGS_FULL_REBUILD_DAYS` (default 7) | `force: true` or `refresh: true` |
+| `brain_history` | **7 days** (1–90) | owner + `days` + workflow/node ids | **any new brain step**, or base older than `BRAIN_HISTORY_FULL_REBUILD_DAYS` (default 7) | `force: true` or `refresh: true` |
 
 **Same-day, no new data:** if the watermark (newest feedback id / kanban timestamp / order id / brain step) is unchanged, a later call on the same UTC day returns the cached summary with `cache_mode: cache_hit` — **no LLM call**.
 
@@ -62,7 +68,7 @@ Responses carry `cached` and `cache_mode` (`rebuild` / `cache_hit` / `no_new` / 
 | `agent_learnings_cache` | `learnings_summary` — one row per `(owner_user_id, agent_id)` |
 | `tool_summary_cache` | `ibkr_order_learnings`, `brain_history` — one row per `(owner_user_id, kind, scope_key)` |
 
-`master_data_rag` is deliberately **not** cached — its input is free-text, so a query-keyed cache would rarely hit. Instead it defaults to `summarize: false`, which removes the LLM call entirely from the common path. RAG retrieval moves to an embedding model next; caching will be revisited then.
+`master_data_rag` is deliberately **not** cached — its input is free-text, so a query-keyed cache would rarely hit. Instead the **agent tool** defaults to `summarize: false`, which removes the LLM call entirely from the common path (the Master Data UI box and workflow Master Data node default to `summarize: true`). RAG retrieval moves to an embedding model next; caching will be revisited then.
 
 On **`summarize_url` 404/403**, retry live reputable sources or **browser**, never invent page content; still deliver a brief and complete the card if the brief is substantive.
 
@@ -96,7 +102,7 @@ Ops dashboard next to AI Snipper, with three tabs: **Org**, **Department**, and 
 | Successful / failed / total runs | Workflow run outcomes |
 | Storage (MB) | Estimated data consumed (chats, standup history, workflow payloads, master-data files, OpenClaw tenant workspace) |
 
-**Time switch:** last 7 days, 14 days, 1 month, 3 months, or **All**. Charts: Tasks, Feedback, Workflow runs. Storage is a point-in-time estimate (not range-filtered).
+**Time switch:** last 7 / 14 / 30 / 90 days, or **All** (the "1 month" and "3 months" buttons mean rolling **30** and **90** days, not calendar months). Charts: Tasks, Feedback, Workflow runs. Storage is a point-in-time estimate (not range-filtered).
 
 ### Department tab
 
@@ -122,9 +128,9 @@ after at least 10 terminal calls). See
 
 ## Profile (`/profile`)
 
-Name, email, region, mobile, password, MFA, **model provider** preference, and **data persistence** (30 / 60 / 90 / 120 / 365 days).
+Name, email, region, mobile, password, MFA, **model provider** preference, and **data persistence** (30 / 60 / 90 / 120 / 365 days; **default 90** when you have never changed it).
 
-- After the retention window, chats, standup history, and workflow run instances are permanently deleted (daily job; purge also available on Profile and Dashboard). Job schedules: [19-scheduled-jobs-and-crons.md](./19-scheduled-jobs-and-crons.md).
+- After the retention window, agent chat turns, standup **messages**, and workflow run/step records are permanently deleted (daily job; purge also available on Profile and Dashboard). Standup records themselves, Kanban cards, Master Data and API keys are never purged. Job schedules: [19-scheduled-jobs-and-crons.md](./19-scheduled-jobs-and-crons.md).
 - OpenAI / OpenRouter need vault key **`Platform_BYOK`** under **API Keys** — see [15-api-keys-vault.md](./15-api-keys-vault.md).
 - Prefer **Management → API Keys** for all long-lived secrets (never shown in platform access logs).
 

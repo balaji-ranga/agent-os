@@ -84,7 +84,7 @@ Each node type exposes named outputs (see nodes reference). Downstream nodes bin
 
 Shared fields often include:
 
-- `timeoutMs` (default often ~20 minutes)
+- `timeoutMs` — most nodes default to **20 minutes**. The **External Agent** node and published A2A *sync* invokes are the exception: they hold for **~2 minutes** (120000 ms, `A2A_SYNC_TIMEOUT_MS`) — see [09-a2a-agent-exchange.md](./09-a2a-agent-exchange.md).
 - `timeoutAction`: `fail` or `default_output`
 - `defaultTimeoutOutput` — JSON/text when using default_output
 
