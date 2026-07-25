@@ -107,8 +107,9 @@ These tools let the CEO run published workflows from chat. They are **not** the 
 | **agent_workflow_enquire** | CEO describes a workflow loosely ("the MCP test one", "brain approval"). Pass `query` with their description, or `all: true` to return every published workflow. Returns `id`, `trigger_modes`, `chat_trigger_phrase`, and `trigger_hint`. |
 | **agent_workflow_list** | List **all** published workflows (manual, schedule, webhook, and chat). Pass `chat_only: true` to limit to chat-phrase triggers only. |
 | **agent_workflow_trigger** | Start a run. Pass `message` with the exact chat phrase (e.g. `testMCP`, `run brain approval test`) **or** `workflow_id` for any published workflow. Optional `input` for run payload. |
+| **agent_workflow_runs** | List or inspect **recent run statuses/outcomes**. Pass `workflow_id` or `workflow_query`/`query` to scope one workflow; omit for recent runs across workflows; pass `run_id` to inspect one run. **Never** use `ibkr_order_learnings` for this. |
 
-**Typical flow:** If the CEO asks to run something by description → **agent_workflow_enquire** first → then **agent_workflow_trigger** with the returned phrase or id. If you already know the phrase, call **agent_workflow_trigger** directly.
+**Typical flow:** If the CEO asks to run something by description → **agent_workflow_enquire** first → then **agent_workflow_trigger** with the returned phrase or id. If you already know the phrase, call **agent_workflow_trigger** directly. For "did it finish / recent runs / failures" → **agent_workflow_runs**.
 
 Do **not** use exec, shell, or `job_run_workflow_now` for custom agent workflows.
 

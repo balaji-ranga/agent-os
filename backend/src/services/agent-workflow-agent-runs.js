@@ -329,3 +329,100 @@ export async function tryListRunsQueryResponse(ownerUserId, workflowId, message)
     actions_applied: [{ action: 'list_runs', ok: true, workflow_id: def.id, runs }],
   };
 }
+
+/**
+ * Content-tool entry: list/inspect agent workflow runs for the entitled CEO.
+ * Never use ibkr_order_learnings (or other IBKR tools) for workflow run status.
+ *
+ * @param {object} params
+ * @param {{ ownerUserId?: string }} [ctx]
+ */
+export function executeAgentWorkflowRuns(params = {}, ctx = {}) {
+  const ownerUserId = String(ctx.ownerUserId || params.owner_user_id || '').trim();
+  if (!ownerUserId) {
+    return { ok: false, error: 'owner_user_id required (session CEO)' };
+  }
+
+  const limit = Math.min(Math.max(Number(params.limit) || 15, 1), 50);
+  const runIdRaw = params.run_id ?? params.runId;
+  if (runIdRaw != null && String(runIdRaw).trim() !== '') {
+    const runId = Number(runIdRaw);
+    if (!Number.isFinite(runId)) {
+      return { ok: false, error: 'run_id must be a number' };
+    }
+    const run = store.getRun(runId, ownerUserId);
+    if (!run) {
+      return { ok: false, error: 'run not found for this CEO', owner_user_id: ownerUserId };
+    }
+    console.info('[agent_workflow_runs] inspect run', { ownerUserId, runId });
+    return {
+      ok: true,
+      owner_user_id: ownerUserId,
+      mode: 'inspect',
+      run: summarizeRunForAgent(run),
+    };
+  }
+
+  const workflow_id = params.workflow_id || params.workflowId || null;
+  const workflow_query =
+    params.workflow_query ||
+    params.workflow_name ||
+    params.workflowName ||
+    params.query ||
+    params.message ||
+    null;
+
+  if (workflow_id || workflow_query) {
+    const def = resolveWorkflowForRunQuery(ownerUserId, {
+      workflow_id: workflow_id || undefined,
+      workflow_query: workflow_query || undefined,
+    });
+    if (!def) {
+      return {
+        ok: false,
+        error: 'workflow not found for this CEO',
+        owner_user_id: ownerUserId,
+        workflow_id: workflow_id || null,
+        workflow_query: workflow_query || null,
+      };
+    }
+    const runs = listRunsSummaryForAgent(ownerUserId, def.id, limit);
+    console.info('[agent_workflow_runs] list by workflow', {
+      ownerUserId,
+      definitionId: def.id,
+      count: runs.length,
+    });
+    return {
+      ok: true,
+      owner_user_id: ownerUserId,
+      mode: 'list',
+      workflow: {
+        id: def.id,
+        name: def.name,
+        status: def.status,
+      },
+      runs,
+      count: runs.length,
+    };
+  }
+
+  const all = store.listAllRuns(ownerUserId, limit).map((r) => ({
+    run_id: r.id,
+    run_number: r.run_number,
+    definition_id: r.definition_id,
+    definition_name: r.definition_name || null,
+    status: r.status,
+    progress_pct: r.progress_pct,
+    error_message: r.error_message || null,
+    started_at: r.started_at,
+    completed_at: r.completed_at,
+  }));
+  console.info('[agent_workflow_runs] list all recent', { ownerUserId, count: all.length });
+  return {
+    ok: true,
+    owner_user_id: ownerUserId,
+    mode: 'list_all',
+    runs: all,
+    count: all.length,
+  };
+}

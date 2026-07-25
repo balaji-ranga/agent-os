@@ -132,6 +132,11 @@ check "status-only auto-requeue unit test" test -f "$ROOT/backend/scripts/test-d
 check "ceo_profile service" test -f "$ROOT/backend/src/services/ceo-profile.js"
 check "ceo_profile unit test" test -f "$ROOT/backend/scripts/test-ceo-profile-tool.js"
 check "ceo_profile OPS guidance" grep -q 'ceo_profile' "$ROOT/openclaw-workspace-templates/_shared/AGENT-OS-OPS.md"
+check "agent_workflow_runs endpoint" grep -q "agent-workflow-runs" "$ROOT/backend/src/routes/tools.js"
+check "agent_workflow_runs in COO allow" grep -q "agent_workflow_runs" "$ROOT/scripts/lib/content-tools-allow.js"
+check "agent_workflow_runs OPS guidance" grep -q 'agent_workflow_runs' "$ROOT/openclaw-workspace-templates/_shared/AGENT-OS-OPS.md"
+check "mixed internal+leaf refine fix" grep -q 'parseAgentsFromAgentsMd' "$ROOT/backend/src/services/coo-specialty-delegation.js"
+check "mixed internal+leaf unit test" test -f "$ROOT/backend/scripts/test-coo-refine-allocation.js"
 
 echo "==> frontend bundle"
 if docker compose exec -T frontend sh -c 'grep -Rql "Purpose / description" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then

@@ -31,6 +31,7 @@ import {
   resolveWorkflowOwnerUserId,
   enquireWorkflows,
 } from '../services/agent-workflow-chat-tools.js';
+import { executeAgentWorkflowRuns } from '../services/agent-workflow-agent-runs.js';
 import { applyWorkflowBuilderActions, getWorkflowDraftForAgent } from '../services/agent-workflow-builder.js';
 import { resolveAuthenticatedCeoUserId, attachAuthUser, requireAuth, requireCeoOrAdmin } from '../middleware/auth.js';
 import { requireToolsAccess, attachToolsAuth } from '../middleware/tools-auth.js';
@@ -1623,6 +1624,33 @@ router.post('/agent-workflow-enquire', optionalAuth, (req, res) => {
     const err = { error: e.message };
     logTool(req,'agent_workflow_enquire', requestPayload, err, 'error', source);
     res.status(e.status || 500).json(err);
+  }
+});
+
+/**
+ * List or inspect recent agent workflow runs (COO or Workflow Builder).
+ * Owner-scoped via session entitlements — never use IBKR tools for workflow run status.
+ */
+router.post('/agent-workflow-runs', optionalAuth, (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = req.body || {};
+  try {
+    const caller = getCallerAgent(req);
+    if (!canAccessWorkflowTools(caller)) {
+      const err = { error: 'Only COO or Workflow Builder can list agent workflow runs' };
+      logTool(req, 'agent_workflow_runs', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const ownerUserId = resolveWorkflowOwner(req, requestPayload);
+    const out = executeAgentWorkflowRuns(bodyWithoutSpoofedOwner(requestPayload), { ownerUserId });
+    const status = out.ok ? 'ok' : 'error';
+    logTool(req, 'agent_workflow_runs', { ...requestPayload, owner_user_id: ownerUserId }, out, status, source);
+    if (!out.ok) return res.status(out.error?.includes('not found') ? 404 : 400).json(out);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'agent_workflow_runs', requestPayload, err, 'error', source);
+    res.status(500).json(err);
   }
 });
 

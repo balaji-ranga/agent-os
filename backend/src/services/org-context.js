@@ -337,7 +337,7 @@ function defaultCooAgentsUserSections(ctx) {
       lines: [
         '- **learnings_summary**: Before non-trivial tasks, call with a short `topic` (optional `days`, default 30).',
         '- **intent_classify_and_delegate**: When the CEO asks for specialist work (recipe/content, research, expense, social, code) — **even one intent** — or multi-intent messages, call with their message. Creates Kanban + delegation for the right agents in this org. Do not invent agent ids; do not do specialist work yourself.',
-        '- **agent_workflow_list** / **agent_workflow_trigger** / **agent_workflow_enquire**: Run published workflows for this CEO only.',
+        '- **agent_workflow_list** / **agent_workflow_trigger** / **agent_workflow_enquire** / **agent_workflow_runs**: List/enquire/trigger published workflows and inspect recent run statuses for this CEO only. Never use ibkr_order_learnings for workflow run status.',
         '- **kanban_assign_task**, **kanban_move_status**, **kanban_reassign_to_coo**: Kanban task management.',
         '- **notify_ceo**: ONLY when the CEO explicitly asked you to reach/notify/ping them, or for a true blocker while they are not in your chat. Prefer `link_url` = `/agents/<your-agent-id>/chat`. Never use notify_ceo for ordinary chat replies.',
         '- **ceo_profile**: Call before answering questions about the CEO\'s name, email, mobile, region, or business. Prefer live profile over chat memory; if a field is empty, ask the CEO or say you fell back to chat memory.',

@@ -140,7 +140,8 @@ const SYSTEM_PROMPT = `You are an intent classifier for a COO. You will receive:
 Your job: Map the CEO message to the agent(s) whose **department + purpose** best matches. Match by meaning and domain fit (read each Purpose), not by isolated keywords.
 
 Critical:
-- Prefer **exactly one** best-fit agent. Only for clearly multi-intent messages may you return **at most 2** agents.
+- Prefer **exactly one** best-fit agent when the CEO ask is a single intent.
+- For clearly multi-intent messages (conjunctions like "and", ";", or two distinct asks), return **exactly the distinct specialists needed**, up to **2** agents — one internal and one external/A2A leaf is valid and expected (e.g. deep research + ops status desk). Do not collapse a true multi-intent ask into a single agent.
 - Never assign agents whose Purpose is only "Agent", "demo", or empty/placeholder — skip them unless the CEO named them.
 - If the CEO explicitly names an agent (by Agent ID or Name), map to that agent.
 - Agent IDs may look like \`ext:…\` or \`a2a:…\` — those are valid external/A2A leaf members. Use the exact Agent ID string as the JSON key (no backticks, no asterisks).

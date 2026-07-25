@@ -218,6 +218,7 @@ export function enrichToolNodeActions(message, actions) {
     'agent_workflow_list',
     'agent_workflow_enquire',
     'agent_workflow_trigger',
+    'agent_workflow_runs',
     'agent_workflow_get_draft',
     'agent_workflow_mutate',
     'content_tools_enquire',

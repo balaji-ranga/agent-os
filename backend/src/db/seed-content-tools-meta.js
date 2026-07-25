@@ -120,6 +120,17 @@ const BUILTIN_TOOLS = [
     is_builtin: 1,
   },
   {
+    name: 'agent_workflow_runs',
+    display_name: 'Agent Workflow Runs',
+    endpoint: '/api/tools/agent-workflow-runs',
+    method: 'POST',
+    purpose:
+      'API tool (COO or Workflow Builder): list or inspect recent custom agent workflow run statuses/outcomes for the entitled CEO. Pass workflow_id or workflow_query/query to scope one workflow; omit to list recent runs across workflows; pass run_id to inspect one run (steps + errors). Owner from session only. Never use ibkr_order_learnings or other IBKR tools for workflow run status.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
     name: 'agent_workflow_get_draft',
     display_name: 'Get Workflow Draft',
     endpoint: '/api/tools/agent-workflow-get-draft',
@@ -430,6 +441,7 @@ const WORKFLOW_TOOLS = BUILTIN_TOOLS.filter((t) =>
     'agent_workflow_list',
     'agent_workflow_enquire',
     'agent_workflow_trigger',
+    'agent_workflow_runs',
     'agent_workflow_get_draft',
     'agent_workflow_mutate',
     'agent_workflow_certify_start',

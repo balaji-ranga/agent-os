@@ -767,7 +767,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
         });
         userContent = message;
       } else {
-        userContent = `[ceo_user_id: ${ownerUserId}]\n[owner_user_id: ${ownerUserId}]\nImportant: You are assisting CEO user id "${ownerUserId}" only. When calling agent_workflow_list or agent_workflow_enquire, return workflows for this CEO only — never workflows belonging to other users.\n${message}`;
+        userContent = `[ceo_user_id: ${ownerUserId}]\n[owner_user_id: ${ownerUserId}]\nImportant: You are assisting CEO user id "${ownerUserId}" only. When calling agent_workflow_list, agent_workflow_enquire, or agent_workflow_runs, return workflows/runs for this CEO only — never other users. Use agent_workflow_runs (not ibkr_order_learnings) for workflow run status.\n${message}`;
       }
     } else if (jobApplicantAgents.has(String(agentId).toLowerCase()) && !message.includes('[ceo_user_id:')) {
       const tags = [`[ceo_user_id: ${userId}]`];

@@ -12,7 +12,8 @@
 # On VPS: bash scripts/vps-deploy-latest.sh
 #
 # Content tools baked into images + granted at backend boot:
-#   email_send, notify_ceo, Kanban/workflow tools, browser (see scripts/lib/content-tools-allow.js)
+#   email_send, notify_ceo, ceo_profile, Kanban/workflow tools (incl. agent_workflow_runs),
+#   browser (see scripts/lib/content-tools-allow.js)
 # Broadcast UI /api/broadcast: CEO-scoped OpenClaw sessions (tenant agent + session owner) so notify_ceo works
 # Org tenancy docs: POST /api/agents/org/sync (Dashboard Resync ORG.md & AGENTS.md)
 # Notifications: shared NotificationProvider bell (shows datetime); dismiss via

@@ -40,6 +40,8 @@
 # Workflow autonomous certify (Maker/Checker; LLM Checker default OFF — WORKFLOW_CERTIFY_*),
 # Desktop Windows packages (PS1 + optional portable Node 18; token + IP whitelist; ASCII-safe PS1),
 # COO AGENTS.md org-generated marker (workspace template sync no longer clobbers leaf members),
+# agent_workflow_runs tool (COO/WB; never ibkr_order_learnings for workflow run status),
+# mixed internal+leaf COO specialty refine (Session-keys table no longer drops internals),
 # department purpose + monthly_token_budget, agent monthly token/error budgets (token_usage ledger,
 # warn-then-block; internal COO delegation budget gate), Brain token attribution to a2a leaf members,
 # Efficiency View Org / Department / Agent tabs + Reset usage (MTD tokens → 0) + leaf n/a KPIs,
@@ -226,6 +228,8 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\vps-test-coo-rag-kanban-flow.js" `
     "$Repo\backend\scripts\test-kanban-chat-status-guidance.js" `
     "$Repo\backend\scripts\test-ceo-profile-tool.js" `
+    "$Repo\backend\scripts\test-coo-refine-allocation.js" `
+    "$Repo\backend\scripts\test-agent-workflow-runs-tool.js" `
     "$Repo\backend\scripts\verify-coo-agents-md.js" `
     "$Repo\backend\scripts\cleanup-agents-md-backups.js" `
     "$Repo\backend\scripts\probe-get-work-from-team.js" `

@@ -36,6 +36,14 @@ Dashboard chat: do **not** create Kanban unless the CEO asked to track it. If yo
 
 Platform product how-to (RAG, workflows, MCP, nav): prefer **Platform Help** / `master_data_rag` over guessing — do not invent Flolah architecture.
 
+## Agent workflow runs (COO / Workflow Builder)
+
+When the CEO asks for **workflow run status**, recent outcomes, failed runs, or "did that workflow finish":
+
+1. Call **agent_workflow_runs** (optional `workflow_id` / `workflow_query` / `run_id` / `limit`).
+2. Use **agent_workflow_enquire** / **agent_workflow_list** only to find the workflow id/name first if needed.
+3. **Never** use **ibkr_order_learnings**, IBKR order tools, or other trading tools for custom agent-workflow run status — those are for brokerage/order learnings only.
+
 ## summarize_url failures
 
 If **summarize_url** returns 404 / 403 / upstream error:

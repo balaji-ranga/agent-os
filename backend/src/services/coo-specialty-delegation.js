@@ -3,7 +3,7 @@
  * not keyword specialty hints. Cap at 2 specialists (same as standup / intent tool).
  */
 import { getCooAgentRow, readCooAgentsMdForCeo, getAgentsUnderCooForCeo } from './org-context.js';
-import { classifyIntentAndAllocate } from './intent-classifier.js';
+import { classifyIntentAndAllocate, parseAgentsFromAgentsMd } from './intent-classifier.js';
 import { scheduleCeoRequestViaOpenClawCron } from './delegation-queue.js';
 import { isAskSpecialistToReachMe } from './reach-me-delegation.js';
 import { getOrCreateDelegationHubStandup } from './standup-hub.js';
@@ -66,8 +66,11 @@ function isVaguePurpose(purpose) {
 
 /**
  * Drop vague-purpose agents when a clearer peer exists; keep up to MAX_DELEGATE_AGENTS.
+ * Uses parseAgentsFromAgentsMd (first-wins, skips empty purpose) so Session-keys table
+ * rows cannot wipe internal agent purposes — that bug dropped internals in mixed
+ * internal + leaf allocations while dual-internal still worked via the empty-specific fallback.
  */
-function refineAllocationAgainstAgentsMd(allocated, agentsMdContent) {
+export function refineAllocationAgainstAgentsMd(allocated, agentsMdContent) {
   if (!allocated || typeof allocated !== 'object') return {};
   const entries = Object.entries(allocated)
     .filter(([, v]) => typeof v === 'string' && v.trim())
@@ -75,19 +78,9 @@ function refineAllocationAgainstAgentsMd(allocated, agentsMdContent) {
     .filter(([k]) => k);
   if (!entries.length) return {};
 
-  // Parse purposes from AGENTS.md table lines.
-  const purposeById = new Map();
-  for (const line of String(agentsMdContent || '').split(/\r?\n/)) {
-    if (!line.includes('|')) continue;
-    const parts = line.split('|').map((p) => p.trim());
-    if (parts.length < 4) continue;
-    const id = normalizeAllocationKey(parts[1]);
-    if (!id || id === 'agent id' || id === 'member key' || /^[-–—\s]+$/.test(id)) continue;
-    const col3 = (parts[3] || '').trim();
-    const col4 = (parts[4] || '').trim();
-    const purpose = col4 && !/^[-–—\s]+$/.test(col4) ? `${col3} — ${col4}` : col3;
-    purposeById.set(id, purpose);
-  }
+  const purposeById = new Map(
+    parseAgentsFromAgentsMd(agentsMdContent).map((a) => [String(a.id).toLowerCase(), a.role])
+  );
 
   const specific = entries.filter(([id]) => !isVaguePurpose(purposeById.get(String(id).toLowerCase())));
   const keep = specific.length ? specific : entries;
