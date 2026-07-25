@@ -454,6 +454,28 @@ registerPlatformCron({
   },
 });
 
+const kanbanOrphanCron = process.env.KANBAN_ORPHAN_WATCHER_CRON || '*/5 * * * *';
+registerPlatformCron({
+  id: 'kanban_orphan_watcher',
+  name: 'Kanban orphan watcher',
+  description:
+    'Every 5 min: re-pend specialty delegations stuck in processing, requeue status-only cards, and reinitiate orphan Kanban tasks with the assigned agent.',
+  schedule: kanbanOrphanCron,
+  envVar: 'KANBAN_ORPHAN_WATCHER_CRON',
+  handler: async () => {
+    const { runKanbanOrphanWatcherForAllCeos } = await import('./services/kanban-orphan-watcher.js');
+    const out = await runKanbanOrphanWatcherForAllCeos();
+    const reinitiated = (out.results || []).reduce(
+      (n, r) => n + (r.orphans?.reinitiated || 0) + (r.stale_processing?.recovered || 0),
+      0
+    );
+    if (reinitiated) {
+      console.log(`[cron] Kanban orphan watcher: ${reinitiated} recovery action(s) across ${out.count} CEO(s)`);
+    }
+    return out;
+  },
+});
+
 const workflowSchedulerCron = process.env.AGENT_WORKFLOW_SCHEDULER_CRON || '* * * * *';
 registerPlatformCron({
   id: 'agent_workflow_scheduler',

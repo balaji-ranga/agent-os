@@ -13,6 +13,8 @@ Board of tasks by agent and status — shared for agent work, workflow steps, an
 - Kanban task chat with an assigned agent is also mirrored into that agent’s **Dashboard chat** (tagged `[Kanban #id]`) so you can see the same exchange there. OpenClaw still keeps a per-task session for isolation.
 - **Archiving an agent chat never empties a card.** The card's **Activity** tab reads the linked agent-chat turns straight from chat history, so work done in a chat that was later archived still shows (each turn is tagged `archived` with the archived chat's title). When a card genuinely has no delegation exchange, task chat, or linked chat, Activity says so instead of rendering blank.
 - **All dates on the board and in cards use the platform timezone** (`PLATFORM_TIMEZONE`, else the server `TZ`) — never raw UTC. The board header shows which zone is in effect, e.g. "Times in Asia/Singapore".
+- Board filters: **All** (default — every card of any age), Daily, Weekly, Monthly, or a custom date range. **status_checker / COO status reports always count All** (open / awaiting / in progress / failed of any age). If you delete only what Weekly shows, older awaiting/failed cards still appear in the status report — switch to **All** before Select all → Delete.
+- **Orphan watcher** (every 5 minutes, also on the delegation cron and when you run status checker): if a specialty card is stuck `in_progress` because the agent run died mid-`processing` (e.g. after a restart), or the linked run is missing/failed transiently, the platform re-pends or reinitiates the same ask with that agent (capped retries). CEO-approval cards and budget blocks are not auto-retried.
 - Job profile setup and pipeline runs live under **Job profiles** / **Job workflows** — Kanban itself stays a generic task board.
 - Dashboard chat alone: agents should **not** invent Kanban cards unless you asked to track the work.
 
@@ -21,7 +23,7 @@ Board of tasks by agent and status — shared for agent work, workflow steps, an
 1. **Create standup** for a check-in thread with the COO.
 2. Chat in the standup; ask the COO to collect updates or delegate.
 3. Use **Get work from team** / **Run COO summary** when available.
-4. Use **Run status checker** to open a CEO status report popup (awaiting you, failed, in progress, open, recent completions) and post the digest into standup chat. The HTML email is sent only by the daily batch cron — not from this button or the COO tool.
+4. Use **Run status checker** to open a CEO status report popup (awaiting you, failed, in progress, open, recent completions) and post the digest into standup chat. Counts include **every** open/failed card of any age (Kanban **All** view) — not only the Weekly filter. The HTML email is sent only by the daily batch cron — not from this button or the COO tool.
 5. Watch the **bell** for delegated agent replies.
 6. Daily standups can also run on a schedule when your admin configures standup cron.
 

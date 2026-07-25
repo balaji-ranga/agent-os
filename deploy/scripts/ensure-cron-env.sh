@@ -55,6 +55,7 @@ cat >> "$ENV_FILE" <<'EOF'
 # JOB_PIPELINE_CRON_SCHEDULE=0 * * * *     # Job Applicant pipeline tick across active job profiles
 # COO_STATUS_CHECKER_CRON=0 9 * * *        # daily CEO status report -> standup chat + HTML email
 # DATA_RETENTION_CRON=15 3 * * *           # daily purge using each user's Profile data_retention_days
+# KANBAN_ORPHAN_WATCHER_CRON=*/5 * * * *   # re-pend stuck processing + reinitiate orphan specialty Kanban
 EOF
 
 echo "ENSURE_CRON_ENV_ADDED file=$ENV_FILE"

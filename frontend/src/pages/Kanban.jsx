@@ -32,10 +32,11 @@ function isConfirmApprovalMessage(text) {
 export default function Kanban() {
   const [agents, setAgents] = useState([]);
   const [tasks, setTasks] = useState([]);
-  const [view, setView] = useState('weekly');
+  const [view, setView] = useState('all');
   const [rangeFrom, setRangeFrom] = useState('');
   const [rangeTo, setRangeTo] = useState('');
   const [loading, setLoading] = useState(true);
+  const [boardCounts, setBoardCounts] = useState(null);
   const { feedback, showSuccess, showError, clearFeedback } = useActionFeedback();
   const [selectedTask, setSelectedTask] = useState(null);
   const [taskDetail, setTaskDetail] = useState(null);
@@ -83,7 +84,17 @@ export default function Kanban() {
   };
   const deleteSelected = () => {
     if (selectedTaskIds.size === 0) return;
-    if (!window.confirm(`Delete ${selectedTaskIds.size} task(s)? This cannot be undone.`)) return;
+    const hiddenActive =
+      boardCounts && view !== 'all' && boardCounts.active > selectedTaskIds.size
+        ? `\n\nNote: the board is filtered to "${view}". status_checker / COO reports count ALL open cards (${boardCounts.active} active of any age). Switch to All and delete again if you want the report to go to zero.`
+        : '';
+    if (
+      !window.confirm(
+        `Delete ${selectedTaskIds.size} task(s)? This cannot be undone.${hiddenActive}`
+      )
+    ) {
+      return;
+    }
     setDeleting(true);
     api.kanbanTasksDeleteBulk([...selectedTaskIds])
       .then(() => {
@@ -98,7 +109,7 @@ export default function Kanban() {
   };
 
   const fetchTasks = () => {
-    const params = { view, limit: 300 };
+    const params = { view, limit: view === 'all' ? 500 : 300 };
     if (view === 'range') {
       if (rangeFrom) params.from = rangeFrom;
       if (rangeTo) params.to = rangeTo;
@@ -107,6 +118,9 @@ export default function Kanban() {
       setTasks(r.tasks || []);
       if (r.server_timezone) setServerTimezone(r.server_timezone);
     }).catch(() => setTasks([]));
+    api.kanbanCounts()
+      .then(setBoardCounts)
+      .catch(() => setBoardCounts(null));
   };
 
   useEffect(() => {
@@ -480,7 +494,7 @@ export default function Kanban() {
           </span>
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          {['daily', 'weekly', 'monthly'].map((v) => (
+          {['all', 'daily', 'weekly', 'monthly'].map((v) => (
             <button
               key={v}
               type="button"
@@ -494,7 +508,7 @@ export default function Kanban() {
                 cursor: 'pointer',
               }}
             >
-              {v.charAt(0).toUpperCase() + v.slice(1)}
+              {v === 'all' ? 'All' : v.charAt(0).toUpperCase() + v.slice(1)}
             </button>
           ))}
           <span style={{ marginLeft: '0.5rem' }}>Range:</span>
@@ -514,6 +528,27 @@ export default function Kanban() {
             Apply
           </button>
         </div>
+        {boardCounts && view !== 'all' && boardCounts.active > totalCount && (
+          <span
+            style={{
+              fontSize: '0.75rem',
+              color: 'var(--muted)',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              padding: '0.25rem 0.5rem',
+              maxWidth: 420,
+            }}
+            title="status_checker / COO status reports count every open card of any age"
+          >
+            Showing {totalCount} in {view} · {boardCounts.active} active of any age (All) ·{' '}
+            {boardCounts.needs_attention} need attention
+          </span>
+        )}
+        {boardCounts && view === 'all' && (
+          <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
+            {boardCounts.active} active · {boardCounts.needs_attention} need attention · {boardCounts.total} total
+          </span>
+        )}
         <div style={{ flex: 1, minWidth: 120, maxWidth: 300 }}>
           <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginBottom: 2 }}>Total tasks</div>
           <div style={{ height: 8, background: 'var(--surface)', borderRadius: 4, overflow: 'hidden' }}>

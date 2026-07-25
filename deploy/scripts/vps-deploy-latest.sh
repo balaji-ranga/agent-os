@@ -504,6 +504,11 @@ if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-
     && echo "    Kanban platform-timezone dates + archived-chat activity OK" \
     || echo "    WARN: Kanban timezone / chat_context check failed (see /tmp/kanban-tz.log)"
 fi
+if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-kanban-orphan-watcher.js 2>/dev/null; then
+  docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-kanban-orphan-watcher.js >/tmp/kanban-orphan.log 2>&1 \
+    && echo "    Kanban orphan watcher (stuck processing + reinitiate) OK" \
+    || echo "    WARN: Kanban orphan watcher check failed (see /tmp/kanban-orphan.log)"
+fi
 if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-a2a-private-local-delegation.js 2>/dev/null; then
   docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-a2a-private-local-delegation.js >/tmp/a2a-private.log 2>&1 \
     && echo "    private A2A leaf reachable from COO delegation OK" \

@@ -208,6 +208,8 @@ export const api = {
     const q = sp.toString();
     return get(q ? `/kanban/tasks?${q}` : '/kanban/tasks');
   },
+  /** Unfiltered status counts (matches status_checker — all ages). */
+  kanbanCounts: () => get('/kanban/counts'),
   kanbanSummary: (days = 1) => get(`/kanban/summary?days=${days}`),
   kanbanTaskGet: (id) => get(`/kanban/tasks/${id}`),
   kanbanTaskCreate: (body) => post('/kanban/tasks', body),

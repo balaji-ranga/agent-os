@@ -269,6 +269,8 @@ export function buildStatusDigest(ownerUserId, { reconcile = true } = {}) {
   return {
     owner_user_id: owner,
     generated_at: new Date().toISOString(),
+    // Counts are from ALL Kanban rows for this CEO (any age) — not the weekly UI filter.
+    board_scope: 'all_ages',
     sync_changes: sync,
     counts: {
       awaiting_ceo: sections.awaiting_ceo.length,
@@ -297,6 +299,7 @@ export function formatDigestMarkdown(digest) {
     `_Generated ${digest.generated_at}_`,
     '',
     `**Summary:** ${c.needs_attention || c.awaiting_ceo + (c.failed ?? c.failed_1d)} need attention · ${c.awaiting_ceo} awaiting you · ${c.failed ?? c.failed_1d} failed · ${c.in_progress} in progress · ${c.open} open · ${c.completed_1d} completed (7d)`,
+    `_Scope: all open / failed / awaiting cards of any age (same as Kanban **All** view — not the Weekly filter)._`,
     '',
   ];
   if (digest.sync_changes?.length) {
@@ -400,6 +403,7 @@ export function formatDigestHtml(digest) {
   <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:24px 22px;box-shadow:0 1px 2px rgba(15,23,42,0.04);">
   <h1 style="font-size:1.45rem;margin:0 0 0.25rem;">COO Status Report</h1>
   <p style="color:#64748b;margin:0 0 1.1rem;">Generated ${when}</p>
+  <p style="color:#64748b;font-size:12px;margin:0 0 1rem;">Counts include every open / failed / awaiting card of any age (Kanban <strong>All</strong> view — not the Weekly filter).</p>
   <div style="margin-bottom:0.5rem;">
     ${chip('Need attention', needsAttention, '#fef2f2', '#991b1b')}
     ${chip('Awaiting you', c.awaiting_ceo, '#fff7ed', '#9a3412')}
@@ -478,19 +482,25 @@ export async function runCooStatusChecker(ownerUserId, { email = false, postStan
     throw err;
   }
 
-  // Auto-retry specialty cards stuck after status-only chatter (no CEO nudge).
+  // Auto-retry specialty cards stuck after status-only chatter / orphaned runs.
   let statusOnlyRetry = null;
   try {
-    statusOnlyRetry = requeueStuckStatusOnlyKanbanCards({ ownerUserId: owner, limit: 15 });
-    const recovered = rependInfraFailedStatusOnlyRetries({ ownerUserId: owner, limit: 15 });
-    if (recovered?.repended) {
-      statusOnlyRetry = {
-        ...(statusOnlyRetry || {}),
-        repended: recovered.repended,
-      };
-    }
+    const { runKanbanOrphanWatcher } = await import('./kanban-orphan-watcher.js');
+    statusOnlyRetry = runKanbanOrphanWatcher({ ownerUserId: owner, limit: 15 });
   } catch (e) {
-    console.warn('[status-checker] status-only requeue:', e?.message || e);
+    console.warn('[status-checker] orphan watcher:', e?.message || e);
+    try {
+      statusOnlyRetry = requeueStuckStatusOnlyKanbanCards({ ownerUserId: owner, limit: 15 });
+      const recovered = rependInfraFailedStatusOnlyRetries({ ownerUserId: owner, limit: 15 });
+      if (recovered?.repended) {
+        statusOnlyRetry = {
+          ...(statusOnlyRetry || {}),
+          repended: recovered.repended,
+        };
+      }
+    } catch (e2) {
+      console.warn('[status-checker] status-only requeue:', e2?.message || e2);
+    }
   }
 
   const digest = buildStatusDigest(owner, { reconcile: true });

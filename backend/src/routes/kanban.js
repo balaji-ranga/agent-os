@@ -31,6 +31,7 @@ import {
 import { ensureTenantOpenClawAgent } from '../services/openclaw-tenant.js';
 import { registerOpenClawSessionOwner } from '../services/tool-owner-scope.js';
 import { insertChatTurn } from '../services/chat-history.js';
+import { cancelDelegationsForDeletedKanban } from '../services/kanban-orphan-watcher.js';
 
 const router = Router();
 router.use(attachAuthUser);
@@ -112,7 +113,9 @@ function parseViewRange(view, from, to) {
   const now = new Date();
   let start = new Date(now);
   let end = new Date(now);
-  if (view === 'daily') {
+  if (view === 'all' || view === 'everything') {
+    return null; // no created_at filter — full board
+  } else if (view === 'daily') {
     start.setHours(0, 0, 0, 0);
     end.setTime(start.getTime() + 24 * 60 * 60 * 1000 - 1);
   } else if (view === 'weekly') {
@@ -134,7 +137,7 @@ function parseViewRange(view, from, to) {
   return { start: start.toISOString(), end: end.toISOString() };
 }
 
-// GET /api/kanban/tasks — list with filters: view=daily|weekly|monthly|range, from, to
+// GET /api/kanban/tasks — list with filters: view=all|daily|weekly|monthly|range, from, to
 router.get('/tasks', (req, res) => {
   try {
     const view = (req.query.view || 'weekly').toLowerCase();
@@ -152,18 +155,62 @@ router.get('/tasks', (req, res) => {
       params.push(startSql, endSql);
     }
     sql += ` ORDER BY k.created_at DESC`;
-    const limit = Math.min(Number(req.query.limit) || 200, 500);
+    // "All" needs a higher cap so status_checker / delete-all stay consistent with the board.
+    const defaultLimit = view === 'all' || view === 'everything' || !range ? 500 : 200;
+    const limit = Math.min(Number(req.query.limit) || defaultLimit, 1000);
     sql += ` LIMIT ?`;
     params.push(limit);
 
     const rows = db().prepare(sql).all(...params);
-    // Soft filter as defense-in-depth for any legacy/ambiguous rows
     const scoped = filterKanbanTasksForUser(rows, req.authUser);
     const server_timezone = getServerTimezone();
     const tasks = scoped.map(withDisplayTimes);
-    res.json({ tasks, server_timezone });
+    res.json({ tasks, server_timezone, view, filtered: !!range });
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+/**
+ * Unfiltered status counts for the entitled CEO — matches status_checker scope (all ages).
+ * Use this so the Kanban UI can warn when the weekly/monthly filter hides open work.
+ */
+router.get('/counts', (req, res) => {
+  try {
+    const ownerFilter = kanbanOwnerSqlFilter(req.authUser);
+    const rows = db()
+      .prepare(
+        `SELECT status, COUNT(*) AS n FROM kanban_tasks k
+         WHERE ${ownerFilter.clause}
+         GROUP BY status`
+      )
+      .all(...ownerFilter.params);
+    const by_status = {
+      open: 0,
+      awaiting_confirmation: 0,
+      in_progress: 0,
+      completed: 0,
+      failed: 0,
+    };
+    let total = 0;
+    for (const r of rows) {
+      if (by_status[r.status] != null) by_status[r.status] = Number(r.n) || 0;
+      total += Number(r.n) || 0;
+    }
+    const active =
+      by_status.open +
+      by_status.awaiting_confirmation +
+      by_status.in_progress +
+      by_status.failed;
+    res.json({
+      by_status,
+      total,
+      active,
+      needs_attention: by_status.awaiting_confirmation + by_status.failed,
+      server_timezone: getServerTimezone(),
+    });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
   }
 });
 
@@ -341,7 +388,7 @@ router.post('/tasks/:id/reopen', (req, res) => {
   }
 });
 
-// DELETE /api/kanban/tasks/:id — delete one task (messages + clear FK then task)
+// DELETE /api/kanban/tasks/:id — delete one task (cancel linked work, messages, then task)
 router.delete('/tasks/:id', (req, res) => {
   try {
     const task = db().prepare('SELECT * FROM kanban_tasks WHERE id = ?').get(req.params.id);
@@ -349,6 +396,7 @@ router.delete('/tasks/:id', (req, res) => {
     assertKanbanTaskAccess(task, req.authUser);
     const id = Number(req.params.id);
     clearKanbanTaskNotification(id, req.authUser?.id);
+    cancelDelegationsForDeletedKanban([id]);
     db().prepare('UPDATE kanban_tasks SET standup_id = NULL, agent_delegation_task_id = NULL WHERE id = ?').run(id);
     db().prepare('DELETE FROM task_messages WHERE task_id = ?').run(id);
     db().prepare('DELETE FROM kanban_tasks WHERE id = ?').run(id);
@@ -370,6 +418,8 @@ router.delete('/tasks', (req, res) => {
     }
     if (!allowed.length) return res.status(404).json({ error: 'No accessible tasks found' });
     const placeholders = allowed.map(() => '?').join(',');
+    for (const id of allowed) clearKanbanTaskNotification(id, req.authUser?.id);
+    cancelDelegationsForDeletedKanban(allowed);
     db().prepare(`UPDATE kanban_tasks SET standup_id = NULL, agent_delegation_task_id = NULL WHERE id IN (${placeholders})`).run(...allowed);
     db().prepare(`DELETE FROM task_messages WHERE task_id IN (${placeholders})`).run(...allowed);
     db().prepare(`DELETE FROM kanban_tasks WHERE id IN (${placeholders})`).run(...allowed);

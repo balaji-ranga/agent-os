@@ -675,12 +675,18 @@ export async function processPendingDelegationTasksForCeo(ceoUserId) {
   if (!ceoUserId) return;
   if (!isUserEnabled(ceoUserId)) return;
   recoverStaleProcessingDelegations(ceoUserId);
-  // Pick up cards left in_progress after status-only chatter (no CEO nudge required).
+  // Specialty processing / orphan cards (job-pipeline recovery above only covers pipeline prompts).
   try {
-    requeueStuckStatusOnlyKanbanCards({ ownerUserId: ceoUserId, limit: 10 });
-    rependInfraFailedStatusOnlyRetries({ ownerUserId: ceoUserId, limit: 10 });
+    const { runKanbanOrphanWatcher } = await import('./kanban-orphan-watcher.js');
+    runKanbanOrphanWatcher({ ownerUserId: ceoUserId, limit: 10 });
   } catch (e) {
-    console.warn('[delegation] status-only stuck requeue:', e?.message || e);
+    console.warn('[delegation] orphan watcher:', e?.message || e);
+    try {
+      requeueStuckStatusOnlyKanbanCards({ ownerUserId: ceoUserId, limit: 10 });
+      rependInfraFailedStatusOnlyRetries({ ownerUserId: ceoUserId, limit: 10 });
+    } catch (e2) {
+      console.warn('[delegation] status-only stuck requeue:', e2?.message || e2);
+    }
   }
   const allPending = db()
     .prepare(
