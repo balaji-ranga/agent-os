@@ -103,7 +103,8 @@ after at least 10 terminal calls.
 
 1. Open **Efficiency View → Agent View**, pick the agent, and read the two gauges.
 2. **Edit budget** to raise the monthly token allowance or error budget %, or clear the field for
-   unlimited.
+   unlimited. To keep the budget as-is and just clear what has been spent this month, use
+   **Reset usage** (that agent) or **Reset all usage**.
 3. If tokens look wrong, note that rows without provider-reported usage are **estimated**
    (`chars/4`) — the token total shows how much is estimated.
 4. Budgets reset each calendar month and carry the previous month's values forward.
@@ -131,6 +132,34 @@ Removing an agent is now a single all-or-nothing step, so this should no longer 
 What removal does: the agent's chat history, standup responses, delegation records and tool grants are deleted; its **Kanban cards are kept and simply unassigned** so your board history survives; and any agents reporting to it move up to its parent. Removal is recorded, so the agent will not reappear after a platform restart or after **Sync from OpenClaw**.
 
 To bring the same agent back, create it again from **Dashboard → Add agent** — recreating an agent explicitly clears the removal record.
+
+## A scheduled job never ran
+
+1. Check what you own first: standup `scheduled_at`, workflow **schedule** trigger + cron
+   expression, or Job profile schedule. A draft workflow never runs on a schedule.
+2. Platform timers are shared. Ask your admin to open **Admin → Crons** (`/admin/crons`) — a job
+   shown as **Paused** stays paused across restarts until someone hits **Resume**. **Run now**
+   executes one tick immediately so you can confirm the job itself works.
+3. **Run status checker** on the Dashboard and **Purge data older than N days** are the manual
+   equivalents of the daily status and retention jobs.
+4. Full reference: [19-scheduled-jobs-and-crons.md](./19-scheduled-jobs-and-crons.md).
+
+## Storage (MB) did not drop after a purge
+
+1. Retention only removes chats, chat history, standup conversations and workflow runs older than
+   your **Data persistence** window — Master Data documents and workspace files are never purged
+   this way.
+2. Lower the window on **Profile → Data persistence**, then **Purge aged data now**.
+3. Master Data uploads need **Purge all uploads** (Documents panel); Platform Help and the User
+   Guide are protected and always stay.
+4. Storage is a point-in-time estimate, so reopen **Efficiency View → Org** after the purge.
+
+## Department budget looks wrong
+
+1. Department budgets come from **Master Data → tables → `departments`** (`monthly_token_budget`);
+   a blank cell shows as **No department budget**.
+2. Members only roll up when their **department** matches the table row exactly.
+3. Department figures are for planning — blocking is per agent, on **Agent View**.
 
 ## Wrong agent got the work
 

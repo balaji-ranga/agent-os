@@ -78,7 +78,7 @@ Use when you care about **LLM spend / activity**. For ops outcomes (task success
 
 ## Efficiency View (`/efficiency`)
 
-Ops dashboard next to AI Snipper, with two tabs: **Org** and **Agent View**.
+Ops dashboard next to AI Snipper, with three tabs: **Org**, **Department**, and **Agent View**.
 
 ### Org tab
 
@@ -90,15 +90,27 @@ Ops dashboard next to AI Snipper, with two tabs: **Org** and **Agent View**.
 | Feedback positive % | Thumbs-up share of ratings |
 | AI workflows | Definitions you own (incl. published count) |
 | Successful / failed / total runs | Workflow run outcomes |
+| Storage (MB) | Estimated data consumed (chats, standup history, workflow payloads, master-data files, OpenClaw tenant workspace) |
 
-**Time switch:** last 7 days, 14 days, 1 month, 3 months, or **All**. Charts: Tasks, Feedback, Workflow runs.
+**Time switch:** last 7 days, 14 days, 1 month, 3 months, or **All**. Charts: Tasks, Feedback, Workflow runs. Storage is a point-in-time estimate (not range-filtered).
+
+### Department tab
+
+Month-to-date tokens used by every member of each department, against the department's
+`monthly_token_budget` from Master Data → `departments`. Badges read **Within / Near / Over
+department budget** (or **No department budget** when the column is blank). Department budgets are
+planning figures only — blocking happens per agent, not per department. Deep-link with
+`/efficiency?tab=department`.
 
 ### Agent View tab
 
 Pick one member — internal agent **or** external/A2A leaf member — to see its prompts, tool calls,
 tasks ok/failed, feedback, average delegation latency, **tokens used vs monthly budget**, and
 **failure rate vs error budget**, plus Activity / Outcomes / Token budget / Reliability charts and
-top tools. **Edit budget** sets the monthly token allowance and error budget %.
+top tools. **Edit budget** sets the monthly token allowance and error budget %. **Reset usage**
+(selected member) and **Reset all usage** zero month-to-date tokens without touching the budget —
+use them to unblock an agent that hit its cap. External / A2A leaf members show **n/a** for
+prompts, tool calls, and feedback because those are only recorded for internal agents.
 
 Budgets warn at 80% and **block** new chat/delegated work at 100% tokens (or at the error budget
 after at least 10 terminal calls). See
@@ -106,8 +118,9 @@ after at least 10 terminal calls). See
 
 ## Profile (`/profile`)
 
-Name, email, region, mobile, password, MFA, and **model provider** preference.
+Name, email, region, mobile, password, MFA, **model provider** preference, and **data persistence** (30 / 60 / 90 / 120 / 365 days).
 
+- After the retention window, chats, standup history, and workflow run instances are permanently deleted (daily job; purge also available on Profile and Dashboard). Job schedules: [19-scheduled-jobs-and-crons.md](./19-scheduled-jobs-and-crons.md).
 - OpenAI / OpenRouter need vault key **`Platform_BYOK`** under **API Keys** — see [15-api-keys-vault.md](./15-api-keys-vault.md).
 - Prefer **Management → API Keys** for all long-lived secrets (never shown in platform access logs).
 

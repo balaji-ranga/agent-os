@@ -231,7 +231,7 @@ router.get('/me', requireAuth, (req, res) => {
 
 router.patch('/me', requireAuth, (req, res) => {
   try {
-    const { name, email, region, mobile, current_password, new_password, mfa_policy, mfa_mode, llm_provider, llm_api_key, clear_llm_api_key, industry, industry_other, business_name } =
+    const { name, email, region, mobile, current_password, new_password, mfa_policy, mfa_mode, llm_provider, llm_api_key, clear_llm_api_key, industry, industry_other, business_name, data_retention_days } =
       req.body || {};
     const user = updateUserProfile(req.authUser.id, {
       name,
@@ -248,6 +248,7 @@ router.patch('/me', requireAuth, (req, res) => {
       industry,
       industry_other,
       business_name,
+      data_retention_days,
     });
     const mfaRow = getUserMfa(req.authUser.id);
     res.json({ user, mfa: resolveUserMfa(mfaRow) });

@@ -230,3 +230,54 @@ export function getTokensBySource(ownerUserId, memberKey, { since = null, until 
     .all(...params)
     .map((r) => ({ source: r.source, tokens: Number(r.tokens) || 0, calls: Number(r.calls) || 0 }));
 }
+
+/**
+ * Zero month-to-date token usage so Agent View gauges and budget enforcement start fresh.
+ * Deletes `token_usage` ledger rows for the period (default: current calendar month).
+ * Does not change configured monthly budgets — only the used counter.
+ *
+ * @param {string} ownerUserId
+ * @param {{ memberKey?: string|null, period?: string }} [opts]
+ *   - memberKey: reset one agent / leaf; omit to reset every member for this owner
+ * @returns {{ period: string, deleted_rows: number, member_key: string|null }}
+ */
+export function resetTokenUsage(ownerUserId, { memberKey = null, period = monthPeriod() } = {}) {
+  const owner = String(ownerUserId || '').trim();
+  if (!owner) {
+    const err = new Error('owner_user_id required');
+    err.status = 400;
+    throw err;
+  }
+  const periodKey = String(period || monthPeriod()).trim();
+  if (!/^\d{4}-\d{2}$/.test(periodKey)) {
+    const err = new Error('period must be YYYY-MM');
+    err.status = 400;
+    throw err;
+  }
+  const key = memberKey != null && String(memberKey).trim() ? String(memberKey).trim() : null;
+  const db = getDb();
+  let result;
+  if (key) {
+    result = db
+      .prepare(
+        `DELETE FROM token_usage
+         WHERE owner_user_id = ? AND member_key = ?
+           AND strftime('%Y-%m', created_at, 'localtime') = ?`
+      )
+      .run(owner, key, periodKey);
+  } else {
+    result = db
+      .prepare(
+        `DELETE FROM token_usage
+         WHERE owner_user_id = ?
+           AND strftime('%Y-%m', created_at, 'localtime') = ?`
+      )
+      .run(owner, periodKey);
+  }
+  const deleted = Number(result?.changes) || 0;
+  console.log(
+    `[token-usage] reset owner=${owner} member=${key || '*'} period=${periodKey} deleted_rows=${deleted}`
+  );
+  return { period: periodKey, deleted_rows: deleted, member_key: key };
+}
+

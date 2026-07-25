@@ -1590,6 +1590,20 @@ export function initDb() {
     );
   } catch (_) {}
 
+  try {
+    _db.exec(`ALTER TABLE kanban_tasks ADD COLUMN a2a_task_id TEXT`);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE kanban_tasks ADD COLUMN workflow_run_id INTEGER`);
+  } catch (_) {}
+  try {
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_kanban_tasks_a2a ON kanban_tasks(a2a_task_id)`);
+  } catch (_) {}
+
+  try {
+    _db.exec(`ALTER TABLE platform_users ADD COLUMN data_retention_days INTEGER DEFAULT 90`);
+  } catch (_) {}
+
   return _db;
 }
 

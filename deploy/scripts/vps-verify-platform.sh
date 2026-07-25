@@ -74,6 +74,9 @@ check "api masterDataTableUpdate" grep -q masterDataTableUpdate "$ROOT/frontend/
 check "SKILL anti-browser" grep -q 'never browser' "$ROOT/openclaw-skills/agent-os-content-tools/SKILL.md"
 check "TOOLS anti-browser" grep -q 'browser tool for Master Data' "$ROOT/openclaw-workspace-templates/balserve/TOOLS.md"
 check "platform-help docs on disk" test -f "$ROOT/knowledgebase/platform-help/01-getting-started.md"
+check "platform-help cron/retention doc" test -f "$ROOT/knowledgebase/platform-help/19-scheduled-jobs-and-crons.md"
+check "cron env reference in deploy/.env" grep -q 'COO_STATUS_CHECKER_CRON' "$ROOT/deploy/.env"
+check "retention cron env reference" grep -q 'DATA_RETENTION_CRON' "$ROOT/deploy/.env"
 check "platformhelp SOUL template" test -f "$ROOT/openclaw-workspace-templates/platformhelp/SOUL.md"
 check "platformhelp seed script" test -f "$ROOT/backend/scripts/seed-platform-help-agent.js"
 check "platformhelp startup seed" grep -q seedPlatformHelpAgent "$ROOT/backend/src/index.js"
@@ -102,6 +105,23 @@ check "Brave BYOK compose (no BRAVE_API_KEY inject)" ! grep -q 'BRAVE_API_KEY: \
 check "Balaji Brave BYOK seed" test -f "$ROOT/backend/scripts/seed-balaji-brave-byok-workflow.js"
 check "Balaji Brave BYOK test" test -f "$ROOT/backend/scripts/test-balaji-brave-byok-workflow.js"
 check "Brain apiKey templates" grep -q "renderWorkflowTemplates(String(renderedCfg" "$ROOT/backend/src/services/agent-workflow-brain.js"
+check "platform cron registry" test -f "$ROOT/backend/src/services/platform-cron-registry.js"
+check "admin crons routes" grep -q "'/crons'" "$ROOT/backend/src/routes/admin.js"
+check "Admin Crons UI" test -f "$ROOT/frontend/src/pages/AdminCrons.jsx"
+check "Admin Crons nav" grep -q '/admin/crons' "$ROOT/frontend/src/components/AppNavMenu.jsx"
+check "department efficiency service" test -f "$ROOT/backend/src/services/department-efficiency.js"
+check "efficiency departments route" grep -q "'/departments'" "$ROOT/backend/src/routes/efficiency.js"
+check "efficiency usage reset route" grep -q "'/usage/reset'" "$ROOT/backend/src/routes/efficiency.js"
+check "platform logger" test -f "$ROOT/backend/src/utils/logger.js"
+check "PLATFORM_LOG_LEVEL in compose" grep -q 'PLATFORM_LOG_LEVEL' "$ROOT/deploy/docker-compose.yml"
+check "secret redaction util" test -f "$ROOT/backend/src/utils/redact-secrets.js"
+check "redaction unit tests" test -f "$ROOT/backend/scripts/test-security-hardening-unit.js"
+check "help doc: admin crons nav" grep -q '/admin/crons' "$ROOT/knowledgebase/platform-help/02-navigation-and-chrome.md"
+check "help doc: Department tab" grep -q 'Department tab' "$ROOT/knowledgebase/platform-help/11-content-tools-scripts-profile.md"
+check "help doc: scheduled jobs" test -f "$ROOT/knowledgebase/platform-help/19-scheduled-jobs-and-crons.md"
+check "knowledgebase index synced" test -f "$ROOT/knowledgebase/README.md"
+check "README documents log level" grep -q 'PLATFORM_LOG_LEVEL' "$ROOT/README.md"
+check "README documents Admin crons" grep -q '/admin/crons' "$ROOT/README.md"
 
 echo "==> frontend bundle"
 if docker compose exec -T frontend sh -c 'grep -Rql "Purpose / description" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
@@ -133,6 +153,16 @@ if docker compose exec -T frontend sh -c 'grep -Rql "New department" /usr/share/
   echo "    OrgDesigner dashboard in bundle OK"
 else
   echo "    WARN: OrgDesigner not found in frontend JS (rebuild frontend?)"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql "Platform crons" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    Admin Crons console in bundle OK"
+else
+  echo "    WARN: Platform crons page not found in frontend JS (rebuild frontend?)"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql "Reset all usage" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    Efficiency Reset usage controls in bundle OK"
+else
+  echo "    WARN: Reset all usage not found in frontend JS (rebuild frontend?)"
 fi
 if docker compose exec -T frontend sh -c 'grep -Rql chat-attach-icon-btn /usr/share/nginx/html/assets/*.js 2>/dev/null || cat /usr/share/nginx/html/assets/*.css 2>/dev/null | grep -q chat-attach-icon-btn'; then
   echo "    Chat attach paperclip icon in bundle OK"

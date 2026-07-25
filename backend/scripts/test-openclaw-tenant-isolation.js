@@ -47,7 +47,7 @@ let userB = db
 
 if (!userB) {
   const stamp = Date.now().toString(36);
-  const created = registerCeoUser({
+  const created = await registerCeoUser({
     email: `tenant-iso-${stamp}@test.local`,
     password: 'test-pass-12345',
     name: `Tenant Iso ${stamp}`,

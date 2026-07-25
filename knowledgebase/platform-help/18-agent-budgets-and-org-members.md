@@ -66,6 +66,16 @@ Provider-reported usage is used whenever the model API returns it. When it does 
 estimate (`chars/4`) and is flagged as estimated — the Agent View tooltip tells you how much of the
 month's total is estimated.
 
+**Who a Brain node bills.** A workflow published over A2A *is* the leaf member doing the work, so
+Brain calls in an A2A-invoked run land on the `a2a:<publishId>` leaf and count against its budget.
+Runs an agent started (COO delegation, agent tool call, sub-workflow) bill that agent. Manual,
+scheduled, and webhook runs have no org member to charge, so their Brain tokens sit in a
+workflow-scoped bucket that Agent View does not list.
+
+A leaf member with no LLM node in its workflow (a trigger-only or pure-integration workflow) has no
+Brain rows at all — its token line is just the small `a2a_outbound` estimate of the request and reply
+text.
+
 Failure rate is computed from terminal outcomes in the month: completed/failed Kanban tasks for
 internal agents (delegations land on Kanban too), and recorded outbound invocations for leaf
 members.
@@ -83,25 +93,36 @@ The 10-call minimum stops a single early failure from blocking a low-volume agen
 When an agent is blocked:
 
 - **Chat** returns HTTP 429 with the reason.
-- **COO delegation to an internal agent** marks the delegation and its Kanban card failed with the
-  budget reason.
+- **COO delegation to an internal agent** is refused **before** Kanban / OpenClaw work is
+  created. The COO replies with `Blocked by budget: …` (same wording as for leaf members). A late
+  pending-task worker also fails any leftover task if the agent went over budget between enqueue
+  and run.
 - **Outbound external/A2A calls** are refused before the network call, so no Kanban card is created
   for the refused request.
 
 A refusal is not counted as a failed call: the member never ran, so budget and access-control blocks
 never spend the error budget. Only real terminal outcomes move the failure rate.
 
-To unblock, raise the budget in **Efficiency View → Agent View → Edit budget**, or wait for the
-next month.
+To unblock, raise the budget in **Efficiency View → Agent View → Edit budget**, wait for the
+next month, or **Reset usage** / **Reset all usage** to clear month-to-date tokens used back to 0
+(budgets themselves are unchanged).
 
 ---
 
-## 3. Efficiency View → Agent View
+## 3. Efficiency View → Org / Department / Agent View
 
-**Efficiency View** (`/efficiency`) now has two tabs:
+**Efficiency View** (`/efficiency`) has three tabs:
 
-- **Org** — the existing fleet-level view (tasks, feedback, workflow runs).
+- **Org** — fleet-level view (tasks, feedback, workflow runs) plus **Storage (MB)** for your account's estimated data footprint.
+- **Department** — month-to-date tokens used by every agent (and external / A2A leaf member) in a
+  department, compared to that department's `monthly_token_budget` from Master Data. Pick a
+  department to see the gauge and a per-member breakdown. Department budgets are planning figures —
+  they do not block work by themselves; per-agent budgets still enforce.
 - **Agent View** — one agent at a time.
+
+On **Agent View** you can also **Reset usage** (selected agent) or **Reset all usage** (every
+agent and leaf member). That deletes this month's `token_usage` ledger rows so gauges and budget
+enforcement restart at 0 used — configured monthly budgets and error budgets are not changed.
 
 Agent View shows:
 
@@ -115,6 +136,11 @@ Agent View shows:
 - **Top tools** with ok/error counts.
 
 The same range control as the Org tab applies (7 / 14 / 30 / 90 / all).
+
+**Leaf members show fewer KPIs.** Prompts, tool calls, and feedback come from chat turns, tool logs,
+and thumb ratings, which only exist for internal agents — an external/A2A member has no chat session
+here, so those tiles show **n/a** (with a tooltip explaining why). What a leaf member does report:
+tasks ok/failed, failure rate, average latency (from its recorded invocations), and tokens.
 
 ---
 
@@ -139,8 +165,9 @@ They are not drag-and-drop targets because they cannot manage anyone.
 ### COO delegation to leaf members
 
 Once added, leaf members are written into **ORG.md** and the COO's **AGENTS.md** with their member
-key (`ext:<id>` or `a2a:<id>`) and purpose. The COO's intent classifier can then pick them for
-matching work. When it does:
+key (`ext:<id>` or `a2a:<id>`) and purpose. Dashboard **Resync** refreshes those roster sections
+only — it does not wipe Role / Priorities / Tools / Guardrails or other manual edits in the COO
+AGENTS.md. The COO's intent classifier can then pick leaf members for matching work. When it does:
 
 1. The budget guard runs first — a blocked member is refused before any network call.
 2. A Kanban card is created and moved to in-progress.
@@ -167,6 +194,8 @@ matching work. When it does:
 | `GET` | `/api/efficiency/agents` | Selectable members + current-month budget state |
 | `GET` | `/api/efficiency/agents/:memberKey?days=30` | Agent View metrics |
 | `PUT` | `/api/efficiency/agents/:memberKey/budget` | Set monthly token / error budget |
+| `GET` | `/api/efficiency/departments` | Month-to-date tokens vs budget, by department |
+| `POST` | `/api/efficiency/usage/reset` | Zero month-to-date tokens (`member_key` omitted = all members) |
 | `GET` | `/api/org-members` | List org leaf members |
 | `POST` | `/api/org-members` | Add / update a leaf member (kind, ref_id, department, parent_id, budgets) |
 | `DELETE` | `/api/org-members/:id` | Remove a leaf member from the org chart |

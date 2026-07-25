@@ -13,6 +13,7 @@ import * as openclaw from '../gateway/openclaw.js';
 import {
   scheduleCeoRequestViaOpenClawCron,
   enqueueGetWorkFromTeam,
+  scheduleStandupStatusFanout,
   enqueueDelegationTask,
   postCallbackForRequestId,
   appendToAgentMemory,
@@ -336,20 +337,80 @@ router.post('/:id/messages', requireAuth, async (req, res) => {
     const sessionUser = openclaw.sessionUserFor(coo.id, ownerUserId);
 
     if (action === 'get_work_from_team') {
-      db().prepare('INSERT INTO standup_messages (standup_id, role, content) VALUES (?, ?, ?)').run(standupId, 'user', 'Get work from team.');
+      db()
+        .prepare('INSERT INTO standup_messages (standup_id, role, content) VALUES (?, ?, ?)')
+        .run(standupId, 'user', 'Get work from team.');
 
-      const lastUser = db().prepare('SELECT content FROM standup_messages WHERE standup_id = ? AND role = ? ORDER BY created_at DESC LIMIT 1').get(standupId, 'user');
-      const ceoRequest = (context || lastUser?.content || 'Provide your status and deliverables for the CEO standup.').trim().slice(0, 2000);
-      const result = await scheduleCeoRequestViaOpenClawCron(standupId, ceoRequest, ownerUserId);
+      // Prefer explicit context / prior CEO asks — never treat the button label as the work request.
+      // Intent-classify on "Get work from team." returns zero specialists and previously showed a
+      // false "no agents in your org" reply even when the org had a full team (COO chat still worked).
+      const priorUsers = db()
+        .prepare(
+          `SELECT content FROM standup_messages
+           WHERE standup_id = ? AND role = 'user'
+             AND TRIM(content) NOT LIKE 'Get work from team%'
+           ORDER BY created_at DESC LIMIT 3`
+        )
+        .all(standupId);
+      const priorText = priorUsers
+        .map((r) => String(r.content || '').trim())
+        .filter(Boolean)
+        .reverse()
+        .join('\n')
+        .slice(0, 2000);
+      const statusContext = String(context || priorText || '').trim().slice(0, 2000);
 
-      const cooReply = result.count === 0
-        ? "You have no agents under you in the org. Reply briefly that there is no team to delegate to."
-        : `I've scheduled this with ${result.agentNames.join(' and ')}. You'll see their responses here when ready.${result.pendingCount > 0 ? ' Some tasks are queued; click Check for updates to fetch responses.' : ''}`;
-      db().prepare('INSERT INTO standup_messages (standup_id, role, content) VALUES (?, ?, ?)').run(standupId, 'coo', cooReply);
+      const agentsAvailable = getAgentsUnderCooForCeo(ownerUserId);
+      if (!agentsAvailable.length) {
+        const cooReply =
+          'You have no agents under the COO in this org yet. Add agents (Org designer / Resync) before collecting team updates.';
+        db()
+          .prepare('INSERT INTO standup_messages (standup_id, role, content) VALUES (?, ?, ?)')
+          .run(standupId, 'coo', cooReply);
+        const messages = db()
+          .prepare('SELECT id, role, content, created_at FROM standup_messages WHERE standup_id = ? ORDER BY created_at')
+          .all(standupId);
+        const updated = db().prepare('SELECT * FROM standups WHERE id = ?').get(standupId);
+        return res.status(201).json({
+          standup: updated,
+          messages,
+          coo_reply: cooReply,
+          request_id: null,
+          tasks_queued: 0,
+        });
+      }
 
-      const messages = db().prepare('SELECT id, role, content, created_at FROM standup_messages WHERE standup_id = ? ORDER BY created_at').all(standupId);
+      const result = await scheduleStandupStatusFanout(standupId, ownerUserId, statusContext);
+      const blocked = (result.internalBlocked || []).map((b) => b.name || b.id);
+      let cooReply;
+      if (result.count === 0) {
+        if (blocked.length) {
+          cooReply = `I couldn't start team updates — budget blocked: ${blocked.join(', ')}. Reset usage or raise budgets, then try again.`;
+        } else {
+          cooReply =
+            'I found agents in your org but could not schedule updates right now. Try again in a moment, or ask me in chat to collect status from a named agent.';
+        }
+      } else {
+        const names = (result.agentNames || []).join(', ');
+        cooReply = `I've asked ${result.count} team member${result.count === 1 ? '' : 's'} for status (${names}). You'll see their responses here when ready.${
+          result.pendingCount > 0 ? ' Some tasks are still queued — click Check for updates.' : ''
+        }${blocked.length ? ` Skipped (budget): ${blocked.join(', ')}.` : ''}`;
+      }
+      db()
+        .prepare('INSERT INTO standup_messages (standup_id, role, content) VALUES (?, ?, ?)')
+        .run(standupId, 'coo', cooReply);
+
+      const messages = db()
+        .prepare('SELECT id, role, content, created_at FROM standup_messages WHERE standup_id = ? ORDER BY created_at')
+        .all(standupId);
       const updated = db().prepare('SELECT * FROM standups WHERE id = ?').get(standupId);
-      return res.status(201).json({ standup: updated, messages, coo_reply: cooReply, request_id: result.requestId, tasks_queued: result.count });
+      return res.status(201).json({
+        standup: updated,
+        messages,
+        coo_reply: cooReply,
+        request_id: result.requestId,
+        tasks_queued: result.count,
+      });
     }
 
     if (action === 'request_research' && content && typeof content === 'string') {

@@ -182,7 +182,7 @@ async function seedOpenConnector() {
 async function ensureTestUser() {
   const email = `oc-connector-${STAMP}@agent-os.local`;
   const password = `TestUser-${STAMP}!`;
-  const user = registerCeoUser({
+  const user = await registerCeoUser({
     email,
     password,
     name: `Connector Test ${STAMP}`,

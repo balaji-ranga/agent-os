@@ -13,30 +13,45 @@ function getIntentModelOverride() {
 
 /**
  * Parse the agents table from COO AGENTS.md.
- * Supports 3-col (Agent ID | Name | Role) or 4-col (Agent ID | Name | Department | Role).
+ * Supports 3-col (Agent ID | Name | Role), 4-col (Agent ID | Name | Department | Role),
+ * and the leaf-member table (Member key | Name | Department | Purpose).
+ * Leaf keys are written as `` `ext:…` `` / `` `a2a:…` `` in markdown — strip the decoration
+ * so the model (and later routing) see the bare member key.
  * @param {string} md - Full AGENTS.md content
  * @returns {{ id: string, name: string, role: string }[]}
  */
-function parseAgentsFromAgentsMd(md) {
+export function parseAgentsFromAgentsMd(md) {
   const agents = [];
+  const seen = new Set();
   const lines = md.split(/\r?\n/);
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (!line.trim() || !line.includes('|')) continue;
     const parts = line.split('|').map((p) => p.trim());
     if (parts.length < 4) continue;
-    const rawId = (parts[1] || '').replace(/\*+/g, '').trim();
-    const name = (parts[2] || '').trim();
-    if (!rawId || rawId.toLowerCase() === 'agent id') continue;
+    // Strip markdown cell decoration (`id`, **id**) and surrounding quotes.
+    const rawId = (parts[1] || '')
+      .replace(/[`*]/g, '')
+      .trim()
+      .replace(/^['"]+|['"]+$/g, '')
+      .trim();
+    const name = (parts[2] || '').replace(/[`*]/g, '').trim();
+    if (!rawId) continue;
+    const headerIds = new Set(['agent id', 'member key', 'id', 'key']);
+    if (headerIds.has(rawId.toLowerCase())) continue;
     if (/^[-–—\s]+$/.test(rawId) || /^[-–—\s]+$/.test(name)) continue;
     const id = rawId.toLowerCase();
+    if (seen.has(id)) continue;
     const col3 = (parts[3] || '').trim();
     const col4 = (parts[4] || '').trim();
     const purpose =
       col4 && !/^[-–—\s]+$/.test(col4)
         ? `${col3 && col3 !== '—' && col3 !== '-' ? `${col3} — ` : ''}${col4}`
         : col3;
-    if (!purpose || /^[-–—\s]+$/.test(purpose) || purpose.toLowerCase() === 'role') continue;
+    if (!purpose || /^[-–—\s]+$/.test(purpose)) continue;
+    const headerPurposes = new Set(['role', 'purpose', 'department — purpose', 'department']);
+    if (headerPurposes.has(purpose.toLowerCase())) continue;
+    seen.add(id);
     agents.push({ id, name, role: purpose });
   }
   return agents;
@@ -69,8 +84,15 @@ function normalizeKeysToDocIds(parsed, agentsFromDoc) {
   const result = {};
   for (const [k, v] of Object.entries(parsed)) {
     if (typeof v !== 'string' || !v.trim()) continue;
-    const key = String(k).trim().toLowerCase().replace(/\s+/g, '');
-    const canonical = idByKey.get(key) ?? idByKey.get(String(k).trim().toLowerCase()) ?? key;
+    // Model often re-wraps ids in backticks/asterisks when copying from the AGENTS.md table.
+    const cleaned = String(k)
+      .replace(/[`*]/g, '')
+      .trim()
+      .replace(/^['"]+|['"]+$/g, '')
+      .trim()
+      .toLowerCase();
+    const key = cleaned.replace(/\s+/g, '');
+    const canonical = idByKey.get(key) ?? idByKey.get(cleaned) ?? key;
     result[canonical] = v.trim();
   }
   return result;
@@ -121,8 +143,9 @@ Critical:
 - Prefer **exactly one** best-fit agent. Only for clearly multi-intent messages may you return **at most 2** agents.
 - Never assign agents whose Purpose is only "Agent", "demo", or empty/placeholder — skip them unless the CEO named them.
 - If the CEO explicitly names an agent (by Agent ID or Name), map to that agent.
+- Agent IDs may look like \`ext:…\` or \`a2a:…\` — those are valid external/A2A leaf members. Use the exact Agent ID string as the JSON key (no backticks, no asterisks).
 - Each value must be ONLY the part of the CEO message that applies to that agent (split multi-intent).
-- Choose the **closest** specialist by department/purpose domain. Adjacent fit is OK (e.g. a food/cuisine question → Social/content agent whose purpose mentions cuisines or food; a science/engineering/space/technical question → Research agent; money/budget → Finance; software/code → code agent). Do not require the ask to be an exact copy of the purpose wording.
+- Choose the **closest** specialist by department/purpose domain. Adjacent fit is OK (e.g. a food/cuisine question → Social/content agent whose purpose mentions cuisines or food; a science/engineering/space/technical question → Research agent; money/budget → Finance; software/code → code agent; an operations-desk / echo / status-line request → the ops echo leaf). Do not require the ask to be an exact copy of the purpose wording.
 - Include only agents that are meaningfully closer than others. Never fan out to all agents.
 - Do not use keyword shortcuts. Read each agent's Purpose and decide by semantic fit.
 - Return {} ONLY if the message is COO coordination (workflows, tools, standups, Kanban ops, greetings, "what can you do") OR no listed agent is a better fit than random.

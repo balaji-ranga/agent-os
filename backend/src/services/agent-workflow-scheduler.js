@@ -111,8 +111,16 @@ export function getScheduleRegistrySnapshot() {
   return listScheduleRegistryRows();
 }
 
-export function initAgentWorkflowScheduler() {
+export function initAgentWorkflowScheduler({ scheduleMaster = true } = {}) {
   syncWorkflowScheduleRegistry();
+  if (!scheduleMaster) {
+    const rows = listScheduleRegistryRows();
+    console.log(
+      `[agent-workflow-scheduler] Registry synced (master tick owned by platform-cron-registry) —`,
+      rows.length ? rows.map((r) => r.definition_id).join(', ') : '(empty)'
+    );
+    return;
+  }
   if (masterTask) return;
   if (!cron.validate(MASTER_CRON)) {
     console.warn(`[agent-workflow-scheduler] Invalid AGENT_WORKFLOW_SCHEDULER_CRON: ${MASTER_CRON}`);

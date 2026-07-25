@@ -183,6 +183,10 @@ Gets the same gateway LLM vars plus:
 | Variable | Purpose |
 |----------|---------|
 | `AGENT_OS_INTERNAL_TOKEN` | Workflow runner, tools proxy, cron-callback (required in production). Query `internal_token` is only accepted on `/api/standups/cron-callback`; elsewhere use `x-agent-os-internal`. |
+| `PLATFORM_LOG_LEVEL` | Backend request/error logging: `off`, `error`, or `info` (default). Secrets are redacted at every level — API keys, bearer tokens, `Authorization`, passwords and MFA codes never reach the log, and API Keys / auth routes log method + route only. |
+| `COO_STATUS_CHECKER_CRON` | Daily COO status digest per enabled CEO → standup post + HTML email (default `0 9 * * *`). Manual: **Run status checker** on the Dashboard. |
+| `DATA_RETENTION_CRON` | Nightly retention purge per enabled CEO (default `15 3 * * *`), using each CEO's Profile **Data persistence** window. Manual: **Purge aged data now**. |
+| `STANDUP_SCHEDULE_CRON`, `STANDUP_CRON_SCHEDULE`, `DELEGATION_CRON_SCHEDULE`, `AGENT_WORKFLOW_SCHEDULER_CRON`, `JOB_PIPELINE_CRON_SCHEDULE` | Remaining platform timers. All optional — every job has a code default; `deploy/scripts/ensure-cron-env.sh` keeps a commented reference block in `deploy/.env`. Admins can pause/resume/run each one at `/admin/crons`. |
 | `TOOLS_API_KEY` | OpenClaw content-tools ↔ backend (required in production; must match plugin `apiKey`) |
 | `OPENAI_COO_MODEL`, `OPENAI_INTENT_MODEL` | COO / intent classifier |
 | `REPLICATE_API_TOKEN` | Video generation content tool |
@@ -255,6 +259,10 @@ All proxied under `/api` (rebuild backend + frontend images after upgrade):
 | Workflow fullscreen editor | `/workflows/:id/edit` hides platform nav/topbar (`shell-focus-mode`); compact nodes/panes; **Exit to workflows** |
 | Register MCP / Agents CTAs | Primary accent buttons + shared `page-hero` alignment on MCP registry and External Agents |
 | Platform Help | Agent `platformhelp` + `knowledgebase/platform-help/` corpus in backend image → Master Data RAG |
+| COO status checker | `POST /api/tools/status-checker` (COO grant only) + `POST /api/cron/run-status-checker` (returns `html` for Dashboard popup); daily `COO_STATUS_CHECKER_CRON` (default `0 9 * * *`) → standup post + HTML email per CEO |
+| Data retention | `platform_users.data_retention_days` (30/60/90/120/365) + `GET/PUT /api/efficiency/retention`, `POST /api/efficiency/retention/purge`, `POST /api/cron/run-data-retention`; daily `DATA_RETENTION_CRON` (default `15 3 * * *`) purges aged chats / chat history / standup conversations / workflow runs per CEO |
+| Org Storage (MB) | `GET /api/efficiency/storage` + `storage_mb` in `/api/efficiency` totals → Efficiency View **Org** tile |
+| Cron env reference | `deploy/scripts/ensure-cron-env.sh` appends the commented cron block (all 7 schedules, defaults) to `deploy/.env` on every deploy; docs: `knowledgebase/platform-help/19-scheduled-jobs-and-crons.md` |
 
 **Repeatable deploy (laptop → VPS):**
 

@@ -6,7 +6,7 @@
 - **Add agent** — creates a full OpenClaw tenant agent for your CEO account (custom agent), with workspace files and default tool grants. Optionally set a **monthly token budget** and **error budget %** at creation (see [18-agent-budgets-and-org-members.md](./18-agent-budgets-and-org-members.md)).
 - **Standups** — create standup, chat with COO, get work from team, run COO summary, approve, delete.
 - **Remove agent** — deletes the agent's chat history, standup responses, delegation records and tool grants. **Kanban cards are kept and unassigned** so the board history survives, and any agents reporting to it move up to its parent. The COO cannot be removed. Removal sticks: the agent does not reappear after a restart or a **Sync from OpenClaw**.
-- **Resync ORG.md & AGENTS.md** — after add/rename/reorganize agents, resync so every agent’s org docs list the correct CEO, peers, and COO delegatees.
+- **Resync ORG.md & AGENTS.md** — after add/rename/reorganize agents, resync so every agent’s org docs list the correct CEO, peers, and COO delegatees. On the COO’s **AGENTS.md**, only the live roster sections are refreshed (CEO for this org, agent table, external/A2A leaf members, session keys). **Role / Priorities / Tools / Guardrails / any custom sections you edited by hand are preserved.**
 - Per-agent **Chat** shortcuts; optional Edge TTS to read replies.
 
 ## Who to ask

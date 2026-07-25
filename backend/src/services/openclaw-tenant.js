@@ -24,7 +24,7 @@ import {
   ensureByokProviderInConfig,
 } from './user-llm-settings.js';
 import { COO_CONTENT_TOOLS_ALLOW } from '../lib/content-tools-allow.js';
-import { syncOrgContextToWorkspace } from './org-context.js';
+import { syncOrgContextToWorkspace, isGeneratedCooAgentsMd } from './org-context.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_TEMPLATES = join(__dirname, '..', '..', '..', 'openclaw-workspace-templates');
@@ -121,7 +121,7 @@ function copyTemplateWorkspace(baseId, destDir) {
 }
 
 /** Keep standard-agent skill docs in sync. Never overwrite custom-agent identity with balserve. */
-function syncEssentialWorkspaceDocs(baseId, destDir) {
+export function syncEssentialWorkspaceDocs(baseId, destDir) {
   const ownTpl = join(REPO_TEMPLATES, baseId);
   const hasOwnTemplate = existsSync(ownTpl);
 
@@ -159,6 +159,10 @@ function syncEssentialWorkspaceDocs(baseId, destDir) {
             existing.length < 2000);
         // Refresh product TOOLS/AGENTS for standard templates; never force SOUL/MEMORY overwrite.
         shouldWrite = looksLikeStub || name === 'TOOLS.md' || name === 'AGENTS.md';
+        // The COO's AGENTS.md is generated from the live org (internal agents + external/A2A leaf
+        // members). The template only carries a fixed internal list, so copying it over would drop
+        // every leaf member from the delegation table until the next org sync.
+        if (name === 'AGENTS.md' && isGeneratedCooAgentsMd(existing)) shouldWrite = false;
       } catch {
         shouldWrite = true;
       }

@@ -23,6 +23,7 @@ import { ensureCeoDefaultMasterData } from './ceo-default-master-data.js';
 import { removeWorkflowSchedulesForOwner, syncWorkflowScheduleRegistry } from './agent-workflow-store.js';
 import { PLATFORM_BYOK_KEY_NAME } from './user-api-keys.js';
 import { isAgentTombstoned } from './agent-delete.js';
+import { normalizeRetentionDays } from './data-retention.js';
 
 export { isUserEnabled } from './user-enabled.js';
 
@@ -348,6 +349,7 @@ export function userPublic(row) {
   };
   if (row.role === 'ceo') {
     out.ceo_db_mode = getCeoDbModeForUser(row.id);
+    out.data_retention_days = Number(row.data_retention_days) || 90;
   }
   return out;
 }
@@ -462,6 +464,7 @@ export function updateUserProfile(
     industry,
     industry_other,
     business_name,
+    data_retention_days,
   } = {}
 ) {
   const db = getDb();
@@ -483,6 +486,10 @@ export function updateUserProfile(
     const existing = db.prepare('SELECT id FROM platform_users WHERE email = ? AND id != ?').get(normalizedEmail, userId);
     if (existing) throw new Error('Email already in use');
     updates.email = normalizedEmail;
+  }
+
+  if (data_retention_days !== undefined) {
+    updates.data_retention_days = normalizeRetentionDays(data_retention_days);
   }
 
   if (industry !== undefined || industry_other !== undefined || business_name !== undefined) {

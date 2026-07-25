@@ -46,11 +46,13 @@ let ownerB = db
   .get(ownerA)?.id;
 if (!ownerB) {
   const stamp = Date.now().toString(36);
-  ownerB = registerCeoUser({
-    email: `ibkr-ent-${stamp}@test.local`,
-    password: 'test-pass-12345',
-    name: `IBKR Ent ${stamp}`,
-  }).id;
+  ownerB = (
+    await registerCeoUser({
+      email: `ibkr-ent-${stamp}@test.local`,
+      password: 'test-pass-12345',
+      name: `IBKR Ent ${stamp}`,
+    })
+  ).id;
 }
 grantStandardAgents(ownerB);
 

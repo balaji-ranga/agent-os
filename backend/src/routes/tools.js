@@ -47,6 +47,7 @@ import jobApplicantTools from './job-applicant-tools.js';
 import { summarizeLearnings } from '../services/agent-feedback.js';
 import { executeEmailSend } from '../services/email-send.js';
 import { executeNotifyCeo } from '../services/notify-ceo.js';
+import { runCooStatusChecker } from '../services/coo-status-checker.js';
 import {
   executeConnectorAction,
   getConnectedConnectorApps,
@@ -1118,6 +1119,50 @@ router.post('/notify-ceo', optionalAuth, async (req, res) => {
     const err = { error: e.message };
     logTool(req, 'notify_ceo', requestPayload, err, 'error', source);
     res.status(500).json(err);
+  }
+});
+
+/**
+ * status_checker — COO only. Reconcile A2A Kanban, post digest to standup, return HTML/markdown.
+ * Does NOT email — email is reserved for the daily batch cron (`COO_STATUS_CHECKER_CRON`).
+ * Body: { post_standup?: boolean }
+ */
+router.post('/status-checker', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    const caller = getCallerAgent(req);
+    if (!caller || !caller.is_coo) {
+      const err = { error: 'Only COO can use status_checker' };
+      logTool(req, 'status_checker', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
+    if (!ownerUserId) {
+      const err = { error: 'Could not resolve CEO user for this session' };
+      logTool(req, 'status_checker', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const postStandup = requestPayload.post_standup !== false && requestPayload.postStandup !== false;
+    // Force email off even if the caller passes email:true — batch cron only.
+    const out = await runCooStatusChecker(ownerUserId, { email: false, postStandup });
+    const result = {
+      ok: true,
+      owner_user_id: ownerUserId,
+      standup_id: out.standup_id,
+      counts: out.digest.counts,
+      digest: out.digest,
+      html: out.html,
+      markdown: out.markdown,
+      sync_changes: out.digest.sync_changes?.length || 0,
+      email: { skipped: true, reason: 'batch_only' },
+    };
+    logTool(req, 'status_checker', { ...requestPayload, owner_user_id: ownerUserId }, result, 'ok', source);
+    res.json(result);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'status_checker', requestPayload, err, 'error', source);
+    res.status(e.status || 500).json(err);
   }
 });
 

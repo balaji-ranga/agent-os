@@ -20,7 +20,7 @@
 | **API Keys** | `/api-keys` | Named secret vault (BYOK `Platform_BYOK`, workflow/MCP/Connector secrets) |
 | Policies | `/policies` | CEO common guardrails for all agents + Brain nodes |
 | AI Snipper | `/ai-snipper` | Prompt / token / tool-call usage timeline |
-| **Efficiency View** | `/efficiency` | **Org** tab: agents, automated tasks, feedback, workflow run success/fail. **Agent View** tab: per-agent activity, outcomes, token/error budgets |
+| **Efficiency View** | `/efficiency` | **Org** tab: agents, automated tasks, feedback, workflow run success/fail, Storage (MB). **Department** tab: month-to-date tokens vs department budget. **Agent View** tab: per-agent activity, outcomes, token/error budgets, **Reset usage** |
 
 ### Prebuilt Workflows
 
@@ -51,7 +51,13 @@
 
 ## Admin navigation (admins only)
 
-Admin home `/admin` (users, platform LLM switch, workspace templates admin), plus Connectors (OAuth client config), MCP / custom scripts / AgentExchange / external agents / profile.
+| Label | Route | Use for |
+|-------|-------|---------|
+| Admin | `/admin` | Users, platform LLM switch, workspace templates admin |
+| A2A logs | `/admin/a2a-invocations` | Every A2A card / token / invoke attempt, including denials |
+| **Crons** | `/admin/crons` | Platform cron registry — **Pause**, **Resume**, **Run now**; pause state survives restarts |
+
+Admins also see Connectors (OAuth client config), MCP, Custom scripts, AgentExchange, External agents, and Profile.
 
 ## Mental model
 
@@ -64,4 +70,6 @@ Admin home `/admin` (users, platform LLM switch, workspace templates admin), plu
 - **Integrate tools/protocol** → MCP, External agents, Custom scripts, Content tools  
 - **Measure** → AI Snipper (usage) + Efficiency View (ops outcomes, per-agent budgets)
 - **Cap agent spend / failures** → Efficiency View → Agent View → Edit budget  
+- **Unblock a capped agent** → Efficiency View → Agent View → Reset usage  
+- **Shrink your data footprint** → Profile → Data persistence, then Efficiency View → Org → Storage (MB)  
 - **How do I…?** → Platform Help agent or Master Data RAG docs

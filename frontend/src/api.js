@@ -167,6 +167,10 @@ export const api = {
   // Cron: trigger standup collection + COO (agent-to-agent)
   cronRunStandup: () => post('/cron/run-standup', {}),
   cronProcessDelegations: () => post('/cron/process-delegations', {}),
+  /** COO status checker: reconcile Kanban/A2A, post standup digest, email CEO. */
+  cronRunStatusChecker: (body = {}) => post('/cron/run-status-checker', body),
+  /** Permanently purge aged chats / standup / workflow runs per retention days. */
+  cronRunDataRetention: (body = {}) => post('/cron/run-data-retention', body),
   // OpenClaw: list agents from config and sync to DB
   openclawAgents: () => get('/openclaw/agents'),
   openclawSync: (agentId) => post('/openclaw/sync', agentId ? { agent_id: agentId } : {}),
@@ -302,11 +306,20 @@ export const api = {
   masterDataQuery: (body) => post('/master-data/query', body),
   aiSnipperSummary: (days = 7) => get(`/ai-snipper/summary?days=${days}`),
   efficiencySummary: (days = 14) => get(`/efficiency/summary?days=${encodeURIComponent(days)}`),
+  efficiencyDepartments: () => get('/efficiency/departments'),
   efficiencyAgents: () => get('/efficiency/agents'),
   efficiencyAgent: (memberKey, days = 30) =>
     get(`/efficiency/agents/${encodeURIComponent(memberKey)}?days=${encodeURIComponent(days)}`),
   efficiencyAgentBudgetSet: (memberKey, body) =>
     put(`/efficiency/agents/${encodeURIComponent(memberKey)}/budget`, body),
+  /** Zero month-to-date token usage. Pass memberKey for one agent, or omit/null for all. */
+  efficiencyUsageReset: (memberKey = null) =>
+    post('/efficiency/usage/reset', memberKey ? { member_key: memberKey } : {}),
+  efficiencyStorage: () => get('/efficiency/storage'),
+  efficiencyRetentionGet: () => get('/efficiency/retention'),
+  efficiencyRetentionSet: (data_retention_days) => put('/efficiency/retention', { data_retention_days }),
+  efficiencyRetentionPurge: (days = null) =>
+    post('/efficiency/retention/purge', days != null ? { days } : {}),
   orgMembers: () => get('/org-members'),
   orgMemberUpsert: (body) => post('/org-members', body),
   orgMemberDelete: (id) => del(`/org-members/${encodeURIComponent(id)}`),
@@ -338,6 +351,10 @@ export const api = {
     const qs = q.toString();
     return get(`/admin/a2a-invocations${qs ? `?${qs}` : ''}`);
   },
+  adminCrons: () => get('/admin/crons'),
+  adminCronPause: (id) => post(`/admin/crons/${encodeURIComponent(id)}/pause`, {}),
+  adminCronResume: (id) => post(`/admin/crons/${encodeURIComponent(id)}/resume`, {}),
+  adminCronRun: (id) => post(`/admin/crons/${encodeURIComponent(id)}/run`, {}),
   adminImpersonateUser: (userId) => post(`/admin/users/${encodeURIComponent(userId)}/impersonate`, {}),
   authExitImpersonation: () => post('/auth/exit-impersonation', {}),
   // Agent workflows (custom, separate from job workflows)

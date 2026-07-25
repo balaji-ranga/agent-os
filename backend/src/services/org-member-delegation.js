@@ -37,20 +37,6 @@ function createKanbanTask(ownerUserId, member, query, callerAgentId) {
   return Number(info.lastInsertRowid);
 }
 
-function finishKanbanTask(taskId, ok, responseText) {
-  if (!taskId) return;
-  try {
-    getDb()
-      .prepare(
-        `UPDATE kanban_tasks SET status = ?, description = description || ?, updated_at = datetime('now')
-         WHERE id = ?`
-      )
-      .run(ok ? 'completed' : 'failed', `\n\n---\nResult:\n${String(responseText || '').slice(0, 2000)}`, taskId);
-  } catch (e) {
-    console.warn('[org-delegation] kanban finish failed', taskId, e?.message || e);
-  }
-}
-
 function getPublicationVisibility(publishId) {
   const row = getDb()
     .prepare(`SELECT visibility FROM workflow_a2a_publications WHERE id = ? AND status = 'published'`)
@@ -116,10 +102,67 @@ function extractA2AReply(body) {
     partsToText(result?.artifacts?.flatMap((a) => a?.parts || [])) ||
     (typeof result?.text === 'string' ? result.text.trim() : '');
   const state = String(result?.task?.status?.state || result?.status?.state || '').toLowerCase();
+  const taskId = result?.task?.id || result?.id || result?.metadata?.taskId || null;
+  const runId =
+    result?.metadata?.runId ??
+    result?.metadata?.run_id ??
+    result?.task?.metadata?.runId ??
+    null;
   if (state && A2A_FAILED_STATES.has(state)) {
-    return { ok: false, text: text || `A2A task ended in state "${state}"` };
+    return {
+      ok: false,
+      pending: false,
+      text: text || `A2A task ended in state "${state}"`,
+      state,
+      taskId,
+      runId,
+    };
   }
-  return { ok: true, text };
+  const pendingStates = new Set(['working', 'submitted', 'input-required', 'input_required', 'queued']);
+  if (state && pendingStates.has(state)) {
+    return {
+      ok: true,
+      pending: true,
+      text: text || `A2A task accepted (state "${state}")`,
+      state,
+      taskId,
+      runId,
+    };
+  }
+  return { ok: true, pending: false, text, state: state || 'completed', taskId, runId };
+}
+
+function finishKanbanTask(taskId, out) {
+  if (!taskId) return;
+  try {
+    const ok = out?.ok !== false && !out?.pending;
+    const pending = !!out?.pending;
+    const status = pending ? 'in_progress' : ok ? 'completed' : 'failed';
+    const metaBits = [];
+    if (out?.taskId) metaBits.push(`[a2a_task_id: ${out.taskId}]`);
+    if (out?.runId != null) metaBits.push(`[workflow_run_id: ${out.runId}]`);
+    const metaLine = metaBits.length ? `\n${metaBits.join(' ')}` : '';
+    const resultBlock = `\n\n---\nResult:\n${String(out?.text || '').slice(0, 2000)}${metaLine}`;
+    getDb()
+      .prepare(
+        `UPDATE kanban_tasks
+         SET status = ?,
+             description = description || ?,
+             a2a_task_id = COALESCE(?, a2a_task_id),
+             workflow_run_id = COALESCE(?, workflow_run_id),
+             updated_at = datetime('now')
+         WHERE id = ?`
+      )
+      .run(
+        status,
+        resultBlock,
+        out?.taskId ? String(out.taskId) : null,
+        out?.runId != null ? Number(out.runId) : null,
+        taskId
+      );
+  } catch (e) {
+    console.warn('[org-delegation] kanban finish failed', taskId, e?.message || e);
+  }
 }
 
 async function invokeMember(ownerUserId, member, query) {
@@ -217,11 +260,11 @@ export async function delegateToOrgMembers(ownerUserId, allocation = {}, opts = 
         outputTokens: estimateTokens(out.text),
         estimated: true,
       });
-      finishKanbanTask(taskId, out.ok, out.text);
+      finishKanbanTask(taskId, out);
       console.log(
-        `[org-delegation] member=${member.id} owner=${ownerUserId} ok=${out.ok} latency_ms=${latency} kanban=${taskId} visibility=${acl.visibility}`
+        `[org-delegation] member=${member.id} owner=${ownerUserId} ok=${out.ok} pending=${!!out.pending} latency_ms=${latency} kanban=${taskId} visibility=${acl.visibility}`
       );
-      if (out.ok) delegated.push({ member, taskId, text: out.text });
+      if (out.ok) delegated.push({ member, taskId, text: out.text, pending: !!out.pending });
       else failed.push({ member, taskId, error: out.text });
     } catch (e) {
       const latency = Date.now() - started;
@@ -233,7 +276,7 @@ export async function delegateToOrgMembers(ownerUserId, allocation = {}, opts = 
         latencyMs: latency,
         taskId: String(taskId),
       });
-      finishKanbanTask(taskId, false, msg);
+      finishKanbanTask(taskId, { ok: false, text: msg });
       console.warn(`[org-delegation] member=${member.id} owner=${ownerUserId} failed: ${msg}`);
       failed.push({ member, taskId, error: msg });
     }
@@ -280,10 +323,10 @@ export async function invokeOrgMemberAsAgent(ownerUserId, memberKey, query, { ca
       outputTokens: estimateTokens(out.text),
       estimated: true,
     });
-    finishKanbanTask(taskId, out.ok, out.text);
+    finishKanbanTask(taskId, out);
     return { ...out, taskId, member };
   } catch (e) {
-    finishKanbanTask(taskId, false, e?.message || String(e));
+    finishKanbanTask(taskId, { ok: false, text: e?.message || String(e) });
     throw e;
   }
 }

@@ -335,16 +335,54 @@ function enqueueAllocatedTasks({
 }
 
 /**
+ * Collect status from every agent under the COO (standup "Get work from team").
+ * Does not use specialty intent classification — that path incorrectly returns zero
+ * agents for the literal button text "Get work from team."
+ */
+export async function scheduleStandupStatusFanout(standupId, ceoUserId = null, contextText = '') {
+  const ownerUserId = ceoUserId || getStandupOwnerUserId(standupId);
+  // Status fan-out targets operating specialists — skip meta/platform helper agents.
+  const SKIP = /^(platformhelp|workflowbuilder|demo|notify-delegate-test|test-)/i;
+  const agents = getAgentsUnderCoo(ownerUserId).filter((a) => !SKIP.test(String(a.id || '')));
+  const statusPrompt = String(
+    contextText ||
+      'Provide your status and deliverables for the CEO standup. Summarize what you completed recently, what is in progress, blockers, and anything the CEO should decide.'
+  )
+    .trim()
+    .slice(0, 2000);
+  if (!agents.length) {
+    return {
+      requestId: null,
+      count: 0,
+      scheduledCount: 0,
+      pendingCount: 0,
+      agentNames: [],
+      kanbanTaskIds: [],
+      internalBlocked: [],
+      mode: 'status_fanout',
+      agentsAvailable: 0,
+    };
+  }
+  const preAllocated = Object.fromEntries(agents.map((a) => [a.id, statusPrompt]));
+  const out = await scheduleCeoRequestViaOpenClawCron(standupId, statusPrompt, ownerUserId, {
+    preAllocated,
+    maxAgents: Math.max(agents.length, 1),
+  });
+  return { ...out, mode: 'status_fanout', agentsAvailable: agents.length };
+}
+
+/**
  * Schedule CEO request via OpenClaw Gateway cron. Reads COO AGENTS.md, uses OpenAI to classify
  * intent and allocate a task query per agent. Never fans out to all agents.
  * @param {number} standupId
  * @param {string} ceoMessage
  * @param {string|null} [ceoUserId]
- * @param {{ restrictToAgentIds?: string[], preAllocated?: Record<string, string> }} [opts]
+ * @param {{ restrictToAgentIds?: string[], preAllocated?: Record<string, string>, maxAgents?: number }} [opts]
  */
 export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, ceoUserId = null, opts = {}) {
   const ownerUserId = ceoUserId || getStandupOwnerUserId(standupId);
   let agents = getAgentsUnderCoo(ownerUserId);
+  const maxAgents = Math.max(1, Math.min(100, Number(opts.maxAgents) || 2));
   const restrict = (opts.restrictToAgentIds || []).map((id) => String(id).toLowerCase()).filter(Boolean);
   if (restrict.length) {
     const set = new Set(restrict);
@@ -360,7 +398,7 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, c
       : await classifyIntentAndAllocate(scopedMessage, agentsMdContent || '', { ...context, ownerUserId }, ownerUserId);
 
   if (!allocated || typeof allocated !== 'object') allocated = {};
-  allocated = capAllocatedAgents(allocated, 2);
+  allocated = capAllocatedAgents(allocated, maxAgents);
 
   // When restrictToAgentIds is set, keep only those keys (or fill single restrict from message).
   if (restrict.length && allocated && typeof allocated === 'object') {
@@ -378,7 +416,7 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, c
     }
   }
 
-  allocated = capAllocatedAgents(allocated, 2);
+  allocated = capAllocatedAgents(allocated, maxAgents);
 
   // External / published-A2A leaf members are not OpenClaw agents — invoke them directly.
   let externalOutcome = null;
@@ -396,6 +434,36 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, c
       console.warn('[delegation] external member delegation failed:', e?.message || e);
     }
     allocated = internalAllocated;
+  }
+
+  // Drop internal agents that are over token / error budget before enqueue or OpenClaw cron.
+  const internalBlocked = [];
+  if (allocated && Object.keys(allocated).length) {
+    const allowed = {};
+    for (const [id, query] of Object.entries(allocated)) {
+      const agent =
+        agents.find((a) => String(a.id).toLowerCase() === String(id).toLowerCase()) || null;
+      const label = agent?.name || id;
+      const budget = enforceBudget(ownerUserId, id, {
+        action: 'delegation',
+        memberLabel: label,
+        throwOnBlock: false,
+      });
+      if (budget?.state === 'blocked') {
+        internalBlocked.push({ id, name: label, reasons: budget.reasons || [] });
+        console.warn(
+          `[delegation] budget blocked member=${id} owner=${ownerUserId} reasons="${(budget.reasons || []).join('; ')}"`
+        );
+        continue;
+      }
+      allowed[id] = query;
+    }
+    allocated = allowed;
+    // Also drop blocked agents from the enqueue list so we never create Kanban/cron for them.
+    if (internalBlocked.length) {
+      const blockedIds = new Set(internalBlocked.map((b) => String(b.id).toLowerCase()));
+      agents = agents.filter((a) => !blockedIds.has(String(a.id).toLowerCase()));
+    }
   }
 
   const requestId = `req-${standupId}-${Date.now()}`;
@@ -421,17 +489,34 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, c
         })
       : [];
 
-  const agentNames = taskRows.map((r) => r.agent.name || r.agent.id);
-  const kanbanTaskIds = [];
-  for (const r of taskRows) {
-    const k = db().prepare('SELECT id FROM kanban_tasks WHERE agent_delegation_task_id = ?').get(r.taskId);
-    if (k) kanbanTaskIds.push(k.id);
-  }
-
   let scheduledCount = 0;
+  const cronBlockedIds = new Set();
   for (const { taskId, agent } of taskRows) {
     const task = db().prepare('SELECT * FROM agent_delegation_tasks WHERE id = ?').get(taskId);
     if (!task) continue;
+    // Re-check just before starting OpenClaw so a race with another run cannot spend past budget.
+    const preCronBudget = enforceBudget(ownerUserId, agent.id, {
+      action: 'delegation',
+      memberLabel: agent.name || agent.id,
+      throwOnBlock: false,
+    });
+    if (preCronBudget?.state === 'blocked') {
+      const reason = `Budget exceeded for ${agent.name || agent.id}: ${(preCronBudget.reasons || []).join('; ')}`;
+      db()
+        .prepare(
+          `UPDATE agent_delegation_tasks SET status = ?, error_message = ?, completed_at = datetime('now') WHERE id = ?`
+        )
+        .run('failed', reason, taskId);
+      completePipelineKanbanForDelegation(taskId, { ok: false });
+      cronBlockedIds.add(String(agent.id).toLowerCase());
+      internalBlocked.push({
+        id: agent.id,
+        name: agent.name || agent.id,
+        reasons: preCronBudget.reasons || [],
+      });
+      console.warn(`[delegation] cron skipped — budget blocked agent=${agent.id} task=${taskId}`);
+      continue;
+    }
     const kanbanRow = db().prepare('SELECT id FROM kanban_tasks WHERE agent_delegation_task_id = ?').get(taskId);
     const kanbanId = kanbanRow ? kanbanRow.id : null;
     let promptWithMemory = await getPromptWithMemoryInjected(agent.id, task.prompt);
@@ -466,20 +551,30 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, c
       console.warn('[delegation] cron_add failed for', agent.id, result.error);
     }
   }
-  const pendingCount = taskRows.length - scheduledCount;
+  const pendingCount = taskRows.length - scheduledCount - cronBlockedIds.size;
   const externalNames = (externalOutcome?.delegated || []).map((d) => d.member.display_name);
+  const startedRows = taskRows.filter(
+    (r) => !cronBlockedIds.has(String(r.agent.id).toLowerCase())
+  );
+  const startedNames = startedRows.map((r) => r.agent.name || r.agent.id);
+  const startedKanbanIds = [];
+  for (const r of startedRows) {
+    const k = db().prepare('SELECT id FROM kanban_tasks WHERE agent_delegation_task_id = ?').get(r.taskId);
+    if (k) startedKanbanIds.push(k.id);
+  }
   return {
     requestId,
-    count: taskRows.length + externalNames.length,
+    count: startedRows.length + externalNames.length,
     scheduledCount,
-    pendingCount,
-    agentNames: [...agentNames, ...externalNames],
+    pendingCount: Math.max(0, pendingCount),
+    agentNames: [...startedNames, ...externalNames],
     kanbanTaskIds: [
-      ...kanbanTaskIds,
+      ...startedKanbanIds,
       ...(externalOutcome?.delegated || []).map((d) => d.taskId).filter(Boolean),
     ],
     externalBlocked: (externalOutcome?.blocked || []).map((b) => b.member.id),
     externalFailed: (externalOutcome?.failed || []).map((f) => f.member.id),
+    internalBlocked,
   };
 }
 

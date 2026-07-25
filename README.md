@@ -83,6 +83,7 @@ Tips:
 1. **Kanban** — board of tasks by agent and status. Open a card for detail, artifacts, and task chat.
 2. **Standups** — team check-ins with COO chat. Daily standups can also run on a schedule when configured by your admin.
 3. Tasks created when the COO delegates appear on the board so you can track specialty work end to end.
+4. **Run status checker** (Dashboard) — opens an HTML CEO report of what needs attention: cards awaiting you, **every failed card with its failure reason** and A2A / workflow run ids, plus recent completions. The same report is posted to your standup and emailed to you daily.
 
 ### Workflows and AgentExchange
 
@@ -116,6 +117,7 @@ Grant or revoke tools on each agent’s **Workspace → Tools access**.
 1. Open your **Profile**.
 2. Choose how the platform picks models (platform default, your API key, or local options like DeepSeek on Ollama when available).
 3. Keep MFA settings as required by your organization.
+4. Set **Data persistence** (30 / 60 / 90 / 120 / 365 days). A nightly job permanently deletes your chats, chat history, standup conversations and workflow runs older than that; **Purge aged data now** does it immediately. Watch the effect on **Efficiency View → Org → Storage (MB)**.
 
 ---
 
@@ -125,14 +127,22 @@ Grant or revoke tools on each agent’s **Workspace → Tools access**.
 
 | Area | What you get in the UI |
 |------|-------------------------|
+| **COO status checker** | Dashboard → **Run status checker** (COO-entitled `status_checker` tool) opens an HTML CEO report: needs-attention, awaiting-you, **all failed Kanban cards of any age** with failure reason / A2A task + workflow run ids, and recent completions. Also runs daily (`COO_STATUS_CHECKER_CRON`, default 09:00) → standup chat post + HTML email. |
+| **Data retention** | Profile → **Data persistence** (30/60/90/120/365 days). Nightly purge (`DATA_RETENTION_CRON`, default 03:15) permanently deletes older chats, chat history, standup conversations and workflow runs per user; manual **Purge** buttons on Dashboard and Profile. |
+| **Storage (MB)** | Efficiency View → **Org** tab shows storage consumed by your tenant (chats, standups, workflow runs, Master Data, OpenClaw workspace files). |
+| **Admin → Crons** | `/admin/crons` lists every platform cron (standup dispatcher, legacy standup, delegation queue, job pipeline, COO status checker, data retention, workflow scheduler) with **Pause** / **Resume** / **Run now**. Pause state persists across restarts. |
+| **Platform API logging** | `PLATFORM_LOG_LEVEL=off\|error\|info` controls backend access/error logs. Keys, tokens, `Authorization` headers, passwords and MFA codes are redacted, and sensitive paths (API Keys, auth) log method + route only. |
+| **Scheduled jobs reference** | All platform crons and user-level schedules documented in `knowledgebase/platform-help/19-scheduled-jobs-and-crons.md`; commented defaults kept in `.env` by `deploy/scripts/ensure-cron-env.sh`. |
 | **API Keys vault** | Management → API Keys — named secrets, optional encryption, required `Platform_BYOK` for OpenAI/OpenRouter. |
 | **Connectors** | Link SaaS apps (OpenConnector) and call them from workflow **Connector** nodes. |
-| **Efficiency View** | **Org** tab: agents, automated tasks, feedback, workflow run success/fail (7d–All). **Agent View** tab: per-agent activity, outcomes, token/error budget gauges. |
+| **Efficiency View** | **Org** tab: agents, automated tasks, feedback, workflow run success/fail, Storage (MB) (7d–All). **Department** tab: month-to-date tokens vs each department's budget. **Agent View** tab: per-agent activity, outcomes, token/error budget gauges, **Reset usage** / **Reset all usage** to zero month-to-date tokens without changing budgets. |
 | **Agent budgets** | Monthly **token budget** + **error budget %** per agent (and per department, as a planning figure). Warn at 80% via bell, **block** new chat/delegated work at 100% tokens or at the error budget (min 10 terminal calls). Refused calls never spend the error budget. Backed by a durable `token_usage` ledger. |
 | **External/A2A agents in your org** | **Add to org** on External Agents / AgentExchange places them as **leaf members** (department + reports-to an internal agent). They show in the org chart, sync into ORG.md / COO AGENTS.md, and the **COO can delegate to them** with Kanban mirroring and budget guard. **Private** A2A listings stay off public endpoints — only COO or the reports-to lead can invoke. |
 | **Workspace templates** | Apply / publish SOUL–OPS templates from Agent Workspace (ORG/POLICY preserved). |
 | **Platform Help agent** | Dedicated `platformhelp` agent + Master Data help corpus (`knowledgebase/platform-help/`) via keyword RAG. |
-| **COO specialty routing** | COO chat routes specialty asks using agent purposes (org docs), not guesswork keywords (multi-intent up to 2). |
+| **COO specialty routing** | COO chat routes specialty asks using agent purposes (org docs), not guesswork keywords (multi-intent up to 2). Over-budget internal agents are refused with **Blocked by budget** before any Kanban card or cron job is created. |
+| **COO AGENTS.md keeps your edits** | **Resync ORG.md & AGENTS.md** refreshes only the org-generated roster sections of the COO's `AGENTS.md`; your manual Role / Priorities / Tools / Guardrails / custom sections are merged back, and workspace template sync no longer clobbers the generated file. |
+| **Get work from team** | The Dashboard standup button fans status requests out to every agent under the COO (budget-aware), instead of classifying the button label as a specialty ask. |
 | **Broadcast + notify** | Broadcast can ask agents to report back and ping your bell; quieter when you only want a rollup. |
 | **Master Data + document search** | Tables with purposes; documents agents can search; starter **departments** + User Guide + Platform Help docs on register. |
 | **Chat tool icons** | See which tools an agent used under a reply. |
@@ -160,11 +170,10 @@ The backend uses the [OpenClaw Gateway](https://docs.openclaw.ai/gateway) HTTP A
 - **OpenClaw** installed and (for chat) **gateway** running with chat completions enabled
 - **Workspace path** where SOUL.md, AGENTS.md, MEMORY.md live (for MD editor)
 - **OPENAI_API_KEY** in backend `.env` for **Run COO** (standup + CEO summary via OpenAI). Optional: `OPENAI_COO_MODEL` (default `gpt-4o-mini`).
-- Optional: **STANDUP_CRON_SCHEDULE** (cron expression, e.g. `0 9 * * *` for 9 AM daily) — runs standup **per enabled CEO** (isolated standups + owner-scoped prompts).
-- Optional: **DELEGATION_CRON_SCHEDULE** (default `* * * * *` = every minute) — processes queued COO→agent tasks **per CEO** (each CEO worker only picks that CEO’s tasks) and posts response callbacks to the correct standup.
-- Optional: **JOB_PIPELINE_CRON_SCHEDULE** — Job Applicant pipeline tick across CEO profiles.
+- Optional: **cron schedules** — every job has a code default, so nothing is required. Commented reference block lives in `backend/.env.example` / `deploy/.env.example` (and is appended to `deploy/.env` by `deploy/scripts/ensure-cron-env.sh`): `STANDUP_SCHEDULE_CRON`, `STANDUP_CRON_SCHEDULE`, `DELEGATION_CRON_SCHEDULE`, `AGENT_WORKFLOW_SCHEDULER_CRON`, `JOB_PIPELINE_CRON_SCHEDULE`, `COO_STATUS_CHECKER_CRON`, `DATA_RETENTION_CRON`. See [Schedulers and crons](#multi-tenancy--schedulers-platform-crons-vs-user-schedules).
 - Optional: **AGENT_OS_BASE_URL**, **AGENT_OS_PUBLIC_URL**, or **PUBLIC_URL** — public DNS/HTTPS base URL for workflow event hooks, cron webhooks, A2A cards, and artifact links. Defaults to `http://127.0.0.1:3001` for local dev.
 - Optional: **AGENT_OS_DATA_DIR** — directory for SQLite DB (default: `backend/data`).
+- Optional: **PLATFORM_LOG_LEVEL** — `off` (silent), `error` (failures only), or `info` (default; one line per API call). Secrets are redacted at every level.
 - Optional: **AGENT_OS_ADMIN_EMAIL** / **AGENT_OS_ADMIN_PASSWORD** — platform admin seeded on first startup.
 - Optional: **AGENT_OS_BALA_CEO_*** — default CEO user for legacy job profiles and workflows.
 
@@ -219,7 +228,9 @@ Set in backend `.env`:
 
 | Feature | Description |
 |--------|-------------|
-| **Auth & roles** | Login/register; **admin** (user management, MCP registry) and **ceo** (agents, workflows, kanban, job pipeline). JWT sessions. New CEO registration provisions OpenClaw agents, syncs org context, seeds **departments** + default **User Guide** document. |
+| **Auth & roles** | Login/register; **admin** (user management, MCP registry, platform crons, A2A logs) and **ceo** (agents, workflows, kanban, job pipeline). JWT sessions. New CEO registration provisions OpenClaw agents, syncs org context, seeds **departments** + default **User Guide** document. |
+| **Admin platform crons** | `/admin/crons` — registry of every platform timer with **Pause** / **Resume** / **Run now**; pause state is persisted so a paused job stays paused after a restart. |
+| **Platform logging & redaction** | `PLATFORM_LOG_LEVEL=off\|error\|info` for backend request/error logs. Secrets (API keys, bearer tokens, `Authorization`, passwords, MFA codes) are redacted from URLs, JSON bodies and headers; API Keys / auth routes log method + route only. Unit tests: `backend/scripts/test-security-hardening-unit.js`. |
 | **Multi-tenant isolation** | Standups and delegation tasks carry `owner_user_id`. Standup cron and delegation cron loop **per enabled CEO** so one CEO never sees another’s standups, chats, or queued agent work. APIs filter by authenticated CEO. |
 | **Org-aware agents** | Every agent in a CEO’s org gets **ORG.md** (CEO, departments, peers with soul/purpose/skills) plus a tenant-specific COO **AGENTS.md** (delegatees). Synced on provision, agent create, and backend startup. Bootstrap watcher reloads `ORG.md` each turn. |
 | **Dashboard** | List agents (org chart); add agent; open **Chat** per agent; standups with COO chat (owner-scoped only); **Resync ORG.md & AGENTS.md**. |
@@ -234,7 +245,7 @@ Set in backend `.env`:
 | **Workflow Builder chat** | LLM assistant in the workflow editor to create/edit graphs via natural language. |
 | **Job profiles** | CEO job search profiles (intake, resume, preferences); gate for Job Applicant pipeline. |
 | **Job workflows** | Multi-agent **Job Applicant** pipeline (Discovery → Fit Scoring → Resume Tailoring → Application); Kanban-tracked stages; browser/Playwright apply path. See **knowledgebase/JOB-APPLICANT-WORKFLOW.md**. |
-| **MCP integrations** | Register MCP servers (admin/CEO); connect, test tools, playground; use in workflow **MCP Tool** and **SSE Listen** nodes. Local test server: `tools/local-mcp-random-sse/`. |
+| **MCP integrations** | Register MCP servers (admin/CEO); connect, test tools, playground; use in workflow **MCP Tool** and **SSE Listen** nodes. Local test server: `tools/local-mcp-random-sse/`. Bundled **Brave Search MCP** wrapper (`tools/brave-search-mcp-byok/`, compose profile `optional-brave-mcp`) turns the Brave REST API into an HTTP MCP server — **BYOK only**, the container never reads `BRAVE_API_KEY`. |
 | **External agents (A2A)** | Register external agent endpoints; invoke from workflow **External Agent** node. |
 | **Content tools** | Agent-callable tools: summarize URL, image/video gen, Kanban, **intent_classify_and_delegate**, workflow trigger/enquire/mutate, job applicant tools, **email_send**, **notify_ceo**, **Master Data** (`master_data_list_tables` / row CRUD / `master_data_rag`), learnings, browser, etc.; owner-scoped logs UI; onboard new APIs via script. |
 | **Master Data & RAG** | Per-CEO tables + documents (keyword RAG over PDF/DOCX/Excel/text). UI captures **purpose/description** per table. Agents list tables with purpose and CRUD rows / RAG docs via content tools — **no create/alter/drop table**. On register: starter **departments** table + **Flolah User Guide** + **Platform Help** document set. **Purge all uploads** removes CEO uploads only; help/guide docs are protected. |
@@ -248,13 +259,23 @@ Set in backend `.env`:
 | **DB** | SQLite: agents, users, chat, standups (`owner_user_id`), delegations (`owner_user_id`), kanban, content tools, job profiles/applications, MCP servers, agent workflow definitions/runs, A2A publications, external agents, platform notifications, audit. |
 | **Agent memory** | Backend injects each agent’s MEMORY.md into delegation prompts and appends summaries on task completion (tenant workspace path). |
 
-### Multi-tenancy & schedulers (high level)
+### Multi-tenancy & schedulers (platform crons vs user schedules)
 
-| Scheduler | Behavior |
-|-----------|----------|
-| **Standup cron** | For each enabled CEO: create standup with `owner_user_id`, run COO collection with owner tags. |
-| **Delegation cron** | For each enabled CEO: claim only that CEO’s `pending` `agent_delegation_tasks`, run agents in that CEO’s OpenClaw tenant, post callbacks only for that CEO’s request IDs. |
-| **Job pipeline cron** | Ticks job profiles / pipeline stages (see Job Applicant docs). |
+**One timer per job per backend process (platform level); each tick loops enabled CEOs and applies that CEO’s own settings (user level).** There is no OS cron entry per CEO. All keys optional — defaults shown.
+
+| Env var (platform timer) | Default | Behavior | Per-user input |
+|--------------------------|---------|----------|----------------|
+| `STANDUP_SCHEDULE_CRON` | `* * * * *` | Dispatcher for user-created standups | standup `scheduled_at` (daily, once/day, owner enabled) |
+| `STANDUP_CRON_SCHEDULE` | *(empty = off)* | Legacy auto-collect standup per enabled CEO (`owner_user_id` + owner-tagged prompts) | — |
+| `DELEGATION_CRON_SCHEDULE` | `* * * * *` | Claims only that CEO’s `pending` `agent_delegation_tasks`, runs agents in that CEO’s OpenClaw tenant, posts callbacks only for that CEO’s request IDs | queued COO→agent tasks |
+| `AGENT_WORKFLOW_SCHEDULER_CRON` | `* * * * *` | Master tick for custom agent workflows | definition `schedule_cron` + `schedule` trigger mode |
+| `JOB_PIPELINE_CRON_SCHEDULE` | `0 * * * *` | Job Applicant pipeline tick across active profiles | profile `workflow_schedule` (hourly/daily/weekly) |
+| `COO_STATUS_CHECKER_CRON` | `0 9 * * *` | COO status digest per enabled CEO → standup post + HTML email | CEO email, own Kanban/A2A state |
+| `DATA_RETENTION_CRON` | `15 3 * * *` | Retention purge per enabled CEO (chats, chat history, standup conversations, workflow runs) | Profile `data_retention_days` (30/60/90/120/365) |
+
+Not crons: workflow **timeout watchdog** (30s `setInterval`, reaps timed-out steps after restarts) and **one-shot OpenClaw Gateway cron jobs** created per delegated task (fire once, then gone).
+
+Manual triggers: `POST /api/cron/run-standup`, `/cron/process-delegations`, `/cron/run-status-checker`, `/cron/run-data-retention`; UI buttons **Run COO**, **Run status checker**, **Purge data older than N days**. Full guide: `knowledgebase/platform-help/19-scheduled-jobs-and-crons.md`.
 
 New CEOs start with **empty** standups (no other user’s chats or agents), starter Master Data (**departments** + User Guide document). Dashboard does not auto-open another CEO’s standup.
 
@@ -327,7 +348,13 @@ bash /opt/agent-os/deploy/scripts/vps-deploy-latest.sh
 SERVICES=frontend bash /opt/agent-os/deploy/scripts/vps-rebuild-frontend.sh
 bash /opt/agent-os/deploy/scripts/vps-verify-frontend-media.sh   # hPanel + fullscreen + CTAs
 bash /opt/agent-os/deploy/scripts/vps-verify-platform.sh         # Platform Help + Master Data
+bash /opt/agent-os/deploy/scripts/vps-verify-status-retention-ui.sh  # status checker + retention + Storage UI
 ```
+
+`vps-deploy-latest.sh` already chains these: `ensure-cron-env.sh` (cron reference block in `deploy/.env`),
+the status/retention checks, `reupload-platform-help-docs.js` (help corpus → every CEO's Master Data),
+then the smoke suite (`vps-smoke-new-features.sh`, `vps-smoke-budgets-org-members.sh`,
+`vps-smoke-brave-byok.sh` when `BRAVE_API_KEY` is set, `vps-verify-platform.sh`).
 
 - **deploy/README.md** — Compose services, volumes, profiles, UI redeploy markers, OpenConnector / email-inbound, repeatable sync
 - **knowledgebase/DEPLOY-CENTOS-PODMAN.md** — CentOS, Podman, SELinux, Chromium/browser login
@@ -352,6 +379,7 @@ All routes below are also available under **`/api/...`** (frontend uses `/api` p
 - `GET /health` — liveness
 - **Auth:** `POST /auth/login`, `POST /auth/register`, `GET /auth/me`, profile update
 - **Admin:** `GET/POST /admin/users`, enable/disable users, grant agents; **`GET /admin/a2a-invocations`** — A2A card/token/invoke audit (denials included)
+- **Admin crons:** `GET /admin/crons`, `GET /admin/crons/:id`, `POST /admin/crons/:id/pause`, `.../resume`, `.../run` — platform timer registry, persisted pause state, one-shot run
 
 ### Agents & workspace
 
@@ -366,6 +394,8 @@ All routes below are also available under **`/api/...`** (frontend uses `/api` p
 - `GET /standups/notifications` — bell feed (delegation responses for this CEO)
 - `GET/PATCH /kanban/tasks`, task messages, reopen, artifacts
 - `POST /cron/run-standup`, `POST /cron/process-delegations` — standup per CEO; delegations per CEO
+- `POST /cron/run-status-checker` — COO status report now (CEO session = own tenant, returns `html` + `digest` for the Dashboard popup; admin/internal = all CEOs)
+- `POST /cron/run-data-retention` — retention purge now (CEO session = own data; admin/internal = all CEOs)
 - `GET /platform-notifications` — CEO notify feed (`notify_ceo`)
 
 ### Content tools
@@ -421,10 +451,15 @@ All routes below are also available under **`/api/...`** (frontend uses `/api` p
 
 ### Efficiency & budgets
 
-- `GET /efficiency` — fleet-level Org metrics (existing)
+- `GET /efficiency/summary?days=7|14|30|90|all` — Org tab metrics + timeline
+- `GET /efficiency/departments` — month-to-date tokens vs `monthly_token_budget` per department (Department tab)
 - `GET /efficiency/agents` — selectable members (internal + leaf) with current-month budget state
 - `GET /efficiency/agents/:memberKey?days=30` — Agent View metrics (activity, outcomes, tokens, reliability, top tools)
 - `PUT /efficiency/agents/:memberKey/budget` — set `monthly_token_budget` / `error_budget_pct`
+- `POST /efficiency/usage/reset` — zero month-to-date `token_usage` for one `member_key` (omit for all); budgets unchanged
+- `GET /efficiency/storage` — tenant storage estimate (`storage_mb`, per-component bytes); also folded into `GET /efficiency/summary` totals for the Org **Storage (MB)** tile
+- `GET/PUT /efficiency/retention` — read / set `data_retention_days` (30, 60, 90, 120, 365)
+- `POST /efficiency/retention/purge` — purge this CEO's aged chats, chat history, standup conversations and workflow runs now
 - Ledger `token_usage` sources: `openclaw_chat`, `delegation`, `workflow_brain`, `a2a_outbound`; provider usage when returned, otherwise a flagged `chars/4` estimate
 
 ### Master Data
@@ -471,6 +506,7 @@ agent-os/
 ├── knowledgebase/              # Extended docs (see index below)
 ├── scripts/                    # OpenClaw/workspace; onboard-api-tool.js; tool-definitions/
 ├── tools/local-mcp-random-sse/ # Dev MCP + SSE test server (port 3099)
+├── tools/brave-search-mcp-byok/   # Brave Search REST → HTTP MCP wrapper (BYOK headers only)
 ├── openclaw-workspace-templates/  # SOUL, AGENTS, MEMORY, TOOLS, ORG per agent type
 ├── openclaw-skills/            # agent-send, agent-os-content-tools, etc.
 ├── openclaw-extensions/        # agent-os-content-tools plugin, bootstrap watcher (ORG.md)
@@ -495,7 +531,9 @@ agent-os/
         ├── pages/              # Dashboard, Login (Flolah footer), AgentChat,
         │                         # AgentWorkspace, Kanban, AgentWorkflows,
         │                         # AgentWorkflowEditor, AgentExchange, JobProfiles,
-        │                         # JobWorkflows, MasterData, Broadcast, …
+        │                         # JobWorkflows, MasterData, Broadcast, ApiKeys,
+        │                         # Connectors, AiSnipper, EfficiencyView,
+        │                         # AdminCrons, AdminA2AInvocations, …
         └── components/         # NotificationBell, PublishA2AModal, ChatComposeInput,
                                 # ChatToolCalls, workflow editor nodes, Kanban artifacts
 ```

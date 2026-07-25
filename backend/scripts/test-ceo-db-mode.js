@@ -7,13 +7,13 @@ import { existsSync } from 'fs';
 
 initDb();
 const stamp = Date.now().toString(36);
-const shared = registerCeoUser({
+const shared = await registerCeoUser({
   email: `shared-${stamp}@test.local`,
   password: 'x',
   name: 'Shared User',
   db_mode: 'shared',
 });
-const tenant = registerCeoUser({
+const tenant = await registerCeoUser({
   email: `tenant-${stamp}@test.local`,
   password: 'x',
   name: 'Tenant User',

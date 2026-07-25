@@ -8,7 +8,6 @@ config({ path: join(__dirname, '..', '.env') });
 
 import express from 'express';
 import cors from 'cors';
-import cron from 'node-cron';
 import workspaceRoutes from './routes/workspace.js';
 import agentsRoutes from './routes/agents.js';
 import standupsRoutes from './routes/standups.js';
@@ -50,7 +49,7 @@ import { ensureDefaultAdmin, ensureBalaCeoUser, grantStandardAgents, pruneShared
 import { ensureCeoDefaultMasterDataForAllCeos } from './services/ceo-default-master-data.js';
 import { initDb, getDb } from './db/schema.js';
 import { seedDefaultAgentsIfEmpty, seedAgentDepartmentsIfMissing } from './db/seed-default-agents.js';
-import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, seedWorkflowToolsIfMissing, seedLearningsToolsIfMissing, seedEmailSendToolIfMissing, seedNotifyCeoToolIfMissing, seedMasterDataToolsIfMissing, seedConnectorToolsIfMissing, seedVedicChartToolIfMissing, updateKanbanToolPurposes } from './db/seed-content-tools-meta.js';
+import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, seedWorkflowToolsIfMissing, seedLearningsToolsIfMissing, seedEmailSendToolIfMissing, seedNotifyCeoToolIfMissing, seedStatusCheckerToolIfMissing, seedMasterDataToolsIfMissing, seedConnectorToolsIfMissing, seedVedicChartToolIfMissing, updateKanbanToolPurposes } from './db/seed-content-tools-meta.js';
 import { seedJobApplicantToolsIfMissing } from './db/seed-job-applicant-tools.js';
 import { seedIbkrTradingToolsIfMissing } from './db/seed-ibkr-trading-tools.js';
 import { writeOpenClawToolsList } from './services/content-tools-meta.js';
@@ -67,11 +66,12 @@ import masterDataRoutes from './routes/master-data.js';
 import ceoGuardrailsRoutes from './routes/ceo-guardrails.js';
 import { runScheduledStandup, runDueStandupSchedules } from './cron/standup.js';
 import { processPendingDelegationTasksForAllCeos } from './services/delegation-queue.js';
-import { runPipelineTick, runPipelineTickAll } from './services/job-applicant-pipeline.js';
+import { runPipelineTickAll } from './services/job-applicant-pipeline.js';
 import { getLastIntentDebug } from './services/intent-classifier.js';
 import { initAgentWorkflowScheduler } from './services/agent-workflow-scheduler.js';
 import { syncWorkflowScheduleRegistry } from './services/agent-workflow-store.js';
 import { resumeStuckWorkflowRuns, startWorkflowTimeoutWatchdog } from './services/agent-workflow-runner.js';
+import { registerPlatformCron } from './services/platform-cron-registry.js';
 import { seedWorkflowBuilderAgent } from '../scripts/seed-workflow-builder-agent.js';
 import { seedPlatformHelpAgent } from '../scripts/seed-platform-help-agent.js';
 import { healAgentWorkspacePaths } from './workspace/adapter.js';
@@ -170,6 +170,7 @@ seedWorkflowToolsIfMissing();
 seedLearningsToolsIfMissing();
 seedEmailSendToolIfMissing();
 seedNotifyCeoToolIfMissing();
+seedStatusCheckerToolIfMissing();
 seedMasterDataToolsIfMissing();
 seedVedicChartToolIfMissing();
 seedConnectorToolsIfMissing();
@@ -335,66 +336,116 @@ app.use('/integrations/email-inbound', emailInboundRoutes);
 app.use('/media/openclaw', mediaRoutes);
 
 const standupScheduleCron = process.env.STANDUP_SCHEDULE_CRON || '* * * * *';
-if (cron.validate(standupScheduleCron)) {
-  cron.schedule(standupScheduleCron, async () => {
-    try {
-      const { count, results } = await runDueStandupSchedules();
-      if (count > 0) {
-        console.log(
-          '[cron] Scheduled standup(s) ran:',
-          results.map((r) => r.standupId || r.error).join(', ')
-        );
-      }
-    } catch (e) {
-      console.error('[cron] Standup schedule tick failed:', e.message);
+registerPlatformCron({
+  id: 'standup_schedule',
+  name: 'Standup schedule dispatcher',
+  description: 'Runs each user-created standup when its scheduled_at hour:minute matches (once per day).',
+  schedule: standupScheduleCron,
+  envVar: 'STANDUP_SCHEDULE_CRON',
+  handler: async () => {
+    const { count, results } = await runDueStandupSchedules();
+    if (count > 0) {
+      console.log(
+        '[cron] Scheduled standup(s) ran:',
+        results.map((r) => r.standupId || r.error).join(', ')
+      );
     }
-  });
-  console.log(`Standup schedule cron: ${standupScheduleCron} (daily at each standup's scheduled_at time)`);
-} else {
-  console.warn('STANDUP_SCHEDULE_CRON invalid; no per-standup schedule runner.');
-}
+    return { count, results };
+  },
+});
 
 const legacyStandupCron = process.env.STANDUP_CRON_SCHEDULE || '';
-if (legacyStandupCron && cron.validate(legacyStandupCron)) {
-  cron.schedule(legacyStandupCron, async () => {
-    try {
+if (legacyStandupCron) {
+  registerPlatformCron({
+    id: 'legacy_standup_collect',
+    name: 'Legacy standup auto-collect',
+    description: 'Creates a standup per enabled CEO and runs COO collection (legacy; empty env = off).',
+    schedule: legacyStandupCron,
+    envVar: 'STANDUP_CRON_SCHEDULE',
+    handler: async () => {
       const { standup, error } = await runScheduledStandup();
       if (error) console.error('[cron] Legacy standup run error:', error);
       else console.log('[cron] Legacy standup completed, id:', standup?.id);
-    } catch (e) {
-      console.error('[cron] Legacy standup failed:', e.message);
-    }
+      return { standup_id: standup?.id || null, error: error || null };
+    },
   });
-  console.log(`Legacy standup auto-collect cron: ${legacyStandupCron} (set STANDUP_CRON_SCHEDULE= to disable)`);
 }
 
 const delegationCronSchedule = process.env.DELEGATION_CRON_SCHEDULE || '* * * * *';
-if (cron.validate(delegationCronSchedule)) {
-  cron.schedule(delegationCronSchedule, async () => {
-    try {
-      await processPendingDelegationTasksForAllCeos();
-    } catch (e) {
-      console.error('[cron] Delegation process error:', e.message);
-    }
-  });
-  console.log('Delegation cron scheduled (COO→agents):', delegationCronSchedule);
-}
+registerPlatformCron({
+  id: 'delegation_queue',
+  name: 'Delegation queue',
+  description: 'Processes pending COO → agent delegation tasks for every enabled CEO.',
+  schedule: delegationCronSchedule,
+  envVar: 'DELEGATION_CRON_SCHEDULE',
+  handler: async () => {
+    await processPendingDelegationTasksForAllCeos();
+    return { ok: true };
+  },
+});
 
 const jobPipelineCron = process.env.JOB_PIPELINE_CRON_SCHEDULE || '0 * * * *';
-if (cron.validate(jobPipelineCron)) {
-  cron.schedule(jobPipelineCron, async () => {
-    try {
-      const result = await runPipelineTickAll();
-      if (result.ran) console.log('[cron] Job pipeline tick:', JSON.stringify(result.results?.length ?? 0, 'profiles'));
-    } catch (e) {
-      console.error('[cron] Job pipeline tick error:', e.message);
-    }
-  });
-  console.log('Job Applicant pipeline cron scheduled:', jobPipelineCron);
-}
+registerPlatformCron({
+  id: 'job_pipeline',
+  name: 'Job Applicant pipeline',
+  description: 'Ticks across active job profiles and runs discovery when each profile schedule is due.',
+  schedule: jobPipelineCron,
+  envVar: 'JOB_PIPELINE_CRON_SCHEDULE',
+  handler: async () => {
+    const result = await runPipelineTickAll();
+    if (result.ran) console.log('[cron] Job pipeline tick:', result.profiles_checked, 'profiles');
+    return result;
+  },
+});
 
+const cooStatusCron = process.env.COO_STATUS_CHECKER_CRON || '0 9 * * *';
+registerPlatformCron({
+  id: 'coo_status_checker',
+  name: 'COO status checker',
+  description:
+    'Daily Kanban/A2A digest per CEO → standup chat + HTML email (email only on this batch path).',
+  schedule: cooStatusCron,
+  envVar: 'COO_STATUS_CHECKER_CRON',
+  handler: async () => {
+    const { runCooStatusCheckerForAllCeos } = await import('./services/coo-status-checker.js');
+    const out = await runCooStatusCheckerForAllCeos();
+    console.log('[cron] COO status checker:', out.count, 'CEO(s)');
+    return out;
+  },
+});
+
+const dataRetentionCron = process.env.DATA_RETENTION_CRON || '15 3 * * *';
+registerPlatformCron({
+  id: 'data_retention',
+  name: 'Data retention purge',
+  description: 'Permanently deletes aged chats, standup conversations and workflow runs per CEO retention days.',
+  schedule: dataRetentionCron,
+  envVar: 'DATA_RETENTION_CRON',
+  handler: async () => {
+    const { purgeRetentionForAllCeos } = await import('./services/data-retention.js');
+    const out = purgeRetentionForAllCeos();
+    console.log('[cron] Data retention purge:', out.count, 'CEO(s)');
+    return out;
+  },
+});
+
+const workflowSchedulerCron = process.env.AGENT_WORKFLOW_SCHEDULER_CRON || '* * * * *';
+registerPlatformCron({
+  id: 'agent_workflow_scheduler',
+  name: 'Agent workflow scheduler',
+  description: 'Master tick: starts custom workflows whose own schedule_cron is due.',
+  schedule: workflowSchedulerCron,
+  envVar: 'AGENT_WORKFLOW_SCHEDULER_CRON',
+  handler: async () => {
+    const { tickScheduledWorkflows } = await import('./services/agent-workflow-scheduler.js');
+    await tickScheduledWorkflows();
+    return { ok: true };
+  },
+});
+
+// Keep registry sync/logging here; master tick is owned by platform-cron-registry (Admin pause/resume).
 syncWorkflowScheduleRegistry();
-initAgentWorkflowScheduler();
+initAgentWorkflowScheduler({ scheduleMaster: false });
 
 app.use((err, req, res, next) => {
   // Never log req.body / headers — may contain API keys, passwords, auth tokens.

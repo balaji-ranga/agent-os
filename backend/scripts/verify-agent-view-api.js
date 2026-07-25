@@ -86,6 +86,37 @@ async function main() {
   const bad = await call('/efficiency/agents/__not_a_member__?days=30', token);
   check('unknown member is rejected', bad.status === 404 || bad.status === 400, `status=${bad.status}`);
 
+  const depts = await call('/efficiency/departments', token);
+  check(
+    'GET /efficiency/departments',
+    depts.status === 200 && Array.isArray(depts.body?.departments),
+    `count=${depts.body?.departments?.length ?? 'n/a'} period=${depts.body?.period ?? '?'}`
+  );
+  if (depts.body?.departments?.length) {
+    const d0 = depts.body.departments[0];
+    check(
+      'department row has tokens_used + budget fields',
+      typeof d0.tokens_used === 'number' && 'monthly_token_budget' in d0,
+      `${d0.name}: used=${d0.tokens_used} budget=${d0.monthly_token_budget}`
+    );
+  }
+
+  // Seed a tiny usage row via budget path is not needed — reset should succeed even with 0 rows.
+  const resetOne = await call('/efficiency/usage/reset', token, {
+    method: 'POST',
+    body: JSON.stringify({ member_key: first.member_key }),
+  });
+  check(
+    'POST /efficiency/usage/reset (one member)',
+    resetOne.status === 200 && resetOne.body?.member_key === first.member_key,
+    `deleted=${resetOne.body?.deleted_rows} status=${resetOne.status}`
+  );
+  check(
+    'reset returns refreshed budget status with 0 used',
+    resetOne.body?.status?.tokens_used === 0,
+    `used=${resetOne.body?.status?.tokens_used}`
+  );
+
   console.log(process.exitCode ? '[verify] FAILURES above' : '[verify] PASS');
 }
 

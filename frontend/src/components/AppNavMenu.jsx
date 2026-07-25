@@ -137,6 +137,13 @@ export function AdminNavMenu({ collapsed }) {
       >
         {collapsed ? 'AL' : 'A2A logs'}
       </NavLink>
+      <NavLink
+        to="/admin/crons"
+        className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+        title="Platform crons — pause, resume, run now"
+      >
+        {collapsed ? 'CR' : 'Crons'}
+      </NavLink>
 
       <NavSection title="Agentic Workflows" collapsed={collapsed}>
         <NavItem to="/connectors" title="Connectors" collapsed={collapsed} label="Connectors" short="Cn" />

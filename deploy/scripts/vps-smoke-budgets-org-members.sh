@@ -48,6 +48,36 @@ else
   echo "    FAIL: Add to org missing from frontend bundle"
   fail=1
 fi
+if docker compose exec -T frontend sh -c 'grep -Rql "Department tokens this month" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend: Department tab OK"
+else
+  echo "    FAIL: Department tab missing from frontend bundle"
+  fail=1
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql "Reset usage" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend: Reset usage OK"
+else
+  echo "    FAIL: Reset usage missing from frontend bundle"
+  fail=1
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql "Research AI trends and give me Q2 expense report" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    FAIL: outdated Standup multi-intent blurb still in bundle"
+  fail=1
+else
+  echo "    frontend: Standup multi-intent blurb removed OK"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql "n/a for external agents" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend: leaf KPI n/a tip OK"
+else
+  echo "    FAIL: leaf KPI n/a tip missing from frontend bundle"
+  fail=1
+fi
+if docker compose exec -T frontend sh -c 'cat /usr/share/nginx/html/assets/*.css 2>/dev/null | grep -q eff-na'; then
+  echo "    frontend: leaf KPI n/a CSS OK"
+else
+  echo "    FAIL: eff-na CSS missing"
+  fail=1
+fi
 if docker compose exec -T frontend sh -c 'cat /usr/share/nginx/html/assets/*.css 2>/dev/null | grep -q eff-gauge'; then
   echo "    frontend: budget gauge CSS OK"
 else

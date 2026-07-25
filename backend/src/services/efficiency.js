@@ -5,6 +5,7 @@ import { getDb } from '../db/schema.js';
 import { chatOwnerIdsForRead } from './agent-chat-scope.js';
 import { getKanbanScopeIds } from './kanban-user-scope.js';
 import { listAgentsForUser } from './users.js';
+import { estimateOwnerStorage } from './owner-storage.js';
 
 /** @typedef {'7' | '14' | '30' | '90' | 'all'} EfficiencyRange */
 
@@ -350,6 +351,16 @@ export function getEfficiencySummary(ownerUserId, { days = 14 } = {}) {
   const feedbackDown = feedbackRows.filter((r) => r.rating === 'down').reduce((a, r) => a + (Number(r.c) || 0), 0);
   const feedbackTotal = feedbackUp + feedbackDown;
 
+  let storageMb = null;
+  let storageBytes = null;
+  try {
+    const storage = estimateOwnerStorage(ownerUserId);
+    storageMb = storage.total_mb;
+    storageBytes = storage.total_bytes;
+  } catch (e) {
+    console.warn('[efficiency] storage estimate failed:', e?.message || e);
+  }
+
   const totals = {
     agents: agentsEntitled,
     tasks_automated: Number(taskTotalsCreated?.automated) || sumField(taskCreatedRows, 'c'),
@@ -365,6 +376,8 @@ export function getEfficiencySummary(ownerUserId, { days = 14 } = {}) {
     workflow_runs: Number(runTotalsRow?.total) || 0,
     workflow_runs_completed: Number(runTotalsRow?.completed) || 0,
     workflow_runs_failed: Number(runTotalsRow?.failed) || 0,
+    storage_mb: storageMb,
+    storage_bytes: storageBytes,
   };
 
   return {

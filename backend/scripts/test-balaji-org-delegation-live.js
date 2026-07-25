@@ -270,7 +270,7 @@ async function main() {
     ref_id: EXT_AGENT_ID,
     display_name: 'Ops Echo Service',
     purpose:
-      'Operations status desk: acknowledges an operations or facilities request and returns a status line.',
+      'Ops echo / operations status desk: when asked to echo a greeting or acknowledge an operations/facilities request, returns a short status line.',
     department: 'Operations',
     parent_id: COO_ID,
     ...BUDGETS.extLeaf,

@@ -262,6 +262,7 @@ function AgentView({ range, rangeLabelText }) {
   const [tokenBudget, setTokenBudget] = useState('');
   const [errorBudget, setErrorBudget] = useState('');
   const [saving, setSaving] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -311,6 +312,13 @@ function AgentView({ range, rangeLabelText }) {
   const member = members.find((m) => m.member_key === selected) || null;
   const budget = data?.budget || null;
   const totals = data?.totals || {};
+  // Leaf members (ext: / a2a:) have no chat session here, so prompts / tools / feedback are N/A.
+  const isLeaf =
+    data?.kind === 'leaf' ||
+    member?.kind === 'external' ||
+    member?.kind === 'a2a_publish';
+  const leafNaTip =
+    'n/a for external agents — prompts, tool calls, and feedback come from chat sessions, which external / A2A leaf members do not have. Use tasks, latency, and tokens instead.';
 
   const timeline = useMemo(() => {
     const rows = data?.timeline || [];
@@ -333,10 +341,57 @@ function AgentView({ range, rangeLabelText }) {
       const refreshed = await api.efficiencyAgent(selected, range);
       setData(refreshed);
       setEditBudget(false);
+      const list = await api.efficiencyAgents();
+      setMembers(list?.members || []);
     } catch (e) {
       setError(e.message || 'Failed to save budget');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const reloadAgent = async () => {
+    if (!selected) return;
+    const [refreshed, list] = await Promise.all([
+      api.efficiencyAgent(selected, range),
+      api.efficiencyAgents(),
+    ]);
+    setData(refreshed);
+    setMembers(list?.members || []);
+  };
+
+  const resetSelectedUsage = async () => {
+    if (!selected || !member) return;
+    const ok = window.confirm(
+      `Reset month-to-date token usage for ${member.name} to 0?\n\nConfigured budgets stay the same; only the used counter is cleared for ${budget?.period || 'this month'}.`
+    );
+    if (!ok) return;
+    setResetting(true);
+    setError(null);
+    try {
+      await api.efficiencyUsageReset(selected);
+      await reloadAgent();
+    } catch (e) {
+      setError(e.message || 'Failed to reset usage');
+    } finally {
+      setResetting(false);
+    }
+  };
+
+  const resetAllUsage = async () => {
+    const ok = window.confirm(
+      `Reset month-to-date token usage to 0 for ALL agents (and external / A2A leaf members)?\n\nConfigured budgets stay the same; only used counters for this month are cleared.`
+    );
+    if (!ok) return;
+    setResetting(true);
+    setError(null);
+    try {
+      await api.efficiencyUsageReset(null);
+      await reloadAgent();
+    } catch (e) {
+      setError(e.message || 'Failed to reset all usage');
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -377,6 +432,24 @@ function AgentView({ range, rangeLabelText }) {
           )}
           <button type="button" className="ai-snip-pill" onClick={() => setEditBudget((v) => !v)}>
             {editBudget ? 'Close budget' : 'Edit budget'}
+          </button>
+          <button
+            type="button"
+            className="ai-snip-pill"
+            onClick={resetSelectedUsage}
+            disabled={!selected || resetting}
+            title="Clear this agent's month-to-date token usage (used → 0)"
+          >
+            {resetting ? 'Resetting…' : 'Reset usage'}
+          </button>
+          <button
+            type="button"
+            className="ai-snip-pill"
+            onClick={resetAllUsage}
+            disabled={resetting}
+            title="Clear month-to-date token usage for every agent"
+          >
+            Reset all usage
           </button>
         </div>
 
@@ -421,16 +494,33 @@ function AgentView({ range, rangeLabelText }) {
 
         <div className="eff-metrics">
           <div className="ai-snip-metric">
-            <div className="ai-snip-metric-value">{formatCompact(totals.prompts || 0)}</div>
+            <div className={`ai-snip-metric-value${isLeaf ? ' eff-na' : ''}`}>
+              {isLeaf ? 'n/a' : formatCompact(totals.prompts || 0)}
+            </div>
             <div className="ai-snip-metric-label">
-              Prompts <InfoTip text="Messages sent to this agent in the selected range" />
+              Prompts{' '}
+              <InfoTip
+                text={
+                  isLeaf
+                    ? leafNaTip
+                    : 'Messages sent to this agent in the selected range'
+                }
+              />
             </div>
           </div>
           <div className="ai-snip-metric">
-            <div className="ai-snip-metric-value">{formatCompact(totals.tool_calls || 0)}</div>
+            <div className={`ai-snip-metric-value${isLeaf ? ' eff-na' : ''}`}>
+              {isLeaf ? 'n/a' : formatCompact(totals.tool_calls || 0)}
+            </div>
             <div className="ai-snip-metric-label">
               Tool calls{' '}
-              <InfoTip text={`${totals.tool_errors || 0} failed tool calls in this range`} />
+              <InfoTip
+                text={
+                  isLeaf
+                    ? leafNaTip
+                    : `${totals.tool_errors || 0} failed tool calls in this range`
+                }
+              />
             </div>
           </div>
           <div className="ai-snip-metric">
@@ -442,12 +532,22 @@ function AgentView({ range, rangeLabelText }) {
             <div className="ai-snip-metric-label">Tasks ok / failed</div>
           </div>
           <div className="ai-snip-metric">
-            <div className="ai-snip-metric-value">
-              {totals.feedback_positive_pct != null ? `${totals.feedback_positive_pct}%` : '—'}
+            <div className={`ai-snip-metric-value${isLeaf ? ' eff-na' : ''}`}>
+              {isLeaf
+                ? 'n/a'
+                : totals.feedback_positive_pct != null
+                  ? `${totals.feedback_positive_pct}%`
+                  : '—'}
             </div>
             <div className="ai-snip-metric-label">
               Feedback positive{' '}
-              <InfoTip text={`${totals.feedback_up || 0} up / ${totals.feedback_down || 0} down`} />
+              <InfoTip
+                text={
+                  isLeaf
+                    ? leafNaTip
+                    : `${totals.feedback_up || 0} up / ${totals.feedback_down || 0} down`
+                }
+              />
             </div>
           </div>
           <div className="ai-snip-metric">
@@ -528,12 +628,208 @@ function AgentView({ range, rangeLabelText }) {
   );
 }
 
-export default function EfficiencyView() {
-  const [view, setView] = useState(() =>
-    typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('tab') === 'agent'
-      ? 'agent'
-      : 'org'
+function DepartmentView() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [selected, setSelected] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    api
+      .efficiencyDepartments()
+      .then((res) => {
+        if (cancelled) return;
+        setData(res);
+        setSelected((cur) => {
+          if (cur && (res?.departments || []).some((d) => d.name === cur)) return cur;
+          return res?.departments?.[0]?.name || '';
+        });
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setError(e.message || 'Failed to load department metrics');
+        setData(null);
+      })
+      .finally(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const departments = data?.departments || [];
+  const totals = data?.totals || {};
+  const dept = departments.find((d) => d.name === selected) || null;
+
+  return (
+    <>
+      <section className="ai-snip-card">
+        <div className="ai-snip-card-head">
+          <h2>Departments</h2>
+          <div className="ai-snip-range-static">{data?.period || 'This month'}</div>
+        </div>
+        <p className="ai-snip-note">
+          Month-to-date tokens used by agents (and external / A2A leaf members) in each department,
+          compared to the department&apos;s monthly token budget from Master Data.
+        </p>
+
+        <div className="eff-metrics">
+          <div className="ai-snip-metric">
+            <div className="ai-snip-metric-value">{formatCompact(totals.departments || 0)}</div>
+            <div className="ai-snip-metric-label">Departments</div>
+          </div>
+          <div className="ai-snip-metric">
+            <div className="ai-snip-metric-value">{formatCompact(totals.members || 0)}</div>
+            <div className="ai-snip-metric-label">
+              Members assigned{' '}
+              <InfoTip text="Agents and leaf members with a department set" />
+            </div>
+          </div>
+          <div className="ai-snip-metric">
+            <div className="ai-snip-metric-value">{formatCompact(totals.tokens_used || 0)}</div>
+            <div className="ai-snip-metric-label">Tokens used (all depts)</div>
+          </div>
+          <div className="ai-snip-metric">
+            <div className="ai-snip-metric-value">
+              {totals.monthly_token_budget ? formatCompact(totals.monthly_token_budget) : '—'}
+            </div>
+            <div className="ai-snip-metric-label">
+              Budget sum{' '}
+              <InfoTip text="Sum of department monthly_token_budget values that are set" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {error && <div className="ai-snip-error">{error}</div>}
+      {loading && !data && <div className="ai-snip-loading">Loading…</div>}
+
+      <section className="ai-snip-card">
+        <div className="ai-snip-card-head">
+          <h2>Department</h2>
+        </div>
+        <div className="eff-agent-controls">
+          <select
+            className="ai-snip-select"
+            value={selected}
+            onChange={(e) => setSelected(e.target.value)}
+            aria-label="Department"
+          >
+            {!departments.length && <option value="">No departments</option>}
+            {departments.map((d) => (
+              <option key={d.name} value={d.name}>
+                {d.name}
+                {d.member_count ? ` · ${d.member_count} member${d.member_count === 1 ? '' : 's'}` : ''}
+              </option>
+            ))}
+          </select>
+          {dept && (
+            <span
+              className="eff-badge"
+              style={{ borderColor: BUDGET_STATE_COLOR[dept.state] || 'var(--border)' }}
+            >
+              {dept.state === 'blocked'
+                ? 'Over department budget'
+                : dept.state === 'warn'
+                  ? 'Near department budget'
+                  : dept.monthly_token_budget
+                    ? 'Within department budget'
+                    : 'No department budget'}
+            </span>
+          )}
+        </div>
+
+        {dept?.purpose ? <p className="ai-snip-note">{dept.purpose}</p> : null}
+
+        {dept && (
+          <div className="eff-gauges">
+            <BudgetGauge
+              label="Department tokens this month"
+              used={dept.tokens_used || 0}
+              limit={dept.monthly_token_budget || 0}
+              tip={`${dept.token_calls || 0} metered calls across ${dept.member_count || 0} member(s) in ${data?.period || 'this month'}. Set the department budget in Master Data → departments or Org designer.`}
+            />
+          </div>
+        )}
+
+        {dept?.members?.length ? (
+          <div className="eff-tool-list" style={{ marginTop: '1rem' }}>
+            {dept.members.map((m) => (
+              <div key={m.member_key} className="eff-tool-row">
+                <span>
+                  {m.name}
+                  <span className="ai-snip-note" style={{ marginLeft: 8 }}>
+                    {m.kind}
+                  </span>
+                </span>
+                <span>
+                  <span style={{ color: BUDGET_STATE_COLOR[m.budget_state] || 'inherit' }}>
+                    {formatCompact(m.tokens_used || 0)}
+                  </span>
+                  {m.monthly_token_budget != null
+                    ? ` / ${formatCompact(m.monthly_token_budget)}`
+                    : ' (no agent budget)'}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : dept ? (
+          <p className="ai-snip-note">No agents assigned to this department yet.</p>
+        ) : null}
+      </section>
+
+      {!loading && departments.length > 0 && (
+        <section className="ai-snip-card">
+          <div className="ai-snip-card-head">
+            <h2>All departments</h2>
+          </div>
+          <div className="eff-tool-list">
+            {departments.map((d) => (
+              <button
+                key={d.name}
+                type="button"
+                className="eff-tool-row"
+                style={{
+                  width: '100%',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  background: d.name === selected ? 'var(--surface-2, transparent)' : 'transparent',
+                  border: 'none',
+                  padding: '0.5rem 0',
+                }}
+                onClick={() => setSelected(d.name)}
+              >
+                <span>
+                  {d.name}
+                  <span className="ai-snip-note" style={{ marginLeft: 8 }}>
+                    {d.member_count} member{d.member_count === 1 ? '' : 's'}
+                  </span>
+                </span>
+                <span style={{ color: BUDGET_STATE_COLOR[d.state] || 'inherit' }}>
+                  {formatCompact(d.tokens_used || 0)}
+                  {d.monthly_token_budget != null
+                    ? ` / ${formatCompact(d.monthly_token_budget)}`
+                    : ' / —'}
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+    </>
   );
+}
+
+export default function EfficiencyView() {
+  const [view, setView] = useState(() => {
+    if (typeof window === 'undefined') return 'org';
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    if (tab === 'agent') return 'agent';
+    if (tab === 'department' || tab === 'dept') return 'department';
+    return 'org';
+  });
   const [range, setRange] = useState('14');
   const [chartTab, setChartTab] = useState('tasks');
   const [data, setData] = useState(null);
@@ -541,6 +837,7 @@ export default function EfficiencyView() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    if (view !== 'org') return undefined;
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -564,7 +861,7 @@ export default function EfficiencyView() {
     return () => {
       cancelled = true;
     };
-  }, [range]);
+  }, [range, view]);
 
   const totals = data?.totals || {
     agents: 0,
@@ -600,16 +897,19 @@ export default function EfficiencyView() {
         )
       : null;
 
+  const subtitle =
+    view === 'agent'
+      ? 'Per-agent activity, outcomes, and monthly token / error budgets.'
+      : view === 'department'
+        ? 'Department monthly token budget vs tokens used by agents in that department.'
+        : 'Agents, automated tasks, feedback quality, and AI workflow run outcomes.';
+
   return (
     <div className="ai-snip-page eff-page">
       <header className="ai-snip-page-head eff-page-head">
         <div>
           <h1>Efficiency View</h1>
-          <p className="ai-snip-sub">
-            {view === 'agent'
-              ? 'Per-agent activity, outcomes, and monthly token / error budgets.'
-              : 'Agents, automated tasks, feedback quality, and AI workflow run outcomes.'}
-          </p>
+          <p className="ai-snip-sub">{subtitle}</p>
           <div className="ai-snip-pills" role="tablist" aria-label="Efficiency view">
             <button
               type="button"
@@ -623,6 +923,15 @@ export default function EfficiencyView() {
             <button
               type="button"
               role="tab"
+              aria-selected={view === 'department'}
+              className={`ai-snip-pill${view === 'department' ? ' active' : ''}`}
+              onClick={() => setView('department')}
+            >
+              Department
+            </button>
+            <button
+              type="button"
+              role="tab"
               aria-selected={view === 'agent'}
               className={`ai-snip-pill${view === 'agent' ? ' active' : ''}`}
               onClick={() => setView('agent')}
@@ -631,21 +940,26 @@ export default function EfficiencyView() {
             </button>
           </div>
         </div>
-        <select
-          className="ai-snip-select eff-range-select"
-          value={range}
-          onChange={(e) => setRange(e.target.value)}
-          aria-label="Time range"
-        >
-          {RANGE_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+        {view === 'org' || view === 'agent' ? (
+          <select
+            className="ai-snip-select eff-range-select"
+            value={range}
+            onChange={(e) => setRange(e.target.value)}
+            aria-label="Time range"
+          >
+            {RANGE_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <div className="ai-snip-range-static">This calendar month</div>
+        )}
       </header>
 
       {view === 'agent' && <AgentView range={range} rangeLabelText={label} />}
+      {view === 'department' && <DepartmentView />}
 
       {view === 'org' && (
         <>
@@ -720,6 +1034,15 @@ export default function EfficiencyView() {
           <div className="ai-snip-metric">
             <div className="ai-snip-metric-value">{formatCompact(totals.workflow_runs)}</div>
             <div className="ai-snip-metric-label">Total workflow runs</div>
+          </div>
+          <div className="ai-snip-metric">
+            <div className="ai-snip-metric-value">
+              {totals.storage_mb != null ? Number(totals.storage_mb).toFixed(1) : '—'}
+            </div>
+            <div className="ai-snip-metric-label">
+              Storage (MB){' '}
+              <InfoTip text="Estimated data consumed: chat, standup history, workflow payloads, master-data files, and OpenClaw tenant workspace" />
+            </div>
           </div>
         </div>
       </section>

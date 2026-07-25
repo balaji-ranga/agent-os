@@ -19,10 +19,18 @@ Board of tasks by agent and status — shared for agent work, workflow steps, an
 1. **Create standup** for a check-in thread with the COO.
 2. Chat in the standup; ask the COO to collect updates or delegate.
 3. Use **Get work from team** / **Run COO summary** when available.
-4. Watch the **bell** for delegated agent replies.
-5. Daily standups can also run on a schedule when your admin configures standup cron.
+4. Use **Run status checker** to open a CEO status report popup (awaiting you, failed, in progress, open, recent completions) and post the digest into standup chat. The HTML email is sent only by the daily batch cron — not from this button or the COO tool.
+5. Watch the **bell** for delegated agent replies.
+6. Daily standups can also run on a schedule when your admin configures standup cron.
 
 Standups are **owner-scoped** — only your CEO’s standups appear.
+
+## Data retention (Dashboard + Profile)
+
+- Set **Data persistence** on **Profile** to 30 / 60 / 90 / 120 / 365 days.
+- After that window, chats, standup history, and workflow run instances are **permanently deleted**.
+- A daily retention job runs automatically; you can also **Purge** from the Dashboard or Profile.
+- Schedules, defaults, and what each job touches: [19-scheduled-jobs-and-crons.md](./19-scheduled-jobs-and-crons.md).
 
 ## Broadcast (`/broadcast`)
 

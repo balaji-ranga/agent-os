@@ -82,6 +82,10 @@ export const PLATFORM_HELP_DOCUMENTS = Object.freeze([
     filename: '18-agent-budgets-and-org-members.md',
     title: `${PLATFORM_HELP_TITLE_PREFIX}Agent Budgets Org Members`,
   },
+  {
+    filename: '19-scheduled-jobs-and-crons.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}Scheduled Jobs Crons Retention`,
+  },
 ]);
 
 /** Resolve repo README.md (local: agent-os/README.md; Docker: /opt/agent-os/README.md). */

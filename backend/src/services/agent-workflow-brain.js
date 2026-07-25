@@ -378,6 +378,32 @@ function appendMcpToolsHint(systemPrompt, entries) {
  * @param {{ authUser?: object }} options - workflow owner for MCP registry access
  */
 /**
+ * Decide which org member a Brain call belongs to, so Agent View and budgets see the spend.
+ *
+ * A workflow published over A2A *is* the leaf member doing the work, so an A2A-invoked run bills
+ * the `a2a:<publishId>` leaf. Runs an agent kicked off (COO delegation, agent tool call,
+ * sub-workflow) bill that agent. Anything left (manual, schedule, webhook) has no org member to
+ * charge and falls back to a workflow-scoped key.
+ *
+ * @param {object} context - workflow run context
+ * @returns {string} token ledger member key
+ */
+export function resolveBrainMemberKey(context = {}) {
+  const explicit = String(context?.member_key || '').trim();
+  if (explicit) return explicit;
+
+  const actorId = String(context?.actor?.id || '').trim();
+  const actorType = String(context?.actor?.type || '').trim().toLowerCase();
+  if (actorType === 'a2a_client' && /^a2a:/i.test(actorId)) return actorId;
+
+  const agentId = String(context?.agent_id || '').trim();
+  if (agentId) return agentId;
+  if (actorId && ['coo', 'agent', 'workflow_builder'].includes(actorType)) return actorId;
+
+  return context?.definition_id ? `workflow:${context.definition_id}` : 'workflow:unknown';
+}
+
+/**
  * Attribute one Brain call to the token ledger. Uses provider usage when returned,
  * otherwise a chars/4 estimate flagged as estimated. Never throws.
  */
@@ -394,9 +420,7 @@ function meterBrainUsage({ ownerId, context, result, model, systemPrompt, userMe
         : null;
     })();
   if (!usage) return null;
-  const memberKey =
-    String(context?.agent_id || context?.member_key || '').trim() ||
-    (context?.definition_id ? `workflow:${context.definition_id}` : 'workflow:unknown');
+  const memberKey = resolveBrainMemberKey(context);
   recordTokenUsage(ownerId, {
     memberKey,
     agentId: context?.agent_id || null,

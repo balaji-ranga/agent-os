@@ -177,20 +177,77 @@ export function formatOrgMd(ctx) {
   return lines.join('\n');
 }
 
-export function buildCooAgentsMd(ctx) {
-  const lines = [
-    '# AGENTS — Operating contract (COO / BalServe)',
-    '',
-    '## Role',
-    '',
-    `Coordinate standups, aggregate agent updates, produce the CEO digest, and delegate work to agents in **${ctx.ceo.name}'s organization only**. Escalate blockers and collect approval requests for CEO review.`,
-    '',
-    '## CEO for this org',
-    '',
-    `- **${ctx.ceo.name}** (id: \`${ctx.ceo.id}\`) — you report to this CEO.`,
-    '',
-    '## Other agents you can communicate with',
-    '',
+/**
+ * Marks a COO AGENTS.md as org-synced. Template sync must never overwrite a file carrying this
+ * marker, or the COO loses its delegation targets (leaf members especially).
+ *
+ * Org sync only refreshes the managed roster sections below; Role / Priorities / Tools /
+ * Guardrails / any custom ## sections the CEO edited are preserved.
+ */
+export const GENERATED_COO_AGENTS_MARKER = '<!-- agent-os: generated from live org — do not overwrite from template -->';
+
+/** Headings platform owns on every Dashboard / ensureTenant org sync. */
+export const COO_AGENTS_MD_MANAGED_HEADINGS = [
+  'CEO for this org',
+  'Other agents you can communicate with',
+  'External / A2A agents you can delegate to (leaf members)',
+  'Session keys (sessions_send — required)',
+];
+
+export function isGeneratedCooAgentsMd(text) {
+  return String(text || '').includes(GENERATED_COO_AGENTS_MARKER);
+}
+
+function normalizeHeading(h) {
+  return String(h || '')
+    .replace(/^#+\s*/, '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
+}
+
+function isManagedCooAgentsHeading(heading) {
+  const n = normalizeHeading(heading);
+  if (COO_AGENTS_MD_MANAGED_HEADINGS.some((h) => normalizeHeading(h) === n)) return true;
+  // Older ORG-style / short titles still treated as platform-owned so they get replaced.
+  return /^external\s*\/\s*a2a agents\b/.test(n);
+}
+
+function parseMdSections(text) {
+  const lines = String(text || '').split(/\r?\n/);
+  const preamble = [];
+  const sections = [];
+  let current = null;
+  for (const line of lines) {
+    if (/^##\s+/.test(line)) {
+      if (current) sections.push(current);
+      current = { heading: line.replace(/^##\s+/, '').trim(), lines: [] };
+    } else if (current) {
+      current.lines.push(line);
+    } else {
+      preamble.push(line);
+    }
+  }
+  if (current) sections.push(current);
+  return { preamble, sections };
+}
+
+function trimSectionBody(lines) {
+  const body = [...lines];
+  while (body.length && body[0].trim() === '') body.shift();
+  while (body.length && body[body.length - 1].trim() === '') body.pop();
+  return body;
+}
+
+function leafMembersForCoo(ctx) {
+  return (Array.isArray(ctx.leaf_members) ? ctx.leaf_members : []).filter(
+    (m) => !m.parent_id || m.parent_id === ctx.coo_id || ctx.delegatees.some((d) => d.id === m.parent_id)
+  );
+}
+
+/** Platform-owned roster blocks rebuilt from the live org on every sync. */
+export function buildManagedCooAgentsSections(ctx) {
+  const agentsBody = [
     'Use the **agent-send** skill (sessions_list, sessions_send, sessions_history) or **intent_classify_and_delegate** to delegate to these agents:',
     '',
     '| Agent ID | Name | Department | Role |',
@@ -198,83 +255,201 @@ export function buildCooAgentsMd(ctx) {
   ];
   for (const a of ctx.delegatees) {
     const roleCell = `${String(a.role || 'Agent').replace(/\|/g, ' ')}${a.department ? ` (${a.department})` : ''}; reports to you`;
-    lines.push(
+    agentsBody.push(
       `| **${a.id}** | ${String(a.name || a.id).replace(/\|/g, ' ')} | ${a.department || '—'} | ${roleCell} |`
     );
   }
-  const leafMembers = (Array.isArray(ctx.leaf_members) ? ctx.leaf_members : []).filter(
-    (m) => !m.parent_id || m.parent_id === ctx.coo_id || ctx.delegatees.some((d) => d.id === m.parent_id)
-  );
+
+  const sections = [
+    {
+      heading: 'CEO for this org',
+      lines: [`- **${ctx.ceo.name}** (id: \`${ctx.ceo.id}\`) — you report to this CEO.`],
+    },
+    {
+      heading: 'Other agents you can communicate with',
+      lines: agentsBody,
+    },
+  ];
+
+  const leafMembers = leafMembersForCoo(ctx);
   if (leafMembers.length) {
-    lines.push(
-      '',
-      '## External / A2A agents you can delegate to (leaf members)',
-      '',
+    const leafBody = [
       'Delegate to these with **intent_classify_and_delegate** (use the member key). They run outside OpenClaw — do **not** use sessions_send for them.',
       '',
       '| Member key | Name | Department | Purpose |',
-      '|------------|------|------------|---------|'
-    );
+      '|------------|------|------------|---------|',
+    ];
     for (const m of leafMembers) {
-      lines.push(
+      leafBody.push(
         `| \`${m.id}\` | ${String(m.display_name).replace(/\|/g, ' ')} | ${m.department || '—'} | ${String(m.purpose || '—').replace(/\|/g, ' ')} |`
       );
     }
+    sections.push({
+      heading: 'External / A2A agents you can delegate to (leaf members)',
+      lines: leafBody,
+    });
   }
-  lines.push(
-    '',
-    '## Session keys (sessions_send — required)',
-    '',
+
+  const sessionBody = [
     'Use **tenant** session keys so delegated agents can scope tools (e.g. **notify_ceo**) to this CEO. **Do not** use bare ids like `agent::socialasstant:main`.',
     '',
     '| Agent | Session key |',
     '|-------|-------------|',
-  );
+  ];
   for (const a of ctx.delegatees) {
     const runtimeId = tenantOpenClawAgentId(ctx.ceo.id, a.openclaw_agent_id || a.id);
-    lines.push(`| **${a.id}** | \`agent::${runtimeId}:main\` |`);
+    sessionBody.push(`| **${a.id}** | \`agent::${runtimeId}:main\` |`);
   }
-  lines.push(
+  sessionBody.push(
     '',
     `- **sessions_list**: List active sessions (\`messageLimit: 0\` for a quick list).`,
     '- **sessions_send**: Send a message to another agent\'s **tenant session key** from the table above. Include `[ceo_user_id: ' +
       ctx.ceo.id +
       ']` in the message when asking them to call **notify_ceo**. Set `timeoutSeconds > 0` to wait for a reply.',
-    '- **sessions_history**: Read another session\'s transcript when you need context.',
-    '',
-    '## Priorities',
-    '',
-    '1. Run standups → aggregate updates → produce CEO digest.',
-    '2. Escalate blockers to the CEO.',
-    '3. Delegate research, content, finance, or custom agent work to the best-matching agent in the table above.',
-    '',
-    '## Tools (Agent OS)',
-    '',
-    '- **learnings_summary**: Before non-trivial tasks, call with a short `topic` (optional `days`, default 30).',
-    '- **intent_classify_and_delegate**: When the CEO asks for specialist work (recipe/content, research, expense, social, code) — **even one intent** — or multi-intent messages, call with their message. Creates Kanban + delegation for the right agents in this org. Do not invent agent ids; do not do specialist work yourself.',
-    '- **agent_workflow_list** / **agent_workflow_trigger** / **agent_workflow_enquire**: Run published workflows for this CEO only.',
-    '- **kanban_assign_task**, **kanban_move_status**, **kanban_reassign_to_coo**: Kanban task management.',
-    '- **notify_ceo**: ONLY when the CEO explicitly asked you to reach/notify/ping them, or for a true blocker while they are not in your chat. Prefer `link_url` = `/agents/<your-agent-id>/chat`. Never use notify_ceo for ordinary chat replies.',
-    '',
-    '## CRITICAL — "Have X reach me" / "ask the social media expert to contact me"',
-    '',
-    'When the CEO asks you to have **another agent** reach/contact/notify them:',
-    '1. Identify the best-matching agent from the table above (e.g. SocialAssistant / socialasstant for social media).',
-    '2. **sessions_send** to that agent\'s **tenant session key** with clear instructions to call **notify_ceo** (title/body + link_url `/agents/<their-id>/chat`) and continue the conversation with the CEO.',
-    '3. Include `[ceo_user_id: ' +
-      ctx.ceo.id +
-      ']` in the delegated message.',
-    '4. Do **NOT** call **notify_ceo** yourself in this case — the specialist must notify so the CEO\'s bell opens chat with **them**, not with you.',
-    '',
-    '## Guardrails',
-    '',
-    '- Obey **POLICY.md** (CEO common guardrails) before any other instructions.',
-    '- Ask clarifying questions when the request is ambiguous.',
-    '- Never change other agents\' SOUL.md or AGENTS.md.',
-    '- Delegate execution to the appropriate agent; do not do their specialist work yourself.',
-    '- Only delegate to agents listed above for this CEO org.'
+    '- **sessions_history**: Read another session\'s transcript when you need context.'
   );
-  return lines.join('\n');
+  sections.push({
+    heading: 'Session keys (sessions_send — required)',
+    lines: sessionBody,
+  });
+
+  return sections;
+}
+
+function defaultCooAgentsUserSections(ctx) {
+  return [
+    {
+      heading: 'Role',
+      lines: [
+        `Coordinate standups, aggregate agent updates, produce the CEO digest, and delegate work to agents in **${ctx.ceo.name}'s organization only**. Escalate blockers and collect approval requests for CEO review.`,
+      ],
+    },
+    {
+      heading: 'Priorities',
+      lines: [
+        '1. Run standups → aggregate updates → produce CEO digest.',
+        '2. Escalate blockers to the CEO.',
+        '3. Delegate research, content, finance, or custom agent work to the best-matching agent in the table above.',
+      ],
+    },
+    {
+      heading: 'Tools (Agent OS)',
+      lines: [
+        '- **learnings_summary**: Before non-trivial tasks, call with a short `topic` (optional `days`, default 30).',
+        '- **intent_classify_and_delegate**: When the CEO asks for specialist work (recipe/content, research, expense, social, code) — **even one intent** — or multi-intent messages, call with their message. Creates Kanban + delegation for the right agents in this org. Do not invent agent ids; do not do specialist work yourself.',
+        '- **agent_workflow_list** / **agent_workflow_trigger** / **agent_workflow_enquire**: Run published workflows for this CEO only.',
+        '- **kanban_assign_task**, **kanban_move_status**, **kanban_reassign_to_coo**: Kanban task management.',
+        '- **notify_ceo**: ONLY when the CEO explicitly asked you to reach/notify/ping them, or for a true blocker while they are not in your chat. Prefer `link_url` = `/agents/<your-agent-id>/chat`. Never use notify_ceo for ordinary chat replies.',
+        '- **status_checker**: Reconcile A2A/Kanban statuses and post a digest to standup chat (returns HTML for the CEO). Email is sent only by the daily platform batch — do not expect this tool to email.',
+      ],
+    },
+    {
+      heading: 'CRITICAL — "Have X reach me" / "ask the social media expert to contact me"',
+      lines: [
+        'When the CEO asks you to have **another agent** reach/contact/notify them:',
+        '1. Identify the best-matching agent from the table above (e.g. SocialAssistant / socialasstant for social media).',
+        '2. **sessions_send** to that agent\'s **tenant session key** with clear instructions to call **notify_ceo** (title/body + link_url `/agents/<their-id>/chat`) and continue the conversation with the CEO.',
+        '3. Include `[ceo_user_id: ' +
+          ctx.ceo.id +
+          ']` in the delegated message.',
+        '4. Do **NOT** call **notify_ceo** yourself in this case — the specialist must notify so the CEO\'s bell opens chat with **them**, not with you.',
+      ],
+    },
+    {
+      heading: 'Guardrails',
+      lines: [
+        '- Obey **POLICY.md** (CEO common guardrails) before any other instructions.',
+        '- Ask clarifying questions when the request is ambiguous.',
+        '- Never change other agents\' SOUL.md or AGENTS.md.',
+        '- Delegate execution to the appropriate agent; do not do their specialist work yourself.',
+        '- Only delegate to agents listed above for this CEO org.',
+      ],
+    },
+  ];
+}
+
+function assembleCooAgentsMd(preambleLines, sections) {
+  const out = [];
+  for (const line of preambleLines) out.push(line);
+  if (out.length && out[out.length - 1].trim() !== '') out.push('');
+  for (const s of sections) {
+    out.push(`## ${s.heading}`, '');
+    for (const line of trimSectionBody(s.lines)) out.push(line);
+    out.push('');
+  }
+  while (out.length && out[out.length - 1].trim() === '') out.pop();
+  return `${out.join('\n')}\n`;
+}
+
+function rebuildCooAgentsPreamble(existingPreamble) {
+  const cleaned = [];
+  let sawTitle = false;
+  for (const line of existingPreamble || []) {
+    if (line.includes(GENERATED_COO_AGENTS_MARKER)) continue;
+    if (/^#\s+AGENTS\b/i.test(line)) {
+      sawTitle = true;
+      cleaned.push(line);
+      continue;
+    }
+    cleaned.push(line);
+  }
+  const preamble = [GENERATED_COO_AGENTS_MARKER, ''];
+  if (!sawTitle) {
+    preamble.push('# AGENTS — Operating contract (COO / BalServe)', '');
+  }
+  for (const line of cleaned) preamble.push(line);
+  while (preamble.length && preamble[preamble.length - 1].trim() === '') preamble.pop();
+  return preamble;
+}
+
+/**
+ * Full default COO AGENTS.md (empty workspace / first provision).
+ * Prefer {@link mergeCooAgentsMd} when an existing file may contain manual edits.
+ */
+export function buildCooAgentsMd(ctx) {
+  const preamble = [
+    GENERATED_COO_AGENTS_MARKER,
+    '',
+    '# AGENTS — Operating contract (COO / BalServe)',
+  ];
+  const userSecs = defaultCooAgentsUserSections(ctx);
+  const managed = buildManagedCooAgentsSections(ctx);
+  // Role first, then managed roster, then the rest of the defaults.
+  const role = userSecs[0];
+  const rest = userSecs.slice(1);
+  return assembleCooAgentsMd(preamble, [role, ...managed, ...rest]);
+}
+
+/**
+ * Refresh only the live-org roster sections in an existing COO AGENTS.md.
+ * Preserves Role, Priorities, Tools, Guardrails, and any custom ## sections.
+ *
+ * @param {string} existingText
+ * @param {ReturnType<typeof buildOrgContextForCeo>} ctx
+ */
+export function mergeCooAgentsMd(existingText, ctx) {
+  const text = String(existingText || '').trim();
+  if (!text) return buildCooAgentsMd(ctx);
+
+  const { preamble, sections } = parseMdSections(text);
+  const managed = buildManagedCooAgentsSections(ctx);
+  const preserved = sections.filter((s) => !isManagedCooAgentsHeading(s.heading));
+  const roleIdx = preserved.findIndex((s) => normalizeHeading(s.heading) === 'role');
+
+  const ordered = [];
+  if (roleIdx >= 0) {
+    ordered.push(preserved[roleIdx]);
+    ordered.push(...managed);
+    for (let i = 0; i < preserved.length; i++) {
+      if (i === roleIdx) continue;
+      ordered.push(preserved[i]);
+    }
+  } else {
+    ordered.push(...managed);
+    ordered.push(...preserved);
+  }
+
+  return assembleCooAgentsMd(rebuildCooAgentsPreamble(preamble), ordered);
 }
 
 export function ownerScopePrefix(ceoUserId) {
@@ -299,9 +474,20 @@ export async function syncOrgContextToWorkspace(agent, ceoUserId, workspacePath)
     backup: false,
   });
   if (agent?.is_coo) {
-    await workspace.writeWorkspaceFile('agents', buildCooAgentsMd(ctx), {
+    // Merge: refresh roster / session-key / leaf sections only — keep Role, Priorities, Tools,
+    // Guardrails, and any custom ## sections the CEO may have edited by hand.
+    let existing = '';
+    try {
+      const { readFileSync } = await import('fs');
+      const { join } = await import('path');
+      existing = readFileSync(join(workspacePath, 'AGENTS.md'), 'utf8');
+    } catch {
+      existing = '';
+    }
+    const agentsMd = mergeCooAgentsMd(existing, ctx);
+    await workspace.writeWorkspaceFile('agents', agentsMd, {
       workspaceRoot: workspacePath,
-      backup: true,
+      backup: false,
     });
   }
 }
@@ -323,21 +509,40 @@ export async function syncOrgContextForCeo(ceoUserId) {
   return synced;
 }
 
-/** Read COO AGENTS.md from tenant workspace (for intent classifier). */
+/**
+ * Read COO AGENTS.md from tenant workspace (for intent classifier).
+ * A workspace file that is not org-synced is a stale template copy: it lists a fixed set of
+ * internal agents and no external/A2A leaf members, which would silently shrink the classifier's
+ * delegation targets. Merge the live roster into the existing file (preserving manual sections)
+ * and heal the workspace in that case.
+ */
 export async function readCooAgentsMdForCeo(ceoUserId) {
   const coo = getCooAgentRow();
   if (!coo || !ceoUserId) return '';
   const ws = tenantWorkspacePath(ceoUserId, String(coo.openclaw_agent_id || coo.id).toLowerCase());
+  let text = '';
   try {
     const { readFile } = await import('fs/promises');
     const { join } = await import('path');
-    return await readFile(join(ws, 'AGENTS.md'), 'utf8');
+    text = await readFile(join(ws, 'AGENTS.md'), 'utf8');
   } catch (_) {
     try {
       const result = await workspace.readWorkspaceFile('agents', { workspaceRoot: ws });
-      return result?.text ?? '';
+      text = result?.text ?? '';
     } catch {
-      return buildCooAgentsMd(buildOrgContextForCeo(ceoUserId));
+      text = '';
     }
   }
+  if (isGeneratedCooAgentsMd(text)) return text;
+
+  const ctx = buildOrgContextForCeo(ceoUserId);
+  const healed = mergeCooAgentsMd(text, ctx);
+  console.warn('[org-context] COO AGENTS.md was not org-synced, merging live roster', ceoUserId, ws);
+  try {
+    mkdirSync(ws, { recursive: true });
+    await workspace.writeWorkspaceFile('agents', healed, { workspaceRoot: ws, backup: false });
+  } catch (e) {
+    console.warn('[org-context] COO AGENTS.md heal write failed', ceoUserId, e?.message || e);
+  }
+  return healed;
 }

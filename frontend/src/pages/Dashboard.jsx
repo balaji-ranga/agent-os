@@ -85,6 +85,10 @@ export default function Dashboard() {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [getWorkLoading, setGetWorkLoading] = useState(false);
   const [checkUpdatesLoading, setCheckUpdatesLoading] = useState(false);
+  const [statusCheckerLoading, setStatusCheckerLoading] = useState(false);
+  const [statusReport, setStatusReport] = useState(null); // { html, counts, email, standup_id }
+  const [retentionPurgeLoading, setRetentionPurgeLoading] = useState(false);
+  const [retentionDays, setRetentionDays] = useState(90);
   const [standupChatInput, setStandupChatInput] = useState('');
   const [standupAttachments, setStandupAttachments] = useState([]);
   const [deletingStandupId, setDeletingStandupId] = useState(null);
@@ -111,10 +115,11 @@ export default function Dashboard() {
   const fetchData = () => {
     setLoading(true);
     setError(null);
-    Promise.all([api.agentsList(), api.standupsList(20)])
-      .then(([a, s]) => {
+    Promise.all([api.agentsList(), api.standupsList(20), api.efficiencyRetentionGet().catch(() => null)])
+      .then(([a, s, retention]) => {
         setAgents(a);
         setStandups(s);
+        if (retention?.data_retention_days) setRetentionDays(retention.data_retention_days);
         // Do not auto-open another CEO's standup; user picks or creates one.
       })
       .catch((e) => setError(e.message))
@@ -324,6 +329,51 @@ export default function Dashboard() {
       .finally(() => setCheckUpdatesLoading(false));
   };
 
+  const handleStatusChecker = () => {
+    setStatusCheckerLoading(true);
+    setError(null);
+    api
+      .cronRunStatusChecker({ post_standup: true })
+      .then((out) => {
+        if (!out?.html) {
+          setError('Status report was empty. Try again or check Kanban directly.');
+          return;
+        }
+        setStatusReport({
+          html: out.html,
+          counts: out.counts || {},
+          email: out.email || { skipped: true, reason: 'batch_only' },
+          standup_id: out.standup_id || null,
+        });
+        refreshStandup();
+        api.standupsList(20).then(setStandups).catch(() => {});
+      })
+      .catch((e) => setError(e.message))
+      .finally(() => setStatusCheckerLoading(false));
+  };
+
+  const handleRetentionPurge = () => {
+    if (
+      !window.confirm(
+        `Permanently delete chats, standup history, and workflow runs older than ${retentionDays} days? This cannot be undone.`
+      )
+    ) {
+      return;
+    }
+    setRetentionPurgeLoading(true);
+    setError(null);
+    api
+      .cronRunDataRetention({})
+      .then((out) => {
+        const d = out.deleted || {};
+        setOrgDocSyncMessage(
+          `Retention purge (${out.retention_days}d): chats ${d.chat_turns || 0}, standup ${d.standup_messages || 0}, runs ${d.workflow_runs || 0}`
+        );
+      })
+      .catch((e) => setError(e.message))
+      .finally(() => setRetentionPurgeLoading(false));
+  };
+
   const fetchOpenClawAgents = () => {
     setOpenclawLoading(true);
     api.openclawAgents()
@@ -360,10 +410,151 @@ export default function Dashboard() {
   };
 
   if (loading) return <div className="mcp-pg">Loading…</div>;
-  if (error) return <div className="mcp-pg" style={{ color: '#f87171' }}>Error: {error}</div>;
 
   return (
     <div className="mcp-pg" style={{ paddingTop: '2rem' }}>
+      {error && (
+        <div
+          style={{
+            marginBottom: '1rem',
+            padding: '0.65rem 0.85rem',
+            borderRadius: 8,
+            border: '1px solid #fecaca',
+            background: '#fef2f2',
+            color: '#991b1b',
+            fontSize: '0.9rem',
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: '0.75rem',
+            alignItems: 'flex-start',
+          }}
+        >
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#991b1b',
+              cursor: 'pointer',
+              fontSize: '0.85rem',
+            }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {statusReport && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="COO Status Report"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 200,
+            background: 'rgba(15, 23, 42, 0.55)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem',
+          }}
+          onClick={() => setStatusReport(null)}
+        >
+          <div
+            style={{
+              width: 'min(920px, 100%)',
+              maxHeight: 'min(90vh, 900px)',
+              background: 'var(--surface)',
+              borderRadius: 14,
+              border: '1px solid var(--border)',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.28)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                flexShrink: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '0.75rem',
+                padding: '0.85rem 1rem',
+                borderBottom: '1px solid var(--border)',
+              }}
+            >
+              <div>
+                <strong style={{ fontSize: '1.05rem' }}>COO Status Report</strong>
+                <div style={{ fontSize: '0.8rem', color: 'var(--muted)', marginTop: 2 }}>
+                  {(statusReport.counts?.needs_attention ??
+                    (statusReport.counts?.awaiting_ceo || 0) +
+                      (statusReport.counts?.failed ?? statusReport.counts?.failed_1d ?? 0))}{' '}
+                  need attention
+                  {' · '}
+                  {statusReport.counts?.failed ?? statusReport.counts?.failed_1d ?? 0} failed
+                  {' · '}
+                  {statusReport.counts?.awaiting_ceo || 0} awaiting you
+                  {statusReport.email?.sent
+                    ? ' · Email sent to your inbox'
+                    : statusReport.email?.skipped
+                      ? ' · Email via daily batch only'
+                    : statusReport.email?.error
+                      ? ` · Email not sent (${statusReport.email.error})`
+                      : ''}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <Link
+                  to="/kanban"
+                  style={{
+                    padding: '0.4rem 0.75rem',
+                    background: 'var(--accent)',
+                    color: '#fff',
+                    borderRadius: 6,
+                    textDecoration: 'none',
+                    fontSize: '0.85rem',
+                  }}
+                >
+                  Open Kanban
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setStatusReport(null)}
+                  style={{
+                    padding: '0.4rem 0.75rem',
+                    background: 'var(--surface)',
+                    color: 'var(--text)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                    fontSize: '0.85rem',
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+            <iframe
+              title="COO Status Report"
+              srcDoc={statusReport.html}
+              sandbox=""
+              style={{
+                flex: 1,
+                width: '100%',
+                minHeight: 480,
+                border: 'none',
+                background: '#f1f5f9',
+              }}
+            />
+          </div>
+        </div>
+      )}
+
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
         <h1 style={{ marginTop: 0, marginBottom: 0 }}>Dashboard</h1>
       </div>
@@ -377,7 +568,7 @@ export default function Dashboard() {
               type="button"
               onClick={syncOrgAgentDocs}
               disabled={orgDocSyncing}
-              title="Rebuild ORG.md and COO AGENTS.md from the database (roster, tenant session keys)"
+              title="Refresh ORG.md and the roster sections in COO AGENTS.md (agents, external/A2A leaves, session keys). Manual Role / Priorities / Tools / Guardrails / custom sections are kept."
               style={{
                 padding: '0.45rem 0.85rem',
                 background: 'var(--surface)',
@@ -406,7 +597,8 @@ export default function Dashboard() {
         </div>
         <p style={{ color: 'var(--muted)', marginBottom: '1rem', fontSize: '0.9rem' }}>
           CEO (you) → reports-to chain for agents in <strong>your</strong> workspace only. Use Chart or Design to arrange departments.
-          After structural changes, click <strong>Resync ORG.md &amp; AGENTS.md</strong> so workspaces get an updated roster.
+          After structural changes, click <strong>Resync ORG.md &amp; AGENTS.md</strong> to refresh the agent roster (and leaf members).
+          Manual edits in the COO&apos;s Role / Priorities / Tools / Guardrails (or other custom sections) are preserved.
         </p>
         <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
           <button
@@ -472,8 +664,28 @@ export default function Dashboard() {
       <section style={{ marginBottom: '2rem' }}>
         <h2 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>Standups</h2>
         <p style={{ color: 'var(--muted)', marginBottom: '1rem', fontSize: '0.9rem' }}>
-          Create or open a standup. In the chat, <strong>request AI and/or finance topics</strong> (e.g. &quot;Research AI trends and give me Q2 expense report&quot;). Multi-intent messages are split: the COO sends to both TechResearcher and ExpenseManager when both topics are present. Responses appear automatically; &quot;Check for updates&quot; processes any queued tasks immediately.
+          Create or open a standup. Chat with the COO for that standup; delegated agent responses appear here automatically.
+          Use <strong>Run status checker</strong> for a CEO status report popup (posted to standup). The HTML email is sent only by the daily batch cron, not from this button.
         </p>
+        <div style={{ marginBottom: '0.75rem' }}>
+          <button
+            type="button"
+            onClick={handleStatusChecker}
+            disabled={statusCheckerLoading}
+            title="Open CEO status report (Kanban digest; email is daily batch only)"
+            style={{
+              padding: '0.45rem 0.85rem',
+              background: statusCheckerLoading ? 'var(--muted)' : 'var(--accent)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 6,
+              cursor: statusCheckerLoading ? 'not-allowed' : 'pointer',
+              fontSize: '0.9rem',
+            }}
+          >
+            {statusCheckerLoading ? 'Building report…' : 'Run status checker'}
+          </button>
+        </div>
         <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
           <div style={{ minWidth: 220, maxWidth: 300 }}>
             <div style={{ marginBottom: '0.75rem' }}>
@@ -639,6 +851,15 @@ export default function Dashboard() {
                     >
                       {checkUpdatesLoading ? '…' : 'Check for updates'}
                     </button>
+                    <button
+                      type="button"
+                      onClick={handleStatusChecker}
+                      disabled={statusCheckerLoading}
+                      title="Open CEO status report"
+                      style={{ padding: '0.4rem 0.75rem', background: statusCheckerLoading ? 'var(--muted)' : 'var(--accent)', color: '#fff', border: 'none', borderRadius: 6, cursor: statusCheckerLoading ? 'not-allowed' : 'pointer', fontSize: '0.85rem' }}
+                    >
+                      {statusCheckerLoading ? '…' : 'Status report'}
+                    </button>
                   </span>
                 </div>
                 <div className="chat-scroll-panel" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -711,6 +932,34 @@ export default function Dashboard() {
             )}
           </div>
         </div>
+      </section>
+
+      <section style={{ marginBottom: '2rem' }}>
+        <h2 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>Data retention</h2>
+        <p style={{ color: 'var(--muted)', marginBottom: '0.75rem', fontSize: '0.9rem' }}>
+          Permanently delete chats, standup history, and workflow run instances older than your profile retention window
+          (currently <strong>{retentionDays} days</strong>). A daily job also runs this automatically. Change the window in{' '}
+          <Link to="/profile">My profile</Link>.
+        </p>
+        <button
+          type="button"
+          onClick={handleRetentionPurge}
+          disabled={retentionPurgeLoading}
+          style={{
+            padding: '0.5rem 0.9rem',
+            background: 'var(--surface)',
+            color: 'var(--text)',
+            border: '1px solid var(--border)',
+            borderRadius: 6,
+            cursor: retentionPurgeLoading ? 'not-allowed' : 'pointer',
+            fontSize: '0.9rem',
+          }}
+        >
+          {retentionPurgeLoading ? 'Purging…' : `Purge data older than ${retentionDays} days`}
+        </button>
+        {orgDocSyncMessage && (
+          <p style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: 'var(--muted)' }}>{orgDocSyncMessage}</p>
+        )}
       </section>
 
       {/* Sync from OpenClaw — hidden from Dashboard (API still available for admin/scripts) */}

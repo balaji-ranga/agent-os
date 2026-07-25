@@ -265,6 +265,41 @@ function buildIcsAttachmentPart(ics, filename, method = 'REQUEST') {
   };
 }
 
+function buildTextHtmlBodyParts(textBody, htmlBody, outerBoundary) {
+  const text = String(textBody || '').trim() || '(See HTML version)';
+  const html = String(htmlBody || '').trim();
+  if (!html) {
+    return [
+      `--${outerBoundary}`,
+      'Content-Type: text/plain; charset=utf-8',
+      'Content-Transfer-Encoding: 8bit',
+      '',
+      text,
+      '',
+    ];
+  }
+  const altBoundary = `alt-${randomUUID()}`;
+  return [
+    `--${outerBoundary}`,
+    `Content-Type: multipart/alternative; boundary="${altBoundary}"`,
+    '',
+    `--${altBoundary}`,
+    'Content-Type: text/plain; charset=utf-8',
+    'Content-Transfer-Encoding: 8bit',
+    '',
+    text,
+    '',
+    `--${altBoundary}`,
+    'Content-Type: text/html; charset=utf-8',
+    'Content-Transfer-Encoding: 8bit',
+    '',
+    html,
+    '',
+    `--${altBoundary}--`,
+    '',
+  ];
+}
+
 function buildMimeMessage({
   from,
   toList,
@@ -272,6 +307,7 @@ function buildMimeMessage({
   bccList,
   subject,
   body,
+  html = null,
   ics = null,
   meetingTitle = null,
   calendarInviteMethod = 'REQUEST',
@@ -292,14 +328,37 @@ function buildMimeMessage({
   const hasInlineCalendar = !!ics;
   const fileAttachments = attachments.filter((a) => a && a.content);
   const hasAttachments = fileAttachments.length > 0;
+  const htmlBody = html != null && String(html).trim() ? String(html).trim() : null;
 
   if (hasInlineCalendar) {
     headers.push('Content-Class: urn:content-classes:calendarmessage');
   }
 
+  // Plain + optional HTML, no attachments/calendar.
   if (!hasInlineCalendar && !hasAttachments) {
-    headers.push('Content-Type: text/plain; charset=utf-8');
-    return { message: [...headers, '', body].join('\r\n'), messageId };
+    if (!htmlBody) {
+      headers.push('Content-Type: text/plain; charset=utf-8');
+      return { message: [...headers, '', body].join('\r\n'), messageId };
+    }
+    const altBoundary = `alt-${randomUUID()}`;
+    headers.push(`Content-Type: multipart/alternative; boundary="${altBoundary}"`);
+    const parts = [
+      `--${altBoundary}`,
+      'Content-Type: text/plain; charset=utf-8',
+      'Content-Transfer-Encoding: 8bit',
+      '',
+      body || '(See HTML version)',
+      '',
+      `--${altBoundary}`,
+      'Content-Type: text/html; charset=utf-8',
+      'Content-Transfer-Encoding: 8bit',
+      '',
+      htmlBody,
+      '',
+      `--${altBoundary}--`,
+      '',
+    ];
+    return { message: [...headers, '', ...parts].join('\r\n'), messageId };
   }
 
   const mixedBoundary = `mixed-${randomUUID()}`;
@@ -311,12 +370,7 @@ function buildMimeMessage({
     const calendarMethod = calendarInviteMethod || 'REQUEST';
     const icsPart = buildIcsAttachmentPart(ics, icsFilename, calendarMethod);
     const parts = [
-      `--${mixedBoundary}`,
-      'Content-Type: text/plain; charset=utf-8',
-      'Content-Transfer-Encoding: 8bit',
-      '',
-      body,
-      '',
+      ...buildTextHtmlBodyParts(body, htmlBody, mixedBoundary),
       `--${mixedBoundary}`,
       `Content-Type: ${icsPart.contentType}`,
       `Content-Disposition: attachment; filename="${icsPart.filename}"`,
@@ -341,38 +395,21 @@ function buildMimeMessage({
     return { message: [...headers, '', ...parts].join('\r\n'), messageId };
   }
 
-  if (hasAttachments) {
-    headers.push(`Content-Type: multipart/mixed; boundary="${mixedBoundary}"`);
+  headers.push(`Content-Type: multipart/mixed; boundary="${mixedBoundary}"`);
+  const parts = [...buildTextHtmlBodyParts(body || '(See attachment)', htmlBody, mixedBoundary)];
+  for (const att of fileAttachments) {
+    const safeName = att.filename.replace(/"/g, '');
+    parts.push(
+      `--${mixedBoundary}`,
+      `Content-Type: ${att.contentType}; name="${safeName}"`,
+      `Content-Disposition: ${att.disposition || 'attachment'}; filename="${safeName}"`,
+      `Content-Transfer-Encoding: ${att.encoding === 'base64' ? 'base64' : '8bit'}`,
+      '',
+      encodeAttachmentPart(att),
+      ''
+    );
   }
-
-  const parts = [];
-
-  if (hasAttachments) {
-    if (body) {
-      parts.push(
-        `--${mixedBoundary}`,
-        'Content-Type: text/plain; charset=utf-8',
-        'Content-Transfer-Encoding: 8bit',
-        '',
-        body || '(See attachment)',
-        ''
-      );
-    }
-    for (const att of fileAttachments) {
-      const safeName = att.filename.replace(/"/g, '');
-      parts.push(
-        `--${mixedBoundary}`,
-        `Content-Type: ${att.contentType}; name="${safeName}"`,
-        `Content-Disposition: ${att.disposition || 'attachment'}; filename="${safeName}"`,
-        `Content-Transfer-Encoding: ${att.encoding === 'base64' ? 'base64' : '8bit'}`,
-        '',
-        encodeAttachmentPart(att),
-        ''
-      );
-    }
-    parts.push(`--${mixedBoundary}--`, '');
-  }
-
+  parts.push(`--${mixedBoundary}--`, '');
   return { message: [...headers, '', ...parts].join('\r\n'), messageId };
 }
 
@@ -532,7 +569,7 @@ function sendSmtpMime({ host, port, secure, user, pass, from, toList, ccList, bc
 /**
  * Send email and/or calendar invite.
  * Body: {
- *   to, cc?, bcc?, subject, body,
+ *   to, cc?, bcc?, subject, body, html?,
  *   calendar?: { title, start, end, ... },
  *   attachments?: [{ filename, content, contentType?, encoding? }],
  *   ics?: string — raw .ics file content (shortcut)
@@ -544,6 +581,7 @@ export async function executeEmailSend(body = {}) {
   const bccList = normalizeRecipients(body.bcc);
   const subject = String(body.subject || '').trim() || '(no subject)';
   let textBody = String(body.body || body.text || '').trim();
+  const htmlBody = body.html != null ? String(body.html).trim() : '';
   let attachments = normalizeAttachments(body);
 
   if (!toList.length && !ccList.length && !bccList.length) {
@@ -574,7 +612,7 @@ export async function executeEmailSend(body = {}) {
     textBody = extractIcsFromPlainBody(textBody).body;
   }
 
-  if (!textBody && !cal && !attachments.length) {
+  if (!textBody && !htmlBody && !cal && !attachments.length) {
     return { sent: false, attempted: false, error: 'Email body, calendar invite, or attachment is required' };
   }
 
@@ -602,7 +640,8 @@ export async function executeEmailSend(body = {}) {
     ccList: toList.length ? ccList : [],
     bccList,
     subject,
-    body: textBody || `Meeting invitation: ${cal?.title || subject}`,
+    body: textBody || (htmlBody ? '' : `Meeting invitation: ${cal?.title || subject}`),
+    html: htmlBody || null,
     ics,
     meetingTitle: cal?.title || subject,
     calendarInviteMethod: calendarMethod,

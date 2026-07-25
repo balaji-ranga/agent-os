@@ -10,7 +10,12 @@
 # deploy/docker + compose overlays (incl. docker-compose.vps-client-ip.yml for real client IP / A2A whitelist),
 # scripts/, openclaw extensions/skills/templates — then rebuilds via vps-deploy-latest.sh.
 #
-# Features covered: Flolah branding, hPanel light theme (collapsible nav + profile menu),
+# Features covered: Admin Crons console (/admin/crons pause/resume/run now, persisted pause state),
+# platform API logging (PLATFORM_LOG_LEVEL=off|error|info + secret redaction),
+# Brave Search MCP BYOK wrapper (tools/brave-search-mcp-byok, profile optional-brave-mcp),
+# cron reference block in deploy/.env (ensure-cron-env.sh) + platform-help 19
+# (scheduled jobs / retention), Org Storage (MB), COO status_checker report, data retention purge,
+# Flolah branding, hPanel light theme (collapsible nav + profile menu),
 # workflow editor fullscreen (shell-focus-mode), Register MCP/Agents primary CTAs,
 # multi-tenant standups/delegation, Kanban owner_user_id isolation (no shared-agent leak),
 # lean Kanban board (no Job applications filter / pipeline status banner),
@@ -29,9 +34,15 @@
 # chat paperclip attach → Master Data RAG, Vedic Astrology + generate_chart (JSON chart_spec),
 # Workflow autonomous certify (Maker/Checker; LLM Checker default OFF — WORKFLOW_CERTIFY_*),
 # Desktop Windows packages (PS1 + optional portable Node 18; token + IP whitelist; ASCII-safe PS1),
+# COO AGENTS.md org-generated marker (workspace template sync no longer clobbers leaf members),
 # department purpose + monthly_token_budget, agent monthly token/error budgets (token_usage ledger,
-# warn-then-block), Efficiency View Agent View tab, external/A2A agents as org leaf members
-# (Add to org) + COO delegation to them, A2A visibility public|private (private = org COO/reports-to only),
+# warn-then-block; internal COO delegation budget gate), Brain token attribution to a2a leaf members,
+# Efficiency View Org / Department / Agent tabs + Reset usage (MTD tokens → 0) + leaf n/a KPIs,
+# standup "Get work from team" fan-out to agents under the COO,
+# Org Storage (MB) metric, COO status_checker (standup + HTML email; daily cron + Dashboard button),
+# data retention days on profile (30/60/90/120/365) + daily purge cron + Dashboard/Profile purge,
+# external/A2A agents as org leaf members
+# (Add to org) + COO delegation to them (budgets enforced before enqueue/cron), A2A visibility public|private (private = org COO/reports-to only),
 # Master Data Purge all uploads (CEO uploads only; Platform Help + User Guide protected from delete/purge),
 # agent delete cascade (transactional, clears kanban assignments) + deleted_agents tombstone
 # (startup catalog re-grant and OpenClaw sync no longer resurrect a deleted agent).
@@ -86,11 +97,13 @@ scp @ssh `
   "$Repo\deploy\scripts\vps-smoke-openconnector-real.sh" `
   "$Repo\deploy\scripts\vps-smoke-openconnector-selfservice.sh" `
   "$Repo\deploy\scripts\vps-smoke-budgets-org-members.sh" `
+  "$Repo\deploy\scripts\vps-verify-status-retention-ui.sh" `
   "$Repo\deploy\scripts\vps-regression-full.sh" `
   "$Repo\deploy\scripts\vps-enable-real-openconnector.sh" `
   "$Repo\deploy\scripts\vps-rebuild-frontend.sh" `
   "$Repo\deploy\scripts\ensure-deepseek-env.sh" `
   "$Repo\deploy\scripts\ensure-workflow-certify-env.sh" `
+  "$Repo\deploy\scripts\ensure-cron-env.sh" `
   "$Repo\deploy\scripts\vps-deploy-coo-org-fix.sh" `
   "$Repo\deploy\scripts\vps-smoke-brave-byok.sh" `
   "$Repo\deploy\scripts\configure-openclaw-docker.js" `
@@ -120,6 +133,8 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-platform-help-rag.js" `
     "$Repo\backend\scripts\test-platform-help-chat.js" `
     "$Repo\backend\scripts\vps-smoke-new-features.js" `
+    "$Repo\backend\scripts\vps-test-status-retention.js" `
+    "$Repo\backend\scripts\test-standup-get-work-from-team.js" `
     "$Repo\backend\scripts\test-email-send-tool.js" `
     "$Repo\backend\scripts\test-notify-ceo-tool.js" `
     "$Repo\backend\scripts\test-notify-ceo-delegated.js" `
@@ -184,6 +199,16 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-a2a-private-visibility.js" `
     "$Repo\backend\scripts\test-balaji-org-delegation-live.js" `
     "$Repo\backend\scripts\repair-live-echo-workflows.js" `
+    "$Repo\backend\scripts\test-coo-agents-md-preserved.js" `
+    "$Repo\backend\scripts\test-coo-agents-md-merge.js" `
+    "$Repo\backend\scripts\test-intent-agents-md-parse.js" `
+    "$Repo\backend\scripts\test-brain-token-attribution.js" `
+    "$Repo\backend\scripts\test-internal-delegation-budget-gate.js" `
+    "$Repo\backend\scripts\test-department-efficiency.js" `
+    "$Repo\backend\scripts\test-token-usage-reset.js" `
+    "$Repo\backend\scripts\verify-coo-agents-md.js" `
+    "$Repo\backend\scripts\cleanup-agents-md-backups.js" `
+    "$Repo\backend\scripts\probe-get-work-from-team.js" `
     "$Repo\backend\scripts\probe-balaji-org.js" `
     "$Repo\backend\scripts\probe-balaji-live-artifacts.js" `
     "$Repo\backend\scripts\probe-budgets-org-ready.js" `
@@ -221,6 +246,7 @@ if ($Services -match "backend|openclaw") {
   scp @ssh -r "$Repo\openclaw-workspace-templates\bala" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/knowledgebase"
   scp @ssh -r "$Repo\knowledgebase\platform-help" "root@${HostIp}:$RemoteRoot/knowledgebase/"
+  scp @ssh "$Repo\knowledgebase\README.md" "root@${HostIp}:$RemoteRoot/knowledgebase/README.md"
   scp @ssh "$Repo\README.md" "root@${HostIp}:$RemoteRoot/README.md"
   scp @ssh -r "$Repo\openclaw-skills\agent-os-content-tools" "root@${HostIp}:$RemoteRoot/openclaw-skills/"
   scp @ssh -r "$Repo\openclaw-skills\agent-send" "root@${HostIp}:$RemoteRoot/openclaw-skills/"

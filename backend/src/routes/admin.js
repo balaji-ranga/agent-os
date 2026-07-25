@@ -37,6 +37,13 @@ import {
   TEMPLATE_FILE_KEYS,
 } from '../services/platform-agent-workspace-templates.js';
 import { listA2AInvocations } from '../services/workflow-a2a-invocation-log.js';
+import {
+  listPlatformCrons,
+  getPlatformCron,
+  pausePlatformCron,
+  resumePlatformCron,
+  runPlatformCron,
+} from '../services/platform-cron-registry.js';
 
 const router = Router();
 
@@ -391,6 +398,55 @@ router.get('/a2a-invocations', (req, res) => {
     res.json(result);
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+/** Platform-level cron jobs — list / pause / resume / ad-hoc trigger (Admin only). */
+router.get('/crons', (_req, res) => {
+  try {
+    res.json({ crons: listPlatformCrons() });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.get('/crons/:id', (req, res) => {
+  try {
+    const job = getPlatformCron(req.params.id);
+    if (!job) return res.status(404).json({ error: 'Unknown cron' });
+    res.json({ cron: job });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.post('/crons/:id/pause', (req, res) => {
+  try {
+    const cron = pausePlatformCron(req.params.id);
+    console.log(`[admin] cron paused id=${cron.id} by=${req.authUser?.id || 'admin'}`);
+    res.json({ ok: true, cron });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+router.post('/crons/:id/resume', (req, res) => {
+  try {
+    const cron = resumePlatformCron(req.params.id);
+    console.log(`[admin] cron resumed id=${cron.id} by=${req.authUser?.id || 'admin'}`);
+    res.json({ ok: true, cron });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+router.post('/crons/:id/run', async (req, res) => {
+  try {
+    console.log(`[admin] cron adhoc trigger id=${req.params.id} by=${req.authUser?.id || 'admin'}`);
+    const out = await runPlatformCron(req.params.id, { source: 'admin' });
+    res.json(out);
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
   }
 });
 

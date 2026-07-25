@@ -21,8 +21,10 @@ function UserProfilePanel() {
     llm_provider: 'platform_decided',
     llm_api_key: '',
     clear_llm_api_key: false,
+    data_retention_days: 90,
   });
   const [industries, setIndustries] = useState([]);
+  const [purgeBusy, setPurgeBusy] = useState(false);
   const [lastLoginAt, setLastLoginAt] = useState(null);
   const [mfaInfo, setMfaInfo] = useState(null);
   const [llmHint, setLlmHint] = useState(null);
@@ -64,6 +66,7 @@ function UserProfilePanel() {
       llm_provider: user.llm_provider || 'platform_decided',
       llm_api_key: '',
       clear_llm_api_key: false,
+      data_retention_days: user.data_retention_days || 90,
     }));
     setLastLoginAt(user.last_login_at || null);
     setLlmHint(user.llm_api_key_hint || null);
@@ -91,6 +94,7 @@ function UserProfilePanel() {
           industry: data.user?.industry || f.industry || 'personal',
           industry_other: data.user?.industry_other || '',
           business_name: data.user?.business_name || '',
+          data_retention_days: data.user?.data_retention_days || f.data_retention_days || 90,
         }));
         setLastLoginAt(data.user?.last_login_at || null);
         setLlmHint(data.user?.llm_api_key_hint || null);
@@ -141,6 +145,7 @@ function UserProfilePanel() {
         mfa_policy: form.mfa_policy,
         mfa_mode: form.mfa_mode === 'inherit' ? 'inherit' : form.mfa_mode,
         llm_provider: form.llm_provider,
+        data_retention_days: Number(form.data_retention_days) || 90,
       };
       if (form.new_password) {
         body.current_password = form.current_password;
@@ -288,6 +293,61 @@ function UserProfilePanel() {
             style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
           />
         </label>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Data persistence (retention)</span>
+          <select
+            value={form.data_retention_days || 90}
+            onChange={(e) => set('data_retention_days', Number(e.target.value))}
+            style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+          >
+            {[30, 60, 90, 120, 365].map((d) => (
+              <option key={d} value={d}>
+                {d} days
+              </option>
+            ))}
+          </select>
+          <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
+            After this period, chats, standup history, and workflow run instances are permanently deleted (daily job + Dashboard purge).
+          </span>
+        </label>
+        <button
+          type="button"
+          disabled={purgeBusy || busy}
+          onClick={async () => {
+            if (
+              !window.confirm(
+                `Permanently delete data older than ${form.data_retention_days || 90} days? This cannot be undone.`
+              )
+            ) {
+              return;
+            }
+            setPurgeBusy(true);
+            setError(null);
+            setMessage(null);
+            try {
+              const out = await api.efficiencyRetentionPurge();
+              const d = out.deleted || {};
+              setMessage(
+                `Purged older than ${out.retention_days}d: chats ${d.chat_turns || 0}, standup ${d.standup_messages || 0}, runs ${d.workflow_runs || 0}`
+              );
+            } catch (err) {
+              setError(err.message);
+            } finally {
+              setPurgeBusy(false);
+            }
+          }}
+          style={{
+            alignSelf: 'flex-start',
+            padding: '0.45rem 0.85rem',
+            borderRadius: 6,
+            border: '1px solid var(--border)',
+            background: 'var(--surface)',
+            color: 'var(--text)',
+            cursor: purgeBusy ? 'not-allowed' : 'pointer',
+          }}
+        >
+          {purgeBusy ? 'Purging…' : 'Purge aged data now'}
+        </button>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Industry</span>
           <select

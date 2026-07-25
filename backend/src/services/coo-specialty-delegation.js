@@ -2,12 +2,13 @@
  * Hard path: COO chat delegates via AGENTS.md intent classification (LLM),
  * not keyword specialty hints. Cap at 2 specialists (same as standup / intent tool).
  */
-import { getCooAgentRow, readCooAgentsMdForCeo } from './org-context.js';
+import { getCooAgentRow, readCooAgentsMdForCeo, getAgentsUnderCooForCeo } from './org-context.js';
 import { classifyIntentAndAllocate } from './intent-classifier.js';
 import { scheduleCeoRequestViaOpenClawCron } from './delegation-queue.js';
 import { isAskSpecialistToReachMe } from './reach-me-delegation.js';
 import { getOrCreateDelegationHubStandup } from './standup-hub.js';
 import { splitAllocationByKind } from './org-member-keys.js';
+import { enforceBudget } from './agent-budgets.js';
 
 /** Match intent-classifier + delegation-queue multi-intent cap. */
 const MAX_DELEGATE_AGENTS = 2;
@@ -155,10 +156,37 @@ export async function tryHandleCooSpecialtyDelegation(ownerUserId, ceoMessage) {
     }
   }
 
-  const restrictToAgentIds = Object.keys(internal);
+  // Refuse internal specialists that are already over token / error budget before enqueue/cron.
+  const agentById = new Map(
+    getAgentsUnderCooForCeo(ownerUserId).map((a) => [String(a.id).toLowerCase(), a])
+  );
+  const allowedInternal = {};
+  const internalBlocked = [];
+  for (const [id, query] of Object.entries(internal)) {
+    const agent = agentById.get(String(id).toLowerCase());
+    const label = agent?.name || id;
+    const budget = enforceBudget(ownerUserId, id, {
+      action: 'delegation',
+      memberLabel: label,
+      throwOnBlock: false,
+    });
+    if (budget?.state === 'blocked') {
+      internalBlocked.push({ id, name: label, reasons: budget.reasons || [] });
+      console.warn(
+        `[coo-delegation] budget blocked member=${id} owner=${ownerUserId} reasons="${(budget.reasons || []).join('; ')}"`
+      );
+      continue;
+    }
+    allowedInternal[id] = query;
+  }
+
+  const restrictToAgentIds = Object.keys(allowedInternal);
   if (!restrictToAgentIds.length) {
-    if (leafOutcome) {
-      return { ok: true, ...buildLeafOnlyReply(leafOutcome) };
+    if (leafOutcome || internalBlocked.length) {
+      return {
+        ok: true,
+        ...buildNoInternalReply({ leafOutcome, internalBlocked }),
+      };
     }
     // No specialist fit — leave to COO LLM (answer, clarify, or tool use).
     // Explicit "delegate" with no match: still tell the CEO we couldn't map it.
@@ -182,15 +210,26 @@ export async function tryHandleCooSpecialtyDelegation(ownerUserId, ceoMessage) {
 
   const result = await scheduleCeoRequestViaOpenClawCron(standupId, t, ownerUserId, {
     restrictToAgentIds,
-    preAllocated: internal,
+    preAllocated: allowedInternal,
   });
-  if (!result?.count) {
+  const moreBlocked = [
+    ...internalBlocked,
+    ...((result?.internalBlocked || []).map((b) => ({
+      id: b.id,
+      name: b.name || b.id,
+      reasons: b.reasons || [],
+    })) || []),
+  ];
+  if (!result?.count && !leafOutcome?.delegated?.length) {
     return {
       ok: true,
-      cooReply:
-        "I classified this against AGENTS.md but couldn't queue the specialist run. Try again or name the agent.",
-      result,
-      standup_id: null,
+      ...buildNoInternalReply({ leafOutcome, internalBlocked: moreBlocked }),
+      result: {
+        ...(result || { count: 0, agentNames: [], kanbanTaskIds: [] }),
+        internal_blocked: moreBlocked,
+        external_blocked: leafOutcome?.blocked?.map((b) => b.member.id) || [],
+        external_failed: leafOutcome?.failed?.map((f) => f.member.id) || [],
+      },
     };
   }
 
@@ -199,19 +238,24 @@ export async function tryHandleCooSpecialtyDelegation(ownerUserId, ceoMessage) {
     result.kanbanTaskIds?.length > 0
       ? ` Kanban task id(s): ${result.kanbanTaskIds.join(', ')}.`
       : '';
+  const blockHint = moreBlocked.length ? ` ${describeInternalBlocked(moreBlocked)}` : '';
   const cooReply =
-    `I've delegated this to **${names}** based on AGENTS.md purposes (not doing the specialist work myself).` +
-    ` They'll pick it up via the delegation run — track progress on Kanban.${kanbanHint}` +
-    (result.pendingCount > 0
-      ? ' Some work is queued; refresh Kanban or Check for updates shortly.'
+    (result?.count
+      ? `I've delegated this to **${names}** based on AGENTS.md purposes (not doing the specialist work myself).` +
+        ` They'll pick it up via the delegation run — track progress on Kanban.${kanbanHint}` +
+        (result.pendingCount > 0
+          ? ' Some work is queued; refresh Kanban or Check for updates shortly.'
+          : '')
       : '') +
-    (leafOutcome ? ` ${describeLeafOutcome(leafOutcome)}` : '');
+    (leafOutcome ? ` ${describeLeafOutcome(leafOutcome)}` : '') +
+    blockHint;
 
   return {
     ok: true,
-    cooReply,
+    cooReply: cooReply.trim(),
     result: {
       ...result,
+      internal_blocked: moreBlocked,
       external_delegated: leafOutcome?.delegated?.map((d) => d.member.id) || [],
       external_blocked: leafOutcome?.blocked?.map((b) => b.member.id) || [],
       external_failed: leafOutcome?.failed?.map((f) => f.member.id) || [],
@@ -241,20 +285,38 @@ function describeLeafOutcome(outcome) {
   return parts.join(' ');
 }
 
-function buildLeafOnlyReply(outcome) {
-  const first = outcome.delegated?.[0];
-  const summary = describeLeafOutcome(outcome);
-  const cooReply = first?.text
-    ? `${summary}\n\n${String(first.text).slice(0, 4000)}`
-    : summary || 'No external agent could take this on.';
+function describeInternalBlocked(blocked) {
+  if (!blocked?.length) return '';
+  return `Blocked by budget: ${blocked
+    .map((b) => `${b.name || b.id} (${(b.reasons || []).join('; ')})`)
+    .join(', ')}.`;
+}
+
+/** Reply when every internal target was budget-blocked (and optionally leaf ran). */
+function buildNoInternalReply({ leafOutcome = null, internalBlocked = [] } = {}) {
+  const parts = [];
+  if (leafOutcome) {
+    const leafSummary = describeLeafOutcome(leafOutcome);
+    if (leafSummary) parts.push(leafSummary);
+    const first = leafOutcome.delegated?.[0];
+    if (first?.text) parts.push(String(first.text).slice(0, 4000));
+  }
+  const blockLine = describeInternalBlocked(internalBlocked);
+  if (blockLine) parts.push(blockLine);
+  if (!parts.length) {
+    parts.push(
+      'I could not delegate — the matched specialist(s) are over their monthly token or error budget. Raise the budget in Efficiency → Agent View or wait for next month.'
+    );
+  }
   return {
-    cooReply,
+    cooReply: parts.join('\n\n'),
     result: {
-      count: outcome.delegated?.length || 0,
-      agentNames: (outcome.delegated || []).map((d) => d.member.display_name),
-      kanbanTaskIds: (outcome.delegated || []).map((d) => d.taskId).filter(Boolean),
-      external_blocked: (outcome.blocked || []).map((b) => b.member.id),
-      external_failed: (outcome.failed || []).map((f) => f.member.id),
+      count: leafOutcome?.delegated?.length || 0,
+      agentNames: (leafOutcome?.delegated || []).map((d) => d.member.display_name),
+      kanbanTaskIds: (leafOutcome?.delegated || []).map((d) => d.taskId).filter(Boolean),
+      internal_blocked: internalBlocked,
+      external_blocked: (leafOutcome?.blocked || []).map((b) => b.member.id),
+      external_failed: (leafOutcome?.failed || []).map((f) => f.member.id),
     },
     standup_id: null,
   };

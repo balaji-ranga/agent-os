@@ -258,7 +258,7 @@ async function ensureTestUser() {
   const password = `TestUser-${STAMP}!`;
   let user;
   try {
-    user = registerCeoUser({
+    user = await registerCeoUser({
       email,
       password,
       name: `OC Test User ${STAMP}`,

@@ -37,6 +37,10 @@ if [[ -f "$ROOT/deploy/scripts/ensure-workflow-certify-env.sh" ]]; then
   sed -i 's/\r$//' "$ROOT/deploy/scripts/ensure-workflow-certify-env.sh" 2>/dev/null || true
   bash "$ROOT/deploy/scripts/ensure-workflow-certify-env.sh" "$ROOT/deploy/.env" || true
 fi
+if [[ -f "$ROOT/deploy/scripts/ensure-cron-env.sh" ]]; then
+  sed -i 's/\r$//' "$ROOT/deploy/scripts/ensure-cron-env.sh" 2>/dev/null || true
+  bash "$ROOT/deploy/scripts/ensure-cron-env.sh" "$ROOT/deploy/.env" || true
+fi
 
 echo "==> Agent OS deploy latest $(date -Is)"
 echo "    root=$ROOT services=$SERVICES skip_git=$SKIP_GIT no_cache=$NO_CACHE"
@@ -61,7 +65,10 @@ echo "              workflow editor fullscreen (shell-focus-mode + Exit to workf
 echo "              Register MCP / Register Agents primary CTAs (page-hero),"
 echo "              department purpose + monthly_token_budget (Master Data departments),"
 echo "              agent monthly token + error budgets (token_usage ledger, warn-then-block),"
-echo "              Efficiency View Agent View tab (per-agent KPIs, budget gauges, charts),"
+echo "              Efficiency View Org / Department / Agent tabs + Reset usage (MTD tokens → 0),"
+echo "              Org Storage (MB); COO status_checker (standup+HTML email; cron+Dashboard);"
+echo "              data retention days (profile) + daily purge cron + Dashboard/Profile purge,"
+echo "              cron reference block in deploy/.env (ensure-cron-env.sh) + help doc 19 scheduled jobs,"
 echo "              external/A2A agents as org leaf members (Add to org) + COO delegation to them,"
 echo "              A2A visibility public|private (private = org COO/reports-to only; public endpoints denied),"
 echo "              Master Data Purge all uploads (CEO uploads only; Help + User Guide protected),"
@@ -369,6 +376,16 @@ if docker compose exec -T frontend sh -c 'cat /usr/share/nginx/html/assets/*.css
 else
   echo "    WARN: eff-gauge CSS missing (budget gauges?)"
 fi
+if docker compose exec -T frontend sh -c 'grep -Rql "n/a for external agents" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: leaf KPI n/a tip OK"
+else
+  echo "    WARN: leaf KPI n/a tip not found in frontend JS"
+fi
+if docker compose exec -T frontend sh -c 'cat /usr/share/nginx/html/assets/*.css' 2>/dev/null | grep -q 'eff-na'; then
+  echo "    frontend assets: leaf KPI n/a CSS OK"
+else
+  echo "    WARN: eff-na CSS missing (leaf KPI n/a?)"
+fi
 if docker compose exec -T frontend sh -c 'grep -Rql "Monthly token budget" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
   echo "    frontend assets: monthly token budget fields OK"
 else
@@ -417,6 +434,114 @@ if grep -q "extractA2AReply" "$ROOT/backend/src/services/org-member-delegation.j
 else
   echo "    WARN: org delegation reply/classifier fixes missing in backend source"
 fi
+if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-coo-agents-md-preserved.js 2>/dev/null; then
+  docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-coo-agents-md-preserved.js >/tmp/coo-agents-md.log 2>&1 \
+    && echo "    COO AGENTS.md survives template sync (leaf members kept) OK" \
+    || echo "    WARN: COO AGENTS.md template-clobber regression (see /tmp/coo-agents-md.log)"
+fi
+if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-coo-agents-md-merge.js 2>/dev/null; then
+  docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-coo-agents-md-merge.js >/tmp/coo-agents-md-merge.log 2>&1 \
+    && echo "    COO AGENTS.md merge preserves manual sections OK" \
+    || echo "    WARN: COO AGENTS.md merge regression (see /tmp/coo-agents-md-merge.log)"
+fi
+if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-intent-agents-md-parse.js 2>/dev/null; then
+  docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-intent-agents-md-parse.js >/tmp/intent-parse.log 2>&1 \
+    && echo "    intent classifier AGENTS.md leaf-key parse OK" \
+    || echo "    WARN: intent AGENTS.md parse regression (see /tmp/intent-parse.log)"
+fi
+if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-brain-token-attribution.js 2>/dev/null; then
+  docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-brain-token-attribution.js >/tmp/brain-tokens.log 2>&1 \
+    && echo "    Brain-node token attribution (a2a leaf / agent / workflow) OK" \
+    || echo "    WARN: Brain token attribution regression (see /tmp/brain-tokens.log)"
+fi
+if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-internal-delegation-budget-gate.js 2>/dev/null; then
+  docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-internal-delegation-budget-gate.js >/tmp/internal-budget-gate.log 2>&1 \
+    && echo "    Internal COO delegation respects agent budgets OK" \
+    || echo "    WARN: internal delegation budget gate failed (see /tmp/internal-budget-gate.log)"
+fi
+if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-department-efficiency.js 2>/dev/null; then
+  docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-department-efficiency.js >/tmp/dept-eff.log 2>&1 \
+    && echo "    Department efficiency rollup OK" \
+    || echo "    WARN: department efficiency failed (see /tmp/dept-eff.log)"
+fi
+if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-token-usage-reset.js 2>/dev/null; then
+  docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-token-usage-reset.js >/tmp/token-reset.log 2>&1 \
+    && echo "    Token usage reset (one / all) OK" \
+    || echo "    WARN: token usage reset failed (see /tmp/token-reset.log)"
+fi
+if docker compose exec -T -w /opt/agent-os/backend backend grep -q "resetTokenUsage" src/services/token-usage.js 2>/dev/null \
+  && docker compose exec -T -w /opt/agent-os/backend backend grep -q "usage/reset" src/routes/efficiency.js 2>/dev/null; then
+  echo "    Token usage reset API deployed OK"
+else
+  echo "    WARN: usage reset API missing"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql "Reset usage" /usr/share/nginx/html/assets/*.js 2>/dev/null' \
+  && docker compose exec -T frontend sh -c 'grep -Rql "Reset all usage" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: Reset usage controls OK"
+else
+  echo "    WARN: Reset usage controls not found in frontend JS"
+fi
+if [[ -f "$ROOT/deploy/scripts/vps-verify-status-retention-ui.sh" ]]; then
+  sed -i 's/\r$//' "$ROOT/deploy/scripts/vps-verify-status-retention-ui.sh" 2>/dev/null || true
+  if bash "$ROOT/deploy/scripts/vps-verify-status-retention-ui.sh" >/tmp/status-retention-ui.log 2>&1; then
+    echo "    frontend assets: status checker + retention + storage markers OK"
+  else
+    echo "    WARN: status/retention UI markers missing (see /tmp/status-retention-ui.log)"
+  fi
+fi
+if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/vps-test-status-retention.js 2>/dev/null; then
+  docker compose exec -T -w /opt/agent-os/backend backend node scripts/vps-test-status-retention.js >/tmp/status-retention.log 2>&1 \
+    && echo "    status checker + retention + storage API OK" \
+    || echo "    WARN: status/retention API check failed (see /tmp/status-retention.log)"
+fi
+if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-standup-get-work-from-team.js 2>/dev/null; then
+  docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-standup-get-work-from-team.js >/tmp/get-work.log 2>&1 \
+    && echo "    standup get_work_from_team fanout OK" \
+    || echo "    WARN: get_work_from_team check failed (see /tmp/get-work.log)"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql "/admin/crons" /usr/share/nginx/html/assets/*.js 2>/dev/null' \
+  && docker compose exec -T frontend sh -c 'grep -Rql "Platform crons" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: Admin Crons page OK"
+else
+  echo "    WARN: Admin Crons UI markers missing"
+fi
+if docker compose exec -T -w /opt/agent-os/backend backend grep -q "listPlatformCrons" src/services/platform-cron-registry.js 2>/dev/null \
+  && docker compose exec -T -w /opt/agent-os/backend backend grep -q "/crons" src/routes/admin.js 2>/dev/null; then
+  echo "    Admin platform cron control API OK"
+else
+  echo "    WARN: Admin cron control API missing"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql "Research AI trends and give me Q2 expense report" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    WARN: outdated Standup multi-intent blurb still in frontend bundle"
+else
+  echo "    frontend assets: Standup multi-intent blurb removed OK"
+fi
+if docker compose exec -T -w /opt/agent-os/backend backend grep -q "getDepartmentEfficiency" src/services/department-efficiency.js 2>/dev/null; then
+  echo "    Department efficiency service deployed OK"
+else
+  echo "    WARN: department-efficiency.js missing"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql "Department" /usr/share/nginx/html/assets/*.js 2>/dev/null' \
+  && docker compose exec -T frontend sh -c 'grep -Rql "efficiencyDepartments\|Department tokens this month\|All departments" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: Efficiency Department tab OK"
+else
+  echo "    WARN: Efficiency Department tab not found in frontend JS"
+fi
+if docker compose exec -T -w /opt/agent-os/backend backend grep -q "resolveBrainMemberKey" src/services/agent-workflow-brain.js 2>/dev/null; then
+  echo "    Brain token attribution helper deployed OK"
+else
+  echo "    WARN: resolveBrainMemberKey missing from agent-workflow-brain.js"
+fi
+if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/verify-coo-agents-md.js 2>/dev/null; then
+  docker compose exec -T -w /opt/agent-os/backend backend node scripts/verify-coo-agents-md.js >/tmp/coo-agents-md-live.log 2>&1 \
+    && echo "    live COO AGENTS.md is org-generated for every CEO OK" \
+    || echo "    WARN: some CEO has a non-generated COO AGENTS.md (see /tmp/coo-agents-md-live.log)"
+fi
+if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/cleanup-agents-md-backups.js 2>/dev/null; then
+  docker compose exec -T -w /opt/agent-os/backend backend node scripts/cleanup-agents-md-backups.js >/tmp/agents-md-backups.log 2>&1 \
+    && echo "    workspace AGENTS.md backup cleanup OK ($(grep -c . /tmp/agents-md-backups.log) line(s))" \
+    || echo "    WARN: workspace backup cleanup failed (see /tmp/agents-md-backups.log)"
+fi
 
 TOKEN=$(docker compose exec -T -w /opt/agent-os/backend backend node --input-type=module <<'NODE' 2>/dev/null || true
 import { initDb, getDb } from './src/db/schema.js';
@@ -435,6 +560,12 @@ if [[ -n "${TOKEN:-}" ]]; then
   echo "    agent-exchange auth=$EX (expect 200)"
   ORG=$(docker compose exec -T backend curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer ${TOKEN}" -H "Content-Type: application/json" http://127.0.0.1:3001/api/agents/org/sync || echo 000)
   echo "    agents/org/sync auth=$ORG (expect 200)"
+  # Re-upload User Guide (README) + Platform Help corpus so doc edits reach every CEO's Master Data RAG.
+  if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/reupload-platform-help-docs.js 2>/dev/null; then
+    docker compose exec -T -w /opt/agent-os/backend backend node scripts/reupload-platform-help-docs.js >/tmp/help-reupload.log 2>&1 \
+      && echo "    platform help + user guide re-upload OK" \
+      || echo "    WARN: platform help re-upload failed (see /tmp/help-reupload.log)"
+  fi
   if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/refresh-coo-workspace-docs.js 2>/dev/null; then
     docker compose exec -T -w /opt/agent-os/backend backend node scripts/refresh-coo-workspace-docs.js >/tmp/coo-docs-refresh.log 2>&1 \
       && echo "    COO workspace docs refresh OK" \

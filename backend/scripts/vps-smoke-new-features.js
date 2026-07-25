@@ -3,7 +3,7 @@
  * Usage: node scripts/vps-smoke-new-features.js
  */
 import { initDb, getDb } from '../src/db/schema.js';
-import { seedEmailSendToolIfMissing, seedNotifyCeoToolIfMissing, seedMasterDataToolsIfMissing } from '../src/db/seed-content-tools-meta.js';
+import { seedEmailSendToolIfMissing, seedNotifyCeoToolIfMissing, seedStatusCheckerToolIfMissing, seedMasterDataToolsIfMissing } from '../src/db/seed-content-tools-meta.js';
 import { grantNotifyCeoToAllAgents, grantMasterDataToolsToAllAgents } from '../src/services/agent-feedback.js';
 import { executeNotifyCeo } from '../src/services/notify-ceo.js';
 import { listNotificationsForUser, markNotificationsRead, deleteNotificationsBySource } from '../src/services/platform-notifications.js';
@@ -21,15 +21,18 @@ import { setA2AAccessPolicy } from '../src/services/workflow-a2a-access.js';
 import { listRowsForAgent } from '../src/services/master-data-tools.js';
 import { dismissAgentResponseNotifications } from '../src/services/agent-response-notifications.js';
 import { healAgentWorkspacePaths, resolveAgentWorkspaceRoot, readWorkspaceFile } from '../src/workspace/adapter.js';
+import { grantCooDelegationToolsIfMissing } from '../src/services/openclaw-agent-tools.js';
 import { randomUUID } from 'crypto';
 import { existsSync } from 'fs';
 
 initDb();
 seedEmailSendToolIfMissing();
 seedNotifyCeoToolIfMissing();
+seedStatusCheckerToolIfMissing();
 seedMasterDataToolsIfMissing();
 grantNotifyCeoToAllAgents();
 grantMasterDataToolsToAllAgents();
+grantCooDelegationToolsIfMissing();
 
 const heal = healAgentWorkspacePaths(getDb());
 console.log('OK workspace path heal', heal);
@@ -61,6 +64,41 @@ const notifyGrants = getDb()
   .get().n;
 if (!notifyGrants) throw new Error('notify_ceo not granted to any agents');
 console.log('OK notify_ceo grants', notifyGrants);
+
+const statusMeta = getDb()
+  .prepare(`SELECT name, endpoint, enabled FROM content_tools_meta WHERE name = 'status_checker'`)
+  .get();
+if (!statusMeta) throw new Error('status_checker missing from content_tools_meta');
+console.log('OK status_checker meta', statusMeta);
+
+const statusGrants = getDb()
+  .prepare(
+    `SELECT COUNT(*) AS n FROM agent_tool_grants g
+     JOIN agents a ON a.id = g.agent_id
+     WHERE g.tool_name = 'status_checker' AND a.is_coo = 1`
+  )
+  .get().n;
+if (!statusGrants) throw new Error('status_checker not granted to COO');
+console.log('OK status_checker COO grants', statusGrants);
+
+const retentionCol = getDb()
+  .prepare(`PRAGMA table_info(platform_users)`)
+  .all()
+  .some((c) => c.name === 'data_retention_days');
+if (!retentionCol) throw new Error('platform_users.data_retention_days column missing');
+console.log('OK data_retention_days column');
+
+const { estimateOwnerStorage } = await import('../src/services/owner-storage.js');
+const storage = estimateOwnerStorage(getBalaCeoAuthId());
+if (storage.total_mb == null || !Number.isFinite(Number(storage.total_mb))) {
+  throw new Error('estimateOwnerStorage did not return total_mb');
+}
+console.log('OK owner storage estimate', storage.total_mb, 'MB');
+
+const { buildStatusDigest } = await import('../src/services/coo-status-checker.js');
+const digest = buildStatusDigest(getBalaCeoAuthId(), { reconcile: true });
+if (!digest?.counts) throw new Error('status digest missing counts');
+console.log('OK status digest counts', digest.counts);
 
 const mdTools = getDb()
   .prepare(`SELECT COUNT(*) AS n FROM content_tools_meta WHERE name LIKE 'master_data_%'`)
