@@ -11,6 +11,7 @@ import {
 } from './a2a-client.js';
 import { resolveLiteralOrKeyRef, resolveHeadersObject } from './user-api-keys.js';
 import { resolveLocalA2ABypass, invokeLocalA2APublication } from './a2a-local-invoke.js';
+import { deleteOrgAgentMembersByRef } from './org-agent-members.js';
 
 function parseJson(raw, fallback) {
   if (raw == null || raw === '') return fallback;
@@ -254,6 +255,12 @@ export function deleteExternalAgent(id, authUser) {
   const db = getDb();
   const row = db.prepare('SELECT * FROM external_agents WHERE id = ?').get(id);
   if (!row || !canEdit(row, authUser)) throw new Error('Not allowed to delete this external agent');
+  // Drop org chart placement(s); ORG.md / AGENTS.md sync stays manual.
+  try {
+    deleteOrgAgentMembersByRef('external', id);
+  } catch (e) {
+    console.warn('[external-agents] org member cascade failed', id, e?.message || e);
+  }
   db.prepare('DELETE FROM external_agents WHERE id = ?').run(id);
   return { ok: true };
 }

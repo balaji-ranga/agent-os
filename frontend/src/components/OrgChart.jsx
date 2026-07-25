@@ -40,10 +40,10 @@ function DeptBadge({ department }) {
   );
 }
 
-function AgentActions({ agent, onRemove, isCeo }) {
+function AgentActions({ agent, onRemove, onRemoveLeaf, isCeo }) {
   if (isCeo) return null;
   if (agent._leaf) {
-    const manageTo = agent._kind === 'a2a_publish' ? '/agent-exchange' : '/external-agents';
+    const manageTo = agent._kind === 'a2a_publish' ? '/agent-exchange' : '/integrations/external-agents';
     const manageLabel = agent._kind === 'a2a_publish' ? 'AgentExchange' : 'External Agents';
     return (
       <span style={{ marginLeft: '0.5rem', display: 'inline-flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -53,6 +53,24 @@ function AgentActions({ agent, onRemove, isCeo }) {
             {manageLabel}
           </Link>
         </span>
+        {typeof onRemoveLeaf === 'function' && (
+          <button
+            type="button"
+            onClick={() => onRemoveLeaf(agent.id)}
+            title="Remove from org chart only — does not delete the agent"
+            style={{
+              padding: '0.2rem 0.5rem',
+              background: 'transparent',
+              color: 'var(--muted)',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              fontSize: '0.75rem',
+              cursor: 'pointer',
+            }}
+          >
+            Remove from org
+          </button>
+        )}
       </span>
     );
   }
@@ -95,7 +113,7 @@ function AgentActions({ agent, onRemove, isCeo }) {
 }
 
 /** Recursive graph card with children in a horizontal row. */
-function GraphCard({ node, onRemove }) {
+function GraphCard({ node, onRemove, onRemoveLeaf }) {
   const kids = node.children || [];
   const leafClass = node._leaf ? ' org-graph-card-leaf' : '';
   return (
@@ -111,7 +129,7 @@ function GraphCard({ node, onRemove }) {
         {node.department && <div className="org-graph-card-dept">{node.department}</div>}
         {!node.isCeo && (
           <div className="org-graph-card-actions">
-            <AgentActions agent={node} onRemove={onRemove} />
+            <AgentActions agent={node} onRemove={onRemove} onRemoveLeaf={onRemoveLeaf} />
           </div>
         )}
       </div>
@@ -122,7 +140,7 @@ function GraphCard({ node, onRemove }) {
             {kids.map((c) => (
               <div key={c.id} className="org-graph-child-wrap">
                 <div className="org-graph-hconnector" aria-hidden />
-                <GraphCard node={c} onRemove={onRemove} />
+                <GraphCard node={c} onRemove={onRemove} onRemoveLeaf={onRemoveLeaf} />
               </div>
             ))}
           </div>
@@ -140,6 +158,14 @@ export default function OrgChart({ agents = [], onRemove }) {
   const [view, setView] = useState('list');
   const [groupByDept, setGroupByDept] = useState(false);
   const [leafMembers, setLeafMembers] = useState([]);
+  const [leafError, setLeafError] = useState(null);
+
+  const loadLeafMembers = () => {
+    api
+      .orgMembers()
+      .then((r) => setLeafMembers(r.members || []))
+      .catch(() => setLeafMembers([]));
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -155,6 +181,24 @@ export default function OrgChart({ agents = [], onRemove }) {
       cancelled = true;
     };
   }, []);
+
+  const removeLeaf = async (memberId) => {
+    if (
+      !window.confirm(
+        'Remove this agent from the org chart? The External / A2A agent itself is not deleted. Sync org when you want AGENTS.md updated.'
+      )
+    ) {
+      return;
+    }
+    setLeafError(null);
+    try {
+      await api.orgMemberDelete(memberId);
+      setLeafMembers((prev) => prev.filter((m) => m.id !== memberId));
+    } catch (e) {
+      setLeafError(e?.message || 'Failed to remove from org');
+      loadLeafMembers();
+    }
+  };
 
   const chartAgents = useMemo(
     () => mergeAgentsWithLeafMembers(agents, leafMembers),
@@ -183,6 +227,11 @@ export default function OrgChart({ agents = [], onRemove }) {
 
   return (
     <div>
+      {leafError && (
+        <p style={{ color: 'var(--danger, #c44)', fontSize: '0.85rem', marginBottom: '0.5rem' }}>
+          {leafError}
+        </p>
+      )}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', marginBottom: '0.75rem' }}>
         {toggleBtn('list', 'List')}
         {toggleBtn('graph', 'Graph')}
@@ -222,7 +271,7 @@ export default function OrgChart({ agents = [], onRemove }) {
                     {a.parent_id && !a._leaf && (
                       <span style={{ color: 'var(--muted)', fontSize: '0.75rem' }}>→ reports to {a.parent_id}</span>
                     )}
-                    <AgentActions agent={a} onRemove={onRemove} />
+                    <AgentActions agent={a} onRemove={onRemove} onRemoveLeaf={removeLeaf} />
                   </li>
                 ))}
               </ul>
@@ -251,18 +300,18 @@ export default function OrgChart({ agents = [], onRemove }) {
             overflow: 'hidden',
           }}
         >
-          <ListTreeRoot tree={tree} onRemove={onRemove} />
+          <ListTreeRoot tree={tree} onRemove={onRemove} onRemoveLeaf={removeLeaf} />
         </div>
       ) : (
         <div className="org-graph-scroll">
-          <GraphCard node={tree} onRemove={onRemove} />
+          <GraphCard node={tree} onRemove={onRemove} onRemoveLeaf={removeLeaf} />
         </div>
       )}
     </div>
   );
 }
 
-function ListTreeRoot({ tree, onRemove }) {
+function ListTreeRoot({ tree, onRemove, onRemoveLeaf }) {
   const rows = flattenOrgTree(tree).filter((n) => n.id !== CEO_NODE_ID || n.isCeo);
   return (
     <>
@@ -293,7 +342,12 @@ function ListTreeRoot({ tree, onRemove }) {
             {node._leaf && <LeafBadge kind={node._kind} />}
             {node.role && <span style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>— {node.role}</span>}
             <DeptBadge department={node.department} />
-            <AgentActions agent={node} onRemove={onRemove} isCeo={node.isCeo} />
+            <AgentActions
+              agent={node}
+              onRemove={onRemove}
+              onRemoveLeaf={onRemoveLeaf}
+              isCeo={node.isCeo}
+            />
           </div>
         );
       })}

@@ -60,7 +60,7 @@ export default function ExternalAgents() {
     orgMembers.find((m) => m.kind === 'external' && m.ref_id === externalId) || null;
 
   const removeFromOrg = async (memberId) => {
-    if (!window.confirm('Remove this agent from the org chart?')) return;
+    if (!window.confirm('Remove this agent from the org chart? The agent itself is not deleted. Sync org when you want AGENTS.md updated.')) return;
     setBusy(`org-${memberId}`);
     try {
       await api.orgMemberDelete(memberId);
@@ -135,6 +135,7 @@ export default function ExternalAgents() {
     try {
       await api.externalAgentDelete(id);
       load();
+      loadOrgMembers();
     } catch (err) {
       setError(err.message);
     } finally {

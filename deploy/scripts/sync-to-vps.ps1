@@ -47,7 +47,8 @@
 # Org Storage (MB) metric, COO status_checker (standup + HTML email; daily cron + Dashboard button),
 # data retention days on profile (30/60/90/120/365) + daily purge cron + Dashboard/Profile purge,
 # external/A2A agents as org leaf members
-# (Add to org) + COO delegation to them (budgets enforced before enqueue/cron), A2A visibility public|private (private = org COO/reports-to only),
+# (Add to org / Remove from org on chart + cards; delete/unpublish clears org placement; ORG.md sync manual),
+# COO delegation to them (budgets enforced before enqueue/cron), A2A visibility public|private (private = org COO/reports-to only),
 # Master Data Purge all uploads (CEO uploads only; Platform Help + User Guide protected from delete/purge),
 # agent delete cascade (transactional, clears kanban assignments) + deleted_agents tombstone
 # (startup catalog re-grant and OpenClaw sync no longer resurrect a deleted agent).
@@ -224,6 +225,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-delegation-status-only-retry.js" `
     "$Repo\backend\scripts\vps-test-coo-rag-kanban-flow.js" `
     "$Repo\backend\scripts\test-kanban-chat-status-guidance.js" `
+    "$Repo\backend\scripts\test-ceo-profile-tool.js" `
     "$Repo\backend\scripts\verify-coo-agents-md.js" `
     "$Repo\backend\scripts\cleanup-agents-md-backups.js" `
     "$Repo\backend\scripts\probe-get-work-from-team.js" `

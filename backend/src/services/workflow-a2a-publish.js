@@ -28,6 +28,7 @@ import {
   watchA2ATaskInBackground,
 } from './workflow-a2a-async.js';
 import { checkA2AClientIp, normalizeA2AVisibility } from './workflow-a2a-access.js';
+import { deleteOrgAgentMembersByRef } from './org-agent-members.js';
 
 /** In-memory cache for quick sync lookups; durable source of truth is workflow_a2a_tasks. */
 const a2aTasks = new Map();
@@ -581,6 +582,12 @@ export function unpublishWorkflowA2A(ownerUserId, workflowId, actor = null, opts
     `UPDATE workflow_a2a_publications SET status = 'unpublished', updated_at = datetime('now') WHERE id = ?`
   ).run(row.id);
 
+  try {
+    deleteOrgAgentMembersByRef('a2a_publish', row.id);
+  } catch (e) {
+    console.warn('[a2a-publish] org member cascade failed', row.id, e?.message || e);
+  }
+
   store.appendAudit(workflowId, {
     action: 'a2a_unpublished',
     summary: `Unpublished A2A agent "${row.name}" (${row.id})`,
@@ -612,6 +619,12 @@ export function unpublishA2APublicationById(ownerUserId, publishId, actor = null
      SET status = 'unpublished', updated_at = datetime('now')
      WHERE id = ? AND owner_user_id = ?`
   ).run(row.id, ownerUserId);
+
+  try {
+    deleteOrgAgentMembersByRef('a2a_publish', row.id);
+  } catch (e) {
+    console.warn('[a2a-publish] org member cascade failed', row.id, e?.message || e);
+  }
 
   store.appendAudit(row.workflow_definition_id, {
     action: 'a2a_unpublished',

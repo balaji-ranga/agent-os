@@ -31,6 +31,7 @@ const DEFAULT_TOOLS_ALLOW = [
   'kanban_reassign_to_coo',
   'email_send',
   'notify_ceo',
+  'ceo_profile',
   'master_data_list_tables',
   'master_data_list_rows',
   'master_data_insert_row',

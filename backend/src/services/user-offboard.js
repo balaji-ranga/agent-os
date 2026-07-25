@@ -177,6 +177,12 @@ function purgeOwnerScopedRows(db, ownerUserId) {
 
   // Integrations / scripts / MCP
   counts.mcp_servers = tryRun(db, `DELETE FROM mcp_servers WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.org_member_invocations = tryRun(
+    db,
+    `DELETE FROM org_member_invocations WHERE owner_user_id = ?`,
+    [ownerUserId]
+  );
+  counts.org_agent_members = tryRun(db, `DELETE FROM org_agent_members WHERE owner_user_id = ?`, [ownerUserId]);
   counts.external_agents = tryRun(db, `DELETE FROM external_agents WHERE owner_user_id = ?`, [ownerUserId]);
   counts.custom_scripts = tryRun(db, `DELETE FROM custom_scripts WHERE owner_user_id = ?`, [ownerUserId]);
   counts.ibkr_reservations = tryRun(db, `DELETE FROM ibkr_trade_reservations WHERE owner_user_id = ?`, [

@@ -340,6 +340,7 @@ function defaultCooAgentsUserSections(ctx) {
         '- **agent_workflow_list** / **agent_workflow_trigger** / **agent_workflow_enquire**: Run published workflows for this CEO only.',
         '- **kanban_assign_task**, **kanban_move_status**, **kanban_reassign_to_coo**: Kanban task management.',
         '- **notify_ceo**: ONLY when the CEO explicitly asked you to reach/notify/ping them, or for a true blocker while they are not in your chat. Prefer `link_url` = `/agents/<your-agent-id>/chat`. Never use notify_ceo for ordinary chat replies.',
+        '- **ceo_profile**: Call before answering questions about the CEO\'s name, email, mobile, region, or business. Prefer live profile over chat memory; if a field is empty, ask the CEO or say you fell back to chat memory.',
         '- **status_checker**: Reconcile A2A/Kanban statuses and post a digest to standup chat (returns HTML for the CEO). Email is sent only by the daily platform batch — do not expect this tool to email.',
       ],
     },

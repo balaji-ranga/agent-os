@@ -681,6 +681,20 @@ export function grantNotifyCeoToAllAgents() {
   return n;
 }
 
+export function grantCeoProfileToAllAgents() {
+  const db = getDb();
+  const agents = db.prepare('SELECT id FROM agents').all();
+  const ins = db.prepare(
+    'INSERT OR IGNORE INTO agent_tool_grants (agent_id, tool_name) VALUES (?, ?)'
+  );
+  let n = 0;
+  for (const a of agents) {
+    const r = ins.run(a.id, 'ceo_profile');
+    if (r.changes) n += 1;
+  }
+  return n;
+}
+
 const KANBAN_TOOL_NAMES = [
   'kanban_create_task',
   'kanban_move_status',

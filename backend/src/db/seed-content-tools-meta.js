@@ -275,6 +275,20 @@ const BUILTIN_TOOLS = [
     is_builtin: 1,
   },
   {
+    name: 'ceo_profile',
+    display_name: 'CEO Profile (Account)',
+    endpoint: '/api/tools/ceo-profile',
+    method: 'POST',
+    purpose:
+      'API tool: return this org CEO\'s platform account profile (name, email, mobile, region, business_name, industry). ' +
+      'ALWAYS call this before answering questions about the CEO\'s identity/contact details — do NOT invent from chat memory. ' +
+      'Never pass user_id (owner is session-scoped). Optional: fields:[\"email\",\"name\",...] to request a subset. ' +
+      'If a needed field is empty in missing_or_empty, ask the CEO or fall back to chat memory and say so.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
     name: 'status_checker',
     display_name: 'COO Status Checker',
     endpoint: '/api/tools/status-checker',
@@ -429,6 +443,7 @@ const WORKFLOW_TOOLS = BUILTIN_TOOLS.filter((t) =>
 const LEARNINGS_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'learnings_summary');
 const EMAIL_SEND_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'email_send');
 const NOTIFY_CEO_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'notify_ceo');
+const CEO_PROFILE_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'ceo_profile');
 const STATUS_CHECKER_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'status_checker');
 const CONNECTOR_TOOLS = BUILTIN_TOOLS.filter((t) => String(t.name).startsWith('connector_'));
 const MASTER_DATA_TOOLS = BUILTIN_TOOLS.filter((t) => String(t.name).startsWith('master_data_'));
@@ -535,6 +550,24 @@ export function seedNotifyCeoToolIfMissing() {
     'UPDATE content_tools_meta SET purpose = ?, display_name = ?, endpoint = ?, method = ? WHERE name = ?'
   );
   for (const t of NOTIFY_CEO_TOOLS) {
+    update.run(t.purpose, t.display_name, t.endpoint, t.method, t.name);
+  }
+}
+
+/** Add ceo_profile tool if missing (for existing DBs). */
+export function seedCeoProfileToolIfMissing() {
+  const db = getDb();
+  const stmt = db.prepare(
+    `INSERT OR IGNORE INTO content_tools_meta (name, display_name, endpoint, method, purpose, model_used, enabled, is_builtin)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  for (const t of CEO_PROFILE_TOOLS) {
+    stmt.run(t.name, t.display_name, t.endpoint, t.method, t.purpose, t.model_used, t.enabled, t.is_builtin);
+  }
+  const update = db.prepare(
+    'UPDATE content_tools_meta SET purpose = ?, display_name = ?, endpoint = ?, method = ? WHERE name = ?'
+  );
+  for (const t of CEO_PROFILE_TOOLS) {
     update.run(t.purpose, t.display_name, t.endpoint, t.method, t.name);
   }
 }

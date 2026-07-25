@@ -162,10 +162,28 @@ Leaf members appear in the org designer with an **External** or **A2A** badge an
 and in the Dashboard **Chart** (List and Graph) under their reports-to parent with the same badge.
 They are not drag-and-drop targets because they cannot manage anyone.
 
+### Removing from the org (not deleting the agent)
+
+Use **Remove from org** to drop the placement only — the External Agent registry entry or A2A
+publication stays intact:
+
+- **Org chart** (Dashboard Chart / Org designer) → **Remove from org** on the leaf
+- **External Agents** card → **Remove from org**
+- **AgentExchange** ⋯ menu → **Remove from org**
+
+That clears the **In org:** tag on the External / AgentExchange card. It does **not** rewrite
+**ORG.md** / COO **AGENTS.md** automatically — run Dashboard **Resync** (or Sync org) when you want
+those files updated.
+
+### Auto-cleanup when the agent is deleted
+
+Deleting an External Agent or **Unpublishing** an A2A publication also removes any org placements
+for that agent (across CEOs who had tagged it). Again, Resync is manual for ORG.md / AGENTS.md.
+
 ### COO delegation to leaf members
 
 Once added, leaf members are written into **ORG.md** and the COO's **AGENTS.md** with their member
-key (`ext:<id>` or `a2a:<id>`) and purpose. Dashboard **Resync** refreshes those roster sections
+key (`ext:<id>` or `a2a:<id>`) and purpose when you sync. Dashboard **Resync** refreshes those roster sections
 only — it does not wipe Role / Priorities / Tools / Guardrails or other manual edits in the COO
 AGENTS.md. The COO's intent classifier can then pick leaf members for matching work. When it does:
 
@@ -200,6 +218,6 @@ AGENTS.md. The COO's intent classifier can then pick leaf members for matching w
 | `POST` | `/api/efficiency/usage/reset` | Zero month-to-date tokens (`member_key` omitted = all members) |
 | `GET` | `/api/org-members` | List org leaf members |
 | `POST` | `/api/org-members` | Add / update a leaf member (kind, ref_id, department, parent_id, budgets) |
-| `DELETE` | `/api/org-members/:id` | Remove a leaf member from the org chart |
+| `DELETE` | `/api/org-members/:id` | Remove a leaf member from the org chart only (does not delete External/A2A agent; does not auto-sync ORG.md / AGENTS.md) |
 
 All routes are CEO-scoped: reads and writes are filtered by the signed-in CEO's owner id.

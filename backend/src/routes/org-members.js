@@ -55,18 +55,17 @@ router.post('/', async (req, res) => {
   }
 });
 
-/** DELETE /api/org-members/:id — remove a leaf member from the org chart. */
-router.delete('/:id', async (req, res) => {
+/**
+ * DELETE /api/org-members/:id — remove a leaf member from the org chart only
+ * (does not delete the External Agent or A2A publication).
+ * ORG.md / AGENTS.md are not rewritten here — use Sync org when ready.
+ */
+router.delete('/:id', (req, res) => {
   try {
     const ownerUserId = resolveAuthenticatedCeoUserId(req, req.query || {});
     const existing = getOrgAgentMember(ownerUserId, req.params.id);
     if (!existing) return res.status(404).json({ error: 'Org member not found' });
     const out = deleteOrgAgentMember(ownerUserId, req.params.id);
-    try {
-      await syncOrgContextForCeo(ownerUserId);
-    } catch (syncErr) {
-      console.warn('[org-members] org sync failed:', syncErr?.message || syncErr);
-    }
     res.json(out);
   } catch (e) {
     console.warn('[org-members] delete failed:', e?.message || e);

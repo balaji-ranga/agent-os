@@ -47,6 +47,7 @@ import jobApplicantTools from './job-applicant-tools.js';
 import { summarizeLearnings } from '../services/agent-feedback.js';
 import { executeEmailSend } from '../services/email-send.js';
 import { executeNotifyCeo } from '../services/notify-ceo.js';
+import { executeCeoProfile } from '../services/ceo-profile.js';
 import { runCooStatusChecker } from '../services/coo-status-checker.js';
 import {
   executeConnectorAction,
@@ -1118,6 +1119,32 @@ router.post('/notify-ceo', optionalAuth, async (req, res) => {
   } catch (e) {
     const err = { error: e.message };
     logTool(req, 'notify_ceo', requestPayload, err, 'error', source);
+    res.status(500).json(err);
+  }
+});
+
+/**
+ * ceo_profile — entitled CEO platform account fields (name, email, mobile, …).
+ * Body: { fields?: string[] }. Never accepts target user_id (owner from session).
+ */
+router.post('/ceo-profile', optionalAuth, (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
+    if (!ownerUserId) {
+      const err = { error: 'Could not resolve CEO user for this session' };
+      logTool(req, 'ceo_profile', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const out = executeCeoProfile(requestPayload, { ownerUserId });
+    const status = out.ok ? 'ok' : 'error';
+    logTool(req, 'ceo_profile', { ...requestPayload, owner_user_id: ownerUserId }, out, status, source);
+    if (!out.ok) return res.status(400).json(out);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'ceo_profile', requestPayload, err, 'error', source);
     res.status(500).json(err);
   }
 });

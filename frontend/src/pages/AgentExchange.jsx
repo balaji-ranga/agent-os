@@ -732,12 +732,14 @@ function PublishedAgentCard({
   onCopy,
   orgMember,
   onOrgDialog,
+  onRemoveFromOrg,
   onChanged,
 }) {
   const [panel, setPanel] = useState(null); // 'test' | 'security' | null
   const asyncMode = isAsyncAgent(a);
   const callbackOn = hasCallback(a);
   const [busyUnpublish, setBusyUnpublish] = useState(false);
+  const [busyOrg, setBusyOrg] = useState(false);
 
   const unpublish = async () => {
     if (
@@ -755,6 +757,25 @@ function PublishedAgentCard({
       window.alert(e.message || 'Failed to unpublish agent');
     } finally {
       setBusyUnpublish(false);
+    }
+  };
+
+  const removeFromOrg = async () => {
+    if (!orgMember?.id) return;
+    if (
+      !window.confirm(
+        'Remove this agent from the org chart? The A2A publication itself is not deleted. Sync org when you want AGENTS.md updated.'
+      )
+    ) {
+      return;
+    }
+    setBusyOrg(true);
+    try {
+      await onRemoveFromOrg?.(orgMember.id);
+    } catch (e) {
+      window.alert(e?.message || 'Failed to remove from org');
+    } finally {
+      setBusyOrg(false);
     }
   };
 
@@ -793,6 +814,13 @@ function PublishedAgentCard({
           defaultPurpose: a.description || '',
           existing: orgMember,
         }),
+    },
+    {
+      id: 'org-remove',
+      label: busyOrg ? 'Removing…' : 'Remove from org',
+      hidden: !a.can_manage || !orgMember,
+      disabled: busyOrg,
+      onClick: removeFromOrg,
     },
     {
       id: 'security',
@@ -964,6 +992,11 @@ export default function AgentExchange() {
   const orgMemberFor = (publishId) =>
     orgMembers.find((m) => m.kind === 'a2a_publish' && m.ref_id === publishId) || null;
 
+  const removeFromOrg = async (memberId) => {
+    await api.orgMemberDelete(memberId);
+    loadOrgMembers();
+  };
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return agents;
@@ -1051,7 +1084,11 @@ export default function AgentExchange() {
                 onCopy={copy}
                 orgMember={orgMemberFor(a.id)}
                 onOrgDialog={setOrgDialog}
-                onChanged={load}
+                onRemoveFromOrg={removeFromOrg}
+                onChanged={() => {
+                  load();
+                  loadOrgMembers();
+                }}
               />
             ))}
           </div>

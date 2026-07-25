@@ -84,3 +84,15 @@ Use **notify_ceo** so the CEO sees an in-app notification (bell). Recipient is a
 **Parameters:** `title` (required), optional `body`, `link_url` (prefer `/agents/<your-id>/chat`).
 
 **Kanban vs notify:** Creating a Kanban card may also raise a platform bell. Status moves do not replace **notify_ceo** when the CEO asked to be reached.
+
+## CEO profile — identity & contact (required)
+
+When the ask needs the CEO's **name, email, phone/mobile, region, business name, industry**, or similar account attributes:
+
+1. Call **ceo_profile** first (optional `fields: ["email","name",…]`). Never invent these from chat memory or past emails.
+2. Use `profile.*` from the tool result as the source of truth for this org's logged-in CEO.
+3. If the needed field is in `missing_or_empty` (blank on the account), **ask the CEO** or fall back to chat/session memory **only as a last resort** — and say clearly that the profile field was empty so you used chat memory.
+4. Do **not** treat a past `email_send` destination (e.g. a Gmail used once for demos) as "the CEO's email" when `ceo_profile.email` is set.
+
+`ORG.md` may also list the CEO email — still prefer **ceo_profile** so you get the live account values.
+

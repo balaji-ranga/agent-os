@@ -49,7 +49,7 @@ import { ensureDefaultAdmin, ensureBalaCeoUser, grantStandardAgents, pruneShared
 import { ensureCeoDefaultMasterDataForAllCeos } from './services/ceo-default-master-data.js';
 import { initDb, getDb } from './db/schema.js';
 import { seedDefaultAgentsIfEmpty, seedAgentDepartmentsIfMissing } from './db/seed-default-agents.js';
-import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, seedWorkflowToolsIfMissing, seedLearningsToolsIfMissing, seedEmailSendToolIfMissing, seedNotifyCeoToolIfMissing, seedStatusCheckerToolIfMissing, seedMasterDataToolsIfMissing, seedConnectorToolsIfMissing, seedVedicChartToolIfMissing, updateKanbanToolPurposes } from './db/seed-content-tools-meta.js';
+import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, seedWorkflowToolsIfMissing, seedLearningsToolsIfMissing, seedEmailSendToolIfMissing, seedNotifyCeoToolIfMissing, seedCeoProfileToolIfMissing, seedStatusCheckerToolIfMissing, seedMasterDataToolsIfMissing, seedConnectorToolsIfMissing, seedVedicChartToolIfMissing, updateKanbanToolPurposes } from './db/seed-content-tools-meta.js';
 import { seedJobApplicantToolsIfMissing } from './db/seed-job-applicant-tools.js';
 import { seedIbkrTradingToolsIfMissing } from './db/seed-ibkr-trading-tools.js';
 import { writeOpenClawToolsList } from './services/content-tools-meta.js';
@@ -60,7 +60,7 @@ import {
   syncOpenClawJsonForAgent,
   getAgentToolGrants,
 } from './services/openclaw-agent-tools.js';
-import { grantLearningsSummaryToAllAgents, grantEmailSendToAllAgents, grantNotifyCeoToAllAgents, grantMasterDataToolsToAllAgents, grantKanbanToolsToAllAgents } from './services/agent-feedback.js';
+import { grantLearningsSummaryToAllAgents, grantEmailSendToAllAgents, grantNotifyCeoToAllAgents, grantCeoProfileToAllAgents, grantMasterDataToolsToAllAgents, grantKanbanToolsToAllAgents } from './services/agent-feedback.js';
 import feedbackRoutes from './routes/feedback.js';
 import masterDataRoutes from './routes/master-data.js';
 import ceoGuardrailsRoutes from './routes/ceo-guardrails.js';
@@ -195,6 +195,7 @@ seedWorkflowToolsIfMissing();
 seedLearningsToolsIfMissing();
 seedEmailSendToolIfMissing();
 seedNotifyCeoToolIfMissing();
+seedCeoProfileToolIfMissing();
 seedStatusCheckerToolIfMissing();
 seedMasterDataToolsIfMissing();
 seedVedicChartToolIfMissing();
@@ -221,6 +222,13 @@ try {
   if (notifyGranted) syncAllowlistsFile();
 } catch (e) {
   console.warn('[startup] notify_ceo grants:', e.message);
+}
+try {
+  const profileGranted = grantCeoProfileToAllAgents();
+  if (profileGranted) console.log(`[startup] granted ceo_profile to ${profileGranted} agent(s)`);
+  if (profileGranted) syncAllowlistsFile();
+} catch (e) {
+  console.warn('[startup] ceo_profile grants:', e.message);
 }
 try {
   const kanbanGranted = grantKanbanToolsToAllAgents();

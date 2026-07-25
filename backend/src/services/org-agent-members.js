@@ -152,7 +152,45 @@ export function deleteOrgAgentMember(ownerUserId, id) {
     .prepare(`DELETE FROM org_agent_members WHERE id = ? AND owner_user_id = ?`)
     .run(String(id), String(ownerUserId));
   console.log(`[org-members] deleted member=${id} owner=${ownerUserId}`);
-  return { ok: true, id: String(id) };
+  return { ok: true, id: String(id), kind: existing.kind, ref_id: existing.ref_id };
+}
+
+/**
+ * Drop org chart placement(s) for an external agent or A2A publication.
+ * When `ownerUserId` is omitted, removes every CEO's placement for that ref
+ * (used when the source agent is deleted / unpublished).
+ * Does not delete the External Agent or A2A row — callers own that.
+ * Does not rewrite ORG.md / AGENTS.md — sync remains manual.
+ * @returns {{ ok: true, removed: number, ids: string[] }}
+ */
+export function deleteOrgAgentMembersByRef(kind, refId, ownerUserId = null) {
+  const k = String(kind || '').trim();
+  const ref = String(refId || '').trim();
+  if (!ORG_MEMBER_KINDS.includes(k) || !ref) {
+    return { ok: true, removed: 0, ids: [] };
+  }
+  const db = getDb();
+  const owner = ownerUserId ? String(ownerUserId).trim() : '';
+  const rows = owner
+    ? db
+        .prepare(
+          `SELECT id FROM org_agent_members WHERE owner_user_id = ? AND kind = ? AND ref_id = ?`
+        )
+        .all(owner, k, ref)
+    : db
+        .prepare(`SELECT id FROM org_agent_members WHERE kind = ? AND ref_id = ?`)
+        .all(k, ref);
+  if (!rows.length) return { ok: true, removed: 0, ids: [] };
+  const result = owner
+    ? db
+        .prepare(`DELETE FROM org_agent_members WHERE owner_user_id = ? AND kind = ? AND ref_id = ?`)
+        .run(owner, k, ref)
+    : db.prepare(`DELETE FROM org_agent_members WHERE kind = ? AND ref_id = ?`).run(k, ref);
+  const ids = rows.map((r) => r.id);
+  console.log(
+    `[org-members] cascade-removed ${result.changes} member(s) kind=${k} ref=${ref}${owner ? ` owner=${owner}` : ' (all owners)'} ids=${ids.join(',')}`
+  );
+  return { ok: true, removed: result.changes || 0, ids };
 }
 
 /** Record a terminal outcome for a leaf member (feeds error budget + Agent View). */

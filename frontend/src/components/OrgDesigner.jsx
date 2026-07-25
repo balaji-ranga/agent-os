@@ -290,10 +290,40 @@ export default function OrgDesigner({
                           AgentExchange
                         </Link>
                       ) : (
-                        <Link to="/external-agents" style={{ fontSize: '0.72rem' }}>
+                        <Link to="/integrations/external-agents" style={{ fontSize: '0.72rem' }}>
                           External Agents
                         </Link>
                       )}
+                      {' · '}
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (
+                            !window.confirm(
+                              'Remove from org chart? The agent itself is not deleted. Sync org when you want AGENTS.md updated.'
+                            )
+                          ) {
+                            return;
+                          }
+                          try {
+                            await api.orgMemberDelete(a.id);
+                            setLeafMembers((prev) => prev.filter((m) => m.id !== a.id));
+                          } catch (err) {
+                            setError(err?.message || 'Failed to remove from org');
+                          }
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--muted)',
+                          cursor: 'pointer',
+                          fontSize: '0.72rem',
+                          padding: 0,
+                          textDecoration: 'underline',
+                        }}
+                      >
+                        Remove from org
+                      </button>
                     </div>
                   ) : (
                   <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
