@@ -52,6 +52,8 @@
 # (Add to org / Remove from org on chart + cards; delete/unpublish clears org placement; ORG.md sync manual),
 # COO delegation to them (budgets enforced before enqueue/cron), A2A visibility public|private (private = org COO/reports-to only),
 # Master Data Purge all uploads (CEO uploads only; Platform Help + User Guide protected from delete/purge),
+# OpenSearch document RAG (compose opensearch + dashboards; per-user + platform indices;
+# Admin Documents RAG + /opensearch/ BFF; ensure-opensearch-env.sh; BM25 default / optional embeddings),
 # agent delete cascade (transactional, clears kanban assignments) + deleted_agents tombstone
 # (startup catalog re-grant and OpenClaw sync no longer resurrect a deleted agent).
 param(
@@ -106,14 +108,13 @@ scp @ssh `
   "$Repo\deploy\scripts\vps-smoke-openconnector-selfservice.sh" `
   "$Repo\deploy\scripts\vps-smoke-budgets-org-members.sh" `
   "$Repo\deploy\scripts\vps-verify-status-retention-ui.sh" `
-  "$Repo\deploy\scripts\vps-inspect-frontend-bundle.sh" `
   "$Repo\deploy\scripts\vps-regression-full.sh" `
   "$Repo\deploy\scripts\vps-enable-real-openconnector.sh" `
   "$Repo\deploy\scripts\vps-rebuild-frontend.sh" `
   "$Repo\deploy\scripts\ensure-deepseek-env.sh" `
   "$Repo\deploy\scripts\ensure-workflow-certify-env.sh" `
   "$Repo\deploy\scripts\ensure-cron-env.sh" `
-  "$Repo\deploy\scripts\vps-deploy-coo-org-fix.sh" `
+  "$Repo\deploy\scripts\ensure-opensearch-env.sh" `
   "$Repo\deploy\scripts\vps-smoke-brave-byok.sh" `
   "$Repo\deploy\scripts\configure-openclaw-docker.js" `
   "$Repo\deploy\scripts\verify-openclaw-parity.js" `
@@ -140,6 +141,9 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-platform-help-seed.js" `
     "$Repo\backend\scripts\reupload-platform-help-docs.js" `
     "$Repo\backend\scripts\test-platform-help-rag.js" `
+    "$Repo\backend\scripts\test-opensearch-rag-smoke.js" `
+    "$Repo\backend\scripts\test-opensearch-agent-rag-e2e.js" `
+    "$Repo\backend\scripts\test-master-data-e2e.js" `
     "$Repo\backend\scripts\test-platform-help-chat.js" `
     "$Repo\backend\scripts\vps-smoke-new-features.js" `
     "$Repo\backend\scripts\vps-test-status-retention.js" `

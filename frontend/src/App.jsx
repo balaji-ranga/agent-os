@@ -18,6 +18,7 @@ import Register from './pages/Register';
 import Admin from './pages/Admin';
 import AdminA2AInvocations from './pages/AdminA2AInvocations';
 import AdminCrons from './pages/AdminCrons';
+import AdminPlatformDocuments from './pages/AdminPlatformDocuments';
 import McpIntegrations from './pages/McpIntegrations';
 import CustomScripts from './pages/CustomScripts';
 import ExternalAgents from './pages/ExternalAgents';
@@ -190,6 +191,7 @@ function Shell() {
                 <Route path="/admin" element={<Admin />} />
                 <Route path="/admin/a2a-invocations" element={<AdminA2AInvocations />} />
                 <Route path="/admin/crons" element={<AdminCrons />} />
+                <Route path="/admin/documents-rag" element={<AdminPlatformDocuments />} />
                 <Route path="/integrations/mcp/*" element={<McpIntegrations />} />
                 <Route path="/integrations/custom-scripts" element={<CustomScripts />} />
                 <Route path="/integrations/external-agents" element={<ExternalAgents />} />

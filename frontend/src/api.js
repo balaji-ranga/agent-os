@@ -407,6 +407,13 @@ export const api = {
   openconnectorOAuthConfigUpsert: (appId, body = {}) =>
     put(`/integrations/openconnector/oauth/configs/${encodeURIComponent(appId)}`, body),
   openconnectorConsoleLaunch: () => post('/integrations/openconnector/console-launch', {}),
+  opensearchConsoleLaunch: () => post('/integrations/opensearch/console-launch', {}),
+  adminPlatformDocuments: () => get('/admin/platform-documents'),
+  adminPlatformDocumentUpload: (body) => post('/admin/platform-documents', body),
+  adminPlatformDocumentDelete: (id) => del(`/admin/platform-documents/${encodeURIComponent(id)}`),
+  adminPlatformDocumentsReindexAll: () => post('/admin/platform-documents/reindex-all', {}),
+  adminPlatformDocumentsRag: (body) => post('/admin/platform-documents/rag', body),
+  adminPlatformDocumentsSeedHelp: () => post('/admin/platform-documents/seed-help', {}),
   agentWorkflowCreate: (body) => post('/agent-workflows', body),
   agentWorkflowUpdate: (id, body) => patch(`/agent-workflows/${encodeURIComponent(id)}`, body),
   agentWorkflowPublish: (id) => post(`/agent-workflows/${encodeURIComponent(id)}/publish`, {}),

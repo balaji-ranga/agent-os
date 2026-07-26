@@ -17,6 +17,16 @@ import { isProtectedPlatformDocument } from './master-data-protected-docs.js';
 import { getDbForCeo } from '../db/request-db.js';
 import { chatCompletions } from '../config/llm.js';
 import { extractTextFromBuffer } from './master-data-extract.js';
+import {
+  indexDocument as osIndexDocument,
+  listDocuments as osListDocuments,
+  getDocument as osGetDocument,
+  deleteDocumentIndex,
+  searchDocuments,
+  isOpenSearchConfigured,
+  waitForOpenSearch,
+  PLATFORM_OWNER_ID,
+} from './opensearch/index.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -580,81 +590,69 @@ export function queryTable(
   };
 }
 
-function chunkText(text, size = 900, overlap = 120) {
-  const t = String(text || '').replace(/\r\n/g, '\n').trim();
-  if (!t) return [];
-  const chunks = [];
-  let i = 0;
-  while (i < t.length) {
-    const end = Math.min(i + size, t.length);
-    chunks.push(t.slice(i, end));
-    if (end >= t.length) break;
-    i = Math.max(end - overlap, i + 1);
+function assertOpenSearchReady() {
+  if (!isOpenSearchConfigured()) {
+    const err = new Error(
+      'OpenSearch is not available. Document upload/list/RAG requires OpenSearch (tables still work).'
+    );
+    err.code = 'OPENSEARCH_UNAVAILABLE';
+    err.status = 503;
+    throw err;
   }
-  return chunks;
 }
 
-export function listDocuments(ownerUserId) {
-  const { db, owner } = dbFor(ownerUserId);
-  return db
-    .prepare(
-      `SELECT * FROM master_data_documents WHERE owner_user_id = ? ORDER BY created_at DESC`
-    )
-    .all(owner)
-    .map(mapDoc);
+function normalizeTags(tags) {
+  if (!Array.isArray(tags)) return [];
+  return [...new Set(tags.map((t) => String(t || '').trim()).filter(Boolean))];
 }
 
-export function getDocument(ownerUserId, documentId) {
-  const { db, owner } = dbFor(ownerUserId);
-  const row = db
-    .prepare(`SELECT * FROM master_data_documents WHERE id = ? AND owner_user_id = ?`)
-    .get(String(documentId), owner);
-  return mapDoc(row);
-}
-
-export function getDocumentFile(ownerUserId, documentId) {
-  const { db, owner } = dbFor(ownerUserId);
-  const row = db
-    .prepare(`SELECT * FROM master_data_documents WHERE id = ? AND owner_user_id = ?`)
-    .get(String(documentId), owner);
-  if (!row) throw new Error('Document not found');
-  if (!existsSync(row.storage_path)) throw new Error('Document file missing on disk');
-  return {
-    meta: mapDoc(row),
-    buffer: readFileSync(row.storage_path),
-    path: row.storage_path,
-  };
-}
-
-function replaceDocumentChunks(db, owner, documentId, text) {
-  const chunks = chunkText(text);
-  const excerpt = text.slice(0, 500);
-  db.prepare(`DELETE FROM master_data_doc_chunks WHERE document_id = ? AND owner_user_id = ?`).run(
-    documentId,
-    owner
-  );
-  const ins = db.prepare(
-    `INSERT INTO master_data_doc_chunks (document_id, owner_user_id, chunk_index, content) VALUES (?, ?, ?, ?)`
-  );
-  const tx = db.transaction((list) => {
-    list.forEach((c, i) => ins.run(documentId, owner, i, c));
-  });
-  tx(chunks);
-  db.prepare(
-    `UPDATE master_data_documents
-     SET text_excerpt = ?, chunk_count = ?, updated_at = datetime('now')
-     WHERE id = ? AND owner_user_id = ?`
-  ).run(excerpt, chunks.length, documentId, owner);
-  return { chunks, excerpt };
+function contentSha256(bufferOrText) {
+  return createHash('sha256').update(bufferOrText).digest('hex');
 }
 
 /**
- * Upload document: metadata in SQLite, bytes under master-data/{ceo}/docs/{id}/
- * Extracts text from PDF / DOCX / Excel for keyword RAG chunking.
- * @param {{ title?, filename, mimeType?, contentBase64?, contentText? }}
+ * List documents from OpenSearch. For CEO owners, protected platform help docs
+ * are filtered out (they live under PLATFORM_OWNER_ID). Platform owner lists all.
+ */
+export async function listDocuments(ownerUserId) {
+  assertOpenSearchReady();
+  const owner = String(ownerUserId || '').trim();
+  if (!owner) throw new Error('owner_user_id required');
+  const excludeProtected = owner !== PLATFORM_OWNER_ID;
+  return osListDocuments(owner, { excludeProtected });
+}
+
+export async function getDocument(ownerUserId, documentId) {
+  assertOpenSearchReady();
+  const owner = String(ownerUserId || '').trim();
+  return osGetDocument(owner, documentId);
+}
+
+export async function getDocumentFile(ownerUserId, documentId) {
+  assertOpenSearchReady();
+  const owner = String(ownerUserId || '').trim();
+  const meta = await osGetDocument(owner, documentId);
+  if (!meta) throw new Error('Document not found');
+  const storagePath = meta.storage_path;
+  if (!storagePath || !existsSync(storagePath)) {
+    throw new Error('Document file missing on disk');
+  }
+  return {
+    meta,
+    buffer: readFileSync(storagePath),
+    path: storagePath,
+  };
+}
+
+/**
+ * Upload document: bytes on disk, meta + chunks in OpenSearch (no SQLite chunks).
+ * @param {{ title?, filename, mimeType?, contentBase64?, contentText?, tags?, source?, uploaded_by_type?, uploaded_by_id?, uploadedByType?, uploadedById? }}
  */
 export async function uploadDocument(ownerUserId, input = {}) {
-  const { db, owner } = dbFor(ownerUserId);
+  assertOpenSearchReady();
+  const owner = String(ownerUserId || '').trim();
+  if (!owner) throw new Error('owner_user_id required');
+
   const filename = basename(String(input.filename || 'document.txt'));
   let buffer;
   if (input.contentBase64) {
@@ -674,48 +672,92 @@ export async function uploadDocument(ownerUserId, input = {}) {
 
   const mime = String(input.mimeType || 'application/octet-stream');
   const text = await extractTextFromBuffer(buffer, mime, filename);
-  const chunks = chunkText(text);
-  const excerpt = text.slice(0, 500);
   const title = safeName(input.title || filename.replace(extname(filename), '') || 'Document');
+  const tags = normalizeTags(input.tags);
+  const source = String(input.source || 'upload').trim() || 'upload';
+  const uploadedByType = String(
+    input.uploaded_by_type || input.uploadedByType || 'user'
+  ).trim() || 'user';
+  const uploadedById = String(
+    input.uploaded_by_id || input.uploadedById || owner
+  ).trim() || owner;
 
-  db.prepare(
-    `INSERT INTO master_data_documents
-      (id, owner_user_id, title, filename, mime_type, size_bytes, storage_path, text_excerpt, chunk_count)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(id, owner, title, filename, mime, buffer.length, storagePath, excerpt, chunks.length);
-
-  const ins = db.prepare(
-    `INSERT INTO master_data_doc_chunks (document_id, owner_user_id, chunk_index, content) VALUES (?, ?, ?, ?)`
-  );
-  const tx = db.transaction((list) => {
-    list.forEach((c, i) => ins.run(id, owner, i, c));
-  });
-  tx(chunks);
-
-  return getDocument(owner, id);
+  try {
+    const document = await osIndexDocument({
+      ownerUserId: owner,
+      documentId: id,
+      title,
+      filename,
+      mimeType: mime,
+      sizeBytes: buffer.length,
+      storagePath,
+      text,
+      source,
+      uploadedByType,
+      uploadedById,
+      tags,
+      contentSha256: contentSha256(buffer),
+    });
+    console.info(
+      '[master-data] uploadDocument owner=%s id=%s chunks=%d source=%s',
+      owner,
+      id,
+      document?.chunk_count || 0,
+      source
+    );
+    return document;
+  } catch (e) {
+    try {
+      if (existsSync(storagePath)) unlinkSync(storagePath);
+      if (existsSync(dir)) rmSync(dir, { recursive: true, force: true });
+    } catch (_) {
+      /* best-effort cleanup */
+    }
+    throw e;
+  }
 }
 
 /**
- * Re-extract text from the file on disk and rebuild RAG chunks (for docs uploaded before office support).
+ * Re-extract text from the file on disk and re-index into OpenSearch.
  */
 export async function reindexDocument(ownerUserId, documentId) {
-  const { db, owner } = dbFor(ownerUserId);
-  const row = db
-    .prepare(`SELECT * FROM master_data_documents WHERE id = ? AND owner_user_id = ?`)
-    .get(String(documentId), owner);
-  if (!row) throw new Error('Document not found');
-  if (!row.storage_path || !existsSync(row.storage_path)) {
+  assertOpenSearchReady();
+  const owner = String(ownerUserId || '').trim();
+  const existing = await osGetDocument(owner, documentId);
+  if (!existing) throw new Error('Document not found');
+  const storagePath = existing.storage_path;
+  if (!storagePath || !existsSync(storagePath)) {
     throw new Error('Document file missing on disk');
   }
-  const buffer = readFileSync(row.storage_path);
-  const text = await extractTextFromBuffer(buffer, row.mime_type, row.filename);
-  replaceDocumentChunks(db, owner, row.id, text);
-  return getDocument(owner, row.id);
+  const buffer = readFileSync(storagePath);
+  const text = await extractTextFromBuffer(buffer, existing.mime_type, existing.filename);
+  const document = await osIndexDocument({
+    ownerUserId: owner,
+    documentId: existing.id,
+    title: existing.title,
+    filename: existing.filename,
+    mimeType: existing.mime_type,
+    sizeBytes: buffer.length,
+    storagePath,
+    text,
+    source: existing.source || 'upload',
+    uploadedByType: existing.uploaded_by_type,
+    uploadedById: existing.uploaded_by_id,
+    tags: existing.tags,
+    contentSha256: contentSha256(buffer),
+  });
+  console.info(
+    '[master-data] reindexDocument owner=%s id=%s chunks=%d',
+    owner,
+    existing.id,
+    document?.chunk_count || 0
+  );
+  return document;
 }
 
 /** Reindex all documents for an owner. Returns { reindexed, failed[] }. */
 export async function reindexAllDocuments(ownerUserId) {
-  const docs = listDocuments(ownerUserId);
+  const docs = await listDocuments(ownerUserId);
   const failed = [];
   let reindexed = 0;
   for (const d of docs) {
@@ -730,16 +772,15 @@ export async function reindexAllDocuments(ownerUserId) {
 }
 
 /**
- * Delete one document (DB row + chunks + disk). Platform Help / User Guide are
- * blocked unless `{ force: true }` (seed/refresh only).
+ * Delete one document (OpenSearch index + disk). Platform Help / User Guide are
+ * blocked unless `{ force: true }` (admin/seed only).
  */
-export function deleteDocument(ownerUserId, documentId, { force = false } = {}) {
-  const { db, owner } = dbFor(ownerUserId);
-  const row = db
-    .prepare(`SELECT * FROM master_data_documents WHERE id = ? AND owner_user_id = ?`)
-    .get(String(documentId), owner);
-  if (!row) throw new Error('Document not found');
-  if (!force && isProtectedPlatformDocument(row)) {
+export async function deleteDocument(ownerUserId, documentId, { force = false } = {}) {
+  assertOpenSearchReady();
+  const owner = String(ownerUserId || '').trim();
+  const existing = await osGetDocument(owner, documentId);
+  if (!existing) throw new Error('Document not found');
+  if (!force && isProtectedPlatformDocument(existing)) {
     const err = new Error(
       'Platform Help and User Guide documents cannot be deleted. Use Purge all to remove your uploaded documents only.'
     );
@@ -747,28 +788,27 @@ export function deleteDocument(ownerUserId, documentId, { force = false } = {}) 
     err.status = 403;
     throw err;
   }
-  db.prepare(`DELETE FROM master_data_doc_chunks WHERE document_id = ? AND owner_user_id = ?`).run(
-    row.id,
-    owner
-  );
-  db.prepare(`DELETE FROM master_data_documents WHERE id = ? AND owner_user_id = ?`).run(row.id, owner);
+  await deleteDocumentIndex(owner, existing.id);
   try {
-    if (row.storage_path && existsSync(row.storage_path)) unlinkSync(row.storage_path);
-    const dir = dirname(row.storage_path);
-    if (existsSync(dir)) rmSync(dir, { recursive: true, force: true });
-  } catch (_) {}
+    if (existing.storage_path && existsSync(existing.storage_path)) {
+      unlinkSync(existing.storage_path);
+      const dir = dirname(existing.storage_path);
+      if (existsSync(dir)) rmSync(dir, { recursive: true, force: true });
+    }
+  } catch (_) {
+    /* best-effort disk cleanup */
+  }
   return { ok: true, id: documentId };
 }
 
 /**
- * Delete every user-uploaded document for the CEO (table + chunks + disk).
- * Platform Help / Flolah User Guide are retained.
+ * Delete every user-uploaded document for the CEO (OpenSearch + disk).
+ * Platform Help / Flolah User Guide are retained (and filtered from CEO lists).
  */
-export function purgeAllUserDocuments(ownerUserId) {
-  const { db, owner } = dbFor(ownerUserId);
-  const rows = db
-    .prepare(`SELECT * FROM master_data_documents WHERE owner_user_id = ? ORDER BY created_at DESC`)
-    .all(owner);
+export async function purgeAllUserDocuments(ownerUserId) {
+  assertOpenSearchReady();
+  const owner = String(ownerUserId || '').trim();
+  const rows = await osListDocuments(owner, { excludeProtected: false });
   const deleted = [];
   const retained = [];
   const failed = [];
@@ -778,7 +818,7 @@ export function purgeAllUserDocuments(ownerUserId) {
       continue;
     }
     try {
-      deleteDocument(owner, row.id, { force: false });
+      await deleteDocument(owner, row.id, { force: false });
       deleted.push({ id: row.id, title: row.title, filename: row.filename });
     } catch (e) {
       failed.push({ id: row.id, title: row.title, error: e?.message || String(e) });
@@ -802,18 +842,8 @@ export function purgeAllUserDocuments(ownerUserId) {
   };
 }
 
-function scoreChunk(content, queryTerms) {
-  const hay = String(content || '').toLowerCase();
-  let score = 0;
-  for (const t of queryTerms) {
-    if (!t) continue;
-    if (hay.includes(t)) score += 1 + (hay.split(t).length - 1) * 0.1;
-  }
-  return score;
-}
-
 /**
- * RAG over owner documents: keyword retrieval + optional LLM summary (user BYOK aware).
+ * RAG over owner documents via OpenSearch hybrid search + optional LLM summary.
  *
  * `summarize` is opt-in: retrieval is free, the summary costs an LLM call per request.
  * Callers that want a synthesized answer (CEO UI, workflow nodes) pass it explicitly.
@@ -822,62 +852,32 @@ export async function ragDocuments(
   ownerUserId,
   { query, topK = 5, documentId = null, summarize = false } = {}
 ) {
-  const { db, owner } = dbFor(ownerUserId);
+  assertOpenSearchReady();
+  const owner = String(ownerUserId || '').trim();
+  if (!owner) throw new Error('owner_user_id required');
   const q = String(query || '').trim();
   if (!q) throw new Error('query required');
-  const terms = q
-    .toLowerCase()
-    .split(/\W+/)
-    .filter((t) => t.length > 2)
-    .slice(0, 20);
   const k = Math.min(Math.max(Number(topK) || 5, 1), 20);
 
-  let chunks;
   if (documentId) {
-    const doc = getDocument(owner, documentId);
+    const doc = await osGetDocument(owner, documentId);
     if (!doc) throw new Error('Document not found');
-    chunks = db
-      .prepare(
-        `SELECT c.*, d.title, d.filename FROM master_data_doc_chunks c
-         JOIN master_data_documents d ON d.id = c.document_id
-         WHERE c.owner_user_id = ? AND c.document_id = ?`
-      )
-      .all(owner, String(documentId));
-  } else {
-    chunks = db
-      .prepare(
-        `SELECT c.*, d.title, d.filename FROM master_data_doc_chunks c
-         JOIN master_data_documents d ON d.id = c.document_id
-         WHERE c.owner_user_id = ?`
-      )
-      .all(owner);
   }
 
-  const scored = chunks
-    .map((c) => ({
-      document_id: c.document_id,
-      title: c.title,
-      filename: c.filename,
-      chunk_index: c.chunk_index,
-      content: c.content,
-      score: scoreChunk(c.content, terms.length ? terms : [q.toLowerCase()]),
-    }))
-    .filter((c) => c.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, k);
+  const { chunks: rawChunks } = await searchDocuments(owner, {
+    query: q,
+    topK: k,
+    documentId: documentId || undefined,
+  });
 
-  // Fallback: if no term hits, return first chunks
-  const hits =
-    scored.length > 0
-      ? scored
-      : chunks.slice(0, k).map((c) => ({
-          document_id: c.document_id,
-          title: c.title,
-          filename: c.filename,
-          chunk_index: c.chunk_index,
-          content: c.content,
-          score: 0,
-        }));
+  const hits = (rawChunks || []).map((c) => ({
+    document_id: c.document_id,
+    title: c.title,
+    filename: c.filename,
+    chunk_index: c.chunk_index,
+    content: c.content,
+    score: c.score != null ? Number(c.score) : 0,
+  }));
 
   const contextText = hits
     .map((h, i) => `[${i + 1}] (${h.title || h.filename})\n${h.content}`)
@@ -916,6 +916,9 @@ export async function ragDocuments(
     text: summary || contextText.slice(0, 2000),
   };
 }
+
+/** Exported for startup / admin health checks. */
+export { waitForOpenSearch, isOpenSearchConfigured };
 
 /**
  * Workflow / unified query entry: mode=table|rag|auto

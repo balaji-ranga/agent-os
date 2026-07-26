@@ -178,13 +178,14 @@ router.post('/tables/:tableId/query', requireAuth, requireCeoOrAdmin, (req, res)
   }
 });
 
-router.get('/documents', requireAuth, requireCeoOrAdmin, (req, res) => {
+router.get('/documents', requireAuth, requireCeoOrAdmin, async (req, res) => {
   try {
     const owner = ownerOr403(req, res);
     if (!owner) return;
-    res.json({ documents: md.listDocuments(owner) });
+    res.json({ documents: await md.listDocuments(owner) });
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    const status = e.status || (e.code === 'OPENSEARCH_UNAVAILABLE' ? 503 : 400);
+    res.status(status).json({ error: e.message, code: e.code || undefined });
   }
 });
 
@@ -192,18 +193,37 @@ router.post('/documents', requireAuth, requireCeoOrAdmin, async (req, res) => {
   try {
     const owner = ownerOr403(req, res);
     if (!owner) return;
-    const { title, filename, mime_type, mimeType, content_base64, contentBase64, content_text, contentText } =
-      req.body || {};
+    const {
+      title,
+      filename,
+      mime_type,
+      mimeType,
+      content_base64,
+      contentBase64,
+      content_text,
+      contentText,
+      tags,
+      source,
+      uploaded_by_type,
+      uploadedByType,
+      uploaded_by_id,
+      uploadedById,
+    } = req.body || {};
     const doc = await md.uploadDocument(owner, {
       title,
       filename: filename || 'document.txt',
       mimeType: mime_type || mimeType,
       contentBase64: content_base64 || contentBase64,
       contentText: content_text ?? contentText,
+      tags,
+      source,
+      uploaded_by_type: uploaded_by_type || uploadedByType,
+      uploaded_by_id: uploaded_by_id || uploadedById,
     });
     res.status(201).json({ document: doc });
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    const status = e.status || (e.code === 'OPENSEARCH_UNAVAILABLE' ? 503 : 400);
+    res.status(status).json({ error: e.message, code: e.code || undefined });
   }
 });
 
@@ -222,14 +242,15 @@ router.post('/documents/reindex-all', requireAuth, requireCeoOrAdmin, async (req
  * Delete all user-uploaded documents (DB + disk). Platform Help / User Guide are retained.
  * POST body unused — owner always from session / admin impersonation.
  */
-router.post('/documents/purge-all', requireAuth, requireCeoOrAdmin, (req, res) => {
+router.post('/documents/purge-all', requireAuth, requireCeoOrAdmin, async (req, res) => {
   try {
     const owner = ownerOr403(req, res);
     if (!owner) return;
-    const result = md.purgeAllUserDocuments(owner);
+    const result = await md.purgeAllUserDocuments(owner);
     res.json(result);
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    const status = e.status || (e.code === 'OPENSEARCH_UNAVAILABLE' ? 503 : 400);
+    res.status(status).json({ error: e.message, code: e.code || undefined });
   }
 });
 
@@ -240,28 +261,31 @@ router.post('/documents/:documentId/reindex', requireAuth, requireCeoOrAdmin, as
     const document = await md.reindexDocument(owner, req.params.documentId);
     res.json({ document });
   } catch (e) {
-    const status = /not found|missing/i.test(e.message || '') ? 404 : 400;
-    res.status(status).json({ error: e.message });
+    const status =
+      e.status ||
+      (e.code === 'OPENSEARCH_UNAVAILABLE' ? 503 : /not found|missing/i.test(e.message || '') ? 404 : 400);
+    res.status(status).json({ error: e.message, code: e.code || undefined });
   }
 });
 
-router.get('/documents/:documentId', requireAuth, requireCeoOrAdmin, (req, res) => {
+router.get('/documents/:documentId', requireAuth, requireCeoOrAdmin, async (req, res) => {
   try {
     const owner = ownerOr403(req, res);
     if (!owner) return;
-    const document = md.getDocument(owner, req.params.documentId);
+    const document = await md.getDocument(owner, req.params.documentId);
     if (!document) return res.status(404).json({ error: 'Document not found' });
     res.json({ document });
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    const status = e.status || (e.code === 'OPENSEARCH_UNAVAILABLE' ? 503 : 400);
+    res.status(status).json({ error: e.message, code: e.code || undefined });
   }
 });
 
-router.get('/documents/:documentId/download', requireAuth, requireCeoOrAdmin, (req, res) => {
+router.get('/documents/:documentId/download', requireAuth, requireCeoOrAdmin, async (req, res) => {
   try {
     const owner = ownerOr403(req, res);
     if (!owner) return;
-    const file = md.getDocumentFile(owner, req.params.documentId);
+    const file = await md.getDocumentFile(owner, req.params.documentId);
     res.setHeader('Content-Type', file.meta.mime_type || 'application/octet-stream');
     res.setHeader(
       'Content-Disposition',
@@ -269,17 +293,20 @@ router.get('/documents/:documentId/download', requireAuth, requireCeoOrAdmin, (r
     );
     res.send(file.buffer);
   } catch (e) {
-    res.status(404).json({ error: e.message });
+    const status = e.status || (e.code === 'OPENSEARCH_UNAVAILABLE' ? 503 : 404);
+    res.status(status).json({ error: e.message, code: e.code || undefined });
   }
 });
 
-router.delete('/documents/:documentId', requireAuth, requireCeoOrAdmin, (req, res) => {
+router.delete('/documents/:documentId', requireAuth, requireCeoOrAdmin, async (req, res) => {
   try {
     const owner = ownerOr403(req, res);
     if (!owner) return;
-    res.json(md.deleteDocument(owner, req.params.documentId));
+    res.json(await md.deleteDocument(owner, req.params.documentId));
   } catch (e) {
-    const status = e.status || (e.code === 'PROTECTED_DOCUMENT' ? 403 : 400);
+    const status =
+      e.status ||
+      (e.code === 'PROTECTED_DOCUMENT' ? 403 : e.code === 'OPENSEARCH_UNAVAILABLE' ? 503 : 400);
     res.status(status).json({ error: e.message, code: e.code || undefined });
   }
 });

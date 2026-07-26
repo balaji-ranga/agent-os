@@ -142,6 +142,12 @@ export function AuthProvider({ children }) {
     try {
       await api.authLogout();
     } catch (_) {}
+    // Clear Path=/opensearch and Path=/openconnector HttpOnly cookies (API logout Set-Cookie
+    // can miss if Secure/Path mismatched). Same-origin fetch includes those cookies.
+    await Promise.all([
+      fetch('/opensearch/?os_logout=1', { credentials: 'include', cache: 'no-store' }).catch(() => {}),
+      fetch('/openconnector/?oc_logout=1', { credentials: 'include', cache: 'no-store' }).catch(() => {}),
+    ]);
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(IMPERSONATOR_TOKEN_KEY);
     setAuthToken(null);

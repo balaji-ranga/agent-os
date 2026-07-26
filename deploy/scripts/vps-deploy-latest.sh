@@ -41,6 +41,23 @@ if [[ -f "$ROOT/deploy/scripts/ensure-cron-env.sh" ]]; then
   sed -i 's/\r$//' "$ROOT/deploy/scripts/ensure-cron-env.sh" 2>/dev/null || true
   bash "$ROOT/deploy/scripts/ensure-cron-env.sh" "$ROOT/deploy/.env" || true
 fi
+if [[ -f "$ROOT/deploy/scripts/ensure-opensearch-env.sh" ]]; then
+  sed -i 's/\r$//' "$ROOT/deploy/scripts/ensure-opensearch-env.sh" 2>/dev/null || true
+  bash "$ROOT/deploy/scripts/ensure-opensearch-env.sh" "$ROOT/deploy/.env" || true
+fi
+
+# OpenSearch requires elevated mmap counts
+if [[ "$(id -u)" -eq 0 ]] || command -v sudo >/dev/null 2>&1; then
+  cur="$(sysctl -n vm.max_map_count 2>/dev/null || echo 0)"
+  if [[ "${cur:-0}" -lt 262144 ]]; then
+    echo "==> setting vm.max_map_count=262144 (was $cur)"
+    if [[ "$(id -u)" -eq 0 ]]; then
+      sysctl -w vm.max_map_count=262144 >/dev/null || true
+    else
+      sudo sysctl -w vm.max_map_count=262144 >/dev/null || true
+    fi
+  fi
+fi
 
 echo "==> Agent OS deploy latest $(date -Is)"
 echo "    root=$ROOT services=$SERVICES skip_git=$SKIP_GIT no_cache=$NO_CACHE"
@@ -72,6 +89,8 @@ echo "              cron reference block in deploy/.env (ensure-cron-env.sh) + h
 echo "              external/A2A agents as org leaf members (Add to org) + COO delegation to them,"
 echo "              A2A visibility public|private (private = org COO/reports-to only; public endpoints denied),"
 echo "              Master Data Purge all uploads (CEO uploads only; Help + User Guide protected),"
+echo "              OpenSearch document RAG (per-user meta+search indices; platform_docs_*;"
+echo "              admin Documents RAG + /opensearch/ Dashboards BFF; no host :9200/:5601),"
 echo "              agent delete cascade + deleted_agents tombstone (no FK error, no resurrection)"
 
 if [[ "$SKIP_GIT" != "1" ]]; then
@@ -116,6 +135,10 @@ echo "==> recreate $SERVICES + nginx"
 # shellcheck disable=SC2086
 docker compose up -d --force-recreate $SERVICES
 docker compose up -d --force-recreate nginx
+
+# OpenSearch + Dashboards (document RAG) — always ensure running; not in default SERVICES rebuild list
+echo "==> ensure OpenSearch + Dashboards (internal only)"
+docker compose up -d opensearch opensearch-dashboards || echo "WARN: OpenSearch up failed"
 # OpenClaw entrypoint re-applies configure-openclaw-docker.js (tools.allow, codex off, etc.)
 
 # Brave Search MCP BYOK (optional profile) — rebuild when Dockerfile/tool source changed

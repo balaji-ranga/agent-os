@@ -144,6 +144,13 @@ export function AdminNavMenu({ collapsed }) {
       >
         {collapsed ? 'CR' : 'Crons'}
       </NavLink>
+      <NavLink
+        to="/admin/documents-rag"
+        className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+        title="Platform Documents RAG (OpenSearch)"
+      >
+        {collapsed ? 'DR' : 'Documents RAG'}
+      </NavLink>
 
       <NavSection title="Agentic Workflows" collapsed={collapsed}>
         <NavItem to="/connectors" title="Connectors" collapsed={collapsed} label="Connectors" short="Cn" />

@@ -1,25 +1,21 @@
 /**
  * Default Master Data for every CEO:
  * - departments table (same presets as frontend DepartmentPicker)
- * - Flolah User Guide document (repo README.md) for RAG
- * - Platform Help docs (knowledgebase/platform-help/*.md) for the Platform Help agent
+ *
+ * Platform Help + Flolah User Guide are seeded into OpenSearch under
+ * PLATFORM_OWNER_ID via ensurePlatformHelpInOpenSearch (not per-CEO).
  *
  * Called on CEO register and on backend startup backfill.
  */
-import { createHash } from 'crypto';
-import { existsSync, readdirSync, readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import {
   createTable,
-  deleteDocument,
   ensureTableColumns,
   findTableByName,
-  getDocumentFile,
   insertRow,
-  listDocuments,
   listRows,
-  uploadDocument,
 } from './master-data.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -125,84 +121,6 @@ export function readDefaultReadmeContent() {
   }
 }
 
-function contentHash(text) {
-  return createHash('sha256').update(String(text || ''), 'utf8').digest('hex');
-}
-
-function findDocumentByTitleOrFilename(ownerUserId, title, filename, legacyTitles = []) {
-  const docs = listDocuments(ownerUserId);
-  const fn = String(filename || '').toLowerCase();
-  const legacy = new Set((legacyTitles || []).filter(Boolean));
-  return docs.find(
-    (d) =>
-      d.title === title ||
-      legacy.has(d.title) ||
-      (fn && String(d.filename || '').toLowerCase() === fn)
-  );
-}
-
-/**
- * Upload or refresh a single markdown Master Data document by title/filename.
- */
-async function ensureMarkdownDocument(ownerUserId, { title, filename, content, legacyTitles }, { refresh = true } = {}) {
-  if (!content) {
-    return { document: null, created: false, updated: false, skipped: 'content_missing' };
-  }
-  const existing = findDocumentByTitleOrFilename(ownerUserId, title, filename, legacyTitles);
-  if (existing) {
-    if (!refresh) {
-      return { document: existing, created: false, updated: false };
-    }
-    try {
-      const { buffer } = getDocumentFile(ownerUserId, existing.id);
-      const sameContent = contentHash(buffer.toString('utf8')) === contentHash(content);
-      const sameTitle = existing.title === title;
-      if (sameContent && sameTitle) {
-        return { document: existing, created: false, updated: false };
-      }
-    } catch (_) {
-      /* replace below */
-    }
-    try {
-      deleteDocument(ownerUserId, existing.id, { force: true });
-    } catch (_) {
-      /* continue to upload */
-    }
-  }
-  const document = await uploadDocument(ownerUserId, {
-    title,
-    filename,
-    mimeType: 'text/markdown',
-    contentText: content,
-  });
-  return {
-    document,
-    created: !existing,
-    updated: Boolean(existing),
-  };
-}
-
-/** Remove leftover docs still titled with the old Flowlah brand. */
-function cleanupLegacyBrandDocuments(ownerUserId) {
-  const docs = listDocuments(ownerUserId);
-  let removed = 0;
-  for (const d of docs) {
-    const title = String(d.title || '');
-    const isLegacyHelp =
-      title.startsWith(LEGACY_PLATFORM_HELP_TITLE_PREFIX) ||
-      title.startsWith('Flowlah Help -') ||
-      title === LEGACY_USER_GUIDE_TITLE;
-    if (!isLegacyHelp) continue;
-    try {
-      deleteDocument(ownerUserId, d.id, { force: true });
-      removed += 1;
-    } catch (_) {
-      /* ignore */
-    }
-  }
-  return removed;
-}
-
 /**
  * Ensure the CEO has a departments master-data table with preset rows when empty/new.
  */
@@ -291,78 +209,31 @@ export function listDepartmentsForOwner(ownerUserId) {
 
 /**
  * Upload/refresh repo README.md as the CEO's default RAG document.
+ * Moved to platform OpenSearch (ensurePlatformHelpInOpenSearch); no longer per-CEO.
  */
-export async function ensureDefaultReadmeDocument(ownerUserId, opts = {}) {
-  const content = readDefaultReadmeContent();
-  if (!content) {
-    return { document: null, created: false, updated: false, skipped: 'readme_missing' };
-  }
-  return ensureMarkdownDocument(
-    ownerUserId,
-    {
-      title: FLOLAH_GUIDE_TITLE,
-      filename: FLOLAH_GUIDE_FILENAME,
-      content,
-      legacyTitles: [LEGACY_USER_GUIDE_TITLE],
-    },
-    opts
-  );
+export async function ensureDefaultReadmeDocument(_ownerUserId, _opts = {}) {
+  return {
+    document: null,
+    created: false,
+    updated: false,
+    skipped: 'moved_to_platform_opensearch',
+  };
 }
 
 /**
  * Upload/refresh Platform Help markdown set for Master Data RAG (Platform Help agent).
+ * Moved to platform OpenSearch (ensurePlatformHelpInOpenSearch); no longer per-CEO.
  */
-export async function ensurePlatformHelpDocuments(ownerUserId, opts = {}) {
-  const dir = resolvePlatformHelpDir();
-  if (!dir) {
-    return { docs: [], created: 0, updated: 0, skipped: 'platform_help_dir_missing' };
-  }
-  let created = 0;
-  let updated = 0;
-  const docs = [];
-  const catalog = [...PLATFORM_HELP_DOCUMENTS];
-  // Also pick up any extra *.md dropped in the folder later.
-  try {
-    for (const name of readdirSync(dir)) {
-      if (!/\.md$/i.test(name)) continue;
-      if (catalog.some((c) => c.filename.toLowerCase() === name.toLowerCase())) continue;
-      catalog.push({
-        filename: name,
-        title: `${PLATFORM_HELP_TITLE_PREFIX}${name.replace(/\.md$/i, '')}`,
-      });
-    }
-  } catch (_) {
-    /* ignore */
-  }
-  for (const entry of catalog) {
-    const path = join(dir, entry.filename);
-    if (!existsSync(path)) continue;
-    let content;
-    try {
-      content = readFileSync(path, 'utf8');
-    } catch {
-      continue;
-    }
-    const legacyTitle = `${LEGACY_PLATFORM_HELP_TITLE_PREFIX}${entry.title.slice(PLATFORM_HELP_TITLE_PREFIX.length)}`;
-    const result = await ensureMarkdownDocument(
-      ownerUserId,
-      {
-        title: entry.title,
-        filename: `platform-help-${entry.filename}`,
-        content,
-        legacyTitles: [legacyTitle, entry.title.replace(PLATFORM_HELP_TITLE_PREFIX, 'Flowlah Help - ')],
-      },
-      opts
-    );
-    docs.push(result);
-    if (result.created) created += 1;
-    else if (result.updated) updated += 1;
-  }
-  const legacyRemoved = cleanupLegacyBrandDocuments(ownerUserId);
-  return { docs, created, updated, legacyRemoved };
+export async function ensurePlatformHelpDocuments(_ownerUserId, _opts = {}) {
+  return {
+    docs: [],
+    created: 0,
+    updated: 0,
+    skipped: 'moved_to_platform_opensearch',
+  };
 }
 
-/** Departments + User Guide + Platform Help for one CEO. */
+/** Departments only for one CEO (platform help lives in OpenSearch under PLATFORM_OWNER_ID). */
 export async function ensureCeoDefaultMasterData(ownerUserId, opts = {}) {
   const departments = ensureDepartmentsMasterData(ownerUserId);
   const guide = await ensureDefaultReadmeDocument(ownerUserId, opts);
@@ -371,27 +242,17 @@ export async function ensureCeoDefaultMasterData(ownerUserId, opts = {}) {
 }
 
 /**
- * Backfill all CEO users. Returns counts for logging.
+ * Backfill all CEO users. Returns counts for logging (help counts always zero).
  */
 export async function ensureCeoDefaultMasterDataForAllCeos(listCeoIds, opts = {}) {
   const ids = Array.isArray(listCeoIds) ? listCeoIds : [];
   let deptCreated = 0;
   let deptSeeded = 0;
-  let guidesCreated = 0;
-  let guidesUpdated = 0;
-  let guidesSkipped = 0;
-  let helpCreated = 0;
-  let helpUpdated = 0;
   for (const id of ids) {
     try {
-      const { departments, guide, platformHelp } = await ensureCeoDefaultMasterData(id, opts);
+      const { departments } = await ensureCeoDefaultMasterData(id, opts);
       if (departments.created) deptCreated += 1;
       if (departments.inserted) deptSeeded += 1;
-      if (guide.created) guidesCreated += 1;
-      else if (guide.updated) guidesUpdated += 1;
-      if (guide.skipped) guidesSkipped += 1;
-      helpCreated += platformHelp?.created || 0;
-      helpUpdated += platformHelp?.updated || 0;
     } catch (e) {
       console.warn(`[ceo-default-master-data] ${id}:`, e.message);
     }
@@ -399,11 +260,11 @@ export async function ensureCeoDefaultMasterDataForAllCeos(listCeoIds, opts = {}
   return {
     deptCreated,
     deptSeeded,
-    guidesCreated,
-    guidesUpdated,
-    guidesSkipped,
-    helpCreated,
-    helpUpdated,
+    guidesCreated: 0,
+    guidesUpdated: 0,
+    guidesSkipped: 0,
+    helpCreated: 0,
+    helpUpdated: 0,
     ceos: ids.length,
   };
 }

@@ -27,6 +27,7 @@ function AdminPanel() {
   });
   const [notifySending, setNotifySending] = useState(false);
   const [ocConsoleBusy, setOcConsoleBusy] = useState(false);
+  const [osConsoleBusy, setOsConsoleBusy] = useState(false);
   const [offboardBusy, setOffboardBusy] = useState(false);
   const [offboardConfirmEmail, setOffboardConfirmEmail] = useState('');
   const [refreshForm, setRefreshForm] = useState({
@@ -228,6 +229,22 @@ function AdminPanel() {
     }
   };
 
+  const openOpenSearchConsole = async () => {
+    setOsConsoleBusy(true);
+    try {
+      const data = await api.opensearchConsoleLaunch();
+      // Cookie is set on this API response; open console in a new tab so Admin
+      // Logout can still revoke the session and clear the console cookie.
+      const url = data.console_url || data.url || '/opensearch/';
+      const popup = window.open(url, 'aos-opensearch', 'noopener,noreferrer');
+      if (!popup) window.location.assign(data.url || url);
+    } catch (err) {
+      showError(err.message || 'Failed to launch OpenSearch console');
+    } finally {
+      setOsConsoleBusy(false);
+    }
+  };
+
   const enabledUsers = users.filter((u) => u.enabled);
   const enabledCeos = enabledUsers.filter((u) => u.role === 'ceo');
 
@@ -311,6 +328,15 @@ function AdminPanel() {
           >
             {ocConsoleBusy ? 'Opening…' : 'OpenConnector console'}
           </button>
+          <button
+            type="button"
+            className="wf-btn"
+            disabled={osConsoleBusy}
+            onClick={openOpenSearchConsole}
+          >
+            {osConsoleBusy ? 'Opening…' : 'OpenSearch console'}
+          </button>
+          <Link to="/admin/documents-rag" className="wf-btn">Documents RAG</Link>
           <Link to="/integrations/mcp" className="wf-btn">MCP Integrations</Link>
           <Link to="/" className="wf-btn">Dashboard</Link>
           <button type="button" className="wf-btn wf-btn-danger" onClick={logout}>

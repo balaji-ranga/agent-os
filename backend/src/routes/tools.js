@@ -1313,19 +1313,22 @@ router.post('/master-data-delete-row', optionalAuth, (req, res) => {
 /**
  * master_data_list_documents — list this CEO's uploaded master-data documents.
  */
-router.post('/master-data-list-documents', optionalAuth, (req, res) => {
+router.post('/master-data-list-documents', optionalAuth, async (req, res) => {
   const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
   const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
   try {
     const ownerUserId = resolveMasterDataOwnerOr403(req, res, 'master_data_list_documents', requestPayload, source);
     if (!ownerUserId) return;
-    const out = listDocumentsForAgent(ownerUserId);
+    const out = await listDocumentsForAgent(ownerUserId, {
+      source,
+      agentId: source || requestPayload.agent_id || requestPayload.agentId || null,
+    });
     logTool(req, 'master_data_list_documents', { ...requestPayload, owner_user_id: ownerUserId }, out, 'ok', source);
     res.json(out);
   } catch (e) {
-    const err = { error: e.message };
+    const err = { error: e.message, code: e.code || undefined };
     logTool(req, 'master_data_list_documents', requestPayload, err, 'error', source);
-    res.status(400).json(err);
+    res.status(e.status || 400).json(err);
   }
 });
 
@@ -1338,13 +1341,17 @@ router.post('/master-data-rag', optionalAuth, async (req, res) => {
   try {
     const ownerUserId = resolveMasterDataOwnerOr403(req, res, 'master_data_rag', requestPayload, source);
     if (!ownerUserId) return;
-    const out = await ragDocumentsForAgent(ownerUserId, requestPayload);
+    const out = await ragDocumentsForAgent(ownerUserId, {
+      ...requestPayload,
+      source,
+      agentId: source || requestPayload.agent_id || requestPayload.agentId || null,
+    });
     logTool(req, 'master_data_rag', { ...requestPayload, owner_user_id: ownerUserId }, out, 'ok', source);
     res.json(out);
   } catch (e) {
-    const err = { error: e.message };
+    const err = { error: e.message, code: e.code || undefined };
     logTool(req, 'master_data_rag', requestPayload, err, 'error', source);
-    res.status(400).json(err);
+    res.status(e.status || 400).json(err);
   }
 });
 

@@ -31,6 +31,14 @@ import ibkrTradingRoutes from './routes/ibkr-trading.js';
 import emailInboundRoutes from './routes/email-inbound.js';
 import openconnectorRoutes from './routes/openconnector.js';
 import { openConnectorConsoleProxy } from './services/openconnector-console-proxy.js';
+import opensearchConsoleRoutes from './routes/opensearch-console.js';
+import adminPlatformDocsRoutes from './routes/admin-platform-docs.js';
+import {
+  openSearchConsoleProxy,
+  waitForOpenSearch,
+  ensurePlatformHelpInOpenSearch,
+} from './services/opensearch/index.js';
+import { migrateSqliteDocsForAllOwners } from './services/opensearch/migrate-sqlite-docs.js';
 import aiSnipperRoutes from './routes/ai-snipper.js';
 import efficiencyRoutes from './routes/efficiency.js';
 import orgMembersRoutes from './routes/org-members.js';
@@ -94,6 +102,13 @@ app.use(
   '/openconnector',
   express.raw({ type: () => true, limit: '10mb' }),
   openConnectorConsoleProxy()
+);
+
+// Admin-gated OpenSearch Dashboards reverse proxy under /opensearch/*
+app.use(
+  '/opensearch',
+  express.raw({ type: () => true, limit: '10mb' }),
+  openSearchConsoleProxy()
 );
 
 app.use(express.json({ limit: '2mb' }));
@@ -171,23 +186,49 @@ try {
     ceos.map((c) => c.id),
     { refresh: true }
   );
-  if (
-    md.deptCreated ||
-    md.deptSeeded ||
-    md.guidesCreated ||
-    md.guidesUpdated ||
-    md.helpCreated ||
-    md.helpUpdated
-  ) {
+  if (md.deptCreated || md.deptSeeded) {
     console.log(
-      `[startup] CEO default master data: departments created=${md.deptCreated} seeded=${md.deptSeeded}, ` +
-        `guides created=${md.guidesCreated} updated=${md.guidesUpdated}` +
-        (md.guidesSkipped ? ` (readme missing=${md.guidesSkipped})` : '') +
-        `, platform-help created=${md.helpCreated || 0} updated=${md.helpUpdated || 0}`
+      `[startup] CEO default master data: departments created=${md.deptCreated} seeded=${md.deptSeeded}`
     );
   }
 } catch (e) {
   console.warn('[startup] CEO default master data:', e.message);
+}
+
+// OpenSearch: wait, seed platform help, migrate legacy SQLite docs
+try {
+  const osReady = await waitForOpenSearch({ attempts: 30, delayMs: 2000 });
+  if (osReady?.ok) {
+    try {
+      const help = await ensurePlatformHelpInOpenSearch();
+      console.info(
+        `[startup] platform help OpenSearch: created=${help.created} updated=${help.updated} skipped=${help.skipped}`
+      );
+    } catch (e) {
+      console.warn('[startup] platform help OpenSearch seed:', e.message);
+    }
+    try {
+      const ceoIds = getDb()
+        .prepare(`SELECT id FROM platform_users WHERE role = 'ceo'`)
+        .all()
+        .map((c) => c.id);
+      const mig = await migrateSqliteDocsForAllOwners(ceoIds);
+      if (mig.migrated || mig.failed) {
+        console.info(
+          `[startup] OpenSearch SQLite doc migrate: migrated=${mig.migrated} skipped=${mig.skipped} failed=${mig.failed}`
+        );
+      }
+    } catch (e) {
+      console.warn('[startup] OpenSearch SQLite doc migrate:', e.message);
+    }
+  } else {
+    console.warn(
+      '[startup] OpenSearch not ready — document RAG unavailable until cluster is up (%s)',
+      osReady?.error || osReady?.status
+    );
+  }
+} catch (e) {
+  console.warn('[startup] OpenSearch init:', e.message);
 }
 seedContentToolsMetaIfEmpty();
 seedKanbanToolsIfMissing();
@@ -324,6 +365,7 @@ apiRouter.use('/platform-notifications', platformNotificationsRoutes);
 apiRouter.use('/user-api-keys', userApiKeysRoutes);
 apiRouter.use('/feedback', feedbackRoutes);
 apiRouter.use('/master-data', masterDataRoutes);
+apiRouter.use('/admin/platform-documents', adminPlatformDocsRoutes);
 apiRouter.use('/ceo-guardrails', ceoGuardrailsRoutes);
 apiRouter.use('/workspace', workspaceRoutes);
 apiRouter.use('/agents', agentsRoutes);
@@ -345,6 +387,7 @@ apiRouter.use('/a2a-callback-inbox', a2aCallbackInboxRoutes);
 apiRouter.use('/a2a', workflowA2aRoutes);
 apiRouter.use('/integrations/email-inbound', emailInboundRoutes);
 apiRouter.use('/integrations/openconnector', openconnectorRoutes);
+apiRouter.use('/integrations/opensearch', opensearchConsoleRoutes);
 apiRouter.use('/ibkr-trading', ibkrTradingRoutes);
 apiRouter.use('/ai-snipper', aiSnipperRoutes);
 apiRouter.use('/efficiency', efficiencyRoutes);

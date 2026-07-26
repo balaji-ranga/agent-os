@@ -2,8 +2,12 @@
  * Owner-scoped Master Data + RAG helpers for agent content tools.
  * Agents may list tables (with purpose), CRUD rows, list docs, and RAG —
  * never create/alter/drop tables or change columns.
+ *
+ * Platform Help agent routes list/RAG to PLATFORM_OWNER_ID OpenSearch indices.
  */
 import * as md from './master-data.js';
+import { parseTenantOpenClawAgentId } from './openclaw-tenant.js';
+import { PLATFORM_OWNER_ID } from './opensearch/index.js';
 
 const FORBIDDEN_SCHEMA_ACTIONS = new Set([
   'create_table',
@@ -23,6 +27,30 @@ export function assertNoSchemaMutation(action) {
       'Schema changes are not allowed via agent tools (no create/alter/drop table). Use Master Data UI for table setup.'
     );
   }
+}
+
+/**
+ * True when the caller is the Platform Help agent (base id platformhelp).
+ * @param {string|null|undefined} agentIdOrSource
+ */
+export function isPlatformHelpAgent(agentIdOrSource) {
+  const raw = String(agentIdOrSource || '').trim().toLowerCase();
+  if (!raw) return false;
+  if (raw === 'platformhelp') return true;
+  if (/platformhelp$/.test(raw)) return true;
+  const parsed = parseTenantOpenClawAgentId(raw);
+  if (parsed?.baseOpenClawId === 'platformhelp') return true;
+  return false;
+}
+
+/**
+ * Resolve OpenSearch owner for document list/RAG.
+ * Platform Help agent → PLATFORM_OWNER_ID; otherwise CEO owner.
+ */
+export function resolveDocumentOwnerUserId(ceoOwnerUserId, { agentId = null, source = null } = {}) {
+  const hint = agentId || source || '';
+  if (isPlatformHelpAgent(hint)) return PLATFORM_OWNER_ID;
+  return String(ceoOwnerUserId || '').trim();
 }
 
 export function listTablesForAgent(ownerUserId) {
@@ -140,11 +168,21 @@ export function deleteRowForAgent(ownerUserId, params = {}) {
   return { ok: true, ...result };
 }
 
-export function listDocumentsForAgent(ownerUserId) {
-  const documents = md.listDocuments(ownerUserId);
+/**
+ * @param {string} ownerUserId CEO owner (ignored for platformhelp → PLATFORM_OWNER_ID)
+ * @param {{ agentId?: string, source?: string, agent_id?: string }} [opts]
+ */
+export async function listDocumentsForAgent(ownerUserId, opts = {}) {
+  const agentId = opts.agentId || opts.agent_id || opts.source || null;
+  const docOwner = resolveDocumentOwnerUserId(ownerUserId, {
+    agentId,
+    source: opts.source || agentId,
+  });
+  const documents = await md.listDocuments(docOwner);
   return {
     ok: true,
     count: documents.length,
+    owner_user_id: docOwner,
     documents: documents.map((d) => ({
       id: d.id,
       title: d.title,
@@ -152,15 +190,26 @@ export function listDocumentsForAgent(ownerUserId) {
       chunk_count: d.chunk_count,
       text_excerpt: (d.text_excerpt || '').slice(0, 240),
       created_at: d.created_at,
+      tags: d.tags || [],
+      source: d.source || null,
     })),
   };
 }
 
+/**
+ * @param {string} ownerUserId
+ * @param {{ query?, agentId?, source?, agent_id?, top_k?, document_id?, summarize? }} [params]
+ */
 export async function ragDocumentsForAgent(ownerUserId, params = {}) {
   const query =
     params.query || params.q || params.question || params.prompt || params.message || '';
   if (!String(query).trim()) throw new Error('query required');
-  const result = await md.ragDocuments(ownerUserId, {
+  const agentId = params.agentId || params.agent_id || params.source || null;
+  const docOwner = resolveDocumentOwnerUserId(ownerUserId, {
+    agentId,
+    source: params.source || agentId,
+  });
+  const result = await md.ragDocuments(docOwner, {
     query: String(query).trim(),
     topK: params.top_k ?? params.topK ?? params.limit,
     documentId: params.document_id || params.documentId || null,

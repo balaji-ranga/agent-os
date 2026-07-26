@@ -60,6 +60,21 @@ check "tool-owner-scope fix" grep -q SESSION_USER_PREFIXES "$ROOT/backend/src/se
 check "Master Data UI purpose" grep -q 'Purpose / description' "$ROOT/frontend/src/pages/MasterData.jsx"
 check "Master Data Purge all UI" grep -q 'Purge all uploads' "$ROOT/frontend/src/pages/MasterData.jsx"
 check "api masterDataDocumentsPurgeAll" grep -q masterDataDocumentsPurgeAll "$ROOT/frontend/src/api.js"
+check "OpenSearch compose service" grep -q 'opensearch:' "$ROOT/deploy/docker-compose.yml"
+check "OpenSearch Dashboards compose" grep -q 'opensearch-dashboards:' "$ROOT/deploy/docker-compose.yml"
+check "OpenSearch ensure-env script" test -f "$ROOT/deploy/scripts/ensure-opensearch-env.sh"
+check "OpenSearch env in deploy/.env" grep -qE '^OPENSEARCH_URL=' "$ROOT/deploy/.env"
+check "OpenSearch nginx BFF" grep -q 'location /opensearch/' "$ROOT/deploy/nginx/nginx.conf"
+check "OpenSearch host-network nginx" grep -q 'location /opensearch/' "$ROOT/deploy/nginx/nginx.host-network.conf"
+check "opensearch client service" test -f "$ROOT/backend/src/services/opensearch/client.js"
+check "opensearch documents service" test -f "$ROOT/backend/src/services/opensearch/documents.js"
+check "admin platform-documents route" test -f "$ROOT/backend/src/routes/admin-platform-docs.js"
+check "opensearch console launch route" test -f "$ROOT/backend/src/routes/opensearch-console.js"
+check "Admin Documents RAG page" test -f "$ROOT/frontend/src/pages/AdminPlatformDocuments.jsx"
+check "Admin Documents RAG nav" grep -q '/admin/documents-rag' "$ROOT/frontend/src/components/AppNavMenu.jsx"
+check "api opensearchConsoleLaunch" grep -q opensearchConsoleLaunch "$ROOT/frontend/src/api.js"
+check "opensearch rag smoke script" test -f "$ROOT/backend/scripts/test-opensearch-rag-smoke.js"
+check "opensearch agent e2e script" test -f "$ROOT/backend/scripts/test-opensearch-agent-rag-e2e.js"
 check "protected docs helper" test -f "$ROOT/backend/src/services/master-data-protected-docs.js"
 check "purgeAllUserDocuments" grep -q purgeAllUserDocuments "$ROOT/backend/src/services/master-data.js"
 check "purge-all route" grep -q 'documents/purge-all' "$ROOT/backend/src/routes/master-data.js"
@@ -238,10 +253,12 @@ if (!platformHelp) throw new Error('platformhelp agent missing from agents table
 if (helpGrants < 2) throw new Error('platformhelp missing master_data_rag / list_documents grants');
 NODE
 
-echo "==> platform-help image + RAG smoke"
+echo "==> platform-help image + OpenSearch RAG smoke"
 docker compose exec -T backend sh -c 'test -f /opt/agent-os/knowledgebase/platform-help/07-workflow-nodes-reference.md'
-docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-platform-help-rag.js
-
+docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-opensearch-rag-smoke.js
+# Legacy per-CEO SQLite help smoke may WARN after OpenSearch migration — keep soft.
+docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-platform-help-rag.js \
+  || echo "WARN: legacy platform-help RAG script failed (platform docs live in OpenSearch now)"
 echo "==> master_data invoke smoke"
 docker compose exec -T backend node <<'NODE'
 import { initDb } from './src/db/schema.js';

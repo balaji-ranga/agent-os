@@ -1,7 +1,16 @@
 import { getSessionUser, revokeSession } from '../services/auth/session.js';
 import { resolveCeoUserId as legacyResolveCeoUserId, resolveCeoDataUserId } from '../services/job-applicant-ceo.js';
-import { clearOcConsoleCookieHeader, isRequestSecure } from '../services/openconnector-console-proxy.js';
+import {
+  clearOcConsoleCookieHeader,
+  isRequestSecure,
+} from '../services/openconnector-console-proxy.js';
+import { clearOsConsoleCookieHeaders } from '../services/opensearch/index.js';
 
+function appendSetCookies(res, cookies) {
+  const existing = res.getHeader('Set-Cookie');
+  const list = existing ? (Array.isArray(existing) ? existing.map(String) : [String(existing)]) : [];
+  res.setHeader('Set-Cookie', [...list, ...cookies]);
+}
 export function bearerToken(req) {
   const auth = req.headers?.authorization || '';
   if (auth.startsWith('Bearer ')) return auth.slice(7).trim();
@@ -68,7 +77,14 @@ export function resolveCeoDataUserIdFromRequest(req, body = {}) {
 
 export function logout(req, res) {
   if (req.sessionToken) revokeSession(req.sessionToken);
-  // End OpenConnector console access tied to this admin session
-  res.setHeader('Set-Cookie', clearOcConsoleCookieHeader(isRequestSecure(req)));
+  const secure = isRequestSecure(req);
+  // End OpenConnector + OpenSearch console access tied to this admin session.
+  // Emit Secure and non-Secure clears so the browser matches whichever was set.
+  appendSetCookies(res, [
+    clearOcConsoleCookieHeader(true),
+    clearOcConsoleCookieHeader(false),
+    ...clearOsConsoleCookieHeaders(),
+  ]);
+  console.info('[auth] logout user=%s cleared console cookies secureHint=%s', req.authUser?.id || '?', secure);
   res.json({ ok: true });
 }

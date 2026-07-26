@@ -249,14 +249,32 @@ export function openConnectorConsoleProxy() {
   return async function ocConsoleProxy(req, res) {
     const pathAfter = req.path || '/';
     const isOauth = pathAfter === '/oauth' || pathAfter.startsWith('/oauth/');
+    const qsParams = req.url.includes('?')
+      ? new URLSearchParams(req.url.slice(req.url.indexOf('?') + 1))
+      : null;
+
+    const ocLogout =
+      (typeof req.query?.oc_logout === 'string' && req.query.oc_logout) ||
+      qsParams?.get('oc_logout') ||
+      '';
+    if (ocLogout) {
+      const existing = res.getHeader('Set-Cookie');
+      const list = existing ? (Array.isArray(existing) ? existing.map(String) : [String(existing)]) : [];
+      res.setHeader('Set-Cookie', [
+        ...list,
+        clearOcConsoleCookieHeader(true),
+        clearOcConsoleCookieHeader(false),
+      ]);
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+      console.info('[openconnector-console] cleared console cookie via oc_logout');
+      return res.status(204).end();
+    }
 
     // Top-level launch: ?oc_launch=<signed> sets cookie then redirects (works with window.open).
     const launchToken =
       (typeof req.query?.oc_launch === 'string' && req.query.oc_launch) ||
-      (() => {
-        const q = req.url.includes('?') ? new URLSearchParams(req.url.slice(req.url.indexOf('?') + 1)) : null;
-        return q?.get('oc_launch') || '';
-      })();
+      qsParams?.get('oc_launch') ||
+      '';
     if (launchToken) {
       const payload = verifySigned(decodeURIComponent(String(launchToken)));
       if (!payload || payload.role !== 'admin' || !payload.st) {
