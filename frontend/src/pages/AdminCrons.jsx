@@ -57,8 +57,8 @@ export default function AdminCrons() {
       <header className="page-hero" style={{ marginBottom: '1.25rem' }}>
         <h1 style={{ margin: 0, fontSize: '1.45rem' }}>Platform crons</h1>
         <p style={{ margin: '0.35rem 0 0', color: 'var(--muted, #64748b)', maxWidth: 640 }}>
-          Platform-level timers (one per backend process). Pause / resume persists across restarts.
-          Ad-hoc Run executes the job now without waiting for the schedule. Status-checker email is
+          Platform-level timers (one per backend process). Pause / resume and last-run time persist across
+          restarts. Ad-hoc Run executes the job now without waiting for the schedule. Status-checker email is
           sent only by the daily batch job — not by CEO UI or the COO tool.
         </p>
       </header>

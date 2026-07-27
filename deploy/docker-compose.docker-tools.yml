@@ -1,0 +1,12 @@
+# Overlay: mount host Docker socket into backend for Admin Tools Onboarding.
+# Include via COMPOSE_FILE=...:docker-compose.docker-tools.yml on VPS hosts only.
+# Security: DOCKER_TOOLS_ENABLED + REGISTRY_ALLOW fail-closed; TOTP step-up; no host port publish;
+# CapDrop ALL; no-new-privileges; memory/cpu limits. Agents never reach the socket.
+services:
+  backend:
+    volumes:
+      - ${DOCKER_TOOLS_SOCKET_HOST:-/var/run/docker.sock}:/var/run/docker.sock
+    group_add:
+      - "${DOCKER_GID:-0}"
+    security_opt:
+      - no-new-privileges:true

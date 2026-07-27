@@ -1,11 +1,12 @@
 /**
  * Platform-level cron registry — pause / resume / ad-hoc trigger for Admin.
- * Persists paused flags in platform_settings so they survive process restart.
+ * Persists paused flags and last-run timestamps in platform_settings so they survive process restart.
  */
 import cron from 'node-cron';
 import { getPlatformSetting, setPlatformSetting, ensurePlatformSettingsTable } from './platform-llm-settings.js';
 
 const PAUSED_KEY = 'platform_cron_paused';
+const LAST_RUN_KEY = 'platform_cron_last_run';
 /** @type {Map<string, { id: string, name: string, description: string, schedule: string, envVar: string|null, enabled: boolean, task: import('node-cron').ScheduledTask|null, handler: () => Promise<any>|any, lastRunAt: string|null, lastResult: any, lastError: string|null, running: boolean }>} */
 const jobs = new Map();
 
@@ -26,6 +27,39 @@ function writePausedSet(map) {
 function isPaused(id) {
   const map = readPausedSet();
   return !!map[String(id)];
+}
+
+/** @returns {Record<string, { at?: string, error?: string|null }>} */
+function readLastRunMap() {
+  ensurePlatformSettingsTable();
+  try {
+    const raw = getPlatformSetting(LAST_RUN_KEY, '{}');
+    const parsed = JSON.parse(raw || '{}');
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+  } catch (_) {}
+  return {};
+}
+
+function writeLastRunMap(map) {
+  setPlatformSetting(LAST_RUN_KEY, JSON.stringify(map || {}));
+}
+
+function persistLastRun(id, { at, error }) {
+  const map = readLastRunMap();
+  map[String(id)] = {
+    at: at || null,
+    error: error ? String(error).slice(0, 2000) : null,
+    updated_at: new Date().toISOString(),
+  };
+  writeLastRunMap(map);
+}
+
+function hydrateLastRun(entry) {
+  const saved = readLastRunMap()[entry.id];
+  if (!saved || typeof saved !== 'object') return;
+  if (saved.at) entry.lastRunAt = String(saved.at);
+  if (saved.error != null && saved.error !== '') entry.lastError = String(saved.error);
+  else if (saved.at) entry.lastError = null;
 }
 
 /**
@@ -58,6 +92,7 @@ export function registerPlatformCron(opts) {
     lastError: null,
     running: false,
   };
+  hydrateLastRun(entry);
 
   if (enabled) {
     entry.task = cron.schedule(schedule, () => {
@@ -106,12 +141,14 @@ export async function runPlatformCron(id, { source = 'manual' } = {}) {
     entry.lastRunAt = started;
     entry.lastResult = result == null ? { ok: true } : result;
     entry.lastError = null;
+    persistLastRun(id, { at: started, error: null });
     console.log(`[platform-cron] run ok id=${id} source=${source}`);
     return { ok: true, id, source, started_at: started, result: entry.lastResult };
   } catch (e) {
     entry.lastRunAt = started;
     entry.lastError = e?.message || String(e);
     entry.lastResult = null;
+    persistLastRun(id, { at: started, error: entry.lastError });
     console.error(`[platform-cron] run failed id=${id}:`, entry.lastError);
     throw e;
   } finally {

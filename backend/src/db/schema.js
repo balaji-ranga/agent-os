@@ -1604,6 +1604,47 @@ export function initDb() {
     _db.exec(`ALTER TABLE platform_users ADD COLUMN data_retention_days INTEGER DEFAULT 90`);
   } catch (_) {}
 
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS docker_onboarded_tools (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE,
+        display_name TEXT NOT NULL,
+        purpose TEXT DEFAULT '',
+        image TEXT NOT NULL,
+        image_canonical TEXT,
+        container_name TEXT,
+        container_id TEXT,
+        container_port INTEGER NOT NULL DEFAULT 8080,
+        invoke_path TEXT NOT NULL DEFAULT '/',
+        method TEXT NOT NULL DEFAULT 'POST',
+        request_schema_json TEXT,
+        response_schema_json TEXT,
+        network_name TEXT,
+        endpoint TEXT,
+        auth_header TEXT,
+        status TEXT NOT NULL DEFAULT 'declared',
+        last_error TEXT,
+        created_by TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_docker_tools_status ON docker_onboarded_tools(status)`);
+  } catch (_) {}
+
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS admin_stepup_tokens (
+        token_hash TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        purpose TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        created_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+  } catch (_) {}
+
   return _db;
 }
 

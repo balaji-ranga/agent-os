@@ -151,6 +151,13 @@ export function AdminNavMenu({ collapsed }) {
       >
         {collapsed ? 'DR' : 'Documents RAG'}
       </NavLink>
+      <NavLink
+        to="/admin/tool-onboarding"
+        className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+        title="Tools Onboarding — Docker content tools"
+      >
+        {collapsed ? 'TO' : 'Tools Onboarding'}
+      </NavLink>
 
       <NavSection title="Agentic Workflows" collapsed={collapsed}>
         <NavItem to="/connectors" title="Connectors" collapsed={collapsed} label="Connectors" short="Cn" />

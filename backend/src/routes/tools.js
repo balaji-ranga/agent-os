@@ -327,6 +327,9 @@ router.post('/test/:name', attachToolsAuth, requireAuth, requireCeoOrAdmin, asyn
     if (targetUrl.startsWith('/')) targetUrl = baseUrl + targetUrl;
     const method = String(row.method || 'POST').toUpperCase();
     const headers = { 'Content-Type': 'application/json' };
+    if (row.auth_header && typeof row.auth_header === 'string' && row.auth_header.trim()) {
+      headers.Authorization = row.auth_header.trim();
+    }
     if (targetUrl.startsWith(baseUrl)) {
       Object.assign(headers, internalAuthHeaders());
       try {

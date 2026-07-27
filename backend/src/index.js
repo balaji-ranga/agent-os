@@ -33,6 +33,7 @@ import openconnectorRoutes from './routes/openconnector.js';
 import { openConnectorConsoleProxy } from './services/openconnector-console-proxy.js';
 import opensearchConsoleRoutes from './routes/opensearch-console.js';
 import adminPlatformDocsRoutes from './routes/admin-platform-docs.js';
+import adminToolOnboardingRoutes from './routes/admin-tool-onboarding.js';
 import {
   openSearchConsoleProxy,
   waitForOpenSearch,
@@ -366,6 +367,7 @@ apiRouter.use('/user-api-keys', userApiKeysRoutes);
 apiRouter.use('/feedback', feedbackRoutes);
 apiRouter.use('/master-data', masterDataRoutes);
 apiRouter.use('/admin/platform-documents', adminPlatformDocsRoutes);
+apiRouter.use('/admin/tool-onboarding', adminToolOnboardingRoutes);
 apiRouter.use('/ceo-guardrails', ceoGuardrailsRoutes);
 apiRouter.use('/workspace', workspaceRoutes);
 apiRouter.use('/agents', agentsRoutes);

@@ -20,7 +20,7 @@ set -euo pipefail
 
 ROOT="${AGENT_OS_ROOT:-/opt/agent-os}"
 cd "$ROOT"
-export COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml:docker-compose.browser.yml:docker-compose.vps-client-ip.yml}"
+export COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml:docker-compose.browser.yml:docker-compose.vps-client-ip.yml:docker-compose.docker-tools.yml}"
 cd "$ROOT/deploy"
 
 SERVICES="${SERVICES:-frontend backend openclaw}"
@@ -44,6 +44,10 @@ fi
 if [[ -f "$ROOT/deploy/scripts/ensure-opensearch-env.sh" ]]; then
   sed -i 's/\r$//' "$ROOT/deploy/scripts/ensure-opensearch-env.sh" 2>/dev/null || true
   bash "$ROOT/deploy/scripts/ensure-opensearch-env.sh" "$ROOT/deploy/.env" || true
+fi
+if [[ -f "$ROOT/deploy/scripts/ensure-docker-tools-env.sh" ]]; then
+  sed -i 's/\r$//' "$ROOT/deploy/scripts/ensure-docker-tools-env.sh" 2>/dev/null || true
+  bash "$ROOT/deploy/scripts/ensure-docker-tools-env.sh" "$ROOT/deploy/.env" || true
 fi
 
 # OpenSearch requires elevated mmap counts

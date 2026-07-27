@@ -376,6 +376,30 @@ Email inbound provider URL example:
 https://your-domain/api/integrations/email-inbound/<workflowDefinitionId>
 ```
 
+
+## Admin Tools Onboarding (Docker content tools)
+
+Pull/deploy HTTP tool images on the **same Docker host as the backend**, register them as content tools, and invoke only via `/api/tools/invoke` (no host ports, not in nginx).
+
+| Piece | Path / setting |
+|-------|----------------|
+| Compose overlay (mounts `docker.sock`) | `docker-compose.docker-tools.yml` |
+| Env keys | `DOCKER_TOOLS_*`, `DOCKER_GID` in `.env.example` |
+| Ensure keys exist | `scripts/ensure-docker-tools-env.sh` (runs from `vps-deploy-latest.sh`) |
+| Enable on VPS | `scripts/enable-docker-tools-on-vps.sh` |
+| Admin UI | `/admin/tool-onboarding` (TOTP step-up for pull/deploy/stop/delete) |
+| Smoke (backend container) | `node scripts/test-docker-tool-onboarding-vps.js` |
+
+Repeatable VPS enable:
+
+```bash
+cd /opt/agent-os/deploy
+bash scripts/enable-docker-tools-on-vps.sh .env
+# Edit DOCKER_TOOLS_REGISTRY_ALLOW (fail-closed if empty), then:
+docker compose up -d --force-recreate backend
+```
+
+`vps-deploy-latest.sh` defaults `COMPOSE_FILE` to include the docker-tools overlay. Keep `DOCKER_TOOLS_ENABLED=0` until registry allow-list + sock are ready. Tool containers are **not** Compose services (Hostinger hPanel may omit them); manage via Admin UI or `docker ps --filter label=agent-os.managed=1`.
 ## Optional Compose profiles
 
 ```bash

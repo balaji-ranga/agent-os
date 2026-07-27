@@ -414,6 +414,26 @@ export const api = {
   adminPlatformDocumentsReindexAll: () => post('/admin/platform-documents/reindex-all', {}),
   adminPlatformDocumentsRag: (body) => post('/admin/platform-documents/rag', body),
   adminPlatformDocumentsSeedHelp: () => post('/admin/platform-documents/seed-help', {}),
+  adminToolOnboardingStatus: () => get('/admin/tool-onboarding/status'),
+  adminToolOnboardingList: () => get('/admin/tool-onboarding'),
+  adminToolOnboardingDiscover: () => get('/admin/tool-onboarding/discover'),
+  adminToolOnboardingGet: (name) => get(`/admin/tool-onboarding/${encodeURIComponent(name)}`),
+  adminToolOnboardingHealth: (name) => get(`/admin/tool-onboarding/${encodeURIComponent(name)}/health`),
+  adminToolOnboardingStepup: (code) => post('/admin/tool-onboarding/stepup', { code }),
+  adminToolOnboardingDeclare: (body, stepupToken) =>
+    post('/admin/tool-onboarding', { ...body, stepup_token: stepupToken }),
+  adminToolOnboardingPull: (name, stepupToken) =>
+    post(`/admin/tool-onboarding/${encodeURIComponent(name)}/pull`, { stepup_token: stepupToken }),
+  adminToolOnboardingDeploy: (name, stepupToken) =>
+    post(`/admin/tool-onboarding/${encodeURIComponent(name)}/deploy`, { stepup_token: stepupToken }),
+  adminToolOnboardingStop: (name, stepupToken) =>
+    post(`/admin/tool-onboarding/${encodeURIComponent(name)}/stop`, { stepup_token: stepupToken }),
+  adminToolOnboardingRestart: (name, stepupToken) =>
+    post(`/admin/tool-onboarding/${encodeURIComponent(name)}/restart`, { stepup_token: stepupToken }),
+  adminToolOnboardingDelete: (name, stepupToken, removeContentTool = false) =>
+    del(
+      `/admin/tool-onboarding/${encodeURIComponent(name)}?remove_content_tool=${removeContentTool ? '1' : '0'}&stepup_token=${encodeURIComponent(stepupToken || '')}`
+    ),
   agentWorkflowCreate: (body) => post('/agent-workflows', body),
   agentWorkflowUpdate: (id, body) => patch(`/agent-workflows/${encodeURIComponent(id)}`, body),
   agentWorkflowPublish: (id) => post(`/agent-workflows/${encodeURIComponent(id)}/publish`, {}),

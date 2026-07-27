@@ -236,3 +236,20 @@ Test from the **Dashboard** in the browser. No backend scripts required.
 - [ ] Sending a message and using **Get work from team** / **Check for updates** keeps everything in this standup's chat.
 
 **Expected flow:** Create or open standup → COO chat is the main view → give tasks in chat → COO delegates via cron → child agent responses show up in this chat. Each standup has its own chat history.
+
+
+## Admin Tools Onboarding (VPS Docker)
+
+Requires `DOCKER_TOOLS_ENABLED=1`, compose overlay `docker-compose.docker-tools.yml`, and admin TOTP.
+
+```bash
+cd /opt/agent-os/deploy
+docker compose exec -T -w /opt/agent-os/backend \
+  -e ADMIN2_EMAIL=admin2@agent-os.local \
+  -e ADMIN2_PASSWORD=... \
+  -e ADMIN2_TOTP_SECRET=... \
+  backend node scripts/test-docker-tool-onboarding-vps.js
+```
+
+Grant via Agent Workspace tool access, then optional TechResearcher invoke smoke:
+`node scripts/test-techresearcher-echo-probe-grant.js`.

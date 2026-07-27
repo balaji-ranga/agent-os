@@ -55,7 +55,9 @@
 # OpenSearch document RAG (compose opensearch + dashboards; per-user + platform indices;
 # Admin Documents RAG + /opensearch/ BFF; ensure-opensearch-env.sh; BM25 default / optional embeddings),
 # agent delete cascade (transactional, clears kanban assignments) + deleted_agents tombstone
-# (startup catalog re-grant and OpenClaw sync no longer resurrect a deleted agent).
+# (startup catalog re-grant and OpenClaw sync no longer resurrect a deleted agent),
+# Admin Tools Onboarding (docker.sock overlay, TOTP step-up, registry allow-list,
+# content-tool register + OpenClaw reload; Admin Crons last_run persists).
 param(
   [string]$HostIp = "76.13.209.30",
   [string]$Key = "$env:USERPROFILE\.ssh\agent-os-vps",
@@ -84,6 +86,7 @@ scp @ssh `
   "$Repo\deploy\docker-compose.yml" `
   "$Repo\deploy\docker-compose.browser.yml" `
   "$Repo\deploy\docker-compose.vps-client-ip.yml" `
+  "$Repo\deploy\docker-compose.docker-tools.yml" `
   "$Repo\deploy\.env.example" `
   "$Repo\deploy\README.md" `
   "root@${HostIp}:$RemoteRoot/deploy/"
@@ -115,6 +118,8 @@ scp @ssh `
   "$Repo\deploy\scripts\ensure-workflow-certify-env.sh" `
   "$Repo\deploy\scripts\ensure-cron-env.sh" `
   "$Repo\deploy\scripts\ensure-opensearch-env.sh" `
+  "$Repo\deploy\scripts\ensure-docker-tools-env.sh" `
+  "$Repo\deploy\scripts\enable-docker-tools-on-vps.sh" `
   "$Repo\deploy\scripts\vps-smoke-brave-byok.sh" `
   "$Repo\deploy\scripts\configure-openclaw-docker.js" `
   "$Repo\deploy\scripts\verify-openclaw-parity.js" `
@@ -143,6 +148,8 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-platform-help-rag.js" `
     "$Repo\backend\scripts\test-opensearch-rag-smoke.js" `
     "$Repo\backend\scripts\test-opensearch-agent-rag-e2e.js" `
+    "$Repo\backend\scripts\test-docker-tool-onboarding-vps.js" `
+    "$Repo\backend\scripts\test-techresearcher-echo-probe-grant.js" `
     "$Repo\backend\scripts\test-master-data-e2e.js" `
     "$Repo\backend\scripts\test-platform-help-chat.js" `
     "$Repo\backend\scripts\vps-smoke-new-features.js" `
