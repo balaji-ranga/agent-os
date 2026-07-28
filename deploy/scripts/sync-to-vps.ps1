@@ -6,7 +6,8 @@
 #   .\deploy\scripts\sync-to-vps.ps1 -SkipSmoke   # skip post-deploy smoke + platform verify
 #   .\deploy\scripts\sync-to-vps.ps1 -NoCache     # force docker compose build --no-cache
 #
-# Syncs full build contexts: frontend/, backend/src + backend/desktop-workflow-runner + scripts,
+# Syncs full build contexts: frontend/, backend/src + backend/desktop-workflow-runner +
+# backend/local-ibkr-bridge + scripts,
 # deploy/docker + compose overlays (incl. docker-compose.vps-client-ip.yml for real client IP / A2A whitelist),
 # scripts/, openclaw extensions/skills/templates — then rebuilds via vps-deploy-latest.sh.
 #
@@ -131,15 +132,17 @@ ssh @ssh "root@$HostIp" "rm -f $RemoteRoot/deploy/docker/deepseek-proxy.js $Remo
 
 # Broader sync for backend/openclaw when doing full deploy
 if ($Services -match "backend|openclaw") {
-  Write-Host "==> Sync backend/src + desktop-workflow-runner + package files + backend/scripts + scripts/ + openclaw-*"
+  Write-Host "==> Sync backend/src + desktop-workflow-runner + local-ibkr-bridge + package files + backend/scripts + scripts/ + openclaw-*"
   scp @ssh -r "$Repo\backend\src" "root@${HostIp}:$RemoteRoot/backend/"
   scp @ssh -r "$Repo\backend\desktop-workflow-runner" "root@${HostIp}:$RemoteRoot/backend/"
+  scp @ssh -r "$Repo\backend\local-ibkr-bridge" "root@${HostIp}:$RemoteRoot/backend/"
   scp @ssh `
     "$Repo\backend\package.json" `
     "$Repo\backend\package-lock.json" `
     "root@${HostIp}:$RemoteRoot/backend/"
   scp @ssh `
     "$Repo\backend\scripts\test-workflow-desktop-package.js" `
+    "$Repo\backend\scripts\test-local-ibkr-bridge-package.js" `
     "$Repo\backend\scripts\vps-test-platform-help.js" `
     "$Repo\backend\scripts\seed-workflow-builder-agent.js" `
     "$Repo\backend\scripts\seed-platform-help-agent.js" `
@@ -169,6 +172,12 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-a2a-agent-exchange-security.js" `
     "$Repo\backend\scripts\test-market-data-tools.js" `
     "$Repo\backend\scripts\monthly-trading-seed-variables.js" `
+    "$Repo\backend\scripts\seed-monthly-trading-w1-workflow.js" `
+    "$Repo\backend\scripts\seed-monthly-trading-w2-workflow.js" `
+    "$Repo\backend\scripts\seed-monthly-trading-w3-workflow.js" `
+    "$Repo\backend\scripts\seed-monthly-trading-w5-workflow.js" `
+    "$Repo\backend\scripts\seed-monthly-trading-workflows.js" `
+    "$Repo\backend\scripts\test-monthly-trading-seeds.js" `
     "$Repo\backend\scripts\vps-test-agent-exchange-security.js" `
     "$Repo\backend\scripts\vps-test-agent-exchange-test-invoke.js" `
     "$Repo\backend\scripts\test-workflow-input-schema.js" `
@@ -251,10 +260,17 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\probe-budgets-org-ready.js" `
     "$Repo\backend\scripts\list-ceos.js" `
     "root@${HostIp}:$RemoteRoot/backend/scripts/"
-  ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/backend/scripts/lib"
+  ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/backend/scripts/lib $RemoteRoot/backend/scripts/samples"
   scp @ssh `
     "$Repo\backend\scripts\lib\trading-strategy-prompt.js" `
+    "$Repo\backend\scripts\lib\trading-checker-prompt.js" `
     "root@${HostIp}:$RemoteRoot/backend/scripts/lib/"
+  scp @ssh `
+    "$Repo\backend\scripts\samples\monthly-trading-hard-gates.js" `
+    "$Repo\backend\scripts\samples\monthly-trading-event-parse.js" `
+    "$Repo\backend\scripts\samples\monthly-trading-weekly-digest.js" `
+    "$Repo\backend\scripts\samples\ibkr-parse-checker.js" `
+    "root@${HostIp}:$RemoteRoot/backend/scripts/samples/"
   Write-Host "==> Sync tests/ (regression packs)"
   ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/tests/lib"
   scp @ssh `
@@ -288,6 +304,7 @@ if ($Services -match "backend|openclaw") {
   ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/knowledgebase"
   scp @ssh -r "$Repo\knowledgebase\platform-help" "root@${HostIp}:$RemoteRoot/knowledgebase/"
   scp @ssh "$Repo\knowledgebase\README.md" "root@${HostIp}:$RemoteRoot/knowledgebase/README.md"
+  scp @ssh "$Repo\knowledgebase\IBKR-LOCAL-BRIDGE.md" "root@${HostIp}:$RemoteRoot/knowledgebase/IBKR-LOCAL-BRIDGE.md"
   scp @ssh "$Repo\README.md" "root@${HostIp}:$RemoteRoot/README.md"
   scp @ssh -r "$Repo\openclaw-skills\agent-os-content-tools" "root@${HostIp}:$RemoteRoot/openclaw-skills/"
   scp @ssh -r "$Repo\openclaw-skills\agent-send" "root@${HostIp}:$RemoteRoot/openclaw-skills/"

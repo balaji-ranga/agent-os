@@ -16,9 +16,19 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 Set-Location $Root
 
+$BundledNode = Join-Path $Root "runtime\node.exe"
+$nodeExe = "node"
+if (Test-Path $BundledNode) {
+  $nodeExe = $BundledNode
+  Write-Host "Using bundled runtime\node.exe"
+} elseif (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+  Write-Error "Missing runtime\node.exe and no system Node on PATH. Re-download from Connectors (with runtime) or install Node 18+."
+}
+
 if (-not (Test-Path (Join-Path $Root "node_modules\dotenv"))) {
-  Write-Host "Installing bridge deps (dotenv)..."
+  Write-Host "Installing bridge deps (@stoqey/ib, dotenv)..."
   npm install --no-fund --no-audit
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
 $env:BRIDGE_HOST = if ($env:BRIDGE_HOST) { $env:BRIDGE_HOST } else { "127.0.0.1" }
@@ -36,5 +46,5 @@ if ($EnvFile -and (Test-Path $EnvFile)) {
 }
 
 Write-Host "Starting local-ibkr-bridge from $Root ..."
-node server.js
+& $nodeExe server.js
 exit $LASTEXITCODE

@@ -3,6 +3,7 @@
 # Kanban owner_user_id isolation (schema + kanban-user-scope + routes/tools/delegation),
 # lean CEO onboard (DEFAULT_ONBOARD_AGENT_IDS / pruneSharedStandardAgentGrants),
 # desktop-workflow-runner (Windows PS1 packages + optional portable Node baked at download time),
+# local-ibkr-bridge (Connectors download zip + vendored IBKR gateway client),
 # agent budgets + token_usage ledger + org leaf members (org-members routes, Agent View APIs),
 # verify-budgets-org-members / test-org-member-delegation-e2e / verify-agent-view-api scripts,
 # tests/ (regression-full / regression-minimal + ceo-session for VPS regression).

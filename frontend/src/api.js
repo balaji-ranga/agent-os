@@ -578,6 +578,22 @@ export const api = {
     setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
   },
 
+  /** Download local IBKR bridge Windows zip (mints LOCAL_BRIDGE_TOKEN into .env).
+   * @param {{ includeRuntime?: boolean }} [opts]
+   */
+  ibkrBridgePackageDownload: async (opts = {}) => {
+    const includeRuntime = opts.includeRuntime !== false;
+    const path = `/integrations/ibkr-bridge/package?include_runtime=${includeRuntime ? '1' : '0'}`;
+    const objectUrl = await fetchBlobUrl(path);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = includeRuntime ? 'local-ibkr-bridge-desktop.zip' : 'local-ibkr-bridge-lite.zip';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+  },
+
   customScriptsList: (opts = {}) => {
     const q = opts.forWorkflow ? '?for_workflow=1' : '';
     return get(`/integrations/custom-scripts${q}`);

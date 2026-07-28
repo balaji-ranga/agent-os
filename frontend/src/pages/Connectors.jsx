@@ -240,6 +240,22 @@ function ConnectorsPanel() {
     }
   };
 
+  const downloadIbkrBridge = async (includeRuntime = true) => {
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await api.ibkrBridgePackageDownload({ includeRuntime });
+      setMessage(
+        'Zip downloaded. Keep LOCAL_BRIDGE_TOKEN private; paste the same token into W2 workflow variable local_bridge_token.'
+      );
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const authTypes = (() => {
     const auth = provider?.auth || provider?.authentications || [];
     if (Array.isArray(auth) && auth.length) {
@@ -271,6 +287,37 @@ function ConnectorsPanel() {
       {oauthPolling && (
         <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>Waiting for {oauthPolling} OAuth…</p>
       )}
+
+      <section style={{ marginTop: '1.25rem', padding: '1rem', border: '1px solid var(--border)', borderRadius: 8 }}>
+        <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.05rem' }}>Local IBKR bridge</h2>
+        <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--muted)' }}>
+          Laptop HTTP adapter for IB Gateway (port 4002). Used by the Monthly Trading{' '}
+          <Link to="/workflows">W2</Link> execution workflow on your trading machine. Binds loopback only;
+          a bearer token is minted into the zip <code>.env</code>.
+        </p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: '0.75rem' }}>
+          <button
+            type="button"
+            className="wf-btn-primary"
+            disabled={busy}
+            onClick={() => downloadIbkrBridge(true)}
+          >
+            {busy ? 'Working…' : 'Download local IBKR bridge'}
+          </button>
+          <button
+            type="button"
+            className="wf-btn"
+            disabled={busy}
+            onClick={() => downloadIbkrBridge(false)}
+          >
+            Download lite (without Node)
+          </button>
+        </div>
+        <p style={{ margin: '0.5rem 0 0', fontSize: '0.8rem', color: 'var(--muted)' }}>
+          Full package includes portable Node 18 (same pattern as workflow Download for Windows). See{' '}
+          knowledgebase <code>IBKR-LOCAL-BRIDGE.md</code>.
+        </p>
+      </section>
 
       {!isAdmin && (
       <section style={{ marginTop: '1.25rem', padding: '1rem', border: '1px solid var(--border)', borderRadius: 8 }}>

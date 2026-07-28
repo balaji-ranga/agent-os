@@ -47,6 +47,10 @@ Prerequisite: the CEO who **runs** the workflow must have that app **connected**
 
 See also [07-workflow-nodes-reference.md](./07-workflow-nodes-reference.md) → Connector.
 
+## Local IBKR bridge
+
+On the same **Connectors** page, **Local IBKR bridge** downloads a Windows zip of the laptop HTTP adapter for IB Gateway (used by Monthly Trading W2). Keep `LOCAL_BRIDGE_TOKEN` private and paste it into the W2 workflow variable `local_bridge_token`. Details: [IBKR-LOCAL-BRIDGE.md](../IBKR-LOCAL-BRIDGE.md).
+
 ## Tips
 
 - Prefer vaulted secrets from **API Keys** when an app needs a static API key (see [15-api-keys-vault.md](./15-api-keys-vault.md)).

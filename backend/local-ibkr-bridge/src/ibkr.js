@@ -1,26 +1,38 @@
 /**
  * Thin wrappers around backend ibkr-gateway-client (dynamic import).
  * Mock mode (BRIDGE_MOCK_IBKR=1) never touches the Gateway.
+ *
+ * Resolve order: BRIDGE_GATEWAY_MODULE → vendor/ (standalone zip) → backend/src/services.
  */
-import { resolve } from 'node:path';
+import { existsSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { BACKEND_ROOT, isTradingEnabled } from './config.js';
+import { BACKEND_ROOT, BRIDGE_ROOT, isTradingEnabled } from './config.js';
 import { emitBridgeEvent, BRIDGE_EVENTS } from './event-bus.js';
 import { logInfo, logWarn } from './log.js';
 
-const GATEWAY_PATH = resolve(BACKEND_ROOT, 'src/services/ibkr-gateway-client.js');
+function resolveGatewayPath() {
+  const fromEnv = String(process.env.BRIDGE_GATEWAY_MODULE || '').trim();
+  if (fromEnv) return resolve(fromEnv);
+  const vendor = join(BRIDGE_ROOT, 'vendor', 'ibkr-gateway-client.js');
+  if (existsSync(vendor)) return vendor;
+  return resolve(BACKEND_ROOT, 'src/services/ibkr-gateway-client.js');
+}
 
 let gatewayModPromise = null;
+let gatewayPathCached = null;
 
 async function loadGateway() {
-  if (!gatewayModPromise) {
-    gatewayModPromise = import(pathToFileURL(GATEWAY_PATH).href).catch((e) => {
-      gatewayModPromise = null;
-      throw new Error(
-        `Failed to import ibkr-gateway-client from ${GATEWAY_PATH}: ${e.message || e}`
-      );
-    });
-  }
+  const GATEWAY_PATH = resolveGatewayPath();
+  if (gatewayModPromise && gatewayPathCached === GATEWAY_PATH) return gatewayModPromise;
+  gatewayPathCached = GATEWAY_PATH;
+  gatewayModPromise = import(pathToFileURL(GATEWAY_PATH).href).catch((e) => {
+    gatewayModPromise = null;
+    gatewayPathCached = null;
+    throw new Error(
+      `Failed to import ibkr-gateway-client from ${GATEWAY_PATH}: ${e.message || e}`
+    );
+  });
   return gatewayModPromise;
 }
 
