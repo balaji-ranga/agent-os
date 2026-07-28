@@ -82,6 +82,10 @@ export const PLATFORM_HELP_DOCUMENTS = Object.freeze([
     filename: '19-scheduled-jobs-and-crons.md',
     title: `${PLATFORM_HELP_TITLE_PREFIX}Scheduled Jobs Crons Retention`,
   },
+  {
+    filename: '20-ibkr-monthly-trading.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}IBKR Monthly Trading`,
+  },
 ]);
 
 /** Resolve repo README.md (local: agent-os/README.md; Docker: /opt/agent-os/README.md). */
