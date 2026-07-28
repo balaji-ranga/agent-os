@@ -49,7 +49,14 @@ See also [07-workflow-nodes-reference.md](./07-workflow-nodes-reference.md) → 
 
 ## Local IBKR bridge
 
-On the same **Connectors** page, **Local IBKR bridge** downloads a Windows zip of the laptop HTTP adapter for IB Gateway (used by Monthly Trading W2). Keep `LOCAL_BRIDGE_TOKEN` private and paste it into the W2 workflow variable `local_bridge_token`. Details: [IBKR-LOCAL-BRIDGE.md](../IBKR-LOCAL-BRIDGE.md).
+On the same **Connectors** page, **Local IBKR bridge** downloads a Windows zip of the laptop HTTP adapter for IB Gateway (used by Monthly Trading **W2**).
+
+1. Download full (portable Node) or **lite** (Node already on PATH).
+2. Keep minted `LOCAL_BRIDGE_TOKEN` private — paste the same value into W2 workflow variable `local_bridge_token`.
+3. Point `WEBHOOK_URL` at W3 (`…/api/agent-workflows/hooks/monthly-trading-w3-events`) so fills/**cancels/rejects** reach order learnings.
+4. Run IB Gateway (paper socket **4002**) then `.\scripts\run-bridge.ps1`.
+
+CEO overview: [20-ibkr-monthly-trading.md](./20-ibkr-monthly-trading.md). Ops detail: [IBKR-LOCAL-BRIDGE.md](../IBKR-LOCAL-BRIDGE.md).
 
 ## Tips
 

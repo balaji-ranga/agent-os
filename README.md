@@ -561,7 +561,12 @@ All project docs except this README live in **`knowledgebase/`**:
 | **ADD-AGENT-VS-RECENT-FIXES-VALIDATION.md** | Agent creation vs config scripts |
 | **DEPLOY-CENTOS-PODMAN.md** | CentOS / Podman / Docker production |
 | **OPENCONNECTOR-WEBHOOKS.md** | OpenConnector MCP, email-inbound, file pollers |
-| **IBKR-TRADING-WORKFLOW.md** | IBKR paper trading workflow |
+| **IBKR-TRADING-WORKFLOW.md** | Legacy IBKR maker/checker paper day-plan workflow |
+| **IBKR-MONTHLY-WORKFLOWS.md** | Monthly Positive Return W1–W5 + bridge: schedule, tools, purpose, outcome |
+| **IBKR-MONTHLY-TRADING-PLAN.md** | Monthly system architecture, phases, strategy appendix |
+| **IBKR-MONTHLY-EXECUTION-MODEL.md** | Cloud vs laptop execution + laptop↔VPS recovery |
+| **IBKR-LOCAL-BRIDGE.md** | Laptop HTTP bridge, Connectors zip, Gateway, webhooks |
+| **IBKR-MONTHLY-PHASE4.md** | Paper E2E + certify runbook before live |
 | **knowledgeGraph.md** | Neo4j knowledge graph / self-improvement |
 
 See **knowledgebase/README.md** for the full index.

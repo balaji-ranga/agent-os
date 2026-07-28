@@ -4,6 +4,8 @@
 # lean CEO onboard (DEFAULT_ONBOARD_AGENT_IDS / pruneSharedStandardAgentGrants),
 # desktop-workflow-runner (Windows PS1 packages + optional portable Node baked at download time),
 # local-ibkr-bridge (Connectors download zip + vendored IBKR gateway client),
+# monthly trading W1–W5 seeds + paper E2E / certify helpers,
+# bridge-order-events ingest (W3 → ibkr_order_events → learnings),
 # agent budgets + token_usage ledger + org leaf members (org-members routes, Agent View APIs),
 # verify-budgets-org-members / test-org-member-delegation-e2e / verify-agent-view-api scripts,
 # tests/ (regression-full / regression-minimal + ceo-session for VPS regression).

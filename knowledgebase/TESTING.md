@@ -19,6 +19,21 @@ Also run from repo root: `node scripts/ensure-all-agent-workspaces.js` and `node
 
 Help corpus: `knowledgebase/platform-help/` → Master Data docs titled `Flolah Help — …`. Agent id: `platformhelp`.
 
+## IBKR Monthly Positive Return (local)
+
+```powershell
+cd backend
+$env:IBKR_TRADING_ENABLED='0'; $env:BRIDGE_MOCK_IBKR='1'
+node scripts/test-monthly-trading-seeds.js
+node scripts/test-monthly-trading-paper-e2e.js
+node scripts/test-local-ibkr-bridge-package.js
+node scripts/certify-monthly-trading-workflows.js --dry-run
+# Re-seed W3 after event-parse / ingest changes:
+node scripts/seed-monthly-trading-w3-workflow.js
+```
+
+Docs: `knowledgebase/IBKR-MONTHLY-WORKFLOWS.md`, `platform-help/20-ibkr-monthly-trading.md`, Phase 4 runbook `IBKR-MONTHLY-PHASE4.md`.
+
 ## Master Data purge-all + protected help docs
 
 ```powershell

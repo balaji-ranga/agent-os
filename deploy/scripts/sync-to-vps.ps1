@@ -40,6 +40,7 @@
 # chat paperclip attach → Master Data RAG, Vedic Astrology + generate_chart (JSON chart_spec),
 # Workflow autonomous certify (Maker/Checker; LLM Checker default OFF — WORKFLOW_CERTIFY_*),
 # Desktop Windows packages (PS1 + optional portable Node 18; token + IP whitelist; ASCII-safe PS1),
+# Local IBKR bridge Connectors zip + monthly trading W1–W5 + bridge-order-events learnings ingest,
 # COO AGENTS.md org-generated marker (workspace template sync no longer clobbers leaf members),
 # agent_workflow_runs tool (COO/WB; never ibkr_order_learnings for workflow run status),
 # mixed internal+leaf COO specialty refine (Session-keys table no longer drops internals),
@@ -178,6 +179,8 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\seed-monthly-trading-w5-workflow.js" `
     "$Repo\backend\scripts\seed-monthly-trading-workflows.js" `
     "$Repo\backend\scripts\test-monthly-trading-seeds.js" `
+    "$Repo\backend\scripts\test-monthly-trading-paper-e2e.js" `
+    "$Repo\backend\scripts\certify-monthly-trading-workflows.js" `
     "$Repo\backend\scripts\vps-test-agent-exchange-security.js" `
     "$Repo\backend\scripts\vps-test-agent-exchange-test-invoke.js" `
     "$Repo\backend\scripts\test-workflow-input-schema.js" `
@@ -304,7 +307,17 @@ if ($Services -match "backend|openclaw") {
   ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/knowledgebase"
   scp @ssh -r "$Repo\knowledgebase\platform-help" "root@${HostIp}:$RemoteRoot/knowledgebase/"
   scp @ssh "$Repo\knowledgebase\README.md" "root@${HostIp}:$RemoteRoot/knowledgebase/README.md"
-  scp @ssh "$Repo\knowledgebase\IBKR-LOCAL-BRIDGE.md" "root@${HostIp}:$RemoteRoot/knowledgebase/IBKR-LOCAL-BRIDGE.md"
+  scp @ssh `
+    "$Repo\knowledgebase\IBKR-LOCAL-BRIDGE.md" `
+    "$Repo\knowledgebase\IBKR-MONTHLY-WORKFLOWS.md" `
+    "$Repo\knowledgebase\IBKR-MONTHLY-TRADING-PLAN.md" `
+    "$Repo\knowledgebase\IBKR-MONTHLY-EXECUTION-MODEL.md" `
+    "$Repo\knowledgebase\IBKR-MONTHLY-MAKER-TOOLS.md" `
+    "$Repo\knowledgebase\IBKR-MONTHLY-MAKER-PROMPT.md" `
+    "$Repo\knowledgebase\IBKR-MONTHLY-CHECKER-PROMPT.md" `
+    "$Repo\knowledgebase\IBKR-MONTHLY-PHASE4.md" `
+    "$Repo\knowledgebase\IBKR-TRADING-WORKFLOW.md" `
+    "root@${HostIp}:$RemoteRoot/knowledgebase/"
   scp @ssh "$Repo\README.md" "root@${HostIp}:$RemoteRoot/README.md"
   scp @ssh -r "$Repo\openclaw-skills\agent-os-content-tools" "root@${HostIp}:$RemoteRoot/openclaw-skills/"
   scp @ssh -r "$Repo\openclaw-skills\agent-send" "root@${HostIp}:$RemoteRoot/openclaw-skills/"

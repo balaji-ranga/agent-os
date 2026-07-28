@@ -92,5 +92,6 @@ Flolah reads the caller IP from the connection (`X-Forwarded-For` / socket) — 
 - Building workflows: [06-workflows-building.md](./06-workflows-building.md)
 - Nodes: [07-workflow-nodes-reference.md](./07-workflow-nodes-reference.md)
 - A2A: [09-a2a-agent-exchange.md](./09-a2a-agent-exchange.md)
-- Connectors: [16-connectors-openconnector.md](./16-connectors-openconnector.md)
+- Connectors + **IBKR bridge zip**: [16-connectors-openconnector.md](./16-connectors-openconnector.md)
+- **IBKR Monthly trading (W2 on laptop)**: [20-ibkr-monthly-trading.md](./20-ibkr-monthly-trading.md)
 - Troubleshooting: [12-troubleshooting.md](./12-troubleshooting.md)
