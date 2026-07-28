@@ -66,19 +66,23 @@ async function main() {
        WHERE owner_user_id = ? AND to_agent_id = ? AND status IN ('pending','processing')`
     )
     .get(OWNER, AGENT)?.c;
+  const maxIdBefore =
+    db
+      .prepare(
+        `SELECT COALESCE(MAX(id), 0) AS m FROM agent_delegation_tasks
+         WHERE owner_user_id = ? AND to_agent_id = ?`
+      )
+      .get(OWNER, AGENT)?.m || 0;
 
   const standupId = getOrCreateDelegationHubStandup(OWNER);
-  const result = await scheduleCeoRequestViaOpenClawCron(
-    standupId,
-    'Research the latest advances in patent prior-art search tooling for the CEO.',
-    OWNER,
-    {
-      restrictToAgentIds: [AGENT],
-      preAllocated: {
-        [AGENT]: 'Research the latest advances in patent prior-art search tooling for the CEO.',
-      },
-    }
-  );
+  const probePrompt =
+    '[budget_gate_probe] Research the latest advances in patent prior-art search tooling for the CEO.';
+  const result = await scheduleCeoRequestViaOpenClawCron(standupId, probePrompt, OWNER, {
+    restrictToAgentIds: [AGENT],
+    preAllocated: {
+      [AGENT]: probePrompt,
+    },
+  });
 
   check('schedule returns count 0 (no work started)', result.count === 0, `count=${result.count}`);
   check(
@@ -100,12 +104,21 @@ async function main() {
     `before=${beforeTasks} after=${afterTasks}`
   );
 
-  // Clean up any accidental pending task from a failed run, then restore budget.
-  db.prepare(
-    `UPDATE agent_delegation_tasks SET status = 'failed', error_message = 'budget-gate test cleanup',
-      completed_at = datetime('now')
-     WHERE owner_user_id = ? AND to_agent_id = ? AND status IN ('pending','processing')`
-  ).run(OWNER, AGENT);
+  // Only cancel probe rows created by THIS run — never wipe live CEO work
+  // (previous cleanup matched all pending/processing TechResearcher tasks).
+  const cleaned = db
+    .prepare(
+      `UPDATE agent_delegation_tasks SET status = 'failed', error_message = 'budget-gate test cleanup',
+        completed_at = datetime('now')
+       WHERE owner_user_id = ? AND to_agent_id = ?
+         AND id > ?
+         AND status IN ('pending','processing')
+         AND prompt LIKE '[budget_gate_probe]%'`
+    )
+    .run(OWNER, AGENT, maxIdBefore);
+  if (cleaned.changes) {
+    console.log(`  cleaned ${cleaned.changes} probe delegation(s) created by this test`);
+  }
 
   // Restore to a budget above current usage so we don't leave the agent stuck blocked
   // (VPS live agents may already have spent more than the prior configured budget).

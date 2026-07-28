@@ -21,6 +21,7 @@ Documentation lives here so Cursor and humans can find it. **Root README.md** st
 | **DEPLOY-CENTOS-PODMAN.md** | Production deploy on CentOS/RHEL/Hostinger with Podman or Docker Compose: SELinux, firewall, volumes, OpenClaw/Chromium, OpenConnector, browser login, optional profiles. |
 | **knowledgeGraph.md** | Neo4j knowledge graph for internal OpenClaw agent behavior, Kanban feedback, autonomous self-improvement, and progressive improvement dashboard. |
 | **IBKR-TRADING-WORKFLOW.md** | IBKR MCP options, maker/checker paper workflow (budget, brackets, CEO day plan), Agent OS wiring, env vars, and security guardrails. |
+| **IBKR-MONTHLY-TRADING-PLAN.md** | Monthly Positive Return trading system: split VPS/laptop architecture, market-data tools, Maker (Claude Opus)/Checker (deepseek-v4-flash), monthly drawdown guardrail, notifications + daily digest email, and phased implementation plan. |
 | **OPENCONNECTOR-WEBHOOKS.md** | OpenConnector MCP setup, event webhooks, email-inbound webhooks, disk file pollers, entitlements, e2e test. |
 
 ## Not in knowledgebase (stay at repo root or other paths)
