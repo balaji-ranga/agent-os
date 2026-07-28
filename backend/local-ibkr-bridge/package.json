@@ -1,0 +1,18 @@
+{
+  "name": "local-ibkr-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Loopback HTTP bridge from laptop workflows to local IB Gateway / TWS",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test:offline": "node scripts/test-bridge-offline.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

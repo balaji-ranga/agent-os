@@ -23,7 +23,9 @@ Related: [IBKR-MONTHLY-TRADING-PLAN.md](IBKR-MONTHLY-TRADING-PLAN.md), [IBKR-TRA
 
 ## 1. Market data (external provider — FMP)
 
-Requires env `MARKET_DATA_API_KEY` (Financial Modeling Prep). Provider is abstracted; default = FMP.
+Requires env `MARKET_DATA_API_KEY` (Financial Modeling Prep). Provider is abstracted; default = FMP **stable** API (`MARKET_DATA_BASE_URL=https://financialmodelingprep.com/stable`). Legacy `/api/v3` returns 403 for new keys.
+
+**Free-tier note:** `company-screener` often returns **402** on free plans — Agent OS falls back to `MARKET_DATA_SCREENER_UNIVERSE` (or a built-in mega-cap list) + `/profile` enrichment.
 
 | Tool | API key | Paper | Live | Cache policy |
 |------|---------|-------|------|--------------|

@@ -1,13 +1,33 @@
 /**
- * External market-data service (default provider: Financial Modeling Prep).
+ * External market-data service (default provider: Financial Modeling Prep stable API).
  * Paper vs live TTLs from IBKR_IS_PAPER via getIbkrTradingConfig().
  * Never logs full API keys.
+ *
+ * Note: FMP free keys must use https://financialmodelingprep.com/stable/*
+ * (legacy /api/v3 returns 403 for new accounts). company-screener is paid (402);
+ * free tier falls back to a configurable liquid large-cap universe + profile.
  */
 import { createHash } from 'crypto';
 import { getIbkrTradingConfig } from './ibkr-trading-rules.js';
-import { getCached, setCached, invalidateCache, ensureMarketDataCacheTable } from './market-data-cache.js';
+import {
+  getCached,
+  setCached,
+  invalidateCache,
+  ensureMarketDataCacheTable,
+} from './market-data-cache.js';
 
 const MISSING_KEY = { ok: false, error: 'MARKET_DATA_API_KEY not configured' };
+
+/** Paper/free-tier seed universe (liquid US mega-caps). Override via MARKET_DATA_SCREENER_UNIVERSE. */
+const DEFAULT_UNIVERSE = [
+  'AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'GOOG', 'META', 'BRK-B', 'LLY', 'AVGO',
+  'TSLA', 'JPM', 'V', 'XOM', 'UNH', 'MA', 'JNJ', 'WMT', 'PG', 'HD',
+  'ORCL', 'COST', 'ABBV', 'CVX', 'MRK', 'CRM', 'BAC', 'KO', 'PEP', 'AMD',
+  'TMO', 'CSCO', 'ACN', 'LIN', 'MCD', 'ABT', 'ADBE', 'WFC', 'DHR', 'TXN',
+  'DIS', 'INTU', 'QCOM', 'IBM', 'GE', 'CAT', 'AMAT', 'VZ', 'CMCSA', 'NEE',
+  'PM', 'ISRG', 'PFE', 'SPGI', 'AXP', 'MS', 'BKNG', 'GS', 'RTX', 'LOW',
+  'T', 'BLK', 'SYK', 'UNP', 'HON', 'PGR', 'TJX', 'VRTX', 'C', 'PLD',
+];
 
 function providerName() {
   return String(process.env.MARKET_DATA_PROVIDER || 'fmp').trim().toLowerCase() || 'fmp';
@@ -15,7 +35,7 @@ function providerName() {
 
 function baseUrl() {
   return String(
-    process.env.MARKET_DATA_BASE_URL || 'https://financialmodelingprep.com/api/v3'
+    process.env.MARKET_DATA_BASE_URL || 'https://financialmodelingprep.com/stable'
   )
     .trim()
     .replace(/\/+$/, '');
@@ -51,6 +71,11 @@ function ttlSeconds(kind) {
       ? envInt('MARKET_DATA_CACHE_TODAY_BAR_TTL_SEC_PAPER', 3600)
       : envInt('MARKET_DATA_CACHE_TODAY_BAR_TTL_SEC_LIVE', 900);
   }
+  if (kind === 'profile') {
+    return paper
+      ? envInt('MARKET_DATA_CACHE_PROFILE_TTL_SEC_PAPER', 6 * 3600)
+      : envInt('MARKET_DATA_CACHE_PROFILE_TTL_SEC_LIVE', 3 * 3600);
+  }
   return 3600;
 }
 
@@ -58,7 +83,6 @@ function expiresInSeconds(sec) {
   return new Date(Date.now() + sec * 1000).toISOString();
 }
 
-/** Regime cache valid until next UTC midnight. */
 function nextUtcDayExpires() {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() + 1);
@@ -90,7 +114,7 @@ function num(v, d = null) {
 }
 
 function sma(values, period) {
-  if (!Array.isArray(values) || values.length < period || period < 1) return null;
+  if (!Array.isArray(values) || values.length < period || period <= 0) return null;
   const slice = values.slice(-period);
   let sum = 0;
   for (const v of slice) sum += v;
@@ -103,6 +127,15 @@ function momentum(closes, lookback) {
   const prev = closes[closes.length - 1 - lookback];
   if (!(prev > 0) || last == null) return null;
   return (last - prev) / prev;
+}
+
+function screenerUniverse() {
+  const raw = String(process.env.MARKET_DATA_SCREENER_UNIVERSE || '').trim();
+  if (!raw) return [...DEFAULT_UNIVERSE];
+  return raw
+    .split(/[,;\s]+/)
+    .map((s) => s.trim().toUpperCase())
+    .filter(Boolean);
 }
 
 async function fmpGet(path, query = {}) {
@@ -135,6 +168,7 @@ async function fmpGet(path, query = {}) {
       ok: false,
       error: `market data provider HTTP ${res.status}`,
       status: res.status >= 500 ? 502 : res.status,
+      body: String(text).slice(0, 400),
     };
   }
   let data;
@@ -154,9 +188,18 @@ function requireKeyOrError() {
   return null;
 }
 
+function extractBars(data) {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.historical)) return data.historical;
+  return [];
+}
+
+function barClose(b) {
+  return num(b?.close ?? b?.price);
+}
+
 /**
  * Index vs 200-DMA regime.
- * @param {{ indexSymbol?: string, force?: boolean }} opts
  */
 export async function getRegime({ indexSymbol = 'SPY', force = false } = {}) {
   ensureMarketDataCacheTable();
@@ -176,23 +219,22 @@ export async function getRegime({ indexSymbol = 'SPY', force = false } = {}) {
   } else {
     invalidateCache({ cacheKey });
   }
+
   logCache(kind, symbol, false);
 
-  const raw = await fmpGet(`/historical-price-full/${encodeURIComponent(symbol)}`, {
-    serietype: 'line',
-  });
+  const raw = await fmpGet('/historical-price-eod/full', { symbol });
   if (!raw.ok) return raw;
 
-  const hist = Array.isArray(raw.data?.historical)
-    ? raw.data.historical
-    : Array.isArray(raw.data)
-      ? raw.data
-      : [];
-  // FMP returns newest-first
+  const hist = extractBars(raw.data);
+  // Stable API returns newest-first
   const chronological = [...hist].reverse();
-  const closes = chronological.map((b) => num(b.close)).filter((c) => c != null);
+  const closes = chronological.map((b) => barClose(b)).filter((c) => c != null);
   if (closes.length < 200) {
-    return { ok: false, error: `insufficient history for ${symbol} (need ≥200 closes)`, status: 422 };
+    return {
+      ok: false,
+      error: `insufficient history for ${symbol} (need ≥200 closes)`,
+      status: 422,
+    };
   }
   const last_close = closes[closes.length - 1];
   const sma_200 = sma(closes, 200);
@@ -219,106 +261,21 @@ export async function getRegime({ indexSymbol = 'SPY', force = false } = {}) {
   return result;
 }
 
-/**
- * Liquidity / mcap screener (FMP stock-screener).
- * @param {object} opts
- */
-export async function runScreener({
-  minMarketCap = 5e10,
-  limit = 100,
-  force = false,
-  exchange = null,
-  country = 'US',
-  volumeMoreThan = null,
-  priceMoreThan = null,
-  isActivelyTrading = true,
-  ...extra
-} = {}) {
-  ensureMarketDataCacheTable();
-  const missing = requireKeyOrError();
-  if (missing) return missing;
-
-  const kind = 'screener';
-  const filters = {
-    minMarketCap: num(minMarketCap, 5e10),
-    limit: Math.min(Math.max(num(limit, 100) || 100, 1), 500),
-    exchange,
-    country,
-    volumeMoreThan: num(volumeMoreThan),
-    priceMoreThan: num(priceMoreThan),
-    isActivelyTrading,
-    ...extra,
-  };
-  const cacheKey = `${providerName()}:screener:${hashFilters(filters)}`;
-
-  if (!force) {
-    const hit = getCached(cacheKey);
-    if (hit?.payload) {
-      logCache(kind, null, true);
-      return { ...hit.payload, cached: true };
-    }
-  } else {
-    invalidateCache({ cacheKey });
-  }
-  logCache(kind, null, false);
-
-  const query = {
-    marketCapMoreThan: Math.floor(filters.minMarketCap),
-    limit: filters.limit,
-    isActivelyTrading: filters.isActivelyTrading ? 'true' : 'false',
-  };
-  if (filters.country) query.country = filters.country;
-  if (filters.exchange) query.exchange = filters.exchange;
-  if (filters.volumeMoreThan != null) query.volumeMoreThan = Math.floor(filters.volumeMoreThan);
-  if (filters.priceMoreThan != null) query.priceMoreThan = filters.priceMoreThan;
-
-  const raw = await fmpGet('/stock-screener', query);
-  if (!raw.ok) return raw;
-
-  const rows = Array.isArray(raw.data) ? raw.data : [];
-  const candidates = rows
-    .map((r) => ({
-      symbol: String(r.symbol || '').toUpperCase(),
-      name: r.companyName || r.name || null,
-      marketCap: num(r.marketCap),
-      volume: num(r.volume),
-      price: num(r.price),
-      exchange: r.exchangeShortName || r.exchange || null,
-      sector: r.sector || null,
-      industry: r.industry || null,
-    }))
-    .filter((c) => c.symbol)
-    .sort((a, b) => (b.marketCap || 0) - (a.marketCap || 0));
-
-  const result = {
-    ok: true,
-    count: candidates.length,
-    filters,
-    candidates,
-    paper: isPaperMode(),
-    cached: false,
-  };
-  setCached({
-    cacheKey,
-    provider: providerName(),
-    kind,
-    payload: result,
-    expiresAt: expiresInSeconds(ttlSeconds('screener')),
-  });
-  return result;
-}
-
 function buildHistoryMetrics(barsChronological) {
-  const closes = barsChronological.map((b) => num(b.close)).filter((c) => c != null);
+  const closes = barsChronological.map((b) => barClose(b)).filter((c) => c != null);
   const volumes = barsChronological.map((b) => num(b.volume, 0));
   const last = closes.length ? closes[closes.length - 1] : null;
   const window52 = closes.slice(-252);
   const high_52w = window52.length ? Math.max(...window52) : null;
   const pct_from_high_52w =
-    high_52w > 0 && last != null ? Number((((last - high_52w) / high_52w) * 100).toFixed(4)) : null;
+    high_52w > 0 && last != null
+      ? Number((((last - high_52w) / high_52w) * 100).toFixed(4))
+      : null;
   const vol20 = volumes.slice(-20);
   const avg_volume_20 =
-    vol20.length > 0 ? Number((vol20.reduce((s, v) => s + (v || 0), 0) / vol20.length).toFixed(2)) : null;
+    vol20.length > 0
+      ? Number((vol20.reduce((s, v) => s + (v || 0), 0) / vol20.length).toFixed(2))
+      : null;
 
   return {
     bars: barsChronological.map((b) => ({
@@ -326,7 +283,7 @@ function buildHistoryMetrics(barsChronological) {
       open: num(b.open),
       high: num(b.high),
       low: num(b.low),
-      close: num(b.close),
+      close: barClose(b),
       volume: num(b.volume),
     })),
     last_close: last,
@@ -352,9 +309,177 @@ function buildHistoryMetrics(barsChronological) {
   };
 }
 
+async function getProfile(symbol, { force = false } = {}) {
+  const sym = String(symbol || '').trim().toUpperCase();
+  const kind = 'profile';
+  const cacheKey = `${providerName()}:profile:${sym}`;
+  if (!force) {
+    const hit = getCached(cacheKey);
+    if (hit?.payload) {
+      logCache(kind, sym, true);
+      return { ...hit.payload, cached: true };
+    }
+  }
+  logCache(kind, sym, false);
+  const raw = await fmpGet('/profile', { symbol: sym });
+  if (!raw.ok) return raw;
+  const row = Array.isArray(raw.data) ? raw.data[0] : raw.data;
+  if (!row) return { ok: false, error: `no profile for ${sym}`, status: 404 };
+  const result = {
+    ok: true,
+    symbol: String(row.symbol || sym).toUpperCase(),
+    name: row.companyName || row.name || null,
+    marketCap: num(row.marketCap),
+    volume: num(row.volume),
+    price: num(row.price),
+    exchange: row.exchangeShortName || row.exchange || null,
+    sector: row.sector || null,
+    industry: row.industry || null,
+    cached: false,
+  };
+  setCached({
+    cacheKey,
+    provider: providerName(),
+    kind,
+    payload: result,
+    expiresAt: expiresInSeconds(ttlSeconds('profile')),
+  });
+  return result;
+}
+
+async function screenerViaUniverse(filters) {
+  const universe = screenerUniverse().slice(0, Math.max(filters.limit * 3, filters.limit));
+  const candidates = [];
+  for (const sym of universe) {
+    if (candidates.length >= filters.limit) break;
+    const prof = await getProfile(sym, { force: false });
+    if (!prof.ok) continue;
+    if (prof.marketCap != null && prof.marketCap < filters.minMarketCap) continue;
+    if (filters.volumeMoreThan != null && (prof.volume || 0) < filters.volumeMoreThan) continue;
+    if (filters.priceMoreThan != null && (prof.price || 0) < filters.priceMoreThan) continue;
+    candidates.push({
+      symbol: prof.symbol,
+      name: prof.name,
+      marketCap: prof.marketCap,
+      volume: prof.volume,
+      price: prof.price,
+      exchange: prof.exchange,
+      sector: prof.sector,
+      industry: prof.industry,
+    });
+  }
+  candidates.sort((a, b) => (b.marketCap || 0) - (a.marketCap || 0));
+  return {
+    ok: true,
+    count: candidates.length,
+    filters,
+    candidates: candidates.slice(0, filters.limit),
+    paper: isPaperMode(),
+    cached: false,
+    mode: 'universe_fallback',
+    note: 'FMP company-screener unavailable on this plan; used MARKET_DATA_SCREENER_UNIVERSE / default mega-caps + profile',
+  };
+}
+
+/**
+ * Liquidity + mcap screener (FMP company-screener, with free-tier universe fallback).
+ */
+export async function runScreener({
+  minMarketCap = 5e10,
+  limit = 100,
+  force = false,
+  exchange = null,
+  country = 'US',
+  volumeMoreThan = null,
+  priceMoreThan = null,
+  isActivelyTrading = true,
+  ...extra
+} = {}) {
+  ensureMarketDataCacheTable();
+  const missing = requireKeyOrError();
+  if (missing) return missing;
+
+  const kind = 'screener';
+  const filters = {
+    minMarketCap: num(minMarketCap, 5e10),
+    limit: Math.min(Math.max(num(limit, 100) || 100, 1), 200),
+    exchange,
+    country,
+    volumeMoreThan: num(volumeMoreThan),
+    priceMoreThan: num(priceMoreThan),
+    isActivelyTrading,
+    ...extra,
+  };
+  const cacheKey = `${providerName()}:screener:${hashFilters(filters)}`;
+
+  if (!force) {
+    const hit = getCached(cacheKey);
+    if (hit?.payload) {
+      logCache(kind, null, true);
+      return { ...hit.payload, cached: true };
+    }
+  } else {
+    invalidateCache({ cacheKey });
+  }
+
+  logCache(kind, null, false);
+
+  const query = {
+    marketCapMoreThan: Math.floor(filters.minMarketCap),
+    limit: filters.limit,
+    isActivelyTrading: filters.isActivelyTrading ? 'true' : 'false',
+  };
+  if (filters.country) query.country = filters.country;
+  if (filters.exchange) query.exchange = filters.exchange;
+  if (filters.volumeMoreThan != null) query.volumeMoreThan = Math.floor(filters.volumeMoreThan);
+  if (filters.priceMoreThan != null) query.priceMoreThan = filters.priceMoreThan;
+
+  const raw = await fmpGet('/company-screener', query);
+  let result;
+  if (!raw.ok && (raw.status === 402 || raw.status === 403)) {
+    console.log('[market-data] screener paid-endpoint unavailable; using universe fallback');
+    result = await screenerViaUniverse(filters);
+  } else if (!raw.ok) {
+    return raw;
+  } else {
+    const rows = Array.isArray(raw.data) ? raw.data : [];
+    const candidates = rows
+      .map((r) => ({
+        symbol: String(r.symbol || '').toUpperCase(),
+        name: r.companyName || r.name || null,
+        marketCap: num(r.marketCap),
+        volume: num(r.volume),
+        price: num(r.price),
+        exchange: r.exchangeShortName || r.exchange || null,
+        sector: r.sector || null,
+        industry: r.industry || null,
+      }))
+      .filter((c) => c.symbol)
+      .sort((a, b) => (b.marketCap || 0) - (a.marketCap || 0));
+
+    result = {
+      ok: true,
+      count: candidates.length,
+      filters,
+      candidates,
+      paper: isPaperMode(),
+      cached: false,
+      mode: 'company_screener',
+    };
+  }
+
+  setCached({
+    cacheKey,
+    provider: providerName(),
+    kind,
+    payload: result,
+    expiresAt: expiresInSeconds(ttlSeconds('screener')),
+  });
+  return result;
+}
+
 /**
  * Daily bars + technicals for a symbol.
- * @param {{ symbol: string, days?: number, force?: boolean }} opts
  */
 export async function getHistory({ symbol, days = 260, force = false } = {}) {
   ensureMarketDataCacheTable();
@@ -377,16 +502,13 @@ export async function getHistory({ symbol, days = 260, force = false } = {}) {
   } else {
     invalidateCache({ cacheKey });
   }
+
   logCache(kind, sym, false);
 
-  const raw = await fmpGet(`/historical-price-full/${encodeURIComponent(sym)}`, {});
+  const raw = await fmpGet('/historical-price-eod/full', { symbol: sym });
   if (!raw.ok) return raw;
 
-  const hist = Array.isArray(raw.data?.historical)
-    ? raw.data.historical
-    : Array.isArray(raw.data)
-      ? raw.data
-      : [];
+  const hist = extractBars(raw.data);
   const chronological = [...hist].reverse().slice(-dayCount);
   if (!chronological.length) {
     return { ok: false, error: `no history for ${sym}`, status: 404 };
@@ -421,7 +543,6 @@ export async function getHistory({ symbol, days = 260, force = false } = {}) {
 
 /**
  * Income-statement growth approximations (revenue / EPS YoY).
- * @param {{ symbol: string, force?: boolean }} opts
  */
 export async function getFundamentals({ symbol, force = false } = {}) {
   ensureMarketDataCacheTable();
@@ -443,13 +564,13 @@ export async function getFundamentals({ symbol, force = false } = {}) {
   } else {
     invalidateCache({ cacheKey });
   }
+
   logCache(kind, sym, false);
 
-  const raw = await fmpGet(`/income-statement/${encodeURIComponent(sym)}`, { limit: 5, period: 'annual' });
+  const raw = await fmpGet('/income-statement', { symbol: sym, limit: 5, period: 'annual' });
   if (!raw.ok) return raw;
 
   const rows = Array.isArray(raw.data) ? raw.data : [];
-  // Newest first from FMP
   const latest = rows[0] || null;
   const prior = rows[1] || null;
 
@@ -461,11 +582,8 @@ export async function getFundamentals({ symbol, force = false } = {}) {
     return Number(((a - b) / Math.abs(b)).toFixed(6));
   }
 
-  const revenue_yoy = latest && prior ? yoy(latest.revenue, prior.revenue) : null;
-  const eps_yoy =
-    latest && prior
-      ? yoy(latest.epsdiluted ?? latest.eps, prior.epsdiluted ?? prior.eps)
-      : null;
+  const epsLatest = latest?.epsdiluted ?? latest?.eps;
+  const epsPrior = prior?.epsdiluted ?? prior?.eps;
 
   const result = {
     ok: true,
@@ -474,10 +592,10 @@ export async function getFundamentals({ symbol, force = false } = {}) {
     fiscal_year_latest: latest?.calendarYear || latest?.date || null,
     revenue_latest: num(latest?.revenue),
     revenue_prior: num(prior?.revenue),
-    revenue_yoy,
-    eps_latest: num(latest?.epsdiluted ?? latest?.eps),
-    eps_prior: num(prior?.epsdiluted ?? prior?.eps),
-    eps_yoy,
+    revenue_yoy: latest && prior ? yoy(latest.revenue, prior.revenue) : null,
+    eps_latest: num(epsLatest),
+    eps_prior: num(epsPrior),
+    eps_yoy: latest && prior ? yoy(epsLatest, epsPrior) : null,
     paper: isPaperMode(),
     cached: false,
   };

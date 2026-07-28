@@ -61,9 +61,10 @@ flowchart LR
 ## Phase 2 — Laptop IBKR bridge
 
 4. **New `backend/local-ibkr-bridge/`** — slim Node service reusing `backend/src/services/ibkr-gateway-client.js` logic, loopback HTTP (e.g. 127.0.0.1:3010, local token auth):
-   - Endpoints: `/ping`, `/account-snapshot`, `/place-bracket` (STP-LMT breakout entries + TP + stop), `/modify-stop` (trailing raise), `/sell-to-close`, `/cancel`, `/open-orders`.
-   - **Event pusher**: TWS order-status callbacks + periodic equity marks during market hours -> HTTPS POST to VPS workflow webhook (`x-workflow-hook-secret`), with retry queue. Post-close it also pushes the end-of-day snapshot that triggers W1.
-   - Windows setup: run script + Task Scheduler registration doc (pattern from `platform-help/17-desktop-windows-download.md`).
+   - Endpoints: `/ping`, `/account-snapshot`, `/place-bracket` (STP-LMT breakout entries + TP + stop), `/modify-stop` (trailing raise), `/sell-to-close`, `/cancel`, `/open-orders`, `/push-equity-mark`, `/push-eod-snapshot`.
+   - **Event pusher**: order-status / equity / EOD envelopes → HTTPS POST to VPS workflow webhook (`x-workflow-hook-secret`), with retry queue (`data/webhook-retry.json`). Post-close `eod_snapshot` triggers W1 later.
+   - Windows setup: `scripts/run-bridge.ps1` + `scripts/register-task-scheduler.ps1` (pattern from `platform-help/17-desktop-windows-download.md`).
+   - Docs: [IBKR-LOCAL-BRIDGE.md](IBKR-LOCAL-BRIDGE.md) and `backend/local-ibkr-bridge/README.md`. Offline: `npm run test:offline` (`BRIDGE_MOCK_IBKR=1`).
 
 ## Where the Maker gets the strategy (goals and objectives)
 
