@@ -167,6 +167,8 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\check-a2a-callback-inbox.js" `
     "$Repo\backend\scripts\laptop-test-a2a-async-callback.js" `
     "$Repo\backend\scripts\test-a2a-agent-exchange-security.js" `
+    "$Repo\backend\scripts\test-market-data-tools.js" `
+    "$Repo\backend\scripts\monthly-trading-seed-variables.js" `
     "$Repo\backend\scripts\vps-test-agent-exchange-security.js" `
     "$Repo\backend\scripts\vps-test-agent-exchange-test-invoke.js" `
     "$Repo\backend\scripts\test-workflow-input-schema.js" `
@@ -249,6 +251,10 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\probe-budgets-org-ready.js" `
     "$Repo\backend\scripts\list-ceos.js" `
     "root@${HostIp}:$RemoteRoot/backend/scripts/"
+  ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/backend/scripts/lib"
+  scp @ssh `
+    "$Repo\backend\scripts\lib\trading-strategy-prompt.js" `
+    "root@${HostIp}:$RemoteRoot/backend/scripts/lib/"
   Write-Host "==> Sync tests/ (regression packs)"
   ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/tests/lib"
   scp @ssh `

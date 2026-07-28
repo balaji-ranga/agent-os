@@ -10,6 +10,13 @@ import * as store from '../services/agent-workflow-store.js';
 import { resolveIbkrPolicy } from '../services/ibkr-workflow-variables.js';
 import { resolveEntitledOwnerUserId } from '../services/tool-owner-scope.js';
 import { parseForceFlag } from '../services/tool-summary-cache.js';
+import {
+  ensureIbkrMonthlyTables,
+  recordEquityMark,
+  getMonthlyGuardrail,
+} from '../services/ibkr-monthly-guardrail.js';
+import { savePlan, getPlan } from '../services/trading-day-plans.js';
+import { summarizeJournal } from '../services/trading-journal.js';
 
 const router = Router();
 
@@ -772,6 +779,95 @@ router.get('/gateway-ping', async (_req, res) => {
     res.json(result);
   } catch (e) {
     res.status(503).json({ ok: false, error: e.message });
+  }
+});
+
+/* ---- Monthly trading: equity marks / guardrail / day plans / journal ---- */
+
+router.post('/equity-mark', (req, res) => {
+  try {
+    const owner = entitledOwnerId(req);
+    const body = req.body || {};
+    ensureIbkrMonthlyTables();
+    const result = recordEquityMark(owner, {
+      equity: body.equity ?? body.equity_usd,
+      cash: body.cash ?? body.cash_usd,
+      date: body.date ?? body.mark_date,
+      detail: body.detail ?? null,
+    });
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ ok: false, error: e.message });
+  }
+});
+
+router.get('/monthly-guardrail', (req, res) => {
+  try {
+    const owner = entitledOwnerId(req);
+    ensureIbkrMonthlyTables();
+    res.json(
+      getMonthlyGuardrail(owner, {
+        drawdownStopPct:
+          req.query.drawdown_stop_pct != null ? Number(req.query.drawdown_stop_pct) : null,
+        asOfDate: req.query.as_of || req.query.date || null,
+      })
+    );
+  } catch (e) {
+    res.status(400).json({ ok: false, error: e.message });
+  }
+});
+
+router.post('/monthly-guardrail', (req, res) => {
+  try {
+    const owner = entitledOwnerId(req);
+    const body = req.body || {};
+    ensureIbkrMonthlyTables();
+    res.json(
+      getMonthlyGuardrail(owner, {
+        drawdownStopPct: body.drawdown_stop_pct ?? body.drawdownStopPct ?? null,
+        asOfDate: body.as_of || body.date || null,
+      })
+    );
+  } catch (e) {
+    res.status(400).json({ ok: false, error: e.message });
+  }
+});
+
+router.post('/day-plan', (req, res) => {
+  try {
+    const owner = entitledOwnerId(req);
+    ensureIbkrMonthlyTables();
+    const plan = savePlan(owner, req.body || {});
+    res.json({ ok: true, plan });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: e.message });
+  }
+});
+
+router.get('/day-plan', (req, res) => {
+  try {
+    const owner = entitledOwnerId(req);
+    ensureIbkrMonthlyTables();
+    const plan = getPlan(owner, {
+      plan_date: req.query.plan_date || req.query.date || null,
+    });
+    res.json({ ok: true, plan });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: e.message });
+  }
+});
+
+router.post('/trading-journal', (req, res) => {
+  try {
+    const owner = entitledOwnerId(req);
+    const body = req.body || {};
+    res.json(
+      summarizeJournal(owner, {
+        days: body.days != null ? Number(body.days) : 30,
+      })
+    );
+  } catch (e) {
+    res.status(400).json({ ok: false, error: e.message });
   }
 });
 

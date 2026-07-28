@@ -28,6 +28,7 @@ import workflowA2aRoutes from './routes/workflow-a2a.js';
 import a2aCallbackInboxRoutes from './routes/a2a-callback-inbox.js';
 import agentExchangeRoutes from './routes/agent-exchange.js';
 import ibkrTradingRoutes from './routes/ibkr-trading.js';
+import marketDataRoutes from './routes/market-data.js';
 import emailInboundRoutes from './routes/email-inbound.js';
 import openconnectorRoutes from './routes/openconnector.js';
 import { openConnectorConsoleProxy } from './services/openconnector-console-proxy.js';
@@ -61,6 +62,7 @@ import { seedDefaultAgentsIfEmpty, seedAgentDepartmentsIfMissing } from './db/se
 import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, seedWorkflowToolsIfMissing, seedLearningsToolsIfMissing, seedEmailSendToolIfMissing, seedNotifyCeoToolIfMissing, seedCeoProfileToolIfMissing, seedStatusCheckerToolIfMissing, seedMasterDataToolsIfMissing, seedConnectorToolsIfMissing, seedVedicChartToolIfMissing, updateKanbanToolPurposes } from './db/seed-content-tools-meta.js';
 import { seedJobApplicantToolsIfMissing } from './db/seed-job-applicant-tools.js';
 import { seedIbkrTradingToolsIfMissing } from './db/seed-ibkr-trading-tools.js';
+import { seedMarketDataToolsIfMissing } from './db/seed-market-data-tools.js';
 import { writeOpenClawToolsList } from './services/content-tools-meta.js';
 import {
   importGrantsFromOpenClawConfig,
@@ -245,6 +247,7 @@ seedConnectorToolsIfMissing();
 updateKanbanToolPurposes();
 seedJobApplicantToolsIfMissing();
 seedIbkrTradingToolsIfMissing();
+seedMarketDataToolsIfMissing();
 try {
   const granted = grantLearningsSummaryToAllAgents();
   if (granted) console.log(`[startup] granted learnings_summary to ${granted} agent(s)`);
@@ -391,6 +394,7 @@ apiRouter.use('/integrations/email-inbound', emailInboundRoutes);
 apiRouter.use('/integrations/openconnector', openconnectorRoutes);
 apiRouter.use('/integrations/opensearch', opensearchConsoleRoutes);
 apiRouter.use('/ibkr-trading', ibkrTradingRoutes);
+apiRouter.use('/market-data', marketDataRoutes);
 apiRouter.use('/ai-snipper', aiSnipperRoutes);
 apiRouter.use('/efficiency', efficiencyRoutes);
 apiRouter.use('/org-members', orgMembersRoutes);

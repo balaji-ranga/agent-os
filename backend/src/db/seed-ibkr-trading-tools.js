@@ -210,6 +210,61 @@ export const IBKR_TRADING_TOOLS = [
     enabled: 1,
     is_builtin: 0,
   },
+  {
+    name: 'ibkr_equity_mark',
+    display_name: 'IBKR Equity Mark',
+    endpoint: '/api/ibkr-trading/equity-mark',
+    method: 'POST',
+    purpose:
+      'Record an equity/cash mark for monthly guardrail HWM tracking. Body: { "equity": 100000, "cash": 40000, "date": "YYYY-MM-DD" }. Owner from session.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 0,
+  },
+  {
+    name: 'ibkr_monthly_guardrail',
+    display_name: 'IBKR Monthly Guardrail',
+    endpoint: '/api/ibkr-trading/monthly-guardrail',
+    method: 'POST',
+    purpose:
+      'Compute MTD return and drawdown-from-HWM vs monthly_drawdown_stop_pct (default 4 or env). Returns risk_mode normal|reduce|halt_new. Body optional: drawdown_stop_pct, as_of.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 0,
+  },
+  {
+    name: 'trading_plan_save',
+    display_name: 'Trading Plan Save',
+    endpoint: '/api/ibkr-trading/day-plan',
+    method: 'POST',
+    purpose:
+      'Save/upsert a trading day plan for the session owner. Body: { "plan_date": "YYYY-MM-DD", "status": "pending|approved|executed", "plan": {...}, "checker_verdict": {...}, "approvals": {...} }.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 0,
+  },
+  {
+    name: 'trading_plan_fetch',
+    display_name: 'Trading Plan Fetch',
+    endpoint: '/api/ibkr-trading/day-plan',
+    method: 'GET',
+    purpose:
+      'Fetch trading day plan by date for the session owner. Query: plan_date or date (YYYY-MM-DD).',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 0,
+  },
+  {
+    name: 'trading_journal',
+    display_name: 'Trading Journal',
+    endpoint: '/api/ibkr-trading/trading-journal',
+    method: 'POST',
+    purpose:
+      'Summarize fills / realized PnL / order events for weekly review (win rate, profit factor, avg win/loss). Body optional: { "days": 30 }. Graceful if tables empty.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 0,
+  },
 ];
 
 /** Sample bodies for Content tools UI Test panel. */
@@ -251,6 +306,15 @@ export const IBKR_DEFAULT_TEST_BODIES = {
     limit: 40,
     purpose: 'IBKR Maker order learnings (content-tools test)',
   },
+  ibkr_equity_mark: { equity: 100000, cash: 40000 },
+  ibkr_monthly_guardrail: { drawdown_stop_pct: 4 },
+  trading_plan_save: {
+    plan_date: null,
+    status: 'pending',
+    plan: { holds: [], exits: [], entries: [], notes: 'UI smoke-test plan' },
+  },
+  trading_plan_fetch: {},
+  trading_journal: { days: 30 },
 };
 
 export const IBKR_ANALYTICS_TOOL_NAMES = [
@@ -269,6 +333,9 @@ export const IBKR_COO_TOOL_NAMES = [
   'ibkr_account_snapshot',
   'ibkr_preflight',
   'ibkr_order_learnings',
+  'ibkr_monthly_guardrail',
+  'trading_plan_fetch',
+  'trading_journal',
 ];
 
 export function seedIbkrTradingToolsIfMissing() {
