@@ -103,8 +103,16 @@ Keep in sync with `backend/scripts/lib/trading-strategy-prompt.js`.
 
 ## Phase 4 — Certify, validate, deploy
 
-9. Set certify env (`WORKFLOW_CERTIFY_MAKER_MODEL` = Claude Opus, `WORKFLOW_CERTIFY_CHECKER_MODEL` = deepseek-v4-flash) and run `agent_workflow_certify_start` on W1/W3/W5; end-to-end paper test scripts (pattern from `backend/scripts/test-ibkr-maker-checker-e2e.js`) covering: screener -> plan -> gates -> approval branch -> plan fetch -> dry-run place -> webhook fill -> digest email.
-10. Deploy to both local and VPS, Task Scheduler setup on laptop, then a multi-week paper validation before flipping `IBKR_TRADING_ENABLED` / live ports.
+See runbook: [IBKR-MONTHLY-PHASE4.md](IBKR-MONTHLY-PHASE4.md).
+
+9. **Certify + paper E2E (automated)**
+   - Set certify env (`WORKFLOW_CERTIFY_MAKER_MODEL` = Claude Opus, `WORKFLOW_CERTIFY_CHECKER_MODEL` = deepseek-v4-flash). Comments in `.env.example` + `deploy/scripts/ensure-workflow-certify-env.sh`.
+   - Helper: `node backend/scripts/certify-monthly-trading-workflows.js` (`--dry-run` / `--seed` / `--poll`). Starts `agent_workflow_certify_start` for **W1 / W3 / W5 only** (not W2 laptop package).
+   - Paper E2E: `node backend/scripts/test-monthly-trading-paper-e2e.js` (pattern from `test-ibkr-maker-checker-e2e.js`) — screener/regime → plan → gates → CEO loss-sell branch → plan fetch → dry-run place (ledger + `BRIDGE_MOCK_IBKR`) → W3 webhook fill smoke → digest/journal compose. Passes without live Claude Opus / Gateway when keys missing.
+10. **Deploy + multi-week paper validation (CEO / ops)**
+   - Deploy local + VPS; laptop Task Scheduler via `backend/local-ibkr-bridge/scripts/register-task-scheduler.ps1` ([IBKR-LOCAL-BRIDGE.md](IBKR-LOCAL-BRIDGE.md)).
+   - **Automated:** seeds, paper E2E, certify helper, env docs.
+   - **Not automated (CEO):** multi-week paper account validation (digests, fills, guardrail behaviour, Kanban loss sells) before flipping `IBKR_TRADING_ENABLED` / live ports (`IBKR_ALLOW_LIVE` stays off until explicitly approved).
 
 ## Open items (CEO-provided during implementation)
 

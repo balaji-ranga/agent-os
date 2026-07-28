@@ -22,6 +22,15 @@ if grep -qE '^[[:space:]]*#?[[:space:]]*WORKFLOW_CERTIFY_' "$ENV_FILE" 2>/dev/nu
   else
     echo "WORKFLOW_CERTIFY_* already present in $ENV_FILE"
   fi
+  if ! grep -qE 'Monthly Positive Return|claude-opus-4-20250514' "$ENV_FILE" 2>/dev/null; then
+    {
+      echo ""
+      echo "# Monthly Positive Return certify (Phase 4) — add only if missing; do not overwrite keys"
+      echo "# WORKFLOW_CERTIFY_MAKER_MODEL=claude-opus-4-20250514"
+      echo "# WORKFLOW_CERTIFY_CHECKER_MODEL=deepseek-v4-flash"
+    } >> "$ENV_FILE"
+    echo "Appended Monthly Positive Return certify model comments to $ENV_FILE"
+  fi
   exit 0
 fi
 
@@ -36,6 +45,9 @@ fi
   echo "# WORKFLOW_CERTIFY_TEST_TIMEOUT_MS=45000"
   echo "# WORKFLOW_CERTIFY_MAKER_MODEL="
   echo "# WORKFLOW_CERTIFY_CHECKER_MODEL="
+  echo "# Monthly Positive Return (Phase 4) recommended when Anthropic+DeepSeek BYOK present:"
+  echo "# WORKFLOW_CERTIFY_MAKER_MODEL=claude-opus-4-20250514"
+  echo "# WORKFLOW_CERTIFY_CHECKER_MODEL=deepseek-v4-flash"
 } >> "$ENV_FILE"
 
 echo "Added WORKFLOW_CERTIFY_* block (LLM Checker OFF) to $ENV_FILE"

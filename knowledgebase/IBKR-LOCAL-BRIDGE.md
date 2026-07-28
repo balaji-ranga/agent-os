@@ -27,6 +27,18 @@ Phase 2 of the [Monthly Positive Return plan](IBKR-MONTHLY-TRADING-PLAN.md): a l
 
 Interactive Brokers does not reliably support in-place amendment of child STP `auxPrice` for all order states. The bridge **cancels matching STP sells** for the symbol (or a given `order_id`) and **places a new STP**. Take-profit LMT orders are left alone when possible. Callers should pass `qty` and `stop_price`.
 
+## Phase 4 — Task Scheduler (paper validation)
+
+Before live promotion, register the bridge at logon and keep paper Gateway **4002**:
+
+```powershell
+cd backend\local-ibkr-bridge
+.\scripts\register-task-scheduler.ps1
+# Paper without Gateway: .\scripts\run-bridge.ps1 -Mock
+```
+
+W2 market-open execution is a **separate** desktop-package scheduled task. Full certify/E2E checklist: [IBKR-MONTHLY-PHASE4.md](IBKR-MONTHLY-PHASE4.md).
+
 ## Offline test
 
 ```bash
