@@ -15,7 +15,14 @@ import {
   recordEquityMark,
   getMonthlyGuardrail,
 } from '../services/ibkr-monthly-guardrail.js';
-import { savePlan, getPlan } from '../services/trading-day-plans.js';
+import {
+  savePlan,
+  getPlan,
+  listOpenPlans,
+  markPlanExecution,
+  updateStatus,
+  PLAN_STATUSES,
+} from '../services/trading-day-plans.js';
 import { summarizeJournal } from '../services/trading-journal.js';
 
 const router = Router();
@@ -838,7 +845,7 @@ router.post('/day-plan', (req, res) => {
     const owner = entitledOwnerId(req);
     ensureIbkrMonthlyTables();
     const plan = savePlan(owner, req.body || {});
-    res.json({ ok: true, plan });
+    res.json({ ok: true, plan, statuses: PLAN_STATUSES });
   } catch (e) {
     res.status(400).json({ ok: false, error: e.message });
   }
@@ -848,8 +855,47 @@ router.get('/day-plan', (req, res) => {
   try {
     const owner = entitledOwnerId(req);
     ensureIbkrMonthlyTables();
+    const open =
+      req.query.open === '1' ||
+      req.query.open === 'true' ||
+      String(req.query.list || '').toLowerCase() === 'open';
+    if (open) {
+      const plans = listOpenPlans(owner, {
+        limit: req.query.limit != null ? Number(req.query.limit) : 14,
+      });
+      return res.json({ ok: true, plans, statuses: PLAN_STATUSES });
+    }
     const plan = getPlan(owner, {
       plan_date: req.query.plan_date || req.query.date || null,
+    });
+    res.json({ ok: true, plan });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: e.message });
+  }
+});
+
+/** Patch status / merge execution report (W2 laptop execution). */
+router.post('/day-plan/execution', (req, res) => {
+  try {
+    const owner = entitledOwnerId(req);
+    ensureIbkrMonthlyTables();
+    const body = req.body || {};
+    const plan = markPlanExecution(owner, body);
+    res.json({ ok: true, plan });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: e.message });
+  }
+});
+
+router.patch('/day-plan/status', (req, res) => {
+  try {
+    const owner = entitledOwnerId(req);
+    ensureIbkrMonthlyTables();
+    const body = req.body || {};
+    const plan = updateStatus(owner, {
+      plan_date: body.plan_date || body.date,
+      status: body.status,
+      approvals: body.approvals,
     });
     res.json({ ok: true, plan });
   } catch (e) {

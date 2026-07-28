@@ -2,7 +2,7 @@
 
 Event-driven, split-architecture trading system: the VPS runs screening, Maker (Claude Opus) / Checker (deepseek-v4-flash) planning, CEO approval, notifications, and the daily digest email; the laptop runs a small execution workflow plus a local IBKR bridge that places orders against the local IB Gateway and pushes fill/equity events back to the VPS via webhooks.
 
-Related: [IBKR-TRADING-WORKFLOW.md](IBKR-TRADING-WORKFLOW.md) (existing maker/checker paper workflow, env vars, guardrails).
+Related: [IBKR-TRADING-WORKFLOW.md](IBKR-TRADING-WORKFLOW.md), [IBKR-MONTHLY-EXECUTION-MODEL.md](IBKR-MONTHLY-EXECUTION-MODEL.md), [IBKR-MONTHLY-MAKER-PROMPT.md](IBKR-MONTHLY-MAKER-PROMPT.md), [IBKR-MONTHLY-CHECKER-PROMPT.md](IBKR-MONTHLY-CHECKER-PROMPT.md), [IBKR-LOCAL-BRIDGE.md](IBKR-LOCAL-BRIDGE.md).
 
 ## Decisions locked in
 
@@ -73,6 +73,26 @@ flowchart LR
 - **Per-run facts as node inputs** — Maker receives live data wired from upstream nodes each run: market regime, current positions/cash (laptop snapshot), screener candidates with technicals + fundamentals, guardrail status, and past-trade learnings (`ibkr_order_learnings` + journal stats) so monthly statistics feed back into decisions.
 - **Checker gets an independent checklist rendering** of the same rules to audit the Maker's plan; the `custom_script` hard gates enforce the non-negotiables in deterministic code so an out-of-policy trade cannot pass even if both LLMs err.
 - **Certify goal is separate** — the WorkflowGoal for certification describes pipeline success criteria (plan produced, gates pass, digest sent), not trading rules.
+
+
+## EXECUTION RECOVERY / LAPTOP<->VPS SYNC
+
+Day-plan statuses: `pending | approved | executing | partial | executed | failed | superseded`.
+
+Open plans for recovery/W2: `approved | executing | partial | failed` (`listOpenPlans`).
+
+W2 reports progress via `markPlanExecution` (merges `execution_report` into `plan_json.execution`).
+
+Maker (W1) must each run:
+1. Load prior open day plan(s) + live IBKR snapshot (or last equity mark).
+2. Reconcile intents vs reality; **IBKR truth wins** over VPS plan status.
+3. If prior plan **approved but not executed** (laptop offline): do not duplicate — (a) carry forward unfilled legs with `carry_forward: true`, or (b) mark superseded and rebuild if regime/guardrail changed.
+4. If **partial**: only remaining undone actions; never re-buy filled adds; never average down.
+5. If VPS missed fill webhooks: positions in snapshot = done; note `suggested_status: partial|executed`.
+6. If laptop repeatedly fails: reduce new entries, prefer risk-reducing exits, alert CEO via digest notes.
+7. Always emit `prior_plan_reconcile` in Maker JSON.
+
+Keep in sync with `backend/scripts/lib/trading-strategy-prompt.js`.
 
 ## Phase 3 — Workflows (seeded like `backend/scripts/seed-ibkr-maker-checker-workflow.js`)
 

@@ -238,7 +238,7 @@ export const IBKR_TRADING_TOOLS = [
     endpoint: '/api/ibkr-trading/day-plan',
     method: 'POST',
     purpose:
-      'Save/upsert a trading day plan for the session owner. Body: { "plan_date": "YYYY-MM-DD", "status": "pending|approved|executed", "plan": {...}, "checker_verdict": {...}, "approvals": {...} }.',
+      'Save/upsert a trading day plan for the session owner. Body: { "plan_date": "YYYY-MM-DD", "status": "pending|approved|executing|partial|executed|failed|superseded", "plan": {...}, "checker_verdict": {...}, "approvals": {...} }.',
     model_used: '',
     enabled: 1,
     is_builtin: 0,
@@ -249,7 +249,7 @@ export const IBKR_TRADING_TOOLS = [
     endpoint: '/api/ibkr-trading/day-plan',
     method: 'GET',
     purpose:
-      'Fetch trading day plan by date for the session owner. Query: plan_date or date (YYYY-MM-DD).',
+      'Fetch trading day plan by date for the session owner. Query: plan_date or date (YYYY-MM-DD). Pass open=true (or list=open) to list open plans (approved|executing|partial|failed). Pass open=true (or list=open) to list open plans (approved|executing|partial|failed).',
     model_used: '',
     enabled: 1,
     is_builtin: 0,

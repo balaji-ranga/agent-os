@@ -37,6 +37,8 @@ export function ensureIbkrMonthlyTables(db = getDb()) {
     );
     CREATE INDEX IF NOT EXISTS idx_trading_day_plans_owner_date
       ON trading_day_plans(owner_user_id, plan_date DESC);
+    CREATE INDEX IF NOT EXISTS idx_trading_day_plans_owner_status
+      ON trading_day_plans(owner_user_id, status, plan_date DESC);
   `);
   ensured = true;
 }

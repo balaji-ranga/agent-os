@@ -1,6 +1,6 @@
 /**
  * Default workflow variables for the Monthly Positive Return trading system.
- * Used later by workflow seed scripts — module only for Phase 1.
+ * Used by monthly trading workflow seed scripts (W1/W2/W3/W5).
  */
 export const MONTHLY_TRADING_VARIABLES = {
   min_market_cap_usd: 50_000_000_000,
@@ -23,6 +23,18 @@ export const MONTHLY_TRADING_VARIABLES = {
   monthly_target_pct_max: 5,
   monthly_drawdown_stop_pct: 4,
   discretionary_loss_sell_pct: 3,
+  /** US post-close fallback; cron is interpreted in server local TZ */
   cron_post_close_fallback: '5 21 * * 1-5',
   cron_weekly_review: '0 10 * * 6',
+  checker_max_loops: 3,
+  brain_history_days: 14,
+  order_history_days: 30,
+  open_plans_limit: 14,
+  screener_limit: 25,
+  digest_email_to: '',
+  /** Laptop bridge (W2) — placeholders; CEO fills secrets in UI / desktop env, never commit real tokens */
+  local_bridge_base_url: 'http://127.0.0.1:3010',
+  local_bridge_token: '',
 };
+
+export default MONTHLY_TRADING_VARIABLES;

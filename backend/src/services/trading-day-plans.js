@@ -1,8 +1,23 @@
 /**
  * Trading day plans CRUD (Maker/Checker output stored for laptop execution fetch).
+ * Statuses support plan lifecycle + laptop<->VPS execution recovery.
  */
 import { getDb } from '../db/schema.js';
 import { ensureIbkrMonthlyTables } from './ibkr-monthly-guardrail.js';
+
+/** @type {readonly string[]} */
+export const PLAN_STATUSES = Object.freeze([
+  'pending',
+  'approved',
+  'executing',
+  'partial',
+  'executed',
+  'failed',
+  'superseded',
+]);
+
+/** Plans still open for recovery / W2 execution. */
+export const OPEN_PLAN_STATUSES = Object.freeze(['approved', 'executing', 'partial', 'failed']);
 
 function todayUtcDate() {
   return new Date().toISOString().slice(0, 10);
@@ -15,6 +30,18 @@ function parseJson(text, fallback = null) {
   } catch {
     return fallback;
   }
+}
+
+function normalizeStatus(status, { allowNull = false } = {}) {
+  const st = String(status || '').trim().toLowerCase();
+  if (!st) {
+    if (allowNull) return null;
+    throw new Error('status is required');
+  }
+  if (!PLAN_STATUSES.includes(st)) {
+    throw new Error(`invalid status "${st}"; expected one of: ${PLAN_STATUSES.join('|')}`);
+  }
+  return st;
 }
 
 function rowToPlan(row) {
@@ -43,7 +70,7 @@ export function savePlan(ownerUserId, body = {}) {
   if (!owner) throw new Error('owner_user_id is required');
 
   const planDate = String(body.plan_date || body.date || todayUtcDate()).slice(0, 10);
-  const status = String(body.status || 'pending').trim() || 'pending';
+  const status = normalizeStatus(body.status || 'pending');
   const planJson = body.plan != null ? JSON.stringify(body.plan) : body.plan_json ?? null;
   const verdictJson =
     body.checker_verdict != null
@@ -67,7 +94,13 @@ export function savePlan(ownerUserId, body = {}) {
          updated_at = datetime('now')
        WHERE id = ?`
     ).run(status, planJson, verdictJson, approvalsJson, existing.id);
-    console.log('[trading-day-plans] updated id=%s owner=%s date=%s status=%s', existing.id, owner, planDate, status);
+    console.log(
+      '[trading-day-plans] updated id=%s owner=%s date=%s status=%s',
+      existing.id,
+      owner,
+      planDate,
+      status
+    );
   } else {
     const info = db
       .prepare(
@@ -76,7 +109,13 @@ export function savePlan(ownerUserId, body = {}) {
          VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`
       )
       .run(owner, planDate, status, planJson, verdictJson, approvalsJson);
-    console.log('[trading-day-plans] created id=%s owner=%s date=%s status=%s', info.lastInsertRowid, owner, planDate, status);
+    console.log(
+      '[trading-day-plans] created id=%s owner=%s date=%s status=%s',
+      info.lastInsertRowid,
+      owner,
+      planDate,
+      status
+    );
   }
 
   return getPlan(owner, { plan_date: planDate });
@@ -93,13 +132,36 @@ export function getPlan(ownerUserId, { plan_date = null, date = null } = {}) {
   return rowToPlan(row);
 }
 
+/**
+ * List plans still open for recovery / execution.
+ * Status in approved|executing|partial|failed.
+ * @param {string} ownerUserId
+ * @param {{ limit?: number }} [opts]
+ */
+export function listOpenPlans(ownerUserId, { limit = 14 } = {}) {
+  ensureIbkrMonthlyTables();
+  const owner = String(ownerUserId || '').trim();
+  if (!owner) throw new Error('owner_user_id is required');
+  const lim = Math.min(Math.max(Number(limit) || 14, 1), 90);
+  const placeholders = OPEN_PLAN_STATUSES.map(() => '?').join(',');
+  const rows = getDb()
+    .prepare(
+      `SELECT * FROM trading_day_plans
+       WHERE owner_user_id = ? AND status IN (${placeholders})
+       ORDER BY plan_date DESC
+       LIMIT ?`
+    )
+    .all(owner, ...OPEN_PLAN_STATUSES, lim);
+  console.log('[trading-day-plans] listOpenPlans owner=%s count=%s limit=%s', owner, rows.length, lim);
+  return rows.map(rowToPlan);
+}
+
 export function updateStatus(ownerUserId, { plan_date, status, approvals = undefined } = {}) {
   ensureIbkrMonthlyTables();
   const owner = String(ownerUserId || '').trim();
   if (!owner) throw new Error('owner_user_id is required');
   const planDate = String(plan_date || todayUtcDate()).slice(0, 10);
-  const st = String(status || '').trim();
-  if (!st) throw new Error('status is required');
+  const st = normalizeStatus(status);
 
   const db = getDb();
   const row = db
@@ -117,5 +179,71 @@ export function updateStatus(ownerUserId, { plan_date, status, approvals = undef
     ).run(st, row.id);
   }
   console.log('[trading-day-plans] status id=%s status=%s', row.id, st);
+  return getPlan(owner, { plan_date: planDate });
+}
+
+/**
+ * Merge an execution report into plan_json.execution (and approvals_json.execution)
+ * and set status (typically executing|partial|executed|failed).
+ * @param {string} ownerUserId
+ * @param {{ plan_date?: string, status: string, execution_report?: object }} body
+ */
+export function markPlanExecution(ownerUserId, body = {}) {
+  ensureIbkrMonthlyTables();
+  const owner = String(ownerUserId || '').trim();
+  if (!owner) throw new Error('owner_user_id is required');
+  const planDate = String(body.plan_date || body.date || todayUtcDate()).slice(0, 10);
+  const st = normalizeStatus(body.status);
+  const report = body.execution_report != null ? body.execution_report : body.execution || null;
+
+  const db = getDb();
+  const row = db
+    .prepare('SELECT * FROM trading_day_plans WHERE owner_user_id = ? AND plan_date = ?')
+    .get(owner, planDate);
+  if (!row) throw new Error(`no plan for ${planDate}`);
+
+  const plan = parseJson(row.plan_json, {}) || {};
+  const approvals = parseJson(row.approvals_json, {}) || {};
+  const stamp = new Date().toISOString();
+
+  if (report != null) {
+    const prevExec =
+      plan.execution && typeof plan.execution === 'object' && !Array.isArray(plan.execution)
+        ? plan.execution
+        : {};
+    plan.execution = {
+      ...prevExec,
+      ...report,
+      updated_at: stamp,
+      status: st,
+    };
+    const prevApprExec =
+      approvals.execution && typeof approvals.execution === 'object' && !Array.isArray(approvals.execution)
+        ? approvals.execution
+        : {};
+    approvals.execution = {
+      ...prevApprExec,
+      ...report,
+      updated_at: stamp,
+      status: st,
+    };
+  }
+
+  db.prepare(
+    `UPDATE trading_day_plans SET
+       status = ?,
+       plan_json = ?,
+       approvals_json = ?,
+       updated_at = datetime('now')
+     WHERE id = ?`
+  ).run(st, JSON.stringify(plan), JSON.stringify(approvals), row.id);
+
+  console.log(
+    '[trading-day-plans] markPlanExecution id=%s date=%s status=%s has_report=%s',
+    row.id,
+    planDate,
+    st,
+    report != null
+  );
   return getPlan(owner, { plan_date: planDate });
 }
