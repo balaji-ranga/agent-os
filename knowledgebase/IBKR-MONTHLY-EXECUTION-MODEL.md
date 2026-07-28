@@ -1,6 +1,6 @@
 # IBKR Monthly Trading — Execution Model (Cloud vs Laptop)
 
-When each workflow runs, what it does, and the expected outcome. Related: [IBKR-MONTHLY-TRADING-PLAN.md](IBKR-MONTHLY-TRADING-PLAN.md), [IBKR-LOCAL-BRIDGE.md](IBKR-LOCAL-BRIDGE.md), [IBKR-MONTHLY-MAKER-PROMPT.md](IBKR-MONTHLY-MAKER-PROMPT.md), [IBKR-MONTHLY-CHECKER-PROMPT.md](IBKR-MONTHLY-CHECKER-PROMPT.md).
+When each workflow runs, what it does, and the expected outcome. **Quick tables (tools + schedules + outcomes):** [IBKR-MONTHLY-WORKFLOWS.md](IBKR-MONTHLY-WORKFLOWS.md). Related: [IBKR-MONTHLY-TRADING-PLAN.md](IBKR-MONTHLY-TRADING-PLAN.md), [IBKR-LOCAL-BRIDGE.md](IBKR-LOCAL-BRIDGE.md), [IBKR-MONTHLY-MAKER-PROMPT.md](IBKR-MONTHLY-MAKER-PROMPT.md), [IBKR-MONTHLY-CHECKER-PROMPT.md](IBKR-MONTHLY-CHECKER-PROMPT.md).
 
 **Disclaimer:** Automation tooling — not financial advice. Paper-trade until validated.
 

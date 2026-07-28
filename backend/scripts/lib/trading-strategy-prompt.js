@@ -28,10 +28,13 @@ Objective: Generate consistent monthly gains while protecting capital. Success i
 - Volume at least {{var.entry_volume_mult}}x the recent average.
 - Relative strength improving; build positions gradually.
 
-## Position Sizing
+## Position Sizing / dollar budget
+- **Hard dollar cap:** total notional of new_entry actions in this plan must stay within US\${{var.daily_budget_usd}} (sum of notional_usd, or qty × entry/trigger price). Prefer cash left in the account snapshot when lower.
+- At most {{var.max_trades_per_day}} new_entry actions per plan (carry_forward entries that only finish prior legs do not count against this if marked carry_forward: true and notional already reserved).
 - Risk no more than {{var.risk_per_trade_pct}}% of total portfolio value on any single trade.
 - Initial allocation {{var.position_size_pct_min}}-{{var.position_size_pct_max}}% of the portfolio.
 - Maximum exposure to any single stock {{var.position_size_pct_hard_max}}%.
+- On each new_entry set notional_usd (or qty + entry_price/trigger_price) so Checker and hard gates can enforce the dollar budget.
 
 ## Stop Loss
 - Every position must have a predefined stop. Exit immediately if triggered. Never average down.
@@ -84,6 +87,7 @@ Output ONLY valid JSON (no markdown fences). Schema:
       "stop_price": null,
       "tp_price": null,
       "entry_price": null,
+      "notional_usd": null,
       "loss_pct_if_exit": null,
       "requires_ceo_approval": false,
       "carry_forward": false,

@@ -2,7 +2,7 @@
 
 Event-driven, split-architecture trading system: the VPS runs screening, Maker (Claude Opus) / Checker (deepseek-v4-flash) planning, CEO approval, notifications, and the daily digest email; the laptop runs a small execution workflow plus a local IBKR bridge that places orders against the local IB Gateway and pushes fill/equity events back to the VPS via webhooks.
 
-Related: [IBKR-TRADING-WORKFLOW.md](IBKR-TRADING-WORKFLOW.md), [IBKR-MONTHLY-EXECUTION-MODEL.md](IBKR-MONTHLY-EXECUTION-MODEL.md), [IBKR-MONTHLY-MAKER-PROMPT.md](IBKR-MONTHLY-MAKER-PROMPT.md), [IBKR-MONTHLY-CHECKER-PROMPT.md](IBKR-MONTHLY-CHECKER-PROMPT.md), [IBKR-LOCAL-BRIDGE.md](IBKR-LOCAL-BRIDGE.md).
+Related: [IBKR-TRADING-WORKFLOW.md](IBKR-TRADING-WORKFLOW.md), [IBKR-MONTHLY-WORKFLOWS.md](IBKR-MONTHLY-WORKFLOWS.md), [IBKR-MONTHLY-EXECUTION-MODEL.md](IBKR-MONTHLY-EXECUTION-MODEL.md), [IBKR-MONTHLY-MAKER-PROMPT.md](IBKR-MONTHLY-MAKER-PROMPT.md), [IBKR-MONTHLY-CHECKER-PROMPT.md](IBKR-MONTHLY-CHECKER-PROMPT.md), [IBKR-LOCAL-BRIDGE.md](IBKR-LOCAL-BRIDGE.md).
 
 ## Decisions locked in
 

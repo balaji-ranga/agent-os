@@ -578,6 +578,28 @@ router.post('/reconcile-orders', async (req, res) => {
   }
 });
 
+router.post('/bridge-order-events', async (req, res) => {
+  try {
+    const owner = entitledOwnerId(req);
+    const { ingestBridgeOrderEvents, ensureIbkrOrderEventTables } = await import(
+      '../services/ibkr-order-events.js'
+    );
+    ensureIbkrOrderEventTables();
+    const body = req.body || {};
+    const result = ingestBridgeOrderEvents(owner, body);
+    console.info(
+      '[ibkr-trading] bridge-order-events owner=%s event=%s recorded=%s',
+      owner,
+      result.event_type,
+      result.recorded
+    );
+    res.json(result);
+  } catch (e) {
+    console.warn('[ibkr-trading] bridge-order-events failed: %s', e.message || e);
+    res.status(400).json({ ok: false, error: e.message });
+  }
+});
+
 router.get('/order-events', async (req, res) => {
   try {
     const owner = entitledOwnerId(req);

@@ -11,6 +11,9 @@ export const MONTHLY_TRADING_VARIABLES = {
   entry_volume_mult: 1.5,
   require_above_sma50: true,
   require_above_sma200: true,
+  /** Max new-entry notional (USD) for the session / day plan — set in W1 Variables panel */
+  daily_budget_usd: 1000,
+  max_trades_per_day: 5,
   risk_per_trade_pct: 0.75,
   position_size_pct_min: 3,
   position_size_pct_max: 8,

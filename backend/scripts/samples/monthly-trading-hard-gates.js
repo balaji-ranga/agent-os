@@ -66,6 +66,8 @@ export function run(inputs = {}, context = {}) {
   const sizeMax = num(vars.position_size_pct_max, 8);
   const sizeHard = num(vars.position_size_pct_hard_max, 15);
   const discLoss = num(vars.discretionary_loss_sell_pct, 3);
+  const dailyBudget = num(vars.daily_budget_usd, 1000);
+  const maxTrades = num(vars.max_trades_per_day, 5);
 
   // Optional upstream context (strings or objects from prior nodes)
   let regime = inputs.regime || inputs.market_regime || null;
@@ -156,6 +158,38 @@ export function run(inputs = {}, context = {}) {
   const openStop = num(riskSummary.open_stop_risk_pct);
   if (openStop != null && openStop > riskCap * 10) {
     warnings.push(`open_stop_risk_pct=${openStop} looks elevated vs risk_per_trade_pct=${riskCap}`);
+  }
+
+  // Dollar budget: sum new_entry notionals (skip carry_forward finishers without fresh notional)
+  let newEntryCount = 0;
+  let newEntryNotional = 0;
+  for (const a of actions) {
+    const type = String(a.type || a.action || '').toLowerCase();
+    if (type !== 'new_entry') continue;
+    const isCarry = truthy(a.carry_forward);
+    const notional =
+      num(a.notional_usd ?? a.budget_usd ?? a.allocation_usd) ??
+      (() => {
+        const q = num(a.qty);
+        const px = num(a.entry_price ?? a.trigger_price ?? a.limit_price);
+        return q != null && px != null ? q * px : null;
+      })();
+    if (isCarry && (notional == null || notional <= 0)) continue;
+    newEntryCount += 1;
+    if (notional != null && notional > 0) newEntryNotional += notional;
+    else if (!isCarry) {
+      warnings.push(
+        `${a.key || a.symbol || 'new_entry'}: missing notional_usd (or qty×price) — cannot fully enforce daily_budget_usd`
+      );
+    }
+  }
+  if (maxTrades != null && newEntryCount > maxTrades) {
+    errors.push(`new_entry count ${newEntryCount} exceeds max_trades_per_day=${maxTrades}`);
+  }
+  if (dailyBudget != null && newEntryNotional > dailyBudget + 1e-6) {
+    errors.push(
+      `new_entry notional_usd sum ${newEntryNotional.toFixed(2)} exceeds daily_budget_usd=${dailyBudget}`
+    );
   }
 
   const ok = errors.length === 0;

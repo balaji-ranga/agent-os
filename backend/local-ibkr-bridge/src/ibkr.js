@@ -323,32 +323,54 @@ export function createIbkrApi(opts = {}) {
 
     async cancel({ order_id = null, symbol = null, all = false } = {}) {
       if (!isTradingEnabled()) {
-        return {
+        const dry = {
           ok: true,
           dry_run: true,
           order_id,
           symbol,
           all,
         };
+        emitBridgeEvent(BRIDGE_EVENTS.ORDER_STATUS, { ...dry, status: 'cancel_dry_run' });
+        return dry;
       }
       if (mock) {
-        return { ok: true, mock: true, cancelled: order_id != null ? [order_id] : [], symbol };
+        const cancelled = order_id != null ? [order_id] : [];
+        const out = { ok: true, mock: true, cancelled, symbol, all };
+        emitBridgeEvent(BRIDGE_EVENTS.REJECT, {
+          ...out,
+          terminal_cancelled: true,
+          status: 'cancelled',
+          message: 'mock bridge cancel',
+        });
+        return out;
       }
       const gw = await loadGateway();
+      let out;
       if (all) {
-        return gw.cancelAllOpenOrders({ cancelSource: 'bridge_cancel' });
-      }
-      if (symbol) {
-        return gw.cancelOpenOrdersForSymbol(symbol, { cancelSource: 'bridge_cancel' });
-      }
-      if (order_id != null) {
-        return gw.withIbGateway(async (ib) => {
+        out = await gw.cancelAllOpenOrders({ cancelSource: 'bridge_cancel' });
+      } else if (symbol) {
+        out = await gw.cancelOpenOrdersForSymbol(symbol, { cancelSource: 'bridge_cancel' });
+      } else if (order_id != null) {
+        out = await gw.withIbGateway(async (ib) => {
           ib.cancelOrder(Number(order_id));
           await new Promise((r) => setTimeout(r, 500));
           return { ok: true, cancelled: [Number(order_id)] };
         });
+      } else {
+        return { ok: false, error: 'provide order_id, symbol, or all: true' };
       }
-      return { ok: false, error: 'provide order_id, symbol, or all: true' };
+      const cancelled = out?.cancelled || out?.orderIds || (order_id != null ? [order_id] : []);
+      emitBridgeEvent(BRIDGE_EVENTS.REJECT, {
+        ...(out && typeof out === 'object' ? out : {}),
+        cancelled,
+        symbol,
+        all: !!all,
+        terminal_cancelled: true,
+        status: 'cancelled',
+        message: 'bridge cancel',
+        source: 'bridge_cancel',
+      });
+      return out;
     },
 
     /**

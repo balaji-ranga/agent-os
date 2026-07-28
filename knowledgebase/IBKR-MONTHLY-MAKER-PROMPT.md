@@ -38,6 +38,7 @@ Output **ONLY** valid JSON (no markdown fences).
 - Improving relative strength; build positions gradually.
 
 ### Position sizing
+- **Dollar cap:** total new_entry notional ≤ US${{var.daily_budget_usd}}; at most {{var.max_trades_per_day}} new entries (set `notional_usd` or qty×price on each).
 - Risk ≤ {{var.risk_per_trade_pct}}% of portfolio per trade.
 - Initial allocation {{var.position_size_pct_min}}–{{var.position_size_pct_max}}%; max single name {{var.position_size_pct_hard_max}}%.
 

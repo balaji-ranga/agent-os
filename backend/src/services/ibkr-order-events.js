@@ -179,6 +179,156 @@ export function recordOrderEvent(evt = {}) {
   return { id: Number(info.lastInsertRowid) };
 }
 
+/**
+ * Ingest local-bridge webhook envelopes into ibkr_order_events (for Maker learnings).
+ * Accepts: { event, payload } or raw payload with results[] / cancelled[] / trade+result.
+ * @returns {{ ok: true, recorded: number, ids: number[], event_type: string }}
+ */
+export function ingestBridgeOrderEvents(ownerUserId, envelope = {}) {
+  ensureIbkrOrderEventTables();
+  const owner = String(ownerUserId || '').trim();
+  if (!owner) throw new Error('ingestBridgeOrderEvents requires owner_user_id');
+
+  let obj = envelope;
+  if (typeof envelope === 'string') {
+    try {
+      obj = JSON.parse(envelope);
+    } catch {
+      obj = { event: 'unknown', payload: { raw: envelope } };
+    }
+  }
+  if (!obj || typeof obj !== 'object') obj = {};
+
+  const eventType = String(obj.event || obj.event_type || obj.type || '')
+    .trim()
+    .toLowerCase();
+  const payload =
+    obj.payload && typeof obj.payload === 'object' && !Array.isArray(obj.payload)
+      ? obj.payload
+      : obj;
+
+  const rows = [];
+  const pushRow = (partial) => {
+    if (!partial) return;
+    rows.push(partial);
+  };
+
+  const mapEventStatus = (ev, result = {}) => {
+    const st = String(result.terminal_status || result.status || '').toLowerCase();
+    if (ev === 'fill' || st.includes('fill') || result.filled) return 'filled';
+    if (ev === 'stop_out' || st.includes('stop')) return 'stop_out';
+    if (
+      result.terminal_cancelled ||
+      ev === 'cancel' ||
+      ev.includes('cancel') ||
+      st.includes('cancel')
+    ) {
+      return 'cancelled';
+    }
+    if (ev === 'reject' || st.includes('reject')) return 'rejected';
+    return st || ev || 'order_status';
+  };
+
+  const mapReasonCode = (status, result = {}) => {
+    if (result.terminal_reason_code) return String(result.terminal_reason_code).slice(0, 64);
+    if (result.commission_free_reject || isCommissionFreeRejectText(result.terminal_reason_text || result.message)) {
+      return IBKR_ORDER_REASON.IB_COMMISSION_FREE_REJECT;
+    }
+    if (status === 'rejected') return IBKR_ORDER_REASON.PLACE_REJECTED_IB;
+    if (status === 'cancelled') return IBKR_ORDER_REASON.IB_SYSTEM_CANCEL;
+    if (status === 'filled' || status === 'stop_out') return IBKR_ORDER_REASON.FILLED;
+    return classifyReasonText(result.terminal_reason_text || result.message || result.error || '');
+  };
+
+  const fromResult = (result, trade = {}, evHint = eventType) => {
+    if (!result && !trade) return null;
+    const r = result && typeof result === 'object' ? result : {};
+    const t = trade && typeof trade === 'object' ? trade : {};
+    const key =
+      t.key ||
+      r.key ||
+      t.symbol_key ||
+      r.symbol_key ||
+      (t.symbol || r.symbol
+        ? `${String(t.exchange || r.exchange || 'SMART').toUpperCase()}:${String(t.symbol || r.symbol).toUpperCase()}`
+        : null);
+    const status = mapEventStatus(evHint, r);
+    const reasonText =
+      r.terminal_reason_text || r.message || r.error || r.why_held || t.reason || null;
+    const orderIds = r.orderIds || r.order_ids || (r.ib_order_id != null ? [r.ib_order_id] : []);
+    const ibOrderId = Array.isArray(orderIds) && orderIds.length ? orderIds[0] : r.ib_order_id || null;
+    return {
+      owner_user_id: owner,
+      symbol_key: key,
+      symbol: t.symbol || r.symbol || (key ? String(key).split(':').pop() : null),
+      side: t.side || r.side || null,
+      ib_order_id: ibOrderId != null ? Number(ibOrderId) : null,
+      status,
+      reason_code: mapReasonCode(status, r),
+      reason_text: reasonText ? String(reasonText).slice(0, 500) : null,
+      source: 'local_bridge',
+      error_code: r.error_code ?? r.errorCode ?? null,
+      qty: r.filled_qty ?? r.qty ?? t.qty ?? null,
+      detail: {
+        event: evHint || eventType || 'order_status',
+        dry_run: !!(r.dry_run || payload.dry_run),
+        mock: !!(r.mock || payload.mock),
+        cancelled: r.cancelled || payload.cancelled || null,
+        result: r,
+        trade: t,
+      },
+    };
+  };
+
+  if (Array.isArray(payload.results) && payload.results.length) {
+    for (const r of payload.results) {
+      pushRow(fromResult(r, { key: r.key, symbol: r.symbol, side: r.side }, eventType));
+    }
+  } else if (payload.result || payload.trade) {
+    pushRow(fromResult(payload.result || payload, payload.trade || {}, eventType));
+  } else if (Array.isArray(payload.cancelled) && payload.cancelled.length) {
+    for (const oid of payload.cancelled) {
+      pushRow(
+        fromResult(
+          {
+            status: 'cancelled',
+            terminal_cancelled: true,
+            ib_order_id: oid,
+            message: payload.reason || 'bridge cancel',
+          },
+          { symbol: payload.symbol, key: payload.key || payload.symbol_key },
+          'cancel'
+        )
+      );
+    }
+  } else if (
+    eventType &&
+    /fill|reject|cancel|order_status|stop/.test(eventType) &&
+    (payload.symbol || payload.key || payload.symbol_key || payload.ib_order_id)
+  ) {
+    pushRow(fromResult(payload, payload, eventType));
+  }
+
+  const ids = [];
+  for (const row of rows) {
+    if (!row) continue;
+    // Skip pure dry-run noise unless rejected/cancelled with a reason (still useful)
+    if (row.detail?.dry_run && row.status !== 'rejected' && row.status !== 'cancelled') {
+      continue;
+    }
+    const { id } = recordOrderEvent(row);
+    ids.push(id);
+  }
+
+  return {
+    ok: true,
+    recorded: ids.length,
+    ids,
+    event_type: eventType || 'unknown',
+    skipped_dry_run: rows.length - ids.length,
+  };
+}
+
 export function listOrderEvents(
   ownerUserId,
   { days = RETENTION_DAYS, limit = 100, symbolKey = null } = {}
