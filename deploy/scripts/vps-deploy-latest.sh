@@ -152,6 +152,11 @@ if [[ -f "$ROOT/tools/brave-search-mcp-byok/server.js" ]]; then
   docker compose --profile optional-brave-mcp up -d --force-recreate brave-search-mcp || echo "WARN: brave-search-mcp up failed"
 fi
 
+echo "==> refresh OpenClaw chrome-extension asset (Browser Session download)"
+if [[ -f "${ROOT}/deploy/scripts/sync-openclaw-chrome-extension.sh" ]]; then
+  FORCE_SYNC=0 bash "${ROOT}/deploy/scripts/sync-openclaw-chrome-extension.sh" || \
+    echo "[deploy] WARN: chrome-extension sync skipped"
+fi
 echo "==> wait for backend health"
 ok=0
 for i in $(seq 1 40); do

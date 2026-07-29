@@ -129,6 +129,42 @@ function ownerUserIdFromSessionKey(sessionKey) {
 }
 
 const PARAM_SCHEMAS = {
+  browse_session_status: { type: 'object', properties: {}, additionalProperties: true },
+  browse_task_start: {
+    type: 'object',
+    properties: {
+      goal: { type: 'string' },
+      start_url: { type: 'string' },
+      mode: { type: 'string', enum: ['autonomous', 'recorder', 'recipe_replay'] },
+      recipe_id: { type: 'string' },
+      recipe_name: { type: 'string', description: 'For recipe_replay: exact recipe name (preferred over recipe_id).' },
+    },
+    additionalProperties: true,
+  },
+  browse_task_status: {
+    type: 'object',
+    properties: {
+      task_id: { type: 'string' },
+      limit: { type: 'number' },
+      wait_ms: { type: 'number', maximum: 90000 },
+    },
+    additionalProperties: true,
+  },
+  browse_snapshot: { type: 'object', properties: { limit: { type: 'number' } }, additionalProperties: true },
+  browse_act: { type: 'object', properties: {}, additionalProperties: true },
+  browse_recipe_list: { type: 'object', properties: { limit: { type: 'number' }, offset: { type: 'number' } }, additionalProperties: true },
+  browse_recipe_run: {
+    type: 'object',
+    properties: {
+      recipe_name: { type: 'string', description: 'Exact saved recipe name (preferred).' },
+      recipe_id: { type: 'string', description: 'Recipe id if name is unknown.' },
+      start_url: { type: 'string', description: 'Optional override start URL.' },
+      wait_ms: { type: 'number', maximum: 90000, description: 'Optional wait for terminal status in one call.' },
+      goal: { type: 'string', description: 'Optional label for the replay task.' },
+    },
+    additionalProperties: true,
+  },
+
   kanban_move_status: {
     type: "object",
     properties: {
@@ -498,7 +534,7 @@ async function callInvoke(api, toolName, params, callerAgentId, toolCtx) {
       method: "POST",
       headers,
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(90000),
+      signal: AbortSignal.timeout(toolName.startsWith('browse_task_') ? 120000 : 90000),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {

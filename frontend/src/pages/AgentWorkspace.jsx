@@ -430,29 +430,52 @@ export default function AgentWorkspace() {
             <p style={{ color: 'var(--muted)', marginTop: 0 }}>
               Grant or revoke Agent OS content tools for <strong>{agent?.name || agentId}</strong>.
               Changes write to <code>~/.openclaw/agent-tool-allowlists.json</code> and sync <code>openclaw.json</code>.
+              Client browser relay tools (<code>browse_*</code>) are optional for custom agents (auto-granted to COO, Workflow Builder, Platform Help, TechResearcher) — enable them so this agent can run free-text
+              goals or replay recorded recipes on the CEO&apos;s attached Chrome / managed session.
             </p>
             <div style={{ flex: 1, overflow: 'auto', border: '1px solid var(--border)', borderRadius: 8, padding: '1rem', background: 'var(--surface)' }}>
               {toolCatalog.length === 0 ? (
                 <p style={{ color: 'var(--muted)' }}>No content tools registered.</p>
               ) : (
-                toolCatalog.map((t) => (
-                  <label
-                    key={t.name}
-                    style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', padding: '0.5rem 0', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={toolGrants.has(t.name)}
-                      onChange={() => toggleTool(t.name)}
-                      style={{ marginTop: 4 }}
-                    />
-                    <span>
-                      <strong>{t.display_name || t.name}</strong>
-                      <code style={{ marginLeft: '0.5rem', fontSize: '0.85rem', color: 'var(--muted)' }}>{t.name}</code>
-                      {t.purpose && <div style={{ fontSize: '0.9rem', color: 'var(--muted)', marginTop: 4 }}>{t.purpose}</div>}
-                    </span>
-                  </label>
-                ))
+                (() => {
+                  const browse = toolCatalog.filter((t) => String(t.name || '').startsWith('browse_'));
+                  const other = toolCatalog.filter((t) => !String(t.name || '').startsWith('browse_'));
+                  const renderTool = (t) => (
+                    <label
+                      key={t.name}
+                      style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', padding: '0.5rem 0', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={toolGrants.has(t.name)}
+                        onChange={() => toggleTool(t.name)}
+                        style={{ marginTop: 4 }}
+                      />
+                      <span>
+                        <strong>{t.display_name || t.name}</strong>
+                        <code style={{ marginLeft: '0.5rem', fontSize: '0.85rem', color: 'var(--muted)' }}>{t.name}</code>
+                        {t.purpose && <div style={{ fontSize: '0.9rem', color: 'var(--muted)', marginTop: 4 }}>{t.purpose}</div>}
+                      </span>
+                    </label>
+                  );
+                  return (
+                    <>
+                      {browse.length > 0 && (
+                        <>
+                          <h3 style={{ fontSize: '0.95rem', margin: '0 0 0.5rem' }}>Client browser session / recipes</h3>
+                          <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginTop: 0 }}>
+                            Grant tools individually: <code>browse_recipe_list</code> lists recipes;
+                            <code>browse_recipe_run</code> plays them; <code>browse_task_start</code> is for free-form goals.
+                            CEO must have Browser Session ready for client Chrome.
+                          </p>
+                          {browse.map(renderTool)}
+                          <h3 style={{ fontSize: '0.95rem', margin: '1rem 0 0.5rem' }}>Other tools</h3>
+                        </>
+                      )}
+                      {other.map(renderTool)}
+                    </>
+                  );
+                })()
               )}
             </div>
             <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>

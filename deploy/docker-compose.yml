@@ -13,7 +13,9 @@
 #
 # Content tools baked into images + granted at backend boot:
 #   email_send, notify_ceo, ceo_profile, Kanban/workflow tools (incl. agent_workflow_runs),
-#   browser (see scripts/lib/content-tools-allow.js)
+#   browser session: browse_* (browse_task_start, browse_recipe_list, browse_recipe_run, …)
+#   OpenClaw: browser.enabled + browser-cdp agent (BROWSER_TASK_CDP_AGENT_ID); clear global tools.allow browser
+#   (see scripts/lib/content-tools-allow.js BROWSER_SESSION_CONTENT_TOOLS + configure-openclaw-docker.js)
 # Broadcast UI /api/broadcast: CEO-scoped OpenClaw sessions (tenant agent + session owner) so notify_ceo works
 # Org tenancy docs: POST /api/agents/org/sync (Dashboard Resync ORG.md & AGENTS.md)
 # Notifications: shared NotificationProvider bell (shows datetime); dismiss via
@@ -73,6 +75,7 @@ x-openclaw-env: &openclaw-env
   OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
   TOOLS_API_KEY: ${TOOLS_API_KEY:-}
   AGENT_OS_INTERNAL_API_URL: http://backend:3001
+  BROWSER_TASK_CDP_AGENT_ID: ${BROWSER_TASK_CDP_AGENT_ID:-browser-cdp}
 
 x-backend-env: &backend-env
   <<: *llm-env
@@ -99,6 +102,7 @@ x-backend-env: &backend-env
   TOOLS_API_KEY: ${TOOLS_API_KEY:-}
   # In-container tool self-dispatch (must not use public HTTPS / self-signed URL)
   TOOLS_BASE_URL: ${TOOLS_BASE_URL:-http://127.0.0.1:3001}
+  BROWSER_TASK_CDP_AGENT_ID: ${BROWSER_TASK_CDP_AGENT_ID:-browser-cdp}
   # Stable across restarts — required for workflow runner / tools / cron-callback auth
   AGENT_OS_INTERNAL_TOKEN: ${AGENT_OS_INTERNAL_TOKEN:-}
   OPENAI_COO_MODEL: ${OPENAI_COO_MODEL:-}
@@ -225,8 +229,13 @@ services:
       OPENAI_PRIMARY_BASE_URL: ${OPENAI_PRIMARY_BASE_URL:-}
     volumes:
       - openclaw_home:/root/.openclaw:Z
-    expose:
-      - "18789"
+    # Loopback-only publish so host-network nginx can proxy:
+    # - gateway :18789
+    # - extension relay bridge :18792 → container 127.0.0.1:18799 (see openclaw-entrypoint)
+    # Not reachable from the public internet.
+    ports:
+      - "127.0.0.1:18789:18789"
+      - "127.0.0.1:18792:18792"
     shm_size: "2gb"
     # Hardened default: no seccomp=unconfined / SYS_ADMIN.
     # For Chromium browser automation, start with:

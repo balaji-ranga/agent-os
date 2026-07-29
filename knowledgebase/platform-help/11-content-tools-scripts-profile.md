@@ -10,7 +10,8 @@ Catalog of Agent OS tools agents and workflows can call, for example:
 - Workflow tools (`agent_workflow_list` / enquire / trigger / mutate / get_draft)
 - `email_send`, `notify_ceo`
 - Master Data (`master_data_list_tables`, row CRUD, `master_data_list_documents`, `master_data_rag`)
-- `learnings_summary`, `brain_history`, `content_tools_enquire`, `browser`, …
+- `learnings_summary`, `brain_history`, `content_tools_enquire`
+- **Browser Session:** `browse_session_status`, `browse_task_start`, `browse_task_status`, `browse_snapshot`, `browse_act`, `browse_recipe_list`, `browse_recipe_run` (see [22-browser-session-and-recipes](./22-browser-session-and-recipes.md)); specialists should use these — not the native `browser` tool in chat
 
 ### CEO actions
 
@@ -25,7 +26,7 @@ Workflow Builder can recommend tools via `content_tools_enquire`.
 
 All specialists share platform rules in workspace **`AGENT-OS-OPS.md`** (also summarized in TOOLS.md). Expect agents to:
 
-1. **`learnings_summary`** once at the start of non-trivial work and apply past CEO likes/rejects — skip for one-word greets. **Feedback lookback window = 30 days by default** (the `days` parameter; valid range 1–365). This 30-day window is what decides *how far back feedback is read* — do **not** confuse it with the 7-day cache rebuild cadence below (`LEARNINGS_FULL_REBUILD_DAYS`), which only controls how often the cached summary is fully regenerated.
+1. **`learnings_summary`** once at the start of non-trivial work and apply past CEO likes/rejects — skip for one-word greets. **Chat thumbs-down comments are required** and treated as hard rules (including browser recipe vs autonomous mistakes). **Feedback lookback window = 30 days by default** (the `days` parameter; valid range 1–365). This 30-day window is what decides *how far back feedback is read* — do **not** confuse it with the 7-day cache rebuild cadence below (`LEARNINGS_FULL_REBUILD_DAYS`), which only controls how often the cached summary is fully regenerated.
 2. **Own Kanban status** — `completed` only after a real deliverable; do not mark `failed` just because an optional Master Data insert/notify/email step failed.
 3. **`master_data_list_tables` before insert** — never invent table names.
 4. **`master_data_rag` without `summarize`** — for the **agent tool**, `summarize` defaults to `false`, so agents get raw excerpts in `chunks[]` and write the answer themselves (no extra LLM cost). They only pass `summarize: true` when excerpts are too long or scattered to answer directly. (The Master Data UI RAG box and the workflow **Master Data** node default to `summarize: true` — different path, different default.)

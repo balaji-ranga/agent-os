@@ -6,7 +6,10 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { resolveOpenClawDir, resolveOpenClawConfigPath } from '../../scripts/lib/openclaw-paths.js';
-import { REQUIRED_GLOBAL_CONTENT_TOOLS } from '../../scripts/lib/content-tools-allow.js';
+import {
+  REQUIRED_GLOBAL_CONTENT_TOOLS,
+  BROWSER_SESSION_CONTENT_TOOLS,
+} from '../../scripts/lib/content-tools-allow.js';
 
 const OPENCLAW_DIR = resolveOpenClawDir();
 const CONFIG_PATH = resolveOpenClawConfigPath();
@@ -79,6 +82,28 @@ if (!config.browser?.enabled) {
   fail('browser.enabled is not true');
 }
 
+// Dedicated CDP agent for backend browse_* / job portal tools/invoke
+const BROWSER_CDP_AGENT_ID = String(process.env.BROWSER_TASK_CDP_AGENT_ID || 'browser-cdp').trim() || 'browser-cdp';
+{
+  const cdp = (config.agents?.list || []).find(
+    (a) => String(a?.id || '').toLowerCase() === BROWSER_CDP_AGENT_ID.toLowerCase()
+  );
+  if (!cdp) {
+    fail(`agents.list missing CDP browser agent "${BROWSER_CDP_AGENT_ID}"`);
+  } else {
+    const also = cdp.tools?.alsoAllow || [];
+    if (!also.includes('browser')) {
+      fail(`${BROWSER_CDP_AGENT_ID} tools.alsoAllow must include browser`);
+    }
+    if (Array.isArray(cdp.tools?.allow) && cdp.tools.allow.length) {
+      fail(`${BROWSER_CDP_AGENT_ID} must not use tools.allow with alsoAllow (OpenClaw forbids both)`);
+    }
+    if (String(cdp.tools?.profile || '') !== 'coding') {
+      warn(`${BROWSER_CDP_AGENT_ID} tools.profile should be coding (got ${cdp.tools?.profile})`);
+    }
+  }
+}
+
 // Session visibility (Agent OS delegation)
 const vis = config.tools?.sessions?.visibility;
 if (vis && vis !== 'agent' && vis !== 'all') {
@@ -135,6 +160,10 @@ if (existsSync(contentToolsManifest)) {
       fail('agent-os-content-tools openclaw.plugin.json missing contracts.tools');
     } else if (!tools.includes('agent_workflow_list')) {
       fail('contracts.tools missing agent_workflow_list');
+    } else {
+      for (const bt of BROWSER_SESSION_CONTENT_TOOLS) {
+        if (!tools.includes(bt)) fail(`contracts.tools missing ${bt}`);
+      }
     }
   } catch (e) {
     fail(`agent-os-content-tools manifest unreadable: ${e.message}`);
@@ -150,12 +179,23 @@ if (!process.env.TOOLS_BASE_URL && process.env.AGENT_OS_PUBLIC_URL?.startsWith('
 }
 
 // Global tools.allow
-const globalAllow = config.tools?.allow || [];
-for (const t of REQUIRED_GLOBAL_TOOLS) {
-  if (!globalAllow.includes(t)) fail(`tools.allow missing: ${t}`);
+// OpenClaw intersects global allow with agent alsoAllow — `browser` in the global
+// list strips browser-cdp. configure-openclaw-docker.js clears tools.allow.
+const globalAllow = config.tools?.allow;
+if (Array.isArray(globalAllow) && globalAllow.includes('browser')) {
+  fail('global tools.allow must not include browser (breaks browser-cdp alsoAllow)');
 }
-for (const t of EXPECTED_GLOBAL_CONTENT_TOOLS) {
-  if (!globalAllow.includes(t)) warn(`tools.allow missing content tool (configure on next start): ${t}`);
+if (Array.isArray(globalAllow) && globalAllow.length > 0) {
+  for (const t of REQUIRED_GLOBAL_TOOLS) {
+    if (t === 'browser') continue;
+    if (!globalAllow.includes(t)) warn(`tools.allow missing: ${t}`);
+  }
+  for (const t of EXPECTED_GLOBAL_CONTENT_TOOLS) {
+    if (t === 'browser') continue;
+    if (!globalAllow.includes(t)) warn(`tools.allow missing content tool: ${t}`);
+  }
+} else {
+  warn('global tools.allow cleared/empty (expected for browser CDP); agent allowlists + content-tools plugin carry grants');
 }
 if (config.plugins?.entries?.codex?.enabled) {
   fail('plugins.entries.codex.enabled must be false (breaks Agent OS content tools)');
@@ -166,6 +206,12 @@ if (Array.isArray(config.plugins?.allow) && config.plugins.allow.includes('codex
 const balserve = (config.agents?.list || []).find((a) => String(a.id || '').toLowerCase() === 'balserve');
 if (balserve && !(balserve.tools?.allow || []).includes('learnings_summary')) {
   fail('balserve tools.allow missing learnings_summary');
+}
+if (balserve) {
+  const allow = balserve.tools?.allow || [];
+  for (const bt of ['browse_task_start', 'browse_recipe_list', 'browse_recipe_run']) {
+    if (!allow.includes(bt)) warn(`balserve tools.allow missing ${bt} (backend grants sync on next start)`);
+  }
 }
 const platformhelp = (config.agents?.list || []).find((a) => String(a.id || '').toLowerCase() === 'platformhelp');
 if (platformhelp) {

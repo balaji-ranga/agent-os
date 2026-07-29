@@ -63,6 +63,7 @@ import { seedDefaultAgentsIfEmpty, seedAgentDepartmentsIfMissing } from './db/se
 import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, seedWorkflowToolsIfMissing, seedLearningsToolsIfMissing, seedEmailSendToolIfMissing, seedNotifyCeoToolIfMissing, seedCeoProfileToolIfMissing, seedStatusCheckerToolIfMissing, seedMasterDataToolsIfMissing, seedConnectorToolsIfMissing, seedVedicChartToolIfMissing, updateKanbanToolPurposes } from './db/seed-content-tools-meta.js';
 import { seedJobApplicantToolsIfMissing } from './db/seed-job-applicant-tools.js';
 import { seedIbkrTradingToolsIfMissing } from './db/seed-ibkr-trading-tools.js';
+import { seedBrowserSessionToolsIfMissing, grantBrowserSessionToolsToAllAgents } from './db/seed-browser-session-tools.js';
 import { seedMarketDataToolsIfMissing } from './db/seed-market-data-tools.js';
 import { writeOpenClawToolsList } from './services/content-tools-meta.js';
 import {
@@ -76,6 +77,7 @@ import { grantLearningsSummaryToAllAgents, grantEmailSendToAllAgents, grantNotif
 import feedbackRoutes from './routes/feedback.js';
 import masterDataRoutes from './routes/master-data.js';
 import ceoGuardrailsRoutes from './routes/ceo-guardrails.js';
+import browserSessionRoutes from './routes/browser-session.js';
 import { runScheduledStandup, runDueStandupSchedules } from './cron/standup.js';
 import { processPendingDelegationTasksForAllCeos } from './services/delegation-queue.js';
 import { runPipelineTickAll } from './services/job-applicant-pipeline.js';
@@ -249,6 +251,18 @@ updateKanbanToolPurposes();
 seedJobApplicantToolsIfMissing();
 seedIbkrTradingToolsIfMissing();
 seedMarketDataToolsIfMissing();
+seedBrowserSessionToolsIfMissing();
+try {
+  const browserGranted = grantBrowserSessionToolsToAllAgents();
+  if (browserGranted) {
+    console.log(
+      '[startup] granted browse_* tools to default agents only (%s grant(s); custom agents: Workspace → Tool access)',
+      browserGranted
+    );
+  }
+} catch (e) {
+  console.warn('[startup] browse tool grants:', e.message);
+}
 try {
   const granted = grantLearningsSummaryToAllAgents();
   if (granted) console.log(`[startup] granted learnings_summary to ${granted} agent(s)`);
@@ -401,6 +415,7 @@ apiRouter.use('/ai-snipper', aiSnipperRoutes);
 apiRouter.use('/efficiency', efficiencyRoutes);
 apiRouter.use('/org-members', orgMembersRoutes);
 apiRouter.use('/media/openclaw', mediaRoutes);
+apiRouter.use('/browser-session', browserSessionRoutes);
 app.use('/api', apiRouter);
 
 // Also mount at root for VITE_API_URL without /api (e.g. http://127.0.0.1:3001)

@@ -22,6 +22,14 @@ export default function AgentChatPanel({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState(null);
   const scrollRef = useRef(null);
+  const abortControllerRef = useRef(null);
+
+  useEffect(
+    () => () => {
+      abortControllerRef.current?.abort();
+    },
+    []
+  );
 
   useEffect(() => {
     if (!agentId) return;
@@ -44,10 +52,14 @@ export default function AgentChatPanel({
     setSending(true);
     setError(null);
     setTurns((prev) => [...prev, { role: 'user', content: displayMsg, created_at: new Date().toISOString() }]);
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
     try {
       const uploaded = files.length ? await uploadChatAttachments(files) : [];
       const outbound = buildMessageWithAttachments(userText, uploaded);
-      const r = await api.agentChatSend(agentId, outbound, dataCeoUserId || 'default', profileId);
+      const r = await api.agentChatSend(agentId, outbound, dataCeoUserId || 'default', profileId, {
+        signal: controller.signal,
+      });
       setTurns((prev) => [
         ...prev,
         {
@@ -58,12 +70,24 @@ export default function AgentChatPanel({
         },
       ]);
     } catch (e) {
-      setError(e.message);
+      const cancelled = controller.signal.aborted || e?.name === 'AbortError';
+      setError(cancelled ? 'Cancelled' : e.message);
       setTurns((prev) => prev.filter((t) => t.role !== 'user' || t.content !== displayMsg));
-      throw e;
+      if (!cancelled) throw e;
     } finally {
-      setSending(false);
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+        setSending(false);
+      }
     }
+  };
+
+  const cancelSend = () => {
+    const controller = abortControllerRef.current;
+    if (!controller) return;
+    controller.abort();
+    setSending(false);
+    setError('Cancelled');
   };
 
   const send = async (e) => {
@@ -180,6 +204,21 @@ export default function AgentChatPanel({
         >
           Send
         </button>
+        {sending && (
+          <button
+            type="button"
+            onClick={cancelSend}
+            style={{
+              padding: '0.6rem 1rem',
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              color: 'var(--text)',
+            }}
+          >
+            Cancel
+          </button>
+        )}
       </form>
     </div>
   );

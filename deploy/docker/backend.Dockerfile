@@ -19,7 +19,7 @@ FROM node:22-bookworm-slim
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     python3 python3-minimal \
-    make g++ ca-certificates curl \
+    make g++ ca-certificates curl zip \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt/agent-os

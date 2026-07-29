@@ -26,29 +26,99 @@
       "agent_workflow_certify_resume",
       "learnings_summary",
       "brain_history",
-      "content_tools_enquire"
+      "content_tools_enquire",
+      "browse_session_status",
+      "browse_task_start",
+      "browse_task_status",
+      "browse_snapshot",
+      "browse_act",
+      "browse_recipe_list",
+      "browse_recipe_run",
+      "agent_workflow_runs"
     ]
   },
   "toolMetadata": {
-    "summarize_url": { "optional": true },
-    "generate_image": { "optional": true },
-    "generate_video": { "optional": true },
-    "kanban_move_status": { "optional": true },
-    "kanban_reassign_to_coo": { "optional": true },
-    "kanban_assign_task": { "optional": true },
-    "kanban_create_task": { "optional": true },
-    "intent_classify_and_delegate": { "optional": true },
-    "agent_workflow_list": { "optional": true },
-    "agent_workflow_enquire": { "optional": true },
-    "agent_workflow_trigger": { "optional": true },
-    "agent_workflow_get_draft": { "optional": true },
-    "agent_workflow_mutate": { "optional": true },
-    "agent_workflow_certify_start": { "optional": true },
-    "agent_workflow_certify_status": { "optional": true },
-    "agent_workflow_certify_resume": { "optional": true },
-    "learnings_summary": { "optional": true },
-    "brain_history": { "optional": true },
-    "content_tools_enquire": { "optional": true }
+    "summarize_url": {
+      "optional": true
+    },
+    "generate_image": {
+      "optional": true
+    },
+    "generate_video": {
+      "optional": true
+    },
+    "kanban_move_status": {
+      "optional": true
+    },
+    "kanban_reassign_to_coo": {
+      "optional": true
+    },
+    "kanban_assign_task": {
+      "optional": true
+    },
+    "kanban_create_task": {
+      "optional": true
+    },
+    "intent_classify_and_delegate": {
+      "optional": true
+    },
+    "agent_workflow_list": {
+      "optional": true
+    },
+    "agent_workflow_enquire": {
+      "optional": true
+    },
+    "agent_workflow_trigger": {
+      "optional": true
+    },
+    "agent_workflow_get_draft": {
+      "optional": true
+    },
+    "agent_workflow_mutate": {
+      "optional": true
+    },
+    "agent_workflow_certify_start": {
+      "optional": true
+    },
+    "agent_workflow_certify_status": {
+      "optional": true
+    },
+    "agent_workflow_certify_resume": {
+      "optional": true
+    },
+    "learnings_summary": {
+      "optional": true
+    },
+    "brain_history": {
+      "optional": true
+    },
+    "content_tools_enquire": {
+      "optional": true
+    },
+    "browse_session_status": {
+      "optional": true
+    },
+    "browse_task_start": {
+      "optional": true
+    },
+    "browse_task_status": {
+      "optional": true
+    },
+    "browse_snapshot": {
+      "optional": true
+    },
+    "browse_act": {
+      "optional": true
+    },
+    "browse_recipe_list": {
+      "optional": true
+    },
+    "browse_recipe_run": {
+      "optional": true
+    },
+    "agent_workflow_runs": {
+      "optional": true
+    }
   },
   "configSchema": {
     "type": "object",

@@ -3,10 +3,10 @@
 You have access to **Agent OS content tools** (plugin: agent-os-content-tools). Use them by **invoking the tool by name with JSON parameters**; do not use exec or run as shell commands.
 
 - **learnings_summary** — **Call first** before non-trivial work. Parameters: `topic` (short description), optional `days` (default 30). Apply the returned summary.
-- **summarize_url** — Summarize a web page. Parameters: `url` (HTTPS). On 404, use `suggested_url` / a current page / **browser** — never invent content.
+- **summarize_url** — Summarize a web page. Parameters: `url` (HTTPS). On 404, use `suggested_url` / another HTTPS page / **browse_task_start** — never invent content. Never call the built-in `browser` tool.
 - **generate_image** — Generate an image from a text prompt. Parameters: `prompt`, optional `style_hint`. Paste `![image](<url>)` after success.
 - **generate_video** — Generate a short video from a prompt. Parameters: `prompt`, optional `duration_sec`.
-- **kanban_move_status** — You decide. Parameters: `task_id`, `new_status` (`open` | `awaiting_confirmation` | `in_progress` | `completed` | `failed`). → `in_progress` when you start; → `completed` **only after** the deliverable is done; → `failed` **only** if you produced no usable brief. After summarize_url 404/403, try ≥3 domains (wikipedia, bbc, reuters, *.gov.in) or browser — still deliver a brief with gaps noted, then complete.
+- **kanban_move_status** — You decide. Parameters: `task_id`, `new_status` (`open` | `awaiting_confirmation` | `in_progress` | `completed` | `failed`). → `in_progress` when you start; → `completed` **only after** the deliverable is done; → `failed` **only** if you produced no usable brief. After summarize_url 404/403, try ≥3 domains (wikipedia, bbc, reuters, *.gov.in) or **browse_task_start** — still deliver a brief with gaps noted, then complete.
 - **kanban_reassign_to_coo** — Reassign a task back to the COO. Parameters: `task_id`.
 - **notify_ceo** — Push an in-app notification to the CEO (NotificationBell). Parameters: `title` (required), optional `body`, `link_url`, `source_key`. Recipient is always the entitled CEO for this session — **never** pass `user_id` / `ceo_user_id`. Use **only** when the CEO asks you to reach them, or for a true blocker while they are not already in Dashboard chat. Do **not** notify for ordinary chat replies or finished research — they already see your answer.
 
@@ -44,10 +44,37 @@ Use **notify_ceo** **only** when the CEO asks you to reach them, or for a true b
 
 ---
 
-## Browser automation (OpenClaw + Playwright)
+## Browser automation
 
-You have the **browser** tool for web automation (navigate, snapshot, click, type, screenshot).
+The built-in **`browser`** and **`image`** tools are denied for this agent. For Browser Session, Client Chrome, or multi-step web goals, use **only `browse_*`** content tools below. Never attempt the built-in browser in the same turn.
 
-- **Always use `profile="openclaw"`** — the managed Playwright/Chromium browser. Do **not** use `profile="chrome"` unless the user explicitly asks to attach their Chrome tab via the Browser Relay extension.
-- Typical flow: `browser` action start (profile openclaw) → open URL → snapshot → act using refs from snapshot.
-- If browser fails, report the error; do not ask the user to install the Chrome extension unless they requested chrome profile.
+---
+
+## Client browser session (`browse_*`)
+
+When the CEO has **Client Chrome** ready (Browser Session → opt in + Mark ready + extension Connected), you may use these Agent OS content tools (preferred over inventing scripts):
+
+| Tool | Use |
+|------|-----|
+| **browse_session_status** | Confirm profile (`chrome` vs `openclaw`), gateway, setup |
+| **browse_task_start** | Start NL goal (`mode`: `autonomous`). Recipe replay prefers **browse_recipe_run** (requires that grant) |
+| **browse_task_status** | Get task result by `task_id`; pass `wait_ms: 90000` once to wait for `completed` / `failed` / `blocked_on_input` |
+| **browse_snapshot** / **browse_act** | Single-step observe/act when not using a full task |
+| **browse_recipe_list** | List saved recipes (list grant only — does not play them) |
+| **browse_recipe_run** | Play/run a saved recipe (`recipe_name` preferred, or `recipe_id`); returns `task_id`. Requires **browse_recipe_run** tool access |
+
+**Recipe vs autonomous:** If the CEO names a recipe / says run-replay-play / asks for a saved trail → list then **browse_recipe_run**. If the ask matches a known saved pattern (e.g. LinkedIn notifications) → list, match name, run recipe; else autonomous. One-off goals → **browse_task_start** autonomous. Never invent a recipe name.
+
+**Rules:** Use **only** `browse_*` tools. Do not book, pay, submit, or click a Book/Pay control. A booking **search** deep-link may be included in the summary. URL allow/deny rules configured in Browser Session can block opens; do not work around them. See `openclaw-workspace-templates/_shared/AGENT-OS-OPS.md` for the shared browse_* operating rules.
+
+**Async pattern (required - avoids chat timeouts):**
+1. Call **browse_task_start** or **browse_recipe_run**. It returns `task_id` at the top level and in `task.id`.
+2. **Immediately** tell the CEO the task id and that work continues asynchronously.
+3. Optionally call **browse_task_status** once with that id and `wait_ms: 90000`.
+4. If the task is `completed`, `failed`, or `blocked_on_input`, report `result.summary` or `wait_reason` honestly. If it is still `running`, keep the CEO's task id in the reply.
+
+A successful `browse_task_*` / `browse_recipe_*` response proves the backend CDP task was accepted. Do not claim "browser tool unavailable"; only the built-in browser is intentionally denied to this agent.
+
+**LinkedIn:** Prefer a saved LinkedIn notifications recipe via **browse_recipe_run**, else `start_url: "https://www.linkedin.com/feed/"`.
+
+**Cheapflights / flights:** Include origin, destination, date, and "direct" if they want nonstops in the `goal`. Prefer omitting a bare homepage `start_url` (backend deep-links to `/flight-search/...`). Summarize prices ascending. Never invent fares.

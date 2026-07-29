@@ -1330,6 +1330,90 @@ export function initDb() {
 
   try {
     _db.exec(`
+      CREATE TABLE IF NOT EXISTS ceo_browser_session (
+        ceo_user_id TEXT PRIMARY KEY,
+        mode TEXT NOT NULL DEFAULT 'managed',
+        profile TEXT NOT NULL DEFAULT 'openclaw',
+        session_ready INTEGER DEFAULT 0,
+        relay_notes TEXT DEFAULT '',
+        pair_hint TEXT DEFAULT '',
+        logged_in_domains_json TEXT DEFAULT '{}',
+        url_allowlist_json TEXT DEFAULT '[]',
+        url_denylist_json TEXT DEFAULT '[]',
+        last_attached_at TEXT,
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (ceo_user_id) REFERENCES platform_users(id) ON DELETE CASCADE
+      )
+    `);
+  } catch (_) {}
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS browser_tasks (
+        id TEXT PRIMARY KEY,
+        ceo_user_id TEXT NOT NULL,
+        agent_id TEXT,
+        recipe_id TEXT,
+        mode TEXT NOT NULL DEFAULT 'autonomous',
+        status TEXT DEFAULT 'pending',
+        goal_text TEXT DEFAULT '',
+        start_url TEXT DEFAULT '',
+        input_json TEXT DEFAULT '{}',
+        result_json TEXT,
+        steps_json TEXT DEFAULT '[]',
+        wait_reason TEXT,
+        error TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (ceo_user_id) REFERENCES platform_users(id) ON DELETE CASCADE
+      )
+    `);
+  } catch (_) {}
+  try {
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_browser_tasks_ceo ON browser_tasks(ceo_user_id, created_at DESC)`);
+  } catch (_) {}
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS browser_recipes (
+        id TEXT PRIMARY KEY,
+        ceo_user_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        status TEXT DEFAULT 'draft',
+        start_url TEXT,
+        domain_allowlist_json TEXT DEFAULT '[]',
+        version INTEGER DEFAULT 1,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (ceo_user_id) REFERENCES platform_users(id) ON DELETE CASCADE
+      )
+    `);
+  } catch (_) {}
+  try {
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_browser_recipes_ceo ON browser_recipes(ceo_user_id)`);
+  } catch (_) {}
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS browser_recipe_steps (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        recipe_id TEXT NOT NULL,
+        step_order INTEGER NOT NULL,
+        action TEXT NOT NULL,
+        args_json TEXT DEFAULT '{}',
+        label TEXT DEFAULT '',
+        on_error TEXT DEFAULT 'stop',
+        created_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (recipe_id) REFERENCES browser_recipes(id) ON DELETE CASCADE
+      )
+    `);
+  } catch (_) {}
+  try {
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_browser_recipe_steps_recipe ON browser_recipe_steps(recipe_id, step_order)`
+    );
+  } catch (_) {}
+
+  try {
+    _db.exec(`
       CREATE TABLE IF NOT EXISTS agent_workflow_certify_jobs (
         id TEXT PRIMARY KEY,
         owner_user_id TEXT NOT NULL,

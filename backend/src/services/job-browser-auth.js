@@ -131,16 +131,33 @@ export async function isGatewayReachable(timeoutMs = 8000) {
   return false;
 }
 
-async function invokeBrowserAction(action, agentId = 'jobdiscovery', extraArgs = {}) {
+/**
+ * @param {string} action
+ * @param {string} [agentId]
+ * @param {Record<string, unknown>} [extraArgs] - may include `profile` ('openclaw' | 'chrome')
+ */
+async function invokeBrowserAction(action, agentId = 'browser-cdp', extraArgs = {}) {
   const { gatewayUrl, token } = gatewayConfig();
+  const { profile: profileOverride, ...rest } = extraArgs || {};
+  const profile =
+    typeof profileOverride === 'string' && profileOverride.trim()
+      ? profileOverride.trim()
+      : 'openclaw';
+  const resolvedAgentId = String(agentId || 'browser-cdp').trim() || 'browser-cdp';
+  // OpenClaw 2026.7 tools/invoke resolves the agent from body.agentId (not x-openclaw-agent-id).
+  // Without agentId, the main session is used and browser is policy-denied → "Tool not available: browser".
   const res = await fetch(`${gatewayUrl}/tools/invoke`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      'x-openclaw-agent-id': agentId,
+      'x-openclaw-agent-id': resolvedAgentId,
     },
-    body: JSON.stringify({ tool: 'browser', args: { action, profile: 'openclaw', ...extraArgs } }),
+    body: JSON.stringify({
+      tool: 'browser',
+      agentId: resolvedAgentId,
+      args: { action, profile, ...rest },
+    }),
     signal: AbortSignal.timeout(120000),
   });
   const text = await res.text();
@@ -154,7 +171,7 @@ let _browserReadyPromise = null;
 let _browserReadyAt = 0;
 const BROWSER_READY_TTL_MS = Number(process.env.BROWSER_READY_TTL_MS || 120000);
 
-async function invokeBrowserOpen(url, agentId = 'jobdiscovery') {
+async function invokeBrowserOpen(url, agentId = 'browser-cdp') {
   return invokeBrowserAction('open', agentId, { url, targetUrl: url });
 }
 
@@ -213,7 +230,7 @@ export async function probeDiscoveryPortals(intake = {}) {
   for (const entry of urls) {
     await invokeBrowserOpen(entry.url);
     await sleep(2500);
-    const snap = await invokeBrowserAction('snapshot', 'jobdiscovery', { limit: 4000 });
+    const snap = await invokeBrowserAction('snapshot', 'browser-cdp', { limit: 4000 });
     const text = parseInvokeText(snap).toLowerCase();
     const hasJobs = JOB_SIGNAL_RE.test(text);
     const loginWall = LOGIN_WALL_RE.test(text) && !hasJobs;

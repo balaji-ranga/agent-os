@@ -43,6 +43,18 @@ export const REQUIRED_GLOBAL_CONTENT_TOOLS = [
   'browser',
 ];
 
+
+/** Client Browser Session / recipe tools (Agent OS content tools — not built-in browser). */
+export const BROWSER_SESSION_CONTENT_TOOLS = [
+  'browse_session_status',
+  'browse_task_start',
+  'browse_task_status',
+  'browse_snapshot',
+  'browse_act',
+  'browse_recipe_list',
+  'browse_recipe_run',
+];
+
 /** Default COO (balserve) content tools.allow — merged on every container configure. */
 export const COO_CONTENT_TOOLS_ALLOW = [
   'summarize_url',
@@ -73,6 +85,13 @@ export const COO_CONTENT_TOOLS_ALLOW = [
   'master_data_list_documents',
   'master_data_rag',
   'browser',
+  'browse_session_status',
+  'browse_task_start',
+  'browse_task_status',
+  'browse_snapshot',
+  'browse_act',
+  'browse_recipe_list',
+  'browse_recipe_run'
 ];
 
 /** Default Workflow Builder content tools.allow. */
@@ -105,6 +124,13 @@ export const WORKFLOW_BUILDER_CONTENT_TOOLS_ALLOW = [
   'master_data_list_documents',
   'master_data_rag',
   'browser',
+  'browse_session_status',
+  'browse_task_start',
+  'browse_task_status',
+  'browse_snapshot',
+  'browse_act',
+  'browse_recipe_list',
+  'browse_recipe_run'
 ];
 
 /** Default Platform Help content tools.allow. */
@@ -117,4 +143,11 @@ export const PLATFORM_HELP_CONTENT_TOOLS_ALLOW = [
   'master_data_rag',
   'notify_ceo',
   'ceo_profile',
+  'browse_session_status',
+  'browse_task_start',
+  'browse_task_status',
+  'browse_snapshot',
+  'browse_act',
+  'browse_recipe_list',
+  'browse_recipe_run'
 ];

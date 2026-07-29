@@ -161,6 +161,11 @@ function mergeNativeTools(existingAllow = [], contentGrants = []) {
 export function syncOpenClawJsonForAgent(agent) {
   const ocId = resolveOpenClawAgentId(agent);
   if (!ocId) return null;
+  const cdpId = String(process.env.BROWSER_TASK_CDP_AGENT_ID || 'browser-cdp').trim().toLowerCase() || 'browser-cdp';
+  if (ocId === cdpId || ocId.endsWith(`--${cdpId}`)) {
+    // Backend CDP runner uses profile + alsoAllow (no tools.allow). Never overwrite.
+    return null;
+  }
   const grants = getAgentToolGrants(agent.id);
   const config = readConfig();
   if (!Array.isArray(config.agents?.list)) config.agents = { list: [] };
@@ -175,7 +180,8 @@ export function syncOpenClawJsonForAgent(agent) {
   }
   const prevAllow = Array.isArray(entry.tools?.allow) ? entry.tools.allow : [];
   entry.tools = entry.tools || {};
-  entry.tools.allow = mergeNativeTools(prevAllow, grants);
+  entry.tools.allow = mergeNativeTools(prevAllow, grants).filter((t) => String(t) !== 'browser');
+  delete entry.tools.alsoAllow;
   if (!entry.tools.deny) entry.tools.deny = ['image'];
   writeConfig(config);
   return entry.tools.allow;

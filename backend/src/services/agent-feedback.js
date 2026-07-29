@@ -5,6 +5,7 @@
 import { getDbForCeo } from '../db/request-db.js';
 import { getDb } from '../db/schema.js';
 import { chatCompletions } from '../config/llm.js';
+import { resolveAgentFromOpenClawCallerId } from './openclaw-tenant.js';
 
 export const FEEDBACK_RATINGS = Object.freeze(['up', 'down']);
 export const FEEDBACK_SOURCES = Object.freeze([
@@ -13,6 +14,7 @@ export const FEEDBACK_SOURCES = Object.freeze([
   'workflow_builder',
   'standup',
   'workspace',
+  'browser_session',
   'other',
 ]);
 
@@ -65,8 +67,24 @@ function normalizeSource(source) {
   return 'other';
 }
 
+/** Canonical leaf agent id for feedback/learnings (strip tenant OpenClaw prefix). */
+export function normalizeFeedbackAgentId(agentId) {
+  const raw = String(agentId || '').trim();
+  if (!raw) return '';
+  const tenantLeaf = raw.match(/^t-[^-]+--(.+)$/i);
+  if (tenantLeaf) return tenantLeaf[1].trim();
+  try {
+    const row = resolveAgentFromOpenClawCallerId(raw);
+    if (row?.id) return String(row.id).trim();
+  } catch {
+    /* ignore */
+  }
+  return raw;
+}
+
 /**
  * Persist user feedback against owner + agent (strict tenancy via ownerUserId).
+ * Chat thumbs-down comments are first-class learnings signal (see summarizeLearnings).
  */
 export function storeFeedback({
   ownerUserId,
@@ -80,10 +98,14 @@ export function storeFeedback({
   context = {},
 } = {}) {
   const owner = String(ownerUserId || '').trim();
-  const agent = String(agentId || '').trim();
+  const agent = normalizeFeedbackAgentId(agentId);
   if (!owner) throw new Error('owner_user_id required');
   if (!agent) throw new Error('agent_id required');
   const normalizedRating = normalizeRating(rating);
+  const commentText = String(comment || '').trim().slice(0, 4000);
+  if (normalizedRating === 'down' && normalizeSource(source) === 'chat' && commentText.length < 3) {
+    throw new Error('Thumbs-down feedback requires a short comment (what went wrong)');
+  }
   const db = dbForOwner(owner);
   const info = db
     .prepare(
@@ -99,9 +121,17 @@ export function storeFeedback({
       String(messageRole || 'assistant'),
       String(messageContent || '').slice(0, 8000),
       normalizedRating,
-      String(comment || '').slice(0, 4000),
+      commentText,
       JSON.stringify(context && typeof context === 'object' ? context : {})
     );
+  console.info(
+    '[feedback] stored owner=%s agent=%s source=%s rating=%s comment_len=%s',
+    owner,
+    agent,
+    normalizeSource(source),
+    normalizedRating,
+    commentText.length
+  );
   return getFeedbackById(owner, info.lastInsertRowid);
 }
 
@@ -156,8 +186,11 @@ export function listFeedback({
   const clauses = ['owner_user_id = ?'];
   const params = [owner];
   if (agentId) {
-    clauses.push('agent_id = ?');
-    params.push(String(agentId).trim());
+    const leaf = normalizeFeedbackAgentId(agentId);
+    const raw = String(agentId).trim();
+    // Match canonical leaf id and any legacy tenant-prefixed rows.
+    clauses.push('(agent_id = ? OR agent_id = ? OR lower(agent_id) = lower(?))');
+    params.push(leaf, raw, leaf);
   }
   if (days != null && Number(days) > 0) {
     clauses.push(`created_at >= datetime('now', ?)`);
@@ -312,7 +345,8 @@ export function ensureLearningsCacheTable(db) {
 }
 
 function learningsAgentKey(agentId) {
-  return String(agentId || '').trim() || '__all__';
+  const leaf = normalizeFeedbackAgentId(agentId);
+  return leaf || '__all__';
 }
 
 function todayUtc() {
@@ -368,6 +402,18 @@ function feedbackToLines(feedback) {
   );
 }
 
+/** Thumbs-down rows with CEO comments — highest-priority learnings signal. */
+function criticalDownCommentLines(feedback) {
+  return feedback
+    .filter((f) => f.rating === 'down' && String(f.comment || '').trim().length >= 3)
+    .map(
+      (f, i) =>
+        `${i + 1}. [MUST AVOID] source=${f.source} agent=${f.agent_id} at=${f.created_at}` +
+        `\n   CEO said: ${String(f.comment).slice(0, 800)}` +
+        `\n   about response: ${String(f.message_content || '').slice(0, 300)}`
+    );
+}
+
 function kanbanToLines(kanbanActions) {
   return kanbanActions.map(
     (a, i) =>
@@ -405,6 +451,7 @@ export async function summarizeLearnings({
   const owner = String(ownerUserId || '').trim();
   if (!owner) throw new Error('owner_user_id required');
   const dayWindow = Math.max(1, Math.min(Math.floor(Number(days) || 30), 365));
+  agentId = agentId ? normalizeFeedbackAgentId(agentId) : null;
   const agentKey = learningsAgentKey(agentId);
   const topicText = String(topic || '').trim() || 'general task quality and past mistakes';
   const note = topicFocusNote(topic);
@@ -506,6 +553,7 @@ export async function summarizeLearnings({
       };
     }
 
+    const criticalNew = criticalDownCommentLines(newFeedback);
     const prompt = `You are UPDATING an AI agent's learnings summary by merging new user feedback into the prior summary.
 
 Owner (CEO) id: ${owner}
@@ -514,6 +562,9 @@ Agent: ${agentId || 'all agents for this user'}
 ## Prior learnings summary (keep still-relevant points)
 ${cache.summary}
 
+## CRITICAL — new thumbs-down comments from chat (highest priority; quote and obey)
+${criticalNew.join('\n') || '(none)'}
+
 ## New response feedback since last update (thumbs up/down)
 ${feedbackToLines(newFeedback).join('\n') || '(none)'}
 
@@ -521,9 +572,9 @@ ${feedbackToLines(newFeedback).join('\n') || '(none)'}
 ${kanbanToLines(newKanban).join('\n') || '(none)'}
 
 Produce an UPDATED concise learnings summary (bullets) with these sections:
-1. What the user disliked / rejected — avoid these patterns.
+1. What the user disliked / rejected — avoid these patterns. Put CRITICAL chat thumbs-down comments first with concrete "don't" rules.
 2. What the user liked / approved — prefer these patterns. IMPORTANT: retain still-relevant liked/approved points from the prior summary even if recent feedback is mostly negative.
-3. Concrete do/don't guidance for the next task.
+3. Concrete do/don't guidance for the next task (especially browser recipe vs autonomous choices when comments mention them).
 Keep under 400 words.`;
 
     try {
@@ -572,11 +623,15 @@ Keep under 400 words.`;
   // Full rebuild path (first time, stale base, or forced).
   const feedbackLines = feedbackToLines(feedback);
   const kanbanLines = kanbanToLines(kanbanActions);
+  const criticalAll = criticalDownCommentLines(feedback);
   const prompt = `You are summarizing user feedback so an AI agent can avoid past mistakes and repeat what worked.
 
 Owner (CEO) id: ${owner}
 Agent filter: ${agentId || 'all agents for this user'}
 Window: last ${dayWindow} days
+
+## CRITICAL — chat thumbs-down comments (highest priority; quote and obey)
+${criticalAll.join('\n') || '(none)'}
 
 ## Response feedback (thumbs up/down)
 ${feedbackLines.join('\n') || '(none)'}
@@ -585,9 +640,9 @@ ${feedbackLines.join('\n') || '(none)'}
 ${kanbanLines.join('\n') || '(none)'}
 
 Write a concise, topic-agnostic learnings summary (bullets) covering:
-1. What the user disliked / rejected — avoid these patterns.
+1. What the user disliked / rejected — avoid these patterns. Lead with CRITICAL thumbs-down comments as hard rules.
 2. What the user liked / approved — prefer these patterns.
-3. Concrete do/don't guidance for future tasks.
+3. Concrete do/don't guidance for future tasks (include browser/recipe guidance when feedback mentions it).
 Keep under 400 words.`;
 
   let summary;

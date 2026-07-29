@@ -26,7 +26,8 @@ export function isJobPipelinePrompt(prompt) {
 /** OpenClaw down / network blip — leave task pending instead of burning the status-only retry. */
 export function isTransientOpenClawError(err) {
   const msg = String(err?.message || err || '');
-  return /gateway unreachable|fetch failed|ECONNREFUSED|ECONNRESET|ETIMEDOUT|ENOTFOUND|gateway timeout|AbortError|TimeoutError|network/i.test(
+  // healthz can stay "live" while /v1/chat/completions briefly 404s (gateway reload / bad state).
+  return /gateway unreachable|fetch failed|ECONNREFUSED|ECONNRESET|ETIMEDOUT|ENOTFOUND|gateway timeout|AbortError|TimeoutError|network|gateway error 404|OpenClaw gateway error 5\d\d/i.test(
     msg
   );
 }

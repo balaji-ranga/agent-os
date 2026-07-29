@@ -113,11 +113,33 @@ start_vnc_if_enabled() {
   fi
 }
 
+# Bridge 0.0.0.0:18792 → loopback extension relay :18799 so host-network nginx can reach it.
+# OpenClaw binds the relay on 127.0.0.1 only (and rejects non-loopback Host), so Docker
+# port-publish alone is not enough without this forwarder.
+start_extension_relay_bridge() {
+  local bridge_port="${OPENCLAW_EXTENSION_BRIDGE_PORT:-18792}"
+  local relay_port="${OPENCLAW_EXTENSION_RELAY_PORT:-18799}"
+  if ! command -v socat >/dev/null 2>&1; then
+    echo "[openclaw] WARN: socat missing — Chrome extension WSS bridge on :${bridge_port} unavailable"
+    return 0
+  fi
+  for _cmd in /proc/[0-9]*/cmdline; do
+    # Avoid grep|pipefail: non-match must not abort under set -euo pipefail
+    _line=$(tr '\0' ' ' < "$_cmd" 2>/dev/null || true)
+    if [[ "$_line" == *"TCP-LISTEN:${bridge_port}"* ]]; then
+      return 0
+    fi
+  done
+  echo "[openclaw] Starting extension relay bridge 0.0.0.0:${bridge_port} → 127.0.0.1:${relay_port}"
+  socat "TCP-LISTEN:${bridge_port},bind=0.0.0.0,fork,reuseaddr" "TCP:127.0.0.1:${relay_port}" &
+}
+
 # Run gateway as a child and re-exec env+process when Admin flips platform-llm-active.json.
 # Without this, sync updates files but live OPENAI_API_KEY stays sticky → 401 → ollama dumps.
 run_gateway_with_platform_llm_watch() {
   apply_platform_llm_runtime_env
   start_vnc_if_enabled
+  start_extension_relay_bridge
   local last_mtime
   last_mtime="$(marker_mtime)"
   while true; do
@@ -139,9 +161,16 @@ run_gateway_with_platform_llm_watch() {
       gpid="${real_pid}"
       echo "[openclaw] Gateway pid=${gpid}"
     fi
+    # Warm chrome extension relay (binds 127.0.0.1:18799) so nginx→:18792 works immediately.
+    (
+      sleep 3
+      openclaw browser status --browser-profile chrome >/dev/null 2>&1 || true
+    ) &
     local reloading=0
     while kill -0 "${gpid}" 2>/dev/null; do
       sleep 2
+      # Keep socat bridge alive across gateway restarts
+      start_extension_relay_bridge
       local now
       now="$(marker_mtime)"
       if [[ "${now}" != "0" && "${now}" != "${last_mtime}" ]]; then

@@ -52,6 +52,8 @@ const toSlash = (p) => p.replace(/\\/g, '/');
 // to ignore the allowlist and the agent will not see the tools.
 const CONTENT_TOOLS_ALLOW = [...COO_CONTENT_TOOLS_ALLOW];
 const CONTENT_TOOLS_CONFIG = { allow: [...CONTENT_TOOLS_ALLOW], deny: ['image'] };
+const BROWSER_DENIED_AGENT_IDS = new Set(['techresearcher', 'balserve', 'workflowbuilder', 'platformhelp']);
+const BROWSER_CDP_AGENT_ID = String(process.env.BROWSER_TASK_CDP_AGENT_ID || 'browser-cdp').trim() || 'browser-cdp';
 
 // Remove stale/unknown tool names that cause OpenClaw to ignore tools.allow completely.
 const REMOVE_FROM_ALLOWLIST = new Set(['cron.add', 'cron_add']);
@@ -65,7 +67,7 @@ const AGENTS_LIST = [
     workspace: toSlash(join(OPENCLAW_DIR, 'workspace-workflowbuilder')),
     tools: {
       allow: [...WORKFLOW_BUILDER_CONTENT_TOOLS_ALLOW],
-      deny: ['image'],
+      deny: ['image', 'browser'],
     },
   },
   {
@@ -74,12 +76,24 @@ const AGENTS_LIST = [
     workspace: toSlash(join(OPENCLAW_DIR, 'workspace-platformhelp')),
     tools: {
       allow: [...PLATFORM_HELP_CONTENT_TOOLS_ALLOW],
-      deny: ['image'],
+      deny: ['image', 'browser'],
     },
   },
-  { id: 'techresearcher', name: 'TechResearcher', workspace: toSlash(join(OPENCLAW_DIR, 'workspace-techresearcher')), tools: { ...CONTENT_TOOLS_CONFIG } },
+  {
+    id: 'techresearcher',
+    name: 'TechResearcher',
+    workspace: toSlash(join(OPENCLAW_DIR, 'workspace-techresearcher')),
+    tools: { allow: [...CONTENT_TOOLS_ALLOW], deny: ['image', 'browser'] },
+  },
   { id: 'expensemanager', name: 'ExpenseManager', workspace: toSlash(join(OPENCLAW_DIR, 'workspace-expenses')), tools: { ...CONTENT_TOOLS_CONFIG } },
   { id: 'socialasstant', name: 'SocialAssistant', workspace: toSlash(join(OPENCLAW_DIR, 'workspace-socialasstant')), tools: { ...CONTENT_TOOLS_CONFIG } },
+  {
+    id: BROWSER_CDP_AGENT_ID,
+    name: 'Browser CDP',
+    workspace: toSlash(join(OPENCLAW_DIR, `workspace-${BROWSER_CDP_AGENT_ID}`)),
+    // OpenClaw 2026.7: cannot mix allow + alsoAllow; browser is outside coding profile.
+    tools: { profile: 'coding', alsoAllow: ['browser'], deny: ['image'] },
+  },
 ];
 
 const GATEWAY_DEFAULTS = {
@@ -124,7 +138,15 @@ for (const agent of AGENTS_LIST) {
   const id = (agent.id || '').toLowerCase();
   const existing = byId.get(id);
   if (existing) {
+    const existingDeny = Array.isArray(existing.tools?.deny) ? existing.tools.deny : [];
+    const configuredDeny = Array.isArray(agent.tools?.deny) ? agent.tools.deny : [];
     Object.assign(existing, agent);
+    if (agent.tools) {
+      existing.tools = {
+        ...existing.tools,
+        deny: [...new Set([...existingDeny, ...configuredDeny])],
+      };
+    }
     byId.set(id, existing);
   } else {
     byId.set(id, { ...agent });
@@ -136,6 +158,21 @@ config.agents.list = Array.from(byId.values());
 for (const a of config.agents.list) {
   if (a?.tools?.allow && Array.isArray(a.tools.allow)) {
     a.tools.allow = a.tools.allow.filter((t) => !REMOVE_FROM_ALLOWLIST.has(String(t)));
+  }
+  if (BROWSER_DENIED_AGENT_IDS.has(String(a?.id || '').toLowerCase())) {
+    a.tools = a.tools || {};
+    const deny = Array.isArray(a.tools.deny) ? a.tools.deny : [];
+    for (const tool of ['image', 'browser']) {
+      if (!deny.includes(tool)) deny.push(tool);
+    }
+    a.tools.deny = deny;
+  }
+  if (String(a?.id || '').toLowerCase() === BROWSER_CDP_AGENT_ID.toLowerCase()) {
+    a.tools = a.tools || {};
+    delete a.tools.allow;
+    a.tools.profile = 'coding';
+    a.tools.alsoAllow = ['browser'];
+    a.tools.deny = ['image'];
   }
 }
 if (!config.agents.defaults) config.agents.defaults = {};
@@ -308,10 +345,10 @@ if (!config.browser.profiles) {
 // The Gateway cron tools (cron.add / cron_add) are not present in newer OpenClaw builds,
 // so we do NOT include them here.
 const contentToolNames = [...REQUIRED_GLOBAL_CONTENT_TOOLS];
-if (!Array.isArray(config.tools.allow)) config.tools.allow = [];
-config.tools.allow = config.tools.allow.filter((t) => !REMOVE_FROM_ALLOWLIST.has(String(t)));
-for (const name of contentToolNames) {
-  if (!config.tools.allow.includes(name)) config.tools.allow.push(name);
+// Do not maintain global tools.allow — it intersects agent alsoAllow and strips browser.
+if (config.tools) {
+  delete config.tools.allow;
+  delete config.tools.alsoAllow;
 }
 
 // Per-agent tool overrides: ~/.openclaw/agent-os-tool-overrides.json maps tool_name -> ["agent1","agent2"] or "All"
@@ -324,6 +361,14 @@ if (existsSync(OVERRIDES_PATH)) {
 }
 for (const a of config.agents.list) {
   const aid = (a.id || '').toLowerCase();
+  if (aid === BROWSER_CDP_AGENT_ID.toLowerCase()) {
+    delete a.tools?.allow;
+    a.tools = a.tools || {};
+    a.tools.profile = 'coding';
+    a.tools.alsoAllow = ['browser'];
+    a.tools.deny = ['image'];
+    continue;
+  }
   const allow = Array.isArray(a.tools?.allow) ? [...a.tools.allow] : [...contentToolNames];
   for (const [toolName, agentsSpec] of Object.entries(toolOverrides)) {
     if (agentsSpec === 'All' || (Array.isArray(agentsSpec) && agentsSpec.some((id) => String(id).toLowerCase() === aid))) {
@@ -331,7 +376,8 @@ for (const a of config.agents.list) {
     }
   }
   a.tools = a.tools || {};
-  a.tools.allow = allow;
+  a.tools.allow = allow.filter((t) => String(t) !== 'browser');
+  delete a.tools.alsoAllow;
 }
 
 // Bindings: optional. Route inbound channel messages (WhatsApp/Telegram/Discord) to agents.

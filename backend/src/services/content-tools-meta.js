@@ -195,38 +195,23 @@ function syncContentToolsPluginContracts(toolNames) {
 }
 
 /**
- * Keep openclaw.json tools.allow in sync so OpenClaw core does not strip
- * plugin tools that are granted per-agent but missing from the global allow list.
- * Merges DB-enabled tools plus the canonical content-tool floor (learnings_summary etc.).
+ * OpenClaw 2026.7 intersects global tools.allow with agent alsoAllow and strips
+ * the plugin `browser` tool (outside coding/messaging profiles). Do not maintain a
+ * global allowlist — content tools stay on per-agent tools.allow from DB sync.
  */
-function syncGlobalToolsAllow(toolNames) {
+function syncGlobalToolsAllow(_toolNames) {
   const configPath = join(OPENCLAW_DIR, 'openclaw.json');
   if (!existsSync(configPath)) return;
   try {
     const config = JSON.parse(readFileSync(configPath, 'utf8'));
-    config.tools = config.tools || {};
-    if (!Array.isArray(config.tools.allow)) config.tools.allow = [];
-    let changed = false;
-    const floor = [
-      'learnings_summary',
-      'brain_history',
-      'content_tools_enquire',
-      'kanban_create_task',
-      'agent_workflow_list',
-      'agent_workflow_enquire',
-      'agent_workflow_trigger',
-      'agent_workflow_runs',
-      'agent_workflow_get_draft',
-      'agent_workflow_mutate',
-    ];
-    for (const name of [...floor, ...(toolNames || [])]) {
-      if (typeof name !== 'string' || !name.trim()) continue;
-      if (!config.tools.allow.includes(name)) {
-        config.tools.allow.push(name);
-        changed = true;
-      }
+    if (!config.tools) return;
+    if (!Object.prototype.hasOwnProperty.call(config.tools, 'allow') && !config.tools.alsoAllow) {
+      return;
     }
-    if (changed) writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+    delete config.tools.allow;
+    delete config.tools.alsoAllow;
+    writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+    console.info('[content-tools-meta] cleared global tools.allow (browser CDP requires no global allowlist)');
   } catch (_) {
     /* best-effort */
   }

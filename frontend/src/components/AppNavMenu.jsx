@@ -79,6 +79,7 @@ export function CeoNavMenu({ collapsed }) {
 
       <NavSection title="Prebuilt Workflows" collapsed={collapsed}>
         <NavItem to="/job-profiles" title="Job profiles" collapsed={collapsed} label="Job profiles" short="JP" />
+        <NavItem to="/browser-session" title="Browser Session" collapsed={collapsed} label="Browser Session" short="Br" />
         <NavItem to="/job-workflows" title="Job workflows" collapsed={collapsed} label="Job workflows" short="JW" />
       </NavSection>
 

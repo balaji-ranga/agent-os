@@ -26,8 +26,8 @@ async function get(path) {
   return request(path, { method: 'GET' });
 }
 
-async function post(path, body) {
-  return request(path, { method: 'POST', body: JSON.stringify(body) });
+async function post(path, body, options = {}) {
+  return request(path, { ...options, method: 'POST', body: JSON.stringify(body) });
 }
 
 async function put(path, body) {
@@ -128,17 +128,21 @@ export const api = {
     post(`/agents/${encodeURIComponent(id)}/chat/history/${encodeURIComponent(sessionId)}/restore`, {
       mode,
     }),
-  agentChatSend: (id, message, userId = 'default', profileId = null) => {
+  agentChatSend: (id, message, userId = 'default', profileId = null, options = {}) => {
     const tz =
       typeof Intl !== 'undefined'
         ? Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
         : 'UTC';
-    return post(`/agents/${id}/chat`, {
-      message,
-      user_id: userId,
-      tz,
-      ...(profileId ? { profile_id: profileId } : {}),
-    });
+    return post(
+      `/agents/${id}/chat`,
+      {
+        message,
+        user_id: userId,
+        tz,
+        ...(profileId ? { profile_id: profileId } : {}),
+      },
+      options
+    );
   },
   agentChatFromAgent: (toAgentId, fromAgentId, message) =>
     post(`/agents/${toAgentId}/chat/from-agent`, { from_agent_id: fromAgentId, message }),
@@ -225,6 +229,51 @@ export const api = {
     get(`/job-applicant/profiles/${encodeURIComponent(profileId)}/review-queue?ceo_user_id=${encodeURIComponent(ceoUserId)}`),
   jobApplicantCeoReviewInclude: (profileId, body) =>
     post(`/job-applicant/profiles/${encodeURIComponent(profileId)}/ceo-review/include`, body),
+
+  browserSessionStatus: () => get('/browser-session/status'),
+  browserSessionUrlPolicy: () => get('/browser-session/url-policy'),
+  browserSessionSetUrlPolicy: (body) => put('/browser-session/url-policy', body),
+  browserSessionOptIn: (body = {}) => post('/browser-session/opt-in', body),
+  browserSessionOptOut: (body = {}) => post('/browser-session/opt-out', body),
+  browserSessionMarkReady: (body = {}) => post('/browser-session/mark-ready', body),
+  browserSessionOpenLogin: (body = {}) => post('/browser-session/open-login-browser', body),
+  browserSessionSaveSession: (body = {}) => post('/browser-session/save-session', body),
+  browserSessionTasks: (params = {}) => {
+    const q = new URLSearchParams();
+    if (params.limit != null) q.set('limit', String(params.limit));
+    if (params.offset != null) q.set('offset', String(params.offset));
+    if (params.days != null) q.set('days', String(params.days));
+    const qs = q.toString();
+    return get(`/browser-session/tasks${qs ? `?${qs}` : ''}`);
+  },
+  browserSessionTasksClear: () => del('/browser-session/tasks'),
+  browserSessionTaskGet: (id) => get(`/browser-session/tasks/${encodeURIComponent(id)}`),
+  browserSessionStartTask: (body) => post('/browser-session/tasks', body),
+  browserSessionResumeTask: (id, body = {}) => post(`/browser-session/tasks/${encodeURIComponent(id)}/resume`, body),
+  browserSessionCapture: (id, body = {}) => post(`/browser-session/tasks/${encodeURIComponent(id)}/capture`, body),
+  browserSessionStopRecorder: (id, body = {}) => post(`/browser-session/tasks/${encodeURIComponent(id)}/stop-recorder`, body),
+  browserSessionRecipes: (params = {}) => {
+    const q = new URLSearchParams();
+    if (params.limit != null) q.set('limit', String(params.limit));
+    if (params.offset != null) q.set('offset', String(params.offset));
+    const qs = q.toString();
+    return get(`/browser-session/recipes${qs ? `?${qs}` : ''}`);
+  },
+  browserSessionRecipeGet: (id) => get(`/browser-session/recipes/${encodeURIComponent(id)}`),
+  browserSessionRecipeDelete: (id) => del(`/browser-session/recipes/${encodeURIComponent(id)}`),
+  browserSessionRecipeRename: (id, name) =>
+    patch(`/browser-session/recipes/${encodeURIComponent(id)}`, { name }),
+  /** Download OpenClaw chrome-extension zip for Load unpacked. */
+  browserSessionChromeExtensionDownload: async () => {
+    const objectUrl = await fetchBlobUrl('/browser-session/chrome-extension.zip');
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = 'openclaw-chrome-extension.zip';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+  },
   jobApplicantBrowserAuth: () => get('/job-applicant/browser-auth/status'),
   jobApplicantBrowserStartLogin: (body = {}) => post('/job-applicant/browser-auth/start-login', body),
   jobApplicantBrowserCompleteLogin: (body = {}) => post('/job-applicant/browser-auth/complete-login', body),

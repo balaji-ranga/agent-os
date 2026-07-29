@@ -1,5 +1,6 @@
 /**
  * Thumbs up/down feedback on an agent response.
+ * Thumbs-down requires a short comment so learnings_summary can apply CEO guidance.
  */
 import { useState } from 'react';
 import { api } from '../api';
@@ -59,6 +60,9 @@ export default function MessageFeedback({
     lineHeight: 1.4,
   };
 
+  const commentTrimmed = comment.trim();
+  const canSubmitDown = commentTrimmed.length >= 3;
+
   return (
     <div style={{ marginTop: compact ? 4 : 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -71,7 +75,7 @@ export default function MessageFeedback({
           style={btn}
           disabled={busy}
           onClick={() => setCommentOpen((o) => !o)}
-          title="Thumbs down"
+          title="Thumbs down — comment required for learnings"
         >
           👎
         </button>
@@ -81,7 +85,7 @@ export default function MessageFeedback({
           <textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            placeholder="What went wrong? (optional)"
+            placeholder="Required: what should the agent do differently next time?"
             rows={2}
             style={{
               width: '100%',
@@ -94,22 +98,30 @@ export default function MessageFeedback({
               resize: 'vertical',
             }}
           />
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => submit('down', comment)}
-            style={{
-              alignSelf: 'flex-start',
-              padding: '0.3rem 0.6rem',
-              borderRadius: 6,
-              border: 'none',
-              background: 'var(--accent)',
-              color: '#fff',
-              fontSize: '0.75rem',
-            }}
-          >
-            Submit feedback
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              disabled={busy || !canSubmitDown}
+              onClick={() => submit('down', commentTrimmed)}
+              style={{
+                alignSelf: 'flex-start',
+                padding: '0.3rem 0.6rem',
+                borderRadius: 6,
+                border: 'none',
+                background: canSubmitDown ? 'var(--accent)' : 'var(--muted)',
+                color: '#fff',
+                fontSize: '0.75rem',
+                cursor: busy || !canSubmitDown ? 'not-allowed' : 'pointer',
+              }}
+            >
+              Submit feedback
+            </button>
+            {!canSubmitDown && (
+              <span style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>
+                Add at least 3 characters so this feeds learnings.
+              </span>
+            )}
+          </div>
         </div>
       )}
       {error && <div style={{ color: '#f87171', fontSize: '0.75rem', marginTop: 4 }}>{error}</div>}

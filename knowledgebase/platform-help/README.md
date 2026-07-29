@@ -26,6 +26,8 @@
 | [18-agent-budgets-and-org-members.md](./18-agent-budgets-and-org-members.md) | Department purpose/budget, **agent token + error budgets** (warn-then-block), **Efficiency → Agent View**, external/A2A agents as org leaf members |
 | [19-scheduled-jobs-and-crons.md](./19-scheduled-jobs-and-crons.md) | Platform crons vs your own schedules, **COO status checker** (daily report + HTML email), **data retention** purge, Storage (MB) |
 | [20-ibkr-monthly-trading.md](./20-ibkr-monthly-trading.md) | **IBKR Monthly Positive Return**: W1–W5, Variables (`daily_budget_usd`), Connectors bridge download, learnings from cancels/fills |
+| [21-external-tools-and-apis.md](./21-external-tools-and-apis.md) | **External tools & APIs** needing keys: DeepSeek, OpenAI, Claude, OpenRouter, Brevo SMTP, Brave, FMP, Replicate, IBKR, Connectors |
+| [22-browser-session-and-recipes.md](./22-browser-session-and-recipes.md) | **Browser Session**, Client Chrome relay, `browse_*` tools, recipes list/run, tool access, chat thumbs → learnings |
 
 **Product name:** Flolah (Automate, Innovate, Elevate) — Agent OS underneath.
 

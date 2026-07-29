@@ -46,7 +46,10 @@ The `init` container runs `setup-openclaw-from-scratch.sh --docker`, which match
 | Content tools plugin `apiKey` ↔ backend `TOOLS_API_KEY` | `ensure-tools-api-key.js` | ✓ init via `configure-openclaw-docker.js` |
 | Gateway token auth | manual `.env` | ✓ from `OPENCLAW_GATEWAY_TOKEN` |
 | Browser tool + Playwright Chromium | manual PS script | ✓ |
-| Browser TOOLS.md sections | manual sync script | ✓ |
+| `browser.enabled` + dedicated **`browser-cdp`** agent (`alsoAllow: browser`, no global `tools.allow` browser) | `apply-openclaw-agents-config.js` | ✓ `configure-openclaw-docker.js` on every openclaw start |
+| `browse_*` content tools seeded + default agent grants | backend startup | ✓ `seed-browser-session-tools.js` |
+| Browser TOOLS.md / AGENT-OS-OPS recipe vs autonomous | sync / templates | ✓ workspace templates |
+
 | Session visibility (`tools.sessions.visibility`) | manual one-off | ✓ `agent` |
 | Ollama fallback provider | ✓ | ✓ (use `optional-ollama` profile) |
 | Hot-reload workspace MD (bootstrap watcher) | ✓ | ✓ (includes `AGENT-OS-OPS.md`) |
@@ -63,6 +66,9 @@ docker compose --profile init run --rm init
 # or against running volume:
 docker compose run --rm openclaw node deploy/scripts/verify-openclaw-parity.js
 ```
+
+Browser Session redeploy checklist: `browser.enabled`, agent `browser-cdp` (or `BROWSER_TASK_CDP_AGENT_ID`), global `tools.allow` must not contain `browser`, backend seeds `browse_recipe_run`. See `knowledgebase/CLIENT-BROWSER-SESSION.md`.
+
 
 Skip Job Applicant in init: add `--no-job-applicant` to the bootstrap command in `openclaw-entrypoint.sh` or run init with a custom command.
 

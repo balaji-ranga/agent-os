@@ -86,6 +86,14 @@ export const PLATFORM_HELP_DOCUMENTS = Object.freeze([
     filename: '20-ibkr-monthly-trading.md',
     title: `${PLATFORM_HELP_TITLE_PREFIX}IBKR Monthly Trading`,
   },
+  {
+    filename: '21-external-tools-and-apis.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}External Tools And APIs`,
+  },
+  {
+    filename: '22-browser-session-and-recipes.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}Browser Session Recipes`,
+  },
 ]);
 
 /** Resolve repo README.md (local: agent-os/README.md; Docker: /opt/agent-os/README.md). */

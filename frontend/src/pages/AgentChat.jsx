@@ -4,6 +4,7 @@ import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import ChatMessageRow from '../components/ChatMessageRow';
 import ChatComposeInput from '../components/ChatComposeInput';
+import BrowserTasksLive from '../components/BrowserTasksLive';
 import { buildMessageWithAttachments, uploadChatAttachments } from '../utils/chatAttachments.js';
 
 const secondaryBtn = {
@@ -46,6 +47,14 @@ export default function AgentChat() {
   const [error, setError] = useState(null);
   const [banner, setBanner] = useState(null);
   const scrollRef = useRef(null);
+  const abortControllerRef = useRef(null);
+
+  useEffect(
+    () => () => {
+      abortControllerRef.current?.abort();
+    },
+    []
+  );
 
   const refreshHistory = useCallback(async () => {
     if (!agentId) return;
@@ -155,10 +164,14 @@ export default function AgentChat() {
     setSending(true);
     setError(null);
     setTurns((prev) => [...prev, { role: 'user', content: displayMsg, created_at: new Date().toISOString() }]);
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
     try {
       const uploaded = pendingFiles.length ? await uploadChatAttachments(pendingFiles) : [];
       const outbound = buildMessageWithAttachments(userText, uploaded);
-      const r = await api.agentChatSend(agentId, outbound, dataCeoUserId || 'default', profileId);
+      const r = await api.agentChatSend(agentId, outbound, dataCeoUserId || 'default', profileId, {
+        signal: controller.signal,
+      });
       if (r.session_reset?.auto_split) {
         setTurns([]);
         setBanner({
@@ -188,13 +201,27 @@ export default function AgentChat() {
         },
       ]);
     } catch (err) {
-      setError(err.message);
+      const cancelled = controller.signal.aborted || err?.name === 'AbortError';
+      setError(cancelled ? 'Cancelled' : err.message);
       setTurns((prev) => prev.filter((t) => t.role !== 'user' || t.content !== displayMsg));
-      setAttachments(pendingFiles);
-      setInput(userText);
+      if (!cancelled) {
+        setAttachments(pendingFiles);
+        setInput(userText);
+      }
     } finally {
-      setSending(false);
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+        setSending(false);
+      }
     }
+  };
+
+  const cancelSend = () => {
+    const controller = abortControllerRef.current;
+    if (!controller) return;
+    controller.abort();
+    setSending(false);
+    setError('Cancelled');
   };
 
   if (error && !agent) {
@@ -359,11 +386,17 @@ export default function AgentChat() {
             >
               Send
             </button>
+            {sending && (
+              <button type="button" onClick={cancelSend} style={secondaryBtn}>
+                Cancel
+              </button>
+            )}
           </div>
         </form>
       </div>
 
       <aside className="chat-history-panel" aria-label="Chat history">
+        <BrowserTasksLive variant="sidebar" />
         <div className="chat-history-header">
           <h2>History</h2>
           <span className="chat-history-meta">Last 30 days</span>

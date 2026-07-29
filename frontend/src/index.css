@@ -445,6 +445,87 @@ html.auth-route #root {
   border-radius: 8px;
   overflow: hidden;
 }
+.browser-tasks-live {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  background: rgba(96, 165, 250, 0.06);
+  padding: 0.55rem 0.65rem 0.5rem;
+}
+.browser-tasks-live__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+.browser-tasks-live__head strong {
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.browser-tasks-live__head a {
+  color: var(--accent);
+  font-size: 0.75rem;
+  text-decoration: none;
+}
+.browser-tasks-live__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  max-height: 9.5rem;
+  overflow-y: auto;
+}
+.browser-tasks-live__item {
+  padding: 0.3rem 0.35rem;
+  border-radius: 6px;
+  background: rgba(148, 163, 184, 0.08);
+}
+.browser-tasks-live__item.is-active {
+  background: rgba(59, 130, 246, 0.16);
+}
+.browser-tasks-live__row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+.browser-tasks-live__id {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: copy;
+  font: inherit;
+  font-size: 0.72rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.browser-tasks-live__status {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: lowercase;
+}
+.browser-tasks-live__item.is-active .browser-tasks-live__status {
+  color: #bfdbfe;
+}
+.browser-tasks-live__goal,
+.browser-tasks-live__summary {
+  margin-top: 0.12rem;
+  font-size: 0.72rem;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.browser-tasks-live__summary {
+  color: var(--muted);
+}
 .chat-history-header {
   flex-shrink: 0;
   padding: 0.85rem 1rem 0.65rem;

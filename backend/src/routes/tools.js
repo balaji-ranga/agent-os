@@ -14,6 +14,16 @@ import * as meta from '../services/content-tools-meta.js';
 import { assertCallerMayUseTool } from '../services/openclaw-agent-tools.js';
 import { parseTenantOpenClawAgentId, resolveAgentFromOpenClawCallerId } from '../services/openclaw-tenant.js';
 import { resolveOwnerFromOpenClawSession } from '../services/tool-owner-scope.js';
+import {
+  startBrowserTask,
+  getBrowserTask,
+  waitForBrowserTask,
+  listBrowserTasks,
+  toolBrowseSnapshot,
+  toolBrowseAct,
+} from '../services/browser-tasks.js';
+import { listRecipes } from '../services/browser-recipes.js';
+import { getBrowserSessionStatus } from '../services/client-browser-session.js';
 
 function sanitizeTenantId(value) {
   return String(value || '')
@@ -2004,6 +2014,214 @@ router.post('/invoke', requireToolsAccess, async (req, res) => {
     const errMsg = e.name === 'AbortError' ? 'Request timeout' : e.message;
     logTool(req,req.body?.tool_name || '?', req.body, { error: errMsg }, 'error', source);
     res.status(500).json({ error: errMsg });
+  }
+});
+
+router.post('/browse-session-status', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload);
+    const out = await getBrowserSessionStatus(ownerUserId);
+    logTool(req, 'browse_session_status', requestPayload, { ok: true, mode: out.session?.mode }, 'ok', source);
+    res.json({ ok: true, ...out });
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'browse_session_status', requestPayload, err, 'error', source);
+    res.status(e.status || 400).json(err);
+  }
+});
+
+router.post('/browse-task-start', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    if (source) {
+      const grantCheck = assertCallerMayUseTool(source, 'browse_task_start');
+      if (!grantCheck.ok) {
+        const err = { error: grantCheck.error || 'Tool not allowed for this agent' };
+        logTool(req, 'browse_task_start', requestPayload, err, 'error', source);
+        return res.status(403).json(err);
+      }
+      const mode = String(requestPayload.mode || '').trim();
+      if (mode === 'recipe_replay') {
+        const runGrant = assertCallerMayUseTool(source, 'browse_recipe_run');
+        if (!runGrant.ok) {
+          const err = {
+            error:
+              runGrant.error ||
+              'Playing saved recipes requires browse_recipe_run tool access (Agent Workspace → Tool access). Prefer calling browse_recipe_run.',
+          };
+          logTool(req, 'browse_task_start', requestPayload, err, 'error', source);
+          return res.status(403).json(err);
+        }
+      }
+    }
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload);
+    const task = await startBrowserTask(ownerUserId, {
+      ...requestPayload,
+      agent_id: source || requestPayload.agent_id || 'workflowbuilder',
+    });
+    logTool(req, 'browse_task_start', requestPayload, { ok: true, id: task.id }, 'ok', source);
+    res.json({
+      ok: true,
+      task_id: task.id,
+      task,
+      agent_hint:
+        'Do not use the built-in browser tool. Immediately tell the CEO this task_id. Optionally call browse_task_status once with wait_ms: 90000; if still running, reply with the task_id.',
+    });
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'browse_task_start', requestPayload, err, 'error', source);
+    res.status(e.status || 400).json(err);
+  }
+});
+
+router.post('/browse-task-status', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    if (source) {
+      const grantCheck = assertCallerMayUseTool(source, 'browse_task_status');
+      if (!grantCheck.ok) {
+        const err = { error: grantCheck.error || 'Tool not allowed for this agent' };
+        logTool(req, 'browse_task_status', requestPayload, err, 'error', source);
+        return res.status(403).json(err);
+      }
+    }
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload);
+    if (requestPayload.task_id) {
+      const waitMs = Math.min(90000, Math.max(Number(requestPayload.wait_ms ?? requestPayload.waitMs) || 0, 0));
+      const task = waitMs
+        ? await waitForBrowserTask(ownerUserId, String(requestPayload.task_id), waitMs)
+        : getBrowserTask(ownerUserId, String(requestPayload.task_id));
+      if (!task) return res.status(404).json({ error: 'Task not found' });
+      logTool(req, 'browse_task_status', requestPayload, { ok: true, status: task.status }, 'ok', source);
+      return res.json({ ok: true, task });
+    }
+    const page = listBrowserTasks(ownerUserId, {
+      limit: requestPayload.limit || 10,
+      offset: requestPayload.offset || 0,
+      days: requestPayload.days,
+    });
+    logTool(req, 'browse_task_status', requestPayload, { ok: true, n: page.tasks.length }, 'ok', source);
+    res.json({ ok: true, ...page });
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'browse_task_status', requestPayload, err, 'error', source);
+    res.status(e.status || 400).json(err);
+  }
+});
+
+router.post('/browse-snapshot', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload);
+    const out = await toolBrowseSnapshot(ownerUserId, requestPayload);
+    logTool(req, 'browse_snapshot', requestPayload, { ok: true, profile: out.profile }, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'browse_snapshot', requestPayload, err, 'error', source);
+    res.status(e.status || 400).json(err);
+  }
+});
+
+router.post('/browse-act', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload);
+    const out = await toolBrowseAct(ownerUserId, requestPayload);
+    logTool(req, 'browse_act', requestPayload, { ok: out.ok }, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'browse_act', requestPayload, err, 'error', source);
+    res.status(e.status || 400).json(err);
+  }
+});
+
+router.post('/browse-recipe-list', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    if (source) {
+      const grantCheck = assertCallerMayUseTool(source, 'browse_recipe_list');
+      if (!grantCheck.ok) {
+        const err = { error: grantCheck.error || 'Tool not allowed for this agent' };
+        logTool(req, 'browse_recipe_list', requestPayload, err, 'error', source);
+        return res.status(403).json(err);
+      }
+    }
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload);
+    const page = listRecipes(ownerUserId, {
+      limit: requestPayload.limit,
+      offset: requestPayload.offset,
+    });
+    logTool(req, 'browse_recipe_list', requestPayload, { ok: true, n: page.recipes.length }, 'ok', source);
+    res.json({ ok: true, ...page });
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'browse_recipe_list', requestPayload, err, 'error', source);
+    res.status(e.status || 400).json(err);
+  }
+});
+
+router.post('/browse-recipe-run', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    if (source) {
+      const grantCheck = assertCallerMayUseTool(source, 'browse_recipe_run');
+      if (!grantCheck.ok) {
+        const err = {
+          error:
+            grantCheck.error ||
+            'Playing saved recipes requires browse_recipe_run tool access (Agent Workspace → Tool access)',
+        };
+        logTool(req, 'browse_recipe_run', requestPayload, err, 'error', source);
+        return res.status(403).json(err);
+      }
+    }
+    const recipeName = String(requestPayload.recipe_name || requestPayload.recipeName || '').trim();
+    const recipeId = String(requestPayload.recipe_id || requestPayload.recipeId || '').trim();
+    if (!recipeName && !recipeId) {
+      const err = { error: 'recipe_name or recipe_id required' };
+      logTool(req, 'browse_recipe_run', requestPayload, err, 'error', source);
+      return res.status(400).json(err);
+    }
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload);
+    const task = await startBrowserTask(ownerUserId, {
+      mode: 'recipe_replay',
+      recipe_name: recipeName || undefined,
+      recipe_id: recipeId || undefined,
+      start_url: requestPayload.start_url || requestPayload.startUrl,
+      goal: requestPayload.goal || (recipeName ? `Replay recipe: ${recipeName}` : `Replay recipe ${recipeId}`),
+      agent_id: source || requestPayload.agent_id || 'workflowbuilder',
+    });
+    const waitMs = Math.min(90000, Math.max(Number(requestPayload.wait_ms ?? requestPayload.waitMs) || 0, 0));
+    const finalTask = waitMs ? await waitForBrowserTask(ownerUserId, String(task.id), waitMs) : task;
+    logTool(
+      req,
+      'browse_recipe_run',
+      requestPayload,
+      { ok: true, id: finalTask?.id || task.id, status: finalTask?.status || task.status },
+      'ok',
+      source
+    );
+    res.json({
+      ok: true,
+      task_id: finalTask?.id || task.id,
+      task: finalTask || task,
+      agent_hint:
+        'Recipe replay started. Tell the CEO this task_id. If still running, call browse_task_status with wait_ms: 90000 (requires browse_task_status grant).',
+    });
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'browse_recipe_run', requestPayload, err, 'error', source);
+    res.status(e.status || 400).json(err);
   }
 });
 

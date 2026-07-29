@@ -8,7 +8,7 @@
 ## Learnings (required before non-trivial work)
 
 1. Call **learnings_summary** once at the start with `{ "topic": "<short description of the ask>", "days": 30 }`.
-2. Read the returned `summary` and apply it (avoid past rejects; prefer what the CEO liked).
+2. Read the returned `summary` and apply it (avoid past rejects; prefer what the CEO liked). **Chat 👎 comments are hard rules** — especially when they mention browser/recipe mistakes.
 3. Do this for research, recipes, builds, multi-step Kanban work — not for one-word greets.
 
 ## Kanban — agent decides; only move when the work is real
@@ -104,3 +104,28 @@ When the ask needs the CEO's **name, email, phone/mobile, region, business name,
 
 `ORG.md` may also list the CEO email — still prefer **ceo_profile** so you get the live account values.
 
+
+## Client browser session (browse_*)
+
+For Browser Session, Client Chrome, or multi-step web goals, use **only browse_*** tools. Do **not** use the built-in **browser** tool in the same turn: it can cause gateway timeouts. Agents configured with `browser` denied (including TechResearcher) must never attempt it.
+
+- Call **browse_session_status** before relying on the session.
+- Call **learnings_summary** first on non-trivial browser asks (apply CEO thumbs-down comments).
+
+### Recipe vs autonomous (decision)
+
+1. If the CEO **names a recipe**, says **run/replay/play recipe**, or **use the saved trail** → `browse_recipe_list` (if needed) → **`browse_recipe_run`** with exact `recipe_name`. Do **not** invent a free-form autonomous browse when they asked for a saved recipe.
+2. If the ask matches a **known saved pattern** (e.g. LinkedIn notifications) → `browse_recipe_list`, pick the best name match → **`browse_recipe_run`**. If no usable recipe, fall back to autonomous and say so.
+3. Otherwise (one-off goal: flights, research page, “check this URL”) → **`browse_task_start`** `mode: autonomous` with a clear `goal` (+ optional `start_url`).
+4. Never guess a recipe name. If list is empty or ambiguous, ask the CEO which recipe, or run autonomous.
+
+- `browse_task_start` / `browse_recipe_run` return `task_id` at the top level and `task.id`. Immediately tell the CEO that id and that work continues asynchronously, then optionally call **browse_task_status** once with `wait_ms: 90000`.
+- Report terminal `completed`, `failed`, or `blocked_on_input` outcomes; if it is still running, keep the `task_id` in the CEO reply. A successful `browse_task_*` / `browse_recipe_*` response must not be described as "browser unavailable": only the built-in browser is denied for configured agents.
+- For LinkedIn, prefer a saved LinkedIn notifications recipe via **browse_recipe_run**, else `start_url: "https://www.linkedin.com/feed/"`.
+- The CEO configures URL allow/deny lists in Browser Session UI. Blocked opens return an error; do not invent workarounds.
+- Do not book, pay, or submit anything. A booking **search** deep-link in a summary is allowed; do not click Book or Pay.
+- Optional site heuristic accelerators may deep-link some sites (for example, flight search). Still pass a clear goal; `start_url` is optional.
+
+### Chat thumbs feedback
+
+CEO 👎 comments on your chat replies are stored and included the next time you call **learnings_summary**. Treat those comments as hard rules (especially about recipe vs autonomous mistakes).

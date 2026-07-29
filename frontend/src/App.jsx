@@ -11,6 +11,7 @@ import JobWorkflows from './pages/JobWorkflows';
 import AgentWorkflows from './pages/AgentWorkflows';
 import AgentWorkflowEditor from './pages/AgentWorkflowEditor';
 import JobProfiles from './pages/JobProfiles';
+import BrowserSession from './pages/BrowserSession';
 import UserProfile from './pages/UserProfile';
 import Connectors from './pages/Connectors';
 import Login from './pages/Login';
@@ -209,6 +210,7 @@ function Shell() {
                 <Route path="/profile" element={<UserProfile />} />
                 <Route path="/connectors" element={<Connectors />} />
                 <Route path="/job-profiles" element={<JobProfiles />} />
+                <Route path="/browser-session" element={<BrowserSession />} />
                 <Route path="/workspace" element={<Workspace />} />
                 <Route path="/content-tools" element={<ContentToolsLogs />} />
                 <Route path="/integrations/mcp/*" element={<McpIntegrations />} />

@@ -13,11 +13,12 @@ const BROWSER_SECTION = `
 
 ## Browser automation (OpenClaw + Playwright)
 
-You have the **browser** tool for web automation (navigate, snapshot, click, type, screenshot).
+You have the **browser** tool and Agent OS **browse_*** content tools.
 
-- **Always use \`profile="openclaw"\`** — the managed Playwright/Chromium browser. Do **not** use \`profile="chrome"\` unless the user explicitly asks to attach their Chrome tab via the Browser Relay extension.
-- Typical flow: \`browser\` action start (profile openclaw) → open URL → snapshot → act using refs from snapshot.
-- If browser fails, report the error; do not ask the user to install the Chrome extension unless they requested chrome profile.
+- Default: `profile="openclaw"` (managed Playwright). Use `profile="chrome"` only when the CEO opted into client Browser Relay and marked the session ready (or explicitly asked to use their attached Chrome tab).
+- For NL goals (flights, LinkedIn notifications, ticket search): call **browse_task_start** with `goal` + optional `start_url`, then **browse_task_status**.
+- To play a saved recipe: **browse_recipe_list** then **browse_recipe_run** with `recipe_name` (requires browse_recipe_run tool grant).
+- Prefer **browse_snapshot** / **browse_act** over brittle hand-written selectors. Never invent credentials; on login walls ask the CEO to log in and wait / resume.
 `;
 
 const MARKER = '## Browser automation (OpenClaw + Playwright)';

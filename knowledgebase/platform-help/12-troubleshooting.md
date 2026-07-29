@@ -178,3 +178,13 @@ Confirm **Job profile** is complete and pipeline/cron is enabled for your enviro
 | Delegation / standup / email | **COO** |
 | Research / social / expense specialty | Matching specialist |
 | Gateway, SMTP, DNS, deploy | Platform admin / ops |
+
+
+## Browser Session / browse_* tools
+
+1. Agent says browser unavailable after a successful `browse_task_*` / `browse_recipe_*` — that only means the **built-in** browser tool is denied; trust the content-tool result and `task_id`.
+2. Recipe list empty for another CEO’s recipes — expected; recipes are per entitled CEO.
+3. Agent can list but not play — grant **`browse_recipe_run`** in Workspace → Tool access.
+4. Client Chrome not ready — Browser Session → opt in, attach tab, Mark ready.
+5. Opens blocked — check URL allow/deny lists.
+6. Full guide: [22-browser-session-and-recipes.md](./22-browser-session-and-recipes.md).

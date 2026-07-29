@@ -64,12 +64,40 @@ if (GATEWAY_TOKEN) {
 if (!config.plugins) config.plugins = {};
 if (!config.plugins.entries) config.plugins.entries = {};
 config.plugins.entries.codex = { ...(config.plugins.entries.codex || {}), enabled: false };
+// Persist browser plugin enablement so gateway HTTP/WS routes (incl. /browser/extension)
+// register at startup instead of tool-only auto-enable.
+config.plugins.entries.browser = { ...(config.plugins.entries.browser || {}), enabled: true };
 if (!Array.isArray(config.plugins.allow)) config.plugins.allow = [];
 for (const id of ['agent-os-content-tools', 'browser', 'agent-os-bootstrap-watcher']) {
   if (!config.plugins.allow.includes(id)) config.plugins.allow.push(id);
 }
 config.plugins.allow = config.plugins.allow.filter((id) => id !== 'codex');
 console.log('Disabled plugins.entries.codex; plugins.allow=', config.plugins.allow.join(', '));
+
+// Root browser block is required for the built-in `browser` tool to register.
+// Without it, /tools/invoke returns "Tool not available: browser" for every agent.
+if (!config.browser || typeof config.browser !== 'object') config.browser = {};
+config.browser.enabled = true;
+config.browser.defaultProfile = config.browser.defaultProfile || 'openclaw';
+if (!config.browser.profiles || typeof config.browser.profiles !== 'object') {
+  config.browser.profiles = { openclaw: { cdpPort: 18800, color: '#FF4500' } };
+} else if (!config.browser.profiles.openclaw) {
+  config.browser.profiles.openclaw = { cdpPort: 18800, color: '#FF4500' };
+}
+if (config.browser.headless == null) config.browser.headless = true;
+if (config.browser.noSandbox == null) config.browser.noSandbox = true;
+console.log(
+  'Set browser.enabled=true defaultProfile=%s headless=%s',
+  config.browser.defaultProfile,
+  config.browser.headless
+);
+
+// Nginx (host network) + docker-proxy appear as these peers; without trustedProxies the
+// gateway warns and treats Browser Relay clients as remote.
+if (!Array.isArray(config.gateway.trustedProxies) || config.gateway.trustedProxies.length === 0) {
+  config.gateway.trustedProxies = ['127.0.0.1', '::1', '172.16.0.0/12', '10.0.0.0/8'];
+  console.log('Set gateway.trustedProxies for reverse-proxy / docker peers');
+}
 
 if (!config.tools) config.tools = {};
 if (!config.tools.sessions) config.tools.sessions = {};
@@ -79,8 +107,14 @@ console.log('Set tools.sessions.visibility:', SESSION_VISIBILITY);
 // OpenClaw intersects agent tools.allow with global tools.allow. Plugin tools missing
 // from the global list are stripped (COO learnings_summary regressed this way).
 if (!Array.isArray(config.tools.allow)) config.tools.allow = [];
+// OpenClaw 2026.7+: `browser` is a plugin tool with empty tool-profiles. Listing it in
+// tools.allow marks it as an unavailable core entry. Keep it out of the global allowlist;
+// enable via agents.list browser-cdp tools.profile + tools.alsoAllow instead.
+config.tools.allow = config.tools.allow.filter((name) => String(name) !== 'browser');
+delete config.tools.alsoAllow;
 let globalAdded = 0;
 for (const name of REQUIRED_GLOBAL_CONTENT_TOOLS) {
+  if (name === 'browser') continue;
   if (!config.tools.allow.includes(name)) {
     config.tools.allow.push(name);
     globalAdded += 1;
@@ -98,22 +132,76 @@ const AGENT_CONTENT_TOOLS = {
   workflowbuilder: WORKFLOW_BUILDER_CONTENT_TOOLS_ALLOW,
   platformhelp: PLATFORM_HELP_CONTENT_TOOLS_ALLOW,
 };
+// Chat agents that must use browse_* (not built-in browser). Do NOT blanket-deny
+// browser for every agent that has browse_task_start — that breaks backend CDP
+// invokes (jobdiscovery / browser-cdp) and job portal automation.
+const BROWSER_DENIED_AGENT_IDS = new Set(['techresearcher', 'balserve', 'workflowbuilder', 'platformhelp']);
+const BROWSER_CDP_AGENT_ID = String(process.env.BROWSER_TASK_CDP_AGENT_ID || 'browser-cdp').trim() || 'browser-cdp';
+
+function applyBrowserCdpAgentTools(agent) {
+  agent.tools = agent.tools || {};
+  // OpenClaw forbids allow + alsoAllow in the same scope. Browser is not in coding/minimal/
+  // messaging profiles, so enable it with profile + alsoAllow only.
+  delete agent.tools.allow;
+  agent.tools.profile = 'coding';
+  agent.tools.alsoAllow = ['browser'];
+  agent.tools.deny = ['image'];
+}
+
+// Dedicated backend CDP agent: always allowed to use built-in browser tool.
+if (!Array.isArray(config.agents.list)) config.agents.list = [];
+{
+  const existing = config.agents.list.find(
+    (a) => String(a?.id || '').toLowerCase() === BROWSER_CDP_AGENT_ID.toLowerCase()
+  );
+  if (existing) {
+    existing.name = existing.name || 'Browser CDP';
+    applyBrowserCdpAgentTools(existing);
+  } else {
+    const cdpAgent = {
+      id: BROWSER_CDP_AGENT_ID,
+      name: 'Browser CDP',
+      tools: {},
+    };
+    applyBrowserCdpAgentTools(cdpAgent);
+    config.agents.list.push(cdpAgent);
+  }
+  console.log('Ensured CDP browser agent:', BROWSER_CDP_AGENT_ID, '(profile=coding alsoAllow=browser)');
+}
+
 if (Array.isArray(config.agents?.list)) {
   for (const agent of config.agents.list) {
     const id = String(agent?.id || '').toLowerCase();
-    const required = AGENT_CONTENT_TOOLS[id];
-    if (!required) continue;
+    const leafId = id.includes('--') ? id.split('--').pop() : id;
+    const isCdpAgent = id === BROWSER_CDP_AGENT_ID.toLowerCase() || leafId === BROWSER_CDP_AGENT_ID.toLowerCase();
+    if (isCdpAgent) {
+      applyBrowserCdpAgentTools(agent);
+      continue;
+    }
+    const required = AGENT_CONTENT_TOOLS[id] || AGENT_CONTENT_TOOLS[leafId];
     agent.tools = agent.tools || {};
     if (!Array.isArray(agent.tools.allow)) agent.tools.allow = [];
-    let n = 0;
-    for (const name of required) {
+    // Keep allowlists free of the unavailable core `browser` entry.
+    agent.tools.allow = agent.tools.allow.filter((name) => String(name) !== 'browser');
+    delete agent.tools.alsoAllow;
+    let added = 0;
+    for (const name of required || []) {
+      if (name === 'browser') continue;
       if (!agent.tools.allow.includes(name)) {
         agent.tools.allow.push(name);
-        n += 1;
+        added += 1;
       }
     }
-    if (!agent.tools.deny) agent.tools.deny = ['image'];
-    if (n) console.log(`Added ${n} tool(s) to agents.list ${id} tools.allow`);
+    const deny = Array.isArray(agent.tools.deny) ? agent.tools.deny : [];
+    const mustDenyBrowser = BROWSER_DENIED_AGENT_IDS.has(id) || BROWSER_DENIED_AGENT_IDS.has(leafId);
+    if (required || mustDenyBrowser) {
+      if (!deny.includes('image')) deny.push('image');
+    }
+    if (mustDenyBrowser) {
+      if (!deny.includes('browser')) deny.push('browser');
+    }
+    agent.tools.deny = deny;
+    if (added) console.log(`Added ${added} tool(s) to agents.list ${id} tools.allow`);
   }
 }
 
@@ -407,5 +495,13 @@ for (const id of ['agent-os-content-tools', 'agent-os-bootstrap-watcher']) {
 console.log('Normalized plugins.load.paths for container:', config.plugins.load.paths);
 
 if (!existsSync(OPENCLAW_DIR)) mkdirSync(OPENCLAW_DIR, { recursive: true });
+// OpenClaw intersects global tools.allow with agent alsoAllow and strips `browser`
+// (plugin tool outside coding/messaging profiles). Keep content tools on per-agent
+// allowlists; omit the global allowlist so browser-cdp profile+alsoAllow works.
+if (config.tools) {
+  delete config.tools.allow;
+  delete config.tools.alsoAllow;
+  console.log('Cleared global tools.allow (required for browser CDP /tools/invoke)');
+}
 writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
 console.log('Updated', CONFIG_PATH);

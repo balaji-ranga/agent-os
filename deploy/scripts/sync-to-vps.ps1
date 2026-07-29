@@ -58,6 +58,7 @@
 # Admin Documents RAG + /opensearch/ BFF; ensure-opensearch-env.sh; BM25 default / optional embeddings),
 # agent delete cascade (transactional, clears kanban assignments) + deleted_agents tombstone
 # (startup catalog re-grant and OpenClaw sync no longer resurrect a deleted agent),
+# Browser Session + browse_* tools (recipe list/run, browser-cdp, Client Chrome relay),
 # Admin Tools Onboarding (docker.sock overlay, TOTP step-up, registry allow-list,
 # content-tool register + OpenClaw reload; Admin Crons last_run persists).
 param(
@@ -93,6 +94,10 @@ scp @ssh `
   "$Repo\deploy\README.md" `
   "root@${HostIp}:$RemoteRoot/deploy/"
 scp @ssh -r "$Repo\deploy\docker" "root@${HostIp}:$RemoteRoot/deploy/"
+Write-Host "==> Sync deploy/assets (OpenClaw chrome-extension pack)"
+ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/deploy/assets"
+scp @ssh -r "$Repo\deploy\assets" "root@${HostIp}:$RemoteRoot/deploy/"
+scp @ssh "$Repo\deploy\scripts\sync-openclaw-chrome-extension.sh" "root@${HostIp}:$RemoteRoot/deploy/scripts/"
 scp @ssh `
   "$Repo\deploy\nginx\nginx.conf" `
   "$Repo\deploy\nginx\nginx.host-network.conf" `

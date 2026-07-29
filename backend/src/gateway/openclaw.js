@@ -15,9 +15,12 @@ let _cachedGatewayToken = null;
 export const CHAT_INSTRUCTION_SESSION_HISTORY =
   'Before responding: get your session history for context (e.g. use sessions_history with your session key) so you have the conversation context.';
 
-/** Force managed Playwright browser — avoid chrome extension relay unless user asks. */
+/**
+ * Default managed Playwright; use chrome only when CEO has client browser session ready.
+ * Prefer browse_task_start / browse_snapshot content tools for NL browser goals.
+ */
 export const CHAT_INSTRUCTION_BROWSER =
-  'When using the browser tool, always set profile="openclaw" (managed Playwright/Chromium). Do NOT use profile="chrome" and do NOT ask the user to click the OpenClaw Chrome extension unless they explicitly requested attaching their own Chrome tab.';
+  'Browser automation: default profile="openclaw" (managed Playwright). Only use profile="chrome" (Browser Relay / CEO Chrome tab) when the CEO has opted into client browser mode and marked the session ready — or when they explicitly ask to use their attached Chrome tab. For natural-language goals (search flights, summarize LinkedIn notifications), prefer browse_task_start / browse_task_status / browse_snapshot content tools instead of hand-written selector scripts. Never invent credentials; if login is required, ask the CEO to log in and wait.';
 
 /** Before starting work: pull user+agent learnings (feedback + Kanban decisions). */
 export const CHAT_INSTRUCTION_LEARNINGS =
