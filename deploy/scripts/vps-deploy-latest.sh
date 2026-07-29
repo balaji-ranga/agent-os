@@ -81,7 +81,7 @@ echo "              workflow API/MCP/A2A auth templates ({{nodeId.path}} bearer/
 echo "              Brave Search MCP BYOK (workflow keys only; no env key fallback),"
 echo "              Workflow certify Maker/Checker (LLM Checker default OFF),"
 echo "              DeepSeek@Ollama,"
-echo "              hPanel light theme (app-topbar + profile-menu + collapsible nav),"
+echo "              hPanel shell + light/dark theme (ThemeToggle, data-theme),"
 echo "              workflow editor fullscreen (shell-focus-mode + Exit to workflows),"
 echo "              Register MCP / Register Agents primary CTAs (page-hero),"
 echo "              department purpose + monthly_token_budget (Master Data departments),"
@@ -185,7 +185,7 @@ else
   echo "    WARN: app-mobile-topbar not found in frontend CSS (rebuild frontend?)"
 fi
 
-# hPanel-style light shell (topbar + profile avatar menu + light tokens)
+# hPanel shell + light/dark theme (topbar, profile menu, ThemeToggle, CSS tokens)
 if docker compose exec -T frontend sh -c 'cat /usr/share/nginx/html/assets/*.css' 2>/dev/null | grep -q 'app-topbar'; then
   echo "    frontend assets: app-topbar (hPanel shell) OK"
 else
@@ -199,17 +199,44 @@ fi
 if docker compose exec -T frontend sh -c 'cat /usr/share/nginx/html/assets/*.css' 2>/dev/null | grep -q '#f7f8f9'; then
   echo "    frontend assets: light theme token (--bg #f7f8f9) OK"
 else
-  echo "    WARN: light theme bg token not found in frontend CSS (still dark theme?)"
+  echo "    WARN: light theme bg token missing (stale frontend? try NO_CACHE=1)"
+fi
+if docker compose exec -T frontend sh -c 'cat /usr/share/nginx/html/assets/*.css' 2>/dev/null | grep -q 'theme-toggle-btn'; then
+  echo "    frontend assets: theme-toggle-btn OK"
+else
+  echo "    WARN: theme-toggle-btn not found in frontend CSS (rebuild frontend?)"
+fi
+if docker compose exec -T frontend sh -c 'cat /usr/share/nginx/html/assets/*.css' 2>/dev/null | grep -q '#0f1115'; then
+  echo "    frontend assets: dark theme token (--bg #0f1115) OK"
+else
+  echo "    WARN: dark theme bg token missing (stale frontend? try NO_CACHE=1)"
 fi
 if docker compose exec -T frontend sh -c 'grep -Rql ProfileMenu /usr/share/nginx/html/assets/*.js 2>/dev/null || grep -Rql profile-menu /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
   echo "    frontend assets: ProfileMenu JS OK"
 else
   echo "    WARN: ProfileMenu not found in frontend JS (rebuild frontend?)"
 fi
+if docker compose exec -T frontend sh -c 'grep -Rql agent-os-theme /usr/share/nginx/html/assets/*.js 2>/dev/null || grep -Rql "Switch to dark" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: ThemeToggle / agent-os-theme OK"
+else
+  echo "    WARN: ThemeToggle not found in frontend JS (rebuild frontend?)"
+fi
 if docker compose exec -T frontend sh -c 'grep -Rql nav-section-chevron /usr/share/nginx/html/assets/*.css 2>/dev/null || cat /usr/share/nginx/html/assets/*.css 2>/dev/null | grep -q nav-section-chevron'; then
   echo "    frontend assets: collapsible nav sections OK"
 else
   echo "    WARN: nav-section-chevron not found (collapsible menus missing?)"
+fi
+# Tools nav (UI label; route remains /content-tools) + Agent Workspaces Add agent
+# (component names are minified away — use stable UI strings)
+if docker compose exec -T frontend sh -c 'grep -Rql "Reports to (COO default)" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: Add agent form (Agent Workspaces) OK"
+else
+  echo "    WARN: Add agent form strings not found in frontend JS (workspace Add agent missing?)"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql agent-workspace-card /usr/share/nginx/html/assets/*.css 2>/dev/null || cat /usr/share/nginx/html/assets/*.css 2>/dev/null | grep -q agent-workspace-card'; then
+  echo "    frontend assets: agent-workspace-card OK"
+else
+  echo "    WARN: agent-workspace-card CSS missing (rebuild frontend?)"
 fi
 
 # AgentExchange SPA shell + A2A modal CSS (PublishA2AModal)

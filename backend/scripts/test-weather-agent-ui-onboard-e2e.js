@@ -115,7 +115,7 @@ if (Array.isArray(lean)) {
   assert(ids.includes('balserve'), 'A has COO');
 }
 
-console.log('\n=== 2) Dashboard Add agent → POST /api/agents (Weather Forecasting) ===');
+console.log('\n=== 2) Agent Workspaces Add agent → POST /api/agents (Weather Forecasting) ===');
 const created = await api(
   'POST',
   '/api/agents',

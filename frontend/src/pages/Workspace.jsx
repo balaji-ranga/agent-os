@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
+import AddAgentForm from '../components/AddAgentForm';
 
 export default function Workspace() {
   const [agents, setAgents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [clearingAgentId, setClearingAgentId] = useState(null);
+  const [showAdd, setShowAdd] = useState(false);
 
   const clearSessions = (agentId) => {
     if (!window.confirm('Clear all OpenClaw sessions for this agent? Chat and task session history will be reset.')) return;
@@ -20,7 +22,7 @@ export default function Workspace() {
   const fetchAgents = () => {
     setLoading(true);
     api.agentsList()
-      .then(setAgents)
+      .then((list) => setAgents(Array.isArray(list) ? list : list?.agents || []))
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   };
@@ -36,95 +38,105 @@ export default function Workspace() {
       .catch((e) => setError(e.message));
   };
 
-  if (error) return <div style={{ padding: '2rem', color: '#f87171' }}>Error: {error}. <Link to="/">Dashboard</Link></div>;
-  if (loading) return <div style={{ padding: '2rem' }}>Loading agents…</div>;
+  if (loading && agents.length === 0) {
+    return (
+      <div className="page">
+        <p className="page-muted">Loading agents…</p>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ padding: '2rem' }}>
-      <h1 style={{ marginTop: 0 }}>Agent Workspaces</h1>
-      <p style={{ color: 'var(--muted)', marginBottom: '1.5rem' }}>
-        MD file view/edit is per agent. Select an agent to open its SOUL.md, AGENTS.md, and MEMORY.md.
-      </p>
-      <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-        {agents.map((a) => (
-          <li
-            key={a.id}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '1rem',
-              padding: '0.75rem 1rem',
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderRadius: 8,
-              marginBottom: '0.5rem',
-            }}
+    <div className="page">
+      <header className="page-hero">
+        <div className="page-hero-top">
+          <div className="page-hero-titles">
+            <p className="page-hero-kicker">Agentic Workflows</p>
+            <h1>Agent Workspaces</h1>
+          </div>
+          <button
+            type="button"
+            className="btn-primary page-hero-action"
+            onClick={() => setShowAdd((o) => !o)}
+            aria-expanded={showAdd}
           >
-            <span style={{ fontWeight: 500 }}>{a.name}</span>
-            {a.role && <span style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>{a.role}</span>}
-            <span style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem' }}>
-              <Link
-                to={`/agents/${a.id}/workspace`}
-                style={{
-                  padding: '0.35rem 0.75rem',
-                  background: 'var(--accent)',
-                  color: '#fff',
-                  borderRadius: 6,
-                  fontSize: '0.9rem',
-                }}
-              >
+            {showAdd ? 'Hide form' : 'Add agent'}
+          </button>
+        </div>
+        <p className="page-hero-sub">
+          Create specialists, open SOUL/AGENTS/MEMORY, grant tools, and clear stuck sessions. Org chart stays on the Dashboard.
+        </p>
+      </header>
+
+      {error && (
+        <div className="page-banner page-banner-error" role="alert">
+          <span>Error: {error}</span>
+          <button type="button" className="btn-ghost" onClick={() => setError(null)}>
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {showAdd && (
+        <section className="panel panel-accent" style={{ marginBottom: '1.5rem' }}>
+          <h2 className="panel-title">Add agent</h2>
+          <p className="page-muted" style={{ marginTop: 0, marginBottom: '0.85rem' }}>
+            Creates a custom agent in your OpenClaw tenant. Set department and who they report to for the org chart.
+          </p>
+          <AddAgentForm
+            agents={agents}
+            compact
+            onCreated={() => {
+              fetchAgents();
+              setShowAdd(true);
+            }}
+          />
+        </section>
+      )}
+
+      <ul className="agent-workspace-list">
+        {agents.map((a) => (
+          <li key={a.id} className="agent-workspace-card">
+            <div className="agent-workspace-card-meta">
+              <span className="agent-workspace-card-name">{a.name}</span>
+              {a.role && <span className="agent-workspace-card-role">{a.role}</span>}
+              {a.department && <span className="agent-workspace-card-dept">{a.department}</span>}
+            </div>
+            <div className="agent-workspace-card-actions">
+              <Link to={`/agents/${a.id}/workspace`} className="btn-primary btn-sm">
                 Open workspace
               </Link>
-              <Link
-                to={`/agents/${a.id}/chat`}
-                style={{
-                  padding: '0.35rem 0.75rem',
-                  background: 'var(--border)',
-                  color: 'var(--text)',
-                  borderRadius: 6,
-                  fontSize: '0.9rem',
-                }}
-              >
+              <Link to={`/agents/${a.id}/chat`} className="btn-secondary btn-sm">
                 Chat
               </Link>
               <button
                 type="button"
+                className="btn-ghost btn-sm"
                 onClick={() => clearSessions(a.id)}
                 disabled={clearingAgentId === a.id}
                 title="Clear OpenClaw sessions for this agent"
-                style={{
-                  padding: '0.35rem 0.75rem',
-                  background: 'transparent',
-                  color: 'var(--muted)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 6,
-                  fontSize: '0.9rem',
-                  cursor: 'pointer',
-                }}
               >
                 {clearingAgentId === a.id ? 'Clearing…' : 'Clear sessions'}
               </button>
-              <button
-                type="button"
-                onClick={() => removeAgent(a.id)}
-                style={{
-                  padding: '0.35rem 0.75rem',
-                  background: 'transparent',
-                  color: 'var(--muted)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 6,
-                  fontSize: '0.9rem',
-                  cursor: 'pointer',
-                }}
-              >
+              <button type="button" className="btn-ghost btn-sm" onClick={() => removeAgent(a.id)}>
                 Remove
               </button>
-            </span>
+            </div>
           </li>
         ))}
       </ul>
+
       {agents.length === 0 && (
-        <p style={{ color: 'var(--muted)' }}>No agents yet. Add one from the Dashboard.</p>
+        <div className="panel" style={{ textAlign: 'center', padding: '2rem 1.25rem' }}>
+          <p className="page-muted" style={{ margin: '0 0 0.75rem' }}>
+            No agents yet. Add your first specialist here.
+          </p>
+          {!showAdd && (
+            <button type="button" className="btn-primary" onClick={() => setShowAdd(true)}>
+              Add agent
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

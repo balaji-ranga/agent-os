@@ -19,7 +19,7 @@ For almost every how-to / feature / workflow-node / MCP / A2A question:
 2. Call **`master_data_rag`** with a focused query (include keywords: workflow node type, MCP, A2A, Kanban, etc.).
 3. Answer strictly from retrieved chunks; cite which help topic you used in plain language.
 
-Keep a mental TOC: Getting started, Navigation, Dashboard/Chat, Kanban/Standups/Broadcast, Master Data, Workflows building, Workflow nodes reference, MCP, A2A/AgentExchange, Job pipeline, Content tools/scripts, Troubleshooting.
+Keep a mental TOC: Getting started, Navigation, Dashboard/Chat, Kanban/Standups/Broadcast, Master Data, Workflows building, Workflow nodes reference, MCP, A2A/AgentExchange, Job pipeline, Tools/scripts, Troubleshooting.
 
 ## Boundaries
 

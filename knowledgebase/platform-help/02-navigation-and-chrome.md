@@ -4,7 +4,8 @@
 
 - **Left nav toggle** — collapse/expand the sidebar (icons only when collapsed).
 - **Notification bell** — platform alerts (`notify_ceo`) and agent/standup responses. Each item shows its datetime. Hover a short snippet for the full title/body. Open linked chat or Kanban. Clear/dismiss items you have handled.
-- **Profile menu** — Edit profile (`/profile`), Logout.
+- **Profile menu** — Edit profile (`/profile`), light/dark theme, Logout.
+- **Theme toggle** — sun/moon control in the top bar (also under Profile). Choice is saved in the browser.
 - **Impersonation banner** — only when an admin is impersonating a CEO.
 
 ## CEO left navigation
@@ -13,7 +14,7 @@
 
 | Label | Route | Use for |
 |-------|-------|---------|
-| Dashboard | `/` | Org chart, add agent, standups + COO chat, Resync ORG/AGENTS |
+| Dashboard | `/` | Org chart, standups + COO chat, Resync ORG/AGENTS |
 | Kanban | `/kanban` | Generic task board (agent / workflow / pipeline cards), CEO approvals, artifacts |
 | Broadcast | `/broadcast` | Message many agents at once |
 | Master Data | `/master-data` | Tables, documents, RAG |
@@ -35,8 +36,8 @@
 | Label | Route | Use for |
 |-------|-------|---------|
 | Workflows | `/workflows` | Custom visual workflows; editor at `/workflows/:id/edit` |
-| Agent Workspaces | `/workspace` | List agents → workspace MD / tools / **templates** |
-| Content tools | `/content-tools` | Catalog, test invoke, logs |
+| Agent Workspaces | `/workspace` | Add agent, list agents → workspace MD / tools / **templates** |
+| Tools | `/content-tools` | Catalog, test invoke, logs |
 | **Connectors** | `/connectors` | Link SaaS apps (OpenConnector) for **Connector** workflow nodes |
 | MCP | `/integrations/mcp` | Register and test MCP servers |
 | Custom scripts | `/integrations/custom-scripts` | Sandboxed Python/JS/LangGraph scripts |
@@ -68,7 +69,7 @@ Admins also see Connectors (OAuth client config), MCP, Custom scripts, AgentExch
 - **Secrets** → API Keys (vault)  
 - **Automate** → Workflows (+ Workflow Builder agent)  
 - **Integrate SaaS** → Connectors  
-- **Integrate tools/protocol** → MCP, External agents, Custom scripts, Content tools  
+- **Integrate tools/protocol** → MCP, External agents, Custom scripts, Tools  
 - **Measure** → AI Snipper (usage) + Efficiency View (ops outcomes, per-agent budgets)
 - **Cap agent spend / failures** → Efficiency View → Agent View → Edit budget  
 - **Unblock a capped agent** → Efficiency View → Agent View → Reset usage  

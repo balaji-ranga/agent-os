@@ -1,8 +1,12 @@
-# Agent OS frontend — Vite SPA (hPanel light shell, fullscreen workflow editor, OrgDesigner dashboard,
-# Efficiency Agent View, Add-to-org for external/A2A leaf members, department purpose/budget UI,
-# Master Data Purge all uploads + protected help/guide badges).
+# Agent OS frontend — Vite SPA (hPanel shell + light/dark theme, ThemeToggle,
+# Agent Workspaces Add agent, Tools nav (/content-tools), fullscreen workflow editor,
+# OrgDesigner dashboard, Efficiency Agent View, Add-to-org for external/A2A leaf members,
+# department purpose/budget UI, Master Data Purge all uploads + protected help/guide badges).
 # Build context: repo root (see docker-compose.yml). No special build-args beyond VITE_API_URL.
+# Sources must be UTF-8 (not UTF-16) or vite build fails with "Expected ; but found \\x00"
+# (`frontend/scripts/check-utf8.mjs` runs as part of npm run build).
 # After rebuild, always recreate nginx so the reverse proxy picks up the new container IP.
+# Stale UI after sync: rebuild with NO_CACHE=1 / sync-to-vps.ps1 -NoCache.
 FROM node:22-bookworm-slim AS build
 
 WORKDIR /app

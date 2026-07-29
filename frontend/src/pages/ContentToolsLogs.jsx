@@ -222,11 +222,18 @@ export default function ContentToolsLogs() {
   }
 
   return (
-    <div style={{ padding: '2rem', maxWidth: 1200 }}>
-      <h1 style={{ marginTop: 0 }}>Content tools</h1>
-      <p style={{ color: 'var(--muted)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
-        Manage tools (endpoint, purpose, model), test them, enable/disable serving, and onboard new published endpoints. Restart the OpenClaw gateway after changes so agents see the updated list.
-      </p>
+    <div className="page page-wide">
+      <header className="page-hero">
+        <div className="page-hero-top">
+          <div className="page-hero-titles">
+            <p className="page-hero-kicker">Agentic Workflows</p>
+            <h1>Tools</h1>
+          </div>
+        </div>
+        <p className="page-hero-sub">
+          Manage tools (endpoint, purpose, model), test them, enable/disable serving, and onboard new published endpoints. Restart the OpenClaw gateway after changes so agents see the updated list.
+        </p>
+      </header>
 
       {toolsError && (
         <div style={{ padding: '1rem', marginBottom: '1rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, color: '#f87171' }}>

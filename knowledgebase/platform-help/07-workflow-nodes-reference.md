@@ -195,7 +195,7 @@ Upload/approve scripts under **Custom scripts**.
 |--------|---------|
 | `payload` | `result` |
 
-Discover names on **Content tools** or via Workflow Builder `content_tools_enquire`. Never invent tool names.
+Discover names on **Tools** (`/content-tools`) or via Workflow Builder `content_tools_enquire`. Never invent tool names.
 
 ---
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Quick verify after frontend deploy: responsive + hPanel/fullscreen UI markers + media auth.
+# Quick verify after frontend deploy: responsive + hPanel/theme/fullscreen UI markers + media auth.
 #
 # Usage (on VPS):
 #   bash /opt/agent-os/deploy/scripts/vps-verify-frontend-media.sh
@@ -33,11 +33,19 @@ check_css 'app-mobile-topbar'
 check_css 'chat-inline-media'
 check_js 'Open full size'
 
-echo "==> hPanel light shell"
+echo "==> hPanel shell + light/dark theme"
 check_css 'app-topbar'
 check_css 'profile-menu'
 check_css 'nav-section-chevron'
+check_css 'theme-toggle-btn'
 check_css '#f7f8f9'
+check_css '#0f1115'
+check_js 'agent-os-theme'
+check_js 'Switch to dark'
+
+echo "==> Agent Workspaces Add agent"
+check_js 'Reports to (COO default)'
+check_css 'agent-workspace-card'
 
 echo "==> workflow fullscreen + CTAs"
 check_css 'shell-focus-mode'

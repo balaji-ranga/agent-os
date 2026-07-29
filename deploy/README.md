@@ -309,7 +309,9 @@ All proxied under `/api` (rebuild backend + frontend images after upgrade):
 | Admin A2A logs | `GET /api/admin/a2a-invocations` — card/token/invoke audit including IP/OAuth denials |
 | AgentExchange test | `GET /api/agent-exchange/:publishId/test-sample`, `POST /api/agent-exchange/:publishId/test` — authenticated owner test invoke (sync or async + callback; owner bypasses IP/OAuth for testing) |
 | Workflow A2A | `POST /api/a2a/:publishId` (sync/async; public or Bearer); card at `/.well-known/agent-card.json`; secured: `POST /api/a2a/:publishId/oauth/token`. Default **deny_all** until policy changed. Async callbacks: `a2a.workflow.completed|failed|cancelled` webhook JSON; mock inbox `POST/GET /api/a2a-callback-inbox`. Env: `A2A_*` + `*_FULL_REBUILD_DAYS` in `.env.example`. VPS real client IP: `docker-compose.vps-client-ip.yml`. |
-| hPanel light UI | White shell: left collapsible nav sections, topbar profile avatar menu, light CSS tokens (`--bg #f7f8f9`) |
+| hPanel shell + themes | Collapsible left nav, topbar profile menu + **ThemeToggle** (light/dark via `data-theme` / `agent-os-theme`); CSS tokens `#f7f8f9` / `#0f1115` |
+| Agent Workspaces Add agent | Primary create path: `/workspace` → **Add agent** (`AddAgentForm`); Dashboard org chart **Design** still has an add modal |
+| Tools nav | CEO nav label **Tools** → `/content-tools` (content-tools plugin/API name unchanged) |
 | Workflow fullscreen editor | `/workflows/:id/edit` hides platform nav/topbar (`shell-focus-mode`); compact nodes/panes; **Exit to workflows** |
 | Register MCP / Agents CTAs | Primary accent buttons + shared `page-hero` alignment on MCP registry and External Agents |
 | COO status checker | `POST /api/tools/status-checker` (COO grant only) + `POST /api/cron/run-status-checker` (returns `html` for Dashboard popup); daily `COO_STATUS_CHECKER_CRON` (default `0 9 * * *`) → standup post + HTML email per CEO |
@@ -490,17 +492,22 @@ Frontend-only rebuild + bundle markers:
 bash /opt/agent-os/deploy/scripts/vps-rebuild-frontend.sh
 ```
 
-Quick UI + media verify (hPanel, fullscreen editor, Register CTAs, media auth):
+Quick UI + media verify (hPanel + themes, fullscreen editor, Register CTAs, media auth):
 
 ```bash
 bash /opt/agent-os/deploy/scripts/vps-verify-frontend-media.sh
 ```
 
+**Frontend encoding:** sources under `frontend/src` must be **UTF-8** (not UTF-16). On Windows, UTF-16 LE breaks `vite build` (`Expected ";" but found "\x00"`). Check with `node scripts/check-frontend-utf8.mjs` or `cd frontend && npm run check:utf8` (also runs as part of `frontend` `npm run build` / Docker image build).
+
 **Post-deploy frontend markers** (fail = rebuild with `NO_CACHE=1` / `-NoCache`):
 
 | Marker | Meaning |
 |--------|---------|
-| `app-topbar` / `profile-menu` / `#f7f8f9` | hPanel light shell |
+| `app-topbar` / `profile-menu` / `theme-toggle-btn` | hPanel shell + theme toggle |
+| `#f7f8f9` / `#0f1115` | Light and dark `--bg` tokens |
+| `agent-os-theme` / `Switch to dark` | Theme persistence + toggle copy in JS bundle |
+| `Reports to (COO default)` / `agent-workspace-card` | Agent Workspaces Add agent UI |
 | `nav-section-chevron` | Collapsible left nav sections |
 | `shell-focus-mode` / `Exit to workflows` / `wf-editor-exit` | Fullscreen workflow editor |
 | `Register MCP` / `Register Agents` / `page-hero` | Aligned primary CTAs |

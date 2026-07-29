@@ -235,9 +235,9 @@ Set in backend `.env`:
 | **Platform logging & redaction** | `PLATFORM_LOG_LEVEL=off\|error\|info` for backend request/error logs. Secrets (API keys, bearer tokens, `Authorization`, passwords, MFA codes) are redacted from URLs, JSON bodies and headers; API Keys / auth routes log method + route only. Unit tests: `backend/scripts/test-security-hardening-unit.js`. |
 | **Multi-tenant isolation** | Standups and delegation tasks carry `owner_user_id`. Standup cron and delegation cron loop **per enabled CEO** so one CEO never sees another’s standups, chats, or queued agent work. APIs filter by authenticated CEO. |
 | **Org-aware agents** | Every agent in a CEO’s org gets **ORG.md** (CEO, departments, peers with soul/purpose/skills) plus a tenant-specific COO **AGENTS.md** (delegatees). Synced on provision, agent create, and backend startup. Bootstrap watcher reloads `ORG.md` each turn. |
-| **Dashboard** | List agents (org chart); add agent; open **Chat** per agent; standups with COO chat (owner-scoped only); **Resync ORG.md & AGENTS.md**. |
+| **Dashboard** | Org chart; open **Chat** per agent; standups with COO chat (owner-scoped only); **Resync ORG.md & AGENTS.md**. Add agents from **Agent Workspaces**. |
 | **Chat** | 1:1 chat with an OpenClaw agent via gateway; session affinity per agent; history stored in SQLite; **tool-call icons** on assistant replies when Agent OS tools ran. |
-| **Agent workspace** | Per-agent **SOUL.md, AGENTS.md, ORG.md, MEMORY.md, TOOLS.md** editor (tenant path for signed-in CEO); **Tools access** panel (grant/revoke content tools per agent, hot-sync to OpenClaw without gateway restart). |
+| **Agent Workspaces** | List agents; **Add agent**; per-agent **SOUL.md, AGENTS.md, ORG.md, MEMORY.md, TOOLS.md** editor; **Tools access** panel (grant/revoke content tools per agent, hot-sync to OpenClaw without gateway restart). |
 | **Notifications** | **Bell icon** in nav: agent responses + platform notifications; hover for full text; link to agent Chat; clear/dismiss (shared feed). |
 | **Kanban** | Board view (tasks by agent and status); task detail with **task chat**, artifacts, workflow run links, and linked agent-chat turns (including chats archived later). Reopen task; create task (COO or direct to agent). Auto-completes when COO chat delegations finish. All dates in the platform timezone. |
 | **Custom workflows** | Visual **Workflows** editor: trigger (manual / schedule / chat / event webhook), agent, API, MCP tool, **SSE listen**, **sub-workflow**, Brain (LLM + optional MCP tool calling; **Thinking mode** for DeepSeek/OpenRouter), email, IF/While, parallel/merge, CEO approval, **external agent (A2A)**. Publish, run instances, paginated run history, search, **stop SSE listen** on active runs. |
@@ -249,7 +249,7 @@ Set in backend `.env`:
 | **Job workflows** | Multi-agent **Job Applicant** pipeline (Discovery → Fit Scoring → Resume Tailoring → Application); Kanban-tracked stages; browser/Playwright apply path. See **knowledgebase/JOB-APPLICANT-WORKFLOW.md**. |
 | **MCP integrations** | Register MCP servers (admin/CEO); connect, test tools, playground; use in workflow **MCP Tool** and **SSE Listen** nodes. Local test server: `tools/local-mcp-random-sse/`. Bundled **Brave Search MCP** wrapper (`tools/brave-search-mcp-byok/`, compose profile `optional-brave-mcp`) turns the Brave REST API into an HTTP MCP server — **BYOK only**, the container never reads `BRAVE_API_KEY`. |
 | **External agents (A2A)** | Register external agent endpoints; invoke from workflow **External Agent** node. |
-| **Content tools** | Agent-callable tools: summarize URL, image/video gen, Kanban, **intent_classify_and_delegate**, workflow trigger/enquire/mutate, job applicant tools, **email_send**, **notify_ceo**, **Master Data** (`master_data_list_tables` / row CRUD / `master_data_rag`), learnings, etc.; owner-scoped logs UI; onboard new APIs via script. |
+| **Tools** (UI `/content-tools`) | Agent-callable **content tools**: summarize URL, image/video gen, Kanban, **intent_classify_and_delegate**, workflow trigger/enquire/mutate, job applicant tools, **email_send**, **notify_ceo**, **Master Data**, learnings, etc.; owner-scoped logs UI; onboard new APIs via script. |
 | **Browser Session** | `/browser-session` — managed Playwright or **Client Chrome** (Browser Relay); NL tasks + recorder **recipes**. Agents use **`browse_*`** content tools (`browse_task_start`, `browse_recipe_list`, `browse_recipe_run`, …), CEO-scoped; grant list vs run in Workspace → Tool access. Backend CDP via dedicated OpenClaw agent `browser-cdp` (`BROWSER_TASK_CDP_AGENT_ID`). Chat thumbs-down comments feed `learnings_summary`. Guides: `knowledgebase/CLIENT-BROWSER-SESSION.md`, `knowledgebase/platform-help/22-browser-session-and-recipes.md`. |
 | **Master Data & RAG** | Per-CEO tables + documents (keyword RAG over PDF/DOCX/Excel/text). UI captures **purpose/description** per table. Agents list tables with purpose and CRUD rows / RAG docs via content tools — **no create/alter/drop table**. On register: starter **departments** table + **Flolah User Guide** + **Platform Help** document set. **Purge all uploads** removes CEO uploads only; help/guide docs are protected. |
 | **Platform Help** | Standard agent `platformhelp` — product how-to via `master_data_rag` over `knowledgebase/platform-help/`. See [`knowledgebase/platform-help/README.md`](knowledgebase/platform-help/README.md). |
@@ -403,8 +403,9 @@ All routes below are also available under **`/api/...`** (frontend uses `/api` p
 - `POST /cron/run-data-retention` — retention purge now (CEO session = own data; admin/internal = all CEOs)
 - `GET /platform-notifications` — CEO notify feed (`notify_ceo`)
 
-### Content tools
+### Tools (content tools API)
 
+- UI: **Tools** nav → `/content-tools` (catalog, test, logs).
 - `GET /tools/meta`, `POST /tools/invoke`, workflow chat tools (`agent_workflow_*`), job applicant tools
 - `POST /tools/intent-classify-and-delegate` — COO delegation (stamps `owner_user_id` on standup/tasks)
 - `POST /tools/...` — `email_send`, `notify_ceo`, Kanban helpers, etc. (owner resolved from auth / tenant, not spoofable body ids)

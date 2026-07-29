@@ -44,7 +44,7 @@ Every org member — internal agent or external leaf member — can carry two bu
 
 ### Where to set them
 
-- **Dashboard → Add agent** and **Org designer → Add agent**: two fields on the create form.
+- **Agent Workspaces → Add agent** and **Org designer → Add agent**: two fields on the create form.
 - **Efficiency View → Agent View → Edit budget**: change them any time.
 - **External Agents / AgentExchange → Add to org**: set them when placing an external agent.
 

@@ -17,7 +17,7 @@
 8. MCP onboarding — register, test, workflow/Brain/SSE
 9. A2A — external agents, Publish A2A (Public / Secured OAuth client credentials), AgentExchange
 10. Job profiles / job workflows
-11. Content tools, custom scripts, AI Snipper
+11. Tools, custom scripts, AI Snipper
 12. Troubleshooting + handoffs (Workflow Builder, COO, admin)
 
 ## Consumption model

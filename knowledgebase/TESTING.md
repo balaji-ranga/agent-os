@@ -106,7 +106,7 @@ After opening http://127.0.0.1:3000:
    Agent names and roles come from the DB (no hardcoded names). You should see CEO (me) and, under it, the COO agent (name + role from DB) and delegated agents.
 
 2. **New agent creation**  
-   Use "Add agent" on the Dashboard: enter name and role, submit. The new agent appears in the org chart (under delegated if it has a parent, or add parent later).
+   Open **Agent Workspaces** → **Add agent**: enter name and role (optional department, reports-to, budgets), submit. The new agent appears under Agent Workspaces and on the Dashboard org chart. Org chart → **Design** can also add agents.
 
 3. **Schedule standups**  
    In "Daily standups summary", click "Create standup". A new standup appears in the list. Select it to see COO summary / CEO summary (empty until "Run COO" is used).
@@ -152,7 +152,7 @@ bash /opt/agent-os/deploy/scripts/vps-regression-full.sh   # full post-CEO regre
 Manual UI checks:
 
 1. **Departments** — Dashboard department picker → **Edit**: set purpose + monthly token budget; confirm the row updates in **Master Data → `departments`**.
-2. **Agent budgets** — Dashboard → **Add agent** with a monthly token budget and error budget %; confirm they appear in **Efficiency View → Agent View → Edit budget**.
+2. **Agent budgets** — Agent Workspaces → **Add agent** with a monthly token budget and error budget %; confirm they appear in **Efficiency View → Agent View → Edit budget**.
 3. **Agent View** — `/efficiency` → **Agent View** tab: selector lists internal agents plus any leaf members, gauges render, and the Activity / Outcomes / Token budget / Reliability charts switch.
 4. **Warn-then-block** — set a tiny token budget (e.g. 100) on a test agent, chat with it twice; the second turn should be refused with a budget message (HTTP 429) and a bell warning should have arrived at 80%.
 5. **Org leaf members** — External Agents (or AgentExchange for your own publication) → **Add to org** with department + reports-to; confirm the badge shows in the org designer, then **Resync ORG.md & AGENTS.md** and check the COO's ORG.md lists the member key.

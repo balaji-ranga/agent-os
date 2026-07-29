@@ -2,10 +2,18 @@
 # Rebuild frontend image on VPS, refresh nginx upstream, verify key UI markers.
 #
 # Redeploy checklist (also covered by vps-deploy-latest.sh SERVICES=frontend):
-#   - hPanel light shell: app-topbar, profile-menu, nav-section-chevron, --bg #f7f8f9
+#   - hPanel shell + light/dark theme: app-topbar, profile-menu, theme-toggle-btn,
+#     --bg #f7f8f9 / #0f1115, ThemeToggle / agent-os-theme
+#   - Agent Workspaces Add agent: AddAgentForm, agent-workspace-card
+#   - Tools nav UI (route /content-tools): label Tools in AppNavMenu
 #   - Workflow fullscreen: shell-focus-mode, Exit to workflows, wf-editor-exit
 #   - Primary CTAs: Register MCP, Register Agents, page-hero
 #   - Existing: Resync ORG, Master Data purpose, Purge all uploads, NotificationProvider, Broadcast, Flolah title
+#
+# Frontend sources must be UTF-8 (not UTF-16). Windows editors that write UTF-16 LE
+# break `vite build` with "Expected ; but found \x00". Use:
+#   node scripts/check-frontend-utf8.mjs
+# Stale Docker COPY layers: rebuild with NO_CACHE=1 / sync-to-vps.ps1 -NoCache.
 #
 # Usage:
 #   bash /opt/agent-os/deploy/scripts/vps-rebuild-frontend.sh
@@ -34,6 +42,9 @@ for marker in \
   'Exit to workflows' \
   'Register MCP' \
   'Register Agents' \
+  agent-os-theme \
+  'Switch to dark' \
+  'Reports to (COO default)' \
   'Flolah - An Agent Company Setup'
 do
   if [[ "$marker" == 'Flolah - An Agent Company Setup' ]]; then
@@ -49,15 +60,18 @@ do
   fi
 done
 
-echo "==> hPanel / fullscreen / hero CSS markers"
+echo "==> hPanel / theme / fullscreen / hero CSS markers"
 for css_marker in \
   app-topbar \
   profile-menu \
+  theme-toggle-btn \
   nav-section-chevron \
   shell-focus-mode \
   page-hero \
   wf-editor-exit \
-  '#f7f8f9'
+  agent-workspace-card \
+  '#f7f8f9' \
+  '#0f1115'
 do
   if docker compose exec -T frontend sh -c "cat /usr/share/nginx/html/assets/*.css" 2>/dev/null | grep -q "$css_marker"; then
     echo "    CSS $css_marker OK"

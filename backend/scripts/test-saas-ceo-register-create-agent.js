@@ -79,7 +79,7 @@ assert(agentsList.status === 200, `agents list status=${agentsList.status}`);
 const agents = Array.isArray(agentsList.data) ? agentsList.data : agentsList.data?.agents || [];
 assert(agents.length > 0, `GET /agents count=${agents.length}`);
 
-console.log('\n=== 3) Create custom agent (Dashboard Add agent) ===');
+console.log('\n=== 3) Create custom agent (Agent Workspaces Add agent) ===');
 const created = await api(
   'POST',
   '/api/agents',

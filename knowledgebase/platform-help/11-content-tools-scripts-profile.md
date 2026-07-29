@@ -1,6 +1,6 @@
-# Content tools, custom scripts, AI Snipper, Profile
+# Tools, custom scripts, AI Snipper, Profile
 
-## Content tools (`/content-tools`)
+## Tools (`/content-tools`)
 
 Catalog of Agent OS tools agents and workflows can call, for example:
 

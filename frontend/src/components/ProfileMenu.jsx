@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { NavLink } from 'react-router-dom';
+import { useTheme } from '../context/ThemeContext';
 
 function initialsFromName(name) {
   const parts = String(name || '')
@@ -14,6 +15,7 @@ function initialsFromName(name) {
 export default function ProfileMenu({ user, logout, onNavigate }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
+  const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     if (!open) return undefined;
@@ -65,6 +67,16 @@ export default function ProfileMenu({ user, logout, onNavigate }) {
           >
             Edit profile
           </NavLink>
+          <button
+            type="button"
+            role="menuitem"
+            className="profile-menu-item"
+            onClick={() => {
+              toggleTheme();
+            }}
+          >
+            {theme === 'dark' ? 'Light theme' : 'Dark theme'}
+          </button>
           <button
             type="button"
             role="menuitem"

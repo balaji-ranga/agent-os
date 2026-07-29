@@ -131,7 +131,7 @@ Removing an agent is now a single all-or-nothing step, so this should no longer 
 
 What removal does: the agent's chat history, standup responses, delegation records and tool grants are deleted; its **Kanban cards are kept and simply unassigned** so your board history survives; and any agents reporting to it move up to its parent. Removal is recorded, so the agent will not reappear after a platform restart or after **Sync from OpenClaw**.
 
-To bring the same agent back, create it again from **Dashboard → Add agent** — recreating an agent explicitly clears the removal record.
+To bring the same agent back, create it again from **Agent Workspaces → Add agent** — recreating an agent explicitly clears the removal record.
 
 ## A scheduled job never ran
 

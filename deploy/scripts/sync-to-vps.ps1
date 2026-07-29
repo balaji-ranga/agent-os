@@ -21,7 +21,8 @@
 # Brave Search MCP BYOK wrapper (tools/brave-search-mcp-byok, profile optional-brave-mcp),
 # cron reference block in deploy/.env (ensure-cron-env.sh) + platform-help 19
 # (scheduled jobs / retention), Org Storage (MB), COO status_checker report, data retention purge,
-# Flolah branding, hPanel light theme (collapsible nav + profile menu),
+# Flolah branding, hPanel shell + light/dark theme (ThemeToggle, data-theme),
+# Agent Workspaces Add agent (AddAgentForm), Tools nav label (/content-tools),
 # workflow editor fullscreen (shell-focus-mode), Register MCP/Agents primary CTAs,
 # multi-tenant standups/delegation, Kanban owner_user_id isolation (no shared-agent leak),
 # lean Kanban board (no Job applications filter / pipeline status banner),

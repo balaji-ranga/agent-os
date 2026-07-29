@@ -32,6 +32,7 @@ import AiSnipper from './pages/AiSnipper';
 import EfficiencyView from './pages/EfficiencyView';
 import NotificationBell from './components/NotificationBell';
 import ProfileMenu from './components/ProfileMenu';
+import ThemeToggle from './components/ThemeToggle';
 import { AdminNavMenu, CeoNavMenu } from './components/AppNavMenu';
 import ImpersonationBanner from './components/ImpersonationBanner';
 import { useAuth } from './context/AuthContext';
@@ -140,6 +141,7 @@ function Shell() {
             <span className="app-mobile-brand-text">Flolah</span>
           </div>
           <div className="app-mobile-topbar-actions">
+            <ThemeToggle />
             <NotificationBell compact />
             <ProfileMenu user={user} logout={logout} />
           </div>
@@ -180,6 +182,7 @@ function Shell() {
         {!focusMode && !isNarrow && (
           <header className="app-topbar">
             <div className="app-topbar-actions">
+              <ThemeToggle />
               <NotificationBell compact />
               <ProfileMenu user={user} logout={logout} />
             </div>

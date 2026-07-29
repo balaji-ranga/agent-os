@@ -15,7 +15,7 @@ Agents do **not** drive this with the built-in OpenClaw `browser` tool in chat (
 2. Opt in to Client Chrome / Browser Relay and install the extension pack if prompted.
 3. Attach a tab, log into sites you care about (LinkedIn, etc.), then **Mark ready**.
 4. Optionally set **URL allow / deny** lists (deny always wins).
-5. **Recorder:** navigate in Chrome → **Capture current page** after each important URL → save a **recipe** with a clear name.
+5. **Recorder (wizard):** Browser Session → **Record a recipe** → **Start record wizard** → name the recipe → confirm Chrome ready → navigate in Chrome and click **Capture this page** after each URL → **Done — save recipe**.
 
 ## Agent tools (grant in Workspace → Tool access)
 

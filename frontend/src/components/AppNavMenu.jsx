@@ -92,7 +92,7 @@ export function CeoNavMenu({ collapsed }) {
           label="Agent Workspaces"
           short="AW"
         />
-        <NavItem to="/content-tools" title="Content tools" collapsed={collapsed} label="Content tools" short="Ct" />
+        <NavItem to="/content-tools" title="Tools" collapsed={collapsed} label="Tools" short="Tl" />
         <NavItem to="/connectors" title="Connectors" collapsed={collapsed} label="Connectors" short="Cn" />
         <NavItem to="/integrations/mcp" title="MCP integrations" collapsed={collapsed} label="MCP" short="Mcp" />
         <NavItem

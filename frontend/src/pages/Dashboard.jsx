@@ -6,7 +6,6 @@ import ChatComposeInput from '../components/ChatComposeInput';
 import MessageFeedback from '../components/MessageFeedback';
 import OrgChart from '../components/OrgChart';
 import OrgDesigner from '../components/OrgDesigner';
-import DepartmentPicker from '../components/DepartmentPicker';
 import { formatLocalDateTime, formatChatTimestamp, toLocalDateTimeInputValue } from '../utils/formatDateTime.js';
 import { buildMessageWithAttachments, uploadChatAttachments } from '../utils/chatAttachments.js';
 
@@ -67,13 +66,6 @@ export default function Dashboard() {
   const [selectedStandup, setSelectedStandup] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [newName, setNewName] = useState('');
-  const [newRole, setNewRole] = useState('');
-  const [newDepartment, setNewDepartment] = useState('Operations');
-  const [newParentId, setNewParentId] = useState('');
-  const [newTokenBudget, setNewTokenBudget] = useState('');
-  const [newErrorBudget, setNewErrorBudget] = useState('');
-  const [addAgentMessage, setAddAgentMessage] = useState(null);
   const [creatingStandup, setCreatingStandup] = useState(false);
   const [standupScheduledAt, setStandupScheduledAt] = useState(() => {
     const d = new Date();
@@ -167,43 +159,6 @@ export default function Dashboard() {
     const id = setInterval(tick, STANDUP_POLL_INTERVAL_MS);
     return () => clearInterval(id);
   }, [selectedStandup?.id]);
-
-  const addAgent = (e) => {
-    e.preventDefault();
-    if (!newName.trim()) return;
-    setAddAgentMessage(null);
-    const coo = agents.find((a) => a.is_coo);
-    const department = newDepartment.trim();
-    const body = {
-      name: newName.trim(),
-      role: newRole.trim() || 'Agent',
-      department: department || '',
-      monthly_token_budget: newTokenBudget || null,
-      error_budget_pct: newErrorBudget || null,
-    };
-    // Default report-to COO so new agents appear under the org chart
-    body.parent_id = newParentId || coo?.id || undefined;
-    api.agentCreate(body)
-      .then((agent) => {
-        return api.agentsList().then((list) => {
-          setAgents(Array.isArray(list) ? list : list?.agents || []);
-          setNewName('');
-          setNewRole('');
-          setNewParentId('');
-          setNewDepartment('Operations');
-          setNewTokenBudget('');
-          setNewErrorBudget('');
-          setAddAgentMessage(
-            `"${agent.name}" added to your workspace` +
-              (agent.department ? ` · ${agent.department}` : '') +
-              (agent.openclaw_runtime_id ? ` (${agent.openclaw_runtime_id}).` : '.') +
-              ' Tool access can be managed in the agent workspace. Restart OpenClaw gateway if chat does not pick up the new agent immediately.'
-          );
-          setTimeout(() => setAddAgentMessage(null), 14000);
-        });
-      })
-      .catch((e) => setError(e.message));
-  };
 
   const removeAgent = (agentId) => {
     if (!window.confirm('Remove this agent? This cannot be undone.')) return;
@@ -409,37 +364,20 @@ export default function Dashboard() {
       .finally(() => setOrgDocSyncing(false));
   };
 
-  if (loading) return <div className="mcp-pg">Loading…</div>;
+  if (loading) return <div className="page">Loading…</div>;
 
   return (
-    <div className="mcp-pg" style={{ paddingTop: '2rem' }}>
+    <div className="page page-wide">
       {error && (
         <div
-          style={{
-            marginBottom: '1rem',
-            padding: '0.65rem 0.85rem',
-            borderRadius: 8,
-            border: '1px solid #fecaca',
-            background: '#fef2f2',
-            color: '#991b1b',
-            fontSize: '0.9rem',
-            display: 'flex',
-            justifyContent: 'space-between',
-            gap: '0.75rem',
-            alignItems: 'flex-start',
-          }}
+          className="page-banner page-banner-error"
+          role="alert"
         >
           <span>{error}</span>
           <button
             type="button"
+            className="btn-ghost btn-sm"
             onClick={() => setError(null)}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: '#991b1b',
-              cursor: 'pointer',
-              fontSize: '0.85rem',
-            }}
           >
             Dismiss
           </button>
@@ -647,7 +585,7 @@ export default function Dashboard() {
           <div style={{ marginTop: '0.75rem', padding: '1rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8 }}>
             <p style={{ color: 'var(--muted)', margin: '0 0 0.5rem' }}>No agents in the database.</p>
             <p style={{ fontSize: '0.9rem', color: 'var(--muted)', margin: 0 }}>
-              Restart the backend — it will auto-seed default agents if the table is empty. Or run from backend: <code style={{ background: 'var(--surface)', padding: '1px 4px', borderRadius: 4 }}>node scripts/seed-all.js</code>
+              Add specialists from <Link to="/workspace">Agent Workspaces</Link>, or restart the backend to auto-seed defaults.
             </p>
             <button
               type="button"
@@ -658,6 +596,9 @@ export default function Dashboard() {
             </button>
           </div>
         )}
+        <p style={{ marginTop: '0.75rem', fontSize: '0.85rem', color: 'var(--muted)' }}>
+          To add a new agent, open <Link to="/workspace">Agent Workspaces</Link>. Use <strong>Design</strong> above to rearrange reporting lines.
+        </p>
       </section>
 
       {/* Standups — create or open a scheduled standup; COO chat opens and is specific to that standup. Child agent responses appear in this chat. */}
@@ -963,138 +904,6 @@ export default function Dashboard() {
       </section>
 
       {/* Sync from OpenClaw — hidden from Dashboard (API still available for admin/scripts) */}
-
-      {/* Add agent — creates under this CEO's OpenClaw tenant + under COO */}
-      <section>
-        <h2 style={{ fontSize: '1.25rem', marginBottom: '0.25rem' }}>Add agent</h2>
-        <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '0.75rem' }}>
-          Creates a custom agent in <strong>your</strong> OpenClaw tenant space. Set department and who they report to for the org chart.
-        </p>
-        <form onSubmit={addAgent} style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
-          <input
-            type="text"
-            placeholder="Agent name"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            required
-            style={{
-              padding: '0.5rem 0.75rem',
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderRadius: 6,
-              color: 'var(--text)',
-              minWidth: 160,
-            }}
-          />
-          <input
-            type="text"
-            placeholder="Role (optional)"
-            value={newRole}
-            onChange={(e) => setNewRole(e.target.value)}
-            style={{
-              padding: '0.5rem 0.75rem',
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderRadius: 6,
-              color: 'var(--text)',
-              minWidth: 120,
-            }}
-          />
-          <DepartmentPicker
-            value={newDepartment}
-            onChange={setNewDepartment}
-            compact
-            ariaLabel="Department"
-            selectStyle={{ background: 'var(--surface)' }}
-          />
-          <select
-            value={newParentId}
-            onChange={(e) => setNewParentId(e.target.value)}
-            aria-label="Reports to"
-            style={{
-              padding: '0.5rem 0.75rem',
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderRadius: 6,
-              color: 'var(--text)',
-              minWidth: 160,
-            }}
-          >
-            <option value="">Reports to (COO default)</option>
-            {agents.map((a) => (
-              <option key={a.id} value={a.id}>{a.name}{a.is_coo ? ' (COO)' : ''}{a.department ? ` · ${a.department}` : ''}</option>
-            ))}
-          </select>
-          <input
-            type="number"
-            min="0"
-            placeholder="Monthly tokens"
-            title="Monthly token budget — warn at 80%, block new work at 100%"
-            value={newTokenBudget}
-            onChange={(e) => setNewTokenBudget(e.target.value)}
-            style={{
-              padding: '0.5rem 0.75rem',
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderRadius: 6,
-              color: 'var(--text)',
-              width: 150,
-            }}
-          />
-          <input
-            type="number"
-            min="0"
-            max="100"
-            step="0.5"
-            placeholder="Error budget %"
-            title="Max monthly failure rate before new work is blocked"
-            value={newErrorBudget}
-            onChange={(e) => setNewErrorBudget(e.target.value)}
-            style={{
-              padding: '0.5rem 0.75rem',
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderRadius: 6,
-              color: 'var(--text)',
-              width: 130,
-            }}
-          />
-          <button
-            type="submit"
-            style={{
-              padding: '0.5rem 1rem',
-              background: 'var(--accent)',
-              border: 'none',
-              borderRadius: 6,
-              color: '#fff',
-            }}
-          >
-            Add agent
-          </button>
-        </form>
-        {addAgentMessage && (
-          <div
-            style={{
-              marginTop: '0.5rem',
-              padding: '0.75rem 1rem',
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderRadius: 8,
-              fontSize: '0.9rem',
-              color: 'var(--text)',
-            }}
-          >
-            {addAgentMessage}
-            <button
-              type="button"
-              onClick={() => setAddAgentMessage(null)}
-              style={{ marginLeft: '0.75rem', padding: '0.2rem 0.5rem', fontSize: '0.85rem', cursor: 'pointer' }}
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
-      </section>
     </div>
   );
 }
