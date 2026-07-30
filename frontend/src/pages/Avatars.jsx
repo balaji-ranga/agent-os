@@ -275,6 +275,24 @@ export default function Avatars() {
                   </AvatarAnimationsTooltip>
                 </div>
                 <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+                  <label style={{ fontSize: '0.8rem', display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                    Idle
+                    <select
+                      value={a.idle_clip || ''}
+                      onChange={(e) => onIdleClip(a.id, e.target.value)}
+                      disabled={busy || !names.length}
+                      title="Animation used when the avatar is not speaking"
+                    >
+                      <option value="">Auto (Blink / Look_Around)</option>
+                      {names
+                        .filter((n) => !/mouth|lip|viseme|jaw|phoneme/i.test(n))
+                        .map((n) => (
+                          <option key={n} value={n}>
+                            {n}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
                   <select
                     value={a.agent_id || ''}
                     onChange={(e) => (e.target.value ? onAssign(a.id, e.target.value) : onUnassign(a.id))}
