@@ -6,6 +6,10 @@ export function setAuthToken(token) {
   _authToken = token || null;
 }
 
+export function getAuthToken() {
+  return _authToken;
+}
+
 async function request(path, options = {}) {
   const url = path.startsWith('http') ? path : `${API_BASE}${path}`;
   const headers = { 'Content-Type': 'application/json', ...options.headers };
@@ -499,6 +503,23 @@ export const api = {
     post(`/agent-workflows/runs/${runId}/listen/${encodeURIComponent(nodeId)}/stop`, {}),
   agentWorkflowRunsForDef: (id, limit = 30) => get(`/agent-workflows/${encodeURIComponent(id)}/runs?limit=${limit}`),
   agentWorkflowRun: (id, body = {}) => post(`/agent-workflows/${encodeURIComponent(id)}/run`, body),
+
+  avatarsList: () => get('/avatars'),
+  avatarsGet: (id) => get(`/avatars/${encodeURIComponent(id)}`),
+  avatarsByAgent: (agentId) => get(`/avatars/by-agent/${encodeURIComponent(agentId)}`),
+  avatarsUpload: (body) => post('/avatars', body),
+  avatarsGenerate: (body) => post('/avatars/generate', body),
+  avatarsAssignAgent: (id, agentId) => post(`/avatars/${encodeURIComponent(id)}/assign-agent`, { agentId }),
+  avatarsUnassignAgent: (id) => post(`/avatars/${encodeURIComponent(id)}/unassign-agent`, {}),
+  avatarsUpdate: (id, body) => patch(`/avatars/${encodeURIComponent(id)}`, body),
+  avatarsDelete: (id) => del(`/avatars/${encodeURIComponent(id)}`),
+  avatarsHunyuanStatus: () => get('/avatars/hunyuan/status'),
+  mediaArtifactsUpload: (body) => post('/media/artifacts', body),
+  mediaArtifactsList: (params = {}) => {
+    const q = new URLSearchParams(params).toString();
+    return get(`/media/artifacts${q ? `?${q}` : ''}`);
+  },
+
   agentWorkflowApprovalRespond: (body) => post('/agent-workflows/approval/respond', body),
   agentWorkflowPause: (id) => post(`/agent-workflows/${encodeURIComponent(id)}/pause`, {}),
   agentWorkflowResume: (id) => post(`/agent-workflows/${encodeURIComponent(id)}/resume`, {}),

@@ -132,6 +132,34 @@ For one-off CEO email from chat, prefer COO **`email_send`** tool — not a work
 
 Non-2xx / SSL failures typically fail the run.
 
+**Response mode:** `auto` (default) | `json` | `text` | `binary`. Binary (or auto-detected audio/video/octet-stream) stores a CEO **media artifact** and outputs `audio` / `video` / `media` refs for downstream nodes.
+
+---
+
+## ElevenLabs (`elevenlabs`)
+
+**Purpose:** Text-to-speech or speech-to-text via ElevenLabs; emits media refs for audio.
+
+**Key attributes:** `mode` tts|stt; `voiceId`; `modelId` (default `eleven_flash_v2_5`); `outputFormat` (default `mp3_22050_32`); `apiKeyRef` (vault name, default `ElevenLabs`); falls back to `ELEVENLABS_API_KEY`.
+
+| Inputs | Outputs |
+|--------|---------|
+| `text` (TTS), `audio` (STT media ref) | `text`, `audio` (TTS), `result`, `ok` |
+
+---
+
+## 3D Model (`model3d`)
+
+**Purpose:** Build a Virtual Room **playback** payload from avatar id + audio + animation JSON (full GLB clips, not lip-sync only).
+
+| Inputs | Outputs |
+|--------|---------|
+| `avatarId`, `audio`, `animation`, `visemes` | `playback`, `text`, `result`, `ok` |
+
+Animation JSON example: `{"clips":[{"name":"Wave","weight":1,"loop":false}],"idle":"Idle","visemes":[{"t":0.1,"name":"A"}]}`.
+
+See [23-avatars-virtual-room.md](./23-avatars-virtual-room.md).
+
 ---
 
 ## External Agent / A2A (`externalAgent`)

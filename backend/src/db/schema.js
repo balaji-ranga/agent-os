@@ -534,6 +534,51 @@ export function initDb() {
     _db.exec(`ALTER TABLE agent_workflow_definitions ADD COLUMN input_schema_json TEXT`);
   } catch (_) {}
   try {
+    _db.exec(`ALTER TABLE agent_workflow_runs ADD COLUMN graph_json TEXT`);
+  } catch (_) {}
+
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS ceo_media_artifacts (
+        id TEXT PRIMARY KEY,
+        owner_user_id TEXT NOT NULL,
+        kind TEXT NOT NULL DEFAULT 'other',
+        mime_type TEXT DEFAULT 'application/octet-stream',
+        filename TEXT NOT NULL,
+        storage_path TEXT NOT NULL,
+        size_bytes INTEGER DEFAULT 0,
+        duration_ms INTEGER,
+        meta_json TEXT DEFAULT '{}',
+        created_at TEXT DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_ceo_media_owner ON ceo_media_artifacts(owner_user_id, created_at DESC);
+    `);
+  } catch (_) {}
+
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS ceo_avatars (
+        id TEXT PRIMARY KEY,
+        owner_user_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        filename TEXT NOT NULL,
+        mime_type TEXT DEFAULT 'model/gltf-binary',
+        storage_path TEXT NOT NULL,
+        size_bytes INTEGER DEFAULT 0,
+        source TEXT DEFAULT 'upload',
+        animation_catalog_json TEXT DEFAULT '[]',
+        agent_id TEXT,
+        inbound_workflow_id TEXT,
+        outbound_workflow_id TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_ceo_avatars_owner ON ceo_avatars(owner_user_id, updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_ceo_avatars_agent ON ceo_avatars(owner_user_id, agent_id);
+    `);
+  } catch (_) {}
+
+  try {
     _db.exec(`
       CREATE TABLE IF NOT EXISTS ibkr_position_meta (
         owner_user_id TEXT NOT NULL,

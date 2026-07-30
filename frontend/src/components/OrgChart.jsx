@@ -91,6 +91,20 @@ function AgentActions({ agent, onRemove, onRemoveLeaf, isCeo }) {
       >
         Chat
       </Link>
+      <Link
+        to={`/agents/${agent.id}/virtual-room`}
+        style={{
+          padding: '0.2rem 0.5rem',
+          background: 'transparent',
+          color: 'var(--accent)',
+          border: '1px solid var(--accent)',
+          borderRadius: 6,
+          fontSize: '0.85rem',
+        }}
+        title="Open 3D Virtual Room"
+      >
+        Virtual Room
+      </Link>
       {typeof onRemove === 'function' && !agent.is_coo && (
         <button
           type="button"

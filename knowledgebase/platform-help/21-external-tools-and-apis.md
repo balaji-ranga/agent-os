@@ -29,6 +29,8 @@ Related: [15-api-keys-vault.md](./15-api-keys-vault.md) (how CEOs store secrets)
 | **Brave Search** | Web search via Brave Search MCP (`brave_web_search`, etc.) | Brave subscription token | Workflow / MCP **headers** (BYOK) or vault key referenced on the node | Optional | Platform `BRAVE_API_KEY` is **not** injected into the MCP container — pass `X-Subscription-Token` or Bearer from the workflow. |
 | **Financial Modeling Prep (FMP)** | Market regime, screener, history, fundamentals (IBKR monthly trading tools) | `MARKET_DATA_API_KEY` | Platform `.env` | Optional (required for live market tools) | Default base `https://financialmodelingprep.com/stable`. Free tier has daily call limits; paid recommended for daily screens. |
 | **Replicate** | Video content tool | `REPLICATE_API_TOKEN` | Platform `.env` | Optional | Used when agents/workflows call video generation. |
+| **ElevenLabs** | Workflow **ElevenLabs** node (TTS / STT) and avatar Virtual Room | `ELEVENLABS_API_KEY` or vault name **`elevenlabs-key`** (avatar templates) or **`ElevenLabs`** | Platform `.env` and/or **API Keys** | Optional (required for avatar voice) | Media artifacts are stored per CEO under `media/{ceo}/`. |
+| **Hunyuan3D** | Text/image → GLB on **Avatars** page | No vendor key for self-host; needs GPU container | `HUNYUAN3D_URL` + profile `optional-hunyuan3d` | Optional | See [23-avatars-virtual-room.md](./23-avatars-virtual-room.md). |
 | **Interactive Brokers (IBKR)** | Account snapshot, paper/live orders via local Gateway + optional desktop bridge | IBKR account + Gateway session; bridge `LOCAL_BRIDGE_TOKEN` | Laptop Gateway + local bridge env (not cloud API key) | Optional (trading features) | Not a SaaS API key in `.env` for market data — FMP covers that. See IBKR help. |
 | **OpenConnector SaaS apps** | Workflow **Connector** node (Gmail, Slack, HubSpot, etc.) | OAuth token or vendor API key per app | **Connectors** UI + optional **API Keys** vault | Per app | Catalog varies; each connected app is its own external dependency. |
 | **OpenSearch (self-hosted)** | Document / Platform Help RAG indices | `OPENSEARCH_USERNAME` / `OPENSEARCH_PASSWORD` | Platform `.env` | If OpenSearch enabled | Infra credential, not a public SaaS product key. Vector embeddings (when `OPENSEARCH_EMBEDDINGS_ENABLED=1`) typically need an **OpenAI-compatible embedding** key as well. |
@@ -67,6 +69,8 @@ Related: [15-api-keys-vault.md](./15-api-keys-vault.md) (how CEOs store secrets)
 | Send Email | SMTP (Brevo) | `useEnvSmtp` → `WORKFLOW_SMTP_*` or node SMTP fields |
 | MCP Brave Search | Brave | Header / vault token (BYOK) |
 | Connector | Connected SaaS | OAuth or API key in Connectors / vault |
+| ElevenLabs | ElevenLabs API | Vault **elevenlabs-key** / **ElevenLabs** or `ELEVENLABS_API_KEY` |
+| 3D Model / Avatars | CEO model files + optional Hunyuan | Upload on Avatars; `HUNYUAN3D_URL` for generate |
 
 ---
 

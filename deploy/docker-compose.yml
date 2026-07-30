@@ -110,6 +110,9 @@ x-backend-env: &backend-env
   OPENROUTER_HTTP_REFERER: ${OPENROUTER_HTTP_REFERER:-}
   OPENROUTER_SITE_TITLE: ${OPENROUTER_SITE_TITLE:-Agent OS}
   REPLICATE_API_TOKEN: ${REPLICATE_API_TOKEN:-}
+  ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+  HUNYUAN3D_URL: ${HUNYUAN3D_URL:-}
+  HUNYUAN3D_TIMEOUT_MS: ${HUNYUAN3D_TIMEOUT_MS:-}
   REPLICATE_PRIMARY_BASE_URL: ${REPLICATE_PRIMARY_BASE_URL:-https://api.replicate.com/v1}
   REPLICATE_SECONDARY_BASE_URL: ${REPLICATE_SECONDARY_BASE_URL:-}
   REPLICATE_SECONDARY_API_TOKEN: ${REPLICATE_SECONDARY_API_TOKEN:-}
@@ -448,6 +451,30 @@ services:
     expose:
       - "11434"
 
+  # Hunyuan3D 2.5 — optional GPU container for text/image → GLB avatars.
+  # Requires NVIDIA Container Toolkit. Start:
+  #   docker compose --profile optional-hunyuan3d up -d
+  # Set HUNYUAN3D_URL=http://hunyuan3d:7860 on backend.
+  hunyuan3d:
+    profiles: ["optional-hunyuan3d"]
+    image: ${HUNYUAN3D_IMAGE:-tencent/hunyuan3d:2.1}
+    restart: unless-stopped
+    # Override command if your image uses a different entrypoint:
+    # command: ["python", "api_server.py", "--host", "0.0.0.0", "--port", "7860"]
+    expose:
+      - "7860"
+    volumes:
+      - hunyuan3d_data:/app/weights:Z
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+
   novnc:
     profiles: ["optional-browser-login"]
     image: ghcr.io/linuxserver/webtop:ubuntu-xfce
@@ -468,4 +495,5 @@ volumes:
   workflow_fs:
   openconnector_data:
   ollama_data:
+  hunyuan3d_data:
   opensearch_data:

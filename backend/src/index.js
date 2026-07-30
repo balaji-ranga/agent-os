@@ -17,6 +17,8 @@ import toolsRoutes from './routes/tools.js';
 import broadcastRoutes from './routes/broadcast.js';
 import kanbanRoutes from './routes/kanban.js';
 import mediaRoutes from './routes/media.js';
+import mediaArtifactsRoutes from './routes/media-artifacts.js';
+import avatarsRoutes from './routes/avatars.js';
 import jobApplicantRoutes from './routes/job-applicant.js';
 import agentWorkflowRoutes from './routes/agent-workflows.js';
 import agentWorkflowHookRoutes from './routes/agent-workflow-hooks.js';
@@ -117,8 +119,8 @@ app.use(
   openSearchConsoleProxy()
 );
 
-app.use(express.json({ limit: '2mb' }));
-app.use(express.text({ type: 'text/*' }));
+app.use(express.json({ limit: '100mb' }));
+app.use(express.text({ type: 'text/*', limit: '10mb' }));
 
 initDb();
 ensureInternalTokenConfigured();
@@ -415,6 +417,8 @@ apiRouter.use('/ai-snipper', aiSnipperRoutes);
 apiRouter.use('/efficiency', efficiencyRoutes);
 apiRouter.use('/org-members', orgMembersRoutes);
 apiRouter.use('/media/openclaw', mediaRoutes);
+apiRouter.use('/media/artifacts', mediaArtifactsRoutes);
+apiRouter.use('/avatars', avatarsRoutes);
 apiRouter.use('/browser-session', browserSessionRoutes);
 app.use('/api', apiRouter);
 

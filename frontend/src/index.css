@@ -2333,6 +2333,46 @@ body.wf-props-resizing .react-flow {
   touch-action: pan-y;
 }
 
+.avatar-anim-hover {
+  display: inline-flex;
+  cursor: help;
+  outline: none;
+}
+.avatar-anim-badge {
+  color: var(--accent, #2563eb);
+  border-bottom: 1px dotted currentColor;
+  font-weight: 600;
+}
+.avatar-anim-badge-hint {
+  font-weight: 400;
+  opacity: 0.85;
+}
+.avatar-anim-tooltip-panel {
+  max-width: 320px;
+}
+.avatar-anim-tooltip-title {
+  font-weight: 650;
+  font-size: 0.85rem;
+  margin-bottom: 0.35rem;
+}
+.avatar-anim-tooltip-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.8rem;
+  display: grid;
+  gap: 0.2rem;
+}
+.avatar-anim-tooltip-list code {
+  font-size: 0.78rem;
+}
+.avatar-anim-tooltip-empty,
+.avatar-anim-tooltip-hint {
+  margin: 0.4rem 0 0;
+  font-size: 0.72rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
 .kanban-task-tooltip {
   max-width: 360px;
 }

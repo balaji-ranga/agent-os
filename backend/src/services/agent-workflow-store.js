@@ -398,6 +398,14 @@ function formatRunRow(row) {
   try {
     context = JSON.parse(row.context_json || '{}');
   } catch (_) {}
+  let graph = null;
+  if (row.graph_json) {
+    try {
+      graph = JSON.parse(row.graph_json);
+    } catch (_) {
+      graph = null;
+    }
+  }
   return {
     id: row.id,
     run_number: row.run_number,
@@ -407,6 +415,7 @@ function formatRunRow(row) {
     trigger: row.trigger,
     progress_pct: row.progress_pct ?? 0,
     context,
+    graph,
     standup_id: row.standup_id,
     started_at: row.started_at,
     completed_at: row.completed_at,
@@ -429,8 +438,12 @@ export function getRun(runId, ownerUserId = null) {
       output: s.output_json ? JSON.parse(s.output_json) : null,
     }));
   const def = getDefinition(row.definition_id);
+  const formatted = formatRunRow(row);
+  if (!formatted.graph) {
+    formatted.graph = def?.published_graph || def?.draft_graph || null;
+  }
   return {
-    ...formatRunRow(row),
+    ...formatted,
     definition_name: def?.name,
     steps,
   };

@@ -333,6 +333,9 @@ export default function OrgDesigner({
                     <Link to={`/agents/${a.id}/chat`} style={{ fontSize: '0.75rem' }}>
                       Chat
                     </Link>
+                    <Link to={`/agents/${a.id}/virtual-room`} style={{ fontSize: '0.75rem' }}>
+                      Virtual Room
+                    </Link>
                     {typeof onRemove === 'function' && !a.is_coo && (
                       <button
                         type="button"

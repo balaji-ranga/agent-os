@@ -30,6 +30,8 @@ import ApiKeys from './pages/ApiKeys';
 import Policies from './pages/Policies';
 import AiSnipper from './pages/AiSnipper';
 import EfficiencyView from './pages/EfficiencyView';
+import Avatars from './pages/Avatars';
+import VirtualRoom from './pages/VirtualRoom';
 import NotificationBell from './components/NotificationBell';
 import ProfileMenu from './components/ProfileMenu';
 import ThemeToggle from './components/ThemeToggle';
@@ -69,7 +71,10 @@ function Shell() {
   );
 
   /** Workflow editor uses the full viewport — hide platform nav/topbar. */
-  const focusMode = /^\/workflows\/[^/]+\/edit\/?$/.test(location.pathname);
+  const focusMode =
+    /^\/workflows\/[^/]+\/edit\/?$/.test(location.pathname) ||
+    /^\/agents\/[^/]+\/virtual-room\/?$/.test(location.pathname) ||
+    /^\/avatars\/[^/]+\/room\/?$/.test(location.pathname);
 
   useEffect(() => {
     localStorage.setItem('agent-os-nav-collapsed', navCollapsed ? '1' : '0');
@@ -230,8 +235,11 @@ function Shell() {
                 <Route path="/job-workflows" element={<JobWorkflows />} />
                 <Route path="/workflows" element={<AgentWorkflows />} />
                 <Route path="/workflows/:workflowId/edit" element={<AgentWorkflowEditor />} />
+                <Route path="/avatars" element={<Avatars />} />
+                <Route path="/avatars/:avatarId/room" element={<VirtualRoom />} />
                 <Route path="/agents/:agentId/workspace" element={<AgentWorkspace />} />
                 <Route path="/agents/:agentId/chat" element={<AgentChat />} />
+                <Route path="/agents/:agentId/virtual-room" element={<VirtualRoom />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </>
             )}

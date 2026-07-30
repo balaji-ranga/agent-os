@@ -109,6 +109,30 @@ export function ApiNode({ id, data }) {
   );
 }
 
+export function ElevenLabsNode({ id, data }) {
+  return (
+    <NodeShell
+      nodeId={id}
+      color="#0ea5e9"
+      icon="🎙"
+      title={data.label || 'ElevenLabs'}
+      subtitle={(data.taskConfig?.mode || 'tts').toUpperCase()}
+    />
+  );
+}
+
+export function Model3dNode({ id, data }) {
+  return (
+    <NodeShell
+      nodeId={id}
+      color="#a855f7"
+      icon="🧊"
+      title={data.label || '3D Model'}
+      subtitle={data.taskConfig?.avatarId || 'avatar'}
+    />
+  );
+}
+
 export function ConnectorNode({ id, data }) {
   const cfg = data.taskConfig || {};
   const app = cfg.appName || cfg.appId || 'select connector';
@@ -306,6 +330,8 @@ export const workflowNodeTypes = {
   sub_workflow: SubWorkflowNode,
   email: EmailNode,
   api: ApiNode,
+  elevenlabs: ElevenLabsNode,
+  model3d: Model3dNode,
   connector: ConnectorNode,
   externalAgent: ExternalAgentNode,
   custom_script: CustomScriptNode,
@@ -328,6 +354,8 @@ export const PALETTE_ITEMS = [
   { type: 'while', label: 'While', color: '#db2777', desc: 'Loop while condition (loop/exit handles)' },
   { type: 'email', label: 'Send Email', color: '#dc2626', desc: 'SMTP email with static + dynamic inputs' },
   { type: 'api', label: 'Call API', color: '#7c3aed', desc: 'HTTP request with configurable URL/body' },
+  { type: 'elevenlabs', label: 'ElevenLabs', color: '#0ea5e9', desc: 'TTS / STT — audio media refs for downstream nodes' },
+  { type: 'model3d', label: '3D Model', color: '#a855f7', desc: 'Build Virtual Room playback (audio + animation clips)' },
   { type: 'connector', label: 'Connector', color: '#f59e0b', desc: 'Run an OpenConnector app action as this CEO' },
   { type: 'externalAgent', label: 'External Agent (A2A)', color: '#059669', desc: 'Invoke external agent via A2A protocol' },
   { type: 'custom_script', label: 'Custom Script', color: '#b45309', desc: 'Run approved LangGraph / Python / JS in sandbox' },

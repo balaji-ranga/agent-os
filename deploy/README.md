@@ -434,6 +434,10 @@ docker compose --profile optional-ollama up -d ollama
 docker compose exec ollama ollama pull deepseek-v3
 # docker compose exec backend node scripts/test-deepseek-brain-workflow.js
 
+# Optional Hunyuan3D GPU (Avatars text/image → GLB). Requires NVIDIA Container Toolkit.
+# Set HUNYUAN3D_URL=http://hunyuan3d:7860 on the backend service.
+# docker compose --profile optional-hunyuan3d up -d
+
 # Brave Search MCP (BYOK HTTP wrapper — no BRAVE_API_KEY in the container):
 docker compose --profile optional-brave-mcp up -d --build brave-search-mcp
 # docker compose exec backend node scripts/seed-brave-search-mcp.js

@@ -18,6 +18,8 @@ import { getToolMeta } from './content-tools-meta.js';
 import { processPendingDelegationTasks } from './delegation-queue.js';
 import { resolveNodeInputs, resolveInputText, storeNodeOutput } from './agent-workflow-io.js';
 import { executeEmailTask, executeApiTask, executeFilesystemTask } from './agent-workflow-tasks.js';
+import { executeElevenLabsTask } from './agent-workflow-elevenlabs.js';
+import { executeModel3dTask } from './agent-workflow-model3d.js';
 import { executeExternalAgentTask } from './agent-workflow-external-agent.js';
 import { executeBrainTask } from './agent-workflow-brain.js';
 import { executeCustomScriptTask } from './custom-scripts.js';
@@ -676,10 +678,18 @@ export async function startAgentWorkflowRun(
 
   db()
     .prepare(
-      `INSERT INTO agent_workflow_runs (run_number, definition_id, owner_user_id, status, trigger, context_json, standup_id)
-       VALUES (?, ?, ?, 'running', ?, ?, ?)`
+      `INSERT INTO agent_workflow_runs (run_number, definition_id, owner_user_id, status, trigger, context_json, standup_id, graph_json)
+       VALUES (?, ?, ?, 'running', ?, ?, ?, ?)`
     )
-    .run(runNumber, definitionId, ownerUserId, trigger, JSON.stringify(context), standupId);
+    .run(
+      runNumber,
+      definitionId,
+      ownerUserId,
+      trigger,
+      JSON.stringify(context),
+      standupId,
+      JSON.stringify(graph || { nodes: [], edges: [] })
+    );
 
   const runId = db().prepare('SELECT id FROM agent_workflow_runs ORDER BY id DESC LIMIT 1').get()?.id;
 
@@ -1291,6 +1301,58 @@ async function executeNode(runId, nodeId, graph, context, def, runRow) {
         summary: outputs.timed_out
           ? `API timed out (${Math.round(timeoutMs / 1000)}s)`
           : `API ${outputs.status} ${outputs.ok ? 'ok' : 'failed'}`,
+        detail: { inputs: inputRecord.summary, outputs },
+      }),
+    });
+    return;
+  }
+
+  if (node.type === 'elevenlabs') {
+    const inputRecord = buildStepInputRecord(node, graph, context);
+    const config = node.data?.taskConfig || node.data?.config || {};
+    const { timeoutMs } = resolveNodeTimeoutConfig(config);
+    await completeTimedNodeStep({
+      runId,
+      node,
+      nodeId,
+      def,
+      runRow,
+      context,
+      inputRecord,
+      work: () =>
+        executeElevenLabsTask(inputRecord.resolved, { ...config, timeoutMs }, {
+          ...context,
+          owner_user_id: runRow.owner_user_id,
+        }),
+      kanban: (outputs) => ({
+        nodeLabel: node.data?.label || 'ElevenLabs',
+        summary: outputs.mode === 'stt' ? `STT: ${(outputs.text || '').slice(0, 120)}` : 'TTS audio ready',
+        detail: { inputs: inputRecord.summary, outputs },
+      }),
+    });
+    return;
+  }
+
+  if (node.type === 'model3d') {
+    const inputRecord = buildStepInputRecord(node, graph, context);
+    const config = node.data?.taskConfig || node.data?.config || {};
+    const { timeoutMs } = resolveNodeTimeoutConfig(config);
+    await completeTimedNodeStep({
+      runId,
+      node,
+      nodeId,
+      def,
+      runRow,
+      context,
+      inputRecord,
+      work: () =>
+        executeModel3dTask(inputRecord.resolved, { ...config, timeoutMs }, {
+          ...context,
+          owner_user_id: runRow.owner_user_id,
+        }),
+      kanban: (outputs) => ({
+        nodeLabel: node.data?.label || '3D Model',
+        summary: (outputs.text || '').slice(0, 160),
         detail: { inputs: inputRecord.summary, outputs },
       }),
     });

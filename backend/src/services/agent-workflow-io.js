@@ -1,49 +1,71 @@
 /**
  * Resolve workflow step inputs (static vs dynamic from previous step outputs).
+ * Media refs ({ kind, artifactId, url, mimeType }) are preserved as JSON objects
+ * in resolved bindings when the output key is a known media port.
  */
 
-function getNestedValue(raw, path) {
-  if (raw == null || !path) return '';
+const MEDIA_OUTPUT_KEYS = new Set(['audio', 'video', 'media', 'playback', 'model']);
+
+function looksLikeMediaRef(v) {
+  return (
+    v != null &&
+    typeof v === 'object' &&
+    !Array.isArray(v) &&
+    (v.artifactId || v.kind === 'audio' || v.kind === 'video' || v.kind === 'model')
+  );
+}
+
+function getNestedValue(raw, path, { keepObject = false } = {}) {
+  if (raw == null || !path) return keepObject ? undefined : '';
   const parts = String(path).split('.');
   let cur = raw;
   for (const p of parts) {
-    if (cur == null) return '';
+    if (cur == null) return keepObject ? undefined : '';
     if (typeof cur === 'string') {
       try {
         cur = JSON.parse(cur);
       } catch {
-        return '';
+        return keepObject ? undefined : '';
       }
     }
     cur = cur[p];
   }
-  if (cur == null) return '';
-  if (typeof cur === 'object') return JSON.stringify(cur);
+  if (cur == null) return keepObject ? undefined : '';
+  if (typeof cur === 'object') {
+    if (keepObject || looksLikeMediaRef(cur)) return cur;
+    return JSON.stringify(cur);
+  }
   return String(cur);
 }
 
 function getOutputValue(context, nodeId, outputKey = 'text') {
   const raw = context.node_outputs?.[nodeId];
-  if (raw == null) return '';
+  const keepObject = MEDIA_OUTPUT_KEYS.has(String(outputKey || '').split('.')[0]);
+  if (raw == null) return keepObject ? null : '';
   if (typeof raw === 'string') {
     if (outputKey === 'text' || outputKey === 'result' || outputKey === 'body') return raw;
     try {
       const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object') return getNestedValue(parsed, outputKey);
+      if (parsed && typeof parsed === 'object') return getNestedValue(parsed, outputKey, { keepObject });
       return raw;
     } catch {
       return raw;
     }
   }
   if (typeof raw === 'object') {
-    if (outputKey.includes('.')) return getNestedValue(raw, outputKey);
+    if (outputKey.includes('.')) return getNestedValue(raw, outputKey, { keepObject });
     if (outputKey in raw) {
       const v = raw[outputKey];
-      if (v != null && typeof v === 'object') return JSON.stringify(v);
-      return v != null ? String(v) : '';
+      if (v != null && typeof v === 'object') {
+        if (keepObject || looksLikeMediaRef(v) || outputKey === 'result' || outputKey === 'body' || outputKey === 'playback') {
+          return v;
+        }
+        return JSON.stringify(v);
+      }
+      return v != null ? String(v) : keepObject ? null : '';
     }
     if (raw.text != null) return String(raw.text);
-    return JSON.stringify(raw);
+    return keepObject ? raw : JSON.stringify(raw);
   }
   return String(raw);
 }
@@ -72,7 +94,11 @@ export function renderWorkflowTemplates(text, context) {
       }
       return '';
     }
-    return getOutputValue(context, nodeId, path);
+    return (() => {
+      const v = getOutputValue(context, nodeId, path);
+      if (v != null && typeof v === 'object') return JSON.stringify(v);
+      return v;
+    })();
   });
   out = out.replace(/\{\{(\w+)\}\}/g, (match, key) => {
     if (key === 'input') {
@@ -135,13 +161,17 @@ export function resolveNodeInputs(node, graph, context) {
     }
 
     resolved[key] = value;
+    const preview =
+      value != null && typeof value === 'object'
+        ? JSON.stringify(value).slice(0, 200)
+        : String(value ?? '');
     summary.push({
       id: key,
       label: binding.label || key,
       mode: binding.mode,
       source,
       value,
-      valuePreview: value.length > 200 ? `${value.slice(0, 200)}…` : value,
+      valuePreview: preview.length > 200 ? `${preview.slice(0, 200)}…` : preview,
     });
   }
 

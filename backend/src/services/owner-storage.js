@@ -6,6 +6,8 @@ import { join } from 'path';
 import { getDb } from '../db/schema.js';
 import { getOpenClawDir } from '../config/openclaw-paths.js';
 import { masterDataDocsDir } from './master-data.js';
+import { mediaStorageBytes } from './ceo-media-artifacts.js';
+import { avatarStorageBytes } from './ceo-avatars.js';
 
 function sanitizeIdPart(value) {
   return String(value || '')
@@ -65,6 +67,8 @@ export function estimateOwnerStorage(ownerUserId) {
     workflow_runs_bytes: 0,
     master_data_docs_bytes: 0,
     master_data_files_bytes: 0,
+    media_artifacts_bytes: 0,
+    avatars_bytes: 0,
     ceo_db_bytes: 0,
     openclaw_tenant_bytes: 0,
   };
@@ -125,6 +129,14 @@ export function estimateOwnerStorage(ownerUserId) {
   } catch (_) {}
 
   try {
+    breakdown.media_artifacts_bytes = mediaStorageBytes(owner);
+  } catch (_) {}
+
+  try {
+    breakdown.avatars_bytes = avatarStorageBytes(owner);
+  } catch (_) {}
+
+  try {
     breakdown.ceo_db_bytes = fileSizeBytes(join(dataDir(), 'tenants', sanitizeIdPart(owner), 'ceo.db'));
   } catch (_) {}
 
@@ -140,6 +152,8 @@ export function estimateOwnerStorage(ownerUserId) {
     breakdown.standup_messages_bytes +
     breakdown.workflow_runs_bytes +
     masterData +
+    breakdown.media_artifacts_bytes +
+    breakdown.avatars_bytes +
     breakdown.ceo_db_bytes +
     breakdown.openclaw_tenant_bytes;
 

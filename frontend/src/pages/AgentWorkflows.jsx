@@ -4,6 +4,7 @@ import { formatLocalDateTime } from '../utils/formatDateTime.js';
 import { api } from '../api.js';
 import WorkflowStepTooltip from '../components/WorkflowStepTooltip.jsx';
 import { summarizeStepIo } from '../utils/workflowStepIo.js';
+import WorkflowRunGraph from '../components/workflow/WorkflowRunGraph.jsx';
 import ActionFeedbackBanner from '../components/ActionFeedbackBanner.jsx';
 import { useActionFeedback } from '../hooks/useActionFeedback.js';
 import WorkflowAgentChat from '../components/workflow/WorkflowAgentChat.jsx';
@@ -663,6 +664,10 @@ export default function AgentWorkflows() {
               {selectedRun.error_message && (
                 <p style={{ color: '#dc2626', fontSize: '0.85rem' }}>{selectedRun.error_message}</p>
               )}
+              <div style={{ margin: '0.75rem 0 1rem' }}>
+                <h4 style={{ margin: '0 0 0.5rem', fontSize: '0.9rem' }}>Graphical run audit</h4>
+                <WorkflowRunGraph run={selectedRun} />
+              </div>
               {listeningSteps.length > 0 && (
                 <div className="wf-listen-active" style={{ marginTop: 8 }}>
                   <strong>SSE listen active</strong>

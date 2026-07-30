@@ -271,6 +271,7 @@ export async function executeApiTask(resolvedInputs, nodeConfig = {}, context = 
 
   const method = (cfg.method || 'POST').toUpperCase();
   const timeoutMs = Number(cfg.timeoutMs || 20 * 60 * 1000);
+  const responseMode = String(cfg.responseMode || 'auto').toLowerCase();
 
   let headers = buildApiRequestHeaders(cfg, context, resolvedInputs.headers, url);
 
@@ -284,7 +285,6 @@ export async function executeApiTask(resolvedInputs, nodeConfig = {}, context = 
   }
 
   let response;
-  let text;
   try {
     response = await fetch(url, {
       method,
@@ -292,6 +292,64 @@ export async function executeApiTask(resolvedInputs, nodeConfig = {}, context = 
       body: method === 'GET' || method === 'HEAD' ? undefined : body || undefined,
       signal: AbortSignal.timeout(timeoutMs),
     });
+  } catch (err) {
+    wrapFetchError(err, `API ${method} ${url}`);
+  }
+
+  const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+  const wantBinary =
+    responseMode === 'binary' ||
+    (responseMode === 'auto' &&
+      contentType &&
+      (contentType.startsWith('audio/') ||
+        contentType.startsWith('video/') ||
+        contentType.startsWith('image/') ||
+        contentType.includes('octet-stream') ||
+        contentType.includes('gltf') ||
+        contentType.includes('model')));
+
+  if (wantBinary) {
+    const ab = await response.arrayBuffer();
+    const buffer = Buffer.from(ab);
+    if (!response.ok) {
+      const snippet = buffer.slice(0, 400).toString('utf8');
+      throw new Error(`API ${response.status}: ${snippet || response.statusText}`);
+    }
+    const owner = context?.owner_user_id || context?.actor?.id;
+    if (!owner) throw new Error('API binary response requires workflow owner context');
+    const { createMediaArtifact } = await import('./ceo-media-artifacts.js');
+    const ext =
+      contentType.includes('mpeg') || contentType.includes('mp3')
+        ? 'mp3'
+        : contentType.includes('wav')
+          ? 'wav'
+          : contentType.includes('ogg')
+            ? 'ogg'
+            : contentType.includes('mp4')
+              ? 'mp4'
+              : contentType.includes('webm')
+                ? 'webm'
+                : contentType.includes('glb')
+                  ? 'glb'
+                  : 'bin';
+    const { ref } = createMediaArtifact(owner, {
+      buffer,
+      filename: `api-response.${ext}`,
+      mimeType: contentType.split(';')[0].trim() || 'application/octet-stream',
+    });
+    const mediaKey = ref.kind === 'video' ? 'video' : ref.kind === 'model' ? 'model' : 'audio';
+    return {
+      ok: true,
+      status: response.status,
+      body: ref,
+      [mediaKey]: ref,
+      media: ref,
+      responseMode: 'binary',
+    };
+  }
+
+  let text;
+  try {
     text = await response.text();
   } catch (err) {
     wrapFetchError(err, `API ${method} ${url}`);
@@ -310,6 +368,7 @@ export async function executeApiTask(resolvedInputs, nodeConfig = {}, context = 
     body: parsed,
     // Keep full JSON for downstream API nodes (place/validate chains). Soft-cap huge payloads.
     bodyText: (typeof parsed === 'object' ? JSON.stringify(parsed) : String(text)).slice(0, 200000),
+    responseMode: responseMode === 'text' ? 'text' : 'json',
   };
 }
 

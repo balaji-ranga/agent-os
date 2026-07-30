@@ -13,6 +13,8 @@ import { removeWorkflowSchedulesForOwner } from './agent-workflow-store.js';
 import { deleteDefinitionWithCleanup } from './agent-workflow-run-manager.js';
 import { deleteAgentCascade } from './agent-delete.js';
 import { getOpenClawDir, getOpenClawConfigPath } from '../config/openclaw-paths.js';
+import { deleteAllMediaForOwner } from './ceo-media-artifacts.js';
+import { deleteAllAvatarsForOwner } from './ceo-avatars.js';
 
 function sanitizeIdPart(value) {
   return String(value || '')
@@ -274,6 +276,20 @@ export function offboardUser(userId, opts = {}) {
 
   // 2) Shared DB owner-scoped purge (standups, workflows, etc.)
   summary.steps.db = purgeOwnerScopedRows(db, row.id);
+
+  // 3b) Media artifacts + 3D avatars
+  try {
+    deleteAllMediaForOwner(row.id);
+    summary.steps.media_removed = true;
+  } catch (e) {
+    summary.steps.media_error = e?.message || String(e);
+  }
+  try {
+    deleteAllAvatarsForOwner(row.id);
+    summary.steps.avatars_removed = true;
+  } catch (e) {
+    summary.steps.avatars_error = e?.message || String(e);
+  }
 
   // 3) Tenant filesystem + ceo.db
   if (usesTenantCeoDb(row.id)) {
