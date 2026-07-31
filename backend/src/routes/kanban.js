@@ -31,7 +31,10 @@ import {
 import { ensureTenantOpenClawAgent } from '../services/openclaw-tenant.js';
 import { registerOpenClawSessionOwner } from '../services/tool-owner-scope.js';
 import { insertChatTurn } from '../services/chat-history.js';
-import { cancelDelegationsForDeletedKanban } from '../services/kanban-orphan-watcher.js';
+import {
+  cancelDelegationsForDeletedKanban,
+  reinitiateKanbanDelegation,
+} from '../services/kanban-orphan-watcher.js';
 
 const router = Router();
 router.use(attachAuthUser);
@@ -322,7 +325,7 @@ router.post('/tasks', (req, res) => {
         `INSERT INTO kanban_tasks (title, description, status, assigned_agent_id, created_by, due_date, owner_user_id)
          VALUES (?, ?, ?, ?, 'user', ?, ?)`
       )
-      .run(title.trim(), desc, assigned_agent_id ? 'awaiting_confirmation' : 'open', assigned_agent_id, due, ownerUserId);
+      .run(title.trim(), desc, 'open', assigned_agent_id, due, ownerUserId);
     const row = db().prepare('SELECT * FROM kanban_tasks ORDER BY id DESC LIMIT 1').get();
     notifyKanbanTaskCreated({ userId: ownerUserId, task: row });
     res.status(201).json(row);
@@ -364,25 +367,82 @@ router.patch('/tasks/:id', (req, res) => {
     updates.push("updated_at = datetime('now')");
     values.push(req.params.id);
     db().prepare(`UPDATE kanban_tasks SET ${updates.join(', ')} WHERE id = ?`).run(...values);
-    const updated = db().prepare('SELECT k.*, a.name AS assigned_agent_name FROM kanban_tasks k LEFT JOIN agents a ON a.id = k.assigned_agent_id WHERE k.id = ?').get(req.params.id);
+    let updated = db().prepare('SELECT k.*, a.name AS assigned_agent_name FROM kanban_tasks k LEFT JOIN agents a ON a.id = k.assigned_agent_id WHERE k.id = ?').get(req.params.id);
     if (status === 'completed' || status === 'failed') {
       clearKanbanTaskNotification(updated.id, req.authUser?.id);
     }
-    res.json(updated);
+    // Drag/move back to open: start a fresh specialty run (watcher used to ignore open+completed).
+    const movedToOpen =
+      status === 'open' &&
+      task.status !== 'open' &&
+      updated.assigned_agent_id &&
+      !updated.assigned_member_key;
+    let reinit = null;
+    if (movedToOpen) {
+      reinit = reinitiateKanbanDelegation(updated.id, {
+        reason: 'ceo_move_open',
+        resetRetries: true,
+      });
+      if (reinit?.ok) {
+        updated = db()
+          .prepare(
+            'SELECT k.*, a.name AS assigned_agent_name FROM kanban_tasks k LEFT JOIN agents a ON a.id = k.assigned_agent_id WHERE k.id = ?'
+          )
+          .get(req.params.id);
+        console.info(
+          '[kanban] move→open reinitiated task=%s delegation=%s agent=%s',
+          updated.id,
+          reinit.new_delegation_id,
+          reinit.agent_id
+        );
+      } else {
+        console.warn(
+          '[kanban] move→open reinit skipped task=%s reason=%s',
+          updated.id,
+          reinit?.reason || 'unknown'
+        );
+      }
+    }
+    res.json(reinit ? { ...updated, reinit } : updated);
   } catch (e) {
     res.status(e.status || 400).json({ error: e.message });
   }
 });
 
-// POST /api/kanban/tasks/:id/reopen — set status to open, keep chat history
+// POST /api/kanban/tasks/:id/reopen — set status to open and re-queue assigned specialty work
 router.post('/tasks/:id/reopen', (req, res) => {
   try {
     const task = db().prepare('SELECT * FROM kanban_tasks WHERE id = ?').get(req.params.id);
     if (!task) return res.status(404).json({ error: 'Task not found' });
     assertKanbanTaskAccess(task, req.authUser);
     db().prepare("UPDATE kanban_tasks SET status = 'open', updated_at = datetime('now') WHERE id = ?").run(req.params.id);
-    const updated = db().prepare('SELECT k.*, a.name AS assigned_agent_name FROM kanban_tasks k LEFT JOIN agents a ON a.id = k.assigned_agent_id WHERE k.id = ?').get(req.params.id);
-    res.json(updated);
+    let reinit = null;
+    if (task.assigned_agent_id && !task.assigned_member_key) {
+      reinit = reinitiateKanbanDelegation(Number(req.params.id), {
+        reason: 'ceo_reopen',
+        resetRetries: true,
+      });
+      if (reinit?.ok) {
+        console.info(
+          '[kanban] reopen reinitiated task=%s delegation=%s agent=%s',
+          req.params.id,
+          reinit.new_delegation_id,
+          reinit.agent_id
+        );
+      } else {
+        console.warn(
+          '[kanban] reopen reinit skipped task=%s reason=%s',
+          req.params.id,
+          reinit?.reason || 'unknown'
+        );
+      }
+    }
+    const updated = db()
+      .prepare(
+        'SELECT k.*, a.name AS assigned_agent_name FROM kanban_tasks k LEFT JOIN agents a ON a.id = k.assigned_agent_id WHERE k.id = ?'
+      )
+      .get(req.params.id);
+    res.json(reinit ? { ...updated, reinit } : updated);
   } catch (e) {
     res.status(e.status || 400).json({ error: e.message });
   }

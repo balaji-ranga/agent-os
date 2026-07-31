@@ -19,6 +19,7 @@ import {
 import { isAgentWorkflowPrompt } from './agent-workflow-kanban.js';
 import { healStuckKanbanForCompletedDelegations } from './kanban-workflow-stage.js';
 import { reconcileA2AKanbanForOwner } from './coo-status-checker.js';
+import { releaseDelegationRunLock } from './delegation-queue.js';
 
 const ORPHAN_TAG_RE = /\[orphan_retry:(\d+)\]/i;
 const PIPELINE_TAG = '[job_pipeline';
@@ -32,13 +33,19 @@ function maxOrphanRetries() {
   return Number.isFinite(n) && n >= 0 ? Math.min(Math.floor(n), 5) : 2;
 }
 
-/** Seconds a specialty task may sit in `processing` before we re-pend it. Default 10 min. */
+/** Seconds a specialty task may sit in `processing` before we re-pend it.
+ * Must exceed OpenClaw fetch timeout so we do not re-pend a still-valid slow call.
+ * Default: max(OPENCLAW_FETCH_TIMEOUT_MS+60s, 180s) — was a flat 600s, which made
+ * Admin "Run now" look broken for hung cards under 10 minutes.
+ */
 function specialtyProcessingStaleSec() {
   const ms = Number(process.env.DELEGATION_SPECIALTY_PROCESSING_TIMEOUT_MS);
   if (Number.isFinite(ms) && ms >= 60000) return Math.ceil(ms / 1000);
   const pipelineMs = Number(process.env.DELEGATION_PROCESSING_TIMEOUT_MS);
   if (Number.isFinite(pipelineMs) && pipelineMs >= 60000) return Math.ceil(pipelineMs / 1000);
-  return 600;
+  const fetchMs = Number(process.env.OPENCLAW_FETCH_TIMEOUT_MS);
+  const fromFetch = Number.isFinite(fetchMs) && fetchMs >= 60000 ? Math.ceil(fetchMs / 1000) + 60 : 0;
+  return Math.max(fromFetch, 180);
 }
 
 export function getOrphanRetryCount(description) {
@@ -173,6 +180,9 @@ export function recoverStaleSpecialtyProcessingDelegations({
       )
       .run(`[orphan-watcher] re-pended after ${staleSec}s stuck in processing`, row.id);
     if (r.changes) {
+      // Drop in-memory lock so processPending can reclaim immediately (hung OpenClaw call
+      // may still be awaiting timeout with the id still in runningDelegationIds).
+      releaseDelegationRunLock(row.id);
       recovered += 1;
       details.push({ delegation_id: row.id, agent: row.to_agent_id });
       db()
@@ -192,15 +202,22 @@ export function recoverStaleSpecialtyProcessingDelegations({
 
 /**
  * Create a fresh pending delegation for a stuck specialty Kanban card and link it.
+ * @param {number|string} kanbanId
+ * @param {{ reason?: string, resetRetries?: boolean }} [opts]
+ *   resetRetries — CEO reopen / drag-to-open: clear [orphan_retry:N] so intentional
+ *   re-asks are not blocked by the automatic retry cap.
  */
-export function reinitiateKanbanDelegation(kanbanId, { reason = 'orphan_watcher' } = {}) {
+export function reinitiateKanbanDelegation(
+  kanbanId,
+  { reason = 'orphan_watcher', resetRetries = false } = {}
+) {
   const kanban = db().prepare(`SELECT * FROM kanban_tasks WHERE id = ?`).get(kanbanId);
   if (!kanban) return { ok: false, reason: 'kanban_not_found' };
   if (!kanban.assigned_agent_id) return { ok: false, reason: 'no_assigned_agent' };
   if (kanban.assigned_member_key) return { ok: false, reason: 'external_leaf' };
   if (isCeoApprovalCard(kanban)) return { ok: false, reason: 'ceo_approval' };
 
-  const retries = getOrphanRetryCount(kanban.description);
+  let retries = resetRetries ? 0 : getOrphanRetryCount(kanban.description);
   if (retries >= maxOrphanRetries()) {
     return { ok: false, reason: 'max_retries', retries };
   }
@@ -215,7 +232,7 @@ export function reinitiateKanbanDelegation(kanbanId, { reason = 'orphan_watcher'
   if (old && (old.status === 'pending' || old.status === 'processing')) {
     return { ok: false, reason: 'already_active', delegation_id: old.id, status: old.status };
   }
-  if (old && isPermanentFailure(old.error_message)) {
+  if (old && isPermanentFailure(old.error_message) && !resetRetries) {
     return { ok: false, reason: 'permanent_failure', error: old.error_message };
   }
   if (old?.prompt && !isEligibleForStatusOnlyRetry(old.prompt) && isAgentWorkflowPrompt(old.prompt)) {
@@ -251,8 +268,16 @@ export function reinitiateKanbanDelegation(kanbanId, { reason = 'orphan_watcher'
     .run(standupId, requestId, kanban.assigned_agent_id, prompt, owner);
   const newId = Number(info.lastInsertRowid);
 
+  let descBase = String(kanban.description || '');
+  if (resetRetries) {
+    descBase = descBase
+      .replace(/\[orphan_retry:\d+\]/gi, '')
+      .replace(/\n*---\nOrphan watcher:[\s\S]*$/im, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
   const desc = withOrphanRetryCount(
-    `${kanban.description || ''}\n\n---\nOrphan watcher: reinitiated (${reason}) at ${new Date().toISOString()}`,
+    `${descBase}\n\n---\nOrphan watcher: reinitiated (${reason}) at ${new Date().toISOString()}`,
     nextRetry
   );
   db()
@@ -281,14 +306,14 @@ export function reinitiateKanbanDelegation(kanbanId, { reason = 'orphan_watcher'
 
 /**
  * Scan for orphan / stuck specialty cards and reinitiate where safe.
+ *
+ * Includes CEO-reopened cards: status `open`/`failed` still linked to a *completed*
+ * delegation (drag-to-open / Reopen used to leave that link, so the watcher ignored them).
+ * `open` cards skip the 3-minute cool-off so status-checker / watcher runs pick them up immediately.
  */
 export function reinitiateOrphanKanbanCards({ ownerUserId = null, limit = 25 } = {}) {
   const owner = String(ownerUserId || '').trim() || null;
-  const sql = owner
-    ? `SELECT k.*
-       FROM kanban_tasks k
-       LEFT JOIN agent_delegation_tasks d ON d.id = k.agent_delegation_task_id
-       WHERE k.owner_user_id = ?
+  const orphanWhere = `
          AND k.assigned_agent_id IS NOT NULL
          AND k.assigned_member_key IS NULL
          AND k.status IN ('in_progress', 'failed', 'open')
@@ -296,24 +321,25 @@ export function reinitiateOrphanKanbanCards({ ownerUserId = null, limit = 25 } =
            k.agent_delegation_task_id IS NULL
            OR d.id IS NULL
            OR (d.status = 'failed')
-           OR (d.status = 'completed' AND k.status = 'in_progress')
+           OR (d.status = 'completed' AND k.status IN ('in_progress', 'open', 'failed'))
          )
-         AND datetime(k.updated_at) < datetime('now', '-3 minutes')
+         AND (
+           k.status = 'open'
+           OR datetime(k.updated_at) < datetime('now', '-3 minutes')
+         )`;
+  const sql = owner
+    ? `SELECT k.*
+       FROM kanban_tasks k
+       LEFT JOIN agent_delegation_tasks d ON d.id = k.agent_delegation_task_id
+       WHERE k.owner_user_id = ?
+         ${orphanWhere}
        ORDER BY k.updated_at ASC
        LIMIT ?`
     : `SELECT k.*
        FROM kanban_tasks k
        LEFT JOIN agent_delegation_tasks d ON d.id = k.agent_delegation_task_id
-       WHERE k.assigned_agent_id IS NOT NULL
-         AND k.assigned_member_key IS NULL
-         AND k.status IN ('in_progress', 'failed', 'open')
-         AND (
-           k.agent_delegation_task_id IS NULL
-           OR d.id IS NULL
-           OR (d.status = 'failed')
-           OR (d.status = 'completed' AND k.status = 'in_progress')
-         )
-         AND datetime(k.updated_at) < datetime('now', '-3 minutes')
+       WHERE 1=1
+         ${orphanWhere}
        ORDER BY k.updated_at ASC
        LIMIT ?`;
 
@@ -333,23 +359,33 @@ export function reinitiateOrphanKanbanCards({ ownerUserId = null, limit = 25 } =
         .prepare(`SELECT * FROM agent_delegation_tasks WHERE id = ?`)
         .get(k.agent_delegation_task_id);
     }
-    if (old?.status === 'completed') {
+    // Completed work still on an in_progress card is healed elsewhere — do not re-run.
+    // Completed/failed cards the CEO moved back to open/failed need a fresh run.
+    if (old?.status === 'completed' && k.status === 'in_progress') {
       skipped += 1;
       continue;
     }
-    if (old?.status === 'failed' && isPermanentFailure(old.error_message)) {
+    if (old?.status === 'failed' && isPermanentFailure(old.error_message) && k.status !== 'open') {
       skipped += 1;
       details.push({ kanban_id: k.id, ok: false, reason: 'permanent_failure' });
       continue;
     }
 
+    const ceoReopen =
+      (k.status === 'open' || k.status === 'failed') &&
+      (!old || old.status === 'completed' || old.status === 'failed');
     const reason =
       !old || !k.agent_delegation_task_id
         ? 'missing_delegation'
-        : old.status === 'failed'
-          ? `delegation_failed:${String(old.error_message || '').slice(0, 80)}`
-          : 'stuck_in_progress';
-    const out = reinitiateKanbanDelegation(k.id, { reason });
+        : old.status === 'completed' && (k.status === 'open' || k.status === 'failed')
+          ? 'ceo_reopen_completed'
+          : old.status === 'failed'
+            ? `delegation_failed:${String(old.error_message || '').slice(0, 80)}`
+            : 'stuck_in_progress';
+    const out = reinitiateKanbanDelegation(k.id, {
+      reason,
+      resetRetries: !!ceoReopen,
+    });
     details.push(out);
     if (out.ok) reinitiated += 1;
     else skipped += 1;
@@ -399,7 +435,7 @@ export function cancelDelegationsForDeletedKanban(taskIds = []) {
 }
 
 /** One watcher pass for a CEO (or all when ownerUserId omitted). */
-export function runKanbanOrphanWatcher({ ownerUserId = null, limit = 25 } = {}) {
+export async function runKanbanOrphanWatcher({ ownerUserId = null, limit = 25 } = {}) {
   const owner = String(ownerUserId || '').trim() || null;
   const stale = recoverStaleSpecialtyProcessingDelegations({ ownerUserId: owner, limit });
   let statusOnly = { requeued: 0 };
@@ -429,6 +465,36 @@ export function runKanbanOrphanWatcher({ ownerUserId = null, limit = 25 } = {}) 
   } catch (e) {
     console.warn('[orphan-watcher] A2A leaf reconcile:', e?.message || e);
   }
+
+  const needsProcess =
+    (stale.recovered || 0) +
+      (statusOnly.requeued || 0) +
+      (infra.repended || 0) +
+      (orphans.reinitiated || 0) >
+    0;
+  let process_pending = null;
+  if (needsProcess) {
+    try {
+      const { processPendingDelegationTasksForCeo, processPendingDelegationTasksForAllCeos } =
+        await import('./delegation-queue.js');
+      if (owner) {
+        await processPendingDelegationTasksForCeo(owner);
+        process_pending = { owner_user_id: owner, kicked: true };
+      } else {
+        await processPendingDelegationTasksForAllCeos();
+        process_pending = { all: true, kicked: true };
+      }
+      console.info(
+        '[orphan-watcher] kicked processPending after recovery owner=%s recovered=%s',
+        owner || 'all',
+        (stale.recovered || 0) + (orphans.reinitiated || 0)
+      );
+    } catch (e) {
+      console.warn('[orphan-watcher] processPending kick failed:', e?.message || e);
+      process_pending = { ok: false, error: e?.message || String(e) };
+    }
+  }
+
   return {
     owner_user_id: owner,
     stale_processing: stale,
@@ -437,6 +503,7 @@ export function runKanbanOrphanWatcher({ ownerUserId = null, limit = 25 } = {}) 
     heal,
     orphans,
     a2a_leaf_reconcile: a2aLeaf,
+    process_pending,
   };
 }
 
