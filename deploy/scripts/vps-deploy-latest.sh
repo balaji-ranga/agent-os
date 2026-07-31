@@ -49,6 +49,11 @@ if [[ -f "$ROOT/deploy/scripts/ensure-docker-tools-env.sh" ]]; then
   sed -i 's/\r$//' "$ROOT/deploy/scripts/ensure-docker-tools-env.sh" 2>/dev/null || true
   bash "$ROOT/deploy/scripts/ensure-docker-tools-env.sh" "$ROOT/deploy/.env" || true
 fi
+if [[ -f "$ROOT/deploy/scripts/ensure-voice-env.sh" ]]; then
+  sed -i 's/\r$//' "$ROOT/deploy/scripts/ensure-voice-env.sh" 2>/dev/null || true
+  # Env keys first; containers after image build (VOICE_BUILD=0 here — started below)
+  VOICE_BUILD=0 bash "$ROOT/deploy/scripts/ensure-voice-env.sh" "$ROOT/deploy/.env" || true
+fi
 
 # OpenSearch requires elevated mmap counts
 if [[ "$(id -u)" -eq 0 ]] || command -v sudo >/dev/null 2>&1; then
@@ -83,6 +88,7 @@ echo "              Workflow certify Maker/Checker (LLM Checker default OFF),"
 echo "              DeepSeek@Ollama,"
 echo "              hPanel shell + light/dark theme (ThemeToggle, data-theme),"
 echo "              workflow editor fullscreen (shell-focus-mode + Exit to workflows),"
+echo "              workflow run audit fullscreen (/workflows/runs/:id + wf-run-audit-layout),"
 echo "              Register MCP / Register Agents primary CTAs (page-hero),"
 echo "              department purpose + monthly_token_budget (Master Data departments),"
 echo "              agent monthly token + error budgets (token_usage ledger, warn-then-block),"
@@ -95,7 +101,10 @@ echo "              A2A visibility public|private (private = org COO/reports-to 
 echo "              Master Data Purge all uploads (CEO uploads only; Help + User Guide protected),"
 echo "              OpenSearch document RAG (per-user meta+search indices; platform_docs_*;"
 echo "              admin Documents RAG + /opensearch/ Dashboards BFF; no host :9200/:5601),"
-echo "              agent delete cascade + deleted_agents tombstone (no FK error, no resurrection)"
+echo "              agent delete cascade + deleted_agents tombstone (no FK error, no resurrection),"
+echo "              Published Scenes (/p/vr/:slug) + public VR APIs,"
+echo "              Slack/WhatsApp agent channels wizard (vault + OpenClaw bindings),"
+echo "              free STT/TTS optional-voice (whisper+piper; ensure-voice-env.sh + SPEECH_*)"
 
 if [[ "$SKIP_GIT" != "1" ]]; then
   if [[ -d "$ROOT/.git" ]]; then
@@ -150,6 +159,13 @@ if [[ -f "$ROOT/tools/brave-search-mcp-byok/server.js" ]]; then
   echo "==> rebuild brave-search-mcp (BYOK; profile optional-brave-mcp)"
   docker compose --profile optional-brave-mcp build "${BUILD_ARGS[@]}" brave-search-mcp || echo "WARN: brave-search-mcp build failed"
   docker compose --profile optional-brave-mcp up -d --force-recreate brave-search-mcp || echo "WARN: brave-search-mcp up failed"
+fi
+
+# Free STT/TTS (optional-voice) — SPEECH_* already in .env from ensure-voice-env above
+if [[ -f "$ROOT/deploy/scripts/ensure-voice-env.sh" && "${SKIP_VOICE:-0}" != "1" ]]; then
+  echo "==> optional-voice (whisper + piper TTS)"
+  docker compose --profile optional-voice build "${BUILD_ARGS[@]}" piper || echo "WARN: piper build failed"
+  docker compose --profile optional-voice up -d whisper piper || echo "WARN: optional-voice up failed"
 fi
 
 echo "==> refresh OpenClaw chrome-extension asset (Browser Session download)"
@@ -380,6 +396,11 @@ if docker compose exec -T frontend sh -c 'cat /usr/share/nginx/html/assets/*.css
   echo "    frontend assets: wf-editor-exit OK"
 else
   echo "    WARN: wf-editor-exit CSS missing (fullscreen exit control?)"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql "Exit run audit\|wf-run-audit-layout\|/workflows/runs/" /usr/share/nginx/html/assets/*.js 2>/dev/null || cat /usr/share/nginx/html/assets/*.css 2>/dev/null | grep -q wf-run-audit-layout'; then
+  echo "    frontend assets: workflow run audit fullscreen OK"
+else
+  echo "    WARN: run audit fullscreen markers missing (rebuild frontend?)"
 fi
 if docker compose exec -T frontend sh -c 'grep -Rql Broadcast /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
   echo "    frontend assets: Broadcast page OK"

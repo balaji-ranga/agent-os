@@ -17,11 +17,20 @@ Agents do **not** drive this with the built-in OpenClaw `browser` tool in chat (
 4. Optionally set **URL allow / deny** lists (deny always wins).
 5. **Recorder (wizard):** Browser Session → **Record a recipe** → **Start record wizard** → name the recipe → confirm Chrome ready → navigate in Chrome and click **Capture this page** after each URL → **Done — save recipe**.
 
+### Multi-user (same server)
+
+Recipes and tasks stay private to your account. The browser relay pairing string is **shared** for the whole Flolah instance (one WSS token per gateway).
+
+Only **one** user can hold **Client Chrome** at a time (**exclusive lease**):
+
+- If Mark ready fails because someone else holds the lease, wait until they **Opt out**, or keep working with managed Playwright (your agents automatically fall back).
+- Status shows who holds the lease. Your agents never drive another user's attached Chrome tabs.
+
 ## Agent tools (grant in Workspace → Tool access)
 
 | Tool | Purpose |
 |------|---------|
-| `browse_session_status` | Profile (`chrome` vs `openclaw`), gateway, setup hints |
+| `browse_session_status` | Profile (`chrome` vs `openclaw`), gateway, chrome lease, setup hints |
 | `browse_task_start` | Free-form NL goal (`mode: autonomous`); async `task_id` |
 | `browse_task_status` | Poll / wait (`wait_ms` up to 90000) |
 | `browse_snapshot` / `browse_act` | Single-step observe / act |
@@ -48,6 +57,7 @@ Thumbs **down** on an agent chat reply requires a short comment. Comments feed *
 - Do not book, pay, or submit via automation.
 - Blocked URLs return an error — agents must not bypass your allow/deny lists.
 - Prefer deep-link search summaries over clicking Book/Pay.
+- Do not expect two users' Client Chrome sessions to run in parallel on one gateway — use managed mode or take turns on the lease.
 
 ## Ops / redeploy (for admins)
 

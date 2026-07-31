@@ -126,7 +126,14 @@ router.post('/mark-ready', requireCeoOrAdmin, (req, res) => {
     const session = markClientSessionReady(ceoUserId, ready, req.body?.logged_in_domains || null);
     res.json({ ok: true, session });
   } catch (e) {
-    res.status(e.status || 500).json({ error: e.message });
+    const body = { error: e.message };
+    if (e.code) body.code = e.code;
+    if (e.holder_ceo_user_id) body.holder_ceo_user_id = e.holder_ceo_user_id;
+    if (e.holder_label) body.holder_label = e.holder_label;
+    if (e.status === 409) {
+      console.info('[browser-session] mark-ready conflict: %s', e.message);
+    }
+    res.status(e.status || 500).json(body);
   }
 });
 
@@ -166,15 +173,29 @@ router.post('/save-session', requireCeoOrAdmin, async (req, res) => {
     const persisted = await persistBrowserSession();
     if (req.body?.linkedin) markPortalLoggedIn({ linkedin: true });
     const domains = req.body?.logged_in_domains || null;
-    if (domains) markClientSessionReady(ceoUserId, true, domains);
+    let leaseNote = null;
+    if (domains) {
+      try {
+        markClientSessionReady(ceoUserId, true, domains);
+      } catch (leaseErr) {
+        if (leaseErr.status === 409) {
+          leaseNote = leaseErr.message;
+          console.info('[browser-session] save-session chrome lease skip: %s', leaseErr.message);
+        } else {
+          throw leaseErr;
+        }
+      }
+    }
     res.json({
       ok: true,
       persisted,
-      note: 'Saved managed Chromium profile cookies. Client Chrome mode does not need Save session.',
+      note: leaseNote
+        ? `Saved managed Chromium profile cookies. ${leaseNote}`
+        : 'Saved managed Chromium profile cookies. Client Chrome mode does not need Save session.',
       session: (await getBrowserSessionStatus(ceoUserId)).session,
     });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(e.status || 500).json({ error: e.message });
   }
 });
 

@@ -274,6 +274,10 @@ function BrowserSessionPanel() {
   const setupSteps = status?.client_setup?.steps || [];
   const clientReady = !!status?.session?.session_ready;
   const gatewayUp = !!status?.gateway_reachable;
+  const chromeLease = status?.chrome_lease || null;
+  const leaseHeldByOther = Boolean(
+    chromeLease?.holder_ceo_user_id && !chromeLease?.is_holder
+  );
 
   const copyPairing = async () => {
     if (!pairing) return;
@@ -394,14 +398,37 @@ function BrowserSessionPanel() {
           <strong>{status?.resolved_profile || '…'}</strong>
           {status?.using_fallback ? ' (fallback to managed)' : ''} · Gateway:{' '}
           {gatewayUp ? 'up' : 'down'} · Client ready: {clientReady ? 'yes' : 'no'}
+          {chromeLease?.is_holder ? ' · Chrome lease: you' : ''}
         </p>
+        {chromeLease?.note && (
+          <p
+            style={{
+              fontSize: '0.88rem',
+              color: leaseHeldByOther ? 'var(--warn, #a16207)' : 'var(--muted)',
+              marginTop: 0,
+              maxWidth: 640,
+            }}
+          >
+            {chromeLease.note}
+          </p>
+        )}
+        {status?.client_setup?.uniqueness_note && (
+          <p style={{ fontSize: '0.8rem', color: 'var(--muted)', marginTop: 0, maxWidth: 640 }}>
+            {status.client_setup.uniqueness_note}
+          </p>
+        )}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
           <button type="button" disabled={busy} onClick={() => run(() => api.browserSessionOptIn(), 'Client mode on')}>
             Use my Chrome (opt in)
           </button>
           <button
             type="button"
-            disabled={busy}
+            disabled={busy || leaseHeldByOther}
+            title={
+              leaseHeldByOther
+                ? `Client Chrome held by ${chromeLease?.holder_label || 'another user'}`
+                : undefined
+            }
             onClick={() => run(() => api.browserSessionMarkReady({ ready: true }), 'Marked ready')}
           >
             Mark client session ready
@@ -613,16 +640,24 @@ function BrowserSessionPanel() {
                 <p style={{ fontSize: '0.9rem', color: 'var(--muted)' }}>
                   Recording uses your attached Chrome tab. Confirm the session is ready before capturing.
                 </p>
+                {leaseHeldByOther && (
+                  <p style={{ fontSize: '0.88rem', color: 'var(--warn, #a16207)' }}>
+                    {chromeLease?.note ||
+                      'Another user holds Client Chrome. Recording will use managed Playwright until they release the lease.'}
+                  </p>
+                )}
                 <ul style={{ fontSize: '0.9rem', lineHeight: 1.6 }}>
                   <li>
                     Gateway: {gatewayUp ? <strong style={{ color: 'var(--ok, #15803d)' }}>up</strong> : <strong style={{ color: 'var(--danger, #b91c1c)' }}>down</strong>}
                   </li>
                   <li>
                     Client ready:{' '}
-                    {clientReady ? (
+                    {clientReady && chromeLease?.is_holder ? (
                       <strong style={{ color: 'var(--ok, #15803d)' }}>yes</strong>
                     ) : (
-                      <strong style={{ color: 'var(--warn, #a16207)' }}>no — Mark ready above</strong>
+                      <strong style={{ color: 'var(--warn, #a16207)' }}>
+                        {leaseHeldByOther ? 'blocked — lease held by another user' : 'no — Mark ready above'}
+                      </strong>
                     )}
                   </li>
                   <li>
@@ -639,7 +674,12 @@ function BrowserSessionPanel() {
                   </button>
                   <button
                     type="button"
-                    disabled={busy}
+                    disabled={busy || leaseHeldByOther}
+                    title={
+                      leaseHeldByOther
+                        ? `Client Chrome held by ${chromeLease?.holder_label || 'another user'}`
+                        : undefined
+                    }
                     onClick={() => run(() => api.browserSessionMarkReady({ ready: true }), 'Marked ready')}
                   >
                     Mark ready now

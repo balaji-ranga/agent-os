@@ -46,26 +46,47 @@ async function del(path) {
   return request(path, { method: 'DELETE' });
 }
 
+/** POST multipart/form-data (do not set Content-Type — browser sets boundary). */
+async function postForm(path, formData) {
+  const url = path.startsWith('http') ? path : `${API_BASE}${path}`;
+  const headers = {};
+  if (_authToken) headers.Authorization = `Bearer ${_authToken}`;
+  const res = await fetch(url, { method: 'POST', headers, body: formData });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    const error = new Error(err.error || res.statusText);
+    error.status = res.status;
+    error.data = err;
+    throw error;
+  }
+  if (res.status === 204) return null;
+  return res.json();
+}
+
+/**
+ * Resolve a path for authenticated fetch without doubling /api.
+ * `/api/media/...` stays `/api/media/...` when VITE_API_URL is `/api`.
+ */
+export function resolveFetchUrl(path) {
+  if (!path || typeof path !== 'string') return path;
+  if (path.startsWith('http')) return path;
+  const base = String(API_BASE || '/api').replace(/\/$/, '');
+  if (base.startsWith('http')) {
+    if (path.startsWith('/api/') && /\/api$/i.test(base)) {
+      return `${base.slice(0, -4)}${path}`;
+    }
+    return path.startsWith('/api/')
+      ? `${base}${path.slice(4)}`
+      : `${base}${path.startsWith('/') ? path : `/${path}`}`;
+  }
+  return path.startsWith('/api/')
+    ? path
+    : `${base}${path.startsWith('/') ? path : `/${path}`}`;
+}
+
 /** Fetch authenticated binary (PDF, image) and return a blob object URL. Caller should revoke when done. */
 async function fetchBlobUrl(path) {
-  let url;
-  if (path.startsWith('http')) {
-    url = path;
-  } else if (API_BASE.startsWith('http')) {
-    // Absolute API base (e.g. VITE_API_URL=https://host/api) — resolve relative media there.
-    const base = API_BASE.replace(/\/$/, '');
-    url = path.startsWith('/api/')
-      ? `${base}${path.slice(4)}` // /api/media → {base}/media when base already ends with /api
-      : `${base}${path.startsWith('/') ? path : `/${path}`}`;
-    // If API_BASE is full origin+/api and path is /api/..., prefer origin+path
-    if (path.startsWith('/api/') && /\/api$/i.test(base)) {
-      url = `${base.slice(0, -4)}${path}`;
-    }
-  } else {
-    url = path.startsWith('/api/')
-      ? path
-      : `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
-  }
+  const url = resolveFetchUrl(path);
   const headers = {};
   if (_authToken) headers.Authorization = `Bearer ${_authToken}`;
   const res = await fetch(url, { headers });
@@ -514,6 +535,56 @@ export const api = {
   avatarsUpdate: (id, body) => patch(`/avatars/${encodeURIComponent(id)}`, body),
   avatarsDelete: (id) => del(`/avatars/${encodeURIComponent(id)}`),
   avatarsHunyuanStatus: () => get('/avatars/hunyuan/status'),
+
+  vrScenesList: () => get('/vr-scenes'),
+  vrScenesGet: (id) => get(`/vr-scenes/${encodeURIComponent(id)}`),
+  vrScenesUpload: (body) => post('/vr-scenes', body),
+  vrScenesUpdate: (id, body) => patch(`/vr-scenes/${encodeURIComponent(id)}`, body),
+  vrScenesDelete: (id) => del(`/vr-scenes/${encodeURIComponent(id)}`),
+
+  vrRoomsList: () => get('/vr-rooms'),
+  vrRoomsGet: (id) => get(`/vr-rooms/${encodeURIComponent(id)}`),
+  vrRoomsByAgent: (agentId) => get(`/vr-rooms/by-agent/${encodeURIComponent(agentId)}`),
+  vrRoomsCreate: (body) => post('/vr-rooms', body),
+  vrRoomsUpdate: (id, body) => patch(`/vr-rooms/${encodeURIComponent(id)}`, body),
+  vrRoomsDelete: (id) => del(`/vr-rooms/${encodeURIComponent(id)}`),
+  vrRoomsPatchLayout: (id, layout) => patch(`/vr-rooms/${encodeURIComponent(id)}/layout`, { layout }),
+  vrRoomsPatchScene: (id, sceneId) => patch(`/vr-rooms/${encodeURIComponent(id)}/scene`, { sceneId }),
+  vrRoomsAddMember: (id, avatarId) => post(`/vr-rooms/${encodeURIComponent(id)}/members`, { avatarId }),
+  vrRoomsRemoveMember: (id, avatarId) =>
+    del(`/vr-rooms/${encodeURIComponent(id)}/members/${encodeURIComponent(avatarId)}`),
+  vrRoomsRoute: (id, text) => post(`/vr-rooms/${encodeURIComponent(id)}/route`, { text }),
+  vrRoomsPublished: () => get('/vr-rooms/published'),
+  vrRoomsPublish: (id, body = {}) => post(`/vr-rooms/${encodeURIComponent(id)}/publish`, body),
+  vrRoomsUnpublish: (id) => post(`/vr-rooms/${encodeURIComponent(id)}/unpublish`, {}),
+  publicVrGet: (slug) => get(`/public/vr/${encodeURIComponent(slug)}`),
+  publicVrChat: (slug, body) => post(`/public/vr/${encodeURIComponent(slug)}/chat`, body || {}),
+
+  speechStt: (formOrBody) =>
+    formOrBody instanceof FormData
+      ? postForm('/speech/stt', formOrBody)
+      : post('/speech/stt', formOrBody || {}),
+  speechTts: (body) => post('/speech/tts', body || {}),
+
+  agentChannelsList: (params = {}) => {
+    const q = new URLSearchParams();
+    if (params.agentId) q.set('agentId', params.agentId);
+    const qs = q.toString();
+    return get(`/agent-channels${qs ? `?${qs}` : ''}`);
+  },
+  agentChannelsGet: (id) => get(`/agent-channels/${encodeURIComponent(id)}`),
+  agentChannelsCreate: (body) => post('/agent-channels', body),
+  agentChannelsUpdate: (id, body) => patch(`/agent-channels/${encodeURIComponent(id)}`, body),
+  agentChannelsDelete: (id) => del(`/agent-channels/${encodeURIComponent(id)}`),
+  agentChannelsApply: (id) => post(`/agent-channels/${encodeURIComponent(id)}/apply`, {}),
+  agentChannelsDisable: (id) => post(`/agent-channels/${encodeURIComponent(id)}/disable`, {}),
+  agentChannelsTest: (id) => post(`/agent-channels/${encodeURIComponent(id)}/test`, {}),
+  agentChannelsWhatsAppQr: (id) => get(`/agent-channels/${encodeURIComponent(id)}/whatsapp-qr`),
+  agentChannelsWhatsAppQrStart: (id, body = {}) =>
+    post(`/agent-channels/${encodeURIComponent(id)}/whatsapp-qr/start`, body),
+  agentChannelsWhatsAppQrWait: (id, body = {}) =>
+    post(`/agent-channels/${encodeURIComponent(id)}/whatsapp-qr/wait`, body),
+
   mediaArtifactsUpload: (body) => post('/media/artifacts', body),
   mediaArtifactsList: (params = {}) => {
     const q = new URLSearchParams(params).toString();

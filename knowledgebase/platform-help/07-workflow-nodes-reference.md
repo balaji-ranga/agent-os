@@ -148,6 +148,30 @@ Non-2xx / SSL failures typically fail the run.
 
 ---
 
+## Speech STT (`speech_stt`)
+
+**Purpose:** Local speech-to-text via faster-whisper (`SPEECH_STT_URL`, Compose profile `optional-voice`). No ElevenLabs key.
+
+**Key attributes:** `model` (default `whisper-1`); optional `language`.
+
+| Inputs | Outputs |
+|--------|---------|
+| `audio` (media ref) | `text`, `result`, `ok` |
+
+---
+
+## Speech TTS (`speech_tts`)
+
+**Purpose:** Local Piper text-to-speech (`SPEECH_TTS_URL`). Free alternative to ElevenLabs for workflows and Agent Chat “Speak reply”.
+
+**Key attributes:** `voice` (Piper voice id); `lengthScale`; `speakClean` (strip avatar markup).
+
+| Inputs | Outputs |
+|--------|---------|
+| `text` | `text`, `audio`, `result`, `ok` |
+
+---
+
 ## 3D Model (`model3d`)
 
 **Purpose:** Build a Virtual Room **playback** payload from avatar id + audio + animation JSON (full GLB clips, not lip-sync only).

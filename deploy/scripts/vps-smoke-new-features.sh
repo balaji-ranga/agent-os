@@ -173,4 +173,43 @@ console.log('email_send + notify_ceo + master_data in REQUIRED_GLOBAL + COO allo
 " || echo "WARN: could not verify content-tools allowlist inside openclaw"
 fi
 
+# Public VR + speech + agent channels (route presence; auth-gated where expected)
+PUB_VR=$(curl -ksS -o /tmp/pub_vr.json -w '%{http_code}' "${PUBLIC_URL%/}/api/public/vr/__smoke_missing__" 2>/dev/null \
+  || curl -sS -o /tmp/pub_vr.json -w '%{http_code}' "http://127.0.0.1:3001/api/public/vr/__smoke_missing__" \
+  || echo 000)
+echo "    GET /api/public/vr/:slug (missing) -> HTTP ${PUB_VR} (expect 404 JSON)"
+if [[ -f /tmp/pub_vr.json ]] && grep -q 'unpublished\|Not found' /tmp/pub_vr.json 2>/dev/null; then
+  echo "    public VR error body OK"
+else
+  echo "    WARN: public VR body unexpected (is public-vr route mounted?)"
+fi
+
+CH_UNAUTH=$(curl -ksS -o /dev/null -w '%{http_code}' "${PUBLIC_URL%/}/api/agent-channels" 2>/dev/null \
+  || curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:3001/api/agent-channels" \
+  || echo 000)
+echo "    GET /api/agent-channels (no auth) -> HTTP ${CH_UNAUTH} (expect 401)"
+
+SP_UNAUTH=$(curl -ksS -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{}' \
+  "${PUBLIC_URL%/}/api/speech/tts" 2>/dev/null \
+  || curl -sS -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{}' \
+  "http://127.0.0.1:3001/api/speech/tts" \
+  || echo 000)
+echo "    POST /api/speech/tts (no auth) -> HTTP ${SP_UNAUTH} (expect 401)"
+
+if docker compose --profile optional-voice ps piper 2>/dev/null | grep -q 'Up'; then
+  if docker compose --profile optional-voice exec -T piper curl -sf http://127.0.0.1:5500/health >/dev/null 2>&1; then
+    echo "    piper health OK"
+  else
+    echo "    WARN: piper container up but /health failed"
+  fi
+else
+  echo "    WARN: piper not running (SKIP_VOICE=1 or optional-voice not started)"
+fi
+
+if docker compose exec -T frontend sh -c 'grep -Rql "Published Scenes\|/published-scenes\|public-vr" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: Published Scenes / public VR OK"
+else
+  echo "    WARN: Published Scenes strings not found in frontend JS (rebuild frontend?)"
+fi
+
 echo "SMOKE_NEW_FEATURES_DONE"

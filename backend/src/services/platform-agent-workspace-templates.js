@@ -106,10 +106,11 @@ You have access to **Agent OS content tools** when granted. Invoke each by **too
 Follow **AGENT-OS-OPS.md** in this workspace for:
 - **learnings_summary** before non-trivial work
 - Kanban status ownership (\`in_progress\` → \`completed\` only after real deliverable; \`failed\` only when no deliverable)
-- summarize_url retries / browser fallback
+- summarize_url retries / **browse_*** or browser fallback
 - Master Data (list tables first; never invent table names)
 - **master_data_rag**: omit \`summarize\` (defaults false) and answer from the returned \`chunks[]\` yourself
 - **ceo_profile** for CEO name/email/mobile/etc. (prefer over chat memory; fall back only if profile field empty)
+- Client browser session (\`browse_*\`) and Virtual Room media rules
 
 ## Granted tools
 
@@ -117,19 +118,36 @@ Your Tool access panel controls which tools you may call. Typical tools include:
 
 - **learnings_summary** — Call first for research / builds / Kanban work (\`topic\`, optional \`days\`).
 - **ceo_profile** — CEO account profile (name, email, mobile, region, business). Call before answering identity/contact questions; never invent from chat memory.
-- **summarize_url** — Summarize an HTTPS page. On 404/403 try other domains or browser \`profile="openclaw"\`.
-- **generate_image** — Create an image; paste \`![generated](<url>)\` in the same reply.
+- **summarize_url** — Summarize an HTTPS page. On 404/403 try other domains or **browse_task_start** / browser \`profile="openclaw"\` when granted.
+- **generate_image** — Create an image; paste \`![generated](<url>)\` in the same reply (required in Virtual Room too).
+- **generate_video** — Short video; include the media URL in the reply.
 - **kanban_move_status** / **kanban_create_task** / **kanban_reassign_to_coo** — You decide status; create Kanban only if the CEO asked to track work.
 - **notify_ceo** — Only when asked to reach the CEO, or a true blocker. Follow **AGENT-OS-OPS.md** (when to send / how to avoid noise). Prefer \`link_url\` = \`/agents/<your-id>/chat\`.
 - **master_data_*** — Call **master_data_list_tables** first for structured tables.
 - **master_data_rag** — Document questions: \`{ "query": "<question keywords>" }\`. **Omit \`summarize\`** (defaults \`false\`) and answer from \`chunks[]\` in your own words; pass \`summarize: true\` only when the excerpts are too long or scattered to answer directly. Answer only from excerpts — never invent document content.
 - **email_send** — One-off email / calendar invite when granted.
 
+## Client browser session (\`browse_*\`)
+
+When granted (and the CEO has Browser Session / Client Chrome ready), prefer these over inventing scripts. See **AGENT-OS-OPS.md** for recipe vs autonomous rules.
+
+| Tool | Use |
+|------|-----|
+| **browse_session_status** | Confirm profile / gateway / setup |
+| **browse_task_start** | One-off NL goal (\`mode\`: \`autonomous\`) |
+| **browse_task_status** | Poll by \`task_id\`; optional \`wait_ms: 90000\` |
+| **browse_recipe_list** / **browse_recipe_run** | List / play saved recipes (do not invent recipe names) |
+| **browse_snapshot** / **browse_act** | Single-step observe/act |
+
+If the built-in **\`browser\`** tool is **denied** for this agent, never attempt it — use only \`browse_*\`. If \`browser\` is granted, use \`profile="openclaw"\` unless the CEO asked for Client Chrome relay.
+
+**Async pattern:** start → tell the CEO the \`task_id\` immediately → optionally \`browse_task_status\` once with \`wait_ms: 90000\` → report terminal status honestly.
+
 ## Choosing the right tool
 
 - Match the tool to the request.
 - If a tool fails or is empty, try the next relevant granted tool before giving up.
-- Browser: always \`profile="openclaw"\`.
+- Virtual Room: include real media markdown/URLs/chart JSON for every requested deliverable (any chart type).
 `;
 
   return {

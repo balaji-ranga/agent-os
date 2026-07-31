@@ -26,6 +26,10 @@ if [[ -f scripts/ensure-cron-env.sh ]]; then
   sed -i 's/\r$//' scripts/ensure-cron-env.sh 2>/dev/null || true
   bash scripts/ensure-cron-env.sh "${DEPLOY_DIR}/.env" || true
 fi
+if [[ -f scripts/ensure-voice-env.sh ]]; then
+  sed -i 's/\r$//' scripts/ensure-voice-env.sh 2>/dev/null || true
+  bash scripts/ensure-voice-env.sh "${DEPLOY_DIR}/.env" || true
+fi
 
 # OpenSearch requires elevated mmap counts (Linux hosts / VPS).
 if command -v sysctl >/dev/null 2>&1; then
@@ -88,7 +92,9 @@ echo "  notification bell shows datetime; CEO Policies (/policies) → POLICY.md
 echo "  deploy verify smokes self-clean CEO UI,"
 echo "  /standups/notifications/dismiss[-all] + /platform-notifications/read[-all],"
 echo "  AgentExchange (/api/agent-exchange),"
-echo "  workflow A2A (/api/a2a/:publishId + card; secured: /oauth/token client credentials)"
+echo "  workflow A2A (/api/a2a/:publishId + card; secured: /oauth/token client credentials),"
+echo "  public VR (/api/public/vr/:slug), agent channels (/api/agent-channels),"
+echo "  free speech (/api/speech/stt|tts) via optional-voice (ensure-voice-env.sh)"
 echo "OpenSearch smoke: docker compose exec -T backend node scripts/test-opensearch-rag-smoke.js"
 echo "Post-deploy smoke (on VPS): bash scripts/vps-smoke-new-features.sh"
 echo "Broadcast notify smoke: bash scripts/vps-smoke-broadcast-notify.sh"

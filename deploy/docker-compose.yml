@@ -113,6 +113,8 @@ x-backend-env: &backend-env
   ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
   HUNYUAN3D_URL: ${HUNYUAN3D_URL:-}
   HUNYUAN3D_TIMEOUT_MS: ${HUNYUAN3D_TIMEOUT_MS:-}
+  SPEECH_STT_URL: ${SPEECH_STT_URL:-}
+  SPEECH_TTS_URL: ${SPEECH_TTS_URL:-}
   REPLICATE_PRIMARY_BASE_URL: ${REPLICATE_PRIMARY_BASE_URL:-https://api.replicate.com/v1}
   REPLICATE_SECONDARY_BASE_URL: ${REPLICATE_SECONDARY_BASE_URL:-}
   REPLICATE_SECONDARY_API_TOKEN: ${REPLICATE_SECONDARY_API_TOKEN:-}
@@ -475,6 +477,39 @@ services:
     environment:
       NVIDIA_VISIBLE_DEVICES: all
 
+  # Free local STT (faster-whisper) + TTS (Piper). Started automatically by
+# deploy/scripts/ensure-voice-env.sh (up.sh / vps-deploy-latest.sh) unless SKIP_VOICE=1.
+# Manual: docker compose --profile optional-voice up -d --build whisper piper
+# Then SPEECH_STT_URL=http://whisper:8000 and SPEECH_TTS_URL=http://piper:5500 on backend.
+  whisper:
+    profiles: ["optional-voice"]
+    image: ${WHISPER_IMAGE:-fedirz/faster-whisper-server:latest-cpu}
+    restart: unless-stopped
+    environment:
+      WHISPER__MODEL: ${WHISPER_MODEL:-Systran/faster-whisper-tiny.en}
+      WHISPER__DEVICE: cpu
+      WHISPER__COMPUTE_TYPE: int8
+    expose:
+      - "8000"
+    volumes:
+      - whisper_data:/root/.cache:Z
+
+  piper:
+    profiles: ["optional-voice"]
+    build:
+      context: ..
+      dockerfile: deploy/docker/piper-tts.Dockerfile
+    image: agent-os-piper-tts:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      PIPER_VOICE: ${PIPER_VOICE:-en_US-lessac-medium}
+      PIPER_PORT: "5500"
+      PIPER_DATA_DIR: /data/piper
+    expose:
+      - "5500"
+    volumes:
+      - piper_data:/data/piper:Z
+
   novnc:
     profiles: ["optional-browser-login"]
     image: ghcr.io/linuxserver/webtop:ubuntu-xfce
@@ -496,4 +531,6 @@ volumes:
   openconnector_data:
   ollama_data:
   hunyuan3d_data:
+  whisper_data:
+  piper_data:
   opensearch_data:

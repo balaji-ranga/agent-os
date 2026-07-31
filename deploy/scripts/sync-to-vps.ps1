@@ -21,9 +21,12 @@
 # Brave Search MCP BYOK wrapper (tools/brave-search-mcp-byok, profile optional-brave-mcp),
 # cron reference block in deploy/.env (ensure-cron-env.sh) + platform-help 19
 # (scheduled jobs / retention), Org Storage (MB), COO status_checker report, data retention purge,
+# Published Scenes + public VR (/p/vr/:slug), Slack/WhatsApp agent channels wizard,
+# free STT/TTS optional-voice (ensure-voice-env.sh → SPEECH_* + whisper/piper),
 # Flolah branding, hPanel shell + light/dark theme (ThemeToggle, data-theme),
 # Agent Workspaces Add agent (AddAgentForm), Tools nav label (/content-tools),
-# workflow editor fullscreen (shell-focus-mode), Register MCP/Agents primary CTAs,
+# workflow editor fullscreen (shell-focus-mode), run audit fullscreen (/workflows/runs/:id),
+# Register MCP/Agents primary CTAs,
 # multi-tenant standups/delegation, Kanban owner_user_id isolation (no shared-agent leak),
 # lean Kanban board (no Job applications filter / pipeline status banner),
 # lean CEO onboard (COO + Workflow Builder + Platform Help), OrgDesigner dashboard,
@@ -127,6 +130,7 @@ scp @ssh `
   "$Repo\deploy\scripts\ensure-cron-env.sh" `
   "$Repo\deploy\scripts\ensure-opensearch-env.sh" `
   "$Repo\deploy\scripts\ensure-docker-tools-env.sh" `
+  "$Repo\deploy\scripts\ensure-voice-env.sh" `
   "$Repo\deploy\scripts\enable-docker-tools-on-vps.sh" `
   "$Repo\deploy\scripts\vps-smoke-brave-byok.sh" `
   "$Repo\deploy\scripts\configure-openclaw-docker.js" `

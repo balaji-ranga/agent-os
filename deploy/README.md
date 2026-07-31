@@ -318,6 +318,9 @@ All proxied under `/api` (rebuild backend + frontend images after upgrade):
 | Data retention | `platform_users.data_retention_days` (30/60/90/120/365) + `GET/PUT /api/efficiency/retention`, `POST /api/efficiency/retention/purge`, `POST /api/cron/run-data-retention`; daily `DATA_RETENTION_CRON` (default `15 3 * * *`) purges aged chats / chat history / standup conversations / workflow runs per CEO |
 | Org Storage (MB) | `GET /api/efficiency/storage` + `storage_mb` in `/api/efficiency` totals → Efficiency View **Org** tile |
 | Cron env reference | `deploy/scripts/ensure-cron-env.sh` appends the commented cron block (all 7 schedules, defaults) to `deploy/.env` on every deploy; docs: `knowledgebase/platform-help/19-scheduled-jobs-and-crons.md` |
+| Free STT/TTS (optional-voice) | `ensure-voice-env.sh` writes `SPEECH_STT_URL` / `SPEECH_TTS_URL` and starts `whisper` + `piper`; Agent Chat mic + `speech_stt`/`speech_tts` nodes. Skip: `SKIP_VOICE=1`. Docs: platform-help **25** |
+| Published Scenes / public VR | Guest `/p/vr/:slug` + `/api/public/vr/*` (no auth); publish from Avatars / Published Scenes nav |
+| Agent channels | Slack/WhatsApp BYOK wizard → vault + OpenClaw bindings; `/api/agent-channels`; platform-help **24** |
 
 **Repeatable deploy (laptop → VPS):**
 
@@ -340,12 +343,14 @@ The backend image (`deploy/docker/backend.Dockerfile`) **COPY**s `knowledgebase/
 
 On VPS after sync (or after `git pull` on the box), `vps-deploy-latest.sh` rebuilds images and runs:
 
-1. `vps-smoke-new-features.sh` — email_send, notify_ceo, master_data, **platformhelp agent**, org sync, A2A public + OAuth secured, shared notification dismiss
-2. `vps-smoke-broadcast-notify.sh` — Broadcast → TechResearcher → notify_ceo (needs OpenClaw + LLM; non-fatal)
-3. `vps-smoke-deepseek-brain.sh` — DeepSeek@Ollama (non-fatal if model not pulled)
-4. `vps-verify-platform.sh` — Master Data, Platform Help docs/agent/RAG, per-CEO delegation, NotificationProvider + dismiss APIs, allowlists
+1. `ensure-*-env.sh` helpers (cron, OpenSearch, docker-tools, **voice**/SPEECH_*) then compose build/up
+2. `optional-voice` whisper + piper (unless `SKIP_VOICE=1`)
+3. `vps-smoke-new-features.sh` — email_send, notify_ceo, master_data, **platformhelp agent**, org sync, A2A public + OAuth secured, shared notification dismiss, **public VR / speech / channels route probes**
+4. `vps-smoke-broadcast-notify.sh` — Broadcast → TechResearcher → notify_ceo (needs OpenClaw + LLM; non-fatal)
+5. `vps-smoke-deepseek-brain.sh` — DeepSeek@Ollama (non-fatal if model not pulled)
+6. `vps-verify-platform.sh` — Master Data, Platform Help docs/agent/RAG, per-CEO delegation, NotificationProvider + dismiss APIs, allowlists, **voice/public VR/channels files**
 
-Skip all smoke: `SKIP_SMOKE=1` or `sync-to-vps.ps1 -SkipSmoke`. Force clean image build: `NO_CACHE=1` or `sync-to-vps.ps1 -NoCache`.
+Skip all smoke: `SKIP_SMOKE=1` or `sync-to-vps.ps1 -SkipSmoke`. Force clean image build: `NO_CACHE=1` or `sync-to-vps.ps1 -NoCache`. Skip voice containers: `SKIP_VOICE=1`.
 
 Optional targeted smokes (after deploy):
 
@@ -437,6 +442,12 @@ docker compose exec ollama ollama pull deepseek-v3
 # Optional Hunyuan3D GPU (Avatars text/image → GLB). Requires NVIDIA Container Toolkit.
 # Set HUNYUAN3D_URL=http://hunyuan3d:7860 on the backend service.
 # docker compose --profile optional-hunyuan3d up -d
+
+# Free STT/TTS (faster-whisper + Piper) — Agent Chat mic, speech_stt / speech_tts nodes.
+# ensure-voice-env.sh (from up.sh / vps-deploy-latest.sh) writes SPEECH_* and starts these.
+# Manual: docker compose --profile optional-voice up -d --build whisper piper
+# Skip on tiny hosts: SKIP_VOICE=1 bash scripts/vps-deploy-latest.sh
+# Docs: knowledgebase/platform-help/25-speech-and-published-scenes.md
 
 # Brave Search MCP (BYOK HTTP wrapper — no BRAVE_API_KEY in the container):
 docker compose --profile optional-brave-mcp up -d --build brave-search-mcp

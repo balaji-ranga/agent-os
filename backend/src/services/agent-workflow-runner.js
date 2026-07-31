@@ -19,6 +19,7 @@ import { processPendingDelegationTasks } from './delegation-queue.js';
 import { resolveNodeInputs, resolveInputText, storeNodeOutput } from './agent-workflow-io.js';
 import { executeEmailTask, executeApiTask, executeFilesystemTask } from './agent-workflow-tasks.js';
 import { executeElevenLabsTask } from './agent-workflow-elevenlabs.js';
+import { executeSpeechSttTask, executeSpeechTtsTask } from './agent-workflow-speech.js';
 import { executeModel3dTask } from './agent-workflow-model3d.js';
 import { executeExternalAgentTask } from './agent-workflow-external-agent.js';
 import { executeBrainTask } from './agent-workflow-brain.js';
@@ -598,7 +599,7 @@ function buildAgentPrompt(runId, definitionId, definitionName, node, inputText, 
 export async function startAgentWorkflowRun(
   definitionId,
   ownerUserId,
-  { trigger = 'manual', input = '', actor = null, inputSchemaOverride = undefined, publicationSchema = null } = {}
+  { trigger = 'manual', input = '', actor = null, inputSchemaOverride = undefined, publicationSchema = null, variables = null } = {}
 ) {
   if (!isUserEnabled(ownerUserId)) {
     throw new Error('Owner account is disabled — workflow schedules and runs are stopped');
@@ -666,12 +667,16 @@ export async function startAgentWorkflowRun(
     validatedInput != null && typeof validatedInput === 'object'
       ? validatedInput
       : validatedInput || `Triggered via ${trigger}`;
+  const mergedVariables = {
+    ...(def.variables || {}),
+    ...(variables && typeof variables === 'object' ? variables : {}),
+  };
   const context = {
     initial_input: validatedInput,
     node_outputs: {},
     actor,
-    workflow_variables: def.variables || {},
-    variables: def.variables || {},
+    workflow_variables: mergedVariables,
+    variables: mergedVariables,
     definition_id: definitionId,
     owner_user_id: ownerUserId,
   };
@@ -1327,6 +1332,58 @@ async function executeNode(runId, nodeId, graph, context, def, runRow) {
       kanban: (outputs) => ({
         nodeLabel: node.data?.label || 'ElevenLabs',
         summary: outputs.mode === 'stt' ? `STT: ${(outputs.text || '').slice(0, 120)}` : 'TTS audio ready',
+        detail: { inputs: inputRecord.summary, outputs },
+      }),
+    });
+    return;
+  }
+
+  if (node.type === 'speech_stt') {
+    const inputRecord = buildStepInputRecord(node, graph, context);
+    const config = node.data?.taskConfig || node.data?.config || {};
+    const { timeoutMs } = resolveNodeTimeoutConfig(config);
+    await completeTimedNodeStep({
+      runId,
+      node,
+      nodeId,
+      def,
+      runRow,
+      context,
+      inputRecord,
+      work: () =>
+        executeSpeechSttTask(inputRecord.resolved, { ...config, timeoutMs }, {
+          ...context,
+          owner_user_id: runRow.owner_user_id,
+        }),
+      kanban: (outputs) => ({
+        nodeLabel: node.data?.label || 'Speech STT',
+        summary: `STT: ${(outputs.text || '').slice(0, 120)}`,
+        detail: { inputs: inputRecord.summary, outputs },
+      }),
+    });
+    return;
+  }
+
+  if (node.type === 'speech_tts') {
+    const inputRecord = buildStepInputRecord(node, graph, context);
+    const config = node.data?.taskConfig || node.data?.config || {};
+    const { timeoutMs } = resolveNodeTimeoutConfig(config);
+    await completeTimedNodeStep({
+      runId,
+      node,
+      nodeId,
+      def,
+      runRow,
+      context,
+      inputRecord,
+      work: () =>
+        executeSpeechTtsTask(inputRecord.resolved, { ...config, timeoutMs }, {
+          ...context,
+          owner_user_id: runRow.owner_user_id,
+        }),
+      kanban: (outputs) => ({
+        nodeLabel: node.data?.label || 'Speech TTS',
+        summary: 'Piper TTS audio ready',
         detail: { inputs: inputRecord.summary, outputs },
       }),
     });

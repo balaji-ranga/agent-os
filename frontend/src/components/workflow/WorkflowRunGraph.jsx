@@ -38,8 +38,9 @@ function MediaPreview({ value }) {
   );
 }
 
-export default function WorkflowRunGraph({ run }) {
+export default function WorkflowRunGraph({ run, height = 420, fill = false }) {
   const [selectedNodeId, setSelectedNodeId] = useState(null);
+  const graphHeight = fill ? '100%' : height;
 
   const stepByNode = useMemo(() => {
     const map = {};
@@ -92,8 +93,19 @@ export default function WorkflowRunGraph({ run }) {
   }
 
   return (
-    <div style={{ display: 'flex', gap: 12, minHeight: 420, border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
-      <div style={{ flex: 1, minWidth: 0, height: 420 }}>
+    <div
+      className={`wf-run-graph${fill ? ' wf-run-graph--fill' : ''}`}
+      style={{
+        display: 'flex',
+        gap: 12,
+        height: graphHeight,
+        minHeight: fill ? 0 : height,
+        border: fill ? 'none' : '1px solid var(--border)',
+        borderRadius: fill ? 0 : 8,
+        overflow: 'hidden',
+      }}
+    >
+      <div style={{ flex: 1, minWidth: 0, height: graphHeight, minHeight: fill ? 0 : undefined }}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -113,9 +125,10 @@ export default function WorkflowRunGraph({ run }) {
         </ReactFlow>
       </div>
       <aside
+        className="wf-run-graph-aside"
         style={{
-          width: 320,
-          maxWidth: '42%',
+          width: fill ? 380 : 320,
+          maxWidth: fill ? '36%' : '42%',
           borderLeft: '1px solid var(--border)',
           padding: 12,
           overflow: 'auto',

@@ -17,3 +17,7 @@ You have the **browser** tool for web automation (navigate, snapshot, click, typ
 - **Always use `profile="openclaw"`** — the managed Playwright/Chromium browser. Do **not** use `profile="chrome"` unless the user explicitly asks to attach their Chrome tab via the Browser Relay extension.
 - Typical flow: `browser` action start (profile openclaw) → open URL → snapshot → act using refs from snapshot.
 - If browser fails, report the error; do not ask the user to install the Chrome extension unless they requested chrome profile.
+
+## Client browser session (`browse_*`)
+
+When **browse_*** tools are granted and Client Chrome is ready, prefer them for Browser Session goals (same rules as TechResearcher / **AGENT-OS-OPS.md**). Do not mix built-in `browser` and `browse_*` in the same turn.

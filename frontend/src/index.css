@@ -1282,9 +1282,90 @@ button {
   max-height: 100%;
 }
 .app-shell.shell-focus-mode .page-wf-editor,
-.app-shell.shell-focus-mode .wf-editor-layout {
+.app-shell.shell-focus-mode .wf-editor-layout,
+.app-shell.shell-focus-mode .wf-run-audit-layout {
   height: 100%;
   min-height: 100%;
+}
+
+.wf-run-audit-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.wf-run-audit-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.55rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.wf-run-audit-error {
+  margin: 0;
+  padding: 0.55rem 0.85rem;
+  color: #b91c1c;
+  background: #dc262618;
+  border-bottom: 1px solid #dc262644;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.wf-run-audit-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.wf-run-audit-body--split {
+  flex-direction: row;
+}
+
+.wf-run-audit-graph-wrap {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.wf-run-graph--fill,
+.wf-run-graph--fill > div:first-child {
+  height: 100%;
+  min-height: 0;
+}
+
+.wf-run-audit-steps {
+  width: min(360px, 38vw);
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  overflow: auto;
+  padding: 0.75rem 0.85rem;
+  flex-shrink: 0;
+}
+
+.wf-run-audit-steps h2 {
+  margin: 0 0 0.65rem;
+  font-size: 0.95rem;
+}
+
+@media (max-width: 900px) {
+  .wf-run-audit-body--split {
+    flex-direction: column;
+  }
+  .wf-run-audit-steps {
+    width: 100%;
+    max-height: 40%;
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
 }
 
 .wf-editor-layout {
@@ -3874,5 +3955,154 @@ body.wf-props-resizing .react-flow {
 @media (max-width: 900px) {
   .admin-grid-2 {
     grid-template-columns: 1fr !important;
+  }
+}
+
+/* ---- Public Virtual Room (guest /p/vr/:slug) ---- */
+.public-vr {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(165deg, #1a1f2e 0%, #0f1419 55%, #121820 100%);
+  color: #e8eaed;
+}
+.public-vr-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.public-vr-brand {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+.public-vr-title {
+  margin: 0.15rem 0 0;
+  font-size: clamp(1.25rem, 4vw, 1.75rem);
+  font-weight: 650;
+}
+.public-vr-handles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.public-vr-handle {
+  min-height: 44px;
+  padding: 0.5rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+.public-vr-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  gap: 0;
+}
+.public-vr-canvas {
+  flex: 1 1 55%;
+  min-height: 240px;
+  position: relative;
+}
+.public-vr-canvas canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+.public-vr-chat {
+  flex: 0 0 min(380px, 42vw);
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.25);
+  min-height: 0;
+}
+.public-vr-status {
+  padding: 0.5rem 1rem;
+  font-size: 0.8rem;
+  opacity: 0.8;
+}
+.public-vr-error {
+  padding: 0.5rem 1rem;
+  color: #fca5a5;
+  font-size: 0.85rem;
+}
+.public-vr-transcript {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  -webkit-overflow-scrolling: touch;
+}
+.public-vr-msg {
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+.public-vr-msg-user {
+  opacity: 0.95;
+}
+.public-vr-muted {
+  font-size: 0.85rem;
+  opacity: 0.55;
+}
+.public-vr-compose {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.public-vr-compose input {
+  flex: 1;
+  min-height: 48px;
+  padding: 0.65rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font-size: 1rem;
+}
+.public-vr-compose button {
+  min-height: 48px;
+  min-width: 72px;
+  padding: 0 1rem;
+  border-radius: 10px;
+  border: none;
+  background: #3b82f6;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+.public-vr-compose button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+@media (max-width: 900px) {
+  .public-vr-body {
+    flex-direction: column;
+  }
+  .public-vr-canvas {
+    flex: 0 0 42dvh;
+    width: 100%;
+  }
+  .public-vr-chat {
+    flex: 1 1 auto;
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    max-height: 58dvh;
+  }
+  .public-vr-handle {
+    min-height: 48px;
   }
 }

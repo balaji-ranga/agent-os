@@ -28,7 +28,9 @@
 | [20-ibkr-monthly-trading.md](./20-ibkr-monthly-trading.md) | **IBKR Monthly Positive Return**: W1–W5, Variables (`daily_budget_usd`), Connectors bridge download, learnings from cancels/fills |
 | [21-external-tools-and-apis.md](./21-external-tools-and-apis.md) | **External tools & APIs** needing keys: DeepSeek, OpenAI, Claude, OpenRouter, Brevo SMTP, Brave, FMP, Replicate, ElevenLabs, Hunyuan3D, IBKR, Connectors |
 | [22-browser-session-and-recipes.md](./22-browser-session-and-recipes.md) | **Browser Session**, Client Chrome relay, `browse_*` tools, recipes list/run, tool access, chat thumbs → learnings |
-| [23-avatars-virtual-room.md](./23-avatars-virtual-room.md) | **3D Avatars**, agent mapping, Virtual Room, ElevenLabs TTS/STT workflows, optional Hunyuan3D |
+| [23-avatars-virtual-room.md](./23-avatars-virtual-room.md) | **3D Avatars**, Virtual Rooms, scenes, @mention routing, media overlays, ElevenLabs TTS/STT, optional Hunyuan3D |
+| [24-agent-channels.md](./24-agent-channels.md) | **Slack / WhatsApp** per-CEO BYOK wizard, vault tokens, OpenClaw bindings |
+| [25-speech-and-published-scenes.md](./25-speech-and-published-scenes.md) | **Published Scenes** public `/p/vr/:slug`, free Whisper STT + Piper TTS, `speech_stt` / `speech_tts` nodes |
 
 **Product name:** Flolah (Automate, Innovate, Elevate) — Agent OS underneath.
 

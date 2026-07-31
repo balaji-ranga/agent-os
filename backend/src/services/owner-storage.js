@@ -8,6 +8,7 @@ import { getOpenClawDir } from '../config/openclaw-paths.js';
 import { masterDataDocsDir } from './master-data.js';
 import { mediaStorageBytes } from './ceo-media-artifacts.js';
 import { avatarStorageBytes } from './ceo-avatars.js';
+import { vrSceneStorageBytes } from './ceo-vr-scenes.js';
 
 function sanitizeIdPart(value) {
   return String(value || '')
@@ -69,6 +70,7 @@ export function estimateOwnerStorage(ownerUserId) {
     master_data_files_bytes: 0,
     media_artifacts_bytes: 0,
     avatars_bytes: 0,
+    vr_scenes_bytes: 0,
     ceo_db_bytes: 0,
     openclaw_tenant_bytes: 0,
   };
@@ -137,6 +139,10 @@ export function estimateOwnerStorage(ownerUserId) {
   } catch (_) {}
 
   try {
+    breakdown.vr_scenes_bytes = vrSceneStorageBytes(owner);
+  } catch (_) {}
+
+  try {
     breakdown.ceo_db_bytes = fileSizeBytes(join(dataDir(), 'tenants', sanitizeIdPart(owner), 'ceo.db'));
   } catch (_) {}
 
@@ -154,6 +160,7 @@ export function estimateOwnerStorage(ownerUserId) {
     masterData +
     breakdown.media_artifacts_bytes +
     breakdown.avatars_bytes +
+    breakdown.vr_scenes_bytes +
     breakdown.ceo_db_bytes +
     breakdown.openclaw_tenant_bytes;
 

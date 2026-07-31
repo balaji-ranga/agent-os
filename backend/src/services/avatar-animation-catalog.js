@@ -50,6 +50,7 @@ export function buildDefaultAnimationPlan(catalog = [], replyText = '') {
     mouthClip: mouth || null,
     visemes,
     lookAt: null,
+    sceneOutputs: [],
   };
 }
 
@@ -136,6 +137,9 @@ export function sanitizeAnimationPlan(raw, catalog = [], replyText = '', opts = 
     mouthClip,
     visemes,
     lookAt: base.lookAt ?? null,
+    sceneOutputs: Array.isArray(base.sceneOutputs)
+      ? base.sceneOutputs.filter((o) => o && typeof o === 'object')
+      : [],
   };
 }
 
@@ -151,12 +155,16 @@ Classified:
 - gesture clips: ${JSON.stringify(gestures)}
 
 Return ONLY valid JSON (no markdown):
-{"clips":[{"name":"<gesture clip>","weight":1,"loop":false,"timeScale":1}],"idle":"<idle clip>","mouthClip":"${mouth || ''}","visemes":[{"t":0,"name":"${mouth || 'Mouth_Open_Close'}","weight":0},{"t":0.12,"name":"${mouth || 'Mouth_Open_Close'}","weight":0.9}],"lookAt":null}
+{"clips":[{"name":"<gesture clip>","weight":1,"loop":false,"timeScale":1}],"idle":"<idle clip>","mouthClip":"${mouth || ''}","visemes":[{"t":0,"name":"${mouth || 'Mouth_Open_Close'}","weight":0},{"t":0.12,"name":"${mouth || 'Mouth_Open_Close'}","weight":0.9}],"lookAt":null,"sceneOutputs":[]}
 
 Rules:
 1. idle must NOT be a mouth/lip clip. Prefer Blink / Look_Around / Idle.
 2. clips = body gestures matching reply mood (wave, nod, look). Do NOT put mouth clips in clips.
 3. visemes = timed mouth open weights while speaking (t in seconds from speech start, weight 0..1). Use mouthClip name.
 4. Estimate ~13 characters per second of speech from the reply text length.
-5. If catalog empty: {"clips":[],"idle":null,"mouthClip":null,"visemes":[],"lookAt":null}`;
+5. If catalog empty: {"clips":[],"idle":null,"mouthClip":null,"visemes":[],"lookAt":null,"sceneOutputs":[]}
+6. sceneOutputs (optional): route known agent/media outputs into Virtual Room media slots. Do NOT invent media.
+   Format: [{"slotId":"<from media_slots>","kind":"video|chart|graph|image","from":"agent|mediaRef","payload":{}}]
+   For chart/graph, payload may include { "chart": <chart-spec or {title,values[]}> } only when the agent reply clearly contains chart-like JSON.
+   If workflow vars media_slots is empty or no matching outputs: use [].`;
 }

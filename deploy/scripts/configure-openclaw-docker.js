@@ -67,8 +67,23 @@ config.plugins.entries.codex = { ...(config.plugins.entries.codex || {}), enable
 // Persist browser plugin enablement so gateway HTTP/WS routes (incl. /browser/extension)
 // register at startup instead of tool-only auto-enable.
 config.plugins.entries.browser = { ...(config.plugins.entries.browser || {}), enabled: true };
+// Admin HTTP RPC: backend WhatsApp QR (web.login.*) over private Docker network.
+config.plugins.entries['admin-http-rpc'] = {
+  ...(config.plugins.entries['admin-http-rpc'] || {}),
+  enabled: true,
+};
+const whatsappExt = join(OPENCLAW_DIR, 'extensions', 'whatsapp');
+if (existsSync(whatsappExt)) {
+  config.plugins.entries.whatsapp = { ...(config.plugins.entries.whatsapp || {}), enabled: true };
+}
 if (!Array.isArray(config.plugins.allow)) config.plugins.allow = [];
-for (const id of ['agent-os-content-tools', 'browser', 'agent-os-bootstrap-watcher']) {
+for (const id of [
+  'agent-os-content-tools',
+  'browser',
+  'agent-os-bootstrap-watcher',
+  'admin-http-rpc',
+  ...(existsSync(whatsappExt) ? ['whatsapp'] : []),
+]) {
   if (!config.plugins.allow.includes(id)) config.plugins.allow.push(id);
 }
 config.plugins.allow = config.plugins.allow.filter((id) => id !== 'codex');

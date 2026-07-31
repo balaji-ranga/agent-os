@@ -580,6 +580,67 @@ export function initDb() {
 
   try {
     _db.exec(`
+      CREATE TABLE IF NOT EXISTS ceo_vr_scenes (
+        id TEXT PRIMARY KEY,
+        owner_user_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        filename TEXT NOT NULL,
+        mime_type TEXT DEFAULT 'model/gltf-binary',
+        storage_path TEXT NOT NULL,
+        size_bytes INTEGER DEFAULT 0,
+        scene_json TEXT DEFAULT '{}',
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_ceo_vr_scenes_owner ON ceo_vr_scenes(owner_user_id, updated_at DESC);
+
+      CREATE TABLE IF NOT EXISTS ceo_vr_rooms (
+        id TEXT PRIMARY KEY,
+        owner_user_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        scene_id TEXT,
+        layout_json TEXT DEFAULT '{}',
+        published INTEGER DEFAULT 0,
+        public_slug TEXT,
+        published_at TEXT,
+        publish_title TEXT,
+        public_token TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_ceo_vr_rooms_owner ON ceo_vr_rooms(owner_user_id, updated_at DESC);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_ceo_vr_rooms_slug ON ceo_vr_rooms(public_slug) WHERE public_slug IS NOT NULL;
+
+      CREATE TABLE IF NOT EXISTS ceo_vr_room_members (
+        room_id TEXT NOT NULL,
+        avatar_id TEXT NOT NULL,
+        agent_id TEXT,
+        handle TEXT NOT NULL,
+        sort_order INTEGER DEFAULT 0,
+        PRIMARY KEY (room_id, avatar_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_ceo_vr_room_members_room ON ceo_vr_room_members(room_id, sort_order);
+
+      CREATE TABLE IF NOT EXISTS ceo_agent_channels (
+        id TEXT PRIMARY KEY,
+        owner_user_id TEXT NOT NULL,
+        agent_id TEXT NOT NULL,
+        channel TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'draft',
+        config_json TEXT DEFAULT '{}',
+        vault_refs_json TEXT DEFAULT '{}',
+        last_test_at TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(owner_user_id, agent_id, channel)
+      );
+      CREATE INDEX IF NOT EXISTS idx_ceo_agent_channels_owner
+        ON ceo_agent_channels(owner_user_id, agent_id, updated_at DESC);
+    `);
+  } catch (_) {}
+
+  try {
+    _db.exec(`
       CREATE TABLE IF NOT EXISTS ibkr_position_meta (
         owner_user_id TEXT NOT NULL,
         symbol_key TEXT NOT NULL,

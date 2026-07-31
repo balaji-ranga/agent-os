@@ -627,6 +627,7 @@ router.post('/:id/run', async (req, res) => {
       trigger: 'manual',
       input,
       actor: actorFromRequest(req),
+      variables: req.body?.variables && typeof req.body.variables === 'object' ? req.body.variables : null,
     });
     res.status(201).json(run);
   } catch (e) {

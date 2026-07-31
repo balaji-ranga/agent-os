@@ -121,6 +121,30 @@ export function ElevenLabsNode({ id, data }) {
   );
 }
 
+export function SpeechSttNode({ id, data }) {
+  return (
+    <NodeShell
+      nodeId={id}
+      color="#059669"
+      icon="🎤"
+      title={data.label || 'Speech STT'}
+      subtitle={data.taskConfig?.model || 'whisper'}
+    />
+  );
+}
+
+export function SpeechTtsNode({ id, data }) {
+  return (
+    <NodeShell
+      nodeId={id}
+      color="#047857"
+      icon="🔊"
+      title={data.label || 'Speech TTS'}
+      subtitle={data.taskConfig?.voice || 'piper'}
+    />
+  );
+}
+
 export function Model3dNode({ id, data }) {
   return (
     <NodeShell
@@ -331,6 +355,8 @@ export const workflowNodeTypes = {
   email: EmailNode,
   api: ApiNode,
   elevenlabs: ElevenLabsNode,
+  speech_stt: SpeechSttNode,
+  speech_tts: SpeechTtsNode,
   model3d: Model3dNode,
   connector: ConnectorNode,
   externalAgent: ExternalAgentNode,
@@ -355,6 +381,8 @@ export const PALETTE_ITEMS = [
   { type: 'email', label: 'Send Email', color: '#dc2626', desc: 'SMTP email with static + dynamic inputs' },
   { type: 'api', label: 'Call API', color: '#7c3aed', desc: 'HTTP request with configurable URL/body' },
   { type: 'elevenlabs', label: 'ElevenLabs', color: '#0ea5e9', desc: 'TTS / STT — audio media refs for downstream nodes' },
+  { type: 'speech_stt', label: 'Speech STT', color: '#059669', desc: 'Local faster-whisper transcription (optional-voice)' },
+  { type: 'speech_tts', label: 'Speech TTS', color: '#047857', desc: 'Local Piper TTS — free alternative to ElevenLabs' },
   { type: 'model3d', label: '3D Model', color: '#a855f7', desc: 'Build Virtual Room playback (audio + animation clips)' },
   { type: 'connector', label: 'Connector', color: '#f59e0b', desc: 'Run an OpenConnector app action as this CEO' },
   { type: 'externalAgent', label: 'External Agent (A2A)', color: '#059669', desc: 'Invoke external agent via A2A protocol' },
@@ -382,7 +410,7 @@ export function defaultNodeData(type, extra = {}) {
   if (type === 'tool') {
     data = { ...data, toolName: '', toolPayload: {} };
   }
-  if (type === 'email' || type === 'brain' || type === 'ceo_approval' || type === 'mcp_tool' || type === 'mcp_listen' || type === 'sse_listen' || type === 'sub_workflow' || type === 'externalAgent' || type === 'custom_script' || type === 'masterdata' || type === 'filesystem' || type === 'connector') {
+  if (type === 'email' || type === 'brain' || type === 'ceo_approval' || type === 'mcp_tool' || type === 'mcp_listen' || type === 'sse_listen' || type === 'sub_workflow' || type === 'externalAgent' || type === 'custom_script' || type === 'masterdata' || type === 'filesystem' || type === 'connector' || type === 'elevenlabs' || type === 'speech_stt' || type === 'speech_tts' || type === 'model3d' || type === 'api') {
     data = { ...data, inputBindings: data.inputBindings || [], outputs: data.outputs || [], taskConfig: data.taskConfig || {} };
   }
   if (type === 'filesystem') {

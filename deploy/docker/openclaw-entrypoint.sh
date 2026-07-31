@@ -21,6 +21,11 @@ sync_extensions_from_image() {
     echo "[openclaw] WARN: extension sync failed (gateway will still start)" >&2
     return 0
   }
+  # Official WhatsApp plugin (ClawHub) for QR pairing in Agent OS channel wizard.
+  local ensure_channels="${AGENT_OS_ROOT}/deploy/scripts/ensure-openclaw-channel-plugins.sh"
+  if [[ -f "${ensure_channels}" ]]; then
+    bash "${ensure_channels}" || echo "[openclaw] WARN: channel plugin ensure failed" >&2
+  fi
   # Keep plugin baseUrl / apiKey / gateway token / tools.allow aligned with container env
   # when config exists (incl. learnings_summary on global + COO allow — volume-safe).
   local configure_js="${AGENT_OS_ROOT}/deploy/scripts/configure-openclaw-docker.js"

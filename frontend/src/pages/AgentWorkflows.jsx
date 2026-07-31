@@ -646,7 +646,16 @@ export default function AgentWorkflows() {
                 <h3 style={{ margin: 0 }}>
                   Run #{selectedRun.run_number} · {selectedRun.definition_name}
                 </h3>
-                <div style={{ display: 'flex', gap: 4 }}>
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="wf-btn"
+                    disabled={!!busy}
+                    onClick={() => navigate(`/workflows/runs/${selectedRun.id}`)}
+                    title="Open graphical run audit fullscreen"
+                  >
+                    Full screen
+                  </button>
                   {['running', 'pending'].includes(selectedRun.status) && (
                     <button type="button" className="wf-btn" disabled={!!busy} onClick={() => pauseRun(selectedRun)}>
                       Pause run

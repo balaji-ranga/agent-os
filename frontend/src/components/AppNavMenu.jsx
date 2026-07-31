@@ -87,6 +87,13 @@ export function CeoNavMenu({ collapsed }) {
         <NavItem to="/workflows" title="Workflows" collapsed={collapsed} label="Workflows" short="Wf" />
         <NavItem to="/avatars" title="3D Avatars" collapsed={collapsed} label="3D Avatars" short="3D" />
         <NavItem
+          to="/published-scenes"
+          title="Published Scenes — public Virtual Rooms"
+          collapsed={collapsed}
+          label="Published Scenes"
+          short="PS"
+        />
+        <NavItem
           to="/workspace"
           title="Agent Workspaces"
           collapsed={collapsed}

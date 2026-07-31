@@ -2,11 +2,24 @@
 
 Use **Browser Session** (`/browser-session`) to run natural-language tasks in managed Playwright or a CEO-attached Chrome tab (Browser Relay), and to record reusable recipes.
 
+## Multi-user / exclusive Client Chrome lease
+
+Recipes, tasks, and URL policy are scoped by `ceo_user_id` (each CEO only sees their own).
+
+The OpenClaw Browser Relay pairing WSS (`/browser/extension#<token>`) is **one per gateway** — not per user. To stop agent B from driving user A's attached Chrome, Agent OS enforces an **exclusive chrome lease**:
+
+- Only **one** CEO may **Mark client session ready** at a time.
+- That CEO's agents resolve to OpenClaw profile `chrome`; everyone else resolves to managed `openclaw` (even if they opted into client mode).
+- A second CEO who marks ready gets **409** until the holder **Opts out** or clears ready.
+- Status includes `chrome_lease: { holder_ceo_user_id, holder_label, is_holder, note }`.
+
+True concurrent Client Chrome for multiple users would need OpenClaw per-user extension profiles / WSS (not available on this stack yet).
+
 ## Content tools
 
 | Tool | Purpose |
 |------|---------|
-| `browse_session_status` | Session profile (`chrome` / `openclaw`), gateway, setup |
+| `browse_session_status` | Session profile (`chrome` / `openclaw`), gateway, setup, chrome lease |
 | `browse_task_start` | Async NL autonomous (or recipe_replay if also granted `browse_recipe_run`) |
 | `browse_task_status` | Status / wait (`wait_ms` ≤ 90000) |
 | `browse_snapshot` / `browse_act` | Single-step |

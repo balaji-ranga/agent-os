@@ -239,6 +239,84 @@ export const WORKFLOW_TASK_TYPES = {
       },
     ]),
   },
+  speech_stt: {
+    type: 'speech_stt',
+    label: 'Speech STT',
+    color: '#059669',
+    inputs: [
+      {
+        id: 'audio',
+        label: 'Audio',
+        required: true,
+        mode: 'dynamic',
+        description: 'Media ref or artifact id (faster-whisper / local STT)',
+      },
+    ],
+    outputs: [
+      { id: 'text', label: 'Transcript' },
+      { id: 'result', label: 'Full result JSON' },
+      { id: 'ok', label: 'Success' },
+    ],
+    configFields: withNodeTimeoutConfigFields([
+      {
+        id: 'model',
+        label: 'Model',
+        type: 'text',
+        default: 'whisper-1',
+        description: 'OpenAI-compatible model id on the whisper service',
+      },
+      {
+        id: 'language',
+        label: 'Language (optional)',
+        type: 'text',
+        placeholder: 'en',
+        description: 'ISO language hint for transcription',
+      },
+    ]),
+  },
+  speech_tts: {
+    type: 'speech_tts',
+    label: 'Speech TTS',
+    color: '#047857',
+    inputs: [
+      {
+        id: 'text',
+        label: 'Text',
+        required: true,
+        mode: 'dynamic',
+        description: 'Text to synthesize with Piper (local, free)',
+      },
+    ],
+    outputs: [
+      { id: 'text', label: 'Spoken text' },
+      { id: 'audio', label: 'Audio media ref' },
+      { id: 'result', label: 'Full result JSON' },
+      { id: 'ok', label: 'Success' },
+    ],
+    configFields: withNodeTimeoutConfigFields([
+      {
+        id: 'voice',
+        label: 'Voice',
+        type: 'text',
+        placeholder: 'en_US-lessac-medium',
+        description: 'Piper voice id installed on the piper service',
+      },
+      {
+        id: 'lengthScale',
+        label: 'Length scale',
+        type: 'text',
+        placeholder: '1.0',
+        description: 'Speaking rate (>1 slower)',
+      },
+      {
+        id: 'speakClean',
+        label: 'Clean avatar speak text',
+        type: 'select',
+        options: ['true', 'false'],
+        default: 'true',
+      },
+    ]),
+  },
   model3d: {
     type: 'model3d',
     label: '3D Model',

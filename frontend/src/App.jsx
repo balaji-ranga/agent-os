@@ -10,6 +10,7 @@ import Kanban from './pages/Kanban';
 import JobWorkflows from './pages/JobWorkflows';
 import AgentWorkflows from './pages/AgentWorkflows';
 import AgentWorkflowEditor from './pages/AgentWorkflowEditor';
+import WorkflowRunAudit from './pages/WorkflowRunAudit';
 import JobProfiles from './pages/JobProfiles';
 import BrowserSession from './pages/BrowserSession';
 import UserProfile from './pages/UserProfile';
@@ -32,6 +33,9 @@ import AiSnipper from './pages/AiSnipper';
 import EfficiencyView from './pages/EfficiencyView';
 import Avatars from './pages/Avatars';
 import VirtualRoom from './pages/VirtualRoom';
+import PublishedScenes from './pages/PublishedScenes';
+import PublicVirtualRoom from './pages/PublicVirtualRoom';
+import AgentChannels from './pages/AgentChannels';
 import NotificationBell from './components/NotificationBell';
 import ProfileMenu from './components/ProfileMenu';
 import ThemeToggle from './components/ThemeToggle';
@@ -70,11 +74,13 @@ function Shell() {
     typeof window !== 'undefined' ? window.matchMedia('(max-width: 900px)').matches : false
   );
 
-  /** Workflow editor uses the full viewport — hide platform nav/topbar. */
+  /** Workflow editor / run audit / VR use the full viewport — hide platform nav/topbar. */
   const focusMode =
     /^\/workflows\/[^/]+\/edit\/?$/.test(location.pathname) ||
+    /^\/workflows\/runs\/[^/]+\/?$/.test(location.pathname) ||
     /^\/agents\/[^/]+\/virtual-room\/?$/.test(location.pathname) ||
-    /^\/avatars\/[^/]+\/room\/?$/.test(location.pathname);
+    /^\/avatars\/[^/]+\/room\/?$/.test(location.pathname) ||
+    /^\/vr-rooms\/[^/]+\/?$/.test(location.pathname);
 
   useEffect(() => {
     localStorage.setItem('agent-os-nav-collapsed', navCollapsed ? '1' : '0');
@@ -234,11 +240,15 @@ function Shell() {
                 <Route path="/efficiency" element={<EfficiencyView />} />
                 <Route path="/job-workflows" element={<JobWorkflows />} />
                 <Route path="/workflows" element={<AgentWorkflows />} />
+                <Route path="/workflows/runs/:runId" element={<WorkflowRunAudit />} />
                 <Route path="/workflows/:workflowId/edit" element={<AgentWorkflowEditor />} />
                 <Route path="/avatars" element={<Avatars />} />
+                <Route path="/published-scenes" element={<PublishedScenes />} />
                 <Route path="/avatars/:avatarId/room" element={<VirtualRoom />} />
+                <Route path="/vr-rooms/:roomId" element={<VirtualRoom />} />
                 <Route path="/agents/:agentId/workspace" element={<AgentWorkspace />} />
                 <Route path="/agents/:agentId/chat" element={<AgentChat />} />
+                <Route path="/agents/:agentId/channels" element={<AgentChannels />} />
                 <Route path="/agents/:agentId/virtual-room" element={<VirtualRoom />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </>
@@ -267,6 +277,14 @@ export default function App() {
         element={
           <AuthLayout>
             <Register />
+          </AuthLayout>
+        }
+      />
+      <Route
+        path="/p/vr/:slug"
+        element={
+          <AuthLayout>
+            <PublicVirtualRoom />
           </AuthLayout>
         }
       />

@@ -7,6 +7,7 @@
 #   - Agent Workspaces Add agent: AddAgentForm, agent-workspace-card
 #   - Tools nav UI (route /content-tools): label Tools in AppNavMenu
 #   - Workflow fullscreen: shell-focus-mode, Exit to workflows, wf-editor-exit
+#   - Run audit fullscreen: /workflows/runs/:id, wf-run-audit-layout, Exit run audit
 #   - Primary CTAs: Register MCP, Register Agents, page-hero
 #   - Existing: Resync ORG, Master Data purpose, Purge all uploads, NotificationProvider, Broadcast, Flolah title
 #
@@ -69,6 +70,7 @@ for css_marker in \
   shell-focus-mode \
   page-hero \
   wf-editor-exit \
+  wf-run-audit-layout \
   agent-workspace-card \
   '#f7f8f9' \
   '#0f1115'

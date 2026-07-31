@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { api } from '../api';
+import { api, resolveFetchUrl } from '../api';
 import ChatMessageRow from './ChatMessageRow';
 import ChatComposeInput from './ChatComposeInput';
 import { useAuth } from '../context/AuthContext';
@@ -21,12 +21,20 @@ export default function AgentChatPanel({
   const [attachments, setAttachments] = useState([]);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState(null);
+  const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const [speakReply, setSpeakReply] = useState(false);
   const scrollRef = useRef(null);
   const abortControllerRef = useRef(null);
+  const mediaRecRef = useRef(null);
+  const chunksRef = useRef([]);
+  const speakAudioRef = useRef(null);
 
   useEffect(
     () => () => {
       abortControllerRef.current?.abort();
+      mediaRecRef.current?.stop();
+      speakAudioRef.current?.pause();
     },
     []
   );
@@ -44,6 +52,23 @@ export default function AgentChatPanel({
     if (el) el.scrollTop = el.scrollHeight;
   }, [turns, sending]);
 
+  const playAssistantSpeech = async (text) => {
+    const spoken = String(text || '').trim();
+    if (!spoken) return;
+    try {
+      const r = await api.speechTts({ text: spoken });
+      const url = resolveFetchUrl(r.url || r.audio?.url);
+      if (!url) return;
+      speakAudioRef.current?.pause();
+      const audio = new Audio(url);
+      speakAudioRef.current = audio;
+      await audio.play();
+    } catch (e) {
+      console.warn('[chat] speak reply failed', e?.message || e);
+      setError(e.message || 'Speak reply failed');
+    }
+  };
+
   const sendMessage = async (msg, files = []) => {
     const userText = String(msg || '').trim();
     if ((!userText && !files.length) || sending) return;
@@ -60,15 +85,19 @@ export default function AgentChatPanel({
       const r = await api.agentChatSend(agentId, outbound, dataCeoUserId || 'default', profileId, {
         signal: controller.signal,
       });
+      const reply = r.reply;
       setTurns((prev) => [
         ...prev,
         {
           role: 'assistant',
-          content: r.reply,
+          content: reply,
           created_at: new Date().toISOString(),
           tool_calls: r.tool_calls || [],
         },
       ]);
+      if (speakReply && reply) {
+        playAssistantSpeech(reply);
+      }
     } catch (e) {
       const cancelled = controller.signal.aborted || e?.name === 'AbortError';
       setError(cancelled ? 'Cancelled' : e.message);
@@ -79,6 +108,51 @@ export default function AgentChatPanel({
         abortControllerRef.current = null;
         setSending(false);
       }
+    }
+  };
+
+  const transcribeBlob = async (blob) => {
+    setTranscribing(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append('file', blob, 'voice.webm');
+      const r = await api.speechStt(form);
+      const text = String(r.text || '').trim();
+      if (text) {
+        setInput((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text));
+      }
+    } catch (e) {
+      setError(e.message || 'Transcription failed');
+    } finally {
+      setTranscribing(false);
+    }
+  };
+
+  const toggleRecord = async () => {
+    if (recording) {
+      mediaRecRef.current?.stop();
+      setRecording(false);
+      return;
+    }
+    if (transcribing || sending) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const rec = new MediaRecorder(stream);
+      chunksRef.current = [];
+      rec.ondataavailable = (ev) => {
+        if (ev.data.size) chunksRef.current.push(ev.data);
+      };
+      rec.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(chunksRef.current, { type: rec.mimeType || 'audio/webm' });
+        transcribeBlob(blob);
+      };
+      mediaRecRef.current = rec;
+      rec.start();
+      setRecording(true);
+    } catch (e) {
+      setError(e.message || 'Microphone unavailable');
     }
   };
 
@@ -104,6 +178,8 @@ export default function AgentChatPanel({
       setAttachments(files);
     }
   };
+
+  const micBusy = recording || transcribing;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight }}>
@@ -169,13 +245,42 @@ export default function AgentChatPanel({
           ))}
         </div>
       )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem', flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          disabled={sending || micBusy}
+          onClick={toggleRecord}
+          title={recording ? 'Stop recording' : 'Record voice (local Whisper STT)'}
+          aria-pressed={recording}
+          style={{
+            padding: '0.35rem 0.65rem',
+            fontSize: '0.8rem',
+            borderRadius: 6,
+            border: recording ? '1px solid #f87171' : '1px solid var(--border)',
+            background: recording ? 'rgba(248,113,113,0.15)' : 'var(--surface)',
+            color: recording ? '#f87171' : 'var(--text)',
+            cursor: sending || micBusy ? 'not-allowed' : 'pointer',
+          }}
+        >
+          {transcribing ? 'Transcribing…' : recording ? 'Stop mic' : 'Mic'}
+        </button>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', color: 'var(--muted)', cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={speakReply}
+            onChange={(e) => setSpeakReply(e.target.checked)}
+            disabled={sending}
+          />
+          Speak reply (Piper)
+        </label>
+      </div>
       <form onSubmit={send} style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end' }}>
         <ChatComposeInput
           placeholder={`${placeholder} (Shift+Enter for new line)`}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onSend={send}
-          disabled={sending}
+          disabled={sending || micBusy}
           attachments={attachments}
           onAttachmentsChange={setAttachments}
           rows={3}
@@ -193,10 +298,10 @@ export default function AgentChatPanel({
         />
         <button
           type="submit"
-          disabled={sending || (!input.trim() && !attachments.length)}
+          disabled={sending || micBusy || (!input.trim() && !attachments.length)}
           style={{
             padding: '0.6rem 1rem',
-            background: sending || (!input.trim() && !attachments.length) ? 'var(--border)' : 'var(--accent)',
+            background: sending || micBusy || (!input.trim() && !attachments.length) ? 'var(--border)' : 'var(--accent)',
             border: 'none',
             borderRadius: 6,
             color: '#fff',

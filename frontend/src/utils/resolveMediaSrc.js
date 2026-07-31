@@ -25,17 +25,67 @@ export function resolveMediaSrc(src) {
   return trimmed;
 }
 
+/**
+ * Normalize agent-emitted media URLs before fetch.
+ * Handles ". png" spaces, "ai/api/media/..." prefixes, trailing punctuation.
+ */
+export function normalizeMediaUrl(src) {
+  if (!src || typeof src !== 'string') return src;
+  let s = src.trim();
+  if (!s) return s;
+  // Agents sometimes prefix MEDIA: before the path
+  s = s.replace(/^MEDIA:\s*/i, '');
+  // ". png" / ".  jpg" → ".png"
+  s = s.replace(/\.\s+(png|jpe?g|gif|webp|mp4|webm)\b/gi, '.$1');
+  s = s.replace(/[)\].,;:'"]+$/g, '');
+  // Pull out api/media path even when prefixed (e.g. "ai/api/media/...")
+  const m = s.match(/(?:https?:\/\/[^\s]+)|(?:\/?api\/media\/[^\s]+)/i);
+  if (m) s = m[0];
+  if (/^api\/media\//i.test(s)) s = `/${s}`;
+  else if (!/^https?:\/\//i.test(s) && /api\/media\//i.test(s)) {
+    const idx = s.toLowerCase().indexOf('api/media/');
+    s = `/${s.slice(idx)}`;
+  }
+  return resolveMediaSrc(s);
+}
+
+/** Collect media URLs from free text (markdown links, bare paths, messy agent replies). */
+export function extractMediaUrlsFromText(text) {
+  const s = String(text || '');
+  const out = [];
+  const push = (raw) => {
+    const url = normalizeMediaUrl(raw);
+    if (!url) return;
+    const looks =
+      /^https?:\/\//i.test(url) ||
+      /^\/api\/media\//i.test(url) ||
+      /\.(png|jpe?g|gif|webp|mp4|webm)(\?|$)/i.test(url);
+    if (!looks) return;
+    if (!out.includes(url)) out.push(url);
+  };
+  for (const m of s.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g)) push(m[1]);
+  for (const m of s.matchAll(/\[[^\]]*\]\(([^)]*api\/media\/[^)]+)\)/gi)) push(m[1]);
+  for (const m of s.matchAll(
+    /(?:https?:\/\/[^\s)\]"'<>]+)|(?:\/?api\/media\/[^\s)\]"'<>]*?\.(?:\s*)(?:png|jpe?g|gif|webp|mp4|webm))/gi
+  )) {
+    push(m[0]);
+  }
+  return out;
+}
+
 export function isResolvableMediaUrl(url) {
   if (!url) return false;
+  const n = normalizeMediaUrl(url) || url;
   return (
-    url.startsWith('data:') ||
-    url.startsWith('http://') ||
-    url.startsWith('https://') ||
-    url.startsWith('/api/media/') ||
-    url.startsWith('sandbox:/api/media/') ||
-    url.startsWith('sandbox:api/media/') ||
-    url.startsWith('sandbox:/media/') ||
-    url.startsWith('sandbox:media/') ||
-    url.startsWith('/media/')
+    n.startsWith('data:') ||
+    n.startsWith('http://') ||
+    n.startsWith('https://') ||
+    n.startsWith('/api/media/') ||
+    n.startsWith('sandbox:/api/media/') ||
+    n.startsWith('sandbox:api/media/') ||
+    n.startsWith('sandbox:/media/') ||
+    n.startsWith('sandbox:media/') ||
+    n.startsWith('/media/') ||
+    /api\/media\//i.test(String(url))
   );
 }

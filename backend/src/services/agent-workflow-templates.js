@@ -70,14 +70,21 @@ function brainAnimationNode(id, x, y, catalog = [], idleClip = null) {
       taskConfig: {
         modelSource: 'ollama',
         model: 'llama3.2',
-        maxTokens: 700,
+        maxTokens: 900,
         systemPrompt: `${buildAnimationPlannerPrompt(catalog)}
 
 Full catalog JSON:
 ${catalogText}
 
 Preferred idle clip (must use unless missing from catalog): ${preferredIdle || 'null'}.
-Defaults if unsure: idle=${preferredIdle || 'null'}, mouthClip=${classified.mouth || 'null'}.`,
+Defaults if unsure: idle=${preferredIdle || 'null'}, mouthClip=${classified.mouth || 'null'}.
+
+Virtual Room scene context (from workflow variables when present):
+- scene_id: {{var.scene_id}}
+- scene_name: {{var.scene_name}}
+- member_handle: {{var.member_handle}}
+- media_slots (JSON): {{var.media_slots}}
+Use media_slots when emitting sceneOutputs; leave sceneOutputs [] if slots empty or no chart/media in the agent reply.`,
       },
       inputBindings: [
         {
@@ -173,13 +180,19 @@ export function buildAvatarOutboundGraph({
           agentId,
           agentName,
           240,
-          `CRITICAL — Virtual Room speech output rules:
-- Output ONLY the words the avatar should speak aloud.
-- Exactly 1-2 short conversational sentences.
-- Do NOT use tools, read MEMORY/session history, or update Kanban.
-- Do NOT narrate planning, guidelines, or system instructions.
-- Do NOT mention that you are an avatar or following a prompt.
-- Your entire message must be speakable dialogue only.
+          `CRITICAL — Virtual Room output rules:
+- Always write the full answer the CEO should read in chat (status summary, findings, lists). Do not put the answer only in a spoken line.
+- Also add one Short spoken line: "…" at the end — plain TTS only (1 short sentence). Chat shows the full answer; TTS uses the spoken line.
+- Prefer plain text in the spoken line (no markdown, no numbered lists, no URLs/JSON).
+- If the user asks for any image, video, chart, or graph (any subject or chart type): call generate_image / generate_video (or emit chart JSON), include media in the reply, then confirm briefly in the spoken line.
+- ALWAYS include media in the same reply when requested:
+  - Images: ![generated](<url>) for each requested image
+  - Videos: plain media URL
+  - Charts (pie, bar, line, area, scatter, etc.): prefer generate_image of that chart type, OR JSON {"type":"<pie|bar|line|...>","title":"...","labels":[...],"values":[...]}
+- Multi-ask (e.g. image + chart): produce every deliverable in one reply — one markdown/URL (or chart JSON) per item.
+- Never invent placeholder Demo charts. Never speak JSON, URLs, number lists, or markdown bold aloud.
+- Do NOT update Kanban or narrate planning/system instructions.
+- Do NOT say you are an avatar or following a prompt.
 
 User message:
 {{input}}`
