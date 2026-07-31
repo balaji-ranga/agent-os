@@ -17,6 +17,7 @@ import {
   deleteAllRuns,
   deleteDefinitionWithCleanup,
 } from '../services/agent-workflow-run-manager.js';
+import { retryAgentWorkflowRun } from '../services/agent-workflow-retry.js';
 import { getHookInfo, registerEventHook } from '../services/agent-workflow-webhooks.js';
 import { runWorkflowBuilderChat, getWorkflowBuilderChatHistory } from '../services/agent-workflow-agent.js';
 import { applyWorkflowBuilderActions, getWorkflowDraftForAgent } from '../services/agent-workflow-builder.js';
@@ -309,6 +310,21 @@ router.post('/runs/:runId/pause', (req, res) => {
     res.json(run);
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+router.post('/runs/:runId/retry', async (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.body);
+    const out = await retryAgentWorkflowRun(Number(req.params.runId), ownerUserId, {
+      mode: req.body?.mode || 'from_failed_step',
+      node_id: req.body?.node_id || req.body?.nodeId || null,
+      input: req.body?.input,
+      actor: actorFromRequest(req),
+    });
+    res.json(out);
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message });
   }
 });
 

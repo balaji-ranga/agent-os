@@ -5,9 +5,9 @@
 Catalog of Agent OS tools agents and workflows can call, for example:
 
 - `summarize_url`, `generate_image`, `generate_video`
-- Kanban helpers (`kanban_create_task`, `kanban_move_status`, …)
+- Kanban helpers (`kanban_create_task`, `kanban_move_status`, **`kanban_get_task`** (full content / deliverable), `kanban_watch_tick`, …)
 - `intent_classify_and_delegate`
-- Workflow tools (`agent_workflow_list` / enquire / trigger / mutate / get_draft)
+- Workflow tools (`agent_workflow_list` / enquire / trigger / runs / **retry** / mutate / get_draft)
 - `email_send`, `notify_ceo`
 - Master Data (`master_data_list_tables`, row CRUD, `master_data_list_documents`, `master_data_rag`)
 - `learnings_summary`, `brain_history`, `content_tools_enquire`

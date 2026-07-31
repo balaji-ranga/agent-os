@@ -145,6 +145,26 @@ const PARAM_SCHEMAS: Record<string, Record<string, unknown>> = {
     properties: { task_id: { type: "number" }, to_agent_id: { type: "string" } },
     additionalProperties: true,
   },
+  kanban_get_task: {
+    type: "object",
+    properties: {
+      task_id: { type: "number", description: "Kanban task ID to read (status + recent messages)." },
+    },
+    required: ["task_id"],
+    additionalProperties: true,
+  },
+  kanban_watch_tick: {
+    type: "object",
+    properties: {
+      task_id: { type: "number", description: "Kanban task ID to monitor." },
+      cron_job_id: {
+        type: "string",
+        description: "Optional OpenClaw cron job id to remove when the task is completed/failed.",
+      },
+    },
+    required: ["task_id"],
+    additionalProperties: true,
+  },
   agent_workflow_list: {
     type: "object",
     properties: {

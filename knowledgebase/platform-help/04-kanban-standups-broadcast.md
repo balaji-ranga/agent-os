@@ -12,9 +12,10 @@ Board of tasks by agent and status — shared for agent work, workflow steps, an
 - Short clarification Q&A on an already-open card may auto-complete; longer research/implementation stays **in_progress** until the agent finishes the deliverable (or you close it).
 - Kanban task chat with an assigned agent is also mirrored into that agent’s **Dashboard chat** (tagged `[Kanban #id]`) so you can see the same exchange there. OpenClaw still keeps a per-task session for isolation.
 - **Archiving an agent chat never empties a card.** The card's **Activity** tab reads the linked agent-chat turns straight from chat history, so work done in a chat that was later archived still shows (each turn is tagged `archived` with the archived chat's title). When a card genuinely has no delegation exchange, task chat, or linked chat, Activity says so instead of rendering blank.
+- **COO tool `kanban_get_task`:** returns the same content the board shows — status, description, task messages, **`deliverable` / `delegation_response`**, and agent-chat turns — so the COO can summarize what a completed card produced without guessing from the title.
 - **All dates on the board and in cards use the platform timezone** (`PLATFORM_TIMEZONE`, else the server `TZ`) — never raw UTC. The board header shows which zone is in effect, e.g. "Times in Asia/Singapore".
 - Board filters: **All** (default — every card of any age), Daily, Weekly, Monthly, or a custom date range. **status_checker / COO status reports always count All** (open / awaiting / in progress / failed of any age). If you delete only what Weekly shows, older awaiting/failed cards still appear in the status report — switch to **All** before Select all → Delete.
-- **Orphan watcher** (every 5 minutes, also on the delegation cron and when you run status checker): if a specialty card is stuck `in_progress` because the agent run died mid-`processing` (e.g. after a restart), or the linked run is missing/failed transiently, the platform re-pends or reinitiates the same ask with that agent (capped retries). CEO-approval cards and budget blocks are not auto-retried. **External / A2A leaf cards** are reconciled the same pass: Kanban moves to **completed** or **failed** from the A2A task / workflow run status (so a successful ops desk invoke no longer stays in progress forever).
+- **Orphan watcher** (every 5 minutes, also on the delegation cron and when you run status checker): if a specialty card is stuck `in_progress` because the agent run died mid-`processing` (e.g. after a restart), or the linked run is missing/failed transiently, the platform re-pends or reinitiates the same ask with that agent (capped retries). CEO-approval cards (`awaiting_confirmation`) and budget blocks are **not** auto-retried — those wait on you (Reopen / Approve). **External / A2A leaf cards** are reconciled the same pass: Kanban moves to **completed** or **failed** from the A2A task / workflow run status (so a successful ops desk invoke no longer stays in progress forever).
 - Job profile setup and pipeline runs live under **Job profiles** / **Job workflows** — Kanban itself stays a generic task board.
 - Dashboard chat alone: agents should **not** invent Kanban cards unless you asked to track the work.
 
@@ -68,11 +69,14 @@ Creating a Kanban card may also raise a platform bell. Status moves alone do **n
 
 ## COO specialty routing
 
-When you chat with the COO:
+When you chat with the COO (web Agent Chat):
 
-- Specialty asks match agent **purposes** from org docs (not crude keywords only).
+- Specialty asks match agent **purposes** from org docs (intent classification — not crude keywords only).
 - Clear **multi-intent** asks (e.g. recipe **and** deep research) can route to **up to two** specialists, each with a split task + Kanban card.
 - The COO starts Kanban card(s) and tracks work.
-- COO-native asks (list/trigger workflows, Kanban tools, standups, simple email via `email_send`) stay with the COO.
+- Before hard-delegating, the platform checks **intent against COO content tools**. Org / Kanban / A2A **status updates**, status reports, and “run status checker” style asks stay with the COO (`status_checker`) — they are not handed to an ops/specialist leaf.
+- Other COO-native asks (list/trigger workflows, Kanban tools, standups, simple email via `email_send`) also stay with the COO.
 - Product how-to can be answered by **Platform Help** or via Master Data RAG (`master_data_rag`).
 - “Have **X** reach / contact / notify me” → COO hands off to **X**; **X** rings your bell (not the COO).
+
+WhatsApp (and other OpenClaw channels) already go straight to the COO agent, so the same tools apply without the web hard-delegation step.

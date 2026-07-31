@@ -24,6 +24,7 @@ import {
 } from '../services/browser-tasks.js';
 import { listRecipes } from '../services/browser-recipes.js';
 import { getBrowserSessionStatus } from '../services/client-browser-session.js';
+import { loadKanbanTaskContent, loadKanbanTaskWithMessages, runKanbanWatchTick } from '../services/kanban-watch.js';
 
 function sanitizeTenantId(value) {
   return String(value || '')
@@ -42,6 +43,7 @@ import {
   enquireWorkflows,
 } from '../services/agent-workflow-chat-tools.js';
 import { executeAgentWorkflowRuns } from '../services/agent-workflow-agent-runs.js';
+import { executeAgentWorkflowRetry } from '../services/agent-workflow-retry.js';
 import { applyWorkflowBuilderActions, getWorkflowDraftForAgent } from '../services/agent-workflow-builder.js';
 import { resolveAuthenticatedCeoUserId, attachAuthUser, requireAuth, requireCeoOrAdmin } from '../middleware/auth.js';
 import { requireToolsAccess, attachToolsAuth } from '../middleware/tools-auth.js';
@@ -1020,6 +1022,119 @@ router.post('/kanban-create-task', optionalAuth, (req, res) => {
 });
 
 /**
+ * Kanban tool: read one task with full content (status, description, messages,
+ * delegation deliverable, agent-chat turns). Owner-scoped. Use for completed-task reviews.
+ */
+router.post('/kanban-get-task', optionalAuth, (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = req.body || {};
+  const taskId = Number(requestPayload.task_id);
+  try {
+    if (!taskId) {
+      const err = { error: 'task_id required' };
+      logTool(req, 'kanban_get_task', requestPayload, err, 'error', source);
+      return res.status(400).json(err);
+    }
+    const loaded = loadKanbanTaskContent(taskId, {
+      messageLimit: requestPayload.message_limit,
+      chatTurnLimit: requestPayload.chat_turn_limit,
+      maxFieldChars: requestPayload.max_field_chars,
+    });
+    if (!loaded) {
+      const err = { error: 'Task not found' };
+      logTool(req, 'kanban_get_task', requestPayload, err, 'error', source);
+      return res.status(404).json(err);
+    }
+    try {
+      assertToolOwnsKanbanTask(req, loaded.task, requestPayload);
+    } catch (e) {
+      const err = { error: e.message };
+      logTool(req, 'kanban_get_task', requestPayload, err, 'error', source);
+      return res.status(e.status || 403).json(err);
+    }
+    const { task } = loaded;
+    const out = {
+      ok: true,
+      task_id: task.id,
+      title: task.title,
+      description: loaded.description || null,
+      status: task.status,
+      assigned_agent_id: task.assigned_agent_id || null,
+      assigned_agent_name: task.assigned_agent_name || null,
+      created_at: task.created_at || null,
+      updated_at: task.updated_at || null,
+      latest_note: loaded.latest_note || null,
+      /** Prefer this for completed work: agent deliverable text. */
+      deliverable: loaded.deliverable || null,
+      delegation_prompt: loaded.delegation_prompt || null,
+      delegation_response: loaded.delegation_response || null,
+      messages: loaded.messages,
+      chat_context: loaded.chat_context,
+      workflow_step_input: loaded.workflow_step_input || null,
+      workflow_step_output: loaded.workflow_step_output || null,
+      artifacts: loaded.artifacts || [],
+      artifact_groups: loaded.artifact_groups || [],
+      artifact_count: loaded.artifact_count || 0,
+      done: task.status === 'completed' || task.status === 'failed',
+    };
+    logTool(req, 'kanban_get_task', requestPayload, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'kanban_get_task', requestPayload, err, 'error', source);
+    res.status(500).json(err);
+  }
+});
+
+/**
+ * Kanban watch tick for COO OpenClaw crons: validate status, auto-stop cron when done.
+ * Body: { task_id, cron_job_id? }. Reply field is what the cron agent must emit.
+ */
+router.post('/kanban-watch-tick', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = req.body || {};
+  const taskId = Number(requestPayload.task_id);
+  const cronJobId = String(requestPayload.cron_job_id || requestPayload.job_id || '').trim() || null;
+  try {
+    if (!taskId) {
+      const err = { error: 'task_id required' };
+      logTool(req, 'kanban_watch_tick', requestPayload, err, 'error', source);
+      return res.status(400).json(err);
+    }
+    const caller = getCallerAgent(req);
+    if (caller && !caller.is_coo) {
+      const err = { error: 'Only COO may use kanban_watch_tick' };
+      logTool(req, 'kanban_watch_tick', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const loaded = loadKanbanTaskWithMessages(taskId);
+    if (!loaded) {
+      const err = { error: 'Task not found' };
+      logTool(req, 'kanban_watch_tick', requestPayload, err, 'error', source);
+      return res.status(404).json(err);
+    }
+    try {
+      assertToolOwnsKanbanTask(req, loaded.task, requestPayload);
+    } catch (e) {
+      const err = { error: e.message };
+      logTool(req, 'kanban_watch_tick', requestPayload, err, 'error', source);
+      return res.status(e.status || 403).json(err);
+    }
+    const out = await runKanbanWatchTick({ taskId, cronJobId });
+    if (!out.ok) {
+      logTool(req, 'kanban_watch_tick', requestPayload, out, 'error', source);
+      return res.status(404).json(out);
+    }
+    logTool(req, 'kanban_watch_tick', requestPayload, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'kanban_watch_tick', requestPayload, err, 'error', source);
+    res.status(500).json(err);
+  }
+});
+
+/**
  * Kanban tool: assign task to an agent. Only COO can assign to another agent.
  */
 router.post('/kanban-assign-task', optionalAuth, (req, res) => {
@@ -1671,6 +1786,38 @@ router.post('/agent-workflow-runs', optionalAuth, (req, res) => {
     const err = { error: e.message };
     logTool(req, 'agent_workflow_runs', requestPayload, err, 'error', source);
     res.status(500).json(err);
+  }
+});
+
+/**
+ * Retry a workflow run from start (new run) or from failed step (same run).
+ * COO or Workflow Builder — owner-scoped.
+ */
+router.post('/agent-workflow-retry', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = req.body || {};
+  try {
+    const caller = getCallerAgent(req);
+    if (!canAccessWorkflowTools(caller)) {
+      const err = { error: 'Only COO or Workflow Builder can retry agent workflow runs' };
+      logTool(req, 'agent_workflow_retry', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const ownerUserId = resolveWorkflowOwner(req, requestPayload);
+    const out = await executeAgentWorkflowRetry(bodyWithoutSpoofedOwner(requestPayload), {
+      ownerUserId,
+    });
+    const status = out.ok ? 'ok' : 'error';
+    logTool(req, 'agent_workflow_retry', { ...requestPayload, owner_user_id: ownerUserId }, out, status, source);
+    if (!out.ok) {
+      const code = out.status === 404 ? 404 : out.status === 409 ? 409 : 400;
+      return res.status(code).json(out);
+    }
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'agent_workflow_retry', requestPayload, err, 'error', source);
+    res.status(e.status || 500).json(err);
   }
 });
 

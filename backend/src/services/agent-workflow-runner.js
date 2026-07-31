@@ -1913,6 +1913,114 @@ export async function reapTimedOutWorkflowSteps() {
 }
 
 /**
+ * Resume a failed/paused run by re-dispatching a specific failed node.
+ * Upstream completed steps and context.node_outputs are preserved.
+ */
+export async function resumeRunFromFailedStep(runId, nodeId, { ownerUserId = null, actor = null } = {}) {
+  const runRow = ownerUserId
+    ? db().prepare('SELECT * FROM agent_workflow_runs WHERE id = ? AND owner_user_id = ?').get(runId, ownerUserId)
+    : db().prepare('SELECT * FROM agent_workflow_runs WHERE id = ?').get(runId);
+  if (!runRow) {
+    const err = new Error('Run not found');
+    err.status = 404;
+    throw err;
+  }
+  if (!['failed', 'paused'].includes(runRow.status)) {
+    const err = new Error(`Run must be failed or paused to resume (status=${runRow.status})`);
+    err.status = 409;
+    throw err;
+  }
+
+  const graph =
+    (() => {
+      try {
+        const g = runRow.graph_json ? JSON.parse(runRow.graph_json) : null;
+        if (g?.nodes?.length) return g;
+      } catch {
+        /* fall through */
+      }
+      return getGraphForRun(runId);
+    })() || { nodes: [], edges: [] };
+
+  const node = getNode(graph, nodeId);
+  if (!node) {
+    const err = new Error(`Node ${nodeId} not found on run graph`);
+    err.status = 400;
+    throw err;
+  }
+
+  const step = getLatestStepRow(runId, nodeId);
+  if (!step) {
+    const err = new Error(`No step row for node ${nodeId}`);
+    err.status = 400;
+    throw err;
+  }
+
+  // Collect failed node + reachable downstream (reset non-completed)
+  const toReset = new Set([nodeId]);
+  const stack = [nodeId];
+  while (stack.length) {
+    const id = stack.pop();
+    for (const e of getOutgoingEdges(graph, id)) {
+      if (!e.target || toReset.has(e.target)) continue;
+      toReset.add(e.target);
+      stack.push(e.target);
+    }
+  }
+
+  const context = parseContext(runRow);
+  if (!context.node_outputs) context.node_outputs = {};
+  for (const nid of toReset) {
+    delete context.node_outputs[nid];
+    db()
+      .prepare(
+        `UPDATE agent_workflow_run_steps
+         SET status = 'pending', error_message = NULL, output_json = NULL,
+             completed_at = NULL, started_at = NULL,
+             delegation_task_id = NULL, kanban_task_id = NULL
+         WHERE run_id = ? AND node_id = ? AND status IN ('failed', 'pending', 'in_progress', 'listening', 'skipped')`
+      )
+      .run(runId, nid);
+  }
+  saveContext(runId, context);
+
+  db()
+    .prepare(
+      `UPDATE agent_workflow_runs
+       SET status = 'running', error_message = NULL, completed_at = NULL, updated_at = datetime('now')
+       WHERE id = ?`
+    )
+    .run(runId);
+
+  updateRunProgress(runId);
+
+  const def = store.getDefinition(runRow.definition_id);
+  const refreshed = db().prepare('SELECT * FROM agent_workflow_runs WHERE id = ?').get(runId);
+
+  console.info('[agent-workflow] resume from failed step', {
+    runId,
+    nodeId,
+    actor: actor?.id || null,
+  });
+
+  void executeNode(runId, nodeId, graph, context, def, refreshed)
+    .catch((err) => {
+      console.error(`[agent-workflow] retry run ${runId} node ${nodeId} failed:`, err);
+      failRun(runId, err?.message || 'Workflow retry failed');
+    })
+    .finally(() => {
+      processPendingDelegationTasks().catch(() => {});
+    });
+
+  return {
+    ok: true,
+    run_id: runId,
+    node_id: nodeId,
+    message: `Re-dispatched node ${node.data?.label || nodeId} on run ${runId}`,
+  };
+}
+
+/**
  * Resume runs left orphaned when the server restarted mid-execution.
  * Continues from last persisted state; re-arms node timeouts from original started_at.
  */

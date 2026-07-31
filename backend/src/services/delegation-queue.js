@@ -727,7 +727,10 @@ export async function processPendingDelegationTasksForCeo(ceoUserId) {
       .prepare('SELECT owner_user_id FROM standups WHERE id = ?')
       .get(task.standup_id)?.owner_user_id;
     const ownerForTenant =
-      extractOwnerUserIdFromText(task.prompt, null) || standupOwner || getBalaCeoAuthId();
+      extractOwnerUserIdFromText(task.prompt, null) ||
+      task.owner_user_id ||
+      standupOwner ||
+      getBalaCeoAuthId();
     let runtimeOcId = openclawId;
     try {
       runtimeOcId = ensureTenantOpenClawAgent(agent, ownerForTenant).openclawAgentId;

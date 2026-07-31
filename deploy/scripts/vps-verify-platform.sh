@@ -189,7 +189,10 @@ check "ceo_profile unit test" test -f "$ROOT/backend/scripts/test-ceo-profile-to
 check "ceo_profile OPS guidance" grep -q 'ceo_profile' "$ROOT/openclaw-workspace-templates/_shared/AGENT-OS-OPS.md"
 check "agent_workflow_runs endpoint" grep -q "agent-workflow-runs" "$ROOT/backend/src/routes/tools.js"
 check "agent_workflow_runs in COO allow" grep -q "agent_workflow_runs" "$ROOT/scripts/lib/content-tools-allow.js"
-check "agent_workflow_runs OPS guidance" grep -q 'agent_workflow_runs' "$ROOT/openclaw-workspace-templates/_shared/AGENT-OS-OPS.md"
+check "kanban_get_task full content" grep -q 'loadKanbanTaskContent\|delegation_response' "$ROOT/backend/src/routes/tools.js"
+check "kanban_get_task content loader" grep -q 'export function loadKanbanTaskContent' "$ROOT/backend/src/services/kanban-watch.js"
+check "kanban_get_task OPS guidance" grep -q 'kanban_get_task' "$ROOT/openclaw-workspace-templates/_shared/AGENT-OS-OPS.md"
+check "kanban_get_task COO TOOLS" grep -q 'deliverable' "$ROOT/openclaw-workspace-templates/balserve/TOOLS.md"
 check "mixed internal+leaf refine fix" grep -q 'parseAgentsFromAgentsMd' "$ROOT/backend/src/services/coo-specialty-delegation.js"
 check "mixed internal+leaf unit test" test -f "$ROOT/backend/scripts/test-coo-refine-allocation.js"
 

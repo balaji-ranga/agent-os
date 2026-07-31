@@ -99,7 +99,9 @@ Shared fields often include:
 
 ## Runs and Kanban
 
-- Each run appears in Workflows run history (search, paginate).
+- Each run appears in Workflows run history (search, paginate). Open a run audit page for the graph + steps.
+- **Retry from start** — starts a **new** run with the same (or override) input. Available on failed/paused/completed runs and via COO tool `agent_workflow_retry` (`mode: from_start`).
+- **Retry failed step** — re-dispatches the failed step on the **same** run (upstream outputs kept). Use on failed/paused runs or `agent_workflow_retry` (`mode: from_failed_step`, optional `node_id`).
 - Steps often create Kanban tasks; failures (non-2xx API, MCP `is_error`, SSL errors) fail the run.
 - For **SSE Listen**, you can stop listening on an active run from the UI/API.
 

@@ -709,13 +709,14 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     const ensured = ensureTenantOpenClawAgent(agent, ownerUserId);
     const openclawAgentId = ensured.openclawAgentId;
 
+    // Daily rollover must LLM-title (or heuristic) — generateTitle:false left archives as "Chat · date"
     await ensureActiveChatSession({
       agentId,
       ownerUserId,
       openclawAgentId,
       timeZone:
         String(req.body?.tz || req.headers['x-timezone'] || process.env.TZ || 'UTC').trim() || 'UTC',
-      generateTitle: false,
+      generateTitle: true,
     });
 
     // Load recent history from active session only
@@ -932,7 +933,7 @@ router.post('/:id/chat/from-agent', allowInternalOrAuth, async (req, res) => {
       openclawAgentId,
       timeZone:
         String(req.body?.tz || req.headers['x-timezone'] || process.env.TZ || 'UTC').trim() || 'UTC',
-      generateTitle: false,
+      generateTitle: true,
     });
 
     let history = listActiveSessionTurns(agentId, ownerUserId, { limit: 20 }).turns.map((t) => ({

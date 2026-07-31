@@ -98,6 +98,25 @@ export default function WorkflowRunAudit() {
     }
   };
 
+  const retryRun = async (mode) => {
+    if (!run) return;
+    setBusy(true);
+    try {
+      const out = await api.agentWorkflowRunRetry(run.id, { mode });
+      if (mode === 'from_start' && out?.run_id && Number(out.run_id) !== Number(run.id)) {
+        showSuccess(out.message || `Started run #${out.run_number}`);
+        navigate(`/workflows/runs/${out.run_id}`);
+        return;
+      }
+      showSuccess(out.message || 'Retry started');
+      await loadRun();
+    } catch (e) {
+      showError(e.message || 'Retry failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const deleteRun = async () => {
     if (!run) return;
     if (!window.confirm(`Delete run #${run.run_number}?`)) return;
@@ -178,6 +197,28 @@ export default function WorkflowRunAudit() {
           {['running', 'pending'].includes(run.status) && (
             <button type="button" className="wf-btn" disabled={busy} onClick={pauseRun}>
               Pause
+            </button>
+          )}
+          {['failed', 'paused'].includes(run.status) && (
+            <button
+              type="button"
+              className="wf-btn"
+              disabled={busy}
+              onClick={() => retryRun('from_failed_step')}
+              title="Re-dispatch the failed step on this run"
+            >
+              Retry failed step
+            </button>
+          )}
+          {['failed', 'paused', 'completed', 'cancelled'].includes(run.status) && (
+            <button
+              type="button"
+              className="wf-btn"
+              disabled={busy}
+              onClick={() => retryRun('from_start')}
+              title="Start a new run with the same input"
+            >
+              Retry from start
             </button>
           )}
           <button type="button" className="wf-btn wf-btn-danger" disabled={busy} onClick={deleteRun}>

@@ -77,6 +77,28 @@ const BUILTIN_TOOLS = [
     is_builtin: 1,
   },
   {
+    name: 'kanban_get_task',
+    display_name: 'Kanban Get Task',
+    endpoint: '/api/tools/kanban-get-task',
+    method: 'POST',
+    purpose:
+      'API tool: read one Kanban task by task_id with full content — status, description, task messages, delegation_response/deliverable (completed agent work), and agent-chat turns (including archived). Use when the CEO asks what a task produced or to review a completed card. Do not run via exec or shell.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'kanban_watch_tick',
+    display_name: 'Kanban Watch Tick',
+    endpoint: '/api/tools/kanban-watch-tick',
+    method: 'POST',
+    purpose:
+      'API tool (COO watch crons): check Kanban task_id; if still open/in_progress return reply NO_REPLY; if completed/failed return notify_text and automatically remove matching OpenClaw cron jobs (pass cron_job_id when known). Cron agent must reply with exactly the returned reply field. Do not run via exec or shell.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
     name: 'intent_classify_and_delegate',
     display_name: 'Intent Classify and Delegate',
     endpoint: '/api/tools/intent-classify-and-delegate',
@@ -126,6 +148,17 @@ const BUILTIN_TOOLS = [
     method: 'POST',
     purpose:
       'API tool (COO or Workflow Builder): list or inspect recent custom agent workflow run statuses/outcomes for the entitled CEO. Pass workflow_id or workflow_query/query to scope one workflow; omit to list recent runs across workflows; pass run_id to inspect one run (steps + errors). Owner from session only. Never use ibkr_order_learnings or other IBKR tools for workflow run status.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'agent_workflow_retry',
+    display_name: 'Retry Agent Workflow Run',
+    endpoint: '/api/tools/agent-workflow-retry',
+    method: 'POST',
+    purpose:
+      'API tool (COO or Workflow Builder): retry a workflow run. Required: run_id, mode. mode=from_start starts a NEW run with the same (or override) input. mode=from_failed_step re-dispatches the failed step on the SAME run (optional node_id). Owner from session only. Inspect with agent_workflow_runs first.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -432,6 +465,8 @@ const KANBAN_TOOLS = BUILTIN_TOOLS.filter((t) =>
     'kanban_reassign_to_coo',
     'kanban_assign_task',
     'kanban_create_task',
+    'kanban_get_task',
+    'kanban_watch_tick',
     'intent_classify_and_delegate',
   ].includes(t.name)
 );
@@ -442,6 +477,7 @@ const WORKFLOW_TOOLS = BUILTIN_TOOLS.filter((t) =>
     'agent_workflow_enquire',
     'agent_workflow_trigger',
     'agent_workflow_runs',
+    'agent_workflow_retry',
     'agent_workflow_get_draft',
     'agent_workflow_mutate',
     'agent_workflow_certify_start',

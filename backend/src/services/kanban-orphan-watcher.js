@@ -75,21 +75,37 @@ function isPermanentFailure(errorMessage) {
 }
 
 function resolvePromptFromKanban(kanban, oldDelegation) {
-  const fromDel = String(oldDelegation?.prompt || '').trim();
-  if (fromDel) {
-    return fromDel
+  const stripBanners = (text) =>
+    String(text || '')
       .replace(/\n*---\n\[System — automatic retry[\s\S]*?---\s*$/m, '')
       .replace(/\n*---\n\[System — orphan watcher[\s\S]*?---\s*$/m, '')
+      .replace(/\n*---\nOrphan watcher:[\s\S]*$/im, '')
+      .replace(/\[orphan_retry:\d+\]/gi, '')
+      .replace(/\[status_only_retry:\d+\]/gi, '')
       .trim();
-  }
-  const desc = String(kanban.description || '');
-  const afterHeader = desc.split(/\n\n/).slice(1).join('\n\n').trim();
-  const withoutMeta = afterHeader
-    .replace(/\n*---\n[\s\S]*$/m, '')
-    .replace(/\[orphan_retry:\d+\]/gi, '')
-    .replace(/\[status_only_retry:\d+\]/gi, '')
+
+  const isMetaOnly = (text) => {
+    const lines = String(text || '')
+      .split(/\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+    if (!lines.length) return true;
+    return lines.every((l) => /^(owner_user_id|created_by_agent|created_by)\s*:/i.test(l));
+  };
+
+  const fromDel = stripBanners(oldDelegation?.prompt);
+  if (fromDel && !isMetaOnly(fromDel) && fromDel.length >= 8) return fromDel;
+
+  // Keep the CEO ask (first paragraphs). Do NOT slice(1) — that dropped the ask when
+  // description was "ask\n\nowner_user_id:…\ncreated_by_agent:…".
+  let desc = stripBanners(kanban.description);
+  desc = desc
+    .split(/\n/)
+    .filter((l) => !/^(owner_user_id|created_by_agent|created_by)\s*:/i.test(l.trim()))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
-  if (withoutMeta.length >= 8) return withoutMeta;
+  if (desc.length >= 8) return desc;
   return String(kanban.title || '').trim();
 }
 
@@ -212,15 +228,17 @@ export function reinitiateKanbanDelegation(kanbanId, { reason = 'orphan_watcher'
   const promptBase = resolvePromptFromKanban(kanban, old);
   if (!promptBase || promptBase.length < 3) return { ok: false, reason: 'empty_prompt' };
 
+  const owner = String(kanban.owner_user_id || '').trim();
+  if (!owner) return { ok: false, reason: 'no_owner' };
+
   const nextRetry = retries + 1;
   const banner =
     `\n\n---\n[System — orphan watcher retry ${nextRetry}/${maxOrphanRetries()}] ` +
     `Your previous run did not finish (${reason}). Complete the CEO ask now and put the FULL ` +
-    `answer in this reply. Call kanban_move_status → completed only after the deliverable is in the body.\n---`;
-  const prompt = `${promptBase}${banner}`;
-
-  const owner = String(kanban.owner_user_id || '').trim();
-  if (!owner) return { ok: false, reason: 'no_owner' };
+    `answer in this reply. If you have kanban_move_status, call it → completed only after the ` +
+    `deliverable is in the body; otherwise answer fully and the platform will update the card.\n---`;
+  // Keep owner_user_id in the prompt so tenant OpenClaw id resolves to t-<ceo>--… not t-default--…
+  const prompt = `${promptBase}\n\nowner_user_id: ${owner}${banner}`;
 
   const standupId = getOrCreateDelegationHubStandup(owner);
   const requestId = `orphan-${kanban.id}-${Date.now()}`;

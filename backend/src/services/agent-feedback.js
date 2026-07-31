@@ -754,6 +754,7 @@ const KANBAN_TOOL_NAMES = [
   'kanban_create_task',
   'kanban_move_status',
   'kanban_reassign_to_coo',
+  'kanban_get_task',
 ];
 
 /** Grant Kanban create/move/reassign tools to all agents (owner-scoped at invoke time). */

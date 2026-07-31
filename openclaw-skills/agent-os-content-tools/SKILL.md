@@ -52,8 +52,10 @@ Only fall back to web_search, web_fetch, or other default tools when the task do
 - **generate_image** — Generate an image from a text prompt. Parameters: `prompt` (required), `style_hint` (optional). Invoke tool **generate_image**. After it returns `{ url }`, include `![image](<url>)` in your reply.
 - **generate_video** — Generate a short video from a prompt. Parameters: `prompt` (required), `duration_sec` (optional). Invoke tool **generate_video**.
 - **kanban_move_status** — Move a Kanban task status. Parameters: `task_id` (required), `new_status` (one of: open, awaiting_confirmation, in_progress, completed, failed). Use when you start work (in_progress), need clarification (awaiting_confirmation), or finish (completed/failed).
+- **kanban_get_task** — Read one Kanban task with **full content**: status, description, messages, **`deliverable` / `delegation_response`** (completed agent work), and agent-chat turns (including archived). Parameters: `task_id` (required). COO: use this when the CEO asks what a completed task produced — do not answer from title/status alone.
 - **kanban_reassign_to_coo** — Reassign a task back to the COO. Parameters: `task_id` (required). Use when you cannot complete the task.
 - **kanban_assign_task** — (COO only.) Assign a task to an agent. Parameters: `task_id`, `to_agent_id`.
+- **kanban_watch_tick** — (COO watch crons.) Check task status; return `NO_REPLY` or notify text and auto-stop the cron when done.
 - **intent_classify_and_delegate** — (COO only.) Classify message intent and delegate to agents; creates Kanban tasks. Parameters: `message` (required), `standup_id` (optional).
 - **agent_workflow_enquire** — (COO or Workflow Builder.) Find workflows by natural-language description. Parameters: `query` or `description`, optional `ceo_user_id`, optional `limit`.
 - **agent_workflow_list** — (COO or Workflow Builder.) List workflows + chat phrases. Optional `ceo_user_id`.

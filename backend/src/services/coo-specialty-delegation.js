@@ -4,6 +4,7 @@
  */
 import { getCooAgentRow, readCooAgentsMdForCeo, getAgentsUnderCooForCeo } from './org-context.js';
 import { classifyIntentAndAllocate, parseAgentsFromAgentsMd } from './intent-classifier.js';
+import { classifyCooOwnedToolIntent } from './coo-tool-ownership.js';
 import { scheduleCeoRequestViaOpenClawCron } from './delegation-queue.js';
 import { isAskSpecialistToReachMe } from './reach-me-delegation.js';
 import { getOrCreateDelegationHubStandup } from './standup-hub.js';
@@ -99,11 +100,13 @@ export async function classifyCooDelegationTargets(ownerUserId, ceoMessage) {
   if (!allocated || typeof allocated !== 'object') allocated = {};
 
   // Second pass: force closest-fit when first pass is empty (model often too strict on purpose wording).
+  // Never force-fit status updates / COO coordination into a specialist — leave {} for COO tools.
   if (Object.keys(allocated).length === 0) {
     const closest =
       `${msg}\n\n` +
       `[System: Pick exactly ONE agent from the list whose department/purpose domain is closest to this ask. ` +
-      `Never pick agents whose purpose is only "Agent" or "demo". Adjacent domain fit is required when any specialist is closer than none. Return {} only for COO-ops questions.]`;
+      `Never pick agents whose purpose is only "Agent" or "demo". Adjacent domain fit is required when any specialist is closer than none. ` +
+      `Return {} for COO-ops: workflows, tools, standups, Kanban ops, and any org/Kanban/A2A/delegation status update or status report.]`;
     const narrowed = await classifyIntentAndAllocate(closest, md, { ownerUserId }, ownerUserId);
     if (narrowed && Object.keys(narrowed).length > 0) allocated = narrowed;
   }
@@ -131,6 +134,21 @@ export async function tryHandleCooSpecialtyDelegation(ownerUserId, ceoMessage) {
   if (!ownerUserId || !t || t.length < 8) return null;
   if (isAskSpecialistToReachMe(t)) return null;
   if (isCooNativeWork(t)) return null;
+
+  // Intent: if a COO content tool matches (esp. status updates → status_checker), do not hard-delegate.
+  // Lets OpenClaw/COO run the tool — same as WhatsApp channel path.
+  try {
+    const owned = await classifyCooOwnedToolIntent(ownerUserId, t);
+    if (owned?.tool) {
+      console.info('[coo-delegation] skip hard-delegate; COO tool owns intent', {
+        tool: owned.tool,
+        ownerUserId,
+      });
+      return null;
+    }
+  } catch (e) {
+    console.warn('[coo-delegation] tool-ownership classify failed', e?.message || e);
+  }
 
   // Generic: match intent to agents listed in COO AGENTS.md (purposes), not keywords.
   const allocated = await classifyCooDelegationTargets(ownerUserId, t);

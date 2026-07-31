@@ -98,6 +98,39 @@ Use **notify_ceo** **only** when the CEO explicitly asked you to reach/notify/pi
 
 ---
 
+## Watch a Kanban task + notify when done (COO cron)
+
+When the CEO asks you to **check back / notify when a Kanban task finishes** (especially via WhatsApp):
+
+1. Confirm the numeric **task_id** (e.g. `#4126`). Use **kanban_get_task** once to validate it exists.
+2. Create an OpenClaw **cron** job with:
+   - schedule **every 5 minutes** (or what they asked)
+   - **timeoutSeconds ≥ 180** (60s is too short and causes failure spam)
+   - delivery **announce** to their WhatsApp (or the channel they asked for)
+   - **name** must include `#<task_id>` (e.g. `Watch Kanban #4126 Platform Help`)
+   - payload message must instruct the cron turn to:
+     - call **kanban_watch_tick** with `{ "task_id": <id> }` (and `cron_job_id` if you already know it)
+     - reply with **exactly** the tool's `reply` field (`NO_REPLY` while pending, or `notify_text` when done)
+     - call **no other tools**
+3. Tell the CEO the cron is running and that it **auto-stops** when the task is `completed` or `failed` (kanban_watch_tick removes matching crons).
+
+**Do not** keep announcing cron *failures* as status updates — if a watch cron errors, fix timeout/message or remove it; do not leave a broken announce job running.
+
+### Read Kanban task content (COO)
+
+When the CEO asks **what a task produced**, **what the specialist wrote**, or to **summarize a completed/failed card**:
+
+1. Call **kanban_get_task** `{ "task_id": <id> }`.
+2. Answer from (in order): **`deliverable`** → **`delegation_response`** → **`chat_context.turns`** (assistant replies) → **`messages`**. Include title/status only as framing.
+3. Do **not** invent content from the title alone. If `deliverable` and chat turns are empty, say the card has no stored deliverable yet.
+
+| Tool | When |
+|------|------|
+| **kanban_get_task** | Status **and full content** for a task_id (description, deliverable, messages, chat turns) |
+| **kanban_watch_tick** | Inside the watch cron only — returns `reply` + stops the cron when done |
+
+---
+
 ## Custom agent workflows (Workflows UI)
 
 These tools let the CEO run published workflows from chat. They are **not** the legacy Job Applicant pipeline (`job_run_workflow_now`).

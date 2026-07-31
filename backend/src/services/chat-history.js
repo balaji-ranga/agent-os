@@ -64,6 +64,23 @@ function fallbackTitle(startedAt) {
   return `Chat · ${label}`;
 }
 
+/** Content-based title when LLM is skipped/fails — first user turn, not date-only. */
+function heuristicTitleFromTurns(turns) {
+  const user = (turns || []).find((t) => t.role === 'user' && String(t.content || '').trim());
+  if (!user) return '';
+  let t = String(user.content || '')
+    .replace(/\s+/g, ' ')
+    .replace(/^\[System[^\]]*\]\s*/i, '')
+    .trim();
+  if (!t) return '';
+  if (t.length > TITLE_MAX) t = `${t.slice(0, TITLE_MAX - 1).trim()}…`;
+  return t;
+}
+
+function isDateOnlyChatTitle(title) {
+  return /^Chat\s*[·\-–—]\s+/i.test(String(title || '').trim());
+}
+
 function calendarDayKey(isoOrSql, timeZone = 'UTC') {
   try {
     const raw = String(isoOrSql || '');
@@ -299,6 +316,7 @@ export function insertChatTurn({ agentId, ownerUserId, role, content, sessionId 
 }
 
 async function generateSessionTitleAndSummary(turns, ownerUserId) {
+  const heuristic = heuristicTitleFromTurns(turns);
   const sample = (turns || [])
     .slice(0, 16)
     .map((t) => `${t.role}: ${String(t.content || '').slice(0, 280)}`)
@@ -323,21 +341,39 @@ async function generateSessionTitleAndSummary(turns, ownerUserId) {
         },
       ],
     });
-    const raw = String(content || '').trim();
+    const raw = String(content || '')
+      .trim()
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/\s*```\s*$/g, '');
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
-    const title = String(parsed?.title || '')
+    let parsed = null;
+    if (jsonMatch) {
+      try {
+        parsed = JSON.parse(jsonMatch[0]);
+      } catch (parseErr) {
+        console.warn('[chat-history] title JSON parse failed:', parseErr.message);
+      }
+    }
+    const title = String(parsed?.title || parsed?.Title || '')
       .replace(/["\n]/g, ' ')
       .trim()
       .slice(0, TITLE_MAX);
-    const summary = String(parsed?.summary || '').trim().slice(0, 2000);
+    const summary = String(parsed?.summary || parsed?.Summary || '')
+      .trim()
+      .slice(0, 2000);
+    if (!title) {
+      console.warn('[chat-history] title LLM returned empty title; using heuristic');
+    }
     return {
-      title: title || fallbackTitle(new Date().toISOString()),
+      title: title || heuristic || fallbackTitle(new Date().toISOString()),
       summary,
     };
   } catch (e) {
     console.warn('[chat-history] title/summary LLM failed:', e.message);
-    return { title: fallbackTitle(new Date().toISOString()), summary: '' };
+    return {
+      title: heuristic || fallbackTitle(new Date().toISOString()),
+      summary: '',
+    };
   }
 }
 
@@ -362,8 +398,15 @@ export async function archiveChatSession({
     const gen = await generateSessionTitleAndSummary(turns, ownerUserId);
     title = gen.title;
     summary = gen.summary || summary;
+  } else if (turns.length && (!title || isDateOnlyChatTitle(title))) {
+    // Rollover/path skipped LLM — still prefer first-user-message over "Chat · date"
+    title = heuristicTitleFromTurns(turns) || title;
   }
   if (!title) title = fallbackTitle(session.started_at);
+  if (isDateOnlyChatTitle(title) && turns.length) {
+    const heur = heuristicTitleFromTurns(turns);
+    if (heur) title = heur;
+  }
 
   const threadId = session.oc_thread_id || getChatThreadId(agentId || session.agent_id, ownerUserId);
   db()

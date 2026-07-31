@@ -53,7 +53,7 @@ export function assertUserAgentAccess(authUser, agentId) {
   }
 }
 
-export function extractOwnerUserIdFromText(text, fallback = null) {
+export function extractOwnerUserIdFromText(text, fallback = undefined) {
   const s = String(text || '');
   const ownerMatch = s.match(/owner_user_id:\s*(\S+)/);
   if (ownerMatch) return ownerMatch[1].replace(/^\[|\]$/g, '');
@@ -65,7 +65,9 @@ export function extractOwnerUserIdFromText(text, fallback = null) {
     return raw;
   }
 
-  return fallback ?? getDefaultCeoUserId();
+  // Explicit fallback (including null) — callers that pass null want "no match", not "default".
+  if (arguments.length >= 2) return fallback;
+  return getDefaultCeoUserId();
 }
 
 export function clearOpenClawSessionForUser(agentId, openclawAgentId, ownerUserId, threadId = null) {

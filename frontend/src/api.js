@@ -596,6 +596,7 @@ export const api = {
   agentWorkflowResume: (id) => post(`/agent-workflows/${encodeURIComponent(id)}/resume`, {}),
   agentWorkflowUpdateTriggers: (id, body) => patch(`/agent-workflows/${encodeURIComponent(id)}/triggers`, body),
   agentWorkflowRunPause: (runId) => post(`/agent-workflows/runs/${runId}/pause`, {}),
+  agentWorkflowRunRetry: (runId, body = {}) => post(`/agent-workflows/runs/${runId}/retry`, body),
   agentWorkflowRunDelete: (runId) => del(`/agent-workflows/runs/${runId}`),
   agentWorkflowRunsPauseAll: (definitionId = null) =>
     post('/agent-workflows/runs/pause-all', definitionId ? { definition_id: definitionId } : {}),

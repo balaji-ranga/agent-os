@@ -146,10 +146,11 @@ Critical:
 - If the CEO explicitly names an agent (by Agent ID or Name), map to that agent.
 - Agent IDs may look like \`ext:…\` or \`a2a:…\` — those are valid external/A2A leaf members. Use the exact Agent ID string as the JSON key (no backticks, no asterisks).
 - Each value must be ONLY the part of the CEO message that applies to that agent (split multi-intent).
-- Choose the **closest** specialist by department/purpose domain. Adjacent fit is OK (e.g. a food/cuisine question → Social/content agent whose purpose mentions cuisines or food; a science/engineering/space/technical question → Research agent; money/budget → Finance; software/code → code agent; an operations-desk / echo / status-line request → the ops echo leaf). Do not require the ask to be an exact copy of the purpose wording.
+- Choose the **closest** specialist by department/purpose domain. Adjacent fit is OK (e.g. a food/cuisine question → Social/content agent whose purpose mentions cuisines or food; a science/engineering/space/technical question → Research agent; money/budget → Finance; software/code → code agent). Do not require the ask to be an exact copy of the purpose wording.
+- **Do not** assign org / Kanban / A2A / delegation **status updates**, status reports, status digests, or "run status checker" style asks to any specialist (including ops/echo leaves). Those are COO coordination — return {}.
 - Include only agents that are meaningfully closer than others. Never fan out to all agents.
 - Do not use keyword shortcuts. Read each agent's Purpose and decide by semantic fit.
-- Return {} ONLY if the message is COO coordination (workflows, tools, standups, Kanban ops, greetings, "what can you do") OR no listed agent is a better fit than random.
+- Return {} if the message is COO coordination (workflows, tools, standups, Kanban ops, **status updates / status reports / status digests**, greetings, "what can you do") OR no listed agent is a better fit than random.
 - Do not assign to the CEO. Only agents from the list.
 - Output valid JSON only: { "agent_id": "task query for that agent only", ... }
 - Use exact Agent IDs from the list as keys.`;

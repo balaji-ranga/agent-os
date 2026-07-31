@@ -187,6 +187,38 @@ const PARAM_SCHEMAS = {
     properties: { task_id: { type: "number" }, to_agent_id: { type: "string" } },
     additionalProperties: true,
   },
+  kanban_get_task: {
+    type: "object",
+    properties: {
+      task_id: {
+        type: "number",
+        description:
+          "Kanban task ID. Returns status plus full content: description, messages, deliverable/delegation_response, and agent-chat turns.",
+      },
+      message_limit: {
+        type: "number",
+        description: "Optional max task_messages to return (default 40).",
+      },
+      chat_turn_limit: {
+        type: "number",
+        description: "Optional max agent-chat turns to return (default 40).",
+      },
+    },
+    required: ["task_id"],
+    additionalProperties: true,
+  },
+  kanban_watch_tick: {
+    type: "object",
+    properties: {
+      task_id: { type: "number", description: "Kanban task ID to monitor." },
+      cron_job_id: {
+        type: "string",
+        description: "Optional OpenClaw cron job id to remove when the task is completed/failed.",
+      },
+    },
+    required: ["task_id"],
+    additionalProperties: true,
+  },
   agent_workflow_list: {
     type: "object",
     properties: {
@@ -216,6 +248,19 @@ const PARAM_SCHEMAS = {
       workflow_id: { type: "string", description: "Optional workflow id if phrase is unknown" },
       input: { type: "string", description: "Optional run input (defaults to message)" },
       ceo_user_id: { type: "string", description: "Optional CEO owner user id" },
+    },
+    additionalProperties: true,
+  },
+  agent_workflow_retry: {
+    type: "object",
+    properties: {
+      run_id: { type: "number", description: "Failed/paused (or completed for from_start) run id" },
+      mode: {
+        type: "string",
+        description: "from_start (new run) or from_failed_step (resume same run)",
+      },
+      node_id: { type: "string", description: "Optional failed node id for from_failed_step" },
+      input: { type: "string", description: "Optional input override for from_start" },
     },
     additionalProperties: true,
   },
