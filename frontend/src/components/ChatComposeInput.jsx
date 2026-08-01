@@ -16,7 +16,7 @@ export default function ChatComposeInput({
   style,
   attachments = [],
   onAttachmentsChange,
-  accept = '.pdf,.doc,.docx,.txt,.md,.csv,.xlsx,.xls,.png,.jpg,.jpeg,.gif,.webp,.bmp',
+  accept = '.pdf,.doc,.docx,.txt,.md,.csv,.xlsx,.xls,.png,.jpg,.jpeg,.gif,.webp,.bmp,.mp3,.wav,.m4a,.ogg,.opus,.aac,.flac,.mp4,.webm,.mov,.avi',
   ...rest
 }) {
   const fileRef = useRef(null);

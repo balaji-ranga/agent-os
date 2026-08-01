@@ -26,9 +26,10 @@ You do not need to know APIs or Docker for everyday use.
 ### Chat with an agent
 
 1. On the **Dashboard**, click an agent (or open **Chat**).
-2. Type your request in plain language and send.
-3. When the agent uses tools (Master Data, notify you, email, etc.), small **tool icons** may appear under the reply so you can see what it did.
+2. Type your request in plain language and send. Optionally **attach** files (paperclip) — documents/images/audio/video are stored for the agent under Master Data and `inbound/attachments/`.
+3. When the agent uses tools (Master Data, notify you, email, generate image/TTS, etc.), small **tool icons** may appear under the reply so you can see what it did. Generated media plays **inline** in the chat (you must be logged in).
 4. Prefer asking the **COO** for work that should be planned or handed to a specialist (research, applications, etc.).
+5. To reach an agent from **WhatsApp / Slack**, open that agent’s **Channels** wizard (see Platform Help **24**).
 
 ### Ask Platform Help (how-to)
 
@@ -115,7 +116,9 @@ Grant or revoke tools on each agent’s **Workspace → Tools access**.
 ### Profile and AI model
 
 1. Open your **Profile**.
-2. Choose how the platform picks models (platform default, your API key, or local options like DeepSeek on Ollama when available).
+2. Choose **provider** (platform default, Ollama/DeepSeek free, or OpenAI/OpenRouter via **API Keys** → `Platform_BYOK`). Non-platform Profiles auto-seed recommended vault slots as unset.
+3. For OpenAI/OpenRouter (and optionally Ollama), also choose a **chat model** from the curated list (or a custom model id). Saving Profile syncs provider + model into OpenClaw for your tenant agents. Catalog: `GET /api/auth/llm-catalog`.
+4. Browse uploads and generated media under **Content Explorer** (`/content-explorer`).
 3. Keep MFA settings as required by your organization.
 4. Set **Data persistence** (30 / 60 / 90 / 120 / 365 days). A nightly job permanently deletes your chats, chat history, standup conversations and workflow runs older than that; **Purge aged data now** does it immediately. Watch the effect on **Efficiency View → Org → Storage (MB)**.
 
@@ -135,7 +138,8 @@ Grant or revoke tools on each agent’s **Workspace → Tools access**.
 | **Admin → Crons** | `/admin/crons` lists every platform cron (standup dispatcher, legacy standup, delegation queue, job pipeline, COO status checker, data retention, workflow scheduler) with **Pause** / **Resume** / **Run now**. Pause state persists across restarts. |
 | **Platform API logging** | `PLATFORM_LOG_LEVEL=off\|error\|info` controls backend access/error logs. Keys, tokens, `Authorization` headers, passwords and MFA codes are redacted, and sensitive paths (API Keys, auth) log method + route only. |
 | **Scheduled jobs reference** | All platform crons and user-level schedules documented in `knowledgebase/platform-help/19-scheduled-jobs-and-crons.md`; commented defaults kept in `.env` by `deploy/scripts/ensure-cron-env.sh`. |
-| **API Keys vault** | Management → API Keys — named secrets, optional encryption, required `Platform_BYOK` for OpenAI/OpenRouter. |
+| **API Keys vault** | Management → API Keys — named secrets, optional encryption. Non-platform Profiles auto-seed unset slots (`Platform_BYOK`, `Replicate_BYOK`, `BRAVE_SEARCH_BYOK`, `elevenlabs-key`); OpenAI/OpenRouter need a filled `Platform_BYOK` plus a **chat model** on Profile. |
+| **Content Explorer** | Management → Content Explorer — browse/preview/download your uploaded + generated files (`inbound/attachments/`, tool media). See platform-help **26**. |
 | **Connectors** | Link SaaS apps (OpenConnector) and call them from workflow **Connector** nodes. |
 | **Efficiency View** | **Org** tab: agents, automated tasks, feedback, workflow run success/fail, Storage (MB) (7d–All). **Department** tab: month-to-date tokens vs each department's budget. **Agent View** tab: per-agent activity, outcomes, token/error budget gauges, **Reset usage** / **Reset all usage** to zero month-to-date tokens without changing budgets. |
 | **Agent budgets** | Monthly **token budget** + **error budget %** per agent (and per department, as a planning figure). Warn at 80% via bell, **block** new chat/delegated work at 100% tokens or at the error budget (min 10 terminal calls). Refused calls never spend the error budget. Backed by a durable `token_usage` ledger. |
@@ -151,6 +155,10 @@ Grant or revoke tools on each agent’s **Workspace → Tools access**.
 | **Notification tooltips** | Hover the bell snippet for the full message. |
 | **Tenant Workspace docs** | Your CEO workspace files stay in your space; Resync keeps ORG/AGENTS accurate. |
 | **Shared notification dismiss** | Clear/dismiss keeps the bell feed tidy across platform + agent items. |
+| **Agent channels (Slack / WhatsApp)** | Per-agent **Channels** wizard (BYOK vault + OpenClaw bindings). Outbound media must use `MEDIA:/abs/path` so WhatsApp attaches from disk; inbound WhatsApp media is mirrored to `inbound/attachments/` for chat/STT. See platform-help **24**. |
+| **Chat attachments + inline media** | Paperclip on Agent Chat uploads files into Master Data + `inbound/attachments/`. Generated image/audio/video play **inline** in Dashboard chat (login required). Generated media is **auth-only** by default — not world-public (`MEDIA_PUBLIC_SIGNED=1` opt-in). See platform-help **03**, **11**. |
+| **Free speech (Whisper + Piper)** | Chat mic + Speak reply; content tools / workflow nodes `speech_stt` / `speech_tts`. Prefer OGG/Opus (or MP3) for WhatsApp TTS attach. Published Scenes guests use slug-scoped public VR tokens (not the signed openclaw media flag). See **25**. |
+| **Platform feedback (Admin)** | COO / Platform Help can file bugs via `platform_feedback_*`. Admins triage at **Platform feedback** (`/admin/platform-feedback`): open → implemented / rejected. |
 
 ---
 
@@ -247,11 +255,12 @@ Set in backend `.env`:
 | **Workflow Builder chat** | LLM assistant in the workflow editor to create/edit graphs via natural language. |
 | **Job profiles** | CEO job search profiles (intake, resume, preferences); gate for Job Applicant pipeline. |
 | **Job workflows** | Multi-agent **Job Applicant** pipeline (Discovery → Fit Scoring → Resume Tailoring → Application); Kanban-tracked stages; browser/Playwright apply path. See **knowledgebase/JOB-APPLICANT-WORKFLOW.md**. |
-| **MCP integrations** | Register MCP servers (admin/CEO); connect, test tools, playground; use in workflow **MCP Tool** and **SSE Listen** nodes. Local test server: `tools/local-mcp-random-sse/`. Bundled **Brave Search MCP** wrapper (`tools/brave-search-mcp-byok/`, compose profile `optional-brave-mcp`) turns the Brave REST API into an HTTP MCP server — **BYOK only**, the container never reads `BRAVE_API_KEY`. |
+| **MCP integrations** | Register MCP servers (admin/CEO); connect, test tools, playground; use in workflow **MCP Tool** and **SSE Listen** nodes. Local test server: `tools/local-mcp-random-sse/`. Bundled **Brave Search MCP** wrapper (`tools/brave-search-mcp-byok/`, compose profile `optional-brave-mcp`) is **header BYOK** (container never reads `BRAVE_API_KEY`). Agent content tool **`brave_web_search`** uses platform `BRAVE_API_KEY` or vault **`BRAVE_SEARCH_BYOK`** from Profile. |
 | **External agents (A2A)** | Register external agent endpoints; invoke from workflow **External Agent** node. |
 | **Tools** (UI `/content-tools`) | Agent-callable **content tools**: summarize URL, image/video gen, Kanban, **intent_classify_and_delegate**, workflow trigger/enquire/mutate, job applicant tools, **email_send**, **notify_ceo**, **Master Data**, learnings, etc.; owner-scoped logs UI; onboard new APIs via script. |
 | **Browser Session** | `/browser-session` — managed Playwright or **Client Chrome** (Browser Relay); NL tasks + recorder **recipes**. Agents use **`browse_*`** content tools (`browse_task_start`, `browse_recipe_list`, `browse_recipe_run`, …), CEO-scoped; grant list vs run in Workspace → Tool access. Backend CDP via dedicated OpenClaw agent `browser-cdp` (`BROWSER_TASK_CDP_AGENT_ID`). Chat thumbs-down comments feed `learnings_summary`. Guides: `knowledgebase/CLIENT-BROWSER-SESSION.md`, `knowledgebase/platform-help/22-browser-session-and-recipes.md`. |
-| **Master Data & RAG** | Per-CEO tables + documents (keyword RAG over PDF/DOCX/Excel/text). UI captures **purpose/description** per table. Agents list tables with purpose and CRUD rows / RAG docs via content tools — **no create/alter/drop table**. On register: starter **departments** table + **Flolah User Guide** + **Platform Help** document set. **Purge all uploads** removes CEO uploads only; help/guide docs are protected. |
+| **Master Data & RAG** | Per-CEO tables + documents (keyword RAG over PDF/DOCX/Excel/text). UI captures **purpose/description** per table. Agents list tables with purpose and CRUD rows / RAG docs via content tools — **no create/alter/drop table**. On register: starter **departments** table + **Flolah User Guide** + **Platform Help** document set. **Inbound attachments** + **Content Explorer** for chat/channel files. **Purge all uploads** removes CEO uploads only; help/guide docs are protected. |
+| **Profile LLM catalog** | Provider + model picker (`llm_provider` / `llm_model`); internal endpoint map in `backend/src/config/llm-provider-registry.js`; OpenClaw sync on Profile save. |
 | **Platform Help** | Standard agent `platformhelp` — product how-to via `master_data_rag` over `knowledgebase/platform-help/`. See [`knowledgebase/platform-help/README.md`](knowledgebase/platform-help/README.md). |
 | **COO specialty delegation** | COO chat hard-path: AGENTS.md purpose intent → specialist(s) (cap 2 for multi-intent) + Kanban; peer specialty referral; COO-native work stays with COO; how-to → Platform Help; graph build → Workflow Builder. |
 | **Email send** | `email_send` content tool — agents can send email via configured mail integration (owner-scoped logging). |
@@ -290,7 +299,7 @@ New CEOs start with **empty** standups (no other user’s chats or agents), star
 - **Triggers:** manual, cron schedule, chat phrase, **event webhook** (hook URL on Start node when event mode enabled; uses `AGENT_OS_BASE_URL`)
 - **Node types:** Trigger, Agent, Content Tool, MCP Tool, **SSE Listen** (long-running stream; dispatches downstream on each event), **Sub-workflow**, Call API (Basic/Bearer/API-key auth + custom headers), Brain, Email, IF, While, Parallel, Merge, CEO Approval, External Agent
 - **Data binding:** `{{nodeId.outputKey}}` and nested paths (e.g. `{{api-1.body.accessToken}}`, `{{trigger-1.trigger_input.query}}`); workflow variables `{{var.key}}` (editor **Workflow variables** panel — shared static config for that definition, not platform-wide globals). Full guide: `knowledgebase/platform-help/14-workflow-dynamic-values.md`.
-- **Dynamic auth:** API / MCP / Brain `apiKey` / External Agent override / SSE headers accept the same `{{…}}` templates (values look static in the UI; runner substitutes at execute time). Brave Search MCP is **BYOK** (workflow headers only — no container `BRAVE_API_KEY` fallback).
+- **Dynamic auth:** API / MCP / Brain `apiKey` / External Agent override / SSE headers accept the same `{{…}}` templates (values look static in the UI; runner substitutes at execute time). Brave Search MCP is **BYOK** (workflow headers only — no container `BRAVE_API_KEY` fallback). Agent tool `brave_web_search` uses platform `BRAVE_API_KEY` or vault `BRAVE_SEARCH_BYOK` by Profile.
 - **A2A publish:** Publish → AgentExchange + agent card / JSON-RPC under `/api/a2a/:publishId`. **Visibility** `public` (default) or `private` (public endpoints always denied; COO / reports-to lead via org path only). **Sync** or **Async**; optional callback URL. **Deny all** IP default; **Allow all** or IP whitelist. **Public auth** or **Secured** OAuth.
 - **Download for Windows:** Published workflow → **Download for Windows** (lite or with portable Node 18). Local orchestrator; Flolah holds run state + remote nodes. Guide: `knowledgebase/platform-help/17-desktop-windows-download.md`.
 - **Runs:** Kanban tasks per step; fail run on API/MCP errors (non-2xx HTTP, SSL errors, MCP `is_error`)
@@ -477,7 +486,11 @@ All routes below are also available under **`/api/...`** (frontend uses `/api` p
 
 ### Media
 
-- `GET /media/openclaw/*` — proxied OpenClaw media for chat/kanban display
+- `GET /api/media/openclaw/*` — OpenClaw-generated media for Dashboard chat / Kanban. **Requires login (Bearer)** by default. Optional anonymous `?exp=&sig=` only when ops sets `MEDIA_PUBLIC_SIGNED=1` (off by default; see `deploy/.env.example`).
+- Content tools (`generate_image`, `generate_video`, `speech_tts`, …) return `paste_exactly` / `media_uri` as **`MEDIA:/abs/path`** for **WhatsApp file attach** on the shared OpenClaw volume, plus auth-only `relative_url` (`/api/media/…`) for the web UI.
+- Dashboard chat renders `MEDIA:` and `/api/media` as **inline** image / audio / video players (authenticated blob fetch). Do **not** paste bare auth HTTPS media URLs into WhatsApp (shows “Media failed”).
+- Guest Published Scenes use separate `/api/public/vr/:slug/artifacts/…?t=…` tokens — unrelated to `MEDIA_PUBLIC_SIGNED`.
+- Docs: `knowledgebase/platform-help/11-content-tools-scripts-profile.md`, `24-agent-channels.md`, `25-speech-and-published-scenes.md`.
 
 ## Restart and test
 

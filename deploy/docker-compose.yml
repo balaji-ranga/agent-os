@@ -110,6 +110,9 @@ x-backend-env: &backend-env
   OPENROUTER_HTTP_REFERER: ${OPENROUTER_HTTP_REFERER:-}
   OPENROUTER_SITE_TITLE: ${OPENROUTER_SITE_TITLE:-Agent OS}
   REPLICATE_API_TOKEN: ${REPLICATE_API_TOKEN:-}
+  # Brave Search agent content tool (platform default Profile). Vault BRAVE_SEARCH_BYOK for BYOK Profiles.
+  # Do NOT inject into brave-search-mcp service — that remains header BYOK only.
+  BRAVE_API_KEY: ${BRAVE_API_KEY:-}
   ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
   HUNYUAN3D_URL: ${HUNYUAN3D_URL:-}
   HUNYUAN3D_TIMEOUT_MS: ${HUNYUAN3D_TIMEOUT_MS:-}
@@ -208,7 +211,7 @@ x-backend-env: &backend-env
   DOCKER_TOOLS_STEPUP_TTL_MS: ${DOCKER_TOOLS_STEPUP_TTL_MS:-300000}
   DOCKER_TOOLS_RESTART_OPENCLAW: ${DOCKER_TOOLS_RESTART_OPENCLAW:-1}
   # Filesystem workflow nodes (persisted volume)
-  WORKFLOW_FS_ROOTS: ${WORKFLOW_FS_ROOTS:-/data/workflow-fs}
+  WORKFLOW_FS_ROOTS: ${WORKFLOW_FS_ROOTS:-/data/workflow-fs:/root/.openclaw/tenants:/root/.openclaw/media}
   # Autonomous workflow certify (Maker / Checker). LLM checker default OFF when unset/0.
   WORKFLOW_CERTIFY_MAX_ATTEMPTS: ${WORKFLOW_CERTIFY_MAX_ATTEMPTS:-5}
   WORKFLOW_CERTIFY_MAX_WALL_MS: ${WORKFLOW_CERTIFY_MAX_WALL_MS:-300000}
@@ -389,7 +392,7 @@ services:
       - "3099"
 
   # Brave Search MCP (HTTP) — BYOK only. Pass X-Subscription-Token / Bearer from workflow MCP node.
-  # Platform BRAVE_API_KEY is NOT injected into this container (no env-key fallback).
+  # Platform BRAVE_API_KEY is injected into *backend* (brave_web_search content tool), NOT this container.
   # Start: docker compose --profile optional-brave-mcp up -d --build brave-search-mcp
   brave-search-mcp:
     profiles: ["optional-brave-mcp"]
@@ -479,6 +482,7 @@ services:
 
   # Free local STT (faster-whisper) + TTS (Piper). Started automatically by
 # deploy/scripts/ensure-voice-env.sh (up.sh / vps-deploy-latest.sh) unless SKIP_VOICE=1.
+# Powers /api/speech/*, workflow speech_* nodes, and COO tools speech_tts / speech_stt.
 # Manual: docker compose --profile optional-voice up -d --build whisper piper
 # Then SPEECH_STT_URL=http://whisper:8000 and SPEECH_TTS_URL=http://piper:5500 on backend.
   whisper:

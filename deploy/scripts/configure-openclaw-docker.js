@@ -11,6 +11,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import { resolveOpenClawDir } from '../../scripts/lib/openclaw-paths.js';
+import { ensureChannelRoutingOnConfig } from '../../scripts/lib/openclaw-channel-routing.js';
 import {
   REQUIRED_GLOBAL_CONTENT_TOOLS,
   COO_CONTENT_TOOLS_ALLOW,
@@ -118,6 +119,19 @@ if (!config.tools) config.tools = {};
 if (!config.tools.sessions) config.tools.sessions = {};
 config.tools.sessions.visibility = SESSION_VISIBILITY;
 console.log('Set tools.sessions.visibility:', SESSION_VISIBILITY);
+
+// Disable OpenClaw auto media-understanding when it fails (ProviderHttpError / no vision)
+// and replaces usable MEDIA: paths with "[whatsapp attachment unavailable]".
+// Agent OS mirrors inbound files to workspace inbound/attachments + speech_stt / workflows.
+if (!config.tools.media || typeof config.tools.media !== 'object') config.tools.media = {};
+for (const cap of ['image', 'audio', 'video']) {
+  if (!config.tools.media[cap] || typeof config.tools.media[cap] !== 'object') {
+    config.tools.media[cap] = {};
+  }
+  config.tools.media[cap].enabled = false;
+}
+console.log('Disabled tools.media.{image,audio,video}.enabled (Agent OS inbound sync + speech tools handle A/V)');
+
 
 // OpenClaw intersects agent tools.allow with global tools.allow. Plugin tools missing
 // from the global list are stripped (COO learnings_summary regressed this way).
@@ -518,5 +532,18 @@ if (config.tools) {
   delete config.tools.alsoAllow;
   console.log('Cleared global tools.allow (required for browser CDP /tools/invoke)');
 }
+// Restore Slack/WhatsApp accounts+bindings from sidecar if this rewrite would drop them.
+const routing = ensureChannelRoutingOnConfig(config, OPENCLAW_DIR);
+if (routing.restored) {
+  console.log('Restored channels/bindings from agent-os-channel-routing.json');
+}
+if (config.channels == null) delete config.channels;
+if (config.bindings == null) delete config.bindings;
 writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
 console.log('Updated', CONFIG_PATH);
+if (config.channels?.whatsapp?.accounts) {
+  console.log(
+    'Preserved channels.whatsapp accounts:',
+    Object.keys(config.channels.whatsapp.accounts).join(', ') || '(none)'
+  );
+}

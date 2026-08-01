@@ -4,7 +4,7 @@ You have access to **Agent OS content tools** (plugin: agent-os-content-tools). 
 
 - **learnings_summary** — **Call first** before non-trivial work. Parameters: `topic`, optional `days` (default 30).
 - **summarize_url** — Summarize a web page. Parameters: `url` (HTTPS). On 404, use `suggested_url` / **browse_task_start** / browser.
-- **generate_image** — Generate an image from a text prompt. Parameters: `prompt`, optional `style_hint`. Paste `![generated](<url>)` after success.
+- **generate_image** — Generate an image from a text prompt. Parameters: `prompt`, optional `style_hint`. Paste `![generated](<absolute_url>)` after success; for WhatsApp also put `media_uri` on its own line.
 - **generate_video** — Generate a short video from a prompt. Parameters: `prompt`, optional `duration_sec`.
 - **kanban_move_status** — You decide. Parameters: `task_id`, `new_status` (open, awaiting_confirmation, in_progress, completed, failed). → `in_progress` when you start; → `completed` only after the deliverable is done.
 - **kanban_reassign_to_coo** — Reassign a task back to the COO. Parameters: `task_id`.

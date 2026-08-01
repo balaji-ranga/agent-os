@@ -19,9 +19,11 @@ export default function Register() {
     mfa_policy: 'inherit',
     mfa_mode: 'inherit',
     llm_provider: 'platform_decided',
+    llm_model: '',
     llm_api_key: '',
   });
   const [industries, setIndustries] = useState([]);
+  const [llmCatalog, setLlmCatalog] = useState({ providers: [] });
   const [platform, setPlatform] = useState(null);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -36,6 +38,9 @@ export default function Register() {
     api.authIndustries()
       .then((d) => setIndustries(d.industries || []))
       .catch(() => setIndustries([]));
+    api.authLlmCatalog()
+      .then((d) => setLlmCatalog(d || { providers: [] }))
+      .catch(() => setLlmCatalog({ providers: [] }));
   }, []);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -50,6 +55,8 @@ export default function Register() {
       const body = {
         ...form,
         mfa_mode: form.mfa_mode === 'inherit' ? null : form.mfa_mode,
+        llm_model:
+          form.llm_provider === 'platform_decided' ? null : form.llm_model || undefined,
       };
       delete body.llm_api_key;
       const result = await register(body);
@@ -233,12 +240,23 @@ export default function Register() {
         <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--muted)' }}>
           LLM provider — choose Platform default or free models here. For OpenAI/OpenRouter, create{' '}
           <code>Platform_BYOK</code> under Management → API Keys after registration, then switch in Profile.
+          Choosing Ollama or DeepSeek seeds recommended API Keys vault slots (<code>Platform_BYOK</code>,{' '}
+          <code>Replicate_BYOK</code>, <code>BRAVE_SEARCH_BYOK</code>, <code>elevenlabs-key</code>) as unset —
+          fill them under API Keys when you need those features.
         </p>
         <label>
           <span style={{ display: 'block', fontSize: '0.85rem', marginBottom: 4 }}>Provider</span>
           <select
             value={form.llm_provider}
-            onChange={(e) => set('llm_provider', e.target.value)}
+            onChange={(e) => {
+              const next = e.target.value;
+              const meta = (llmCatalog.providers || []).find((p) => p.id === next);
+              setForm((f) => ({
+                ...f,
+                llm_provider: next,
+                llm_model: next === 'platform_decided' ? '' : meta?.default_model || '',
+              }));
+            }}
             style={{ width: '100%', padding: '0.5rem', borderRadius: 6, border: '1px solid var(--border)' }}
           >
             <option value="platform_decided">Platform decided (use .env)</option>
@@ -247,9 +265,30 @@ export default function Register() {
           </select>
         </label>
 
-        {(form.llm_provider === 'deepseek') && (
+        {form.llm_provider === 'ollama_free' && (
+          <label>
+            <span style={{ display: 'block', fontSize: '0.85rem', marginBottom: 4 }}>Ollama model</span>
+            <select
+              value={form.llm_model || 'llama3.2'}
+              onChange={(e) => set('llm_model', e.target.value)}
+              style={{ width: '100%', padding: '0.5rem', borderRadius: 6, border: '1px solid var(--border)' }}
+            >
+              {(
+                (llmCatalog.providers || []).find((p) => p.id === 'ollama_free')?.models || [
+                  { id: 'llama3.2', label: 'Llama 3.2' },
+                ]
+              ).map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        {form.llm_provider === 'deepseek' && (
           <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--muted)' }}>
-            Uses local Ollama model <code>deepseek-v3</code> — no API key. Start the optional-ollama profile and pull the model first.
+            Uses local Ollama model <code>{form.llm_model || 'deepseek-v3'}</code> — no API key. Start the optional-ollama profile and pull the model first.
           </p>
         )}
 

@@ -9,7 +9,93 @@ import { getDb } from '../db/schema.js';
 export const PLATFORM_BYOK_KEY_NAME = 'Platform_BYOK';
 /** Vault name for Replicate video when Profile LLM is not Platform default. */
 export const REPLICATE_BYOK_KEY_NAME = 'Replicate_BYOK';
+/** Vault name for Brave Search when Profile LLM is not Platform default. */
+export const BRAVE_SEARCH_BYOK_KEY_NAME = 'BRAVE_SEARCH_BYOK';
+/** Vault name used by avatar / workflow ElevenLabs TTS templates. */
+export const ELEVENLABS_BYOK_KEY_NAME = 'elevenlabs-key';
+/** Stored secret for seeded slots until the CEO pastes a real key. Never returned as usable. */
+export const API_KEY_UNSET_SENTINEL = '__AGENT_OS_UNSET__';
 const KEY_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+const UNSET_HINT = 'unset';
+
+export function isUnsetApiKeySecret(value) {
+  return String(value || '').trim() === API_KEY_UNSET_SENTINEL;
+}
+
+/** True when the row is a seeded placeholder (not a real secret). */
+export function isUnsetApiKeyRow(row) {
+  if (!row) return true;
+  if (String(row.key_hint || '') === UNSET_HINT) return true;
+  if (!row.is_encrypted && isUnsetApiKeySecret(row.secret_value)) return true;
+  return false;
+}
+
+/**
+ * Named vault slots CEOs need when Profile LLM is not Platform default.
+ * Platform default uses ops `.env` for Brave / Replicate; BYOK profiles use these vault names.
+ */
+export function requiredByokVaultSlots(llmProvider) {
+  const p = String(llmProvider || 'platform_decided').trim().toLowerCase();
+  if (!p || p === 'platform_decided') return [];
+  return [
+    {
+      key_name: PLATFORM_BYOK_KEY_NAME,
+      purpose: 'OpenAI / OpenRouter agent chat (Profile BYOK)',
+    },
+    {
+      key_name: REPLICATE_BYOK_KEY_NAME,
+      purpose: 'generate_video (Replicate)',
+    },
+    {
+      key_name: BRAVE_SEARCH_BYOK_KEY_NAME,
+      purpose: 'brave_web_search',
+    },
+    {
+      key_name: ELEVENLABS_BYOK_KEY_NAME,
+      purpose: 'Avatar / workflow ElevenLabs TTS',
+    },
+  ];
+}
+
+/**
+ * Insert missing recommended vault entries as unset placeholders (idempotent).
+ * Does not overwrite existing secrets. No-op when provider is platform_decided.
+ */
+export function ensureByokVaultSlots(ownerUserId, llmProvider) {
+  ensureUserApiKeysSchema();
+  const owner = String(ownerUserId || '').trim();
+  if (!owner) return { seeded: [], slots: [] };
+  const slots = requiredByokVaultSlots(llmProvider);
+  if (!slots.length) return { seeded: [], slots: [] };
+
+  const seeded = [];
+  const insert = db().prepare(
+    `INSERT INTO user_api_keys
+      (id, owner_user_id, key_name, secret_value, is_encrypted, phrase_wrapped, salt_b64, iv_b64, tag_b64, key_hint, updated_at)
+     VALUES (?, ?, ?, ?, 0, NULL, NULL, NULL, NULL, ?, datetime('now'))`
+  );
+
+  for (const slot of slots) {
+    const name = slot.key_name;
+    if (getUserApiKeyRow(owner, name)) continue;
+    try {
+      insert.run(randomUUID(), owner, name, API_KEY_UNSET_SENTINEL, UNSET_HINT);
+      seeded.push(name);
+    } catch (e) {
+      if (/UNIQUE/i.test(String(e.message || ''))) continue;
+      console.warn('[user-api-keys] ensureByokVaultSlots failed', { owner, name, error: e.message });
+    }
+  }
+
+  if (seeded.length) {
+    console.info('[user-api-keys] seeded BYOK vault slots', {
+      owner,
+      provider: String(llmProvider || ''),
+      seeded,
+    });
+  }
+  return { seeded, slots: slots.map((s) => s.key_name) };
+}
 
 function db() {
   return getDb();
@@ -132,11 +218,13 @@ export function normalizeKeyName(name) {
 
 export function maskApiKeyRow(row) {
   if (!row) return null;
+  const unset = isUnsetApiKeyRow(row);
   return {
     id: row.id,
     owner_user_id: row.owner_user_id,
     key_name: row.key_name,
-    key_hint: row.key_hint || null,
+    key_hint: unset ? UNSET_HINT : row.key_hint || null,
+    is_unset: unset,
     is_encrypted: !!row.is_encrypted,
     has_encryption_phrase: !!row.is_encrypted && !!row.phrase_wrapped,
     created_at: row.created_at,
@@ -177,15 +265,29 @@ export function getUserApiKeyById(ownerUserId, id) {
   );
 }
 
-/** Resolve plaintext secret for runners. Throws 404 if missing. */
+/** Resolve plaintext secret for runners. Throws 404 if missing or unset placeholder. */
 export function resolveUserApiKey(ownerUserId, keyName) {
   const row = getUserApiKeyRow(ownerUserId, keyName);
-  if (!row) {
-    throw Object.assign(new Error(`API key "${keyName}" not found for this user`), { status: 404 });
+  if (!row || isUnsetApiKeyRow(row)) {
+    throw Object.assign(
+      new Error(
+        row
+          ? `API key "${keyName}" is not set. Edit it under Management → API Keys and paste your secret.`
+          : `API key "${keyName}" not found for this user`
+      ),
+      { status: 404, code: row ? 'api_key_unset' : 'api_key_missing' }
+    );
   }
   try {
     const value = decryptSecretRow(row);
-    if (!value) throw new Error('empty secret');
+    if (!value || isUnsetApiKeySecret(value)) {
+      throw Object.assign(
+        new Error(
+          `API key "${keyName}" is not set. Edit it under Management → API Keys and paste your secret.`
+        ),
+        { status: 404, code: 'api_key_unset' }
+      );
+    }
     return { key_name: row.key_name, value, is_encrypted: !!row.is_encrypted };
   } catch (e) {
     if (e.status) throw e;
@@ -249,6 +351,9 @@ export function createUserApiKey(ownerUserId, { keyName, apiKey, encryptionPhras
   const name = normalizeKeyName(keyName);
   const secret = String(apiKey || '').trim();
   if (!secret) throw Object.assign(new Error('api_key is required'), { status: 400 });
+  if (isUnsetApiKeySecret(secret)) {
+    throw Object.assign(new Error('api_key must be a real provider secret'), { status: 400 });
+  }
   const phrase = String(encryptionPhrase || '').trim();
   assertKekIfEncrypting(phrase);
 
@@ -315,8 +420,17 @@ export function updateUserApiKey(ownerUserId, id, patch = {}) {
   let secret = null;
   if (newSecretRaw != null && String(newSecretRaw).trim()) {
     secret = String(newSecretRaw).trim();
+    if (isUnsetApiKeySecret(secret)) {
+      throw Object.assign(new Error('api_key must be a real provider secret'), { status: 400 });
+    }
   } else {
     secret = decryptSecretRow(row);
+  }
+  if (isUnsetApiKeySecret(secret)) {
+    throw Object.assign(
+      new Error('api_key is required to set this vault slot'),
+      { status: 400, code: 'api_key_unset' }
+    );
   }
 
   let phrase = null;
@@ -510,6 +624,20 @@ export function findApiKeyDependencies(ownerUserId, keyName) {
     }
   }
 
+  if (name === BRAVE_SEARCH_BYOK_KEY_NAME) {
+    const u = db()
+      .prepare(`SELECT id, llm_provider FROM platform_users WHERE id = ?`)
+      .get(owner);
+    if (u && String(u.llm_provider || '') !== 'platform_decided') {
+      deps.push({
+        type: 'byok',
+        id: owner,
+        name: 'Brave Search BYOK',
+        detail: `provider=${u.llm_provider || 'unknown'} (brave_web_search)`,
+      });
+    }
+  }
+
   return deps;
 }
 
@@ -518,15 +646,17 @@ export function assertPlatformByokPresent(ownerUserId, provider) {
   const p = String(provider || '').trim();
   if (p !== 'openai' && p !== 'openrouter') return { ok: true };
   const row = getUserApiKeyRow(ownerUserId, PLATFORM_BYOK_KEY_NAME);
-  if (!row) {
+  if (!row || isUnsetApiKeyRow(row)) {
     throw Object.assign(
       new Error(
-        `Create API key "${PLATFORM_BYOK_KEY_NAME}" under Management → API Keys before using ${p}. Or switch LLM to Platform default / free models.`
+        row
+          ? `Set API key "${PLATFORM_BYOK_KEY_NAME}" under Management → API Keys (it is still unset) before using ${p}. Or switch LLM to Platform default / free models.`
+          : `Create API key "${PLATFORM_BYOK_KEY_NAME}" under Management → API Keys before using ${p}. Or switch LLM to Platform default / free models.`
       ),
       { status: 400, code: 'platform_byok_required' }
     );
   }
-  // ensure decryptable
+  // ensure decryptable real secret
   resolveUserApiKey(ownerUserId, PLATFORM_BYOK_KEY_NAME);
   return { ok: true };
 }

@@ -5,6 +5,7 @@
 import { writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
+import { enrichGeneratedOpenClawMedia } from './media-url.js';
 
 export const CHART_SPEC_VERSION = '1.0';
 
@@ -309,7 +310,7 @@ export function persistSvg(svgText, mediaDir) {
   mkdirSync(mediaDir, { recursive: true });
   const filename = `${randomUUID()}.svg`;
   writeFileSync(join(mediaDir, filename), svgText, 'utf8');
-  return `/api/media/openclaw/generated/${filename}`;
+  return enrichGeneratedOpenClawMedia(filename);
 }
 
 /**
@@ -394,14 +395,28 @@ export function generateChartsFromSpec(input, opts = {}) {
 
   spec.charts.forEach((chart, i) => {
     const svg = renderOne(chart);
-    const url = persistSvg(svg, mediaDir);
+    const media = persistSvg(svg, mediaDir);
+    const mediaUri = media.media_uri || media.url;
     const key = String(chart.id || `${chart.type}_${i + 1}`).replace(/[^a-zA-Z0-9_-]/g, '_');
-    chart_urls[key] = url;
-    urls.push(url);
-    rendered.push({ id: key, type: chart.type, title: chart.title || null, url });
+    chart_urls[key] = mediaUri;
+    urls.push(mediaUri);
+    rendered.push({
+      id: key,
+      type: chart.type,
+      title: chart.title || null,
+      url: mediaUri,
+      paste_exactly: media.paste_exactly || mediaUri,
+      relative_url: media.relative_url,
+      absolute_url: media.public_url || media.absolute_url,
+      public_url: media.public_url || media.absolute_url,
+      local_path: media.local_path,
+      media_uri: mediaUri,
+      web_markdown: media.web_markdown,
+    });
   });
 
-  const visuals_markdown = `${urls.join('\n')}\n\n_Charts (paste at top of reply)._`;
+  // MEDIA: lines only — auth HTTPS in the same reply causes WhatsApp "Media failed".
+  const visuals_markdown = `${rendered.map((r) => r.media_uri).join('\n')}\n\n_Paste MEDIA: lines so WhatsApp embeds charts; Dashboard chat renders them too._`;
 
   return {
     ok: true,
@@ -409,7 +424,9 @@ export function generateChartsFromSpec(input, opts = {}) {
     charts: rendered,
     chart_urls,
     visuals_markdown,
-    notes: 'Paste visuals_markdown (or chart URLs) at the top of the chat reply.',
+    paste_exactly: rendered.map((r) => r.media_uri).join('\n'),
+    notes:
+      'Paste visuals_markdown / paste_exactly (MEDIA: lines) at the top of the reply. Do not paste auth-only /api/media HTTPS URLs on WhatsApp.',
   };
 }
 

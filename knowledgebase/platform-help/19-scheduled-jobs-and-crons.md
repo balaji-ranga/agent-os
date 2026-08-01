@@ -30,7 +30,7 @@ every deploy).
 | `JOB_PIPELINE_CRON_SCHEDULE` | `0 * * * *` (hourly) | Job Applicant pipeline tick | Checks every active job profile's own `workflow_schedule` (hourly/daily/weekly) |
 | `COO_STATUS_CHECKER_CRON` | `0 9 * * *` (09:00 daily) | **COO status checker** digest | For each enabled CEO: builds that CEO's Kanban/A2A digest, posts it into their standup chat, **and emails the HTML report** (email only on this batch path). Counts are **all ages** (same as Kanban **All** view — not the Weekly filter). |
 | `DATA_RETENTION_CRON` | `15 3 * * *` (03:15 daily) | **Data retention purge** | For each enabled CEO: deletes data older than **that user's** `data_retention_days` (Profile setting) |
-| `KANBAN_ORPHAN_WATCHER_CRON` | `*/5 * * * *` (every 5 min) | **Kanban orphan watcher** | Re-pends specialty delegations stuck in `processing` (e.g. after a restart), requeues status-only cards, and reinitiates orphan `in_progress`/`failed` specialty cards with the assigned agent (capped by `KANBAN_ORPHAN_MAX_RETRIES`) |
+| `KANBAN_ORPHAN_WATCHER_CRON` | `*/5 * * * *` (every 5 min) | **Kanban orphan watcher** | Re-pends specialty delegations stuck in `processing` (after OpenClaw fetch timeout + ~60s, or `DELEGATION_SPECIALTY_PROCESSING_TIMEOUT_MS`), requeues status-only cards, reinitiates orphan `open`/`in_progress`/`failed` specialty cards, then **immediately kicks the pending delegation worker** so Admin "Run now" does not wait for the minute cron. Caps retries via `KANBAN_ORPHAN_MAX_RETRIES`. |
 
 Admin operators can **list / pause / resume / Run now** every platform cron under **Admin → Crons** (`/admin/crons`). Pause state persists across restarts.
 

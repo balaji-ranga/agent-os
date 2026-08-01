@@ -36,6 +36,10 @@
       "browse_act",
       "browse_recipe_list",
       "browse_recipe_run",
+      "brave_web_search",
+      "email_send",
+      "speech_tts",
+      "speech_stt",
       "agent_workflow_runs",
       "agent_workflow_retry"
     ]
@@ -98,6 +102,12 @@
     "learnings_summary": {
       "optional": true
     },
+    "speech_tts": {
+      "optional": true
+    },
+    "speech_stt": {
+      "optional": true
+    },
     "brain_history": {
       "optional": true
     },
@@ -123,6 +133,9 @@
       "optional": true
     },
     "browse_recipe_run": {
+      "optional": true
+    },
+    "brave_web_search": {
       "optional": true
     },
     "agent_workflow_runs": {

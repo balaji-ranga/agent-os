@@ -27,9 +27,12 @@ Prefer the **COO** for work that should be planned or handed to a specialist. Va
 ## Chat (`/agents/:id/chat`)
 
 1. Open an agent from Dashboard or Agent Workspaces.
-2. Type plain language and send.
-3. **Tool icons** under replies show which Agent OS tools ran (Master Data, notify, email, workflows, …).
-4. Sessions are per agent (and per tenant); history is stored for you.
+2. Type plain language and send. Use the **paperclip** to attach documents, images, audio, or video (size limits apply; ~40MB class). Attachments are stored as Master Data documents and mirrored under workspace **`inbound/attachments/`** so tools like `speech_stt` can use the path.
+3. **Tool icons** under replies show which Agent OS tools ran (Master Data, notify, email, workflows, `speech_tts`, `generate_image`, …).
+4. **Generated media plays inline** while you are logged in: images, audio (TTS), and video use authenticated fetch (not a public link). Bare `/api/media` URLs without a session return 401.
+5. Agents should paste **`MEDIA:/abs/path`** (tool `paste_exactly`) for WhatsApp parity — not world-open HTTPS. See [11-content-tools-scripts-profile.md](./11-content-tools-scripts-profile.md) and [24-agent-channels.md](./24-agent-channels.md).
+6. Optional **mic** (Whisper) and **Speak reply** (Piper) when free speech is deployed — [25-speech-and-published-scenes.md](./25-speech-and-published-scenes.md).
+7. Sessions are per agent (and per tenant); history is stored for you.
 
 Tips:
 - One clear outcome per message works best (“Research X and summarize”).
@@ -37,7 +40,7 @@ Tips:
 - Ask the agent to **notify you** when you want a bell ping after async work — ordinary live chat replies should not spam the bell.
 - If you want a specialist to **reach you**, say so (e.g. “have TechResearcher contact me”); that specialist rings the bell with a link to **their** chat.
 - COO-native asks (workflows list/trigger, tools, Kanban, standups) usually stay with the COO.
-
+- WhatsApp / Slack: configure **Channels** on the agent (`/agents/:id/channels`).
 ## Agent Workspaces (`/workspace` → `/agents/:id/workspace`)
 
 **Add agent** — creates a full OpenClaw tenant agent for your CEO account (custom agent), with workspace files and default tool grants. Optionally set a **monthly token budget** and **error budget %** at creation (see [18-agent-budgets-and-org-members.md](./18-agent-budgets-and-org-members.md)).

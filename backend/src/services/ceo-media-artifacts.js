@@ -70,9 +70,9 @@ function guessKind(mimeType, filename) {
   return 'other';
 }
 
-/** Public API path for authenticated download (relative to /api). */
+/** Full authenticated API path for download (mounted at /api/media/artifacts). */
 export function mediaArtifactApiPath(artifactId) {
-  return `/media/artifacts/${encodeURIComponent(artifactId)}/download`;
+  return `/api/media/artifacts/${encodeURIComponent(artifactId)}/download`;
 }
 
 export function toMediaRef(row) {

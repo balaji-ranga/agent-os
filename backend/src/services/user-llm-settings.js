@@ -17,7 +17,16 @@ import {
   getUserApiKeyRow,
   assertPlatformByokPresent,
   resolvePlatformByokSecret,
+  ensureByokVaultSlots,
+  isUnsetApiKeyRow,
 } from './user-api-keys.js';
+import {
+  resolveProviderBaseUrl,
+  normalizeLlmModelForProvider,
+  getProviderModelCatalog,
+  getLlmCatalogPublic,
+} from '../config/llm-provider-registry.js';
+export { getLlmCatalogPublic } from '../config/llm-provider-registry.js';
 export const LLM_PROVIDERS = Object.freeze([
   'platform_decided',
   'openai',
@@ -26,14 +35,71 @@ export const LLM_PROVIDERS = Object.freeze([
   'deepseek',
 ]);
 
-const OPENAI_BASE = 'https://api.openai.com/v1';
-const OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
+const OPENAI_BASE = resolveProviderBaseUrl('openai') || 'https://api.openai.com/v1';
+const OPENROUTER_BASE = resolveProviderBaseUrl('openrouter') || 'https://openrouter.ai/api/v1';
+const DEFAULT_OPENAI_BYOK_MODEL = getProviderModelCatalog('openai').defaultModel || 'gpt-4o-mini';
+const DEFAULT_OPENROUTER_BYOK_MODEL =
+  getProviderModelCatalog('openrouter').defaultModel || 'openai/gpt-4o-mini';
+
+/** Models that belong on DeepSeek / Ollama — never send these to api.openai.com. */
+function isNonOpenAiCloudModel(model) {
+  const m = String(model || '').trim().toLowerCase();
+  if (!m) return false;
+  return (
+    /^(deepseek|llama|qwen|mistral|mixtral|phi|gemma|codellama|command-r|ollama)\b/.test(m) ||
+    m.includes('deepseek')
+  );
+}
+
+/**
+ * Fallback when CEO has not yet chosen llm_model (legacy rows).
+ * Prefer env OpenAI-shaped models — never inherit platform DeepSeek primary.
+ */
+function resolveOpenAiByokModelFallback() {
+  const explicit = (process.env.OPENAI_BYOK_MODEL || '').trim();
+  if (explicit && !isNonOpenAiCloudModel(explicit)) return explicit;
+
+  const secondaryModel = (process.env.OPENAI_SECONDARY_MODEL || '').trim();
+  const secondaryBase = normalizeBaseUrl(process.env.OPENAI_SECONDARY_BASE_URL || '');
+  if (secondaryModel && !isNonOpenAiCloudModel(secondaryModel)) {
+    if (!secondaryBase || /openai\.com/i.test(secondaryBase)) return secondaryModel;
+  }
+
+  const coo = (process.env.OPENAI_COO_MODEL || '').trim();
+  if (coo && !isNonOpenAiCloudModel(coo)) return coo;
+
+  return DEFAULT_OPENAI_BYOK_MODEL;
+}
+
+function resolveOpenRouterByokModelFallback() {
+  const explicit = (process.env.OPENROUTER_MODEL || process.env.OPENAI_BYOK_MODEL || '').trim();
+  if (explicit && !isNonOpenAiCloudModel(explicit)) return explicit;
+  return DEFAULT_OPENROUTER_BYOK_MODEL;
+}
+
+function pickUserModel(provider, row) {
+  const chosen = row?.llm_model != null ? String(row.llm_model).trim() : '';
+  if (chosen) {
+    const norm = normalizeLlmModelForProvider(provider, chosen, { required: false });
+    if (norm.ok && norm.model) return norm.model;
+  }
+  if (provider === 'openai') return resolveOpenAiByokModelFallback();
+  if (provider === 'openrouter') return resolveOpenRouterByokModelFallback();
+  if (provider === 'ollama_free') {
+    return (
+      (process.env.OLLAMA_MODEL || '').trim() ||
+      getProviderModelCatalog('ollama_free').defaultModel ||
+      'llama3.2'
+    );
+  }
+  if (provider === 'deepseek') {
+    return (process.env.DEEPSEEK_MODEL || '').trim() || getProviderModelCatalog('deepseek').defaultModel || 'deepseek-v3';
+  }
+  return null;
+}
 
 function ollamaOpenAiBaseUrl() {
-  const raw =
-    normalizeBaseUrl(process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434') ||
-    'http://127.0.0.1:11434';
-  return raw.endsWith('/v1') ? raw : `${raw}/v1`;
+  return resolveProviderBaseUrl('ollama_free') || 'http://127.0.0.1:11434/v1';
 }
 
 function sanitizeIdPart(value) {
@@ -120,12 +186,21 @@ export function getUserLlmRow(userId) {
     return (
       getDb()
         .prepare(
-          `SELECT id, llm_provider, llm_api_key FROM platform_users WHERE id = ?`
+          `SELECT id, llm_provider, llm_model, llm_api_key FROM platform_users WHERE id = ?`
         )
         .get(String(userId).trim()) || null
     );
   } catch {
-    return null;
+    // Older DBs may lack llm_model until migration runs
+    try {
+      return (
+        getDb()
+          .prepare(`SELECT id, llm_provider, llm_api_key FROM platform_users WHERE id = ?`)
+          .get(String(userId).trim()) || null
+      );
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -136,17 +211,21 @@ export function userLlmPublic(row) {
   if (!row) {
     return {
       llm_provider: 'platform_decided',
+      llm_model: null,
       llm_api_key_set: false,
       llm_api_key_hint: null,
       platform_byok_key_name: PLATFORM_BYOK_KEY_NAME,
     };
   }
   const provider = normalizeLlmProvider(row.llm_provider || 'platform_decided');
-  const vault = row.id ? getUserApiKeyRow(row.id, PLATFORM_BYOK_KEY_NAME) : null;
+  const vaultRow = row.id ? getUserApiKeyRow(row.id, PLATFORM_BYOK_KEY_NAME) : null;
+  const vaultSet = !!(vaultRow && !isUnsetApiKeyRow(vaultRow));
+  const modelRaw = row.llm_model != null ? String(row.llm_model).trim() : '';
   return {
     llm_provider: provider,
-    llm_api_key_set: !!vault,
-    llm_api_key_hint: vault?.key_hint || null,
+    llm_model: modelRaw || null,
+    llm_api_key_set: vaultSet,
+    llm_api_key_hint: vaultSet ? vaultRow.key_hint || null : vaultRow ? 'unset' : null,
     platform_byok_key_name: PLATFORM_BYOK_KEY_NAME,
   };
 }
@@ -185,9 +264,9 @@ export function resolveLlmConfigForUser(userId) {
     }
     return {
       primary: {
-        baseUrl: OPENAI_BASE,
+        baseUrl: resolveProviderBaseUrl('openai') || OPENAI_BASE,
         apiKey: userKey,
-        model: envPrimary.model || 'gpt-4o-mini',
+        model: pickUserModel('openai', row),
         source: 'user_byok_vault',
       },
       secondary: null,
@@ -206,15 +285,11 @@ export function resolveLlmConfigForUser(userId) {
         fallback_reason: 'openrouter_selected_but_no_platform_byok_key',
       };
     }
-    const model =
-      (process.env.OPENROUTER_MODEL || '').trim() ||
-      envPrimary.model ||
-      'openai/gpt-4o-mini';
     return {
       primary: {
-        baseUrl: OPENROUTER_BASE,
+        baseUrl: resolveProviderBaseUrl('openrouter') || OPENROUTER_BASE,
         apiKey: userKey,
-        model,
+        model: pickUserModel('openrouter', row),
         source: 'user_byok_vault',
       },
       secondary: null,
@@ -225,15 +300,11 @@ export function resolveLlmConfigForUser(userId) {
 
   if (provider === 'ollama_free') {
     const baseUrl = ollamaOpenAiBaseUrl();
-    const model =
-      (process.env.OLLAMA_MODEL || '').trim() ||
-      envPrimary.model ||
-      'llama3.2';
     return {
       primary: {
         baseUrl,
         apiKey: (process.env.OLLAMA_API_KEY || '').trim() || 'ollama',
-        model,
+        model: pickUserModel('ollama_free', row),
         source: 'user_ollama',
       },
       secondary: null,
@@ -243,15 +314,12 @@ export function resolveLlmConfigForUser(userId) {
   }
 
   if (provider === 'deepseek') {
-    // Local Ollama deepseek-v3 — no cloud API key
-    const baseUrl =
-      normalizeBaseUrl(process.env.DEEPSEEK_BASE_URL || '') || ollamaOpenAiBaseUrl();
-    const model = (process.env.DEEPSEEK_MODEL || 'deepseek-v3').trim() || 'deepseek-v3';
+    const baseUrl = resolveProviderBaseUrl('deepseek') || ollamaOpenAiBaseUrl();
     return {
       primary: {
-        baseUrl: baseUrl.endsWith('/v1') ? baseUrl : `${baseUrl}/v1`,
+        baseUrl,
         apiKey: (process.env.OLLAMA_API_KEY || '').trim() || 'ollama',
-        model,
+        model: pickUserModel('deepseek', row),
         source: 'user_ollama_deepseek',
       },
       secondary: null,
@@ -440,7 +508,10 @@ export function ensureByokProviderInConfig(config, ceoUserId) {
   return config;
 }
 
-export function updateUserLlmSettings(userId, { llm_provider, llm_api_key, clear_llm_api_key } = {}) {
+export function updateUserLlmSettings(
+  userId,
+  { llm_provider, llm_model, llm_api_key, clear_llm_api_key } = {}
+) {
   const db = getDb();
   const row = db.prepare('SELECT * FROM platform_users WHERE id = ?').get(userId);
   if (!row) throw new Error('User not found');
@@ -466,13 +537,55 @@ export function updateUserLlmSettings(userId, { llm_provider, llm_api_key, clear
     apiKey = null;
   }
 
+  // Seed recommended vault slots for non-platform Profiles (placeholders until CEO pastes secrets).
+  try {
+    ensureByokVaultSlots(userId, provider);
+  } catch (e) {
+    console.warn('[updateUserLlmSettings] ensureByokVaultSlots:', e.message);
+  }
+
   if (providerNeedsApiKey(provider)) {
     assertPlatformByokPresent(userId, provider);
   }
 
+  const modelInput =
+    llm_model !== undefined ? llm_model : row.llm_model != null ? row.llm_model : '';
+  const modelNorm = normalizeLlmModelForProvider(provider, modelInput, {
+    // Soft-default from catalog when unset; Profile UI asks the CEO to confirm/change.
+    required: false,
+  });
+  if (!modelNorm.ok) {
+    throw Object.assign(new Error(modelNorm.error), { status: 400 });
+  }
+  if (
+    (provider === 'openai' || provider === 'openrouter') &&
+    llm_model !== undefined &&
+    !String(llm_model || '').trim()
+  ) {
+    throw Object.assign(
+      new Error(`Select a chat model for ${provider === 'openai' ? 'OpenAI' : 'OpenRouter'}.`),
+      { status: 400 }
+    );
+  }
+  // When switching away from BYOK cloud, clear stored model unless explicitly set
+  let modelToStore = modelNorm.model;
+  if (provider === 'platform_decided') {
+    modelToStore = null;
+  } else if (llm_model === undefined && !String(row.llm_model || '').trim() && modelToStore) {
+    // Persist soft default so OpenClaw + UI show what is in use
+    modelToStore = modelNorm.model;
+  }
+
   db.prepare(
-    `UPDATE platform_users SET llm_provider = ?, llm_api_key = ?, updated_at = datetime('now') WHERE id = ?`
-  ).run(provider, apiKey, userId);
+    `UPDATE platform_users SET llm_provider = ?, llm_model = ?, llm_api_key = ?, updated_at = datetime('now') WHERE id = ?`
+  ).run(provider, modelToStore, apiKey, userId);
+
+  console.info(
+    '[user-llm] updated provider=%s model=%s user=%s',
+    provider,
+    modelToStore || '(platform)',
+    userId
+  );
 
   let openclawSync = null;
   try {
@@ -482,7 +595,7 @@ export function updateUserLlmSettings(userId, { llm_provider, llm_api_key, clear
   }
 
   return {
-    ...userLlmPublic({ id: userId, llm_provider: provider }),
+    ...userLlmPublic({ id: userId, llm_provider: provider, llm_model: modelToStore }),
     openclaw_sync: openclawSync,
   };
 }

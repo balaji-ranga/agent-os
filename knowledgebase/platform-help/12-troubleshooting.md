@@ -83,10 +83,11 @@ Open **Kanban**, find the approval card, approve or reject with a comment. IF no
 
 ## API Keys / BYOK not working
 
-1. Create **`Platform_BYOK`** under **API Keys** before selecting OpenAI/OpenRouter on Profile.
-2. Key name spelling must match (case-sensitive vault names).
+1. On a non-platform Profile, open **API Keys** — recommended slots should already exist with hint **unset**. Edit **`Platform_BYOK`** and paste your key before selecting OpenAI/OpenRouter on Profile.
+2. Key name spelling must match (case-sensitive vault names). Unset placeholders are not usable until you paste a real secret.
 3. After rotate, re-select or re-save the workflow node that references the vault key.
 4. Delete blocked by dependencies → review the confirm list (workflows / MCP / Connectors / External agents).
+5. Missing `Replicate_BYOK` / `BRAVE_SEARCH_BYOK` on a non-platform Profile → video / `brave_web_search` fail with no platform fall-back — fill those slots or switch Profile to Platform default.
 
 ## Connectors / Connector node fails
 
@@ -188,3 +189,23 @@ Confirm **Job profile** is complete and pipeline/cron is enabled for your enviro
 4. Client Chrome not ready — Browser Session → opt in, attach tab, Mark ready.
 5. Opens blocked — check URL allow/deny lists.
 6. Full guide: [22-browser-session-and-recipes.md](./22-browser-session-and-recipes.md).
+
+## WhatsApp / Slack “Media failed” or no audio
+
+1. Agents must paste **`MEDIA:/abs/path`** (`paste_exactly` from the tool) on its **own line** so WhatsApp attaches from the shared OpenClaw disk. Auth-only `https://…/api/media/…` links fail without a browser session.
+2. Leave ops flag **`MEDIA_PUBLIC_SIGNED`** off unless you deliberately need legacy signed public fetch.
+3. For TTS on WhatsApp, prefer **OGG/Opus or MP3** — WAV often fails attach; Dashboard still plays WAV inline.
+4. Dashboard blank / broken media — hard-refresh while logged in; players need Bearer. “Open full size” opening a new tab for audio meant an older UI bug (audio should show an inline player).
+5. Full delivery rules: [11-content-tools-scripts-profile.md](./11-content-tools-scripts-profile.md), [24-agent-channels.md](./24-agent-channels.md).
+
+## Inbound voice / image not seen by the agent
+
+1. Confirm the agent’s **Channels** row is **enabled** (WhatsApp / Slack).
+2. Wait a few seconds for mirror into workspace **`inbound/attachments/`** (OpenClaw stages under `~/.openclaw/media/inbound` first).
+3. If the chat shows “[whatsapp attachment unavailable]”, still try the latest file under `inbound/attachments/` with `speech_stt` or the summarize-inbound workflow.
+4. Web paperclip uploads always go to Master Data + `inbound/attachments/` for that CEO.
+
+## Platform feedback status
+
+1. Ask COO / Platform Help to run **`platform_feedback_enquire`** with the id, or filter by status/category.
+2. Admins update status at **Admin → Platform feedback** (`/admin/platform-feedback`): `open` | `implemented` | `rejected` (reject can include a reason).

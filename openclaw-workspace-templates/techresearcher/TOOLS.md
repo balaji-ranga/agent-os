@@ -4,7 +4,8 @@ You have access to **Agent OS content tools** (plugin: agent-os-content-tools). 
 
 - **learnings_summary** — **Call first** before non-trivial work. Parameters: `topic` (short description), optional `days` (default 30). Apply the returned summary.
 - **summarize_url** — Summarize a web page. Parameters: `url` (HTTPS). On 404, use `suggested_url` / another HTTPS page / **browse_task_start** — never invent content. Never call the built-in `browser` tool.
-- **generate_image** — Generate an image from a text prompt. Parameters: `prompt`, optional `style_hint`. Paste `![generated](<url>)` after success (required in Virtual Room; one markdown per image).
+- **brave_web_search** — Web search via Brave. Parameters: `query` (required), optional `count` (1–20). Prefer this for open-web discovery; then use summarize_url or browse tools on promising URLs.
+- **generate_image** — Generate an image from a text prompt. Parameters: `prompt`, optional `style_hint`. After success paste **`paste_exactly` / `media_uri`** (`MEDIA:/…`) on its own line (WhatsApp embed + Dashboard). Do not paste auth-only https `/api/media` URLs.
 - **generate_video** — Generate a short video from a prompt. Parameters: `prompt`, optional `duration_sec`. Include the media URL in the reply.
 - **kanban_move_status** — You decide. Parameters: `task_id`, `new_status` (`open` | `awaiting_confirmation` | `in_progress` | `completed` | `failed`). → `in_progress` when you start; → `completed` **only after** the deliverable is done; → `failed` **only** if you produced no usable brief. After summarize_url 404/403, try ≥3 domains (wikipedia, bbc, reuters, *.gov.in) or **browse_task_start** — still deliver a brief with gaps noted, then complete.
 - **kanban_reassign_to_coo** — Reassign a task back to the COO. Parameters: `task_id`.

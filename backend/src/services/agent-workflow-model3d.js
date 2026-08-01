@@ -12,6 +12,7 @@ import { getOpenClawMediaDir } from '../config/openclaw-paths.js';
 import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
+import { registerOpenClawMediaOwnership } from './openclaw-media-ownership.js';
 
 function generatedMediaDir() {
   return getOpenClawMediaDir('generated');
@@ -63,7 +64,7 @@ async function pollReplicatePredictionUrl(ownerUserId, jobId, { maxAttempts = 40
   return null;
 }
 
-async function persistRemoteVideoUrl(remoteUrl) {
+async function persistRemoteVideoUrl(remoteUrl, ownerUserId = null) {
   const url = String(remoteUrl || '').trim();
   if (!url) return null;
   if (/^\/api\/media\//i.test(url)) return url;
@@ -78,6 +79,16 @@ async function persistRemoteVideoUrl(remoteUrl) {
   mkdirSync(dir, { recursive: true });
   const filename = `${randomUUID()}.${ext}`;
   writeFileSync(join(dir, filename), buf);
+  if (ownerUserId) {
+    try {
+      registerOpenClawMediaOwnership('generated/' + filename, ownerUserId, {
+        source: 'model3d',
+        bytes: buf.length,
+      });
+    } catch (e) {
+      console.warn('[model3d] ownership register failed', e?.message || e);
+    }
+  }
   return `/api/media/openclaw/generated/${filename}`;
 }
 
@@ -609,7 +620,7 @@ async function fulfillRequestedMedia(owner, userInput, replyHint, sceneOutputs, 
       if (url) {
         try {
           if (/^https?:\/\//i.test(url)) {
-            const persisted = await persistRemoteVideoUrl(url);
+            const persisted = await persistRemoteVideoUrl(url, owner);
             if (persisted) url = persisted;
           }
         } catch (e) {

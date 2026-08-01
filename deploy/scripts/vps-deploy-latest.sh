@@ -702,6 +702,38 @@ if [[ -n "${TOKEN:-}" ]]; then
   echo "    org-members unauth=$OMU (expect 401)"
 fi
 
+# Always re-sync WhatsApp/Slack channel routing after recreate (even when SKIP_SMOKE=1).
+# Prevents openclaw.json drift: DB enabled + creds on disk but channels/bindings missing.
+echo "==> agent channels (WhatsApp/Slack) sync + drift gate"
+if [[ ! -f "$ROOT/deploy/scripts/vps-verify-agent-channels.sh" ]]; then
+  echo "ERROR: missing deploy/scripts/vps-verify-agent-channels.sh (sync-to-vps incomplete)"
+  exit 1
+fi
+sed -i 's/\r$//' "$ROOT/deploy/scripts/vps-verify-agent-channels.sh" 2>/dev/null || true
+if bash "$ROOT/deploy/scripts/vps-verify-agent-channels.sh"; then
+  echo "    agent-channels gate OK"
+else
+  echo "ERROR: agent-channels gate failed — WhatsApp/Slack may be offline after this deploy"
+  echo "    Fix: Dashboard → Agent channels → Enable, or re-run vps-verify-agent-channels.sh"
+  # Fatal for channel drift so we do not ship a silent WhatsApp outage again.
+  exit 1
+fi
+
+# MEDIA: dual-write + audio MIME (WhatsApp attach + webchat players). Run even with SKIP_SMOKE=1.
+echo "==> media delivery (MEDIA: + audio MIME) gate"
+if [[ -f "$ROOT/deploy/scripts/vps-verify-media-delivery.sh" ]]; then
+  sed -i 's/\r$//' "$ROOT/deploy/scripts/vps-verify-media-delivery.sh" 2>/dev/null || true
+  if bash "$ROOT/deploy/scripts/vps-verify-media-delivery.sh"; then
+    echo "    media-delivery gate OK"
+  else
+    echo "ERROR: media-delivery gate failed — WhatsApp/webchat media may still be URL-only"
+    exit 1
+  fi
+else
+  echo "ERROR: missing deploy/scripts/vps-verify-media-delivery.sh (sync-to-vps incomplete)"
+  exit 1
+fi
+
 if [[ "$SKIP_SMOKE" != "1" ]]; then
   if [[ -f "$ROOT/deploy/scripts/vps-smoke-new-features.sh" ]]; then
     echo "==> new-features smoke (email_send + notify_ceo + master_data + org sync + A2A public/OAuth/async + shared notification dismiss)"
@@ -741,4 +773,12 @@ if [[ "$SKIP_SMOKE" != "1" ]]; then
 fi
 
 docker compose ps
+
+# Seed inbound media summarize workflows
+if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/seed-inbound-media-summarize-workflow.js 2>/dev/null; then
+  docker compose exec -T -w /opt/agent-os/backend backend node scripts/seed-inbound-media-summarize-workflow.js >/tmp/inbound-media-wf.log 2>&1 \
+    && echo "    inbound media summarize workflow seed OK" \
+    || echo "    WARN: inbound media workflow seed failed (see /tmp/inbound-media-wf.log)"
+fi
+
 echo "DEPLOY_LATEST_DONE $(date -Is)"

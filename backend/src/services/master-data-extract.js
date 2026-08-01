@@ -42,6 +42,61 @@ function looksLikePlainText(mime, filename) {
   return m.startsWith('text/') || m.includes('json') || m.includes('csv') || TEXT_EXTS.test(name);
 }
 
+const MEDIA_EXTS = /\.(png|jpe?g|gif|webp|bmp|svg|ico|mp3|wav|ogg|m4a|flac|aac|mp4|webm|mov|avi|mkv|m4v)$/i;
+
+/** True when the file is image/audio/video — keep in inbound folder; do not RAG-index. */
+export function isMediaAttachment(mime, filename) {
+  const m = String(mime || '').toLowerCase();
+  const name = String(filename || '').toLowerCase();
+  if (m.startsWith('image/') || m.startsWith('audio/') || m.startsWith('video/')) return true;
+  return MEDIA_EXTS.test(name);
+}
+
+/**
+ * True when Flolah can extract searchable text for OpenSearch RAG
+ * (PDF, Word .docx, Excel, plain text / CSV / Markdown, etc.).
+ */
+export function isRagIndexable(mime, filename) {
+  if (isMediaAttachment(mime, filename)) return false;
+  const name = String(filename || '');
+  if (/\.doc$/i.test(name) && !/\.docx$/i.test(name)) return false;
+  return (
+    looksLikePlainText(mime, filename) ||
+    looksLikePdf(null, mime, filename) ||
+    looksLikeDocx(mime, filename) ||
+    looksLikeExcel(mime, filename)
+  );
+}
+
+function guessMimeFromFilename(filename) {
+  const name = String(filename || '').toLowerCase();
+  if (PDF_EXTS.test(name)) return 'application/pdf';
+  if (DOCX_EXTS.test(name)) {
+    return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  }
+  if (/\.xlsx$/i.test(name)) {
+    return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  }
+  if (/\.xls$/i.test(name)) return 'application/vnd.ms-excel';
+  if (/\.csv$/i.test(name)) return 'text/csv';
+  if (/\.json$/i.test(name)) return 'application/json';
+  if (/\.md$/i.test(name)) return 'text/markdown';
+  if (/\.html?$/i.test(name)) return 'text/html';
+  if (/\.xml$/i.test(name)) return 'application/xml';
+  if (TEXT_EXTS.test(name)) return 'text/plain';
+  if (/\.(png)$/i.test(name)) return 'image/png';
+  if (/\.(jpe?g)$/i.test(name)) return 'image/jpeg';
+  if (/\.(gif)$/i.test(name)) return 'image/gif';
+  if (/\.(webp)$/i.test(name)) return 'image/webp';
+  if (/\.(mp3)$/i.test(name)) return 'audio/mpeg';
+  if (/\.(wav)$/i.test(name)) return 'audio/wav';
+  if (/\.(mp4)$/i.test(name)) return 'video/mp4';
+  if (/\.(webm)$/i.test(name)) return 'video/webm';
+  return 'application/octet-stream';
+}
+
+export { guessMimeFromFilename };
+
 async function extractPdfText(buf) {
   const { PDFParse } = await import('pdf-parse');
   const parser = new PDFParse({ data: buf });

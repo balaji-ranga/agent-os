@@ -19,11 +19,14 @@ function UserProfilePanel() {
     mfa_policy: 'inherit',
     mfa_mode: 'inherit',
     llm_provider: 'platform_decided',
+    llm_model: '',
     llm_api_key: '',
     clear_llm_api_key: false,
     data_retention_days: 90,
   });
   const [industries, setIndustries] = useState([]);
+  const [llmCatalog, setLlmCatalog] = useState({ providers: [] });
+  const [llmModelCustom, setLlmModelCustom] = useState(false);
   const [purgeBusy, setPurgeBusy] = useState(false);
   const [lastLoginAt, setLastLoginAt] = useState(null);
   const [mfaInfo, setMfaInfo] = useState(null);
@@ -64,6 +67,7 @@ function UserProfilePanel() {
       mfa_policy: user.mfa_policy || 'inherit',
       mfa_mode: user.mfa_mode || 'inherit',
       llm_provider: user.llm_provider || 'platform_decided',
+      llm_model: user.llm_model || '',
       llm_api_key: '',
       clear_llm_api_key: false,
       data_retention_days: user.data_retention_days || 90,
@@ -74,6 +78,10 @@ function UserProfilePanel() {
       .authIndustries()
       .then((d) => setIndustries(d.industries || []))
       .catch(() => setIndustries([]));
+    api
+      .authLlmCatalog()
+      .then((d) => setLlmCatalog(d || { providers: [] }))
+      .catch(() => setLlmCatalog({ providers: [] }));
     api
       .authMe()
       .then((data) => {
@@ -86,11 +94,14 @@ function UserProfilePanel() {
           policy: m.policy || data.user?.mfa_policy || 'inherit',
           user_mfa_mode: m.user_mfa_mode ?? data.user?.mfa_mode ?? null,
         });
+        const nextProvider = data.user?.llm_provider || 'platform_decided';
+        const nextModel = data.user?.llm_model || '';
         setForm((f) => ({
           ...f,
           mfa_policy: data.user?.mfa_policy || m.policy || 'inherit',
           mfa_mode: data.user?.mfa_mode || m.user_mfa_mode || 'inherit',
-          llm_provider: data.user?.llm_provider || 'platform_decided',
+          llm_provider: nextProvider,
+          llm_model: nextModel,
           industry: data.user?.industry || f.industry || 'personal',
           industry_other: data.user?.industry_other || '',
           business_name: data.user?.business_name || '',
@@ -145,6 +156,10 @@ function UserProfilePanel() {
         mfa_policy: form.mfa_policy,
         mfa_mode: form.mfa_mode === 'inherit' ? 'inherit' : form.mfa_mode,
         llm_provider: form.llm_provider,
+        llm_model:
+          form.llm_provider === 'platform_decided'
+            ? null
+            : form.llm_model || undefined,
         data_retention_days: Number(form.data_retention_days) || 90,
       };
       if (form.new_password) {
@@ -201,6 +216,7 @@ function UserProfilePanel() {
         llm_api_key: '',
         clear_llm_api_key: false,
         llm_provider: data.user?.llm_provider || f.llm_provider,
+        llm_model: data.user?.llm_model || f.llm_model,
       }));
     } catch (err) {
       setError(err.message);
@@ -211,6 +227,22 @@ function UserProfilePanel() {
 
   const platRequire = mfaInfo?.platform_require_mfa;
   const platMode = mfaInfo?.platform_mfa_mode || 'EMAIL';
+  const selectedLlmProvider =
+    (llmCatalog.providers || []).find((p) => p.id === form.llm_provider) || null;
+  const curatedModels = selectedLlmProvider?.models || [];
+  const modelInCatalog = curatedModels.some((m) => m.id === form.llm_model);
+  const showCustomModel =
+    !!selectedLlmProvider?.allow_custom_model && (llmModelCustom || (form.llm_model && !modelInCatalog));
+
+  const onLlmProviderChange = (next) => {
+    const meta = (llmCatalog.providers || []).find((p) => p.id === next);
+    setLlmModelCustom(false);
+    setForm((f) => ({
+      ...f,
+      llm_provider: next,
+      llm_model: next === 'platform_decided' ? '' : meta?.default_model || '',
+    }));
+  };
 
   const provisionOpenConnector = async () => {
     setBusy(true);
@@ -432,35 +464,97 @@ function UserProfilePanel() {
           LLM provider — Platform default / free models need no key. OpenAI/OpenRouter require vault key{' '}
           <code>Platform_BYOK</code> under <Link to="/api-keys">Management → API Keys</Link>.
           Video (<code>generate_video</code>) on a non-platform provider also needs{' '}
-          <code>Replicate_BYOK</code>.
+          <code>Replicate_BYOK</code>. Brave Search (<code>brave_web_search</code>) on a non-platform
+          provider needs <code>BRAVE_SEARCH_BYOK</code>; Platform default uses ops{' '}
+          <code>BRAVE_API_KEY</code>. Non-platform Profiles auto-seed these vault slots (plus{' '}
+          <code>elevenlabs-key</code>) as unset under API Keys.
         </p>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Provider</span>
           <select
             value={form.llm_provider}
-            onChange={(e) => set('llm_provider', e.target.value)}
+            onChange={(e) => onLlmProviderChange(e.target.value)}
             style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
           >
-            <option value="platform_decided">Platform decided (use .env)</option>
-            <option value="openai">OpenAI (BYOK via Platform_BYOK)</option>
-            <option value="openrouter">OpenRouter (BYOK via Platform_BYOK)</option>
-            <option value="ollama_free">Ollama Free (local)</option>
-            <option value="deepseek">DeepSeek V3 (Ollama local)</option>
+            {(llmCatalog.providers || []).length > 0 ? (
+              (llmCatalog.providers || []).map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                  {p.needs_vault_key ? ' (BYOK via Platform_BYOK)' : ''}
+                </option>
+              ))
+            ) : (
+              <>
+                <option value="platform_decided">Platform decided (use .env)</option>
+                <option value="openai">OpenAI (BYOK via Platform_BYOK)</option>
+                <option value="openrouter">OpenRouter (BYOK via Platform_BYOK)</option>
+                <option value="ollama_free">Ollama Free (local)</option>
+                <option value="deepseek">DeepSeek V3 (Ollama local)</option>
+              </>
+            )}
           </select>
         </label>
+        {form.llm_provider !== 'platform_decided' && curatedModels.length > 0 && (
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Chat model</span>
+            <select
+              value={showCustomModel ? '__custom__' : form.llm_model || selectedLlmProvider?.default_model || ''}
+              onChange={(e) => {
+                if (e.target.value === '__custom__') {
+                  setLlmModelCustom(true);
+                  set('llm_model', form.llm_model && !modelInCatalog ? form.llm_model : '');
+                  return;
+                }
+                setLlmModelCustom(false);
+                set('llm_model', e.target.value);
+              }}
+              style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+              required={form.llm_provider === 'openai' || form.llm_provider === 'openrouter'}
+            >
+              <option value="" disabled>
+                Select a model…
+              </option>
+              {curatedModels.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.label}
+                </option>
+              ))}
+              {selectedLlmProvider?.allow_custom_model && (
+                <option value="__custom__">Other (custom model id)…</option>
+              )}
+            </select>
+          </label>
+        )}
+        {showCustomModel && (
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Custom model id</span>
+            <input
+              value={form.llm_model}
+              onChange={(e) => set('llm_model', e.target.value)}
+              placeholder={selectedLlmProvider?.default_model || 'model-id'}
+              style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+              required={form.llm_provider === 'openai' || form.llm_provider === 'openrouter'}
+            />
+          </label>
+        )}
+        {selectedLlmProvider?.base_url && form.llm_provider !== 'platform_decided' && (
+          <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--muted)' }}>
+            Endpoint: <code>{selectedLlmProvider.base_url}</code>
+          </p>
+        )}
         {(form.llm_provider === 'openai' || form.llm_provider === 'openrouter') && (
-          <p style={{ margin: 0, fontSize: '0.85rem', color: llmHint ? 'var(--muted)' : '#b45309' }}>
-            {llmHint
+          <p style={{ margin: 0, fontSize: '0.85rem', color: llmHint && llmHint !== 'unset' ? 'var(--muted)' : '#b45309' }}>
+            {llmHint && llmHint !== 'unset'
               ? `Platform_BYOK on file (${llmHint}). Manage under `
-              : 'Platform_BYOK is required before this provider will work. Create it under '}
+              : 'Platform_BYOK is required before this provider will work. Set it under '}
             <Link to="/api-keys">API Keys</Link>.
           </p>
         )}
 
         {form.llm_provider === 'deepseek' && (
           <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--muted)' }}>
-            Uses local Ollama <code>deepseek-v3</code> — no API key. Requires optional-ollama and{' '}
-            <code>ollama pull deepseek-v3</code>.
+            Uses local Ollama <code>{form.llm_model || 'deepseek-v3'}</code> — no API key. Requires optional-ollama and{' '}
+            <code>ollama pull {form.llm_model || 'deepseek-v3'}</code>.
           </p>
         )}
 

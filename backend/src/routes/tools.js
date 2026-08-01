@@ -7,7 +7,7 @@ import { Router } from 'express';
 import { randomUUID } from 'crypto';
 import { join, extname } from 'path';
 import { mkdirSync, writeFileSync } from 'fs';
-import { getSummarizeUrlConfig, getToolsApiKey, getOpenAiConfig, getImageConfig, getVideoConfig, isGptImageModel, mapGptImageQuality } from '../config/tools.js';
+import { getSummarizeUrlConfig, getToolsApiKey, getOpenAiConfig, getImageConfig, getVideoConfig, getBraveSearchConfig, isGptImageModel, mapGptImageQuality } from '../config/tools.js';
 import { chatCompletions } from '../config/llm.js';
 import { getDb } from '../db/schema.js';
 import * as meta from '../services/content-tools-meta.js';
@@ -26,6 +26,11 @@ import { listRecipes } from '../services/browser-recipes.js';
 import { getBrowserSessionStatus } from '../services/client-browser-session.js';
 import { loadKanbanTaskContent, loadKanbanTaskWithMessages, runKanbanWatchTick } from '../services/kanban-watch.js';
 import { executeSpeechSttTool, executeSpeechTtsTool } from '../services/speech-content-tools.js';
+import {
+  submitPlatformFeedback,
+  enquirePlatformFeedback,
+} from '../services/platform-feedback.js';
+import { saveInboundAttachment } from '../services/inbound-attachments.js';
 
 function sanitizeTenantId(value) {
   return String(value || '')
@@ -51,7 +56,14 @@ import { requireToolsAccess, attachToolsAuth } from '../middleware/tools-auth.js
 import { internalAuthHeaders, isInternalRequest } from '../middleware/internal-auth.js';
 import { getPublicBaseUrl } from '../config/public-url.js';
 import { getOpenClawMediaDir } from '../config/openclaw-paths.js';
-import { enrichGeneratedOpenClawMedia, enrichMediaResult, toAbsoluteMediaUrl } from '../services/media-url.js';
+import {
+  enrichGeneratedOpenClawMedia,
+  enrichMediaResult,
+  persistGeneratedOpenClawMedia,
+  toAbsoluteMediaUrl,
+} from '../services/media-url.js';
+import { registerOpenClawMediaOwnership } from '../services/openclaw-media-ownership.js';
+import { sanitizeContentOwnerPart, getCeoGeneratedMediaDir } from '../services/content-explorer.js';
 import { resolveToolOwnerUserId, resolveToolOwnerUserIdOrNull, bodyWithoutSpoofedOwner } from '../services/tool-owner-scope.js';
 import {
   notifyKanbanTaskCreated,
@@ -80,6 +92,8 @@ import {
   deleteRowForAgent,
   listDocumentsForAgent,
   ragDocumentsForAgent,
+  listInboundAttachmentsForAgent,
+  indexDocumentForAgent,
 } from '../services/master-data-tools.js';
 
 const router = Router();
@@ -606,15 +620,32 @@ function buildImageApiBody(img, prompt) {
   return body;
 }
 
-function persistGeneratedImage(b64Json, format = 'png') {
+function persistGeneratedImage(b64Json, format = 'png', ownerUserId = null) {
   const ext = String(format || 'png').toLowerCase().replace(/^\./, '') || 'png';
-  mkdirSync(GENERATED_MEDIA_DIR, { recursive: true });
-  const filename = `${randomUUID()}.${ext}`;
-  writeFileSync(join(GENERATED_MEDIA_DIR, filename), Buffer.from(b64Json, 'base64'));
-  return enrichGeneratedOpenClawMedia(filename);
+  const leaf = `${randomUUID()}.${ext}`;
+  const ownerPart = ownerUserId ? sanitizeContentOwnerPart(ownerUserId) : null;
+  const dir = ownerPart ? getCeoGeneratedMediaDir(ownerUserId) : GENERATED_MEDIA_DIR;
+  mkdirSync(dir, { recursive: true });
+  const buf = Buffer.from(b64Json, 'base64');
+  writeFileSync(join(dir, leaf), buf);
+  const filename = ownerPart ? `${ownerPart}/${leaf}` : leaf;
+  const enriched = enrichGeneratedOpenClawMedia(filename);
+  if (ownerUserId) {
+    try {
+      registerOpenClawMediaOwnership(`generated/${filename}`, ownerUserId, {
+        source: 'generate_image',
+        bytes: buf.length,
+      });
+    } catch (e) {
+      console.warn('[tools] generate_image ownership register failed', e?.message || e);
+    }
+  } else {
+    console.warn('[tools] generate_image persisted without ownerUserId', { filename });
+  }
+  return enriched;
 }
 
-async function persistRemoteImageUrl(remoteUrl) {
+async function persistRemoteImageUrl(remoteUrl, ownerUserId = null) {
   const url = String(remoteUrl || '').trim();
   if (!url) throw new Error('empty image url');
   if (/^\/api\/media\//i.test(url)) return enrichMediaResult(url);
@@ -632,22 +663,36 @@ async function persistRemoteImageUrl(remoteUrl) {
       ext = fromPath === 'jpeg' ? 'jpg' : fromPath;
     }
   }
-  mkdirSync(GENERATED_MEDIA_DIR, { recursive: true });
-  const filename = `${randomUUID()}.${ext}`;
-  writeFileSync(join(GENERATED_MEDIA_DIR, filename), buf);
-  return enrichGeneratedOpenClawMedia(filename);
+  const leaf = `${randomUUID()}.${ext}`;
+  const ownerPart = ownerUserId ? sanitizeContentOwnerPart(ownerUserId) : null;
+  const dir = ownerPart ? getCeoGeneratedMediaDir(ownerUserId) : GENERATED_MEDIA_DIR;
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, leaf), buf);
+  const filename = ownerPart ? `${ownerPart}/${leaf}` : leaf;
+  const enriched = enrichGeneratedOpenClawMedia(filename);
+  if (ownerUserId) {
+    try {
+      registerOpenClawMediaOwnership(`generated/${filename}`, ownerUserId, {
+        source: 'generate_image_remote',
+        bytes: buf.length,
+      });
+    } catch (e) {
+      console.warn('[tools] generate_image remote ownership register failed', e?.message || e);
+    }
+  }
+  return enriched;
 }
 
-async function imageResultFromApi(data) {
+async function imageResultFromApi(data, ownerUserId = null) {
   const item = data?.data?.[0];
   if (!item) return { error: 'No image in response' };
   if (item.b64_json) {
     const format = data?.output_format || 'png';
-    return persistGeneratedImage(item.b64_json, format);
+    return persistGeneratedImage(item.b64_json, format, ownerUserId);
   }
   if (item.url) {
     try {
-      return await persistRemoteImageUrl(item.url);
+      return await persistRemoteImageUrl(item.url, ownerUserId);
     } catch (e) {
       // Fall back to remote URL so the agent still gets something, but prefer local.
       return { url: item.url, absolute_url: item.url, warning: e.message };
@@ -671,11 +716,16 @@ router.post('/generate-image', optionalAuth, async (req, res) => {
       return res.status(400).json({ error: 'prompt is required' });
     }
     const ownerUserId = resolveToolOwnerUserIdOrNull(req, req.body || {}, resolveAuthenticatedCeoUserId);
-    const { primary, secondary } = getImageConfig(ownerUserId);
+    const imgCfg = getImageConfig(ownerUserId);
+    if (imgCfg.error) {
+      logTool(req, 'generate_image', requestPayload, { error: imgCfg.error, code: imgCfg.error_code }, 'error', source);
+      return res.status(400).json({ error: imgCfg.error, code: imgCfg.error_code || undefined });
+    }
+    const { primary, secondary } = imgCfg;
     const endpoints = [primary, secondary].filter((ep) => ep && ep.apiKey);
     if (endpoints.length === 0) {
       logTool(req,'generate_image', requestPayload, { error: 'Image generation not configured (OPENAI_API_KEY or primary/secondary)' }, 'error', source);
-      return res.status(503).json({ error: 'Image generation not configured. Set OPENAI_API_KEY or OPENAI_PRIMARY_API_KEY (and optionally OPENAI_SECONDARY_*).' });
+      return res.status(503).json({ error: 'Image generation not configured. Set OPENAI_API_KEY or OPENAI_PRIMARY_API_KEY (and optionally OPENAI_SECONDARY_*), or add Platform_BYOK for BYOK Profiles.' });
     }
     let fullPrompt = prompt;
     if (styleHint) fullPrompt = `${prompt}. Style: ${styleHint}`;
@@ -698,7 +748,7 @@ router.post('/generate-image', optionalAuth, async (req, res) => {
           lastErr = data?.error?.message || data?.error || imgRes.statusText;
           continue;
         }
-        const result = await imageResultFromApi(data);
+        const result = await imageResultFromApi(data, ownerUserId);
         if (result.error) {
           lastErr = result.error;
           continue;
@@ -852,7 +902,27 @@ router.post('/generate-video', optionalAuth, async (req, res) => {
           const outVal = Array.isArray(pred.output) ? pred.output[0] : pred.output;
           url = typeof outVal === 'string' ? outVal : outVal?.url || null;
         }
-        const out = { job_id: jobId, status, url: url || undefined };
+        let out = { job_id: jobId, status, url: url || undefined };
+        // When Replicate already has output, mirror into OpenClaw media for WhatsApp MEDIA: attach.
+        if (url && /^https?:\/\//i.test(url)) {
+          try {
+            const mediaRes = await fetch(url, { signal: AbortSignal.timeout(120000) });
+            if (mediaRes.ok) {
+              const buf = Buffer.from(await mediaRes.arrayBuffer());
+              const ct = String(mediaRes.headers.get('content-type') || '').toLowerCase();
+              const ext = ct.includes('webm') ? 'webm' : 'mp4';
+              const channel = persistGeneratedOpenClawMedia(buf, `generated-video.${ext}`, 'generated', ownerUserId);
+              out = {
+                ...out,
+                ...channel,
+                source_url: url,
+                url: channel.media_uri,
+              };
+            }
+          } catch (e) {
+            console.warn('[tools] generate_video openclaw persist failed', { error: e?.message || String(e) });
+          }
+        }
         logTool(req,'generate_video', requestPayload, out, 'ok', source);
         return res.json(out);
       } catch (e) {
@@ -865,6 +935,100 @@ router.post('/generate-video', optionalAuth, async (req, res) => {
     const errMsg = e.name === 'AbortError' ? 'Request timeout' : (e.message || 'Internal error');
     logTool(req,'generate_video', requestPayload, { error: errMsg }, 'error', source);
     return res.status(500).json({ error: errMsg });
+  }
+});
+
+/**
+ * POST /brave-web-search — Brave Search API.
+ * Body: { query, count? }. Key from Profile: platform BRAVE_API_KEY vs vault BRAVE_SEARCH_BYOK.
+ */
+router.post('/brave-web-search', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || req.headers['x-request-source'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    if (source) {
+      const grantCheck = assertCallerMayUseTool(source, 'brave_web_search');
+      if (!grantCheck.ok) {
+        const err = { error: grantCheck.error || 'Tool not allowed for this agent' };
+        logTool(req, 'brave_web_search', requestPayload, err, 'error', source);
+        return res.status(403).json(err);
+      }
+    }
+    const query = String(requestPayload.query || requestPayload.q || '').trim();
+    if (!query) {
+      const err = { error: 'query is required' };
+      logTool(req, 'brave_web_search', requestPayload, err, 'error', source);
+      return res.status(400).json(err);
+    }
+    const ownerUserId = resolveToolOwnerUserIdOrNull(req, requestPayload, resolveAuthenticatedCeoUserId);
+    const cfg = getBraveSearchConfig(ownerUserId);
+    if (cfg.error || !cfg.apiKey) {
+      logTool(
+        req,
+        'brave_web_search',
+        requestPayload,
+        { error: cfg.error, code: cfg.error_code, source: cfg.source },
+        'error',
+        source
+      );
+      return res.status(cfg.error_code === 'brave_platform_key_missing' ? 503 : 400).json({
+        error: cfg.error || 'Brave Search not configured',
+        code: cfg.error_code || 'brave_key_missing',
+        brave_search_byok_key_name: cfg.brave_search_byok_key_name,
+      });
+    }
+    const count = Math.min(Math.max(Number(requestPayload.count) || 5, 1), 20);
+    const url = new URL(cfg.apiUrl);
+    url.searchParams.set('q', query);
+    url.searchParams.set('count', String(count));
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'X-Subscription-Token': cfg.apiKey,
+      },
+      signal: AbortSignal.timeout(60000),
+    });
+    const text = await response.text();
+    if (!response.ok) {
+      const err = { error: `Brave API HTTP ${response.status}: ${text.slice(0, 400)}` };
+      logTool(req, 'brave_web_search', requestPayload, err, 'error', source);
+      return res.status(502).json(err);
+    }
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      const err = { error: 'Brave API returned non-JSON' };
+      logTool(req, 'brave_web_search', requestPayload, err, 'error', source);
+      return res.status(502).json(err);
+    }
+    const results = (data.web?.results || []).map((r) => ({
+      title: r.title,
+      url: r.url,
+      description: r.description,
+    }));
+    const out = {
+      ok: true,
+      query,
+      count: results.length,
+      results,
+      key_source: cfg.source,
+      using_byok: Boolean(cfg.using_byok),
+    };
+    logTool(
+      req,
+      'brave_web_search',
+      { query, count, key_source: cfg.source },
+      { ok: true, n: results.length },
+      'ok',
+      source
+    );
+    res.json(out);
+  } catch (e) {
+    const errMsg = e.name === 'AbortError' ? 'Request timeout' : e.message || 'Internal error';
+    logTool(req, 'brave_web_search', requestPayload, { error: errMsg }, 'error', source);
+    res.status(e.status || 500).json({ error: errMsg });
   }
 });
 
@@ -1573,6 +1737,80 @@ router.post('/master-data-rag', optionalAuth, async (req, res) => {
 });
 
 /**
+ * list_inbound_attachments — list this CEO's workspace inbound/attachments
+ * (chat / WhatsApp / channel uploads). Session-scoped owner only.
+ */
+router.post('/list-inbound-attachments', optionalAuth, (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    const ownerUserId = resolveMasterDataOwnerOr403(
+      req,
+      res,
+      'list_inbound_attachments',
+      requestPayload,
+      source
+    );
+    if (!ownerUserId) return;
+    const out = listInboundAttachmentsForAgent(ownerUserId);
+    logTool(
+      req,
+      'list_inbound_attachments',
+      { ...requestPayload, owner_user_id: ownerUserId },
+      { ok: true, count: out.count },
+      'ok',
+      source
+    );
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message, code: e.code || undefined };
+    logTool(req, 'list_inbound_attachments', requestPayload, err, 'error', source);
+    res.status(e.status || 400).json(err);
+  }
+});
+
+/**
+ * master_data_index_document — index a RAG-able file into this CEO's OpenSearch docs indices
+ * (same path as Master Data → Documents). Prefer inbound relative_path; rejects media.
+ */
+router.post('/master-data-index-document', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    const ownerUserId = resolveMasterDataOwnerOr403(
+      req,
+      res,
+      'master_data_index_document',
+      requestPayload,
+      source
+    );
+    if (!ownerUserId) return;
+    const out = await indexDocumentForAgent(ownerUserId, {
+      ...requestPayload,
+      agent_id: source || requestPayload.agent_id || requestPayload.agentId || null,
+    });
+    logTool(
+      req,
+      'master_data_index_document',
+      {
+        ...requestPayload,
+        owner_user_id: ownerUserId,
+        content_base64: requestPayload.content_base64 || requestPayload.contentBase64 ? '[redacted]' : undefined,
+        content_text: requestPayload.content_text || requestPayload.contentText ? '[redacted]' : undefined,
+      },
+      { ok: true, document_id: out.document?.id, chunks: out.document?.chunk_count },
+      'ok',
+      source
+    );
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message, code: e.code || undefined };
+    logTool(req, 'master_data_index_document', requestPayload, err, 'error', source);
+    res.status(e.status || 400).json(err);
+  }
+});
+
+/**
  * Learnings summary: summarize past user feedback + Kanban approve/reject/comments for this owner+agent.
  * Body: topic (optional), days (default 30), agent_id (optional — defaults to caller).
  * Owner always from session/tenant — never body spoof.
@@ -2253,6 +2491,67 @@ router.post('/invoke', requireToolsAccess, async (req, res) => {
   }
 });
 
+
+router.post('/platform-feedback-submit', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = req.body || {};
+  try {
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
+    const user = req.authUser || null;
+    const out = submitPlatformFeedback(requestPayload, {
+      ownerUserId,
+      userId: user?.id || ownerUserId,
+      userName: user?.name || null,
+      userEmail: user?.email || null,
+      agentId: source,
+      initiatorName: user?.name || source || 'agent',
+      initiatorEmail: user?.email || null,
+    });
+    logTool(req, 'platform_feedback_submit', requestPayload, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'platform_feedback_submit', requestPayload, err, 'error', source);
+    res.status(e.status || 400).json(err);
+  }
+});
+
+router.post('/platform-feedback-enquire', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = req.body || {};
+  try {
+    resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
+    const out = enquirePlatformFeedback(requestPayload);
+    logTool(req, 'platform_feedback_enquire', requestPayload, { ok: out.ok, count: out.count }, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'platform_feedback_enquire', requestPayload, err, 'error', source);
+    res.status(e.status || 400).json(err);
+  }
+});
+
+router.post('/inbound-attachment-save', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = req.body || {};
+  try {
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
+    const b64 = requestPayload.content_base64 || requestPayload.contentBase64;
+    if (!b64) return res.status(400).json({ error: 'content_base64 required' });
+    const buffer = Buffer.from(String(b64), 'base64');
+    const out = saveInboundAttachment(ownerUserId, {
+      buffer,
+      filename: requestPayload.filename || 'upload.bin',
+      mimeType: requestPayload.mime_type || requestPayload.mimeType,
+    });
+    logTool(req, 'inbound_attachment_save', { filename: out.filename, bytes: out.bytes }, out, 'ok', source);
+    res.json({ ok: true, ...out });
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'inbound_attachment_save', requestPayload, err, 'error', source);
+    res.status(e.status || 400).json(err);
+  }
+});
 router.post('/browse-session-status', optionalAuth, async (req, res) => {
   const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
   const requestPayload = bodyWithoutSpoofedOwner(req.body || {});

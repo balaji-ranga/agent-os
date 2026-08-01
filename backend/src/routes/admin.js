@@ -22,6 +22,12 @@ import {
   isProtectedFromOffboard,
   PROTECTED_OFFBOARD_NAMES,
 } from '../services/user-offboard.js';
+import { createAndSendPasswordReset } from '../services/password-reset.js';
+import {
+  listPlatformFeedback,
+  updatePlatformFeedbackStatus,
+  ensurePlatformFeedbackTables,
+} from '../services/platform-feedback.js';
 import {
   getPlatformLlmStatusPublic,
   setPlatformLlmActiveEndpoint,
@@ -450,4 +456,51 @@ router.post('/crons/:id/run', async (req, res) => {
   }
 });
 
+
+router.post('/users/:userId/reset-password', async (req, res) => {
+  try {
+    const target = getUserById(req.params.userId);
+    if (!target) return res.status(404).json({ error: 'User not found' });
+    if (String(target.role || '').toLowerCase() === 'admin') {
+      return res.status(400).json({ error: 'Cannot reset password for admin accounts via this endpoint' });
+    }
+    const result = await createAndSendPasswordReset(target.id, {
+      createdBy: req.authUser?.id || 'admin',
+      initiatedByAdmin: true,
+      includeUrl: req.body?.include_url === true,
+    });
+    res.json(result);
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Reset email failed' });
+  }
+});
+
+router.get('/platform-feedback', (req, res) => {
+  try {
+    ensurePlatformFeedbackTables();
+    const items = listPlatformFeedback({
+      status: req.query.status,
+      category: req.query.category,
+      q: req.query.q,
+      id: req.query.id,
+      limit: req.query.limit,
+    });
+    res.json({ items, count: items.length });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.patch('/platform-feedback/:id', (req, res) => {
+  try {
+    const row = updatePlatformFeedbackStatus(req.params.id, {
+      status: req.body?.status,
+      status_reason: req.body?.status_reason || req.body?.reason,
+      actor: req.authUser,
+    });
+    res.json({ feedback: row });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message });
+  }
+});
 export default router;

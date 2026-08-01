@@ -1,4 +1,8 @@
-import AuthenticatedMediaImage from './AuthenticatedMediaImage';
+import AuthenticatedMediaImage, {
+  AuthenticatedMediaAudio,
+  AuthenticatedMediaVideo,
+} from './AuthenticatedMediaImage';
+import { guessChatMediaType, resolveMediaSrc } from '../utils/resolveMediaSrc';
 
 /**
  * Expandable tool-call icons for agent chat (from content_tool_logs).
@@ -58,23 +62,44 @@ export function collectChartUrlsFromToolCalls(toolCalls) {
   return urls;
 }
 
-/** Inline generated images/videos from tool responses when the model forgets to paste URLs. */
+/** Inline generated images/audio/videos from tool responses when the model forgets to paste URLs. */
 export function collectGeneratedMediaUrlsFromToolCalls(toolCalls) {
   const urls = [];
   const seen = new Set();
   for (const tc of toolCalls || []) {
     const name = String(tc.tool_name || '');
-    if (name !== 'generate_image' && name !== 'generate_video') continue;
+    if (name !== 'generate_image' && name !== 'generate_video' && name !== 'speech_tts') continue;
     if (String(tc.status || '').toLowerCase() !== 'ok') continue;
     const resp = parseJsonMaybe(tc.response);
     if (!resp || typeof resp !== 'object') continue;
-    const candidates = [resp.url, resp.image_url, resp.video_url, resp.media_url].filter(Boolean);
+    // Prefer dashboard-playable relative_url; MEDIA: aliases resolve to the same file.
+    const candidates = [
+      resp.relative_url,
+      resp.audio?.relative_url,
+      resp.media_uri,
+      resp.paste_exactly,
+      resp.audio?.media_uri,
+      resp.audio?.url,
+      resp.url,
+      resp.image_url,
+      resp.video_url,
+      resp.media_url,
+      resp.artifact_url,
+      resp.public_url,
+    ].filter(Boolean);
     if (Array.isArray(resp.urls)) candidates.push(...resp.urls);
     for (const u of candidates) {
       const url = String(u || '').trim();
-      if (!url || seen.has(url)) continue;
-      if (!/\/api\/media\//i.test(url) && !/^https?:\/\//i.test(url)) continue;
-      seen.add(url);
+      if (!url) continue;
+      const ok =
+        /^MEDIA:/i.test(url) ||
+        /\/api\/media\//i.test(url) ||
+        /^https?:\/\//i.test(url) ||
+        /\.openclaw\/media\//i.test(url);
+      if (!ok) continue;
+      const dedupeKey = resolveMediaSrc(url) || url;
+      if (seen.has(dedupeKey)) continue;
+      seen.add(dedupeKey);
       urls.push(url);
     }
   }
@@ -98,9 +123,12 @@ export default function ChatToolCalls({ toolCalls, showChartPreviews = true, sho
       )}
       {mediaUrls.length > 0 && (
         <div className="chat-tool-media-previews" style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginBottom: '0.35rem' }}>
-          {mediaUrls.map((src) => (
-            <AuthenticatedMediaImage key={src} src={src} alt="Generated media" />
-          ))}
+          {mediaUrls.map((src) => {
+            const kind = guessChatMediaType(src);
+            if (kind === 'audio') return <AuthenticatedMediaAudio key={src} src={src} />;
+            if (kind === 'video') return <AuthenticatedMediaVideo key={src} src={src} />;
+            return <AuthenticatedMediaImage key={src} src={src} alt="Generated media" />;
+          })}
         </div>
       )}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', alignItems: 'center' }}>

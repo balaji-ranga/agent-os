@@ -29,10 +29,15 @@ sync_extensions_from_image() {
   # Keep plugin baseUrl / apiKey / gateway token / tools.allow aligned with container env
   # when config exists (incl. learnings_summary on global + COO allow — volume-safe).
   local configure_js="${AGENT_OS_ROOT}/deploy/scripts/configure-openclaw-docker.js"
+  local restore_channels_js="${AGENT_OS_ROOT}/deploy/scripts/restore-openclaw-channel-routing.js"
   local config_path="${OPENCLAW_CONFIG_PATH:-${OC_DIR}/openclaw.json}"
   if [[ -f "${configure_js}" && -f "${config_path}" ]]; then
     echo "[openclaw] Applying container OpenClaw config from env..."
     node "${configure_js}" || echo "[openclaw] WARN: configure-openclaw-docker.js failed" >&2
+  fi
+  # configure/apply can drop channels.whatsapp; restore from sidecar written by Agent OS backend.
+  if [[ -f "${restore_channels_js}" && -f "${config_path}" ]]; then
+    node "${restore_channels_js}" || echo "[openclaw] WARN: channel routing restore failed" >&2
   fi
 }
 
@@ -185,9 +190,13 @@ run_gateway_with_platform_llm_watch() {
         # Source runtime.env *before* configure so OPENAI_API_KEY matches Admin switch
         apply_platform_llm_runtime_env
         local configure_js="${AGENT_OS_ROOT}/deploy/scripts/configure-openclaw-docker.js"
+        local restore_channels_js="${AGENT_OS_ROOT}/deploy/scripts/restore-openclaw-channel-routing.js"
         local config_path="${OPENCLAW_CONFIG_PATH:-${OC_DIR}/openclaw.json}"
         if [[ -f "${configure_js}" && -f "${config_path}" ]]; then
           node "${configure_js}" || echo "[openclaw] WARN: configure-openclaw-docker.js failed on reload" >&2
+        fi
+        if [[ -f "${restore_channels_js}" && -f "${config_path}" ]]; then
+          node "${restore_channels_js}" || echo "[openclaw] WARN: channel routing restore failed on reload" >&2
         fi
         # Re-source — configure may rewrite platform-llm-runtime.env
         apply_platform_llm_runtime_env

@@ -235,6 +235,8 @@ function extractUrlsFromText(text, sourceId = 'text') {
       url = url.slice('sandbox:'.length);
     } else if (url.startsWith('sandbox:/media/')) {
       url = `/api/media/openclaw/${url.slice('sandbox:/media/'.length)}`;
+    } else if (url.startsWith('/media/artifacts/')) {
+      url = `/api${url}`;
     } else if (url.startsWith('/media/')) {
       url = `/api/media/openclaw/${url.slice('/media/'.length)}`;
     }

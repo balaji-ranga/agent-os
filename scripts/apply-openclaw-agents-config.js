@@ -8,6 +8,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { resolveOpenClawDir } from './lib/openclaw-paths.js';
+import { ensureChannelRoutingOnConfig } from './lib/openclaw-channel-routing.js';
 import {
   REQUIRED_GLOBAL_CONTENT_TOOLS,
   COO_CONTENT_TOOLS_ALLOW,
@@ -387,6 +388,11 @@ if (!config.gateway) config.gateway = {};
 mergeDeep(config.gateway, GATEWAY_DEFAULTS);
 
 if (!existsSync(OPENCLAW_DIR)) mkdirSync(OPENCLAW_DIR, { recursive: true });
+// Keep Slack/WhatsApp channel routing across agents.list rewrites (deploy-safe).
+const routing = ensureChannelRoutingOnConfig(config, OPENCLAW_DIR);
+if (routing.restored) {
+  console.log('Restored channels/bindings from agent-os-channel-routing.json');
+}
 writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
 console.log(
   'Written agents.list + model.primary:',

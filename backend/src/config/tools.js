@@ -5,8 +5,15 @@
  */
 import { randomBytes } from 'crypto';
 import { getLlmConfig } from './llm.js';
-import { REPLICATE_BYOK_KEY_NAME, tryResolveUserApiKey } from '../services/user-api-keys.js';
-export { REPLICATE_BYOK_KEY_NAME };
+import {
+  PLATFORM_BYOK_KEY_NAME,
+  REPLICATE_BYOK_KEY_NAME,
+  BRAVE_SEARCH_BYOK_KEY_NAME,
+  tryResolveUserApiKey,
+} from '../services/user-api-keys.js';
+export { PLATFORM_BYOK_KEY_NAME, REPLICATE_BYOK_KEY_NAME, BRAVE_SEARCH_BYOK_KEY_NAME };
+
+const BRAVE_WEB_SEARCH_URL = 'https://api.search.brave.com/res/v1/web/search';
 
 function normalizeBaseUrl(url) {
   if (!url || typeof url !== 'string') return '';
@@ -89,8 +96,13 @@ function isLocalOllamaUrl(baseUrl) {
 }
 
 /**
- * Image generation: primary and secondary providers.
- * When ownerUserId has OpenAI/OpenRouter BYOK, use that key as primary (billing isolation).
+ * Image generation: OpenAI-compatible (GPT-image / DALL·E).
+ *
+ * - Profile **Platform default** (or no owner): platform `OPENAI_*` keys.
+ * - Any other Profile LLM: vault **`Platform_BYOK` only** (OpenAI/OpenRouter-compatible key) —
+ *   never the platform key. Local Ollama Profiles still need Platform_BYOK for image APIs.
+ *
+ * @param {string|null} [ownerUserId]
  */
 export function getImageConfig(ownerUserId = null) {
   const defaultBase = 'https://api.openai.com/v1';
@@ -100,27 +112,72 @@ export function getImageConfig(ownerUserId = null) {
   const maxPromptChars = Math.min(parseInt(process.env.TOOLS_IMAGE_MAX_PROMPT_CHARS || '1000', 10) || 1000, 4000);
   const primaryModel = (process.env.TOOLS_IMAGE_MODEL || 'gpt-image-1').trim();
 
-  let primaryBase =
-    normalizeBaseUrl(process.env.OPENAI_PRIMARY_BASE_URL || process.env.OPENAI_BASE_URL || process.env.OPENAI_API_URL || defaultBase) ||
-    defaultBase;
-  let primaryKey = (process.env.OPENAI_PRIMARY_API_KEY || process.env.OPENAI_API_KEY || '').trim();
+  const platformBase =
+    normalizeBaseUrl(
+      process.env.OPENAI_PRIMARY_BASE_URL ||
+        process.env.OPENAI_BASE_URL ||
+        process.env.OPENAI_API_URL ||
+        defaultBase
+    ) || defaultBase;
+  const platformKey = (process.env.OPENAI_PRIMARY_API_KEY || process.env.OPENAI_API_KEY || '').trim();
 
-  // BYOK: prefer user OpenAI / OpenRouter key for image gen (not local Ollama — no image API).
+  let provider = 'platform_decided';
   if (ownerUserId) {
     try {
       const llm = getLlmConfig(ownerUserId);
-      if (
-        llm.using_byok &&
-        llm.primary?.apiKey &&
-        llm.primary?.baseUrl &&
-        !isLocalOllamaUrl(llm.primary.baseUrl) &&
-        (llm.provider === 'openai' || llm.provider === 'openrouter')
-      ) {
-        primaryBase = normalizeBaseUrl(llm.primary.baseUrl) || primaryBase;
-        primaryKey = llm.primary.apiKey;
-      }
+      provider = String(llm?.provider || 'platform_decided').trim() || 'platform_decided';
     } catch {
-      /* keep platform */
+      provider = 'platform_decided';
+    }
+  }
+
+  const usePlatformKey = !ownerUserId || provider === 'platform_decided';
+  let primaryBase = platformBase;
+  let primaryKey = platformKey;
+  let using_byok = false;
+  let source = 'platform_env';
+  let error = null;
+  let error_code = null;
+
+  if (!usePlatformKey) {
+    using_byok = true;
+    source = 'user_byok_vault';
+    const vault = tryResolveUserApiKey(ownerUserId, PLATFORM_BYOK_KEY_NAME);
+    const byokKey = String(vault?.value || '').trim();
+    if (!byokKey) {
+      console.info(
+        '[tools] generate_image blocked owner=%s provider=%s missing vault=%s',
+        ownerUserId,
+        provider,
+        PLATFORM_BYOK_KEY_NAME
+      );
+      primaryKey = '';
+      error = `Create API key "${PLATFORM_BYOK_KEY_NAME}" under Management → API Keys for image generation, or switch Profile LLM to Platform default.`;
+      error_code = 'platform_byok_required';
+    } else {
+      // Prefer OpenRouter base when Profile is openrouter; otherwise OpenAI.
+      if (provider === 'openrouter') {
+        primaryBase =
+          normalizeBaseUrl(process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1') ||
+          'https://openrouter.ai/api/v1';
+      } else {
+        primaryBase = defaultBase;
+        try {
+          const llm = getLlmConfig(ownerUserId);
+          if (llm?.primary?.baseUrl && !isLocalOllamaUrl(llm.primary.baseUrl)) {
+            primaryBase = normalizeBaseUrl(llm.primary.baseUrl) || primaryBase;
+          }
+        } catch {
+          /* keep OpenAI default */
+        }
+      }
+      primaryKey = byokKey;
+      console.info(
+        '[tools] generate_image using vault %s owner=%s provider=%s',
+        PLATFORM_BYOK_KEY_NAME,
+        ownerUserId,
+        provider
+      );
     }
   }
 
@@ -138,8 +195,9 @@ export function getImageConfig(ownerUserId = null) {
     maxPromptChars,
   };
 
+  // Secondary only for platform Profile (BYOK users must not fall back to platform secondary).
   const secondary =
-    secondaryBase && secondaryKey && secondaryModel
+    usePlatformKey && secondaryBase && secondaryKey && secondaryModel
       ? {
           apiUrl: secondaryBase,
           apiKey: secondaryKey,
@@ -151,7 +209,16 @@ export function getImageConfig(ownerUserId = null) {
         }
       : null;
 
-  return { primary, secondary };
+  return {
+    primary,
+    secondary,
+    using_byok,
+    provider,
+    source,
+    platform_byok_key_name: PLATFORM_BYOK_KEY_NAME,
+    error,
+    error_code,
+  };
 }
 
 // Zeroscope (free/open model on Replicate; you pay Replicate per run). Or use Google Veo on Replicate: e.g. google/veo-2, google/veo-3, google/veo-3-fast — set TOOLS_VIDEO_MODEL_VERSION from Replicate portal.
@@ -261,5 +328,82 @@ export function getVideoConfig(ownerUserId = null) {
     provider,
     source: 'user_byok_vault',
     replicate_byok_key_name: REPLICATE_BYOK_KEY_NAME,
+  };
+}
+
+/**
+ * Brave web search key resolution (same Profile rule as Replicate video).
+ *
+ * - Profile **Platform default** (or no owner): platform `BRAVE_API_KEY`.
+ * - Any other Profile LLM preference: vault **`BRAVE_SEARCH_BYOK` only** — never the platform key.
+ *
+ * @param {string|null} [ownerUserId]
+ */
+export function getBraveSearchConfig(ownerUserId = null) {
+  let provider = 'platform_decided';
+  if (ownerUserId) {
+    try {
+      const llm = getLlmConfig(ownerUserId);
+      provider = String(llm?.provider || 'platform_decided').trim() || 'platform_decided';
+    } catch {
+      provider = 'platform_decided';
+    }
+  }
+
+  const usePlatformKey = !ownerUserId || provider === 'platform_decided';
+  const apiUrl = BRAVE_WEB_SEARCH_URL;
+
+  if (usePlatformKey) {
+    const apiKey = String(process.env.BRAVE_API_KEY || '').trim();
+    return {
+      apiUrl,
+      apiKey,
+      using_byok: false,
+      provider,
+      source: 'platform_env',
+      brave_search_byok_key_name: BRAVE_SEARCH_BYOK_KEY_NAME,
+      error: apiKey
+        ? null
+        : 'Brave Search not configured. Set platform BRAVE_API_KEY in deploy/.env, or switch Profile LLM and add vault BRAVE_SEARCH_BYOK.',
+      error_code: apiKey ? null : 'brave_platform_key_missing',
+    };
+  }
+
+  const vault = tryResolveUserApiKey(ownerUserId, BRAVE_SEARCH_BYOK_KEY_NAME);
+  const byokKey = String(vault?.value || '').trim();
+  if (!byokKey) {
+    console.info(
+      '[tools] brave_web_search blocked owner=%s provider=%s missing vault=%s',
+      ownerUserId,
+      provider,
+      BRAVE_SEARCH_BYOK_KEY_NAME
+    );
+    return {
+      apiUrl,
+      apiKey: '',
+      using_byok: true,
+      provider,
+      source: 'user_byok_vault',
+      brave_search_byok_key_name: BRAVE_SEARCH_BYOK_KEY_NAME,
+      error: `Create API key "${BRAVE_SEARCH_BYOK_KEY_NAME}" under Management → API Keys for Brave Search, or switch Profile LLM to Platform default.`,
+      error_code: 'brave_search_byok_required',
+    };
+  }
+
+  console.info(
+    '[tools] brave_web_search using vault %s owner=%s provider=%s',
+    BRAVE_SEARCH_BYOK_KEY_NAME,
+    ownerUserId,
+    provider
+  );
+  return {
+    apiUrl,
+    apiKey: byokKey,
+    using_byok: true,
+    provider,
+    source: 'user_byok_vault',
+    brave_search_byok_key_name: BRAVE_SEARCH_BYOK_KEY_NAME,
+    error: null,
+    error_code: null,
   };
 }

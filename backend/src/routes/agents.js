@@ -16,6 +16,7 @@ import * as openclaw from '../gateway/openclaw.js';
 import { tryTriggerWorkflowFromChat } from '../services/agent-workflow-runner.js';
 import * as workspace from '../workspace/adapter.js';
 import { normalizeReplyContent } from '../services/delegation-queue.js';
+import { mirrorChatMediaToInbound } from '../services/inbound-attachments.js';
 import { createFullAgent } from '../services/create-full-agent.js';
 import { deleteAgentCascade } from '../services/agent-delete.js';
 import { log } from '../utils/logger.js';
@@ -608,6 +609,12 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
 
     const message = typeof req.body?.message === 'string' ? req.body.message : (req.body?.content ?? req.body?.text ?? '');
     if (!message.trim()) return res.status(400).json({ error: 'message is required' });
+
+    try {
+      mirrorChatMediaToInbound(ownerUserId, message);
+    } catch (e) {
+      console.warn('[chat] inbound MEDIA mirror failed', e?.message || e);
+    }
 
     try {
       enforceBudget(ownerUserId, agentId, { action: 'chat', memberLabel: agent.name });

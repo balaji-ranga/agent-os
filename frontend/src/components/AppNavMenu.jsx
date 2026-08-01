@@ -71,6 +71,13 @@ export function CeoNavMenu({ collapsed }) {
         <NavItem to="/kanban" title="Kanban" collapsed={collapsed} label="Kanban" short="K" />
         <NavItem to="/broadcast" title="Broadcast" collapsed={collapsed} label="Broadcast" short="Bc" />
         <NavItem to="/master-data" title="Master Data" collapsed={collapsed} label="Master Data" short="MD" />
+        <NavItem
+          to="/content-explorer"
+          title="Content Explorer"
+          collapsed={collapsed}
+          label="Content Explorer"
+          short="CE"
+        />
         <NavItem to="/api-keys" title="API Keys" collapsed={collapsed} label="API Keys" short="Key" />
         <NavItem to="/policies" title="Policies & guardrails" collapsed={collapsed} label="Policies" short="Po" />
         <NavItem to="/ai-snipper" title="AI Snipper" collapsed={collapsed} label="AI Snipper" short="AI" />
@@ -166,6 +173,13 @@ export function AdminNavMenu({ collapsed }) {
         title="Tools Onboarding — Docker content tools"
       >
         {collapsed ? 'TO' : 'Tools Onboarding'}
+      </NavLink>
+      <NavLink
+        to="/admin/platform-feedback"
+        className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+        title="Platform bugs, feedback, and enhancements"
+      >
+        {collapsed ? 'FB' : 'Platform feedback'}
       </NavLink>
 
       <NavSection title="Agentic Workflows" collapsed={collapsed}>

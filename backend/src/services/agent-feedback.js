@@ -782,6 +782,8 @@ const MASTER_DATA_TOOL_NAMES = [
   'master_data_delete_row',
   'master_data_list_documents',
   'master_data_rag',
+  'master_data_index_document',
+  'list_inbound_attachments',
 ];
 
 /** Grant Master Data + RAG content tools to all agents (owner-scoped at invoke time). */

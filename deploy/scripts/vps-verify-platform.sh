@@ -116,6 +116,14 @@ check "speech mounted" grep -q "speechRoutes\|'/speech'" "$ROOT/backend/src/inde
 check "agent-channels route file" test -f "$ROOT/backend/src/routes/agent-channels.js"
 check "agent-channels mounted" grep -q "agent-channels" "$ROOT/backend/src/index.js"
 check "ceo-agent-channels service" test -f "$ROOT/backend/src/services/ceo-agent-channels.js"
+check "channel routing sidecar helper" test -f "$ROOT/scripts/lib/openclaw-channel-routing.js"
+check "restore channel routing script" test -f "$ROOT/deploy/scripts/restore-openclaw-channel-routing.js"
+check "sync agent channels script" test -f "$ROOT/backend/scripts/sync-agent-channels-to-openclaw.js"
+check "verify agent channels script" test -f "$ROOT/deploy/scripts/vps-verify-agent-channels.sh"
+check "verify media delivery script" test -f "$ROOT/deploy/scripts/vps-verify-media-delivery.sh"
+check "syncEnabledAgentChannelsToOpenClaw export" grep -q "syncEnabledAgentChannelsToOpenClaw" "$ROOT/backend/src/services/ceo-agent-channels.js"
+check "configure preserves channel routing" grep -q "ensureChannelRoutingOnConfig" "$ROOT/deploy/scripts/configure-openclaw-docker.js"
+check "entrypoint restores channel routing" grep -q "restore-openclaw-channel-routing" "$ROOT/deploy/docker/openclaw-entrypoint.sh"
 check "openclaw-channels-config" test -f "$ROOT/backend/src/services/openclaw-channels-config.js"
 check "agent-workflow-speech service" test -f "$ROOT/backend/src/services/agent-workflow-speech.js"
 check "PublicVirtualRoom page" test -f "$ROOT/frontend/src/pages/PublicVirtualRoom.jsx"
@@ -150,7 +158,12 @@ check "A2A node auth UI" grep -q 'Bearer token override' "$ROOT/frontend/src/pag
 check "workflow auth templates smoke script" test -f "$ROOT/backend/scripts/test-workflow-auth-templates.js"
 check "Brave BYOK MCP server" test -f "$ROOT/tools/brave-search-mcp-byok/server.js"
 check "Brave BYOK Dockerfile" grep -q 'brave-search-mcp-byok' "$ROOT/deploy/docker/brave-search-mcp.Dockerfile"
-check "Brave BYOK compose (no BRAVE_API_KEY inject)" ! grep -q 'BRAVE_API_KEY: \${BRAVE_API_KEY' "$ROOT/deploy/docker-compose.yml"
+# MCP service must not receive platform BRAVE_API_KEY; backend may (brave_web_search content tool).
+check "Brave MCP compose (no BRAVE_API_KEY on mcp service)" \
+  ! sed -n '/^  brave-search-mcp:/,/^  [a-zA-Z0-9_-]\+:/p' "$ROOT/deploy/docker-compose.yml" | grep -q 'BRAVE_API_KEY'
+check "Brave API key on backend env" grep -q 'BRAVE_API_KEY: \${BRAVE_API_KEY' "$ROOT/deploy/docker-compose.yml"
+check "brave_web_search content tool seed" test -f "$ROOT/backend/src/db/seed-brave-search-tool.js"
+check "brave_web_search config helper" grep -q 'getBraveSearchConfig' "$ROOT/backend/src/config/tools.js"
 check "Balaji Brave BYOK seed" test -f "$ROOT/backend/scripts/seed-balaji-brave-byok-workflow.js"
 check "Balaji Brave BYOK test" test -f "$ROOT/backend/scripts/test-balaji-brave-byok-workflow.js"
 check "Brain apiKey templates" grep -q "renderWorkflowTemplates(String(renderedCfg" "$ROOT/backend/src/services/agent-workflow-brain.js"

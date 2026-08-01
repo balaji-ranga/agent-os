@@ -2,7 +2,11 @@ import ChatMessageContent from './ChatMessageContent';
 import { formatChatTimestamp } from '../utils/formatDateTime.js';
 import MessageFeedback from './MessageFeedback';
 import ChatToolCalls, { collectChartUrlsFromToolCalls, collectGeneratedMediaUrlsFromToolCalls } from './ChatToolCalls';
-import AuthenticatedMediaImage from './AuthenticatedMediaImage';
+import AuthenticatedMediaImage, {
+  AuthenticatedMediaAudio,
+  AuthenticatedMediaVideo,
+} from './AuthenticatedMediaImage';
+import { guessChatMediaType } from '../utils/resolveMediaSrc';
 
 /**
  * Single chat bubble with role label and local timestamp.
@@ -57,9 +61,12 @@ export default function ChatMessageRow({
       )}
       {mediaUrls.length > 0 && (
         <div className="chat-message-media-previews" style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginBottom: '0.75rem' }}>
-          {mediaUrls.map((src) => (
-            <AuthenticatedMediaImage key={src} src={src} alt="Generated image" />
-          ))}
+          {mediaUrls.map((src) => {
+            const kind = guessChatMediaType(src);
+            if (kind === 'audio') return <AuthenticatedMediaAudio key={src} src={src} />;
+            if (kind === 'video') return <AuthenticatedMediaVideo key={src} src={src} />;
+            return <AuthenticatedMediaImage key={src} src={src} alt="Generated image" />;
+          })}
         </div>
       )}
       <ChatMessageContent content={content} />

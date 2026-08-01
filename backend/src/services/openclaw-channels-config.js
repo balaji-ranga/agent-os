@@ -1,9 +1,45 @@
 /**
  * Merge per-CEO agent channel settings into openclaw.json (channels.slack / channels.whatsapp + bindings[]).
+ * Also writes ~/.openclaw/agent-os-channel-routing.json so configure/apply can restore after rewrites.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { join } from 'path';
 import { getOpenClawConfigPath, getOpenClawDir } from '../config/openclaw-paths.js';
 import { baseOcIdFromAgent, tenantOpenClawAgentId } from './openclaw-tenant.js';
+
+const CHANNEL_ROUTING_SIDECAR = 'agent-os-channel-routing.json';
+
+function channelRoutingHasAccounts(channels) {
+  if (!channels || typeof channels !== 'object') return false;
+  for (const key of ['whatsapp', 'slack']) {
+    const accounts = channels[key]?.accounts;
+    if (accounts && typeof accounts === 'object' && Object.keys(accounts).length > 0) return true;
+  }
+  return false;
+}
+
+function persistChannelRoutingSidecar(config) {
+  const dir = getOpenClawDir();
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  const channels = config?.channels && typeof config.channels === 'object' ? config.channels : null;
+  const bindings = Array.isArray(config?.bindings) ? config.bindings : [];
+  if (!channelRoutingHasAccounts(channels) && bindings.length === 0) return;
+  const path = join(dir, CHANNEL_ROUTING_SIDECAR);
+  writeFileSync(
+    path,
+    JSON.stringify(
+      {
+        version: 1,
+        updatedAt: new Date().toISOString(),
+        channels: channels || {},
+        bindings,
+      },
+      null,
+      2
+    ),
+    'utf8'
+  );
+}
 
 export function readOpenClawConfigFile() {
   const path = getOpenClawConfigPath();
@@ -20,6 +56,11 @@ export function writeOpenClawConfigFile(config) {
   const dir = getOpenClawDir();
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   writeFileSync(getOpenClawConfigPath(), JSON.stringify(config, null, 2), 'utf8');
+  try {
+    persistChannelRoutingSidecar(config);
+  } catch (e) {
+    console.warn('[openclaw-channels] sidecar persist failed:', e?.message || e);
+  }
 }
 
 /** Runtime OpenClaw agent id + channel account id for bindings. */

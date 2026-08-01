@@ -62,6 +62,17 @@ const homedir = process.env.USERPROFILE || process.env.HOME || '';
 /** Prevent duplicate concurrent runs of the same delegation within this process. */
 const runningDelegationIds = new Set();
 
+/** Clear in-memory run lock (orphan watcher re-pend / stuck processing recovery). */
+export function releaseDelegationRunLock(delegationId) {
+  const id = Number(delegationId);
+  if (!Number.isFinite(id) || id <= 0) return false;
+  return runningDelegationIds.delete(id);
+}
+
+export function isDelegationRunLocked(delegationId) {
+  return runningDelegationIds.has(Number(delegationId));
+}
+
 function db() {
   return getDb();
 }
@@ -670,22 +681,26 @@ export function postCallbackForRequestId(requestId) {
  * Process pending delegation tasks for a single CEO.
  * Pulls only that CEO's tasks, mirrors the per-CEO standup cron pattern.
  * @param {string} ceoUserId
+ * @param {{ skipOrphanWatcher?: boolean }} [opts]
  */
-export async function processPendingDelegationTasksForCeo(ceoUserId) {
+export async function processPendingDelegationTasksForCeo(ceoUserId, opts = {}) {
   if (!ceoUserId) return;
   if (!isUserEnabled(ceoUserId)) return;
   recoverStaleProcessingDelegations(ceoUserId);
   // Specialty processing / orphan cards (job-pipeline recovery above only covers pipeline prompts).
-  try {
-    const { runKanbanOrphanWatcher } = await import('./kanban-orphan-watcher.js');
-    runKanbanOrphanWatcher({ ownerUserId: ceoUserId, limit: 10 });
-  } catch (e) {
-    console.warn('[delegation] orphan watcher:', e?.message || e);
+  // Skip when kicked FROM the orphan watcher to avoid recursive processPending ↔ orphan loops.
+  if (!opts.skipOrphanWatcher) {
     try {
-      requeueStuckStatusOnlyKanbanCards({ ownerUserId: ceoUserId, limit: 10 });
-      rependInfraFailedStatusOnlyRetries({ ownerUserId: ceoUserId, limit: 10 });
-    } catch (e2) {
-      console.warn('[delegation] status-only stuck requeue:', e2?.message || e2);
+      const { runKanbanOrphanWatcher } = await import('./kanban-orphan-watcher.js');
+      void runKanbanOrphanWatcher({ ownerUserId: ceoUserId, limit: 10 });
+    } catch (e) {
+      console.warn('[delegation] orphan watcher:', e?.message || e);
+      try {
+        requeueStuckStatusOnlyKanbanCards({ ownerUserId: ceoUserId, limit: 10 });
+        rependInfraFailedStatusOnlyRetries({ ownerUserId: ceoUserId, limit: 10 });
+      } catch (e2) {
+        console.warn('[delegation] status-only stuck requeue:', e2?.message || e2);
+      }
     }
   }
   const allPending = db()
@@ -699,7 +714,19 @@ export async function processPendingDelegationTasksForCeo(ceoUserId) {
   const now = new Date().toISOString();
 
   async function runOne(task) {
-    if (runningDelegationIds.has(task.id)) return;
+    if (runningDelegationIds.has(task.id)) {
+      // Orphan watcher may have re-pended while a hung OpenClaw call still holds the lock.
+      // If DB says pending again, drop the stale lock so this process can reclaim the work.
+      const live = db().prepare('SELECT status FROM agent_delegation_tasks WHERE id = ?').get(task.id);
+      if (live?.status === 'pending') {
+        runningDelegationIds.delete(task.id);
+        console.warn(
+          `[delegation] cleared stale run lock for pending task=${task.id} agent=${task.to_agent_id}`
+        );
+      } else {
+        return;
+      }
+    }
     const claim = db()
       .prepare(`UPDATE agent_delegation_tasks SET status = 'processing' WHERE id = ? AND status = 'pending'`)
       .run(task.id);
@@ -809,7 +836,13 @@ export async function processPendingDelegationTasksForCeo(ceoUserId) {
           );
         }
       }
-      db().prepare('UPDATE agent_delegation_tasks SET status = ?, response_content = ?, completed_at = ? WHERE id = ?').run('completed', responseText, now, task.id);
+      db()
+        .prepare(
+          `UPDATE agent_delegation_tasks
+           SET status = ?, response_content = ?, error_message = NULL, completed_at = ?
+           WHERE id = ?`
+        )
+        .run('completed', responseText, now, task.id);
       if (isAgentWorkflowPrompt(task.prompt)) {
         completeAgentWorkflowKanbanForDelegation(task.id, { ok: true });
         try {

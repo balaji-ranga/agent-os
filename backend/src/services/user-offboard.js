@@ -207,6 +207,24 @@ function purgeOwnerScopedRows(db, ownerUserId) {
   // OpenConnector binding
   counts.openconnector = tryRun(db, `DELETE FROM openconnector_user_links WHERE user_id = ?`, [ownerUserId]);
 
+  // Extra owner-scoped tables that previously blocked platform_users DELETE (FK / leftovers)
+  counts.mfa_challenges = tryRun(db, `DELETE FROM mfa_challenges WHERE user_id = ?`, [ownerUserId]);
+  counts.password_reset_tokens = tryRun(db, `DELETE FROM password_reset_tokens WHERE user_id = ?`, [ownerUserId]);
+  counts.ceo_agent_channels = tryRun(db, `DELETE FROM ceo_agent_channels WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.ceo_media_artifacts = tryRun(db, `DELETE FROM ceo_media_artifacts WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.ceo_avatars = tryRun(db, `DELETE FROM ceo_avatars WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.ceo_vr_scenes = tryRun(db, `DELETE FROM ceo_vr_scenes WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.ceo_vr_rooms = tryRun(db, `DELETE FROM ceo_vr_rooms WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.platform_feedback = tryRun(db, `DELETE FROM platform_feedback WHERE owner_user_id = ? OR initiator_user_id = ?`, [
+    ownerUserId,
+    ownerUserId,
+  ]);
+  counts.token_usage = tryRun(db, `DELETE FROM token_usage WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.agent_monthly_budgets = tryRun(db, `DELETE FROM agent_monthly_budgets WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.browser_tasks = tryRun(db, `DELETE FROM browser_tasks WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.browser_recipes = tryRun(db, `DELETE FROM browser_recipes WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.published_scenes = tryRun(db, `DELETE FROM published_scenes WHERE owner_user_id = ?`, [ownerUserId]);
+
   counts.custom_agents = deleteOwnedCustomAgents(db, ownerUserId);
   counts.user_agents = tryRun(db, `DELETE FROM user_agents WHERE user_id = ?`, [ownerUserId]);
   counts.sessions = tryRun(db, `DELETE FROM platform_sessions WHERE user_id = ?`, [ownerUserId]);
@@ -332,8 +350,29 @@ export function offboardUser(userId, opts = {}) {
   }
   summary.steps.openclaw_agents = scrubOpenClawTenantAgents(row.id);
 
-  // 6) Delete platform_users row last
-  summary.steps.platform_user_deleted = tryRun(db, `DELETE FROM platform_users WHERE id = ?`, [row.id]);
+  // 6) Delete platform_users row last — must succeed or surface a real error
+  let deleted = 0;
+  let deleteError = null;
+  try {
+    deleted = db.prepare(`DELETE FROM platform_users WHERE id = ?`).run(row.id).changes || 0;
+  } catch (e) {
+    deleteError = e?.message || String(e);
+    console.warn('[offboard] platform_users DELETE failed', { id: row.id, error: deleteError });
+  }
+  summary.steps.platform_user_deleted = deleted;
+  if (deleteError) summary.steps.platform_user_delete_error = deleteError;
+
+  if (!deleted) {
+    // Soft-fallback: leave disabled + session-revoked so Admin is not stuck, but report failure clearly.
+    const err = new Error(
+      deleteError
+        ? `Offboard cleaned data but could not delete the user account (DB constraint): ${deleteError}`
+        : 'Offboard cleaned data but the user account row was not deleted (still present). Check FK leftovers.'
+    );
+    err.status = 500;
+    err.offboard_summary = summary;
+    throw err;
+  }
 
   return { ok: true, ...summary };
 }

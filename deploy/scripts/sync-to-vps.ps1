@@ -19,6 +19,7 @@
 # archived agent chats (chat_context), Admin Crons console (/admin/crons pause/resume/run now, persisted pause state),
 # platform API logging (PLATFORM_LOG_LEVEL=off|error|info + secret redaction),
 # Brave Search MCP BYOK wrapper (tools/brave-search-mcp-byok, profile optional-brave-mcp),
+# Brave agent tool brave_web_search (backend BRAVE_API_KEY + vault BRAVE_SEARCH_BYOK),
 # cron reference block in deploy/.env (ensure-cron-env.sh) + platform-help 19
 # (scheduled jobs / retention), Org Storage (MB), COO status_checker report, data retention purge,
 # Published Scenes + public VR (/p/vr/:slug), Slack/WhatsApp agent channels wizard,
@@ -38,7 +39,8 @@
 # AgentExchange/A2A (Test agent UI; sync/async + callback/enquire; deny_all default IP;
 # Admin A2A invocation logs; allow/whitelist via vps-client-ip compose on VPS; owner unpublish),
 # workflow API/MCP/A2A auth templates ({{nodeId.path}} bearer/headers — static or from prior step),
-# Brave Search MCP BYOK (no platform BRAVE_API_KEY fallback; workflow headers only),
+# Brave Search MCP BYOK (workflow headers only; no BRAVE_API_KEY in MCP container),
+# Brave agent tool brave_web_search (backend gets BRAVE_API_KEY; vault BRAVE_SEARCH_BYOK for BYOK Profiles),
 # Admin refresh default agents MD+tools, Master Data office extract (pdf/docx/xlsx),
 # DeepSeek@Ollama, shared notification dismiss,
 # chat paperclip attach → Master Data RAG, Vedic Astrology + generate_chart (JSON chart_spec),
@@ -113,6 +115,10 @@ scp @ssh `
   "$Repo\deploy\scripts\vps-verify-a2a-private.sh" `
   "$Repo\deploy\scripts\vps-verify-org-delegation.sh" `
   "$Repo\deploy\scripts\vps-verify-frontend-media.sh" `
+  "$Repo\deploy\scripts\vps-verify-media-delivery.sh" `
+  "$Repo\deploy\scripts\vps-verify-agent-channels.sh" `
+  "$Repo\deploy\scripts\restore-openclaw-channel-routing.js" `
+  "$Repo\deploy\scripts\ensure-openclaw-channel-plugins.sh" `
   "$Repo\deploy\scripts\vps-smoke-new-features.sh" `
   "$Repo\deploy\scripts\vps-smoke-broadcast-notify.sh" `
   "$Repo\deploy\scripts\vps-smoke-deepseek-brain.sh" `
@@ -152,6 +158,9 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\package-lock.json" `
     "root@${HostIp}:$RemoteRoot/backend/"
   scp @ssh `
+    "$Repo\backend\scripts\sync-agent-channels-to-openclaw.js" `
+    "$Repo\backend\scripts\test-media-url.js" `
+    "$Repo\backend\scripts\seed-inbound-media-summarize-workflow.js" `
     "$Repo\backend\scripts\test-workflow-desktop-package.js" `
     "$Repo\backend\scripts\test-local-ibkr-bridge-package.js" `
     "$Repo\backend\scripts\vps-test-platform-help.js" `

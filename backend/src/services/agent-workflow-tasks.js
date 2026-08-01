@@ -9,6 +9,7 @@ import { renderWorkflowTemplates } from './agent-workflow-io.js';
 import { buildApiRequestHeaders, renderApiNodeConfig } from './agent-workflow-api-auth.js';
 import { assertHttpSuccess, wrapFetchError } from './workflow-http-errors.js';
 import { resolveLiteralOrKeyRef } from './user-api-keys.js';
+import { resolveWorkflowFsRoots } from '../lib/workflow-fs-roots.js';
 
 export function smtpFromEnv() {
   return {
@@ -374,16 +375,12 @@ export async function executeApiTask(resolvedInputs, nodeConfig = {}, context = 
 
 /**
  * Filesystem ops for scheduled/manual workflows (not a separate poller).
- * Paths must resolve under WORKFLOW_FS_ROOTS (comma-separated). If unset, uses <cwd>/tmp/workflow-fs.
+ * Paths must resolve under WORKFLOW_FS_ROOTS (colon- or comma-separated).
+ * If unset, uses <cwd>/tmp/workflow-fs.
  */
 function workflowFsRoots() {
-  const raw = String(process.env.WORKFLOW_FS_ROOTS || '').trim();
-  if (raw) {
-    return raw
-      .split(',')
-      .map((s) => resolve(s.trim()))
-      .filter(Boolean);
-  }
+  const roots = resolveWorkflowFsRoots(process.env.WORKFLOW_FS_ROOTS);
+  if (roots.length) return roots;
   const fallback = resolve(process.cwd(), 'tmp', 'workflow-fs');
   if (!existsSync(fallback)) mkdirSync(fallback, { recursive: true });
   return [fallback];

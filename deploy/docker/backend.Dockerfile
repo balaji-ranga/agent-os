@@ -13,14 +13,15 @@
 # Protected Master Data docs (User Guide + Platform Help) + purge-all uploads (CEO uploads only).
 # Agent delete: transactional cascade (agent-delete.js) + deleted_agents tombstone so a deleted
 # agent is not recreated by the startup catalog re-grant or by POST /api/openclaw/sync.
-# Also: public VR routes, speech STT/TTS, agent channels, optional-voice (whisper+piper).
+# Also: public VR routes, speech STT/TTS APIs + COO content tools speech_tts/speech_stt,
+# agent channels, optional-voice (whisper+piper).
 FROM node:22-bookworm-slim
 
 # python3: custom workflow script sandbox (Python); make/g++: better-sqlite3 native build
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     python3 python3-minimal \
-    make g++ ca-certificates curl zip \
+    make g++ ca-certificates curl zip ffmpeg \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt/agent-os

@@ -227,6 +227,30 @@ router.post('/documents', requireAuth, requireCeoOrAdmin, async (req, res) => {
   }
 });
 
+/**
+ * Index a workspace inbound attachment into this CEO's OpenSearch RAG indices
+ * (same as Documents upload). Body: { relative_path, title? }.
+ */
+router.post('/documents/from-inbound', requireAuth, requireCeoOrAdmin, async (req, res) => {
+  try {
+    const owner = ownerOr403(req, res);
+    if (!owner) return;
+    const { indexDocumentForAgent } = await import('../services/master-data-tools.js');
+    const out = await indexDocumentForAgent(owner, {
+      relative_path: req.body?.relative_path || req.body?.relativePath || req.body?.path,
+      title: req.body?.title,
+      filename: req.body?.filename,
+      mime_type: req.body?.mime_type || req.body?.mimeType,
+      tags: req.body?.tags,
+      agent_id: 'ceo-ui',
+    });
+    res.status(201).json(out);
+  } catch (e) {
+    const status = e.status || (e.code === 'OPENSEARCH_UNAVAILABLE' ? 503 : 400);
+    res.status(status).json({ error: e.message, code: e.code || undefined });
+  }
+});
+
 router.post('/documents/reindex-all', requireAuth, requireCeoOrAdmin, async (req, res) => {
   try {
     const owner = ownerOr403(req, res);

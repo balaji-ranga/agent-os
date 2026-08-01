@@ -9,6 +9,7 @@ function ApiKeysPanel() {
   const [keys, setKeys] = useState([]);
   const [platformByok, setPlatformByok] = useState('Platform_BYOK');
   const [replicateByok, setReplicateByok] = useState('Replicate_BYOK');
+  const [braveSearchByok, setBraveSearchByok] = useState('BRAVE_SEARCH_BYOK');
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -26,6 +27,7 @@ function ApiKeysPanel() {
       setKeys(r.keys || []);
       if (r.platform_byok_key_name) setPlatformByok(r.platform_byok_key_name);
       if (r.replicate_byok_key_name) setReplicateByok(r.replicate_byok_key_name);
+      if (r.brave_search_byok_key_name) setBraveSearchByok(r.brave_search_byok_key_name);
     } catch (e) {
       setError(e.message);
     }
@@ -126,6 +128,10 @@ function ApiKeysPanel() {
         <code>{platformByok}</code> here (required) — do not paste keys on Profile/Register.
         For <code>generate_video</code> when Profile is not Platform default, create{' '}
         <code>{replicateByok}</code> (Replicate token); Platform default still uses the ops Replicate key.
+        For <code>brave_web_search</code> when Profile is not Platform default, create{' '}
+        <code>{braveSearchByok}</code>; Platform default uses ops <code>BRAVE_API_KEY</code>.
+        Non-platform Profiles auto-seed recommended vault slots as <code>unset</code> — Edit each and paste
+        your secret.
       </p>
 
       {error && (
@@ -159,9 +165,9 @@ function ApiKeysPanel() {
           />
         </label>
         <label>
-          API key {editId ? '(leave blank to keep)' : ''}
+          API key {editId ? (keys.find((k) => k.id === editId)?.is_unset ? '(required)' : '(leave blank to keep)') : ''}
           <MaskedSecretInput
-            required={!editId}
+            required={!editId || !!keys.find((k) => k.id === editId)?.is_unset}
             value={form.api_key}
             onChange={(e) => setForm((f) => ({ ...f, api_key: e.target.value }))}
             placeholder="sk-…"
@@ -218,7 +224,13 @@ function ApiKeysPanel() {
                     </span>
                   )}
                 </td>
-                <td style={{ padding: '0.5rem' }}>{k.key_hint || '••••'}</td>
+                <td style={{ padding: '0.5rem' }}>
+                  {k.is_unset || k.key_hint === 'unset' ? (
+                    <span style={{ color: '#b45309' }}>unset — edit to paste key</span>
+                  ) : (
+                    k.key_hint || '••••'
+                  )}
+                </td>
                 <td style={{ padding: '0.5rem' }}>{k.is_encrypted ? 'Yes' : 'No'}</td>
                 <td style={{ padding: '0.5rem', fontSize: '0.85rem' }}>{k.updated_at}</td>
                 <td style={{ padding: '0.5rem', whiteSpace: 'nowrap' }}>

@@ -31,6 +31,8 @@ export const REQUIRED_GLOBAL_CONTENT_TOOLS = [
   'connector_get_action_guide',
   'connector_execute_action',
   'email_send',
+  'speech_tts',
+  'speech_stt',
   'notify_ceo',
   'ceo_profile',
   'status_checker',
@@ -41,6 +43,8 @@ export const REQUIRED_GLOBAL_CONTENT_TOOLS = [
   'master_data_delete_row',
   'master_data_list_documents',
   'master_data_rag',
+  'master_data_index_document',
+  'list_inbound_attachments',
   'browser',
 ];
 
@@ -61,6 +65,8 @@ export const COO_CONTENT_TOOLS_ALLOW = [
   'agent_workflow_retry',
   'learnings_summary',
   'email_send',
+  'speech_tts',
+  'speech_stt',
   'notify_ceo',
   'ceo_profile',
   'status_checker',
@@ -75,6 +81,8 @@ export const COO_CONTENT_TOOLS_ALLOW = [
   'master_data_delete_row',
   'master_data_list_documents',
   'master_data_rag',
+  'master_data_index_document',
+  'list_inbound_attachments',
   'browser',
 ];
 
@@ -107,6 +115,8 @@ export const WORKFLOW_BUILDER_CONTENT_TOOLS_ALLOW = [
   'master_data_delete_row',
   'master_data_list_documents',
   'master_data_rag',
+  'master_data_index_document',
+  'list_inbound_attachments',
   'browser',
 ];
 

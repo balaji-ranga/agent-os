@@ -32,6 +32,9 @@ echo "==> responsive / media"
 check_css 'app-mobile-topbar'
 check_css 'chat-inline-media'
 check_js 'Open full size'
+check_js 'Loading audio'
+check_js 'Loading video'
+check_js 'Open audio'
 
 echo "==> hPanel shell + light/dark theme"
 check_css 'app-topbar'

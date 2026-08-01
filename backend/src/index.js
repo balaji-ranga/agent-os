@@ -9,6 +9,8 @@ config({ path: join(__dirname, '..', '.env') });
 import express from 'express';
 import cors from 'cors';
 import workspaceRoutes from './routes/workspace.js';
+import inboundAttachmentsRoutes from './routes/inbound-attachments.js';
+import contentExplorerRoutes from './routes/content-explorer.js';
 import agentsRoutes from './routes/agents.js';
 import standupsRoutes from './routes/standups.js';
 import cronRoutes from './routes/cron.js';
@@ -62,15 +64,18 @@ import { ensureToolsApiKeyConfigured } from './config/tools.js';
 import { attachRedactedRequestUrl } from './utils/redact-secrets.js';
 import { log, platformApiAccessLogger, getPlatformLogLevel, refreshPlatformLogLevel } from './utils/logger.js';
 import { ensureMfaTables } from './services/auth/mfa.js';
+import { ensurePlatformFeedbackTables } from './services/platform-feedback.js';
+import { ensurePasswordResetTables } from './services/password-reset.js';
 import { ensurePlatformSettingsTable } from './services/platform-llm-settings.js';
 import { ensureDefaultAdmin, ensureBalaCeoUser, grantStandardAgents, pruneSharedStandardAgentGrants } from './services/users.js';
 import { ensureCeoDefaultMasterDataForAllCeos } from './services/ceo-default-master-data.js';
 import { initDb, getDb } from './db/schema.js';
 import { seedDefaultAgentsIfEmpty, seedAgentDepartmentsIfMissing } from './db/seed-default-agents.js';
-import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, seedWorkflowToolsIfMissing, seedLearningsToolsIfMissing, seedEmailSendToolIfMissing, seedNotifyCeoToolIfMissing, seedCeoProfileToolIfMissing, seedStatusCheckerToolIfMissing, seedMasterDataToolsIfMissing, seedConnectorToolsIfMissing, seedVedicChartToolIfMissing, updateKanbanToolPurposes } from './db/seed-content-tools-meta.js';
+import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, seedWorkflowToolsIfMissing, seedLearningsToolsIfMissing, seedEmailSendToolIfMissing, seedSpeechToolsIfMissing, seedNotifyCeoToolIfMissing, seedCeoProfileToolIfMissing, seedStatusCheckerToolIfMissing, seedMasterDataToolsIfMissing, seedConnectorToolsIfMissing, seedVedicChartToolIfMissing, updateKanbanToolPurposes, seedPlatformFeedbackToolsIfMissing, grantPlatformFeedbackTools } from './db/seed-content-tools-meta.js';
 import { seedJobApplicantToolsIfMissing } from './db/seed-job-applicant-tools.js';
 import { seedIbkrTradingToolsIfMissing } from './db/seed-ibkr-trading-tools.js';
 import { seedBrowserSessionToolsIfMissing, grantBrowserSessionToolsToAllAgents } from './db/seed-browser-session-tools.js';
+import { seedBraveSearchToolIfMissing, grantBraveSearchToolToDefaultAgents } from './db/seed-brave-search-tool.js';
 import { seedMarketDataToolsIfMissing } from './db/seed-market-data-tools.js';
 import { writeOpenClawToolsList } from './services/content-tools-meta.js';
 import {
@@ -99,6 +104,7 @@ import { healAgentWorkspacePaths } from './workspace/adapter.js';
 import { healStuckKanbanForCompletedDelegations } from './services/kanban-workflow-stage.js';
 import { requeueStuckStatusOnlyKanbanCards, rependInfraFailedStatusOnlyRetries } from './services/delegation-status-only-retry.js';
 import { seedPlatformStandardWorkspaceTemplate } from './services/platform-agent-workspace-templates.js';
+import { startOpenClawInboundMediaSync } from './services/openclaw-inbound-media-sync.js';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
@@ -131,6 +137,8 @@ initDb();
 ensureInternalTokenConfigured();
 ensureToolsApiKeyConfigured();
 ensureMfaTables();
+ensurePlatformFeedbackTables();
+ensurePasswordResetTables();
 ensurePlatformSettingsTable();
 seedDefaultAgentsIfEmpty();
 try {
@@ -248,6 +256,8 @@ seedKanbanToolsIfMissing();
 seedWorkflowToolsIfMissing();
 seedLearningsToolsIfMissing();
 seedEmailSendToolIfMissing();
+seedSpeechToolsIfMissing();
+seedPlatformFeedbackToolsIfMissing();
 seedNotifyCeoToolIfMissing();
 seedCeoProfileToolIfMissing();
 seedStatusCheckerToolIfMissing();
@@ -269,6 +279,19 @@ try {
   }
 } catch (e) {
   console.warn('[startup] browse tool grants:', e.message);
+}
+seedBraveSearchToolIfMissing();
+try {
+  const braveGranted = grantBraveSearchToolToDefaultAgents();
+  if (braveGranted) {
+    console.log(
+      '[startup] granted brave_web_search to default agents only (%s grant(s); custom agents: Workspace → Tool access)',
+      braveGranted
+    );
+    syncAllowlistsFile();
+  }
+} catch (e) {
+  console.warn('[startup] brave_web_search grants:', e.message);
 }
 try {
   const granted = grantLearningsSummaryToAllAgents();
@@ -344,6 +367,16 @@ try {
 } catch (e) {
   console.warn('[startup] platform help agent seed:', e.message);
 }
+try {
+  // After platform-help (and COO) agents exist so enquire/submit grants stick.
+  const feedbackGranted = grantPlatformFeedbackTools();
+  if (feedbackGranted) {
+    console.log(`[startup] granted platform_feedback tools (${feedbackGranted} grant(s))`);
+    syncAllowlistsFile();
+  }
+} catch (e) {
+  console.warn('[startup] platform_feedback tool grants:', e.message);
+}
 import('./services/org-context.js')
   .then(async ({ syncOrgContextForCeo }) => {
     const ceos = getDb()
@@ -360,6 +393,24 @@ import('./services/openclaw-tenant.js')
   .then(({ ensureAllTenantOpenClawAgentsForAllCeos }) => {
     const ensured = ensureAllTenantOpenClawAgentsForAllCeos();
     if (ensured) console.log(`[startup] ensured ${ensured} tenant OpenClaw agent(s)`);
+  })
+  .then(async () => {
+    const { syncEnabledAgentChannelsToOpenClaw } = await import('./services/ceo-agent-channels.js');
+    const ch = syncEnabledAgentChannelsToOpenClaw();
+    if (ch.synced) {
+      console.log(`[startup] re-applied ${ch.synced} agent channel(s) to openclaw.json`);
+    }
+    // OpenClaw entrypoint may rewrite config just after backend boot — re-sync once more.
+    setTimeout(() => {
+      try {
+        const again = syncEnabledAgentChannelsToOpenClaw();
+        if (again.synced) {
+          console.log(`[startup] re-applied ${again.synced} agent channel(s) to openclaw.json (delayed)`);
+        }
+      } catch (e) {
+        console.warn('[startup] delayed agent channel sync:', e?.message || e);
+      }
+    }, 15000);
   })
   .catch((e) => console.warn('[startup] tenant OpenClaw agents:', e?.message || e));
 try {
@@ -395,6 +446,8 @@ apiRouter.use('/admin/platform-documents', adminPlatformDocsRoutes);
 apiRouter.use('/admin/tool-onboarding', adminToolOnboardingRoutes);
 apiRouter.use('/ceo-guardrails', ceoGuardrailsRoutes);
 apiRouter.use('/workspace', workspaceRoutes);
+apiRouter.use('/workspace', inboundAttachmentsRoutes);
+apiRouter.use('/workspace', contentExplorerRoutes);
 apiRouter.use('/agents', agentsRoutes);
 apiRouter.use('/standups', standupsRoutes);
 apiRouter.use('/cron', cronRoutes);
@@ -606,5 +659,10 @@ app.listen(PORT, () => {
   // Always print listen line even when level=off so ops can confirm process is up.
   if (getPlatformLogLevel() === 'off') {
     console.log(`Agent OS backend listening on http://127.0.0.1:${PORT} (pid ${process.pid}) PLATFORM_LOG_LEVEL=off`);
+  }
+  try {
+    startOpenClawInboundMediaSync({ intervalMs: 4000 });
+  } catch (e) {
+    console.warn('[startup] openclaw inbound media sync:', e?.message || e);
   }
 });

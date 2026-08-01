@@ -291,6 +291,68 @@ function resolveSlackSecrets(ownerUserId, row) {
   };
 }
 
+/**
+ * Re-merge all non-disabled CEO agent channels into openclaw.json.
+ * Deploy/OpenClaw rewrites can drop channels/bindings while Baileys creds remain on disk.
+ * @returns {{ synced: number, accounts: string[] }}
+ */
+export function syncEnabledAgentChannelsToOpenClaw() {
+  ensureCeoAgentChannelsSchema();
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT * FROM ceo_agent_channels
+       WHERE LOWER(status) IN ('enabled', 'pairing')
+       ORDER BY updated_at ASC`
+    )
+    .all();
+  const accounts = [];
+  for (const row of rows) {
+    try {
+      const agent = assertAgentGrantedToCeo(row.owner_user_id, row.agent_id);
+      ensureTenantOpenClawAgent(agent, row.owner_user_id);
+      const config = parseJson(row.config_json, {});
+      let secrets = {};
+      if (row.channel === 'slack') {
+        const resolved = resolveSlackSecrets(row.owner_user_id, row);
+        if (resolved.missing.length) {
+          console.warn(
+            '[agent-channels] sync skip slack id=%s missing=%s',
+            row.id,
+            resolved.missing.join(',')
+          );
+          continue;
+        }
+        secrets = { botToken: resolved.botToken, appToken: resolved.appToken };
+      }
+      const merged = mergeAgentChannelIntoOpenClaw({
+        ownerUserId: row.owner_user_id,
+        agent,
+        channel: row.channel,
+        config,
+        secrets,
+        enabled: true,
+      });
+      accounts.push(`${row.channel}:${merged.accountId}`);
+      if (row.channel === 'whatsapp' && row.status === 'pairing') {
+        const sessionDir = whatsappSessionDir(merged.accountId);
+        if (whatsappSessionHasAuthFiles(sessionDir)) {
+          db.prepare(
+            `UPDATE ceo_agent_channels SET status = 'enabled', updated_at = datetime('now')
+             WHERE id = ? AND owner_user_id = ?`
+          ).run(row.id, row.owner_user_id);
+        }
+      }
+    } catch (e) {
+      console.warn('[agent-channels] sync failed id=%s: %s', row.id, e?.message || e);
+    }
+  }
+  if (accounts.length) {
+    console.info('[agent-channels] synced %s channel(s) into openclaw.json: %s', accounts.length, accounts.join(', '));
+  }
+  return { synced: accounts.length, accounts };
+}
+
 export function applyAgentChannel(ownerUserId, channelId) {
   const row = getRow(ownerUserId, channelId);
   if (!row) throw Object.assign(new Error('Channel not found'), { status: 404 });
@@ -321,7 +383,12 @@ export function applyAgentChannel(ownerUserId, channelId) {
     enabled: true,
   });
 
-  const nextStatus = channel === 'whatsapp' ? 'pairing' : 'enabled';
+  // WhatsApp: keep enabled when Baileys auth already exists; only new applies start in pairing.
+  let nextStatus = 'enabled';
+  if (channel === 'whatsapp') {
+    const sessionDir = whatsappSessionDir(merged.accountId);
+    nextStatus = whatsappSessionHasAuthFiles(sessionDir) ? 'enabled' : 'pairing';
+  }
   getDb()
     .prepare(
       `UPDATE ceo_agent_channels SET status = ?, updated_at = datetime('now') WHERE id = ? AND owner_user_id = ?`

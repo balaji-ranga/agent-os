@@ -25,6 +25,12 @@ import {
   getPlatformMfaDefaults,
   resolveUserMfa,
 } from '../services/auth/mfa.js';
+import {
+  requestPasswordResetByEmail,
+  consumePasswordResetToken,
+  ensurePasswordResetTables,
+} from '../services/password-reset.js';
+import { getLlmCatalogPublic } from '../services/user-llm-settings.js';
 
 const router = Router();
 
@@ -38,6 +44,15 @@ router.get('/industries', (_req, res) => {
   }
 });
 
+/** Public LLM provider catalog (endpoints + curated models) for Profile / Register. */
+router.get('/llm-catalog', (_req, res) => {
+  try {
+    res.json(getLlmCatalogPublic());
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 /** Public platform MFA defaults for registration UI. */
 router.get('/mfa/defaults', (_req, res) => {
   res.json(getPlatformMfaDefaults());
@@ -45,7 +60,7 @@ router.get('/mfa/defaults', (_req, res) => {
 
 router.post('/register', async (req, res) => {
   try {
-    const { email, password, name, region, mobile, db_mode, ceo_db_mode, mfa_policy, mfa_mode, llm_provider, llm_api_key, industry, industry_other, business_name } =
+    const { email, password, name, region, mobile, db_mode, ceo_db_mode, mfa_policy, mfa_mode, llm_provider, llm_model, llm_api_key, industry, industry_other, business_name } =
       req.body || {};
     const user = await registerCeoUser({
       email,
@@ -58,6 +73,7 @@ router.post('/register', async (req, res) => {
       mfa_policy,
       mfa_mode,
       llm_provider,
+      llm_model,
       llm_api_key,
       industry,
       industry_other,
@@ -231,7 +247,7 @@ router.get('/me', requireAuth, (req, res) => {
 
 router.patch('/me', requireAuth, (req, res) => {
   try {
-    const { name, email, region, mobile, current_password, new_password, mfa_policy, mfa_mode, llm_provider, llm_api_key, clear_llm_api_key, industry, industry_other, business_name, data_retention_days } =
+    const { name, email, region, mobile, current_password, new_password, mfa_policy, mfa_mode, llm_provider, llm_model, llm_api_key, clear_llm_api_key, industry, industry_other, business_name, data_retention_days } =
       req.body || {};
     const user = updateUserProfile(req.authUser.id, {
       name,
@@ -243,6 +259,7 @@ router.patch('/me', requireAuth, (req, res) => {
       mfa_policy,
       mfa_mode,
       llm_provider,
+      llm_model,
       llm_api_key,
       clear_llm_api_key,
       industry,
@@ -257,4 +274,29 @@ router.patch('/me', requireAuth, (req, res) => {
   }
 });
 
+
+
+ensurePasswordResetTables();
+
+/** Public: request password reset email (always generic response). */
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const email = String(req.body?.email || '').trim();
+    if (!email) return res.status(400).json({ error: 'email required' });
+    res.json(await requestPasswordResetByEmail(email));
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || 'Reset request failed' });
+  }
+});
+
+/** Public: set new password with token from email link. */
+router.post('/reset-password', (req, res) => {
+  try {
+    const token = req.body?.token;
+    const password = req.body?.password || req.body?.new_password;
+    res.json(consumePasswordResetToken(token, password));
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Reset failed' });
+  }
+});
 export default router;

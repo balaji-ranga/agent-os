@@ -24,6 +24,7 @@ function emptyRowDraft(columns = []) {
 function MasterDataPanel() {
   const [tables, setTables] = useState([]);
   const [documents, setDocuments] = useState([]);
+  const [inboundItems, setInboundItems] = useState([]);
   const [docPage, setDocPage] = useState(0);
   const [selectedTable, setSelectedTable] = useState(null);
   const [rows, setRows] = useState([]);
@@ -52,9 +53,14 @@ function MasterDataPanel() {
   const [editDraft, setEditDraft] = useState({});
 
   const refresh = async () => {
-    const [t, d] = await Promise.all([api.masterDataTables(), api.masterDataDocuments()]);
+    const [t, d, inbound] = await Promise.all([
+      api.masterDataTables(),
+      api.masterDataDocuments(),
+      api.inboundAttachmentsList().catch(() => ({ items: [] })),
+    ]);
     setTables(t.tables || []);
     setDocuments(d.documents || []);
+    setInboundItems(inbound.items || []);
   };
 
   useEffect(() => {
@@ -676,6 +682,153 @@ function MasterDataPanel() {
           )}
         </section>
       </div>
+
+      <section
+        style={{
+          marginTop: '1rem',
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderRadius: 10,
+          padding: '1rem',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'baseline' }}>
+          <h2 style={{ marginTop: 0, fontSize: '1.05rem' }}>Inbound attachments</h2>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              setError(null);
+              try {
+                const r = await api.inboundAttachmentsList();
+                setInboundItems(r.items || []);
+                flash(`Loaded ${r.items?.length || 0} inbound file(s).`);
+              } catch (err) {
+                setError(err.message);
+              } finally {
+                setBusy(false);
+              }
+            }}
+            style={{
+              padding: '0.35rem 0.7rem',
+              borderRadius: 6,
+              border: '1px solid var(--border)',
+              background: 'transparent',
+              color: 'var(--text)',
+              cursor: 'pointer',
+              fontSize: '0.8rem',
+            }}
+          >
+            Refresh
+          </button>
+        </div>
+        <p style={{ color: 'var(--muted)', fontSize: '0.85rem', marginTop: 0 }}>
+          Chat, WhatsApp, and channel uploads land in <code>inbound/attachments/</code>. RAG-able
+          files (PDF, Word, Excel, text) can be indexed into your OpenSearch documents. Images,
+          audio, and video stay here (no RAG) — use STT for audio when needed.
+        </p>
+        <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+          {inboundItems.map((f) => (
+            <li
+              key={f.relative_path || f.filename}
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 8,
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0.55rem 0',
+                borderBottom: '1px solid var(--border)',
+              }}
+            >
+              <div style={{ minWidth: 0, flex: '1 1 220px' }}>
+                <div style={{ fontWeight: 600, wordBreak: 'break-all' }}>{f.filename}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
+                  <code>{f.relative_path}</code>
+                  {f.size != null ? ` · ${(f.size / 1024).toFixed(1)} KB` : ''}
+                  {f.mtime ? ` · ${f.mtime}` : ''}
+                  {f.is_media ? ' · media' : f.rag_indexable ? ' · RAG-able' : ' · not indexable'}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={async () => {
+                    setBusy(true);
+                    setError(null);
+                    try {
+                      const { blob, filename } = await api.inboundAttachmentDownload(f.relative_path);
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = filename || f.filename;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    } catch (err) {
+                      setError(err.message);
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                  style={{
+                    background: 'none',
+                    border: '1px solid var(--border)',
+                    borderRadius: 6,
+                    color: 'var(--text)',
+                    cursor: 'pointer',
+                    fontSize: '0.75rem',
+                    padding: '0.25rem 0.5rem',
+                  }}
+                >
+                  Download
+                </button>
+                {f.rag_indexable && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={async () => {
+                      setBusy(true);
+                      setError(null);
+                      try {
+                        const res = await api.masterDataDocumentFromInbound({
+                          relative_path: f.relative_path,
+                          title: f.filename,
+                        });
+                        await refresh();
+                        flash(
+                          `Indexed ${res.document?.filename || f.filename} (${res.document?.chunk_count || 0} chunks)`
+                        );
+                      } catch (err) {
+                        setError(err.message);
+                      } finally {
+                        setBusy(false);
+                      }
+                    }}
+                    style={{
+                      background: 'var(--accent)',
+                      border: 'none',
+                      borderRadius: 6,
+                      color: '#fff',
+                      cursor: 'pointer',
+                      fontSize: '0.75rem',
+                      padding: '0.25rem 0.5rem',
+                    }}
+                  >
+                    Index to RAG
+                  </button>
+                )}
+              </div>
+            </li>
+          ))}
+          {!inboundItems.length && (
+            <li style={{ color: 'var(--muted)', fontSize: '0.9rem', padding: '0.5rem 0' }}>
+              No inbound attachments yet.
+            </li>
+          )}
+        </ul>
+      </section>
 
       {selectedTable && (
         <section style={{ marginTop: '1rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '1rem' }}>

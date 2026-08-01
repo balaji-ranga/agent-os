@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Ensure free local STT/TTS (faster-whisper + Piper) for Agent Chat mic and speech_* workflow nodes.
+# Ensure free local STT/TTS (faster-whisper + Piper) for Agent Chat mic, speech_* workflow
+# nodes, and COO content tools speech_tts / speech_stt.
 # Idempotent: writes SPEECH_* to deploy/.env if missing, builds/starts optional-voice profile.
 #
 # Usage:

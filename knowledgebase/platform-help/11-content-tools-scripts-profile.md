@@ -4,7 +4,10 @@
 
 Catalog of Agent OS tools agents and workflows can call, for example:
 
-- `summarize_url`, `generate_image`, `generate_video`
+- `summarize_url`, `generate_image`, `generate_video`, `speech_tts` — return `paste_exactly` / `media_uri` (`MEDIA:/abs/path` for **WhatsApp file attach**) and auth-only `/api/media/…` for **Dashboard chat** (inline image/audio/video players with your login). Media is **not** world-public. Optional legacy signed URLs require ops `MEDIA_PUBLIC_SIGNED=1` (off by default).
+- **WhatsApp TTS tip:** prefer OGG/Opus (or MP3) from `speech_tts`; WAV often fails WhatsApp attach. Dashboard still plays WAV inline.
+- **Platform feedback:** `platform_feedback_submit` / `platform_feedback_enquire` (COO / Platform Help) — file bugs, feedback, or enhancements; Admins triage at **Platform feedback** (`/admin/platform-feedback`).
+- **Chat / channel attachments:** Web paperclip and WhatsApp inbound media land under **`inbound/attachments/`** (plus Master Data for web uploads). Summarize or transcribe with `speech_stt` / inbound-media workflow using the relative path or `MEDIA:` line.
 - Kanban helpers (`kanban_create_task`, `kanban_move_status`, **`kanban_get_task`** (full content / deliverable), `kanban_watch_tick`, …)
 - `intent_classify_and_delegate`
 - Workflow tools (`agent_workflow_list` / enquire / trigger / runs / **retry** / mutate / get_draft)
@@ -129,12 +132,12 @@ after at least 10 terminal calls). See
 
 ## Profile (`/profile`)
 
-Name, email, region, mobile, password, MFA, **model provider** preference, and **data persistence** (30 / 60 / 90 / 120 / 365 days; **default 90** when you have never changed it).
+Name, email, region, mobile, password, MFA, **model provider + chat model**, and **data persistence** (30 / 60 / 90 / 120 / 365 days; **default 90** when you have never changed it).
 
 - After the retention window, agent chat turns, standup **messages**, and workflow run/step records are permanently deleted (daily job; purge also available on Profile and Dashboard). Standup records themselves, Kanban cards, Master Data and API keys are never purged. Job schedules: [19-scheduled-jobs-and-crons.md](./19-scheduled-jobs-and-crons.md).
-- OpenAI / OpenRouter need vault key **`Platform_BYOK`** under **API Keys** — see [15-api-keys-vault.md](./15-api-keys-vault.md).
+- OpenAI / OpenRouter need vault key **`Platform_BYOK`** under **API Keys**, then a **chat model** on Profile — see [15-api-keys-vault.md](./15-api-keys-vault.md). Non-platform Profiles auto-seed that slot (plus Replicate / Brave / ElevenLabs) as **unset**.
 - Prefer **Management → API Keys** for all long-lived secrets (never shown in platform access logs).
-
+- Browse files: [26-content-explorer.md](./26-content-explorer.md).
 ## How agents learn company knowledge
 
 | Layer | What |

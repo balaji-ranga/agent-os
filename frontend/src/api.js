@@ -94,7 +94,12 @@ async function fetchBlobUrl(path) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(err.error || res.statusText);
   }
-  const blob = await res.blob();
+  // Preserve Content-Type so <audio>/<video> can play blob URLs (octet-stream often fails).
+  const ct = String(res.headers.get('content-type') || '')
+    .split(';')[0]
+    .trim();
+  const buf = await res.arrayBuffer();
+  const blob = ct ? new Blob([buf], { type: ct }) : new Blob([buf]);
   return URL.createObjectURL(blob);
 }
 
@@ -333,6 +338,8 @@ export const api = {
   authRegister: (body) => post('/auth/register', body),
   authLogin: (body) => post('/auth/login', body),
   authAdminLogin: (body) => post('/auth/admin/login', body),
+  forgotPassword: (body) => post('/auth/forgot-password', body),
+  resetPassword: (body) => post('/auth/reset-password', body),
   authMfaDefaults: () => get('/auth/mfa/defaults'),
   authMfaVerify: (body) => post('/auth/mfa/verify', body),
   authMfaResend: (body) => post('/auth/mfa/resend', body),
@@ -341,6 +348,7 @@ export const api = {
   authMe: () => get('/auth/me'),
   authUpdateProfile: (body) => patch('/auth/me', body),
   authIndustries: () => get('/auth/industries'),
+  authLlmCatalog: () => get('/auth/llm-catalog'),
   ceoGuardrailsGet: () => get('/ceo-guardrails'),
   ceoGuardrailsSave: (body) => put('/ceo-guardrails', body),
   submitFeedback: (body) => post('/feedback', body),
@@ -378,6 +386,40 @@ export const api = {
   masterDataDocumentsReindexAll: () => post('/master-data/documents/reindex-all', {}),
   masterDataDocumentsPurgeAll: () => post('/master-data/documents/purge-all', {}),
   masterDataDocumentDelete: (id) => del(`/master-data/documents/${encodeURIComponent(id)}`),
+  masterDataDocumentFromInbound: (body) => post('/master-data/documents/from-inbound', body),
+  inboundAttachmentsList: () => get('/workspace/inbound-attachments'),
+  inboundAttachmentUpload: (body) => post('/workspace/inbound-attachments', body),
+  contentExplorerList: (params = {}) => {
+    const q = new URLSearchParams();
+    if (params.source) q.set('source', params.source);
+    const qs = q.toString();
+    return get(`/workspace/content-explorer${qs ? `?${qs}` : ''}`);
+  },
+  contentExplorerDownloadBlob: (item) => {
+    const path =
+      item?.download_url ||
+      `/api/workspace/content-explorer/download?kind=${encodeURIComponent(item?.source === 'generated' ? 'generated' : 'uploaded')}&path=${encodeURIComponent(item?.relative_path || '')}`;
+    return fetchBlobUrl(path.startsWith('/api/') ? path : `/api${path.startsWith('/') ? path : `/${path}`}`);
+  },
+  inboundAttachmentDownload: async (relativePath) => {
+    const path = `/workspace/inbound-attachments/download?relative_path=${encodeURIComponent(relativePath)}`;
+    const url = `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
+    const headers = {};
+    if (_authToken) headers.Authorization = `Bearer ${_authToken}`;
+    const res = await fetch(url, { headers });
+    if (!res.ok) {
+      let msg = res.statusText;
+      try {
+        const j = await res.json();
+        msg = j.error || msg;
+      } catch (_) {}
+      throw Object.assign(new Error(msg), { status: res.status });
+    }
+    const blob = await res.blob();
+    const cd = res.headers.get('Content-Disposition') || '';
+    const m = /filename="([^"]+)"/i.exec(cd);
+    return { blob, filename: m?.[1] || 'download.bin' };
+  },
   masterDataRag: (body) => post('/master-data/rag', body),
   masterDataQuery: (body) => post('/master-data/query', body),
   aiSnipperSummary: (days = 7) => get(`/ai-snipper/summary?days=${days}`),
@@ -403,6 +445,20 @@ export const api = {
   adminUserGet: (userId) => get(`/admin/users/${encodeURIComponent(userId)}`),
   adminUserSetEnabled: (userId, enabled) => patch(`/admin/users/${encodeURIComponent(userId)}/enabled`, { enabled }),
   adminUserOffboard: (userId, body) => post(`/admin/users/${encodeURIComponent(userId)}/offboard`, body),
+  adminUserResetPassword: (userId, body = {}) =>
+    post(`/admin/users/${encodeURIComponent(userId)}/reset-password`, body),
+  adminPlatformFeedbackList: (params = {}) => {
+    const q = new URLSearchParams();
+    if (params.status) q.set("status", params.status);
+    if (params.category) q.set("category", params.category);
+    if (params.q) q.set("q", params.q);
+    if (params.id) q.set("id", params.id);
+    if (params.limit != null) q.set("limit", String(params.limit));
+    const qs = q.toString();
+    return get(`/admin/platform-feedback${qs ? `?${qs}` : ""}`);
+  },
+  adminPlatformFeedbackUpdate: (id, body) =>
+    patch(`/admin/platform-feedback/${encodeURIComponent(id)}`, body),
   adminRegisterUser: (body) => post('/admin/users', body),
   adminGrantStandardAgents: (userId) => post(`/admin/users/${encodeURIComponent(userId)}/agents/grant-standard`, {}),
   adminEnableAgent: (userId, agentId) => post(`/admin/users/${encodeURIComponent(userId)}/agents/${encodeURIComponent(agentId)}/enable`, {}),

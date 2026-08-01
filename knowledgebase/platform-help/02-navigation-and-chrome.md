@@ -17,12 +17,15 @@
 | Dashboard | `/` | Org chart, standups + COO chat, Resync ORG/AGENTS |
 | Kanban | `/kanban` | Generic task board (agent / workflow / pipeline cards), CEO approvals, artifacts |
 | Broadcast | `/broadcast` | Message many agents at once |
-| Master Data | `/master-data` | Tables, documents, RAG |
-| **API Keys** | `/api-keys` | Named secret vault (BYOK `Platform_BYOK`, workflow/MCP/Connector secrets) |
+| Master Data | `/master-data` | Tables, documents, RAG, **Inbound attachments** |
+| **Content Explorer** | `/content-explorer` | Browse uploaded + generated files (preview/download) |
+| **API Keys** | `/api-keys` | Named secret vault (auto-seeded BYOK slots + workflow/MCP/Connector secrets) |
 | Policies | `/policies` | CEO common guardrails for all agents + Brain nodes |
 | AI Snipper | `/ai-snipper` | Prompt / token / tool-call usage timeline |
 | **Browser Session** | `/browser-session` | Client Chrome relay, NL browser tasks, recorder recipes |
 | **Efficiency View** | `/efficiency` | **Org** tab: agents, automated tasks, feedback, workflow run success/fail, Storage (MB). **Department** tab: month-to-date tokens vs department budget. **Agent View** tab: per-agent activity, outcomes, token/error budgets, **Reset usage** |
+| **3D Avatars** | `/avatars` | Avatar models, Virtual Rooms, publish public scenes |
+| **Published Scenes** | `/published-scenes` | Guest Virtual Room links (`/p/vr/:slug`) |
 
 ### Prebuilt Workflows
 
@@ -48,8 +51,9 @@
 
 | Route | Purpose |
 |-------|---------|
-| `/agents/:agentId/chat` | 1:1 chat |
+| `/agents/:agentId/chat` | 1:1 chat (attachments + inline media) |
 | `/agents/:agentId/workspace` | Edit SOUL / AGENTS / MEMORY / TOOLS / OPS, tool grants, **Apply / Publish templates** |
+| `/agents/:agentId/channels` | **Channels** wizard — Slack / WhatsApp BYOK for that agent |
 
 ## Admin navigation (admins only)
 
@@ -58,20 +62,27 @@
 | Admin | `/admin` | Users, platform LLM switch, workspace templates admin |
 | A2A logs | `/admin/a2a-invocations` | Every A2A card / token / invoke attempt, including denials |
 | **Crons** | `/admin/crons` | Platform cron registry — **Pause**, **Resume**, **Run now**; pause state survives restarts |
+| Documents RAG | `/admin/documents-rag` | Platform OpenSearch help corpus |
+| Tools Onboarding | `/admin/tool-onboarding` | Docker content-tool containers |
+| **Platform feedback** | `/admin/platform-feedback` | Triage bugs / feedback / enhancements from COO tools (`open` → `implemented` / `rejected`) |
 
 Admins also see Connectors (OAuth client config), MCP, Custom scripts, AgentExchange, External agents, and Profile.
 
 ## Mental model
 
 - **Talk to people (agents)** → Dashboard / Chat / Broadcast  
+- **Reach agents on WhatsApp/Slack** → agent **Channels** ([24-agent-channels.md](./24-agent-channels.md))  
 - **Track work** → Kanban / Standups  
 - **Company facts** → Master Data  
+- **Browse files** → Content Explorer ([26-content-explorer.md](./26-content-explorer.md))  
 - **Secrets** → API Keys (vault)  
 - **Automate** → Workflows (+ Workflow Builder agent)  
 - **Integrate SaaS** → Connectors  
 - **Integrate tools/protocol** → MCP, External agents, Custom scripts, Tools  
+- **3D / public rooms** → Avatars / Published Scenes  
 - **Measure** → AI Snipper (usage) + Efficiency View (ops outcomes, per-agent budgets)
 - **Cap agent spend / failures** → Efficiency View → Agent View → Edit budget  
 - **Unblock a capped agent** → Efficiency View → Agent View → Reset usage  
 - **Shrink your data footprint** → Profile → Data persistence, then Efficiency View → Org → Storage (MB)  
 - **How do I…?** → Platform Help agent or Master Data RAG docs
+- **File a platform bug (admins triage)** → ask COO / Platform Help (`platform_feedback_submit`) or Admin → **Platform feedback**

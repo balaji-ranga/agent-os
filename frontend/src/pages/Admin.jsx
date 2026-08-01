@@ -109,7 +109,7 @@ function AdminPanel() {
       setOffboardConfirmEmail('');
       load();
     } catch (err) {
-      showError(err.message || 'Offboard failed');
+      showError(err.message || err.error || 'Offboard failed');
     } finally {
       setOffboardBusy(false);
     }
@@ -337,6 +337,7 @@ function AdminPanel() {
             {osConsoleBusy ? 'Opening…' : 'OpenSearch console'}
           </button>
           <Link to="/admin/documents-rag" className="wf-btn">Documents RAG</Link>
+          <Link to="/admin/platform-feedback" className="wf-btn">Platform feedback</Link>
           <Link to="/integrations/mcp" className="wf-btn">MCP Integrations</Link>
           <Link to="/" className="wf-btn">Dashboard</Link>
           <button type="button" className="wf-btn wf-btn-danger" onClick={logout}>
@@ -579,6 +580,31 @@ function AdminPanel() {
                   }}
                 >
                   {impersonatingUserId === selected.id ? 'Opening…' : 'View platform as this user'}
+                </button>
+                <button
+                  type="button"
+                  disabled={!selected.enabled}
+                  onClick={async () => {
+                    const ok = window.confirm('Email a password reset link to ' + selected.email + '?');
+                    if (!ok) return;
+                    try {
+                      await api.adminUserResetPassword(selected.id);
+                      showSuccess('Reset link emailed to ' + selected.email);
+                    } catch (err) {
+                      showError(err.message || 'Failed to send reset link');
+                    }
+                  }}
+                  style={{
+                    marginTop: 10,
+                    padding: '0.45rem 0.85rem',
+                    borderRadius: 6,
+                    background: 'var(--surface)',
+                    color: 'var(--text)',
+                    border: '1px solid var(--border)',
+                    cursor: selected.enabled ? 'pointer' : 'not-allowed',
+                  }}
+                >
+                  Email password reset link
                 </button>
                 {!selected.enabled && (
                   <p style={{ fontSize: '0.8rem', color: '#f87171', margin: '0.5rem 0 0' }}>

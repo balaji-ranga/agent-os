@@ -16,6 +16,8 @@ import BrowserSession from './pages/BrowserSession';
 import UserProfile from './pages/UserProfile';
 import Connectors from './pages/Connectors';
 import Login from './pages/Login';
+import ResetPassword from './pages/ResetPassword';
+import AdminPlatformFeedback from './pages/AdminPlatformFeedback';
 import Register from './pages/Register';
 import Admin from './pages/Admin';
 import AdminA2AInvocations from './pages/AdminA2AInvocations';
@@ -27,6 +29,7 @@ import CustomScripts from './pages/CustomScripts';
 import ExternalAgents from './pages/ExternalAgents';
 import AgentExchange from './pages/AgentExchange';
 import MasterData from './pages/MasterData';
+import ContentExplorer from './pages/ContentExplorer';
 import ApiKeys from './pages/ApiKeys';
 import Policies from './pages/Policies';
 import AiSnipper from './pages/AiSnipper';
@@ -115,6 +118,7 @@ function Shell() {
       <AuthLayout>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/register" element={<Register />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
@@ -209,6 +213,7 @@ function Shell() {
                 <Route path="/admin/crons" element={<AdminCrons />} />
                 <Route path="/admin/documents-rag" element={<AdminPlatformDocuments />} />
                 <Route path="/admin/tool-onboarding" element={<AdminToolOnboarding />} />
+                <Route path="/admin/platform-feedback" element={<AdminPlatformFeedback />} />
                 <Route path="/integrations/mcp/*" element={<McpIntegrations />} />
                 <Route path="/integrations/custom-scripts" element={<CustomScripts />} />
                 <Route path="/integrations/external-agents" element={<ExternalAgents />} />
@@ -234,6 +239,7 @@ function Shell() {
                 <Route path="/broadcast" element={<Broadcast />} />
                 <Route path="/kanban" element={<Kanban />} />
                 <Route path="/master-data" element={<MasterData />} />
+                <Route path="/content-explorer" element={<ContentExplorer />} />
                 <Route path="/api-keys" element={<ApiKeys />} />
                 <Route path="/policies" element={<Policies />} />
                 <Route path="/ai-snipper" element={<AiSnipper />} />
@@ -269,6 +275,14 @@ export default function App() {
         element={
           <AuthLayout>
             <Login />
+          </AuthLayout>
+        }
+      />
+      <Route
+        path="/reset-password"
+        element={
+          <AuthLayout>
+            <ResetPassword />
           </AuthLayout>
         }
       />

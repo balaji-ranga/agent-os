@@ -589,7 +589,7 @@ export async function runCooStatusChecker(ownerUserId, { email = false, postStan
   let statusOnlyRetry = null;
   try {
     const { runKanbanOrphanWatcher } = await import('./kanban-orphan-watcher.js');
-    statusOnlyRetry = runKanbanOrphanWatcher({ ownerUserId: owner, limit: 15 });
+    statusOnlyRetry = await runKanbanOrphanWatcher({ ownerUserId: owner, limit: 15 });
   } catch (e) {
     console.warn('[status-checker] orphan watcher:', e?.message || e);
     try {

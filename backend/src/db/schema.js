@@ -1215,6 +1215,9 @@ export function initDb() {
     _db.exec(`ALTER TABLE platform_users ADD COLUMN llm_api_key TEXT`);
   } catch (_) {}
   try {
+    _db.exec(`ALTER TABLE platform_users ADD COLUMN llm_model TEXT`);
+  } catch (_) {}
+  try {
     _db.exec(`ALTER TABLE platform_users ADD COLUMN last_login_at TEXT`);
   } catch (_) {}
   try {

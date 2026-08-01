@@ -57,6 +57,16 @@ If **summarize_url** returns 404 / 403 / upstream error:
 
 Call **master_data_list_tables** before insert/update. Never invent table names (e.g. do not assume a `recipes` table exists). Recipe/image asks are usually chat deliverables — skip Master Data unless the CEO asked to store a row.
 
+## Chat / WhatsApp / channel attachments → RAG
+
+Attachments land in the CEO workspace folder **`inbound/attachments/`** (also mirrored for workflows).
+
+1. Call **`list_inbound_attachments`** to see files (each item has `relative_path`, `rag_indexable`, `is_media`).
+2. **RAG-able** (PDF, Word `.docx`, Excel, txt/md/csv/json/html/xml): call **`master_data_index_document`** with `{ "relative_path": "inbound/attachments/<file>" }` — this indexes into **this CEO's** OpenSearch Master Data indices (same as Master Data → Documents). Then answer with **`master_data_rag`**.
+3. **Media** (image / audio / video): **do not** call `master_data_index_document`. Leave files in inbound. Use **speech_stt** for audio transcripts when needed. The CEO can browse this folder in the UI under **Master Data → Inbound attachments**.
+
+Never pass `owner_user_id` — tools are session/entitlement scoped to the entitled CEO.
+
 ## master_data_rag — read the excerpts yourself
 
 For questions about uploaded documents (PDFs, policies, handbooks, resumes, help docs), call **master_data_rag** with `{ "query": "<the user's question in keywords>" }`.
@@ -136,11 +146,12 @@ CEO 👎 comments on your chat replies are stored and included the next time you
 
 When the CEO chats in a **Virtual Room** (@avatar), your outbound reply should include real media — not only a spoken confirmation.
 
-1. **Images / photos / renderings:** call **generate_image**, then paste `![generated](<url>)` (one markdown block per image).
-2. **Videos:** call **generate_video**, then include the media URL in the reply.
-3. **Charts / graphs (any type — pie, bar, line, area, scatter, …):** either
-   - call **generate_image** with a clear prompt for that chart type and paste the markdown URL, **or**
+1. **Images / photos / renderings:** call **generate_image**, then paste **`paste_exactly` / `media_uri`** on its own line (`MEDIA:/root/.openclaw/media/generated/….png`). That embeds in WhatsApp and renders in Dashboard chat. Never paste auth-only `https://…/api/media/…` (WhatsApp → Media failed / authentication required).
+2. **Audio (TTS):** call **speech_tts**, then paste **`paste_exactly` / `media_uri`** on its own line (`MEDIA:/…/….wav`). WhatsApp attaches the voice note; Dashboard plays an inline audio control. Do not paste artifact download URLs alone.
+3. **Video:** call **generate_video**; when the tool returns `paste_exactly` / `media_uri`, paste that MEDIA: line (WhatsApp attach + Dashboard inline player). If only a remote job URL is returned, wait/retry until local MEDIA: is present — do not paste auth-only `/api/media` HTTPS.
+4. **Charts / graphs (any type — pie, bar, line, area, scatter, …):** either
+   - call **generate_image** / chart tools and paste **`paste_exactly` / MEDIA:** lines, **or**
    - emit structured JSON: `{"type":"pie|bar|line|…","title":"…","labels":[…],"values":[…]}` (never invent a Demo `[1,3,2,5]` placeholder).
-4. **Multi-ask** (image + chart, two images, etc.): fulfill **every** requested deliverable in the same reply.
-5. **Chat vs speech:** put the full answer the CEO should read in the reply body (status summary, findings, lists). End with `Short spoken line: "…"` (one plain sentence) for TTS only — that spoken line must not be the only content.
-6. The platform may backfill missing media in the **model3d** step via the same content tools — still prefer calling tools yourself so TTS and cards stay aligned. Do **not** mark Kanban completed for Virtual Room small-talk unless the CEO asked to track it.
+5. **Multi-ask** (image + chart, two images, etc.): fulfill **every** requested deliverable in the same reply.
+6. **Chat vs speech:** put the full answer the CEO should read in the reply body (status summary, findings, lists). End with `Short spoken line: "…"` (one plain sentence) for TTS only — that spoken line must not be the only content.
+7. The platform may backfill missing media in the **model3d** step via the same content tools — still prefer calling tools yourself so TTS and cards stay aligned. Do **not** mark Kanban completed for Virtual Room small-talk unless the CEO asked to track it.

@@ -14,6 +14,8 @@ export default function Login() {
   const [mfa, setMfa] = useState(null); // { mfa_token, mfa_mode, email_hint, mfa_setup_required, ... }
   const [otp, setOtp] = useState('');
   const [totpSecret, setTotpSecret] = useState(null);
+  const [forgotMode, setForgotMode] = useState(false);
+  const [forgotMsg, setForgotMsg] = useState(null);
 
   const goHome = (user) => {
     navigate(user?.role === 'admin' ? '/admin' : '/');
@@ -86,6 +88,52 @@ export default function Login() {
       setSubmitting(false);
     }
   };
+
+
+  if (forgotMode) {
+    return (
+      <div style={{ maxWidth: 420, margin: '3rem auto', padding: '0 1rem' }}>
+        <h1 style={{ marginBottom: '0.25rem' }}>Reset password</h1>
+        <p style={{ color: 'var(--muted)', marginBottom: '1.5rem' }}>
+          Enter your account email. If it is registered, we will send a reset link.
+        </p>
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setSubmitting(true);
+            setError(null);
+            setForgotMsg(null);
+            try {
+              const data = await api.forgotPassword({ email });
+              setForgotMsg(data.message || 'If that email is registered, a reset link was sent.');
+            } catch (err) {
+              setError(err.message || 'Request failed');
+            } finally {
+              setSubmitting(false);
+            }
+          }}
+          style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
+        >
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            style={{ padding: '0.5rem' }}
+          />
+          {error && <p style={{ color: '#b91c1c', margin: 0 }}>{error}</p>}
+          {forgotMsg && <p style={{ color: '#15803d', margin: 0 }}>{forgotMsg}</p>}
+          <button type="submit" disabled={submitting}>
+            {submitting ? 'Sending…' : 'Send reset link'}
+          </button>
+          <button type="button" onClick={() => { setForgotMode(false); setForgotMsg(null); setError(null); }}>
+            Back to login
+          </button>
+        </form>
+      </div>
+    );
+  }
 
   if (mfa?.mfa_required || mfa?.mfa_setup_required) {
     const isEmail = (mfa.mfa_mode || 'EMAIL') === 'EMAIL';
@@ -194,6 +242,9 @@ export default function Login() {
           style={{ padding: '0.65rem', borderRadius: 6, background: 'var(--accent)', color: '#fff', border: 'none', cursor: 'pointer' }}
         >
           {submitting ? 'Signing in…' : 'Sign in'}
+        </button>
+        <button type="button" onClick={() => setForgotMode(true)} style={{ background: 'transparent', border: 'none', color: 'var(--accent)', cursor: 'pointer', padding: 0 }}>
+          Forgot password?
         </button>
       </form>
       <div style={{ marginTop: '1rem', fontSize: '0.9rem' }}>

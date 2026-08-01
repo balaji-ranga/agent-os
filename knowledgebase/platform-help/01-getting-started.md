@@ -24,8 +24,8 @@ Your org may **require** MFA or leave it optional (**inherit** platform default)
 
 1. Click **COO** on the Dashboard → Chat — introduce yourself and ask what agents you have.
 2. Open the **bell** (top bar) — empty until agents notify you or standups produce updates.
-3. Open **Profile** (avatar menu) — set name and MFA prefs. For OpenAI/OpenRouter BYOK, go to **Management → API Keys** and create **`Platform_BYOK`** (do not paste keys on Profile).
-4. Open **Master Data** — confirm **departments** and Platform Help documents exist.
+3. Open **Profile** (avatar menu) — set name and MFA prefs. For OpenAI/OpenRouter BYOK, open **Management → API Keys**, edit the seeded **`Platform_BYOK`** slot, then on Profile choose **provider + chat model** (do not paste keys on Profile).
+4. Open **Master Data** — confirm **departments** and Platform Help documents exist. Optionally open **Content Explorer** to browse uploads and generated media.
 5. Open **Workflows** or ask **Platform Help**: “How do I build a workflow?”
 
 ## Profile and AI model (BYOK)
@@ -34,11 +34,12 @@ Path: avatar → **Profile** (`/profile`).
 
 - Update display name, email, region, mobile, password, MFA.
 - **Model preference:**
-  - **Platform default** — uses the admin-selected platform LLM (no personal key).
-  - **OpenAI / OpenRouter** — requires vault key **`Platform_BYOK`** under **API Keys** (`/api-keys`). Profile only selects the provider.
+  - **Platform default** — uses the admin-selected platform LLM (no personal key). Ops `.env` covers Brave Search and Replicate video.
+  - **Ollama free / DeepSeek (local)** — no LLM key. Optionally pick an Ollama chat model at Register/Profile. The platform seeds vault slots (`Platform_BYOK`, `Replicate_BYOK`, `BRAVE_SEARCH_BYOK`, `elevenlabs-key`) as **unset** — Edit under **API Keys** when you need those features.
+  - **OpenAI / OpenRouter** — fill vault key **`Platform_BYOK`** under **API Keys** first, then on Profile select the **provider** and a **chat model** from the curated list (or a custom model id). Saving syncs that pair into OpenClaw for your tenant agents. Endpoints come from the platform catalog (`GET /api/auth/llm-catalog`) — you do not paste base URLs.
 - **Workflow Brain:** for DeepSeek or OpenRouter nodes you can set **Thinking mode** (and effort) in the node attributes — see [07-workflow-nodes-reference](./07-workflow-nodes-reference.md).
 
-Full vault guide: [15-api-keys-vault.md](./15-api-keys-vault.md).
+Full vault guide: [15-api-keys-vault.md](./15-api-keys-vault.md). Browse uploads/generated media: [26-content-explorer.md](./26-content-explorer.md).
 
 Agents still run through OpenClaw; your BYOK preference affects how the platform selects models for eligible paths.
 

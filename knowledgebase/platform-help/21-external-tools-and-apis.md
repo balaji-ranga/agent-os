@@ -10,7 +10,7 @@ Related: [15-api-keys-vault.md](./15-api-keys-vault.md) (how CEOs store secrets)
 | Layer | Who sets it | Typical use |
 |-------|-------------|-------------|
 | **Platform `.env`** (`deploy/.env`) | Ops / Admin | Default agent chat LLM, SMTP, FMP, Replicate, optional Anthropic |
-| **API Keys vault** (`Platform_BYOK`, `Replicate_BYOK`, and named keys) | CEO | BYOK chat (OpenAI / OpenRouter), video when Profile ≠ platform default, workflow Brain / MCP / Connector secrets |
+| **API Keys vault** (`Platform_BYOK`, `Replicate_BYOK`, `BRAVE_SEARCH_BYOK`, `elevenlabs-key`, …) | CEO | BYOK chat, video/Brave when Profile ≠ platform default, ElevenLabs TTS, workflow Brain / MCP / Connector secrets. Non-platform Profiles auto-seed those named slots as unset. |
 | **Workflow node / MCP headers** | CEO / Workflow Builder | Per-run or vault-ref keys (DeepSeek Brain, Brave `X-Subscription-Token`, etc.) |
 | **Connectors (OpenConnector)** | CEO | OAuth or API key per SaaS app |
 
@@ -26,7 +26,7 @@ Related: [15-api-keys-vault.md](./15-api-keys-vault.md) (how CEOs store secrets)
 | **OpenRouter** | BYOK agent chat; Brain `modelSource=openrouter` | Vault **`Platform_BYOK`** or `OPENROUTER_API_KEY` / Brain `apiKey` | **API Keys** (preferred) or `.env` / node | Optional | Profile → OpenRouter + `Platform_BYOK`. Optional `OPENROUTER_HTTP_REFERER` / `OPENROUTER_SITE_TITLE`. |
 | **Ollama (local)** | Free / local BYOK chat; Brain `ollama`; optional OpenClaw fallback | Usually no real key (`ollama` / `OLLAMA_API_KEY` placeholder) | Local Ollama service + Profile / Brain | Optional | Not a paid vendor API; needs the Ollama process and pulled models. |
 | **Brevo (SMTP)** | MFA email OTP, workflow **Send Email**, `email_send` tool (ICS invites), COO status HTML email | `WORKFLOW_SMTP_HOST` / `USER` / `PASS` / `FROM` (Brevo: `smtp-relay.brevo.com`) | Platform `.env` (or per-node SMTP) | **Yes** for outbound email / email MFA | Sender domain must be verified in Brevo. In-app `notify_ceo` does **not** need SMTP. |
-| **Brave Search** | Web search via Brave Search MCP (`brave_web_search`, etc.) | Brave subscription token | Workflow / MCP **headers** (BYOK) or vault key referenced on the node | Optional | Platform `BRAVE_API_KEY` is **not** injected into the MCP container — pass `X-Subscription-Token` or Bearer from the workflow. |
+| **Brave Search** | Agent content tool `brave_web_search`; also workflow Brave MCP | Platform: `BRAVE_API_KEY`; non-platform Profile: vault **`BRAVE_SEARCH_BYOK`** | Platform `.env` **or** **API Keys** | Optional | Platform default Profile → ops key. Any other Profile → CEO `BRAVE_SEARCH_BYOK` only (no platform fall-back). Workflow MCP remains header/vault BYOK on the node. |
 | **Financial Modeling Prep (FMP)** | Market regime, screener, history, fundamentals (IBKR monthly trading tools) | `MARKET_DATA_API_KEY` | Platform `.env` | Optional (required for live market tools) | Default base `https://financialmodelingprep.com/stable`. Free tier has daily call limits; paid recommended for daily screens. |
 | **Replicate** | Video content tool (`generate_video`) | Platform: `REPLICATE_API_TOKEN`; non-platform Profile: vault **`Replicate_BYOK`** | Platform `.env` **or** **API Keys** | Optional | Platform default Profile → ops token. Any other Profile → CEO `Replicate_BYOK` only (no platform fall-back). |
 | **Whisper + Piper** | Free STT/TTS (`speech_stt` / `speech_tts` tools, chat mic, workflow nodes) | None (self-host) | `SPEECH_STT_URL` / `SPEECH_TTS_URL` + Compose profile `optional-voice` | Optional (required for free speech tools) | See [25-speech-and-published-scenes.md](./25-speech-and-published-scenes.md). |
@@ -45,7 +45,7 @@ Related: [15-api-keys-vault.md](./15-api-keys-vault.md) (how CEOs store secrets)
 |------|-------------|----------|
 | Default platform LLM | DeepSeek (or whatever `OPENAI_BASE_URL` points at) | `OPENAI_API_KEY` |
 | Admin secondary LLM | OpenAI / DeepSeek / other OpenAI-compatible | `OPENAI_SECONDARY_*` |
-| CEO BYOK chat | OpenAI or OpenRouter | Vault name exactly **`Platform_BYOK`** + Profile provider |
+| CEO BYOK chat | OpenAI or OpenRouter | Vault name exactly **`Platform_BYOK`** (auto-seeded unset on non-platform Profiles) + Profile **provider + chat model** (`GET /api/auth/llm-catalog`) |
 | Claude models | Anthropic | `ANTHROPIC_API_KEY` |
 | Local free | Ollama | No paid key; service must be up |
 
@@ -56,10 +56,13 @@ Related: [15-api-keys-vault.md](./15-api-keys-vault.md) (how CEOs store secrets)
 | `summarize_url` / LLM summaries | Same as platform / secondary LLM | `OPENAI_*` / DeepSeek |
 | Image generation | OpenAI-compatible image API | Same primary LLM key + `TOOLS_IMAGE_MODEL` |
 | Video generation | Replicate | Platform default Profile → `REPLICATE_API_TOKEN`; else vault **`Replicate_BYOK`** |
+| `brave_web_search` | Brave Search | Platform default Profile → `BRAVE_API_KEY`; else vault **`BRAVE_SEARCH_BYOK`** |
+| `speech_tts` / `speech_stt` | Self-host Piper + Whisper | None — `SPEECH_*_URL` + `optional-voice` |
 | `email_send` | SMTP (Brevo) | `WORKFLOW_SMTP_*` |
 | `forex_rates` | Frankfurter (ECB) | **None** — public HTTP API |
 | Market / IBKR tools | FMP + IBKR Gateway | `MARKET_DATA_API_KEY` + local IBKR |
 
+**Delivery (image / video / TTS):** tools return `MEDIA:/abs/path` for WhatsApp disk attach and auth-only `/api/media/…` for Dashboard inline players. Not world-public unless ops sets `MEDIA_PUBLIC_SIGNED=1`. See [11](./11-content-tools-scripts-profile.md), [24](./24-agent-channels.md).
 ### Workflows
 
 | Node / feature | External dependency | Key |
@@ -99,7 +102,7 @@ CEOs still add **`Platform_BYOK`** (chat), **`Replicate_BYOK`** (video when Prof
 ## Tips for Platform Help answers
 
 - “Where do I put my OpenAI key?” → **API Keys** vault as **`Platform_BYOK`**, then Profile provider = OpenAI.  
-- “Why doesn’t Brave search work?” → Pass Brave token on the workflow/MCP node; platform `BRAVE_API_KEY` alone does not feed the MCP container.  
+- “Why doesn’t Brave search work?” → Agent tool: Platform default needs ops `BRAVE_API_KEY`; other Profiles need vault **`BRAVE_SEARCH_BYOK`**. Workflow MCP still needs the token on the node headers (container does not use env).  
 - “Emails / MFA OTP fail?” → Check Brevo SMTP `WORKFLOW_SMTP_*` and verified sender.  
 - “Market screener empty / 402?” → FMP plan limits; see FMP free vs paid notes in IBKR maker tools docs.  
 - “Brain DeepSeek 401?” → Key must be on the Brain node or vault ref — not only in platform `.env`.

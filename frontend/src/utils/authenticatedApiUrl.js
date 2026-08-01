@@ -13,6 +13,10 @@ export function normalizeApiPath(href) {
 }
 
 export function isAuthenticatedApiPath(href) {
+  const raw = String(href || '');
   const p = normalizeApiPath(href);
-  return p.startsWith('/api/job-applicant/') || p.startsWith('/api/media/');
+  // All /api/media paths need Bearer (or MEDIA: rewrite) — signed public fetch is off by default.
+  // If a legacy ?sig= URL is pasted, still try Bearer so chat players work when signed mode is disabled.
+  void raw;
+  return p.startsWith('/api/job-applicant/') || p.startsWith('/api/media/') || /\/api\/media\//i.test(raw);
 }

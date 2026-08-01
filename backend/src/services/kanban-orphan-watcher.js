@@ -475,14 +475,19 @@ export async function runKanbanOrphanWatcher({ ownerUserId = null, limit = 25 } 
   let process_pending = null;
   if (needsProcess) {
     try {
-      const { processPendingDelegationTasksForCeo, processPendingDelegationTasksForAllCeos } =
-        await import('./delegation-queue.js');
+      const { processPendingDelegationTasksForCeo } = await import('./delegation-queue.js');
       if (owner) {
-        await processPendingDelegationTasksForCeo(owner);
+        await processPendingDelegationTasksForCeo(owner, { skipOrphanWatcher: true });
         process_pending = { owner_user_id: owner, kicked: true };
       } else {
-        await processPendingDelegationTasksForAllCeos();
-        process_pending = { all: true, kicked: true };
+        // Avoid re-entering orphan watcher for every CEO while we already are it.
+        const ceos = db()
+          .prepare(`SELECT id FROM platform_users WHERE role = 'ceo' AND enabled = 1`)
+          .all();
+        for (const ceo of ceos) {
+          await processPendingDelegationTasksForCeo(ceo.id, { skipOrphanWatcher: true });
+        }
+        process_pending = { all: true, kicked: true, ceo_count: ceos.length };
       }
       console.info(
         '[orphan-watcher] kicked processPending after recovery owner=%s recovered=%s',
@@ -514,7 +519,7 @@ export async function runKanbanOrphanWatcherForAllCeos() {
   const results = [];
   for (const ceo of ceos) {
     try {
-      results.push(runKanbanOrphanWatcher({ ownerUserId: ceo.id, limit: 20 }));
+      results.push(await runKanbanOrphanWatcher({ ownerUserId: ceo.id, limit: 20 }));
     } catch (e) {
       console.warn('[orphan-watcher] ceo failed', ceo.id, e?.message || e);
       results.push({ owner_user_id: ceo.id, ok: false, error: e?.message || String(e) });

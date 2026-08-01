@@ -19,9 +19,10 @@ import {
   userLlmPublic,
   syncUserLlmToOpenClaw,
 } from './user-llm-settings.js';
+import { normalizeLlmModelForProvider } from '../config/llm-provider-registry.js';
 import { ensureCeoDefaultMasterData } from './ceo-default-master-data.js';
 import { removeWorkflowSchedulesForOwner, syncWorkflowScheduleRegistry } from './agent-workflow-store.js';
-import { PLATFORM_BYOK_KEY_NAME } from './user-api-keys.js';
+import { PLATFORM_BYOK_KEY_NAME, ensureByokVaultSlots } from './user-api-keys.js';
 import { isAgentTombstoned } from './agent-delete.js';
 import { normalizeRetentionDays } from './data-retention.js';
 
@@ -188,6 +189,7 @@ export async function registerCeoUser({
   mfa_policy = 'inherit',
   mfa_mode = null,
   llm_provider = 'platform_decided',
+  llm_model = null,
   llm_api_key = null,
   industry = '',
   industry_other = '',
@@ -234,11 +236,14 @@ export async function registerCeoUser({
     );
   }
   const apiKey = null;
+  const modelNorm = normalizeLlmModelForProvider(provider, llm_model, { required: false });
+  if (!modelNorm.ok) throw Object.assign(new Error(modelNorm.error), { status: 400 });
+  const modelToStore = provider === 'platform_decided' ? null : modelNorm.model;
 
   db.prepare(
     `INSERT INTO platform_users
-      (id, email, password_hash, name, region, mobile, role, enabled, ceo_db_mode, mfa_policy, mfa_mode, mfa_enabled, llm_provider, llm_api_key, industry, industry_other, business_name)
-     VALUES (?, ?, ?, ?, ?, ?, 'ceo', 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      (id, email, password_hash, name, region, mobile, role, enabled, ceo_db_mode, mfa_policy, mfa_mode, mfa_enabled, llm_provider, llm_model, llm_api_key, industry, industry_other, business_name)
+     VALUES (?, ?, ?, ?, ?, ?, 'ceo', 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     normalizedEmail,
@@ -251,6 +256,7 @@ export async function registerCeoUser({
     userMode,
     enabledFlag,
     provider,
+    modelToStore,
     apiKey,
     industryFields.industry,
     industryFields.industry_other,
@@ -259,6 +265,12 @@ export async function registerCeoUser({
 
   if (mode === 'tenant' && !isPlatformLegacyCeo(id)) initCeoDb(id);
   const agents = grantStandardAgents(id);
+
+  try {
+    ensureByokVaultSlots(id, provider);
+  } catch (e) {
+    console.warn(`[registerCeoUser] ensureByokVaultSlots for ${id}:`, e.message);
+  }
 
   let default_master_data = null;
   try {
@@ -287,7 +299,7 @@ export async function registerCeoUser({
     business_name: industryFields.business_name,
     standard_agents_granted: agents,
     default_master_data,
-    ...userLlmPublic({ llm_provider: provider, llm_api_key: apiKey }),
+    ...userLlmPublic({ id, llm_provider: provider, llm_model: modelToStore, llm_api_key: apiKey }),
   };
 }
 
@@ -344,6 +356,7 @@ export function userPublic(row) {
     mfa_mode: row.mfa_mode || null,
     mfa_enabled: !!row.mfa_enabled,
     llm_provider: llm.llm_provider,
+    llm_model: llm.llm_model,
     llm_api_key_set: llm.llm_api_key_set,
     llm_api_key_hint: llm.llm_api_key_hint,
   };
@@ -459,6 +472,7 @@ export function updateUserProfile(
     mfa_policy,
     mfa_mode,
     llm_provider,
+    llm_model,
     llm_api_key,
     clear_llm_api_key,
     industry,
@@ -526,8 +540,13 @@ export function updateUserProfile(
     updateUserMfaSettings(userId, { mfa_policy, mfa_mode });
   }
 
-  if (llm_provider !== undefined || llm_api_key !== undefined || clear_llm_api_key) {
-    updateUserLlmSettings(userId, { llm_provider, llm_api_key, clear_llm_api_key });
+  if (
+    llm_provider !== undefined ||
+    llm_model !== undefined ||
+    llm_api_key !== undefined ||
+    clear_llm_api_key
+  ) {
+    updateUserLlmSettings(userId, { llm_provider, llm_model, llm_api_key, clear_llm_api_key });
   }
 
   return getUserById(userId);

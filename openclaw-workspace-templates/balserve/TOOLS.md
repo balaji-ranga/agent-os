@@ -54,8 +54,15 @@ Use these for **org master tables** (e.g. departments) and **document RAG**. Dat
 | **master_data_insert_row** | Insert `{ table_name, data:{…} }` into an existing table. |
 | **master_data_update_row** | Update `{ table_name, row_id, data:{…} }`. |
 | **master_data_delete_row** | Delete `{ table_name, row_id }` (row only — not the table). |
-| **master_data_list_documents** | DISCOVERY for uploaded docs (optional before RAG). |
-| **master_data_rag** | Answer from **document** content (`query` required). Use for PDFs/policies/"what does the doc say" — not for structured tables. Omit `summarize` (defaults `false`) and answer from `chunks[]` yourself. |
+| **master_data_list_documents** | DISCOVERY for already-indexed docs (optional before RAG). |
+| **list_inbound_attachments** | List chat / WhatsApp / channel files under `inbound/attachments/` (relative_path, rag_indexable, is_media). |
+| **master_data_index_document** | Index a **RAG-able** file into this CEO's OpenSearch docs (same as Master Data → Documents). Prefer `{ "relative_path": "inbound/attachments/…" }` from list_inbound. Or `content_base64` / `content_text` + `filename`. **Rejects** images/audio/video. |
+| **master_data_rag** | Answer from **indexed document** content (`query` required). Omit `summarize` (defaults `false`) and answer from `chunks[]` yourself. |
+
+**Chat / WhatsApp / channel attachments:**
+1. **`list_inbound_attachments`** — see what landed in `inbound/attachments/`.
+2. If **PDF, Word (.docx), Excel, txt/md/csv/json/html/xml** → **`master_data_index_document`** `{ "relative_path": "…" }` then **`master_data_rag`** with the user question (optional `document_id` from the index result).
+3. If **image / audio / video** → **do not index for RAG**. Leave the file in inbound. For audio, use **speech_stt** when a transcript is needed. Tell the CEO they can browse inbound files under **Master Data → Inbound attachments**.
 
 **Example — departments in this org:**
 1. **master_data_list_tables** → find table whose purpose/name matches departments
@@ -65,6 +72,7 @@ Use these for **org master tables** (e.g. departments) and **document RAG**. Dat
 **Example — question about an uploaded document:**
 1. Prefer **master_data_rag** `{ "query": "<user question>" }`
 2. Or **master_data_list_documents** then rag with `document_id` if needed
+3. If the file only exists in inbound and is not indexed yet → index first, then rag
 
 Do **not** use the browser tool for Master Data.
 
@@ -95,6 +103,19 @@ Use **notify_ceo** **only** when the CEO explicitly asked you to reach/notify/pi
 ```
 
 **COO only:** If the CEO asks you to have *another* agent reach them, do **not** call notify_ceo yourself — **sessions_send** to that agent and instruct them to call notify_ceo.
+
+---
+
+## Speech (free Whisper STT + Piper TTS)
+
+Use these Agent OS content tools (not ElevenLabs) when the CEO asks you to speak or transcribe:
+
+| Tool | When |
+|------|------|
+| **speech_tts** | Synthesize speech: `{ "text": "Hello from BalServe" }` → returns `url` / media artifact |
+| **speech_stt** | Transcribe: `{ "artifact_id": "<id>" }` from a prior TTS/upload, or `{ "content_base64": "..." }` |
+
+Requires platform `optional-voice` (whisper + piper). If the tool returns 503, say speech services are not running.
 
 ---
 

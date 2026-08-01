@@ -32,7 +32,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/generate-video',
     method: 'POST',
     purpose:
-      'Generate a short video from a text prompt (Replicate). Platform-default Profile uses platform REPLICATE_API_TOKEN; any other Profile requires vault Replicate_BYOK (no platform fall-back).',
+      'Generate a short video from a text prompt (Replicate). When ready, paste paste_exactly/media_uri (MEDIA:/abs/path) on its own line so WhatsApp attaches the video; Dashboard plays it inline. Do not paste auth-only https /api/media URLs.',
     model_used: 'zeroscope-v2-xl (Replicate)',
     enabled: 1,
     is_builtin: 1,
@@ -310,12 +310,34 @@ const BUILTIN_TOOLS = [
     is_builtin: 1,
   },
   {
+    name: 'platform_feedback_submit',
+    display_name: 'Submit Platform Feedback',
+    endpoint: '/api/tools/platform-feedback-submit',
+    method: 'POST',
+    purpose:
+      'API tool (COO): file a platform bug, feedback, or enhancement for Admin. Parameters: title (required), optional category (bug|feedback|enhancement), body. Returns id + status=open. Do not run via exec.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'platform_feedback_enquire',
+    display_name: 'Enquire Platform Feedback Status',
+    endpoint: '/api/tools/platform-feedback-enquire',
+    method: 'POST',
+    purpose:
+      'API tool (COO / Platform Help): look up platform feedback by id or filter status/category/query. Returns status (open|implemented|rejected) and status_reason. Do not run via exec.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
     name: 'speech_tts',
     display_name: 'Speech TTS (Piper)',
     endpoint: '/api/tools/speech-tts',
     method: 'POST',
     purpose:
-      'API tool: free local text-to-speech via Piper (SPEECH_TTS_URL / optional-voice). Invoke with text (required), optional voice, length_scale. Returns audio media ref + url for the entitled CEO. Do not run via exec or shell. Prefer this over ElevenLabs when free speech is enough.',
+      'API tool: free local Piper TTS. Invoke with text (required), optional voice, length_scale, format (wav default|mp3|m4a|ogg|opus). Returns paste_exactly/media_uri — WhatsApp MEDIA: uses OGG/Opus (or MP3); WAV often Media-fails. Dashboard plays inline. Prefer this over ElevenLabs when free speech is enough.',
     model_used: 'piper',
     enabled: 1,
     is_builtin: 1,
@@ -454,6 +476,34 @@ const BUILTIN_TOOLS = [
     is_builtin: 1,
   },
   {
+    name: 'list_inbound_attachments',
+    display_name: 'List Inbound Attachments',
+    endpoint: '/api/tools/list-inbound-attachments',
+    method: 'POST',
+    purpose:
+      'API tool: list files in this CEO\'s workspace inbound/attachments (chat, WhatsApp, channel uploads). ' +
+      'Returns relative_path, size, rag_indexable, is_media. ' +
+      'For PDF/Word/Excel/text: call master_data_index_document then master_data_rag. ' +
+      'For images/audio/video: leave in inbound (no RAG); use speech_stt for audio if needed. No parameters.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'master_data_index_document',
+    display_name: 'Master Data — Index Document (RAG)',
+    endpoint: '/api/tools/master-data-index-document',
+    method: 'POST',
+    purpose:
+      'API tool: index a RAG-able document into this CEO\'s OpenSearch Master Data indices (same as Master Data → Documents). ' +
+      'Prefer relative_path from list_inbound_attachments (inbound/attachments/…). Or content_base64 / content_text + filename. ' +
+      'Optional title, mime_type, tags. Rejects images/audio/video. Supported: PDF, Word .docx, Excel, txt/md/csv/json/html/xml. ' +
+      'Owner is session-scoped (never pass owner_user_id). After indexing, call master_data_rag with the question (optional document_id).',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
     name: 'vedic_compute_chart',
     display_name: 'Vedic Astrology — Compute Chart Data',
     endpoint: '/api/tools/vedic-compute-chart',
@@ -519,7 +569,9 @@ const NOTIFY_CEO_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'notify_ceo');
 const CEO_PROFILE_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'ceo_profile');
 const STATUS_CHECKER_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'status_checker');
 const CONNECTOR_TOOLS = BUILTIN_TOOLS.filter((t) => String(t.name).startsWith('connector_'));
-const MASTER_DATA_TOOLS = BUILTIN_TOOLS.filter((t) => String(t.name).startsWith('master_data_'));
+const MASTER_DATA_TOOLS = BUILTIN_TOOLS.filter(
+  (t) => String(t.name).startsWith('master_data_') || t.name === 'list_inbound_attachments'
+);
 const VEDIC_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'vedic_compute_chart');
 const CHART_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'generate_chart');
 
@@ -736,4 +788,46 @@ export function seedVedicChartToolIfMissing() {
 /** Alias — seed generic chart tool (same as seedVedicChartToolIfMissing for generate_chart). */
 export function seedGenerateChartToolIfMissing() {
   seedVedicChartToolIfMissing();
+}
+
+
+const PLATFORM_FEEDBACK_TOOLS = BUILTIN_TOOLS.filter(
+  (t) => t.name === 'platform_feedback_submit' || t.name === 'platform_feedback_enquire'
+);
+
+/** Add platform feedback tools if missing. */
+export function seedPlatformFeedbackToolsIfMissing() {
+  const db = getDb();
+  const stmt = db.prepare(
+    `INSERT OR IGNORE INTO content_tools_meta (name, display_name, endpoint, method, purpose, model_used, enabled, is_builtin)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  for (const t of PLATFORM_FEEDBACK_TOOLS) {
+    stmt.run(t.name, t.display_name, t.endpoint, t.method, t.purpose, t.model_used, t.enabled, t.is_builtin);
+  }
+  const update = db.prepare(
+    'UPDATE content_tools_meta SET purpose = ?, display_name = ?, endpoint = ?, method = ? WHERE name = ?'
+  );
+  for (const t of PLATFORM_FEEDBACK_TOOLS) {
+    update.run(t.purpose, t.display_name, t.endpoint, t.method, t.name);
+  }
+}
+
+export function grantPlatformFeedbackTools() {
+  const db = getDb();
+  const ins = db.prepare('INSERT OR IGNORE INTO agent_tool_grants (agent_id, tool_name) VALUES (?, ?)');
+  const agents = db.prepare('SELECT id FROM agents').all();
+  let n = 0;
+  for (const a of agents) {
+    const id = String(a.id || '').toLowerCase();
+    const isCoo = id === 'balserve' || id.endsWith('--balserve') || /(^|--)coo$/.test(id);
+    const isHelp = id === 'platformhelp' || id.endsWith('--platformhelp');
+    if (isCoo) {
+      if (ins.run(a.id, 'platform_feedback_submit').changes) n += 1;
+      if (ins.run(a.id, 'platform_feedback_enquire').changes) n += 1;
+    } else if (isHelp) {
+      if (ins.run(a.id, 'platform_feedback_enquire').changes) n += 1;
+    }
+  }
+  return n;
 }

@@ -8,7 +8,7 @@ Documentation lives here so Cursor and humans can find it. **Root README.md** st
 |------|---------|
 | **VISION.md** | Product purpose, vision, core strengths, differentiator, and strategic focuses (agent company OS + governed A2A). |
 | **PITCH.md** | One-pager pitch: problem, solution, differentiators, audience, and success journey (from VISION). |
-| **platform-help/** | CEO end-user Platform Help corpus (RAG; includes **20–25**: IBKR, external tools, browser session, avatars, channels, speech/published scenes) |
+| **platform-help/** | CEO end-user Platform Help corpus (RAG; **11** media lockdown / attachments / platform feedback; **20–26**: IBKR, external tools, browser session, avatars, channels + MEDIA inbound/outbound, speech/published scenes, **Content Explorer**) |
 | **AGENT-WORKSPACE-TEMPLATES.md** | Platform-shared agent workspace MD templates: apply in Agent Workspace, Admin CRUD, CEO publish-as-template. |
 | **TESTING.md** | Restart steps, full API test, frontend manual tests, smoke test, standup→COO→TechResearcher test, standup UI checklist. |
 | **GITHUB-SETUP.md** | One-time: create agent-os repo on GitHub and push (Options A/B, security check). |

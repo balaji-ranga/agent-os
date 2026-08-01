@@ -38,16 +38,18 @@ Avatar outbound workflows expect real deliverables in the agent reply:
 
 | Ask | Agent should | Fallback if reply omits media |
 |-----|--------------|-------------------------------|
-| Image / photo / rendering (any subject) | `generate_image` + `![generated](url)` | model3d calls `generate_image` from the user prompt |
-| Video | `generate_video` + media URL | model3d calls `generate_video` |
+| Image / photo / rendering (any subject) | `generate_image` + paste `paste_exactly` / `MEDIA:/…` (Dashboard also plays `relative_url`) | model3d calls `generate_image` from the user prompt |
+| Video | `generate_video` + `MEDIA:/…` (not bare auth HTTPS) | model3d calls `generate_video` |
+| Speak / voice | `speech_tts` + `MEDIA:/…` (prefer ogg/opus for WhatsApp) | Piper / ElevenLabs per room template |
 | Chart / graph (pie, bar, line, area, scatter, …) | `generate_image` of that chart **or** JSON `{"type":"…","title":"…","labels":[…],"values":[…]}` | model3d fulfills via `generate_image` for the detected chart kind, or canvas chart when real values exist |
+
+Do **not** rely on world-open absolute HTTPS media URLs — generated media is auth-only unless ops enables `MEDIA_PUBLIC_SIGNED=1`. Guest Published Scenes use separate public VR artifact tokens ([25](./25-speech-and-published-scenes.md)).
 
 Never use a Demo/`[1,3,2,5]` placeholder chart. Multi-ask (image + chart) must produce **every** item — stacked cards, newest on top.
 
 Shared agent guidance: `openclaw-workspace-templates/_shared/AGENT-OS-OPS.md` (§ Virtual Room / avatar media) and TechResearcher `TOOLS.md`.
 
 ## Scenes & media overlays
-
 Scene JSON example:
 
 ```json

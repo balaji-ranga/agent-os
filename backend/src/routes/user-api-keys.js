@@ -5,6 +5,7 @@
  */
 import { Router } from 'express';
 import { requireAuth, resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
+import { getDb } from '../db/schema.js';
 import {
   listUserApiKeys,
   createUserApiKey,
@@ -14,6 +15,10 @@ import {
   getUserApiKeyById,
   PLATFORM_BYOK_KEY_NAME,
   REPLICATE_BYOK_KEY_NAME,
+  BRAVE_SEARCH_BYOK_KEY_NAME,
+  ELEVENLABS_BYOK_KEY_NAME,
+  ensureByokVaultSlots,
+  requiredByokVaultSlots,
 } from '../services/user-api-keys.js';
 
 const router = Router();
@@ -23,13 +28,34 @@ function ownerId(req) {
   return resolveAuthenticatedCeoUserId(req, req.body || req.query || {});
 }
 
+function ownerLlmProvider(owner) {
+  try {
+    const row = getDb()
+      .prepare(`SELECT llm_provider FROM platform_users WHERE id = ?`)
+      .get(String(owner || ''));
+    return row?.llm_provider || 'platform_decided';
+  } catch {
+    return 'platform_decided';
+  }
+}
+
 router.get('/', (req, res) => {
   try {
     const owner = ownerId(req);
+    const provider = ownerLlmProvider(owner);
+    try {
+      ensureByokVaultSlots(owner, provider);
+    } catch (e) {
+      console.warn('[user-api-keys] list ensureByokVaultSlots:', e.message);
+    }
     res.json({
       keys: listUserApiKeys(owner),
       platform_byok_key_name: PLATFORM_BYOK_KEY_NAME,
       replicate_byok_key_name: REPLICATE_BYOK_KEY_NAME,
+      brave_search_byok_key_name: BRAVE_SEARCH_BYOK_KEY_NAME,
+      elevenlabs_byok_key_name: ELEVENLABS_BYOK_KEY_NAME,
+      recommended_byok_slots: requiredByokVaultSlots(provider).map((s) => s.key_name),
+      llm_provider: provider,
     });
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message });

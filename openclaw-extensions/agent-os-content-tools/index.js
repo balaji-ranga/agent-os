@@ -164,6 +164,15 @@ const PARAM_SCHEMAS = {
     },
     additionalProperties: true,
   },
+  brave_web_search: {
+    type: 'object',
+    properties: {
+      query: { type: 'string', description: 'Search query (required).' },
+      count: { type: 'number', description: 'Result count 1–20 (default 5).' },
+    },
+    required: ['query'],
+    additionalProperties: true,
+  },
 
   kanban_move_status: {
     type: "object",
@@ -373,6 +382,60 @@ const PARAM_SCHEMAS = {
     },
     additionalProperties: true,
   },
+  speech_tts: {
+    type: "object",
+    properties: {
+      text: { type: "string", description: "Text to speak (required). Uses free Piper TTS." },
+      voice: { type: "string", description: "Optional Piper voice id." },
+      length_scale: { type: "number", description: "Optional speech rate (Piper length_scale)." },
+      format: {
+        type: "string",
+        description: "Output format: wav (default), mp3, m4a, ogg, or opus. WhatsApp MEDIA: paste uses OGG/Opus (or MP3) even when wav is requested — WAV often shows Media failed.",
+        enum: ["wav", "mp3", "m4a", "ogg", "opus"],
+      },
+      speak_clean: {
+        type: "boolean",
+        description: "If true (default), strip markdown/emoji for cleaner speech.",
+      },
+    },
+    required: ["text"],
+    additionalProperties: true,
+  },
+  speech_stt: {
+    type: "object",
+    properties: {
+      artifact_id: { type: "string", description: "CEO media artifact id (e.g. from speech_tts)." },
+      media_ref: { type: "object", description: "Media ref object with artifactId/url." },
+      audio: { type: "string", description: "Alias for artifact id or media ref." },
+      content_base64: { type: "string", description: "Raw audio bytes as base64 (alternative to artifact)." },
+      filename: { type: "string", description: "Filename when using content_base64." },
+      mime_type: { type: "string", description: "MIME type when using content_base64." },
+      language: { type: "string", description: "Optional language hint (e.g. en)." },
+      model: { type: "string", description: "Optional Whisper model id (default whisper-1)." },
+    },
+    additionalProperties: true,
+  },
+  platform_feedback_submit: {
+    type: "object",
+    properties: {
+      category: { type: "string", description: "bug | feedback | enhancement", enum: ["bug", "feedback", "enhancement"] },
+      title: { type: "string", description: "Short title (required)." },
+      body: { type: "string", description: "Details / steps to reproduce / proposal." },
+    },
+    required: ["title"],
+    additionalProperties: true,
+  },
+  platform_feedback_enquire: {
+    type: "object",
+    properties: {
+      id: { type: "string", description: "Feedback id to fetch one item." },
+      status: { type: "string", description: "Filter: open | implemented | rejected" },
+      category: { type: "string", description: "Filter: bug | feedback | enhancement" },
+      query: { type: "string", description: "Keyword search across title/body/initiator." },
+      limit: { type: "number" },
+    },
+    additionalProperties: true,
+  },
   notify_ceo: {
     type: "object",
     properties: {
@@ -463,6 +526,32 @@ const PARAM_SCHEMAS = {
         type: "boolean",
         description:
           "Default false — returns raw excerpts you read yourself (no LLM cost). Set true only when the excerpts are too long or scattered to answer directly.",
+      },
+    },
+    additionalProperties: true,
+  },
+  list_inbound_attachments: {
+    type: "object",
+    properties: {},
+    additionalProperties: false,
+  },
+  master_data_index_document: {
+    type: "object",
+    properties: {
+      relative_path: {
+        type: "string",
+        description:
+          "Preferred: path from list_inbound_attachments, e.g. inbound/attachments/report.pdf",
+      },
+      content_base64: { type: "string", description: "Alternative: base64 file bytes" },
+      content_text: { type: "string", description: "Alternative: plain text body" },
+      filename: { type: "string", description: "Filename when using content_base64/content_text" },
+      title: { type: "string", description: "Optional document title" },
+      mime_type: { type: "string", description: "Optional MIME type" },
+      tags: {
+        type: "array",
+        items: { type: "string" },
+        description: "Optional tags",
       },
     },
     additionalProperties: true,
@@ -620,8 +709,47 @@ export default definePluginEntry({
               const invokeCaller = resolveCallerAgentId(api, raw, toolCtx);
               const { __openclaw_agent_id, caller_agent_id, agent_id, ...rest } = raw;
               const result = await callInvoke(api, name, rest, invokeCaller, toolCtx);
-              const text = result.ok ? JSON.stringify(result.data) : JSON.stringify({ error: result.error });
-              return { content: [{ type: "text", text }] };
+              if (!result.ok) {
+                return { content: [{ type: "text", text: JSON.stringify({ error: result.error }) }] };
+              }
+              let data = result.data;
+              // Force WhatsApp-safe paste: MEDIA:/abs/path (not auth-gated https).
+              if (
+                (name === "generate_image" ||
+                  name === "generate_chart" ||
+                  name === "speech_tts" ||
+                  name === "generate_video") &&
+                data &&
+                typeof data === "object"
+              ) {
+                const paste =
+                  data.paste_exactly ||
+                  data.media_uri ||
+                  data.audio?.paste_exactly ||
+                  data.audio?.media_uri ||
+                  (Array.isArray(data.charts) && data.charts[0]?.media_uri) ||
+                  null;
+                if (paste) {
+                  const kind =
+                    name === "speech_tts"
+                      ? "audio"
+                      : name === "generate_video"
+                        ? "video"
+                        : "image";
+                  data = {
+                    ...data,
+                    agent_reply_instructions:
+                      "For the user-facing reply, put this EXACT line on its own line so WhatsApp attaches the " +
+                      kind +
+                      " inline (do not paste auth-only https /api/media URLs — that causes Media failed):\n" +
+                      String(paste) +
+                      (data.web_markdown
+                        ? "\nOptional Dashboard-only markdown: " + String(data.web_markdown)
+                        : ""),
+                  };
+                }
+              }
+              return { content: [{ type: "text", text: JSON.stringify(data) }] };
             },
           };
         },
