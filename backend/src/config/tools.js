@@ -5,6 +5,8 @@
  */
 import { randomBytes } from 'crypto';
 import { getLlmConfig } from './llm.js';
+import { REPLICATE_BYOK_KEY_NAME, tryResolveUserApiKey } from '../services/user-api-keys.js';
+export { REPLICATE_BYOK_KEY_NAME };
 
 function normalizeBaseUrl(url) {
   if (!url || typeof url !== 'string') return '';
@@ -158,15 +160,13 @@ const REPLICATE_DEFAULT_BASE = 'https://api.replicate.com/v1';
 
 /**
  * Video generation via Replicate.
- * When owner has BYOK openai/openrouter, still use platform Replicate tokens unless
- * REPLICATE_BYOK_ALLOW=0; optional per-user override via env is not stored — platform keys
- * remain for Replicate. If user BYOK is set we prefer not falling back to shared OpenAI for
- * anything else; video stays Replicate (separate billing).
  *
- * @param {string|null} [ownerUserId] - reserved for future per-user Replicate; currently scopes logging
+ * - Profile **Platform default** (or no owner): platform `REPLICATE_API_TOKEN` (+ optional secondary).
+ * - Any other Profile LLM preference: vault **`Replicate_BYOK` only** — never the platform token.
+ *
+ * @param {string|null} [ownerUserId]
  */
 export function getVideoConfig(ownerUserId = null) {
-  void ownerUserId;
   const maxPromptChars = Math.min(parseInt(process.env.TOOLS_VIDEO_MAX_PROMPT_CHARS || '500', 10) || 500, 2000);
 
   const primaryBase =
@@ -179,25 +179,87 @@ export function getVideoConfig(ownerUserId = null) {
   const secondaryToken = (process.env.REPLICATE_SECONDARY_API_TOKEN || '').trim();
   const secondaryVersion = (process.env.TOOLS_VIDEO_SECONDARY_MODEL_VERSION || '').trim();
 
-  // Optional: user-scoped Replicate token header from tools request is not used — keys stay env.
-  // When CEO has OpenAI BYOK, image uses their key; video remains platform Replicate (different vendor).
+  let provider = 'platform_decided';
+  if (ownerUserId) {
+    try {
+      const llm = getLlmConfig(ownerUserId);
+      provider = String(llm?.provider || 'platform_decided').trim() || 'platform_decided';
+    } catch {
+      provider = 'platform_decided';
+    }
+  }
 
-  const primary = {
-    apiUrl: primaryBase,
-    apiToken: primaryToken,
-    modelVersion: primaryVersion,
-    maxPromptChars,
+  const usePlatformToken = !ownerUserId || provider === 'platform_decided';
+
+  if (usePlatformToken) {
+    const primary = {
+      apiUrl: primaryBase,
+      apiToken: primaryToken,
+      modelVersion: primaryVersion,
+      maxPromptChars,
+    };
+    const secondary =
+      secondaryBase && secondaryToken && secondaryVersion
+        ? {
+            apiUrl: secondaryBase,
+            apiToken: secondaryToken,
+            modelVersion: secondaryVersion,
+            maxPromptChars,
+          }
+        : null;
+    return {
+      primary,
+      secondary,
+      using_byok: false,
+      provider,
+      source: 'platform_env',
+      replicate_byok_key_name: REPLICATE_BYOK_KEY_NAME,
+    };
+  }
+
+  const vault = tryResolveUserApiKey(ownerUserId, REPLICATE_BYOK_KEY_NAME);
+  const byokToken = String(vault?.value || '').trim();
+  if (!byokToken) {
+    console.info(
+      '[tools] generate_video blocked owner=%s provider=%s missing vault=%s',
+      ownerUserId,
+      provider,
+      REPLICATE_BYOK_KEY_NAME
+    );
+    return {
+      primary: {
+        apiUrl: primaryBase,
+        apiToken: '',
+        modelVersion: primaryVersion,
+        maxPromptChars,
+      },
+      secondary: null,
+      using_byok: true,
+      provider,
+      source: 'user_byok_vault',
+      replicate_byok_key_name: REPLICATE_BYOK_KEY_NAME,
+      error: `Create API key "${REPLICATE_BYOK_KEY_NAME}" under Management → API Keys for video generation, or switch Profile LLM to Platform default.`,
+      error_code: 'replicate_byok_required',
+    };
+  }
+
+  console.info(
+    '[tools] generate_video using vault %s owner=%s provider=%s',
+    REPLICATE_BYOK_KEY_NAME,
+    ownerUserId,
+    provider
+  );
+  return {
+    primary: {
+      apiUrl: primaryBase,
+      apiToken: byokToken,
+      modelVersion: primaryVersion,
+      maxPromptChars,
+    },
+    secondary: null,
+    using_byok: true,
+    provider,
+    source: 'user_byok_vault',
+    replicate_byok_key_name: REPLICATE_BYOK_KEY_NAME,
   };
-
-  const secondary =
-    secondaryBase && secondaryToken && secondaryVersion
-      ? {
-          apiUrl: secondaryBase,
-          apiToken: secondaryToken,
-          modelVersion: secondaryVersion,
-          maxPromptChars,
-        }
-      : null;
-
-  return { primary, secondary };
 }

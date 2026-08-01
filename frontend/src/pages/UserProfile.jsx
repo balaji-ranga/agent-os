@@ -431,6 +431,8 @@ function UserProfilePanel() {
         <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--muted)' }}>
           LLM provider — Platform default / free models need no key. OpenAI/OpenRouter require vault key{' '}
           <code>Platform_BYOK</code> under <Link to="/api-keys">Management → API Keys</Link>.
+          Video (<code>generate_video</code>) on a non-platform provider also needs{' '}
+          <code>Replicate_BYOK</code>.
         </p>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Provider</span>

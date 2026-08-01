@@ -43,6 +43,20 @@ Do **not** paste keys on Register or Profile anymore — Profile only selects th
 
 **Platform default** model (no BYOK) uses the admin-selected platform LLM — no `Platform_BYOK` needed.
 
+## Replicate_BYOK (video when not on Platform default)
+
+For **`generate_video`** (Replicate):
+
+| Profile LLM | Video key used |
+|-------------|----------------|
+| **Platform default** | Platform `REPLICATE_API_TOKEN` (ops `.env`) — no vault key |
+| **Anything else** (OpenAI, OpenRouter, Ollama, …) | Vault entry named exactly **`Replicate_BYOK`** — platform token is **not** used |
+
+1. Create **`Replicate_BYOK`** under **API Keys** with your Replicate API token.
+2. Keep Profile on a non-platform provider (or switch back to Platform default to use the shared platform token).
+
+Missing `Replicate_BYOK` while Profile is not Platform default → video tool returns an error (no silent fall-back to the platform key).
+
 ## Use vault keys in workflows
 
 Prefer a **Vault key** / named reference in node auth fields (Brain `apiKey`, API auth, MCP headers, External agent Bearer) instead of pasting literals into the graph.

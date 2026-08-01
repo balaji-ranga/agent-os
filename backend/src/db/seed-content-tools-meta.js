@@ -20,7 +20,8 @@ const BUILTIN_TOOLS = [
     display_name: 'Generate Image',
     endpoint: '/api/tools/generate-image',
     method: 'POST',
-    purpose: 'Generate an image from a text prompt. Use for social/draft assets (travel, food, nature).',
+    purpose:
+      'Generate an image from a text prompt. Use for social/draft assets (travel, food, nature). After success, paste paste_exactly/media_uri (MEDIA:/abs/path) on its own line so WhatsApp embeds the file; Dashboard renders MEDIA: too. Do not paste auth-only https /api/media URLs (WhatsApp Media failed).',
     model_used: 'gpt-image-1 (OpenAI)',
     enabled: 1,
     is_builtin: 1,
@@ -30,7 +31,8 @@ const BUILTIN_TOOLS = [
     display_name: 'Generate Video',
     endpoint: '/api/tools/generate-video',
     method: 'POST',
-    purpose: 'Generate a short video from a text prompt. Use for draft assets.',
+    purpose:
+      'Generate a short video from a text prompt (Replicate). Platform-default Profile uses platform REPLICATE_API_TOKEN; any other Profile requires vault Replicate_BYOK (no platform fall-back).',
     model_used: 'zeroscope-v2-xl (Replicate)',
     enabled: 1,
     is_builtin: 1,
@@ -60,7 +62,7 @@ const BUILTIN_TOOLS = [
     display_name: 'Kanban Assign Task',
     endpoint: '/api/tools/kanban-assign-task',
     method: 'POST',
-    purpose: 'API tool (COO only): assign a Kanban task to an agent. Invoke by name with task_id and to_agent_id. Do not run via exec or shell.',
+    purpose: 'API tool (COO only): assign a Kanban task to an agent. Invoke by name with task_id and to_agent_id. Sets status to open so the agent (or orphan watcher) can start; agent moves to awaiting_confirmation when CEO input is needed. Do not run via exec or shell.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -71,7 +73,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/kanban-create-task',
     method: 'POST',
     purpose:
-      'API tool: create a Kanban task for the CEO. Invoke by name with title (required), optional description, optional assign_to (agent id or "coo"/omit for CEO inbox). Do not run via exec or shell.',
+      'API tool: create a Kanban task for the CEO. Invoke by name with title (required), optional description, optional assign_to (agent id or "coo"/omit for CEO inbox). New cards start as open (even when assigned); the assigned agent moves to awaiting_confirmation only when they need CEO input. Do not run via exec or shell.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -308,6 +310,28 @@ const BUILTIN_TOOLS = [
     is_builtin: 1,
   },
   {
+    name: 'speech_tts',
+    display_name: 'Speech TTS (Piper)',
+    endpoint: '/api/tools/speech-tts',
+    method: 'POST',
+    purpose:
+      'API tool: free local text-to-speech via Piper (SPEECH_TTS_URL / optional-voice). Invoke with text (required), optional voice, length_scale. Returns audio media ref + url for the entitled CEO. Do not run via exec or shell. Prefer this over ElevenLabs when free speech is enough.',
+    model_used: 'piper',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'speech_stt',
+    display_name: 'Speech STT (Whisper)',
+    endpoint: '/api/tools/speech-stt',
+    method: 'POST',
+    purpose:
+      'API tool: free local speech-to-text via Whisper (SPEECH_STT_URL / optional-voice). Invoke with artifact_id or media_ref/audio from a prior speech_tts/upload, or content_base64 (+ filename/mime_type). Optional language, model. Returns text transcript. Do not run via exec or shell.',
+    model_used: 'whisper',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
     name: 'notify_ceo',
     display_name: 'Notify CEO (Push)',
     endpoint: '/api/tools/notify-ceo',
@@ -490,6 +514,7 @@ const WORKFLOW_TOOLS = BUILTIN_TOOLS.filter((t) =>
 
 const LEARNINGS_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'learnings_summary');
 const EMAIL_SEND_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'email_send');
+const SPEECH_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'speech_tts' || t.name === 'speech_stt');
 const NOTIFY_CEO_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'notify_ceo');
 const CEO_PROFILE_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'ceo_profile');
 const STATUS_CHECKER_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'status_checker');
@@ -581,6 +606,24 @@ export function seedEmailSendToolIfMissing() {
   );
   for (const t of EMAIL_SEND_TOOLS) {
     update.run(t.purpose, t.display_name, t.endpoint, t.method, t.name);
+  }
+}
+
+/** Add speech_tts / speech_stt (Piper + Whisper) if missing. */
+export function seedSpeechToolsIfMissing() {
+  const db = getDb();
+  const stmt = db.prepare(
+    `INSERT OR IGNORE INTO content_tools_meta (name, display_name, endpoint, method, purpose, model_used, enabled, is_builtin)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  for (const t of SPEECH_TOOLS) {
+    stmt.run(t.name, t.display_name, t.endpoint, t.method, t.purpose, t.model_used, t.enabled, t.is_builtin);
+  }
+  const update = db.prepare(
+    'UPDATE content_tools_meta SET purpose = ?, display_name = ?, endpoint = ?, method = ?, model_used = ? WHERE name = ?'
+  );
+  for (const t of SPEECH_TOOLS) {
+    update.run(t.purpose, t.display_name, t.endpoint, t.method, t.model_used, t.name);
   }
 }
 

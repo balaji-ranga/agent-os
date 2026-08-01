@@ -10,7 +10,7 @@ Related: [15-api-keys-vault.md](./15-api-keys-vault.md) (how CEOs store secrets)
 | Layer | Who sets it | Typical use |
 |-------|-------------|-------------|
 | **Platform `.env`** (`deploy/.env`) | Ops / Admin | Default agent chat LLM, SMTP, FMP, Replicate, optional Anthropic |
-| **API Keys vault** (`Platform_BYOK` and named keys) | CEO | BYOK chat (OpenAI / OpenRouter), workflow Brain / MCP / Connector secrets |
+| **API Keys vault** (`Platform_BYOK`, `Replicate_BYOK`, and named keys) | CEO | BYOK chat (OpenAI / OpenRouter), video when Profile ≠ platform default, workflow Brain / MCP / Connector secrets |
 | **Workflow node / MCP headers** | CEO / Workflow Builder | Per-run or vault-ref keys (DeepSeek Brain, Brave `X-Subscription-Token`, etc.) |
 | **Connectors (OpenConnector)** | CEO | OAuth or API key per SaaS app |
 
@@ -28,8 +28,8 @@ Related: [15-api-keys-vault.md](./15-api-keys-vault.md) (how CEOs store secrets)
 | **Brevo (SMTP)** | MFA email OTP, workflow **Send Email**, `email_send` tool (ICS invites), COO status HTML email | `WORKFLOW_SMTP_HOST` / `USER` / `PASS` / `FROM` (Brevo: `smtp-relay.brevo.com`) | Platform `.env` (or per-node SMTP) | **Yes** for outbound email / email MFA | Sender domain must be verified in Brevo. In-app `notify_ceo` does **not** need SMTP. |
 | **Brave Search** | Web search via Brave Search MCP (`brave_web_search`, etc.) | Brave subscription token | Workflow / MCP **headers** (BYOK) or vault key referenced on the node | Optional | Platform `BRAVE_API_KEY` is **not** injected into the MCP container — pass `X-Subscription-Token` or Bearer from the workflow. |
 | **Financial Modeling Prep (FMP)** | Market regime, screener, history, fundamentals (IBKR monthly trading tools) | `MARKET_DATA_API_KEY` | Platform `.env` | Optional (required for live market tools) | Default base `https://financialmodelingprep.com/stable`. Free tier has daily call limits; paid recommended for daily screens. |
-| **Replicate** | Video content tool | `REPLICATE_API_TOKEN` | Platform `.env` | Optional | Used when agents/workflows call video generation. |
-| **ElevenLabs** | Workflow **ElevenLabs** node (TTS / STT) and avatar Virtual Room | `ELEVENLABS_API_KEY` or vault name **`elevenlabs-key`** (avatar templates) or **`ElevenLabs`** | Platform `.env` and/or **API Keys** | Optional (required for avatar voice) | Media artifacts are stored per CEO under `media/{ceo}/`. |
+| **Replicate** | Video content tool (`generate_video`) | Platform: `REPLICATE_API_TOKEN`; non-platform Profile: vault **`Replicate_BYOK`** | Platform `.env` **or** **API Keys** | Optional | Platform default Profile → ops token. Any other Profile → CEO `Replicate_BYOK` only (no platform fall-back). |
+| **Whisper + Piper** | Free STT/TTS (`speech_stt` / `speech_tts` tools, chat mic, workflow nodes) | None (self-host) | `SPEECH_STT_URL` / `SPEECH_TTS_URL` + Compose profile `optional-voice` | Optional (required for free speech tools) | See [25-speech-and-published-scenes.md](./25-speech-and-published-scenes.md). |
 | **Hunyuan3D** | Text/image → GLB on **Avatars** page | No vendor key for self-host; needs GPU container | `HUNYUAN3D_URL` + profile `optional-hunyuan3d` | Optional | See [23-avatars-virtual-room.md](./23-avatars-virtual-room.md). |
 | **Interactive Brokers (IBKR)** | Account snapshot, paper/live orders via local Gateway + optional desktop bridge | IBKR account + Gateway session; bridge `LOCAL_BRIDGE_TOKEN` | Laptop Gateway + local bridge env (not cloud API key) | Optional (trading features) | Not a SaaS API key in `.env` for market data — FMP covers that. See IBKR help. |
 | **OpenConnector SaaS apps** | Workflow **Connector** node (Gmail, Slack, HubSpot, etc.) | OAuth token or vendor API key per app | **Connectors** UI + optional **API Keys** vault | Per app | Catalog varies; each connected app is its own external dependency. |
@@ -55,7 +55,7 @@ Related: [15-api-keys-vault.md](./15-api-keys-vault.md) (how CEOs store secrets)
 |-----------------|--------------|-----|
 | `summarize_url` / LLM summaries | Same as platform / secondary LLM | `OPENAI_*` / DeepSeek |
 | Image generation | OpenAI-compatible image API | Same primary LLM key + `TOOLS_IMAGE_MODEL` |
-| Video generation | Replicate | `REPLICATE_API_TOKEN` |
+| Video generation | Replicate | Platform default Profile → `REPLICATE_API_TOKEN`; else vault **`Replicate_BYOK`** |
 | `email_send` | SMTP (Brevo) | `WORKFLOW_SMTP_*` |
 | `forex_rates` | Frankfurter (ECB) | **None** — public HTTP API |
 | Market / IBKR tools | FMP + IBKR Gateway | `MARKET_DATA_API_KEY` + local IBKR |
@@ -94,7 +94,7 @@ Minimum for a typical Flolah VPS:
 5. Optional: **`ANTHROPIC_API_KEY`** if Claude is the OpenClaw model  
 6. Optional secondary: **`OPENAI_SECONDARY_*`** for Admin failover  
 
-CEOs still add **`Platform_BYOK`** (and Brave / Brain keys) themselves under **Management → API Keys** when they bring their own keys.
+CEOs still add **`Platform_BYOK`** (chat), **`Replicate_BYOK`** (video when Profile ≠ platform default), and Brave / Brain keys under **Management → API Keys** when they bring their own keys.
 
 ## Tips for Platform Help answers
 

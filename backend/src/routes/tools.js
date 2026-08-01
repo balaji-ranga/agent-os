@@ -25,6 +25,7 @@ import {
 import { listRecipes } from '../services/browser-recipes.js';
 import { getBrowserSessionStatus } from '../services/client-browser-session.js';
 import { loadKanbanTaskContent, loadKanbanTaskWithMessages, runKanbanWatchTick } from '../services/kanban-watch.js';
+import { executeSpeechSttTool, executeSpeechTtsTool } from '../services/speech-content-tools.js';
 
 function sanitizeTenantId(value) {
   return String(value || '')
@@ -50,6 +51,7 @@ import { requireToolsAccess, attachToolsAuth } from '../middleware/tools-auth.js
 import { internalAuthHeaders, isInternalRequest } from '../middleware/internal-auth.js';
 import { getPublicBaseUrl } from '../config/public-url.js';
 import { getOpenClawMediaDir } from '../config/openclaw-paths.js';
+import { enrichGeneratedOpenClawMedia, enrichMediaResult, toAbsoluteMediaUrl } from '../services/media-url.js';
 import { resolveToolOwnerUserId, resolveToolOwnerUserIdOrNull, bodyWithoutSpoofedOwner } from '../services/tool-owner-scope.js';
 import {
   notifyKanbanTaskCreated,
@@ -609,13 +611,13 @@ function persistGeneratedImage(b64Json, format = 'png') {
   mkdirSync(GENERATED_MEDIA_DIR, { recursive: true });
   const filename = `${randomUUID()}.${ext}`;
   writeFileSync(join(GENERATED_MEDIA_DIR, filename), Buffer.from(b64Json, 'base64'));
-  return `/api/media/openclaw/generated/${filename}`;
+  return enrichGeneratedOpenClawMedia(filename);
 }
 
 async function persistRemoteImageUrl(remoteUrl) {
   const url = String(remoteUrl || '').trim();
   if (!url) throw new Error('empty image url');
-  if (/^\/api\/media\//i.test(url)) return url;
+  if (/^\/api\/media\//i.test(url)) return enrichMediaResult(url);
   const imgRes = await fetch(url, { signal: AbortSignal.timeout(60000) });
   if (!imgRes.ok) throw new Error(`Failed to download image (${imgRes.status})`);
   const buf = Buffer.from(await imgRes.arrayBuffer());
@@ -633,7 +635,7 @@ async function persistRemoteImageUrl(remoteUrl) {
   mkdirSync(GENERATED_MEDIA_DIR, { recursive: true });
   const filename = `${randomUUID()}.${ext}`;
   writeFileSync(join(GENERATED_MEDIA_DIR, filename), buf);
-  return `/api/media/openclaw/generated/${filename}`;
+  return enrichGeneratedOpenClawMedia(filename);
 }
 
 async function imageResultFromApi(data) {
@@ -641,14 +643,14 @@ async function imageResultFromApi(data) {
   if (!item) return { error: 'No image in response' };
   if (item.b64_json) {
     const format = data?.output_format || 'png';
-    return { url: persistGeneratedImage(item.b64_json, format) };
+    return persistGeneratedImage(item.b64_json, format);
   }
   if (item.url) {
     try {
-      return { url: await persistRemoteImageUrl(item.url) };
+      return await persistRemoteImageUrl(item.url);
     } catch (e) {
       // Fall back to remote URL so the agent still gets something, but prefer local.
-      return { url: item.url, warning: e.message };
+      return { url: item.url, absolute_url: item.url, warning: e.message };
     }
   }
   return { error: 'No image URL in response' };
@@ -701,8 +703,27 @@ router.post('/generate-image', optionalAuth, async (req, res) => {
           lastErr = result.error;
           continue;
         }
-        const out = { url: result.url };
-        logTool(req,'generate_image', requestPayload, out, 'ok', source);
+        // url/paste_exactly = MEDIA:/abs/path (WhatsApp disk attach; web UI rewrites).
+        // public_url = signed HTTPS (no Bearer). Never return auth-only HTTPS as url.
+        const out = {
+          url: result.media_uri || result.url,
+          paste_exactly: result.paste_exactly || result.media_uri || result.url,
+          media_uri: result.media_uri,
+          local_path: result.local_path,
+          relative_url: result.relative_url || null,
+          absolute_url: result.public_url || result.absolute_url || null,
+          public_url: result.public_url || result.absolute_url || null,
+          web_markdown: result.web_markdown,
+          delivery_hint: result.delivery_hint,
+          warning: result.warning,
+        };
+        logTool(req, 'generate_image', requestPayload, {
+          url: out.url,
+          media_uri: out.media_uri,
+          relative_url: out.relative_url,
+          public_url: out.public_url ? '[signed]' : undefined,
+          warning: out.warning,
+        }, 'ok', source);
         return res.json(out);
       } catch (e) {
         lastErr = e.name === 'AbortError' ? 'Request timeout' : (e.message || 'Internal error');
@@ -781,7 +802,23 @@ router.post('/generate-video', optionalAuth, async (req, res) => {
       return res.status(400).json({ error: 'prompt is required' });
     }
     const ownerUserId = resolveToolOwnerUserIdOrNull(req, req.body || {}, resolveAuthenticatedCeoUserId);
-    const { primary, secondary } = getVideoConfig(ownerUserId);
+    const videoCfg = getVideoConfig(ownerUserId);
+    if (videoCfg.error) {
+      logTool(
+        req,
+        'generate_video',
+        requestPayload,
+        { error: videoCfg.error, code: videoCfg.error_code },
+        'error',
+        source
+      );
+      return res.status(400).json({
+        error: videoCfg.error,
+        code: videoCfg.error_code || 'replicate_byok_required',
+        replicate_byok_key_name: videoCfg.replicate_byok_key_name,
+      });
+    }
+    const { primary, secondary } = videoCfg;
     const endpoints = [primary, secondary].filter((ep) => ep && ep.apiToken && ep.modelVersion);
     if (endpoints.length === 0) {
       logTool(req,'generate_video', requestPayload, { error: 'Video generation not configured (REPLICATE_API_TOKEN or primary/secondary)' }, 'error', source);
@@ -995,7 +1032,9 @@ router.post('/kanban-create-task', optionalAuth, (req, res) => {
       assignedAgentId = agent.id;
     }
 
-    const status = assignedAgentId ? 'awaiting_confirmation' : 'open';
+    // Always start as open. Agents move to awaiting_confirmation when they need CEO input;
+    // orphan watcher can pick up assigned open cards that never got a delegation run.
+    const status = 'open';
     const db = getDb();
     db.prepare(
       `INSERT INTO kanban_tasks (title, description, status, assigned_agent_id, created_by, due_date, owner_user_id)
@@ -1174,7 +1213,9 @@ router.post('/kanban-assign-task', optionalAuth, (req, res) => {
       logTool(req, 'kanban_assign_task', requestPayload, err, 'error', source);
       return res.status(e.status || 403).json(err);
     }
-    db.prepare("UPDATE kanban_tasks SET assigned_agent_id = ?, status = 'awaiting_confirmation', updated_at = datetime('now') WHERE id = ?").run(agent.id, taskId);
+    // Keep/open as open so the assignee (or orphan watcher) can start work; agent moves to
+    // awaiting_confirmation only when they need CEO confirmation.
+    db.prepare("UPDATE kanban_tasks SET assigned_agent_id = ?, status = 'open', updated_at = datetime('now') WHERE id = ?").run(agent.id, taskId);
     const out = { ok: true, task_id: taskId, assigned_agent_id: agent.id };
     logTool(req,'kanban_assign_task', requestPayload, out, 'ok', source);
     res.json(out);
@@ -1193,7 +1234,7 @@ router.post('/email-send', optionalAuth, async (req, res) => {
   const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
   const requestPayload = req.body || {};
   try {
-    const out = await executeEmailSend(requestPayload);
+  const out = await executeEmailSend(requestPayload);
     const status = out.sent ? 'ok' : out.attempted ? 'error' : 'error';
     logTool(req, 'email_send', requestPayload, out, status, source);
     if (!out.sent && out.error) return res.status(out.attempted ? 502 : 400).json(out);
@@ -1202,6 +1243,54 @@ router.post('/email-send', optionalAuth, async (req, res) => {
     const err = { error: e.message };
     logTool(req, 'email_send', requestPayload, err, 'error', source);
     res.status(500).json(err);
+  }
+});
+
+/**
+ * speech_tts — free Piper TTS for the entitled CEO. Body: { text, voice?, length_scale? }.
+ * Returns media artifact ref + url (same storage as workflow speech_tts).
+ */
+router.post('/speech-tts', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
+    if (!ownerUserId) {
+      const err = { error: 'Could not resolve CEO user for this session' };
+      logTool(req, 'speech_tts', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const out = await executeSpeechTtsTool(requestPayload, ownerUserId);
+    logTool(req, 'speech_tts', { ...requestPayload, owner_user_id: ownerUserId }, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'speech_tts', requestPayload, err, 'error', source);
+    res.status(e.status || 500).json(err);
+  }
+});
+
+/**
+ * speech_stt — free Whisper STT for the entitled CEO.
+ * Body: { artifact_id|media_ref|audio } or { content_base64, filename?, mime_type? }, optional language/model.
+ */
+router.post('/speech-stt', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
+    if (!ownerUserId) {
+      const err = { error: 'Could not resolve CEO user for this session' };
+      logTool(req, 'speech_stt', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const out = await executeSpeechSttTool(requestPayload, ownerUserId);
+    logTool(req, 'speech_stt', { ...requestPayload, owner_user_id: ownerUserId }, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'speech_stt', requestPayload, err, 'error', source);
+    res.status(e.status || 500).json(err);
   }
 });
 

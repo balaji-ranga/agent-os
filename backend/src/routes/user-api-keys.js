@@ -13,6 +13,7 @@ import {
   findApiKeyDependencies,
   getUserApiKeyById,
   PLATFORM_BYOK_KEY_NAME,
+  REPLICATE_BYOK_KEY_NAME,
 } from '../services/user-api-keys.js';
 
 const router = Router();
@@ -28,6 +29,7 @@ router.get('/', (req, res) => {
     res.json({
       keys: listUserApiKeys(owner),
       platform_byok_key_name: PLATFORM_BYOK_KEY_NAME,
+      replicate_byok_key_name: REPLICATE_BYOK_KEY_NAME,
     });
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message });

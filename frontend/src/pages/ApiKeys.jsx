@@ -8,6 +8,7 @@ function ApiKeysPanel() {
   const { user } = useAuth();
   const [keys, setKeys] = useState([]);
   const [platformByok, setPlatformByok] = useState('Platform_BYOK');
+  const [replicateByok, setReplicateByok] = useState('Replicate_BYOK');
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -24,6 +25,7 @@ function ApiKeysPanel() {
       const r = await api.userApiKeysList();
       setKeys(r.keys || []);
       if (r.platform_byok_key_name) setPlatformByok(r.platform_byok_key_name);
+      if (r.replicate_byok_key_name) setReplicateByok(r.replicate_byok_key_name);
     } catch (e) {
       setError(e.message);
     }
@@ -122,6 +124,8 @@ function ApiKeysPanel() {
         Store named secrets for workflows (Brain, API, MCP, External agents), Connectors, and BYOK.
         Optional encryption phrase encrypts the secret at rest. For OpenAI/OpenRouter agents, create{' '}
         <code>{platformByok}</code> here (required) — do not paste keys on Profile/Register.
+        For <code>generate_video</code> when Profile is not Platform default, create{' '}
+        <code>{replicateByok}</code> (Replicate token); Platform default still uses the ops Replicate key.
       </p>
 
       {error && (

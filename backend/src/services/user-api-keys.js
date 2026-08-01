@@ -7,6 +7,8 @@ import { randomUUID } from 'crypto';
 import { getDb } from '../db/schema.js';
 
 export const PLATFORM_BYOK_KEY_NAME = 'Platform_BYOK';
+/** Vault name for Replicate video when Profile LLM is not Platform default. */
+export const REPLICATE_BYOK_KEY_NAME = 'Replicate_BYOK';
 const KEY_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 
 function db() {
