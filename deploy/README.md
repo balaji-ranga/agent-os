@@ -195,7 +195,7 @@ Gets the same gateway LLM vars plus:
 | `AGENT_OS_INTERNAL_TOKEN` | Workflow runner, tools proxy, cron-callback (required in production). Query `internal_token` is only accepted on `/api/standups/cron-callback`; elsewhere use `x-agent-os-internal`. |
 | `PLATFORM_LOG_LEVEL` | Backend request/error logging: `off`, `error`, or `info` (default). Secrets are redacted at every level — API keys, bearer tokens, `Authorization`, passwords and MFA codes never reach the log, and API Keys / auth routes log method + route only. |
 | `COO_STATUS_CHECKER_CRON` | Daily COO status digest per enabled CEO → standup post + HTML email (default `0 9 * * *`). Manual: **Run status checker** on the Dashboard. |
-| `DATA_RETENTION_CRON` | Nightly retention purge per enabled CEO (default `15 3 * * *`), using each CEO's Profile **Data persistence** window. Manual: **Purge aged data now**. |
+| `DATA_RETENTION_CRON` | Nightly retention purge per enabled CEO (default `15 3 * * *`), using each CEO's Profile **Data persistence** window: aged chats, standup messages, workflow runs, **and** Content Explorer uploaded/generated media (hard delete). Manual: **Purge aged data now**. |
 | `STANDUP_SCHEDULE_CRON`, `STANDUP_CRON_SCHEDULE`, `DELEGATION_CRON_SCHEDULE`, `AGENT_WORKFLOW_SCHEDULER_CRON`, `JOB_PIPELINE_CRON_SCHEDULE` | Remaining platform timers. All optional — every job has a code default; `deploy/scripts/ensure-cron-env.sh` keeps a commented reference block in `deploy/.env`. Admins can pause/resume/run each one at `/admin/crons`. |
 | `TOOLS_API_KEY` | OpenClaw content-tools ↔ backend (required in production; must match plugin `apiKey`) |
 | `OPENAI_COO_MODEL`, `OPENAI_INTENT_MODEL` | COO / intent classifier |
@@ -315,13 +315,13 @@ All proxied under `/api` (rebuild backend + frontend images after upgrade):
 | Workflow fullscreen editor | `/workflows/:id/edit` hides platform nav/topbar (`shell-focus-mode`); compact nodes/panes; **Exit to workflows** |
 | Register MCP / Agents CTAs | Primary accent buttons + shared `page-hero` alignment on MCP registry and External Agents |
 | COO status checker | `POST /api/tools/status-checker` (COO grant only) + `POST /api/cron/run-status-checker` (returns `html` for Dashboard popup); daily `COO_STATUS_CHECKER_CRON` (default `0 9 * * *`) → standup post + HTML email per CEO |
-| Data retention | `platform_users.data_retention_days` (30/60/90/120/365) + `GET/PUT /api/efficiency/retention`, `POST /api/efficiency/retention/purge`, `POST /api/cron/run-data-retention`; daily `DATA_RETENTION_CRON` (default `15 3 * * *`) purges aged chats / chat history / standup conversations / workflow runs per CEO |
-| Org Storage (MB) | `GET /api/efficiency/storage` + `storage_mb` in `/api/efficiency` totals → Efficiency View **Org** tile |
+| Data retention | `platform_users.data_retention_days` (30/60/90/120/365) + `GET/PUT /api/efficiency/retention`, `POST /api/efficiency/retention/purge`, `POST /api/cron/run-data-retention`; daily `DATA_RETENTION_CRON` (default `15 3 * * *`) purges aged chats / standup messages / workflow runs **and** aged Content Explorer inbound + `media/generated/<ceo>/` files (hard delete by mtime) |
+| Org Storage (MB) | `GET /api/efficiency/storage` + `storage_mb` in `/api/efficiency` totals → Efficiency View **Org** tile (tenant workspace + generated media dir + Master Data / artifacts) |
 | Cron env reference | `deploy/scripts/ensure-cron-env.sh` appends the commented cron block (all 7 schedules, defaults) to `deploy/.env` on every deploy; docs: `knowledgebase/platform-help/19-scheduled-jobs-and-crons.md` |
 | Free STT/TTS (optional-voice) | `ensure-voice-env.sh` writes `SPEECH_STT_URL` / `SPEECH_TTS_URL` and starts `whisper` + `piper`; Agent Chat mic + `speech_stt`/`speech_tts` nodes. Skip: `SKIP_VOICE=1`. Docs: platform-help **25** |
 | Published Scenes / public VR | Guest `/p/vr/:slug` + `/api/public/vr/*` (no auth); publish from Avatars / Published Scenes nav. Guest artifact tokens ≠ `MEDIA_PUBLIC_SIGNED` |
-| Agent channels | Slack/WhatsApp BYOK wizard → vault + OpenClaw bindings; outbound **`MEDIA:`** attach; inbound → `inbound/attachments/`; `/api/agent-channels`; platform-help **24** |
-| Content Explorer | CEO file browser `/content-explorer` → `/api/workspace/content-explorer`; platform-help **26** |
+| Agent channels | Slack/WhatsApp BYOK wizard → vault + OpenClaw bindings; outbound **`MEDIA:`** attach; inbound → `inbound/attachments/`; `/api/agent-channels`; platform-help **24**; `OPENCLAW_MEDIA_MAX_MB` (default 128) applied by `configure-openclaw-docker.js` |
+| Content Explorer | CEO file browser `/content-explorer` → list/download + `POST /api/workspace/content-explorer/delete` (hard delete selected/all); platform-help **26** |
 | Profile LLM catalog | Provider + model (`llm_model`); `GET /api/auth/llm-catalog`; registry `backend/src/config/llm-provider-registry.js`; soft fallbacks `OPENAI_BYOK_MODEL` / `OPENROUTER_MODEL` |
 | Generated media lockdown | `/api/media/openclaw/*` auth-only by default; WhatsApp uses disk `MEDIA:`; Dashboard inline players (Bearer→blob). Opt-in signed public: `MEDIA_PUBLIC_SIGNED=1` in `deploy/.env`. Docs: platform-help **11** |
 | Platform feedback (Admin) | `/admin/platform-feedback` + COO tools `platform_feedback_*`; statuses open / implemented / rejected |

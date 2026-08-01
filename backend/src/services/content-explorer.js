@@ -1,12 +1,18 @@
 /**
- * Read-only Content Explorer: list this CEO's uploaded + generated media.
+ * Content Explorer: list / download / hard-delete this CEO's uploaded + generated media.
  * Uploaded: tenants/{ceo}/workspace/inbound/attachments
  * Generated: ~/.openclaw/media/generated/{ceo}/… (+ ownership registry for legacy)
  */
-import { existsSync, readdirSync, statSync } from 'fs';
+import { existsSync, readdirSync, statSync, unlinkSync } from 'fs';
 import { join, basename, extname } from 'path';
 import { getOpenClawMediaDir } from '../config/openclaw-paths.js';
-import { listInboundAttachments, resolveInboundRelativePath } from './inbound-attachments.js';
+import {
+  listInboundAttachments,
+  resolveInboundRelativePath,
+  deleteInboundAttachment,
+  deleteAllInboundAttachments,
+  purgeAgedInboundAttachments,
+} from './inbound-attachments.js';
 import {
   ensureOpenClawMediaOwnershipSchema,
   normalizeOpenClawMediaRelative,
@@ -167,7 +173,7 @@ export function listContentExplorer(ownerUserId, { source = 'all' } = {}) {
 
   return {
     owner_user_id: owner,
-    read_only: true,
+    read_only: false,
     folders: {
       uploaded: 'inbound/attachments (web chat + WhatsApp/Telegram mirrors)',
       generated: `media/generated/${sanitizeContentOwnerPart(owner)}/ (TTS, images, video)`,
@@ -212,4 +218,169 @@ export function resolveContentExplorerDownload(ownerUserId, { kind, path: relPat
   }
 
   throw Object.assign(new Error('kind must be uploaded or generated'), { status: 400 });
+}
+
+function scrubOwnershipRow(rel) {
+  try {
+    ensureOpenClawMediaOwnershipSchema();
+    getDb().prepare(`DELETE FROM openclaw_media_ownership WHERE relative_path = ?`).run(rel);
+  } catch {
+    /* best-effort */
+  }
+}
+
+/**
+ * Hard-delete one generated media file owned by this CEO (disk + ownership row).
+ */
+export function deleteGeneratedMedia(ownerUserId, relativePath) {
+  const owner = String(ownerUserId || '').trim();
+  const file = resolveContentExplorerDownload(owner, { kind: 'generated', path: relativePath });
+  unlinkSync(file.absolute_path);
+  const rel = normalizeOpenClawMediaRelative(relativePath);
+  scrubOwnershipRow(rel);
+  console.info('[content-explorer] hard-deleted generated', {
+    owner: sanitizeContentOwnerPart(owner),
+    path: rel,
+  });
+  return { deleted: true, kind: 'generated', path: rel, filename: file.filename };
+}
+
+/**
+ * Hard-delete all generated media for this CEO (per-CEO folder + owned legacy registry files).
+ */
+export function deleteAllGeneratedMedia(ownerUserId) {
+  const owner = String(ownerUserId || '').trim();
+  if (!owner) throw Object.assign(new Error('owner required'), { status: 400 });
+  let deleted = 0;
+  const items = [...listGeneratedOnDisk(owner), ...listGeneratedFromRegistry(owner)];
+  const seen = new Set();
+  for (const it of items) {
+    if (seen.has(it.relative_path)) continue;
+    seen.add(it.relative_path);
+    try {
+      deleteGeneratedMedia(owner, it.relative_path);
+      deleted += 1;
+    } catch (e) {
+      console.warn('[content-explorer] delete-all generated skip', it.relative_path, e?.message || e);
+    }
+  }
+  console.info('[content-explorer] delete-all generated done', {
+    owner: sanitizeContentOwnerPart(owner),
+    deleted,
+  });
+  return { deleted };
+}
+
+/**
+ * Hard-delete selected Content Explorer items.
+ * @param {{ items?: Array<{ kind?: string, source?: string, path?: string, relative_path?: string }>, all?: boolean, source?: string }} opts
+ */
+export function deleteContentExplorerItems(ownerUserId, opts = {}) {
+  const owner = String(ownerUserId || '').trim();
+  if (!owner) throw Object.assign(new Error('owner required'), { status: 400 });
+
+  const source = String(opts.source || 'all').toLowerCase();
+  if (opts.all) {
+    let uploaded = 0;
+    let generated = 0;
+    if (source !== 'generated') {
+      uploaded = deleteAllInboundAttachments(owner).deleted || 0;
+    }
+    if (source !== 'uploaded') {
+      generated = deleteAllGeneratedMedia(owner).deleted || 0;
+    }
+    console.info('[content-explorer] delete-all', { owner: sanitizeContentOwnerPart(owner), source, uploaded, generated });
+    return { ok: true, all: true, source, deleted: { uploaded, generated, total: uploaded + generated } };
+  }
+
+  const items = Array.isArray(opts.items) ? opts.items : [];
+  if (!items.length) throw Object.assign(new Error('items required (or all=true)'), { status: 400 });
+
+  const results = [];
+  let uploaded = 0;
+  let generated = 0;
+  for (const raw of items) {
+    const kind = String(raw?.kind || raw?.source || '').toLowerCase();
+    const path = String(raw?.path || raw?.relative_path || '').trim();
+    try {
+      if (kind === 'uploaded') {
+        const r = deleteInboundAttachment(owner, path);
+        uploaded += 1;
+        results.push({ ok: true, kind: 'uploaded', path, filename: r.filename });
+      } else if (kind === 'generated') {
+        const r = deleteGeneratedMedia(owner, path);
+        generated += 1;
+        results.push({ ok: true, kind: 'generated', path: r.path, filename: r.filename });
+      } else {
+        results.push({ ok: false, path, error: 'kind must be uploaded or generated' });
+      }
+    } catch (e) {
+      results.push({ ok: false, kind, path, error: e.message || String(e) });
+    }
+  }
+  console.info('[content-explorer] delete selected', {
+    owner: sanitizeContentOwnerPart(owner),
+    uploaded,
+    generated,
+    failed: results.filter((r) => !r.ok).length,
+  });
+  return {
+    ok: true,
+    all: false,
+    deleted: { uploaded, generated, total: uploaded + generated },
+    results,
+  };
+}
+
+/**
+ * Retention: hard-delete aged uploaded + generated CEO media (by file mtime).
+ */
+export function purgeAgedContentExplorerMedia(ownerUserId, retentionDays) {
+  const owner = String(ownerUserId || '').trim();
+  const days = Math.max(1, Number(retentionDays) || 90);
+  const cutoffMs = Date.now() - days * 24 * 60 * 60 * 1000;
+
+  const inbound = purgeAgedInboundAttachments(owner, days);
+
+  let generated = 0;
+  const genItems = [...listGeneratedOnDisk(owner), ...listGeneratedFromRegistry(owner)];
+  const seen = new Set();
+  for (const it of genItems) {
+    if (seen.has(it.relative_path)) continue;
+    seen.add(it.relative_path);
+    try {
+      const st = statSync(it.absolute_path);
+      if (st.mtimeMs < cutoffMs) {
+        deleteGeneratedMedia(owner, it.relative_path);
+        generated += 1;
+      }
+    } catch (e) {
+      console.warn('[content-explorer] retention skip', it.relative_path, e?.message || e);
+    }
+  }
+
+  return {
+    inbound_attachments: inbound.deleted || 0,
+    generated_media: generated,
+  };
+}
+
+/** Bytes on disk under media/generated/{ceo}/ (for Efficiency storage). */
+export function generatedMediaStorageBytes(ownerUserId) {
+  const dir = getCeoGeneratedMediaDir(ownerUserId);
+  if (!existsSync(dir)) return 0;
+  let total = 0;
+  try {
+    for (const name of readdirSync(dir)) {
+      try {
+        const st = statSync(join(dir, name));
+        if (st.isFile()) total += st.size || 0;
+      } catch {
+        /* skip */
+      }
+    }
+  } catch {
+    return 0;
+  }
+  return total;
 }

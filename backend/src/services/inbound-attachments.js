@@ -3,7 +3,16 @@
  *   workspace/inbound/attachments/<filename>
  * Mirrored for workflows under WORKFLOW_FS_ROOTS / {ceo}/inbound/attachments/
  */
-import { mkdirSync, writeFileSync, existsSync, readdirSync, statSync, copyFileSync, readFileSync } from 'fs';
+import {
+  mkdirSync,
+  writeFileSync,
+  existsSync,
+  readdirSync,
+  statSync,
+  copyFileSync,
+  readFileSync,
+  unlinkSync,
+} from 'fs';
 import { join, basename } from 'path';
 import { getOpenClawDir } from '../config/openclaw-paths.js';
 import { splitPathList } from '../lib/workflow-fs-roots.js';
@@ -138,6 +147,115 @@ export function resolveInboundRelativePath(ownerUserId, relativePath) {
     return null;
   }
   return abs;
+}
+
+function hardUnlink(path) {
+  if (!path || !existsSync(path)) return false;
+  unlinkSync(path);
+  return true;
+}
+
+/**
+ * Hard-delete one inbound attachment from workspace + workflow-fs mirror (no recycle bin).
+ * @returns {{ deleted: boolean, filename: string, paths: string[] }}
+ */
+export function deleteInboundAttachment(ownerUserId, relativePath) {
+  const owner = String(ownerUserId || '').trim();
+  if (!owner) throw Object.assign(new Error('owner_user_id required'), { status: 400 });
+  const raw = String(relativePath || '')
+    .trim()
+    .replace(/^workspace\//i, '')
+    .replace(/\\/g, '/');
+  const m = raw.match(/^(?:\.\/)?inbound\/attachments\/([^/]+)$/i);
+  if (!m) throw Object.assign(new Error('Invalid inbound path'), { status: 400 });
+  const name = safeFilename(m[1]);
+  if (!name || name.includes('..')) throw Object.assign(new Error('Invalid filename'), { status: 400 });
+
+  const primary = join(getInboundAttachmentsDir(owner), name);
+  const mirror = join(getInboundWorkflowMirrorDir(owner), name);
+  const removed = [];
+  if (hardUnlink(primary)) removed.push(primary);
+  if (hardUnlink(mirror)) removed.push(mirror);
+  if (!removed.length) throw Object.assign(new Error('File not found'), { status: 404 });
+  console.info('[inbound-attachments] hard-deleted', {
+    owner: sanitizeIdPart(owner),
+    filename: name,
+    paths: removed.length,
+  });
+  return { deleted: true, filename: name, paths: removed };
+}
+
+/**
+ * Hard-delete all inbound attachments for a CEO (primary + mirror dirs).
+ */
+export function deleteAllInboundAttachments(ownerUserId) {
+  const owner = String(ownerUserId || '').trim();
+  if (!owner) throw Object.assign(new Error('owner_user_id required'), { status: 400 });
+  let deleted = 0;
+  for (const f of listInboundAttachments(owner)) {
+    try {
+      deleteInboundAttachment(owner, f.relative_path);
+      deleted += 1;
+    } catch (e) {
+      console.warn('[inbound-attachments] delete-all skip', f.filename, e?.message || e);
+    }
+  }
+  // Sweep orphan mirror files not listed from primary
+  const mirrorDir = getInboundWorkflowMirrorDir(owner);
+  if (existsSync(mirrorDir)) {
+    for (const n of readdirSync(mirrorDir)) {
+      try {
+        const p = join(mirrorDir, n);
+        if (statSync(p).isFile() && hardUnlink(p)) deleted += 1;
+      } catch {
+        /* skip */
+      }
+    }
+  }
+  console.info('[inbound-attachments] delete-all done', { owner: sanitizeIdPart(owner), deleted });
+  return { deleted };
+}
+
+/**
+ * Retention: hard-delete inbound files whose mtime is older than retentionDays.
+ */
+export function purgeAgedInboundAttachments(ownerUserId, retentionDays) {
+  const owner = String(ownerUserId || '').trim();
+  const days = Math.max(1, Number(retentionDays) || 90);
+  const cutoffMs = Date.now() - days * 24 * 60 * 60 * 1000;
+  let deleted = 0;
+  for (const f of listInboundAttachments(owner)) {
+    try {
+      const st = statSync(f.absolute_path);
+      if (st.mtimeMs < cutoffMs) {
+        deleteInboundAttachment(owner, f.relative_path);
+        deleted += 1;
+      }
+    } catch (e) {
+      console.warn('[inbound-attachments] retention skip', f.filename, e?.message || e);
+    }
+  }
+  // Aged orphans on mirror only
+  const mirrorDir = getInboundWorkflowMirrorDir(owner);
+  if (existsSync(mirrorDir)) {
+    for (const n of readdirSync(mirrorDir)) {
+      try {
+        const p = join(mirrorDir, n);
+        const st = statSync(p);
+        if (st.isFile() && st.mtimeMs < cutoffMs && hardUnlink(p)) deleted += 1;
+      } catch {
+        /* skip */
+      }
+    }
+  }
+  if (deleted) {
+    console.info('[inbound-attachments] retention purged', {
+      owner: sanitizeIdPart(owner),
+      days,
+      deleted,
+    });
+  }
+  return { deleted };
 }
 
 

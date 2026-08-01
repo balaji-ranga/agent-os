@@ -1,10 +1,14 @@
 /**
- * Read-only Content Explorer API — list/download this CEO's uploaded + generated media.
+ * Content Explorer API — list/download/hard-delete this CEO's uploaded + generated media.
  */
 import { Router } from 'express';
 import { createReadStream, existsSync } from 'fs';
 import { requireAuth, requireCeoOrAdmin, resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
-import { listContentExplorer, resolveContentExplorerDownload } from '../services/content-explorer.js';
+import {
+  listContentExplorer,
+  resolveContentExplorerDownload,
+  deleteContentExplorerItems,
+} from '../services/content-explorer.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -57,6 +61,27 @@ router.get('/content-explorer/download', (req, res) => {
   } catch (e) {
     console.warn('[content-explorer] download failed', e?.message || e);
     res.status(e.status || 500).json({ error: e.message || 'Download failed' });
+  }
+});
+
+/**
+ * POST /api/workspace/content-explorer/delete
+ * Body: { items: [{ kind|source, path|relative_path }], all?: boolean, source?: all|uploaded|generated }
+ * Hard-deletes from disk (no recycle bin).
+ */
+router.post('/content-explorer/delete', (req, res) => {
+  try {
+    const owner = ownerOr403(req, res);
+    if (!owner) return;
+    const out = deleteContentExplorerItems(owner, {
+      items: req.body?.items,
+      all: !!req.body?.all,
+      source: req.body?.source,
+    });
+    res.json(out);
+  } catch (e) {
+    console.warn('[content-explorer] delete failed', e?.message || e);
+    res.status(e.status || 500).json({ error: e.message || 'Delete failed' });
   }
 });
 

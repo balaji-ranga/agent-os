@@ -23,13 +23,19 @@ function kindIcon(kind) {
   return 'File';
 }
 
+function itemKey(it) {
+  return `${it.source}:${it.relative_path}`;
+}
+
 export default function ContentExplorer() {
   const [source, setSource] = useState('all');
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [q, setQ] = useState('');
   const [preview, setPreview] = useState(null);
+  const [selected, setSelected] = useState(() => new Set());
 
   const refresh = useCallback(async () => {
     setBusy(true);
@@ -37,6 +43,7 @@ export default function ContentExplorer() {
     try {
       const out = await api.contentExplorerList({ source });
       setData(out);
+      setSelected(new Set());
     } catch (e) {
       setError(e?.message || 'Failed to load content');
       setData(null);
@@ -62,12 +69,29 @@ export default function ContentExplorer() {
     );
   }, [data, q]);
 
-  const authPreviewUrl = (url) => {
-    if (!url) return null;
-    // Same-origin /api paths; browser sends cookies/session via api helper for downloads.
-    // For <img>/<audio>/<video>, use download_url with credentials by opening blob via fetch.
-    return url;
-  };
+  const allVisibleSelected = items.length > 0 && items.every((it) => selected.has(itemKey(it)));
+
+  function toggleOne(it) {
+    const k = itemKey(it);
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
+  }
+
+  function toggleAllVisible() {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        for (const it of items) next.delete(itemKey(it));
+      } else {
+        for (const it of items) next.add(itemKey(it));
+      }
+      return next;
+    });
+  }
 
   async function openPreview(item) {
     setPreview({ item, objectUrl: null, loading: true, err: '' });
@@ -85,21 +109,66 @@ export default function ContentExplorer() {
     };
   }, [preview?.objectUrl]);
 
+  async function deleteSelected() {
+    const list = (data?.items || []).filter((it) => selected.has(itemKey(it)));
+    if (!list.length) return;
+    const ok = window.confirm(
+      `Permanently delete ${list.length} file(s) from disk?\nThis cannot be undone (no recycle bin).`
+    );
+    if (!ok) return;
+    setBusy(true);
+    setError('');
+    setMessage('');
+    try {
+      const out = await api.contentExplorerDelete({
+        items: list.map((it) => ({ kind: it.source, path: it.relative_path })),
+      });
+      setMessage(`Deleted ${out?.deleted?.total ?? list.length} file(s).`);
+      await refresh();
+    } catch (e) {
+      setError(e?.message || 'Delete failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteAllInView() {
+    const label = source === 'all' ? 'all uploaded and generated' : source;
+    const ok = window.confirm(
+      `Permanently delete ${label} media for your account from disk?\nThis cannot be undone (no recycle bin).`
+    );
+    if (!ok) return;
+    const ok2 = window.confirm('Confirm hard delete of all matching files?');
+    if (!ok2) return;
+    setBusy(true);
+    setError('');
+    setMessage('');
+    try {
+      const out = await api.contentExplorerDelete({ all: true, source });
+      setMessage(`Deleted ${out?.deleted?.total ?? 0} file(s).`);
+      await refresh();
+    } catch (e) {
+      setError(e?.message || 'Delete all failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="mcp-pg">
       <Link to="/" style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>
         ← Dashboard
       </Link>
       <h1 style={{ margin: '0.5rem 0 0.25rem' }}>Content Explorer</h1>
-      <p style={{ color: 'var(--muted)', marginTop: 0, maxWidth: 720 }}>
-        Read-only view of <strong>your</strong> media: web/WhatsApp uploads under{' '}
-        <code>inbound/attachments</code>, and agent-generated files under{' '}
-        <code>media/generated/&lt;you&gt;/</code>. No delete or edit here.
+      <p style={{ color: 'var(--muted)', marginTop: 0, maxWidth: 760 }}>
+        Browse <strong>your</strong> media: uploads under <code>inbound/attachments</code>, and
+        agent-generated files under <code>media/generated/&lt;you&gt;/</code>. Delete permanently
+        removes files from disk (no recycle bin). Aged files are also removed by Profile data
+        retention.
       </p>
 
-      {error && (
-        <div style={{ color: '#f87171', marginBottom: '0.75rem' }}>{error}</div>
-      )}
+      {error && <div style={{ color: '#f87171', marginBottom: '0.75rem' }}>{error}</div>}
+      {message && <div style={{ color: 'var(--accent)', marginBottom: '0.75rem' }}>{message}</div>}
 
       <div
         style={{
@@ -160,6 +229,40 @@ export default function ContentExplorer() {
         >
           {busy ? 'Loading…' : 'Refresh'}
         </button>
+        <button
+          type="button"
+          disabled={busy || selected.size === 0}
+          onClick={deleteSelected}
+          style={{
+            padding: '0.4rem 0.75rem',
+            borderRadius: 6,
+            border: '1px solid #b91c1c',
+            background: 'transparent',
+            color: '#b91c1c',
+            cursor: selected.size ? 'pointer' : 'not-allowed',
+            opacity: selected.size ? 1 : 0.5,
+            fontSize: '0.85rem',
+          }}
+        >
+          Delete selected ({selected.size})
+        </button>
+        <button
+          type="button"
+          disabled={busy || !(data?.counts?.total > 0)}
+          onClick={deleteAllInView}
+          style={{
+            padding: '0.4rem 0.75rem',
+            borderRadius: 6,
+            border: '1px solid #7f1d1d',
+            background: '#7f1d1d',
+            color: '#fff',
+            cursor: data?.counts?.total ? 'pointer' : 'not-allowed',
+            opacity: data?.counts?.total ? 1 : 0.5,
+            fontSize: '0.85rem',
+          }}
+        >
+          Delete all{source !== 'all' ? ` ${source}` : ''}
+        </button>
       </div>
 
       {data?.folders && (
@@ -181,6 +284,15 @@ export default function ContentExplorer() {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
           <thead>
             <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
+              <th style={{ padding: '0.65rem 0.5rem', width: 36 }}>
+                <input
+                  type="checkbox"
+                  checked={allVisibleSelected}
+                  onChange={toggleAllVisible}
+                  disabled={!items.length}
+                  aria-label="Select all visible"
+                />
+              </th>
               <th style={{ padding: '0.65rem 0.75rem' }}>Type</th>
               <th style={{ padding: '0.65rem 0.75rem' }}>Name</th>
               <th style={{ padding: '0.65rem 0.75rem' }}>Source</th>
@@ -192,6 +304,14 @@ export default function ContentExplorer() {
           <tbody>
             {items.map((it) => (
               <tr key={it.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                <td style={{ padding: '0.55rem 0.5rem' }}>
+                  <input
+                    type="checkbox"
+                    checked={selected.has(itemKey(it))}
+                    onChange={() => toggleOne(it)}
+                    aria-label={`Select ${it.filename}`}
+                  />
+                </td>
                 <td style={{ padding: '0.55rem 0.75rem', color: 'var(--muted)' }}>
                   {kindIcon(it.kind)}
                 </td>
@@ -234,7 +354,7 @@ export default function ContentExplorer() {
             ))}
             {!items.length && (
               <tr>
-                <td colSpan={6} style={{ padding: '1.25rem', color: 'var(--muted)' }}>
+                <td colSpan={7} style={{ padding: '1.25rem', color: 'var(--muted)' }}>
                   {busy ? 'Loading…' : 'No files in this view yet.'}
                 </td>
               </tr>
@@ -298,7 +418,7 @@ export default function ContentExplorer() {
             {preview.err && <p style={{ color: '#f87171' }}>{preview.err}</p>}
             {preview.objectUrl && preview.item.kind === 'image' && (
               <img
-                src={authPreviewUrl(preview.objectUrl)}
+                src={preview.objectUrl}
                 alt={preview.item.filename}
                 style={{ maxWidth: '100%', borderRadius: 8 }}
               />

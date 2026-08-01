@@ -401,6 +401,8 @@ export const api = {
       `/api/workspace/content-explorer/download?kind=${encodeURIComponent(item?.source === 'generated' ? 'generated' : 'uploaded')}&path=${encodeURIComponent(item?.relative_path || '')}`;
     return fetchBlobUrl(path.startsWith('/api/') ? path : `/api${path.startsWith('/') ? path : `/${path}`}`);
   },
+  /** Hard-delete selected items or all (body.all). Permanent disk delete. */
+  contentExplorerDelete: (body) => post('/workspace/content-explorer/delete', body),
   inboundAttachmentDownload: async (relativePath) => {
     const path = `/workspace/inbound-attachments/download?relative_path=${encodeURIComponent(relativePath)}`;
     const url = `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;

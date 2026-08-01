@@ -1,7 +1,9 @@
 /**
- * Per-CEO data retention: permanently delete aged chat, standup chat, and workflow runs.
+ * Per-CEO data retention: permanently delete aged chat, standup chat, workflow runs,
+ * and CEO Content Explorer media (inbound uploads + generated files on disk).
  */
 import { getDb } from '../db/schema.js';
+import { purgeAgedContentExplorerMedia } from './content-explorer.js';
 
 export const RETENTION_DAY_OPTIONS = [30, 60, 90, 120, 365];
 export const DEFAULT_RETENTION_DAYS = 90;
@@ -10,7 +12,6 @@ export function normalizeRetentionDays(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return DEFAULT_RETENTION_DAYS;
   if (RETENTION_DAY_OPTIONS.includes(n)) return n;
-  // Snap to nearest allowed option
   let best = DEFAULT_RETENTION_DAYS;
   let bestDist = Infinity;
   for (const opt of RETENTION_DAY_OPTIONS) {
@@ -41,6 +42,8 @@ export function purgeOwnerRetention(ownerUserId, { days = null } = {}) {
     standup_messages: 0,
     workflow_run_steps: 0,
     workflow_runs: 0,
+    inbound_attachments: 0,
+    generated_media: 0,
   };
 
   deleted.chat_turns =
@@ -90,6 +93,14 @@ export function purgeOwnerRetention(ownerUserId, { days = null } = {}) {
       db.prepare(`DELETE FROM agent_workflow_runs WHERE id IN (${ph})`).run(...oldRuns).changes || 0;
   }
 
+  try {
+    const media = purgeAgedContentExplorerMedia(owner, retentionDays);
+    deleted.inbound_attachments = media.inbound_attachments || 0;
+    deleted.generated_media = media.generated_media || 0;
+  } catch (e) {
+    console.warn('[retention] media purge failed', owner, e?.message || e);
+  }
+
   console.log(
     `[retention] owner=${owner} days=${retentionDays} deleted=${JSON.stringify(deleted)}`
   );
@@ -106,7 +117,7 @@ export function purgeRetentionForAllCeos() {
       results.push({ ok: true, ...purgeOwnerRetention(ceo.id) });
     } catch (e) {
       console.warn('[retention] failed', ceo.id, e?.message || e);
-      results.push({ ok: false, owner_user_id: ceo.id, error: e?.message || String(e) });
+      results.push({ ok: false, owner_user_id: ceo.id, error: e.message || String(e) });
     }
   }
   return { count: results.length, results };

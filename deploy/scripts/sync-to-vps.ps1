@@ -21,7 +21,9 @@
 # Brave Search MCP BYOK wrapper (tools/brave-search-mcp-byok, profile optional-brave-mcp),
 # Brave agent tool brave_web_search (backend BRAVE_API_KEY + vault BRAVE_SEARCH_BYOK),
 # cron reference block in deploy/.env (ensure-cron-env.sh) + platform-help 19
-# (scheduled jobs / retention), Org Storage (MB), COO status_checker report, data retention purge,
+# (scheduled jobs / retention incl. Content Explorer media hard-delete), Org Storage (MB)
+# (tenant + media/generated/<ceo>), COO status_checker report, data retention purge,
+# Content Explorer (/content-explorer list/download/delete), Profile LLM catalog (provider+model),
 # Published Scenes + public VR (/p/vr/:slug), Slack/WhatsApp agent channels wizard,
 # free STT/TTS optional-voice (ensure-voice-env.sh → SPEECH_* + whisper/piper),
 # Flolah branding, hPanel shell + light/dark theme (ThemeToggle, data-theme),

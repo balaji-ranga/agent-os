@@ -100,13 +100,15 @@ older than that window:
 - Agent chat turns (`chat_turns`) — the chat history itself
 - Standup **messages** (the standup records stay; their aged messages go)
 - Workflow run instances and their step records
+- **Content Explorer media** — aged **uploaded** files under `inbound/attachments/` (and the workflow-fs mirror) and aged **generated** files under `media/generated/<you>/` (by file mtime; hard delete from disk)
 
 Deletion is permanent — there is no undo and no archive copy. Kanban cards, Master Data documents and
-tables, API keys, workflows and agent configuration are **not** touched by retention.
+tables, API keys, workflows and agent configuration are **not** touched by retention (Master Data
+has its own purge). Manual deletes: [26-content-explorer.md](./26-content-explorer.md).
 
 The **Efficiency View → Org** tab shows **Storage (MB)** so you can see the effect: it sums your
-chats, standups, workflow runs, Master Data rows and documents, and your OpenClaw tenant workspace
-files. Run a purge and the number drops on the next refresh.
+chats, standups, workflow runs, Master Data, OpenClaw tenant workspace files (including inbound
+uploads), and `media/generated/<you>/`. Run a purge and the number drops on the next refresh.
 
 ---
 

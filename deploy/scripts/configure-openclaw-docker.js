@@ -132,7 +132,6 @@ for (const cap of ['image', 'audio', 'video']) {
 }
 console.log('Disabled tools.media.{image,audio,video}.enabled (Agent OS inbound sync + speech tools handle A/V)');
 
-
 // OpenClaw intersects agent tools.allow with global tools.allow. Plugin tools missing
 // from the global list are stripped (COO learnings_summary regressed this way).
 if (!Array.isArray(config.tools.allow)) config.tools.allow = [];
@@ -546,4 +545,28 @@ if (config.channels?.whatsapp?.accounts) {
     'Preserved channels.whatsapp accounts:',
     Object.keys(config.channels.whatsapp.accounts).join(', ') || '(none)'
   );
+}
+
+// Apply media size limit AFTER channel routing restore (sidecar replace would drop it).
+{
+  const mediaMaxMb = Math.max(
+    50,
+    Number.parseInt(String(process.env.OPENCLAW_MEDIA_MAX_MB || '128'), 10) || 128
+  );
+  if (!config.agents) config.agents = {};
+  if (!config.agents.defaults) config.agents.defaults = {};
+  config.agents.defaults.mediaMaxMb = mediaMaxMb;
+  if (config.channels?.whatsapp && typeof config.channels.whatsapp === 'object') {
+    config.channels.whatsapp.mediaMaxMb = mediaMaxMb;
+    const accounts = config.channels.whatsapp.accounts;
+    if (accounts && typeof accounts === 'object') {
+      for (const id of Object.keys(accounts)) {
+        const acc = accounts[id];
+        if (!acc || typeof acc !== 'object') continue;
+        acc.mediaMaxMb = mediaMaxMb;
+      }
+    }
+  }
+  writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
+  console.log('Set WhatsApp/agents mediaMaxMb=', mediaMaxMb);
 }

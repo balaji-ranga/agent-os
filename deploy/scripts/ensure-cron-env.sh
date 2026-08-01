@@ -54,7 +54,7 @@ cat >> "$ENV_FILE" <<'EOF'
 # AGENT_WORKFLOW_SCHEDULER_CRON=* * * * *  # master tick: runs user workflows whose schedule_cron is due
 # JOB_PIPELINE_CRON_SCHEDULE=0 * * * *     # Job Applicant pipeline tick across active job profiles
 # COO_STATUS_CHECKER_CRON=0 9 * * *        # daily CEO status report -> standup chat + HTML email
-# DATA_RETENTION_CRON=15 3 * * *           # daily purge using each user's Profile data_retention_days
+# DATA_RETENTION_CRON=15 3 * * *           # daily purge: chats/standup msgs/workflow runs + aged Content Explorer media (hard delete)
 # KANBAN_ORPHAN_WATCHER_CRON=*/5 * * * *   # re-pend stuck processing + reinitiate orphan specialty Kanban
 EOF
 
