@@ -1,0 +1,18 @@
+{
+  "title": "CEO Video Tours",
+  "max_seconds": 60,
+  "items": [
+    { "stem": "01-vision-architecture", "number": 1, "title": "Vision, purpose, architecture", "goal": "Why FloLah; high-level map; brief feature tour", "production": "real" },
+    { "stem": "02-first-login-profile", "number": 2, "title": "First login & Profile", "goal": "MFA, Profile, where Onboarding Helper lives", "production": "tts" },
+    { "stem": "03-org-dashboard-agents", "number": 3, "title": "Org, agents & chat", "goal": "Org chart, chat, attachments, Resync", "production": "tts" },
+    { "stem": "04-coo-kanban-standups", "number": 4, "title": "COO, Kanban & standups", "goal": "Day-to-day ops loop", "production": "tts" },
+    { "stem": "05-workflows-builder", "number": 5, "title": "Workflows & Workflow Builder", "goal": "Create, publish, run; certify mention", "production": "tts" },
+    { "stem": "06-master-data-rag", "number": 6, "title": "Master Data & RAG", "goal": "Docs/tables; Platform Help corpus", "production": "tts" },
+    { "stem": "07-tools-api-keys", "number": 7, "title": "Tools & API Keys", "goal": "Vault BYOK; content tools; MEDIA: habit", "production": "tts" },
+    { "stem": "08-channels-whatsapp", "number": 8, "title": "Agent channels (WhatsApp)", "goal": "Connect WA; inbound attachments; outbound MEDIA:", "production": "tts" },
+    { "stem": "09-browser-content-explorer", "number": 9, "title": "Browser Session & Content Explorer", "goal": "Recipes + where uploads/generated land", "production": "tts" },
+    { "stem": "10-efficiency-budgets", "number": 10, "title": "Efficiency, budgets & retention", "goal": "Token/error budgets; storage; purge", "production": "tts" },
+    { "stem": "11-avatars-scenes-speech", "number": 11, "title": "Avatars, Published Scenes & speech", "goal": "VR/public slug; STT/TTS briefly", "production": "tts" },
+    { "stem": "12-efficient-org-content-studio", "number": 12, "title": "Efficient org — content studio", "goal": "End-state using content-creation blueprint", "production": "real" }
+  ]
+}

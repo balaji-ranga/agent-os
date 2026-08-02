@@ -19,6 +19,23 @@ Also run from repo root: `node scripts/ensure-all-agent-workspaces.js` and `node
 
 Help corpus: `knowledgebase/platform-help/` → Master Data docs titled `Flolah Help — …`. Agent id: `platformhelp`.
 
+## Onboarding Helper + Workflow Builder (prompt E2E)
+
+Docs + copy-paste prompts: `knowledgebase/platform-help/27-onboarding-helper.md`.
+
+```powershell
+# Against VPS (public URL from AGENT_OS_PUBLIC_URL, e.g. https://flolah.cloud):
+$env:BASE_URL = "https://flolah.cloud"
+$env:TOKEN = "<ceo-session-token>"
+node backend/scripts/e2e-onboarding-wf-prompts.mjs
+```
+
+Seeds tools `onboarding_save_proposal` / `onboarding_apply_proposal` on backend startup; re-seed agent grants if needed:
+
+```bash
+docker exec -w /opt/agent-os/backend agent-os-backend-1 node scripts/seed-onboarding-helper-agent.js
+```
+
 ## IBKR Monthly Positive Return (local)
 
 ```powershell

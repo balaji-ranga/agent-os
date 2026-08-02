@@ -1,5 +1,6 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { handleChatComposeKeyDown } from '../utils/chatCompose.js';
+import { isImageMime } from '../utils/chatAttachments.js';
 
 /**
  * Multiline chat input with optional file attachments (images/docs).
@@ -21,7 +22,32 @@ export default function ChatComposeInput({
 }) {
   const fileRef = useRef(null);
   const [dragOver, setDragOver] = useState(false);
+  const [thumbUrls, setThumbUrls] = useState({});
   const supportAttach = typeof onAttachmentsChange === 'function';
+
+  useEffect(() => {
+    const next = {};
+    for (let i = 0; i < attachments.length; i += 1) {
+      const f = attachments[i];
+      if (f && isImageMime(f.type, f.name)) {
+        try {
+          next[i] = URL.createObjectURL(f);
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+    setThumbUrls(next);
+    return () => {
+      Object.values(next).forEach((u) => {
+        try {
+          URL.revokeObjectURL(u);
+        } catch {
+          /* ignore */
+        }
+      });
+    };
+  }, [attachments]);
 
   const addFiles = (fileList) => {
     if (!supportAttach || !fileList?.length) return;
@@ -93,9 +119,13 @@ export default function ChatComposeInput({
         <div className="chat-compose-chips" aria-label="Attachments">
           {attachments.map((f, i) => (
             <span key={`${f.name}-${f.size}-${i}`} className="chat-compose-chip">
-              <span className="chat-compose-chip-icon" aria-hidden>
-                {String(f.type || '').startsWith('image/') ? 'IMG' : 'DOC'}
-              </span>
+              {thumbUrls[i] ? (
+                <img src={thumbUrls[i]} alt="" className="chat-compose-chip-thumb" />
+              ) : (
+                <span className="chat-compose-chip-icon" aria-hidden>
+                  {String(f.type || '').startsWith('image/') ? 'IMG' : 'FILE'}
+                </span>
+              )}
               <span className="chat-compose-chip-name" title={f.name}>
                 {f.name}
               </span>

@@ -985,6 +985,89 @@ html.auth-route #root {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.chat-compose-chip-thumb {
+  width: 28px;
+  height: 28px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+}
+.chat-msg-attach-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin: 0 0 0.65rem;
+}
+.chat-msg-attach {
+  margin: 0;
+  max-width: min(320px, 100%);
+}
+.chat-msg-attach--image,
+.chat-msg-attach--video {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.chat-msg-attach-img,
+.chat-msg-attach-video {
+  display: block;
+  max-width: 100%;
+  max-height: 280px;
+  width: auto;
+  height: auto;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  object-fit: contain;
+}
+.chat-msg-attach-caption,
+.chat-msg-attach-name {
+  font-size: 0.75rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.chat-msg-attach--file,
+.chat-msg-attach--audio {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  max-width: 100%;
+}
+.chat-msg-attach--audio {
+  flex-wrap: wrap;
+}
+.chat-msg-attach-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.chat-msg-attach-dl {
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.72rem;
+  padding: 0;
+  flex-shrink: 0;
+}
+.chat-msg-attach-dl:hover {
+  text-decoration: underline;
+}
+.chat-msg-attach-loading {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
 .chat-compose-chip-remove {
   border: none;
   background: transparent;
@@ -4105,4 +4188,15 @@ body.wf-props-resizing .react-flow {
   .public-vr-handle {
     min-height: 48px;
   }
+}
+
+.profile-menu-section {
+  padding: 0.55rem 0.85rem 0.2rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted, #888);
+  border-top: 1px solid var(--border);
+  margin-top: 0.25rem;
 }

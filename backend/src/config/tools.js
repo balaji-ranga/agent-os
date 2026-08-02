@@ -221,6 +221,179 @@ export function getImageConfig(ownerUserId = null) {
   };
 }
 
+const DEFAULT_VISION_MODEL = 'gpt-4o-mini';
+const OPENAI_DEFAULT_BASE = 'https://api.openai.com/v1';
+
+/**
+ * Vision / OCR for analyze_image: multimodal chat/completions (image_url parts).
+ *
+ * Resolution:
+ * 1. Optional ops override: TOOLS_VISION_BASE_URL + TOOLS_VISION_API_KEY (+ TOOLS_VISION_MODEL)
+ * 2. CEO BYOK Profile (provider ≠ platform_decided) → vault **Platform_BYOK** + Profile primary
+ *    base/model only (never platform keys). Missing vault → error.
+ * 3. Platform default → **effective** platform primary (same as chat; honors Admin
+ *    primary/secondary switch). No extra silent fallback. If that model cannot do vision,
+ *    the upstream call fails.
+ *
+ * @param {string|null} [ownerUserId]
+ */
+export function getVisionConfig(ownerUserId = null) {
+  const visionModelOverride = (process.env.TOOLS_VISION_MODEL || '').trim();
+  const maxTokens = Math.min(
+    parseInt(process.env.TOOLS_VISION_MAX_TOKENS || '1200', 10) || 1200,
+    4096
+  );
+  const maxBytesMb = Math.min(
+    parseInt(process.env.TOOLS_VISION_MAX_MB || '15', 10) || 15,
+    40
+  );
+  const timeoutMs = Math.min(
+    parseInt(process.env.TOOLS_VISION_TIMEOUT_MS || '90000', 10) || 90000,
+    180000
+  );
+
+  const explicitBase = normalizeBaseUrl(process.env.TOOLS_VISION_BASE_URL || '');
+  const explicitKey = (process.env.TOOLS_VISION_API_KEY || '').trim();
+  if (explicitBase && explicitKey) {
+    return {
+      baseUrl: explicitBase,
+      apiKey: explicitKey,
+      model: visionModelOverride || DEFAULT_VISION_MODEL,
+      maxTokens,
+      maxBytesMb,
+      timeoutMs,
+      using_byok: false,
+      provider: 'tools_vision_env',
+      source: 'tools_vision_env',
+      error: null,
+      error_code: null,
+    };
+  }
+
+  let provider = 'platform_decided';
+  let llm = null;
+  if (ownerUserId) {
+    try {
+      llm = getLlmConfig(ownerUserId);
+      provider = String(llm?.provider || 'platform_decided').trim() || 'platform_decided';
+    } catch {
+      provider = 'platform_decided';
+    }
+  }
+
+  const usePlatformKey = !ownerUserId || provider === 'platform_decided';
+
+  // BYOK Profiles: vault Platform_BYOK only — never platform OPENAI_* keys.
+  if (!usePlatformKey && ownerUserId) {
+    const vault = tryResolveUserApiKey(ownerUserId, PLATFORM_BYOK_KEY_NAME);
+    const byokKey = String(vault?.value || '').trim();
+    if (!byokKey) {
+      console.info(
+        '[tools] analyze_image blocked owner=%s provider=%s missing vault=%s',
+        ownerUserId,
+        provider,
+        PLATFORM_BYOK_KEY_NAME
+      );
+      return {
+        baseUrl: '',
+        apiKey: '',
+        model: visionModelOverride || llm?.primary?.model || DEFAULT_VISION_MODEL,
+        maxTokens,
+        maxBytesMb,
+        timeoutMs,
+        using_byok: true,
+        provider,
+        source: 'user_byok_vault',
+        platform_byok_key_name: PLATFORM_BYOK_KEY_NAME,
+        error: `Create API key "${PLATFORM_BYOK_KEY_NAME}" under Management → API Keys for image analysis, or switch Profile LLM to Platform default.`,
+        error_code: 'platform_byok_required',
+      };
+    }
+    let baseUrl = OPENAI_DEFAULT_BASE;
+    if (provider === 'openrouter') {
+      baseUrl =
+        normalizeBaseUrl(process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1') ||
+        'https://openrouter.ai/api/v1';
+    } else if (llm?.primary?.baseUrl && !isLocalOllamaUrl(llm.primary.baseUrl)) {
+      baseUrl = normalizeBaseUrl(llm.primary.baseUrl) || baseUrl;
+    } else if (provider === 'openai') {
+      baseUrl = OPENAI_DEFAULT_BASE;
+    }
+    // Use Profile primary model as-is (optional TOOLS_VISION_MODEL override only).
+    // Do not silently substitute a different vision model — let upstream fail if unsupported.
+    const byokModel =
+      visionModelOverride || String(llm?.primary?.model || '').trim() || DEFAULT_VISION_MODEL;
+    console.info(
+      '[tools] analyze_image using vault %s owner=%s provider=%s model=%s',
+      PLATFORM_BYOK_KEY_NAME,
+      ownerUserId,
+      provider,
+      byokModel
+    );
+    return {
+      baseUrl,
+      apiKey: byokKey,
+      model: byokModel,
+      maxTokens,
+      maxBytesMb,
+      timeoutMs,
+      using_byok: true,
+      provider,
+      source: 'user_byok_vault',
+      platform_byok_key_name: PLATFORM_BYOK_KEY_NAME,
+      error: null,
+      error_code: null,
+    };
+  }
+
+  // Platform default: same effective primary as chat (honors Admin primary/secondary switch).
+  // Do not read raw OPENAI_PRIMARY_* when secondary is active — that ignored the switch and
+  // kept calling DeepSeek while chat used gpt-4o-mini.
+  if (!llm) {
+    try {
+      llm = getLlmConfig(ownerUserId || null);
+    } catch {
+      llm = null;
+    }
+  }
+  const primaryBase = normalizeBaseUrl(llm?.primary?.baseUrl || '') || '';
+  const primaryKey = String(llm?.primary?.apiKey || '').trim();
+  const primaryModel = String(llm?.primary?.model || '').trim();
+
+  if (primaryBase && primaryKey) {
+    const model = visionModelOverride || primaryModel || DEFAULT_VISION_MODEL;
+    return {
+      baseUrl: primaryBase,
+      apiKey: primaryKey,
+      model,
+      maxTokens,
+      maxBytesMb,
+      timeoutMs,
+      using_byok: false,
+      provider: 'platform_decided',
+      source: llm?.platform_endpoint === 'secondary' ? 'platform_effective_secondary' : 'platform_primary',
+      platform_endpoint: llm?.platform_endpoint || 'primary',
+      error: null,
+      error_code: null,
+    };
+  }
+
+  return {
+    baseUrl: '',
+    apiKey: '',
+    model: visionModelOverride || primaryModel || DEFAULT_VISION_MODEL,
+    maxTokens,
+    maxBytesMb,
+    timeoutMs,
+    using_byok: false,
+    provider: 'platform_decided',
+    source: 'unconfigured',
+    error:
+      'Image analysis not configured. Set platform OPENAI_* (or TOOLS_VISION_BASE_URL + TOOLS_VISION_API_KEY). For BYOK Profiles, create vault API key "Platform_BYOK".',
+    error_code: 'vision_not_configured',
+  };
+}
+
 // Zeroscope (free/open model on Replicate; you pay Replicate per run). Or use Google Veo on Replicate: e.g. google/veo-2, google/veo-3, google/veo-3-fast — set TOOLS_VIDEO_MODEL_VERSION from Replicate portal.
 const DEFAULT_VIDEO_MODEL_VERSION = 'anotherjesse/zeroscope-v2-xl:8ba52bde11300615f65e9591d7afc58816def12c93c870fa583ff67ae17afdda';
 const REPLICATE_DEFAULT_BASE = 'https://api.replicate.com/v1';

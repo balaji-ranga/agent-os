@@ -3,7 +3,7 @@ import { api, resolveFetchUrl } from '../api';
 import ChatMessageRow from './ChatMessageRow';
 import ChatComposeInput from './ChatComposeInput';
 import { useAuth } from '../context/AuthContext';
-import { buildMessageWithAttachments, uploadChatAttachments } from '../utils/chatAttachments.js';
+import { buildMessageWithAttachments, uploadChatAttachments, buildDisplayAttachmentsFromFiles, revokeAttachmentPreviews } from '../utils/chatAttachments.js';
 
 /**
  * Embeddable chat panel for an OpenClaw agent.
@@ -72,16 +72,42 @@ export default function AgentChatPanel({
   const sendMessage = async (msg, files = []) => {
     const userText = String(msg || '').trim();
     if ((!userText && !files.length) || sending) return;
-    const displayMsg =
-      userText || `(Attached ${files.length} file${files.length === 1 ? '' : 's'})`;
+    const displayAttachments = buildDisplayAttachmentsFromFiles(files);
+    const tempId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     setSending(true);
     setError(null);
-    setTurns((prev) => [...prev, { role: 'user', content: displayMsg, created_at: new Date().toISOString() }]);
+    setTurns((prev) => [
+      ...prev,
+      {
+        id: tempId,
+        role: 'user',
+        content: userText,
+        attachments: displayAttachments,
+        created_at: new Date().toISOString(),
+      },
+    ]);
     const controller = new AbortController();
     abortControllerRef.current = controller;
     try {
       const uploaded = files.length ? await uploadChatAttachments(files) : [];
       const outbound = buildMessageWithAttachments(userText, uploaded);
+      if (uploaded.length) {
+        setTurns((prev) =>
+          prev.map((t) =>
+            t.id === tempId
+              ? {
+                  ...t,
+                  attachments: displayAttachments.map((a, i) => ({
+                    ...a,
+                    relative_path: uploaded[i]?.relative_path || a.relative_path,
+                    document_id: uploaded[i]?.document_id || a.document_id,
+                    mime_type: uploaded[i]?.mime_type || a.mime_type,
+                  })),
+                }
+              : t
+          )
+        );
+      }
       const r = await api.agentChatSend(agentId, outbound, dataCeoUserId || 'default', profileId, {
         signal: controller.signal,
       });
@@ -101,7 +127,8 @@ export default function AgentChatPanel({
     } catch (e) {
       const cancelled = controller.signal.aborted || e?.name === 'AbortError';
       setError(cancelled ? 'Cancelled' : e.message);
-      setTurns((prev) => prev.filter((t) => t.role !== 'user' || t.content !== displayMsg));
+      setTurns((prev) => prev.filter((t) => t.id !== tempId));
+      revokeAttachmentPreviews(displayAttachments);
       if (!cancelled) throw e;
     } finally {
       if (abortControllerRef.current === controller) {
@@ -218,6 +245,7 @@ export default function AgentChatPanel({
             feedbackSource="chat"
             feedbackContext={profileId ? { profile_id: profileId } : {}}
             toolCalls={t.tool_calls}
+            attachments={t.attachments}
           />
         ))}
         {sending && <div style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>…</div>}

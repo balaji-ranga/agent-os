@@ -7,7 +7,7 @@ import { Router } from 'express';
 import { randomUUID } from 'crypto';
 import { join, extname } from 'path';
 import { mkdirSync, writeFileSync } from 'fs';
-import { getSummarizeUrlConfig, getToolsApiKey, getOpenAiConfig, getImageConfig, getVideoConfig, getBraveSearchConfig, isGptImageModel, mapGptImageQuality } from '../config/tools.js';
+import { getSummarizeUrlConfig, getToolsApiKey, getOpenAiConfig, getImageConfig, getVideoConfig, getVisionConfig, getBraveSearchConfig, isGptImageModel, mapGptImageQuality } from '../config/tools.js';
 import { chatCompletions } from '../config/llm.js';
 import { getDb } from '../db/schema.js';
 import * as meta from '../services/content-tools-meta.js';
@@ -26,6 +26,7 @@ import { listRecipes } from '../services/browser-recipes.js';
 import { getBrowserSessionStatus } from '../services/client-browser-session.js';
 import { loadKanbanTaskContent, loadKanbanTaskWithMessages, runKanbanWatchTick } from '../services/kanban-watch.js';
 import { executeSpeechSttTool, executeSpeechTtsTool } from '../services/speech-content-tools.js';
+import { executeAnalyzeImageTool } from '../services/image-vision-tools.js';
 import {
   submitPlatformFeedback,
   enquirePlatformFeedback,
@@ -75,6 +76,7 @@ import { summarizeLearnings } from '../services/agent-feedback.js';
 import { executeEmailSend } from '../services/email-send.js';
 import { executeNotifyCeo } from '../services/notify-ceo.js';
 import { executeCeoProfile } from '../services/ceo-profile.js';
+import { applyProposal, getState as getOnboardingState, saveAgentProposal, saveDraft } from '../services/onboarding-helper.js';
 import { runCooStatusChecker } from '../services/coo-status-checker.js';
 import {
   executeConnectorAction,
@@ -1459,6 +1461,52 @@ router.post('/speech-stt', optionalAuth, async (req, res) => {
 });
 
 /**
+ * analyze_image — vision LLM describe / OCR / review for inbound images (WhatsApp + chat paperclip).
+ * Body: { path|image|relative_path|MEDIA:… } or content_base64; optional mode (full|describe|ocr|review), prompt.
+ */
+router.post('/analyze-image', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
+    if (!ownerUserId) {
+      const err = { error: 'Could not resolve CEO user for this session' };
+      logTool(req, 'analyze_image', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    // Surface clear config errors before reading bytes.
+    const visionCfg = getVisionConfig(ownerUserId);
+    if (visionCfg.error || !visionCfg.apiKey) {
+      const err = {
+        error: visionCfg.error || 'Image analysis not configured',
+        code: visionCfg.error_code || 'vision_not_configured',
+      };
+      logTool(req, 'analyze_image', requestPayload, err, 'error', source);
+      return res.status(503).json(err);
+    }
+    const out = await executeAnalyzeImageTool(requestPayload, ownerUserId);
+    logTool(
+      req,
+      'analyze_image',
+      {
+        ...requestPayload,
+        owner_user_id: ownerUserId,
+        content_base64: requestPayload.content_base64 ? '[redacted]' : undefined,
+        contentBase64: requestPayload.contentBase64 ? '[redacted]' : undefined,
+      },
+      { ok: out.ok, mode: out.mode, model: out.model, chars: out.text?.length || 0, filename: out.filename },
+      'ok',
+      source
+    );
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message, code: e.code || undefined };
+    logTool(req, 'analyze_image', requestPayload, err, 'error', source);
+    res.status(e.status || 500).json(err);
+  }
+});
+
+/**
  * notifyCeo — in-app push notification to the entitled CEO user for this session.
  * Body: { title, body?, link_url?, source_key? }. Never accepts target user_id (owner from session).
  */
@@ -1502,6 +1550,61 @@ router.post('/notify-ceo', optionalAuth, async (req, res) => {
     const err = { error: e.message };
     logTool(req, 'notify_ceo', requestPayload, err, 'error', source);
     res.status(500).json(err);
+  }
+});
+
+/** Save an Onboarding Helper proposal for CEO review; owner is session-scoped. */
+router.post('/onboarding-save-proposal', optionalAuth, (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    const caller = getCallerAgent(req);
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
+    if (!ownerUserId) {
+      const err = { error: 'Could not resolve CEO user for this session' };
+      logTool(req, 'onboarding_save_proposal', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const out = saveAgentProposal(ownerUserId, requestPayload);
+    logTool(req, 'onboarding_save_proposal', { ...requestPayload, owner_user_id: ownerUserId, caller_agent_id: caller?.id || null }, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message || 'Failed to save onboarding proposal' };
+    logTool(req, 'onboarding_save_proposal', requestPayload, err, 'error', source);
+    res.status(e.status || 500).json(err);
+  }
+});
+
+/** Apply an already reviewed proposal only after explicit CEO confirmation. */
+router.post('/onboarding-apply-proposal', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    const caller = getCallerAgent(req);
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
+    if (!ownerUserId) {
+      const err = { error: 'Could not resolve CEO user for this session' };
+      logTool(req, 'onboarding_apply_proposal', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    if (requestPayload.confirm_override !== true) {
+      const err = { error: 'confirm_override must be true after explicit CEO confirmation' };
+      logTool(req, 'onboarding_apply_proposal', requestPayload, err, 'error', source);
+      return res.status(400).json(err);
+    }
+    if (getOnboardingState(ownerUserId).existing_org?.has_custom_agents) {
+      saveDraft(ownerUserId, { draft_journey: { override_ack: true } });
+    }
+    const out = await applyProposal(ownerUserId, {
+      confirm_override: true,
+      selected: requestPayload.selected,
+    });
+    logTool(req, 'onboarding_apply_proposal', { ...requestPayload, owner_user_id: ownerUserId, caller_agent_id: caller?.id || null }, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message || 'Failed to apply onboarding proposal' };
+    logTool(req, 'onboarding_apply_proposal', requestPayload, err, 'error', source);
+    res.status(e.status || 500).json(err);
   }
 });
 

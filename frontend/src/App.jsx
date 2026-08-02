@@ -30,6 +30,8 @@ import ExternalAgents from './pages/ExternalAgents';
 import AgentExchange from './pages/AgentExchange';
 import MasterData from './pages/MasterData';
 import ContentExplorer from './pages/ContentExplorer';
+import Onboarding from './pages/Onboarding';
+import VideoTours from './pages/VideoTours';
 import ApiKeys from './pages/ApiKeys';
 import Policies from './pages/Policies';
 import AiSnipper from './pages/AiSnipper';
@@ -240,6 +242,8 @@ function Shell() {
                 <Route path="/kanban" element={<Kanban />} />
                 <Route path="/master-data" element={<MasterData />} />
                 <Route path="/content-explorer" element={<ContentExplorer />} />
+                <Route path="/onboarding" element={<Onboarding />} />
+                <Route path="/video-tours" element={<VideoTours />} />
                 <Route path="/api-keys" element={<ApiKeys />} />
                 <Route path="/policies" element={<Policies />} />
                 <Route path="/ai-snipper" element={<AiSnipper />} />

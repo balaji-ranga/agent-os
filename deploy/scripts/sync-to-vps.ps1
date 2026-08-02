@@ -6,6 +6,10 @@
 #   .\deploy\scripts\sync-to-vps.ps1 -SkipSmoke   # skip post-deploy smoke + platform verify
 #   .\deploy\scripts\sync-to-vps.ps1 -NoCache     # force docker compose build --no-cache
 #
+# After each rebuild, vps-deploy-latest.sh runs docker-disk-hygiene.sh (BuildKit cache
+# older than 72h + dangling images + leftover oc-fix-ep). Override with SKIP_DOCKER_PRUNE=1
+# or DOCKER_BUILDER_PRUNE_ALL=1 / DOCKER_BUILDER_PRUNE_UNTIL=24h on the remote deploy env.
+#
 # Syncs full build contexts: frontend/, backend/src + backend/desktop-workflow-runner +
 # backend/local-ibkr-bridge + scripts,
 # deploy/docker + compose overlays (incl. docker-compose.vps-client-ip.yml for real client IP / A2A whitelist),
@@ -24,6 +28,7 @@
 # (scheduled jobs / retention incl. Content Explorer media hard-delete), Org Storage (MB)
 # (tenant + media/generated/<ceo>), COO status_checker report, data retention purge,
 # Content Explorer (/content-explorer list/download/delete), Profile LLM catalog (provider+model),
+# Onboarding Helper bridge (onboarding_save/apply_proposal + /onboarding selective Review; E2E prompts in help 27),
 # Published Scenes + public VR (/p/vr/:slug), Slack/WhatsApp agent channels wizard,
 # free STT/TTS optional-voice (ensure-voice-env.sh → SPEECH_* + whisper/piper),
 # Flolah branding, hPanel shell + light/dark theme (ThemeToggle, data-theme),
@@ -113,6 +118,7 @@ scp @ssh `
   "root@${HostIp}:$RemoteRoot/deploy/nginx/"
 scp @ssh `
   "$Repo\deploy\scripts\vps-deploy-latest.sh" `
+  "$Repo\deploy\scripts\docker-disk-hygiene.sh" `
   "$Repo\deploy\scripts\vps-verify-platform.sh" `
   "$Repo\deploy\scripts\vps-verify-a2a-private.sh" `
   "$Repo\deploy\scripts\vps-verify-org-delegation.sh" `
@@ -168,6 +174,11 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\vps-test-platform-help.js" `
     "$Repo\backend\scripts\seed-workflow-builder-agent.js" `
     "$Repo\backend\scripts\seed-platform-help-agent.js" `
+    "$Repo\backend\scripts\seed-onboarding-helper-agent.js" `
+    "$Repo\backend\scripts\e2e-onboarding-wf-prompts.mjs" `
+    "$Repo\backend\scripts\export-video-tours.js" `
+    "$Repo\backend\scripts\video-tours-storyboards.js" `
+    "$Repo\backend\scripts\video-tours-render-slides.js" `
     "$Repo\backend\scripts\test-platform-help-seed.js" `
     "$Repo\backend\scripts\reupload-platform-help-docs.js" `
     "$Repo\backend\scripts\test-platform-help-rag.js" `
@@ -310,7 +321,7 @@ if ($Services -match "backend|openclaw") {
   scp @ssh "$Repo\tools\brave-search-mcp-byok\server.js" "root@${HostIp}:$RemoteRoot/tools/brave-search-mcp-byok/"
   scp @ssh -r "$Repo\openclaw-extensions\agent-os-content-tools" "root@${HostIp}:$RemoteRoot/openclaw-extensions/"
   scp @ssh -r "$Repo\openclaw-extensions\agent-os-bootstrap-watcher" "root@${HostIp}:$RemoteRoot/openclaw-extensions/"
-  Write-Host "==> Sync workspace templates (shared ops + COO + TechResearcher + ApplicationAgent + Workflow Builder + Platform Help + Vedic Astrology) + skills + platform-help KB"
+  Write-Host "==> Sync workspace templates (shared ops + COO + TechResearcher + ApplicationAgent + Workflow Builder + Platform Help + Onboarding Helper + Vedic Astrology) + skills + platform-help KB"
   ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/openclaw-workspace-templates $RemoteRoot/openclaw-skills/agent-os-content-tools $RemoteRoot/openclaw-skills/agent-send"
   scp @ssh -r "$Repo\openclaw-workspace-templates\_shared" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   scp @ssh -r "$Repo\openclaw-workspace-templates\balserve" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
@@ -318,6 +329,7 @@ if ($Services -match "backend|openclaw") {
   scp @ssh -r "$Repo\openclaw-workspace-templates\applicationagent" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   scp @ssh -r "$Repo\openclaw-workspace-templates\workflowbuilder" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   scp @ssh -r "$Repo\openclaw-workspace-templates\platformhelp" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
+  scp @ssh -r "$Repo\openclaw-workspace-templates\onboardinghelper" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   scp @ssh -r "$Repo\openclaw-workspace-templates\vedic-astrology" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   scp @ssh -r "$Repo\openclaw-workspace-templates\socialasstant" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   scp @ssh -r "$Repo\openclaw-workspace-templates\expensemanager" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
@@ -328,6 +340,14 @@ if ($Services -match "backend|openclaw") {
   ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/knowledgebase"
   scp @ssh -r "$Repo\knowledgebase\platform-help" "root@${HostIp}:$RemoteRoot/knowledgebase/"
   scp @ssh "$Repo\knowledgebase\README.md" "root@${HostIp}:$RemoteRoot/knowledgebase/README.md"
+  scp @ssh `
+    "$Repo\knowledgebase\ONBOARDING-HELPER-PLAN.md" `
+    "$Repo\knowledgebase\VIDEO-TOURS-CEO-CURRICULUM.md" `
+    "$Repo\knowledgebase\CONTENT-CREATION-ORG-BLUEPRINT.md" `
+    "root@${HostIp}:$RemoteRoot/knowledgebase/"
+  if (Test-Path "$Repo\knowledgebase\video-tours") {
+    scp @ssh -r "$Repo\knowledgebase\video-tours" "root@${HostIp}:$RemoteRoot/knowledgebase/"
+  }
   scp @ssh `
     "$Repo\knowledgebase\IBKR-LOCAL-BRIDGE.md" `
     "$Repo\knowledgebase\IBKR-MONTHLY-WORKFLOWS.md" `

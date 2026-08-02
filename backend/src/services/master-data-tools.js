@@ -253,7 +253,7 @@ export function listInboundAttachmentsForAgent(ownerUserId) {
       rag_indexable: rag,
       is_media: media,
       note: media
-        ? 'Image/audio/video — keep in inbound folder; do not index for RAG. Use speech_stt for audio if needed.'
+        ? 'Image/audio/video — keep in inbound folder; do not index for RAG. Use analyze_image for images; speech_stt for audio if needed.'
         : rag
           ? 'RAG-able — call master_data_index_document with relative_path, then master_data_rag.'
           : 'Not RAG-indexable (unsupported type). Leave in inbound folder.',
@@ -326,7 +326,7 @@ export async function indexDocumentForAgent(ownerUserId, params = {}) {
   if (isMediaAttachment(mime, filename)) {
     throw Object.assign(
       new Error(
-        `Refusing to RAG-index media (${filename}). Keep image/audio/video in inbound/attachments; use speech_stt for audio transcripts if needed.`
+        `Refusing to RAG-index media (${filename}). Keep image/audio/video in inbound/attachments; use analyze_image for images or speech_stt for audio transcripts if needed.`
       ),
       { status: 400, code: 'media_not_rag' }
     );

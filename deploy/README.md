@@ -322,6 +322,7 @@ All proxied under `/api` (rebuild backend + frontend images after upgrade):
 | Published Scenes / public VR | Guest `/p/vr/:slug` + `/api/public/vr/*` (no auth); publish from Avatars / Published Scenes nav. Guest artifact tokens ≠ `MEDIA_PUBLIC_SIGNED` |
 | Agent channels | Slack/WhatsApp BYOK wizard → vault + OpenClaw bindings; outbound **`MEDIA:`** attach; inbound → `inbound/attachments/`; `/api/agent-channels`; platform-help **24**; `OPENCLAW_MEDIA_MAX_MB` (default 128) applied by `configure-openclaw-docker.js` |
 | Content Explorer | CEO file browser `/content-explorer` → list/download + `POST /api/workspace/content-explorer/delete` (hard delete selected/all); platform-help **26** |
+| Onboarding Helper | OpenClaw `onboardinghelper` + `/onboarding` Review checkboxes; tools `onboarding_save_proposal` / `onboarding_apply_proposal` (seeded at startup); templates `openclaw-workspace-templates/onboardinghelper/`; E2E prompts + `backend/scripts/e2e-onboarding-wf-prompts.mjs` → platform-help **27** |
 | Profile LLM catalog | Provider + model (`llm_model`); `GET /api/auth/llm-catalog`; registry `backend/src/config/llm-provider-registry.js`; soft fallbacks `OPENAI_BYOK_MODEL` / `OPENROUTER_MODEL` |
 | Generated media lockdown | `/api/media/openclaw/*` auth-only by default; WhatsApp uses disk `MEDIA:`; Dashboard inline players (Bearer→blob). Opt-in signed public: `MEDIA_PUBLIC_SIGNED=1` in `deploy/.env`. Docs: platform-help **11** |
 | Platform feedback (Admin) | `/admin/platform-feedback` + COO tools `platform_feedback_*`; statuses open / implemented / rejected |
@@ -341,20 +342,32 @@ All proxied under `/api` (rebuild backend + frontend images after upgrade):
 .\deploy\scripts\sync-to-vps.ps1 -NoCache
 ```
 
-`sync-to-vps.ps1` syncs **full build contexts**: `frontend/src` + package files, `backend/src` + key scripts (incl. `seed-platform-help-agent.js`), `deploy/*`, `scripts/`, OpenClaw extensions/skills/templates (COO, TechResearcher, ApplicationAgent, Workflow Builder, **Platform Help**), and `knowledgebase/platform-help/` — then runs `vps-deploy-latest.sh`.
+`sync-to-vps.ps1` syncs **full build contexts**: `frontend/src` + package files, `backend/src` + key scripts (incl. `seed-platform-help-agent.js`, `seed-onboarding-helper-agent.js`, `e2e-onboarding-wf-prompts.mjs`), `deploy/*`, `scripts/`, OpenClaw extensions/skills/templates (COO, TechResearcher, ApplicationAgent, Workflow Builder, **Platform Help**, **Onboarding Helper**), and `knowledgebase/platform-help/` — then runs `vps-deploy-latest.sh`.
+
+**Public URL:** set `AGENT_OS_PUBLIC_URL` in `deploy/.env` (production: `https://flolah.cloud`). Use that host for API smoke and prompt E2E — not a parked marketing domain.
 
 The backend image (`deploy/docker/backend.Dockerfile`) **COPY**s `knowledgebase/platform-help` so Master Data RAG seeding works inside the container.
 
 On VPS after sync (or after `git pull` on the box), `vps-deploy-latest.sh` rebuilds images and runs:
 
 1. `ensure-*-env.sh` helpers (cron, OpenSearch, docker-tools, **voice**/SPEECH_*) then compose build/up
-2. `optional-voice` whisper + piper (unless `SKIP_VOICE=1`)
-3. `vps-smoke-new-features.sh` — email_send, notify_ceo, master_data, **platformhelp agent**, org sync, A2A public + OAuth secured, shared notification dismiss, **public VR / speech / channels route probes**
-4. `vps-smoke-broadcast-notify.sh` — Broadcast → TechResearcher → notify_ceo (needs OpenClaw + LLM; non-fatal)
-5. `vps-smoke-deepseek-brain.sh` — DeepSeek@Ollama (non-fatal if model not pulled)
-6. `vps-verify-platform.sh` — Master Data, Platform Help docs/agent/RAG, per-CEO delegation, NotificationProvider + dismiss APIs, allowlists, **voice/public VR/channels files**
+2. **`docker-disk-hygiene.sh`** — prune BuildKit cache older than `DOCKER_BUILDER_PRUNE_UNTIL` (default **72h**), remove dangling `<none>` images, drop leftover test containers (`oc-fix-ep`). Does **not** remove Admin-onboarded tool containers or app volumes. Skip with `SKIP_DOCKER_PRUNE=1`; full wipe with `DOCKER_BUILDER_PRUNE_ALL=1`.
+3. `optional-voice` whisper + piper (unless `SKIP_VOICE=1`)
+4. `vps-smoke-new-features.sh` — email_send, notify_ceo, master_data, **platformhelp agent**, org sync, A2A public + OAuth secured, shared notification dismiss, **public VR / speech / channels route probes**
+5. `vps-smoke-broadcast-notify.sh` — Broadcast → TechResearcher → notify_ceo (needs OpenClaw + LLM; non-fatal)
+6. `vps-smoke-deepseek-brain.sh` — DeepSeek@Ollama (non-fatal if model not pulled)
+7. `vps-verify-platform.sh` — Master Data, Platform Help docs/agent/RAG, per-CEO delegation, NotificationProvider + dismiss APIs, allowlists, **voice/public VR/channels files**
 
 Skip all smoke: `SKIP_SMOKE=1` or `sync-to-vps.ps1 -SkipSmoke`. Force clean image build: `NO_CACHE=1` or `sync-to-vps.ps1 -NoCache`. Skip voice containers: `SKIP_VOICE=1`.
+
+Manual disk reclaim (same script deploy uses):
+
+```bash
+# Keep last 72h of build cache (default ongoing behaviour)
+bash /opt/agent-os/deploy/scripts/docker-disk-hygiene.sh
+# One-shot full unused build-cache wipe (next compose build is colder)
+DOCKER_BUILDER_PRUNE_ALL=1 bash /opt/agent-os/deploy/scripts/docker-disk-hygiene.sh
+```
 
 Optional targeted smokes (after deploy):
 

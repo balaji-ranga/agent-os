@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import ChatMessageRow from '../components/ChatMessageRow';
 import ChatComposeInput from '../components/ChatComposeInput';
 import BrowserTasksLive from '../components/BrowserTasksLive';
-import { buildMessageWithAttachments, uploadChatAttachments } from '../utils/chatAttachments.js';
+import { buildMessageWithAttachments, uploadChatAttachments, buildDisplayAttachmentsFromFiles, revokeAttachmentPreviews } from '../utils/chatAttachments.js';
 
 const secondaryBtn = {
   padding: '0.45rem 0.85rem',
@@ -156,23 +156,51 @@ export default function AgentChat() {
     e?.preventDefault?.();
     if ((!input.trim() && !attachments.length) || sending) return;
     const userText = input.trim();
-    const displayMsg =
-      userText || `(Attached ${attachments.length} file${attachments.length === 1 ? '' : 's'})`;
     const pendingFiles = [...attachments];
+    const displayAttachments = buildDisplayAttachmentsFromFiles(pendingFiles);
+    const tempId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     setInput('');
     setAttachments([]);
     setSending(true);
     setError(null);
-    setTurns((prev) => [...prev, { role: 'user', content: displayMsg, created_at: new Date().toISOString() }]);
+    setTurns((prev) => [
+      ...prev,
+      {
+        id: tempId,
+        role: 'user',
+        content: userText,
+        attachments: displayAttachments,
+        created_at: new Date().toISOString(),
+      },
+    ]);
     const controller = new AbortController();
     abortControllerRef.current = controller;
     try {
       const uploaded = pendingFiles.length ? await uploadChatAttachments(pendingFiles) : [];
       const outbound = buildMessageWithAttachments(userText, uploaded);
+      // Keep local image previews; enrich with inbound paths for later reload.
+      if (uploaded.length) {
+        setTurns((prev) =>
+          prev.map((t) =>
+            t.id === tempId
+              ? {
+                  ...t,
+                  attachments: displayAttachments.map((a, i) => ({
+                    ...a,
+                    relative_path: uploaded[i]?.relative_path || a.relative_path,
+                    document_id: uploaded[i]?.document_id || a.document_id,
+                    mime_type: uploaded[i]?.mime_type || a.mime_type,
+                  })),
+                }
+              : t
+          )
+        );
+      }
       const r = await api.agentChatSend(agentId, outbound, dataCeoUserId || 'default', profileId, {
         signal: controller.signal,
       });
       if (r.session_reset?.auto_split) {
+        revokeAttachmentPreviews(displayAttachments);
         setTurns([]);
         setBanner({
           type: 'warn',
@@ -189,10 +217,21 @@ export default function AgentChat() {
         });
       }
       setTurns((prev) => [
-        ...(r.session_reset?.auto_split ? [] : prev),
         ...(r.session_reset?.auto_split
-          ? [{ role: 'user', content: displayMsg, created_at: new Date().toISOString() }]
-          : []),
+          ? [
+              {
+                id: tempId,
+                role: 'user',
+                content: userText,
+                attachments: displayAttachments.map((a, i) => ({
+                  ...a,
+                  relative_path: uploaded[i]?.relative_path || a.relative_path,
+                  document_id: uploaded[i]?.document_id || a.document_id,
+                })),
+                created_at: new Date().toISOString(),
+              },
+            ]
+          : prev),
         {
           role: 'assistant',
           content: r.reply,
@@ -203,7 +242,8 @@ export default function AgentChat() {
     } catch (err) {
       const cancelled = controller.signal.aborted || err?.name === 'AbortError';
       setError(cancelled ? 'Cancelled' : err.message);
-      setTurns((prev) => prev.filter((t) => t.role !== 'user' || t.content !== displayMsg));
+      setTurns((prev) => prev.filter((t) => t.id !== tempId));
+      revokeAttachmentPreviews(displayAttachments);
       if (!cancelled) {
         setAttachments(pendingFiles);
         setInput(userText);
@@ -346,6 +386,7 @@ export default function AgentChat() {
               messageId={t.id}
               feedbackSource="chat"
               toolCalls={t.tool_calls}
+              attachments={t.attachments}
             />
           ))}
           {sending && <div style={{ color: 'var(--muted)' }}>…</div>}

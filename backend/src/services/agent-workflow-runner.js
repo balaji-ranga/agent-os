@@ -20,6 +20,7 @@ import { resolveNodeInputs, resolveInputText, storeNodeOutput } from './agent-wo
 import { executeEmailTask, executeApiTask, executeFilesystemTask } from './agent-workflow-tasks.js';
 import { executeElevenLabsTask } from './agent-workflow-elevenlabs.js';
 import { executeSpeechSttTask, executeSpeechTtsTask } from './agent-workflow-speech.js';
+import { executeAnalyzeImageTask } from './image-vision-tools.js';
 import { executeModel3dTask } from './agent-workflow-model3d.js';
 import { executeExternalAgentTask } from './agent-workflow-external-agent.js';
 import { executeBrainTask } from './agent-workflow-brain.js';
@@ -1358,6 +1359,32 @@ async function executeNode(runId, nodeId, graph, context, def, runRow) {
       kanban: (outputs) => ({
         nodeLabel: node.data?.label || 'Speech STT',
         summary: `STT: ${(outputs.text || '').slice(0, 120)}`,
+        detail: { inputs: inputRecord.summary, outputs },
+      }),
+    });
+    return;
+  }
+
+  if (node.type === 'analyze_image') {
+    const inputRecord = buildStepInputRecord(node, graph, context);
+    const config = node.data?.taskConfig || node.data?.config || {};
+    const { timeoutMs } = resolveNodeTimeoutConfig(config);
+    await completeTimedNodeStep({
+      runId,
+      node,
+      nodeId,
+      def,
+      runRow,
+      context,
+      inputRecord,
+      work: () =>
+        executeAnalyzeImageTask(inputRecord.resolved, { ...config, timeoutMs }, {
+          ...context,
+          owner_user_id: runRow.owner_user_id,
+        }),
+      kanban: (outputs) => ({
+        nodeLabel: node.data?.label || 'Analyze Image',
+        summary: `Vision: ${(outputs.text || outputs.description || '').slice(0, 120)}`,
         detail: { inputs: inputRecord.summary, outputs },
       }),
     });

@@ -1,0 +1,13 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:07.000
+API Keys vault stores provider credentials once.
+
+00:00:07.000 --> 00:00:14.000
+Tools expose capabilities — search, media, ops — under entitlements.
+
+00:00:14.000 --> 00:00:21.000
+When agents produce files, prefer MEDIA paths and Content Explorer over naked...
+
+00:00:21.000 --> 00:00:28.000
+Grant tools per agent; least privilege keeps budgets and blast radius sane.

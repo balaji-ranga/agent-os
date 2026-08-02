@@ -59,7 +59,7 @@ See [11-content-tools-scripts-profile.md](./11-content-tools-scripts-profile.md)
 
 1. OpenClaw stages inbound bytes under `~/.openclaw/media/inbound/…`.
 2. Backend mirrors them into the CEO agent workspace as **`inbound/attachments/<file>`** when Channels are enabled.
-3. Agents can run **`speech_stt`** or a summarize-inbound workflow with that relative path / `MEDIA:` line.
+3. Agents can run **`analyze_image`** (images), **`speech_stt`**, or a summarize-inbound workflow with that relative path / `MEDIA:` line.
 4. If chat text says “[whatsapp attachment unavailable]”, still check `inbound/attachments/` — sync can lag a few seconds.
 5. Web chat **paperclip** uploads use the same `inbound/attachments/` folder (plus Master Data).
 

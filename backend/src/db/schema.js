@@ -1838,6 +1838,24 @@ export function initDb() {
     `);
   } catch (_) {}
 
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS ceo_org_strategy (
+        owner_user_id TEXT PRIMARY KEY,
+        purpose TEXT,
+        vision TEXT,
+        goals_short_term TEXT,
+        goals_long_term TEXT,
+        strategic_profile_json TEXT,
+        draft_journey_json TEXT,
+        status TEXT DEFAULT 'draft',
+        applied_at TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+  } catch (_) {}
+
   return _db;
 }
 

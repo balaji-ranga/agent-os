@@ -40,6 +40,7 @@
       "email_send",
       "speech_tts",
       "speech_stt",
+      "analyze_image",
       "agent_workflow_runs",
       "agent_workflow_retry"
     ]
@@ -106,6 +107,9 @@
       "optional": true
     },
     "speech_stt": {
+      "optional": true
+    },
+    "analyze_image": {
       "optional": true
     },
     "brain_history": {

@@ -160,6 +160,18 @@ Non-2xx / SSL failures typically fail the run.
 
 ---
 
+## Analyze Image (`analyze_image`)
+
+**Purpose:** Vision LLM describe / OCR / review for inbound images (WhatsApp / chat paperclip under `inbound/attachments/`). Platform default uses the platform **primary** LLM; BYOK Profiles use vault **Platform_BYOK**. No silent secondary fallback — if the model cannot do vision, the call fails. Prefer this over assuming the agent chat model can see pixels.
+
+**Key attributes:** `mode` (`full`|`describe`|`ocr`|`review`); optional fixed `prompt`.
+
+| Inputs | Outputs |
+|--------|---------|
+| `image` (path / MEDIA: / chat text), optional `prompt` | `text`, `description`, `ocr_text`, `ok` |
+
+---
+
 ## Speech TTS (`speech_tts`)
 
 **Purpose:** Local Piper text-to-speech (`SPEECH_TTS_URL`). Free alternative to ElevenLabs for workflows and Agent Chat “Speak reply”.

@@ -27,6 +27,7 @@ Your org may **require** MFA or leave it optional (**inherit** platform default)
 3. Open **Profile** (avatar menu) — set name and MFA prefs. For OpenAI/OpenRouter BYOK, open **Management → API Keys**, edit the seeded **`Platform_BYOK`** slot, then on Profile choose **provider + chat model** (do not paste keys on Profile).
 4. Open **Master Data** — confirm **departments** and Platform Help documents exist. Optionally open **Content Explorer** to browse uploads and generated media.
 5. Open **Workflows** or ask **Platform Help**: “How do I build a workflow?”
+6. Optional — avatar menu → **Onboarding**, or chat **Onboarding Helper**, to propose departments/agents (selective Review + Apply). Prompt recipes: [27-onboarding-helper.md](./27-onboarding-helper.md).
 
 ## Profile and AI model (BYOK)
 

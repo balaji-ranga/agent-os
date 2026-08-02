@@ -119,6 +119,7 @@ Grant or revoke tools on each agent’s **Workspace → Tools access**.
 2. Choose **provider** (platform default, Ollama/DeepSeek free, or OpenAI/OpenRouter via **API Keys** → `Platform_BYOK`). Non-platform Profiles auto-seed recommended vault slots as unset.
 3. For OpenAI/OpenRouter (and optionally Ollama), also choose a **chat model** from the curated list (or a custom model id). Saving Profile syncs provider + model into OpenClaw for your tenant agents. Catalog: `GET /api/auth/llm-catalog`.
 4. Browse uploads and generated media under **Content Explorer** (`/content-explorer`).
+5. Optional: avatar → **Onboarding** or chat **Onboarding Helper** to propose departments/agents (selective Apply). See `knowledgebase/platform-help/27-onboarding-helper.md`.
 3. Keep MFA settings as required by your organization.
 4. Set **Data persistence** (30 / 60 / 90 / 120 / 365 days). A nightly job permanently deletes your chats, chat history, standup conversations and workflow runs older than that; **Purge aged data now** does it immediately. Watch the effect on **Efficiency View → Org → Storage (MB)**.
 
@@ -140,6 +141,7 @@ Grant or revoke tools on each agent’s **Workspace → Tools access**.
 | **Scheduled jobs reference** | All platform crons and user-level schedules documented in `knowledgebase/platform-help/19-scheduled-jobs-and-crons.md`; commented defaults kept in `.env` by `deploy/scripts/ensure-cron-env.sh`. |
 | **API Keys vault** | Management → API Keys — named secrets, optional encryption. Non-platform Profiles auto-seed unset slots (`Platform_BYOK`, `Replicate_BYOK`, `BRAVE_SEARCH_BYOK`, `elevenlabs-key`); OpenAI/OpenRouter need a filled `Platform_BYOK` plus a **chat model** on Profile. |
 | **Content Explorer** | Management → Content Explorer — browse/preview/download your uploaded + generated files (`inbound/attachments/`, tool media). See platform-help **26**. |
+| **Onboarding Helper** | Avatar → **Onboarding** + Dashboard **Onboarding Helper** chat. Agent saves proposals via `onboarding_save_proposal`; Review checkboxes; Apply creates selected depts/agents. Prompt recipes + E2E script: platform-help **27**, `backend/scripts/e2e-onboarding-wf-prompts.mjs`. |
 | **Connectors** | Link SaaS apps (OpenConnector) and call them from workflow **Connector** nodes. |
 | **Efficiency View** | **Org** tab: agents, automated tasks, feedback, workflow run success/fail, Storage (MB) (7d–All). **Department** tab: month-to-date tokens vs each department's budget. **Agent View** tab: per-agent activity, outcomes, token/error budget gauges, **Reset usage** / **Reset all usage** to zero month-to-date tokens without changing budgets. |
 | **Agent budgets** | Monthly **token budget** + **error budget %** per agent (and per department, as a planning figure). Warn at 80% via bell, **block** new chat/delegated work at 100% tokens or at the error budget (min 10 terminal calls). Refused calls never spend the error budget. Backed by a durable `token_usage` ledger. |
@@ -355,6 +357,8 @@ Laptop sync (when VPS cannot `git pull`):
 .\deploy\scripts\sync-to-vps.ps1 -NoCache   # stale Docker layers
 ```
 
+Public API host = `AGENT_OS_PUBLIC_URL` in `deploy/.env` (e.g. `https://flolah.cloud`), not a parked marketing domain.
+
 On VPS after sync / `git pull`:
 
 ```bash
@@ -363,6 +367,14 @@ SERVICES=frontend bash /opt/agent-os/deploy/scripts/vps-rebuild-frontend.sh
 bash /opt/agent-os/deploy/scripts/vps-verify-frontend-media.sh   # hPanel + fullscreen + CTAs
 bash /opt/agent-os/deploy/scripts/vps-verify-platform.sh         # Platform Help + Master Data
 bash /opt/agent-os/deploy/scripts/vps-verify-status-retention-ui.sh  # status checker + retention + Storage UI
+```
+
+Onboarding Helper + Workflow Builder **chat E2E** (CEO token; prompts in platform-help **27**):
+
+```powershell
+$env:BASE_URL = "https://flolah.cloud"
+$env:TOKEN = "<ceo-session>"
+node backend/scripts/e2e-onboarding-wf-prompts.mjs
 ```
 
 `vps-deploy-latest.sh` already chains these: `ensure-cron-env.sh` (cron reference block in `deploy/.env`),

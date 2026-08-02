@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
 import ChatMessageContent from '../components/ChatMessageContent';
+import ChatMessageAttachments from '../components/ChatMessageAttachments';
+import { splitChatAttachmentContent } from '../utils/chatAttachments.js';
 import ChatComposeInput from '../components/ChatComposeInput';
 import MessageFeedback from '../components/MessageFeedback';
 import OrgChart from '../components/OrgChart';
@@ -805,7 +807,9 @@ export default function Dashboard() {
                 </div>
                 <div className="chat-scroll-panel" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   {Array.isArray(selectedStandup.messages) && selectedStandup.messages.length > 0 ? (
-                    selectedStandup.messages.map((m) => (
+                    selectedStandup.messages.map((m) => {
+                      const parsed = splitChatAttachmentContent(m.content);
+                      return (
                       <div key={m.id}>
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', flexWrap: 'wrap' }}>
                           <span style={{ fontWeight: 600, color: m.role === 'coo' ? 'var(--accent)' : 'var(--text)', fontSize: '0.9rem' }}>
@@ -818,7 +822,12 @@ export default function Dashboard() {
                           )}
                         </div>
                         <div style={{ margin: '0.2rem 0 0', fontSize: '0.95rem' }}>
-                          <ChatMessageContent content={m.content} />
+                          {parsed.attachments?.length > 0 && (
+                            <ChatMessageAttachments attachments={parsed.attachments} />
+                          )}
+                          {(parsed.text || (!parsed.attachments?.length && m.content)) && (
+                            <ChatMessageContent content={parsed.text || m.content} />
+                          )}
                         </div>
                         {(m.role === 'coo' || m.role === 'assistant') && (
                           <MessageFeedback
@@ -831,7 +840,8 @@ export default function Dashboard() {
                           />
                         )}
                       </div>
-                    ))
+                      );
+                    })
                   ) : (
                     <p style={{ color: 'var(--muted)', margin: 0, fontSize: '0.9rem' }}>No messages yet. Send the day&apos;s tasks to the COO below.</p>
                   )}

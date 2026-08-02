@@ -3,11 +3,18 @@ import { Link, useNavigate } from 'react-router-dom';
 
 import { api } from '../../api.js';
 import ChatMessageContent from '../ChatMessageContent.jsx';
+import ChatMessageAttachments from '../ChatMessageAttachments.jsx';
 import ChatComposeInput from '../ChatComposeInput.jsx';
 import MessageFeedback from '../MessageFeedback.jsx';
 import { formatChatTimestamp } from '../../utils/formatDateTime.js';
 import { deriveWorkflowAgentUiEffects } from '../../utils/workflowAgentUiEffects.js';
-import { buildMessageWithAttachments, uploadChatAttachments } from '../../utils/chatAttachments.js';
+import {
+  buildMessageWithAttachments,
+  uploadChatAttachments,
+  buildDisplayAttachmentsFromFiles,
+  revokeAttachmentPreviews,
+  splitChatAttachmentContent,
+} from '../../utils/chatAttachments.js';
 
 function chatStorageKey(workflowId) {
   return `wf-agent-chat:${workflowId || 'global'}`;
@@ -231,15 +238,24 @@ export default function WorkflowAgentChat({
 
     const userText = input.trim();
     const pendingFiles = [...attachments];
-    const displayMsg =
-      userText || `(Attached ${pendingFiles.length} file${pendingFiles.length === 1 ? '' : 's'})`;
+    const displayAttachments = buildDisplayAttachmentsFromFiles(pendingFiles);
+    const tempId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     setInput('');
     setAttachments([]);
     setSending(true);
     setError(null);
 
     const history = turns.map((t) => ({ role: t.role, content: t.content }));
-    setTurns((prev) => [...prev, { role: 'user', content: displayMsg, created_at: new Date().toISOString() }]);
+    setTurns((prev) => [
+      ...prev,
+      {
+        id: tempId,
+        role: 'user',
+        content: userText,
+        attachments: displayAttachments,
+        created_at: new Date().toISOString(),
+      },
+    ]);
 
     try {
       const uploaded = pendingFiles.length ? await uploadChatAttachments(pendingFiles) : [];
@@ -260,8 +276,9 @@ export default function WorkflowAgentChat({
       setError(errMsg);
       setAttachments(pendingFiles);
       setInput(userText);
+      revokeAttachmentPreviews(displayAttachments);
       setTurns((prev) => [
-        ...prev,
+        ...prev.filter((t) => t.id !== tempId),
         {
           role: 'assistant',
           content: `**Error:** ${errMsg}`,
@@ -337,30 +354,41 @@ export default function WorkflowAgentChat({
                   &quot;test brain approval&quot; · &quot;inspect run 3&quot;
                 </p>
               )}
-              {turns.map((t, i) => (
-                <div key={t.id || i} className={`wf-agent-msg wf-agent-msg-${t.role}`}>
-                  {t.created_at && (
-                    <time
-                      className="wf-agent-msg-time"
-                      dateTime={t.created_at}
-                      style={{ fontSize: '0.68rem', color: 'var(--muted)', display: 'block', marginBottom: 4 }}
-                    >
-                      {formatChatTimestamp(t.created_at)}
-                    </time>
-                  )}
-                  <ChatMessageContent content={t.content} />
-                  {t.role === 'assistant' && (
-                    <MessageFeedback
-                      agentId="workflowbuilder"
-                      source="workflow_builder"
-                      messageId={t.id}
-                      messageContent={t.content}
-                      context={workflowId ? { workflow_id: workflowId } : {}}
-                      compact
-                    />
-                  )}
-                </div>
-              ))}
+              {turns.map((t, i) => {
+                const parsed =
+                  Array.isArray(t.attachments) && t.attachments.length
+                    ? { text: t.content, attachments: t.attachments }
+                    : splitChatAttachmentContent(t.content);
+                return (
+                  <div key={t.id || i} className={`wf-agent-msg wf-agent-msg-${t.role}`}>
+                    {t.created_at && (
+                      <time
+                        className="wf-agent-msg-time"
+                        dateTime={t.created_at}
+                        style={{ fontSize: '0.68rem', color: 'var(--muted)', display: 'block', marginBottom: 4 }}
+                      >
+                        {formatChatTimestamp(t.created_at)}
+                      </time>
+                    )}
+                    {parsed.attachments?.length > 0 && (
+                      <ChatMessageAttachments attachments={parsed.attachments} />
+                    )}
+                    {(parsed.text || (!parsed.attachments?.length && t.content)) && (
+                      <ChatMessageContent content={parsed.text || t.content} />
+                    )}
+                    {t.role === 'assistant' && (
+                      <MessageFeedback
+                        agentId="workflowbuilder"
+                        source="workflow_builder"
+                        messageId={t.id}
+                        messageContent={t.content}
+                        context={workflowId ? { workflow_id: workflowId } : {}}
+                        compact
+                      />
+                    )}
+                  </div>
+                );
+              })}
               {sending && <div className="wf-agent-msg wf-agent-msg-assistant wf-agent-thinking">Thinking…</div>}
             </div>
 

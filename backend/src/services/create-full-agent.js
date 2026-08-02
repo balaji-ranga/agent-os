@@ -25,6 +25,7 @@ const DEFAULT_TOOLS_ALLOW = [
   'learnings_summary',
   'summarize_url',
   'generate_image',
+  'analyze_image',
   'generate_video',
   'kanban_create_task',
   'kanban_move_status',

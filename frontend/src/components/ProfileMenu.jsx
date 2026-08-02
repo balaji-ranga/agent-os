@@ -34,6 +34,7 @@ export default function ProfileMenu({ user, logout, onNavigate }) {
   }, [open]);
 
   const close = () => setOpen(false);
+  const isCeo = user?.role === 'ceo';
 
   return (
     <div className="profile-menu" ref={rootRef}>
@@ -56,6 +57,19 @@ export default function ProfileMenu({ user, logout, onNavigate }) {
             <div className="profile-menu-meta-name">{user?.name || 'User'}</div>
             <div className="profile-menu-meta-role">{user?.role || ''}</div>
           </div>
+          {isCeo && (
+            <NavLink
+              to="/onboarding"
+              role="menuitem"
+              className="profile-menu-item"
+              onClick={() => {
+                close();
+                onNavigate?.();
+              }}
+            >
+              Onboarding
+            </NavLink>
+          )}
           <NavLink
             to="/profile"
             role="menuitem"
@@ -67,6 +81,35 @@ export default function ProfileMenu({ user, logout, onNavigate }) {
           >
             Edit profile
           </NavLink>
+          {isCeo && (
+            <>
+              <div className="profile-menu-section" role="presentation">
+                Help
+              </div>
+              <NavLink
+                to="/video-tours"
+                role="menuitem"
+                className="profile-menu-item"
+                onClick={() => {
+                  close();
+                  onNavigate?.();
+                }}
+              >
+                Video Tours
+              </NavLink>
+              <NavLink
+                to="/agents/platformhelp/chat"
+                role="menuitem"
+                className="profile-menu-item"
+                onClick={() => {
+                  close();
+                  onNavigate?.();
+                }}
+              >
+                Platform Help
+              </NavLink>
+            </>
+          )}
           <button
             type="button"
             role="menuitem"

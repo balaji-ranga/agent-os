@@ -137,6 +137,14 @@ function mimeFromExt(ext) {
     mov: 'video/quicktime',
     mkv: 'video/x-matroska',
     avi: 'video/x-msvideo',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    gif: 'image/gif',
+    webp: 'image/webp',
+    bmp: 'image/bmp',
+    tif: 'image/tiff',
+    tiff: 'image/tiff',
   };
   return map[e] || 'application/octet-stream';
 }
@@ -238,25 +246,36 @@ export async function synthesizeSpeechText(text, nodeConfig = {}) {
   return { buffer, mime };
 }
 
-export async function executeSpeechSttTask(resolvedInputs, nodeConfig = {}, context = null) {
-  const owner = context?.owner_user_id || context?.actor?.id;
-  if (!owner) throw new Error('Speech STT node requires workflow owner');
-
-  const audioRaw = resolvedInputs.audio ?? resolvedInputs.media ?? resolvedInputs.path ?? resolvedInputs.text;
+/**
+ * Resolve inbound / MEDIA: / artifact / bare OpenClaw media to bytes for any tool
+ * (speech_stt, analyze_image, workflows). Owner-scoped; paths must stay under WORKFLOW_FS_ROOTS.
+ *
+ * @param {string} ownerUserId
+ * @param {unknown} mediaRaw
+ * @param {{ defaultFilename?: string, defaultMime?: string, kindLabel?: string }} [opts]
+ * @returns {{ buffer: Buffer, filename: string, mimeType: string, source: string, absPath: string|null }}
+ */
+export function resolveOwnerMediaBuffer(ownerUserId, mediaRaw, opts = {}) {
+  const owner = String(ownerUserId || '').trim();
+  if (!owner) {
+    throw Object.assign(new Error('Media resolve requires owner user id'), { status: 403 });
+  }
+  const kindLabel = String(opts.kindLabel || 'Media').trim() || 'Media';
   let buffer = null;
-  let filename = 'audio.webm';
-  let mimeType = 'audio/webm';
+  let filename = String(opts.defaultFilename || 'file.bin').trim() || 'file.bin';
+  let mimeType = String(opts.defaultMime || 'application/octet-stream').trim() || 'application/octet-stream';
   let source = 'artifact';
+  let absPath = null;
 
   const inboundAbs =
-    typeof audioRaw === 'string' ? resolveInboundFsPath(owner, audioRaw) : null;
+    typeof mediaRaw === 'string' ? resolveInboundFsPath(owner, mediaRaw) : null;
   const ref =
-    parseMediaRef(audioRaw) ||
-    (typeof audioRaw === 'string' && !looksLikeFsPath(audioRaw) && !inboundAbs && String(audioRaw).trim()
-      ? { artifactId: String(audioRaw).trim() }
+    parseMediaRef(mediaRaw) ||
+    (typeof mediaRaw === 'string' && !looksLikeFsPath(mediaRaw) && !inboundAbs && String(mediaRaw).trim()
+      ? { artifactId: String(mediaRaw).trim() }
       : null);
   const bareInbound =
-    typeof audioRaw === 'string' && !inboundAbs ? resolveBareOpenClawInboundMedia(audioRaw) : null;
+    typeof mediaRaw === 'string' && !inboundAbs ? resolveBareOpenClawInboundMedia(mediaRaw) : null;
 
   if (ref?.artifactId) {
     const got = readMediaArtifactBuffer(owner, ref.artifactId);
@@ -267,30 +286,61 @@ export async function executeSpeechSttTask(resolvedInputs, nodeConfig = {}, cont
         filename = basename(bareInbound);
         mimeType = mimeFromExt(extname(bareInbound));
         source = 'filesystem';
-        console.info('[speech] STT bare openclaw inbound', {
+        absPath = bareInbound;
+        console.info('[media-resolve] bare openclaw inbound', {
           owner: sanitizeOwnerPart(owner),
           abs: bareInbound,
           filename,
+          kind: kindLabel,
         });
       } else {
-        throw new Error('Audio artifact not found: ' + ref.artifactId);
+        throw Object.assign(new Error(`${kindLabel} artifact not found: ${ref.artifactId}`), {
+          status: 404,
+        });
       }
     } else {
       buffer = got.buffer;
       filename = got.row.filename || filename;
       mimeType = got.row.mime_type || mimeType;
     }
-  } else if (inboundAbs || bareInbound || (typeof audioRaw === 'string' && looksLikeFsPath(audioRaw))) {
-    const abs = inboundAbs || bareInbound || assertPathInWorkflowRoots(String(audioRaw).trim());
-    if (!existsSync(abs)) throw new Error('Audio/video file not found: ' + abs);
+  } else if (inboundAbs || bareInbound || (typeof mediaRaw === 'string' && looksLikeFsPath(mediaRaw))) {
+    const abs = inboundAbs || bareInbound || assertPathInWorkflowRoots(String(mediaRaw).trim());
+    if (!existsSync(abs)) {
+      throw Object.assign(new Error(`${kindLabel} file not found: ${abs}`), { status: 404 });
+    }
     buffer = readFileSync(abs);
     filename = basename(abs);
     mimeType = mimeFromExt(extname(abs));
     source = 'filesystem';
-    console.info('[speech] STT filesystem path', { owner: sanitizeOwnerPart(owner), abs, filename });
+    absPath = abs;
+    console.info('[media-resolve] filesystem path', {
+      owner: sanitizeOwnerPart(owner),
+      abs,
+      filename,
+      kind: kindLabel,
+    });
   } else {
-    throw new Error('Speech STT requires audio media ref, artifactId, or WORKFLOW_FS_ROOTS path');
+    throw Object.assign(
+      new Error(
+        `${kindLabel} requires MEDIA:/path, inbound/attachments/<file>, artifact id, or WORKFLOW_FS_ROOTS path`
+      ),
+      { status: 400 }
+    );
   }
+
+  return { buffer, filename, mimeType, source, absPath };
+}
+
+export async function executeSpeechSttTask(resolvedInputs, nodeConfig = {}, context = null) {
+  const owner = context?.owner_user_id || context?.actor?.id;
+  if (!owner) throw new Error('Speech STT node requires workflow owner');
+
+  const audioRaw = resolvedInputs.audio ?? resolvedInputs.media ?? resolvedInputs.path ?? resolvedInputs.text;
+  let { buffer, filename, mimeType, source } = resolveOwnerMediaBuffer(owner, audioRaw, {
+    defaultFilename: 'audio.webm',
+    defaultMime: 'audio/webm',
+    kindLabel: 'Audio/video',
+  });
 
   const ext = extname(filename).replace(/^\./, '') || 'bin';
   const needsExtract = !['wav', 'mp3', 'm4a', 'ogg', 'webm', 'flac'].includes(ext.toLowerCase()) ||

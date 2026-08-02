@@ -22,6 +22,8 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     python3 python3-minimal \
     make g++ ca-certificates curl zip ffmpeg \
+    fonts-dejavu-core \
+    librsvg2-bin \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt/agent-os
@@ -40,6 +42,7 @@ COPY deploy ./deploy
 COPY README.md ./README.md
 # Platform Help corpus → Master Data RAG (Platform Help agent / master_data_rag; protected from purge/delete)
 COPY knowledgebase/platform-help ./knowledgebase/platform-help
+COPY knowledgebase/video-tours ./knowledgebase/video-tours
 
 WORKDIR /opt/agent-os/backend
 

@@ -11,6 +11,8 @@ import cors from 'cors';
 import workspaceRoutes from './routes/workspace.js';
 import inboundAttachmentsRoutes from './routes/inbound-attachments.js';
 import contentExplorerRoutes from './routes/content-explorer.js';
+import onboardingHelperRoutes from './routes/onboarding-helper.js';
+import videoToursRoutes from './routes/video-tours.js';
 import agentsRoutes from './routes/agents.js';
 import standupsRoutes from './routes/standups.js';
 import cronRoutes from './routes/cron.js';
@@ -71,7 +73,7 @@ import { ensureDefaultAdmin, ensureBalaCeoUser, grantStandardAgents, pruneShared
 import { ensureCeoDefaultMasterDataForAllCeos } from './services/ceo-default-master-data.js';
 import { initDb, getDb } from './db/schema.js';
 import { seedDefaultAgentsIfEmpty, seedAgentDepartmentsIfMissing } from './db/seed-default-agents.js';
-import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, seedWorkflowToolsIfMissing, seedLearningsToolsIfMissing, seedEmailSendToolIfMissing, seedSpeechToolsIfMissing, seedNotifyCeoToolIfMissing, seedCeoProfileToolIfMissing, seedStatusCheckerToolIfMissing, seedMasterDataToolsIfMissing, seedConnectorToolsIfMissing, seedVedicChartToolIfMissing, updateKanbanToolPurposes, seedPlatformFeedbackToolsIfMissing, grantPlatformFeedbackTools } from './db/seed-content-tools-meta.js';
+import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, seedWorkflowToolsIfMissing, seedLearningsToolsIfMissing, seedEmailSendToolIfMissing, seedSpeechToolsIfMissing, seedVisionToolsIfMissing, seedNotifyCeoToolIfMissing, seedOnboardingProposalToolsIfMissing, seedCeoProfileToolIfMissing, seedStatusCheckerToolIfMissing, seedMasterDataToolsIfMissing, seedConnectorToolsIfMissing, seedVedicChartToolIfMissing, updateKanbanToolPurposes, seedPlatformFeedbackToolsIfMissing, grantPlatformFeedbackTools } from './db/seed-content-tools-meta.js';
 import { seedJobApplicantToolsIfMissing } from './db/seed-job-applicant-tools.js';
 import { seedIbkrTradingToolsIfMissing } from './db/seed-ibkr-trading-tools.js';
 import { seedBrowserSessionToolsIfMissing, grantBrowserSessionToolsToAllAgents } from './db/seed-browser-session-tools.js';
@@ -85,7 +87,7 @@ import {
   syncOpenClawJsonForAgent,
   getAgentToolGrants,
 } from './services/openclaw-agent-tools.js';
-import { grantLearningsSummaryToAllAgents, grantEmailSendToAllAgents, grantNotifyCeoToAllAgents, grantCeoProfileToAllAgents, grantMasterDataToolsToAllAgents, grantKanbanToolsToAllAgents } from './services/agent-feedback.js';
+import { grantLearningsSummaryToAllAgents, grantEmailSendToAllAgents, grantNotifyCeoToAllAgents, grantCeoProfileToAllAgents, grantAnalyzeImageToAllAgents, grantMasterDataToolsToAllAgents, grantKanbanToolsToAllAgents } from './services/agent-feedback.js';
 import feedbackRoutes from './routes/feedback.js';
 import masterDataRoutes from './routes/master-data.js';
 import ceoGuardrailsRoutes from './routes/ceo-guardrails.js';
@@ -100,6 +102,7 @@ import { resumeStuckWorkflowRuns, startWorkflowTimeoutWatchdog } from './service
 import { registerPlatformCron } from './services/platform-cron-registry.js';
 import { seedWorkflowBuilderAgent } from '../scripts/seed-workflow-builder-agent.js';
 import { seedPlatformHelpAgent } from '../scripts/seed-platform-help-agent.js';
+import { seedOnboardingHelperAgent } from '../scripts/seed-onboarding-helper-agent.js';
 import { healAgentWorkspacePaths } from './workspace/adapter.js';
 import { healStuckKanbanForCompletedDelegations } from './services/kanban-workflow-stage.js';
 import { requeueStuckStatusOnlyKanbanCards, rependInfraFailedStatusOnlyRetries } from './services/delegation-status-only-retry.js';
@@ -257,8 +260,10 @@ seedWorkflowToolsIfMissing();
 seedLearningsToolsIfMissing();
 seedEmailSendToolIfMissing();
 seedSpeechToolsIfMissing();
+seedVisionToolsIfMissing();
 seedPlatformFeedbackToolsIfMissing();
 seedNotifyCeoToolIfMissing();
+seedOnboardingProposalToolsIfMissing();
 seedCeoProfileToolIfMissing();
 seedStatusCheckerToolIfMissing();
 seedMasterDataToolsIfMissing();
@@ -321,6 +326,13 @@ try {
   console.warn('[startup] ceo_profile grants:', e.message);
 }
 try {
+  const visionGranted = grantAnalyzeImageToAllAgents();
+  if (visionGranted) console.log(`[startup] granted analyze_image to ${visionGranted} agent(s)`);
+  if (visionGranted) syncAllowlistsFile();
+} catch (e) {
+  console.warn('[startup] analyze_image grants:', e.message);
+}
+try {
   const kanbanGranted = grantKanbanToolsToAllAgents();
   if (kanbanGranted) console.log(`[startup] granted kanban tools to ${kanbanGranted} grant(s)`);
   if (kanbanGranted) syncAllowlistsFile();
@@ -366,6 +378,11 @@ try {
   seedPlatformHelpAgent();
 } catch (e) {
   console.warn('[startup] platform help agent seed:', e.message);
+}
+try {
+  seedOnboardingHelperAgent();
+} catch (e) {
+  console.warn('[startup] onboarding helper agent seed:', e.message);
 }
 try {
   // After platform-help (and COO) agents exist so enquire/submit grants stick.
@@ -445,6 +462,8 @@ apiRouter.use('/master-data', masterDataRoutes);
 apiRouter.use('/admin/platform-documents', adminPlatformDocsRoutes);
 apiRouter.use('/admin/tool-onboarding', adminToolOnboardingRoutes);
 apiRouter.use('/ceo-guardrails', ceoGuardrailsRoutes);
+apiRouter.use('/onboarding/helper', onboardingHelperRoutes);
+apiRouter.use('/video-tours', videoToursRoutes);
 apiRouter.use('/workspace', workspaceRoutes);
 apiRouter.use('/workspace', inboundAttachmentsRoutes);
 apiRouter.use('/workspace', contentExplorerRoutes);

@@ -37,7 +37,7 @@ Chat and channel files land in the CEO workspace folder **`inbound/attachments/`
 | File type | What to do |
 |-----------|------------|
 | PDF, Word `.docx`, Excel, txt/md/csv/json/html/xml | CEO: **Index to RAG** in the Inbound panel, or ask COO — agents use **`list_inbound_attachments`** then **`master_data_index_document`** (indexes into **your** OpenSearch indices), then **`master_data_rag`**. |
-| Image / audio / video | Stay in inbound only — **not** RAG-indexed. Audio can be transcribed with **speech_stt**. |
+| Image / audio / video | Stay in inbound only — **not** RAG-indexed. Images: **analyze_image**. Audio: **speech_stt**. |
 
 Agents never spoof `owner_user_id`; indexing always targets the entitled CEO.
 

@@ -39,3 +39,13 @@ Documentation lives here so Cursor and humans can find it. **Root README.md** st
 - **openclaw-workspace-templates/** — SOUL.md, MEMORY.md, AGENTS.md used by scripts; do not move.
 - **openclaw-skills/** — SKILL.md and README per skill; install scripts reference these paths.
 - **.cursor/agents/** — Cursor subagent instructions (code-review, remote-host-config, etc.).
+
+## Video Tours / Onboarding (new)
+
+| Doc | Topics |
+|-----|--------|
+| [VIDEO-TOURS-CEO-CURRICULUM.md](./VIDEO-TOURS-CEO-CURRICULUM.md) | <=12 CEO Video Tours playlist, production checklist |
+| [video-tours/](./video-tours/) | Local scripts, VTT, exported mp4 assets |
+| [CONTENT-CREATION-ORG-BLUEPRINT.md](./CONTENT-CREATION-ORG-BLUEPRINT.md) | Future content-studio org + agent/workflow map |
+| [ONBOARDING-HELPER-PLAN.md](./ONBOARDING-HELPER-PLAN.md) | Onboarding Helper plan (UI + OpenClaw bridge) |
+| [platform-help/27-onboarding-helper.md](./platform-help/27-onboarding-helper.md) | CEO help: selective apply + E2E chat prompt recipes |

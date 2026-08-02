@@ -62,7 +62,7 @@ Use these for **org master tables** (e.g. departments) and **document RAG**. Dat
 **Chat / WhatsApp / channel attachments:**
 1. **`list_inbound_attachments`** — see what landed in `inbound/attachments/`.
 2. If **PDF, Word (.docx), Excel, txt/md/csv/json/html/xml** → **`master_data_index_document`** `{ "relative_path": "…" }` then **`master_data_rag`** with the user question (optional `document_id` from the index result).
-3. If **image / audio / video** → **do not index for RAG**. Leave the file in inbound. For audio, use **speech_stt** when a transcript is needed. Tell the CEO they can browse inbound files under **Master Data → Inbound attachments**.
+3. If **image / audio / video** → **do not index for RAG**. Leave the file in inbound. For **images**, call **analyze_image** with `{ "path": "inbound/attachments/…" }` (modes: `full`|`describe`|`ocr`|`review`). For **audio**, use **speech_stt** when a transcript is needed. Tell the CEO they can browse inbound files under **Master Data → Inbound attachments**.
 
 **Example — departments in this org:**
 1. **master_data_list_tables** → find table whose purpose/name matches departments
@@ -114,8 +114,9 @@ Use these Agent OS content tools (not ElevenLabs) when the CEO asks you to speak
 |------|------|
 | **speech_tts** | Synthesize speech: `{ "text": "Hello from BalServe" }` → returns `url` / media artifact |
 | **speech_stt** | Transcribe: `{ "artifact_id": "<id>" }` from a prior TTS/upload, or `{ "content_base64": "..." }` |
+| **analyze_image** | Describe / OCR / review an inbound image: `{ "path": "inbound/attachments/….jpg", "mode": "review" }` |
 
-Requires platform `optional-voice` (whisper + piper). If the tool returns 503, say speech services are not running.
+Requires platform `optional-voice` (whisper + piper) for speech. **analyze_image** uses platform primary LLM (or BYOK `Platform_BYOK`). If the tool returns 503 / upstream vision error, the configured model may be text-only.
 
 ---
 

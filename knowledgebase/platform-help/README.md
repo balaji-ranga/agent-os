@@ -32,7 +32,10 @@
 | [24-agent-channels.md](./24-agent-channels.md) | **Slack / WhatsApp** BYOK wizard, vault tokens, OpenClaw bindings, **outbound MEDIA: attach**, **inbound → inbound/attachments/** |
 | [25-speech-and-published-scenes.md](./25-speech-and-published-scenes.md) | **Published Scenes** public `/p/vr/:slug`, free Whisper STT + Piper TTS, guest VR tokens vs `MEDIA_PUBLIC_SIGNED`, `speech_stt` / `speech_tts` |
 | [26-content-explorer.md](./26-content-explorer.md) | **Content Explorer** — browse/preview/download uploaded + generated files |
+| [27-onboarding-helper.md](./27-onboarding-helper.md) | **Onboarding Helper** — chat save/apply tools, selective Review cards, **E2E prompt recipes** (MarketWatcher + Workflow Builder Ollama loop) |
+
+**Video Tours (UI):** User menu → **Help → Video Tours** (/video-tours) — playlist of short CEO tours (script/captions now; mp4 when exported). Not ingested as RAG docs.
 
 **Product name:** Flolah (Automate, Innovate, Elevate) — Agent OS underneath.
 
-**Specialist agent:** Chat with **Platform Help** (`platformhelp`) for how-to, navigation, workflow node questions, MCP/A2A/Connectors/API Keys onboarding, and light troubleshooting. For building or fixing graphs, prefer **Workflow Builder**. For day-to-day ops and delegation, prefer the **COO**.
+**Specialist agent:** Chat with **Platform Help** (`platformhelp`) for how-to, navigation, workflow node questions, MCP/A2A/Connectors/API Keys onboarding, and light troubleshooting. For **strategic org setup** (departments/agents), use **Onboarding Helper** + `/onboarding` (see **27**). For building or fixing graphs, prefer **Workflow Builder**. For day-to-day ops and delegation, prefer the **COO**.

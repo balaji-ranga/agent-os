@@ -274,6 +274,49 @@ export const WORKFLOW_TASK_TYPES = {
       },
     ]),
   },
+  analyze_image: {
+    type: 'analyze_image',
+    label: 'Analyze Image',
+    color: '#7c3aed',
+    inputs: [
+      {
+        id: 'image',
+        label: 'Image',
+        required: true,
+        mode: 'dynamic',
+        description: 'inbound/attachments/… path, MEDIA:/…, or chat text containing the path',
+      },
+      {
+        id: 'prompt',
+        label: 'Prompt (optional)',
+        required: false,
+        mode: 'dynamic',
+        description: 'Extra instructions (e.g. thumbnail review focus)',
+      },
+    ],
+    outputs: [
+      { id: 'text', label: 'Description / analysis' },
+      { id: 'description', label: 'Description' },
+      { id: 'ocr_text', label: 'OCR text' },
+      { id: 'ok', label: 'Success' },
+    ],
+    configFields: withNodeTimeoutConfigFields([
+      {
+        id: 'mode',
+        label: 'Mode',
+        type: 'text',
+        default: 'full',
+        description: 'full | describe | ocr | review',
+      },
+      {
+        id: 'prompt',
+        label: 'Default prompt',
+        type: 'textarea',
+        placeholder: 'Focus on thumbnail legibility…',
+        description: 'Optional fixed instructions when input prompt is empty',
+      },
+    ]),
+  },
   speech_tts: {
     type: 'speech_tts',
     label: 'Speech TTS',

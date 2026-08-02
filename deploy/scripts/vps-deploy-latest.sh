@@ -16,6 +16,9 @@
 #   SKIP_GIT=1                           # skip git pull
 #   SKIP_SMOKE=1                         # skip smoke + platform verify
 #   NO_CACHE=1                           # docker compose build --no-cache (when layers stale)
+#   SKIP_DOCKER_PRUNE=1                  # skip post-build BuildKit cache hygiene
+#   DOCKER_BUILDER_PRUNE_ALL=1           # wipe all unused build cache (slow next build)
+#   DOCKER_BUILDER_PRUNE_UNTIL=72h       # keep recent cache; prune older (default)
 set -euo pipefail
 
 ROOT="${AGENT_OS_ROOT:-/opt/agent-os}"
@@ -145,6 +148,13 @@ for c in $(docker ps -aq --filter "name=agent-os-backend" 2>/dev/null || true); 
     docker rm -f "$c" 2>/dev/null || true
   fi
 done
+
+# Reclaim BuildKit/containerd cache after builds (keeps last DOCKER_BUILDER_PRUNE_UNTIL by default).
+# Does not remove compose volumes or Admin-onboarded tool containers.
+if [[ -f "$ROOT/deploy/scripts/docker-disk-hygiene.sh" ]]; then
+  sed -i 's/\r$//' "$ROOT/deploy/scripts/docker-disk-hygiene.sh" 2>/dev/null || true
+  bash "$ROOT/deploy/scripts/docker-disk-hygiene.sh" || echo "WARN: docker-disk-hygiene failed"
+fi
 
 echo "==> recreate $SERVICES + nginx"
 # shellcheck disable=SC2086

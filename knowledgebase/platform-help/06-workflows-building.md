@@ -27,6 +27,8 @@ This doc is about **custom Workflows**.
 
 Chat with **Workflow Builder** (or the in-editor agent chat) to create/update graphs in natural language: add nodes, wire edges, validate, publish, test, and `until_success` loops. For **end-to-end autonomous certify** (Maker/Checker + status-on-request), see [13-workflow-autonomous-certify.md](./13-workflow-autonomous-certify.md). Prefer Workflow Builder for *building*; Platform Help for *explaining* nodes and mapping.
 
+**Agent + Ollama validate loop:** ask Workflow Builder for trigger → **agent** → **brain** (`modelSource: ollama`) → **if/while** fail branch back to the agent until PASS. Copy-paste E2E prompts: [27-onboarding-helper.md](./27-onboarding-helper.md).
+
 ## Trigger modes (Trigger node)
 
 | Mode | Behavior |

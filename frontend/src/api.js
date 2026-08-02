@@ -403,6 +403,18 @@ export const api = {
   },
   /** Hard-delete selected items or all (body.all). Permanent disk delete. */
   contentExplorerDelete: (body) => post('/workspace/content-explorer/delete', body),
+  onboardingHelperGet: () => get('/onboarding/helper'),
+  onboardingHelperSaveDraft: (body) => put('/onboarding/helper/draft', body),
+  onboardingHelperChat: (message) => post('/onboarding/helper/chat', { message }),
+  onboardingHelperConfirmStep: () => post('/onboarding/helper/confirm-step', {}),
+  onboardingHelperGoStep: (step_index) => post('/onboarding/helper/go-step', { step_index }),
+  onboardingHelperApply: (selected) => post('/onboarding/helper/apply', { confirm_override: true, selected }),
+  onboardingHelperUpdateSelection: (selected_apply) => put('/onboarding/helper/selected-apply', { selected_apply }),
+  onboardingHelperReset: () => post('/onboarding/helper/reset', {}),
+  videoToursList: () => get('/video-tours'),
+  videoToursGet: (stem) => get(`/video-tours/${encodeURIComponent(stem)}`),
+  videoToursVideoUrl: (stem) => `${API_BASE}/video-tours/${encodeURIComponent(stem)}/video`,
+  videoToursCaptionsUrl: (stem) => `${API_BASE}/video-tours/${encodeURIComponent(stem)}/captions`,
   inboundAttachmentDownload: async (relativePath) => {
     const path = `/workspace/inbound-attachments/download?relative_path=${encodeURIComponent(relativePath)}`;
     const url = `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;

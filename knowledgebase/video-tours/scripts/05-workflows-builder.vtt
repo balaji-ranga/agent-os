@@ -1,0 +1,16 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:07.000
+Open Workflows.
+
+00:00:07.000 --> 00:00:14.000
+Create or edit a graph, map inputs and outputs, publish, then run.
+
+00:00:14.000 --> 00:00:21.000
+Workflow Builder agent helps design graphs; Maker-Checker certify adds autono...
+
+00:00:21.000 --> 00:00:28.000
+Prefer paths and vault secrets over pasting raw keys.
+
+00:00:28.000 --> 00:00:35.000
+Start small: one happy-path automation your COO can trigger from chat.

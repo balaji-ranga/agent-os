@@ -415,6 +415,36 @@ const PARAM_SCHEMAS = {
     },
     additionalProperties: true,
   },
+  analyze_image: {
+    type: "object",
+    properties: {
+      path: {
+        type: "string",
+        description:
+          "Preferred: inbound/attachments/<file> from list_inbound_attachments, or MEDIA:/abs/path",
+      },
+      relative_path: {
+        type: "string",
+        description: "Alias for path (e.g. inbound/attachments/wa-….jpg)",
+      },
+      image: { type: "string", description: "Alias for path / MEDIA: / artifact id." },
+      media: { type: "string", description: "Alias for path / MEDIA: / artifact id." },
+      artifact_id: { type: "string", description: "CEO media artifact id." },
+      content_base64: { type: "string", description: "Raw image bytes as base64." },
+      filename: { type: "string", description: "Filename when using content_base64." },
+      mime_type: { type: "string", description: "MIME type when using content_base64." },
+      mode: {
+        type: "string",
+        description: "full (default) | describe | ocr | review (thumbnail/design critique)",
+        enum: ["full", "describe", "ocr", "review"],
+      },
+      prompt: {
+        type: "string",
+        description: "Optional extra instructions (e.g. check YouTube thumbnail legibility).",
+      },
+    },
+    additionalProperties: true,
+  },
   platform_feedback_submit: {
     type: "object",
     properties: {

@@ -84,6 +84,10 @@ When the CEO wants a quick until-it-passes on an existing small graph (and does 
 
 trigger, agent, brain, ceo_approval, if, while, email, api, tool, mcp_tool, parallel, merge, custom_script, …
 
+## Validation-loop recipe
+
+For an agent deliverable that needs iterative quality control: wire an **agent** node to a **brain** validator with `modelSource: "ollama"`, then use an **if** or **while** branch to route failed validation back to the agent with the validator feedback. Continue until the validator passes, then connect the pass branch to **publish**.
+
 ## Example
 
 CEO: "Create a Brain summarize workflow and certify until it works"

@@ -13,7 +13,9 @@ import ActionFeedbackBanner from '../components/ActionFeedbackBanner.jsx';
 import { useActionFeedback } from '../hooks/useActionFeedback.js';
 import MessageFeedback from '../components/MessageFeedback.jsx';
 import ChatComposeInput from '../components/ChatComposeInput.jsx';
-import { buildMessageWithAttachments, uploadChatAttachments } from '../utils/chatAttachments.js';
+import ChatMessageContent from '../components/ChatMessageContent.jsx';
+import ChatMessageAttachments from '../components/ChatMessageAttachments.jsx';
+import { buildMessageWithAttachments, uploadChatAttachments, splitChatAttachmentContent } from '../utils/chatAttachments.js';
 
 const STATUSES = ['open', 'awaiting_confirmation', 'in_progress', 'completed', 'failed'];
 const STATUS_LABELS = {
@@ -1049,7 +1051,9 @@ export default function Kanban() {
             {drawerTab === 'activity' && (taskDetail?.messages || []).length > 0 && (
                 <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginBottom: 4, fontWeight: 600 }}>Task chat</div>
               )}
-            {drawerTab === 'activity' && (taskDetail?.messages || []).map((m) => (
+            {drawerTab === 'activity' && (taskDetail?.messages || []).map((m) => {
+                const parsed = splitChatAttachmentContent(m.content);
+                return (
                 <div key={m.id} style={{ marginBottom: '0.75rem' }}>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', flexWrap: 'wrap', marginBottom: 2 }}>
                     <span style={{ fontSize: '0.75rem', color: 'var(--muted)', fontWeight: 600 }}>{m.role}</span>
@@ -1059,7 +1063,14 @@ export default function Kanban() {
                       </time>
                     )}
                   </div>
-                  <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: '0.9rem' }}>{m.content}</div>
+                  {parsed.attachments?.length > 0 && (
+                    <ChatMessageAttachments attachments={parsed.attachments} />
+                  )}
+                  {(parsed.text || (!parsed.attachments?.length && m.content)) && (
+                    <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: '0.9rem' }}>
+                      <ChatMessageContent content={parsed.text || m.content} />
+                    </div>
+                  )}
                   {m.role === 'assistant' && (
                     <MessageFeedback
                       agentId={taskDetail?.assigned_agent_id || selectedTask?.assigned_agent_id || 'balserve'}
@@ -1071,7 +1082,8 @@ export default function Kanban() {
                     />
                   )}
                 </div>
-              ))}
+                );
+              })}
             {drawerTab === 'activity' && chatContextTurns.length > 0 && (
               <div style={{ marginTop: (taskDetail?.messages || []).length ? '1rem' : 0 }}>
                 <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginBottom: 6, fontWeight: 600 }}>
@@ -1082,7 +1094,9 @@ export default function Kanban() {
                     </span>
                   )}
                 </div>
-                {chatContextTurns.map((t) => (
+                {chatContextTurns.map((t) => {
+                  const parsed = splitChatAttachmentContent(t.content);
+                  return (
                   <div key={`chat-${t.id}`} style={{ marginBottom: '0.75rem' }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', flexWrap: 'wrap', marginBottom: 2 }}>
                       <span style={{ fontSize: '0.75rem', color: 'var(--muted)', fontWeight: 600 }}>{t.role}</span>
@@ -1097,9 +1111,17 @@ export default function Kanban() {
                         </span>
                       )}
                     </div>
-                    <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: '0.88rem' }}>{t.content}</div>
+                    {parsed.attachments?.length > 0 && (
+                      <ChatMessageAttachments attachments={parsed.attachments} />
+                    )}
+                    {(parsed.text || (!parsed.attachments?.length && t.content)) && (
+                      <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: '0.88rem' }}>
+                        <ChatMessageContent content={parsed.text || t.content} />
+                      </div>
+                    )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
             {drawerTab === 'activity' && activityIsEmpty && (
