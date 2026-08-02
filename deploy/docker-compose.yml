@@ -17,7 +17,7 @@
 #   OpenClaw: browser.enabled + browser-cdp agent (BROWSER_TASK_CDP_AGENT_ID); clear global tools.allow browser
 #   (see scripts/lib/content-tools-allow.js BROWSER_SESSION_CONTENT_TOOLS + configure-openclaw-docker.js)
 # Broadcast UI /api/broadcast: CEO-scoped OpenClaw sessions (tenant agent + session owner) so notify_ceo works
-# Org tenancy docs: POST /api/agents/org/sync (Dashboard Resync ORG.md & AGENTS.md)
+# Org tenancy docs: POST /api/agents/org/sync (My Org → Resync ORG.md & AGENTS.md)
 # Notifications: shared NotificationProvider bell (shows datetime); dismiss via
 #   /api/standups/notifications/dismiss* and /api/platform-notifications/read*
 #   (user_feed_dismissals + composite standup+agent keys). Deploy verify smokes

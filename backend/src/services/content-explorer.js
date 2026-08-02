@@ -129,7 +129,8 @@ function listGeneratedFromRegistry(ownerUserId) {
 function listUploaded(ownerUserId) {
   return listInboundAttachments(ownerUserId).map((f) => {
     const mime = guessMimeFromFilename(f.filename);
-    const wa = /^wa-\d+-/i.test(f.filename);
+    // Stable mirrors: wa-<uuid>.<ext>. Legacy remirrors: wa-<timestamp>-<uuid>.<ext>.
+    const wa = /^wa-/i.test(f.filename);
     return {
       id: `up:${f.relative_path}`,
       source: 'uploaded',

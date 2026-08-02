@@ -174,6 +174,21 @@ function normalizeConfigInput(config = {}) {
           .map((v) => v.trim())
           .filter(Boolean);
   }
+  if (out.groupPolicy != null) {
+    const gp = String(out.groupPolicy).trim().toLowerCase();
+    if (!['disabled', 'allowlist', 'open'].includes(gp)) {
+      throw Object.assign(new Error('groupPolicy must be disabled, allowlist, or open'), { status: 400 });
+    }
+    out.groupPolicy = gp;
+  }
+  if (out.groupAllowFrom != null) {
+    out.groupAllowFrom = Array.isArray(out.groupAllowFrom)
+      ? out.groupAllowFrom.map((v) => String(v).trim()).filter(Boolean)
+      : String(out.groupAllowFrom)
+          .split(/[\n,;]+/)
+          .map((v) => v.trim())
+          .filter(Boolean);
+  }
   if (out.teamId != null) out.teamId = String(out.teamId).trim();
   return out;
 }

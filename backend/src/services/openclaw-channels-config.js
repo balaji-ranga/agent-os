@@ -121,20 +121,37 @@ function slackAccountPatch(config, accountId, { enabled, dmPolicy, allowFrom, bo
   config.channels.slack.enabled = Object.values(config.channels.slack.accounts).some((a) => a?.enabled !== false);
 }
 
-function whatsappAccountPatch(config, accountId, { enabled, dmPolicy, allowFrom }) {
+function whatsappAccountPatch(config, accountId, { enabled, dmPolicy, allowFrom, groupPolicy, groupAllowFrom }) {
   if (!config.channels) config.channels = {};
   if (!config.channels.whatsapp) config.channels.whatsapp = { enabled: true, accounts: {} };
   if (!config.channels.whatsapp.accounts || typeof config.channels.whatsapp.accounts !== 'object') {
     config.channels.whatsapp.accounts = {};
   }
   const prev = config.channels.whatsapp.accounts[accountId] || {};
+  const allow = normalizeAllowFrom(allowFrom ?? prev.allowFrom);
+  // DMs use dmPolicy/allowFrom. Groups are a separate OpenClaw policy stack — without an
+  // explicit groupPolicy, OpenClaw can still accept @g.us traffic and stage media before
+  // the agent reply is gated. Default: disabled so only allowlisted/paired DMs are ingested.
+  const gpRaw = String(groupPolicy || prev.groupPolicy || 'disabled').trim().toLowerCase();
+  const gp = ['disabled', 'allowlist', 'open'].includes(gpRaw) ? gpRaw : 'disabled';
   const next = {
     ...prev,
     enabled: enabled !== false,
     dmPolicy: dmPolicy || prev.dmPolicy || 'pairing',
-    allowFrom: normalizeAllowFrom(allowFrom ?? prev.allowFrom),
+    allowFrom: allow,
+    groupPolicy: gp,
   };
+  if (gp === 'allowlist') {
+    const gAllow = normalizeAllowFrom(groupAllowFrom ?? prev.groupAllowFrom ?? allow);
+    next.groupAllowFrom = gAllow.length ? gAllow : allow;
+  } else if (next.groupAllowFrom != null && gp === 'disabled') {
+    // Keep prior list if present, but policy disabled means OpenClaw will not ingest groups.
+  }
   config.channels.whatsapp.accounts[accountId] = next;
+  // Channel-level default also blocks groups for any account that omits groupPolicy.
+  if (config.channels.whatsapp.groupPolicy == null || config.channels.whatsapp.groupPolicy === 'open') {
+    config.channels.whatsapp.groupPolicy = 'disabled';
+  }
   config.channels.whatsapp.enabled = Object.values(config.channels.whatsapp.accounts).some(
     (a) => a?.enabled !== false
   );
@@ -174,6 +191,8 @@ export function mergeAgentChannelIntoOpenClaw({
       enabled,
       dmPolicy: config.dmPolicy || config.mode || 'pairing',
       allowFrom: config.allowFrom,
+      groupPolicy: config.groupPolicy,
+      groupAllowFrom: config.groupAllowFrom,
     });
   }
 

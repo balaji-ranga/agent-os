@@ -81,6 +81,17 @@ const bindings = Array.isArray(cfg.bindings) ? cfg.bindings.length : 0;
 const sidecarPath = join(getOpenClawDir(), 'agent-os-channel-routing.json');
 const sidecarOk = existsSync(sidecarPath);
 
+// WhatsApp groupPolicy must default to disabled (DM allowFrom does not cover @g.us).
+const waGroupPolicy = [];
+const waAccountsObj = cfg.channels?.whatsapp?.accounts || {};
+for (const id of Object.keys(waAccountsObj)) {
+  const gp = String(waAccountsObj[id]?.groupPolicy || cfg.channels?.whatsapp?.groupPolicy || '').toLowerCase();
+  if (gp !== 'disabled' && gp !== 'allowlist' && gp !== 'open') {
+    waGroupPolicy.push(`${id}:missing`);
+  }
+}
+const channelWaGroupPolicy = String(cfg.channels?.whatsapp?.groupPolicy || '').toLowerCase();
+
 const expectWa = byChannel.whatsapp || 0;
 const expectSlack = byChannel.slack || 0;
 const drift = [];
@@ -96,11 +107,23 @@ if ((expectWa > 0 || expectSlack > 0) && bindings < 1) {
 if ((expectWa > 0 || expectSlack > 0) && !sidecarOk) {
   drift.push('sidecar agent-os-channel-routing.json missing');
 }
+if (expectWa > 0 && waGroupPolicy.length) {
+  drift.push(`whatsapp groupPolicy unset (${waGroupPolicy.join(',')}) — re-sync agent channels`);
+}
+if (expectWa > 0 && !['disabled', 'allowlist', 'open'].includes(channelWaGroupPolicy)) {
+  drift.push('channels.whatsapp.groupPolicy missing (expect disabled by default)');
+}
 
 const out = {
   ok: drift.length === 0,
   db: byChannel,
-  openclaw: { whatsapp: waAccounts, slack: slackAccounts, bindings, sidecarOk },
+  openclaw: {
+    whatsapp: waAccounts,
+    slack: slackAccounts,
+    bindings,
+    sidecarOk,
+    whatsapp_groupPolicy: channelWaGroupPolicy || null,
+  },
   drift,
 };
 process.stdout.write(JSON.stringify(out));
@@ -111,10 +134,16 @@ NODE
 echo "    check: $CHECK"
 if echo "$CHECK" | grep -q '"ok":false\|"ok": false'; then
   echo "ERROR: agent channel configuration drift detected"
-  echo "    Re-enable from Dashboard → Agent channels, or re-run:"
+  echo "    Re-enable from My Org → Agent channels, or re-run:"
   echo "    docker compose exec -T -w /opt/agent-os/backend backend node scripts/sync-agent-channels-to-openclaw.js"
   echo "    docker compose restart openclaw"
   exit 1
+fi
+
+if echo "$CHECK" | grep -q '"whatsapp_groupPolicy":"disabled"'; then
+  echo "    WhatsApp groupPolicy=disabled OK (groups blocked before media download)"
+elif echo "$CHECK" | grep -q '"whatsapp":\[' && ! echo "$CHECK" | grep -q '"whatsapp":\[\]'; then
+  echo "    WARN: WhatsApp present but groupPolicy not reported as disabled — verify allowlist/open is intentional"
 fi
 
 if echo "$CHECK" | grep -q '"whatsapp":\[' && ! echo "$CHECK" | grep -q '"whatsapp":\[\]'; then

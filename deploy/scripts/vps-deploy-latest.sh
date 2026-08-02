@@ -109,7 +109,9 @@ echo "              admin Documents RAG + /opensearch/ Dashboards BFF; no host :
 echo "              agent delete cascade + deleted_agents tombstone (no FK error, no resurrection),"
 echo "              Published Scenes (/p/vr/:slug) + public VR APIs,"
 echo "              Slack/WhatsApp agent channels wizard (vault + OpenClaw bindings),"
+echo "              WhatsApp groupPolicy=disabled by default (blocks @g.us before media),"
 echo "              free STT/TTS optional-voice (whisper+piper; ensure-voice-env.sh + SPEECH_*)"
+echo "              CEO home chat (COO default) + My Org (/org); Profile role_title display label"
 
 if [[ "$SKIP_GIT" != "1" ]]; then
   if [[ -d "$ROOT/.git" ]]; then

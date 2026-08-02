@@ -558,12 +558,17 @@ if (config.channels?.whatsapp?.accounts) {
   config.agents.defaults.mediaMaxMb = mediaMaxMb;
   if (config.channels?.whatsapp && typeof config.channels.whatsapp === 'object') {
     config.channels.whatsapp.mediaMaxMb = mediaMaxMb;
+    // DM allowFrom does not block @g.us; default groupPolicy to disabled when unset.
+    if (!config.channels.whatsapp.groupPolicy) {
+      config.channels.whatsapp.groupPolicy = 'disabled';
+    }
     const accounts = config.channels.whatsapp.accounts;
     if (accounts && typeof accounts === 'object') {
       for (const id of Object.keys(accounts)) {
         const acc = accounts[id];
         if (!acc || typeof acc !== 'object') continue;
         acc.mediaMaxMb = mediaMaxMb;
+        if (!acc.groupPolicy) acc.groupPolicy = 'disabled';
       }
     }
   }

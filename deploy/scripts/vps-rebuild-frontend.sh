@@ -11,6 +11,9 @@
 #   - Primary CTAs: Register MCP, Register Agents, page-hero
 #   - Existing: Resync ORG, Master Data purpose, Purge all uploads, NotificationProvider, Broadcast, Flolah title
 #
+#   - Agent channels: WhatsApp groupPolicy disabled/allowlist (DM allowFrom does not cover groups)
+#   - CEO home chat (COO default picker), My Org (/org), Profile role_title
+#
 # Frontend sources must be UTF-8 (not UTF-16). Windows editors that write UTF-16 LE
 # break `vite build` with "Expected ; but found \x00". Use:
 #   node scripts/check-frontend-utf8.mjs
@@ -46,6 +49,10 @@ for marker in \
   agent-os-theme \
   'Switch to dark' \
   'Reports to (COO default)' \
+  'My Org' \
+  'role_title' \
+  'WhatsApp groups' \
+  'Good to see you' \
   'Flolah - An Agent Company Setup'
 do
   if [[ "$marker" == 'Flolah - An Agent Company Setup' ]]; then

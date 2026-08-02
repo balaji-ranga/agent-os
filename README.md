@@ -20,20 +20,20 @@ You do not need to know APIs or Docker for everyday use.
 ### Sign in and first look
 
 1. Open the Flolah site and **Log in** (or **Register** if you are new).
-2. After login you land on the **Dashboard** — your org chart of agents (COO and specialists).
+2. After login you land on **home chat** (`/`) with the **COO** selected by default. Switch agents from the **Chat with** picker. Org chart and standups are under **My Org** (`/org`).
 3. The **bell** in the top bar is your notification center (agent replies and messages pushed to you).
 
 ### Chat with an agent
 
-1. On the **Dashboard**, click an agent (or open **Chat**).
+1. From home chat, pick an agent (COO is default) — or open **Chat** from **My Org** / **Agent Workspaces**.
 2. Type your request in plain language and send. Optionally **attach** files (paperclip) — documents/images/audio/video are stored for the agent under Master Data and `inbound/attachments/`.
 3. When the agent uses tools (Master Data, notify you, email, generate image/TTS, etc.), small **tool icons** may appear under the reply so you can see what it did. Generated media plays **inline** in the chat (you must be logged in).
 4. Prefer asking the **COO** for work that should be planned or handed to a specialist (research, applications, etc.).
-5. To reach an agent from **WhatsApp / Slack**, open that agent’s **Channels** wizard (see Platform Help **24**).
+5. To reach an agent from **WhatsApp / Slack**, open that agent’s **Channels** wizard (see Platform Help **24**). WhatsApp **group chats are ignored by default** unless you enable groups there.
 
 ### Ask Platform Help (how-to)
 
-1. Open **Chat** with **Platform Help** (Dashboard org chart or Agent Workspaces).
+1. Open **Chat** with **Platform Help** (home picker, My Org org chart, or Agent Workspaces).
 2. Ask in plain language (“How do I register an MCP server?”, “What does the IF node output?”).
 3. The agent searches your Master Data **Flolah Help — …** documents and answers with UI steps.
 4. For *building* or *repairing* a workflow graph, prefer **Workflow Builder**; for standups/delegation, prefer the **COO**.
@@ -157,8 +157,8 @@ Grant or revoke tools on each agent’s **Workspace → Tools access**.
 | **Notification tooltips** | Hover the bell snippet for the full message. |
 | **Tenant Workspace docs** | Your CEO workspace files stay in your space; Resync keeps ORG/AGENTS accurate. |
 | **Shared notification dismiss** | Clear/dismiss keeps the bell feed tidy across platform + agent items. |
-| **Agent channels (Slack / WhatsApp)** | Per-agent **Channels** wizard (BYOK vault + OpenClaw bindings). Outbound media must use `MEDIA:/abs/path` so WhatsApp attaches from disk; inbound WhatsApp media is mirrored to `inbound/attachments/` for chat/STT. See platform-help **24**. |
-| **Chat attachments + inline media** | Paperclip on Agent Chat uploads files into Master Data + `inbound/attachments/`. Generated image/audio/video play **inline** in Dashboard chat (login required). Generated media is **auth-only** by default — not world-public (`MEDIA_PUBLIC_SIGNED=1` opt-in). See platform-help **03**, **11**. |
+| **Agent channels (Slack / WhatsApp)** | Per-agent **Channels** wizard (BYOK vault + OpenClaw bindings). Outbound media must use `MEDIA:/abs/path` so WhatsApp attaches from disk; inbound WhatsApp media is mirrored to `inbound/attachments/` for chat/STT. WhatsApp **groups are disabled by default** (`groupPolicy: disabled`) so group chats are not ingested even when the linked phone is in them — only DMs per `dmPolicy`/`allowFrom`. See platform-help **24**. |
+| **Chat attachments + inline media** | Paperclip on Agent Chat uploads files into Master Data + `inbound/attachments/`. Generated image/audio/video play **inline** in chat (login required). Generated media is **auth-only** by default — not world-public (`MEDIA_PUBLIC_SIGNED=1` opt-in). See platform-help **03**, **11**. |
 | **Free speech (Whisper + Piper)** | Chat mic + Speak reply; content tools / workflow nodes `speech_stt` / `speech_tts`. Prefer OGG/Opus (or MP3) for WhatsApp TTS attach. Published Scenes guests use slug-scoped public VR tokens (not the signed openclaw media flag). See **25**. |
 | **Platform feedback (Admin)** | COO / Platform Help can file bugs via `platform_feedback_*`. Admins triage at **Platform feedback** (`/admin/platform-feedback`): open → implemented / rejected. |
 
@@ -216,7 +216,7 @@ Frontend runs at **http://127.0.0.1:3000** and proxies `/api` to the backend (ov
 
 ### 3. Log in
 
-Open **http://127.0.0.1:3000/login**. Default admin is seeded from `.env` (`AGENT_OS_ADMIN_*`). CEO users see Dashboard, Workflows, Kanban, Job profiles, AgentExchange, etc. Admin users manage platform accounts and MCP registry. New CEOs register at `/register` and get provisioned OpenClaw agents, org context, starter **departments**, and this README as a Master Data document.
+Open **http://127.0.0.1:3000/login**. Default admin is seeded from `.env` (`AGENT_OS_ADMIN_*`). CEO users see home chat, **My Org**, Workflows, Kanban, Job profiles, AgentExchange, etc. Admin users manage platform accounts and MCP registry. New CEOs register at `/register` and get provisioned OpenClaw agents, org context, starter **departments**, and this README as a Master Data document.
 
 ### 4. OpenClaw gateway (for chat)
 
@@ -245,7 +245,8 @@ Set in backend `.env`:
 | **Platform logging & redaction** | `PLATFORM_LOG_LEVEL=off\|error\|info` for backend request/error logs. Secrets (API keys, bearer tokens, `Authorization`, passwords, MFA codes) are redacted from URLs, JSON bodies and headers; API Keys / auth routes log method + route only. Unit tests: `backend/scripts/test-security-hardening-unit.js`. |
 | **Multi-tenant isolation** | Standups and delegation tasks carry `owner_user_id`. Standup cron and delegation cron loop **per enabled CEO** so one CEO never sees another’s standups, chats, or queued agent work. APIs filter by authenticated CEO. |
 | **Org-aware agents** | Every agent in a CEO’s org gets **ORG.md** (CEO, departments, peers with soul/purpose/skills) plus a tenant-specific COO **AGENTS.md** (delegatees). Synced on provision, agent create, and backend startup. Bootstrap watcher reloads `ORG.md` each turn. |
-| **Dashboard** | Org chart; open **Chat** per agent; standups with COO chat (owner-scoped only); **Resync ORG.md & AGENTS.md**. Add agents from **Agent Workspaces**. |
+| **Home chat** | `/` — Claude-style chat with COO by default; agent picker; history/new chat unchanged. |
+| **My Org** | `/org` — Org chart; standups with COO chat (owner-scoped only); **Resync ORG.md & AGENTS.md**. Profile **Your title** is display-only. Add agents from **Agent Workspaces**. |
 | **Chat** | 1:1 chat with an OpenClaw agent via gateway; session affinity per agent; history stored in SQLite; **tool-call icons** on assistant replies when Agent OS tools ran. |
 | **Agent Workspaces** | List agents; **Add agent**; per-agent **SOUL.md, AGENTS.md, ORG.md, MEMORY.md, TOOLS.md** editor; **Tools access** panel (grant/revoke content tools per agent, hot-sync to OpenClaw without gateway restart). |
 | **Notifications** | **Bell icon** in nav: agent responses + platform notifications; hover for full text; link to agent Chat; clear/dismiss (shared feed). |

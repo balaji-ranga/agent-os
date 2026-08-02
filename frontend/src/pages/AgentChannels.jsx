@@ -107,6 +107,7 @@ function AgentChannelsPanel() {
   const [teamId, setTeamId] = useState('');
   const [dmPolicy, setDmPolicy] = useState('pairing');
   const [allowFrom, setAllowFrom] = useState('');
+  const [groupPolicy, setGroupPolicy] = useState('disabled');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
@@ -172,6 +173,7 @@ function AgentChannelsPanel() {
     setTeamId(existing?.config?.teamId || '');
     setDmPolicy(existing?.config?.dmPolicy || 'pairing');
     setAllowFrom((existing?.config?.allowFrom || []).join('\n'));
+    setGroupPolicy(existing?.config?.groupPolicy || 'disabled');
     setTestResult(null);
     setQrStatus(null);
     setApplyInfo(null);
@@ -184,7 +186,10 @@ function AgentChannelsPanel() {
     const created = await api.agentChannelsCreate({
       agentId,
       channel: channelType,
-      config: { dmPolicy },
+      config: {
+        dmPolicy,
+        ...(channelType === 'whatsapp' ? { groupPolicy } : {}),
+      },
     });
     setRecord(created.channel);
     return created.channel;
@@ -215,7 +220,14 @@ function AgentChannelsPanel() {
         .map((s) => s.trim())
         .filter(Boolean);
       const { channel } = await api.agentChannelsUpdate(ch.id, {
-        config: { dmPolicy, allowFrom: allow, teamId: teamId || undefined },
+        config: {
+          dmPolicy,
+          allowFrom: allow,
+          teamId: teamId || undefined,
+          ...(channelType === 'whatsapp'
+            ? { groupPolicy, groupAllowFrom: groupPolicy === 'allowlist' ? allow : undefined }
+            : {}),
+        },
       });
       setRecord(channel);
       return true;
@@ -420,6 +432,9 @@ function AgentChannelsPanel() {
                     {statusBadge(ch.status)}
                     <div style={{ fontSize: '0.85rem', color: 'var(--muted)', marginTop: 4 }}>
                       DM policy: {ch.config?.dmPolicy || 'pairing'}
+                      {ch.channel === 'whatsapp' && (
+                        <> · Groups: {ch.config?.groupPolicy || 'disabled'}</>
+                      )}
                       {ch.last_test_at && <> · Last test: {new Date(ch.last_test_at).toLocaleString()}</>}
                     </div>
                   </div>
@@ -604,6 +619,19 @@ function AgentChannelsPanel() {
                   placeholder={channelType === 'whatsapp' ? '+15551234567' : 'U01234567'}
                 />
               </label>
+              {channelType === 'whatsapp' && (
+                <label style={fieldLabel}>
+                  WhatsApp groups
+                  <select value={groupPolicy} onChange={(e) => setGroupPolicy(e.target.value)} style={inputStyle}>
+                    <option value="disabled">disabled — ignore all group chats (recommended)</option>
+                    <option value="allowlist">allowlist — only group messages from allowed senders above</option>
+                    <option value="open">open — any group the linked phone is in (not recommended)</option>
+                  </select>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--muted)', marginTop: 4 }}>
+                    DM allowlist does not apply to groups unless you set this. Disabled blocks group media before it is downloaded.
+                  </span>
+                </label>
+              )}
             </>
           )}
 
