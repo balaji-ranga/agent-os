@@ -100,7 +100,8 @@ export async function convertAudioBuffer(inputBuffer, targetFormat = 'wav', opts
     // WhatsApp voice notes: OGG container + Opus codec
     args.push('-codec:a', 'libopus', '-b:a', '32k', '-vbr', 'on', '-application', 'voip');
   } else {
-    args.push('-codec:a', 'pcm_s16le');
+    // Whisper-friendly mono 16 kHz PCM
+    args.push('-vn', '-ac', '1', '-ar', '16000', '-codec:a', 'pcm_s16le');
   }
   args.push(outPath);
 

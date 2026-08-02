@@ -8,6 +8,22 @@ const KIND_FILTERS = [
   { id: 'generated', label: 'Generated' },
 ];
 
+const CHANNEL_FILTERS = [
+  { id: 'all', label: 'Any channel' },
+  { id: 'web', label: 'Web chat' },
+  { id: 'whatsapp_or_telegram', label: 'WhatsApp / Telegram' },
+  { id: 'agent', label: 'Generated' },
+];
+
+const MEDIA_KIND_FILTERS = [
+  { id: 'all', label: 'Any type' },
+  { id: 'image', label: 'Images' },
+  { id: 'audio', label: 'Audio' },
+  { id: 'video', label: 'Video' },
+  { id: 'document', label: 'Docs' },
+  { id: 'file', label: 'Other' },
+];
+
 function formatBytes(n) {
   const v = Number(n) || 0;
   if (v < 1024) return `${v} B`;
@@ -29,6 +45,8 @@ function itemKey(it) {
 
 export default function ContentExplorer() {
   const [source, setSource] = useState('all');
+  const [channel, setChannel] = useState('all');
+  const [mediaKind, setMediaKind] = useState('all');
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -57,7 +75,13 @@ export default function ContentExplorer() {
   }, [refresh]);
 
   const items = useMemo(() => {
-    const list = Array.isArray(data?.items) ? data.items : [];
+    let list = Array.isArray(data?.items) ? data.items : [];
+    if (channel !== 'all') {
+      list = list.filter((it) => String(it.channel || '') === channel);
+    }
+    if (mediaKind !== 'all') {
+      list = list.filter((it) => String(it.kind || '') === mediaKind);
+    }
     const needle = q.trim().toLowerCase();
     if (!needle) return list;
     return list.filter(
@@ -67,7 +91,7 @@ export default function ContentExplorer() {
         String(it.channel || '').toLowerCase().includes(needle) ||
         String(it.kind || '').toLowerCase().includes(needle)
     );
-  }, [data, q]);
+  }, [data, q, channel, mediaKind]);
 
   const allVisibleSelected = items.length > 0 && items.every((it) => selected.has(itemKey(it)));
 
@@ -162,9 +186,10 @@ export default function ContentExplorer() {
       <h1 style={{ margin: '0.5rem 0 0.25rem' }}>Content Explorer</h1>
       <p style={{ color: 'var(--muted)', marginTop: 0, maxWidth: 760 }}>
         Browse <strong>your</strong> media: uploads under <code>inbound/attachments</code>, and
-        agent-generated files under <code>media/generated/&lt;you&gt;/</code>. Delete permanently
-        removes files from disk (no recycle bin). Aged files are also removed by Profile data
-        retention.
+        agent-generated files under <code>media/generated/&lt;you&gt;/</code>. Chat paperclip files
+        show as channel <strong>web</strong> — use the Web chat filter or search the filename.
+        Delete permanently removes files from disk (no recycle bin). Aged files are also removed by
+        Profile data retention.
       </p>
 
       {error && <div style={{ color: '#f87171', marginBottom: '0.75rem' }}>{error}</div>}
@@ -214,6 +239,44 @@ export default function ContentExplorer() {
             color: 'var(--text)',
           }}
         />
+        <select
+          value={channel}
+          onChange={(e) => setChannel(e.target.value)}
+          aria-label="Channel filter"
+          style={{
+            padding: '0.45rem 0.6rem',
+            borderRadius: 6,
+            border: '1px solid var(--border)',
+            background: 'var(--surface)',
+            color: 'var(--text)',
+            fontSize: '0.85rem',
+          }}
+        >
+          {CHANNEL_FILTERS.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.label}
+            </option>
+          ))}
+        </select>
+        <select
+          value={mediaKind}
+          onChange={(e) => setMediaKind(e.target.value)}
+          aria-label="Media type filter"
+          style={{
+            padding: '0.45rem 0.6rem',
+            borderRadius: 6,
+            border: '1px solid var(--border)',
+            background: 'var(--surface)',
+            color: 'var(--text)',
+            fontSize: '0.85rem',
+          }}
+        >
+          {MEDIA_KIND_FILTERS.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.label}
+            </option>
+          ))}
+        </select>
         <button
           type="button"
           disabled={busy}

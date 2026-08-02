@@ -4,15 +4,30 @@
  * only see "[whatsapp attachment unavailable]" when media-understanding fails — this sync
  * makes the bytes available at inbound/attachments/<filename> for workflows + speech_stt.
  *
+ * Content Explorer is the durable store: after a successful mirror (or when ledger/CE
+ * already has the file), the OpenClaw staging copy under media/inbound/ is deleted so
+ * space is not held twice and sync cannot keep re-creating CE files.
+ *
  * For recent audio/video, also auto-starts the published "Summarize inbound media attachment"
  * workflow — WhatsApp never hits Agent OS POST /chat, so chat-phrase triggers alone miss WA.
  */
-import { existsSync, readdirSync, statSync, readFileSync, watch } from "fs";
+import { existsSync, readdirSync, statSync, readFileSync, unlinkSync, watch } from "fs";
 import { join, extname, basename } from "path";
 import { parseTenantOpenClawAgentId, tenantOpenClawAgentId } from "./openclaw-tenant.js";
 import { getOpenClawDir } from "../config/openclaw-paths.js";
 import { getDb } from "../db/schema.js";
-import { saveInboundAttachment } from "./inbound-attachments.js";
+import {
+  saveInboundAttachment,
+  findExistingInboundMirror,
+  dedupeWaInboundMirrors,
+  listInboundAttachments,
+} from "./inbound-attachments.js";
+import {
+  recordInboundOpenclawMirrored,
+  shouldSkipOpenclawInboundRemirror,
+  seedMirroredFromExistingInbound,
+  ensureInboundOpenclawSyncSchema,
+} from "./inbound-media-sync-ledger.js";
 
 const seen = new Set();
 /** @type {Map<string, { size: number, at: number }>} */
@@ -34,6 +49,29 @@ const AV_EXTS = new Set([
   ".webm",
   ".mov",
 ]);
+
+
+/** Delete OpenClaw media/inbound staging after CE has the durable copy. */
+function removeOpenClawStagingFile(absPath, meta = {}) {
+  try {
+    if (!absPath || !existsSync(absPath)) return false;
+    unlinkSync(absPath);
+    console.info("[inbound-media-sync] removed openclaw staging", {
+      file: basename(absPath),
+      ...meta,
+    });
+    pendingSizes.delete(absPath);
+    seen.delete(absPath);
+    return true;
+  } catch (e) {
+    console.warn("[inbound-media-sync] staging delete failed", {
+      file: basename(String(absPath || "")),
+      error: e?.message || String(e),
+      ...meta,
+    });
+    return false;
+  }
+}
 
 function isAudioOrVideoPath(nameOrPath) {
   return AV_EXTS.has(extname(String(nameOrPath || "")).toLowerCase());
@@ -253,9 +291,11 @@ function resolveInboundMediaOwner(fileBasename, fileMtimeMs) {
 
 /**
  * @param {string} absPath
- * @param {{ autoSummarize?: boolean }} [opts]
+ * @param {{ autoSummarize?: boolean, maxAgeMs?: number|null }} [opts]
  *   autoSummarize: true = always (watch), false = never (startup backfill),
  *   undefined = only if file mtime is recent.
+ *   maxAgeMs: if set, skip OpenClaw staging files older than this (startup must not
+ *   remirror the entire inbound archive after CE deletes).
  */
 function syncOneFile(absPath, opts = {}) {
   const name = basename(absPath);
@@ -269,6 +309,14 @@ function syncOneFile(absPath, opts = {}) {
   }
   if (!st.isFile() || st.size <= 0) return null;
   if (st.size < 64) return null;
+
+  const maxAgeMs = opts.maxAgeMs;
+  if (maxAgeMs != null && Number.isFinite(Number(maxAgeMs))) {
+    const ageMs = Date.now() - Number(st.mtimeMs || 0);
+    if (ageMs > Number(maxAgeMs)) {
+      return null;
+    }
+  }
 
   const ext = extname(name).toLowerCase();
   // OpenClaw often writes *.tmp while downloading; wait for the final rename (mp4/ogg/…).
@@ -308,15 +356,46 @@ function syncOneFile(absPath, opts = {}) {
     return null;
   }
 
+  // Durable ledger: already mirrored or CE-deleted → never remirror from OpenClaw staging.
+  if (shouldSkipOpenclawInboundRemirror(owner, name)) {
+    console.info("[inbound-media-sync] skip ledger (mirrored or suppressed)", {
+      file: name,
+      owner,
+    });
+    removeOpenClawStagingFile(absPath, { owner, reason: "ledger" });
+    return null;
+  }
+
+  // Stable name so backend restarts do not flood inbound/attachments (and Content Explorer).
+  const existing = findExistingInboundMirror(owner, name, st.size);
+  if (existing) {
+    recordInboundOpenclawMirrored(owner, name, {
+      size: existing.size,
+      mirroredFilename: existing.filename,
+    });
+    console.info("[inbound-media-sync] already mirrored", {
+      file: name,
+      as: existing.filename,
+      bytes: existing.size,
+      owner,
+    });
+    removeOpenClawStagingFile(absPath, { owner, reason: "already-mirrored" });
+    return null;
+  }
+
   const buffer = readFileSync(absPath);
   const mime = mimeFromExt(extname(name));
-  const stamped = `wa-${Date.now()}-${name}`;
+  const stamped = `wa-${name}`;
   const results = [];
   try {
     const out = saveInboundAttachment(owner, {
       buffer,
       filename: stamped,
       mimeType: mime,
+    });
+    recordInboundOpenclawMirrored(owner, name, {
+      size: out.bytes,
+      mirroredFilename: out.filename,
     });
     results.push({ owner, relative_path: out.relative_path, bytes: out.bytes });
   } catch (e) {
@@ -345,11 +424,49 @@ function syncOneFile(absPath, opts = {}) {
         maybeAutoSummarizeInbound(r.owner, r.relative_path, mime);
       }
     }
+    removeOpenClawStagingFile(absPath, { owner, reason: "mirrored" });
   }
   return results;
 }
 
-export function syncOpenClawInboundMediaOnce({ autoSummarize } = {}) {
+
+/** Drop staging files already mirrored/suppressed (or present in CE). */
+function purgeHandledOpenClawStaging() {
+  const dir = inboundMediaDir();
+  if (!existsSync(dir)) return { removed: 0 };
+  let removed = 0;
+  for (const name of readdirSync(dir)) {
+    const abs = join(dir, name);
+    try {
+      if (!statSync(abs).isFile()) continue;
+    } catch {
+      continue;
+    }
+    const owner = resolveInboundMediaOwner(name, Date.now());
+    if (!owner) continue;
+    if (shouldSkipOpenclawInboundRemirror(owner, name)) {
+      if (removeOpenClawStagingFile(abs, { owner, reason: "startup-ledger" })) removed += 1;
+      continue;
+    }
+    let stSize = null;
+    try {
+      stSize = statSync(abs).size;
+    } catch {
+      continue;
+    }
+    const existing = findExistingInboundMirror(owner, name, stSize);
+    if (existing) {
+      recordInboundOpenclawMirrored(owner, name, {
+        size: existing.size,
+        mirroredFilename: existing.filename,
+      });
+      if (removeOpenClawStagingFile(abs, { owner, reason: "startup-ce" })) removed += 1;
+    }
+  }
+  return { removed };
+}
+
+export function syncOpenClawInboundMediaOnce({ autoSummarize, maxAgeMs } = {}) {
   const dir = inboundMediaDir();
   if (!existsSync(dir)) return { ok: true, synced: 0, dir };
   let synced = 0;
@@ -360,7 +477,7 @@ export function syncOpenClawInboundMediaOnce({ autoSummarize } = {}) {
     } catch {
       continue;
     }
-    const out = syncOneFile(abs, { autoSummarize });
+    const out = syncOneFile(abs, { autoSummarize, maxAgeMs });
     if (out?.length) synced += 1;
   }
   return { ok: true, synced, dir };
@@ -369,12 +486,54 @@ export function syncOpenClawInboundMediaOnce({ autoSummarize } = {}) {
 export function startOpenClawInboundMediaSync({ intervalMs = 5000 } = {}) {
   const dir = inboundMediaDir();
   try {
-    // Backfill mirror only — do not storm summarize on every backend restart.
-    const first = syncOpenClawInboundMediaOnce({ autoSummarize: false });
+    try {
+      ensureInboundOpenclawSyncSchema();
+      const tenantsRoot = join(getOpenClawDir(), "tenants");
+      if (existsSync(tenantsRoot)) {
+        let deduped = 0;
+        let seeded = 0;
+        for (const ceo of readdirSync(tenantsRoot)) {
+          try {
+            const out = dedupeWaInboundMirrors(ceo);
+            deduped += out.deleted || 0;
+          } catch {
+            /* skip */
+          }
+          try {
+            for (const f of listInboundAttachments(ceo)) {
+              seedMirroredFromExistingInbound(ceo, f.filename, f.size);
+              seeded += 1;
+            }
+          } catch {
+            /* skip */
+          }
+        }
+        if (deduped || seeded) {
+          console.info("[inbound-media-sync] startup WA mirror prep", {
+            deleted_dupes: deduped,
+            seeded_ledger: seeded,
+          });
+        }
+        const purged = purgeHandledOpenClawStaging();
+        if (purged.removed) {
+          console.info("[inbound-media-sync] startup staging purge", purged);
+        }
+      }
+    } catch (e) {
+      console.warn("[inbound-media-sync] startup dedupe/seed failed", e?.message || e);
+    }
+
+    // Only touch recent OpenClaw staging files — never rebuild the whole archive
+    // (that is what made CE deletes reappear after every restart).
+    const first = syncOpenClawInboundMediaOnce({
+      autoSummarize: false,
+      maxAgeMs: AUTO_SUMMARIZE_MAX_AGE_MS,
+    });
     console.info("[inbound-media-sync] started", {
       dir: first.dir,
       initial_synced: first.synced,
       intervalMs,
+      maxAgeMs: AUTO_SUMMARIZE_MAX_AGE_MS,
     });
   } catch (e) {
     console.warn("[inbound-media-sync] initial sync failed", e?.message || e);
@@ -384,7 +543,10 @@ export function startOpenClawInboundMediaSync({ intervalMs = 5000 } = {}) {
   timer = setInterval(() => {
     try {
       // Poll: summarize only when OpenClaw wrote the file recently.
-      syncOpenClawInboundMediaOnce({ autoSummarize: undefined });
+      syncOpenClawInboundMediaOnce({
+        autoSummarize: undefined,
+        maxAgeMs: AUTO_SUMMARIZE_MAX_AGE_MS,
+      });
     } catch (e) {
       console.warn("[inbound-media-sync] poll failed", e?.message || e);
     }

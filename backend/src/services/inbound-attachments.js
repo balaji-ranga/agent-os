@@ -16,6 +16,7 @@ import {
 import { join, basename } from 'path';
 import { getOpenClawDir } from '../config/openclaw-paths.js';
 import { splitPathList } from '../lib/workflow-fs-roots.js';
+import { suppressInboundOpenclawMirror } from './inbound-media-sync-ledger.js';
 
 function sanitizeIdPart(value) {
   return (
@@ -130,6 +131,82 @@ export function listInboundAttachments(ownerUserId) {
     });
 }
 
+/**
+ * OpenClaw stages media as <uuid>.<ext>. We mirror as wa-<uuid>.<ext>.
+ * Older builds used wa-<timestamp>-<uuid>.<ext> and re-copied on every restart.
+ * @returns {string|null} openclaw basename key, or null if not a WA mirror name
+ */
+export function openclawBasenameFromWaMirror(filename) {
+  const n = basename(String(filename || ''));
+  const m = n.match(/^wa-(?:\d+-)?(.+)$/i);
+  return m ? m[1] : null;
+}
+
+/**
+ * Find an existing inbound copy of an OpenClaw inbound media file (any naming generation).
+ */
+export function findExistingInboundMirror(ownerUserId, openclawFilename, size = null) {
+  const needle = basename(String(openclawFilename || '')).toLowerCase();
+  if (!needle) return null;
+  const wantSize = size == null ? null : Number(size);
+  for (const f of listInboundAttachments(ownerUserId)) {
+    const name = String(f.filename || '');
+    const key = openclawBasenameFromWaMirror(name);
+    const match =
+      name.toLowerCase() === needle ||
+      name.toLowerCase() === `wa-${needle}` ||
+      (key && key.toLowerCase() === needle);
+    if (!match) continue;
+    if (wantSize != null && Number(f.size) !== wantSize) continue;
+    return f;
+  }
+  return null;
+}
+
+/**
+ * Collapse duplicate wa-<timestamp>-<uuid> copies left by restart remirrors.
+ * Keeps the oldest file per OpenClaw basename; hard-deletes the rest.
+ */
+export function dedupeWaInboundMirrors(ownerUserId) {
+  const owner = String(ownerUserId || '').trim();
+  if (!owner) throw Object.assign(new Error('owner_user_id required'), { status: 400 });
+  const groups = new Map();
+  for (const f of listInboundAttachments(owner)) {
+    const key = openclawBasenameFromWaMirror(f.filename);
+    if (!key) continue;
+    const k = key.toLowerCase();
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(f);
+  }
+  let deleted = 0;
+  let kept = 0;
+  for (const group of groups.values()) {
+    if (group.length < 2) {
+      kept += group.length;
+      continue;
+    }
+    group.sort((a, b) => String(a.mtime || '').localeCompare(String(b.mtime || '')));
+    kept += 1;
+    for (const f of group.slice(1)) {
+      try {
+        deleteInboundAttachment(owner, f.relative_path);
+        deleted += 1;
+      } catch (e) {
+        console.warn('[inbound-attachments] dedupe skip', f.filename, e?.message || e);
+      }
+    }
+  }
+  if (deleted) {
+    console.info('[inbound-attachments] deduped WA mirrors', {
+      owner: sanitizeIdPart(owner),
+      deleted,
+      kept,
+      groups: groups.size,
+    });
+  }
+  return { deleted, kept, groups: groups.size };
+}
+
 /** Resolve relative inbound path to absolute workspace file (security: no ..). */
 export function resolveInboundRelativePath(ownerUserId, relativePath) {
   const raw = String(relativePath || '')
@@ -177,6 +254,12 @@ export function deleteInboundAttachment(ownerUserId, relativePath) {
   if (hardUnlink(primary)) removed.push(primary);
   if (hardUnlink(mirror)) removed.push(mirror);
   if (!removed.length) throw Object.assign(new Error('File not found'), { status: 404 });
+  // Stop OpenClaw media/inbound remirror on next backend restart / poll.
+  try {
+    suppressInboundOpenclawMirror(owner, name);
+  } catch (e) {
+    console.warn('[inbound-attachments] suppress ledger failed', name, e?.message || e);
+  }
   console.info('[inbound-attachments] hard-deleted', {
     owner: sanitizeIdPart(owner),
     filename: name,

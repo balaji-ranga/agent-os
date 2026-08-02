@@ -27,6 +27,10 @@ Each row shows filename, kind (doc / image / audio / video), size, and optional 
 
 Profile **Data persistence** (default 90 days) also hard-deletes aged Content Explorer files by **file mtime** on the nightly retention job — same window as chat/workflow history. Master Data documents are still **not** purged by retention (use Master Data purge for those).
 
+## WhatsApp / OpenClaw staging
+
+Channel media is mirrored into **Uploaded** (inbound/attachments/). Once mirrored, Agent OS **removes** the temporary OpenClaw file under `~/.openclaw/media/inbound/`. Clean space from Content Explorer (delete here); staging will not keep re-creating files after delete (ledger suppresses remirror).
+
 ## Related places
 
 | Place | Role |

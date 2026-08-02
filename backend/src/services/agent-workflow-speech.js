@@ -190,11 +190,44 @@ function audioExtensionForMime(mime) {
 }
 
 export async function transcribeAudioBuffer(buffer, filename, mimeType, nodeConfig = {}) {
+  if (!Buffer.isBuffer(buffer) || buffer.length < 64) {
+    throw Object.assign(new Error('Audio too short or empty — hold the mic a moment longer.'), { status: 400 });
+  }
+
+  // Browser MediaRecorder WebM/Opus often crashes faster-whisper PyAV decode; normalize to WAV first.
+  let sendBuf = buffer;
+  let sendName = filename || 'audio.webm';
+  let sendMime = mimeType || 'audio/webm';
+  const mime = String(sendMime).toLowerCase();
+  let ext = String(extname(sendName).replace(/^\./, '') || '').toLowerCase();
+  if (!ext) {
+    if (mime.includes('webm')) ext = 'webm';
+    else if (mime.includes('ogg') || mime.includes('opus')) ext = 'ogg';
+    else if (mime.includes('mpeg') || mime.includes('mp3')) ext = 'mp3';
+    else if (mime.includes('wav')) ext = 'wav';
+    else if (mime.includes('mp4') || mime.includes('m4a')) ext = 'm4a';
+    else ext = 'webm';
+  }
+  if (ext !== 'wav') {
+    try {
+      const extracted = await extractAudioTrackForStt(buffer, ext);
+      sendBuf = extracted.buffer;
+      sendName = (basename(sendName, extname(sendName)) || 'audio') + '.wav';
+      sendMime = extracted.mime || 'audio/wav';
+      console.info('[speech] STT normalized to wav', { fromExt: ext, bytes: sendBuf.length });
+    } catch (e) {
+      console.warn('[speech] STT wav normalize failed; sending original', {
+        ext,
+        error: e?.message || String(e),
+      });
+    }
+  }
+
   const sttUrl = resolveSpeechSttUrl();
   const timeoutMs = resolveTimeoutMs(nodeConfig);
   const form = new FormData();
-  const blob = new Blob([buffer], { type: mimeType || 'audio/webm' });
-  form.append('file', blob, filename || 'audio.webm');
+  const blob = new Blob([sendBuf], { type: sendMime || 'audio/wav' });
+  form.append('file', blob, sendName || 'audio.wav');
   form.append('model', String(nodeConfig.modelId || nodeConfig.model || DEFAULT_STT_MODEL));
   const language = String(nodeConfig.language || '').trim();
   if (language) form.append('language', language);
