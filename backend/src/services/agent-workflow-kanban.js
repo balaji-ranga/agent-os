@@ -17,6 +17,11 @@ export function isAgentWorkflowPrompt(prompt) {
   return String(prompt || '').includes(AGENT_WORKFLOW_TAG);
 }
 
+/** Avatar outbound/inbound workflow agent steps — platform tracks Kanban; agent must not be told to. */
+export function isAvatarAgentWorkflowPrompt(prompt) {
+  return /agent_wf_def_id:\s*avatar-(out|in)-/i.test(String(prompt || ''));
+}
+
 export function parseAgentWorkflowMeta(prompt) {
   const text = String(prompt || '');
   const nodeMatch = text.match(/\[agent_workflow:([^\]]+)\]/);

@@ -346,6 +346,7 @@ export function userPublic(row) {
     region: row.region || '',
     mobile: row.mobile || '',
     role: row.role,
+    role_title: String(row.role_title || '').trim(),
     enabled: !!row.enabled,
     created_at: row.created_at,
     last_login_at: row.last_login_at || null,
@@ -467,6 +468,7 @@ export function updateUserProfile(
     email,
     region,
     mobile,
+    role_title,
     current_password,
     new_password,
     mfa_policy,
@@ -493,6 +495,10 @@ export function updateUserProfile(
   }
   if (region !== undefined) updates.region = String(region).trim();
   if (mobile !== undefined) updates.mobile = String(mobile).trim();
+  if (role_title !== undefined) {
+    const title = String(role_title).trim().slice(0, 64);
+    updates.role_title = title;
+  }
 
   if (email !== undefined) {
     const normalizedEmail = String(email).trim().toLowerCase();

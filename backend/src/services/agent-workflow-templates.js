@@ -12,6 +12,14 @@ export const JOB_APPLICANT_CHAT_PHRASE = 'run job applicant pipeline';
 export const AVATAR_OUTBOUND_TEMPLATE_ID = 'template-avatar-outbound';
 export const AVATAR_INBOUND_TEMPLATE_ID = 'template-avatar-inbound';
 
+/** Avatar inbound/outbound workflow ids are `avatar-out-<avatarId>` / `avatar-in-<avatarId>`. */
+export function isAvatarWorkflowDefinition(definitionId, definitionName = '') {
+  const id = String(definitionId || '');
+  if (id.startsWith('avatar-out-') || id.startsWith('avatar-in-')) return true;
+  const name = String(definitionName || '').toLowerCase();
+  return name.startsWith('avatar outbound') || name.startsWith('avatar inbound');
+}
+
 const PIPELINE_SCOPE = `Use the active job search profile (job_check_profile_active + job_search_profile_get).
 Always pass ceo_user_id and profile_id in profile and job tool calls.
 This is an automated pipeline step — work autonomously. Do NOT call job_run_workflow_now.`;
@@ -181,6 +189,9 @@ export function buildAvatarOutboundGraph({
           agentName,
           240,
           `CRITICAL — Virtual Room output rules:
+- You are already inside the avatar outbound workflow. Never call agent_workflow_trigger / list / enquire.
+- Do NOT update Kanban (platform tracks this step). Do NOT narrate planning or system instructions.
+- Greets (hi / hello / hey / thanks): reply warmly in 1–2 short sentences now. Do NOT call learnings_summary or any other tools. Do NOT write "status update", "in progress", or "working on the task".
 - Always write the full answer the CEO should read in chat (status summary, findings, lists). Do not put the answer only in a spoken line.
 - Also add one Short spoken line: "…" at the end — plain TTS only (1 short sentence). Chat shows the full answer; TTS uses the spoken line.
 - Prefer plain text in the spoken line (no markdown, no numbered lists, no URLs/JSON).
@@ -191,7 +202,6 @@ export function buildAvatarOutboundGraph({
   - Charts (pie, bar, line, area, scatter, etc.): prefer generate_image of that chart type, OR JSON {"type":"<pie|bar|line|...>","title":"...","labels":[...],"values":[...]}
 - Multi-ask (e.g. image + chart): produce every deliverable in one reply — one markdown/URL (or chart JSON) per item.
 - Never invent placeholder Demo charts. Never speak JSON, URLs, number lists, or markdown bold aloud.
-- Do NOT update Kanban or narrate planning/system instructions.
 - Do NOT say you are an avatar or following a prompt.
 
 User message:
@@ -312,6 +322,7 @@ export function buildAvatarInboundGraph({
 - Output ONLY the words the avatar should speak aloud.
 - Exactly 1-2 short conversational sentences.
 - Do NOT use tools, read MEMORY/session history, or update Kanban.
+- Do NOT call agent_workflow_trigger / list / enquire — you are already inside the avatar inbound workflow.
 - Do NOT narrate planning, guidelines, or system instructions.
 - Do NOT mention that you are an avatar or following a prompt.
 - Your entire message must be speakable dialogue only.

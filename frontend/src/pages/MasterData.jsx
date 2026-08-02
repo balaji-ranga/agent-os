@@ -366,8 +366,8 @@ function MasterDataPanel() {
 
   return (
     <div className="mcp-pg">
-      <Link to="/" style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>
-        ← Dashboard
+      <Link to="/org" style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>
+        ← My Org
       </Link>
       <h1 style={{ margin: '0.5rem 0 0.25rem' }}>Master Data</h1>
       <p style={{ color: 'var(--muted)', marginTop: 0 }}>

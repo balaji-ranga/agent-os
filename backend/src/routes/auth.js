@@ -247,13 +247,31 @@ router.get('/me', requireAuth, (req, res) => {
 
 router.patch('/me', requireAuth, (req, res) => {
   try {
-    const { name, email, region, mobile, current_password, new_password, mfa_policy, mfa_mode, llm_provider, llm_model, llm_api_key, clear_llm_api_key, industry, industry_other, business_name, data_retention_days } =
-      req.body || {};
+    const {
+      name,
+      email,
+      region,
+      mobile,
+      role_title,
+      current_password,
+      new_password,
+      mfa_policy,
+      mfa_mode,
+      llm_provider,
+      llm_model,
+      llm_api_key,
+      clear_llm_api_key,
+      industry,
+      industry_other,
+      business_name,
+      data_retention_days,
+    } = req.body || {};
     const user = updateUserProfile(req.authUser.id, {
       name,
       email,
       region,
       mobile,
+      role_title,
       current_password,
       new_password,
       mfa_policy,

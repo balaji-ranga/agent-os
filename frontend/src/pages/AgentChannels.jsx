@@ -332,8 +332,8 @@ function AgentChannelsPanel() {
   return (
     <div style={{ padding: '2rem', maxWidth: 960, margin: '0 auto' }}>
       <div style={{ marginBottom: '1rem' }}>
-        <Link to="/" style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>
-          ← Dashboard
+        <Link to="/org" style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>
+          ← My Org
         </Link>
         <Link
           to={`/agents/${agentId}/workspace`}

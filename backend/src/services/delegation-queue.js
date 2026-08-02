@@ -36,6 +36,7 @@ import {
 import {
   completeAgentWorkflowKanbanForDelegation,
   isAgentWorkflowPrompt,
+  isAvatarAgentWorkflowPrompt,
 } from './agent-workflow-kanban.js';
 import { getPublicBaseUrl } from '../config/public-url.js';
 import { ensureInternalTokenConfigured } from '../middleware/internal-auth.js';
@@ -543,7 +544,7 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, c
     const kanbanRow = db().prepare('SELECT id FROM kanban_tasks WHERE agent_delegation_task_id = ?').get(taskId);
     const kanbanId = kanbanRow ? kanbanRow.id : null;
     let promptWithMemory = await getPromptWithMemoryInjected(agent.id, task.prompt);
-    if (kanbanId) {
+    if (kanbanId && !isAvatarAgentWorkflowPrompt(task.prompt)) {
       promptWithMemory =
         `FIRST ACTION (before anything else): call the kanban_move_status tool with JSON:\n` +
         `  {\"task_id\": ${kanbanId}, \"new_status\": \"in_progress\"}\n\n` +
@@ -765,11 +766,29 @@ export async function processPendingDelegationTasksForCeo(ceoUserId, opts = {}) 
       console.warn('[delegation] tenant openclaw ensure failed:', e?.message || e);
     }
     const sessionUser = `delegation-${task.id}`;
-    const sessionKeyLine = `\n\nYour session key for this run is ${openclaw.sessionKeyFor(runtimeOcId, sessionUser)}. Use this exact sessionKey when calling sessions_history. If sessions_history returns empty, the conversation is in the messages above—proceed with those.`;
-    let promptWithMemory = await getPromptWithMemoryInjected(task.to_agent_id, task.prompt);
-    promptWithMemory = promptWithMemory + sessionKeyLine;
+    const avatarVr = isAvatarAgentWorkflowPrompt(task.prompt);
+    let promptWithMemory;
+    if (avatarVr) {
+      // Virtual Room avatar chat: do not inject MEMORY or sessions_history instructions —
+      // those cause specialists to open browse tasks / narrate ops instead of answering.
+      promptWithMemory =
+        `${task.prompt}\n\n` +
+        `VIRTUAL ROOM RULES (override other tool habits for this turn):\n` +
+        `- Answer only the CEO's user message in the task above.\n` +
+        `- Do NOT call sessions_history, browse_*, learnings_summary, kanban_*, or agent_workflow_*.\n` +
+        `- Greets (hi/hello/hey): reply warmly in 1–2 sentences + Short spoken line. No tools.\n` +
+        `- Use tools only when the CEO asks for research, image, video, chart, or similar deliverables.`;
+      console.info('[delegation] avatar VR prompt (no memory/sessions_history inject)', {
+        taskId: task.id,
+        agent: task.to_agent_id,
+      });
+    } else {
+      const sessionKeyLine = `\n\nYour session key for this run is ${openclaw.sessionKeyFor(runtimeOcId, sessionUser)}. Use this exact sessionKey when calling sessions_history. If sessions_history returns empty, the conversation is in the messages above—proceed with those.`;
+      promptWithMemory = await getPromptWithMemoryInjected(task.to_agent_id, task.prompt);
+      promptWithMemory = promptWithMemory + sessionKeyLine;
+    }
     const kanbanRow = db().prepare('SELECT id FROM kanban_tasks WHERE agent_delegation_task_id = ?').get(task.id);
-    if (kanbanRow) {
+    if (kanbanRow && !avatarVr) {
       promptWithMemory =
         `FIRST ACTION (before anything else): call the kanban_move_status tool with JSON:\n` +
         `  {\"task_id\": ${kanbanRow.id}, \"new_status\": \"in_progress\"}\n\n` +

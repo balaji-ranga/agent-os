@@ -214,6 +214,48 @@ export function importGrantsFromOpenClawConfig() {
   return imported;
 }
 
+/** COO / Workflow Builder–only tools — specialists must not hold these grants (API rejects them anyway). */
+const COO_OR_WORKFLOW_BUILDER_TOOLS = [
+  'agent_workflow_list',
+  'agent_workflow_enquire',
+  'agent_workflow_trigger',
+  'agent_workflow_runs',
+  'agent_workflow_retry',
+];
+
+const WORKFLOW_BUILDER_ONLY_TOOLS = [
+  'agent_workflow_get_draft',
+  'agent_workflow_mutate',
+  'agent_workflow_certify_start',
+  'agent_workflow_certify_status',
+  'agent_workflow_certify_resume',
+];
+
+/**
+ * Strip workflow catalog/trigger tools from agents that are not COO or Workflow Builder.
+ * Prevents specialists (e.g. TechResearcher in Virtual Room) from attempting agent_workflow_trigger.
+ */
+export function revokeUnauthorizedWorkflowToolGrants() {
+  const db = getDb();
+  const agents = db.prepare('SELECT id, is_coo FROM agents').all();
+  const del = db.prepare('DELETE FROM agent_tool_grants WHERE agent_id = ? AND tool_name = ?');
+  let revoked = 0;
+  for (const agent of agents) {
+    const id = String(agent.id || '').toLowerCase();
+    const isCoo = !!agent.is_coo;
+    const isWfb = id === 'workflowbuilder';
+    const strip = [];
+    if (!isCoo && !isWfb) strip.push(...COO_OR_WORKFLOW_BUILDER_TOOLS);
+    if (!isWfb) strip.push(...WORKFLOW_BUILDER_ONLY_TOOLS);
+    for (const tool of strip) {
+      const r = del.run(agent.id, tool);
+      if (r.changes) revoked += 1;
+    }
+  }
+  if (revoked) syncAllowlistsFile();
+  return revoked;
+}
+
 export function listToolsCatalogForAgent(agentId) {
   const granted = new Set(getAgentToolGrants(agentId));
   return meta

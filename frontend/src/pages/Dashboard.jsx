@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
+import { useAuth } from '../context/AuthContext';
 import ChatMessageContent from '../components/ChatMessageContent';
 import ChatMessageAttachments from '../components/ChatMessageAttachments';
 import { splitChatAttachmentContent } from '../utils/chatAttachments.js';
@@ -10,6 +11,7 @@ import OrgChart from '../components/OrgChart';
 import OrgDesigner from '../components/OrgDesigner';
 import { formatLocalDateTime, formatChatTimestamp, toLocalDateTimeInputValue } from '../utils/formatDateTime.js';
 import { buildMessageWithAttachments, uploadChatAttachments } from '../utils/chatAttachments.js';
+import { userRoleTitle } from '../utils/userRoleTitle.js';
 
 // Voice: browser Speech Synthesis API (Edge/Chrome TTS)
 function useEdgeTTS() {
@@ -62,6 +64,8 @@ function useEdgeTTS() {
 }
 
 export default function Dashboard() {
+  const { user } = useAuth();
+  const roleTitle = userRoleTitle(user);
   const { speak, stop, speaking } = useEdgeTTS();
   const [agents, setAgents] = useState([]);
   const [standups, setStandups] = useState([]);
@@ -496,7 +500,7 @@ export default function Dashboard() {
       )}
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
-        <h1 style={{ marginTop: 0, marginBottom: 0 }}>Dashboard</h1>
+        <h1 style={{ marginTop: 0, marginBottom: 0 }}>My Org</h1>
       </div>
 
       {/* Org chart: recursive hierarchy with List | Graph */}
@@ -536,7 +540,7 @@ export default function Dashboard() {
           </div>
         </div>
         <p style={{ color: 'var(--muted)', marginBottom: '1rem', fontSize: '0.9rem' }}>
-          CEO (you) → reports-to chain for agents in <strong>your</strong> workspace only. Use Chart or Design to arrange departments.
+          {roleTitle} (you) → reports-to chain for agents in <strong>your</strong> workspace only. Use Chart or Design to arrange departments.
           After structural changes, click <strong>Resync ORG.md &amp; AGENTS.md</strong> to refresh the agent roster (and leaf members).
           Manual edits in the COO&apos;s Role / Priorities / Tools / Guardrails (or other custom sections) are preserved.
         </p>
@@ -581,7 +585,7 @@ export default function Dashboard() {
             }
           />
         ) : (
-          <OrgChart agents={agents} onRemove={removeAgent} />
+          <OrgChart agents={agents} onRemove={removeAgent} roleTitle={roleTitle} userName={user?.name || ''} />
         )}
         {agents.length === 0 && (
           <div style={{ marginTop: '0.75rem', padding: '1rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8 }}>

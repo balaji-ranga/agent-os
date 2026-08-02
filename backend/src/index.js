@@ -86,6 +86,7 @@ import {
   syncAllowlistsFile,
   syncOpenClawJsonForAgent,
   getAgentToolGrants,
+  revokeUnauthorizedWorkflowToolGrants,
 } from './services/openclaw-agent-tools.js';
 import { grantLearningsSummaryToAllAgents, grantEmailSendToAllAgents, grantNotifyCeoToAllAgents, grantCeoProfileToAllAgents, grantAnalyzeImageToAllAgents, grantMasterDataToolsToAllAgents, grantKanbanToolsToAllAgents } from './services/agent-feedback.js';
 import feedbackRoutes from './routes/feedback.js';
@@ -355,6 +356,12 @@ try {
 }
 try {
   const imported = importGrantsFromOpenClawConfig();
+  const revokedWf = revokeUnauthorizedWorkflowToolGrants();
+  if (revokedWf) {
+    console.log(
+      `[startup] revoked ${revokedWf} unauthorized agent_workflow_* grant(s) from non-COO/non-WorkflowBuilder agents`
+    );
+  }
   syncAllowlistsFile();
   // Persist DB grants into openclaw.json per-agent tools.allow (volume-safe across deploys).
   const agents = getDb().prepare('SELECT * FROM agents').all();

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth, RequireAuth } from '../context/AuthContext';
+import { ROLE_TITLE_PRESETS, userRoleTitle } from '../utils/userRoleTitle.js';
 
 function UserProfilePanel() {
   const { user, reload } = useAuth();
@@ -10,6 +11,7 @@ function UserProfilePanel() {
     email: '',
     region: '',
     mobile: '',
+    role_title: 'CEO',
     industry: 'personal',
     industry_other: '',
     business_name: '',
@@ -24,6 +26,7 @@ function UserProfilePanel() {
     clear_llm_api_key: false,
     data_retention_days: 90,
   });
+  const [roleTitleCustom, setRoleTitleCustom] = useState(false);
   const [industries, setIndustries] = useState([]);
   const [llmCatalog, setLlmCatalog] = useState({ providers: [] });
   const [llmModelCustom, setLlmModelCustom] = useState(false);
@@ -61,6 +64,7 @@ function UserProfilePanel() {
       email: user.email || '',
       region: user.region || '',
       mobile: user.mobile || '',
+      role_title: userRoleTitle(user),
       industry: user.industry || 'personal',
       industry_other: user.industry_other || '',
       business_name: user.business_name || '',
@@ -72,6 +76,8 @@ function UserProfilePanel() {
       clear_llm_api_key: false,
       data_retention_days: user.data_retention_days || 90,
     }));
+    const title = userRoleTitle(user);
+    setRoleTitleCustom(!!user.role_title && !ROLE_TITLE_PRESETS.includes(title));
     setLastLoginAt(user.last_login_at || null);
     setLlmHint(user.llm_api_key_hint || null);
     api
@@ -105,8 +111,11 @@ function UserProfilePanel() {
           industry: data.user?.industry || f.industry || 'personal',
           industry_other: data.user?.industry_other || '',
           business_name: data.user?.business_name || '',
+          role_title: userRoleTitle(data.user || user),
           data_retention_days: data.user?.data_retention_days || f.data_retention_days || 90,
         }));
+        const nextTitle = userRoleTitle(data.user || user);
+        setRoleTitleCustom(!!data.user?.role_title && !ROLE_TITLE_PRESETS.includes(nextTitle));
         setLastLoginAt(data.user?.last_login_at || null);
         setLlmHint(data.user?.llm_api_key_hint || null);
       })
@@ -150,6 +159,7 @@ function UserProfilePanel() {
         email: form.email,
         region: form.region,
         mobile: form.mobile,
+        role_title: String(form.role_title || '').trim() || 'CEO',
         industry: form.industry,
         industry_other: form.industry_other,
         business_name: form.business_name,
@@ -274,10 +284,10 @@ function UserProfilePanel() {
 
   return (
     <div style={{ padding: '1.5rem', maxWidth: 520, margin: '0 auto' }}>
-      <Link to="/" style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>← Dashboard</Link>
+      <Link to="/org" style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>← My Org</Link>
       <h1 style={{ margin: '0.5rem 0 0' }}>My profile</h1>
       <p style={{ color: 'var(--muted)', marginTop: '0.25rem' }}>
-        Account: {user?.id} · Role: {user?.role}
+        Account: {user?.id} · Title: {userRoleTitle(user)}
       </p>
       <p style={{ color: 'var(--muted)', marginTop: '0.25rem', fontSize: '0.9rem' }}>
         Last login:{' '}
@@ -298,6 +308,42 @@ function UserProfilePanel() {
             required
             style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
           />
+        </label>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Your title</span>
+          <select
+            value={roleTitleCustom ? '__custom__' : ROLE_TITLE_PRESETS.includes(form.role_title) ? form.role_title : '__custom__'}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v === '__custom__') {
+                setRoleTitleCustom(true);
+                if (ROLE_TITLE_PRESETS.includes(form.role_title)) set('role_title', '');
+              } else {
+                setRoleTitleCustom(false);
+                set('role_title', v);
+              }
+            }}
+            style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+          >
+            {ROLE_TITLE_PRESETS.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+            <option value="__custom__">Custom…</option>
+          </select>
+          {(roleTitleCustom || !ROLE_TITLE_PRESETS.includes(form.role_title)) && (
+            <input
+              value={form.role_title}
+              onChange={(e) => set('role_title', e.target.value)}
+              placeholder="e.g. Founder & CEO"
+              maxLength={64}
+              style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', marginTop: 4 }}
+            />
+          )}
+          <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
+            Shown in My Org, profile menu, and org chart. Does not change account permissions.
+          </span>
         </label>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Email</span>
@@ -339,7 +385,7 @@ function UserProfilePanel() {
             ))}
           </select>
           <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
-            After this period, chats, standup history, and workflow run instances are permanently deleted (daily job + Dashboard purge).
+            After this period, chats, standup history, and workflow run instances are permanently deleted (daily job + My Org purge).
           </span>
         </label>
         <button

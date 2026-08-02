@@ -223,7 +223,7 @@ export default function AgentWorkspace() {
   return (
     <div style={{ padding: '2rem', height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div style={{ marginBottom: '1rem' }}>
-        <Link to="/" style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>← Dashboard</Link>
+        <Link to="/org" style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>← My Org</Link>
         <Link to="/workspace" style={{ color: 'var(--muted)', fontSize: '0.9rem', marginLeft: '1rem' }}>All agents</Link>
         <Link to={`/agents/${agentId}/channels`} style={{ color: 'var(--accent)', fontSize: '0.9rem', marginLeft: '1rem' }}>Channels</Link>
         <Link to={`/agents/${agentId}/chat`} style={{ color: 'var(--muted)', fontSize: '0.9rem', marginLeft: '1rem' }}>Chat</Link>

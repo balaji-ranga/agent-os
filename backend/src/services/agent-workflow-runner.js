@@ -62,6 +62,7 @@ import {
   buildTimeoutFallbackOutputs,
   DEFAULT_NODE_TIMEOUT_MS,
 } from './agent-workflow-node-timeout.js';
+import { isAvatarWorkflowDefinition } from './agent-workflow-templates.js';
 
 function db() {
   return getDb();
@@ -576,14 +577,27 @@ function completeRun(runId) {
 }
 
 function buildAgentPrompt(runId, definitionId, definitionName, node, inputText, ownerUserId) {
+  const avatarStep = isAvatarWorkflowDefinition(definitionId, definitionName);
+  const framing = avatarStep
+    ? [
+        'This is a Virtual Room avatar reply — the CEO is chatting live with your 3D avatar.',
+        'Answer the user message below directly as the assigned agent.',
+        'Do NOT update Kanban (the platform tracks this step).',
+        'Do NOT call agent_workflow_trigger / list / enquire — you are already inside the avatar workflow.',
+        'For greets (hi/hello/hey/thanks): reply warmly in 1–2 short sentences. Do NOT call learnings_summary or other tools.',
+        'Do NOT write "status update", "in progress", or "working on the task" — just answer the CEO.',
+      ]
+    : [
+        'This is an automated agent workflow step — NOT an interactive CEO session.',
+        'Complete the task below, then finish your Kanban card.',
+      ];
   return [
     `${AGENT_WORKFLOW_TAG}${node.id}]`,
     `agent_wf_run_id: ${runId}`,
     `agent_wf_def_id: ${definitionId}`,
     `owner_user_id: ${ownerUserId}`,
     '',
-    'This is an automated agent workflow step — NOT an interactive CEO session.',
-    'Complete the task below, then finish your Kanban card.',
+    ...framing,
     '',
     `Workflow: ${definitionName}`,
     `Step: ${node.data?.label || node.id}`,

@@ -26,7 +26,7 @@ ElevenLabs vault key on templates: **`elevenlabs-key`**. Re-assign the agent on 
 1. On **3D Avatars**, create a **Virtual Room**, add members (avatars that already have agents), optionally set a scene.
 2. **Open Room** loads all member GLBs and the scene environment (or an empty stage).
 3. **Drag** an avatar on the floor to save layout positions.
-4. **Chat:** type `@` to pick a member from the autocomplete list. With more than one member, a bare message (no `@`) is **auto-routed** using the same AGENTS.md intent classifier as COO delegation (no Kanban) — multi-intent can split across up to two members. Those members’ **outbound workflows start in parallel** (each avatar can speak/show media independently). With exactly one member, a bare message is fine.
+4. **Chat:** type `@` to pick a member from the autocomplete list. With more than one member, a bare message (no `@`) is **auto-routed** using the same AGENTS.md intent classifier as COO delegation (no Kanban) — multi-intent can split across up to two members. Those members’ **outbound workflows start in parallel** (each avatar can speak/show media independently). With exactly one member, a bare message is fine. Greets (`hi`) should get a short conversational reply — the agent must not call `learnings_summary` or try to trigger another workflow.
 5. Change **Scene** from the room sidebar to swap environments without leaving the room.
 6. Generated **images / videos / charts** from a member’s outbound workflow open as **closable cards** stacked above that avatar (× to dismiss). New media adds a card on top; older cards stay until closed. Scene JSON **mediaSlots** are only used when Brain routes a chart/graph into a named slot.
 

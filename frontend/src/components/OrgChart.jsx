@@ -182,7 +182,7 @@ function GraphCard({ node, onRemove, onRemoveLeaf }) {
  * Org structure viewer: List | Graph, optional group-by-department.
  * Merges external / published-A2A leaf members under their reports-to parent.
  */
-export default function OrgChart({ agents = [], onRemove }) {
+export default function OrgChart({ agents = [], onRemove, roleTitle = 'CEO', userName = '' }) {
   const [view, setView] = useState('list');
   const [groupByDept, setGroupByDept] = useState(false);
   const [leafMembers, setLeafMembers] = useState([]);
@@ -232,7 +232,10 @@ export default function OrgChart({ agents = [], onRemove }) {
     () => mergeAgentsWithLeafMembers(agents, leafMembers),
     [agents, leafMembers]
   );
-  const tree = useMemo(() => buildOrgTree(chartAgents), [chartAgents]);
+  const tree = useMemo(
+    () => buildOrgTree(chartAgents, { roleTitle, userName }),
+    [chartAgents, roleTitle, userName]
+  );
   const deptGroups = useMemo(() => groupAgentsByDepartment(chartAgents), [chartAgents]);
 
   const toggleBtn = (id, label) => (
@@ -315,7 +318,7 @@ export default function OrgChart({ agents = [], onRemove }) {
               fontSize: '0.85rem',
             }}
           >
-            CEO (you) sits above all departments. Reporting lines still use each agent&apos;s Reports to field.
+            {roleTitle} (you) sits above all departments. Reporting lines still use each agent&apos;s Reports to field.
             External / A2A leaf members hang under their reports-to parent and cannot manage others.
           </div>
         </div>

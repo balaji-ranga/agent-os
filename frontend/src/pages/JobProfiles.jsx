@@ -8,6 +8,8 @@ import { useAuth, RequireAuth } from '../context/AuthContext';
 
 import AgentChatPanel from '../components/AgentChatPanel';
 
+import { userRoleTitle } from '../utils/userRoleTitle.js';
+
 
 
 const WORK_MODES = ['remote', 'hybrid', 'onsite', 'any'];
@@ -916,7 +918,7 @@ function JobProfilesPanel() {
 
           <p style={{ margin: '0.25rem 0 0', color: 'var(--muted)', fontSize: '0.9rem' }}>
 
-            CEO: {user?.name}
+            {userRoleTitle(user)}: {user?.name}
 
             {usesPlatformDb ? ' · platform DB (legacy data)' : ''}
 

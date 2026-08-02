@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, Link, useSearchParams } from 'react-router-dom';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useParams, Link, useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import ChatMessageRow from '../components/ChatMessageRow';
@@ -30,11 +30,31 @@ function formatArchivedAt(iso) {
   }
 }
 
+function sortAgentsForPicker(list = []) {
+  return [...list].sort((a, b) => {
+    if (a.is_coo && !b.is_coo) return -1;
+    if (!a.is_coo && b.is_coo) return 1;
+    return String(a.name || a.id).localeCompare(String(b.name || b.id));
+  });
+}
+
 export default function AgentChat() {
-  const { agentId } = useParams();
+  const { agentId: paramAgentId } = useParams();
   const [searchParams] = useSearchParams();
   const profileId = searchParams.get('profile_id') || null;
-  const { dataCeoUserId } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { dataCeoUserId, agents: authAgents } = useAuth();
+  const isHome = location.pathname === '/' || location.pathname === '';
+
+  const pickerAgents = useMemo(() => sortAgentsForPicker(authAgents || []), [authAgents]);
+  const defaultCooId = useMemo(() => {
+    const coo = pickerAgents.find((a) => a.is_coo);
+    return coo?.id || pickerAgents[0]?.id || null;
+  }, [pickerAgents]);
+
+  const agentId = paramAgentId || defaultCooId;
+
   const [agent, setAgent] = useState(null);
   const [turns, setTurns] = useState([]);
   const [history, setHistory] = useState([]);
@@ -55,6 +75,16 @@ export default function AgentChat() {
     },
     []
   );
+
+  const selectAgent = (nextId) => {
+    if (!nextId || nextId === agentId) return;
+    const next = pickerAgents.find((a) => a.id === nextId);
+    if (next?.is_coo) {
+      navigate('/');
+    } else {
+      navigate(`/agents/${nextId}/chat`);
+    }
+  };
 
   const refreshHistory = useCallback(async () => {
     if (!agentId) return;
@@ -83,7 +113,9 @@ export default function AgentChat() {
   }, [agentId, refreshHistory]);
 
   useEffect(() => {
-    api.agentGet(agentId)
+    if (!agentId) return;
+    api
+      .agentGet(agentId)
       .then(setAgent)
       .catch((e) => setError(e.message));
   }, [agentId]);
@@ -91,6 +123,7 @@ export default function AgentChat() {
   useEffect(() => {
     if (!agentId) return;
     setBanner(null);
+    setError(null);
     loadActiveChat().catch(() => setTurns([]));
     refreshHistory();
   }, [agentId, loadActiveChat, refreshHistory]);
@@ -101,7 +134,7 @@ export default function AgentChat() {
   }, [turns, sending]);
 
   const startNewChat = async () => {
-    if (clearing || sending) return;
+    if (clearing || sending || !agentId) return;
     if (
       turns.length > 0 &&
       !window.confirm('Start a new chat? The current conversation will move to History with an auto-generated title.')
@@ -118,15 +151,15 @@ export default function AgentChat() {
         text: result?.message || 'New chat started. Previous session archived.',
       });
       await refreshHistory();
-    } catch (err) {
-      setError(err.message);
+    } catch (e) {
+      setError(e.message);
     } finally {
       setClearing(false);
     }
   };
 
   const restoreSession = async (session, mode) => {
-    if (!session?.id || restoreBusyId || sending || clearing) return;
+    if (!agentId || !session?.id || restoreBusyId || sending || clearing) return;
     const label = mode === 'summarized' ? 'summarized context' : 'full history';
     if (
       !window.confirm(
@@ -154,7 +187,7 @@ export default function AgentChat() {
 
   const send = async (e) => {
     e?.preventDefault?.();
-    if ((!input.trim() && !attachments.length) || sending) return;
+    if ((!input.trim() && !attachments.length) || sending || !agentId) return;
     const userText = input.trim();
     const pendingFiles = [...attachments];
     const displayAttachments = buildDisplayAttachmentsFromFiles(pendingFiles);
@@ -178,7 +211,6 @@ export default function AgentChat() {
     try {
       const uploaded = pendingFiles.length ? await uploadChatAttachments(pendingFiles) : [];
       const outbound = buildMessageWithAttachments(userText, uploaded);
-      // Keep local image previews; enrich with inbound paths for later reload.
       if (uploaded.length) {
         setTurns((prev) =>
           prev.map((t) =>
@@ -264,21 +296,34 @@ export default function AgentChat() {
     setError('Cancelled');
   };
 
-  if (error && !agent) {
+  if (!agentId && pickerAgents.length === 0) {
     return (
-      <div style={{ padding: '2rem', color: '#f87171' }}>
-        Error: {error}. <Link to="/">Back to Dashboard</Link>
+      <div style={{ padding: '2rem', color: 'var(--muted)' }}>
+        No agents available yet. <Link to="/org">Open My Org</Link> to set up your team.
       </div>
     );
   }
 
+  if (error && !agent && paramAgentId) {
+    return (
+      <div style={{ padding: '2rem', color: '#f87171' }}>
+        Error: {error}. <Link to="/">Back to chat</Link>
+      </div>
+    );
+  }
+
+  const agentLabel = agent?.name || agentId || 'Agent';
+  const emptyHome = turns.length === 0 && !sending;
+
   return (
-    <div className="page-chat page-chat-inner page-chat-with-history">
+    <div className={`page-chat page-chat-inner page-chat-with-history${isHome ? ' page-chat-home' : ''}`}>
       <div className="chat-main-column">
         <div style={{ flexShrink: 0, marginBottom: '1rem' }}>
-          <Link to="/" style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>
-            ← Dashboard
-          </Link>
+          {!isHome && (
+            <Link to="/org" style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>
+              ← My Org
+            </Link>
+          )}
           <div
             style={{
               display: 'flex',
@@ -286,13 +331,43 @@ export default function AgentChat() {
               alignItems: 'flex-start',
               justifyContent: 'space-between',
               gap: '0.75rem',
-              marginTop: '0.5rem',
+              marginTop: isHome ? 0 : '0.5rem',
             }}
           >
             <div style={{ minWidth: 0, flex: '1 1 220px' }}>
-              <h1 style={{ margin: 0 }}>{agent?.name || agentId} — Chat</h1>
-              <p style={{ color: 'var(--muted)', margin: '0.35rem 0 0 0' }}>
-                Human–agent chat via OpenClaw. Use the paperclip in the composer to attach images/docs (Master Data RAG).
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.65rem' }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Chat with</span>
+                  <select
+                    value={agentId || ''}
+                    onChange={(e) => selectAgent(e.target.value)}
+                    aria-label="Select agent to chat with"
+                    style={{
+                      padding: '0.5rem 0.75rem',
+                      borderRadius: 8,
+                      border: '1px solid var(--border)',
+                      background: 'var(--surface)',
+                      color: 'var(--text)',
+                      font: 'inherit',
+                      fontSize: '1.05rem',
+                      fontWeight: 600,
+                      maxWidth: '100%',
+                      minWidth: 160,
+                    }}
+                  >
+                    {pickerAgents.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name || a.id}
+                        {a.is_coo ? ' (COO)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <p style={{ color: 'var(--muted)', margin: '0.45rem 0 0 0', fontSize: '0.9rem' }}>
+                {isHome
+                  ? "What's on your mind? Start your day here — history is saved the same way as always."
+                  : 'Human–agent chat. Use the paperclip to attach images/docs (Master Data RAG).'}
                 {profileId && (
                   <>
                     {' '}
@@ -301,7 +376,7 @@ export default function AgentChat() {
                 )}
               </p>
             </div>
-            <button type="button" onClick={startNewChat} disabled={clearing || sending} style={secondaryBtn}>
+            <button type="button" onClick={startNewChat} disabled={clearing || sending || !agentId} style={secondaryBtn}>
               {clearing ? 'Archiving…' : 'New chat'}
             </button>
           </div>
@@ -373,8 +448,13 @@ export default function AgentChat() {
             marginBottom: '1rem',
           }}
         >
-          {turns.length === 0 && !sending && (
-            <div style={{ color: 'var(--muted)' }}>No messages yet. Send a message below.</div>
+          {emptyHome && (
+            <div className="chat-home-empty">
+              <div className="chat-home-empty-title">Good to see you</div>
+              <div className="chat-home-empty-sub">
+                Chat with {agentLabel} — priorities, questions, or whatever is on your mind.
+              </div>
+            </div>
           )}
           {turns.map((t, i) => (
             <ChatMessageRow
@@ -395,11 +475,11 @@ export default function AgentChat() {
         <form onSubmit={send} style={{ flexShrink: 0 }}>
           <div className="chat-compose-row">
             <ChatComposeInput
-              placeholder="Message… (Shift+Enter for new line)"
+              placeholder={isHome ? `Message ${agentLabel}…` : 'Message… (Shift+Enter for new line)'}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onSend={send}
-              disabled={sending}
+              disabled={sending || !agentId}
               attachments={attachments}
               onAttachmentsChange={setAttachments}
               rows={3}
@@ -416,10 +496,11 @@ export default function AgentChat() {
             />
             <button
               type="submit"
-              disabled={sending || (!input.trim() && !attachments.length)}
+              disabled={sending || !agentId || (!input.trim() && !attachments.length)}
               style={{
                 padding: '0.75rem 1.25rem',
-                background: sending || (!input.trim() && !attachments.length) ? 'var(--border)' : 'var(--accent)',
+                background:
+                  sending || !agentId || (!input.trim() && !attachments.length) ? 'var(--border)' : 'var(--accent)',
                 border: 'none',
                 borderRadius: 8,
                 color: '#fff',

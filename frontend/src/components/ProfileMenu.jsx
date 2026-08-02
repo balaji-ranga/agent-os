@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
+import { userRoleTitle } from '../utils/userRoleTitle.js';
 
 function initialsFromName(name) {
   const parts = String(name || '')
@@ -55,7 +56,7 @@ export default function ProfileMenu({ user, logout, onNavigate }) {
         <div className="profile-menu-dropdown" role="menu">
           <div className="profile-menu-meta">
             <div className="profile-menu-meta-name">{user?.name || 'User'}</div>
-            <div className="profile-menu-meta-role">{user?.role || ''}</div>
+            <div className="profile-menu-meta-role">{userRoleTitle(user)}</div>
           </div>
           {isCeo && (
             <NavLink

@@ -50,26 +50,30 @@ export function mergeAgentsWithLeafMembers(agents = [], members = []) {
 
 /**
  * Build a recursive org tree from agents (parent_id edges).
- * Synthetic CEO sits at the root; COO (and orphans) hang under CEO.
+ * Synthetic user root sits at the top; COO (and orphans) hang under it.
  * External / A2A leaf members appear under their reports-to parent when merged in.
+ * @param {object[]} agents
+ * @param {{ roleTitle?: string, userName?: string }} [opts]
  */
-export function buildOrgTree(agents = []) {
+export function buildOrgTree(agents = [], opts = {}) {
   const list = Array.isArray(agents) ? agents : [];
   const byId = new Map(list.map((a) => [a.id, a]));
   const coo = list.find((a) => a.is_coo) || null;
+  const roleTitle = String(opts.roleTitle || '').trim() || 'CEO';
+  const userName = String(opts.userName || '').trim();
 
   const childrenOf = new Map();
   for (const a of list) {
     let parentKey = a.parent_id && byId.has(a.parent_id) ? a.parent_id : null;
     if (!parentKey) {
-      // Root-level: COO and agents with missing parent attach under CEO
+      // Root-level: COO and agents with missing parent attach under user root
       parentKey = CEO_NODE_ID;
     }
     if (!childrenOf.has(parentKey)) childrenOf.set(parentKey, []);
     childrenOf.get(parentKey).push(a);
   }
 
-  // Prefer COO first under CEO, then internal before leaf, then alpha by name
+  // Prefer COO first under user root, then internal before leaf, then alpha by name
   const sortKids = (kids) =>
     [...kids].sort((a, b) => {
       if (a.is_coo && !b.is_coo) return -1;
@@ -99,8 +103,8 @@ export function buildOrgTree(agents = []) {
   const rootChildren = sortKids(childrenOf.get(CEO_NODE_ID) || []);
   return {
     id: CEO_NODE_ID,
-    name: 'CEO (me)',
-    role: 'You',
+    name: userName ? `${roleTitle} (${userName})` : `${roleTitle} (me)`,
+    role: roleTitle,
     department: 'Executive',
     isCeo: true,
     depth: 0,

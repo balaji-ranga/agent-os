@@ -227,7 +227,8 @@ function Shell() {
             )}
             {user.role === 'ceo' && (
               <>
-                <Route path="/" element={<Dashboard />} />
+                <Route path="/" element={<AgentChat />} />
+                <Route path="/org" element={<Dashboard />} />
                 <Route path="/profile" element={<UserProfile />} />
                 <Route path="/connectors" element={<Connectors />} />
                 <Route path="/job-profiles" element={<JobProfiles />} />

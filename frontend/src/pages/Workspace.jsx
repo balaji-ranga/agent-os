@@ -64,7 +64,7 @@ export default function Workspace() {
           </button>
         </div>
         <p className="page-hero-sub">
-          Create specialists, open SOUL/AGENTS/MEMORY, grant tools, and clear stuck sessions. Org chart stays on the Dashboard.
+          Create specialists, open SOUL/AGENTS/MEMORY, grant tools, and clear stuck sessions. Org chart stays on My Org.
         </p>
       </header>
 
