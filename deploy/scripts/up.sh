@@ -47,8 +47,14 @@ if command -v sysctl >/dev/null 2>&1; then
 fi
 
 if [[ ! -f nginx/certs/fullchain.pem ]]; then
-  echo "TLS certs missing — generating dev self-signed certs..."
+  echo "TLS certs missing — generating dev self-signed certs (apex + login SANs)..."
   bash scripts/generate-dev-certs.sh
+fi
+
+if [[ -d static/flolah-home ]]; then
+  chmod -R a+rX static/flolah-home 2>/dev/null || true
+else
+  echo "WARN: static/flolah-home missing — apex marketing page will 404 until tree is present" >&2
 fi
 
 echo "Building images..."

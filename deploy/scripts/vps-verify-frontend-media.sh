@@ -61,6 +61,9 @@ check_js 'Register MCP'
 check_css 'chat-attach-icon-btn'
 check_js 'chat-attach-icon-btn'
 check_js 'chat_attachments'
+check_css 'chat-pane-icon-btn'
+check_js 'Show browser session panel'
+check_js 'Show chat history panel'
 
 HTML=$(curl -skL "https://${PUBLIC_HOST}/" 2>/dev/null || true)
 echo "title: $(echo "$HTML" | sed -n 's/.*<title>\([^<]*\)<\/title>.*/\1/p' | head -1)"

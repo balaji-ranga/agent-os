@@ -30,7 +30,11 @@ SERVICES="${SERVICES:-frontend backend openclaw}"
 SKIP_GIT="${SKIP_GIT:-0}"
 SKIP_SMOKE="${SKIP_SMOKE:-0}"
 NO_CACHE="${NO_CACHE:-0}"
-PUBLIC_URL="${AGENT_OS_PUBLIC_URL:-https://127.0.0.1}"
+PUBLIC_URL="${AGENT_OS_PUBLIC_URL:-}"
+if [[ -z "$PUBLIC_URL" && -f "$ROOT/deploy/.env" ]]; then
+  PUBLIC_URL="$(grep -E '^AGENT_OS_PUBLIC_URL=' "$ROOT/deploy/.env" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '\r' || true)"
+fi
+PUBLIC_URL="${PUBLIC_URL:-https://127.0.0.1}"
 
 if [[ -f "$ROOT/deploy/scripts/ensure-deepseek-env.sh" ]]; then
   sed -i 's/\r$//' "$ROOT/deploy/scripts/ensure-deepseek-env.sh" 2>/dev/null || true
@@ -112,6 +116,8 @@ echo "              Slack/WhatsApp agent channels wizard (vault + OpenClaw bindi
 echo "              WhatsApp groupPolicy=disabled by default (blocks @g.us before media),"
 echo "              free STT/TTS optional-voice (whisper+piper; ensure-voice-env.sh + SPEECH_*)"
 echo "              CEO home chat (COO default) + My Org (/org); Profile role_title display label"
+echo "              Chat history/browser panes closed by default (icon toggles);"
+echo "              COO SOUL inbound list→index→RAG + org-context tools line"
 
 if [[ "$SKIP_GIT" != "1" ]]; then
   if [[ -d "$ROOT/.git" ]]; then
@@ -159,6 +165,17 @@ if [[ -f "$ROOT/deploy/scripts/docker-disk-hygiene.sh" ]]; then
 fi
 
 echo "==> recreate $SERVICES + nginx"
+# Marketing homepage files must be world-readable for the nginx worker (git/scp may leave 700)
+if [[ -d "$ROOT/deploy/static/flolah-home" ]]; then
+  chmod -R a+rX "$ROOT/deploy/static/flolah-home" 2>/dev/null || true
+  if [[ ! -f "$ROOT/deploy/static/flolah-home/index.html" ]]; then
+    echo "ERROR: deploy/static/flolah-home/index.html missing (marketing apex site)"
+    exit 1
+  fi
+else
+  echo "ERROR: deploy/static/flolah-home missing — marketing homepage not in tree"
+  exit 1
+fi
 # shellcheck disable=SC2086
 docker compose up -d --force-recreate $SERVICES
 docker compose up -d --force-recreate nginx
@@ -206,8 +223,39 @@ if [[ "$ok" != "1" ]]; then
 fi
 
 echo "==> smoke"
+# Prefer explicit hosts when PUBLIC_URL is the app subdomain (login.flolah.cloud)
+APEX_URL="${FLOLAH_APEX_URL:-https://flolah.cloud}"
+# Load AGENT_OS_PUBLIC_URL from deploy/.env if not in environment
+if [[ -z "${AGENT_OS_PUBLIC_URL:-}" && -f "$ROOT/deploy/.env" ]]; then
+  # shellcheck disable=SC1091
+  set -a
+  # shellcheck disable=SC1090
+  source <(grep -E '^(AGENT_OS_PUBLIC_URL|FLOLAH_APEX_URL)=' "$ROOT/deploy/.env" | sed 's/\r$//') || true
+  set +a
+  PUBLIC_URL="${AGENT_OS_PUBLIC_URL:-$PUBLIC_URL}"
+fi
 curl -kfsS -o /dev/null -w "frontend=%{http_code}\n" "${PUBLIC_URL%/}/" 2>/dev/null \
   || curl -kfsS -o /dev/null -w "frontend=%{http_code}\n" https://127.0.0.1/ || true
+
+# Marketing apex homepage (Host: flolah.cloud) — content from deploy/static/flolah-home
+if curl -kfsS -H "Host: flolah.cloud" https://127.0.0.1/ 2>/dev/null | grep -q 'Start with Flolah'; then
+  echo "    marketing apex (Host flolah.cloud): Start with Flolah OK"
+elif curl -kfsS "${APEX_URL%/}/" 2>/dev/null | grep -q 'Start with Flolah'; then
+  echo "    marketing apex ${APEX_URL}: Start with Flolah OK"
+else
+  echo "    WARN: marketing homepage marker missing (static mount or nginx vhost?)"
+fi
+if curl -kfsS -o /dev/null -w "  mark_png=%{http_code}\n" -H "Host: flolah.cloud" https://127.0.0.1/assets/flolah-mark.png 2>/dev/null \
+  || curl -kfsS -o /dev/null -w "  mark_png=%{http_code}\n" "${APEX_URL%/}/assets/flolah-mark.png" 2>/dev/null; then
+  :
+else
+  echo "    WARN: marketing asset /assets/flolah-mark.png not reachable"
+fi
+if docker compose exec -T nginx test -f /usr/share/nginx/flolah-home/index.html 2>/dev/null; then
+  echo "    nginx mount: /usr/share/nginx/flolah-home/index.html OK"
+else
+  echo "    WARN: /usr/share/nginx/flolah-home/index.html missing in nginx container"
+fi
 
 if docker compose exec -T frontend sh -c 'cat /usr/share/nginx/html/assets/*.css' 2>/dev/null | grep -q 'app-mobile-topbar'; then
   echo "    frontend assets: app-mobile-topbar OK"

@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Flolah is the operating system for a company of AI agents—built for solo founders and lean teams." />
+  <title>Flolah — Your AI Agent Company</title>
+  <style>
+    :root {
+      --ink: #17233c;
+      --muted: #5e6d86;
+      --paper: #fbfaf6;
+      --card: rgba(255,255,255,.78);
+      --line: rgba(24,52,88,.12);
+      --blue: #2f68ff;
+      --blue-2: #6d8dff;
+      --cyan: #1ec8c8;
+      --mint: #dff8f4;
+      --amber: #f5a524;
+      --coral: #ff7262;
+      --shadow: 0 24px 70px rgba(25, 52, 97, .13);
+      --radius: 24px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 5% 5%, rgba(47,104,255,.13), transparent 32%),
+        radial-gradient(circle at 95% 17%, rgba(30,200,200,.14), transparent 28%),
+        var(--paper);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    button { font: inherit; }
+
+    .shell { width: min(1180px, calc(100% - 40px)); margin: 0 auto; }
+
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      backdrop-filter: blur(18px);
+      background: rgba(251,250,246,.76);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .nav-inner {
+      height: 74px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 850; letter-spacing: -.03em; font-size: 1.15rem; }
+    .brand-logo { width: 42px; height: 42px; object-fit: contain; filter: drop-shadow(0 8px 14px rgba(47,104,255,.18)); }
+    .hero-logo { width: min(235px, 54vw); height: auto; margin: 0 0 20px -5px; display: block; }
+    .cta-logo { width: min(225px, 65vw); height: auto; display: block; margin: 0 auto 22px; }
+
+    .nav-links { display: flex; align-items: center; gap: 24px; font-size: .93rem; color: var(--muted); }
+    .nav-links a:hover { color: var(--ink); }
+
+    .button {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      min-height: 46px; padding: 0 18px; border-radius: 14px;
+      border: 1px solid transparent; font-weight: 750; cursor: pointer;
+      transition: .22s ease;
+    }
+    .button.primary { color: white; background: linear-gradient(135deg, var(--blue), #755cff); box-shadow: 0 14px 30px rgba(47,104,255,.24); }
+    .button.secondary { background: rgba(255,255,255,.72); border-color: var(--line); }
+    .button:hover { transform: translateY(-2px); }
+
+    .hero {
+      min-height: 760px;
+      display: grid;
+      grid-template-columns: 1.02fr .98fr;
+      align-items: center;
+      gap: 56px;
+      padding: 82px 0 72px;
+    }
+
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 7px 12px; border: 1px solid rgba(47,104,255,.18);
+      border-radius: 999px; background: rgba(255,255,255,.67);
+      color: #3555a7; font-weight: 700; font-size: .83rem;
+    }
+    .pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 0 6px rgba(30,200,200,.12); }
+
+    h1 {
+      margin: 22px 0 22px;
+      font-size: clamp(3rem, 6vw, 5.8rem);
+      line-height: .98;
+      letter-spacing: -.065em;
+      max-width: 820px;
+    }
+    h1 .gradient { background: linear-gradient(100deg, var(--blue), #6b59e8 50%, var(--cyan)); -webkit-background-clip: text; color: transparent; }
+    .lead { max-width: 650px; font-size: clamp(1.08rem, 1.5vw, 1.3rem); color: var(--muted); }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+    .microcopy { margin-top: 17px; font-size: .88rem; color: #76849b; }
+
+    .org-stage {
+      position: relative;
+      min-height: 560px;
+      border-radius: 34px;
+      background: linear-gradient(160deg, rgba(255,255,255,.92), rgba(237,245,255,.76));
+      border: 1px solid rgba(47,104,255,.13);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      padding: 28px;
+    }
+    .org-stage::before {
+      content: ""; position: absolute; inset: 0;
+      background-image: radial-gradient(rgba(47,104,255,.13) 1px, transparent 1px);
+      background-size: 22px 22px; mask-image: linear-gradient(to bottom, black, transparent 80%);
+    }
+    .stage-head { position: relative; display: flex; justify-content: space-between; align-items: center; }
+    .stage-title { font-weight: 850; }
+    .live { font-size: .76rem; color: #267a67; background: #e2faf3; border-radius: 999px; padding: 5px 9px; }
+
+    .org { position: relative; height: 470px; margin-top: 8px; }
+    .node {
+      position: absolute; z-index: 2;
+      background: rgba(255,255,255,.94); border: 1px solid rgba(25,54,95,.11);
+      box-shadow: 0 15px 34px rgba(35,62,105,.11);
+      border-radius: 17px; padding: 11px 13px;
+      display: flex; align-items: center; gap: 10px;
+      min-width: 150px;
+      animation: float 5s ease-in-out infinite;
+    }
+    .node:nth-child(even) { animation-delay: -2s; }
+    @keyframes float { 50% { transform: translateY(-6px); } }
+    .avatar { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; font-size: 1.15rem; background: #eef3ff; }
+    .node strong { display: block; font-size: .88rem; }
+    .node small { color: var(--muted); font-size: .72rem; }
+    .ceo { top: 26px; left: 50%; transform: translateX(-50%); min-width: 180px; border-color: rgba(47,104,255,.25); }
+    .coo { top: 155px; left: 50%; transform: translateX(-50%); min-width: 190px; }
+    .research { top: 280px; left: 18px; }
+    .ops { top: 280px; left: calc(50% - 77px); }
+    .growth { top: 280px; right: 18px; }
+    .connector { top: 403px; left: 50%; transform: translateX(-50%); min-width: 210px; }
+    .line { position: absolute; z-index: 1; background: linear-gradient(var(--blue-2), var(--cyan)); opacity: .55; transform-origin: top; width: 2px; }
+    .l1 { height: 92px; left: 50%; top: 82px; }
+    .l2 { height: 140px; left: 50%; top: 212px; transform: rotate(50deg); }
+    .l3 { height: 94px; left: 50%; top: 212px; }
+    .l4 { height: 140px; left: 50%; top: 212px; transform: rotate(-50deg); }
+    .l5 { height: 78px; left: 50%; top: 348px; }
+
+    section { padding: 92px 0; }
+    .section-head { max-width: 760px; margin-bottom: 42px; }
+    .kicker { text-transform: uppercase; letter-spacing: .14em; font-size: .76rem; color: var(--blue); font-weight: 850; }
+    h2 { margin: 10px 0 14px; font-size: clamp(2rem, 4vw, 3.8rem); line-height: 1.04; letter-spacing: -.045em; }
+    .section-head p { color: var(--muted); font-size: 1.08rem; }
+
+    .evolution {
+      display: grid; grid-template-columns: 1fr 84px 1fr; gap: 22px; align-items: stretch;
+    }
+    .panel { border-radius: var(--radius); border: 1px solid var(--line); background: var(--card); box-shadow: 0 18px 50px rgba(30,52,88,.08); padding: 28px; }
+    .panel h3 { margin: 0 0 5px; font-size: 1.45rem; }
+    .panel > p { margin-top: 0; color: var(--muted); }
+    .old { background: linear-gradient(160deg, #fffaf0, #fff); }
+    .new { background: linear-gradient(160deg, #eff7ff, #f8fffd); border-color: rgba(47,104,255,.18); }
+    .levels { display: grid; gap: 12px; margin-top: 24px; }
+    .level { border-radius: 16px; padding: 14px 16px; display: flex; justify-content: space-between; gap: 12px; align-items: center; background: rgba(255,255,255,.76); border: 1px solid var(--line); }
+    .level span { color: var(--muted); font-size: .83rem; }
+    .old .level:nth-child(1) { width: 52%; margin-inline: auto; }
+    .old .level:nth-child(2) { width: 76%; margin-inline: auto; }
+    .old .level:nth-child(3) { width: 100%; }
+    .new .level:nth-child(1) { width: 48%; margin-inline: auto; }
+    .new .level:nth-child(2) { width: 100%; }
+    .new .level:nth-child(3) { width: 58%; margin-inline: auto; }
+    .arrow-box { display: grid; place-items: center; }
+    .arrow { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; color: white; font-size: 1.7rem; background: linear-gradient(135deg, var(--blue), var(--cyan)); box-shadow: 0 14px 30px rgba(47,104,255,.22); }
+    .takeaway { margin-top: 26px; padding: 18px 20px; border-radius: 18px; background: #17233c; color: white; text-align: center; font-weight: 760; }
+    .takeaway em { color: #8ff1e3; font-style: normal; }
+
+    .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+    .step { padding: 24px; border-radius: 22px; border: 1px solid var(--line); background: rgba(255,255,255,.72); position: relative; overflow: hidden; }
+    .step::after { content: attr(data-n); position: absolute; right: 14px; bottom: -24px; font-weight: 900; font-size: 6rem; color: rgba(47,104,255,.055); }
+    .icon { width: 48px; height: 48px; border-radius: 15px; display: grid; place-items: center; background: #edf2ff; font-size: 1.35rem; margin-bottom: 18px; }
+    .step h3 { margin: 0 0 8px; }
+    .step p { margin: 0; color: var(--muted); font-size: .94rem; }
+
+    .feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .feature { min-height: 210px; padding: 25px; border-radius: 22px; background: rgba(255,255,255,.74); border: 1px solid var(--line); }
+    .feature h3 { margin: 14px 0 8px; }
+    .feature p { margin: 0; color: var(--muted); font-size: .93rem; }
+
+    .story {
+      display: grid; grid-template-columns: .92fr 1.08fr; gap: 34px; align-items: center;
+      padding: 38px; border-radius: 30px; color: white;
+      background: linear-gradient(135deg, #17233c, #243a69 64%, #175b72);
+      overflow: hidden;
+    }
+    .story p { color: #cfdaed; }
+    .workflow { display: grid; gap: 11px; }
+    .work-item { display: grid; grid-template-columns: 42px 1fr auto; align-items: center; gap: 12px; background: rgba(255,255,255,.09); border: 1px solid rgba(255,255,255,.1); border-radius: 15px; padding: 12px; }
+    .work-item .mini { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; background: rgba(255,255,255,.12); }
+    .work-item small { color: #aebbd0; }
+    .status { border-radius: 999px; padding: 5px 9px; font-size: .73rem; color: #aef5df; background: rgba(31,206,161,.14); }
+
+    .cta { text-align: center; padding-bottom: 120px; }
+    .cta-card { padding: 56px 24px; border-radius: 32px; background: linear-gradient(140deg, rgba(47,104,255,.11), rgba(30,200,200,.11)); border: 1px solid rgba(47,104,255,.15); }
+    .cta-card h2 { max-width: 850px; margin-inline: auto; }
+    .cta-card p { color: var(--muted); max-width: 680px; margin: 0 auto 26px; }
+
+    footer { border-top: 1px solid var(--line); padding: 24px 0 36px; color: var(--muted); font-size: .88rem; }
+    .footer-inner { display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+
+    .reveal { opacity: 0; transform: translateY(18px); transition: opacity .7s ease, transform .7s ease; }
+    .reveal.show { opacity: 1; transform: none; }
+
+    @media (max-width: 900px) {
+      .nav-links { display: none; }
+      .hero { grid-template-columns: 1fr; padding-top: 58px; }
+      .org-stage { min-height: 530px; }
+      .evolution { grid-template-columns: 1fr; }
+      .arrow-box { min-height: 74px; }
+      .arrow { transform: rotate(90deg); }
+      .steps { grid-template-columns: repeat(2, 1fr); }
+      .feature-grid { grid-template-columns: repeat(2, 1fr); }
+      .story { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 620px) {
+      .shell { width: min(100% - 24px, 1180px); }
+      .hero { padding-top: 42px; gap: 34px; }
+      h1 { font-size: 3.3rem; }
+      .hero-actions .button { width: 100%; }
+      .org-stage { padding: 17px; min-height: 590px; }
+      .org { transform: scale(.88); transform-origin: top center; width: 113%; margin-left: -6.5%; }
+      .research { left: 0; }
+      .growth { right: 0; }
+      .steps, .feature-grid { grid-template-columns: 1fr; }
+      section { padding: 70px 0; }
+      .panel { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="shell nav-inner">
+      <a href="#top" class="brand" aria-label="Flolah home">
+        <img class="brand-logo" src="assets/flolah-mark.png" alt="" />
+        <span>Flolah</span>
+      </a>
+      <div class="nav-links">
+        <a href="#evolution">Why now</a>
+        <a href="#how">How it works</a>
+        <a href="#platform">Platform</a>
+      </div>
+      <a class="button primary" href="#contact">Build your agent company</a>
+    </div>
+  </nav>
+
+  <main id="top">
+    <header class="shell hero">
+      <div>
+        <img class="hero-logo" src="assets/flolah-logo-transparent.png" alt="Flolah — Automate, Innovate, Elevate" />
+        <span class="eyebrow"><span class="pulse"></span> Automate. Innovate. Elevate.</span>
+        <h1>Your company is one person. <span class="gradient">Your team does not have to be.</span></h1>
+        <p class="lead">Flolah is the operating system for an AI agent company. Create specialist agents, delegate work in plain language, track progress, and safely offer finished capabilities to customers and partners.</p>
+        <div class="hero-actions">
+          <a class="button primary" href="#how">See how Flolah works →</a>
+          <a class="button secondary" href="#evolution">Understand the shift</a>
+        </div>
+        <div class="microcopy">Built for solo founders, lean teams, and operators who need a full organisation without full headcount.</div>
+      </div>
+
+      <div class="org-stage" aria-label="Example AI agent organisation">
+        <div class="stage-head"><div class="stage-title">Your always-on agent company</div><span class="live">● Operating</span></div>
+        <div class="org">
+          <div class="line l1"></div><div class="line l2"></div><div class="line l3"></div><div class="line l4"></div><div class="line l5"></div>
+          <div class="node ceo"><div class="avatar">👤</div><div><strong>You — CEO</strong><small>Set direction & approve</small></div></div>
+          <div class="node coo"><div class="avatar">🧭</div><div><strong>COO Agent</strong><small>Routes work to specialists</small></div></div>
+          <div class="node research"><div class="avatar">🔎</div><div><strong>Research</strong><small>Finds & synthesises</small></div></div>
+          <div class="node ops"><div class="avatar">⚙️</div><div><strong>Operations</strong><small>Runs repeatable work</small></div></div>
+          <div class="node growth"><div class="avatar">📈</div><div><strong>Growth</strong><small>Plans & executes</small></div></div>
+          <div class="node connector"><div class="avatar">🔌</div><div><strong>Tools + Workflows</strong><small>APIs, MCP, apps and approvals</small></div></div>
+        </div>
+      </div>
+    </header>
+
+    <section id="evolution">
+      <div class="shell">
+        <div class="section-head reveal">
+          <div class="kicker">The organisation is changing</div>
+          <h2>AI removes busywork. Human judgement moves to the centre.</h2>
+          <p>Traditional companies need many people to route tasks, collect updates, and push routine work through the system. AI-native companies flip that shape: a small human decision layer directs a broad team of specialists, while automation handles the repetitive base.</p>
+        </div>
+
+        <div class="evolution reveal">
+          <article class="panel old">
+            <h3>Traditional organisation</h3>
+            <p>People spend valuable time coordinating and processing.</p>
+            <div class="levels">
+              <div class="level"><b>Narrow top</b><span>Decides</span></div>
+              <div class="level"><b>Middle layers</b><span>Routes & reports</span></div>
+              <div class="level"><b>Wide base</b><span>Processes tasks</span></div>
+            </div>
+          </article>
+          <div class="arrow-box"><div class="arrow">→</div></div>
+          <article class="panel new">
+            <h3>AI-native organisation</h3>
+            <p>Humans focus on direction, judgement, trust, and exceptions.</p>
+            <div class="levels">
+              <div class="level"><b>Human leader</b><span>Sets intent</span></div>
+              <div class="level"><b>Agent specialists</b><span>Think & coordinate</span></div>
+              <div class="level"><b>Automation base</b><span>Executes</span></div>
+            </div>
+          </article>
+        </div>
+        <div class="takeaway reveal">Flolah makes this practical: <em>one person at the top, a full agent organisation underneath.</em></div>
+      </div>
+    </section>
+
+    <section id="how">
+      <div class="shell">
+        <div class="section-head reveal">
+          <div class="kicker">Simple by design</div>
+          <h2>Run agents like a real team—not a pile of chatbots.</h2>
+          <p>Each agent has a clear role, memory, tools, and accountability. You communicate naturally, while Flolah keeps the work structured and visible.</p>
+        </div>
+        <div class="steps">
+          <article class="step reveal" data-n="1"><div class="icon">👥</div><h3>Build your org</h3><p>Create a COO and specialist agents for research, operations, finance, sales, support, or your own domain.</p></article>
+          <article class="step reveal" data-n="2"><div class="icon">💬</div><h3>Delegate naturally</h3><p>Ask, broadcast, or run stand-ups in plain language. The right agent receives the right work.</p></article>
+          <article class="step reveal" data-n="3"><div class="icon">✅</div><h3>Stay in control</h3><p>See progress on Kanban, review notifications, and insert human approval wherever judgement matters.</p></article>
+          <article class="step reveal" data-n="4"><div class="icon">🚀</div><h3>Ship capabilities</h3><p>Turn successful workflows into governed agent services that partners and systems can call safely.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="platform">
+      <div class="shell">
+        <div class="section-head reveal">
+          <div class="kicker">The Flolah platform</div>
+          <h2>Everything an agent company needs to operate.</h2>
+          <p>Identity, knowledge, tools, work visibility, automation, and safe external access—all under a clear human control plane.</p>
+        </div>
+        <div class="feature-grid">
+          <article class="feature reveal"><div class="icon">🪪</div><h3>Named agent roles</h3><p>Agents have durable purpose, peers, workspace context, and tool permissions—so delegation feels like staffing.</p></article>
+          <article class="feature reveal"><div class="icon">🧠</div><h3>Company memory</h3><p>Teach agents using Master Data tables, documents, and searchable knowledge that persists beyond one chat.</p></article>
+          <article class="feature reveal"><div class="icon">🛠️</div><h3>Connected execution</h3><p>Compose agents with workflows, APIs, MCP servers, connectors, desktop packages, schedules, and approvals.</p></article>
+          <article class="feature reveal"><div class="icon">🗂️</div><h3>Visible work</h3><p>Use Kanban, notifications, stand-ups, run history, and audit trails to understand what is happening.</p></article>
+          <article class="feature reveal"><div class="icon">🔐</div><h3>Safe by default</h3><p>Keep services closed by default, then allow specific partner IPs or OAuth clients when you are ready.</p></article>
+          <article class="feature reveal"><div class="icon">🌐</div><h3>AgentExchange</h3><p>Publish workflows as discoverable A2A agents with synchronous or asynchronous invocation and testing.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="shell">
+        <div class="story reveal">
+          <div>
+            <div class="kicker" style="color:#8ff1e3">A day with Flolah</div>
+            <h2>Give the outcome. Your agent company organises the work.</h2>
+            <p>“Prepare our investor update, validate this month’s numbers, and flag anything that needs my decision.” The COO delegates, specialists work in parallel, and you receive one clear review point.</p>
+          </div>
+          <div class="workflow">
+            <div class="work-item"><div class="mini">🧭</div><div><strong>COO Agent</strong><br><small>Breaks down the goal and delegates</small></div><span class="status">Complete</span></div>
+            <div class="work-item"><div class="mini">📊</div><div><strong>Finance Agent</strong><br><small>Checks figures against Master Data</small></div><span class="status">Complete</span></div>
+            <div class="work-item"><div class="mini">✍️</div><div><strong>Communications Agent</strong><br><small>Drafts the investor narrative</small></div><span class="status">Complete</span></div>
+            <div class="work-item"><div class="mini">👤</div><div><strong>CEO review</strong><br><small>One exception needs your judgement</small></div><span class="status">Your input</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cta" id="contact">
+      <div class="shell">
+        <div class="cta-card reveal">
+          <img class="cta-logo" src="assets/flolah-logo-transparent.png" alt="Flolah" />
+          <div class="kicker">The next company can start smaller</div>
+          <h2>Build a company that feels fully staffed from day one.</h2>
+          <p>Flolah gives solo founders and lean operators a home base to build, operate, govern, and share an organisation of AI agents.</p>
+          <a href="https://login.flolah.cloud" class="button primary">Start with Flolah →</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="shell footer-inner"><strong>Flolah</strong><span>Automate. Innovate. Elevate.</span><span>© 2026 Flolah</span></div>
+  </footer>
+
+  <script>
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('show');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12 });
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+  </script>
+</body>
+</html>

@@ -8,8 +8,8 @@ Works with **Docker Compose** and **Podman Compose** on CentOS/RHEL, Ubuntu (Hos
 
 | Service | Required | Port (host) | Purpose |
 |---------|----------|-------------|---------|
-| `nginx` | Yes | 80, 443 | TLS, `/` → frontend, `/api` → backend |
-| `frontend` | Yes | internal | React SPA (Vite build) |
+| `nginx` | Yes | 80, 443 | TLS; `flolah.cloud` → marketing static; `login.flolah.cloud` → SPA + `/api` → backend |
+| `frontend` | Yes | internal | React SPA (Vite build) on login subdomain |
 | `backend` | Yes | internal | API, cron, workflows, SQLite, master-data, feedback, BYOK |
 | `openclaw` | Yes | internal | Gateway :18789, browser tool, skills/plugins |
 | `init` | First run | — | One-shot bootstrap (`--profile init`) |
@@ -323,6 +323,8 @@ All proxied under `/api` (rebuild backend + frontend images after upgrade):
 | Agent channels | Slack/WhatsApp BYOK wizard → vault + OpenClaw bindings; outbound **`MEDIA:`** attach; inbound → `inbound/attachments/` (OpenClaw `media/inbound` staging deleted after mirror). WhatsApp **`groupPolicy` defaults to `disabled`** so `@g.us` group traffic is rejected before media download (DM `allowFrom` alone does not cover groups; set allowlist/open in Channels wizard if intentional). `/api/agent-channels`; platform-help **24**; `OPENCLAW_MEDIA_MAX_MB` (default 128) applied by `configure-openclaw-docker.js` |
 | Content Explorer | CEO file browser `/content-explorer` → list/download + `POST /api/workspace/content-explorer/delete` (hard delete selected/all); `wa-*` channel media labeled WhatsApp/Telegram; platform-help **26** |
 | CEO home chat + My Org | Post-login home `/` is agent chat (default COO + agent picker); former dashboard org chart/standups at `/org` nav **My Org** |
+| Chat side panes | History + Browser session collapsible; **hidden by default**; clock / window icons next to New chat |
+| COO channel inbound SOUL | BalServe `SOUL.md` hard rule: list_inbound → index RAG-able docs → master_data_rag; media via analyze/STT. Org resync injects same tools line into COO AGENTS |
 | Profile role title | Display-only `platform_users.role_title` via `PATCH /auth/me` (presets/custom); org chart root + profile menu; auth role stays `ceo` |
 | Onboarding Helper | OpenClaw `onboardinghelper` + `/onboarding` Review checkboxes; tools `onboarding_save_proposal` / `onboarding_apply_proposal` (seeded at startup); templates `openclaw-workspace-templates/onboardinghelper/`; E2E prompts + `backend/scripts/e2e-onboarding-wf-prompts.mjs` → platform-help **27** |
 | Profile LLM catalog | Provider + model (`llm_model`); `GET /api/auth/llm-catalog`; registry `backend/src/config/llm-provider-registry.js`; soft fallbacks `OPENAI_BYOK_MODEL` / `OPENROUTER_MODEL` |
@@ -344,10 +346,27 @@ All proxied under `/api` (rebuild backend + frontend images after upgrade):
 .\deploy\scripts\sync-to-vps.ps1 -NoCache
 ```
 
-`sync-to-vps.ps1` syncs **full build contexts**: `frontend/src` + package files, `backend/src` + key scripts (incl. `seed-platform-help-agent.js`, `seed-onboarding-helper-agent.js`, `e2e-onboarding-wf-prompts.mjs`), `deploy/*`, `scripts/`, OpenClaw extensions/skills/templates (COO, TechResearcher, ApplicationAgent, Workflow Builder, **Platform Help**, **Onboarding Helper**), and `knowledgebase/platform-help/` — then runs `vps-deploy-latest.sh`.
+`sync-to-vps.ps1` syncs **full build contexts**: `frontend/src` + package files, `backend/src` + key scripts (incl. `seed-platform-help-agent.js`, `seed-onboarding-helper-agent.js`, `e2e-onboarding-wf-prompts.mjs`), `deploy/*` (**including `deploy/static/flolah-home` marketing homepage** + nginx dual-vhost confs), `scripts/`, OpenClaw extensions/skills/templates (COO, TechResearcher, ApplicationAgent, Workflow Builder, **Platform Help**, **Onboarding Helper**), and `knowledgebase/platform-help/` — then runs `vps-deploy-latest.sh`.
 
-**Public URL:** set `AGENT_OS_PUBLIC_URL` in `deploy/.env` (production: `https://flolah.cloud`). Use that host for API smoke and prompt E2E — not a parked marketing domain.
+**Public URL:** set `AGENT_OS_PUBLIC_URL` in `deploy/.env` (production app: `https://login.flolah.cloud`). Marketing homepage is the apex `https://flolah.cloud` (`deploy/static/flolah-home`). Use the login host for API smoke and prompt E2E.
 
+**Marketing vs app hosts (end-to-end)**
+
+| Host | Serves |
+|------|--------|
+| `https://flolah.cloud` | Marketing homepage (`deploy/static/flolah-home`) |
+| `https://login.flolah.cloud` | Login + React SPA + `/api` (set `AGENT_OS_PUBLIC_URL` here) |
+
+Everything is in repo — repeat a greenfield production host as:
+
+1. DNS A records: `@` / `www` / `login` → VPS IP  
+2. Clone/sync code to `/opt/agent-os`  
+3. `deploy/.env` with secrets; `AGENT_OS_PUBLIC_URL=https://login.flolah.cloud` (after cert includes login)  
+4. `bash deploy/scripts/vps-bootstrap.sh` **or** laptop `.\deploy\scripts\sync-to-vps.ps1`  
+5. First LE + login SAN: `bash deploy/scripts/vps-expand-login-cert.sh`  
+6. Routine upgrades: `sync-to-vps.ps1` → `vps-deploy-latest.sh` (static perms, nginx volume, marketing smokes built-in)
+
+Until login DNS + cert complete, SPA remains reachable on apex paths other than `/` (e.g. `https://flolah.cloud/login`).
 The backend image (`deploy/docker/backend.Dockerfile`) **COPY**s `knowledgebase/platform-help` so Master Data RAG seeding works inside the container.
 
 On VPS after sync (or after `git pull` on the box), `vps-deploy-latest.sh` rebuilds images and runs:

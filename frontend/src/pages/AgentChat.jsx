@@ -66,8 +66,12 @@ export default function AgentChat() {
   const [clearing, setClearing] = useState(false);
   const [error, setError] = useState(null);
   const [banner, setBanner] = useState(null);
+  /** Side panes are closed by default; icon toggles open them. */
+  const [showHistoryPanel, setShowHistoryPanel] = useState(false);
+  const [showBrowserPanel, setShowBrowserPanel] = useState(false);
   const scrollRef = useRef(null);
   const abortControllerRef = useRef(null);
+  const sidePanelOpen = showHistoryPanel || showBrowserPanel;
 
   useEffect(
     () => () => {
@@ -125,8 +129,12 @@ export default function AgentChat() {
     setBanner(null);
     setError(null);
     loadActiveChat().catch(() => setTurns([]));
+  }, [agentId, loadActiveChat]);
+
+  useEffect(() => {
+    if (!agentId || !showHistoryPanel) return;
     refreshHistory();
-  }, [agentId, loadActiveChat, refreshHistory]);
+  }, [agentId, showHistoryPanel, refreshHistory]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -316,7 +324,9 @@ export default function AgentChat() {
   const emptyHome = turns.length === 0 && !sending;
 
   return (
-    <div className={`page-chat page-chat-inner page-chat-with-history${isHome ? ' page-chat-home' : ''}`}>
+    <div
+      className={`page-chat page-chat-inner${sidePanelOpen ? ' page-chat-with-history' : ''}${isHome ? ' page-chat-home' : ''}`}
+    >
       <div className="chat-main-column">
         <div style={{ flexShrink: 0, marginBottom: '1rem' }}>
           {!isHome && (
@@ -376,9 +386,37 @@ export default function AgentChat() {
                 )}
               </p>
             </div>
-            <button type="button" onClick={startNewChat} disabled={clearing || sending || !agentId} style={secondaryBtn}>
-              {clearing ? 'Archiving…' : 'New chat'}
-            </button>
+            <div className="chat-header-actions">
+              <button
+                type="button"
+                className={`chat-pane-icon-btn${showBrowserPanel ? ' is-active' : ''}`}
+                aria-pressed={showBrowserPanel}
+                aria-label={showBrowserPanel ? 'Hide browser session panel' : 'Show browser session panel'}
+                title="Browser session"
+                onClick={() => setShowBrowserPanel((v) => !v)}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+                  <rect x="3" y="4" width="18" height="14" rx="2" />
+                  <path d="M3 9h18M8 18h8" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                className={`chat-pane-icon-btn${showHistoryPanel ? ' is-active' : ''}`}
+                aria-pressed={showHistoryPanel}
+                aria-label={showHistoryPanel ? 'Hide chat history panel' : 'Show chat history panel'}
+                title="Chat history"
+                onClick={() => setShowHistoryPanel((v) => !v)}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 7v5l3 2" />
+                </svg>
+              </button>
+              <button type="button" onClick={startNewChat} disabled={clearing || sending || !agentId} style={secondaryBtn}>
+                {clearing ? 'Archiving…' : 'New chat'}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -517,45 +555,84 @@ export default function AgentChat() {
         </form>
       </div>
 
-      <aside className="chat-history-panel" aria-label="Chat history">
-        <BrowserTasksLive variant="sidebar" />
-        <div className="chat-history-header">
-          <h2>History</h2>
-          <span className="chat-history-meta">Last 30 days</span>
-        </div>
-        <div className="chat-history-scroll">
-          {historyLoading && <div className="chat-history-empty">Loading…</div>}
-          {!historyLoading && history.length === 0 && (
-            <div className="chat-history-empty">No archived chats yet. Use New chat to archive the current conversation.</div>
+      {sidePanelOpen && (
+        <aside
+          className="chat-history-panel"
+          aria-label={
+            showHistoryPanel && showBrowserPanel
+              ? 'Browser session and chat history'
+              : showBrowserPanel
+                ? 'Browser session'
+                : 'Chat history'
+          }
+        >
+          <div className="chat-side-panel-toolbar">
+            {showBrowserPanel && (
+              <button
+                type="button"
+                className="chat-side-panel-close"
+                onClick={() => setShowBrowserPanel(false)}
+                aria-label="Close browser session panel"
+              >
+                Browser ×
+              </button>
+            )}
+            {showHistoryPanel && (
+              <button
+                type="button"
+                className="chat-side-panel-close"
+                onClick={() => setShowHistoryPanel(false)}
+                aria-label="Close chat history panel"
+              >
+                History ×
+              </button>
+            )}
+          </div>
+          {showBrowserPanel && <BrowserTasksLive variant="sidebar" forceShow />}
+          {showHistoryPanel && (
+            <>
+              <div className="chat-history-header">
+                <h2>History</h2>
+                <span className="chat-history-meta">Last 30 days</span>
+              </div>
+              <div className="chat-history-scroll">
+                {historyLoading && <div className="chat-history-empty">Loading…</div>}
+                {!historyLoading && history.length === 0 && (
+                  <div className="chat-history-empty">
+                    No archived chats yet. Use New chat to archive the current conversation.
+                  </div>
+                )}
+                {history.map((s) => (
+                  <div key={s.id} className="chat-history-item">
+                    <div className="chat-history-title" title={s.title}>
+                      {s.title || 'Untitled chat'}
+                    </div>
+                    <div className="chat-history-date">{formatArchivedAt(s.archived_at || s.started_at)}</div>
+                    <div className="chat-history-actions">
+                      <button
+                        type="button"
+                        style={secondaryBtn}
+                        disabled={!!restoreBusyId || sending || clearing}
+                        onClick={() => restoreSession(s, 'as_is')}
+                      >
+                        {restoreBusyId === `${s.id}:as_is` ? '…' : 'Open as-is'}
+                      </button>
+                      <button
+                        type="button"
+                        style={secondaryBtn}
+                        disabled={!!restoreBusyId || sending || clearing}
+                        onClick={() => restoreSession(s, 'summarized')}
+                      >
+                        {restoreBusyId === `${s.id}:summarized` ? '…' : 'Summarize'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
-          {history.map((s) => (
-            <div key={s.id} className="chat-history-item">
-              <div className="chat-history-title" title={s.title}>
-                {s.title || 'Untitled chat'}
-              </div>
-              <div className="chat-history-date">{formatArchivedAt(s.archived_at || s.started_at)}</div>
-              <div className="chat-history-actions">
-                <button
-                  type="button"
-                  style={secondaryBtn}
-                  disabled={!!restoreBusyId || sending || clearing}
-                  onClick={() => restoreSession(s, 'as_is')}
-                >
-                  {restoreBusyId === `${s.id}:as_is` ? '…' : 'Open as-is'}
-                </button>
-                <button
-                  type="button"
-                  style={secondaryBtn}
-                  disabled={!!restoreBusyId || sending || clearing}
-                  onClick={() => restoreSession(s, 'summarized')}
-                >
-                  {restoreBusyId === `${s.id}:summarized` ? '…' : 'Summarize'}
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </aside>
+        </aside>
+      )}
     </div>
   );
 }

@@ -17,10 +17,12 @@ function isActiveStatus(status) {
 
 /**
  * Compact live strip for browse_* task ids.
- * Prefer embedding in the history sidebar so the chat pane keeps its height.
+ * Shown in the chat side pane only when the user opens Browser session.
+ * Pass forceShow so the panel has content even when there are no recent tasks.
  */
-export default function BrowserTasksLive({ variant = 'sidebar' }) {
+export default function BrowserTasksLive({ variant = 'sidebar', forceShow = false }) {
   const [tasks, setTasks] = useState([]);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -34,6 +36,8 @@ export default function BrowserTasksLive({ variant = 'sidebar' }) {
         setTasks(running.length ? running.slice(0, 3) : list.slice(0, 1));
       } catch {
         if (active) setTasks([]);
+      } finally {
+        if (active) setLoaded(true);
       }
     };
     refresh();
@@ -44,7 +48,7 @@ export default function BrowserTasksLive({ variant = 'sidebar' }) {
     };
   }, []);
 
-  if (!tasks.length) return null;
+  if (!tasks.length && !forceShow) return null;
 
   const sidebar = variant === 'sidebar';
 
@@ -54,41 +58,50 @@ export default function BrowserTasksLive({ variant = 'sidebar' }) {
       aria-label="Live browser tasks"
     >
       <div className="browser-tasks-live__head">
-        <strong>Browser tasks</strong>
-        <Link to="/browser-session">Session</Link>
+        <strong>Browser session</strong>
+        <Link to="/browser-session">Open full</Link>
       </div>
-      <ul className="browser-tasks-live__list">
-        {tasks.map((task) => {
-          const active = isActiveStatus(task.status);
-          const summary = task.result?.summary || '';
-          return (
-            <li
-              key={task.id}
-              className={active ? 'browser-tasks-live__item is-active' : 'browser-tasks-live__item'}
-            >
-              <div className="browser-tasks-live__row">
-                <button
-                  type="button"
-                  title="Copy task ID"
-                  onClick={() => copyTaskId(task.id)}
-                  className="browser-tasks-live__id"
-                >
-                  {truncate(task.id, 14)}
-                </button>
-                <span className="browser-tasks-live__status">{task.status}</span>
-              </div>
-              <div className="browser-tasks-live__goal" title={task.goal_text || ''}>
-                {truncate(task.goal_text, 72)}
-              </div>
-              {summary ? (
-                <div className="browser-tasks-live__summary" title={summary}>
-                  {truncate(summary, 90)}
+      {!loaded ? (
+        <div className="browser-tasks-live__empty">Loading…</div>
+      ) : !tasks.length ? (
+        <div className="browser-tasks-live__empty">
+          No live browser tasks. Start from{' '}
+          <Link to="/browser-session">Browser Session</Link> or let an agent use browse_*.
+        </div>
+      ) : (
+        <ul className="browser-tasks-live__list">
+          {tasks.map((task) => {
+            const active = isActiveStatus(task.status);
+            const summary = task.result?.summary || '';
+            return (
+              <li
+                key={task.id}
+                className={active ? 'browser-tasks-live__item is-active' : 'browser-tasks-live__item'}
+              >
+                <div className="browser-tasks-live__row">
+                  <button
+                    type="button"
+                    title="Copy task ID"
+                    onClick={() => copyTaskId(task.id)}
+                    className="browser-tasks-live__id"
+                  >
+                    {truncate(task.id, 14)}
+                  </button>
+                  <span className="browser-tasks-live__status">{task.status}</span>
                 </div>
-              ) : null}
-            </li>
-          );
-        })}
-      </ul>
+                <div className="browser-tasks-live__goal" title={task.goal_text || ''}>
+                  {truncate(task.goal_text, 72)}
+                </div>
+                {summary ? (
+                  <div className="browser-tasks-live__summary" title={summary}>
+                    {truncate(summary, 90)}
+                  </div>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </section>
   );
 }

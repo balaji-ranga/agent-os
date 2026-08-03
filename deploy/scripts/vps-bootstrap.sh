@@ -64,8 +64,15 @@ fi
 chmod +x scripts/*.sh ../scripts/setup-openclaw-from-scratch.sh 2>/dev/null || true
 
 if [[ ! -f nginx/certs/fullchain.pem ]]; then
-  echo "==> Generating self-signed TLS for ${PUBLIC_HOST}"
-  bash scripts/generate-dev-certs.sh "${PUBLIC_HOST}"
+  echo "==> Generating self-signed TLS for flolah.cloud + login.flolah.cloud + ${PUBLIC_HOST}"
+  bash scripts/generate-dev-certs.sh flolah.cloud www.flolah.cloud login.flolah.cloud "${PUBLIC_HOST}"
+fi
+
+if [[ -d static/flolah-home ]]; then
+  chmod -R a+rX static/flolah-home 2>/dev/null || true
+else
+  echo "ERROR: ${DEPLOY_DIR}/static/flolah-home missing (marketing homepage)" >&2
+  exit 1
 fi
 
 echo "==> Ensure deploy secrets"
@@ -90,4 +97,7 @@ done
 
 docker compose ps
 echo "Done bootstrap. Restore data volumes next if not already done."
-echo "UI: https://${PUBLIC_HOST}"
+echo "Marketing: https://flolah.cloud   App/login: https://login.flolah.cloud"
+echo "DNS: A records flolah/www/login -> ${PUBLIC_HOST}"
+echo "After login DNS propagates: bash ${DEPLOY_DIR}/scripts/vps-expand-login-cert.sh"
+echo "UI fallback: https://${PUBLIC_HOST}"

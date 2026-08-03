@@ -19,8 +19,8 @@ You do not need to know APIs or Docker for everyday use.
 
 ### Sign in and first look
 
-1. Open the Flolah site and **Log in** (or **Register** if you are new).
-2. After login you land on **home chat** (`/`) with the **COO** selected by default. Switch agents from the **Chat with** picker. Org chart and standups are under **My Org** (`/org`).
+1. Open **https://login.flolah.cloud** (or **Register** if you are new). Marketing site is **https://flolah.cloud**.
+2. After login you land on **home chat** (`/`) with the **COO** selected by default. Switch agents from the **Chat with** picker. **History** and **Browser session** side panes start closed — use the icons next to **New chat** to open them. Org chart and standups are under **My Org** (`/org`).
 3. The **bell** in the top bar is your notification center (agent replies and messages pushed to you).
 
 ### Chat with an agent
@@ -343,9 +343,16 @@ Workflow hook URLs, cron webhooks, A2A cards, and MCP/API endpoints in graphs sh
 
 Container stack: **nginx** + **frontend** + **backend** + **OpenClaw gateway**, with optional **init**, **Ollama**, **MCP / OpenConnector mock**, and **browser-login** profiles.
 
+Hosts (production):
+
+| Host | Content |
+|------|---------|
+| `https://flolah.cloud` | Marketing homepage (`deploy/static/flolah-home`) |
+| `https://login.flolah.cloud` | Login + React SPA + API (`AGENT_OS_PUBLIC_URL`) |
+
 ```bash
 cd deploy
-cp .env.example .env   # set AGENT_OS_PUBLIC_URL, OPENCLAW_GATEWAY_TOKEN, OPENAI_API_KEY
+cp .env.example .env   # set AGENT_OS_PUBLIC_URL=https://login.flolah.cloud, tokens, OPENAI_API_KEY
 ./scripts/up.sh        # auto-fills TOOLS_API_KEY + AGENT_OS_INTERNAL_TOKEN; USE_PODMAN=1 on CentOS
 ```
 
@@ -358,22 +365,24 @@ Laptop sync (when VPS cannot `git pull`):
 .\deploy\scripts\sync-to-vps.ps1 -NoCache   # stale Docker layers
 ```
 
-Public API host = `AGENT_OS_PUBLIC_URL` in `deploy/.env` (e.g. `https://flolah.cloud`), not a parked marketing domain.
+Public API / app host = `AGENT_OS_PUBLIC_URL` in `deploy/.env` (`https://login.flolah.cloud`). Marketing apex is separate static content — not a parked domain.
 
 On VPS after sync / `git pull`:
 
 ```bash
 bash /opt/agent-os/deploy/scripts/vps-deploy-latest.sh
+# First time (after DNS A login -> VPS IP):
+bash /opt/agent-os/deploy/scripts/vps-expand-login-cert.sh
 SERVICES=frontend bash /opt/agent-os/deploy/scripts/vps-rebuild-frontend.sh
 bash /opt/agent-os/deploy/scripts/vps-verify-frontend-media.sh   # hPanel + fullscreen + CTAs
-bash /opt/agent-os/deploy/scripts/vps-verify-platform.sh         # Platform Help + Master Data
+bash /opt/agent-os/deploy/scripts/vps-verify-platform.sh         # Platform Help + Master Data + marketing hosts
 bash /opt/agent-os/deploy/scripts/vps-verify-status-retention-ui.sh  # status checker + retention + Storage UI
 ```
 
 Onboarding Helper + Workflow Builder **chat E2E** (CEO token; prompts in platform-help **27**):
 
 ```powershell
-$env:BASE_URL = "https://flolah.cloud"
+$env:BASE_URL = "https://login.flolah.cloud"
 $env:TOKEN = "<ceo-session>"
 node backend/scripts/e2e-onboarding-wf-prompts.mjs
 ```
@@ -542,7 +551,8 @@ agent-os/
 ├── openclaw-workspace-templates/  # SOUL, AGENTS, MEMORY, TOOLS, ORG per agent type
 ├── openclaw-skills/            # agent-send, agent-os-content-tools, etc.
 ├── openclaw-extensions/        # agent-os-content-tools plugin, bootstrap watcher (ORG.md)
-├── deploy/                     # Docker Compose, nginx, sync-to-vps.ps1, up.sh
+├── deploy/                     # Docker Compose, nginx dual-vhost, static/flolah-home marketing,
+│                               #   sync-to-vps.ps1, vps-deploy-latest.sh, vps-expand-login-cert.sh
 ├── backend/
 │   ├── .env.example
 │   ├── data/                   # SQLite

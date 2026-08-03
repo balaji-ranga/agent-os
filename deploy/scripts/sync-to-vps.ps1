@@ -73,7 +73,9 @@
 # (startup catalog re-grant and OpenClaw sync no longer resurrect a deleted agent),
 # Browser Session + browse_* tools (recipe list/run, browser-cdp, Client Chrome relay),
 # Admin Tools Onboarding (docker.sock overlay, TOTP step-up, registry allow-list,
-# content-tool register + OpenClaw reload; Admin Crons last_run persists).
+# content-tool register + OpenClaw reload; Admin Crons last_run persists),
+# CEO home chat + My Org, collapsible chat history/browser panes (icon toggles),
+# COO SOUL + org-context channel inbound index → master_data_rag.
 param(
   [string]$HostIp = "76.13.209.30",
   [string]$Key = "$env:USERPROFILE\.ssh\agent-os-vps",
@@ -116,8 +118,14 @@ scp @ssh `
   "$Repo\deploy\nginx\nginx.host-network.conf" `
   "$Repo\deploy\nginx\frontend.conf" `
   "root@${HostIp}:$RemoteRoot/deploy/nginx/"
+Write-Host "==> Sync deploy/static (flolah marketing homepage)"
+ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/deploy/static/flolah-home/assets"
+scp @ssh -r "$Repo\deploy\static\flolah-home" "root@${HostIp}:$RemoteRoot/deploy/static/"
+# nginx worker needs world-readable files (scp may leave 700 on Windows-created trees)
+ssh @ssh "root@$HostIp" "chmod -R a+rX $RemoteRoot/deploy/static/flolah-home"
 scp @ssh `
   "$Repo\deploy\scripts\vps-deploy-latest.sh" `
+  "$Repo\deploy\scripts\vps-expand-login-cert.sh" `
   "$Repo\deploy\scripts\docker-disk-hygiene.sh" `
   "$Repo\deploy\scripts\vps-verify-platform.sh" `
   "$Repo\deploy\scripts\vps-verify-a2a-private.sh" `

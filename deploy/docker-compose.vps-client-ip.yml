@@ -18,3 +18,4 @@ services:
     volumes:
       - ./nginx/nginx.host-network.conf:/etc/nginx/conf.d/default.conf:ro,Z
       - ./nginx/certs:/etc/nginx/certs:ro,Z
+      - ./static/flolah-home:/usr/share/nginx/flolah-home:ro,Z
