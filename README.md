@@ -371,7 +371,7 @@ On VPS after sync / `git pull`:
 
 ```bash
 bash /opt/agent-os/deploy/scripts/vps-deploy-latest.sh
-# First time (after DNS A login -> VPS IP):
+# First time after DNS A for login points to VPS (uses acme.sh TLS-ALPN on :443; not certbot HTTP-01):
 bash /opt/agent-os/deploy/scripts/vps-expand-login-cert.sh
 SERVICES=frontend bash /opt/agent-os/deploy/scripts/vps-rebuild-frontend.sh
 bash /opt/agent-os/deploy/scripts/vps-verify-frontend-media.sh   # hPanel + fullscreen + CTAs

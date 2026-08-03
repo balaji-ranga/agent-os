@@ -87,6 +87,8 @@ fi
 echo ""
 echo "Stack started. Check: ${COMPOSE} ps"
 echo "Health: curl -k https://localhost/health  (or http://localhost:8080 with docker-compose.dev.yml)"
+echo "Prod hosts: marketing https://flolah.cloud  app/login https://login.flolah.cloud"
+echo "  (TLS multi-SAN after DNS: bash scripts/vps-expand-login-cert.sh — acme.sh TLS-ALPN on :443)"
 echo "APIs (via nginx /api): master-data, feedback, openconnector, email-inbound, BYOK LLM,"
 echo "  email_send (/api/tools/email-send), notify_ceo (/api/tools/notify-ceo),"
 echo "  broadcast (/api/broadcast) — UI /broadcast; CEO-scoped so notify_ceo works,"

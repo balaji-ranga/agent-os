@@ -118,6 +118,7 @@ echo "              free STT/TTS optional-voice (whisper+piper; ensure-voice-env
 echo "              CEO home chat (COO default) + My Org (/org); Profile role_title display label"
 echo "              Chat history/browser panes closed by default (icon toggles);"
 echo "              COO SOUL inbound list→index→RAG + org-context tools line"
+echo "              Marketing apex flolah.cloud + app login.flolah.cloud; acme.sh TLS-ALPN cert script"
 
 if [[ "$SKIP_GIT" != "1" ]]; then
   if [[ -d "$ROOT/.git" ]]; then

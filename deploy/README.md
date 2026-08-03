@@ -359,14 +359,25 @@ All proxied under `/api` (rebuild backend + frontend images after upgrade):
 
 Everything is in repo — repeat a greenfield production host as:
 
-1. DNS A records: `@` / `www` / `login` → VPS IP  
+1. DNS: **A** records `@` / `www` / `login` → VPS IPv4 (`76.13.209.30`). Optional **AAAA** to VPS IPv6 only if nginx listens on `[::]` (prod conf does).  
 2. Clone/sync code to `/opt/agent-os`  
-3. `deploy/.env` with secrets; `AGENT_OS_PUBLIC_URL=https://login.flolah.cloud` (after cert includes login)  
+3. `deploy/.env` with secrets; set `AGENT_OS_PUBLIC_URL=https://login.flolah.cloud` after cert step  
 4. `bash deploy/scripts/vps-bootstrap.sh` **or** laptop `.\deploy\scripts\sync-to-vps.ps1`  
-5. First LE + login SAN: `bash deploy/scripts/vps-expand-login-cert.sh`  
-6. Routine upgrades: `sync-to-vps.ps1` → `vps-deploy-latest.sh` (static perms, nginx volume, marketing smokes built-in)
+5. First multi-SAN Let’s Encrypt cert (stops nginx briefly, **TLS-ALPN on :443** via acme.sh — needed because inbound **:80 is often blocked**):  
+   `bash deploy/scripts/vps-expand-login-cert.sh`  
+   Cert SANs: `flolah.cloud`, `www.flolah.cloud`, `login.flolah.cloud`. Auto-renew + nginx reload hooks under `/root/.acme.sh/`.  
+6. Routine upgrades: `sync-to-vps.ps1` → `vps-deploy-latest.sh` (static perms, marketing smokes, dual-vhost nginx)
 
 Until login DNS + cert complete, SPA remains reachable on apex paths other than `/` (e.g. `https://flolah.cloud/login`).
+
+**TLS notes**
+
+| Challenge | Port | Status on this VPS |
+|-----------|------|--------------------|
+| certbot HTTP-01 | 80 | Often **fails** (connect timeout from internet) |
+| acme.sh `--alpn` | 443 | **Preferred** (`vps-expand-login-cert.sh`) |
+
+Nginx production confs listen on both `0.0.0.0` and `[::]` for 80/443 so IPv4 + IPv6 DNS work.
 The backend image (`deploy/docker/backend.Dockerfile`) **COPY**s `knowledgebase/platform-help` so Master Data RAG seeding works inside the container.
 
 On VPS after sync (or after `git pull` on the box), `vps-deploy-latest.sh` rebuilds images and runs:

@@ -99,5 +99,6 @@ docker compose ps
 echo "Done bootstrap. Restore data volumes next if not already done."
 echo "Marketing: https://flolah.cloud   App/login: https://login.flolah.cloud"
 echo "DNS: A records flolah/www/login -> ${PUBLIC_HOST}"
-echo "After login DNS propagates: bash ${DEPLOY_DIR}/scripts/vps-expand-login-cert.sh"
-echo "UI fallback: https://${PUBLIC_HOST}"
+echo "TLS multi-SAN (after DNS): bash ${DEPLOY_DIR}/scripts/vps-expand-login-cert.sh"
+echo "  (acme.sh TLS-ALPN on :443 — inbound :80 is often blocked; do not rely on certbot HTTP-01)"
+echo "UI fallback path: https://${PUBLIC_HOST} or https://flolah.cloud/login until login cert is live"

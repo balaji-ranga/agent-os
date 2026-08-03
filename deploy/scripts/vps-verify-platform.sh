@@ -53,6 +53,8 @@ check "nginx host-network login" grep -q 'server_name login.flolah.cloud' "$ROOT
 check "compose marketing volume" grep -q 'static/flolah-home' "$ROOT/deploy/docker-compose.yml"
 check "vps-client-ip marketing volume" grep -q 'static/flolah-home' "$ROOT/deploy/docker-compose.vps-client-ip.yml"
 check "expand login cert script" test -f "$ROOT/deploy/scripts/vps-expand-login-cert.sh"
+check "expand login cert uses acme ALPN" grep -q 'acme.sh' "$ROOT/deploy/scripts/vps-expand-login-cert.sh" && grep -q -- '--alpn' "$ROOT/deploy/scripts/vps-expand-login-cert.sh"
+check "nginx dual-stack IPv6 listen" grep -q 'listen \[::\]:443' "$ROOT/deploy/nginx/nginx.conf" && grep -q 'listen \[::\]:443' "$ROOT/deploy/nginx/nginx.host-network.conf"
 check "workspace heal startup" grep -q healAgentWorkspacePaths "$ROOT/backend/src/index.js"
 check "AgentWorkspace UI" grep -q workspace_root "$ROOT/frontend/src/pages/AgentWorkspace.jsx" || grep -q agentWorkspaceFiles "$ROOT/frontend/src/pages/AgentWorkspace.jsx"
 check "master_data routes" grep -q master-data-list-tables "$ROOT/backend/src/routes/tools.js"
