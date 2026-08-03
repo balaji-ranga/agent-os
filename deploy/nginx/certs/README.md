@@ -5,16 +5,11 @@
 # Production SANs must include:
 #   flolah.cloud, www.flolah.cloud, login.flolah.cloud
 #
-# Repeatable expand (preferred — stops nginx briefly for standalone HTTP-01):
+# Inbound TCP :80 is often blocked on Hostinger; certbot HTTP-01 will time out.
+# Prefer acme.sh TLS-ALPN on :443 (bundled in vps-expand-login-cert.sh):
 #   bash /opt/agent-os/deploy/scripts/vps-expand-login-cert.sh
 #
-# Manual equivalent:
-#   docker compose stop nginx
-#   certbot certonly --standalone --cert-name flolah.cloud \
-#     -d flolah.cloud -d www.flolah.cloud -d login.flolah.cloud --expand --non-interactive
-#   cp -L /etc/letsencrypt/live/flolah.cloud/fullchain.pem /opt/agent-os/deploy/nginx/certs/
-#   cp -L /etc/letsencrypt/live/flolah.cloud/privkey.pem /opt/agent-os/deploy/nginx/certs/
-#   docker compose start nginx
+# That script installs renew + nginx reload hooks under /root/.acme.sh/
 #
 # Dev/staging: run ../scripts/generate-dev-certs.sh
 #   (defaults to SANs flolah.cloud, www.flolah.cloud, login.flolah.cloud)
