@@ -14,6 +14,11 @@ import { createFullAgent } from './create-full-agent.js';
 import { grantUserAgent } from './users.js';
 import { writeFileSync, mkdirSync } from 'fs';
 import { dirname, join } from 'path';
+import {
+  getBlueprint,
+  inferCompanyTypeFromText,
+  resolveCompanyTypeId,
+} from './company-blueprints/index.js';
 
 export const STEPS = [
   { id: 'welcome', title: 'Welcome', hint: 'Detect existing org and confirm proceed.' },
@@ -31,122 +36,19 @@ export const STEPS = [
   { id: 'done', title: 'Done', hint: 'Next steps and links.' },
 ];
 
-const PROFILE_TEMPLATES = {
-  content_studio: {
-    label: 'Content studio',
-    departments: [
-      { name: 'Creative', purpose: 'Story, scripts, and creative direction.' },
-      { name: 'Production', purpose: 'Media generation, editing, and assembly.' },
-      { name: 'Growth', purpose: 'Publishing, analytics, and distribution.' },
-      { name: 'Operations', purpose: 'Coordination, budgets, and handoffs.' },
-    ],
-    agents: [
-      {
-        name: 'Creative Director',
-        role: 'Story and creative planning',
-        department: 'Creative',
-        tools: ['learnings_summary', 'master_data_rag', 'generate_image', 'notify_ceo'],
-      },
-      {
-        name: 'Media Producer',
-        role: 'Generate and assemble media assets',
-        department: 'Production',
-        tools: ['learnings_summary', 'generate_image', 'generate_video', 'master_data_rag'],
-      },
-      {
-        name: 'Growth Lead',
-        role: 'Publishing and performance tracking',
-        department: 'Growth',
-        tools: ['learnings_summary', 'kanban_create_task', 'notify_ceo', 'master_data_rag'],
-      },
-    ],
-    workflows: ['Content brief -> media draft -> review -> publish checklist'],
-    channels: [
-      'Connect WhatsApp under Agent Channels for outbound MEDIA attachments.',
-      'Review Policies for guardrails before autonomous publish.',
-    ],
-  },
-  trading_ops: {
-    label: 'Trading operations',
-    departments: [
-      { name: 'Research', purpose: 'Market research and signal briefs.' },
-      { name: 'Finance', purpose: 'Risk, P&L, and reporting.' },
-      { name: 'Operations', purpose: 'Execution coordination and compliance checks.' },
-    ],
-    agents: [
-      {
-        name: 'Market Analyst',
-        role: 'Research and daily market briefs',
-        department: 'Research',
-        tools: ['learnings_summary', 'master_data_rag', 'summarize_url', 'notify_ceo'],
-      },
-      {
-        name: 'Risk Monitor',
-        role: 'Exposure checks and alerts',
-        department: 'Finance',
-        tools: ['learnings_summary', 'notify_ceo', 'master_data_rag'],
-      },
-    ],
-    workflows: ['Morning brief -> risk check -> COO escalation on breach'],
-    channels: [
-      'Use notify_ceo sparingly for true trading blockers.',
-      'Store playbooks in Master Data for RAG.',
-    ],
-  },
-  talent: {
-    label: 'Talent / hiring',
-    departments: [
-      { name: 'Job Pipeline', purpose: 'Sourcing, screening, and candidate tracking.' },
-      { name: 'Operations', purpose: 'Scheduling, coordination, and handoffs.' },
-    ],
-    agents: [
-      {
-        name: 'Talent Screener',
-        role: 'Screen applicants and summarize fit',
-        department: 'Job Pipeline',
-        tools: ['learnings_summary', 'master_data_rag', 'kanban_create_task', 'notify_ceo'],
-      },
-      {
-        name: 'Pipeline Coordinator',
-        role: 'Track stages and follow-ups',
-        department: 'Operations',
-        tools: ['learnings_summary', 'kanban_create_task', 'kanban_move_status', 'email_send'],
-      },
-    ],
-    workflows: ['Inbound resume -> screen -> interview pack -> decision'],
-    channels: [
-      'Email inbound can feed applicant workflows when configured.',
-      'Review Policies before automated outreach.',
-    ],
-  },
-  general_ops: {
-    label: 'General operations',
-    departments: [
-      { name: 'Executive', purpose: 'Direction, priorities, and approvals.' },
-      { name: 'Research', purpose: 'Market and technical research briefs.' },
-      { name: 'Operations', purpose: 'Day-to-day execution and coordination.' },
-    ],
-    agents: [
-      {
-        name: 'Research Analyst',
-        role: 'Research briefs and summaries',
-        department: 'Research',
-        tools: ['learnings_summary', 'master_data_rag', 'summarize_url', 'browser'],
-      },
-      {
-        name: 'Ops Coordinator',
-        role: 'Track tasks and follow-through',
-        department: 'Operations',
-        tools: ['learnings_summary', 'kanban_create_task', 'kanban_move_status', 'notify_ceo'],
-      },
-    ],
-    workflows: ['CEO request -> COO delegate -> Kanban track -> standup rollup'],
-    channels: [
-      'Start with Dashboard chat; add WhatsApp when ready.',
-      'Set agent budgets under Efficiency.',
-    ],
-  },
-};
+function blueprintToTemplate(bp) {
+  return {
+    label: bp.label,
+    departments: bp.departments,
+    agents: bp.agents,
+    workflows: bp.workflows,
+    channels: bp.channels,
+  };
+}
+
+function inferProfile(text) {
+  return resolveCompanyTypeId(inferCompanyTypeFromText(text));
+}
 
 export function stepIndexById(stepId) {
   const i = STEPS.findIndex((s) => s.id === stepId);
@@ -195,16 +97,9 @@ export function detectExistingOrg(ownerUserId) {
   return { has_custom_agents: count > 0, custom_agent_count: count };
 }
 
-function inferProfile(text) {
-  const t = String(text || '').toLowerCase();
-  if (/content|video|studio|creative|media|youtube|shorts|publish|animation/.test(t)) return 'content_studio';
-  if (/trad(e|ing)|ibkr|stock|portfolio|market|equity|crypto/.test(t)) return 'trading_ops';
-  if (/hiring|recruit|talent|job|applicant|hr|people|resume|cv/.test(t)) return 'talent';
-  return 'general_ops';
-}
-
 export function buildProposal(ownerUserId, row, journey) {
   const answers = journey?.answers || {};
+  const strategic = parseJson(row?.strategic_profile_json, {});
   const corpus = [
     row?.purpose,
     row?.vision,
@@ -216,11 +111,22 @@ export function buildProposal(ownerUserId, row, journey) {
     answers.goals_long,
     answers.strategic,
     answers.welcome,
+    strategic.describe_company,
   ]
     .filter(Boolean)
     .join(' ');
-  const profileKey = inferProfile(corpus);
-  const template = PROFILE_TEMPLATES[profileKey] || PROFILE_TEMPLATES.general_ops;
+
+  let profileKey =
+    resolveCompanyTypeId(journey.company_type || answers.company_type || strategic.company_type || '') ||
+    inferProfile(corpus);
+  if (!profileKey || profileKey === 'general_ops') {
+    // if empty string from resolve of empty, fall back
+    if (!journey.company_type && !answers.company_type && !strategic.company_type) {
+      profileKey = inferProfile(corpus);
+    }
+  }
+  const bp = getBlueprint(profileKey);
+  const template = blueprintToTemplate(bp);
 
   const departments =
     answers.departments && Array.isArray(answers.departments) ? answers.departments : template.departments;
@@ -230,7 +136,17 @@ export function buildProposal(ownerUserId, row, journey) {
     answers.workflows && Array.isArray(answers.workflows) ? answers.workflows : template.workflows;
   const channels =
     answers.channels && Array.isArray(answers.channels) ? answers.channels : template.channels;
-  const mdFiles = answers.md_files && Array.isArray(answers.md_files) ? answers.md_files : [];
+  const mdFiles =
+    answers.md_files && Array.isArray(answers.md_files)
+      ? answers.md_files
+      : (bp.sop_documents || []).map((d) => ({
+          filename: d.filename,
+          content: d.contentText,
+        }));
+  const knowledgeTables =
+    answers.knowledge_tables && Array.isArray(answers.knowledge_tables)
+      ? answers.knowledge_tables
+      : bp.knowledge_tables || [];
 
   const toolsByAgent = {};
   for (const ag of agents) {
@@ -239,13 +155,13 @@ export function buildProposal(ownerUserId, row, journey) {
   }
 
   return {
-    profile: profileKey,
+    profile: bp.id || profileKey,
     profile_label: template.label,
-    purpose: row?.purpose || answers.purpose || '',
+    purpose: row?.purpose || answers.purpose || strategic.describe_company || '',
     vision: row?.vision || answers.vision || '',
     goals_short_term: row?.goals_short_term || answers.goals_short || '',
     goals_long_term: row?.goals_long_term || answers.goals_long || '',
-    strategic_profile: parseJson(row?.strategic_profile_json, {}),
+    strategic_profile: strategic,
     departments,
     agents: agents.map((a) => ({
       ...a,
@@ -254,6 +170,9 @@ export function buildProposal(ownerUserId, row, journey) {
     workflows,
     channels,
     md_files: mdFiles,
+    knowledge_tables: knowledgeTables,
+    sop_documents: bp.sop_documents || [],
+    depth: bp.depth || 'thin',
   };
 }
 
@@ -837,6 +756,7 @@ export function buildSelectableItems(proposal = {}, journey = {}) {
     ...add('workflow', proposal.workflows),
     ...add('channel', proposal.channels),
     ...add('md_file', proposal.md_files),
+    ...add('knowledge_table', proposal.knowledge_tables),
   ];
 }
 
@@ -861,6 +781,9 @@ export function filterProposalSelection(proposal = {}, selected = {}) {
     workflows: (proposal.workflows || []).filter((item, index) => include('workflow', item, index)),
     channels: (proposal.channels || []).filter((item, index) => include('channel', item, index)),
     md_files: (proposal.md_files || []).filter((item, index) => include('md_file', item, index)),
+    knowledge_tables: (proposal.knowledge_tables || []).filter((item, index) =>
+      include('knowledge_table', item, index)
+    ),
   };
 }
 

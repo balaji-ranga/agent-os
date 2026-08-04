@@ -1,10 +1,11 @@
-# Flolah — An Agent Company Setup
+# Flolah — AI Company OS
 
-**Flolah (Automate, Innovate, Elevate)** is a web platform for running an AI agent company on [OpenClaw](https://docs.openclaw.ai/gateway): org-aware agents, human–agent chat, workspace MD management (`SOUL.md`, `AGENTS.md`, `ORG.md`, `MEMORY.md`, `TOOLS.md`), **custom visual workflows**, **AgentExchange (A2A)**, **Job Applicant pipeline**, **MCP integrations**, Kanban, standups, content tools, and multi-tenant CEO isolation. Metadata is stored in a **lightweight SQLite** database.
+**Flolah (Automate, Innovate, Elevate)** is the **AI Company OS**: hire and run digital employees (AI workers) on [OpenClaw](https://docs.openclaw.ai/gateway) with org structure, human–AI chat, workspace identity docs, **custom visual workflows**, **AgentExchange (A2A)**, **Job Applicant pipeline**, **MCP integrations**, Kanban, standups, content tools, and multi-tenant CEO isolation. Metadata is stored in a **lightweight SQLite** database.
 
-> Browser tab title: **Flolah - An Agent Company Setup**. Login footer: **Flolah (Automate, Innovate, Elevate)**.
+> **Messaging, terminology, and OS primitives:** [`knowledgebase/AI-COMPANY-OS.md`](knowledgebase/AI-COMPANY-OS.md)  
+> Browser tab title: **Flolah — AI Company OS**. Login: **Sign in to run your AI company**.
 
-When you register as a CEO, Flolah automatically sets up your standard agents (including **Platform Help** and **Workflow Builder**), a starter **departments** list, the **Flolah User Guide** (this README), and the full **Platform Help** document set in Master Data so agents can look them up via RAG.
+When you register as a CEO, Flolah automatically sets up your standard AI employees (including **Platform Help** and **Workflow Builder**), a starter **departments** list, the **Flolah User Guide**, and the full **Platform Help** document set in Knowledge (Master Data) so employees can look them up via RAG.
 
 ---
 
@@ -25,24 +26,24 @@ You do not need to know APIs or Docker for everyday use.
 
 ### Chat with an agent
 
-1. From home chat, pick an agent (COO is default) — or open **Chat** from **My Org** / **Agent Workspaces**.
-2. Type your request in plain language and send. Optionally **attach** files (paperclip) — documents/images/audio/video are stored for the agent under Master Data and `inbound/attachments/`.
-3. When the agent uses tools (Master Data, notify you, email, generate image/TTS, etc.), small **tool icons** may appear under the reply so you can see what it did. Generated media plays **inline** in the chat (you must be logged in).
+1. From home chat, pick an AI employee (COO is default) — or open **Chat** from **My Org** / **AI Employees**.
+2. Type your request in plain language and send. Optionally **attach** files (paperclip) — documents/images/audio/video are stored under Knowledge and `inbound/attachments/`.
+3. When the AI employee uses tools (Master Data, notify you, email, generate image/TTS, etc.), small **tool icons** may appear under the reply so you can see what it did. Generated media plays **inline** in the chat (you must be logged in).
 4. Prefer asking the **COO** for work that should be planned or handed to a specialist (research, applications, etc.).
-5. To reach an agent from **WhatsApp / Slack**, open that agent’s **Channels** wizard (see Platform Help **24**). WhatsApp **group chats are ignored by default** unless you enable groups there.
+5. To reach an AI employee from **WhatsApp / Slack**, open that employee’s **Channels** wizard (see Platform Help **24**). WhatsApp **group chats are ignored by default** unless you enable groups there.
 
 ### Ask Platform Help (how-to)
 
-1. Open **Chat** with **Platform Help** (home picker, My Org org chart, or Agent Workspaces).
+1. Open **Chat** with **Platform Help** (home picker, My Org org chart, or AI Employees).
 2. Ask in plain language (“How do I register an MCP server?”, “What does the IF node output?”).
-3. The agent searches your Master Data **Flolah Help — …** documents and answers with UI steps.
+3. The AI employee searches your Knowledge **Flolah Help — …** documents and answers with UI steps.
 4. For *building* or *repairing* a workflow graph, prefer **Workflow Builder**; for standups/delegation, prefer the **COO**.
 
 ### Ask the COO to delegate specialty work
 
 1. Open **Chat** with your **COO**.
 2. Describe the outcome you want (for example: research a topic, draft something, check company data).
-3. The COO matches your ask to the right specialist using each agent’s purpose (from org docs), starts a Kanban card, and tracks the work.
+3. The COO matches your ask to the right specialist using each AI employee’s purpose (from org docs), starts a Kanban card, and tracks the work.
 4. Watch progress on **Kanban**; when something is ready for you, check the **bell**.
 
 Tips:
@@ -50,12 +51,12 @@ Tips:
 - Vague “help me” messages may stay with the COO instead of going to a specialist.
 - COO-native asks (workflows, tools, Kanban, standups) usually stay with the COO.
 
-### Broadcast to several agents
+### Broadcast to several AI employees
 
 1. Open **Broadcast** from the navigation.
-2. Write a message to send to multiple agents (for example a status check or announcement).
-3. If you want each agent to **notify you** when they finish (bell), say so clearly in the message (e.g. “report status and notify me”).
-4. Review results in agent chats and in the **bell**.
+2. Write a message to send to multiple AI employees (for example a status check or announcement).
+3. If you want each to **notify you** when they finish (bell), say so clearly in the message (e.g. “report status and notify me”).
+4. Review results in chats and in the **bell**.
 
 ### Notifications (bell)
 
@@ -139,7 +140,8 @@ Grant or revoke tools on each agent’s **Workspace → Tools access**.
 | **Storage (MB)** | Efficiency View → **Org** tab shows storage consumed by your tenant (chats, standups, workflow runs, Master Data, OpenClaw workspace files). |
 | **Admin → Crons** | `/admin/crons` lists every platform cron (standup dispatcher, legacy standup, delegation queue, job pipeline, COO status checker, data retention, workflow scheduler) with **Pause** / **Resume** / **Run now**. Pause state persists across restarts. |
 | **Platform API logging** | `PLATFORM_LOG_LEVEL=off\|error\|info` controls backend access/error logs. Keys, tokens, `Authorization` headers, passwords and MFA codes are redacted, and sensitive paths (API Keys, auth) log method + route only. |
-| **Scheduled jobs reference** | All platform crons and user-level schedules documented in `knowledgebase/platform-help/19-scheduled-jobs-and-crons.md`; commented defaults kept in `.env` by `deploy/scripts/ensure-cron-env.sh`. |
+| **Scheduled goals** | Management → **Scheduled goals** (`/scheduled-goals`): recurring CEO prompts to the COO or another AI employee (daily / weekdays / weekly, perpetual or end date). Create/list/pause/run-now in the UI or via COO tools (`scheduled_goal_*`). Only **active** rows fire; pause/delete survives restarts. Platform master tick `SCHEDULED_GOALS_CRON` (default every minute). Help: platform-help **28**. |
+| **Scheduled jobs reference** | All platform crons and user-level schedules documented in `knowledgebase/platform-help/19-scheduled-jobs-and-crons.md` (+ **28** for CEO scheduled goals); commented defaults kept in `.env` by `deploy/scripts/ensure-cron-env.sh`. |
 | **API Keys vault** | Management → API Keys — named secrets, optional encryption. Non-platform Profiles auto-seed unset slots (`Platform_BYOK`, `Replicate_BYOK`, `BRAVE_SEARCH_BYOK`, `elevenlabs-key`); OpenAI/OpenRouter need a filled `Platform_BYOK` plus a **chat model** on Profile. Optional **Tools → Model** overrides model per content tool without changing vault keys. |
 | **List API pagination** | Large CEO lists use server paging (`limit`/`offset`, envelope `total` + `has_more`): Content Explorer, inbound attachments, workflow definitions + run steps, Kanban/standup threads, agent chat turns/archives, Master Data documents, AgentExchange, admin users, job spreadsheet/review-queue. Helpers: `backend/src/lib/pagination.js`. |
 | **Content Explorer** | Management → Content Explorer — browse/preview/download your uploaded + generated files (`inbound/attachments/`, tool media). Server-paged (`limit`/`offset`); UI Prev/Next. See platform-help **26**. |
@@ -184,7 +186,7 @@ The backend uses the [OpenClaw Gateway](https://docs.openclaw.ai/gateway) HTTP A
 - **OpenClaw** installed and (for chat) **gateway** running with chat completions enabled
 - **Workspace path** where SOUL.md, AGENTS.md, MEMORY.md live (for MD editor)
 - **OPENAI_API_KEY** in backend `.env` for **Run COO** (standup + CEO summary via OpenAI). Optional: `OPENAI_COO_MODEL` (default `gpt-4o-mini`).
-- Optional: **cron schedules** — every job has a code default, so nothing is required. Commented reference block lives in `backend/.env.example` / `deploy/.env.example` (and is appended to `deploy/.env` by `deploy/scripts/ensure-cron-env.sh`): `STANDUP_SCHEDULE_CRON`, `STANDUP_CRON_SCHEDULE`, `DELEGATION_CRON_SCHEDULE`, `AGENT_WORKFLOW_SCHEDULER_CRON`, `JOB_PIPELINE_CRON_SCHEDULE`, `COO_STATUS_CHECKER_CRON`, `DATA_RETENTION_CRON`. See [Schedulers and crons](#multi-tenancy--schedulers-platform-crons-vs-user-schedules).
+- Optional: **cron schedules** — every job has a code default, so nothing is required. Commented reference block lives in `backend/.env.example` / `deploy/.env.example` (and is appended to `deploy/.env` by `deploy/scripts/ensure-cron-env.sh`): `STANDUP_SCHEDULE_CRON`, `STANDUP_CRON_SCHEDULE`, `DELEGATION_CRON_SCHEDULE`, `AGENT_WORKFLOW_SCHEDULER_CRON`, `JOB_PIPELINE_CRON_SCHEDULE`, `COO_STATUS_CHECKER_CRON`, `DATA_RETENTION_CRON`, `KANBAN_ORPHAN_WATCHER_CRON`, `SCHEDULED_GOALS_CRON`. See [Schedulers and crons](#multi-tenancy--schedulers-platform-crons-vs-user-schedules).
 - Optional: **AGENT_OS_BASE_URL**, **AGENT_OS_PUBLIC_URL**, or **PUBLIC_URL** — public DNS/HTTPS base URL for workflow event hooks, cron webhooks, A2A cards, and artifact links. Defaults to `http://127.0.0.1:3001` for local dev.
 - Optional: **AGENT_OS_DATA_DIR** — directory for SQLite DB (default: `backend/data`).
 - Optional: **PLATFORM_LOG_LEVEL** — `off` (silent), `error` (failures only), or `info` (default; one line per API call). Secrets are redacted at every level.
@@ -288,13 +290,14 @@ Set in backend `.env`:
 | `AGENT_WORKFLOW_SCHEDULER_CRON` | `* * * * *` | Master tick for custom agent workflows | definition `schedule_cron` + `schedule` trigger mode |
 | `JOB_PIPELINE_CRON_SCHEDULE` | `0 * * * *` | Job Applicant pipeline tick across active profiles | profile `workflow_schedule` (hourly/daily/weekly) |
 | `COO_STATUS_CHECKER_CRON` | `0 9 * * *` | COO status digest per enabled CEO → standup post + HTML email | CEO email, own Kanban/A2A state |
+| `SCHEDULED_GOALS_CRON` | `* * * * *` | Fire **active** scheduled goals (CEO prompts) to target AI employees | goal `time_local` / cadence / ends_at; pause/delete = off across restarts |
 | `DATA_RETENTION_CRON` | `15 3 * * *` | Retention purge per enabled CEO (chat turns, standup messages, workflow runs/steps) | Profile `data_retention_days` (30/60/90/120/365, default 90) |
 
 Cron expressions use the container clock (`TZ`). Dates **shown to users** (Kanban, task chat, reports) use `PLATFORM_TIMEZONE` when set, otherwise `TZ` — so the UI never renders raw UTC.
 
 Not crons: workflow **timeout watchdog** (30s `setInterval`, reaps timed-out steps after restarts) and **one-shot OpenClaw Gateway cron jobs** created per delegated task (fire once, then gone).
 
-Manual triggers: `POST /api/cron/run-standup`, `/cron/process-delegations`, `/cron/run-status-checker`, `/cron/run-data-retention`; UI buttons **Run COO**, **Run status checker**, **Purge data older than N days**. Full guide: `knowledgebase/platform-help/19-scheduled-jobs-and-crons.md`.
+Manual triggers: `POST /api/cron/run-standup`, `/cron/process-delegations`, `/cron/run-status-checker`, `/cron/run-data-retention`; UI buttons **Run COO**, **Run status checker**, **Purge data older than N days**, **Scheduled goals → Run now**. Crons guide: `knowledgebase/platform-help/19-scheduled-jobs-and-crons.md`. CEO scheduled goals: `knowledgebase/platform-help/28-scheduled-goals.md`.
 
 New CEOs start with **empty** standups (no other user’s chats or agents), starter Master Data (**departments** + User Guide document). Dashboard does not auto-open another CEO’s standup.
 

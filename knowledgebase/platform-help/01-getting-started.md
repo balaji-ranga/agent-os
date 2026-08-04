@@ -2,13 +2,13 @@
 
 ## What Flolah is
 
-Flolah is your AI agent company: you (the CEO) chat with agents, run standups, track work on Kanban, store Master Data, build visual workflows, connect MCP servers and SaaS **Connectors**, and publish or consume A2A agents (Public or Secured with OAuth client credentials).
+Flolah is the **AI Company OS**: you (the CEO) hire **AI employees** (digital workers), chat with them, run standups, track work on Kanban, store **company knowledge** (Master Data), build visual workflows, connect MCP servers and SaaS **Connectors**, and publish or consume A2A services (Public or Secured with OAuth client credentials). Product messaging and primitives: [`AI-COMPANY-OS.md`](../AI-COMPANY-OS.md).
 
 ## Register and log in
 
 1. Open the Flolah site → **Register** (new CEO) or **Log in**.
-2. Registration provisions your tenant: standard agents (COO, specialists, Workflow Builder, Platform Help, …), org docs, starter **departments** Master Data table, and Platform Help documents for RAG. Choose **LLM provider + default chat model** on the same form as Profile (Platform default, OpenAI, OpenRouter, Ollama free, DeepSeek local). API keys are **not** collected at register — after login set **`Platform_BYOK`** under **API Keys** if you chose OpenAI/OpenRouter.
-3. After login you land on the **Dashboard** (org chart).
+2. Registration provisions your tenant: standard AI employees (COO, specialists, Workflow Builder, Platform Help, …), org docs, starter **departments** knowledge table, and Platform Help documents for RAG. Choose **LLM provider + default chat model** on the same form as Profile (Platform default, OpenAI, OpenRouter, Ollama free, DeepSeek local). API keys are **not** collected at register — after login set **`Platform_BYOK`** under **API Keys** if you chose OpenAI/OpenRouter.
+3. After login you land on **home chat** / **My Org** (org chart under My Org).
 
 Admin accounts manage platform users; CEOs get the full product nav.
 
@@ -22,12 +22,13 @@ Your org may **require** MFA or leave it optional (**inherit** platform default)
 
 ## First five minutes
 
-1. Click **COO** on the Dashboard → Chat — introduce yourself and ask what agents you have.
-2. Open the **bell** (top bar) — empty until agents notify you or standups produce updates.
+1. Chat with the **COO** — introduce yourself and ask what AI employees you have.
+2. Open the **bell** (top bar) — empty until the team notifies you or standups produce updates.
 3. Open **Profile** (avatar menu) — set name and MFA prefs. For OpenAI/OpenRouter BYOK, open **Management → API Keys**, edit the seeded **`Platform_BYOK`** slot, then on Profile choose **provider + chat model** (do not paste keys on Profile).
-4. Open **Master Data** — confirm **departments** and Platform Help documents exist. Optionally open **Content Explorer** to browse uploads and generated media.
-5. Open **Workflows** or ask **Platform Help**: “How do I build a workflow?”
-6. Optional — avatar menu → **Onboarding**, or chat **Onboarding Helper**, to propose departments/agents (selective Review + Apply). Prompt recipes: [27-onboarding-helper.md](./27-onboarding-helper.md).
+4. Open **Knowledge** (Master Data) — confirm **departments** and Platform Help documents exist. Optionally open **Content Explorer** to browse uploads and generated media.
+5. Open **Workflows** or ask **Platform Help**: "How do I build a workflow?"
+6. Optional — avatar menu → **Onboarding**, or chat **Onboarding Helper**, to propose departments/AI employees (selective Review + Apply). Prompt recipes: [27-onboarding-helper.md](./27-onboarding-helper.md).
+7. Optional — ask the COO to **schedule a lasting goal** (“every weekday at 9, …”) or open **Management → Scheduled goals**. Guide: [28-scheduled-goals.md](./28-scheduled-goals.md).
 
 ## Profile and AI model (BYOK)
 
@@ -37,13 +38,13 @@ Path: avatar → **Profile** (`/profile`). Same **provider + default model** pic
 - **Model preference:**
   - **Platform default** — uses the admin-selected platform LLM (no personal key). Ops `.env` covers Brave Search and Replicate video.
   - **Ollama free / DeepSeek (local)** — no LLM key. Pick a chat model at Register/Profile. Non-platform Profiles seed vault slots (`Platform_BYOK`, `Replicate_BYOK`, `BRAVE_SEARCH_BYOK`, `elevenlabs-key`) as **unset** — Edit under **API Keys** when needed.
-  - **OpenAI / OpenRouter** — pick **provider** and a curated (or custom) **chat model** at Register or Profile. Then fill vault key **`Platform_BYOK`** under **API Keys** so agents can call the API. Endpoints come from `GET /api/auth/llm-catalog` — you do not paste base URLs or keys on Register.
+  - **OpenAI / OpenRouter** — pick **provider** and a curated (or custom) **chat model** at Register or Profile. Then fill vault key **`Platform_BYOK`** under **API Keys** so AI employees can call the API. Endpoints come from `GET /api/auth/llm-catalog` — you do not paste base URLs or keys on Register.
 - **Workflow Brain:** for DeepSeek or OpenRouter nodes you can set **Thinking mode** (and effort) in the node attributes — see [07-workflow-nodes-reference](./07-workflow-nodes-reference.md).
 
 Full vault guide: [15-api-keys-vault.md](./15-api-keys-vault.md). Browse uploads/generated media: [26-content-explorer.md](./26-content-explorer.md).
 
-Agents still run through OpenClaw; your BYOK preference affects how the platform selects models for eligible paths.
+AI employees still run through OpenClaw; your BYOK preference affects how the platform selects models for eligible paths.
 
 ## Multi-tenant isolation
 
-Your standups, Kanban tasks, Master Data, workflows, API Keys, Connectors, and MCP registrations belong to **you**. Other CEOs cannot see them. Resync and agent workspaces are scoped to your tenant OpenClaw agents (`t-{you}--{agentId}`).
+Your standups, Kanban tasks, Knowledge, **scheduled goals**, workflows, API Keys, Connectors, and MCP registrations belong to **you**. Other CEOs cannot see them. Resync and employee workspaces are scoped to your tenant (`t-{you}--{agentId}`).

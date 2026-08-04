@@ -12,6 +12,7 @@ import workspaceRoutes from './routes/workspace.js';
 import inboundAttachmentsRoutes from './routes/inbound-attachments.js';
 import contentExplorerRoutes from './routes/content-explorer.js';
 import onboardingHelperRoutes from './routes/onboarding-helper.js';
+import companySetupRoutes from './routes/company-setup.js';
 import videoToursRoutes from './routes/video-tours.js';
 import agentsRoutes from './routes/agents.js';
 import standupsRoutes from './routes/standups.js';
@@ -20,6 +21,7 @@ import openclawRoutes from './routes/openclaw.js';
 import toolsRoutes from './routes/tools.js';
 import broadcastRoutes from './routes/broadcast.js';
 import kanbanRoutes from './routes/kanban.js';
+import scheduledGoalsRoutes from './routes/scheduled-goals.js';
 import mediaRoutes from './routes/media.js';
 import mediaArtifactsRoutes from './routes/media-artifacts.js';
 import avatarsRoutes from './routes/avatars.js';
@@ -74,7 +76,7 @@ import { ensureDefaultAdmin, ensureBalaCeoUser, grantStandardAgents, pruneShared
 import { ensureCeoDefaultMasterDataForAllCeos } from './services/ceo-default-master-data.js';
 import { initDb, getDb } from './db/schema.js';
 import { seedDefaultAgentsIfEmpty, seedAgentDepartmentsIfMissing } from './db/seed-default-agents.js';
-import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, seedWorkflowToolsIfMissing, seedLearningsToolsIfMissing, seedEmailSendToolIfMissing, seedSpeechToolsIfMissing, seedVisionToolsIfMissing, seedNotifyCeoToolIfMissing, seedOnboardingProposalToolsIfMissing, seedCeoProfileToolIfMissing, seedStatusCheckerToolIfMissing, seedMasterDataToolsIfMissing, seedConnectorToolsIfMissing, seedVedicChartToolIfMissing, updateKanbanToolPurposes, seedPlatformFeedbackToolsIfMissing, grantPlatformFeedbackTools } from './db/seed-content-tools-meta.js';
+import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, seedWorkflowToolsIfMissing, seedLearningsToolsIfMissing, seedEmailSendToolIfMissing, seedSpeechToolsIfMissing, seedVisionToolsIfMissing, seedNotifyCeoToolIfMissing, seedOnboardingProposalToolsIfMissing, seedCeoProfileToolIfMissing, seedStatusCheckerToolIfMissing, seedMasterDataToolsIfMissing, seedConnectorToolsIfMissing, seedVedicChartToolIfMissing, updateKanbanToolPurposes, seedPlatformFeedbackToolsIfMissing, grantPlatformFeedbackTools, seedScheduledGoalToolsIfMissing } from './db/seed-content-tools-meta.js';
 import { seedJobApplicantToolsIfMissing } from './db/seed-job-applicant-tools.js';
 import { seedIbkrTradingToolsIfMissing } from './db/seed-ibkr-trading-tools.js';
 import { seedBrowserSessionToolsIfMissing, grantBrowserSessionToolsToAllAgents } from './db/seed-browser-session-tools.js';
@@ -268,6 +270,7 @@ seedNotifyCeoToolIfMissing();
 seedOnboardingProposalToolsIfMissing();
 seedCeoProfileToolIfMissing();
 seedStatusCheckerToolIfMissing();
+seedScheduledGoalToolsIfMissing();
 seedMasterDataToolsIfMissing();
 seedVedicChartToolIfMissing();
 seedConnectorToolsIfMissing();
@@ -472,6 +475,7 @@ apiRouter.use('/admin/platform-documents', adminPlatformDocsRoutes);
 apiRouter.use('/admin/tool-onboarding', adminToolOnboardingRoutes);
 apiRouter.use('/ceo-guardrails', ceoGuardrailsRoutes);
 apiRouter.use('/onboarding/helper', onboardingHelperRoutes);
+apiRouter.use('/company-setup', companySetupRoutes);
 apiRouter.use('/video-tours', videoToursRoutes);
 apiRouter.use('/workspace', workspaceRoutes);
 apiRouter.use('/workspace', inboundAttachmentsRoutes);
@@ -483,6 +487,7 @@ apiRouter.use('/openclaw', openclawRoutes);
 apiRouter.use('/tools', toolsRoutes);
 apiRouter.use('/broadcast', broadcastRoutes);
 apiRouter.use('/kanban', kanbanRoutes);
+apiRouter.use('/scheduled-goals', scheduledGoalsRoutes);
 apiRouter.use('/job-applicant', jobApplicantRoutes);
 apiRouter.use('/agent-workflows/hooks', agentWorkflowHookRoutes);
 apiRouter.use('/agent-workflows/desktop/v1', agentWorkflowDesktopRoutes);
@@ -656,6 +661,21 @@ registerPlatformCron({
     const { tickScheduledWorkflows } = await import('./services/agent-workflow-scheduler.js');
     await tickScheduledWorkflows();
     return { ok: true };
+  },
+});
+
+const scheduledGoalsCron = process.env.SCHEDULED_GOALS_CRON || '* * * * *';
+registerPlatformCron({
+  id: 'scheduled_goals',
+  name: 'Scheduled goals',
+  description:
+    'CEO scheduled prompts: fires active goals at time_local to the target AI employee. Paused/deleted goals never fire (DB status only; survives restarts).',
+  schedule: scheduledGoalsCron,
+  envVar: 'SCHEDULED_GOALS_CRON',
+  handler: async () => {
+    const { tickScheduledGoals } = await import('./services/scheduled-goals.js');
+    const out = await tickScheduledGoals();
+    return out;
   },
 });
 

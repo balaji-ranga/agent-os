@@ -1886,6 +1886,62 @@ export function initDb() {
     _db.exec(`ALTER TABLE agents ADD COLUMN avatar_image TEXT DEFAULT ''`);
   } catch (_) {}
 
+  /**
+   * CEO scheduled goals/prompts — durable cadence owned by an AI employee.
+   * Pause/delete are DB-only (status); platform master tick never fires non-active rows after restart.
+   */
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS scheduled_goals (
+        id TEXT PRIMARY KEY,
+        owner_user_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        prompt TEXT NOT NULL,
+        agent_id TEXT NOT NULL,
+        cadence TEXT NOT NULL DEFAULT 'daily',
+        weekday INTEGER,
+        time_local TEXT NOT NULL DEFAULT '09:00',
+        timezone TEXT DEFAULT '',
+        ends_at TEXT,
+        status TEXT NOT NULL DEFAULT 'active',
+        last_run_at TEXT,
+        last_run_status TEXT,
+        last_run_error TEXT,
+        last_run_key TEXT,
+        run_count INTEGER DEFAULT 0,
+        source TEXT DEFAULT 'ceo',
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_scheduled_goals_owner ON scheduled_goals(owner_user_id, status)`
+    );
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_scheduled_goals_active ON scheduled_goals(status, time_local)`
+    );
+  } catch (_) {}
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS scheduled_goal_runs (
+        id TEXT PRIMARY KEY,
+        goal_id TEXT NOT NULL,
+        owner_user_id TEXT NOT NULL,
+        run_key TEXT NOT NULL,
+        status TEXT NOT NULL,
+        agent_id TEXT,
+        reply_preview TEXT,
+        error TEXT,
+        triggered_by TEXT DEFAULT 'schedule',
+        created_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(goal_id, run_key)
+      )
+    `);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_scheduled_goal_runs_goal ON scheduled_goal_runs(goal_id, created_at DESC)`
+    );
+  } catch (_) {}
+
   return _db;
 }
 

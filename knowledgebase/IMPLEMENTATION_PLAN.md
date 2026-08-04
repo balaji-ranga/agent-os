@@ -345,3 +345,18 @@ Create these under `skills/` in the Agent OS repo and reference them in backend 
 4. Proceed through Phases 2–5 in order, with testing and deployment in Phase 5.
 
 If you want, next we can turn this into a concrete task list (e.g. in GitHub Issues) or generate initial code stubs for Phase 1 (backend + adapter + one frontend page).
+
+---
+
+## AI Company OS — Form then Operate (product phases C–F)
+
+Historical phases 1–5 above remain platform foundation. Product-level **AI Company OS** lifecycle:
+
+| Phase | Day metaphor | Intent |
+|-------|--------------|--------|
+| **C** | Form Day 0 | Who we are (shipped) — see company setup |
+| **D** | Operate Day 0 **then** Day 1 | **Prerequisite:** interactive **operating model**; then install MD/workflows/systems for autonomous run |
+| **E** | Scale | Native APIs, multi-company, honest metrics |
+| **F** | Improve | Self-improve MD/workflows from learnings |
+
+Full plan: **[PHASE-D-E-F-OPERATE.md](./PHASE-D-E-F-OPERATE.md)** · messaging: **[AI-COMPANY-OS.md](./AI-COMPANY-OS.md)**.

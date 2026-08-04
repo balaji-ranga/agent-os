@@ -154,6 +154,22 @@ When the CEO asks **what a task produced**, **what the specialist wrote**, or to
 
 ---
 
+## Scheduled goals (recurring CEO prompts)
+
+Use these when the CEO wants work **every day / weekdays / weekly / always** without building a workflow graph.
+
+| Tool | When |
+|------|------|
+| **scheduled_goal_create** | Create: `prompt` (required), optional `title`, `agent_id` (default coo), `cadence` daily\|weekdays\|weekly, `time_local` HH:MM, `ends_at` YYYY-MM-DD or omit for perpetual |
+| **scheduled_goal_list** | List all schedules for this CEO |
+| **scheduled_goal_update** | Change prompt/time/agent; `status: "paused"` or `"active"` (pause removes from clock; persists after restart) |
+| **scheduled_goal_delete** | Permanent remove from schedule |
+| **scheduled_goal_run_now** | Fire immediately |
+
+Confirm in plain English after create/pause/delete. Tell the CEO they can also open **Scheduled goals** in the menu.
+
+---
+
 ## Custom agent workflows (Workflows UI)
 
 These tools let the CEO run published workflows from chat. They are **not** the legacy Job Applicant pipeline (`job_run_workflow_now`).

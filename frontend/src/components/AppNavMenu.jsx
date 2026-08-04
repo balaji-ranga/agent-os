@@ -69,8 +69,21 @@ export function CeoNavMenu({ collapsed }) {
       <NavSection title="Management" collapsed={collapsed}>
         <NavItem to="/org" end title="My Org" collapsed={collapsed} label="My Org" short="⌂" />
         <NavItem to="/kanban" title="Kanban" collapsed={collapsed} label="Kanban" short="K" />
+        <NavItem
+          to="/scheduled-goals"
+          title="Scheduled goals — recurring prompts for AI employees"
+          collapsed={collapsed}
+          label="Scheduled goals"
+          short="Sg"
+        />
         <NavItem to="/broadcast" title="Broadcast" collapsed={collapsed} label="Broadcast" short="Bc" />
-        <NavItem to="/master-data" title="Master Data" collapsed={collapsed} label="Master Data" short="MD" />
+        <NavItem
+          to="/master-data"
+          title="Company knowledge (Master Data)"
+          collapsed={collapsed}
+          label="Knowledge"
+          short="Kn"
+        />
         <NavItem
           to="/content-explorer"
           title="Content Explorer"
@@ -90,7 +103,7 @@ export function CeoNavMenu({ collapsed }) {
         <NavItem to="/job-workflows" title="Job workflows" collapsed={collapsed} label="Job workflows" short="JW" />
       </NavSection>
 
-      <NavSection title="Agentic Workflows" collapsed={collapsed}>
+      <NavSection title="Company OS" collapsed={collapsed}>
         <NavItem to="/workflows" title="Workflows" collapsed={collapsed} label="Workflows" short="Wf" />
         <NavItem to="/avatars" title="3D Avatars" collapsed={collapsed} label="3D Avatars" short="3D" />
         <NavItem
@@ -102,12 +115,12 @@ export function CeoNavMenu({ collapsed }) {
         />
         <NavItem
           to="/workspace"
-          title="Agent Workspaces"
+          title="AI Employees — hire and equip digital workers"
           collapsed={collapsed}
-          label="Agent Workspaces"
-          short="AW"
+          label="AI Employees"
+          short="AE"
         />
-        <NavItem to="/content-tools" title="Tools" collapsed={collapsed} label="Tools" short="Tl" />
+        <NavItem to="/content-tools" title="Tools your AI employees can use" collapsed={collapsed} label="Tools" short="Tl" />
         <NavItem to="/connectors" title="Connectors" collapsed={collapsed} label="Connectors" short="Cn" />
         <NavItem to="/integrations/mcp" title="MCP integrations" collapsed={collapsed} label="MCP" short="Mcp" />
         <NavItem
@@ -119,16 +132,16 @@ export function CeoNavMenu({ collapsed }) {
         />
         <NavItem
           to="/agent-exchange"
-          title="AgentExchange — published A2A agents"
+          title="AgentExchange — published A2A services"
           collapsed={collapsed}
           label="AgentExchange"
           short="AX"
         />
         <NavItem
           to="/integrations/external-agents"
-          title="External agents (A2A)"
+          title="External AI (A2A partners)"
           collapsed={collapsed}
-          label="External agents"
+          label="External AI"
           short="A2A"
         />
       </NavSection>
@@ -182,7 +195,7 @@ export function AdminNavMenu({ collapsed }) {
         {collapsed ? 'FB' : 'Platform feedback'}
       </NavLink>
 
-      <NavSection title="Agentic Workflows" collapsed={collapsed}>
+      <NavSection title="Company OS" collapsed={collapsed}>
         <NavItem to="/connectors" title="Connectors" collapsed={collapsed} label="Connectors" short="Cn" />
         <NavItem to="/integrations/mcp" title="MCP" collapsed={collapsed} label="MCP" short="M" />
         <NavItem
@@ -194,16 +207,16 @@ export function AdminNavMenu({ collapsed }) {
         />
         <NavItem
           to="/agent-exchange"
-          title="AgentExchange — published A2A agents"
+          title="AgentExchange — published A2A services"
           collapsed={collapsed}
           label="AgentExchange"
           short="AX"
         />
         <NavItem
           to="/integrations/external-agents"
-          title="External agents (A2A)"
+          title="External AI (A2A partners)"
           collapsed={collapsed}
-          label="External agents"
+          label="External AI"
           short="A2A"
         />
       </NavSection>

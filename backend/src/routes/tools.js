@@ -83,6 +83,14 @@ import { executeCeoProfile } from '../services/ceo-profile.js';
 import { applyProposal, getState as getOnboardingState, saveAgentProposal, saveDraft } from '../services/onboarding-helper.js';
 import { runCooStatusChecker } from '../services/coo-status-checker.js';
 import {
+  executeScheduledGoalCreate,
+  executeScheduledGoalList,
+  executeScheduledGoalUpdate,
+  executeScheduledGoalDelete,
+  executeScheduledGoalRunNow,
+  requireCoo as requireCooForScheduledGoals,
+} from '../services/scheduled-goal-tools.js';
+import {
   executeConnectorAction,
   getConnectedConnectorApps,
   getConnectorActionGuide,
@@ -1723,6 +1731,38 @@ router.post('/status-checker', optionalAuth, async (req, res) => {
     res.status(e.status || 500).json(err);
   }
 });
+
+function scheduledGoalHandler(toolName, executor, opts = {}) {
+  return async (req, res) => {
+    const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+    const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+    try {
+      if (opts.cooOnly !== false) {
+        const caller = getCallerAgent(req);
+        requireCooForScheduledGoals(caller);
+      }
+      const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
+      if (!ownerUserId) {
+        const err = { error: 'Could not resolve CEO user for this session' };
+        logTool(req, toolName, requestPayload, err, 'error', source);
+        return res.status(403).json(err);
+      }
+      const result = await executor(ownerUserId, requestPayload);
+      logTool(req, toolName, { ...requestPayload, owner_user_id: ownerUserId }, result, 'ok', source);
+      res.json(result && typeof result === 'object' ? result : { ok: true, result });
+    } catch (e) {
+      const err = { error: e.message };
+      logTool(req, toolName, requestPayload, err, 'error', source);
+      res.status(e.status || 500).json(err);
+    }
+  };
+}
+
+router.post('/scheduled-goal-create', optionalAuth, scheduledGoalHandler('scheduled_goal_create', executeScheduledGoalCreate));
+router.post('/scheduled-goal-list', optionalAuth, scheduledGoalHandler('scheduled_goal_list', executeScheduledGoalList));
+router.post('/scheduled-goal-update', optionalAuth, scheduledGoalHandler('scheduled_goal_update', executeScheduledGoalUpdate));
+router.post('/scheduled-goal-delete', optionalAuth, scheduledGoalHandler('scheduled_goal_delete', executeScheduledGoalDelete));
+router.post('/scheduled-goal-run-now', optionalAuth, scheduledGoalHandler('scheduled_goal_run_now', executeScheduledGoalRunNow));
 
 function resolveMasterDataOwnerOr403(req, res, toolName, requestPayload, source) {
   const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);

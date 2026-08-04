@@ -31,9 +31,11 @@ import AgentExchange from './pages/AgentExchange';
 import MasterData from './pages/MasterData';
 import ContentExplorer from './pages/ContentExplorer';
 import Onboarding from './pages/Onboarding';
+import CompanySetup from './pages/CompanySetup';
 import VideoTours from './pages/VideoTours';
 import ApiKeys from './pages/ApiKeys';
 import Policies from './pages/Policies';
+import ScheduledGoals from './pages/ScheduledGoals';
 import AiSnipper from './pages/AiSnipper';
 import EfficiencyView from './pages/EfficiencyView';
 import Avatars from './pages/Avatars';
@@ -48,6 +50,7 @@ import GlobalSearch from './components/GlobalSearch';
 import { AdminNavMenu, CeoNavMenu } from './components/AppNavMenu';
 import ImpersonationBanner from './components/ImpersonationBanner';
 import { useAuth } from './context/AuthContext';
+import { api } from './api';
 import { NotificationProvider } from './context/NotificationContext';
 import { userRoleTitle } from './utils/userRoleTitle.js';
 
@@ -80,9 +83,11 @@ function Shell() {
   const [isNarrow, setIsNarrow] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia('(max-width: 900px)').matches : false
   );
+  const [setupGatePending, setSetupGatePending] = useState(null);
 
   /** Workflow editor / run audit / VR use the full viewport — hide platform nav/topbar. */
   const focusMode =
+    location.pathname.startsWith('/company-setup') ||
     /^\/workflows\/[^/]+\/edit\/?$/.test(location.pathname) ||
     /^\/workflows\/runs\/[^/]+\/?$/.test(location.pathname) ||
     /^\/agents\/[^/]+\/virtual-room\/?$/.test(location.pathname) ||
@@ -112,6 +117,26 @@ function Shell() {
     return () => window.removeEventListener('keydown', onKey);
   }, [mobileNavOpen]);
 
+  useEffect(() => {
+    if (!user || user.role !== 'ceo') {
+      setSetupGatePending(false);
+      return undefined;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const gate = await api.companySetupGate();
+        if (!cancelled) setSetupGatePending(!!gate?.needs_gate);
+      } catch (e) {
+        console.warn('[App] company setup gate', e?.message || e);
+        if (!cancelled) setSetupGatePending(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, user?.role, location.pathname]);
+
   const menuCollapsed = isNarrow ? false : navCollapsed;
   if (loading) {
     return <div style={{ padding: '2rem' }}>Loading…</div>;
@@ -130,6 +155,16 @@ function Shell() {
     );
   }
 
+  if (
+    user.role === 'ceo' &&
+    setupGatePending === true &&
+    !location.pathname.startsWith('/company-setup') &&
+    location.pathname !== '/profile' &&
+    location.pathname !== '/login'
+  ) {
+    return <Navigate to="/company-setup" replace />;
+  }
+
   const closeMobileNav = () => setMobileNavOpen(false);
   const homePath = user.role === 'admin' ? '/admin' : '/';
   const isHomeRoute =
@@ -146,6 +181,9 @@ function Shell() {
   return (
     <NotificationProvider>
     <div className={`app-shell ${navCollapsed && !isNarrow ? 'nav-collapsed' : ''} ${mobileNavOpen ? 'mobile-nav-open' : ''} ${focusMode ? 'shell-focus-mode' : ''}`}>
+      <a href="#main-content" className="skip-link">
+        Skip to main content
+      </a>
       {!focusMode && mobileNavOpen && (
         <button
           type="button"
@@ -254,7 +292,7 @@ function Shell() {
             </div>
           </header>
         )}
-        <main className="app-main">
+        <main id="main-content" className="app-main" tabIndex={-1}>
           {!focusMode && <ImpersonationBanner />}
           <Routes>
             {user.role === 'admin' && (
@@ -292,10 +330,12 @@ function Shell() {
                 <Route path="/kanban" element={<Kanban />} />
                 <Route path="/master-data" element={<MasterData />} />
                 <Route path="/content-explorer" element={<ContentExplorer />} />
+                <Route path="/company-setup" element={<CompanySetup />} />
                 <Route path="/onboarding" element={<Onboarding />} />
                 <Route path="/video-tours" element={<VideoTours />} />
                 <Route path="/api-keys" element={<ApiKeys />} />
                 <Route path="/policies" element={<Policies />} />
+                <Route path="/scheduled-goals" element={<ScheduledGoals />} />
                 <Route path="/ai-snipper" element={<AiSnipper />} />
                 <Route path="/efficiency" element={<EfficiencyView />} />
                 <Route path="/job-workflows" element={<JobWorkflows />} />

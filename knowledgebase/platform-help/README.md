@@ -6,7 +6,7 @@
 | Doc | Topics |
 |-----|--------|
 | [01-getting-started.md](./01-getting-started.md) | Register, login, MFA, Profile / BYOK + **chat model** via **API Keys** |
-| [02-navigation-and-chrome.md](./02-navigation-and-chrome.md) | Left nav map (API Keys, **Content Explorer**, Efficiency, Connectors, Avatars, Published Scenes), bell, profile, Admin **Crons** / **A2A logs** / **Platform feedback** |
+| [02-navigation-and-chrome.md](./02-navigation-and-chrome.md) | Left nav map (**Scheduled goals**, Knowledge, API Keys, **Content Explorer**, Efficiency, Connectors, Avatars, Published Scenes), bell, profile, Admin **Crons** / **A2A logs** / **Platform feedback** |
 | [03-dashboard-agents-chat.md](./03-dashboard-agents-chat.md) | Org chart, chat **attachments**, inline auth media players, workspace MD, **templates** Apply/Publish, tools access, Resync |
 | [04-kanban-standups-broadcast.md](./04-kanban-standups-broadcast.md) | Kanban (agent-owned status), standups → COO, Broadcast, `notify_ceo` when/when-not |
 | [05-master-data-rag.md](./05-master-data-rag.md) | Tables, CSV, documents, RAG; **Inbound attachments**; **Purge all uploads**; protected Help/User Guide docs |
@@ -24,7 +24,7 @@
 | [16-connectors-openconnector.md](./16-connectors-openconnector.md) | **Connectors** SaaS apps + workflow Connector node + **Download local IBKR bridge** |
 | [17-desktop-windows-download.md](./17-desktop-windows-download.md) | **Download for Windows** — local orchestrator, tokens, IP whitelist (W2 execute) |
 | [18-agent-budgets-and-org-members.md](./18-agent-budgets-and-org-members.md) | Department purpose/budget, **agent token + error budgets** (warn-then-block), **Efficiency → Agent View**, external/A2A agents as org leaf members |
-| [19-scheduled-jobs-and-crons.md](./19-scheduled-jobs-and-crons.md) | Platform crons vs your own schedules, **COO status checker** (daily report + HTML email), **data retention** purge, Storage (MB) |
+| [19-scheduled-jobs-and-crons.md](./19-scheduled-jobs-and-crons.md) | Platform crons vs your own schedules, **COO status checker** (daily report + HTML email), **data retention** purge, Storage (MB); points to **Scheduled goals** |
 | [20-ibkr-monthly-trading.md](./20-ibkr-monthly-trading.md) | **IBKR Monthly Positive Return**: W1–W5, Variables (`daily_budget_usd`), Connectors bridge download, learnings from cancels/fills |
 | [21-external-tools-and-apis.md](./21-external-tools-and-apis.md) | **External tools & APIs** needing keys; content-tool delivery (`MEDIA:` + auth `/api/media`) |
 | [22-browser-session-and-recipes.md](./22-browser-session-and-recipes.md) | **Browser Session**, Client Chrome relay, `browse_*` tools, recipes list/run, tool access, chat thumbs → learnings |
@@ -33,6 +33,7 @@
 | [25-speech-and-published-scenes.md](./25-speech-and-published-scenes.md) | **Published Scenes** public `/p/vr/:slug`, free Whisper STT + Piper TTS, guest VR tokens vs `MEDIA_PUBLIC_SIGNED`, `speech_stt` / `speech_tts` |
 | [26-content-explorer.md](./26-content-explorer.md) | **Content Explorer** — browse/preview/download uploaded + generated files |
 | [27-onboarding-helper.md](./27-onboarding-helper.md) | **Onboarding Helper** — chat save/apply tools, selective Review cards, **E2E prompt recipes** (MarketWatcher + Workflow Builder Ollama loop) |
+| [28-scheduled-goals.md](./28-scheduled-goals.md) | **Scheduled goals** — recurring CEO prompts to COO/AI employees (page + COO tools); pause survives restarts |
 
 **Video Tours (UI):** User menu → **Help → Video Tours** (/video-tours) — playlist of short CEO tours (script/captions now; mp4 when exported). Not ingested as RAG docs.
 

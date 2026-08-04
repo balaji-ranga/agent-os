@@ -177,6 +177,7 @@ if ($Services -match "backend|openclaw") {
   scp @ssh `
     "$Repo\backend\package.json" `
     "$Repo\backend\package-lock.json" `
+    "$Repo\backend\.env.example" `
     "root@${HostIp}:$RemoteRoot/backend/"
   scp @ssh `
     "$Repo\backend\scripts\sync-agent-channels-to-openclaw.js" `
@@ -192,6 +193,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\export-video-tours.js" `
     "$Repo\backend\scripts\video-tours-storyboards.js" `
     "$Repo\backend\scripts\video-tours-render-slides.js" `
+    "$Repo\backend\scripts\_smoke-scheduled-goals.mjs" `
     "$Repo\backend\scripts\test-platform-help-seed.js" `
     "$Repo\backend\scripts\reupload-platform-help-docs.js" `
     "$Repo\backend\scripts\test-platform-help-rag.js" `

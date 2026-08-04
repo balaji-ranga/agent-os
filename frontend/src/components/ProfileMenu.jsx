@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { userRoleTitle } from '../utils/userRoleTitle.js';
@@ -69,17 +69,30 @@ export default function ProfileMenu({ user, logout, onNavigate }) {
             </div>
           </div>
           {isCeo && (
-            <NavLink
-              to="/onboarding"
-              role="menuitem"
-              className="profile-menu-item"
-              onClick={() => {
-                close();
-                onNavigate?.();
-              }}
-            >
-              Onboarding
-            </NavLink>
+            <>
+              <NavLink
+                to="/company-setup"
+                role="menuitem"
+                className="profile-menu-item"
+                onClick={() => {
+                  close();
+                  onNavigate?.();
+                }}
+              >
+                Company setup
+              </NavLink>
+              <NavLink
+                to="/onboarding"
+                role="menuitem"
+                className="profile-menu-item"
+                onClick={() => {
+                  close();
+                  onNavigate?.();
+                }}
+              >
+                Onboarding
+              </NavLink>
+            </>
           )}
           <NavLink
             to="/profile"

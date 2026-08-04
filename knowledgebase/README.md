@@ -6,9 +6,12 @@ Documentation lives here so Cursor and humans can find it. **Root README.md** st
 
 | File | Purpose |
 |------|---------|
-| **VISION.md** | Product purpose, vision, core strengths, differentiator, and strategic focuses (agent company OS + governed A2A). |
-| **PITCH.md** | One-pager pitch: problem, solution, differentiators, audience, and success journey (from VISION). |
-| **platform-help/** | CEO end-user Platform Help corpus (RAG; **11** Tools + **Tools → Model** + media / attachments / platform feedback; **20–26**: IBKR, external tools, browser session, avatars, channels + MEDIA inbound/outbound, speech/published scenes, **Content Explorer**) |
+| **AI-COMPANY-OS.md** | **Canonical** category (AI Company OS), golden messaging layers, terminology (AI employee vs agent API), OS primitives, screen map, design rule for new features, Phase A–F roadmap. Refer for portal/website copy. |
+| **PHASE-D-E-F-OPERATE.md** | Phase D Day 0 operating model + Day 1 autonomy install; Phase E harden; Phase F self-improve. |
+
+| **VISION.md** | Product purpose, vision, core strengths, differentiator, and strategic focuses (AI Company OS + governed A2A). |
+| **PITCH.md** | One-pager pitch: problem, solution, differentiators, audience, and success journey (from VISION + AI-COMPANY-OS). |
+| **platform-help/** | CEO end-user Platform Help corpus (RAG; **11** Tools + **Tools → Model** + media / attachments / platform feedback; **19–20** crons + IBKR; **21–27** external tools through onboarding; **28** Scheduled goals) |
 | **AGENT-WORKSPACE-TEMPLATES.md** | Platform-shared agent workspace MD templates: apply in Agent Workspace, Admin CRUD, CEO publish-as-template. |
 | **TESTING.md** | Restart steps, full API test, frontend manual tests, smoke test, standup→COO→TechResearcher test, standup UI checklist. |
 | **GITHUB-SETUP.md** | One-time: create agent-os repo on GitHub and push (Options A/B, security check). |
@@ -49,3 +52,4 @@ Documentation lives here so Cursor and humans can find it. **Root README.md** st
 | [CONTENT-CREATION-ORG-BLUEPRINT.md](./CONTENT-CREATION-ORG-BLUEPRINT.md) | Future content-studio org + agent/workflow map |
 | [ONBOARDING-HELPER-PLAN.md](./ONBOARDING-HELPER-PLAN.md) | Onboarding Helper plan (UI + OpenClaw bridge) |
 | [platform-help/27-onboarding-helper.md](./platform-help/27-onboarding-helper.md) | CEO help: selective apply + E2E chat prompt recipes |
+| [platform-help/28-scheduled-goals.md](./platform-help/28-scheduled-goals.md) | CEO help: recurring prompts (list / pause / run now; COO tools) |

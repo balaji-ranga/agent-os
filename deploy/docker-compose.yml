@@ -156,6 +156,8 @@ x-backend-env: &backend-env
   JOB_PIPELINE_CRON_SCHEDULE: ${JOB_PIPELINE_CRON_SCHEDULE:-}
   COO_STATUS_CHECKER_CRON: ${COO_STATUS_CHECKER_CRON:-}
   DATA_RETENTION_CRON: ${DATA_RETENTION_CRON:-}
+  KANBAN_ORPHAN_WATCHER_CRON: ${KANBAN_ORPHAN_WATCHER_CRON:-}
+  SCHEDULED_GOALS_CRON: ${SCHEDULED_GOALS_CRON:-}
   # Timezone for cron expressions + chat day boundaries (default UTC)
   TZ: ${TZ:-UTC}
   # Timezone used to render dates for users (Kanban, task chat, reports); falls back to TZ

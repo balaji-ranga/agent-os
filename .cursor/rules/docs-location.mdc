@@ -8,14 +8,17 @@ alwaysApply: true
 
 - **Main entry:** `agent-os/README.md` (quick start, API, DB scripts, project layout).
 - **All other docs** are under **`agent-os/knowledgebase/`**:
+  - **knowledgebase/AI-COMPANY-OS.md** — **Canonical** AI Company OS messaging, terminology (AI employee vs agent API), OS primitives, screen map, design rule for new features, Phase A–F roadmap. Use for website, portal copy, nav labels, and positioning.
+  - **knowledgebase/PHASE-D-E-F-OPERATE.md** — Operate track: Day 0 operating model, Day 1 autonomy install, Phase E/F.
+  - **knowledgebase/VISION.md** — product purpose, vision, strengths, differentiator, focuses.
+  - **knowledgebase/PITCH.md** — one-pager pitch (aligned with AI-COMPANY-OS layers).
   - **knowledgebase/TESTING.md** — restart steps, API test, frontend tests, standup→COO→TechResearcher test, standup UI checklist.
   - **knowledgebase/GITHUB-SETUP.md** — create GitHub repo and push.
   - **knowledgebase/IMPLEMENTATION_PLAN.md** — vision, phases, skills, TTS, token monitoring.
   - **knowledgebase/AGENT_REVIEW_AND_SKILLS.md** — agent review and secure skill recommendations.
   - **knowledgebase/CONFIGURE-CLAUDE-OPUS.md** — OpenClaw model config (e.g. Claude Opus).
 - **Index:** `knowledgebase/README.md` lists all knowledgebase files.
-- **Product vision:** `knowledgebase/VISION.md` — purpose, vision, strengths, differentiator, focuses.
 - **Do not move:** `openclaw-workspace-templates/`, `openclaw-skills/` (scripts use these paths). `.cursor/agents/` holds subagent instructions.
 
-When answering questions about testing, GitHub setup, implementation plan, agents/skills, or OpenClaw model config, refer to the corresponding file in `knowledgebase/`.
+When answering questions about product positioning, AI employee vs agent wording, OS primitives, testing, GitHub setup, implementation plan, agents/skills, or OpenClaw model config, refer to the corresponding file in `knowledgebase/`.
 - **knowledgebase/CLIENT-BROWSER-SESSION.md** + **platform-help/22-browser-session-and-recipes.md** — Browser Session, browse_* tools, OpenClaw browser-cdp redeploy.

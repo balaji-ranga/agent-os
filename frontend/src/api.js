@@ -495,6 +495,14 @@ export const api = {
   onboardingHelperApply: (selected) => post('/onboarding/helper/apply', { confirm_override: true, selected }),
   onboardingHelperUpdateSelection: (selected_apply) => put('/onboarding/helper/selected-apply', { selected_apply }),
   onboardingHelperReset: () => post('/onboarding/helper/reset', {}),
+  companySetupGate: () => get('/company-setup/gate'),
+  companySetupSkip: () => post('/company-setup/skip', {}),
+  companySetupBegin: () => post('/company-setup/begin', {}),
+  companySetupFunnel: () => get('/company-setup/funnel'),
+  companySetupSaveFunnel: (body) => put('/company-setup/funnel', body),
+  companySetupApply: (selected) => post('/company-setup/apply', { confirm_override: true, selected }),
+  companySetupDesign: () => post('/company-setup/design', {}),
+  companySetupConnectorSearch: (q) => get(`/company-setup/connectors/search?q=${encodeURIComponent(q || '')}`),
   videoToursList: () => get('/video-tours'),
   videoToursGet: (stem) => get(`/video-tours/${encodeURIComponent(stem)}`),
   videoToursVideoUrl: (stem) => `${API_BASE}/video-tours/${encodeURIComponent(stem)}/video`,
@@ -929,4 +937,19 @@ export const api = {
   customScriptDelete: (id) => del(`/integrations/custom-scripts/${encodeURIComponent(id)}`),
   customScriptExecute: (id, body = {}) =>
     post(`/integrations/custom-scripts/${encodeURIComponent(id)}/execute`, body),
+
+  // Scheduled goals (recurring CEO prompts → agents)
+  scheduledGoalsList: (params = {}) => {
+    const sp = new URLSearchParams();
+    if (params.status) sp.set('status', params.status);
+    const q = sp.toString();
+    return get(q ? `/scheduled-goals?${q}` : '/scheduled-goals');
+  },
+  scheduledGoalsGet: (id) => get(`/scheduled-goals/${encodeURIComponent(id)}`),
+  scheduledGoalsCreate: (body) => post('/scheduled-goals', body),
+  scheduledGoalsUpdate: (id, body) => patch(`/scheduled-goals/${encodeURIComponent(id)}`, body),
+  scheduledGoalsPause: (id) => post(`/scheduled-goals/${encodeURIComponent(id)}/pause`, {}),
+  scheduledGoalsResume: (id) => post(`/scheduled-goals/${encodeURIComponent(id)}/resume`, {}),
+  scheduledGoalsRunNow: (id) => post(`/scheduled-goals/${encodeURIComponent(id)}/run-now`, {}),
+  scheduledGoalsDelete: (id) => del(`/scheduled-goals/${encodeURIComponent(id)}`),
 };

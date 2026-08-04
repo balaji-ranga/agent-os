@@ -31,6 +31,7 @@ every deploy).
 | `COO_STATUS_CHECKER_CRON` | `0 9 * * *` (09:00 daily) | **COO status checker** digest | For each enabled CEO: builds that CEO's Kanban/A2A digest, posts it into their standup chat, **and emails the HTML report** (email only on this batch path). Counts are **all ages** (same as Kanban **All** view — not the Weekly filter). |
 | `DATA_RETENTION_CRON` | `15 3 * * *` (03:15 daily) | **Data retention purge** | For each enabled CEO: deletes data older than **that user's** `data_retention_days` (Profile setting) |
 | `KANBAN_ORPHAN_WATCHER_CRON` | `*/5 * * * *` (every 5 min) | **Kanban orphan watcher** | Re-pends specialty delegations stuck in `processing` (after OpenClaw fetch timeout + ~60s, or `DELEGATION_SPECIALTY_PROCESSING_TIMEOUT_MS`), requeues status-only cards, reinitiates orphan `open`/`in_progress`/`failed` specialty cards, then **immediately kicks the pending delegation worker** so Admin "Run now" does not wait for the minute cron. Caps retries via `KANBAN_ORPHAN_MAX_RETRIES`. |
+| `SCHEDULED_GOALS_CRON` | `* * * * *` (every minute) | **Scheduled goals** dispatcher | For each enabled CEO: fires **active** scheduled prompts to the chosen AI employee when local `time_local` matches. **Paused** / **deleted** goals never fire (DB status only — survives restarts). |
 
 Admin operators can **list / pause / resume / Run now** every platform cron under **Admin → Crons** (`/admin/crons`). Pause state persists across restarts.
 
@@ -54,12 +55,14 @@ crashing the process; the startup log prints each active schedule.
 | Where | Setting | Effect |
 |-------|---------|--------|
 | **Kanban / Standups** → standup | Scheduled time (`scheduled_at`) | Your standup auto-runs daily at that time and delegates outcomes via the COO |
+| **Scheduled goals** (`/scheduled-goals`) | Active goal + time / cadence | Saves a CEO prompt that auto-fires to COO or another AI employee (also creatable via COO chat). Pause/delete turns the schedule off across restarts. Full CEO guide: [28-scheduled-goals.md](./28-scheduled-goals.md) |
 | **Workflows** → editor → trigger | `schedule_cron` + `schedule` trigger mode | Your workflow starts when its cron is due; pause removes it from the registry |
 | **Job workflows** → profile | `workflow_schedule` = hourly / daily / weekly | Discovery + pipeline stages run at that cadence |
 | **Profile** → Data persistence | `data_retention_days` = 30 / 60 / 90 / 120 / 365 (**default 90**) | Nightly purge window for your chat turns, standup messages and workflow runs |
 
 Manual equivalents (no waiting for the clock):
 
+- **Scheduled goals → Run now** — fire a saved goal immediately (or ask the COO).
 - **Dashboard → Run status checker** — builds your report now, pops it up as an HTML page, and posts
   to the standup. Email is sent **only** by the daily batch cron (not by this button).
   COO-entitled (`status_checker` content tool), CEO-scoped.

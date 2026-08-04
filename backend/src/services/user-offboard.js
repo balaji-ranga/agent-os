@@ -166,6 +166,8 @@ function purgeOwnerScopedRows(db, ownerUserId) {
   for (const sid of standupIds) {
     counts.kanban_tasks += tryRun(db, `DELETE FROM kanban_tasks WHERE standup_id = ?`, [sid]);
   }
+  counts.scheduled_goal_runs = tryRun(db, `DELETE FROM scheduled_goal_runs WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.scheduled_goals = tryRun(db, `DELETE FROM scheduled_goals WHERE owner_user_id = ?`, [ownerUserId]);
   counts.standups = tryRun(db, `DELETE FROM standups WHERE owner_user_id = ?`, [ownerUserId]);
 
   // Chat / tools / feedback / notifications

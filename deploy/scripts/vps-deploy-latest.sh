@@ -106,6 +106,7 @@ echo "              department purpose + monthly_token_budget (Master Data depar
 echo "              agent monthly token + error budgets (token_usage ledger, warn-then-block),"
 echo "              Efficiency View Org / Department / Agent tabs + Reset usage (MTD tokens → 0),"
 echo "              Org Storage (MB); COO status_checker (standup+HTML email; cron+Dashboard);"
+echo "              Scheduled goals (CEO prompts → agents; SCHEDULED_GOALS_CRON; pause persists);"
 echo "              data retention days (profile) + daily purge (chats/workflows + Content Explorer media),"
 echo "              Content Explorer hard-delete (selected/all) + storage includes media/generated/<ceo>,"
 echo "              Profile LLM catalog (provider+model) + OPENAI_BYOK_MODEL soft fallback,"
@@ -650,6 +651,15 @@ if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/vps-t
   docker compose exec -T -w /opt/agent-os/backend backend node scripts/vps-test-status-retention.js >/tmp/status-retention.log 2>&1 \
     && echo "    status checker + retention + storage API OK" \
     || echo "    WARN: status/retention API check failed (see /tmp/status-retention.log)"
+fi
+if [[ -f "$ROOT/deploy/scripts/vps-verify-scheduled-goals.sh" ]]; then
+  sed -i 's/\r$//' "$ROOT/deploy/scripts/vps-verify-scheduled-goals.sh" 2>/dev/null || true
+  if bash "$ROOT/deploy/scripts/vps-verify-scheduled-goals.sh" >/tmp/scheduled-goals-verify.log 2>&1; then
+    echo "    scheduled goals verify OK"
+  else
+    echo "    WARN: scheduled goals verify failed (see /tmp/scheduled-goals-verify.log)"
+    tail -20 /tmp/scheduled-goals-verify.log 2>/dev/null || true
+  fi
 fi
 if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-standup-get-work-from-team.js 2>/dev/null; then
   docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-standup-get-work-from-team.js >/tmp/get-work.log 2>&1 \

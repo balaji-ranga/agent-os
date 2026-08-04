@@ -423,6 +423,67 @@ const BUILTIN_TOOLS = [
     is_builtin: 1,
   },
   {
+    name: 'scheduled_goal_create',
+    display_name: 'Scheduled Goal — Create',
+    endpoint: '/api/tools/scheduled-goal-create',
+    method: 'POST',
+    purpose:
+      'API tool (COO): create a recurring CEO prompt that auto-fires to an AI employee. ' +
+      'Use when the CEO says every day / weekdays / weekly / schedule / always do X. ' +
+      'Parameters: prompt (required — exact CEO instructions), title?, agent_id? (default coo/balserve), ' +
+      'cadence (daily|weekdays|weekly), time_local (HH:MM, default 09:00), weekday? (0=Sun..6=Sat for weekly), ' +
+      'ends_at? (YYYY-MM-DD or "perpetual"). Owner is session-scoped. Confirm to CEO in plain language.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'scheduled_goal_list',
+    display_name: 'Scheduled Goal — List',
+    endpoint: '/api/tools/scheduled-goal-list',
+    method: 'POST',
+    purpose:
+      'API tool (COO): list this CEO\'s scheduled goals/prompts (status, target agent, schedule, perpetual vs ends). ' +
+      'Optional status=active|paused|completed. Use when CEO asks what is scheduled or which goals run on a cadence.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'scheduled_goal_update',
+    display_name: 'Scheduled Goal — Update / Pause / Resume',
+    endpoint: '/api/tools/scheduled-goal-update',
+    method: 'POST',
+    purpose:
+      'API tool (COO): update a scheduled goal. Pass goal_id (or query title). Patch: title, prompt, agent_id, cadence, time_local, ends_at, ' +
+      'status ("paused" removes from schedule; "active" resumes — persists across restarts). Prefer status pause/resume over delete when temporary.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'scheduled_goal_delete',
+    display_name: 'Scheduled Goal — Delete',
+    endpoint: '/api/tools/scheduled-goal-delete',
+    method: 'POST',
+    purpose:
+      'API tool (COO): permanently delete a scheduled goal (stops schedule; survives restart). Parameters: goal_id or query (title match).',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'scheduled_goal_run_now',
+    display_name: 'Scheduled Goal — Run Now',
+    endpoint: '/api/tools/scheduled-goal-run-now',
+    method: 'POST',
+    purpose:
+      'API tool (COO): fire a scheduled goal immediately (even if paused) without waiting for the clock. Parameters: goal_id or query.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
     name: 'master_data_list_tables',
     display_name: 'Master Data — List Tables',
     endpoint: '/api/tools/master-data-list-tables',
@@ -609,6 +670,7 @@ const ONBOARDING_PROPOSAL_TOOLS = BUILTIN_TOOLS.filter((t) =>
 );
 const CEO_PROFILE_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'ceo_profile');
 const STATUS_CHECKER_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'status_checker');
+const SCHEDULED_GOAL_TOOLS = BUILTIN_TOOLS.filter((t) => String(t.name).startsWith('scheduled_goal_'));
 const CONNECTOR_TOOLS = BUILTIN_TOOLS.filter((t) => String(t.name).startsWith('connector_'));
 const MASTER_DATA_TOOLS = BUILTIN_TOOLS.filter(
   (t) => String(t.name).startsWith('master_data_') || t.name === 'list_inbound_attachments'
@@ -805,6 +867,30 @@ export function seedStatusCheckerToolIfMissing() {
   );
   for (const t of STATUS_CHECKER_TOOLS) {
     update.run(t.purpose, t.display_name, t.endpoint, t.method, t.name);
+  }
+}
+
+/** Add scheduled goal tools if missing (COO; for existing DBs). */
+export function seedScheduledGoalToolsIfMissing() {
+  const db = getDb();
+  const stmt = db.prepare(
+    `INSERT OR IGNORE INTO content_tools_meta (name, display_name, endpoint, method, purpose, model_used, enabled, is_builtin)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  const update = db.prepare(
+    'UPDATE content_tools_meta SET purpose = ?, display_name = ?, endpoint = ?, method = ? WHERE name = ?'
+  );
+  for (const t of SCHEDULED_GOAL_TOOLS) {
+    stmt.run(t.name, t.display_name, t.endpoint, t.method, t.purpose, t.model_used, t.enabled, t.is_builtin);
+    update.run(t.purpose, t.display_name, t.endpoint, t.method, t.name);
+  }
+  // Grant to all COO agents
+  const ins = db.prepare('INSERT OR IGNORE INTO agent_tool_grants (agent_id, tool_name) VALUES (?, ?)');
+  const coos = db.prepare('SELECT id FROM agents WHERE is_coo = 1').all();
+  for (const a of coos) {
+    for (const t of SCHEDULED_GOAL_TOOLS) {
+      ins.run(a.id, t.name);
+    }
   }
 }
 
