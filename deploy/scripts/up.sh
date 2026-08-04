@@ -30,6 +30,10 @@ if [[ -f scripts/ensure-voice-env.sh ]]; then
   sed -i 's/\r$//' scripts/ensure-voice-env.sh 2>/dev/null || true
   bash scripts/ensure-voice-env.sh "${DEPLOY_DIR}/.env" || true
 fi
+if [[ -f scripts/ensure-embeddings-env.sh ]]; then
+  sed -i 's/\r$//' scripts/ensure-embeddings-env.sh 2>/dev/null || true
+  bash scripts/ensure-embeddings-env.sh "${DEPLOY_DIR}/.env" || true
+fi
 
 # OpenSearch requires elevated mmap counts (Linux hosts / VPS).
 if command -v sysctl >/dev/null 2>&1; then

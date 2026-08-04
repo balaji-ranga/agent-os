@@ -61,6 +61,11 @@ if [[ -f "$ROOT/deploy/scripts/ensure-voice-env.sh" ]]; then
   # Env keys first; containers after image build (VOICE_BUILD=0 here — started below)
   VOICE_BUILD=0 bash "$ROOT/deploy/scripts/ensure-voice-env.sh" "$ROOT/deploy/.env" || true
 fi
+if [[ -f "$ROOT/deploy/scripts/ensure-embeddings-env.sh" ]]; then
+  sed -i 's/\r$//' "$ROOT/deploy/scripts/ensure-embeddings-env.sh" 2>/dev/null || true
+  # Env keys first; start/build embeddings container below
+  EMBEDDINGS_BUILD=0 SKIP_EMBEDDINGS=1 bash "$ROOT/deploy/scripts/ensure-embeddings-env.sh" "$ROOT/deploy/.env" || true
+fi
 
 # OpenSearch requires elevated mmap counts
 if [[ "$(id -u)" -eq 0 ]] || command -v sudo >/dev/null 2>&1; then
@@ -115,6 +120,7 @@ echo "              Published Scenes (/p/vr/:slug) + public VR APIs,"
 echo "              Slack/WhatsApp agent channels wizard (vault + OpenClaw bindings),"
 echo "              WhatsApp groupPolicy=disabled by default (blocks @g.us before media),"
 echo "              free STT/TTS optional-voice (whisper+piper; ensure-voice-env.sh + SPEECH_*)"
+echo "              local Qwen embeddings (optional-embeddings; ensure-embeddings-env.sh; no OpenAI)"
 echo "              CEO home chat (COO default) + My Org (/org); Profile role_title display label"
 echo "              Chat history/browser panes closed by default (icon toggles);"
 echo "              COO SOUL inbound list→index→RAG + org-context tools line;"
@@ -199,6 +205,13 @@ if [[ -f "$ROOT/deploy/scripts/ensure-voice-env.sh" && "${SKIP_VOICE:-0}" != "1"
   echo "==> optional-voice (whisper + piper TTS)"
   docker compose --profile optional-voice build "${BUILD_ARGS[@]}" piper || echo "WARN: piper build failed"
   docker compose --profile optional-voice up -d whisper piper || echo "WARN: optional-voice up failed"
+fi
+
+# Local Qwen embeddings for OpenSearch hybrid RAG (no OpenAI)
+if [[ -f "$ROOT/deploy/scripts/ensure-embeddings-env.sh" && "${SKIP_EMBEDDINGS:-0}" != "1" ]]; then
+  echo "==> optional-embeddings (Qwen/Qwen3-Embedding-0.6B)"
+  docker compose --profile optional-embeddings build "${BUILD_ARGS[@]}" embeddings || echo "WARN: embeddings build failed"
+  EMBEDDINGS_BUILD=0 bash "$ROOT/deploy/scripts/ensure-embeddings-env.sh" "$ROOT/deploy/.env" || echo "WARN: embeddings ensure failed"
 fi
 
 echo "==> refresh OpenClaw chrome-extension asset (Browser Session download)"

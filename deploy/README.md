@@ -216,8 +216,10 @@ Gets the same gateway LLM vars plus:
 | `OPENSEARCH_URL` | Internal URL only: `http://opensearch:9200` (never publish host ports) |
 | `OPENSEARCH_DASHBOARDS_URL` | Internal Dashboards: `http://opensearch-dashboards:5601`; browser uses `/opensearch/` BFF |
 | `OPENSEARCH_USERNAME` / `OPENSEARCH_PASSWORD` | Optional basic auth if you enable the security plugin later (compose default: security disabled, network isolation) |
-| `OPENSEARCH_EMBEDDINGS_ENABLED` | `0` = BM25 only (default; works with DeepSeek). `1` = hybrid BM25+kNN when `/embeddings` works |
-| `OPENSEARCH_EMBEDDING_MODEL` / `OPENSEARCH_EMBEDDING_DIMS` | Embedding model + vector size (default `text-embedding-3-small` / `1536`) |
+| `OPENSEARCH_EMBEDDINGS_ENABLED` | `1` = hybrid BM25+kNN via **local Qwen** (default). `0` = BM25 only |
+| `OPENSEARCH_EMBEDDING_BASE_URL` | Embeddings HTTP base (default `http://embeddings:8080/v1`) — **not** OpenAI cloud |
+| `OPENSEARCH_EMBEDDING_MODEL` / `OPENSEARCH_EMBEDDING_DIMS` | Default `Qwen/Qwen3-Embedding-0.6B` / `1024` |
+| `OPENSEARCH_EMBEDDING_API_KEY` | Optional bearer (default `local`; local server does not require a real key) |
 | `OPENSEARCH_JAVA_OPTS` | Heap for OpenSearch container (default `-Xms512m -Xmx512m`) |
 | `WORKFLOW_FS_ROOTS` | Allowed roots for filesystem workflow nodes (default `/data/workflow-fs`) |
 | `WORKFLOW_CERTIFY_USE_LLM_CHECKER` | Autonomous Maker/Checker certify: `0`/unset = LLM Checker **OFF** (default; deterministic Checker always runs). `1` = enable soft LLM Checker (secondary model unless `WORKFLOW_CERTIFY_CHECKER_MODEL` set) |
@@ -255,6 +257,7 @@ Fresh machine checklist (after `cp .env.example .env`):
 ```bash
 # From deploy/
 bash scripts/ensure-opensearch-env.sh .env   # also run by up.sh / vps-deploy-latest.sh
+bash scripts/ensure-embeddings-env.sh .env   # local Qwen (optional-embeddings); SKIP_EMBEDDINGS=1 to skip
 # Persist mmap (once per host):
 #   echo 'vm.max_map_count=262144' | sudo tee -a /etc/sysctl.conf && sudo sysctl -p
 ./scripts/up.sh
@@ -267,10 +270,11 @@ After changing OpenSearch env, recreate backend (+ nginx if proxy paths changed)
 
 ```bash
 docker compose up -d opensearch opensearch-dashboards
+docker compose --profile optional-embeddings up -d --build embeddings
 docker compose up -d --force-recreate backend nginx
 ```
 
-Optional embeddings: set `OPENSEARCH_EMBEDDINGS_ENABLED=1` only when `OPENAI_*` reaches an OpenAI-compatible `/embeddings` endpoint, recreate backend, then **Reindex all** in Master Data / Admin Documents RAG.
+Local Qwen embeddings: `bash deploy/scripts/ensure-embeddings-env.sh` starts Compose profile `optional-embeddings` (`Qwen/Qwen3-Embedding-0.6B`, 1024-d, no OpenAI keys). Backend uses `OPENSEARCH_EMBEDDING_BASE_URL=http://embeddings:8080/v1`. After first enable or dim change, **Reindex all** in Master Data / Admin Documents RAG (existing OpenSearch indices may still be 1536-d from older OpenAI config — those search indices are recreated on next index when dims mismatch).
 After changing keys in `.env`:
 
 ```bash

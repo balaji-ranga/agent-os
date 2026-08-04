@@ -35,7 +35,8 @@ export function searchIndexName(ownerUserId) {
 
 export function embeddingDims() {
   const n = Number(process.env.OPENSEARCH_EMBEDDING_DIMS);
-  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 1536;
+  // Default 1024 matches local Qwen/Qwen3-Embedding-0.6B (not OpenAI 1536).
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 1024;
 }
 
 async function indexExists(name) {
@@ -132,6 +133,8 @@ async function createIndexIfMissing(name, body) {
 
 /**
  * Ensure meta + search indices exist for an owner (idempotent).
+ * Recreates search index when knn_vector dimension no longer matches env
+ * (e.g. openAI 1536 → local Qwen 1024).
  * @param {string} ownerUserId
  */
 export async function ensureOwnerIndices(ownerUserId) {
@@ -139,7 +142,33 @@ export async function ensureOwnerIndices(ownerUserId) {
   if (!owner) throw new Error('ownerUserId required');
   const dims = embeddingDims();
   const meta = await createIndexIfMissing(metaIndexName(owner), metaMapping());
-  const search = await createIndexIfMissing(searchIndexName(owner), searchMapping(dims));
+  const sName = searchIndexName(owner);
+  if (await indexExists(sName)) {
+    try {
+      const mapping = await opensearchRequest('GET', `/${sName}/_mapping`, null, {
+        timeoutMs: 15000,
+      });
+      const props =
+        mapping?.[sName]?.mappings?.properties ||
+        mapping?.mappings?.properties ||
+        {};
+      const mappedDim = Number(props?.embedding?.dimension);
+      if (Number.isFinite(mappedDim) && mappedDim > 0 && mappedDim !== dims) {
+        console.warn(
+          '[opensearch] search index %s dim %s != configured %s — recreating',
+          sName,
+          mappedDim,
+          dims
+        );
+        await opensearchRequest('DELETE', `/${sName}`, null, { timeoutMs: 60000 });
+      }
+    } catch (e) {
+      if (e?.status !== 404) {
+        console.warn('[opensearch] mapping check failed for %s: %s', sName, e?.message || e);
+      }
+    }
+  }
+  const search = await createIndexIfMissing(sName, searchMapping(dims));
   return { meta, search, dims };
 }
 

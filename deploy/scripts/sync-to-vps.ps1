@@ -68,7 +68,7 @@
 # COO delegation to them (budgets enforced before enqueue/cron), A2A visibility public|private (private = org COO/reports-to only),
 # Master Data Purge all uploads (CEO uploads only; Platform Help + User Guide protected from delete/purge),
 # OpenSearch document RAG (compose opensearch + dashboards; per-user + platform indices;
-# Admin Documents RAG + /opensearch/ BFF; ensure-opensearch-env.sh; BM25 default / optional embeddings),
+# Admin Documents RAG + /opensearch/ BFF; ensure-opensearch-env.sh; local Qwen embeddings),
 # agent delete cascade (transactional, clears kanban assignments) + deleted_agents tombstone
 # (startup catalog re-grant and OpenClaw sync no longer resurrect a deleted agent),
 # Browser Session + browse_* tools (recipe list/run, browser-cdp, Client Chrome relay),
@@ -157,6 +157,7 @@ scp @ssh `
   "$Repo\deploy\scripts\ensure-opensearch-env.sh" `
   "$Repo\deploy\scripts\ensure-docker-tools-env.sh" `
   "$Repo\deploy\scripts\ensure-voice-env.sh" `
+  "$Repo\deploy\scripts\ensure-embeddings-env.sh" `
   "$Repo\deploy\scripts\enable-docker-tools-on-vps.sh" `
   "$Repo\deploy\scripts\vps-smoke-brave-byok.sh" `
   "$Repo\deploy\scripts\configure-openclaw-docker.js" `

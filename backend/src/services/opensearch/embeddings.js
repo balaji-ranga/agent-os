@@ -1,25 +1,34 @@
 /**
- * OpenAI-compatible embeddings for OpenSearch knn_vector fields.
- * On failure returns null vectors so callers can skip knn and use BM25 only.
+ * Embeddings for OpenSearch knn_vector fields via local Qwen (OpenAI-compatible HTTP).
+ * Default: http://embeddings:8080/v1 + Qwen/Qwen3-Embedding-0.6B — no OpenAI cloud.
+ * On failure returns null vectors so callers skip knn and use BM25 only.
  */
 const MAX_CHARS = 8000;
 
 let warnedEmbedFailure = false;
+let loggedConfig = false;
 
+/**
+ * Prefer dedicated embedding service env; never fall back to OpenAI chat cloud keys.
+ */
 function embeddingConfig() {
-  const apiKey = String(
-    process.env.OPENAI_API_KEY || process.env.OPENAI_PRIMARY_API_KEY || ''
-  ).trim();
   const baseUrl = String(
-    process.env.OPENAI_BASE_URL ||
-      process.env.OPENAI_PRIMARY_BASE_URL ||
-      process.env.OPENAI_API_URL ||
-      'https://api.openai.com/v1'
+    process.env.OPENSEARCH_EMBEDDING_BASE_URL ||
+      process.env.EMBEDDINGS_BASE_URL ||
+      'http://embeddings:8080/v1'
   )
     .trim()
     .replace(/\/$/, '');
   const model = String(
-    process.env.OPENSEARCH_EMBEDDING_MODEL || 'text-embedding-3-small'
+    process.env.OPENSEARCH_EMBEDDING_MODEL ||
+      process.env.EMBEDDING_MODEL_ID ||
+      'Qwen/Qwen3-Embedding-0.6B'
+  ).trim();
+  // Local server accepts any bearer; optional so envs without a key still work.
+  const apiKey = String(
+    process.env.OPENSEARCH_EMBEDDING_API_KEY ||
+      process.env.EMBEDDINGS_API_KEY ||
+      'local'
   ).trim();
   const enabled =
     String(process.env.OPENSEARCH_EMBEDDINGS_ENABLED || '1').trim() !== '0' &&
@@ -46,10 +55,21 @@ export async function embedTexts(texts) {
   if (!enabled) {
     return list.map(() => null);
   }
-  if (!apiKey) {
+
+  if (!loggedConfig) {
+    console.info(
+      '[opensearch/embeddings] provider=local base=%s model=%s',
+      baseUrl,
+      model
+    );
+    loggedConfig = true;
+  }
+
+  // Refuse accidental OpenAI cloud use (platform standard is local Qwen).
+  if (/api\.openai\.com/i.test(baseUrl) || /openai\.azure/i.test(baseUrl)) {
     if (!warnedEmbedFailure) {
-      console.info(
-        '[opensearch/embeddings] no API key (OPENAI_API_KEY / OPENAI_PRIMARY_API_KEY); skipping knn'
+      console.warn(
+        '[opensearch/embeddings] OpenAI cloud base URL refused; set OPENSEARCH_EMBEDDING_BASE_URL=http://embeddings:8080/v1'
       );
       warnedEmbedFailure = true;
     }
@@ -58,15 +78,19 @@ export async function embedTexts(texts) {
 
   const inputs = list.map(truncateText);
   const url = `${baseUrl}/embeddings`;
+  const headers = {
+    'Content-Type': 'application/json',
+  };
+  if (apiKey) {
+    headers.Authorization = `Bearer ${apiKey}`;
+  }
 
   try {
     const res = await fetch(url, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({ model, input: inputs }),
+      signal: AbortSignal.timeout(120_000),
     });
     const raw = await res.text();
     let json = null;

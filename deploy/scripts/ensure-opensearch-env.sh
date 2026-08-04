@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Ensure OpenSearch-related env keys exist in deploy/.env (idempotent).
-# Does not overwrite existing values.
+# Does not overwrite existing values (except ensure-embeddings-env migrates OpenAI defaults).
 # Safe to run from up.sh / vps-deploy-latest.sh on any fresh host.
 set -euo pipefail
 ENV_FILE="${1:-}"
@@ -30,11 +30,12 @@ upsert OPENSEARCH_DASHBOARDS_URL 'http://opensearch-dashboards:5601'
 upsert OPENSEARCH_USERNAME admin
 upsert OPENSEARCH_PASSWORD ''
 upsert OPENSEARCH_ADMIN_PASSWORD ''
-upsert OPENSEARCH_EMBEDDING_MODEL 'text-embedding-3-small'
-upsert OPENSEARCH_EMBEDDING_DIMS 1536
-# Default 0: BM25-only (works with DeepSeek chat hosts that lack /embeddings).
-# Set 1 only when OPENAI_* points at an embeddings-capable API, then reindex docs.
-upsert OPENSEARCH_EMBEDDINGS_ENABLED 0
+# Local Qwen embeddings (see ensure-embeddings-env.sh) — not OpenAI cloud
+upsert OPENSEARCH_EMBEDDING_BASE_URL 'http://embeddings:8080/v1'
+upsert OPENSEARCH_EMBEDDING_MODEL 'Qwen/Qwen3-Embedding-0.6B'
+upsert OPENSEARCH_EMBEDDING_DIMS 1024
+upsert OPENSEARCH_EMBEDDING_API_KEY 'local'
+upsert OPENSEARCH_EMBEDDINGS_ENABLED 1
 upsert OPENSEARCH_JAVA_OPTS '-Xms512m -Xmx512m'
 
 # Kernel hint (logged only; up.sh / vps-deploy-latest.sh applies sysctl when possible)
@@ -46,7 +47,8 @@ if ! grep -q 'OpenSearch document RAG' "$ENV_FILE" 2>/dev/null; then
 # Admin UI: /admin/documents-rag ; Dashboards BFF: /opensearch/ (admin session cookie).
 # Never publish :9200 or :5601. Host requires: sysctl -w vm.max_map_count=262144
 # Persist: echo 'vm.max_map_count=262144' >> /etc/sysctl.conf && sysctl -p
-# Embeddings (optional): OPENSEARCH_EMBEDDINGS_ENABLED=1 + OpenAI-compatible /embeddings,
-# then Reindex all (Master Data / Admin Documents RAG).
+# Embeddings: local Qwen via compose profile optional-embeddings (ensure-embeddings-env.sh).
+# OPENSEARCH_EMBEDDING_BASE_URL=http://embeddings:8080/v1 model Qwen/Qwen3-Embedding-0.6B (1024-d).
+# After first enable or dim change: Reindex all (Master Data / Admin Documents RAG).
 EOF
 fi

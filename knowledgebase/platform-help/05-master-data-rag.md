@@ -21,13 +21,13 @@ Example asks: “list departments”, “add Engineering if missing”.
 
 - Each CEO has **two isolated OpenSearch indices**:
   - `aos-docs-meta-{fingerprint}` — document meta (title, source, tags, storage path, excerpt)
-  - `aos-docs-search-{fingerprint}` — chunk text for BM25 search (+ optional embeddings)
+  - `aos-docs-search-{fingerprint}` — chunk text for BM25 search (+ local Qwen k-NN embeddings)
 - Platform help / README live in **`aos-docs-*-platform`** (admin-managed). They are **not** copied into each CEO index.
 - File **bytes** stay on disk under `master-data/{owner}/docs/`; only meta + chunks are indexed in OpenSearch.
 - Upload policies, handbooks, and guides as **PDF, Word (.docx), Excel (.xlsx/.xls), or text** (`.txt`, `.md`, `.csv`, …).
 - Text is extracted on upload and indexed. Image-only PDFs and legacy `.doc` (not `.docx`) are not indexed well — convert or paste text.
 - Use **Reindex** (or **Reindex all for RAG**) on Master Data so chunks are rebuilt from the stored files.
-- Retrieval uses OpenSearch full-text (BM25); when an embedding API key is configured, k-NN vectors are stored and used for hybrid ranking.
+- Retrieval uses OpenSearch full-text (**BM25**) plus optional **k-NN vectors** from the **local Qwen** embedding container (`Qwen/Qwen3-Embedding-0.6B`, 1024-d). No OpenAI embedding API/key is used. If embeddings are disabled or the service is down, search falls back to BM25 only.
 - UI may offer a RAG query box; agents use **`master_data_list_documents`** then **`master_data_rag`**. For the **agent tool**, prefer omitting `summarize` (defaults **false**) and answer from returned `chunks[]` yourself. The **Master Data UI** RAG box and the workflow **Master Data** node default to `summarize: true` (LLM answer).
 
 ### Index from chat / WhatsApp / channels

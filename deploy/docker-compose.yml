@@ -201,9 +201,13 @@ x-backend-env: &backend-env
   OPENSEARCH_PASSWORD: ${OPENSEARCH_PASSWORD:-}
   OPENSEARCH_ADMIN_PASSWORD: ${OPENSEARCH_ADMIN_PASSWORD:-}
   OPENSEARCH_DASHBOARDS_URL: ${OPENSEARCH_DASHBOARDS_URL:-http://opensearch-dashboards:5601}
-  OPENSEARCH_EMBEDDING_MODEL: ${OPENSEARCH_EMBEDDING_MODEL:-text-embedding-3-small}
-  OPENSEARCH_EMBEDDING_DIMS: ${OPENSEARCH_EMBEDDING_DIMS:-1536}
-  OPENSEARCH_EMBEDDINGS_ENABLED: ${OPENSEARCH_EMBEDDINGS_ENABLED:-0}
+  # Local Qwen embeddings (service `embeddings`, profile optional-embeddings) — not OpenAI cloud
+  OPENSEARCH_EMBEDDING_BASE_URL: ${OPENSEARCH_EMBEDDING_BASE_URL:-http://embeddings:8080/v1}
+  OPENSEARCH_EMBEDDING_MODEL: ${OPENSEARCH_EMBEDDING_MODEL:-Qwen/Qwen3-Embedding-0.6B}
+  OPENSEARCH_EMBEDDING_DIMS: ${OPENSEARCH_EMBEDDING_DIMS:-1024}
+  OPENSEARCH_EMBEDDING_API_KEY: ${OPENSEARCH_EMBEDDING_API_KEY:-local}
+  OPENSEARCH_EMBEDDINGS_ENABLED: ${OPENSEARCH_EMBEDDINGS_ENABLED:-1}
+  EMBEDDING_MODEL_ID: ${EMBEDDING_MODEL_ID:-Qwen/Qwen3-Embedding-0.6B}
   # Docker tool onboarding (Admin) — socket mounted on backend; fail-closed allow-list
   DOCKER_TOOLS_ENABLED: ${DOCKER_TOOLS_ENABLED:-0}
   DOCKER_TOOLS_SOCKET: ${DOCKER_TOOLS_SOCKET:-/var/run/docker.sock}
@@ -327,6 +331,9 @@ services:
         condition: service_healthy
       ollama:
         condition: service_started
+        required: false
+      embeddings:
+        condition: service_healthy
         required: false
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3001/health"]
@@ -486,6 +493,34 @@ services:
     environment:
       NVIDIA_VISIBLE_DEVICES: all
 
+  # Local Qwen embeddings for OpenSearch hybrid RAG (ensure-embeddings-env.sh).
+  # Manual: docker compose --profile optional-embeddings up -d --build embeddings
+  # Backend: OPENSEARCH_EMBEDDING_BASE_URL=http://embeddings:8080/v1 (no OpenAI keys).
+  embeddings:
+    profiles: ["optional-embeddings"]
+    build:
+      context: ..
+      dockerfile: deploy/docker/qwen-embeddings.Dockerfile
+    image: agent-os-qwen-embeddings:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      EMBEDDING_MODEL_ID: ${EMBEDDING_MODEL_ID:-Qwen/Qwen3-Embedding-0.6B}
+      EMBEDDING_PORT: "8080"
+      EMBEDDING_MAX_BATCH: ${EMBEDDING_MAX_BATCH:-8}
+      HF_HOME: /data/embeddings
+      TRANSFORMERS_CACHE: /data/embeddings/transformers
+      SENTENCE_TRANSFORMERS_HOME: /data/embeddings/sentence-transformers
+    volumes:
+      - embeddings_data:/data/embeddings:Z
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 600s
+
   # Free local STT (faster-whisper) + TTS (Piper). Started automatically by
 # deploy/scripts/ensure-voice-env.sh (up.sh / vps-deploy-latest.sh) unless SKIP_VOICE=1.
 # Powers /api/speech/*, workflow speech_* nodes, and COO tools speech_tts / speech_stt.
@@ -540,6 +575,7 @@ volumes:
   workflow_fs:
   openconnector_data:
   ollama_data:
+  embeddings_data:
   hunyuan3d_data:
   whisper_data:
   piper_data:
