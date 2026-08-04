@@ -61,14 +61,31 @@ export function getLlmConfig(ownerUserId = null) {
 
 /**
  * Call OpenAPI-compliant chat/completions with optional model override. Tries primary then secondary endpoint.
- * @param {{ messages: Array<{ role: string, content: string }>, modelOverride?: string, maxTokens?: number, ownerUserId?: string }}
+ * Optional toolName applies CEO Tools-menu model mapping (overrides modelOverride / profile primary).
+ * @param {{ messages: Array<{ role: string, content: string }>, modelOverride?: string, maxTokens?: number, ownerUserId?: string, toolName?: string }}
  * @returns {Promise<{ content: string, modelUsed: string }>}
  */
-export async function chatCompletions({ messages, modelOverride, maxTokens = 1024, ownerUserId = null }) {
+export async function chatCompletions({
+  messages,
+  modelOverride,
+  maxTokens = 1024,
+  ownerUserId = null,
+  toolName = null,
+}) {
   const cfg = getLlmConfig(ownerUserId);
+  let effectiveModel = modelOverride || cfg.primary.model;
+  if (toolName && ownerUserId) {
+    try {
+      const { getToolModelOverride } = await import('../services/tool-model-overrides.js');
+      const toolOv = getToolModelOverride(ownerUserId, toolName);
+      if (toolOv) effectiveModel = toolOv;
+    } catch (e) {
+      console.warn('[llm] tool model override skipped: %s', e?.message || e);
+    }
+  }
   const endpoints = [
-    { ...cfg.primary, model: modelOverride || cfg.primary.model },
-    cfg.secondary ? { ...cfg.secondary, model: modelOverride || cfg.secondary.model } : null,
+    { ...cfg.primary, model: effectiveModel },
+    cfg.secondary ? { ...cfg.secondary, model: effectiveModel || cfg.secondary.model } : null,
   ].filter(Boolean);
 
   const primary = endpoints[0];

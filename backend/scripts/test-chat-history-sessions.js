@@ -40,9 +40,11 @@ const archived = await startArchivingNewChatSession({
   generateTitle: false,
 });
 if (!archived.archived) throw new Error('expected archived session for owner A');
-const hist = listArchivedChatSessions(agentId, ownerA);
+const hist = listArchivedChatSessions(agentId, ownerA, { paginated: false });
 if (!hist.length) throw new Error('expected history list for owner A');
-if (listArchivedChatSessions(agentId, ownerB).length) throw new Error('owner B must not see A history');
+if (listArchivedChatSessions(agentId, ownerB, { paginated: false }).length) {
+  throw new Error('owner B must not see A history');
+}
 
 const afterNew = listActiveSessionTurns(agentId, ownerA);
 if (afterNew.turns.length !== 0) throw new Error('new chat should be empty');
@@ -149,13 +151,13 @@ if (!legacy.rolled_over) throw new Error('expected legacy-turn rollover despite 
 if (listActiveSessionTurns(agent2, ownerA).turns.length !== 0) {
   throw new Error('legacy rollover should leave empty active chat');
 }
-if (!listArchivedChatSessions(agent2, ownerA).length) {
+if (!listArchivedChatSessions(agent2, ownerA, { paginated: false }).length) {
   throw new Error('legacy rollover should create archive');
 }
 
 console.log('CHAT_HISTORY_SESSIONS_OK', {
   agentId,
   archivedTitle: archived.archived.title,
-  historyCount: listArchivedChatSessions(agentId, ownerA).length,
+  historyCount: listArchivedChatSessions(agentId, ownerA, { paginated: false }).length,
   legacyRollover: true,
 });

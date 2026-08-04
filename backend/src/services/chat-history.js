@@ -287,20 +287,29 @@ export function countSessionTurns(sessionId) {
   );
 }
 
-export function listSessionTurns(sessionId, { limit = 500 } = {}) {
+export function listSessionTurns(sessionId, { limit = 200, offset = 0 } = {}) {
+  const lim = Math.min(Math.max(Number(limit) || 200, 1), 500);
+  const off = Math.max(Number(offset) || 0, 0);
   return db()
     .prepare(
       `SELECT id, agent_id, owner_user_id, role, content, created_at, session_id
-       FROM chat_turns WHERE session_id = ? ORDER BY created_at ASC, id ASC LIMIT ?`
+       FROM chat_turns WHERE session_id = ? ORDER BY created_at ASC, id ASC LIMIT ? OFFSET ?`
     )
-    .all(sessionId, limit);
+    .all(sessionId, lim, off);
 }
 
-export function listActiveSessionTurns(agentId, ownerUserId, { limit = 500 } = {}) {
+export function listActiveSessionTurns(agentId, ownerUserId, { limit = 200, offset = 0 } = {}) {
   const active = backfillActiveSession(agentId, ownerUserId);
+  const lim = Math.min(Math.max(Number(limit) || 200, 1), 500);
+  const off = Math.max(Number(offset) || 0, 0);
+  const total = countSessionTurns(active.id);
   return {
     session: active,
-    turns: listSessionTurns(active.id, { limit }),
+    turns: listSessionTurns(active.id, { limit: lim, offset: off }),
+    total,
+    limit: lim,
+    offset: off,
+    has_more: off + Math.min(lim, Math.max(0, total - off)) < total,
   };
 }
 
@@ -518,18 +527,30 @@ export async function autoSplitArchivingChatSession({
   };
 }
 
-export function listArchivedChatSessions(agentId, ownerUserId, { days = HISTORY_DAYS, limit = 100 } = {}) {
+export function listArchivedChatSessions(agentId, ownerUserId, { days = HISTORY_DAYS, limit = 50, offset = 0, paginated = true } = {}) {
   const d = Math.min(Math.max(Number(days) || HISTORY_DAYS, 1), HISTORY_DAYS);
-  return db()
+  const lim = Math.min(Math.max(Number(limit) || 50, 1), 100);
+  const off = Math.max(Number(offset) || 0, 0);
+  const total =
+    db()
+      .prepare(
+        `SELECT COUNT(*) AS n FROM chat_sessions
+         WHERE agent_id = ? AND owner_user_id = ? AND status = 'archived'
+           AND archived_at >= datetime('now', ?)`
+      )
+      .get(agentId, ownerUserId, `-${d} days`)?.n ?? 0;
+  const sessions = db()
     .prepare(
       `SELECT id, agent_id, owner_user_id, title, status, started_at, archived_at, summary, oc_thread_id, created_at
        FROM chat_sessions
        WHERE agent_id = ? AND owner_user_id = ? AND status = 'archived'
          AND archived_at >= datetime('now', ?)
        ORDER BY archived_at DESC
-       LIMIT ?`
+       LIMIT ? OFFSET ?`
     )
-    .all(agentId, ownerUserId, `-${d} days`, limit);
+    .all(agentId, ownerUserId, `-${d} days`, lim, off);
+  if (!paginated) return sessions;
+  return { sessions, total, limit: lim, offset: off, has_more: off + sessions.length < total, days: d };
 }
 
 /**

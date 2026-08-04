@@ -99,6 +99,30 @@ export function appendAudit(definitionId, { action, summary, changedBy, changedB
     );
 }
 
+function rowToDefinitionSummary(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description || '',
+    owner_user_id: row.owner_user_id,
+    status: row.status,
+    schedule_cron: row.schedule_cron || '',
+    chat_trigger_phrase: row.chat_trigger_phrase || '',
+    trigger_modes: (row.trigger_modes || 'manual').split(',').map((s) => s.trim()).filter(Boolean),
+    paused: !!row.paused,
+    certify_state: row.certify_state || null,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    /** Graph payload omitted on list — load via GET /agent-workflows/:id */
+    draft_graph: null,
+    published_graph: null,
+    variables: {},
+    input_schema: null,
+    webhook_secret: '',
+  };
+}
+
 export function listDefinitions(ownerUserId, { search = '' } = {}) {
   const q = String(search || '').trim().toLowerCase();
   if (!q) {
@@ -117,6 +141,43 @@ export function listDefinitions(ownerUserId, { search = '' } = {}) {
     )
     .all(ownerUserId, like, like);
   return rows.map(rowToDefinition);
+}
+
+/**
+ * Paginated definition list for CEO UI (no draft/published graph JSON in rows).
+ * @returns {{ workflows: object[], total: number, limit: number, offset: number, has_more: boolean }}
+ */
+export function listDefinitionsPaginated(ownerUserId, { search = '', limit = 50, offset = 0 } = {}) {
+  const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 100);
+  const safeOffset = Math.max(Number(offset) || 0, 0);
+  const q = String(search || '').trim().toLowerCase();
+  const selectCols = `id, name, description, owner_user_id, status, schedule_cron, chat_trigger_phrase,
+       trigger_modes, paused, certify_state, created_at, updated_at`;
+
+  let where = 'WHERE owner_user_id = ?';
+  const params = [ownerUserId];
+  if (q) {
+    where += ' AND (LOWER(name) LIKE ? OR LOWER(id) LIKE ?)';
+    const like = `%${q}%`;
+    params.push(like, like);
+  }
+
+  const total = db().prepare(`SELECT COUNT(*) AS n FROM agent_workflow_definitions ${where}`).get(...params)?.n ?? 0;
+  const rows = db()
+    .prepare(
+      `SELECT ${selectCols} FROM agent_workflow_definitions ${where}
+       ORDER BY updated_at DESC LIMIT ? OFFSET ?`
+    )
+    .all(...params, safeLimit, safeOffset);
+
+  const workflows = rows.map(rowToDefinitionSummary);
+  return {
+    workflows,
+    total,
+    limit: safeLimit,
+    offset: safeOffset,
+    has_more: safeOffset + workflows.length < total,
+  };
 }
 
 export function getDefinition(id, ownerUserId = null) {
@@ -424,12 +485,12 @@ function formatRunRow(row) {
   };
 }
 
-export function getRun(runId, ownerUserId = null) {
+export function getRun(runId, ownerUserId = null, { stepsLimit = null, stepsOffset = 0 } = {}) {
   const row = ownerUserId
     ? db().prepare('SELECT * FROM agent_workflow_runs WHERE id = ? AND owner_user_id = ?').get(runId, ownerUserId)
     : db().prepare('SELECT * FROM agent_workflow_runs WHERE id = ?').get(runId);
   if (!row) return null;
-  const steps = db()
+  const allSteps = db()
     .prepare('SELECT * FROM agent_workflow_run_steps WHERE run_id = ? ORDER BY id ASC')
     .all(runId)
     .map((s) => ({
@@ -437,6 +498,25 @@ export function getRun(runId, ownerUserId = null) {
       input: s.input_json ? JSON.parse(s.input_json) : null,
       output: s.output_json ? JSON.parse(s.output_json) : null,
     }));
+  const stepsTotal = allSteps.length;
+  let steps = allSteps;
+  let meta = {
+    steps_total: stepsTotal,
+    steps_limit: stepsTotal,
+    steps_offset: 0,
+    steps_has_more: false,
+  };
+  if (stepsLimit != null) {
+    const lim = Math.min(Math.max(Number(stepsLimit) || 100, 1), 500);
+    const off = Math.max(Number(stepsOffset) || 0, 0);
+    steps = allSteps.slice(off, off + lim);
+    meta = {
+      steps_total: stepsTotal,
+      steps_limit: lim,
+      steps_offset: off,
+      steps_has_more: off + steps.length < stepsTotal,
+    };
+  }
   const def = getDefinition(row.definition_id);
   const formatted = formatRunRow(row);
   if (!formatted.graph) {
@@ -446,6 +526,7 @@ export function getRun(runId, ownerUserId = null) {
     ...formatted,
     definition_name: def?.name,
     steps,
+    ...meta,
   };
 }
 

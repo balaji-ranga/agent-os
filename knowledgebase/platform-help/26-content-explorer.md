@@ -14,7 +14,7 @@ Browse **your** uploaded and generated files in one place — chat attachments, 
 | **Uploaded** | Chat paperclip files, WhatsApp/Slack inbound mirrored under `inbound/attachments/`, Master Data–related uploads |
 | **Generated** | Images / audio / video produced by content tools (e.g. `generate_image`, speech TTS) for your tenant |
 
-Each row shows filename, kind (doc / image / audio / video), size, and optional channel. Use search to filter by name or path.
+Each row shows filename, kind (doc / image / audio / video), size, and optional channel. Use search to filter by name or path on the **current page**. The list is **server-paged** (50 per page) — use **Prev** / **Next** when you have more files than fit on one page.
 
 ## Preview, download, and delete
 

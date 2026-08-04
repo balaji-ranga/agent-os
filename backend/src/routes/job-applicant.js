@@ -321,7 +321,10 @@ router.get('/spreadsheet', requireCeoOrAdmin, (req, res) => {
     const ceoUserId = ceoFromReq(req);
     const profileId = req.query.profile_id || profileSvc(ceoUserId).getActiveProfileId(ceoUserId);
     if (!profileId) return res.status(400).json({ error: 'profile_id required' });
-    const tracker = sheetSvc(ceoUserId).readTracker(ceoUserId, profileId);
+    const limit =
+      req.query.limit != null ? Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200) : 50;
+    const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+    const tracker = sheetSvc(ceoUserId).readTracker(ceoUserId, profileId, { limit, offset });
     const paths = getSpreadsheetPaths(ceoUserId, profileId);
     let profile_meta = null;
     const metaPath = paths.dir + '/profile-meta.json';
@@ -451,7 +454,8 @@ router.post('/ceo-review/confirm', requireCeoOrAdmin, async (req, res) => {
 router.get('/profiles/:profileId/review-queue', requireCeoOrAdmin, (req, res) => {
   try {
     const ceoUserId = ceoFromReq(req);
-    res.json(getCeoReviewQueue(ceoUserId, req.params.profileId));
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 100, 1), 200);
+    res.json(getCeoReviewQueue(ceoUserId, req.params.profileId, { limit }));
   } catch (e) {
     res.status(400).json({ error: e.message });
   }

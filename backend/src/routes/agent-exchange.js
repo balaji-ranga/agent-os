@@ -58,13 +58,25 @@ function actor(req) {
 router.get('/', (req, res) => {
   try {
     const ownerUserId = entitledOwnerUserId(req);
-    const agents = listAllPublishedA2AAgents({ includePrivateForOwnerId: ownerUserId }).map(
-      (agent) => ({
-        ...agent,
-        can_manage: !!ownerUserId && agent.owner_user_id === ownerUserId,
-      })
-    );
-    res.json({ agents, count: agents.length });
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
+    const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+    const page = listAllPublishedA2AAgents({
+      includePrivateForOwnerId: ownerUserId,
+      limit,
+      offset,
+    });
+    const agents = (page.agents || []).map((agent) => ({
+      ...agent,
+      can_manage: !!ownerUserId && agent.owner_user_id === ownerUserId,
+    }));
+    res.json({
+      agents,
+      count: page.count ?? page.total ?? agents.length,
+      total: page.total ?? agents.length,
+      limit: page.limit ?? limit,
+      offset: page.offset ?? offset,
+      has_more: !!page.has_more,
+    });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

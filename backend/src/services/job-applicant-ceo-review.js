@@ -281,27 +281,39 @@ export function createConsolidatedCeoReviewKanban(ceoUserId, profileId, jobs, pr
 }
 
 /** Jobs available for CEO review UI (primary + borderline). */
-export function getCeoReviewQueue(ceoUserId, profileId) {
+export function getCeoReviewQueue(ceoUserId, profileId, { limit = 100 } = {}) {
   const profileSvc = createJobSearchProfileService(() => getDb());
   const jobsSvc = createJobApplicationsService(() => getDb());
   const profile = profileSvc.getProfile(ceoUserId, profileId);
   if (!profile?.id) throw new Error(`Profile not found: ${profileId}`);
 
-  const all = jobsSvc.list({ ceo_user_id: ceoUserId, profile_id: profileId, limit: 500 });
+  const fetchCap = Math.min(Math.max(Number(limit) || 100, 1), 200);
+  const all = jobsSvc.list({ ceo_user_id: ceoUserId, profile_id: profileId, limit: Math.max(fetchCap * 3, 200) });
   const threshold = Number(profile.intake?.fit_threshold) || 70;
   const borderlineCfg = parseBorderlineReview(profile.intake);
+
+  const primary = all.filter((j) => j.status === 'awaiting_approval').slice(0, fetchCap);
+  const shortlisted_pending_tailor = all.filter((j) => j.status === 'shortlisted').slice(0, fetchCap);
+  const borderline_jobs = all.filter((j) => j.status === 'borderline').slice(0, fetchCap);
+  const skipped_recent = all
+    .filter((j) => j.status === 'skipped' && j.fit_score != null)
+    .slice(0, Math.min(20, fetchCap));
 
   return {
     profile_id: profileId,
     fit_threshold: threshold,
     borderline: borderlineCfg,
-    primary: all.filter((j) => j.status === 'awaiting_approval'),
-    shortlisted_pending_tailor: all.filter((j) => j.status === 'shortlisted'),
-    borderline_jobs: all.filter((j) => j.status === 'borderline'),
-    skipped_recent: all
-      .filter((j) => j.status === 'skipped' && j.fit_score != null)
-      .slice(0, 20),
+    primary,
+    shortlisted_pending_tailor,
+    borderline_jobs,
+    skipped_recent,
     kanban: findExistingCeoReviewKanban(profileId),
+    limit: fetchCap,
+    counts: {
+      primary: all.filter((j) => j.status === 'awaiting_approval').length,
+      shortlisted_pending_tailor: all.filter((j) => j.status === 'shortlisted').length,
+      borderline: all.filter((j) => j.status === 'borderline').length,
+    },
   };
 }
 

@@ -60,6 +60,8 @@ Do **not** paste keys on Register or Profile anymore — Profile only selects th
 
 **Platform default** model (no BYOK) uses the admin-selected platform LLM — no `Platform_BYOK` needed.
 
+**Per-tool model (optional):** Profile chooses the default chat model; **Tools → Model** on `/content-tools` can override the model for individual BYOK-aware tools (keys still come from this vault / platform). See [11-content-tools-scripts-profile.md](./11-content-tools-scripts-profile.md).
+
 ## Replicate_BYOK (video when not on Platform default)
 
 For **`generate_video`** (Replicate):

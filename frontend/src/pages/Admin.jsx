@@ -56,7 +56,7 @@ function AdminPanel() {
   };
 
   const load = () => {
-    api.adminUsers()
+    api.adminUsers({ limit: 200 })
       .then((r) => setUsers(r.users || []))
       .catch((e) => showError(e.message || 'Failed to load users'));
     api

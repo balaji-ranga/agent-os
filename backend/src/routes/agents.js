@@ -426,8 +426,17 @@ router.get('/:id/chat/history', requireAuth, (req, res) => {
     const ownerUserId = resolveChatOwnerUserId(req, req.query || {});
     assertUserAgentAccess(req.authUser, req.params.id);
     const days = Math.min(30, Math.max(1, parseInt(req.query?.days, 10) || 30));
-    const rows = listArchivedChatSessions(req.params.id, ownerUserId, { days });
-    res.json({ sessions: rows.map(formatSessionForApi), days });
+    const limit = Math.min(Math.max(parseInt(req.query?.limit, 10) || 50, 1), 100);
+    const offset = Math.max(parseInt(req.query?.offset, 10) || 0, 0);
+    const page = listArchivedChatSessions(req.params.id, ownerUserId, { days, limit, offset });
+    res.json({
+      sessions: (page.sessions || []).map(formatSessionForApi),
+      days: page.days ?? days,
+      total: page.total,
+      limit: page.limit,
+      offset: page.offset,
+      has_more: page.has_more,
+    });
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message });
   }
@@ -519,7 +528,31 @@ router.patch('/:id', requireAuth, requireCeoOrAdmin, (req, res) => {
     if (updates.reporting_to !== undefined && updates.parent_id === undefined) {
       updates.parent_id = updates.reporting_to;
     }
-    const allowed = ['name', 'role', 'parent_id', 'department', 'workspace_path', 'openclaw_agent_id', 'is_coo'];
+    if (updates.clear_avatar_image || updates.clearAvatarImage) {
+      updates.avatar_image = '';
+    }
+    if (updates.avatar_image !== undefined && updates.avatar_image !== null && updates.avatar_image !== '') {
+      const img = String(updates.avatar_image).trim();
+      if (img.length > 900_000) {
+        return res.status(400).json({ error: 'Agent avatar is too large (max ~650KB)' });
+      }
+      if (!/^data:image\/(png|jpe?g|webp|gif);base64,/i.test(img) && !/^https?:\/\//i.test(img)) {
+        return res
+          .status(400)
+          .json({ error: 'Agent avatar must be a data URL (png/jpeg/webp/gif) or https URL' });
+      }
+      updates.avatar_image = img;
+    }
+    const allowed = [
+      'name',
+      'role',
+      'parent_id',
+      'department',
+      'workspace_path',
+      'openclaw_agent_id',
+      'is_coo',
+      'avatar_image',
+    ];
     const set = [];
     const values = [];
     for (const k of allowed) {
@@ -584,14 +617,20 @@ router.get('/:id/chat', requireAuth, async (req, res) => {
       timeZone: tz,
       generateTitle: true,
     });
-    const { turns } = listActiveSessionTurns(agent.id, ownerUserId);
+    const limit = Math.min(Math.max(parseInt(req.query?.limit, 10) || 200, 1), 500);
+    const offset = Math.max(parseInt(req.query?.offset, 10) || 0, 0);
+    const page = listActiveSessionTurns(agent.id, ownerUserId, { limit, offset });
     const asArray = String(req.query?.format || '').toLowerCase() === 'array';
-    const payloadTurns = attachToolCallsToChatTurns(turns, agent.id, ownerUserId);
+    const payloadTurns = attachToolCallsToChatTurns(page.turns, agent.id, ownerUserId);
     if (asArray) return res.json(payloadTurns);
     res.json({
       turns: payloadTurns,
       session: formatSessionForApi(session),
       rolled_over: !!rolled_over,
+      total: page.total,
+      limit: page.limit,
+      offset: page.offset,
+      has_more: page.has_more,
     });
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message });

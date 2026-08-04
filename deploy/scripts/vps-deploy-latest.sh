@@ -117,7 +117,8 @@ echo "              WhatsApp groupPolicy=disabled by default (blocks @g.us befor
 echo "              free STT/TTS optional-voice (whisper+piper; ensure-voice-env.sh + SPEECH_*)"
 echo "              CEO home chat (COO default) + My Org (/org); Profile role_title display label"
 echo "              Chat history/browser panes closed by default (icon toggles);"
-echo "              COO SOUL inbound list→index→RAG + org-context tools line"
+echo "              COO SOUL inbound list→index→RAG + org-context tools line;"
+echo "              COO skip hard-delegate for don't-delegate + find/download/attach files"
 echo "              Marketing apex flolah.cloud + app login.flolah.cloud; acme.sh TLS-ALPN cert script"
 
 if [[ "$SKIP_GIT" != "1" ]]; then

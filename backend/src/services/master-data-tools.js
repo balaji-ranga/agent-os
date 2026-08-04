@@ -244,19 +244,24 @@ export function listInboundAttachmentsForAgent(ownerUserId) {
     const mime = guessMimeFromFilename(f.filename);
     const rag = isRagIndexable(mime, f.filename);
     const media = isMediaAttachment(mime, f.filename);
+    const rel = f.relative_path;
+    const download_url = `/api/workspace/inbound-attachments/download?relative_path=${encodeURIComponent(rel)}`;
     return {
       filename: f.filename,
-      relative_path: f.relative_path,
+      relative_path: rel,
       size: f.size,
       mtime: f.mtime,
       mime_guess: mime,
       rag_indexable: rag,
       is_media: media,
+      download_url,
+      /** Markdown the CEO can click in Dashboard chat (auth session required). */
+      paste_in_chat: `[${f.filename}](${download_url})`,
       note: media
-        ? 'Image/audio/video — keep in inbound folder; do not index for RAG. Use analyze_image for images; speech_stt for audio if needed.'
+        ? 'Image/audio/video — keep in inbound folder; do not index for RAG. Use analyze_image for images; speech_stt for audio if needed. For Dashboard re-attach, paste paste_in_chat markdown.'
         : rag
-          ? 'RAG-able — call master_data_index_document with relative_path, then master_data_rag.'
-          : 'Not RAG-indexable (unsupported type). Leave in inbound folder.',
+          ? 'RAG-able — call master_data_index_document with relative_path, then master_data_rag. To re-attach in chat without re-uploading, paste paste_in_chat markdown in your reply.'
+          : 'Not RAG-indexable (unsupported type). Leave in inbound folder; re-attach via paste_in_chat if the CEO asked for the file back.',
     };
   });
   return {
@@ -266,8 +271,9 @@ export function listInboundAttachmentsForAgent(ownerUserId) {
     folder: 'inbound/attachments',
     items,
     next_step:
-      'For PDF/Word/Excel/text attachments: master_data_index_document { relative_path }. ' +
-      'For images/audio/video: leave in inbound (no RAG). Then answer with master_data_rag if indexed.',
+      'Match the CEO filename (fuzzy). Re-attach in Dashboard chat by pasting paste_in_chat markdown. ' +
+      'For PDF/Word/Excel/text content questions: master_data_index_document { relative_path } then master_data_rag. ' +
+      'Images/audio/video: analyze_image / speech_stt (no RAG).',
   };
 }
 

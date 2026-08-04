@@ -54,12 +54,14 @@ export default function ContentExplorer() {
   const [q, setQ] = useState('');
   const [preview, setPreview] = useState(null);
   const [selected, setSelected] = useState(() => new Set());
+  const [offset, setOffset] = useState(0);
+  const pageLimit = 50;
 
   const refresh = useCallback(async () => {
     setBusy(true);
     setError('');
     try {
-      const out = await api.contentExplorerList({ source });
+      const out = await api.contentExplorerList({ source, limit: pageLimit, offset });
       setData(out);
       setSelected(new Set());
     } catch (e) {
@@ -68,6 +70,10 @@ export default function ContentExplorer() {
     } finally {
       setBusy(false);
     }
+  }, [source, offset]);
+
+  useEffect(() => {
+    setOffset(0);
   }, [source]);
 
   useEffect(() => {
@@ -334,6 +340,55 @@ export default function ContentExplorer() {
           <br />
           Generated: {data.folders.generated}
         </p>
+      )}
+
+      {(data?.total > 0 || data?.has_more || offset > 0) && (
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 8,
+            alignItems: 'center',
+            marginBottom: '0.75rem',
+            fontSize: '0.85rem',
+            color: 'var(--muted)',
+          }}
+        >
+          <span>
+            Showing {data?.items?.length ? offset + 1 : 0}–
+            {offset + (data?.items?.length || 0)} of {data?.total ?? data?.items?.length ?? 0}
+            {(channel !== 'all' || mediaKind !== 'all' || q.trim()) &&
+              ' (client filters apply to this page only)'}
+          </span>
+          <button
+            type="button"
+            disabled={busy || offset <= 0}
+            onClick={() => setOffset((o) => Math.max(0, o - pageLimit))}
+            style={{
+              padding: '0.3rem 0.65rem',
+              borderRadius: 6,
+              border: '1px solid var(--border)',
+              background: 'var(--surface)',
+              cursor: offset <= 0 ? 'default' : 'pointer',
+            }}
+          >
+            Prev
+          </button>
+          <button
+            type="button"
+            disabled={busy || !data?.has_more}
+            onClick={() => setOffset((o) => o + pageLimit)}
+            style={{
+              padding: '0.3rem 0.65rem',
+              borderRadius: 6,
+              border: '1px solid var(--border)',
+              background: 'var(--surface)',
+              cursor: data?.has_more ? 'pointer' : 'default',
+            }}
+          >
+            Next
+          </button>
+        </div>
       )}
 
       <div

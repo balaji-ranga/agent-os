@@ -75,7 +75,11 @@
 # Admin Tools Onboarding (docker.sock overlay, TOTP step-up, registry allow-list,
 # content-tool register + OpenClaw reload; Admin Crons last_run persists),
 # CEO home chat + My Org, collapsible chat history/browser panes (icon toggles),
+# Home KPI cards + right snapshot pane + global search (Ctrl+K) + mobile Kanban list UX,
+# User/agent profile images (default robot avatar), API Keys Reseed BYOK slots, Flolah SEO meta,
 # COO SOUL + org-context channel inbound index → master_data_rag.
+# List API server pagination (limit/offset + has_more) for Content Explorer, workflows,
+# Kanban tasks, standups, chat history, Master Data docs, AgentExchange, admin users, job spreadsheet.
 param(
   [string]$HostIp = "76.13.209.30",
   [string]$Key = "$env:USERPROFILE\.ssh\agent-os-vps",
@@ -294,6 +298,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-kanban-chat-status-guidance.js" `
     "$Repo\backend\scripts\test-ceo-profile-tool.js" `
     "$Repo\backend\scripts\test-coo-refine-allocation.js" `
+    "$Repo\backend\scripts\test-coo-native-file-skip.js" `
     "$Repo\backend\scripts\test-agent-workflow-runs-tool.js" `
     "$Repo\backend\scripts\verify-coo-agents-md.js" `
     "$Repo\backend\scripts\cleanup-agents-md-backups.js" `

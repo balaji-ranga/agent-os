@@ -19,6 +19,8 @@ import {
   ELEVENLABS_BYOK_KEY_NAME,
   ensureByokVaultSlots,
   requiredByokVaultSlots,
+  reseedByokVaultSlots,
+  allByokVaultSlots,
 } from '../services/user-api-keys.js';
 
 const router = Router();
@@ -73,6 +75,31 @@ router.post('/', (req, res) => {
     });
     res.status(201).json(row);
   } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+/**
+ * POST /api/user-api-keys/reseed — create missing BYOK vault slots with unset (null) values.
+ * Does not overwrite secrets the CEO already filled in.
+ */
+router.post('/reseed', (req, res) => {
+  try {
+    const owner = ownerId(req);
+    const result = reseedByokVaultSlots(owner);
+    res.json({
+      ok: true,
+      seeded: result.seeded,
+      slots: result.slots,
+      keys: listUserApiKeys(owner),
+      recommended_byok_slots: allByokVaultSlots().map((s) => s.key_name),
+      message:
+        result.seeded.length > 0
+          ? `Added ${result.seeded.length} BYOK key slot(s) with empty values. Edit each to paste your secret.`
+          : 'All BYOK key slots already exist. Existing values were not changed.',
+    });
+  } catch (e) {
+    console.warn('[user-api-keys] reseed failed', e?.message || e);
     res.status(e.status || 500).json({ error: e.message });
   }
 });

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, Link, NavLink, useLocation } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import Workspace from './pages/Workspace';
 import AgentWorkspace from './pages/AgentWorkspace';
@@ -44,10 +44,12 @@ import AgentChannels from './pages/AgentChannels';
 import NotificationBell from './components/NotificationBell';
 import ProfileMenu from './components/ProfileMenu';
 import ThemeToggle from './components/ThemeToggle';
+import GlobalSearch from './components/GlobalSearch';
 import { AdminNavMenu, CeoNavMenu } from './components/AppNavMenu';
 import ImpersonationBanner from './components/ImpersonationBanner';
 import { useAuth } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
+import { userRoleTitle } from './utils/userRoleTitle.js';
 
 /** Login/Register are top-level routes (outside Shell) — enable document scroll here. */
 function AuthLayout({ children }) {
@@ -130,6 +132,16 @@ function Shell() {
 
   const closeMobileNav = () => setMobileNavOpen(false);
   const homePath = user.role === 'admin' ? '/admin' : '/';
+  const isHomeRoute =
+    user.role === 'ceo' &&
+    (location.pathname === '/' || location.pathname === '');
+  const firstName = String(user.name || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)[0] || 'there';
+  const hour = new Date().getHours();
+  const greet =
+    hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   return (
     <NotificationProvider>
@@ -153,11 +165,12 @@ function Shell() {
           >
             {mobileNavOpen ? '✕' : '☰'}
           </button>
-          <div className="app-mobile-brand">
+          <Link to={homePath} className="app-mobile-brand" onClick={closeMobileNav}>
             <span className="app-nav-brand-mark" aria-hidden>F</span>
             <span className="app-mobile-brand-text">Flolah</span>
-          </div>
+          </Link>
           <div className="app-mobile-topbar-actions">
+            <GlobalSearch compact />
             <ThemeToggle />
             <NotificationBell compact />
             <ProfileMenu user={user} logout={logout} />
@@ -191,13 +204,49 @@ function Shell() {
         </div>
         <div className="app-nav-links" onClick={closeMobileNav}>
           {user.role === 'admin' && <AdminNavMenu collapsed={menuCollapsed} />}
-          {user.role === 'ceo' && <CeoNavMenu collapsed={menuCollapsed} />}
+          {user.role === 'ceo' && (
+            <>
+              <NavLink
+                to="/"
+                end
+                className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+                title="Home"
+              >
+                {menuCollapsed ? '⌂' : 'Home'}
+              </NavLink>
+              <CeoNavMenu collapsed={menuCollapsed} />
+            </>
+          )}
         </div>
+        {user.role === 'ceo' && !menuCollapsed && (
+          <div className="app-nav-footer-user">
+            <ProfileMenu user={user} logout={logout} />
+            <div className="app-nav-footer-meta">
+              <div className="app-nav-footer-name">{user.name || 'User'}</div>
+              <div className="app-nav-footer-role">{userRoleTitle(user)}</div>
+            </div>
+          </div>
+        )}
       </nav>
       )}
       <div className="app-content">
         {!focusMode && !isNarrow && (
           <header className="app-topbar">
+            <div className="app-topbar-left">
+              {isHomeRoute && (
+                <div className="app-topbar-greet">
+                  <div className="app-topbar-greet-title">
+                    {greet}, {firstName}! <span aria-hidden>👋</span>
+                  </div>
+                  <div className="app-topbar-greet-sub">
+                    Here&apos;s what&apos;s happening with your AI company today.
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="app-topbar-center">
+              {user.role === 'ceo' && <GlobalSearch />}
+            </div>
             <div className="app-topbar-actions">
               <ThemeToggle />
               <NotificationBell compact />

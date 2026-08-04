@@ -31,12 +31,9 @@ export function isUnsetApiKeyRow(row) {
 }
 
 /**
- * Named vault slots CEOs need when Profile LLM is not Platform default.
- * Platform default uses ops `.env` for Brave / Replicate; BYOK profiles use these vault names.
+ * Full catalog of BYOK vault slots (value always starts unset / null until CEO pastes a secret).
  */
-export function requiredByokVaultSlots(llmProvider) {
-  const p = String(llmProvider || 'platform_decided').trim().toLowerCase();
-  if (!p || p === 'platform_decided') return [];
+export function allByokVaultSlots() {
   return [
     {
       key_name: PLATFORM_BYOK_KEY_NAME,
@@ -58,15 +55,18 @@ export function requiredByokVaultSlots(llmProvider) {
 }
 
 /**
- * Insert missing recommended vault entries as unset placeholders (idempotent).
- * Does not overwrite existing secrets. No-op when provider is platform_decided.
+ * Named vault slots CEOs need when Profile LLM is not Platform default.
+ * Platform default uses ops `.env` for Brave / Replicate; BYOK profiles use these vault names.
  */
-export function ensureByokVaultSlots(ownerUserId, llmProvider) {
-  ensureUserApiKeysSchema();
+export function requiredByokVaultSlots(llmProvider) {
+  const p = String(llmProvider || 'platform_decided').trim().toLowerCase();
+  if (!p || p === 'platform_decided') return [];
+  return allByokVaultSlots();
+}
+
+function insertMissingByokSlots(ownerUserId, slots) {
   const owner = String(ownerUserId || '').trim();
-  if (!owner) return { seeded: [], slots: [] };
-  const slots = requiredByokVaultSlots(llmProvider);
-  if (!slots.length) return { seeded: [], slots: [] };
+  if (!owner || !slots?.length) return { seeded: [], slots: [] };
 
   const seeded = [];
   const insert = db().prepare(
@@ -83,18 +83,45 @@ export function ensureByokVaultSlots(ownerUserId, llmProvider) {
       seeded.push(name);
     } catch (e) {
       if (/UNIQUE/i.test(String(e.message || ''))) continue;
-      console.warn('[user-api-keys] ensureByokVaultSlots failed', { owner, name, error: e.message });
+      console.warn('[user-api-keys] insert BYOK slot failed', { owner, name, error: e.message });
     }
   }
+  return { seeded, slots: slots.map((s) => s.key_name) };
+}
 
-  if (seeded.length) {
+/**
+ * Insert missing recommended vault entries as unset placeholders (idempotent).
+ * Does not overwrite existing secrets. No-op when provider is platform_decided.
+ */
+export function ensureByokVaultSlots(ownerUserId, llmProvider) {
+  ensureUserApiKeysSchema();
+  const slots = requiredByokVaultSlots(llmProvider);
+  if (!slots.length) return { seeded: [], slots: [] };
+  const out = insertMissingByokSlots(ownerUserId, slots);
+  if (out.seeded.length) {
     console.info('[user-api-keys] seeded BYOK vault slots', {
-      owner,
+      owner: String(ownerUserId || ''),
       provider: String(llmProvider || ''),
-      seeded,
+      seeded: out.seeded,
     });
   }
-  return { seeded, slots: slots.map((s) => s.key_name) };
+  return out;
+}
+
+/**
+ * Reseed all BYOK-related vault rows for a CEO (API Keys menu action).
+ * Inserts missing recommended keys with null/unset values only — never clears filled secrets.
+ */
+export function reseedByokVaultSlots(ownerUserId) {
+  ensureUserApiKeysSchema();
+  const slots = allByokVaultSlots();
+  const out = insertMissingByokSlots(ownerUserId, slots);
+  console.info('[user-api-keys] reseed BYOK vault slots', {
+    owner: String(ownerUserId || ''),
+    seeded: out.seeded,
+    slots: out.slots,
+  });
+  return out;
 }
 
 function db() {

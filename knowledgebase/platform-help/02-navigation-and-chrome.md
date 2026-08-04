@@ -40,7 +40,7 @@
 |-------|-------|---------|
 | Workflows | `/workflows` | Custom visual workflows; editor at `/workflows/:id/edit` |
 | Agent Workspaces | `/workspace` | Add agent, list agents → workspace MD / tools / **templates** |
-| Tools | `/content-tools` | Catalog, test invoke, logs |
+| Tools | `/content-tools` | Catalog, test invoke, logs, **Tools → Model** overrides |
 | **Connectors** | `/connectors` | Link SaaS apps (OpenConnector) for **Connector** workflow nodes |
 | MCP | `/integrations/mcp` | Register and test MCP servers |
 | Custom scripts | `/integrations/custom-scripts` | Sandboxed Python/JS/LangGraph scripts |

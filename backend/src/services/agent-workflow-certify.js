@@ -505,6 +505,7 @@ Rules:
       modelOverride: checkerModel || undefined,
       maxTokens: 2048,
       ownerUserId,
+      toolName: 'agent_workflow_certify_start',
     });
     const jsonMatch = String(content).match(/\{[\s\S]*\}/);
     if (!jsonMatch) return { ...baseReport, checker_model: modelUsed || baseReport.checker_model };
@@ -600,6 +601,7 @@ LAST RUN: ${JSON.stringify(lastRun ? { status: lastRun.status, error: lastRun.er
       modelOverride: makerModel,
       maxTokens: 2048,
       ownerUserId,
+      toolName: 'agent_workflow_certify_start',
     });
     const arrMatch = String(content).match(/\[[\s\S]*\]/);
     if (!arrMatch) return { actions: [], modelUsed };

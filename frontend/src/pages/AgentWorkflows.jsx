@@ -73,7 +73,7 @@ export default function AgentWorkflows() {
 
   const loadDefinitions = useCallback(() => {
     return api
-      .agentWorkflowList({ q: defSearch.trim() || undefined })
+      .agentWorkflowList({ q: defSearch.trim() || undefined, limit: 100, offset: 0 })
       .then((wfRes) => setWorkflows(wfRes.workflows || []))
       .catch((e) => showError(e.message || 'Failed to load workflows'));
   }, [defSearch, showError]);
@@ -126,7 +126,7 @@ export default function AgentWorkflows() {
   const loadRun = useCallback((runId) => {
     if (!runId) return;
     api
-      .agentWorkflowRunGet(runId)
+      .agentWorkflowRunGet(runId, { steps_limit: 500 })
       .then(setSelectedRun)
       .catch((e) => showError(e.message || 'Failed to load run'));
   }, [showError]);

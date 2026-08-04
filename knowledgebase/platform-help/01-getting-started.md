@@ -7,7 +7,7 @@ Flolah is your AI agent company: you (the CEO) chat with agents, run standups, t
 ## Register and log in
 
 1. Open the Flolah site → **Register** (new CEO) or **Log in**.
-2. Registration provisions your tenant: standard agents (COO, specialists, Workflow Builder, Platform Help, …), org docs, starter **departments** Master Data table, and Platform Help documents for RAG.
+2. Registration provisions your tenant: standard agents (COO, specialists, Workflow Builder, Platform Help, …), org docs, starter **departments** Master Data table, and Platform Help documents for RAG. Choose **LLM provider + default chat model** on the same form as Profile (Platform default, OpenAI, OpenRouter, Ollama free, DeepSeek local). API keys are **not** collected at register — after login set **`Platform_BYOK`** under **API Keys** if you chose OpenAI/OpenRouter.
 3. After login you land on the **Dashboard** (org chart).
 
 Admin accounts manage platform users; CEOs get the full product nav.
@@ -31,13 +31,13 @@ Your org may **require** MFA or leave it optional (**inherit** platform default)
 
 ## Profile and AI model (BYOK)
 
-Path: avatar → **Profile** (`/profile`).
+Path: avatar → **Profile** (`/profile`). Same **provider + default model** picks appear on **Register**.
 
 - Update display name, email, region, mobile, password, MFA.
 - **Model preference:**
   - **Platform default** — uses the admin-selected platform LLM (no personal key). Ops `.env` covers Brave Search and Replicate video.
-  - **Ollama free / DeepSeek (local)** — no LLM key. Optionally pick an Ollama chat model at Register/Profile. The platform seeds vault slots (`Platform_BYOK`, `Replicate_BYOK`, `BRAVE_SEARCH_BYOK`, `elevenlabs-key`) as **unset** — Edit under **API Keys** when you need those features.
-  - **OpenAI / OpenRouter** — fill vault key **`Platform_BYOK`** under **API Keys** first, then on Profile select the **provider** and a **chat model** from the curated list (or a custom model id). Saving syncs that pair into OpenClaw for your tenant agents. Endpoints come from the platform catalog (`GET /api/auth/llm-catalog`) — you do not paste base URLs.
+  - **Ollama free / DeepSeek (local)** — no LLM key. Pick a chat model at Register/Profile. Non-platform Profiles seed vault slots (`Platform_BYOK`, `Replicate_BYOK`, `BRAVE_SEARCH_BYOK`, `elevenlabs-key`) as **unset** — Edit under **API Keys** when needed.
+  - **OpenAI / OpenRouter** — pick **provider** and a curated (or custom) **chat model** at Register or Profile. Then fill vault key **`Platform_BYOK`** under **API Keys** so agents can call the API. Endpoints come from `GET /api/auth/llm-catalog` — you do not paste base URLs or keys on Register.
 - **Workflow Brain:** for DeepSeek or OpenRouter nodes you can set **Thinking mode** (and effort) in the node attributes — see [07-workflow-nodes-reference](./07-workflow-nodes-reference.md).
 
 Full vault guide: [15-api-keys-vault.md](./15-api-keys-vault.md). Browse uploads/generated media: [26-content-explorer.md](./26-content-explorer.md).

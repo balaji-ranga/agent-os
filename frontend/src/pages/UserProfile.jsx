@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth, RequireAuth } from '../context/AuthContext';
 import { ROLE_TITLE_PRESETS, userRoleTitle } from '../utils/userRoleTitle.js';
+import RobotAvatar, { fileToDataUrl } from '../components/RobotAvatar.jsx';
 
 function UserProfilePanel() {
   const { user, reload } = useAuth();
@@ -48,6 +49,8 @@ function UserProfilePanel() {
   });
   const [ocConnections, setOcConnections] = useState([]);
   const [vaultKeys, setVaultKeys] = useState([]);
+  const [profileImage, setProfileImage] = useState('');
+  const [avatarBusy, setAvatarBusy] = useState(false);
 
   const loadOcConnections = () => {
     api
@@ -80,6 +83,7 @@ function UserProfilePanel() {
     setRoleTitleCustom(!!user.role_title && !ROLE_TITLE_PRESETS.includes(title));
     setLastLoginAt(user.last_login_at || null);
     setLlmHint(user.llm_api_key_hint || null);
+    setProfileImage(user.profile_image || '');
     api
       .authIndustries()
       .then((d) => setIndustries(d.industries || []))
@@ -300,6 +304,59 @@ function UserProfilePanel() {
       {message && <div style={{ color: '#22c55e', marginTop: '1rem' }}>{message}</div>}
 
       <form onSubmit={save} style={{ marginTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+          <RobotAvatar src={profileImage || user?.profile_image} name={form.name || user?.name} size={72} variant="user" />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Profile photo</span>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              disabled={avatarBusy || busy}
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                e.target.value = '';
+                if (!file) return;
+                setAvatarBusy(true);
+                setError(null);
+                setMessage(null);
+                try {
+                  const dataUrl = await fileToDataUrl(file);
+                  const data = await api.authUpdateProfile({ profile_image: dataUrl });
+                  setProfileImage(data.user?.profile_image || dataUrl);
+                  await reload();
+                  setMessage('Profile photo updated.');
+                } catch (err) {
+                  setError(err.message || 'Failed to update photo');
+                } finally {
+                  setAvatarBusy(false);
+                }
+              }}
+            />
+            {(profileImage || user?.profile_image) && (
+              <button
+                type="button"
+                disabled={avatarBusy || busy}
+                onClick={async () => {
+                  setAvatarBusy(true);
+                  setError(null);
+                  try {
+                    await api.authUpdateProfile({ clear_profile_image: true });
+                    setProfileImage('');
+                    await reload();
+                    setMessage('Profile photo removed.');
+                  } catch (err) {
+                    setError(err.message);
+                  } finally {
+                    setAvatarBusy(false);
+                  }
+                }}
+                style={{ alignSelf: 'flex-start', fontSize: '0.85rem' }}
+              >
+                Remove photo
+              </button>
+            )}
+          </div>
+        </div>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Name</span>
           <input

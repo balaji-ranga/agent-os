@@ -1860,6 +1860,32 @@ export function initDb() {
     `);
   } catch (_) {}
 
+  // Per-CEO tool → chat/vision/image/video model overrides (Tools menu mapping; owner-scoped)
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS tool_model_overrides (
+        owner_user_id TEXT NOT NULL,
+        tool_name TEXT NOT NULL,
+        llm_model TEXT,
+        updated_at TEXT DEFAULT (datetime('now')),
+        PRIMARY KEY (owner_user_id, tool_name)
+      )
+    `);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_tool_model_overrides_owner ON tool_model_overrides(owner_user_id)`
+    );
+  } catch (_) {}
+
+  /** User profile photo (data URL or relative media path). */
+  try {
+    _db.exec(`ALTER TABLE platform_users ADD COLUMN profile_image TEXT DEFAULT ''`);
+  } catch (_) {}
+
+  /** Agent icon / profile pic (data URL); default UI uses robot icon when empty. */
+  try {
+    _db.exec(`ALTER TABLE agents ADD COLUMN avatar_image TEXT DEFAULT ''`);
+  } catch (_) {}
+
   return _db;
 }
 

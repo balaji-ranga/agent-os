@@ -763,6 +763,7 @@ Write the learning context now.`,
     ],
     maxTokens: 900,
     ownerUserId,
+    toolName: 'ibkr_order_learnings',
   });
   return {
     summary: String(content || '').trim() || raw,

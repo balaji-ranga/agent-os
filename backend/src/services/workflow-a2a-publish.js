@@ -294,7 +294,7 @@ export function getPublicationById(publishId) {
   return sanitizePublication(row, def);
 }
 
-export function listAllPublishedA2AAgents({ includePrivateForOwnerId = null } = {}) {
+export function listAllPublishedA2AAgents({ includePrivateForOwnerId = null, limit = null, offset = 0 } = {}) {
   const db = getDb();
   const rows = db
     .prepare(
@@ -307,7 +307,7 @@ export function listAllPublishedA2AAgents({ includePrivateForOwnerId = null } = 
     )
     .all();
   const ownerFilter = includePrivateForOwnerId ? String(includePrivateForOwnerId) : null;
-  return rows
+  const all = rows
     .map((row) => {
       const pub = sanitizePublication(
         row,
@@ -326,6 +326,18 @@ export function listAllPublishedA2AAgents({ includePrivateForOwnerId = null } = 
       // Private listings are only visible to the owning CEO (and admins impersonating them).
       return ownerFilter && agent.owner_user_id === ownerFilter;
     });
+  if (limit == null) return all;
+  const lim = Math.min(Math.max(Number(limit) || 50, 1), 200);
+  const off = Math.max(Number(offset) || 0, 0);
+  const agents = all.slice(off, off + lim);
+  return {
+    agents,
+    total: all.length,
+    count: all.length,
+    limit: lim,
+    offset: off,
+    has_more: off + agents.length < all.length,
+  };
 }
 
 export function publishWorkflowAsA2A(ownerUserId, workflowId, body = {}, actor = null) {

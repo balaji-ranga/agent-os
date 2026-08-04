@@ -127,20 +127,32 @@ router.post('/cron-callback', requireInternalToken, (req, res) => {
 router.use(requireAuth);
 router.use(requireCeoOrAdmin);
 
-// List standups (latest first)
+// List standups (latest first) — limit/offset server page
 router.get('/', (req, res) => {
   try {
-    const limit = Math.min(Number(req.query.limit) || 50, 100);
+    const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 100);
+    const offset = Math.max(Number(req.query.offset) || 0, 0);
     const { clause, params } = standupOwnerFilter(req);
+    const hidden = `AND (source IS NULL OR source NOT IN (${hiddenStandupSourcesSqlIn()}))`;
+    const total =
+      db()
+        .prepare(`SELECT COUNT(*) AS n FROM standups WHERE 1=1${clause} ${hidden}`)
+        .get(...params)?.n ?? 0;
     const rows = db()
       .prepare(
         `SELECT id, scheduled_at, status, coo_summary, ceo_summary, source, title, outcomes, created_at, owner_user_id, last_scheduled_run_at
          FROM standups WHERE 1=1${clause}
-         AND (source IS NULL OR source NOT IN (${hiddenStandupSourcesSqlIn()}))
-         ORDER BY scheduled_at DESC LIMIT ?`
+         ${hidden}
+         ORDER BY scheduled_at DESC LIMIT ? OFFSET ?`
       )
-      .all(...params, limit);
-    res.json(rows);
+      .all(...params, limit, offset);
+    res.json({
+      standups: rows,
+      total,
+      limit,
+      offset,
+      has_more: offset + rows.length < total,
+    });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -188,11 +200,28 @@ router.get('/:id', (req, res) => {
         'SELECT id, agent_id, content, submitted_at FROM standup_responses WHERE standup_id = ? ORDER BY submitted_at'
       )
       .all(standup.id);
+    const msgLimit = Math.min(Math.max(Number(req.query.messages_limit) || 100, 1), 500);
+    const msgOffset = Math.max(Number(req.query.messages_offset) || 0, 0);
     let messages = [];
+    let messagesTotal = 0;
     try {
-      messages = db().prepare('SELECT id, role, content, created_at FROM standup_messages WHERE standup_id = ? ORDER BY created_at').all(standup.id);
+      messagesTotal =
+        db().prepare('SELECT COUNT(*) AS n FROM standup_messages WHERE standup_id = ?').get(standup.id)?.n ?? 0;
+      messages = db()
+        .prepare(
+          'SELECT id, role, content, created_at FROM standup_messages WHERE standup_id = ? ORDER BY created_at ASC LIMIT ? OFFSET ?'
+        )
+        .all(standup.id, msgLimit, msgOffset);
     } catch (_) {}
-    const out = { ...standup, responses, messages };
+    const out = {
+      ...standup,
+      responses,
+      messages,
+      messages_total: messagesTotal,
+      messages_limit: msgLimit,
+      messages_offset: msgOffset,
+      messages_has_more: msgOffset + messages.length < messagesTotal,
+    };
     if (req.query.kanban_summary === '1') {
       try {
         const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -306,15 +335,27 @@ router.get('/:id/responses', (req, res) => {
   }
 });
 
-// Get standup conversation (user/COO messages)
+// Get standup conversation (user/COO messages) — paginated
 router.get('/:id/messages', (req, res) => {
   try {
     const standup = getStandupForRequest(req, req.params.id);
     if (!standup) return res.status(404).json({ error: 'Standup not found' });
+    const limit = Math.min(Math.max(Number(req.query.limit) || 100, 1), 500);
+    const offset = Math.max(Number(req.query.offset) || 0, 0);
+    const total =
+      db().prepare('SELECT COUNT(*) AS n FROM standup_messages WHERE standup_id = ?').get(standup.id)?.n ?? 0;
     const rows = db()
-      .prepare('SELECT id, role, content, created_at FROM standup_messages WHERE standup_id = ? ORDER BY created_at')
-      .all(standup.id);
-    res.json(rows);
+      .prepare(
+        'SELECT id, role, content, created_at FROM standup_messages WHERE standup_id = ? ORDER BY created_at ASC LIMIT ? OFFSET ?'
+      )
+      .all(standup.id, limit, offset);
+    res.json({
+      messages: rows,
+      total,
+      limit,
+      offset,
+      has_more: offset + rows.length < total,
+    });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

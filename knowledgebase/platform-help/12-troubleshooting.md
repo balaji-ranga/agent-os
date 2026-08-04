@@ -1,5 +1,13 @@
 # Troubleshooting (CEO)
 
+## Lists look incomplete or “nothing more to delete”
+
+Some screens load a **page** of rows (Content Explorer, Master Data documents, Admin users, workflow definitions) rather than the full history.
+
+1. Use **Next** / **Prev** or switch filters (Kanban **All** loads further pages automatically).
+2. Search/filter tools that only apply client-side act on the **current page** (Content Explorer).
+3. Tool/monitor logs are already paged (`limit`/`offset`); same idea for Kanban task activity.
+
 ## Chat / agent not responding
 
 1. Confirm you are logged in as CEO and opened the correct agent chat.
@@ -88,6 +96,7 @@ Open **Kanban**, find the approval card, approve or reject with a comment. IF no
 3. After rotate, re-select or re-save the workflow node that references the vault key.
 4. Delete blocked by dependencies → review the confirm list (workflows / MCP / Connectors / External agents).
 5. Missing `Replicate_BYOK` / `BRAVE_SEARCH_BYOK` on a non-platform Profile → video / `brave_web_search` fail with no platform fall-back — fill those slots or switch Profile to Platform default.
+6. Wrong model on one tool only: open **Tools → Model** and clear that tool (Profile default) or pick a model your Profile key supports. Mappings do not replace vault keys.
 
 ## Connectors / Connector node fails
 

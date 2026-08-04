@@ -58,7 +58,7 @@ console.log('\n=== 0) Health ===');
 const health = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(5000) }).catch(() => null);
 assert(!!health?.ok, 'backend up');
 
-console.log('\n=== 1) Register NEW CEO with OpenAI BYOK ===');
+console.log('\n=== 1) Register NEW CEO with OpenAI preference (key after login via vault) ===');
 const emailNew = `byok.new.${stamp}@example.com`;
 const fakeKey = `sk-test-byok-${stamp}-abcdefghijklmnopqrstuvwxyz`;
 const reg = await api('POST', '/api/auth/register', {
@@ -68,19 +68,46 @@ const reg = await api('POST', '/api/auth/register', {
   db_mode: 'tenant',
   mfa_policy: 'off',
   llm_provider: 'openai',
-  llm_api_key: fakeKey,
+  llm_model: 'gpt-4o-mini',
 });
-assert(reg.status === 201 || reg.status === 200, `register status ${reg.status}`);
+assert(reg.status === 201 || reg.status === 200, `register status ${reg.status} ${reg.data?.error || ''}`);
 const newUser = reg.data.user || reg.data.session?.user;
 const newToken = reg.data.session?.token || reg.data.token;
 assert(!!newToken, 'new user session token');
 assert(newUser?.llm_provider === 'openai' || reg.data.user?.llm_provider === 'openai', 'new user llm_provider=openai');
+assert(
+  (newUser?.llm_model || reg.data.user?.llm_model) === 'gpt-4o-mini',
+  'new user default model gpt-4o-mini'
+);
 
 const newId = newUser?.id || reg.data.user?.id;
 assert(!!newId, `new user id=${newId}`);
 
+// Put Platform_BYOK in vault (registration never accepts raw keys)
+const listKeys = await api('GET', '/api/user-api-keys', null, newToken);
+const slot = (listKeys.data?.keys || []).find(
+  (k) => String(k.key_name || '') === 'Platform_BYOK'
+);
+if (slot?.id) {
+  const patchVault = await api(
+    'PATCH',
+    `/api/user-api-keys/${slot.id}`,
+    { api_key: fakeKey },
+    newToken
+  );
+  assert(patchVault.status < 400, `vault patch Platform_BYOK ${patchVault.status}`);
+} else {
+  const created = await api(
+    'POST',
+    '/api/user-api-keys',
+    { key_name: 'Platform_BYOK', api_key: fakeKey },
+    newToken
+  );
+  assert(created.status < 400, `vault create Platform_BYOK ${created.status}`);
+}
+
 const resolvedNew = resolveLlmConfigForUser(newId);
-assert(resolvedNew.using_byok === true, 'new user resolve using_byok');
+assert(resolvedNew.using_byok === true, 'new user resolve using_byok after vault key');
 assert(resolvedNew.primary.apiKey === fakeKey, 'new user key takes precedence over env');
 assert(resolvedNew.primary.baseUrl.includes('openai.com'), 'new user openai base url');
 
@@ -94,6 +121,18 @@ if (existsSync(getOpenClawConfigPath())) {
   const pk = byokProviderId(newId);
   assert(!!oc.models?.providers?.[pk]?.apiKey, `openclaw models.providers.${pk} set`);
 }
+
+// Reject key on register body
+const regReject = await api('POST', '/api/auth/register', {
+  email: `byok.reject.${stamp}@example.com`,
+  password,
+  name: 'Reject key',
+  mfa_policy: 'off',
+  llm_provider: 'openai',
+  llm_api_key: fakeKey,
+});
+assert(regReject.status >= 400, 'register rejects llm_api_key on body');
+
 
 console.log('\n=== 2) EXISTING user — register once, then PATCH profile to OpenRouter BYOK ===');
 const emailExisting = `byok.existing.${stamp}@example.com`;

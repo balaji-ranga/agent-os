@@ -90,6 +90,7 @@ Respond with JSON only:
     messages: [{ role: 'user', content: prompt }],
     maxTokens: 500,
     ownerUserId: profile.ceo_user_id || null,
+    toolName: 'job_fit_score',
   });
 
   let parsed = {};

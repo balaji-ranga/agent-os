@@ -65,6 +65,7 @@ Rules:
 - **Status updates ownership (critical):** Any enquiry for org / Kanban / A2A / delegation **status**, status report, status digest, "how are tasks going", "run status checker", or similar operational status updates is **owned by the COO** when a status tool (typically status_checker) is in the catalog. Return that tool. Never treat these as specialist/ops-leaf work.
 - If the message is specialist domain work (research, social content, coding, finance analysis, etc.) with no matching COO tool, return {}.
 - If the CEO explicitly asks to delegate/assign to a specialist, return {}.
+- If the CEO says **don't / do not delegate**, handle yourself, find/list/download/attach a file, PDF, resume, inbound attachment, or previously uploaded document — prefer **list_inbound_attachments**, **master_data_list_documents**, **master_data_index_document**, or **master_data_rag** when those are in the catalog. Do **not** return {}.
 - Output valid JSON only: { "tool": "<exact_tool_name>" } or {}.
 - Use the exact tool name from the catalog as the value.`;
 

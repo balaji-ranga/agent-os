@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { userRoleTitle } from '../utils/userRoleTitle.js';
+import RobotAvatar from './RobotAvatar.jsx';
 
 function initialsFromName(name) {
   const parts = String(name || '')
@@ -48,15 +49,24 @@ export default function ProfileMenu({ user, logout, onNavigate }) {
         title={user?.name || 'Profile'}
         onClick={() => setOpen((o) => !o)}
       >
-        <span className="profile-menu-avatar" aria-hidden>
-          {initialsFromName(user?.name)}
-        </span>
+        {user?.profile_image ? (
+          <RobotAvatar src={user.profile_image} name={user?.name} size={32} variant="user" />
+        ) : (
+          <span className="profile-menu-avatar" aria-hidden>
+            {initialsFromName(user?.name)}
+          </span>
+        )}
       </button>
       {open && (
         <div className="profile-menu-dropdown" role="menu">
           <div className="profile-menu-meta">
-            <div className="profile-menu-meta-name">{user?.name || 'User'}</div>
-            <div className="profile-menu-meta-role">{userRoleTitle(user)}</div>
+            <div className="profile-menu-meta-row">
+              <RobotAvatar src={user?.profile_image} name={user?.name} size={40} variant="user" />
+              <div>
+                <div className="profile-menu-meta-name">{user?.name || 'User'}</div>
+                <div className="profile-menu-meta-role">{userRoleTitle(user)}</div>
+              </div>
+            </div>
           </div>
           {isCeo && (
             <NavLink

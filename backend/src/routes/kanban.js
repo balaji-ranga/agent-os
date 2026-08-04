@@ -140,7 +140,7 @@ function parseViewRange(view, from, to) {
   return { start: start.toISOString(), end: end.toISOString() };
 }
 
-// GET /api/kanban/tasks — list with filters: view=all|daily|weekly|monthly|range, from, to
+// GET /api/kanban/tasks — list with filters: view=all|daily|weekly|monthly|range, from, to, limit, offset
 router.get('/tasks', (req, res) => {
   try {
     const view = (req.query.view || 'weekly').toLowerCase();
@@ -149,26 +149,38 @@ router.get('/tasks', (req, res) => {
     const range = parseViewRange(view, from, to);
     const ownerFilter = kanbanOwnerSqlFilter(req.authUser);
 
-    let sql = `${KANBAN_SELECT} WHERE ${ownerFilter.clause}`;
+    let where = `WHERE ${ownerFilter.clause}`;
     const params = [...ownerFilter.params];
     if (range) {
       const startSql = range.start.replace('T', ' ').replace(/\.\d{3}Z$/, '').slice(0, 19);
       const endSql = range.end.replace('T', ' ').replace(/\.\d{3}Z$/, '').slice(0, 19);
-      sql += ` AND k.created_at >= ? AND k.created_at <= ?`;
+      where += ` AND k.created_at >= ? AND k.created_at <= ?`;
       params.push(startSql, endSql);
     }
-    sql += ` ORDER BY k.created_at DESC`;
-    // "All" needs a higher cap so status_checker / delete-all stay consistent with the board.
-    const defaultLimit = view === 'all' || view === 'everything' || !range ? 500 : 200;
-    const limit = Math.min(Number(req.query.limit) || defaultLimit, 1000);
-    sql += ` LIMIT ?`;
-    params.push(limit);
+    // "All" needs a higher page size so board delete-all / status views stay usable.
+    const defaultLimit = view === 'all' || view === 'everything' || !range ? 200 : 100;
+    const maxLimit = view === 'all' || view === 'everything' || !range ? 500 : 200;
+    const limit = Math.min(Math.max(Number(req.query.limit) || defaultLimit, 1), maxLimit);
+    const offset = Math.max(Number(req.query.offset) || 0, 0);
 
-    const rows = db().prepare(sql).all(...params);
+    const total =
+      db().prepare(`SELECT COUNT(*) AS n FROM kanban_tasks k ${where}`).get(...params)?.n ?? 0;
+
+    const sql = `${KANBAN_SELECT} ${where} ORDER BY k.created_at DESC LIMIT ? OFFSET ?`;
+    const rows = db().prepare(sql).all(...params, limit, offset);
     const scoped = filterKanbanTasksForUser(rows, req.authUser);
     const server_timezone = getServerTimezone();
     const tasks = scoped.map(withDisplayTimes);
-    res.json({ tasks, server_timezone, view, filtered: !!range });
+    res.json({
+      tasks,
+      total,
+      limit,
+      offset,
+      has_more: offset + tasks.length < total,
+      server_timezone,
+      view,
+      filtered: !!range,
+    });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -273,7 +285,15 @@ router.get('/tasks/:id', (req, res) => {
       .get(req.params.id);
     if (!task) return res.status(404).json({ error: 'Task not found' });
     assertKanbanTaskAccess(task, req.authUser);
-    const messages = db().prepare('SELECT id, role, content, created_at FROM task_messages WHERE task_id = ? ORDER BY created_at').all(task.id);
+    const msgLimit = Math.min(Math.max(Number(req.query.messages_limit) || 100, 1), 500);
+    const msgOffset = Math.max(Number(req.query.messages_offset) || 0, 0);
+    const messagesTotal =
+      db().prepare('SELECT COUNT(*) AS n FROM task_messages WHERE task_id = ?').get(task.id)?.n ?? 0;
+    const messages = db()
+      .prepare(
+        'SELECT id, role, content, created_at FROM task_messages WHERE task_id = ? ORDER BY created_at ASC LIMIT ? OFFSET ?'
+      )
+      .all(task.id, msgLimit, msgOffset);
     let delegation_prompt = null;
     let delegation_response = null;
     if (task.agent_delegation_task_id) {
@@ -296,6 +316,10 @@ router.get('/tasks/:id', (req, res) => {
       ...withDisplayTimes(task),
       server_timezone: getServerTimezone(),
       messages: messagesWithDisplayTimes(messages),
+      messages_total: messagesTotal,
+      messages_limit: msgLimit,
+      messages_offset: msgOffset,
+      messages_has_more: msgOffset + messages.length < messagesTotal,
       chat_context,
       delegation_prompt,
       delegation_response,
@@ -489,14 +513,28 @@ router.delete('/tasks', (req, res) => {
   }
 });
 
-// GET /api/kanban/tasks/:id/messages
+// GET /api/kanban/tasks/:id/messages?limit=&offset=
 router.get('/tasks/:id/messages', (req, res) => {
   try {
     const task = db().prepare('SELECT * FROM kanban_tasks WHERE id = ?').get(req.params.id);
     if (!task) return res.status(404).json({ error: 'Task not found' });
     assertKanbanTaskAccess(task, req.authUser);
-    const rows = db().prepare('SELECT id, role, content, created_at FROM task_messages WHERE task_id = ? ORDER BY created_at').all(req.params.id);
-    res.json(messagesWithDisplayTimes(rows));
+    const limit = Math.min(Math.max(Number(req.query.limit) || 100, 1), 500);
+    const offset = Math.max(Number(req.query.offset) || 0, 0);
+    const total =
+      db().prepare('SELECT COUNT(*) AS n FROM task_messages WHERE task_id = ?').get(req.params.id)?.n ?? 0;
+    const rows = db()
+      .prepare(
+        'SELECT id, role, content, created_at FROM task_messages WHERE task_id = ? ORDER BY created_at ASC LIMIT ? OFFSET ?'
+      )
+      .all(req.params.id, limit, offset);
+    res.json({
+      messages: messagesWithDisplayTimes(rows),
+      total,
+      limit,
+      offset,
+      has_more: offset + rows.length < total,
+    });
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message });
   }

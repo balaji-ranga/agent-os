@@ -1,0 +1,40 @@
+---
+description: Rules for onboarding tools/APIs - entitlements, BYOK, auth required
+alwaysApply: true
+---
+
+# Tools, APIs, and AI models (Agent OS)
+
+When adding or changing **content tools**, backend routes, MCP wrappers, or agent tool grants:
+
+## User entitlements and owner scope
+
+- Any **post-login** or agent-invoked tool **must** respect the authenticated user entitlements and **user/tenant ownership** (CEO scope).
+- Resolve owner with existing helpers (
+esolveAuthenticatedCeoUserId, 
+esolveToolOwnerUserId, org scopes). **Never** trust body fields like ceo_user_id for authorization.
+- Do **not** create open/unscoped tools unless the user **explicitly** asks for public or unentitled access.
+- List/read/mutate/log paths must filter by owner unless platform-admin impersonation explicitly applies.
+
+## BYOK and models
+
+- New tools that use AI/LLM **must** go through owner-aware resolution (getLlmConfig(ownerUserId), chatCompletions({ ownerUserId, toolName }), or image/vision/video config helpers that honor BYOK).
+- Prefer **platform default vs user Profile BYOK** (vault Platform_BYOK / related keys). Do **not** hardwire platform-only models or ignore BYOK.
+- Optional **per-user tool to model** overrides (Tools menu mapping) **override** profile/platform model for that tool only; still use the owner keys/base URL.
+- Local non-LLM systems (e.g. Piper-Whisper) may use dedicated service URLs; document them as non-chat-AI.
+- **Do not** build new tools that can only use platform env keys with no BYOK path, unless the user **explicitly** requests that exception.
+
+## Authentication and public APIs
+
+- New APIs must require **authenticated context** (
+equireAuth / tools auth / internal token as appropriate) by default.
+- **Public or unsecured** endpoints only when the user **explicitly** asks (document that choice).
+- Keep secrets out of logs; use existing redaction helpers.
+
+## Onboarding checklist (new tool)
+
+1. Auth + owner scope on route and invoke path
+2. BYOK / platform LLM via ownerUserId (no hard-coded sole platform model for chat LLM)
+3. Entitlement-aligned lists/grants if the tool is agent-invokable
+4. Register meta/purpose; add to tool-model mappable allowlist if it uses chat/vision/image LLM under BYOK
+5. Logs redacted and owner-scoped

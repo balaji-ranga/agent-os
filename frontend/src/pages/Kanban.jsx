@@ -3,6 +3,7 @@ import { api } from '../api';
 import KanbanTaskDescription, { isCeoJobReviewTask, isWorkflowCeoApprovalTask, parseCeoReviewContext } from '../components/KanbanTaskDescription.jsx';
 import KanbanTaskArtifacts from '../components/KanbanTaskArtifacts.jsx';
 import KanbanBoardCell from '../components/KanbanBoardCell.jsx';
+import RobotAvatar from '../components/RobotAvatar.jsx';
 import { WorkflowIoDetailBlock } from '../components/WorkflowStepTooltip.jsx';
 import {
   taskCreatedAtDisplay,
@@ -68,7 +69,18 @@ export default function Kanban() {
   const [serverTimezone, setServerTimezone] = useState(null);
   const [detailError, setDetailError] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [mobileStatus, setMobileStatus] = useState('in_progress');
   const taskChatScrollRef = useRef(null);
+  const [isMobileKanban, setIsMobileKanban] = useState(
+    () => (typeof window !== 'undefined' ? window.matchMedia('(max-width: 900px)').matches : false)
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 900px)');
+    const onChange = () => setIsMobileKanban(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
 
   const toggleTaskSelection = (taskId, e) => {
     if (e) e.stopPropagation();
@@ -110,16 +122,30 @@ export default function Kanban() {
       .finally(() => setDeleting(false));
   };
 
-  const fetchTasks = () => {
-    const params = { view, limit: view === 'all' ? 500 : 300 };
+  const fetchTasks = async () => {
+    const base = { view };
     if (view === 'range') {
-      if (rangeFrom) params.from = rangeFrom;
-      if (rangeTo) params.to = rangeTo;
+      if (rangeFrom) base.from = rangeFrom;
+      if (rangeTo) base.to = rangeTo;
     }
-    api.kanbanTasks(params).then((r) => {
-      setTasks(r.tasks || []);
-      if (r.server_timezone) setServerTimezone(r.server_timezone);
-    }).catch(() => setTasks([]));
+    const pageLimit = view === 'all' ? 500 : 200;
+    try {
+      let offset = 0;
+      let tasksAcc = [];
+      let server_timezone;
+      // Paginate until board has a complete snapshot (cap total pulls for safety).
+      for (let page = 0; page < 20; page++) {
+        const r = await api.kanbanTasks({ ...base, limit: pageLimit, offset });
+        tasksAcc = tasksAcc.concat(r.tasks || []);
+        if (r.server_timezone) server_timezone = r.server_timezone;
+        if (!r.has_more) break;
+        offset += Number(r.limit) || pageLimit;
+      }
+      setTasks(tasksAcc);
+      if (server_timezone) setServerTimezone(server_timezone);
+    } catch {
+      setTasks([]);
+    }
     api.kanbanCounts()
       .then(setBoardCounts)
       .catch(() => setBoardCounts(null));
@@ -485,11 +511,32 @@ export default function Kanban() {
     (taskDetail?.messages || []).length === 0 &&
     chatContextTurns.length === 0;
 
+  const statusCounts = STATUSES.reduce((acc, s) => {
+    acc[s] = tasks.filter((t) => t.status === s).length;
+    return acc;
+  }, {});
+  const mobileTasks = tasks
+    .filter((t) => t.status === mobileStatus)
+    .slice()
+    .sort((a, b) => {
+      const ta = a.updated_at || a.created_at || '';
+      const tb = b.updated_at || b.created_at || '';
+      return String(tb).localeCompare(String(ta));
+    });
+
+  const statusTone = (status) => {
+    if (status === 'in_progress') return 'running';
+    if (status === 'awaiting_confirmation') return 'waiting';
+    if (status === 'completed') return 'done';
+    if (status === 'failed') return 'failed';
+    return 'open';
+  };
+
   return (
-    <div style={{ padding: '1rem', maxWidth: '100%', overflow: 'auto' }}>
+    <div className="kanban-page" style={{ padding: '1rem', maxWidth: '100%', overflow: 'auto' }}>
       <ActionFeedbackBanner feedback={feedback} onDismiss={clearFeedback} />
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-        <h1 style={{ margin: 0, fontSize: '1.5rem' }}>Kanban</h1>
+      <div className="kanban-toolbar" style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+        <h1 style={{ margin: 0, fontSize: isMobileKanban ? '1.25rem' : '1.5rem' }}>Kanban Board</h1>
         {serverTimezone && (
           <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }} title="All Kanban dates are shown in the platform timezone">
             Times in {serverTimezone}
@@ -586,6 +633,73 @@ export default function Kanban() {
 
       {loading && <div style={{ color: 'var(--muted)' }}>Loading…</div>}
 
+      {isMobileKanban ? (
+        <div className="kanban-mobile">
+          <div className="kanban-status-pills" role="tablist" aria-label="Kanban columns">
+            {STATUSES.map((s) => (
+              <button
+                key={s}
+                type="button"
+                role="tab"
+                aria-selected={mobileStatus === s}
+                className={`kanban-status-pill${mobileStatus === s ? ' is-active' : ''}`}
+                onClick={() => setMobileStatus(s)}
+              >
+                {STATUS_LABELS[s]} <span className="kanban-status-count">({statusCounts[s] || 0})</span>
+              </button>
+            ))}
+          </div>
+          <div className="kanban-mobile-list">
+            {mobileTasks.length === 0 && (
+              <div className="kanban-mobile-empty">No tasks in {STATUS_LABELS[mobileStatus]}</div>
+            )}
+            {mobileTasks.map((t) => {
+              const agentLabel =
+                t.assigned_agent_name ||
+                agentName(t.assigned_agent_id || t.assigned_member_key || '__unassigned__');
+              const agentRow = agents.find((a) => a.id === t.assigned_agent_id);
+              return (
+                <div
+                  key={t.id}
+                  className="kanban-mobile-card"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedTask(t)}
+                  onKeyDown={(e) => e.key === 'Enter' && setSelectedTask(t)}
+                >
+                  <div className="kanban-mobile-card-top">
+                    <RobotAvatar
+                      src={agentRow?.avatar_image}
+                      name={agentLabel}
+                      size={40}
+                      status={t.status === 'in_progress' ? 'online' : 'idle'}
+                    />
+                    <div className="kanban-mobile-card-main">
+                      <div className="kanban-mobile-title">{t.title || '(no title)'}</div>
+                      <div className="kanban-mobile-agent">{agentLabel}</div>
+                    </div>
+                    <span className={`kanban-mobile-status tone-${statusTone(t.status)}`}>
+                      {STATUS_LABELS[t.status] || t.status}
+                    </span>
+                    <label className="kanban-mobile-check" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selectedTaskIds.has(t.id)}
+                        onChange={(e) => toggleTaskSelection(t.id, e)}
+                      />
+                    </label>
+                  </div>
+                  <div className="kanban-mobile-meta">
+                    <span>Updated {taskUpdatedAtDisplay(t, serverTimezone)}</span>
+                    {isCeoJobReviewTask(t) && <span className="kanban-mobile-tag">CEO review</span>}
+                    {isWorkflowCeoApprovalTask(t) && <span className="kanban-mobile-tag">WF approval</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
       <div className="kanban-board-wrap">
         <table className="kanban-board-table">
           <thead>
@@ -612,7 +726,16 @@ export default function Kanban() {
             {agentIds.map((aid) => (
               <tr key={aid}>
                 <td />
-                <td style={{ fontWeight: 500, wordBreak: 'break-word' }}>{agentName(aid)}</td>
+                <td style={{ fontWeight: 500, wordBreak: 'break-word' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <RobotAvatar
+                      src={agents.find((a) => a.id === aid)?.avatar_image}
+                      name={agentName(aid)}
+                      size={22}
+                    />
+                    {agentName(aid)}
+                  </span>
+                </td>
                 {STATUSES.map((status) => (
                   <td
                     key={status}
@@ -643,6 +766,7 @@ export default function Kanban() {
           </tbody>
         </table>
       </div>
+      )}
 
       {createOpen && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>

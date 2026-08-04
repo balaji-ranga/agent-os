@@ -201,6 +201,7 @@ Write the learning context now.`;
     ],
     maxTokens: 1200,
     ownerUserId,
+    toolName: 'brain_history',
   });
   return {
     summary: String(content || '').trim() || 'No summary produced.',

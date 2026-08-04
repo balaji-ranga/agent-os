@@ -221,6 +221,7 @@ export async function classifyIntentAndAllocate(ceoMessage, agentsMdContent, con
       modelOverride: getIntentModelOverride(),
       maxTokens: 512,
       ownerUserId: owner,
+      toolName: 'intent_classify_and_delegate',
     });
 
     const raw = (content ?? '').trim();

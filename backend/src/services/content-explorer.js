@@ -149,11 +149,16 @@ function listUploaded(ownerUserId) {
 }
 
 /**
- * @returns {{ owner_user_id: string, folders: object, items: object[] }}
+ * @param {string} ownerUserId
+ * @param {{ source?: string, limit?: number, offset?: number }} [opts]
+ * @returns {{ owner_user_id: string, folders: object, items: object[], total, limit, offset, has_more, counts }}
  */
-export function listContentExplorer(ownerUserId, { source = 'all' } = {}) {
+export function listContentExplorer(ownerUserId, { source = 'all', limit = 50, offset = 0 } = {}) {
   const owner = String(ownerUserId || '').trim();
   if (!owner) throw Object.assign(new Error('owner required'), { status: 400 });
+
+  const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 200);
+  const safeOffset = Math.max(Number(offset) || 0, 0);
 
   const uploaded = source === 'generated' ? [] : listUploaded(owner);
   const generated =
@@ -163,7 +168,7 @@ export function listContentExplorer(ownerUserId, { source = 'all' } = {}) {
 
   // Dedupe by relative_path
   const seen = new Set();
-  const items = [...uploaded, ...generated]
+  const allItems = [...uploaded, ...generated]
     .filter((it) => {
       const k = `${it.source}:${it.relative_path}`;
       if (seen.has(k)) return false;
@@ -171,6 +176,9 @@ export function listContentExplorer(ownerUserId, { source = 'all' } = {}) {
       return true;
     })
     .sort((a, b) => String(b.mtime || '').localeCompare(String(a.mtime || '')));
+
+  const total = allItems.length;
+  const items = allItems.slice(safeOffset, safeOffset + safeLimit);
 
   return {
     owner_user_id: owner,
@@ -182,9 +190,13 @@ export function listContentExplorer(ownerUserId, { source = 'all' } = {}) {
     counts: {
       uploaded: uploaded.length,
       generated: generated.length,
-      total: items.length,
+      total,
     },
     items,
+    total,
+    limit: safeLimit,
+    offset: safeOffset,
+    has_more: safeOffset + items.length < total,
   };
 }
 

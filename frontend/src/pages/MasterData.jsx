@@ -55,8 +55,8 @@ function MasterDataPanel() {
   const refresh = async () => {
     const [t, d, inbound] = await Promise.all([
       api.masterDataTables(),
-      api.masterDataDocuments(),
-      api.inboundAttachmentsList().catch(() => ({ items: [] })),
+      api.masterDataDocuments({ limit: 100, offset: 0 }),
+      api.inboundAttachmentsList({ limit: 100, offset: 0 }).catch(() => ({ items: [] })),
     ]);
     setTables(t.tables || []);
     setDocuments(d.documents || []);

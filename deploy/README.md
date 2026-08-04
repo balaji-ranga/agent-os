@@ -56,7 +56,7 @@ The `init` container runs `setup-openclaw-from-scratch.sh --docker`, which match
 | Platform agent workspace templates (Admin + CEO apply/publish) | ✓ | ✓ (DB table `platform_agent_workspace_templates`) |
 | Custom workflow scripts (Python/JS sandbox) | ✓ | ✓ (`python3` in backend image) |
 | Per-agent tool grants / allowlists | backend startup sync | ✓ backend startup |
-| Master-data / feedback / BYOK LLM | ✓ (schema on startup) | ✓ rebuild backend image |
+| Master-data / feedback / BYOK LLM | ✓ (schema on startup) | ✓ rebuild backend image; API Keys **Reseed BYOK keys** (`POST /api/user-api-keys/reseed`); home KPIs/search `GET /api/home/*`; profile/agent avatars; Flolah SEO meta on SPA |
 | OpenConnector MCP registration | `seed-openconnector-mcp.js` | ✓ post-up when `OPENCONNECTOR_MCP_URL` set |
 
 Verify after init:
@@ -311,7 +311,7 @@ All proxied under `/api` (rebuild backend + frontend images after upgrade):
 | Workflow A2A | `POST /api/a2a/:publishId` (sync/async; public or Bearer); card at `/.well-known/agent-card.json`; secured: `POST /api/a2a/:publishId/oauth/token`. Default **deny_all** until policy changed. Async callbacks: `a2a.workflow.completed|failed|cancelled` webhook JSON; mock inbox `POST/GET /api/a2a-callback-inbox`. Env: `A2A_*` + `*_FULL_REBUILD_DAYS` in `.env.example`. VPS real client IP: `docker-compose.vps-client-ip.yml`. |
 | hPanel shell + themes | Collapsible left nav, topbar profile menu + **ThemeToggle** (light/dark via `data-theme` / `agent-os-theme`); CSS tokens `#f7f8f9` / `#0f1115` |
 | Agent Workspaces Add agent | Primary create path: `/workspace` → **Add agent** (`AddAgentForm`); Dashboard org chart **Design** still has an add modal |
-| Tools nav | CEO nav label **Tools** → `/content-tools` (content-tools plugin/API name unchanged) |
+| Tools nav | CEO nav label **Tools** → `/content-tools` (content-tools plugin/API name unchanged); **Tools → Model** maps per-tool LLM models (BYOK-aware; owner-scoped `tool_model_overrides`) |
 | Workflow fullscreen editor | `/workflows/:id/edit` hides platform nav/topbar (`shell-focus-mode`); compact nodes/panes; **Exit to workflows** |
 | Register MCP / Agents CTAs | Primary accent buttons + shared `page-hero` alignment on MCP registry and External Agents |
 | COO status checker | `POST /api/tools/status-checker` (COO grant only) + `POST /api/cron/run-status-checker` (returns `html` for Dashboard popup); daily `COO_STATUS_CHECKER_CRON` (default `0 9 * * *`) → standup post + HTML email per CEO |
@@ -325,9 +325,10 @@ All proxied under `/api` (rebuild backend + frontend images after upgrade):
 | CEO home chat + My Org | Post-login home `/` is agent chat (default COO + agent picker); former dashboard org chart/standups at `/org` nav **My Org** |
 | Chat side panes | History + Browser session collapsible; **hidden by default**; clock / window icons next to New chat |
 | COO channel inbound SOUL | BalServe `SOUL.md` hard rule: list_inbound → index RAG-able docs → master_data_rag; media via analyze/STT. Org resync injects same tools line into COO AGENTS |
+| COO ad-hoc file work | Hard-path skips **"don't delegate"** and find/download/attach of existing files (`isRefuseDelegationRequest` / `isCooNativeWork`); `list_inbound_attachments` returns `paste_in_chat` download links |
 | Profile role title | Display-only `platform_users.role_title` via `PATCH /auth/me` (presets/custom); org chart root + profile menu; auth role stays `ceo` |
 | Onboarding Helper | OpenClaw `onboardinghelper` + `/onboarding` Review checkboxes; tools `onboarding_save_proposal` / `onboarding_apply_proposal` (seeded at startup); templates `openclaw-workspace-templates/onboardinghelper/`; E2E prompts + `backend/scripts/e2e-onboarding-wf-prompts.mjs` → platform-help **27** |
-| Profile LLM catalog | Provider + model (`llm_model`); `GET /api/auth/llm-catalog`; registry `backend/src/config/llm-provider-registry.js`; soft fallbacks `OPENAI_BYOK_MODEL` / `OPENROUTER_MODEL` |
+| Profile LLM catalog | Provider + model on **Register** and **Profile** (`llm_model`); `GET /api/auth/llm-catalog`; registry `backend/src/config/llm-provider-registry.js`; BYOK vault after login; soft fallbacks `OPENAI_BYOK_MODEL` / `OPENROUTER_MODEL` |
 | Generated media lockdown | `/api/media/openclaw/*` auth-only by default; WhatsApp uses disk `MEDIA:`; Dashboard inline players (Bearer→blob). Opt-in signed public: `MEDIA_PUBLIC_SIGNED=1` in `deploy/.env`. Docs: platform-help **11** |
 | Platform feedback (Admin) | `/admin/platform-feedback` + COO tools `platform_feedback_*`; statuses open / implemented / rejected |
 
@@ -600,6 +601,8 @@ Docker’s bridge port proxy makes nginx see the gateway IP instead of the real 
 That lets AgentExchange **deny_all / whitelist** IP checks use the actual client IP. Without it, every external caller can look like the same bridge address and whitelist rules will not work as intended.
 
 Local dev (non-VPS) usually omits this file — use the base `docker-compose.yml` only.
+
+**API list pagination:** CEO SPA list endpoints return `{ domainKey, total, limit, offset, has_more }` (shared helpers in `backend/src/lib/pagination.js`). Rebuild **backend** + **frontend** after changes. Details: root `README.md` → API (backend).
 
 ## A2A / AgentExchange testing
 

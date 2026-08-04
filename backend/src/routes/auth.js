@@ -265,6 +265,8 @@ router.patch('/me', requireAuth, (req, res) => {
       industry_other,
       business_name,
       data_retention_days,
+      profile_image,
+      clear_profile_image,
     } = req.body || {};
     const user = updateUserProfile(req.authUser.id, {
       name,
@@ -284,6 +286,8 @@ router.patch('/me', requireAuth, (req, res) => {
       industry_other,
       business_name,
       data_retention_days,
+      profile_image,
+      clear_profile_image,
     });
     const mfaRow = getUserMfa(req.authUser.id);
     res.json({ user, mfa: resolveUserMfa(mfaRow) });

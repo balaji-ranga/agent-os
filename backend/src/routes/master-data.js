@@ -182,7 +182,14 @@ router.get('/documents', requireAuth, requireCeoOrAdmin, async (req, res) => {
   try {
     const owner = ownerOr403(req, res);
     if (!owner) return;
-    res.json({ documents: await md.listDocuments(owner) });
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
+    const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+    const page = await md.listDocuments(owner, { limit, offset });
+    if (Array.isArray(page)) {
+      res.json({ documents: page, total: page.length, limit, offset, has_more: false });
+    } else {
+      res.json(page);
+    }
   } catch (e) {
     const status = e.status || (e.code === 'OPENSEARCH_UNAVAILABLE' ? 503 : 400);
     res.status(status).json({ error: e.message, code: e.code || undefined });

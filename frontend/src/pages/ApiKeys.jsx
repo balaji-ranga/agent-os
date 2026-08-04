@@ -131,7 +131,8 @@ function ApiKeysPanel() {
         For <code>brave_web_search</code> when Profile is not Platform default, create{' '}
         <code>{braveSearchByok}</code>; Platform default uses ops <code>BRAVE_API_KEY</code>.
         Non-platform Profiles auto-seed recommended vault slots as <code>unset</code> — Edit each and paste
-        your secret.
+        your secret. Use <strong>Reseed BYOK keys</strong> to load any missing recommended key names with empty values
+        (existing secrets are never cleared).
       </p>
 
       {error && (
@@ -153,7 +154,38 @@ function ApiKeysPanel() {
           marginBottom: '1.25rem',
         }}
       >
-        <strong>{editId ? 'Edit key' : 'Add key'}</strong>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <strong>{editId ? 'Edit key' : 'Add key'}</strong>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              setError(null);
+              setMessage(null);
+              try {
+                const r = await api.userApiKeysReseed();
+                setMessage(r.message || 'BYOK key slots reseeded.');
+                await load();
+              } catch (err) {
+                setError(err.message);
+              } finally {
+                setBusy(false);
+              }
+            }}
+            style={{
+              padding: '0.4rem 0.75rem',
+              borderRadius: 6,
+              border: '1px solid var(--border)',
+              background: 'var(--bg)',
+              color: 'var(--text)',
+              fontSize: '0.85rem',
+            }}
+            title="Create missing BYOK vault rows with empty values (does not overwrite filled secrets)"
+          >
+            Reseed BYOK keys
+          </button>
+        </div>
         <label>
           Key name
           <input

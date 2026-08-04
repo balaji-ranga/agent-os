@@ -613,13 +613,18 @@ function contentSha256(bufferOrText) {
 /**
  * List documents from OpenSearch. For CEO owners, protected platform help docs
  * are filtered out (they live under PLATFORM_OWNER_ID). Platform owner lists all.
+ * Pass limit/offset for SPA pagination; omit limit for full legacy array.
  */
-export async function listDocuments(ownerUserId) {
+export async function listDocuments(ownerUserId, opts = {}) {
   assertOpenSearchReady();
   const owner = String(ownerUserId || '').trim();
   if (!owner) throw new Error('owner_user_id required');
-  const excludeProtected = owner !== PLATFORM_OWNER_ID;
-  return osListDocuments(owner, { excludeProtected });
+  const excludeProtected = opts.excludeProtected != null ? !!opts.excludeProtected : owner !== PLATFORM_OWNER_ID;
+  return osListDocuments(owner, {
+    excludeProtected,
+    limit: opts.limit,
+    offset: opts.offset,
+  });
 }
 
 export async function getDocument(ownerUserId, documentId) {
@@ -900,6 +905,7 @@ export async function ragDocuments(
         ],
         maxTokens: 800,
         ownerUserId: owner,
+        toolName: 'master_data_rag',
       });
       summary = String(content || '').trim();
     } catch (e) {

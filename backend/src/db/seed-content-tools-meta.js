@@ -487,7 +487,9 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/master-data-list-documents',
     method: 'POST',
     purpose:
-      'API tool: DISCOVERY for uploaded documents (title, filename, chunk_count). Use when the user asks about files/PDFs and you need an id, then call master_data_rag with query. ' +
+      'API tool: DISCOVERY for already-indexed Master Data documents (title, filename, document_id, chunk_count). ' +
+      'Use when the CEO asks which docs are indexed, or to find a resume/PDF by name after list_inbound does not match. ' +
+      'Then master_data_rag with query (optional document_id). For raw bytes still only in inbound (not indexed), use list_inbound_attachments first. ' +
       'Do not use for structured table questions (departments etc.) — those use list_tables → list_rows.',
     model_used: '',
     enabled: 1,
@@ -514,10 +516,12 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/list-inbound-attachments',
     method: 'POST',
     purpose:
-      'API tool: list files in this CEO\'s workspace inbound/attachments (chat, WhatsApp, channel uploads). ' +
-      'Returns relative_path, size, rag_indexable, is_media. ' +
-      'For PDF/Word/Excel/text: call master_data_index_document then master_data_rag. ' +
-      'For images/audio/video: leave in inbound (no RAG); use analyze_image for images and speech_stt for audio if needed. No parameters.',
+      'API tool: list files in this CEO\'s workspace inbound/attachments (chat paperclip, WhatsApp, channel uploads). ' +
+      'Use when the CEO asks to find, download, attach, or re-send a previously uploaded file/PDF/resume. ' +
+      'Returns relative_path, size, rag_indexable, is_media, download_url, paste_in_chat (markdown link for Dashboard). ' +
+      'To put the file back in chat: paste paste_in_chat in your reply. ' +
+      'For PDF/Word/Excel/text content Q&A: call master_data_index_document then master_data_rag. ' +
+      'For images/audio/video: leave in inbound (no RAG); use analyze_image / speech_stt. No parameters.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,

@@ -14,7 +14,6 @@ import {
 import { ensureMfaTables, normalizeMfaPolicy, normalizeMfaMode, updateUserMfaSettings } from './auth/mfa.js';
 import {
   normalizeLlmProvider,
-  providerNeedsApiKey,
   updateUserLlmSettings,
   userLlmPublic,
   syncUserLlmToOpenClaw,
@@ -224,19 +223,18 @@ export async function registerCeoUser({
   }
   const enabledFlag = policy === 'on' ? 1 : 0;
   const provider = normalizeLlmProvider(llm_provider);
-  // BYOK secrets live in Management → API Keys (Platform_BYOK). Do not accept pasted keys at register.
+  // BYOK secrets live in Management → API Keys (Platform_BYOK). Never accept pasted keys at register.
   if (llm_api_key != null && String(llm_api_key).trim()) {
     throw new Error(
-      `Do not send llm_api_key during registration. Register with Platform default or a free model, then create "${PLATFORM_BYOK_KEY_NAME}" under Management → API Keys and switch provider in Profile.`
+      `Do not send llm_api_key during registration. Choose provider + default model here, then create "${PLATFORM_BYOK_KEY_NAME}" under Management → API Keys after login.`
     );
   }
-  if (providerNeedsApiKey(provider)) {
-    throw new Error(
-      `llm_provider=${provider} requires API key "${PLATFORM_BYOK_KEY_NAME}" under Management → API Keys. During registration choose Platform default, Ollama free, or DeepSeek free; then add the key and switch provider in Profile.`
-    );
-  }
+  // OpenAI/OpenRouter may be selected without a vault key yet — seed slots; key is filled post-login.
   const apiKey = null;
-  const modelNorm = normalizeLlmModelForProvider(provider, llm_model, { required: false });
+  const modelNorm = normalizeLlmModelForProvider(provider, llm_model, {
+    // Soft-default from catalog when model omitted (including BYOK defaults).
+    required: false,
+  });
   if (!modelNorm.ok) throw Object.assign(new Error(modelNorm.error), { status: 400 });
   const modelToStore = provider === 'platform_decided' ? null : modelNorm.model;
 
@@ -353,6 +351,7 @@ export function userPublic(row) {
     industry: row.industry || '',
     industry_other: row.industry_other || '',
     business_name: row.business_name || '',
+    profile_image: row.profile_image || '',
     mfa_policy: row.mfa_policy || 'inherit',
     mfa_mode: row.mfa_mode || null,
     mfa_enabled: !!row.mfa_enabled,
@@ -373,18 +372,34 @@ export function getUserById(id) {
   return userPublic(row);
 }
 
-export function listUsers() {
-  return getDb()
-    .prepare(
-      `SELECT id, email, name, region, mobile, role, enabled, ceo_db_mode, industry, industry_other, business_name, last_login_at, created_at, updated_at
-       FROM platform_users ORDER BY created_at DESC`
-    )
-    .all()
-    .map((row) => ({
-      ...row,
-      enabled: !!row.enabled,
-      ceo_db_mode: row.role === 'ceo' ? row.ceo_db_mode || defaultCeoDbMode() : null,
-    }));
+export function listUsers({ limit = null, offset = 0 } = {}) {
+  const baseSql = `SELECT id, email, name, region, mobile, role, enabled, ceo_db_mode, industry, industry_other, business_name, last_login_at, created_at, updated_at
+       FROM platform_users`;
+  const mapRow = (row) => ({
+    ...row,
+    enabled: !!row.enabled,
+    ceo_db_mode: row.role === 'ceo' ? row.ceo_db_mode || defaultCeoDbMode() : null,
+  });
+  if (limit == null) {
+    return getDb()
+      .prepare(`${baseSql} ORDER BY created_at DESC`)
+      .all()
+      .map(mapRow);
+  }
+  const lim = Math.min(Math.max(Number(limit) || 50, 1), 200);
+  const off = Math.max(Number(offset) || 0, 0);
+  const total = getDb().prepare('SELECT COUNT(*) AS n FROM platform_users').get()?.n ?? 0;
+  const users = getDb()
+    .prepare(`${baseSql} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
+    .all(lim, off)
+    .map(mapRow);
+  return {
+    users,
+    total,
+    limit: lim,
+    offset: off,
+    has_more: off + users.length < total,
+  };
 }
 
 /**
@@ -461,6 +476,25 @@ export function revokeUserAgent(userId, agentId) {
   return setUserAgentEnabled(userId, agentId, false);
 }
 
+const MAX_PROFILE_IMAGE_CHARS = 900_000; // ~0.9MB data-URL
+
+function normalizeProfileImage(value, { clear = false } = {}) {
+  if (clear) return '';
+  if (value === undefined || value === null) return undefined;
+  const s = String(value).trim();
+  if (!s) return '';
+  if (s.length > MAX_PROFILE_IMAGE_CHARS) {
+    throw Object.assign(new Error('Profile image is too large (max ~650KB)'), { status: 400 });
+  }
+  if (!/^data:image\/(png|jpe?g|webp|gif);base64,/i.test(s) && !/^https?:\/\//i.test(s)) {
+    throw Object.assign(
+      new Error('Profile image must be a data URL (png/jpeg/webp/gif) or https URL'),
+      { status: 400 }
+    );
+  }
+  return s;
+}
+
 export function updateUserProfile(
   userId,
   {
@@ -481,6 +515,8 @@ export function updateUserProfile(
     industry_other,
     business_name,
     data_retention_days,
+    profile_image,
+    clear_profile_image,
   } = {}
 ) {
   const db = getDb();
@@ -498,6 +534,10 @@ export function updateUserProfile(
   if (role_title !== undefined) {
     const title = String(role_title).trim().slice(0, 64);
     updates.role_title = title;
+  }
+  if (clear_profile_image || profile_image !== undefined) {
+    const next = normalizeProfileImage(profile_image, { clear: !!clear_profile_image });
+    if (next !== undefined) updates.profile_image = next;
   }
 
   if (email !== undefined) {

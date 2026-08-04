@@ -275,17 +275,21 @@ export async function updateDocumentTags(ownerUserId, documentId, tags) {
  * @param {string} ownerUserId
  * @param {{ excludeProtected?: boolean }} [opts]
  */
-export async function listDocuments(ownerUserId, { excludeProtected = false } = {}) {
+export async function listDocuments(ownerUserId, { excludeProtected = false, limit = null, offset = 0 } = {}) {
   const owner = String(ownerUserId || '').trim();
   await ensureOwnerIndices(owner);
   const metaIndex = metaIndexName(owner);
+  const size = limit != null ? Math.min(Math.max(Number(limit) || 50, 1), 200) : 500;
+  const from = Math.max(Number(offset) || 0, 0);
   let json;
   try {
     json = await opensearchRequest(
       'POST',
       `/${metaIndex}/_search`,
       {
-        size: 500,
+        size,
+        from,
+        track_total_hits: true,
         sort: [{ uploaded_at: { order: 'desc', unmapped_type: 'date' } }],
         query: {
           bool: {
@@ -296,7 +300,9 @@ export async function listDocuments(ownerUserId, { excludeProtected = false } = 
       { timeoutMs: 30000 }
     );
   } catch (e) {
-    if (e?.status === 404) return [];
+    if (e?.status === 404) {
+      return limit != null ? { documents: [], total: 0, limit: size, offset: from, has_more: false } : [];
+    }
     throw e;
   }
   const hits = json?.hits?.hits || [];
@@ -304,7 +310,16 @@ export async function listDocuments(ownerUserId, { excludeProtected = false } = 
   if (excludeProtected) {
     docs = docs.filter((d) => !isProtectedPlatformDocument(d));
   }
-  return docs;
+  if (limit == null) return docs;
+  const totalRaw = json?.hits?.total;
+  const total = typeof totalRaw === 'object' ? Number(totalRaw.value || 0) : Number(totalRaw || docs.length);
+  return {
+    documents: docs,
+    total,
+    limit: size,
+    offset: from,
+    has_more: from + docs.length < total,
+  };
 }
 
 export async function getDocument(ownerUserId, documentId) {

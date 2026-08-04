@@ -140,20 +140,34 @@ export const api = {
   agentCreate: (body) => post('/agents', body),
   agentUpdate: (id, body) => patch(`/agents/${id}`, body),
   agentDelete: (id) => del(`/agents/${id}`),
-  agentChatHistory: async (id) => {
+  agentChatHistory: async (id, params = {}) => {
     const tz =
       typeof Intl !== 'undefined'
         ? Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
         : 'UTC';
-    const data = await get(`/agents/${id}/chat?tz=${encodeURIComponent(tz)}`);
+    const sp = new URLSearchParams({ tz });
+    if (params.limit != null) sp.set('limit', String(params.limit));
+    if (params.offset != null) sp.set('offset', String(params.offset));
+    const data = await get(`/agents/${id}/chat?${sp.toString()}`);
     if (Array.isArray(data)) return { turns: data, session: null, rolled_over: false };
     return {
       turns: Array.isArray(data?.turns) ? data.turns : [],
       session: data?.session || null,
       rolled_over: !!data?.rolled_over,
+      total: data?.total,
+      limit: data?.limit,
+      offset: data?.offset,
+      has_more: !!data?.has_more,
     };
   },
-  agentChatSessions: (id) => get(`/agents/${encodeURIComponent(id)}/chat/history`),
+  agentChatSessions: (id, params = {}) => {
+    const sp = new URLSearchParams();
+    if (params.limit != null) sp.set('limit', String(params.limit));
+    if (params.offset != null) sp.set('offset', String(params.offset));
+    if (params.days != null) sp.set('days', String(params.days));
+    const q = sp.toString();
+    return get(q ? `/agents/${encodeURIComponent(id)}/chat/history?${q}` : `/agents/${encodeURIComponent(id)}/chat/history`);
+  },
   agentChatRestore: (id, sessionId, mode = 'as_is') =>
     post(`/agents/${encodeURIComponent(id)}/chat/history/${encodeURIComponent(sessionId)}/restore`, {
       mode,
@@ -178,7 +192,23 @@ export const api = {
     post(`/agents/${toAgentId}/chat/from-agent`, { from_agent_id: fromAgentId, message }),
   agentActivities: (id) => get(`/agents/${id}/activities`),
   // Standups
-  standupsList: (limit) => get(limit ? `/standups?limit=${limit}` : '/standups'),
+  standupsList: async (limit = 50, offset = 0) => {
+    const sp = new URLSearchParams();
+    if (limit != null) sp.set('limit', String(limit));
+    if (offset != null) sp.set('offset', String(offset));
+    const q = sp.toString();
+    const data = await get(q ? `/standups?${q}` : '/standups');
+    // Legacy array response still supported; server now returns { standups, total, … }
+    if (Array.isArray(data)) return data;
+    return data?.standups || [];
+  },
+  standupsListPage: (params = {}) => {
+    const sp = new URLSearchParams();
+    if (params.limit != null) sp.set('limit', String(params.limit));
+    if (params.offset != null) sp.set('offset', String(params.offset));
+    const q = sp.toString();
+    return get(q ? `/standups?${q}` : '/standups');
+  },
   standupGet: (id) => get(`/standups/${id}`),
   standupCreate: (body) => post('/standups', body),
   standupNotifications: (limit) => get(limit ? `/standups/notifications?limit=${limit}` : '/standups/notifications'),
@@ -193,7 +223,22 @@ export const api = {
   standupAddResponse: (id, agentId, content) => post(`/standups/${id}/responses`, { agent_id: agentId, content }),
   standupRunCoo: (id, includeActivities = false) =>
     post(`/standups/${id}/run-coo${includeActivities ? '?include_activities=1' : ''}`, {}),
-  standupMessages: (id) => get(`/standups/${id}/messages`),
+  standupMessages: async (id, params = {}) => {
+    const sp = new URLSearchParams();
+    if (params.limit != null) sp.set('limit', String(params.limit));
+    if (params.offset != null) sp.set('offset', String(params.offset));
+    const q = sp.toString();
+    const data = await get(q ? `/standups/${id}/messages?${q}` : `/standups/${id}/messages`);
+    if (Array.isArray(data)) return data;
+    return data?.messages || [];
+  },
+  standupMessagesPage: (id, params = {}) => {
+    const sp = new URLSearchParams();
+    if (params.limit != null) sp.set('limit', String(params.limit));
+    if (params.offset != null) sp.set('offset', String(params.offset));
+    const q = sp.toString();
+    return get(q ? `/standups/${id}/messages?${q}` : `/standups/${id}/messages`);
+  },
   standupSendMessage: (id, body) => post(`/standups/${id}/messages`, body),
   standupApprove: (id) => post(`/standups/${id}/approve`, {}),
   standupDelete: (id) => del(`/standups/${id}`),
@@ -213,6 +258,9 @@ export const api = {
   contentToolsMetaUpdate: (name, patch) => patch(`/tools/meta/${encodeURIComponent(name)}`, patch),
   contentToolsMetaCreate: (body) => post('/tools/meta', body),
   contentToolsTest: (name, body = {}) => post(`/tools/test/${encodeURIComponent(name)}`, body),
+  /** CEO Tools → model mapping (BYOK tools; excludes embeddings / custom-script review). */
+  contentToolsModelMappings: () => get('/tools/model-mappings'),
+  contentToolsModelMappingsSave: (mappings) => put('/tools/model-mappings', { mappings }),
   // Content tools: monitor logs
   contentToolsLogs: (params = {}) => {
     const sp = new URLSearchParams();
@@ -239,19 +287,41 @@ export const api = {
     if (params.from) sp.set('from', params.from);
     if (params.to) sp.set('to', params.to);
     if (params.limit != null) sp.set('limit', params.limit);
+    if (params.offset != null) sp.set('offset', params.offset);
     const q = sp.toString();
     return get(q ? `/kanban/tasks?${q}` : '/kanban/tasks');
   },
   /** Unfiltered status counts (matches status_checker — all ages). */
   kanbanCounts: () => get('/kanban/counts'),
   kanbanSummary: (days = 1) => get(`/kanban/summary?days=${days}`),
-  kanbanTaskGet: (id) => get(`/kanban/tasks/${id}`),
+  kanbanTaskGet: (id, params = {}) => {
+    const sp = new URLSearchParams();
+    if (params.messages_limit != null) sp.set('messages_limit', params.messages_limit);
+    if (params.messages_offset != null) sp.set('messages_offset', params.messages_offset);
+    const q = sp.toString();
+    return get(q ? `/kanban/tasks/${id}?${q}` : `/kanban/tasks/${id}`);
+  },
   kanbanTaskCreate: (body) => post('/kanban/tasks', body),
   kanbanTaskUpdate: (id, body) => patch(`/kanban/tasks/${id}`, body),
   kanbanTaskReopen: (id) => post(`/kanban/tasks/${id}/reopen`, {}),
   kanbanTaskDelete: (id) => del(`/kanban/tasks/${id}`),
   kanbanTasksDeleteBulk: (taskIds) => request('/kanban/tasks', { method: 'DELETE', body: JSON.stringify({ task_ids: taskIds }) }),
-  kanbanTaskMessages: (id) => get(`/kanban/tasks/${id}/messages`),
+  kanbanTaskMessages: async (id, params = {}) => {
+    const sp = new URLSearchParams();
+    if (params.limit != null) sp.set('limit', params.limit);
+    if (params.offset != null) sp.set('offset', params.offset);
+    const q = sp.toString();
+    const data = await get(q ? `/kanban/tasks/${id}/messages?${q}` : `/kanban/tasks/${id}/messages`);
+    if (Array.isArray(data)) return data;
+    return data?.messages || [];
+  },
+  kanbanTaskMessagesPage: (id, params = {}) => {
+    const sp = new URLSearchParams();
+    if (params.limit != null) sp.set('limit', params.limit);
+    if (params.offset != null) sp.set('offset', params.offset);
+    const q = sp.toString();
+    return get(q ? `/kanban/tasks/${id}/messages?${q}` : `/kanban/tasks/${id}/messages`);
+  },
   kanbanTaskAddMessage: (id, role, content) => post(`/kanban/tasks/${id}/messages`, { role, content }),
   jobCeoReviewConfirm: (body) => post('/tools/job-ceo-review-confirm', body),
   jobCeoReviewInclude: (body) => post('/tools/job-ceo-review-include', body),
@@ -380,18 +450,11 @@ export const api = {
     patch(`/master-data/tables/${encodeURIComponent(tableId)}/rows/${encodeURIComponent(rowId)}`, { data }),
   masterDataRowDelete: (tableId, rowId) =>
     del(`/master-data/tables/${encodeURIComponent(tableId)}/rows/${encodeURIComponent(rowId)}`),
-  masterDataDocuments: () => get('/master-data/documents'),
-  masterDataDocumentUpload: (body) => post('/master-data/documents', body),
-  masterDataDocumentReindex: (id) => post(`/master-data/documents/${encodeURIComponent(id)}/reindex`, {}),
-  masterDataDocumentsReindexAll: () => post('/master-data/documents/reindex-all', {}),
-  masterDataDocumentsPurgeAll: () => post('/master-data/documents/purge-all', {}),
-  masterDataDocumentDelete: (id) => del(`/master-data/documents/${encodeURIComponent(id)}`),
-  masterDataDocumentFromInbound: (body) => post('/master-data/documents/from-inbound', body),
-  inboundAttachmentsList: () => get('/workspace/inbound-attachments'),
-  inboundAttachmentUpload: (body) => post('/workspace/inbound-attachments', body),
   contentExplorerList: (params = {}) => {
     const q = new URLSearchParams();
     if (params.source) q.set('source', params.source);
+    if (params.limit != null) q.set('limit', String(params.limit));
+    if (params.offset != null) q.set('offset', String(params.offset));
     const qs = q.toString();
     return get(`/workspace/content-explorer${qs ? `?${qs}` : ''}`);
   },
@@ -403,6 +466,27 @@ export const api = {
   },
   /** Hard-delete selected items or all (body.all). Permanent disk delete. */
   contentExplorerDelete: (body) => post('/workspace/content-explorer/delete', body),
+  inboundAttachmentsList: (params = {}) => {
+    const q = new URLSearchParams();
+    if (params.limit != null) q.set('limit', String(params.limit));
+    if (params.offset != null) q.set('offset', String(params.offset));
+    const qs = q.toString();
+    return get(`/workspace/inbound-attachments${qs ? `?${qs}` : ''}`);
+  },
+  inboundAttachmentUpload: (body) => post('/workspace/inbound-attachments', body),
+  masterDataDocuments: (params = {}) => {
+    const q = new URLSearchParams();
+    if (params.limit != null) q.set('limit', String(params.limit));
+    if (params.offset != null) q.set('offset', String(params.offset));
+    const qs = q.toString();
+    return get(`/master-data/documents${qs ? `?${qs}` : ''}`);
+  },
+  masterDataDocumentUpload: (body) => post('/master-data/documents', body),
+  masterDataDocumentReindex: (id) => post(`/master-data/documents/${encodeURIComponent(id)}/reindex`, {}),
+  masterDataDocumentsReindexAll: () => post('/master-data/documents/reindex-all', {}),
+  masterDataDocumentsPurgeAll: () => post('/master-data/documents/purge-all', {}),
+  masterDataDocumentDelete: (id) => del(`/master-data/documents/${encodeURIComponent(id)}`),
+  masterDataDocumentFromInbound: (body) => post('/master-data/documents/from-inbound', body),
   onboardingHelperGet: () => get('/onboarding/helper'),
   onboardingHelperSaveDraft: (body) => put('/onboarding/helper/draft', body),
   onboardingHelperChat: (message) => post('/onboarding/helper/chat', { message }),
@@ -455,7 +539,13 @@ export const api = {
   orgMembers: () => get('/org-members'),
   orgMemberUpsert: (body) => post('/org-members', body),
   orgMemberDelete: (id) => del(`/org-members/${encodeURIComponent(id)}`),
-  adminUsers: () => get('/admin/users'),
+  adminUsers: (params = {}) => {
+    const q = new URLSearchParams();
+    if (params.limit != null) q.set('limit', String(params.limit));
+    if (params.offset != null) q.set('offset', String(params.offset));
+    const qs = q.toString();
+    return get(`/admin/users${qs ? `?${qs}` : ''}`);
+  },
   adminUserGet: (userId) => get(`/admin/users/${encodeURIComponent(userId)}`),
   adminUserSetEnabled: (userId, enabled) => patch(`/admin/users/${encodeURIComponent(userId)}/enabled`, { enabled }),
   adminUserOffboard: (userId, body) => post(`/admin/users/${encodeURIComponent(userId)}/offboard`, body),
@@ -507,6 +597,8 @@ export const api = {
   agentWorkflowList: (params = {}) => {
     const q = new URLSearchParams();
     if (params.q) q.set('q', params.q);
+    if (params.limit != null) q.set('limit', String(params.limit));
+    if (params.offset != null) q.set('offset', String(params.offset));
     const qs = q.toString();
     return get(`/agent-workflows${qs ? `?${qs}` : ''}`);
   },
@@ -589,7 +681,15 @@ export const api = {
     if (q) params.set('q', q);
     return get(`/agent-workflows/runs?${params}`);
   },
-  agentWorkflowRunGet: (runId) => get(`/agent-workflows/runs/${runId}`),
+  agentWorkflowRunGet: (runId, params = {}) => {
+    const sp = new URLSearchParams();
+    if (params.steps_limit != null) sp.set('steps_limit', String(params.steps_limit));
+    if (params.steps_offset != null) sp.set('steps_offset', String(params.steps_offset));
+    if (params.limit != null) sp.set('limit', String(params.limit));
+    if (params.offset != null) sp.set('offset', String(params.offset));
+    const q = sp.toString();
+    return get(q ? `/agent-workflows/runs/${runId}?${q}` : `/agent-workflows/runs/${runId}`);
+  },
   agentWorkflowStopListen: (runId, nodeId) =>
     post(`/agent-workflows/runs/${runId}/listen/${encodeURIComponent(nodeId)}/stop`, {}),
   agentWorkflowRunsForDef: (id, limit = 30) => get(`/agent-workflows/${encodeURIComponent(id)}/runs?limit=${limit}`),
@@ -692,6 +792,9 @@ export const api = {
   userApiKeysDelete: (id, force = false) =>
     del(`/user-api-keys/${encodeURIComponent(id)}${force ? '?force=1' : ''}`),
   userApiKeysDependencies: (id) => get(`/user-api-keys/${encodeURIComponent(id)}/dependencies`),
+  userApiKeysReseed: () => post('/user-api-keys/reseed', {}),
+  homeSnapshot: () => get('/home/snapshot'),
+  homeSearch: (q) => get(`/home/search?q=${encodeURIComponent(q || '')}`),
   // MCP integrations
   mcpServersList: (opts = {}) => {
     const q = opts.forWorkflow ? '?for_workflow=1' : '';
@@ -720,7 +823,13 @@ export const api = {
   externalAgentDiscover: (id) => post(`/integrations/external-agents/${encodeURIComponent(id)}/discover`, {}),
   externalAgentInvoke: (id, body) => post(`/integrations/external-agents/${encodeURIComponent(id)}/invoke`, body),
 
-  agentExchangeList: () => get('/agent-exchange'),
+  agentExchangeList: (params = {}) => {
+    const sp = new URLSearchParams();
+    if (params.limit != null) sp.set('limit', String(params.limit));
+    if (params.offset != null) sp.set('offset', String(params.offset));
+    const q = sp.toString();
+    return get(q ? `/agent-exchange?${q}` : '/agent-exchange');
+  },
   agentExchangeAccessGet: (publishId) =>
     get(`/agent-exchange/${encodeURIComponent(publishId)}/access`),
   agentExchangeAccessSet: (publishId, accessPolicy) =>

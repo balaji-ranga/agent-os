@@ -67,6 +67,10 @@ import { registerOpenClawMediaOwnership } from '../services/openclaw-media-owner
 import { sanitizeContentOwnerPart, getCeoGeneratedMediaDir } from '../services/content-explorer.js';
 import { resolveToolOwnerUserId, resolveToolOwnerUserIdOrNull, bodyWithoutSpoofedOwner } from '../services/tool-owner-scope.js';
 import {
+  listToolModelMappings,
+  putToolModelMappings,
+} from '../services/tool-model-overrides.js';
+import {
   notifyKanbanTaskCreated,
   clearKanbanTaskNotification,
 } from '../services/platform-notifications.js';
@@ -308,6 +312,47 @@ router.get('/meta', attachToolsAuth, requireAuth, requireCeoOrAdmin, (req, res) 
     res.json({ tools: list });
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+/**
+ * GET /model-mappings — CEO Tools → model overrides (BYOK-respecting tools only).
+ */
+router.get('/model-mappings', attachToolsAuth, requireAuth, requireCeoOrAdmin, (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.query || {});
+    if (!ownerUserId) return res.status(403).json({ error: 'CEO owner required' });
+    res.json(listToolModelMappings(ownerUserId));
+  } catch (e) {
+    console.warn('[tools] model-mappings GET failed: %s', e?.message || e);
+    const status = Number(e?.status) || 500;
+    res.status(status >= 400 && status < 600 ? status : 500).json({
+      error: e.message || 'Failed to load tool model mappings',
+    });
+  }
+});
+
+/**
+ * PUT /model-mappings — save CEO Tools → model overrides.
+ * Body: { mappings: [{ tool_name, llm_model }] } — empty llm_model clears override.
+ */
+router.put('/model-mappings', attachToolsAuth, requireAuth, requireCeoOrAdmin, (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.body || {});
+    if (!ownerUserId) return res.status(403).json({ error: 'CEO owner required' });
+    const mappings = req.body?.mappings ?? req.body?.tools ?? [];
+    const result = putToolModelMappings(ownerUserId, mappings);
+    res.json(result);
+  } catch (e) {
+    console.warn('[tools] model-mappings PUT failed: %s', e?.message || e);
+    const msg = e?.message || 'Failed to save tool model mappings';
+    if (e?.status) {
+      return res.status(Number(e.status) || 403).json({ error: msg });
+    }
+    if (/required|not mappable|invalid|Model/i.test(msg)) {
+      return res.status(400).json({ error: msg });
+    }
+    res.status(500).json({ error: msg });
   }
 });
 
@@ -562,6 +607,7 @@ router.post('/summarize-url', async (req, res) => {
           modelOverride: openai.summaryModel || undefined,
           maxTokens: 300,
           ownerUserId,
+          toolName: 'summarize_url',
         });
         const summary = (summaryText && summaryText.trim()) || rawText.slice(0, 500);
         const out = {

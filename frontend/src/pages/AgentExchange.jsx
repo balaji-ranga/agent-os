@@ -965,7 +965,7 @@ export default function AgentExchange() {
   const load = useCallback(() => {
     setLoading(true);
     api
-      .agentExchangeList()
+      .agentExchangeList({ limit: 200 })
       .then((r) => setAgents(r.agents || []))
       .catch((e) => {
         setError(e.message);

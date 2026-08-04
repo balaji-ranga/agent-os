@@ -22,8 +22,25 @@ Catalog of Agent OS tools agents and workflows can call, for example:
 2. **Test invoke** with JSON args; inspect **logs**.
 3. Grant tools per agent under **Workspace → Tools access**.
 4. In workflows, use a **Content Tool** node with the **exact** `toolName`.
+5. Optionally set **Tools → Model** (per-tool model overrides) — see below.
 
 Workflow Builder can recommend tools via `content_tools_enquire`.
+
+### Tools → Model mapping
+
+On **Tools**, open **Tools → Model**. Map a **chat / vision / image / video model** per BYOK-aware tool for **your** login only.
+
+| What it does | Detail |
+|--------------|--------|
+| **Overrides** | When set, that tool uses your chosen model instead of Profile primary (or platform primary when Profile is Platform default) |
+| **Does not change** | API keys and base URL — still Profile platform vs BYOK vault (`Platform_BYOK`, `Replicate_BYOK`, …) |
+| **Profile default** | Empty mapping = keep using Profile primary / tool env defaults |
+| **Included** | e.g. `summarize_url`, `analyze_image`, `generate_image`, `generate_video`, `learnings_summary`, `brain_history`, `master_data_rag` (**LLM summarize only**), intent/classify, browser autonomous task, IBKR order learnings, selected job-applicant LLM steps, workflow certify Maker/Checker chat |
+| **Excluded** | Custom-script LLM review (platform-only), master-data **embeddings** indexing, local `speech_tts` / `speech_stt` (Whisper/Piper — not chat models) |
+
+Save applies immediately for later tool runs (no gateway restart). Image models (e.g. `gpt-image-1`) and video (Replicate model/version id) use **Custom…** when not in the chat model list.
+
+APIs (CEO/admin session, owner-scoped): `GET/PUT /api/tools/model-mappings`.
 
 ### Shared specialist ops (AGENT-OS-OPS)
 
@@ -136,6 +153,7 @@ Name, email, region, mobile, password, MFA, **model provider + chat model**, and
 
 - After the retention window, agent chat turns, standup **messages**, workflow run/step records, and aged **Content Explorer** uploaded/generated media are permanently deleted from disk (daily job; purge also available on Profile and Dashboard). Standup records themselves, Kanban cards, Master Data and API keys are never purged by retention. Job schedules: [19-scheduled-jobs-and-crons.md](./19-scheduled-jobs-and-crons.md).
 - OpenAI / OpenRouter need vault key **`Platform_BYOK`** under **API Keys**, then a **chat model** on Profile — see [15-api-keys-vault.md](./15-api-keys-vault.md). Non-platform Profiles auto-seed that slot (plus Replicate / Brave / ElevenLabs) as **unset**.
+- Profile model is the default for OpenClaw agent chat and for content tools that call the LLM. To override **only** specific tools, use **Tools → Model** on `/content-tools` (see above).
 - Prefer **Management → API Keys** for all long-lived secrets (never shown in platform access logs).
 - Browse files: [26-content-explorer.md](./26-content-explorer.md).
 ## How agents learn company knowledge

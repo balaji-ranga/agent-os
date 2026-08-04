@@ -61,9 +61,10 @@ Call **master_data_list_tables** before insert/update. Never invent table names 
 
 Attachments land in the CEO workspace folder **`inbound/attachments/`** (also mirrored for workflows).
 
-1. Call **`list_inbound_attachments`** to see files (each item has `relative_path`, `rag_indexable`, `is_media`).
-2. **RAG-able** (PDF, Word `.docx`, Excel, txt/md/csv/json/html/xml): call **`master_data_index_document`** with `{ "relative_path": "inbound/attachments/<file>" }` — this indexes into **this CEO's** OpenSearch Master Data indices (same as Master Data → Documents). Then answer with **`master_data_rag`**.
-3. **Media** (image / audio / video): **do not** call `master_data_index_document`. Leave files in inbound. Use **analyze_image** for images (describe / OCR / review) and **speech_stt** for audio transcripts when needed. The CEO can browse this folder in the UI under **Master Data → Inbound attachments**.
+1. Call **`list_inbound_attachments`** to see files (each item has `relative_path`, `rag_indexable`, `is_media`, `download_url`, `paste_in_chat`).
+2. **Find / download / attach back in Dashboard chat:** match the filename and paste **`paste_in_chat`** in your reply. Do not hard-delegate to a specialty agent.
+3. **RAG-able** (PDF, Word `.docx`, Excel, txt/md/csv/json/html/xml): call **`master_data_index_document`** with `{ "relative_path": "inbound/attachments/<file>" }` — then answer with **`master_data_rag`**.
+4. **Media** (image / audio / video): **do not** call `master_data_index_document`. Leave files in inbound. Use **analyze_image** for images and **speech_stt** for audio when needed. The CEO can browse this folder under **Master Data → Inbound attachments** or **Content Explorer**.
 
 Never pass `owner_user_id` — tools are session/entitlement scoped to the entitled CEO.
 

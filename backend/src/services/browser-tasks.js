@@ -331,6 +331,7 @@ ${String(snapshot || '').slice(0, 12000)}`;
     ],
     maxTokens: 600,
     ownerUserId: ceoUserId,
+    toolName: 'browse_task_start',
   });
   const parsed = extractJsonObject(content);
   if (!parsed?.action) {
@@ -647,6 +648,7 @@ async function summarizeGoalFromSnapshot(ceoUserId, goal, snapshot) {
     ],
     maxTokens: 1000,
     ownerUserId: ceoUserId,
+    toolName: 'browse_task_start',
   });
   return String(content || '').trim();
 }
@@ -852,6 +854,7 @@ async function runAutonomous(ceoUserId, taskId) {
     ],
     maxTokens: 1000,
     ownerUserId: ceoUserId,
+    toolName: 'browse_task_start',
   });
   console.warn('[browser-task] loop exit id=%s note=%s steps=%s', taskId, exitNote, steps.length);
   const completedSummary = completedTaskSummary(summary, task);

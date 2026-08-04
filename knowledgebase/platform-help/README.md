@@ -16,7 +16,7 @@
 | [09-a2a-agent-exchange.md](./09-a2a-agent-exchange.md) | External agents, Publish A2A (sync/async, callback, deny_all/whitelist), AgentExchange **Test agent**, Admin **A2A invocation logs**, mock callback inbox |
 | [10-policies-guardrails.md](./10-policies-guardrails.md) | CEO common guardrails for all agents + Brain nodes |
 | [10-job-applicant-pipeline.md](./10-job-applicant-pipeline.md) | Job profiles & prebuilt job workflows |
-| [11-content-tools-scripts-profile.md](./11-content-tools-scripts-profile.md) | **Tools** UI, **MEDIA: / auth media lockdown**, platform feedback tools, chat attachments / inbound media, AGENT-OS-OPS, summary caches, scripts, AI Snipper, Efficiency View, Profile **provider + model** |
+| [11-content-tools-scripts-profile.md](./11-content-tools-scripts-profile.md) | **Tools** UI, **Tools → Model** mapping, **MEDIA: / auth media lockdown**, platform feedback tools, chat attachments / inbound media, AGENT-OS-OPS, summary caches, scripts, AI Snipper, Efficiency View, Profile **provider + model** |
 | [12-troubleshooting.md](./12-troubleshooting.md) | Common issues (A2A, notify, Kanban, API Keys, Connectors, **WhatsApp Media failed**, inbound attachments, scheduled jobs, storage/purge, department budget) |
 | [13-workflow-autonomous-certify.md](./13-workflow-autonomous-certify.md) | Maker/Checker certify jobs, status-on-request, resume inputs |
 | [14-workflow-dynamic-values.md](./14-workflow-dynamic-values.md) | `{{…}}` templates, variables, trigger input, **vault** auth |

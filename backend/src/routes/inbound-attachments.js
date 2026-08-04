@@ -40,7 +40,10 @@ router.get('/inbound-attachments', (req, res) => {
     const owner = ownerOr403(req, res);
     if (!owner) return;
     ensureInboundAttachmentsDirs(owner);
-    const items = listInboundAttachments(owner).map((f) => {
+    const limit = Math.min(Math.max(parseInt(req.query?.limit, 10) || 50, 1), 200);
+    const offset = Math.max(parseInt(req.query?.offset, 10) || 0, 0);
+    const page = listInboundAttachments(owner, { limit, offset });
+    const mapItem = (f) => {
       const mime = guessMimeFromFilename(f.filename);
       return {
         ...f,
@@ -48,8 +51,16 @@ router.get('/inbound-attachments', (req, res) => {
         rag_indexable: isRagIndexable(mime, f.filename),
         is_media: isMediaAttachment(mime, f.filename),
       };
+    };
+    const items = (page.items || []).map(mapItem);
+    res.json({
+      items,
+      folder: 'inbound/attachments',
+      total: page.total,
+      limit: page.limit,
+      offset: page.offset,
+      has_more: page.has_more,
     });
-    res.json({ items, folder: 'inbound/attachments' });
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message });
   }

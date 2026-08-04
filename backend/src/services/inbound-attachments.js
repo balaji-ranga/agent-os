@@ -108,10 +108,21 @@ export function saveInboundAttachment(ownerUserId, { buffer, filename, mimeType 
   };
 }
 
-export function listInboundAttachments(ownerUserId) {
+/**
+ * List inbound attachment files. Optional limit/offset paginates after sort-by-mtime desc.
+ * @param {string} ownerUserId
+ * @param {{ limit?: number, offset?: number }} [opts] — when both omitted, returns full list (internal callers)
+ * @returns {object[]|{ items: object[], total: number, limit: number, offset: number, has_more: boolean }}
+ */
+export function listInboundAttachments(ownerUserId, opts = undefined) {
   const dir = getInboundAttachmentsDir(ownerUserId);
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir)
+  if (!existsSync(dir)) {
+    if (opts && (opts.limit != null || opts.offset != null)) {
+      return { items: [], total: 0, limit: Number(opts.limit) || 50, offset: Number(opts.offset) || 0, has_more: false };
+    }
+    return [];
+  }
+  const all = readdirSync(dir)
     .filter((n) => {
       try {
         return statSync(join(dir, n)).isFile();
@@ -128,7 +139,22 @@ export function listInboundAttachments(ownerUserId) {
         size: st.size,
         mtime: st.mtime.toISOString(),
       };
-    });
+    })
+    .sort((a, b) => String(b.mtime || '').localeCompare(String(a.mtime || '')));
+
+  if (!opts || (opts.limit == null && opts.offset == null)) {
+    return all;
+  }
+  const limit = Math.min(Math.max(Number(opts.limit) || 50, 1), 200);
+  const offset = Math.max(Number(opts.offset) || 0, 0);
+  const items = all.slice(offset, offset + limit);
+  return {
+    items,
+    total: all.length,
+    limit,
+    offset,
+    has_more: offset + items.length < all.length,
+  };
 }
 
 /**

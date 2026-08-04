@@ -11,6 +11,7 @@ import {
   BRAVE_SEARCH_BYOK_KEY_NAME,
   tryResolveUserApiKey,
 } from '../services/user-api-keys.js';
+import { getToolModelOverride } from '../services/tool-model-overrides.js';
 export { PLATFORM_BYOK_KEY_NAME, REPLICATE_BYOK_KEY_NAME, BRAVE_SEARCH_BYOK_KEY_NAME };
 
 const BRAVE_WEB_SEARCH_URL = 'https://api.search.brave.com/res/v1/web/search';
@@ -60,9 +61,13 @@ export function ensureToolsApiKeyConfigured() {
 }
 
 /** Summary model override for summarize-url (otherwise LLM primary/secondary from llm.js). */
-export function getOpenAiConfig(ownerUserId = null) {
+export function getOpenAiConfig(ownerUserId = null, toolName = 'summarize_url') {
   const llm = getLlmConfig(ownerUserId);
-  const summaryModel = (process.env.TOOLS_SUMMARIZE_MODEL || '').trim() || llm.primary.model;
+  let summaryModel = (process.env.TOOLS_SUMMARIZE_MODEL || '').trim() || llm.primary.model;
+  if (ownerUserId && toolName) {
+    const ov = getToolModelOverride(ownerUserId, toolName);
+    if (ov) summaryModel = ov;
+  }
   return {
     summaryModel: summaryModel || undefined,
     primaryModel: llm.primary.model,
@@ -103,14 +108,19 @@ function isLocalOllamaUrl(baseUrl) {
  *   never the platform key. Local Ollama Profiles still need Platform_BYOK for image APIs.
  *
  * @param {string|null} [ownerUserId]
+ * @param {string|null} [toolName] - Tools-menu model mapping (default generate_image)
  */
-export function getImageConfig(ownerUserId = null) {
+export function getImageConfig(ownerUserId = null, toolName = 'generate_image') {
   const defaultBase = 'https://api.openai.com/v1';
   const size = process.env.TOOLS_IMAGE_SIZE || '1024x1024';
   const quality = process.env.TOOLS_IMAGE_QUALITY || 'standard';
   const style = process.env.TOOLS_IMAGE_STYLE || 'natural';
   const maxPromptChars = Math.min(parseInt(process.env.TOOLS_IMAGE_MAX_PROMPT_CHARS || '1000', 10) || 1000, 4000);
-  const primaryModel = (process.env.TOOLS_IMAGE_MODEL || 'gpt-image-1').trim();
+  let primaryModel = (process.env.TOOLS_IMAGE_MODEL || 'gpt-image-1').trim();
+  if (ownerUserId && toolName) {
+    const ov = getToolModelOverride(ownerUserId, toolName);
+    if (ov) primaryModel = ov;
+  }
 
   const platformBase =
     normalizeBaseUrl(
@@ -236,9 +246,12 @@ const OPENAI_DEFAULT_BASE = 'https://api.openai.com/v1';
  *    the upstream call fails.
  *
  * @param {string|null} [ownerUserId]
+ * @param {string|null} [toolName] - Tools-menu model mapping (default analyze_image)
  */
-export function getVisionConfig(ownerUserId = null) {
+export function getVisionConfig(ownerUserId = null, toolName = 'analyze_image') {
   const visionModelOverride = (process.env.TOOLS_VISION_MODEL || '').trim();
+  const toolModel =
+    ownerUserId && toolName ? getToolModelOverride(ownerUserId, toolName) : null;
   const maxTokens = Math.min(
     parseInt(process.env.TOOLS_VISION_MAX_TOKENS || '1200', 10) || 1200,
     4096
@@ -252,13 +265,21 @@ export function getVisionConfig(ownerUserId = null) {
     180000
   );
 
+  const pickModel = (...fallbacks) => {
+    for (const m of fallbacks) {
+      const s = String(m || '').trim();
+      if (s) return s;
+    }
+    return DEFAULT_VISION_MODEL;
+  };
+
   const explicitBase = normalizeBaseUrl(process.env.TOOLS_VISION_BASE_URL || '');
   const explicitKey = (process.env.TOOLS_VISION_API_KEY || '').trim();
   if (explicitBase && explicitKey) {
     return {
       baseUrl: explicitBase,
       apiKey: explicitKey,
-      model: visionModelOverride || DEFAULT_VISION_MODEL,
+      model: pickModel(toolModel, visionModelOverride, DEFAULT_VISION_MODEL),
       maxTokens,
       maxBytesMb,
       timeoutMs,
@@ -297,7 +318,7 @@ export function getVisionConfig(ownerUserId = null) {
       return {
         baseUrl: '',
         apiKey: '',
-        model: visionModelOverride || llm?.primary?.model || DEFAULT_VISION_MODEL,
+        model: pickModel(toolModel, visionModelOverride, llm?.primary?.model, DEFAULT_VISION_MODEL),
         maxTokens,
         maxBytesMb,
         timeoutMs,
@@ -319,10 +340,13 @@ export function getVisionConfig(ownerUserId = null) {
     } else if (provider === 'openai') {
       baseUrl = OPENAI_DEFAULT_BASE;
     }
-    // Use Profile primary model as-is (optional TOOLS_VISION_MODEL override only).
-    // Do not silently substitute a different vision model — let upstream fail if unsupported.
-    const byokModel =
-      visionModelOverride || String(llm?.primary?.model || '').trim() || DEFAULT_VISION_MODEL;
+    // Profile primary (or TOOLS_VISION_MODEL) unless Tools-menu tool mapping is set.
+    const byokModel = pickModel(
+      toolModel,
+      visionModelOverride,
+      llm?.primary?.model,
+      DEFAULT_VISION_MODEL
+    );
     console.info(
       '[tools] analyze_image using vault %s owner=%s provider=%s model=%s',
       PLATFORM_BYOK_KEY_NAME,
@@ -361,7 +385,7 @@ export function getVisionConfig(ownerUserId = null) {
   const primaryModel = String(llm?.primary?.model || '').trim();
 
   if (primaryBase && primaryKey) {
-    const model = visionModelOverride || primaryModel || DEFAULT_VISION_MODEL;
+    const model = pickModel(toolModel, visionModelOverride, primaryModel, DEFAULT_VISION_MODEL);
     return {
       baseUrl: primaryBase,
       apiKey: primaryKey,
@@ -381,7 +405,7 @@ export function getVisionConfig(ownerUserId = null) {
   return {
     baseUrl: '',
     apiKey: '',
-    model: visionModelOverride || primaryModel || DEFAULT_VISION_MODEL,
+    model: pickModel(toolModel, visionModelOverride, primaryModel, DEFAULT_VISION_MODEL),
     maxTokens,
     maxBytesMb,
     timeoutMs,
@@ -405,15 +429,20 @@ const REPLICATE_DEFAULT_BASE = 'https://api.replicate.com/v1';
  * - Any other Profile LLM preference: vault **`Replicate_BYOK` only** — never the platform token.
  *
  * @param {string|null} [ownerUserId]
+ * @param {string|null} [toolName] - Tools-menu model mapping (default generate_video); overrides Replicate model version
  */
-export function getVideoConfig(ownerUserId = null) {
+export function getVideoConfig(ownerUserId = null, toolName = 'generate_video') {
   const maxPromptChars = Math.min(parseInt(process.env.TOOLS_VIDEO_MAX_PROMPT_CHARS || '500', 10) || 500, 2000);
 
   const primaryBase =
     normalizeBaseUrl(process.env.REPLICATE_PRIMARY_BASE_URL || process.env.REPLICATE_BASE_URL || REPLICATE_DEFAULT_BASE) ||
     REPLICATE_DEFAULT_BASE;
   const primaryToken = (process.env.REPLICATE_API_TOKEN || process.env.REPLICATE_PRIMARY_API_TOKEN || '').trim();
-  const primaryVersion = (process.env.TOOLS_VIDEO_MODEL_VERSION || '').trim() || DEFAULT_VIDEO_MODEL_VERSION;
+  let primaryVersion = (process.env.TOOLS_VIDEO_MODEL_VERSION || '').trim() || DEFAULT_VIDEO_MODEL_VERSION;
+  if (ownerUserId && toolName) {
+    const ov = getToolModelOverride(ownerUserId, toolName);
+    if (ov) primaryVersion = ov;
+  }
 
   const secondaryBase = normalizeBaseUrl(process.env.REPLICATE_SECONDARY_BASE_URL || '');
   const secondaryToken = (process.env.REPLICATE_SECONDARY_API_TOKEN || '').trim();

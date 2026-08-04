@@ -118,10 +118,11 @@ Grant or revoke tools on each agent’s **Workspace → Tools access**.
 1. Open your **Profile**.
 2. Choose **provider** (platform default, Ollama/DeepSeek free, or OpenAI/OpenRouter via **API Keys** → `Platform_BYOK`). Non-platform Profiles auto-seed recommended vault slots as unset.
 3. For OpenAI/OpenRouter (and optionally Ollama), also choose a **chat model** from the curated list (or a custom model id). Saving Profile syncs provider + model into OpenClaw for your tenant agents. Catalog: `GET /api/auth/llm-catalog`.
-4. Browse uploads and generated media under **Content Explorer** (`/content-explorer`).
-5. Optional: avatar → **Onboarding** or chat **Onboarding Helper** to propose departments/agents (selective Apply). See `knowledgebase/platform-help/27-onboarding-helper.md`.
-3. Keep MFA settings as required by your organization.
-4. Set **Data persistence** (30 / 60 / 90 / 120 / 365 days). A nightly job permanently deletes your chats, chat history, standup conversations and workflow runs older than that; **Purge aged data now** does it immediately. Watch the effect on **Efficiency View → Org → Storage (MB)**.
+4. Optional **per-tool model**: **Tools** → **Tools → Model** overrides Profile (or platform) model for specific BYOK-aware tools only (keys still from Profile/vault). Help: `knowledgebase/platform-help/11-content-tools-scripts-profile.md`.
+5. Browse uploads and generated media under **Content Explorer** (`/content-explorer`).
+6. Optional: avatar → **Onboarding** or chat **Onboarding Helper** to propose departments/agents (selective Apply). See `knowledgebase/platform-help/27-onboarding-helper.md`.
+7. Keep MFA settings as required by your organization.
+8. Set **Data persistence** (30 / 60 / 90 / 120 / 365 days). A nightly job permanently deletes your chats, chat history, standup conversations and workflow runs older than that; **Purge aged data now** does it immediately. Watch the effect on **Efficiency View → Org → Storage (MB)**.
 
 ---
 
@@ -139,8 +140,9 @@ Grant or revoke tools on each agent’s **Workspace → Tools access**.
 | **Admin → Crons** | `/admin/crons` lists every platform cron (standup dispatcher, legacy standup, delegation queue, job pipeline, COO status checker, data retention, workflow scheduler) with **Pause** / **Resume** / **Run now**. Pause state persists across restarts. |
 | **Platform API logging** | `PLATFORM_LOG_LEVEL=off\|error\|info` controls backend access/error logs. Keys, tokens, `Authorization` headers, passwords and MFA codes are redacted, and sensitive paths (API Keys, auth) log method + route only. |
 | **Scheduled jobs reference** | All platform crons and user-level schedules documented in `knowledgebase/platform-help/19-scheduled-jobs-and-crons.md`; commented defaults kept in `.env` by `deploy/scripts/ensure-cron-env.sh`. |
-| **API Keys vault** | Management → API Keys — named secrets, optional encryption. Non-platform Profiles auto-seed unset slots (`Platform_BYOK`, `Replicate_BYOK`, `BRAVE_SEARCH_BYOK`, `elevenlabs-key`); OpenAI/OpenRouter need a filled `Platform_BYOK` plus a **chat model** on Profile. |
-| **Content Explorer** | Management → Content Explorer — browse/preview/download your uploaded + generated files (`inbound/attachments/`, tool media). See platform-help **26**. |
+| **API Keys vault** | Management → API Keys — named secrets, optional encryption. Non-platform Profiles auto-seed unset slots (`Platform_BYOK`, `Replicate_BYOK`, `BRAVE_SEARCH_BYOK`, `elevenlabs-key`); OpenAI/OpenRouter need a filled `Platform_BYOK` plus a **chat model** on Profile. Optional **Tools → Model** overrides model per content tool without changing vault keys. |
+| **List API pagination** | Large CEO lists use server paging (`limit`/`offset`, envelope `total` + `has_more`): Content Explorer, inbound attachments, workflow definitions + run steps, Kanban/standup threads, agent chat turns/archives, Master Data documents, AgentExchange, admin users, job spreadsheet/review-queue. Helpers: `backend/src/lib/pagination.js`. |
+| **Content Explorer** | Management → Content Explorer — browse/preview/download your uploaded + generated files (`inbound/attachments/`, tool media). Server-paged (`limit`/`offset`); UI Prev/Next. See platform-help **26**. |
 | **Onboarding Helper** | Avatar → **Onboarding** + Dashboard **Onboarding Helper** chat. Agent saves proposals via `onboarding_save_proposal`; Review checkboxes; Apply creates selected depts/agents. Prompt recipes + E2E script: platform-help **27**, `backend/scripts/e2e-onboarding-wf-prompts.mjs`. |
 | **Connectors** | Link SaaS apps (OpenConnector) and call them from workflow **Connector** nodes. |
 | **Efficiency View** | **Org** tab: agents, automated tasks, feedback, workflow run success/fail, Storage (MB) (7d–All). **Department** tab: month-to-date tokens vs each department's budget. **Agent View** tab: per-agent activity, outcomes, token/error budget gauges, **Reset usage** / **Reset all usage** to zero month-to-date tokens without changing budgets. |
@@ -260,10 +262,10 @@ Set in backend `.env`:
 | **Job workflows** | Multi-agent **Job Applicant** pipeline (Discovery → Fit Scoring → Resume Tailoring → Application); Kanban-tracked stages; browser/Playwright apply path. See **knowledgebase/JOB-APPLICANT-WORKFLOW.md**. |
 | **MCP integrations** | Register MCP servers (admin/CEO); connect, test tools, playground; use in workflow **MCP Tool** and **SSE Listen** nodes. Local test server: `tools/local-mcp-random-sse/`. Bundled **Brave Search MCP** wrapper (`tools/brave-search-mcp-byok/`, compose profile `optional-brave-mcp`) is **header BYOK** (container never reads `BRAVE_API_KEY`). Agent content tool **`brave_web_search`** uses platform `BRAVE_API_KEY` or vault **`BRAVE_SEARCH_BYOK`** from Profile. |
 | **External agents (A2A)** | Register external agent endpoints; invoke from workflow **External Agent** node. |
-| **Tools** (UI `/content-tools`) | Agent-callable **content tools**: summarize URL, image/video gen, Kanban, **intent_classify_and_delegate**, workflow trigger/enquire/mutate, job applicant tools, **email_send**, **notify_ceo**, **Master Data**, learnings, etc.; owner-scoped logs UI; onboard new APIs via script. |
+| **Tools** (UI `/content-tools`) | Agent-callable **content tools**: summarize URL, image/video gen, Kanban, **intent_classify_and_delegate**, workflow trigger/enquire/mutate, job applicant tools, **email_send**, **notify_ceo**, **Master Data**, learnings, etc.; owner-scoped logs UI; **Tools → Model** (per-CEO tool→model overrides for BYOK-aware tools; excludes custom-script review and embeddings); onboard new APIs via script. |
 | **Browser Session** | `/browser-session` — managed Playwright or **Client Chrome** (Browser Relay); NL tasks + recorder **recipes**. Agents use **`browse_*`** content tools (`browse_task_start`, `browse_recipe_list`, `browse_recipe_run`, …), CEO-scoped; grant list vs run in Workspace → Tool access. Backend CDP via dedicated OpenClaw agent `browser-cdp` (`BROWSER_TASK_CDP_AGENT_ID`). Chat thumbs-down comments feed `learnings_summary`. Guides: `knowledgebase/CLIENT-BROWSER-SESSION.md`, `knowledgebase/platform-help/22-browser-session-and-recipes.md`. |
 | **Master Data & RAG** | Per-CEO tables + documents (keyword RAG over PDF/DOCX/Excel/text). UI captures **purpose/description** per table. Agents list tables with purpose and CRUD rows / RAG docs via content tools — **no create/alter/drop table**. On register: starter **departments** table + **Flolah User Guide** + **Platform Help** document set. **Inbound attachments** + **Content Explorer** for chat/channel files. **Purge all uploads** removes CEO uploads only; help/guide docs are protected. |
-| **Profile LLM catalog** | Provider + model picker (`llm_provider` / `llm_model`); internal endpoint map in `backend/src/config/llm-provider-registry.js`; OpenClaw sync on Profile save. |
+| **Profile LLM catalog** | Provider + model picker on **Register** and **Profile** (`llm_provider` / `llm_model`); `GET /api/auth/llm-catalog`; OpenClaw sync on Profile save. BYOK keys only via API Keys vault after login. |
 | **Platform Help** | Standard agent `platformhelp` — product how-to via `master_data_rag` over `knowledgebase/platform-help/`. See [`knowledgebase/platform-help/README.md`](knowledgebase/platform-help/README.md). |
 | **COO specialty delegation** | COO chat hard-path: AGENTS.md purpose intent → specialist(s) (cap 2 for multi-intent) + Kanban; peer specialty referral; COO-native work stays with COO; how-to → Platform Help; graph build → Workflow Builder. |
 | **Email send** | `email_send` content tool — agents can send email via configured mail integration (owner-scoped logging). |
@@ -410,25 +412,32 @@ Restart the OpenClaw gateway. See `scripts/tool-definitions/README.md`.
 
 All routes below are also available under **`/api/...`** (frontend uses `/api` proxy or `VITE_API_URL`).
 
+Authenticated list endpoints that can grow unbounded use **server pagination**. Pass `limit` + `offset` (or domain aliases such as `steps_limit` / `messages_limit`). Response envelope:
+
+`{ <domainKey>, total, limit, offset, has_more }`
+
+Examples: `workflows`, `tasks`, `standups`, `documents`, `items`, `users`, `agents`, `turns`/`sessions`, job spreadsheet `rows`. Helpers live in `backend/src/lib/pagination.js`. Default pages are typically 50–100 (max often 200–500). Kanban board UI loads pages until complete; Content Explorer shows Prev/Next.
+
 ### Core
 
 - `GET /health` — liveness
 - **Auth:** `POST /auth/login`, `POST /auth/register`, `GET /auth/me`, profile update
-- **Admin:** `GET/POST /admin/users`, enable/disable users, grant agents; **`GET /admin/a2a-invocations`** — A2A card/token/invoke audit (denials included)
+- **Admin:** `GET /admin/users?limit=&offset=` (paged user list), enable/disable users, grant agents; **`GET /admin/a2a-invocations`** — A2A card/token/invoke audit (denials included)
 - **Admin crons:** `GET /admin/crons`, `GET /admin/crons/:id`, `POST /admin/crons/:id/pause`, `.../resume`, `.../run` — platform timer registry, persisted pause state, one-shot run
 
 ### Agents & workspace
 
 - `GET/POST /agents` — agent CRUD
-- `GET/POST /agents/:id/chat` — chat history and send message (→ gateway)
+- `GET/POST /agents/:id/chat` — chat history and send message (→ gateway); history turns paged (`?limit=&offset=`, default 200)
+- `GET /agents/:id/chat/history` — archived sessions (`?limit=&offset=&days=`)
 - `GET/PUT /agents/:id/workspace/:file` — soul, agents, **org**, memory, tools MD
 - `GET/PUT /agents/:id/tools` — per-agent content tool grants
 
 ### Standups, Kanban, cron
 
-- `GET/POST/PATCH/DELETE /standups`, `/standups/:id/messages`, `/standups/:id/run-coo` — **owner-scoped**
+- `GET/POST/PATCH/DELETE /standups`, `/standups/:id/messages`, `/standups/:id/run-coo` — **owner-scoped**; list and messages are paged (`standups` array + total/has_more)
 - `GET /standups/notifications` — bell feed (delegation responses for this CEO)
-- `GET/PATCH /kanban/tasks`, task messages, reopen, artifacts
+- `GET/PATCH /kanban/tasks` — paged (`tasks`, `total`, `has_more`; offset; higher max for All view), task messages, reopen, artifacts
 - `POST /cron/run-standup`, `POST /cron/process-delegations` — standup per CEO; delegations per CEO
 - `POST /cron/run-status-checker` — COO status report now (CEO session = own tenant, returns `html` + `digest` for the Dashboard popup; admin/internal = all CEOs)
 - `POST /cron/run-data-retention` — retention purge now (CEO session = own data; admin/internal = all CEOs)
@@ -436,20 +445,22 @@ All routes below are also available under **`/api/...`** (frontend uses `/api` p
 
 ### Tools (content tools API)
 
-- UI: **Tools** nav → `/content-tools` (catalog, test, logs).
+- UI: **Tools** nav → `/content-tools` (catalog, test, logs, **Tools → Model**).
 - `GET /tools/meta`, `POST /tools/invoke`, workflow chat tools (`agent_workflow_*`), job applicant tools
+- `GET/PUT /tools/model-mappings` — CEO-scoped tool→model overrides (BYOK-aware tools; owner keys unchanged)
 - `POST /tools/intent-classify-and-delegate` — COO delegation (stamps `owner_user_id` on standup/tasks)
 - `POST /tools/...` — `email_send`, `notify_ceo`, Kanban helpers, etc. (owner resolved from auth / tenant, not spoofable body ids)
 
 ### Job applicant
 
-- `/job-applicant/*` — profiles, applications, pipeline runs, browser auth, CEO review. See **knowledgebase/JOB-APPLICANT-WORKFLOW.md**.
+- `/job-applicant/*` — profiles, applications, pipeline runs, browser auth, CEO review. Spreadsheet `GET …/spreadsheet?limit=&offset=`; review-queue per-bucket cap via `?limit=`. See **knowledgebase/JOB-APPLICANT-WORKFLOW.md**.
 
 ### Custom agent workflows
 
-- `GET/POST/PATCH/DELETE /agent-workflows` — definitions, publish, audit
+- `GET/POST/PATCH/DELETE /agent-workflows` — definitions list is paged and omits graph JSON (`?q=&limit=&offset=`); full graph on `GET :id`. Publish, audit
 - `POST /agent-workflows/:id/run` — start run
 - `GET /agent-workflows/runs` — paginated runs (`?page=&limit=&q=`)
+- `GET /agent-workflows/runs/:runId?steps_limit=&steps_offset=` — run detail with paged steps
 - `POST /agent-workflows/runs/:runId/listen/:nodeId/stop` — stop SSE listen
 - `POST /agent-workflows/hooks/:definitionId` — event trigger (webhook secret header)
 - `POST /agent-workflows/agent-chat` — Workflow Builder LLM
@@ -460,7 +471,7 @@ All routes below are also available under **`/api/...`** (frontend uses `/api` p
 
 ### AgentExchange & A2A
 
-- `GET /agent-exchange` — list published A2A workflow agents (CEO/Admin); owner `can_manage` for Security / Unpublish
+- `GET /agent-exchange?limit=&offset=` — list published A2A workflow agents (CEO/Admin); owner `can_manage` for Security / Unpublish
 - `GET /agent-exchange/:publishId/test-sample` — sample input from agent card `inputSchema` (Test UI autofill)
 - `POST /agent-exchange/:publishId/test` — authenticated test invoke (owners bypass IP deny/whitelist and OAuth; logged as `source=agent_exchange_test`)
 - `GET /admin/a2a-invocations` — admin report of all A2A attempts (`denied` / `error` / `success` / `failed`), including blocks before a workflow run starts

@@ -118,7 +118,9 @@ router.get('/', (req, res) => {
   try {
     const ownerUserId = resolveAuthenticatedCeoUserId(req);
     const search = String(req.query.q || req.query.search || '').trim();
-    res.json({ workflows: store.listDefinitions(ownerUserId, { search }) });
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 100);
+    const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+    res.json(store.listDefinitionsPaginated(ownerUserId, { search, limit, offset }));
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -342,7 +344,12 @@ router.delete('/runs/:runId', (req, res) => {
 router.get('/runs/:runId', (req, res) => {
   try {
     const ownerUserId = resolveAuthenticatedCeoUserId(req);
-    const run = store.getRun(Number(req.params.runId), ownerUserId);
+    const stepsLimit = Math.min(Math.max(parseInt(req.query.steps_limit ?? req.query.limit, 10) || 100, 1), 500);
+    const stepsOffset = Math.max(parseInt(req.query.steps_offset ?? req.query.offset, 10) || 0, 0);
+    const run = store.getRun(Number(req.params.runId), ownerUserId, {
+      stepsLimit,
+      stepsOffset,
+    });
     if (!run) return res.status(404).json({ error: 'Run not found' });
     res.json(run);
   } catch (e) {

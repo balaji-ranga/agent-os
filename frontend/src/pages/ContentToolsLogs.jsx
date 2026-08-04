@@ -124,6 +124,16 @@ export default function ContentToolsLogs() {
   const [onboardSubmitting, setOnboardSubmitting] = useState(false);
   const [onboardError, setOnboardError] = useState(null);
 
+  const [modelMapOpen, setModelMapOpen] = useState(false);
+  const [modelMapLoading, setModelMapLoading] = useState(false);
+  const [modelMapSaving, setModelMapSaving] = useState(false);
+  const [modelMapError, setModelMapError] = useState(null);
+  const [modelMapData, setModelMapData] = useState(null);
+  /** @type {Record<string, string>} empty string = Profile default */
+  const [modelMapDraft, setModelMapDraft] = useState({});
+  /** tool name -> use free-text model field */
+  const [modelMapCustom, setModelMapCustom] = useState({});
+
   const [logs, setLogs] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -198,14 +208,19 @@ export default function ContentToolsLogs() {
 
   const submitOnboard = () => {
     const { name, display_name, endpoint } = onboardForm;
-    if (!name?.trim() || !display_name?.trim() || !endpoint?.trim()) {
-      setOnboardError('Name, display name, and endpoint are required.');
+    if (!name?.trim() || !endpoint?.trim()) {
+      setOnboardError('Name and endpoint are required');
       return;
     }
     setOnboardSubmitting(true);
     setOnboardError(null);
     api
-      .contentToolsMetaCreate(onboardForm)
+      .contentToolsMetaCreate({
+        ...onboardForm,
+        name: name.trim(),
+        display_name: (display_name || name).trim(),
+        endpoint: endpoint.trim(),
+      })
       .then(() => {
         setOnboardOpen(false);
         setOnboardForm({ name: '', display_name: '', endpoint: '', method: 'POST', purpose: '', model_used: '' });
@@ -213,6 +228,56 @@ export default function ContentToolsLogs() {
       })
       .catch((e) => setOnboardError(e.message))
       .finally(() => setOnboardSubmitting(false));
+  };
+
+  const openModelMap = () => {
+    setModelMapOpen(true);
+    setModelMapLoading(true);
+    setModelMapError(null);
+    api
+      .contentToolsModelMappings()
+      .then((data) => {
+        setModelMapData(data);
+        const draft = {};
+        const custom = {};
+        const opts = data.model_options || [];
+        for (const t of data.tools || []) {
+          const m = t.llm_model || '';
+          draft[t.name] = m;
+          if (m && !opts.some((o) => o.id === m)) custom[t.name] = true;
+        }
+        setModelMapDraft(draft);
+        setModelMapCustom(custom);
+      })
+      .catch((e) => setModelMapError(e.message))
+      .finally(() => setModelMapLoading(false));
+  };
+
+  const saveModelMap = () => {
+    if (!modelMapData?.tools) return;
+    setModelMapSaving(true);
+    setModelMapError(null);
+    const mappings = modelMapData.tools.map((t) => ({
+      tool_name: t.name,
+      llm_model: modelMapDraft[t.name] != null ? String(modelMapDraft[t.name]) : '',
+    }));
+    api
+      .contentToolsModelMappingsSave(mappings)
+      .then((data) => {
+        setModelMapData(data);
+        const draft = {};
+        const custom = {};
+        const opts = data.model_options || [];
+        for (const t of data.tools || []) {
+          const m = t.llm_model || '';
+          draft[t.name] = m;
+          if (m && !opts.some((o) => o.id === m)) custom[t.name] = true;
+        }
+        setModelMapDraft(draft);
+        setModelMapCustom(custom);
+      })
+      .catch((e) => setModelMapError(e.message))
+      .finally(() => setModelMapSaving(false));
   };
 
   if (toolsLoading && tools.length === 0) {
@@ -244,21 +309,38 @@ export default function ContentToolsLogs() {
       <section style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
           <h2 style={{ margin: 0, fontSize: '1.1rem' }}>Tools registry</h2>
-          <button
-            type="button"
-            onClick={() => setOnboardOpen(true)}
-            style={{
-              padding: '0.4rem 0.75rem',
-              background: 'var(--accent)',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 6,
-              cursor: 'pointer',
-              fontSize: '0.9rem',
-            }}
-          >
-            Onboard new tool
-          </button>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={openModelMap}
+              style={{
+                padding: '0.4rem 0.75rem',
+                background: 'var(--surface)',
+                color: 'var(--text)',
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                cursor: 'pointer',
+                fontSize: '0.9rem',
+              }}
+            >
+              Tools → Model
+            </button>
+            <button
+              type="button"
+              onClick={() => setOnboardOpen(true)}
+              style={{
+                padding: '0.4rem 0.75rem',
+                background: 'var(--accent)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 6,
+                cursor: 'pointer',
+                fontSize: '0.9rem',
+              }}
+            >
+              Onboard new tool
+            </button>
+          </div>
         </div>
 
         <div
@@ -426,6 +508,184 @@ export default function ContentToolsLogs() {
                 </pre>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {modelMapOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.4)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10,
+          }}
+          onClick={() => !modelMapSaving && setModelMapOpen(false)}
+        >
+          <div
+            style={{
+              background: 'var(--bg)',
+              border: '1px solid var(--border)',
+              borderRadius: 12,
+              padding: '1.5rem',
+              maxWidth: 720,
+              width: '94%',
+              maxHeight: '85vh',
+              overflow: 'auto',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ marginTop: 0 }}>Tools → Model mapping</h3>
+            <p style={{ marginTop: 0, color: 'var(--muted)', fontSize: '0.9rem' }}>
+              Override the model used for each BYOK-aware tool. Keys and base URL still follow your Profile
+              (platform default or BYOK). Empty / Profile default uses your Profile primary model
+              {modelMapData?.profile_model ? ` (${modelMapData.profile_model})` : ''}.
+              Excludes custom-script review and master-data embeddings.
+            </p>
+            {modelMapData && (
+              <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginTop: 0 }}>
+                Provider: {modelMapData.provider || '—'}
+                {modelMapData.using_byok ? ' · BYOK' : ' · platform'}
+              </p>
+            )}
+            {modelMapError && (
+              <div style={{ marginBottom: '0.75rem', color: '#f87171', fontSize: '0.9rem' }}>{modelMapError}</div>
+            )}
+            {modelMapLoading ? (
+              <div style={{ padding: '1rem', color: 'var(--muted)' }}>Loading…</div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                      <th style={{ textAlign: 'left', padding: '0.5rem' }}>Tool</th>
+                      <th style={{ textAlign: 'left', padding: '0.5rem' }}>Kind</th>
+                      <th style={{ textAlign: 'left', padding: '0.5rem', minWidth: 220 }}>Model</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(modelMapData?.tools || []).map((t) => {
+                      const value = modelMapDraft[t.name] ?? '';
+                      const options = modelMapData?.model_options || [];
+                      const useCustom = !!modelMapCustom[t.name];
+                      const selectValue = useCustom ? '__custom__' : value;
+                      const placeholder =
+                        t.kind === 'video'
+                          ? 'Replicate model:owner or version id'
+                          : t.kind === 'image'
+                            ? 'e.g. gpt-image-1'
+                            : 'model id';
+                      return (
+                        <tr key={t.name} style={{ borderBottom: '1px solid var(--border)' }}>
+                          <td style={{ padding: '0.5rem', verticalAlign: 'top' }}>
+                            <div style={{ fontWeight: 500 }}>{t.label || t.name}</div>
+                            <div style={{ color: 'var(--muted)', fontSize: '0.75rem' }}>{t.name}</div>
+                            {t.description ? (
+                              <div style={{ color: 'var(--muted)', fontSize: '0.75rem', maxWidth: 220 }}>{t.description}</div>
+                            ) : null}
+                          </td>
+                          <td style={{ padding: '0.5rem', color: 'var(--muted)', verticalAlign: 'top' }}>{t.kind}</td>
+                          <td style={{ padding: '0.5rem', verticalAlign: 'top' }}>
+                            <select
+                              value={selectValue}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                if (v === '__custom__') {
+                                  setModelMapCustom((c) => ({ ...c, [t.name]: true }));
+                                  return;
+                                }
+                                setModelMapCustom((c) => {
+                                  const next = { ...c };
+                                  delete next[t.name];
+                                  return next;
+                                });
+                                setModelMapDraft((d) => ({ ...d, [t.name]: v }));
+                              }}
+                              style={{
+                                width: '100%',
+                                padding: '0.35rem',
+                                background: 'var(--surface)',
+                                border: '1px solid var(--border)',
+                                borderRadius: 6,
+                                color: 'var(--text)',
+                                marginBottom: useCustom ? 4 : 0,
+                              }}
+                            >
+                              <option value="">
+                                Profile default{modelMapData?.profile_model ? ` (${modelMapData.profile_model})` : ''}
+                              </option>
+                              {options.map((m) => (
+                                <option key={m.id} value={m.id}>
+                                  {m.label || m.id}
+                                </option>
+                              ))}
+                              <option value="__custom__">Custom…</option>
+                            </select>
+                            {useCustom ? (
+                              <input
+                                type="text"
+                                value={value}
+                                placeholder={placeholder}
+                                onChange={(e) =>
+                                  setModelMapDraft((d) => ({ ...d, [t.name]: e.target.value }))
+                                }
+                                style={{
+                                  width: '100%',
+                                  padding: '0.35rem',
+                                  fontFamily: 'monospace',
+                                  fontSize: '0.8rem',
+                                  background: 'var(--surface)',
+                                  border: '1px solid var(--border)',
+                                  borderRadius: 6,
+                                  color: 'var(--text)',
+                                  boxSizing: 'border-box',
+                                }}
+                              />
+                            ) : null}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={saveModelMap}
+                disabled={modelMapLoading || modelMapSaving || !modelMapData}
+                style={{
+                  padding: '0.4rem 0.75rem',
+                  background: 'var(--accent)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 6,
+                  cursor: modelMapSaving ? 'wait' : 'pointer',
+                  fontSize: '0.9rem',
+                }}
+              >
+                {modelMapSaving ? 'Saving…' : 'Save mappings'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setModelMapOpen(false)}
+                disabled={modelMapSaving}
+                style={{
+                  padding: '0.4rem 0.75rem',
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  color: 'var(--text)',
+                }}
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -585,6 +585,7 @@ Keep under 400 words.`;
         ],
         maxTokens: 800,
         ownerUserId: owner,
+        toolName: 'learnings_summary',
       });
       const summary = String(content || '').trim() || cache.summary;
       writeLearningsCache(db, {
@@ -655,6 +656,7 @@ Keep under 400 words.`;
       ],
       maxTokens: 800,
       ownerUserId: owner,
+      toolName: 'learnings_summary',
     });
     summary = String(content || '').trim() || 'Unable to produce summary text.';
     usedModel = modelUsed || '';

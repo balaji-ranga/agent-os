@@ -28,13 +28,15 @@ function ownerOr403(req, res) {
   }
 }
 
-/** GET /api/workspace/content-explorer?source=all|uploaded|generated */
+/** GET /api/workspace/content-explorer?source=all|uploaded|generated&limit=&offset= */
 router.get('/content-explorer', (req, res) => {
   try {
     const owner = ownerOr403(req, res);
     if (!owner) return;
     const source = String(req.query?.source || 'all').toLowerCase();
-    const out = listContentExplorer(owner, { source });
+    const limit = Math.min(Math.max(parseInt(req.query?.limit, 10) || 50, 1), 200);
+    const offset = Math.max(parseInt(req.query?.offset, 10) || 0, 0);
+    const out = listContentExplorer(owner, { source, limit, offset });
     res.json(out);
   } catch (e) {
     console.warn('[content-explorer] list failed', e?.message || e);

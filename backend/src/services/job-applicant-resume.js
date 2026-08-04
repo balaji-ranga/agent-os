@@ -62,6 +62,7 @@ Respond JSON only:
       messages: [{ role: 'user', content: prompt }],
       maxTokens: 1200,
       ownerUserId: profile.ceo_user_id || null,
+      toolName: 'job_tailor_resume',
     });
     const jsonMatch = (content || '').match(/\{[\s\S]*\}/);
     const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : content || '{}');

@@ -55,14 +55,15 @@ Use these for **org master tables** (e.g. departments) and **document RAG**. Dat
 | **master_data_update_row** | Update `{ table_name, row_id, data:{…} }`. |
 | **master_data_delete_row** | Delete `{ table_name, row_id }` (row only — not the table). |
 | **master_data_list_documents** | DISCOVERY for already-indexed docs (optional before RAG). |
-| **list_inbound_attachments** | List chat / WhatsApp / channel files under `inbound/attachments/` (relative_path, rag_indexable, is_media). |
+| **list_inbound_attachments** | Find chat / WhatsApp / channel files under `inbound/attachments/` (`relative_path`, `download_url`, `paste_in_chat`, `rag_indexable`, `is_media`). |
 | **master_data_index_document** | Index a **RAG-able** file into this CEO's OpenSearch docs (same as Master Data → Documents). Prefer `{ "relative_path": "inbound/attachments/…" }` from list_inbound. Or `content_base64` / `content_text` + `filename`. **Rejects** images/audio/video. |
 | **master_data_rag** | Answer from **indexed document** content (`query` required). Omit `summarize` (defaults `false`) and answer from `chunks[]` yourself. |
 
 **Chat / WhatsApp / channel attachments:**
-1. **`list_inbound_attachments`** — see what landed in `inbound/attachments/`.
-2. If **PDF, Word (.docx), Excel, txt/md/csv/json/html/xml** → **`master_data_index_document`** `{ "relative_path": "…" }` then **`master_data_rag`** with the user question (optional `document_id` from the index result).
-3. If **image / audio / video** → **do not index for RAG**. Leave the file in inbound. For **images**, call **analyze_image** with `{ "path": "inbound/attachments/…" }` (modes: `full`|`describe`|`ocr`|`review`). For **audio**, use **speech_stt** when a transcript is needed. Tell the CEO they can browse inbound files under **Master Data → Inbound attachments**.
+1. **`list_inbound_attachments`** — see what landed in `inbound/attachments/` (match filename loosely).
+2. **Re-attach / download in Dashboard chat:** paste the tool item's **`paste_in_chat`** markdown link in your reply (CEO must be logged in). Do **not** specialty-delegate find/download/attach.
+3. If **PDF, Word (.docx), Excel, txt/md/csv/json/html/xml** and content Q&A → **`master_data_index_document`** `{ "relative_path": "…" }` then **`master_data_rag`**.
+4. If **image / audio / video** → **do not index for RAG**. For **images**, call **analyze_image** with `{ "path": "inbound/attachments/…" }`. For **audio**, use **speech_stt**. CEO can also browse **Master Data → Inbound** or **Content Explorer**.
 
 **Example — departments in this org:**
 1. **master_data_list_tables** → find table whose purpose/name matches departments

@@ -231,16 +231,34 @@ export function createJobApplicantSpreadsheetService(getDb) {
       };
     },
 
-    readTracker(ceoUserId, profileId) {
+    readTracker(ceoUserId, profileId, { limit = null, offset = 0 } = {}) {
       const paths = getSpreadsheetPaths(ceoUserId, profileId);
       if (!existsSync(paths.csv_path)) {
-        return { exists: false, csv_path: paths.csv_path, rows: [] };
+        return {
+          exists: false,
+          csv_path: paths.csv_path,
+          rows: [],
+          total: 0,
+          limit: limit ?? 0,
+          offset: 0,
+          has_more: false,
+        };
       }
       const text = readFileSync(paths.csv_path, 'utf8');
       const lines = text.trim().split(/\r?\n/);
-      if (lines.length <= 1) return { exists: true, csv_path: paths.csv_path, rows: [] };
+      if (lines.length <= 1) {
+        return {
+          exists: true,
+          csv_path: paths.csv_path,
+          rows: [],
+          total: 0,
+          limit: limit ?? 0,
+          offset: 0,
+          has_more: false,
+        };
+      }
       const header = parseCsvLine(lines[0]);
-      const rows = lines.slice(1).map((line) => {
+      const allRows = lines.slice(1).map((line) => {
         const values = parseCsvLine(line);
         const obj = {};
         header.forEach((h, i) => {
@@ -248,7 +266,22 @@ export function createJobApplicantSpreadsheetService(getDb) {
         });
         return obj;
       });
-      return { exists: true, csv_path: paths.csv_path, summary_path: paths.summary_path, rows };
+      if (limit == null) {
+        return { exists: true, csv_path: paths.csv_path, summary_path: paths.summary_path, rows: allRows, total: allRows.length };
+      }
+      const lim = Math.min(Math.max(Number(limit) || 50, 1), 200);
+      const off = Math.max(Number(offset) || 0, 0);
+      const rows = allRows.slice(off, off + lim);
+      return {
+        exists: true,
+        csv_path: paths.csv_path,
+        summary_path: paths.summary_path,
+        rows,
+        total: allRows.length,
+        limit: lim,
+        offset: off,
+        has_more: off + rows.length < allRows.length,
+      };
     },
 
     getJobRow(ceoUserId, profileId, jobId) {

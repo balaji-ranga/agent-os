@@ -14,8 +14,25 @@ import { enforceBudget } from './agent-budgets.js';
 /** Match intent-classifier + delegation-queue multi-intent cap. */
 const MAX_DELEGATE_AGENTS = 2;
 
-/** Explicit "please delegate …" / "assign to specialist". */
+/**
+ * CEO wants the COO to keep the work (skip specialty hard-path).
+ * "don't/dont/do not delegate" must NOT count as an explicit delegate request.
+ */
+export function isRefuseDelegationRequest(message) {
+  const t = String(message || '');
+  return (
+    /\b(don'?t|dont|do\s+not|never|no)\s+(?:please\s+)?delegat\w*/i.test(t) ||
+    /\b(without\s+delegat\w*|no\s+delegat\w*|stop\s+delegat\w*)\b/i.test(t) ||
+    /\b(handle\s+(this|it)\s+yourself|you\s+(do\s+it|handle\s+it|find\s+it)|keep\s+it\s+with\s+you|no\s+specialist)\b/i.test(
+      t
+    ) ||
+    /\b(don'?t|dont|do\s+not)\s+assign\b/i.test(t)
+  );
+}
+
+/** Explicit "please delegate …" / "assign to specialist" (not "don't delegate"). */
 export function isExplicitDelegateRequest(message) {
+  if (isRefuseDelegationRequest(message)) return false;
   return /\b(delegat\w*|assign\s+to\s+(a\s+)?(specialist|agent)|hand\s*off|send\s+this\s+to)\b/i.test(
     String(message || '')
   );
@@ -23,10 +40,27 @@ export function isExplicitDelegateRequest(message) {
 
 /**
  * Work the COO should handle itself — never hard-delegate.
- * Coordination / platform ops stay with COO even if the classifier is unsure.
+ * Coordination / platform ops / local files stay with COO even if the classifier is unsure.
  */
 export function isCooNativeWork(message) {
   const t = String(message || '');
+  if (isRefuseDelegationRequest(t)) return true;
+  // Previously uploaded / inbound files: find, list, download, re-attach (COO tools).
+  if (
+    /\b(list_inbound|inbound\/attachments|inbound\s+attach|list_inbound_attachments|master_data_list_documents|master_data_index_document)\b/i.test(
+      t
+    ) ||
+    /\b(download|find|locate|fetch|get|open|attach|re-?attach|re-?send|share)\b[\s\S]{0,80}\b(file|pdf|docx?|xlsx?|csv|attachment|document|resume|inbound)\b/i.test(
+      t
+    ) ||
+    /\b(file|pdf|docx?|attachment|document|resume)\b[\s\S]{0,80}\b(download|attach|here|inbound|uploaded|paperclip)\b/i.test(
+      t
+    ) ||
+    /\.(pdf|docx?|xlsx?|csv|txt|md)\b/i.test(t) ||
+    /\b(uploaded|paperclip|chat\s+attach)\b[\s\S]{0,60}\b(file|pdf|doc|attachment)\b/i.test(t)
+  ) {
+    return true;
+  }
   return /\b(workflow|workflows|agent_workflow|trigger\s+(a\s+)?workflow|run\s+(a\s+)?workflow|list\s+workflows|what\s+workflows|publish\s+workflow|(?:what|list|which)\s+(?:your\s+)?tools?|tools?\s+(?:do\s+you\s+)?(?:have|access)|kanban|stand-?up|digest|org\.md|resync\s+org|who\s+(are|is)\s+(on\s+)?(the\s+)?(team|agents)|email_send|send\s+(an?\s+)?email|calendar|meeting\s+invite|notify_ceo|master_data_\w+|master\s*data\s+(list|tables?|upload|import|tool|api)|what\s+can\s+you\s+do|your\s+(role|purpose)|as\s+coo|coo\s+chat)\b/i.test(
     t
   );
@@ -100,13 +134,14 @@ export async function classifyCooDelegationTargets(ownerUserId, ceoMessage) {
   if (!allocated || typeof allocated !== 'object') allocated = {};
 
   // Second pass: force closest-fit when first pass is empty (model often too strict on purpose wording).
-  // Never force-fit status updates / COO coordination into a specialist — leave {} for COO tools.
+  // Never force-fit status updates / COO coordination / local files into a specialist — leave {} for COO tools.
   if (Object.keys(allocated).length === 0) {
     const closest =
       `${msg}\n\n` +
       `[System: Pick exactly ONE agent from the list whose department/purpose domain is closest to this ask. ` +
       `Never pick agents whose purpose is only "Agent" or "demo". Adjacent domain fit is required when any specialist is closer than none. ` +
-      `Return {} for COO-ops: workflows, tools, standups, Kanban ops, and any org/Kanban/A2A/delegation status update or status report.]`;
+      `Return {} for COO-ops: workflows, tools, standups, Kanban ops, list/find/download/attach inbound or Master Data files, ` +
+      `"don't delegate" / handle yourself, and any org/Kanban/A2A/delegation status update or status report.]`;
     const narrowed = await classifyIntentAndAllocate(closest, md, { ownerUserId }, ownerUserId);
     if (narrowed && Object.keys(narrowed).length > 0) allocated = narrowed;
   }
@@ -133,7 +168,18 @@ export async function tryHandleCooSpecialtyDelegation(ownerUserId, ceoMessage) {
   const t = String(ceoMessage || '').trim();
   if (!ownerUserId || !t || t.length < 8) return null;
   if (isAskSpecialistToReachMe(t)) return null;
-  if (isCooNativeWork(t)) return null;
+  // "don't delegate" / find-download-attach files / workflows etc. → leave to COO LLM + tools.
+  if (isCooNativeWork(t) || isRefuseDelegationRequest(t)) {
+    if (isRefuseDelegationRequest(t) || isCooNativeWork(t)) {
+      console.info('[coo-delegation] skip hard-delegate; COO-native or refuse-delegation', {
+        ownerUserId,
+        refuse: isRefuseDelegationRequest(t),
+        native: isCooNativeWork(t),
+        preview: t.slice(0, 120),
+      });
+    }
+    return null;
+  }
 
   // Intent: if a COO content tool matches (esp. status updates → status_checker), do not hard-delegate.
   // Lets OpenClaw/COO run the tool — same as WhatsApp channel path.
