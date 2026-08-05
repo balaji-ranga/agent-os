@@ -1,0 +1,81 @@
+[
+  {
+    "id": "content_creator",
+    "label": "Content Creator (Social media)",
+    "featured": true,
+    "default_blueprint_id": "content_creator",
+    "description": "Facebook, Instagram, LinkedIn, and blogs. Not YouTube long-form (coming as Animated Youtube Videos Industry)."
+  },
+  {
+    "id": "saas",
+    "label": "SaaS startup",
+    "featured": false,
+    "default_blueprint_id": "saas"
+  },
+  {
+    "id": "general_ops",
+    "label": "Consultancy / General ops",
+    "featured": false,
+    "default_blueprint_id": "general_ops"
+  },
+  {
+    "id": "talent",
+    "label": "Talent / hiring",
+    "featured": false,
+    "default_blueprint_id": "talent"
+  },
+  {
+    "id": "trading_ops",
+    "label": "Investment / trading",
+    "featured": false,
+    "default_blueprint_id": "trading_ops"
+  },
+  {
+    "id": "blank",
+    "label": "Blank company",
+    "featured": false,
+    "default_blueprint_id": "blank"
+  },
+  {
+    "id": "restaurant",
+    "label": "Restaurant",
+    "featured": false,
+    "default_blueprint_id": "general_ops",
+    "maps_to": "general_ops"
+  },
+  {
+    "id": "retail",
+    "label": "Retail store",
+    "featured": false,
+    "default_blueprint_id": "general_ops",
+    "maps_to": "general_ops"
+  },
+  {
+    "id": "real_estate",
+    "label": "Real estate",
+    "featured": false,
+    "default_blueprint_id": "general_ops",
+    "maps_to": "general_ops"
+  },
+  {
+    "id": "education",
+    "label": "Education",
+    "featured": false,
+    "default_blueprint_id": "general_ops",
+    "maps_to": "general_ops"
+  },
+  {
+    "id": "healthcare",
+    "label": "Healthcare clinic",
+    "featured": false,
+    "default_blueprint_id": "general_ops",
+    "maps_to": "general_ops"
+  },
+  {
+    "id": "bank",
+    "label": "Bank",
+    "featured": false,
+    "default_blueprint_id": "general_ops",
+    "maps_to": "general_ops"
+  }
+]

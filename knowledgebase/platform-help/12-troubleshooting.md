@@ -145,14 +145,21 @@ To bring the same agent back, create it again from **Agent Workspaces → Add ag
 
 ## A scheduled job never ran
 
-1. Check what you own first: standup `scheduled_at`, workflow **schedule** trigger + cron
-   expression, or Job profile schedule. A draft workflow never runs on a schedule.
+1. Check what you own first:
+   - **Scheduled goals** (`/scheduled-goals`) — status must be **active** (not paused/deleted); cadence and local time must match. Use **Run now** or ask the COO. Guide: [28-scheduled-goals.md](./28-scheduled-goals.md).
+   - Standup `scheduled_at`, workflow **schedule** trigger + cron expression, or Job profile schedule. A draft workflow never runs on a schedule.
 2. Platform timers are shared. Ask your admin to open **Admin → Crons** (`/admin/crons`) — a job
-   shown as **Paused** stays paused across restarts until someone hits **Resume**. **Run now**
+   shown as **Paused** stays paused across restarts until someone hits **Resume**. Confirm **scheduled_goals** is not paused and `SCHEDULED_GOALS_CRON` is set. **Run now**
    executes one tick immediately so you can confirm the job itself works.
 3. **Run status checker** on the Dashboard and **Purge data older than N days** are the manual
    equivalents of the daily status and retention jobs.
 4. Full reference: [19-scheduled-jobs-and-crons.md](./19-scheduled-jobs-and-crons.md).
+
+## Company setup redirects me every login
+
+1. Complete the funnel or use **Skip for now** if offered.
+2. Reopen anytime: avatar → **Company setup** (`/company-setup`). After Apply, gate is **completed**.
+3. Company setup is not the same as Onboarding Helper (`/onboarding`). Guide: [29-company-setup.md](./29-company-setup.md).
 
 ## Storage (MB) did not drop after a purge
 

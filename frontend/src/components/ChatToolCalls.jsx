@@ -132,7 +132,7 @@ export default function ChatToolCalls({ toolCalls, showChartPreviews = true, sho
         </div>
       )}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', alignItems: 'center' }}>
-        <span style={{ fontSize: '0.7rem', color: 'var(--muted)', marginRight: 2 }} title="Agent OS tools used for this reply">
+        <span style={{ fontSize: '0.7rem', color: 'var(--muted)', marginRight: 2 }} title="Tools used for this reply">
           Tools
         </span>
         {list.map((tc) => {

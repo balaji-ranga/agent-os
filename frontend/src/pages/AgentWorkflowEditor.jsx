@@ -1397,7 +1397,7 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
                         ...(modelSource === 'openrouter'
                           ? {
                               httpReferer: preset.httpReferer ?? data.taskConfig?.httpReferer ?? '',
-                              siteTitle: preset.siteTitle ?? data.taskConfig?.siteTitle ?? 'Agent OS',
+                              siteTitle: preset.siteTitle ?? data.taskConfig?.siteTitle ?? 'Flolah',
                             }
                           : {}),
                       },
@@ -1483,7 +1483,7 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
                     <input
                       value={data.taskConfig?.siteTitle || ''}
                       onChange={(e) => set({ taskConfig: { ...data.taskConfig, siteTitle: e.target.value } })}
-                      placeholder="Agent OS or OPENROUTER_SITE_TITLE"
+                      placeholder="Flolah or OPENROUTER_SITE_TITLE"
                     />
                   </label>
                 </>

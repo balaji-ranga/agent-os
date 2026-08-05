@@ -17,6 +17,8 @@ import {
 import {
   getBlueprint,
   listCompanyTypeCards,
+  listBlueprintsForIndustry,
+  getDefaultBlueprintIdForIndustry,
   inferCompanyTypeFromText,
   resolveCompanyTypeId,
   policyTextForStyle,
@@ -28,6 +30,7 @@ import { updateUserProfile } from './users.js';
 import {
   shouldUseLlmOrgDesign,
   designCompanyOrgWithLlm,
+  refineCompanyOrgWithLlm,
 } from './company-llm-design.js';
 import {
   searchConnectorApps,
@@ -71,6 +74,54 @@ export const ORG_DNA_PRESETS = [
   { id: 'customer_obsessed', label: 'Customer-obsessed', seed: 'Customer risk escalates fast; reply norms priority.' },
   { id: 'data_driven', label: 'Data-driven', seed: 'Metrics-first reporting; weekly summary cadence; experiment notes.' },
 ];
+
+
+function resolveSelectedBlueprint(strategic, journey = {}) {
+  const industry = resolveCompanyTypeId(
+    strategic.company_type_card ||
+      strategic.company_type ||
+      journey.company_type_card ||
+      journey.company_type ||
+      'general_ops'
+  );
+  const candidates = [
+    strategic.blueprint_id,
+    journey.blueprint_id,
+    strategic.company_type_card,
+    strategic.company_type,
+    journey.company_type_card,
+    journey.company_type,
+  ]
+    .map((x) => String(x || '').trim())
+    .filter(Boolean);
+
+  for (const id of candidates) {
+    const bp = getBlueprint(id);
+    if (!bp?.id) continue;
+    const bpIndustry = resolveCompanyTypeId(bp.industry || bp.id);
+    if (
+      bpIndustry === industry ||
+      bp.id === industry ||
+      (Array.isArray(bp.aliases) && bp.aliases.includes(industry))
+    ) {
+      return bp;
+    }
+  }
+  return getBlueprint(getDefaultBlueprintIdForIndustry(industry));
+}
+
+function blueprintMatchesIndustry(blueprintId, industryId) {
+  if (!blueprintId || !industryId) return false;
+  const bp = getBlueprint(blueprintId);
+  if (!bp?.id) return false;
+  const industry = resolveCompanyTypeId(industryId);
+  const bpIndustry = resolveCompanyTypeId(bp.industry || bp.id);
+  return (
+    bpIndustry === industry ||
+    bp.id === industry ||
+    (Array.isArray(bp.aliases) && bp.aliases.includes(industry))
+  );
+}
 
 function systemsTop10() {
   const order = new Map(SYSTEMS_TOP10_IDS.map((id, i) => [id, i]));
@@ -159,7 +210,36 @@ export function saveFunnelDraft(ownerUserId, body = {}) {
     journey.company_type = strategic.company_type;
     journey.company_type_card = cardId;
   }
-  if (body.mission != null) {
+
+  if (body.blueprint_id != null && String(body.blueprint_id).trim()) {
+    const bid = String(body.blueprint_id).trim();
+    strategic.blueprint_id = bid;
+    journey.blueprint_id = bid;
+    const bpSel = getBlueprint(bid);
+    if (bpSel?.industry) {
+      strategic.company_type = resolveCompanyTypeId(bpSel.industry);
+      journey.company_type = strategic.company_type;
+      if (!strategic.company_type_card) {
+        strategic.company_type_card = strategic.company_type;
+        journey.company_type_card = strategic.company_type;
+      }
+    }
+  } else if (body.company_type != null) {
+    // Align blueprint to industry when missing OR mismatched (e.g. stale general_ops under content_creator)
+    const industry = strategic.company_type || resolveCompanyTypeId(body.company_type);
+    if (!blueprintMatchesIndustry(strategic.blueprint_id || journey.blueprint_id, industry)) {
+      strategic.blueprint_id = getDefaultBlueprintIdForIndustry(industry);
+      journey.blueprint_id = strategic.blueprint_id;
+      console.info(
+        '[company-setup] aligned blueprint_id=',
+        strategic.blueprint_id,
+        'to industry=',
+        industry
+      );
+    }
+  }
+
+if (body.mission != null) {
     strategic.mission = String(body.mission).trim().slice(0, 2000);
     journey.answers = journey.answers || {};
     journey.answers.mission = strategic.mission;
@@ -206,9 +286,14 @@ export function saveFunnelDraft(ownerUserId, body = {}) {
   }
   if (body.setup_gate) strategic.setup_gate = String(body.setup_gate);
 
-  // Seed blueprint only when there is no design yet (or explicit reset).
+  // Seed blueprint pack proposal only when there is no design yet (or explicit reset).
   // CRITICAL: never wipe LLM design on later funnel steps (preview?systems?review).
-  const bp = getBlueprint(strategic.company_type || 'general_ops');
+  // Always resolve via industry-aligned selection (never trust a mismatched blueprint_id alone).
+  const bp = resolveSelectedBlueprint(strategic, journey);
+  if (!strategic.blueprint_id || !blueprintMatchesIndustry(strategic.blueprint_id, strategic.company_type)) {
+    strategic.blueprint_id = bp.id;
+    journey.blueprint_id = bp.id;
+  }
   journey.answers = journey.answers || {};
   const designed =
     journey.answers?.design_source === 'llm' ||
@@ -282,7 +367,8 @@ export function getFunnelState(ownerUserId) {
   const onboarding = getOnboardingState(ownerUserId);
   const strategic = onboarding.strategic_profile || {};
   const companyType = strategic.company_type || 'general_ops';
-  const blueprint = getBlueprint(companyType);
+  const blueprint = resolveSelectedBlueprint(strategic, onboarding.journey || {});
+  const industryBlueprints = listBlueprintsForIndustry(strategic.company_type_card || companyType);
   const proposal = onboarding.proposal || buildProposal(ownerUserId, ensureStrategyRow(ownerUserId), onboarding.journey);
 
   // Enrich proposal with blueprint knowledge for UI preview
@@ -316,10 +402,13 @@ export function getFunnelState(ownerUserId) {
     policy_preview: policyTextForStyle(blueprint, strategic.management_style || 'after_approval'),
     design_source: onboarding.journey?.answers?.design_source || strategic.design_source || null,
     design_model: onboarding.journey?.answers?.design_model || null,
+    design_chat: Array.isArray(strategic.design_chat) ? strategic.design_chat : [],
     mission: strategic.mission || '',
     org_dna: strategic.org_dna || null,
     org_dna_notes: strategic.org_dna_notes || '',
     company_type_card: strategic.company_type_card || strategic.company_type || null,
+    blueprint_id: strategic.blueprint_id || blueprint.id,
+    industry_blueprints: industryBlueprints,
   };
 }
 
@@ -350,7 +439,7 @@ export async function designCompanyOrg(ownerUserId) {
   let journey = parseJson(row.draft_journey_json, defaultJourney());
   const strategic = getStrategic(row);
   const companyType = resolveCompanyTypeId(strategic.company_type || journey.company_type || 'general_ops');
-  const bp = getBlueprint(companyType);
+  const bp = resolveSelectedBlueprint(strategic, journey);
   const typeCards = listCompanyTypeCards();
   const card = typeCards.find((c) => c.id === strategic.company_type_card || c.id === strategic.company_type || c.id === companyType || c.maps_to === companyType);
   const typeLabel = card?.label || bp.label || companyType;
@@ -424,6 +513,10 @@ export async function designCompanyOrg(ownerUserId) {
     ownerUserId,
     'source=',
     design.design_source,
+    'type=',
+    companyType,
+    'blueprint=',
+    bp?.id,
     'agents=',
     design.agents?.length
   );
@@ -433,6 +526,155 @@ export async function designCompanyOrg(ownerUserId) {
     design_source: design.design_source,
     design_model: design.model_used || null,
     design_error: design.design_error || null,
+  };
+}
+
+/**
+ * Persist a full org design onto journey answers + selected_apply.
+ */
+function applyDesignToJourney(ownerUserId, design, { keepSops = false } = {}) {
+  const row = ensureStrategyRow(ownerUserId);
+  const journey = parseJson(row.draft_journey_json, defaultJourney());
+  const strategic = getStrategic(row);
+  const companyType = resolveCompanyTypeId(strategic.company_type || journey.company_type || 'general_ops');
+  const bp = resolveSelectedBlueprint(strategic, journey);
+
+  journey.answers = journey.answers || {};
+  journey.answers.departments = design.departments;
+  journey.answers.agents = design.agents;
+  journey.answers.workflows = design.workflows || [];
+  journey.answers.channels = design.channels || [];
+  journey.answers.design_source = design.design_source;
+  journey.answers.design_model = design.model_used || null;
+  if (design.design_error) journey.answers.design_error = design.design_error;
+  else delete journey.answers.design_error;
+
+  const preservePack =
+    keepSops &&
+    (design.design_source === 'template' ||
+      design.design_source === 'template_fallback' ||
+      design.design_source === 'llm_refine' ||
+      design.design_source === 'llm_refine_unchanged');
+  if (design.design_source === 'template' || design.design_source === 'template_fallback') {
+    journey.answers.md_files = (bp.sop_documents || []).map((d) => ({
+      filename: d.filename,
+      content: d.contentText,
+      agent: null,
+    }));
+    journey.answers.knowledge_tables = bp.knowledge_tables || [];
+    journey.answers.sop_documents = bp.sop_documents || [];
+  } else if (!preservePack) {
+    // Pure LLM redesign of structure: clear pack SOPs only on first LLM design without prior
+    if (!journey.answers.knowledge_tables?.length) {
+      journey.answers.md_files = journey.answers.md_files || [];
+      journey.answers.knowledge_tables = journey.answers.knowledge_tables || [];
+      journey.answers.sop_documents = journey.answers.sop_documents || [];
+    }
+  }
+  // When refining a template pack, keep knowledge/SOPs from blueprint if still empty
+  if (
+    (design.design_source === 'llm_refine' || design.design_source === 'llm_refine_unchanged') &&
+    !(journey.answers.knowledge_tables || []).length &&
+    (bp.knowledge_tables || []).length
+  ) {
+    journey.answers.knowledge_tables = bp.knowledge_tables || [];
+    journey.answers.sop_documents = bp.sop_documents || [];
+    journey.answers.md_files = (bp.sop_documents || []).map((d) => ({
+      filename: d.filename,
+      content: d.contentText,
+      agent: null,
+    }));
+  }
+
+  journey.selected_apply = defaultSelectedApply({
+    departments: design.departments,
+    agents: design.agents,
+    workflows: design.workflows || [],
+    channels: design.channels || [],
+    md_files: journey.answers.md_files,
+    knowledge_tables: journey.answers.knowledge_tables,
+  });
+  strategic.design_source = design.design_source;
+  writeStrategic(ownerUserId, ensureStrategyRow(ownerUserId), journey, strategic);
+}
+
+/**
+ * LLM chat refine on the org design step — updates departments/agents from CEO message.
+ */
+export async function designChatRefine(ownerUserId, { message } = {}) {
+  const row = ensureStrategyRow(ownerUserId);
+  const journey = parseJson(row.draft_journey_json, defaultJourney());
+  const strategic = getStrategic(row);
+  const companyType = resolveCompanyTypeId(strategic.company_type || journey.company_type || 'general_ops');
+  const bp = resolveSelectedBlueprint(strategic, journey);
+  const typeCards = listCompanyTypeCards();
+  const card = typeCards.find(
+    (c) =>
+      c.id === strategic.company_type_card ||
+      c.id === strategic.company_type ||
+      c.id === companyType ||
+      c.maps_to === companyType
+  );
+  const typeLabel = card?.label || bp.label || companyType;
+  const answers = journey.answers || {};
+  const history = Array.isArray(strategic.design_chat) ? strategic.design_chat : [];
+
+  const design = await refineCompanyOrgWithLlm(ownerUserId, {
+    company_name: strategic.company_name || '',
+    company_type: companyType,
+    company_type_label: typeLabel,
+    mission: strategic.mission || '',
+    org_dna: strategic.org_dna || '',
+    org_dna_notes: strategic.org_dna_notes || '',
+    describe_company: strategic.describe_company || answers.purpose || '',
+    industry: strategic.industry || typeLabel || '',
+    message,
+    current: {
+      departments: answers.departments || bp.departments,
+      agents: answers.agents || bp.agents,
+      workflows: answers.workflows || bp.workflows || [],
+      channels: answers.channels || bp.channels || [],
+    },
+    history,
+  });
+
+  applyDesignToJourney(ownerUserId, design, { keepSops: true });
+
+  const userLine = String(message || '').trim().slice(0, 2000);
+  const nextChat = [
+    ...history,
+    { role: 'user', content: userLine, at: new Date().toISOString() },
+    {
+      role: 'assistant',
+      content: design.reply || 'Updated.',
+      at: new Date().toISOString(),
+      design_source: design.design_source,
+    },
+  ].slice(-12);
+
+  const row2 = ensureStrategyRow(ownerUserId);
+  const journey2 = parseJson(row2.draft_journey_json, defaultJourney());
+  const strategic2 = getStrategic(row2);
+  strategic2.design_chat = nextChat;
+  writeStrategic(ownerUserId, row2, journey2, strategic2);
+
+  console.info(
+    '[company-setup] design-chat owner=',
+    ownerUserId,
+    'source=',
+    design.design_source,
+    'agents=',
+    design.agents?.length
+  );
+
+  const state = getFunnelState(ownerUserId);
+  return {
+    ...state,
+    design_source: design.design_source,
+    design_model: design.model_used || null,
+    design_error: design.design_error || null,
+    design_chat: nextChat,
+    chat_reply: design.reply,
   };
 }
 
@@ -547,9 +789,9 @@ export async function searchSetupConnectors(ownerUserId, query = '') {
 export async function applyCompanySetup(ownerUserId, { confirm_override: confirmOverride, selected } = {}) {
   const row = ensureStrategyRow(ownerUserId);
   const strategic = getStrategic(row);
-  const companyType = resolveCompanyTypeId(strategic.company_type || 'general_ops');
-  const blueprint = getBlueprint(companyType);
   const journey = parseJson(row.draft_journey_json, defaultJourney());
+  const companyType = resolveCompanyTypeId(strategic.company_type || 'general_ops');
+  const blueprint = resolveSelectedBlueprint(strategic, journey);
 
   // Refresh strategy without wiping LLM/template design answers
   saveFunnelDraft(ownerUserId, {
@@ -613,6 +855,10 @@ export async function applyCompanySetup(ownerUserId, { confirm_override: confirm
   const strategicDone = getStrategic(rowDone);
   strategicDone.setup_gate = 'completed';
   strategicDone.funnel_step = 'done';
+  // Phase D: after form, operating model is pending
+  if (!strategicDone.operate_gate || strategicDone.operate_gate === 'blocked_need_company') {
+    strategicDone.operate_gate = 'pending';
+  }
   writeStrategic(ownerUserId, rowDone, journeyDone, strategicDone);
 
   const day1 = buildDay1Briefing(ownerUserId, strategicDone, applied, extras);
@@ -783,6 +1029,7 @@ function buildDay1Briefing(ownerUserId, strategic, applied, extras) {
     message: `${companyName} is staffed with ${agentsCreated} new AI employee(s). Open work on Kanban: ${openKanban}.${missionLine}`,
     next_steps: nextSteps.slice(0, 8),
     links: [
+      { label: 'How we run (Operate)', path: '/company-operate' },
       { label: 'Home', path: '/' },
       { label: 'My Org', path: '/org' },
       { label: 'AI Employees', path: '/workspace' },
@@ -790,5 +1037,17 @@ function buildDay1Briefing(ownerUserId, strategic, applied, extras) {
       { label: 'Policies', path: '/policies' },
     ],
     knowledge_tables: extras?.knowledge_tables_created || [],
+  };
+}
+
+
+export function listIndustryBlueprintsForOwner(ownerUserId, industryId) {
+  const row = ensureStrategyRow(ownerUserId);
+  const strategic = getStrategic(row);
+  const id = industryId || strategic.company_type_card || strategic.company_type || 'general_ops';
+  return {
+    industry_id: id,
+    blueprints: listBlueprintsForIndustry(id),
+    selected_blueprint_id: strategic.blueprint_id || getDefaultBlueprintIdForIndustry(resolveCompanyTypeId(id)),
   };
 }

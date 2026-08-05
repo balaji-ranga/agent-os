@@ -99,7 +99,7 @@ export function sanitizeOperatingModel(raw, fallback) {
         .map((s) => String(s).slice(0, 80))
         .filter(Boolean)
         .slice(0, 12),
-      critical_day1: l?.critical_day1 !== false,
+      critical_day1: l?.critical_day1 === false ? false : l?.critical_day1 === true ? true : true,
       primary_agent_role: String(l?.primary_agent_role || l?.owner_roles?.[0] || "COO").slice(0, 80),
     }));
 

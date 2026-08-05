@@ -47,6 +47,31 @@ function AdminPanel() {
   const [wsTplSelected, setWsTplSelected] = useState(null);
   const [wsTplEditFiles, setWsTplEditFiles] = useState({});
   const [wsTplFileKey, setWsTplFileKey] = useState('tools');
+  const [bpList, setBpList] = useState([]);
+  const [bpIndustries, setBpIndustries] = useState([]);
+  const [bpCandidates, setBpCandidates] = useState([]);
+  const [bpBusy, setBpBusy] = useState(false);
+  const [bpForm, setBpForm] = useState({
+    owner_user_id: '',
+    industry_id: 'content_creator',
+    name: '',
+    description: '',
+    set_default: false,
+  });
+
+  const loadCompanyBlueprints = () => {
+    api
+      .adminCompanyBlueprints()
+      .then((r) => {
+        setBpList(r.blueprints || []);
+        setBpIndustries(r.industries || []);
+      })
+      .catch((e) => showError(e.message || 'Failed to load company blueprints'));
+    api
+      .adminCompanyBlueprintCandidates(50)
+      .then((r) => setBpCandidates(r.candidates || []))
+      .catch(() => setBpCandidates([]));
+  };
 
   const loadWsTemplates = () => {
     api
@@ -64,6 +89,7 @@ function AdminPanel() {
       .then(setPlatformLlm)
       .catch(() => setPlatformLlm(null));
     loadWsTemplates();
+    loadCompanyBlueprints();
   };
 
   useEffect(() => {
@@ -309,6 +335,59 @@ function AdminPanel() {
     }
   };
 
+  const publishCompanyBlueprint = async (e) => {
+    e?.preventDefault?.();
+    if (!bpForm.owner_user_id || !bpForm.name?.trim() || !bpForm.industry_id) {
+      showError('Owner company, industry, and blueprint name are required.');
+      return;
+    }
+    setBpBusy(true);
+    try {
+      const result = await api.adminPublishCompanyBlueprint({
+        owner_user_id: bpForm.owner_user_id,
+        industry_id: bpForm.industry_id,
+        name: bpForm.name.trim(),
+        description: bpForm.description || '',
+        set_default: !!bpForm.set_default,
+      });
+      showSuccess(`Published blueprint ${result.blueprint?.id || bpForm.name}`);
+      setBpForm((f) => ({ ...f, name: '', description: '', set_default: false }));
+      loadCompanyBlueprints();
+    } catch (err) {
+      showError(err.message || 'Publish failed');
+    } finally {
+      setBpBusy(false);
+    }
+  };
+
+  const unpublishCompanyBlueprint = async (id) => {
+    if (!id) return;
+    if (!window.confirm(`Unpublish blueprint ${id}? System JSON packs cannot be removed this way.`)) return;
+    setBpBusy(true);
+    try {
+      await api.adminUnpublishCompanyBlueprint(id);
+      showSuccess(`Unpublished ${id}`);
+      loadCompanyBlueprints();
+    } catch (err) {
+      showError(err.message || 'Unpublish failed');
+    } finally {
+      setBpBusy(false);
+    }
+  };
+
+  const setDefaultCompanyBlueprint = async (industryId, blueprintId) => {
+    setBpBusy(true);
+    try {
+      await api.adminSetDefaultCompanyBlueprint({ industry_id: industryId, blueprint_id: blueprintId });
+      showSuccess(`Default for ${industryId} → ${blueprintId}`);
+      loadCompanyBlueprints();
+    } catch (err) {
+      showError(err.message || 'Set default failed');
+    } finally {
+      setBpBusy(false);
+    }
+  };
+
   useEffect(() => {
     setUserPage(0);
   }, [userSearch]);
@@ -355,7 +434,7 @@ function AdminPanel() {
           borderRadius: 8,
         }}
       >
-        <h2 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem' }}>Platform LLM (Agent OS)</h2>
+        <h2 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem' }}>Platform LLM (Flolah)</h2>
         <p style={{ margin: '0 0 0.75rem 0', color: 'var(--muted)', fontSize: '0.9rem' }}>
           Switch the shared platform model for CEOs on platform default (not BYOK). Options come from deploy{' '}
           <code>.env</code> (<code>OPENAI_*</code> / <code>OPENAI_SECONDARY_*</code>). OpenClaw defaults update when you
@@ -425,6 +504,157 @@ function AdminPanel() {
         ) : (
           <p style={{ color: 'var(--muted)', margin: 0 }}>Unable to load platform LLM status.</p>
         )}
+      </section>
+
+      <section
+        style={{
+          marginBottom: '1.5rem',
+          padding: '1rem',
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderRadius: 8,
+        }}
+      >
+        <h2 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem' }}>Company industry blueprints</h2>
+        <p style={{ margin: '0 0 0.75rem 0', color: 'var(--muted)', fontSize: '0.9rem' }}>
+          System packs live as JSON under <code>backend/src/services/company-blueprints/packs/</code>. Publish a successful
+          CEO company as a named blueprint for an industry so company setup can offer alternatives (default + slide
+          picker). Content Creator social is FB / Instagram / LinkedIn / blogs — not YouTube.
+        </p>
+        <form
+          onSubmit={publishCompanyBlueprint}
+          style={{ display: 'grid', gap: '0.65rem', maxWidth: 720, marginBottom: '1rem' }}
+        >
+          <label style={{ fontSize: '0.9rem' }}>
+            Source company (successful CEOs)
+            <select
+              value={bpForm.owner_user_id}
+              onChange={(e) => {
+                const id = e.target.value;
+                const cand = bpCandidates.find((c) => c.owner_user_id === id);
+                setBpForm((f) => ({
+                  ...f,
+                  owner_user_id: id,
+                  industry_id: cand?.company_type || f.industry_id,
+                  name: f.name || (cand?.company_name ? `${cand.company_name} blueprint` : ''),
+                  description: f.description || cand?.mission || '',
+                }));
+              }}
+              style={{ display: 'block', width: '100%', marginTop: 4, padding: '0.4rem 0.5rem' }}
+            >
+              <option value="">Select…</option>
+              {bpCandidates.map((c) => (
+                <option key={c.owner_user_id} value={c.owner_user_id}>
+                  {(c.company_name || c.name || c.email) +
+                    ` · ${c.company_type || '?'} · ${c.custom_agents || 0} agents`}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label style={{ fontSize: '0.9rem' }}>
+            Industry
+            <select
+              value={bpForm.industry_id}
+              onChange={(e) => setBpForm((f) => ({ ...f, industry_id: e.target.value }))}
+              style={{ display: 'block', width: '100%', marginTop: 4, padding: '0.4rem 0.5rem' }}
+            >
+              {(bpIndustries.length ? bpIndustries : [{ id: 'content_creator', label: 'Content Creator' }]).map((i) => (
+                <option key={i.id} value={i.id}>
+                  {i.label || i.id}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label style={{ fontSize: '0.9rem' }}>
+            Blueprint name
+            <input
+              value={bpForm.name}
+              onChange={(e) => setBpForm((f) => ({ ...f, name: e.target.value }))}
+              required
+              style={{ display: 'block', width: '100%', marginTop: 4, padding: '0.4rem 0.5rem' }}
+            />
+          </label>
+          <label style={{ fontSize: '0.9rem' }}>
+            Description
+            <textarea
+              value={bpForm.description}
+              onChange={(e) => setBpForm((f) => ({ ...f, description: e.target.value }))}
+              rows={2}
+              style={{ display: 'block', width: '100%', marginTop: 4, padding: '0.4rem 0.5rem' }}
+            />
+          </label>
+          <label style={{ fontSize: '0.9rem', display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+              type="checkbox"
+              checked={!!bpForm.set_default}
+              onChange={(e) => setBpForm((f) => ({ ...f, set_default: e.target.checked }))}
+            />
+            Set as default for industry
+          </label>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <button type="submit" className="wf-btn" disabled={bpBusy}>
+              Publish blueprint
+            </button>
+            <button type="button" className="wf-btn" disabled={bpBusy} onClick={loadCompanyBlueprints}>
+              Refresh
+            </button>
+          </div>
+        </form>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+            <thead>
+              <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
+                <th style={{ padding: 6 }}>ID</th>
+                <th style={{ padding: 6 }}>Industry</th>
+                <th style={{ padding: 6 }}>Name</th>
+                <th style={{ padding: 6 }}>Source</th>
+                <th style={{ padding: 6 }}>Agents</th>
+                <th style={{ padding: 6 }} />
+              </tr>
+            </thead>
+            <tbody>
+              {bpList.map((bp) => (
+                <tr key={bp.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                  <td style={{ padding: 6, wordBreak: 'break-all' }}>{bp.id}</td>
+                  <td style={{ padding: 6 }}>{bp.industry}</td>
+                  <td style={{ padding: 6 }}>
+                    {bp.name}
+                    {bp.is_default ? ' · default' : ''}
+                  </td>
+                  <td style={{ padding: 6 }}>
+                    {bp.source}
+                    {bp.source_company_name ? ` (${bp.source_company_name})` : ''}
+                  </td>
+                  <td style={{ padding: 6 }}>{bp.agent_count}</td>
+                  <td style={{ padding: 6, whiteSpace: 'nowrap' }}>
+                    {bp.source === 'published' && (
+                      <>
+                        <button
+                          type="button"
+                          className="wf-btn"
+                          disabled={bpBusy}
+                          style={{ marginRight: 4 }}
+                          onClick={() => setDefaultCompanyBlueprint(bp.industry, bp.id)}
+                        >
+                          Default
+                        </button>
+                        <button
+                          type="button"
+                          className="wf-btn wf-btn-danger"
+                          disabled={bpBusy}
+                          onClick={() => unpublishCompanyBlueprint(bp.id)}
+                        >
+                          Unpublish
+                        </button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {!bpList.length && <p style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>No blueprints loaded yet.</p>}
+        </div>
       </section>
 
       <div className="admin-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>

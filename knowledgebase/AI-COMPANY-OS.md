@@ -182,7 +182,8 @@ Full operate plan: **[PHASE-D-E-F-OPERATE.md](./PHASE-D-E-F-OPERATE.md)**.
 - Funnel: type, identity, mission, DNA, org design (template pack or **LLM** when no dedicated pack), systems recommendations (checklist + OpenConnector search; not live OAuth), style, review, apply.
 - Creates AI employees, optional knowledge seeds, company policy, day-1 **form** briefing (meet the team).
 - Flagship deep pack: Content Creator (FB/IG/LI/YouTube). Thin packs for SaaS/talent/trading.
-- Implementation: company-setup, company-blueprints, CompanySetup.jsx.
+- Implementation: JSON packs in ackend/src/services/company-blueprints/packs/ (interpreted by registry), industries.json cards with default_blueprint_id, admin publish (company_industry_blueprints + Admin UI), company setup industry slide to pick blueprint variants. Content Creator pack: Facebook / Instagram / LinkedIn / blogs only (YouTube deferred to future Animated Youtube Videos Industry).
+- Implementation paths: company-setup, company-blueprints/registry.js, CompanySetup.jsx, Admin company blueprints.
 - Does **not** make the company autonomously runnable.
 
 ### Phase D — Operate kickstart (Day 0 model + Day 1 install)

@@ -1,0 +1,80 @@
+{
+  "aliases": [],
+  "depth": "thin",
+  "is_default": true,
+  "source": "system",
+  "departments": [
+    {
+      "name": "Product",
+      "purpose": "Roadmap and customer problem clarity."
+    },
+    {
+      "name": "Growth",
+      "purpose": "Acquisition and messaging."
+    },
+    {
+      "name": "Operations",
+      "purpose": "Process and coordination."
+    }
+  ],
+  "agents": [
+    {
+      "name": "Product Analyst",
+      "role": "Synthesize user and market signals",
+      "department": "Product",
+      "tools": [
+        "learnings_summary",
+        "master_data_rag",
+        "summarize_url",
+        "notify_ceo"
+      ]
+    },
+    {
+      "name": "Growth Writer",
+      "role": "Draft GTM and customer messaging",
+      "department": "Growth",
+      "tools": [
+        "learnings_summary",
+        "master_data_rag",
+        "generate_image",
+        "notify_ceo"
+      ]
+    }
+  ],
+  "workflows": [
+    "Idea -> research brief -> growth draft -> CEO review"
+  ],
+  "channels": [
+    "Connect product tools via Connectors when ready."
+  ],
+  "knowledge_tables": [],
+  "sop_documents": [],
+  "systems_recommended": [
+    {
+      "id": "workspace",
+      "label": "AI Employees",
+      "path": "/workspace"
+    },
+    {
+      "id": "knowledge",
+      "label": "Knowledge (Master Data)",
+      "path": "/master-data"
+    },
+    {
+      "id": "policies",
+      "label": "Policies",
+      "path": "/policies"
+    }
+  ],
+  "policy_templates": {
+    "suggest": "## Management style: AI suggests\n- Drafts only; CEO decides.\n- Prefer notify_ceo for handoffs.",
+    "after_approval": "## Management style: AI executes after approval\n- Prepare full drafts; public actions need CEO approval via Kanban or chat.\n- Internal research may run without approval.",
+    "autonomous": "## Management style: AI executes autonomously\n- Execute within tool grants and budgets.\n- Escalate legal/PR risk before acting."
+  },
+  "platforms": [],
+  "id": "saas",
+  "industry": "saas",
+  "name": "SaaS startup",
+  "label": "SaaS startup",
+  "description": "Product/growth-oriented AI org (thin starter)."
+}

@@ -11,7 +11,7 @@ export default function Workspace() {
   const [showAdd, setShowAdd] = useState(false);
 
   const clearSessions = (agentId) => {
-    if (!window.confirm('Clear all OpenClaw sessions for this agent? Chat and task session history will be reset.')) return;
+    if (!window.confirm('Clear all sessions for this AI employee? Chat and task history will be reset.')) return;
     setClearingAgentId(agentId);
     api.agentSessionsClear(agentId)
       .then(() => setError(null))
@@ -32,7 +32,7 @@ export default function Workspace() {
   }, []);
 
   const removeAgent = (agentId) => {
-    if (!window.confirm('Remove this agent? This cannot be undone.')) return;
+    if (!window.confirm('Remove this AI employee? This cannot be undone.')) return;
     api.agentDelete(agentId)
       .then(() => fetchAgents())
       .catch((e) => setError(e.message));
@@ -41,7 +41,7 @@ export default function Workspace() {
   if (loading && agents.length === 0) {
     return (
       <div className="page">
-        <p className="page-muted">Loading agents…</p>
+        <p className="page-muted">Loading AI employees…</p>
       </div>
     );
   }
@@ -51,8 +51,8 @@ export default function Workspace() {
       <header className="page-hero">
         <div className="page-hero-top">
           <div className="page-hero-titles">
-            <p className="page-hero-kicker">Agentic Workflows</p>
-            <h1>Agent Workspaces</h1>
+            <p className="page-hero-kicker">Company OS · Employees</p>
+            <h1>AI Employees</h1>
           </div>
           <button
             type="button"
@@ -60,11 +60,11 @@ export default function Workspace() {
             onClick={() => setShowAdd((o) => !o)}
             aria-expanded={showAdd}
           >
-            {showAdd ? 'Hide form' : 'Add agent'}
+            {showAdd ? 'Hide form' : 'Hire AI employee'}
           </button>
         </div>
         <p className="page-hero-sub">
-          Create specialists, open SOUL/AGENTS/MEMORY, grant tools, and clear stuck sessions. Org chart stays on My Org.
+          Hire specialists, open identity docs (SOUL/AGENTS/MEMORY), grant tools, and clear stuck sessions. Org chart stays on My Org.
         </p>
       </header>
 
@@ -79,9 +79,9 @@ export default function Workspace() {
 
       {showAdd && (
         <section className="panel panel-accent" style={{ marginBottom: '1.5rem' }}>
-          <h2 className="panel-title">Add agent</h2>
+          <h2 className="panel-title">Hire AI employee</h2>
           <p className="page-muted" style={{ marginTop: 0, marginBottom: '0.85rem' }}>
-            Creates a custom agent in your OpenClaw tenant. Set department and who they report to for the org chart.
+            Creates a digital employee in your isolated tenant. Set department and who they report to for the org chart.
           </p>
           <AddAgentForm
             agents={agents}
@@ -114,7 +114,7 @@ export default function Workspace() {
                 className="btn-ghost btn-sm"
                 onClick={() => clearSessions(a.id)}
                 disabled={clearingAgentId === a.id}
-                title="Clear OpenClaw sessions for this agent"
+                title="Clear sessions for this AI employee"
               >
                 {clearingAgentId === a.id ? 'Clearing…' : 'Clear sessions'}
               </button>
@@ -129,11 +129,11 @@ export default function Workspace() {
       {agents.length === 0 && (
         <div className="panel" style={{ textAlign: 'center', padding: '2rem 1.25rem' }}>
           <p className="page-muted" style={{ margin: '0 0 0.75rem' }}>
-            No agents yet. Add your first specialist here.
+            No AI employees yet. Hire your first specialist here.
           </p>
           {!showAdd && (
             <button type="button" className="btn-primary" onClick={() => setShowAdd(true)}>
-              Add agent
+              Hire AI employee
             </button>
           )}
         </div>

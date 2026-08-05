@@ -3,8 +3,8 @@ import { api } from '../api';
 import DepartmentPicker from './DepartmentPicker';
 
 /**
- * Create a CEO-owned OpenClaw agent (tenant + org chart parent).
- * Used from Agent Workspaces; Org chart Design mode has its own modal.
+ * Hire a CEO-owned AI employee (OpenClaw agent under the tenant + org chart).
+ * Used from AI Employees; Org chart Design mode has its own modal.
  */
 export default function AddAgentForm({ agents = [], onCreated, compact = false }) {
   const [name, setName] = useState('');
@@ -37,7 +37,7 @@ export default function AddAgentForm({ agents = [], onCreated, compact = false }
     const coo = agents.find((a) => a.is_coo);
     const body = {
       name: name.trim(),
-      role: role.trim() || 'Agent',
+      role: role.trim() || 'AI employee',
       department: department.trim() || '',
       monthly_token_budget: tokenBudget || null,
       error_budget_pct: errorBudget || null,
@@ -53,15 +53,15 @@ export default function AddAgentForm({ agents = [], onCreated, compact = false }
         setTokenBudget('');
         setErrorBudget('');
         setMessage(
-          `"${agent.name}" added` +
+          `"${agent.name}" hired` +
             (agent.department ? ` · ${agent.department}` : '') +
             (agent.openclaw_runtime_id ? ` (${agent.openclaw_runtime_id})` : '') +
-            '. Grant tools in the agent workspace if needed.'
+            '. Grant tools in the employee workspace if needed.'
         );
         onCreated?.(agent);
         setTimeout(() => setMessage(null), 12000);
       })
-      .catch((err) => setError(err.message || 'Failed to add agent'))
+      .catch((err) => setError(err.message || 'Failed to hire AI employee'))
       .finally(() => setSubmitting(false));
   };
 
@@ -73,11 +73,11 @@ export default function AddAgentForm({ agents = [], onCreated, compact = false }
       >
         <input
           type="text"
-          placeholder="Agent name"
+          placeholder="Employee name"
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
-          aria-label="Agent name"
+          aria-label="AI employee name"
           style={inputStyle}
         />
         <input
@@ -133,7 +133,7 @@ export default function AddAgentForm({ agents = [], onCreated, compact = false }
           style={{ ...inputStyle, width: compact ? 130 : undefined, minWidth: 120 }}
         />
         <button type="submit" className="btn-primary" disabled={submitting || !name.trim()}>
-          {submitting ? 'Adding…' : 'Add agent'}
+          {submitting ? 'Hiring…' : 'Hire AI employee'}
         </button>
       </form>
       {error && (

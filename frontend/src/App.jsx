@@ -32,6 +32,7 @@ import MasterData from './pages/MasterData';
 import ContentExplorer from './pages/ContentExplorer';
 import Onboarding from './pages/Onboarding';
 import CompanySetup from './pages/CompanySetup';
+import CompanyOperate from './pages/CompanyOperate';
 import VideoTours from './pages/VideoTours';
 import ApiKeys from './pages/ApiKeys';
 import Policies from './pages/Policies';
@@ -88,6 +89,7 @@ function Shell() {
   /** Workflow editor / run audit / VR use the full viewport — hide platform nav/topbar. */
   const focusMode =
     location.pathname.startsWith('/company-setup') ||
+    location.pathname.startsWith('/company-operate') ||
     /^\/workflows\/[^/]+\/edit\/?$/.test(location.pathname) ||
     /^\/workflows\/runs\/[^/]+\/?$/.test(location.pathname) ||
     /^\/agents\/[^/]+\/virtual-room\/?$/.test(location.pathname) ||
@@ -331,6 +333,7 @@ function Shell() {
                 <Route path="/master-data" element={<MasterData />} />
                 <Route path="/content-explorer" element={<ContentExplorer />} />
                 <Route path="/company-setup" element={<CompanySetup />} />
+                <Route path="/company-operate" element={<CompanyOperate />} />
                 <Route path="/onboarding" element={<Onboarding />} />
                 <Route path="/video-tours" element={<VideoTours />} />
                 <Route path="/api-keys" element={<ApiKeys />} />

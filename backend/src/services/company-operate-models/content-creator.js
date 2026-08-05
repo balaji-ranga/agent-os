@@ -48,7 +48,7 @@ export const contentCreatorOperatingModel = {
     {
       agent_name: "Media Generator",
       tasks: [
-        "Produce drafts from approved briefs (image/video/copy)",
+        "Produce drafts from approved briefs (image/copy/blog draft)",
         "Attach URLs/assets to pipeline row",
         "Hand off to Content Reviewer",
       ],
@@ -70,7 +70,7 @@ export const contentCreatorOperatingModel = {
     {
       agent_name: "Channel Publisher",
       tasks: [
-        "Run platform publish checklists (FB/IG/LI/YT)",
+        "Run platform publish checklists (FB/IG/LI/blog CMS)",
         "Log outcomes in content_pipeline / post log",
       ],
     },
@@ -101,12 +101,12 @@ export const contentCreatorOperatingModel = {
     { id: "facebook", label: "Facebook", owner_role: "Channel Publisher", path: "/browser-session", system_id: "browser_session" },
     { id: "instagram", label: "Instagram", owner_role: "Channel Publisher", path: "/browser-session", system_id: "browser_session" },
     { id: "linkedin", label: "LinkedIn", owner_role: "Channel Publisher", path: "/browser-session", system_id: "browser_session" },
-    { id: "youtube", label: "YouTube", owner_role: "Channel Publisher", path: "/browser-session", system_id: "browser_session" },
+    { id: "blog", label: "Blog CMS", owner_role: "Channel Publisher", path: "/browser-session", system_id: "browser_session" },
   ],
   systems_run: [
-    { id: "browser_session", label: "Browser Session (social sites)", path: "/browser-session", required: true },
-    { id: "replicate", label: "Video / image (Replicate BYOK)", path: "/api-keys", required: false },
-    { id: "kanban", label: "Kanban pipeline", path: "/kanban", required: true },
+    { id: "browser_session", label: "Browser Session (FB/IG/LI/blog logins)", path: "/browser-session", required: true },
+    { id: "replicate", label: "Image gen (Replicate BYOK, optional)", path: "/api-keys", required: false },
+    { id: "kanban", label: "Kanban board (agent tasks / approvals)", path: "/kanban", required: true },
   ],
   quality_bars: [
     "Match brand voice and company mission",
@@ -127,7 +127,7 @@ export const contentCreatorOperatingModel = {
       columns: ["date", "platform", "theme", "owner", "status", "notes"],
       seed_rows: [
         { date: "", platform: "Instagram", theme: "Week opener", owner: "Content Strategist", status: "planned", notes: "Fill dates after Day 1" },
-        { date: "", platform: "YouTube", theme: "Long-form idea", owner: "Content Strategist", status: "planned", notes: "" },
+        { date: "", platform: "LinkedIn", theme: "Thought leadership post", owner: "Content Strategist", status: "planned", notes: "Not YouTube — separate industry later" },
       ],
     },
     {

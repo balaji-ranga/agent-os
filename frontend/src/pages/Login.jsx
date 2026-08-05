@@ -212,7 +212,7 @@ export default function Login() {
     <div style={{ maxWidth: 420, margin: '3rem auto', padding: '0 1rem' }}>
       <h1 style={{ marginBottom: '0.25rem' }}>{adminMode ? 'Admin login' : 'CEO login'}</h1>
       <p style={{ color: 'var(--muted)', marginBottom: '1.5rem' }}>
-        {adminMode ? 'Platform administration' : 'Sign in to your Agent OS workspace'}
+        {adminMode ? 'Platform administration' : 'Sign in to run your AI company'}
       </p>
       <form onSubmit={submitPassword} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         <label>
@@ -271,7 +271,9 @@ export default function Login() {
           color: 'var(--muted)',
         }}
       >
-        Flolah (Automate, Innovate, Elevate)
+        Flolah · AI Company OS
+        <br />
+        <span style={{ fontSize: '0.8rem' }}>Automate, Innovate, Elevate</span>
       </footer>
     </div>
   );

@@ -23,7 +23,7 @@ export const BRAIN_PROVIDER_PRESETS = {
     model: 'openai/gpt-4o-mini',
     apiKeyHint: 'sk-or-... (required on node)',
     httpReferer: '',
-    siteTitle: 'Agent OS',
+    siteTitle: 'Flolah',
   },
   deepseek: {
     label: 'DeepSeek',

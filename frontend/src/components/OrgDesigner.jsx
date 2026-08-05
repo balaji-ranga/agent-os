@@ -155,7 +155,7 @@ export default function OrgDesigner({
             fontSize: '0.85rem',
           }}
         >
-          Add agent
+          Hire AI employee
         </button>
         <form onSubmit={createDepartment} style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
           <input
@@ -397,9 +397,9 @@ export default function OrgDesigner({
               gap: 10,
             }}
           >
-            <h3 style={{ margin: 0 }}>Add agent</h3>
+            <h3 style={{ margin: 0 }}>Hire AI employee</h3>
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--muted)' }}>
-              Creates a user-scoped agent in your workspace (not shared with other CEOs).
+              Creates a digital employee in your company (isolated — not shared with other CEOs).
             </p>
             <label style={{ fontSize: '0.85rem' }}>
               Name

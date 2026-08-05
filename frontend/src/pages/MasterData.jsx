@@ -369,11 +369,11 @@ function MasterDataPanel() {
       <Link to="/org" style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>
         ← My Org
       </Link>
-      <h1 style={{ margin: '0.5rem 0 0.25rem' }}>Master Data</h1>
+      <h1 style={{ margin: '0.5rem 0 0.25rem' }}>Knowledge</h1>
       <p style={{ color: 'var(--muted)', marginTop: 0 }}>
-        Create tables (with a purpose/description), upload CSV, and store documents under your tenant data folder.
-        Agents can list tables and CRUD rows / RAG documents via content tools — scoped to your CEO only.
-        Table schema alter/drop is not available to agents.
+        Company knowledge (Master Data): create tables, upload CSV, and store documents under your tenant.
+        AI employees can list tables and CRUD rows / search documents via tools — scoped to your CEO only.
+        Table schema alter/drop is not available to AI employees.
       </p>
 
       {error && <div style={{ color: '#f87171', marginBottom: '0.75rem' }}>{error}</div>}

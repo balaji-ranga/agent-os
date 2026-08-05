@@ -1,0 +1,79 @@
+{
+  "aliases": [],
+  "depth": "thin",
+  "is_default": true,
+  "source": "system",
+  "departments": [
+    {
+      "name": "Research",
+      "purpose": "Market research and signal briefs."
+    },
+    {
+      "name": "Finance",
+      "purpose": "Risk, P&L, and reporting."
+    },
+    {
+      "name": "Operations",
+      "purpose": "Execution coordination and compliance checks."
+    }
+  ],
+  "agents": [
+    {
+      "name": "Market Analyst",
+      "role": "Research and daily market brief",
+      "department": "Research",
+      "tools": [
+        "learnings_summary",
+        "master_data_rag",
+        "summarize_url",
+        "notify_ceo"
+      ]
+    },
+    {
+      "name": "Risk Monitor",
+      "role": "Exposure checks and alerts",
+      "department": "Finance",
+      "tools": [
+        "learnings_summary",
+        "notify_ceo",
+        "master_data_rag"
+      ]
+    }
+  ],
+  "workflows": [
+    "Morning brief -> risk check -> COO escalation on breach"
+  ],
+  "channels": [
+    "Store playbooks in Knowledge for RAG."
+  ],
+  "knowledge_tables": [],
+  "sop_documents": [],
+  "systems_recommended": [
+    {
+      "id": "workspace",
+      "label": "AI Employees",
+      "path": "/workspace"
+    },
+    {
+      "id": "knowledge",
+      "label": "Knowledge (Master Data)",
+      "path": "/master-data"
+    },
+    {
+      "id": "policies",
+      "label": "Policies",
+      "path": "/policies"
+    }
+  ],
+  "policy_templates": {
+    "suggest": "## Management style: AI suggests\n- Drafts only; CEO decides.\n- Prefer notify_ceo for handoffs.",
+    "after_approval": "## Management style: AI executes after approval\n- Prepare full drafts; public actions need CEO approval via Kanban or chat.\n- Internal research may run without approval.",
+    "autonomous": "## Management style: AI executes autonomously\n- Execute within tool grants and budgets.\n- Escalate legal/PR risk before acting."
+  },
+  "platforms": [],
+  "id": "trading_ops",
+  "industry": "trading_ops",
+  "name": "Trading operations",
+  "label": "Investment / trading",
+  "description": "Research and risk monitoring specialists for markets."
+}

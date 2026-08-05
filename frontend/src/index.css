@@ -4,17 +4,18 @@
 :root,
 [data-theme="light"] {
   /* Flolah light theme */
-  --bg: #f7f8f9;
+  --bg: #f6f7f9;
   --surface: #ffffff;
-  --surface-muted: #f4f5f7;
-  --border: #e4e6ea;
-  --text: #1d1e20;
-  --muted: #6b7280;
+  --surface-muted: #f3f4f6;
+  --border: #e2e5eb;
+  --text: #1a1c1f;
+  /* ~5.5:1 on surface for secondary text (WCAG AA body) */
+  --muted: #5c6570;
   --accent: #673de6;
   --accent-hover: #5025d1;
   --accent-soft: rgba(103, 61, 230, 0.1);
-  --nav-hover: #f0f1f3;
-  --nav-active: #eceef2;
+  --nav-hover: #eef0f4;
+  --nav-active: #e8ebf0;
   --danger: #b91c1c;
   --danger-soft: rgba(185, 28, 28, 0.08);
   --success: #15803d;
@@ -30,14 +31,23 @@
   --nav-width-collapsed: 64px;
   --page-pad: 1.5rem 1.75rem 2.5rem;
   --page-pad-mobile: 1rem 1rem 2rem;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-fast: 150ms;
+  --duration: 200ms;
+  --focus-ring: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
+  --touch-min: 44px;
 }
 [data-theme="dark"] {
   --bg: #0f1115;
   --surface: #181b22;
   --surface-muted: #22262f;
-  --border: #2e3440;
-  --text: #e8eaed;
-  --muted: #9aa3b2;
+  --border: #343b48;
+  --text: #eef0f3;
+  --muted: #a3acb8;
   --accent: #8b6cf0;
   --accent-hover: #a78bfa;
   --accent-soft: rgba(139, 108, 240, 0.18);
@@ -50,6 +60,7 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
   --shadow-md: 0 12px 32px rgba(0, 0, 0, 0.45);
   --on-accent: #ffffff;
+  --focus-ring: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
 }
 html, body, #root {
   height: 100%;
@@ -61,10 +72,80 @@ html, body, #root {
 body {
   margin: 0;
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
   background: var(--bg);
   color: var(--text);
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* UX Pro Max baseline: keyboard focus, touch targets, reduced motion, skip-link */
+.skip-link {
+  position: absolute;
+  left: 0.75rem;
+  top: 0.75rem;
+  z-index: 10000;
+  padding: 0.55rem 0.9rem;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-decoration: none;
+  transform: translateY(-140%);
+  transition: transform var(--duration) var(--ease-out);
+}
+.skip-link:focus {
+  transform: translateY(0);
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+:focus {
+  outline: none;
+}
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+:focus:not(:focus-visible) {
+  box-shadow: none;
+}
+/* Keep native radio/checkbox focus usable */
+input[type='checkbox']:focus-visible,
+input[type='radio']:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+button,
+a,
+[role='button'],
+.nav-link,
+.nav-toggle,
+.btn-primary,
+.btn-secondary,
+.btn-ghost,
+.theme-toggle-btn,
+.profile-menu-btn {
+  transition:
+    background-color var(--duration) var(--ease-out),
+    border-color var(--duration) var(--ease-out),
+    color var(--duration) var(--ease-out),
+    box-shadow var(--duration) var(--ease-out),
+    opacity var(--duration) var(--ease-out);
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .skip-link {
+    transition: none;
+  }
 }
 /* Login / Register: allow the document itself to scroll (chat layout uses overflow:hidden) */
 html.auth-route,
@@ -90,12 +171,14 @@ html.auth-route #root {
 .app-nav {
   flex-shrink: 0;
   width: var(--nav-width);
+  height: 100%;
+  min-height: 0;
   background: var(--surface);
   border-right: 1px solid var(--border);
-  padding: 0.75rem 0 1rem;
-  transition: width 0.2s ease;
-  overflow-x: hidden;
-  overflow-y: auto;
+  padding: 0.75rem 0 0;
+  transition: width var(--duration) var(--ease-out);
+  /* Scroll only the links column; footer stays pinned at bottom */
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   z-index: 30;
@@ -151,6 +234,11 @@ html.auth-route #root {
   font-size: 0.85rem;
   flex-shrink: 0;
   line-height: 1;
+  min-width: var(--touch-min);
+  min-height: var(--touch-min);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .nav-toggle:hover {
   background: var(--nav-hover);
@@ -166,9 +254,12 @@ html.auth-route #root {
   display: none;
 }
 .app-nav-links {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
-  padding: 0 0.5rem;
+  padding: 0 0.5rem 0.5rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .nav-link {
   display: flex;
@@ -176,6 +267,7 @@ html.auth-route #root {
   gap: 0.55rem;
   padding: 0.55rem 0.75rem;
   margin: 0.1rem 0;
+  min-height: var(--touch-min);
   color: var(--text);
   text-decoration: none;
   font-size: 0.9rem;
@@ -184,7 +276,10 @@ html.auth-route #root {
   overflow: hidden;
   text-overflow: ellipsis;
   border-radius: var(--radius);
-  transition: background 0.12s ease, color 0.12s ease;
+  transition:
+    background var(--duration) var(--ease-out),
+    color var(--duration) var(--ease-out),
+    box-shadow var(--duration) var(--ease-out);
 }
 .nav-link:hover {
   background: var(--nav-hover);
@@ -335,7 +430,8 @@ html.auth-route #root {
   color: var(--on-accent);
   border: none;
   border-radius: var(--radius);
-  padding: 0.5rem 0.95rem;
+  padding: 0.55rem 1rem;
+  min-height: var(--touch-min);
   cursor: pointer;
   font-size: 0.9rem;
   font-weight: 600;
@@ -349,7 +445,7 @@ html.auth-route #root {
   background: var(--accent-hover);
 }
 .btn-primary:disabled {
-  opacity: 0.6;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 .btn-secondary {
@@ -357,7 +453,8 @@ html.auth-route #root {
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 0.5rem 0.95rem;
+  padding: 0.55rem 1rem;
+  min-height: var(--touch-min);
   cursor: pointer;
   font-size: 0.9rem;
   text-decoration: none;
@@ -373,7 +470,8 @@ html.auth-route #root {
   color: var(--muted);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 0.45rem 0.75rem;
+  padding: 0.5rem 0.85rem;
+  min-height: 2.25rem;
   cursor: pointer;
   font-size: 0.85rem;
 }
@@ -386,7 +484,8 @@ html.auth-route #root {
   cursor: not-allowed;
 }
 .btn-sm {
-  padding: 0.35rem 0.7rem;
+  padding: 0.4rem 0.75rem;
+  min-height: 2.25rem;
   font-size: 0.85rem;
   font-weight: 500;
 }
@@ -394,8 +493,8 @@ html.auth-route #root {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: var(--touch-min);
+  height: var(--touch-min);
   padding: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -518,8 +617,8 @@ html.auth-route #root {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: var(--touch-min);
+  height: var(--touch-min);
   padding: 0;
   border: 1px solid var(--border);
   border-radius: 50%;
@@ -527,7 +626,10 @@ html.auth-route #root {
   color: var(--muted);
   cursor: pointer;
   overflow: hidden;
-  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+  transition:
+    border-color var(--duration) var(--ease-out),
+    box-shadow var(--duration) var(--ease-out),
+    color var(--duration) var(--ease-out);
 }
 .profile-menu-btn:hover,
 .profile-menu-btn[aria-expanded='true'] {
@@ -1347,6 +1449,19 @@ input, textarea, button {
 }
 button {
   cursor: pointer;
+}
+input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
+textarea,
+select {
+  border-radius: var(--radius);
+  transition: border-color var(--duration) var(--ease-out), box-shadow var(--duration) var(--ease-out);
+}
+input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  outline: none;
 }
 
 .notification-overlay-backdrop {
@@ -2967,14 +3082,18 @@ body.wf-props-resizing .react-flow {
 }
 .page-hero-kicker {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: var(--muted);
 }
 .page-hero-titles h1 {
-  margin: 0.25rem 0 0;
+  margin: 0.35rem 0 0;
   font-size: 1.55rem;
   font-weight: 700;
   letter-spacing: -0.02em;
+  line-height: 1.25;
   color: var(--text);
 }
 .page-hero-action {
@@ -4321,16 +4440,30 @@ body.wf-props-resizing .react-flow {
   gap: 0.55rem;
   padding: 0.75rem 0.85rem;
   border-top: 1px solid var(--border);
-  margin-top: auto;
+  margin-top: 0;
   flex-shrink: 0;
+  /* Solid bar so long menus never paint through the account block */
+  background: var(--surface);
+  position: relative;
+  z-index: 2;
+}
+.app-nav-footer-meta {
+  min-width: 0;
+  flex: 1;
 }
 .app-nav-footer-name {
   font-size: 0.85rem;
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .app-nav-footer-role {
   font-size: 0.72rem;
   color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .profile-menu-meta-row {
   display: flex;

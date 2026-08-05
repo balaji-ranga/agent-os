@@ -8,7 +8,7 @@ Flolah is the **AI Company OS**: you (the CEO) hire **AI employees** (digital wo
 
 1. Open the Flolah site → **Register** (new CEO) or **Log in**.
 2. Registration provisions your tenant: standard AI employees (COO, specialists, Workflow Builder, Platform Help, …), org docs, starter **departments** knowledge table, and Platform Help documents for RAG. Choose **LLM provider + default chat model** on the same form as Profile (Platform default, OpenAI, OpenRouter, Ollama free, DeepSeek local). API keys are **not** collected at register — after login set **`Platform_BYOK`** under **API Keys** if you chose OpenAI/OpenRouter.
-3. After login you land on **home chat** / **My Org** (org chart under My Org).
+3. After login you may land on **Company setup** (`/company-setup`) if the first-run gate is still open — complete the wizard or skip, then use **home chat** / **My Org**. You can reopen setup anytime from the avatar menu → **Company setup**. Guide: [29-company-setup.md](./29-company-setup.md).
 
 Admin accounts manage platform users; CEOs get the full product nav.
 
@@ -22,13 +22,14 @@ Your org may **require** MFA or leave it optional (**inherit** platform default)
 
 ## First five minutes
 
-1. Chat with the **COO** — introduce yourself and ask what AI employees you have.
-2. Open the **bell** (top bar) — empty until the team notifies you or standups produce updates.
-3. Open **Profile** (avatar menu) — set name and MFA prefs. For OpenAI/OpenRouter BYOK, open **Management → API Keys**, edit the seeded **`Platform_BYOK`** slot, then on Profile choose **provider + chat model** (do not paste keys on Profile).
-4. Open **Knowledge** (Master Data) — confirm **departments** and Platform Help documents exist. Optionally open **Content Explorer** to browse uploads and generated media.
-5. Open **Workflows** or ask **Platform Help**: "How do I build a workflow?"
-6. Optional — avatar menu → **Onboarding**, or chat **Onboarding Helper**, to propose departments/AI employees (selective Review + Apply). Prompt recipes: [27-onboarding-helper.md](./27-onboarding-helper.md).
-7. Optional — ask the COO to **schedule a lasting goal** (“every weekday at 9, …”) or open **Management → Scheduled goals**. Guide: [28-scheduled-goals.md](./28-scheduled-goals.md).
+1. If redirected to **Company setup** (`/company-setup`), complete or skip the wizard (avatar → **Company setup** anytime after). Guide: [29-company-setup.md](./29-company-setup.md).
+2. Chat with the **COO** — introduce yourself and ask what AI employees you have.
+3. Open the **bell** (top bar) — empty until the team notifies you or standups produce updates.
+4. Open **Profile** (avatar menu) — set name and MFA prefs. For OpenAI/OpenRouter BYOK, open **Management → API Keys**, edit the seeded **`Platform_BYOK`** slot, then on Profile choose **provider + chat model** (do not paste keys on Profile).
+5. Open **Knowledge** (Master Data) — confirm **departments** and Platform Help documents exist. Optionally open **Content Explorer** to browse uploads and generated media.
+6. Open **Workflows** or ask **Platform Help**: "How do I build a workflow?", "How do scheduled goals work?", "What is Company setup?"
+7. Optional — avatar menu → **Onboarding**, or chat **Onboarding Helper**, for freeform departments/AI employees (selective Review + Apply). Prompt recipes: [27-onboarding-helper.md](./27-onboarding-helper.md).
+8. Optional — ask the COO to **schedule a lasting goal** ("every weekday at 9, …") or open **Management → Scheduled goals**. Guide: [28-scheduled-goals.md](./28-scheduled-goals.md).
 
 ## Profile and AI model (BYOK)
 

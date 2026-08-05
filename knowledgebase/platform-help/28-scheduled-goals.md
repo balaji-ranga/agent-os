@@ -1,98 +1,68 @@
 # Scheduled goals (recurring CEO prompts)
 
+## Quick answers (Platform Help / CEO FAQ)
+
+**What is a scheduled goal?** A prompt you write once that Flolah delivers automatically every day, on weekdays, or weekly to your COO or another AI employee — without Workflow Builder and without typing cron expressions.
+
+**Where do I manage scheduled goals?** Management left nav → **Scheduled goals** at route `/scheduled-goals`. You can also chat the **COO** in plain language.
+
+**How do I schedule a goal with the COO?** Example: Every weekday at 9am, prepare market insights for blog, LinkedIn, and Facebook. Do not repeat the same angle. The COO calls `scheduled_goal_create` and confirms the schedule.
+
+**How do I list my schedules?** Ask the COO "What scheduled goals do I have?" or open `/scheduled-goals`.
+
+**How do I pause or stop a schedule?** On the Scheduled goals page use **Pause** or **Delete**, or ask the COO to pause/delete. **Paused** and **deleted** goals do not fire after backend restarts.
+
+**How do I run a goal right now?** **Run now** on the page, or ask the COO (`scheduled_goal_run_now`).
+
+**Does it survive restarts?** Yes. Status is stored in the database (`active` / `paused` / `completed`). Only **active** goals fire on the platform tick `SCHEDULED_GOALS_CRON` (default every minute).
+
+**Is this the same as Admin Crons?** No. Admin → Crons pauses platform-wide jobs. Scheduled goals are **per-CEO** prompts. Pause goals in `/scheduled-goals` to stop yours.
+
+Related operator clocks: [19-scheduled-jobs-and-crons.md](./19-scheduled-jobs-and-crons.md).
+
 ## What it is
 
-A **scheduled goal** is a prompt you write once that Flolah runs automatically on a cadence — every day, weekdays only, or weekly — and delivers to your **COO** or another **AI employee**.
-
-You do **not** open Workflow Builder or type cron expressions. Chat the COO in plain language, or use the **Scheduled goals** page.
-
-Related operator detail (platform timers, retention): [19-scheduled-jobs-and-crons.md](./19-scheduled-jobs-and-crons.md).
-
-## Why use it
-
-Examples:
-
-- Every weekday at 09:00, have the COO prepare market insights for blog + LinkedIn + Facebook.
-- Every Monday, ask the research agent for a weekly industry digest.
-- Daily checklist prompt for ops status (until a fixed end date).
-
-The schedule is **durable**: if you **pause** or **delete** a goal, it stays off after backend restarts. Active goals only fire.
+A **scheduled goal** is a durable CEO instruction on a cadence (daily / weekdays / weekly / perpetual or end date). Each fire sends your prompt to the target AI employee as a chat-style run tagged as a scheduled goal.
 
 ## Where
 
 | Surface | Path | Role |
 |---------|------|------|
-| **Scheduled goals** page | `/scheduled-goals` | List all goals: agent, schedule, perpetual vs end date, status, last run; create, pause, resume, run now, delete |
-| **COO chat** | Home chat or `/agents/balserve/chat` | Create / list / pause / delete / run now in plain language |
-| Agent chat | Target employee chat | Automatic runs land as normal chat turns (tagged as scheduled goal) |
+| Scheduled goals page | `/scheduled-goals` | List, create, pause, resume, run now, delete |
+| COO chat | `/` or `/agents/balserve/chat` | Plain-language create / list / pause / delete / run now |
+| Target employee chat | `/agents/:id/chat` | Automatic and Run now replies appear here |
 
 ## Create via COO (recommended)
 
 1. Chat the **COO**.
-2. Say what should happen, how often, and who should own it. Examples:
-   - "Every weekday at 9, prepare a fresh market-insights pack for blog, LinkedIn, and Facebook. Do not repeat the same angle."
-   - "Daily at 07:30, ask TechResearcher for a short AI news briefing. Perpetual."
-   - "Every Monday at 10 for the next three months, and then stop."
-3. The COO uses tools (`scheduled_goal_create`, etc.) and confirms in plain English: what, who, when, perpetual or end date.
-4. Open **Scheduled goals** anytime to verify the row is **active**.
+2. Say what should happen, how often, and who should own it.
+3. COO tools: `scheduled_goal_create`, `scheduled_goal_list`, `scheduled_goal_update`, `scheduled_goal_delete`, `scheduled_goal_run_now`.
+4. Confirm the row is **active** under Management → Scheduled goals.
 
-Optional defaults: target agent = COO; cadence = daily; time = 09:00 (company timezone, usually `PLATFORM_TIMEZONE` / Profile region clock on the server).
+Defaults when unspecified: target = COO, cadence = daily, time = 09:00 in the platform/company timezone.
 
-## Create / manage on the page
+## Create on the page
 
-1. Open **Management → Scheduled goals**.
-2. **New scheduled goal** — title (optional), prompt, who runs it, cadence (daily / weekdays / weekly), time, optional end date (empty = **Perpetual**).
-3. Actions per row:
-   - **Pause** — stops automatic runs immediately; status stays **paused** after restart.
-   - **Resume** — turns the schedule back on.
-   - **Run now** — fires the same prompt immediately (does not wait for the clock).
-   - **Delete** — removes the goal permanently from the schedule.
+1. **Management → Scheduled goals**.
+2. **New scheduled goal** — optional title, prompt text, target AI employee, cadence, local time, optional end date (empty = perpetual).
+3. Row actions: Pause, Resume, Run now, Delete.
 
-## Cadence and end date
+## Cadence fields
 
 | Field | Meaning |
 |-------|---------|
-| **Daily** | Once per local day at the set time |
-| **Weekdays** | Mon–Fri only at that time |
-| **Weekly** | One weekday (Sun=0 … Sat=6) at that time |
-| **Ends** | Calendar end date, or **Perpetual** until you pause/delete |
-| **Status** | `active` (fires), `paused` (off), `completed` (auto after end date) |
+| Daily | Once per local day at `time_local` |
+| Weekdays | Monday–Friday only |
+| Weekly | One weekday (Sun=0 … Sat=6) |
+| Ends | Calendar end date or perpetual |
+| Status | `active` fires; `paused` off; `completed` after end date |
 
-## What the AI employee receives
+## Isolation
 
-On each automatic (or Run now) fire, the target employee gets a system packet including:
-
-- Your original prompt
-- Goal title, schedule label, perpetual vs end
-- CEO / owner scoping so tools stay on your tenant
-
-They should execute autonomously with their tools (and COO may still **delegate** specialty work when the prompt says so). Summaries appear in that employee chat history.
-
-## COO tools (for agents)
-
-| Tool | Use when |
-|------|----------|
-| `scheduled_goal_create` | CEO wants something always / every day / weekly |
-| `scheduled_goal_list` | What schedules do I have? |
-| `scheduled_goal_update` | Change prompt, time, agent, pause (status: paused), resume (status: active) |
-| `scheduled_goal_delete` | Cancel forever |
-| `scheduled_goal_run_now` | Fire immediately |
-
-## Isolation and entitlements
-
-- Goals are **CEO-owner-scoped** (`owner_user_id`). Other CEOs never see your schedules.
-- Target agent must be available to your company (or COO).
-- Unauthenticated API calls return 401/403.
-
-## Tips
-
-- Prefer one clear durable instruction per goal over vague handle-content requests.
-- For social publish approval, say so in the prompt and keep **Policies** / management style in mind.
-- Use **Run now** once after create to spot-check wiring.
-- Platform operators: cron id `scheduled_goals` (`SCHEDULED_GOALS_CRON`, default every minute dispatcher). Pause goals in the UI — not only Admin Crons — to turn a CEO schedule off.
+Goals are CEO-scoped (`owner_user_id`). Other CEOs never see your schedules. APIs require login (401/403 without access).
 
 ## Related
 
-- Standups / Kanban day-to-day: [04-kanban-standups-broadcast.md](./04-kanban-standups-broadcast.md)
-- Clocks and other platform crons: [19-scheduled-jobs-and-crons.md](./19-scheduled-jobs-and-crons.md)
-- Policies: [10-policies-guardrails.md](./10-policies-guardrails.md)
+- Platform timers: [19-scheduled-jobs-and-crons.md](./19-scheduled-jobs-and-crons.md)
+- Company first-run: [29-company-setup.md](./29-company-setup.md)
+- Kanban / standups: [04-kanban-standups-broadcast.md](./04-kanban-standups-broadcast.md)

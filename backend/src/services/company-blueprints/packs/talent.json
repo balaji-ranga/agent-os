@@ -1,0 +1,76 @@
+{
+  "aliases": [],
+  "depth": "thin",
+  "is_default": true,
+  "source": "system",
+  "departments": [
+    {
+      "name": "Job Pipeline",
+      "purpose": "Sourcing, screening, and candidate tracking."
+    },
+    {
+      "name": "Operations",
+      "purpose": "Scheduling, coordination, and handoffs."
+    }
+  ],
+  "agents": [
+    {
+      "name": "Talent Screener",
+      "role": "Screen applicants and summarize fit",
+      "department": "Job Pipeline",
+      "tools": [
+        "learnings_summary",
+        "master_data_rag",
+        "kanban_create_task",
+        "notify_ceo"
+      ]
+    },
+    {
+      "name": "Pipeline Coordinator",
+      "role": "Track stages and follow-ups",
+      "department": "Operations",
+      "tools": [
+        "learnings_summary",
+        "kanban_create_task",
+        "kanban_move_status",
+        "email_send"
+      ]
+    }
+  ],
+  "workflows": [
+    "Inbound resume -> screen -> interview pack -> decision"
+  ],
+  "channels": [
+    "Job profiles / Job workflows for full applicant pipeline."
+  ],
+  "knowledge_tables": [],
+  "sop_documents": [],
+  "systems_recommended": [
+    {
+      "id": "workspace",
+      "label": "AI Employees",
+      "path": "/workspace"
+    },
+    {
+      "id": "knowledge",
+      "label": "Knowledge (Master Data)",
+      "path": "/master-data"
+    },
+    {
+      "id": "policies",
+      "label": "Policies",
+      "path": "/policies"
+    }
+  ],
+  "policy_templates": {
+    "suggest": "## Management style: AI suggests\n- Drafts only; CEO decides.\n- Prefer notify_ceo for handoffs.",
+    "after_approval": "## Management style: AI executes after approval\n- Prepare full drafts; public actions need CEO approval via Kanban or chat.\n- Internal research may run without approval.",
+    "autonomous": "## Management style: AI executes autonomously\n- Execute within tool grants and budgets.\n- Escalate legal/PR risk before acting."
+  },
+  "platforms": [],
+  "id": "talent",
+  "industry": "talent",
+  "name": "Talent / hiring",
+  "label": "Talent / hiring",
+  "description": "Screen and track applicants with AI specialists."
+}

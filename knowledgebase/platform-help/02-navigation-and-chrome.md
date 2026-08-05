@@ -4,7 +4,7 @@
 
 - **Left nav toggle** — collapse/expand the sidebar (icons only when collapsed).
 - **Notification bell** — platform alerts (`notify_ceo`) and agent/standup responses. Each item shows its datetime. Hover a short snippet for the full title/body. Open linked chat or Kanban. Clear/dismiss items you have handled.
-- **Profile menu** — Edit profile (`/profile`), **Onboarding** (`/onboarding` — strategic org draft/Review/Apply), light/dark theme, Logout. See [27-onboarding-helper.md](./27-onboarding-helper.md).
+- **Profile menu** — Edit profile (`/profile`), **Company setup** (`/company-setup` — first-run company wizard; [29-company-setup.md](./29-company-setup.md)), **Onboarding** (`/onboarding` — freeform org draft/Review/Apply; [27-onboarding-helper.md](./27-onboarding-helper.md)), light/dark theme, Logout.
 - **Theme toggle** — sun/moon control in the top bar (also under Profile). Choice is saved in the browser.
 - **Impersonation banner** — only when an admin is impersonating a CEO.
 
@@ -89,5 +89,6 @@ Positioning: **AI Company OS** — see [`../AI-COMPANY-OS.md`](../AI-COMPANY-OS.
 - **Cap spend / failures** → Efficiency View → Agent View → Edit budget  
 - **Unblock a capped AI employee** → Efficiency View → Agent View → Reset usage  
 - **Shrink your data footprint** → Profile → Data persistence, then Efficiency View → Org → Storage (MB)  
-- **How do I…?** → Platform Help or Knowledge RAG docs
+- **How do I…?** → Platform Help (docs **28** Scheduled goals, **29** Company setup, and the rest of this corpus)
+- **First company shape** → Company setup ([29-company-setup.md](./29-company-setup.md))
 - **File a platform bug (admins triage)** → ask COO / Platform Help (`platform_feedback_submit`) or Admin → **Platform feedback**

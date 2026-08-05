@@ -86,7 +86,7 @@ export default function Broadcast() {
 
       <div style={{ marginBottom: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-          <span style={{ fontWeight: 500 }}>Agents</span>
+          <span style={{ fontWeight: 500 }}>AI employees</span>
           <button type="button" onClick={selectAll} style={{ fontSize: '0.85rem', padding: '0.2rem 0.5rem' }}>
             All
           </button>
@@ -94,7 +94,7 @@ export default function Broadcast() {
             None
           </button>
           <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
-            {selectedIds.size === 0 || selectedIds.size === agents.length ? 'All agents' : `${selectedIds.size} selected`}
+            {selectedIds.size === 0 || selectedIds.size === agents.length ? 'All employees' : `${selectedIds.size} selected`}
           </span>
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
@@ -182,7 +182,7 @@ export default function Broadcast() {
       )}
 
       {results && results.length === 0 && !loading && (
-        <p style={{ marginTop: '1rem', color: 'var(--muted)' }}>No agents to broadcast to.</p>
+        <p style={{ marginTop: '1rem', color: 'var(--muted)' }}>No AI employees to broadcast to.</p>
       )}
     </div>
   );

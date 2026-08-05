@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { RequireAuth, useAuth } from '../context/AuthContext';
 import MaskedSecretInput from '../components/MaskedSecretInput';
+import WizardReturnBanner from '../components/WizardReturnBanner.jsx';
 
 function ApiKeysPanel() {
   const { user } = useAuth();
@@ -121,6 +122,7 @@ function ApiKeysPanel() {
 
   return (
     <div style={{ padding: '1.5rem', maxWidth: 920, margin: '0 auto' }}>
+      <WizardReturnBanner />
       <h1 style={{ marginTop: 0 }}>API Keys</h1>
       <p style={{ color: 'var(--muted)' }}>
         Store named secrets for workflows (Brain, API, MCP, External agents), Connectors, and BYOK.

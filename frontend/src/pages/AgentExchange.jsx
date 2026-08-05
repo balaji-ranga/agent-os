@@ -1033,7 +1033,7 @@ export default function AgentExchange() {
       <header className="page-hero">
         <div className="page-hero-top">
           <div className="page-hero-titles">
-            <p className="page-hero-kicker">Agentic Workflows · Marketplace</p>
+            <p className="page-hero-kicker">Company OS · Marketplace</p>
             <h1>AgentExchange</h1>
           </div>
           <button

@@ -221,3 +221,162 @@ Constraints: 2-5 departments, 2-6 agents; each agent maps to a listed department
     };
   }
 }
+
+/**
+ * Conversational refine of existing departments + AI employees.
+ * Always uses LLM (even when start design was a template pack).
+ * Returns sanitized design + short assistant reply (no JSON in reply field for the UI).
+ */
+export async function refineCompanyOrgWithLlm(ownerUserId, context = {}) {
+  const {
+    company_name: companyName = '',
+    company_type: companyType = 'general_ops',
+    company_type_label: typeLabel = '',
+    mission = '',
+    org_dna: orgDna = '',
+    org_dna_notes: orgDnaNotes = '',
+    describe_company: describe = '',
+    industry = '',
+    message = '',
+    current = {},
+    history = [],
+  } = context;
+
+  const resolved = resolveCompanyTypeId(companyType);
+  const fallback = getBlueprint(resolved);
+  const baseDepts =
+    Array.isArray(current.departments) && current.departments.length
+      ? current.departments
+      : fallback.departments || [];
+  const baseAgents =
+    Array.isArray(current.agents) && current.agents.length ? current.agents : fallback.agents || [];
+  const baseWorkflows = Array.isArray(current.workflows)
+    ? current.workflows
+    : fallback.workflows || [];
+  const baseChannels = Array.isArray(current.channels) ? current.channels : fallback.channels || [];
+
+  const msg = String(message || '').trim().slice(0, 2000);
+  if (!msg) {
+    const err = new Error('Message required to refine organization');
+    err.status = 400;
+    throw err;
+  }
+
+  const currentJson = JSON.stringify(
+    {
+      departments: baseDepts,
+      agents: baseAgents,
+      workflows: baseWorkflows,
+      channels: baseChannels,
+    },
+    null,
+    2
+  ).slice(0, 8000);
+
+  const histLines = (Array.isArray(history) ? history : [])
+    .slice(-8)
+    .map(
+      (h) =>
+        `${h.role === 'assistant' ? 'Assistant' : 'CEO'}: ${String(h.content || '').slice(0, 500)}`
+    )
+    .join('\n');
+
+  const system = [
+    'You refine an AI company org chart for Flolah (AI employees under a human CEO).',
+    'Reply with ONE JSON object only (no markdown fences), shape:',
+    '{',
+    '  "reply": "short plain-language summary of changes (1-4 sentences)",',
+    '  "departments": [{"name":"...","purpose":"..."}],',
+    '  "agents": [{"name":"...","role":"...","department":"...","tools":["..."]}],',
+    '  "workflows": ["..."],',
+    '  "channels": ["..."]',
+    '}',
+    'Rules:',
+    '- Apply the CEO request: add/remove/rename departments or AI employees, change roles, merge teams.',
+    '- Keep 1-6 departments and 1-8 specialty agents (not platform COO/helpers).',
+    `- tools must be from: ${ALLOWED_TOOLS.join(', ')}`,
+    '- Prefer updating relative to CURRENT org when request is incremental; full replace only if asked.',
+    '- Never invent live social OAuth; Browser Session is the social path.',
+  ].join('\n');
+
+  const userMsg = [
+    `Company: ${companyName || '(unnamed)'}`,
+    `Type: ${typeLabel || companyType} (${resolved})`,
+    `Mission: ${mission || '(none)'}`,
+    `DNA: ${orgDna || ''} ${orgDnaNotes || ''}`,
+    `Describe: ${describe || ''} Industry: ${industry || ''}`,
+    '',
+    'CURRENT org JSON:',
+    currentJson,
+    '',
+    'Recent conversation:',
+    histLines || '(none)',
+    '',
+    'CEO request:',
+    msg,
+  ].join('\n');
+
+  console.info(
+    '[company-llm-design] refine start owner=',
+    ownerUserId,
+    'type=',
+    resolved,
+    'msg_len=',
+    msg.length
+  );
+
+  try {
+    const { content, modelUsed } = await chatCompletions({
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: userMsg },
+      ],
+      maxTokens: 2000,
+      ownerUserId,
+    });
+    const parsed = extractJson(content);
+    const design = sanitizeDesign(parsed || {}, {
+      departments: baseDepts,
+      agents: baseAgents,
+      workflows: baseWorkflows,
+      channels: baseChannels,
+    });
+    if (design.design_source === 'template_fallback' && baseAgents.length) {
+      design.departments = baseDepts;
+      design.agents = baseAgents;
+      design.workflows = baseWorkflows;
+      design.channels = baseChannels;
+      design.design_source = 'llm_refine_unchanged';
+    } else {
+      design.design_source = 'llm_refine';
+    }
+    design.model_used = modelUsed || null;
+    design.reply =
+      String(parsed?.reply || '')
+        .trim()
+        .slice(0, 800) ||
+      (design.design_source === 'llm_refine'
+        ? `Updated org: ${design.departments.length} department(s), ${design.agents.length} AI employee(s).`
+        : 'Could not parse a new org chart; kept your current team. Try a shorter request.');
+    console.info(
+      '[company-llm-design] refine done source=',
+      design.design_source,
+      'depts=',
+      design.departments?.length,
+      'agents=',
+      design.agents?.length
+    );
+    return design;
+  } catch (e) {
+    console.warn('[company-llm-design] refine failed', e?.message || e);
+    return {
+      departments: baseDepts,
+      agents: baseAgents,
+      workflows: baseWorkflows,
+      channels: baseChannels,
+      design_source: 'llm_refine_error',
+      design_error: e?.message || String(e),
+      reply: 'Refine failed; keeping your current team. Try again in a moment.',
+    };
+  }
+}

@@ -23,6 +23,21 @@ You do not need to know APIs or Docker for everyday use.
 1. Open **https://login.flolah.cloud** (or **Register** if you are new). Marketing site is **https://flolah.cloud**.
 2. After login you land on **home chat** (`/`) with the **COO** selected by default. Switch agents from the **Chat with** picker. **History** and **Browser session** side panes start closed — use the icons next to **New chat** to open them. Org chart and standups are under **My Org** (`/org`).
 3. The **bell** in the top bar is your notification center (agent replies and messages pushed to you).
+4. **New CEOs** may open **Company setup** first (`/company-setup`, also avatar → **Company setup**) to pick company type, mission, DNA, team pack, and management style — or skip and finish later. Platform Help guide: `knowledgebase/platform-help/29-company-setup.md`.
+
+### Company setup (first-run wizard)
+
+1. Open **Profile menu → Company setup** or go to `/company-setup`.
+2. Complete the funnel: company type → identity → mission → org DNA → preview AI employees → systems → management style → review → **Apply**.
+3. Apply provisions departments / AI employees from a blueprint pack; you can re-run later to extend (does not wipe the existing org by default).
+4. This is **not** the freeform **Onboarding Helper** page (`/onboarding`) — that is separate selective Apply chat (help doc **27**). Full Company setup FAQ: help doc **29**.
+
+### Scheduled goals (recurring CEO prompts)
+
+1. Open **Management → Scheduled goals** (`/scheduled-goals`), **or** ask the **COO** in plain language (example: “Every weekday at 9, prepare market insights for blog and LinkedIn”).
+2. Each goal stores a prompt plus cadence (daily / weekdays / weekly), local time, perpetual or end date, and target AI employee (default COO).
+3. **Pause** / **Delete** stops automatic fires and **survives backend restarts**; only **active** goals run. **Run now** fires immediately.
+4. Platform master tick: `SCHEDULED_GOALS_CRON` (default every minute). CEO tools: `scheduled_goal_create|list|update|delete|run_now`. Full guide: `knowledgebase/platform-help/28-scheduled-goals.md`.
 
 ### Chat with an agent
 
@@ -35,9 +50,9 @@ You do not need to know APIs or Docker for everyday use.
 ### Ask Platform Help (how-to)
 
 1. Open **Chat** with **Platform Help** (home picker, My Org org chart, or AI Employees).
-2. Ask in plain language (“How do I register an MCP server?”, “What does the IF node output?”).
-3. The AI employee searches your Knowledge **Flolah Help — …** documents and answers with UI steps.
-4. For *building* or *repairing* a workflow graph, prefer **Workflow Builder**; for standups/delegation, prefer the **COO**.
+2. Ask in plain language (examples: “How do I register an MCP server?”, “How do scheduled goals work?”, “What is Company setup?”, “What does the IF node output?”).
+3. The AI employee searches **Flolah Help — …** platform docs (OpenSearch RAG), including **Scheduled Goals** (**28**) and **Company Setup** (**29**).
+4. For *building* or *repairing* a workflow graph, prefer **Workflow Builder**; for standups/delegation/recurring goals, prefer the **COO**.
 
 ### Ask the COO to delegate specialty work
 
@@ -121,9 +136,10 @@ Grant or revoke tools on each agent’s **Workspace → Tools access**.
 3. For OpenAI/OpenRouter (and optionally Ollama), also choose a **chat model** from the curated list (or a custom model id). Saving Profile syncs provider + model into OpenClaw for your tenant agents. Catalog: `GET /api/auth/llm-catalog`.
 4. Optional **per-tool model**: **Tools** → **Tools → Model** overrides Profile (or platform) model for specific BYOK-aware tools only (keys still from Profile/vault). Help: `knowledgebase/platform-help/11-content-tools-scripts-profile.md`.
 5. Browse uploads and generated media under **Content Explorer** (`/content-explorer`).
-6. Optional: avatar → **Onboarding** or chat **Onboarding Helper** to propose departments/agents (selective Apply). See `knowledgebase/platform-help/27-onboarding-helper.md`.
-7. Keep MFA settings as required by your organization.
-8. Set **Data persistence** (30 / 60 / 90 / 120 / 365 days). A nightly job permanently deletes your chats, chat history, standup conversations and workflow runs older than that; **Purge aged data now** does it immediately. Watch the effect on **Efficiency View → Org → Storage (MB)**.
+6. Optional: avatar → **Company setup** (`/company-setup`) for the structured company wizard (help **29**), and/or **Onboarding** / **Onboarding Helper** for freeform dept/agent proposals (help **27**).
+7. Optional: **Management → Scheduled goals** or COO chat for lasting daily/weekly prompts (help **28**).
+8. Keep MFA settings as required by your organization.
+9. Set **Data persistence** (30 / 60 / 90 / 120 / 365 days). A nightly job permanently deletes your chats, chat history, standup conversations and workflow runs older than that; **Purge aged data now** does it immediately. Watch the effect on **Efficiency View → Org → Storage (MB)**.
 
 ---
 
@@ -140,6 +156,7 @@ Grant or revoke tools on each agent’s **Workspace → Tools access**.
 | **Storage (MB)** | Efficiency View → **Org** tab shows storage consumed by your tenant (chats, standups, workflow runs, Master Data, OpenClaw workspace files). |
 | **Admin → Crons** | `/admin/crons` lists every platform cron (standup dispatcher, legacy standup, delegation queue, job pipeline, COO status checker, data retention, workflow scheduler) with **Pause** / **Resume** / **Run now**. Pause state persists across restarts. |
 | **Platform API logging** | `PLATFORM_LOG_LEVEL=off\|error\|info` controls backend access/error logs. Keys, tokens, `Authorization` headers, passwords and MFA codes are redacted, and sensitive paths (API Keys, auth) log method + route only. |
+| **Company setup** | Profile → **Company setup** (`/company-setup`): first-run (or re-run) funnel for company type, mission, DNA, team blueprint Apply, systems, management style. Gate may redirect new CEOs until complete/skip. Help: platform-help **29**. Distinct from Onboarding Helper (**27**). |
 | **Scheduled goals** | Management → **Scheduled goals** (`/scheduled-goals`): recurring CEO prompts to the COO or another AI employee (daily / weekdays / weekly, perpetual or end date). Create/list/pause/run-now in the UI or via COO tools (`scheduled_goal_*`). Only **active** rows fire; pause/delete survives restarts. Platform master tick `SCHEDULED_GOALS_CRON` (default every minute). Help: platform-help **28**. |
 | **Scheduled jobs reference** | All platform crons and user-level schedules documented in `knowledgebase/platform-help/19-scheduled-jobs-and-crons.md` (+ **28** for CEO scheduled goals); commented defaults kept in `.env` by `deploy/scripts/ensure-cron-env.sh`. |
 | **API Keys vault** | Management → API Keys — named secrets, optional encryption. Non-platform Profiles auto-seed unset slots (`Platform_BYOK`, `Replicate_BYOK`, `BRAVE_SEARCH_BYOK`, `elevenlabs-key`); OpenAI/OpenRouter need a filled `Platform_BYOK` plus a **chat model** on Profile. Optional **Tools → Model** overrides model per content tool without changing vault keys. |

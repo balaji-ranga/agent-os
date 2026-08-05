@@ -1,0 +1,81 @@
+{
+  "aliases": [],
+  "depth": "thin",
+  "is_default": true,
+  "source": "system",
+  "departments": [
+    {
+      "name": "Executive",
+      "purpose": "Direction, priorities, and approvals."
+    },
+    {
+      "name": "Research",
+      "purpose": "Market and technical research briefs."
+    },
+    {
+      "name": "Operations",
+      "purpose": "Day-to-day execution and coordination."
+    }
+  ],
+  "agents": [
+    {
+      "name": "Research Analyst",
+      "role": "Research briefs and summaries",
+      "department": "Research",
+      "tools": [
+        "learnings_summary",
+        "master_data_rag",
+        "summarize_url",
+        "notify_ceo"
+      ]
+    },
+    {
+      "name": "Ops Coordinator",
+      "role": "Track tasks and follow-through",
+      "department": "Operations",
+      "tools": [
+        "learnings_summary",
+        "kanban_create_task",
+        "kanban_move_status",
+        "notify_ceo"
+      ]
+    }
+  ],
+  "workflows": [
+    "CEO request -> COO delegate -> Kanban track -> standup rollup"
+  ],
+  "channels": [
+    "Start with Home chat; add WhatsApp when ready.",
+    "Set budgets under Efficiency."
+  ],
+  "knowledge_tables": [],
+  "sop_documents": [],
+  "systems_recommended": [
+    {
+      "id": "workspace",
+      "label": "AI Employees",
+      "path": "/workspace"
+    },
+    {
+      "id": "knowledge",
+      "label": "Knowledge (Master Data)",
+      "path": "/master-data"
+    },
+    {
+      "id": "policies",
+      "label": "Policies",
+      "path": "/policies"
+    }
+  ],
+  "policy_templates": {
+    "suggest": "## Management style: AI suggests\n- Drafts only; CEO decides.\n- Prefer notify_ceo for handoffs.",
+    "after_approval": "## Management style: AI executes after approval\n- Prepare full drafts; public actions need CEO approval via Kanban or chat.\n- Internal research may run without approval.",
+    "autonomous": "## Management style: AI executes autonomously\n- Execute within tool grants and budgets.\n- Escalate legal/PR risk before acting."
+  },
+  "platforms": [],
+  "id": "general_ops",
+  "industry": "general_ops",
+  "name": "General operations",
+  "label": "Consultancy / General ops",
+  "description": "Lean AI company for day-to-day research and ops coordination."
+}

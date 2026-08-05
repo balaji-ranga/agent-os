@@ -11,6 +11,17 @@ import {
   listAllAgentsGrouped,
   grantStandardAgents,
 } from '../services/users.js';
+import {
+  listAllBlueprintsAdmin,
+  listIndustries,
+  publishBlueprintFromPayload,
+  unpublishBlueprint,
+  setIndustryDefaultBlueprint,
+} from '../services/company-blueprints/index.js';
+import {
+  listCompanyBlueprintCandidates,
+  snapshotOwnerAsBlueprintPayload,
+} from '../services/company-blueprint-publish.js';
 import { sendPlatformNotifications } from '../services/platform-notifications.js';
 import { createSession } from '../services/auth/session.js';
 import { getDb } from '../db/schema.js';
@@ -505,4 +516,76 @@ router.patch('/platform-feedback/:id', (req, res) => {
     res.status(e.status || 400).json({ error: e.message });
   }
 });
+
+router.get('/company-blueprints', (_req, res) => {
+  try {
+    res.json({ blueprints: listAllBlueprintsAdmin(), industries: listIndustries() });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.get('/company-blueprints/candidates', (req, res) => {
+  try {
+    res.json({ candidates: listCompanyBlueprintCandidates({ limit: Number(req.query.limit) || 40 }) });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.get('/company-blueprints/snapshot/:ownerUserId', (req, res) => {
+  try {
+    res.json(snapshotOwnerAsBlueprintPayload(req.params.ownerUserId));
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+router.post('/company-blueprints/publish', (req, res) => {
+  try {
+    const body = req.body || {};
+    const ownerId = body.owner_user_id || body.ownerUserId;
+    if (!ownerId) return res.status(400).json({ error: 'owner_user_id required' });
+    const snap = snapshotOwnerAsBlueprintPayload(ownerId);
+    const industry = body.industry_id || body.industry || snap.industry;
+    const published = publishBlueprintFromPayload(
+      {
+        industry_id: industry,
+        name: body.name,
+        description: body.description || snap.payload?.description || '',
+        payload: snap.payload,
+        source_owner_user_id: ownerId,
+        source_company_name: snap.company_name,
+        published_by: req.authUser?.id,
+        set_default: !!body.set_default,
+        id: body.id || null,
+      },
+      req.authUser
+    );
+    res.json({ ok: true, blueprint: published });
+  } catch (e) {
+    console.warn('[admin] publish blueprint', e?.message || e);
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+router.post('/company-blueprints/:id/unpublish', (req, res) => {
+  try {
+    res.json(unpublishBlueprint(req.params.id));
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+router.post('/company-blueprints/set-default', (req, res) => {
+  try {
+    const industry = req.body?.industry_id || req.body?.industry;
+    const blueprintId = req.body?.blueprint_id || req.body?.id;
+    res.json(setIndustryDefaultBlueprint(industry, blueprintId));
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+
 export default router;

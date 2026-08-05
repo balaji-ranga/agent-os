@@ -94,6 +94,34 @@ export const PLATFORM_HELP_DOCUMENTS = Object.freeze([
     filename: '22-browser-session-and-recipes.md',
     title: `${PLATFORM_HELP_TITLE_PREFIX}Browser Session Recipes`,
   },
+  {
+    filename: '23-avatars-virtual-room.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}Avatars Virtual Rooms`,
+  },
+  {
+    filename: '24-agent-channels.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}Agent Channels Slack WhatsApp`,
+  },
+  {
+    filename: '25-speech-and-published-scenes.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}Speech Published Scenes`,
+  },
+  {
+    filename: '26-content-explorer.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}Content Explorer`,
+  },
+  {
+    filename: '27-onboarding-helper.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}Onboarding Helper`,
+  },
+  {
+    filename: '28-scheduled-goals.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}Scheduled Goals Recurring Prompts`,
+  },
+  {
+    filename: '29-company-setup.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}Company Setup First Run Wizard`,
+  },
 ]);
 
 /** Resolve repo README.md (local: agent-os/README.md; Docker: /opt/agent-os/README.md). */

@@ -291,12 +291,12 @@ export default function ContentToolsLogs() {
       <header className="page-hero">
         <div className="page-hero-top">
           <div className="page-hero-titles">
-            <p className="page-hero-kicker">Agentic Workflows</p>
+            <p className="page-hero-kicker">Company OS · Tools</p>
             <h1>Tools</h1>
           </div>
         </div>
         <p className="page-hero-sub">
-          Manage tools (endpoint, purpose, model), test them, enable/disable serving, and onboard new published endpoints. Restart the OpenClaw gateway after changes so agents see the updated list.
+          Manage tools (endpoint, purpose, model), test them, enable/disable serving, and onboard new published endpoints. Restart the OpenClaw gateway after changes so AI employees see the updated list.
         </p>
       </header>
 

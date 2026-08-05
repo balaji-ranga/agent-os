@@ -502,7 +502,27 @@ export const api = {
   companySetupSaveFunnel: (body) => put('/company-setup/funnel', body),
   companySetupApply: (selected) => post('/company-setup/apply', { confirm_override: true, selected }),
   companySetupDesign: () => post('/company-setup/design', {}),
+  companySetupDesignChat: (message) => post('/company-setup/design-chat', { message }),
   companySetupConnectorSearch: (q) => get(`/company-setup/connectors/search?q=${encodeURIComponent(q || '')}`),
+  companySetupIndustryBlueprints: (industry) =>
+    get(`/company-setup/blueprints?industry=${encodeURIComponent(industry || '')}`),
+  adminCompanyBlueprints: () => get('/admin/company-blueprints'),
+  adminCompanyBlueprintCandidates: (limit = 40) =>
+    get(`/admin/company-blueprints/candidates?limit=${encodeURIComponent(limit)}`),
+  adminCompanyBlueprintSnapshot: (ownerUserId) =>
+    get(`/admin/company-blueprints/snapshot/${encodeURIComponent(ownerUserId)}`),
+  adminPublishCompanyBlueprint: (body) => post('/admin/company-blueprints/publish', body),
+  adminUnpublishCompanyBlueprint: (id) =>
+    post(`/admin/company-blueprints/${encodeURIComponent(id)}/unpublish`, {}),
+  adminSetDefaultCompanyBlueprint: (body) => post('/admin/company-blueprints/set-default', body),
+  companyOperateGate: () => get('/company-operate/gate'),
+  companyOperateSkip: () => post('/company-operate/skip', {}),
+  companyOperateBegin: () => post('/company-operate/begin', {}),
+  companyOperateState: () => get('/company-operate/state'),
+  companyOperateSaveDraft: (body) => put('/company-operate/draft', body),
+  companyOperateDesign: (body = {}) => post('/company-operate/design', body),
+  companyOperateConfirm: (body = {}) => post('/company-operate/confirm', body),
+  companyOperateApplyDay1: () => post('/company-operate/apply-day1', {}),
   videoToursList: () => get('/video-tours'),
   videoToursGet: (stem) => get(`/video-tours/${encodeURIComponent(stem)}`),
   videoToursVideoUrl: (stem) => `${API_BASE}/video-tours/${encodeURIComponent(stem)}/video`,

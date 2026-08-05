@@ -12,6 +12,8 @@ import {
   getFunnelState,
   applyCompanySetup,
   designCompanyOrg,
+  designChatRefine,
+  listIndustryBlueprintsForOwner,
   searchSetupConnectors,
 } from '../services/company-setup.js';
 
@@ -98,6 +100,32 @@ router.post('/design', async (req, res) => {
   } catch (e) {
     console.warn('[company-setup] design failed', e?.message || e);
     res.status(e.status || 500).json({ error: e.message || 'Failed to design company org' });
+  }
+});
+
+
+/** Refine departments / AI employees via simple chat on the design step. */
+router.post('/design-chat', async (req, res) => {
+  try {
+    const owner = ownerOr403(req, res);
+    if (!owner) return;
+    const message = req.body?.message ?? req.body?.text ?? '';
+    res.json(await designChatRefine(owner, { message }));
+  } catch (e) {
+    console.warn('[company-setup] design-chat failed', e?.message || e);
+    res.status(e.status || 500).json({ error: e.message || 'Failed to refine organization' });
+  }
+});
+
+
+router.get('/blueprints', (req, res) => {
+  try {
+    const owner = ownerOr403(req, res);
+    if (!owner) return;
+    res.json(listIndustryBlueprintsForOwner(owner, req.query.industry || req.query.industry_id || ''));
+  } catch (e) {
+    console.warn('[company-setup] blueprints failed', e?.message || e);
+    res.status(e.status || 500).json({ error: e.message || 'Failed to list blueprints' });
   }
 });
 

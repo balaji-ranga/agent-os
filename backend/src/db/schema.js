@@ -1860,6 +1860,29 @@ export function initDb() {
     `);
   } catch (_) {}
 
+  
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS company_industry_blueprints (
+        id TEXT PRIMARY KEY,
+        industry_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        description TEXT,
+        depth TEXT DEFAULT 'thin',
+        is_default INTEGER DEFAULT 0,
+        source TEXT DEFAULT 'published',
+        payload_json TEXT NOT NULL,
+        source_owner_user_id TEXT,
+        source_company_name TEXT,
+        published_by TEXT,
+        published INTEGER DEFAULT 1,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_cib_industry ON company_industry_blueprints(industry_id)`);
+  } catch (_) {}
+
   // Per-CEO tool → chat/vision/image/video model overrides (Tools menu mapping; owner-scoped)
   try {
     _db.exec(`

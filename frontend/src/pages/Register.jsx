@@ -251,9 +251,10 @@ export default function Register() {
 
   return (
     <div className="auth-page" style={{ maxWidth: 480, margin: '2rem auto', padding: '0 1rem' }}>
-      <h1>Register CEO account</h1>
+      <h1>Start your AI company</h1>
       <p style={{ color: 'var(--muted)', marginBottom: '1rem' }}>
-        You get COO, Workflow Builder, and Platform Help in <strong>your</strong> workspace (user-scoped — not shared with other CEOs).
+        Hire digital employees under your supervision. You get a COO, Workflow Builder, and Platform Help in{' '}
+        <strong>your</strong> workspace (isolated — not shared with other CEOs).
       </p>
       <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         {field('Full name', 'name', 'text', true)}

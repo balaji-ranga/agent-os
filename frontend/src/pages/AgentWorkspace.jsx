@@ -230,7 +230,7 @@ export default function AgentWorkspace() {
       </div>
       <h1 style={{ marginTop: 0 }}>Workspace — {agent?.name || agentId}</h1>
       <p style={{ color: 'var(--muted)', marginBottom: '1rem' }}>
-        Edit workspace files and manage which Agent OS tools this agent can invoke. MD file saves write directly to OpenClaw workspace files and are picked up on the next agent message (bootstrap watcher). Tool access changes apply immediately without restart.
+        Edit identity and policy docs and manage which platform tools this AI employee can invoke. MD saves write to the OpenClaw workspace and apply on the next message. Tool access changes apply immediately without restart.
         {workspaceRoot && (
           <>
             {' '}
@@ -430,7 +430,7 @@ export default function AgentWorkspace() {
         {showToolsPanel ? (
           <>
             <p style={{ color: 'var(--muted)', marginTop: 0 }}>
-              Grant or revoke Agent OS content tools for <strong>{agent?.name || agentId}</strong>.
+              Grant or revoke content tools for <strong>{agent?.name || agentId}</strong>.
               Changes write to <code>~/.openclaw/agent-tool-allowlists.json</code> and sync <code>openclaw.json</code>.
               Client browser relay tools (<code>browse_*</code>) are optional for custom agents (auto-granted to COO, Workflow Builder, Platform Help, TechResearcher) — enable them so this agent can run free-text
               goals or replay recorded recipes on the CEO&apos;s attached Chrome / managed session.

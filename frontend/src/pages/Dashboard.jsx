@@ -589,21 +589,21 @@ export default function Dashboard() {
         )}
         {agents.length === 0 && (
           <div style={{ marginTop: '0.75rem', padding: '1rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8 }}>
-            <p style={{ color: 'var(--muted)', margin: '0 0 0.5rem' }}>No agents in the database.</p>
+            <p style={{ color: 'var(--muted)', margin: '0 0 0.5rem' }}>No AI employees yet.</p>
             <p style={{ fontSize: '0.9rem', color: 'var(--muted)', margin: 0 }}>
-              Add specialists from <Link to="/workspace">Agent Workspaces</Link>, or restart the backend to auto-seed defaults.
+              Hire specialists from <Link to="/workspace">AI Employees</Link>, open <Link to="/onboarding">Onboarding</Link>, or restart the backend to auto-seed defaults.
             </p>
             <button
               type="button"
               onClick={() => fetchData()}
               style={{ marginTop: '0.75rem', padding: '0.4rem 0.8rem', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: '0.9rem' }}
             >
-              Refresh agents
+              Refresh team
             </button>
           </div>
         )}
         <p style={{ marginTop: '0.75rem', fontSize: '0.85rem', color: 'var(--muted)' }}>
-          To add a new agent, open <Link to="/workspace">Agent Workspaces</Link>. Use <strong>Design</strong> above to rearrange reporting lines.
+          To hire a new AI employee, open <Link to="/workspace">AI Employees</Link>. Use <strong>Design</strong> above to rearrange reporting lines.
         </p>
       </section>
 

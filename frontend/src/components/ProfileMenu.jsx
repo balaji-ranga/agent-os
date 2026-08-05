@@ -82,6 +82,17 @@ export default function ProfileMenu({ user, logout, onNavigate }) {
                 Company setup
               </NavLink>
               <NavLink
+                to="/company-operate"
+                role="menuitem"
+                className="profile-menu-item"
+                onClick={() => {
+                  close();
+                  onNavigate?.();
+                }}
+              >
+                How we run
+              </NavLink>
+              <NavLink
                 to="/onboarding"
                 role="menuitem"
                 className="profile-menu-item"

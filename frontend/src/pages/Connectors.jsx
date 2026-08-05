@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth, RequireAuth } from '../context/AuthContext';
+import WizardReturnBanner from '../components/WizardReturnBanner.jsx';
 
 const STARTERS = [
   { id: 'hackernews', name: 'Hacker News' },
@@ -266,6 +267,7 @@ function ConnectorsPanel() {
 
   return (
     <div style={{ padding: '1.5rem', maxWidth: 820, margin: '0 auto' }}>
+      <WizardReturnBanner />
       <Link to={isAdmin ? '/admin' : '/'} style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>
         ← {isAdmin ? 'Admin' : 'Dashboard'}
       </Link>

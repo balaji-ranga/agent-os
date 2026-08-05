@@ -1,0 +1,280 @@
+{
+  "aliases": [
+    "content_studio",
+    "social_media",
+    "marketing_agency"
+  ],
+  "depth": "deep",
+  "is_default": true,
+  "source": "system",
+  "departments": [
+    {
+      "name": "Creative",
+      "purpose": "Strategy, brand voice, content and blog calendars."
+    },
+    {
+      "name": "Production",
+      "purpose": "Image and copy drafts for social posts and blog drafts (not long-form YouTube production)."
+    },
+    {
+      "name": "Community",
+      "purpose": "Comment drafts, engagement tone, escalation."
+    },
+    {
+      "name": "Channels",
+      "purpose": "Per-platform publish checklists and Browser Session ops (FB, IG, LI, blog CMS)."
+    },
+    {
+      "name": "Operations",
+      "purpose": "Pipeline status, approvals, weekly rollups."
+    }
+  ],
+  "agents": [
+    {
+      "name": "Content Strategist",
+      "role": "Plan themes, social/blog calendars, and campaign briefs",
+      "department": "Creative",
+      "tools": [
+        "learnings_summary",
+        "master_data_rag",
+        "notify_ceo",
+        "kanban_create_task"
+      ]
+    },
+    {
+      "name": "Media Generator",
+      "role": "Create image and copy drafts for social + blog (not YouTube video production)",
+      "department": "Production",
+      "tools": [
+        "learnings_summary",
+        "master_data_rag",
+        "generate_image",
+        "kanban_create_task",
+        "notify_ceo"
+      ]
+    },
+    {
+      "name": "Content Reviewer",
+      "role": "Review drafts against brand and policy before publish",
+      "department": "Creative",
+      "tools": [
+        "learnings_summary",
+        "master_data_rag",
+        "notify_ceo",
+        "kanban_move_status"
+      ]
+    },
+    {
+      "name": "Community Manager",
+      "role": "Draft replies to comments; escalate sensitive threads",
+      "department": "Community",
+      "tools": [
+        "learnings_summary",
+        "master_data_rag",
+        "notify_ceo",
+        "kanban_create_task",
+        "summarize_url"
+      ]
+    },
+    {
+      "name": "Channel Publisher",
+      "role": "FB/IG/LinkedIn/blog publish checklists via Browser Session",
+      "department": "Channels",
+      "tools": [
+        "learnings_summary",
+        "master_data_rag",
+        "browse_task_start",
+        "browse_task_status",
+        "browse_recipe_list",
+        "browse_recipe_run",
+        "notify_ceo"
+      ]
+    },
+    {
+      "name": "Ops Reporter",
+      "role": "Summarize pipeline and employee outcomes for the CEO",
+      "department": "Operations",
+      "tools": [
+        "learnings_summary",
+        "master_data_rag",
+        "kanban_create_task",
+        "notify_ceo"
+      ]
+    }
+  ],
+  "workflows": [
+    "Brief -> generate draft (image/copy/blog) -> human review -> Browser Session publish checklist -> log outcome",
+    "Inbound comment triage -> Community Manager drafts -> CEO approve if required -> reply",
+    "Weekly ops rollup: pipeline counts + blockers -> notify CEO"
+  ],
+  "channels": [
+    "Connect Browser Session and log into Facebook, Instagram, LinkedIn, and your blog CMS in Client Chrome.",
+    "Optional: Replicate BYOK under API Keys only if you want still-image generation beyond default tools.",
+    "Use Policies for public-post and comment-approval rules.",
+    "YouTube long-form / animated video packs are a separate industry (not this blueprint)."
+  ],
+  "knowledge_tables": [
+    {
+      "name": "social_accounts",
+      "description": "Connected social and blog handles (manual / Browser Session).",
+      "columns": [
+        "platform",
+        "handle",
+        "status",
+        "notes"
+      ],
+      "seed_rows": [
+        {
+          "platform": "Facebook",
+          "handle": "",
+          "status": "not_connected",
+          "notes": "Log in via Browser Session"
+        },
+        {
+          "platform": "Instagram",
+          "handle": "",
+          "status": "not_connected",
+          "notes": ""
+        },
+        {
+          "platform": "LinkedIn",
+          "handle": "",
+          "status": "not_connected",
+          "notes": ""
+        },
+        {
+          "platform": "Blog",
+          "handle": "",
+          "status": "not_connected",
+          "notes": "WordPress / Substack / etc."
+        }
+      ]
+    },
+    {
+      "name": "content_pipeline",
+      "description": "Content items from idea to publish (social + blog).",
+      "columns": [
+        "title",
+        "platform",
+        "stage",
+        "owner",
+        "due_date",
+        "notes"
+      ],
+      "seed_rows": [
+        {
+          "title": "Example: Welcome brand post",
+          "platform": "Instagram",
+          "stage": "idea",
+          "owner": "Content Strategist",
+          "due_date": "",
+          "notes": "Replace with your first real brief"
+        }
+      ]
+    },
+    {
+      "name": "brand_voice",
+      "description": "Tone, dos/donts, and must-include phrases.",
+      "columns": [
+        "topic",
+        "guidance"
+      ],
+      "seed_rows": [
+        {
+          "topic": "tone",
+          "guidance": "Clear, friendly, professional; avoid jargon and hype."
+        },
+        {
+          "topic": "claims",
+          "guidance": "Do not invent product claims; use Master Data facts only."
+        }
+      ]
+    },
+    {
+      "name": "comment_playbook",
+      "description": "How Community Manager drafts replies and escalates.",
+      "columns": [
+        "situation",
+        "response_style",
+        "escalate"
+      ],
+      "seed_rows": [
+        {
+          "situation": "Positive feedback",
+          "response_style": "Thank briefly; invite to follow or share",
+          "escalate": "no"
+        },
+        {
+          "situation": "Complaint / legal / PR risk",
+          "response_style": "Acknowledge + offline path; do not argue",
+          "escalate": "yes"
+        }
+      ]
+    }
+  ],
+  "sop_documents": [
+    {
+      "title": "SOP - Content review before publish",
+      "filename": "sop-content-review.md",
+      "contentText": "# Content review before publish\n\n1. Media Generator produces draft (copy + optional image).\n2. Content Reviewer checks brand_voice and Policies.\n3. If style is approval, notify CEO and wait on Kanban.\n4. Channel Publisher only runs publish checklist after review.\n5. Log outcome on content_pipeline.\n\nScope: Facebook, Instagram, LinkedIn, blogs. Not YouTube production.\n"
+    },
+    {
+      "title": "SOP - Comment handling",
+      "filename": "sop-comment-handling.md",
+      "contentText": "# Comment handling (FB / IG / LI / blog)\n\n1. Community Manager drafts using comment_playbook.\n2. Never invent facts; master_data_rag for product truth.\n3. Escalate (notify_ceo) when escalate=yes or tone is hostile/legal.\n4. Live posting uses Browser Session; do not claim native API publish unless configured.\n"
+    },
+    {
+      "title": "SOP - Channel publish checklist",
+      "filename": "sop-channel-publish.md",
+      "contentText": "# Publish checklist per channel\n\n**All platforms**\n- Asset reviewed and approved\n- Caption length and hashtags OK\n- No secrets / PII leaks\n\n**Instagram** - Aspect ratio, carousel order, first comment if used\n**LinkedIn** - Professional framing, no over-hashtagging\n**Facebook** - Link preview check\n**Blog CMS** - Title, slug, meta description, featured image\n\nPrefer Browser Session recipes after login once.\n\nOut of scope: YouTube long-form / animated video industry packs.\n"
+    },
+    {
+      "title": "SOP - Weekly social ops summary",
+      "filename": "sop-weekly-summary.md",
+      "contentText": "# Weekly social ops summary\nOps Reporter every week:\n1. Count content_pipeline by stage\n2. Note blockers (accounts not connected, missing keys)\n3. Summarize CEO approvals pending\n4. notify_ceo with short rollup + links to Knowledge / Kanban\n"
+    }
+  ],
+  "systems_recommended": [
+    {
+      "id": "browser_session",
+      "label": "Browser Session (social + blog login)",
+      "path": "/browser-session"
+    },
+    {
+      "id": "api_keys",
+      "label": "API Keys (optional image BYOK)",
+      "path": "/api-keys"
+    },
+    {
+      "id": "content_explorer",
+      "label": "Content Explorer (media files)",
+      "path": "/content-explorer"
+    },
+    {
+      "id": "policies",
+      "label": "Policies (approval style)",
+      "path": "/policies"
+    },
+    {
+      "id": "channels",
+      "label": "Agent Channels (WhatsApp/Slack optional)",
+      "path": "/workspace"
+    }
+  ],
+  "policy_templates": {
+    "suggest": "## Management style: AI suggests\n- Drafts only; CEO decides.\n- Prefer notify_ceo for handoffs.",
+    "after_approval": "## Management style: AI executes after approval\n- Prepare full drafts; public actions need CEO approval via Kanban or chat.\n- Internal research may run without approval.",
+    "autonomous": "## Management style: AI executes autonomously\n- Execute within tool grants and budgets.\n- Escalate legal/PR risk before acting."
+  },
+  "platforms": [
+    "facebook",
+    "instagram",
+    "linkedin",
+    "blog"
+  ],
+  "id": "content_creator",
+  "industry": "content_creator",
+  "name": "Content Creator (Social media)",
+  "label": "Content Creator (Social media)",
+  "description": "Plan, draft, review, and publish social posts and blog articles for Facebook, Instagram, LinkedIn, and blogs (via Browser Session). Scope excludes YouTube long-form video production and heavy video editing — that belongs to a separate industry pack later."
+}

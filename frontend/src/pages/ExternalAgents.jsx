@@ -32,7 +32,7 @@ export default function ExternalAgents() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(null);
-  const [testMessage, setTestMessage] = useState('Hello from Agent OS');
+  const [testMessage, setTestMessage] = useState('Hello from Flolah');
   const [testResult, setTestResult] = useState(null);
   const [vaultKeys, setVaultKeys] = useState([]);
   const [orgMembers, setOrgMembers] = useState([]);

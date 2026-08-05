@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../api';
 import { RequireAuth } from '../context/AuthContext';
+import WizardReturnBanner from '../components/WizardReturnBanner.jsx';
 
 const PAGE_SIZE = 8;
 
@@ -320,6 +321,7 @@ function BrowserSessionPanel() {
 
   return (
     <div className="page" style={{ maxWidth: 920 }}>
+      <WizardReturnBanner />
       <header className="page-hero" style={{ marginBottom: '1.25rem' }}>
         <h1 style={{ margin: 0 }}>Browser Session</h1>
         <p style={{ margin: '0.4rem 0 0', color: 'var(--muted)', maxWidth: 640 }}>

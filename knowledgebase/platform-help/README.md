@@ -34,9 +34,10 @@
 | [26-content-explorer.md](./26-content-explorer.md) | **Content Explorer** — browse/preview/download uploaded + generated files |
 | [27-onboarding-helper.md](./27-onboarding-helper.md) | **Onboarding Helper** — chat save/apply tools, selective Review cards, **E2E prompt recipes** (MarketWatcher + Workflow Builder Ollama loop) |
 | [28-scheduled-goals.md](./28-scheduled-goals.md) | **Scheduled goals** — recurring CEO prompts to COO/AI employees (page + COO tools); pause survives restarts |
+| [29-company-setup.md](./29-company-setup.md) | **Company setup** — first-run wizard `/company-setup` (type, mission, DNA, team Apply, management style); vs Onboarding Helper |
 
 **Video Tours (UI):** User menu → **Help → Video Tours** (/video-tours) — playlist of short CEO tours (script/captions now; mp4 when exported). Not ingested as RAG docs.
 
 **Product name:** Flolah (Automate, Innovate, Elevate) — Agent OS underneath.
 
-**Specialist agent:** Chat with **Platform Help** (`platformhelp`) for how-to, navigation, workflow node questions, MCP/A2A/Connectors/API Keys onboarding, and light troubleshooting. For **strategic org setup** (departments/agents), use **Onboarding Helper** + `/onboarding` (see **27**). For building or fixing graphs, prefer **Workflow Builder**. For day-to-day ops and delegation, prefer the **COO**.
+**Specialist agent:** Chat with **Platform Help** (`platformhelp`) for how-to, navigation, **Company setup**, **Scheduled goals**, workflow node questions, MCP/A2A/Connectors/API Keys, and light troubleshooting. For **structured first company shape**, use **Company setup** `/company-setup` (**29**). For freeform **strategic org chat** (departments/agents), use **Onboarding Helper** + `/onboarding` (**27**). For building or fixing graphs, prefer **Workflow Builder**. For day-to-day ops, delegation, and **recurring goals**, prefer the **COO**.

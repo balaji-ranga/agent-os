@@ -1,6 +1,6 @@
 # Phase D / E / F - Operate the AI company
 
-**Status:** Design - implement after user approval  
+**Status:** Phase D Day 0 + Day 1 implemented (VPS e2e 2026-08-04)  
 **Product:** Flolah / Agent OS as **AI Company OS**  
 **Depends on:** Phase C complete (company formed: people, mission, DNA, policy seed)  
 **Canonical product doc:** [AI-COMPANY-OS.md](./AI-COMPANY-OS.md)

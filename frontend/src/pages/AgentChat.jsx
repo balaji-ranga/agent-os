@@ -122,7 +122,7 @@ function HomeRightPane({ snapshot, agentActivity, recentWorkflows }) {
       </section>
       <section className="home-side-card">
         <div className="home-side-title-row">
-          <h3 className="home-side-title">Agent Activity</h3>
+          <h3 className="home-side-title">Team activity</h3>
           <span className="home-live-badge">Live</span>
         </div>
         <ul className="home-agent-list">
@@ -135,7 +135,7 @@ function HomeRightPane({ snapshot, agentActivity, recentWorkflows }) {
               </div>
             </li>
           ))}
-          {!(agentActivity || []).length && <li className="home-side-empty">No agents yet</li>}
+          {!(agentActivity || []).length && <li className="home-side-empty">No AI employees yet</li>}
         </ul>
       </section>
       <section className="home-side-card">
@@ -189,6 +189,7 @@ export default function AgentChat() {
   const [showHistoryPanel, setShowHistoryPanel] = useState(false);
   const [showBrowserPanel, setShowBrowserPanel] = useState(false);
   const [homeSnap, setHomeSnap] = useState(null);
+  const [operateBanner, setOperateBanner] = useState(null);
   const scrollRef = useRef(null);
   const abortControllerRef = useRef(null);
   const sidePanelOpen = showHistoryPanel || showBrowserPanel;
@@ -212,6 +213,16 @@ export default function AgentChat() {
         .catch(() => {
           if (!cancelled) setHomeSnap(null);
         });
+      if (user?.role === 'ceo') {
+        api
+          .companyOperateGate()
+          .then((g) => {
+            if (!cancelled) setOperateBanner(g?.show_home_banner ? g : null);
+          })
+          .catch(() => {
+            if (!cancelled) setOperateBanner(null);
+          });
+      }
     };
     load();
     const id = setInterval(load, 30000);
@@ -448,7 +459,7 @@ export default function AgentChat() {
   if (!agentId && pickerAgents.length === 0) {
     return (
       <div style={{ padding: '2rem', color: 'var(--muted)' }}>
-        No agents available yet. <Link to="/org">Open My Org</Link> to set up your team.
+        No AI employees available yet. <Link to="/org">Open My Org</Link> or <Link to="/workspace">hire AI employees</Link>.
       </div>
     );
   }
@@ -485,6 +496,50 @@ export default function AgentChat() {
               <div className="home-mobile-greet-sub">Here&apos;s what&apos;s happening with your AI company today.</div>
             </div>
             <HomeKpiCards kpis={homeSnap?.kpis} />
+            {operateBanner?.show_home_banner && (
+              <div
+                role="status"
+                style={{
+                  marginBottom: '0.85rem',
+                  padding: '0.75rem 1rem',
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  background: 'var(--surface)',
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '0.65rem',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <div style={{ minWidth: 0, flex: '1 1 200px' }}>
+                  <strong style={{ display: 'block', marginBottom: 2 }}>
+                    {operateBanner.banner_reason === 'day1_not_applied'
+                      ? 'Day 1 install pending'
+                      : 'Operating model incomplete'}
+                  </strong>
+                  <span style={{ fontSize: '0.9rem', opacity: 0.85 }}>
+                    {operateBanner.banner_reason === 'day1_not_applied'
+                      ? 'Your operating model is confirmed — install MD and workflows so the company can run.'
+                      : 'Define how the company runs (cadence, autonomy, channels), then install Day 1 runbooks.'}
+                  </span>
+                </div>
+                <Link
+                  to="/company-operate"
+                  style={{
+                    padding: '0.45rem 0.85rem',
+                    background: 'var(--accent)',
+                    color: '#fff',
+                    borderRadius: 8,
+                    textDecoration: 'none',
+                    fontSize: '0.9rem',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {operateBanner.banner_reason === 'day1_not_applied' ? 'Install Day 1' : 'How we run'}
+                </Link>
+              </div>
+            )}
             <div style={{ flexShrink: 0, marginBottom: '0.75rem' }}>
               <div
                 style={{

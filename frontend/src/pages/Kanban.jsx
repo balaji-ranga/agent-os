@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { api } from '../api';
+import WizardReturnBanner from '../components/WizardReturnBanner.jsx';
 import KanbanTaskDescription, { isCeoJobReviewTask, isWorkflowCeoApprovalTask, parseCeoReviewContext } from '../components/KanbanTaskDescription.jsx';
 import KanbanTaskArtifacts from '../components/KanbanTaskArtifacts.jsx';
 import KanbanBoardCell from '../components/KanbanBoardCell.jsx';
@@ -534,6 +535,7 @@ export default function Kanban() {
 
   return (
     <div className="kanban-page" style={{ padding: '1rem', maxWidth: '100%', overflow: 'auto' }}>
+      <WizardReturnBanner />
       <ActionFeedbackBanner feedback={feedback} onDismiss={clearFeedback} />
       <div className="kanban-toolbar" style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
         <h1 style={{ margin: 0, fontSize: isMobileKanban ? '1.25rem' : '1.5rem' }}>Kanban Board</h1>
