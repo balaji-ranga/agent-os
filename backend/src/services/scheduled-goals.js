@@ -11,11 +11,35 @@ import { ensureTenantOpenClawAgent } from './openclaw-tenant.js';
 import { getPromptWithMemoryInjected } from './delegation-queue.js';
 import { insertChatTurn } from './chat-history.js';
 
-const CADENCES = new Set(['daily', 'weekdays', 'weekly']);
+const CADENCES = new Set(['hourly', 'daily', 'weekdays', 'weekly']);
 const STATUSES = new Set(['active', 'paused', 'completed']);
 
 function db() { return getDb(); }
 function newId() { return `sg-${randomUUID().replace(/-/g, '').slice(0, 16)}`; }
+
+/** Accept aliases like "every hour", "mon-fri", "everyday". */
+export function normalizeCadence(raw) {
+  let cadence = String(raw || 'daily').toLowerCase().trim();
+  if (cadence === 'every day' || cadence === 'everyday' || cadence === 'day') cadence = 'daily';
+  if (cadence === 'weekday' || cadence === 'mon-fri' || cadence === 'mon–fri') cadence = 'weekdays';
+  if (
+    cadence === 'every hour' ||
+    cadence === 'every_hour' ||
+    cadence === 'hour' ||
+    cadence === 'hours' ||
+    cadence === '1h'
+  ) {
+    cadence = 'hourly';
+  }
+  if (cadence === 'week' || cadence === 'once_a_week') cadence = 'weekly';
+  if (!CADENCES.has(cadence)) {
+    throw Object.assign(
+      new Error('cadence must be hourly, daily, weekdays, or weekly'),
+      { status: 400 }
+    );
+  }
+  return cadence;
+}
 
 function normalizeTimeLocal(raw) {
   const s = String(raw || '09:00').trim();
@@ -26,6 +50,15 @@ function normalizeTimeLocal(raw) {
     throw Object.assign(new Error('time_local out of range'), { status: 400 });
   }
   return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+}
+
+/** Stable key so we fire at most once per schedule slot (per hour for hourly, per day otherwise). */
+export function runKeyForParts(row, parts, { force = false } = {}) {
+  if (force) return `${parts.dateKey}-manual-${Date.now()}`;
+  if (row.cadence === 'hourly') {
+    return `${parts.dateKey}-${String(parts.hour).padStart(2, '0')}`;
+  }
+  return parts.dateKey;
 }
 
 function resolveTimezone(tz) {
@@ -87,6 +120,10 @@ function resolveAgentForOwner(ownerUserId, agentId) {
 function scheduleLabel(row) {
   const t = row.time_local || '09:00';
   const tz = row.timezone || getPlatformTimezone();
+  if (row.cadence === 'hourly') {
+    const mm = String(t).split(':')[1] || '00';
+    return `Hourly at :${mm} (${tz})`;
+  }
   if (row.cadence === 'weekdays') return `Weekdays at ${t} (${tz})`;
   if (row.cadence === 'weekly') {
     const names = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -136,14 +173,15 @@ export function createScheduledGoal(ownerUserId, input = {}) {
   const prompt = String(input.prompt || input.goal || input.message || '').trim();
   if (!prompt) throw Object.assign(new Error('prompt is required'), { status: 400 });
   const agent = resolveAgentForOwner(ownerUserId, input.agent_id || input.agentId || input.agent || 'coo');
-  let cadence = String(input.cadence || 'daily').toLowerCase().trim();
-  if (cadence === 'every day' || cadence === 'everyday') cadence = 'daily';
-  if (cadence === 'weekday' || cadence === 'mon-fri') cadence = 'weekdays';
-  if (!CADENCES.has(cadence)) throw Object.assign(new Error('cadence must be daily, weekdays, or weekly'), { status: 400 });
+  const cadence = normalizeCadence(input.cadence || 'daily');
   let weekday = input.weekday != null ? Number(input.weekday) : null;
-  if (cadence === 'weekly') { if (weekday == null || weekday < 0 || weekday > 6) weekday = 1; }
-  else weekday = null;
-  const time_local = normalizeTimeLocal(input.time_local || input.time || input.at || '09:00');
+  if (cadence === 'weekly') {
+    if (weekday == null || weekday < 0 || weekday > 6) weekday = 1;
+  } else {
+    weekday = null;
+  }
+  const defaultTime = cadence === 'hourly' ? '00:00' : '09:00';
+  const time_local = normalizeTimeLocal(input.time_local || input.time || input.at || defaultTime);
   const timezone = input.timezone ? resolveTimezone(input.timezone) : '';
   const ends_at = parseEndsAt(input.ends_at ?? input.endsAt ?? input.until ?? null);
   const title = String(input.title || '').trim() || prompt.replace(/\s+/g, ' ').slice(0, 72) || 'Scheduled goal';
@@ -173,11 +211,14 @@ export function updateScheduledGoal(ownerUserId, id, patch = {}) {
     agent_id = resolveAgentForOwner(ownerUserId, patch.agent_id || patch.agentId || patch.agent).id;
   }
   if (patch.cadence != null) {
-    cadence = String(patch.cadence).toLowerCase().trim();
-    if (!CADENCES.has(cadence)) throw Object.assign(new Error('cadence must be daily, weekdays, or weekly'), { status: 400 });
+    cadence = normalizeCadence(patch.cadence);
   }
   if (patch.weekday != null) weekday = Number(patch.weekday);
-  if (cadence === 'weekly') { if (weekday == null || !Number.isFinite(weekday)) weekday = 1; } else weekday = null;
+  if (cadence === 'weekly') {
+    if (weekday == null || !Number.isFinite(weekday)) weekday = 1;
+  } else {
+    weekday = null;
+  }
   if (patch.time_local != null || patch.time != null || patch.at != null) {
     time_local = normalizeTimeLocal(patch.time_local || patch.time || patch.at);
   }
@@ -221,14 +262,22 @@ export function isGoalDueNow(row, now = new Date()) {
   if (isExpired(row.ends_at, now)) return false;
   const tz = resolveTimezone(row.timezone || '');
   const parts = zonedParts(now, tz);
-  const [hh, mm] = String(row.time_local || '09:00').split(':').map((x) => Number(x));
-  if (parts.hour !== hh || parts.minute !== mm) return false;
+  const [hh, mm] = String(row.time_local || (row.cadence === 'hourly' ? '00:00' : '09:00'))
+    .split(':')
+    .map((x) => Number(x));
+  if (row.cadence === 'hourly') {
+    // Every hour at :MM from time_local (HH is ignored; default :00).
+    if (parts.minute !== mm) return false;
+  } else if (parts.hour !== hh || parts.minute !== mm) {
+    return false;
+  }
   if (row.cadence === 'weekdays' && (parts.weekday === 0 || parts.weekday === 6)) return false;
   if (row.cadence === 'weekly') {
     const want = Number(row.weekday);
     if (Number.isFinite(want) && parts.weekday !== want) return false;
   }
-  if (row.last_run_key === parts.dateKey) return false;
+  const slotKey = runKeyForParts(row, parts, { force: false });
+  if (row.last_run_key === slotKey) return false;
   return true;
 }
 
@@ -258,8 +307,15 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
   }
   const tz = resolveTimezone(row.timezone || '');
   const parts = zonedParts(new Date(), tz);
-  const runKey = force ? `${parts.dateKey}-manual-${Date.now()}` : parts.dateKey;
-  if (!force && row.last_run_key === runKey) return { ok: false, skipped: true, reason: 'already_ran_today', run_key: runKey };
+  const runKey = runKeyForParts(row, parts, { force });
+  if (!force && row.last_run_key === runKey) {
+    return {
+      ok: false,
+      skipped: true,
+      reason: row.cadence === 'hourly' ? 'already_ran_this_hour' : 'already_ran_today',
+      run_key: runKey,
+    };
+  }
   if (!force) {
     const claim = db().prepare(
       `UPDATE scheduled_goals SET last_run_key=?, last_run_at=datetime('now'), last_run_status='running', updated_at=datetime('now')

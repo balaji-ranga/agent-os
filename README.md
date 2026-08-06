@@ -34,10 +34,10 @@ You do not need to know APIs or Docker for everyday use.
 
 ### Scheduled goals (recurring CEO prompts)
 
-1. Open **Management → Scheduled goals** (`/scheduled-goals`), **or** ask the **COO** in plain language (example: “Every weekday at 9, prepare market insights for blog and LinkedIn”).
-2. Each goal stores a prompt plus cadence (daily / weekdays / weekly), local time, perpetual or end date, and target AI employee (default COO).
-3. **Pause** / **Delete** stops automatic fires and **survives backend restarts**; only **active** goals run. **Run now** fires immediately.
-4. Platform master tick: `SCHEDULED_GOALS_CRON` (default every minute). CEO tools: `scheduled_goal_create|list|update|delete|run_now`. Full guide: `knowledgebase/platform-help/28-scheduled-goals.md`.
+1. Open **Management → Scheduled goals** (`/scheduled-goals`), **or** ask the **COO** in plain language (examples: “Every weekday at 9, prepare market insights…” or “Every hour, check MAGS; notify me if down 2%”).
+2. Each goal stores a prompt plus cadence (**hourly** / daily / weekdays / weekly), local time (for hourly only the **minute** of the hour is used), perpetual or end date, and target AI employee (default COO).
+3. **Create** and **edit** on the page (Edit → Save changes), or via COO tools. **Pause** / **Delete** stops automatic fires and **survives backend restarts**; only **active** goals run. **Run now** fires immediately. Optional **Enrich with AI** on create/edit.
+4. Platform master tick: `SCHEDULED_GOALS_CRON` (default every minute). CEO tools: `scheduled_goal_create|list|update|delete|run_now`. Full guide: `knowledgebase/platform-help/28-scheduled-goals.md`. Market-condition watches ≈ scheduled check + tools + `notify_ceo` (not a real-time tick feed).
 
 ### Chat with an agent
 
@@ -157,7 +157,7 @@ Grant or revoke tools on each agent’s **Workspace → Tools access**.
 | **Admin → Crons** | `/admin/crons` lists every platform cron (standup dispatcher, legacy standup, delegation queue, job pipeline, COO status checker, data retention, workflow scheduler) with **Pause** / **Resume** / **Run now**. Pause state persists across restarts. |
 | **Platform API logging** | `PLATFORM_LOG_LEVEL=off\|error\|info` controls backend access/error logs. Keys, tokens, `Authorization` headers, passwords and MFA codes are redacted, and sensitive paths (API Keys, auth) log method + route only. |
 | **Company setup** | Profile → **Company setup** (`/company-setup`): first-run (or re-run) funnel for company type, mission, DNA, team blueprint Apply, systems, management style. Gate may redirect new CEOs until complete/skip. Help: platform-help **29**. Distinct from Onboarding Helper (**27**). |
-| **Scheduled goals** | Management → **Scheduled goals** (`/scheduled-goals`): recurring CEO prompts to the COO or another AI employee (daily / weekdays / weekly, perpetual or end date). Create/list/pause/run-now in the UI or via COO tools (`scheduled_goal_*`). Only **active** rows fire; pause/delete survives restarts. Platform master tick `SCHEDULED_GOALS_CRON` (default every minute). Help: platform-help **28**. |
+| **Scheduled goals** | Management → **Scheduled goals** (`/scheduled-goals`): recurring CEO prompts (**hourly** / daily / weekdays / weekly; perpetual or end date). Create/**edit**/list/pause/run-now in the UI or via COO tools (`scheduled_goal_*`). Only **active** rows fire; pause/delete survives restarts. Hourly uses `time_local` minutes (`:MM`). Platform master tick `SCHEDULED_GOALS_CRON`. Help: platform-help **28**. |
 | **Scheduled jobs reference** | All platform crons and user-level schedules documented in `knowledgebase/platform-help/19-scheduled-jobs-and-crons.md` (+ **28** for CEO scheduled goals); commented defaults kept in `.env` by `deploy/scripts/ensure-cron-env.sh`. |
 | **API Keys vault** | Management → API Keys — named secrets, optional encryption. Non-platform Profiles auto-seed unset slots (`Platform_BYOK`, `Replicate_BYOK`, `BRAVE_SEARCH_BYOK`, `elevenlabs-key`); OpenAI/OpenRouter need a filled `Platform_BYOK` plus a **chat model** on Profile. Optional **Tools → Model** overrides model per content tool without changing vault keys. |
 | **List API pagination** | Large CEO lists use server paging (`limit`/`offset`, envelope `total` + `has_more`): Content Explorer, inbound attachments, workflow definitions + run steps, Kanban/standup threads, agent chat turns/archives, Master Data documents, AgentExchange, admin users, job spreadsheet/review-queue. Helpers: `backend/src/lib/pagination.js`. |
@@ -307,7 +307,7 @@ Set in backend `.env`:
 | `AGENT_WORKFLOW_SCHEDULER_CRON` | `* * * * *` | Master tick for custom agent workflows | definition `schedule_cron` + `schedule` trigger mode |
 | `JOB_PIPELINE_CRON_SCHEDULE` | `0 * * * *` | Job Applicant pipeline tick across active profiles | profile `workflow_schedule` (hourly/daily/weekly) |
 | `COO_STATUS_CHECKER_CRON` | `0 9 * * *` | COO status digest per enabled CEO → standup post + HTML email | CEO email, own Kanban/A2A state |
-| `SCHEDULED_GOALS_CRON` | `* * * * *` | Fire **active** scheduled goals (CEO prompts) to target AI employees | goal `time_local` / cadence / ends_at; pause/delete = off across restarts |
+| `SCHEDULED_GOALS_CRON` | `* * * * *` | Fire **active** scheduled goals (CEO prompts) to target AI employees | goal `time_local` / cadence (hourly\|daily\|weekdays\|weekly) / ends_at; pause/delete = off across restarts |
 | `DATA_RETENTION_CRON` | `15 3 * * *` | Retention purge per enabled CEO (chat turns, standup messages, workflow runs/steps) | Profile `data_retention_days` (30/60/90/120/365, default 90) |
 
 Cron expressions use the container clock (`TZ`). Dates **shown to users** (Kanban, task chat, reports) use `PLATFORM_TIMEZONE` when set, otherwise `TZ` — so the UI never renders raw UTC.

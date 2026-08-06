@@ -16,7 +16,7 @@
 |-------|-------|---------|
 | My Org / Dashboard | `/` or `/org` | Org chart, standups + COO chat, Resync ORG/AGENTS |
 | Kanban | `/kanban` | Work tasks (AI employee / workflow / pipeline cards), CEO approvals, artifacts |
-| **Scheduled goals** | `/scheduled-goals` | Recurring CEO prompts to COO or another AI employee (daily / weekdays / weekly); pause survives restarts. Also creatable via COO chat. See [28-scheduled-goals.md](./28-scheduled-goals.md) |
+| **Scheduled goals** | `/scheduled-goals` | Recurring CEO prompts (**hourly** / daily / weekdays / weekly); create **and edit**; pause survives restarts. Also via COO chat. See [28-scheduled-goals.md](./28-scheduled-goals.md) |
 | Broadcast | `/broadcast` | Message many AI employees at once |
 | **Knowledge** | `/master-data` | Company knowledge: tables, documents, RAG, **Inbound attachments** (Master Data) |
 | **Content Explorer** | `/content-explorer` | Browse uploaded + generated files (preview/download) |

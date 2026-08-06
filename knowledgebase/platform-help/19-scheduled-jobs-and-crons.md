@@ -55,7 +55,7 @@ crashing the process; the startup log prints each active schedule.
 | Where | Setting | Effect |
 |-------|---------|--------|
 | **Kanban / Standups** → standup | Scheduled time (`scheduled_at`) | Your standup auto-runs daily at that time and delegates outcomes via the COO |
-| **Scheduled goals** (`/scheduled-goals`) | Active goal + time / cadence | Saves a CEO prompt that auto-fires to COO or another AI employee (also creatable via COO chat). Pause/delete turns the schedule off across restarts. Full CEO guide: [28-scheduled-goals.md](./28-scheduled-goals.md) |
+| **Scheduled goals** (`/scheduled-goals`) | Active goal + cadence | Saves a CEO prompt that auto-fires to an AI employee (**hourly** / daily / weekdays / weekly). Create and **edit** in UI or COO chat. Pause/delete off across restarts. Full guide: [28-scheduled-goals.md](./28-scheduled-goals.md) |
 | **Workflows** → editor → trigger | `schedule_cron` + `schedule` trigger mode | Your workflow starts when its cron is due; pause removes it from the registry |
 | **Job workflows** → profile | `workflow_schedule` = hourly / daily / weekly | Discovery + pipeline stages run at that cadence |
 | **Profile** → Data persistence | `data_retention_days` = 30 / 60 / 90 / 120 / 365 (**default 90**) | Nightly purge window for your chat turns, standup messages and workflow runs |

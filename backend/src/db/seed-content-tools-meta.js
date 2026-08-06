@@ -429,9 +429,9 @@ const BUILTIN_TOOLS = [
     method: 'POST',
     purpose:
       'API tool (COO): create a recurring CEO prompt that auto-fires to an AI employee. ' +
-      'Use when the CEO says every day / weekdays / weekly / schedule / always do X. ' +
+      'Use when the CEO says every hour / every day / weekdays / weekly / schedule / always do X. ' +
       'Parameters: prompt (required — exact CEO instructions), title?, agent_id? (default coo/balserve), ' +
-      'cadence (daily|weekdays|weekly), time_local (HH:MM, default 09:00), weekday? (0=Sun..6=Sat for weekly), ' +
+      'cadence (hourly|daily|weekdays|weekly), time_local (HH:MM; for hourly only :MM is used, default 00:00; else default 09:00), weekday? (0=Sun..6=Sat for weekly), ' +
       'ends_at? (YYYY-MM-DD or "perpetual"). Owner is session-scoped. Confirm to CEO in plain language.',
     model_used: '',
     enabled: 1,
@@ -455,8 +455,8 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/scheduled-goal-update',
     method: 'POST',
     purpose:
-      'API tool (COO): update a scheduled goal. Pass goal_id (or query title). Patch: title, prompt, agent_id, cadence, time_local, ends_at, ' +
-      'status ("paused" removes from schedule; "active" resumes — persists across restarts). Prefer status pause/resume over delete when temporary.',
+      'API tool (COO): update/edit a scheduled goal. Pass goal_id (or query title). Patch: title, prompt, agent_id, cadence (hourly|daily|weekdays|weekly), time_local, ends_at, ' +
+      'status ("paused" removes from schedule; "active" resumes — persists across restarts). Prefer status pause/resume over delete when temporary. CEO UI also has Edit on Scheduled goals.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,

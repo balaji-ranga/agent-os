@@ -9,6 +9,34 @@ function statusClass(status) {
   return 'sg-badge sg-badge-done';
 }
 
+const EMPTY_FORM = {
+  title: '',
+  prompt: '',
+  agent_id: 'balserve',
+  cadence: 'daily',
+  time_local: '09:00',
+  ends_at: '',
+  weekday: 1,
+};
+
+function endsToDateInput(endsAt) {
+  if (!endsAt) return '';
+  const s = String(endsAt);
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  try {
+    const d = new Date(s);
+    if (!Number.isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  } catch (_) {
+    /* ignore */
+  }
+  return '';
+}
+
+function timeFieldLabel(cadence) {
+  if (cadence === 'hourly') return 'Minute of each hour (use time; hour is ignored, :MM used)';
+  return 'Time';
+}
+
 function ScheduledGoalsPanel() {
   const [goals, setGoals] = useState([]);
   const [timezone, setTimezone] = useState('');
@@ -17,17 +45,11 @@ function ScheduledGoalsPanel() {
   const [busyId, setBusyId] = useState(null);
   const [message, setMessage] = useState(null);
   const [filter, setFilter] = useState('all');
-  const [showCreate, setShowCreate] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [enrichBusy, setEnrichBusy] = useState(false);
   const [agents, setAgents] = useState([]);
-  const [form, setForm] = useState({
-    title: '',
-    prompt: '',
-    agent_id: 'balserve',
-    cadence: 'daily',
-    time_local: '09:00',
-    ends_at: '',
-    weekday: 1,
-  });
+  const [form, setForm] = useState({ ...EMPTY_FORM });
 
   const load = () => {
     setLoading(true);
@@ -64,23 +86,83 @@ function ScheduledGoalsPanel() {
     }
   };
 
-  const create = async (e) => {
-    e.preventDefault();
-    setBusyId('create');
+  const resetForm = (keepAgentId) => {
+    setForm({ ...EMPTY_FORM, agent_id: keepAgentId || form.agent_id || 'balserve' });
+    setEditingId(null);
+    setShowForm(false);
+  };
+
+  const openCreate = () => {
+    setEditingId(null);
+    setForm({ ...EMPTY_FORM, agent_id: form.agent_id || 'balserve' });
+    setShowForm(true);
+    setMessage(null);
     setError(null);
+  };
+
+  const openEdit = (g) => {
+    setEditingId(g.id);
+    setForm({
+      title: g.title || '',
+      prompt: g.prompt || '',
+      agent_id: g.agent_id || 'balserve',
+      cadence: g.cadence || 'daily',
+      time_local: g.time_local || (g.cadence === 'hourly' ? '00:00' : '09:00'),
+      ends_at: endsToDateInput(g.ends_at),
+      weekday: g.weekday != null ? Number(g.weekday) : 1,
+    });
+    setShowForm(true);
+    setMessage(null);
+    setError(null);
+  };
+
+  const enrichPromptWithAi = async () => {
+    if (!form.prompt.trim()) {
+      setError('Enter a draft prompt before enriching with AI.');
+      return;
+    }
+    setEnrichBusy(true);
+    setError(null);
+    setMessage(null);
     try {
-      await api.scheduledGoalsCreate({
-        title: form.title || undefined,
-        prompt: form.prompt,
-        agent_id: form.agent_id,
-        cadence: form.cadence,
-        time_local: form.time_local,
-        weekday: form.cadence === 'weekly' ? Number(form.weekday) : undefined,
-        ends_at: form.ends_at || 'perpetual',
-      });
-      setShowCreate(false);
-      setForm({ title: '', prompt: '', agent_id: form.agent_id, cadence: 'daily', time_local: '09:00', ends_at: '', weekday: 1 });
-      setMessage('Scheduled goal created — it will fire automatically while active.');
+      const out = await api.scheduledGoalsEnrich({ prompt: form.prompt, title: form.title || '' });
+      if (out.prompt) {
+        setForm((f) => ({ ...f, prompt: out.prompt }));
+        setMessage(
+          out.model
+            ? `AI enriched the goal prompt (model: ${out.model}). Review before saving.`
+            : 'AI enriched the goal prompt. Review before saving.'
+        );
+      }
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setEnrichBusy(false);
+    }
+  };
+
+  const save = async (e) => {
+    e.preventDefault();
+    setBusyId(editingId || 'create');
+    setError(null);
+    const body = {
+      title: form.title || undefined,
+      prompt: form.prompt,
+      agent_id: form.agent_id,
+      cadence: form.cadence,
+      time_local: form.time_local,
+      weekday: form.cadence === 'weekly' ? Number(form.weekday) : undefined,
+      ends_at: form.ends_at || 'perpetual',
+    };
+    try {
+      if (editingId) {
+        await api.scheduledGoalsUpdate(editingId, body);
+        setMessage('Scheduled goal updated.');
+      } else {
+        await api.scheduledGoalsCreate(body);
+        setMessage('Scheduled goal created — it will fire automatically while active.');
+      }
+      resetForm(form.agent_id);
       load();
     } catch (err) {
       setError(err.message || String(err));
@@ -89,19 +171,42 @@ function ScheduledGoalsPanel() {
     }
   };
 
+  const onCadenceChange = (cadence) => {
+    setForm((f) => ({
+      ...f,
+      cadence,
+      time_local:
+        cadence === 'hourly'
+          ? f.cadence === 'hourly'
+            ? f.time_local
+            : '00:00'
+          : f.cadence === 'hourly'
+            ? '09:00'
+            : f.time_local,
+    }));
+  };
+
   return (
     <div className="page" style={{ maxWidth: 980 }}>
       <header className="page-hero" style={{ marginBottom: '1.25rem' }}>
         <h1 style={{ margin: 0 }}>Scheduled goals</h1>
         <p style={{ margin: '0.4rem 0 0', color: 'var(--muted)', maxWidth: 640 }}>
-          Recurring prompts your AI employees run on a schedule. Chat the COO to create one in plain language, or add
-          one here. Pause or delete stops the schedule immediately and after restarts.
+          Recurring prompts your AI employees run on a schedule (hourly, daily, weekdays, or weekly). Chat the COO in
+          plain language, or create and <strong>edit</strong> schedules here. Pause or delete stops the clock immediately
+          and after restarts.
         </p>
       </header>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', marginBottom: '1rem' }}>
-        <button type="button" className="btn-primary" onClick={() => setShowCreate((v) => !v)}>
-          {showCreate ? 'Cancel' : 'New scheduled goal'}
+        <button
+          type="button"
+          className="btn-primary"
+          onClick={() => {
+            if (showForm && !editingId) resetForm();
+            else openCreate();
+          }}
+        >
+          {showForm && !editingId ? 'Cancel' : 'New scheduled goal'}
         </button>
         <Link to="/agents/balserve/chat" className="btn-secondary" style={{ textDecoration: 'none' }}>
           Ask COO
@@ -117,9 +222,9 @@ function ScheduledGoalsPanel() {
         )}
       </div>
 
-      {showCreate && (
+      {showForm && (
         <form
-          onSubmit={create}
+          onSubmit={save}
           style={{
             display: 'flex',
             flexDirection: 'column',
@@ -131,12 +236,15 @@ function ScheduledGoalsPanel() {
             background: 'var(--surface)',
           }}
         >
+          <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>
+            {editingId ? 'Edit scheduled goal' : 'New scheduled goal'}
+          </div>
           <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Title (optional)</span>
             <input
               value={form.title}
               onChange={(ev) => setForm((f) => ({ ...f, title: ev.target.value }))}
-              placeholder="Daily market insights"
+              placeholder="Hourly MAGS dip check"
             />
           </label>
           <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -146,7 +254,7 @@ function ScheduledGoalsPanel() {
               rows={4}
               value={form.prompt}
               onChange={(ev) => setForm((f) => ({ ...f, prompt: ev.target.value }))}
-              placeholder="Generate a fresh daily market insights analysis and prepare blog, LinkedIn, and Facebook posts. Do not repeat prior angles."
+              placeholder="Check MAGS vs previous close; if down ≥2%, notify me. Otherwise do not notify."
             />
           </label>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
@@ -164,7 +272,8 @@ function ScheduledGoalsPanel() {
             </label>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Cadence</span>
-              <select value={form.cadence} onChange={(ev) => setForm((f) => ({ ...f, cadence: ev.target.value }))}>
+              <select value={form.cadence} onChange={(ev) => onCadenceChange(ev.target.value)}>
+                <option value="hourly">Hourly</option>
                 <option value="daily">Daily</option>
                 <option value="weekdays">Weekdays</option>
                 <option value="weekly">Weekly</option>
@@ -188,13 +297,18 @@ function ScheduledGoalsPanel() {
               </label>
             )}
             <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Time</span>
+              <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>{timeFieldLabel(form.cadence)}</span>
               <input
                 type="time"
                 required
                 value={form.time_local}
                 onChange={(ev) => setForm((f) => ({ ...f, time_local: ev.target.value }))}
               />
+              {form.cadence === 'hourly' && (
+                <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
+                  Fires once every hour at that minute (e.g. 00:15 → every hour at :15)
+                </span>
+              )}
             </label>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 160 }}>
               <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Ends (optional)</span>
@@ -206,9 +320,33 @@ function ScheduledGoalsPanel() {
               <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Empty = perpetual</span>
             </label>
           </div>
-          <button type="submit" className="btn-primary" disabled={busyId === 'create' || !form.prompt.trim()}>
-            {busyId === 'create' ? 'Saving…' : 'Save schedule'}
-          </button>
+          <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap' }}>
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={busyId === (editingId || 'create') || enrichBusy || !form.prompt.trim()}
+            >
+              {busyId === (editingId || 'create')
+                ? 'Saving…'
+                : editingId
+                  ? 'Save changes'
+                  : 'Save schedule'}
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              disabled={busyId === (editingId || 'create') || enrichBusy || !form.prompt.trim()}
+              onClick={enrichPromptWithAi}
+              title="AI clarifies and structures your goal for the target AI employee"
+            >
+              {enrichBusy ? 'Enriching…' : 'Enrich with AI'}
+            </button>
+            {editingId && (
+              <button type="button" className="btn-secondary" onClick={() => resetForm(form.agent_id)}>
+                Cancel edit
+              </button>
+            )}
+          </div>
         </form>
       )}
 
@@ -227,8 +365,7 @@ function ScheduledGoalsPanel() {
         <p style={{ color: 'var(--muted)' }}>Loading…</p>
       ) : filtered.length === 0 ? (
         <p style={{ color: 'var(--muted)' }}>
-          No scheduled goals yet. Chat the COO: “Every weekday at 9, prepare market insights for LinkedIn and blog,” or
-          create one above.
+          No scheduled goals yet. Chat the COO: “Every hour, check MAGS and notify me if down 2%,” or create one above.
         </p>
       ) : (
         <div style={{ overflowX: 'auto' }}>
@@ -247,11 +384,24 @@ function ScheduledGoalsPanel() {
             <tbody>
               {filtered.map((g) => (
                 <tr key={g.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                  <td style={{ padding: '0.65rem 0.5rem', maxWidth: 280 }}>
-                    <div style={{ fontWeight: 600 }}>{g.title}</div>
-                    <div style={{ color: 'var(--muted)', fontSize: '0.8rem', whiteSpace: 'pre-wrap' }}>
-                      {String(g.prompt || '').slice(0, 160)}
-                      {String(g.prompt || '').length > 160 ? '…' : ''}
+                  <td style={{ padding: '0.65rem 0.5rem', maxWidth: 320 }}>
+                    <div style={{ fontWeight: 600 }} title={g.title || ''}>
+                      {g.title}
+                    </div>
+                    <div
+                      className="sg-prompt-preview"
+                      title={String(g.prompt || '')}
+                      style={{
+                        color: 'var(--muted)',
+                        fontSize: '0.8rem',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        maxWidth: 300,
+                        cursor: 'help',
+                      }}
+                    >
+                      {String(g.prompt || '')}
                     </div>
                   </td>
                   <td style={{ padding: '0.5rem' }}>
@@ -268,12 +418,22 @@ function ScheduledGoalsPanel() {
                   </td>
                   <td style={{ padding: '0.5rem' }}>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        disabled={busyId === g.id}
+                        onClick={() => openEdit(g)}
+                      >
+                        Edit
+                      </button>
                       {g.status === 'active' ? (
                         <button
                           type="button"
                           className="btn-secondary"
                           disabled={busyId === g.id}
-                          onClick={() => runAction(g.id, () => api.scheduledGoalsPause(g.id), 'Paused (off after restart too).')}
+                          onClick={() =>
+                            runAction(g.id, () => api.scheduledGoalsPause(g.id), 'Paused (off after restart too).')
+                          }
                         >
                           Pause
                         </button>
@@ -291,7 +451,9 @@ function ScheduledGoalsPanel() {
                         type="button"
                         className="btn-secondary"
                         disabled={busyId === g.id}
-                        onClick={() => runAction(g.id, () => api.scheduledGoalsRunNow(g.id), 'Run started — check agent chat.')}
+                        onClick={() =>
+                          runAction(g.id, () => api.scheduledGoalsRunNow(g.id), 'Run started — check agent chat.')
+                        }
                       >
                         Run now
                       </button>
