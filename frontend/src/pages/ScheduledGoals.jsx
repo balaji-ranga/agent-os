@@ -114,6 +114,10 @@ function ScheduledGoalsPanel() {
     setShowForm(true);
     setMessage(null);
     setError(null);
+    // Ensure the edit form is visible (esp. on short viewports / long lists).
+    requestAnimationFrame(() => {
+      document.getElementById('sg-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   };
 
   const enrichPromptWithAi = async () => {
@@ -224,6 +228,7 @@ function ScheduledGoalsPanel() {
 
       {showForm && (
         <form
+          id="sg-form"
           onSubmit={save}
           style={{
             display: 'flex',
@@ -231,7 +236,9 @@ function ScheduledGoalsPanel() {
             gap: '0.65rem',
             marginBottom: '1.25rem',
             padding: '1rem',
-            border: '1px solid var(--border)',
+            border: editingId
+              ? '2px solid color-mix(in srgb, var(--accent) 55%, var(--border))'
+              : '1px solid var(--border)',
             borderRadius: 8,
             background: 'var(--surface)',
           }}
@@ -239,6 +246,12 @@ function ScheduledGoalsPanel() {
           <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>
             {editingId ? 'Edit scheduled goal' : 'New scheduled goal'}
           </div>
+          {editingId && (
+            <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--muted)' }}>
+              Change any field below and click <strong>Save changes</strong>. Cadence can be hourly, daily, weekdays,
+              or weekly.
+            </p>
+          )}
           <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Title (optional)</span>
             <input
@@ -385,9 +398,25 @@ function ScheduledGoalsPanel() {
               {filtered.map((g) => (
                 <tr key={g.id} style={{ borderBottom: '1px solid var(--border)' }}>
                   <td style={{ padding: '0.65rem 0.5rem', maxWidth: 320 }}>
-                    <div style={{ fontWeight: 600 }} title={g.title || ''}>
-                      {g.title}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => openEdit(g)}
+                      title="Edit this goal"
+                      style={{
+                        fontWeight: 600,
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
+                        margin: 0,
+                        color: 'var(--text)',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        font: 'inherit',
+                        textDecoration: editingId === g.id ? 'underline' : 'none',
+                      }}
+                    >
+                      {g.title || 'Untitled goal'}
+                    </button>
                     <div
                       className="sg-prompt-preview"
                       title={String(g.prompt || '')}
@@ -398,8 +427,17 @@ function ScheduledGoalsPanel() {
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         maxWidth: 300,
-                        cursor: 'help',
+                        cursor: 'pointer',
                       }}
+                      onClick={() => openEdit(g)}
+                      onKeyDown={(ev) => {
+                        if (ev.key === 'Enter' || ev.key === ' ') {
+                          ev.preventDefault();
+                          openEdit(g);
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
                     >
                       {String(g.prompt || '')}
                     </div>
@@ -416,13 +454,14 @@ function ScheduledGoalsPanel() {
                     {g.last_run_status || '—'}
                     {g.run_count ? ` · ${g.run_count} run(s)` : ''}
                   </td>
-                  <td style={{ padding: '0.5rem' }}>
+                  <td style={{ padding: '0.5rem', minWidth: 200 }}>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                       <button
                         type="button"
-                        className="btn-secondary"
+                        className="btn-primary"
                         disabled={busyId === g.id}
                         onClick={() => openEdit(g)}
+                        aria-label={`Edit scheduled goal ${g.title || g.id}`}
                       >
                         Edit
                       </button>
