@@ -46,7 +46,7 @@ EOF
   fi
   if ! grep -qF 'SCHEDULED_GOALS_CRON' "$ENV_FILE"; then
     cat >> "$ENV_FILE" <<'EOF'
-# SCHEDULED_GOALS_CRON=* * * * *          # CEO scheduled goals: active prompts → target AI employee
+# SCHEDULED_GOALS_CRON=* * * * *          # CEO scheduled goals: hourly|daily|weekdays|weekly; pause/delete off schedule
 EOF
     added=1
   fi
@@ -77,7 +77,7 @@ cat >> "$ENV_FILE" <<'EOF'
 # COO_STATUS_CHECKER_CRON=0 9 * * *        # daily CEO status report -> standup chat + HTML email
 # DATA_RETENTION_CRON=15 3 * * *           # daily purge: chats/standup msgs/workflow runs + aged Content Explorer media (hard delete)
 # KANBAN_ORPHAN_WATCHER_CRON=*/5 * * * *   # re-pend stuck processing + reinitiate orphan specialty Kanban
-# SCHEDULED_GOALS_CRON=* * * * *          # CEO scheduled goals: active prompts → target AI employee (pause/delete off schedule)
+# SCHEDULED_GOALS_CRON=* * * * *          # CEO scheduled goals: hourly|daily|weekdays|weekly prompts → agent (pause/delete off schedule)
 EOF
 
 echo "ENSURE_CRON_ENV_ADDED file=$ENV_FILE"

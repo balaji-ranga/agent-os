@@ -195,7 +195,7 @@ Gets the same gateway LLM vars plus:
 | `AGENT_OS_INTERNAL_TOKEN` | Workflow runner, tools proxy, cron-callback (required in production). Query `internal_token` is only accepted on `/api/standups/cron-callback`; elsewhere use `x-agent-os-internal`. |
 | `PLATFORM_LOG_LEVEL` | Backend request/error logging: `off`, `error`, or `info` (default). Secrets are redacted at every level — API keys, bearer tokens, `Authorization`, passwords and MFA codes never reach the log, and API Keys / auth routes log method + route only. |
 | `COO_STATUS_CHECKER_CRON` | Daily COO status digest per enabled CEO → standup post + HTML email (default `0 9 * * *`). Manual: **Run status checker** on the Dashboard. |
-| `SCHEDULED_GOALS_CRON` | Master tick for **Scheduled goals** (default `* * * * *`). Fires only **active** CEO prompts to the target AI employee; paused/deleted rows stay off across restarts. UI: `/scheduled-goals`; COO tools create/list/pause. |
+| `SCHEDULED_GOALS_CRON` | Master tick for **Scheduled goals** (default `* * * * *`). Cadences: **hourly** \| daily \| weekdays \| weekly. Fires only **active** CEO prompts; paused/deleted stay off across restarts. UI: `/scheduled-goals` create/**edit**; COO tools `scheduled_goal_*`. Docs: platform-help **28**. Verify: `vps-verify-scheduled-goals.sh`. |
 | `DATA_RETENTION_CRON` | Nightly retention purge per enabled CEO (default `15 3 * * *`), using each CEO's Profile **Data persistence** window: aged chats, standup messages, workflow runs, **and** Content Explorer uploaded/generated media (hard delete). Manual: **Purge aged data now**. |
 | `STANDUP_SCHEDULE_CRON`, `STANDUP_CRON_SCHEDULE`, `DELEGATION_CRON_SCHEDULE`, `AGENT_WORKFLOW_SCHEDULER_CRON`, `JOB_PIPELINE_CRON_SCHEDULE`, `KANBAN_ORPHAN_WATCHER_CRON` | Remaining platform timers. All optional — every job has a code default; `deploy/scripts/ensure-cron-env.sh` keeps a commented reference block in `deploy/.env`. Admins can pause/resume/run each one at `/admin/crons`. |
 | `TOOLS_API_KEY` | OpenClaw content-tools ↔ backend (required in production; must match plugin `apiKey`) |
@@ -344,17 +344,22 @@ All proxied under `/api` (rebuild backend + frontend images after upgrade):
 ```powershell
 # From repo root (default HostIp 76.13.209.30):
 .\deploy\scripts\sync-to-vps.ps1
-# frontend-only:
+# frontend UI changes (Scheduled goals Edit, nav, etc.) — always include frontend:
 .\deploy\scripts\sync-to-vps.ps1 -Services frontend
-# backend + OpenClaw (API / tools / templates):
+# backend + OpenClaw (API / tools / templates / scheduled goals service):
 .\deploy\scripts\sync-to-vps.ps1 -Services "backend openclaw"
+# typical full product ship (UI + API + gateway):
+.\deploy\scripts\sync-to-vps.ps1 -Services "frontend backend openclaw"
 # skip post-deploy smoke + platform verify:
 .\deploy\scripts\sync-to-vps.ps1 -SkipSmoke
-# force rebuild without Docker layer cache (stale images):
+# force rebuild without Docker layer cache (stale SPA/API images):
 .\deploy\scripts\sync-to-vps.ps1 -NoCache
 ```
 
-`sync-to-vps.ps1` syncs **full build contexts**: `frontend/src` + package files, `backend/src` + key scripts (incl. `seed-platform-help-agent.js`, `seed-onboarding-helper-agent.js`, `e2e-onboarding-wf-prompts.mjs`), `deploy/*` (**including `deploy/static/flolah-home` marketing homepage** + nginx dual-vhost confs), `scripts/`, OpenClaw extensions/skills/templates (COO, TechResearcher, ApplicationAgent, Workflow Builder, **Platform Help**, **Onboarding Helper**), and `knowledgebase/platform-help/` — then runs `vps-deploy-latest.sh`.
+`sync-to-vps.ps1` syncs **full build contexts**: `frontend/src` + package files, `backend/src` + key scripts (incl. `seed-platform-help-agent.js`, `_smoke-scheduled-goals.mjs`, `reupload-platform-help-docs.js`), `deploy/*` (**including `vps-verify-scheduled-goals.sh`**, `ensure-cron-env.sh`, `deploy/static/flolah-home`) + compose (`SCHEDULED_GOALS_CRON`), OpenClaw templates (COO scheduled-goal tools), and `knowledgebase/platform-help/` (**28** scheduled goals, **29** company setup) — then `vps-deploy-latest.sh` rebuilds selected images, runs `ensure-cron-env.sh`, reindexes Platform Help, and verifies scheduled goals when backend is in the service set.
+
+**After UI-only changes:** always rebuild **frontend** (backend-only leaves a stale SPA without Edit / Hourly).  
+**After help-doc changes:** rebuild **backend** (corpus is COPY'd into the backend image) so RAG reupload picks up **28** / **29**.
 
 **Public URL:** set `AGENT_OS_PUBLIC_URL` in `deploy/.env` (production app: `https://login.flolah.cloud`). Marketing homepage is the apex `https://flolah.cloud` (`deploy/static/flolah-home`). Use the login host for API smoke and prompt E2E.
 

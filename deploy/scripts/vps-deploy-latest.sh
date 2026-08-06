@@ -19,6 +19,8 @@
 #   SKIP_DOCKER_PRUNE=1                  # skip post-build BuildKit cache hygiene
 #   DOCKER_BUILDER_PRUNE_ALL=1           # wipe all unused build cache (slow next build)
 #   DOCKER_BUILDER_PRUNE_UNTIL=72h       # keep recent cache; prune older (default)
+#   SKIP_PLATFORM_MCPS=1                 # skip Brave + Meta Graph MCP containers/seeds
+#   SKIP_VOICE=1 / SKIP_EMBEDDINGS=1     # skip optional-voice / embeddings
 set -euo pipefail
 
 ROOT="${AGENT_OS_ROOT:-/opt/agent-os}"
@@ -66,6 +68,11 @@ if [[ -f "$ROOT/deploy/scripts/ensure-embeddings-env.sh" ]]; then
   # Env keys first; start/build embeddings container below
   EMBEDDINGS_BUILD=0 SKIP_EMBEDDINGS=1 bash "$ROOT/deploy/scripts/ensure-embeddings-env.sh" "$ROOT/deploy/.env" || true
 fi
+if [[ -f "$ROOT/deploy/scripts/ensure-platform-mcps.sh" ]]; then
+  sed -i 's/\r$//' "$ROOT/deploy/scripts/ensure-platform-mcps.sh" 2>/dev/null || true
+  # Env keys only; build/start/seed after backend is healthy
+  SKIP_PLATFORM_MCPS=1 bash "$ROOT/deploy/scripts/ensure-platform-mcps.sh" "$ROOT/deploy/.env" || true
+fi
 
 # OpenSearch requires elevated mmap counts
 if [[ "$(id -u)" -eq 0 ]] || command -v sudo >/dev/null 2>&1; then
@@ -95,7 +102,8 @@ echo "              AgentExchange/A2A (Test agent UI, sync/async+callback, deny_
 echo "              Admin A2A logs /admin/a2a-invocations,"
 echo "              allow/whitelist; vps-client-ip compose; owner unpublish),"
 echo "              workflow API/MCP/A2A auth templates ({{nodeId.path}} bearer/headers),"
-echo "              Brave Search MCP BYOK (workflow keys only; no env key fallback),"
+echo "              platform MCPs ensure-platform-mcps.sh (Brave BYOK + Meta Graph OAuth),"
+echo "              Connectors → MCPs tab (per-CEO Facebook OAuth; FACEBOOK_APP_*),"
 echo "              Workflow certify Maker/Checker (LLM Checker default OFF),"
 echo "              DeepSeek@Ollama,"
 echo "              hPanel shell + light/dark theme (ThemeToggle, data-theme),"
@@ -106,7 +114,9 @@ echo "              department purpose + monthly_token_budget (Master Data depar
 echo "              agent monthly token + error budgets (token_usage ledger, warn-then-block),"
 echo "              Efficiency View Org / Department / Agent tabs + Reset usage (MTD tokens → 0),"
 echo "              Org Storage (MB); COO status_checker (standup+HTML email; cron+Dashboard);"
-echo "              Scheduled goals (CEO prompts → agents; SCHEDULED_GOALS_CRON; pause persists);"
+echo "              Scheduled goals (CEO prompts → agents; SCHEDULED_GOALS_CRON;"
+echo "              cadence hourly|daily|weekdays|weekly; UI create/edit/pause;"
+echo "              verify: vps-verify-scheduled-goals.sh + platform-help 28);"
 echo "              data retention days (profile) + daily purge (chats/workflows + Content Explorer media),"
 echo "              Content Explorer hard-delete (selected/all) + storage includes media/generated/<ceo>,"
 echo "              Profile LLM catalog (provider+model) + OPENAI_BYOK_MODEL soft fallback,"
@@ -194,13 +204,6 @@ echo "==> ensure OpenSearch + Dashboards (internal only)"
 docker compose up -d opensearch opensearch-dashboards || echo "WARN: OpenSearch up failed"
 # OpenClaw entrypoint re-applies configure-openclaw-docker.js (tools.allow, codex off, etc.)
 
-# Brave Search MCP BYOK (optional profile) — rebuild when Dockerfile/tool source changed
-if [[ -f "$ROOT/tools/brave-search-mcp-byok/server.js" ]]; then
-  echo "==> rebuild brave-search-mcp (BYOK; profile optional-brave-mcp)"
-  docker compose --profile optional-brave-mcp build "${BUILD_ARGS[@]}" brave-search-mcp || echo "WARN: brave-search-mcp build failed"
-  docker compose --profile optional-brave-mcp up -d --force-recreate brave-search-mcp || echo "WARN: brave-search-mcp up failed"
-fi
-
 # Free STT/TTS (optional-voice) — SPEECH_* already in .env from ensure-voice-env above
 if [[ -f "$ROOT/deploy/scripts/ensure-voice-env.sh" && "${SKIP_VOICE:-0}" != "1" ]]; then
   echo "==> optional-voice (whisper + piper TTS)"
@@ -236,6 +239,14 @@ if [[ "$ok" != "1" ]]; then
   echo "ERROR: backend health check failed"
   docker compose ps
   exit 1
+fi
+
+# Platform MCPs (Brave BYOK + Meta Graph OAuth): rebuild containers + seed is_platform=1 registry rows
+if [[ -f "$ROOT/deploy/scripts/ensure-platform-mcps.sh" && "${SKIP_PLATFORM_MCPS:-0}" != "1" ]]; then
+  echo "==> platform MCPs (brave-search-mcp + meta-graph-mcp + registry seeds)"
+  NO_CACHE="${NO_CACHE:-0}" PLATFORM_MCP_BUILD=1 \
+    bash "$ROOT/deploy/scripts/ensure-platform-mcps.sh" "$ROOT/deploy/.env" \
+    || echo "WARN: ensure-platform-mcps failed (non-fatal)"
 fi
 
 echo "==> smoke"
@@ -499,6 +510,23 @@ if docker compose exec -T frontend sh -c 'grep -Rql ceoGuardrailsSave /usr/share
   echo "    frontend assets: CEO Policies / guardrails OK"
 else
   echo "    WARN: CEO Policies UI not found in frontend JS"
+fi
+
+# Scheduled goals UI (stale bundle without Edit/Hourly after backend-only deploy)
+if docker compose exec -T frontend sh -c 'grep -Rql "scheduled-goals\|scheduledGoalsList\|Scheduled goals" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: Scheduled goals route/client OK"
+else
+  echo "    WARN: Scheduled goals not in frontend bundle (rebuild frontend?)"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql "Save changes\|Edit scheduled goal\|scheduledGoalsUpdate" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: Scheduled goals Edit UI OK"
+else
+  echo "    WARN: Scheduled goals Edit missing in frontend JS (frontend-only rebuild required after UI changes)"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql Hourly /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: Scheduled goals Hourly cadence OK"
+else
+  echo "    WARN: Hourly cadence label not in frontend JS"
 fi
 
 if docker compose exec -T frontend sh -c 'grep -Rql "Private (org only)" /usr/share/nginx/html/assets/*.js 2>/dev/null || grep -Rql "mcp-pg-card-menu" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
@@ -852,6 +880,11 @@ if [[ "$SKIP_SMOKE" != "1" ]]; then
     sed -i 's/\r$//' "$ROOT/deploy/scripts/vps-smoke-brave-byok.sh" 2>/dev/null || true
     bash "$ROOT/deploy/scripts/vps-smoke-brave-byok.sh" || echo "WARN: Brave BYOK smoke failed (non-fatal)"
   fi
+  if [[ -f "$ROOT/deploy/scripts/vps-smoke-meta-graph-mcp.sh" && "${SKIP_PLATFORM_MCPS:-0}" != "1" ]]; then
+    echo "==> Meta Graph platform MCP smoke (container + seed; no Facebook creds)"
+    sed -i 's/\r$//' "$ROOT/deploy/scripts/vps-smoke-meta-graph-mcp.sh" 2>/dev/null || true
+    bash "$ROOT/deploy/scripts/vps-smoke-meta-graph-mcp.sh" || echo "WARN: Meta Graph MCP smoke failed (non-fatal)"
+  fi
   if [[ -f "$ROOT/deploy/scripts/vps-verify-platform.sh" ]]; then
     echo "==> platform verify (Master Data, delegation, allowlists)"
     sed -i 's/\r$//' "$ROOT/deploy/scripts/vps-verify-platform.sh" 2>/dev/null || true
@@ -866,6 +899,25 @@ if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/seed-
   docker compose exec -T -w /opt/agent-os/backend backend node scripts/seed-inbound-media-summarize-workflow.js >/tmp/inbound-media-wf.log 2>&1 \
     && echo "    inbound media summarize workflow seed OK" \
     || echo "    WARN: inbound media workflow seed failed (see /tmp/inbound-media-wf.log)"
+fi
+
+# Optional content-media workflows (per CEO): publish-social + FB comments ingest/triage (standard workflow nodes).
+# Set SEED_CONTENT_MEDIA_OWNER=ceo-... in deploy/.env (or export) to re-seed after image rebuilds.
+# Brains use Platform_BYOK vault when set; otherwise ollama.
+if [[ -n "${SEED_CONTENT_MEDIA_OWNER:-}" && "${SKIP_CONTENT_MEDIA_SEED:-0}" != "1" ]]; then
+  echo "==> Content media workflow seeds for owner=$SEED_CONTENT_MEDIA_OWNER"
+  if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/seed-content-publish-social-workflow.js 2>/dev/null; then
+    docker compose exec -T -w /opt/agent-os/backend -e WORKFLOW_SEED_OWNER_ID="$SEED_CONTENT_MEDIA_OWNER" backend \
+      node scripts/seed-content-publish-social-workflow.js >/tmp/content-publish-social-seed.log 2>&1 \
+      && echo "    content-publish-social seed OK" \
+      || echo "    WARN: content-publish-social seed failed (see /tmp/content-publish-social-seed.log)"
+  fi
+  if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/seed-content-comments-ingest.js 2>/dev/null; then
+    docker compose exec -T -w /opt/agent-os/backend -e WORKFLOW_SEED_OWNER_ID="$SEED_CONTENT_MEDIA_OWNER" backend \
+      node scripts/seed-content-comments-ingest.js >/tmp/content-comments-seed.log 2>&1 \
+      && echo "    content-comments-ingest / community triage seed OK" \
+      || echo "    WARN: content-comments seed failed (see /tmp/content-comments-seed.log)"
+  fi
 fi
 
 echo "DEPLOY_LATEST_DONE $(date -Is)"

@@ -16,6 +16,9 @@
 # scripts/, openclaw extensions/skills/templates — then rebuilds via vps-deploy-latest.sh.
 #
 # Features covered: Kanban orphan watcher (re-pend stuck processing + reinitiate specialty cards),
+# Scheduled goals (hourly|daily|weekdays|weekly, create/edit/pause UI, SCHEDULED_GOALS_CRON,
+#   vps-verify-scheduled-goals.sh + _smoke-scheduled-goals.mjs, platform-help 28),
+# Company setup (/company-setup, platform-help 29),
 # Kanban All view (default) aligned with status_checker all-ages counts,
 # private A2A publications reachable from COO delegation when registered as an
 # External Agent (loopback endpoints invoke in-process instead of self-HTTP 403),
@@ -23,8 +26,13 @@
 # archived agent chats (chat_context), Admin Crons console (/admin/crons pause/resume/run now, persisted pause state),
 # platform API logging (PLATFORM_LOG_LEVEL=off|error|info + secret redaction),
 # Brave Search MCP BYOK wrapper (tools/brave-search-mcp-byok, profile optional-brave-mcp),
+# Meta Graph MCP (tools/meta-graph-mcp, profile optional-meta-graph-mcp) + Connectors MCPs OAuth,
+# content studio: content-publish-social + content-comments-ingest/community triage (workflow mcp_tool/brain nodes;
+#   not one-off content_comments_* tools), day0+day1 blueprint snapshot/publish, complete-content-ops-pipeline,
+# ensure-platform-mcps.sh seeds mcp-brave-search + mcp-meta-graph (is_platform=1),
+# SEED_CONTENT_MEDIA_OWNER (optional) post-deploy seeds publish+comments workflows for that CEO,
 # Brave agent tool brave_web_search (backend BRAVE_API_KEY + vault BRAVE_SEARCH_BYOK),
-# cron reference block in deploy/.env (ensure-cron-env.sh) + platform-help 19
+# cron reference block in deploy/.env (ensure-cron-env.sh) + platform-help 19 (+ SCHEDULED_GOALS_CRON)
 # (scheduled jobs / retention incl. Content Explorer media hard-delete), Org Storage (MB)
 # (tenant + media/generated/<ceo>), COO status_checker report, data retention purge,
 # Content Explorer (/content-explorer list/download/delete), Profile LLM catalog (provider+model),
@@ -132,6 +140,7 @@ scp @ssh `
   "$Repo\deploy\scripts\vps-expand-login-cert.sh" `
   "$Repo\deploy\scripts\docker-disk-hygiene.sh" `
   "$Repo\deploy\scripts\vps-verify-platform.sh" `
+  "$Repo\deploy\scripts\vps-verify-scheduled-goals.sh" `
   "$Repo\deploy\scripts\vps-verify-a2a-private.sh" `
   "$Repo\deploy\scripts\vps-verify-org-delegation.sh" `
   "$Repo\deploy\scripts\vps-verify-frontend-media.sh" `
@@ -158,8 +167,10 @@ scp @ssh `
   "$Repo\deploy\scripts\ensure-docker-tools-env.sh" `
   "$Repo\deploy\scripts\ensure-voice-env.sh" `
   "$Repo\deploy\scripts\ensure-embeddings-env.sh" `
+  "$Repo\deploy\scripts\ensure-platform-mcps.sh" `
   "$Repo\deploy\scripts\enable-docker-tools-on-vps.sh" `
   "$Repo\deploy\scripts\vps-smoke-brave-byok.sh" `
+  "$Repo\deploy\scripts\vps-smoke-meta-graph-mcp.sh" `
   "$Repo\deploy\scripts\configure-openclaw-docker.js" `
   "$Repo\deploy\scripts\verify-openclaw-parity.js" `
   "$Repo\deploy\scripts\up.sh" `
@@ -277,6 +288,15 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-history-summary-cache.js" `
     "$Repo\backend\scripts\test-workflow-auth-templates.js" `
     "$Repo\backend\scripts\seed-brave-search-mcp.js" `
+    "$Repo\backend\scripts\seed-meta-graph-mcp.js" `
+    "$Repo\backend\scripts\seed-content-publish-social-workflow.js" `
+    "$Repo\backend\scripts\seed-content-comments-ingest.js" `
+    "$Repo\backend\scripts\complete-content-ops-pipeline.js" `
+    "$Repo\backend\scripts\test-content-ops-org-e2e.js" `
+    "$Repo\backend\scripts\republish-content-ops-blueprint.js" `
+    "$Repo\backend\scripts\bootstrap-content-publish-phase01.js" `
+    "$Repo\backend\scripts\e2e-content-publish-social-li.js" `
+    "$Repo\backend\scripts\create-content-media-ceo.mjs" `
     "$Repo\backend\scripts\seed-balaji-brave-byok-workflow.js" `
     "$Repo\backend\scripts\test-balaji-brave-byok-workflow.js" `
     "$Repo\backend\scripts\seed-brain-brave-search-workflow.js" `
@@ -333,8 +353,10 @@ if ($Services -match "backend|openclaw") {
   scp @ssh "$Repo\tests\lib\ceo-session.js" "root@${HostIp}:$RemoteRoot/tests/lib/"
   scp @ssh -r "$Repo\scripts" "root@${HostIp}:$RemoteRoot/"
   Write-Host "==> Sync Brave BYOK MCP tool source (compose build context)"
-  ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/tools/brave-search-mcp-byok"
+  ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/tools/brave-search-mcp-byok $RemoteRoot/tools/meta-graph-mcp"
   scp @ssh "$Repo\tools\brave-search-mcp-byok\server.js" "root@${HostIp}:$RemoteRoot/tools/brave-search-mcp-byok/"
+  Write-Host "==> Sync Meta Graph MCP tool source"
+  scp @ssh "$Repo\tools\meta-graph-mcp\server.js" "root@${HostIp}:$RemoteRoot/tools/meta-graph-mcp/"
   scp @ssh -r "$Repo\openclaw-extensions\agent-os-content-tools" "root@${HostIp}:$RemoteRoot/openclaw-extensions/"
   scp @ssh -r "$Repo\openclaw-extensions\agent-os-bootstrap-watcher" "root@${HostIp}:$RemoteRoot/openclaw-extensions/"
   Write-Host "==> Sync workspace templates (shared ops + COO + TechResearcher + ApplicationAgent + Workflow Builder + Platform Help + Onboarding Helper + Vedic Astrology) + skills + platform-help KB"
@@ -400,6 +422,8 @@ sed -i 's/\r`$//' \
   $RemoteRoot/deploy/scripts/vps-smoke-budgets-org-members.sh \
   $RemoteRoot/deploy/scripts/vps-regression-full.sh \
   $RemoteRoot/deploy/scripts/ensure-deepseek-env.sh \
+  $RemoteRoot/deploy/scripts/ensure-platform-mcps.sh \
+  $RemoteRoot/deploy/scripts/vps-smoke-meta-graph-mcp.sh \
   $RemoteRoot/deploy/scripts/vps-rebuild-frontend.sh \
   $RemoteRoot/deploy/scripts/up.sh
 SKIP_GIT=1 $smokeEnv $cacheEnv SERVICES='$Services' bash $RemoteRoot/deploy/scripts/vps-deploy-latest.sh

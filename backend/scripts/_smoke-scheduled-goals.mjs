@@ -9,8 +9,12 @@ import {
   resumeScheduledGoal,
   deleteScheduledGoal,
   getScheduledGoal,
+  updateScheduledGoal,
   isGoalDueNow,
   tickScheduledGoals,
+  normalizeCadence,
+  runKeyForParts,
+  zonedParts,
 } from '../src/services/scheduled-goals.js';
 import { getDb } from '../src/db/schema.js';
 import { getPlatformTimezone } from '../src/utils/format-datetime.js';
@@ -155,5 +159,31 @@ const g5 = createScheduledGoal(owner, {
 if (g5.cadence !== 'weekdays') throw new Error('weekdays cadence');
 if (!String(g5.schedule_label).toLowerCase().includes('weekday')) throw new Error('label');
 deleteScheduledGoal(owner, g5.id);
+
+// Hourly + update (edit)
+if (normalizeCadence('every hour') !== 'hourly') throw new Error('normalizeCadence hourly alias');
+const g6 = createScheduledGoal(owner, {
+  title: 'hourly smoke',
+  prompt: 'hourly check',
+  agent_id: 'balserve',
+  cadence: 'hourly',
+  time_local: '00:15',
+  source: 'vps_smoke',
+});
+if (g6.cadence !== 'hourly') throw new Error('hourly cadence');
+if (!String(g6.schedule_label).toLowerCase().includes('hourly')) throw new Error('hourly label');
+const parts = zonedParts(new Date(), getPlatformTimezone());
+const slot = runKeyForParts({ cadence: 'hourly' }, parts, { force: false });
+if (!/^\d{4}-\d{2}-\d{2}-\d{2}$/.test(slot)) throw new Error('hourly run key shape ' + slot);
+const g6e = updateScheduledGoal(owner, g6.id, {
+  title: 'hourly smoke edited',
+  prompt: 'edited prompt',
+  cadence: 'daily',
+  time_local: '10:00',
+});
+if (g6e.title !== 'hourly smoke edited' || g6e.cadence !== 'daily') throw new Error('update failed');
+if (!String(g6e.prompt).includes('edited')) throw new Error('prompt not updated');
+deleteScheduledGoal(owner, g6.id);
+console.log('hourly_and_edit_ok');
 
 console.log('SCHEDULED_GOALS_SMOKE_OK');

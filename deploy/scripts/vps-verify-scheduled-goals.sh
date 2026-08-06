@@ -69,11 +69,53 @@ if grep -q 'SCHEDULED_GOALS_CRON' "$ROOT/knowledgebase/platform-help/19-schedule
 else
   bad "help 19 missing SCHEDULED_GOALS_CRON"
 fi
+if test -f "$ROOT/knowledgebase/platform-help/28-scheduled-goals.md"; then
+  ok "help 28 scheduled-goals.md present"
+else
+  bad "help 28-scheduled-goals.md missing"
+fi
+if grep -qE 'hourly|Hourly' "$ROOT/knowledgebase/platform-help/28-scheduled-goals.md" 2>/dev/null; then
+  ok "help 28 documents hourly cadence"
+else
+  bad "help 28 missing hourly cadence"
+fi
+if grep -qE 'Edit|edit' "$ROOT/knowledgebase/platform-help/28-scheduled-goals.md" 2>/dev/null; then
+  ok "help 28 documents edit"
+else
+  bad "help 28 missing edit"
+fi
+if grep -q "28-scheduled-goals.md" "$ROOT/backend/src/services/ceo-default-master-data.js" 2>/dev/null; then
+  ok "PLATFORM_HELP catalog includes 28"
+else
+  bad "ceo-default-master-data missing 28 catalog entry"
+fi
+if grep -q "hourly" "$ROOT/backend/src/services/scheduled-goals.js" 2>/dev/null \
+  && grep -q "normalizeCadence" "$ROOT/backend/src/services/scheduled-goals.js" 2>/dev/null; then
+  ok "service supports hourly cadence"
+else
+  bad "service missing hourly cadence"
+fi
+if grep -q "scheduledGoalsUpdate" "$ROOT/frontend/src/api.js" 2>/dev/null; then
+  ok "frontend api scheduledGoalsUpdate (edit)"
+else
+  bad "frontend api missing scheduledGoalsUpdate"
+fi
+if grep -q openEdit "$ROOT/frontend/src/pages/ScheduledGoals.jsx" 2>/dev/null \
+  && grep -q hourly "$ROOT/frontend/src/pages/ScheduledGoals.jsx" 2>/dev/null; then
+  ok "frontend ScheduledGoals.jsx edit + hourly UI"
+else
+  bad "frontend ScheduledGoals.jsx missing Edit/hourly"
+fi
 if grep -q 'scheduled.goal' "$ROOT/openclaw-workspace-templates/balserve/AGENTS.md" 2>/dev/null \
   || grep -q 'scheduled_goal' "$ROOT/openclaw-workspace-templates/balserve/AGENTS.md" 2>/dev/null; then
   ok "COO AGENTS.md scheduled goals"
 else
   bad "COO AGENTS.md missing scheduled_goal tools"
+fi
+if grep -q 'hourly' "$ROOT/openclaw-workspace-templates/balserve/TOOLS.md" 2>/dev/null; then
+  ok "COO TOOLS.md hourly cadence"
+else
+  bad "COO TOOLS.md missing hourly"
 fi
 
 echo "==> scheduled goals — live backend (container)"
@@ -133,7 +175,17 @@ if [[ -n "$FE" ]]; then
   if docker exec "$FE" sh -c 'grep -Rql "Scheduled goals\|scheduled-goals\|scheduledGoalsList" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
     ok "frontend bundle includes Scheduled goals"
   else
-    bad "frontend bundle missing Scheduled goals markers"
+    bad "frontend bundle missing Scheduled goals markers — rebuild frontend (sync -Services frontend)"
+  fi
+  if docker exec "$FE" sh -c 'grep -Rql "Save changes\|Edit scheduled goal\|scheduledGoalsUpdate" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+    ok "frontend bundle includes Edit goal UI"
+  else
+    bad "frontend bundle missing Edit UI — deploy 19c76b3+ / rebuild frontend"
+  fi
+  if docker exec "$FE" sh -c 'grep -Rql "Hourly\|value:\"hourly\"\|cadence:\"hourly\"" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+    ok "frontend bundle includes Hourly cadence"
+  else
+    bad "frontend bundle missing Hourly cadence"
   fi
 else
   bad "frontend container not found"

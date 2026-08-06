@@ -10,11 +10,12 @@
 # verify-budgets-org-members / test-org-member-delegation-e2e / verify-agent-view-api scripts,
 # tests/ (regression-full / regression-minimal + ceo-session for VPS regression).
 # Image COPYs openclaw templates/skills/extensions + knowledgebase/platform-help for RAG seeding.
-# Protected Master Data docs (User Guide + Platform Help) + purge-all uploads (CEO uploads only).
-# Agent delete: transactional cascade (agent-delete.js) + deleted_agents tombstone so a deleted
-# agent is not recreated by the startup catalog re-grant or by POST /api/openclaw/sync.
+# Scheduled goals: backend services/routes + schema; master tick SCHEDULED_GOALS_CRON in compose;
+# help docs 19/28 must ship in platform-help COPY; seed tools in seed-content-tools-meta.js.
 # Also: public VR routes, speech STT/TTS APIs + COO content tools speech_tts/speech_stt,
-# agent channels, optional-voice (whisper+piper).
+# agent channels, optional-voice (whisper+piper),
+# platform MCP OAuth (mcp-oauth tables) + Meta Graph seed (seed-meta-graph-mcp.js) +
+# Connectors → MCPs (mcp-integrations routes).
 FROM node:22-bookworm-slim
 
 # python3: custom workflow script sandbox (Python); make/g++: better-sqlite3 native build

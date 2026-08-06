@@ -1,5 +1,7 @@
 # Agent OS frontend — Vite SPA (hPanel shell + light/dark theme, ThemeToggle,
 # Agent Workspaces Add agent, Tools nav (/content-tools), fullscreen workflow editor,
+# Scheduled goals (/scheduled-goals — create/edit/pause, hourly|daily|weekdays|weekly),
+# Company setup (/company-setup),
 # OrgDesigner dashboard, Efficiency Agent View, Add-to-org for external/A2A leaf members,
 # department purpose/budget UI, Master Data Purge all uploads + protected help/guide badges).
 # Build context: repo root (see docker-compose.yml). No special build-args beyond VITE_API_URL.
