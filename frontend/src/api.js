@@ -421,6 +421,7 @@ export const api = {
   authLlmCatalog: () => get('/auth/llm-catalog'),
   ceoGuardrailsGet: () => get('/ceo-guardrails'),
   ceoGuardrailsSave: (body) => put('/ceo-guardrails', body),
+  ceoGuardrailsEnrich: (body) => post('/ceo-guardrails/enrich', body),
   submitFeedback: (body) => post('/feedback', body),
   listFeedback: (params = {}) => {
     const q = new URLSearchParams();
@@ -839,6 +840,17 @@ export const api = {
       ...body,
     }),
   mcpServerLogs: (id, limit = 20) => get(`/integrations/mcp/${encodeURIComponent(id)}/logs?limit=${limit}`),
+  // MCP OAuth (Connectors → MCPs tab; any registry MCP with OAuth client config)
+  mcpOauthConnectors: () => get('/integrations/mcp/oauth/connectors'),
+  mcpOauthConfigs: () => get('/integrations/mcp/oauth/configs'),
+  mcpOauthInclude: (body) => post('/integrations/mcp/oauth/include', body),
+  mcpOauthExclude: (serverId) => post('/integrations/mcp/oauth/exclude', { server_id: serverId }),
+  mcpOauthConfigUpsert: (serverId, body) =>
+    put(`/integrations/mcp/${encodeURIComponent(serverId)}/oauth/config`, body),
+  mcpOauthStart: (serverId) =>
+    post(`/integrations/mcp/${encodeURIComponent(serverId)}/oauth/start`, {}),
+  mcpOauthDisconnect: (serverId) =>
+    del(`/integrations/mcp/${encodeURIComponent(serverId)}/oauth/connection`),
 
   externalAgentsList: (opts = {}) => {
     const q = opts.forWorkflow ? '?for_workflow=1' : '';
@@ -967,6 +979,7 @@ export const api = {
   },
   scheduledGoalsGet: (id) => get(`/scheduled-goals/${encodeURIComponent(id)}`),
   scheduledGoalsCreate: (body) => post('/scheduled-goals', body),
+  scheduledGoalsEnrich: (body) => post('/scheduled-goals/enrich', body),
   scheduledGoalsUpdate: (id, body) => patch(`/scheduled-goals/${encodeURIComponent(id)}`, body),
   scheduledGoalsPause: (id) => post(`/scheduled-goals/${encodeURIComponent(id)}/pause`, {}),
   scheduledGoalsResume: (id) => post(`/scheduled-goals/${encodeURIComponent(id)}/resume`, {}),

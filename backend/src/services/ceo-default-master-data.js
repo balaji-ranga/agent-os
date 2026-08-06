@@ -122,6 +122,10 @@ export const PLATFORM_HELP_DOCUMENTS = Object.freeze([
     filename: '29-company-setup.md',
     title: `${PLATFORM_HELP_TITLE_PREFIX}Company Setup First Run Wizard`,
   },
+  {
+    filename: '30-content-creator-ops.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}Content Creator Ops Publish Community`,
+  },
 ]);
 
 /** Resolve repo README.md (local: agent-os/README.md; Docker: /opt/agent-os/README.md). */

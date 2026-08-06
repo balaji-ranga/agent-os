@@ -13,6 +13,7 @@ function PoliciesPanel() {
   const [enabled, setEnabled] = useState(true);
   const [updatedAt, setUpdatedAt] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [enrichBusy, setEnrichBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
@@ -61,13 +62,35 @@ function PoliciesPanel() {
     }
   };
 
+  const enrichWithAi = async () => {
+    setEnrichBusy(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const out = await api.ceoGuardrailsEnrich({ policy_text: policyText });
+      if (out.policy_text) {
+        setPolicyText(out.policy_text);
+        setMessage(
+          out.model
+            ? `AI enriched your draft (model: ${out.model}). Review, then Save & sync.`
+            : 'AI enriched your draft. Review, then Save & sync.'
+        );
+      }
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setEnrichBusy(false);
+    }
+  };
+
   return (
     <div className="page" style={{ maxWidth: 720 }}>
       <header className="page-hero" style={{ marginBottom: '1.25rem' }}>
         <h1 style={{ margin: 0 }}>Policies &amp; guardrails</h1>
         <p style={{ margin: '0.4rem 0 0', color: 'var(--muted)', maxWidth: 560 }}>
           Set once for your CEO account. These rules are a prerequisite for every agent (via{' '}
-          <code>POLICY.md</code>) and every workflow Brain node.
+          <code>POLICY.md</code>) and every workflow Brain node. Day 1 seeds a universal baseline: no sexual,
+          abusive, or discriminatory content.
         </p>
       </header>
 
@@ -116,12 +139,21 @@ function PoliciesPanel() {
           )}
 
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <button type="submit" className="btn-primary" disabled={busy}>
+            <button type="submit" className="btn-primary" disabled={busy || enrichBusy}>
               {busy ? 'Saving…' : 'Save & sync to agents'}
             </button>
             <button
               type="button"
-              disabled={busy}
+              className="btn-secondary"
+              disabled={busy || enrichBusy}
+              onClick={enrichWithAi}
+              title="AI clarifies and structures your draft; universal safety is preserved"
+            >
+              {enrichBusy ? 'Enriching…' : 'Enrich with AI'}
+            </button>
+            <button
+              type="button"
+              disabled={busy || enrichBusy}
               onClick={load}
               style={{
                 padding: '0.45rem 0.85rem',

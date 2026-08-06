@@ -117,6 +117,13 @@ x-backend-env: &backend-env
   # Brave Search agent content tool (platform default Profile). Vault BRAVE_SEARCH_BYOK for BYOK Profiles.
   # Do NOT inject into brave-search-mcp service — that remains header BYOK only.
   BRAVE_API_KEY: ${BRAVE_API_KEY:-}
+  BRAVE_MCP_URL: ${BRAVE_MCP_URL:-http://brave-search-mcp:8080/mcp}
+  # Meta / Facebook OAuth app (Connectors → MCPs OAuth). Secrets stay on backend only.
+  # Platform MCP seed: ensure-platform-mcps.sh → mcp-meta-graph (is_platform=1).
+  FACEBOOK_APP_ID: ${FACEBOOK_APP_ID:-}
+  FACEBOOK_APP_SECRET: ${FACEBOOK_APP_SECRET:-}
+  META_GRAPH_MCP_URL: ${META_GRAPH_MCP_URL:-http://meta-graph-mcp:8081/mcp}
+  MCP_OAUTH_CALLBACK_URL: ${MCP_OAUTH_CALLBACK_URL:-}
   ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
   HUNYUAN3D_URL: ${HUNYUAN3D_URL:-}
   HUNYUAN3D_TIMEOUT_MS: ${HUNYUAN3D_TIMEOUT_MS:-}
@@ -422,6 +429,27 @@ services:
       - "8080"
     healthcheck:
       test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # Meta Graph MCP (HTTP) — Facebook Pages + Instagram. Token per request via Connectors MCP OAuth.
+  # Start: docker compose --profile optional-meta-graph-mcp up -d --build meta-graph-mcp
+  # Seed: docker compose exec backend node scripts/seed-meta-graph-mcp.js
+  meta-graph-mcp:
+    profiles: ["optional-meta-graph-mcp"]
+    build:
+      context: ..
+      dockerfile: deploy/docker/meta-graph-mcp.Dockerfile
+    image: agent-os-meta-graph-mcp:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      META_GRAPH_MCP_PORT: "8081"
+    expose:
+      - "8081"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8081/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
       interval: 30s
       timeout: 5s
       retries: 5

@@ -1684,11 +1684,46 @@ export async function completeCeoApprovalResponse({ kanbanTaskId, decision, comm
 
   const approved = decision === 'approve' || decision === 'approved';
   const decisionLabel = approved ? 'approved' : 'rejected';
+  const commentTrim = String(comment || '').trim();
+  // Preserve the summary shown to the CEO (e.g. POST_BODIES) so downstream
+  // agents — Channel Publisher — receive publishable payload, not only "approved".
+  let approvedContent = '';
+  try {
+    const stepIn = db()
+      .prepare(
+        `SELECT input_json FROM agent_workflow_run_steps
+         WHERE run_id = ? AND node_id = ? ORDER BY id DESC LIMIT 1`
+      )
+      .get(meta.run_id, meta.node_id);
+    const parsed = stepIn?.input_json
+      ? typeof stepIn.input_json === 'string'
+        ? JSON.parse(stepIn.input_json)
+        : stepIn.input_json
+      : null;
+    const resolved = parsed?.resolved || {};
+    approvedContent = String(
+      resolved.summary ||
+        resolved.prompt ||
+        resolved.body ||
+        parsed?.resolved_prompt ||
+        ''
+    ).trim();
+  } catch (_) {
+    approvedContent = '';
+  }
+  const textParts = [
+    `CEO decision: ${decisionLabel}`,
+    commentTrim ? `CEO comment: ${commentTrim}` : null,
+    approvedContent
+      ? `--- APPROVED CONTENT (use this for publish tools; do not invent bodies) ---\n${approvedContent}`
+      : null,
+  ].filter(Boolean);
   const outputs = {
     decision: decisionLabel,
     approved: approved,
-    comment: String(comment || '').trim(),
-    text: `${decisionLabel}${comment ? `: ${comment}` : ''}`,
+    comment: commentTrim,
+    summary: approvedContent || undefined,
+    text: textParts.join('\n\n'),
   };
 
   if (comment?.trim()) {

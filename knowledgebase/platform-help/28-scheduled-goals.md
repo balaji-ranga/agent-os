@@ -34,6 +34,8 @@ A **scheduled goal** is a durable CEO instruction on a cadence (hourly / daily /
 
 For "alert me when..." market conditions, combine hourly (or weekdays) + tools (web search or quote) + `notify_ceo` only when the condition holds. There is no continuous real-time market feed — polling is intentional.
 
+**Content ops pack:** a **Weekly ops rollup for CEO** goal (Ops Reporter) is not email. Each fire chats Ops Reporter; the agent should call **`notify_ceo`** so you see the summary in the **bell**. Use **Run now** to test. Full path: [30-content-creator-ops.md](./30-content-creator-ops.md).
+
 ## Where
 
 | Surface | Path | Role |
@@ -94,4 +96,5 @@ Goals are CEO-scoped (`owner_user_id`). Other CEOs never see your schedules. API
 
 - Platform timers: [19-scheduled-jobs-and-crons.md](./19-scheduled-jobs-and-crons.md)
 - Company first-run: [29-company-setup.md](./29-company-setup.md)
-- Kanban / standups: [04-kanban-standups-broadcast.md](./04-kanban-standups-broadcast.md)
+- Content ops rollup / publish: [30-content-creator-ops.md](./30-content-creator-ops.md)
+- Kanban / standups / bell: [04-kanban-standups-broadcast.md](./04-kanban-standups-broadcast.md)

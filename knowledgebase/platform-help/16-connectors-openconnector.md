@@ -4,17 +4,40 @@
 
 Path: **Agentic Workflows → Connectors** (`/connectors`).
 
-Connect **SaaS apps** (GitHub, Gmail, Google Drive, Hacker News, …) to your CEO account via **OpenConnector**. Connected apps are then callable from workflow **Connector** nodes.
+Two tabs on the same page:
 
-This is **not** the same as **MCP** (`/integrations/mcp`):
+| Tab | Purpose |
+|-----|---------|
+| **OpenConnector** | Link SaaS apps (GitHub, Gmail, Drive, …) via OpenConnector OAuth / API keys |
+| **MCPs** | Connect **platform MCP servers that use OAuth** (e.g. Facebook Meta Graph). Agent OS owns the OAuth flow; access tokens are **per CEO**. |
 
-| | **Connectors** | **MCP** |
-|--|----------------|---------|
-| Purpose | Link SaaS apps with OAuth / API key | Register MCP tool servers |
-| Use in workflows | **Connector** node | **MCP** / **SSE Listen** / Brain MCP tools |
-| Isolation | Per CEO connections | Per CEO (+ admin-shared) servers |
+### OpenConnector tab (SaaS apps)
 
-## First-time setup (CEO)
+Connect **SaaS apps** to your CEO account via **OpenConnector**. Connected apps are then callable from workflow **Connector** nodes.
+
+### MCPs tab (OAuth-backed MCP servers)
+
+1. Open **Connectors → MCPs**.
+2. MCPs listed here are only those **included** for OAuth (not the full Integrations → MCP list). Facebook appears when the platform seeds `mcp-meta-graph`; other providers (LinkedIn, etc.) appear after an admin includes them from the registry.
+3. Admin: **Include from MCP registry** → pick a server → provider preset → client credentials → save. CEOs: **Connect** → complete OAuth → session stored in vault for your account only.
+4. Use **MCP tool** nodes in workflows with that server id; do **not** use OpenConnector **Connector** nodes for these Graph/API tools.
+
+#### Facebook / Meta Graph (publish to a Page)
+
+- **App credentials** (App ID + App Secret) are platform/operator config — use the Facebook app’s App ID, not a Threads-only ID if they differ.
+- **OAuth scopes** for Page post/comment work need the Meta use case permissions **Ready for testing** (Page show list, manage posts, read engagement / user content, manage engagement, business management as required).
+- Graph can post as a **Facebook Page** you manage. A personal profile URL id is **not** a Graph **page_id**. Resolve pages via MCP (e.g. list accounts) or Page settings.
+- Publish workflows typically pass **`page_id` + message** in **workflow run input** (or goal text consumed by the graph). See [30-content-creator-ops.md](./30-content-creator-ops.md).
+
+This is **not** the same as the full **MCP registry** page (`/integrations/mcp`), which registers custom/user servers:
+
+| | **Connectors → OpenConnector** | **Connectors → MCPs** | **MCP registry** |
+|--|----------------|----------------------|------------------|
+| Purpose | SaaS apps via OpenConnector | Platform OAuth sessions for MCP tools | Register any HTTP/SSE MCP server |
+| Use in workflows | **Connector** node | **MCP tool** node | **MCP** / **SSE Listen** / Brain MCP tools |
+| Isolation | Per CEO app connections | Per CEO OAuth tokens | Per CEO (+ admin-shared) servers |
+
+## First-time setup (CEO) — OpenConnector
 
 1. Open **Connectors**.
 2. Click **Provision runtime token** (or equivalent “ensure linked”) so workflows can call apps as you.

@@ -1965,6 +1965,74 @@ export function initDb() {
     );
   } catch (_) {}
 
+  /**
+   * Generic MCP OAuth — client config per MCP server + per-CEO connection tokens (vault refs).
+   * Any future OAuth-based MCP can reuse these tables via Connectors → MCPs tab.
+   */
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS mcp_oauth_configs (
+        server_id TEXT PRIMARY KEY,
+        provider TEXT NOT NULL DEFAULT 'oauth2',
+        display_name TEXT DEFAULT '',
+        authorization_url TEXT NOT NULL,
+        token_url TEXT NOT NULL,
+        client_id TEXT DEFAULT '',
+        client_secret TEXT DEFAULT '',
+        client_id_env TEXT DEFAULT '',
+        client_secret_env TEXT DEFAULT '',
+        scopes TEXT DEFAULT '',
+        auth_header_name TEXT DEFAULT 'Authorization',
+        auth_header_template TEXT DEFAULT 'Bearer {{access_token}}',
+        extra_auth_params_json TEXT DEFAULT '{}',
+        token_request_style TEXT DEFAULT 'form',
+        refresh_enabled INTEGER DEFAULT 1,
+        provider_options_json TEXT DEFAULT '{}',
+        enabled INTEGER DEFAULT 1,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (server_id) REFERENCES mcp_servers(id) ON DELETE CASCADE
+      )
+    `);
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS mcp_oauth_connections (
+        id TEXT PRIMARY KEY,
+        server_id TEXT NOT NULL,
+        owner_user_id TEXT NOT NULL,
+        access_token_ref TEXT DEFAULT '',
+        refresh_token_ref TEXT DEFAULT '',
+        access_token_hint TEXT DEFAULT '',
+        expires_at TEXT,
+        scopes TEXT DEFAULT '',
+        account_label TEXT DEFAULT '',
+        metadata_json TEXT DEFAULT '{}',
+        status TEXT NOT NULL DEFAULT 'connected',
+        last_error TEXT,
+        connected_at TEXT,
+        updated_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(owner_user_id, server_id),
+        FOREIGN KEY (server_id) REFERENCES mcp_servers(id) ON DELETE CASCADE
+      )
+    `);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_mcp_oauth_connections_server
+       ON mcp_oauth_connections(server_id, owner_user_id)`
+    );
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS mcp_oauth_states (
+        state TEXT PRIMARY KEY,
+        server_id TEXT NOT NULL,
+        owner_user_id TEXT NOT NULL,
+        code_verifier TEXT DEFAULT '',
+        created_at TEXT DEFAULT (datetime('now')),
+        expires_at TEXT NOT NULL
+      )
+    `);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_mcp_oauth_states_expires ON mcp_oauth_states(expires_at)`
+    );
+  } catch (_) {}
+
   return _db;
 }
 

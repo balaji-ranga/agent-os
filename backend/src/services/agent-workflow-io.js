@@ -70,45 +70,79 @@ function getOutputValue(context, nodeId, outputKey = 'text') {
   return String(raw);
 }
 
+/** Format a value for embedding into a template string.
+ * When the placeholder sits inside JSON string quotes, escape as JSON string content.
+ * When it sits as a bare JSON value, emit full JSON.stringify (incl. quotes for strings).
+ */
+function formatTemplateEmbed(value, { quotedStringContext = false } = {}) {
+  if (quotedStringContext) {
+    return JSON.stringify(value == null ? '' : value).slice(1, -1);
+  }
+  if (value != null && typeof value === 'object') return JSON.stringify(value);
+  if (value === undefined || value === null) return 'null';
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  // bare JSON string value
+  return JSON.stringify(String(value));
+}
+
+function isLikelyJsonTemplate(text) {
+  const t = String(text || '').trim();
+  return (t.startsWith('{') && t.endsWith('}')) || (t.startsWith('[') && t.endsWith(']'));
+}
+
 /** Replace {{nodeId.outputKey}} bind variables (supports nested keys e.g. body.accessToken).
  * Also supports {{var.key}} / {{variables.key}} for workflow-level static variables.
+ * JSON-safe: placeholders inside "..." get escaped; bare JSON placeholders use JSON.stringify.
  */
 export function renderWorkflowTemplates(text, context) {
   if (text == null || text === '') return text;
-  let out = String(text).replace(/\{\{var(?:iables)?\.([\w.-]+)\}\}/g, (_, path) => {
+  const jsonish = isLikelyJsonTemplate(text);
+
+  const resolveVar = (path) => {
     const vars = context.workflow_variables || context.variables || {};
-    const v = getNestedValue(vars, path);
-    return v === '' && vars[path] != null
-      ? typeof vars[path] === 'object'
-        ? JSON.stringify(vars[path])
-        : String(vars[path])
-      : v;
-  });
-  out = out.replace(/\{\{([\w-]+)\.([\w.-]+)\}\}/g, (_, nodeId, path) => {
-    if (nodeId === 'var' || nodeId === 'variables') {
-      const vars = context.workflow_variables || context.variables || {};
-      const v = getNestedValue(vars, path);
-      if (v !== '') return v;
-      if (vars[path] != null) {
-        return typeof vars[path] === 'object' ? JSON.stringify(vars[path]) : String(vars[path]);
+    const nested = getNestedValue(vars, path);
+    if (nested !== '' || nested === 0 || nested === false) return nested;
+    if (vars[path] != null) return vars[path];
+    return '';
+  };
+
+  let out = String(text);
+
+  const sub = (re, lookup, keepMatchIf) => {
+    out = out.replace(re, (match, ...args) => {
+      const offset = args[args.length - 2];
+      const full = args[args.length - 1];
+      const value = lookup(...args.slice(0, -2));
+      if (keepMatchIf && keepMatchIf(value, match, ...args.slice(0, -2))) return match;
+      const before = offset > 0 ? full[offset - 1] : '';
+      const after = full[offset + match.length] || '';
+      const quotedStringContext = before === '"' && after === '"';
+      if (quotedStringContext) {
+        return formatTemplateEmbed(value, { quotedStringContext: true });
       }
-      return '';
-    }
-    return (() => {
-      const v = getOutputValue(context, nodeId, path);
-      if (v != null && typeof v === 'object') return JSON.stringify(v);
-      return v;
-    })();
+      if (jsonish) {
+        return formatTemplateEmbed(value, { quotedStringContext: false });
+      }
+      if (value != null && typeof value === 'object') return JSON.stringify(value);
+      return value == null ? '' : String(value);
+    });
+  };
+
+  sub(/\{\{var(?:iables)?\.([\w.-]+)\}\}/g, (path) => resolveVar(path));
+  sub(/\{\{([\w-]+)\.([\w.-]+)\}\}/g, (nodeId, path) => {
+    if (nodeId === 'var' || nodeId === 'variables') return resolveVar(path);
+    return getOutputValue(context, nodeId, path);
   });
-  out = out.replace(/\{\{(\w+)\}\}/g, (match, key) => {
-    if (key === 'input') {
-      return context.initial_input != null ? String(context.initial_input) : match;
-    }
-    const val = context[key];
-    if (val == null) return match;
-    if (typeof val === 'object') return JSON.stringify(val);
-    return String(val);
-  });
+  sub(
+    /\{\{(\w+)\}\}/g,
+    (key) => {
+      if (key === 'input') return context.initial_input;
+      if (Object.prototype.hasOwnProperty.call(context, key)) return context[key];
+      return undefined;
+    },
+    (value, match) => value === undefined && match.startsWith('{{')
+  );
+
   return out;
 }
 
@@ -182,20 +216,34 @@ export function resolveNodeInputs(node, graph, context) {
   return { resolved, bindings, summary };
 }
 
+function appendExtraResolvedBindings(base, resolved, excludeKeys = []) {
+  const skip = new Set(excludeKeys);
+  const extras = Object.entries(resolved || {})
+    .filter(([k, v]) => v != null && String(v).trim() && !skip.has(k))
+    .map(([k, v]) => `--- ${k} ---\n${typeof v === 'object' ? JSON.stringify(v) : String(v)}`);
+  if (!extras.length) return base;
+  if (!base || !String(base).trim()) return extras.join('\n\n');
+  return `${String(base).trim()}\n\n${extras.join('\n\n')}`;
+}
+
 /** Legacy {{input}} text for agent prompts. */
 export function resolveInputText(node, graph, context) {
   const { resolved } = resolveNodeInputs(node, graph, context);
   const data = node.data || {};
 
-  if (resolved.body) return resolved.body;
+  if (resolved.body) {
+    return appendExtraResolvedBindings(resolved.body, resolved, ['body', 'prompt']);
+  }
   if (resolved.prompt) {
     let prompt = data.prompt || data.instructions || '';
     prompt = prompt.replace(/\{\{input\}\}/g, resolved.prompt);
-    if (!prompt.trim()) return resolved.prompt;
-    if (!prompt.includes(resolved.prompt)) {
-      return `${prompt}\n\n---\nInput:\n${resolved.prompt}\n---`.trim();
-    }
-    return prompt;
+    let out;
+    if (!prompt.trim()) out = resolved.prompt;
+    else if (!prompt.includes(resolved.prompt)) {
+      out = `${prompt}\n\n---\nInput:\n${resolved.prompt}\n---`.trim();
+    } else out = prompt;
+    // Multi-binding agents (e.g. Channel Publisher: prompt=CEO text + post_bodies=reviewer)
+    return appendExtraResolvedBindings(out, resolved, ['prompt', 'body']);
   }
 
   const parts = Object.entries(resolved)

@@ -71,6 +71,10 @@
       "tools": [
         "learnings_summary",
         "master_data_rag",
+        "master_data_list_rows",
+        "master_data_update_row",
+        "master_data_insert_row",
+        "agent_workflow_trigger",
         "notify_ceo",
         "kanban_create_task",
         "summarize_url"
@@ -78,16 +82,23 @@
     },
     {
       "name": "Channel Publisher",
-      "role": "FB/IG/LinkedIn/blog publish checklists via Browser Session",
+      "role": "Trigger certified social publish workflow content-publish-social (Facebook Meta Graph MCP + LinkedIn OpenConnector); browser only as emergency fallback",
       "department": "Channels",
       "tools": [
         "learnings_summary",
         "master_data_rag",
+        "master_data_list_rows",
+        "master_data_insert_row",
+        "agent_workflow_list",
+        "agent_workflow_trigger",
+        "agent_workflow_runs",
+        "agent_workflow_enquire",
         "browse_task_start",
         "browse_task_status",
         "browse_recipe_list",
         "browse_recipe_run",
-        "notify_ceo"
+        "notify_ceo",
+        "kanban_create_task"
       ]
     },
     {
@@ -103,15 +114,15 @@
     }
   ],
   "workflows": [
-    "Brief -> generate draft (image/copy/blog) -> human review -> Browser Session publish checklist -> log outcome",
+    "CEO weekly goal -> COO agent_workflow_trigger (event) -> draft/review -> CEO Kanban gate if required -> Channel Publisher agent_workflow_trigger content-publish-social (FB MCP + LI OC) -> log content_topics_history + publish_log",
     "Inbound comment triage -> Community Manager drafts -> CEO approve if required -> reply",
-    "Weekly ops rollup: pipeline counts + blockers -> notify CEO"
+    "Weekly ops rollup (event/manual): pipeline counts + blockers -> notify CEO"
   ],
   "channels": [
-    "Connect Browser Session and log into Facebook, Instagram, LinkedIn, and your blog CMS in Client Chrome.",
-    "Optional: Replicate BYOK under API Keys only if you want still-image generation beyond default tools.",
-    "Use Policies for public-post and comment-approval rules.",
-    "YouTube long-form / animated video packs are a separate industry (not this blueprint)."
+    "One-time: Browser Session Client Chrome lease + log into Facebook, Instagram, LinkedIn, and blog CMS. Agents then focus platform tabs automatically.",
+    "Publish is fully autonomous after Kanban approval: no CEO mid-workflow for tab focus or Start a post.",
+    "After each publish task completes, the browser task closes/recycles the platform tab so the next workflow run opens a clean feed.",
+    "Optional: Replicate BYOK under API Keys for still images. Policies for public-post and comment-approval. Not YouTube long-form packs."
   ],
   "knowledge_tables": [
     {
@@ -151,6 +162,30 @@
       ]
     },
     {
+      "name": "company_goals",
+      "description": "CEO / operate goals readiness (topic source for production).",
+      "columns": [
+        "goal_id",
+        "label",
+        "owner",
+        "cadence",
+        "status",
+        "prompt_or_brief",
+        "updated"
+      ],
+      "seed_rows": [
+        {
+          "goal_id": "weekly_content_goal",
+          "label": "Weekly content goal (CEO topic)",
+          "owner": "CEO",
+          "cadence": "weekly",
+          "status": "awaiting_ceo",
+          "prompt_or_brief": "",
+          "updated": ""
+        }
+      ]
+    },
+    {
       "name": "content_pipeline",
       "description": "Content items from idea to publish (social + blog).",
       "columns": [
@@ -161,16 +196,22 @@
         "due_date",
         "notes"
       ],
-      "seed_rows": [
-        {
-          "title": "Example: Welcome brand post",
-          "platform": "Instagram",
-          "stage": "idea",
-          "owner": "Content Strategist",
-          "due_date": "",
-          "notes": "Replace with your first real brief"
-        }
-      ]
+      "seed_rows": []
+    },
+    {
+      "name": "content_topics_history",
+      "description": "Dedupe ledger: do not reuse title/theme fingerprint for 20 days.",
+      "columns": [
+        "when",
+        "platform",
+        "title",
+        "topic",
+        "fingerprint",
+        "status",
+        "notes",
+        "expires_after"
+      ],
+      "seed_rows": []
     },
     {
       "name": "brand_voice",
@@ -187,6 +228,10 @@
         {
           "topic": "claims",
           "guidance": "Do not invent product claims; use Master Data facts only."
+        },
+        {
+          "topic": "uniqueness",
+          "guidance": "Check content_topics_history for 20 days before new titles/angles; do not repeat near-duplicates."
         }
       ]
     },
@@ -216,28 +261,53 @@
     {
       "title": "SOP - Content review before publish",
       "filename": "sop-content-review.md",
-      "contentText": "# Content review before publish\n\n1. Media Generator produces draft (copy + optional image).\n2. Content Reviewer checks brand_voice and Policies.\n3. If style is approval, notify CEO and wait on Kanban.\n4. Channel Publisher only runs publish checklist after review.\n5. Log outcome on content_pipeline.\n\nScope: Facebook, Instagram, LinkedIn, blogs. Not YouTube production.\n"
+      "contentText": "# Content review before publish\n\n1. CEO sets weekly content goal (Scheduled goals â†’ COO).\n2. COO triggers Operate content production loop (manual/event; no silent cron) with the goal as input.\n3. Content Strategist checks content_topics_history (20-day window) then produces NEW angles only under the CEO goal.\n4. Media Generator produces draft (copy + optional image).\n5. Content Reviewer checks brand_voice, Policies, and uniqueness vs content_topics_history.\n6. If style is approval, notify CEO and wait on Kanban.\n7. Channel Publisher runs publish checklist then `agent_workflow_trigger` on workflow_id **content-publish-social** (not browser compose for FB/LI).\n8. Log content_topics_history + publish_log from workflow run output only.\n\nScope: Facebook Page + LinkedIn text (API); Instagram/blog may use Meta MCP or browser. Not YouTube production.\n"
     },
     {
       "title": "SOP - Comment handling",
       "filename": "sop-comment-handling.md",
-      "contentText": "# Comment handling (FB / IG / LI / blog)\n\n1. Community Manager drafts using comment_playbook.\n2. Never invent facts; master_data_rag for product truth.\n3. Escalate (notify_ceo) when escalate=yes or tone is hostile/legal.\n4. Live posting uses Browser Session; do not claim native API publish unless configured.\n"
+      "contentText": "# Comment handling (FB Graph)\n\n1. **Ingest workflow:** mcp_tool get_my_pages → brain with MCP (get_page_posts, get_post_comments) → agent writes Master Data comment_inbox via master_data_* tools. Connect OAuth under Connectors → MCPs (mcp-meta-graph).\n2. **Triage:** master_data_list_rows on comment_inbox; Community Manager drafts; never invent comments.\n3. Escalate (notify_ceo) for legal/hostile.\n4. **Reply:** after CEO approval, brain MCP reply_to_comment. Publish posts still use content-publish-social.\n"
     },
     {
       "title": "SOP - Channel publish checklist",
       "filename": "sop-channel-publish.md",
-      "contentText": "# Publish checklist per channel\n\n**All platforms**\n- Asset reviewed and approved\n- Caption length and hashtags OK\n- No secrets / PII leaks\n\n**Instagram** - Aspect ratio, carousel order, first comment if used\n**LinkedIn** - Professional framing, no over-hashtagging\n**Facebook** - Link preview check\n**Blog CMS** - Title, slug, meta description, featured image\n\nPrefer Browser Session recipes after login once.\n\nOut of scope: YouTube long-form / animated video industry packs.\n"
+      "contentText": "# Publish checklist per channel\n\n**All platforms**\n- Asset reviewed and approved (Kanban if style=approval)\n- Caption length and hashtags OK\n- No secrets / PII leaks\n- Topic/title not reused within last 20 days (content_topics_history)\n\n**LinkedIn** - Professional framing, no over-hashtagging\n**Facebook Page** - page_id known; optional link preview\n**Instagram / Blog CMS** - media/blog rules; may still use browser\n\n## Primary path: API workflow (content-publish-social)\n1. CEO once: Connectors â†’ MCPs â†’ Facebook OAuth; optional OpenConnector LinkedIn connected (App ID/Secret live on MCP config, not agent). Default facebook_page_id in master_data if multi-page.\n2. After Kanban approval of EXACT body, Channel Publisher calls `agent_workflow_trigger` with workflow_id `content-publish-social` and input `{ platform: facebook|linkedin, body, page_id?, link?, fingerprint }`.\n3. Poll with `agent_workflow_runs` until completed/failed. Never invent post URLs.\n4. Write publish_log + content_topics_history from run output only.\n5. Fail closed if OAuth missing or LinkedIn action not certified â€” notify_ceo with reconnect steps.\n\n## Fallback only: Browser Session\nUse browse_task_* only when publish_path=browser or platform has no API (some blog CMS). Not the default for Facebook/LinkedIn text posts.\n\nOut of scope: YouTube long-form / animated video industry packs.\n"
+    },
+    {
+      "title": "SOP - Autonomous Browser Session publish",
+      "filename": "sop-autonomous-browser-publish.md",
+      "contentText": "# Browser Session publish (FALLBACK ONLY)\n\n**Not the primary Content Media path.** Prefer workflow `content-publish-social` (Meta Graph MCP + LinkedIn OpenConnector).\n\n**When allowed**\n- Blog CMS or site without API\n- Explicit `publish_path=browser`\n- Emergency when MCP/OC is down (log failure reason)\n\n**Setup (human once)**\n- Browser Session â†’ Mark ready / Client Chrome lease held\n- Logged in to target sites\n\n**Runtime**\n1. browse_task_start with EXACT body + start_url.\n2. Focus platform, compose, post, confirm, recycle tab.\n3. Log publish_log honestly; never claim API id when only browser succeeded.\n"
+    },
+    {
+      "title": "SOP - API publish via content-publish-social",
+      "filename": "sop-api-publish-social.md",
+      "contentText": "# API publish via content-publish-social\n\n**Once per company (CEO)**\n1. Platform admin sets Facebook App ID + App Secret on Connectors â†’ MCPs for **mcp-meta-graph** (connector-level secrets; not .env for day-to-day).\n2. This CEO: Connectors â†’ MCPs â†’ Connect Facebook/Meta Graph OAuth.\n3. Optional: Connectors â†’ OpenConnector â†’ LinkedIn; certify share action id on workflow node (or CONTENT_LINKEDIN_OC_ACTION_ID).\n4. Call list_my_pages once; store default page_id for multi-page orgs.\n\n**Every publish (Channel Publisher)**\n1. After review/Kanban of EXACT post text.\n2. `agent_workflow_trigger` workflow_id=`content-publish-social` input=`{platform,body,page_id?,link?,fingerprint,source_run_id?}`.\n3. Wait for run completed; map ok/external_id from node outputs.\n4. Log master_data; never browser-compose Facebook/LinkedIn text by default.\n"
     },
     {
       "title": "SOP - Weekly social ops summary",
       "filename": "sop-weekly-summary.md",
-      "contentText": "# Weekly social ops summary\nOps Reporter every week:\n1. Count content_pipeline by stage\n2. Note blockers (accounts not connected, missing keys)\n3. Summarize CEO approvals pending\n4. notify_ceo with short rollup + links to Knowledge / Kanban\n"
+      "contentText": "# Weekly social ops summary\nOps Reporter when triggered (event/manual):\n1. Count content_pipeline by stage\n2. Note blockers (accounts not connected, missing CEO weekly goal)\n3. Report content_topics_history coverage (posts/drafts logged; 20-day window)\n4. Summarize CEO approvals pending\n5. notify_ceo with short rollup + links to Knowledge / Kanban / Scheduled goals\n"
+    },
+    {
+      "title": "SOP - CEO goal to COO workflow",
+      "filename": "sop-goal-to-coo.md",
+      "contentText": "# CEO goal â†’ COO â†’ operate workflow\n\n1. CEO creates/refreshes **weekly content goal** under Scheduled goals (target **COO**) or briefs COO in chat.\n2. Goal text is the **topic source** for the week â€” specialists do not invent a replacement topic.\n3. COO runs `agent_workflow_trigger` on **Operate - Content production loop** with that goal as input.\n4. Content production / community loops are **manual or event only** â€” not platform cron schedules for this industry pack.\n5. Before drafts: consult **content_topics_history** (no reuse for 20 days).\n6. After drafts/publish: append history rows with fingerprint + expires_after.\n"
     }
   ],
   "systems_recommended": [
     {
+      "id": "connectors_mcp",
+      "label": "Connectors â†’ MCPs (Facebook / Meta Graph OAuth)",
+      "path": "/connectors"
+    },
+    {
+      "id": "openconnector",
+      "label": "OpenConnector (LinkedIn app)",
+      "path": "/connectors"
+    },
+    {
       "id": "browser_session",
-      "label": "Browser Session (social + blog login)",
+      "label": "Browser Session (blog / emergency only)",
       "path": "/browser-session"
     },
     {
@@ -276,5 +346,13 @@
   "industry": "content_creator",
   "name": "Content Creator (Social media)",
   "label": "Content Creator (Social media)",
-  "description": "Plan, draft, review, and publish social posts and blog articles for Facebook, Instagram, LinkedIn, and blogs (via Browser Session). Scope excludes YouTube long-form video production and heavy video editing — that belongs to a separate industry pack later."
+  "description": "Plan, draft, review, and publish social posts for Facebook Page + LinkedIn via content-publish-social (Meta Graph MCP + OpenConnector). Browser Session is emergency/blog only. Scope excludes YouTube long-form video production.",
+  "operate_model_id": "content_creator",
+  "browser_autonomy": {
+    "focus_platform_tabs": true,
+    "shadow_dom_fill": true,
+    "click_primary_post": true,
+    "recycle_tab_after_task": true,
+    "no_human_composer_handhold": true
+  }
 }

@@ -21,6 +21,10 @@ import {
 } from './browser-recipes.js';
 import { storeFeedback } from './agent-feedback.js';
 import { assertUrlAllowed } from './browser-url-policy.js';
+import {
+  extractPublishBody,
+  runAutonomousSocialPublish,
+} from './browser-social-publish.js';
 
 const MAX_STEPS_DEFAULT = 18;
 // Backend CDP invokes use this OpenClaw agent (must have built-in browser allowed).
@@ -308,19 +312,299 @@ function extractJsonObject(text) {
   }
 }
 
-async function decideNextAction({ ceoUserId, goal, snapshot, history, startUrl }) {
+function goalLooksSocialPublish(goalText) {
+  const g = String(goalText || '');
+  return (
+    goalLooksInteractive(g) &&
+    /\b(linkedin|facebook|fb\.com|instagram|twitter|x\.com)\b/i.test(g) &&
+    /\b(publish|post|compose|share)\b/i.test(g)
+  );
+}
+
+/** Prefer publish body extractor shared with autonomous social module. */
+function extractPublishBodyFromGoal(goalText) {
+  return extractPublishBody(goalText);
+}
+
+async function evaluateInBrowser(ceoUserId, agentId, fnSource) {
+  const fn = String(fnSource || '').trim();
+  if (!fn) return { ok: false, detail: 'empty_fn' };
+  const res = await browserInvoke(
+    ceoUserId,
+    'act',
+    { request: { kind: 'evaluate', fn }, fn, expression: fn },
+    agentId
+  );
+  let detail = String(parseInvokeText(res) || res?.text || '').trim();
+  // OpenClaw / relay often wraps as {"ok":true,"result":"<payload>"}
+  for (let depth = 0; depth < 3; depth++) {
+    try {
+      const j = JSON.parse(detail);
+      if (j && typeof j.result === 'string') {
+        detail = j.result;
+        continue;
+      }
+      if (j && j.result != null && typeof j.result === 'object') {
+        detail = JSON.stringify(j.result);
+        break;
+      }
+      if (j && typeof j.result !== 'undefined' && typeof j.result !== 'object') {
+        detail = String(j.result);
+        break;
+      }
+      break;
+    } catch {
+      break;
+    }
+  }
+  return { ok: !invokeLooksFailed(res), detail: String(detail).slice(0, 800), raw: res };
+}
+
+/**
+ * Detect LinkedIn/Facebook share composer modal (dialog + contenteditable).
+ * Returns JSON string: {open, platform, hasEditor, hasPostBtn, editorLabel}
+ */
+async function detectSocialComposerState(ceoUserId, agentId) {
+  const fn = `() => {
+    const isEditor = (el) => {
+      if (!el) return false;
+      if (el.getAttribute('contenteditable') === 'true') return true;
+      if (el.getAttribute('role') === 'textbox') return true;
+      if (el.classList && (el.classList.contains('ql-editor') || el.classList.contains('share-creation-state__text-editor'))) return true;
+      return false;
+    };
+    const editorSel = [
+      '[role="dialog"] [contenteditable="true"]',
+      '[role="dialog"] div[role="textbox"]',
+      '.artdeco-modal [contenteditable="true"]',
+      '.share-creation-state [contenteditable="true"]',
+      '.share-creation-state__text-editor',
+      '.ql-editor[contenteditable="true"]',
+      'div[data-placeholder*="talk about" i]',
+      'div[aria-label*="Text editor" i]',
+      'div[aria-label*="What do you want to talk about" i]',
+      'form [contenteditable="true"]',
+      'div[aria-modal="true"] [contenteditable="true"]',
+    ].join(',');
+
+    let editor = null;
+    try { editor = document.querySelector(editorSel); } catch (_) { editor = null; }
+    if (!editor) {
+      editor = Array.from(document.querySelectorAll('[contenteditable="true"], div[role="textbox"]')).find((el) => {
+        const r = el.getBoundingClientRect();
+        if (r.width < 40 || r.height < 20) return false;
+        const ph = (el.getAttribute('data-placeholder') || el.getAttribute('aria-label') || el.getAttribute('placeholder') || '').toLowerCase();
+        const nearShare = !!(el.closest('[role="dialog"], .artdeco-modal, .share-creation-state, form'));
+        return nearShare || /talk about|share|post|on your mind|write something/.test(ph);
+      }) || null;
+    }
+
+    if (!editor || !isEditor(editor)) {
+      return JSON.stringify({
+        open: false,
+        hostname: location.hostname,
+        ce_count: document.querySelectorAll('[contenteditable="true"]').length,
+        dialog_count: document.querySelectorAll('[role="dialog"], .artdeco-modal, [aria-modal="true"]').length,
+      });
+    }
+
+    const root =
+      editor.closest('[role="dialog"], .artdeco-modal, .share-creation-state, [aria-modal="true"], form') ||
+      editor.parentElement;
+    const buttons = Array.from((root || document).querySelectorAll('button, [role="button"]'));
+    const postBtn = buttons.find((b) => {
+      const lab = (b.innerText || b.getAttribute('aria-label') || '').trim().split('\\n')[0];
+      return /^(post|publish|share now)$/i.test(lab);
+    });
+    return JSON.stringify({
+      open: true,
+      platform: /facebook/i.test(location.hostname)
+        ? 'facebook'
+        : /linkedin/i.test(location.hostname)
+          ? 'linkedin'
+          : 'unknown',
+      hasEditor: true,
+      hasPostBtn: !!postBtn,
+      editorLabel: (
+        editor.getAttribute('aria-label') ||
+        editor.getAttribute('data-placeholder') ||
+        editor.getAttribute('placeholder') ||
+        ''
+      ).slice(0, 80),
+      dialogSnippet: ((root && root.innerText) || '').replace(/\\s+/g, ' ').trim().slice(0, 120),
+      ce_count: document.querySelectorAll('[contenteditable="true"]').length,
+    });
+  }`;
+  const { ok, detail } = await evaluateInBrowser(ceoUserId, agentId, fn);
+  if (!ok) return { open: false, error: detail };
+  try {
+    return { ...JSON.parse(detail), probe_ok: true };
+  } catch {
+    return { open: false, error: detail };
+  }
+}
+
+/** Fill composer contenteditable with exact body and click Post inside the modal only. */
+async function trySocialComposerFillAndPost(ceoUserId, agentId, bodyText, steps) {
+  const body = String(bodyText || '').trim();
+  if (!body) return { ok: false, reason: 'empty_body' };
+
+  const escaped = JSON.stringify(body);
+  const fn = `() => {
+    const body = ${escaped};
+    const editors = Array.from(document.querySelectorAll(
+      '[role="dialog"] [contenteditable="true"], [role="dialog"] div[role="textbox"], .artdeco-modal [contenteditable="true"], .share-creation-state [contenteditable="true"], .share-creation-state__text-editor, .ql-editor[contenteditable="true"], div[aria-modal="true"] [contenteditable="true"], form [contenteditable="true"], [contenteditable="true"]'
+    ));
+    const editor = editors.find((el) => {
+      const r = el.getBoundingClientRect();
+      return r.width > 40 && r.height > 18;
+    }) || null;
+    if (!editor) {
+      return JSON.stringify({
+        ok: false,
+        stage: 'no_editor',
+        ce_count: document.querySelectorAll('[contenteditable="true"]').length,
+        dialog_count: document.querySelectorAll('[role="dialog"], .artdeco-modal').length,
+      });
+    }
+
+    const root =
+      editor.closest('[role="dialog"], .artdeco-modal, .share-creation-state, [aria-modal="true"], form') ||
+      document.body;
+
+    try {
+      editor.focus();
+      editor.click();
+      if (document.execCommand) {
+        document.execCommand('selectAll', false, null);
+        document.execCommand('delete', false, null);
+      }
+      editor.innerHTML = '';
+      // Prefer textContent / innerText for LI quill
+      if ('innerText' in editor) editor.innerText = body;
+      else editor.textContent = body;
+      try {
+        editor.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'insertText', data: body }));
+      } catch (_) {
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      editor.dispatchEvent(new Event('change', { bubbles: true }));
+      editor.dispatchEvent(new Event('keyup', { bubbles: true }));
+    } catch (e) {
+      return JSON.stringify({ ok: false, stage: 'type_error', error: String(e && e.message || e) });
+    }
+
+    const filled = (editor.innerText || editor.textContent || '').trim();
+    if (filled.length < Math.min(12, Math.floor(body.length / 3))) {
+      return JSON.stringify({ ok: false, stage: 'fill_mismatch', filled_len: filled.length, body_len: body.length, sample: filled.slice(0, 60) });
+    }
+
+    const buttons = Array.from(root.querySelectorAll('button, [role="button"]'));
+    let postBtn = buttons.find((b) => {
+      if (b.disabled || b.getAttribute('aria-disabled') === 'true') return false;
+      const lab = (b.innerText || b.getAttribute('aria-label') || '').trim().split('\\n')[0];
+      return /^(post|publish|share now)$/i.test(lab);
+    });
+    if (!postBtn) {
+      postBtn = buttons.find((b) => {
+        const lab = (b.innerText || b.getAttribute('aria-label') || '').trim();
+        return /^post$/i.test(lab) || (/\\bpost\\b/i.test(lab) && lab.length < 28);
+      });
+    }
+    // Primary Post sits bottom-right; class heuristics used when text is empty
+    if (!postBtn) {
+      postBtn = root.querySelector('button.share-actions__primary-action, button[class*="share-actions__primary"], button[data-control-name*="share"]');
+    }
+    if (!postBtn) return JSON.stringify({ ok: false, stage: 'no_post_btn', filled_len: filled.length, btn_count: buttons.length });
+
+    try {
+      postBtn.click();
+    } catch (e) {
+      return JSON.stringify({ ok: false, stage: 'post_click_error', error: String(e && e.message || e) });
+    }
+    return JSON.stringify({
+      ok: true,
+      stage: 'posted',
+      filled_len: filled.length,
+      btn: (postBtn.innerText || postBtn.getAttribute('aria-label') || postBtn.className || '').toString().trim().slice(0, 60),
+    });
+  }`;
+
+  const { ok, detail } = await evaluateInBrowser(ceoUserId, agentId, fn);
+  let parsed = {};
+  try {
+    parsed = JSON.parse(detail);
+  } catch {
+    parsed = { ok: false, stage: 'parse_detail', detail };
+  }
+  steps.push({
+    t: nowIso(),
+    action: 'social_composer_fill_post',
+    ok: Boolean(ok && parsed.ok),
+    detail: String(detail).slice(0, 400),
+  });
+  if (ok && parsed.ok) {
+    console.info('[browser-task] social fill+post ok stage=%s filled=%s', parsed.stage, parsed.filled_len);
+    await sleep(3500);
+    return { ok: true, ...parsed };
+  }
+  console.warn('[browser-task] social fill+post failed %s', String(detail).slice(0, 200));
+  return { ok: false, ...parsed, detail };
+}
+
+/** After fill+post, try to read a post URL or confirm modal closed. */
+async function confirmSocialPostResult(ceoUserId, agentId) {
+  await sleep(2000);
+  const state = await detectSocialComposerState(ceoUserId, agentId);
+  const fn = `() => {
+    const u = location.href;
+    const toast = (document.body.innerText || '').slice(0, 2000);
+    const posted =
+      /post was successful|your post was|shared successfully|is now live/i.test(toast) ||
+      /linkedin\\.com\\/feed\\/update|linkedin\\.com\\/posts\\//i.test(u) ||
+      /facebook\\.com\\/[^/]+\\/posts\\//i.test(u);
+    return JSON.stringify({ url: u, toast_hit: /post was successful|your post was|shared successfully/i.test(toast), posted_hint: posted });
+  }`;
+  const { detail } = await evaluateInBrowser(ceoUserId, agentId, fn);
+  let info = {};
+  try {
+    info = JSON.parse(detail);
+  } catch {
+    info = { url: '', detail };
+  }
+  return {
+    modal_still_open: Boolean(state.open),
+    url: info.url || '',
+    posted_hint: Boolean(info.posted_hint || info.toast_hit || (!state.open && info.url)),
+    toast_hit: Boolean(info.toast_hit),
+  };
+}
+
+async function decideNextAction({ ceoUserId, goal, snapshot, history, startUrl, modalOpen = false }) {
+  const interactive = goalLooksInteractive(goal);
   const system = `You drive a browser for a CEO. Reply with ONLY one minified JSON object. No markdown fences, no commentary.
 Schema: {"action":"click|type|press|scroll|open|done|wait_login|wait_approval","ref":"","text":"","url":"","key":"","summary":"","reason":""}
 Rules:
-- Prefer refs from the accessibility snapshot.
+- Prefer refs from the CURRENT accessibility snapshot only. Never reuse a ref that just failed.
+- If recent steps show act_failed / not found, pick a different control or use text of the control label if the schema allows (put label in reason and leave ref empty to try freeform).
 - On flight search results (prices/airlines visible), action=done and put top options in summary (airline, stops, duration, price ascending). Do not book.
-- wait_login if a login wall blocks the goal.
-- wait_approval before pay/submit/purchase/send message.
-- done when the goal is satisfied; put the answer in summary.
-- Never invent credentials. Keep JSON under 500 characters when possible.`;
+- wait_login if a login wall blocks the goal (Sign in / Join / password form).
+- wait_approval only for pay, purchase, bank transfer, or sending money — NOT for social post Publish after the goal already says publish/post the copy.
+- For publish/post/compose goals: open composer → type the EXACT body from the goal → click Post/Publish. Put the live post URL in summary when done.
+- done when the goal is satisfied; put the answer (or post URL / honest blocker) in summary.
+- Never invent credentials or fake post URLs. Keep JSON under 500 characters when possible.
+${interactive ? '- This goal is interactive (publish/compose/reply). Do not mark done after only opening the page.' : ''}
+${
+  modalOpen
+    ? `- CRITICAL: A post/share composer MODAL/DIALOG is open. Do NOT scroll the background feed. Do NOT click "Start a post" again.
+- Work ONLY inside the dialog: focus the contenteditable / textbox, type the EXACT post body from the goal, then click the enabled Post/Publish button in the dialog.
+- Never click Like, Comment, or feed posts while the composer modal is open.`
+    : ''
+}`;
   const user = `Goal: ${goal}
 Start URL: ${startUrl || '(current)'}
-Recent steps: ${JSON.stringify(history.slice(-6))}
+ComposerModalOpen: ${modalOpen ? 'yes' : 'no'}
+Recent steps: ${JSON.stringify(history.slice(-8))}
 Snapshot (truncated):
 ${String(snapshot || '').slice(0, 12000)}`;
 
@@ -338,7 +622,31 @@ ${String(snapshot || '').slice(0, 12000)}`;
     console.warn('[browser-task] decideNextAction parse_fallback ceo=%s len=%s', ceoUserId, String(content || '').length);
     return { action: 'retry', reason: 'parse_fallback', summary: String(content || '').slice(0, 500) };
   }
+  // Hard guard: never scroll while modal open (LLM often scrolls feed behind dialog)
+  if (modalOpen && String(parsed.action || '').toLowerCase() === 'scroll') {
+    return {
+      action: 'type',
+      text: extractPublishBodyFromGoal(goal).slice(0, 500),
+      summary: 'Type into modal (scroll blocked)',
+      reason: 'modal_open_scroll_suppressed',
+    };
+  }
   return parsed;
+}
+
+function invokeLooksFailed(result) {
+  if (!result) return true;
+  if (result.ok === false) return true;
+  const t = parseInvokeText(result) || result.text || '';
+  return /not found or not visible|Element ".*" not found|Unknown ref|BrowserServiceError|Target closed|Page closed|no tab|failed|request required|timed out|external to OpenClaw|superseded/i.test(
+    String(t)
+  );
+}
+
+function detailLooksLikeExternalChromeFlake(detail) {
+  return /external to OpenClaw|Page closed|Playwright connection attempt was superseded|page enumeration timed out/i.test(
+    String(detail || '')
+  );
 }
 
 async function executeDecision(ceoUserId, decision, agentId) {
@@ -348,6 +656,22 @@ async function executeDecision(ceoUserId, decision, agentId) {
   }
   if (action === 'click' && decision.ref) {
     return browserInvoke(ceoUserId, 'act', { request: { kind: 'click', ref: decision.ref }, ref: decision.ref }, agentId);
+  }
+  // Label-only click: find control by visible text / aria-label via evaluate (relay freeform string needs structured request).
+  if (action === 'click' && !decision.ref && (decision.text || decision.reason || decision.summary)) {
+    const label = String(decision.text || decision.summary || decision.reason || '').slice(0, 120);
+    const fn =
+      `(() => { const target = ${JSON.stringify(label)}; const re = new RegExp(target.replace(/[.*+?^\${}()|[\\]\\\\]/g, '\\\\$&'), 'i');` +
+      ` const nodes = Array.from(document.querySelectorAll('button, [role="button"], a, div[role="button"]'));` +
+      ` for (const el of nodes) { const t = ((el.innerText||'')+' '+(el.getAttribute('aria-label')||'')).trim();` +
+      ` if (re.test(t) || re.test(target)) { el.click(); return 'clicked:' + t.slice(0,80); } }` +
+      ` return 'not_found:' + target; })()`;
+    return browserInvoke(
+      ceoUserId,
+      'act',
+      { request: { kind: 'evaluate', fn }, fn, expression: fn },
+      agentId
+    );
   }
   if (action === 'type' && (decision.ref || decision.text != null)) {
     return browserInvoke(
@@ -364,9 +688,103 @@ async function executeDecision(ceoUserId, decision, agentId) {
     return browserInvoke(ceoUserId, 'act', { request: { kind: 'scroll', direction: 'down' } }, agentId);
   }
   if (decision.reason || decision.text) {
-    return browserInvoke(ceoUserId, 'act', { request: String(decision.reason || decision.text).slice(0, 400) }, agentId);
+    // Structured freeform is not supported as raw string by Chrome Relay ("request required").
+    // Only type when the model clearly meant a type action with text.
+    return { ok: true, text: JSON.stringify({ skipped: true, reason: 'unstructured_act_ignored' }) };
   }
   return { ok: true, text: '{"skipped":true}' };
+}
+
+/** Parse Playwright-style a11y snapshot for [ref=eN] near a label. */
+function findSnapshotRef(snapshot, labelRe) {
+  const t = String(snapshot || '');
+  const re =
+    labelRe instanceof RegExp
+      ? labelRe
+      : new RegExp(String(labelRe).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+  // Prefer button "Label" [ref=eN]
+  const lines = t.split('\n');
+  for (const line of lines) {
+    if (!re.test(line)) continue;
+    const m = line.match(/\[ref=(e\d+)\]/);
+    if (m) return m[1];
+  }
+  // Label then ref on same window
+  const windowMatch = t.match(
+    new RegExp(
+      `(?:button|link|generic|paragraph|textbox)[^\\n]{0,80}${re.source}[^\\n]{0,40}\\[ref=(e\\d+)\\]|\\[ref=(e\\d+)\\][^\\n]{0,80}${re.source}`,
+      'i'
+    )
+  );
+  if (windowMatch) return windowMatch[1] || windowMatch[2] || null;
+  return null;
+}
+
+/** LinkedIn feed → Start a post via a11y CDP click (evaluate .click is not trusted / ignored). */
+async function tryLinkedInComposerBootstrap(ceoUserId, agentId, goal, steps) {
+  if (!goalLooksInteractive(goal) || !/linkedin|linked\s*in/i.test(String(goal || ''))) return false;
+  if (steps.some((s) => s.action === 'linkedin_composer_bootstrap')) return false;
+
+  let opened = false;
+  let detail = '';
+  try {
+    const snap = await takeSnapshot(ceoUserId, agentId, { limit: 20000 });
+    const ref =
+      findSnapshotRef(snap, /Start a post/i) ||
+      findSnapshotRef(snap, /Create a post/i);
+    if (ref) {
+      const res = await browserInvoke(
+        ceoUserId,
+        'act',
+        { request: { kind: 'click', ref }, ref },
+        agentId
+      );
+      const failed = invokeLooksFailed(res);
+      detail = `ref=${ref} ${String(parseInvokeText(res) || '').slice(0, 200)}`;
+      opened = !failed;
+      // Second click if first "ok" but modal may need reinjection
+      if (opened) {
+        await sleep(800);
+        await browserInvoke(ceoUserId, 'act', { request: { kind: 'click', ref }, ref }, agentId).catch(() => {});
+      }
+    } else {
+      detail = 'no_start_post_ref_in_snapshot';
+    }
+  } catch (e) {
+    detail = String(e?.message || e);
+  }
+
+  // Fallback DOM evaluate only if CDP ref path did not run
+  if (!opened && detail.includes('no_start_post_ref')) {
+    const fn = `() => {
+      const nodes = Array.from(document.querySelectorAll('button, [role="button"]'));
+      for (const el of nodes) {
+        const t = ((el.innerText || '') + ' ' + (el.getAttribute('aria-label') || '')).trim();
+        if (/^start a post$/i.test(t) || (t.length < 40 && /start a post/i.test(t))) {
+          el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+          return 'clicked_eval:' + t.slice(0, 40);
+        }
+      }
+      return 'not_found';
+    }`;
+    const ev = await evaluateInBrowser(ceoUserId, agentId, fn);
+    detail = `${detail}; eval=${ev.detail}`;
+    opened = /clicked/i.test(ev.detail || '');
+  }
+
+  steps.push({
+    t: nowIso(),
+    action: 'linkedin_composer_bootstrap',
+    ok: opened,
+    detail: String(detail).slice(0, 400),
+  });
+  if (opened) {
+    console.info('[browser-task] linkedin composer bootstrap ok detail=%s', String(detail).slice(0, 120));
+    await sleep(3500);
+    return true;
+  }
+  console.warn('[browser-task] linkedin composer bootstrap failed detail=%s', String(detail).slice(0, 180));
+  return false;
 }
 
 
@@ -631,6 +1049,17 @@ function completedTaskSummary(summary, task) {
   return String(summary || '').trim() || fallbackTaskSummary(task);
 }
 
+/**
+ * Goals that require click/type/submit (publish, compose, reply) must run the act loop.
+ * early_page_summarize only helps pure read/research (and Cheapflights accelerator).
+ */
+function goalLooksInteractive(goalText) {
+  const g = String(goalText || '');
+  return /\b(publish|post|compose|submit|share|create a (new )?(post|tweet|update)|reply|comment|type|fill|click|upload|message|send|like|follow|connect|apply)\b/i.test(
+    g
+  );
+}
+
 async function summarizeGoalFromSnapshot(ceoUserId, goal, snapshot) {
   const { content } = await chatCompletions({
     messages: [
@@ -685,18 +1114,65 @@ async function runAutonomous(ceoUserId, taskId) {
   const steps = [];
   let parseFallbackStreak = 0;
   let exitNote = 'max_steps_reached';
+  const socialPublish = goalLooksSocialPublish(task.goal_text);
+  const publishBody = extractPublishBodyFromGoal(task.goal_text);
+
+  // Autonomous social publish: tab focus, open composer, shadow fill+Post, recycle tab.
+  // No human mid-workflow for tab focus or Start a post (only Client Chrome lease is one-time setup).
+  if (socialPublish && publishBody) {
+    console.info('[browser-task] social autonomous path id=%s body_len=%s', taskId, publishBody.length);
+    updateTask(ceoUserId, taskId, { status: 'running', wait_reason: null });
+    const pub = await runAutonomousSocialPublish(ceoUserId, {
+      goalText: task.goal_text,
+      startUrl: task.start_url,
+      body: publishBody,
+    });
+    for (const s of pub.steps || []) steps.push(s);
+    updateTask(ceoUserId, taskId, {
+      status: pub.ok ? 'completed' : 'failed',
+      result: {
+        summary: pub.summary,
+        note: pub.note,
+        platform: pub.platform,
+        steps: steps.length,
+        fill: pub.fill,
+        confirm: pub.confirm,
+        tab_close: pub.tab_close,
+      },
+      steps,
+      wait_reason: null,
+      error: pub.ok ? null : pub.summary,
+    });
+    recordBrowserTaskOutcome(ceoUserId, getTask(ceoUserId, taskId), {
+      rating: pub.ok ? 'up' : 'down',
+      comment: pub.summary,
+      note: pub.note,
+    });
+    console.info('[browser-task] social autonomous finished id=%s ok=%s note=%s', taskId, pub.ok, pub.note);
+    return;
+  }
 
   if (task.start_url) {
     await browserInvoke(ceoUserId, 'open', { url: task.start_url, targetUrl: task.start_url }, agentId);
     steps.push({ t: nowIso(), action: 'open', url: task.start_url });
-    await sleep(3500);
+    await sleep(goalLooksInteractive(task.goal_text) ? 5000 : 3500);
   } else {
     await browserInvoke(ceoUserId, 'start', {}, agentId).catch(() => {});
   }
 
-  // Any autonomous start URL with substantial readable content can complete early.
+  if (goalLooksInteractive(task.goal_text)) {
+    await tryLinkedInComposerBootstrap(ceoUserId, agentId, task.goal_text, steps);
+    updateTask(ceoUserId, taskId, { steps });
+  }
+
+  // Read/research goals with a start URL + substantial page text can complete early.
+  // Interactive goals (publish/compose/reply/type/click/…) must enter the act loop.
   // Cheapflights retains its stricter priced-results gate below.
-  if (task.start_url && !/cheapflights\.com\/flight-search\//i.test(String(task.start_url))) {
+  if (
+    task.start_url &&
+    !/cheapflights\.com\/flight-search\//i.test(String(task.start_url)) &&
+    !goalLooksInteractive(task.goal_text)
+  ) {
     const snapshot = await takeSnapshot(ceoUserId, agentId, { limit: 18000 });
     const domText = await extractVisibleDomText(ceoUserId, agentId);
     const combined = (domText
@@ -722,6 +1198,12 @@ async function runAutonomous(ceoUserId, taskId) {
       console.info('[browser-task] early page summarize id=%s chars=%s', taskId, combined.length);
       return;
     }
+  } else if (task.start_url && goalLooksInteractive(task.goal_text)) {
+    console.info(
+      '[browser-task] skip early summarize (interactive goal) id=%s goal_len=%s',
+      taskId,
+      String(task.goal_text || '').length
+    );
   }
 
   // Optional site heuristic accelerator: Cheapflights deep-link waits for priced results, then summarizes.
@@ -774,19 +1256,64 @@ async function runAutonomous(ceoUserId, taskId) {
   }
 
   for (let i = 0; i < maxSteps; i++) {
+    // Prefer deterministic fill+post whenever the modal is open (stops feed scroll thrash).
+    if (socialPublish && publishBody && fillPostAttempts < 4) {
+      const state = await detectSocialComposerState(ceoUserId, agentId);
+      if (state.open && state.hasEditor) {
+        fillPostAttempts += 1;
+        steps.push({ t: nowIso(), action: 'composer_state_loop', state, attempt: fillPostAttempts });
+        const filled = await trySocialComposerFillAndPost(ceoUserId, agentId, publishBody, steps);
+        updateTask(ceoUserId, taskId, { steps });
+        if (filled.ok) {
+          const conf = await confirmSocialPostResult(ceoUserId, agentId);
+          steps.push({ t: nowIso(), action: 'post_confirm', conf });
+          const summary = conf.posted_hint || !conf.modal_still_open
+            ? `Posted (deterministic composer path). ${conf.url ? 'URL: ' + conf.url : 'Modal closed; verify on feed if URL missing.'}`
+            : `Composer submit clicked but modal still open. url=${conf.url || 'n/a'}`;
+          updateTask(ceoUserId, taskId, {
+            status: 'completed',
+            result: {
+              summary,
+              note: conf.posted_hint ? 'social_fill_post_ok' : 'social_fill_post_uncertain',
+              steps: steps.length,
+              confirm: conf,
+              fill: filled,
+            },
+            steps,
+            wait_reason: null,
+          });
+          recordBrowserTaskOutcome(ceoUserId, getTask(ceoUserId, taskId), {
+            rating: conf.posted_hint || !conf.modal_still_open ? 'up' : 'down',
+            comment: summary,
+            note: 'social_fill_post_loop',
+          });
+          console.info('[browser-task] social loop path finished id=%s', taskId);
+          return;
+        }
+      }
+    }
+
     const snapshot = await takeSnapshot(ceoUserId, agentId);
     void LOGIN_HINT_RE;
+    const modalState = socialPublish ? await detectSocialComposerState(ceoUserId, agentId) : { open: false };
     const decision = await decideNextAction({
       ceoUserId,
       goal: task.goal_text,
       snapshot,
       history: steps,
       startUrl: task.start_url,
+      modalOpen: Boolean(modalState.open),
     });
-    steps.push({ t: nowIso(), decision });
+    steps.push({ t: nowIso(), decision, modalOpen: Boolean(modalState.open) });
     updateTask(ceoUserId, taskId, { steps });
 
     const act = String(decision.action || '').toLowerCase();
+    // Hard block scroll when modal is open
+    if (act === 'scroll' && modalState.open) {
+      steps.push({ t: nowIso(), action: 'scroll_suppressed_modal_open' });
+      updateTask(ceoUserId, taskId, { steps });
+      continue;
+    }
     if (act === 'retry') {
       console.warn('[browser-task] retry after parse_fallback id=%s step=%s', taskId, i + 1);
       await sleep(800);
@@ -837,7 +1364,36 @@ async function runAutonomous(ceoUserId, taskId) {
       return;
     }
 
-    await executeDecision(ceoUserId, decision, agentId);
+    const execRes = await executeDecision(ceoUserId, decision, agentId);
+    if (invokeLooksFailed(execRes)) {
+      const detail = String(parseInvokeText(execRes) || execRes?.text || 'act_failed').slice(0, 400);
+      steps.push({
+        t: nowIso(),
+        action: 'act_failed',
+        decision: { action: act, ref: decision.ref, text: decision.text },
+        detail,
+      });
+      updateTask(ceoUserId, taskId, { steps });
+      console.warn('[browser-task] act_failed id=%s action=%s ref=%s: %s', taskId, act, decision.ref || '', detail.slice(0, 180));
+      if (detailLooksLikeExternalChromeFlake(detail)) {
+        const flakeCount = steps.filter((s) => detailLooksLikeExternalChromeFlake(s.detail)).length;
+        if (flakeCount >= 3) {
+          const msg =
+            'Client Chrome (extension) connection flaked repeatedly (page closed / external CDP timeout). ' +
+            'Re-attach the LinkedIn tab in the OpenClaw extension, keep that tab open, then resume or re-run.';
+          updateTask(ceoUserId, taskId, {
+            status: 'blocked_on_input',
+            wait_reason: msg,
+            steps,
+            result: { needs: 'chrome_attach', message: msg, note: 'external_chrome_flaky' },
+          });
+          console.warn('[browser-task] blocked external_chrome_flaky id=%s flakes=%s', taskId, flakeCount);
+          return;
+        }
+      }
+      await sleep(1200);
+      continue;
+    }
     await sleep(1500);
   }
 

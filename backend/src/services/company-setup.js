@@ -25,7 +25,7 @@ import {
   hasDedicatedCompanyTemplate,
 } from './company-blueprints/index.js';
 import { createTable, findTableByName, insertRow, uploadDocument } from './master-data.js';
-import { upsertCeoGuardrails } from './ceo-guardrails.js';
+import { upsertCeoGuardrails, mergeUniversalSafetyPolicy, ensureUniversalSafetyGuardrails } from './ceo-guardrails.js';
 import { updateUserProfile } from './users.js';
 import {
   shouldUseLlmOrgDesign,
@@ -839,12 +839,20 @@ export async function applyCompanySetup(ownerUserId, { confirm_override: confirm
     if (strategic.org_dna_notes) {
       parts.push(`## Operating notes\n${strategic.org_dna_notes}`);
     }
-    parts.push(stylePolicy);
-    const policy = parts.filter(Boolean).join('\n\n');
-    if (policy) {
-      upsertCeoGuardrails(ownerUserId, { policyText: policy, enabled: true });
-      console.info('[company-setup] policy seeded style=', style, 'dna=', strategic.org_dna, 'owner=', ownerUserId);
+    // Prefer policy text published with this blueprint (Day 0 from working company)
+    if (blueprint?.policy_text) {
+      parts.push(blueprint.policy_text);
+    } else if (blueprint?.policy_templates?.published_from_company) {
+      parts.push(blueprint.policy_templates.published_from_company);
+    } else {
+      parts.push(stylePolicy);
     }
+    let policy = parts.filter(Boolean).join('\n\n');
+    // Always merge universal safety for every blueprint (no abusive/sexual/discriminatory content).
+    policy = mergeUniversalSafetyPolicy(policy);
+    upsertCeoGuardrails(ownerUserId, { policyText: policy, enabled: true, mergeSafety: false });
+    console.info('[company-setup] policy seeded style=', style, 'dna=', strategic.org_dna, 'owner=', ownerUserId, 'chars=', policy.length);
+    ensureUniversalSafetyGuardrails(ownerUserId);
   } catch (e) {
     console.warn('[company-setup] policy seed failed', e?.message || e);
   }

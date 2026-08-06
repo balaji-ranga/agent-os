@@ -21,6 +21,8 @@ import {
 import {
   listCompanyBlueprintCandidates,
   snapshotOwnerAsBlueprintPayload,
+  snapshotOwnerAsBlueprintPayloadAsync,
+  validateContentBlueprintPayload,
 } from '../services/company-blueprint-publish.js';
 import { sendPlatformNotifications } from '../services/platform-notifications.js';
 import { createSession } from '../services/auth/session.js';
@@ -533,20 +535,21 @@ router.get('/company-blueprints/candidates', (req, res) => {
   }
 });
 
-router.get('/company-blueprints/snapshot/:ownerUserId', (req, res) => {
+router.get('/company-blueprints/snapshot/:ownerUserId', async (req, res) => {
   try {
-    res.json(snapshotOwnerAsBlueprintPayload(req.params.ownerUserId));
+    const snap = await snapshotOwnerAsBlueprintPayloadAsync(req.params.ownerUserId);
+    res.json(snap);
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message });
   }
 });
 
-router.post('/company-blueprints/publish', (req, res) => {
+router.post('/company-blueprints/publish', async (req, res) => {
   try {
     const body = req.body || {};
     const ownerId = body.owner_user_id || body.ownerUserId;
     if (!ownerId) return res.status(400).json({ error: 'owner_user_id required' });
-    const snap = snapshotOwnerAsBlueprintPayload(ownerId);
+    const snap = await snapshotOwnerAsBlueprintPayloadAsync(ownerId);
     const industry = body.industry_id || body.industry || snap.industry;
     const published = publishBlueprintFromPayload(
       {
@@ -557,14 +560,39 @@ router.post('/company-blueprints/publish', (req, res) => {
         source_owner_user_id: ownerId,
         source_company_name: snap.company_name,
         published_by: req.authUser?.id,
-        set_default: !!body.set_default,
+        set_default: body.set_default !== false, // day0+day1 blueprints become industry default unless opted out
         id: body.id || null,
       },
       req.authUser
     );
-    res.json({ ok: true, blueprint: published });
+    const validation = validateContentBlueprintPayload(published || snap.payload, {
+      expectedCompanyHint: snap.company_name,
+    });
+    console.info(
+      '[admin] blueprint published id=%s validation_ok=%s issues=%s day1_workflows=%s goals=%s',
+      published?.id,
+      validation.ok,
+      validation.issues?.length || 0,
+      snap.payload?.workflow_templates?.length || 0,
+      snap.payload?.goal_templates?.length || 0
+    );
+    res.json({ ok: true, blueprint: published, validation, day0_day1: snap.payload?.day0_day1 });
   } catch (e) {
     console.warn('[admin] publish blueprint', e?.message || e);
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+router.post('/company-blueprints/validate-snapshot', async (req, res) => {
+  try {
+    const ownerId = req.body?.owner_user_id || req.body?.ownerUserId;
+    if (!ownerId) return res.status(400).json({ error: 'owner_user_id required' });
+    const snap = await snapshotOwnerAsBlueprintPayloadAsync(ownerId);
+    const validation = validateContentBlueprintPayload(snap.payload, {
+      expectedCompanyHint: snap.company_name,
+    });
+    res.json({ ok: validation.ok, snapshot: snap, validation });
+  } catch (e) {
     res.status(e.status || 500).json({ error: e.message });
   }
 });

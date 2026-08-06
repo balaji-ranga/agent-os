@@ -56,6 +56,7 @@
 ## After setup tips
 
 - **Scheduled goals** — ask the COO to schedule recurring work, or open **Management → Scheduled goals** ([28-scheduled-goals.md](./28-scheduled-goals.md)).
+- **Content creator pack** — Connect Facebook under **Connectors → MCPs**, then use **Company Operate** / operate workflows for production, publish, comments, and Ops Reporter rollup (**bell**, not email). Guide: [30-content-creator-ops.md](./30-content-creator-ops.md).
 - **Policies** — common guardrails apply across AI employees.
 - **API Keys** — fill `Platform_BYOK` if you chose OpenAI/OpenRouter.
 - **Resync** — after org changes, My Org → Resync ORG/AGENTS when needed.

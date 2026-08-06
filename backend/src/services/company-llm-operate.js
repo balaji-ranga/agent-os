@@ -5,7 +5,9 @@ import { chatCompletions } from "../config/llm.js";
 import {
   getOperatingModelTemplate,
   sanitizeOperatingModel,
+  seedSystemsAndChannels,
 } from "./company-operate-models/index.js";
+import { buildOperateCatalogForLlm } from "./company-operate-models/operate-catalog.js";
 
 function extractJson(text) {
   const raw = String(text || "").trim();
@@ -44,6 +46,11 @@ export async function designOperatingModelWithLlm(ownerUserId, ctx = {}) {
     management_style: ctx.management_style,
   });
 
+  const setupSystems = (Array.isArray(ctx.setup_systems) ? ctx.setup_systems : []).filter(Boolean);
+  const orgChannels = (Array.isArray(ctx.org_channels) ? ctx.org_channels : [])
+    .map((c) => (typeof c === "string" ? c : c?.label || c?.id || ""))
+    .filter(Boolean);
+
   const system = `You design a lean company OPERATING MODEL for an AI-employee company.
 Return ONLY valid JSON (no markdown) with this shape:
 {
@@ -61,25 +68,37 @@ Return ONLY valid JSON (no markdown) with this shape:
 Rules:
 - Max 5 loops, max 8 daily_tasks agents.
 - Prefer require_ceo for publish/spend/hire.
-- Prefer Browser Session path /browser-session for social.
-- Do not invent live OAuth connections.
-- Align roles with the existing AI employees when listed.`;
+- Do not invent live OAuth connections — readiness is always not_ready until CEO marks ready.
+- Align roles with the existing AI employees when listed.
+- systems_run and channels MUST use ids from the PROVIDED CATALOG (and CEO setup list) whenever possible.
+- Prefer short ids (snake_case). CEO will edit lists manually after you.`;
 
   const agentsList = (ctx.agents || [])
     .map((a) => `- ${a.name || a.id}: ${a.role || ""}`)
     .join("\n");
 
-  const user = `Company: ${ctx.company_name || "Unnamed"}
-Type: ${ctx.company_type_label || ctx.company_type || "general"}
-Mission: ${ctx.mission || "(none)"}
-Org DNA: ${ctx.org_dna || ""} ${ctx.org_dna_notes || ""}
-Management style: ${ctx.management_style || "after_approval"}
-Industry notes: ${ctx.industry || ""} ${ctx.describe_company || ""}
-
-Existing AI employees:
-${agentsList || "(none listed - use COO + specialists)"}
-
-Design a practical Day-0 operating model so Day-1 can install MD + workflows.`;
+  const user = [
+    `Company: ${ctx.company_name || "Unnamed"}`,
+    `Type: ${ctx.company_type_label || ctx.company_type || "general"}`,
+    `Mission: ${ctx.mission || "(none)"}`,
+    `Org DNA: ${ctx.org_dna || ""} ${ctx.org_dna_notes || ""}`,
+    `Management style: ${ctx.management_style || "after_approval"}`,
+    `Industry notes: ${ctx.industry || ""} ${ctx.describe_company || ""}`,
+    "",
+    "AI employees:",
+    agentsList || "(none listed - use COO + specialists)",
+    "",
+    "Company setup systems already chosen (must appear in systems_run when relevant):",
+    setupSystems.length ? setupSystems.map((s) => `- ${s}`).join("\n") : "(none selected)",
+    "",
+    "Channels named in company setup / blueprint (seed into channels):",
+    orgChannels.length ? orgChannels.map((c) => `- ${c}`).join("\n") : "(none named)",
+    "",
+    "Design a practical Day-0 operating model so Day-1 can install MD + workflows.",
+    "systems_run and channels must reflect the setup systems and channel names above, plus any missing essentials.",
+    "",
+    buildOperateCatalogForLlm(),
+  ].join("\n");
 
   try {
     const result = await chatCompletions({
@@ -94,19 +113,40 @@ Design a practical Day-0 operating model so Day-1 can install MD + workflows.`;
     const parsed = extractJson(typeof text === "string" ? text : JSON.stringify(text));
     if (!parsed) {
       console.warn("[company-llm-operate] no JSON from LLM owner=", ownerUserId);
-      return {
-        model: sanitizeOperatingModel(fallback, fallback),
+      const model = seedSystemsAndChannels(sanitizeOperatingModel(fallback, fallback), {
         design_source: "template_fallback",
-        design_error: "LLM returned non-JSON; used template",
+        setup_systems: setupSystems,
+        org_channels: orgChannels,
+        company_type: ctx.company_type,
+        force_setup_merge: true,
+      });
+      return {
+        model,
+        design_source: "template_fallback",
+        design_error: "LLM returned non-JSON; used template + setup seeds",
       };
     }
-    const model = sanitizeOperatingModel(
+    let model = sanitizeOperatingModel(
       {
         ...parsed,
         id: ctx.company_type || fallback.id,
         label: `${ctx.company_type_label || ctx.company_type || "Company"} operations`,
       },
       fallback
+    );
+    model = seedSystemsAndChannels(model, {
+      design_source: "llm",
+      setup_systems: setupSystems,
+      org_channels: orgChannels,
+      company_type: ctx.company_type,
+    });
+    console.info(
+      "[company-llm-operate] seeded owner=",
+      ownerUserId,
+      "systems=",
+      model.systems_run?.length,
+      "channels=",
+      model.channels?.length
     );
     return {
       model,
@@ -115,8 +155,15 @@ Design a practical Day-0 operating model so Day-1 can install MD + workflows.`;
     };
   } catch (e) {
     console.warn("[company-llm-operate] failed", e?.message || e);
+    const model = seedSystemsAndChannels(sanitizeOperatingModel(fallback, fallback), {
+      design_source: "template_fallback",
+      setup_systems: setupSystems,
+      org_channels: orgChannels,
+      company_type: ctx.company_type,
+      force_setup_merge: true,
+    });
     return {
-      model: sanitizeOperatingModel(fallback, fallback),
+      model,
       design_source: "template_fallback",
       design_error: e?.message || String(e),
     };

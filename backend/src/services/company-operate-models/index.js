@@ -8,6 +8,9 @@ import {
   hasDedicatedCompanyTemplate,
   resolveCompanyTypeId,
 } from "../company-blueprints/index.js";
+import { seedSystemsAndChannels } from "./seed-systems-channels.js";
+
+export { seedSystemsAndChannels } from "./seed-systems-channels.js";
 
 const DEEP = {
   content_creator: contentCreatorOperatingModel,
@@ -19,12 +22,23 @@ const DEEP = {
 
 /**
  * Clone template and attach default readiness fields.
+ * Prefer published blueprint.operate_model_snapshot when blueprint_id (or type pack) has one.
  */
-export function getOperatingModelTemplate(companyType, { management_style } = {}) {
+export function getOperatingModelTemplate(companyType, { management_style, blueprint_id } = {}) {
   const key = resolveCompanyTypeId(companyType);
-  const bp = getBlueprint(key);
+  const bp =
+    (blueprint_id && getBlueprint(blueprint_id)) ||
+    getBlueprint(key) ||
+    null;
   let base;
-  if (DEEP[key] || DEEP[bp?.id]) {
+  if (bp?.operate_model_snapshot && Array.isArray(bp.operate_model_snapshot.loops) && bp.operate_model_snapshot.loops.length) {
+    const deepFallback =
+      DEEP[key] || DEEP[bp?.id] || DEEP[bp?.industry] || buildGenericOperatingModel({
+        companyType: key,
+        label: `${bp?.label || key} operations`,
+      });
+    base = sanitizeOperatingModel(bp.operate_model_snapshot, deepFallback);
+  } else if (DEEP[key] || DEEP[bp?.id]) {
     base = structuredClone(DEEP[key] || DEEP[bp.id]);
   } else {
     base = buildGenericOperatingModel({
@@ -58,6 +72,10 @@ export function attachReadinessDefaults(model) {
     ...s,
     readiness: s.readiness || "not_ready",
   }));
+  m.goals = (Array.isArray(m.goals) ? m.goals : []).map((g) => ({
+    ...g,
+    readiness: g.readiness || "not_ready",
+  }));
   return m;
 }
 
@@ -90,7 +108,11 @@ export function sanitizeOperatingModel(raw, fallback) {
       id: String(l?.id || `loop_${i + 1}`).slice(0, 64),
       name: String(l?.name || `Loop ${i + 1}`).slice(0, 120),
       description: String(l?.description || "").slice(0, 500),
-      cadence: ["daily", "weekly", "event"].includes(l?.cadence) ? l.cadence : "daily",
+      cadence: ["daily", "weekly", "event", "manual"].includes(l?.cadence)
+        ? l.cadence === "manual"
+          ? "event"
+          : l.cadence
+        : "daily",
       owner_roles: (Array.isArray(l?.owner_roles) ? l.owner_roles : [])
         .map((r) => String(r).slice(0, 80))
         .filter(Boolean)
@@ -142,6 +164,20 @@ export function sanitizeOperatingModel(raw, fallback) {
       readiness: ["not_ready", "setup_later", "ready"].includes(s?.readiness) ? s.readiness : "not_ready",
     }));
 
+  const goals = (Array.isArray(src.goals) ? src.goals : base.goals || [])
+    .slice(0, 16)
+    .map((g) => ({
+      id: String(g?.id || "").slice(0, 40),
+      label: String(g?.label || g?.id || "").slice(0, 120),
+      path: String(g?.path || "/scheduled-goals").slice(0, 120),
+      owner_role: String(g?.owner_role || g?.owner || "CEO").slice(0, 80),
+      cadence: ["daily", "weekly", "event", "once"].includes(g?.cadence) ? g.cadence : "weekly",
+      required: g?.required !== false,
+      readiness: ["not_ready", "setup_later", "ready"].includes(g?.readiness) ? g.readiness : "not_ready",
+      note: String(g?.note || "").slice(0, 400),
+    }))
+    .filter((g) => g.id);
+
   return attachReadinessDefaults({
     id: String(src.id || base.id || "ops").slice(0, 64),
     label: String(src.label || base.label || "Operating model").slice(0, 120),
@@ -154,6 +190,7 @@ export function sanitizeOperatingModel(raw, fallback) {
     autonomy_matrix: autonomy_matrix.length ? autonomy_matrix : base.autonomy_matrix,
     channels,
     systems_run,
+    goals,
     quality_bars: (Array.isArray(src.quality_bars) ? src.quality_bars : base.quality_bars || [])
       .map((x) => String(x).slice(0, 200))
       .filter(Boolean)
@@ -170,3 +207,5 @@ export function sanitizeOperatingModel(raw, fallback) {
     escalations: src.escalations && typeof src.escalations === "object" ? src.escalations : base.escalations || {},
   });
 }
+
+export { buildOperateCatalogForLlm, buildChannelsSystemsMdSection } from "./operate-catalog.js";

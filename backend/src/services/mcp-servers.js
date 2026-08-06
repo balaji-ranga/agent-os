@@ -5,6 +5,7 @@ import { randomBytes } from 'crypto';
 import { getDb } from '../db/schema.js';
 import { invokeMcpTool, invokeMcpPrompt, invokeMcpResource, probeMcpServer } from './mcp-client.js';
 import { parseMcpAuth, redactMcpAuthForLog } from './mcp-auth.js';
+import { getMcpOauthAuthHeaders } from './mcp-oauth.js';
 
 function sanitizeServerRow(row) {
   if (!row) return null;
@@ -170,8 +171,23 @@ export function mergeMcpAuth(serverId, authSource = null, ownerUserId = null) {
     .get(serverId);
   const owner = String(ownerUserId || row?.owner_user_id || '').trim() || null;
   const stored = parseMcpAuth({ headers: parseJson(row?.headers_json, {}) }, null, owner);
+  // Per-CEO MCP OAuth session (Connectors → MCPs) injects Bearer when linked.
+  let oauthHeaders = {};
+  if (owner) {
+    try {
+      const oauth = getMcpOauthAuthHeaders(owner, serverId);
+      if (oauth?.headers) oauthHeaders = oauth.headers;
+    } catch (e) {
+      console.warn('[mcp-servers] oauth auth headers failed', {
+        server_id: serverId,
+        owner,
+        error: e.message,
+      });
+    }
+  }
   const overlay = parseMcpAuth(authSource || {}, null, owner);
-  return { headers: { ...stored.headers, ...overlay.headers } };
+  // Explicit node/request auth wins over OAuth session over stored registry headers.
+  return { headers: { ...stored.headers, ...oauthHeaders, ...overlay.headers } };
 }
 
 export function createMcpServer(authUser, body = {}) {

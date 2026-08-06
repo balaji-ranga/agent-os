@@ -109,6 +109,420 @@ function fieldStyle() {
   };
 }
 
+
+const PATH_PRESETS = [
+  { path: '/browser-session', label: 'Browser Session' },
+  { path: '/kanban', label: 'Kanban' },
+  { path: '/api-keys', label: 'API Keys' },
+  { path: '/connectors', label: 'Connectors' },
+  { path: '/master-data', label: 'Master Data' },
+  { path: '/scheduled-goals', label: 'Scheduled goals' },
+  { path: '/policies', label: 'Policies' },
+];
+
+const SYSTEM_PRESETS = [
+  { id: 'browser_session', label: 'Browser Session', path: '/browser-session', required: true },
+  { id: 'kanban', label: 'Kanban', path: '/kanban', required: true },
+  { id: 'master_data', label: 'Master Data', path: '/master-data', required: true },
+  { id: 'replicate', label: 'Replicate BYOK', path: '/api-keys', required: false },
+  { id: 'gmail', label: 'Gmail / Email', path: '/connectors', required: false },
+  { id: 'slack', label: 'Slack', path: '/ai-employees', required: false },
+  { id: 'notion', label: 'Notion', path: '/connectors', required: false },
+  { id: 'github', label: 'GitHub', path: '/connectors', required: false },
+];
+
+const CHANNEL_PRESETS = [
+  { id: 'facebook', label: 'Facebook' },
+  { id: 'instagram', label: 'Instagram' },
+  { id: 'linkedin', label: 'LinkedIn' },
+  { id: 'blog', label: 'Blog CMS' },
+  { id: 'twitter', label: 'X / Twitter' },
+  { id: 'tiktok', label: 'TikTok' },
+  { id: 'youtube', label: 'YouTube' },
+];
+
+function slugifyLocal(s) {
+  return String(s || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '')
+    .slice(0, 40) || ('item_' + Date.now().toString(36));
+}
+
+function SystemsChannelsEditor({ model, busy, onChange, agentNames = [], onOpenPath }) {
+  const systems = model?.systems_run || [];
+  const channels = model?.channels || [];
+  const goals = model?.goals || [];
+
+  const setSystems = (next) => onChange({ ...model, systems_run: next });
+  const setChannels = (next) => onChange({ ...model, channels: next });
+  const setGoals = (next) => onChange({ ...model, goals: next });
+
+  const updateSys = (id, patch) =>
+    setSystems(systems.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+  const removeSys = (id) => setSystems(systems.filter((s) => s.id !== id));
+  const addSys = (preset) => {
+    if (systems.length >= 20) return;
+    const base = preset
+      ? { ...preset }
+      : {
+          id: 'sys_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6),
+          label: 'Custom system',
+          path: '/connectors',
+          required: false,
+        };
+    if (!base.id) base.id = 'sys_' + Date.now().toString(36);
+    if (systems.some((s) => s.id === base.id)) {
+      base.id = base.id + '_' + Date.now().toString(36).slice(-4);
+    }
+    setSystems([
+      ...systems,
+      { ...base, readiness: base.readiness || 'not_ready' },
+    ]);
+  };
+
+  const updateCh = (id, patch) =>
+    setChannels(channels.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+  const removeCh = (id) => setChannels(channels.filter((c) => c.id !== id));
+  const addCh = (preset) => {
+    if (channels.length >= 16) return;
+    const base = preset
+      ? { ...preset }
+      : {
+          id: 'ch_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6),
+          label: 'Custom channel',
+          owner_role: agentNames[0] || 'COO',
+          path: '/browser-session',
+          system_id: 'browser_session',
+        };
+    if (!base.id) base.id = 'ch_' + Date.now().toString(36);
+    if (channels.some((c) => c.id === base.id)) {
+      base.id = base.id + '_' + Date.now().toString(36).slice(-4);
+    }
+    setChannels([
+      ...channels,
+      {
+        ...base,
+        path: base.path || '/browser-session',
+        system_id: base.system_id || 'browser_session',
+        owner_role: base.owner_role || agentNames[0] || 'COO',
+        readiness: base.readiness || 'not_ready',
+      },
+    ]);
+  };
+
+  const updateGoal = (id, patch) =>
+    setGoals(goals.map((g) => (g.id === id ? { ...g, ...patch } : g)));
+  const removeGoal = (id) => setGoals(goals.filter((g) => g.id !== id));
+  const addGoal = () => {
+    if (goals.length >= 16) return;
+    setGoals([
+      ...goals,
+      {
+        id: 'goal_' + Date.now().toString(36),
+        label: 'Custom company goal',
+        path: '/scheduled-goals',
+        owner_role: 'CEO',
+        cadence: 'weekly',
+        required: true,
+        readiness: 'not_ready',
+        note: '',
+      },
+    ]);
+  };
+
+  return (
+    <div style={{ display: 'grid', gap: 16 }}>
+      <div>
+        <h3 style={{ margin: '0 0 0.35rem' }}>Systems</h3>
+        <p style={{ margin: '0 0 0.75rem', fontSize: '0.85rem', opacity: 0.78, maxWidth: 640 }}>
+          Seeded from template or AI design (+ Company Setup choices). Add/remove rows manually — readiness is honesty for Day 1 install, not live OAuth.
+        </p>
+        <div style={{ display: 'grid', gap: 10 }}>
+          {systems.map((s, sIdx) => (
+            <div
+              key={(s.id || 'sys') + '-' + sIdx}
+              style={{
+                border: '1px solid var(--border)',
+                borderRadius: 10,
+                padding: '0.75rem',
+                background: 'var(--surface)',
+                display: 'grid',
+                gap: 8,
+              }}
+            >
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <input
+                  disabled={busy}
+                  value={s.label || ''}
+                  onChange={(e) => updateSys(s.id, { label: e.target.value })}
+                  placeholder="Label"
+                  style={{ ...fieldStyle(), flex: '1 1 12rem' }}
+                />
+                <select
+                  value={s.readiness || 'not_ready'}
+                  disabled={busy}
+                  onChange={(e) => updateSys(s.id, { readiness: e.target.value })}
+                  style={{ padding: 6, borderRadius: 6, font: 'inherit' }}
+                >
+                  {READY.map((r) => (
+                    <option key={r.id} value={r.id}>{r.label}</option>
+                  ))}
+                </select>
+                <label style={{ display: 'inline-flex', gap: 4, alignItems: 'center', fontSize: '0.85rem' }}>
+                  <input
+                    type="checkbox"
+                    disabled={busy}
+                    checked={!!s.required}
+                    onChange={(e) => updateSys(s.id, { required: e.target.checked })}
+                  />
+                  Required
+                </label>
+                <button type="button" style={btnSecondary({ padding: '0.3rem 0.6rem', fontSize: '0.8rem' })} disabled={busy} onClick={() => removeSys(s.id)}>
+                  Remove
+                </button>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <input
+                  disabled={busy}
+                  value={s.id || ''}
+                  onChange={(e) => {
+                    const nextId = slugifyLocal(e.target.value) || s.id;
+                    if (!nextId || nextId === s.id) return;
+                    updateSys(s.id, { id: nextId });
+                  }}
+                  placeholder="id"
+                  style={{ ...fieldStyle(), flex: '0 1 10rem' }}
+                  title="Stable id"
+                />
+                <select
+                  disabled={busy}
+                  value={PATH_PRESETS.some((p) => p.path === s.path) ? s.path : (s.path || '/connectors')}
+                  onChange={(e) => updateSys(s.id, { path: e.target.value })}
+                  style={{ ...fieldStyle(), flex: '1 1 10rem' }}
+                >
+                  {PATH_PRESETS.map((p) => (
+                    <option key={p.path} value={p.path}>{p.label} ({p.path})</option>
+                  ))}
+                  {s.path && !PATH_PRESETS.some((p) => p.path === s.path) ? (
+                    <option value={s.path}>{s.path}</option>
+                  ) : null}
+                </select>
+                {s.path ? (
+                  <button type="button" style={btnSecondary({ padding: '0.35rem 0.7rem', fontSize: '0.85rem' })} disabled={busy} onClick={() => onOpenPath?.(s.path)}>
+                    Open
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12, padding: '0.65rem', borderRadius: 8, border: '1px dashed var(--border)', background: 'var(--bg)' }}>
+          <button type="button" style={btnPrimary({ disabled: busy || systems.length >= 20 })} disabled={busy || systems.length >= 20} onClick={() => addSys()}>
+            + Add system
+          </button>
+          {SYSTEM_PRESETS.filter((pr) => !systems.some((s) => s.id === pr.id)).map((pr) => (
+            <button key={pr.id} type="button" style={btnSecondary({ padding: '0.35rem 0.65rem', fontSize: '0.85rem' })} disabled={busy} onClick={() => addSys(pr)}>
+              + {pr.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h3 style={{ margin: '0 0 0.35rem' }}>Channels</h3>
+        <p style={{ margin: '0 0 0.75rem', fontSize: '0.85rem', opacity: 0.78, maxWidth: 640 }}>
+          Public surfaces your company publishes or monitors. Social usually routes through Browser Session.
+        </p>
+        <div style={{ display: 'grid', gap: 10 }}>
+          {channels.map((c, cIdx) => (
+            <div
+              key={(c.id || 'ch') + '-' + cIdx}
+              style={{
+                border: '1px solid var(--border)',
+                borderRadius: 10,
+                padding: '0.75rem',
+                background: 'var(--surface)',
+                display: 'grid',
+                gap: 8,
+              }}
+            >
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <input
+                  disabled={busy}
+                  value={c.label || ''}
+                  onChange={(e) => updateCh(c.id, { label: e.target.value })}
+                  placeholder="Channel name"
+                  style={{ ...fieldStyle(), flex: '1 1 12rem' }}
+                />
+                <select
+                  value={c.readiness || 'not_ready'}
+                  disabled={busy}
+                  onChange={(e) => updateCh(c.id, { readiness: e.target.value })}
+                  style={{ padding: 6, borderRadius: 6, font: 'inherit' }}
+                >
+                  {READY.map((r) => (
+                    <option key={r.id} value={r.id}>{r.label}</option>
+                  ))}
+                </select>
+                <button type="button" style={btnSecondary({ padding: '0.3rem 0.6rem', fontSize: '0.8rem' })} disabled={busy} onClick={() => removeCh(c.id)}>
+                  Remove
+                </button>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(9rem, 1fr))', gap: 8 }}>
+                <input
+                  disabled={busy}
+                  list="operate-loop-agent-names"
+                  value={c.owner_role || ''}
+                  onChange={(e) => updateCh(c.id, { owner_role: e.target.value })}
+                  placeholder="Owner role"
+                  style={fieldStyle()}
+                />
+                <select
+                  disabled={busy}
+                  value={c.path || '/browser-session'}
+                  onChange={(e) => updateCh(c.id, { path: e.target.value })}
+                  style={fieldStyle()}
+                >
+                  {PATH_PRESETS.map((pr) => (
+                    <option key={pr.path} value={pr.path}>{pr.label}</option>
+                  ))}
+                </select>
+                {c.path ? (
+                  <button type="button" style={btnSecondary({ padding: '0.35rem 0.7rem', fontSize: '0.85rem' })} disabled={busy} onClick={() => onOpenPath?.(c.path || '/browser-session')}>
+                    Open
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12, padding: '0.65rem', borderRadius: 8, border: '1px dashed var(--border)', background: 'var(--bg)' }}>
+          <button type="button" style={btnPrimary({ disabled: busy || channels.length >= 16 })} disabled={busy || channels.length >= 16} onClick={() => addCh()}>
+            + Add channel
+          </button>
+          {CHANNEL_PRESETS.filter((pr) => !channels.some((c) => c.id === pr.id)).map((pr) => (
+            <button key={pr.id} type="button" style={btnSecondary({ padding: '0.35rem 0.65rem', fontSize: '0.85rem' })} disabled={busy} onClick={() => addCh(pr)}>
+              + {pr.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h3 style={{ margin: '0 0 0.35rem' }}>Goals</h3>
+        <p style={{ margin: '0 0 0.75rem', fontSize: '0.85rem', opacity: 0.78, maxWidth: 640 }}>
+          Tracked like systems and channels. Content topics come from CEO goals (e.g. weekly content goal to COO).
+          Mark ready only after the goal exists under Scheduled goals or an explicit CEO brief.
+        </p>
+        <div style={{ display: 'grid', gap: 10 }}>
+          {goals.map((g, gIdx) => (
+            <div
+              key={(g.id || 'goal') + '-' + gIdx}
+              style={{
+                border: '1px solid var(--border)',
+                borderRadius: 10,
+                padding: '0.75rem',
+                background: 'var(--surface)',
+                display: 'grid',
+                gap: 8,
+              }}
+            >
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <input
+                  disabled={busy}
+                  value={g.label || ''}
+                  onChange={(e) => updateGoal(g.id, { label: e.target.value })}
+                  placeholder="Goal label"
+                  style={{ ...fieldStyle(), flex: '1 1 12rem' }}
+                />
+                <select
+                  value={g.readiness || 'not_ready'}
+                  disabled={busy}
+                  onChange={(e) => updateGoal(g.id, { readiness: e.target.value })}
+                  style={{ padding: 6, borderRadius: 6, font: 'inherit' }}
+                >
+                  {READY.map((r) => (
+                    <option key={r.id} value={r.id}>{r.label}</option>
+                  ))}
+                </select>
+                <label style={{ display: 'inline-flex', gap: 4, alignItems: 'center', fontSize: '0.85rem' }}>
+                  <input
+                    type="checkbox"
+                    disabled={busy}
+                    checked={g.required !== false}
+                    onChange={(e) => updateGoal(g.id, { required: e.target.checked })}
+                  />
+                  Required
+                </label>
+                <button type="button" style={btnSecondary({ padding: '0.3rem 0.6rem', fontSize: '0.8rem' })} disabled={busy} onClick={() => removeGoal(g.id)}>
+                  Remove
+                </button>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(9rem, 1fr))', gap: 8 }}>
+                <input
+                  disabled={busy}
+                  value={g.owner_role || ''}
+                  onChange={(e) => updateGoal(g.id, { owner_role: e.target.value })}
+                  placeholder="Owner (CEO / COO)"
+                  style={fieldStyle()}
+                />
+                <select
+                  disabled={busy}
+                  value={g.cadence || 'weekly'}
+                  onChange={(e) => updateGoal(g.id, { cadence: e.target.value })}
+                  style={fieldStyle()}
+                >
+                  <option value="weekly">Weekly</option>
+                  <option value="daily">Daily</option>
+                  <option value="event">Event</option>
+                  <option value="once">Once</option>
+                </select>
+                <select
+                  disabled={busy}
+                  value={g.path || '/scheduled-goals'}
+                  onChange={(e) => updateGoal(g.id, { path: e.target.value })}
+                  style={fieldStyle()}
+                >
+                  {PATH_PRESETS.map((pr) => (
+                    <option key={pr.path} value={pr.path}>{pr.label}</option>
+                  ))}
+                </select>
+              </div>
+              <input
+                disabled={busy}
+                value={g.note || ''}
+                onChange={(e) => updateGoal(g.id, { note: e.target.value })}
+                placeholder="Note / how this goal is set"
+                style={fieldStyle()}
+              />
+            </div>
+          ))}
+          {!goals.length ? (
+            <p style={{ margin: 0, fontSize: '0.85rem', opacity: 0.7 }}>
+              No goals in this model yet — industry template adds them on Day 1 for content companies.
+            </p>
+          ) : null}
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12, padding: '0.65rem', borderRadius: 8, border: '1px dashed var(--border)', background: 'var(--bg)' }}>
+          <button type="button" style={btnPrimary({ disabled: busy || goals.length >= 16 })} disabled={busy || goals.length >= 16} onClick={addGoal}>
+            + Add goal
+          </button>
+          <button
+            type="button"
+            style={btnSecondary({ padding: '0.35rem 0.65rem', fontSize: '0.85rem' })}
+            disabled={busy}
+            onClick={() => onOpenPath?.('/scheduled-goals')}
+          >
+            Open Scheduled goals
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 function LoopEditor({ loops = [], busy, onChange, agentNames = [] }) {
   const updateLoop = (id, patch) => {
     onChange((loops || []).map((l) => (l.id === id ? { ...l, ...patch } : l)));
@@ -758,66 +1172,24 @@ export default function CompanyOperate() {
 
       {step === 'systems' && model && (
         <section>
-          <h2>Channels &amp; systems for Day 1</h2>
+          <h2>Channels, systems &amp; goals for Day 1</h2>
           <p style={{ opacity: 0.8 }}>
-            Mark readiness honestly. Opening a page does not run a separate setup wizard for Kanban — that board is where agent-created tasks land.
-            Social logins today go through <strong>Browser Session</strong> (not OpenConnector FB/LI packs yet).
-            Use <strong>← Back to wizard</strong> on those pages to return here.
+            Lists come from the industry template or AI design, then Company Setup picks.
+            Edit freely. Mark readiness honestly. Social logins go through <strong>Browser Session</strong>.
+            Goals (e.g. weekly content topic) use the same readiness honesty — content topics come from CEO goals, not agent invention.
+            Use <strong>← Back to wizard</strong> after opening a related page.
           </p>
-          <h3>Systems</h3>
-          {(model.systems_run || []).map((s) => (
-            <div key={s.id} style={{ marginBottom: 12 }}>
-              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                <span style={{ minWidth: 200 }}>{s.label}{s.required ? ' *' : ''}</span>
-                <select
-                  value={s.readiness || 'not_ready'}
-                  disabled={busy}
-                  onChange={(e) => setSysReady(s.id, e.target.value, 'systems_run')}
-                  style={{ padding: 6, borderRadius: 6 }}
-                >
-                  {READY.map((r) => (
-                    <option key={r.id} value={r.id}>{r.label}</option>
-                  ))}
-                </select>
-                {s.path && (
-                  <button type="button" style={btnSecondary({ padding: '0.35rem 0.7rem', fontSize: '0.85rem' })} disabled={busy} onClick={() => openRelated(s.path)}>
-                    {systemLinkLabel(s)}
-                  </button>
-                )}
-              </div>
-              {systemHint(s) && (
-                <div style={{ fontSize: '0.8rem', opacity: 0.7, marginTop: 4, maxWidth: 640 }}>{systemHint(s)}</div>
-              )}
-            </div>
-          ))}
-          {(model.channels || []).length > 0 && (
-            <>
-              <h3>Channels</h3>
-              {(model.channels || []).map((c) => (
-                <div key={c.id} style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
-                  <span style={{ minWidth: 200 }}>{c.label}</span>
-                  <select
-                    value={c.readiness || 'not_ready'}
-                    disabled={busy}
-                    onChange={(e) => setSysReady(c.id, e.target.value, 'channels')}
-                    style={{ padding: 6, borderRadius: 6 }}
-                  >
-                    {READY.map((r) => (
-                      <option key={r.id} value={r.id}>{r.label}</option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    style={btnSecondary({ padding: '0.35rem 0.7rem', fontSize: '0.85rem' })}
-                    disabled={busy}
-                    onClick={() => openRelated(c.path || '/browser-session')}
-                  >
-                    Open Browser Session
-                  </button>
-                </div>
-              ))}
-            </>
-          )}
+          <SystemsChannelsEditor
+            model={model}
+            busy={busy}
+            agentNames={agentNameOptions}
+            onOpenPath={openRelated}
+            onChange={(next) => setModel(next)}
+          />
+          <p style={{ fontSize: '0.85rem', opacity: 0.75, marginTop: 8 }}>
+            Scroll to use <strong>+ Add system / channel / goal</strong> and Remove.
+            Click <strong>Review</strong> to save your edited lists.
+          </p>
           <h3 style={{ marginTop: '1rem' }}>CEO digest</h3>
           <select value={digestMode} disabled={busy} onChange={(e) => setDigestMode(e.target.value)} style={{ padding: 6, borderRadius: 6 }}>
             <option value="daily">Daily in-app digest</option>
@@ -834,8 +1206,14 @@ export default function CompanyOperate() {
                   {
                     operating_model: {
                       ...model,
+                      systems_run: model.systems_run,
+                      channels: model.channels,
+                      goals: model.goals,
                       digest: { ...(model.digest || {}), mode: digestMode, channel: 'in_app' },
                     },
+                    systems_run: model.systems_run,
+                    channels: model.channels,
+                    goals: model.goals,
                     operate_step: 'review',
                   },
                   'review'
@@ -911,24 +1289,49 @@ export default function CompanyOperate() {
         <section>
           <h2>Operate install complete</h2>
           <p>{day1?.message || state?.day1_result?.message || 'Day 1 applied.'}</p>
-          {day1?.what_runs?.length > 0 && (
+          {(day1?.configured_workflows || day1?.what_runs)?.length > 0 && (
             <>
-              <h3>What can run</h3>
+              <h3>Workflows configured</h3>
               <ul>
-                {day1.what_runs.map((w) => (
+                {(day1.configured_workflows || []).map((w) => (
+                  <li key={w.id || w.name}>
+                    {w.name} — {w.published ? 'published' : 'draft'}
+                    {w.schedule_cron ? ` · schedule ${w.schedule_cron}` : w.cadence ? ` · ${w.cadence}` : ''}
+                    {w.note ? ` · ${w.note}` : ''}
+                  </li>
+                ))}
+                {!(day1.configured_workflows || []).length && (day1.what_runs || []).map((w) => (
                   <li key={w.loop}>{w.loop} ({w.cadence}){w.workflow ? ` · workflow ${w.workflow}` : ''}</li>
+                ))}
+              </ul>
+              <p style={{ fontSize: '0.85rem', opacity: 0.8 }}>
+                Content company loops are <strong>manual / event</strong> (COO or CEO triggers after a goal is set). Daily/weekly cadence only schedules when the loop says so. Goals readiness is tracked with systems and channels.
+              </p>
+            </>
+          )}
+          {((day1?.goals || [])).length > 0 && (
+            <>
+              <h3>Goals tracked</h3>
+              <ul>
+                {day1.goals.map((g) => (
+                  <li key={g.id || g.label}>
+                    {g.label}
+                    {g.readiness ? ` · ${g.readiness}` : ''}
+                    {g.path ? <> — <Link to={g.path}>{g.path}</Link></> : null}
+                  </li>
                 ))}
               </ul>
             </>
           )}
-          {day1?.needs_human?.length > 0 && (
+          {((day1?.open_for_ceo || day1?.needs_human) || []).length > 0 && (
             <>
-              <h3>Still needs you</h3>
+              <h3>Still needs you (logins / connections / goals)</h3>
               <ul>
-                {day1.needs_human.map((n) => (
+                {(day1.open_for_ceo && day1.open_for_ceo.length ? day1.open_for_ceo : day1.needs_human || []).map((n) => (
                   <li key={n.label}>
                     {n.label}
-                    {n.path ? <> — <Link to={n.path}>setup</Link></> : null}
+                    {n.status ? ` · ${n.status}` : ''}
+                    {n.path ? <> — <Link to={n.path}>open</Link></> : null}
                     {n.note ? <div style={{ fontSize: '0.85rem', opacity: 0.75 }}>{n.note}</div> : null}
                   </li>
                 ))}
@@ -938,6 +1341,7 @@ export default function CompanyOperate() {
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: '1rem' }}>
             <button type="button" style={btnPrimary()} onClick={() => navigate('/')}>Home</button>
             <Link to="/workflows" style={btnSecondary()}>Workflows</Link>
+            <Link to="/scheduled-goals" style={btnSecondary()}>Scheduled goals</Link>
             <Link to="/browser-session" style={btnSecondary()}>Browser Session</Link>
             <button
               type="button"

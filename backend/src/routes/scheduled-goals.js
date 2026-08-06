@@ -15,6 +15,7 @@ import {
   runScheduledGoal,
   listRecentRuns,
 } from '../services/scheduled-goals.js';
+import { enrichGoalTextWithAi } from '../services/ceo-guardrails.js';
 import { getServerTimezone } from '../utils/format-datetime.js';
 
 const router = Router();
@@ -41,6 +42,23 @@ router.get('/', (req, res) => {
       count: goals.length,
     });
   } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+
+router.post('/enrich', async (req, res) => {
+  try {
+    const ownerUserId = ownerOr403(req, res);
+    if (!ownerUserId) return;
+    const body = req.body || {};
+    const out = await enrichGoalTextWithAi(ownerUserId, body.prompt || body.draft || '', {
+      title: body.title || '',
+      companyContext: body.company_context || body.companyContext || '',
+    });
+    res.json(out);
+  } catch (e) {
+    console.warn('[scheduled-goals] enrich failed', e?.message || e);
     res.status(e.status || 500).json({ error: e.message });
   }
 });

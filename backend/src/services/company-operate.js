@@ -20,12 +20,22 @@ import {
   sanitizeOperatingModel,
   shouldUseLlmOperateDesign,
   attachReadinessDefaults,
+  seedSystemsAndChannels,
 } from "./company-operate-models/index.js";
 import { designOperatingModelWithLlm } from "./company-llm-operate.js";
+import { buildChannelsSystemsMdSection } from "./company-operate-models/operate-catalog.js";
 import { listAgentsForUser } from "./users.js";
 import { createTable, findTableByName, insertRow, uploadDocument } from "./master-data.js";
-import { createDefinition, getDefinition, updateDraft } from "./agent-workflow-store.js";
+import { createDefinition, getDefinition, updateDraft, publishDefinition } from "./agent-workflow-store.js";
 import * as workspace from "../workspace/adapter.js";
+import { ensureUniversalSafetyGuardrails } from "./ceo-guardrails.js";
+import { syncOrgContextForCeo } from "./org-context.js";
+import {
+  installBlueprintWorkflowTemplates,
+  installBlueprintGoalTemplates,
+  applyBlueprintAgentsMd,
+  applyBlueprintPolicyText,
+} from "./company-blueprint-publish.js";
 
 const OPERATE_GATES = new Set([
   "pending",
@@ -56,6 +66,85 @@ function companyHasBeenFormed(ownerUserId, strategic, row) {
   if (strategic.setup_gate === "completed" || strategic.setup_gate === "skipped") return true;
   if (row?.status === "applied") return true;
   return false;
+}
+
+/**
+ * Bring older stored models up to current content-ops pack rules (goals, event cadence, topic history).
+ * Structural blueprint fields only — does not invent live topics.
+ */
+function enrichModelFromIndustryTemplate(model, strategic) {
+  const companyType = resolveCompanyTypeId(strategic.company_type || model?.id || "general_ops");
+  const template = getOperatingModelTemplate(companyType, {
+    management_style: strategic.management_style,
+    blueprint_id: strategic.blueprint_id,
+  });
+  const isContent =
+    String(template.id || "") === "content_creator" ||
+    (template.knowledge_seeds || []).some((k) => k.name === "content_topics_history");
+  if (!isContent) {
+    return sanitizeOperatingModel(model, template);
+  }
+
+  const next = { ...(model || {}) };
+  const tLoops = new Map((template.loops || []).map((l) => [l.id, l]));
+  next.loops = (next.loops || []).map((l) => {
+    const tl = tLoops.get(l.id);
+    if (tl && (tl.cadence === "event" || tl.cadence === "manual")) {
+      return { ...l, cadence: "event", steps: tl.steps?.length ? tl.steps : l.steps };
+    }
+    if (
+      l.critical_day1 !== false &&
+      /content|community|publish/i.test(String(l.name || "") + String(l.id || ""))
+    ) {
+      return { ...l, cadence: "event" };
+    }
+    return l;
+  });
+  if (!(next.loops || []).length) next.loops = template.loops;
+
+  if (!(next.goals || []).length && (template.goals || []).length) {
+    next.goals = structuredClone(template.goals);
+  }
+
+  if ((template.daily_tasks || []).length) {
+    const byName = new Map(
+      (next.daily_tasks || []).map((d) => [String(d.agent_name || "").toLowerCase(), d])
+    );
+    for (const td of template.daily_tasks) {
+      const key = String(td.agent_name || "").toLowerCase();
+      if (!key) continue;
+      if (
+        !byName.has(key) ||
+        key === "coo" ||
+        key === "content strategist" ||
+        key === "channel publisher"
+      ) {
+        byName.set(key, td);
+      }
+    }
+    next.daily_tasks = [...byName.values()];
+  }
+
+  const systems = Array.isArray(next.systems_run) ? [...next.systems_run] : [];
+  if (
+    !systems.some((s) => s.id === "master_data") &&
+    (template.systems_run || []).some((s) => s.id === "master_data")
+  ) {
+    systems.push({ ...template.systems_run.find((s) => s.id === "master_data") });
+  }
+  next.systems_run = systems;
+
+  const seeds = Array.isArray(next.knowledge_seeds) ? [...next.knowledge_seeds] : [];
+  for (const ts of template.knowledge_seeds || []) {
+    if (!seeds.some((s) => s.name === ts.name)) seeds.push(structuredClone(ts));
+  }
+  next.knowledge_seeds = seeds;
+
+  if ((template.quality_bars || []).length) next.quality_bars = template.quality_bars;
+  if ((template.weekly_rituals || []).length) next.weekly_rituals = template.weekly_rituals;
+  if (template.escalations) next.escalations = { ...(next.escalations || {}), ...template.escalations };
+
+  return sanitizeOperatingModel(next, template);
 }
 
 /**
@@ -217,6 +306,12 @@ export function saveOperateDraft(ownerUserId, body = {}) {
       strategic.operating_model
     );
   }
+  if (Array.isArray(body.goals) && strategic.operating_model) {
+    strategic.operating_model = sanitizeOperatingModel(
+      { ...strategic.operating_model, goals: body.goals },
+      strategic.operating_model
+    );
+  }
   if (Array.isArray(body.loops) && strategic.operating_model) {
     strategic.operating_model = sanitizeOperatingModel(
       { ...strategic.operating_model, loops: body.loops },
@@ -262,6 +357,13 @@ export async function designOperate(ownerUserId, body = {}) {
   const force = sourcePref === "llm" || sourcePref === "template" ? sourcePref : undefined;
   const useLlm = shouldUseLlmOperateDesign(companyType, { force });
 
+  const setupSystems = Array.isArray(strategic.systems) ? strategic.systems : [];
+  const orgChannels =
+    strategic.channels ||
+    journey?.answers?.channels ||
+    getBlueprint(companyType)?.channels ||
+    [];
+
   let design;
   if (useLlm) {
     const agents = listAgentsForUser(ownerUserId);
@@ -276,14 +378,25 @@ export async function designOperate(ownerUserId, body = {}) {
       industry: strategic.industry || "",
       describe_company: strategic.describe_company || "",
       agents,
+      setup_systems: setupSystems,
+      org_channels: orgChannels,
     });
   } else {
     design = {
       model: getOperatingModelTemplate(companyType, {
         management_style: strategic.management_style,
+        blueprint_id: strategic.blueprint_id,
       }),
-      design_source: "template",
+      design_source: strategic.blueprint_id ? "blueprint" : "template",
     };
+    // Template packs keep their lists; still append CEO setup systems not already present.
+    design.model = seedSystemsAndChannels(design.model, {
+      design_source: "template",
+      setup_systems: setupSystems,
+      org_channels: orgChannels,
+      company_type: companyType,
+      force_setup_merge: true,
+    });
   }
 
   // Preserve CEO readiness edits if regenerating same structure? Full replace design.
@@ -365,6 +478,7 @@ function buildOperateAgentsMdSection(model, agentName) {
   const loopLines = loops.length
     ? loops.map((l) => `- **${l.name}** (${l.cadence}): ${l.description || l.steps?.join(" → ") || ""}`).join("\n")
     : "- Support company operating model loops as directed by COO / CEO";
+  const surfaces = buildChannelsSystemsMdSection(model, { agentName });
   return `
 
 ---
@@ -378,11 +492,25 @@ ${taskLines}
 ### Your loops
 ${loopLines}
 
+${surfaces}
+
 ### Autonomy matrix (company-wide)
 ${matrix || "- (see Policies)"}
 
 ### Quality bars
 ${(model.quality_bars || []).map((q) => `- ${q}`).join("\n") || "- Align with mission"}
+
+### CEO weekly content goal (topic source)
+- **Who sets the topic:** CEO only (Scheduled goals page targeting **COO**, COO chat, or an explicit brief in a loop run).
+- **Who triggers production:** **COO** via \`agent_workflow_trigger\` on Operate content loops (manual/event — not silent cron).
+- **Who expands it:** Strategist / Media Generator turn the goal into angles and drafts — they do **not** replace the goal.
+- **If missing:** stop content production and ask the CEO; never invent the week’s campaign topic.
+
+### 20-day topic / post memory
+- Master Data table **content_topics_history** is the dedupe ledger.
+- Before new drafts: \`master_data_rag\` / table query for the last **20 days**.
+- Do not reuse title, topic fingerprint, or near-duplicate angle.
+- After draft/publish: log when, platform, title, topic, fingerprint, status, expires_after.
 
 When blocked by a gate (\`require_ceo\`), create Kanban / notify_ceo instead of acting externally.
 `;
@@ -444,17 +572,59 @@ async function materializeAgentMd(ownerUserId, agent, model) {
   }
 }
 
-function buildLoopGraph({ loop, agent, publishGated }) {
-  const prompt = `You are operating the company loop "${loop.name}".
-${loop.description || ""}
+/** Map loop cadence to platform-timezone cron. event/manual = no schedule (COO/CEO trigger). */
+function cadenceToCron(cadence) {
+  const c = String(cadence || "daily").toLowerCase().trim();
+  if (c === "event" || c === "event_driven" || c === "as_needed" || c === "manual" || c === "on_demand") {
+    return "";
+  }
+  if (c === "weekly") return "0 9 * * 1";
+  return "0 9 * * *";
+}
 
-Steps: ${(loop.steps || []).join(" → ")}
-Cadence: ${loop.cadence || "daily"}
+function triggersFromLoop(loop) {
+  const cron = cadenceToCron(loop && loop.cadence);
+  if (cron) {
+    return { trigger_modes: ["manual", "schedule"], schedule_cron: cron };
+  }
+  // Content-style operate: publish as manual + event; empty cron clears schedule registry
+  return { trigger_modes: ["manual", "event"], schedule_cron: "" };
+}
 
-Work within autonomy rules. Produce a concise status of what you planned/drafted.
-Do NOT publish externally or spend money unless company policy already allows.
-If CEO approval is required, state what needs approval.`;
+function buildLoopGraph(opts) {
+  const loop = opts.loop;
+  const agent = opts.agent;
+  const publishGated = opts.publishGated;
+  const triggerModes = opts.triggerModes || ["manual"];
+  const scheduleCron = opts.scheduleCron || "";
+  const cadenceLine = scheduleCron
+    ? "Cadence: " + (loop.cadence || "daily") + " (platform schedule: " + scheduleCron + ")"
+    : "Cadence: " + (loop.cadence || "daily") + " (on-demand / event)";
+  const prompt = [
+    "You are operating the company loop \"" + (loop.name || "") + "\".",
+    loop.description || "",
+    "",
+    "Steps: " + ((loop.steps || []).join(" -> ")),
+    cadenceLine,
+    "",
+    "TOPIC SOURCE (required for content production):",
+    "- The week's topic is the CEO weekly content goal only.",
+    "- Prefer: (1) trigger/input from this run (COO passes CEO goal), (2) operate goals / company_goals, (3) Scheduled goals, (4) content_calendar rows with ceo_set theme.",
+    "- If none of those exist: notify_ceo / stop production. Do NOT invent a weekly topic or campaign from imagination.",
+    "- You may invent angles, hooks, and post variations under the CEO goal — not a replacement goal.",
+    "",
+    "20-DAY UNIQUENESS (required):",
+    "- Before drafting or publishing, query Master Data table content_topics_history (and publish_log).",
+    "- Do NOT reuse a post title, topic, or near-duplicate angle that appears in the last 20 days on any channel.",
+    "- After an approved draft or publish attempt, record when, platform, title, topic, fingerprint, status, expires_after (+20 days).",
+    "",
+    "Work within autonomy rules. Produce a concise status of what you planned/drafted.",
+    "Do NOT publish externally or spend money unless company policy already allows.",
+    "If CEO approval is required, state what needs approval.",
+    "If social/channel readiness is not_ready for a channel, skip that channel - use Kanban / notify_ceo. Prefer ready channels only.",
+  ].join("\n");
 
+  const modes = Array.isArray(triggerModes) && triggerModes.length ? triggerModes : ["manual"];
   const nodes = [
     {
       id: "trigger-1",
@@ -462,7 +632,8 @@ If CEO approval is required, state what needs approval.`;
       position: { x: 40, y: 120 },
       data: {
         label: "Start",
-        triggerModes: ["manual"],
+        triggerModes: modes,
+        scheduleCron: scheduleCron || "",
         inputBindings: [],
         outputs: [
           { id: "text", label: "Input text" },
@@ -478,7 +649,7 @@ If CEO approval is required, state what needs approval.`;
         label: agent.name || "Agent",
         agentId: agent.id,
         agentName: agent.name,
-        prompt,
+        prompt: prompt,
         inputBindings: [
           {
             id: "prompt",
@@ -501,7 +672,7 @@ If CEO approval is required, state what needs approval.`;
       position: { x: 540, y: 120 },
       data: {
         label: "CEO gate",
-        title: `Approve: ${loop.name}`,
+        title: "Approve: " + (loop.name || ""),
         instructions: "Review AI output before any public/external action.",
         inputBindings: [
           {
@@ -521,53 +692,118 @@ If CEO approval is required, state what needs approval.`;
     });
     edges.push({ id: "e2", source: "agent-1", target: "ceo-1" });
   }
-  return { nodes, edges, viewport: { x: 0, y: 0, zoom: 1 } };
+  return { nodes: nodes, edges: edges, viewport: { x: 0, y: 0, zoom: 1 } };
 }
 
 function createOperateWorkflow(ownerUserId, loop, agent, model) {
   const publishLevel = autonomyLevel(model, "publish");
-  const publishGated = publishLevel === "require_ceo" || publishLevel === "recommend";
-  const graph = buildLoopGraph({ loop, agent, publishGated: publishLevel === "require_ceo" });
-  const name = `Operate · ${loop.name}`.slice(0, 80);
-  const description = `${loop.description || loop.name} | Day-1 from operating model. Publish gate: ${publishLevel}.`;
+  const triggers = triggersFromLoop(loop);
+  const graph = buildLoopGraph({
+    loop: loop,
+    agent: agent,
+    publishGated: publishLevel === "require_ceo",
+    triggerModes: triggers.trigger_modes,
+    scheduleCron: triggers.schedule_cron,
+  });
+  const name = ("Operate - " + (loop.name || "loop")).slice(0, 80);
+  const description = [
+    loop.description || loop.name,
+    "Day-1 fully configured from operating model.",
+    "Cadence: " + (loop.cadence || "daily") + (triggers.schedule_cron ? " cron=" + triggers.schedule_cron : " (manual/event only)") + ".",
+    "Publish gate: " + publishLevel + ".",
+    "Open for CEO only: Browser Session / Connectors readiness - not workflow settings.",
+  ].join(" ");
+  const actor = { id: ownerUserId, name: "company-operate" };
   try {
-    const existingId = `operate-${ownerUserId.slice(0, 12)}-${loop.id}`.replace(/[^a-zA-Z0-9-_]/g, "-").slice(0, 64);
+    const existingId = ("operate-" + String(ownerUserId).replace(/[^a-zA-Z0-9-_]/g, "-") + "-" + loop.id)
+      .replace(/[^a-zA-Z0-9-_]/g, "-")
+      .slice(0, 64);
     const prior = getDefinition(existingId, ownerUserId);
+    const patch = {
+      name: name,
+      description: description,
+      graph: graph,
+      trigger_modes: triggers.trigger_modes,
+      schedule_cron: triggers.schedule_cron,
+    };
     if (prior) {
-      updateDraft(
-        existingId,
-        ownerUserId,
-        {
-          name,
-          description,
-          graph,
-          trigger_modes: ["manual"],
-        },
-        { id: ownerUserId, name: "company-operate" }
-      );
-      return { id: existingId, name, updated: true, publish_gated: publishLevel === "require_ceo" };
+      updateDraft(existingId, ownerUserId, patch, actor);
+    } else {
+      try {
+        createDefinition({
+          id: existingId,
+          name: name,
+          description: description,
+          ownerUserId: ownerUserId,
+          actor: actor,
+          graph: graph,
+          trigger_modes: triggers.trigger_modes,
+          schedule_cron: triggers.schedule_cron,
+        });
+      } catch (ce) {
+        // Id occupied by another owner (short-hash collision on older builds) — unique suffix
+        const altId = (existingId.slice(0, 54) + "-" + String(ownerUserId).slice(-8))
+          .replace(/[^a-zA-Z0-9-_]/g, "-")
+          .slice(0, 64);
+        try {
+          createDefinition({
+            id: altId,
+            name: name,
+            description: description,
+            ownerUserId: ownerUserId,
+            actor: actor,
+            graph: graph,
+            trigger_modes: triggers.trigger_modes,
+            schedule_cron: triggers.schedule_cron,
+          });
+          // switch publish target
+          const pubAlt = publishDefinition(altId, ownerUserId, actor);
+          return {
+            id: altId,
+            name: name,
+            updated: false,
+            created: true,
+            published: !!pubAlt,
+            publish_error: null,
+            publish_gated: publishLevel === "require_ceo",
+            cadence: loop.cadence || "daily",
+            schedule_cron: triggers.schedule_cron || null,
+            trigger_modes: triggers.trigger_modes,
+            ok: true,
+          };
+        } catch (ce2) {
+          throw ce;
+        }
+      }
     }
-    const def = createDefinition({
-      id: existingId,
-      name,
-      description,
-      ownerUserId,
-      actor: { id: ownerUserId, name: "company-operate" },
-      graph,
-      trigger_modes: ["manual"],
-      schedule_cron: "",
-    });
+    let published = false;
+    let publish_error = null;
+    try {
+      publishDefinition(existingId, ownerUserId, actor);
+      published = true;
+    } catch (pe) {
+      publish_error = pe && pe.message ? pe.message : String(pe);
+      console.warn("[company-operate] publish workflow", loop.id, publish_error);
+    }
     return {
-      id: def?.id || existingId,
-      name,
-      created: true,
+      id: existingId,
+      name: name,
+      updated: !!prior,
+      created: !prior,
+      published: published,
+      publish_error: publish_error,
       publish_gated: publishLevel === "require_ceo",
+      cadence: loop.cadence || "daily",
+      schedule_cron: triggers.schedule_cron || null,
+      trigger_modes: triggers.trigger_modes,
+      ok: true,
     };
   } catch (e) {
-    console.warn("[company-operate] workflow", loop.id, e?.message || e);
-    return { loop_id: loop.id, ok: false, error: e?.message || String(e) };
+    console.warn("[company-operate] workflow", loop.id, e && e.message ? e.message : e);
+    return { loop_id: loop.id, ok: false, error: e && e.message ? e.message : String(e) };
   }
 }
+
 
 function assessSystemsReadiness(model, strategic) {
   const readiness = [];
@@ -583,9 +819,14 @@ function assessSystemsReadiness(model, strategic) {
       note = "Kanban is always available in the platform.";
     } else if (sys.id === "replicate") {
       note = "Add Replicate_BYOK under API Keys if media generation is required.";
+    } else if (sys.id === "master_data") {
+      status = "ready";
+      note = "Master Data tables for goals, calendar, and 20-day content_topics_history.";
+    } else if (sys.id === "policies") {
+      note = "Universal content safety + company guardrails under Policies. Day 1 seeds baseline.";
     }
-    if (status === "ready" && sys.id !== "kanban") {
-      // Only trust explicit CEO-marked ready; kanban is platform-native
+    if (status === "ready" && sys.id !== "kanban" && sys.id !== "master_data") {
+      // Only trust explicit CEO-marked ready; kanban/master_data are platform-native
     }
     readiness.push({
       id: sys.id,
@@ -604,6 +845,16 @@ function assessSystemsReadiness(model, strategic) {
       required: true,
       status: ch.readiness || "not_ready",
       note: "Social via Browser Session until native API (Phase E).",
+    });
+  }
+  for (const g of model.goals || []) {
+    readiness.push({
+      id: `goal:${g.id}`,
+      label: g.label || g.id,
+      path: g.path || "/scheduled-goals",
+      required: g.required !== false,
+      status: g.readiness || "not_ready",
+      note: g.note || "Track goal readiness like systems/channels. CEO goals provide content topics.",
     });
   }
   // Merge selected Phase C systems as soft recommendations if not listed
@@ -682,17 +933,42 @@ function formatModelMarkdown(model) {
     ...(model.daily_tasks || []).map(
       (d) => `### ${d.agent_name}\n${(d.tasks || []).map((t) => `- ${t}`).join("\n")}`
     ),
+    "",
+    "## Systems",
+    ...((model.systems_run || []).length
+      ? (model.systems_run || []).map(
+          (s) =>
+            `- ${s.label || s.id} (${s.id}) path=${s.path || ""} readiness=${s.readiness || "not_ready"} required=${!!s.required}`
+        )
+      : ["- (none)"]),
+    "",
+    "## Channels / public surfaces",
+    ...((model.channels || []).length
+      ? (model.channels || []).map(
+          (c) =>
+            `- ${c.label || c.id} owner=${c.owner_role || "?"} via=${c.system_id || c.path || "?"} readiness=${c.readiness || "not_ready"}`
+        )
+      : ["- (none)"]),
+    "",
+    "## Goals",
+    ...((model.goals || []).length
+      ? (model.goals || []).map(
+          (g) =>
+            `- ${g.label || g.id} (${g.id}) owner=${g.owner_role || "?"} cadence=${g.cadence || "?"} readiness=${g.readiness || "not_ready"} path=${g.path || "/scheduled-goals"}`
+        )
+      : ["- (none)"]),
+
   ];
   return lines.join("\n");
 }
 
-function buildDay1OperateBriefing({ model, md, workflows, readiness, knowledge, version }) {
+function buildDay1OperateBriefing({ model, md, workflows, readiness, knowledge, policy = null, version }) {
   const blocked = readiness.filter((r) => r.required && r.status !== "ready");
   const ready = readiness.filter((r) => r.status === "ready");
   const wfOk = workflows.filter((w) => w.id && !w.error);
   const mdOk = md.filter((m) => m.ok);
   return {
-    message: `Day 1 install complete for operating model v${version}. ${mdOk.length} employee runbooks updated, ${wfOk.length} workflow(s) drafted.`,
+    message: `Day 1 install complete for operating model v${version}. ${mdOk.length} employee runbooks updated, ${wfOk.length} workflow(s) published (manual/event or scheduled per loop cadence). Goals tracked with systems & channels. Only Browser Session / Connectors / unfilled CEO goals may still need you.`,
     version,
     what_runs: (model.loops || [])
       .filter((l) => l.critical_day1)
@@ -707,12 +983,59 @@ function buildDay1OperateBriefing({ model, md, workflows, readiness, knowledge, 
       note: b.note || "Setup still required — not connected automatically.",
     })),
     ready_systems: ready.map((r) => r.label),
+    goals: (model.goals || []).map((g) => ({
+      id: g.id,
+      label: g.label,
+      readiness: g.readiness || "not_ready",
+      path: g.path || "/scheduled-goals",
+      owner_role: g.owner_role || null,
+      cadence: g.cadence || null,
+      note: g.note || null,
+    })),
     md_updated: mdOk.map((m) => m.name || m.agent_id),
     workflows: wfOk,
+    configured_workflows: wfOk.map((w) => ({
+      id: w.id,
+      name: w.name,
+      published: w.published !== false && !w.publish_error,
+      schedule_cron: w.schedule_cron || null,
+      cadence: w.cadence || null,
+      trigger_modes: w.trigger_modes || null,
+      note: w.publish_error || null,
+    })),
+    open_for_ceo: (readiness || [])
+      .filter((r) => {
+        if (r.status === "ready") return false;
+        const id = String(r.id || "");
+        const path = String(r.path || "");
+        return (
+          id.includes("browser") ||
+          path.includes("browser") ||
+          path.includes("connector") ||
+          id === "replicate" ||
+          path.includes("api-keys") ||
+          id.startsWith("channel:") ||
+          id.startsWith("goal:") ||
+          path.includes("scheduled-goal")
+        );
+      })
+      .map((r) => ({ label: r.label, path: r.path, status: r.status, note: r.note })),
     knowledge,
+    policies: policy
+      ? {
+          seeded: !!policy.ok,
+          action: policy.action || null,
+          note: policy.ok
+            ? "Universal content safety (no sexual/abusive/discriminatory content) seeded. Review under /policies."
+            : (policy.error || "Policy seed failed"),
+        }
+      : null,
     links: [
       { label: "Workflows", path: "/workflows" },
+      { label: "Scheduled goals", path: "/scheduled-goals" },
+      { label: "Policies", path: "/policies" },
       { label: "Browser Session", path: "/browser-session" },
+      { label: "Master Data", path: "/master-data" },
       { label: "Kanban", path: "/kanban" },
       { label: "Home", path: "/" },
     ],
@@ -732,12 +1055,14 @@ export async function applyOperateDay1(ownerUserId) {
     err.status = 400;
     throw err;
   }
-  const model = strategic.operating_model;
-  if (!model) {
+  const modelRaw = strategic.operating_model;
+  if (!modelRaw) {
     const err = new Error("No operating model to apply.");
     err.status = 400;
     throw err;
   }
+  const model = enrichModelFromIndustryTemplate(modelRaw, strategic);
+  strategic.operating_model = model;
   const version = strategic.operating_model_version || 1;
   model._version = version;
 
@@ -778,6 +1103,112 @@ export async function applyOperateDay1(ownerUserId) {
     workflows.push(createOperateWorkflow(ownerUserId, loop, agent, model));
   }
 
+  // Day 1 from published blueprint pack: multi-agent graphs, scheduled goals, agents MD, policy
+  const bp = getBlueprint(strategic.blueprint_id || strategic.company_type || "general_ops");
+  let blueprintWorkflows = [];
+  let blueprintGoals = [];
+  let blueprintAgentsMd = [];
+  try {
+    if (bp?.workflow_templates?.length) {
+      blueprintWorkflows = installBlueprintWorkflowTemplates(ownerUserId, bp.workflow_templates, agents, {
+        id: ownerUserId,
+        name: "company-operate-day1",
+      });
+      for (const w of blueprintWorkflows) workflows.push({ ...w, source: "blueprint_template" });
+      console.info(
+        "[company-operate] day1 blueprint workflows owner=",
+        ownerUserId,
+        "count=",
+        blueprintWorkflows.length,
+        "ok=",
+        blueprintWorkflows.filter((w) => w.ok).length
+      );
+    }
+  } catch (e) {
+    console.warn("[company-operate] day1 blueprint workflows", e?.message || e);
+  }
+  try {
+    if (bp?.goal_templates?.length) {
+      blueprintGoals = installBlueprintGoalTemplates(ownerUserId, bp.goal_templates, agents);
+      console.info(
+        "[company-operate] day1 blueprint goals owner=",
+        ownerUserId,
+        "count=",
+        blueprintGoals.length
+      );
+    }
+  } catch (e) {
+    console.warn("[company-operate] day1 blueprint goals", e?.message || e);
+  }
+  try {
+    if (bp?.agents_md?.length) {
+      blueprintAgentsMd = await applyBlueprintAgentsMd(ownerUserId, bp.agents_md, agents);
+      console.info(
+        "[company-operate] day1 blueprint agents_md owner=",
+        ownerUserId,
+        "count=",
+        blueprintAgentsMd.length
+      );
+    }
+  } catch (e) {
+    console.warn("[company-operate] day1 blueprint agents_md", e?.message || e);
+  }
+
+  // Day 1: policies & guardrails (universal safety for every blueprint/company)
+  let policySeed = { ok: false };
+  try {
+    if (bp?.policy_text) {
+      applyBlueprintPolicyText(ownerUserId, bp.policy_text);
+    } else if (bp?.policy_templates?.published_from_company) {
+      applyBlueprintPolicyText(ownerUserId, bp.policy_templates.published_from_company);
+    }
+    policySeed = ensureUniversalSafetyGuardrails(ownerUserId);
+    // mark policies system ready when present
+    if (Array.isArray(model.systems_run)) {
+      model.systems_run = model.systems_run.map((s) =>
+        s.id === "policies" ? { ...s, readiness: "ready" } : s
+      );
+    }
+    if (!(model.systems_run || []).some((s) => s.id === "policies")) {
+      model.systems_run = [
+        ...(model.systems_run || []),
+        {
+          id: "policies",
+          label: "Policies & guardrails",
+          path: "/policies",
+          required: true,
+          readiness: "ready",
+        },
+      ];
+    }
+    if (!(model.goals || []).some((g) => g.id === "policies_guardrails")) {
+      model.goals = [
+        ...(model.goals || []),
+        {
+          id: "policies_guardrails",
+          label: "Policies & guardrails (content safety baseline)",
+          path: "/policies",
+          owner_role: "CEO",
+          cadence: "once",
+          required: true,
+          readiness: "ready",
+          note: "Universal safety seeded: no sexual, abusive, or discriminatory content. Edit under Policies.",
+        },
+      ];
+    }
+    strategic.operating_model = model;
+    try {
+      await syncOrgContextForCeo(ownerUserId);
+    } catch (e) {
+      console.warn("[company-operate] policy POLICY.md sync", e?.message || e);
+    }
+    policySeed = { ...policySeed, ok: true };
+    console.info("[company-operate] day1 policies", policySeed.action || "ok", "owner=", ownerUserId);
+  } catch (e) {
+    console.warn("[company-operate] day1 policies", e?.message || e);
+    policySeed = { ok: false, error: e?.message || String(e) };
+  }
+
   let knowledge = { tables: [], rows: 0 };
   try {
     knowledge = await seedOperateKnowledge(ownerUserId, model);
@@ -810,8 +1241,13 @@ export async function applyOperateDay1(ownerUserId) {
     workflows,
     readiness,
     knowledge,
+    policy: policySeed,
     version,
   });
+  day1.blueprint_workflows = blueprintWorkflows;
+  day1.blueprint_goals = blueprintGoals;
+  day1.blueprint_agents_md = blueprintAgentsMd;
+  day1.blueprint_id = bp?.id || strategic.blueprint_id || null;
 
   strategic.operate_gate = "day1_applied";
   strategic.operate_step = "done";

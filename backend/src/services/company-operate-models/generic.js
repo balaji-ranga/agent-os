@@ -56,6 +56,7 @@ export function buildGenericOperatingModel({ companyType = "general_ops", label 
   let weekly_rituals = ["Weekly CEO digest from COO", "Systems readiness check"];
   let channels = [];
   let systems_run = [
+    { id: "policies", label: "Policies & guardrails", path: "/policies", required: true },
     { id: "kanban", label: "Kanban", path: "/kanban", required: true },
     { id: "browser_session", label: "Browser Session", path: "/browser-session", required: false },
   ];

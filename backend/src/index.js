@@ -35,7 +35,7 @@ import jobApplicantRoutes from './routes/job-applicant.js';
 import agentWorkflowRoutes from './routes/agent-workflows.js';
 import agentWorkflowHookRoutes from './routes/agent-workflow-hooks.js';
 import agentWorkflowDesktopRoutes from './routes/agent-workflow-desktop.js';
-import mcpIntegrationsRoutes from './routes/mcp-integrations.js';
+import mcpIntegrationsRoutes, { mcpOauthCallbackHandler } from './routes/mcp-integrations.js';
 import customScriptsRoutes from './routes/custom-scripts.js';
 import externalAgentsRoutes from './routes/external-agents.js';
 import workflowA2aRoutes from './routes/workflow-a2a.js';
@@ -273,6 +273,7 @@ seedCeoProfileToolIfMissing();
 seedStatusCheckerToolIfMissing();
 seedScheduledGoalToolsIfMissing();
 seedMasterDataToolsIfMissing();
+
 seedVedicChartToolIfMissing();
 seedConnectorToolsIfMissing();
 updateKanbanToolPurposes();
@@ -494,6 +495,8 @@ apiRouter.use('/job-applicant', jobApplicantRoutes);
 apiRouter.use('/agent-workflows/hooks', agentWorkflowHookRoutes);
 apiRouter.use('/agent-workflows/desktop/v1', agentWorkflowDesktopRoutes);
 apiRouter.use('/agent-workflows', agentWorkflowRoutes);
+// Public MCP OAuth callback (provider redirect; no session cookie).
+apiRouter.get('/integrations/mcp/oauth/callback', mcpOauthCallbackHandler);
 apiRouter.use('/integrations/mcp', mcpIntegrationsRoutes);
 apiRouter.use('/integrations/custom-scripts', customScriptsRoutes);
 apiRouter.use('/integrations/external-agents', externalAgentsRoutes);

@@ -34,6 +34,11 @@ if [[ -f scripts/ensure-embeddings-env.sh ]]; then
   sed -i 's/\r$//' scripts/ensure-embeddings-env.sh 2>/dev/null || true
   bash scripts/ensure-embeddings-env.sh "${DEPLOY_DIR}/.env" || true
 fi
+if [[ -f scripts/ensure-platform-mcps.sh ]]; then
+  sed -i 's/\r$//' scripts/ensure-platform-mcps.sh 2>/dev/null || true
+  # Env keys first; containers + registry seeds after stack is up
+  SKIP_PLATFORM_MCPS=1 bash scripts/ensure-platform-mcps.sh "${DEPLOY_DIR}/.env" || true
+fi
 
 # OpenSearch requires elevated mmap counts (Linux hosts / VPS).
 if command -v sysctl >/dev/null 2>&1; then
@@ -88,6 +93,13 @@ if grep -qE '^OPENCONNECTOR_MCP_URL=.+' .env 2>/dev/null; then
   fi
 fi
 
+# Platform MCPs: Brave Search (BYOK) + Meta Graph (per-CEO OAuth) — optional compose profiles + seeds
+if [[ -f scripts/ensure-platform-mcps.sh && "${SKIP_PLATFORM_MCPS:-0}" != "1" ]]; then
+  echo "Ensuring platform MCPs (optional-brave-mcp + optional-meta-graph-mcp)..."
+  PLATFORM_MCP_BUILD=1 bash scripts/ensure-platform-mcps.sh "${DEPLOY_DIR}/.env" || \
+    echo "Platform MCP ensure skipped/failed — set SKIP_PLATFORM_MCPS=1 to silence, or fix tools/* MCP Dockerfiles."
+fi
+
 echo ""
 echo "Stack started. Check: ${COMPOSE} ps"
 echo "Health: curl -k https://localhost/health  (or http://localhost:8080 with docker-compose.dev.yml)"
@@ -109,6 +121,8 @@ echo "  public VR (/api/public/vr/:slug), agent channels (/api/agent-channels),"
 echo "  WhatsApp groupPolicy=disabled by default (sync rewrites openclaw.json),"
 echo "  CEO home chat / + My Org /org, Profile role_title,"
 echo "  free speech (/api/speech/stt|tts) via optional-voice (ensure-voice-env.sh)"
+echo "  platform MCPs (ensure-platform-mcps.sh): mcp-brave-search + mcp-meta-graph,"
+echo "    Connectors → MCPs OAuth (FACEBOOK_APP_* / MCP_OAUTH_CALLBACK_URL)"
 echo "OpenSearch smoke: docker compose exec -T backend node scripts/test-opensearch-rag-smoke.js"
 echo "Post-deploy smoke (on VPS): bash scripts/vps-smoke-new-features.sh"
 echo "Broadcast notify smoke: bash scripts/vps-smoke-broadcast-notify.sh"

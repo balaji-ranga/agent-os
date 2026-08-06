@@ -14,6 +14,8 @@ Works with **Docker Compose** and **Podman Compose** on CentOS/RHEL, Ubuntu (Hos
 | `openclaw` | Yes | internal | Gateway :18789, browser tool, skills/plugins |
 | `init` | First run | — | One-shot bootstrap (`--profile init`) |
 | `mcp-random-sse` | Optional | internal | Dev MCP + SSE test server (`optional-mcp`) |
+| `brave-search-mcp` | Optional | internal | Platform Brave Search MCP BYOK (`optional-brave-mcp`) |
+| `meta-graph-mcp` | Optional | internal | Platform Meta Graph MCP for Facebook/IG (`optional-meta-graph-mcp`) |
 | `opensearch` | Required | internal `:9200` only | Document meta + RAG search (per-user + platform indices) |
 | `opensearch-dashboards` | Required | internal `:5601` only | Admin Dashboards via `/opensearch/` BFF |
 | `openconnector` | Optional | internal | Real OpenConnector runtime, `:3000` (`optional-openconnector`) |
@@ -129,6 +131,35 @@ docker compose exec openclaw node deploy/scripts/verify-openclaw-parity.js
 ```
 
 Ensure `TOOLS_BASE_URL=http://127.0.0.1:3001` in `.env` (see `.env.example`) so backend tool self-invoke does not use public HTTPS. For VPS A2A IP whitelist, see **[VPS client IP overlay](#vps-client-ip-overlay-a2a-ip-policy)** (`COMPOSE_FILE` includes `docker-compose.vps-client-ip.yml`).
+
+## Platform MCPs (Brave Search + Meta Graph)
+
+`deploy/scripts/up.sh` and `vps-deploy-latest.sh` call **`scripts/ensure-platform-mcps.sh`** (skip with `SKIP_PLATFORM_MCPS=1`):
+
+1. Ensures `BRAVE_MCP_URL` / `META_GRAPH_MCP_URL` in `deploy/.env`.
+2. Builds/starts Compose profiles **`optional-brave-mcp`** and **`optional-meta-graph-mcp`**.
+3. Seeds registry rows **`mcp-brave-search`** + **`mcp-meta-graph`** (`is_platform=1`) and default Meta OAuth config for **Connectors → MCPs**.
+
+Manual:
+
+```bash
+cd deploy
+docker compose --env-file .env --profile optional-meta-graph-mcp up -d --build meta-graph-mcp
+docker compose exec backend node scripts/seed-meta-graph-mcp.js
+bash scripts/vps-smoke-meta-graph-mcp.sh
+```
+
+Operator env (Meta app credentials for CEO OAuth):
+
+```bash
+# FACEBOOK_APP_ID=...
+# FACEBOOK_APP_SECRET=...
+META_GRAPH_MCP_URL=http://meta-graph-mcp:8081/mcp
+# Optional: re-seed publish + comments workflows for one CEO after deploy
+# SEED_CONTENT_MEDIA_OWNER=ceo-...
+```
+
+Public OAuth callback: `GET /api/integrations/mcp/oauth/callback` (via nginx → backend). CEO guide: `knowledgebase/platform-help/30-content-creator-ops.md`.
 
 ## Environment & LLM secrets
 

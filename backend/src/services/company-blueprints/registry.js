@@ -82,6 +82,16 @@ function normalizePack(raw, fallbacks = {}) {
     source_owner_user_id: raw.source_owner_user_id || null,
     source_company_name: raw.source_company_name || null,
     published_by: raw.published_by || null,
+    operate_model_id: raw.operate_model_id || null,
+    operate_model_snapshot: raw.operate_model_snapshot || null,
+    browser_autonomy: raw.browser_autonomy && typeof raw.browser_autonomy === 'object' ? raw.browser_autonomy : null,
+    publish_quality: raw.publish_quality && typeof raw.publish_quality === 'object' ? raw.publish_quality : null,
+    // Day 0+1 artefacts (from admin publish of a working company)
+    workflow_templates: Array.isArray(raw.workflow_templates) ? raw.workflow_templates : [],
+    goal_templates: Array.isArray(raw.goal_templates) ? raw.goal_templates : [],
+    agents_md: Array.isArray(raw.agents_md) ? raw.agents_md : [],
+    policy_text: typeof raw.policy_text === 'string' ? raw.policy_text : '',
+    day0_day1: raw.day0_day1 && typeof raw.day0_day1 === 'object' ? raw.day0_day1 : null,
   };
 }
 

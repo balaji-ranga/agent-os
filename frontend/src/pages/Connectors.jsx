@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth, RequireAuth } from '../context/AuthContext';
 import WizardReturnBanner from '../components/WizardReturnBanner.jsx';
+import McpConnectorsPanel from '../components/connectors/McpConnectorsPanel.jsx';
 
 const STARTERS = [
   { id: 'hackernews', name: 'Hacker News' },
@@ -13,6 +14,17 @@ const STARTERS = [
 
 function ConnectorsPanel() {
   const { user } = useAuth();
+  // Deep-link: /connectors?tab=mcps or #mcps
+  const [mainTab, setMainTab] = useState(() => {
+    try {
+      const q = new URLSearchParams(window.location.search).get('tab');
+      if (q === 'mcps' || q === 'mcp') return 'mcps';
+      if (window.location.hash === '#mcps' || window.location.hash === '#mcp') return 'mcps';
+    } catch {
+      /* ignore */
+    }
+    return 'openconnector';
+  }); // openconnector | mcps
   const isAdmin = user?.role === 'admin';
   const [link, setLink] = useState(null);
   const [connections, setConnections] = useState([]);
@@ -284,11 +296,79 @@ function ConnectorsPanel() {
           )}
       </p>
 
-      {error && <div style={{ color: '#dc2626', marginTop: '1rem' }}>{error}</div>}
-      {message && <div style={{ color: '#16a34a', marginTop: '1rem' }}>{message}</div>}
-      {oauthPolling && (
+      {error && mainTab === 'openconnector' && (
+        <div style={{ color: '#dc2626', marginTop: '1rem' }}>{error}</div>
+      )}
+      {message && mainTab === 'openconnector' && (
+        <div style={{ color: '#16a34a', marginTop: '1rem' }}>{message}</div>
+      )}
+      {oauthPolling && mainTab === 'openconnector' && (
         <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>Waiting for {oauthPolling} OAuth…</p>
       )}
+
+      <div style={{ display: 'flex', gap: 0, marginTop: '1.25rem', borderBottom: '1px solid var(--border)' }}>
+        {[
+          { id: 'openconnector', label: 'OpenConnector' },
+          { id: 'mcps', label: 'MCPs (OAuth)' },
+        ].map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => {
+              setMainTab(t.id);
+              try {
+                const url = new URL(window.location.href);
+                if (t.id === 'mcps') url.searchParams.set('tab', 'mcps');
+                else url.searchParams.delete('tab');
+                window.history.replaceState({}, '', url.pathname + url.search);
+              } catch {
+                /* ignore */
+              }
+            }}
+            style={{
+              padding: '0.55rem 1rem',
+              border: 'none',
+              borderBottom: mainTab === t.id ? '2px solid var(--accent, #2563eb)' : '2px solid transparent',
+              background: 'transparent',
+              cursor: 'pointer',
+              fontWeight: mainTab === t.id ? 600 : 400,
+              color: mainTab === t.id ? 'var(--text)' : 'var(--muted)',
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {mainTab === 'openconnector' && (
+        <p style={{ margin: '0.65rem 0 0', fontSize: '0.85rem', color: 'var(--muted)' }}>
+          Looking for Facebook / LinkedIn MCP OAuth? Open the{' '}
+          <button
+            type="button"
+            onClick={() => setMainTab('mcps')}
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              color: 'var(--accent)',
+              cursor: 'pointer',
+              textDecoration: 'underline',
+              font: 'inherit',
+            }}
+          >
+            MCPs (OAuth)
+          </button>{' '}
+          tab — not OpenConnector.
+        </p>
+      )}
+
+      {mainTab === 'mcps' && (
+        <div style={{ marginTop: '1rem' }}>
+          <McpConnectorsPanel />
+        </div>
+      )}
+
+      {mainTab === 'openconnector' && (
+      <>
 
       <section style={{ marginTop: '1.25rem', padding: '1rem', border: '1px solid var(--border)', borderRadius: 8 }}>
         <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.05rem' }}>Local IBKR bridge</h2>
@@ -506,6 +586,8 @@ function ConnectorsPanel() {
             </button>
           </form>
         </section>
+      )}
+      </>
       )}
     </div>
   );

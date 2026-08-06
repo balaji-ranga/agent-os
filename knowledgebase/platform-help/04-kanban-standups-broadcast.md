@@ -67,6 +67,8 @@ Specialists follow shared ops rules (`AGENT-OS-OPS.md`):
 
 Creating a Kanban card may also raise a platform bell. Status moves alone do **not** replace `notify_ceo` when you asked to be reached.
 
+**Ops Reporter / scheduled rollups** use `notify_ceo` → **bell only**. They do **not** send email unless you separately grant and prompt `email_send` with SMTP configured. See [30-content-creator-ops.md](./30-content-creator-ops.md).
+
 ## COO specialty routing
 
 When you chat with the COO (web Agent Chat):
