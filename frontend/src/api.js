@@ -847,6 +847,10 @@ export const api = {
   mcpOauthExclude: (serverId) => post('/integrations/mcp/oauth/exclude', { server_id: serverId }),
   mcpOauthConfigUpsert: (serverId, body) =>
     put(`/integrations/mcp/${encodeURIComponent(serverId)}/oauth/config`, body),
+  mcpOauthOverrideSave: (serverId, body) =>
+    put(`/integrations/mcp/${encodeURIComponent(serverId)}/oauth/override`, body),
+  mcpOauthOverrideClear: (serverId) =>
+    del(`/integrations/mcp/${encodeURIComponent(serverId)}/oauth/override`),
   mcpOauthStart: (serverId) =>
     post(`/integrations/mcp/${encodeURIComponent(serverId)}/oauth/start`, {}),
   mcpOauthDisconnect: (serverId) =>

@@ -44,8 +44,8 @@ if ! grep -q 'optional-meta-graph-mcp' "$ENV_FILE" 2>/dev/null; then
 # ---- Platform MCPs (Compose profiles optional-brave-mcp + optional-meta-graph-mcp) ----
 # ensure-platform-mcps.sh starts containers + seeds mcp-brave-search / mcp-meta-graph (is_platform=1).
 # Brave: workflow/node BYOK headers (no BRAVE_API_KEY in MCP container).
-# Facebook: admin FACEBOOK_APP_* or Connectors 뿯↽ MCPs OAuth client; each CEO connects own session.
-# SKIP_PLATFORM_MCPS=1 to skip containers/seeds. Docs: knowledgebase/platform-help/08-mcp-integrations.md
+# Facebook: admin FACEBOOK_APP_* or Connectors → MCPs (platform App; CEOs may override App ID/secret); each CEO Connects.
+# SKIP_PLATFORM_MCPS=1 to skip containers/seeds. Docs: knowledgebase/platform-help/31-mcp-connectors-oauth.md (+ 08 registry)
 # BRAVE_MCP_URL=http://brave-search-mcp:8080/mcp
 # META_GRAPH_MCP_URL=http://meta-graph-mcp:8081/mcp
 # FACEBOOK_APP_ID=

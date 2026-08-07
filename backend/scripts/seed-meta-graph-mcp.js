@@ -3,7 +3,8 @@
  *
  * Prerequisites:
  *   - meta-graph-mcp container (compose profile optional-meta-graph-mcp)
- *   - Prefer App ID/Secret on Connectors → MCPs (connector-level). Env FACEBOOK_APP_* is optional fallback only.
+ *   - Prefer App ID/Secret on Connectors → MCPs (platform default; CEOs may override App ID/secret).
+ *   - Env FACEBOOK_APP_* is optional platform fallback only. See platform-help/31-mcp-connectors-oauth.md.
  *
  * Run: node backend/scripts/seed-meta-graph-mcp.js
  */

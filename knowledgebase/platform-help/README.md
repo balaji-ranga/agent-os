@@ -12,7 +12,7 @@
 | [05-master-data-rag.md](./05-master-data-rag.md) | Tables, CSV, documents, RAG; **Inbound attachments**; **Purge all uploads**; protected Help/User Guide docs |
 | [06-workflows-building.md](./06-workflows-building.md) | Create / edit / publish / run workflows, I/O mapping, templates |
 | [07-workflow-nodes-reference.md](./07-workflow-nodes-reference.md) | Every node type incl. **Connector**; attributes, inputs, outputs |
-| [08-mcp-integrations.md](./08-mcp-integrations.md) | Register MCP, test, use in workflows / Brain (vs Connectors) |
+| [08-mcp-integrations.md](./08-mcp-integrations.md) | Register MCP, test, use in workflows / Brain (vs Connectors OAuth tab) |
 | [09-a2a-agent-exchange.md](./09-a2a-agent-exchange.md) | External agents, Publish A2A (sync/async, callback, deny_all/whitelist), AgentExchange **Test agent**, Admin **A2A invocation logs**, mock callback inbox |
 | [10-policies-guardrails.md](./10-policies-guardrails.md) | CEO common guardrails for all agents + Brain nodes |
 | [10-job-applicant-pipeline.md](./10-job-applicant-pipeline.md) | Job profiles & prebuilt job workflows |
@@ -21,7 +21,7 @@
 | [13-workflow-autonomous-certify.md](./13-workflow-autonomous-certify.md) | Maker/Checker certify jobs, status-on-request, resume inputs |
 | [14-workflow-dynamic-values.md](./14-workflow-dynamic-values.md) | `{{…}}` templates, variables, trigger input, **vault** auth |
 | [15-api-keys-vault.md](./15-api-keys-vault.md) | **API Keys** vault, auto-seeded BYOK slots, `Platform_BYOK` / Replicate / Brave / ElevenLabs |
-| [16-connectors-openconnector.md](./16-connectors-openconnector.md) | **Connectors** SaaS apps + workflow Connector node + **Download local IBKR bridge** |
+| [16-connectors-openconnector.md](./16-connectors-openconnector.md) | **Connectors → OpenConnector** SaaS apps + Connector node + IBKR bridge; MCPs tab points to **31** |
 | [17-desktop-windows-download.md](./17-desktop-windows-download.md) | **Download for Windows** — local orchestrator, tokens, IP whitelist (W2 execute) |
 | [18-agent-budgets-and-org-members.md](./18-agent-budgets-and-org-members.md) | Department purpose/budget, **agent token + error budgets** (warn-then-block), **Efficiency → Agent View**, external/A2A agents as org leaf members |
 | [19-scheduled-jobs-and-crons.md](./19-scheduled-jobs-and-crons.md) | Platform crons vs your own schedules, **COO status checker** (daily report + HTML email), **data retention** purge, Storage (MB); points to **Scheduled goals** |
@@ -36,9 +36,10 @@
 | [28-scheduled-goals.md](./28-scheduled-goals.md) | **Scheduled goals** — hourly/daily/weekdays/weekly CEO prompts; create/edit/pause UI + COO tools |
 | [29-company-setup.md](./29-company-setup.md) | **Company setup** — first-run wizard `/company-setup` (type, mission, DNA, team Apply, management style); vs Onboarding Helper |
 | [30-content-creator-ops.md](./30-content-creator-ops.md) | **Content creator ops** — Facebook Page via Meta Graph MCP, publish social, comment ingest/triage, Ops Reporter **bell** (not email), Company Operate |
+| [31-mcp-connectors-oauth.md](./31-mcp-connectors-oauth.md) | **Connectors → MCPs** OAuth: Facebook / Meta Graph, CEO App ID override, other OAuth MCPs; OpenConnector config → **16** + OPENCONNECTOR-WEBHOOKS |
 
 **Video Tours (UI):** User menu → **Help → Video Tours** (/video-tours) — playlist of short CEO tours (script/captions now; mp4 when exported). Not ingested as RAG docs.
 
 **Product name:** Flolah (Automate, Innovate, Elevate) — Agent OS underneath.
 
-**Specialist agent:** Chat with **Platform Help** (`platformhelp`) for how-to, navigation, **Company setup**, **Scheduled goals**, **content/social publish**, workflow node questions, MCP/A2A/Connectors/API Keys, and light troubleshooting. For **structured first company shape**, use **Company setup** `/company-setup` (**29**). For **content_creator** operate (publish, community, weekly ops rollup), see **30**. For freeform **strategic org chat** (departments/agents), use **Onboarding Helper** + `/onboarding` (**27**). For building or fixing graphs, prefer **Workflow Builder**. For day-to-day ops, delegation, and **recurring goals**, prefer the **COO**.
+**Specialist agent:** Chat with **Platform Help** (`platformhelp`) for how-to, navigation, **Company setup**, **Scheduled goals**, **content/social publish**, workflow node questions, MCP/A2A/Connectors/API Keys, and light troubleshooting. For **structured first company shape**, use **Company setup** `/company-setup` (**29**). For **content_creator** operate (publish, community, weekly ops rollup), see **30**. For **Facebook / MCP OAuth Connect** setup (and other OAuth MCPs), see **31**. For freeform **strategic org chat** (departments/agents), use **Onboarding Helper** + `/onboarding` (**27**). For building or fixing graphs, prefer **Workflow Builder**. For day-to-day ops, delegation, and **recurring goals**, prefer the **COO**.

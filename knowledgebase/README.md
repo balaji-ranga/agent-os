@@ -11,7 +11,7 @@ Documentation lives here so Cursor and humans can find it. **Root README.md** st
 
 | **VISION.md** | Product purpose, vision, core strengths, differentiator, and strategic focuses (AI Company OS + governed A2A). |
 | **PITCH.md** | One-pager pitch: problem, solution, differentiators, audience, and success journey (from VISION + AI-COMPANY-OS). |
-| **platform-help/** | CEO end-user Platform Help corpus (RAG; **11** Tools + **Tools → Model** + media / attachments / platform feedback; **19–20** crons + IBKR; **21–27** external tools through onboarding; **28** Scheduled goals; **29** Company setup; **30** Content creator ops / Meta Graph / Ops Reporter bell) |
+| **platform-help/** | CEO end-user Platform Help corpus (RAG; **11** Tools + **Tools → Model** + media / attachments / platform feedback; **19–20** crons + IBKR; **21–27** external tools through onboarding; **28** Scheduled goals; **29** Company setup; **30** Content creator ops / Meta Graph / Ops Reporter bell; **31** Connectors → MCPs OAuth (Facebook + CEO App override; OpenConnector → **16**)) |
 | **AGENT-WORKSPACE-TEMPLATES.md** | Platform-shared agent workspace MD templates: apply in Agent Workspace, Admin CRUD, CEO publish-as-template. |
 | **TESTING.md** | Restart steps, full API test, frontend manual tests, smoke test, standup→COO→TechResearcher test, standup UI checklist. |
 | **GITHUB-SETUP.md** | One-time: create agent-os repo on GitHub and push (Options A/B, security check). |
@@ -55,4 +55,5 @@ Documentation lives here so Cursor and humans can find it. **Root README.md** st
 | [platform-help/28-scheduled-goals.md](./platform-help/28-scheduled-goals.md) | CEO help: scheduled goals (hourly/daily/weekdays/weekly; create/edit/pause; COO tools) |
 | [platform-help/29-company-setup.md](./platform-help/29-company-setup.md) | CEO help: Company setup first-run wizard vs Onboarding Helper |
 | [platform-help/30-content-creator-ops.md](./platform-help/30-content-creator-ops.md) | CEO help: content ops publish / community / Ops Reporter (bell not email) |
+| [platform-help/31-mcp-connectors-oauth.md](./platform-help/31-mcp-connectors-oauth.md) | CEO/ops help: Connectors → MCPs OAuth (Facebook, App override, other providers) |
 | [AMENDMENT-CONTENT-MEDIA-API-PUBLISH.md](./AMENDMENT-CONTENT-MEDIA-API-PUBLISH.md) | Design amendment: Meta Graph publish, comments ingest, content_creator pack |

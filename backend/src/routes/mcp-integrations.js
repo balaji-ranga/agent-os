@@ -22,6 +22,8 @@ import {
   includeMcpForOauth,
   excludeMcpFromOauth,
   upsertOauthConfig,
+  upsertUserOauthClientOverride,
+  deleteUserOauthConfigOverride,
   getOauthConfigPublic,
   startMcpOauth,
   disconnectMcpOauth,
@@ -123,8 +125,39 @@ router.post('/oauth/exclude', (req, res) => {
 
 router.put('/:id/oauth/config', (req, res) => {
   try {
-    const cfg = upsertOauthConfig(req.params.id, req.body || {}, req.authUser);
+    const body = req.body || {};
+    const isPureAdmin = req.authUser?.role === 'admin' && !req.authUser?.impersonation;
+    const asOverride =
+      body.user_override === true ||
+      body.userOverride === true ||
+      (!isPureAdmin && body.platform_default !== true);
+    const cfg = asOverride && !isPureAdmin
+      ? upsertUserOauthClientOverride(req.params.id, body, req.authUser)
+      : upsertOauthConfig(req.params.id, body, req.authUser);
     res.json({ config: cfg, callback_url: getOauthCallbackUrl() });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message });
+  }
+});
+
+/** CEO: save personal App ID / secret / scopes override (same table, owner-scoped row). */
+router.put('/:id/oauth/override', (req, res) => {
+  try {
+    const cfg = upsertUserOauthClientOverride(req.params.id, req.body || {}, req.authUser);
+    console.info('[mcp-oauth] user override saved', {
+      server_id: req.params.id,
+      by: req.authUser?.id,
+    });
+    res.json({ config: cfg, callback_url: getOauthCallbackUrl() });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message });
+  }
+});
+
+/** CEO: clear personal override (fall back to platform admin App ID/secret). */
+router.delete('/:id/oauth/override', (req, res) => {
+  try {
+    res.json(deleteUserOauthConfigOverride(req.params.id, req.authUser));
   } catch (e) {
     res.status(e.status || 400).json({ error: e.message });
   }
@@ -132,7 +165,11 @@ router.put('/:id/oauth/config', (req, res) => {
 
 router.get('/:id/oauth/config', (req, res) => {
   try {
-    const cfg = getOauthConfigPublic(req.params.id);
+    const ownerId =
+      req.authUser?.role === 'admin' && !req.authUser?.impersonation
+        ? null
+        : req.authUser?.id;
+    const cfg = getOauthConfigPublic(req.params.id, ownerId);
     if (!cfg) return res.status(404).json({ error: 'OAuth not configured for this MCP' });
     res.json({ config: cfg, callback_url: getOauthCallbackUrl() });
   } catch (e) {

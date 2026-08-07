@@ -6,7 +6,8 @@ import { useAuth } from '../../context/AuthContext';
 /**
  * Connectors → MCPs: OAuth sessions for any registry MCP included via mcp_oauth_configs.
  * Admin (and CEO for own MCPs): pick servers from Integrations → MCP and enable OAuth.
- * CEO: Connect / Disconnect per-account tokens.
+ * CEO: optional App ID/secret/scopes override (stored per user; falls back to platform admin);
+ * Connect / Disconnect per-account tokens.
  */
 export default function McpConnectorsPanel() {
   const { user } = useAuth();
@@ -20,6 +21,8 @@ export default function McpConnectorsPanel() {
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
   const [oauthPolling, setOauthPolling] = useState(null);
+  const [overrideOpen, setOverrideOpen] = useState({});
+  const [overrides, setOverrides] = useState({});
   const [form, setForm] = useState({
     serverId: '',
     provider: 'facebook',
@@ -53,6 +56,19 @@ export default function McpConnectorsPanel() {
       setConfigs(data.configs || []);
       setCallbackUrl(data.callback_url || '');
       setError(null);
+      setOverrides((prev) => {
+        const next = { ...prev };
+        for (const c of data.connectors || []) {
+          if (!next[c.server_id]) {
+            next[c.server_id] = {
+              clientId: '',
+              clientSecret: '',
+              scopes: c.override_scopes || c.scopes || '',
+            };
+          }
+        }
+        return next;
+      });
       // Prefer incomplete Facebook / Meta Graph so admin can paste App ID/Secret immediately
       const incomplete =
         (data.connectors || []).find((c) => !c.oauth_client_ready) ||
@@ -82,6 +98,50 @@ export default function McpConnectorsPanel() {
       setError(e.message);
     }
   }, []);
+
+  const saveOverride = async (serverId, name) => {
+    const o = overrides[serverId] || {};
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await api.mcpOauthOverrideSave(serverId, {
+        client_id: o.clientId || undefined,
+        client_secret: o.clientSecret || undefined,
+        scopes: o.scopes || undefined,
+        user_override: true,
+      });
+      setMessage(
+        `Saved App ID/secret override for ${name || serverId}. Secret is encrypted at rest. Connect OAuth next.`
+      );
+      setOverrides((prev) => ({
+        ...prev,
+        [serverId]: { ...prev[serverId], clientSecret: '' },
+      }));
+      await refresh();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const clearOverride = async (serverId, name) => {
+    if (!window.confirm(`Clear your App ID/secret override for ${name}? Platform admin credentials will be used.`)) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await api.mcpOauthOverrideClear(serverId);
+      setMessage(`Cleared override for ${name || serverId} — using platform defaults`);
+      await refresh();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   useEffect(() => {
     refresh();
@@ -284,11 +344,105 @@ export default function McpConnectorsPanel() {
                 <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
                   {c.provider} · MCP {c.server_status || '—'}
                 </span>
+                {c.credentials_source === 'user' ? (
+                  <span style={{ fontSize: '0.75rem', color: '#0d9488' }}>your App credentials</span>
+                ) : (
+                  <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>platform App credentials</span>
+                )}
               </div>
               {c.description && (
                 <p style={{ margin: '0.35rem 0 0', fontSize: '0.85rem', color: 'var(--muted)' }}>
                   {c.description}
                 </p>
+              )}
+              {!isAdmin && (
+                <div
+                  style={{
+                    marginTop: 10,
+                    padding: '0.65rem',
+                    borderRadius: 6,
+                    border: '1px dashed var(--border)',
+                    background: 'color-mix(in srgb, var(--muted) 8%, transparent)',
+                  }}
+                >
+                  <button
+                    type="button"
+                    className="wf-btn"
+                    style={{ fontSize: '0.85rem' }}
+                    onClick={() =>
+                      setOverrideOpen((o) => ({ ...o, [c.server_id]: !o[c.server_id] }))
+                    }
+                  >
+                    {overrideOpen[c.server_id] ? 'Hide' : 'App ID / secret override'}…
+                  </button>
+                  <p style={{ margin: '0.4rem 0 0', fontSize: '0.8rem', color: 'var(--muted)' }}>
+                    Optional. Leave empty to use the platform admin Meta app. Your secret is encrypted with the
+                    platform key. After saving, click <strong>Connect with OAuth</strong>.
+                  </p>
+                  {overrideOpen[c.server_id] && (
+                    <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
+                      <input
+                        value={overrides[c.server_id]?.clientId || ''}
+                        onChange={(e) =>
+                          setOverrides((prev) => ({
+                            ...prev,
+                            [c.server_id]: { ...prev[c.server_id], clientId: e.target.value },
+                          }))
+                        }
+                        placeholder={
+                          c.override_client_id_hint
+                            ? `App ID (saved ${c.override_client_id_hint})`
+                            : 'App ID / Client ID'
+                        }
+                      />
+                      <input
+                        type="password"
+                        value={overrides[c.server_id]?.clientSecret || ''}
+                        onChange={(e) =>
+                          setOverrides((prev) => ({
+                            ...prev,
+                            [c.server_id]: { ...prev[c.server_id], clientSecret: e.target.value },
+                          }))
+                        }
+                        placeholder={
+                          c.override_secret_set
+                            ? 'App secret (leave blank to keep saved)'
+                            : 'App secret'
+                        }
+                      />
+                      <input
+                        value={overrides[c.server_id]?.scopes ?? c.override_scopes ?? c.scopes ?? ''}
+                        onChange={(e) =>
+                          setOverrides((prev) => ({
+                            ...prev,
+                            [c.server_id]: { ...prev[c.server_id], scopes: e.target.value },
+                          }))
+                        }
+                        placeholder="scopes (override platform defaults)"
+                      />
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                        <button
+                          type="button"
+                          className="wf-btn-primary"
+                          disabled={busy}
+                          onClick={() => saveOverride(c.server_id, c.name)}
+                        >
+                          Save override
+                        </button>
+                        {c.has_user_override && (
+                          <button
+                            type="button"
+                            className="wf-btn"
+                            disabled={busy}
+                            onClick={() => clearOverride(c.server_id, c.name)}
+                          >
+                            Use platform defaults
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
               {c.connection?.connected ? (
                 <p style={{ margin: '0.5rem 0 0', fontSize: '0.9rem' }}>
@@ -313,39 +467,25 @@ export default function McpConnectorsPanel() {
                   {!c.oauth_client_ready && (
                     <div style={{ color: '#b45309', fontSize: '0.85rem', margin: '0 0 0.5rem' }}>
                       <p style={{ margin: '0 0 0.35rem' }}>
-                        OAuth <strong>app</strong> client not ready — platform Meta App ID/Secret are missing
-                        (not the CEO Facebook login).
+                        OAuth <strong>app</strong> client not ready — no usable App ID/Secret
+                        (platform default or your override).
                       </p>
                       <ul style={{ margin: 0, paddingLeft: '1.1rem' }}>
+                        {!isAdmin && (
+                          <li>
+                            Expand <strong>App ID / secret override</strong> above and save your Meta app credentials,
+                            or ask platform admin to set defaults
+                          </li>
+                        )}
                         <li>
                           Admin: fill Client ID + Secret in <a href="#mcp-oauth-include">Include from MCP registry</a>{' '}
-                          for <code>{c.server_id}</code> and click <strong>Include MCP for OAuth</strong>
+                          for <code>{c.server_id}</code>
                         </li>
                         <li>
                           Or set <code>FACEBOOK_APP_ID</code> / <code>FACEBOOK_APP_SECRET</code> in{' '}
-                          <code>deploy/.env</code>, then recreate the backend container
-                        </li>
-                        <li>
-                          Meta developers: app type Business → Facebook Login → redirect URI must match callback below
+                          <code>deploy/.env</code> (platform default)
                         </li>
                       </ul>
-                      <button
-                        type="button"
-                        className="wf-btn"
-                        style={{ marginTop: 8 }}
-                        onClick={() => {
-                          onSelectServer(c.server_id);
-                          setForm((f) => ({
-                            ...f,
-                            serverId: c.server_id,
-                            provider: c.provider || 'facebook',
-                            displayName: c.name,
-                          }));
-                          document.getElementById('mcp-oauth-include')?.scrollIntoView({ behavior: 'smooth' });
-                        }}
-                      >
-                        Set app credentials now
-                      </button>
                     </div>
                   )}
                   {isAdmin ? (

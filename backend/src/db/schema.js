@@ -1970,9 +1970,16 @@ export function initDb() {
    * Any future OAuth-based MCP can reuse these tables via Connectors → MCPs tab.
    */
   try {
+    /**
+     * OAuth client configs for Connectors → MCPs.
+     * owner_user_id = '' → platform/admin default; non-empty → per-CEO override
+     * (same table; resolve: CEO row first, else admin default). client_secret stored
+     * encrypted with USER_API_KEYS_KEK when available (prefix enc:g1:).
+     */
     _db.exec(`
       CREATE TABLE IF NOT EXISTS mcp_oauth_configs (
-        server_id TEXT PRIMARY KEY,
+        server_id TEXT NOT NULL,
+        owner_user_id TEXT NOT NULL DEFAULT '',
         provider TEXT NOT NULL DEFAULT 'oauth2',
         display_name TEXT DEFAULT '',
         authorization_url TEXT NOT NULL,
@@ -1991,9 +1998,64 @@ export function initDb() {
         enabled INTEGER DEFAULT 1,
         created_at TEXT DEFAULT (datetime('now')),
         updated_at TEXT DEFAULT (datetime('now')),
+        PRIMARY KEY (server_id, owner_user_id),
         FOREIGN KEY (server_id) REFERENCES mcp_servers(id) ON DELETE CASCADE
       )
     `);
+    // Migrate legacy single-row PK (server_id only) → composite + owner_user_id
+    try {
+      const cols = _db.prepare(`PRAGMA table_info(mcp_oauth_configs)`).all();
+      const names = new Set(cols.map((c) => c.name));
+      if (cols.length && !names.has('owner_user_id')) {
+        _db.exec(`
+          CREATE TABLE mcp_oauth_configs_migrated (
+            server_id TEXT NOT NULL,
+            owner_user_id TEXT NOT NULL DEFAULT '',
+            provider TEXT NOT NULL DEFAULT 'oauth2',
+            display_name TEXT DEFAULT '',
+            authorization_url TEXT NOT NULL,
+            token_url TEXT NOT NULL,
+            client_id TEXT DEFAULT '',
+            client_secret TEXT DEFAULT '',
+            client_id_env TEXT DEFAULT '',
+            client_secret_env TEXT DEFAULT '',
+            scopes TEXT DEFAULT '',
+            auth_header_name TEXT DEFAULT 'Authorization',
+            auth_header_template TEXT DEFAULT 'Bearer {{access_token}}',
+            extra_auth_params_json TEXT DEFAULT '{}',
+            token_request_style TEXT DEFAULT 'form',
+            refresh_enabled INTEGER DEFAULT 1,
+            provider_options_json TEXT DEFAULT '{}',
+            enabled INTEGER DEFAULT 1,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now')),
+            PRIMARY KEY (server_id, owner_user_id),
+            FOREIGN KEY (server_id) REFERENCES mcp_servers(id) ON DELETE CASCADE
+          );
+          INSERT INTO mcp_oauth_configs_migrated (
+            server_id, owner_user_id, provider, display_name, authorization_url, token_url,
+            client_id, client_secret, client_id_env, client_secret_env, scopes,
+            auth_header_name, auth_header_template, extra_auth_params_json, token_request_style,
+            refresh_enabled, provider_options_json, enabled, created_at, updated_at
+          )
+          SELECT
+            server_id, '', provider, display_name, authorization_url, token_url,
+            client_id, client_secret, client_id_env, client_secret_env, scopes,
+            auth_header_name, auth_header_template, extra_auth_params_json, token_request_style,
+            refresh_enabled, provider_options_json, enabled, created_at, updated_at
+          FROM mcp_oauth_configs;
+          DROP TABLE mcp_oauth_configs;
+          ALTER TABLE mcp_oauth_configs_migrated RENAME TO mcp_oauth_configs;
+        `);
+        console.info('[schema] migrated mcp_oauth_configs to owner_user_id composite PK');
+      }
+    } catch (migE) {
+      console.warn('[schema] mcp_oauth_configs owner migration:', migE.message);
+    }
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_mcp_oauth_configs_owner
+       ON mcp_oauth_configs(owner_user_id, server_id)`
+    );
     _db.exec(`
       CREATE TABLE IF NOT EXISTS mcp_oauth_connections (
         id TEXT PRIMARY KEY,

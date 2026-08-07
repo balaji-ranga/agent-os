@@ -126,6 +126,10 @@ export const PLATFORM_HELP_DOCUMENTS = Object.freeze([
     filename: '30-content-creator-ops.md',
     title: `${PLATFORM_HELP_TITLE_PREFIX}Content Creator Ops Publish Community`,
   },
+  {
+    filename: '31-mcp-connectors-oauth.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}MCP Connectors OAuth Facebook`,
+  },
 ]);
 
 /** Resolve repo README.md (local: agent-os/README.md; Docker: /opt/agent-os/README.md). */
