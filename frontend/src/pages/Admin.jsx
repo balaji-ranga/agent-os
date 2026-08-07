@@ -388,6 +388,19 @@ function AdminPanel() {
     }
   };
 
+  const downloadCompanyBlueprintZip = async (bp) => {
+    if (!bp?.id) return;
+    setBpBusy(true);
+    try {
+      await api.adminCompanyBlueprintDownloadZip(bp.id, bp.id);
+      showSuccess(`Downloaded ${bp.id}.zip`);
+    } catch (err) {
+      showError(err.message || 'Download failed');
+    } finally {
+      setBpBusy(false);
+    }
+  };
+
   useEffect(() => {
     setUserPage(0);
   }, [userSearch]);
@@ -519,7 +532,8 @@ function AdminPanel() {
         <p style={{ margin: '0 0 0.75rem 0', color: 'var(--muted)', fontSize: '0.9rem' }}>
           System packs live as JSON under <code>backend/src/services/company-blueprints/packs/</code>. Publish a successful
           CEO company as a named blueprint for an industry so company setup can offer alternatives (default + slide
-          picker). Content Creator social is FB / Instagram / LinkedIn / blogs — not YouTube.
+          picker). Content Creator social is FB / Instagram / LinkedIn / blogs — not YouTube. Use <strong>Download zip</strong>{' '}
+          to export <code>manifest.json</code> + <code>blueprint.json</code> for any listed pack.
         </p>
         <form
           onSubmit={publishCompanyBlueprint}
@@ -627,6 +641,16 @@ function AdminPanel() {
                   </td>
                   <td style={{ padding: 6 }}>{bp.agent_count}</td>
                   <td style={{ padding: 6, whiteSpace: 'nowrap' }}>
+                    <button
+                      type="button"
+                      className="wf-btn"
+                      disabled={bpBusy}
+                      style={{ marginRight: 4 }}
+                      onClick={() => downloadCompanyBlueprintZip(bp)}
+                      title="Download blueprint pack as zip"
+                    >
+                      Download zip
+                    </button>
                     {bp.source === 'published' && (
                       <>
                         <button

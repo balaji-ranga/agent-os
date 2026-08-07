@@ -7,6 +7,7 @@ import { readdirSync, readFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { getDb } from '../../db/schema.js';
+import { buildZipBuffer } from '../zip-store.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PACKS_DIR = join(__dirname, 'packs');
@@ -359,7 +360,139 @@ export function listAllBlueprintsAdmin() {
     source_owner_user_id: p.source_owner_user_id,
     source_company_name: p.source_company_name,
     published_by: p.published_by,
+    downloadable: true,
   }));
+}
+
+/**
+ * Full blueprint pack for admin JSON / zip export (published DB or system JSON pack).
+ * @returns {object|null}
+ */
+export function getBlueprintForAdminExport(blueprintId) {
+  ensureCompanyBlueprintsSchema();
+  const id = String(blueprintId || '').trim();
+  if (!id) return null;
+  const bp = getBlueprint(id);
+  if (!bp?.id || bp.source === 'fallback') return null;
+  // Prefer exact DB row when published (preserves raw payload_json)
+  try {
+    const row = getDb()
+      .prepare(
+        `SELECT id, industry_id, name, description, depth, is_default, source, payload_json,
+                source_owner_user_id, source_company_name, published_by, published, updated_at, created_at
+         FROM company_industry_blueprints WHERE id = ?`
+      )
+      .get(id);
+    if (row?.payload_json) {
+      let payload = {};
+      try {
+        payload = JSON.parse(row.payload_json);
+      } catch {
+        payload = bp;
+      }
+      return {
+        meta: {
+          id: row.id,
+          industry_id: row.industry_id,
+          name: row.name,
+          description: row.description || '',
+          depth: row.depth,
+          is_default: !!row.is_default,
+          source: row.source || 'published',
+          source_owner_user_id: row.source_owner_user_id,
+          source_company_name: row.source_company_name,
+          published_by: row.published_by,
+          published: !!row.published,
+          updated_at: row.updated_at,
+          created_at: row.created_at,
+        },
+        blueprint: { ...payload, id: row.id, name: row.name, industry: row.industry_id },
+      };
+    }
+  } catch (e) {
+    console.warn('[company-blueprints] export db read', e?.message || e);
+  }
+  return {
+    meta: {
+      id: bp.id,
+      industry_id: bp.industry,
+      name: bp.name || bp.label,
+      description: bp.description || '',
+      depth: bp.depth,
+      is_default: !!bp.is_default,
+      source: bp.source || 'system',
+      source_owner_user_id: bp.source_owner_user_id || null,
+      source_company_name: bp.source_company_name || null,
+      published_by: bp.published_by || null,
+      published: bp.source === 'published',
+    },
+    blueprint: bp,
+  };
+}
+
+/**
+ * Build admin-downloadable zip for a company industry blueprint.
+ * @returns {{ zip: Buffer, filename: string, meta: object }}
+ */
+export function buildCompanyBlueprintExportZip(blueprintId) {
+  const pack = getBlueprintForAdminExport(blueprintId);
+  if (!pack?.blueprint) {
+    const err = new Error(`Blueprint not found: ${blueprintId}`);
+    err.status = 404;
+    throw err;
+  }
+  const exportedAt = new Date().toISOString();
+  const meta = {
+    ...pack.meta,
+    exported_at: exportedAt,
+    export_format: 'agent-os-company-blueprint-v1',
+  };
+  const safe =
+    String(meta.id || 'blueprint')
+      .toLowerCase()
+      .replace(/[^a-z0-9._-]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 80) || 'blueprint';
+  const blueprintJson = JSON.stringify(pack.blueprint, null, 2);
+  const manifestJson = JSON.stringify(meta, null, 2);
+  const readme = [
+    'Agent OS — company industry blueprint export',
+    '==========================================',
+    '',
+    `ID: ${meta.id}`,
+    `Name: ${meta.name}`,
+    `Industry: ${meta.industry_id}`,
+    `Source: ${meta.source}`,
+    meta.source_company_name ? `Source company: ${meta.source_company_name}` : null,
+    meta.source_owner_user_id ? `Source owner: ${meta.source_owner_user_id}` : null,
+    `Exported: ${exportedAt}`,
+    '',
+    'Files:',
+    '  manifest.json   — export metadata',
+    '  blueprint.json  — full pack (departments, agents, knowledge, SOPs, workflows, goals, operate)',
+    '',
+    'Apply path: Admin → Company industry blueprints (publish from a CEO) or company setup industry picker after re-publish.',
+    '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const zip = buildZipBuffer([
+    { name: 'manifest.json', content: manifestJson },
+    { name: 'blueprint.json', content: blueprintJson },
+    { name: 'README-EXPORT.txt', content: readme },
+  ]);
+  console.info(
+    '[company-blueprints] export zip id=%s bytes=%s source=%s',
+    meta.id,
+    zip.length,
+    meta.source
+  );
+  return {
+    zip,
+    filename: `${safe}.zip`,
+    meta,
+  };
 }
 
 function slugify(name) {

@@ -510,12 +510,31 @@ export const api = {
   adminCompanyBlueprints: () => get('/admin/company-blueprints'),
   adminCompanyBlueprintCandidates: (limit = 40) =>
     get(`/admin/company-blueprints/candidates?limit=${encodeURIComponent(limit)}`),
+  adminCompanyBlueprintGet: (id) => get(`/admin/company-blueprints/${encodeURIComponent(id)}`),
   adminCompanyBlueprintSnapshot: (ownerUserId) =>
     get(`/admin/company-blueprints/snapshot/${encodeURIComponent(ownerUserId)}`),
   adminPublishCompanyBlueprint: (body) => post('/admin/company-blueprints/publish', body),
   adminUnpublishCompanyBlueprint: (id) =>
     post(`/admin/company-blueprints/${encodeURIComponent(id)}/unpublish`, {}),
   adminSetDefaultCompanyBlueprint: (body) => post('/admin/company-blueprints/set-default', body),
+  /** Download company industry blueprint zip (admin). */
+  adminCompanyBlueprintDownloadZip: async (id, filenameHint) => {
+    const path = `/admin/company-blueprints/${encodeURIComponent(id)}/export.zip`;
+    const objectUrl = await fetchBlobUrl(path);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    const base =
+      String(filenameHint || id)
+        .toLowerCase()
+        .replace(/[^a-z0-9._-]+/g, '-')
+        .replace(/^-|-$/g, '')
+        .slice(0, 80) || 'blueprint';
+    a.download = base.endsWith('.zip') ? base : `${base}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+  },
   companyOperateGate: () => get('/company-operate/gate'),
   companyOperateSkip: () => post('/company-operate/skip', {}),
   companyOperateBegin: () => post('/company-operate/begin', {}),

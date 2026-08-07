@@ -17,6 +17,8 @@ export {
   setIndustryDefaultBlueprint,
   ensureCompanyBlueprintsSchema,
   invalidateBlueprintCache,
+  getBlueprintForAdminExport,
+  buildCompanyBlueprintExportZip,
 } from './registry.js';
 
 // Lazy COMPAN_TYPE_CARDS for any legacy read of the constant

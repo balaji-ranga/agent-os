@@ -17,6 +17,8 @@ import {
   publishBlueprintFromPayload,
   unpublishBlueprint,
   setIndustryDefaultBlueprint,
+  getBlueprintForAdminExport,
+  buildCompanyBlueprintExportZip,
 } from '../services/company-blueprints/index.js';
 import {
   listCompanyBlueprintCandidates,
@@ -597,6 +599,36 @@ router.post('/company-blueprints/validate-snapshot', async (req, res) => {
   }
 });
 
+router.post('/company-blueprints/set-default', (req, res) => {
+  try {
+    const industry = req.body?.industry_id || req.body?.industry;
+    const blueprintId = req.body?.blueprint_id || req.body?.id;
+    res.json(setIndustryDefaultBlueprint(industry, blueprintId));
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+/** Download blueprint pack as zip (manifest.json + blueprint.json). Admin only. */
+router.get('/company-blueprints/:id/export.zip', (req, res) => {
+  try {
+    const { zip, filename, meta } = buildCompanyBlueprintExportZip(req.params.id);
+    console.info(
+      '[admin] blueprint zip download id=%s by=%s bytes=%s',
+      meta.id,
+      req.authUser?.id,
+      zip.length
+    );
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', String(zip.length));
+    res.send(zip);
+  } catch (e) {
+    console.warn('[admin] blueprint zip download', e?.message || e);
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
 router.post('/company-blueprints/:id/unpublish', (req, res) => {
   try {
     res.json(unpublishBlueprint(req.params.id));
@@ -605,11 +637,12 @@ router.post('/company-blueprints/:id/unpublish', (req, res) => {
   }
 });
 
-router.post('/company-blueprints/set-default', (req, res) => {
+/** Full blueprint JSON + meta (admin inspection). Keep after static /candidates routes. */
+router.get('/company-blueprints/:id', (req, res) => {
   try {
-    const industry = req.body?.industry_id || req.body?.industry;
-    const blueprintId = req.body?.blueprint_id || req.body?.id;
-    res.json(setIndustryDefaultBlueprint(industry, blueprintId));
+    const pack = getBlueprintForAdminExport(req.params.id);
+    if (!pack) return res.status(404).json({ error: 'Blueprint not found' });
+    res.json(pack);
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message });
   }
