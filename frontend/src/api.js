@@ -521,6 +521,8 @@ export const api = {
   businessCoreMenus: () => get('/business-core/menus'),
   businessCoreEmbedCrm: () => get('/business-core/embed/crm'),
   businessCoreEmbedErp: () => get('/business-core/embed/erp'),
+  /** CRM wipe targets (workspace + apex). Call before auth logout. */
+  businessCoreCrmLogoutTargets: () => get('/business-core/crm-logout-targets'),
   businessCoreOrgSnapshot: () => get('/business-core/org-snapshot'),
   businessCoreSyncOrg: (body) => post('/business-core/sync-org', body || {}),
   companyWorkspaceSnapshot: () => get('/company-workspace/snapshot'),

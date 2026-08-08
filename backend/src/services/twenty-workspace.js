@@ -409,11 +409,15 @@ export async function ensureUserInCompanyWorkspace(ownerUserId, flolahUser) {
   const nameParts = strip(flolahUser?.name).split(/\s+/);
   const firstName = nameParts[0] || email.split('@')[0];
   const lastName = nameParts.slice(1).join(' ') || '';
+  // Company owner (CEO) must be Admin + workspaceMember in the bound workspace
+  // so Twenty accepts LOGIN SSO. Workspace create (bootstrap admin) is not enough —
+  // JIT used to write workspaceMember into the wrong schema on multi-workspace.
   const join = await ensureTwentyUserForEmail({
     email,
     firstName,
     lastName,
     workspaceId: ensured.workspace_id,
+    roleLabel: 'Admin',
   });
   return { ...ensured, ensure_user: join, email };
 }

@@ -48,7 +48,9 @@ TWENTY_HOST_PORT=3100
 
 Compose wires these into **backend** (`deploy/docker-compose.yml`) and into Twenty as `APP_SECRET` / `SERVER_URL` (`docker-compose.business-core.yml`).
 
-**Passwordless CRM SSO (true SSO):** with `TWENTY_APP_SECRET` + SSO enabled, authenticated Flolah users open CRM via `/flolah-handoff/` → mint LOGIN JWT for their email → `/verify?loginToken=`. JIT membership uses Postgres when `TWENTY_DATABASE_URL` is set (`pg` dependency on backend).
+**Passwordless CRM SSO (true SSO):** with `TWENTY_APP_SECRET` + SSO enabled, authenticated Flolah users open CRM **in-app** via iframe handoff `/flolah-handoff/?next=/verify?loginToken=…` on the **company workspace host** `{sub}.crm.<apex>`. Backend JIT provision requires `TWENTY_DATABASE_URL` and writes `workspaceMember` into the workspace’s real `core.workspace.databaseSchema` (not the first `workspace_*` schema — that bug caused non-bootstrap CEOs such as Aru to hit “password” while Balaji worked). Company owners are provisioned as **Admin**. Server preflights `getAuthTokensFromLoginToken` before returning SSO URLs.
+
+**Flolah logout clears CRM browser session:** the SPA calls `GET /api/business-core/crm-logout-targets` (CEO/admin scope), then loads hidden iframes to each host’s `/flolah-handoff/?logout=1&wipe=1` so Twenty `localStorage` / session storage on `crm.<apex>` and `{sub}.crm.<apex>` is wiped before the Flolah token is revoked.
 
 **Tenancy:** **1 Flolah company → 1 Twenty workspace** (UUID + subdomain) on `company_business_profiles`. CRM open mints LOGIN SSO for that workspace only. Tools never accept foreign workspace ids for authorization. REST tools still use platform `TWENTY_API_KEY` until per-workspace API keys exist.
 
@@ -106,12 +108,20 @@ Pass `X-Ceo-User-Id` on workflow MCP auth. Deploy hook: `deploy/scripts/ensure-p
 | TWENTY_API_URL | Internal Twenty HTTP base |
 | TWENTY_API_KEY | Optional REST key for tools/MCP |
 | TWENTY_SERVER_URL / TWENTY_EMBED_URL | Public CRM host root (`https://crm.*`) |
+| TWENTY_FRONT_AUTO_BASE_URL | `true` — browser API base = current origin (required for `{sub}.crm.*` multi-workspace) |
 | TWENTY_APP_SECRET | Shared with Twenty; LOGIN token mint for SSO |
 | TWENTY_SSO_ENABLED | `1` passwordless; `0` isolation handoff only |
+| TWENTY_FRONT_AUTO_BASE_URL | `true` — front API origin = browser host (required for `{sub}.crm.*`) |
 | TWENTY_DATABASE_URL | Postgres for JIT user/workspaceMember provision |
 | TWENTY_IS_MULTIWORKSPACE_ENABLED | `true` on Twenty + backend (required for additional company workspaces) |
 | TWENTY_BOOTSTRAP_EMAIL | Optional admin used for signUpInNewWorkspace |
 | TWENTY_WORKSPACE_ID | Optional/legacy — not shared across CEOs |
+
+**Passwordless browser SSO vs password form**
+
+- Flolah **View as user / admin impersonation** does **not** block CRM passwordless login. Impersonation creates a session as the company CEO; CRM SSO mints a Twenty LOGIN token for that **CEO email** into the company workspace.
+- You still see Twenty’s **password** screen when the LOGIN handoff did not complete (expired token, prior “Unable to Reach Back-end”, incomplete certs/DNS, or SSO env off). Use **Open** (new tab) after a fix, or **Switch CRM account**, not a different admin password.
+- Force `TWENTY_SSO_ENABLED=1`, shared `TWENTY_APP_SECRET` (= Twenty `APP_SECRET`), `TWENTY_DATABASE_URL`, `TWENTY_FRONT_AUTO_BASE_URL=true`.
 | ERPNEXT_* | ERP stack + embed |
 | BUSINESS_CORE_MCP_URL | Internal MCP registry endpoint |
 

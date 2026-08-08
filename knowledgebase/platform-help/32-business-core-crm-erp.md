@@ -150,6 +150,21 @@ That checks DNS, expands Let's Encrypt SANs for ready hosts, installs certs, and
 
 **Infra:** DNS `*.crm.<apex>` → VPS; nginx `server_name` includes `crm…` and `*.crm…`; TLS must list each workspace host (or use DNS-01 wildcards separately — this stack uses per-FQDN ALPN). Helpers: `vps-expand-crm-cert.sh`, `vps-refresh-tls-certs.sh`.
 
+
+### Password form after CRM open (including admin View as user)
+
+**Admin impersonation does not cause the password prompt by itself.** View-as-user creates a session as the company CEO; CRM passwordless SSO mints a Twenty LOGIN token for that **CEO email** into the company workspace.
+
+You still see Twenty password UI when:
+1. SSO handoff failed or expired (e.g. after brief outages, or before FRONT_AUTO_BASE_URL / certs were fixed).
+2. `TWENTY_SSO_ENABLED=0` or `TWENTY_APP_SECRET` does not match Twenty `APP_SECRET`.
+3. Browser stayed on an old failing session — use **Open** (new tab) or **Switch CRM account** from the CRM toolbar.
+4. **Membership gap (fixed in SSO JIT):** Bootstrap admin (often the first Flolah CEO such as Balaji) owns newly created Twenty workspaces; other CEOs need a `workspaceMember` row in **their** workspace’s `databaseSchema`. If that row was written into the wrong schema, mint still “succeeds” but `/verify` shows password. Backend now maps schema via `core.workspace.databaseSchema`, provisions owners as Admin, and preflights token exchange.
+
+Required env: `TWENTY_SSO_ENABLED=1`, shared secret, `TWENTY_DATABASE_URL`, `TWENTY_FRONT_AUTO_BASE_URL=true`, workspace DNS + cert SANs.
+
+CRM opens **in the Flolah iframe** (not a full-page leave); use **Open** for first-party debugging only.
+
 **Note:** Live REST tools still use one platform `TWENTY_API_KEY` (not per-workspace API isolation yet). Browser SSO is company-workspace-scoped.
 
 **Workspace name** ("Welcome, …"): Twenty Settings → Workspace. Toolbar **Switch CRM account** → wipe + `/welcome`.

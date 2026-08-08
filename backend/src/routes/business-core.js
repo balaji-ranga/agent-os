@@ -19,6 +19,7 @@ import {
   getBusinessMenuFlags,
   getBusinessCoreStackStatus,
 } from '../services/business-embed.js';
+import { buildCrmSessionLogoutUrls } from '../services/twenty-sso.js';
 import { getUserById } from '../services/users.js';
 import { syncFlolahOrgToBusinessCore, listFlolahOrgSnapshot } from '../services/business-core-org-sync.js';
 
@@ -56,19 +57,59 @@ router.get('/menus', (req, res) => {
 });
 
 /**
+ * GET /api/business-core/crm-logout-targets — CRM host wipe URLs for Flolah logout.
+ * Returns same-origin static handoff pages that clear Twenty browser storage.
+ * Must be called while still authenticated (before session revoke).
+ */
+router.get('/crm-logout-targets', (req, res) => {
+  try {
+    const ownerUserId = ownerOf(req);
+    const urls = buildCrmSessionLogoutUrls(ownerUserId);
+    console.info(
+      '[business-core] crm-logout-targets owner=%s count=%s',
+      ownerUserId || '?',
+      urls.length
+    );
+    res.json({ ok: true, urls });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+/**
  * GET /api/business-core/embed/crm — Twenty iframe config (platform CRM only).
+ * Passwordless SSO always mints for the **company owner (CEO)** email of the
+ * active company scope — including when an admin is impersonating that CEO.
+ * (Impersonation swaps the session to the CEO; we still resolve via owner id.)
  */
 router.get('/embed/crm', async (req, res) => {
   try {
     const ownerUserId = ownerOf(req);
-    const embed = await getCrmEmbedForOwner(ownerUserId, { flolahUser: req.authUser });
+    // Prefer company owner profile email for Twenty LOGIN token (not platform admin).
+    const ownerProfile = getUserById(ownerUserId);
+    const flolahUser = {
+      id: ownerUserId,
+      email: ownerProfile?.email || req.authUser?.email || null,
+      name: ownerProfile?.name || req.authUser?.name || null,
+      // surface for UI/debug when admin is viewing-as-user
+      impersonation: req.authUser?.impersonation || null,
+    };
+    const embed = await getCrmEmbedForOwner(ownerUserId, { flolahUser });
     let stack_status = null;
     try {
       stack_status = (await getBusinessCoreStackStatus()).crm;
     } catch (e) {
       console.warn('[business-core] stack probe crm', e?.message || e);
     }
-    res.json({ ...embed, stack_status });
+    res.json({
+      ...embed,
+      stack_status,
+      sso: {
+        ...(embed.sso || {}),
+        flolah_email_domain: flolahUser.email ? String(flolahUser.email).replace(/^[^@]+/, '***') : null,
+        via_impersonation: Boolean(req.authUser?.impersonation),
+      },
+    });
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message });
   }

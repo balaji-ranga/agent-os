@@ -1,10 +1,27 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { api, setAuthToken } from '../api';
+import { clearCrmBrowserSessions } from '../lib/crmSessionCleanup';
 
 const AuthContext = createContext(null);
 
 const TOKEN_KEY = 'agent-os-auth-token';
 const IMPERSONATOR_TOKEN_KEY = 'agent-os-impersonator-token';
+
+/** Fetch CRM wipe URLs then load hidden handoff iframes (cross-origin Twenty storage). */
+async function wipeCrmSessionsIfPossible() {
+  let urls = [];
+  try {
+    const data = await api.businessCoreCrmLogoutTargets();
+    urls = data?.urls || [];
+  } catch {
+    /* not entitled / offline — still try remembered origins */
+  }
+  try {
+    await clearCrmBrowserSessions(urls);
+  } catch {
+    /* best-effort */
+  }
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -111,6 +128,8 @@ export function AuthProvider({ children }) {
   };
 
   const exitImpersonation = async () => {
+    // Clear CEO CRM session opened during view-as before restoring admin.
+    await wipeCrmSessionsIfPossible();
     try {
       await api.authExitImpersonation();
     } catch (_) {
@@ -139,6 +158,9 @@ export function AuthProvider({ children }) {
       await exitImpersonation();
       return;
     }
+    // Wipe Twenty CRM browser session on CRM hosts (not same-origin as Flolah).
+    // Must run while Flolah token still valid so logout-targets can resolve company host.
+    await wipeCrmSessionsIfPossible();
     try {
       await api.authLogout();
     } catch (_) {}

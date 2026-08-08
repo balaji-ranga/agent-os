@@ -94,6 +94,13 @@ upsert TWENTY_DB_NAME 'twenty'
 upsert TWENTY_DB_PASSWORD 'twenty'
 upsert TWENTY_SSO_ENABLED "1"
 upsert TWENTY_IS_MULTIWORKSPACE_ENABLED "true"
+# Multi-workspace: browser API base = current origin ({sub}.crm.*) not fixed apex URL
+if grep -qE '^TWENTY_FRONT_AUTO_BASE_URL=' "$ENV_FILE" 2>/dev/null; then
+  sed -i "s#^TWENTY_FRONT_AUTO_BASE_URL=.*#TWENTY_FRONT_AUTO_BASE_URL=true#" "$ENV_FILE" 2>/dev/null \
+    || sed -i '' "s#^TWENTY_FRONT_AUTO_BASE_URL=.*#TWENTY_FRONT_AUTO_BASE_URL=true#" "$ENV_FILE"
+else
+  printf '\nTWENTY_FRONT_AUTO_BASE_URL=true\n' >> "$ENV_FILE"
+fi
 # Optional: TWENTY_BOOTSTRAP_EMAIL for signing up new workspaces (otherwise first ACTIVE admin is used)
 # Build DATABASE_URL from TWENTY_DB_* so JIT SSO provision hits the same Postgres as Twenty
 _tuser="$(grep -E '^TWENTY_DB_USER=' "$ENV_FILE" | head -1 | cut -d= -f2-)"

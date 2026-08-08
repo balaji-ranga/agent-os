@@ -172,28 +172,35 @@ async function pgQuery(sql, params = []) {
   }
 }
 
+/**
+ * Map Twenty workspace UUID → data schema (`core.workspace.databaseSchema`).
+ * Critical for multi-workspace: inserting workspaceMember into the wrong schema
+ * makes getAuthTokensFromLoginToken return "User is not a member of the workspace"
+ * even when core.userWorkspace exists.
+ */
 async function resolveWorkspaceSchema(workspaceId) {
-  // Prefer schema name derived from known nsp; fall back to scanning workspace_* with matching member emails
+  const ws = strip(workspaceId);
+  if (!UUID_RE.test(ws)) return null;
+  const bound = await pgQuery(
+    `SELECT "databaseSchema" AS schema
+     FROM core.workspace
+     WHERE id = $1 AND "deletedAt" IS NULL
+     LIMIT 1`,
+    [ws]
+  );
+  const schema = strip(bound?.rows?.[0]?.schema);
+  if (schema && /^workspace_/.test(schema)) return schema;
+
+  // Legacy single-workspace fallback
   const r = await pgQuery(
     `SELECT nspname AS schema
      FROM pg_namespace
      WHERE nspname LIKE 'workspace_%'
-     ORDER BY nspname
-     LIMIT 20`
+     ORDER BY nspname`
   );
   if (!r?.rows?.length) return null;
   if (r.rows.length === 1) return r.rows[0].schema;
-  for (const row of r.rows) {
-    try {
-      const chk = await pgQuery(
-        `SELECT 1 FROM ${quoteIdent(row.schema)}."workspaceMember" LIMIT 1`
-      );
-      if (chk) return row.schema; // first usable schema on single-workspace deploys
-    } catch {
-      /* next */
-    }
-  }
-  return r.rows[0].schema;
+  return null;
 }
 
 function quoteIdent(name) {
@@ -211,16 +218,19 @@ export async function resolveTwentyWorkspaceUuid(ownerUserId) {
 }
 
 /**
- * Ensure Flolah user exists in Twenty + has membership (+ Member role + workspaceMember row).
+ * Ensure Flolah user exists in Twenty + has membership (+ role + workspaceMember row).
+ * @param {{ email: string, firstName?: string, lastName?: string, workspaceId: string, roleLabel?: 'Admin'|'Member' }} p
  */
 export async function ensureTwentyUserForEmail({
   email,
   firstName = '',
   lastName = '',
   workspaceId,
+  roleLabel = 'Member',
 }) {
   const mail = strip(email).toLowerCase();
   const ws = strip(workspaceId);
+  const wantRole = strip(roleLabel) === 'Admin' ? 'Admin' : 'Member';
   if (!mail || !UUID_RE.test(ws)) {
     return { ok: false, reason: 'invalid_email_or_workspace' };
   }
@@ -274,18 +284,27 @@ export async function ensureTwentyUserForEmail({
       console.info('[twenty-sso] joined user to workspace userId=%s workspaceId=%s', user.id, ws);
     }
 
-    // Member role
-    const memberRole = (
+    // Role: Admin for company owners, Member otherwise. Upgrade Member → Admin when needed.
+    let role = (
       await pgQuery(
-        `SELECT id FROM core.role
-         WHERE "workspaceId" = $1 AND label = 'Member' LIMIT 1`,
-        [ws]
+        `SELECT id, label FROM core.role
+         WHERE "workspaceId" = $1 AND label = $2 LIMIT 1`,
+        [ws, wantRole]
       )
     )?.rows?.[0];
-    if (memberRole?.id) {
+    if (!role && wantRole === 'Admin') {
+      role = (
+        await pgQuery(
+          `SELECT id, label FROM core.role
+           WHERE "workspaceId" = $1 AND label = 'Member' LIMIT 1`,
+          [ws]
+        )
+      )?.rows?.[0];
+    }
+    if (role?.id) {
       const existingRt = (
         await pgQuery(
-          `SELECT id FROM core."roleTarget"
+          `SELECT id, "roleId" FROM core."roleTarget"
            WHERE "workspaceId" = $1 AND "userWorkspaceId" = $2 LIMIT 1`,
           [ws, uw.id]
         )
@@ -293,7 +312,11 @@ export async function ensureTwentyUserForEmail({
       if (!existingRt) {
         const app = (
           await pgQuery(
-            `SELECT id FROM core.application WHERE name = 'Custom' LIMIT 1`
+            `SELECT id FROM core.application
+             WHERE "workspaceId" = $1 OR name = 'Custom'
+             ORDER BY CASE WHEN "workspaceId" = $1 THEN 0 ELSE 1 END
+             LIMIT 1`,
+            [ws]
           )
         )?.rows?.[0];
         if (app?.id) {
@@ -301,47 +324,74 @@ export async function ensureTwentyUserForEmail({
             `INSERT INTO core."roleTarget"
               (id, "workspaceId", "roleId", "userWorkspaceId", "universalIdentifier", "applicationId")
              VALUES ($1, $2, $3, $4, $5, $6)`,
-            [randomUUID(), ws, memberRole.id, uw.id, randomUUID(), app.id]
+            [randomUUID(), ws, role.id, uw.id, randomUUID(), app.id]
           );
+        } else {
+          console.warn('[twenty-sso] no application for roleTarget workspace=%s', ws);
         }
+      } else if (existingRt.roleId !== role.id && wantRole === 'Admin') {
+        await pgQuery(`UPDATE core."roleTarget" SET "roleId" = $1 WHERE id = $2`, [
+          role.id,
+          existingRt.id,
+        ]);
       }
     }
 
-    // workspaceMember row (schema varies)
+    // workspaceMember must live in THIS workspace's databaseSchema (multi-tenant)
     const schema = await resolveWorkspaceSchema(ws);
-    if (schema) {
-      const mem = (
-        await pgQuery(
-          `SELECT id FROM ${quoteIdent(schema)}."workspaceMember"
-           WHERE "userId" = $1 AND "deletedAt" IS NULL LIMIT 1`,
-          [user.id]
-        )
-      )?.rows?.[0];
-      if (!mem) {
-        const pos = (
-          await pgQuery(
-            `SELECT COALESCE(MAX(position), -1) + 1 AS n FROM ${quoteIdent(schema)}."workspaceMember"
-             WHERE "deletedAt" IS NULL`
-          )
-        )?.rows?.[0]?.n;
-        await pgQuery(
-          `INSERT INTO ${quoteIdent(schema)}."workspaceMember"
-            (id, position, "nameFirstName", "nameLastName", "userEmail", "userId",
-             "createdBySource", "createdByName", "updatedBySource", "updatedByName")
-           VALUES ($1, $2, $3, $4, $5, $6, 'MANUAL', 'Flolah SSO', 'MANUAL', 'Flolah SSO')`,
-          [
-            randomUUID(),
-            Number(pos) || 0,
-            strip(firstName).slice(0, 80) || mail.split('@')[0],
-            strip(lastName).slice(0, 80),
-            mail,
-            user.id,
-          ]
-        );
-      }
+    if (!schema) {
+      console.warn('[twenty-sso] no databaseSchema for workspace=%s — workspaceMember skip', ws);
+      return {
+        ok: false,
+        reason: 'no_workspace_schema',
+        user_id: user.id,
+        user_workspace_id: uw.id,
+      };
     }
 
-    return { ok: true, user_id: user.id, user_workspace_id: uw.id };
+    const mem = (
+      await pgQuery(
+        `SELECT id FROM ${quoteIdent(schema)}."workspaceMember"
+         WHERE "userId" = $1 AND "deletedAt" IS NULL LIMIT 1`,
+        [user.id]
+      )
+    )?.rows?.[0];
+    if (!mem) {
+      const pos = (
+        await pgQuery(
+          `SELECT COALESCE(MAX(position), -1) + 1 AS n FROM ${quoteIdent(schema)}."workspaceMember"
+           WHERE "deletedAt" IS NULL`
+        )
+      )?.rows?.[0]?.n;
+      await pgQuery(
+        `INSERT INTO ${quoteIdent(schema)}."workspaceMember"
+          (id, position, "nameFirstName", "nameLastName", "userEmail", "userId",
+           "createdBySource", "createdByName", "updatedBySource", "updatedByName")
+         VALUES ($1, $2, $3, $4, $5, $6, 'MANUAL', 'Flolah SSO', 'MANUAL', 'Flolah SSO')`,
+        [
+          randomUUID(),
+          Number(pos) || 0,
+          strip(firstName).slice(0, 80) || mail.split('@')[0],
+          strip(lastName).slice(0, 80),
+          mail,
+          user.id,
+        ]
+      );
+      console.info(
+        '[twenty-sso] workspaceMember schema=%s user=%s workspace=%s',
+        schema,
+        mail.replace(/(.{2}).+(@.+)/, '$1***$2'),
+        ws
+      );
+    }
+
+    return {
+      ok: true,
+      user_id: user.id,
+      user_workspace_id: uw.id,
+      schema,
+      role: wantRole,
+    };
   } catch (e) {
     console.warn('[twenty-sso] ensure user failed', e?.message || e);
     return { ok: false, reason: e?.message || 'ensure_failed' };
@@ -421,8 +471,75 @@ export async function buildCrmSsoHandoff(ownerUserId, opts = {}) {
     };
   }
 
+  if (companyWs.ensure_user && companyWs.ensure_user.ok === false) {
+    console.warn(
+      '[twenty-sso] membership not ready owner=%s email=%s reason=%s',
+      owner,
+      email.replace(/(.{2}).+(@.+)/, '$1***$2'),
+      companyWs.ensure_user.reason || 'ensure_failed'
+    );
+  }
+
   try {
     const loginToken = mintTwentyLoginToken({ email, workspaceId, authProvider: 'SSO' });
+    // Server-side proof: LOGIN JWT must exchange (catches missing workspaceMember).
+    try {
+      const { exchangeLoginToken } = await import('./twenty-workspace.js');
+      await exchangeLoginToken(loginToken, base);
+    } catch (exErr) {
+      console.warn(
+        '[twenty-sso] loginToken exchange preflight failed email=%s ws=%s %s — re-ensure + retry',
+        email.replace(/(.{2}).+(@.+)/, '$1***$2'),
+        workspaceId,
+        exErr?.message || exErr
+      );
+      const { ensureUserInCompanyWorkspace } = await import('./twenty-workspace.js');
+      const flolahUser = opts.flolahUser || getUserById(owner) || {};
+      await ensureUserInCompanyWorkspace(owner, flolahUser);
+      const retryToken = mintTwentyLoginToken({ email, workspaceId, authProvider: 'SSO' });
+      try {
+        const { exchangeLoginToken } = await import('./twenty-workspace.js');
+        await exchangeLoginToken(retryToken, base);
+        const next = buildVerifyNextPath(retryToken);
+        const url = handoffUrl(base, owner, next, { wipe: true });
+        console.info(
+          '[twenty-sso] mint loginToken (after heal) owner=%s email=%s workspace=%s sub=%s',
+          owner,
+          email.replace(/(.{2}).+(@.+)/, '$1***$2'),
+          workspaceId,
+          companyWs.subdomain || '?'
+        );
+        return {
+          ok: true,
+          mode: 'login_token_sso',
+          iframe_url: url,
+          open_url: url,
+          switch_account_url: handoffUrl(base, `${owner}:switch:${Date.now()}`, '/welcome', {
+            wipe: true,
+          }),
+          workspace_id: workspaceId,
+          subdomain: companyWs.subdomain,
+          public_base: base,
+          ensure: { ok: true, healed: true },
+          expires_hint_sec: 300,
+        };
+      } catch (ex2) {
+        return {
+          ok: false,
+          mode: 'session_isolation_handoff',
+          reason: `loginToken_exchange_failed: ${ex2?.message || ex2}`,
+          iframe_url: handoffUrl(base, owner, '/', { wipe: true }),
+          open_url: handoffUrl(base, owner, '/', { wipe: true }),
+          switch_account_url: handoffUrl(base, `${owner}:switch:${Date.now()}`, '/welcome', {
+            wipe: true,
+          }),
+          workspace_id: workspaceId,
+          subdomain: companyWs.subdomain,
+          public_base: base,
+        };
+      }
+    }
+
     const next = buildVerifyNextPath(loginToken);
     const url = handoffUrl(base, owner, next, { wipe: true });
     console.info(
@@ -463,13 +580,61 @@ export async function buildCrmSsoHandoff(ownerUserId, opts = {}) {
   }
 }
 
-function handoffUrl(base, owner, nextPath, { wipe = false } = {}) {
-  const u = new URL('/flolah-handoff/', base.endsWith('/') ? base : `${base}/`);
+function handoffUrl(base, owner, nextPath, { wipe = false, logout = false } = {}) {
   // base may be origin only
   const root = strip(base).replace(/\/+$/, '');
+  if (!root) return '';
   const q = new URLSearchParams();
-  q.set('owner', strip(owner));
+  q.set('owner', strip(owner) || '_logout');
   q.set('next', nextPath.startsWith('/') ? nextPath : `/${nextPath}`);
-  if (wipe) q.set('wipe', '1');
+  if (wipe || logout) q.set('wipe', '1');
+  if (logout) q.set('logout', '1');
   return `${root}/flolah-handoff/?${q.toString()}`;
+}
+
+/**
+ * Build CRM host logout handoff URLs (static /flolah-handoff wipe page).
+ * Used when Flolah ends the browser session so Twenty localStorage/cookies do
+ * not stay signed-in on *.crm.<apex>.
+ * @param {string} [ownerUserId]
+ * @returns {string[]}
+ */
+export function buildCrmSessionLogoutUrls(ownerUserId = '') {
+  const urls = new Set();
+  const frontBase = getTwentyPublicBaseLocal().replace(/\/+$/, '');
+  const addLogout = (base) => {
+    const u = handoffUrl(base, '_logout', '/', { wipe: true, logout: true });
+    if (u) urls.add(u);
+  };
+
+  if (frontBase) addLogout(frontBase);
+
+  const owner = strip(ownerUserId);
+  if (owner && frontBase) {
+    try {
+      const profile = getBusinessProfile(owner);
+      const sub =
+        strip(profile?.twenty?.subdomain) ||
+        strip(profile?.twenty?.bind?.subdomain) ||
+        strip(profile?.twenty?.workspace_subdomain);
+      if (sub) {
+        try {
+          const u = new URL(frontBase.endsWith('/') ? frontBase : `${frontBase}/`);
+          const labels = u.hostname.split('.').filter(Boolean);
+          if (labels[0] === 'crm') {
+            u.hostname = [sub, ...labels].join('.');
+          } else if (!labels[0]?.startsWith(sub)) {
+            u.hostname = [sub, ...labels].join('.');
+          }
+          addLogout(u.origin);
+        } catch {
+          /* ignore bad base */
+        }
+      }
+    } catch (e) {
+      console.warn('[twenty-sso] buildCrmSessionLogoutUrls profile', e?.message || e);
+    }
+  }
+
+  return [...urls];
 }

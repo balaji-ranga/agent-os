@@ -13,33 +13,105 @@
   var p = new URLSearchParams(location.search);
   var owner = (p.get("owner") || "").trim();
   var next = p.get("next") || "/";
-  if (next.charAt(0) !== "/") next = "/";
-  var forceWipe = p.get("wipe") === "1" || /loginToken=/.test(next);
+  if (next.charAt(0) !== "/" || next.indexOf("//") === 0) next = "/";
+  var forceLogout = p.get("logout") === "1";
+  var forceWipe = forceLogout || p.get("wipe") === "1" || /loginToken=/.test(next);
   var key = "flolah_crm_owner";
   var prev = "";
   try {
     prev = localStorage.getItem(key) || "";
   } catch (e) {}
-  function wipeAuth() {
+
+  function cookieDomains() {
+    var host = location.hostname || "";
+    var parts = host.split(".").filter(Boolean);
+    var out = ["", host];
+    // Parent domains so Path=/ cookies set with Domain=.crm.flolah.cloud clear
+    for (var i = 1; i < parts.length - 1; i++) {
+      out.push("." + parts.slice(i).join("."));
+    }
+    if (parts.length >= 2) out.push("." + parts.slice(-2).join("."));
+    return out.filter(function (v, i, a) {
+      return a.indexOf(v) === i;
+    });
+  }
+
+  function wipeAuth(clearOwnerKey) {
     try {
       var keys = [];
       for (var i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i));
       keys.forEach(function (k) {
-        if (k && k !== key) localStorage.removeItem(k);
+        if (!k) return;
+        if (!clearOwnerKey && k === key) return;
+        localStorage.removeItem(k);
       });
+      if (clearOwnerKey) localStorage.removeItem(key);
       sessionStorage.clear();
     } catch (e) {}
     try {
+      if (window.indexedDB && indexedDB.databases) {
+        indexedDB.databases().then(function (dbs) {
+          (dbs || []).forEach(function (db) {
+            if (db && db.name) {
+              try {
+                indexedDB.deleteDatabase(db.name);
+              } catch (e2) {}
+            }
+          });
+        }).catch(function () {});
+      }
+    } catch (e) {}
+    try {
+      var domains = cookieDomains();
+      var names = {};
       document.cookie.split(";").forEach(function (c) {
         var n = c.split("=")[0].trim();
-        if (!n) return;
-        document.cookie = n + "=; Max-Age=0; Path=/; SameSite=Lax";
-        document.cookie = n + "=; Max-Age=0; Path=/; Secure; SameSite=None";
-        document.cookie = n + "=; Max-Age=0; Path=/";
+        if (n) names[n] = true;
+      });
+      // Common Twenty / generic auth cookie names even if HttpOnly not listed on document.cookie
+      [
+        "tokenPair",
+        "accessToken",
+        "refreshToken",
+        "token",
+        "jwt",
+        "session",
+        "authToken",
+        "twenty_token",
+      ].forEach(function (n) {
+        names[n] = true;
+      });
+      Object.keys(names).forEach(function (n) {
+        domains.forEach(function (d) {
+          var base = n + "=; Max-Age=0; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT";
+          document.cookie = base;
+          document.cookie = base + "; SameSite=Lax";
+          document.cookie = base + "; Secure; SameSite=None";
+          document.cookie = base + "; Secure; SameSite=Lax";
+          if (d) {
+            document.cookie = base + "; Domain=" + d;
+            document.cookie = base + "; Domain=" + d + "; SameSite=Lax";
+            document.cookie = base + "; Domain=" + d + "; Secure; SameSite=None";
+            document.cookie = base + "; Domain=" + d + "; Secure; SameSite=Lax";
+          }
+        });
       });
     } catch (e) {}
   }
-  if (forceWipe || (owner && prev && prev !== owner)) wipeAuth();
+
+  if (forceWipe || (owner && prev && prev !== owner)) {
+    wipeAuth(forceLogout || (owner && prev && prev !== owner));
+  }
+
+  if (forceLogout) {
+    try {
+      localStorage.removeItem(key);
+    } catch (e) {}
+    document.title = "CRM signed out";
+    document.body.innerHTML = '<p class="m">CRM session cleared.</p>';
+    return;
+  }
+
   try {
     if (owner) localStorage.setItem(key, owner);
   } catch (e) {}
