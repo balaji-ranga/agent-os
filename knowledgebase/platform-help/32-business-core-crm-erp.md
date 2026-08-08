@@ -13,7 +13,7 @@ They appear under **AI Employees** / chat picker and use **content tools** (`crm
 - **`mcp-flolah-crm`** â€” `crm_status`, people/companies CRUD list, **opportunities/deals**, **leads** (Twenty has no separate Lead object by default â†’ early-stage opportunities: NEW/SCREENING/MEETING/PROPOSAL/QUALIFIED), notes, tasks, `crm_sync_org`  
 - **`mcp-flolah-erp`** â€” `erp_status`, customers, leads, items, quotations, sales orders, projects, generic `erp_list_resource` / `erp_create_resource` / `erp_get_resource`, `erp_sync_org`  
 
-Requires **`TWENTY_API_KEY`** (CRM) and ERPNext API key/secret (ERP) on platform env for live data. OpenClaw AI employees use matching **content tools** (Tool access grants); workflows use **MCP nodes** / Brain MCP on these server ids.
+Requires **`TWENTY_APP_SECRET` + SSO** (preferred) so CRM REST tools mint a **per-company workspace** access token. A single platform `TWENTY_API_KEY` only applies when SSO is off (legacy shared workspace). ERPNext API key/secret remain on platform env for live ERP data. OpenClaw AI employees use matching **content tools** (Tool access grants); workflows use **MCP nodes** / Brain MCP on these server ids.
 
 **How does owner scope work?** Pass **`X-Ceo-User-Id`** (your company CEO id) on MCP auth headers from the workflow, or `owner_user_id` in tool args when using service key. Tools resolve Twenty workspace / ERPNext company from **your** business profile â€” never trust a foreign company id for authorization.
 
@@ -91,7 +91,7 @@ Even then the current overlay is **infra + stub backend** (site init still requi
 - API: `POST /api/business-core/sync-org` `{ "targets": ["crm"] }` or `["erp"]`
 - Tools / MCP: `crm_sync_org`, `erp_sync_org`
 
-Sync copies Flolah **departments** (Master Data) + **entitled AI employees** into Twenty people / ERPNext Department+Employee when `TWENTY_API_KEY` or ERPNext key/secret are set.
+Sync copies Flolah **departments** (Master Data) + **entitled AI employees** into Twenty people / ERPNext Department+Employee when company CRM REST auth works (owner workspace token via SSO) or ERPNext key/secret are set.
 
 ## Prefab Maker/Checker tool access
 
@@ -165,7 +165,7 @@ Required env: `TWENTY_SSO_ENABLED=1`, shared secret, `TWENTY_DATABASE_URL`, `TWE
 
 CRM opens **in the Flolah iframe** (not a full-page leave); use **Open** for first-party debugging only.
 
-**Note:** Live REST tools still use one platform `TWENTY_API_KEY` (not per-workspace API isolation yet). Browser SSO is company-workspace-scoped.
+**Note:** CRM REST tools mint **per-company** workspace access tokens (LOGIN exchange for the CEO email + bound workspace). They do **not** use a single shared `TWENTY_API_KEY` when SSO is enabled — that previously wrote Agent/MCP creates into the bootstrap admin workspace by mistake.
 
 **Workspace name** ("Welcome, …"): Twenty Settings → Workspace. Toolbar **Switch CRM account** → wipe + `/welcome`.
 

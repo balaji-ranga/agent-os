@@ -33,13 +33,14 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d --no-de
 
 ```env
 TWENTY_API_URL=http://twenty-server:3000
-# TWENTY_API_KEY=          # optional platform API key after first admin login (tools/MCP)
+# TWENTY_API_KEY=          # optional legacy single-workspace key only (SSO off); multi-CEO MCP/tools use APP_SECRET tokens
 TWENTY_SERVER_URL=https://crm.example.com
 TWENTY_EMBED_URL=https://crm.example.com
-TWENTY_APP_SECRET=         # MUST match Twenty container APP_SECRET (required for passwordless SSO)
+TWENTY_APP_SECRET=         # MUST match Twenty container APP_SECRET (SSO + per-company REST tools)
 TWENTY_SSO_ENABLED=1
 TWENTY_DATABASE_URL=postgres://twenty:twenty@twenty-db:5432/twenty
 TWENTY_IS_MULTIWORKSPACE_ENABLED=true
+TWENTY_FRONT_AUTO_BASE_URL=true
 # TWENTY_BOOTSTRAP_EMAIL=  # optional Twenty admin used to create workspaces for new companies
 # TWENTY_WORKSPACE_ID=     # do not share across CEOs — per-company bind via ensureCompanyTwentyWorkspace
 TWENTY_DB_PASSWORD=twenty
@@ -52,7 +53,7 @@ Compose wires these into **backend** (`deploy/docker-compose.yml`) and into Twen
 
 **Flolah logout clears CRM browser session:** the SPA calls `GET /api/business-core/crm-logout-targets` (CEO/admin scope), then loads hidden iframes to each host’s `/flolah-handoff/?logout=1&wipe=1` so Twenty `localStorage` / session storage on `crm.<apex>` and `{sub}.crm.<apex>` is wiped before the Flolah token is revoked.
 
-**Tenancy:** **1 Flolah company → 1 Twenty workspace** (UUID + subdomain) on `company_business_profiles`. CRM open mints LOGIN SSO for that workspace only. Tools never accept foreign workspace ids for authorization. REST tools still use platform `TWENTY_API_KEY` until per-workspace API keys exist.
+**Tenancy:** **1 Flolah company → 1 Twenty workspace** (UUID + subdomain) on `company_business_profiles`. CRM open mints LOGIN SSO for that workspace only. Tools never accept foreign workspace ids for authorization. REST tools/MCP mint **owner workspace access tokens** (via `TWENTY_APP_SECRET`); do not use a single platform `TWENTY_API_KEY` for multi-CEO writes.
 
 **Prefab agents:** Profile CRM = `twenty` → CRM Maker A/B + Checker (`crm_*` content tools).
 
@@ -106,7 +107,7 @@ Pass `X-Ceo-User-Id` on workflow MCP auth. Deploy hook: `deploy/scripts/ensure-p
 | Variable | Purpose |
 |----------|---------|
 | TWENTY_API_URL | Internal Twenty HTTP base |
-| TWENTY_API_KEY | Optional REST key for tools/MCP |
+| TWENTY_API_KEY | Optional legacy single-workspace REST key (not used when SSO owner tokens are available) |
 | TWENTY_SERVER_URL / TWENTY_EMBED_URL | Public CRM host root (`https://crm.*`) |
 | TWENTY_FRONT_AUTO_BASE_URL | `true` — browser API base = current origin (required for `{sub}.crm.*` multi-workspace) |
 | TWENTY_APP_SECRET | Shared with Twenty; LOGIN token mint for SSO |

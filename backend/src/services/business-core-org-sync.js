@@ -71,27 +71,14 @@ async function twentyUpsertWorkspaceCompany(owner, snap) {
     );
     if (hit) return { company: hit, created: false };
   } catch (_) {}
-  // REST create company (best-effort)
+  // REST create company (workspace-scoped via crmCreateCompany)
   if (!isTwentyConfigured()) {
     return { company: null, created: false, mode: 'offline', note: 'TWENTY_API_URL not configured' };
   }
   try {
-    const root = String(process.env.TWENTY_API_URL || '').replace(/\/+$/, '');
-    const key = String(process.env.TWENTY_API_KEY || process.env.TWENTY_API_TOKEN || '').trim();
-    const res = await fetch(`${root}/rest/companies`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        ...(key ? { Authorization: `Bearer ${key}` } : {}),
-      },
-      body: JSON.stringify({ name: snap.company_name }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      return { company: null, created: false, error: data?.message || `HTTP ${res.status}` };
-    }
-    return { company: data?.data || data, created: true };
+    const { crmCreateCompany } = await import('./twenty-crm.js');
+    const created = await crmCreateCompany(owner, { name: snap.company_name });
+    return { company: created.company, created: true, workspace_id: created.workspace_id };
   } catch (e) {
     return { company: null, created: false, error: e.message };
   }

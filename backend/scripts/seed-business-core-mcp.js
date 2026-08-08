@@ -88,7 +88,7 @@ export async function seedBusinessCoreMcps() {
     id: FLOLAH_CRM_MCP_ID,
     name: 'Flolah CRM (Twenty)',
     description:
-      'Twenty CRM REST via Flolah tools (v2). Status, people, companies, opportunities/deals, leads (early-stage opportunities), notes, tasks, org sync. Pass X-Ceo-User-Id. Needs platform TWENTY_API_KEY + company Profile CRM = Twenty. Prefab CRM agents use matching crm_* content tools.',
+      'Twenty CRM REST via Flolah tools (v2). Status, people, companies, opportunities/deals, leads (early-stage opportunities), notes, tasks, org sync. Pass X-Ceo-User-Id. Needs platform TWENTY_APP_SECRET + SSO (per-company workspace access tokens) and company Profile CRM = Twenty. Prefab CRM agents use matching crm_* content tools.',
     url,
   });
 

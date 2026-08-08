@@ -1,5 +1,5 @@
 /**
- * Flolah Business Core MCP v2 ? real Twenty CRM + ERPNext tools for agents/workflows.
+ * Flolah Business Core MCP v2 - real Twenty CRM + ERPNext tools for agents/workflows.
  * Proxies owner-scoped content-tool endpoints (not dummy stubs).
  * Auth: Authorization Bearer session|TOOLS_API_KEY + X-Ceo-User-Id.
  */

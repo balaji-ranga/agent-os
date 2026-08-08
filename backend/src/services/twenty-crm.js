@@ -1,7 +1,9 @@
 /**
- * Twenty CRM adapter — real Core REST API against platform Twenty.
+ * Twenty CRM adapter — Core REST against platform Twenty.
  * Objects: people, companies, opportunities (deals + leads via stage), notes, tasks.
- * One Flolah company → one Twenty workspace bind (owner-scoped).
+ * One Flolah company → one Twenty workspace; all REST calls use a **workspace-scoped**
+ * access token minted for the company owner (LOGIN exchange), not a shared platform
+ * API key (which would write into a single wrong workspace for every CEO).
  * Docs: https://twenty.com /rest/people, /rest/companies, /rest/opportunities
  */
 import {
@@ -9,7 +11,8 @@ import {
   assertCrmEntitled,
   resolveTwentyWorkspaceForOwner,
 } from './company-business-profile.js';
-import { resolveCompanyDisplayName } from './business-embed.js';
+import { getUserById } from './users.js';
+import { isTwentySsoEnabled, mintTwentyLoginToken } from './twenty-sso.js';
 
 function baseUrl() {
   return String(process.env.TWENTY_API_URL || '')
@@ -28,6 +31,141 @@ export function isTwentyConfigured() {
 /** Lead-like opportunity stages in default Twenty pipeline */
 const LEAD_STAGES = new Set(['NEW', 'SCREENING', 'MEETING', 'PROPOSAL', 'QUALIFIED']);
 
+/** @type {Map<string, { token: string, expMs: number, workspaceId: string, subdomain: string|null, workspaceName: string|null }>} */
+const ownerTokenCache = new Map();
+
+function strip(s) {
+  return String(s || '').trim();
+}
+
+/**
+ * Mint short-lived workspace-scoped Twenty access token for CEO owner.
+ * Never use platform TWENTY_API_KEY for multi-CEO REST — one key == one workspace.
+ */
+async function resolveOwnerWorkspaceAuth(ownerUserId) {
+  const owner = strip(ownerUserId);
+  if (!owner) {
+    throw Object.assign(new Error('owner_user_id required'), { status: 400 });
+  }
+  assertCrmEntitled(owner);
+  const profile = getBusinessProfile(owner);
+  if (profile.crm_provider !== 'twenty') {
+    throw Object.assign(new Error(`CRM provider is ${profile.crm_provider}, not twenty`), {
+      status: 400,
+    });
+  }
+
+  const cached = ownerTokenCache.get(owner);
+  if (cached && cached.expMs > Date.now() + 15_000 && cached.token) {
+    return {
+      workspaceId: cached.workspaceId,
+      workspaceName: cached.workspaceName,
+      subdomain: cached.subdomain,
+      apiKey: cached.token,
+      mode: 'owner_access_token_cached',
+    };
+  }
+
+  const user = getUserById(owner);
+  const email = strip(user?.email);
+  if (!email || !email.includes('@')) {
+    throw Object.assign(
+      new Error('Company owner email is required for workspace-scoped CRM API access'),
+      { status: 400 }
+    );
+  }
+
+  if (!isTwentySsoEnabled()) {
+    // Single-workspace legacy: allow platform API key, but warn.
+    const key = platformApiKey();
+    if (!key) {
+      throw Object.assign(
+        new Error(
+          'TWENTY_APP_SECRET (SSO) is required for multi-company CRM tools, or set TWENTY_API_KEY for a single shared workspace'
+        ),
+        { status: 503 }
+      );
+    }
+    let workspaceId = strip(profile.twenty?.workspace_id);
+    let workspaceName = strip(profile.twenty?.workspace_name) || null;
+    let subdomain = strip(profile.twenty?.subdomain || profile.twenty?.bind?.subdomain) || null;
+    if (!workspaceId) {
+      const { ensureCompanyTwentyWorkspace } = await import('./twenty-workspace.js');
+      const ens = await ensureCompanyTwentyWorkspace(owner);
+      workspaceId = ens.workspace_id;
+      workspaceName = ens.workspace_name || workspaceName;
+      subdomain = ens.subdomain || subdomain;
+    }
+    console.warn(
+      '[twenty-crm] using platform TWENTY_API_KEY (SSO off) — all CEOs share one Twenty workspace; set TWENTY_APP_SECRET for multi-workspace'
+    );
+    return {
+      workspaceId,
+      workspaceName,
+      subdomain,
+      apiKey: key,
+      mode: 'platform_api_key_legacy',
+    };
+  }
+
+  const { ensureUserInCompanyWorkspace, exchangeLoginToken } = await import(
+    './twenty-workspace.js'
+  );
+  const ens = await ensureUserInCompanyWorkspace(owner, {
+    id: owner,
+    email,
+    name: user?.name || user?.business_name || '',
+  });
+  const workspaceId = ens.workspace_id;
+  if (!workspaceId) {
+    throw Object.assign(new Error('Twenty workspace not bound for this company'), { status: 409 });
+  }
+  if (ens.ensure_user && ens.ensure_user.ok === false) {
+    console.warn(
+      '[twenty-crm] ensure owner membership incomplete owner=%s reason=%s',
+      owner,
+      ens.ensure_user.reason || '?'
+    );
+  }
+
+  const loginToken = mintTwentyLoginToken({
+    email,
+    workspaceId,
+    authProvider: 'SSO',
+    expiresSec: 300,
+  });
+  const { accessToken } = await exchangeLoginToken(loginToken, ens.public_base);
+  if (!accessToken) {
+    throw Object.assign(new Error('Failed to mint workspace-scoped Twenty access token'), {
+      status: 502,
+    });
+  }
+
+  ownerTokenCache.set(owner, {
+    token: accessToken,
+    expMs: Date.now() + 4 * 60 * 1000,
+    workspaceId,
+    subdomain: ens.subdomain || null,
+    workspaceName: ens.workspace_name || null,
+  });
+
+  console.info(
+    '[twenty-crm] owner access token owner=%s workspace=%s sub=%s',
+    owner,
+    workspaceId,
+    ens.subdomain || '?'
+  );
+
+  return {
+    workspaceId,
+    workspaceName: ens.workspace_name || null,
+    subdomain: ens.subdomain || null,
+    publicBase: ens.public_base || null,
+    apiKey: accessToken,
+    mode: 'owner_access_token',
+  };
+}
+
 async function twentyFetch(path, { method = 'GET', body, apiKey } = {}) {
   const root = baseUrl();
   if (!root) {
@@ -36,14 +174,16 @@ async function twentyFetch(path, { method = 'GET', body, apiKey } = {}) {
     throw err;
   }
   const key = apiKey || platformApiKey();
-  if (!key && method !== 'GET') {
-    // still try GET for some public health; writes need key
+  if (!key) {
+    const err = new Error('No Twenty credentials for this request');
+    err.status = 503;
+    throw err;
   }
   const headers = {
     Accept: 'application/json',
     'Content-Type': 'application/json',
+    Authorization: `Bearer ${key}`,
   };
-  if (key) headers.Authorization = `Bearer ${key}`;
   const url = `${root}${path.startsWith('/') ? path : `/${path}`}`;
   const res = await fetch(url, {
     method,
@@ -83,6 +223,15 @@ function lim(n, d = 25) {
   return Math.min(100, Math.max(1, Number(n) || d));
 }
 
+function scopeMeta(auth) {
+  return {
+    workspace_id: auth.workspaceId,
+    workspace_name: auth.workspaceName || null,
+    subdomain: auth.subdomain || null,
+    auth_mode: auth.mode || null,
+  };
+}
+
 export async function ensureTwentyWorkspaceForCompany(ownerUserId, { displayName } = {}) {
   const owner = String(ownerUserId || '').trim();
   if (!owner) throw Object.assign(new Error('owner_user_id required'), { status: 400 });
@@ -99,50 +248,67 @@ export async function ensureTwentyWorkspaceForCompany(ownerUserId, { displayName
   };
 }
 
-function requireLive(workspaceId) {
+function offlinePayload(workspaceId, message, mode) {
+  return {
+    offline: true,
+    workspace_id: workspaceId || null,
+    mode,
+    message,
+  };
+}
+
+async function requireLiveAuth(ownerUserId) {
   if (!isTwentyConfigured()) {
+    let workspaceId = null;
+    try {
+      workspaceId = resolveTwentyWorkspaceForOwner(ownerUserId).workspaceId;
+    } catch {
+      /* unbound */
+    }
     return {
-      offline: true,
-      workspace_id: workspaceId,
-      mode: 'offline',
-      message: 'TWENTY_API_URL not set — bind only',
+      off: offlinePayload(
+        workspaceId,
+        'TWENTY_API_URL not set — bind only',
+        'offline'
+      ),
     };
   }
-  if (!platformApiKey()) {
+  try {
+    const auth = await resolveOwnerWorkspaceAuth(ownerUserId);
+    return { auth };
+  } catch (e) {
+    if (e.status === 403 || e.status === 400 || e.status === 409) throw e;
+    console.warn('[twenty-crm] resolve owner auth failed', e?.message || e);
     return {
-      offline: true,
-      workspace_id: workspaceId,
-      mode: 'no_api_key',
-      message: 'TWENTY_API_KEY not set — open Twenty UI, create API key, set TWENTY_API_KEY on platform',
+      off: offlinePayload(
+        null,
+        e.message || 'Could not resolve workspace CRM credentials',
+        'auth_error'
+      ),
     };
   }
-  return null;
 }
 
 export async function crmListPeople(ownerUserId, { limit = 25 } = {}) {
-  const { workspaceId } = resolveTwentyWorkspaceForOwner(ownerUserId);
-  const off = requireLive(workspaceId);
+  const { auth, off } = await requireLiveAuth(ownerUserId);
   if (off) return { ...off, people: [] };
   try {
-    const data = await twentyFetch(`/rest/people?limit=${lim(limit)}`);
+    const data = await twentyFetch(`/rest/people?limit=${lim(limit)}`, { apiKey: auth.apiKey });
     return {
-      workspace_id: workspaceId,
+      ...scopeMeta(auth),
       mode: 'live',
       people: unwrapList(data, 'people'),
     };
   } catch (e) {
-    return { workspace_id: workspaceId, mode: 'error', people: [], error: e.message };
+    return { ...scopeMeta(auth), mode: 'error', people: [], error: e.message };
   }
 }
 
 export async function crmCreatePerson(ownerUserId, { name, email, phone, companyId } = {}) {
-  const { workspaceId } = resolveTwentyWorkspaceForOwner(ownerUserId);
   if (!isTwentyConfigured()) {
     throw Object.assign(new Error('TWENTY_API_URL not configured'), { status: 503 });
   }
-  if (!platformApiKey()) {
-    throw Object.assign(new Error('TWENTY_API_KEY not configured'), { status: 503 });
-  }
+  const auth = await resolveOwnerWorkspaceAuth(ownerUserId);
   const parts = String(name || '')
     .trim()
     .split(/\s+/);
@@ -154,60 +320,88 @@ export async function crmCreatePerson(ownerUserId, { name, email, phone, company
     phones: phone ? { primaryPhoneNumber: String(phone).trim() } : undefined,
   };
   if (companyId) body.companyId = companyId;
-  const data = await twentyFetch('/rest/people', { method: 'POST', body });
-  return { workspace_id: workspaceId, mode: 'live', person: data?.data || data };
+  const data = await twentyFetch('/rest/people', {
+    method: 'POST',
+    body,
+    apiKey: auth.apiKey,
+  });
+  const person = data?.data?.createPerson || data?.data || data;
+  console.info(
+    '[twenty-crm] createPerson owner workspace=%s sub=%s person=%s',
+    auth.workspaceId,
+    auth.subdomain || '?',
+    person?.id || person?.createPerson?.id || '?'
+  );
+  return {
+    ...scopeMeta(auth),
+    mode: 'live',
+    person,
+  };
 }
 
 export async function crmListCompanies(ownerUserId, { limit = 25 } = {}) {
-  const { workspaceId } = resolveTwentyWorkspaceForOwner(ownerUserId);
-  const off = requireLive(workspaceId);
+  const { auth, off } = await requireLiveAuth(ownerUserId);
   if (off) return { ...off, companies: [] };
   try {
-    const data = await twentyFetch(`/rest/companies?limit=${lim(limit)}`);
+    const data = await twentyFetch(`/rest/companies?limit=${lim(limit)}`, { apiKey: auth.apiKey });
     return {
-      workspace_id: workspaceId,
+      ...scopeMeta(auth),
       mode: 'live',
       companies: unwrapList(data, 'companies'),
     };
   } catch (e) {
-    return { workspace_id: workspaceId, mode: 'error', companies: [], error: e.message };
+    return { ...scopeMeta(auth), mode: 'error', companies: [], error: e.message };
   }
 }
 
 export async function crmCreateCompany(ownerUserId, { name, domainUrl, employees } = {}) {
-  const { workspaceId } = resolveTwentyWorkspaceForOwner(ownerUserId);
-  if (!isTwentyConfigured() || !platformApiKey()) {
-    throw Object.assign(new Error('TWENTY_API_URL / TWENTY_API_KEY required'), { status: 503 });
+  if (!isTwentyConfigured()) {
+    throw Object.assign(new Error('TWENTY_API_URL not configured'), { status: 503 });
   }
+  const auth = await resolveOwnerWorkspaceAuth(ownerUserId);
   const body = { name: String(name || '').trim() };
   if (!body.name) throw Object.assign(new Error('name required'), { status: 400 });
   if (domainUrl) body.domainName = String(domainUrl).trim();
   if (employees != null) body.employees = Number(employees);
-  const data = await twentyFetch('/rest/companies', { method: 'POST', body });
-  return { workspace_id: workspaceId, mode: 'live', company: data?.data || data };
+  const data = await twentyFetch('/rest/companies', {
+    method: 'POST',
+    body,
+    apiKey: auth.apiKey,
+  });
+  const company = data?.data?.createCompany || data?.data || data;
+  console.info(
+    '[twenty-crm] createCompany owner workspace=%s sub=%s company=%s',
+    auth.workspaceId,
+    auth.subdomain || '?',
+    company?.id || '?'
+  );
+  return {
+    ...scopeMeta(auth),
+    mode: 'live',
+    company,
+  };
 }
 
 /** Deals = Twenty opportunities (pipeline). */
 export async function crmListOpportunities(ownerUserId, { limit = 25, stage } = {}) {
-  const { workspaceId } = resolveTwentyWorkspaceForOwner(ownerUserId);
-  const off = requireLive(workspaceId);
+  const { auth, off } = await requireLiveAuth(ownerUserId);
   if (off) return { ...off, opportunities: [], deals: [] };
   try {
     let path = `/rest/opportunities?limit=${lim(limit)}`;
     if (stage) {
       path += `&filter[stage][eq]=${encodeURIComponent(String(stage))}`;
     }
-    const data = await twentyFetch(path);
+    const data = await twentyFetch(path, { apiKey: auth.apiKey });
     const opportunities = unwrapList(data, 'opportunities');
     return {
-      workspace_id: workspaceId,
+      ...scopeMeta(auth),
       mode: 'live',
       opportunities,
       deals: opportunities,
     };
   } catch (e) {
     return {
-      workspace_id: workspaceId,
+      ...scopeMeta(auth),
       mode: 'error',
       opportunities: [],
       deals: [],
@@ -220,10 +414,10 @@ export async function crmCreateOpportunity(
   ownerUserId,
   { name, amount, currencyCode = 'USD', stage = 'NEW', companyId, closeDate, pointOfContactId } = {}
 ) {
-  const { workspaceId } = resolveTwentyWorkspaceForOwner(ownerUserId);
-  if (!isTwentyConfigured() || !platformApiKey()) {
-    throw Object.assign(new Error('TWENTY_API_URL / TWENTY_API_KEY required'), { status: 503 });
+  if (!isTwentyConfigured()) {
+    throw Object.assign(new Error('TWENTY_API_URL not configured'), { status: 503 });
   }
+  const auth = await resolveOwnerWorkspaceAuth(ownerUserId);
   const title = String(name || '').trim();
   if (!title) throw Object.assign(new Error('name required'), { status: 400 });
   const body = {
@@ -232,7 +426,6 @@ export async function crmCreateOpportunity(
   };
   if (amount != null && amount !== '') {
     const n = Number(amount);
-    // Twenty uses amountMicros
     body.amount = {
       amountMicros: Math.round(n * 1_000_000),
       currencyCode: String(currencyCode || 'USD'),
@@ -241,16 +434,25 @@ export async function crmCreateOpportunity(
   if (companyId) body.companyId = companyId;
   if (pointOfContactId) body.pointOfContactId = pointOfContactId;
   if (closeDate) body.closeDate = closeDate;
-  const data = await twentyFetch('/rest/opportunities', { method: 'POST', body });
-  const opportunity = data?.data || data;
-  return { workspace_id: workspaceId, mode: 'live', opportunity, deal: opportunity };
+  const data = await twentyFetch('/rest/opportunities', {
+    method: 'POST',
+    body,
+    apiKey: auth.apiKey,
+  });
+  const opportunity = data?.data?.createOpportunity || data?.data || data;
+  return {
+    ...scopeMeta(auth),
+    mode: 'live',
+    opportunity,
+    deal: opportunity,
+  };
 }
 
 export async function crmUpdateOpportunity(ownerUserId, { id, patch } = {}) {
-  const { workspaceId } = resolveTwentyWorkspaceForOwner(ownerUserId);
-  if (!isTwentyConfigured() || !platformApiKey()) {
-    throw Object.assign(new Error('TWENTY_API_URL / TWENTY_API_KEY required'), { status: 503 });
+  if (!isTwentyConfigured()) {
+    throw Object.assign(new Error('TWENTY_API_URL not configured'), { status: 503 });
   }
+  const auth = await resolveOwnerWorkspaceAuth(ownerUserId);
   const oppId = String(id || '').trim();
   if (!oppId) throw Object.assign(new Error('id required'), { status: 400 });
   const body = { ...(patch || {}) };
@@ -264,8 +466,13 @@ export async function crmUpdateOpportunity(ownerUserId, { id, patch } = {}) {
   const data = await twentyFetch(`/rest/opportunities/${encodeURIComponent(oppId)}`, {
     method: 'PATCH',
     body,
+    apiKey: auth.apiKey,
   });
-  return { workspace_id: workspaceId, mode: 'live', opportunity: data?.data || data };
+  return {
+    ...scopeMeta(auth),
+    mode: 'live',
+    opportunity: data?.data || data,
+  };
 }
 
 /**
@@ -281,6 +488,9 @@ export async function crmListLeads(ownerUserId, { limit = 25 } = {}) {
   });
   return {
     workspace_id: all.workspace_id,
+    workspace_name: all.workspace_name,
+    subdomain: all.subdomain,
+    auth_mode: all.auth_mode,
     mode: 'live',
     leads,
     note: 'Twenty maps leads to opportunities in early stages (NEW, SCREENING, …)',
@@ -296,26 +506,24 @@ export async function crmCreateLead(ownerUserId, opts = {}) {
 }
 
 export async function crmListNotes(ownerUserId, { limit = 25 } = {}) {
-  const { workspaceId } = resolveTwentyWorkspaceForOwner(ownerUserId);
-  const off = requireLive(workspaceId);
+  const { auth, off } = await requireLiveAuth(ownerUserId);
   if (off) return { ...off, notes: [] };
   try {
-    const data = await twentyFetch(`/rest/notes?limit=${lim(limit)}`);
-    return { workspace_id: workspaceId, mode: 'live', notes: unwrapList(data, 'notes') };
+    const data = await twentyFetch(`/rest/notes?limit=${lim(limit)}`, { apiKey: auth.apiKey });
+    return { ...scopeMeta(auth), mode: 'live', notes: unwrapList(data, 'notes') };
   } catch (e) {
-    return { workspace_id: workspaceId, mode: 'error', notes: [], error: e.message };
+    return { ...scopeMeta(auth), mode: 'error', notes: [], error: e.message };
   }
 }
 
 export async function crmListTasks(ownerUserId, { limit = 25 } = {}) {
-  const { workspaceId } = resolveTwentyWorkspaceForOwner(ownerUserId);
-  const off = requireLive(workspaceId);
+  const { auth, off } = await requireLiveAuth(ownerUserId);
   if (off) return { ...off, tasks: [] };
   try {
-    const data = await twentyFetch(`/rest/tasks?limit=${lim(limit)}`);
-    return { workspace_id: workspaceId, mode: 'live', tasks: unwrapList(data, 'tasks') };
+    const data = await twentyFetch(`/rest/tasks?limit=${lim(limit)}`, { apiKey: auth.apiKey });
+    return { ...scopeMeta(auth), mode: 'live', tasks: unwrapList(data, 'tasks') };
   } catch (e) {
-    return { workspace_id: workspaceId, mode: 'error', tasks: [], error: e.message };
+    return { ...scopeMeta(auth), mode: 'error', tasks: [], error: e.message };
   }
 }
 
@@ -324,10 +532,15 @@ export function getTwentyStatusForOwner(ownerUserId) {
   return {
     configured: isTwentyConfigured(),
     api_key_set: Boolean(platformApiKey()),
+    owner_token_sso: isTwentySsoEnabled(),
     crm_provider: p.crm_provider,
     bound: p.twenty.bound,
     workspace_id: p.twenty.workspace_id,
     workspace_name: p.twenty.workspace_name,
+    subdomain: p.twenty.subdomain || p.twenty.bind?.subdomain || null,
     objects: ['people', 'companies', 'opportunities (deals/leads)', 'notes', 'tasks'],
+    note: isTwentySsoEnabled()
+      ? 'REST tools mint workspace-scoped access tokens per company (not shared TWENTY_API_KEY).'
+      : 'SSO off: REST tools may use platform TWENTY_API_KEY (single shared workspace).',
   };
 }
