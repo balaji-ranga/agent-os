@@ -1,7 +1,9 @@
-FLOLAH MARKETING HOMEPAGE
+﻿FLOLAH MARKETING HOMEPAGE
 
 Served at https://flolah.cloud (apex) via deploy/nginx configs.
 App / login SPA is served at https://login.flolah.cloud.
+
+Source pack: flolah-existing-design-updated.zip
 
 Pages:
   / or /index.html  — marketing homepage
