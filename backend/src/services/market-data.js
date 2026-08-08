@@ -223,7 +223,34 @@ export async function getRegime({ indexSymbol = 'SPY', force = false } = {}) {
   logCache(kind, symbol, false);
 
   const raw = await fmpGet('/historical-price-eod/full', { symbol });
-  if (!raw.ok) return raw;
+  if (!raw.ok) {
+    // Paper trading / free-tier: never hard-kill W1 on FMP 402/403/5xx — synthetic risk-on allowlist path.
+    if (isPaperMode() && (raw.status === 402 || raw.status === 403 || raw.status >= 500 || !apiKey())) {
+      const synthetic = {
+        ok: true,
+        index: symbol,
+        last_close: null,
+        sma_200: null,
+        risk_on: true,
+        regime: 'risk_on',
+        as_of: todayUtc(),
+        paper: true,
+        cached: false,
+        synthetic: true,
+        note: `market data provider unavailable (${raw.error || raw.status}); paper fallback risk_on`,
+      };
+      console.warn('[market-data] getRegime paper fallback', { symbol, error: raw.error, status: raw.status });
+      setCached({
+        cacheKey,
+        provider: providerName(),
+        kind,
+        payload: synthetic,
+        expiresAt: expiresInSeconds(900),
+      });
+      return synthetic;
+    }
+    return raw;
+  }
 
   const hist = extractBars(raw.data);
   // Stable API returns newest-first

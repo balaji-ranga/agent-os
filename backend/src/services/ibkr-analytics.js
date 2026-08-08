@@ -85,7 +85,204 @@ export function ensureIbkrAnalyticsTables() {
     );
     CREATE INDEX IF NOT EXISTS idx_ibkr_cash_owner
       ON ibkr_cash_events(owner_user_id, event_at DESC);
+
+    /* Last full book pushed from laptop bridge (positions + cash + open orders). */
+    CREATE TABLE IF NOT EXISTS ibkr_account_snapshot_cache (
+      owner_user_id TEXT PRIMARY KEY,
+      captured_at TEXT NOT NULL,
+      cash_usd REAL,
+      equity_usd REAL,
+      account_id TEXT,
+      source TEXT,
+      snapshot_json TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_ibkr_acct_snap_cache_captured
+      ON ibkr_account_snapshot_cache(captured_at DESC);
   `);
+}
+
+/**
+ * Normalize bridge / gateway snapshot-ish payload for ingest.
+ * Accepts: full snap, equity_mark payload { positions, cash_usd, equity_usd }, or envelope.
+ */
+export function normalizeBridgeSnapshotPayload(raw = {}) {
+  let obj = raw && typeof raw === 'object' ? raw : {};
+  if (obj.payload && typeof obj.payload === 'object') {
+    // Prefer nested snapshot when present (eod envelope).
+    if (obj.payload.snapshot && typeof obj.payload.snapshot === 'object') {
+      obj = { ...obj.payload.snapshot, ...obj.payload, snapshot: undefined };
+    } else {
+      obj = obj.payload;
+    }
+  }
+  if (obj.snapshot && typeof obj.snapshot === 'object') {
+    obj = {
+      ...obj.snapshot,
+      cash_usd: obj.cash_usd ?? obj.snapshot.cash_usd,
+      equity_usd: obj.equity_usd ?? obj.snapshot.equity_usd,
+      source: obj.source || obj.snapshot.source,
+    };
+  }
+
+  const cash =
+    num(obj.cash_usd ?? obj.cash) ??
+    num(obj.summary?.TotalCashValue?.value ?? obj.summary?.TotalCashValue);
+  const equity =
+    num(obj.equity_usd ?? obj.equity) ??
+    num(obj.summary?.NetLiquidation?.value ?? obj.summary?.NetLiquidation) ??
+    cash;
+  const positions = Array.isArray(obj.positions) ? obj.positions : [];
+  const openOrders = Array.isArray(obj.open_orders)
+    ? obj.open_orders
+    : Array.isArray(obj.openOrders)
+      ? obj.openOrders
+      : [];
+  const capturedAt =
+    String(obj.captured_at || obj.capturedAt || obj.ts || new Date().toISOString()).trim() ||
+    new Date().toISOString();
+
+  return {
+    ok: obj.ok !== false,
+    mock: !!obj.mock,
+    account: obj.account || obj.account_id || obj.accountId || null,
+    cash_usd: cash,
+    equity_usd: equity,
+    summary: obj.summary && typeof obj.summary === 'object' ? obj.summary : null,
+    positions,
+    open_orders: openOrders,
+    pending_sells: Array.isArray(obj.pending_sells) ? obj.pending_sells : [],
+    pending_sell_symbols: Array.isArray(obj.pending_sell_symbols) ? obj.pending_sell_symbols : [],
+    reference_prices:
+      obj.reference_prices && typeof obj.reference_prices === 'object' ? obj.reference_prices : {},
+    captured_at: capturedAt,
+    source: String(obj.source || 'local-ibkr-bridge').slice(0, 80),
+    session_ok: obj.session_ok !== false,
+  };
+}
+
+/**
+ * Persist full laptop/gateway account snapshot for W1 / Summary when VPS has no live Gateway.
+ * @param {string} ownerUserId
+ * @param {object} rawPayload
+ * @param {{ source?: string, recordEquityMark?: boolean }} [opts]
+ */
+export function ingestAccountSnapshotFromBridge(ownerUserId, rawPayload = {}, opts = {}) {
+  ensureIbkrAnalyticsTables();
+  const owner = String(ownerUserId || '').trim();
+  if (!owner) throw new Error('owner_user_id is required');
+
+  const snap = normalizeBridgeSnapshotPayload(rawPayload);
+  if (opts.source) snap.source = String(opts.source).slice(0, 80);
+
+  // Require successful session-shaped payload (cash or positions or open orders or equity).
+  const hasBook =
+    snap.cash_usd != null ||
+    snap.equity_usd != null ||
+    (snap.positions && snap.positions.length > 0) ||
+    (snap.open_orders && snap.open_orders.length > 0) ||
+    (snap.summary && Object.keys(snap.summary).length > 0);
+  if (!hasBook) {
+    throw new Error('snapshot payload empty (need cash, equity, positions, open_orders, or summary)');
+  }
+
+  const analytics = persistAccountAnalyticsSnapshot(owner, {
+    positions: snap.positions,
+    cashUsd: snap.cash_usd,
+    referencePrices: snap.reference_prices,
+    accountSummary: snap.summary,
+    source: snap.source || 'bridge_push',
+  });
+
+  const db = getDb();
+  const envelope = {
+    ...snap,
+    received_at: new Date().toISOString(),
+    analytics_persist: analytics,
+  };
+  db.prepare(
+    `INSERT INTO ibkr_account_snapshot_cache (
+       owner_user_id, captured_at, cash_usd, equity_usd, account_id, source, snapshot_json, updated_at
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+     ON CONFLICT(owner_user_id) DO UPDATE SET
+       captured_at = excluded.captured_at,
+       cash_usd = excluded.cash_usd,
+       equity_usd = excluded.equity_usd,
+       account_id = excluded.account_id,
+       source = excluded.source,
+       snapshot_json = excluded.snapshot_json,
+       updated_at = datetime('now')`
+  ).run(
+    owner,
+    snap.captured_at,
+    snap.cash_usd,
+    snap.equity_usd,
+    snap.account,
+    snap.source || 'bridge_push',
+    JSON.stringify(envelope)
+  );
+
+  return {
+    ok: true,
+    owner_user_id: owner,
+    captured_at: snap.captured_at,
+    cash_usd: snap.cash_usd,
+    equity_usd: snap.equity_usd,
+    position_count: (snap.positions || []).length,
+    open_orders_count: (snap.open_orders || []).length,
+    source: snap.source,
+    analytics_persist: analytics,
+  };
+}
+
+/**
+ * Latest laptop-pushed full account snapshot (maker / W1 friendly).
+ */
+export function getLatestAccountSnapshot(ownerUserId) {
+  ensureIbkrAnalyticsTables();
+  const owner = String(ownerUserId || '').trim();
+  if (!owner) throw new Error('owner_user_id is required');
+  const row = getDb()
+    .prepare(`SELECT * FROM ibkr_account_snapshot_cache WHERE owner_user_id = ?`)
+    .get(owner);
+  if (!row) {
+    return {
+      ok: false,
+      source: 'none',
+      error: 'no_cached_snapshot',
+      message:
+        'No laptop IBKR account snapshot has been pushed yet. Run the local bridge with WEBHOOK_URL (or push after a successful Gateway session).',
+      positions: [],
+      cash_usd: null,
+      equity_usd: null,
+    };
+  }
+  let snap = null;
+  try {
+    snap = JSON.parse(row.snapshot_json);
+  } catch {
+    snap = null;
+  }
+  const positions = Array.isArray(snap?.positions)
+    ? snap.positions
+    : listPositionSnapshots(owner, { latestOnly: true });
+  return {
+    ok: true,
+    source: 'bridge_cache',
+    account: row.account_id || snap?.account || null,
+    cash_usd: row.cash_usd != null ? Number(row.cash_usd) : snap?.cash_usd ?? null,
+    equity_usd: row.equity_usd != null ? Number(row.equity_usd) : snap?.equity_usd ?? null,
+    captured_at: row.captured_at,
+    updated_at: row.updated_at,
+    push_source: row.source,
+    positions,
+    open_orders: Array.isArray(snap?.open_orders) ? snap.open_orders : [],
+    pending_sells: Array.isArray(snap?.pending_sells) ? snap.pending_sells : [],
+    pending_sell_symbols: Array.isArray(snap?.pending_sell_symbols) ? snap.pending_sell_symbols : [],
+    summary: snap?.summary || null,
+    reference_prices: snap?.reference_prices || {},
+    mock: !!snap?.mock,
+  };
 }
 
 function num(v, d = null) {
@@ -485,6 +682,14 @@ export async function getPortfolioAnalytics(
       live = await fetchAccountSnapshot({});
     } catch (e) {
       live = { ok: false, error: e.message };
+    }
+  }
+  if ((!live || live.ok === false) && !liveSnapshot) {
+    try {
+      const cached = getLatestAccountSnapshot(ownerUserId);
+      if (cached.ok) live = { ...cached, live_source: 'bridge_cache' };
+    } catch {
+      /* ignore */
     }
   }
 

@@ -25,6 +25,9 @@
 | AI Snipper | `/ai-snipper` | Prompt / token / tool-call usage timeline |
 | **Browser Session** | `/browser-session` | Client Chrome relay, NL browser tasks, recorder recipes |
 | **Efficiency View** | `/efficiency` | **Org** tab: AI employees, automated tasks, feedback, workflow run success/fail, Storage (MB). **Department** tab: month-to-date tokens vs department budget. **Agent View** tab: per-employee activity, outcomes, token/error budgets, **Reset usage** |
+| **Work** | `/work` | Daily operating workspace (tasks + AI activity + command bar). See [32-business-core-crm-erp.md](./32-business-core-crm-erp.md) |
+| **CRM** | `/crm` | Shown only when Profile CRM = Twenty (platform embed) |
+| **ERP** | `/erp` | Shown only when Profile ERP = ERPNext (platform embed) |
 | **3D Avatars** | `/avatars` | Avatar models, Virtual Rooms, publish public scenes |
 | **Published Scenes** | `/published-scenes` | Guest Virtual Room links (`/p/vr/:slug`) |
 
@@ -34,6 +37,7 @@
 |-------|-------|---------|
 | Job profiles | `/job-profiles` | Job-search profile + resume context |
 | Job workflows | `/job-workflows` | Imperative Job Applicant pipeline runs (not the visual builder) |
+| **IBKR Summary** | `/ibkr-summary` | Portfolio + day-wise plan vs executed; **Clear data…** for transactional reset (keeps budget Variables) — see help **20** |
 
 ### Company OS
 

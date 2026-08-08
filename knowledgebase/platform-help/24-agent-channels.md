@@ -18,12 +18,14 @@ Channel routing is re-applied automatically so recreating OpenClaw does not drop
 4. **openclaw-entrypoint** runs `restore-openclaw-channel-routing.js` after configure.  
 5. **Backend startup** calls `syncEnabledAgentChannelsToOpenClaw()`.  
 6. **Every VPS deploy** runs `vps-verify-agent-channels.sh` (fatal on drift).
+7. **Every VPS deploy** runs `vps-verify-openclaw-chat.sh` (fatal if `POST /v1/chat/completions` is **404** — usually wiped `gateway` in `openclaw.json`). Repair: `ensure-openclaw-gateway-config.js` + restart OpenClaw. Backend rewrites must use `openclaw-config-safe.js`.
 
 Manual repair:
 
 ```bash
 docker compose exec -T -w /opt/agent-os/backend backend node scripts/sync-agent-channels-to-openclaw.js
 bash deploy/scripts/vps-verify-agent-channels.sh
+bash deploy/scripts/vps-verify-openclaw-chat.sh
 ```
 
 ## Where in the UI

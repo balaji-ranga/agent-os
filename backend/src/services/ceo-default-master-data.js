@@ -130,6 +130,10 @@ export const PLATFORM_HELP_DOCUMENTS = Object.freeze([
     filename: '31-mcp-connectors-oauth.md',
     title: `${PLATFORM_HELP_TITLE_PREFIX}MCP Connectors OAuth Facebook`,
   },
+  {
+    filename: '32-business-core-crm-erp.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}Business Core CRM ERP Maker Checker`,
+  },
 ]);
 
 /** Resolve repo README.md (local: agent-os/README.md; Docker: /opt/agent-os/README.md). */

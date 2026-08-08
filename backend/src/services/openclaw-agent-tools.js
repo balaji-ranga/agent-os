@@ -18,6 +18,7 @@ import {
   ensureTenantOpenClawAgent,
 } from './openclaw-tenant.js';
 import { COO_CONTENT_TOOLS_ALLOW } from '../lib/content-tools-allow.js';
+import { readOpenClawConfigSafe, writeOpenClawConfigSafe } from './openclaw-config-safe.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_TEMPLATES = join(__dirname, '..', '..', '..', 'openclaw-workspace-templates');
@@ -30,13 +31,14 @@ const home = process.env.USERPROFILE || process.env.HOME || '';
 const NATIVE_OPENCLAW_TOOLS = new Set(['browser', 'image', 'cron', 'cron_add']);
 
 function readConfig() {
-  if (!existsSync(CONFIG_PATH)) return { agents: { list: [] }, tools: { allow: [] } };
-  return JSON.parse(readFileSync(CONFIG_PATH, 'utf8'));
+  const c = readOpenClawConfigSafe();
+  if (!c.agents) c.agents = { list: [] };
+  if (!c.tools) c.tools = { allow: [] };
+  return c;
 }
 
 function writeConfig(config) {
-  if (!existsSync(OPENCLAW_DIR)) mkdirSync(OPENCLAW_DIR, { recursive: true });
-  writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
+  writeOpenClawConfigSafe(config);
 }
 
 export function resolveOpenClawAgentId(agent) {

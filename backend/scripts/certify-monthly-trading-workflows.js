@@ -1,9 +1,9 @@
 /**
  * Phase 4: start/poll Workflow Certify for Monthly Trading W1 / W3 / W5.
  *
- * Recommended models (BYOK):
- *   WORKFLOW_CERTIFY_MAKER_MODEL   = Claude Opus (e.g. claude-opus-4-20250514 or platform Opus id)
- *   WORKFLOW_CERTIFY_CHECKER_MODEL = deepseek-v4-flash
+ * Recommended models (BYOK vault on W1 brains — no Ollama):
+ *   WORKFLOW_CERTIFY_MAKER_MODEL   = gpt-4o
+ *   WORKFLOW_CERTIFY_CHECKER_MODEL = deepseek-chat
  *
  * W2 (laptop desktop package) is intentionally NOT certified here — desktop-runner
  * constraints (no brain/ceo_approval) and local bridge URLs make cloud certify
@@ -13,7 +13,7 @@
  *   node scripts/certify-monthly-trading-workflows.js --dry-run
  *   node scripts/certify-monthly-trading-workflows.js
  *   node scripts/certify-monthly-trading-workflows.js --poll --timeout-ms 120000
- *   node scripts/certify-monthly-trading-workflows.js --strict   # fail if Opus/DeepSeek keys missing
+ *   node scripts/certify-monthly-trading-workflows.js --strict   # fail if vault/cloud keys missing
  *   node scripts/certify-monthly-trading-workflows.js --seed     # seed workflows before certify
  *   node scripts/certify-monthly-trading-workflows.js --workflow w1,w5
  */
@@ -40,8 +40,8 @@ import {
 } from '../src/services/agent-workflow-certify.js';
 import { getLlmConfig } from '../src/config/llm.js';
 
-const RECOMMENDED_MAKER = 'claude-opus-4-20250514';
-const RECOMMENDED_CHECKER = 'deepseek-v4-flash';
+const RECOMMENDED_MAKER = 'gpt-4o';
+const RECOMMENDED_CHECKER = 'deepseek-chat';
 
 const CERTIFY_TARGETS = {
   w1: {

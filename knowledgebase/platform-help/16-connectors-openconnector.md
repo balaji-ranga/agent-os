@@ -64,10 +64,11 @@ On the same **Connectors** page, **Local IBKR bridge** downloads a Windows zip o
 
 1. Download full (portable Node) or **lite** (Node already on PATH).
 2. Keep minted `LOCAL_BRIDGE_TOKEN` private — paste the same value into W2 workflow variable `local_bridge_token`.
-3. Point `WEBHOOK_URL` at W3 (`…/api/agent-workflows/hooks/monthly-trading-w3-events`) so fills/**cancels/rejects** reach order learnings.
+3. Point `WEBHOOK_URL` at **your** W3 hook (`…/api/agent-workflows/hooks/monthly-trading-w3-events`) so **account snapshots**, fills, and cancels update **your** private cloud book.
 4. Run IB Gateway (paper socket **4002**) then `.\\scripts\\run-bridge.ps1`.
+5. Open **IBKR Summary** (`/ibkr-summary`) to review portfolio + plan vs executed; **Clear data…** reset is documented in **20**.
 
-CEO overview: [20-ibkr-monthly-trading.md](./20-ibkr-monthly-trading.md). Ops detail: [IBKR-LOCAL-BRIDGE.md](../IBKR-LOCAL-BRIDGE.md).
+IBKR plans, positions, fills, and budget are **per CEO** (not shared with other users). CEO overview + simple flow diagrams: [20-ibkr-monthly-trading.md](./20-ibkr-monthly-trading.md). Ops detail: [IBKR-LOCAL-BRIDGE.md](../IBKR-LOCAL-BRIDGE.md).
 
 ### OpenConnector tips
 

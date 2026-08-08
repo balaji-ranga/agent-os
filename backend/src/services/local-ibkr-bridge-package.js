@@ -21,6 +21,7 @@ const VENDOR_SOURCES = [
   'ibkr-gateway-client.js',
   'ibkr-trading-rules.js',
   'ibkr-workflow-variables.js',
+  'trading-plan-bridge-map.js',
 ];
 
 /** Slim order-events for standalone zip — gateway only needs pure helpers (no SQLite). */
@@ -196,6 +197,39 @@ export async function buildLocalIbkrBridgePackageZip({
     compress: true,
   });
 
+  const w3Id = 'monthly-trading-w3-events';
+  // Prefer durable direct ingest endpoint (order events without W3 custom-script risk).
+  // W3 event hook still works; eod_snapshot can be routed via?fanout or separate W3 URL.
+  const w3Hint = baseUrl
+    ? `${baseUrl}/api/ibkr-trading/local-bridge-webhook`
+    : `(set AGENT_OS_PUBLIC_URL)/api/ibkr-trading/local-bridge-webhook`;
+  const w3EventHook = baseUrl
+    ? `${baseUrl}/api/agent-workflows/hooks/${w3Id}`
+    : `(set AGENT_OS_PUBLIC_URL)/api/agent-workflows/hooks/${w3Id}`;
+
+  // Prefill laptop WEBHOOK_* from owner W3 event hook (desktop-side .env — not VPS).
+  let webhookSecret = '';
+  try {
+    if (ownerUserId) {
+      const { registerEventHook, getHookInfo } = await import('./agent-workflow-webhooks.js');
+      const def = (await import('./agent-workflow-store.js')).getDefinition(w3Id, ownerUserId);
+      if (def) {
+        const info =
+          registerEventHook(w3Id, ownerUserId, {
+            id: ownerUserId,
+            name: 'ibkr-bridge-package',
+            type: 'system',
+          }) || getHookInfo(w3Id, ownerUserId);
+        webhookSecret = String(info?.webhook_secret || '').trim();
+      }
+    }
+  } catch (e) {
+    console.warn(
+      '[local-ibkr-bridge-package] W3 webhook secret prefill skipped: %s',
+      e.message || e
+    );
+  }
+
   const envContent = [
     'LOCAL_BRIDGE_TOKEN=' + token,
     'BRIDGE_HOST=127.0.0.1',
@@ -204,8 +238,9 @@ export async function buildLocalIbkrBridgePackageZip({
     'IBKR_PORT=4002',
     'IBKR_IS_PAPER=true',
     'IBKR_TRADING_ENABLED=0',
-    'WEBHOOK_URL=',
-    'WEBHOOK_SECRET=',
+    // VPS W3 hook — filled here; laptop bridge POSTs fill/status events with header secret.
+    baseUrl ? `WEBHOOK_URL=${w3Hint}` : 'WEBHOOK_URL=',
+    webhookSecret ? `WEBHOOK_SECRET=${webhookSecret}` : 'WEBHOOK_SECRET=',
     '',
   ].join('\n');
   files.push({ name: '.env', content: envContent, compress: true });
@@ -219,16 +254,15 @@ export async function buildLocalIbkrBridgePackageZip({
     token_prefix: tokenPrefix,
     include_runtime: withRuntime,
     bundled_node_version: withRuntime ? DESKTOP_NODE_VERSION : null,
+    webhook_url_prefill: baseUrl ? w3Hint : null,
+    webhook_event_hook_url: baseUrl ? w3EventHook : null,
+    webhook_secret_prefilled: Boolean(webhookSecret),
   };
   files.push({
     name: 'bridge.meta.json',
     content: `${JSON.stringify(meta, null, 2)}\n`,
     compress: true,
   });
-
-  const w3Hint = baseUrl
-    ? `${baseUrl}/api/agent-workflows/hooks/monthly-trading-w3-events`
-    : '(set AGENT_OS_PUBLIC_URL) /api/agent-workflows/hooks/monthly-trading-w3-events';
 
   const runtimeReadme = withRuntime
     ? [
@@ -253,9 +287,13 @@ export async function buildLocalIbkrBridgePackageZip({
       '3. Edit .env:',
       '   - LOCAL_BRIDGE_TOKEN is already minted — keep it private.',
       '   - Paste the same token into W2 workflow variable local_bridge_token.',
-      `   - Set WEBHOOK_URL to your W3 hook when ready, e.g.:`,
+      '   - WEBHOOK_URL + WEBHOOK_SECRET are laptop-side only (bridge POSTs to VPS).',
+      `   - Prefill WEBHOOK_URL (direct order-event ingest):`,
       `     ${w3Hint}`,
-      '   - Optional WEBHOOK_SECRET if your hook requires it.',
+      `   - Optional alternate (W3 workflow graph hook): ${w3EventHook}`,
+      webhookSecret
+        ? '   - WEBHOOK_SECRET was prefilled from your W3 event secret — keep .env private.'
+        : '   - If secret empty: Workflows → Monthly Trading W3 → Event → copy webhook secret.',
       '4. Install deps (package.json lists @stoqey/ib + dotenv):',
       '     npm install',
       '5. Start:',

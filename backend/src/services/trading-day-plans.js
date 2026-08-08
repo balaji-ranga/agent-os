@@ -25,11 +25,32 @@ function todayUtcDate() {
 
 function parseJson(text, fallback = null) {
   if (text == null || text === '') return fallback;
+  if (typeof text === 'object') return text;
   try {
-    return JSON.parse(text);
+    let v = JSON.parse(text);
+    // Workflow templates often pass {{hard-gates.plan_json}} already as a JSON string.
+    while (typeof v === 'string') {
+      try {
+        v = JSON.parse(v);
+      } catch {
+        break;
+      }
+    }
+    return v;
   } catch {
     return fallback;
   }
+}
+
+/** Normalize plan/verdict/approvals for DB column: single JSON.stringify of an object. */
+function toJsonColumn(value) {
+  if (value == null || value === '') return null;
+  if (typeof value === 'string') {
+    const parsed = parseJson(value, null);
+    return parsed != null ? JSON.stringify(parsed) : value;
+  }
+  if (typeof value === 'object') return JSON.stringify(value);
+  return null;
 }
 
 function normalizeStatus(status, { allowNull = false } = {}) {
@@ -71,13 +92,11 @@ export function savePlan(ownerUserId, body = {}) {
 
   const planDate = String(body.plan_date || body.date || todayUtcDate()).slice(0, 10);
   const status = normalizeStatus(body.status || 'pending');
-  const planJson = body.plan != null ? JSON.stringify(body.plan) : body.plan_json ?? null;
-  const verdictJson =
-    body.checker_verdict != null
-      ? JSON.stringify(body.checker_verdict)
-      : body.checker_verdict_json ?? null;
-  const approvalsJson =
-    body.approvals != null ? JSON.stringify(body.approvals) : body.approvals_json ?? null;
+  const planJson = toJsonColumn(body.plan != null ? body.plan : body.plan_json);
+  const verdictJson = toJsonColumn(
+    body.checker_verdict != null ? body.checker_verdict : body.checker_verdict_json
+  );
+  const approvalsJson = toJsonColumn(body.approvals != null ? body.approvals : body.approvals_json);
 
   const db = getDb();
   const existing = db
@@ -246,4 +265,42 @@ export function markPlanExecution(ownerUserId, body = {}) {
     report != null
   );
   return getPlan(owner, { plan_date: planDate });
+}
+/**
+ * List plans for owner within date window (inclusive), newest first.
+ * @param {string} ownerUserId
+ * @param {{ days?: number, limit?: number, status?: string|null }} [opts]
+ */
+export function listPlansHistory(ownerUserId, { days = 30, limit = 90, status = null } = {}) {
+  ensureIbkrMonthlyTables();
+  const owner = String(ownerUserId || '').trim();
+  if (!owner) throw new Error('owner_user_id is required');
+  const lim = Math.min(Math.max(Number(limit) || 90, 1), 200);
+  const d = Math.min(Math.max(Number(days) || 30, 1), 365);
+  const db = getDb();
+  let rows;
+  if (status) {
+    const st = normalizeStatus(status);
+    rows = db
+      .prepare(
+        `SELECT * FROM trading_day_plans
+         WHERE owner_user_id = ?
+           AND status = ?
+           AND plan_date >= date('now', ?)
+         ORDER BY plan_date DESC
+         LIMIT ?`
+      )
+      .all(owner, st, `-${d} days`, lim);
+  } else {
+    rows = db
+      .prepare(
+        `SELECT * FROM trading_day_plans
+         WHERE owner_user_id = ?
+           AND plan_date >= date('now', ?)
+         ORDER BY plan_date DESC
+         LIMIT ?`
+      )
+      .all(owner, `-${d} days`, lim);
+  }
+  return rows.map(rowToPlan);
 }

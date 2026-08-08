@@ -133,6 +133,16 @@ export async function buildDesktopPackageZip(
       'Keep this folder private. Revoke tokens from the workflow editor if leaked.',
       'Optional: configure IP whitelist in Flolah so only allowed client IPs can call APIs.',
       '',
+      ...(definitionId === 'monthly-trading-w2-execute'
+        ? [
+            'IBKR W2 setup:',
+            '  Set Flolah workflow variable local_bridge_token to the same LOCAL_BRIDGE_TOKEN',
+            '  as the Connectors local IBKR bridge .env, then re-download this package OR edit',
+            '  workflow.params.json → workflow.variables.local_bridge_token before run.',
+            '  local_bridge_base_url default: http://127.0.0.1:3010',
+            '',
+          ]
+        : []),
       'Logs: .\\logs\\ (secrets redacted)',
       '',
     ].join('\n'),

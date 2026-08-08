@@ -1,0 +1,173 @@
+﻿# Optional Business Core: Twenty CRM + ERPNext
+# From deploy/:
+#   docker compose -f docker-compose.yml -f docker-compose.business-core.yml --profile optional-twenty up -d
+#   docker compose -f docker-compose.yml -f docker-compose.business-core.yml --profile optional-erpnext up -d
+#
+# Backend (same network) defaults:
+#   TWENTY_API_URL=http://twenty-server:3000
+#   ERPNEXT_URL=http://erpnext-frontend:8080
+#
+# See deploy/business-core/README.md
+
+name: agent-os
+
+services:
+  twenty-db:
+    profiles: ["optional-twenty"]
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${TWENTY_DB_USER:-twenty}
+      POSTGRES_PASSWORD: ${TWENTY_DB_PASSWORD:-twenty}
+      POSTGRES_DB: ${TWENTY_DB_NAME:-twenty}
+    volumes:
+      - twenty_db_data:/var/lib/postgresql/data:Z
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${TWENTY_DB_USER:-twenty} -d ${TWENTY_DB_NAME:-twenty}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  twenty-redis:
+    profiles: ["optional-twenty"]
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - twenty_redis_data:/data:Z
+
+  twenty-server:
+    profiles: ["optional-twenty"]
+    image: ${TWENTY_SERVER_IMAGE:-twentycrm/twenty:latest}
+    restart: unless-stopped
+    depends_on:
+      twenty-db:
+        condition: service_healthy
+      twenty-redis:
+        condition: service_started
+    environment:
+      NODE_PORT: "3000"
+      PG_DATABASE_URL: postgres://${TWENTY_DB_USER:-twenty}:${TWENTY_DB_PASSWORD:-twenty}@twenty-db:5432/${TWENTY_DB_NAME:-twenty}
+      SERVER_URL: ${TWENTY_SERVER_URL:-http://localhost:3100}
+      REDIS_URL: redis://twenty-redis:6379
+      STORAGE_TYPE: local
+      APP_SECRET: ${TWENTY_APP_SECRET:-change-me-twenty-app-secret-min-32-chars}
+      SIGN_IN_PREFILLED: ${TWENTY_SIGN_IN_PREFILLED:-false}
+    volumes:
+      - twenty_data:/app/packages/twenty-server/.local-storage:Z
+    ports:
+      - "127.0.0.1:${TWENTY_HOST_PORT:-3100}:3000"
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+
+  twenty-worker:
+    profiles: ["optional-twenty"]
+    image: ${TWENTY_SERVER_IMAGE:-twentycrm/twenty:latest}
+    restart: unless-stopped
+    command: ["yarn", "worker:prod"]
+    depends_on:
+      twenty-server:
+        condition: service_started
+    environment:
+      PG_DATABASE_URL: postgres://${TWENTY_DB_USER:-twenty}:${TWENTY_DB_PASSWORD:-twenty}@twenty-db:5432/${TWENTY_DB_NAME:-twenty}
+      SERVER_URL: ${TWENTY_SERVER_URL:-http://localhost:3100}
+      REDIS_URL: redis://twenty-redis:6379
+      STORAGE_TYPE: local
+      APP_SECRET: ${TWENTY_APP_SECRET:-change-me-twenty-app-secret-min-32-chars}
+    volumes:
+      - twenty_data:/app/packages/twenty-server/.local-storage:Z
+
+  # ERPNext — production-ready multi-company site via official images + site init helper.
+  # For full frappe_docker multi-bench, use vendor compose; this profile starts MariaDB + Redis
+  # and a thin proxy README expects install via deploy/business-core/erpnext-init notes.
+  erpnext-db:
+    profiles: ["optional-erpnext"]
+    image: mariadb:10.11
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --skip-character-set-client-handshake
+      - --skip-innodb-read-only-compressed
+    environment:
+      MYSQL_ROOT_PASSWORD: ${ERPNEXT_DB_ROOT_PASSWORD:-admin}
+      MYSQL_DATABASE: ${ERPNEXT_DB_NAME:-_erpnext}
+    volumes:
+      - erpnext_db_data:/var/lib/mysql:Z
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+
+  erpnext-redis-cache:
+    profiles: ["optional-erpnext"]
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - erpnext_redis_cache:/data:Z
+
+  erpnext-redis-queue:
+    profiles: ["optional-erpnext"]
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - erpnext_redis_queue:/data:Z
+
+  # Official frappe/erpnext app image used as backend API origin when configured.
+  # Site creation: see deploy/business-core/README.md (bench new-site / rest installer).
+  erpnext-backend:
+    profiles: ["optional-erpnext"]
+    image: ${ERPNEXT_IMAGE:-frappe/erpnext:v15.49.0}
+    restart: unless-stopped
+    depends_on:
+      erpnext-db:
+        condition: service_healthy
+      erpnext-redis-cache:
+        condition: service_started
+      erpnext-redis-queue:
+        condition: service_started
+    environment:
+      DB_HOST: erpnext-db
+      DB_PORT: "3306"
+      MYSQL_ROOT_PASSWORD: ${ERPNEXT_DB_ROOT_PASSWORD:-admin}
+      MARIADB_ROOT_PASSWORD: ${ERPNEXT_DB_ROOT_PASSWORD:-admin}
+      REDIS_CACHE: redis://erpnext-redis-cache:6379
+      REDIS_QUEUE: redis://erpnext-redis-queue:6379
+      REDIS_SOCKETIO: redis://erpnext-redis-queue:6379
+      SOCKETIO_PORT: "9000"
+    volumes:
+      - erpnext_sites:/home/frappe/frappe-bench/sites:Z
+      - erpnext_logs:/home/frappe/frappe-bench/logs:Z
+    entrypoint:
+      - bash
+      - -c
+      - |
+        set -e
+        echo "[erpnext-backend] waiting for sites; see deploy/business-core/README.md for first-time site create"
+        # Keep container alive for bind-mount + exec-based site init when volume empty
+        if [ ! -f /home/frappe/frappe-bench/sites/apps.txt ]; then
+          echo "frappe" > /home/frappe/frappe-bench/sites/apps.txt || true
+          echo "erpnext" >> /home/frappe/frappe-bench/sites/apps.txt || true
+        fi
+        sleep infinity
+    ports:
+      - "127.0.0.1:${ERPNEXT_HOST_PORT:-8085}:8000"
+    expose:
+      - "8000"
+
+volumes:
+  twenty_db_data:
+  twenty_redis_data:
+  twenty_data:
+  erpnext_db_data:
+  erpnext_redis_cache:
+  erpnext_redis_queue:
+  erpnext_sites:
+  erpnext_logs:

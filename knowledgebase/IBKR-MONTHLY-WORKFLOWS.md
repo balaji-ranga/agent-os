@@ -1,23 +1,39 @@
 # IBKR Monthly Trading — Workflows, tools, schedules, outcomes
 
-Quick reference for the Monthly Positive Return suite. Detail and recovery: [IBKR-MONTHLY-EXECUTION-MODEL.md](IBKR-MONTHLY-EXECUTION-MODEL.md). Bridge: [IBKR-LOCAL-BRIDGE.md](IBKR-LOCAL-BRIDGE.md). Plan: [IBKR-MONTHLY-TRADING-PLAN.md](IBKR-MONTHLY-TRADING-PLAN.md).
+Quick reference for the Monthly Positive Return suite. Detail and recovery: [IBKR-MONTHLY-EXECUTION-MODEL.md](IBKR-MONTHLY-EXECUTION-MODEL.md). Bridge: [IBKR-LOCAL-BRIDGE.md](IBKR-LOCAL-BRIDGE.md). Plan: [IBKR-MONTHLY-TRADING-PLAN.md](IBKR-MONTHLY-TRADING-PLAN.md).  
+**CEO help (simple language + diagrams):** [platform-help/20-ibkr-monthly-trading.md](platform-help/20-ibkr-monthly-trading.md).
 
 **Disclaimer:** Automation tooling — not financial advice. Paper first.
 
+**Data isolation:** plans, snapshots, fills, and marks are per CEO (`owner_user_id`) — not shared across users.
+
 ---
 
-## Monthly suite (primary)
+## Workflow definitions (W1 · W2 · W3 · W4 · W5)
+
+| Short | System name | Workflow ID | Goal | Outcome |
+|-------|-------------|-------------|------|---------|
+| **W1** | Post-Close Review & Plan | `monthly-trading-w1-post-close` | Build the **next trading session’s** plan from market regime, portfolio snapshot, open prior plans, screener, order learnings, Maker (OpenAI GPT) + Checker (DeepSeek cloud) + hard gates (+ optional CEO for discretionary loss sells) | Day plan row in `trading_day_plans` (`approved` or pending CEO); digest + `notify_ceo`; ready for W2 |
+| **W2** | Execute | `monthly-trading-w2-execute` | At open (laptop), **fetch your open plan** and **execute** via local IBKR bridge (map actions → brackets / stops / sells) | Orders submitted at Gateway; plan status `executing` → `partial` \| `executed` \| `failed` + execution report |
+| **W3** | IBKR Events | `monthly-trading-w3-events` | **Ingest** laptop bridge webhooks: account snapshots, equity marks, fills, cancels, rejects, order status, EOD | Owner-scoped book cache + HWM/guardrail + `ibkr_order_events` learnings + journal; notifies on milestones; **EOD chains to W1** (async) |
+| **W4** | *(not used)* | — | Reserved / unused in the current suite | No workflow |
+| **W5** | Weekly Review | `monthly-trading-w5-weekly` | Weekly (default Saturday) **performance digest** from journal + guardrail | Email summary only; **no order placement** |
+| **Bridge** | Local IBKR bridge | Connectors zip / `backend/local-ibkr-bridge` | Loopback HTTP to Gateway + push events to W3 | Gateway reachable; cloud receives your session book and fills |
+
+---
+
+## Monthly suite (ops detail)
 
 | Workflow | ID | Where | Schedule / trigger | Main tools | Purpose | Outcome |
 |----------|-----|-------|--------------------|------------|---------|---------|
-| **W1** Post-close review & plan | `monthly-trading-w1-post-close` | VPS | (1) W3 `eod_snapshot` chain; (2) cron `cron_post_close_fallback` default `5 21 * * 1-5` (server TZ); (3) chat `run monthly trading review`; (4) manual | `market_regime`, `ibkr_monthly_guardrail`, open day-plans API, account snapshot API, `market_screener`, `ibkr_order_learnings`, brain history, Maker (Claude Opus), Checker (deepseek-v4-flash), hard gates, optional `ceo_approval`, save plan, email digest, `notify_ceo` | Build next session plan from regime, learnings, open plans, live snapshot | `trading_day_plans` **approved** (or pending CEO); digest + notify; ready for W2 |
-| **W2** Execute | `monthly-trading-w2-execute` | Laptop | US open via Task Scheduler / desktop `Run-Workflow.ps1` (manual trigger in graph; schedule is OS-side) | `trading_plan_fetch`, local bridge HTTP (`127.0.0.1:3010` place/exit/stop), plan execution report APIs, `notify_ceo` | Place approved/partial plan against IB Gateway | Orders at IBKR; plan `executing` → `partial` / `executed` / `failed` |
-| **W3** Event handler | `monthly-trading-w3-events` | VPS | Webhook anytime (`event` + manual); bridge POSTs fill / reject / cancel / stop_out / equity_mark / eod_snapshot / order_status | `ibkr_equity_mark`, `ibkr_monthly_guardrail`, **ingest → `ibkr_order_events`** (cancels/rejects/fills for learnings), `trading_journal`, `notify_ceo`; on EOD → start W1 | Persist marks/journal/**order learnings**; CEO notify on milestones; W1 started on EOD |
+| **W1** Post-close review & plan | `monthly-trading-w1-post-close` | VPS | (1) W3 `eod_snapshot` chain; (2) cron `cron_post_close_fallback` default `5 21 * * 1-5` (server TZ); (3) chat `run monthly trading review`; (4) manual | `market_regime`, `ibkr_monthly_guardrail`, open day-plans API, **account-snapshot/latest** (laptop cache), `market_screener`, `ibkr_order_learnings`, brain history, Maker (OpenAI GPT + vault openAI_key), Checker (DeepSeek cloud + vault deepseek_key), optional Brave MCP, hard gates, optional `ceo_approval`, save plan, email digest, `notify_ceo` | Build next session plan from regime, learnings, open plans, last successful laptop snapshot | `trading_day_plans` **approved** (or pending CEO); digest + notify; ready for W2 |
+| **W2** Execute | `monthly-trading-w2-execute` | Laptop | US open via Task Scheduler / desktop `Run-Workflow.ps1` (manual trigger in graph; schedule is OS-side) | `trading_plan_fetch`, local bridge `execute-day-plan` / place / exit / stop, plan execution report APIs, `notify_ceo` | Place approved/partial plan against IB Gateway | Orders at IBKR; plan `executing` → `partial` / `executed` / `failed`; post-session **account_snapshot** pushed for learnings |
+| **W3** Event handler | `monthly-trading-w3-events` | VPS | Webhook anytime (`event` + manual); bridge POSTs `account_snapshot` / fill / reject / cancel / stop_out / equity_mark / eod_snapshot / order_status | `account-snapshot/ingest`, `ibkr_equity_mark`, `ibkr_monthly_guardrail`, ingest → `ibkr_order_events`, `trading_journal`, `notify_ceo`; on EOD → start W1 | Persist book cache / marks / journal / **order learnings**; CEO notify on milestones; W1 on EOD |
 | **W5** Weekly review | `monthly-trading-w5-weekly` | VPS | Saturday cron `cron_weekly_review` default `0 10 * * 6`; manual | `trading_journal`, `ibkr_monthly_guardrail`, email | Weekly (and first-week monthly) performance digest | Email summary; **no orders** |
 
 | Process | ID / path | Where | Schedule | Role | Outcome |
 |---------|-----------|-------|----------|------|---------|
-| **Local IBKR bridge** | `backend/local-ibkr-bridge` (Connectors zip) | Laptop | Always-on / Task Scheduler while Gateway up | HTTP↔TWS adapter; push webhooks to W3 | Gateway reachable; events reach VPS |
+| **Local IBKR bridge** | `backend/local-ibkr-bridge` (Connectors zip) | Laptop | Always-on / Task Scheduler while Gateway up | HTTP↔TWS adapter; push webhooks to W3 | Gateway reachable; events reach VPS under that CEO owner |
 
 W2 must **not** use `ceo_approval`, `brain`, or `agent` nodes (desktop package limit).
 
@@ -52,6 +68,26 @@ If W2 ran but VPS missed updates: next W1 reconciles vs **IBKR snapshot** (IBKR 
 
 ---
 
+## IBKR Summary UI + clear APIs
+
+| UI | Route |
+|----|-------|
+| CEO Summary (portfolio + plan vs executed) | `/ibkr-summary` → `frontend/src/pages/IbkrSummary.jsx` |
+
+| API (auth / internal; owner-scoped) | Purpose |
+|-------------------------------------|---------|
+| `GET /api/ibkr-trading/summary` | Dashboard JSON |
+| `GET /api/ibkr-trading/summary/day` | Drilldown for one `plan_date` |
+| `GET /api/ibkr-trading/summary/clear-transactional` | Preview delete counts |
+| `POST /api/ibkr-trading/summary/clear-transactional` | Clear plans/events/fills/marks/…; **keeps** workflow Variables |
+| `GET /api/ibkr-trading/account-snapshot/latest` | Last laptop-pushed book for W1 |
+| `POST /api/ibkr-trading/account-snapshot/ingest` | W3 ingest of bridge `account_snapshot` |
+
+Clear service: `backend/src/services/ibkr-transactional-clear.js` (confirm phrase `CLEAR_IBKR_TRANSACTIONAL`).  
+CEO help: [platform-help/20-ibkr-monthly-trading.md](platform-help/20-ibkr-monthly-trading.md).
+
+---
+
 ## Legacy paper workflows (pre-monthly)
 
 | Workflow | ID | Schedule / trigger | Purpose |
@@ -59,4 +95,4 @@ If W2 ran but VPS missed updates: next W1 reconciles vs **IBKR snapshot** (IBKR 
 | Maker/Checker day plan | `ibkr-maker-checker-paper` | Chat `run ibkr day plan` / manual | Allowlist paper day plan → CEO → place |
 | Position poller | `ibkr-position-poller-paper` | Schedule / manual | Poll paper positions & orders |
 
-Prefer the **monthly** W1–W5 suite for the Positive Return system.
+Prefer the **monthly** W1–W3 / W5 suite for the Positive Return system.

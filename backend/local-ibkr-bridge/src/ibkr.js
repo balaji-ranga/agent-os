@@ -111,7 +111,10 @@ export function createIbkrApi(opts = {}) {
      */
     async placeBracket(trades = [], placeOpts = {}) {
       const list = Array.isArray(trades) ? trades : [];
-      if (!list.length) return { ok: false, error: 'trades[] required' };
+      if (!list.length) {
+        logInfo('place-bracket skipped (no trades)', {});
+        return { ok: true, skipped: true, reason: 'no_trades', results: [] };
+      }
 
       if (!isTradingEnabled()) {
         logInfo('place-bracket dry-run (IBKR_TRADING_ENABLED off)', {
@@ -155,6 +158,10 @@ export function createIbkrApi(opts = {}) {
 
     async sellToClose(trade = {}) {
       const body = { ...trade, side: 'SELL_TO_CLOSE' };
+      if (!String(body.symbol || body.key || '').trim()) {
+        logInfo('sell-to-close skipped (no symbol)', {});
+        return { ok: true, skipped: true, reason: 'no_symbol', results: [] };
+      }
       return this.placeBracket([body]);
     },
 
@@ -174,7 +181,8 @@ export function createIbkrApi(opts = {}) {
       const sym = String(symbol || '').toUpperCase();
       const stop = Number(stop_price);
       if (!sym || !(stop > 0)) {
-        return { ok: false, error: 'symbol and stop_price required' };
+        logInfo('modify-stop skipped (no symbol/stop)', { symbol: sym, stop_price });
+        return { ok: true, skipped: true, reason: 'no_symbol_or_stop', results: [] };
       }
 
       if (!isTradingEnabled()) {

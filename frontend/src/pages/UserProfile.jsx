@@ -51,12 +51,54 @@ function UserProfilePanel() {
   const [vaultKeys, setVaultKeys] = useState([]);
   const [profileImage, setProfileImage] = useState('');
   const [avatarBusy, setAvatarBusy] = useState(false);
+  const [biz, setBiz] = useState({ crm_provider: 'none', erp_provider: 'none' });
+  const [bizMeta, setBizMeta] = useState(null);
+  const [bizBusy, setBizBusy] = useState(false);
 
   const loadOcConnections = () => {
     api
       .openconnectorConnections()
       .then((data) => setOcConnections(data.connections || []))
       .catch(() => setOcConnections([]));
+  };
+
+  useEffect(() => {
+    if (!user || user.role !== 'ceo') return;
+    api
+      .businessCoreProfile()
+      .then((data) => {
+        setBizMeta(data);
+        setBiz({
+          crm_provider: data?.profile?.crm_provider || 'none',
+          erp_provider: data?.profile?.erp_provider || 'none',
+        });
+      })
+      .catch(() => {});
+  }, [user]);
+
+  const saveBusinessCore = () => {
+    setBizBusy(true);
+    setError(null);
+    setMessage(null);
+    api
+      .businessCoreUpdateProfile({
+        crm_provider: biz.crm_provider,
+        erp_provider: biz.erp_provider,
+        provision: true,
+      })
+      .then((data) => {
+        setBizMeta((m) => ({ ...(m || {}), profile: data.profile }));
+        setBiz({
+          crm_provider: data.profile?.crm_provider || 'none',
+          erp_provider: data.profile?.erp_provider || 'none',
+        });
+        const prefab = data.prefab?.agents?.length
+          ? ` Prefab CRM agents: ${data.prefab.agents.join(', ')}.`
+          : '';
+        setMessage(`Business Core saved.${prefab}`);
+      })
+      .catch((e) => setError(e.message || String(e)))
+      .finally(() => setBizBusy(false));
   };
 
   useEffect(() => {
@@ -524,6 +566,56 @@ function UserProfilePanel() {
               style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
             />
           </label>
+        )}
+
+        {user?.role === 'ceo' && (
+          <>
+            <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '0.5rem 0' }} />
+            <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--muted)' }}>
+              Business Core (optional) — platform CRM is Twenty (one workspace per company); ERP is ERPNext
+              (multi-company map; full prefab in Phase 2). Save runs provision for Twenty: workspace bind +
+              2 CRM specialists and 1 CRM Approver.
+            </p>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>CRM</span>
+              <select
+                value={biz.crm_provider}
+                onChange={(e) => setBiz((b) => ({ ...b, crm_provider: e.target.value }))}
+                style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+              >
+                <option value="none">None</option>
+                <option value="twenty">Twenty (platform)</option>
+                <option value="hubspot">HubSpot (connect)</option>
+                <option value="zoho">Zoho (connect)</option>
+              </select>
+            </label>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>ERP</span>
+              <select
+                value={biz.erp_provider}
+                onChange={(e) => setBiz((b) => ({ ...b, erp_provider: e.target.value }))}
+                style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+              >
+                <option value="none">None</option>
+                <option value="erpnext">ERPNext (platform)</option>
+                <option value="xero">Xero (connect)</option>
+              </select>
+            </label>
+            {bizMeta?.profile?.twenty?.bound && (
+              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--muted)' }}>
+                Twenty workspace: {bizMeta.profile.twenty.workspace_name || bizMeta.profile.twenty.workspace_id}
+              </p>
+            )}
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={bizBusy}
+              onClick={saveBusinessCore}
+              style={{ alignSelf: 'flex-start' }}
+            >
+              {bizBusy ? 'Saving Business Core…' : 'Save CRM / ERP'}
+            </button>
+          </>
         )}
 
         <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '0.5rem 0' }} />

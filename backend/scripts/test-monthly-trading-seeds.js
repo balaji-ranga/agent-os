@@ -158,8 +158,13 @@ async function main() {
   assert.ok(!t2.includes('ceo_approval'), 'W2 must not include ceo_approval');
   assert.ok(!t2.includes('agent'), 'W2 must not include agent');
   assert.ok(t2.includes('tool') && t2.includes('api') && t2.includes('if'));
-  const localApi = g2.nodes.find((n) => n.id === 'api-place-bracket');
-  assert.ok(String(localApi.data.inputBindings.find((b) => b.id === 'url').value).includes('local_bridge_base_url') || String(localApi.data.inputBindings.find((b) => b.id === 'url').value).includes('place-bracket'));
+  const localApi = g2.nodes.find((n) => n.id === 'api-execute-plan') || g2.nodes.find((n) => n.id === 'api-place-bracket');
+  assert.ok(localApi, 'W2 should have local bridge execute node');
+  assert.ok(
+    String(localApi.data.inputBindings.find((b) => b.id === 'url').value).includes('local_bridge_base_url') ||
+      String(localApi.data.inputBindings.find((b) => b.id === 'url').value).includes('execute-day-plan') ||
+      String(localApi.data.inputBindings.find((b) => b.id === 'url').value).includes('place-bracket')
+  );
 
   const g3 = buildMonthlyTradingW3Graph();
   const t3 = collectTypes(g3);
@@ -167,6 +172,12 @@ async function main() {
   const sub = g3.nodes.find((n) => n.id === 'sub-w1');
   assert.strictEqual(sub.data.taskConfig.targetWorkflowId, W1);
   assert.strictEqual(sub.data.taskConfig.waitForCompletion, false);
+  const ingestSnap = g3.nodes.find((n) => n.id === 'api-ingest-snapshot');
+  assert.ok(ingestSnap, 'W3 should ingest account_snapshot into VPS cache');
+  assert.ok(String(ingestSnap.data.inputBindings.find((b) => b.id === 'url').value).includes('account-snapshot/ingest'));
+
+  const g1snap = g1.nodes.find((n) => n.id === 'api-snapshot');
+  assert.ok(String(g1snap.data.inputBindings.find((b) => b.id === 'url').value).includes('account-snapshot/latest'));
 
   const g5 = buildMonthlyTradingW5Graph();
   const t5 = collectTypes(g5);

@@ -8,10 +8,11 @@ Documentation lives here so Cursor and humans can find it. **Root README.md** st
 |------|---------|
 | **AI-COMPANY-OS.md** | **Canonical** category (AI Company OS), golden messaging layers, terminology (AI employee vs agent API), OS primitives, screen map, design rule for new features, Phase A–F roadmap. Refer for portal/website copy. |
 | **PHASE-D-E-F-OPERATE.md** | Phase D Day 0 operating model + Day 1 autonomy install; Phase E harden; Phase F self-improve. |
+| **BUSINESS-CORE-WORKSPACE-PLAN.md** | Business Core (Twenty/ERPNext + optional profile), tenancy maps, prefab CRM/ERP agents, Home vs Workspace (`/work`), Phase 1–2; entitlements rules. **Validate Phase 1 before Phase 2.** |
 
 | **VISION.md** | Product purpose, vision, core strengths, differentiator, and strategic focuses (AI Company OS + governed A2A). |
 | **PITCH.md** | One-pager pitch: problem, solution, differentiators, audience, and success journey (from VISION + AI-COMPANY-OS). |
-| **platform-help/** | CEO end-user Platform Help corpus (RAG; **11** Tools + **Tools → Model** + media / attachments / platform feedback; **19–20** crons + IBKR; **21–27** external tools through onboarding; **28** Scheduled goals; **29** Company setup; **30** Content creator ops / Meta Graph / Ops Reporter bell; **31** Connectors → MCPs OAuth (Facebook + CEO App override; OpenConnector → **16**)) |
+| **platform-help/** | CEO end-user Platform Help corpus (RAG; **11** Tools + **Tools → Model** + media / attachments / platform feedback; **19–20** crons + IBKR Summary clear; **21–27** external tools through onboarding; **28** Scheduled goals; **29** Company setup; **30** Content creator ops / Meta Graph / Ops Reporter bell; **31** Connectors → MCPs OAuth (Facebook + CEO App override; OpenConnector → **16**)) |
 | **AGENT-WORKSPACE-TEMPLATES.md** | Platform-shared agent workspace MD templates: apply in Agent Workspace, Admin CRUD, CEO publish-as-template. |
 | **TESTING.md** | Restart steps, full API test, frontend manual tests, smoke test, standup→COO→TechResearcher test, standup UI checklist. |
 | **GITHUB-SETUP.md** | One-time: create agent-os repo on GitHub and push (Options A/B, security check). |
@@ -25,8 +26,9 @@ Documentation lives here so Cursor and humans can find it. **Root README.md** st
 | **knowledgeGraph.md** | Neo4j knowledge graph for internal OpenClaw agent behavior, Kanban feedback, autonomous self-improvement, and progressive improvement dashboard. |
 | **IBKR-TRADING-WORKFLOW.md** | IBKR MCP options, maker/checker paper workflow (budget, brackets, CEO day plan), Agent OS wiring, env vars, and security guardrails. |
 | **IBKR-MONTHLY-TRADING-PLAN.md** | Monthly Positive Return trading system: split VPS/laptop architecture, market-data tools, Maker (Claude Opus)/Checker (deepseek-v4-flash), monthly drawdown guardrail, notifications + daily digest email, and phased implementation plan. |
+| **platform-help/20-ibkr-monthly-trading.md** | **CEO / Platform Help:** W1–W5 purpose & outcomes, isolation, flow diagrams, bridge, **IBKR Summary + Clear data**. |
 | **IBKR-MONTHLY-MAKER-TOOLS.md** | Maker tool catalog: paper vs live requirements, which tools need API keys (FMP / Anthropic / DeepSeek / IBKR), and caching TTLs. |
-| **IBKR-MONTHLY-WORKFLOWS.md** | W1–W5 + bridge: ID, where, schedule/trigger, tools, purpose, outcome (quick reference tables). |
+| **IBKR-MONTHLY-WORKFLOWS.md** | W1–W5 + bridge defs, ops tables, Summary UI / clear APIs. |
 | **IBKR-MONTHLY-EXECUTION-MODEL.md** | Cloud vs laptop workflows: when each runs, expected outcomes, day-plan statuses, and laptop↔VPS failure recovery. |
 | **IBKR-MONTHLY-MAKER-PROMPT.md** | Canonical Maker system prompt (strategy + execution recovery + JSON schema). |
 | **IBKR-MONTHLY-CHECKER-PROMPT.md** | Canonical Checker system prompt (approve/reject checklist + recovery focus). |

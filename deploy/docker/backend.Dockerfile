@@ -5,11 +5,16 @@
 # desktop-workflow-runner (Windows PS1 packages + optional portable Node baked at download time),
 # local-ibkr-bridge (Connectors download zip + vendored IBKR gateway client),
 # monthly trading W1–W5 seeds + paper E2E / certify helpers,
+# bridge account_snapshot → W3 ingest + W1 account-snapshot/latest (no VPS Gateway required),
+# IBKR Summary UI (/ibkr-summary) + clear transactional APIs (ibkr-transactional-clear.js),
 # bridge-order-events ingest (W3 → ibkr_order_events → learnings),
+# openclaw-config-safe.js (never strip gateway.chatCompletions / tools / plugins / browser),
 # agent budgets + token_usage ledger + org leaf members (org-members routes, Agent View APIs),
 # verify-budgets-org-members / test-org-member-delegation-e2e / verify-agent-view-api scripts,
 # tests/ (regression-full / regression-minimal + ceo-session for VPS regression).
 # Image COPYs openclaw templates/skills/extensions + knowledgebase/platform-help for RAG seeding.
+# Also COPYs deploy/ (ensure-openclaw-gateway-config.js used by vps-verify-openclaw-chat via backend).
+# Sources MUST be UTF-8 (not UTF-16); UTF-16 .js fails Node with "Invalid regular expression".
 # Scheduled goals: backend services/routes + schema; master tick SCHEDULED_GOALS_CRON in compose;
 # help docs 19/28 must ship in platform-help COPY; seed tools in seed-content-tools-meta.js.
 # Also: public VR routes, speech STT/TTS APIs + COO content tools speech_tts/speech_stt,

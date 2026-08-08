@@ -19,6 +19,23 @@ Also run from repo root: `node scripts/ensure-all-agent-workspaces.js` and `node
 
 Help corpus: `knowledgebase/platform-help/` → Master Data docs titled `Flolah Help — …`. Agent id: `platformhelp`.
 
+## OpenClaw chat 404 / Agent Chat 502 (Docker / VPS)
+
+Healthcheck only hits gateway `/`. If `openclaw.json` lost `gateway.http.endpoints.chatCompletions`, **POST `/v1/chat/completions` returns 404** while the container stays “healthy”, and Agent OS chat maps that to **502**.
+
+```bash
+# On VPS (fatal gate is also part of vps-deploy-latest.sh):
+cd /opt/agent-os/deploy
+bash scripts/vps-verify-openclaw-chat.sh
+
+# Expect: openclaw chat gate OK (http=200|401|400 — anything except 404)
+```
+
+Code paths:
+- Safe openclaw writes: `backend/src/services/openclaw-config-safe.js`
+- Entrypoint repair: `deploy/scripts/ensure-openclaw-gateway-config.js`
+- Live probe: `deploy/scripts/vps-verify-openclaw-chat.sh`
+
 ## Onboarding Helper + Workflow Builder (prompt E2E)
 
 Docs + copy-paste prompts: `knowledgebase/platform-help/27-onboarding-helper.md`.
@@ -47,9 +64,13 @@ node scripts/test-local-ibkr-bridge-package.js
 node scripts/certify-monthly-trading-workflows.js --dry-run
 # Re-seed W3 after event-parse / ingest changes:
 node scripts/seed-monthly-trading-w3-workflow.js
+# Optional: unit-level transactional clear (from backend, custom script; or use UI Clear data…)
+# Preview/clear are owner-scoped APIs:
+#   GET  /api/ibkr-trading/summary/clear-transactional
+#   POST /api/ibkr-trading/summary/clear-transactional  body {"confirm":"CLEAR_IBKR_TRANSACTIONAL"}
 ```
 
-Docs: `knowledgebase/IBKR-MONTHLY-WORKFLOWS.md`, `platform-help/20-ibkr-monthly-trading.md`, Phase 4 runbook `IBKR-MONTHLY-PHASE4.md`.
+Docs: `knowledgebase/IBKR-MONTHLY-WORKFLOWS.md`, `platform-help/20-ibkr-monthly-trading.md` (Summary UI + clear), Phase 4 runbook `IBKR-MONTHLY-PHASE4.md`. UI route: `/ibkr-summary`.
 
 ## Master Data purge-all + protected help docs
 

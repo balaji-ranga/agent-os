@@ -97,31 +97,62 @@ export async function chatCompletions(agentId, messages, sessionUser = null, str
   const timeoutMs = Number(
     options.timeoutMs || process.env.OPENCLAW_FETCH_TIMEOUT_MS || 240000
   );
+  const maxAttempts = Math.max(1, Number(options.retries ?? process.env.OPENCLAW_CHAT_RETRIES ?? 3));
   let res;
-  try {
-    res = await fetch(url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-  } catch (e) {
-    const name = e?.name || 'Error';
-    const msg = e?.message || String(e);
-    if (name === 'TimeoutError' || name === 'AbortError') {
-      throw new Error(
-        `OpenClaw gateway timeout after ${timeoutMs}ms (${getGatewayUrl()}). Local Ollama BYOK chats can be slow on first load — retry or use New chat.`
-      );
+  let lastErrText = '';
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      res = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+    } catch (e) {
+      const name = e?.name || 'Error';
+      const msg = e?.message || String(e);
+      if (name === 'TimeoutError' || name === 'AbortError') {
+        throw new Error(
+          `OpenClaw gateway timeout after ${timeoutMs}ms (${getGatewayUrl()}). Local Ollama BYOK chats can be slow on first load — retry or use New chat.`
+        );
+      }
+      if (attempt < maxAttempts) {
+        await new Promise((r) => setTimeout(r, 250 * attempt));
+        continue;
+      }
+      throw new Error(`OpenClaw gateway unreachable (${getGatewayUrl()}): ${msg}`);
     }
-    throw new Error(`OpenClaw gateway unreachable (${getGatewayUrl()}): ${msg}`);
+
+    if (res.ok) break;
+
+    lastErrText = await res.text();
+    // Transient 404 / Not Found during gateway agent reload after deploy or tenant sync
+    const transient =
+      res.status === 404 ||
+      res.status === 502 ||
+      res.status === 503 ||
+      /not found/i.test(lastErrText);
+    if (transient && attempt < maxAttempts) {
+      console.warn(
+        '[openclaw] chatCompletions transient %s attempt=%s/%s agent=%s',
+        res.status,
+        attempt,
+        maxAttempts,
+        agentId
+      );
+      await new Promise((r) => setTimeout(r, 350 * attempt));
+      continue;
+    }
+    break;
   }
 
-  if (!res.ok) {
-    const errText = await res.text();
+  if (!res?.ok) {
     let errJson;
-    try { errJson = JSON.parse(errText); } catch (_) {}
-    const msg = errJson?.error?.message || errText || res.statusText;
-    throw new Error(`OpenClaw gateway error ${res.status}: ${msg}`);
+    try {
+      errJson = JSON.parse(lastErrText);
+    } catch (_) {}
+    const msg = errJson?.error?.message || lastErrText || res?.statusText || 'unknown';
+    throw new Error(`OpenClaw gateway error ${res?.status || 0}: ${msg}`);
   }
 
   if (stream) {

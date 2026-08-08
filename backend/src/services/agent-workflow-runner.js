@@ -14,8 +14,8 @@ import {
   parseAgentWorkflowMeta,
   upsertCompletedStepKanban,
 } from './agent-workflow-kanban.js';
-import { getToolMeta } from './content-tools-meta.js';
 import { processPendingDelegationTasks } from './delegation-queue.js';
+import { invokeContentToolHttp } from './content-tool-http-invoke.js';
 import { resolveNodeInputs, resolveInputText, storeNodeOutput } from './agent-workflow-io.js';
 import { executeEmailTask, executeApiTask, executeFilesystemTask } from './agent-workflow-tasks.js';
 import { executeElevenLabsTask } from './agent-workflow-elevenlabs.js';
@@ -48,8 +48,6 @@ import {
 } from './agent-workflow-event-listener.js';
 import { resolveSseStreamUrl } from './sse-stream.js';
 import { getDownstreamNodeIds } from './agent-workflow-graph-utils.js';
-import { getPublicBaseUrl } from '../config/public-url.js';
-import { internalAuthHeaders } from '../middleware/internal-auth.js';
 import { executeSubWorkflowTask } from './agent-workflow-sub-workflow.js';
 import {
   nodeWantsNotification,
@@ -66,10 +64,6 @@ import { isAvatarWorkflowDefinition } from './agent-workflow-templates.js';
 
 function db() {
   return getDb();
-}
-
-function getBackendBaseUrl() {
-  return getPublicBaseUrl();
 }
 
 function parseContext(row) {
@@ -240,10 +234,11 @@ function allPredecessorsComplete(runId, graph, nodeId) {
 
     if (!step) {
       if (loopBackSources?.has(edge.source)) continue;
-      // IF/While source not executed yet — if another exclusive branch already completed this node path, wait
+      // Untaken exclusive branch: IF/While never ran (e.g. api-save-plan also
+      // has an edge from if-ceo that is only reachable via the true CEO path).
+      // Do not block merge targets waiting on sibling exclusive IF sources.
       if (srcNode && (srcNode.type === 'if' || srcNode.type === 'while')) {
-        // source hasn't completed — cannot take this edge yet
-        return false;
+        continue;
       }
       return false;
     }
@@ -404,23 +399,7 @@ function maybeNotifyWorkflowStep(runId, node, status, prevStatus) {
 }
 
 async function invokeContentTool(toolName, body, ownerUserId = null) {
-  const row = getToolMeta(toolName);
-  if (!row) throw new Error(`Tool not found: ${toolName}`);
-  if (!row.enabled) throw new Error(`Tool disabled: ${toolName}`);
-  const baseUrl = getBackendBaseUrl();
-  let targetUrl = row.endpoint;
-  if (targetUrl.startsWith('/')) targetUrl = baseUrl + targetUrl;
-  const headers = internalAuthHeaders();
-  if (ownerUserId) headers['x-ceo-user-id'] = String(ownerUserId);
-  const response = await fetch(targetUrl, {
-    method: row.method || 'POST',
-    headers,
-    body: JSON.stringify(body || {}),
-    signal: AbortSignal.timeout(120000),
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || `Tool ${toolName} failed (${response.status})`);
-  return data;
+  return invokeContentToolHttp(toolName, body, ownerUserId);
 }
 
 function failRun(runId, message) {

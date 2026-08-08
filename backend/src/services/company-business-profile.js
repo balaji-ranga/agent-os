@@ -1,0 +1,280 @@
+/**
+ * Per-company (CEO owner) optional CRM/ERP selection + SoR binds.
+ * Entitlements: always keyed by owner_user_id from auth - never body-only tenant ids.
+ */
+import { getDb } from '../db/schema.js';
+
+export const CRM_PROVIDERS = new Set(['none', 'twenty', 'hubspot', 'zoho']);
+export const ERP_PROVIDERS = new Set(['none', 'erpnext', 'xero']);
+
+export function ensureCompanyBusinessProfileSchema() {
+  const db = getDb();
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS company_business_profiles (
+      owner_user_id TEXT PRIMARY KEY,
+      crm_provider TEXT NOT NULL DEFAULT 'none',
+      erp_provider TEXT NOT NULL DEFAULT 'none',
+      twenty_workspace_id TEXT DEFAULT '',
+      twenty_workspace_name TEXT DEFAULT '',
+      twenty_api_key_hint TEXT DEFAULT '',
+      twenty_bind_json TEXT DEFAULT '{}',
+      erpnext_company_id TEXT DEFAULT '',
+      erpnext_company_name TEXT DEFAULT '',
+      erpnext_bind_json TEXT DEFAULT '{}',
+      prefab_crm_agent_ids_json TEXT DEFAULT '[]',
+      prefab_erp_agent_ids_json TEXT DEFAULT '[]',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS company_erpnext_user_map (
+      owner_user_id TEXT NOT NULL,
+      flolah_user_id TEXT NOT NULL,
+      erpnext_user_id TEXT NOT NULL DEFAULT '',
+      erpnext_company_id TEXT NOT NULL DEFAULT '',
+      roles_json TEXT DEFAULT '[]',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (owner_user_id, flolah_user_id, erpnext_company_id)
+    )
+  `);
+  db.exec(
+    `CREATE INDEX IF NOT EXISTS idx_erpnext_user_map_owner ON company_erpnext_user_map(owner_user_id)`
+  );
+}
+
+function parseJson(text, fallback) {
+  try {
+    if (text == null || text === '') return fallback;
+    return JSON.parse(text);
+  } catch {
+    return fallback;
+  }
+}
+
+function normalizeCrm(v) {
+  const s = String(v || 'none').trim().toLowerCase() || 'none';
+  if (!CRM_PROVIDERS.has(s)) {
+    const err = new Error(
+      `Invalid crm_provider "${s}". Allowed: ${[...CRM_PROVIDERS].join(', ')}`
+    );
+    err.status = 400;
+    throw err;
+  }
+  return s;
+}
+
+function normalizeErp(v) {
+  const s = String(v || 'none').trim().toLowerCase() || 'none';
+  if (!ERP_PROVIDERS.has(s)) {
+    const err = new Error(
+      `Invalid erp_provider "${s}". Allowed: ${[...ERP_PROVIDERS].join(', ')}`
+    );
+    err.status = 400;
+    throw err;
+  }
+  return s;
+}
+
+function rowToPublic(row) {
+  if (!row) {
+    return {
+      owner_user_id: null,
+      crm_provider: 'none',
+      erp_provider: 'none',
+      twenty: { workspace_id: null, workspace_name: null, bound: false },
+      erpnext: { company_id: null, company_name: null, bound: false },
+      prefab_crm_agent_ids: [],
+      prefab_erp_agent_ids: [],
+      crm_enabled: false,
+      erp_enabled: false,
+      platform_crm: false,
+      platform_erp: false,
+    };
+  }
+  const crm = normalizeCrm(row.crm_provider);
+  const erp = normalizeErp(row.erp_provider);
+  return {
+    owner_user_id: row.owner_user_id,
+    crm_provider: crm,
+    erp_provider: erp,
+    twenty: {
+      workspace_id: row.twenty_workspace_id || null,
+      workspace_name: row.twenty_workspace_name || null,
+      bound: Boolean(row.twenty_workspace_id),
+      api_key_hint: row.twenty_api_key_hint || null,
+    },
+    erpnext: {
+      company_id: row.erpnext_company_id || null,
+      company_name: row.erpnext_company_name || null,
+      bound: Boolean(row.erpnext_company_id),
+    },
+    prefab_crm_agent_ids: parseJson(row.prefab_crm_agent_ids_json, []),
+    prefab_erp_agent_ids: parseJson(row.prefab_erp_agent_ids_json, []),
+    crm_enabled: crm !== 'none',
+    erp_enabled: erp !== 'none',
+    platform_crm: crm === 'twenty',
+    platform_erp: erp === 'erpnext',
+    updated_at: row.updated_at || null,
+  };
+}
+
+export function getBusinessProfile(ownerUserId) {
+  ensureCompanyBusinessProfileSchema();
+  const id = String(ownerUserId || '').trim();
+  if (!id) {
+    const err = new Error('owner_user_id required');
+    err.status = 400;
+    throw err;
+  }
+  const row = getDb()
+    .prepare(`SELECT * FROM company_business_profiles WHERE owner_user_id = ?`)
+    .get(id);
+  if (!row) {
+    return rowToPublic({ owner_user_id: id, crm_provider: 'none', erp_provider: 'none' });
+  }
+  return rowToPublic(row);
+}
+
+export function ensureBusinessProfileRow(ownerUserId) {
+  ensureCompanyBusinessProfileSchema();
+  const id = String(ownerUserId || '').trim();
+  if (!id) throw Object.assign(new Error('owner_user_id required'), { status: 400 });
+  const db = getDb();
+  db.prepare(
+    `INSERT OR IGNORE INTO company_business_profiles (owner_user_id, crm_provider, erp_provider)
+     VALUES (?, 'none', 'none')`
+  ).run(id);
+  return db.prepare(`SELECT * FROM company_business_profiles WHERE owner_user_id = ?`).get(id);
+}
+
+export function updateBusinessProviders(ownerUserId, { crm_provider, erp_provider } = {}) {
+  const id = String(ownerUserId || '').trim();
+  ensureBusinessProfileRow(id);
+  const db = getDb();
+  const cur = db.prepare(`SELECT * FROM company_business_profiles WHERE owner_user_id = ?`).get(id);
+  const nextCrm =
+    crm_provider !== undefined ? normalizeCrm(crm_provider) : normalizeCrm(cur.crm_provider);
+  const nextErp =
+    erp_provider !== undefined ? normalizeErp(erp_provider) : normalizeErp(cur.erp_provider);
+  db.prepare(
+    `UPDATE company_business_profiles
+     SET crm_provider = ?, erp_provider = ?, updated_at = datetime('now')
+     WHERE owner_user_id = ?`
+  ).run(nextCrm, nextErp, id);
+  return getBusinessProfile(id);
+}
+
+export function setTwentyBind(
+  ownerUserId,
+  { workspace_id, workspace_name = '', api_key_hint = '', bind = {} } = {}
+) {
+  const id = String(ownerUserId || '').trim();
+  ensureBusinessProfileRow(id);
+  getDb()
+    .prepare(
+      `UPDATE company_business_profiles
+       SET twenty_workspace_id = ?, twenty_workspace_name = ?, twenty_api_key_hint = ?,
+           twenty_bind_json = ?, updated_at = datetime('now')
+       WHERE owner_user_id = ?`
+    )
+    .run(
+      String(workspace_id || '').trim(),
+      String(workspace_name || '').trim(),
+      String(api_key_hint || '').trim(),
+      JSON.stringify(bind && typeof bind === 'object' ? bind : {}),
+      id
+    );
+  return getBusinessProfile(id);
+}
+
+export function setErpnextBind(ownerUserId, { company_id, company_name = '', bind = {} } = {}) {
+  const id = String(ownerUserId || '').trim();
+  ensureBusinessProfileRow(id);
+  getDb()
+    .prepare(
+      `UPDATE company_business_profiles
+       SET erpnext_company_id = ?, erpnext_company_name = ?, erpnext_bind_json = ?,
+           updated_at = datetime('now')
+       WHERE owner_user_id = ?`
+    )
+    .run(
+      String(company_id || '').trim(),
+      String(company_name || '').trim(),
+      JSON.stringify(bind && typeof bind === 'object' ? bind : {}),
+      id
+    );
+  return getBusinessProfile(id);
+}
+
+export function setPrefabCrmAgentIds(ownerUserId, ids) {
+  const id = String(ownerUserId || '').trim();
+  ensureBusinessProfileRow(id);
+  const list = Array.isArray(ids) ? ids.map((x) => String(x)) : [];
+  getDb()
+    .prepare(
+      `UPDATE company_business_profiles
+       SET prefab_crm_agent_ids_json = ?, updated_at = datetime('now')
+       WHERE owner_user_id = ?`
+    )
+    .run(JSON.stringify(list), id);
+  return list;
+}
+
+export function setPrefabErpAgentIds(ownerUserId, ids) {
+  const id = String(ownerUserId || '').trim();
+  ensureBusinessProfileRow(id);
+  const list = Array.isArray(ids) ? ids.map((x) => String(x)) : [];
+  getDb()
+    .prepare(
+      `UPDATE company_business_profiles
+       SET prefab_erp_agent_ids_json = ?, updated_at = datetime('now')
+       WHERE owner_user_id = ?`
+    )
+    .run(JSON.stringify(list), id);
+  return list;
+}
+
+export function assertCrmEntitled(ownerUserId) {
+  const p = getBusinessProfile(ownerUserId);
+  if (!p.crm_enabled) {
+    const err = new Error(
+      'CRM is not enabled for this company. Select a CRM provider in Profile or Company setup.'
+    );
+    err.status = 403;
+    throw err;
+  }
+  return p;
+}
+
+export function assertErpEntitled(ownerUserId) {
+  const p = getBusinessProfile(ownerUserId);
+  if (!p.erp_enabled) {
+    const err = new Error(
+      'ERP is not enabled for this company. Select an ERP provider in Profile or Company setup.'
+    );
+    err.status = 403;
+    throw err;
+  }
+  return p;
+}
+
+export function resolveTwentyWorkspaceForOwner(ownerUserId) {
+  const p = assertCrmEntitled(ownerUserId);
+  if (p.crm_provider !== 'twenty') {
+    const err = new Error(`CRM provider is ${p.crm_provider}, not twenty`);
+    err.status = 400;
+    throw err;
+  }
+  if (!p.twenty.workspace_id) {
+    const err = new Error('Twenty workspace is not bound for this company yet');
+    err.status = 409;
+    throw err;
+  }
+  return {
+    workspaceId: p.twenty.workspace_id,
+    workspaceName: p.twenty.workspace_name,
+    ownerUserId: String(ownerUserId),
+  };
+}

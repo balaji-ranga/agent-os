@@ -1,0 +1,63 @@
+/**
+ * HTTP invoke for content-tools meta rows (workflow tool nodes).
+ * GET/HEAD never attach a body (Node undici rejects that); payload becomes query params.
+ */
+import { getToolMeta } from './content-tools-meta.js';
+import { getPublicBaseUrl } from '../config/public-url.js';
+import { internalAuthHeaders } from '../middleware/internal-auth.js';
+
+function backendBaseUrl() {
+  return getPublicBaseUrl() || `http://127.0.0.1:${process.env.PORT || 3001}`;
+}
+
+function appendQueryParams(targetUrl, payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return targetUrl;
+  const u = new URL(targetUrl);
+  for (const [key, value] of Object.entries(payload)) {
+    if (value == null) continue;
+    if (typeof value === 'object') {
+      u.searchParams.set(key, JSON.stringify(value));
+    } else {
+      u.searchParams.set(key, String(value));
+    }
+  }
+  return u.toString();
+}
+
+/**
+ * @param {string} toolName
+ * @param {object|null|undefined} body
+ * @param {string|null} [ownerUserId]
+ * @param {{ timeoutMs?: number }} [opts]
+ */
+export async function invokeContentToolHttp(toolName, body, ownerUserId = null, opts = {}) {
+  const row = getToolMeta(toolName);
+  if (!row) throw new Error(`Tool not found: ${toolName}`);
+  if (!row.enabled) throw new Error(`Tool disabled: ${toolName}`);
+
+  const method = String(row.method || 'POST').toUpperCase();
+  let targetUrl = row.endpoint;
+  if (targetUrl.startsWith('/')) targetUrl = backendBaseUrl() + targetUrl;
+
+  const headers = { ...internalAuthHeaders() };
+  if (ownerUserId) headers['x-ceo-user-id'] = String(ownerUserId);
+
+  const payload = body && typeof body === 'object' && !Array.isArray(body) ? body : {};
+  const isGetLike = method === 'GET' || method === 'HEAD';
+  if (isGetLike) {
+    targetUrl = appendQueryParams(targetUrl, payload);
+  } else {
+    headers['Content-Type'] = headers['Content-Type'] || 'application/json';
+  }
+
+  const timeoutMs = Number(opts.timeoutMs) > 0 ? Number(opts.timeoutMs) : 120000;
+  const response = await fetch(targetUrl, {
+    method,
+    headers,
+    body: isGetLike ? undefined : JSON.stringify(payload),
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || `Tool ${toolName} failed (${response.status})`);
+  return data;
+}

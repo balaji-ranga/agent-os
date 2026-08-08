@@ -76,6 +76,8 @@ import {
 } from '../services/platform-notifications.js';
 import { resolveKanbanTaskOwnerId } from '../services/kanban-user-scope.js';
 import jobApplicantTools from './job-applicant-tools.js';
+import crmTools from './crm-tools.js';
+import erpTools from './erp-tools.js';
 import { summarizeLearnings } from '../services/agent-feedback.js';
 import { executeEmailSend } from '../services/email-send.js';
 import { executeNotifyCeo } from '../services/notify-ceo.js';
@@ -521,6 +523,8 @@ router.delete('/logs', attachAuthUser, requireAuth, (req, res) => {
 router.use(optionalAuth);
 
 router.use(jobApplicantTools);
+router.use(crmTools);
+router.use(erpTools);
 
 /**
  * POST /summarize-url

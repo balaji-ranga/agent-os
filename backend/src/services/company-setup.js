@@ -278,6 +278,14 @@ if (body.mission != null) {
   if (Array.isArray(body.systems)) {
     strategic.systems = body.systems.map((s) => String(s).slice(0, 64)).slice(0, 40);
   }
+  if (body.crm_provider != null) {
+    const c = String(body.crm_provider).trim().toLowerCase() || 'none';
+    if (['none', 'twenty', 'hubspot', 'zoho'].includes(c)) strategic.crm_provider = c;
+  }
+  if (body.erp_provider != null) {
+    const e = String(body.erp_provider).trim().toLowerCase() || 'none';
+    if (['none', 'erpnext', 'xero'].includes(e)) strategic.erp_provider = e;
+  }
   if (body.management_style != null) {
     const ms = String(body.management_style);
     if (['suggest', 'after_approval', 'autonomous'].includes(ms)) {
@@ -869,6 +877,56 @@ export async function applyCompanySetup(ownerUserId, { confirm_override: confirm
   }
   writeStrategic(ownerUserId, rowDone, journeyDone, strategicDone);
 
+  // Optional CRM/ERP (Business Core) — never required; does not fail company setup.
+  let businessCore = null;
+  try {
+    const crmProvider = String(strategicDone.crm_provider || 'none').trim().toLowerCase() || 'none';
+    const erpProvider = String(strategicDone.erp_provider || 'none').trim().toLowerCase() || 'none';
+    if (crmProvider !== 'none' || erpProvider !== 'none') {
+      const { updateBusinessProviders, getBusinessProfile } = await import('./company-business-profile.js');
+      updateBusinessProviders(ownerUserId, {
+        crm_provider: crmProvider,
+        erp_provider: erpProvider,
+      });
+      const user = await import('./users.js').then((m) => m.getUserById(ownerUserId));
+      const displayName = strategicDone.company_name || user?.business_name || user?.name;
+      businessCore = { profile: getBusinessProfile(ownerUserId) };
+      if (crmProvider === 'twenty') {
+        const { ensureTwentyWorkspaceForCompany } = await import('./twenty-crm.js');
+        const { ensurePrefabCrmAgents } = await import('./prefab-crm-agents.js');
+        const twenty = await ensureTwentyWorkspaceForCompany(ownerUserId, { displayName });
+        const prefab = await ensurePrefabCrmAgents(ownerUserId);
+        businessCore = { ...businessCore, profile: getBusinessProfile(ownerUserId), twenty, prefab };
+        console.info(
+          '[company-setup] business core CRM twenty owner=%s workspace=%s prefab=%s',
+          ownerUserId,
+          twenty?.workspace_id,
+          (prefab?.agents || []).join(',')
+        );
+      }
+      if (erpProvider === 'erpnext') {
+        const { ensureErpnextCompanyForOwner } = await import('./erpnext-erp.js');
+        const { ensurePrefabErpAgents } = await import('./prefab-erp-agents.js');
+        const erpnext = await ensureErpnextCompanyForOwner(ownerUserId, { displayName });
+        const prefab_erp = await ensurePrefabErpAgents(ownerUserId);
+        businessCore = {
+          ...businessCore,
+          profile: getBusinessProfile(ownerUserId),
+          erpnext,
+          prefab_erp,
+        };
+        console.info(
+          '[company-setup] business core ERP erpnext owner=%s company=%s prefab=%s',
+          ownerUserId,
+          erpnext?.company_id,
+          (prefab_erp?.agents || []).join(',')
+        );
+      }
+    }
+  } catch (e) {
+    console.warn('[company-setup] business core provision (non-fatal):', e?.message || e);
+  }
+
   const day1 = buildDay1Briefing(ownerUserId, strategicDone, applied, extras);
 
   console.info(
@@ -887,6 +945,7 @@ export async function applyCompanySetup(ownerUserId, { confirm_override: confirm
     applied: {
       ...(applied.applied || {}),
       ...extras,
+      business_core: businessCore,
     },
     day1,
   };

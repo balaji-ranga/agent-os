@@ -81,7 +81,14 @@ function isSameBackendUrl(url) {
     const base = getPublicBaseUrl() || `http://127.0.0.1:${process.env.PORT || 3001}`;
     const u = new URL(url, base);
     const b = new URL(base);
-    return u.host === b.host || u.hostname === '127.0.0.1' || u.hostname === 'localhost';
+    const host = String(u.hostname || '').toLowerCase();
+    // Loopback, public host, or Docker compose service names for self-calls.
+    if (u.host === b.host) return true;
+    if (host === '127.0.0.1' || host === 'localhost' || host === '::1') return true;
+    if (host === 'backend' || host.startsWith('agent-os-backend') || host === 'host.docker.internal') {
+      return true;
+    }
+    return false;
   } catch {
     return false;
   }

@@ -29,6 +29,13 @@ export async function runDesktopOrchestration({ params, client, log, input, pack
   const runId = start.run?.id;
   if (!runId) throw new Error('Flolah did not return a run id');
   let context = start.context || {};
+  // Desktop package workflow.params.json variables (e.g. local_bridge_token) overlay server vars.
+  // They stay on the laptop; VPS definition may have empty bridge secrets by design.
+  const packageVars = params.workflow?.variables || {};
+  if (packageVars && typeof packageVars === 'object') {
+    context.workflow_variables = { ...(context.workflow_variables || {}), ...packageVars };
+    context.variables = { ...(context.variables || {}), ...packageVars };
+  }
   const triggerId = start.trigger_node_id;
   log.info(`Run started`, { runId, triggerId });
 
@@ -163,8 +170,20 @@ export async function runDesktopOrchestration({ params, client, log, input, pack
         node_outputs: context.node_outputs,
         while_loops: context.while_loops,
       });
-      if (remote.context) context = remote.context;
-      else if (remote.outputs) {
+      if (remote.context) {
+        context = {
+          ...remote.context,
+          workflow_variables: {
+            ...(remote.context.workflow_variables || {}),
+            ...packageVars,
+          },
+          variables: {
+            ...(remote.context.variables || {}),
+            ...packageVars,
+          },
+          node_outputs: remote.context.node_outputs || context.node_outputs,
+        };
+      } else if (remote.outputs) {
         context.node_outputs = { ...(context.node_outputs || {}), [nodeId]: remote.outputs };
       }
       for (const e of getOutgoing(graph, nodeId)) queue.push({ nodeId: e.target });

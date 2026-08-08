@@ -13,6 +13,8 @@ export const BRIDGE_EVENTS = {
   STOP_OUT: 'stop_out',
   EQUITY_MARK: 'equity_mark',
   EOD_SNAPSHOT: 'eod_snapshot',
+  /** Full book after a successful Gateway session (orders may have failed). */
+  ACCOUNT_SNAPSHOT: 'account_snapshot',
 };
 
 /**

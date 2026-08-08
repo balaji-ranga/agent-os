@@ -78,8 +78,9 @@ Optional later: IBKR **real-time US market data subscriptions** for live quotes 
 
 | Role | Model | API key | Paper | Live |
 |------|-------|---------|-------|------|
-| Maker | Claude Opus (`anthropic` Brain node) | **Anthropic API key** (BYOK on node) | Required | Required |
-| Checker | `deepseek-v4-flash` (`deepseek` Brain node) | **DeepSeek API key** (BYOK on node) | Required | Required |
+| Maker | OpenAI GPT (`openai` Brain, default `gpt-4o`) | Vault **`openAI_key`** (`apiKeyRef`) | Required | Required |
+| Checker | DeepSeek cloud (`deepseek` Brain, default `deepseek-chat`) | Vault **`deepseek_key`** | Required | Required |
+| Optional web context | Brave Search MCP (`mcp-brave-search`) on Maker/Checker | Vault **`BRAVE_SEARCH_BYOK`** | Optional | Optional |
 
 These are independent of FMP / IBKR.
 
@@ -103,7 +104,7 @@ These are independent of FMP / IBKR.
 1. IBKR paper account + Gateway listening on `127.0.0.1:4002`
 2. `IBKR_IS_PAPER=true`, `IBKR_TRADING_ENABLED=0` until dry-run validated
 3. `MARKET_DATA_API_KEY` = FMP free key
-4. Anthropic + DeepSeek keys on Maker/Checker Brain nodes
+4. CEO vault keys **`openAI_key`** + **`deepseek_key`** (optional **`BRAVE_SEARCH_BYOK`**) then reseed: `node scripts/seed-monthly-trading-w1-workflow.js`
 5. SMTP if testing daily digest email
 
 ### Live (after paper validation)

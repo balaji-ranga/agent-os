@@ -2,6 +2,9 @@
  * Seed Monthly Trading W2 — laptop execution (desktop package / Task Scheduler).
  * No ceo_approval, brain, or agent nodes (desktop unsupported).
  * Usage: node scripts/seed-monthly-trading-w2-workflow.js
+ *
+ * Action → order mapping is done on the bridge via POST /execute-day-plan
+ * (trading-plan-bridge-map.js), not by piping raw plan-list JSON into place-bracket.
  */
 import { config } from 'dotenv';
 import { dirname, join } from 'path';
@@ -52,7 +55,7 @@ export function buildMonthlyTradingW2Graph() {
       {
         id: 'tool-fetch-plan',
         type: 'tool',
-        position: { x: 260, y: 200 },
+        position: { x: 240, y: 200 },
         data: {
           label: 'Fetch trading plan (remote)',
           toolName: 'trading_plan_fetch',
@@ -69,7 +72,7 @@ export function buildMonthlyTradingW2Graph() {
       {
         id: 'api-open-plans',
         type: 'api',
-        position: { x: 480, y: 200 },
+        position: { x: 460, y: 200 },
         data: {
           label: 'Open plans detail',
           inputBindings: [
@@ -80,27 +83,27 @@ export function buildMonthlyTradingW2Graph() {
             },
             { id: 'headers', mode: 'static', value: INTERNAL_HEADERS },
           ],
-          taskConfig: { method: 'GET', authType: 'none', timeoutMs: 60000 },
+          taskConfig: { method: 'GET', authType: 'none', timeoutMs: 60000, executeOn: 'server' },
         },
       },
       {
         id: 'if-has-plan',
         type: 'if',
-        position: { x: 700, y: 200 },
+        position: { x: 680, y: 200 },
         data: {
-          label: 'Has open plan body?',
+          label: 'Has open plan?',
           taskConfig: {
             sourceNodeId: 'api-open-plans',
-            sourceOutputKey: 'ok',
-            operator: 'eq',
-            compareValue: 'true',
+            sourceOutputKey: 'bodyText',
+            operator: 'contains',
+            compareValue: 'plan_date',
           },
         },
       },
       {
         id: 'api-mark-executing',
         type: 'api',
-        position: { x: 920, y: 120 },
+        position: { x: 900, y: 100 },
         data: {
           label: 'Mark executing',
           inputBindings: [
@@ -112,17 +115,17 @@ export function buildMonthlyTradingW2Graph() {
             },
             { id: 'headers', mode: 'static', value: INTERNAL_HEADERS },
           ],
-          taskConfig: { method: 'POST', authType: 'none', timeoutMs: 60000 },
+          taskConfig: { method: 'POST', authType: 'none', timeoutMs: 60000, executeOn: 'server' },
         },
       },
       {
-        id: 'api-place-bracket',
+        id: 'api-execute-plan',
         type: 'api',
-        position: { x: 1140, y: 40 },
+        position: { x: 1120, y: 100 },
         data: {
-          label: 'Local place-bracket',
+          label: 'Local execute-day-plan (map actions → orders)',
           inputBindings: [
-            { id: 'url', mode: 'static', value: `${bridgeBase}/place-bracket` },
+            { id: 'url', mode: 'static', value: `${bridgeBase}/execute-day-plan` },
             {
               id: 'body',
               mode: 'dynamic',
@@ -131,51 +134,13 @@ export function buildMonthlyTradingW2Graph() {
             },
             { id: 'headers', mode: 'static', value: bridgeAuth },
           ],
-          taskConfig: { method: 'POST', authType: 'none', timeoutMs: 120000 },
-        },
-      },
-      {
-        id: 'api-modify-stop',
-        type: 'api',
-        position: { x: 1140, y: 160 },
-        data: {
-          label: 'Local modify-stop',
-          inputBindings: [
-            { id: 'url', mode: 'static', value: `${bridgeBase}/modify-stop` },
-            {
-              id: 'body',
-              mode: 'dynamic',
-              sourceNodeId: 'api-open-plans',
-              sourceOutputKey: 'bodyText',
-            },
-            { id: 'headers', mode: 'static', value: bridgeAuth },
-          ],
-          taskConfig: { method: 'POST', authType: 'none', timeoutMs: 90000 },
-        },
-      },
-      {
-        id: 'api-sell-close',
-        type: 'api',
-        position: { x: 1140, y: 280 },
-        data: {
-          label: 'Local sell-to-close',
-          inputBindings: [
-            { id: 'url', mode: 'static', value: `${bridgeBase}/sell-to-close` },
-            {
-              id: 'body',
-              mode: 'dynamic',
-              sourceNodeId: 'api-open-plans',
-              sourceOutputKey: 'bodyText',
-            },
-            { id: 'headers', mode: 'static', value: bridgeAuth },
-          ],
-          taskConfig: { method: 'POST', authType: 'none', timeoutMs: 90000 },
+          taskConfig: { method: 'POST', authType: 'none', timeoutMs: 180000 },
         },
       },
       {
         id: 'api-report',
         type: 'api',
-        position: { x: 1360, y: 160 },
+        position: { x: 1340, y: 100 },
         data: {
           label: 'Report execution status',
           inputBindings: [
@@ -184,23 +149,23 @@ export function buildMonthlyTradingW2Graph() {
               id: 'body',
               mode: 'static',
               value:
-                '{"status":"partial","execution_report":{"source":"w2","place_bracket":{{api-place-bracket.bodyText}},"modify_stop":{{api-modify-stop.bodyText}},"sell_to_close":{{api-sell-close.bodyText}}}}',
+                '{"status":"{{api-execute-plan.body.suggested_status}}","plan_date":"{{api-execute-plan.body.plan_date}}","execution_report":{"source":"w2","phase":"execute-day-plan","execute":{{api-execute-plan.bodyText}}}}',
             },
             { id: 'headers', mode: 'static', value: INTERNAL_HEADERS },
           ],
-          taskConfig: { method: 'POST', authType: 'none', timeoutMs: 60000 },
+          taskConfig: { method: 'POST', authType: 'none', timeoutMs: 60000, executeOn: 'server' },
         },
       },
       {
         id: 'tool-notify',
         type: 'tool',
-        position: { x: 1580, y: 160 },
+        position: { x: 1560, y: 100 },
         data: {
           label: 'Notify CEO (optional)',
           toolName: 'notify_ceo',
           toolPayload: {
             title: 'W2 execution reported',
-            body: 'Laptop execution workflow reported plan status (partial/executed/failed).',
+            body: 'Laptop execution workflow mapped plan actions and reported status.',
             link_url: '/workflows',
             source_key: 'monthly-trading-w2',
           },
@@ -210,14 +175,18 @@ export function buildMonthlyTradingW2Graph() {
       {
         id: 'api-skip',
         type: 'api',
-        position: { x: 920, y: 360 },
+        position: { x: 900, y: 320 },
         data: {
           label: 'No open plan — noop log',
           inputBindings: [
-            { id: 'url', mode: 'static', value: `${backendBase}/api/ibkr-trading/day-plan?open=true&limit=1` },
+            {
+              id: 'url',
+              mode: 'static',
+              value: `${backendBase}/api/ibkr-trading/day-plan?open=true&limit=1`,
+            },
             { id: 'headers', mode: 'static', value: INTERNAL_HEADERS },
           ],
-          taskConfig: { method: 'GET', authType: 'none', timeoutMs: 30000 },
+          taskConfig: { method: 'GET', authType: 'none', timeoutMs: 30000, executeOn: 'server' },
         },
       },
     ],
@@ -227,13 +196,11 @@ export function buildMonthlyTradingW2Graph() {
       { id: 'e3', source: 'api-open-plans', target: 'if-has-plan' },
       { id: 'e4', source: 'if-has-plan', target: 'api-mark-executing', sourceHandle: 'true' },
       { id: 'e5', source: 'if-has-plan', target: 'api-skip', sourceHandle: 'false' },
-      { id: 'e6', source: 'api-mark-executing', target: 'api-place-bracket' },
-      { id: 'e7', source: 'api-place-bracket', target: 'api-modify-stop' },
-      { id: 'e8', source: 'api-modify-stop', target: 'api-sell-close' },
-      { id: 'e9', source: 'api-sell-close', target: 'api-report' },
-      { id: 'e10', source: 'api-report', target: 'tool-notify' },
+      { id: 'e6', source: 'api-mark-executing', target: 'api-execute-plan' },
+      { id: 'e7', source: 'api-execute-plan', target: 'api-report' },
+      { id: 'e8', source: 'api-report', target: 'tool-notify' },
     ],
-    viewport: { x: 0, y: 0, zoom: 0.6 },
+    viewport: { x: 0, y: 0, zoom: 0.55 },
   };
 }
 
@@ -273,7 +240,7 @@ export async function seedMonthlyTradingW2(ownerUserId, { publish = true } = {})
   const patch = {
     name: 'Monthly Trading W2 — Execute (Laptop)',
     description:
-      'Desktop/manual: fetch approved/partial plan → local bridge place-bracket / modify-stop / sell-to-close → report execution status. No brain/ceo_approval/agent.',
+      'Desktop/manual: fetch open plan → map Maker actions via local bridge /execute-day-plan → report status. No brain/ceo_approval/agent.',
     graph,
     trigger_modes: ['manual'],
     schedule_cron: '',

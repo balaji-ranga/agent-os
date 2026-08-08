@@ -293,62 +293,10 @@ export default function AgentChat() {
     if (el) el.scrollTop = el.scrollHeight;
   }, [turns, sending]);
 
-  const startNewChat = async () => {
-    if (clearing || sending || !agentId) return;
-    if (
-      turns.length > 0 &&
-      !window.confirm('Start a new chat? The current conversation will move to History with an auto-generated title.')
-    ) {
-      return;
-    }
-    setClearing(true);
-    setError(null);
-    try {
-      const result = await api.agentSessionsNew(agentId);
-      setTurns([]);
-      setBanner({
-        type: 'info',
-        text: result?.message || 'New chat started. Previous session archived.',
-      });
-      await refreshHistory();
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setClearing(false);
-    }
-  };
-
-  const restoreSession = async (session, mode) => {
-    if (!agentId || !session?.id || restoreBusyId || sending || clearing) return;
-    const label = mode === 'summarized' ? 'summarized context' : 'full history';
-    if (
-      !window.confirm(
-        `Restore "${session.title || 'chat'}" with ${label}? Your current chat will be archived first if it has messages.`
-      )
-    ) {
-      return;
-    }
-    setRestoreBusyId(`${session.id}:${mode}`);
-    setError(null);
-    try {
-      const r = await api.agentChatRestore(agentId, session.id, mode);
-      setTurns(r.turns || []);
-      setBanner({
-        type: 'info',
-        text: r.message || `Restored ${label}.`,
-      });
-      await refreshHistory();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setRestoreBusyId(null);
-    }
-  };
-
-  const send = async (e) => {
+  const send = async (e, overrideText) => {
     e?.preventDefault?.();
-    if ((!input.trim() && !attachments.length) || sending || !agentId) return;
-    const userText = input.trim();
+    const userText = String(overrideText != null ? overrideText : input).trim();
+    if ((!userText && !attachments.length) || sending || !agentId) return;
     const pendingFiles = [...attachments];
     const displayAttachments = buildDisplayAttachmentsFromFiles(pendingFiles);
     const tempId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -445,6 +393,90 @@ export default function AgentChat() {
         abortControllerRef.current = null;
         setSending(false);
       }
+    }
+  };
+
+  // Workspace / deep-link: ?message=...&autosend=1 or location.state.prefill
+  const inboundPrefillKey = useRef('');
+  useEffect(() => {
+    if (!agentId) return;
+    const fromQuery = searchParams.get('message') || searchParams.get('q');
+    const fromState = location.state?.prefill || location.state?.message;
+    const text = String(fromQuery || fromState || '').trim();
+    if (!text) return;
+    const auto = searchParams.get('autosend') === '1' || location.state?.autosend === true;
+    const key = `${agentId}:${text}:${auto ? 1 : 0}`;
+    if (inboundPrefillKey.current === key) return;
+    inboundPrefillKey.current = key;
+    if (location.state?.prefill || location.state?.message || location.state?.autosend) {
+      navigate({ pathname: location.pathname, search: location.search }, { replace: true, state: {} });
+    }
+    // Drop query so refresh does not resend
+    if (fromQuery) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('message');
+      next.delete('q');
+      next.delete('autosend');
+      const qs = next.toString();
+      navigate(`${location.pathname}${qs ? `?${qs}` : ''}`, { replace: true, state: {} });
+    }
+    if (auto) {
+      send(null, text);
+    } else {
+      setInput(text);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot inbound hop
+  }, [agentId, searchParams, location.state]);
+
+  const startNewChat = async () => {
+    if (clearing || sending || !agentId) return;
+    if (
+      turns.length > 0 &&
+      !window.confirm('Start a new chat? The current conversation will move to History with an auto-generated title.')
+    ) {
+      return;
+    }
+    setClearing(true);
+    setError(null);
+    try {
+      const result = await api.agentSessionsNew(agentId);
+      setTurns([]);
+      setBanner({
+        type: 'info',
+        text: result?.message || 'New chat started. Previous session archived.',
+      });
+      await refreshHistory();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setClearing(false);
+    }
+  };
+
+  const restoreSession = async (session, mode) => {
+    if (!agentId || !session?.id || restoreBusyId || sending || clearing) return;
+    const label = mode === 'summarized' ? 'summarized context' : 'full history';
+    if (
+      !window.confirm(
+        `Restore "${session.title || 'chat'}" with ${label}? Your current chat will be archived first if it has messages.`
+      )
+    ) {
+      return;
+    }
+    setRestoreBusyId(`${session.id}:${mode}`);
+    setError(null);
+    try {
+      const r = await api.agentChatRestore(agentId, session.id, mode);
+      setTurns(r.turns || []);
+      setBanner({
+        type: 'info',
+        text: r.message || `Restored ${label}.`,
+      });
+      await refreshHistory();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setRestoreBusyId(null);
     }
   };
 

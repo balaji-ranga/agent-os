@@ -9,6 +9,7 @@ import { createIbkrApi } from './src/ibkr.js';
 import { createWebhookPusher } from './src/webhook-pusher.js';
 import { onBridgeEvent, emitBridgeEvent, BRIDGE_EVENTS } from './src/event-bus.js';
 import { logInfo, logWarn, logError } from './src/log.js';
+import { loadPlanMap } from './src/plan-map.js';
 
 function readJson(req) {
   return new Promise((resolve, reject) => {
@@ -74,22 +75,72 @@ export async function startBridge(cfgOverride = null) {
 
   let equityTimer = null;
 
-  async function pushEquityMark(extra = {}) {
-    const snap = await ibkr.fetchAccountSnapshot({});
+  /**
+   * After a successful IBKR Gateway read, push full book to VPS (W3 → ingest).
+   * Call regardless of whether placement succeeded — only requires session snapshot ok.
+   * @param {object} snap
+   * @param {object} [extra]
+   */
+  function pushAccountSnapshotFromSession(snap, extra = {}) {
+    if (!snap || snap.ok === false) {
+      return { ok: false, skipped: true, reason: 'session_snapshot_unavailable' };
+    }
     const mark = ibkr.equityFromSnapshot(snap);
-    const envelope = emitBridgeEvent(BRIDGE_EVENTS.EQUITY_MARK, { ...mark, ...extra });
-    return { ok: true, event: envelope.event, payload: envelope.payload };
+    const payload = {
+      ...mark,
+      summary: snap.summary || null,
+      reference_prices: snap.reference_prices || {},
+      mock: !!snap.mock,
+      session_ok: true,
+      ...extra,
+    };
+    const envelope = emitBridgeEvent(BRIDGE_EVENTS.ACCOUNT_SNAPSHOT, payload);
+    logInfo('account_snapshot queued for VPS', {
+      event: envelope.event,
+      cash_usd: payload.cash_usd,
+      equity_usd: payload.equity_usd,
+      positions: (payload.positions || []).length,
+      reason: extra.reason || extra.phase || null,
+    });
+    return { ok: true, event: envelope.event, payload };
+  }
+
+  /**
+   * Fetch snapshot once Gateway session works; always push account_snapshot on success.
+   * @param {object} [extra]
+   * @param {{ alsoEquityMark?: boolean, alsoEod?: boolean }} [opts]
+   */
+  async function fetchAndPushSessionSnapshot(extra = {}, opts = {}) {
+    const snap = await ibkr.fetchAccountSnapshot({});
+    if (!snap || snap.ok === false) {
+      throw new Error(snap?.error || 'account snapshot failed');
+    }
+    const pushed = pushAccountSnapshotFromSession(snap, extra);
+    let equity = null;
+    let eod = null;
+    if (opts.alsoEquityMark) {
+      const mark = ibkr.equityFromSnapshot(snap);
+      const envelope = emitBridgeEvent(BRIDGE_EVENTS.EQUITY_MARK, { ...mark, ...extra });
+      equity = { ok: true, event: envelope.event, payload: envelope.payload };
+    }
+    if (opts.alsoEod) {
+      const mark = ibkr.equityFromSnapshot(snap);
+      const envelope = emitBridgeEvent(BRIDGE_EVENTS.EOD_SNAPSHOT, {
+        ...mark,
+        snapshot: snap,
+        ...extra,
+      });
+      eod = { ok: true, event: envelope.event, payload: envelope.payload };
+    }
+    return { ok: true, snapshot: snap, account_snapshot: pushed, equity_mark: equity, eod_snapshot: eod };
+  }
+
+  async function pushEquityMark(extra = {}) {
+    return fetchAndPushSessionSnapshot({ ...extra, phase: 'equity_mark' }, { alsoEquityMark: true });
   }
 
   async function pushEodSnapshot(extra = {}) {
-    const snap = await ibkr.fetchAccountSnapshot({});
-    const mark = ibkr.equityFromSnapshot(snap);
-    const envelope = emitBridgeEvent(BRIDGE_EVENTS.EOD_SNAPSHOT, {
-      ...mark,
-      snapshot: snap,
-      ...extra,
-    });
-    return { ok: true, event: envelope.event, payload: { ...mark, ...extra } };
+    return fetchAndPushSessionSnapshot({ ...extra, phase: 'eod_snapshot' }, { alsoEod: true });
   }
 
   if (cfg.equityMarkIntervalSec > 0) {
@@ -133,14 +184,22 @@ export async function startBridge(cfgOverride = null) {
 
       if (method === 'POST' && path === '/account-snapshot') {
         const body = await readJson(req);
-        sendJson(
-          res,
-          200,
-          await ibkr.fetchAccountSnapshot({
-            allowlist: body.allowlist || null,
-            timeoutMs: body.timeoutMs,
-          })
-        );
+        const snap = await ibkr.fetchAccountSnapshot({
+          allowlist: body.allowlist || null,
+          timeoutMs: body.timeoutMs,
+        });
+        // Successful Gateway session → push book to VPS for W1 learnings (async via webhook).
+        if (snap?.ok !== false && body.push !== false && body.skip_push !== true) {
+          try {
+            pushAccountSnapshotFromSession(snap, {
+              reason: 'local_account_snapshot',
+              phase: 'account-snapshot',
+            });
+          } catch (e) {
+            logWarn('account_snapshot push skip', { error: e.message || String(e) });
+          }
+        }
+        sendJson(res, 200, snap);
         return;
       }
 
@@ -152,6 +211,113 @@ export async function startBridge(cfgOverride = null) {
           postAckWatchMs: body.postAckWatchMs,
         });
         sendJson(res, result.ok === false ? 400 : 200, result);
+        return;
+      }
+
+      /**
+       * Map Maker day-plan actions → place-bracket / modify-stop / sell-to-close.
+       * Accepts open-plans API body, a plan row, or raw maker JSON with actions[].
+       */
+      if (method === 'POST' && path === '/map-day-plan') {
+        const body = await readJson(req);
+        const { mapDayPlanToBridgeOrders } = await loadPlanMap();
+        const mapping = mapDayPlanToBridgeOrders(body, {
+          respectCeoApproval: body.respect_ceo_approval !== false,
+        });
+        sendJson(res, mapping.ok ? 200 : 400, mapping);
+        return;
+      }
+
+      if (method === 'POST' && path === '/execute-day-plan') {
+        const body = await readJson(req);
+        const { mapDayPlanToBridgeOrders, suggestExecutionStatus } = await loadPlanMap();
+        const mapping = mapDayPlanToBridgeOrders(body, {
+          respectCeoApproval: body.respect_ceo_approval !== false,
+        });
+        if (!mapping.ok) {
+          sendJson(res, 400, {
+            ok: false,
+            error: mapping.error || 'map_failed',
+            mapping,
+            suggested_status: 'failed',
+          });
+          return;
+        }
+
+        logInfo('execute-day-plan mapping', {
+          plan_date: mapping.plan_date,
+          trades: mapping.summary.trade_count,
+          stops: mapping.summary.stop_count,
+          sells: mapping.summary.sell_count,
+          skipped: mapping.summary.skipped_count,
+        });
+
+        const place_bracket = await ibkr.placeBracket(mapping.trades, {
+          ownerUserId: body.owner_user_id || null,
+          postAckWatchMs: body.postAckWatchMs,
+        });
+
+        const modify_stops = [];
+        for (const s of mapping.modify_stops) {
+          // eslint-disable-next-line no-await-in-loop
+          const r = await ibkr.modifyStop(s);
+          modify_stops.push({ request: s, result: r, ok: r?.ok !== false });
+        }
+
+        const sell_to_close = [];
+        for (const s of mapping.sells) {
+          // eslint-disable-next-line no-await-in-loop
+          const r = await ibkr.sellToClose(s);
+          sell_to_close.push({ request: s, result: r, ok: r?.ok !== false });
+        }
+
+        const suggested_status = suggestExecutionStatus(
+          mapping,
+          place_bracket,
+          modify_stops.map((x) => x.result),
+          sell_to_close.map((x) => x.result)
+        );
+
+        const dry =
+          place_bracket?.dry_run === true ||
+          modify_stops.some((x) => x.result?.dry_run) ||
+          sell_to_close.some((x) => x.result?.dry_run);
+
+        // Always try a post-session snapshot for VPS learnings — independent of place success.
+        let session_snapshot_push = null;
+        try {
+          session_snapshot_push = await fetchAndPushSessionSnapshot({
+            reason: 'after_execute_day_plan',
+            phase: 'execute-day-plan',
+            plan_date: mapping.plan_date,
+            suggested_status,
+            place_ok: place_bracket?.ok !== false,
+          });
+        } catch (e) {
+          logWarn('post execute-day-plan snapshot push failed', {
+            error: e.message || String(e),
+          });
+          session_snapshot_push = { ok: false, error: e.message || String(e) };
+        }
+
+        sendJson(res, 200, {
+          ok: true,
+          dry_run: !!dry,
+          plan_date: mapping.plan_date,
+          selected_plan: mapping.selected_plan,
+          mapping: {
+            summary: mapping.summary,
+            trades: mapping.trades,
+            modify_stops: mapping.modify_stops,
+            sells: mapping.sells,
+            skipped: mapping.skipped,
+          },
+          place_bracket,
+          modify_stops,
+          sell_to_close,
+          suggested_status,
+          session_snapshot_push,
+        });
         return;
       }
 
@@ -194,6 +360,21 @@ export async function startBridge(cfgOverride = null) {
         return;
       }
 
+      if (method === 'POST' && path === '/push-account-snapshot') {
+        const body = await readJson(req);
+        try {
+          const r = await fetchAndPushSessionSnapshot({
+            reason: body.reason || 'manual_push',
+            phase: 'push-account-snapshot',
+            ...(body || {}),
+          });
+          sendJson(res, 200, r);
+        } catch (e) {
+          sendJson(res, 503, { ok: false, error: e.message || String(e) });
+        }
+        return;
+      }
+
       sendJson(res, 404, { ok: false, error: 'not found' });
     } catch (e) {
       logError('request failed', { path, method, error: e.message || String(e) });
@@ -223,7 +404,7 @@ export async function startBridge(cfgOverride = null) {
     return new Promise((resolve) => server.close(() => resolve()));
   }
 
-  return { server, cfg, ibkr, pusher, stop, pushEquityMark, pushEodSnapshot };
+  return { server, cfg, ibkr, pusher, stop, pushEquityMark, pushEodSnapshot, fetchAndPushSessionSnapshot };
 }
 
 const entry = process.argv[1] ? pathToFileURL(process.argv[1]).href : '';

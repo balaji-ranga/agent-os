@@ -137,6 +137,44 @@ async function main() {
     });
     assert(place.status === 200 && place.json?.dry_run === true, 'place-bracket dry-run (trading off)');
 
+    const mapBody = {
+      plans: [
+        {
+          id: 1,
+          plan_date: '2026-08-08',
+          status: 'approved',
+          plan: {
+            actions: [
+              {
+                type: 'new_entry',
+                key: 'NASDAQ:MSFT',
+                qty: 2,
+                entry_price: 420,
+                stop_price: 400,
+                tp_price: 450,
+              },
+              { type: 'raise_stop', key: 'NASDAQ:AAPL', qty: 5, stop_price: 190 },
+              { type: 'hold', key: 'NASDAQ:NVDA', qty: 1 },
+            ],
+          },
+        },
+      ],
+    };
+    const mapped = await jsonFetch('/map-day-plan', { method: 'POST', body: mapBody });
+    assert(mapped.status === 200 && mapped.json?.trades?.length === 1, 'map-day-plan trades');
+    assert(mapped.json?.modify_stops?.length === 1, 'map-day-plan stops');
+
+    const exec = await jsonFetch('/execute-day-plan', { method: 'POST', body: mapBody });
+    assert(exec.status === 200 && exec.json?.ok === true, 'execute-day-plan ok');
+    assert(exec.json?.dry_run === true, 'execute-day-plan dry-run');
+    assert(exec.json?.mapping?.trades?.length === 1, 'execute-day-plan mapped trades');
+    assert(['executed', 'partial'].includes(exec.json?.suggested_status), 'execute-day-plan status');
+    assert(exec.json?.session_snapshot_push?.ok === true, 'execute-day-plan session_snapshot_push');
+
+    const pushSnap = await jsonFetch('/push-account-snapshot', { method: 'POST', body: { reason: 'offline-test' } });
+    assert(pushSnap.status === 200 && pushSnap.json?.ok === true, '/push-account-snapshot ok');
+    assert(pushSnap.json?.account_snapshot?.ok === true, '/push-account-snapshot event');
+
     await testWebhookBackoff();
   } finally {
     await bridge.stop();

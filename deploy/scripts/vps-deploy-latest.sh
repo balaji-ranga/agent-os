@@ -117,6 +117,8 @@ echo "              Org Storage (MB); COO status_checker (standup+HTML email; cr
 echo "              Scheduled goals (CEO prompts → agents; SCHEDULED_GOALS_CRON;"
 echo "              cadence hourly|daily|weekdays|weekly; UI create/edit/pause;"
 echo "              verify: vps-verify-scheduled-goals.sh + platform-help 28);"
+echo "              agent channels (WhatsApp/Slack) + openclaw chatCompletions gate,"
+echo "              (ensure-openclaw-gateway-config + vps-verify-openclaw-chat),"
 echo "              data retention days (profile) + daily purge (chats/workflows + Content Explorer media),"
 echo "              Content Explorer hard-delete (selected/all) + storage includes media/generated/<ceo>,"
 echo "              Profile LLM catalog (provider+model) + OPENAI_BYOK_MODEL soft fallback,"
@@ -247,6 +249,15 @@ if [[ -f "$ROOT/deploy/scripts/ensure-platform-mcps.sh" && "${SKIP_PLATFORM_MCPS
   NO_CACHE="${NO_CACHE:-0}" PLATFORM_MCP_BUILD=1 \
     bash "$ROOT/deploy/scripts/ensure-platform-mcps.sh" "$ROOT/deploy/.env" \
     || echo "WARN: ensure-platform-mcps failed (non-fatal)"
+fi
+
+# Business Core: embed env + optional Twenty stack (CRM iframe HTTPS :8443)
+if [[ -f "$ROOT/deploy/scripts/ensure-business-core-env.sh" && "${SKIP_BUSINESS_CORE:-0}" != "1" ]]; then
+  echo "==> Business Core env + optional Twenty stack"
+  sed -i 's/\r$//' "$ROOT/deploy/scripts/ensure-business-core-env.sh" 2>/dev/null || true
+  START_TWENTY="${START_TWENTY:-1}" START_ERPNEXT="${START_ERPNEXT:-0}" \
+    bash "$ROOT/deploy/scripts/ensure-business-core-env.sh" "$ROOT/deploy/.env" \
+    || echo "WARN: ensure-business-core-env failed (non-fatal)"
 fi
 
 echo "==> smoke"
@@ -845,6 +856,24 @@ else
   echo "ERROR: agent-channels gate failed — WhatsApp/Slack may be offline after this deploy"
   echo "    Fix: Dashboard → Agent channels → Enable, or re-run vps-verify-agent-channels.sh"
   # Fatal for channel drift so we do not ship a silent WhatsApp outage again.
+  exit 1
+fi
+
+# OpenClaw chatCompletions (fatal): partial openclaw.json rewrites can drop gateway.* and
+# yield HTTP 404 on POST /v1/chat/completions while the container still looks healthy.
+echo "==> openclaw chatCompletions gate"
+if [[ ! -f "$ROOT/deploy/scripts/vps-verify-openclaw-chat.sh" ]]; then
+  echo "ERROR: missing deploy/scripts/vps-verify-openclaw-chat.sh (sync-to-vps incomplete)"
+  exit 1
+fi
+sed -i 's/\r$//' "$ROOT/deploy/scripts/vps-verify-openclaw-chat.sh" 2>/dev/null || true
+sed -i 's/\r$//' "$ROOT/deploy/scripts/ensure-openclaw-gateway-config.js" 2>/dev/null || true
+if bash "$ROOT/deploy/scripts/vps-verify-openclaw-chat.sh"; then
+  echo "    openclaw chat gate OK"
+else
+  echo "ERROR: openclaw chatCompletions gate failed — Agent Chat will 502/404"
+  echo "    Fix: bash deploy/scripts/vps-verify-openclaw-chat.sh"
+  echo "    Root cause: openclaw.json missing gateway.http.endpoints.chatCompletions"
   exit 1
 fi
 

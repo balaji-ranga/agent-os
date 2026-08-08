@@ -17,7 +17,10 @@ async function main() {
 
   const dir = mkdtempSync(join(tmpdir(), 'aos-script-'));
   const scriptPath = join(dir, 'user-script.mjs');
-  const wrapped = `${source}
+  const hasDefaultExport = /\bexport\s+default\b/.test(String(source || ''));
+  const wrapped = hasDefaultExport
+    ? String(source || '')
+    : `${source}
 
 export default typeof run !== 'undefined' ? run : undefined;
 `;
@@ -25,7 +28,14 @@ export default typeof run !== 'undefined' ? run : undefined;
 
   try {
     const mod = await import(pathToFileURL(scriptPath).href);
-    const fn = mod.default || mod.run;
+    const fn =
+      typeof mod.default === 'function'
+        ? mod.default
+        : typeof mod.run === 'function'
+          ? mod.run
+          : typeof mod.default?.run === 'function'
+            ? mod.default.run
+            : null;
     if (typeof fn !== 'function') {
       throw new Error('Script must export run(inputs, context)');
     }

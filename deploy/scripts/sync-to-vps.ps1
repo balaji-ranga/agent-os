@@ -27,9 +27,11 @@
 # platform API logging (PLATFORM_LOG_LEVEL=off|error|info + secret redaction),
 # Brave Search MCP BYOK wrapper (tools/brave-search-mcp-byok, profile optional-brave-mcp),
 # Meta Graph MCP (tools/meta-graph-mcp, profile optional-meta-graph-mcp) + Connectors MCPs OAuth,
+# Business Core MCP (tools/business-core-mcp → mcp-flolah-crm / mcp-flolah-erp),
 # content studio: content-publish-social + content-comments-ingest/community triage (workflow mcp_tool/brain nodes;
 #   not one-off content_comments_* tools), day0+day1 blueprint snapshot/publish, complete-content-ops-pipeline,
-# ensure-platform-mcps.sh seeds mcp-brave-search + mcp-meta-graph (is_platform=1),
+# ensure-platform-mcps.sh seeds mcp-brave-search + mcp-meta-graph + mcp-flolah-crm + mcp-flolah-erp (is_platform=1),
+# Business Core prefab Maker/Checker agents when Profile CRM=twenty / ERP=erpnext,
 # SEED_CONTENT_MEDIA_OWNER (optional) post-deploy seeds publish+comments workflows for that CEO,
 # Brave agent tool brave_web_search (backend BRAVE_API_KEY + vault BRAVE_SEARCH_BYOK),
 # cron reference block in deploy/.env (ensure-cron-env.sh) + platform-help 19 (+ SCHEDULED_GOALS_CRON)
@@ -62,6 +64,9 @@
 # Workflow autonomous certify (Maker/Checker; LLM Checker default OFF — WORKFLOW_CERTIFY_*),
 # Desktop Windows packages (PS1 + optional portable Node 18; token + IP whitelist; ASCII-safe PS1),
 # Local IBKR bridge Connectors zip + monthly trading W1–W5 + bridge-order-events learnings ingest,
+# laptop account_snapshot push → W3 ingest → W1 latest cache; IBKR Summary UI + clear APIs,
+# openclaw.json safe writers (openclaw-config-safe.js) + deploy chatCompletions gate
+# (ensure-openclaw-gateway-config.js + vps-verify-openclaw-chat.sh) so Agent Chat never goes 404,
 # COO AGENTS.md org-generated marker (workspace template sync no longer clobbers leaf members),
 # agent_workflow_runs tool (COO/WB; never ibkr_order_learnings for workflow run status),
 # mixed internal+leaf COO specialty refine (Session-keys table no longer drops internals),
@@ -117,10 +122,14 @@ scp @ssh `
   "$Repo\deploy\docker-compose.browser.yml" `
   "$Repo\deploy\docker-compose.vps-client-ip.yml" `
   "$Repo\deploy\docker-compose.docker-tools.yml" `
+  "$Repo\deploy\docker-compose.business-core.yml" `
   "$Repo\deploy\.env.example" `
   "$Repo\deploy\README.md" `
   "root@${HostIp}:$RemoteRoot/deploy/"
 scp @ssh -r "$Repo\deploy\docker" "root@${HostIp}:$RemoteRoot/deploy/"
+Write-Host "==> Sync deploy/business-core docs"
+ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/deploy/business-core"
+scp @ssh -r "$Repo\deploy\business-core" "root@${HostIp}:$RemoteRoot/deploy/"
 Write-Host "==> Sync deploy/assets (OpenClaw chrome-extension pack)"
 ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/deploy/assets"
 scp @ssh -r "$Repo\deploy\assets" "root@${HostIp}:$RemoteRoot/deploy/"
@@ -146,6 +155,8 @@ scp @ssh `
   "$Repo\deploy\scripts\vps-verify-frontend-media.sh" `
   "$Repo\deploy\scripts\vps-verify-media-delivery.sh" `
   "$Repo\deploy\scripts\vps-verify-agent-channels.sh" `
+  "$Repo\deploy\scripts\vps-verify-openclaw-chat.sh" `
+  "$Repo\deploy\scripts\ensure-openclaw-gateway-config.js" `
   "$Repo\deploy\scripts\restore-openclaw-channel-routing.js" `
   "$Repo\deploy\scripts\ensure-openclaw-channel-plugins.sh" `
   "$Repo\deploy\scripts\vps-smoke-new-features.sh" `
@@ -168,6 +179,7 @@ scp @ssh `
   "$Repo\deploy\scripts\ensure-voice-env.sh" `
   "$Repo\deploy\scripts\ensure-embeddings-env.sh" `
   "$Repo\deploy\scripts\ensure-platform-mcps.sh" `
+  "$Repo\deploy\scripts\ensure-business-core-env.sh" `
   "$Repo\deploy\scripts\enable-docker-tools-on-vps.sh" `
   "$Repo\deploy\scripts\vps-smoke-brave-byok.sh" `
   "$Repo\deploy\scripts\vps-smoke-meta-graph-mcp.sh" `
@@ -289,6 +301,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-workflow-auth-templates.js" `
     "$Repo\backend\scripts\seed-brave-search-mcp.js" `
     "$Repo\backend\scripts\seed-meta-graph-mcp.js" `
+    "$Repo\backend\scripts\seed-business-core-mcp.js" `
     "$Repo\backend\scripts\seed-content-publish-social-workflow.js" `
     "$Repo\backend\scripts\seed-content-comments-ingest.js" `
     "$Repo\backend\scripts\complete-content-ops-pipeline.js" `
@@ -352,11 +365,11 @@ if ($Services -match "backend|openclaw") {
     "root@${HostIp}:$RemoteRoot/tests/"
   scp @ssh "$Repo\tests\lib\ceo-session.js" "root@${HostIp}:$RemoteRoot/tests/lib/"
   scp @ssh -r "$Repo\scripts" "root@${HostIp}:$RemoteRoot/"
-  Write-Host "==> Sync Brave BYOK MCP tool source (compose build context)"
-  ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/tools/brave-search-mcp-byok $RemoteRoot/tools/meta-graph-mcp"
+  Write-Host "==> Sync platform MCP tool sources (Brave + Meta Graph + Business Core)"
+  ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/tools/brave-search-mcp-byok $RemoteRoot/tools/meta-graph-mcp $RemoteRoot/tools/business-core-mcp"
   scp @ssh "$Repo\tools\brave-search-mcp-byok\server.js" "root@${HostIp}:$RemoteRoot/tools/brave-search-mcp-byok/"
-  Write-Host "==> Sync Meta Graph MCP tool source"
   scp @ssh "$Repo\tools\meta-graph-mcp\server.js" "root@${HostIp}:$RemoteRoot/tools/meta-graph-mcp/"
+  scp @ssh "$Repo\tools\business-core-mcp\server.js" "root@${HostIp}:$RemoteRoot/tools/business-core-mcp/"
   scp @ssh -r "$Repo\openclaw-extensions\agent-os-content-tools" "root@${HostIp}:$RemoteRoot/openclaw-extensions/"
   scp @ssh -r "$Repo\openclaw-extensions\agent-os-bootstrap-watcher" "root@${HostIp}:$RemoteRoot/openclaw-extensions/"
   Write-Host "==> Sync workspace templates (shared ops + COO + TechResearcher + ApplicationAgent + Workflow Builder + Platform Help + Onboarding Helper + Vedic Astrology) + skills + platform-help KB"
@@ -382,6 +395,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\knowledgebase\ONBOARDING-HELPER-PLAN.md" `
     "$Repo\knowledgebase\VIDEO-TOURS-CEO-CURRICULUM.md" `
     "$Repo\knowledgebase\CONTENT-CREATION-ORG-BLUEPRINT.md" `
+    "$Repo\knowledgebase\BUSINESS-CORE-WORKSPACE-PLAN.md" `
     "root@${HostIp}:$RemoteRoot/knowledgebase/"
   if (Test-Path "$Repo\knowledgebase\video-tours") {
     scp @ssh -r "$Repo\knowledgebase\video-tours" "root@${HostIp}:$RemoteRoot/knowledgebase/"

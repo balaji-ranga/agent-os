@@ -27,10 +27,18 @@ export const WORKFLOW_ID = 'ibkr-maker-checker-paper';
 export const CHAT_PHRASE = 'run ibkr day plan';
 export const PARSE_SCRIPT_ID = 'script-ibkr-parse-checker';
 
+import {
+  MAKER_VAULT_KEY_REF,
+  CHECKER_VAULT_KEY_REF,
+  monthlyTradingBrainMcpConfig,
+} from './seed-monthly-trading-w1-workflow.js';
+
 const cfg = {
   ...getIbkrTradingConfig(),
-  makerModel: process.env.OPENAI_PRIMARY_MODEL || process.env.OPENAI_COO_MODEL || 'gpt-4o-mini',
-  checkerModel: process.env.OLLAMA_MODEL || 'llama3.2',
+  makerModel: 'gpt-4o',
+  checkerModel: 'deepseek-chat',
+  makerEndpoint: 'https://api.openai.com/v1',
+  checkerEndpoint: 'https://api.deepseek.com/v1',
 };
 const backendBase = (process.env.AGENT_OS_API_URL || process.env.BACKEND_URL || 'http://127.0.0.1:3001').replace(
   /\/$/,
@@ -131,11 +139,8 @@ Do not ask for symbols outside the allowlist.
 `;
 
 export function buildIbkrMakerCheckerGraph({ parseScriptId = PARSE_SCRIPT_ID } = {}) {
-  const openaiKey = process.env.OPENAI_API_KEY || process.env.OPENAI_PRIMARY_API_KEY || '';
-  const ollamaBase = (process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434/v1').replace(/\/$/, '');
-  const ollamaEndpoint = ollamaBase.endsWith('/v1') ? ollamaBase : `${ollamaBase}/v1`;
-  const checkerModel = cfg.checkerModel || process.env.OLLAMA_MODEL || 'llama3.2';
   const maxLoops = Number(IBKR_DAY_PLAN_VARIABLES.checker_max_loops) || 3;
+  const brainMcp = monthlyTradingBrainMcpConfig();
 
   return {
     nodes: [
@@ -297,15 +302,13 @@ export function buildIbkrMakerCheckerGraph({ parseScriptId = PARSE_SCRIPT_ID } =
           ],
           taskConfig: {
             modelSource: 'openai',
-            apiEndpoint: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
-            apiKey: openaiKey,
+            apiEndpoint: cfg.makerEndpoint,
+            apiKey: '',
+            apiKeyRef: MAKER_VAULT_KEY_REF,
             model: cfg.makerModel,
             maxTokens: 4096,
             systemPrompt: MAKER_PROMPT,
-            mcpToolCalling: false,
-            mcpServerIds: [],
-            mcpToolAllowlist: [],
-            mcpMaxToolRounds: 4,
+            ...brainMcp,
             httpHeadersJson: '{}',
           },
         },
@@ -315,7 +318,7 @@ export function buildIbkrMakerCheckerGraph({ parseScriptId = PARSE_SCRIPT_ID } =
         type: 'brain',
         position: { x: 1280, y: 40 },
         data: {
-          label: 'Checker (Ollama)',
+          label: 'Checker (DeepSeek cloud)',
           inputBindings: [
             {
               id: 'userMessage',
@@ -325,16 +328,14 @@ export function buildIbkrMakerCheckerGraph({ parseScriptId = PARSE_SCRIPT_ID } =
             },
           ],
           taskConfig: {
-            modelSource: 'ollama',
-            apiEndpoint: ollamaEndpoint,
+            modelSource: 'deepseek',
+            apiEndpoint: cfg.checkerEndpoint,
             apiKey: '',
-            model: checkerModel,
+            apiKeyRef: CHECKER_VAULT_KEY_REF,
+            model: cfg.checkerModel,
             maxTokens: 2048,
             systemPrompt: CHECKER_PROMPT,
-            mcpToolCalling: false,
-            mcpServerIds: [],
-            mcpToolAllowlist: [],
-            mcpMaxToolRounds: 4,
+            ...brainMcp,
             httpHeadersJson: '{}',
           },
         },
@@ -474,10 +475,11 @@ export function buildIbkrMakerCheckerGraph({ parseScriptId = PARSE_SCRIPT_ID } =
             },
           ],
           taskConfig: {
-            modelSource: 'ollama',
-            apiEndpoint: ollamaEndpoint,
+            modelSource: 'openai',
+            apiEndpoint: cfg.makerEndpoint,
             apiKey: '',
-            model: checkerModel,
+            apiKeyRef: MAKER_VAULT_KEY_REF,
+            model: cfg.makerModel,
             maxTokens: 256,
             systemPrompt: 'Summarize why the IBKR day plan stopped in one short sentence.',
             mcpToolCalling: false,

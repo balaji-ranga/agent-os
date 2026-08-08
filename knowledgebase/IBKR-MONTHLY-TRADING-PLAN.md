@@ -1,6 +1,22 @@
 # IBKR Monthly Positive Return Trading System — Implementation Plan
 
-Event-driven, split-architecture trading system: the VPS runs screening, Maker (Claude Opus) / Checker (deepseek-v4-flash) planning, CEO approval, notifications, and the daily digest email; the laptop runs a small execution workflow plus a local IBKR bridge that places orders against the local IB Gateway and pushes fill/equity events back to the VPS via webhooks.
+Event-driven, split-architecture trading system: the VPS runs screening, Maker (OpenAI GPT) / Checker (DeepSeek cloud) planning, CEO approval, notifications, and the daily digest email; the laptop runs a small execution workflow plus a local IBKR bridge that places orders against the local IB Gateway and pushes fill/equity/**account_snapshot** events back to the VPS via webhooks.
+
+**CEO-facing flow diagrams + “data is per-user”:** [platform-help/20-ibkr-monthly-trading.md](platform-help/20-ibkr-monthly-trading.md).
+
+**Owner isolation:** every cloud IBKR row (plans, snapshot cache, fills, equity marks, ledger, order events) is keyed by `owner_user_id` for that CEO — never a shared multi-tenant book.
+
+### Workflow short definitions
+
+| | Name | Goal | Outcome |
+|---|------|------|---------|
+| **W1** | Post-Close Review & Plan (`monthly-trading-w1-post-close`) | Plan **next** session (Maker/Checker + gates + optional CEO) | Approved/pending day plan + digest |
+| **W2** | Execute (`monthly-trading-w2-execute`) | Place open plan on **laptop** via bridge | Orders at IBKR + plan status / execution report |
+| **W3** | IBKR Events (`monthly-trading-w3-events`) | Ingest bridge snapshots/fills/marks/EOD | Owner book + learnings; EOD starts W1 |
+| **W4** | — | Not used in this suite | — |
+| **W5** | Weekly Review (`monthly-trading-w5-weekly`) | Weekly performance email | Digest only (no trades) |
+
+Full tables: [IBKR-MONTHLY-WORKFLOWS.md](IBKR-MONTHLY-WORKFLOWS.md). CEO language: [platform-help/20-ibkr-monthly-trading.md](platform-help/20-ibkr-monthly-trading.md) (includes IBKR Summary UI and transactional clear).
 
 Related: [IBKR-TRADING-WORKFLOW.md](IBKR-TRADING-WORKFLOW.md), [IBKR-MONTHLY-WORKFLOWS.md](IBKR-MONTHLY-WORKFLOWS.md), [IBKR-MONTHLY-EXECUTION-MODEL.md](IBKR-MONTHLY-EXECUTION-MODEL.md), [IBKR-MONTHLY-MAKER-PROMPT.md](IBKR-MONTHLY-MAKER-PROMPT.md), [IBKR-MONTHLY-CHECKER-PROMPT.md](IBKR-MONTHLY-CHECKER-PROMPT.md), [IBKR-LOCAL-BRIDGE.md](IBKR-LOCAL-BRIDGE.md).
 
@@ -10,7 +26,7 @@ Related: [IBKR-TRADING-WORKFLOW.md](IBKR-TRADING-WORKFLOW.md), [IBKR-MONTHLY-WOR
 - Split architecture: VPS = brains/approvals/notifications/email; laptop = order execution against local gateway via a new HTTP bridge; chained by webhooks.
 - Market data: external API for screening/fundamentals (Financial Modeling Prep, BYO key), IBKR for account/orders/fills.
 - Autonomy: buys and profitable sells automatic; exchange-side bracket stops automatic; CEO Kanban approval only for discretionary sells at >= 3% loss.
-- Trading Maker = Claude Opus (anthropic Brain node), trading Checker = `deepseek-v4-flash` (deepseek Brain node), both BYOK.
+- Trading Maker = OpenAI GPT (`openai` Brain, default `gpt-4o`, vault **`openAI_key`**), trading Checker = DeepSeek cloud (`deepseek` Brain, default `deepseek-chat`, vault **`deepseek_key`**). Optional Brave Search MCP (`mcp-brave-search` + vault **`BRAVE_SEARCH_BYOK`**). No Ollama on W1 brains.
 - All strategy parameters (mcap floor, momentum windows, risk %, monthly drawdown guardrail 3-5%, etc.) live in workflow variables / DB — nothing hardcoded.
 
 ## Architecture
@@ -28,19 +44,22 @@ flowchart LR
     w3[W3 Event Handler webhook]
     w1[W1 Post-Close Review and Plan]
     w4[W5 Weekly Review cron]
-    maker[Maker Brain Claude Opus]
-    checker[Checker Brain deepseek-v4-flash]
+    maker[Maker Brain OpenAI GPT]
+    checker[Checker Brain DeepSeek cloud]
     gates[custom_script hard gates]
     approval[ceo_approval Kanban]
     digest[Daily digest email node]
     notify[notify_ceo milestones]
   end
-  bridge -->|"fills, equity marks, snapshot (webhook)"| w3
-  w3 -->|post-close snapshot event| w1
+  bridge -->|"fills, equity marks, account_snapshot, eod (webhook)"| w3
+  w3 -->|post-close eod| w1
+  w3 -->|ingest book cache| snapCache[(ibkr_account_snapshot_cache)]
+  w1 -->|GET /account-snapshot/latest| snapCache
   w1 --> maker --> checker --> gates --> approval
   w1 --> digest
   w1 -->|approved plan stored| planDb[(trading_day_plans)]
   w2 -->|"fetch plan (HTTPS + token)"| planDb
+  w2 -->|execute-day-plan → post-session snapshot push| bridge
   w3 --> notify
 ```
 
@@ -62,7 +81,7 @@ flowchart LR
 
 4. **New `backend/local-ibkr-bridge/`** — slim Node service reusing `backend/src/services/ibkr-gateway-client.js` logic, loopback HTTP (e.g. 127.0.0.1:3010, local token auth):
    - Endpoints: `/ping`, `/account-snapshot`, `/place-bracket` (STP-LMT breakout entries + TP + stop), `/modify-stop` (trailing raise), `/sell-to-close`, `/cancel`, `/open-orders`, `/push-equity-mark`, `/push-eod-snapshot`.
-   - **Event pusher**: order-status / equity / EOD envelopes → HTTPS POST to VPS workflow webhook (`x-workflow-hook-secret`), with retry queue (`data/webhook-retry.json`). Post-close `eod_snapshot` triggers W1 later.
+   - Event pusher: order-status / equity / **account_snapshot** / EOD envelopes → HTTPS POST to VPS workflow webhook (`x-workflow-hook-secret`), with retry queue (`data/webhook-retry.json`). Full book is pushed after every successful Gateway session (including end of execute-day-plan when orders fail). Post-close `eod_snapshot` triggers W1 later; W1 reads VPS cache via `GET /api/ibkr-trading/account-snapshot/latest`.
    - Windows setup: `scripts/run-bridge.ps1` + `scripts/register-task-scheduler.ps1` (pattern from `platform-help/17-desktop-windows-download.md`).
    - Docs: [IBKR-LOCAL-BRIDGE.md](IBKR-LOCAL-BRIDGE.md) and `backend/local-ibkr-bridge/README.md`. Offline: `npm run test:offline` (`BRIDGE_MOCK_IBKR=1`).
 
@@ -96,7 +115,7 @@ Keep in sync with `backend/scripts/lib/trading-strategy-prompt.js`.
 
 ## Phase 3 — Workflows (seeded like `backend/scripts/seed-ibkr-maker-checker-workflow.js`)
 
-5. **W1 Post-Close Review & Plan (VPS, event-triggered by EOD snapshot webhook; cron fallback)** — `market_regime` -> guardrail check -> position review (50/200-DMA, momentum, abnormal volume) -> `market_screener` + fundamentals -> **Maker Brain (Claude Opus)** produces plan JSON (holds/reduces/exits/stop-raises/partial-profits/new breakout entries with trigger levels and 1.5x volume condition) -> **Checker Brain (deepseek-v4-flash)** validates against rules -> `custom_script` deterministic gates (risk %, exposure caps, market filter, guardrail, never-average-down) -> IF plan contains discretionary sells at >= 3% loss -> `ceo_approval` Kanban gate for those items only -> save to `trading_day_plans` -> **daily consolidated digest email** (equity, MTD return vs target, fills today, plan for tomorrow, guardrail status) + `notify_ceo` summary.
+5. **W1 Post-Close Review & Plan (VPS, event-triggered by EOD snapshot webhook; cron fallback)** — `market_regime` -> guardrail check -> position review (50/200-DMA, momentum, abnormal volume) -> `market_screener` + fundamentals -> **Maker Brain (OpenAI GPT via vault openAI_key; optional Brave MCP)** produces plan JSON (holds/reduces/exits/stop-raises/partial-profits/new breakout entries with trigger levels and 1.5x volume condition) -> **Checker Brain (DeepSeek cloud via vault deepseek_key)** validates against rules -> `custom_script` deterministic gates (risk %, exposure caps, market filter, guardrail, never-average-down) -> IF plan contains discretionary sells at >= 3% loss -> `ceo_approval` Kanban gate for those items only -> save to `trading_day_plans` -> **daily consolidated digest email** (equity, MTD return vs target, fills today, plan for tomorrow, guardrail status) + `notify_ceo` summary.
 6. **W2 Execution (laptop desktop package, Task Scheduler at US market open)** — fetch approved plan (remote tool node) -> local API nodes to bridge: place bracket entries, apply stop raises, execute exits/partial profits -> report results (remote tool nodes `ibkr_confirm_fill` / plan status update). No ceo_approval/brain nodes locally (desktop-runner constraint).
 7. **W3 IBKR Event Handler (VPS, webhook trigger)** — on fill/stop-out/reject/equity-mark events: update ledger + journal, recompute guardrail; `notify_ceo` on milestones (fills, stop-outs, partial profits taken, monthly target reached -> risk-reduction mode, guardrail breach -> halt new entries); when a post-close snapshot arrives, chain-trigger W1.
 8. **W5 Weekly Review (VPS, cron Saturday)** — prune weak watchlist names, promote candidates, performance stats email; monthly section (metrics, HWM reset note) on the first weekly run of each month.
@@ -106,9 +125,10 @@ Keep in sync with `backend/scripts/lib/trading-strategy-prompt.js`.
 See runbook: [IBKR-MONTHLY-PHASE4.md](IBKR-MONTHLY-PHASE4.md).
 
 9. **Certify + paper E2E (automated)**
-   - Set certify env (`WORKFLOW_CERTIFY_MAKER_MODEL` = Claude Opus, `WORKFLOW_CERTIFY_CHECKER_MODEL` = deepseek-v4-flash). Comments in `.env.example` + `deploy/scripts/ensure-workflow-certify-env.sh`.
+   - Set certify env (`WORKFLOW_CERTIFY_MAKER_MODEL` = `gpt-4o`, `WORKFLOW_CERTIFY_CHECKER_MODEL` = `deepseek-chat`). Comments in `.env.example` + `deploy/scripts/ensure-workflow-certify-env.sh`.
+   - Seed W1: Maker vault `openAI_key`, Checker vault `deepseek_key`, optional Brave `BRAVE_SEARCH_BYOK` MCP.
    - Helper: `node backend/scripts/certify-monthly-trading-workflows.js` (`--dry-run` / `--seed` / `--poll`). Starts `agent_workflow_certify_start` for **W1 / W3 / W5 only** (not W2 laptop package).
-   - Paper E2E: `node backend/scripts/test-monthly-trading-paper-e2e.js` (pattern from `test-ibkr-maker-checker-e2e.js`) — screener/regime → plan → gates → CEO loss-sell branch → plan fetch → dry-run place (ledger + `BRIDGE_MOCK_IBKR`) → W3 webhook fill smoke → digest/journal compose. Passes without live Claude Opus / Gateway when keys missing.
+   - Paper E2E: `node backend/scripts/test-monthly-trading-paper-e2e.js` (pattern from `test-ibkr-maker-checker-e2e.js`) — screener/regime → plan → gates → CEO loss-sell branch → plan fetch → dry-run place (ledger + `BRIDGE_MOCK_IBKR`) → W3 webhook fill smoke → digest/journal compose. Passes without live Gateway when paper bridge mock is on.
 10. **Deploy + multi-week paper validation (CEO / ops)**
    - Deploy local + VPS; laptop Task Scheduler via `backend/local-ibkr-bridge/scripts/register-task-scheduler.ps1` ([IBKR-LOCAL-BRIDGE.md](IBKR-LOCAL-BRIDGE.md)).
    - **Automated:** seeds, paper E2E, certify helper, env docs.
@@ -116,7 +136,7 @@ See runbook: [IBKR-MONTHLY-PHASE4.md](IBKR-MONTHLY-PHASE4.md).
 
 ## Open items (CEO-provided during implementation)
 
-- FMP (or preferred provider) API key; Anthropic + DeepSeek API keys for the Brain nodes; confirmation of SMTP configured (`WORKFLOW_SMTP_*`) and digest recipient address.
+- FMP (or preferred provider) API key; CEO vault **openAI_key** + **deepseek_key** for W1 brains (optional **BRAVE_SEARCH_BYOK**); confirmation of SMTP configured (`WORKFLOW_SMTP_*`) and digest recipient address.
 
 ## Appendix — Strategy goal (verbatim source for the Maker system prompt)
 

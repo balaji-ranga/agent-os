@@ -5,6 +5,7 @@ import { getDb } from '../db/schema.js';
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { getOpenClawDir } from '../config/openclaw-paths.js';
+import { writeOpenClawConfigSafe } from './openclaw-config-safe.js';
 
 const OPENCLAW_DIR = getOpenClawDir();
 const DEFAULT_TOOLS_LIST_PATH = join(OPENCLAW_DIR, 'agent-os-tools.json');
@@ -210,7 +211,7 @@ function syncGlobalToolsAllow(_toolNames) {
     }
     delete config.tools.allow;
     delete config.tools.alsoAllow;
-    writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+    writeOpenClawConfigSafe(config);
     console.info('[content-tools-meta] cleared global tools.allow (browser CDP requires no global allowlist)');
   } catch (_) {
     /* best-effort */

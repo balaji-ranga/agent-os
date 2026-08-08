@@ -992,3 +992,327 @@ export function grantPlatformFeedbackTools() {
   }
   return n;
 }
+
+const CRM_TOOLS = [
+  {
+    name: 'crm_status',
+    display_name: 'CRM Status',
+    endpoint: '/api/tools/crm-status',
+    method: 'POST',
+    purpose:
+      'Twenty CRM status: bind, API key set?, objects (people/companies/opportunities/notes/tasks). Owner-scoped.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'crm_list_people',
+    display_name: 'CRM List People',
+    endpoint: '/api/tools/crm-list-people',
+    method: 'POST',
+    purpose: 'List Twenty people/contacts (optional limit). Requires Profile CRM=Twenty + TWENTY_API_KEY.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'crm_create_person',
+    display_name: 'CRM Create Person',
+    endpoint: '/api/tools/crm-create-person',
+    method: 'POST',
+    purpose: 'Create Twenty person (name, email?, phone?, company_id?). Prefer CRM Checker for bulk.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'crm_list_companies',
+    display_name: 'CRM List Companies',
+    endpoint: '/api/tools/crm-list-companies',
+    method: 'POST',
+    purpose: 'List Twenty companies/accounts (optional limit).',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'crm_create_company',
+    display_name: 'CRM Create Company',
+    endpoint: '/api/tools/crm-create-company',
+    method: 'POST',
+    purpose: 'Create Twenty company (name required; domain_url?, employees?).',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'crm_list_opportunities',
+    display_name: 'CRM List Opportunities',
+    endpoint: '/api/tools/crm-list-opportunities',
+    method: 'POST',
+    purpose: 'List Twenty opportunities/deals (optional limit, stage filter). Same surface as crm_list_deals.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'crm_list_deals',
+    display_name: 'CRM List Deals',
+    endpoint: '/api/tools/crm-list-deals',
+    method: 'POST',
+    purpose: 'Alias of crm_list_opportunities — Twenty pipeline deals.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'crm_create_opportunity',
+    display_name: 'CRM Create Opportunity',
+    endpoint: '/api/tools/crm-create-opportunity',
+    method: 'POST',
+    purpose:
+      'Create Twenty opportunity/deal (name, amount?, stage?, company_id?, close_date?). Stages e.g. NEW, SCREENING, PROPOSAL.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'crm_create_deal',
+    display_name: 'CRM Create Deal',
+    endpoint: '/api/tools/crm-create-deal',
+    method: 'POST',
+    purpose: 'Create deal (opportunity) default stage PROPOSAL. Params: name, amount, company_id…',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'crm_update_opportunity',
+    display_name: 'CRM Update Opportunity',
+    endpoint: '/api/tools/crm-update-opportunity',
+    method: 'POST',
+    purpose: 'Patch Twenty opportunity by id (stage, amount, name…).',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'crm_list_leads',
+    display_name: 'CRM List Leads',
+    endpoint: '/api/tools/crm-list-leads',
+    method: 'POST',
+    purpose:
+      'List pipeline leads (Twenty opportunities in early stages NEW/SCREENING/MEETING/PROPOSAL/QUALIFIED).',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'crm_create_lead',
+    display_name: 'CRM Create Lead',
+    endpoint: '/api/tools/crm-create-lead',
+    method: 'POST',
+    purpose: 'Create lead as Twenty opportunity with stage NEW (name, amount?, company_id?).',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'crm_list_notes',
+    display_name: 'CRM List Notes',
+    endpoint: '/api/tools/crm-list-notes',
+    method: 'POST',
+    purpose: 'List Twenty notes for this workspace.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'crm_list_tasks',
+    display_name: 'CRM List Tasks',
+    endpoint: '/api/tools/crm-list-tasks',
+    method: 'POST',
+    purpose: 'List Twenty tasks for this workspace.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'crm_sync_org',
+    display_name: 'CRM Sync Org',
+    endpoint: '/api/tools/crm-sync-org',
+    method: 'POST',
+    purpose: 'Sync Flolah departments + AI employees into Twenty (people). Owner-scoped.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+];
+
+export function seedCrmToolsIfMissing() {
+  const db = getDb();
+  const stmt = db.prepare(
+    `INSERT OR IGNORE INTO content_tools_meta (name, display_name, endpoint, method, purpose, model_used, enabled, is_builtin)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  for (const t of CRM_TOOLS) {
+    stmt.run(t.name, t.display_name, t.endpoint, t.method, t.purpose, t.model_used, t.enabled, t.is_builtin);
+  }
+  const update = db.prepare(
+    'UPDATE content_tools_meta SET purpose = ?, display_name = ?, endpoint = ?, method = ? WHERE name = ?'
+  );
+  for (const t of CRM_TOOLS) {
+    update.run(t.purpose, t.display_name, t.endpoint, t.method, t.name);
+  }
+}
+
+const ERP_TOOLS_META = [
+  {
+    name: 'erp_status',
+    display_name: 'ERP Status',
+    endpoint: '/api/tools/erp-status',
+    method: 'POST',
+    purpose:
+      'ERPNext status: company bind, API configured?, objects (Customer, Lead, Item, Quotation, Sales Order, Project).',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'erp_list_customers',
+    display_name: 'ERP List Customers',
+    endpoint: '/api/tools/erp-list-customers',
+    method: 'POST',
+    purpose: 'List ERPNext Customers for this Flolah company map (Frappe REST).',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'erp_create_customer',
+    display_name: 'ERP Create Customer',
+    endpoint: '/api/tools/erp-create-customer',
+    method: 'POST',
+    purpose: 'Create ERPNext Customer (customer_name required).',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'erp_list_leads',
+    display_name: 'ERP List Leads',
+    endpoint: '/api/tools/erp-list-leads',
+    method: 'POST',
+    purpose: 'List ERPNext Lead documents.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'erp_create_lead',
+    display_name: 'ERP Create Lead',
+    endpoint: '/api/tools/erp-create-lead',
+    method: 'POST',
+    purpose: 'Create ERPNext Lead (lead_name required).',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'erp_list_items',
+    display_name: 'ERP List Items',
+    endpoint: '/api/tools/erp-list-items',
+    method: 'POST',
+    purpose: 'List ERPNext Items (catalog).',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'erp_list_quotations',
+    display_name: 'ERP List Quotations',
+    endpoint: '/api/tools/erp-list-quotations',
+    method: 'POST',
+    purpose: 'List ERPNext Quotations for company.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'erp_list_sales_orders',
+    display_name: 'ERP List Sales Orders',
+    endpoint: '/api/tools/erp-list-sales-orders',
+    method: 'POST',
+    purpose: 'List ERPNext Sales Orders for company.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'erp_list_projects',
+    display_name: 'ERP List Projects',
+    endpoint: '/api/tools/erp-list-projects',
+    method: 'POST',
+    purpose: 'List ERPNext Projects for company.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'erp_list_resource',
+    display_name: 'ERP List Resource',
+    endpoint: '/api/tools/erp-list-resource',
+    method: 'POST',
+    purpose: 'Generic Frappe list: doctype + optional filters/fields/limit. Company filter applied when relevant.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'erp_create_resource',
+    display_name: 'ERP Create Resource',
+    endpoint: '/api/tools/erp-create-resource',
+    method: 'POST',
+    purpose: 'Generic Frappe create: doctype + doc body. Prefer Checker before financial posts.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'erp_get_resource',
+    display_name: 'ERP Get Resource',
+    endpoint: '/api/tools/erp-get-resource',
+    method: 'POST',
+    purpose: 'Generic Frappe get by doctype + name.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'erp_sync_org',
+    display_name: 'ERP Sync Org',
+    endpoint: '/api/tools/erp-sync-org',
+    method: 'POST',
+    purpose: 'Sync Flolah departments + AI employees into ERPNext Department/Employee.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+];
+
+export function seedErpToolsIfMissing() {
+  const db = getDb();
+  const stmt = db.prepare(
+    `INSERT OR IGNORE INTO content_tools_meta (name, display_name, endpoint, method, purpose, model_used, enabled, is_builtin)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  for (const t of ERP_TOOLS_META) {
+    stmt.run(t.name, t.display_name, t.endpoint, t.method, t.purpose, t.model_used, t.enabled, t.is_builtin);
+  }
+  const update = db.prepare(
+    'UPDATE content_tools_meta SET purpose = ?, display_name = ?, endpoint = ?, method = ? WHERE name = ?'
+  );
+  for (const t of ERP_TOOLS_META) {
+    update.run(t.purpose, t.display_name, t.endpoint, t.method, t.name);
+  }
+}

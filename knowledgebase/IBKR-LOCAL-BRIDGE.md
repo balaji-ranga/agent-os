@@ -1,6 +1,14 @@
 # IBKR Local Bridge (laptop)
 
-Phase 2 of the [Monthly Positive Return plan](IBKR-MONTHLY-TRADING-PLAN.md): a loopback HTTP service on the trading laptop that wraps `backend/src/services/ibkr-gateway-client.js` and pushes fill / equity events to the VPS.
+Phase 2 of the [Monthly Positive Return plan](IBKR-MONTHLY-TRADING-PLAN.md): a loopback HTTP service on the trading laptop that wraps `backend/src/services/ibkr-gateway-client.js` and pushes fill / equity / **account snapshot** events to the VPS.
+
+**CEO end-user guide (flow diagrams + “is my data private?”):** [platform-help/20-ibkr-monthly-trading.md](platform-help/20-ibkr-monthly-trading.md).
+
+**Data isolation:** webhook events update **only the CEO** who owns the W3 workflow (session / workflow owner). IBKR cloud tables are keyed by `owner_user_id` — not shared across users.
+
+**Workflow roles (W1–W5):** W1 plans (cloud) · W2 executes (laptop → this bridge) · W3 ingests events · **W4 unused** · W5 weekly email. Full names/goals/outcomes: [platform-help/20-ibkr-monthly-trading.md](platform-help/20-ibkr-monthly-trading.md), [IBKR-MONTHLY-WORKFLOWS.md](IBKR-MONTHLY-WORKFLOWS.md).
+
+**Cloud UI:** [IBKR Summary](platform-help/20-ibkr-monthly-trading.md#ibkr-summary-page-ibkr-summary) (`/ibkr-summary`) shows plan vs executed and can **clear transactional** data without wiping budget Variables.
 
 **Download (recommended):** CEO or admin → **Connectors** → **Local IBKR bridge** → **Download local IBKR bridge** (Windows zip with optional portable Node; mints `LOCAL_BRIDGE_TOKEN` into `.env`). Lite download omits Node. Paste the same token into W2 variable `local_bridge_token`.
 
@@ -15,7 +23,20 @@ Phase 2 of the [Monthly Positive Return plan](IBKR-MONTHLY-TRADING-PLAN.md): a l
 | IB Gateway / TWS | Laptop | Socket API (paper 4002) |
 | **local-ibkr-bridge** | Laptop `127.0.0.1:3010` | Auth’d JSON API + webhook pusher |
 | W2 Execution | Laptop desktop package | Calls bridge at market open |
-| W3 Event Handler | VPS webhook | Receives `fill` / `equity_mark` / `eod_snapshot` |
+| W3 Event Handler | VPS webhook | Receives `account_snapshot` / `fill` / `equity_mark` / `eod_snapshot` into that CEO’s private tables |
+
+## Simple end-to-end (ops)
+
+```mermaid
+flowchart LR
+  GW[IB Gateway] --> Bridge[Local bridge]
+  Bridge -->|WEBHOOK account_snapshot fill eod| W3[W3 owner-scoped]
+  W3 --> Cache[That CEO cache + learnings]
+  Cache --> W1[W1 plan]
+  W1 --> Plan[That CEO day plan]
+  Plan --> W2[W2 laptop]
+  W2 --> Bridge
+```
 
 ## Auth and bind
 

@@ -13,6 +13,7 @@ import { removeWorkflowSchedulesForOwner } from './agent-workflow-store.js';
 import { deleteDefinitionWithCleanup } from './agent-workflow-run-manager.js';
 import { deleteAgentCascade } from './agent-delete.js';
 import { getOpenClawDir, getOpenClawConfigPath } from '../config/openclaw-paths.js';
+import { writeOpenClawConfigSafe } from './openclaw-config-safe.js';
 import { deleteAllMediaForOwner } from './ceo-media-artifacts.js';
 import { deleteAllAvatarsForOwner } from './ceo-avatars.js';
 
@@ -92,7 +93,7 @@ function scrubOpenClawTenantAgents(ceoUserId) {
   if (removed > 0) {
     config.agents = config.agents || {};
     config.agents.list = next;
-    writeFileSync(path, JSON.stringify(config, null, 2), 'utf8');
+    writeOpenClawConfigSafe(config);
   }
   return { removed };
 }
@@ -194,6 +195,11 @@ function purgeOwnerScopedRows(db, ownerUserId) {
   ]);
   counts.ibkr_order_events = tryRun(db, `DELETE FROM ibkr_order_events WHERE owner_user_id = ?`, [ownerUserId]);
   counts.ibkr_positions = tryRun(db, `DELETE FROM ibkr_positions_cache WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.ibkr_account_snapshot_cache = tryRun(
+    db,
+    `DELETE FROM ibkr_account_snapshot_cache WHERE owner_user_id = ?`,
+    [ownerUserId]
+  );
 
   // Shared-DB master data / job tables (when not using tenant file)
   counts.md_chunks = tryRun(db, `DELETE FROM master_data_doc_chunks WHERE owner_user_id = ?`, [ownerUserId]);

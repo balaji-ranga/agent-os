@@ -14,9 +14,7 @@ import { executeConnectorAction } from './openconnector.js';
 import { executeCustomScriptTask } from './custom-scripts.js';
 import { executeExternalAgentTask } from './agent-workflow-external-agent.js';
 import { runMasterDataQuery } from './master-data.js';
-import { getToolMeta } from './content-tools-meta.js';
-import { getPublicBaseUrl } from '../config/public-url.js';
-import { internalAuthHeaders } from '../middleware/internal-auth.js';
+import { invokeContentToolHttp } from './content-tool-http-invoke.js';
 import {
   getMcpServerForWorkflow,
   callMcpServerTool,
@@ -145,28 +143,8 @@ function updateProgress(runId) {
     .run(pct, runId);
 }
 
-function getBackendBaseUrl() {
-  return getPublicBaseUrl() || `http://127.0.0.1:${process.env.PORT || 3001}`;
-}
-
 async function invokeContentTool(toolName, body, ownerUserId = null) {
-  const row = getToolMeta(toolName);
-  if (!row) throw new Error(`Tool not found: ${toolName}`);
-  if (!row.enabled) throw new Error(`Tool disabled: ${toolName}`);
-  const baseUrl = getBackendBaseUrl();
-  let targetUrl = row.endpoint;
-  if (targetUrl.startsWith('/')) targetUrl = baseUrl + targetUrl;
-  const headers = internalAuthHeaders();
-  if (ownerUserId) headers['x-ceo-user-id'] = String(ownerUserId);
-  const response = await fetch(targetUrl, {
-    method: row.method || 'POST',
-    headers,
-    body: JSON.stringify(body || {}),
-    signal: AbortSignal.timeout(120000),
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || `Tool ${toolName} failed (${response.status})`);
-  return data;
+  return invokeContentToolHttp(toolName, body, ownerUserId);
 }
 
 /**

@@ -282,7 +282,8 @@ Set in backend `.env`:
 | **Workflow Builder chat** | LLM assistant in the workflow editor to create/edit graphs via natural language. |
 | **Job profiles** | CEO job search profiles (intake, resume, preferences); gate for Job Applicant pipeline. |
 | **Job workflows** | Multi-agent **Job Applicant** pipeline (Discovery → Fit Scoring → Resume Tailoring → Application); Kanban-tracked stages; browser/Playwright apply path. See **knowledgebase/JOB-APPLICANT-WORKFLOW.md**. |
-| **MCP integrations** | Register MCP servers (admin/CEO); connect, test tools, playground; use in workflow **MCP Tool** and **SSE Listen** nodes. Local test server: `tools/local-mcp-random-sse/`. Bundled **Brave Search MCP** wrapper (`tools/brave-search-mcp-byok/`, compose profile `optional-brave-mcp`) is **header BYOK** (container never reads `BRAVE_API_KEY`). Bundled **Meta Graph MCP** (`tools/meta-graph-mcp/`, profile `optional-meta-graph-mcp`) is **per-CEO OAuth** under **Connectors → MCPs** for Facebook Page tools (platform App credentials with optional CEO App override; see platform-help **31**). Agent content tool **`brave_web_search`** uses platform `BRAVE_API_KEY` or vault **`BRAVE_SEARCH_BYOK`** from Profile. Deploy: `deploy/scripts/ensure-platform-mcps.sh`. |
+| **MCP integrations** | Register MCP servers (admin/CEO); connect, test tools, playground; use in workflow **MCP Tool** and **SSE Listen** nodes. Local test server: `tools/local-mcp-random-sse/`. Bundled **Brave Search MCP** (`optional-brave-mcp`, header BYOK). **Meta Graph MCP** (`optional-meta-graph-mcp`, Connectors OAuth — help **31**). **Business Core MCP** (`optional-business-core-mcp`) seeds **`mcp-flolah-crm`** + **`mcp-flolah-erp`** (Twenty/ERPNext tools; help **32**). Agent content tool **`brave_web_search`** uses platform `BRAVE_API_KEY` or vault **`BRAVE_SEARCH_BYOK`**. Deploy: `deploy/scripts/ensure-platform-mcps.sh`. |
+| **Business Core (CRM/ERP)** | Optional **Twenty** CRM / **ERPNext** ERP on Profile or Company setup. Selecting platform CRM/ERP provisions **Maker/Checker** AI employees (2 makers + 1 checker each) with `crm_*` / `erp_*` tools, nav embeds when configured, and platform MCP for workflows. Plan: `knowledgebase/BUSINESS-CORE-WORKSPACE-PLAN.md`. Daily **Work** surface: `/work`. |
 | **External agents (A2A)** | Register external agent endpoints; invoke from workflow **External Agent** node. |
 | **Tools** (UI `/content-tools`) | Agent-callable **content tools**: summarize URL, image/video gen, Kanban, **intent_classify_and_delegate**, workflow trigger/enquire/mutate, job applicant tools, **email_send**, **notify_ceo**, **Master Data**, learnings, etc.; owner-scoped logs UI; **Tools → Model** (per-CEO tool→model overrides for BYOK-aware tools; excludes custom-script review and embeddings); onboard new APIs via script. |
 | **Browser Session** | `/browser-session` — managed Playwright or **Client Chrome** (Browser Relay); NL tasks + recorder **recipes**. Agents use **`browse_*`** content tools (`browse_task_start`, `browse_recipe_list`, `browse_recipe_run`, …), CEO-scoped; grant list vs run in Workspace → Tool access. Backend CDP via dedicated OpenClaw agent `browser-cdp` (`BROWSER_TASK_CDP_AGENT_ID`). Chat thumbs-down comments feed `learnings_summary`. Guides: `knowledgebase/CLIENT-BROWSER-SESSION.md`, `knowledgebase/platform-help/22-browser-session-and-recipes.md`. |
@@ -330,6 +331,7 @@ New CEOs start with **empty** standups (no other user’s chats or agents), star
 - **Dynamic auth:** API / MCP / Brain `apiKey` / External Agent override / SSE headers accept the same `{{…}}` templates (values look static in the UI; runner substitutes at execute time). Brave Search MCP is **BYOK** (workflow headers only — no container `BRAVE_API_KEY` fallback). Agent tool `brave_web_search` uses platform `BRAVE_API_KEY` or vault `BRAVE_SEARCH_BYOK` by Profile.
 - **A2A publish:** Publish → AgentExchange + agent card / JSON-RPC under `/api/a2a/:publishId`. **Visibility** `public` (default) or `private` (public endpoints always denied; COO / reports-to lead via org path only). **Sync** or **Async**; optional callback URL. **Deny all** IP default; **Allow all** or IP whitelist. **Public auth** or **Secured** OAuth.
 - **Download for Windows:** Published workflow → **Download for Windows** (lite or with portable Node 18). Local orchestrator; Flolah holds run state + remote nodes. Guide: `knowledgebase/platform-help/17-desktop-windows-download.md`.
+- **IBKR Monthly Positive Return:** Cloud plans (W1/W3/W5) + laptop execute (W2) + local bridge. **IBKR Summary** UI `/ibkr-summary` (owner-scoped portfolio & plan vs done; **Clear data…** wipes transactional rows only). CEO help **20**; ops `knowledgebase/IBKR-MONTHLY-WORKFLOWS.md`; bridge `backend/local-ibkr-bridge/`.
 - **Runs:** Kanban tasks per step; fail run on API/MCP errors (non-2xx HTTP, SSL errors, MCP `is_error`)
 - **Help:** Platform Help agent RAG over `knowledgebase/platform-help/` (re-upload with `node backend/scripts/reupload-platform-help-docs.js` after doc changes).
 - **Tests:** `node backend/scripts/test-sse-workflow.js`, `node backend/scripts/test-balaji-brave-byok-workflow.js`, `node backend/scripts/test-workflow-auth-templates.js`, `node backend/scripts/test-workflow-desktop-package.js`
@@ -582,6 +584,8 @@ agent-os/
 ├── scripts/                    # OpenClaw/workspace; onboard-api-tool.js; tool-definitions/
 ├── tools/local-mcp-random-sse/ # Dev MCP + SSE test server (port 3099)
 ├── tools/brave-search-mcp-byok/   # Brave Search REST → HTTP MCP wrapper (BYOK headers only)
+├── tools/meta-graph-mcp/          # Facebook/IG Graph → HTTP MCP
+├── tools/business-core-mcp/       # Flolah CRM/ERP tools → HTTP MCP (workflows)
 ├── openclaw-workspace-templates/  # SOUL, AGENTS, MEMORY, TOOLS, ORG per agent type
 ├── openclaw-skills/            # agent-send, agent-os-content-tools, etc.
 ├── openclaw-extensions/        # agent-os-content-tools plugin, bootstrap watcher (ORG.md)
@@ -634,10 +638,11 @@ All project docs except this README live in **`knowledgebase/`**:
 | **DEPLOY-CENTOS-PODMAN.md** | CentOS / Podman / Docker production |
 | **OPENCONNECTOR-WEBHOOKS.md** | OpenConnector MCP, email-inbound, file pollers |
 | **IBKR-TRADING-WORKFLOW.md** | Legacy IBKR maker/checker paper day-plan workflow |
-| **IBKR-MONTHLY-WORKFLOWS.md** | Monthly Positive Return W1–W5 + bridge: schedule, tools, purpose, outcome |
+| **IBKR-MONTHLY-WORKFLOWS.md** | Monthly Positive Return **W1–W5** (+ bridge): names, goals, outcomes; Summary UI + clear-transactional APIs |
 | **IBKR-MONTHLY-TRADING-PLAN.md** | Monthly system architecture, phases, strategy appendix |
 | **IBKR-MONTHLY-EXECUTION-MODEL.md** | Cloud vs laptop execution + laptop↔VPS recovery |
 | **IBKR-LOCAL-BRIDGE.md** | Laptop HTTP bridge, Connectors zip, Gateway, webhooks |
+| **platform-help/20-ibkr-monthly-trading.md** | **CEO help:** W1–W5 defs, flow diagrams, isolation, **IBKR Summary / Clear data**, bridge setup |
 | **IBKR-MONTHLY-PHASE4.md** | Paper E2E + certify runbook before live |
 | **knowledgeGraph.md** | Neo4j knowledge graph / self-improvement |
 

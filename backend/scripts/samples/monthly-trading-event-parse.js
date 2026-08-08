@@ -2,7 +2,7 @@
  * Parse IBKR local-bridge webhook event for W3 routing.
  * Must export: run(inputs, context)
  * Outputs flags: is_equity_mark, is_fill, is_stop_out, is_eod_snapshot,
- * is_cancel_or_reject, is_order_event, event_type
+ * is_account_snapshot, is_cancel_or_reject, is_order_event, event_type
  */
 export function run(inputs = {}, context = {}) {
   let raw =
@@ -30,43 +30,53 @@ export function run(inputs = {}, context = {}) {
 
   const isEquityMark =
     eventType === 'equity_mark' || eventType === 'equity-mark' || eventType.includes('equity_mark');
+  const isAccountSnapshot =
+    eventType === 'account_snapshot' ||
+    eventType === 'account-snapshot' ||
+    eventType.includes('account_snapshot');
   const isFill =
-    eventType === 'fill' || eventType === 'order_fill' || (eventType.includes('fill') && !eventType.includes('unfill'));
+    eventType === 'fill' ||
+    eventType === 'order_fill' ||
+    (eventType.includes('fill') && !eventType.includes('unfill'));
   const isStopOut =
     eventType === 'stop_out' || eventType === 'stop-out' || eventType.includes('stop_out');
   const isEod =
     eventType === 'eod_snapshot' ||
     eventType === 'eod-snapshot' ||
     eventType.includes('eod_snapshot') ||
-    eventType.includes('eod');
+    (eventType.includes('eod') && !isAccountSnapshot);
   const isReject = eventType === 'reject' || eventType.includes('reject');
   const isCancel =
-    eventType === 'cancel' ||
-    eventType === 'cancelled' ||
-    eventType.includes('cancel');
+    eventType === 'cancel' || eventType === 'cancelled' || eventType.includes('cancel');
   const isOrderStatus =
     eventType === 'order_status' || eventType === 'order-status' || eventType.includes('order_status');
 
   const isCancelOrReject = isReject || isCancel;
   const isOrderEvent = isFill || isStopOut || isCancelOrReject || isOrderStatus;
+  // Full book should refresh VPS cache (explicit push, equity marks, or EOD).
+  const isBookRefresh = isAccountSnapshot || isEquityMark || isEod;
 
   const route = isEod
     ? 'eod_snapshot'
-    : isEquityMark
-      ? 'equity_mark'
-      : isFill || isStopOut
-        ? 'fill_or_stop'
-        : isCancelOrReject
-          ? 'cancel_or_reject'
-          : isOrderStatus
-            ? 'order_status'
-            : 'other';
+    : isAccountSnapshot
+      ? 'account_snapshot'
+      : isEquityMark
+        ? 'equity_mark'
+        : isFill || isStopOut
+          ? 'fill_or_stop'
+          : isCancelOrReject
+            ? 'cancel_or_reject'
+            : isOrderStatus
+              ? 'order_status'
+              : 'other';
 
   return {
     ok: true,
     event_type: eventType || 'unknown',
     route,
     is_equity_mark: isEquityMark ? 'true' : 'false',
+    is_account_snapshot: isAccountSnapshot ? 'true' : 'false',
+    is_book_refresh: isBookRefresh ? 'true' : 'false',
     is_fill: isFill ? 'true' : 'false',
     is_stop_out: isStopOut ? 'true' : 'false',
     is_eod_snapshot: isEod ? 'true' : 'false',
@@ -86,5 +96,4 @@ export function run(inputs = {}, context = {}) {
     text: JSON.stringify({ event_type: eventType || 'unknown', route }),
   };
 }
-
-export default { run };
+// run is the only export (sandbox injects default if missing)

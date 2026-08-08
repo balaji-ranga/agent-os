@@ -51,7 +51,29 @@ export const IBKR_TRADING_TOOLS = [
     endpoint: '/api/ibkr-trading/account-snapshot',
     method: 'POST',
     purpose:
-      'Fetch live paper account snapshot from IB Gateway (cash, positions, open orders) and merge day_status + allowlist. Body optional: owner_user_id, allowlist overrides.',
+      'Live Gateway snapshot when co-located, else last laptop bridge push (auto-fallback). Prefer GET /account-snapshot/latest or body { prefer_cached: true } on VPS. Body optional: force_live, prefer_cached.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 0,
+  },
+  {
+    name: 'ibkr_account_snapshot_latest',
+    display_name: 'IBKR Account Snapshot (cached)',
+    endpoint: '/api/ibkr-trading/account-snapshot/latest',
+    method: 'GET',
+    purpose:
+      'Return last successful laptop IBKR session book (cash, positions, open orders) pushed by local-ibkr-bridge via W3. Use for Maker/W1 when VPS has no Gateway.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 0,
+  },
+  {
+    name: 'ibkr_account_snapshot_ingest',
+    display_name: 'IBKR Account Snapshot Ingest',
+    endpoint: '/api/ibkr-trading/account-snapshot/ingest',
+    method: 'POST',
+    purpose:
+      'Ingest a full account snapshot from the laptop bridge (W3 webhook path). Owner from session — never spoof body owner_user_id. Body: gateway snapshot or equity/eod payload with positions/cash/equity.',
     model_used: '',
     enabled: 1,
     is_builtin: 0,
@@ -272,7 +294,16 @@ export const IBKR_DEFAULT_TEST_BODIES = {
   ibkr_gateway_ping: {},
   ibkr_config: {},
   ibkr_day_status: {},
-  ibkr_account_snapshot: {},
+  ibkr_account_snapshot: { prefer_cached: true },
+  ibkr_account_snapshot_latest: {},
+  ibkr_account_snapshot_ingest: {
+    cash_usd: 100000,
+    equity_usd: 100000,
+    positions: [],
+    open_orders: [],
+    source: 'ui-smoke-test',
+    captured_at: null,
+  },
   ibkr_preflight: {},
   ibkr_validate_plan: {
     plan: {
@@ -331,6 +362,7 @@ export const IBKR_COO_TOOL_NAMES = [
   'ibkr_config',
   'ibkr_day_status',
   'ibkr_account_snapshot',
+  'ibkr_account_snapshot_latest',
   'ibkr_preflight',
   'ibkr_order_learnings',
   'ibkr_monthly_guardrail',

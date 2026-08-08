@@ -118,6 +118,17 @@ x-backend-env: &backend-env
   # Do NOT inject into brave-search-mcp service — that remains header BYOK only.
   BRAVE_API_KEY: ${BRAVE_API_KEY:-}
   BRAVE_MCP_URL: ${BRAVE_MCP_URL:-http://brave-search-mcp:8080/mcp}
+  # Market data (FMP) for monthly trading W1 screener / regime — paper mode falls back when 402
+  MARKET_DATA_PROVIDER: ${MARKET_DATA_PROVIDER:-fmp}
+  MARKET_DATA_BASE_URL: ${MARKET_DATA_BASE_URL:-}
+  MARKET_DATA_API_KEY: ${MARKET_DATA_API_KEY:-}
+  MARKET_DATA_SCREENER_UNIVERSE: ${MARKET_DATA_SCREENER_UNIVERSE:-}
+  MARKET_DATA_CACHE_SCREENER_TTL_SEC_PAPER: ${MARKET_DATA_CACHE_SCREENER_TTL_SEC_PAPER:-}
+  MARKET_DATA_CACHE_SCREENER_TTL_SEC_LIVE: ${MARKET_DATA_CACHE_SCREENER_TTL_SEC_LIVE:-}
+  MARKET_DATA_CACHE_FUNDAMENTALS_TTL_SEC_PAPER: ${MARKET_DATA_CACHE_FUNDAMENTALS_TTL_SEC_PAPER:-}
+  MARKET_DATA_CACHE_FUNDAMENTALS_TTL_SEC_LIVE: ${MARKET_DATA_CACHE_FUNDAMENTALS_TTL_SEC_LIVE:-}
+  MARKET_DATA_CACHE_TODAY_BAR_TTL_SEC_PAPER: ${MARKET_DATA_CACHE_TODAY_BAR_TTL_SEC_PAPER:-}
+  MARKET_DATA_CACHE_TODAY_BAR_TTL_SEC_LIVE: ${MARKET_DATA_CACHE_TODAY_BAR_TTL_SEC_LIVE:-}
   # Meta / Facebook OAuth app (Connectors → MCPs OAuth). Secrets stay on backend only.
   # Platform MCP seed: ensure-platform-mcps.sh → mcp-meta-graph (is_platform=1).
   FACEBOOK_APP_ID: ${FACEBOOK_APP_ID:-}
@@ -129,6 +140,19 @@ x-backend-env: &backend-env
   HUNYUAN3D_TIMEOUT_MS: ${HUNYUAN3D_TIMEOUT_MS:-}
   SPEECH_STT_URL: ${SPEECH_STT_URL:-}
   SPEECH_TTS_URL: ${SPEECH_TTS_URL:-}
+  # Business Core (optional Twenty / ERPNext — deploy/docker-compose.business-core.yml)
+  TWENTY_API_URL: ${TWENTY_API_URL:-}
+  TWENTY_API_KEY: ${TWENTY_API_KEY:-}
+  TWENTY_SERVER_URL: ${TWENTY_SERVER_URL:-}
+  TWENTY_EMBED_URL: ${TWENTY_EMBED_URL:-}
+  TWENTY_PUBLIC_HTTPS_PORT: ${TWENTY_PUBLIC_HTTPS_PORT:-8443}
+  ERPNEXT_URL: ${ERPNEXT_URL:-}
+  ERPNEXT_API_KEY: ${ERPNEXT_API_KEY:-}
+  ERPNEXT_API_SECRET: ${ERPNEXT_API_SECRET:-}
+  ERPNEXT_EMBED_URL: ${ERPNEXT_EMBED_URL:-}
+  ERPNEXT_PUBLIC_URL: ${ERPNEXT_PUBLIC_URL:-}
+  ERPNEXT_PUBLIC_HTTPS_PORT: ${ERPNEXT_PUBLIC_HTTPS_PORT:-8444}
+  BUSINESS_CORE_MCP_URL: ${BUSINESS_CORE_MCP_URL:-http://business-core-mcp:8082/mcp}
   REPLICATE_PRIMARY_BASE_URL: ${REPLICATE_PRIMARY_BASE_URL:-https://api.replicate.com/v1}
   REPLICATE_SECONDARY_BASE_URL: ${REPLICATE_SECONDARY_BASE_URL:-}
   REPLICATE_SECONDARY_API_TOKEN: ${REPLICATE_SECONDARY_API_TOKEN:-}
@@ -450,6 +474,32 @@ services:
       - "8081"
     healthcheck:
       test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8081/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # Business Core MCP (HTTP) — Flolah CRM (Twenty) + ERP (ERPNext) tools for workflows / Brain.
+  # Same tool surface as agent content tools (crm_*, erp_*). Owner via X-Ceo-User-Id (+ TOOLS_API_KEY inside container).
+  # Start: docker compose --profile optional-business-core-mcp up -d --build business-core-mcp
+  # Seed: docker compose exec backend node scripts/seed-business-core-mcp.js  # mcp-flolah-crm, mcp-flolah-erp
+  business-core-mcp:
+    profiles: ["optional-business-core-mcp"]
+    build:
+      context: ..
+      dockerfile: deploy/docker/business-core-mcp.Dockerfile
+    image: agent-os-business-core-mcp:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      BUSINESS_CORE_MCP_PORT: "8082"
+      AGENT_OS_TOOLS_URL: ${AGENT_OS_TOOLS_URL:-http://backend:3001}
+      TOOLS_API_KEY: ${TOOLS_API_KEY:-}
+    expose:
+      - "8082"
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8082/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
       interval: 30s
       timeout: 5s
       retries: 5

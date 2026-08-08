@@ -77,7 +77,10 @@ import { ensureDefaultAdmin, ensureBalaCeoUser, grantStandardAgents, pruneShared
 import { ensureCeoDefaultMasterDataForAllCeos } from './services/ceo-default-master-data.js';
 import { initDb, getDb } from './db/schema.js';
 import { seedDefaultAgentsIfEmpty, seedAgentDepartmentsIfMissing } from './db/seed-default-agents.js';
-import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, seedWorkflowToolsIfMissing, seedLearningsToolsIfMissing, seedEmailSendToolIfMissing, seedSpeechToolsIfMissing, seedVisionToolsIfMissing, seedNotifyCeoToolIfMissing, seedOnboardingProposalToolsIfMissing, seedCeoProfileToolIfMissing, seedStatusCheckerToolIfMissing, seedMasterDataToolsIfMissing, seedConnectorToolsIfMissing, seedVedicChartToolIfMissing, updateKanbanToolPurposes, seedPlatformFeedbackToolsIfMissing, grantPlatformFeedbackTools, seedScheduledGoalToolsIfMissing } from './db/seed-content-tools-meta.js';
+import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, seedWorkflowToolsIfMissing, seedLearningsToolsIfMissing, seedEmailSendToolIfMissing, seedSpeechToolsIfMissing, seedVisionToolsIfMissing, seedNotifyCeoToolIfMissing, seedOnboardingProposalToolsIfMissing, seedCeoProfileToolIfMissing, seedStatusCheckerToolIfMissing, seedMasterDataToolsIfMissing, seedConnectorToolsIfMissing, seedVedicChartToolIfMissing, updateKanbanToolPurposes, seedPlatformFeedbackToolsIfMissing, grantPlatformFeedbackTools, seedScheduledGoalToolsIfMissing, seedCrmToolsIfMissing, seedErpToolsIfMissing } from './db/seed-content-tools-meta.js';
+import businessCoreRoutes from './routes/business-core.js';
+import companyWorkspaceRoutes from './routes/company-workspace.js';
+import { ensureCompanyBusinessProfileSchema } from './services/company-business-profile.js';
 import { seedJobApplicantToolsIfMissing } from './db/seed-job-applicant-tools.js';
 import { seedIbkrTradingToolsIfMissing } from './db/seed-ibkr-trading-tools.js';
 import { seedBrowserSessionToolsIfMissing, grantBrowserSessionToolsToAllAgents } from './db/seed-browser-session-tools.js';
@@ -272,7 +275,14 @@ seedOnboardingProposalToolsIfMissing();
 seedCeoProfileToolIfMissing();
 seedStatusCheckerToolIfMissing();
 seedScheduledGoalToolsIfMissing();
+seedCrmToolsIfMissing();
+seedErpToolsIfMissing();
 seedMasterDataToolsIfMissing();
+try {
+  ensureCompanyBusinessProfileSchema();
+} catch (e) {
+  console.warn('[startup] company business profile schema:', e.message);
+}
 
 seedVedicChartToolIfMissing();
 seedConnectorToolsIfMissing();
@@ -479,6 +489,8 @@ apiRouter.use('/ceo-guardrails', ceoGuardrailsRoutes);
 apiRouter.use('/onboarding/helper', onboardingHelperRoutes);
 apiRouter.use('/company-setup', companySetupRoutes);
 apiRouter.use('/company-operate', companyOperateRoutes);
+apiRouter.use('/business-core', businessCoreRoutes);
+apiRouter.use('/company-workspace', companyWorkspaceRoutes);
 apiRouter.use('/video-tours', videoToursRoutes);
 apiRouter.use('/workspace', workspaceRoutes);
 apiRouter.use('/workspace', inboundAttachmentsRoutes);

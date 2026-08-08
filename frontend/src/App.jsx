@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, Link, NavLink, useLocation } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import Workspace from './pages/Workspace';
+import OperatingWorkspace from './pages/OperatingWorkspace';
+import { CrmPage, ErpPage } from './pages/BusinessEmbed';
 import AgentWorkspace from './pages/AgentWorkspace';
 import AgentChat from './pages/AgentChat';
 import ContentToolsLogs from './pages/ContentToolsLogs';
@@ -39,6 +41,7 @@ import Policies from './pages/Policies';
 import ScheduledGoals from './pages/ScheduledGoals';
 import AiSnipper from './pages/AiSnipper';
 import EfficiencyView from './pages/EfficiencyView';
+import IbkrSummary from './pages/IbkrSummary';
 import Avatars from './pages/Avatars';
 import VirtualRoom from './pages/VirtualRoom';
 import PublishedScenes from './pages/PublishedScenes';
@@ -254,6 +257,13 @@ function Shell() {
               >
                 {menuCollapsed ? '⌂' : 'Home'}
               </NavLink>
+              <NavLink
+                to="/work"
+                className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+                title="Workspace — daily operating system"
+              >
+                {menuCollapsed ? 'W' : 'Workspace'}
+              </NavLink>
               <CeoNavMenu collapsed={menuCollapsed} />
             </>
           )}
@@ -317,6 +327,9 @@ function Shell() {
             {user.role === 'ceo' && (
               <>
                 <Route path="/" element={<AgentChat />} />
+                <Route path="/work" element={<OperatingWorkspace />} />
+                <Route path="/crm" element={<CrmPage />} />
+                <Route path="/erp" element={<ErpPage />} />
                 <Route path="/org" element={<Dashboard />} />
                 <Route path="/profile" element={<UserProfile />} />
                 <Route path="/connectors" element={<Connectors />} />
@@ -341,6 +354,7 @@ function Shell() {
                 <Route path="/scheduled-goals" element={<ScheduledGoals />} />
                 <Route path="/ai-snipper" element={<AiSnipper />} />
                 <Route path="/efficiency" element={<EfficiencyView />} />
+                <Route path="/ibkr-summary" element={<IbkrSummary />} />
                 <Route path="/job-workflows" element={<JobWorkflows />} />
                 <Route path="/workflows" element={<AgentWorkflows />} />
                 <Route path="/workflows/runs/:runId" element={<WorkflowRunAudit />} />

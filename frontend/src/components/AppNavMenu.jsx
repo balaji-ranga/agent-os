@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
+import { api } from '../api';
 
 function NavItem({ to, end, title, collapsed, label, short, nested = true }) {
   return (
@@ -64,11 +65,66 @@ function NavSection({ title, collapsed, children, defaultOpen = true }) {
 }
 
 export function CeoNavMenu({ collapsed }) {
+  const [menus, setMenus] = useState({ show_crm_menu: false, show_erp_menu: false });
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .businessCoreMenus()
+      .then((m) => {
+        if (!cancelled) {
+          setMenus({
+            show_crm_menu: !!m?.show_crm_menu,
+            show_erp_menu: !!m?.show_erp_menu,
+          });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setMenus({ show_crm_menu: false, show_erp_menu: false });
+      });
+    const onFocus = () => {
+      api
+        .businessCoreMenus()
+        .then((m) => {
+          if (!cancelled) {
+            setMenus({
+              show_crm_menu: !!m?.show_crm_menu,
+              show_erp_menu: !!m?.show_erp_menu,
+            });
+          }
+        })
+        .catch(() => {});
+    };
+    window.addEventListener('focus', onFocus);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('focus', onFocus);
+    };
+  }, []);
+
   return (
     <>
       <NavSection title="Management" collapsed={collapsed}>
         <NavItem to="/org" end title="My Org" collapsed={collapsed} label="My Org" short="⌂" />
         <NavItem to="/kanban" title="Kanban" collapsed={collapsed} label="Kanban" short="K" />
+        {menus.show_crm_menu && (
+          <NavItem
+            to="/crm"
+            title="CRM — platform Twenty for this company"
+            collapsed={collapsed}
+            label="CRM"
+            short="Cr"
+          />
+        )}
+        {menus.show_erp_menu && (
+          <NavItem
+            to="/erp"
+            title="ERP — platform ERPNext for this company"
+            collapsed={collapsed}
+            label="ERP"
+            short="Er"
+          />
+        )}
         <NavItem
           to="/scheduled-goals"
           title="Scheduled goals — recurring prompts for AI employees"
@@ -101,6 +157,7 @@ export function CeoNavMenu({ collapsed }) {
         <NavItem to="/job-profiles" title="Job profiles" collapsed={collapsed} label="Job profiles" short="JP" />
         <NavItem to="/browser-session" title="Browser Session" collapsed={collapsed} label="Browser Session" short="Br" />
         <NavItem to="/job-workflows" title="Job workflows" collapsed={collapsed} label="Job workflows" short="JW" />
+        <NavItem to="/ibkr-summary" title="IBKR Summary — portfolio and day plans" collapsed={collapsed} label="IBKR Summary" short="IB" />
       </NavSection>
 
       <NavSection title="Company OS" collapsed={collapsed}>

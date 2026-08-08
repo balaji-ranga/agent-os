@@ -1,10 +1,14 @@
 /**
  * Merge production/container settings into openclaw.json after apply-openclaw-agents-config.js.
  * - gateway.auth.token from OPENCLAW_GATEWAY_TOKEN
+ * - gateway.http.endpoints.chatCompletions.enabled = true (required for Agent Chat /v1/chat/completions)
+ * - Prefer entrypoint ensure-openclaw-gateway-config.js first (restores wiped sections from bak)
  * - agent-os-content-tools plugin baseUrl from AGENT_OS_INTERNAL_API_URL (default http://backend:3001)
  * - agent-os-content-tools plugin apiKey from TOOLS_API_KEY (must match backend env)
  * - Ollama provider baseUrl from OLLAMA_BASE_URL (default http://ollama:11434 when profile enabled)
  * - tools.sessions.visibility = agent (Agent OS delegation / session history)
+ *
+ * Backend rewrites MUST use src/services/openclaw-config-safe.js so they never strip gateway/tools/plugins/browser.
  *
  * Run: node deploy/scripts/configure-openclaw-docker.js
  */

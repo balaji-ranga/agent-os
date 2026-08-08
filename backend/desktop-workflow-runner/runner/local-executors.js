@@ -151,6 +151,34 @@ function matchSimpleGlob(name, pattern) {
 export function shouldRunApiLocally(node, graph, context, params) {
   const { resolved } = resolveNodeInputs(node, graph, context);
   const cfg = node.data?.taskConfig || node.data?.config || {};
+  const executeOn = String(cfg.executeOn || cfg.execute_on || '').toLowerCase();
+  if (cfg.forceRemote === true || executeOn === 'server' || executeOn === 'remote') return false;
+  if (cfg.forceLocal === true || executeOn === 'local') return true;
+
   const url = renderWorkflowTemplates(String(resolved.url || cfg.url || ''), context)?.trim();
-  return url ? isLoopbackUrl(url, params.local_api_hosts) : false;
+  if (!url || !isLoopbackUrl(url, params.local_api_hosts)) return false;
+
+  try {
+    const u = new URL(url);
+    const port = u.port
+      ? Number(u.port)
+      : u.protocol === 'https:'
+        ? 443
+        : 80;
+    // Local IBKR bridge (and similar) must stay on the laptop.
+    const vars = params.workflow?.variables || {};
+    const bridgePort = Number(
+      params.local_bridge_port || vars.local_bridge_port || vars.bridge_port || 3010
+    );
+    if (Number.isFinite(bridgePort) && port === bridgePort) return true;
+
+    // Agent OS platform API is always on Flolah — even when URL is 127.0.0.1:3001 in the seed.
+    // Desktop packages remote-execute those nodes so the fetch runs inside the backend container.
+    if (port === 3001 || u.pathname.startsWith('/api/')) return false;
+
+    // Other loopback ports (custom local services) stay on the laptop.
+    return true;
+  } catch {
+    return false;
+  }
 }

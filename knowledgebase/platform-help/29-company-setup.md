@@ -21,7 +21,13 @@
 
 **What does Apply do?** Creates or extends departments and AI employees from the selected blueprint, seeds knowledge / policy style where applicable, and marks the setup gate **completed**. Re-running can add packs; it does not wipe your existing org by default.
 
-**Can Platform Help help me after setup?** Yes — ask how-to questions about nav, scheduled goals, workflows, and use **COO** for day-to-day goals.
+**Optional CRM / ERP (Business Core):** On the systems step (and on Profile anytime) you may select **platform Twenty (CRM)** and/or **platform ERPNext (ERP)**. That is optional — leave as none if you do not need SoR CRM/ERP.
+
+- Selecting **Twenty** provisions **CRM Maker A**, **CRM Maker B**, **CRM Checker** (your company only) with `crm_*` tools, and unlocks **CRM** nav when embeds are configured.
+- Selecting **ERPNext** provisions **ERP Maker A**, **ERP Maker B**, **ERP Checker** with `erp_*` tools, and unlocks **ERP** nav when embeds are configured.
+- Workflows can use platform MCPs **`mcp-flolah-crm`** / **`mcp-flolah-erp`**. Guide: [32-business-core-crm-erp.md](./32-business-core-crm-erp.md).
+
+**Can Platform Help help me after setup?** Yes — ask how-to questions about nav, scheduled goals, workflows, CRM/ERP, and use **COO** for day-to-day goals.
 
 ## Where
 

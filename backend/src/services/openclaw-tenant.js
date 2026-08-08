@@ -25,6 +25,7 @@ import {
 } from './user-llm-settings.js';
 import { COO_CONTENT_TOOLS_ALLOW } from '../lib/content-tools-allow.js';
 import { syncOrgContextToWorkspace, isGeneratedCooAgentsMd } from './org-context.js';
+import { readOpenClawConfigSafe, writeOpenClawConfigSafe } from './openclaw-config-safe.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_TEMPLATES = join(__dirname, '..', '..', '..', 'openclaw-workspace-templates');
@@ -87,19 +88,13 @@ export function baseOpenClawAgentIdForAgent(agent) {
 }
 
 function readOpenClawConfig() {
-  const path = getOpenClawConfigPath();
-  if (!existsSync(path)) return { agents: { list: [] } };
-  try {
-    return JSON.parse(readFileSync(path, 'utf8'));
-  } catch {
-    return { agents: { list: [] } };
-  }
+  const c = readOpenClawConfigSafe();
+  if (!c.agents) c.agents = { list: [] };
+  return c;
 }
 
 function writeOpenClawConfig(config) {
-  const dir = getOpenClawDir();
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  writeFileSync(getOpenClawConfigPath(), JSON.stringify(config, null, 2), 'utf8');
+  writeOpenClawConfigSafe(config);
 }
 
 function copyTemplateWorkspace(baseId, destDir) {

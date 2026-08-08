@@ -2,10 +2,11 @@
  * Merge per-CEO agent channel settings into openclaw.json (channels.slack / channels.whatsapp + bindings[]).
  * Also writes ~/.openclaw/agent-os-channel-routing.json so configure/apply can restore after rewrites.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { getOpenClawConfigPath, getOpenClawDir } from '../config/openclaw-paths.js';
+import { getOpenClawDir } from '../config/openclaw-paths.js';
 import { baseOcIdFromAgent, tenantOpenClawAgentId } from './openclaw-tenant.js';
+import { readOpenClawConfigSafe, writeOpenClawConfigSafe } from './openclaw-config-safe.js';
 
 const CHANNEL_ROUTING_SIDECAR = 'agent-os-channel-routing.json';
 
@@ -42,22 +43,13 @@ function persistChannelRoutingSidecar(config) {
 }
 
 export function readOpenClawConfigFile() {
-  const path = getOpenClawConfigPath();
-  if (!existsSync(path)) return { agents: { list: [] }, channels: {}, bindings: [] };
-  try {
-    return JSON.parse(readFileSync(path, 'utf8'));
-  } catch (e) {
-    console.warn('[openclaw-channels] parse openclaw.json failed:', e?.message || e);
-    return { agents: { list: [] }, channels: {}, bindings: [] };
-  }
+  return readOpenClawConfigSafe();
 }
 
 export function writeOpenClawConfigFile(config) {
-  const dir = getOpenClawDir();
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  writeFileSync(getOpenClawConfigPath(), JSON.stringify(config, null, 2), 'utf8');
+  const merged = writeOpenClawConfigSafe(config);
   try {
-    persistChannelRoutingSidecar(config);
+    persistChannelRoutingSidecar(merged);
   } catch (e) {
     console.warn('[openclaw-channels] sidecar persist failed:', e?.message || e);
   }

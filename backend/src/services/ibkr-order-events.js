@@ -240,6 +240,19 @@ export function ingestBridgeOrderEvents(ownerUserId, envelope = {}) {
     return classifyReasonText(result.terminal_reason_text || result.message || result.error || '');
   };
 
+  /** Label legs in IBKR bracket convention: [entry/parent, take_profit, stop_loss]. */
+  const bracketLeg = (ids, idx) => {
+    if (!Array.isArray(ids) || ids.length < 2) return null;
+    if (idx === 0) return 'entry';
+    if (idx === 1 && ids.length >= 2) return 'take_profit';
+    if (idx === 2 || (idx === 1 && ids.length === 2)) return ids.length === 2 ? 'child' : 'stop_loss';
+    return `leg_${idx}`;
+  };
+
+  /**
+   * One bridge place often returns orderIds=[parent, tp, sl]. Persist a row per leg so
+   * IBKR Summary / drilldown lists 58, 59, 60 — not only the parent (orderIds[0]).
+   */
   const fromResult = (result, trade = {}, evHint = eventType) => {
     if (!result && !trade) return null;
     const r = result && typeof result === 'object' ? result : {};
@@ -255,14 +268,21 @@ export function ingestBridgeOrderEvents(ownerUserId, envelope = {}) {
     const status = mapEventStatus(evHint, r);
     const reasonText =
       r.terminal_reason_text || r.message || r.error || r.why_held || t.reason || null;
-    const orderIds = r.orderIds || r.order_ids || (r.ib_order_id != null ? [r.ib_order_id] : []);
-    const ibOrderId = Array.isArray(orderIds) && orderIds.length ? orderIds[0] : r.ib_order_id || null;
-    return {
+    let orderIds = r.orderIds || r.order_ids || null;
+    if (!Array.isArray(orderIds) || !orderIds.length) {
+      if (r.ib_order_id != null) orderIds = [r.ib_order_id];
+      else if (r.orderId != null || r.order_id != null) orderIds = [r.orderId ?? r.order_id];
+      else orderIds = [];
+    }
+    orderIds = orderIds.map((id) => Number(id)).filter((id) => Number.isFinite(id));
+    // Always at least one row (even without order id) so rejects without ids still log.
+    const idList = orderIds.length ? orderIds : [null];
+    return idList.map((ibOrderId, idx) => ({
       owner_user_id: owner,
       symbol_key: key,
       symbol: t.symbol || r.symbol || (key ? String(key).split(':').pop() : null),
       side: t.side || r.side || null,
-      ib_order_id: ibOrderId != null ? Number(ibOrderId) : null,
+      ib_order_id: ibOrderId,
       status,
       reason_code: mapReasonCode(status, r),
       reason_text: reasonText ? String(reasonText).slice(0, 500) : null,
@@ -274,31 +294,37 @@ export function ingestBridgeOrderEvents(ownerUserId, envelope = {}) {
         dry_run: !!(r.dry_run || payload.dry_run),
         mock: !!(r.mock || payload.mock),
         cancelled: r.cancelled || payload.cancelled || null,
+        bracket_leg: bracketLeg(idList.filter((x) => x != null), idx),
+        order_ids: orderIds,
         result: r,
         trade: t,
       },
-    };
+    }));
+  };
+
+  const pushFromResult = (...args) => {
+    const batch = fromResult(...args);
+    if (!batch) return;
+    for (const row of batch) pushRow(row);
   };
 
   if (Array.isArray(payload.results) && payload.results.length) {
     for (const r of payload.results) {
-      pushRow(fromResult(r, { key: r.key, symbol: r.symbol, side: r.side }, eventType));
+      pushFromResult(r, { key: r.key, symbol: r.symbol, side: r.side }, eventType);
     }
   } else if (payload.result || payload.trade) {
-    pushRow(fromResult(payload.result || payload, payload.trade || {}, eventType));
+    pushFromResult(payload.result || payload, payload.trade || {}, eventType);
   } else if (Array.isArray(payload.cancelled) && payload.cancelled.length) {
     for (const oid of payload.cancelled) {
-      pushRow(
-        fromResult(
-          {
-            status: 'cancelled',
-            terminal_cancelled: true,
-            ib_order_id: oid,
-            message: payload.reason || 'bridge cancel',
-          },
-          { symbol: payload.symbol, key: payload.key || payload.symbol_key },
-          'cancel'
-        )
+      pushFromResult(
+        {
+          status: 'cancelled',
+          terminal_cancelled: true,
+          ib_order_id: oid,
+          message: payload.reason || 'bridge cancel',
+        },
+        { symbol: payload.symbol, key: payload.key || payload.symbol_key },
+        'cancel'
       );
     }
   } else if (
@@ -306,7 +332,7 @@ export function ingestBridgeOrderEvents(ownerUserId, envelope = {}) {
     /fill|reject|cancel|order_status|stop/.test(eventType) &&
     (payload.symbol || payload.key || payload.symbol_key || payload.ib_order_id)
   ) {
-    pushRow(fromResult(payload, payload, eventType));
+    pushFromResult(payload, payload, eventType);
   }
 
   const ids = [];

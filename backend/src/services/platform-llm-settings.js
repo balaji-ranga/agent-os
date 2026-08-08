@@ -5,6 +5,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { getDb } from '../db/schema.js';
 import { getOpenClawConfigPath, getOpenClawDir } from '../config/openclaw-paths.js';
+import { readOpenClawConfigSafe, writeOpenClawConfigSafe } from './openclaw-config-safe.js';
 
 export function ensurePlatformSettingsTable() {
   const db = getDb();
@@ -147,19 +148,15 @@ export function getEffectivePlatformLlmEndpoints() {
 }
 
 function readOpenClawConfig() {
-  const path = getOpenClawConfigPath();
-  if (!existsSync(path)) return { agents: { defaults: { model: {} } }, models: { providers: {} } };
-  try {
-    return JSON.parse(readFileSync(path, 'utf8'));
-  } catch {
-    return { agents: { defaults: { model: {} } }, models: { providers: {} } };
-  }
+  const c = readOpenClawConfigSafe();
+  if (!c.agents) c.agents = { defaults: { model: {} } };
+  if (!c.agents.defaults) c.agents.defaults = { model: {} };
+  if (!c.models) c.models = { providers: {} };
+  return c;
 }
 
 function writeOpenClawConfig(config) {
-  const dir = getOpenClawDir();
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  writeFileSync(getOpenClawConfigPath(), JSON.stringify(config, null, 2), 'utf8');
+  writeOpenClawConfigSafe(config);
 }
 
 function openClawSlugForEndpoint(ep) {

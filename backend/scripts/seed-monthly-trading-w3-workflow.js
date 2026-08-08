@@ -35,10 +35,34 @@ const backendBase = (process.env.AGENT_OS_API_URL || process.env.BACKEND_URL || 
 );
 const INTERNAL_HEADERS = JSON.stringify({
   'Content-Type': 'application/json',
-  'x-internal-test': '1',
+  'x-agent-os-internal': '{{AGENT_OS_INTERNAL_TOKEN}}',
 });
 
 export function buildMonthlyTradingW3Graph({ parseScriptId = EVENT_PARSE_SCRIPT_ID } = {}) {
+  const ingestSnapshotNode = {
+    id: 'api-ingest-snapshot',
+    type: 'api',
+    position: { x: 700, y: 40 },
+    data: {
+      label: 'Ingest account snapshot (VPS cache)',
+      inputBindings: [
+        {
+          id: 'url',
+          mode: 'static',
+          value: `${backendBase}/api/ibkr-trading/account-snapshot/ingest`,
+        },
+        {
+          id: 'body',
+          mode: 'dynamic',
+          sourceNodeId: 'parse-event',
+          sourceOutputKey: 'payload_json',
+        },
+        { id: 'headers', mode: 'static', value: INTERNAL_HEADERS },
+      ],
+      taskConfig: { method: 'POST', authType: 'none', timeoutMs: 30000 },
+    },
+  };
+
   return {
     nodes: [
       {
@@ -63,7 +87,7 @@ export function buildMonthlyTradingW3Graph({ parseScriptId = EVENT_PARSE_SCRIPT_
               id: 'payload',
               mode: 'dynamic',
               sourceNodeId: 'trigger-1',
-              sourceOutputKey: 'text',
+              sourceOutputKey: 'trigger_input',
             },
           ],
           taskConfig: {
@@ -73,9 +97,24 @@ export function buildMonthlyTradingW3Graph({ parseScriptId = EVENT_PARSE_SCRIPT_
         },
       },
       {
-        id: 'if-equity',
+        id: 'if-book-refresh',
         type: 'if',
         position: { x: 480, y: 80 },
+        data: {
+          label: 'Book snapshot refresh?',
+          taskConfig: {
+            sourceNodeId: 'parse-event',
+            sourceOutputKey: 'is_book_refresh',
+            operator: 'eq',
+            compareValue: 'true',
+          },
+        },
+      },
+      ingestSnapshotNode,
+      {
+        id: 'if-equity',
+        type: 'if',
+        position: { x: 920, y: 40 },
         data: {
           label: 'Equity mark?',
           taskConfig: {
@@ -89,7 +128,7 @@ export function buildMonthlyTradingW3Graph({ parseScriptId = EVENT_PARSE_SCRIPT_
       {
         id: 'tool-equity-mark',
         type: 'tool',
-        position: { x: 700, y: 40 },
+        position: { x: 1140, y: 0 },
         data: {
           label: 'Record equity mark',
           toolName: 'ibkr_equity_mark',
@@ -107,7 +146,7 @@ export function buildMonthlyTradingW3Graph({ parseScriptId = EVENT_PARSE_SCRIPT_
       {
         id: 'tool-guardrail',
         type: 'tool',
-        position: { x: 920, y: 40 },
+        position: { x: 1360, y: 0 },
         data: {
           label: 'Recompute guardrail',
           toolName: 'ibkr_monthly_guardrail',
@@ -116,16 +155,30 @@ export function buildMonthlyTradingW3Graph({ parseScriptId = EVENT_PARSE_SCRIPT_
         },
       },
       {
-        id: 'if-fill',
+        id: 'if-eod',
         type: 'if',
-        position: { x: 480, y: 240 },
+        position: { x: 920, y: 140 },
         data: {
-          label: 'Fill / stop-out?',
+          label: 'EOD snapshot?',
           taskConfig: {
             sourceNodeId: 'parse-event',
-            sourceOutputKey: 'is_fill_or_stop',
+            sourceOutputKey: 'is_eod_snapshot',
             operator: 'eq',
             compareValue: 'true',
+          },
+        },
+      },
+      {
+        id: 'sub-w1',
+        type: 'sub_workflow',
+        position: { x: 1140, y: 140 },
+        data: {
+          label: 'Trigger W1 post-close',
+          taskConfig: {
+            targetWorkflowId: W1_ID,
+            triggerMode: 'event',
+            inputTemplate: '{{parse-event.payload_json}}',
+            waitForCompletion: false,
           },
         },
       },
@@ -167,9 +220,23 @@ export function buildMonthlyTradingW3Graph({ parseScriptId = EVENT_PARSE_SCRIPT_
         },
       },
       {
+        id: 'if-fill',
+        type: 'if',
+        position: { x: 920, y: 300 },
+        data: {
+          label: 'Fill / stop-out?',
+          taskConfig: {
+            sourceNodeId: 'parse-event',
+            sourceOutputKey: 'is_fill_or_stop',
+            operator: 'eq',
+            compareValue: 'true',
+          },
+        },
+      },
+      {
         id: 'tool-journal',
         type: 'tool',
-        position: { x: 920, y: 240 },
+        position: { x: 1140, y: 260 },
         data: {
           label: 'Trading journal',
           toolName: 'trading_journal',
@@ -180,7 +247,7 @@ export function buildMonthlyTradingW3Graph({ parseScriptId = EVENT_PARSE_SCRIPT_
       {
         id: 'tool-notify-fill',
         type: 'tool',
-        position: { x: 1140, y: 240 },
+        position: { x: 1360, y: 260 },
         data: {
           label: 'Notify CEO milestone',
           toolName: 'notify_ceo',
@@ -194,9 +261,23 @@ export function buildMonthlyTradingW3Graph({ parseScriptId = EVENT_PARSE_SCRIPT_
         },
       },
       {
+        id: 'if-cancel-notify',
+        type: 'if',
+        position: { x: 920, y: 400 },
+        data: {
+          label: 'Cancel / reject notify?',
+          taskConfig: {
+            sourceNodeId: 'parse-event',
+            sourceOutputKey: 'is_cancel_or_reject',
+            operator: 'eq',
+            compareValue: 'true',
+          },
+        },
+      },
+      {
         id: 'tool-notify-cancel',
         type: 'tool',
-        position: { x: 920, y: 340 },
+        position: { x: 1140, y: 400 },
         data: {
           label: 'Notify cancel/reject',
           toolName: 'notify_ceo',
@@ -210,51 +291,9 @@ export function buildMonthlyTradingW3Graph({ parseScriptId = EVENT_PARSE_SCRIPT_
         },
       },
       {
-        id: 'if-cancel-notify',
-        type: 'if',
-        position: { x: 700, y: 360 },
-        data: {
-          label: 'Cancel / reject notify?',
-          taskConfig: {
-            sourceNodeId: 'parse-event',
-            sourceOutputKey: 'is_cancel_or_reject',
-            operator: 'eq',
-            compareValue: 'true',
-          },
-        },
-      },
-      {
-        id: 'if-eod',
-        type: 'if',
-        position: { x: 480, y: 480 },
-        data: {
-          label: 'EOD snapshot?',
-          taskConfig: {
-            sourceNodeId: 'parse-event',
-            sourceOutputKey: 'is_eod_snapshot',
-            operator: 'eq',
-            compareValue: 'true',
-          },
-        },
-      },
-      {
-        id: 'sub-w1',
-        type: 'sub_workflow',
-        position: { x: 700, y: 480 },
-        data: {
-          label: 'Trigger W1 post-close',
-          taskConfig: {
-            targetWorkflowId: W1_ID,
-            triggerMode: 'event',
-            inputTemplate: '{{parse-event.payload_json}}',
-            waitForCompletion: false,
-          },
-        },
-      },
-      {
         id: 'api-noop',
         type: 'api',
-        position: { x: 700, y: 600 },
+        position: { x: 700, y: 480 },
         data: {
           label: 'Unhandled event ack',
           inputBindings: [
@@ -276,21 +315,26 @@ export function buildMonthlyTradingW3Graph({ parseScriptId = EVENT_PARSE_SCRIPT_
     ],
     edges: [
       { id: 'e1', source: 'trigger-1', target: 'parse-event' },
-      { id: 'e2', source: 'parse-event', target: 'if-equity' },
-      { id: 'e3', source: 'if-equity', target: 'tool-equity-mark', sourceHandle: 'true' },
-      { id: 'e4', source: 'if-equity', target: 'if-order-event', sourceHandle: 'false' },
-      { id: 'e5', source: 'tool-equity-mark', target: 'tool-guardrail' },
-      { id: 'e6', source: 'if-order-event', target: 'api-ingest-order-event', sourceHandle: 'true' },
-      { id: 'e7', source: 'if-order-event', target: 'if-eod', sourceHandle: 'false' },
-      { id: 'e8', source: 'api-ingest-order-event', target: 'if-fill' },
-      { id: 'e9', source: 'if-fill', target: 'tool-journal', sourceHandle: 'true' },
-      { id: 'e10', source: 'if-fill', target: 'if-cancel-notify', sourceHandle: 'false' },
-      { id: 'e11', source: 'tool-journal', target: 'tool-notify-fill' },
-      { id: 'e12', source: 'if-cancel-notify', target: 'tool-notify-cancel', sourceHandle: 'true' },
-      { id: 'e13', source: 'if-eod', target: 'sub-w1', sourceHandle: 'true' },
-      { id: 'e14', source: 'if-eod', target: 'api-noop', sourceHandle: 'false' },
+      // Book refresh path: account_snapshot | equity_mark | eod_snapshot → ingest cache
+      { id: 'e2', source: 'parse-event', target: 'if-book-refresh' },
+      { id: 'e3', source: 'if-book-refresh', target: 'api-ingest-snapshot', sourceHandle: 'true' },
+      { id: 'e4', source: 'if-book-refresh', target: 'if-order-event', sourceHandle: 'false' },
+      { id: 'e5', source: 'api-ingest-snapshot', target: 'if-equity' },
+      { id: 'e6', source: 'if-equity', target: 'tool-equity-mark', sourceHandle: 'true' },
+      { id: 'e7', source: 'if-equity', target: 'if-eod', sourceHandle: 'false' },
+      { id: 'e8', source: 'tool-equity-mark', target: 'tool-guardrail' },
+      { id: 'e9', source: 'if-eod', target: 'sub-w1', sourceHandle: 'true' },
+      { id: 'e9b', source: 'if-eod', target: 'api-noop', sourceHandle: 'false' },
+      // Order events (fills etc.: not a full book refresh)
+      { id: 'e10', source: 'if-order-event', target: 'api-ingest-order-event', sourceHandle: 'true' },
+      { id: 'e11', source: 'if-order-event', target: 'api-noop', sourceHandle: 'false' },
+      { id: 'e12', source: 'api-ingest-order-event', target: 'if-fill' },
+      { id: 'e13', source: 'if-fill', target: 'tool-journal', sourceHandle: 'true' },
+      { id: 'e14', source: 'if-fill', target: 'if-cancel-notify', sourceHandle: 'false' },
+      { id: 'e15', source: 'tool-journal', target: 'tool-notify-fill' },
+      { id: 'e16', source: 'if-cancel-notify', target: 'tool-notify-cancel', sourceHandle: 'true' },
     ],
-    viewport: { x: 0, y: 0, zoom: 0.7 },
+    viewport: { x: 0, y: 0, zoom: 0.65 },
   };
 }
 
@@ -350,7 +394,7 @@ export async function seedMonthlyTradingW3(ownerUserId, { publish = true } = {})
   const patch = {
     name: 'Monthly Trading W3 — IBKR Events',
     description:
-      'Webhook: equity_mark → mark+guardrail; fill/cancel/reject/order_status → ibkr_order_events (learnings); fill/stop_out → journal+notify; eod_snapshot → sub_workflow W1 (async). Fallback: W1 chat phrase / schedule.',
+      'Webhook: account_snapshot|equity_mark|eod → ingest bridge book cache; equity_mark → HWM+guardrail; fill/cancel/reject/order_status → order_events; fill/stop_out → journal+notify; eod_snapshot → W1 (async). W1 reads GET /account-snapshot/latest.',
     graph,
     trigger_modes: ['event', 'manual'],
     schedule_cron: '',

@@ -28,9 +28,15 @@ sync_extensions_from_image() {
   fi
   # Keep plugin baseUrl / apiKey / gateway token / tools.allow aligned with container env
   # when config exists (incl. learnings_summary on global + COO allow — volume-safe).
+  # Also repair wiped gateway.chatCompletions (partial openclaw.json rewrites → chat 404).
+  local ensure_gw_js="${AGENT_OS_ROOT}/deploy/scripts/ensure-openclaw-gateway-config.js"
   local configure_js="${AGENT_OS_ROOT}/deploy/scripts/configure-openclaw-docker.js"
   local restore_channels_js="${AGENT_OS_ROOT}/deploy/scripts/restore-openclaw-channel-routing.js"
   local config_path="${OPENCLAW_CONFIG_PATH:-${OC_DIR}/openclaw.json}"
+  if [[ -f "${ensure_gw_js}" && -f "${config_path}" ]]; then
+    echo "[openclaw] Ensuring gateway.chatCompletions + critical sections..."
+    node "${ensure_gw_js}" || echo "[openclaw] WARN: ensure-openclaw-gateway-config.js failed" >&2
+  fi
   if [[ -f "${configure_js}" && -f "${config_path}" ]]; then
     echo "[openclaw] Applying container OpenClaw config from env..."
     node "${configure_js}" || echo "[openclaw] WARN: configure-openclaw-docker.js failed" >&2
@@ -189,9 +195,13 @@ run_gateway_with_platform_llm_watch() {
         reloading=1
         # Source runtime.env *before* configure so OPENAI_API_KEY matches Admin switch
         apply_platform_llm_runtime_env
+        local ensure_gw_js="${AGENT_OS_ROOT}/deploy/scripts/ensure-openclaw-gateway-config.js"
         local configure_js="${AGENT_OS_ROOT}/deploy/scripts/configure-openclaw-docker.js"
         local restore_channels_js="${AGENT_OS_ROOT}/deploy/scripts/restore-openclaw-channel-routing.js"
         local config_path="${OPENCLAW_CONFIG_PATH:-${OC_DIR}/openclaw.json}"
+        if [[ -f "${ensure_gw_js}" && -f "${config_path}" ]]; then
+          node "${ensure_gw_js}" || echo "[openclaw] WARN: ensure-openclaw-gateway-config.js failed on reload" >&2
+        fi
         if [[ -f "${configure_js}" && -f "${config_path}" ]]; then
           node "${configure_js}" || echo "[openclaw] WARN: configure-openclaw-docker.js failed on reload" >&2
         fi

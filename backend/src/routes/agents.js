@@ -23,6 +23,7 @@ import { log } from '../utils/logger.js';
 import { ensureManagedBrowserReady } from '../services/job-browser-auth.js';
 import * as agentTools from '../services/openclaw-agent-tools.js';
 import { ensureTenantOpenClawAgent } from '../services/openclaw-tenant.js';
+import { writeOpenClawConfigSafe } from '../services/openclaw-config-safe.js';
 import { tryHandleCooReachMeRequest } from '../services/reach-me-delegation.js';
 import { tryHandleCooSpecialtyDelegation } from '../services/coo-specialty-delegation.js';
 import { tryHandleCooOrgAgentsList } from '../services/coo-org-agents-list.js';
@@ -108,7 +109,7 @@ function removeAgentFromOpenClaw(agentId, baseIds) {
       if (Array.isArray(config?.tools?.agentToAgent?.allow)) {
         config.tools.agentToAgent.allow = config.tools.agentToAgent.allow.filter((a) => !matches(a));
       }
-      writeFileSync(OPENCLAW_CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
+      writeOpenClawConfigSafe(config);
     } catch (e) {
       console.warn('removeAgentFromOpenClaw: could not update openclaw.json', e?.message);
     }

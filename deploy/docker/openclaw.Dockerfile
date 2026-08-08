@@ -1,4 +1,10 @@
-# OpenClaw gateway + Playwright Chromium for browser automation
+# OpenClaw gateway + Playwright Chromium for browser automation.
+# Rebuild after: openclaw-entrypoint.sh, configure-openclaw-docker.js,
+# ensure-openclaw-gateway-config.js, restore-openclaw-channel-routing.js,
+# content-tools plugins / browser CDP / extension relay.
+# Entrypoint always: ensure gateway.chatCompletions → configure → restore channels.
+# Chat 404 while container healthy = wiped openclaw.json gateway section — run
+#   bash deploy/scripts/vps-verify-openclaw-chat.sh
 FROM node:22-bookworm-slim
 
 RUN apt-get update \

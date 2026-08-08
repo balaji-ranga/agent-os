@@ -39,6 +39,20 @@ function normalizeBaseUrl(url) {
   return u;
 }
 
+/** Ollama defaults num_ctx≈4096; W1 maker prompts often exceed that — raise via OLLAMA_CONTEXT_WINDOW. */
+function ollamaOpenAiExtraBody({ provider, baseUrl } = {}) {
+  const ollamaLike =
+    provider === 'ollama' ||
+    isLocalOllama(baseUrl) ||
+    isOllamaServiceBaseUrl(baseUrl);
+  if (!ollamaLike) return {};
+  const numCtx = Math.max(
+    8192,
+    Number(process.env.OLLAMA_CONTEXT_WINDOW || process.env.OPENCLAW_OLLAMA_CONTEXT_WINDOW || 32768) || 32768
+  );
+  return { options: { num_ctx: numCtx } };
+}
+
 /** Primary input for Brain {{input}} — trigger payload, then bound inputs (same priority as user message). */
 export function resolveBrainInputPlaceholder(context, resolved = {}) {
   const initial = String(context?.initial_input || '').trim();
@@ -157,6 +171,8 @@ async function callOpenAiCompatible({
   const messages = [];
   if (systemPrompt?.trim()) messages.push({ role: 'system', content: systemPrompt.trim() });
   messages.push({ role: 'user', content: userMessage });
+  const ollamaLike =
+    provider === 'ollama' || isLocalOllama(baseUrl) || isOllamaServiceBaseUrl(baseUrl);
   const res = await fetch(url, {
     method: 'POST',
     headers,
@@ -165,8 +181,10 @@ async function callOpenAiCompatible({
       ...openAiTokenLimitFields(model, maxTokens),
       messages,
       ...thinkingFields,
+      ...ollamaOpenAiExtraBody({ provider, baseUrl }),
     }),
-    signal: AbortSignal.timeout(provider === 'ollama' ? 300000 : 180000),
+    // DeepSeek-via-Ollama still sets provider=deepseek; allow long local inference.
+    signal: AbortSignal.timeout(ollamaLike ? 600000 : 180000),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error?.message || data?.error || res.statusText);
@@ -209,6 +227,8 @@ async function runOpenAiWithMcpTools({
   let lastReasoning = '';
   let usage = null;
   for (let round = 0; round < maxRounds; round++) {
+    const ollamaLike =
+      provider === 'ollama' || isLocalOllama(baseUrl) || isOllamaServiceBaseUrl(baseUrl);
     const res = await fetch(url, {
       method: 'POST',
       headers,
@@ -219,8 +239,9 @@ async function runOpenAiWithMcpTools({
         tools: openAiTools,
         tool_choice: 'auto',
         ...thinkingFields,
+        ...ollamaOpenAiExtraBody({ provider, baseUrl }),
       }),
-      signal: AbortSignal.timeout(180000),
+      signal: AbortSignal.timeout(ollamaLike ? 600000 : 180000),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error?.message || data?.error || res.statusText);

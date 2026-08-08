@@ -507,6 +507,14 @@ export const api = {
   companySetupConnectorSearch: (q) => get(`/company-setup/connectors/search?q=${encodeURIComponent(q || '')}`),
   companySetupIndustryBlueprints: (industry) =>
     get(`/company-setup/blueprints?industry=${encodeURIComponent(industry || '')}`),
+  businessCoreProfile: () => get('/business-core/profile'),
+  businessCoreUpdateProfile: (body) => patch('/business-core/profile', body || {}),
+  businessCoreMenus: () => get('/business-core/menus'),
+  businessCoreEmbedCrm: () => get('/business-core/embed/crm'),
+  businessCoreEmbedErp: () => get('/business-core/embed/erp'),
+  businessCoreOrgSnapshot: () => get('/business-core/org-snapshot'),
+  businessCoreSyncOrg: (body) => post('/business-core/sync-org', body || {}),
+  companyWorkspaceSnapshot: () => get('/company-workspace/snapshot'),
   adminCompanyBlueprints: () => get('/admin/company-blueprints'),
   adminCompanyBlueprintCandidates: (limit = 40) =>
     get(`/admin/company-blueprints/candidates?limit=${encodeURIComponent(limit)}`),
@@ -1008,4 +1016,29 @@ export const api = {
   scheduledGoalsResume: (id) => post(`/scheduled-goals/${encodeURIComponent(id)}/resume`, {}),
   scheduledGoalsRunNow: (id) => post(`/scheduled-goals/${encodeURIComponent(id)}/run-now`, {}),
   scheduledGoalsDelete: (id) => del(`/scheduled-goals/${encodeURIComponent(id)}`),
+
+  /** IBKR Summary dashboard (portfolio + day-wise planned vs executed). */
+  ibkrSummary: (params = {}) => {
+    const sp = new URLSearchParams();
+    if (params.days != null) sp.set('days', String(params.days));
+    if (params.includeLive) sp.set('include_live', '1');
+    const q = sp.toString();
+    return get(q ? `/ibkr-trading/summary?${q}` : '/ibkr-trading/summary');
+  },
+  ibkrSummaryDay: (planDate) => {
+    const sp = new URLSearchParams();
+    sp.set('plan_date', String(planDate || '').slice(0, 10));
+    return get(`/ibkr-trading/summary/day?${sp.toString()}`);
+  },
+  /** Preview transactional IBKR row counts (plans, fills, order events, …). */
+  ibkrSummaryClearPreview: () => get('/ibkr-trading/summary/clear-transactional'),
+  /**
+   * Clear transactional IBKR data for the session CEO.
+   * Preserves workflow Variables (budget/allowlist). Requires confirm phrase.
+   */
+  ibkrSummaryClearTransactional: (body = {}) =>
+    post('/ibkr-trading/summary/clear-transactional', {
+      confirm: body.confirm || 'CLEAR_IBKR_TRANSACTIONAL',
+      ...body,
+    }),
 };

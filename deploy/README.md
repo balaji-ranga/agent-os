@@ -132,13 +132,15 @@ docker compose exec openclaw node deploy/scripts/verify-openclaw-parity.js
 
 Ensure `TOOLS_BASE_URL=http://127.0.0.1:3001` in `.env` (see `.env.example`) so backend tool self-invoke does not use public HTTPS. For VPS A2A IP whitelist, see **[VPS client IP overlay](#vps-client-ip-overlay-a2a-ip-policy)** (`COMPOSE_FILE` includes `docker-compose.vps-client-ip.yml`).
 
-## Platform MCPs (Brave Search + Meta Graph)
+## Platform MCPs (Brave Search + Meta Graph + Business Core CRM/ERP)
 
 `deploy/scripts/up.sh` and `vps-deploy-latest.sh` call **`scripts/ensure-platform-mcps.sh`** (skip with `SKIP_PLATFORM_MCPS=1`):
 
-1. Ensures `BRAVE_MCP_URL` / `META_GRAPH_MCP_URL` in `deploy/.env`.
-2. Builds/starts Compose profiles **`optional-brave-mcp`** and **`optional-meta-graph-mcp`**.
-3. Seeds registry rows **`mcp-brave-search`** + **`mcp-meta-graph`** (`is_platform=1`) and default Meta OAuth config for **Connectors → MCPs**.
+1. Ensures `BRAVE_MCP_URL` / `META_GRAPH_MCP_URL` / `BUSINESS_CORE_MCP_URL` in `deploy/.env`.
+2. Builds/starts Compose profiles **`optional-brave-mcp`**, **`optional-meta-graph-mcp`**, and **`optional-business-core-mcp`**.
+3. Seeds registry rows **`mcp-brave-search`**, **`mcp-meta-graph`**, **`mcp-flolah-crm`**, **`mcp-flolah-erp`** (`is_platform=1`) and default Meta OAuth config for **Connectors → MCPs**.
+
+Business Core MCP proxies owner-scoped `crm_*` / `erp_*` content tools (`TOOLS_API_KEY` + `X-Ceo-User-Id`). Prefab **Maker/Checker** AI employees are provisioned when Profile selects Twenty/ERPNext — not when MCP starts. Docs: `knowledgebase/platform-help/32-business-core-crm-erp.md`, `deploy/business-core/README.md`.
 
 ### OAuth credentials model (canonical — not a VPS hotfix)
 
@@ -187,7 +189,7 @@ All secrets live in **`deploy/.env`** (gitignored). Compose injects them as **ru
 
 | Key | Backend | OpenClaw |
 |-----|---------|----------|
-| `OPENCLAW_GATEWAY_TOKEN` | `OPENCLAW_GATEWAY_TOKEN` env | `gateway.auth.token` in openclaw.json |
+| `OPENCLAW_GATEWAY_TOKEN` | `OPENCLAW_GATEWAY_TOKEN` env | `gateway.auth.token` in openclaw.json; required for Agent Chat + chatCompletions endpoint (keep in sync via configure/ensure) |
 | `TOOLS_API_KEY` | `TOOLS_API_KEY` env | `plugins.entries['agent-os-content-tools'].config.apiKey` |
 | `TOOLS_BASE_URL` | backend tool self-dispatch (default `http://127.0.0.1:3001`) | — (backend-only) |
 | `AGENT_OS_INTERNAL_TOKEN` | workflow runner / tools / cron | — (backend-only; must be stable) |
@@ -371,6 +373,7 @@ All proxied under `/api` (rebuild backend + frontend images after upgrade):
 | COO status checker | `POST /api/tools/status-checker` (COO grant only) + `POST /api/cron/run-status-checker` (returns `html` for Dashboard popup); daily `COO_STATUS_CHECKER_CRON` (default `0 9 * * *`) → standup post + HTML email per CEO |
 | Scheduled goals | `GET/POST/PATCH /api/scheduled-goals` (+ pause/resume/run-now); cadence **hourly**\|daily\|weekdays\|weekly; COO tools `scheduled_goal_*`; master tick `SCHEDULED_GOALS_CRON`. UI: **/scheduled-goals** create/**edit**. Platform Help **28**. Verify: `bash deploy/scripts/vps-verify-scheduled-goals.sh` |
 | Company setup | `GET/POST/PUT /api/company-setup/*` (gate, funnel, design, apply, **`GET /blueprints?industry=`**); industry packs = JSON under `backend/src/services/company-blueprints/packs/` + admin-published rows in `company_industry_blueprints`. UI: **/company-setup** (default blueprint + slide to pick variants). Admin: **/admin** → Company industry blueprints (`GET/POST /api/admin/company-blueprints*`). Content Creator scope: FB/IG/LI/blogs only (YouTube deferred). Platform Help **29**. Distinct from Onboarding Helper **27**. |
+| IBKR Monthly + Summary | Local bridge package + W1–W5 workflows (seeds). **IBKR Summary** UI `/ibkr-summary` + APIs `GET /api/ibkr-trading/summary`, `…/day`, `…/clear-transactional` (owner-scoped; keeps workflow Variables). Laptop book: `POST …/account-snapshot/ingest`, `GET …/account-snapshot/latest`. Service `ibkr-transactional-clear.js`. CEO help **20**; ops `knowledgebase/IBKR-MONTHLY-WORKFLOWS.md`. Rebuild backend **and** frontend after bridge/Summary changes. |
 | Data retention | `platform_users.data_retention_days` (30/60/90/120/365) + `GET/PUT /api/efficiency/retention`, `POST /api/efficiency/retention/purge`, `POST /api/cron/run-data-retention`; daily `DATA_RETENTION_CRON` (default `15 3 * * *`) purges aged chats / standup messages / workflow runs **and** aged Content Explorer inbound + `media/generated/<ceo>/` files (hard delete by mtime) |
 | Org Storage (MB) | `GET /api/efficiency/storage` + `storage_mb` in `/api/efficiency` totals → Efficiency View **Org** tile (tenant workspace + generated media dir + Master Data / artifacts) |
 | Cron env reference | `deploy/scripts/ensure-cron-env.sh` appends the commented cron block (all 7 schedules, defaults) to `deploy/.env` on every deploy; docs: `knowledgebase/platform-help/19-scheduled-jobs-and-crons.md` |
@@ -447,12 +450,40 @@ On VPS after sync (or after `git pull` on the box), `vps-deploy-latest.sh` rebui
 1. `ensure-*-env.sh` helpers (cron, OpenSearch, docker-tools, **voice**/SPEECH_*) then compose build/up
 2. **`docker-disk-hygiene.sh`** — prune BuildKit cache older than `DOCKER_BUILDER_PRUNE_UNTIL` (default **72h**), remove dangling `<none>` images, drop leftover test containers (`oc-fix-ep`). Does **not** remove Admin-onboarded tool containers or app volumes. Skip with `SKIP_DOCKER_PRUNE=1`; full wipe with `DOCKER_BUILDER_PRUNE_ALL=1`.
 3. `optional-voice` whisper + piper (unless `SKIP_VOICE=1`)
-4. `vps-smoke-new-features.sh` — email_send, notify_ceo, master_data, **platformhelp agent**, org sync, A2A public + OAuth secured, shared notification dismiss, **public VR / speech / channels route probes**
-5. `vps-smoke-broadcast-notify.sh` — Broadcast → TechResearcher → notify_ceo (needs OpenClaw + LLM; non-fatal)
-6. `vps-smoke-deepseek-brain.sh` — DeepSeek@Ollama (non-fatal if model not pulled)
-7. `vps-verify-platform.sh` — Master Data, Platform Help docs/agent/RAG, per-CEO delegation, NotificationProvider + dismiss APIs, allowlists, **voice/public VR/channels files**
+4. **`vps-verify-agent-channels.sh`** — WhatsApp/Slack drift gate (fatal; runs even with `SKIP_SMOKE=1`)
+5. **`vps-verify-openclaw-chat.sh`** — repairs `openclaw.json` via `ensure-openclaw-gateway-config.js` + probes `POST /v1/chat/completions` (fatal on **404**; runs even with `SKIP_SMOKE=1`). Catches wiped `gateway.http.endpoints.chatCompletions` (container stays “healthy”, Agent Chat returns 502/404).
+6. **`vps-verify-media-delivery.sh`** — MEDIA dual-write / audio MIME (fatal)
+7. `vps-smoke-new-features.sh` — email_send, notify_ceo, master_data, **platformhelp agent**, org sync, A2A public + OAuth secured, shared notification dismiss, **public VR / speech / channels route probes** (skipped when `SKIP_SMOKE=1`)
+8. `vps-smoke-broadcast-notify.sh` — Broadcast → TechResearcher → notify_ceo (needs OpenClaw + LLM; non-fatal)
+9. `vps-smoke-deepseek-brain.sh` — DeepSeek@Ollama (non-fatal if model not pulled)
+10. `vps-verify-platform.sh` — Master Data, Platform Help docs/agent/RAG, per-CEO delegation, allowlists, openclaw chat ensure scripts present
 
-Skip all smoke: `SKIP_SMOKE=1` or `sync-to-vps.ps1 -SkipSmoke`. Force clean image build: `NO_CACHE=1` or `sync-to-vps.ps1 -NoCache`. Skip voice containers: `SKIP_VOICE=1`.
+### OpenClaw chat 404 (gateway “healthy” but UI chat fails)
+
+| Symptom | Cause |
+|---------|--------|
+| `POST /api/agents/*/chat` → **502**, gateway body **404 Not Found** | `openclaw.json` lost `gateway` (or `gateway.http.endpoints.chatCompletions.enabled`) |
+| OpenClaw container still healthy | Healthcheck only curls `/` (Control UI), not chat API |
+
+**Prevention (shipped):**
+- Backend writes use `backend/src/services/openclaw-config-safe.js` (never drop `gateway` / `tools` / `plugins` / `browser`)
+- OpenClaw entrypoint: `ensure-openclaw-gateway-config.js` → `configure-openclaw-docker.js` → channel restore
+- Every deploy: `vps-verify-openclaw-chat.sh` (auto-repair + live probe)
+
+**Manual repair:**
+```bash
+cd /opt/agent-os/deploy
+bash scripts/vps-verify-openclaw-chat.sh
+# or:
+docker compose exec -T -w /opt/agent-os backend node deploy/scripts/ensure-openclaw-gateway-config.js
+docker compose restart openclaw
+```
+
+Skip all smoke: `SKIP_SMOKE=1` or `sync-to-vps.ps1 -SkipSmoke` (channels + chat + media gates still run). Force clean image build: `NO_CACHE=1` or `sync-to-vps.ps1 -NoCache`. Skip voice containers: `SKIP_VOICE=1`.
+
+### Windows UTF-8 pitfall (PowerShell / agents)
+
+Save new backend/frontend source and deploy scripts as **UTF-8 without BOM**. UTF-16LE (common when tools write with BOM/wide chars) breaks Node (`Invalid regular expression: missing /` at line 1) and frontend `check-utf8.mjs`. After editing from Windows, confirm: first bytes of a `.js` file should be ASCII (`47 42` for `/*`, not `47 0 42 0`).
 
 Manual disk reclaim (same script deploy uses):
 

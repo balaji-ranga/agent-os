@@ -99,6 +99,8 @@ export default function CompanySetup() {
   const [orgDna, setOrgDna] = useState('fast_startup');
   const [orgDnaNotes, setOrgDnaNotes] = useState('');
   const [systems, setSystems] = useState([]);
+  const [crmProvider, setCrmProvider] = useState('none');
+  const [erpProvider, setErpProvider] = useState('none');
   const [mgmtStyle, setMgmtStyle] = useState('after_approval');
   const [selection, setSelection] = useState({});
   const [day1, setDay1] = useState(null);
@@ -157,6 +159,8 @@ export default function CompanySetup() {
       if (data.strategic_profile?.country) setCountry(data.strategic_profile.country);
       if (data.strategic_profile?.industry) setIndustry(data.strategic_profile.industry);
       if (Array.isArray(data.systems)) setSystems(data.systems);
+      if (data.strategic_profile?.crm_provider) setCrmProvider(data.strategic_profile.crm_provider);
+      if (data.strategic_profile?.erp_provider) setErpProvider(data.strategic_profile.erp_provider);
       if (data.management_style) setMgmtStyle(data.management_style);
       if (data.day1) setDay1(data.day1);
       if (Array.isArray(data.design_chat)) setDesignChat(data.design_chat);
@@ -424,7 +428,14 @@ export default function CompanySetup() {
   async function goSystemsNext() {
     await withBusy('Saving…', async () => {
       await saveDraft(
-        { funnel_step: 'style', systems, company_type: selectedType, keep_proposal: true },
+        {
+          funnel_step: 'style',
+          systems,
+          crm_provider: crmProvider,
+          erp_provider: erpProvider,
+          company_type: selectedType,
+          keep_proposal: true,
+        },
         { nest: true }
       );
       setStep('style');
@@ -1271,6 +1282,40 @@ export default function CompanySetup() {
               })}
             </div>
           )}
+          <h3 style={{ fontSize: '1rem', margin: '1rem 0 0.5rem' }}>Business Core (optional)</h3>
+          <p style={{ opacity: 0.7, fontSize: '0.85rem', maxWidth: 520 }}>
+            Leave as None to finish setup without CRM/ERP. Platform CRM (Twenty) provisions one workspace per
+            company and prefabricated CRM AI employees when you apply.
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(12rem, 1fr))', gap: '0.75rem', marginBottom: '1rem', maxWidth: 520 }}>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: '0.9rem' }}>
+              CRM
+              <select
+                value={crmProvider}
+                disabled={actionsLocked}
+                onChange={(e) => setCrmProvider(e.target.value)}
+                style={{ padding: '0.5rem', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+              >
+                <option value="none">None</option>
+                <option value="twenty">Twenty (platform)</option>
+                <option value="hubspot">HubSpot</option>
+                <option value="zoho">Zoho</option>
+              </select>
+            </label>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: '0.9rem' }}>
+              ERP
+              <select
+                value={erpProvider}
+                disabled={actionsLocked}
+                onChange={(e) => setErpProvider(e.target.value)}
+                style={{ padding: '0.5rem', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+              >
+                <option value="none">None</option>
+                <option value="erpnext">ERPNext (platform)</option>
+                <option value="xero">Xero</option>
+              </select>
+            </label>
+          </div>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button type="button" style={btnSecondary({ disabled: actionsLocked })} disabled={actionsLocked} onClick={() => setStep('meet_team')}>
               Back

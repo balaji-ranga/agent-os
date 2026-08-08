@@ -23,11 +23,18 @@ import { ensureIbkrMonthlyTables } from '../src/services/ibkr-monthly-guardrail.
 import { MONTHLY_TRADING_VARIABLES } from './monthly-trading-seed-variables.js';
 import { MAKER_STRATEGY_SYSTEM_PROMPT } from './lib/trading-strategy-prompt.js';
 import { CHECKER_STRATEGY_SYSTEM_PROMPT } from './lib/trading-checker-prompt.js';
+import { BRAVE_MCP_ID } from './seed-brave-search-mcp.js';
 
 export const WORKFLOW_ID = 'monthly-trading-w1-post-close';
 export const CHAT_PHRASE = 'run monthly trading review';
 export const PARSE_SCRIPT_ID = 'script-monthly-trading-parse-checker';
 export const HARD_GATES_SCRIPT_ID = 'script-monthly-trading-hard-gates';
+
+/** CEO API Keys vault names (exact match to Management → API Keys). */
+export const MAKER_VAULT_KEY_REF = process.env.MONTHLY_TRADING_MAKER_KEY_REF || 'openAI_key';
+export const CHECKER_VAULT_KEY_REF = process.env.MONTHLY_TRADING_CHECKER_KEY_REF || 'deepseek_key';
+/** Brave Search MCP BYOK vault slot (optional; used only when Model calls web search). */
+export const BRAVE_VAULT_KEY_REF = process.env.MONTHLY_TRADING_BRAVE_KEY_REF || 'BRAVE_SEARCH_BYOK';
 
 const backendBase = (process.env.AGENT_OS_API_URL || process.env.BACKEND_URL || 'http://127.0.0.1:3001').replace(
   /\/$/,
@@ -39,30 +46,106 @@ const INTERNAL_HEADERS = JSON.stringify({
   'x-internal-test': '1',
 });
 
+function isLocalLlmUrl(url) {
+  const u = String(url || '').toLowerCase();
+  return !u || /ollama|:11434|127\.0\.0\.1|localhost/.test(u);
+}
+
+function isLocalishModel(model) {
+  const m = String(model || '').toLowerCase();
+  // Ollama tags like deepseek-r1:8b, llama3.2, etc.
+  return /:|llama|r1:|qwen|phi3|mistral/.test(m) || m.includes('ollama');
+}
+
 function makerModel() {
-  return (
-    process.env.MONTHLY_TRADING_MAKER_MODEL ||
-    process.env.ANTHROPIC_MODEL ||
-    'claude-opus-4-20250514'
-  );
+  // Cloud OpenAI only — never take Ollama/deepseek model names from shared env.
+  const candidates = [
+    process.env.MONTHLY_TRADING_MAKER_MODEL,
+    process.env.OPENAI_DEFAULT_MODEL,
+    process.env.OPENAI_PRIMARY_MODEL,
+    'gpt-4o',
+  ];
+  for (const c of candidates) {
+    const m = String(c || '').trim();
+    if (!m || isLocalishModel(m) || /deepseek/i.test(m)) continue;
+    return m;
+  }
+  return 'gpt-4o';
+}
+
+function makerEndpoint() {
+  // Always OpenAI cloud for monthly Maker — ignore mis-set OPENAI_BASE_URL (e.g. DeepSeek).
+  const e = String(process.env.OPENAI_BASE_URL || process.env.OPENAI_PRIMARY_BASE_URL || '').trim();
+  if (e && /api\.openai\.com/i.test(e) && !isLocalLlmUrl(e)) {
+    const base = e.replace(/\/$/, '');
+    return base.endsWith('/v1') ? base : `${base}/v1`;
+  }
+  return 'https://api.openai.com/v1';
 }
 
 function checkerModel() {
-  return process.env.MONTHLY_TRADING_CHECKER_MODEL || process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash';
+  // Cloud DeepSeek only — ignore Ollama model tags from DEEPSEEK_MODEL.
+  const monthly = String(process.env.MONTHLY_TRADING_CHECKER_MODEL || '').trim();
+  if (monthly && !isLocalishModel(monthly)) return monthly;
+  const envM = String(process.env.DEEPSEEK_MODEL || '').trim();
+  if (envM && !isLocalishModel(envM) && !/^deepseek-v4-flash$/i.test(envM)) return envM;
+  // Prefer deepseek-chat for API key vault users on cloud.
+  return 'deepseek-chat';
+}
+
+function checkerEndpoint() {
+  // Always DeepSeek cloud for monthly Checker — never Ollama, never OpenAI host by mistake.
+  const e = String(process.env.DEEPSEEK_BASE_URL || '').trim();
+  if (e && /api\.deepseek\.com/i.test(e) && !isLocalLlmUrl(e)) {
+    const base = e.replace(/\/$/, '');
+    return base.endsWith('/v1') ? base : `${base}/v1`;
+  }
+  return 'https://api.deepseek.com/v1';
+}
+
+/** Shared Brain MCP: Brave Search when Maker/Checker need extra public-web context (never for price ticks). */
+export function monthlyTradingBrainMcpConfig() {
+  return {
+    mcpToolCalling: true,
+    mcpServerIds: [BRAVE_MCP_ID],
+    // Empty allowlist = all tools on server; preferred tool is brave_web_search.
+    mcpToolAllowlist: [],
+    mcpMaxToolRounds: 4,
+    mcpServerAuth: {
+      [BRAVE_MCP_ID]: {
+        authBearerRef: BRAVE_VAULT_KEY_REF,
+        // Brave Search HTTP API also accepts X-Subscription-Token
+        httpHeadersJson: JSON.stringify({
+          'X-Subscription-Token': { $keyRef: BRAVE_VAULT_KEY_REF },
+        }),
+      },
+    },
+  };
+}
+
+function makerBrainSystemPrompt() {
+  return `${MAKER_STRATEGY_SYSTEM_PROMPT}
+
+## Optional web research (MCP)
+You may call Brave Search MCP tools when you need timely public-web context (catalysts, filings headlines, macro notes) that is not in the regime/screener/snapshot payloads.
+Do not use web search as a substitute for FMP regime/screener or the laptop IBKR account snapshot.
+Never invent prices or positions from search snippets — plan levels still come from provided market data + strategy rules.`;
+}
+
+function checkerBrainSystemPrompt() {
+  return `${CHECKER_STRATEGY_SYSTEM_PROMPT}
+
+## Optional web research (MCP)
+You may call Brave Search MCP only to double-check a concrete claim that blocks approval (e.g. halted ticker, major event). Prefer the payloads already in the user message. Do not expand the plan or invent levels from search.`;
 }
 
 export function buildMonthlyTradingW1Graph({
   parseScriptId = PARSE_SCRIPT_ID,
   hardGatesScriptId = HARD_GATES_SCRIPT_ID,
 } = {}) {
-  const anthropicKey = process.env.ANTHROPIC_API_KEY || '';
-  const deepseekKey =
-    process.env.DEEPSEEK_API_KEY ||
-    process.env.OPENAI_SECONDARY_API_KEY ||
-    process.env.OPENAI_API_KEY ||
-    '';
   const maxLoops = Number(MONTHLY_TRADING_VARIABLES.checker_max_loops) || 3;
   const cronFallback = MONTHLY_TRADING_VARIABLES.cron_post_close_fallback || '5 21 * * 1-5';
+  const brainMcp = monthlyTradingBrainMcpConfig();
 
   return {
     nodes: [
@@ -122,13 +205,16 @@ export function buildMonthlyTradingW1Graph({
         type: 'api',
         position: { x: 840, y: 80 },
         data: {
-          label: 'Account snapshot (optional)',
+          label: 'Account snapshot (bridge cache)',
           inputBindings: [
-            { id: 'url', mode: 'static', value: `${backendBase}/api/ibkr-trading/account-snapshot` },
-            { id: 'body', mode: 'static', value: '{}' },
+            {
+              id: 'url',
+              mode: 'static',
+              value: `${backendBase}/api/ibkr-trading/account-snapshot/latest`,
+            },
             { id: 'headers', mode: 'static', value: INTERNAL_HEADERS },
           ],
-          taskConfig: { method: 'POST', authType: 'none', timeoutMs: 90000 },
+          taskConfig: { method: 'GET', authType: 'none', timeoutMs: 60000 },
         },
       },
       {
@@ -208,26 +294,25 @@ export function buildMonthlyTradingW1Graph({
         type: 'brain',
         position: { x: 1860, y: 80 },
         data: {
-          label: 'Maker (Claude Opus)',
+          label: 'Maker (OpenAI GPT)',
           inputBindings: [
             {
               id: 'userMessage',
               mode: 'static',
               value:
-                '=== CHECKER FEEDBACK ===\n{{parse-checker.adjustments}}\n\n=== MARKET REGIME ===\n{{tool-regime.text}}\n\n=== MONTHLY GUARDRAIL ===\n{{tool-guardrail.text}}\n\n=== OPEN DAY PLANS (recovery) ===\n{{api-open-plans.bodyText}}\n\n=== ACCOUNT SNAPSHOT / EQUITY ===\n{{api-snapshot.bodyText}}\n\n=== SCREENER ===\n{{tool-screener.text}}\n\n=== ORDER LEARNINGS ===\n{{tool-learnings.text}}\n\n=== BRAIN HISTORY ===\n{{api-brain-history.body.context_text}}\n\n=== RUN / EVENT INPUT ===\n{{input}}',
+                '=== CHECKER FEEDBACK ===\n{{parse-checker.adjustments}}\n\n=== MARKET REGIME ===\n{{tool-regime.text}}\n\n=== MONTHLY GUARDRAIL ===\n{{tool-guardrail.text}}\n\n=== OPEN DAY PLANS (recovery) ===\n{{api-open-plans.bodyText}}\n\n=== ACCOUNT SNAPSHOT (last laptop IBKR session) ===\n{{api-snapshot.bodyText}}\n\n=== SCREENER ===\n{{tool-screener.text}}\n\n=== ORDER LEARNINGS ===\n{{tool-learnings.text}}\n\n=== BRAIN HISTORY ===\n{{api-brain-history.body.context_text}}\n\n=== RUN / EVENT INPUT ===\n{{input}}',
             },
           ],
           taskConfig: {
-            modelSource: 'anthropic',
-            apiEndpoint: process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com/v1',
-            apiKey: anthropicKey,
+            modelSource: 'openai',
+            apiEndpoint: makerEndpoint(),
+            // Vault only — no platform .env / Ollama. Exact vault key name: openAI_key
+            apiKey: '',
+            apiKeyRef: MAKER_VAULT_KEY_REF,
             model: makerModel(),
             maxTokens: 8192,
-            systemPrompt: MAKER_STRATEGY_SYSTEM_PROMPT,
-            mcpToolCalling: false,
-            mcpServerIds: [],
-            mcpToolAllowlist: [],
-            mcpMaxToolRounds: 4,
+            systemPrompt: makerBrainSystemPrompt(),
+            ...brainMcp,
             httpHeadersJson: '{}',
           },
         },
@@ -237,7 +322,7 @@ export function buildMonthlyTradingW1Graph({
         type: 'brain',
         position: { x: 2080, y: 80 },
         data: {
-          label: 'Checker (DeepSeek)',
+          label: 'Checker (DeepSeek cloud)',
           inputBindings: [
             {
               id: 'userMessage',
@@ -248,15 +333,14 @@ export function buildMonthlyTradingW1Graph({
           ],
           taskConfig: {
             modelSource: 'deepseek',
-            apiEndpoint: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com/v1',
-            apiKey: deepseekKey,
+            // Cloud DeepSeek only — never Ollama local default.
+            apiEndpoint: checkerEndpoint(),
+            apiKey: '',
+            apiKeyRef: CHECKER_VAULT_KEY_REF,
             model: checkerModel(),
             maxTokens: 4096,
-            systemPrompt: CHECKER_STRATEGY_SYSTEM_PROMPT,
-            mcpToolCalling: false,
-            mcpServerIds: [],
-            mcpToolAllowlist: [],
-            mcpMaxToolRounds: 4,
+            systemPrompt: checkerBrainSystemPrompt(),
+            ...brainMcp,
             httpHeadersJson: '{}',
           },
         },
@@ -577,7 +661,7 @@ export async function seedMonthlyTradingW1(ownerUserId, { publish = true } = {})
   const patch = {
     name: 'Monthly Trading W1 — Post-Close Plan',
     description:
-      'Post-close: regime → guardrail → open plans → snapshot → screener → learnings → Maker(Claude Opus)↔Checker(DeepSeek) → hard gates → optional CEO → save approved plan → digest + notify',
+      'Post-close: regime → guardrail → open plans → bridge-cached snapshot → screener → learnings → Maker(OpenAI GPT via vault openAI_key)↔Checker(DeepSeek cloud via vault deepseek_key) + Brave Search MCP → hard gates → optional CEO → save approved plan → digest + notify',
     graph,
     trigger_modes: ['manual', 'chat', 'event', 'schedule'],
     schedule_cron: cron,

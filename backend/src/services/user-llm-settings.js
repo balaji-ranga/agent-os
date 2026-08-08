@@ -11,6 +11,7 @@ import {
   scrubOpenClawAuthProfileMetadata,
   clearAgentByokAuthProfile,
 } from './openclaw-byok-auth.js';
+import { readOpenClawConfigSafe, writeOpenClawConfigSafe } from './openclaw-config-safe.js';
 import {
   PLATFORM_BYOK_KEY_NAME,
   tryResolveUserApiKey,
@@ -337,19 +338,14 @@ export function resolveLlmConfigForUser(userId) {
 }
 
 function readOpenClawConfig() {
-  const path = getOpenClawConfigPath();
-  if (!existsSync(path)) return { agents: { list: [] }, models: { providers: {} } };
-  try {
-    return JSON.parse(readFileSync(path, 'utf8'));
-  } catch {
-    return { agents: { list: [] }, models: { providers: {} } };
-  }
+  const c = readOpenClawConfigSafe();
+  if (!c.agents) c.agents = { list: [] };
+  if (!c.models) c.models = { providers: {} };
+  return c;
 }
 
 function writeOpenClawConfig(config) {
-  const dir = getOpenClawDir();
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  writeFileSync(getOpenClawConfigPath(), JSON.stringify(config, null, 2), 'utf8');
+  writeOpenClawConfigSafe(config);
 }
 
 function openClawModelSlug(providerKey, modelId) {
