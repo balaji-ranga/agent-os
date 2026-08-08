@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Why Flolah exists, how it differs from workflow tools, and its vision for the AI-native company." />
+  <title>Flolah Vision — The Operating System for AI-Native Companies</title>
+  <style>
+    :root {
+      --ink:#17233c; --muted:#5e6d86; --paper:#fbfaf6; --line:rgba(24,52,88,.12);
+      --blue:#2f68ff; --cyan:#1ec8c8; --purple:#755cff; --white:#fff;
+      --shadow:0 24px 70px rgba(25,52,97,.13); --radius:26px;
+    }
+    *{box-sizing:border-box} html{scroll-behavior:smooth} body{margin:0;color:var(--ink);background:
+      radial-gradient(circle at 8% 3%,rgba(47,104,255,.15),transparent 29%),
+      radial-gradient(circle at 92% 12%,rgba(30,200,200,.14),transparent 25%),var(--paper);
+      font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.58}
+    a{color:inherit;text-decoration:none}.shell{width:min(1160px,calc(100% - 40px));margin:auto}
+    nav{position:sticky;top:0;z-index:30;backdrop-filter:blur(18px);background:rgba(251,250,246,.78);border-bottom:1px solid var(--line)}
+    .nav-inner{height:74px;display:flex;align-items:center;justify-content:space-between;gap:22px}.brand{display:flex;align-items:center;gap:10px;font-weight:850;letter-spacing:-.03em}.brand img{width:42px;height:42px;object-fit:contain}.nav-links{display:flex;gap:24px;color:var(--muted);font-size:.93rem}.nav-links a:hover{color:var(--ink)}
+    .button{display:inline-flex;align-items:center;justify-content:center;min-height:46px;padding:0 18px;border-radius:14px;border:1px solid transparent;font-weight:780;transition:.22s ease}.button:hover{transform:translateY(-2px)}.primary{color:white;background:linear-gradient(135deg,var(--blue),var(--purple));box-shadow:0 14px 30px rgba(47,104,255,.24)}.secondary{background:rgba(255,255,255,.76);border-color:var(--line)}
+    .hero{padding:100px 0 76px;text-align:center}.eyebrow{display:inline-flex;align-items:center;gap:8px;padding:8px 13px;border:1px solid rgba(47,104,255,.18);border-radius:999px;background:rgba(255,255,255,.68);color:#3555a7;font-size:.82rem;font-weight:800}.dot{width:8px;height:8px;border-radius:50%;background:var(--cyan);box-shadow:0 0 0 6px rgba(30,200,200,.12)}
+    h1{max-width:980px;margin:24px auto 24px;font-size:clamp(3.1rem,7vw,6.5rem);line-height:.96;letter-spacing:-.066em}.gradient{background:linear-gradient(100deg,var(--blue),#6b59e8 52%,var(--cyan));-webkit-background-clip:text;color:transparent}.lead{max-width:820px;margin:auto;color:var(--muted);font-size:clamp(1.08rem,1.6vw,1.34rem)}.actions{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:30px}.hero-note{margin-top:20px;font-weight:760;color:#344460}
+    .manifesto{margin-top:30px;padding:28px;border-radius:28px;background:linear-gradient(135deg,#17233c,#243a69 65%,#175b72);color:white;box-shadow:var(--shadow);display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;overflow:hidden}.manifesto div{padding:24px;background:rgba(255,255,255,.035)}.manifesto small{display:block;color:#91a4c6;text-transform:uppercase;letter-spacing:.12em;font-weight:800}.manifesto strong{display:block;margin-top:8px;font-size:1.2rem}
+    section{padding:90px 0}.section-head{max-width:780px;margin-bottom:38px}.kicker{text-transform:uppercase;letter-spacing:.14em;font-size:.76rem;color:var(--blue);font-weight:850}h2{margin:10px 0 14px;font-size:clamp(2.15rem,4.5vw,4.15rem);line-height:1.03;letter-spacing:-.05em}.section-head p{font-size:1.08rem;color:var(--muted)}
+    .problem-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:24px}.card{background:rgba(255,255,255,.76);border:1px solid var(--line);border-radius:var(--radius);padding:30px;box-shadow:0 18px 50px rgba(30,52,88,.08)}.card h3{font-size:1.45rem;margin:0 0 10px}.card p{color:var(--muted)}.stack{display:grid;gap:12px;margin-top:22px}.stack-item{padding:15px 16px;border-radius:16px;border:1px solid var(--line);background:white;display:flex;gap:12px;align-items:flex-start}.stack-item b{min-width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:#edf2ff}.stack-item span{color:var(--muted);font-size:.92rem}
+    .solution{background:linear-gradient(160deg,#eef5ff,#f7fffd);border-color:rgba(47,104,255,.18)}.solution-quote{font-size:1.7rem;line-height:1.2;letter-spacing:-.025em;font-weight:840;margin:20px 0}.orgline{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:24px}.orgline div{background:white;border:1px solid var(--line);border-radius:16px;padding:16px;text-align:center}.orgline strong{display:block}.orgline small{color:var(--muted)}
+    .difference{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}.difference article{min-height:300px;padding:26px;border:1px solid var(--line);border-radius:24px;background:rgba(255,255,255,.72);position:relative;overflow:hidden}.difference article.featured{background:linear-gradient(145deg,#17233c,#263d71);color:white;transform:translateY(-10px);box-shadow:var(--shadow)}.difference h3{font-size:1.5rem;margin:16px 0 10px}.difference p{color:var(--muted)}.difference .featured p{color:#cbd7eb}.tag{display:inline-flex;padding:6px 10px;border-radius:999px;background:#edf2ff;color:#3555a7;font-size:.75rem;font-weight:850}.featured .tag{background:rgba(143,241,227,.14);color:#aaf3e7}.difference ul{padding-left:18px;color:var(--muted)}.featured ul{color:#cbd7eb}
+    .statement{padding:54px;border-radius:32px;background:linear-gradient(135deg,rgba(47,104,255,.11),rgba(30,200,200,.12));border:1px solid rgba(47,104,255,.16);text-align:center}.statement h2{max-width:900px;margin:0 auto 18px}.statement p{max-width:780px;margin:auto;color:var(--muted);font-size:1.12rem}
+    .horizon{display:grid;grid-template-columns:.9fr 1.1fr;gap:24px;align-items:stretch}.future{background:linear-gradient(140deg,#17233c,#243a69 62%,#175b72);color:white}.future p{color:#cbd7eb}.timeline{display:grid;gap:14px}.phase{display:grid;grid-template-columns:80px 1fr;gap:18px;align-items:start;padding:18px;border-radius:18px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.11)}.phase b{color:#8ff1e3}.phase span{color:#cbd7eb;font-size:.94rem}
+    .principles{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.principle{padding:22px;border-radius:20px;background:rgba(255,255,255,.76);border:1px solid var(--line)}.principle strong{display:block;font-size:1.05rem;margin-bottom:6px}.principle span{color:var(--muted);font-size:.92rem}
+    .cta{text-align:center;padding:20px 0 110px}.cta-card{padding:58px 24px;border-radius:32px;background:white;border:1px solid var(--line);box-shadow:var(--shadow)}.cta-card img{width:min(220px,65vw);margin-bottom:20px}.cta-card p{max-width:700px;margin:0 auto 27px;color:var(--muted)}
+    footer{border-top:1px solid var(--line);padding:25px 0 36px;color:var(--muted);font-size:.88rem}.footer-inner{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}.reveal{opacity:0;transform:translateY(18px);transition:.7s}.reveal.show{opacity:1;transform:none}
+    @media(max-width:900px){.nav-links{display:none}.problem-grid,.horizon{grid-template-columns:1fr}.difference{grid-template-columns:1fr}.difference article.featured{transform:none}.manifesto{grid-template-columns:1fr}.orgline{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:620px){.shell{width:min(100% - 24px,1160px)}.hero{padding-top:68px}h1{font-size:3.35rem}.actions .button{width:100%}.orgline,.principles{grid-template-columns:1fr}.statement{padding:36px 22px}.phase{grid-template-columns:1fr}section{padding:68px 0}}
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="shell nav-inner">
+      <a class="brand" href="index.html"><img src="assets/flolah-mark.png" alt=""><span>Flolah</span></a>
+      <div class="nav-links"><a href="#problem">The problem</a><a href="#difference">Why Flolah</a><a href="#vision">Long-term vision</a></div>
+      <a class="button primary" href="index.html">Explore the platform</a>
+    </div>
+  </nav>
+
+  <main>
+    <header class="hero shell">
+      <span class="eyebrow"><span class="dot"></span> The Flolah vision</span>
+      <h1>Build a company, <span class="gradient">not just an automation.</span></h1>
+      <p class="lead">Flolah is the operating system for AI-native companies—where founders and teams create an AI workforce that can plan, collaborate, execute, learn, and operate under clear human direction.</p>
+      <div class="actions"><a class="button primary" href="#problem">Why Flolah exists →</a><a class="button secondary" href="index.html">See the product</a></div>
+      <div class="hero-note">One human founder. An entire AI organisation.</div>
+      <div class="manifesto reveal">
+        <div><small>Not another chatbot</small><strong>Durable roles, memory, tools and responsibilities.</strong></div>
+        <div><small>Not another workflow</small><strong>Delegate outcomes while Flolah coordinates execution.</strong></div>
+        <div><small>Not uncontrolled autonomy</small><strong>Human judgement, approvals and governance by design.</strong></div>
+      </div>
+    </header>
+
+    <section id="problem">
+      <div class="shell">
+        <div class="section-head reveal"><div class="kicker">The problem</div><h2>AI is powerful. Operating it as a company is still fragmented.</h2><p>Today, a founder has to stitch together models, assistants, workflow builders, knowledge stores, integrations, permissions and monitoring. The tools may automate individual tasks, but the founder still becomes the routing layer between every system.</p></div>
+        <div class="problem-grid">
+          <article class="card reveal"><h3>The current AI stack creates more coordination</h3><p>Every useful capability lives in a different place, with different context and different controls.</p><div class="stack">
+            <div class="stack-item"><b>01</b><div><strong>Disconnected intelligence</strong><br><span>Assistants know the conversation, but not the company, its roles or its operating context.</span></div></div>
+            <div class="stack-item"><b>02</b><div><strong>Workflows without ownership</strong><br><span>Automations move data, but they do not understand responsibility, judgement or business outcomes.</span></div></div>
+            <div class="stack-item"><b>03</b><div><strong>The human remains the middleware</strong><br><span>Founders still assign each step, transfer context, chase progress and review fragmented outputs.</span></div></div>
+            <div class="stack-item"><b>04</b><div><strong>Autonomy without a control plane</strong><br><span>As agents gain power, organisations need approvals, permissions, auditability and clear accountability.</span></div></div>
+          </div></article>
+          <article class="card solution reveal"><div class="kicker">The Flolah answer</div><div class="solution-quote">Turn separate AI capabilities into an organisation that can operate.</div><p>Flolah gives every agent a role, knowledge, memory, tools and boundaries. Agents collaborate as teams, report progress, escalate decisions and execute through governed workflows—while humans retain strategic control.</p><div class="orgline"><div><strong>Direction</strong><small>Human intent</small></div><div><strong>Organisation</strong><small>Agent roles</small></div><div><strong>Execution</strong><small>Tools + workflows</small></div><div><strong>Control</strong><small>Approvals + audit</small></div></div></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="difference">
+      <div class="shell">
+        <div class="section-head reveal"><div class="kicker">The difference</div><h2>The workflow is an implementation detail. The company is the product.</h2><p>Flolah does not replace every automation or AI tool. It organises them into a coherent operating model that behaves like a company.</p></div>
+        <div class="difference">
+          <article class="reveal"><span class="tag">Workflow platforms</span><h3>Automate a known process</h3><p>Excellent for moving information through defined steps and integrations.</p><ul><li>Trigger-and-action logic</li><li>Process-centric design</li><li>Requires humans to define the path</li></ul></article>
+          <article class="featured reveal"><span class="tag">Flolah</span><h3>Operate an AI organisation</h3><p>Give a team an outcome. Agents plan, collaborate, use tools, execute and return decisions to the right human.</p><ul><li>Organisation-centric design</li><li>Persistent roles and company context</li><li>Governed delegation and accountability</li><li>Reusable agents and capabilities</li></ul></article>
+          <article class="reveal"><span class="tag">AI assistants</span><h3>Help one person in one conversation</h3><p>Useful for drafting, analysis and individual productivity.</p><ul><li>Conversation-centric</li><li>Limited organisational structure</li><li>Human coordinates the broader work</li></ul></article>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="shell"><div class="statement reveal"><div class="kicker">Our belief</div><h2>Your company may have one human founder. It does not have to have only one employee.</h2><p>A founder should be able to assemble specialist AI employees across research, marketing, product, operations, finance and customer service—then lead them through goals, policies and decisions as naturally as leading a real team.</p></div></div>
+    </section>
+
+    <section id="vision">
+      <div class="shell">
+        <div class="section-head reveal"><div class="kicker">The long-term vision</div><h2>The operating system for the next generation of companies.</h2><p>AI-native companies will not simply add AI to old processes. They will be designed from the beginning around people and intelligent agents working together.</p></div>
+        <div class="horizon">
+          <article class="card future reveal"><h3>From tool to company infrastructure</h3><p>Our ambition is for Flolah to become the place where entrepreneurs build their workforce, organise knowledge, connect tools, govern execution and run their business.</p><div class="timeline">
+            <div class="phase"><b>Today</b><span>Build specialist agents, organise teams and delegate governed work.</span></div>
+            <div class="phase"><b>Next</b><span>Launch complete AI-operated functions and reusable digital departments.</span></div>
+            <div class="phase"><b>Future</b><span>Create, operate and distribute entire AI-native companies through one platform.</span></div>
+          </div></article>
+          <div class="principles reveal">
+            <div class="principle"><strong>Human-led</strong><span>Humans own purpose, judgement, trust and consequential decisions.</span></div>
+            <div class="principle"><strong>Agent-operated</strong><span>Agents handle coordination, execution and repeatable knowledge work.</span></div>
+            <div class="principle"><strong>Governed by design</strong><span>Identity, entitlements, approvals and audit are part of the operating model.</span></div>
+            <div class="principle"><strong>Composable</strong><span>Models, workflows, tools and third-party agents can work as one organisation.</span></div>
+            <div class="principle"><strong>Continuously improving</strong><span>Company memory and feedback make the workforce better over time.</span></div>
+            <div class="principle"><strong>Built to distribute</strong><span>Successful capabilities can become products, services and marketplace agents.</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cta"><div class="shell"><div class="cta-card reveal"><img src="assets/flolah-logo-transparent.png" alt="Flolah"><div class="kicker">Build what comes next</div><h2>One founder. One vision. An entire AI workforce.</h2><p>Explore how Flolah turns agents, tools, knowledge and workflows into a company that can actually operate.</p><div class="actions"><a class="button primary" href="index.html">Explore Flolah →</a><a class="button secondary" href="mailto:hello@flolah.ai">Book a conversation</a></div></div></div></section>
+  </main>
+
+  <footer><div class="shell footer-inner"><strong>Flolah</strong><a href="index.html">← Back to the main site</a><span>© 2026 Flolah</span></div></footer>
+  <script>const observer=new IntersectionObserver(entries=>entries.forEach(entry=>{if(entry.isIntersecting){entry.target.classList.add('show');observer.unobserve(entry.target)}}),{threshold:.1});document.querySelectorAll('.reveal').forEach(el=>observer.observe(el));</script>
+</body>
+</html>

@@ -272,6 +272,15 @@ elif curl -kfsS "${APEX_URL%/}/" 2>/dev/null | grep -q 'Start with Flolah'; then
 else
   echo "    WARN: marketing homepage marker missing (static mount or nginx vhost?)"
 fi
+if curl -kfsS -H "Host: flolah.cloud" https://127.0.0.1/vision.html 2>/dev/null | grep -qi 'Flolah Vision'; then
+  echo "    marketing vision (Host flolah.cloud /vision.html): OK"
+elif curl -kfsS -H "Host: flolah.cloud" https://127.0.0.1/vision 2>/dev/null | grep -qi 'Flolah Vision'; then
+  echo "    marketing vision (Host flolah.cloud /vision): OK"
+elif curl -kfsS "${APEX_URL%/}/vision.html" 2>/dev/null | grep -qi 'Flolah Vision'; then
+  echo "    marketing vision ${APEX_URL}/vision.html: OK"
+else
+  echo "    WARN: marketing vision page marker missing (/vision.html nginx location?)"
+fi
 if curl -kfsS -o /dev/null -w "  mark_png=%{http_code}\n" -H "Host: flolah.cloud" https://127.0.0.1/assets/flolah-mark.png 2>/dev/null \
   || curl -kfsS -o /dev/null -w "  mark_png=%{http_code}\n" "${APEX_URL%/}/assets/flolah-mark.png" 2>/dev/null; then
   :
@@ -282,6 +291,11 @@ if docker compose exec -T nginx test -f /usr/share/nginx/flolah-home/index.html 
   echo "    nginx mount: /usr/share/nginx/flolah-home/index.html OK"
 else
   echo "    WARN: /usr/share/nginx/flolah-home/index.html missing in nginx container"
+fi
+if docker compose exec -T nginx test -f /usr/share/nginx/flolah-home/vision.html 2>/dev/null; then
+  echo "    nginx mount: /usr/share/nginx/flolah-home/vision.html OK"
+else
+  echo "    WARN: /usr/share/nginx/flolah-home/vision.html missing in nginx container"
 fi
 
 if docker compose exec -T frontend sh -c 'cat /usr/share/nginx/html/assets/*.css' 2>/dev/null | grep -q 'app-mobile-topbar'; then
