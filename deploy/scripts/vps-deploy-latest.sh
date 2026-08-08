@@ -187,6 +187,18 @@ fi
 
 echo "==> recreate $SERVICES + nginx"
 # Marketing homepage files must be world-readable for the nginx worker (git/scp may leave 700)
+# CRM SSO handoff page (nginx serves as static alias). Dir must be world-executable
+# or nginx workers get "Permission denied" → public 403 on /flolah-handoff/.
+if [[ -d "$ROOT/deploy/static/crm-handoff" ]]; then
+  chmod 755 "$ROOT/deploy/static/crm-handoff" 2>/dev/null || true
+  chmod 644 "$ROOT/deploy/static/crm-handoff"/* 2>/dev/null || true
+  if [[ ! -f "$ROOT/deploy/static/crm-handoff/index.html" ]]; then
+    echo "WARN: deploy/static/crm-handoff/index.html missing — CRM SSO handoff will 403"
+  fi
+else
+  echo "WARN: deploy/static/crm-handoff missing — CRM SSO handoff will 403"
+fi
+
 if [[ -d "$ROOT/deploy/static/flolah-home" ]]; then
   chmod -R a+rX "$ROOT/deploy/static/flolah-home" 2>/dev/null || true
   if [[ ! -f "$ROOT/deploy/static/flolah-home/index.html" ]]; then

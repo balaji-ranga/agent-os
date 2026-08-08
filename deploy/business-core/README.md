@@ -10,8 +10,8 @@ CEO guide: `knowledgebase/platform-help/32-business-core-crm-erp.md`.
 |-------|---------|
 | Twenty containers | Compose profile `optional-twenty` (`twenty-server`, `twenty-worker`, `twenty-db`, `twenty-redis`) |
 | Public CRM host | **Dedicated subdomain** `crm.<apex>` (e.g. `https://crm.flolah.cloud`) — **never** marketing `www`/`apex`, never path prefix `/crm-app` |
-| Loopback publish | `127.0.0.1:3100` → nginx SSL on host network for `crm.*` |
-| Session isolation + true SSO | Static `/flolah-handoff/` on CRM host → Twenty `/verify?loginToken=…` |
+| Loopback publish | `127.0.0.1:3100` → nginx SSL for `crm.*` and `*.crm.*` |
+| Session isolation + true SSO | Static `/flolah-handoff/` on **company workspace host** `{sub}.crm.<apex>` → `/verify?loginToken=…` |
 | Backend | Same compose project; injects `TWENTY_*` including `APP_SECRET`, `DATABASE_URL`, SSO flags |
 
 ## One-shot env + start (repeatable)
@@ -39,7 +39,9 @@ TWENTY_EMBED_URL=https://crm.example.com
 TWENTY_APP_SECRET=         # MUST match Twenty container APP_SECRET (required for passwordless SSO)
 TWENTY_SSO_ENABLED=1
 TWENTY_DATABASE_URL=postgres://twenty:twenty@twenty-db:5432/twenty
-# TWENTY_WORKSPACE_ID=     # optional UUID; else auto-discover first ACTIVE workspace via DATABASE_URL
+TWENTY_IS_MULTIWORKSPACE_ENABLED=true
+# TWENTY_BOOTSTRAP_EMAIL=  # optional Twenty admin used to create workspaces for new companies
+# TWENTY_WORKSPACE_ID=     # do not share across CEOs — per-company bind via ensureCompanyTwentyWorkspace
 TWENTY_DB_PASSWORD=twenty
 TWENTY_HOST_PORT=3100
 ```
@@ -48,17 +50,18 @@ Compose wires these into **backend** (`deploy/docker-compose.yml`) and into Twen
 
 **Passwordless CRM SSO (true SSO):** with `TWENTY_APP_SECRET` + SSO enabled, authenticated Flolah users open CRM via `/flolah-handoff/` → mint LOGIN JWT for their email → `/verify?loginToken=`. JIT membership uses Postgres when `TWENTY_DATABASE_URL` is set (`pg` dependency on backend).
 
-**Tenancy:** profile binds `twenty_workspace_id` per CEO owner. Tools never accept foreign workspace ids from agent bodies for authorization. A single platform Twenty still shares CRM **data** unless multiple Twenty workspaces are provisioned later.
+**Tenancy:** **1 Flolah company → 1 Twenty workspace** (UUID + subdomain) on `company_business_profiles`. CRM open mints LOGIN SSO for that workspace only. Tools never accept foreign workspace ids for authorization. REST tools still use platform `TWENTY_API_KEY` until per-workspace API keys exist.
 
 **Prefab agents:** Profile CRM = `twenty` → CRM Maker A/B + Checker (`crm_*` content tools).
 
 ## Nginx + handoff static
 
-- Server block: `deploy/nginx/nginx.host-network.conf` → `crm.flolah.cloud` proxies to `127.0.0.1:3100`
+- Server block: `deploy/nginx/nginx.host-network.conf` → `crm.flolah.cloud` and `*.crm.flolah.cloud` → `127.0.0.1:3100`
 - SSO/isolation page: `deploy/static/crm-handoff/` mounted at `/usr/share/nginx/crm-handoff` (see `docker-compose.yml` and `docker-compose.vps-client-ip.yml`)
 - Location: `^~ /flolah-handoff/` → alias that directory (dir mode **755**, files **644**)
 
-Cert SANs: `deploy/scripts/vps-expand-crm-cert.sh` (requires DNS `crm` → VPS).
+**DNS for multi-workspace:** A/CNAME `crm` → VPS **and** A `*.crm` → VPS (or per-workspace `{sub}.crm`).  
+Cert: `bash deploy/scripts/vps-expand-crm-cert.sh` (apex + optional workspace SANs). After workspace DNS is live: `bash deploy/scripts/vps-ensure-crm-workspace-dns-cert.sh`. Ops refresh: `bash deploy/scripts/vps-refresh-tls-certs.sh [all|platform|crm]`.
 
 ## Start ERPNext (ERP)
 
@@ -106,7 +109,9 @@ Pass `X-Ceo-User-Id` on workflow MCP auth. Deploy hook: `deploy/scripts/ensure-p
 | TWENTY_APP_SECRET | Shared with Twenty; LOGIN token mint for SSO |
 | TWENTY_SSO_ENABLED | `1` passwordless; `0` isolation handoff only |
 | TWENTY_DATABASE_URL | Postgres for JIT user/workspaceMember provision |
-| TWENTY_WORKSPACE_ID | Optional real workspace UUID |
+| TWENTY_IS_MULTIWORKSPACE_ENABLED | `true` on Twenty + backend (required for additional company workspaces) |
+| TWENTY_BOOTSTRAP_EMAIL | Optional admin used for signUpInNewWorkspace |
+| TWENTY_WORKSPACE_ID | Optional/legacy — not shared across CEOs |
 | ERPNEXT_* | ERP stack + embed |
 | BUSINESS_CORE_MCP_URL | Internal MCP registry endpoint |
 

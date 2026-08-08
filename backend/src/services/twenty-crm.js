@@ -6,7 +6,6 @@
  */
 import {
   getBusinessProfile,
-  setTwentyBind,
   assertCrmEntitled,
   resolveTwentyWorkspaceForOwner,
 } from './company-business-profile.js';
@@ -88,58 +87,16 @@ export async function ensureTwentyWorkspaceForCompany(ownerUserId, { displayName
   const owner = String(ownerUserId || '').trim();
   if (!owner) throw Object.assign(new Error('owner_user_id required'), { status: 400 });
 
-  const profile = assertCrmEntitled(owner);
-  if (profile.crm_provider !== 'twenty') {
-    throw Object.assign(new Error('crm_provider must be twenty'), { status: 400 });
-  }
-
-  if (profile.twenty.workspace_id) {
-    return {
-      workspace_id: profile.twenty.workspace_id,
-      workspace_name: profile.twenty.workspace_name,
-      created: false,
-      mode: 'existing',
-    };
-  }
-
-  const name =
-    String(displayName || '').trim() ||
-    resolveCompanyDisplayName(owner) ||
-    `Flolah CRM`;
-
-  const localWorkspaceId = `flolah-ws-${owner}`.slice(0, 80);
-  let remoteId = null;
-  let mode = 'local_bind';
-  if (isTwentyConfigured() && platformApiKey()) {
-    try {
-      const data = await twentyFetch('/rest/metadata/workspaces', {
-        method: 'POST',
-        body: { name, displayName: name },
-      }).catch(() =>
-        twentyFetch('/rest/workspaces', {
-          method: 'POST',
-          body: { name, displayName: name },
-        })
-      );
-      remoteId =
-        data?.id || data?.workspace?.id || data?.data?.id || data?.data?.workspace?.id || null;
-      if (remoteId) mode = 'remote';
-    } catch (e) {
-      console.warn('[twenty-crm] remote workspace create failed', owner, e?.message || e);
-      mode = 'local_bind_fallback';
-    }
-  }
-
-  const workspaceId = String(remoteId || localWorkspaceId);
-  setTwentyBind(owner, {
-    workspace_id: workspaceId,
-    workspace_name: name,
-    api_key_hint: platformApiKey() ? `...${platformApiKey().slice(-4)}` : '',
-    bind: { flolah_owner_user_id: owner, mode, created_at: new Date().toISOString() },
-  });
-
-  console.info('[twenty-crm] bound workspace owner=%s workspace=%s mode=%s', owner, workspaceId, mode);
-  return { workspace_id: workspaceId, workspace_name: name, created: true, mode };
+  const { ensureCompanyTwentyWorkspace } = await import('./twenty-workspace.js');
+  const ensured = await ensureCompanyTwentyWorkspace(owner, { displayName });
+  return {
+    workspace_id: ensured.workspace_id,
+    workspace_name: ensured.workspace_name,
+    subdomain: ensured.subdomain,
+    public_base: ensured.public_base,
+    created: Boolean(ensured.created),
+    mode: ensured.mode || (ensured.created ? 'remote_created' : 'existing'),
+  };
 }
 
 function requireLive(workspaceId) {

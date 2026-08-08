@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Expand LE cert SANs to include crm.flolah.cloud (Twenty CRM public host).
+# Expand LE cert SANs to include crm.flolah.cloud + per-workspace {sub}.crm.* SANs (Twenty multi-workspace).
 # DNS prerequisite: A or CNAME for crm.flolah.cloud → this VPS.
 # Usage: bash /opt/agent-os/deploy/scripts/vps-expand-crm-cert.sh
 set -euo pipefail
@@ -12,7 +12,10 @@ WWW_HOST="${WWW_HOST:-www.flolah.cloud}"
 CRM_HOST="${CRM_HOST:-crm.flolah.cloud}"
 ERP_HOST="${ERP_HOST:-erp.flolah.cloud}"
 echo "==> DNS check for ${CRM_HOST}"
-resolved="$(dig +short "${CRM_HOST}" A | grep -E '^[0-9.]+$' | tail -1 | tr -d '[:space:]')"
+resolved="$(dig @8.8.8.8 +short "${CRM_HOST}" A 2>/dev/null | grep -E '^[0-9.]+$' | tail -1 | tr -d '[:space:]')"
+if [[ -z "${resolved}" ]]; then
+  resolved="$(dig +short "${CRM_HOST}" A 2>/dev/null | grep -E '^[0-9.]+$' | tail -1 | tr -d '[:space:]')"
+fi
 if [[ -z "${resolved}" ]]; then
   echo "ERROR: ${CRM_HOST} has no A record yet."
   echo "  Hostinger DNS: Type=A Name=crm Value=76.13.209.30 (or CNAME crm → ${APEX_HOST})"
@@ -28,7 +31,36 @@ cleanup() { docker compose up -d --no-deps nginx || true; }
 trap cleanup EXIT
 /root/.acme.sh/acme.sh --set-default-ca --server letsencrypt >/dev/null
 DOMS=(-d "${APEX_HOST}" -d "${WWW_HOST}" -d "${LOGIN_HOST}" -d "${CRM_HOST}")
-if dig +short "${ERP_HOST}" A | grep -qE '^[0-9.]+$'; then DOMS+=(-d "${ERP_HOST}"); fi
+# Multi-workspace: add ACTIVE workspace subdomains as SANs (HTTP-01/ALPN cannot do wildcards).
+# Prefer DNS A for each {sub}.crm.<apex> (or wildcard A *.crm) pointing at this VPS.
+# Env EXTRA_CRM_SUBDOMAINS="sub1,sub2" or auto-detect from twenty-db when running.
+# Use public resolvers — VPS recursive cache often sticks on NXDOMAIN after first fail.
+host_has_a() {
+  local h="$1"
+  dig @8.8.8.8 +time=3 +tries=1 +short "$h" A 2>/dev/null | grep -qE '^[0-9.]+$' \
+    || dig @1.1.1.1 +time=3 +tries=1 +short "$h" A 2>/dev/null | grep -qE '^[0-9.]+$'
+}
+EXTRA_SUBS="${EXTRA_CRM_SUBDOMAINS:-}"
+if [[ -z "$EXTRA_SUBS" ]]; then
+  EXTRA_SUBS="$(docker exec agent-os-twenty-db-1 psql -U twenty -d twenty -t -A -c \
+    "SELECT string_agg(subdomain, ',') FROM core.workspace WHERE \"activationStatus\" = 'ACTIVE' AND \"deletedAt\" IS NULL AND coalesce(subdomain,'') <> ''" 2>/dev/null || true)"
+  EXTRA_SUBS="$(echo "$EXTRA_SUBS" | tr -d '[:space:]')"
+fi
+IFS=',' read -r -a _subs <<< "${EXTRA_SUBS}"
+echo "    workspace subs source: ${EXTRA_SUBS:-(none)}"
+for raw in "${_subs[@]}"; do
+  sub="$(echo "$raw" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9-')"
+  [[ -z "$sub" ]] && continue
+  host="${sub}.${CRM_HOST}"
+  if host_has_a "${host}"; then
+    DOMS+=(-d "${host}")
+    echo "    +SAN ${host}"
+  else
+    echo "    SKIP SAN ${host} (no A record yet — add DNS A Name=${sub}.crm → VPS or wildcard *.crm)"
+  fi
+done
+if host_has_a "${ERP_HOST}"; then DOMS+=(-d "${ERP_HOST}"); fi
+echo "    domains: ${DOMS[*]}"
 /root/.acme.sh/acme.sh --issue "${DOMS[@]}" --alpn --force
 /root/.acme.sh/acme.sh --install-cert -d "${APEX_HOST}" --ecc \
   --fullchain-file "$ROOT/deploy/nginx/certs/fullchain.pem" \
@@ -48,4 +80,12 @@ docker compose up -d --force-recreate --no-deps nginx backend
 trap - EXIT
 curl -sS -m 15 -o /dev/null -w "crm:%{http_code}\n" "https://${CRM_HOST}/" || true
 curl -sS -m 10 -o /dev/null -w "www:%{http_code}\n" "https://${WWW_HOST}/" || true
+# smoke one workspace host if any SAN added
+for raw in "${_subs[@]}"; do
+  sub="$(echo "$raw" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9-')"
+  [[ -z "$sub" ]] && continue
+  host="${sub}.${CRM_HOST}"
+  code=$(curl -sS -m 12 -o /dev/null -w "%{http_code}" "https://${host}/" 2>/dev/null || echo fail)
+  echo "workspace ${host}: ${code}"
+done
 echo "Done. CRM https://${CRM_HOST} | Marketing https://${APEX_HOST} + https://${WWW_HOST}"

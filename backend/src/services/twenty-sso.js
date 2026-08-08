@@ -201,64 +201,13 @@ function quoteIdent(name) {
 }
 
 /**
- * Resolve real Twenty workspace UUID for this owner (and persist if discovered).
+ * Resolve company-scoped Twenty workspace UUID only (no shared default bind).
+ * Creates a real remote workspace when bind is missing or local flolah-ws-*.
  */
 export async function resolveTwentyWorkspaceUuid(ownerUserId) {
-  const owner = strip(ownerUserId);
-  const profile = getBusinessProfile(owner);
-  const bound = strip(profile.twenty.workspace_id);
-  if (UUID_RE.test(bound)) return bound;
-
-  const fromEnv = strip(process.env.TWENTY_WORKSPACE_ID);
-  if (UUID_RE.test(fromEnv)) {
-    setTwentyBind(owner, {
-      workspace_id: fromEnv,
-      workspace_name:
-        profile.twenty.workspace_name || resolveCompanyDisplayNameLocal(owner) || 'Flolah CRM',
-      api_key_hint: profile.twenty.api_key_hint || '',
-      bind: {
-        source: 'env_TWENTY_WORKSPACE_ID',
-        updated_at: new Date().toISOString(),
-      },
-    });
-    return fromEnv;
-  }
-
-  try {
-    const r = await pgQuery(
-      `SELECT id, "displayName"
-       FROM core.workspace
-       WHERE "activationStatus" = 'ACTIVE' AND "deletedAt" IS NULL
-       ORDER BY "createdAt" ASC
-       LIMIT 1`
-    );
-    const row = r?.rows?.[0];
-    if (row?.id) {
-      setTwentyBind(owner, {
-        workspace_id: row.id,
-        workspace_name:
-          profile.twenty.workspace_name ||
-          row.displayName ||
-          resolveCompanyDisplayNameLocal(owner) ||
-          'Flolah CRM',
-        api_key_hint: profile.twenty.api_key_hint || '',
-        bind: {
-          source: 'twenty_db_active_workspace',
-          previous_local_id: bound || null,
-          updated_at: new Date().toISOString(),
-        },
-      });
-      console.info(
-        '[twenty-sso] bound owner=%s to workspace=%s (discovered)',
-        owner,
-        row.id
-      );
-      return row.id;
-    }
-  } catch (e) {
-    console.warn('[twenty-sso] resolve workspace failed', e?.message || e);
-  }
-  return null;
+  const { ensureCompanyTwentyWorkspace } = await import('./twenty-workspace.js');
+  const ensured = await ensureCompanyTwentyWorkspace(ownerUserId);
+  return ensured?.workspace_id || null;
 }
 
 /**
@@ -415,14 +364,36 @@ function splitName(name) {
 export async function buildCrmSsoHandoff(ownerUserId, opts = {}) {
   const owner = strip(ownerUserId);
   assertCrmEntitled(owner);
-  const base = getTwentyPublicBaseLocal();
-  if (!base) {
+  // Platform front origin (crm.flolah.cloud); workspace UI is at {sub}.crm.flolah.cloud
+  const frontBase = getTwentyPublicBaseLocal();
+  if (!frontBase) {
     return {
       ok: false,
       mode: 'unavailable',
       reason: 'No TWENTY_EMBED_URL / TWENTY_SERVER_URL for browser CRM',
     };
   }
+
+  let companyWs = null;
+  try {
+    const { ensureUserInCompanyWorkspace } = await import('./twenty-workspace.js');
+    const flolahUser = opts.flolahUser || getUserById(owner) || {};
+    companyWs = await ensureUserInCompanyWorkspace(owner, flolahUser);
+  } catch (e) {
+    console.warn('[twenty-sso] company workspace ensure failed', e?.message || e);
+    return {
+      ok: false,
+      mode: 'session_isolation_handoff',
+      reason: e?.message || 'workspace_ensure_failed',
+      iframe_url: handoffUrl(frontBase, owner, '/'),
+      open_url: handoffUrl(frontBase, owner, '/'),
+    };
+  }
+
+  const workspaceId = companyWs.workspace_id;
+  // Handoff + verify must run on the company workspace origin (multi-workspace)
+  const base = companyWs.public_base || frontBase;
+  const email = strip(companyWs.email || opts.flolahUser?.email || '');
 
   if (!isTwentySsoEnabled()) {
     return {
@@ -433,12 +404,12 @@ export async function buildCrmSsoHandoff(ownerUserId, opts = {}) {
       switch_account_url: handoffUrl(base, `${owner}:switch:${Date.now()}`, '/welcome', {
         wipe: true,
       }),
+      workspace_id: workspaceId,
+      subdomain: companyWs.subdomain,
       sso_note: 'SSO disabled (TWENTY_SSO_ENABLED=0) or TWENTY_APP_SECRET missing',
     };
   }
 
-  const flolahUser = opts.flolahUser || getUserById(owner) || {};
-  const email = strip(flolahUser.email || opts.email || '');
   if (!email || !email.includes('@')) {
     return {
       ok: false,
@@ -446,39 +417,21 @@ export async function buildCrmSsoHandoff(ownerUserId, opts = {}) {
       reason: 'Flolah user email required for CRM SSO',
       iframe_url: handoffUrl(base, owner, '/'),
       open_url: handoffUrl(base, owner, '/'),
+      workspace_id: workspaceId,
     };
   }
-
-  const workspaceId = await resolveTwentyWorkspaceUuid(owner);
-  if (!workspaceId) {
-    return {
-      ok: false,
-      mode: 'session_isolation_handoff',
-      reason:
-        'Could not resolve a Twenty workspace UUID. Set TWENTY_WORKSPACE_ID or expose TWENTY_DATABASE_URL.',
-      iframe_url: handoffUrl(base, owner, '/'),
-      open_url: handoffUrl(base, owner, '/'),
-    };
-  }
-
-  const { firstName, lastName } = splitName(flolahUser.name);
-  const ensured = await ensureTwentyUserForEmail({
-    email,
-    firstName,
-    lastName,
-    workspaceId,
-  });
 
   try {
     const loginToken = mintTwentyLoginToken({ email, workspaceId, authProvider: 'SSO' });
     const next = buildVerifyNextPath(loginToken);
     const url = handoffUrl(base, owner, next, { wipe: true });
     console.info(
-      '[twenty-sso] mint loginToken owner=%s email=%s workspace=%s ensure=%s',
+      '[twenty-sso] mint loginToken owner=%s email=%s workspace=%s sub=%s ensure=%s',
       owner,
       email.replace(/(.{2}).+(@.+)/, '$1***$2'),
       workspaceId,
-      ensured?.ok ? 'ok' : ensured?.reason || 'skip'
+      companyWs.subdomain || '?',
+      companyWs.ensure_user?.ok ? 'ok' : companyWs.ensure_user?.reason || 'skip'
     );
     return {
       ok: true,
@@ -489,7 +442,9 @@ export async function buildCrmSsoHandoff(ownerUserId, opts = {}) {
         wipe: true,
       }),
       workspace_id: workspaceId,
-      ensure: ensured,
+      subdomain: companyWs.subdomain,
+      public_base: base,
+      ensure: companyWs.ensure_user,
       expires_hint_sec: 300,
     };
   } catch (e) {
@@ -503,6 +458,7 @@ export async function buildCrmSsoHandoff(ownerUserId, opts = {}) {
       switch_account_url: handoffUrl(base, `${owner}:switch:${Date.now()}`, '/welcome', {
         wipe: true,
       }),
+      workspace_id: workspaceId,
     };
   }
 }

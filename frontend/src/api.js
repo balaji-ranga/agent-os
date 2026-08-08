@@ -735,6 +735,12 @@ export const api = {
     del(
       `/admin/tool-onboarding/${encodeURIComponent(name)}?remove_content_tool=${removeContentTool ? '1' : '0'}&stepup_token=${encodeURIComponent(stepupToken || '')}`
     ),
+  adminTlsCertsStatus: () => get('/admin/tls-certs/status'),
+  adminTlsCertsJobs: () => get('/admin/tls-certs/jobs'),
+  adminTlsCertsJob: (id) => get(`/admin/tls-certs/jobs/${encodeURIComponent(id)}`),
+  adminTlsCertsStepup: (code) => post('/admin/tls-certs/stepup', { code }),
+  adminTlsCertsRefresh: (scope, stepupToken) =>
+    post('/admin/tls-certs/refresh', { scope, stepup_token: stepupToken }),
   agentWorkflowCreate: (body) => post('/agent-workflows', body),
   agentWorkflowUpdate: (id, body) => patch(`/agent-workflows/${encodeURIComponent(id)}`, body),
   agentWorkflowPublish: (id) => post(`/agent-workflows/${encodeURIComponent(id)}/publish`, {}),
@@ -1050,4 +1056,9 @@ export const api = {
       confirm: body.confirm || 'CLEAR_IBKR_TRANSACTIONAL',
       ...body,
     }),
+  /**
+   * Last cached laptop/Gateway account snapshot (owner-scoped).
+   * Does not require live Gateway on the VPS.
+   */
+  ibkrAccountSnapshotLatest: () => get('/ibkr-trading/account-snapshot/latest'),
 };

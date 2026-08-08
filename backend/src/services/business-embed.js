@@ -1,7 +1,7 @@
 /**
  * Browser embed / deep-link URLs for platform Twenty + ERPNext.
  * Public URLs only (never internal docker hostnames for iframe src).
- * Always resolve company from authenticated owner — never trust body workspace ids.
+ * Always resolve company from authenticated owner ΓÇö never trust body workspace ids.
  */
 import {
   getBusinessProfile,
@@ -63,7 +63,7 @@ function publicLoginHostBase() {
  * Env TWENTY_EMBED_URL / SERVER_URL still win when set.
  */
 
-/** Company label: setup name → business_name → user name. */
+/** Company label: setup name ΓåÆ business_name ΓåÆ user name. */
 export function resolveCompanyDisplayName(ownerUserId) {
   const owner = String(ownerUserId || '').trim();
   if (!owner) return '';
@@ -194,7 +194,7 @@ export async function getBusinessCoreStackStatus() {
       ),
       stack_running: Boolean(erpInternal) && !!erpLoop.ok,
       containers_hint:
-        'ERPNext is optional-erpnext profile — not started by default. START_ERPNEXT=1; site init required.',
+        'ERPNext is optional-erpnext profile ΓÇö not started by default. START_ERPNEXT=1; site init required.',
       public_note:
         'ERPNext not running until optional-erpnext + site init. :8444 returns 502 until then.',
     },
@@ -215,6 +215,8 @@ export async function getCrmEmbedForOwner(ownerUserId, { flolahUser } = {}) {
 
   const base = getTwentyPublicBase();
   let workspaceId = profile.twenty.workspace_id || null;
+  let workspaceSubdomain = profile.twenty.subdomain || (profile.twenty.bind && profile.twenty.bind.subdomain) || null;
+  let publicBase = null;
   const companyDisplay =
     resolveCompanyDisplayName(owner) || profile.twenty.workspace_name || null;
   const workspaceName = profile.twenty.workspace_name || companyDisplay || null;
@@ -237,14 +239,18 @@ export async function getCrmEmbedForOwner(ownerUserId, { flolahUser } = {}) {
       open_url = launch.open_url || iframe_url;
       switch_account_url = launch.switch_account_url || null;
       if (launch.workspace_id) workspaceId = launch.workspace_id;
+      if (launch.subdomain) workspaceSubdomain = launch.subdomain;
+      if (launch.public_base) publicBase = launch.public_base;
       sso = {
         mode: launch.mode || (isTwentySsoEnabled() ? 'login_token_sso' : 'session_isolation_handoff'),
         ok: launch.ok !== false,
         reason: launch.reason || null,
         ensure: launch.ensure || null,
+        subdomain: launch.subdomain || null,
+        public_base: launch.public_base || null,
         note:
           launch.mode === 'login_token_sso'
-            ? 'Passwordless CRM login via Flolah session (Twenty LOGIN token + /verify).'
+            ? 'Passwordless CRM login via Flolah session (Twenty LOGIN token + company workspace).'
             : 'Session isolation handoff only; passwordless SSO unavailable for this request.',
       };
     } catch (e) {
@@ -284,6 +290,8 @@ export async function getCrmEmbedForOwner(ownerUserId, { flolahUser } = {}) {
     open_url,
     switch_account_url,
     workspace_id: workspaceId,
+    workspace_subdomain: workspaceSubdomain,
+    public_base: publicBase || base || null,
     workspace_name: workspaceName,
     company_display_name: companyDisplay,
     bound: profile.twenty.bound,
@@ -297,9 +305,10 @@ export async function getCrmEmbedForOwner(ownerUserId, { flolahUser } = {}) {
     wiring: {
       flolah_owner_user_id: owner,
       twenty_workspace_id: workspaceId,
+      twenty_subdomain: workspaceSubdomain,
       bind_mode: profile.twenty.bound ? 'profile' : 'pending_ensure_on_provision_or_sync',
       sync: 'POST /api/business-core/sync-org or Sync org (crm_sync_org tool)',
-      sso: 'True SSO when TWENTY_APP_SECRET + workspace UUID (+ optional TWENTY_DATABASE_URL for JIT users)',
+      sso: 'One Flolah company -> one Twenty workspace; CRM open mints LOGIN token for company workspace origin',
     },
   };
 }

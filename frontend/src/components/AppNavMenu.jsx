@@ -245,6 +245,13 @@ export function AdminNavMenu({ collapsed }) {
         {collapsed ? 'TO' : 'Tools Onboarding'}
       </NavLink>
       <NavLink
+        to="/admin/tls-certs"
+        className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+        title="TLS / Let's Encrypt certs — SANs and refresh"
+      >
+        {collapsed ? 'TLS' : 'TLS certs'}
+      </NavLink>
+      <NavLink
         to="/admin/platform-feedback"
         className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
         title="Platform bugs, feedback, and enhancements"

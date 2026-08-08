@@ -209,6 +209,7 @@ Open **IBKR Summary** in the left nav (Prebuilt Workflows) after you are signed 
 | Area | Purpose |
 |------|---------|
 | Metrics strip | Day budget remaining, realized/unrealized PnL, open plans, paper/live mode |
+| **IBKR last known truth** (toolbar) | Readonly popup of the **last cached laptop/Gateway snapshot** (capture time, cash/equity, positions, open orders). Not a live cancel of IB orders; after **Clear data**, cache is empty until the bridge pushes again |
 | **Positions** card | Stocks/cash book from **your** last laptop snapshot (or optional live Gateway if co-located) |
 | **Day-wise planned vs executed** card | One row per plan day — status, mappable legs, order ids, gap notes |
 | **Drilldown** card (when you click a day) | Planned actions, bridge mapping, execution report, order events, fills |

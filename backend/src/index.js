@@ -50,6 +50,7 @@ import { openConnectorConsoleProxy } from './services/openconnector-console-prox
 import opensearchConsoleRoutes from './routes/opensearch-console.js';
 import adminPlatformDocsRoutes from './routes/admin-platform-docs.js';
 import adminToolOnboardingRoutes from './routes/admin-tool-onboarding.js';
+import adminTlsCertsRoutes from './routes/admin-tls-certs.js';
 import {
   openSearchConsoleProxy,
   waitForOpenSearch,
@@ -485,6 +486,7 @@ apiRouter.use('/feedback', feedbackRoutes);
 apiRouter.use('/master-data', masterDataRoutes);
 apiRouter.use('/admin/platform-documents', adminPlatformDocsRoutes);
 apiRouter.use('/admin/tool-onboarding', adminToolOnboardingRoutes);
+apiRouter.use('/admin/tls-certs', adminTlsCertsRoutes);
 apiRouter.use('/ceo-guardrails', ceoGuardrailsRoutes);
 apiRouter.use('/onboarding/helper', onboardingHelperRoutes);
 apiRouter.use('/company-setup', companySetupRoutes);

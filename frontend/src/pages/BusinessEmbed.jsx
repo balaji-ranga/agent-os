@@ -141,6 +141,23 @@ export function BusinessEmbedPage({ kind }) {
           <span>{error}</span>
         </div>
       ) : null}
+      {isCrm && data?.public_base
+        ? (() => {
+            try {
+              const host = new URL(data.public_base).hostname;
+              if (host === 'crm.flolah.cloud' || !host.endsWith('.crm.flolah.cloud')) return null;
+              return (
+                <div className="page-banner" role="status" style={{ margin: '0 0.85rem 0.5rem', fontSize: '0.85rem' }}>
+                  CRM workspace host is <code>{host}</code>. If the frame fails with DNS / server-not-found,
+                  add Hostinger DNS A record <code>*.crm</code> → VPS IP (or <code>{host.split('.')[0]}.crm</code>), then run{" "}
+                  <code>vps-ensure-crm-workspace-dns-cert.sh</code> on the VPS.
+                </div>
+              );
+            } catch {
+              return null;
+            }
+          })()
+        : null}
 
       {syncResult ? (
         <div

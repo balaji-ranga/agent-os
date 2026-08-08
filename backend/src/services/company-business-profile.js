@@ -83,7 +83,7 @@ function rowToPublic(row) {
       owner_user_id: null,
       crm_provider: 'none',
       erp_provider: 'none',
-      twenty: { workspace_id: null, workspace_name: null, bound: false },
+      twenty: { workspace_id: null, workspace_name: null, bound: false, bind: {}, subdomain: null },
       erpnext: { company_id: null, company_name: null, bound: false },
       prefab_crm_agent_ids: [],
       prefab_erp_agent_ids: [],
@@ -104,6 +104,11 @@ function rowToPublic(row) {
       workspace_name: row.twenty_workspace_name || null,
       bound: Boolean(row.twenty_workspace_id),
       api_key_hint: row.twenty_api_key_hint || null,
+      bind: parseJson(row.twenty_bind_json, {}),
+      subdomain: (() => {
+        const b = parseJson(row.twenty_bind_json, {});
+        return b && b.subdomain ? String(b.subdomain) : null;
+      })(),
     },
     erpnext: {
       company_id: row.erpnext_company_id || null,
@@ -258,6 +263,22 @@ export function assertErpEntitled(ownerUserId) {
     throw err;
   }
   return p;
+}
+
+
+/** True if another CEO company already claims this Twenty workspace UUID. */
+export function isTwentyWorkspaceBoundToOtherOwner(workspaceId, ownerUserId) {
+  ensureCompanyBusinessProfileSchema();
+  const ws = String(workspaceId || '').trim();
+  const owner = String(ownerUserId || '').trim();
+  if (!ws) return false;
+  const rows = getDb()
+    .prepare(
+      `SELECT owner_user_id FROM company_business_profiles
+       WHERE twenty_workspace_id = ? AND owner_user_id != ?`
+    )
+    .all(ws, owner || '__none__');
+  return rows.length > 0;
 }
 
 export function resolveTwentyWorkspaceForOwner(ownerUserId) {

@@ -11,7 +11,7 @@ export function dockerToolsEnabled() {
   return v === "1" || v === "true" || v === "on" || v === "yes";
 }
 
-function request(method, path, { body, headers = {}, timeoutMs = 120000 } = {}) {
+export function request(method, path, { body, headers = {}, timeoutMs = 120000 } = {}) {
   const socketPath = dockerSocketPath();
   const payload = body == null ? null : Buffer.from(typeof body === "string" ? body : JSON.stringify(body));
   return new Promise((resolve, reject) => {

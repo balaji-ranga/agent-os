@@ -69,6 +69,12 @@ function IbkrSummaryPanel() {
   const [clearMsg, setClearMsg] = useState(null);
   const [clearErr, setClearErr] = useState(null);
 
+  const [truthOpen, setTruthOpen] = useState(false);
+  const [truthSnap, setTruthSnap] = useState(null);
+  const [truthLoading, setTruthLoading] = useState(false);
+  const [truthErr, setTruthErr] = useState(null);
+  const [truthFetchedAt, setTruthFetchedAt] = useState(null);
+
   const load = useCallback(() => {
     setLoading(true);
     setError(null);
@@ -139,6 +145,39 @@ function IbkrSummaryPanel() {
     }
   };
 
+  const loadTruthSnapshot = async () => {
+    setTruthLoading(true);
+    setTruthErr(null);
+    setTruthSnap(null);
+    try {
+      const snap = await api.ibkrAccountSnapshotLatest();
+      setTruthSnap(snap);
+      setTruthFetchedAt(new Date().toISOString());
+    } catch (e) {
+      const d = e.data || {};
+      setTruthErr(d.message || e.message || String(e));
+      if (d.error === 'no_cached_snapshot' || e.status === 404) {
+        setTruthSnap({
+          ok: false,
+          error: d.error || 'no_cached_snapshot',
+          message:
+            d.message ||
+            'No laptop IBKR account snapshot has been pushed yet. Run the local bridge with WEBHOOK_URL.',
+          positions: [],
+          open_orders: [],
+        });
+      }
+      setTruthFetchedAt(new Date().toISOString());
+    } finally {
+      setTruthLoading(false);
+    }
+  };
+
+  const openTruth = async () => {
+    setTruthOpen(true);
+    await loadTruthSnapshot();
+  };
+
   const portfolio = data?.portfolio;
   const budget = data?.budget || portfolio?.budget;
   const positions =
@@ -178,6 +217,9 @@ function IbkrSummaryPanel() {
           </label>
           <button type="button" className="btn secondary" onClick={load} disabled={loading}>
             {loading ? 'Refreshing…' : 'Refresh'}
+          </button>
+          <button type="button" className="btn secondary" onClick={openTruth} title="Readonly last laptop Gateway snapshot cached on the server">
+            IBKR last known truth
           </button>
           <button type="button" className="btn secondary ibkr-danger-outline" onClick={openClear}>
             Clear data…
@@ -476,6 +518,197 @@ function IbkrSummaryPanel() {
             ) : null}
           </div>
         </>
+      )}
+
+      {truthOpen && (
+        <div
+          className="ibkr-modal-backdrop"
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setTruthOpen(false);
+          }}
+        >
+          <div
+            className="ibkr-modal ibkr-modal-wide"
+            role="dialog"
+            aria-labelledby="ibkr-truth-title"
+            aria-modal="true"
+          >
+            <h2 id="ibkr-truth-title">IBKR last known truth</h2>
+            <p className="muted ibkr-truth-lead">
+              Readonly view of the last account snapshot pushed from your laptop bridge (Gateway book).
+              Clearing Summary removes this cache; live Gateway orders are not cancelled by clear.
+            </p>
+
+            <div className="ibkr-truth-meta">
+              <div>
+                <span className="ibkr-truth-meta-k">Captured (broker book time)</span>
+                <span className="ibkr-truth-meta-v">
+                  {truthLoading ? '…' : truthSnap?.captured_at || '—'}
+                </span>
+              </div>
+              <div>
+                <span className="ibkr-truth-meta-k">Cache updated</span>
+                <span className="ibkr-truth-meta-v">
+                  {truthLoading ? '…' : truthSnap?.updated_at || '—'}
+                </span>
+              </div>
+              <div>
+                <span className="ibkr-truth-meta-k">UI opened / refresh</span>
+                <span className="ibkr-truth-meta-v">
+                  {truthFetchedAt || '—'}
+                </span>
+              </div>
+              <div>
+                <span className="ibkr-truth-meta-k">Source</span>
+                <span className="ibkr-truth-meta-v">
+                  {truthLoading
+                    ? '…'
+                    : [truthSnap?.source, truthSnap?.push_source].filter(Boolean).join(' · ') || '—'}
+                </span>
+              </div>
+              <div>
+                <span className="ibkr-truth-meta-k">Account</span>
+                <span className="ibkr-truth-meta-v">
+                  {truthLoading ? '…' : truthSnap?.account || '—'}
+                  {truthSnap?.mock ? ' (mock)' : ''}
+                </span>
+              </div>
+            </div>
+
+            {truthLoading && <p className="muted">Loading last known snapshot…</p>}
+            {truthErr && !truthSnap?.ok && (
+              <div className="error-banner">{truthErr}</div>
+            )}
+            {truthSnap?.ok === false && truthSnap?.message && (
+              <p className="muted">{truthSnap.message}</p>
+            )}
+
+            {truthSnap?.ok !== false && truthSnap && !truthLoading && (
+              <div className="ibkr-truth-body">
+                <div className="ibkr-metrics-compact">
+                  <Metric label="Cash" value={money(truthSnap.cash_usd)} />
+                  <Metric label="Equity" value={money(truthSnap.equity_usd)} />
+                  <Metric
+                    label="Positions"
+                    value={String((truthSnap.positions || []).length)}
+                  />
+                  <Metric
+                    label="Open orders"
+                    value={String((truthSnap.open_orders || []).length)}
+                  />
+                </div>
+
+                <h3 className="ibkr-subh">Positions</h3>
+                {(truthSnap.positions || []).length === 0 ? (
+                  <p className="muted ibkr-empty">No stock positions in this snapshot.</p>
+                ) : (
+                  <div className="table-wrap table-wrap-nested">
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>Symbol</th>
+                          <th>Exchange</th>
+                          <th>Qty</th>
+                          <th>Avg cost</th>
+                          <th>Currency</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(truthSnap.positions || []).map((p, i) => (
+                          <tr key={p.key || `${p.symbol}-${i}`}>
+                            <td>{p.symbol || p.key || '—'}</td>
+                            <td>{p.exchange || '—'}</td>
+                            <td>{p.qty ?? '—'}</td>
+                            <td>
+                              {p.avg_cost != null || p.avgCost != null
+                                ? money(p.avg_cost ?? p.avgCost)
+                                : '—'}
+                            </td>
+                            <td>{p.currency || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                <h3 className="ibkr-subh">
+                  Open orders ({(truthSnap.open_orders || []).length})
+                </h3>
+                {(truthSnap.open_orders || []).length === 0 ? (
+                  <p className="muted ibkr-empty">No open orders in this snapshot.</p>
+                ) : (
+                  <div className="table-wrap table-wrap-nested">
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>Order</th>
+                          <th>Symbol</th>
+                          <th>Side</th>
+                          <th>Type</th>
+                          <th>Qty</th>
+                          <th>Lmt</th>
+                          <th>Aux</th>
+                          <th>Parent</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(truthSnap.open_orders || []).map((o) => (
+                          <tr key={o.order_id ?? o.orderId ?? `${o.symbol}-${o.status}`}>
+                            <td>{o.order_id ?? o.orderId ?? '—'}</td>
+                            <td>{o.symbol || '—'}</td>
+                            <td>{o.action || o.side || '—'}</td>
+                            <td>{o.order_type || o.orderType || '—'}</td>
+                            <td>{o.qty ?? o.totalQuantity ?? '—'}</td>
+                            <td>
+                              {o.lmt_price != null || o.lmtPrice != null
+                                ? money(o.lmt_price ?? o.lmtPrice)
+                                : '—'}
+                            </td>
+                            <td>
+                              {o.aux_price != null || o.auxPrice != null
+                                ? money(o.aux_price ?? o.auxPrice)
+                                : '—'}
+                            </td>
+                            <td>{o.parent_id ?? o.parentId ?? '—'}</td>
+                            <td>
+                              <StatusPill status={o.status} />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {truthSnap.summary && typeof truthSnap.summary === 'object' && (
+                  <>
+                    <h3 className="ibkr-subh">Account summary tags</h3>
+                    <pre className="ibkr-json">
+                      {JSON.stringify(truthSnap.summary, null, 2)}
+                    </pre>
+                  </>
+                )}
+              </div>
+            )}
+
+            <div className="ibkr-modal-actions">
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={loadTruthSnapshot}
+                disabled={truthLoading}
+              >
+                {truthLoading ? 'Refreshing…' : 'Refresh snapshot'}
+              </button>
+              <button type="button" className="btn secondary" onClick={() => setTruthOpen(false)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {clearOpen && (
@@ -777,7 +1010,36 @@ function IbkrSummaryPanel() {
           box-shadow: 0 12px 40px color-mix(in srgb, #000 18%, transparent);
           scrollbar-width: thin;
         }
+        .ibkr-modal-wide {
+          width: min(920px, 100%);
+          max-height: min(88vh, 820px);
+        }
         .ibkr-modal h2 { margin: 0 0 0.5rem; font-size: 1.1rem; }
+        .ibkr-truth-lead { margin: 0 0 0.75rem; font-size: 0.86rem; line-height: 1.4; }
+        .ibkr-truth-meta {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+          gap: 0.45rem 0.65rem;
+          margin-bottom: 0.75rem;
+          padding: 0.55rem 0.65rem;
+          border-radius: 8px;
+          border: 1px solid var(--border, #e5e5e5);
+          font-size: 0.82rem;
+        }
+        .ibkr-truth-meta-k {
+          display: block;
+          font-size: 0.68rem;
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
+          color: var(--muted, #666);
+        }
+        .ibkr-truth-meta-v {
+          display: block;
+          margin-top: 0.12rem;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          word-break: break-word;
+        }
+        .ibkr-truth-body { margin-top: 0.35rem; }
         .ibkr-clear-counts {
           font-size: 0.88rem;
           margin: 0.65rem 0;

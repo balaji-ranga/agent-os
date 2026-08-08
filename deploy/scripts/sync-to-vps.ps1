@@ -139,11 +139,14 @@ scp @ssh `
   "$Repo\deploy\nginx\nginx.host-network.conf" `
   "$Repo\deploy\nginx\frontend.conf" `
   "root@${HostIp}:$RemoteRoot/deploy/nginx/"
-Write-Host "==> Sync deploy/static (flolah marketing homepage)"
-ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/deploy/static/flolah-home/assets"
+Write-Host "==> Sync deploy/static (flolah marketing homepage + CRM SSO handoff)"
+ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/deploy/static/flolah-home/assets $RemoteRoot/deploy/static/crm-handoff"
 scp @ssh -r "$Repo\deploy\static\flolah-home" "root@${HostIp}:$RemoteRoot/deploy/static/"
-# nginx worker needs world-readable files (scp may leave 700 on Windows-created trees)
-ssh @ssh "root@$HostIp" "chmod -R a+rX $RemoteRoot/deploy/static/flolah-home"
+if (Test-Path "$Repo\deploy\static\crm-handoff") {
+  scp @ssh -r "$Repo\deploy\static\crm-handoff" "root@${HostIp}:$RemoteRoot/deploy/static/"
+}
+# nginx worker needs world-readable trees (scp often leaves 700 dirs → 403 on /flolah-handoff/)
+ssh @ssh "root@$HostIp" "chmod -R a+rX $RemoteRoot/deploy/static/flolah-home; chmod 755 $RemoteRoot/deploy/static/crm-handoff 2>/dev/null; chmod 644 $RemoteRoot/deploy/static/crm-handoff/* 2>/dev/null; true"
 scp @ssh `
   "$Repo\deploy\scripts\vps-deploy-latest.sh" `
   "$Repo\deploy\scripts\vps-expand-login-cert.sh" `
@@ -186,6 +189,10 @@ scp @ssh `
   "$Repo\deploy\scripts\configure-openclaw-docker.js" `
   "$Repo\deploy\scripts\verify-openclaw-parity.js" `
   "$Repo\deploy\scripts\up.sh" `
+  "$Repo\deploy\scripts\vps-expand-login-cert.sh" `
+  "$Repo\deploy\scripts\vps-expand-crm-cert.sh" `
+  "$Repo\deploy\scripts\vps-ensure-crm-workspace-dns-cert.sh" `
+  "$Repo\deploy\scripts\vps-refresh-tls-certs.sh" `
   "root@${HostIp}:$RemoteRoot/deploy/scripts/"
 
 # Remove obsolete DeepSeek cloud proxy artifacts on VPS

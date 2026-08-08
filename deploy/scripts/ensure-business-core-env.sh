@@ -93,6 +93,8 @@ upsert TWENTY_DB_USER 'twenty'
 upsert TWENTY_DB_NAME 'twenty'
 upsert TWENTY_DB_PASSWORD 'twenty'
 upsert TWENTY_SSO_ENABLED "1"
+upsert TWENTY_IS_MULTIWORKSPACE_ENABLED "true"
+# Optional: TWENTY_BOOTSTRAP_EMAIL for signing up new workspaces (otherwise first ACTIVE admin is used)
 # Build DATABASE_URL from TWENTY_DB_* so JIT SSO provision hits the same Postgres as Twenty
 _tuser="$(grep -E '^TWENTY_DB_USER=' "$ENV_FILE" | head -1 | cut -d= -f2-)"
 _tpass="$(grep -E '^TWENTY_DB_PASSWORD=' "$ENV_FILE" | head -1 | cut -d= -f2-)"
@@ -101,7 +103,7 @@ _tuser="${_tuser:-twenty}"
 _tpass="${_tpass:-twenty}"
 _tdb="${_tdb:-twenty}"
 upsert TWENTY_DATABASE_URL "postgres://${_tuser}:${_tpass}@twenty-db:5432/${_tdb}"
-# Optional: set TWENTY_WORKSPACE_ID=<uuid> after first Twenty workspace exists (or leave empty to auto-discover first ACTIVE workspace via DATABASE_URL)
+# Do not rely on TWENTY_WORKSPACE_ID for multi-tenant: each Flolah company binds its own UUID via ensureCompanyTwentyWorkspace
 upsert ERPNEXT_DB_ROOT_PASSWORD 'admin'
 upsert BUSINESS_CORE_MCP_URL 'http://business-core-mcp:8082/mcp'
 
