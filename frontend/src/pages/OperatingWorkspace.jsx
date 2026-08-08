@@ -306,17 +306,25 @@ export default function OperatingWorkspace() {
           <div className="ow-panel-scroll">
             {(data?.activity || []).length === 0 ? (
               <p className="page-muted">
-                No recent AI activity yet (tools and rated replies appear here).
+                No recent agent tasks or workflow runs yet.
               </p>
             ) : (
               <ul className="ow-list" style={{ fontSize: '0.85rem' }}>
                 {(data.activity || []).map((row) => (
                   <li key={row.id} className="ow-list-item ow-list-item-stack">
                     <div>
-                      <strong>{row.agent_name || row.agent_id || 'Agent'}</strong>
-                      {row.kind === 'tool' ? (
+                      <strong>
+                        {row.agent_name ||
+                          row.agent_id ||
+                          (row.kind === 'workflow' ? 'Workflow brain' : 'Agent')}
+                      </strong>
+                      {row.kind === 'kanban' ? (
                         <span className="page-muted" style={{ marginLeft: 6 }}>
-                          tool
+                          task {row.status || ''}
+                        </span>
+                      ) : row.kind === 'workflow' ? (
+                        <span className="page-muted" style={{ marginLeft: 6 }}>
+                          workflow {row.status || ''}
                         </span>
                       ) : row.kind === 'feedback' ? (
                         <span className="page-muted" style={{ marginLeft: 6 }}>

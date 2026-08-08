@@ -29,7 +29,9 @@
 # Meta Graph MCP (tools/meta-graph-mcp, profile optional-meta-graph-mcp) + Connectors MCPs OAuth,
 # Business Core MCP (tools/business-core-mcp → mcp-flolah-crm / mcp-flolah-erp),
 # content studio: content-publish-social + content-comments-ingest/community triage (workflow mcp_tool/brain nodes;
-#   not one-off content_comments_* tools), day0+day1 blueprint snapshot/publish, complete-content-ops-pipeline,
+#   not one-off content_comments_* tools), day0+day1 blueprint snapshot/publish (ops MD, tools, org, connectors
+#   no secrets, workflow graphs, goals; zip export v2), validate-company-blueprint-export.mjs,
+#   complete-content-ops-pipeline,
 # ensure-platform-mcps.sh seeds mcp-brave-search + mcp-meta-graph + mcp-flolah-crm + mcp-flolah-erp (is_platform=1),
 # Business Core prefab Maker/Checker agents when Profile CRM=twenty / ERP=erpnext,
 # SEED_CONTENT_MEDIA_OWNER (optional) post-deploy seeds publish+comments workflows for that CEO,
@@ -314,6 +316,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\complete-content-ops-pipeline.js" `
     "$Repo\backend\scripts\test-content-ops-org-e2e.js" `
     "$Repo\backend\scripts\republish-content-ops-blueprint.js" `
+    "$Repo\backend\scripts\validate-company-blueprint-export.mjs" `
     "$Repo\backend\scripts\bootstrap-content-publish-phase01.js" `
     "$Repo\backend\scripts\e2e-content-publish-social-li.js" `
     "$Repo\backend\scripts\create-content-media-ceo.mjs" `

@@ -25,7 +25,7 @@
 | AI Snipper | `/ai-snipper` | Prompt / token / tool-call usage timeline |
 | **Browser Session** | `/browser-session` | Client Chrome relay, NL browser tasks, recorder recipes |
 | **Efficiency View** | `/efficiency` | **Org** tab: AI employees, automated tasks, feedback, workflow run success/fail, Storage (MB). **Department** tab: month-to-date tokens vs department budget. **Agent View** tab: per-employee activity, outcomes, token/error budgets, **Reset usage** |
-| **Work** | `/work` | Daily operating workspace (tasks + **Recent AI activity** + command bar). Activity merges owner-scoped **tool runs** (e.g. `crm_create_person`) and **rated chat feedback** — not feedback alone. See [32-business-core-crm-erp.md](./32-business-core-crm-erp.md) |
+| **Work** | `/work` | Daily operating workspace (tasks + **Recent AI activity** + command bar). Activity highlights significant work: **Kanban completed/failed** (agent-assigned) and **workflow brain runs**, plus optional rated replies — not raw tool call spam. See [32-business-core-crm-erp.md](./32-business-core-crm-erp.md) |
 | **CRM** | `/crm` | Shown only when Profile CRM = Twenty (platform embed) |
 | **ERP** | `/erp` | Shown only when Profile ERP = ERPNext (platform embed) |
 | **3D Avatars** | `/avatars` | Avatar models, Virtual Rooms, publish public scenes |

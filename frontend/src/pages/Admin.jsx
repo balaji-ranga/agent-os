@@ -532,8 +532,11 @@ function AdminPanel() {
         <p style={{ margin: '0 0 0.75rem 0', color: 'var(--muted)', fontSize: '0.9rem' }}>
           System packs live as JSON under <code>backend/src/services/company-blueprints/packs/</code>. Publish a successful
           CEO company as a named blueprint for an industry so company setup can offer alternatives (default + slide
-          picker). Content Creator social is FB / Instagram / LinkedIn / blogs — not YouTube. Use <strong>Download zip</strong>{' '}
-          to export <code>manifest.json</code> + <code>blueprint.json</code> for any listed pack.
+          picker). Snapshot includes knowledge, policies, org (departments + agent map), agents with tool grants and
+          workspace MD (including ops), workflow graphs, connector catalog (no OAuth secrets), and goal schedules.
+          Content Creator social is FB / Instagram / LinkedIn / blogs — not YouTube. Use <strong>Download zip</strong>{' '}
+          for export format <code>agent-os-company-blueprint-v2</code> (
+          <code>blueprint.json</code> + folders: knowledge, policies, org, agents, workflows, connectors, goals).
         </p>
         <form
           onSubmit={publishCompanyBlueprint}

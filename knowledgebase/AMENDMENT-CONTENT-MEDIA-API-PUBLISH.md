@@ -310,7 +310,7 @@ All content-media pipeline changes live in git sources that full image builds pi
 | Publish workflow seed | `backend/scripts/seed-content-publish-social-workflow.js` |
 | Comments ingest + community triage (`mcp_tool` + `brain` MCP loop + agent master_data — **no** one-off content tools) | `backend/scripts/seed-content-comments-ingest.js` |
 | Day0/Day1 org complete helper | `backend/scripts/complete-content-ops-pipeline.js` |
-| Blueprint snapshot / publish | `backend/src/services/company-blueprint-publish.js`, `company-blueprints/registry.js` |
+| Blueprint snapshot / publish | `backend/src/services/company-blueprint-publish.js`, `company-blueprints/registry.js` (zip v2: knowledge, policies, org, agents+tools+ops MD, workflow graphs, connectors sans secrets, goals; `scripts/validate-company-blueprint-export.mjs`) |
 | Operate model pack | `backend/src/services/company-operate-models/content-creator.js`, `packs/content_creator.json` |
 | Docker image | `deploy/docker/backend.Dockerfile` `COPY backend ./backend` (includes scripts + src) |
 | Sync + rebuild | `deploy/scripts/sync-to-vps.ps1` → `vps-deploy-latest.sh` |

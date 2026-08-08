@@ -38,7 +38,25 @@ console.log(
       knowledge_tables: snap.payload?.knowledge_tables?.map((t) => t.name),
       workflow_templates: snap.payload?.workflow_templates?.map((w) => w.template_key),
       goal_templates: snap.payload?.goal_templates?.map((g) => g.title),
-      agents_md: snap.payload?.agents_md?.map((a) => a.agent_name),
+      agents_md: snap.payload?.agents_md?.map((a) => ({
+        name: a.agent_name,
+        files: a.file_keys || Object.keys(a.files || {}),
+        tools: (a.tools || []).length,
+        has_ops: !!(a.files && a.files.ops),
+      })),
+      org: {
+        departments: snap.payload?.org?.departments?.length || snap.payload?.departments?.length,
+        agent_department_map: snap.payload?.org?.agent_department_map?.length,
+      },
+      connectors: {
+        mcp_oauth: snap.payload?.connectors?.mcp_oauth?.length || 0,
+        ceo_mcp_servers: snap.payload?.connectors?.ceo_mcp_servers?.length || 0,
+        openconnector: snap.payload?.connectors?.openconnector || null,
+      },
+      workflow_graphs: (snap.payload?.workflow_templates || []).map((w) => ({
+        key: w.template_key,
+        nodes: (w.graph?.nodes || []).length,
+      })),
       policy_chars: (snap.payload?.policy_text || '').length,
       operate_loops: snap.payload?.operate_model_snapshot?.loops?.length,
       day0_day1: snap.payload?.day0_day1,

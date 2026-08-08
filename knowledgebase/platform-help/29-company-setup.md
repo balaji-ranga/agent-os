@@ -21,6 +21,8 @@
 
 **What does Apply do?** Creates or extends departments and AI employees from the selected blueprint, seeds knowledge / policy style where applicable, and marks the setup gate **completed**. Re-running can add packs; it does not wipe your existing org by default.
 
+**Admin: publish / export a company blueprint?** Platform admin **Admin → Company industry blueprints** snapshots a chosen CEO company into an industry pack (Day 0+1): knowledge tables, policies, org departments + agent map, agent definitions with tool grants and workspace MD (including **ops** / `AGENT-OS-OPS.md`), full workflow graphs, connector catalog (structure only — reconnect OAuth; no secrets), and scheduled goal definitions. **Download zip** is format `agent-os-company-blueprint-v2` (`blueprint.json` plus `knowledge/`, `policies/`, `org/`, `agents/`, `workflows/`, `connectors/`, `goals/`). Older downloaded packs without ops/connectors need a re-publish from the source CEO. Ops CLI: `node scripts/validate-company-blueprint-export.mjs` (set `DRY_RUN=1` to validate only).
+
 **Optional CRM / ERP (Business Core):** On the systems step (and on Profile anytime) you may select **platform Twenty (CRM)** and/or **platform ERPNext (ERP)**. That is optional — leave as none if you do not need SoR CRM/ERP.
 
 - Selecting **Twenty** provisions **CRM Maker A**, **CRM Maker B**, **CRM Checker** (your company only) with `crm_*` tools, and unlocks **CRM** nav when embeds are configured.
