@@ -4,6 +4,12 @@
 import { Router } from 'express';
 import { requireAuth, requireCeoOrAdmin, resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
 import * as md from '../services/master-data.js';
+import {
+  previewCompanySetupKnowledge,
+  reseedCompanySetupKnowledge,
+  listIndustryBlueprintsForOwner,
+  COMPANY_KNOWLEDGE_OVERWRITE_CONFIRM,
+} from '../services/company-setup.js';
 
 const router = Router();
 
@@ -23,6 +29,58 @@ router.get('/tables', requireAuth, requireCeoOrAdmin, (req, res) => {
     res.json({ tables: md.listTables(owner) });
   } catch (e) {
     res.status(400).json({ error: e.message });
+  }
+});
+
+/**
+ * Company Setup knowledge pack status for this CEO (which tables exist / would be seeded).
+ * GET /api/master-data/company-setup-knowledge?industry_id=&blueprint_id=
+ */
+router.get('/company-setup-knowledge', requireAuth, requireCeoOrAdmin, (req, res) => {
+  try {
+    const owner = ownerOr403(req, res);
+    if (!owner) return;
+    const industry_id = req.query.industry_id ? String(req.query.industry_id) : undefined;
+    const blueprint_id = req.query.blueprint_id ? String(req.query.blueprint_id) : undefined;
+    const preview = previewCompanySetupKnowledge(owner, { industry_id, blueprint_id });
+    const industryOpts = listIndustryBlueprintsForOwner(owner, industry_id || preview.industry_id);
+    res.json({
+      ...preview,
+      industries: industryOpts,
+      overwrite_confirm_phrase: COMPANY_KNOWLEDGE_OVERWRITE_CONFIRM,
+    });
+  } catch (e) {
+    console.warn('[master-data] company-setup-knowledge preview failed', e?.message || e);
+    res.status(e.status || 500).json({ error: e.message || 'Failed to load company knowledge status' });
+  }
+});
+
+/**
+ * Reseed company-setup knowledge tables for this CEO.
+ * If any target tables exist, body.confirm must be OVERWRITE_COMPANY_KNOWLEDGE.
+ * POST /api/master-data/company-setup-knowledge/reseed
+ */
+router.post('/company-setup-knowledge/reseed', requireAuth, requireCeoOrAdmin, async (req, res) => {
+  try {
+    const owner = ownerOr403(req, res);
+    if (!owner) return;
+    const body = req.body || {};
+    const result = await reseedCompanySetupKnowledge(owner, {
+      industry_id: body.industry_id,
+      blueprint_id: body.blueprint_id,
+      confirm: body.confirm,
+      confirm_overwrite: body.confirm_overwrite,
+      seed_sops: body.seed_sops,
+    });
+    res.json(result);
+  } catch (e) {
+    console.warn('[master-data] company-setup-knowledge reseed failed', e?.message || e);
+    const status = e.status || 500;
+    res.status(status).json({
+      error: e.message || 'Failed to reseed company knowledge',
+      preview: e.preview || undefined,
+      overwrite_confirm_phrase: COMPANY_KNOWLEDGE_OVERWRITE_CONFIRM,
+    });
   }
 });
 

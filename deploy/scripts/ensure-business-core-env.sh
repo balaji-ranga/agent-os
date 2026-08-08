@@ -49,17 +49,64 @@ upsert ERPNEXT_PUBLIC_HTTPS_PORT '8444'
 upsert TWENTY_HOST_PORT '3100'
 upsert ERPNEXT_HOST_PORT '8085'
 upsert TWENTY_API_URL 'http://twenty-server:3000'
-# Prefer same-origin :443 path (Hostinger often does not pass non-443 ports to the VPS)
-upsert TWENTY_SERVER_URL "https://${PUBLIC_HOST}/crm-app"
-upsert TWENTY_EMBED_URL "https://${PUBLIC_HOST}/crm-app"
+# Twenty SPA host root on dedicated CRM subdomain crm.<apex> (never marketing www/apex).
+CRM_PUBLIC_HOST="${TWENTY_PUBLIC_HOST:-}"
+if [[ -z "$CRM_PUBLIC_HOST" ]]; then
+  if [[ "$PUBLIC_HOST" == login.* ]]; then
+    CRM_PUBLIC_HOST="crm.${PUBLIC_HOST#login.}"
+  elif [[ "$PUBLIC_HOST" == www.* ]]; then
+    CRM_PUBLIC_HOST="crm.${PUBLIC_HOST#www.}"
+  else
+    CRM_PUBLIC_HOST="crm.${PUBLIC_HOST}"
+  fi
+fi
+# Force-correct known-broken path embeds (upsert skips non-empty values)
+if grep -qE '^TWENTY_SERVER_URL=.*/crm-app' "$ENV_FILE" 2>/dev/null \
+  || grep -qE '^TWENTY_SERVER_URL=.*:8443' "$ENV_FILE" 2>/dev/null \
+  || grep -qE '^TWENTY_SERVER_URL=.*//www\\.' "$ENV_FILE" 2>/dev/null \
+  || ! grep -qE '^TWENTY_SERVER_URL=' "$ENV_FILE" 2>/dev/null; then
+  if grep -qE '^TWENTY_SERVER_URL=' "$ENV_FILE" 2>/dev/null; then
+    sed -i "s#^TWENTY_SERVER_URL=.*#TWENTY_SERVER_URL=https://${CRM_PUBLIC_HOST}#" "$ENV_FILE"
+  else
+    printf '\nTWENTY_SERVER_URL=https://%s\n' "$CRM_PUBLIC_HOST" >> "$ENV_FILE"
+  fi
+  echo "ensure-business-core-env: TWENTY_SERVER_URL=https://${CRM_PUBLIC_HOST}"
+fi
+if grep -qE '^TWENTY_EMBED_URL=.*/crm-app' "$ENV_FILE" 2>/dev/null \
+  || grep -qE '^TWENTY_EMBED_URL=.*:8443' "$ENV_FILE" 2>/dev/null \
+  || grep -qE '^TWENTY_EMBED_URL=.*//www\\.' "$ENV_FILE" 2>/dev/null \
+  || ! grep -qE '^TWENTY_EMBED_URL=' "$ENV_FILE" 2>/dev/null; then
+  if grep -qE '^TWENTY_EMBED_URL=' "$ENV_FILE" 2>/dev/null; then
+    sed -i "s#^TWENTY_EMBED_URL=.*#TWENTY_EMBED_URL=https://${CRM_PUBLIC_HOST}#" "$ENV_FILE"
+  else
+    printf '\nTWENTY_EMBED_URL=https://%s\n' "$CRM_PUBLIC_HOST" >> "$ENV_FILE"
+  fi
+  echo "ensure-business-core-env: TWENTY_EMBED_URL=https://${CRM_PUBLIC_HOST}"
+fi
+upsert TWENTY_SERVER_URL "https://${CRM_PUBLIC_HOST}"
+upsert TWENTY_EMBED_URL "https://${CRM_PUBLIC_HOST}"
 upsert ERPNEXT_PUBLIC_URL "https://${PUBLIC_HOST}:8444"
 upsert ERPNEXT_EMBED_URL "https://${PUBLIC_HOST}:8444"
+# APP_SECRET must match Twenty container APP_SECRET (upsert only fills empty; never rotate on re-run)
 upsert TWENTY_APP_SECRET "$(openssl rand -hex 24 2>/dev/null || echo 'change-me-twenty-app-secret-min-32-chars-xx')"
+upsert TWENTY_DB_USER 'twenty'
+upsert TWENTY_DB_NAME 'twenty'
 upsert TWENTY_DB_PASSWORD 'twenty'
+upsert TWENTY_SSO_ENABLED "1"
+# Build DATABASE_URL from TWENTY_DB_* so JIT SSO provision hits the same Postgres as Twenty
+_tuser="$(grep -E '^TWENTY_DB_USER=' "$ENV_FILE" | head -1 | cut -d= -f2-)"
+_tpass="$(grep -E '^TWENTY_DB_PASSWORD=' "$ENV_FILE" | head -1 | cut -d= -f2-)"
+_tdb="$(grep -E '^TWENTY_DB_NAME=' "$ENV_FILE" | head -1 | cut -d= -f2-)"
+_tuser="${_tuser:-twenty}"
+_tpass="${_tpass:-twenty}"
+_tdb="${_tdb:-twenty}"
+upsert TWENTY_DATABASE_URL "postgres://${_tuser}:${_tpass}@twenty-db:5432/${_tdb}"
+# Optional: set TWENTY_WORKSPACE_ID=<uuid> after first Twenty workspace exists (or leave empty to auto-discover first ACTIVE workspace via DATABASE_URL)
 upsert ERPNEXT_DB_ROOT_PASSWORD 'admin'
 upsert BUSINESS_CORE_MCP_URL 'http://business-core-mcp:8082/mcp'
 
 # Do not invent TWENTY_API_KEY / ERPNEXT_API_* — operator fills after first login.
+# After stack is up, recreate backend so TWENTY_APP_SECRET + TWENTY_DATABASE_URL + TWENTY_SSO_* are injected.
 
 if [[ "${SKIP_BUSINESS_CORE_STACK:-0}" == "1" ]]; then
   echo "ensure-business-core-env: env only (SKIP_BUSINESS_CORE_STACK=1)"

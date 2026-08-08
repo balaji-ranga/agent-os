@@ -488,6 +488,15 @@ export const api = {
   masterDataDocumentsPurgeAll: () => post('/master-data/documents/purge-all', {}),
   masterDataDocumentDelete: (id) => del(`/master-data/documents/${encodeURIComponent(id)}`),
   masterDataDocumentFromInbound: (body) => post('/master-data/documents/from-inbound', body),
+  masterDataCompanySetupKnowledge: (params = {}) => {
+    const q = new URLSearchParams();
+    if (params.industry_id) q.set('industry_id', params.industry_id);
+    if (params.blueprint_id) q.set('blueprint_id', params.blueprint_id);
+    const qs = q.toString();
+    return get(`/master-data/company-setup-knowledge${qs ? `?${qs}` : ''}`);
+  },
+  masterDataCompanySetupKnowledgeReseed: (body) =>
+    post('/master-data/company-setup-knowledge/reseed', body || {}),
   onboardingHelperGet: () => get('/onboarding/helper'),
   onboardingHelperSaveDraft: (body) => put('/onboarding/helper/draft', body),
   onboardingHelperChat: (message) => post('/onboarding/helper/chat', { message }),

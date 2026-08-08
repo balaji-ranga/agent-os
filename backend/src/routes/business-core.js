@@ -61,7 +61,7 @@ router.get('/menus', (req, res) => {
 router.get('/embed/crm', async (req, res) => {
   try {
     const ownerUserId = ownerOf(req);
-    const embed = getCrmEmbedForOwner(ownerUserId);
+    const embed = await getCrmEmbedForOwner(ownerUserId, { flolahUser: req.authUser });
     let stack_status = null;
     try {
       stack_status = (await getBusinessCoreStackStatus()).crm;
@@ -176,7 +176,7 @@ router.patch('/profile', async (req, res) => {
       erpnext,
       prefab_erp: prefabErp,
       embed: {
-        crm: profile.platform_crm ? getCrmEmbedForOwner(ownerUserId) : null,
+        crm: profile.platform_crm ? await getCrmEmbedForOwner(ownerUserId, { flolahUser: req.authUser }) : null,
         erp: profile.platform_erp
           ? getErpEmbedForOwner(ownerUserId, { flolahUserId: req.authUser?.id })
           : null,

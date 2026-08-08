@@ -373,6 +373,18 @@ export function deleteTable(ownerUserId, tableId) {
   return { ok: true, id: tableId };
 }
 
+/** Delete all rows in a table (owner-scoped). Table schema remains. */
+export function clearTableRows(ownerUserId, tableId) {
+  const { db, owner } = dbFor(ownerUserId);
+  const existing = getTable(owner, tableId);
+  if (!existing) throw new Error('Table not found');
+  const r = db
+    .prepare(`DELETE FROM master_data_rows WHERE table_id = ? AND owner_user_id = ?`)
+    .run(String(tableId), owner);
+  refreshTableRowCount(db, owner, String(tableId));
+  return { ok: true, id: tableId, deleted_rows: r.changes || 0 };
+}
+
 /** Server-side page size for table browse / query. */
 export const MASTER_DATA_PAGE_SIZE = 50;
 

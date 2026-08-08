@@ -10,6 +10,7 @@ import {
   assertCrmEntitled,
   resolveTwentyWorkspaceForOwner,
 } from './company-business-profile.js';
+import { resolveCompanyDisplayName } from './business-embed.js';
 
 function baseUrl() {
   return String(process.env.TWENTY_API_URL || '')
@@ -103,7 +104,8 @@ export async function ensureTwentyWorkspaceForCompany(ownerUserId, { displayName
 
   const name =
     String(displayName || '').trim() ||
-    `flolah-${owner.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 24) || 'company'}`;
+    resolveCompanyDisplayName(owner) ||
+    `Flolah CRM`;
 
   const localWorkspaceId = `flolah-ws-${owner}`.slice(0, 80);
   let remoteId = null;

@@ -24,6 +24,7 @@
     "node-cron": "^3.0.3",
     "pdf-parse": "^2.4.5",
     "pdfkit": "^0.19.1",
+    "pg": "^8.22.0",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   }
 }

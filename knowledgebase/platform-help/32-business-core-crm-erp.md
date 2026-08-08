@@ -57,7 +57,7 @@ Requires **`TWENTY_API_KEY`** (CRM) and ERPNext API key/secret (ERP) on platform
 
 Ops set browser-reachable HTTPS URLs (mixed content blocks `http://` iframes on `https://login…`):
 
-- `TWENTY_EMBED_URL` / `TWENTY_SERVER_URL` — today: **`https://login.flolah.cloud:8443`** (nginx TLS → Twenty on `127.0.0.1:3100`)
+- `TWENTY_EMBED_URL` / `TWENTY_SERVER_URL` — **`https://crm.flolah.cloud`** (dedicated CRM subdomain)
 - `ERPNEXT_EMBED_URL` / `ERPNEXT_PUBLIC_URL` — **`https://login.flolah.cloud:8444`** (nginx TLS → ERPNext on `127.0.0.1:8085`)
 
 **If the iframe stays blank but Flolah itself loads:** Hostinger (or other cloud) **inbound firewall often allows only 80/443**. Open **TCP 8443 and 8444**, or add DNS `crm.flolah.cloud` / `erp.flolah.cloud` → VPS IP and use the **:443** nginx `server_name` blocks already in `nginx.host-network.conf` (expand Let's Encrypt SANs). Twenty does **not** support path-prefix embeds under `/crm/...`.
@@ -96,3 +96,26 @@ Sync copies Flolah **departments** (Master Data) + **entitled AI employees** int
 ## Prefab Maker/Checker tool access
 
 When Profile selects platform CRM/ERP, Maker/Checker packs receive full **`crm_*` / `erp_*` content tools** (including sync). OpenClaw uses content tools (same endpoints as MCP); workflows use MCP nodes with `X-Ceo-User-Id`.
+
+## CRM browser session vs Flolah user
+
+**Issue:** One platform Twenty. Browser cookies on `crm.*` would otherwise keep the last Twenty login for every Flolah user.
+
+**Mitigation (always):** CRM iframe / Open go through `/flolah-handoff/?owner=<ceo_id>&next=…`. When owner changes (or SSO token present / `wipe=1`), cookies and localStorage for Twenty are cleared first. Deploy static: `deploy/static/crm-handoff/` mounted into nginx.
+
+**True passwordless SSO (implemented):** When `TWENTY_APP_SECRET` matches Twenty `APP_SECRET` (and `TWENTY_SSO_ENABLED` is not off), Flolah mints a short-lived Twenty **LOGIN** JWT for the authenticated user's email and sends the browser to `/verify?loginToken=…` after handoff wipe. Same exchange Twenty uses after password/OIDC login—no separate Twenty password.
+
+| Env | Purpose |
+|-----|---------|
+| `TWENTY_APP_SECRET` | Same as Twenty container `APP_SECRET` — required to mint LOGIN tokens |
+| `TWENTY_SSO_ENABLED` | Default on when secret is set; set `0` for isolation handoff only |
+| `TWENTY_DATABASE_URL` | `postgres://…@twenty-db:5432/twenty` for JIT user + membership |
+| `TWENTY_WORKSPACE_ID` | Optional UUID if profile bind is still a local `flolah-ws-*` id |
+
+Repeatable setup: `deploy/business-core/README.md`, `bash deploy/scripts/ensure-business-core-env.sh`, cert `deploy/scripts/vps-expand-crm-cert.sh`. Public CRM host: **`https://crm.<apex>`** only.
+
+API/tools stay CEO-scoped via `company_business_profiles`. Shared platform Twenty still shares CRM **data** unless separate workspaces are used.
+
+**Workspace name** ("Welcome, …"): rename in Twenty Settings → Workspace. Toolbar **Switch CRM account** clears session and opens `/welcome` for manual Twenty login if needed.
+
+**Enterprise OIDC:** Not required for this LOGIN-token path.

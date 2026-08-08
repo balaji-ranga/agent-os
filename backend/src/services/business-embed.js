@@ -9,6 +9,9 @@ import {
   assertErpEntitled,
 } from './company-business-profile.js';
 import { getPublicBaseUrl } from '../config/public-url.js';
+import { getSetupGate } from './company-setup.js';
+import { getUserById } from './users.js';
+import { buildCrmSsoHandoff, isTwentySsoEnabled } from './twenty-sso.js';
 
 function stripTrailingSlash(s) {
   return String(s || '')
@@ -56,9 +59,30 @@ function publicLoginHostBase() {
 }
 
 /**
- * Prefer same-origin /crm-app on :443 (Hostinger often drops non-standard ports).
+ * Prefer crm.<apex> host root (never marketing www/apex or /crm-app path).
  * Env TWENTY_EMBED_URL / SERVER_URL still win when set.
  */
+
+/** Company label: setup name → business_name → user name. */
+export function resolveCompanyDisplayName(ownerUserId) {
+  const owner = String(ownerUserId || '').trim();
+  if (!owner) return '';
+  try {
+    const gate = getSetupGate(owner);
+    if (gate?.company_name) return String(gate.company_name).trim().slice(0, 120);
+  } catch {
+    /* optional */
+  }
+  try {
+    const u = getUserById(owner);
+    if (u?.business_name) return String(u.business_name).trim().slice(0, 120);
+    if (u?.name) return String(u.name).trim().slice(0, 120);
+  } catch {
+    /* optional */
+  }
+  return '';
+}
+
 export function getTwentyPublicBase() {
   for (const raw of [
     process.env.TWENTY_EMBED_URL,
@@ -68,8 +92,22 @@ export function getTwentyPublicBase() {
     const v = stripTrailingSlash(raw || '');
     if (v && !isInternalDockerHostname(v)) return v;
   }
+  // Dedicated CRM subdomain (host root). Never marketing apex/www; never /crm-app.
   const host = publicLoginHostBase();
-  if (host) return host + '/crm-app';
+  if (host) {
+    try {
+      const u = new URL(host);
+      const labels = u.hostname.split('.');
+      if (labels[0] === 'login' || labels[0] === 'www') {
+        u.hostname = ['crm', ...labels.slice(1)].join('.');
+      } else if (labels[0] !== 'crm') {
+        u.hostname = ['crm', ...labels].join('.');
+      }
+      return u.origin;
+    } catch {
+      /* fall through */
+    }
+  }
   return sameOriginTlsPort('TWENTY_PUBLIC_HTTPS_PORT', '8443');
 }
 
@@ -140,7 +178,7 @@ export async function getBusinessCoreStackStatus() {
       containers_hint: 'docker compose --profile optional-twenty ps twenty-server',
       public_note: twentyPub.ok
         ? null
-        : 'If public probe fails: Hostinger may block non-443 ports. Prefer https://login.flolah.cloud/crm-app (same-origin).',
+        : 'If public probe fails: Hostinger may block non-443 ports. Prefer https://crm.flolah.cloud (CRM root host). Port 8443 is often blocked.',
     },
     erp: {
       provider: 'erpnext',
@@ -163,7 +201,7 @@ export async function getBusinessCoreStackStatus() {
   };
 }
 
-export function getCrmEmbedForOwner(ownerUserId) {
+export async function getCrmEmbedForOwner(ownerUserId, { flolahUser } = {}) {
   const owner = String(ownerUserId || '').trim();
   const profile = getBusinessProfile(owner);
   if (!profile.platform_crm) {
@@ -176,8 +214,64 @@ export function getCrmEmbedForOwner(ownerUserId) {
   assertCrmEntitled(owner);
 
   const base = getTwentyPublicBase();
-  const workspaceId = profile.twenty.workspace_id || null;
-  const workspaceName = profile.twenty.workspace_name || null;
+  let workspaceId = profile.twenty.workspace_id || null;
+  const companyDisplay =
+    resolveCompanyDisplayName(owner) || profile.twenty.workspace_name || null;
+  const workspaceName = profile.twenty.workspace_name || companyDisplay || null;
+
+  let iframe_url = null;
+  let open_url = null;
+  let switch_account_url = null;
+  let sso = {
+    mode: 'session_isolation_handoff',
+    note:
+      'Switching Flolah company clears prior Twenty browser session for this CRM host.',
+  };
+
+  if (base) {
+    try {
+      const launch = await buildCrmSsoHandoff(owner, {
+        flolahUser: flolahUser || getUserById(owner) || undefined,
+      });
+      iframe_url = launch.iframe_url || null;
+      open_url = launch.open_url || iframe_url;
+      switch_account_url = launch.switch_account_url || null;
+      if (launch.workspace_id) workspaceId = launch.workspace_id;
+      sso = {
+        mode: launch.mode || (isTwentySsoEnabled() ? 'login_token_sso' : 'session_isolation_handoff'),
+        ok: launch.ok !== false,
+        reason: launch.reason || null,
+        ensure: launch.ensure || null,
+        note:
+          launch.mode === 'login_token_sso'
+            ? 'Passwordless CRM login via Flolah session (Twenty LOGIN token + /verify).'
+            : 'Session isolation handoff only; passwordless SSO unavailable for this request.',
+      };
+    } catch (e) {
+      console.warn('[business-embed] crm sso launch failed', e?.message || e);
+      const next = '/';
+      const handoff =
+        base +
+        '/flolah-handoff/?owner=' +
+        encodeURIComponent(owner) +
+        '&next=' +
+        encodeURIComponent(next);
+      iframe_url = handoff;
+      open_url = handoff;
+      switch_account_url =
+        base +
+        '/flolah-handoff/?owner=' +
+        encodeURIComponent(owner + ':switch:' + Date.now()) +
+        '&wipe=1&next=' +
+        encodeURIComponent('/welcome');
+      sso = {
+        mode: 'session_isolation_handoff',
+        ok: false,
+        reason: e?.message || 'sso_failed',
+        note: 'Fell back to isolation handoff after SSO error.',
+      };
+    }
+  }
 
   return {
     kind: 'crm',
@@ -185,27 +279,31 @@ export function getCrmEmbedForOwner(ownerUserId) {
     available: Boolean(base),
     reason: base
       ? null
-      : 'No browser-reachable CRM URL. Prefer TWENTY_EMBED_URL=https://login.flolah.cloud/crm-app',
-    iframe_url: base ? base + '/' : null,
-    open_url: base ? base + '/' : null,
+      : 'No browser-reachable CRM URL. Prefer TWENTY_EMBED_URL=https://crm.flolah.cloud',
+    iframe_url,
+    open_url,
+    switch_account_url,
     workspace_id: workspaceId,
     workspace_name: workspaceName,
+    company_display_name: companyDisplay,
     bound: profile.twenty.bound,
-    login_hint:
-      'Sign in with your company Twenty workspace credentials. Each Flolah company is bound to one Twenty workspace.',
+    sso,
     owner_user_id: owner,
     stack: {
       database: 'PostgreSQL (compose service twenty-db / postgres:16)',
       api_configured: Boolean(String(process.env.TWENTY_API_URL || '').trim()),
+      sso_enabled: isTwentySsoEnabled(),
     },
     wiring: {
       flolah_owner_user_id: owner,
       twenty_workspace_id: workspaceId,
       bind_mode: profile.twenty.bound ? 'profile' : 'pending_ensure_on_provision_or_sync',
-      sync: 'POST /api/business-core/sync-org or button Sync Flolah org (crm_sync_org tool)',
+      sync: 'POST /api/business-core/sync-org or Sync org (crm_sync_org tool)',
+      sso: 'True SSO when TWENTY_APP_SECRET + workspace UUID (+ optional TWENTY_DATABASE_URL for JIT users)',
     },
   };
 }
+
 
 export function getErpEmbedForOwner(ownerUserId, { flolahUserId } = {}) {
   const owner = String(ownerUserId || '').trim();

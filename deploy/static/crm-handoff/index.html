@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>CRM</title>
+<style>body{font-family:system-ui,sans-serif;margin:2rem;color:#222}.m{opacity:.6;font-size:.9rem}</style>
+</head>
+<body>
+<p class="m">Opening CRM workspace...</p>
+<script>
+(function () {
+  var p = new URLSearchParams(location.search);
+  var owner = (p.get("owner") || "").trim();
+  var next = p.get("next") || "/";
+  if (next.charAt(0) !== "/") next = "/";
+  var forceWipe = p.get("wipe") === "1" || /loginToken=/.test(next);
+  var key = "flolah_crm_owner";
+  var prev = "";
+  try {
+    prev = localStorage.getItem(key) || "";
+  } catch (e) {}
+  function wipeAuth() {
+    try {
+      var keys = [];
+      for (var i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i));
+      keys.forEach(function (k) {
+        if (k && k !== key) localStorage.removeItem(k);
+      });
+      sessionStorage.clear();
+    } catch (e) {}
+    try {
+      document.cookie.split(";").forEach(function (c) {
+        var n = c.split("=")[0].trim();
+        if (!n) return;
+        document.cookie = n + "=; Max-Age=0; Path=/; SameSite=Lax";
+        document.cookie = n + "=; Max-Age=0; Path=/; Secure; SameSite=None";
+        document.cookie = n + "=; Max-Age=0; Path=/";
+      });
+    } catch (e) {}
+  }
+  if (forceWipe || (owner && prev && prev !== owner)) wipeAuth();
+  try {
+    if (owner) localStorage.setItem(key, owner);
+  } catch (e) {}
+  location.replace(next);
+})();
+</script>
+</body>
+</html>

@@ -51,6 +51,11 @@ function MasterDataPanel() {
   const [insertDraft, setInsertDraft] = useState({});
   const [editingId, setEditingId] = useState(null);
   const [editDraft, setEditDraft] = useState({});
+  const [csKnowledge, setCsKnowledge] = useState(null);
+  const [csIndustry, setCsIndustry] = useState('');
+  const [csBlueprint, setCsBlueprint] = useState('');
+  const [csBusy, setCsBusy] = useState(false);
+  const [csSeedSops, setCsSeedSops] = useState(true);
 
   const refresh = async () => {
     const [t, d, inbound] = await Promise.all([
@@ -63,8 +68,22 @@ function MasterDataPanel() {
     setInboundItems(inbound.items || []);
   };
 
+  const loadCompanySetupKnowledge = async (industryId, blueprintId) => {
+    const data = await api.masterDataCompanySetupKnowledge({
+      industry_id: industryId || undefined,
+      blueprint_id: blueprintId || undefined,
+    });
+    setCsKnowledge(data);
+    if (!industryId && data.industry_id) setCsIndustry(data.industry_id);
+    if (!blueprintId && data.blueprint_id) setCsBlueprint(data.blueprint_id);
+    return data;
+  };
+
   useEffect(() => {
     refresh().catch((e) => setError(e.message));
+    loadCompanySetupKnowledge().catch(() => {
+      /* non-fatal if route missing on older backend */
+    });
   }, []);
 
   const flash = (msg) => {
@@ -383,6 +402,232 @@ function MasterDataPanel() {
           Duplicate table names detected. Keep one and delete the extras — new tables must use unique names (case-insensitive).
         </div>
       )}
+
+      <section
+        style={{
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderRadius: 10,
+          padding: '1rem',
+          marginBottom: '1rem',
+        }}
+      >
+        <h2 style={{ marginTop: 0, fontSize: '1.05rem' }}>Company setup knowledge tables</h2>
+        <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginTop: 0 }}>
+          New companies get pack tables (and <code>company_memory</code>) when Company Setup is applied. Accounts created
+          before that wizard often skip these tables. Reseed creates missing pack metadata; if tables already exist you
+          must confirm overwrite (clears existing rows, then re-seeds).
+        </p>
+        {csKnowledge ? (
+          <>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 10, fontSize: '0.9rem' }}>
+              <label>
+                Industry{' '}
+                <select
+                  value={csIndustry}
+                  onChange={async (e) => {
+                    const v = e.target.value;
+                    setCsIndustry(v);
+                    setCsBlueprint('');
+                    setCsBusy(true);
+                    try {
+                      await loadCompanySetupKnowledge(v, '');
+                    } catch (err) {
+                      setError(err.message);
+                    } finally {
+                      setCsBusy(false);
+                    }
+                  }}
+                  style={fieldStyle}
+                >
+                  {(csKnowledge.company_types || []).map((opt) => (
+                    <option key={opt.id} value={opt.id}>
+                      {opt.label || opt.id}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Blueprint{' '}
+                <select
+                  value={csBlueprint || csKnowledge.blueprint_id || ''}
+                  onChange={async (e) => {
+                    const v = e.target.value;
+                    setCsBlueprint(v);
+                    setCsBusy(true);
+                    try {
+                      await loadCompanySetupKnowledge(csIndustry, v);
+                    } catch (err) {
+                      setError(err.message);
+                    } finally {
+                      setCsBusy(false);
+                    }
+                  }}
+                  style={fieldStyle}
+                >
+                  {(csKnowledge.industries?.blueprints || []).map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name || b.label || b.id}
+                      {b.depth ? ` (${b.depth})` : ''}
+                    </option>
+                  ))}
+                  {!csKnowledge.industries?.blueprints?.length && (csKnowledge.blueprint_id || csBlueprint) && (
+                    <option value={csBlueprint || csKnowledge.blueprint_id}>
+                      {csKnowledge.blueprint_name || csBlueprint || csKnowledge.blueprint_id}
+                    </option>
+                  )}
+                </select>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <input type="checkbox" checked={csSeedSops} onChange={(e) => setCsSeedSops(e.target.checked)} />
+                Also seed SOP documents
+              </label>
+            </div>
+            <p style={{ fontSize: '0.85rem', color: 'var(--muted)', margin: '0 0 8px' }}>
+              Blueprint: <strong>{csKnowledge.blueprint_name || csKnowledge.blueprint_id || '—'}</strong>
+              {' · '}
+              pack tables: {csKnowledge.pack_knowledge_table_count ?? 0}
+              {' · '}
+              missing: {csKnowledge.missing_count ?? 0}
+              {' · '}
+              existing: {csKnowledge.existing_count ?? 0}
+              {csKnowledge.note ? ` — ${csKnowledge.note}` : ''}
+            </p>
+            <ul style={{ margin: '0 0 12px', paddingLeft: '1.2rem', fontSize: '0.85rem' }}>
+              {(csKnowledge.tables || []).map((t) => (
+                <li key={t.name}>
+                  <code>{t.name}</code>
+                  {t.exists ? (
+                    <span style={{ color: '#fbbf24' }}> — exists ({t.row_count} rows)</span>
+                  ) : (
+                    <span style={{ color: 'var(--muted)' }}> — missing (will create)</span>
+                  )}
+                  {t.seed_row_count != null ? ` · ${t.seed_row_count} seed row(s)` : ''}
+                </li>
+              ))}
+            </ul>
+            <button
+              type="button"
+              disabled={csBusy}
+              onClick={async () => {
+                setError(null);
+                setCsBusy(true);
+                try {
+                  let status = csKnowledge;
+                  if (!status) status = await loadCompanySetupKnowledge(csIndustry, csBlueprint);
+                  const industry = csIndustry || status.industry_id;
+                  const blueprint = csBlueprint || status.blueprint_id;
+                  // If only existing tables and user clicks reseed → require overwrite path
+                  if (status.missing_count === 0 && status.existing_count > 0) {
+                    const phrase = status.overwrite_confirm_phrase || 'OVERWRITE_COMPANY_KNOWLEDGE';
+                    const ok = window.confirm(
+                      `All company setup knowledge tables already exist (${status.existing_count}).\n\n` +
+                        `Overwrite clears ALL rows in those tables, then re-seeds pack metadata.\n` +
+                        `Click OK, then type ${phrase} to confirm.`
+                    );
+                    if (!ok) return;
+                    const typed = window.prompt(`Type ${phrase} to confirm overwrite:`);
+                    if (String(typed || '').trim() !== phrase) {
+                      setError('Overwrite cancelled — confirmation phrase did not match.');
+                      return;
+                    }
+                    const res = await api.masterDataCompanySetupKnowledgeReseed({
+                      industry_id: industry,
+                      blueprint_id: blueprint,
+                      confirm: phrase,
+                      seed_sops: csSeedSops,
+                    });
+                    flash(
+                      `Overwrote ${res.tables_overwritten?.length || 0} table(s); re-seeded pack metadata.`
+                    );
+                  } else if (status.requires_overwrite_confirm && status.missing_count > 0) {
+                    // Mix: seed missing without forcing overwrite; mention existing stay
+                    const res = await api.masterDataCompanySetupKnowledgeReseed({
+                      industry_id: industry,
+                      blueprint_id: blueprint,
+                      seed_sops: csSeedSops,
+                    });
+                    flash(
+                      `Created ${res.tables_created?.length || 0} missing table(s). ${status.existing_count} existing table(s) left unchanged (use overwrite if you need a full reseed).`
+                    );
+                  } else {
+                    const res = await api.masterDataCompanySetupKnowledgeReseed({
+                      industry_id: industry,
+                      blueprint_id: blueprint,
+                      seed_sops: csSeedSops,
+                    });
+                    flash(`Seeded company knowledge: created ${res.tables_created?.length || 0} table(s).`);
+                  }
+                  await refresh();
+                  await loadCompanySetupKnowledge(csIndustry, csBlueprint);
+                } catch (e) {
+                  setError(e.message || 'Reseed failed');
+                } finally {
+                  setCsBusy(false);
+                }
+              }}
+              style={{ padding: '0.5rem 0.85rem', borderRadius: 6, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer' }}
+            >
+              {csBusy
+                ? 'Working…'
+                : csKnowledge.missing_count === 0 && csKnowledge.existing_count > 0
+                  ? 'Overwrite pack tables…'
+                  : 'Seed missing company setup tables'}
+            </button>
+            {csKnowledge.requires_overwrite_confirm && csKnowledge.missing_count > 0 ? (
+              <button
+                type="button"
+                disabled={csBusy}
+                onClick={async () => {
+                  setError(null);
+                  const phrase = csKnowledge.overwrite_confirm_phrase || 'OVERWRITE_COMPANY_KNOWLEDGE';
+                  const ok = window.confirm(
+                    `Overwrite ALL existing pack knowledge tables (${csKnowledge.existing_count})?\n` +
+                      `Rows will be cleared and re-seeded.\n\nOK then type ${phrase}.`
+                  );
+                  if (!ok) return;
+                  const typed = window.prompt(`Type ${phrase} to confirm overwrite:`);
+                  if (String(typed || '').trim() !== phrase) {
+                    setError('Overwrite cancelled — confirmation phrase did not match.');
+                    return;
+                  }
+                  setCsBusy(true);
+                  try {
+                    const res = await api.masterDataCompanySetupKnowledgeReseed({
+                      industry_id: csIndustry || csKnowledge.industry_id,
+                      blueprint_id: csBlueprint || csKnowledge.blueprint_id,
+                      confirm: phrase,
+                      seed_sops: csSeedSops,
+                    });
+                    flash(
+                      `Overwrite done: created ${res.tables_created?.length || 0}, cleared ${res.tables_overwritten?.length || 0}.`
+                    );
+                    await refresh();
+                    await loadCompanySetupKnowledge(csIndustry, csBlueprint);
+                  } catch (e) {
+                    setError(e.message || 'Overwrite failed');
+                  } finally {
+                    setCsBusy(false);
+                  }
+                }}
+                style={{
+                  marginLeft: 8,
+                  padding: '0.5rem 0.85rem',
+                  borderRadius: 6,
+                  border: '1px solid var(--border)',
+                  background: 'transparent',
+                  color: 'var(--muted)',
+                  cursor: 'pointer',
+                }}
+              >
+                Overwrite existing too…
+              </button>
+            ) : null}
+          </>
+        ) : (
+          <p style={{ color: 'var(--muted)', fontSize: '0.9rem', margin: 0 }}>Loading company knowledge status…</p>
+        )}
+      </section>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
         <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '1rem' }}>

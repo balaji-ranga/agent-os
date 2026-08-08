@@ -146,6 +146,10 @@ x-backend-env: &backend-env
   TWENTY_SERVER_URL: ${TWENTY_SERVER_URL:-}
   TWENTY_EMBED_URL: ${TWENTY_EMBED_URL:-}
   TWENTY_PUBLIC_HTTPS_PORT: ${TWENTY_PUBLIC_HTTPS_PORT:-8443}
+  TWENTY_APP_SECRET: ${TWENTY_APP_SECRET:-}
+  TWENTY_DATABASE_URL: ${TWENTY_DATABASE_URL:-postgres://twenty:twenty@twenty-db:5432/twenty}
+  TWENTY_SSO_ENABLED: ${TWENTY_SSO_ENABLED:-1}
+  TWENTY_WORKSPACE_ID: ${TWENTY_WORKSPACE_ID:-}
   ERPNEXT_URL: ${ERPNEXT_URL:-}
   ERPNEXT_API_KEY: ${ERPNEXT_API_KEY:-}
   ERPNEXT_API_SECRET: ${ERPNEXT_API_SECRET:-}
@@ -400,6 +404,7 @@ services:
       - ./nginx/certs:/etc/nginx/certs:ro,Z
       # Marketing homepage (flolah.cloud) — SPA app lives on login.flolah.cloud
       - ./static/flolah-home:/usr/share/nginx/flolah-home:ro,Z
+      - ./static/crm-handoff:/usr/share/nginx/crm-handoff:ro,Z
     depends_on:
       frontend:
         condition: service_started

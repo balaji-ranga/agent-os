@@ -24,7 +24,7 @@ import {
   policyTextForStyle,
   hasDedicatedCompanyTemplate,
 } from './company-blueprints/index.js';
-import { createTable, findTableByName, insertRow, uploadDocument } from './master-data.js';
+import { createTable, findTableByName, insertRow, uploadDocument, clearTableRows } from './master-data.js';
 import { upsertCeoGuardrails, mergeUniversalSafetyPolicy, ensureUniversalSafetyGuardrails } from './ceo-guardrails.js';
 import { updateUserProfile } from './users.js';
 import {
@@ -1116,5 +1116,247 @@ export function listIndustryBlueprintsForOwner(ownerUserId, industryId) {
     industry_id: id,
     blueprints: listBlueprintsForIndustry(id),
     selected_blueprint_id: strategic.blueprint_id || getDefaultBlueprintIdForIndustry(resolveCompanyTypeId(id)),
+  };
+}
+
+/** Phrase required on POST reseed when any target knowledge table already exists. */
+export const COMPANY_KNOWLEDGE_OVERWRITE_CONFIRM = 'OVERWRITE_COMPANY_KNOWLEDGE';
+
+/**
+ * Resolve which industry blueprint drives knowledge tables for this CEO.
+ * Legacy accounts (pre–company-setup wizard) often have status=applied but no company_type —
+ * defaults to general_ops unless industry_id / blueprint_id is passed.
+ */
+function resolveKnowledgeBlueprint(ownerUserId, { industry_id, blueprint_id } = {}) {
+  const row = ensureStrategyRow(ownerUserId);
+  const strategic = getStrategic(row);
+  const industry = resolveCompanyTypeId(
+    industry_id ||
+      strategic.company_type_card ||
+      strategic.company_type ||
+      strategic.blueprint_id ||
+      'general_ops'
+  );
+  const bpId =
+    (blueprint_id && String(blueprint_id).trim()) ||
+    strategic.blueprint_id ||
+    getDefaultBlueprintIdForIndustry(industry);
+  const blueprint = getBlueprint(bpId) || getBlueprint(getDefaultBlueprintIdForIndustry(industry));
+  return { row, strategic, industry, blueprint };
+}
+
+function expectedKnowledgeTables(blueprint) {
+  const fromPack = Array.isArray(blueprint?.knowledge_tables) ? blueprint.knowledge_tables : [];
+  const hasMemory = fromPack.some((t) => String(t?.name || '').toLowerCase() === 'company_memory');
+  const list = fromPack.map((t) => ({
+    name: t.name,
+    description: t.description || '',
+    columns: t.columns || [],
+    seed_row_count: Array.isArray(t.seed_rows) ? t.seed_rows.length : 0,
+    source: 'blueprint',
+  }));
+  if (!hasMemory) {
+    list.unshift({
+      name: 'company_memory',
+      description: 'Shared company memory — mission, DNA, decisions, lessons.',
+      columns: ['item', 'detail'],
+      seed_row_count: null,
+      source: 'company_memory',
+    });
+  }
+  return list;
+}
+
+/**
+ * Preview company-setup knowledge tables for Knowledge UI reseed control.
+ * Owner-scoped only.
+ */
+export function previewCompanySetupKnowledge(ownerUserId, opts = {}) {
+  const { row, strategic, industry, blueprint } = resolveKnowledgeBlueprint(ownerUserId, opts);
+  const expected = expectedKnowledgeTables(blueprint);
+  const tables = expected.map((exp) => {
+    const existing = findTableByName(ownerUserId, exp.name);
+    return {
+      name: exp.name,
+      description: exp.description,
+      columns: exp.columns,
+      seed_row_count: exp.seed_row_count,
+      source: exp.source,
+      exists: !!existing,
+      table_id: existing?.id || null,
+      row_count: existing?.row_count ?? 0,
+    };
+  });
+  const existingCount = tables.filter((t) => t.exists).length;
+  const sopCount = Array.isArray(blueprint?.sop_documents) ? blueprint.sop_documents.length : 0;
+  return {
+    owner_user_id: ownerUserId,
+    setup_status: row?.status || null,
+    setup_gate: getStrategic(row).setup_gate || null,
+    industry_id: industry,
+    blueprint_id: blueprint?.id || null,
+    blueprint_name: blueprint?.name || blueprint?.label || null,
+    blueprint_depth: blueprint?.depth || null,
+    company_name: strategic.company_name || null,
+    company_type: strategic.company_type_card || strategic.company_type || null,
+    pack_knowledge_table_count: (blueprint?.knowledge_tables || []).length,
+    sop_document_count: sopCount,
+    tables,
+    existing_count: existingCount,
+    missing_count: tables.length - existingCount,
+    requires_overwrite_confirm: existingCount > 0,
+    overwrite_confirm_phrase: COMPANY_KNOWLEDGE_OVERWRITE_CONFIRM,
+    company_types: listCompanyTypeCards(),
+    note:
+      existingCount === 0
+        ? 'No pack knowledge tables yet (common for accounts created before Company Setup). Reseed will create them.'
+        : 'Some knowledge tables already exist. Confirm overwrite to clear their rows and re-seed metadata.',
+  };
+}
+
+/**
+ * Seed (or overwrite) company-setup knowledge tables for a CEO.
+ * Default: create missing tables only (safe for legacy CEOs).
+ * To clear existing rows and re-seed: confirm=OVERWRITE_COMPANY_KNOWLEDGE.
+ * @param {object} opts
+ * @param {string} [opts.confirm] - OVERWRITE_COMPANY_KNOWLEDGE when overwriting existing tables
+ * @param {boolean} [opts.confirm_overwrite]
+ * @param {boolean} [opts.seed_sops=true]
+ * @param {string} [opts.industry_id]
+ * @param {string} [opts.blueprint_id]
+ */
+export async function reseedCompanySetupKnowledge(ownerUserId, opts = {}) {
+  const preview = previewCompanySetupKnowledge(ownerUserId, opts);
+  const wantsOverwrite =
+    String(opts.confirm || '').trim() === COMPANY_KNOWLEDGE_OVERWRITE_CONFIRM ||
+    opts.confirm_overwrite === true;
+  if (wantsOverwrite && !preview.requires_overwrite_confirm) {
+    // no existing tables — treat as normal seed
+  }
+  if (wantsOverwrite === false && preview.missing_count === 0 && preview.existing_count > 0) {
+    // Nothing to create and user did not ask to overwrite
+    return {
+      ok: true,
+      owner_user_id: ownerUserId,
+      blueprint_id: preview.blueprint_id,
+      industry_id: preview.industry_id,
+      overwrite: false,
+      tables_created: [],
+      tables_overwritten: [],
+      tables_seeded: (preview.tables || []).map((t) => ({
+        name: t.name,
+        rows: 0,
+        skipped: 'exists_no_overwrite',
+      })),
+      sop_documents: [],
+      errors: [],
+      message:
+        'All pack knowledge tables already exist. Confirm overwrite to clear rows and re-seed, or pick another industry pack.',
+      preview,
+    };
+  }
+
+  const { strategic, blueprint } = resolveKnowledgeBlueprint(ownerUserId, opts);
+  const overwrite = wantsOverwrite && preview.requires_overwrite_confirm;
+  const created = [];
+  const overwritten = [];
+  const seeded = [];
+  const errors = [];
+
+  // blueprint pack tables
+  for (const tbl of blueprint.knowledge_tables || []) {
+    try {
+      let table = findTableByName(ownerUserId, tbl.name);
+      if (table && !overwrite) {
+        seeded.push({ name: tbl.name, rows: 0, skipped: 'exists_no_overwrite' });
+        continue;
+      }
+      if (table && overwrite) {
+        const cleared = clearTableRows(ownerUserId, table.id);
+        overwritten.push({ name: tbl.name, deleted_rows: cleared.deleted_rows });
+      } else if (!table) {
+        table = createTable(ownerUserId, {
+          name: tbl.name,
+          description: tbl.description || '',
+          columns: tbl.columns || [],
+        });
+        created.push(table.name);
+      }
+      let rows = 0;
+      for (const seed of tbl.seed_rows || []) {
+        try {
+          insertRow(ownerUserId, table.id, seed);
+          rows += 1;
+        } catch (e) {
+          errors.push({ table: tbl.name, error: e?.message || String(e) });
+        }
+      }
+      seeded.push({ name: tbl.name, rows });
+    } catch (e) {
+      errors.push({ table: tbl.name, error: e?.message || String(e) });
+    }
+  }
+
+  // company_memory always
+  try {
+    let mem = findTableByName(ownerUserId, 'company_memory');
+    if (mem && !overwrite) {
+      seeded.push({ name: 'company_memory', rows: 0, skipped: 'exists_no_overwrite' });
+    } else {
+      if (mem && overwrite) {
+        const cleared = clearTableRows(ownerUserId, mem.id);
+        overwritten.push({ name: 'company_memory', deleted_rows: cleared.deleted_rows });
+      }
+      const hadBefore = !!mem;
+      const memorySeed = await seedCompanyMemory(ownerUserId, strategic);
+      if (memorySeed?.table && !hadBefore) created.push('company_memory');
+      seeded.push({ name: 'company_memory', rows: memorySeed?.rows || 0 });
+    }
+  } catch (e) {
+    errors.push({ table: 'company_memory', error: e?.message || String(e) });
+  }
+
+  const docs = [];
+  const seedSops = opts.seed_sops !== false;
+  if (seedSops) {
+    for (const sop of blueprint.sop_documents || []) {
+      try {
+        const doc = await uploadDocument(ownerUserId, {
+          title: sop.title,
+          filename: sop.filename || 'sop.md',
+          mimeType: 'text/markdown',
+          contentText: sop.contentText || '',
+          source: 'company_setup_reseed',
+          tags: ['sop', 'company-setup', blueprint.id, 'reseed'],
+        });
+        docs.push(doc?.id || sop.title);
+      } catch (e) {
+        errors.push({ sop: sop.title, error: e?.message || String(e) });
+      }
+    }
+  }
+
+  console.info(
+    '[company-setup] knowledge reseed owner=%s blueprint=%s created=%s overwritten=%s sops=%s errors=%s',
+    ownerUserId,
+    blueprint?.id,
+    created.length,
+    overwritten.length,
+    docs.length,
+    errors.length
+  );
+
+  return {
+    ok: errors.length === 0,
+    owner_user_id: ownerUserId,
+    blueprint_id: blueprint?.id,
+    industry_id: preview.industry_id,
+    overwrite,
+    tables_created: created,
+    tables_overwritten: overwritten,
+    tables_seeded: seeded,
+    sop_documents: docs,
+    errors,
+    preview: previewCompanySetupKnowledge(ownerUserId, opts),
   };
 }
