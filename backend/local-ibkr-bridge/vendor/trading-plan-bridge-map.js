@@ -72,11 +72,16 @@ export function pickExecutablePlan(input = {}) {
     return (scored[0] && scored[0].p) || null;
   }
   if (input.plan && typeof input.plan === 'object') {
+    const wrapped = input.plan;
+    // Common W2 / e2e body: { plan: <day-plan API row { plan_date, status, plan:{actions} }> }
+    if (wrapped.plan_date && (wrapped.plan != null || Array.isArray(wrapped.actions))) {
+      return wrapped;
+    }
     return {
-      id: input.id || null,
-      plan_date: input.plan_date || null,
-      status: input.status || 'approved',
-      plan: input.plan,
+      id: input.id || wrapped.id || null,
+      plan_date: input.plan_date || wrapped.plan_date || null,
+      status: input.status || wrapped.status || 'approved',
+      plan: wrapped,
     };
   }
   return null;
@@ -84,8 +89,27 @@ export function pickExecutablePlan(input = {}) {
 
 function extractActions(planRow) {
   if (!planRow) return [];
-  const plan = planRow.plan != null ? planRow.plan : planRow;
-  if (Array.isArray(plan && plan.actions)) return plan.actions;
+  let plan = planRow.plan != null ? planRow.plan : planRow;
+  if (typeof plan === 'string') {
+    try {
+      plan = JSON.parse(plan);
+    } catch {
+      plan = null;
+    }
+  }
+  if (Array.isArray(plan?.actions)) return plan.actions;
+  // Nested row: plan.plan.actions when extract was handed a double-wrapped body.
+  if (plan?.plan != null) {
+    let inner = plan.plan;
+    if (typeof inner === 'string') {
+      try {
+        inner = JSON.parse(inner);
+      } catch {
+        inner = null;
+      }
+    }
+    if (Array.isArray(inner?.actions)) return inner.actions;
+  }
   if (Array.isArray(planRow.actions)) return planRow.actions;
   return [];
 }

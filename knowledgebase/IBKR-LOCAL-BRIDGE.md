@@ -2,7 +2,8 @@
 
 Phase 2 of the [Monthly Positive Return plan](IBKR-MONTHLY-TRADING-PLAN.md): a loopback HTTP service on the trading laptop that wraps `backend/src/services/ibkr-gateway-client.js` and pushes fill / equity / **account snapshot** events to the VPS.
 
-**CEO end-user guide (flow diagrams + “is my data private?”):** [platform-help/20-ibkr-monthly-trading.md](platform-help/20-ibkr-monthly-trading.md).
+**CEO end-user guide (prerequisites, setup, run/monitor, VPS deploy, privacy):** [platform-help/20-ibkr-monthly-trading.md](platform-help/20-ibkr-monthly-trading.md).
+**Summary UI** reads execution order ids from flat `order_ids` or nested/stringified W2 `execute` / `place_bracket.results` so day-row ORDERS match laptop brackets.
 
 **Data isolation:** webhook events update **only the CEO** who owns the W3 workflow (session / workflow owner). IBKR cloud tables are keyed by `owner_user_id` — not shared across users.
 

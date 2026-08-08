@@ -84,10 +84,70 @@ export function summarizePlanActions(planRow) {
   };
 }
 
+/** Parse nested JSON strings (W2 desktop often stores execute bodyText as a string). */
+function deepParseJson(value, depth = 0) {
+  if (depth > 6 || value == null) return value;
+  if (typeof value !== 'string') return value;
+  const t = value.trim();
+  if (!t || (t[0] !== '{' && t[0] !== '[')) return value;
+  try {
+    return deepParseJson(JSON.parse(t), depth + 1);
+  } catch {
+    return value;
+  }
+}
+
+/**
+ * Collect IB order ids from flat report fields, place_bracket.results, or a stringified execute body.
+ */
+function collectOrderIdsFromReport(root) {
+  const orderIds = [];
+  const seen = new Set();
+  const pushId = (id) => {
+    if (id == null || id === '') return;
+    const n = typeof id === 'number' ? id : Number(String(id).trim());
+    const key = Number.isFinite(n) ? n : String(id);
+    if (seen.has(key)) return;
+    seen.add(key);
+    orderIds.push(Number.isFinite(n) ? n : id);
+  };
+
+  const walk = (node, depth = 0) => {
+    if (node == null || depth > 10) return;
+    node = deepParseJson(node);
+    if (Array.isArray(node)) {
+      for (const x of node) walk(x, depth + 1);
+      return;
+    }
+    if (typeof node !== 'object') return;
+
+    for (const k of ['order_ids', 'orderIds']) {
+      for (const id of asArray(node[k])) pushId(id);
+    }
+    // Single order id on a place result row (not parent_id / account numbers).
+    if (node.order_id != null && (node.orderIds == null || asArray(node.orderIds).length === 0)) {
+      if (node.ok === true || node.side || node.contract || node.key) pushId(node.order_id);
+    }
+    if (node.place_bracket != null) walk(node.place_bracket, depth + 1);
+    if (node.results != null) walk(node.results, depth + 1);
+    if (node.execute != null) walk(node.execute, depth + 1);
+    if (node.mapping != null && depth < 4) walk(node.mapping, depth + 1);
+  };
+
+  walk(root);
+  return orderIds;
+}
+
 function extractExecution(planRow) {
-  const plan = planRow?.plan && typeof planRow.plan === 'object' ? planRow.plan : {};
-  const approvals = planRow?.approvals && typeof planRow.approvals === 'object' ? planRow.approvals : {};
-  const exec = plan.execution || approvals.execution || null;
+  let plan = planRow?.plan;
+  if (typeof plan === 'string') plan = deepParseJson(plan);
+  plan = plan && typeof plan === 'object' ? plan : {};
+  let approvals = planRow?.approvals;
+  if (typeof approvals === 'string') approvals = deepParseJson(approvals);
+  approvals = approvals && typeof approvals === 'object' ? approvals : {};
+
+  let exec = plan.execution || approvals.execution || null;
+  exec = deepParseJson(exec);
   if (!exec || typeof exec !== 'object') {
     return {
       has_report: false,
@@ -100,26 +160,22 @@ function extractExecution(planRow) {
       raw: null,
     };
   }
-  const orderIds = [];
-  const execute = exec.execute || null;
-  const place = execute?.place_bracket || exec.place_bracket || null;
-  let placeObj = place;
-  if (typeof place === 'string') {
-    try {
-      placeObj = JSON.parse(place);
-    } catch {
-      placeObj = { text: place };
-    }
-  }
-  // Bridge / W2 mark paths often store flat order_ids on the execution report.
-  for (const id of asArray(exec.order_ids || exec.orderIds)) {
-    if (id != null && !orderIds.includes(id)) orderIds.push(id);
-  }
-  for (const r of asArray(placeObj?.results)) {
-    for (const id of asArray(r?.orderIds || r?.order_ids)) {
-      if (id != null && !orderIds.includes(id)) orderIds.push(id);
-    }
-  }
+
+  let execute = deepParseJson(exec.execute ?? null);
+  if (execute && typeof execute !== 'object') execute = null;
+
+  const placeRaw = execute?.place_bracket ?? exec.place_bracket ?? null;
+  let placeObj = deepParseJson(placeRaw);
+  if (placeObj && typeof placeObj !== 'object') placeObj = { text: String(placeRaw) };
+
+  // Flat report fields + nested place_bracket / stringified W2 execute body (bodyText).
+  const orderIds = collectOrderIdsFromReport({
+    order_ids: exec.order_ids || exec.orderIds,
+    orderIds: exec.orderIds || exec.order_ids,
+    execute,
+    place_bracket: placeObj,
+  });
+
   const dryRaw = exec.dry_run ?? execute?.dry_run ?? placeObj?.dry_run;
   return {
     has_report: true,
@@ -130,7 +186,7 @@ function extractExecution(planRow) {
     order_ids: orderIds,
     dry_run: dryRaw === true ? true : dryRaw === false ? false : null,
     suggested_status: execute?.suggested_status || null,
-    mapping_summary: execute?.mapping?.summary || null,
+    mapping_summary: execute?.mapping?.summary || placeObj?.mapping?.summary || null,
     place_ok: placeObj?.ok,
     place_skipped: placeObj?.skipped === true,
     raw: exec,

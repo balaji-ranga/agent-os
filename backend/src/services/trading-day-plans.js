@@ -202,6 +202,65 @@ export function updateStatus(ownerUserId, { plan_date, status, approvals = undef
 }
 
 /**
+ * Normalize W2 / bridge execution_report: parse stringified execute body and denormalize order_ids.
+ * Desktop package often sends execute as bodyText (JSON string), not nested objects.
+ */
+function normalizeExecutionReport(report) {
+  if (report == null) return null;
+  let r = report;
+  if (typeof r === 'string') {
+    r = parseJson(r, null);
+    if (!r || typeof r !== 'object') return { notes: String(report).slice(0, 500) };
+  }
+  if (typeof r !== 'object' || Array.isArray(r)) return r;
+
+  const out = { ...r };
+  if (typeof out.execute === 'string') {
+    const parsed = parseJson(out.execute, null);
+    if (parsed != null) out.execute = parsed;
+  }
+
+  const ids = [];
+  const push = (id) => {
+    if (id == null || id === '') return;
+    const n = typeof id === 'number' ? id : Number(String(id).trim());
+    if (!Number.isFinite(n) && typeof id !== 'string') return;
+    const v = Number.isFinite(n) ? n : id;
+    if (!ids.includes(v)) ids.push(v);
+  };
+  for (const id of Array.isArray(out.order_ids) ? out.order_ids : []) push(id);
+  for (const id of Array.isArray(out.orderIds) ? out.orderIds : []) push(id);
+
+  const place =
+    (out.execute && typeof out.execute === 'object' && out.execute.place_bracket) ||
+    out.place_bracket ||
+    null;
+  let placeObj = place;
+  if (typeof placeObj === 'string') placeObj = parseJson(placeObj, null);
+  if (placeObj && typeof placeObj === 'object') {
+    for (const row of Array.isArray(placeObj.results) ? placeObj.results : []) {
+      for (const id of row?.orderIds || row?.order_ids || []) push(id);
+    }
+  }
+  // Full bridge body sometimes sits on execute (ok, dry_run, place_bracket, …)
+  if (out.execute && typeof out.execute === 'object') {
+    for (const id of out.execute.order_ids || out.execute.orderIds || []) push(id);
+    const nested = out.execute.place_bracket;
+    let nestedPlace = nested;
+    if (typeof nestedPlace === 'string') nestedPlace = parseJson(nestedPlace, null);
+    if (nestedPlace && typeof nestedPlace === 'object') {
+      for (const row of Array.isArray(nestedPlace.results) ? nestedPlace.results : []) {
+        for (const id of row?.orderIds || row?.order_ids || []) push(id);
+      }
+    }
+    if (out.dry_run == null && out.execute.dry_run != null) out.dry_run = out.execute.dry_run;
+  }
+
+  if (ids.length) out.order_ids = ids;
+  return out;
+}
+
+/**
  * Merge an execution report into plan_json.execution (and approvals_json.execution)
  * and set status (typically executing|partial|executed|failed).
  * @param {string} ownerUserId
@@ -213,7 +272,8 @@ export function markPlanExecution(ownerUserId, body = {}) {
   if (!owner) throw new Error('owner_user_id is required');
   const planDate = String(body.plan_date || body.date || todayUtcDate()).slice(0, 10);
   const st = normalizeStatus(body.status);
-  const report = body.execution_report != null ? body.execution_report : body.execution || null;
+  const reportRaw = body.execution_report != null ? body.execution_report : body.execution || null;
+  const report = reportRaw != null ? normalizeExecutionReport(reportRaw) : null;
 
   const db = getDb();
   const row = db

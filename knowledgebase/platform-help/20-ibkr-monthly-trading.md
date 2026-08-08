@@ -241,12 +241,163 @@ Service implementation: `backend/src/services/ibkr-transactional-clear.js`.
 
 ---
 
+## Prerequisites (checklist)
+
+Do these once before the first paper day.
+
+### A. Accounts and keys
+
+1. Flolah **CEO login** (your tenant; all IBKR rows are owner-scoped).
+2. Interactive Brokers **paper** account + **IB Gateway** (or TWS) on the **trading laptop**.
+3. Gateway API on paper port **4002** by default; enable API and trusted loopback if prompted.
+4. Flolah vault (**Management → API Keys**):
+   - **`openAI_key`** — W1 Maker (OpenAI GPT)
+   - **`deepseek_key`** — W1 Checker (DeepSeek cloud)
+   - Optional **`BRAVE_SEARCH_BYOK`** — Maker/Checker web search MCP
+5. Cloud market data for W1 screener/regime: platform **`MARKET_DATA_API_KEY`** (FMP) in the server `.env` (ops). Without a paid key, W1 may use paper risk-on fallback.
+
+### B. Cloud (VPS) product surfaces
+
+1. Monthly workflows seeded and **published** for your user:  
+   `monthly-trading-w1-post-close`, `monthly-trading-w2-execute`, `monthly-trading-w3-events`, `monthly-trading-w5-weekly`  
+   Ops: `docker compose exec backend node scripts/seed-monthly-trading-workflows.js`
+2. Confirm **W3 event hook secret** exists after publish (used as bridge `WEBHOOK_SECRET`).
+3. **W1 / W2 Variables** (Workflows → each definition):
+   - Risk/budget: `daily_budget_usd`, `max_trades_per_day`, drawdown %, etc.
+   - Laptop: `local_bridge_base_url` = `http://127.0.0.1:3010`
+   - Laptop: `local_bridge_token` = same value as bridge `LOCAL_BRIDGE_TOKEN`
+4. IBKR Summary enabled in the nav: **Prebuilt Workflows → IBKR Summary** (`/ibkr-summary`).
+
+### C. Laptop (must stay on while Gateway is up)
+
+1. Download **Local IBKR bridge** from **Connectors** (or copy package ops give you).
+2. Copy `backend/local-ibkr-bridge/.env.example` → `.env` and set at least:
+   - `LOCAL_BRIDGE_TOKEN` (long random secret)
+   - `WEBHOOK_URL=https://<your-host>/api/ibkr-trading/local-bridge-webhook`
+   - `WEBHOOK_SECRET` = W3 hook secret from cloud
+   - `IBKR_HOST=127.0.0.1`, `IBKR_PORT=4002`, `IBKR_IS_PAPER=true`
+   - Paper placement: `IBKR_TRADING_ENABLED=1` only when you want live paper orders from the bridge
+3. `npm install` in the bridge folder → `.\scripts\run-bridge.ps1` (or register Task Scheduler).
+4. **Health:** `GET http://127.0.0.1:3010/health` → `ok: true`, `paper: true`, `mock: false` for real Gateway.
+5. Download **W2 desktop package** (Workflows → W2 → Desktop package). It mints a desktop token; keep the zip private. Set/re-check `local_bridge_token` in W2 Variables **before** download so the package embeds the correct token.
+
+### D. What’s not required on the VPS
+
+- No IB Gateway on the VPS for W1/W2/W3 day-to-day: the **laptop** owns Gateway and pushes book + events.
+- Optional only: co-located Gateway on VPS for `include_live` experiments (`IBKR_HOST` / `IBKR_PORT` in deploy env).
+
+---
+
+## Step-by-step setup guide
+
+| Step | Where | Action |
+|------|--------|--------|
+| 1 | Laptop | Install IB Gateway paper; login; API port 4002 |
+| 2 | Cloud | Seed + publish monthly workflows; set vault Maker/Checker keys |
+| 3 | Cloud | Set W1 Variables (budget/risk) and W2 `local_bridge_*` |
+| 4 | Laptop | Configure bridge `.env` (token, webhook URL + secret, paper flags) |
+| 5 | Laptop | Start Gateway → start bridge; confirm webhook deliveries (orders/snapshot) |
+| 6 | Cloud | IBKR Summary → optional **Clear data…** for a clean paper trial |
+| 7 | Cloud | Run W1 once (chat phrase or Workflows **Run**) to create tomorrow’s plan |
+| 8 | Laptop | At open: run W2 **Run-Workflow.ps1** (or Task Scheduler) |
+| 9 | Cloud | Refresh IBKR Summary: planned vs executed, order events, cash |
+
+Ops references: [IBKR-LOCAL-BRIDGE.md](../IBKR-LOCAL-BRIDGE.md), [IBKR-MONTHLY-WORKFLOWS.md](../IBKR-MONTHLY-WORKFLOWS.md), [IBKR-MONTHLY-PHASE4.md](../IBKR-MONTHLY-PHASE4.md), deploy example `deploy/.env.example` (FMP + IBKR comments).
+
+---
+
+## Run and monitor guide
+
+### Daily rhythm
+
+| Time (concept) | Actor | What to do | How to monitor |
+|----------------|--------|------------|----------------|
+| Pre-session | You / Task Scheduler | Gateway + bridge up | Bridge `/health`; cash updates on **IBKR Summary** |
+| After US close | W3 → W1 (or manual Run) | Plan next day | W1 run completes; day plan `approved` or CEO pending |
+| US open | W2 package | Execute open plan | W2 run `completed`; plan `executing` → `executed` / `partial` / `failed` |
+| Intraday | Bridge → W3 | Snapshots, fills, cancels | Order events on Summary day drilldown; equity marks / guardrail |
+| Anytime | You | Review | **IBKR Summary** metrics, day table gap notes, drilldown |
+
+### Product commands (CEO UI)
+
+| Goal | UI |
+|------|-----|
+| Build plan | Workflows → **Monthly Trading W1** → **Run**, or chat `run monthly trading review` |
+| Place plan | Laptop desktop package **Run-Workflow.ps1** (not a VPS “Run” of W2 for live Gateway) |
+| Watch book | **IBKR Summary** → Refresh |
+| Day detail | Click a plan **date** row → drilldown (actions, mapping, execution, order events) |
+| Reset paper | Summary → **Clear data…** → type `CLEAR_IBKR_TRANSACTIONAL` |
+
+### Healthy signals
+
+- Snapshot **cash** on Summary matches bridge (after a push).
+- Day row **ORDERS** lists IB order ids after W2 when brackets were placed (entry + TP + SL).
+- **Gap** empty when planned actions and execution report align.
+- Open orders on paper can show **PreSubmitted** until filled — that is still “in book,” not a missing position fill.
+
+### Unhealthy signals
+
+- Summary cash empty / “no_cached_snapshot” → bridge not pushing webhook (check `WEBHOOK_URL` / secret / bridge logs).
+- W1 fails on snapshot node → same as above; fix bridge push, re-run W1.
+- W2 completes but **no order ids** and gap note about report → re-download desktop package after updating bridge token/Vars; ensure `IBKR_TRADING_ENABLED` and Gateway session ok.
+- W2 empty trades with **approved plan** → plan `actions[]` empty (Maker no new entries) or map skip (prices/qty incomplete).
+
+---
+
+## Deploy to VPS (ops)
+
+Laptop Gateway never replaces the cloud app; deploy Agent OS so W1/W3/Summary and webhooks are public.
+
+### Code + env
+
+1. Push `main` to GitHub; on VPS pull **or** laptop `deploy/scripts/sync-to-vps.ps1` if the VPS cannot pull.
+2. Align `deploy/.env` with **`deploy/.env.example`** (no secrets in git). Required themes for monthly trading:
+   - `AGENT_OS_PUBLIC_URL=https://login.<your-domain>`
+   - `MARKET_DATA_PROVIDER=fmp` + `MARKET_DATA_API_KEY` (paid FMP for real regime/screener)
+   - Workflow SMTP if digests mail (optional)
+   - Do **not** put CEO vault OpenAI/DeepSeek keys only in platform env; W1 seed uses **vault** `openAI_key` / `deepseek_key`
+3. Rebuild/restart:
+
+```bash
+# On VPS, typical:
+cd /opt/agent-os
+# if repo already synced:
+SKIP_GIT=1 SERVICES=backend bash deploy/scripts/vps-deploy-latest.sh
+# or compose rebuild backend only after config change:
+cd /opt/agent-os/deploy && docker compose build backend && docker compose up -d backend
+```
+
+4. Seed monthly workflows after backend is healthy:
+
+```bash
+docker compose -f /opt/agent-os/deploy/docker-compose.yml exec backend \
+  node scripts/seed-monthly-trading-workflows.js
+```
+
+5. Smoke: `curl -sS https://<public>/api/health` → ok.  
+   Bridge from laptop: `WEBHOOK_URL=https://<public>/api/ibkr-trading/local-bridge-webhook` must return **202** with valid secret.
+
+### Docker / setup files
+
+| File | Role |
+|------|------|
+| `deploy/docker-compose.yml` (+ browser/vps overlays) | Backend, frontend, OpenClaw, MCPs |
+| `deploy/.env.example` | Documented keys for FMP, IBKR paper notes, monthly brain vault refs |
+| `backend/local-ibkr-bridge/.env.example` | Laptop bridge only |
+| `deploy/scripts/vps-deploy-latest.sh` | Rebuild/recreate services |
+| `deploy/scripts/sync-to-vps.ps1` | Push local tree when git pull is unavailable |
+
+More: [DEPLOY-CENTOS-PODMAN.md](../DEPLOY-CENTOS-PODMAN.md), [IBKR-MONTHLY-PHASE4.md](../IBKR-MONTHLY-PHASE4.md).
+
+---
+
 ## Chat / certify
 
 - Chat phrase (W1): `run monthly trading review`
 - Publish W1 only after vault keys **openAI_key** (Maker) + **deepseek_key** (Checker) are set under Management → API Keys
 - Optional: vault **BRAVE_SEARCH_BYOK** for Maker/Checker Brave Search MCP
 - Phase 4 runbook: [IBKR-MONTHLY-PHASE4.md](../IBKR-MONTHLY-PHASE4.md)
+- W2 is **not** certified on cloud certify scripts — use laptop package + paper Gateway
 
 ---
 
@@ -262,3 +413,6 @@ Examples:
 - “Where is daily_budget_usd?”
 - “How does the cloud know my positions?”
 - “What does W3 do with cancels?”
+- “Step-by-step how do I set up monthly trading paper?”
+- “How do I run and monitor W1 W2 W3?”
+- “How do I deploy monthly trading to the VPS?”
