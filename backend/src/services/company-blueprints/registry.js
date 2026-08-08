@@ -93,6 +93,35 @@ function normalizePack(raw, fallbacks = {}) {
     agents_md: Array.isArray(raw.agents_md) ? raw.agents_md : [],
     policy_text: typeof raw.policy_text === 'string' ? raw.policy_text : '',
     day0_day1: raw.day0_day1 && typeof raw.day0_day1 === 'object' ? raw.day0_day1 : null,
+    // Org map (departments + agent→dept) and connector catalog (no secrets)
+    org:
+      raw.org && typeof raw.org === 'object'
+        ? {
+            departments: Array.isArray(raw.org.departments) ? raw.org.departments : [],
+            agent_department_map: Array.isArray(raw.org.agent_department_map)
+              ? raw.org.agent_department_map
+              : [],
+          }
+        : null,
+    connectors:
+      raw.connectors && typeof raw.connectors === 'object'
+        ? {
+            mcp_oauth: Array.isArray(raw.connectors.mcp_oauth) ? raw.connectors.mcp_oauth : [],
+            ceo_mcp_servers: Array.isArray(raw.connectors.ceo_mcp_servers)
+              ? raw.connectors.ceo_mcp_servers
+              : [],
+            openconnector:
+              raw.connectors.openconnector && typeof raw.connectors.openconnector === 'object'
+                ? raw.connectors.openconnector
+                : raw.connectors.openconnector === null
+                  ? null
+                  : null,
+            note:
+              typeof raw.connectors.note === 'string'
+                ? raw.connectors.note
+                : 'No OAuth tokens, client secrets, API keys, or vault refs — reconnect on install.',
+          }
+        : null,
   };
 }
 
@@ -430,8 +459,170 @@ export function getBlueprintForAdminExport(blueprintId) {
   };
 }
 
+function safePathSegment(name, fallback = 'item') {
+  return (
+    String(name || fallback)
+      .toLowerCase()
+      .replace(/[^a-z0-9._-]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 64) || fallback
+  );
+}
+
+/**
+ * Expand blueprint payload into foldered files for admin zip review.
+ * Secrets intentionally absent from connectors export.
+ */
+function buildBlueprintZipEntries(blueprint, meta) {
+  const bp = blueprint && typeof blueprint === 'object' ? blueprint : {};
+  const entries = [];
+  const j = (obj) => JSON.stringify(obj, null, 2);
+
+  entries.push({ name: 'blueprint.json', content: j(bp) });
+  entries.push({ name: 'manifest.json', content: j(meta) });
+
+  // 1. Knowledge
+  entries.push({
+    name: 'knowledge/tables.json',
+    content: j(bp.knowledge_tables || []),
+  });
+  for (const t of bp.knowledge_tables || []) {
+    const name = safePathSegment(t.name, 'table');
+    entries.push({
+      name: `knowledge/tables/${name}.json`,
+      content: j(t),
+    });
+  }
+
+  // 2. Policies
+  if (bp.policy_text) {
+    entries.push({ name: 'policies/policy_text.md', content: String(bp.policy_text) });
+  }
+  entries.push({
+    name: 'policies/policy_templates.json',
+    content: j(bp.policy_templates || {}),
+  });
+
+  // 3. Org (departments + agent mapping)
+  const org = bp.org || {
+    departments: bp.departments || [],
+    agent_department_map: (bp.agents || []).map((a) => ({
+      agent_name: a.name,
+      department: a.department || 'Operations',
+      is_coo: !!a.is_coo,
+    })),
+  };
+  entries.push({ name: 'org/org.json', content: j(org) });
+  entries.push({ name: 'org/departments.json', content: j(org.departments || bp.departments || []) });
+
+  // 4. Agents: definition + tools + workspace MD (incl. ops)
+  entries.push({ name: 'agents/agents.json', content: j(bp.agents || []) });
+  for (const a of bp.agents || []) {
+    const slug = safePathSegment(a.name, 'agent');
+    entries.push({
+      name: `agents/${slug}/definition.json`,
+      content: j({
+        name: a.name,
+        role: a.role,
+        department: a.department,
+        tools: a.tools || [],
+        is_coo: !!a.is_coo,
+        openclaw_agent_id: a.openclaw_agent_id || null,
+        agent_id_source: a.agent_id_source || null,
+      }),
+    });
+    if (Array.isArray(a.tools) && a.tools.length) {
+      entries.push({ name: `agents/${slug}/tools.json`, content: j(a.tools) });
+    }
+  }
+  for (const md of bp.agents_md || []) {
+    const slug = safePathSegment(md.agent_name, 'agent');
+    if (Array.isArray(md.tools) && md.tools.length) {
+      entries.push({ name: `agents/${slug}/tools.json`, content: j(md.tools) });
+    }
+    entries.push({
+      name: `agents/${slug}/file_keys.json`,
+      content: j(md.file_keys || Object.keys(md.files || {})),
+    });
+    const files = md.files || {};
+    const keyToFile = {
+      agents: 'AGENTS.md',
+      soul: 'SOUL.md',
+      tools: 'TOOLS.md',
+      memory: 'MEMORY.md',
+      identity: 'IDENTITY.md',
+      ops: 'AGENT-OS-OPS.md',
+      user: 'USER.md',
+      org: 'ORG.md',
+      policy: 'POLICY.md',
+    };
+    for (const [key, text] of Object.entries(files)) {
+      if (!text || typeof text !== 'string') continue;
+      const fname = keyToFile[key] || `${key}.md`;
+      entries.push({ name: `agents/${slug}/workspace/${fname}`, content: text });
+    }
+  }
+
+  // 5. Workflows — full graph JSON definitions
+  entries.push({
+    name: 'workflows/index.json',
+    content: j(
+      (bp.workflow_templates || []).map((w) => ({
+        template_key: w.template_key,
+        name: w.name,
+        description: w.description,
+        node_count: (w.graph?.nodes || []).length,
+        edge_count: (w.graph?.edges || []).length,
+        source_definition_id: w.source_definition_id || null,
+      }))
+    ),
+  });
+  if (Array.isArray(bp.workflows) && bp.workflows.length) {
+    entries.push({ name: 'workflows/summary.json', content: j(bp.workflows) });
+  }
+  for (const w of bp.workflow_templates || []) {
+    const key = safePathSegment(w.template_key || w.name, 'workflow');
+    entries.push({ name: `workflows/${key}.json`, content: j(w) });
+  }
+
+  // 6. Connectors (structure only — no OAuth/secrets)
+  entries.push({
+    name: 'connectors/connectors.json',
+    content: j(
+      bp.connectors || {
+        note: 'No connector catalog on this blueprint; reconnect OAuth on install.',
+        mcp_oauth: [],
+        ceo_mcp_servers: [],
+        openconnector: null,
+      }
+    ),
+  });
+
+  // 7. Goal schedule definitions
+  entries.push({ name: 'goals/goal_templates.json', content: j(bp.goal_templates || []) });
+
+  // Operate model + SOPs (supporting Day 0/1)
+  if (bp.operate_model_snapshot) {
+    entries.push({ name: 'operate/operate_model.json', content: j(bp.operate_model_snapshot) });
+  }
+  entries.push({ name: 'sops/index.json', content: j(bp.sop_documents || []) });
+  for (const s of bp.sop_documents || []) {
+    const name = safePathSegment(s.filename || s.title, 'sop');
+    const body = s.contentText || s.content || '';
+    if (body) entries.push({ name: `sops/${name}.md`, content: String(body) });
+  }
+
+  if (bp.day0_day1) {
+    entries.push({ name: 'day0_day1.json', content: j(bp.day0_day1) });
+  }
+
+  return entries;
+}
+
 /**
  * Build admin-downloadable zip for a company industry blueprint.
+ * Includes blueprint.json plus expanded trees: knowledge, policies, org, agents (+MD/tools/ops),
+ * workflows (full graphs), connectors (no secrets), goals.
  * @returns {{ zip: Buffer, filename: string, meta: object }}
  */
 export function buildCompanyBlueprintExportZip(blueprintId) {
@@ -442,10 +633,32 @@ export function buildCompanyBlueprintExportZip(blueprintId) {
     throw err;
   }
   const exportedAt = new Date().toISOString();
+  const bp = pack.blueprint;
+  const coverage = {
+    knowledge: Array.isArray(bp.knowledge_tables) && bp.knowledge_tables.length > 0,
+    policies: !!(bp.policy_text || Object.keys(bp.policy_templates || {}).length),
+    org: !!(bp.org || (bp.departments || []).length),
+    agents: Array.isArray(bp.agents) && bp.agents.length > 0,
+    agent_tools: Array.isArray(bp.agents) && bp.agents.every((a) => (a.tools || []).length > 0),
+    agents_md: Array.isArray(bp.agents_md) && bp.agents_md.length > 0,
+    agents_md_ops: Array.isArray(bp.agents_md) && bp.agents_md.some((m) => m.files?.ops),
+    workflows: Array.isArray(bp.workflow_templates) && bp.workflow_templates.length > 0,
+    workflow_graphs:
+      Array.isArray(bp.workflow_templates) &&
+      bp.workflow_templates.every((w) => (w.graph?.nodes || []).length > 0),
+    connectors: !!(
+      bp.connectors &&
+      (bp.connectors.mcp_oauth?.length ||
+        bp.connectors.ceo_mcp_servers?.length ||
+        bp.connectors.openconnector)
+    ),
+    goals: Array.isArray(bp.goal_templates) && bp.goal_templates.length > 0,
+  };
   const meta = {
     ...pack.meta,
     exported_at: exportedAt,
-    export_format: 'agent-os-company-blueprint-v1',
+    export_format: 'agent-os-company-blueprint-v2',
+    coverage,
   };
   const safe =
     String(meta.id || 'blueprint')
@@ -453,8 +666,7 @@ export function buildCompanyBlueprintExportZip(blueprintId) {
       .replace(/[^a-z0-9._-]+/g, '-')
       .replace(/^-|-$/g, '')
       .slice(0, 80) || 'blueprint';
-  const blueprintJson = JSON.stringify(pack.blueprint, null, 2);
-  const manifestJson = JSON.stringify(meta, null, 2);
+
   const readme = [
     'Agent OS — company industry blueprint export',
     '==========================================',
@@ -466,10 +678,27 @@ export function buildCompanyBlueprintExportZip(blueprintId) {
     meta.source_company_name ? `Source company: ${meta.source_company_name}` : null,
     meta.source_owner_user_id ? `Source owner: ${meta.source_owner_user_id}` : null,
     `Exported: ${exportedAt}`,
+    `Format: ${meta.export_format}`,
     '',
-    'Files:',
-    '  manifest.json   — export metadata',
-    '  blueprint.json  — full pack (departments, agents, knowledge, SOPs, workflows, goals, operate)',
+    'Coverage (source company snapshot):',
+    ...Object.entries(coverage).map(([k, v]) => `  - ${k}: ${v ? 'yes' : 'no'}`),
+    '',
+    'Layout:',
+    '  blueprint.json              — full pack (apply-ready)',
+    '  manifest.json               — export metadata + coverage flags',
+    '  knowledge/                  — master data table schemas (+ seed samples)',
+    '  policies/                   — policy_text.md + templates',
+    '  org/                        — departments + agent→department map',
+    '  agents/<name>/              — definition.json, tools.json, workspace/*.md',
+    '    workspace/AGENT-OS-OPS.md — ops (shared Agent OS operating rules)',
+    '  workflows/<key>.json        — full workflow graph definitions (nodes/edges)',
+    '  connectors/connectors.json  — MCP/OC catalog ONLY (no OAuth tokens/secrets)',
+    '  goals/goal_templates.json   — scheduled goal definitions',
+    '  operate/                    — operate model snapshot',
+    '  sops/                       — SOP markdown',
+    '',
+    'Note: Re-publish from Admin after connecting a CEO company to refresh live artefacts',
+    '(agents tools, ops MD, workflow graphs, connector stubs, goals).',
     '',
     'Apply path: Admin → Company industry blueprints (publish from a CEO) or company setup industry picker after re-publish.',
     '',
@@ -477,16 +706,21 @@ export function buildCompanyBlueprintExportZip(blueprintId) {
     .filter(Boolean)
     .join('\n');
 
-  const zip = buildZipBuffer([
-    { name: 'manifest.json', content: manifestJson },
-    { name: 'blueprint.json', content: blueprintJson },
+  const files = [
+    ...buildBlueprintZipEntries(bp, meta),
     { name: 'README-EXPORT.txt', content: readme },
-  ]);
+  ];
+  // Deduplicate paths (later wins for tools.json etc.)
+  const byName = new Map();
+  for (const f of files) byName.set(f.name, f);
+  const zip = buildZipBuffer([...byName.values()]);
   console.info(
-    '[company-blueprints] export zip id=%s bytes=%s source=%s',
+    '[company-blueprints] export zip id=%s bytes=%s source=%s files=%s coverage=%s',
     meta.id,
     zip.length,
-    meta.source
+    meta.source,
+    byName.size,
+    JSON.stringify(coverage)
   );
   return {
     zip,

@@ -305,13 +305,24 @@ export default function OperatingWorkspace() {
           <h2 className="ow-panel-title">Recent AI activity</h2>
           <div className="ow-panel-scroll">
             {(data?.activity || []).length === 0 ? (
-              <p className="page-muted">No recent feedback activity.</p>
+              <p className="page-muted">
+                No recent AI activity yet (tools and rated replies appear here).
+              </p>
             ) : (
               <ul className="ow-list" style={{ fontSize: '0.85rem' }}>
                 {(data.activity || []).map((row) => (
                   <li key={row.id} className="ow-list-item ow-list-item-stack">
                     <div>
-                      <strong>{row.agent_id}</strong>{' '}
+                      <strong>{row.agent_name || row.agent_id || 'Agent'}</strong>
+                      {row.kind === 'tool' ? (
+                        <span className="page-muted" style={{ marginLeft: 6 }}>
+                          tool
+                        </span>
+                      ) : row.kind === 'feedback' ? (
+                        <span className="page-muted" style={{ marginLeft: 6 }}>
+                          feedback
+                        </span>
+                      ) : null}{' '}
                       <span className="page-muted">{row.created_at}</span>
                     </div>
                     <div className="page-muted">{row.snippet}</div>

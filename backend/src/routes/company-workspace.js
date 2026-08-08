@@ -14,6 +14,142 @@ import { getTwentyStatusForOwner } from '../services/twenty-crm.js';
 const router = Router();
 router.use(requireAuth, requireCeoOrAdmin);
 
+/** High-noise tools — skip individual lines so real CRM/work action stays visible. */
+const NOISY_TOOLS = new Set([
+  'kanban_move_status',
+  'kanban_list_tasks',
+  'crm_status',
+  'erp_status',
+  'crm_list_people',
+  'crm_list_companies',
+  'crm_list_opportunities',
+]);
+
+function agentNameMap(ownerUserId) {
+  const map = new Map();
+  try {
+    for (const a of listAgentsForUser(ownerUserId) || []) {
+      if (a?.id) map.set(String(a.id), String(a.name || a.id));
+    }
+  } catch {
+    /* optional */
+  }
+  return map;
+}
+
+function resolveAgentLabel(source, agentId, names) {
+  const id = String(agentId || '').trim();
+  if (id && names.has(id)) return { agent_id: id, agent_name: names.get(id) };
+  const src = String(source || '').trim();
+  // t-ceo-bala--crm-s1-ceobala or bare agent id
+  const m = src.match(/--([a-z0-9_-]+)$/i) || src.match(/^([a-z0-9_-]+)$/i);
+  const cand = (m && m[1]) || '';
+  if (cand && names.has(cand)) return { agent_id: cand, agent_name: names.get(cand) };
+  for (const [aid, nm] of names) {
+    if (cand && (cand.includes(aid) || aid.includes(cand))) {
+      return { agent_id: aid, agent_name: nm };
+    }
+  }
+  return { agent_id: id || cand || src || 'agent', agent_name: null };
+}
+
+function toolSnippet(toolName, requestPayload, status) {
+  let body = {};
+  try {
+    body = requestPayload ? JSON.parse(requestPayload) : {};
+  } catch {
+    body = {};
+  }
+  const st = status === 'ok' ? '' : ` (${status})`;
+  if (toolName === 'crm_create_person' || toolName === 'crm_create_company') {
+    const n = body.name || body.displayName || body.display_name || '';
+    return n ? `${toolName}: ${n}${st}` : `${toolName}${st}`;
+  }
+  if (toolName === 'crm_sync_org' || toolName === 'erp_sync_org') {
+    return `${toolName}${st}`;
+  }
+  if (String(toolName).startsWith('crm_') || String(toolName).startsWith('erp_')) {
+    const bits = [toolName];
+    if (body.name) bits.push(String(body.name).slice(0, 60));
+    return bits.join(': ') + st;
+  }
+  return `${toolName}${st}`;
+}
+
+/**
+ * Merge CEO feedback + content tool work into a single recent activity stream.
+ * Feedback alone missed CRM Maker actions that were never thumbs-rated.
+ */
+function buildRecentActivity(ownerUserId, names) {
+  const owner = String(ownerUserId || '').trim();
+  if (!owner) return [];
+  const db = getDb();
+  const rows = [];
+
+  try {
+    const feedback = db
+      .prepare(
+        `SELECT id, agent_id, source, rating, created_at,
+                substr(COALESCE(message_content, ''), 1, 160) AS snippet
+         FROM agent_response_feedback
+         WHERE owner_user_id = ?
+         ORDER BY created_at DESC
+         LIMIT 20`
+      )
+      .all(owner);
+    for (const f of feedback) {
+      const label = resolveAgentLabel(f.source, f.agent_id, names);
+      rows.push({
+        id: `fb-${f.id}`,
+        kind: 'feedback',
+        agent_id: label.agent_id,
+        agent_name: label.agent_name,
+        source: f.source || 'feedback',
+        rating: f.rating ?? null,
+        snippet: f.snippet || 'Rated response',
+        created_at: f.created_at,
+        sort_at: f.created_at,
+      });
+    }
+  } catch (e) {
+    console.warn('[company-workspace] activity feedback', e?.message || e);
+  }
+
+  try {
+    const tools = db
+      .prepare(
+        `SELECT id, tool_name, source, status, request_payload, created_at
+         FROM content_tool_logs
+         WHERE owner_user_id = ?
+         ORDER BY created_at DESC, id DESC
+         LIMIT 80`
+      )
+      .all(owner);
+    for (const t of tools) {
+      const name = String(t.tool_name || '').trim();
+      if (!name || NOISY_TOOLS.has(name)) continue;
+      const label = resolveAgentLabel(t.source, null, names);
+      rows.push({
+        id: `tool-${t.id}`,
+        kind: 'tool',
+        agent_id: label.agent_id,
+        agent_name: label.agent_name,
+        tool_name: name,
+        source: t.source || 'tool',
+        status: t.status,
+        snippet: toolSnippet(name, t.request_payload, t.status),
+        created_at: t.created_at,
+        sort_at: t.created_at,
+      });
+    }
+  } catch (e) {
+    console.warn('[company-workspace] activity tools', e?.message || e);
+  }
+
+  rows.sort((a, b) => String(b.sort_at || '').localeCompare(String(a.sort_at || '')));
+  return rows.slice(0, 25).map(({ sort_at, ...rest }) => rest);
+}
+
 router.get('/snapshot', (req, res) => {
   try {
     const ownerUserId = resolveAuthenticatedCeoUserId(req, req.query || {});
@@ -61,21 +197,8 @@ router.get('/snapshot', (req, res) => {
       console.warn('[company-workspace] agents list', e?.message || e);
     }
 
-    let activity = [];
-    try {
-      activity = getDb()
-        .prepare(
-          `SELECT id, agent_id, source, rating, created_at,
-                  substr(COALESCE(message_content, ''), 1, 160) AS snippet
-           FROM agent_response_feedback
-           WHERE owner_user_id = ?
-           ORDER BY created_at DESC
-           LIMIT 20`
-        )
-        .all(ownerUserId);
-    } catch {
-      activity = [];
-    }
+    const names = agentNameMap(ownerUserId);
+    const activity = buildRecentActivity(ownerUserId, names);
 
     const business = getBusinessProfile(ownerUserId);
     const twenty = getTwentyStatusForOwner(ownerUserId);

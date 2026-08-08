@@ -1,7 +1,7 @@
 /**
  * Snapshot a CEO company into a blueprint payload for admin publish.
- * Captures Day 0 (org, agents+tools, knowledge, policies, operate model)
- * and Day 1 artefacts (workflows, scheduled goals, agents_md).
+ * Captures Day 0 (org, agents+tools+workspace MD, knowledge, policies, operate model)
+ * and Day 1 artefacts (workflows graph JSON, scheduled goals, connectors metadata without secrets).
  */
 import { getDb } from '../db/schema.js';
 import {
@@ -16,7 +16,20 @@ import { getOperatingModelTemplate, sanitizeOperatingModel } from './company-ope
 import { listDefinitions, createDefinition, getDefinition, updateDraft, publishDefinition } from './agent-workflow-store.js';
 import { listScheduledGoals, createScheduledGoal } from './scheduled-goals.js';
 import { getCeoGuardrails, upsertCeoGuardrails, mergeUniversalSafetyPolicy } from './ceo-guardrails.js';
+import { listDepartmentsForOwner } from './ceo-default-master-data.js';
+import { getAgentToolGrants } from './openclaw-agent-tools.js';
+import { listOauthConnectorsForUser } from './mcp-oauth.js';
+import { getOpenConnectorLink } from './openconnector.js';
+import { TEMPLATE_FILE_KEYS } from './platform-agent-workspace-templates.js';
 import * as workspace from '../workspace/adapter.js';
+
+/** Workspace MD keys exported into agents_md.files (ops is AGENT-OS-OPS.md). */
+const AGENT_MD_KEYS = [
+  ...new Set([
+    ...TEMPLATE_FILE_KEYS, // soul, agents, memory, identity, tools, ops
+    'user',
+  ]),
+];
 
 const API_PUBLISH_TOOLS = [
   'agent_workflow_trigger',
@@ -44,6 +57,12 @@ function getStrategic(row) {
 }
 
 function agentToolsFromDb(agentId) {
+  try {
+    const grants = getAgentToolGrants(agentId);
+    if (grants?.length) return grants;
+  } catch {
+    /* fall through */
+  }
   const db = getDb();
   try {
     const rows = db
@@ -97,7 +116,10 @@ function mergeAgents(liveAgents, baseAgents) {
     byName.set(key, {
       name: a.name,
       role: a.role || byName.get(key)?.role || a.name,
-      department: byName.get(key)?.department || a.department || 'Operations',
+      department: a.department || byName.get(key)?.department || 'Operations',
+      agent_id_source: a.id || null,
+      openclaw_agent_id: a.openclaw_agent_id || null,
+      is_coo: !!a.is_coo,
       tools,
     });
   }
@@ -322,24 +344,48 @@ function goalTemplatesFromOwner(ownerUserId) {
 
 async function agentsMdFromOwner(ownerUserId, agents) {
   const out = [];
+  let sharedOps = null;
+  try {
+    const { readFileSync, existsSync } = await import('fs');
+    const { join, dirname } = await import('path');
+    const { fileURLToPath } = await import('url');
+    const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+    const sharedPath = join(repoRoot, 'openclaw-workspace-templates', '_shared', 'AGENT-OS-OPS.md');
+    if (existsSync(sharedPath)) {
+      sharedOps = readFileSync(sharedPath, 'utf8');
+      if (sharedOps && sharedOps.length > 100000) sharedOps = sharedOps.slice(0, 100000);
+    }
+  } catch {
+    sharedOps = null;
+  }
+
   for (const a of agents || []) {
     try {
       const root = workspace.resolveAgentWorkspaceRoot(a, { ceoUserId: ownerUserId });
       const files = {};
-      for (const key of ['agents', 'soul', 'tools', 'memory']) {
+      for (const key of AGENT_MD_KEYS) {
         try {
           const r = await workspace.readWorkspaceFile(key, { workspaceRoot: root });
           const text = String(r?.text || '');
-          if (text && text.length < 80000) files[key] = text;
+          if (text && text.length < 100000) files[key] = text;
         } catch {
-          /* optional */
+          /* optional file */
         }
       }
-      if (Object.keys(files).length) {
+      // Fall back to platform shared OPERATING rules so publish always carries ops
+      if (!files.ops && sharedOps) {
+        files.ops = sharedOps;
+      }
+      const tools = agentToolsFromDb(a.id) || [];
+      if (Object.keys(files).length || tools.length) {
         out.push({
           agent_name: a.name,
           agent_role: a.role || a.name,
+          department: a.department || null,
+          tools,
           files,
+          file_keys: Object.keys(files),
+          ops_source: files.ops ? (files.ops === sharedOps ? 'platform_shared' : 'agent_workspace') : null,
         });
       }
     } catch (e) {
@@ -347,6 +393,106 @@ async function agentsMdFromOwner(ownerUserId, agents) {
     }
   }
   return out;
+}
+
+/**
+ * Connector catalog for re-apply: structure only (no OAuth tokens, client secrets, or runtime tokens).
+ */
+function connectorsFromOwner(ownerUserId) {
+  const owner = String(ownerUserId || '').trim();
+  const out = {
+    mcp_oauth: [],
+    ceo_mcp_servers: [],
+    openconnector: null,
+    note: 'No OAuth tokens, client secrets, API keys, or vault refs — reconnect on install.',
+  };
+  try {
+    const connectors = listOauthConnectorsForUser({ id: owner, role: 'ceo' }) || [];
+    out.mcp_oauth = connectors.map((c) => ({
+      server_id: c.server_id,
+      name: c.name,
+      description: c.description || '',
+      provider: c.provider,
+      scopes: c.platform_scopes || c.scopes || '',
+      is_platform: true,
+      connected: !!c.connection?.connected,
+      account_label: c.connection?.account_label || null,
+      // secrets intentionally omitted
+    }));
+  } catch (e) {
+    console.warn('[blueprint-publish] mcp oauth connectors', e?.message || e);
+  }
+  try {
+    const db = getDb();
+    const servers = db
+      .prepare(
+        `SELECT id, name, description, url, transport, status, is_platform, owner_role
+         FROM mcp_servers
+         WHERE owner_user_id = ? AND owner_role = 'ceo'
+         ORDER BY name COLLATE NOCASE ASC`
+      )
+      .all(owner);
+    out.ceo_mcp_servers = (servers || []).map((s) => ({
+      id: s.id,
+      name: s.name,
+      description: s.description || '',
+      url: s.url || '',
+      transport: s.transport || '',
+      status: s.status || '',
+      // headers_json / auth secrets never exported
+    }));
+  } catch (e) {
+    console.warn('[blueprint-publish] ceo mcp servers', e?.message || e);
+  }
+  try {
+    const link = getOpenConnectorLink(owner);
+    if (link) {
+      out.openconnector = {
+        linked: true,
+        connection_name: link.connection_name || null,
+        oc_user_id: link.oc_user_id || null,
+        linked_at: link.linked_at || null,
+        runtime_token_set: !!link.runtime_token_set,
+        // runtime_token and vault refs never exported
+      };
+    } else {
+      out.openconnector = { linked: false };
+    }
+  } catch (e) {
+    console.warn('[blueprint-publish] openconnector link', e?.message || e);
+  }
+  return out;
+}
+
+function orgSnapshotFromOwner(ownerUserId, agents) {
+  let departments = [];
+  try {
+    const live = listDepartmentsForOwner(ownerUserId) || [];
+    departments = live.map((d) => ({
+      name: d.name || d.department || d.title,
+      purpose: d.purpose || d.description || '',
+      source: 'master_data_departments',
+    })).filter((d) => d.name);
+  } catch (e) {
+    console.warn('[blueprint-publish] departments', e?.message || e);
+  }
+  const agent_department_map = (agents || []).map((a) => ({
+    agent_name: a.name,
+    agent_role: a.role || a.name,
+    department: a.department || 'Operations',
+    is_coo: !!a.is_coo,
+  }));
+  // Derive dept list from agents if master-data empty
+  if (!departments.length && agent_department_map.length) {
+    const seen = new Set();
+    for (const m of agent_department_map) {
+      const n = String(m.department || 'Operations').trim() || 'Operations';
+      if (seen.has(n.toLowerCase())) continue;
+      seen.add(n.toLowerCase());
+      departments.push({ name: n, purpose: `${n} team`, source: 'agents' });
+    }
+  }
+  return { departments, agent_department_map };
 }
 
 /**
@@ -494,15 +640,25 @@ export async function applyBlueprintAgentsMd(ownerUserId, agentsMd, agents) {
     try {
       const root = workspace.resolveAgentWorkspaceRoot(agent, { ceoUserId: ownerUserId });
       const files = entry.files || {};
+      const wrote = [];
       for (const [key, text] of Object.entries(files)) {
         if (!text || typeof text !== 'string') continue;
-        // Append day-1 section if live already has operate block; else write full file when reasonable
-        if (key === 'agents' || key === 'soul' || key === 'tools' || key === 'memory') {
-          await workspace.writeWorkspaceFile(key, text, { workspaceRoot: root, backup: true });
+        // Include ops (AGENT-OS-OPS.md), identity, tools, etc.
+        if (!AGENT_MD_KEYS.includes(key) && !['org', 'policy'].includes(key)) continue;
+        await workspace.writeWorkspaceFile(key, text, { workspaceRoot: root, backup: true });
+        wrote.push(key);
+      }
+      if (Array.isArray(entry.tools) && entry.tools.length) {
+        try {
+          const { setAgentToolGrants } = await import('./openclaw-agent-tools.js');
+          setAgentToolGrants(agent, entry.tools);
+          wrote.push('tool_grants');
+        } catch (te) {
+          console.warn('[blueprint-publish] tool grants apply', agent.id, te?.message || te);
         }
       }
-      results.push({ agent_name: agent.name, agent_id: agent.id, ok: true });
-      console.info('[blueprint-publish] agents_md applied', agent.id);
+      results.push({ agent_name: agent.name, agent_id: agent.id, ok: true, wrote });
+      console.info('[blueprint-publish] agents_md applied', agent.id, 'wrote=', wrote.join(','));
     } catch (e) {
       console.warn('[blueprint-publish] agents_md apply', entry.agent_name, e?.message || e);
       results.push({ agent_name: entry.agent_name, ok: false, error: e?.message || String(e) });
@@ -617,11 +773,14 @@ export function snapshotOwnerAsBlueprintPayload(ownerUserId) {
     agents = mergeAgents(liveAll, base.agents);
   }
 
-  if (!departments.length && agents.length) {
+  const liveOrg = orgSnapshotFromOwner(ownerUserId, agents);
+  // Prefer live master-data / agent-derived org over journey answers when present
+  if (liveOrg.departments.length) {
+    departments = liveOrg.departments;
+  } else if (!departments.length && agents.length) {
     const depts = new Set(agents.map((a) => a.department || 'Operations'));
     departments = [...depts].map((name) => ({ name, purpose: `${name} team` }));
-  }
-  if (!departments.length && Array.isArray(base.departments)) {
+  } else if (!departments.length && Array.isArray(base.departments)) {
     departments = base.departments;
   }
 
@@ -703,12 +862,10 @@ Never reuse topic fingerprints from content_topics_history within 20 days withou
 
   const workflow_templates = workflowTemplatesFromOwner(ownerUserId, liveAll.length ? liveAll : liveCustom);
   const goal_templates = goalTemplatesFromOwner(ownerUserId);
-  // agents_md is best-effort sync (may be empty when FS not available in snapshot path)
+  const connectors = connectorsFromOwner(ownerUserId);
+  // agents_md filled asynchronously via snapshotOwnerAsBlueprintPayloadAsync
   let agents_md = [];
-  // Synchronous snapshot avoids async pipeline; populate when already available via process tick
-  // Callers may use snapshotOwnerAsBlueprintPayloadAsync for full MD
   try {
-    // best-effort non-async: skip FS if not ready
     agents_md = [];
   } catch {
     agents_md = [];
@@ -748,11 +905,14 @@ Never reuse topic fingerprints from content_topics_history within 20 days withou
       knowledge_tables: !!(knowledge_tables || []).length,
       policies: !!(policy_text || Object.keys(base.policy_templates || {}).length),
       operate_model: !!(operate?.loops || []).length,
+      connectors: !!(connectors?.mcp_oauth?.length || connectors?.ceo_mcp_servers?.length || connectors?.openconnector?.linked),
     },
     day1: {
       workflow_templates: workflow_templates.length > 0,
+      workflow_graphs: (workflow_templates || []).every((w) => (w.graph?.nodes || []).length > 0),
       goal_templates: goal_templates.length > 0,
       agents_md: agents_md.length > 0,
+      agents_md_ops: false,
       sop_documents: sopsDedup.length > 0,
     },
   };
@@ -778,6 +938,10 @@ Never reuse topic fingerprints from content_topics_history within 20 days withou
       depth: base.depth === 'deep' || agents.length >= 4 ? 'deep' : 'thin',
       platforms: base.platforms || ['facebook', 'instagram', 'linkedin', 'blog'],
       departments: departments || [],
+      org: {
+        departments: departments || [],
+        agent_department_map: liveOrg.agent_department_map || [],
+      },
       agents: agents || [],
       workflows: answers.workflows?.length
         ? answers.workflows
@@ -789,6 +953,7 @@ Never reuse topic fingerprints from content_topics_history within 20 days withou
       workflow_templates,
       goal_templates,
       agents_md,
+      connectors,
       channels: answers.channels?.length ? answers.channels : base.channels || [],
       knowledge_tables,
       sop_documents: sopsDedup,
@@ -826,8 +991,8 @@ Never reuse topic fingerprints from content_topics_history within 20 days withou
       publish_quality: publishQuality,
       day0_day1,
       description: strategic.mission
-        ? `Published Day 0+1 from ${strategic.company_name || ownerUserId}. Mission: ${String(strategic.mission).slice(0, 200)}. Agents, tools, knowledge DB, policies, operate model, workflows (incl. content-publish-social API path), scheduled goals.`
-        : `Published Day 0+1 from ${strategic.company_name || ownerUserId}. Full content ops: org, agents+MD+tools, knowledge, policies, goals, multi-agent workflows, API social publish.`,
+        ? `Published Day 0+1 from ${strategic.company_name || ownerUserId}. Mission: ${String(strategic.mission).slice(0, 200)}. Agents+tools+ops MD, knowledge, policies, org, workflows (full graphs), goals, connector stubs (no secrets).`
+        : `Published Day 0+1 from ${strategic.company_name || ownerUserId}. Org, agents (tools + workspace MD including ops), knowledge, policies, goals, multi-agent workflow graphs, connector catalog without secrets.`,
     },
   };
 }
@@ -840,10 +1005,29 @@ export async function snapshotOwnerAsBlueprintPayloadAsync(ownerUserId) {
   const liveCustom = listAgentsForUser(ownerUserId).filter(
     (a) => a.agent_type === 'custom' || (a.owner_user_id && a.owner_user_id === ownerUserId)
   );
-  const agents_md = await agentsMdFromOwner(ownerUserId, liveCustom);
+  const liveAll =
+    liveCustom.length > 0
+      ? liveCustom
+      : listAgentsForUser(ownerUserId);
+  const agents_md = await agentsMdFromOwner(ownerUserId, liveAll.length ? liveAll : liveCustom);
   snap.payload.agents_md = agents_md;
+  // Prefer tools array from live grants on each agents_md entry when agents missed grants
+  if (Array.isArray(snap.payload.agents)) {
+    const byName = new Map(agents_md.map((m) => [String(m.agent_name || '').toLowerCase(), m]));
+    snap.payload.agents = snap.payload.agents.map((a) => {
+      const md = byName.get(String(a.name || '').toLowerCase());
+      const tools = (Array.isArray(a.tools) && a.tools.length
+        ? a.tools
+        : md?.tools) || a.tools || [];
+      return { ...a, tools };
+    });
+  }
   if (snap.payload.day0_day1) {
     snap.payload.day0_day1.day1.agents_md = agents_md.length > 0;
+    snap.payload.day0_day1.day1.agents_md_ops = agents_md.some((m) => !!(m.files && m.files.ops));
+    snap.payload.day0_day1.day0.agent_tools = (snap.payload.agents || []).every(
+      (a) => Array.isArray(a.tools) && a.tools.length > 0
+    );
   }
   return snap;
 }
@@ -964,9 +1148,48 @@ export function validateContentBlueprintPayload(payload, { expectedCompanyHint =
   checks.push({ id: 'operate_event_loops', ok: hasEvent || loops.length === 0, detail: `loops=${loops.length}` });
   if (loops.length && !hasEvent) issues.push('operate loops should include event/manual cadence for content publish');
 
-  const depts = p.departments || [];
+  const depts = p.departments || p.org?.departments || [];
   checks.push({ id: 'day0_org_departments', ok: depts.length > 0, detail: `count=${depts.length}` });
   if (!depts.length) issues.push('Missing organization departments');
+
+  const agentDeptMap = p.org?.agent_department_map || [];
+  checks.push({
+    id: 'day0_agent_department_map',
+    ok: agentDeptMap.length > 0 || (p.agents || []).length === 0,
+    detail: `map=${agentDeptMap.length}`,
+  });
+  if ((p.agents || []).length && !agentDeptMap.length) {
+    issues.push('Missing org.agent_department_map (agent → department)');
+  }
+
+  const hasMd = Array.isArray(p.agents_md) && p.agents_md.length > 0;
+  checks.push({ id: 'day1_agents_md', ok: hasMd, detail: `count=${(p.agents_md || []).length}` });
+  if (!hasMd && (p.agents || []).length) issues.push('Missing agents_md workspace files');
+
+  const hasOps = (p.agents_md || []).some((m) => !!(m.files && m.files.ops));
+  checks.push({ id: 'day1_agents_md_ops', ok: hasOps || !hasMd, detail: hasOps ? 'ops present' : 'ops missing' });
+  if (hasMd && !hasOps) issues.push('agents_md missing ops (AGENT-OS-OPS.md) for all agents');
+
+  const toolsOnAgents = (p.agents || []).filter((a) => Array.isArray(a.tools) && a.tools.length > 0).length;
+  checks.push({
+    id: 'day0_agent_tools',
+    ok: toolsOnAgents === (p.agents || []).length && (p.agents || []).length > 0,
+    detail: `with_tools=${toolsOnAgents}/${(p.agents || []).length}`,
+  });
+
+  const graphsOk =
+    wfs.length > 0 && wfs.every((w) => Array.isArray(w.graph?.nodes) && w.graph.nodes.length > 0);
+  checks.push({ id: 'day1_workflow_graphs', ok: graphsOk || !wfs.length, detail: graphsOk ? 'all graphs present' : 'some graphs empty' });
+  if (wfs.length && !graphsOk) issues.push('workflow_templates missing full graph JSON definitions');
+
+  const connectors = p.connectors;
+  const connectorsOk = !!(
+    connectors &&
+    (connectors.mcp_oauth?.length || connectors.ceo_mcp_servers?.length || connectors.openconnector)
+  );
+  checks.push({ id: 'day0_connectors_catalog', ok: connectorsOk, detail: connectorsOk ? 'present (no secrets)' : 'missing' });
+  // Soft: connectors may be empty if company never linked; only flag when systems_recommended imply them
+  if (!connectors) issues.push('Missing connectors catalog (structure-only, no secrets)');
 
   if (expectedCompanyHint && p.description) {
     checks.push({ id: 'company_hint', ok: true, detail: 'soft' });
@@ -985,7 +1208,7 @@ export function validateContentBlueprintPayload(payload, { expectedCompanyHint =
     checks,
     summary: issues.length
       ? `Blueprint validation failed: ${issues.length} issue(s)`
-      : 'Blueprint validation passed (Day 0 org/agents/tools/knowledge/policies/operate + Day 1 workflows/goals/SOPs)',
+      : 'Blueprint validation passed (knowledge, policies, org, agents+tools+ops MD, workflows graphs, connectors, goals)',
   };
 }
 
