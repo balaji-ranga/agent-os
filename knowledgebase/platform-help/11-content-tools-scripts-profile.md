@@ -12,6 +12,7 @@ Catalog of Agent OS tools agents and workflows can call, for example:
 - `intent_classify_and_delegate`
 - Workflow tools (`agent_workflow_list` / enquire / trigger / runs / **retry** / mutate / get_draft)
 - `email_send`, `notify_ceo`
+- **COO ops explain:** `this_week_digest` (Digest hours/$ methodology), **`operational_effectiveness`** (Home OEI 0–100 domains + KPIs; [36](./36-operational-effectiveness.md))
 - Master Data (`master_data_list_tables`, row CRUD, `master_data_list_documents`, `master_data_rag`)
 - `learnings_summary`, `brain_history`, `content_tools_enquire`
 - **Browser Session:** `browse_session_status`, `browse_task_start`, `browse_task_status`, `browse_snapshot`, `browse_act`, `browse_recipe_list`, `browse_recipe_run` (see [22-browser-session-and-recipes](./22-browser-session-and-recipes.md)); specialists should use these — not the native `browser` tool in chat

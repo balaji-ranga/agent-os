@@ -18,7 +18,10 @@
 # Features covered: Kanban orphan watcher (re-pend stuck processing + reinitiate specialty cards),
 # Scheduled goals (hourly|daily|weekdays|weekly, create/edit/pause UI, SCHEDULED_GOALS_CRON,
 #   vps-verify-scheduled-goals.sh + _smoke-scheduled-goals.mjs, platform-help 28),
+# Home OEI (operational_effectiveness API/tool; scheduled_goal_runs fire counts; help 36),
 # Company setup (/company-setup, platform-help 29),
+# Legal register accept + /legal static pages (AGENT_OS_TERMS_VERSION / AGENT_OS_PRIVACY_VERSION),
+# Left nav sections collapsed by default (AppNavMenu agent-os-nav-section-v2),
 # Kanban All view (default) aligned with status_checker all-ages counts,
 # private A2A publications reachable from COO delegation when registered as an
 # External Agent (loopback endpoints invoke in-process instead of self-HTTP 403),

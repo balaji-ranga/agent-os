@@ -759,7 +759,9 @@ AGENT_OS_BASE_URL=https://your-domain cd ../backend && npm run test:smoke
 
 ### This Week Digest
 
-Top-nav **Digest** (/this-week) loads owner-scoped GET /api/this-week-digest (KPIs, workflows, activity). Time Saved uses THIS_WEEK_MINUTES_PER_TASK (default 45). Est. Value = sum((minutes/60) * agent.hourly_rate_usd) for completed Kanban; workflows/unassigned use THIS_WEEK_VALUE_USD_PER_HOUR (default 10). Hire form sets hourly_rate_usd (default 10). Insights assessor is separate. COO tool this_week_digest for chat explainability. Home **OEI** via owner-scoped GET /api/operational-effectiveness + COO tool operational_effectiveness (rules-only; not Digest value).
+Top-nav **Digest** (/this-week) loads owner-scoped GET /api/this-week-digest (KPIs, workflows, activity). Time Saved uses THIS_WEEK_MINUTES_PER_TASK (default 45). Est. Value = sum((minutes/60) * agent.hourly_rate_usd) for completed Kanban; workflows/unassigned use THIS_WEEK_VALUE_USD_PER_HOUR (default 10). Hire form sets hourly_rate_usd (default 10). Insights assessor is separate. COO tool this_week_digest for chat explainability.
+
+**Home OEI (not Digest):** owner-scoped GET /api/operational-effectiveness + COO tool operational_effectiveness. Score 0–100, Green ≥ 75, 14-day equal-weight domains (vision, org, goals, workflows, autonomy, CRM platform-or-MCA, governance). Rules-only (no LLM). **Goal runs (14d)** counts rows in scheduled_goal_runs (firings), separate from distinct-goals-that-ran. Left nav sections default **collapsed** (AppNavMenu agent-os-nav-section-v2). Help: platform-help **36** (also 02, 28). Legal at register: AGENT_OS_TERMS_VERSION / AGENT_OS_PRIVACY_VERSION (defaults 2026-08-09 in legal-terms.js); public pages under deploy/static/flolah-home/legal and frontend/public/legal.
 
 ### Workspace Builder
 

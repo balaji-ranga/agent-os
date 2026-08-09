@@ -203,6 +203,9 @@ x-backend-env: &backend-env
   # This Week Digest proxies for time-saved / $ value (insights assessor is separate)
   THIS_WEEK_MINUTES_PER_TASK: ${THIS_WEEK_MINUTES_PER_TASK:-45}
   THIS_WEEK_VALUE_USD_PER_HOUR: ${THIS_WEEK_VALUE_USD_PER_HOUR:-10}
+  # Legal versions shown/accepted at register (defaults in legal-terms.js if unset)
+  AGENT_OS_TERMS_VERSION: ${AGENT_OS_TERMS_VERSION:-}
+  AGENT_OS_PRIVACY_VERSION: ${AGENT_OS_PRIVACY_VERSION:-}
   # Optional Ollama context window for BYOK / local models
   OLLAMA_CONTEXT_WINDOW: ${OLLAMA_CONTEXT_WINDOW:-}
   OPENCLAW_OLLAMA_CHAT_TIMEOUT_MS: ${OPENCLAW_OLLAMA_CHAT_TIMEOUT_MS:-}

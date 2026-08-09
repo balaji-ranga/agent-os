@@ -134,6 +134,22 @@ export const PLATFORM_HELP_DOCUMENTS = Object.freeze([
     filename: '32-business-core-crm-erp.md',
     title: `${PLATFORM_HELP_TITLE_PREFIX}Business Core CRM ERP Maker Checker`,
   },
+  {
+    filename: '33-ip-whitelists.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}IP Whitelists Package Firewall`,
+  },
+  {
+    filename: '34-tokens-management.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}Tokens Management External Packages`,
+  },
+  {
+    filename: '35-update-company-details.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}Update Company Details company_memory`,
+  },
+  {
+    filename: '36-operational-effectiveness.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}Operational Effectiveness OEI`,
+  },
 ]);
 
 /** Resolve repo README.md (local: agent-os/README.md; Docker: /opt/agent-os/README.md). */

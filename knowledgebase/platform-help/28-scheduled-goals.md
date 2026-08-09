@@ -92,9 +92,14 @@ Goals are CEO-scoped (`owner_user_id`). Other CEOs never see your schedules. API
 - **Run now** after create/edit to spot-check.
 - Platform operators: cron id `scheduled_goals` (`SCHEDULED_GOALS_CRON`). Pause goals in UI to turn CEO schedules off.
 
+## Home OEI and “goal runs”
+
+Home **Operational Effectiveness (OEI)** counts **scheduled goal runs** in 14 days from run history (each automatic fire and **Run now** when recorded). It does **not** report “1 forever” for a single daily goal. See [36-operational-effectiveness.md](./36-operational-effectiveness.md). Daily COO **status checker** email is a separate platform cron ([19](./19-scheduled-jobs-and-crons.md)).
+
 ## Related
 
 - Platform timers: [19-scheduled-jobs-and-crons.md](./19-scheduled-jobs-and-crons.md)
+- OEI: [36-operational-effectiveness.md](./36-operational-effectiveness.md)
 - Company first-run: [29-company-setup.md](./29-company-setup.md)
 - Content ops rollup / publish: [30-content-creator-ops.md](./30-content-creator-ops.md)
 - Kanban / standups / bell: [04-kanban-standups-broadcast.md](./04-kanban-standups-broadcast.md)

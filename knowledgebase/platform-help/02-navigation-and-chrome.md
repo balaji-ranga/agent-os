@@ -3,6 +3,7 @@
 ## Top bar
 
 - **Left nav toggle** — collapse/expand the sidebar (icons only when collapsed).
+- **Nav sections** (Settings, Run & Operate, Prebuilt Workflows, Company Tools, …) start **collapsed by default**. Expand with the section chevron; choices remember in this browser (`agent-os-nav-section-v2:*` keys).
 - **Notification bell** — platform alerts (`notify_ceo`) and agent/standup responses. Each item shows its datetime. Hover a short snippet for the full title/body. Open linked chat or Kanban. Clear/dismiss items you have handled.
 - **Profile menu** — Edit profile (`/profile`), **Company setup** (`/company-setup` — first-run company wizard; [29-company-setup.md](./29-company-setup.md)), **Onboarding** (`/onboarding` — freeform org draft/Review/Apply; [27-onboarding-helper.md](./27-onboarding-helper.md)), light/dark theme, Logout.
 - **Theme toggle** — sun/moon control in the top bar (also under Profile). Choice is saved in the browser.
@@ -136,7 +137,11 @@ Top-nav **Digest** (`/this-week`) shows KPIs (AI workers, tasks completed, estim
 
 ## Home operational effectiveness (OEI)
 
-Home/chat shell may show an **Operational Effectiveness Index (OEI)** score (0–100, Green ≥ 75 over ~14 days): vision, org, goals, workflows, autonomy, CRM readiness (platform CRM or MCA CRM connector), governance. Deterministic rules only (no LLM). Authenticated `GET /api/operational-effectiveness`. COO tool **operational_effectiveness** explains domain scores and improve actions — not Digest Time Saved dollars.
+Home (`/`) shows an **Operational Effectiveness Index (OEI)** score **0–100** (Green ≥ **75**, Amber 50–74, Red 0–49) over a rolling **14-day** window. Domains (equal-weight mean): vision, org, goals, workflows, autonomy, CRM (platform Twenty **or** MCA CRM connector), governance. Rules-only (no LLM / no Digest dollars).
+
+**Goal KPIs:** **Goal runs (14d)** counts **firings** (`scheduled_goal_runs`), not “distinct goals that ran once.” A single daily goal with seven successful days shows **~7 runs**, not **1**. Distinct-goal count is a separate KPI.
+
+Use the Home **i** popover for domain scores and improve links. REST: `GET /api/operational-effectiveness` (owner-scoped). COO: **`operational_effectiveness`**. Full guide: [36-operational-effectiveness.md](./36-operational-effectiveness.md).
 
 
 ### Hire rate

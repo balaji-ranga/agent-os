@@ -26,7 +26,7 @@ Prefer the **COO** for work that should be planned or handed to a specialist. Va
 
 ## Chat (`/` home or `/agents/:id/chat`)
 
-1. Home (`/`) opens chat with the **COO by default**; use the **Chat with** picker for other agents. **My Org** (`/org`) has the org chart and standups.
+1. Home (`/`) opens chat with the **COO by default**; use the **Chat with** picker for other agents. Home may show **OEI** (operational effectiveness 0–100) and related KPI chips — score is rules-only for your CEO scope; full explainability and goal-run KPIs: [36-operational-effectiveness.md](./36-operational-effectiveness.md). **My Org** (`/org`) has the org chart and standups.
 2. Type plain language and send. Use the **paperclip** to attach documents, images, audio, or video (size limits apply; ~40MB class). Attachments are stored as Master Data documents and mirrored under workspace **`inbound/attachments/`** so tools like `speech_stt` can use the path.
 3. **History** and **Browser session** side panes are **hidden by default**. Use the clock (history) and window (browser session) icons next to **New chat** to open or close them.
 4. **Tool icons** under replies show which Agent OS tools ran (Master Data, notify, email, workflows, `speech_tts`, `generate_image`, …).

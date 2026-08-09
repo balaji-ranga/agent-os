@@ -8,7 +8,8 @@ Flolah is the **AI Company OS**: you (the CEO) hire **AI employees** (digital wo
 
 1. Open the Flolah site → **Register** (new CEO) or **Log in**.
 2. Registration provisions your tenant: standard AI employees (COO, specialists, Workflow Builder, Platform Help, …), org docs, starter **departments** knowledge table, and Platform Help documents for RAG. Choose **LLM provider + default chat model** on the same form as Profile (Platform default, OpenAI, OpenRouter, Ollama free, DeepSeek local). API keys are **not** collected at register — after login set **`Platform_BYOK`** under **API Keys** if you chose OpenAI/OpenRouter.
-3. After login you may land on **Company setup** (`/company-setup`) if the first-run gate is still open — complete the wizard or skip, then use **home chat** / **My Org**. You can reopen setup anytime from the avatar menu → **Company setup**. Guide: [29-company-setup.md](./29-company-setup.md).
+3. **Legal:** self-serve **Register** requires accepting **Terms of Service** and **Privacy Policy** (checkbox). Versions are stored with your account (`terms_version` / `privacy_version` / `terms_accepted_at`). Read the text at `/legal/terms.html`, `/legal/privacy.html` (also marketing host and Login footers). Cookie inventory and open-source notices: `/legal/cookies.html`, `/legal/open-source.html`. Admins creating users may skip accept.
+4. After login you may land on **Company setup** (`/company-setup`) if the first-run gate is still open — complete the wizard or skip, then use **home chat** / **My Org**. You can reopen setup anytime from the avatar menu → **Company setup**. Guide: [29-company-setup.md](./29-company-setup.md).
 
 Admin accounts manage platform users; CEOs get the full product nav.
 
