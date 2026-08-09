@@ -44,13 +44,14 @@ export function BusinessEmbedPage({ kind }) {
     };
   }, [isCrm]);
 
-  // Remember CRM hosts so Flolah logout can wipe Twenty storage on those origins.
+  // Remember CRM/ERP host origins so logout can wipe prior sessions (Twenty workspaces + erp.crm shared host).
   useEffect(() => {
-    if (!isCrm || !data) return;
+    if (!data) return;
     const openUrl = data.open_url || data.iframe_url || '';
     const publicBase = data.public_base || data.sso?.public_base || '';
     if (openUrl) rememberCrmSessionOrigin(openUrl);
     if (publicBase) rememberCrmSessionOrigin(publicBase);
+    if (!isCrm && openUrl) rememberCrmSessionOrigin(openUrl);
   }, [isCrm, data]);
 
   async function onSyncOrg() {
@@ -193,7 +194,7 @@ export function BusinessEmbedPage({ kind }) {
 
       {iframeSrc ? (
         <iframe
-          key={iframeSrc}
+          key={`${iframeSrc}|${data?.owner_user_id || data?.company_name || ''}|${isCrm ? 'crm' : 'erp'}`}
           title={title}
           src={iframeSrc}
           style={{

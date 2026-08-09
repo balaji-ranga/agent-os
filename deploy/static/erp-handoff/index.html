@@ -13,7 +13,7 @@
   var p = new URLSearchParams(location.search);
   var token = (p.get("t") || p.get("token") || "").trim();
   var forceLogout = p.get("logout") === "1";
-  var forceWipe = forceLogout || p.get("wipe") === "1";
+  var forceWipe = forceLogout || p.get("wipe") === "1" || p.get("t") || p.get("token");
   var owner = (p.get("owner") || "").trim();
   var next = p.get("next") || "";
   if (next && (next.charAt(0) !== "/" || next.indexOf("//") === 0)) next = "";
@@ -31,13 +31,15 @@
       sessionStorage.clear();
     } catch (e) {}
     try {
-      ["sid", "system_user", "full_name", "user_id", "user_image", "user_lang"].forEach(function (n) {
+      // Non-HttpOnly only; HttpOnly sid cleared by /flolah-erp-sso Set-Cookie Max-Age=0
+      ["sid", "system_user", "full_name", "user_id", "user_image", "user_lang", "company"].forEach(function (n) {
         document.cookie = n + "=; Max-Age=0; path=/";
         document.cookie = n + "=; Max-Age=0; path=/; Secure; SameSite=None";
       });
     } catch (e2) {}
   }
 
+  // Always wipe client storage when entering handoff so company A does not keep company B's desk UI state
   if (forceWipe) wipe();
   if (forceLogout && !token) {
     setMsg("ERP session cleared.");
@@ -48,15 +50,15 @@
     return;
   }
 
-  // Same-origin cookie apply (nginx → backend /erp-sso-apply). Do NOT use document.cookie
-  // or cross-origin JSON consume — Chrome blocks third-party iframe cookie writes.
+  // Same-origin cookie apply (nginx → backend). Server clears prior CEO sid then sets this token's session.
   var apply =
     location.origin +
     "/flolah-erp-sso?t=" +
     encodeURIComponent(token) +
     (next ? "&next=" + encodeURIComponent(next) : "") +
-    (owner ? "&owner=" + encodeURIComponent(owner) : "");
-  setMsg("Signing into ERP…");
+    (owner ? "&owner=" + encodeURIComponent(owner) : "") +
+    "&switch=1";
+  setMsg("Signing into ERP as your company user…");
   location.replace(apply);
 })();
 </script>

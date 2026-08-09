@@ -40,32 +40,62 @@ function safeErpRedirectPath(raw) {
   return path;
 }
 
+function clearErpSessionCookies(res) {
+  // Shared host erp.crm.* for all Flolah CEOs — must drop previous CEO session before Set-Cookie.
+  // HttpOnly cookies cannot be cleared from handoff JS; only Set-Cookie Max-Age=0 works.
+  const names = [
+    'sid',
+    'system_user',
+    'full_name',
+    'user_id',
+    'user_image',
+    'user_lang',
+    'company',
+    'user_id',
+  ];
+  for (const n of names) {
+    for (const httpOnly of [true, false]) {
+      const ho = httpOnly ? 'HttpOnly; ' : '';
+      res.append('Set-Cookie', `${n}=; Path=/; ${ho}Secure; SameSite=None; Max-Age=0`);
+      res.append(
+        'Set-Cookie',
+        `${n}=; Path=/; ${ho}Secure; SameSite=None; Max-Age=0; Partitioned`
+      );
+    }
+  }
+}
+
 function applyErpSsoCookies(res, out) {
   const sid = String(out.sid || '').trim();
   const userId = String(out.system_user || out.email || '').trim();
   if (!sid) throw Object.assign(new Error('sid missing'), { status: 500 });
-  // sid raw (Frappe expects exact session id)
   if (!/^[A-Za-z0-9._~+-]+$/.test(sid)) {
     throw Object.assign(new Error('invalid sid format'), { status: 500 });
   }
+  clearErpSessionCookies(res);
+
   // Dual cookies:
-  // - Partitioned (CHIPS): accepted inside Flolah iframe (cross-site embed)
-  // - Non-partitioned: first-party for "Open ERP" top-level tab on erp.crm.*
-  // Max-Age so reloads keep desktop session within TTL window.
+  // - Non-partitioned: top-level "Open ERP" tab
+  // - Partitioned (CHIPS): Flolah iframe under login.* (same top-level for every CEO)
   const maxAge = 60 * 60 * 12; // 12h
-  const common = `Path=/; HttpOnly; Secure; SameSite=None; Max-Age=${maxAge}`;
-  const pairs = [[`sid=${sid}`, true]];
-  pairs.push([`system_user=yes`, false]); // not HttpOnly in Frappe often; keep readable attrs loose
+  const pairs = [];
+  pairs.push([`sid=${sid}`, true]);
+  pairs.push([`system_user=yes`, false]);
   if (userId) {
     const u = encodeURIComponent(userId);
     pairs.push([`user_id=${u}`, false]);
+    // full_name for Frappe navbar — use email (never another CEO's display name cache)
     pairs.push([`full_name=${u}`, false]);
+  }
+  // Prefer bound company when present in redirect_path (?company=)
+  const rp = String(out.redirect_path || '');
+  const coM = /[?&]company=([^&]+)/.exec(rp);
+  if (coM) {
+    pairs.push([`company=${coM[1]}`, false]);
   }
   for (const [nv, httpOnly] of pairs) {
     const ho = httpOnly ? 'HttpOnly; ' : '';
-    // Non-partitioned first-party / legacy third-party (if allowed)
     res.append('Set-Cookie', `${nv}; Path=/; ${ho}Secure; SameSite=None; Max-Age=${maxAge}`);
-    // Partitioned embed (Chrome CHIPS)
     res.append(
       'Set-Cookie',
       `${nv}; Path=/; ${ho}Secure; SameSite=None; Max-Age=${maxAge}; Partitioned`
