@@ -224,6 +224,24 @@ CRM Twenty remains stronger isolation: separate workspace DB per company.
 Agent tools use API keys (company-scoped filters). Desk SSO uses roles + User Permission only — System Manager without a real Company still hits module setup errors (e.g. Stock Settings).
 
 
+
+
+## Maker permissions (company setup)
+
+ERP/CRM **Makers do not use the desk SSO password** — they call Flolah `erp_*` tools with the platform ERP API key, **scoped to the CEO-bound Company**.
+
+| Capability | How |
+|------------|-----|
+| See own Company | `erp_get_company` / `erp_list_resource` (doctype Company → bound only) |
+| Fiscal years | `erp_list_fiscal_years`, `erp_create_fiscal_year` |
+| Accounts / warehouses | `erp_list_resource` (Account, Cost Center, Warehouse) company-filtered |
+| Maker A vs B | Independent tool grants (A=finance/setup/sales-money path; B=ops/stock); **union ≈ desk operational scope** for that company |
+| Submit / cancel | **Checker** only (`erp_submit_doc` / `erp_cancel_doc`) |
+| Other CEOs / User admin | Blocked |
+
+If a Maker says it cannot see Company/Fiscal Year, reload agents (prefab grant refresh) after deploy and use `erp_get_company` explicitly.
+
+
 ## Prefab ERP AI employees
 
 Selecting **ERP = ERPNext** provisions:

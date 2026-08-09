@@ -8,12 +8,17 @@ import { resolveToolOwnerUserId } from '../services/tool-owner-scope.js';
 import { getBusinessProfile, assertErpEntitled } from '../services/company-business-profile.js';
 import {
   getErpnextStatusForOwner,
+  getErpnextStatusLive,
   erpList,
   erpCreate,
   erpGet,
   erpUpdate,
   erpSubmitDoc,
   erpCancelDoc,
+  erpGetCompany,
+  erpUpdateCompany,
+  erpListFiscalYears,
+  erpCreateFiscalYear,
   erpListCustomers,
   erpListLeads,
   erpListItems,
@@ -72,7 +77,30 @@ router.post('/erp-status', (req, res) =>
     const ownerUserId = owner(req, req.body || {});
     const profile = getBusinessProfile(ownerUserId);
     if (profile.uses_erpnext || profile.platform_erp) assertErpEntitled(ownerUserId);
-    return { profile, erpnext: getErpnextStatusForOwner(ownerUserId) };
+    const erpnext = await getErpnextStatusLive(ownerUserId);
+    return { profile, erpnext };
+  })
+);
+
+router.post('/erp-get-company', (req, res) =>
+  run(res, async () => erpGetCompany(owner(req, req.body || {})))
+);
+router.post('/erp-update-company', (req, res) =>
+  run(res, async () => {
+    const b = req.body || {};
+    return erpUpdateCompany(owner(req, b), b.fields || b.doc || b.data || b);
+  })
+);
+router.post('/erp-list-fiscal-years', (req, res) =>
+  run(res, async () => {
+    const b = req.body || {};
+    return erpListFiscalYears(owner(req, b), { limit: b.limit, filters: b.filters, fields: b.fields });
+  })
+);
+router.post('/erp-create-fiscal-year', (req, res) =>
+  run(res, async () => {
+    const b = req.body || {};
+    return erpCreateFiscalYear(owner(req, b), b.doc || b.data || b);
   })
 );
 

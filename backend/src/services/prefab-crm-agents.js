@@ -56,9 +56,18 @@ const CRM_APPROVER_TOOLS = [
 ];
 
 /** Sales/CRM modules on ERPNext (when Profile CRM = ERPNext). */
-const ERP_CRM_MAKER_TOOLS = [
+const ERP_CRM_SETUP = [
   'erp_status',
   'erp_sync_org',
+  'erp_get_company',
+  'erp_update_company',
+  'erp_list_fiscal_years',
+  'erp_create_fiscal_year',
+];
+
+/** CRM Maker A — pipeline + company setup for Sales */
+const ERP_CRM_MAKER_A_TOOLS = [
+  ...ERP_CRM_SETUP,
   'erp_list_customers',
   'erp_create_customer',
   'erp_list_leads',
@@ -73,8 +82,6 @@ const ERP_CRM_MAKER_TOOLS = [
   'erp_create_quotation',
   'erp_list_sales_orders',
   'erp_create_sales_order',
-  'erp_list_delivery_notes',
-  'erp_create_delivery_note',
   'erp_list_sales_invoices',
   'erp_create_sales_invoice',
   'erp_list_resource',
@@ -92,9 +99,42 @@ const ERP_CRM_MAKER_TOOLS = [
   'summarize_url',
 ];
 
+/** CRM Maker B — fulfillment side of sales CRM */
+const ERP_CRM_MAKER_B_TOOLS = [
+  ...ERP_CRM_SETUP,
+  'erp_list_customers',
+  'erp_create_customer',
+  'erp_list_contacts',
+  'erp_create_contact',
+  'erp_list_items',
+  'erp_create_item',
+  'erp_list_sales_orders',
+  'erp_create_sales_order',
+  'erp_list_delivery_notes',
+  'erp_create_delivery_note',
+  'erp_list_sales_invoices',
+  'erp_list_resource',
+  'erp_get_resource',
+  'erp_create_resource',
+  'erp_update_resource',
+  'kanban_create_task',
+  'kanban_move_status',
+  'notify_ceo',
+  'ceo_profile',
+  'master_data_list_tables',
+  'master_data_list_rows',
+  'master_data_rag',
+  'learnings_summary',
+  'summarize_url',
+];
+
+const ERP_CRM_MAKER_TOOLS = ERP_CRM_MAKER_A_TOOLS; // legacy alias
+
 const ERP_CRM_CHECKER_TOOLS = [
   'erp_status',
   'erp_sync_org',
+  'erp_get_company',
+  'erp_list_fiscal_years',
   'erp_list_customers',
   'erp_list_leads',
   'erp_list_contacts',
@@ -140,18 +180,19 @@ function packDefs(ownerUserId, provider = 'twenty') {
         id: `crm-s1-${s}`.slice(0, 40),
         name: 'CRM Maker A',
         role:
-          'CRM Maker on platform ERPNext Sales/CRM modules (Leads, Opportunities, Customers, Quotations, Sales Orders). ' +
-          'Uses erp_* tools (same as mcp-flolah-erp sales surface). Draft-first; submit with Checker/CEO when needed.',
+          'CRM Maker A on ERPNext Sales — company/fiscal year setup (erp_get_company, fiscal years), leads, opportunities, ' +
+          'quotations, sales orders, invoices. Draft-first; Checker submits. Independent tools from Maker B.',
         department: 'Sales',
-        tools: ERP_CRM_MAKER_TOOLS,
+        tools: ERP_CRM_MAKER_A_TOOLS,
       },
       {
         id: `crm-s2-${s}`.slice(0, 40),
         name: 'CRM Maker B',
         role:
-          'CRM Maker on ERPNext — enrichment, follow-ups, contacts, pipeline hygiene via erp_* Sales tools.',
+          'CRM Maker B on ERPNext Sales ops — delivery notes, stock-related sales fulfillment, contact enrichment. ' +
+          'Can read company/fiscal years; draft-first. Independent tools from Maker A.',
         department: 'Sales',
-        tools: ERP_CRM_MAKER_TOOLS,
+        tools: ERP_CRM_MAKER_B_TOOLS,
       },
       {
         id: `crm-ap-${s}`.slice(0, 40),

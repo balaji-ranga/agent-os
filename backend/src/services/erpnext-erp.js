@@ -96,6 +96,10 @@ function companyFilter(ownerUserId) {
  * Doctypes that must never be agent/MCP accessible via site API key.
  * Site-wide ERPNEXT_API_KEY bypasses desk User Permission — without this denylist
  * any CEO's Maker can list other tenants' SSO User rows (cross-tenant leak).
+ *
+ * Note: Company / Account / Fiscal Year are NOT site-wide blocked — they use
+ * owner-company assertion (OWN_COMPANY_DOC / company-scoped filters) so Makers
+ * can set up company + fiscal years equal to the CEO desk user's company scope.
  */
 const ERP_BLOCKED_DOCTYPES = new Set(
   [
@@ -135,14 +139,28 @@ const ERP_BLOCKED_DOCTYPES = new Set(
     'User Document Type',
     'User Email',
     'User Social Login',
-    'Company', // only own company via status/profile — not list-all
-    'Account', // chart of accounts is company-linked; get must assert company
   ].map((x) => x.toLowerCase())
 );
 
 /** Operational allowlist for generic erp_*_resource tools (named tools still go through erpList). */
 const ERP_RESOURCE_ALLOWLIST = new Set(
   [
+    // Company setup (own company only — see assertOwnCompanyDoc)
+    'Company',
+    'Fiscal Year',
+    'Account',
+    'Cost Center',
+    'Warehouse',
+    'Bank Account',
+    'Mode of Payment',
+    'Payment Terms Template',
+    'Terms and Conditions',
+    'Tax Category',
+    'Sales Taxes and Charges Template',
+    'Purchase Taxes and Charges Template',
+    'Currency Exchange',
+    'Budget',
+    // CRM / sales / ops
     'Customer',
     'Lead',
     'Contact',
@@ -168,8 +186,6 @@ const ERP_RESOURCE_ALLOWLIST = new Set(
     'Department',
     'Employee',
     'GL Entry',
-    'Cost Center',
-    'Warehouse',
     'Supplier',
     'BOM',
     'Work Order',
@@ -208,8 +224,18 @@ const COMPANY_SCOPED_DOCTYPES = new Set(
     'Supplier',
     'BOM',
     'Work Order',
+    'Account',
+    'Bank Account',
+    'Budget',
+    'Sales Taxes and Charges Template',
+    'Purchase Taxes and Charges Template',
   ].map((x) => x.toLowerCase())
 );
+
+/** Singleton/setup docs keyed by bound company name (not free list-all). */
+function isCompanyNamedDoctype(dt) {
+  return doctypeKey(dt) === 'company';
+}
 
 function normalizeDoctype(doctype) {
   return String(doctype || '').trim();
@@ -254,12 +280,40 @@ function requireBoundCompany(ownerUserId) {
 
 /**
  * When a document has a company field, it must match this owner's bound company.
- * Docs without company (Lead, Item, etc.) may pass; blocked doctypes already denied.
+ * Company doctype itself: name must equal bound company.
+ * Fiscal Year: companies child table must include bound company when present.
  */
 function assertDocBelongsToOwner(ownerUserId, doc, { doctype } = {}) {
   if (!doc || typeof doc !== 'object') return;
   const co = companyFilter(ownerUserId);
   if (!co) return;
+  const dt = doctypeKey(doctype);
+
+  if (dt === 'company') {
+    const nm = String(doc.name || '').trim();
+    if (nm && nm.toLowerCase() !== String(co).toLowerCase()) {
+      const err = new Error('Document is another company (not accessible)');
+      err.status = 403;
+      throw err;
+    }
+    return;
+  }
+
+  if (dt === 'fiscal year') {
+    const rows = Array.isArray(doc.companies) ? doc.companies : [];
+    if (rows.length) {
+      const ok = rows.some(
+        (r) => String(r.company || r).toLowerCase() === String(co).toLowerCase()
+      );
+      if (!ok) {
+        const err = new Error('Fiscal Year is not linked to your company');
+        err.status = 403;
+        throw err;
+      }
+    }
+    return;
+  }
+
   const docCo = doc.company != null ? String(doc.company).trim() : '';
   if (!docCo) return;
   if (docCo.toLowerCase() !== String(co).toLowerCase()) {
@@ -299,11 +353,28 @@ export async function erpList(ownerUserId, doctype, { limit = 20, filters, field
   if (!dt) throw Object.assign(new Error('doctype required'), { status: 400 });
   requireResourceAllowlist(dt, { genericResource });
   const co = requireBoundCompany(ownerUserId);
+
+  // Company: never site-wide list — return only the bound company for this CEO
+  if (isCompanyNamedDoctype(dt)) {
+    try {
+      const one = await erpGet(ownerUserId, 'Company', co, { genericResource: true });
+      const row = one?.data || { name: co };
+      return { mode: 'live', doctype: dt, data: [row], company: co, count: 1 };
+    } catch (e) {
+      return {
+        mode: 'live',
+        doctype: dt,
+        data: [{ name: co, company_name: co, note: 'bound in Flolah; desk fetch failed: ' + (e.message || e) }],
+        company: co,
+        count: 1,
+      };
+    }
+  }
+
   const params = new URLSearchParams();
   params.set('limit_page_length', String(lim(limit)));
   if (fields) params.set('fields', JSON.stringify(fields));
   const f = Array.isArray(filters) ? [...filters] : [];
-  // Never allow callers to override company to another tenant
   const coKey = doctypeKey(dt);
   if (COMPANY_SCOPED_DOCTYPES.has(coKey)) {
     const withoutCo = f.filter((x) => !(Array.isArray(x) && String(x[0]).toLowerCase() === 'company'));
@@ -315,7 +386,6 @@ export async function erpList(ownerUserId, doctype, { limit = 20, filters, field
   try {
     const data = await frappeFetch(`/api/resource/${encodeURIComponent(dt)}?${params}`);
     let rows = Array.isArray(data?.data) ? data.data : [];
-    // Defense in depth: drop any row whose company field mismatches
     if (COMPANY_SCOPED_DOCTYPES.has(coKey)) {
       rows = rows.filter((row) => {
         if (!row || row.company == null || row.company === '') return true;
@@ -344,11 +414,26 @@ export async function erpCreate(ownerUserId, doctype, doc = {}, { genericResourc
   if (!dt) throw Object.assign(new Error('doctype required'), { status: 400 });
   requireResourceAllowlist(dt, { genericResource });
   const co = requireBoundCompany(ownerUserId);
+  if (isCompanyNamedDoctype(dt)) {
+    throw Object.assign(
+      new Error('Cannot create another Company via tools — use the bound Flolah company only (erp_get_company / erp_update_company).'),
+      { status: 403 }
+    );
+  }
   const body = { ...(doc || {}) };
   if (COMPANY_SCOPED_DOCTYPES.has(doctypeKey(dt))) {
-    body.company = co; // force owner company — never trust client override
-  } else if (co && !body.company) {
     body.company = co;
+  } else if (co && !body.company && doctypeKey(dt) !== 'fiscal year') {
+    body.company = co;
+  }
+  // Fiscal Year: ensure companies child includes bound company
+  if (doctypeKey(dt) === 'fiscal year') {
+    const companies = Array.isArray(body.companies) ? [...body.companies] : [];
+    const has = companies.some(
+      (r) => String(r?.company || r).toLowerCase() === String(co).toLowerCase()
+    );
+    if (!has) companies.push({ company: co });
+    body.companies = companies;
   }
   const data = await frappeFetch(`/api/resource/${encodeURIComponent(dt)}`, {
     method: 'POST',
@@ -363,16 +448,62 @@ export async function erpGet(ownerUserId, doctype, name, { genericResource = fal
     throw Object.assign(new Error('ERPNEXT_URL / API keys not configured'), { status: 503 });
   }
   const dt = normalizeDoctype(doctype);
-  const nm = String(name || '').trim();
-  if (!dt || !nm) throw Object.assign(new Error('doctype and name required'), { status: 400 });
+  let nm = String(name || '').trim();
+  if (!dt) throw Object.assign(new Error('doctype and name required'), { status: 400 });
   requireResourceAllowlist(dt, { genericResource });
-  requireBoundCompany(ownerUserId);
+  const co = requireBoundCompany(ownerUserId);
+  if (isCompanyNamedDoctype(dt)) {
+    nm = nm || co;
+    if (nm.toLowerCase() !== String(co).toLowerCase()) {
+      throw Object.assign(new Error('Only your bound company is readable'), { status: 403 });
+    }
+  }
+  if (!nm) throw Object.assign(new Error('doctype and name required'), { status: 400 });
   const data = await frappeFetch(
     `/api/resource/${encodeURIComponent(dt)}/${encodeURIComponent(nm)}`
   );
   const doc = data?.data || data;
   assertDocBelongsToOwner(ownerUserId, doc, { doctype: dt });
-  return { mode: 'live', doctype: dt, data: doc };
+  return { mode: 'live', doctype: dt, data: doc, company: co };
+}
+
+/** Explicit company helpers for Makers (equal to desk company scope). */
+export async function erpGetCompany(ownerUserId) {
+  const co = requireBoundCompany(ownerUserId);
+  return erpGet(ownerUserId, 'Company', co, { genericResource: true });
+}
+
+export async function erpUpdateCompany(ownerUserId, fields = {}) {
+  const co = requireBoundCompany(ownerUserId);
+  const body = { ...(fields || {}) };
+  delete body.name;
+  delete body.abbr;
+  delete body.company_name;
+  return erpUpdate(ownerUserId, 'Company', co, body, { genericResource: true });
+}
+
+export async function erpListFiscalYears(ownerUserId, opts = {}) {
+  return erpList(ownerUserId, 'Fiscal Year', { ...opts, genericResource: true });
+}
+
+export async function erpCreateFiscalYear(ownerUserId, doc = {}) {
+  const co = requireBoundCompany(ownerUserId);
+  if (!doc.year && !doc.name) {
+    throw Object.assign(new Error('year (e.g. 2026) required for Fiscal Year'), { status: 400 });
+  }
+  const year = doc.year || doc.name;
+  return erpCreate(
+    ownerUserId,
+    'Fiscal Year',
+    {
+      year,
+      year_start_date: doc.year_start_date || `${String(year).slice(0, 4)}-01-01`,
+      year_end_date: doc.year_end_date || `${String(year).slice(0, 4)}-12-31`,
+      companies: doc.companies || [{ company: co }],
+      ...doc,
+    },
+    { genericResource: true }
+  );
 }
 
 // Convenience CRM-mirror surface on ERPNext
@@ -500,13 +631,23 @@ export async function erpUpdate(ownerUserId, doctype, name, fields = {}, { gener
     throw Object.assign(new Error('ERPNEXT_URL / API keys not configured'), { status: 503 });
   }
   const dt = normalizeDoctype(doctype);
-  const nm = String(name || '').trim();
-  if (!dt || !nm) throw Object.assign(new Error('doctype and name required'), { status: 400 });
+  let nm = String(name || '').trim();
+  if (!dt) throw Object.assign(new Error('doctype and name required'), { status: 400 });
   requireResourceAllowlist(dt, { genericResource });
   const co = requireBoundCompany(ownerUserId);
-  // Read-assert before write so we never mutate another company's doc
+  if (isCompanyNamedDoctype(dt)) {
+    nm = nm || co;
+    if (nm.toLowerCase() !== String(co).toLowerCase()) {
+      throw Object.assign(new Error('Only your bound company can be updated'), { status: 403 });
+    }
+  }
+  if (!nm) throw Object.assign(new Error('doctype and name required'), { status: 400 });
   await erpGet(ownerUserId, dt, nm, { genericResource });
   const body = { ...(fields || {}) };
+  if (isCompanyNamedDoctype(dt)) {
+    delete body.name;
+    delete body.abbr;
+  }
   if (COMPANY_SCOPED_DOCTYPES.has(doctypeKey(dt))) {
     body.company = co;
   }
@@ -514,7 +655,7 @@ export async function erpUpdate(ownerUserId, doctype, name, fields = {}, { gener
     `/api/resource/${encodeURIComponent(dt)}/${encodeURIComponent(nm)}`,
     { method: 'PUT', body }
   );
-  return { mode: 'live', doctype: dt, name: nm, data: data?.data || data };
+  return { mode: 'live', doctype: dt, name: nm, data: data?.data || data, company: co };
 }
 
 export async function erpSubmitDoc(ownerUserId, doctype, name) {
@@ -763,7 +904,14 @@ export function getErpnextStatusForOwner(ownerUserId) {
     bound: p.erpnext.bound,
     company_id: p.erpnext.company_id,
     company_name: p.erpnext.company_name,
+    note:
+      'Makers use company-scoped erp_* tools (API key). Company/Fiscal Year/Accounts allowed for the bound company only. ' +
+      'ERP Maker A (finance/setup) + Maker B (ops/stock) together cover CEO desk operational scope; Checker owns submit/cancel.',
+    setup_objects: ['Company', 'Fiscal Year', 'Account', 'Cost Center', 'Warehouse', 'Bank Account'],
     objects: [
+      'Company',
+      'Fiscal Year',
+      'Account',
       'Customer',
       'Lead',
       'Contact',
@@ -778,6 +926,7 @@ export function getErpnextStatusForOwner(ownerUserId) {
       'Payment Entry',
       'Journal Entry',
       'Material Request',
+      'Stock Entry',
       'Project',
       'Task',
       'GL Entry',
@@ -786,4 +935,28 @@ export function getErpnextStatusForOwner(ownerUserId) {
       'Profit and Loss Statement',
     ],
   };
+}
+
+/** Live company + fiscal year snapshot for erp_status. */
+export async function getErpnextStatusLive(ownerUserId) {
+  const base = getErpnextStatusForOwner(ownerUserId);
+  if (!base.configured || !base.bound) return base;
+  try {
+    const co = await erpGetCompany(ownerUserId);
+    base.company_doc = {
+      name: co?.data?.name,
+      abbr: co?.data?.abbr,
+      default_currency: co?.data?.default_currency,
+      country: co?.data?.country,
+    };
+  } catch (e) {
+    base.company_doc_error = e.message;
+  }
+  try {
+    const fy = await erpListFiscalYears(ownerUserId, { limit: 10 });
+    base.fiscal_years = (fy?.data || []).map((r) => r.name || r.year).filter(Boolean);
+  } catch (e) {
+    base.fiscal_years_error = e.message;
+  }
+  return base;
 }
