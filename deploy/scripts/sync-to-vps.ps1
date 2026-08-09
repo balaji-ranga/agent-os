@@ -410,6 +410,7 @@ if ($Services -match "backend|openclaw") {
   scp @ssh -r "$Repo\knowledgebase\platform-help" "root@${HostIp}:$RemoteRoot/knowledgebase/"
   scp @ssh "$Repo\knowledgebase\README.md" "root@${HostIp}:$RemoteRoot/knowledgebase/README.md"
   scp @ssh `
+    "$Repo\knowledgebase\AUTOMATED-PNL.md" `
     "$Repo\knowledgebase\ONBOARDING-HELPER-PLAN.md" `
     "$Repo\knowledgebase\VIDEO-TOURS-CEO-CURRICULUM.md" `
     "$Repo\knowledgebase\CONTENT-CREATION-ORG-BLUEPRINT.md" `
