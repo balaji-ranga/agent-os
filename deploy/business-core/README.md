@@ -92,7 +92,7 @@ ERPNEXT_PUBLIC_URL=https://erp.crm.example.com
 ERPNEXT_ADMIN_PASSWORD=admin   # initial Administrator password from create-site
 ```
 
-**SSO:** CRM menu → Twenty handoff **or** ERPNext desk (`/app/crm`) when CRM=ERPNext. ERP menu → `/flolah-erp-handoff/` one-time token → sets Frappe `sid` for company-scoped user.
+**SSO:** CRM menu → Twenty handoff **or** ERPNext desk (`/app/crm`) when CRM=ERPNext. ERP menu → `/flolah-erp-handoff/?t=…` → same-origin `/flolah-erp-sso` (Set-Cookie `sid` + 302 Desk) for company-scoped user. Requires nginx proxy to backend `erp-sso-apply` (see `nginx.host-network.conf`).
 
 **Prefab agents:** CRM Maker A/B + Checker (Twenty `crm_*` or ERPNext sales `erp_*`); ERP = Maker A/B (full operational `erp_*` = MCP), Checker (submit/cancel + Kanban/workflow approvals), plus P&L / Invoice / Project specialists.
 

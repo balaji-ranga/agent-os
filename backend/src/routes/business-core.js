@@ -32,7 +32,39 @@ const router = Router();
 /**
  * Public one-shot SSO consume (ERP iframe handoff). Registered before auth.
  * Token is short-lived and single-use — no password returned to browser.
+ *
+ * Modes:
+ * - JSON (default / Accept: application/json): { ok, sid, redirect_path, ... }
+ * - Cookie redirect (?format=cookie or /erp-sso-apply): Set-Cookie on ERP host + 302 to desk
+ *   Prefer same-origin proxy /flolah-erp-sso so Chrome allows embedded-frame cookies
+ *   (SameSite=None; Secure; HttpOnly — document.cookie from handoff HTML is unreliable in iframes).
  */
+function safeErpRedirectPath(raw) {
+  let path = String(raw || '/app').trim() || '/app';
+  if (!path.startsWith('/') || path.startsWith('//')) path = '/app';
+  return path;
+}
+
+function applyErpSsoCookies(res, out) {
+  const sid = String(out.sid || '').trim();
+  const userId = String(out.system_user || out.email || '').trim();
+  if (!sid) throw Object.assign(new Error('sid missing'), { status: 500 });
+  // SameSite=None + Secure so sid works inside Flolah iframe (login → erp.crm).
+  // Partitioned (CHIPS) so Chrome accepts the cookie under a third-party embed.
+  const base = 'Path=/; HttpOnly; Secure; SameSite=None; Partitioned';
+  // sid raw (Frappe expects exact session id); sanitize user cookies for cookie grammar
+  if (!/^[A-Za-z0-9._~+-]+$/.test(sid)) {
+    throw Object.assign(new Error('invalid sid format'), { status: 500 });
+  }
+  res.append('Set-Cookie', `sid=${sid}; ${base}`);
+  res.append('Set-Cookie', `system_user=yes; Path=/; Secure; SameSite=None; Partitioned`);
+  if (userId) {
+    const u = encodeURIComponent(userId);
+    res.append('Set-Cookie', `user_id=${u}; Path=/; Secure; SameSite=None; Partitioned`);
+    res.append('Set-Cookie', `full_name=${u}; Path=/; Secure; SameSite=None; Partitioned`);
+  }
+}
+
 router.post('/erp-sso-consume', (req, res) => {
   try {
     const token = req.body?.token || req.query?.token || req.body?.t;
@@ -46,10 +78,39 @@ router.post('/erp-sso-consume', (req, res) => {
 router.get('/erp-sso-consume', (req, res) => {
   try {
     const token = req.query?.token || req.query?.t;
+    const format = String(req.query?.format || '').toLowerCase();
     const out = consumeErpSsoToken(token);
+    if (format === 'cookie' || format === 'redirect' || req.query?.redirect != null) {
+      applyErpSsoCookies(res, out);
+      const dest = safeErpRedirectPath(req.query?.redirect || req.query?.next || out.redirect_path);
+      res.redirect(302, dest);
+      return;
+    }
     res.json(out);
   } catch (e) {
     res.status(e.status || 500).json({ ok: false, error: e.message });
+  }
+});
+
+/** Preferred handoff: ERP host nginx proxies here so Set-Cookie is first-party to erp.crm.* */
+router.get('/erp-sso-apply', (req, res) => {
+  try {
+    const token = req.query?.token || req.query?.t;
+    const out = consumeErpSsoToken(token);
+    applyErpSsoCookies(res, out);
+    const dest = safeErpRedirectPath(req.query?.redirect || req.query?.next || out.redirect_path);
+    console.info('[business-core] erp-sso-apply ok user=%s next=%s', out.system_user || out.email, dest);
+    res.redirect(302, dest);
+  } catch (e) {
+    console.warn('[business-core] erp-sso-apply failed', e.message);
+    res
+      .status(e.status || 500)
+      .type('html')
+      .send(
+        `<!doctype html><meta charset="utf-8"/><title>ERP SSO</title>` +
+          `<p style="font-family:system-ui">ERP single sign-on failed: ${String(e.message || e).replace(/[<>]/g, '')}</p>` +
+          `<p><a href="/login">ERP login</a></p>`
+      );
   }
 });
 

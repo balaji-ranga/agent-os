@@ -147,14 +147,17 @@ scp @ssh `
   "$Repo\deploy\nginx\nginx.host-network.conf" `
   "$Repo\deploy\nginx\frontend.conf" `
   "root@${HostIp}:$RemoteRoot/deploy/nginx/"
-Write-Host "==> Sync deploy/static (flolah marketing homepage + CRM SSO handoff)"
-ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/deploy/static/flolah-home/assets $RemoteRoot/deploy/static/crm-handoff"
+Write-Host "==> Sync deploy/static (flolah homepage + CRM/ERP SSO handoffs)"
+ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/deploy/static/flolah-home/assets $RemoteRoot/deploy/static/crm-handoff $RemoteRoot/deploy/static/erp-handoff"
 scp @ssh -r "$Repo\deploy\static\flolah-home" "root@${HostIp}:$RemoteRoot/deploy/static/"
 if (Test-Path "$Repo\deploy\static\crm-handoff") {
   scp @ssh -r "$Repo\deploy\static\crm-handoff" "root@${HostIp}:$RemoteRoot/deploy/static/"
 }
+if (Test-Path "$Repo\deploy\static\erp-handoff") {
+  scp @ssh -r "$Repo\deploy\static\erp-handoff" "root@${HostIp}:$RemoteRoot/deploy/static/"
+}
 # nginx worker needs world-readable trees (scp often leaves 700 dirs → 403 on /flolah-handoff/)
-ssh @ssh "root@$HostIp" "chmod -R a+rX $RemoteRoot/deploy/static/flolah-home; chmod 755 $RemoteRoot/deploy/static/crm-handoff 2>/dev/null; chmod 644 $RemoteRoot/deploy/static/crm-handoff/* 2>/dev/null; true"
+ssh @ssh "root@$HostIp" "chmod -R a+rX $RemoteRoot/deploy/static/flolah-home; chmod 755 $RemoteRoot/deploy/static/crm-handoff $RemoteRoot/deploy/static/erp-handoff 2>/dev/null; chmod 644 $RemoteRoot/deploy/static/crm-handoff/* $RemoteRoot/deploy/static/erp-handoff/* 2>/dev/null; true"
 scp @ssh `
   "$Repo\deploy\scripts\vps-deploy-latest.sh" `
   "$Repo\deploy\scripts\vps-expand-login-cert.sh" `

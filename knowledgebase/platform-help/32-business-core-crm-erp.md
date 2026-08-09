@@ -183,11 +183,11 @@ CRM opens **in the Flolah iframe** (not a full-page leave); use **Open** for fir
 - ERPNext **requires MariaDB** (not Twenty's Postgres). Isolation still mirrors CRM: **1 Flolah company ΓåÆ 1 ERPNext Company** + User Permission on the company SSO user.
 - Start: `START_ERPNEXT=1 bash deploy/scripts/ensure-business-core-env.sh`
 - After first site: Administrator login on Desk ΓåÆ User ΓåÆ API Access ΓåÆ API Key + Secret ΓåÆ set `ERPNEXT_API_KEY` / `ERPNEXT_API_SECRET` on backend. Internal URL: `ERPNEXT_URL=http://erpnext-backend:8000`.
-- Public embed: `ERPNEXT_EMBED_URL` (prefer `https://erp.crm.…` on :443) with nginx handoff **`/flolah-erp-handoff/`**.
+- Public embed: `ERPNEXT_EMBED_URL` (prefer `https://erp.crm.…` on :443) with nginx handoff **`/flolah-erp-handoff/`** and cookie apply **`/flolah-erp-sso`**.
 
 ## ERP menu SSO (passwordless)
 
-When API keys + `ERPNEXT_SSO_ENABLED=1` (default), opening **ERP** mints a one-time handoff (like CRM LOGIN token flow): Flolah ensures Company + SSO User + company User Permission, logs in server-side, returns `/flolah-erp-handoff/?t=ΓÇª` which sets `sid` and redirects to `/app?company=ΓÇª`.
+When API keys + `ERPNEXT_SSO_ENABLED=1` (default), opening **ERP** mints a one-time handoff (like CRM LOGIN token flow): Flolah ensures Company + SSO User + company User Permission, logs in server-side, and returns `/flolah-erp-handoff/?t=...` on the ERP host. That page navigates same-origin to **`/flolah-erp-sso`** (nginx -> backend `GET /api/business-core/erp-sso-apply`), which **Set-Cookie**s Frappe `sid` (`HttpOnly; Secure; SameSite=None; Partitioned`) and **302**s to `/app?company=...`. Do not rely on `document.cookie` in the iframe — browsers drop third-party cookie writes from cross-origin JSON consume.
 
 ## Prefab ERP AI employees
 

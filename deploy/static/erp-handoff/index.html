@@ -7,18 +7,16 @@
 <style>body{font-family:system-ui,sans-serif;margin:2rem;color:#222}.m{opacity:.6;font-size:.9rem}.e{color:#a00}</style>
 </head>
 <body>
-<p class="m" id="msg">Opening ERP company desk...</p>
+<p class="m" id="msg">Opening ERP company desk…</p>
 <script>
 (function () {
   var p = new URLSearchParams(location.search);
   var token = (p.get("t") || p.get("token") || "").trim();
   var forceLogout = p.get("logout") === "1";
   var forceWipe = forceLogout || p.get("wipe") === "1";
-  var next = p.get("next") || "/app";
-  if (next.charAt(0) !== "/" || next.indexOf("//") === 0) next = "/app";
-  var consume = (p.get("consume") || "").trim();
-  var key = "flolah_erp_owner";
   var owner = (p.get("owner") || "").trim();
+  var next = p.get("next") || "";
+  if (next && (next.charAt(0) !== "/" || next.indexOf("//") === 0)) next = "";
 
   function setMsg(t, err) {
     var el = document.getElementById("msg");
@@ -33,15 +31,11 @@
       sessionStorage.clear();
     } catch (e) {}
     try {
-      var names = ["sid", "system_user", "full_name", "user_id", "user_image", "user_lang"];
-      names.forEach(function (n) {
+      ["sid", "system_user", "full_name", "user_id", "user_image", "user_lang"].forEach(function (n) {
         document.cookie = n + "=; Max-Age=0; path=/";
+        document.cookie = n + "=; Max-Age=0; path=/; Secure; SameSite=None";
       });
     } catch (e2) {}
-    try {
-      if (owner) localStorage.setItem(key, owner);
-      else localStorage.removeItem(key);
-    } catch (e3) {}
   }
 
   if (forceWipe) wipe();
@@ -49,39 +43,21 @@
     setMsg("ERP session cleared.");
     return;
   }
-
   if (!token) {
     setMsg("Missing SSO token — open ERP from Flolah menu.", true);
     return;
   }
-  if (!consume) {
-    setMsg("Missing consume URL — open ERP from Flolah menu.", true);
-    return;
-  }
 
-  var url = consume + (consume.indexOf("?") >= 0 ? "&" : "?") + "t=" + encodeURIComponent(token);
-  fetch(url, { method: "GET", credentials: "omit", headers: { Accept: "application/json" } })
-    .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
-    .then(function (res) {
-      if (!res.ok || !res.j || !res.j.sid) {
-        setMsg((res.j && res.j.error) || "SSO consume failed", true);
-        return;
-      }
-      var sid = res.j.sid;
-      var user = res.j.system_user || res.j.email || "";
-      var redirect = res.j.redirect_path || next;
-      if (redirect.charAt(0) !== "/") redirect = "/app";
-      document.cookie = "sid=" + encodeURIComponent(sid) + "; path=/; SameSite=Lax";
-      if (user) {
-        document.cookie = "system_user=" + encodeURIComponent(user) + "; path=/; SameSite=Lax";
-        document.cookie = "full_name=" + encodeURIComponent(user) + "; path=/; SameSite=Lax";
-      }
-      try { if (owner) localStorage.setItem(key, owner); } catch (e) {}
-      location.replace(redirect);
-    })
-    .catch(function (e) {
-      setMsg("SSO network error: " + (e && e.message ? e.message : e), true);
-    });
+  // Same-origin cookie apply (nginx → backend /erp-sso-apply). Do NOT use document.cookie
+  // or cross-origin JSON consume — Chrome blocks third-party iframe cookie writes.
+  var apply =
+    location.origin +
+    "/flolah-erp-sso?t=" +
+    encodeURIComponent(token) +
+    (next ? "&next=" + encodeURIComponent(next) : "") +
+    (owner ? "&owner=" + encodeURIComponent(owner) : "");
+  setMsg("Signing into ERP…");
+  location.replace(apply);
 })();
 </script>
 </body>
