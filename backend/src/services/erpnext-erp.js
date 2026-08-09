@@ -79,7 +79,24 @@ export async function frappeFetch(path, { method = 'GET', body, form = false } =
     data = { raw: text };
   }
   if (!res.ok) {
-    const msg = data?.message || data?.exc || data?.error || `ERPNext HTTP ${res.status}`;
+    // Prefer Frappe _server_messages (validation) over raw traceback noise
+    let msg = data?.message || data?.exc || data?.error || `ERPNext HTTP ${res.status}`;
+    try {
+      const sm = data?._server_messages;
+      if (sm) {
+        const arr = typeof sm === 'string' ? JSON.parse(sm) : sm;
+        const parts = (Array.isArray(arr) ? arr : [arr]).map((x) => {
+          try {
+            const o = typeof x === 'string' ? JSON.parse(x) : x;
+            return o?.message || o?.title || String(x);
+          } catch {
+            return String(x);
+          }
+        });
+        if (parts.filter(Boolean).length) msg = parts.join('; ');
+      }
+    } catch (_) {}
+    if (Array.isArray(msg)) msg = msg.join('; ');
     const err = new Error(String(msg).slice(0, 500));
     err.status = res.status >= 400 && res.status < 600 ? res.status : 502;
     throw err;

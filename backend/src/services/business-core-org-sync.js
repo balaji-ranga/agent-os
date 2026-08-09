@@ -386,26 +386,35 @@ async function erpSyncDepartmentsAndUsers(owner, snap) {
           company,
           status: 'Active',
           date_of_joining: erpEmployeeDateToday(),
+          // HR required fields on this ERPNext site
+          gender: 'Other',
+          date_of_birth: '1990-01-01',
           create_user_permission: 0,
         };
         if (deptDoc) body.department = deptDoc;
         if (designation) body.designation = designation;
-        // Prefer optional gender only if site requires it — omit first; retry with Other
         try {
           const createdDoc = await frappe('POST', '/api/resource/Employee', body);
           empName = createdDoc?.data?.name || null;
           created = true;
         } catch (e1) {
           const msg = String(e1.message || e1);
-          if (/gender/i.test(msg) && !body.gender) {
-            body.gender = 'Other';
-            const createdDoc = await frappe('POST', '/api/resource/Employee', body);
-            empName = createdDoc?.data?.name || null;
-            created = true;
-          } else if (/exists|duplicate/i.test(msg)) {
+          if (/exists|duplicate/i.test(msg)) {
             empName = await erpFindEmployeeByName(frappe, company, a.name);
           } else {
-            throw e1;
+            // Retry without designation if link failed
+            if (body.designation && /Designation|Could not find/i.test(msg)) {
+              delete body.designation;
+              try {
+                const createdDoc = await frappe('POST', '/api/resource/Employee', body);
+                empName = createdDoc?.data?.name || null;
+                created = true;
+              } catch (e2) {
+                throw e2;
+              }
+            } else {
+              throw e1;
+            }
           }
         }
       }
