@@ -59,10 +59,11 @@ if grep -q 'scheduled-goals' "$ROOT/frontend/src/App.jsx" 2>/dev/null; then
 else
   bad "App.jsx missing scheduled-goals route"
 fi
-if grep -q 'Scheduled goals' "$ROOT/frontend/src/components/AppNavMenu.jsx" 2>/dev/null; then
+if grep -qE 'scheduled-goals|Scheduled goals' "$ROOT/frontend/src/utils/ceoNavCatalog.js" 2>/dev/null \
+  || grep -qE 'scheduled-goals|Scheduled goals' "$ROOT/frontend/src/components/AppNavMenu.jsx" 2>/dev/null; then
   ok "nav Scheduled goals"
 else
-  bad "nav missing Scheduled goals"
+  bad "nav missing Scheduled goals (ceoNavCatalog.js or AppNavMenu.jsx)"
 fi
 if grep -q 'SCHEDULED_GOALS_CRON' "$ROOT/knowledgebase/platform-help/19-scheduled-jobs-and-crons.md" 2>/dev/null; then
   ok "help 19 documents SCHEDULED_GOALS_CRON"

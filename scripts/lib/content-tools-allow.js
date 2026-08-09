@@ -19,6 +19,7 @@ export const REQUIRED_GLOBAL_CONTENT_TOOLS = [
   'agent_workflow_enquire',
   'agent_workflow_trigger',
   'agent_workflow_runs',
+  'agent_workflow_retry',
   'agent_workflow_get_draft',
   'agent_workflow_mutate',
   'agent_workflow_certify_start',
@@ -56,7 +57,6 @@ export const REQUIRED_GLOBAL_CONTENT_TOOLS = [
   'list_inbound_attachments',
   'browser',
 ];
-
 
 /** Client Browser Session / recipe tools (Agent OS content tools — not built-in browser). */
 export const BROWSER_SESSION_CONTENT_TOOLS = [
@@ -84,6 +84,7 @@ export const COO_CONTENT_TOOLS_ALLOW = [
   'agent_workflow_enquire',
   'agent_workflow_trigger',
   'agent_workflow_runs',
+  'agent_workflow_retry',
   'learnings_summary',
   'email_send',
   'speech_tts',
@@ -119,7 +120,7 @@ export const COO_CONTENT_TOOLS_ALLOW = [
   'browse_snapshot',
   'browse_act',
   'browse_recipe_list',
-  'browse_recipe_run'
+  'browse_recipe_run',
 ];
 
 /** Default Workflow Builder content tools.allow. */
@@ -128,6 +129,7 @@ export const WORKFLOW_BUILDER_CONTENT_TOOLS_ALLOW = [
   'agent_workflow_enquire',
   'agent_workflow_trigger',
   'agent_workflow_runs',
+  'agent_workflow_retry',
   'agent_workflow_get_draft',
   'agent_workflow_mutate',
   'agent_workflow_certify_start',
@@ -160,7 +162,7 @@ export const WORKFLOW_BUILDER_CONTENT_TOOLS_ALLOW = [
   'browse_snapshot',
   'browse_act',
   'browse_recipe_list',
-  'browse_recipe_run'
+  'browse_recipe_run',
 ];
 
 /** Default Platform Help content tools.allow. */
@@ -179,5 +181,5 @@ export const PLATFORM_HELP_CONTENT_TOOLS_ALLOW = [
   'browse_snapshot',
   'browse_act',
   'browse_recipe_list',
-  'browse_recipe_run'
+  'browse_recipe_run',
 ];
