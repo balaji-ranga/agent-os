@@ -90,7 +90,8 @@ export function BusinessEmbedPage({ kind }) {
     data?.company_display_name ||
     null;
 
-  const ssoOk = isCrm && data?.sso?.mode === 'login_token_sso' && data?.sso?.ok !== false;
+  const ssoFailed =
+    isCrm && data?.sso && !(data.sso.mode === 'login_token_sso' && data.sso.ok !== false);
 
   return (
     <div
@@ -155,26 +156,18 @@ export function BusinessEmbedPage({ kind }) {
         </div>
       ) : null}
 
-      {isCrm && data?.sso ? (
+      {ssoFailed ? (
         <div
-          className={ssoOk ? 'page-banner' : 'page-banner page-banner-error'}
+          className="page-banner page-banner-error"
           role="status"
           style={{ margin: '0.35rem 0.85rem', fontSize: '0.85rem' }}
         >
-          {ssoOk ? (
-            <span>
-              Passwordless CRM SSO for this company workspace
-              {data.sso.via_impersonation ? ' (admin viewing as user)' : ''}.
-              If Twenty still shows a password form, use Switch CRM account once, then retry.
-            </span>
-          ) : (
-            <span>
-              CRM SSO unavailable ({data.sso.reason || data.sso.mode || 'handoff only'}).
-              Prefer Open after TWENTY_APP_SECRET / TWENTY_SSO_ENABLED /
-              TWENTY_DATABASE_URL / TWENTY_FRONT_AUTO_BASE_URL are set and the company
-              user is provisioned in the workspace schema.
-            </span>
-          )}
+          <span>
+            CRM SSO unavailable ({data.sso.reason || data.sso.mode || 'handoff only'}).
+            Prefer Open after TWENTY_APP_SECRET / TWENTY_SSO_ENABLED /
+            TWENTY_DATABASE_URL / TWENTY_FRONT_AUTO_BASE_URL are set and the company
+            user is provisioned in the workspace schema.
+          </span>
         </div>
       ) : null}
 
