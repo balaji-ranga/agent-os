@@ -10,8 +10,8 @@ import {
   ERP_PROVIDERS,
 } from '../services/company-business-profile.js';
 import { ensureTwentyWorkspaceForCompany } from '../services/twenty-crm.js';
-import { ensurePrefabCrmAgents } from '../services/prefab-crm-agents.js';
-import { ensurePrefabErpAgents } from '../services/prefab-erp-agents.js';
+import { syncPrefabCrmAgentsForOwner } from '../services/prefab-crm-agents.js';
+import { syncPrefabErpAgentsForOwner } from '../services/prefab-erp-agents.js';
 import { ensureErpnextCompanyForOwner } from '../services/erpnext-erp.js';
 import {
   getCrmEmbedForOwner,
@@ -233,6 +233,9 @@ router.post('/sync-org', async (req, res) => {
 
 /**
  * PATCH body: { crm_provider?, erp_provider?, provision?: true }
+ * Prefab CRM/ERP AI employees are granted to the org only when
+ * CRM = Twenty / ERP = ERPNext. Selecting none (or a non-platform vendor)
+ * removes those prefab agents from the org (user_agents disabled).
  */
 router.patch('/profile', async (req, res) => {
   try {
@@ -252,19 +255,26 @@ router.patch('/profile', async (req, res) => {
     const user = getUserById(ownerUserId);
     const displayName = user?.business_name || user?.name || undefined;
 
-    if (wantProvision && profile.crm_provider === 'twenty') {
-      twenty = await ensureTwentyWorkspaceForCompany(ownerUserId, {
-        displayName: profile.twenty.workspace_name || displayName,
-      });
-      prefab = await ensurePrefabCrmAgents(ownerUserId);
-      profile = getBusinessProfile(ownerUserId);
-    }
+    // Sync org membership regardless of workspace provision flag
+    if (wantProvision) {
+      if (profile.crm_provider === 'twenty') {
+        twenty = await ensureTwentyWorkspaceForCompany(ownerUserId, {
+          displayName: profile.twenty.workspace_name || displayName,
+        });
+      }
+      prefab = await syncPrefabCrmAgentsForOwner(ownerUserId);
 
-    if (wantProvision && profile.erp_provider === 'erpnext') {
-      erpnext = await ensureErpnextCompanyForOwner(ownerUserId, {
-        displayName: displayName || profile.erpnext.company_name,
-      });
-      prefabErp = await ensurePrefabErpAgents(ownerUserId);
+      if (profile.erp_provider === 'erpnext') {
+        erpnext = await ensureErpnextCompanyForOwner(ownerUserId, {
+          displayName: displayName || profile.erpnext.company_name,
+        });
+      }
+      prefabErp = await syncPrefabErpAgentsForOwner(ownerUserId);
+      profile = getBusinessProfile(ownerUserId);
+    } else {
+      // Still enforce "only platform" org membership when providers change without provision
+      prefab = await syncPrefabCrmAgentsForOwner(ownerUserId);
+      prefabErp = await syncPrefabErpAgentsForOwner(ownerUserId);
       profile = getBusinessProfile(ownerUserId);
     }
 

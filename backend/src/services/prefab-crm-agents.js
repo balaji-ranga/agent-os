@@ -7,7 +7,7 @@ import { getDb } from '../db/schema.js';
 import { createFullAgent } from './create-full-agent.js';
 import { getBusinessProfile, setPrefabCrmAgentIds } from './company-business-profile.js';
 import { setAgentToolGrants } from './openclaw-agent-tools.js';
-import { grantUserAgent } from './users.js';
+import { grantUserAgent, revokeUserAgent } from './users.js';
 
 const CRM_TOOLS = [
   'crm_status',
@@ -158,6 +158,68 @@ export async function ensurePrefabCrmAgents(ownerUserId) {
 
   setPrefabCrmAgentIds(owner, ensured);
   return { ok: true, created, agents: ensured };
+}
+
+/**
+ * Candidate CRM prefab agent ids for this CEO (current pack + profile registry).
+ */
+export function listPrefabCrmAgentIdsForOwner(ownerUserId) {
+  const owner = String(ownerUserId || '').trim();
+  const ids = new Set(packDefs(owner).map((d) => d.id));
+  try {
+    for (const id of getBusinessProfile(owner).prefab_crm_agent_ids || []) {
+      if (id) ids.add(String(id));
+    }
+  } catch {
+    /* ignore */
+  }
+  // Pattern match leftover ids for this CEO slug (re-provision after rename)
+  try {
+    const s = ownerSlug(owner);
+    const like = `crm-%-${s}`.slice(0, 40);
+    // exact pack prefixes
+    for (const prefix of ['crm-s1-', 'crm-s2-', 'crm-ap-']) {
+      ids.add(`${prefix}${s}`.slice(0, 40));
+    }
+    void like;
+  } catch {
+    /* ignore */
+  }
+  return [...ids];
+}
+
+/**
+ * Remove platform CRM agents from this CEO's org when CRM is not Twenty.
+ * Agents stay in DB (re-grant on re-select); only user_agents entitlement is disabled.
+ */
+export function revokePrefabCrmAgentsFromOrg(ownerUserId) {
+  const owner = String(ownerUserId || '').trim();
+  if (!owner) throw Object.assign(new Error('owner_user_id required'), { status: 400 });
+  const ids = listPrefabCrmAgentIdsForOwner(owner);
+  const revoked = [];
+  for (const id of ids) {
+    try {
+      revokeUserAgent(owner, id);
+      revoked.push(id);
+    } catch (e) {
+      console.warn('[prefab-crm] revoke', id, e?.message || e);
+    }
+  }
+  setPrefabCrmAgentIds(owner, []);
+  if (revoked.length) {
+    console.info('[prefab-crm] removed from org owner=%s count=%s', owner, revoked.length);
+  }
+  return { ok: true, revoked, agents: [] };
+}
+
+/** Ensure granted only when platform CRM = Twenty; otherwise remove from org. */
+export async function syncPrefabCrmAgentsForOwner(ownerUserId) {
+  const owner = String(ownerUserId || '').trim();
+  const profile = getBusinessProfile(owner);
+  if (profile.crm_provider === 'twenty') {
+    return ensurePrefabCrmAgents(owner);
+  }
+  return revokePrefabCrmAgentsFromOrg(owner);
 }
 
 export function getPrefabCrmAgentIds(ownerUserId) {

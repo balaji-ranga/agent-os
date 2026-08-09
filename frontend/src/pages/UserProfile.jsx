@@ -95,10 +95,19 @@ function UserProfilePanel() {
           crm_provider: data.profile?.crm_provider || 'none',
           erp_provider: data.profile?.erp_provider || 'none',
         });
-        const prefab = data.prefab?.agents?.length
-          ? ` Prefab CRM agents: ${data.prefab.agents.join(', ')}.`
-          : '';
-        setMessage(`Business Core saved.${prefab}`);
+        const prefabCrm =
+          data.prefab?.agents?.length
+            ? ` Prefab CRM agents: ${data.prefab.agents.join(', ')}.`
+            : data.prefab?.revoked?.length
+              ? ' Platform CRM agents removed from org (CRM is not Twenty).'
+              : '';
+        const prefabErp =
+          data.prefab_erp?.agents?.length
+            ? ` Prefab ERP agents: ${data.prefab_erp.agents.join(', ')}.`
+            : data.prefab_erp?.revoked?.length
+              ? ' Platform ERP agents removed from org (ERP is not ERPNext).'
+              : '';
+        setMessage(`Business Core saved.${prefabCrm}${prefabErp}`);
       })
       .catch((e) => setError(e.message || String(e)))
       .finally(() => setBizBusy(false));

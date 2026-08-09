@@ -9,7 +9,7 @@ import { getDb } from '../db/schema.js';
 import { createFullAgent } from './create-full-agent.js';
 import { getBusinessProfile, setPrefabErpAgentIds } from './company-business-profile.js';
 import { setAgentToolGrants } from './openclaw-agent-tools.js';
-import { grantUserAgent } from './users.js';
+import { grantUserAgent, revokeUserAgent } from './users.js';
 
 const SHARED = [
   'erp_status',
@@ -179,4 +179,65 @@ export async function ensurePrefabErpAgents(ownerUserId) {
 
   setPrefabErpAgentIds(owner, ensured);
   return { ok: true, created: created, agents: ensured };
+}
+
+/**
+ * Current + legacy ERP prefab ids (specialists and older Maker A/B/Checker packs).
+ */
+export function listPrefabErpAgentIdsForOwner(ownerUserId) {
+  const owner = String(ownerUserId || '').trim();
+  const s = ownerSlug(owner);
+  const ids = new Set(packDefs(owner).map((d) => d.id));
+  for (const prefix of [
+    'erp-pnl-',
+    'erp-inv-',
+    'erp-pm-',
+    'erp-s1-',
+    'erp-s2-',
+    'erp-ap-',
+  ]) {
+    ids.add((prefix + s).slice(0, 40));
+  }
+  try {
+    for (const id of getBusinessProfile(owner).prefab_erp_agent_ids || []) {
+      if (id) ids.add(String(id));
+    }
+  } catch {
+    /* ignore */
+  }
+  return [...ids];
+}
+
+/**
+ * Remove platform ERP agents from CEO org when ERP is not ERPNext.
+ * Does not delete agent rows; only disables user_agents (re-grant on re-select).
+ */
+export function revokePrefabErpAgentsFromOrg(ownerUserId) {
+  const owner = String(ownerUserId || '').trim();
+  if (!owner) throw Object.assign(new Error('owner_user_id required'), { status: 400 });
+  const ids = listPrefabErpAgentIdsForOwner(owner);
+  const revoked = [];
+  for (const id of ids) {
+    try {
+      revokeUserAgent(owner, id);
+      revoked.push(id);
+    } catch (e) {
+      console.warn('[prefab-erp] revoke', id, e && e.message);
+    }
+  }
+  setPrefabErpAgentIds(owner, []);
+  if (revoked.length) {
+    console.info('[prefab-erp] removed from org owner=%s count=%s', owner, revoked.length);
+  }
+  return { ok: true, revoked, agents: [] };
+}
+
+/** Ensure granted only when platform ERP = ERPNext; otherwise remove from org. */
+export async function syncPrefabErpAgentsForOwner(ownerUserId) {
+  const owner = String(ownerUserId || '').trim();
+  const profile = getBusinessProfile(owner);
+  if (profile.erp_provider === 'erpnext') {
+    return ensurePrefabErpAgents(owner);
+  }
+  return revokePrefabErpAgentsFromOrg(owner);
 }
