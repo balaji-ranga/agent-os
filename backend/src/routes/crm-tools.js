@@ -1,6 +1,7 @@
 /**
- * CRM content tools — Twenty Core REST (people, companies, opportunities/leads/deals, notes, tasks).
+ * CRM content tools — Twenty when CRM=twenty; ERPNext Sales modules when CRM=erpnext.
  * Owner-scoped via resolveToolOwnerUserId; company CRM entitlements.
+ * MCP mcp-flolah-crm and crm_* content tools share these routes.
  */
 import { Router } from 'express';
 import { resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
@@ -20,6 +21,21 @@ import {
   crmListNotes,
   crmListTasks,
 } from '../services/twenty-crm.js';
+import {
+  isErpnextCrmOwner,
+  erpCrmStatus,
+  erpCrmListPeople,
+  erpCrmCreatePerson,
+  erpCrmListCompanies,
+  erpCrmCreateCompany,
+  erpCrmListOpportunities,
+  erpCrmCreateOpportunity,
+  erpCrmUpdateOpportunity,
+  erpCrmListLeads,
+  erpCrmCreateLead,
+  erpCrmListNotes,
+  erpCrmListTasks,
+} from '../services/erpnext-crm-facade.js';
 import { syncFlolahOrgToBusinessCore } from '../services/business-core-org-sync.js';
 
 const router = Router();
@@ -42,6 +58,7 @@ async function run(res, fn) {
 router.post('/crm-status', (req, res) =>
   run(res, async () => {
     const ownerUserId = owner(req, req.body || {});
+    if (isErpnextCrmOwner(ownerUserId)) return erpCrmStatus(ownerUserId);
     return { profile: getBusinessProfile(ownerUserId), twenty: getTwentyStatusForOwner(ownerUserId) };
   })
 );
@@ -50,6 +67,7 @@ router.post('/crm-list-people', (req, res) =>
   run(res, async () => {
     const ownerUserId = owner(req, req.body || {});
     assertCrmEntitled(ownerUserId);
+    if (isErpnextCrmOwner(ownerUserId)) return erpCrmListPeople(ownerUserId, { limit: req.body?.limit });
     return crmListPeople(ownerUserId, { limit: req.body?.limit });
   })
 );
@@ -59,6 +77,14 @@ router.post('/crm-create-person', (req, res) =>
     const ownerUserId = owner(req, req.body || {});
     assertCrmEntitled(ownerUserId);
     const b = req.body || {};
+    if (isErpnextCrmOwner(ownerUserId)) {
+      return erpCrmCreatePerson(ownerUserId, {
+        name: b.name,
+        email: b.email,
+        phone: b.phone,
+        companyId: b.company_id || b.companyId,
+      });
+    }
     return crmCreatePerson(ownerUserId, {
       name: b.name,
       email: b.email,
@@ -72,6 +98,7 @@ router.post('/crm-list-companies', (req, res) =>
   run(res, async () => {
     const ownerUserId = owner(req, req.body || {});
     assertCrmEntitled(ownerUserId);
+    if (isErpnextCrmOwner(ownerUserId)) return erpCrmListCompanies(ownerUserId, { limit: req.body?.limit });
     return crmListCompanies(ownerUserId, { limit: req.body?.limit });
   })
 );
@@ -81,6 +108,12 @@ router.post('/crm-create-company', (req, res) =>
     const ownerUserId = owner(req, req.body || {});
     assertCrmEntitled(ownerUserId);
     const b = req.body || {};
+    if (isErpnextCrmOwner(ownerUserId)) {
+      return erpCrmCreateCompany(ownerUserId, {
+        name: b.name,
+        domainUrl: b.domain_url || b.domainUrl || b.website,
+      });
+    }
     return crmCreateCompany(ownerUserId, {
       name: b.name,
       domainUrl: b.domain_url || b.domainUrl || b.website,
@@ -93,17 +126,18 @@ router.post('/crm-list-opportunities', (req, res) =>
   run(res, async () => {
     const ownerUserId = owner(req, req.body || {});
     assertCrmEntitled(ownerUserId);
+    if (isErpnextCrmOwner(ownerUserId)) return erpCrmListOpportunities(ownerUserId, { limit: req.body?.limit });
     return crmListOpportunities(ownerUserId, {
       limit: req.body?.limit,
       stage: req.body?.stage,
     });
   })
 );
-// Alias: deals
 router.post('/crm-list-deals', (req, res) =>
   run(res, async () => {
     const ownerUserId = owner(req, req.body || {});
     assertCrmEntitled(ownerUserId);
+    if (isErpnextCrmOwner(ownerUserId)) return erpCrmListOpportunities(ownerUserId, { limit: req.body?.limit });
     return crmListOpportunities(ownerUserId, {
       limit: req.body?.limit,
       stage: req.body?.stage,
@@ -116,6 +150,7 @@ router.post('/crm-create-opportunity', (req, res) =>
     const ownerUserId = owner(req, req.body || {});
     assertCrmEntitled(ownerUserId);
     const b = req.body || {};
+    if (isErpnextCrmOwner(ownerUserId)) return erpCrmCreateOpportunity(ownerUserId, b);
     return crmCreateOpportunity(ownerUserId, {
       name: b.name,
       amount: b.amount,
@@ -132,6 +167,7 @@ router.post('/crm-create-deal', (req, res) =>
     const ownerUserId = owner(req, req.body || {});
     assertCrmEntitled(ownerUserId);
     const b = req.body || {};
+    if (isErpnextCrmOwner(ownerUserId)) return erpCrmCreateOpportunity(ownerUserId, { ...b, stage: b.stage || 'Proposal' });
     return crmCreateOpportunity(ownerUserId, {
       name: b.name,
       amount: b.amount,
@@ -149,6 +185,14 @@ router.post('/crm-update-opportunity', (req, res) =>
     const ownerUserId = owner(req, req.body || {});
     assertCrmEntitled(ownerUserId);
     const b = req.body || {};
+    if (isErpnextCrmOwner(ownerUserId)) {
+      return erpCrmUpdateOpportunity(ownerUserId, {
+        id: b.id || b.name,
+        stage: b.stage || b.patch?.stage,
+        ...((b.patch && typeof b.patch === 'object') ? b.patch : {}),
+        name: b.name || b.patch?.name,
+      });
+    }
     return crmUpdateOpportunity(ownerUserId, {
       id: b.id,
       patch: b.patch || {
@@ -165,6 +209,7 @@ router.post('/crm-list-leads', (req, res) =>
   run(res, async () => {
     const ownerUserId = owner(req, req.body || {});
     assertCrmEntitled(ownerUserId);
+    if (isErpnextCrmOwner(ownerUserId)) return erpCrmListLeads(ownerUserId, { limit: req.body?.limit });
     return crmListLeads(ownerUserId, { limit: req.body?.limit });
   })
 );
@@ -174,6 +219,14 @@ router.post('/crm-create-lead', (req, res) =>
     const ownerUserId = owner(req, req.body || {});
     assertCrmEntitled(ownerUserId);
     const b = req.body || {};
+    if (isErpnextCrmOwner(ownerUserId)) {
+      return erpCrmCreateLead(ownerUserId, {
+        name: b.name || b.title || b.lead_name,
+        email: b.email || b.email_id,
+        company_name: b.company_name || b.company,
+        ...b,
+      });
+    }
     return crmCreateLead(ownerUserId, {
       name: b.name || b.title,
       amount: b.amount,
@@ -187,6 +240,7 @@ router.post('/crm-list-notes', (req, res) =>
   run(res, async () => {
     const ownerUserId = owner(req, req.body || {});
     assertCrmEntitled(ownerUserId);
+    if (isErpnextCrmOwner(ownerUserId)) return erpCrmListNotes(ownerUserId, { limit: req.body?.limit });
     return crmListNotes(ownerUserId, { limit: req.body?.limit });
   })
 );
@@ -195,6 +249,7 @@ router.post('/crm-list-tasks', (req, res) =>
   run(res, async () => {
     const ownerUserId = owner(req, req.body || {});
     assertCrmEntitled(ownerUserId);
+    if (isErpnextCrmOwner(ownerUserId)) return erpCrmListTasks(ownerUserId, { limit: req.body?.limit });
     return crmListTasks(ownerUserId, { limit: req.body?.limit });
   })
 );
@@ -203,7 +258,9 @@ router.post('/crm-sync-org', (req, res) =>
   run(res, async () => {
     const ownerUserId = owner(req, req.body || {});
     assertCrmEntitled(ownerUserId);
-    return syncFlolahOrgToBusinessCore(ownerUserId, { targets: ['crm'] });
+    // ERPNext CRM still maps Flolah org into ERP company/user scope
+    const targets = isErpnextCrmOwner(ownerUserId) ? ['erp'] : ['crm'];
+    return syncFlolahOrgToBusinessCore(ownerUserId, { targets });
   })
 );
 

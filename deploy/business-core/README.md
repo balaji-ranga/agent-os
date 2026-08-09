@@ -81,7 +81,7 @@ docker compose -f docker-compose.yml -f docker-compose.business-core.yml --profi
 Backend:
 
 ```env
-ERPNEXT_URL=http://erpnext-backend:8000
+ERPNEXT_URL=http://erpnext-frontend:8080
 ERPNEXT_SITE_NAME=frontend
 ERPNEXT_API_KEY=          # Desk → User → API Access after first site
 ERPNEXT_API_SECRET=

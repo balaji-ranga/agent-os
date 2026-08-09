@@ -172,7 +172,7 @@ services:
       - ./business-core/erpnext-create-site.sh:/scripts/erpnext-create-site.sh:ro
     entrypoint: ["bash", "/scripts/erpnext-create-site.sh"]
 
-  # Gunicorn API + Desk backend (proxied by host nginx :8444 or public ERP host)
+  # Gunicorn API + Desk backend (internal). Browser /assets must go via erpnext-frontend.
   erpnext-backend:
     profiles: ["optional-erpnext"]
     image: ${ERPNEXT_IMAGE:-frappe/erpnext:v15.49.0}
@@ -215,8 +215,6 @@ services:
           --timeout=120 \
           --preload \
           frappe.app:application
-    ports:
-      - "127.0.0.1:${ERPNEXT_HOST_PORT:-8085}:8000"
     expose:
       - "8000"
     healthcheck:
@@ -229,6 +227,44 @@ services:
       timeout: 10s
       retries: 20
       start_period: 90s
+
+  # Official frappe nginx frontend: serves /assets/* and reverse-proxies API+websocket.
+  # Host nginx (login TLS / erp.crm.*) proxies to 127.0.0.1:ERPNEXT_HOST_PORT → here, not bare gunicorn.
+  erpnext-frontend:
+    profiles: ["optional-erpnext"]
+    image: ${ERPNEXT_IMAGE:-frappe/erpnext:v15.49.0}
+    restart: unless-stopped
+    depends_on:
+      erpnext-backend:
+        condition: service_healthy
+      erpnext-websocket:
+        condition: service_started
+    environment:
+      BACKEND: erpnext-backend:8000
+      SOCKETIO: erpnext-websocket:9000
+      FRAPPE_SITE_NAME_HEADER: ${ERPNEXT_SITE_NAME:-frontend}
+      UPSTREAM_REAL_IP_ADDRESS: 127.0.0.1
+      UPSTREAM_REAL_IP_HEADER: X-Forwarded-For
+      UPSTREAM_REAL_IP_RECURSIVE: "on"
+      PROXY_READ_TIMEOUT: "120"
+      CLIENT_MAX_BODY_SIZE: 50m
+    volumes:
+      - erpnext_sites:/home/frappe/frappe-bench/sites:Z
+    command: ["nginx-entrypoint.sh"]
+    ports:
+      - "127.0.0.1:${ERPNEXT_HOST_PORT:-8085}:8080"
+    expose:
+      - "8080"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS -o /dev/null http://127.0.0.1:8080/assets/frappe/images/frappe-favicon.svg || curl -fsS -o /dev/null http://127.0.0.1:8080/api/method/ping || exit 1",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 40s
 
   erpnext-websocket:
     profiles: ["optional-erpnext"]

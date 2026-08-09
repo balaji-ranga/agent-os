@@ -86,9 +86,9 @@ export async function seedBusinessCoreMcps() {
 
   const crm = await upsertPlatformMcp(authUser, {
     id: FLOLAH_CRM_MCP_ID,
-    name: 'Flolah CRM (Twenty)',
+    name: 'Flolah CRM (Twenty or ERPNext)',
     description:
-      'Twenty CRM REST via Flolah tools (v2). Status, people, companies, opportunities/deals, leads (early-stage opportunities), notes, tasks, org sync. Pass X-Ceo-User-Id. Needs platform TWENTY_APP_SECRET + SSO (per-company workspace access tokens) and company Profile CRM = Twenty. Prefab CRM agents use matching crm_* content tools.',
+      'CRM REST via Flolah tools (v2). When Profile CRM=Twenty → Twenty people/companies/opps/leads (crm_*). When CRM=ERPNext → same crm_* routes map to ERPNext Sales modules (Contact, Customer, Opportunity, Lead, Task). Pass X-Ceo-User-Id. Prefab CRM Makers get crm_* (Twenty) or sales erp_*/crm_* (ERPNext).',
     url,
   });
 
@@ -96,7 +96,7 @@ export async function seedBusinessCoreMcps() {
     id: FLOLAH_ERP_MCP_ID,
     name: 'Flolah ERP (ERPNext)',
     description:
-      'ERPNext Frappe REST via Flolah tools (v2). Status, customers, leads, items, quotations, sales orders, projects, generic resource list/create/get, org sync. Pass X-Ceo-User-Id. Needs ERPNext API key/secret + company Profile ERP = ERPNext. Prefab ERP agents use matching erp_* content tools.',
+      'ERPNext Frappe REST via Flolah erp_* tools (v2): customers, leads, contacts, opportunities, items, quotations, sales/purchase orders & invoices, delivery notes, payments, journal, material requests, projects/tasks, GL, P&L, resource CRUD, submit/cancel, org sync. Pass X-Ceo-User-Id. Needs ERPNEXT_API_KEY/SECRET + Profile CRM or ERP = ERPNext. Makers draft; Checker submit/cancel.',
     url,
   });
 

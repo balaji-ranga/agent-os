@@ -88,10 +88,22 @@ export function BusinessEmbedPage({ kind }) {
   const companyLabel =
     (isCrm ? data?.workspace_name || data?.company_name : data?.company_display_name) ||
     data?.company_display_name ||
+    data?.company_name ||
     null;
 
-  const ssoFailed =
-    isCrm && data?.sso && !(data.sso.mode === 'login_token_sso' && data.sso.ok !== false);
+  const provider = String(data?.provider || (isCrm ? 'twenty' : 'erpnext')).toLowerCase();
+  const isErpnextEmbed = provider === 'erpnext';
+  const ssoOk =
+    data?.sso &&
+    data.sso.ok !== false &&
+    (data.sso.mode === 'login_token_sso' ||
+      data.sso.mode === 'session_cookie_sso' ||
+      data.sso.mode === 'session_cookie');
+  const ssoFailed = Boolean(data?.sso) && !ssoOk;
+
+  const ssoHelp = isErpnextEmbed
+    ? 'ERPNext SSO needs ERPNEXT_API_KEY + ERPNEXT_API_SECRET (Administrator API Access), ERPNEXT_SSO_ENABLED=1, and a bound company. Then reload; handoff uses /flolah-erp-handoff.'
+    : 'Twenty SSO needs TWENTY_APP_SECRET / TWENTY_SSO_ENABLED / TWENTY_DATABASE_URL / TWENTY_FRONT_AUTO_BASE_URL and the company user provisioned in Twenty.';
 
   return (
     <div
@@ -163,10 +175,8 @@ export function BusinessEmbedPage({ kind }) {
           style={{ margin: '0.35rem 0.85rem', fontSize: '0.85rem' }}
         >
           <span>
-            CRM SSO unavailable ({data.sso.reason || data.sso.mode || 'handoff only'}).
-            Prefer Open after TWENTY_APP_SECRET / TWENTY_SSO_ENABLED /
-            TWENTY_DATABASE_URL / TWENTY_FRONT_AUTO_BASE_URL are set and the company
-            user is provisioned in the workspace schema.
+            {title} SSO unavailable ({data.sso.reason || data.sso.mode || 'handoff only'}
+            {provider ? `; provider=${provider}` : ''}). {ssoHelp}
           </span>
         </div>
       ) : null}

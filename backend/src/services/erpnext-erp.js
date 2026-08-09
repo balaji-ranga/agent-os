@@ -28,7 +28,7 @@ export function isErpnextApiConfigured() {
   return Boolean(baseUrl() && apiKey() && apiSecret());
 }
 
-export async function frappeFetch(path, { method = 'GET', body } = {}) {
+export async function frappeFetch(path, { method = 'GET', body, form = false } = {}) {
   const root = baseUrl();
   if (!root) {
     const err = new Error('ERPNEXT_URL is not configured');
@@ -40,19 +40,35 @@ export async function frappeFetch(path, { method = 'GET', body } = {}) {
     err.status = 503;
     throw err;
   }
-  const siteHost = String(process.env.ERPNEXT_SITE_NAME || 'frontend').trim() || 'frontend';
+  // Prefer ERPNEXT_URL that routes through erpnext-frontend nginx (site header),
+  // not bare gunicorn hostname — Node fetch ignores custom Host, so site resolution
+  // would use the URL hostname and 404 "erpnext-backend does not exist".
   const headers = {
     Accept: 'application/json',
-    'Content-Type': 'application/json',
     Authorization: `token ${apiKey()}:${apiSecret()}`,
-    Host: siteHost,
-    'X-Frappe-Site-Name': siteHost,
   };
+  let payload;
+  if (body != null) {
+    if (form) {
+      headers['Content-Type'] = 'application/x-www-form-urlencoded';
+      payload =
+        typeof body === 'string'
+          ? body
+          : new URLSearchParams(
+              Object.fromEntries(
+                Object.entries(body).map(([k, v]) => [k, v == null ? '' : String(v)])
+              )
+            ).toString();
+    } else {
+      headers['Content-Type'] = 'application/json';
+      payload = JSON.stringify(body);
+    }
+  }
   const url = `${root}${path.startsWith('/') ? path : `/${path}`}`;
   const res = await fetch(url, {
     method,
     headers,
-    body: body != null ? JSON.stringify(body) : undefined,
+    body: payload,
     signal: AbortSignal.timeout(60000),
   });
   const text = await res.text();

@@ -196,15 +196,15 @@ function parseSidFromResponse(res) {
 async function loginForSid(email, password) {
   const root = erpBaseUrl();
   if (!root) throw Object.assign(new Error('ERPNEXT_URL not set'), { status: 503 });
-  const siteHost = String(process.env.ERPNEXT_SITE_NAME || 'frontend').trim() || 'frontend';
+  // Must use erpnext-frontend (nginx site header). Node fetch cannot override Host, so
+  // ERPNEXT_URL=http://erpnext-backend:8000 resolves site as hostname and 404s.
   const res = await fetch(root + '/api/method/login', {
     method: 'POST',
     headers: {
       Accept: 'application/json',
-      'Content-Type': 'application/json',
-      Host: siteHost,
+      'Content-Type': 'application/x-www-form-urlencoded',
     },
-    body: JSON.stringify({ usr: email, pwd: password }),
+    body: new URLSearchParams({ usr: email, pwd: password }).toString(),
     signal: AbortSignal.timeout(45000),
     redirect: 'manual',
   });

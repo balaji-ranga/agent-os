@@ -160,7 +160,8 @@ fi
 
 if [[ "$START_ERPNEXT" == "1" || "$START_ERPNEXT" == "true" ]]; then
   echo "==> start optional-erpnext (MariaDB + configurator + create-site + gunicorn + workers)"
-  upsert ERPNEXT_URL 'http://erpnext-backend:8000'
+  upsert ERPNEXT_URL 'http://erpnext-frontend:8080'
+# Prefer frontend nginx (assets + FRAPPE_SITE_NAME_HEADER). Bare gunicorn breaks Node Host.
   upsert ERPNEXT_SITE_NAME 'frontend'
   upsert ERPNEXT_SSO_ENABLED '1'
   upsert ERPNEXT_ADMIN_PASSWORD 'admin'
