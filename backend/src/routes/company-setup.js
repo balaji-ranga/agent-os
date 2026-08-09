@@ -144,7 +144,7 @@ router.get('/connectors/search', async (req, res) => {
   }
 });
 
-/** GET company_memory capture (Update Company Setup). */
+/** GET company_memory capture (Update Company Details). */
 router.get('/company-memory', (req, res) => {
   try {
     const owner = ownerOr403(req, res);

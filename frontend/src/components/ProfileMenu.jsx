@@ -82,7 +82,7 @@ export default function ProfileMenu({ user, logout, onNavigate }) {
                 Company setup
               </NavLink>
               <NavLink
-                to="/update-company-setup"
+                to="/update-company-details"
                 role="menuitem"
                 className="profile-menu-item"
                 onClick={() => {
@@ -90,7 +90,7 @@ export default function ProfileMenu({ user, logout, onNavigate }) {
                   onNavigate?.();
                 }}
               >
-                Update Company Setup
+                Update Company Details
               </NavLink>
               <NavLink
                 to="/company-operate"

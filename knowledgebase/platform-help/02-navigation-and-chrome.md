@@ -27,7 +27,7 @@ Top-level (always shown; cannot hide in Menu visibility):
 | **Menu visibility** | `/nav-menus` | Show/hide sidebar menus (prefs on your account). Not a security control; CRM/ERP still require Business Core entitlements. |
 | **IP Whitelists** | `/settings/ip-whitelists` | Central firewall for laptop packages and public A2A: IBKR bridge webhooks, Workflow Download for Windows, A2A public access, Browser Session worker. Federated UIs write the same store. |
 | **Tokens management** | `/settings/tokens` | List and revoke issued external package tokens (workflow desktop, IBKR bridge, Browser Session). Masked prefixes only. |
-| **Update Company Setup** (avatar menu) | `/update-company-setup` | Edit company identity fields stored in Knowledge `company_memory` (mission, DNA, name, industry). |
+| **Update Company Details** (avatar menu) | `/update-company-details` | Edit company identity fields stored in Knowledge `company_memory` (mission, DNA, name, industry). |
 | **API Keys** | `/api-keys` | Named secret vault (auto-seeded BYOK slots + workflow/MCP/Connector secrets) |
 
 ### Run & Operate
@@ -113,8 +113,9 @@ Positioning: **AI Company OS** — see [`../AI-COMPANY-OS.md`](../AI-COMPANY-OS.
 - **Cap spend / failures** → Efficiency View → Agent View → Edit budget  
 - **Unblock a capped AI employee** → Efficiency View → Agent View → Reset usage  
 - **Shrink your data footprint** → Profile → Data persistence, then Efficiency View → Org → Storage (MB)  
-- **How do I…?** → Platform Help (docs **28** Scheduled goals, **29** Company setup, and the rest of this corpus)
+- **How do I…?** → Platform Help (docs **28** Scheduled goals, **29** Company setup, **35** Update Company Details, and the rest of this corpus)
 - **First company shape** → Company setup ([29-company-setup.md](./29-company-setup.md))
+- **Update mission / DNA later** → avatar **Update Company Details** ([35-update-company-details.md](./35-update-company-details.md))
 - **File a platform bug (admins triage)** → ask COO / Platform Help (`platform_feedback_submit`) or Admin → **Platform feedback**
 
 ## Digest (This Week Digest)
@@ -132,6 +133,11 @@ Top-nav **Digest** (`/this-week`) shows KPIs (AI workers, tasks completed, estim
   - **Not** CRM revenue, invoices, pipeline, or task tags. Distinct from **status_checker** (task counts only).
 - Insights come from a separate assessor (`this-week-digest-insights`) covering CRM readiness, scheduled goals, workflow failures, knowledge growth, and token use.
 - Data: authenticated `GET /api/this-week-digest`. COO tool **this_week_digest** returns the same KPIs + methodology so chat can explain dollars/hours without guessing.
+
+## Home operational effectiveness (OEI)
+
+Home/chat shell may show an **Operational Effectiveness Index (OEI)** score (0–100, Green ≥ 75 over ~14 days): vision, org, goals, workflows, autonomy, CRM readiness (platform CRM or MCA CRM connector), governance. Deterministic rules only (no LLM). Authenticated `GET /api/operational-effectiveness`. COO tool **operational_effectiveness** explains domain scores and improve actions — not Digest Time Saved dollars.
+
 
 ### Hire rate
 

@@ -1,5 +1,5 @@
 /**
- * Profile -> Update Company Setup - company_memory Knowledge + strategic profile.
+ * Profile -> Update Company Details - company_memory Knowledge + strategic profile.
  */
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -81,7 +81,7 @@ export default function UpdateCompanySetup() {
     <div className="nav-menus-page">
       <header className="this-week-header">
         <div>
-          <h1>Update Company Setup</h1>
+          <h1>Update Company Details</h1>
           <p className="this-week-sub">
             Edit company identity stored in Knowledge <code>company_memory</code> (mission, DNA, company name, industry). Creates the table if missing. Full team/blueprint wizard:{' '}
             <Link to="/company-setup">Company setup</Link>.

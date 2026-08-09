@@ -158,7 +158,7 @@ Grant or revoke tools on each agent’s **Workspace → Tools access**.
 | **Admin → Crons** | `/admin/crons` lists every platform cron (standup dispatcher, legacy standup, delegation queue, job pipeline, COO status checker, data retention, workflow scheduler) with **Pause** / **Resume** / **Run now**. Pause state persists across restarts. |
 | **Platform API logging** | `PLATFORM_LOG_LEVEL=off\|error\|info` controls backend access/error logs. Keys, tokens, `Authorization` headers, passwords and MFA codes are redacted, and sensitive paths (API Keys, auth) log method + route only. |
 | **Company setup** | Profile → **Company setup** (`/company-setup`): first-run (or re-run) funnel for company type, mission, DNA, team blueprint Apply, systems, management style. Gate may redirect new CEOs until complete/skip. Help: platform-help **29**. Distinct from Onboarding Helper (**27**). |
-| **Update Company Setup** | Profile avatar → **Update Company Setup** (`/update-company-setup`): edit mission/DNA/name/industry into Knowledge `company_memory` (creates table if needed). Help **35**. |
+| **Update Company Details** | Profile avatar → **Update Company Details** (`/update-company-details`): edit mission/DNA/name/industry into Knowledge `company_memory` (creates table if needed). Help **35**. |
 | **Scheduled goals** | Management → **Scheduled goals** (`/scheduled-goals`): recurring CEO prompts (**hourly** / daily / weekdays / weekly; perpetual or end date). Create/**edit**/list/pause/run-now in the UI or via COO tools (`scheduled_goal_*`). Only **active** rows fire; pause/delete survives restarts. Hourly uses `time_local` minutes (`:MM`). Platform master tick `SCHEDULED_GOALS_CRON`. **Ops Reporter** weekly rollup goals use **`notify_ceo` → bell** (not email). Help: platform-help **28**, content pack **30**. |
 | **Content creator ops** | Company Operate + `content_creator` pack: production loop, **Facebook Page** publish via platform MCP **`mcp-meta-graph`** (Connectors → MCPs OAuth; Page posts only; optional CEO App ID override), OpenConnector for other SaaS, **content-comments-ingest** + community triage, Channel Publisher **`agent_workflow_trigger`** → `content-publish-social`. Help: **30** (ops) + **31** (MCP OAuth setup). Operators: `ensure-platform-mcps.sh`, optional `SEED_CONTENT_MEDIA_OWNER`. |
 | **MCP OAuth connectors** | **Connectors → MCPs**: platform (or CEO-override) OAuth **app** credentials in `mcp_oauth_configs` (`owner_user_id` empty = platform; CEO id = override). Secrets encrypted with `USER_API_KEYS_KEK`. Per-CEO access tokens after **Connect**. Facebook: **`mcp-meta-graph`**. Help: **31**. OpenConnector tab configs → **16** + `OPENCONNECTOR-WEBHOOKS.md`. |
@@ -286,6 +286,7 @@ Set in backend `.env`:
 | **Job workflows** | Multi-agent **Job Applicant** pipeline (Discovery → Fit Scoring → Resume Tailoring → Application); Kanban-tracked stages; browser/Playwright apply path. See **knowledgebase/JOB-APPLICANT-WORKFLOW.md**. |
 | **MCP integrations** | Register MCP servers (admin/CEO); connect, test tools, playground; use in workflow **MCP Tool** and **SSE Listen** nodes. Local test server: `tools/local-mcp-random-sse/`. Bundled **Brave Search MCP** (`optional-brave-mcp`, header BYOK). **Meta Graph MCP** (`optional-meta-graph-mcp`, Connectors OAuth — help **31**). **Business Core MCP** (`optional-business-core-mcp`) seeds **`mcp-flolah-crm`** + **`mcp-flolah-erp`** (Twenty/ERPNext tools; help **32**). Agent content tool **`brave_web_search`** uses platform `BRAVE_API_KEY` or vault **`BRAVE_SEARCH_BYOK`**. Deploy: `deploy/scripts/ensure-platform-mcps.sh`. |
 | **Digest (This Week)** | Top-nav `/this-week`: Time Saved, Est. Value Delivered (sum of completed work x each AI employee `hourly_rate_usd`, hire default $10/hr), insights. Env: `THIS_WEEK_MINUTES_PER_TASK`, fallback `THIS_WEEK_VALUE_USD_PER_HOUR`. COO tool `this_week_digest`. Platform Help **02**. |
+| **Operational effectiveness (OEI)** | Home/COO **operational_effectiveness** score 0–100 (Green≥75, 14-day domains). Deterministic; owner-scoped `GET /api/operational-effectiveness`. Not Digest dollars. |
 | **Workspace Builder** | `/workspace-designer` designs owner boards for /work (not Digest). REST/MD/RAG bindings, default publish. |
 | **Business Core (CRM/ERP)** | Optional **Twenty** CRM / **ERPNext** ERP on Profile or Company setup. Selecting platform CRM/ERP provisions **Maker/Checker** AI employees (2 makers + 1 checker each) with `crm_*` / `erp_*` tools, nav embeds when configured, and platform MCP for workflows. Plan: `knowledgebase/BUSINESS-CORE-WORKSPACE-PLAN.md`. Daily **Work** surface: `/work`. |
 | **External agents (A2A)** | Register external agent endpoints; invoke from workflow **External Agent** node. |
@@ -498,7 +499,7 @@ Examples: `workflows`, `tasks`, `standups`, `documents`, `items`, `users`, `agen
 - **Desktop Windows package (CEO session):** `GET /agent-workflows/:id/desktop-package?include_runtime=0|1` — zip (mints token); `GET/DELETE .../desktop-tokens`; `GET/POST/DELETE .../desktop-ip-whitelist` (writes central `owner_ip_whitelists`)
 - **Central IP whitelists (CEO session):** `GET/POST /settings/ip-whitelists`, `PUT/DELETE /settings/ip-whitelists/:entryId` — apply flags: `apply_ibkr_bridge`, `apply_workflow_desktop`, `apply_a2a`, `apply_browser_worker` (+ optional `definition_id` / `publish_id` scope). Same store as federated desktop / A2A / browser worker UIs. Help **33**.
 - **External package tokens (CEO session):** `GET /settings/external-tokens`, `DELETE /settings/external-tokens/:kind/:id`. Help **34**.
-- **Company memory capture (CEO session):** `GET/PUT /company-setup/company-memory` — Update Company Setup UI. Help **35**.
+- **Company memory capture (CEO session):** `GET/PUT /company-setup/company-memory` — Update Company Details UI. Help **35**.
 - **Browser Session desktop worker:** `GET /integrations/browser-worker/package` + status/tokens; worker API `/api/browser-worker/v1/*`.
 - **Desktop client API (Bearer `dsk_…` + optional IP whitelist):** `/agent-workflows/desktop/v1/runs`, `.../steps`, `.../execute-node`, `.../complete`
 
@@ -636,7 +637,7 @@ All project docs except this README live in **`knowledgebase/`**:
 
 | File | Purpose |
 |------|---------|
-| **platform-help/** | CEO Platform Help RAG corpus (incl. **22** Browser Session desktop worker, **33** IP Whitelists, **34** Tokens) |
+| **platform-help/** | CEO Platform Help RAG corpus (incl. **22** Browser Session desktop worker, **33** IP Whitelists, **34** Tokens; **35** Update Company Details) |
 | **TESTING.md** | Restart, API tests, frontend manual tests, smoke test |
 | **JOB-APPLICANT-WORKFLOW.md** | Job pipeline agents, tools, profile intake, setup |
 | **GATEWAY-PAIRING-1008.md** | Fix gateway pairing / token |
@@ -655,7 +656,7 @@ All project docs except this README live in **`knowledgebase/`**:
 | **IBKR-MONTHLY-EXECUTION-MODEL.md** | Cloud vs laptop execution + laptop↔VPS recovery |
 | **IBKR-LOCAL-BRIDGE.md** | Laptop HTTP bridge, Connectors zip, Gateway, webhooks |
 | **CLIENT-BROWSER-SESSION.md** / **BROWSER-SESSION-DESKTOP-LOCAL.md** | Client Chrome + multi-user local Browser Session worker |
-| **platform-help/22**, **33**, **34** | Browser Session; IP Whitelists; Tokens management |
+| **platform-help/22**, **33**, **34**, **35** | Browser Session; IP Whitelists; Tokens; Update Company Details |
 | **platform-help/20-ibkr-monthly-trading.md** | **CEO help:** W1–W5 defs, flow diagrams, isolation, **IBKR Summary / Clear data**, bridge setup |
 | **IBKR-MONTHLY-PHASE4.md** | Paper E2E + certify runbook before live |
 | **knowledgeGraph.md** | Neo4j knowledge graph / self-improvement |

@@ -1,6 +1,6 @@
 /**
  * Owner-scoped company identity capture -> Master Data company_memory + strategic_profile.
- * Profile menu: Update Company Setup.
+ * Profile menu: Update Company Details.
  */
 import {
   findTableByName,

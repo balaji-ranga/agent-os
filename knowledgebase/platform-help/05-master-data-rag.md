@@ -17,6 +17,12 @@ Two pillars:
 
 Example asks: “list departments”, “add Engineering if missing”.
 
+## company_memory (seed identity table)
+
+After **Company setup** Apply (or from day one for new companies), Knowledge includes table **`company_memory`** with columns **`item`** / **`detail`**. Typical items: Mission, Organization DNA, DNA notes, Company, Industry type, Build around CEO. Operate Day 1 may append an operating-model stamp row.
+
+Update those identity fields anytime via avatar → **Update Company Details** (`/update-company-details`, help **35**). That path **creates** the table if missing and upserts rows + strategic profile — it does not re-run full blueprint Apply.
+
 ## Documents and RAG (OpenSearch)
 
 - Each CEO has **two isolated OpenSearch indices**:

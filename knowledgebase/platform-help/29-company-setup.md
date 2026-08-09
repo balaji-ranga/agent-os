@@ -6,7 +6,7 @@
 
 **How do I open Company setup?** Avatar / Profile menu → **Company setup**, or go to `/company-setup`. New CEOs may be **gated** until they complete or skip setup.
 
-**How do I update mission / DNA without re-running the full wizard?** Profile menu → **Update Company Setup** (`/update-company-setup`). This edits the Knowledge table `company_memory` (creates it if missing) and keeps the setup `strategic_profile` in sync. Full Apply (teams/blueprints) remains under Company setup.
+**How do I update mission / DNA without re-running the full wizard?** Profile menu → **Update Company Details** (`/update-company-details`). This edits the Knowledge table `company_memory` (`item`/`detail` columns; creates table if missing) and keeps the setup `strategic_profile` in sync. Full Apply (teams/blueprints) remains under Company setup.
 
 **What if I already skipped?** Profile → **Company setup** (or `/company-setup`) — you can start create again anytime. Skipped state does not block the product permanently.
 
@@ -39,7 +39,7 @@
 |---------|------|------|
 | Company setup wizard | `/company-setup` | Full funnel; gate for first-run CEOs |
 | Profile menu | avatar → **Company setup** | Full funnel | Reopen anytime |
-| **Update Company Setup** | avatar → **Update Company Setup** (`/update-company-setup`) | Mission, DNA, company name, industry → `company_memory` Knowledge table + strategic profile |
+| **Update Company Details** | avatar → **Update Company Details** (`/update-company-details`) | Mission, DNA, company name, industry → `company_memory` Knowledge table + strategic profile |
 | Profile → Company setup (full) | `/company-setup` | Full funnel |
 | Gate redirect | (app shell) | If gate is pending, CEO may be sent back to `/company-setup` (Profile still allowed) |
 

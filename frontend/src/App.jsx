@@ -171,6 +171,7 @@ function Shell() {
     user.role === 'ceo' &&
     setupGatePending === true &&
     !location.pathname.startsWith('/company-setup') &&
+    !location.pathname.startsWith('/update-company-details') &&
     !location.pathname.startsWith('/update-company-setup') &&
     location.pathname !== '/profile' &&
     location.pathname !== '/login'
@@ -367,7 +368,8 @@ function Shell() {
                 <Route path="/master-data" element={<MasterData />} />
                 <Route path="/content-explorer" element={<ContentExplorer />} />
                 <Route path="/company-setup" element={<CompanySetup />} />
-                <Route path="/update-company-setup" element={<UpdateCompanySetup />} />
+                <Route path="/update-company-details" element={<UpdateCompanySetup />} />
+                <Route path="/update-company-setup" element={<Navigate to="/update-company-details" replace />} />
                 <Route path="/company-operate" element={<CompanyOperate />} />
                 <Route path="/onboarding" element={<Onboarding />} />
                 <Route path="/video-tours" element={<VideoTours />} />
