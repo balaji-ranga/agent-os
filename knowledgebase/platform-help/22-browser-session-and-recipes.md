@@ -88,7 +88,7 @@ Thumbs **down** on an agent chat reply requires a short comment. Comments feed *
 - Backend seeds `browse_*` in `content_tools_meta` and grants defaults (`seed-browser-session-tools.js`).
 - OpenClaw: `browser.enabled=true`, dedicated **`browser-cdp`** agent; no global tools.allow strip of CDP.
 - Env (cloud): `BROWSER_TASK_CDP_AGENT_ID`, `BROWSER_WORKER_OFFLINE_MS`, `BROWSER_WORKER_JOB_TIMEOUT_MS`.
-- Package source: `backend/local-browser-worker/` (worker version 1.1+; `launchPersistentContext`).
+- Package source: `backend/local-browser-worker/` (worker version 1.1+; Playwright **1.55.1+** for verified browser downloads; `launchPersistentContext`).
 - Verify OpenClaw: `node deploy/scripts/verify-openclaw-parity.js`.
 
 More detail: [CLIENT-BROWSER-SESSION.md](../CLIENT-BROWSER-SESSION.md), [BROWSER-SESSION-DESKTOP-LOCAL.md](../BROWSER-SESSION-DESKTOP-LOCAL.md).

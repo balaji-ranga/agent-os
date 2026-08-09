@@ -600,7 +600,7 @@ agent-os/
 ├── backend/
 │   ├── .env.example
 │   ├── data/                   # SQLite
-│   ├── local-browser-worker/   # Windows Browser Session package (Playwright persistent profile)
+│   ├── local-browser-worker/   # Windows Browser Session package (Playwright ≥1.55.1 persistent profile)
 │   ├── local-ibkr-bridge/      # Windows IBKR bridge package for Connectors
 │   ├── desktop-workflow-runner/# Download for Windows runner sources
 │   ├── scripts/                # seeds, E2E, workflow tests
