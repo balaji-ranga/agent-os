@@ -11,7 +11,7 @@ import { getBusinessProfile, setPrefabErpAgentIds } from './company-business-pro
 import { setAgentToolGrants } from './openclaw-agent-tools.js';
 import { grantUserAgent, revokeUserAgent } from './users.js';
 
-/** Full autonomous ERP surface — keep in sync with seed-content-tools-meta + business-core-mcp. */
+/** Full list/create/update surface — no submit/cancel (Checker owns those). */
 export const ALL_ERP_TOOLS = [
   'erp_status',
   'erp_sync_org',
@@ -53,9 +53,10 @@ export const ALL_ERP_TOOLS = [
   'erp_get_resource',
   'erp_create_resource',
   'erp_update_resource',
-  'erp_submit_doc',
-  'erp_cancel_doc',
 ];
+
+/** Gates reserved for ERP Checker (also in MCP catalog + content tools). */
+export const ERP_CHECKER_GATE_TOOLS = ['erp_submit_doc', 'erp_cancel_doc'];
 
 const SHARED_PLATFORM = [
   'kanban_create_task',
@@ -70,7 +71,7 @@ const SHARED_PLATFORM = [
 
 const ERP_MAKER_TOOLS = [...ALL_ERP_TOOLS, ...SHARED_PLATFORM, 'kanban_move_status'];
 
-/** Checker: read + approvals (kanban assign/move, workflow certify) + gated submit/cancel */
+/** Checker: read + submit/cancel gates + Kanban/workflow approvals */
 const ERP_CHECKER_TOOLS = [
   'erp_status',
   'erp_sync_org',
@@ -94,8 +95,7 @@ const ERP_CHECKER_TOOLS = [
   'erp_profit_and_loss',
   'erp_list_resource',
   'erp_get_resource',
-  'erp_submit_doc',
-  'erp_cancel_doc',
+  ...ERP_CHECKER_GATE_TOOLS,
   'kanban_create_task',
   'kanban_get_task',
   'kanban_move_status',
@@ -142,7 +142,6 @@ const INVOICE_TOOLS = [
   'erp_create_item',
   'erp_list_payment_entries',
   'erp_create_payment_entry',
-  'erp_submit_doc',
   'erp_list_resource',
   'erp_get_resource',
   'erp_create_resource',
@@ -186,8 +185,8 @@ function packDefs(ownerUserId) {
       name: 'ERP Maker A',
       role:
         'ERP Maker — create draft Customers, Orders, Invoices, Payments, Projects for the CEO company on ERPNext ' +
-        'using erp_* content tools (same surface as mcp-flolah-erp). Prefer drafts; erp_submit_doc only after Checker ' +
-        'or explicit CEO approval for cash/GL impact. Never cross company. Can erp_sync_org. Coordinate with ERP Checker.',
+        'using erp_* content tools (same operational surface as mcp-flolah-erp except submit/cancel). Draft only; ' +
+        'hand documents to ERP Checker for erp_submit_doc / erp_cancel_doc. Never cross company. Can erp_sync_org.',
       department: 'Finance',
       tools: ERP_MAKER_TOOLS,
     },
