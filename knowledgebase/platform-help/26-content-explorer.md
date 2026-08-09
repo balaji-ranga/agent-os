@@ -38,7 +38,7 @@ Channel media is mirrored into **Uploaded** (inbound/attachments/). Once mirrore
 | **Master Data → Inbound attachments** | Same inbound folder; **Index to RAG** for text/PDF/Office docs |
 | **Agent Chat** paperclip | Writes into Master Data + `inbound/attachments/` (then appears here) |
 | **Agent Channels** | WhatsApp/Slack inbound → `inbound/attachments/` ([24-agent-channels.md](./24-agent-channels.md)) |
-| **Efficiency View → Org** | **Storage (MB)** includes tenant workspace + `media/generated/<you>/` |
+| **Efficiency View → Org** | **Storage (MB)** includes tenant workspace + `media/generated/<you>/` + Master Data docs/files + OpenSearch RAG indices (click **i** for breakdown) |
 | **Tools / chat inline media** | Generated media also plays in chat when you are logged in ([11-content-tools-scripts-profile.md](./11-content-tools-scripts-profile.md)) |
 
 ## Ops notes

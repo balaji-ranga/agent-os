@@ -6,6 +6,7 @@ import { getDb } from '../db/schema.js';
 import { getIbkrTradingConfig, validateTradePlanStrict } from './ibkr-trading-rules.js';
 import { IBKR_POLICY_DEFAULTS } from './ibkr-workflow-variables.js';
 import { recordFill } from './ibkr-analytics.js';
+import { computeSpendableUsd, resolveIbkrCashUsd } from './ibkr-cash-resolve.js';
 
 function todayUtc() {
   return new Date().toISOString().slice(0, 10);
@@ -96,17 +97,48 @@ function getOrCreateDay(ownerUserId, day = todayUtc(), { budgetUsd = null } = {}
   return row;
 }
 
+/**
+ * Day budget row + spendable against resolved cash.
+ * Cash order: IBKR snapshot → optional workflow/request fallback (never invent; never use budget as cash).
+ * `workflowCash` / legacy `cashUsd` are fallbacks only when snapshot has no cash.
+ */
 export function getDayStatus(
   ownerUserId,
-  { cashUsd = null, day = todayUtc(), budgetUsd = null, maxTradesPerDay = null, allowlistKeys = null } = {}
+  {
+    cashUsd = undefined,
+    day = todayUtc(),
+    budgetUsd = null,
+    maxTradesPerDay = null,
+    allowlistKeys = null,
+    workflowCash = undefined,
+    snapshot = null,
+    resolveCash = true,
+    maxAgeHours = undefined,
+  } = {}
 ) {
   const cfg = getIbkrTradingConfig();
   const row = getOrCreateDay(ownerUserId, day, { budgetUsd });
   const reserved = Number(row.reserved_usd) || 0;
   const consumed = Number(row.consumed_usd) || 0;
   const budgetRemaining = Math.max(0, Number(row.budget_usd) - reserved - consumed);
-  const cash = cashUsd == null ? budgetRemaining : Number(cashUsd);
-  const spendable = Math.max(0, Math.min(budgetRemaining, cash));
+
+  let cashResolution = null;
+  let cash = null;
+  if (resolveCash !== false && ownerUserId) {
+    cashResolution = resolveIbkrCashUsd(ownerUserId, {
+      snapshot,
+      workflowCash:
+        workflowCash !== undefined
+          ? workflowCash
+          : cashUsd !== undefined
+            ? cashUsd
+            : undefined,
+      maxAgeHours,
+    });
+    cash = cashResolution.cash_usd;
+  }
+
+  const spendable = computeSpendableUsd(budgetRemaining, cash);
   const maxTrades =
     maxTradesPerDay != null ? Number(maxTradesPerDay) : IBKR_POLICY_DEFAULTS.max_trades_per_day;
   return {
@@ -117,8 +149,11 @@ export function getDayStatus(
     budget_remaining_usd: Number(budgetRemaining.toFixed(2)),
     trades_placed: Number(row.trades_placed) || 0,
     trades_remaining: Math.max(0, maxTrades - (Number(row.trades_placed) || 0)),
-    spendable_usd: Number(spendable.toFixed(2)),
-    cash_usd: cashUsd == null ? null : Number(cash),
+    spendable_usd: spendable,
+    cash_usd: cash,
+    cash_source: cashResolution?.source || 'none',
+    cash_captured_at: cashResolution?.captured_at || null,
+    cash_stale: Boolean(cashResolution?.stale),
     residual: JSON.parse(row.residual_json || '[]'),
     trading_enabled: cfg.tradingEnabled,
     is_paper: cfg.isPaper,
@@ -129,18 +164,37 @@ export function getDayStatus(
 
 export function preflight(
   ownerUserId,
-  { cashUsd = null, budgetUsd = null, maxTradesPerDay = null } = {}
+  {
+    cashUsd = undefined,
+    budgetUsd = null,
+    maxTradesPerDay = null,
+    workflowCash = undefined,
+    snapshot = null,
+    requireCash = false,
+  } = {}
 ) {
-  const status = getDayStatus(ownerUserId, { cashUsd, budgetUsd, maxTradesPerDay });
+  const status = getDayStatus(ownerUserId, {
+    cashUsd,
+    budgetUsd,
+    maxTradesPerDay,
+    workflowCash,
+    snapshot,
+  });
   const cfg = getIbkrTradingConfig();
-  const ok = status.trades_remaining > 0 && status.spendable_usd > 0;
+  const missingCash = status.cash_usd == null;
+  const ok =
+    status.trades_remaining > 0 &&
+    status.spendable_usd > 0 &&
+    (!requireCash || !missingCash);
   return {
     ok,
     error: ok
       ? null
       : status.trades_remaining <= 0
         ? 'Daily trade limit reached'
-        : 'No spendable budget/cash',
+        : missingCash
+          ? 'No cash: need IBKR account snapshot (or workflow cash_usd fallback)'
+          : 'No spendable budget/cash',
     status,
     config: cfg,
   };
@@ -150,7 +204,7 @@ export function validateAndPreview(
   ownerUserId,
   plan,
   {
-    cashUsd = null,
+    cashUsd = undefined,
     positions = [],
     allowlist = null,
     allowlistKeys = null,
@@ -160,6 +214,8 @@ export function validateAndPreview(
     minRationaleChars = 80,
     budgetUsd = null,
     maxTradesPerDay = null,
+    workflowCash = undefined,
+    snapshot = null,
   } = {}
 ) {
   const status = getDayStatus(ownerUserId, {
@@ -167,9 +223,11 @@ export function validateAndPreview(
     budgetUsd,
     maxTradesPerDay,
     allowlistKeys,
+    workflowCash,
+    snapshot,
   });
   const result = validateTradePlanStrict(plan, {
-    cashUsd: cashUsd == null ? status.spendable_usd : cashUsd,
+    cashUsd: status.cash_usd,
     budgetRemainingUsd: status.budget_remaining_usd,
     tradesUsed: status.trades_placed,
     positions,

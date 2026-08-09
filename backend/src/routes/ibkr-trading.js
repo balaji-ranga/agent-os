@@ -24,6 +24,7 @@ import {
   PLAN_STATUSES,
 } from '../services/trading-day-plans.js';
 import { summarizeJournal } from '../services/trading-journal.js';
+import { resolveIbkrCashUsd } from '../services/ibkr-cash-resolve.js';
 
 const router = Router();
 
@@ -225,8 +226,13 @@ router.get('/config', (req, res) => {
 router.get('/day-status', (req, res) => {
   try {
     const owner = entitledOwnerId(req);
-    const cashUsd = req.query.cash_usd != null ? Number(req.query.cash_usd) : null;
-    res.json(ledger.getDayStatus(owner, { cashUsd }));
+    // query cash_usd is workflow-style fallback only (snapshot wins when present)
+    const workflowCash = req.query.cash_usd != null ? Number(req.query.cash_usd) : undefined;
+    res.json(
+      ledger.getDayStatus(owner, {
+        workflowCash: Number.isFinite(workflowCash) ? workflowCash : undefined,
+      })
+    );
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -313,7 +319,7 @@ router.get('/account-snapshot/latest', async (req, res) => {
       };
     });
     const day = ledger.getDayStatus(owner, {
-      cashUsd: snap.cash_usd,
+      snapshot: snap,
       budgetUsd: budgetOpts.dailyBudgetUsd,
       maxTradesPerDay: budgetOpts.maxTradesPerDay,
       allowlistKeys: budgetOpts.allowlistKeys,
@@ -403,7 +409,7 @@ router.post('/account-snapshot', async (req, res) => {
       }
 
       const day = ledger.getDayStatus(owner, {
-        cashUsd: snap.cash_usd,
+        snapshot: snap,
         budgetUsd: budgetOpts.dailyBudgetUsd,
         maxTradesPerDay: budgetOpts.maxTradesPerDay,
         allowlistKeys: budgetOpts.allowlistKeys,
@@ -497,49 +503,35 @@ router.post('/preflight', async (req, res) => {
     const owner = entitledOwnerId(req);
     const cfg = getIbkrTradingConfig();
     const budgetOpts = resolveWorkflowBudgetOpts(req);
-    let cashUsd = req.body?.cash_usd != null ? Number(req.body.cash_usd) : null;
-    let snapshot = req.body?.snapshot || null;
-    const requireLiveCash = budgetOpts.requireLiveCash;
-
-    if (cashUsd == null && requireLiveCash) {
-      try {
-        const { fetchAccountSnapshot } = await import('../services/ibkr-gateway-client.js');
-        snapshot = await fetchAccountSnapshot();
-        cashUsd = snapshot.cash_usd;
-        syncPositionMeta(owner, enrichPositions(snapshot.positions || [], budgetOpts.allowlist), budgetOpts.allowlist);
-      } catch (e) {
-        if (cfg.tradingEnabled) {
-          return res.status(503).json({
-            ok: false,
-            error: `Live cash required but Gateway snapshot failed: ${e.message}`,
-          });
-        }
-      }
-    }
-
-    if (cashUsd == null && cfg.tradingEnabled && requireLiveCash) {
-      return res.status(400).json({ ok: false, error: 'cash_usd required when trading enabled' });
+    const body = req.body || {};
+    const cashRes = resolveIbkrCashUsd(owner, {
+      snapshot: body.snapshot || null,
+      workflowCash: body,
+      requireCash: budgetOpts.requireLiveCash && cfg.tradingEnabled,
+      rejectStale: budgetOpts.requireLiveCash && cfg.tradingEnabled,
+    });
+    if (!cashRes.ok && budgetOpts.requireLiveCash && cfg.tradingEnabled) {
+      return res.status(400).json({
+        ok: false,
+        error: cashRes.error || 'cash required from IBKR snapshot',
+        cash: cashRes,
+      });
     }
 
     const result = ledger.preflight(owner, {
-      cashUsd,
+      workflowCash: body,
+      snapshot: body.snapshot || null,
       budgetUsd: budgetOpts.dailyBudgetUsd,
       maxTradesPerDay: budgetOpts.maxTradesPerDay,
+      requireCash: budgetOpts.requireLiveCash && cfg.tradingEnabled,
     });
     res.json({
       ...result,
+      cash: cashRes,
       daily_budget_usd: budgetOpts.dailyBudgetUsd,
       max_trades_per_day: budgetOpts.maxTradesPerDay,
       allowlist_keys: budgetOpts.allowlistKeys,
       allowlist: budgetOpts.allowlist,
-      snapshot: snapshot
-        ? {
-            cash_usd: snapshot.cash_usd,
-            positions: enrichPositions(snapshot.positions || [], budgetOpts.allowlist),
-            pending_sell_symbols: snapshot.pending_sell_symbols || [],
-            open_orders_count: (snapshot.open_orders || []).length,
-          }
-        : null,
     });
   } catch (e) {
     res.status(400).json({ error: e.message });
@@ -559,31 +551,32 @@ router.post('/validate-plan', async (req, res) => {
     } else if (typeof req.body === 'string') {
       plan = req.body;
     }
-    let snap = req.body?.snapshot || {};
-    let cashUsd =
-      req.body?.cash_usd != null
-        ? Number(req.body.cash_usd)
-        : snap.cash_usd != null
-          ? Number(snap.cash_usd)
-          : null;
-    let positions = req.body?.positions || snap.positions || [];
-    let pendingSellSymbols = req.body?.pending_sell_symbols || snap.pending_sell_symbols || [];
+    const body = req.body || {};
+    let snap = body.snapshot || null;
+    let positions = body.positions || snap?.positions || [];
+    let pendingSellSymbols = body.pending_sell_symbols || snap?.pending_sell_symbols || [];
 
-    if (cashUsd == null || !positions.length) {
+    if (!snap || !positions.length) {
       try {
-        const { fetchAccountSnapshot } = await import('../services/ibkr-gateway-client.js');
-        const live = await fetchAccountSnapshot();
-        cashUsd = cashUsd ?? live.cash_usd;
-        if (!positions.length) positions = enrichPositions(live.positions || [], budgetOpts.allowlist);
-        if (!pendingSellSymbols.length) pendingSellSymbols = live.pending_sell_symbols || [];
-        syncPositionMeta(owner, positions, budgetOpts.allowlist);
+        const { getLatestAccountSnapshot, ensureIbkrAnalyticsTables } = await import(
+          '../services/ibkr-analytics.js'
+        );
+        ensureIbkrAnalyticsTables();
+        const cached = getLatestAccountSnapshot(owner);
+        if (cached?.ok !== false) {
+          snap = snap || cached;
+          if (!positions.length) positions = enrichPositions(cached.positions || [], budgetOpts.allowlist);
+          if (!pendingSellSymbols.length) pendingSellSymbols = cached.pending_sell_symbols || [];
+        }
       } catch {
-        /* optional when trading disabled */
+        /* optional */
       }
     }
+    if (positions.length) syncPositionMeta(owner, enrichPositions(positions, budgetOpts.allowlist), budgetOpts.allowlist);
 
     const result = ledger.validateAndPreview(owner, plan, {
-      cashUsd,
+      workflowCash: body,
+      snapshot: snap,
       positions: enrichPositions(positions, budgetOpts.allowlist),
       allowlist: budgetOpts.allowlist,
       allowlistKeys: budgetOpts.allowlistKeys,
@@ -594,14 +587,7 @@ router.post('/validate-plan', async (req, res) => {
       budgetUsd: budgetOpts.dailyBudgetUsd,
       maxTradesPerDay: budgetOpts.maxTradesPerDay,
     });
-    const payload = {
-      ...result,
-      source: 'dayplan',
-      cancel_source: 'dayplan',
-      bodyText: null,
-    };
-    payload.bodyText = JSON.stringify(payload);
-    res.status(result.ok ? 200 : 400).json(payload);
+    res.status(result.ok ? 200 : 400).json(result);
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
@@ -697,13 +683,14 @@ router.post('/reserve', (req, res) => {
   try {
     const owner = entitledOwnerId(req);
     const budgetOpts = resolveWorkflowBudgetOpts(req);
-    const trades = req.body?.trades_to_place || req.body?.trades || [];
-    const residual = req.body?.residual || [];
-    const runId = req.body?.run_id ?? null;
+    const body = req.body || {};
+    const trades = body.trades_to_place || body.trades || [];
+    const residual = body.residual || [];
+    const runId = body.run_id ?? null;
     const plan = { trades_to_place: trades, residual };
     const preview = ledger.validateAndPreview(owner, plan, {
-      cashUsd: req.body?.cash_usd != null ? Number(req.body.cash_usd) : null,
-      positions: req.body?.positions || [],
+      workflowCash: body,
+      positions: body.positions || [],
       allowlist: budgetOpts.allowlist,
       allowlistKeys: budgetOpts.allowlistKeys,
       policy: budgetOpts.policy,
@@ -790,26 +777,47 @@ router.post('/place', async (req, res) => {
     const runId = req.body?.run_id ?? null;
     const dryRun = req.body?.dry_run !== false && !getIbkrTradingConfig().tradingEnabled;
 
-    // Mandatory plan validation before any reservation / Gateway submission
-    let positions = req.body?.positions || [];
-    let cashUsd = req.body?.cash_usd != null ? Number(req.body.cash_usd) : null;
-    if (budgetOpts.requireLiveCash || cashUsd == null) {
+    // Mandatory plan validation: cash from IBKR snapshot → workflow body fallback only
+    const body = req.body || {};
+    let positions = body.positions || [];
+    let snap = body.snapshot || null;
+    if (!positions.length || !snap) {
       try {
-        const { fetchAccountSnapshot } = await import('../services/ibkr-gateway-client.js');
-        const snap = await fetchAccountSnapshot({ allowlist: budgetOpts.allowlist });
-        cashUsd = snap.cash_usd;
-        positions = enrichPositions(snap.positions || [], budgetOpts.allowlist);
+        const { getLatestAccountSnapshot, ensureIbkrAnalyticsTables } = await import(
+          '../services/ibkr-analytics.js'
+        );
+        ensureIbkrAnalyticsTables();
+        const cached = getLatestAccountSnapshot(owner);
+        if (cached?.ok !== false) {
+          snap = snap || cached;
+          if (!positions.length) {
+            positions = enrichPositions(cached.positions || [], budgetOpts.allowlist);
+          }
+        }
       } catch (e) {
         if (budgetOpts.requireLiveCash) {
-          return res.status(503).json({ ok: false, error: `Live cash required for place: ${e.message}` });
+          return res.status(503).json({
+            ok: false,
+            error: `Account snapshot required for place: ${e.message}`,
+          });
         }
       }
+    }
+    const cashRes = resolveIbkrCashUsd(owner, {
+      snapshot: snap,
+      workflowCash: body,
+      requireCash: budgetOpts.requireLiveCash,
+      rejectStale: budgetOpts.requireLiveCash,
+    });
+    if (!cashRes.ok && budgetOpts.requireLiveCash) {
+      return res.status(400).json({ ok: false, error: cashRes.error, cash: cashRes });
     }
     const preview = ledger.validateAndPreview(
       owner,
       { trades_to_place: trades, residual },
       {
-        cashUsd,
+        workflowCash: body,
+        snapshot: snap,
         positions,
         allowlist: budgetOpts.allowlist,
         allowlistKeys: budgetOpts.allowlistKeys,
@@ -860,7 +868,7 @@ router.post('/reconcile-orders', async (req, res) => {
       ok: true,
       reconcile,
       day_status: ledger.getDayStatus(owner, {
-        cashUsd: snap.cash_usd,
+        snapshot: snap,
         budgetUsd: budgetOpts.dailyBudgetUsd,
         maxTradesPerDay: budgetOpts.maxTradesPerDay,
       }),

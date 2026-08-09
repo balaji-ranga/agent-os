@@ -573,13 +573,37 @@ export async function pingIbGateway() {
   );
 }
 
-function cashFromSummary(summary = {}) {
-  const prefer = ['TotalCashValue', 'AvailableFunds', 'NetLiquidation'];
+/**
+ * Read an IB accountSummary tag (shape: { value, currency } or bare number/string).
+ * @param {object} summary
+ * @param {string} tag
+ * @returns {number|null}
+ */
+export function summaryTagNumber(summary = {}, tag) {
+  if (!summary || typeof summary !== 'object' || !tag) return null;
+  const raw = summary[tag];
+  if (raw == null) return null;
+  const v = typeof raw === 'object' ? raw.value ?? raw.amount ?? raw.Value : raw;
+  if (v == null || v === '') return null;
+  const n = Number(String(v).replace(/,/g, '').trim());
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Cash balance only — never NetLiquidation / AvailableFunds (those are equity / BP).
+ */
+export function cashFromSummary(summary = {}) {
+  const prefer = ['TotalCashValue', 'SettledCash', 'CashBalance', 'TotalCashBalance'];
   for (const tag of prefer) {
-    const n = Number(summary[tag]?.value);
-    if (Number.isFinite(n)) return n;
+    const n = summaryTagNumber(summary, tag);
+    if (n != null) return n;
   }
   return null;
+}
+
+/** Account NAV / equity — NetLiquidation only (do not copy cash). */
+export function equityFromSummary(summary = {}) {
+  return summaryTagNumber(summary, 'NetLiquidation');
 }
 
 /**
@@ -708,7 +732,8 @@ export async function fetchAccountSnapshot({ timeoutMs = 90000, allowlist = null
 
       let summaryWarning = null;
       await (async () => {
-        const tags = 'TotalCashValue,AvailableFunds,NetLiquidation,BuyingPower';
+        const tags =
+          'TotalCashValue,SettledCash,AvailableFunds,NetLiquidation,BuyingPower,GrossPositionValue';
         let lastErr = null;
         for (let attempt = 0; attempt < 1; attempt++) {
           const reqId = 9101 + attempt;
@@ -833,6 +858,7 @@ export async function fetchAccountSnapshot({ timeoutMs = 90000, allowlist = null
 
       const pendingSells = openOrders.filter((o) => String(o.action).toUpperCase() === 'SELL');
       let cashUsd = cashFromSummary(summary);
+      const equityUsd = equityFromSummary(summary);
       if (cashUsd == null) {
         try {
           const { listCashEvents, ensureIbkrAnalyticsTables } = await import('./ibkr-analytics.js');
@@ -855,6 +881,8 @@ export async function fetchAccountSnapshot({ timeoutMs = 90000, allowlist = null
         ok: true,
         account,
         cash_usd: cashUsd,
+        /** NAV from NetLiquidation — never defaulted to cash_usd */
+        equity_usd: equityUsd,
         summary,
         summary_warning: summaryWarning || null,
         positions,

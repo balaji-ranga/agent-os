@@ -163,13 +163,15 @@ To bring the same agent back, create it again from **Agent Workspaces → Add ag
 
 ## Storage (MB) did not drop after a purge
 
-1. Retention only removes chats, chat history, standup conversations and workflow runs older than
-   your **Data persistence** window — Master Data documents and workspace files are never purged
-   this way.
+1. Retention only removes chats, chat history, standup conversations, workflow runs, and aged
+   Content Explorer media older than your **Data persistence** window — Master Data **tables**,
+   Master Data **documents**, and **OpenSearch RAG indices** are **not** purged by retention.
 2. Lower the window on **Profile → Data persistence**, then **Purge aged data now**.
-3. Master Data uploads need **Purge all uploads** (Documents panel); Platform Help and the User
-   Guide are protected and always stay.
-4. Storage is a point-in-time estimate, so reopen **Efficiency View → Org** after the purge.
+3. Master Data uploads need **Purge all uploads** (Documents panel) — that also removes the
+   corresponding OpenSearch index docs/chunks. Platform Help and the User Guide are protected.
+4. Storage totals **include** OpenSearch RAG size for your tenant. Click the **i** next to
+   **Storage (MB)** for the component breakdown (chat vs Master Data files vs RAG meta/search, etc.).
+5. Storage is a point-in-time estimate, so reopen **Efficiency View → Org** after the purge.
 
 ## Department budget looks wrong
 

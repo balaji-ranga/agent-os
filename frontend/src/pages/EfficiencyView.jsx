@@ -40,6 +40,167 @@ function InfoTip({ text }) {
   );
 }
 
+function formatStorageBytes(bytes) {
+  const n = Number(bytes) || 0;
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(2)} MB`;
+  return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+/**
+ * Clickable "i" that loads GET /efficiency/storage and shows a breakdown modal.
+ */
+function StorageBreakdownInfo({ summaryBreakdown, totalMb }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [payload, setPayload] = useState(null);
+
+  const openModal = async () => {
+    setOpen(true);
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.efficiencyStorage();
+      setPayload(res);
+    } catch (e) {
+      // Fall back to breakdown folded into org summary if detail call fails
+      if (summaryBreakdown?.components?.length) {
+        setPayload({
+          total_mb: totalMb,
+          total_bytes: null,
+          components: summaryBreakdown.components,
+          notes: summaryBreakdown.notes || [],
+          as_of: summaryBreakdown.as_of,
+        });
+        setError(null);
+      } else {
+        setError(e.message || String(e));
+        setPayload(null);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const components = payload?.components || [];
+  const notes = payload?.notes || [];
+  const shownTotal =
+    payload?.total_mb != null
+      ? Number(payload.total_mb)
+      : totalMb != null
+        ? Number(totalMb)
+        : null;
+
+  return (
+    <>
+      <button
+        type="button"
+        className="ai-snip-info ai-snip-info-btn"
+        title="Show storage breakdown"
+        aria-label="Show storage breakdown"
+        onClick={openModal}
+      >
+        i
+      </button>
+      {open ? (
+        <div
+          className="ai-snip-storage-backdrop"
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setOpen(false);
+          }}
+        >
+          <div
+            className="ai-snip-storage-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ai-snip-storage-title"
+          >
+            <header className="ai-snip-storage-modal-head">
+              <h2 id="ai-snip-storage-title">Storage breakdown</h2>
+              <button
+                type="button"
+                className="ai-snip-storage-close"
+                onClick={() => setOpen(false)}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </header>
+            <p className="ai-snip-storage-lead">
+              Estimated footprint for your tenant only (not other CEOs). Includes Master Data
+              source files and OpenSearch RAG indices when available.
+            </p>
+            {loading && <p className="ai-snip-note">Loading breakdown…</p>}
+            {error && <p className="ai-snip-error">{error}</p>}
+            {!loading && shownTotal != null && (
+              <p className="ai-snip-storage-total">
+                <strong>{shownTotal.toFixed(2)} MB</strong>
+                {payload?.total_bytes != null ? (
+                  <span className="ai-snip-storage-total-bytes">
+                    {' '}
+                    ({formatStorageBytes(payload.total_bytes)})
+                  </span>
+                ) : null}
+              </p>
+            )}
+            {!loading && components.length > 0 && (
+              <div className="ai-snip-storage-table-wrap">
+                <table className="ai-snip-storage-table">
+                  <thead>
+                    <tr>
+                      <th>Component</th>
+                      <th>Size</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {components.map((row) => (
+                      <tr
+                        key={row.key}
+                        className={
+                          Number(row.bytes) > 0 ? undefined : 'ai-snip-storage-row-empty'
+                        }
+                      >
+                        <td>{row.label}</td>
+                        <td>
+                          {formatStorageBytes(row.bytes)}
+                          {row.mb != null && Number(row.bytes) >= 1024 * 1024
+                            ? ` (${Number(row.mb).toFixed(3)} MB)`
+                            : ''}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {!loading && notes.length > 0 && (
+              <ul className="ai-snip-storage-notes">
+                {notes.map((n) => (
+                  <li key={n}>{n}</li>
+                ))}
+              </ul>
+            )}
+            {payload?.as_of && (
+              <p className="ai-snip-note">As of {payload.as_of}</p>
+            )}
+            <div className="ai-snip-storage-actions">
+              <button type="button" className="btn secondary" onClick={openModal} disabled={loading}>
+                {loading ? 'Refreshing…' : 'Refresh'}
+              </button>
+              <button type="button" className="btn secondary" onClick={() => setOpen(false)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
 function MultiSeriesChart({ timeline, series, granularity = 'day' }) {
   const rows = Array.isArray(timeline) && timeline.length ? timeline : [];
   const width = 720;
@@ -1041,7 +1202,10 @@ export default function EfficiencyView() {
             </div>
             <div className="ai-snip-metric-label">
               Storage (MB){' '}
-              <InfoTip text="Estimated data consumed: chat, standup history, workflow payloads, master-data files, and OpenClaw tenant workspace" />
+              <StorageBreakdownInfo
+                summaryBreakdown={totals.storage_breakdown}
+                totalMb={totals.storage_mb}
+              />
             </div>
           </div>
         </div>

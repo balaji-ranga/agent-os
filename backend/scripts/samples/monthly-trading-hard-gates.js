@@ -69,6 +69,28 @@ export function run(inputs = {}, context = {}) {
   const dailyBudget = num(vars.daily_budget_usd, 1000);
   const maxTrades = num(vars.max_trades_per_day, 5);
 
+  // Cash: IBKR snapshot fields on inputs (or nested) first; workflow cash only as fallback.
+  // Spendable new_entry notional ≤ min(daily_budget, cash) when cash known.
+  let cashUsd =
+    num(inputs.cash_usd) ??
+    num(inputs.cash) ??
+    num(inputs.account_snapshot?.cash_usd) ??
+    num(inputs.snapshot?.cash_usd) ??
+    num(inputs.book?.cash_usd);
+  if (cashUsd == null) {
+    cashUsd =
+      num(vars.cash_usd) ??
+      num(vars.cash) ??
+      num(context?.run_context?.cash_usd) ??
+      num(context?.run_context?.cash);
+  }
+  const spendableCap =
+    cashUsd != null && dailyBudget != null
+      ? Math.min(dailyBudget, cashUsd)
+      : cashUsd != null
+        ? cashUsd
+        : dailyBudget;
+
   // Optional upstream context (strings or objects from prior nodes)
   let regime = inputs.regime || inputs.market_regime || null;
   let guardrail = inputs.guardrail || inputs.monthly_guardrail || null;
@@ -186,9 +208,18 @@ export function run(inputs = {}, context = {}) {
   if (maxTrades != null && newEntryCount > maxTrades) {
     errors.push(`new_entry count ${newEntryCount} exceeds max_trades_per_day=${maxTrades}`);
   }
-  if (dailyBudget != null && newEntryNotional > dailyBudget + 1e-6) {
+  if (spendableCap != null && newEntryNotional > spendableCap + 1e-6) {
+    const label =
+      cashUsd != null
+        ? `min(daily_budget_usd=${dailyBudget}, cash_usd=${cashUsd})`
+        : `daily_budget_usd=${dailyBudget}`;
     errors.push(
-      `new_entry notional_usd sum ${newEntryNotional.toFixed(2)} exceeds daily_budget_usd=${dailyBudget}`
+      `new_entry notional_usd sum ${newEntryNotional.toFixed(2)} exceeds spendable ${label}`
+    );
+  }
+  if (cashUsd == null && newEntryNotional > 0) {
+    warnings.push(
+      'no cash_usd from IBKR snapshot (or workflow fallback) — enforced daily_budget only; cannot min(budget, cash)'
     );
   }
 

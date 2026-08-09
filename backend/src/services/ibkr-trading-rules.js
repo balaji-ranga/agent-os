@@ -9,6 +9,7 @@ import {
   resolveIbkrPolicy,
   IBKR_POLICY_DEFAULTS,
 } from './ibkr-workflow-variables.js';
+import { computeSpendableUsd } from './ibkr-cash-resolve.js';
 
 function isQtyMultipleOfLot(qty, lot) {
   const q = Number(qty);
@@ -172,7 +173,9 @@ export function validateTradePlan(planInput, opts = {}) {
     Array.isArray(opts.allowlistKeys) && opts.allowlistKeys.length
       ? opts.allowlistKeys.map((k) => String(k).toUpperCase())
       : catalog.map((a) => a.key);
-  const cashUsd = Number(opts.cashUsd ?? opts.cash_usd ?? Infinity);
+  const rawCash = opts.cashUsd ?? opts.cash_usd;
+  const cashUsd =
+    rawCash != null && rawCash !== '' && Number.isFinite(Number(rawCash)) ? Number(rawCash) : null;
   const budgetRemainingUsd = Number(
     opts.budgetRemainingUsd ?? opts.budget_remaining_usd ?? policy.daily_budget_usd
   );
@@ -203,7 +206,7 @@ export function validateTradePlan(planInput, opts = {}) {
         errors: [],
         trades_to_place: [],
         residual: residualOnly,
-        spendable_usd: Number(Math.max(0, Math.min(budgetRemainingUsd, cashUsd)).toFixed(2)),
+        spendable_usd: computeSpendableUsd(budgetRemainingUsd, cashUsd),
         reserved_usd: 0,
         slots_left: Math.max(
           0,
@@ -225,7 +228,7 @@ export function validateTradePlan(planInput, opts = {}) {
     return { ok: false, error: 'Plan has no trades[]', trades_to_place: [], residual: [], spendable_usd: 0 };
   }
 
-  const spendable = Math.max(0, Math.min(budgetRemainingUsd, cashUsd));
+  const spendable = computeSpendableUsd(budgetRemainingUsd, cashUsd);
   const maxTrades = Number(opts.maxTradesPerDay ?? opts.max_trades_per_day ?? policy.max_trades_per_day);
   const slotsLeft = Math.max(0, maxTrades - tradesUsed);
   const held = new Set(
@@ -240,6 +243,12 @@ export function validateTradePlan(planInput, opts = {}) {
   }
 
   const errors = [];
+  const hasBuy = trades.some((t) => String(t.side || '').toUpperCase().replace(/-/g, '_') === 'BUY');
+  if (hasBuy && cashUsd == null) {
+    errors.push(
+      'BUY not allowed without cash: need IBKR account snapshot cash (or workflow cash_usd fallback)'
+    );
+  }
   const normalized = [];
   let runningSpend = 0;
 

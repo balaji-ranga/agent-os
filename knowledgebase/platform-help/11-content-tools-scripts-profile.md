@@ -121,7 +121,7 @@ Ops dashboard next to AI Snipper, with three tabs: **Org**, **Department**, and 
 | Feedback positive % | Thumbs-up share of ratings |
 | AI workflows | Definitions you own (incl. published count) |
 | Successful / failed / total runs | Workflow run outcomes |
-| Storage (MB) | Estimated data consumed (chats, standup history, workflow payloads, master-data files, OpenClaw tenant workspace) |
+| Storage (MB) | Estimated data for **your** tenant: chats, standup messages, workflow payloads, Master Data document files, **OpenSearch Master Data RAG indices** (meta + search/vectors), Content Explorer media, avatars/VR, CEO SQLite, OpenClaw tenant workspace. Click the **i** icon for a line-item breakdown. |
 
 **Time switch:** last 7 / 14 / 30 / 90 days, or **All** (the "1 month" and "3 months" buttons mean rolling **30** and **90** days, not calendar months). Charts: Tasks, Feedback, Workflow runs. Storage is a point-in-time estimate (not range-filtered).
 

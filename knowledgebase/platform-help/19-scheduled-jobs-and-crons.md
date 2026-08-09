@@ -110,8 +110,11 @@ tables, API keys, workflows and agent configuration are **not** touched by reten
 has its own purge). Manual deletes: [26-content-explorer.md](./26-content-explorer.md).
 
 The **Efficiency View → Org** tab shows **Storage (MB)** so you can see the effect: it sums your
-chats, standups, workflow runs, Master Data, OpenClaw tenant workspace files (including inbound
-uploads), and `media/generated/<you>/`. Run a purge and the number drops on the next refresh.
+chats, standups, workflow runs, Master Data **document files**, **per-tenant OpenSearch RAG indices**
+(meta + search/vectors), Content Explorer media, OpenClaw tenant workspace files (including inbound
+uploads), and `media/generated/<you>/`. Click the **i** next to Storage (MB) for a component
+breakdown. Run a purge and the number drops on the next refresh (RAG index size drops only after
+Master Data document delete / purge, not retention purge alone).
 
 ---
 

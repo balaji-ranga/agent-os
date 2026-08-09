@@ -382,20 +382,54 @@ export function createIbkrApi(opts = {}) {
     },
 
     /**
-     * Cash + equity from snapshot for webhook equity_mark / eod.
+     * Cash + equity from snapshot for webhook equity_mark / eod / account_snapshot.
+     * Cash = TotalCashValue (etc). Equity = NetLiquidation only — never copy cash.
      */
     equityFromSnapshot(snap) {
-      const cash =
-        snap?.cash_usd != null
-          ? Number(snap.cash_usd)
-          : Number(snap?.summary?.TotalCashValue?.value);
-      const equity =
-        Number(snap?.summary?.NetLiquidation?.value) ||
-        (Number.isFinite(cash) ? cash : null) ||
-        Number(snap?.equity_usd);
+      const tagNum = (summary, tag) => {
+        if (!summary || typeof summary !== 'object' || !tag) return null;
+        const raw = summary[tag];
+        if (raw == null) return null;
+        const v = typeof raw === 'object' ? raw.value ?? raw.amount : raw;
+        if (v == null || v === '') return null;
+        const n = Number(String(v).replace(/,/g, '').trim());
+        return Number.isFinite(n) ? n : null;
+      };
+      const summary = snap?.summary && typeof snap.summary === 'object' ? snap.summary : null;
+      const cashFromSum =
+        tagNum(summary, 'TotalCashValue') ??
+        tagNum(summary, 'SettledCash') ??
+        tagNum(summary, 'CashBalance') ??
+        tagNum(summary, 'TotalCashBalance');
+      const equityFromSum = tagNum(summary, 'NetLiquidation');
+
+      let cash =
+        cashFromSum != null
+          ? cashFromSum
+          : snap?.cash_usd != null && Number.isFinite(Number(snap.cash_usd))
+            ? Number(snap.cash_usd)
+            : null;
+      let equity =
+        equityFromSum != null
+          ? equityFromSum
+          : snap?.equity_usd != null && Number.isFinite(Number(snap.equity_usd))
+            ? Number(snap.equity_usd)
+            : null;
+
+      // Drop stale equity_usd that was only a cash fallback (no NetLiquidation tag).
+      if (
+        equity != null &&
+        cash != null &&
+        equity === cash &&
+        equityFromSum == null &&
+        cashFromSum != null
+      ) {
+        equity = null;
+      }
+
       return {
-        cash_usd: Number.isFinite(cash) ? cash : null,
-        equity_usd: Number.isFinite(equity) ? equity : null,
+        cash_usd: cash,
+        equity_usd: equity,
         account: snap?.account || null,
         positions: snap?.positions || [],
         open_orders: snap?.open_orders || [],

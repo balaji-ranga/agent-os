@@ -25,12 +25,16 @@ const owner = getBalaCeoAuthId();
 const row = getDb().prepare('SELECT data_retention_days FROM platform_users WHERE id = ?').get(owner);
 console.log('retention_days', normalizeRetentionDays(row?.data_retention_days));
 
-const storage = estimateOwnerStorage(owner);
-console.log('storage_mb', storage.total_mb);
+const storage = await estimateOwnerStorage(owner);
+console.log('storage_mb', storage.total_mb, 'rag_mb', storage.breakdown?.opensearch_rag_bytes);
+if (!Array.isArray(storage.components)) throw new Error('storage missing components breakdown');
 
-const summary = getEfficiencySummary(owner, { days: 14 });
+const summary = await getEfficiencySummary(owner, { days: 14 });
 if (summary.totals.storage_mb == null) throw new Error('efficiency summary missing storage_mb');
 console.log('efficiency.storage_mb', summary.totals.storage_mb);
+if (!summary.totals.storage_breakdown?.components) {
+  throw new Error('efficiency summary missing storage_breakdown.components');
+}
 
 const meta = getDb().prepare(`SELECT name FROM content_tools_meta WHERE name = 'status_checker'`).get();
 if (!meta) throw new Error('status_checker meta missing');

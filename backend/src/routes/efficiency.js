@@ -23,11 +23,11 @@ router.use(requireAuth, requireCeoOrAdmin);
 /**
  * GET /api/efficiency/summary?days=7|14|30|90|all
  */
-router.get('/summary', (req, res) => {
+router.get('/summary', async (req, res) => {
   try {
     const ownerUserId = resolveAuthenticatedCeoUserId(req, req.query || {});
     const days = req.query.days != null ? req.query.days : 14;
-    const summary = getEfficiencySummary(ownerUserId, { days });
+    const summary = await getEfficiencySummary(ownerUserId, { days });
     res.json(summary);
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message });
@@ -72,11 +72,13 @@ router.post('/usage/reset', (req, res) => {
 
 /**
  * GET /api/efficiency/storage — estimate data/storage consumed by this CEO (MB).
+ * Includes owner-scoped OpenSearch Master Data RAG index store sizes.
  */
-router.get('/storage', (req, res) => {
+router.get('/storage', async (req, res) => {
   try {
     const ownerUserId = resolveAuthenticatedCeoUserId(req, req.query || {});
-    res.json(estimateOwnerStorage(ownerUserId));
+    const out = await estimateOwnerStorage(ownerUserId);
+    res.json(out);
   } catch (e) {
     console.warn('[efficiency] storage failed:', e?.message || e);
     res.status(e.status || 500).json({ error: e.message });

@@ -133,7 +133,7 @@ function bucketKey(day, monthly) {
  * @param {string} ownerUserId
  * @param {{ days?: string|number|null }} [opts]
  */
-export function getEfficiencySummary(ownerUserId, { days = 14 } = {}) {
+export async function getEfficiencySummary(ownerUserId, { days = 14 } = {}) {
   const range = parseEfficiencyRange(days);
   const ownerIds = chatOwnerIdsForRead(ownerUserId);
   const kanbanIds = getKanbanScopeIds(ownerUserId);
@@ -353,10 +353,16 @@ export function getEfficiencySummary(ownerUserId, { days = 14 } = {}) {
 
   let storageMb = null;
   let storageBytes = null;
+  let storageBreakdown = null;
   try {
-    const storage = estimateOwnerStorage(ownerUserId);
+    const storage = await estimateOwnerStorage(ownerUserId);
     storageMb = storage.total_mb;
     storageBytes = storage.total_bytes;
+    storageBreakdown = {
+      components: storage.components || [],
+      notes: storage.notes || [],
+      as_of: storage.as_of || null,
+    };
   } catch (e) {
     console.warn('[efficiency] storage estimate failed:', e?.message || e);
   }
@@ -378,6 +384,7 @@ export function getEfficiencySummary(ownerUserId, { days = 14 } = {}) {
     workflow_runs_failed: Number(runTotalsRow?.failed) || 0,
     storage_mb: storageMb,
     storage_bytes: storageBytes,
+    storage_breakdown: storageBreakdown,
   };
 
   return {

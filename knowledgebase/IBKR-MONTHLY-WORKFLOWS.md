@@ -42,6 +42,7 @@ Default crons and **budget caps** live in workflow **Variables** (seed: `backend
 | Variable | Default | Meaning |
 |----------|---------|---------|
 | `daily_budget_usd` | `1000` | Max USD notional for **new_entry** actions in a plan |
+| Cash for spendable | IBKR snapshot → workflow fallback | `spendable = min(daily_budget_remaining, cash)`; cash is **not** NetLiquidation |
 | `max_trades_per_day` | `5` | Max **new_entry** count per plan |
 | `risk_per_trade_pct` | `0.75` | Max risk % of portfolio per trade |
 | `position_size_pct_*` | 3 / 8 / 15 | Soft band + hard max position % |

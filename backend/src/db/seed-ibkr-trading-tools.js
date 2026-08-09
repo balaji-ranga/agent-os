@@ -40,7 +40,7 @@ export const IBKR_TRADING_TOOLS = [
     endpoint: '/api/ibkr-trading/day-status',
     method: 'GET',
     purpose:
-      'Return today\'s budget ledger for the CEO: spent, remaining, trade count, residuals. Optional query/body cash_usd to compute remaining against live cash.',
+      'Return today\'s budget ledger for the CEO: spent, remaining, trade count, residuals. Cash for spendable is resolved from owner IBKR account snapshot, then optional workflow cash_usd fallback.',
     model_used: '',
     enabled: 1,
     is_builtin: 0,
@@ -84,7 +84,7 @@ export const IBKR_TRADING_TOOLS = [
     endpoint: '/api/ibkr-trading/preflight',
     method: 'POST',
     purpose:
-      'Check whether the CEO can still place trades today (budget + max trades). Body optional: cash_usd, snapshot, require_live_cash overrides from workflow variables.',
+      'Check whether the CEO can still place trades today (budget + max trades). Cash = IBKR snapshot first, body cash_usd only as fallback. Optional require_live_cash from workflow variables.',
     model_used: '',
     enabled: 1,
     is_builtin: 0,

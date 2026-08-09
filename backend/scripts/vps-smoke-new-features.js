@@ -89,11 +89,20 @@ if (!retentionCol) throw new Error('platform_users.data_retention_days column mi
 console.log('OK data_retention_days column');
 
 const { estimateOwnerStorage } = await import('../src/services/owner-storage.js');
-const storage = estimateOwnerStorage(getBalaCeoAuthId());
+const storage = await estimateOwnerStorage(getBalaCeoAuthId());
 if (storage.total_mb == null || !Number.isFinite(Number(storage.total_mb))) {
   throw new Error('estimateOwnerStorage did not return total_mb');
 }
-console.log('OK owner storage estimate', storage.total_mb, 'MB');
+if (!Array.isArray(storage.components)) {
+  throw new Error('estimateOwnerStorage missing components[] breakdown');
+}
+console.log(
+  'OK owner storage estimate',
+  storage.total_mb,
+  'MB',
+  'opensearch_rag_mb',
+  storage.components.find((c) => c.key === 'opensearch_search_bytes')?.mb ?? 0
+);
 
 const { buildStatusDigest } = await import('../src/services/coo-status-checker.js');
 const digest = buildStatusDigest(getBalaCeoAuthId(), { reconcile: true });

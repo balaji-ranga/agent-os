@@ -587,8 +587,20 @@ function IbkrSummaryPanel() {
             {truthSnap?.ok !== false && truthSnap && !truthLoading && (
               <div className="ibkr-truth-body">
                 <div className="ibkr-metrics-compact">
-                  <Metric label="Cash" value={money(truthSnap.cash_usd)} />
-                  <Metric label="Equity" value={money(truthSnap.equity_usd)} />
+                  <Metric
+                    label="Cash"
+                    value={money(truthSnap.cash_usd)}
+                    hint="TotalCashValue"
+                  />
+                  <Metric
+                    label="Equity (NAV)"
+                    value={money(truthSnap.equity_usd)}
+                    hint={
+                      truthSnap.equity_usd == null
+                        ? 'NetLiquidation missing in snapshot'
+                        : 'NetLiquidation'
+                    }
+                  />
                   <Metric
                     label="Positions"
                     value={String((truthSnap.positions || []).length)}

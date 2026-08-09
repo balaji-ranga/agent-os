@@ -125,13 +125,32 @@ export function normalizeBridgeSnapshotPayload(raw = {}) {
     };
   }
 
+  const tagNum = (tag) => {
+    const summary = obj.summary && typeof obj.summary === 'object' ? obj.summary : null;
+    if (!summary) return null;
+    const raw = summary[tag];
+    if (raw == null) return null;
+    const v = typeof raw === 'object' ? raw.value ?? raw.amount : raw;
+    return num(v != null ? String(v).replace(/,/g, '').trim() : null);
+  };
+  // Prefer Gateway tags: cash ≠ equity. Never copy cash into equity (prior bug).
   const cash =
-    num(obj.cash_usd ?? obj.cash) ??
-    num(obj.summary?.TotalCashValue?.value ?? obj.summary?.TotalCashValue);
-  const equity =
-    num(obj.equity_usd ?? obj.equity) ??
-    num(obj.summary?.NetLiquidation?.value ?? obj.summary?.NetLiquidation) ??
-    cash;
+    tagNum('TotalCashValue') ??
+    tagNum('SettledCash') ??
+    tagNum('CashBalance') ??
+    tagNum('TotalCashBalance') ??
+    num(obj.cash_usd ?? obj.cash);
+  let equity = tagNum('NetLiquidation') ?? num(obj.equity_usd ?? obj.equity);
+  if (
+    equity != null &&
+    cash != null &&
+    equity === cash &&
+    tagNum('NetLiquidation') == null &&
+    (tagNum('TotalCashValue') != null || num(obj.cash_usd) != null)
+  ) {
+    // Drop prior bad persistence where equity_usd was fallback-copied from cash.
+    equity = null;
+  }
   const positions = Array.isArray(obj.positions) ? obj.positions : [];
   const openOrders = Array.isArray(obj.open_orders)
     ? obj.open_orders
@@ -266,17 +285,25 @@ export function getLatestAccountSnapshot(ownerUserId) {
   const positions = Array.isArray(snap?.positions)
     ? snap.positions
     : listPositionSnapshots(owner, { latestOnly: true });
+  // Re-resolve cash/equity from stored summary tags so mis-copied columns correct themselves.
+  const repaired = normalizeBridgeSnapshotPayload({
+    ...(snap && typeof snap === 'object' ? snap : {}),
+    cash_usd: row.cash_usd != null ? Number(row.cash_usd) : snap?.cash_usd,
+    equity_usd: row.equity_usd != null ? Number(row.equity_usd) : snap?.equity_usd,
+    account: row.account_id || snap?.account,
+    captured_at: row.captured_at || snap?.captured_at,
+  });
   return {
     ok: true,
     source: 'bridge_cache',
-    account: row.account_id || snap?.account || null,
-    cash_usd: row.cash_usd != null ? Number(row.cash_usd) : snap?.cash_usd ?? null,
-    equity_usd: row.equity_usd != null ? Number(row.equity_usd) : snap?.equity_usd ?? null,
+    account: repaired.account || row.account_id || snap?.account || null,
+    cash_usd: repaired.cash_usd,
+    equity_usd: repaired.equity_usd,
     captured_at: row.captured_at,
     updated_at: row.updated_at,
     push_source: row.source,
     positions,
-    open_orders: Array.isArray(snap?.open_orders) ? snap.open_orders : [],
+    open_orders: Array.isArray(snap?.open_orders) ? snap.open_orders : repaired.open_orders || [],
     pending_sells: Array.isArray(snap?.pending_sells) ? snap.pending_sells : [],
     pending_sell_symbols: Array.isArray(snap?.pending_sell_symbols) ? snap.pending_sell_symbols : [],
     summary: snap?.summary || null,
@@ -694,7 +721,9 @@ export async function getPortfolioAnalytics(
   }
 
   const day = getDayStatus(ownerUserId, {
-    cashUsd: live?.cash_usd != null ? Number(live.cash_usd) : null,
+    // portfolio analytics: snapshot cash first; do not pass live NetLiq as cash
+    workflowCash: live?.cash_usd != null ? { cash_usd: Number(live.cash_usd) } : null,
+    snapshot: live?.ok !== false && live?.cash_usd != null ? live : null,
   });
   const fills = listFills(ownerUserId, { days, limit: 200 });
   const realized = listRealizedPnl(ownerUserId, { days, limit: 200 });

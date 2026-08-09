@@ -30,7 +30,8 @@ Gateway connection secrets stay in `.env`: `IBKR_HOST`, `IBKR_PORT`, `IBKR_CLIEN
 | Rule | Value |
 |---|---|
 | Daily budget | **1000 USD** (SGD notionals converted to USD for the ledger) |
-| Spendable | `min(daily_budget_remaining, IBKR cash)` — **cash only, no margin/credit** |
+| Cash | **IBKR account snapshot** (owner-scoped bridge cache / summary cash tags). Workflow/request `cash_usd` only if snapshot missing. **Not** NetLiquidation. |
+| Spendable | `min(daily_budget_remaining, resolved_cash)` — **cash only, no margin/credit**. No cash → BUY blocked (spendable 0). |
 | Deposit | **Manual by user** — workflow never funds the account |
 | Reservation | On **place**, reserve full notional until **reject/cancel**; then release. Fills keep reservation consumed |
 | Trades/day | Max **10** placements (**buy + sell**). Extra ideas → **residual queue for next day** |
