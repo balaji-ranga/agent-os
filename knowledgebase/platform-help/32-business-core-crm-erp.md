@@ -58,9 +58,9 @@ Requires **`TWENTY_APP_SECRET` + SSO** (preferred) so CRM REST tools mint a **pe
 Ops set browser-reachable HTTPS URLs (mixed content blocks `http://` iframes on `https://login├óΓé¼┬ª`):
 
 - `TWENTY_EMBED_URL` / `TWENTY_SERVER_URL` ├óΓé¼ΓÇ¥ **`https://crm.flolah.cloud`** (dedicated CRM subdomain)
-- `ERPNEXT_EMBED_URL` / `ERPNEXT_PUBLIC_URL` ├óΓé¼ΓÇ¥ **`https://login.flolah.cloud:8444`** (nginx TLS ├óΓÇáΓÇÖ ERPNext on `127.0.0.1:8085`)
+- \ERPNEXT_EMBED_URL\ / \ERPNEXT_PUBLIC_URL\ — **\https://erp.crm.flolah.cloud\** (nginx TLS :443 → ERPNext on W.0.0.1:8085\; reuses \*.crm\ DNS). Do **not** rely on \:8444\ (Hostinger often drops it).
 
-**If the iframe stays blank but Flolah itself loads:** Hostinger (or other cloud) **inbound firewall often allows only 80/443**. Open **TCP 8443 and 8444**, or add DNS `crm.flolah.cloud` / `erp.flolah.cloud` ├óΓÇáΓÇÖ VPS IP and use the **:443** nginx `server_name` blocks already in `nginx.host-network.conf` (expand Let's Encrypt SANs). Twenty does **not** support path-prefix embeds under `/crm/...`.
+**If the iframe stays blank but Flolah itself loads:** confirm the embed host is on **:443**, cert SAN includes the ERP host (\ash deploy/scripts/vps-expand-crm-cert.sh\), and nginx has the exact \erp.crm…\ server before the CRM wildcard. Twenty does **not** support path-prefix embeds under \/crm/...\.
 
 Deploy helper: `deploy/scripts/ensure-business-core-env.sh` (starts Twenty by default; **ERPNext profile is off** until `START_ERPNEXT=1`).
 
@@ -74,7 +74,7 @@ START_ERPNEXT=1 bash deploy/scripts/ensure-business-core-env.sh
 docker compose -f docker-compose.yml -f docker-compose.business-core.yml --profile optional-erpnext up -d
 ```
 
-Even then the current overlay is **infra + stub backend** (site init still required ├óΓé¼ΓÇ¥ see `deploy/business-core/README.md`). Port **8444** returns **502** until a real ERPNext site listens on `127.0.0.1:8085`.
+Even then the current overlay is **infra + stub backend** (site init still required ├óΓé¼ΓÇ¥ see `deploy/business-core/README.md`). Public ERP host returns **502** until a real ERPNext site listens on 127.0.0.1:8085.
 
 ### Flolah company ├óΓÇáΓÇ¥ CRM / ERP wiring
 
@@ -180,7 +180,7 @@ CRM opens **in the Flolah iframe** (not a full-page leave); use **Open** for fir
 - ERPNext **requires MariaDB** (not Twenty's Postgres). Isolation still mirrors CRM: **1 Flolah company ΓåÆ 1 ERPNext Company** + User Permission on the company SSO user.
 - Start: `START_ERPNEXT=1 bash deploy/scripts/ensure-business-core-env.sh`
 - After first site: Administrator login on Desk ΓåÆ User ΓåÆ API Access ΓåÆ API Key + Secret ΓåÆ set `ERPNEXT_API_KEY` / `ERPNEXT_API_SECRET` on backend. Internal URL: `ERPNEXT_URL=http://erpnext-backend:8000`.
-- Public embed: `ERPNEXT_EMBED_URL` (default https://loginΓÇª:8444) with nginx handoff **`/flolah-erp-handoff/`**.
+- Public embed: `ERPNEXT_EMBED_URL` (prefer `https://erp.crm.…` on :443) with nginx handoff **`/flolah-erp-handoff/`**.
 
 ## ERP menu SSO (passwordless)
 

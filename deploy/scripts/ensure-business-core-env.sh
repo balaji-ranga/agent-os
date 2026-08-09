@@ -85,8 +85,34 @@ if grep -qE '^TWENTY_EMBED_URL=.*/crm-app' "$ENV_FILE" 2>/dev/null \
 fi
 upsert TWENTY_SERVER_URL "https://${CRM_PUBLIC_HOST}"
 upsert TWENTY_EMBED_URL "https://${CRM_PUBLIC_HOST}"
-upsert ERPNEXT_PUBLIC_URL "https://${PUBLIC_HOST}:8444"
-upsert ERPNEXT_EMBED_URL "https://${PUBLIC_HOST}:8444"
+# ERP public host on :443 (Hostinger edges often drop :8444). Prefer apex erp.<domain>
+# once DNS+SAN exist; default to erp.crm.<apex> which reuses DNS wildcard *.crm.<apex>.
+if [[ "$PUBLIC_HOST" == login.* ]]; then
+  APEX_FOR_ERP="${PUBLIC_HOST#login.}"
+elif [[ "$PUBLIC_HOST" == www.* ]]; then
+  APEX_FOR_ERP="${PUBLIC_HOST#www.}"
+else
+  APEX_FOR_ERP="${PUBLIC_HOST}"
+fi
+ERP_PUBLIC_HOST="${ERPNEXT_PUBLIC_HOST:-erp.crm.${APEX_FOR_ERP}}"
+# Force-correct known-broken alternate-port embeds (same as Twenty :8443 fix)
+if grep -qE '^ERPNEXT_EMBED_URL=.*:8444' "$ENV_FILE" 2>/dev/null \
+  || grep -qE '^ERPNEXT_PUBLIC_URL=.*:8444' "$ENV_FILE" 2>/dev/null \
+  || ! grep -qE '^ERPNEXT_EMBED_URL=' "$ENV_FILE" 2>/dev/null; then
+  if grep -qE '^ERPNEXT_EMBED_URL=' "$ENV_FILE" 2>/dev/null; then
+    sed -i "s#^ERPNEXT_EMBED_URL=.*#ERPNEXT_EMBED_URL=https://${ERP_PUBLIC_HOST}#" "$ENV_FILE"
+  else
+    printf '\nERPNEXT_EMBED_URL=https://%s\n' "$ERP_PUBLIC_HOST" >> "$ENV_FILE"
+  fi
+  if grep -qE '^ERPNEXT_PUBLIC_URL=' "$ENV_FILE" 2>/dev/null; then
+    sed -i "s#^ERPNEXT_PUBLIC_URL=.*#ERPNEXT_PUBLIC_URL=https://${ERP_PUBLIC_HOST}#" "$ENV_FILE"
+  else
+    printf '\nERPNEXT_PUBLIC_URL=https://%s\n' "$ERP_PUBLIC_HOST" >> "$ENV_FILE"
+  fi
+  echo "ensure-business-core-env: ERPNEXT_*_URL=https://${ERP_PUBLIC_HOST}"
+fi
+upsert ERPNEXT_PUBLIC_URL "https://${ERP_PUBLIC_HOST}"
+upsert ERPNEXT_EMBED_URL "https://${ERP_PUBLIC_HOST}"
 # APP_SECRET must match Twenty container APP_SECRET (upsert only fills empty; never rotate on re-run)
 upsert TWENTY_APP_SECRET "$(openssl rand -hex 24 2>/dev/null || echo 'change-me-twenty-app-secret-min-32-chars-xx')"
 upsert TWENTY_DB_USER 'twenty'

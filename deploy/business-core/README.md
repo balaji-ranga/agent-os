@@ -86,8 +86,9 @@ ERPNEXT_SITE_NAME=frontend
 ERPNEXT_API_KEY=          # Desk → User → API Access after first site
 ERPNEXT_API_SECRET=
 ERPNEXT_SSO_ENABLED=1
-ERPNEXT_EMBED_URL=https://login.example.com:8444
-ERPNEXT_PUBLIC_URL=https://login.example.com:8444
+ERPNEXT_EMBED_URL=https://erp.crm.example.com
+ERPNEXT_PUBLIC_URL=https://erp.crm.example.com
+# Prefer :443 (erp.crm.* reuses CRM DNS wildcard). Avoid login…:8444 when the host firewall only allows 443.
 ERPNEXT_ADMIN_PASSWORD=admin   # initial Administrator password from create-site
 ```
 

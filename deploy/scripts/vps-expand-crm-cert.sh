@@ -11,6 +11,8 @@ APEX_HOST="${APEX_HOST:-flolah.cloud}"
 WWW_HOST="${WWW_HOST:-www.flolah.cloud}"
 CRM_HOST="${CRM_HOST:-crm.flolah.cloud}"
 ERP_HOST="${ERP_HOST:-erp.flolah.cloud}"
+# ERP on :443 — Hostinger usually blocks :8444. Prefer erp.crm.<apex> (wildcard *.crm DNS).
+ERP_CRM_HOST="${ERP_CRM_HOST:-erp.${CRM_HOST}}"
 echo "==> DNS check for ${CRM_HOST}"
 resolved="$(dig @8.8.8.8 +short "${CRM_HOST}" A 2>/dev/null | grep -E '^[0-9.]+$' | tail -1 | tr -d '[:space:]')"
 if [[ -z "${resolved}" ]]; then
@@ -59,7 +61,14 @@ for raw in "${_subs[@]}"; do
     echo "    SKIP SAN ${host} (no A record yet — add DNS A Name=${sub}.crm → VPS or wildcard *.crm)"
   fi
 done
-if host_has_a "${ERP_HOST}"; then DOMS+=(-d "${ERP_HOST}"); fi
+if host_has_a "${ERP_CRM_HOST}"; then
+  DOMS+=(-d "${ERP_CRM_HOST}")
+  echo "    +SAN ${ERP_CRM_HOST} (ERPNext public embed host)"
+fi
+if host_has_a "${ERP_HOST}"; then
+  DOMS+=(-d "${ERP_HOST}")
+  echo "    +SAN ${ERP_HOST}"
+fi
 echo "    domains: ${DOMS[*]}"
 /root/.acme.sh/acme.sh --issue "${DOMS[@]}" --alpn --force
 /root/.acme.sh/acme.sh --install-cert -d "${APEX_HOST}" --ecc \
@@ -75,10 +84,19 @@ sed -i "s#^TWENTY_EMBED_URL=.*#TWENTY_EMBED_URL=https://${CRM_HOST}#" "$ENVF" ||
 # ensure lines exist if sed no-op on missing
 grep -qE '^TWENTY_SERVER_URL=' "$ENVF" || echo "TWENTY_SERVER_URL=https://${CRM_HOST}" >> "$ENVF"
 grep -qE '^TWENTY_EMBED_URL=' "$ENVF" || echo "TWENTY_EMBED_URL=https://${CRM_HOST}" >> "$ENVF"
+# ERP embeds use :443 (not :8444 — commonly firewalled)
+ERP_PUBLIC="https://${ERP_CRM_HOST}"
+if host_has_a "${ERP_HOST}"; then ERP_PUBLIC="https://${ERP_HOST}"; fi
+sed -i "s#^ERPNEXT_EMBED_URL=.*#ERPNEXT_EMBED_URL=${ERP_PUBLIC}#" "$ENVF" 2>/dev/null || true
+sed -i "s#^ERPNEXT_PUBLIC_URL=.*#ERPNEXT_PUBLIC_URL=${ERP_PUBLIC}#" "$ENVF" 2>/dev/null || true
+grep -qE '^ERPNEXT_EMBED_URL=' "$ENVF" || echo "ERPNEXT_EMBED_URL=${ERP_PUBLIC}" >> "$ENVF"
+grep -qE '^ERPNEXT_PUBLIC_URL=' "$ENVF" || echo "ERPNEXT_PUBLIC_URL=${ERP_PUBLIC}" >> "$ENVF"
+echo "    ERPNEXT public embed: ${ERP_PUBLIC}"
 docker compose --env-file .env -f docker-compose.yml -f docker-compose.business-core.yml --profile optional-twenty up -d --force-recreate --no-deps twenty-server twenty-worker || true
 docker compose up -d --force-recreate --no-deps nginx backend
 trap - EXIT
 curl -sS -m 15 -o /dev/null -w "crm:%{http_code}\n" "https://${CRM_HOST}/" || true
+curl -sS -m 15 -o /dev/null -w "erp:%{http_code}\n" "${ERP_PUBLIC}/" || true
 curl -sS -m 10 -o /dev/null -w "www:%{http_code}\n" "https://${WWW_HOST}/" || true
 # smoke one workspace host if any SAN added
 for raw in "${_subs[@]}"; do

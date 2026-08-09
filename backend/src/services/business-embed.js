@@ -196,7 +196,7 @@ export async function getBusinessCoreStackStatus() {
       containers_hint:
         'ERPNext is optional-erpnext profile ΓÇö not started by default. START_ERPNEXT=1; site init required.',
       public_note:
-        'ERPNext not running until optional-erpnext + site init. :8444 returns 502 until then.',
+        'ERPNext not running until optional-erpnext + site init. Public ERP :443 host returns 502 until then.',
     },
   };
 }
