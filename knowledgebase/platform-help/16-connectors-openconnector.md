@@ -58,6 +58,19 @@ Prerequisite: the CEO who **runs** the workflow must have that app **connected**
 
 See also [07-workflow-nodes-reference.md](./07-workflow-nodes-reference.md) → Connector.
 
+
+### Browser Session package (local worker)
+
+On **Connectors**, download a **Windows Browser Session worker** for multi-user Client Chrome (owner-scoped token `bwk_…`):
+
+1. Download full (portable Node) or lite.
+2. Run `scripts\\Start-BrowserWorker.ps1`; leave it running; status **Online**.
+3. Defaults: headed (`BROWSER_HEADLESS=0`) + persistent profile (`BROWSER_USER_DATA_DIR=browser-profile`). Log into social sites **inside that window**.
+4. Optional IP rules: [33-ip-whitelists.md](./33-ip-whitelists.md). Revoke tokens: [34-tokens-management.md](./34-tokens-management.md).
+5. Agent `browse_*` tools and recipes use the worker while online.
+
+CEO help: [22-browser-session-and-recipes.md](./22-browser-session-and-recipes.md). Ops: [BROWSER-SESSION-DESKTOP-LOCAL.md](../BROWSER-SESSION-DESKTOP-LOCAL.md).
+
 ### Local IBKR bridge
 
 On the same **Connectors** page, **Local IBKR bridge** downloads a Windows zip of the laptop HTTP adapter for IB Gateway (used by Monthly Trading **W2**).

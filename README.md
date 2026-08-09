@@ -166,7 +166,8 @@ Grant or revoke tools on each agent’s **Workspace → Tools access**.
 | **List API pagination** | Large CEO lists use server paging (`limit`/`offset`, envelope `total` + `has_more`): Content Explorer, inbound attachments, workflow definitions + run steps, Kanban/standup threads, agent chat turns/archives, Master Data documents, AgentExchange, admin users, job spreadsheet/review-queue. Helpers: `backend/src/lib/pagination.js`. |
 | **Content Explorer** | Management → Content Explorer — browse/preview/download your uploaded + generated files (`inbound/attachments/`, tool media). Server-paged (`limit`/`offset`); UI Prev/Next. See platform-help **26**. |
 | **Onboarding Helper** | Avatar → **Onboarding** + Dashboard **Onboarding Helper** chat. Agent saves proposals via `onboarding_save_proposal`; Review checkboxes; Apply creates selected depts/agents. Prompt recipes + E2E script: platform-help **27**, `backend/scripts/e2e-onboarding-wf-prompts.mjs`. |
-| **Connectors** | **OpenConnector** tab: SaaS apps + workflow **Connector** nodes (help **16**, ops OPENCONNECTOR-WEBHOOKS). **MCPs** tab: OAuth MCP sessions e.g. Facebook (help **31**). |
+| **IP Whitelists / package tokens** | **Settings → IP Whitelists** (IBKR bridge, Workflow desktop, A2A, Browser Session worker — help **33**) and **Settings → Tokens management** (list/revoke dsk_ / IBKR / bwk_ — help **34**). |
+| **Connectors** | **OpenConnector** + **MCPs** (help **16**/**31**). Downloads: **Browser Session package** (multi-user local worker, help **22**, BROWSER-SESSION-DESKTOP-LOCAL.md) and **Local IBKR bridge** (help **20**). |
 | **Efficiency View** | **Org** tab: agents, automated tasks, feedback, workflow run success/fail, Storage (MB) (7d–All). **Department** tab: month-to-date tokens vs each department's budget. **Agent View** tab: per-agent activity, outcomes, token/error budget gauges, **Reset usage** / **Reset all usage** to zero month-to-date tokens without changing budgets. |
 | **Agent budgets** | Monthly **token budget** + **error budget %** per agent (and per department, as a planning figure). Warn at 80% via bell, **block** new chat/delegated work at 100% tokens or at the error budget (min 10 terminal calls). Refused calls never spend the error budget. Backed by a durable `token_usage` ledger. |
 | **External/A2A agents in your org** | **Add to org** on External Agents / AgentExchange places them as **leaf members** (department + reports-to an internal agent). They show in the org chart, sync into ORG.md / COO AGENTS.md, and the **COO can delegate to them** with Kanban mirroring and budget guard. **Private** A2A listings stay off public endpoints — only COO or the reports-to lead can invoke. Leaves registered as an **External Agent pointing back at your own publication** (`…/api/a2a/<publishId>`) are invoked in-process, so Private / `deny_all` publications no longer fail delegation with `A2A HTTP 403`. |
@@ -288,7 +289,7 @@ Set in backend `.env`:
 | **Business Core (CRM/ERP)** | Optional **Twenty** CRM / **ERPNext** ERP on Profile or Company setup. Selecting platform CRM/ERP provisions **Maker/Checker** AI employees (2 makers + 1 checker each) with `crm_*` / `erp_*` tools, nav embeds when configured, and platform MCP for workflows. Plan: `knowledgebase/BUSINESS-CORE-WORKSPACE-PLAN.md`. Daily **Work** surface: `/work`. |
 | **External agents (A2A)** | Register external agent endpoints; invoke from workflow **External Agent** node. |
 | **Tools** (UI `/content-tools`) | Agent-callable **content tools**: summarize URL, image/video gen, Kanban, **intent_classify_and_delegate**, workflow trigger/enquire/mutate, job applicant tools, **email_send**, **notify_ceo**, **Master Data**, learnings, etc.; owner-scoped logs UI; **Tools → Model** (per-CEO tool→model overrides for BYOK-aware tools; excludes custom-script review and embeddings); onboard new APIs via script. |
-| **Browser Session** | `/browser-session` — managed Playwright or **Client Chrome** (Browser Relay); NL tasks + recorder **recipes**. Agents use **`browse_*`** content tools (`browse_task_start`, `browse_recipe_list`, `browse_recipe_run`, …), CEO-scoped; grant list vs run in Workspace → Tool access. Backend CDP via dedicated OpenClaw agent `browser-cdp` (`BROWSER_TASK_CDP_AGENT_ID`). Chat thumbs-down comments feed `learnings_summary`. Guides: `knowledgebase/CLIENT-BROWSER-SESSION.md`, `knowledgebase/platform-help/22-browser-session-and-recipes.md`. |
+| **Browser Session** | `/browser-session` — managed Playwright, **Client Chrome** (Browser Relay, exclusive lease), or **Desktop Local worker** (Connectors package: headed Playwright + persistent browser-profile; multi-CEO). Agents use **`browse_*`** tools; grant list vs run in Workspace → Tool access. CDP `browser-cdp` when worker offline. Guides: CLIENT-BROWSER-SESSION.md, BROWSER-SESSION-DESKTOP-LOCAL.md, platform-help **22**. |
 | **Master Data & RAG** | Per-CEO tables + documents (OpenSearch BM25 + **local Qwen** k-NN embeddings via Compose `optional-embeddings`; no OpenAI embedding API). UI captures **purpose/description** per table. Agents list tables with purpose and CRUD rows / RAG docs via content tools — **no create/alter/drop table**. On register: starter **departments** table + **Flolah User Guide** + **Platform Help** document set. **Inbound attachments** + **Content Explorer** for chat/channel files. **Purge all uploads** removes CEO uploads only; help/guide docs are protected. |
 | **Profile LLM catalog** | Provider + model picker on **Register** and **Profile** (`llm_provider` / `llm_model`); `GET /api/auth/llm-catalog`; OpenClaw sync on Profile save. BYOK keys only via API Keys vault after login. |
 | **Platform Help** | Standard agent `platformhelp` — product how-to via `master_data_rag` over `knowledgebase/platform-help/`. See [`knowledgebase/platform-help/README.md`](knowledgebase/platform-help/README.md). |
@@ -494,7 +495,9 @@ Examples: `workflows`, `tasks`, `standups`, `documents`, `items`, `users`, `agen
 - `POST /agent-workflows/approval/respond` — CEO approval from Kanban
 - **A2A publish:** `POST /agent-workflows/:id/publish-a2a` with `auth_mode: public|secured` (optional `rotate_credentials`); `DELETE .../a2a-publication` to unpublish
 - **Desktop Windows package (CEO session):** `GET /agent-workflows/:id/desktop-package?include_runtime=0|1` — zip (mints token); `GET/DELETE .../desktop-tokens`; `GET/POST/DELETE .../desktop-ip-whitelist` (writes central `owner_ip_whitelists`)
-- **Central IP whitelists (CEO session):** `GET/POST /settings/ip-whitelists`, `PUT/DELETE /settings/ip-whitelists/:entryId` — apply flags: `apply_ibkr_bridge`, `apply_workflow_desktop`, `apply_a2a`, `apply_browser_worker` (+ optional `definition_id` / `publish_id` scope). Same store as federated desktop / A2A / browser worker UIs.
+- **Central IP whitelists (CEO session):** `GET/POST /settings/ip-whitelists`, `PUT/DELETE /settings/ip-whitelists/:entryId` — apply flags: `apply_ibkr_bridge`, `apply_workflow_desktop`, `apply_a2a`, `apply_browser_worker` (+ optional `definition_id` / `publish_id` scope). Same store as federated desktop / A2A / browser worker UIs. Help **33**.
+- **External package tokens (CEO session):** `GET /settings/external-tokens`, `DELETE /settings/external-tokens/:kind/:id`. Help **34**.
+- **Browser Session desktop worker:** `GET /integrations/browser-worker/package` + status/tokens; worker API `/api/browser-worker/v1/*`.
 - **Desktop client API (Bearer `dsk_…` + optional IP whitelist):** `/agent-workflows/desktop/v1/runs`, `.../steps`, `.../execute-node`, `.../complete`
 
 ### AgentExchange & A2A
@@ -597,6 +600,9 @@ agent-os/
 ├── backend/
 │   ├── .env.example
 │   ├── data/                   # SQLite
+│   ├── local-browser-worker/   # Windows Browser Session package (Playwright persistent profile)
+│   ├── local-ibkr-bridge/      # Windows IBKR bridge package for Connectors
+│   ├── desktop-workflow-runner/# Download for Windows runner sources
 │   ├── scripts/                # seeds, E2E, workflow tests
 │   └── src/
 │       ├── index.js            # standup + delegation + job pipeline crons
@@ -615,7 +621,8 @@ agent-os/
         │                         # AgentWorkspace, Kanban, AgentWorkflows,
         │                         # AgentWorkflowEditor, AgentExchange, JobProfiles,
         │                         # JobWorkflows, MasterData, Broadcast, ApiKeys,
-        │                         # Connectors, AiSnipper, EfficiencyView,
+        │                         # Connectors, BrowserSession, IpWhitelists, TokensManagement,
+        │                         # AiSnipper, EfficiencyView,
         │                         # AdminCrons, AdminA2AInvocations, …
         └── components/         # NotificationBell, PublishA2AModal, ChatComposeInput,
                                 # ChatToolCalls, workflow editor nodes, Kanban artifacts
@@ -627,7 +634,7 @@ All project docs except this README live in **`knowledgebase/`**:
 
 | File | Purpose |
 |------|---------|
-| **platform-help/** | CEO end-user Platform Help corpus (RAG source for Platform Help agent) |
+| **platform-help/** | CEO Platform Help RAG corpus (incl. **22** Browser Session desktop worker, **33** IP Whitelists, **34** Tokens) |
 | **TESTING.md** | Restart, API tests, frontend manual tests, smoke test |
 | **JOB-APPLICANT-WORKFLOW.md** | Job pipeline agents, tools, profile intake, setup |
 | **GATEWAY-PAIRING-1008.md** | Fix gateway pairing / token |
@@ -645,6 +652,8 @@ All project docs except this README live in **`knowledgebase/`**:
 | **IBKR-MONTHLY-TRADING-PLAN.md** | Monthly system architecture, phases, strategy appendix |
 | **IBKR-MONTHLY-EXECUTION-MODEL.md** | Cloud vs laptop execution + laptop↔VPS recovery |
 | **IBKR-LOCAL-BRIDGE.md** | Laptop HTTP bridge, Connectors zip, Gateway, webhooks |
+| **CLIENT-BROWSER-SESSION.md** / **BROWSER-SESSION-DESKTOP-LOCAL.md** | Client Chrome + multi-user local Browser Session worker |
+| **platform-help/22**, **33**, **34** | Browser Session; IP Whitelists; Tokens management |
 | **platform-help/20-ibkr-monthly-trading.md** | **CEO help:** W1–W5 defs, flow diagrams, isolation, **IBKR Summary / Clear data**, bridge setup |
 | **IBKR-MONTHLY-PHASE4.md** | Paper E2E + certify runbook before live |
 | **knowledgeGraph.md** | Neo4j knowledge graph / self-improvement |

@@ -13,7 +13,7 @@ Documentation lives here so Cursor and humans can find it. **Root README.md** st
 
 | **VISION.md** | Product purpose, vision, core strengths, differentiator, and strategic focuses (AI Company OS + governed A2A). |
 | **PITCH.md** | One-pager pitch: problem, solution, differentiators, audience, and success journey (from VISION + AI-COMPANY-OS). |
-| **platform-help/ (see **02** for Digest metrics (per-agent hourly_rate_usd) / Workspace Builder / nav; **32** for CRM/ERP) ? ** | CEO end-user Platform Help corpus (RAG; **11** Tools + **Tools → Model** + media / attachments / platform feedback; **19–20** crons + IBKR Summary clear; **21–27** external tools through onboarding; **28** Scheduled goals; **29** Company setup; **30** Content creator ops / Meta Graph / Ops Reporter bell; **31** Connectors → MCPs OAuth (Facebook + CEO App override; OpenConnector → **16**)) |
+| **platform-help/** | CEO end-user Platform Help corpus (RAG). Highlights: **02** Digest/Workspace Builder/nav + Settings IP/Tokens; **11** Tools/Model/media; **16–17** Connectors/desktop; **19–20** crons + IBKR; **21–27** external→onboarding; **28–32** goals/setup/content/MCP OAuth/Business Core; **22** Browser Session + desktop worker; **33** IP Whitelists; **34** Tokens management |
 | **AGENT-WORKSPACE-TEMPLATES.md** | Platform-shared agent workspace MD templates: apply in Agent Workspace, Admin CRUD, CEO publish-as-template. |
 | **TESTING.md** | Restart steps, full API test, frontend manual tests, smoke test, standup→COO→TechResearcher test, standup UI checklist. |
 | **GITHUB-SETUP.md** | One-time: create agent-os repo on GitHub and push (Options A/B, security check). |
@@ -34,7 +34,7 @@ Documentation lives here so Cursor and humans can find it. **Root README.md** st
 | **IBKR-MONTHLY-MAKER-PROMPT.md** | Canonical Maker system prompt (strategy + execution recovery + JSON schema). |
 | **IBKR-MONTHLY-CHECKER-PROMPT.md** | Canonical Checker system prompt (approve/reject checklist + recovery focus). |
 | **IBKR-MONTHLY-PHASE4.md** | Phase 4 runbook: certify env (Opus + deepseek-v4-flash), paper E2E script, W1/W3/W5 certify helper (not W2), Task Scheduler, multi-week paper before live. |
-| **CLIENT-BROWSER-SESSION.md** | Client Chrome Browser Relay + NL browser tasks, `browse_*` tools, recipe list/run, OpenClaw `browser-cdp` redeploy checklist. |
+| **CLIENT-BROWSER-SESSION.md** | Client Chrome Browser Relay + NL browser tasks, `browse_*` tools, recipes, desktop local worker pointer, OpenClaw `browser-cdp`. |
 | **BROWSER-SESSION-DESKTOP-LOCAL.md** | Implemented: Connectors Browser Session package; headed Playwright + persistent profile (BROWSER_HEADLESS=0, BROWSER_USER_DATA_DIR); owner jobs / IP whitelist. |
 | **platform-help/22-browser-session-and-recipes.md** | CEO Platform Help: Browser Session UI, tool grants, recipe vs autonomous, feedback. |
 | **IBKR-LOCAL-BRIDGE.md** | Laptop Phase 2 local HTTP bridge (`backend/local-ibkr-bridge/`): loopback auth, Gateway wrappers, webhook events, Task Scheduler, offline test. |

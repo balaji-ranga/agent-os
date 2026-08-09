@@ -49,5 +49,5 @@ Reverse proxies can hide the real client IP. Production uses host-network nginx 
 
 - Desktop package: [17-desktop-windows-download.md](./17-desktop-windows-download.md)
 - A2A Security: [09-a2a-agent-exchange.md](./09-a2a-agent-exchange.md)
-- Browser Session worker: [22-browser-session-and-recipes.md](./22-browser-session-and-recipes.md)
+- Browser Session worker: [22-browser-session-and-recipes.md](./22-browser-session-and-recipes.md) · [BROWSER-SESSION-DESKTOP-LOCAL.md](../BROWSER-SESSION-DESKTOP-LOCAL.md)
 - IBKR bridge: [20-ibkr-monthly-trading.md](./20-ibkr-monthly-trading.md) · [../IBKR-LOCAL-BRIDGE.md](../IBKR-LOCAL-BRIDGE.md)

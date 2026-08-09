@@ -23,7 +23,9 @@ Issued **laptop/package** credentials only (masked prefixes — full secrets are
 ## Related
 
 - Named secrets / BYOK vault: **Settings → API Keys** (`/api-keys`)
-- IP firewall for the same packages: **Settings → IP Whitelists**
+- IP firewall for the same packages: **Settings → IP Whitelists** ([33](./33-ip-whitelists.md))
+- Browser Session package setup: [22-browser-session-and-recipes.md](./22-browser-session-and-recipes.md)
+- Desktop package: [17-desktop-windows-download.md](./17-desktop-windows-download.md)
 
 
 ## Type filters

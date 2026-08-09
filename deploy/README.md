@@ -130,7 +130,7 @@ docker compose up -d backend openclaw
 docker compose exec openclaw node deploy/scripts/verify-openclaw-parity.js
 ```
 
-Ensure `TOOLS_BASE_URL=http://127.0.0.1:3001` in `.env` (see `.env.example`) so backend tool self-invoke does not use public HTTPS. For VPS **IP whitelists** (A2A, desktop package, browser worker, IBKR bridge webhooks), see **[VPS client IP overlay](#vps-client-ip-overlay-a2a-ip-policy)** (`COMPOSE_FILE` includes `docker-compose.vps-client-ip.yml`). Central UI: **Settings → IP Whitelists** (`knowledgebase/platform-help/33-ip-whitelists.md`). Package token inventory: **Settings → Tokens management** (`/settings/tokens`, `34-tokens-management.md`). API vault: **Settings → API Keys**.
+Ensure `TOOLS_BASE_URL=http://127.0.0.1:3001` in `.env` (see `.env.example`) so backend tool self-invoke does not use public HTTPS. For VPS **IP whitelists** (A2A, desktop package, browser worker, IBKR bridge webhooks), see **[VPS client IP overlay](#vps-client-ip-overlay-a2a-ip-policy)** (`COMPOSE_FILE` includes `docker-compose.vps-client-ip.yml`). Central UI: **Settings → IP Whitelists** (`knowledgebase/platform-help/33-ip-whitelists.md`). **Browser Session package** (local worker zip) is built into the backend image from ackend/local-browser-worker/ (headed + persistent profile defaults). Package token inventory: **Settings → Tokens management** (`/settings/tokens`, `34-tokens-management.md`). API vault: **Settings → API Keys**.
 
 ## Platform MCPs (Brave Search + Meta Graph + Business Core CRM/ERP)
 

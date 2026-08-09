@@ -19,7 +19,10 @@ The OpenClaw Browser Relay pairing WSS (`/browser/extension#<token>`) is **one p
 
 True concurrent Client Chrome for multiple users uses **Desktop Local Mode** (per-CEO long-lived local browser worker) — not shared OpenClaw WSS session codes. See **[BROWSER-SESSION-DESKTOP-LOCAL.md](./BROWSER-SESSION-DESKTOP-LOCAL.md)**.
 
-Worker defaults on the CEO PC: headed (BROWSER_HEADLESS=0) and persistent Playwright profile (BROWSER_USER_DATA_DIR=browser-profile) so site logins survive restarts. Package download lives under **Connectors**.
+Worker defaults on the CEO PC: headed (`BROWSER_HEADLESS=0`) and persistent Playwright profile (`BROWSER_USER_DATA_DIR=browser-profile`) so site logins survive restarts. Package download lives under **Connectors** (or Browser Session when linked). Operator guide: [BROWSER-SESSION-DESKTOP-LOCAL.md](./BROWSER-SESSION-DESKTOP-LOCAL.md). Platform Help: [platform-help/22-browser-session-and-recipes.md](./platform-help/22-browser-session-and-recipes.md).
+
+When the desktop worker is **online**, backend `browse_*` / open-snapshot-act prefer the laptop job queue; otherwise managed OpenClaw / Client Chrome lease apply as documented above.
+
 ## Content tools
 
 | Tool | Purpose |

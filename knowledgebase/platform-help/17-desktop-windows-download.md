@@ -97,3 +97,9 @@ Flolah reads the caller IP from the connection (`X-Forwarded-For` / socket) — 
 - Connectors + **IBKR bridge zip**: [16-connectors-openconnector.md](./16-connectors-openconnector.md)
 - **IBKR Monthly trading (W2 on laptop)**: [20-ibkr-monthly-trading.md](./20-ibkr-monthly-trading.md)
 - Troubleshooting: [12-troubleshooting.md](./12-troubleshooting.md)
+
+
+## Related packages
+
+- **Browser Session** local worker (multi-user Client Chrome): [22-browser-session-and-recipes.md](./22-browser-session-and-recipes.md)
+- Central IP + tokens: [33-ip-whitelists.md](./33-ip-whitelists.md), [34-tokens-management.md](./34-tokens-management.md)

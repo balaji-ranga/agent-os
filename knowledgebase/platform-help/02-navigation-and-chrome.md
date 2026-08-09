@@ -41,7 +41,7 @@ Top-level (always shown; cannot hide in Menu visibility):
 | **Content Explorer** | `/content-explorer` | Browse uploaded + generated files (preview/download) |
 | Policies | `/policies` | CEO common guardrails for all AI employees + Brain nodes |
 | AI Snipper | `/ai-snipper` | Prompt / token / tool-call usage timeline |
-| **Browser Session** | `/browser-session` | Client Chrome relay, NL browser tasks, recorder recipes |
+| **Browser Session** | `/browser-session` | Managed Playwright, Client Chrome relay, recipes; multi-user also uses Connectors **Browser Session package** (local worker) |
 | **Efficiency View** | `/efficiency` | **Org** tab: AI employees, automated tasks, feedback, workflow run success/fail, Storage (MB). **Department** tab: month-to-date tokens vs department budget. **Agent View** tab: per-employee activity, outcomes, token/error budgets, **Reset usage** |
 | **CRM** | `/crm` | Shown only when Profile CRM = Twenty (platform embed) |
 | **ERP** | `/erp` | Shown only when Profile ERP = ERPNext (platform embed) |
@@ -103,7 +103,7 @@ Positioning: **AI Company OS** — see [`../AI-COMPANY-OS.md`](../AI-COMPANY-OS.
 
 - **Company knowledge** → Knowledge (Master Data)  
 - **Browse files** → Content Explorer ([26-content-explorer.md](./26-content-explorer.md))  
-- **Settings** → Tokens management (external packages) + API Keys (vault)  
+- **Settings** → Tokens management (external packages) + IP Whitelists + API Keys (vault). Help: [33](./33-ip-whitelists.md), [34](./34-tokens-management.md).  
 - **Automate** → Workflows (+ Workflow Builder)  
 - **Integrate SaaS** → Connectors  
 - **Integrate tools/protocol** → MCP, External AI, Custom scripts, Tools  
