@@ -209,6 +209,7 @@ if ($Services -match "backend|openclaw") {
   scp @ssh -r "$Repo\backend\src" "root@${HostIp}:$RemoteRoot/backend/"
   scp @ssh -r "$Repo\backend\desktop-workflow-runner" "root@${HostIp}:$RemoteRoot/backend/"
   scp @ssh -r "$Repo\backend\local-ibkr-bridge" "root@${HostIp}:$RemoteRoot/backend/"
+  scp @ssh -r "$Repo\backend\local-browser-worker" "root@${HostIp}:$RemoteRoot/backend/"
   scp @ssh `
     "$Repo\backend\package.json" `
     "$Repo\backend\package-lock.json" `

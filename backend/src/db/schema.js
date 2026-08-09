@@ -1673,6 +1673,85 @@ export function initDb() {
     );
   } catch (_) {}
 
+  /** Local browser worker (Connectors download): owner-scoped token, IP allowlist, online node, jobs. */
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS browser_worker_tokens (
+        id TEXT PRIMARY KEY,
+        owner_user_id TEXT NOT NULL,
+        name TEXT DEFAULT '',
+        token_hash TEXT NOT NULL UNIQUE,
+        token_prefix TEXT NOT NULL,
+        expires_at TEXT,
+        revoked_at TEXT,
+        last_used_at TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (owner_user_id) REFERENCES platform_users(id) ON DELETE CASCADE
+      )
+    `);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_browser_worker_tokens_owner ON browser_worker_tokens(owner_user_id, created_at DESC)`
+    );
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_browser_worker_tokens_hash ON browser_worker_tokens(token_hash)`
+    );
+  } catch (_) {}
+
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS browser_worker_ip_whitelist (
+        id TEXT PRIMARY KEY,
+        owner_user_id TEXT NOT NULL,
+        cidr_or_ip TEXT NOT NULL,
+        label TEXT DEFAULT '',
+        created_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (owner_user_id) REFERENCES platform_users(id) ON DELETE CASCADE
+      )
+    `);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_browser_worker_ip_owner ON browser_worker_ip_whitelist(owner_user_id)`
+    );
+  } catch (_) {}
+
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS browser_worker_nodes (
+        owner_user_id TEXT PRIMARY KEY,
+        token_id TEXT,
+        online INTEGER NOT NULL DEFAULT 0,
+        last_heartbeat_at TEXT,
+        worker_version TEXT DEFAULT '',
+        driver_mode TEXT DEFAULT 'playwright',
+        capabilities_json TEXT DEFAULT '{}',
+        last_client_ip TEXT,
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (owner_user_id) REFERENCES platform_users(id) ON DELETE CASCADE
+      )
+    `);
+  } catch (_) {}
+
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS browser_worker_jobs (
+        id TEXT PRIMARY KEY,
+        owner_user_id TEXT NOT NULL,
+        action TEXT NOT NULL,
+        args_json TEXT DEFAULT '{}',
+        status TEXT NOT NULL DEFAULT 'queued',
+        result_json TEXT,
+        error TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        claimed_at TEXT,
+        completed_at TEXT,
+        FOREIGN KEY (owner_user_id) REFERENCES platform_users(id) ON DELETE CASCADE
+      )
+    `);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_browser_worker_jobs_owner_status ON browser_worker_jobs(owner_user_id, status, created_at)`
+    );
+  } catch (_) {}
+
   /** Monthly token + error-rate budgets per org member (internal agent or org leaf member). */
   try {
     _db.exec(`

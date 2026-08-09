@@ -1026,6 +1026,29 @@ export const api = {
     setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
   },
 
+  browserWorkerPackageDownload: async (opts = {}) => {
+    const includeRuntime = opts.includeRuntime !== false;
+    const path = `/integrations/browser-worker/package?include_runtime=${includeRuntime ? '1' : '0'}`;
+    const objectUrl = await fetchBlobUrl(path);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = includeRuntime
+      ? 'local-browser-worker-desktop.zip'
+      : 'local-browser-worker-lite.zip';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+  },
+  browserWorkerStatus: () => get('/integrations/browser-worker/status'),
+  browserWorkerTokensList: () => get('/integrations/browser-worker/tokens'),
+  browserWorkerTokenRevoke: (tokenId) =>
+    del(`/integrations/browser-worker/tokens/${encodeURIComponent(tokenId)}`),
+  browserWorkerIpWhitelistList: () => get('/integrations/browser-worker/ip-whitelist'),
+  browserWorkerIpWhitelistAdd: (body) => post('/integrations/browser-worker/ip-whitelist', body),
+  browserWorkerIpWhitelistRemove: (entryId) =>
+    del(`/integrations/browser-worker/ip-whitelist/${encodeURIComponent(entryId)}`),
+
   customScriptsList: (opts = {}) => {
     const q = opts.forWorkflow ? '?for_workflow=1' : '';
     return get(`/integrations/custom-scripts${q}`);

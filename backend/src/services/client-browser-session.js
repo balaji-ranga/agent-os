@@ -309,7 +309,24 @@ export function resolveBrowserProfile(ceoUserId) {
 export async function getBrowserSessionStatus(ceoUserId) {
   reconcileChromeLeases();
   const session = getCeoBrowserSession(ceoUserId);
-  const resolved = resolveBrowserProfile(ceoUserId);
+  let resolved = resolveBrowserProfile(ceoUserId);
+  // Local browser worker takes priority for multi-user client chrome.
+  let desktopWorker = null;
+  try {
+    const { getBrowserWorkerNodeStatus } = await import('./browser-worker-dispatch.js');
+    desktopWorker = getBrowserWorkerNodeStatus(ceoUserId);
+    if (desktopWorker?.online) {
+      resolved = {
+        profile: 'desktop_worker',
+        mode: 'client',
+        fallback: false,
+        session,
+        reason: null,
+      };
+    }
+  } catch {
+    desktopWorker = null;
+  }
   const managed = getBrowserAuthStatus();
   const gatewayOk = await isGatewayReachable(5000);
   const pairing = getExtensionPairingInfo();
@@ -321,6 +338,7 @@ export async function getBrowserSessionStatus(ceoUserId) {
     resolved_mode: resolved.mode,
     using_fallback: Boolean(resolved.fallback),
     fallback_reason: resolved.reason || null,
+    desktop_worker: desktopWorker,
     chrome_lease: chromeLease,
     managed_browser: {
       session_ready: managed.session_ready,

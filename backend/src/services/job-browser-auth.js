@@ -183,8 +183,19 @@ function parseInvokeText(result) {
   if (!result?.text) return '';
   try {
     const outer = JSON.parse(result.text);
+    // Local browser worker JSON: { ok, text|snapshot, ... }
+    if (result.via === 'desktop_worker' || outer?.snapshot != null || (outer?.text && outer?.ok != null)) {
+      if (typeof outer.text === 'string') return outer.text;
+      if (typeof outer.snapshot === 'string') return outer.snapshot;
+      if (outer.result != null && typeof outer.result === 'object') {
+        return JSON.stringify(outer.result);
+      }
+      if (typeof outer.result === 'string') return outer.result;
+    }
     const inner = outer?.result?.content?.[0]?.text ?? outer?.content?.[0]?.text;
     if (typeof inner === 'string') return inner;
+    // Worker job wraps full result object as text body of invokeViaBrowserWorker
+    if (typeof outer?.text === 'string' && outer.ok === true) return outer.text;
   } catch (_) {}
   return result.text;
 }

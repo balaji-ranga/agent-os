@@ -41,11 +41,16 @@ function ConnectorsPanel() {
   const [status, setStatus] = useState(null);
   const [oauthPolling, setOauthPolling] = useState(null);
   const pollRef = useRef(null);
+  const [bwStatus, setBwStatus] = useState(null);
+  const [bwIpRule, setBwIpRule] = useState('');
+  const [bwIpLabel, setBwIpLabel] = useState('');
 
   const refresh = useCallback(async () => {
     try {
       const s = await api.openconnectorStatus().catch(() => null);
       setStatus(s);
+      const bw = await api.browserWorkerStatus().catch(() => null);
+      setBwStatus(bw);
       if (isAdmin) {
         setLink(null);
         setConnections([]);
@@ -269,6 +274,69 @@ function ConnectorsPanel() {
     }
   };
 
+  const downloadBrowserWorker = async (includeRuntime = true) => {
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await api.browserWorkerPackageDownload({ includeRuntime });
+      setMessage(
+        'Browser Session package downloaded. Keep .env BROWSER_WORKER_TOKEN private — it is minted for your account only. Start scripts\\Start-BrowserWorker.ps1 and leave it running.'
+      );
+      await refresh();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const revokeBwToken = async (tokenId) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.browserWorkerTokenRevoke(tokenId);
+      setMessage('Browser worker token revoked.');
+      await refresh();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const addBwIp = async () => {
+    const rule = bwIpRule.trim();
+    if (!rule) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.browserWorkerIpWhitelistAdd({ cidr_or_ip: rule, label: bwIpLabel.trim() });
+      setBwIpRule('');
+      setBwIpLabel('');
+      setMessage('IP whitelist entry added (applies to worker → cloud connections).');
+      await refresh();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const removeBwIp = async (entryId) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.browserWorkerIpWhitelistRemove(entryId);
+      setMessage('IP whitelist entry removed.');
+      await refresh();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const authTypes = (() => {
     const auth = provider?.auth || provider?.authentications || [];
     if (Array.isArray(auth) && auth.length) {
@@ -399,6 +467,134 @@ function ConnectorsPanel() {
           Full package includes portable Node 18 (same pattern as workflow Download for Windows). See{' '}
           knowledgebase <code>IBKR-LOCAL-BRIDGE.md</code>.
         </p>
+      </section>
+
+      <section style={{ marginTop: '1.25rem', padding: '1rem', border: '1px solid var(--border)', borderRadius: 8 }}>
+        <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.05rem' }}>Browser Session package (local worker)</h2>
+        <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--muted)' }}>
+          Long-lived Windows worker for multi-user Client Chrome. Agents and recipes for <strong>your</strong>{' '}
+          account run against Playwright on your PC while the worker is online. Token is minted per download and
+          bound to your user only — never share the zip.
+        </p>
+        <p style={{ margin: '0.5rem 0 0', fontSize: '0.9rem' }}>
+          Status:{' '}
+          <strong style={{ color: bwStatus?.worker?.online ? '#16a34a' : 'var(--muted)' }}>
+            {bwStatus?.worker?.online ? 'Online' : 'Offline'}
+          </strong>
+          {bwStatus?.worker?.last_heartbeat_at
+            ? ` · last heartbeat ${bwStatus.worker.last_heartbeat_at}`
+            : ''}
+          {bwStatus?.worker?.worker_version
+            ? ` · v${bwStatus.worker.worker_version}`
+            : ''}
+        </p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: '0.75rem' }}>
+          <button
+            type="button"
+            className="wf-btn-primary"
+            disabled={busy}
+            onClick={() => downloadBrowserWorker(true)}
+          >
+            {busy ? 'Working…' : 'Download Browser Session package'}
+          </button>
+          <button
+            type="button"
+            className="wf-btn"
+            disabled={busy}
+            onClick={() => downloadBrowserWorker(false)}
+          >
+            Download lite (without Node)
+          </button>
+          <button type="button" className="wf-btn" disabled={busy} onClick={() => refresh()}>
+            Refresh status
+          </button>
+        </div>
+        <ol style={{ margin: '0.75rem 0 0', paddingLeft: '1.2rem', fontSize: '0.85rem', color: 'var(--muted)' }}>
+          <li>Download the full package (includes portable Node).</li>
+          <li>Unzip privately · keep <code>.env</code> secret (<code>bwk_…</code> token).</li>
+          <li>
+            Run <code>.\scripts\Start-BrowserWorker.ps1</code> (first run installs Playwright Chromium).
+          </li>
+          <li>Leave the process running (or register Task Scheduler script for logon).</li>
+          <li>
+            Optional: below, whitelist your public client IP so only your network may use that token.
+          </li>
+          <li>
+            Confirm <strong>Online</strong> here, then use <Link to="/browser-session">Browser Session</Link> /
+            agents (<code>browse_*</code>).
+          </li>
+        </ol>
+
+        <h3 style={{ margin: '1rem 0 0.35rem', fontSize: '0.95rem' }}>Your worker tokens</h3>
+        <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--muted)' }}>
+          Prefix only (secret lives in the zip). Revoke if compromised or when re-installing.
+        </p>
+        <ul style={{ margin: '0.35rem 0 0', paddingLeft: '1.1rem', fontSize: '0.85rem' }}>
+          {(bwStatus?.tokens || []).length === 0 && (
+            <li style={{ color: 'var(--muted)' }}>No tokens yet — download a package to mint one.</li>
+          )}
+          {(bwStatus?.tokens || []).map((t) => (
+            <li key={t.id} style={{ marginBottom: 4 }}>
+              <code>{t.token_prefix}…</code>
+              {t.revoked_at ? ' (revoked)' : ''}
+              {t.last_used_at ? ` · used ${t.last_used_at}` : ''}
+              {!t.revoked_at && (
+                <button
+                  type="button"
+                  className="wf-btn"
+                  style={{ marginLeft: 8, padding: '0.15rem 0.5rem', fontSize: '0.8rem' }}
+                  disabled={busy}
+                  onClick={() => revokeBwToken(t.id)}
+                >
+                  Revoke
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+
+        <h3 style={{ margin: '1rem 0 0.35rem', fontSize: '0.95rem' }}>Client IP whitelist</h3>
+        <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--muted)' }}>
+          Empty list = any IP allowed (token still required). When you add IPs/CIDRs, worker
+          register/heartbeat/jobs must come from a listed client IP.
+        </p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: '0.5rem' }}>
+          <input
+            value={bwIpRule}
+            onChange={(e) => setBwIpRule(e.target.value)}
+            placeholder="e.g. 203.0.113.10 or 203.0.113.0/24"
+            style={{ minWidth: 220, flex: 1 }}
+          />
+          <input
+            value={bwIpLabel}
+            onChange={(e) => setBwIpLabel(e.target.value)}
+            placeholder="Label (optional)"
+            style={{ minWidth: 120 }}
+          />
+          <button type="button" className="wf-btn" disabled={busy || !bwIpRule.trim()} onClick={addBwIp}>
+            Add IP
+          </button>
+        </div>
+        <ul style={{ margin: '0.35rem 0 0', paddingLeft: '1.1rem', fontSize: '0.85rem' }}>
+          {(bwStatus?.ip_whitelist || []).length === 0 && (
+            <li style={{ color: 'var(--muted)' }}>No IP rules (any client IP + valid token).</li>
+          )}
+          {(bwStatus?.ip_whitelist || []).map((e) => (
+            <li key={e.id} style={{ marginBottom: 4 }}>
+              <code>{e.cidr_or_ip}</code>
+              {e.label ? ` — ${e.label}` : ''}
+              <button
+                type="button"
+                className="wf-btn"
+                style={{ marginLeft: 8, padding: '0.15rem 0.5rem', fontSize: '0.8rem' }}
+                disabled={busy}
+                onClick={() => removeBwIp(e.id)}
+              >
+                Remove
+              </button>
+            </li>
+          ))}
+        </ul>
       </section>
 
       {!isAdmin && (

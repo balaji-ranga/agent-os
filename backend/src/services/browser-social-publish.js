@@ -20,6 +20,10 @@ import {
   sleep,
 } from './job-browser-auth.js';
 import { resolveBrowserProfile } from './client-browser-session.js';
+import {
+  isBrowserWorkerOnline,
+  invokeViaBrowserWorker,
+} from './browser-worker-dispatch.js';
 
 const BROWSER_CDP_AGENT_ID = process.env.BROWSER_TASK_CDP_AGENT_ID || 'browser-cdp';
 
@@ -55,9 +59,15 @@ function nowIso() {
 
 async function cdp(action, extra = {}) {
   let timer;
+  const ownerId = String(extra.ceoUserId || extra.ownerUserId || '').trim();
   try {
     return await Promise.race([
-      invokeBrowserAction(action, BROWSER_CDP_AGENT_ID, extra),
+      (async () => {
+        if (ownerId && isBrowserWorkerOnline(ownerId)) {
+          return invokeViaBrowserWorker(ownerId, action, extra);
+        }
+        return invokeBrowserAction(action, BROWSER_CDP_AGENT_ID, extra);
+      })(),
       new Promise((_, reject) => {
         timer = setTimeout(() => reject(new Error('cdp_timeout_' + action)), 30000);
       }),
@@ -69,6 +79,13 @@ async function cdp(action, extra = {}) {
     if (timer) clearTimeout(timer);
   }
 }
+
+/** Attach owner so cdp can route to desktop_worker when online. */
+function withOwner(ceoUserId, extra = {}) {
+  const { profile } = resolveBrowserProfile(ceoUserId);
+  return { ...extra, profile, ceoUserId };
+}
+
 
 function unwrapEvalText(text) {
   let t = String(text || '').trim();
@@ -157,19 +174,17 @@ function tabIds(t) {
 }
 
 export async function listChromeTabs(ceoUserId) {
-  const { profile } = resolveBrowserProfile(ceoUserId);
-  const res = await cdp('tabs', { profile });
+  const res = await cdp('tabs', withOwner(ceoUserId));
   if (looksFailed(res)) return [];
   return parseTabsPayload(parseInvokeText(res)).map((t) => ({ ...t, ...tabIds(t) }));
 }
 
 export async function focusChromeTab(ceoUserId, targetId) {
   if (!targetId) return { ok: false };
-  const { profile } = resolveBrowserProfile(ceoUserId);
-  const res = await cdp('focus', { profile, targetId });
+  const res = await cdp('focus', withOwner(ceoUserId, { targetId }));
   if (!looksFailed(res)) return { ok: true, raw: parseInvokeText(res) };
   // Extension path may use tabId
-  const res2 = await cdp('focus', { profile, tabId: targetId, targetId });
+  const res2 = await cdp('focus', withOwner(ceoUserId, { tabId: targetId, targetId }));
   return { ok: !looksFailed(res2), raw: parseInvokeText(res2) };
 }
 
@@ -420,10 +435,9 @@ export async function recyclePlatformTab(ceoUserId, platform, targetId) {
 }
 
 export async function evaluateJs(ceoUserId, fnSource) {
-  const { profile } = resolveBrowserProfile(ceoUserId);
   const fn = String(fnSource || '').trim();
   const res = await cdp('act', {
-    profile,
+    ...withOwner(ceoUserId),
     request: { kind: 'evaluate', fn },
     fn,
     expression: fn,

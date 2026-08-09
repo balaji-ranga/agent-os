@@ -12,6 +12,10 @@ import {
 } from './job-browser-auth.js';
 import { resolveBrowserProfile } from './client-browser-session.js';
 import {
+  isBrowserWorkerOnline,
+  invokeViaBrowserWorker,
+} from './browser-worker-dispatch.js';
+import {
   appendRecipeStep,
   createRecipe,
   getRecipe,
@@ -210,6 +214,15 @@ export async function waitForBrowserTask(ceoUserId, taskId, waitMs = 0) {
 async function browserInvoke(ceoUserId, action, extra = {}, agentId = 'browser-cdp') {
   const url = String(extra.url || extra.targetUrl || '').trim();
   if ((action === 'open' || url) && url) assertUrlAllowed(ceoUserId, url);
+  // Prefer owner-scoped local browser worker when online (multi-user Client Chrome).
+  if (isBrowserWorkerOnline(ceoUserId)) {
+    console.info(
+      '[browser-task] invoke via desktop_worker ceo=%s action=%s',
+      ceoUserId,
+      action
+    );
+    return invokeViaBrowserWorker(ceoUserId, action, { ...extra });
+  }
   const { profile } = resolveBrowserProfile(ceoUserId);
   if (profile === 'openclaw') {
     await ensureManagedBrowserReady({ restartOnFailure: false });

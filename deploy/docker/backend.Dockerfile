@@ -4,6 +4,7 @@
 # lean CEO onboard (DEFAULT_ONBOARD_AGENT_IDS / pruneSharedStandardAgentGrants),
 # desktop-workflow-runner (Windows PS1 packages + optional portable Node baked at download time),
 # local-ibkr-bridge (Connectors download zip + vendored IBKR gateway client),
+# local-browser-worker (Connectors Browser Session package for multi-user desktop chrome),
 # monthly trading W1–W5 seeds + paper E2E / certify helpers,
 # bridge account_snapshot → W3 ingest + W1 account-snapshot/latest (no VPS Gateway required),
 # IBKR Summary UI (/ibkr-summary) + clear transactional APIs (ibkr-transactional-clear.js),

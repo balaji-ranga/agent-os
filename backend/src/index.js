@@ -46,6 +46,10 @@ import marketDataRoutes from './routes/market-data.js';
 import emailInboundRoutes from './routes/email-inbound.js';
 import openconnectorRoutes from './routes/openconnector.js';
 import ibkrBridgePackageRoutes from './routes/ibkr-bridge-package.js';
+import {
+  browserWorkerCeoRoutes,
+  browserWorkerV1Routes,
+} from './routes/browser-worker.js';
 import { openConnectorConsoleProxy } from './services/openconnector-console-proxy.js';
 import opensearchConsoleRoutes from './routes/opensearch-console.js';
 import adminPlatformDocsRoutes from './routes/admin-platform-docs.js';
@@ -527,6 +531,9 @@ apiRouter.use('/a2a', workflowA2aRoutes);
 apiRouter.use('/integrations/email-inbound', emailInboundRoutes);
 apiRouter.use('/integrations/openconnector', openconnectorRoutes);
 apiRouter.use('/integrations/ibkr-bridge', ibkrBridgePackageRoutes);
+apiRouter.use('/integrations/browser-worker', browserWorkerCeoRoutes);
+// Worker laptop client (bearer bwk_ token + IP whitelist; no CEO session cookie).
+apiRouter.use('/browser-worker/v1', browserWorkerV1Routes);
 apiRouter.use('/integrations/opensearch', opensearchConsoleRoutes);
 apiRouter.use('/ibkr-trading', ibkrTradingRoutes);
 apiRouter.use('/market-data', marketDataRoutes);
