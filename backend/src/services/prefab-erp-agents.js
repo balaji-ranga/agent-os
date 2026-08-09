@@ -73,16 +73,21 @@ const SHARED_PLATFORM = [
   'learnings_summary',
 ];
 
-/** Shared status/setup/sync — both makers + CEO desk company scope */
-const ERP_COMPANY_SETUP = [
+/** Company context both Makers need (own company only — enforced in erpnext-erp). */
+const ERP_COMPANY_READ = [
   'erp_status',
   'erp_sync_org',
   'erp_get_company',
-  'erp_update_company',
   'erp_list_fiscal_years',
-  'erp_create_fiscal_year',
   'erp_list_resource',
   'erp_get_resource',
+];
+
+/** Maker A owns chart / fiscal setup writes for the bound company. */
+const ERP_COMPANY_SETUP = [
+  ...ERP_COMPANY_READ,
+  'erp_update_company',
+  'erp_create_fiscal_year',
 ];
 
 /**
@@ -125,16 +130,15 @@ const ERP_MAKER_A_TOOLS = [
   'kanban_move_status',
 ];
 
-/** Maker B — Ops / stock / fulfillment / buying */
+/** Maker B — Ops / stock / fulfillment / buying (company read; write owned by Maker A). */
 const ERP_MAKER_B_TOOLS = [
-  ...ERP_COMPANY_SETUP,
+  ...ERP_COMPANY_READ,
   'erp_create_resource',
   'erp_update_resource',
   'erp_list_items',
   'erp_create_item',
   'erp_list_customers',
   'erp_create_customer',
-  'erp_list_suppliers_optional_placeholder',
   'erp_list_sales_orders',
   'erp_list_purchase_orders',
   'erp_create_purchase_order',
@@ -149,7 +153,7 @@ const ERP_MAKER_B_TOOLS = [
   'erp_create_task',
   ...SHARED_PLATFORM,
   'kanban_move_status',
-].filter((t) => t !== 'erp_list_suppliers_optional_placeholder');
+];
 
 // Keep explicit alias for docs/MCP parity — union of makers equals full operational catalog
 const ERP_MAKER_TOOLS = ALL_ERP_TOOLS.concat(SHARED_PLATFORM, ['kanban_move_status']);

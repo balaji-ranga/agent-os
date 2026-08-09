@@ -233,9 +233,10 @@ ERP/CRM **Makers do not use the desk SSO password** — they call Flolah `erp_*`
 | Capability | How |
 |------------|-----|
 | See own Company | `erp_get_company` / `erp_list_resource` (doctype Company → bound only) |
-| Fiscal years | `erp_list_fiscal_years`, `erp_create_fiscal_year` |
+| Fiscal years (read) | `erp_list_fiscal_years` (both Makers) |
+| Fiscal years / company write | Maker A: `erp_create_fiscal_year`, `erp_update_company` |
 | Accounts / warehouses | `erp_list_resource` (Account, Cost Center, Warehouse) company-filtered |
-| Maker A vs B | Independent tool grants (A=finance/setup/sales-money path; B=ops/stock); **union ≈ desk operational scope** for that company |
+| Maker A vs B | Independent grants: A = finance/setup/sales-money; B = ops/stock. **Union ≈ CEO desk operational scope** (no System Manager / User admin) |
 | Submit / cancel | **Checker** only (`erp_submit_doc` / `erp_cancel_doc`) |
 | Other CEOs / User admin | Blocked |
 
@@ -248,11 +249,12 @@ Selecting **ERP = ERPNext** provisions:
 
 | Agent | Role | Tools |
 |-------|------|--------|
-| **ERP Maker A / B** | Autonomous draft operations | Full ALL_ERP_TOOLS operational surface (same as mcp-flolah-erp) |
-| **ERP Checker** | Approvals / gates | List + erp_submit_doc / erp_cancel_doc + Kanban assign/move + gent_workflow_certify_* |
+| **ERP Maker A** | Finance / company setup | Company + fiscal write, customers, quotes/invoices/payments/journals, P&L |
+| **ERP Maker B** | Ops / stock | Company + fiscal read, PO/DN/MR/items, projects |
+| **ERP Checker** | Approvals / gates | List + `erp_submit_doc` / `erp_cancel_doc` + Kanban assign/move + `agent_workflow_certify_*` |
 | **ERP P&L / Invoice / Project Manager** | Specialists | Focused tool subsets |
 
-Makers draft; Checker owns submit/cancel and task/workflow approvals.
+Makers draft; Checker owns submit/cancel and task/workflow approvals. Maker A + Maker B tools together cover desk ops for the bound company.
 
 
 ## Company P&L (design roadmap)

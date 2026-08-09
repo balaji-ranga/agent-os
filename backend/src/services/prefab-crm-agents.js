@@ -55,13 +55,18 @@ const CRM_APPROVER_TOOLS = [
   'master_data_rag',
 ];
 
-/** Sales/CRM modules on ERPNext (when Profile CRM = ERPNext). */
-const ERP_CRM_SETUP = [
+/** Company context for ERPNext CRM makers (own company only). */
+const ERP_CRM_COMPANY_READ = [
   'erp_status',
   'erp_sync_org',
   'erp_get_company',
-  'erp_update_company',
   'erp_list_fiscal_years',
+];
+
+/** CRM Maker A owns company / fiscal writes for Sales CRM on ERPNext. */
+const ERP_CRM_SETUP = [
+  ...ERP_CRM_COMPANY_READ,
+  'erp_update_company',
   'erp_create_fiscal_year',
 ];
 
@@ -99,9 +104,9 @@ const ERP_CRM_MAKER_A_TOOLS = [
   'summarize_url',
 ];
 
-/** CRM Maker B — fulfillment side of sales CRM */
+/** CRM Maker B — fulfillment side of sales CRM (company read; setup writes = Maker A). */
 const ERP_CRM_MAKER_B_TOOLS = [
-  ...ERP_CRM_SETUP,
+  ...ERP_CRM_COMPANY_READ,
   'erp_list_customers',
   'erp_create_customer',
   'erp_list_contacts',
