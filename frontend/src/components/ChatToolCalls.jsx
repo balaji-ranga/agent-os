@@ -5,7 +5,7 @@ import AuthenticatedMediaImage, {
 import { guessChatMediaType, resolveMediaSrc } from '../utils/resolveMediaSrc';
 
 /**
- * Expandable tool-call icons for agent chat (from content_tool_logs).
+ * Expandable tool-call icons for agent chat (content_tool_logs + native OpenClaw session tools).
  * Also surfaces chart SVG URLs from successful vedic_compute_chart / generate_chart responses
  * so visuals appear even when the model forgets to paste them into the reply text.
  */

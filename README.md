@@ -43,7 +43,7 @@ You do not need to know APIs or Docker for everyday use.
 
 1. From home chat, pick an AI employee (COO is default) — or open **Chat** from **My Org** / **AI Employees**.
 2. Type your request in plain language and send. Optionally **attach** files (paperclip) — documents/images/audio/video are stored under Knowledge and `inbound/attachments/`.
-3. When the AI employee uses tools (Master Data, notify you, email, generate image/TTS, etc.), small **tool icons** may appear under the reply so you can see what it did. Generated media plays **inline** in the chat (you must be logged in).
+3. When the AI employee uses tools (Master Data, notify, email, generate image/TTS, market history, **native OpenClaw `browser`**, etc.), small **tool icons** may appear under the reply so you can see what it did. Generated media plays **inline** in the chat (you must be logged in).
 4. Prefer asking the **COO** for work that should be planned or handed to a specialist (research, applications, etc.).
 5. To reach an AI employee from **WhatsApp / Slack**, open that employee’s **Channels** wizard (see Platform Help **24**). WhatsApp **group chats are ignored by default** unless you enable groups there.
 
@@ -179,7 +179,7 @@ Grant or revoke tools on each agent’s **Workspace → Tools access**.
 | **Get work from team** | The Dashboard standup button fans status requests out to every agent under the COO (budget-aware), instead of classifying the button label as a specialty ask. |
 | **Broadcast + notify** | Broadcast can ask agents to report back and ping your bell; quieter when you only want a rollup. |
 | **Master Data + document search** | Tables with purposes; documents agents can search; starter **departments** + User Guide + Platform Help docs on register. |
-| **Chat tool icons** | See which tools an agent used under a reply. |
+| **Chat tool icons** | See which tools an agent used under a reply (Agent OS content tools + native OpenClaw `browser` / `image` / `cron` from session logs). |
 | **Notification tooltips** | Hover the bell snippet for the full message. |
 | **Tenant Workspace docs** | Your CEO workspace files stay in your space; Resync keeps ORG/AGENTS accurate. |
 | **Shared notification dismiss** | Clear/dismiss keeps the bell feed tidy across platform + agent items. |

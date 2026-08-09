@@ -359,7 +359,7 @@ All proxied under `/api` (rebuild backend + frontend images after upgrade):
 | Lean CEO onboard | Default grants: COO (`balserve`) + Workflow Builder + Platform Help; `pruneSharedStandardAgentGrants` at boot; Dashboard **OrgDesigner** for departments / agents |
 | Master Data + RAG | Tables in SQLite; documents in OpenSearch (`master_data_*` tools). Per-user meta+search indices; admin **Documents RAG** for platform index |
 | Platform Help | Agent `platformhelp` + `knowledgebase/platform-help/` → **platform** OpenSearch indices (not per-CEO copies) |
-| Agent chat tools UI | Assistant bubbles show gear pills for Agent OS tool calls (`content_tool_logs`) |
+| Agent chat tools UI | Assistant bubbles show gear pills for Agent OS tool calls (`content_tool_logs`) plus native OpenClaw tools (`browser`/`image`/`cron` from session `.jsonl` under `OPENCLAW_DIR`) |
 | Notification tooltips | Bell panel snippet hover shows full title/body / agent response |
 | AgentExchange | `GET /api/agent-exchange` (CEO/Admin), UI `/agent-exchange` — Public vs Secured badges; **Test agent** panel; IP policy default **deny_all** (allow_all / whitelist); owner unpublish; Admin **A2A logs** `/admin/a2a-invocations` |
 | Admin A2A logs | `GET /api/admin/a2a-invocations` — card/token/invoke audit including IP/OAuth denials |

@@ -1,8 +1,13 @@
 /**
- * Attach Agent OS tool invocations (content_tool_logs) to chat turns by time + agent source.
+ * Attach tool invocations to chat turns by time + agent source.
+ * Sources: content_tool_logs (Agent OS tools) + OpenClaw session .jsonl (native browser/image/cron).
  */
 import { getDb } from '../db/schema.js';
 import { chatOwnerIdsForRead } from './agent-chat-scope.js';
+import {
+  listNativeOpenClawToolCalls,
+  persistNativeToolCallsToLogs,
+} from './openclaw-session-tools.js';
 
 function normalizeSourceKey(source) {
   const s = String(source || '').trim().toLowerCase();
@@ -80,6 +85,11 @@ function safeJson(raw, max = 4000) {
         summary: clipText(parsed.summary, Math.min(1800, max)),
         message: clipText(parsed.message, 800),
         result: clipText(parsed.result, 800),
+        action: parsed.action,
+        url: parsed.url,
+        regularMarketPrice: parsed.regularMarketPrice,
+        symbol: parsed.symbol,
+        openclaw_tool_call_id: parsed.openclaw_tool_call_id,
         _truncated: true,
         _preview: clipText(s, Math.max(400, max - 200)),
       };
@@ -96,13 +106,32 @@ function safeJson(raw, max = 4000) {
   }
 }
 
-/**
- * @param {string} agentId
- * @param {string} ownerUserId
- * @param {string} fromIso inclusive lower bound
- * @param {string} toIso exclusive/upper bound
- */
-export function listToolCallsForAgentWindow(agentId, ownerUserId, fromIso, toIso) {
+function parseTimeMs(iso) {
+  if (!iso) return null;
+  const raw = String(iso);
+  const d = new Date(raw.includes('T') ? raw : `${raw.replace(' ', 'T')}Z`);
+  const t = d.getTime();
+  return Number.isNaN(t) ? null : t;
+}
+
+export function bumpIsoMinutes(iso, minutes) {
+  const d = new Date(String(iso || '').includes('T') ? iso : `${String(iso).replace(' ', 'T')}Z`);
+  if (Number.isNaN(d.getTime())) return iso;
+  d.setMinutes(d.getMinutes() + minutes);
+  return d.toISOString();
+}
+
+function inTimeWindow(createdAt, fromIso, toIso) {
+  const t = parseTimeMs(createdAt);
+  if (t == null) return true;
+  const from = parseTimeMs(fromIso);
+  const to = parseTimeMs(toIso);
+  if (from != null && t < from) return false;
+  if (to != null && t > to) return false;
+  return true;
+}
+
+function listContentToolLogs(agentId, ownerUserId, fromIso, toIso) {
   if (!agentId || !ownerUserId) return [];
   const ownerIds = chatOwnerIdsForRead(ownerUserId);
   const ph = ownerIds.map(() => '?').join(',');
@@ -116,7 +145,7 @@ export function listToolCallsForAgentWindow(agentId, ownerUserId, fromIso, toIso
          AND datetime(created_at) >= datetime(?)
          AND datetime(created_at) <= datetime(?)
        ORDER BY created_at ASC, id ASC
-       LIMIT 80`
+       LIMIT 120`
     )
     .all(...ownerIds, from, to);
 
@@ -133,43 +162,108 @@ export function listToolCallsForAgentWindow(agentId, ownerUserId, fromIso, toIso
     }));
 }
 
+function mergeToolCalls(fromLogs, fromSessions) {
+  const byCallId = new Map();
+  const out = [];
+
+  for (const row of fromLogs || []) {
+    const callId =
+      row?.request?.openclaw_tool_call_id ||
+      (typeof row?.request === 'object' && row.request?.openclaw_tool_call_id) ||
+      null;
+    if (callId) byCallId.set(String(callId), true);
+    out.push(row);
+  }
+
+  for (const row of fromSessions || []) {
+    const callId = row?.request?.openclaw_tool_call_id;
+    if (callId && byCallId.has(String(callId))) continue;
+    // Prefer log row when same native tool + second already present from a prior mirror.
+    if (callId) byCallId.set(String(callId), true);
+    out.push({
+      id: row.id,
+      tool_name: row.tool_name,
+      source: row.source,
+      status: row.status,
+      created_at: row.created_at,
+      request: safeJson(row.request, 2500),
+      response: safeJson(row.response, 2500),
+    });
+  }
+
+  out.sort((a, b) => {
+    const ta = parseTimeMs(a.created_at) || 0;
+    const tb = parseTimeMs(b.created_at) || 0;
+    if (ta !== tb) return ta - tb;
+    return String(a.id).localeCompare(String(b.id));
+  });
+  return out.slice(0, 80);
+}
+
 /**
- * Enrich chat turns with tool_calls attached to assistant messages (tools between prior user msg and this reply).
+ * @param {string} agentId
+ * @param {string} ownerUserId
+ * @param {string} fromIso inclusive lower bound
+ * @param {string} toIso exclusive/upper bound
+ */
+export function listToolCallsForAgentWindow(agentId, ownerUserId, fromIso, toIso) {
+  if (!agentId || !ownerUserId) return [];
+  const fromLogs = listContentToolLogs(agentId, ownerUserId, fromIso, toIso);
+  let fromSessions = [];
+  try {
+    fromSessions = listNativeOpenClawToolCalls(agentId, ownerUserId, fromIso, toIso);
+    // Best-effort: make native tools durable in content_tool_logs for Logs UI.
+    if (fromSessions.length) persistNativeToolCallsToLogs(fromSessions, ownerUserId);
+  } catch (e) {
+    console.warn('[chat-tool-calls] openclaw session tools failed', e?.message || e);
+  }
+  return mergeToolCalls(fromLogs, fromSessions);
+}
+
+/**
+ * Enrich chat turns with tool_calls attached to assistant messages.
+ *
+ * User+assistant rows are often inserted together *after* the gateway call, so tool
+ * log timestamps fall *before* the user turn. We therefore attribute tools to the
+ * interval (previous assistant → this assistant), looking back for the first reply.
+ *
  * @param {Array<{id?:number,role:string,content:string,created_at:string}>} turns
  * @param {string} agentId
  * @param {string} ownerUserId
  */
 export function attachToolCallsToChatTurns(turns, agentId, ownerUserId) {
   if (!Array.isArray(turns) || !turns.length) return turns || [];
-  let lastUserAt = null;
+
+  const times = turns.map((t) => t.created_at).filter(Boolean);
+  let minAt = null;
+  let maxAt = null;
+  for (const iso of times) {
+    if (!minAt || String(iso) < String(minAt)) minAt = iso;
+    if (!maxAt || String(iso) > String(maxAt)) maxAt = iso;
+  }
+  // Load once for the whole page (history can be long).
+  const bulkFrom = bumpIsoMinutes(minAt || new Date().toISOString(), -360);
+  const bulkTo = bumpIsoMinutes(maxAt || new Date().toISOString(), 5);
+  const allTools = listToolCallsForAgentWindow(agentId, ownerUserId, bulkFrom, bulkTo);
+
+  let prevAssistantAt = null;
   return turns.map((t) => {
     if (t.role === 'user') {
-      lastUserAt = t.created_at;
       return { ...t, tool_calls: undefined };
     }
     if (t.role !== 'assistant') return t;
-    const from = lastUserAt || t.created_at;
-    // Small pad so tools logged just after the assistant row still attach.
-    const to = t.created_at
-      ? // sqlite datetime: add via string compare; fetch with +2 min window in SQL instead
-        t.created_at
-      : null;
-    const tool_calls = listToolCallsForAgentWindow(
-      agentId,
-      ownerUserId,
-      from,
-      // Use a soft upper bound: turn time + 2 minutes (ISO if possible)
-      bumpIsoMinutes(to || from, 2)
-    );
+
+    // Window: after previous assistant (exclusive) through this reply (+ small pad).
+    // First reply: look back far enough to cover long OpenClaw runs (browser, tools).
+    const from = prevAssistantAt
+      ? bumpIsoMinutes(prevAssistantAt, 0)
+      : bumpIsoMinutes(t.created_at, -180);
+    const to = bumpIsoMinutes(t.created_at || from, 2);
+    prevAssistantAt = t.created_at || prevAssistantAt;
+
+    const tool_calls = allTools.filter((tc) => inTimeWindow(tc.created_at, from, to));
     return { ...t, tool_calls };
   });
-}
-
-function bumpIsoMinutes(iso, minutes) {
-  const d = new Date(String(iso || '').includes('T') ? iso : `${String(iso).replace(' ', 'T')}Z`);
-  if (Number.isNaN(d.getTime())) return iso;
-  d.setMinutes(d.getMinutes() + minutes);
-  return d.toISOString();
 }
 
 /**
