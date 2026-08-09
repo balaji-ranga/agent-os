@@ -84,6 +84,7 @@ import { executeNotifyCeo } from '../services/notify-ceo.js';
 import { executeCeoProfile } from '../services/ceo-profile.js';
 import { applyProposal, getState as getOnboardingState, saveAgentProposal, saveDraft } from '../services/onboarding-helper.js';
 import { runCooStatusChecker } from '../services/coo-status-checker.js';
+import { buildThisWeekDigest } from '../services/this-week-digest.js';
 import {
   executeScheduledGoalCreate,
   executeScheduledGoalList,
@@ -1736,6 +1737,62 @@ router.post('/status-checker', optionalAuth, async (req, res) => {
   }
 });
 
+
+/**
+ * this_week_digest — COO only. Owner-scoped weekly KPIs + Time Saved / Value methodology.
+ * Body: { offset_weeks?: number }
+ */
+router.post('/this-week-digest', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    const caller = getCallerAgent(req);
+    if (!caller || !caller.is_coo) {
+      const err = { error: 'Only COO can use this_week_digest' };
+      logTool(req, 'this_week_digest', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
+    if (!ownerUserId) {
+      const err = { error: 'Could not resolve CEO user for this session' };
+      logTool(req, 'this_week_digest', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const offsetRaw = requestPayload.offset_weeks ?? requestPayload.offsetWeeks ?? 0;
+    const offsetWeeks = Number.isFinite(Number(offsetRaw)) ? Math.trunc(Number(offsetRaw)) : 0;
+    const digest = await buildThisWeekDigest(ownerUserId, { offsetWeeks });
+    const result = {
+      ok: true,
+      owner_user_id: ownerUserId,
+      week: digest.week,
+      kpis: digest.kpis,
+      estimates: digest.estimates,
+      methodology: digest.estimates?.explain || null,
+      facts_for_answer: {
+        time_saved_hours: digest.estimates?.time_saved_hours,
+        value_delivered_usd: digest.estimates?.value_delivered_usd,
+        tasks_completed: digest.estimates?.tasks_completed_count,
+        minutes_per_task: digest.estimates?.minutes_per_task,
+        usd_per_hour: digest.estimates?.usd_per_hour,
+        formula_time_saved: digest.estimates?.formula_time_saved,
+        formula_value: digest.estimates?.formula_value,
+      },
+      agent_howto: digest.estimates?.explain?.agent_howto || null,
+      performance: digest.performance,
+      top_workflows: digest.top_workflows,
+    };
+    logTool(req, 'this_week_digest', { ...requestPayload, owner_user_id: ownerUserId }, {
+      ok: true,
+      time_saved_hours: result.facts_for_answer.time_saved_hours,
+      value_delivered_usd: result.facts_for_answer.value_delivered_usd,
+    }, 'ok', source);
+    res.json(result);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'this_week_digest', requestPayload, err, 'error', source);
+    res.status(e.status || 500).json(err);
+  }
+});
 function scheduledGoalHandler(toolName, executor, opts = {}) {
   return async (req, res) => {
     const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;

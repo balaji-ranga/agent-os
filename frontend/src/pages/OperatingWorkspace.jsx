@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { formatChatTimestamp } from '../utils/formatDateTime.js';
+import BoardRuntime from '../components/workspace-builder/BoardRuntime.jsx';
 
 /**
  * Daily operating Workspace (Product: Workspace).
@@ -26,13 +27,27 @@ export default function OperatingWorkspace() {
 
   const agents = data?.agents || [];
 
+  const [designed, setDesigned] = useState(null);
+
   const load = () => {
     setLoading(true);
     api
-      .companyWorkspaceSnapshot()
+      .workspaceBoardDefault()
+      .then((def) => {
+        if (def?.board && def?.components?.length) {
+          setDesigned(def);
+          setData(def.data || null);
+          setError(null);
+          return null;
+        }
+        return api.companyWorkspaceSnapshot();
+      })
       .then((d) => {
-        setData(d);
-        setError(null);
+        if (d && !d.board) {
+          setDesigned(null);
+          setData(d);
+          setError(null);
+        }
       })
       .catch((e) => setError(e.message || String(e)))
       .finally(() => setLoading(false));
@@ -152,10 +167,54 @@ export default function OperatingWorkspace() {
     }
   };
 
+  if (loading && !data && !designed) {
+    return (
+      <div className="page">
+        <p className="page-muted">Loading Workspace...</p>
+      </div>
+    );
+  }
+
+  if (designed?.board) {
+    return (
+      <div className="ws-work-page">
+        <header className="ws-work-header">
+          <div>
+            <h1>{designed.board.name || 'Workspace'}</h1>
+            <p className="ws-muted">
+              Designed workspace{designed.is_menu_default ? ' (menu default)' : ''} ·{' '}
+              <Link
+                to={
+                  '/workspace-designer?slug=' +
+                  encodeURIComponent(designed.board.slug || 'operating-workspace')
+                }
+              >
+                Edit in Builder
+              </Link>
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <Link className="btn secondary" to="/">
+              Home
+            </Link>
+            <Link className="btn secondary" to="/kanban">
+              Kanban
+            </Link>
+            <Link className="btn secondary" to="/workspace">
+              AI Employees
+            </Link>
+          </div>
+        </header>
+        {error ? <p className="error-text">{error}</p> : null}
+        <BoardRuntime board={designed.board} components={designed.components} />
+      </div>
+    );
+  }
+
   if (loading && !data) {
     return (
       <div className="page">
-        <p className="page-muted">Loading Workspace…</p>
+        <p className="page-muted">Loading Workspace...</p>
       </div>
     );
   }

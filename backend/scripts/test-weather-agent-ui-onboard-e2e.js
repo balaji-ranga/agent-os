@@ -47,10 +47,11 @@ function agentList(payload) {
   return Array.isArray(payload) ? payload : payload?.agents || [];
 }
 
-/** Same path as Register UI: register → optional TOTP setup-challenge → session. */
+/** Same path as Register UI: register â†’ optional TOTP setup-challenge â†’ session. */
 async function registerCeoViaUi(email, name, extra = {}) {
   const reg = await api('POST', '/api/auth/register', {
-    email,
+  accept_terms: true,
+  email,
     password,
     name,
     region: 'Singapore',
@@ -115,13 +116,13 @@ if (Array.isArray(lean)) {
   assert(ids.includes('balserve'), 'A has COO');
 }
 
-console.log('\n=== 2) Agent Workspaces Add agent → POST /api/agents (Weather Forecasting) ===');
+console.log('\n=== 2) Agent Workspaces Add agent â†’ POST /api/agents (Weather Forecasting) ===');
 const created = await api(
   'POST',
   '/api/agents',
   {
     name: `Weather Forecasting ${stamp}`,
-    role: 'Weather forecasting specialist — outlooks, alerts, and plain-language forecasts',
+    role: 'Weather forecasting specialist â€” outlooks, alerts, and plain-language forecasts',
     department: 'Operations',
   },
   tokenA
@@ -149,7 +150,7 @@ assert(!!wsRoot, `workspace_root=${wsRoot}`);
 assert(wsRoot.includes(ceoA) || /tenants/i.test(wsRoot), `workspace is tenant-scoped: ${wsRoot}`);
 if (existsSync(wsRoot)) assert(true, 'workspace root exists on disk');
 
-const soulText = `# SOUL — ${created.data.name}
+const soulText = `# SOUL â€” ${created.data.name}
 
 You are **${created.data.name}**, a specialist for this CEO workspace only (${ceoA}).
 
@@ -176,7 +177,7 @@ const memWrite = await api(
   'PUT',
   `/api/agents/${agentId}/workspace/files/memory`,
   {
-    text: `# MEMORY — Weather Forecasting\n\n- Specialty: forecasts and weather briefings.\n- Owner CEO: ${ceoA}.\n`,
+    text: `# MEMORY â€” Weather Forecasting\n\n- Specialty: forecasts and weather briefings.\n- Owner CEO: ${ceoA}.\n`,
   },
   tokenA
 );
@@ -238,7 +239,7 @@ assert(history.status === 200, `chat history status=${history.status}`);
 const turns = Array.isArray(history.data) ? history.data : history.data?.turns || [];
 assert(turns.length >= 1, `history turns=${turns.length}`);
 
-console.log('\n=== 5) Register other CEO B — must NOT see/use weather agent ===');
+console.log('\n=== 5) Register other CEO B â€” must NOT see/use weather agent ===');
 const emailB = `weather.other.${stamp}@example.com`;
 const b = await registerCeoViaUi(emailB, `Weather Other ${stamp}`, { industry: 'personal' });
 assert(b.ok, `register B session ok status=${b.reg.status}`);

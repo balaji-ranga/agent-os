@@ -7,14 +7,30 @@
 - **Profile menu** — Edit profile (`/profile`), **Company setup** (`/company-setup` — first-run company wizard; [29-company-setup.md](./29-company-setup.md)), **Onboarding** (`/onboarding` — freeform org draft/Review/Apply; [27-onboarding-helper.md](./27-onboarding-helper.md)), light/dark theme, Logout.
 - **Theme toggle** — sun/moon control in the top bar (also under Profile). Choice is saved in the browser.
 - **Impersonation banner** — only when an admin is impersonating a CEO.
+- **Scrollbars** — hidden platform-wide (nav, panels, tables). Content still scrolls with trackpad/wheel/touch.
 
 ## CEO left navigation
+
+Top-level (always shown; cannot hide in Menu visibility):
+
+| Label | Route | Use for |
+|-------|-------|---------|
+| Home | `/` | Executive chat (COO / default) |
+| **Digest** | `/this-week` | Weekly company pulse: AI workers, tasks, Time Saved, Est. Value (per-agent $/hr), insights. |
+| Workspace | `/work` | Daily operating workspace (tasks + activity + command bar) |
+
+### Settings (nav chrome)
+
+| Label | Route | Use for |
+|-------|-------|---------|
+| **Workspace Builder** | `/workspace-designer` | Visual designer for owner-scoped Workspace pages (/work): KPI cards, charts, tables, activity, chat; bind presets / REST / master data / RAG. Publish default is operating workspace, not Digest. |
+| **Menu visibility** | `/nav-menus` | Show/hide sidebar menus (prefs on your account). Not a security control; CRM/ERP still require Business Core entitlements. |
 
 ### Run & Operate
 
 | Label | Route | Use for |
 |-------|-------|---------|
-| My Org / Dashboard | `/` or `/org` | Org chart, standups + COO chat, Resync ORG/AGENTS |
+| My Org / Dashboard | `/org` | Org chart, standups + COO chat, Resync ORG/AGENTS |
 | Kanban | `/kanban` | Work tasks (AI employee / workflow / pipeline cards), CEO approvals, artifacts |
 | **Scheduled goals** | `/scheduled-goals` | Recurring CEO prompts (**hourly** / daily / weekdays / weekly); create **and edit**; pause survives restarts. Also via COO chat. See [28-scheduled-goals.md](./28-scheduled-goals.md) |
 | Broadcast | `/broadcast` | Message many AI employees at once |
@@ -25,11 +41,12 @@
 | AI Snipper | `/ai-snipper` | Prompt / token / tool-call usage timeline |
 | **Browser Session** | `/browser-session` | Client Chrome relay, NL browser tasks, recorder recipes |
 | **Efficiency View** | `/efficiency` | **Org** tab: AI employees, automated tasks, feedback, workflow run success/fail, Storage (MB). **Department** tab: month-to-date tokens vs department budget. **Agent View** tab: per-employee activity, outcomes, token/error budgets, **Reset usage** |
-| **Work** | `/work` | Daily operating workspace (tasks + **Recent AI activity** + command bar). Activity highlights significant work: **Kanban completed/failed** (agent-assigned) and **workflow brain runs**, plus optional rated replies — not raw tool call spam. Datetimes use **Profile → Display timezone**. See [32-business-core-crm-erp.md](./32-business-core-crm-erp.md) |
 | **CRM** | `/crm` | Shown only when Profile CRM = Twenty (platform embed) |
 | **ERP** | `/erp` | Shown only when Profile ERP = ERPNext (platform embed) |
 | **3D Avatars** | `/avatars` | Avatar models, Virtual Rooms, publish public scenes |
 | **Published Scenes** | `/published-scenes` | Guest Virtual Room links (`/p/vr/:slug`) |
+
+**Timezone:** all board and workspace datetimes use **Profile → Display timezone**.
 
 ### Prebuilt Workflows
 
@@ -96,3 +113,32 @@ Positioning: **AI Company OS** — see [`../AI-COMPANY-OS.md`](../AI-COMPANY-OS.
 - **How do I…?** → Platform Help (docs **28** Scheduled goals, **29** Company setup, and the rest of this corpus)
 - **First company shape** → Company setup ([29-company-setup.md](./29-company-setup.md))
 - **File a platform bug (admins triage)** → ask COO / Platform Help (`platform_feedback_submit`) or Admin → **Platform feedback**
+
+## Digest (This Week Digest)
+
+Top-nav **Digest** (`/this-week`) shows KPIs (AI workers, tasks completed, estimated Time Saved and Est. Value Delivered), organization and AI worker highlights, top workflows, task performance donut, activity timeline, and **Insights & recommendations**. Click the **i** on Time Saved / Est. Value for formulas.
+
+### Metric formulas
+
+- **Tasks completed** = Kanban cards with status `completed`/`done` this Mon-Sun week **plus** workflow runs with status `completed` (owner-scoped).
+- **Time Saved (hours)** = `round((tasks_completed x minutes_per_task) / 60, 1)`.
+  - `minutes_per_task` from env `THIS_WEEK_MINUTES_PER_TASK` (default **45**, minimum 15). Platform proxy only - not timesheets.
+- **Est. Value Delivered (USD)** = sum over each completed unit of `(minutes_per_task / 60) x agent_hourly_rate_usd`, rounded.
+  - Each AI employee has **hourly_rate_usd** set at **Hire AI employee** (default **$10/hr**). Change via agent PATCH.
+  - Completed **workflow runs** and **unassigned** Kanban tasks use platform default `THIS_WEEK_VALUE_USD_PER_HOUR` (default **$10/hr**).
+  - **Not** CRM revenue, invoices, pipeline, or task tags. Distinct from **status_checker** (task counts only).
+- Insights come from a separate assessor (`this-week-digest-insights`) covering CRM readiness, scheduled goals, workflow failures, knowledge growth, and token use.
+- Data: authenticated `GET /api/this-week-digest`. COO tool **this_week_digest** returns the same KPIs + methodology so chat can explain dollars/hours without guessing.
+
+### Hire rate
+
+When hiring under **AI Employees** (`/workspace`) or Org Design, set **Hourly value rate (USD)** (default 10). That rate powers Digest Est. Value for tasks assigned to that AI employee.
+
+## Workspace Builder
+
+**Workspace Builder** (`/workspace-designer`) designs owner-scoped **Workspace** pages for `/work` (not Digest). Components: KPI cards, charts, tables, activity, chat panel, layouts. Each component can bind to **presets**, allowlisted **REST** paths, **master data tables**, or **Knowledge RAG**. Pages are stored as JSON (`company_workspace_boards`) so future AI workers / Workflow Builder can author them too.
+
+- **Preview Live Data** hydrates bindings via `GET /api/workspace-boards/:slug/render`.
+- **Set as Default** publishes that page to the top-nav **Workspace** menu (`/work`); only a designed default replaces the classic hard-built Workspace.
+- **Seed operating template** installs a page that reconstructs the classic Operating Workspace layout.
+- Auth / owner entitlements apply on all APIs; CRM components may require Business Core CRM.

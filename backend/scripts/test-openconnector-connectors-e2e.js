@@ -183,6 +183,7 @@ async function ensureTestUser() {
   const email = `oc-connector-${STAMP}@agent-os.local`;
   const password = `TestUser-${STAMP}!`;
   const user = await registerCeoUser({
+    accept_terms: true,
     email,
     password,
     name: `Connector Test ${STAMP}`,

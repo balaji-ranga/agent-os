@@ -304,6 +304,18 @@ elif curl -kfsS "${APEX_URL%/}/vision.html" 2>/dev/null | grep -qi 'Flolah Visio
 else
   echo "    WARN: marketing vision page marker missing (/vision.html nginx location?)"
 fi
+if curl -kfsS -H "Host: flolah.cloud" https://127.0.0.1/legal/terms.html 2>/dev/null | grep -qi 'Terms of Service'; then
+  echo "    marketing legal terms (Host flolah.cloud /legal/terms.html): OK"
+elif curl -kfsS "${APEX_URL%/}/legal/terms.html" 2>/dev/null | grep -qi 'Terms of Service'; then
+  echo "    marketing legal ${APEX_URL}/legal/terms.html: OK"
+else
+  echo "    WARN: marketing legal terms page missing (/legal/ on flolah-home?)"
+fi
+if docker compose exec -T frontend test -f /usr/share/nginx/html/legal/terms.html 2>/dev/null; then
+  echo "    frontend mount: /usr/share/nginx/html/legal/terms.html OK"
+else
+  echo "    WARN: frontend /legal/terms.html missing (rebuild frontend public/legal?)"
+fi
 if curl -kfsS -o /dev/null -w "  mark_png=%{http_code}\n" -H "Host: flolah.cloud" https://127.0.0.1/assets/flolah-mark.png 2>/dev/null \
   || curl -kfsS -o /dev/null -w "  mark_png=%{http_code}\n" "${APEX_URL%/}/assets/flolah-mark.png" 2>/dev/null; then
   :

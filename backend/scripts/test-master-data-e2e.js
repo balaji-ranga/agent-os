@@ -1,5 +1,5 @@
 /**
- * E2E: Master Data — create table, CSV import, document upload, RAG, tenancy, workflow node.
+ * E2E: Master Data â€” create table, CSV import, document upload, RAG, tenancy, workflow node.
  * Usage: node scripts/test-master-data-e2e.js
  */
 import { config } from 'dotenv';
@@ -57,6 +57,7 @@ console.log('\n=== 1) Register two CEOs (tenancy) ===');
 const emailA = `md.a.${stamp}@example.com`;
 const emailB = `md.b.${stamp}@example.com`;
 const regA = await api('POST', '/api/auth/register', {
+  accept_terms: true,
   email: emailA,
   password,
   name: `MD A ${stamp}`,
@@ -64,6 +65,7 @@ const regA = await api('POST', '/api/auth/register', {
   mfa_policy: 'off',
 });
 const regB = await api('POST', '/api/auth/register', {
+  accept_terms: true,
   email: emailB,
   password,
   name: `MD B ${stamp}`,
@@ -164,7 +166,7 @@ const qPage2 = await api(
 assert(qPage2.data.offset === 50, 'query offset 50');
 assert(qPage2.data.rows.length >= 1, `query pad page2=${qPage2.data.rows.length}`);
 
-console.log('\n=== 3) Tenancy — B cannot see A tables ===');
+console.log('\n=== 3) Tenancy â€” B cannot see A tables ===');
 const listB = await api('GET', '/api/master-data/tables', null, tokenB);
 assert(listB.status === 200, 'list B');
 assert(!(listB.data.tables || []).some((t) => t.id === tableId || t.id === csvTableId), 'B cannot see A tables');

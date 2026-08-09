@@ -896,17 +896,13 @@ function IbkrSummaryPanel() {
           min-height: 0;
           overflow: auto;
           padding: 0.55rem 0.75rem 0.75rem;
-          scrollbar-width: thin;
-          scrollbar-color: color-mix(in srgb, var(--muted, #888) 35%, transparent) transparent;
+          scrollbar-width: none;
+          -ms-overflow-style: none;
         }
-        .ibkr-card-body::-webkit-scrollbar { width: 5px; height: 5px; }
-        .ibkr-card-body::-webkit-scrollbar-thumb {
-          background: color-mix(in srgb, var(--muted, #888) 40%, transparent);
-          border-radius: 999px;
-        }
-        .ibkr-card-body::-webkit-scrollbar-track { background: transparent; }
-        .ibkr-card-body:hover::-webkit-scrollbar-thumb {
-          background: color-mix(in srgb, var(--muted, #888) 55%, transparent);
+        .ibkr-card-body::-webkit-scrollbar {
+          width: 0;
+          height: 0;
+          display: none;
         }
 
         .ibkr-subh { margin: 0.75rem 0 0.4rem; font-size: 0.88rem; }
@@ -937,13 +933,13 @@ function IbkrSummaryPanel() {
           max-height: 200px;
           font-size: 0.75rem;
           margin: 0;
-          scrollbar-width: thin;
-          scrollbar-color: color-mix(in srgb, var(--muted, #888) 35%, transparent) transparent;
+          scrollbar-width: none;
+          -ms-overflow-style: none;
         }
-        .ibkr-json::-webkit-scrollbar { width: 5px; height: 5px; }
-        .ibkr-json::-webkit-scrollbar-thumb {
-          background: color-mix(in srgb, var(--muted, #888) 40%, transparent);
-          border-radius: 999px;
+        .ibkr-json::-webkit-scrollbar {
+          width: 0;
+          height: 0;
+          display: none;
         }
         .table-wrap { overflow: visible; }
         .table-wrap-nested { overflow-x: auto; max-width: 100%; }
@@ -1020,7 +1016,13 @@ function IbkrSummaryPanel() {
           border: 1px solid var(--border, #ddd);
           padding: 1rem 1.1rem 1rem;
           box-shadow: 0 12px 40px color-mix(in srgb, #000 18%, transparent);
-          scrollbar-width: thin;
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+        .ibkr-modal::-webkit-scrollbar {
+          width: 0;
+          height: 0;
+          display: none;
         }
         .ibkr-modal-wide {
           width: min(920px, 100%);
@@ -1060,7 +1062,13 @@ function IbkrSummaryPanel() {
           border: 1px solid var(--border, #e5e5e5);
           max-height: 160px;
           overflow: auto;
-          scrollbar-width: thin;
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+        .ibkr-clear-counts::-webkit-scrollbar {
+          width: 0;
+          height: 0;
+          display: none;
         }
         .ibkr-clear-counts ul { margin: 0.35rem 0 0; padding-left: 1.1rem; }
         .ibkr-clear-type {

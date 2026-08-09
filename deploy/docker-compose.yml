@@ -200,6 +200,9 @@ x-backend-env: &backend-env
   TZ: ${TZ:-UTC}
   # Timezone used to render dates for users (Kanban, task chat, reports); falls back to TZ
   PLATFORM_TIMEZONE: ${PLATFORM_TIMEZONE:-}
+  # This Week Digest proxies for time-saved / $ value (insights assessor is separate)
+  THIS_WEEK_MINUTES_PER_TASK: ${THIS_WEEK_MINUTES_PER_TASK:-45}
+  THIS_WEEK_VALUE_USD_PER_HOUR: ${THIS_WEEK_VALUE_USD_PER_HOUR:-10}
   # Optional Ollama context window for BYOK / local models
   OLLAMA_CONTEXT_WINDOW: ${OLLAMA_CONTEXT_WINDOW:-}
   OPENCLAW_OLLAMA_CHAT_TIMEOUT_MS: ${OPENCLAW_OLLAMA_CHAT_TIMEOUT_MS:-}

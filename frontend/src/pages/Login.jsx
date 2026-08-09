@@ -274,6 +274,24 @@ export default function Login() {
         Flolah · AI Company OS
         <br />
         <span style={{ fontSize: '0.8rem' }}>Automate, Innovate, Elevate</span>
+        <br />
+        <span style={{ fontSize: '0.78rem', display: 'inline-block', marginTop: 8 }}>
+          <a href="/legal/terms.html" target="_blank" rel="noopener noreferrer">
+            Terms
+          </a>
+          {' · '}
+          <a href="/legal/privacy.html" target="_blank" rel="noopener noreferrer">
+            Privacy
+          </a>
+          {' · '}
+          <a href="/legal/cookies.html" target="_blank" rel="noopener noreferrer">
+            Cookies
+          </a>
+          {' · '}
+          <a href="/legal/open-source.html" target="_blank" rel="noopener noreferrer">
+            Open source
+          </a>
+        </span>
       </footer>
     </div>
   );

@@ -3,6 +3,9 @@ import { Routes, Route, Navigate, Link, NavLink, useLocation } from 'react-route
 import Dashboard from './pages/Dashboard';
 import Workspace from './pages/Workspace';
 import OperatingWorkspace from './pages/OperatingWorkspace';
+import ThisWeek from './pages/ThisWeek';
+import WorkspaceDesigner from './pages/WorkspaceDesigner';
+import NavMenuManager from './pages/NavMenuManager';
 import { CrmPage, ErpPage } from './pages/BusinessEmbed';
 import AgentWorkspace from './pages/AgentWorkspace';
 import AgentChat from './pages/AgentChat';
@@ -259,6 +262,13 @@ function Shell() {
                 {menuCollapsed ? '⌂' : 'Home'}
               </NavLink>
               <NavLink
+                to="/this-week"
+                className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+                title="This Week Digest"
+              >
+                {menuCollapsed ? 'D' : 'Digest'}
+              </NavLink>
+              <NavLink
                 to="/work"
                 className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
                 title="Workspace — daily operating system"
@@ -329,6 +339,9 @@ function Shell() {
             {user.role === 'ceo' && (
               <>
                 <Route path="/" element={<AgentChat />} />
+                <Route path="/this-week" element={<ThisWeek />} />
+                <Route path="/workspace-designer" element={<WorkspaceDesigner />} />
+                <Route path="/nav-menus" element={<NavMenuManager />} />
                 <Route path="/work" element={<OperatingWorkspace />} />
                 <Route path="/crm" element={<CrmPage />} />
                 <Route path="/erp" element={<ErpPage />} />

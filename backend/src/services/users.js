@@ -24,6 +24,7 @@ import { removeWorkflowSchedulesForOwner, syncWorkflowScheduleRegistry } from '.
 import { PLATFORM_BYOK_KEY_NAME, ensureByokVaultSlots } from './user-api-keys.js';
 import { isAgentTombstoned } from './agent-delete.js';
 import { normalizeRetentionDays } from './data-retention.js';
+import { assertTermsAcceptedAtRegister } from './legal-terms.js';
 
 export { isUserEnabled } from './user-enabled.js';
 
@@ -193,6 +194,11 @@ export async function registerCeoUser({
   industry = '',
   industry_other = '',
   business_name = '',
+  accept_terms,
+  terms_version,
+  privacy_version,
+  /** When false (admin-created users), legal accept is optional and may be null. */
+  require_terms_accept = true,
 } = {}) {
   ensureMfaTables();
   const db = getDb();
@@ -202,6 +208,11 @@ export async function registerCeoUser({
   }
   const existing = db.prepare('SELECT id FROM platform_users WHERE email = ?').get(normalizedEmail);
   if (existing) throw new Error('Email already registered');
+
+  const legal = assertTermsAcceptedAtRegister(
+    { accept_terms, terms_version, privacy_version },
+    { requireAccept: require_terms_accept !== false }
+  );
 
   const industryFields = assertIndustryValid(
     normalizeIndustryFields({
@@ -240,8 +251,8 @@ export async function registerCeoUser({
 
   db.prepare(
     `INSERT INTO platform_users
-      (id, email, password_hash, name, region, mobile, role, enabled, ceo_db_mode, mfa_policy, mfa_mode, mfa_enabled, llm_provider, llm_model, llm_api_key, industry, industry_other, business_name)
-     VALUES (?, ?, ?, ?, ?, ?, 'ceo', 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      (id, email, password_hash, name, region, mobile, role, enabled, ceo_db_mode, mfa_policy, mfa_mode, mfa_enabled, llm_provider, llm_model, llm_api_key, industry, industry_other, business_name, terms_accepted_at, terms_version, privacy_version)
+     VALUES (?, ?, ?, ?, ?, ?, 'ceo', 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     normalizedEmail,
@@ -258,8 +269,19 @@ export async function registerCeoUser({
     apiKey,
     industryFields.industry,
     industryFields.industry_other,
-    industryFields.business_name
+    industryFields.business_name,
+    legal.terms_accepted_at,
+    legal.terms_version,
+    legal.privacy_version
   );
+  if (legal.terms_accepted_at) {
+    console.info(
+      '[registerCeoUser] terms accepted user=%s terms_version=%s privacy_version=%s',
+      id,
+      legal.terms_version,
+      legal.privacy_version
+    );
+  }
 
   if (mode === 'tenant' && !isPlatformLegacyCeo(id)) initCeoDb(id);
   const agents = grantStandardAgents(id);
@@ -297,6 +319,9 @@ export async function registerCeoUser({
     business_name: industryFields.business_name,
     standard_agents_granted: agents,
     default_master_data,
+    terms_accepted_at: legal.terms_accepted_at,
+    terms_version: legal.terms_version,
+    privacy_version: legal.privacy_version,
     ...userLlmPublic({ id, llm_provider: provider, llm_model: modelToStore, llm_api_key: apiKey }),
   };
 }
@@ -346,6 +371,14 @@ export function userPublic(row) {
     role: row.role,
     role_title: String(row.role_title || '').trim(),
     display_timezone: String(row.display_timezone || '').trim(),
+    ui_nav_hidden: (() => {
+      try {
+        const v = JSON.parse(row.ui_nav_hidden || '[]');
+        return Array.isArray(v) ? v.map(String) : [];
+      } catch {
+        return [];
+      }
+    })(),
     enabled: !!row.enabled,
     created_at: row.created_at,
     last_login_at: row.last_login_at || null,
@@ -360,6 +393,9 @@ export function userPublic(row) {
     llm_model: llm.llm_model,
     llm_api_key_set: llm.llm_api_key_set,
     llm_api_key_hint: llm.llm_api_key_hint,
+    terms_accepted_at: row.terms_accepted_at || null,
+    terms_version: row.terms_version || null,
+    privacy_version: row.privacy_version || null,
   };
   if (row.role === 'ceo') {
     out.ceo_db_mode = getCeoDbModeForUser(row.id);
@@ -374,7 +410,7 @@ export function getUserById(id) {
 }
 
 export function listUsers({ limit = null, offset = 0 } = {}) {
-  const baseSql = `SELECT id, email, name, region, mobile, role, enabled, ceo_db_mode, industry, industry_other, business_name, last_login_at, created_at, updated_at
+  const baseSql = `SELECT id, email, name, region, mobile, role, enabled, ceo_db_mode, industry, industry_other, business_name, last_login_at, created_at, updated_at, terms_accepted_at, terms_version, privacy_version
        FROM platform_users`;
   const mapRow = (row) => ({
     ...row,

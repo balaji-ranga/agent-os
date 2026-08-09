@@ -1806,6 +1806,27 @@ export function initDb() {
   } catch (_) {}
 
   try {
+    _db.exec(`ALTER TABLE platform_users ADD COLUMN ui_nav_hidden TEXT DEFAULT '[]'`);
+  } catch (_) {}
+
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS company_workspace_boards (
+        owner_user_id TEXT NOT NULL,
+        slug TEXT NOT NULL,
+        name TEXT NOT NULL,
+        layout_json TEXT NOT NULL DEFAULT '{}',
+        widgets_json TEXT NOT NULL DEFAULT '[]',
+        updated_at TEXT DEFAULT (datetime('now')),
+        created_at TEXT DEFAULT (datetime('now')),
+        PRIMARY KEY (owner_user_id, slug)
+      );
+      CREATE INDEX IF NOT EXISTS idx_workspace_boards_owner
+        ON company_workspace_boards(owner_user_id);
+    `);
+  } catch (_) {}
+
+  try {
     _db.exec(`
       CREATE TABLE IF NOT EXISTS docker_onboarded_tools (
         id TEXT PRIMARY KEY,
@@ -1908,9 +1929,31 @@ export function initDb() {
     _db.exec(`ALTER TABLE platform_users ADD COLUMN profile_image TEXT DEFAULT ''`);
   } catch (_) {}
 
-  /** Agent icon / profile pic (data URL); default UI uses robot icon when empty. */
+  /**
+   * Legal acceptance at registration (Terms + Privacy).
+   * Null for legacy / admin-created users until they re-accept (future gate).
+   */
+  try {
+    _db.exec(`ALTER TABLE platform_users ADD COLUMN terms_accepted_at TEXT`);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE platform_users ADD COLUMN terms_version TEXT`);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE platform_users ADD COLUMN privacy_version TEXT`);
+  } catch (_) {}
+
+  /** Agent icon / profile pic (data URL; default UI uses robot icon when empty). */
   try {
     _db.exec(`ALTER TABLE agents ADD COLUMN avatar_image TEXT DEFAULT ''`);
+  } catch (_) {}
+
+  /** USD hourly value rate for Digest Est. Value (hire default 10). */
+  try {
+    _db.exec(`ALTER TABLE agents ADD COLUMN hourly_rate_usd REAL DEFAULT 10`);
+  } catch (_) {}
+  try {
+    _db.exec(`UPDATE agents SET hourly_rate_usd = 10 WHERE hourly_rate_usd IS NULL`);
   } catch (_) {}
 
   /**

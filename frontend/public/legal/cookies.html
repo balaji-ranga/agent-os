@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cookie Policy - Flolah</title>
+  <link rel="stylesheet" href="legal.css" />
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <a class="brand" href="/">Flolah</a>
+      <nav>
+        <a href="terms.html">Terms</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="cookies.html">Cookies</a>
+        <a href="open-source.html">Open source</a>
+      </nav>
+    </header>
+    <h1>Cookie Policy</h1>
+    <p class="meta">Version <strong>2026-08-09</strong></p>
+    <p class="note">Flolah currently uses <strong>strictly necessary</strong> and <strong>functional preference</strong> storage only. We do not load advertising or product-analytics pixels on the main app or marketing homepage as of this version. No consent banner is required for optional marketing cookies because none are deployed. If that changes, we will update this policy and add consent where required.</p>
+    <h2>1. What we mean by cookies</h2>
+    <p>This page covers HTTP cookies and similar browser storage (localStorage / sessionStorage) used by Flolah, plus related third-party storage for optional features (CRM, OAuth providers).</p>
+    <h2>2. How Flolah keeps you signed in</h2>
+    <p>Primary app authentication uses a <strong>session token in localStorage</strong> (<code>agent-os-auth-token</code>), not a first-party login cookie. The server validates that token on API requests. Sessions typically last up to about 14 days unless you sign out earlier.</p>
+    <h2>3. First-party HTTP cookies</h2>
+    <table>
+      <thead><tr><th>Name</th><th>Path</th><th>Purpose</th><th>Duration</th><th>Category</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>agent_os_os_console</code></td>
+          <td><code>/opensearch</code></td>
+          <td>Admin-only launch cookie for the OpenSearch console proxy (HttpOnly, SameSite=Lax; Secure on HTTPS). Bound to a valid Flolah admin session.</td>
+          <td>~30 minutes</td>
+          <td>Strictly necessary (admin)</td>
+        </tr>
+        <tr>
+          <td><code>agent_os_oc_console</code></td>
+          <td><code>/openconnector</code></td>
+          <td>Admin-only launch cookie for the OpenConnector console proxy.</td>
+          <td>~8 hours</td>
+          <td>Strictly necessary (admin)</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>These cookies are cleared when you log out of Flolah (and related console logout paths).</p>
+    <h2>4. localStorage (first-party app)</h2>
+    <table>
+      <thead><tr><th>Key</th><th>Purpose</th><th>Category</th></tr></thead>
+      <tbody>
+        <tr><td><code>agent-os-auth-token</code></td><td>Bearer session token</td><td>Strictly necessary</td></tr>
+        <tr><td><code>agent-os-impersonator-token</code></td><td>Admin impersonation restore token</td><td>Strictly necessary (admin)</td></tr>
+        <tr><td><code>agent-os-theme</code></td><td>Light/dark preference</td><td>Functional</td></tr>
+        <tr><td><code>agent-os-nav-collapsed</code></td><td>Sidebar layout preference</td><td>Functional</td></tr>
+        <tr><td><code>agent-os-nav-section:*</code></td><td>Nav section open/closed</td><td>Functional</td></tr>
+        <tr><td><code>agent-os-dismissed-feed-ids</code></td><td>Dismissed notification IDs</td><td>Functional</td></tr>
+        <tr><td><code>agent-os-wf-props-pane-width</code></td><td>Workflow editor layout width</td><td>Functional</td></tr>
+      </tbody>
+    </table>
+    <h2>5. sessionStorage (first-party, tab-scoped)</h2>
+    <table>
+      <thead><tr><th>Key pattern</th><th>Purpose</th><th>Category</th></tr></thead>
+      <tbody>
+        <tr><td><code>company-operate-resume-step</code></td><td>Resume company-operate wizard</td><td>Functional</td></tr>
+        <tr><td><code>wf-agent-chat:{id}</code></td><td>Workflow builder chat draft</td><td>Functional</td></tr>
+        <tr><td><code>ao-public-vr-chat:{slug}</code></td><td>Public Virtual Room transcript cache</td><td>Functional</td></tr>
+      </tbody>
+    </table>
+    <h2>6. Related storage (not Flolah login-host cookies)</h2>
+    <ul>
+      <li><strong>CRM (Twenty)</strong> on a separate host (for example crm.flolah.cloud) may set auth cookies (accessToken, refreshToken, tokenPair, etc.) and local storage. Flolah handoff pages clear those when switching owner or logging out.</li>
+      <li><strong>OAuth providers</strong> may set cookies on their domains during Connect flows.</li>
+      <li><strong>Browser automation:</strong> managed browser session cookies live in a server-side Chromium profile, not as site cookies on Flolah.</li>
+    </ul>
+    <h2>7. Marketing homepage</h2>
+    <p>The static marketing site (flolah.cloud) does not set tracking cookies by default.</p>
+    <h2>8. Managing storage</h2>
+    <ul>
+      <li>Sign out of Flolah to clear session tokens and admin console cookies.</li>
+      <li>Clear site data in your browser to remove localStorage/sessionStorage.</li>
+      <li>Use CRM switch/logout controls to clear Twenty session state on the CRM host.</li>
+    </ul>
+    <h2>9. Changes</h2>
+    <p>If we introduce analytics or advertising cookies, we will update this page and implement consent tools where required.</p>
+    <footer>
+      <a href="terms.html">Terms</a>
+      <a href="privacy.html">Privacy</a>
+      <a href="open-source.html">Open source</a>
+      <a href="/">Flolah home</a>
+    </footer>
+  </div>
+</body>
+</html>

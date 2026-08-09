@@ -156,7 +156,7 @@ ${department || 'Unassigned'}
 }
 
 /**
- * @param {{ name: string, role?: string, parent_id?: string, reportingTo?: string, department?: string, id?: string, ownerUserId?: string, tools?: string[], monthly_token_budget?: number|string|null, error_budget_pct?: number|string|null }} input
+ * @param {{ name: string, role?: string, parent_id?: string, reportingTo?: string, department?: string, id?: string, ownerUserId?: string, tools?: string[], monthly_token_budget?: number|string|null, error_budget_pct?: number|string|null, hourly_rate_usd?: number|string|null, hourlyRateUsd?: number|string|null }} input
  */
 export async function createFullAgent(input) {
   const name = (input.name || 'Unnamed').trim();
@@ -190,6 +190,13 @@ export async function createFullAgent(input) {
 
   const role = (input.role || 'Agent').trim();
   const department = String(input.department || '').trim();
+  const rawRate = input.hourly_rate_usd ?? input.hourlyRateUsd;
+  let hourlyRateUsd = 10;
+  if (rawRate != null && rawRate !== '') {
+    const n = Number(rawRate);
+    if (!Number.isFinite(n) || n < 0) throw new Error('hourly_rate_usd must be a non-negative number');
+    hourlyRateUsd = n;
+  }
   const soulMd = buildSoulMd(name, role, id, ownerUserId);
   const agentsMd = buildCustomAgentsMd(name, role, department, ownerUserId, coo?.id);
   const memoryMd = `# MEMORY — ${name}
@@ -207,9 +214,9 @@ export async function createFullAgent(input) {
 
   // Custom agents belong to the creating CEO and are NOT auto-granted to all CEOs on signup.
   db.prepare(
-    `INSERT INTO agents (id, name, role, parent_id, workspace_path, openclaw_agent_id, is_coo, agent_type, owner_user_id, department)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 'custom', ?, ?)`
-  ).run(id, name, role, parentId, tenantWs, id, 0, ownerUserId, department);
+    `INSERT INTO agents (id, name, role, parent_id, workspace_path, openclaw_agent_id, is_coo, agent_type, owner_user_id, department, hourly_rate_usd)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'custom', ?, ?, ?)`
+  ).run(id, name, role, parentId, tenantWs, id, 0, ownerUserId, department, hourlyRateUsd);
 
   let row = db.prepare('SELECT * FROM agents WHERE id = ?').get(id);
   const toolsToGrant = Array.isArray(input.tools) && input.tools.length ? input.tools : DEFAULT_TOOLS_ALLOW;

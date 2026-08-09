@@ -48,7 +48,8 @@ async function api(method, path, body, token) {
 
 async function register(label) {
   const result = await api('POST', '/api/auth/register', {
-    email: `os-rag-${label}-${stamp}@example.com`,
+  accept_terms: true,
+  email: `os-rag-${label}-${stamp}@example.com`,
     password,
     name: `OS RAG ${label} ${stamp}`,
     db_mode: 'tenant',
@@ -216,7 +217,7 @@ const chatUpload = await api(
   'POST',
   '/api/master-data/documents',
   {
-    title: `Chat attach — agent-ui-${stamp}.txt`,
+    title: `Chat attach â€” agent-ui-${stamp}.txt`,
     filename: `agent-ui-${stamp}.txt`,
     mimeType: 'text/plain',
     contentBase64: Buffer.from(

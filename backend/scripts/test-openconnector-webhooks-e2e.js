@@ -259,7 +259,8 @@ async function ensureTestUser() {
   let user;
   try {
     user = await registerCeoUser({
-      email,
+    accept_terms: true,
+    email,
       password,
       name: `OC Test User ${STAMP}`,
       region: 'Test',

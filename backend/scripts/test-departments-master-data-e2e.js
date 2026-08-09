@@ -43,6 +43,7 @@ const health = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(5000)
 assert(!!health?.ok, 'backend up');
 
 const reg = await api('POST', '/api/auth/register', {
+  accept_terms: true,
   email: `dept.${stamp}@example.com`,
   password,
   name: `Dept ${stamp}`,

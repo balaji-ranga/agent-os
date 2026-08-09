@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
+import { LEGAL_PATHS, FALLBACK_LEGAL_VERSIONS } from '../utils/legalLinks';
 
 const FALLBACK_LLM_PROVIDERS = [
   { id: 'platform_decided', label: 'Platform decided (use .env)', needs_vault_key: false, models: [], default_model: null },
@@ -69,6 +70,8 @@ export default function Register() {
   const [mfa, setMfa] = useState(null);
   const [otp, setOtp] = useState('');
   const [totpSecret, setTotpSecret] = useState(null);
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [legalVersions, setLegalVersions] = useState(FALLBACK_LEGAL_VERSIONS);
 
   useEffect(() => {
     api.authMfaDefaults()
@@ -80,6 +83,14 @@ export default function Register() {
     api.authLlmCatalog()
       .then((d) => setLlmCatalog(d || { providers: [] }))
       .catch(() => setLlmCatalog({ providers: [] }));
+    api.authLegalVersions()
+      .then((d) =>
+        setLegalVersions({
+          terms_version: d.terms_version || FALLBACK_LEGAL_VERSIONS.terms_version,
+          privacy_version: d.privacy_version || FALLBACK_LEGAL_VERSIONS.privacy_version,
+        })
+      )
+      .catch(() => setLegalVersions(FALLBACK_LEGAL_VERSIONS));
   }, []);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -106,6 +117,10 @@ export default function Register() {
 
   const submit = async (e) => {
     e.preventDefault();
+    if (!acceptTerms) {
+      setError('You must accept the Terms of Service and Privacy Policy to register');
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
@@ -116,6 +131,9 @@ export default function Register() {
           form.llm_provider === 'platform_decided'
             ? null
             : form.llm_model || selectedLlmProvider?.default_model || undefined,
+        accept_terms: true,
+        terms_version: legalVersions.terms_version,
+        privacy_version: legalVersions.privacy_version,
       };
       delete body.llm_api_key;
       const result = await register(body);
@@ -420,14 +438,75 @@ export default function Register() {
           </select>
         </label>
 
+        <label
+          style={{
+            display: 'flex',
+            gap: 10,
+            alignItems: 'flex-start',
+            fontSize: '0.9rem',
+            lineHeight: 1.45,
+            cursor: 'pointer',
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={acceptTerms}
+            onChange={(e) => setAcceptTerms(e.target.checked)}
+            required
+            style={{ marginTop: 3 }}
+          />
+          <span>
+            I agree to the{' '}
+            <a href={LEGAL_PATHS.terms} target="_blank" rel="noopener noreferrer">
+              Terms of Service
+            </a>{' '}
+            and acknowledge the{' '}
+            <a href={LEGAL_PATHS.privacy} target="_blank" rel="noopener noreferrer">
+              Privacy Policy
+            </a>
+            . I am responsible for validating AI outputs and applying human gates and policies before acting on them
+            (version {legalVersions.terms_version}).
+          </span>
+        </label>
+
         {error && <div style={{ color: '#f87171' }}>{error}</div>}
-        <button type="submit" disabled={submitting} style={{ padding: '0.65rem', borderRadius: 6, background: 'var(--accent)', color: '#fff', border: 'none' }}>
+        <button
+          type="submit"
+          disabled={submitting || !acceptTerms}
+          style={{ padding: '0.65rem', borderRadius: 6, background: 'var(--accent)', color: '#fff', border: 'none' }}
+        >
           {submitting ? 'Creating account…' : 'Create account'}
         </button>
       </form>
       <p style={{ marginTop: '1rem', fontSize: '0.9rem' }}>
         Already registered? <Link to="/login">Sign in</Link>
       </p>
+      <footer
+        style={{
+          marginTop: '2rem',
+          paddingTop: '1rem',
+          borderTop: '1px solid var(--border)',
+          textAlign: 'center',
+          fontSize: '0.8rem',
+          color: 'var(--muted)',
+        }}
+      >
+        <a href={LEGAL_PATHS.terms} target="_blank" rel="noopener noreferrer">
+          Terms
+        </a>
+        {' · '}
+        <a href={LEGAL_PATHS.privacy} target="_blank" rel="noopener noreferrer">
+          Privacy
+        </a>
+        {' · '}
+        <a href={LEGAL_PATHS.cookies} target="_blank" rel="noopener noreferrer">
+          Cookies
+        </a>
+        {' · '}
+        <a href={LEGAL_PATHS.openSource} target="_blank" rel="noopener noreferrer">
+          Open source
+        </a>
+      </footer>
     </div>
   );
 }

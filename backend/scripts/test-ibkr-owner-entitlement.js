@@ -48,7 +48,8 @@ if (!ownerB) {
   const stamp = Date.now().toString(36);
   ownerB = (
     await registerCeoUser({
-      email: `ibkr-ent-${stamp}@test.local`,
+    accept_terms: true,
+    email: `ibkr-ent-${stamp}@test.local`,
       password: 'test-pass-12345',
       name: `IBKR Ent ${stamp}`,
     })

@@ -756,3 +756,11 @@ From repo (against deployed URL):
 ```bash
 AGENT_OS_BASE_URL=https://your-domain cd ../backend && npm run test:smoke
 ```
+
+### This Week Digest
+
+Top-nav **Digest** (/this-week) loads owner-scoped GET /api/this-week-digest (KPIs, workflows, activity). Time Saved uses THIS_WEEK_MINUTES_PER_TASK (default 45). Est. Value = sum((minutes/60) * agent.hourly_rate_usd) for completed Kanban; workflows/unassigned use THIS_WEEK_VALUE_USD_PER_HOUR (default 10). Hire form sets hourly_rate_usd (default 10). Insights assessor is separate. COO tool this_week_digest for chat explainability.
+
+### Workspace Builder
+
+Visual designer at `/workspace-designer` stores pages in `company_workspace_boards` (JSON components + data bindings). **Set as Default** targets menu Workspace (`/work`). Seed **operating-workspace** to recreate the hard-built layout via JSON. Backend: `/api/workspace-boards/*` (CEO/owner-scoped). Differentiator: AI workers / Workflow Builder can later generate the same JSON document.

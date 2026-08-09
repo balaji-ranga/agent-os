@@ -412,12 +412,26 @@ const BUILTIN_TOOLS = [
     is_builtin: 1,
   },
   {
+    name: 'this_week_digest',
+    display_name: 'This Week Digest',
+    endpoint: '/api/tools/this-week-digest',
+    method: 'POST',
+    purpose:
+      'API tool (COO): load owner-scoped This Week Digest KPIs with methodology. Use when the CEO asks about Digest Time Saved, Est. Value Delivered, $/dollar value, weekly digest numbers, or "how is X calculated on Digest". ' +
+      'Returns week window, KPIs (ai workers, tasks completed, time saved hours, est. value USD), formulas, and estimates.explain bullets. ' +
+      'Parameters: offset_weeks? (0=current week, -1=previous). Owner from session only. ' +
+      'CRITICAL: Time Saved = minutes_per_task x completed / 60; Value = sum of (hours_unit x each AI employee hourly_rate_usd, hire default 10; workflows/unassigned use THIS_WEEK_VALUE_USD_PER_HOUR default 10) — NOT CRM revenue, NOT status_checker, NOT task value tags. Explain using methodology; do not invent or deflect to Platform Help.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
     name: 'status_checker',
     display_name: 'COO Status Checker',
     endpoint: '/api/tools/status-checker',
     method: 'POST',
     purpose:
-      'API tool (COO only): reconcile A2A/Kanban task status and post a digest to the CEO standup chat (returns HTML). Does NOT email — the daily platform batch cron sends the HTML email. Optional: post_standup (default true). Do not invent task outcomes — Kanban is source of truth.',
+      'API tool (COO only): reconcile A2A/Kanban task status and post a task-count digest to the CEO standup chat (returns HTML). Counts only (awaiting/failed/open/done) — does NOT compute Time Saved or Est. Value dollars. For Digest $ / hours use this_week_digest. Does NOT email — the daily platform batch cron sends the HTML email. Optional: post_standup (default true). Do not invent task outcomes — Kanban is source of truth.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -670,6 +684,7 @@ const ONBOARDING_PROPOSAL_TOOLS = BUILTIN_TOOLS.filter((t) =>
 );
 const CEO_PROFILE_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'ceo_profile');
 const STATUS_CHECKER_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'status_checker');
+const THIS_WEEK_DIGEST_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'this_week_digest');
 const SCHEDULED_GOAL_TOOLS = BUILTIN_TOOLS.filter((t) => String(t.name).startsWith('scheduled_goal_'));
 const CONNECTOR_TOOLS = BUILTIN_TOOLS.filter((t) => String(t.name).startsWith('connector_'));
 const MASTER_DATA_TOOLS = BUILTIN_TOOLS.filter(
@@ -867,6 +882,31 @@ export function seedStatusCheckerToolIfMissing() {
   );
   for (const t of STATUS_CHECKER_TOOLS) {
     update.run(t.purpose, t.display_name, t.endpoint, t.method, t.name);
+  }
+}
+
+/** Add this_week_digest tool if missing (COO; for existing DBs). */
+export function seedThisWeekDigestToolIfMissing() {
+  const db = getDb();
+  const stmt = db.prepare(
+    `INSERT OR IGNORE INTO content_tools_meta (name, display_name, endpoint, method, purpose, model_used, enabled, is_builtin)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  for (const t of THIS_WEEK_DIGEST_TOOLS) {
+    stmt.run(t.name, t.display_name, t.endpoint, t.method, t.purpose, t.model_used, t.enabled, t.is_builtin);
+  }
+  const update = db.prepare(
+    'UPDATE content_tools_meta SET purpose = ?, display_name = ?, endpoint = ?, method = ? WHERE name = ?'
+  );
+  for (const t of THIS_WEEK_DIGEST_TOOLS) {
+    update.run(t.purpose, t.display_name, t.endpoint, t.method, t.name);
+  }
+  const ins = db.prepare('INSERT OR IGNORE INTO agent_tool_grants (agent_id, tool_name) VALUES (?, ?)');
+  const coos = db.prepare('SELECT id FROM agents WHERE is_coo = 1').all();
+  for (const a of coos) {
+    for (const t of THIS_WEEK_DIGEST_TOOLS) {
+      ins.run(a.id, t.name);
+    }
   }
 }
 

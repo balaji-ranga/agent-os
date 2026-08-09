@@ -62,6 +62,7 @@ console.log('\n=== 1) Register NEW CEO with OpenAI preference (key after login v
 const emailNew = `byok.new.${stamp}@example.com`;
 const fakeKey = `sk-test-byok-${stamp}-abcdefghijklmnopqrstuvwxyz`;
 const reg = await api('POST', '/api/auth/register', {
+  accept_terms: true,
   email: emailNew,
   password,
   name: `BYOK New ${stamp}`,
@@ -124,6 +125,7 @@ if (existsSync(getOpenClawConfigPath())) {
 
 // Reject key on register body
 const regReject = await api('POST', '/api/auth/register', {
+  accept_terms: true,
   email: `byok.reject.${stamp}@example.com`,
   password,
   name: 'Reject key',
@@ -134,9 +136,10 @@ const regReject = await api('POST', '/api/auth/register', {
 assert(regReject.status >= 400, 'register rejects llm_api_key on body');
 
 
-console.log('\n=== 2) EXISTING user — register once, then PATCH profile to OpenRouter BYOK ===');
+console.log('\n=== 2) EXISTING user â€” register once, then PATCH profile to OpenRouter BYOK ===');
 const emailExisting = `byok.existing.${stamp}@example.com`;
 const regEx = await api('POST', '/api/auth/register', {
+  accept_terms: true,
   email: emailExisting,
   password,
   name: `BYOK Existing ${stamp}`,

@@ -90,6 +90,7 @@ async function main() {
   const email = 'byok-test-' + stamp() + '@example.com';
   const password = 'ByokTest-' + stamp() + '!aA1';
   const user = await registerCeoUser({
+    accept_terms: true,
     email,
     password,
     name: 'BYOK Test ' + stamp(),

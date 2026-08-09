@@ -1,5 +1,5 @@
 /**
- * E2E: agent org hierarchy — department + reportingTo (parent_id) + recursive tree.
+ * E2E: agent org hierarchy â€” department + reportingTo (parent_id) + recursive tree.
  * Usage: node scripts/test-org-hierarchy-e2e.js
  * Requires backend on AGENT_OS_API_URL (default http://127.0.0.1:3001).
  */
@@ -85,6 +85,7 @@ assert(balserve?.department === 'Executive' || !!balserve?.department, `balserve
 console.log('\n=== 2) Register CEO ===');
 const email = `org.ceo.${stamp}@example.com`;
 const reg = await api('POST', '/api/auth/register', {
+  accept_terms: true,
   email,
   password,
   name: `Org CEO ${stamp}`,

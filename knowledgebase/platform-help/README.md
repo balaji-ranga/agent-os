@@ -6,7 +6,7 @@
 | Doc | Topics |
 |-----|--------|
 | [01-getting-started.md](./01-getting-started.md) | Register, login, MFA, Profile / BYOK + **chat model** via **API Keys** |
-| [02-navigation-and-chrome.md](./02-navigation-and-chrome.md) | Left nav map (**Scheduled goals**, Knowledge, API Keys, **Content Explorer**, Efficiency, Connectors, Avatars, Published Scenes), bell, profile, Admin **Crons** / **A2A logs** / **Platform feedback** |
+| [02-navigation-and-chrome.md](./02-navigation-and-chrome.md) | Left nav map (**Scheduled goals**, Knowledge, API Keys, **Content Explorer**, Efficiency, Connectors, Avatars, Published Scenes), bell, profile, Admin **Crons** / **A2A logs** / **Platform feedback** | (includes Digest metrics (per-agent hourly_rate_usd) formulas, Workspace Builder, nav chrome)
 | [03-dashboard-agents-chat.md](./03-dashboard-agents-chat.md) | Org chart, chat **attachments**, inline auth media players, workspace MD, **templates** Apply/Publish, tools access, Resync |
 | [04-kanban-standups-broadcast.md](./04-kanban-standups-broadcast.md) | Kanban (agent-owned status), standups → COO, Broadcast, `notify_ceo` when/when-not |
 | [05-master-data-rag.md](./05-master-data-rag.md) | Tables, CSV, documents, RAG; **Inbound attachments**; **Purge all uploads**; protected Help/User Guide docs |

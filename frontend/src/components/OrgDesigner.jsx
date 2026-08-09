@@ -27,6 +27,7 @@ export default function OrgDesigner({
     parent_id: '',
     monthly_token_budget: '',
     error_budget_pct: '',
+    hourly_rate_usd: '10',
   });
   const [dragId, setDragId] = useState(null);
 
@@ -119,6 +120,7 @@ export default function OrgDesigner({
         parent_id: draft.parent_id || undefined,
         monthly_token_budget: draft.monthly_token_budget || null,
         error_budget_pct: draft.error_budget_pct || null,
+        hourly_rate_usd: draft.hourly_rate_usd === '' ? 10 : Number(draft.hourly_rate_usd),
       });
       setShowAdd(false);
       setDraft({
@@ -128,6 +130,7 @@ export default function OrgDesigner({
         parent_id: '',
         monthly_token_budget: '',
         error_budget_pct: '',
+        hourly_rate_usd: '10',
       });
       await onChanged?.();
       flash(`Agent “${draft.name.trim()}” created`);
@@ -482,6 +485,29 @@ export default function OrgDesigner({
                   </option>
                 ))}
               </select>
+            </label>
+
+            <label style={{ fontSize: '0.85rem' }}>
+              Hourly value rate (USD)
+              <input
+                type="number"
+                min="0"
+                step="0.5"
+                value={draft.hourly_rate_usd}
+                onChange={(e) => setDraft((d) => ({ ...d, hourly_rate_usd: e.target.value }))}
+                placeholder="Default 10"
+                title="Used by Digest Est. Value Delivered"
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  marginTop: 4,
+                  padding: '0.5rem',
+                  borderRadius: 6,
+                  border: '1px solid var(--border)',
+                  background: 'var(--bg, #121216)',
+                  color: 'var(--text)',
+                }}
+              />
             </label>
             <label style={{ fontSize: '0.85rem' }}>
               Monthly token budget

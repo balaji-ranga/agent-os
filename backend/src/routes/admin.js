@@ -134,6 +134,8 @@ router.post('/users', async (req, res) => {
       industry,
       industry_other,
       business_name,
+      // Admin-created accounts: legal accept not required (CEO can re-accept later via product).
+      require_terms_accept: false,
     });
     res.status(201).json({ user });
   } catch (e) {

@@ -484,6 +484,8 @@ router.post('/', requireAuth, requireCeoOrAdmin, async (req, res) => {
       tools,
       monthly_token_budget,
       error_budget_pct,
+      hourly_rate_usd,
+      hourlyRateUsd,
     } = req.body || {};
     let ownerUserId = null;
     if (req.authUser.role === 'ceo') {
@@ -509,6 +511,7 @@ router.post('/', requireAuth, requireCeoOrAdmin, async (req, res) => {
       tools: Array.isArray(tools) ? tools : undefined,
       monthly_token_budget: monthly_token_budget ?? null,
       error_budget_pct: error_budget_pct ?? null,
+      hourly_rate_usd: hourly_rate_usd ?? hourlyRateUsd ?? null,
     });
     res.status(201).json(row);
   } catch (e) {
@@ -544,6 +547,11 @@ router.patch('/:id', requireAuth, requireCeoOrAdmin, (req, res) => {
       }
       updates.avatar_image = img;
     }
+    if (updates.hourly_rate_usd !== undefined && updates.hourly_rate_usd !== null && updates.hourly_rate_usd !== '') {
+      const n = Number(updates.hourly_rate_usd);
+      if (!Number.isFinite(n) || n < 0) return res.status(400).json({ error: 'hourly_rate_usd must be a non-negative number' });
+      updates.hourly_rate_usd = n;
+    }
     const allowed = [
       'name',
       'role',
@@ -553,6 +561,7 @@ router.patch('/:id', requireAuth, requireCeoOrAdmin, (req, res) => {
       'openclaw_agent_id',
       'is_coo',
       'avatar_image',
+      'hourly_rate_usd',
     ];
     const set = [];
     const values = [];

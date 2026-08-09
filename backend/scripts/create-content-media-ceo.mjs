@@ -20,6 +20,7 @@ if (existing) {
   user = getUserById(existing.id);
 } else {
   user = await registerCeoUser({
+    accept_terms: true,
     email,
     password,
     name,

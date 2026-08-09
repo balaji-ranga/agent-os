@@ -32,6 +32,7 @@ import {
 } from '../services/password-reset.js';
 import { getLlmCatalogPublic } from '../services/user-llm-settings.js';
 import { getServerTimezone } from '../utils/format-datetime.js';
+import { getLegalVersionsPublic } from '../services/legal-terms.js';
 
 const router = Router();
 
@@ -40,6 +41,15 @@ router.use(attachAuthUser);
 router.get('/industries', (_req, res) => {
   try {
     res.json({ industries: listIndustries() });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/** Public legal document versions for register UI (and footer deep-links). */
+router.get('/legal-versions', (_req, res) => {
+  try {
+    res.json(getLegalVersionsPublic());
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -61,8 +71,26 @@ router.get('/mfa/defaults', (_req, res) => {
 
 router.post('/register', async (req, res) => {
   try {
-    const { email, password, name, region, mobile, db_mode, ceo_db_mode, mfa_policy, mfa_mode, llm_provider, llm_model, llm_api_key, industry, industry_other, business_name } =
-      req.body || {};
+    const {
+      email,
+      password,
+      name,
+      region,
+      mobile,
+      db_mode,
+      ceo_db_mode,
+      mfa_policy,
+      mfa_mode,
+      llm_provider,
+      llm_model,
+      llm_api_key,
+      industry,
+      industry_other,
+      business_name,
+      accept_terms,
+      terms_version,
+      privacy_version,
+    } = req.body || {};
     const user = await registerCeoUser({
       email,
       password,
@@ -79,6 +107,10 @@ router.post('/register', async (req, res) => {
       industry,
       industry_other,
       business_name,
+      accept_terms,
+      terms_version,
+      privacy_version,
+      require_terms_accept: true,
     });
     let openclaw = null;
     try {

@@ -108,10 +108,13 @@ $ErrorActionPreference = "Stop"
 $Repo = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $ssh = @("-i", $Key, "-o", "IdentitiesOnly=yes", "-o", "BatchMode=yes")
 
-Write-Host "==> Sync frontend (full src tree + package files + index.html)"
-ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/frontend/src $RemoteRoot/deploy/scripts $RemoteRoot/deploy/docker $RemoteRoot/deploy/nginx $RemoteRoot/backend/scripts $RemoteRoot/scripts"
+Write-Host "==> Sync frontend (full src tree + package files + index.html + public)"
+ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/frontend/src $RemoteRoot/frontend/public $RemoteRoot/deploy/scripts $RemoteRoot/deploy/docker $RemoteRoot/deploy/nginx $RemoteRoot/backend/scripts $RemoteRoot/scripts"
 scp @ssh "$Repo\README.md" "root@${HostIp}:$RemoteRoot/"
 scp @ssh -r "$Repo\frontend\src" "root@${HostIp}:$RemoteRoot/frontend/"
+if (Test-Path "$Repo\frontend\public") {
+  scp @ssh -r "$Repo\frontend\public" "root@${HostIp}:$RemoteRoot/frontend/"
+}
 scp @ssh `
   "$Repo\frontend\index.html" `
   "$Repo\frontend\package.json" `
@@ -343,6 +346,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\vps-test-coo-rag-kanban-flow.js" `
     "$Repo\backend\scripts\test-kanban-chat-status-guidance.js" `
     "$Repo\backend\scripts\test-ceo-profile-tool.js" `
+    "$Repo\backend\scripts\test-legal-register-accept.js" `
     "$Repo\backend\scripts\test-coo-refine-allocation.js" `
     "$Repo\backend\scripts\test-coo-native-file-skip.js" `
     "$Repo\backend\scripts\test-agent-workflow-runs-tool.js" `

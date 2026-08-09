@@ -419,6 +419,7 @@ export const api = {
   authUpdateProfile: (body) => patch('/auth/me', body),
   authIndustries: () => get('/auth/industries'),
   authLlmCatalog: () => get('/auth/llm-catalog'),
+  authLegalVersions: () => get('/auth/legal-versions'),
   ceoGuardrailsGet: () => get('/ceo-guardrails'),
   ceoGuardrailsSave: (body) => put('/ceo-guardrails', body),
   ceoGuardrailsEnrich: (body) => post('/ceo-guardrails/enrich', body),
@@ -526,6 +527,28 @@ export const api = {
   businessCoreOrgSnapshot: () => get('/business-core/org-snapshot'),
   businessCoreSyncOrg: (body) => post('/business-core/sync-org', body || {}),
   companyWorkspaceSnapshot: () => get('/company-workspace/snapshot'),
+  thisWeekDigest: (params = {}) => {
+    const q = new URLSearchParams();
+    if (params.offset != null) q.set('offset', String(params.offset));
+    if (params.from) q.set('from', params.from);
+    if (params.to) q.set('to', params.to);
+    const s = q.toString();
+    return get('/this-week-digest' + (s ? '?' + s : ''));
+  },
+  uiNavPrefs: () => get('/ui-prefs/nav'),
+  uiNavPrefsSave: (body) => put('/ui-prefs/nav', body || {}),
+  workspaceBoardCatalog: () => get('/workspace-boards/catalog'),
+  workspaceBoardList: () => get('/workspace-boards'),
+  workspaceBoardDefault: () => get('/workspace-boards/default'),
+  workspaceBoardSetDefault: (slug) =>
+    post('/workspace-boards/' + encodeURIComponent(slug || 'operating-workspace') + '/set-default', {}),
+  workspaceBoardSeedOperating: () => post('/workspace-boards/seed-operating', {}),
+  workspaceBoardDelete: (slug) => del('/workspace-boards/' + encodeURIComponent(slug)),
+  workspaceBoardGet: (slug) => get(`/workspace-boards/${encodeURIComponent(slug || 'this-week')}`),
+  workspaceBoardRender: (slug) =>
+    get(`/workspace-boards/${encodeURIComponent(slug || 'this-week')}/render`),
+  workspaceBoardSave: (slug, body) =>
+    put(`/workspace-boards/${encodeURIComponent(slug || 'this-week')}`, body || {}),
   adminCompanyBlueprints: () => get('/admin/company-blueprints'),
   adminCompanyBlueprintCandidates: (limit = 40) =>
     get(`/admin/company-blueprints/candidates?limit=${encodeURIComponent(limit)}`),

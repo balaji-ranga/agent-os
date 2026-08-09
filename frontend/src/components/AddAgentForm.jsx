@@ -13,6 +13,7 @@ export default function AddAgentForm({ agents = [], onCreated, compact = false }
   const [parentId, setParentId] = useState('');
   const [tokenBudget, setTokenBudget] = useState('');
   const [errorBudget, setErrorBudget] = useState('');
+  const [hourlyRate, setHourlyRate] = useState('10');
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -41,6 +42,7 @@ export default function AddAgentForm({ agents = [], onCreated, compact = false }
       department: department.trim() || '',
       monthly_token_budget: tokenBudget || null,
       error_budget_pct: errorBudget || null,
+      hourly_rate_usd: hourlyRate === '' ? 10 : Number(hourlyRate),
       parent_id: parentId || coo?.id || undefined,
     };
     api
@@ -52,6 +54,7 @@ export default function AddAgentForm({ agents = [], onCreated, compact = false }
         setDepartment('Operations');
         setTokenBudget('');
         setErrorBudget('');
+        setHourlyRate('10');
         setMessage(
           `"${agent.name}" hired` +
             (agent.department ? ` · ${agent.department}` : '') +
@@ -119,6 +122,18 @@ export default function AddAgentForm({ agents = [], onCreated, compact = false }
           onChange={(e) => setTokenBudget(e.target.value)}
           aria-label="Monthly token budget"
           style={{ ...inputStyle, width: compact ? 150 : undefined, minWidth: 130 }}
+        />
+
+        <input
+          type="number"
+          min="0"
+          step="0.5"
+          placeholder="USD/hr (value)"
+          title="Hourly USD value rate used by Digest Est. Value Delivered (default $10/hr)"
+          value={hourlyRate}
+          onChange={(e) => setHourlyRate(e.target.value)}
+          aria-label="Hourly value rate USD"
+          style={{ ...inputStyle, width: compact ? 130 : undefined, minWidth: 120 }}
         />
         <input
           type="number"

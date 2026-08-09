@@ -36,7 +36,8 @@ async function main() {
   console.log('OK health');
 
   const reg = await api('POST', '/api/auth/register', {
-    email,
+  accept_terms: true,
+  email,
     password,
     name: `Platform Help Test ${stamp}`,
     db_mode: 'tenant',
@@ -76,7 +77,7 @@ async function main() {
   }
 
   if (skipChat) {
-    console.log('SKIP_CHAT set — PASS list+docs');
+    console.log('SKIP_CHAT set â€” PASS list+docs');
     return;
   }
 

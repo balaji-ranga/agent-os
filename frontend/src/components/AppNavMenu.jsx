@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { api } from '../api';
+import { useAuth } from '../context/AuthContext';
+import { buildCeoNavCatalog, filterNavByHidden } from '../utils/ceoNavCatalog.js';
 
 function NavItem({ to, end, title, collapsed, label, short, nested = true }) {
   return (
@@ -64,25 +66,28 @@ function NavSection({ title, collapsed, children, defaultOpen = true }) {
   );
 }
 
+function shortLabel(label) {
+  const s = String(label || '');
+  if (s.length <= 2) return s;
+  const parts = s.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return s.slice(0, 2);
+}
+
 export function CeoNavMenu({ collapsed }) {
+  const { user } = useAuth();
   const [menus, setMenus] = useState({ show_crm_menu: false, show_erp_menu: false });
+  const [hidden, setHidden] = useState(() =>
+    Array.isArray(user?.ui_nav_hidden) ? user.ui_nav_hidden : []
+  );
+
+  useEffect(() => {
+    if (Array.isArray(user?.ui_nav_hidden)) setHidden(user.ui_nav_hidden);
+  }, [user?.ui_nav_hidden]);
 
   useEffect(() => {
     let cancelled = false;
-    api
-      .businessCoreMenus()
-      .then((m) => {
-        if (!cancelled) {
-          setMenus({
-            show_crm_menu: !!m?.show_crm_menu,
-            show_erp_menu: !!m?.show_erp_menu,
-          });
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setMenus({ show_crm_menu: false, show_erp_menu: false });
-      });
-    const onFocus = () => {
+    const load = () => {
       api
         .businessCoreMenus()
         .then((m) => {
@@ -93,115 +98,67 @@ export function CeoNavMenu({ collapsed }) {
             });
           }
         })
+        .catch(() => {
+          if (!cancelled) setMenus({ show_crm_menu: false, show_erp_menu: false });
+        });
+      api
+        .uiNavPrefs()
+        .then((p) => {
+          if (!cancelled && Array.isArray(p?.hidden)) setHidden(p.hidden);
+        })
         .catch(() => {});
     };
+    load();
+    const onFocus = () => load();
+    const onPrefs = () => load();
     window.addEventListener('focus', onFocus);
+    window.addEventListener('agent-os-nav-prefs-changed', onPrefs);
     return () => {
       cancelled = true;
       window.removeEventListener('focus', onFocus);
+      window.removeEventListener('agent-os-nav-prefs-changed', onPrefs);
     };
   }, []);
 
+  const catalog = useMemo(
+    () =>
+      filterNavByHidden(
+        buildCeoNavCatalog({
+          showCrm: menus.show_crm_menu,
+          showErp: menus.show_erp_menu,
+        }),
+        hidden
+      ),
+    [menus.show_crm_menu, menus.show_erp_menu, hidden]
+  );
+
+  const byGroup = useMemo(() => {
+    const map = {};
+    for (const it of catalog) {
+      if (it.group === 'top') continue;
+      if (!map[it.group]) map[it.group] = [];
+      map[it.group].push(it);
+    }
+    return map;
+  }, [catalog]);
+
   return (
     <>
-      <NavSection title="Run & Operate" collapsed={collapsed}>
-        <NavItem to="/org" end title="My Org" collapsed={collapsed} label="My Org" short="⌂" />
-        <NavItem to="/kanban" title="Kanban" collapsed={collapsed} label="Kanban" short="K" />
-        {menus.show_crm_menu && (
-          <NavItem
-            to="/crm"
-            title="CRM — platform Twenty for this company"
-            collapsed={collapsed}
-            label="CRM"
-            short="Cr"
-          />
-        )}
-        {menus.show_erp_menu && (
-          <NavItem
-            to="/erp"
-            title="ERP — platform ERPNext for this company"
-            collapsed={collapsed}
-            label="ERP"
-            short="Er"
-          />
-        )}
-        <NavItem
-          to="/scheduled-goals"
-          title="Scheduled goals — recurring prompts for AI employees"
-          collapsed={collapsed}
-          label="Scheduled goals"
-          short="Sg"
-        />
-        <NavItem to="/broadcast" title="Broadcast" collapsed={collapsed} label="Broadcast" short="Bc" />
-        <NavItem
-          to="/master-data"
-          title="Company knowledge (Master Data)"
-          collapsed={collapsed}
-          label="Knowledge"
-          short="Kn"
-        />
-        <NavItem
-          to="/content-explorer"
-          title="Content Explorer"
-          collapsed={collapsed}
-          label="Content Explorer"
-          short="CE"
-        />
-        <NavItem to="/api-keys" title="API Keys" collapsed={collapsed} label="API Keys" short="Key" />
-        <NavItem to="/policies" title="Policies & guardrails" collapsed={collapsed} label="Policies" short="Po" />
-        <NavItem to="/ai-snipper" title="AI Snipper" collapsed={collapsed} label="AI Snipper" short="AI" />
-        <NavItem to="/efficiency" title="Efficiency View" collapsed={collapsed} label="Efficiency View" short="Ef" />
-      </NavSection>
-
-      <NavSection title="Prebuilt Workflows" collapsed={collapsed}>
-        <NavItem to="/job-profiles" title="Job profiles" collapsed={collapsed} label="Job profiles" short="JP" />
-        <NavItem to="/browser-session" title="Browser Session" collapsed={collapsed} label="Browser Session" short="Br" />
-        <NavItem to="/job-workflows" title="Job workflows" collapsed={collapsed} label="Job workflows" short="JW" />
-        <NavItem to="/ibkr-summary" title="IBKR Summary — portfolio and day plans" collapsed={collapsed} label="IBKR Summary" short="IB" />
-      </NavSection>
-
-      <NavSection title="Company Tools" collapsed={collapsed}>
-        <NavItem to="/workflows" title="Workflows" collapsed={collapsed} label="Workflows" short="Wf" />
-        <NavItem to="/avatars" title="3D Avatars" collapsed={collapsed} label="3D Avatars" short="3D" />
-        <NavItem
-          to="/published-scenes"
-          title="Published Scenes — public Virtual Rooms"
-          collapsed={collapsed}
-          label="Published Scenes"
-          short="PS"
-        />
-        <NavItem
-          to="/workspace"
-          title="AI Employees — hire and equip digital workers"
-          collapsed={collapsed}
-          label="AI Employees"
-          short="AE"
-        />
-        <NavItem to="/content-tools" title="Tools your AI employees can use" collapsed={collapsed} label="Tools" short="Tl" />
-        <NavItem to="/connectors" title="Connectors" collapsed={collapsed} label="Connectors" short="Cn" />
-        <NavItem to="/integrations/mcp" title="MCP integrations" collapsed={collapsed} label="MCP" short="Mcp" />
-        <NavItem
-          to="/integrations/custom-scripts"
-          title="Custom scripts"
-          collapsed={collapsed}
-          label="Custom scripts"
-          short="Py"
-        />
-        <NavItem
-          to="/agent-exchange"
-          title="AgentExchange — published A2A services"
-          collapsed={collapsed}
-          label="AgentExchange"
-          short="AX"
-        />
-        <NavItem
-          to="/integrations/external-agents"
-          title="External AI (A2A partners)"
-          collapsed={collapsed}
-          label="External AI"
-          short="A2A"
-        />
-      </NavSection>
+      {Object.entries(byGroup).map(([group, items]) => (
+        <NavSection key={group} title={group} collapsed={collapsed}>
+          {items.map((it) => (
+            <NavItem
+              key={it.id}
+              to={it.to}
+              end={it.to === '/org'}
+              title={it.label}
+              collapsed={collapsed}
+              label={it.label}
+              short={shortLabel(it.label)}
+            />
+          ))}
+        </NavSection>
+      ))}
     </>
   );
 }
@@ -226,35 +183,35 @@ export function AdminNavMenu({ collapsed }) {
       <NavLink
         to="/admin/crons"
         className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
-        title="Platform crons — pause, resume, run now"
+        title="Platform crons"
       >
         {collapsed ? 'CR' : 'Crons'}
       </NavLink>
       <NavLink
         to="/admin/documents-rag"
         className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
-        title="Platform Documents RAG (OpenSearch)"
+        title="Platform Documents RAG"
       >
         {collapsed ? 'DR' : 'Documents RAG'}
       </NavLink>
       <NavLink
         to="/admin/tool-onboarding"
         className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
-        title="Tools Onboarding — Docker content tools"
+        title="Tools Onboarding"
       >
         {collapsed ? 'TO' : 'Tools Onboarding'}
       </NavLink>
       <NavLink
         to="/admin/tls-certs"
         className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
-        title="TLS / Let's Encrypt certs — SANs and refresh"
+        title="TLS certs"
       >
         {collapsed ? 'TLS' : 'TLS certs'}
       </NavLink>
       <NavLink
         to="/admin/platform-feedback"
         className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
-        title="Platform bugs, feedback, and enhancements"
+        title="Platform feedback"
       >
         {collapsed ? 'FB' : 'Platform feedback'}
       </NavLink>
@@ -271,14 +228,14 @@ export function AdminNavMenu({ collapsed }) {
         />
         <NavItem
           to="/agent-exchange"
-          title="AgentExchange — published A2A services"
+          title="AgentExchange"
           collapsed={collapsed}
           label="AgentExchange"
           short="AX"
         />
         <NavItem
           to="/integrations/external-agents"
-          title="External AI (A2A partners)"
+          title="External AI"
           collapsed={collapsed}
           label="External AI"
           short="A2A"

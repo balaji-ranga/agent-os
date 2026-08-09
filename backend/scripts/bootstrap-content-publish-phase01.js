@@ -94,6 +94,7 @@ async function ensureCeo() {
     return { user: getUserById(existing.id), created: false, password: null };
   }
   const user = await registerCeoUser({
+    accept_terms: true,
     email,
     password,
     name,

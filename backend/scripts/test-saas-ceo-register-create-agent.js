@@ -1,6 +1,6 @@
 /**
- * SaaS E2E via product APIs only (same as UI): register CEO → list agents →
- * create custom agent → grant tools → create Kanban task for CEO.
+ * SaaS E2E via product APIs only (same as UI): register CEO â†’ list agents â†’
+ * create custom agent â†’ grant tools â†’ create Kanban task for CEO.
  * Usage: node scripts/test-saas-ceo-register-create-agent.js
  */
 import { config } from 'dotenv';
@@ -45,6 +45,7 @@ assert(!!health?.ok, 'backend up');
 
 console.log('\n=== 1) Register new CEO (UI /api/auth/register) ===');
 const reg = await api('POST', '/api/auth/register', {
+  accept_terms: true,
   email,
   password,
   name,
