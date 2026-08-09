@@ -646,7 +646,7 @@ export async function ensureErpnextCompanyForOwner(ownerUserId, { displayName } 
   }
 
   const name =
-    String(displayName || '').trim() ||
+    String(displayName || profile.erpnext.company_name || '').trim() ||
     `Flolah ${owner.replace(/[^a-zA-Z0-9 _-]/g, '').slice(0, 40) || 'Company'}`;
 
   const localCompanyId = `flolah-co-${owner}`.slice(0, 80);
@@ -655,6 +655,14 @@ export async function ensureErpnextCompanyForOwner(ownerUserId, { displayName } 
 
   if (isErpnextApiConfigured()) {
     try {
+      // Fresh site often misses Warehouse Type fixtures; Company.on_update creates Transit warehouse.
+      for (const wt of ['Transit', 'Stores', 'WIP', 'Finished Goods']) {
+        try {
+          await frappeFetch('/api/resource/Warehouse Type', { method: 'POST', body: { name: wt } });
+        } catch (_) {
+          /* exists */
+        }
+      }
       const abbrBase =
         name
           .split(/\s+/)
@@ -709,10 +717,18 @@ export async function ensureErpnextCompanyForOwner(ownerUserId, { displayName } 
   }
 
   const companyId = String(remoteId || localCompanyId);
+  const prevBind =
+    profile.erpnext && typeof profile.erpnext.bind === 'object' ? profile.erpnext.bind : {};
   setErpnextBind(owner, {
     company_id: companyId,
     company_name: name,
-    bind: { flolah_owner_user_id: owner, mode, created_at: new Date().toISOString() },
+    bind: {
+      ...prevBind,
+      flolah_owner_user_id: owner,
+      mode,
+      created_at: prevBind.created_at || new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
   });
 
   try {
