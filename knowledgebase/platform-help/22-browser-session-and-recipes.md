@@ -70,3 +70,8 @@ Repeatable on every deploy:
 - Verify: `node deploy/scripts/verify-openclaw-parity.js`
 
 More detail: `knowledgebase/CLIENT-BROWSER-SESSION.md`.
+
+
+## Desktop local worker profile
+
+Connectors **Browser Session package**: headed (BROWSER_HEADLESS=0) Playwright with persistent BROWSER_USER_DATA_DIR=browser-profile. See [BROWSER-SESSION-DESKTOP-LOCAL.md](../BROWSER-SESSION-DESKTOP-LOCAL.md).

@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import { getPublicBaseUrl } from '../config/public-url.js';
 import { buildZipBuffer } from './zip-store.js';
 import { getBundledWindowsNodeFiles, DESKTOP_NODE_VERSION } from './desktop-windows-node-runtime.js';
+import { recordIbkrBridgeToken } from './external-tokens.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const BACKEND_ROOT = join(__dirname, '../..');
@@ -157,6 +158,16 @@ export async function buildLocalIbkrBridgePackageZip({
   const withRuntime = includeRuntime !== false;
   const token = randomBytes(24).toString('hex');
   const tokenPrefix = token.slice(0, 8);
+  let tokenId = null;
+  if (ownerUserId) {
+    const rec = recordIbkrBridgeToken(ownerUserId, token, {
+      name:
+        includeRuntime !== false
+          ? 'Local IBKR bridge package'
+          : 'Local IBKR bridge package (lite)',
+    });
+    tokenId = rec.id;
+  }
 
   const baseUrl = String(baseUrlOverride || getPublicBaseUrl() || '')
     .replace(/\/$/, '')
@@ -252,6 +263,7 @@ export async function buildLocalIbkrBridgePackageZip({
     owner_user_id: ownerUserId || null,
     public_base_url: baseUrl || null,
     token_prefix: tokenPrefix,
+    token_id: tokenId,
     include_runtime: withRuntime,
     bundled_node_version: withRuntime ? DESKTOP_NODE_VERSION : null,
     webhook_url_prefill: baseUrl ? w3Hint : null,
@@ -309,6 +321,7 @@ export async function buildLocalIbkrBridgePackageZip({
       '- Binds 127.0.0.1 only by default (loopback).',
       '- Every route except GET /health requires Authorization: Bearer <LOCAL_BRIDGE_TOKEN>.',
       '- Never commit .env or share the full token. bridge.meta.json stores only token_prefix.',
+      '- Flolah may also require your public IP on Settings → IP Whitelists (IBKR bridge) for WEBHOOK_URL callbacks.',
       '',
       'Used by Monthly Trading W2 (laptop) calling http://127.0.0.1:3010',
       '',
@@ -326,6 +339,7 @@ export async function buildLocalIbkrBridgePackageZip({
     zip,
     filename,
     token_prefix: tokenPrefix,
+    token_id: tokenId,
     include_runtime: withRuntime,
   };
 }

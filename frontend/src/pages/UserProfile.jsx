@@ -231,7 +231,7 @@ function UserProfilePanel() {
       if (form.clear_llm_api_key) {
         body.clear_llm_api_key = true;
       }
-      // llm_api_key no longer accepted — use Run & Operate → API Keys (Platform_BYOK)
+      // llm_api_key no longer accepted — use Settings → API Keys (Platform_BYOK)
       const data = await api.authUpdateProfile(body);
       if (
         oc.clear_runtime_token ||
@@ -712,7 +712,7 @@ function UserProfilePanel() {
         <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '0.5rem 0' }} />
         <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--muted)' }}>
           LLM provider — Platform default / free models need no key. OpenAI/OpenRouter require vault key{' '}
-          <code>Platform_BYOK</code> under <Link to="/api-keys">Run & Operate → API Keys</Link>.
+          <code>Platform_BYOK</code> under <Link to="/api-keys">Settings → API Keys</Link>.
           Video (<code>generate_video</code>) on a non-platform provider also needs{' '}
           <code>Replicate_BYOK</code>. Brave Search (<code>brave_web_search</code>) on a non-platform
           provider needs <code>BRAVE_SEARCH_BYOK</code>; Platform default uses ops{' '}

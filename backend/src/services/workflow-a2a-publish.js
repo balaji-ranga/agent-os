@@ -28,6 +28,7 @@ import {
   watchA2ATaskInBackground,
 } from './workflow-a2a-async.js';
 import { checkA2AClientIp, normalizeA2AVisibility } from './workflow-a2a-access.js';
+import { removeA2AScopedWhitelistEntries } from './owner-ip-whitelist.js';
 import { deleteOrgAgentMembersByRef } from './org-agent-members.js';
 
 /** In-memory cache for quick sync lookups; durable source of truth is workflow_a2a_tasks. */
@@ -590,6 +591,12 @@ export function unpublishWorkflowA2A(ownerUserId, workflowId, actor = null, opts
   if (!row) throw new Error('No A2A publication found for this workflow');
 
   revokeAccessTokens(db, row.id);
+  try {
+    removeA2AScopedWhitelistEntries(row.id, row.owner_user_id);
+  } catch (_) {}
+  try {
+    db.prepare(`DELETE FROM workflow_a2a_ip_whitelist WHERE publish_id = ?`).run(row.id);
+  } catch (_) {}
   db.prepare(
     `UPDATE workflow_a2a_publications SET status = 'unpublished', updated_at = datetime('now') WHERE id = ?`
   ).run(row.id);
@@ -625,7 +632,14 @@ export function unpublishA2APublicationById(ownerUserId, publishId, actor = null
   if (!row) throw new Error('A2A publication not found or not owned by this user');
 
   revokeAccessTokens(db, row.id);
-  db.prepare(`DELETE FROM workflow_a2a_ip_whitelist WHERE publish_id = ?`).run(row.id);
+  try {
+    removeA2AScopedWhitelistEntries(row.id, row.owner_user_id);
+  } catch (_) {
+    /* best-effort cleanup of central A2A scoped IPs */
+  }
+  try {
+    db.prepare(`DELETE FROM workflow_a2a_ip_whitelist WHERE publish_id = ?`).run(row.id);
+  } catch (_) {}
   db.prepare(
     `UPDATE workflow_a2a_publications
      SET status = 'unpublished', updated_at = datetime('now')

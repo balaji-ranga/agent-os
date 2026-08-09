@@ -1,0 +1,6 @@
+node_modules/
+browser-profile/*
+!browser-profile/.gitkeep
+.env
+logs/
+data/

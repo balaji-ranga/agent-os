@@ -191,6 +191,13 @@ export default function DesktopPackageModal({ workflowId, workflowName, open, on
 
           <h3 style={{ margin: '0.5rem 0 0', fontSize: '0.95rem' }}>IP whitelist</h3>
           <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--muted)' }}>
+            Optional. Empty = any IP with a valid desktop token. Same rules appear under{' '}
+            <a href="/settings/ip-whitelists" target="_blank" rel="noreferrer">
+              Settings → IP Whitelists
+            </a>{' '}
+            (Workflow download flag).
+          </p>
+          <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--muted)' }}>
             Empty = any client IP allowed. Add IPs/CIDRs to restrict desktop API calls.
           </p>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>

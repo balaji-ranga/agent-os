@@ -251,7 +251,7 @@ Do these once before the first paper day.
 1. Flolah **CEO login** (your tenant; all IBKR rows are owner-scoped).
 2. Interactive Brokers **paper** account + **IB Gateway** (or TWS) on the **trading laptop**.
 3. Gateway API on paper port **4002** by default; enable API and trusted loopback if prompted.
-4. Flolah vault (**Management → API Keys**):
+4. Flolah vault (**Settings → API Keys**):
    - **`openAI_key`** — W1 Maker (OpenAI GPT)
    - **`deepseek_key`** — W1 Checker (DeepSeek cloud)
    - Optional **`BRAVE_SEARCH_BYOK`** — Maker/Checker web search MCP
@@ -395,7 +395,7 @@ More: [DEPLOY-CENTOS-PODMAN.md](../DEPLOY-CENTOS-PODMAN.md), [IBKR-MONTHLY-PHASE
 ## Chat / certify
 
 - Chat phrase (W1): `run monthly trading review`
-- Publish W1 only after vault keys **openAI_key** (Maker) + **deepseek_key** (Checker) are set under Management → API Keys
+- Publish W1 only after vault keys **openAI_key** (Maker) + **deepseek_key** (Checker) are set under Settings → API Keys
 - Optional: vault **BRAVE_SEARCH_BYOK** for Maker/Checker Brave Search MCP
 - Phase 4 runbook: [IBKR-MONTHLY-PHASE4.md](../IBKR-MONTHLY-PHASE4.md)
 - W2 is **not** certified on cloud certify scripts — use laptop package + paper Gateway

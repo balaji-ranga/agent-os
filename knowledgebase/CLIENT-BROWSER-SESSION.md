@@ -13,8 +13,13 @@ The OpenClaw Browser Relay pairing WSS (`/browser/extension#<token>`) is **one p
 - A second CEO who marks ready gets **409** until the holder **Opts out** or clears ready.
 - Status includes `chrome_lease: { holder_ceo_user_id, holder_label, is_holder, note }`.
 
-True concurrent Client Chrome for multiple users is planned as **Desktop Local Mode** (per-CEO long-lived local browser worker)—not shared OpenClaw WSS session codes. See **[BROWSER-SESSION-DESKTOP-LOCAL.md](./BROWSER-SESSION-DESKTOP-LOCAL.md)** (single full release; not multi-tenant shared relay).
 
+
+## Desktop Local worker (multi-user Client Chrome)
+
+True concurrent Client Chrome for multiple users uses **Desktop Local Mode** (per-CEO long-lived local browser worker) — not shared OpenClaw WSS session codes. See **[BROWSER-SESSION-DESKTOP-LOCAL.md](./BROWSER-SESSION-DESKTOP-LOCAL.md)**.
+
+Worker defaults on the CEO PC: headed (BROWSER_HEADLESS=0) and persistent Playwright profile (BROWSER_USER_DATA_DIR=browser-profile) so site logins survive restarts. Package download lives under **Connectors**.
 ## Content tools
 
 | Tool | Purpose |

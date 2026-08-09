@@ -117,6 +117,19 @@ router.post('/local-bridge-webhook', async (req, res) => {
       });
     }
     const owner = check.ownerUserId;
+    const { clientIpFromRequest } = await import('../services/ip-match.js');
+    const { assertFeatureIpAllowed, IP_FEATURES } = await import('../services/owner-ip-whitelist.js');
+    const clientIp = clientIpFromRequest(req);
+    const ipCheck = assertFeatureIpAllowed(owner, IP_FEATURES.IBKR_BRIDGE, clientIp);
+    if (!ipCheck.ok) {
+      console.warn(
+        '[ibkr-trading] local-bridge-webhook IP denied owner=%s ip=%s reason=%s',
+        owner,
+        clientIp || '?',
+        ipCheck.reason
+      );
+      return res.status(403).json({ ok: false, error: ipCheck.reason || 'Client IP not allowed' });
+    }
     const body = req.body || {};
     const eventType = String(body.event || body.event_type || body.type || '')
       .trim()

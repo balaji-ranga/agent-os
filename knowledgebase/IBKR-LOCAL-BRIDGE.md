@@ -45,6 +45,17 @@ flowchart LR
 - Bearer: `LOCAL_BRIDGE_TOKEN` on every route except `GET /health`.
 - Reuses `IBKR_*` from `backend/.env`.
 
+### Cloud IP whitelist (optional)
+
+When the bridge POSTs to Flolah (`WEBHOOK_URL` → `/api/ibkr-trading/local-bridge-webhook`), the VPS may enforce an **owner IP whitelist** in addition to `WEBHOOK_SECRET`:
+
+| Setting | Effect |
+|---------|--------|
+| **No IBKR-bridge rules** | Any client IP accepted (secret still required) |
+| One or more rules | Client IP (or IPv4 CIDR) must match |
+
+Manage under **Settings → IP Whitelists** (enable **IBKR bridge**), or the same central API. Requires correct reverse-proxy client IP (see `deploy/docker-compose.vps-client-ip.yml`).
+
 ## modify-stop limitation
 
 Interactive Brokers does not reliably support in-place amendment of child STP `auxPrice` for all order states. The bridge **cancels matching STP sells** for the symbol (or a given `order_id`) and **places a new STP**. Take-profit LMT orders are left alone when possible. Callers should pass `qty` and `stop_price`.

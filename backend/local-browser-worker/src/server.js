@@ -1,16 +1,17 @@
 /**
  * Flolah Local Browser Worker - Windows laptop process.
- * Loopback HTTP + outbound job pull to Flolah. Playwright Chromium.
+ * Persistent Chromium profile (cookies/login survive restarts). Headed by default.
+ * Loopback HTTP + outbound job pull to Flolah.
  */
 import { createServer } from 'http';
-import { readFileSync, existsSync } from 'fs';
-import { dirname, join } from 'path';
+import { readFileSync, existsSync, mkdirSync } from 'fs';
+import { dirname, join, isAbsolute } from 'path';
 import { fileURLToPath } from 'url';
 import { chromium } from 'playwright';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
-const WORKER_VERSION = '1.0.0';
+const WORKER_VERSION = '1.1.0';
 
 function loadEnvFile() {
   const envPath = join(ROOT, '.env');
@@ -32,8 +33,11 @@ const TOKEN = String(process.env.BROWSER_WORKER_TOKEN || '').trim();
 const BASE_URL = String(process.env.AGENT_OS_BASE_URL || '').replace(/\/$/, '').replace(/\/api$/i, '');
 const LOOPBACK_HOST = String(process.env.LOOPBACK_HOST || '127.0.0.1').trim();
 const LOOPBACK_PORT = Number(process.env.LOOPBACK_PORT || 3020);
-const HEADLESS = !['0', 'false', 'no'].includes(String(process.env.BROWSER_HEADLESS ?? '0').toLowerCase());
+// Default headed (0). Only force headless when explicitly 1/true/yes.
+const HEADLESS = ['1', 'true', 'yes'].includes(String(process.env.BROWSER_HEADLESS ?? '0').toLowerCase());
 const HEARTBEAT_MS = Math.max(10000, Number(process.env.HEARTBEAT_MS || 30000));
+const rawUserData = String(process.env.BROWSER_USER_DATA_DIR || 'browser-profile').trim() || 'browser-profile';
+const USER_DATA_DIR = isAbsolute(rawUserData) ? rawUserData : join(ROOT, rawUserData);
 
 if (!TOKEN || !TOKEN.startsWith('bwk_')) {
   console.error('[browser-worker] BROWSER_WORKER_TOKEN missing or invalid');
@@ -44,23 +48,59 @@ if (!BASE_URL) {
   process.exit(1);
 }
 
-let browser = null;
+mkdirSync(USER_DATA_DIR, { recursive: true });
+
+/** @type {import('playwright').BrowserContext | null} */
+let context = null;
+/** @type {import('playwright').Page | null} */
 let page = null;
+
+function profileHasLocalState() {
+  return (
+    existsSync(join(USER_DATA_DIR, 'Default')) ||
+    existsSync(join(USER_DATA_DIR, 'Local State')) ||
+    existsSync(join(USER_DATA_DIR, 'Cookies'))
+  );
+}
 
 async function ensureBrowser() {
   if (page && !page.isClosed()) return page;
-  if (browser) { try { await browser.close(); } catch { /* ignore */ } }
-  browser = await chromium.launch({ headless: HEADLESS, args: ['--disable-dev-shm-usage'] });
-  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
-  page = await context.newPage();
-  console.info('[browser-worker] chromium ready headless=%s', HEADLESS);
+  if (context) {
+    try {
+      await context.close();
+    } catch {
+      /* ignore */
+    }
+    context = null;
+    page = null;
+  }
+  console.info(
+    '[browser-worker] launching persistent chromium headless=%s profile=%s existing=%s',
+    HEADLESS,
+    USER_DATA_DIR,
+    profileHasLocalState()
+  );
+  context = await chromium.launchPersistentContext(USER_DATA_DIR, {
+    headless: HEADLESS,
+    viewport: { width: 1280, height: 900 },
+    args: ['--disable-dev-shm-usage'],
+    acceptDownloads: true,
+  });
+  const pages = context.pages();
+  page = pages.length ? pages[0] : await context.newPage();
+  context.on('page', (p) => {
+    page = p;
+  });
+  console.info('[browser-worker] chromium ready headless=%s persistent=true', HEADLESS);
   return page;
 }
 
 function timingSafeEqualStr(a, b) {
-  const x = String(a || ''); const y = String(b || '');
+  const x = String(a || '');
+  const y = String(b || '');
   if (x.length !== y.length) return false;
-  let d = 0; for (let i = 0; i < x.length; i++) d |= x.charCodeAt(i) ^ y.charCodeAt(i);
+  let d = 0;
+  for (let i = 0; i < x.length; i++) d |= x.charCodeAt(i) ^ y.charCodeAt(i);
   return d === 0;
 }
 function checkLocalAuth(req) {
@@ -86,11 +126,17 @@ function formatA11y(node, depth) {
 async function accessibilitySnapshot(p, limit = 12000) {
   let snap = '';
   try {
-    snap = formatA11y(await p.accessibility.snapshot({ interestingOnly: true }), 0).join("\n");
+    snap = formatA11y(await p.accessibility.snapshot({ interestingOnly: true }), 0).join('\n');
   } catch (e) {
     snap = '(a11y failed: ' + e.message + ')';
   }
-  const body = 'URL: ' + p.url() + '\nTitle: ' + (await p.title().catch(() => '')) + '\n\n' + snap;
+  const body =
+    'URL: ' +
+    p.url() +
+    '\nTitle: ' +
+    (await p.title().catch(() => '')) +
+    '\n\n' +
+    snap;
   return body.slice(0, Math.max(1000, Number(limit) || 12000));
 }
 async function clickByTextOrSelector(p, label) {
@@ -99,11 +145,15 @@ async function clickByTextOrSelector(p, label) {
   try {
     await p.getByRole('button', { name: new RegExp(escapeRe(target), 'i') }).first().click({ timeout: 8000 });
     return;
-  } catch { /* next */ }
+  } catch {
+    /* next */
+  }
   try {
     await p.getByText(new RegExp(escapeRe(target), 'i')).first().click({ timeout: 8000 });
     return;
-  } catch { /* next */ }
+  } catch {
+    /* next */
+  }
   if (target.startsWith('#') || target.startsWith('.') || target.startsWith('[')) {
     await p.click(target, { timeout: 10000 });
     return;
@@ -115,7 +165,16 @@ async function runAction(action, args = {}) {
   const act = String(action || '').toLowerCase();
   const p = await ensureBrowser();
   if (act === 'status' || act === 'browser_status') {
-    return { ok: true, worker_version: WORKER_VERSION, url: p.url(), headless: HEADLESS, driver: "playwright" };
+    return {
+      ok: true,
+      worker_version: WORKER_VERSION,
+      url: p.url(),
+      headless: HEADLESS,
+      driver: 'playwright',
+      persistent_profile: true,
+      user_data_dir: USER_DATA_DIR,
+      profile_has_data: profileHasLocalState(),
+    };
   }
   if (act === 'open' || (act === 'navigate' && args.url)) {
     const url = String(args.url || args.targetUrl || '').trim();
@@ -128,10 +187,10 @@ async function runAction(action, args = {}) {
     return { ok: true, text, snapshot: text };
   }
   if (act === 'act' || act === 'click' || act === 'type' || act === 'press' || act === 'scroll') {
-    const req = args.request && typeof args.request === "object" ? args.request : args;
+    const req = args.request && typeof args.request === 'object' ? args.request : args;
     const kind = String(req.kind || act || 'click').toLowerCase();
     const ref = String(req.ref || args.ref || '').trim();
-    const text = req.text != null ? String(req.text) : (args.text != null ? String(args.text) : '');
+    const text = req.text != null ? String(req.text) : args.text != null ? String(args.text) : '';
     if (kind === 'click' || act === 'click') {
       if (ref) await clickByTextOrSelector(p, ref);
       else if (text) await clickByTextOrSelector(p, text);
@@ -171,19 +230,36 @@ async function runAction(action, args = {}) {
   throw new Error('unsupported action: ' + act);
 }
 
-async function cloudFetch(path, { method = "GET", body = null } = {}) {
+function workerCapabilities() {
+  return {
+    actions: ['open', 'snapshot', 'act', 'status', 'evaluate'],
+    persistent_profile: true,
+    headless: HEADLESS,
+    user_data_dir_configured: true,
+  };
+}
+
+async function cloudFetch(path, { method = 'GET', body = null } = {}) {
   const url = BASE_URL + '/api/browser-worker/v1' + path;
   const res = await fetch(url, {
     method,
-    headers: { Authorization: 'Bearer ' + TOKEN, 'Content-Type': 'application/json', Accept: 'application/json' },
+    headers: {
+      Authorization: 'Bearer ' + TOKEN,
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
     body: body != null ? JSON.stringify(body) : undefined,
     signal: AbortSignal.timeout(60000),
   });
   const text = await res.text();
   let json = null;
-  try { json = JSON.parse(text); } catch { json = { raw: text }; }
+  try {
+    json = JSON.parse(text);
+  } catch {
+    json = { raw: text };
+  }
   if (!res.ok) {
-    const err = new Error(json?.error || ('HTTP ' + res.status));
+    const err = new Error(json?.error || 'HTTP ' + res.status);
     err.status = res.status;
     throw err;
   }
@@ -192,11 +268,11 @@ async function cloudFetch(path, { method = "GET", body = null } = {}) {
 
 async function registerAndHeartbeat() {
   await cloudFetch('/register', {
-    method: "POST",
+    method: 'POST',
     body: {
       worker_version: WORKER_VERSION,
-      driver_mode: 'playwright',
-      capabilities: { actions: ['open', 'snapshot', 'act', 'status', 'evaluate'] },
+      driver_mode: 'playwright_persistent',
+      capabilities: workerCapabilities(),
     },
   });
 }
@@ -207,16 +283,29 @@ async function jobLoop() {
       const pulled = await cloudFetch('/jobs?wait_ms=25000', { method: 'GET' });
       const job = pulled?.job || null;
       if (!job?.id) {
-        await cloudFetch('/heartbeat', { method: 'POST', body: { worker_version: WORKER_VERSION, driver_mode: 'playwright' } }).catch(() => {});
+        await cloudFetch('/heartbeat', {
+          method: 'POST',
+          body: {
+            worker_version: WORKER_VERSION,
+            driver_mode: 'playwright_persistent',
+            capabilities: workerCapabilities(),
+          },
+        }).catch(() => {});
         continue;
       }
       console.info('[browser-worker] job id=%s action=%s', job.id, job.action);
       try {
         const result = await runAction(job.action, job.args || {});
-        await cloudFetch('/jobs/' + encodeURIComponent(job.id) + '/result', { method: 'POST', body: { ok: true, result } });
+        await cloudFetch('/jobs/' + encodeURIComponent(job.id) + '/result', {
+          method: 'POST',
+          body: { ok: true, result },
+        });
       } catch (e) {
         console.warn('[browser-worker] job fail id=%s: %s', job.id, e.message);
-        await cloudFetch('/jobs/' + encodeURIComponent(job.id) + '/result', { method: 'POST', body: { ok: false, error: e.message || String(e) } });
+        await cloudFetch('/jobs/' + encodeURIComponent(job.id) + '/result', {
+          method: 'POST',
+          body: { ok: false, error: e.message || String(e) },
+        });
       }
     } catch (e) {
       console.warn('[browser-worker] job loop error: %s', e.message || e);
@@ -237,7 +326,16 @@ function startLoopbackServer() {
       const u = new URL(req.url || '/', 'http://' + LOOPBACK_HOST);
       if (req.method === 'GET' && u.pathname === '/health') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true, worker_version: WORKER_VERSION, loopback: true }));
+        res.end(
+          JSON.stringify({
+            ok: true,
+            worker_version: WORKER_VERSION,
+            loopback: true,
+            headless: HEADLESS,
+            persistent_profile: true,
+            profile_has_data: profileHasLocalState(),
+          })
+        );
         return;
       }
       if (req.method === 'POST' && u.pathname.startsWith('/v1/')) {
@@ -247,7 +345,9 @@ function startLoopbackServer() {
         let args = {};
         const raw = Buffer.concat(bufs).toString('utf8');
         if (raw.trim()) {
-          try { args = JSON.parse(raw); } catch {
+          try {
+            args = JSON.parse(raw);
+          } catch {
             res.writeHead(400, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'invalid JSON body' }));
             return;
@@ -271,7 +371,13 @@ function startLoopbackServer() {
 }
 
 async function main() {
-  console.info('[browser-worker] starting version=%s base=%s', WORKER_VERSION, BASE_URL);
+  console.info(
+    '[browser-worker] starting version=%s base=%s headless=%s profile=%s',
+    WORKER_VERSION,
+    BASE_URL,
+    HEADLESS,
+    USER_DATA_DIR
+  );
   await ensureBrowser();
   try {
     await registerAndHeartbeat();
@@ -282,8 +388,14 @@ async function main() {
   }
   startLoopbackServer();
   setInterval(() => {
-    cloudFetch('/heartbeat', { method: 'POST', body: { worker_version: WORKER_VERSION, driver_mode: 'playwright' } })
-      .catch((e) => console.warn('[browser-worker] heartbeat failed: %s', e.message || e));
+    cloudFetch('/heartbeat', {
+      method: 'POST',
+      body: {
+        worker_version: WORKER_VERSION,
+        driver_mode: 'playwright_persistent',
+        capabilities: workerCapabilities(),
+      },
+    }).catch((e) => console.warn('[browser-worker] heartbeat failed: %s', e.message || e));
   }, HEARTBEAT_MS);
   jobLoop().catch((e) => {
     console.error('[browser-worker] fatal: %s', e.message || e);

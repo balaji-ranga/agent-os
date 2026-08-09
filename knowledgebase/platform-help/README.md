@@ -38,6 +38,8 @@
 | [30-content-creator-ops.md](./30-content-creator-ops.md) | **Content creator ops** — Facebook Page via Meta Graph MCP, publish social, comment ingest/triage, Ops Reporter **bell** (not email), Company Operate |
 | [31-mcp-connectors-oauth.md](./31-mcp-connectors-oauth.md) | **Connectors → MCPs** OAuth: Facebook / Meta Graph, CEO App ID override, other OAuth MCPs; OpenConnector config → **16** + OPENCONNECTOR-WEBHOOKS |
 | [32-business-core-crm-erp.md](./32-business-core-crm-erp.md) | **Business Core** — optional Twenty CRM / ERPNext ERP, prefab **Maker/Checker** AI employees, platform MCPs `mcp-flolah-crm` / `mcp-flolah-erp`, `/work` + embed menus |
+| [33-ip-whitelists.md](./33-ip-whitelists.md) | **IP Whitelists** — Settings central firewall for IBKR bridge, Workflow download, A2A, Browser Session worker (shared store with federated UIs) |
+| [34-tokens-management.md](./34-tokens-management.md) | **Tokens management** — list/revoke external package tokens (desktop, IBKR bridge, Browser Session) |
 
 **Video Tours (UI):** User menu → **Help → Video Tours** (/video-tours) — playlist of short CEO tours (script/captions now; mp4 when exported). Not ingested as RAG docs.
 

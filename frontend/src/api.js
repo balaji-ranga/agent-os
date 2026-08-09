@@ -1049,6 +1049,28 @@ export const api = {
   browserWorkerIpWhitelistRemove: (entryId) =>
     del(`/integrations/browser-worker/ip-whitelist/${encodeURIComponent(entryId)}`),
 
+  /** Central Settings → IP Whitelists (owner-scoped; shared with federated UIs). */
+  ipWhitelistsList: (params = {}) => {
+    const sp = new URLSearchParams();
+    if (params.feature) sp.set('feature', params.feature);
+    if (params.definition_id) sp.set('definition_id', params.definition_id);
+    if (params.publish_id) sp.set('publish_id', params.publish_id);
+    const q = sp.toString();
+    return get(q ? `/settings/ip-whitelists?${q}` : '/settings/ip-whitelists');
+  },
+  ipWhitelistsAdd: (body) => post('/settings/ip-whitelists', body),
+  ipWhitelistsUpdate: (entryId, body) =>
+    put(`/settings/ip-whitelists/${encodeURIComponent(entryId)}`, body),
+  ipWhitelistsRemove: (entryId) =>
+    del(`/settings/ip-whitelists/${encodeURIComponent(entryId)}`),
+
+  /** Settings → Tokens management (desktop / IBKR bridge / browser session package tokens). */
+  externalTokensList: () => get('/settings/external-tokens'),
+  externalTokensRevoke: (kind, id) =>
+    del(
+      `/settings/external-tokens/${encodeURIComponent(kind)}/${encodeURIComponent(id)}`
+    ),
+
   customScriptsList: (opts = {}) => {
     const q = opts.forWorkflow ? '?for_workflow=1' : '';
     return get(`/integrations/custom-scripts${q}`);

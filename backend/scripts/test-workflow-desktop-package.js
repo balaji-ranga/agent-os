@@ -136,7 +136,10 @@ try {
   db.prepare(`DELETE FROM agent_workflow_run_steps WHERE run_id IN (SELECT id FROM agent_workflow_runs WHERE definition_id = ?)`).run(DEF_ID);
   db.prepare(`DELETE FROM agent_workflow_runs WHERE definition_id = ?`).run(DEF_ID);
   db.prepare(`DELETE FROM workflow_desktop_tokens WHERE definition_id = ?`).run(DEF_ID);
-  db.prepare(`DELETE FROM workflow_desktop_ip_whitelist WHERE definition_id = ?`).run(DEF_ID);
+  db.prepare(`DELETE FROM owner_ip_whitelists WHERE definition_id = ?`).run(DEF_ID);
+  try {
+    db.prepare(`DELETE FROM workflow_desktop_ip_whitelist WHERE definition_id = ?`).run(DEF_ID);
+  } catch (_) {}
   db.prepare(`DELETE FROM agent_workflow_audit WHERE definition_id = ?`).run(DEF_ID);
   db.prepare(`DELETE FROM agent_workflow_definitions WHERE id = ?`).run(DEF_ID);
 } catch (e) {

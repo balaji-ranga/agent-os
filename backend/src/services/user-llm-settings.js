@@ -517,11 +517,11 @@ export function updateUserLlmSettings(
       ? normalizeLlmProvider(llm_provider)
       : normalizeLlmProvider(row.llm_provider || 'platform_decided');
 
-  // API keys are managed only via Management → API Keys (Platform_BYOK). Ignore pasted keys.
+  // API keys are managed only via Settings → API Keys (Platform_BYOK). Ignore pasted keys.
   if (llm_api_key !== undefined && llm_api_key !== null && String(llm_api_key).trim()) {
     throw Object.assign(
       new Error(
-        `Do not send llm_api_key here. Create "${PLATFORM_BYOK_KEY_NAME}" under Management → API Keys, then select ${provider}.`
+        `Do not send llm_api_key here. Create "${PLATFORM_BYOK_KEY_NAME}" under Settings → API Keys, then select ${provider}.`
       ),
       { status: 400 }
     );

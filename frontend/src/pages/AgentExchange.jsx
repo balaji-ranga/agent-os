@@ -371,7 +371,9 @@ function AgentAccessControls({ agent, open, onClose, onChanged }) {
             ) : (
               <p className="a2a-access-help">
                 New agents deny all by default. This policy protects the card, invoke, OAuth token
-                and enquiry endpoints.
+                and enquiry endpoints. Whitelist IPs are stored centrally (
+                <Link to="/settings/ip-whitelists">Settings → IP Whitelists</Link>) with the A2A
+                flag.
               </p>
             )}
             <div className="a2a-access-options">

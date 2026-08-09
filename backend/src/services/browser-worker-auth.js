@@ -1,13 +1,18 @@
 /**
  * Local browser worker auth: hashed bearer tokens + optional IP whitelist (owner-scoped).
  * Empty whitelist = any client IP allowed (token still required). Non-empty = must match.
+ * IP rules live in owner_ip_whitelists (central Settings source of truth).
  */
 import { createHash, randomBytes, randomUUID } from 'crypto';
 import { getDb } from '../db/schema.js';
+import { clientIpFromRequest, ipMatchesCidrOrIp } from './ip-match.js';
 import {
-  clientIpFromRequest,
-  ipMatchesCidrOrIp,
-} from './agent-workflow-desktop-auth.js';
+  assertFeatureIpAllowed,
+  listOwnerIpWhitelists,
+  addOwnerIpWhitelistEntry,
+  removeOwnerIpWhitelistEntry,
+  IP_FEATURES,
+} from './owner-ip-whitelist.js';
 
 export { clientIpFromRequest, ipMatchesCidrOrIp };
 
@@ -27,22 +32,7 @@ export function mintBrowserWorkerTokenPlaintext() {
  * @returns {{ ok: true } | { ok: false, reason: string }}
  */
 export function assertBrowserWorkerIpAllowed(ownerUserId, clientIp) {
-  const rows = db()
-    .prepare(
-      `SELECT cidr_or_ip FROM browser_worker_ip_whitelist WHERE owner_user_id = ?`
-    )
-    .all(ownerUserId);
-  if (!rows.length) return { ok: true };
-  const ip = String(clientIp || '').trim();
-  if (!ip) return { ok: false, reason: 'Client IP could not be determined' };
-  const hit = rows.some((row) => ipMatchesCidrOrIp(ip, row.cidr_or_ip));
-  if (!hit) {
-    return {
-      ok: false,
-      reason: `Client IP ${ip} is not on the browser worker whitelist`,
-    };
-  }
-  return { ok: true };
+  return assertFeatureIpAllowed(ownerUserId, IP_FEATURES.BROWSER_WORKER, clientIp);
 }
 
 export function createBrowserWorkerToken(ownerUserId, { name = '', expiresAt = null } = {}) {
@@ -135,37 +125,39 @@ export function authenticateBrowserWorkerToken(plaintext, clientIp) {
 }
 
 export function listBrowserWorkerIpWhitelist(ownerUserId) {
-  return db()
-    .prepare(
-      `SELECT id, owner_user_id, cidr_or_ip, label, created_at
-       FROM browser_worker_ip_whitelist
-       WHERE owner_user_id = ?
-       ORDER BY created_at DESC`
-    )
-    .all(ownerUserId);
+  return listOwnerIpWhitelists(ownerUserId, { feature: IP_FEATURES.BROWSER_WORKER }).map((e) => ({
+    id: e.id,
+    owner_user_id: e.owner_user_id,
+    cidr_or_ip: e.cidr_or_ip,
+    label: e.label,
+    created_at: e.created_at,
+    apply_browser_worker: true,
+    apply_ibkr_bridge: e.apply_ibkr_bridge,
+    apply_workflow_desktop: e.apply_workflow_desktop,
+    apply_a2a: e.apply_a2a,
+  }));
 }
 
 export function addBrowserWorkerIpWhitelistEntry(ownerUserId, { cidrOrIp, label = '' } = {}) {
-  const rule = String(cidrOrIp || '').trim();
-  if (!rule) throw new Error('cidr_or_ip is required');
-  const id = randomUUID();
-  db()
-    .prepare(
-      `INSERT INTO browser_worker_ip_whitelist (id, owner_user_id, cidr_or_ip, label)
-       VALUES (?, ?, ?, ?)`
-    )
-    .run(id, ownerUserId, rule, String(label || '').trim());
+  const entry = addOwnerIpWhitelistEntry(ownerUserId, {
+    cidr_or_ip: cidrOrIp,
+    label,
+    apply_browser_worker: true,
+  });
   console.info(
     '[browser-worker-auth] ip whitelist add owner=%s rule=%s',
     ownerUserId,
-    rule
+    entry.cidr_or_ip
   );
-  return db().prepare(`SELECT * FROM browser_worker_ip_whitelist WHERE id = ?`).get(id);
+  return {
+    id: entry.id,
+    owner_user_id: entry.owner_user_id,
+    cidr_or_ip: entry.cidr_or_ip,
+    label: entry.label,
+    created_at: entry.created_at,
+  };
 }
 
 export function removeBrowserWorkerIpWhitelistEntry(entryId, ownerUserId) {
-  const r = db()
-    .prepare(`DELETE FROM browser_worker_ip_whitelist WHERE id = ? AND owner_user_id = ?`)
-    .run(entryId, ownerUserId);
-  return r.changes > 0;
+  return removeOwnerIpWhitelistEntry(entryId, ownerUserId);
 }

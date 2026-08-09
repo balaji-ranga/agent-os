@@ -8,6 +8,9 @@ export const CEO_NAV_ALWAYS = new Set([
   'profile',
   'nav-menus',
   'workspace-designer',
+  'ip-whitelists',
+  'tokens-management',
+  'api-keys',
 ]);
 
 /** Top-level + section items — id is stable for hide prefs. */
@@ -32,7 +35,6 @@ export function buildCeoNavCatalog({ showCrm = false, showErp = false } = {}) {
     { id: 'broadcast', label: 'Broadcast', to: '/broadcast', group: 'Run & Operate' },
     { id: 'master-data', label: 'Knowledge', to: '/master-data', group: 'Run & Operate' },
     { id: 'content-explorer', label: 'Content Explorer', to: '/content-explorer', group: 'Run & Operate' },
-    { id: 'api-keys', label: 'API Keys', to: '/api-keys', group: 'Run & Operate' },
     { id: 'policies', label: 'Policies', to: '/policies', group: 'Run & Operate' },
     { id: 'ai-snipper', label: 'AI Snipper', to: '/ai-snipper', group: 'Run & Operate' },
     { id: 'efficiency', label: 'Efficiency View', to: '/efficiency', group: 'Run & Operate' }
@@ -64,6 +66,21 @@ export function buildCeoNavCatalog({ showCrm = false, showErp = false } = {}) {
       group: 'Settings',
     },
     { id: 'nav-menus', label: 'Menu visibility', to: '/nav-menus', always: true, group: 'Settings' },
+    {
+      id: 'ip-whitelists',
+      label: 'IP Whitelists',
+      to: '/settings/ip-whitelists',
+      always: true,
+      group: 'Settings',
+    },
+    {
+      id: 'tokens-management',
+      label: 'Tokens management',
+      to: '/settings/tokens',
+      always: true,
+      group: 'Settings',
+    },
+    { id: 'api-keys', label: 'API Keys', to: '/api-keys', always: true, group: 'Settings' },
   ];
   return [...top, ...run, ...prebuilt, ...tools, ...settings];
 }

@@ -1,5 +1,5 @@
 /**
- * Per-CEO API key vault (Management → API Keys).
+ * Per-CEO API key vault (Settings → API Keys).
  * Optional passphrase encrypts the secret; passphrase itself is wrapped with USER_API_KEYS_KEK.
  */
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync, createHash } from 'crypto';
@@ -299,7 +299,7 @@ export function resolveUserApiKey(ownerUserId, keyName) {
     throw Object.assign(
       new Error(
         row
-          ? `API key "${keyName}" is not set. Edit it under Management → API Keys and paste your secret.`
+          ? `API key "${keyName}" is not set. Edit it under Settings → API Keys and paste your secret.`
           : `API key "${keyName}" not found for this user`
       ),
       { status: 404, code: row ? 'api_key_unset' : 'api_key_missing' }
@@ -310,7 +310,7 @@ export function resolveUserApiKey(ownerUserId, keyName) {
     if (!value || isUnsetApiKeySecret(value)) {
       throw Object.assign(
         new Error(
-          `API key "${keyName}" is not set. Edit it under Management → API Keys and paste your secret.`
+          `API key "${keyName}" is not set. Edit it under Settings → API Keys and paste your secret.`
         ),
         { status: 404, code: 'api_key_unset' }
       );
@@ -677,8 +677,8 @@ export function assertPlatformByokPresent(ownerUserId, provider) {
     throw Object.assign(
       new Error(
         row
-          ? `Set API key "${PLATFORM_BYOK_KEY_NAME}" under Management → API Keys (it is still unset) before using ${p}. Or switch LLM to Platform default / free models.`
-          : `Create API key "${PLATFORM_BYOK_KEY_NAME}" under Management → API Keys before using ${p}. Or switch LLM to Platform default / free models.`
+          ? `Set API key "${PLATFORM_BYOK_KEY_NAME}" under Settings → API Keys (it is still unset) before using ${p}. Or switch LLM to Platform default / free models.`
+          : `Create API key "${PLATFORM_BYOK_KEY_NAME}" under Settings → API Keys before using ${p}. Or switch LLM to Platform default / free models.`
       ),
       { status: 400, code: 'platform_byok_required' }
     );

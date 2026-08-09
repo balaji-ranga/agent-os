@@ -13,7 +13,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const BACKEND_ROOT = join(__dirname, '../..');
 const PACKAGE_ROOT = join(BACKEND_ROOT, 'local-browser-worker');
 
-const SKIP_DIR_NAMES = new Set(['node_modules', 'data', 'logs', '.git']);
+// browser-profile = local Chrome user-data; never ship profile contents in zip.
+const SKIP_DIR_NAMES = new Set(['node_modules', 'data', 'logs', '.git', 'browser-profile']);
 const SKIP_FILE_NAMES = new Set(['.env', 'package-lock.json']);
 
 function walkFiles(dir, base = dir) {
@@ -73,15 +74,24 @@ export async function buildLocalBrowserWorkerPackageZip({
     baseUrl ? `AGENT_OS_BASE_URL=${baseUrl}` : 'AGENT_OS_BASE_URL=',
     'LOOPBACK_HOST=127.0.0.1',
     'LOOPBACK_PORT=3020',
+    // Headed by default so logins / 2FA work; set 1 only for intentional headless.
     'BROWSER_HEADLESS=0',
+    // Playwright persistent Chromium profile (cookies/logins survive restarts).
+    'BROWSER_USER_DATA_DIR=browser-profile',
     'HEARTBEAT_MS=30000',
     '',
   ].join('\n');
   files.push({ name: '.env', content: envContent, compress: true });
 
+  files.push({
+    name: 'browser-profile/.gitkeep',
+    content: '',
+    compress: true,
+  });
+
   const meta = {
     format: 'agent-os-local-browser-worker',
-    version: 1,
+    version: 1.1,
     exported_at: new Date().toISOString(),
     owner_user_id: ownerUserId,
     public_base_url: baseUrl || null,
@@ -91,6 +101,9 @@ export async function buildLocalBrowserWorkerPackageZip({
     bundled_node_version: withRuntime ? DESKTOP_NODE_VERSION : null,
     loopback_port: 3020,
     api_base: baseUrl ? `${baseUrl}/api/browser-worker/v1` : null,
+    headless_default: false,
+    persistent_profile: true,
+    user_data_dir: 'browser-profile',
   };
   files.push({
     name: 'worker.meta.json',
@@ -103,7 +116,14 @@ export async function buildLocalBrowserWorkerPackageZip({
     '=====================================',
     '',
     'This package is bound to YOUR Flolah account only. The BROWSER_WORKER_TOKEN in .env',
-    'is minted for you — keep the zip private. Revoke tokens from Connectors if lost.',
+    'is minted for you - keep the zip private. Revoke tokens from Connectors if lost.',
+    '',
+    'Browser profile (cookies / logins)',
+    '---------------------------------',
+    'Uses Playwright launchPersistentContext with BROWSER_USER_DATA_DIR (default browser-profile).',
+    'Logins (e.g. Facebook, LinkedIn) in the headed window persist across worker restarts.',
+    'This is NOT your real Google Chrome profile; log in once inside the worker window.',
+    'Keep BROWSER_HEADLESS=0 for first logins and 2FA. Do not delete browser-profile\\ while logged in.',
     '',
     'Setup',
     '-----',
@@ -112,21 +132,23 @@ export async function buildLocalBrowserWorkerPackageZip({
     '   - BROWSER_WORKER_TOKEN (already set; starts with bwk_)',
     '   - AGENT_OS_BASE_URL (your Flolah origin, no /api suffix)',
     '   - LOOPBACK_PORT=3020',
+    '   - BROWSER_HEADLESS=0  (headed; only set 1 if you intentionally want headless)',
+    '   - BROWSER_USER_DATA_DIR=browser-profile',
     '3. First run installs Playwright Chromium (npm once) if node_modules is missing:',
     '     .\\scripts\\Start-BrowserWorker.ps1',
-    '4. Leave the window open (long-lived). Agents and recipes route here while online.',
+    '4. A Chromium window opens. Log into sites you need; leave the process running.',
     '5. Optional: .\\scripts\\Register-TaskScheduler.ps1  (start at Windows logon)',
     '',
-    'Connectors → Browser Session package',
+    'Connectors -> Browser Session package',
     '------------------------------------',
     '- Download this package (owner-scoped token).',
-    '- Optionally add client IP allowlist (your public IP / CIDR). Empty = any IP + token.',
+    '- Optionally add client IP allowlist (Connectors or Settings -> IP Whitelists). Empty = any IP + token. Same central store.',
     '- Status shows online after register/heartbeat.',
     '- Revoke old tokens from the same panel; re-download mints a new token.',
     '',
     'Loopback for workflows (optional)',
     '--------------------------------',
-    `POST http://127.0.0.1:3020/v1/open  Authorization: Bearer <same token>`,
+    'POST http://127.0.0.1:3020/v1/open  Authorization: Bearer <same token>',
     'Body: {"url":"https://example.com"}',
     'Also: /v1/snapshot, /v1/act, /v1/status  ·  GET /health (no auth)',
     '',
@@ -134,7 +156,8 @@ export async function buildLocalBrowserWorkerPackageZip({
     '--------',
     '- Token is hashed on Flolah; only your owner_user_id receives jobs.',
     '- Loopback binds 127.0.0.1 only by default.',
-    '- IP whitelist applies to worker → cloud calls when configured.',
+    '- IP whitelist applies to worker -> cloud calls when configured.',
+    '- browser-profile holds session cookies - treat like a password store; do not share.',
     '',
     withRuntime
       ? `Bundled Node ${DESKTOP_NODE_VERSION} under runtime\\node.exe`

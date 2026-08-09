@@ -1,13 +1,15 @@
 /**
  * Download Windows zip of local IBKR bridge (CEO / admin).
+ * Owner scope via resolveAuthenticatedCeoUserId (admin must impersonate).
+ * Mint is recorded in ibkr_bridge_tokens for Settings → Tokens management.
  */
 import { Router } from 'express';
-import { requireCeoOrAdmin } from '../middleware/auth.js';
+import { requireAuth, requireCeoOrAdmin, resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
 import { buildLocalIbkrBridgePackageZip } from '../services/local-ibkr-bridge-package.js';
 
 const router = Router();
 
-router.use(requireCeoOrAdmin);
+router.use(requireAuth, requireCeoOrAdmin);
 
 /**
  * GET /package?include_runtime=0|1
@@ -15,7 +17,12 @@ router.use(requireCeoOrAdmin);
  */
 router.get('/package', async (req, res) => {
   try {
-    const ownerUserId = req.authUser?.id;
+    let ownerUserId;
+    try {
+      ownerUserId = resolveAuthenticatedCeoUserId(req, req.query || {});
+    } catch (e) {
+      return res.status(e.status || 403).json({ error: e.message });
+    }
     if (!ownerUserId) {
       return res.status(401).json({ error: 'Authentication required' });
     }
@@ -27,15 +34,24 @@ router.get('/package', async (req, res) => {
     const host = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim();
     const fromReq = host ? `${proto}://${host}` : null;
 
-    const { zip, filename, token_prefix } = await buildLocalIbkrBridgePackageZip({
+    const { zip, filename, token_prefix, token_id } = await buildLocalIbkrBridgePackageZip({
       ownerUserId,
       includeRuntime,
       baseUrlOverride: fromReq,
     });
 
+    if (!token_id) {
+      console.warn(
+        '[ibkr-bridge-package] download completed without inventory id owner=%s prefix=%s',
+        ownerUserId,
+        token_prefix
+      );
+    }
+
     console.info(
-      '[ibkr-bridge-package] download owner=%s token_prefix=%s include_runtime=%s bytes=%s',
+      '[ibkr-bridge-package] download owner=%s token_id=%s token_prefix=%s include_runtime=%s bytes=%s',
       ownerUserId,
+      token_id || '-',
       token_prefix,
       includeRuntime ? '1' : '0',
       zip.length
@@ -44,6 +60,7 @@ router.get('/package', async (req, res) => {
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.setHeader('X-Bridge-Token-Prefix', token_prefix);
+    if (token_id) res.setHeader('X-Bridge-Token-Id', token_id);
     res.setHeader('X-Bridge-Include-Runtime', includeRuntime ? '1' : '0');
     res.send(zip);
   } catch (e) {

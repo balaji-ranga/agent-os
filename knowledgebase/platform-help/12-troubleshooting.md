@@ -41,7 +41,7 @@ Some screens load a **page** of rows (Content Explorer, Master Data documents, A
 1. Workflow must be **Published** before **Download for Windows**.
 2. Re-download after Flolah updates if `Run-Workflow.ps1` errors on special characters (use a fresh zip).
 3. Lite package: Node 18+ must be on PATH. Full package: use `runtime\node.exe` (no install).
-4. `403` / IP whitelist: your public IP must match a rule, or clear whitelist entries.
+4. `403` / IP whitelist: your public IP must match a rule under **Settings → IP Whitelists** (or the federated UI that shares that store), or remove entries so empty optional lists allow any IP again.
 5. `401` invalid/revoked token: re-download a new package or check **Revoke** list in the modal.
 6. Connector / Brain failures are **service-side** (credentials, OpenConnector link) — desktop path reached Flolah; fix the integration, then re-run the PS1.
 7. Full guide: [17-desktop-windows-download.md](./17-desktop-windows-download.md).

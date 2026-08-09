@@ -234,10 +234,10 @@ export async function registerCeoUser({
   }
   const enabledFlag = policy === 'on' ? 1 : 0;
   const provider = normalizeLlmProvider(llm_provider);
-  // BYOK secrets live in Management → API Keys (Platform_BYOK). Never accept pasted keys at register.
+  // BYOK secrets live in Settings → API Keys (Platform_BYOK). Never accept pasted keys at register.
   if (llm_api_key != null && String(llm_api_key).trim()) {
     throw new Error(
-      `Do not send llm_api_key during registration. Choose provider + default model here, then create "${PLATFORM_BYOK_KEY_NAME}" under Management → API Keys after login.`
+      `Do not send llm_api_key during registration. Choose provider + default model here, then create "${PLATFORM_BYOK_KEY_NAME}" under Settings → API Keys after login.`
     );
   }
   // OpenAI/OpenRouter may be selected without a vault key yet — seed slots; key is filled post-login.

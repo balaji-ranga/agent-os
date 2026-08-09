@@ -98,7 +98,7 @@ Minimum for a typical Flolah VPS:
 5. Optional: **`ANTHROPIC_API_KEY`** if Claude is the OpenClaw model  
 6. Optional secondary: **`OPENAI_SECONDARY_*`** for Admin failover  
 
-CEOs still add **`Platform_BYOK`** (chat), **`Replicate_BYOK`** (video when Profile ≠ platform default), and Brave / Brain keys under **Management → API Keys** when they bring their own keys.
+CEOs still add **`Platform_BYOK`** (chat), **`Replicate_BYOK`** (video when Profile ≠ platform default), and Brave / Brain keys under **Settings → API Keys** when they bring their own keys.
 
 ## Tips for Platform Help answers
 

@@ -133,3 +133,7 @@ Desktop workflow API nodes should target loopback only, for example:
 Header: `Authorization: Bearer <LOCAL_BRIDGE_TOKEN>` (store token in desktop package secrets / local env — not in git).
 
 Paper first: `IBKR_IS_PAPER=true`, `IBKR_TRADING_ENABLED=0` until dry-run validated.
+
+## Cloud IP whitelist
+
+Optional: Flolah **Settings → IP Whitelists** (IBKR bridge) restricts which public IPs can call `/api/ibkr-trading/local-bridge-webhook`. Empty = allow any IP (secret still required). See `knowledgebase/platform-help/33-ip-whitelists.md`.

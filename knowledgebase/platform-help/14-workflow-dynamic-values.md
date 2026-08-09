@@ -120,7 +120,7 @@ Prefer Dynamic bindings for whole fields (URL from prior step). Prefer templates
 
 ### Prefer API Keys vault (recommended)
 
-Store secrets under **Management → API Keys**, then select the vault key on Brain / API / MCP / External agent auth fields. See [15-api-keys-vault.md](./15-api-keys-vault.md).
+Store secrets under **Settings → API Keys**, then select the vault key on Brain / API / MCP / External agent auth fields. See [15-api-keys-vault.md](./15-api-keys-vault.md).
 
 For OpenAI/OpenRouter **agent chat** BYOK, create vault name **`Platform_BYOK`** and pick the provider on Profile.
 

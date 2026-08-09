@@ -130,7 +130,7 @@ docker compose up -d backend openclaw
 docker compose exec openclaw node deploy/scripts/verify-openclaw-parity.js
 ```
 
-Ensure `TOOLS_BASE_URL=http://127.0.0.1:3001` in `.env` (see `.env.example`) so backend tool self-invoke does not use public HTTPS. For VPS A2A IP whitelist, see **[VPS client IP overlay](#vps-client-ip-overlay-a2a-ip-policy)** (`COMPOSE_FILE` includes `docker-compose.vps-client-ip.yml`).
+Ensure `TOOLS_BASE_URL=http://127.0.0.1:3001` in `.env` (see `.env.example`) so backend tool self-invoke does not use public HTTPS. For VPS **IP whitelists** (A2A, desktop package, browser worker, IBKR bridge webhooks), see **[VPS client IP overlay](#vps-client-ip-overlay-a2a-ip-policy)** (`COMPOSE_FILE` includes `docker-compose.vps-client-ip.yml`). Central UI: **Settings → IP Whitelists** (`knowledgebase/platform-help/33-ip-whitelists.md`). Package token inventory: **Settings → Tokens management** (`/settings/tokens`, `34-tokens-management.md`). API vault: **Settings → API Keys**.
 
 ## Platform MCPs (Brave Search + Meta Graph + Business Core CRM/ERP)
 
@@ -346,7 +346,7 @@ All proxied under `/api` (rebuild backend + frontend images after upgrade):
 | Chat feedback | `/api/feedback` |
 | OpenConnector | `/api/openconnector`, MCP via `OPENCONNECTOR_MCP_URL` |
 | Email inbound | `POST /api/integrations/email-inbound/:definitionId` |
-| BYOK LLM / vault | Profile provider + Management → API Keys (`Platform_BYOK` etc.). Non-platform Profiles auto-seed unset slots. Ollama needs `optional-ollama` |
+| BYOK LLM / vault | Profile provider + Settings → API Keys (`Platform_BYOK` etc.). Non-platform Profiles auto-seed unset slots. Ollama needs `optional-ollama` |
 | DeepSeek | Platform/OpenClaw: set `OPENAI_*` + `OPENCLAW_MODEL_PRIMARY` to DeepSeek V4 cloud. Brain `deepseek`: cloud V4 + thinking mode UI; or Ollama endpoint without key. Profile BYOK `deepseek` → local Ollama |
 | Brain thinking | DeepSeek / OpenRouter only: `thinkingMode` + `thinkingEffort` on Brain node; outputs `reasoning_content`, `thinking_mode` |
 | `email_send` tool | `POST /api/tools/email-send` (SMTP + optional calendar ICS); granted to agents at boot |

@@ -6,6 +6,8 @@ import OperatingWorkspace from './pages/OperatingWorkspace';
 import ThisWeek from './pages/ThisWeek';
 import WorkspaceDesigner from './pages/WorkspaceDesigner';
 import NavMenuManager from './pages/NavMenuManager';
+import IpWhitelists from './pages/IpWhitelists';
+import TokensManagement from './pages/TokensManagement';
 import { CrmPage, ErpPage } from './pages/BusinessEmbed';
 import AgentWorkspace from './pages/AgentWorkspace';
 import AgentChat from './pages/AgentChat';
@@ -342,6 +344,8 @@ function Shell() {
                 <Route path="/this-week" element={<ThisWeek />} />
                 <Route path="/workspace-designer" element={<WorkspaceDesigner />} />
                 <Route path="/nav-menus" element={<NavMenuManager />} />
+                <Route path="/settings/ip-whitelists" element={<IpWhitelists />} />
+                <Route path="/settings/tokens" element={<TokensManagement />} />
                 <Route path="/work" element={<OperatingWorkspace />} />
                 <Route path="/crm" element={<CrmPage />} />
                 <Route path="/erp" element={<ErpPage />} />

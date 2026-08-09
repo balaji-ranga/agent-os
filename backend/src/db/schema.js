@@ -1697,6 +1697,29 @@ export function initDb() {
     );
   } catch (_) {}
 
+  /** Local IBKR bridge packages: LOCAL_BRIDGE_TOKEN inventory (hash only; laptop loopback auth). */
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS ibkr_bridge_tokens (
+        id TEXT PRIMARY KEY,
+        owner_user_id TEXT NOT NULL,
+        name TEXT DEFAULT '',
+        token_hash TEXT NOT NULL UNIQUE,
+        token_prefix TEXT NOT NULL,
+        expires_at TEXT,
+        revoked_at TEXT,
+        last_used_at TEXT,
+        created_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_ibkr_bridge_tokens_owner ON ibkr_bridge_tokens(owner_user_id, created_at DESC)`
+    );
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_ibkr_bridge_tokens_hash ON ibkr_bridge_tokens(token_hash)`
+    );
+  } catch (_) {}
+
   try {
     _db.exec(`
       CREATE TABLE IF NOT EXISTS browser_worker_ip_whitelist (
@@ -2219,6 +2242,46 @@ export function initDb() {
     _db.exec(
       `CREATE INDEX IF NOT EXISTS idx_mcp_oauth_states_expires ON mcp_oauth_states(expires_at)`
     );
+  } catch (_) {}
+
+  // Central owner IP whitelist (Settings → IP Whitelists). Migration of legacy
+  // rows runs on first service use (ensureOwnerIpWhitelistTables).
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS owner_ip_whitelists (
+        id TEXT PRIMARY KEY,
+        owner_user_id TEXT NOT NULL,
+        cidr_or_ip TEXT NOT NULL,
+        label TEXT DEFAULT '',
+        apply_ibkr_bridge INTEGER NOT NULL DEFAULT 0,
+        apply_workflow_desktop INTEGER NOT NULL DEFAULT 0,
+        apply_a2a INTEGER NOT NULL DEFAULT 0,
+        apply_browser_worker INTEGER NOT NULL DEFAULT 0,
+        definition_id TEXT,
+        publish_id TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_owner_ip_wl_owner
+       ON owner_ip_whitelists(owner_user_id, created_at DESC)`
+    );
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_owner_ip_wl_desktop
+       ON owner_ip_whitelists(owner_user_id, apply_workflow_desktop, definition_id)`
+    );
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_owner_ip_wl_a2a
+       ON owner_ip_whitelists(owner_user_id, apply_a2a, publish_id)`
+    );
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS owner_ip_whitelist_meta (
+        key TEXT PRIMARY KEY,
+        value TEXT,
+        updated_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
   } catch (_) {}
 
   return _db;

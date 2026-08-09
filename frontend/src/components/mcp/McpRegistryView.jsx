@@ -231,7 +231,7 @@ export default function McpRegistryView({ servers, loading, user, onRefresh }) {
               </button>
             </div>
             <p className="mcp-pg-hint">
-              Prefer vault keys under Run & Operate → API Keys. Literal headers are stored on this server;
+              Prefer vault keys under Settings → API Keys. Literal headers are stored on this server;
               you can still override on the test screen or per workflow node.
             </p>
             <label className="mcp-pg-field">

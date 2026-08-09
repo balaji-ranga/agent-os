@@ -2,7 +2,8 @@
 #
 # Docker's userland port proxy masks external client IPs as the bridge gateway.
 # Run nginx in host networking and expose only backend/frontend loopback ports so
-# nginx receives the real remote address for A2A deny_all / whitelist IP policy.
+# nginx receives the real remote address for A2A deny_all / whitelist IP policy,
+# desktop package, browser worker, and IBKR local-bridge-webhook IP checks.
 services:
   backend:
     ports:

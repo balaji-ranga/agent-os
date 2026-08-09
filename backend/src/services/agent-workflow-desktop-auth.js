@@ -2,9 +2,20 @@
  * Desktop workflow package auth: hashed bearer tokens + optional IP whitelist.
  * Empty whitelist = no IP restriction. Non-empty = client IP must match an entry
  * (exact IP or CIDR) for the owner (and optional definition_id).
+ * IP rules live in owner_ip_whitelists (central Settings source of truth).
  */
 import { createHash, randomBytes, randomUUID } from 'crypto';
 import { getDb } from '../db/schema.js';
+import { clientIpFromRequest, ipMatchesCidrOrIp } from './ip-match.js';
+import {
+  assertFeatureIpAllowed,
+  listOwnerIpWhitelists,
+  addOwnerIpWhitelistEntry,
+  removeOwnerIpWhitelistEntry,
+  IP_FEATURES,
+} from './owner-ip-whitelist.js';
+
+export { clientIpFromRequest, ipMatchesCidrOrIp };
 
 function db() {
   return getDb();
@@ -18,75 +29,13 @@ export function mintDesktopTokenPlaintext() {
   return `dsk_${randomBytes(32).toString('base64url')}`;
 }
 
-function normalizeIp(raw) {
-  let ip = String(raw || '').trim();
-  if (!ip) return '';
-  if (ip.startsWith('::ffff:')) ip = ip.slice(7);
-  if (ip === '::1') return '127.0.0.1';
-  return ip;
-}
-
-/**
- * Client IP from the trusted reverse-proxy headers.
- * Prefer X-Real-IP because nginx overwrites it with $remote_addr. For XFF use
- * the right-most hop so a caller-supplied left-most value cannot spoof policy.
- */
-export function clientIpFromRequest(req) {
-  const real = req.headers?.['x-real-ip'];
-  if (typeof real === 'string' && real.trim()) return normalizeIp(real);
-  const xf = req.headers?.['x-forwarded-for'];
-  if (typeof xf === 'string' && xf.trim()) {
-    const parts = xf.split(',').map((value) => value.trim()).filter(Boolean);
-    return normalizeIp(parts[parts.length - 1]);
-  }
-  if (Array.isArray(xf) && xf.length) {
-    const parts = String(xf[xf.length - 1]).split(',').map((value) => value.trim()).filter(Boolean);
-    return normalizeIp(parts[parts.length - 1]);
-  }
-  return normalizeIp(req.socket?.remoteAddress || req.ip || '');
-}
-
-function ipv4ToInt(ip) {
-  const parts = String(ip).split('.').map((n) => Number(n));
-  if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return null;
-  return ((parts[0] << 24) >>> 0) + (parts[1] << 16) + (parts[2] << 8) + parts[3];
-}
-
-export function ipMatchesCidrOrIp(clientIp, rule) {
-  const ip = normalizeIp(clientIp);
-  const r = String(rule || '').trim();
-  if (!ip || !r) return false;
-  if (!r.includes('/')) return ip === normalizeIp(r);
-  const [base, bitsStr] = r.split('/');
-  const bits = Number(bitsStr);
-  const ipInt = ipv4ToInt(ip);
-  const baseInt = ipv4ToInt(base);
-  if (ipInt == null || baseInt == null || !Number.isInteger(bits) || bits < 0 || bits > 32) {
-    return ip === normalizeIp(base);
-  }
-  const mask = bits === 0 ? 0 : (~0 << (32 - bits)) >>> 0;
-  return (ipInt & mask) === (baseInt & mask);
-}
-
 /**
  * @returns {{ ok: true } | { ok: false, reason: string }}
  */
 export function assertDesktopIpAllowed(ownerUserId, definitionId, clientIp) {
-  const rows = db()
-    .prepare(
-      `SELECT cidr_or_ip, definition_id FROM workflow_desktop_ip_whitelist
-       WHERE owner_user_id = ?
-         AND (definition_id IS NULL OR definition_id = ?)`
-    )
-    .all(ownerUserId, definitionId);
-  if (!rows.length) return { ok: true };
-  const ip = normalizeIp(clientIp);
-  if (!ip) return { ok: false, reason: 'Client IP could not be determined' };
-  const hit = rows.some((row) => ipMatchesCidrOrIp(ip, row.cidr_or_ip));
-  if (!hit) {
-    return { ok: false, reason: `Client IP ${ip} is not on the desktop whitelist` };
-  }
-  return { ok: true };
+  return assertFeatureIpAllowed(ownerUserId, IP_FEATURES.WORKFLOW_DESKTOP, clientIp, {
+    definitionId,
+  });
 }
 
 export function createDesktopToken(definitionId, ownerUserId, { name = '', expiresAt = null } = {}) {
@@ -140,9 +89,7 @@ export function authenticateDesktopToken(plaintext, clientIp) {
     return { ok: false, status: 401, error: 'Invalid desktop token' };
   }
   const row = db()
-    .prepare(
-      `SELECT * FROM workflow_desktop_tokens WHERE token_hash = ?`
-    )
+    .prepare(`SELECT * FROM workflow_desktop_tokens WHERE token_hash = ?`)
     .get(hashDesktopToken(plaintext));
   if (!row) return { ok: false, status: 401, error: 'Invalid desktop token' };
   if (row.revoked_at) return { ok: false, status: 401, error: 'Desktop token revoked' };
@@ -160,39 +107,43 @@ export function authenticateDesktopToken(plaintext, clientIp) {
   return { ok: true, tokenRow: row };
 }
 
+/** List desktop feature IPs (owner-wide + this workflow). Shape kept for existing UIs. */
 export function listIpWhitelist(ownerUserId, definitionId = null) {
-  if (definitionId) {
-    return db()
-      .prepare(
-        `SELECT * FROM workflow_desktop_ip_whitelist
-         WHERE owner_user_id = ? AND (definition_id IS NULL OR definition_id = ?)
-         ORDER BY created_at DESC`
-      )
-      .all(ownerUserId, definitionId);
-  }
-  return db()
-    .prepare(
-      `SELECT * FROM workflow_desktop_ip_whitelist WHERE owner_user_id = ? ORDER BY created_at DESC`
-    )
-    .all(ownerUserId);
+  const entries = listOwnerIpWhitelists(ownerUserId, {
+    feature: IP_FEATURES.WORKFLOW_DESKTOP,
+    definitionId: definitionId || undefined,
+  });
+  return entries.map((e) => ({
+    id: e.id,
+    owner_user_id: e.owner_user_id,
+    definition_id: e.definition_id,
+    cidr_or_ip: e.cidr_or_ip,
+    label: e.label,
+    created_at: e.created_at,
+    apply_workflow_desktop: true,
+    apply_ibkr_bridge: e.apply_ibkr_bridge,
+    apply_a2a: e.apply_a2a,
+    apply_browser_worker: e.apply_browser_worker,
+  }));
 }
 
 export function addIpWhitelistEntry(ownerUserId, { cidrOrIp, label = '', definitionId = null } = {}) {
-  const rule = String(cidrOrIp || '').trim();
-  if (!rule) throw new Error('cidr_or_ip is required');
-  const id = randomUUID();
-  db()
-    .prepare(
-      `INSERT INTO workflow_desktop_ip_whitelist (id, owner_user_id, definition_id, cidr_or_ip, label)
-       VALUES (?, ?, ?, ?, ?)`
-    )
-    .run(id, ownerUserId, definitionId || null, rule, String(label || '').trim());
-  return db().prepare(`SELECT * FROM workflow_desktop_ip_whitelist WHERE id = ?`).get(id);
+  const entry = addOwnerIpWhitelistEntry(ownerUserId, {
+    cidr_or_ip: cidrOrIp,
+    label,
+    apply_workflow_desktop: true,
+    definition_id: definitionId || null,
+  });
+  return {
+    id: entry.id,
+    owner_user_id: entry.owner_user_id,
+    definition_id: entry.definition_id,
+    cidr_or_ip: entry.cidr_or_ip,
+    label: entry.label,
+    created_at: entry.created_at,
+  };
 }
 
 export function removeIpWhitelistEntry(entryId, ownerUserId) {
-  const r = db()
-    .prepare(`DELETE FROM workflow_desktop_ip_whitelist WHERE id = ? AND owner_user_id = ?`)
-    .run(entryId, ownerUserId);
-  return r.changes > 0;
+  return removeOwnerIpWhitelistEntry(entryId, ownerUserId);
 }

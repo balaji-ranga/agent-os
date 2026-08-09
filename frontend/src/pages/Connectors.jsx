@@ -467,14 +467,19 @@ function ConnectorsPanel() {
           Full package includes portable Node 18 (same pattern as workflow Download for Windows). See{' '}
           knowledgebase <code>IBKR-LOCAL-BRIDGE.md</code>.
         </p>
+        <p style={{ margin: '0.5rem 0 0', fontSize: '0.8rem', color: 'var(--muted)' }}>
+          Optional: restrict laptop → cloud webhooks by client IP under{' '}
+          <Link to="/settings/ip-whitelists">Settings → IP Whitelists</Link> (enable{' '}
+          <strong>IBKR bridge</strong>). Empty list still allows any IP; secret required always.
+        </p>
       </section>
 
       <section style={{ marginTop: '1.25rem', padding: '1rem', border: '1px solid var(--border)', borderRadius: 8 }}>
         <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.05rem' }}>Browser Session package (local worker)</h2>
         <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--muted)' }}>
-          Long-lived Windows worker for multi-user Client Chrome. Agents and recipes for <strong>your</strong>{' '}
-          account run against Playwright on your PC while the worker is online. Token is minted per download and
-          bound to your user only — never share the zip.
+          Long-lived Windows worker for multi-user Client Chrome. Playwright runs <strong>headed</strong> by default with a
+          <strong>persistent profile</strong> (cookies/logins under browser-profile on your PC). Agents and recipes for{' '}
+          <strong>your</strong> account route there while Online. Token is minted per download — never share the zip.
         </p>
         <p style={{ margin: '0.5rem 0 0', fontSize: '0.9rem' }}>
           Status:{' '}
@@ -513,7 +518,7 @@ function ConnectorsPanel() {
           <li>Download the full package (includes portable Node).</li>
           <li>Unzip privately · keep <code>.env</code> secret (<code>bwk_…</code> token).</li>
           <li>
-            Run <code>.\scripts\Start-BrowserWorker.ps1</code> (first run installs Playwright Chromium).
+            Run <code>.\scripts\Start-BrowserWorker.ps1</code> (first run installs Playwright Chromium). A headed window opens — log into sites you need; sessions stay in <code>browser-profile</code>.
           </li>
           <li>Leave the process running (or register Task Scheduler script for logon).</li>
           <li>
@@ -556,7 +561,9 @@ function ConnectorsPanel() {
         <h3 style={{ margin: '1rem 0 0.35rem', fontSize: '0.95rem' }}>Client IP whitelist</h3>
         <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--muted)' }}>
           Empty list = any IP allowed (token still required). When you add IPs/CIDRs, worker
-          register/heartbeat/jobs must come from a listed client IP.
+          register/heartbeat/jobs must come from a listed client IP. Same store as{' '}
+          <Link to="/settings/ip-whitelists">Settings → IP Whitelists</Link> (Browser Session
+          flag).
         </p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: '0.5rem' }}>
           <input

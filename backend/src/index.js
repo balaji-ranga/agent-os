@@ -46,6 +46,8 @@ import marketDataRoutes from './routes/market-data.js';
 import emailInboundRoutes from './routes/email-inbound.js';
 import openconnectorRoutes from './routes/openconnector.js';
 import ibkrBridgePackageRoutes from './routes/ibkr-bridge-package.js';
+import settingsIpWhitelistRoutes from './routes/settings-ip-whitelists.js';
+import settingsExternalTokensRoutes from './routes/settings-external-tokens.js';
 import {
   browserWorkerCeoRoutes,
   browserWorkerV1Routes,
@@ -81,6 +83,7 @@ import { ensurePlatformSettingsTable } from './services/platform-llm-settings.js
 import { ensureDefaultAdmin, ensureBalaCeoUser, grantStandardAgents, pruneSharedStandardAgentGrants } from './services/users.js';
 import { ensureCeoDefaultMasterDataForAllCeos } from './services/ceo-default-master-data.js';
 import { initDb, getDb } from './db/schema.js';
+import { ensureExternalTokenTables } from './services/external-tokens.js';
 import { seedDefaultAgentsIfEmpty, seedAgentDepartmentsIfMissing } from './db/seed-default-agents.js';
 import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, seedWorkflowToolsIfMissing, seedLearningsToolsIfMissing, seedEmailSendToolIfMissing, seedSpeechToolsIfMissing, seedVisionToolsIfMissing, seedNotifyCeoToolIfMissing, seedOnboardingProposalToolsIfMissing, seedCeoProfileToolIfMissing, seedStatusCheckerToolIfMissing, seedThisWeekDigestToolIfMissing, seedMasterDataToolsIfMissing, seedConnectorToolsIfMissing, seedVedicChartToolIfMissing, updateKanbanToolPurposes, seedPlatformFeedbackToolsIfMissing, grantPlatformFeedbackTools, seedScheduledGoalToolsIfMissing, seedCrmToolsIfMissing, seedErpToolsIfMissing } from './db/seed-content-tools-meta.js';
 import businessCoreRoutes from './routes/business-core.js';
@@ -153,6 +156,11 @@ app.use(express.json({ limit: '100mb' }));
 app.use(express.text({ type: 'text/*', limit: '10mb' }));
 
 initDb();
+try {
+  ensureExternalTokenTables();
+} catch (e) {
+  console.warn('[startup] external token tables:', e.message || e);
+}
 ensureInternalTokenConfigured();
 ensureToolsApiKeyConfigured();
 ensureMfaTables();
@@ -531,6 +539,8 @@ apiRouter.use('/a2a', workflowA2aRoutes);
 apiRouter.use('/integrations/email-inbound', emailInboundRoutes);
 apiRouter.use('/integrations/openconnector', openconnectorRoutes);
 apiRouter.use('/integrations/ibkr-bridge', ibkrBridgePackageRoutes);
+apiRouter.use('/settings/ip-whitelists', settingsIpWhitelistRoutes);
+apiRouter.use('/settings/external-tokens', settingsExternalTokensRoutes);
 apiRouter.use('/integrations/browser-worker', browserWorkerCeoRoutes);
 // Worker laptop client (bearer bwk_ token + IP whitelist; no CEO session cookie).
 apiRouter.use('/browser-worker/v1', browserWorkerV1Routes);

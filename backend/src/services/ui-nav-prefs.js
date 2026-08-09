@@ -10,6 +10,9 @@ export const NAV_ALWAYS_VISIBLE = new Set([
   'profile',
   'nav-menus',
   'workspace-designer',
+  'ip-whitelists',
+  'tokens-management',
+  'api-keys',
 ]);
 
 export function ensureUiPrefsColumns(db = getDb()) {

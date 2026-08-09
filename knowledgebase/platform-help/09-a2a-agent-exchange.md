@@ -69,8 +69,8 @@ Set visibility in the Publish A2A modal, or later under AgentExchange → **⋯*
 10. **Network access defaults to Deny all.** In **AgentExchange → ⋯ → Security**, the owner can choose:
     - **Deny all** — card, invoke, OAuth token and enquiry endpoints return `403`.
     - **Allow all** — any client IP may reach the A2A endpoints (authentication still applies for Secured agents).
-    - **IP whitelist** — add exact IPv4/IPv6 addresses or **IPv4 CIDR** ranges; all other IPs are denied. **IPv6 must be an exact address** (CIDR ranges like `2001:db8::/32` are rejected — the matcher does not support IPv6 subnets yet).
-11. **Unpublish** from the AgentExchange card **⋯** menu removes that agent and disables all its public A2A endpoints, revokes OAuth access tokens and deletes its IP whitelist. The underlying workflow remains published and private to authenticated UI/API use.
+    - **IP whitelist** — add exact IPv4/IPv6 addresses or **IPv4 CIDR** ranges; all other IPs are denied. **IPv6 must be an exact address** (CIDR ranges like `2001:db8::/32` are rejected — the matcher does not support IPv6 subnets yet). Entries are stored centrally (same table as **Settings → IP Whitelists**, A2A flag + optional publish scope).
+11. **Unpublish** from the AgentExchange card **⋯** menu removes that agent and disables all its public A2A endpoints, revokes OAuth access tokens and deletes its A2A-scoped IP whitelist rows. The underlying workflow remains published and private to authenticated UI/API use.
 
 Agent card: `/api/a2a/:publishId/.well-known/agent-card.json`. When a schema is set, the skill includes `inputSchema` and `defaultInputModes` prefer `application/json`. Async cards also advertise the `enquire-progress` skill and set `capabilities.pushNotifications` when a callback URL is configured.
 

@@ -162,7 +162,7 @@ export function getImageConfig(ownerUserId = null, toolName = 'generate_image') 
         PLATFORM_BYOK_KEY_NAME
       );
       primaryKey = '';
-      error = `Create API key "${PLATFORM_BYOK_KEY_NAME}" under Management → API Keys for image generation, or switch Profile LLM to Platform default.`;
+      error = `Create API key "${PLATFORM_BYOK_KEY_NAME}" under Settings → API Keys for image generation, or switch Profile LLM to Platform default.`;
       error_code = 'platform_byok_required';
     } else {
       // Prefer OpenRouter base when Profile is openrouter; otherwise OpenAI.
@@ -326,7 +326,7 @@ export function getVisionConfig(ownerUserId = null, toolName = 'analyze_image') 
         provider,
         source: 'user_byok_vault',
         platform_byok_key_name: PLATFORM_BYOK_KEY_NAME,
-        error: `Create API key "${PLATFORM_BYOK_KEY_NAME}" under Management → API Keys for image analysis, or switch Profile LLM to Platform default.`,
+        error: `Create API key "${PLATFORM_BYOK_KEY_NAME}" under Settings → API Keys for image analysis, or switch Profile LLM to Platform default.`,
         error_code: 'platform_byok_required',
       };
     }
@@ -507,7 +507,7 @@ export function getVideoConfig(ownerUserId = null, toolName = 'generate_video') 
       provider,
       source: 'user_byok_vault',
       replicate_byok_key_name: REPLICATE_BYOK_KEY_NAME,
-      error: `Create API key "${REPLICATE_BYOK_KEY_NAME}" under Management → API Keys for video generation, or switch Profile LLM to Platform default.`,
+      error: `Create API key "${REPLICATE_BYOK_KEY_NAME}" under Settings → API Keys for video generation, or switch Profile LLM to Platform default.`,
       error_code: 'replicate_byok_required',
     };
   }
@@ -587,7 +587,7 @@ export function getBraveSearchConfig(ownerUserId = null) {
       provider,
       source: 'user_byok_vault',
       brave_search_byok_key_name: BRAVE_SEARCH_BYOK_KEY_NAME,
-      error: `Create API key "${BRAVE_SEARCH_BYOK_KEY_NAME}" under Management → API Keys for Brave Search, or switch Profile LLM to Platform default.`,
+      error: `Create API key "${BRAVE_SEARCH_BYOK_KEY_NAME}" under Settings → API Keys for Brave Search, or switch Profile LLM to Platform default.`,
       error_code: 'brave_search_byok_required',
     };
   }

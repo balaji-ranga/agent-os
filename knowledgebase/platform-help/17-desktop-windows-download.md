@@ -68,13 +68,15 @@ UI **Desktop tokens** list shows a **prefix** only + **Revoke**. Full secret liv
 
 ### IP whitelist
 
-Optional extra lock in the same modal:
+Optional extra lock in the same modal (and under **Settings → IP Whitelists**):
 
 | Setting | Effect |
 |---------|--------|
-| **No entries** | Any client IP allowed (token still required) |
+| **No entries** for desktop | Any client IP allowed (token still required) |
 | Default add | Rule applies to **this workflow** only |
 | Check **All my workflows** | Rule applies **owner-wide** |
+
+All IP rules are stored in one owner-scoped table (`owner_ip_whitelists`). Federated UIs and **Settings → IP Whitelists** read/write the same store — pick the **Workflow download** target on the central page.
 
 Flolah reads the caller IP from the connection (`X-Forwarded-For` / socket) — the PS1 does **not** send IP in the body.
 

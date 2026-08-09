@@ -25,6 +25,9 @@ Top-level (always shown; cannot hide in Menu visibility):
 |-------|-------|---------|
 | **Workspace Builder** | `/workspace-designer` | Visual designer for owner-scoped Workspace pages (/work): KPI cards, charts, tables, activity, chat; bind presets / REST / master data / RAG. Publish default is operating workspace, not Digest. |
 | **Menu visibility** | `/nav-menus` | Show/hide sidebar menus (prefs on your account). Not a security control; CRM/ERP still require Business Core entitlements. |
+| **IP Whitelists** | `/settings/ip-whitelists` | Central firewall for laptop packages and public A2A: IBKR bridge webhooks, Workflow Download for Windows, A2A public access, Browser Session worker. Federated UIs write the same store. |
+| **Tokens management** | `/settings/tokens` | List and revoke issued external package tokens (workflow desktop, IBKR bridge, Browser Session). Masked prefixes only. |
+| **API Keys** | `/api-keys` | Named secret vault (auto-seeded BYOK slots + workflow/MCP/Connector secrets) |
 
 ### Run & Operate
 
@@ -36,7 +39,6 @@ Top-level (always shown; cannot hide in Menu visibility):
 | Broadcast | `/broadcast` | Message many AI employees at once |
 | **Knowledge** | `/master-data` | Company knowledge: tables, documents, RAG, **Inbound attachments** (Master Data) |
 | **Content Explorer** | `/content-explorer` | Browse uploaded + generated files (preview/download) |
-| **API Keys** | `/api-keys` | Named secret vault (auto-seeded BYOK slots + workflow/MCP/Connector secrets) |
 | Policies | `/policies` | CEO common guardrails for all AI employees + Brain nodes |
 | AI Snipper | `/ai-snipper` | Prompt / token / tool-call usage timeline |
 | **Browser Session** | `/browser-session` | Client Chrome relay, NL browser tasks, recorder recipes |
@@ -101,7 +103,7 @@ Positioning: **AI Company OS** — see [`../AI-COMPANY-OS.md`](../AI-COMPANY-OS.
 
 - **Company knowledge** → Knowledge (Master Data)  
 - **Browse files** → Content Explorer ([26-content-explorer.md](./26-content-explorer.md))  
-- **Secrets** → API Keys (vault)  
+- **Settings** → Tokens management (external packages) + API Keys (vault)  
 - **Automate** → Workflows (+ Workflow Builder)  
 - **Integrate SaaS** → Connectors  
 - **Integrate tools/protocol** → MCP, External AI, Custom scripts, Tools  

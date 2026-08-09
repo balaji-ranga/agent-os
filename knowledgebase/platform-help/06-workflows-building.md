@@ -74,7 +74,7 @@ Quick reference:
 
 **Workflow variables** (editor panel) are shared static config for **this** workflow — there is no separate platform-wide global store. Use them for budgets, base URLs, allowlists; use prior-step templates for run-time tokens and results.
 
-**Auth:** Prefer **Management → API Keys** vault refs for long-lived secrets ([15-api-keys-vault.md](./15-api-keys-vault.md)). API, MCP, Brain (`apiKey` + MCP headers), SSE Listen, External Agent (optional override), and **Connector** nodes also accept `{{nodeId.path}}` in bearer/header fields. Values look static in the UI; the runner substitutes at execute time. SaaS apps: connect under **Connectors** before using a **Connector** node ([16-connectors-openconnector.md](./16-connectors-openconnector.md)).
+**Auth:** Prefer **Settings → API Keys** vault refs for long-lived secrets ([15-api-keys-vault.md](./15-api-keys-vault.md)). API, MCP, Brain (`apiKey` + MCP headers), SSE Listen, External Agent (optional override), and **Connector** nodes also accept `{{nodeId.path}}` in bearer/header fields. Values look static in the UI; the runner substitutes at execute time. SaaS apps: connect under **Connectors** before using a **Connector** node ([16-connectors-openconnector.md](./16-connectors-openconnector.md)).
 
 ### Outputs
 

@@ -1,8 +1,8 @@
-# API Keys vault (Management → API Keys)
+# API Keys vault (Settings → API Keys)
 
 ## What it is
 
-Path: **Management → API Keys** (`/api-keys`).
+Path: **Settings → API Keys** (`/api-keys`).
 
 A per-CEO **named secret vault** for:
 
