@@ -314,7 +314,7 @@ export async function getCrmEmbedForOwner(ownerUserId, { flolahUser } = {}) {
 }
 
 
-export function getErpEmbedForOwner(ownerUserId, { flolahUserId } = {}) {
+export async function getErpEmbedForOwner(ownerUserId, { flolahUser, flolahUserId } = {}) {
   const owner = String(ownerUserId || '').trim();
   const profile = getBusinessProfile(owner);
   if (!profile.platform_erp) {
@@ -327,19 +327,81 @@ export function getErpEmbedForOwner(ownerUserId, { flolahUserId } = {}) {
   assertErpEntitled(owner);
 
   const base = getErpnextPublicBase();
-  const companyId = profile.erpnext.company_id || null;
-  const companyName = profile.erpnext.company_name || null;
+  let companyId = profile.erpnext.company_id || null;
+  let companyName = profile.erpnext.company_name || null;
 
   let iframe_url = null;
   let open_url = null;
+  let switch_account_url = null;
+  let sso = {
+    mode: 'login_redirect',
+    note: 'Sign in as your mapped ERPNext user when SSO is unavailable.',
+  };
+
   if (base) {
-    const companyQs =
-      companyName || companyId
-        ? '?company=' + encodeURIComponent(companyName || companyId)
-        : '';
-    open_url = base + '/app' + companyQs;
-    iframe_url =
-      base + '/login?redirect-to=' + encodeURIComponent('/app' + companyQs);
+    try {
+      const { buildErpSsoHandoff, isErpnextSsoEnabled } = await import('./erpnext-sso.js');
+      const { getPublicBaseUrl } = await import('../config/public-url.js');
+      const flolahApi =
+        String(getPublicBaseUrl() || '')
+          .trim()
+          .replace(/\/+$/, '') + '/api/business-core/erp-sso-consume';
+      const launch = await buildErpSsoHandoff(owner, {
+        flolahUser: flolahUser || getUserById(owner) || { id: flolahUserId || owner },
+        publicBase: base,
+      });
+      if (launch.company_id) companyId = launch.company_id;
+      if (launch.company_name) companyName = launch.company_name;
+      if (launch.ok && launch.iframe_url) {
+        iframe_url =
+          launch.iframe_url +
+          (launch.iframe_url.includes('?') ? '&' : '?') +
+          'consume=' +
+          encodeURIComponent(flolahApi);
+        open_url = iframe_url;
+        switch_account_url = launch.switch_account_url || null;
+        sso = {
+          mode: launch.mode || 'session_cookie_sso',
+          ok: true,
+          company_id: companyId,
+          company_name: companyName,
+          note:
+            'Passwordless ERP Desk via Flolah session: one-time token sets ERPNext sid for company-scoped user.',
+        };
+      } else {
+        const companyQs =
+          companyName || companyId
+            ? '?company=' + encodeURIComponent(companyName || companyId)
+            : '';
+        open_url = base + '/app' + companyQs;
+        iframe_url =
+          base + '/login?redirect-to=' + encodeURIComponent('/app' + companyQs);
+        sso = {
+          mode: 'login_redirect',
+          ok: false,
+          reason: launch.reason || 'sso_unavailable',
+          note:
+            isErpnextSsoEnabled()
+              ? 'SSO mint failed — password login fallback.'
+              : 'Set ERPNEXT_API_KEY/SECRET and ERPNEXT_SSO_ENABLED for passwordless ERP.',
+        };
+      }
+    } catch (e) {
+      console.warn('[business-embed] erp sso launch failed', e?.message || e);
+      const companyQs =
+        companyName || companyId
+          ? '?company=' + encodeURIComponent(companyName || companyId)
+          : '';
+      open_url = base + '/app' + companyQs;
+      iframe_url =
+        base + '/login?redirect-to=' + encodeURIComponent('/app' + companyQs);
+      sso = {
+        mode: 'login_redirect',
+        ok: false,
+        reason: e?.message || 'sso_failed',
+        note: 'Fell back to ERP login page after SSO error.',
+      };
+    }
   }
 
   return {
@@ -351,25 +413,35 @@ export function getErpEmbedForOwner(ownerUserId, { flolahUserId } = {}) {
       : 'No browser-reachable ERP URL. Set ERPNEXT_EMBED_URL after ERPNext is running.',
     iframe_url,
     open_url,
+    switch_account_url,
     company_id: companyId,
     company_name: companyName,
     bound: profile.erpnext.bound,
-    flolah_user_id: flolahUserId || owner,
+    flolah_user_id: flolahUserId || flolahUser?.id || owner,
     login_hint:
-      'Sign in as your mapped ERPNext user for this company. ERPNext is multi-company.',
+      sso.mode === 'session_cookie_sso'
+        ? 'Passwordless ERP for this company (User Permission scoped).'
+        : 'Sign in as your mapped ERPNext user for this company. ERPNext is multi-company.',
+    sso,
     owner_user_id: owner,
     stack: {
-      database: 'MariaDB (compose service erpnext-db / mariadb:10.11)',
+      database:
+        'MariaDB (erpnext-db) — ERPNext requires MariaDB/MySQL; Twenty CRM uses Postgres twenty-db. Isolation model matches CRM (1 CEO company → 1 ERPNext Company).',
       api_configured: Boolean(
         String(process.env.ERPNEXT_URL || '').trim() &&
           String(process.env.ERPNEXT_API_KEY || '').trim()
       ),
+      sso_enabled: String(process.env.ERPNEXT_SSO_ENABLED || '1') !== '0',
     },
     wiring: {
       flolah_owner_user_id: owner,
       erpnext_company_id: companyId,
       bind_mode: profile.erpnext.bound ? 'profile' : 'pending_ensure_on_provision_or_sync',
       sync: 'POST /api/business-core/sync-org or button Sync Flolah org (erp_sync_org tool)',
+      isolation:
+        'One Flolah company → one ERPNext Company + SSO User Permission filter; tools never accept foreign company ids.',
+      agents:
+        'Prefab: ERP P&L Agent, ERP Invoice Agent, ERP Project Manager (erp_* tools).',
     },
   };
 }

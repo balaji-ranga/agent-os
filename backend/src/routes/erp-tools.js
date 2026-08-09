@@ -1,5 +1,5 @@
 /**
- * ERP tools — ERPNext Frappe REST (Customer, Lead, Item, Quotation, Sales Order, Project, generic).
+ * ERP tools - ERPNext Frappe REST (customers, invoices, P&L, projects, generic).
  */
 import { Router } from 'express';
 import { resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
@@ -18,6 +18,15 @@ import {
   erpListProjects,
   erpCreateCustomer,
   erpCreateLead,
+  erpListSalesInvoices,
+  erpCreateSalesInvoice,
+  erpListPurchaseInvoices,
+  erpCreatePurchaseInvoice,
+  erpCreateProject,
+  erpListTasks,
+  erpCreateTask,
+  erpListGlEntries,
+  erpProfitAndLoss,
 } from '../services/erpnext-erp.js';
 import { syncFlolahOrgToBusinessCore } from '../services/business-core-org-sync.js';
 
@@ -113,7 +122,75 @@ router.post('/erp-list-projects', (req, res) =>
   })
 );
 
-/** Generic Frappe resource list (entitled company filter when applicable). */
+router.post('/erp-create-project', (req, res) =>
+  run(res, async () => {
+    const ownerUserId = owner(req, req.body || {});
+    return erpCreateProject(ownerUserId, req.body || {});
+  })
+);
+
+router.post('/erp-list-tasks', (req, res) =>
+  run(res, async () => {
+    const ownerUserId = owner(req, req.body || {});
+    return erpListTasks(ownerUserId, { limit: req.body?.limit, filters: req.body?.filters });
+  })
+);
+
+router.post('/erp-create-task', (req, res) =>
+  run(res, async () => {
+    const ownerUserId = owner(req, req.body || {});
+    return erpCreateTask(ownerUserId, req.body || {});
+  })
+);
+
+router.post('/erp-list-sales-invoices', (req, res) =>
+  run(res, async () => {
+    const ownerUserId = owner(req, req.body || {});
+    return erpListSalesInvoices(ownerUserId, { limit: req.body?.limit });
+  })
+);
+
+router.post('/erp-create-sales-invoice', (req, res) =>
+  run(res, async () => {
+    const ownerUserId = owner(req, req.body || {});
+    return erpCreateSalesInvoice(ownerUserId, req.body?.doc || req.body || {});
+  })
+);
+
+router.post('/erp-list-purchase-invoices', (req, res) =>
+  run(res, async () => {
+    const ownerUserId = owner(req, req.body || {});
+    return erpListPurchaseInvoices(ownerUserId, { limit: req.body?.limit });
+  })
+);
+
+router.post('/erp-create-purchase-invoice', (req, res) =>
+  run(res, async () => {
+    const ownerUserId = owner(req, req.body || {});
+    return erpCreatePurchaseInvoice(ownerUserId, req.body?.doc || req.body || {});
+  })
+);
+
+router.post('/erp-list-gl-entries', (req, res) =>
+  run(res, async () => {
+    const ownerUserId = owner(req, req.body || {});
+    return erpListGlEntries(ownerUserId, { limit: req.body?.limit, filters: req.body?.filters });
+  })
+);
+
+router.post('/erp-profit-and-loss', (req, res) =>
+  run(res, async () => {
+    const ownerUserId = owner(req, req.body || {});
+    const b = req.body || {};
+    return erpProfitAndLoss(ownerUserId, {
+      from_date: b.from_date,
+      to_date: b.to_date,
+      periodicity: b.periodicity,
+      accumulated_values: b.accumulated_values,
+    });
+  })
+);
+
 router.post('/erp-list-resource', (req, res) =>
   run(res, async () => {
     const ownerUserId = owner(req, req.body || {});

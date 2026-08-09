@@ -21,3 +21,4 @@ services:
       - ./nginx/certs:/etc/nginx/certs:ro,Z
       - ./static/flolah-home:/usr/share/nginx/flolah-home:ro,Z
       - ./static/crm-handoff:/usr/share/nginx/crm-handoff:ro,Z
+      - ./static/erp-handoff:/usr/share/nginx/erp-handoff:ro,Z

@@ -20,10 +20,39 @@ import {
   getBusinessCoreStackStatus,
 } from '../services/business-embed.js';
 import { buildCrmSessionLogoutUrls } from '../services/twenty-sso.js';
+import {
+  buildErpSessionLogoutUrls,
+  consumeErpSsoToken,
+} from '../services/erpnext-sso.js';
 import { getUserById } from '../services/users.js';
 import { syncFlolahOrgToBusinessCore, listFlolahOrgSnapshot } from '../services/business-core-org-sync.js';
 
 const router = Router();
+
+/**
+ * Public one-shot SSO consume (ERP iframe handoff). Registered before auth.
+ * Token is short-lived and single-use — no password returned to browser.
+ */
+router.post('/erp-sso-consume', (req, res) => {
+  try {
+    const token = req.body?.token || req.query?.token || req.body?.t;
+    const out = consumeErpSsoToken(token);
+    res.json(out);
+  } catch (e) {
+    res.status(e.status || 500).json({ ok: false, error: e.message });
+  }
+});
+
+router.get('/erp-sso-consume', (req, res) => {
+  try {
+    const token = req.query?.token || req.query?.t;
+    const out = consumeErpSsoToken(token);
+    res.json(out);
+  } catch (e) {
+    res.status(e.status || 500).json({ ok: false, error: e.message });
+  }
+});
+
 router.use(requireAuth, requireCeoOrAdmin);
 
 function ownerOf(req) {
@@ -77,6 +106,19 @@ router.get('/crm-logout-targets', (req, res) => {
 });
 
 /**
+ * GET /api/business-core/erp-logout-targets — wipe ERP desk session on Flolah logout.
+ */
+router.get('/erp-logout-targets', (req, res) => {
+  try {
+    const ownerUserId = ownerOf(req);
+    const urls = buildErpSessionLogoutUrls(ownerUserId);
+    res.json({ ok: true, urls });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+/**
  * GET /api/business-core/embed/crm — Twenty iframe config (platform CRM only).
  * Passwordless SSO always mints for the **company owner (CEO)** email of the
  * active company scope — including when an admin is impersonating that CEO.
@@ -117,19 +159,36 @@ router.get('/embed/crm', async (req, res) => {
 
 /**
  * GET /api/business-core/embed/erp — ERPNext iframe config (platform ERP only).
+ * Passwordless SSO handoff when ERPNEXT API keys + ERPNEXT_SSO_ENABLED.
  */
 router.get('/embed/erp', async (req, res) => {
   try {
     const ownerUserId = ownerOf(req);
-    const flolahUserId = req.authUser?.id || ownerUserId;
-    const embed = getErpEmbedForOwner(ownerUserId, { flolahUserId });
+    const ownerProfile = getUserById(ownerUserId);
+    const flolahUser = {
+      id: ownerUserId,
+      email: ownerProfile?.email || req.authUser?.email || null,
+      name: ownerProfile?.name || req.authUser?.name || null,
+      impersonation: req.authUser?.impersonation || null,
+    };
+    const embed = await getErpEmbedForOwner(ownerUserId, { flolahUser });
     let stack_status = null;
     try {
       stack_status = (await getBusinessCoreStackStatus()).erp;
     } catch (e) {
       console.warn('[business-core] stack probe erp', e?.message || e);
     }
-    res.json({ ...embed, stack_status });
+    res.json({
+      ...embed,
+      stack_status,
+      sso: {
+        ...(embed.sso || {}),
+        flolah_email_domain: flolahUser.email
+          ? String(flolahUser.email).replace(/^[^@]+/, '***')
+          : null,
+        via_impersonation: Boolean(req.authUser?.impersonation),
+      },
+    });
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message });
   }
@@ -219,7 +278,7 @@ router.patch('/profile', async (req, res) => {
       embed: {
         crm: profile.platform_crm ? await getCrmEmbedForOwner(ownerUserId, { flolahUser: req.authUser }) : null,
         erp: profile.platform_erp
-          ? getErpEmbedForOwner(ownerUserId, { flolahUserId: req.authUser?.id })
+          ? await getErpEmbedForOwner(ownerUserId, { flolahUser: req.authUser })
           : null,
       },
     });

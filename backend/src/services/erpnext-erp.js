@@ -10,7 +10,7 @@ import {
 } from './company-business-profile.js';
 import { getDb } from '../db/schema.js';
 
-function baseUrl() {
+export function baseUrl() {
   return String(process.env.ERPNEXT_URL || '')
     .trim()
     .replace(/\/+$/, '');
@@ -40,10 +40,13 @@ export async function frappeFetch(path, { method = 'GET', body } = {}) {
     err.status = 503;
     throw err;
   }
+  const siteHost = String(process.env.ERPNEXT_SITE_NAME || 'frontend').trim() || 'frontend';
   const headers = {
     Accept: 'application/json',
     'Content-Type': 'application/json',
     Authorization: `token ${apiKey()}:${apiSecret()}`,
+    Host: siteHost,
+    'X-Frappe-Site-Name': siteHost,
   };
   const url = `${root}${path.startsWith('/') ? path : `/${path}`}`;
   const res = await fetch(url, {
@@ -104,10 +107,15 @@ export async function erpList(ownerUserId, doctype, { limit = 20, filters, field
     'Quotation',
     'Sales Order',
     'Sales Invoice',
+    'Purchase Invoice',
     'Project',
+    'Task',
     'Department',
     'Employee',
     'Purchase Order',
+    'GL Entry',
+    'Journal Entry',
+    'Payment Entry',
   ]);
   if (co && companyDocs.has(dt) && !f.some((x) => Array.isArray(x) && x[0] === 'company')) {
     f.push(['company', '=', co]);
@@ -177,6 +185,96 @@ export async function erpListSalesOrders(ownerUserId, opts) {
 }
 export async function erpListProjects(ownerUserId, opts) {
   return erpList(ownerUserId, 'Project', opts);
+}
+export async function erpListSalesInvoices(ownerUserId, opts) {
+  return erpList(ownerUserId, 'Sales Invoice', opts);
+}
+export async function erpCreateSalesInvoice(ownerUserId, doc = {}) {
+  return erpCreate(ownerUserId, 'Sales Invoice', doc);
+}
+export async function erpListPurchaseInvoices(ownerUserId, opts) {
+  return erpList(ownerUserId, 'Purchase Invoice', opts);
+}
+export async function erpCreatePurchaseInvoice(ownerUserId, doc = {}) {
+  return erpCreate(ownerUserId, 'Purchase Invoice', doc);
+}
+export async function erpCreateProject(ownerUserId, doc = {}) {
+  if (!doc.project_name && !doc.name) {
+    throw Object.assign(new Error('project_name required'), { status: 400 });
+  }
+  return erpCreate(ownerUserId, 'Project', {
+    project_name: doc.project_name || doc.name,
+    status: doc.status || 'Open',
+    ...doc,
+  });
+}
+export async function erpListTasks(ownerUserId, opts) {
+  return erpList(ownerUserId, 'Task', opts);
+}
+export async function erpCreateTask(ownerUserId, doc = {}) {
+  if (!doc.subject) throw Object.assign(new Error('subject required'), { status: 400 });
+  return erpCreate(ownerUserId, 'Task', doc);
+}
+export async function erpListGlEntries(ownerUserId, opts) {
+  return erpList(ownerUserId, 'GL Entry', opts);
+}
+
+/**
+ * Run ERPNext Profit and Loss Statement (company-scoped).
+ * Uses frappe.desk.query_report.run when API is live.
+ */
+export async function erpProfitAndLoss(ownerUserId, {
+  from_date,
+  to_date,
+  periodicity = 'Monthly',
+  accumulated_values = 0,
+} = {}) {
+  assertErpEntitled(ownerUserId);
+  if (!isErpnextApiConfigured()) {
+    return {
+      mode: 'offline',
+      report: 'Profit and Loss Statement',
+      message: 'ERPNEXT_URL / API keys not configured',
+      company: companyFilter(ownerUserId),
+    };
+  }
+  const co = companyFilter(ownerUserId);
+  const today = new Date();
+  const y = today.getUTCFullYear();
+  const m = String(today.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(today.getUTCDate()).padStart(2, '0');
+  const end = to_date || `${y}-${m}-${d}`;
+  const start = from_date || `${y}-01-01`;
+  try {
+    const data = await frappeFetch('/api/method/frappe.desk.query_report.run', {
+      method: 'POST',
+      body: {
+        report_name: 'Profit and Loss Statement',
+        filters: {
+          company: co,
+          from_date: start,
+          to_date: end,
+          periodicity,
+          accumulated_values: accumulated_values ? 1 : 0,
+        },
+      },
+    });
+    return {
+      mode: 'live',
+      report: 'Profit and Loss Statement',
+      company: co,
+      from_date: start,
+      to_date: end,
+      data: data?.message || data,
+    };
+  } catch (e) {
+    return {
+      mode: 'error',
+      report: 'Profit and Loss Statement',
+      company: co,
+      error: e.message,
+    };
+  }
 }
 export async function erpCreateCustomer(ownerUserId, { customer_name, customer_type = 'Company', ...rest } = {}) {
   if (!customer_name) throw Object.assign(new Error('customer_name required'), { status: 400 });
@@ -280,9 +378,16 @@ export function getErpnextStatusForOwner(ownerUserId) {
       'Item',
       'Quotation',
       'Sales Order',
+      'Sales Invoice',
+      'Purchase Invoice',
       'Project',
+      'Task',
+      'GL Entry',
+      'Journal Entry',
+      'Payment Entry',
       'Department',
       'Employee',
+      'Profit and Loss Statement',
     ],
   };
 }

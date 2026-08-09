@@ -133,10 +133,15 @@ if [[ "$START_TWENTY" == "1" || "$START_TWENTY" == "true" ]]; then
 fi
 
 if [[ "$START_ERPNEXT" == "1" || "$START_ERPNEXT" == "true" ]]; then
-  echo "==> start optional-erpnext (MariaDB + stub backend — site init still required)"
+  echo "==> start optional-erpnext (MariaDB + configurator + create-site + gunicorn + workers)"
+  upsert ERPNEXT_URL 'http://erpnext-backend:8000'
+  upsert ERPNEXT_SITE_NAME 'frontend'
+  upsert ERPNEXT_SSO_ENABLED '1'
+  upsert ERPNEXT_ADMIN_PASSWORD 'admin'
   docker compose --env-file "$ENV_FILE" -f docker-compose.yml -f docker-compose.business-core.yml \
     --profile optional-erpnext up -d \
     || echo "ensure-business-core-env: WARN erpnext up failed"
+  echo "ensure-business-core-env: after site is healthy, create API Key+Secret in Desk → set ERPNEXT_API_KEY/SECRET"
 fi
 
 # Recreate backend so it picks embed env

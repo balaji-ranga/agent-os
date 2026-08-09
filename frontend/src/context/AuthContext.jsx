@@ -28,6 +28,40 @@ async function wipeCrmSessionsIfPossible() {
   }
 }
 
+/** Wipe ERPNext desk session iframes (best-effort). */
+async function wipeErpSessionsIfPossible() {
+  let urls = [];
+  try {
+    const data = await api.businessCoreErpLogoutTargets();
+    urls = data?.urls || [];
+  } catch {
+    /* ignore */
+  }
+  if (!urls.length) return;
+  await Promise.all(
+    urls.map(
+      (u) =>
+        new Promise((resolve) => {
+          const iframe = document.createElement('iframe');
+          iframe.style.cssText = 'position:fixed;width:0;height:0;border:0;opacity:0';
+          iframe.src = u;
+          const done = () => {
+            try {
+              iframe.remove();
+            } catch {
+              /* */
+            }
+            resolve();
+          };
+          iframe.onload = done;
+          iframe.onerror = done;
+          document.body.appendChild(iframe);
+          setTimeout(done, 2500);
+        })
+    )
+  );
+}
+
 function applyDisplayTimezonesFromMe(data) {
   setPlatformDefaultTimeZone(data?.platform_timezone || null);
   setPreferredDisplayTimeZone(data?.user?.display_timezone || null);
@@ -149,6 +183,7 @@ export function AuthProvider({ children }) {
   const exitImpersonation = async () => {
     // Clear CEO CRM session opened during view-as before restoring admin.
     await wipeCrmSessionsIfPossible();
+    await wipeErpSessionsIfPossible();
     try {
       await api.authExitImpersonation();
     } catch (_) {
@@ -180,6 +215,7 @@ export function AuthProvider({ children }) {
     // Wipe Twenty CRM browser session on CRM hosts (not same-origin as Flolah).
     // Must run while Flolah token still valid so logout-targets can resolve company host.
     await wipeCrmSessionsIfPossible();
+    await wipeErpSessionsIfPossible();
     try {
       await api.authLogout();
     } catch (_) {}

@@ -173,6 +173,32 @@ CRM opens **in the Flolah iframe** (not a full-page leave); use **Open** for fir
 
 ---
 
+
+## ERPNext stack (Docker)
+
+- Compose profile **`optional-erpnext`**: MariaDB + Redis + configurator + **create-site** + gunicorn **erpnext-backend** + workers.
+- ERPNext **requires MariaDB** (not Twenty's Postgres). Isolation still mirrors CRM: **1 Flolah company → 1 ERPNext Company** + User Permission on the company SSO user.
+- Start: `START_ERPNEXT=1 bash deploy/scripts/ensure-business-core-env.sh`
+- After first site: Administrator login on Desk → User → API Access → API Key + Secret → set `ERPNEXT_API_KEY` / `ERPNEXT_API_SECRET` on backend. Internal URL: `ERPNEXT_URL=http://erpnext-backend:8000`.
+- Public embed: `ERPNEXT_EMBED_URL` (default https://login…:8444) with nginx handoff **`/flolah-erp-handoff/`**.
+
+## ERP menu SSO (passwordless)
+
+When API keys + `ERPNEXT_SSO_ENABLED=1` (default), opening **ERP** mints a one-time handoff (like CRM LOGIN token flow): Flolah ensures Company + SSO User + company User Permission, logs in server-side, returns `/flolah-erp-handoff/?t=…` which sets `sid` and redirects to `/app?company=…`.
+
+## Prefab ERP AI employees
+
+Selecting **ERP = ERPNext** provisions three specialists (not generic Maker A/B):
+
+| Agent | Focus | Tools (examples) |
+|-------|--------|------------------|
+| **ERP P&L Agent** | Profit & Loss, GL | `erp_profit_and_loss`, `erp_list_gl_entries`, invoice lists |
+| **ERP Invoice Agent** | Sales/Purchase invoices | `erp_create_sales_invoice`, `erp_list_sales_invoices`, customers/items |
+| **ERP Project Manager** | Projects & tasks | `erp_create_project`, `erp_list_projects`, `erp_list_tasks`, `erp_create_task` |
+
+All stay **owner-scoped**; company filter applied on list/create. See also design **AUTOMATED-PNL.md** / help **37**.
+
+
 ## Company P&L (design roadmap)
 
 Automated **cost + income → ERP** is planned: meters and income events in Flolah, period rollups into ERPNext when ERP is on (Maker/Checker review). See Platform Help [37-company-pnl.md](./37-company-pnl.md) and product plan knowledgebase/AUTOMATED-PNL.md. Until shipped, use CRM for pipeline, ERP for invoices you enter, token budgets for AI burn, and OEI for ops — not as blended book revenue.

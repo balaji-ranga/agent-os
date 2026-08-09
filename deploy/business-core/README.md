@@ -69,21 +69,31 @@ Cert: `bash deploy/scripts/vps-expand-crm-cert.sh` (apex + optional workspace SA
 
 ## Start ERPNext (ERP)
 
+**Database:** ERPNext requires **MariaDB** (`erpnext-db`). Twenty CRM keeps **Postgres** (`twenty-db`). Tenancy maps match CRM isolation in Flolah SQLite (1 CEO → 1 ERPNext Company), not a shared Postgres schema for Frappe data.
+
 ```bash
 START_ERPNEXT=1 bash deploy/scripts/ensure-business-core-env.sh
 # or
 docker compose -f docker-compose.yml -f docker-compose.business-core.yml --profile optional-erpnext up -d
+# Wait for erpnext-create-site to exit 0, then erpnext-backend healthy
 ```
 
 Backend:
 
 ```env
 ERPNEXT_URL=http://erpnext-backend:8000
-ERPNEXT_API_KEY=
+ERPNEXT_SITE_NAME=frontend
+ERPNEXT_API_KEY=          # Desk → User → API Access after first site
 ERPNEXT_API_SECRET=
+ERPNEXT_SSO_ENABLED=1
 ERPNEXT_EMBED_URL=https://login.example.com:8444
 ERPNEXT_PUBLIC_URL=https://login.example.com:8444
+ERPNEXT_ADMIN_PASSWORD=admin   # initial Administrator password from create-site
 ```
+
+**SSO:** authenticated CEO → ERP menu → `/flolah-erp-handoff/` one-time token → sets Frappe `sid` for company-scoped user (User Permission on Company).
+
+**Prefab agents:** ERP P&L, ERP Invoice, ERP Project Manager (`erp_*` tools / `mcp-flolah-erp`).
 
 ## Platform MCP
 

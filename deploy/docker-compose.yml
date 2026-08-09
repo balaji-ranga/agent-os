@@ -159,6 +159,9 @@ x-backend-env: &backend-env
   ERPNEXT_EMBED_URL: ${ERPNEXT_EMBED_URL:-}
   ERPNEXT_PUBLIC_URL: ${ERPNEXT_PUBLIC_URL:-}
   ERPNEXT_PUBLIC_HTTPS_PORT: ${ERPNEXT_PUBLIC_HTTPS_PORT:-8444}
+  ERPNEXT_SSO_ENABLED: ${ERPNEXT_SSO_ENABLED:-1}
+  ERPNEXT_SITE_NAME: ${ERPNEXT_SITE_NAME:-frontend}
+  ERPNEXT_ADMIN_PASSWORD: ${ERPNEXT_ADMIN_PASSWORD:-}
   BUSINESS_CORE_MCP_URL: ${BUSINESS_CORE_MCP_URL:-http://business-core-mcp:8082/mcp}
   REPLICATE_PRIMARY_BASE_URL: ${REPLICATE_PRIMARY_BASE_URL:-https://api.replicate.com/v1}
   REPLICATE_SECONDARY_BASE_URL: ${REPLICATE_SECONDARY_BASE_URL:-}
@@ -414,6 +417,7 @@ services:
       # Marketing homepage (flolah.cloud) — SPA app lives on login.flolah.cloud
       - ./static/flolah-home:/usr/share/nginx/flolah-home:ro,Z
       - ./static/crm-handoff:/usr/share/nginx/crm-handoff:ro,Z
+      - ./static/erp-handoff:/usr/share/nginx/erp-handoff:ro,Z
     depends_on:
       frontend:
         condition: service_started

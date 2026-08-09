@@ -89,9 +89,12 @@ services:
     volumes:
       - twenty_data:/app/packages/twenty-server/.local-storage:Z
 
-  # ERPNext — production-ready multi-company site via official images + site init helper.
-  # For full frappe_docker multi-bench, use vendor compose; this profile starts MariaDB + Redis
-  # and a thin proxy README expects install via deploy/business-core/erpnext-init notes.
+  # ---------------------------------------------------------------------------
+  # ERPNext (Frappe) — multi-company site on MariaDB.
+  # NOTE: ERPNext/Frappe requires MariaDB/MySQL. Twenty CRM uses twenty-db (Postgres).
+  # Tenancy isolation mirrors CRM (1 Flolah company → 1 ERPNext Company) in Flolah SQLite
+  # + User Permission filters; both stacks share the agent-os Docker network.
+  # ---------------------------------------------------------------------------
   erpnext-db:
     profiles: ["optional-erpnext"]
     image: mariadb:10.11
@@ -103,14 +106,14 @@ services:
       - --skip-innodb-read-only-compressed
     environment:
       MYSQL_ROOT_PASSWORD: ${ERPNEXT_DB_ROOT_PASSWORD:-admin}
-      MYSQL_DATABASE: ${ERPNEXT_DB_NAME:-_erpnext}
     volumes:
       - erpnext_db_data:/var/lib/mysql:Z
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 15s
       timeout: 10s
-      retries: 20
+      retries: 30
+      start_period: 30s
 
   erpnext-redis-cache:
     profiles: ["optional-erpnext"]
@@ -126,15 +129,57 @@ services:
     volumes:
       - erpnext_redis_queue:/data:Z
 
-  # Official frappe/erpnext app image used as backend API origin when configured.
-  # Site creation: see deploy/business-core/README.md (bench new-site / rest installer).
+  erpnext-configurator:
+    profiles: ["optional-erpnext"]
+    image: ${ERPNEXT_IMAGE:-frappe/erpnext:v15.49.0}
+    restart: "no"
+    depends_on:
+      erpnext-db:
+        condition: service_healthy
+      erpnext-redis-cache:
+        condition: service_started
+      erpnext-redis-queue:
+        condition: service_started
+    environment:
+      DB_HOST: erpnext-db
+      DB_PORT: "3306"
+      REDIS_CACHE: redis://erpnext-redis-cache:6379
+      REDIS_QUEUE: redis://erpnext-redis-queue:6379
+      SOCKETIO_PORT: "9000"
+    volumes:
+      - erpnext_sites:/home/frappe/frappe-bench/sites:Z
+      - erpnext_logs:/home/frappe/frappe-bench/logs:Z
+      - ./business-core/erpnext-configurator.sh:/scripts/erpnext-configurator.sh:ro
+    entrypoint: ["bash", "/scripts/erpnext-configurator.sh"]
+
+  erpnext-create-site:
+    profiles: ["optional-erpnext"]
+    image: ${ERPNEXT_IMAGE:-frappe/erpnext:v15.49.0}
+    restart: "no"
+    depends_on:
+      erpnext-configurator:
+        condition: service_completed_successfully
+      erpnext-db:
+        condition: service_healthy
+    environment:
+      DB_HOST: erpnext-db
+      ERPNEXT_SITE_NAME: ${ERPNEXT_SITE_NAME:-frontend}
+      ERPNEXT_ADMIN_PASSWORD: ${ERPNEXT_ADMIN_PASSWORD:-admin}
+      ERPNEXT_DB_ROOT_PASSWORD: ${ERPNEXT_DB_ROOT_PASSWORD:-admin}
+    volumes:
+      - erpnext_sites:/home/frappe/frappe-bench/sites:Z
+      - erpnext_logs:/home/frappe/frappe-bench/logs:Z
+      - ./business-core/erpnext-create-site.sh:/scripts/erpnext-create-site.sh:ro
+    entrypoint: ["bash", "/scripts/erpnext-create-site.sh"]
+
+  # Gunicorn API + Desk backend (proxied by host nginx :8444 or public ERP host)
   erpnext-backend:
     profiles: ["optional-erpnext"]
     image: ${ERPNEXT_IMAGE:-frappe/erpnext:v15.49.0}
     restart: unless-stopped
     depends_on:
-      erpnext-db:
-        condition: service_healthy
+      erpnext-create-site:
+        condition: service_completed_successfully
       erpnext-redis-cache:
         condition: service_started
       erpnext-redis-queue:
@@ -148,25 +193,94 @@ services:
       REDIS_QUEUE: redis://erpnext-redis-queue:6379
       REDIS_SOCKETIO: redis://erpnext-redis-queue:6379
       SOCKETIO_PORT: "9000"
+      ERPNEXT_SITE_NAME: ${ERPNEXT_SITE_NAME:-frontend}
     volumes:
       - erpnext_sites:/home/frappe/frappe-bench/sites:Z
       - erpnext_logs:/home/frappe/frappe-bench/logs:Z
-    entrypoint:
+    command:
       - bash
       - -c
       - |
         set -e
-        echo "[erpnext-backend] waiting for sites; see deploy/business-core/README.md for first-time site create"
-        # Keep container alive for bind-mount + exec-based site init when volume empty
-        if [ ! -f /home/frappe/frappe-bench/sites/apps.txt ]; then
-          echo "frappe" > /home/frappe/frappe-bench/sites/apps.txt || true
-          echo "erpnext" >> /home/frappe/frappe-bench/sites/apps.txt || true
-        fi
-        sleep infinity
+        cd /home/frappe/frappe-bench
+        SITE="$${ERPNEXT_SITE_NAME:-frontend}"
+        echo "[erpnext-backend] starting gunicorn site=$$SITE"
+        exec /home/frappe/frappe-bench/env/bin/gunicorn \
+          --chdir=/home/frappe/frappe-bench/sites \
+          --bind=0.0.0.0:8000 \
+          --threads=4 \
+          --workers=2 \
+          --worker-class=gthread \
+          --worker-tmp-dir=/dev/shm \
+          --timeout=120 \
+          --preload \
+          frappe.app:application
     ports:
       - "127.0.0.1:${ERPNEXT_HOST_PORT:-8085}:8000"
     expose:
       - "8000"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS -H \"Host: ${ERPNEXT_SITE_NAME:-frontend}\" http://127.0.0.1:8000/api/method/ping || exit 1",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 90s
+
+  erpnext-websocket:
+    profiles: ["optional-erpnext"]
+    image: ${ERPNEXT_IMAGE:-frappe/erpnext:v15.49.0}
+    restart: unless-stopped
+    depends_on:
+      erpnext-backend:
+        condition: service_started
+    volumes:
+      - erpnext_sites:/home/frappe/frappe-bench/sites:Z
+      - erpnext_logs:/home/frappe/frappe-bench/logs:Z
+    command:
+      [
+        "node",
+        "/home/frappe/frappe-bench/apps/frappe/socketio.js",
+      ]
+
+  erpnext-queue-short:
+    profiles: ["optional-erpnext"]
+    image: ${ERPNEXT_IMAGE:-frappe/erpnext:v15.49.0}
+    restart: unless-stopped
+    depends_on:
+      erpnext-backend:
+        condition: service_started
+    volumes:
+      - erpnext_sites:/home/frappe/frappe-bench/sites:Z
+      - erpnext_logs:/home/frappe/frappe-bench/logs:Z
+    command: ["bench", "worker", "--queue", "short,default"]
+
+  erpnext-queue-long:
+    profiles: ["optional-erpnext"]
+    image: ${ERPNEXT_IMAGE:-frappe/erpnext:v15.49.0}
+    restart: unless-stopped
+    depends_on:
+      erpnext-backend:
+        condition: service_started
+    volumes:
+      - erpnext_sites:/home/frappe/frappe-bench/sites:Z
+      - erpnext_logs:/home/frappe/frappe-bench/logs:Z
+    command: ["bench", "worker", "--queue", "long,default,short"]
+
+  erpnext-scheduler:
+    profiles: ["optional-erpnext"]
+    image: ${ERPNEXT_IMAGE:-frappe/erpnext:v15.49.0}
+    restart: unless-stopped
+    depends_on:
+      erpnext-backend:
+        condition: service_started
+    volumes:
+      - erpnext_sites:/home/frappe/frappe-bench/sites:Z
+      - erpnext_logs:/home/frappe/frappe-bench/logs:Z
+    command: ["bench", "schedule"]
 
 volumes:
   twenty_db_data:

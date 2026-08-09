@@ -1,7 +1,9 @@
 /**
- * Prefabricated ERP workforce for platform ERPNext (Profile ERP = ERPNext):
- * 2 Makers + 1 Checker, owner-scoped + user_agents grant + erp_* content tools.
- * Yes: provisioned when the CEO selects platform ERP on Profile / Company setup Apply.
+ * Prefabricated specialized ERP AI employees when Profile ERP = ERPNext:
+ * - ERP P&L Agent (finance / reports)
+ * - ERP Invoice Agent (sales & purchase invoices)
+ * - ERP Project Manager (projects & tasks)
+ * Owner-scoped grants + erp_* content tools (same surface as mcp-flolah-erp).
  */
 import { getDb } from '../db/schema.js';
 import { createFullAgent } from './create-full-agent.js';
@@ -9,20 +11,11 @@ import { getBusinessProfile, setPrefabErpAgentIds } from './company-business-pro
 import { setAgentToolGrants } from './openclaw-agent-tools.js';
 import { grantUserAgent } from './users.js';
 
-const ERP_TOOLS = [
+const SHARED = [
   'erp_status',
-  'erp_list_customers',
-  'erp_create_customer',
-  'erp_list_leads',
-  'erp_create_lead',
-  'erp_list_items',
-  'erp_list_quotations',
-  'erp_list_sales_orders',
-  'erp_list_projects',
-  'erp_list_resource',
-  'erp_create_resource',
-  'erp_get_resource',
   'erp_sync_org',
+  'erp_list_resource',
+  'erp_get_resource',
   'kanban_create_task',
   'kanban_move_status',
   'notify_ceo',
@@ -33,24 +26,46 @@ const ERP_TOOLS = [
   'learnings_summary',
 ];
 
-const ERP_APPROVER_TOOLS = [
-  'erp_status',
+const PNL_TOOLS = [
+  ...SHARED,
+  'erp_profit_and_loss',
+  'erp_list_gl_entries',
+  'erp_list_sales_invoices',
+  'erp_list_purchase_invoices',
+  'erp_list_sales_orders',
   'erp_list_customers',
-  'erp_list_leads',
   'erp_list_items',
   'erp_list_quotations',
+];
+
+const INVOICE_TOOLS = [
+  ...SHARED,
+  'erp_list_sales_invoices',
+  'erp_create_sales_invoice',
+  'erp_list_purchase_invoices',
+  'erp_create_purchase_invoice',
   'erp_list_sales_orders',
+  'erp_list_quotations',
+  'erp_list_customers',
+  'erp_create_customer',
+  'erp_list_items',
+  'erp_list_leads',
+  'erp_create_lead',
+  'erp_create_resource',
+  'erp_list_gl_entries',
+];
+
+const PROJECT_TOOLS = [
+  ...SHARED,
   'erp_list_projects',
-  'erp_list_resource',
-  'erp_get_resource',
-  'erp_sync_org',
-  'kanban_create_task',
-  'kanban_move_status',
-  'notify_ceo',
-  'ceo_profile',
-  'master_data_list_tables',
-  'master_data_list_rows',
-  'master_data_rag',
+  'erp_create_project',
+  'erp_list_tasks',
+  'erp_create_task',
+  'erp_create_resource',
+  'erp_list_customers',
+  'erp_list_sales_orders',
+  'erp_list_sales_invoices',
+  'erp_list_items',
 ];
 
 function ownerSlug(ownerUserId) {
@@ -66,28 +81,40 @@ function packDefs(ownerUserId) {
   const s = ownerSlug(ownerUserId);
   return [
     {
-      id: `erp-s1-${s}`.slice(0, 40),
-      name: 'ERP Maker A',
+      id: ('erp-pnl-' + s).slice(0, 40),
+      name: 'ERP P&L Agent',
       role:
-        'ERP Maker - ops and projects on platform ERPNext via Flolah ERP tools (erp_* content tools; same surface as MCP mcp-flolah-erp). Can erp_sync_org from Flolah departments + AI employees.',
+        'Finance specialist for company Profit & Loss on platform ERPNext. ' +
+        'Run erp_profit_and_loss and erp_list_gl_entries for the CEO company only; explain income vs expense, ' +
+        'variance, and margin. Never invent numbers — only ERP tool output. Draft commentary for the CEO; ' +
+        'do not post journals unless CEO explicitly asks and tools allow. Coordinate Invoice Agent for invoice questions. ' +
+        'Tools: erp_profit_and_loss, erp_list_gl_entries, invoice list tools, erp_sync_org.',
+      department: 'Finance',
+      tools: PNL_TOOLS,
+    },
+    {
+      id: ('erp-inv-' + s).slice(0, 40),
+      name: 'ERP Invoice Agent',
+      role:
+        'Accounts specialist for Sales Invoice and Purchase Invoice on ERPNext (company-scoped). ' +
+        'Create draft invoices from CEO intent using erp_create_sales_invoice / erp_create_purchase_invoice; ' +
+        'list and inspect with list/get tools. Validate party, items, tax fields when possible. ' +
+        'Never use another company id. Escalate payments/write-offs that need Checker review. ' +
+        'Tools: erp_* invoice create/list, customers, items, sales orders.',
+      department: 'Finance',
+      tools: INVOICE_TOOLS,
+    },
+    {
+      id: ('erp-pm-' + s).slice(0, 40),
+      name: 'ERP Project Manager',
+      role:
+        'Project specialist on ERPNext: Projects and Tasks for the CEO company only. ' +
+        'Create and list projects/tasks (erp_create_project, erp_list_projects, erp_list_tasks, erp_create_task). ' +
+        'Track status, link customers/sales orders when provided, and notify_ceo on blockers. ' +
+        'Do not touch GL postings or invoices unless needed for project status — hand off to Invoice or P&L agents. ' +
+        'Tools: erp project/task suite + customers + erp_sync_org.',
       department: 'Operations',
-      tools: ERP_TOOLS,
-    },
-    {
-      id: `erp-s2-${s}`.slice(0, 40),
-      name: 'ERP Maker B',
-      role:
-        'ERP Maker - finance/books side via erp_* tools (MCP mcp-flolah-erp). Can erp_sync_org.',
-      department: 'Finance',
-      tools: ERP_TOOLS,
-    },
-    {
-      id: `erp-ap-${s}`.slice(0, 40),
-      name: 'ERP Checker',
-      role:
-        'ERP Checker - gate spend and book posts; prefer read + recommend unless CEO confirms. Has erp_status + erp_sync_org for controlled sync review.',
-      department: 'Finance',
-      tools: ERP_APPROVER_TOOLS,
+      tools: PROJECT_TOOLS,
     },
   ];
 }
@@ -106,13 +133,11 @@ export async function ensurePrefabErpAgents(ownerUserId) {
   const ensured = [];
 
   for (const def of defs) {
-    const row = getDb().prepare(`SELECT * FROM agents WHERE id = ?`).get(def.id);
+    const row = getDb().prepare('SELECT * FROM agents WHERE id = ?').get(def.id);
     if (row) {
       try {
         if (row.owner_user_id && row.owner_user_id !== owner) {
-          console.warn(
-            `[prefab-erp] agent ${def.id} owned by ${row.owner_user_id}, skip for ${owner}`
-          );
+          console.warn('[prefab-erp] agent ' + def.id + ' owned by ' + row.owner_user_id + ', skip for ' + owner);
           continue;
         }
         grantUserAgent(owner, def.id);
@@ -120,12 +145,12 @@ export async function ensurePrefabErpAgents(ownerUserId) {
         try {
           getDb()
             .prepare(
-              `UPDATE agents SET name = ?, role = ?, department = ? WHERE id = ? AND (owner_user_id IS NULL OR owner_user_id = ?)`
+              'UPDATE agents SET name = ?, role = ?, department = ? WHERE id = ? AND (owner_user_id IS NULL OR owner_user_id = ?)'
             )
             .run(def.name, def.role, def.department, def.id, owner);
         } catch (_) {}
       } catch (e) {
-        console.warn('[prefab-erp] refresh grants', def.id, e?.message);
+        console.warn('[prefab-erp] refresh grants', def.id, e && e.message);
       }
       ensured.push(def.id);
       continue;
@@ -142,16 +167,16 @@ export async function ensurePrefabErpAgents(ownerUserId) {
       created.push(agent.id);
       ensured.push(agent.id);
     } catch (e) {
-      const again = getDb().prepare(`SELECT id FROM agents WHERE id = ?`).get(def.id);
+      const again = getDb().prepare('SELECT id FROM agents WHERE id = ?').get(def.id);
       if (again) {
         grantUserAgent(owner, def.id);
         ensured.push(def.id);
       } else {
-        console.warn('[prefab-erp] create failed', def.id, e?.message || e);
+        console.warn('[prefab-erp] create failed', def.id, e && (e.message || e));
       }
     }
   }
 
   setPrefabErpAgentIds(owner, ensured);
-  return { ok: true, created, agents: ensured };
+  return { ok: true, created: created, agents: ensured };
 }

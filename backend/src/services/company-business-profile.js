@@ -114,6 +114,15 @@ function rowToPublic(row) {
       company_id: row.erpnext_company_id || null,
       company_name: row.erpnext_company_name || null,
       bound: Boolean(row.erpnext_company_id),
+      bind: (() => {
+        const b = parseJson(row.erpnext_bind_json, {});
+        // Never expose sso_password to API consumers; keep for internal service reads via getErpnextBindSecrets
+        if (b && typeof b === 'object') {
+          const { sso_password, ...safe } = b;
+          return safe;
+        }
+        return {};
+      })(),
     },
     prefab_crm_agent_ids: parseJson(row.prefab_crm_agent_ids_json, []),
     prefab_erp_agent_ids: parseJson(row.prefab_erp_agent_ids_json, []),
@@ -197,6 +206,16 @@ export function setTwentyBind(
 export function setErpnextBind(ownerUserId, { company_id, company_name = '', bind = {} } = {}) {
   const id = String(ownerUserId || '').trim();
   ensureBusinessProfileRow(id);
+  const prev = getDb()
+    .prepare(`SELECT erpnext_company_id, erpnext_company_name, erpnext_bind_json FROM company_business_profiles WHERE owner_user_id = ?`)
+    .get(id);
+  const existingBind = parseJson(prev?.erpnext_bind_json, {});
+  const merged =
+    bind && typeof bind === 'object' ? { ...existingBind, ...bind } : existingBind;
+  const coId = String(company_id != null && company_id !== '' ? company_id : prev?.erpnext_company_id || '').trim();
+  const coName = String(
+    company_name != null && company_name !== '' ? company_name : prev?.erpnext_company_name || ''
+  ).trim();
   getDb()
     .prepare(
       `UPDATE company_business_profiles
@@ -204,13 +223,19 @@ export function setErpnextBind(ownerUserId, { company_id, company_name = '', bin
            updated_at = datetime('now')
        WHERE owner_user_id = ?`
     )
-    .run(
-      String(company_id || '').trim(),
-      String(company_name || '').trim(),
-      JSON.stringify(bind && typeof bind === 'object' ? bind : {}),
-      id
-    );
+    .run(coId, coName, JSON.stringify(merged), id);
   return getBusinessProfile(id);
+}
+
+/** Full bind JSON including secrets — internal services only (SSO). */
+export function getErpnextBindRaw(ownerUserId) {
+  ensureCompanyBusinessProfileSchema();
+  const id = String(ownerUserId || '').trim();
+  if (!id) return {};
+  const row = getDb()
+    .prepare(`SELECT erpnext_bind_json FROM company_business_profiles WHERE owner_user_id = ?`)
+    .get(id);
+  return parseJson(row?.erpnext_bind_json, {});
 }
 
 export function setPrefabCrmAgentIds(ownerUserId, ids) {
