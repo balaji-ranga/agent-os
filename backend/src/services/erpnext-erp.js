@@ -499,28 +499,223 @@ export async function erpUpdateCompany(ownerUserId, fields = {}) {
   return erpUpdate(ownerUserId, 'Company', co, body, { genericResource: true });
 }
 
-export async function erpListFiscalYears(ownerUserId, opts = {}) {
-  return erpList(ownerUserId, 'Fiscal Year', { ...opts, genericResource: true });
+/**
+ * ERPNext Fiscal Year is **site-global** (unique name like "2026"), not a company-owned parent doc.
+ * Companies join via child table `companies` [{ company }]. First creator owns the row (e.g. Aru);
+ * other CEOs must **link** their company — they cannot create a second "2026".
+ */
+function fiscalYearHasCompany(doc, company) {
+  const co = String(company || '').toLowerCase();
+  if (!co) return false;
+  const rows = Array.isArray(doc?.companies) ? doc.companies : [];
+  if (!rows.length) {
+    // Empty child = legacy/global FY (all companies on site can use it) — treat as linked
+    return true;
+  }
+  return rows.some((r) => String(r?.company || r || '').toLowerCase() === co);
 }
 
-export async function erpCreateFiscalYear(ownerUserId, doc = {}) {
+async function erpGetFiscalYearDoc(yearName) {
+  const data = await frappeFetch(
+    `/api/resource/${encodeURIComponent('Fiscal Year')}/${encodeURIComponent(yearName)}`
+  );
+  return data?.data || data || null;
+}
+
+/**
+ * Ensure bound company is on Fiscal Year.companies child. Returns { linked, already, data }.
+ */
+export async function erpEnsureCompanyOnFiscalYear(ownerUserId, yearName) {
+  assertErpEntitled(ownerUserId);
   const co = requireBoundCompany(ownerUserId);
+  const year = String(yearName || '').trim();
+  if (!year) {
+    throw Object.assign(new Error('fiscal year name required'), { status: 400 });
+  }
+  if (!isErpnextApiConfigured()) {
+    throw Object.assign(new Error('ERPNEXT_URL / API keys not configured'), { status: 503 });
+  }
+  const doc = await erpGetFiscalYearDoc(year);
+  if (!doc) {
+    throw Object.assign(new Error(`Fiscal Year ${year} not found`), { status: 404 });
+  }
+  if (fiscalYearHasCompany(doc, co) && Array.isArray(doc.companies) && doc.companies.length) {
+    return {
+      mode: 'live',
+      action: 'already_linked',
+      year,
+      company: co,
+      data: doc,
+      note: 'Your company is already linked to this site Fiscal Year.',
+    };
+  }
+  // Empty companies = globally available; explicitly add this company for clarity
+  const companies = Array.isArray(doc.companies) ? [...doc.companies] : [];
+  const has = companies.some((r) => String(r?.company || '').toLowerCase() === String(co).toLowerCase());
+  if (!has) companies.push({ company: co });
+  const updated = await frappeFetch(
+    `/api/resource/${encodeURIComponent('Fiscal Year')}/${encodeURIComponent(year)}`,
+    {
+      method: 'PUT',
+      body: { companies },
+    }
+  );
+  return {
+    mode: 'live',
+    action: 'linked',
+    year,
+    company: co,
+    data: updated?.data || updated,
+    note: `Linked company "${co}" to site Fiscal Year "${year}" (FY is shared site-wide; not owned by one Flolah CEO).`,
+  };
+}
+
+export async function erpListFiscalYears(ownerUserId, opts = {}) {
+  assertErpEntitled(ownerUserId);
+  const co = requireBoundCompany(ownerUserId);
+  if (!isErpnextApiConfigured()) {
+    return {
+      mode: 'offline',
+      doctype: 'Fiscal Year',
+      data: [],
+      company: co,
+      note: 'Fiscal Year is site-global in ERPNext; company joins via companies child table.',
+    };
+  }
+  const limit = lim(opts.limit, 20);
+  const fields = opts.fields || [
+    'name',
+    'year',
+    'year_start_date',
+    'year_end_date',
+    'disabled',
+    'owner',
+  ];
+  const data = await frappeFetch(
+    `/api/resource/${encodeURIComponent('Fiscal Year')}?` +
+      new URLSearchParams({
+        limit_page_length: String(limit),
+        fields: JSON.stringify(fields),
+      }).toString()
+  );
+  const rows = Array.isArray(data?.data) ? data.data : [];
+  // Enrich with companies child so callers know link state
+  const enriched = [];
+  for (const row of rows) {
+    let full = row;
+    try {
+      full = (await erpGetFiscalYearDoc(row.name)) || row;
+    } catch (_) {}
+    const linked = fiscalYearHasCompany(full, co);
+    const companies = Array.isArray(full?.companies)
+      ? full.companies.map((r) => r.company || r).filter(Boolean)
+      : [];
+    if (!linked) continue; // only years usable for this company (or empty=global)
+    enriched.push({
+      name: full.name || row.name,
+      year: full.year || row.year,
+      year_start_date: full.year_start_date || row.year_start_date,
+      year_end_date: full.year_end_date || row.year_end_date,
+      disabled: full.disabled ?? row.disabled,
+      owner: full.owner || row.owner,
+      companies,
+      linked_for_company: co,
+      site_global: true,
+    });
+  }
+  return {
+    mode: 'live',
+    doctype: 'Fiscal Year',
+    data: enriched,
+    company: co,
+    count: enriched.length,
+    note:
+      'Fiscal Year is site-global (unique year name). Field "owner" is the first Frappe user who created it (may be another CEO). Your access is via companies child / global empty child.',
+  };
+}
+
+/**
+ * Create Fiscal Year + link bound company, or if year already exists, link company only.
+ */
+export async function erpCreateFiscalYear(ownerUserId, doc = {}) {
+  assertErpEntitled(ownerUserId);
+  const co = requireBoundCompany(ownerUserId);
+  if (!isErpnextApiConfigured()) {
+    throw Object.assign(new Error('ERPNEXT_URL / API keys not configured'), { status: 503 });
+  }
   if (!doc.year && !doc.name) {
     throw Object.assign(new Error('year (e.g. 2026) required for Fiscal Year'), { status: 400 });
   }
-  const year = doc.year || doc.name;
-  return erpCreate(
-    ownerUserId,
-    'Fiscal Year',
-    {
+  const year = String(doc.year || doc.name).trim();
+  const year_start_date = doc.year_start_date || `${String(year).slice(0, 4)}-01-01`;
+  const year_end_date = doc.year_end_date || `${String(year).slice(0, 4)}-12-31`;
+
+  // Prefetch — if exists, link company instead of inventing a duplicate year name
+  try {
+    const existing = await erpGetFiscalYearDoc(year);
+    if (existing?.name) {
+      const linked = await erpEnsureCompanyOnFiscalYear(ownerUserId, year);
+      return {
+        mode: 'live',
+        doctype: 'Fiscal Year',
+        action: linked.action === 'already_linked' ? 'already_exists_linked' : 'linked_existing',
+        year,
+        company: co,
+        data: linked.data,
+        created_by_other:
+          existing.owner && String(existing.owner).toLowerCase() !== 'administrator'
+            ? existing.owner
+            : existing.owner || null,
+        note:
+          `Fiscal Year "${year}" already exists on this ERP site (created by ${existing.owner || 'another user'}). ` +
+          `Your company "${co}" is now linked. You do not get a private copy — years are shared names site-wide.`,
+      };
+    }
+  } catch (e) {
+    if (e.status && e.status !== 404) {
+      // not-found may come as 404 without throw depending on frappeFetch — continue to create
+      if (!/not found|DoesNotExist|404/i.test(String(e.message || e))) {
+        // fall through only for missing; other errors rethrow after try create
+      }
+    }
+  }
+
+  try {
+    const created = await erpCreate(
+      ownerUserId,
+      'Fiscal Year',
+      {
+        year,
+        year_start_date,
+        year_end_date,
+        companies: [{ company: co }],
+      },
+      { genericResource: true }
+    );
+    return {
+      mode: 'live',
+      doctype: 'Fiscal Year',
+      action: 'created',
       year,
-      year_start_date: doc.year_start_date || `${String(year).slice(0, 4)}-01-01`,
-      year_end_date: doc.year_end_date || `${String(year).slice(0, 4)}-12-31`,
-      companies: doc.companies || [{ company: co }],
-      ...doc,
-    },
-    { genericResource: true }
-  );
+      company: co,
+      data: created.data,
+      note: `Created site Fiscal Year "${year}" and linked company "${co}". Other CEOs on this site will link to the same year name when they set it up.`,
+    };
+  } catch (e) {
+    if (/already exists|DuplicateName/i.test(String(e.message || e))) {
+      const linked = await erpEnsureCompanyOnFiscalYear(ownerUserId, year);
+      return {
+        mode: 'live',
+        doctype: 'Fiscal Year',
+        action: 'linked_existing',
+        year,
+        company: co,
+        data: linked.data,
+        note: `Fiscal Year "${year}" already existed; linked company "${co}".`,
+      };
+    }
+    throw e;
+  }
 }
 
 // Convenience CRM-mirror surface on ERPNext
