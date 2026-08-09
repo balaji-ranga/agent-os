@@ -215,9 +215,12 @@ CRM Twenty remains stronger isolation: separate workspace DB per company.
 | CEO (`platform_users` / `owner_user_id`) | SSO **User** (email = CEO login email) with Company **User Permission** |
 | Profile `crm_provider` / `erp_provider` = erpnext | Entitles ERPNext path (not automatic for every signup) |
 | Bound company name | Real **Company** doc (must exist remotely — not only `flolah-co-*` local id) |
-| Org sync (`erp_sync_org` / `crm_sync_org` when CRM=ERPNext) | **Department** + **Employee** rows under that Company via site API key |
+| Org sync (`erp_sync_org` / `crm_sync_org` when CRM=ERPNext) | **Department** (`{name} - {abbr}`) + **Employee** rows for AI employees under that Company (not desk User rows) |
+| Desk SSO User list | Company User Permission **plus** User Permission `allow=User → self` so other CEOs’ emails are hidden |
 
 **Not automatic for every Flolah user:** only CEOs who choose platform ERPNext CRM and/or ERP. Bind runs on company setup, profile save, SSO open, or sync.
+
+**Org sync expectations:** Departments come from Flolah master-data; agents become **Employees** (status Active) under company Departments. Sync does **not** create a Frappe login User per agent (that would re-expose all tenants in Users). Re-open ERP or run Sync org after a deploy to apply desk User isolation.
 
 **local_bind vs remote:** Older sites had Company create fail (missing **country**, missing **Warehouse Type: Transit**). Flolah still stored synthetic `flolah-co-{ceo}` → desk SSO / dept sync fail (“no access to company”, Stock Settings errors). Fix: ensure country + warehouse types, then create real Company and User Permission.
 

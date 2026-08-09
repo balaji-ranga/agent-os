@@ -57,6 +57,48 @@ function genPassword() {
   return 'Fl-' + crypto.randomBytes(12).toString('base64url') + '!a1';
 }
 
+
+/** Ensure Company + self User permissions (desk cannot list other SSO users). */
+export async function ensureSsoUserPermissions(userId, companyName) {
+  async function ensurePerm({ allow, for_value, apply_to_all_doctypes = 0, applicable_for = null }) {
+    const filters = [
+      ['user', '=', userId],
+      ['allow', '=', allow],
+      ['for_value', '=', for_value],
+    ];
+    if (applicable_for) filters.push(['applicable_for', '=', applicable_for]);
+    const perms = await frappeFetch(
+      '/api/resource/User Permission?filters=' +
+        encodeURIComponent(JSON.stringify(filters)) +
+        '&limit_page_length=1'
+    );
+    const has = Array.isArray(perms && perms.data) && perms.data.length > 0;
+    if (has) return { created: false };
+    const body = {
+      user: userId,
+      allow,
+      for_value,
+      apply_to_all_doctypes: apply_to_all_doctypes ? 1 : 0,
+    };
+    if (applicable_for) body.applicable_for = applicable_for;
+    await frappeFetch('/api/resource/User Permission', { method: 'POST', body });
+    return { created: true };
+  }
+  if (companyName) {
+    try {
+      await ensurePerm({ allow: 'Company', for_value: companyName, apply_to_all_doctypes: 1 });
+    } catch (e) {
+      console.warn('[erpnext-sso] company user permission', e && e.message ? e.message : e);
+    }
+  }
+  // Restrict User list/read to self only (Company UP does not hide User doctype).
+  try {
+    await ensurePerm({ allow: 'User', for_value: userId, apply_to_all_doctypes: 0 });
+  } catch (e) {
+    console.warn('[erpnext-sso] self user permission', e && e.message ? e.message : e);
+  }
+}
+
 async function getOrCreateSsoUser(ownerUserId, companyName, email, fullName) {
   const profile = getBusinessProfile(ownerUserId);
   const bind = getErpnextBindRaw(ownerUserId) || {};
@@ -155,35 +197,7 @@ async function getOrCreateSsoUser(ownerUserId, companyName, email, fullName) {
     }
   }
 
-  if (companyName) {
-    try {
-      const perms = await frappeFetch(
-        '/api/resource/User Permission?filters=' +
-          encodeURIComponent(
-            JSON.stringify([
-              ['user', '=', userId],
-              ['allow', '=', 'Company'],
-              ['for_value', '=', companyName],
-            ])
-          ) +
-          '&limit_page_length=1'
-      );
-      const has = Array.isArray(perms && perms.data) && perms.data.length > 0;
-      if (!has) {
-        await frappeFetch('/api/resource/User Permission', {
-          method: 'POST',
-          body: {
-            user: userId,
-            allow: 'Company',
-            for_value: companyName,
-            apply_to_all_doctypes: 1,
-          },
-        });
-      }
-    } catch (e) {
-      console.warn('[erpnext-sso] user permission', e && e.message ? e.message : e);
-    }
-  }
+  await ensureSsoUserPermissions(userId, companyName);
 
   setErpnextBind(ownerUserId, {
     company_id: profile.erpnext.company_id,

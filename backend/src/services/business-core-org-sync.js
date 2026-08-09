@@ -9,6 +9,7 @@ import {
   assertCrmEntitled,
   assertErpEntitled,
   getBusinessProfile,
+  getErpnextBindRaw,
 } from './company-business-profile.js';
 import {
   isTwentyConfigured,
@@ -21,6 +22,21 @@ import {
   isErpnextApiConfigured,
   ensureErpnextCompanyForOwner,
 } from './erpnext-erp.js';
+import { ensureSsoUserPermissions } from './erpnext-sso.js';
+
+/** Desk isolation: Company UP + User UP (self only). */
+async function tightenDeskUserIsolation(ownerUserId, companyName) {
+  try {
+    const bind = getErpnextBindRaw(ownerUserId) || {};
+    const userId = bind.sso_user || bind.sso_email || null;
+    if (!userId) return { skipped: true, reason: 'no sso user' };
+    await ensureSsoUserPermissions(userId, companyName || bind.company_name || null);
+    return { ok: true, user: userId, company: companyName || bind.company_name || null };
+  } catch (e) {
+    console.warn('[business-core-org-sync] desk isolation', ownerUserId, e?.message || e);
+    return { ok: false, error: String(e?.message || e).slice(0, 200) };
+  }
+}
 
 function companyDisplay(ownerUserId) {
   const u = getDb().prepare(`SELECT id, name, business_name, email FROM platform_users WHERE id = ?`).get(ownerUserId);
@@ -180,89 +196,269 @@ async function twentySyncPeople(owner, snap) {
   return { created, skipped, errors, existing_count: existing.length };
 }
 
+/**
+ * ERPNext Department document name is usually "{department_name} - {company_abbr}".
+ * Resolve or create under the bound company only.
+ */
+async function erpResolveCompanyMeta(frappe, company) {
+  const enc = encodeURIComponent(company);
+  try {
+    const co = await frappe('GET', `/api/resource/Company/${enc}?fields=${encodeURIComponent(JSON.stringify(['name', 'abbr']))}`);
+    const abbr = co?.data?.abbr || null;
+    return { company: co?.data?.name || company, abbr };
+  } catch {
+    return { company, abbr: null };
+  }
+}
+
+async function erpFindDepartment(frappe, company, departmentName) {
+  const label = String(departmentName || '').trim();
+  if (!label) return null;
+  const filters = [
+    ['company', '=', company],
+    ['department_name', '=', label],
+  ];
+  const listed = await frappe(
+    'GET',
+    '/api/resource/Department?filters=' +
+      encodeURIComponent(JSON.stringify(filters)) +
+      '&limit_page_length=1&fields=' +
+      encodeURIComponent(JSON.stringify(['name', 'department_name', 'company']))
+  );
+  const row = Array.isArray(listed?.data) ? listed.data[0] : null;
+  if (row?.name) return row.name;
+
+  // Fallback: exact name match "{label} - {abbr}"
+  const listed2 = await frappe(
+    'GET',
+    '/api/resource/Department?filters=' +
+      encodeURIComponent(JSON.stringify([['company', '=', company], ['name', 'like', `${label}%`]])) +
+      '&limit_page_length=5&fields=' +
+      encodeURIComponent(JSON.stringify(['name', 'department_name', 'company']))
+  );
+  const rows = Array.isArray(listed2?.data) ? listed2.data : [];
+  const hit = rows.find((r) => String(r.department_name || '').toLowerCase() === label.toLowerCase()) || rows[0];
+  return hit?.name || null;
+}
+
+async function erpEnsureDepartment(frappe, company, departmentName, abbr) {
+  const label = String(departmentName || '').trim();
+  if (!label) return null;
+  const existing = await erpFindDepartment(frappe, company, label);
+  if (existing) return { name: existing, created: false };
+
+  try {
+    const created = await frappe('POST', '/api/resource/Department', {
+      department_name: label,
+      company,
+    });
+    return { name: created?.data?.name || (abbr ? `${label} - ${abbr}` : label), created: true };
+  } catch (e) {
+    const msg = String(e.message || e);
+    if (/exists|duplicate/i.test(msg)) {
+      const again = await erpFindDepartment(frappe, company, label);
+      if (again) return { name: again, created: false };
+    }
+    throw e;
+  }
+}
+
+async function erpEnsureDesignation(frappe, designation) {
+  // Keep designations short/simple — agent roles can be long; map to a safe title.
+  let title = String(designation || 'AI Employee').trim().slice(0, 80);
+  if (!title) title = 'AI Employee';
+  // Prefer first segment before long role descriptions
+  if (title.length > 40 && title.includes('—')) title = title.split('—')[0].trim().slice(0, 40);
+  if (title.length > 40 && title.includes(' - ')) title = title.split(' - ')[0].trim().slice(0, 40);
+
+  const listed = await frappe(
+    'GET',
+    '/api/resource/Designation?filters=' +
+      encodeURIComponent(JSON.stringify([['name', '=', title]])) +
+      '&limit_page_length=1&fields=' +
+      encodeURIComponent(JSON.stringify(['name']))
+  ).catch(() => null);
+  if (Array.isArray(listed?.data) && listed.data[0]?.name) {
+    return listed.data[0].name;
+  }
+  try {
+    const created = await frappe('POST', '/api/resource/Designation', {
+      designation_name: title,
+    });
+    return created?.data?.name || title;
+  } catch (e) {
+    if (/exists|duplicate/i.test(String(e.message || e))) return title;
+    // Non-fatal: Employee can be created without designation
+    console.warn('[business-core-org-sync] designation ensure failed', title, e.message || e);
+    return null;
+  }
+}
+
+function erpEmployeeDateToday() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+async function erpFindEmployeeByName(frappe, company, firstName) {
+  const listed = await frappe(
+    'GET',
+    '/api/resource/Employee?filters=' +
+      encodeURIComponent(
+        JSON.stringify([
+          ['company', '=', company],
+          ['employee_name', '=', firstName],
+        ])
+      ) +
+      '&limit_page_length=1&fields=' +
+      encodeURIComponent(JSON.stringify(['name', 'employee_name', 'department', 'company']))
+  ).catch(() => null);
+  const row = Array.isArray(listed?.data) ? listed.data[0] : null;
+  return row?.name || null;
+}
+
 async function erpSyncDepartmentsAndUsers(owner, snap) {
-  const results = { departments: [], users: [], errors: [], mode: 'local' };
+  const results = {
+    departments: [],
+    users: [],
+    employees: [],
+    errors: [],
+    mode: 'local',
+  };
   if (!isErpnextApiConfigured()) {
     results.mode = 'offline';
     results.note = 'ERPNEXT_URL / API keys not configured — bind only; no live ERPNext writes';
-    // Still record intended map locally
     results.planned_departments = snap.departments.map((d) => d.name);
     results.planned_agents = snap.agents.map((a) => a.name);
     return results;
   }
 
-  const root = String(process.env.ERPNEXT_URL || '').replace(/\/+$/, '');
-  const auth = `token ${process.env.ERPNEXT_API_KEY}:${process.env.ERPNEXT_API_SECRET}`;
+  const { frappeFetch } = await import('./erpnext-erp.js');
   async function frappe(method, path, body) {
-    const res = await fetch(`${root}${path}`, {
-      method,
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        Authorization: auth,
-      },
-      body: body != null ? JSON.stringify(body) : undefined,
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(data?.message || data?.exc || `ERPNext HTTP ${res.status}`);
-    }
-    return data;
+    return frappeFetch(path, { method, body });
   }
 
   results.mode = 'live';
   const profile = getBusinessProfile(owner);
-  const company = profile.erpnext.company_name || profile.erpnext.company_id || snap.company_name;
+  const companyInput = profile.erpnext.company_name || profile.erpnext.company_id || snap.company_name;
+  const meta = await erpResolveCompanyMeta(frappe, companyInput);
+  const company = meta.company;
+  const abbr = meta.abbr;
+  results.company = company;
+  results.company_abbr = abbr;
 
-  for (const d of snap.departments) {
+  const deptNameByLabel = new Map();
+
+  // Always ensure a root "AI Team" department for unassigned agents
+  for (const d of [{ name: 'AI Team' }, ...snap.departments]) {
     try {
-      const data = await frappe('POST', '/api/resource/Department', {
-        department_name: d.name,
-        company,
-        // Frappe Department doctype
-      }).catch(async (e) => {
-        // maybe exists
-        if (/exists|duplicate/i.test(e.message)) return { existing: true, name: d.name };
-        throw e;
-      });
-      results.departments.push({ name: d.name, ok: true, data: data?.data || data });
+      const out = await erpEnsureDepartment(frappe, company, d.name, abbr);
+      if (out?.name) {
+        deptNameByLabel.set(String(d.name).toLowerCase(), out.name);
+        results.departments.push({
+          name: d.name,
+          erp_name: out.name,
+          created: !!out.created,
+          ok: true,
+        });
+      }
     } catch (e) {
-      results.errors.push(`dept ${d.name}: ${e.message}`);
+      results.errors.push(`dept ${d.name}: ${String(e.message || e).slice(0, 240)}`);
     }
   }
 
   for (const a of snap.agents) {
     try {
-      const email = `${a.id.replace(/[^a-z0-9_-]/gi, '_')}@flolah.local`;
-      const data = await frappe('POST', '/api/resource/Employee', {
-        first_name: a.name,
-        company,
-        department: a.department || undefined,
-        designation: a.role || undefined,
-        status: 'Active',
-        // Prefer not create full User unless API allows
-      }).catch(async (e) => {
-        if (/exists|duplicate/i.test(e.message)) return { existing: true };
-        throw e;
+      const deptLabel = String(a.department || 'AI Team').trim() || 'AI Team';
+      let deptDoc = deptNameByLabel.get(deptLabel.toLowerCase());
+      if (!deptDoc) {
+        const ensured = await erpEnsureDepartment(frappe, company, deptLabel, abbr);
+        deptDoc = ensured?.name || null;
+        if (deptDoc) deptNameByLabel.set(deptLabel.toLowerCase(), deptDoc);
+      }
+      const designation = await erpEnsureDesignation(frappe, a.name || a.role || 'AI Employee');
+
+      // Employees only — do NOT create Frappe User rows for agents (would leak in User list).
+      const existingEmp = await erpFindEmployeeByName(frappe, company, a.name);
+      let empName = existingEmp;
+      let created = false;
+      if (!empName) {
+        const body = {
+          first_name: String(a.name || a.id).slice(0, 80),
+          company,
+          status: 'Active',
+          date_of_joining: erpEmployeeDateToday(),
+          create_user_permission: 0,
+        };
+        if (deptDoc) body.department = deptDoc;
+        if (designation) body.designation = designation;
+        // Prefer optional gender only if site requires it — omit first; retry with Other
+        try {
+          const createdDoc = await frappe('POST', '/api/resource/Employee', body);
+          empName = createdDoc?.data?.name || null;
+          created = true;
+        } catch (e1) {
+          const msg = String(e1.message || e1);
+          if (/gender/i.test(msg) && !body.gender) {
+            body.gender = 'Other';
+            const createdDoc = await frappe('POST', '/api/resource/Employee', body);
+            empName = createdDoc?.data?.name || null;
+            created = true;
+          } else if (/exists|duplicate/i.test(msg)) {
+            empName = await erpFindEmployeeByName(frappe, company, a.name);
+          } else {
+            throw e1;
+          }
+        }
+      }
+
+      results.employees.push({
+        agent_id: a.id,
+        name: a.name,
+        employee: empName,
+        department: deptDoc,
+        designation,
+        created,
+        ok: !!empName,
       });
-      results.users.push({ agent_id: a.id, name: a.name, ok: true, data: data?.data || data });
-      try {
-        getDb()
-          .prepare(
-            `INSERT INTO company_erpnext_user_map
-               (owner_user_id, flolah_user_id, erpnext_user_id, erpnext_company_id, roles_json, updated_at)
-             VALUES (?, ?, ?, ?, ?, datetime('now'))
-             ON CONFLICT(owner_user_id, flolah_user_id, erpnext_company_id) DO UPDATE SET
-               erpnext_user_id = excluded.erpnext_user_id,
-               updated_at = datetime('now')`
-          )
-          .run(owner, a.id, email, profile.erpnext.company_id || company, JSON.stringify(['Employee']));
-      } catch (_) {}
+      // keep legacy key for older UI
+      results.users.push({
+        agent_id: a.id,
+        name: a.name,
+        employee: empName,
+        ok: !!empName,
+      });
+
+      if (empName) {
+        try {
+          getDb()
+            .prepare(
+              `INSERT INTO company_erpnext_user_map
+                 (owner_user_id, flolah_user_id, erpnext_user_id, erpnext_company_id, roles_json, updated_at)
+               VALUES (?, ?, ?, ?, ?, datetime('now'))
+               ON CONFLICT(owner_user_id, flolah_user_id, erpnext_company_id) DO UPDATE SET
+                 erpnext_user_id = excluded.erpnext_user_id,
+                 updated_at = datetime('now')`
+            )
+            .run(
+              owner,
+              a.id,
+              empName,
+              profile.erpnext.company_id || company,
+              JSON.stringify(['Employee'])
+            );
+        } catch (_) {}
+      }
     } catch (e) {
-      results.errors.push(`agent ${a.name}: ${e.message}`);
+      results.errors.push(`agent ${a.name}: ${String(e.message || e).slice(0, 280)}`);
     }
   }
 
+  console.info(
+    '[business-core-org-sync] erp company=%s depts=%s employees_ok=%s errors=%s',
+    company,
+    results.departments.length,
+    results.employees.filter((x) => x.ok).length,
+    results.errors.length
+  );
   return results;
 }
 
@@ -310,7 +506,11 @@ export async function syncFlolahOrgToBusinessCore(ownerUserId, opts = {}) {
       assertErpEntitled(owner);
       const bind = await ensureErpnextCompanyForOwner(owner, { displayName: snap.company_name });
       const sync = await erpSyncDepartmentsAndUsers(owner, snap);
-      out.crm = { provider: 'erpnext', bind, sync };
+      const isolation = await tightenDeskUserIsolation(
+        owner,
+        bind?.company_name || bind?.company_id || snap.company_name
+      );
+      out.crm = { provider: 'erpnext', bind, sync, desk_isolation: isolation };
     } else {
       out.crm = { skipped: true, reason: 'crm_provider is not twenty or erpnext' };
     }
@@ -321,7 +521,11 @@ export async function syncFlolahOrgToBusinessCore(ownerUserId, opts = {}) {
       assertErpEntitled(owner);
       const bind = await ensureErpnextCompanyForOwner(owner, { displayName: snap.company_name });
       const sync = await erpSyncDepartmentsAndUsers(owner, snap);
-      out.erp = { provider: 'erpnext', bind, sync };
+      const isolation = await tightenDeskUserIsolation(
+        owner,
+        bind?.company_name || bind?.company_id || snap.company_name
+      );
+      out.erp = { provider: 'erpnext', bind, sync, desk_isolation: isolation };
     } else {
       out.erp = { skipped: true, reason: 'ERPNext not selected for CRM or ERP' };
     }
