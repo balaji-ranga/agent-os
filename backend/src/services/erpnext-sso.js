@@ -259,8 +259,13 @@ export async function buildErpSsoHandoff(ownerUserId, opts) {
 
   const token = crypto.randomBytes(24).toString('hex');
   const expires = new Date(Date.now() + TOKEN_TTL_MS).toISOString();
+  const rawRedirect = String(opts.redirectPath || opts.redirect_path || '/app').trim() || '/app';
+  const redirectBase = rawRedirect.startsWith('/') ? rawRedirect : '/' + rawRedirect;
   const redirectPath =
-    '/app' + (companyName ? '?company=' + encodeURIComponent(companyName) : '');
+    redirectBase +
+    (companyName
+      ? (redirectBase.includes('?') ? '&' : '?') + 'company=' + encodeURIComponent(companyName)
+      : '');
 
   getDb()
     .prepare(

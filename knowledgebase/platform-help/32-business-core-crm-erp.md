@@ -80,7 +80,7 @@ Even then the current overlay is **infra + stub backend** (site init still requi
 
 | Layer | Storage | Rule |
 |-------|---------|------|
-| Profile choice | SQLite `company_business_profiles` | `crm_provider=twenty` / `erp_provider=erpnext` per **CEO owner** |
+| Profile choice | SQLite `company_business_profiles` | `crm_provider=twenty|erpnext` / `erp_provider=erpnext` per **CEO owner** |
 | CRM bind | `twenty_workspace_id` (+ bind JSON) | **One Twenty workspace per Flolah company** |
 | ERP bind | `erpnext_company_id` (+ user map table) | **One ERPNext Company per Flolah company** (multi-company site later) |
 | Authorization | tools + embeds | Always `resolveAuthenticatedCeoUserId` ├óΓé¼ΓÇ¥ never body-supplied foreign owner/workspace |

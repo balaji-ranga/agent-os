@@ -234,7 +234,7 @@ router.post('/sync-org', async (req, res) => {
 /**
  * PATCH body: { crm_provider?, erp_provider?, provision?: true }
  * Prefab CRM/ERP AI employees are granted to the org only when
- * CRM = Twenty / ERP = ERPNext. Selecting none (or a non-platform vendor)
+ * CRM = Twenty or ERPNext / ERP = ERPNext. Selecting none (or a non-platform vendor)
  * removes those prefab agents from the org (user_agents disabled).
  */
 router.patch('/profile', async (req, res) => {
@@ -264,7 +264,7 @@ router.patch('/profile', async (req, res) => {
       }
       prefab = await syncPrefabCrmAgentsForOwner(ownerUserId);
 
-      if (profile.erp_provider === 'erpnext') {
+      if (profile.erp_provider === 'erpnext' || profile.crm_provider === 'erpnext') {
         erpnext = await ensureErpnextCompanyForOwner(ownerUserId, {
           displayName: displayName || profile.erpnext.company_name,
         });

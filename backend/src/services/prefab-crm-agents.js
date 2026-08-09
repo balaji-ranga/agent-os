@@ -55,6 +55,72 @@ const CRM_APPROVER_TOOLS = [
   'master_data_rag',
 ];
 
+/** Sales/CRM modules on ERPNext (when Profile CRM = ERPNext). */
+const ERP_CRM_MAKER_TOOLS = [
+  'erp_status',
+  'erp_sync_org',
+  'erp_list_customers',
+  'erp_create_customer',
+  'erp_list_leads',
+  'erp_create_lead',
+  'erp_list_contacts',
+  'erp_create_contact',
+  'erp_list_opportunities',
+  'erp_create_opportunity',
+  'erp_list_items',
+  'erp_create_item',
+  'erp_list_quotations',
+  'erp_create_quotation',
+  'erp_list_sales_orders',
+  'erp_create_sales_order',
+  'erp_list_delivery_notes',
+  'erp_create_delivery_note',
+  'erp_list_sales_invoices',
+  'erp_create_sales_invoice',
+  'erp_list_resource',
+  'erp_get_resource',
+  'erp_create_resource',
+  'erp_update_resource',
+  'erp_submit_doc',
+  'kanban_create_task',
+  'kanban_move_status',
+  'notify_ceo',
+  'ceo_profile',
+  'master_data_list_tables',
+  'master_data_list_rows',
+  'master_data_rag',
+  'learnings_summary',
+  'summarize_url',
+];
+
+const ERP_CRM_CHECKER_TOOLS = [
+  'erp_status',
+  'erp_sync_org',
+  'erp_list_customers',
+  'erp_list_leads',
+  'erp_list_contacts',
+  'erp_list_opportunities',
+  'erp_list_items',
+  'erp_list_quotations',
+  'erp_list_sales_orders',
+  'erp_list_delivery_notes',
+  'erp_list_sales_invoices',
+  'erp_list_resource',
+  'erp_get_resource',
+  'erp_submit_doc',
+  'erp_cancel_doc',
+  'kanban_create_task',
+  'kanban_move_status',
+  'kanban_assign_task',
+  'kanban_reassign_to_coo',
+  'notify_ceo',
+  'ceo_profile',
+  'master_data_list_tables',
+  'master_data_list_rows',
+  'master_data_rag',
+];
+
+
 function ownerSlug(ownerUserId) {
   return (
     String(ownerUserId || '')
@@ -64,8 +130,37 @@ function ownerSlug(ownerUserId) {
   );
 }
 
-function packDefs(ownerUserId) {
+function packDefs(ownerUserId, provider = 'twenty') {
   const s = ownerSlug(ownerUserId);
+  if (provider === 'erpnext') {
+    return [
+      {
+        id: `crm-s1-${s}`.slice(0, 40),
+        name: 'CRM Maker A',
+        role:
+          'CRM Maker on platform ERPNext Sales/CRM modules (Leads, Opportunities, Customers, Quotations, Sales Orders). ' +
+          'Uses erp_* tools (same as mcp-flolah-erp sales surface). Draft-first; submit with Checker/CEO when needed.',
+        department: 'Sales',
+        tools: ERP_CRM_MAKER_TOOLS,
+      },
+      {
+        id: `crm-s2-${s}`.slice(0, 40),
+        name: 'CRM Maker B',
+        role:
+          'CRM Maker on ERPNext — enrichment, follow-ups, contacts, pipeline hygiene via erp_* Sales tools.',
+        department: 'Sales',
+        tools: ERP_CRM_MAKER_TOOLS,
+      },
+      {
+        id: `crm-ap-${s}`.slice(0, 40),
+        name: 'CRM Checker',
+        role:
+          'CRM Checker for ERPNext Sales — gate submit/cancel, review pipeline risk, Kanban approvals. Prefer list tools.',
+        department: 'Sales',
+        tools: ERP_CRM_CHECKER_TOOLS,
+      },
+    ];
+  }
   return [
     {
       id: `crm-s1-${s}`.slice(0, 40),
@@ -94,17 +189,18 @@ function packDefs(ownerUserId) {
   ];
 }
 
+
 /** Idempotent: create missing prefab agents and grant to this CEO only. */
 export async function ensurePrefabCrmAgents(ownerUserId) {
   const owner = String(ownerUserId || '').trim();
   if (!owner) throw Object.assign(new Error('owner_user_id required'), { status: 400 });
 
   const profile = getBusinessProfile(owner);
-  if (profile.crm_provider !== 'twenty') {
-    return { ok: false, skipped: true, reason: 'crm_provider is not twenty', agents: [] };
+  if (profile.crm_provider !== 'twenty' && profile.crm_provider !== 'erpnext') {
+    return { ok: false, skipped: true, reason: 'crm_provider is not twenty or erpnext', agents: [] };
   }
 
-  const defs = packDefs(owner);
+  const defs = packDefs(owner, profile.crm_provider);
   const created = [];
   const ensured = [];
 
@@ -165,7 +261,10 @@ export async function ensurePrefabCrmAgents(ownerUserId) {
  */
 export function listPrefabCrmAgentIdsForOwner(ownerUserId) {
   const owner = String(ownerUserId || '').trim();
-  const ids = new Set(packDefs(owner).map((d) => d.id));
+  const ids = new Set([
+    ...packDefs(owner, 'twenty').map((d) => d.id),
+    ...packDefs(owner, 'erpnext').map((d) => d.id),
+  ]);
   try {
     for (const id of getBusinessProfile(owner).prefab_crm_agent_ids || []) {
       if (id) ids.add(String(id));
@@ -189,7 +288,7 @@ export function listPrefabCrmAgentIdsForOwner(ownerUserId) {
 }
 
 /**
- * Remove platform CRM agents from this CEO's org when CRM is not Twenty.
+ * Remove platform CRM agents from this CEO's org when CRM is not Twenty or ERPNext.
  * Agents stay in DB (re-grant on re-select); only user_agents entitlement is disabled.
  */
 export function revokePrefabCrmAgentsFromOrg(ownerUserId) {
@@ -212,11 +311,11 @@ export function revokePrefabCrmAgentsFromOrg(ownerUserId) {
   return { ok: true, revoked, agents: [] };
 }
 
-/** Ensure granted only when platform CRM = Twenty; otherwise remove from org. */
+/** Ensure granted when platform CRM = Twenty or ERPNext; otherwise remove from org. */
 export async function syncPrefabCrmAgentsForOwner(ownerUserId) {
   const owner = String(ownerUserId || '').trim();
   const profile = getBusinessProfile(owner);
-  if (profile.crm_provider === 'twenty') {
+  if (profile.crm_provider === 'twenty' || profile.crm_provider === 'erpnext') {
     return ensurePrefabCrmAgents(owner);
   }
   return revokePrefabCrmAgentsFromOrg(owner);

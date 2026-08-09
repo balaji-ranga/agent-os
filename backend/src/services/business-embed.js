@@ -206,16 +206,106 @@ export async function getCrmEmbedForOwner(ownerUserId, { flolahUser } = {}) {
   const profile = getBusinessProfile(owner);
   if (!profile.platform_crm) {
     const err = new Error(
-      'CRM menu is only available when platform CRM (Twenty) is selected for this company.'
+      'CRM menu is only available when platform CRM (Twenty or ERPNext) is selected for this company.'
     );
     err.status = 403;
     throw err;
   }
   assertCrmEntitled(owner);
 
+  // ERPNext CRM modules (Leads/Opportunity/Selling) via ERP desk SSO
+  if (profile.crm_provider === 'erpnext') {
+    const base = getErpnextPublicBase();
+    let companyId = profile.erpnext.company_id || null;
+    let companyName = profile.erpnext.company_name || null;
+    let iframe_url = null;
+    let open_url = null;
+    let switch_account_url = null;
+    let sso = {
+      mode: 'login_redirect',
+      note: 'Sign in as your mapped ERPNext user when SSO is unavailable.',
+    };
+    if (base) {
+      try {
+        const { buildErpSsoHandoff, isErpnextSsoEnabled } = await import('./erpnext-sso.js');
+        const { getPublicBaseUrl } = await import('../config/public-url.js');
+        const flolahApi =
+          String(getPublicBaseUrl() || '')
+            .trim()
+            .replace(/\/+$/, '') + '/api/business-core/erp-sso-consume';
+        const launch = await buildErpSsoHandoff(owner, {
+          flolahUser: flolahUser || getUserById(owner) || undefined,
+          publicBase: base,
+          // Landing on CRM workspace when available; Desk falls back to /app
+          redirectPath: '/app/crm',
+        });
+        if (launch.company_id) companyId = launch.company_id;
+        if (launch.company_name) companyName = launch.company_name;
+        if (launch.ok && launch.iframe_url) {
+          iframe_url =
+            launch.iframe_url +
+            (launch.iframe_url.includes('?') ? '&' : '?') +
+            'consume=' +
+            encodeURIComponent(flolahApi);
+          open_url = iframe_url;
+          switch_account_url = launch.switch_account_url || null;
+          sso = {
+            mode: launch.mode || 'session_cookie_sso',
+            ok: true,
+            company_id: companyId,
+            company_name: companyName,
+            note:
+              'Passwordless ERPNext CRM (Sales) desk via Flolah session; company-scoped user.',
+          };
+        } else {
+          open_url = base + '/app/crm';
+          iframe_url = base + '/login?redirect-to=' + encodeURIComponent('/app/crm');
+          sso = {
+            mode: 'login_redirect',
+            ok: false,
+            reason: launch.reason || 'sso_unavailable',
+            note: 'ERPNext CRM SSO unavailable; open login.',
+          };
+        }
+        void isErpnextSsoEnabled;
+      } catch (e) {
+        console.warn('[business-embed] erpnext crm sso failed', e?.message || e);
+        iframe_url = base + '/login?redirect-to=' + encodeURIComponent('/app/crm');
+        open_url = iframe_url;
+        sso = { mode: 'login_redirect', ok: false, reason: e?.message || 'sso_failed' };
+      }
+    }
+    return {
+      kind: 'crm',
+      provider: 'erpnext',
+      available: Boolean(base),
+      reason: base
+        ? null
+        : 'No browser-reachable ERPNext URL. Set ERPNEXT_EMBED_URL (e.g. https://erp.crm.flolah.cloud)',
+      iframe_url,
+      open_url,
+      switch_account_url,
+      company_id: companyId,
+      company_name: companyName,
+      bound: Boolean(companyId),
+      sso,
+      owner_user_id: owner,
+      stack: {
+        database: 'MariaDB (erpnext-db)',
+        sales_crm_modules: true,
+      },
+      wiring: {
+        flolah_owner_user_id: owner,
+        sso: 'CRM open → ERPNext desk (SSO) for Sales/CRM modules',
+      },
+    };
+  }
+
+  // Twenty CRM (default platform path)
   const base = getTwentyPublicBase();
   let workspaceId = profile.twenty.workspace_id || null;
-  let workspaceSubdomain = profile.twenty.subdomain || (profile.twenty.bind && profile.twenty.bind.subdomain) || null;
+  let workspaceSubdomain =
+    profile.twenty.subdomain || (profile.twenty.bind && profile.twenty.bind.subdomain) || null;
   let publicBase = null;
   const companyDisplay =
     resolveCompanyDisplayName(owner) || profile.twenty.workspace_name || null;
@@ -226,8 +316,7 @@ export async function getCrmEmbedForOwner(ownerUserId, { flolahUser } = {}) {
   let switch_account_url = null;
   let sso = {
     mode: 'session_isolation_handoff',
-    note:
-      'Switching Flolah company clears prior Twenty browser session for this CRM host.',
+    note: 'Switching Flolah company clears prior Twenty browser session for this CRM host.',
   };
 
   if (base) {
@@ -250,7 +339,7 @@ export async function getCrmEmbedForOwner(ownerUserId, { flolahUser } = {}) {
         public_base: launch.public_base || null,
         note:
           launch.mode === 'login_token_sso'
-            ? 'Passwordless CRM login via Flolah session (Twenty LOGIN token + company workspace). Admin View-as-user mints for that company CEO email, not the platform admin.'
+            ? 'Passwordless CRM login via Flolah session (Twenty LOGIN token + company workspace).'
             : 'Session isolation handoff only; passwordless SSO unavailable for this request.',
       };
     } catch (e) {
@@ -308,7 +397,7 @@ export async function getCrmEmbedForOwner(ownerUserId, { flolahUser } = {}) {
       twenty_subdomain: workspaceSubdomain,
       bind_mode: profile.twenty.bound ? 'profile' : 'pending_ensure_on_provision_or_sync',
       sync: 'POST /api/business-core/sync-org or Sync org (crm_sync_org tool)',
-      sso: 'One Flolah company -> one Twenty workspace; CRM open mints LOGIN token for company workspace origin',
+      sso: 'One Flolah company -> one Twenty workspace; CRM open mints LOGIN token',
     },
   };
 }

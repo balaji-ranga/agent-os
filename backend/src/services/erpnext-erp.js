@@ -104,18 +104,23 @@ export async function erpList(ownerUserId, doctype, { limit = 20, filters, field
   // Company-scoped doctypes when company known and field usually exists
   const companyDocs = new Set([
     'Customer',
+    'Contact',
+    'Opportunity',
     'Quotation',
     'Sales Order',
     'Sales Invoice',
+    'Delivery Note',
+    'Purchase Order',
     'Purchase Invoice',
+    'Payment Entry',
     'Project',
     'Task',
     'Department',
     'Employee',
-    'Purchase Order',
     'GL Entry',
     'Journal Entry',
-    'Payment Entry',
+    'Stock Entry',
+    'Material Request',
   ]);
   if (co && companyDocs.has(dt) && !f.some((x) => Array.isArray(x) && x[0] === 'company')) {
     f.push(['company', '=', co]);
@@ -285,13 +290,128 @@ export async function erpCreateLead(ownerUserId, { lead_name, email_id, company_
   return erpCreate(ownerUserId, 'Lead', { lead_name, email_id, company_name, ...rest });
 }
 
+
+export async function erpUpdate(ownerUserId, doctype, name, fields = {}) {
+  assertErpEntitled(ownerUserId);
+  if (!isErpnextApiConfigured()) {
+    throw Object.assign(new Error('ERPNEXT_URL / API keys not configured'), { status: 503 });
+  }
+  const dt = String(doctype || '').trim();
+  const nm = String(name || '').trim();
+  if (!dt || !nm) throw Object.assign(new Error('doctype and name required'), { status: 400 });
+  const data = await frappeFetch(
+    `/api/resource/${encodeURIComponent(dt)}/${encodeURIComponent(nm)}`,
+    { method: 'PUT', body: fields }
+  );
+  return { mode: 'live', doctype: dt, name: nm, data: data?.data || data };
+}
+
+export async function erpSubmitDoc(ownerUserId, doctype, name) {
+  assertErpEntitled(ownerUserId);
+  if (!isErpnextApiConfigured()) {
+    throw Object.assign(new Error('ERPNEXT_URL / API keys not configured'), { status: 503 });
+  }
+  const dt = String(doctype || '').trim();
+  const nm = String(name || '').trim();
+  if (!dt || !nm) throw Object.assign(new Error('doctype and name required'), { status: 400 });
+  const full = await erpGet(ownerUserId, dt, nm);
+  const doc = full?.data;
+  if (!doc || typeof doc !== 'object') {
+    throw Object.assign(new Error('document not found for submit'), { status: 404 });
+  }
+  const data = await frappeFetch('/api/method/frappe.client.submit', {
+    method: 'POST',
+    body: { doc },
+  });
+  return { mode: 'live', doctype: dt, name: nm, data: data?.message || data };
+}
+
+export async function erpCancelDoc(ownerUserId, doctype, name) {
+  assertErpEntitled(ownerUserId);
+  if (!isErpnextApiConfigured()) {
+    throw Object.assign(new Error('ERPNEXT_URL / API keys not configured'), { status: 503 });
+  }
+  const dt = String(doctype || '').trim();
+  const nm = String(name || '').trim();
+  if (!dt || !nm) throw Object.assign(new Error('doctype and name required'), { status: 400 });
+  const data = await frappeFetch('/api/method/frappe.client.cancel', {
+    method: 'POST',
+    body: { doctype: dt, name: nm },
+  });
+  return { mode: 'live', doctype: dt, name: nm, data: data?.message || data };
+}
+
+export async function erpCreateQuotation(ownerUserId, doc = {}) {
+  return erpCreate(ownerUserId, 'Quotation', doc);
+}
+export async function erpCreateSalesOrder(ownerUserId, doc = {}) {
+  return erpCreate(ownerUserId, 'Sales Order', doc);
+}
+export async function erpCreateItem(ownerUserId, doc = {}) {
+  if (!doc.item_code && !doc.item_name) {
+    throw Object.assign(new Error('item_code or item_name required'), { status: 400 });
+  }
+  return erpCreate(ownerUserId, 'Item', {
+    item_code: doc.item_code || doc.item_name,
+    item_name: doc.item_name || doc.item_code,
+    item_group: doc.item_group || 'Products',
+    stock_uom: doc.stock_uom || 'Nos',
+    ...doc,
+  });
+}
+export async function erpListOpportunities(ownerUserId, opts) {
+  return erpList(ownerUserId, 'Opportunity', opts);
+}
+export async function erpCreateOpportunity(ownerUserId, doc = {}) {
+  return erpCreate(ownerUserId, 'Opportunity', doc);
+}
+export async function erpListContacts(ownerUserId, opts) {
+  return erpList(ownerUserId, 'Contact', opts);
+}
+export async function erpCreateContact(ownerUserId, doc = {}) {
+  if (!doc.first_name && !doc.last_name && !doc.email_id) {
+    throw Object.assign(new Error('first_name, last_name, or email_id required'), { status: 400 });
+  }
+  return erpCreate(ownerUserId, 'Contact', doc);
+}
+export async function erpListPurchaseOrders(ownerUserId, opts) {
+  return erpList(ownerUserId, 'Purchase Order', opts);
+}
+export async function erpCreatePurchaseOrder(ownerUserId, doc = {}) {
+  return erpCreate(ownerUserId, 'Purchase Order', doc);
+}
+export async function erpListPaymentEntries(ownerUserId, opts) {
+  return erpList(ownerUserId, 'Payment Entry', opts);
+}
+export async function erpCreatePaymentEntry(ownerUserId, doc = {}) {
+  return erpCreate(ownerUserId, 'Payment Entry', doc);
+}
+export async function erpListDeliveryNotes(ownerUserId, opts) {
+  return erpList(ownerUserId, 'Delivery Note', opts);
+}
+export async function erpCreateDeliveryNote(ownerUserId, doc = {}) {
+  return erpCreate(ownerUserId, 'Delivery Note', doc);
+}
+export async function erpListJournalEntries(ownerUserId, opts) {
+  return erpList(ownerUserId, 'Journal Entry', opts);
+}
+export async function erpCreateJournalEntry(ownerUserId, doc = {}) {
+  return erpCreate(ownerUserId, 'Journal Entry', doc);
+}
+export async function erpListMaterialRequests(ownerUserId, opts) {
+  return erpList(ownerUserId, 'Material Request', opts);
+}
+export async function erpCreateMaterialRequest(ownerUserId, doc = {}) {
+  return erpCreate(ownerUserId, 'Material Request', doc);
+}
+
 export async function ensureErpnextCompanyForOwner(ownerUserId, { displayName } = {}) {
   const owner = String(ownerUserId || '').trim();
   if (!owner) throw Object.assign(new Error('owner_user_id required'), { status: 400 });
 
   const profile = assertErpEntitled(owner);
-  if (profile.erp_provider !== 'erpnext') {
-    throw Object.assign(new Error('erp_provider must be erpnext'), { status: 400 });
+  if (!profile.uses_erpnext) {
+    throw Object.assign(new Error('crm_provider or erp_provider must be erpnext'), { status: 400 });
   }
 
   if (profile.erpnext.company_id) {
@@ -368,23 +488,30 @@ export function getErpnextStatusForOwner(ownerUserId) {
   const p = getBusinessProfile(ownerUserId);
   return {
     configured: isErpnextApiConfigured(),
+    crm_provider: p.crm_provider,
     erp_provider: p.erp_provider,
+    uses_erpnext: p.uses_erpnext,
     bound: p.erpnext.bound,
     company_id: p.erpnext.company_id,
     company_name: p.erpnext.company_name,
     objects: [
       'Customer',
       'Lead',
+      'Contact',
+      'Opportunity',
       'Item',
       'Quotation',
       'Sales Order',
+      'Delivery Note',
       'Sales Invoice',
+      'Purchase Order',
       'Purchase Invoice',
+      'Payment Entry',
+      'Journal Entry',
+      'Material Request',
       'Project',
       'Task',
       'GL Entry',
-      'Journal Entry',
-      'Payment Entry',
       'Department',
       'Employee',
       'Profit and Loss Statement',

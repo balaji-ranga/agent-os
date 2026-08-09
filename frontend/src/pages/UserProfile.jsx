@@ -99,7 +99,7 @@ function UserProfilePanel() {
           data.prefab?.agents?.length
             ? ` Prefab CRM agents: ${data.prefab.agents.join(', ')}.`
             : data.prefab?.revoked?.length
-              ? ' Platform CRM agents removed from org (CRM is not Twenty).'
+              ? ' Platform CRM agents removed from org (CRM is not Twenty/ERPNext).'
               : '';
         const prefabErp =
           data.prefab_erp?.agents?.length
@@ -636,9 +636,8 @@ function UserProfilePanel() {
           <>
             <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '0.5rem 0' }} />
             <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--muted)' }}>
-              Business Core (optional) — platform CRM is Twenty (one workspace per company); ERP is ERPNext
-              (multi-company map; full prefab in Phase 2). Save runs provision for Twenty: workspace bind +
-              2 CRM specialists and 1 CRM Approver.
+              Business Core (optional) — platform CRM: Twenty or ERPNext (Sales/CRM modules); ERP: ERPNext.
+              Save provisions workspace/company + prefab Maker/Checker agents for the selected platforms.
             </p>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>CRM</span>
@@ -648,7 +647,8 @@ function UserProfilePanel() {
                 style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
               >
                 <option value="none">None</option>
-                <option value="twenty">Twenty (platform)</option>
+                <option value="twenty">Twenty (platform CRM)</option>
+                <option value="erpnext">ERPNext (Sales/CRM modules)</option>
                 <option value="hubspot">HubSpot (connect)</option>
                 <option value="zoho">Zoho (connect)</option>
               </select>
@@ -668,6 +668,11 @@ function UserProfilePanel() {
             {bizMeta?.profile?.twenty?.bound && (
               <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--muted)' }}>
                 Twenty workspace: {bizMeta.profile.twenty.workspace_name || bizMeta.profile.twenty.workspace_id}
+              </p>
+            )}
+            {bizMeta?.profile?.erpnext?.bound && (
+              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--muted)' }}>
+                ERPNext company: {bizMeta.profile.erpnext.company_name || bizMeta.profile.erpnext.company_id}
               </p>
             )}
             <button

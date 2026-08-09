@@ -147,3 +147,10 @@ Pass `X-Ceo-User-Id` on workflow MCP auth. Deploy hook: `deploy/scripts/ensure-p
 ## Org sync
 
 `POST /api/business-core/sync-org` or tools `crm_sync_org` / `erp_sync_org`.
+
+## CRM provider: ERPNext vs Twenty
+
+- Profile **CRM = Twenty** → CRM menu SSO → Twenty workspace (`crm.*`).
+- Profile **CRM = ERPNext** → CRM menu SSO → ERPNext desk Sales/CRM (`erp.crm.*` / `ERPNEXT_EMBED_URL`).
+- Profile **ERP = ERPNext** → ERP menu + Maker A/B / Checker / specialists with expanded `erp_*` tools (mirrored in `mcp-flolah-erp` and content tools).
+- Twenty uses Postgres (`twenty-db`); ERPNext uses MariaDB (`erpnext-db`) — not shared.

@@ -904,6 +904,23 @@ export async function applyCompanySetup(ownerUserId, { confirm_override: confirm
         twenty?.workspace_id,
         (prefab?.agents || []).join(',')
       );
+    } else if (crmProvider === 'erpnext') {
+      const { ensureErpnextCompanyForOwner } = await import('./erpnext-erp.js');
+      const { ensurePrefabCrmAgents } = await import('./prefab-crm-agents.js');
+      const erpnextCrm = await ensureErpnextCompanyForOwner(ownerUserId, { displayName });
+      const prefab = await ensurePrefabCrmAgents(ownerUserId);
+      businessCore = {
+        ...businessCore,
+        profile: getBusinessProfile(ownerUserId),
+        erpnext: erpnextCrm,
+        prefab,
+      };
+      console.info(
+        '[company-setup] business core CRM erpnext owner=%s company=%s prefab=%s',
+        ownerUserId,
+        erpnextCrm?.company_id,
+        (prefab?.agents || []).join(',')
+      );
     } else {
       const { revokePrefabCrmAgentsFromOrg } = await import('./prefab-crm-agents.js');
       const prefab = revokePrefabCrmAgentsFromOrg(ownerUserId);

@@ -278,7 +278,11 @@ export async function syncFlolahOrgToBusinessCore(ownerUserId, opts = {}) {
   const profile = getBusinessProfile(owner);
   const want = Array.isArray(opts.targets) && opts.targets.length
     ? opts.targets.map((t) => String(t).toLowerCase())
-    : ['crm', 'erp'].filter((t) => (t === 'crm' ? profile.platform_crm : profile.platform_erp));
+    : ['crm', 'erp'].filter((t) => {
+        if (t === 'crm') return profile.platform_crm === true;
+        if (t === 'erp') return profile.platform_erp === true || profile.uses_erpnext === true;
+        return false;
+      });
 
   const snap = listFlolahOrgSnapshot(owner);
   const out = {
@@ -296,25 +300,30 @@ export async function syncFlolahOrgToBusinessCore(ownerUserId, opts = {}) {
   };
 
   if (want.includes('crm')) {
-    if (!profile.platform_crm) {
-      out.crm = { skipped: true, reason: 'crm_provider is not twenty' };
-    } else {
+    if (profile.crm_provider === 'twenty') {
       assertCrmEntitled(owner);
       const bind = await ensureTwentyWorkspaceForCompany(owner, { displayName: snap.company_name });
       const company = await twentyUpsertWorkspaceCompany(owner, snap);
       const people = await twentySyncPeople(owner, snap);
-      out.crm = { bind, company, people };
+      out.crm = { provider: 'twenty', bind, company, people };
+    } else if (profile.crm_provider === 'erpnext') {
+      assertErpEntitled(owner);
+      const bind = await ensureErpnextCompanyForOwner(owner, { displayName: snap.company_name });
+      const sync = await erpSyncDepartmentsAndUsers(owner, snap);
+      out.crm = { provider: 'erpnext', bind, sync };
+    } else {
+      out.crm = { skipped: true, reason: 'crm_provider is not twenty or erpnext' };
     }
   }
 
   if (want.includes('erp')) {
-    if (!profile.platform_erp) {
-      out.erp = { skipped: true, reason: 'erp_provider is not erpnext' };
-    } else {
+    if (profile.uses_erpnext) {
       assertErpEntitled(owner);
       const bind = await ensureErpnextCompanyForOwner(owner, { displayName: snap.company_name });
       const sync = await erpSyncDepartmentsAndUsers(owner, snap);
-      out.erp = { bind, sync };
+      out.erp = { provider: 'erpnext', bind, sync };
+    } else {
+      out.erp = { skipped: true, reason: 'ERPNext not selected for CRM or ERP' };
     }
   }
 

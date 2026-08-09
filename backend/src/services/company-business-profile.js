@@ -4,8 +4,12 @@
  */
 import { getDb } from '../db/schema.js';
 
-export const CRM_PROVIDERS = new Set(['none', 'twenty', 'hubspot', 'zoho']);
+/** CRM: twenty | erpnext = platform (embed + tools). hubspot/zoho = select-only placeholders. */
+export const CRM_PROVIDERS = new Set(['none', 'twenty', 'erpnext', 'hubspot', 'zoho']);
 export const ERP_PROVIDERS = new Set(['none', 'erpnext', 'xero']);
+/** Platform stacks that open Flolah-hosted product with SSO. */
+export const PLATFORM_CRM_PROVIDERS = new Set(['twenty', 'erpnext']);
+export const PLATFORM_ERP_PROVIDERS = new Set(['erpnext']);
 
 export function ensureCompanyBusinessProfileSchema() {
   const db = getDb();
@@ -91,6 +95,7 @@ function rowToPublic(row) {
       erp_enabled: false,
       platform_crm: false,
       platform_erp: false,
+      uses_erpnext: false,
     };
   }
   const crm = normalizeCrm(row.crm_provider);
@@ -128,8 +133,10 @@ function rowToPublic(row) {
     prefab_erp_agent_ids: parseJson(row.prefab_erp_agent_ids_json, []),
     crm_enabled: crm !== 'none',
     erp_enabled: erp !== 'none',
-    platform_crm: crm === 'twenty',
-    platform_erp: erp === 'erpnext',
+    platform_crm: PLATFORM_CRM_PROVIDERS.has(crm),
+    platform_erp: PLATFORM_ERP_PROVIDERS.has(erp),
+    /** True when Flolah uses ERPNext for CRM modules and/or ERP stack (company map + tools). */
+    uses_erpnext: crm === 'erpnext' || erp === 'erpnext',
     updated_at: row.updated_at || null,
   };
 }
@@ -280,9 +287,24 @@ export function assertCrmEntitled(ownerUserId) {
 
 export function assertErpEntitled(ownerUserId) {
   const p = getBusinessProfile(ownerUserId);
+  // ERPNext CRM-modules path counts as platform ERPNext access for company map / tools / SSO.
+  if (p.uses_erpnext) return p;
   if (!p.erp_enabled) {
     const err = new Error(
       'ERP is not enabled for this company. Select an ERP provider in Profile or Company setup.'
+    );
+    err.status = 403;
+    throw err;
+  }
+  return p;
+}
+
+/** Require ERPNext as CRM and/or ERP (not Xero-only). */
+export function assertErpnextAccess(ownerUserId) {
+  const p = getBusinessProfile(ownerUserId);
+  if (!p.uses_erpnext) {
+    const err = new Error(
+      'ERPNext is not selected for this company (Profile CRM or ERP must be ERPNext).'
     );
     err.status = 403;
     throw err;

@@ -1284,8 +1284,8 @@ export default function CompanySetup() {
           )}
           <h3 style={{ fontSize: '1rem', margin: '1rem 0 0.5rem' }}>Business Core (optional)</h3>
           <p style={{ opacity: 0.7, fontSize: '0.85rem', maxWidth: 520 }}>
-            Leave as None to finish setup without CRM/ERP. Platform CRM (Twenty) provisions one workspace per
-            company and prefabricated CRM AI employees when you apply.
+            Leave as None to finish setup without CRM/ERP. Platform CRM can be Twenty or ERPNext (Sales modules).
+            Platform ERP is ERPNext. Prefab Maker/Checker packs are provisioned on apply.
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(12rem, 1fr))', gap: '0.75rem', marginBottom: '1rem', maxWidth: 520 }}>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: '0.9rem' }}>
@@ -1297,7 +1297,8 @@ export default function CompanySetup() {
                 style={{ padding: '0.5rem', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
               >
                 <option value="none">None</option>
-                <option value="twenty">Twenty (platform)</option>
+                <option value="twenty">Twenty (platform CRM)</option>
+                <option value="erpnext">ERPNext (Sales/CRM modules)</option>
                 <option value="hubspot">HubSpot</option>
                 <option value="zoho">Zoho</option>
               </select>
