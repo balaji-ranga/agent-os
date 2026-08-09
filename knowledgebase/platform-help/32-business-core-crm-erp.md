@@ -206,6 +206,24 @@ When API keys + `ERPNEXT_SSO_ENABLED=1` (default), opening **ERP** mints a one-t
 
 CRM Twenty remains stronger isolation: separate workspace DB per company.
 
+
+
+## Flolah user / company map to ERPNext (ops)
+
+| Flolah | ERPNext |
+|--------|---------|
+| CEO (`platform_users` / `owner_user_id`) | SSO **User** (email = CEO login email) with Company **User Permission** |
+| Profile `crm_provider` / `erp_provider` = erpnext | Entitles ERPNext path (not automatic for every signup) |
+| Bound company name | Real **Company** doc (must exist remotely — not only `flolah-co-*` local id) |
+| Org sync (`erp_sync_org` / `crm_sync_org` when CRM=ERPNext) | **Department** + **Employee** rows under that Company via site API key |
+
+**Not automatic for every Flolah user:** only CEOs who choose platform ERPNext CRM and/or ERP. Bind runs on company setup, profile save, SSO open, or sync.
+
+**local_bind vs remote:** Older sites had Company create fail (missing **country**, missing **Warehouse Type: Transit**). Flolah still stored synthetic `flolah-co-{ceo}` → desk SSO / dept sync fail (“no access to company”, Stock Settings errors). Fix: ensure country + warehouse types, then create real Company and User Permission.
+
+Agent tools use API keys (company-scoped filters). Desk SSO uses roles + User Permission only — System Manager without a real Company still hits module setup errors (e.g. Stock Settings).
+
+
 ## Prefab ERP AI employees
 
 Selecting **ERP = ERPNext** provisions:

@@ -630,12 +630,19 @@ export async function ensureErpnextCompanyForOwner(ownerUserId, { displayName } 
   }
 
   if (profile.erpnext.company_id) {
-    return {
-      company_id: profile.erpnext.company_id,
-      company_name: profile.erpnext.company_name,
-      created: false,
-      mode: 'existing',
-    };
+    const id = String(profile.erpnext.company_id || '');
+    const coName = String(profile.erpnext.company_name || '').trim();
+    const isSynthetic = id.startsWith('flolah-co-');
+    if (!(isSynthetic && isErpnextApiConfigured() && coName)) {
+      return {
+        company_id: profile.erpnext.company_id,
+        company_name: profile.erpnext.company_name,
+        created: false,
+        mode: 'existing',
+      };
+    }
+    // synthetic local bind — try remote resolve/create below using coName
+    console.info('[erpnext] promote synthetic bind owner=%s name=%s', owner, coName);
   }
 
   const name =
@@ -648,20 +655,51 @@ export async function ensureErpnextCompanyForOwner(ownerUserId, { displayName } 
 
   if (isErpnextApiConfigured()) {
     try {
-      const data = await frappeFetch('/api/resource/Company', {
-        method: 'POST',
-        body: {
-          company_name: name,
-          abbr:
-            name
-              .split(/\s+/)
-              .map((w) => w[0])
-              .join('')
-              .slice(0, 5)
-              .toUpperCase() || 'FL',
-          default_currency: process.env.ERPNEXT_DEFAULT_CURRENCY || 'USD',
-        },
-      });
+      const abbrBase =
+        name
+          .split(/\s+/)
+          .map((w) => w[0])
+          .join('')
+          .slice(0, 5)
+          .toUpperCase() || 'FL';
+      // country is mandatory on ERPNext Company; missing it left CEOs on local_bind-only (no real Company doc).
+      const country =
+        String(process.env.ERPNEXT_DEFAULT_COUNTRY || 'United States').trim() || 'United States';
+      const currency = String(process.env.ERPNEXT_DEFAULT_CURRENCY || 'USD').trim() || 'USD';
+      let data = null;
+      let lastErr = null;
+      for (let i = 0; i < 6; i++) {
+        const abbr = i === 0 ? abbrBase : (abbrBase + String(i)).slice(0, 5);
+        try {
+          data = await frappeFetch('/api/resource/Company', {
+            method: 'POST',
+            body: {
+              company_name: name,
+              abbr,
+              default_currency: currency,
+              country,
+            },
+          });
+          lastErr = null;
+          break;
+        } catch (e) {
+          lastErr = e;
+          const msg = String(e?.message || e);
+          if (/duplicate|already exists|UniqueValidation/i.test(msg)) {
+            try {
+              const existing = await frappeFetch(
+                '/api/resource/Company/' + encodeURIComponent(name)
+              );
+              data = { data: existing?.data || { name } };
+              lastErr = null;
+              break;
+            } catch (_) {
+              /* retry abbr */
+            }
+          }
+        }
+      }
+      if (!data) throw lastErr || new Error('Company create failed');
       remoteId = data?.data?.name || data?.name || null;
       if (remoteId) mode = 'remote';
     } catch (e) {
