@@ -94,6 +94,8 @@ ERPNEXT_ADMIN_PASSWORD=admin   # initial Administrator password from create-site
 
 **SSO:** CRM menu → Twenty handoff **or** ERPNext desk (`/app/crm`) when CRM=ERPNext. ERP menu → `/flolah-erp-handoff/?t=…` → same-origin `/flolah-erp-sso` (Set-Cookie `sid` + 302 Desk) for company-scoped user. Requires nginx proxy to backend `erp-sso-apply` (see `nginx.host-network.conf`).
 
+**Tenant isolation:** ERP tools use site API key on a multi-company ERPNext site; agent/MCP paths block User/Company-list and company-scope list filters so Maker agents only see the CEO-bound company (not other Flolah CEOs).
+
 **Prefab agents:** CRM Maker A/B + Checker (Twenty `crm_*` or ERPNext sales `erp_*`); ERP = Maker A/B (full operational `erp_*` = MCP), Checker (submit/cancel + Kanban/workflow approvals), plus P&L / Invoice / Project specialists.
 
 ## Platform MCP

@@ -216,19 +216,24 @@ router.post('/erp-list-resource', (req, res) =>
       limit: b.limit,
       filters: b.filters,
       fields: b.fields,
+      genericResource: true,
     });
   })
 );
 router.post('/erp-create-resource', (req, res) =>
   run(res, async () => {
     const b = req.body || {};
-    return erpCreate(owner(req, b), b.doctype || b.resource, b.doc || b.data || b);
+    return erpCreate(owner(req, b), b.doctype || b.resource, b.doc || b.data || b, {
+      genericResource: true,
+    });
   })
 );
 router.post('/erp-get-resource', (req, res) =>
   run(res, async () => {
     const b = req.body || {};
-    return erpGet(owner(req, b), b.doctype || b.resource, b.name || b.id);
+    return erpGet(owner(req, b), b.doctype || b.resource, b.name || b.id, {
+      genericResource: true,
+    });
   })
 );
 router.post('/erp-update-resource', (req, res) =>
@@ -238,7 +243,8 @@ router.post('/erp-update-resource', (req, res) =>
       owner(req, b),
       b.doctype || b.resource,
       b.name || b.id,
-      b.fields || b.doc || b.data || {}
+      b.fields || b.doc || b.data || {},
+      { genericResource: true }
     );
   })
 );

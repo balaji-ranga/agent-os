@@ -92,14 +92,199 @@ function companyFilter(ownerUserId) {
   return p.erpnext.company_name || p.erpnext.company_id || null;
 }
 
+/**
+ * Doctypes that must never be agent/MCP accessible via site API key.
+ * Site-wide ERPNEXT_API_KEY bypasses desk User Permission — without this denylist
+ * any CEO's Maker can list other tenants' SSO User rows (cross-tenant leak).
+ */
+const ERP_BLOCKED_DOCTYPES = new Set(
+  [
+    'User',
+    'User Permission',
+    'Role',
+    'Has Role',
+    'Role Profile',
+    'Role Permission for Page and Report',
+    'Custom Role',
+    'DocPerm',
+    'Custom DocPerm',
+    'DocType',
+    'Custom Field',
+    'Property Setter',
+    'Module Def',
+    'Installed Application',
+    'API Request Log',
+    'Activity Log',
+    'Access Log',
+    'Error Log',
+    'Scheduled Job Type',
+    'System Settings',
+    'Website Settings',
+    'Email Account',
+    'Email Domain',
+    'Connected App',
+    'OAuth Bearer Token',
+    'OAuth Client',
+    'Integration Request',
+    'Google Settings',
+    'LDAP Settings',
+    'Social Login Key',
+    'Token Cache',
+    'Sessions',
+    'User Type',
+    'User Document Type',
+    'User Email',
+    'User Social Login',
+    'Company', // only own company via status/profile — not list-all
+    'Account', // chart of accounts is company-linked; get must assert company
+  ].map((x) => x.toLowerCase())
+);
+
+/** Operational allowlist for generic erp_*_resource tools (named tools still go through erpList). */
+const ERP_RESOURCE_ALLOWLIST = new Set(
+  [
+    'Customer',
+    'Lead',
+    'Contact',
+    'Address',
+    'Opportunity',
+    'Item',
+    'Item Group',
+    'Item Price',
+    'Quotation',
+    'Sales Order',
+    'Sales Invoice',
+    'Delivery Note',
+    'Purchase Order',
+    'Purchase Invoice',
+    'Payment Entry',
+    'Payment Request',
+    'Journal Entry',
+    'Material Request',
+    'Stock Entry',
+    'Project',
+    'Task',
+    'Timesheet',
+    'Department',
+    'Employee',
+    'GL Entry',
+    'Cost Center',
+    'Warehouse',
+    'Supplier',
+    'BOM',
+    'Work Order',
+    'ToDo',
+    'Note',
+    'File',
+  ].map((x) => x.toLowerCase())
+);
+
+/** Frappe doctypes that usually have a `company` field — always filter when company is bound */
+const COMPANY_SCOPED_DOCTYPES = new Set(
+  [
+    'Customer',
+    'Contact',
+    'Address',
+    'Opportunity',
+    'Quotation',
+    'Sales Order',
+    'Sales Invoice',
+    'Delivery Note',
+    'Purchase Order',
+    'Purchase Invoice',
+    'Payment Entry',
+    'Payment Request',
+    'Project',
+    'Task',
+    'Timesheet',
+    'Department',
+    'Employee',
+    'GL Entry',
+    'Journal Entry',
+    'Stock Entry',
+    'Material Request',
+    'Cost Center',
+    'Warehouse',
+    'Supplier',
+    'BOM',
+    'Work Order',
+  ].map((x) => x.toLowerCase())
+);
+
+function normalizeDoctype(doctype) {
+  return String(doctype || '').trim();
+}
+
+function doctypeKey(dt) {
+  return normalizeDoctype(dt).toLowerCase();
+}
+
+function denyBlockedDoctype(dt) {
+  if (ERP_BLOCKED_DOCTYPES.has(doctypeKey(dt))) {
+    const err = new Error(
+      `ERP doctype "${dt}" is blocked for agent/MCP tools (tenant isolation). Use company-scoped business tools only.`
+    );
+    err.status = 403;
+    throw err;
+  }
+}
+
+function requireResourceAllowlist(dt, { genericResource = false } = {}) {
+  denyBlockedDoctype(dt);
+  if (genericResource && !ERP_RESOURCE_ALLOWLIST.has(doctypeKey(dt))) {
+    const err = new Error(
+      `ERP doctype "${dt}" is not on the operational allowlist for list/get/create/update resource tools.`
+    );
+    err.status = 403;
+    throw err;
+  }
+}
+
+function requireBoundCompany(ownerUserId) {
+  const co = companyFilter(ownerUserId);
+  if (!co) {
+    const err = new Error(
+      'ERP company is not bound for this owner — cannot run live ERP list/mutate until company is provisioned.'
+    );
+    err.status = 409;
+    throw err;
+  }
+  return co;
+}
+
+/**
+ * When a document has a company field, it must match this owner's bound company.
+ * Docs without company (Lead, Item, etc.) may pass; blocked doctypes already denied.
+ */
+function assertDocBelongsToOwner(ownerUserId, doc, { doctype } = {}) {
+  if (!doc || typeof doc !== 'object') return;
+  const co = companyFilter(ownerUserId);
+  if (!co) return;
+  const docCo = doc.company != null ? String(doc.company).trim() : '';
+  if (!docCo) return;
+  if (docCo.toLowerCase() !== String(co).toLowerCase()) {
+    console.warn(
+      '[erpnext-erp] company isolation reject owner=%s doctype=%s doc.company=%s bound=%s',
+      String(ownerUserId).slice(0, 24),
+      doctype || '?',
+      docCo.slice(0, 64),
+      String(co).slice(0, 64)
+    );
+    const err = new Error('Document belongs to another company (not accessible)');
+    err.status = 403;
+    throw err;
+  }
+}
+
 function lim(n, d = 20) {
   return Math.min(100, Math.max(1, Number(n) || d));
 }
 
 /**
  * List doctype rows: GET /api/resource/{Doctype}?limit_page_length=
+ * @param {{ genericResource?: boolean }} opts — set genericResource for erp_list_resource (strict allowlist)
  */
-export async function erpList(ownerUserId, doctype, { limit = 20, filters, fields } = {}) {
+export async function erpList(ownerUserId, doctype, { limit = 20, filters, fields, genericResource = false } = {}) {
   assertErpEntitled(ownerUserId);
   if (!isErpnextApiConfigured()) {
     return {
@@ -110,41 +295,33 @@ export async function erpList(ownerUserId, doctype, { limit = 20, filters, field
       company: companyFilter(ownerUserId),
     };
   }
-  const dt = String(doctype || '').trim();
+  const dt = normalizeDoctype(doctype);
   if (!dt) throw Object.assign(new Error('doctype required'), { status: 400 });
+  requireResourceAllowlist(dt, { genericResource });
+  const co = requireBoundCompany(ownerUserId);
   const params = new URLSearchParams();
   params.set('limit_page_length', String(lim(limit)));
   if (fields) params.set('fields', JSON.stringify(fields));
   const f = Array.isArray(filters) ? [...filters] : [];
-  const co = companyFilter(ownerUserId);
-  // Company-scoped doctypes when company known and field usually exists
-  const companyDocs = new Set([
-    'Customer',
-    'Contact',
-    'Opportunity',
-    'Quotation',
-    'Sales Order',
-    'Sales Invoice',
-    'Delivery Note',
-    'Purchase Order',
-    'Purchase Invoice',
-    'Payment Entry',
-    'Project',
-    'Task',
-    'Department',
-    'Employee',
-    'GL Entry',
-    'Journal Entry',
-    'Stock Entry',
-    'Material Request',
-  ]);
-  if (co && companyDocs.has(dt) && !f.some((x) => Array.isArray(x) && x[0] === 'company')) {
-    f.push(['company', '=', co]);
+  // Never allow callers to override company to another tenant
+  const coKey = doctypeKey(dt);
+  if (COMPANY_SCOPED_DOCTYPES.has(coKey)) {
+    const withoutCo = f.filter((x) => !(Array.isArray(x) && String(x[0]).toLowerCase() === 'company'));
+    withoutCo.push(['company', '=', co]);
+    f.length = 0;
+    f.push(...withoutCo);
   }
   if (f.length) params.set('filters', JSON.stringify(f));
   try {
     const data = await frappeFetch(`/api/resource/${encodeURIComponent(dt)}?${params}`);
-    const rows = Array.isArray(data?.data) ? data.data : [];
+    let rows = Array.isArray(data?.data) ? data.data : [];
+    // Defense in depth: drop any row whose company field mismatches
+    if (COMPANY_SCOPED_DOCTYPES.has(coKey)) {
+      rows = rows.filter((row) => {
+        if (!row || row.company == null || row.company === '') return true;
+        return String(row.company).toLowerCase() === String(co).toLowerCase();
+      });
+    }
     return {
       mode: 'live',
       doctype: dt,
@@ -153,20 +330,26 @@ export async function erpList(ownerUserId, doctype, { limit = 20, filters, field
       count: rows.length,
     };
   } catch (e) {
+    if (e.status === 403 || e.status === 409) throw e;
     return { mode: 'error', doctype: dt, data: [], error: e.message, company: co };
   }
 }
 
-export async function erpCreate(ownerUserId, doctype, doc = {}) {
+export async function erpCreate(ownerUserId, doctype, doc = {}, { genericResource = false } = {}) {
   assertErpEntitled(ownerUserId);
   if (!isErpnextApiConfigured()) {
     throw Object.assign(new Error('ERPNEXT_URL / API keys not configured'), { status: 503 });
   }
-  const dt = String(doctype || '').trim();
+  const dt = normalizeDoctype(doctype);
   if (!dt) throw Object.assign(new Error('doctype required'), { status: 400 });
+  requireResourceAllowlist(dt, { genericResource });
+  const co = requireBoundCompany(ownerUserId);
   const body = { ...(doc || {}) };
-  const co = companyFilter(ownerUserId);
-  if (co && !body.company) body.company = co;
+  if (COMPANY_SCOPED_DOCTYPES.has(doctypeKey(dt))) {
+    body.company = co; // force owner company — never trust client override
+  } else if (co && !body.company) {
+    body.company = co;
+  }
   const data = await frappeFetch(`/api/resource/${encodeURIComponent(dt)}`, {
     method: 'POST',
     body,
@@ -174,18 +357,22 @@ export async function erpCreate(ownerUserId, doctype, doc = {}) {
   return { mode: 'live', doctype: dt, data: data?.data || data, company: co };
 }
 
-export async function erpGet(ownerUserId, doctype, name) {
+export async function erpGet(ownerUserId, doctype, name, { genericResource = false } = {}) {
   assertErpEntitled(ownerUserId);
   if (!isErpnextApiConfigured()) {
     throw Object.assign(new Error('ERPNEXT_URL / API keys not configured'), { status: 503 });
   }
-  const dt = String(doctype || '').trim();
+  const dt = normalizeDoctype(doctype);
   const nm = String(name || '').trim();
   if (!dt || !nm) throw Object.assign(new Error('doctype and name required'), { status: 400 });
+  requireResourceAllowlist(dt, { genericResource });
+  requireBoundCompany(ownerUserId);
   const data = await frappeFetch(
     `/api/resource/${encodeURIComponent(dt)}/${encodeURIComponent(nm)}`
   );
-  return { mode: 'live', doctype: dt, data: data?.data || data };
+  const doc = data?.data || data;
+  assertDocBelongsToOwner(ownerUserId, doc, { doctype: dt });
+  return { mode: 'live', doctype: dt, data: doc };
 }
 
 // Convenience CRM-mirror surface on ERPNext
@@ -259,7 +446,7 @@ export async function erpProfitAndLoss(ownerUserId, {
       company: companyFilter(ownerUserId),
     };
   }
-  const co = companyFilter(ownerUserId);
+  const co = requireBoundCompany(ownerUserId);
   const today = new Date();
   const y = today.getUTCFullYear();
   const m = String(today.getUTCMonth() + 1).padStart(2, '0');
@@ -307,17 +494,25 @@ export async function erpCreateLead(ownerUserId, { lead_name, email_id, company_
 }
 
 
-export async function erpUpdate(ownerUserId, doctype, name, fields = {}) {
+export async function erpUpdate(ownerUserId, doctype, name, fields = {}, { genericResource = false } = {}) {
   assertErpEntitled(ownerUserId);
   if (!isErpnextApiConfigured()) {
     throw Object.assign(new Error('ERPNEXT_URL / API keys not configured'), { status: 503 });
   }
-  const dt = String(doctype || '').trim();
+  const dt = normalizeDoctype(doctype);
   const nm = String(name || '').trim();
   if (!dt || !nm) throw Object.assign(new Error('doctype and name required'), { status: 400 });
+  requireResourceAllowlist(dt, { genericResource });
+  const co = requireBoundCompany(ownerUserId);
+  // Read-assert before write so we never mutate another company's doc
+  await erpGet(ownerUserId, dt, nm, { genericResource });
+  const body = { ...(fields || {}) };
+  if (COMPANY_SCOPED_DOCTYPES.has(doctypeKey(dt))) {
+    body.company = co;
+  }
   const data = await frappeFetch(
     `/api/resource/${encodeURIComponent(dt)}/${encodeURIComponent(nm)}`,
-    { method: 'PUT', body: fields }
+    { method: 'PUT', body }
   );
   return { mode: 'live', doctype: dt, name: nm, data: data?.data || data };
 }
@@ -327,9 +522,10 @@ export async function erpSubmitDoc(ownerUserId, doctype, name) {
   if (!isErpnextApiConfigured()) {
     throw Object.assign(new Error('ERPNEXT_URL / API keys not configured'), { status: 503 });
   }
-  const dt = String(doctype || '').trim();
+  const dt = normalizeDoctype(doctype);
   const nm = String(name || '').trim();
   if (!dt || !nm) throw Object.assign(new Error('doctype and name required'), { status: 400 });
+  denyBlockedDoctype(dt);
   const full = await erpGet(ownerUserId, dt, nm);
   const doc = full?.data;
   if (!doc || typeof doc !== 'object') {
@@ -347,9 +543,12 @@ export async function erpCancelDoc(ownerUserId, doctype, name) {
   if (!isErpnextApiConfigured()) {
     throw Object.assign(new Error('ERPNEXT_URL / API keys not configured'), { status: 503 });
   }
-  const dt = String(doctype || '').trim();
+  const dt = normalizeDoctype(doctype);
   const nm = String(name || '').trim();
   if (!dt || !nm) throw Object.assign(new Error('doctype and name required'), { status: 400 });
+  denyBlockedDoctype(dt);
+  // Ownership check
+  await erpGet(ownerUserId, dt, nm);
   const data = await frappeFetch('/api/method/frappe.client.cancel', {
     method: 'POST',
     body: { doctype: dt, name: nm },

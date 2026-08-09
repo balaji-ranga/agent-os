@@ -189,6 +189,23 @@ CRM opens **in the Flolah iframe** (not a full-page leave); use **Open** for fir
 
 When API keys + `ERPNEXT_SSO_ENABLED=1` (default), opening **ERP** mints a one-time handoff (like CRM LOGIN token flow): Flolah ensures Company + SSO User + company User Permission, logs in server-side, and returns `/flolah-erp-handoff/?t=...` on the ERP host. That page navigates same-origin to **`/flolah-erp-sso`** (nginx -> backend `GET /api/business-core/erp-sso-apply`), which **Set-Cookie**s Frappe `sid` (`HttpOnly; Secure; SameSite=None; Partitioned`) and **302**s to `/app?company=...`. Do not rely on `document.cookie` in the iframe — browsers drop third-party cookie writes from cross-origin JSON consume.
 
+
+## Tenant isolation (ERP agents)
+
+**Hierarchy (one Flolah company stack):**
+
+1. **CEO user** (`owner_user_id`) — your login tenant root
+2. **`company_business_profiles`** — CRM/ERP provider + binds for that CEO only
+3. **Prefab agents** (ERP Maker A/B, Checker, …) — `agents.owner_user_id` + entitlement to that CEO; OpenClaw runtime `t-{ceo}--{agentId}`
+4. **ERPNext** — shared multi-company *site*; each CEO maps to **one Company** document + desk SSO User
+5. Tools run with Flolah owner context (`x-ceo-user-id` from your chat session), **not** other CEO sessions
+
+**Why another CEO email could appear (before isolation harden):** All companies share one ERPNext site and a platform **API key** that bypasses desk User Permission. Agents with `erp_list_resource` could list global doctypes such as **User** and see every company SSO email (e.g. another platform customer). That is **not** Flolah granting cross-CEO agent access — it was an unscoped Frappe REST call.
+
+**Enforced now:** blocked doctypes (User, Company list-all, roles, permissions, …), operational allowlist for resource tools, require bound company, force/assert `company` on company-scoped docs. Flolah DB tools (`ceo_profile`, master data) remain single-owner.
+
+CRM Twenty remains stronger isolation: separate workspace DB per company.
+
 ## Prefab ERP AI employees
 
 Selecting **ERP = ERPNext** provisions:
