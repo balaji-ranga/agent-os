@@ -170,3 +170,9 @@ CRM opens **in the Flolah iframe** (not a full-page leave); use **Open** for fir
 **Workspace name** ("Welcome, …"): Twenty Settings → Workspace. Toolbar **Switch CRM account** → wipe + `/welcome`.
 
 **Enterprise OIDC:** Not required for this LOGIN-token path.
+
+---
+
+## Company P&L (design roadmap)
+
+Automated **cost + income → ERP** is planned: meters and income events in Flolah, period rollups into ERPNext when ERP is on (Maker/Checker review). See Platform Help [37-company-pnl.md](./37-company-pnl.md) and product plan knowledgebase/AUTOMATED-PNL.md. Until shipped, use CRM for pipeline, ERP for invoices you enter, token budgets for AI burn, and OEI for ops — not as blended book revenue.

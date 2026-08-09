@@ -3,6 +3,7 @@
 Optional Compose overlay for platform-offered CRM/ERP used by Flolah Business Core.
 Product plan: `knowledgebase/BUSINESS-CORE-WORKSPACE-PLAN.md`.
 CEO guide: `knowledgebase/platform-help/32-business-core-crm-erp.md`.
+Planned company P&L (meters → ERP postings): `knowledgebase/AUTOMATED-PNL.md` (pointer: platform-help **37**).
 
 ## Architecture (production)
 

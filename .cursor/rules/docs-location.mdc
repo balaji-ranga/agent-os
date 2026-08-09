@@ -10,6 +10,7 @@ alwaysApply: true
 - **All other docs** are under **`agent-os/knowledgebase/`**:
   - **knowledgebase/AI-COMPANY-OS.md** — **Canonical** AI Company OS messaging, terminology (AI employee vs agent API), OS primitives, screen map, design rule for new features, Phase A–F roadmap. Use for website, portal copy, nav labels, and positioning.
   - **knowledgebase/PHASE-D-E-F-OPERATE.md** — Operate track: Day 0 operating model, Day 1 autonomy install, Phase E/F.
+  - **knowledgebase/AUTOMATED-PNL.md** — Design plan for automated CEO company P&L (cost meters, income streams, ERP posting, success scorecard).
   - **knowledgebase/VISION.md** — product purpose, vision, strengths, differentiator, focuses.
   - **knowledgebase/PITCH.md** — one-pager pitch (aligned with AI-COMPANY-OS layers).
   - **knowledgebase/TESTING.md** — restart steps, API test, frontend tests, standup→COO→TechResearcher test, standup UI checklist.
