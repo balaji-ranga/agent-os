@@ -1,6 +1,8 @@
 /**
  * Parse SQLite / ISO timestamps (stored as UTC without suffix).
  */
+import { resolveDisplayTimeZone } from './displayTimezone.js';
+
 export function parseApiDate(value) {
   if (!value) return null;
   let s = String(value).trim();
@@ -15,11 +17,12 @@ export function parseApiDate(value) {
 
 /**
  * Format timestamp with timezone abbreviation.
- * Pass timeZone (IANA, from API server_timezone) for server local time.
+ * Uses profile/platform display timezone when timeZone not passed.
  */
 export function formatServerDateTime(value, timeZone, opts = {}) {
   const d = parseApiDate(value);
   if (!d) return '—';
+  const tz = resolveDisplayTimeZone(timeZone);
   const options = {
     year: 'numeric',
     month: 'short',
@@ -29,26 +32,26 @@ export function formatServerDateTime(value, timeZone, opts = {}) {
     timeZoneName: 'short',
     ...opts,
   };
-  if (timeZone) options.timeZone = timeZone;
+  if (tz) options.timeZone = tz;
   return new Intl.DateTimeFormat(undefined, options).format(d);
 }
 
-/** @param {object} [opts] - may include timeZone (server IANA); omit for browser local timezone */
+/** @param {object} [opts] - may include timeZone (IANA); defaults to user profile / platform */
 export function formatLocalDateTime(value, opts = {}) {
   const { timeZone, ...rest } = opts;
   return formatServerDateTime(value, timeZone, rest);
 }
 
 /**
- * Compact timestamp for chat messages.
- * Pass timeZone (IANA, e.g. API server_timezone) to pin it to the platform timezone;
- * omit for browser local time.
+ * Compact timestamp for chat messages and activity feeds.
+ * Uses profile/platform display timezone when timeZone not passed.
  */
 export function formatChatTimestamp(value, timeZone) {
   const d = parseApiDate(value);
   if (!d) return '';
+  const tz = resolveDisplayTimeZone(timeZone);
   return new Intl.DateTimeFormat(undefined, {
-    ...(timeZone ? { timeZone } : {}),
+    ...(tz ? { timeZone: tz } : {}),
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
@@ -58,32 +61,55 @@ export function formatChatTimestamp(value, timeZone) {
   }).format(d);
 }
 
-/** Datetime-local input value in browser local timezone (YYYY-MM-DDTHH:mm). */
-export function toLocalDateTimeInputValue(date = new Date()) {
+/** Datetime-local input value in effective display timezone (YYYY-MM-DDTHH:mm). */
+export function toLocalDateTimeInputValue(date = new Date(), timeZone) {
   const d = date instanceof Date ? date : new Date(date);
   if (Number.isNaN(d.getTime())) return '';
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const tz = resolveDisplayTimeZone(timeZone);
+  if (!tz) {
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+  // Format parts in target zone then reassemble
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(d);
+  const get = (type) => parts.find((p) => p.type === type)?.value || '00';
+  return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`;
 }
 
-/** Prefer API pre-formatted created_at_display when present. */
+/**
+ * Prefer client-side format when we have a display timezone so Profile TZ
+ * stays consistent across Kanban (API *_display was platform-only) and Workspace.
+ */
 export function taskCreatedAtDisplay(task, timeZone) {
+  const tz = resolveDisplayTimeZone(timeZone);
+  if (tz) return formatServerDateTime(task?.created_at, tz);
   if (task?.created_at_display) return task.created_at_display;
-  return formatServerDateTime(task?.created_at, timeZone);
+  return formatServerDateTime(task?.created_at, null);
 }
 
-/** Prefer API pre-formatted updated_at_display when present. */
 export function taskUpdatedAtDisplay(task, timeZone) {
+  const tz = resolveDisplayTimeZone(timeZone);
+  if (tz) return formatServerDateTime(task?.updated_at, tz);
   if (task?.updated_at_display) return task.updated_at_display;
-  return formatServerDateTime(task?.updated_at, timeZone);
+  return formatServerDateTime(task?.updated_at, null);
 }
 
 /**
  * Timestamp of a row that may carry a server-rendered *_display field.
- * Keeps every Kanban timestamp in the platform timezone instead of raw UTC.
+ * With a user/platform display timezone, always reformat from the raw UTC field.
  */
 export function rowTimestampDisplay(row, timeZone, field = 'created_at') {
+  const tz = resolveDisplayTimeZone(timeZone);
+  if (tz) return formatChatTimestamp(row?.[field], tz);
   const display = row?.[`${field}_display`];
   if (display) return display;
-  return formatChatTimestamp(row?.[field], timeZone);
+  return formatChatTimestamp(row?.[field], null);
 }

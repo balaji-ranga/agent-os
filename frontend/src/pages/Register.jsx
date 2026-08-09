@@ -304,7 +304,7 @@ export default function Register() {
         <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--muted)' }}>
           LLM provider and default chat model — same options as Profile. Platform default and local Ollama/DeepSeek
           need no key. For OpenAI/OpenRouter, pick provider + model now; after login set vault key{' '}
-          <code>Platform_BYOK</code> under Management → API Keys (keys are never collected at registration).
+          <code>Platform_BYOK</code> under Run & Operate → API Keys (keys are never collected at registration).
           Non-platform choices seed vault slots (<code>Platform_BYOK</code>, <code>Replicate_BYOK</code>,{' '}
           <code>BRAVE_SEARCH_BYOK</code>, <code>elevenlabs-key</code>) as unset.
         </p>

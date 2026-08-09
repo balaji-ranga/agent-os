@@ -1,0 +1,35 @@
+/**
+ * Common IANA timezones for Profile picker (not exhaustive).
+ * Users can also type a custom IANA zone if needed.
+ */
+export const COMMON_DISPLAY_TIMEZONES = [
+  { value: '', label: 'Platform default' },
+  { value: 'UTC', label: 'UTC' },
+  { value: 'Pacific/Honolulu', label: 'Hawaii (Pacific/Honolulu)' },
+  { value: 'America/Anchorage', label: 'Alaska (America/Anchorage)' },
+  { value: 'America/Los_Angeles', label: 'US Pacific (Los Angeles)' },
+  { value: 'America/Denver', label: 'US Mountain (Denver)' },
+  { value: 'America/Chicago', label: 'US Central (Chicago)' },
+  { value: 'America/New_York', label: 'US Eastern (New York)' },
+  { value: 'America/Toronto', label: 'Toronto' },
+  { value: 'America/Sao_Paulo', label: 'São Paulo' },
+  { value: 'America/Mexico_City', label: 'Mexico City' },
+  { value: 'Europe/London', label: 'London' },
+  { value: 'Europe/Dublin', label: 'Dublin' },
+  { value: 'Europe/Paris', label: 'Paris / Berlin / Rome (CET)' },
+  { value: 'Europe/Berlin', label: 'Berlin' },
+  { value: 'Europe/Amsterdam', label: 'Amsterdam' },
+  { value: 'Europe/Moscow', label: 'Moscow' },
+  { value: 'Africa/Cairo', label: 'Cairo' },
+  { value: 'Africa/Johannesburg', label: 'Johannesburg' },
+  { value: 'Asia/Dubai', label: 'Dubai' },
+  { value: 'Asia/Kolkata', label: 'India (Kolkata)' },
+  { value: 'Asia/Singapore', label: 'Singapore' },
+  { value: 'Asia/Hong_Kong', label: 'Hong Kong' },
+  { value: 'Asia/Shanghai', label: 'Shanghai' },
+  { value: 'Asia/Tokyo', label: 'Tokyo' },
+  { value: 'Asia/Seoul', label: 'Seoul' },
+  { value: 'Australia/Sydney', label: 'Sydney' },
+  { value: 'Australia/Melbourne', label: 'Melbourne' },
+  { value: 'Pacific/Auckland', label: 'Auckland' },
+];

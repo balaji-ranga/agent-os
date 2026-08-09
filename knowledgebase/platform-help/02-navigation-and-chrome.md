@@ -10,7 +10,7 @@
 
 ## CEO left navigation
 
-### Management
+### Run & Operate
 
 | Label | Route | Use for |
 |-------|-------|---------|
@@ -25,7 +25,7 @@
 | AI Snipper | `/ai-snipper` | Prompt / token / tool-call usage timeline |
 | **Browser Session** | `/browser-session` | Client Chrome relay, NL browser tasks, recorder recipes |
 | **Efficiency View** | `/efficiency` | **Org** tab: AI employees, automated tasks, feedback, workflow run success/fail, Storage (MB). **Department** tab: month-to-date tokens vs department budget. **Agent View** tab: per-employee activity, outcomes, token/error budgets, **Reset usage** |
-| **Work** | `/work` | Daily operating workspace (tasks + **Recent AI activity** + command bar). Activity highlights significant work: **Kanban completed/failed** (agent-assigned) and **workflow brain runs**, plus optional rated replies — not raw tool call spam. See [32-business-core-crm-erp.md](./32-business-core-crm-erp.md) |
+| **Work** | `/work` | Daily operating workspace (tasks + **Recent AI activity** + command bar). Activity highlights significant work: **Kanban completed/failed** (agent-assigned) and **workflow brain runs**, plus optional rated replies — not raw tool call spam. Datetimes use **Profile → Display timezone**. See [32-business-core-crm-erp.md](./32-business-core-crm-erp.md) |
 | **CRM** | `/crm` | Shown only when Profile CRM = Twenty (platform embed) |
 | **ERP** | `/erp` | Shown only when Profile ERP = ERPNext (platform embed) |
 | **3D Avatars** | `/avatars` | Avatar models, Virtual Rooms, publish public scenes |
@@ -39,7 +39,7 @@
 | Job workflows | `/job-workflows` | Imperative Job Applicant pipeline runs (not the visual builder) |
 | **IBKR Summary** | `/ibkr-summary` | Portfolio + day-wise plan vs executed; **Clear data…** for transactional reset (keeps budget Variables) — see help **20** |
 
-### Company OS
+### Company Tools
 
 | Label | Route | Use for |
 |-------|-------|---------|

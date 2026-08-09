@@ -345,6 +345,7 @@ export function userPublic(row) {
     mobile: row.mobile || '',
     role: row.role,
     role_title: String(row.role_title || '').trim(),
+    display_timezone: String(row.display_timezone || '').trim(),
     enabled: !!row.enabled,
     created_at: row.created_at,
     last_login_at: row.last_login_at || null,
@@ -495,6 +496,17 @@ function normalizeProfileImage(value, { clear = false } = {}) {
   return s;
 }
 
+function normalizeDisplayTimezone(value) {
+  const s = String(value || '').trim();
+  if (!s) return '';
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: s });
+    return s.slice(0, 64);
+  } catch {
+    throw Object.assign(new Error(`Invalid IANA timezone: ${s}`), { status: 400 });
+  }
+}
+
 export function updateUserProfile(
   userId,
   {
@@ -503,6 +515,7 @@ export function updateUserProfile(
     region,
     mobile,
     role_title,
+    display_timezone,
     current_password,
     new_password,
     mfa_policy,
@@ -534,6 +547,9 @@ export function updateUserProfile(
   if (role_title !== undefined) {
     const title = String(role_title).trim().slice(0, 64);
     updates.role_title = title;
+  }
+  if (display_timezone !== undefined) {
+    updates.display_timezone = normalizeDisplayTimezone(display_timezone);
   }
   if (clear_profile_image || profile_image !== undefined) {
     const next = normalizeProfileImage(profile_image, { clear: !!clear_profile_image });

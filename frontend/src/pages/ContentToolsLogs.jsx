@@ -291,7 +291,7 @@ export default function ContentToolsLogs() {
       <header className="page-hero">
         <div className="page-hero-top">
           <div className="page-hero-titles">
-            <p className="page-hero-kicker">Company OS · Tools</p>
+            <p className="page-hero-kicker">Company Tools · Tools</p>
             <h1>Tools</h1>
           </div>
         </div>

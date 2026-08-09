@@ -3,16 +3,19 @@ import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth, RequireAuth } from '../context/AuthContext';
 import { ROLE_TITLE_PRESETS, userRoleTitle } from '../utils/userRoleTitle.js';
+import { COMMON_DISPLAY_TIMEZONES } from '../utils/commonTimezones.js';
+import { formatLocalDateTime } from '../utils/formatDateTime.js';
 import RobotAvatar, { fileToDataUrl } from '../components/RobotAvatar.jsx';
 
 function UserProfilePanel() {
-  const { user, reload } = useAuth();
+  const { user, reload, platformTimezone, displayTimezone } = useAuth();
   const [form, setForm] = useState({
     name: '',
     email: '',
     region: '',
     mobile: '',
     role_title: 'CEO',
+    display_timezone: '',
     industry: 'personal',
     industry_other: '',
     business_name: '',
@@ -110,6 +113,7 @@ function UserProfilePanel() {
       region: user.region || '',
       mobile: user.mobile || '',
       role_title: userRoleTitle(user),
+      display_timezone: user.display_timezone || '',
       industry: user.industry || 'personal',
       industry_other: user.industry_other || '',
       business_name: user.business_name || '',
@@ -158,6 +162,7 @@ function UserProfilePanel() {
           industry_other: data.user?.industry_other || '',
           business_name: data.user?.business_name || '',
           role_title: userRoleTitle(data.user || user),
+          display_timezone: data.user?.display_timezone || '',
           data_retention_days: data.user?.data_retention_days || f.data_retention_days || 90,
         }));
         const nextTitle = userRoleTitle(data.user || user);
@@ -206,6 +211,7 @@ function UserProfilePanel() {
         region: form.region,
         mobile: form.mobile,
         role_title: String(form.role_title || '').trim() || 'CEO',
+        display_timezone: form.display_timezone || '',
         industry: form.industry,
         industry_other: form.industry_other,
         business_name: form.business_name,
@@ -225,7 +231,7 @@ function UserProfilePanel() {
       if (form.clear_llm_api_key) {
         body.clear_llm_api_key = true;
       }
-      // llm_api_key no longer accepted — use Management → API Keys (Platform_BYOK)
+      // llm_api_key no longer accepted — use Run & Operate → API Keys (Platform_BYOK)
       const data = await api.authUpdateProfile(body);
       if (
         oc.clear_runtime_token ||
@@ -336,10 +342,10 @@ function UserProfilePanel() {
         Account: {user?.id} · Title: {userRoleTitle(user)}
       </p>
       <p style={{ color: 'var(--muted)', marginTop: '0.25rem', fontSize: '0.9rem' }}>
-        Last login:{' '}
-        {lastLoginAt
-          ? new Date(lastLoginAt.endsWith('Z') || lastLoginAt.includes('+') ? lastLoginAt : `${lastLoginAt}Z`).toLocaleString()
-          : '—'}
+        Last login: {lastLoginAt ? formatLocalDateTime(lastLoginAt) : '—'}
+        {displayTimezone ? (
+          <span title="Your profile display timezone"> · showing {displayTimezone}</span>
+        ) : null}
       </p>
 
       {error && <div style={{ color: '#f87171', marginTop: '1rem' }}>{error}</div>}
@@ -442,6 +448,55 @@ function UserProfilePanel() {
           )}
           <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
             Shown in My Org, profile menu, and org chart. Does not change account permissions.
+          </span>
+        </label>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Display timezone</span>
+          <select
+            value={
+              COMMON_DISPLAY_TIMEZONES.some((z) => z.value === (form.display_timezone || ''))
+                ? form.display_timezone || ''
+                : form.display_timezone
+                  ? '__custom__'
+                  : ''
+            }
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v === '__custom__') return;
+              set('display_timezone', v);
+            }}
+            style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+          >
+            {COMMON_DISPLAY_TIMEZONES.map((z) => (
+              <option key={z.value || 'platform'} value={z.value}>
+                {z.label}
+                {z.value === '' && platformTimezone ? ` (${platformTimezone})` : ''}
+              </option>
+            ))}
+            {form.display_timezone &&
+              !COMMON_DISPLAY_TIMEZONES.some((z) => z.value === form.display_timezone) && (
+                <option value="__custom__">{form.display_timezone} (custom)</option>
+              )}
+          </select>
+          <input
+            type="text"
+            placeholder="Or IANA zone e.g. Asia/Singapore"
+            value={form.display_timezone}
+            onChange={(e) => set('display_timezone', e.target.value.trim())}
+            style={{
+              marginTop: 4,
+              padding: '0.5rem 0.75rem',
+              borderRadius: 6,
+              border: '1px solid var(--border)',
+              background: 'var(--surface)',
+              color: 'var(--text)',
+              fontSize: '0.9rem',
+            }}
+          />
+          <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
+            All times in the app (Kanban, Workspace, chat, logs) use this zone. DB keeps UTC. Leave
+            empty for platform default
+            {platformTimezone ? ` (${platformTimezone})` : ''}.
           </span>
         </label>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -657,7 +712,7 @@ function UserProfilePanel() {
         <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '0.5rem 0' }} />
         <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--muted)' }}>
           LLM provider — Platform default / free models need no key. OpenAI/OpenRouter require vault key{' '}
-          <code>Platform_BYOK</code> under <Link to="/api-keys">Management → API Keys</Link>.
+          <code>Platform_BYOK</code> under <Link to="/api-keys">Run & Operate → API Keys</Link>.
           Video (<code>generate_video</code>) on a non-platform provider also needs{' '}
           <code>Replicate_BYOK</code>. Brave Search (<code>brave_web_search</code>) on a non-platform
           provider needs <code>BRAVE_SEARCH_BYOK</code>; Platform default uses ops{' '}

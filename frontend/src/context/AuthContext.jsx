@@ -1,6 +1,11 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { api, setAuthToken } from '../api';
 import { clearCrmBrowserSessions } from '../lib/crmSessionCleanup';
+import {
+  setPreferredDisplayTimeZone,
+  setPlatformDefaultTimeZone,
+  resolveDisplayTimeZone,
+} from '../utils/displayTimezone.js';
 
 const AuthContext = createContext(null);
 
@@ -23,12 +28,18 @@ async function wipeCrmSessionsIfPossible() {
   }
 }
 
+function applyDisplayTimezonesFromMe(data) {
+  setPlatformDefaultTimeZone(data?.platform_timezone || null);
+  setPreferredDisplayTimeZone(data?.user?.display_timezone || null);
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [agents, setAgents] = useState([]);
   const [dataCeoUserId, setDataCeoUserId] = useState(null);
   const [usesPlatformDb, setUsesPlatformDb] = useState(false);
   const [impersonation, setImpersonation] = useState(null);
+  const [platformTimezone, setPlatformTimezone] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const applyMe = useCallback((data) => {
@@ -37,6 +48,8 @@ export function AuthProvider({ children }) {
     setDataCeoUserId(data.data_ceo_user_id || null);
     setUsesPlatformDb(!!data.uses_platform_db);
     setImpersonation(data.impersonation || data.user?.impersonation || null);
+    setPlatformTimezone(data.platform_timezone || null);
+    applyDisplayTimezonesFromMe(data);
   }, []);
 
   const loadMe = useCallback(async () => {
@@ -47,6 +60,9 @@ export function AuthProvider({ children }) {
       setDataCeoUserId(null);
       setUsesPlatformDb(false);
       setImpersonation(null);
+      setPlatformTimezone(null);
+      setPreferredDisplayTimeZone(null);
+      setPlatformDefaultTimeZone(null);
       setLoading(false);
       return;
     }
@@ -63,6 +79,9 @@ export function AuthProvider({ children }) {
       setDataCeoUserId(null);
       setUsesPlatformDb(false);
       setImpersonation(null);
+      setPlatformTimezone(null);
+      setPreferredDisplayTimeZone(null);
+      setPlatformDefaultTimeZone(null);
     } finally {
       setLoading(false);
     }
@@ -178,7 +197,12 @@ export function AuthProvider({ children }) {
     setDataCeoUserId(null);
     setUsesPlatformDb(false);
     setImpersonation(null);
+    setPlatformTimezone(null);
+    setPreferredDisplayTimeZone(null);
+    setPlatformDefaultTimeZone(null);
   };
+
+  const displayTimezone = resolveDisplayTimeZone();
 
   return (
     <AuthContext.Provider
@@ -188,6 +212,9 @@ export function AuthProvider({ children }) {
         dataCeoUserId,
         usesPlatformDb,
         impersonation,
+        platformTimezone,
+        /** Effective IANA zone for all UI datetimes (user profile → platform → browser). */
+        displayTimezone,
         loading,
         login,
         completeMfa,

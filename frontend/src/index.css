@@ -607,6 +607,32 @@ html.auth-route #root {
     align-self: stretch;
     width: 100%;
   }
+  /* Stack dense data surfaces; horizontal scroll instead of page overflow. */
+  .page table,
+  .page .data-table,
+  .page .table-wrap {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .page form {
+    max-width: 100%;
+  }
+  .page input,
+  .page select,
+  .page textarea {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  .page-hero h1 {
+    font-size: 1.35rem;
+    line-height: 1.25;
+  }
+  .nav-section-title {
+    font-size: 0.72rem;
+  }
 }
 
 /* Profile menu (hPanel-style avatar) */
@@ -4002,6 +4028,117 @@ body.wf-props-resizing .react-flow {
   font-style: normal;
   color: var(--muted);
   cursor: help;
+}
+button.ai-snip-info-btn {
+  cursor: pointer;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  line-height: 1;
+}
+button.ai-snip-info-btn:hover {
+  color: var(--text);
+  border-color: var(--text);
+}
+.ai-snip-storage-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: color-mix(in srgb, #000 40%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.ai-snip-storage-modal {
+  width: min(520px, 100%);
+  max-height: min(85vh, 720px);
+  overflow: auto;
+  background: var(--surface, #fff);
+  color: var(--text, #111);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  box-shadow: 0 12px 40px color-mix(in srgb, #000 18%, transparent);
+  scrollbar-width: thin;
+}
+.ai-snip-storage-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.35rem;
+}
+.ai-snip-storage-modal-head h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+.ai-snip-storage-close {
+  border: none;
+  background: transparent;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--muted);
+  padding: 0.15rem 0.35rem;
+}
+.ai-snip-storage-lead {
+  margin: 0 0 0.65rem;
+  font-size: 0.86rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.ai-snip-storage-total {
+  margin: 0 0 0.65rem;
+  font-size: 1.05rem;
+}
+.ai-snip-storage-total-bytes {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 400;
+}
+.ai-snip-storage-table-wrap {
+  overflow-x: auto;
+  margin-bottom: 0.5rem;
+}
+.ai-snip-storage-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+.ai-snip-storage-table th,
+.ai-snip-storage-table td {
+  text-align: left;
+  padding: 0.4rem 0.35rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.ai-snip-storage-table th {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+.ai-snip-storage-table td:last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ai-snip-storage-row-empty td {
+  opacity: 0.55;
+}
+.ai-snip-storage-notes {
+  margin: 0.5rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.ai-snip-storage-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
 }
 .ai-snip-breakdown-toggle {
   width: 100%;

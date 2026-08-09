@@ -51,7 +51,7 @@ export default function Workspace() {
       <header className="page-hero">
         <div className="page-hero-top">
           <div className="page-hero-titles">
-            <p className="page-hero-kicker">Company OS · Employees</p>
+            <p className="page-hero-kicker">Company Tools · Employees</p>
             <h1>AI Employees</h1>
           </div>
           <button

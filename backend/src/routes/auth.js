@@ -31,6 +31,7 @@ import {
   ensurePasswordResetTables,
 } from '../services/password-reset.js';
 import { getLlmCatalogPublic } from '../services/user-llm-settings.js';
+import { getServerTimezone } from '../utils/format-datetime.js';
 
 const router = Router();
 
@@ -228,6 +229,8 @@ router.get('/me', requireAuth, (req, res) => {
       ceo_db_mode: req.authUser.role === 'ceo' ? getCeoDbModeForUser(req.authUser.id) : null,
       uses_shared_db: req.authUser.role === 'ceo' ? !usesTenantCeoDb(req.authUser.id) : null,
       uses_platform_db: req.authUser.role === 'ceo' && req.authUser.id === getBalaCeoAuthId(),
+      /** Platform default (PLATFORM_TIMEZONE); empty user.display_timezone falls back to this for UI. */
+      platform_timezone: getServerTimezone(),
       mfa: {
         ...resolved,
         mfa_policy: mfaRow?.mfa_policy || 'inherit',
@@ -253,6 +256,7 @@ router.patch('/me', requireAuth, (req, res) => {
       region,
       mobile,
       role_title,
+      display_timezone,
       current_password,
       new_password,
       mfa_policy,
@@ -274,6 +278,7 @@ router.patch('/me', requireAuth, (req, res) => {
       region,
       mobile,
       role_title,
+      display_timezone,
       current_password,
       new_password,
       mfa_policy,
@@ -290,7 +295,7 @@ router.patch('/me', requireAuth, (req, res) => {
       clear_profile_image,
     });
     const mfaRow = getUserMfa(req.authUser.id);
-    res.json({ user, mfa: resolveUserMfa(mfaRow) });
+    res.json({ user, mfa: resolveUserMfa(mfaRow), platform_timezone: getServerTimezone() });
   } catch (e) {
     res.status(400).json({ error: e.message });
   }

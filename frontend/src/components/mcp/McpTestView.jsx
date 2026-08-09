@@ -222,7 +222,7 @@ export default function McpTestView() {
               vaultKeys={vaultKeys}
             />
             <small className="mcp-pg-hint">
-              Overlay Authorization / API keys — prefer vault keys from Management → API Keys.
+              Overlay Authorization / API keys — prefer vault keys from Run & Operate → API Keys.
             </small>
           </div>
         </div>

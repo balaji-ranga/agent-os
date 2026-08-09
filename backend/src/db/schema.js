@@ -1802,6 +1802,10 @@ export function initDb() {
   } catch (_) {}
 
   try {
+    _db.exec(`ALTER TABLE platform_users ADD COLUMN display_timezone TEXT DEFAULT ''`);
+  } catch (_) {}
+
+  try {
     _db.exec(`
       CREATE TABLE IF NOT EXISTS docker_onboarded_tools (
         id TEXT PRIMARY KEY,

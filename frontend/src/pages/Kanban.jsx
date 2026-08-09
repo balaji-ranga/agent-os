@@ -18,6 +18,7 @@ import ChatComposeInput from '../components/ChatComposeInput.jsx';
 import ChatMessageContent from '../components/ChatMessageContent.jsx';
 import ChatMessageAttachments from '../components/ChatMessageAttachments.jsx';
 import { buildMessageWithAttachments, uploadChatAttachments, splitChatAttachmentContent } from '../utils/chatAttachments.js';
+import { useAuth } from '../context/AuthContext';
 
 const STATUSES = ['open', 'awaiting_confirmation', 'in_progress', 'completed', 'failed'];
 const STATUS_LABELS = {
@@ -34,6 +35,7 @@ function isConfirmApprovalMessage(text) {
 }
 
 export default function Kanban() {
+  const { displayTimezone } = useAuth();
   const [agents, setAgents] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [view, setView] = useState('all');
@@ -170,7 +172,7 @@ export default function Kanban() {
         if (detail.server_timezone) setServerTimezone(detail.server_timezone);
       })
       .catch((err) => {
-        // Never leave a silently empty drawer — the CEO must see why it is blank.
+        // Never leave a silently empty drawer â€” the CEO must see why it is blank.
         setTaskDetail(null);
         setDetailError(err?.message || 'Could not load this task');
       })
@@ -396,7 +398,7 @@ export default function Kanban() {
       .then((result) => {
         const msg =
           result?.message ||
-          `Included ${result?.included_count || 1} job(s) — now awaiting your approval.`;
+          `Included ${result?.included_count || 1} job(s) â€” now awaiting your approval.`;
         setApproveSuccess(msg);
         showSuccess(msg);
         return Promise.all([
@@ -479,7 +481,7 @@ export default function Kanban() {
         comment: wfApprovalComment.trim(),
       })
       .then((result) => {
-        const msg = `Workflow ${result.decision}${wfApprovalComment ? ' — comment saved' : ''}`;
+        const msg = `Workflow ${result.decision}${wfApprovalComment ? ' â€” comment saved' : ''}`;
         setApproveSuccess(msg);
         showSuccess(msg);
         setWfApprovalComment('');
@@ -539,9 +541,9 @@ export default function Kanban() {
       <ActionFeedbackBanner feedback={feedback} onDismiss={clearFeedback} />
       <div className="kanban-toolbar" style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
         <h1 style={{ margin: 0, fontSize: isMobileKanban ? '1.25rem' : '1.5rem' }}>Kanban Board</h1>
-        {serverTimezone && (
-          <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }} title="All Kanban dates are shown in the platform timezone">
-            Times in {serverTimezone}
+        {(displayTimezone || serverTimezone) && (
+          <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }} title="All Kanban dates use your Profile display timezone (or platform default)">
+            Times in {displayTimezone || serverTimezone}
           </span>
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -621,7 +623,7 @@ export default function Kanban() {
             disabled={deleting}
             style={{ padding: '0.5rem 1rem', borderRadius: 6, background: 'var(--error, #dc2626)', color: 'white', border: 'none', cursor: 'pointer' }}
           >
-            {deleting ? 'Deleting…' : `Delete selected (${selectedTaskIds.size})`}
+            {deleting ? 'Deletingâ€¦' : `Delete selected (${selectedTaskIds.size})`}
           </button>
         )}
         <button
@@ -633,7 +635,7 @@ export default function Kanban() {
         </button>
       </div>
 
-      {loading && <div style={{ color: 'var(--muted)' }}>Loading…</div>}
+      {loading && <div style={{ color: 'var(--muted)' }}>Loadingâ€¦</div>}
 
       {isMobileKanban ? (
         <div className="kanban-mobile">
@@ -692,7 +694,7 @@ export default function Kanban() {
                     </label>
                   </div>
                   <div className="kanban-mobile-meta">
-                    <span>Updated {taskUpdatedAtDisplay(t, serverTimezone)}</span>
+                    <span>Updated {taskUpdatedAtDisplay(t, displayTimezone || serverTimezone)}</span>
                     {isCeoJobReviewTask(t) && <span className="kanban-mobile-tag">CEO review</span>}
                     {isWorkflowCeoApprovalTask(t) && <span className="kanban-mobile-tag">WF approval</span>}
                   </div>
@@ -752,7 +754,7 @@ export default function Kanban() {
                       <KanbanBoardCell
                         cellKey={`${aid}-${status}`}
                         tasks={byAgentAndStatus[aid]?.[status] || []}
-                        serverTimezone={serverTimezone}
+                        serverTimezone={displayTimezone || serverTimezone}
                         draggingTask={draggingTask}
                         selectedTaskIds={selectedTaskIds}
                         onSelectTask={setSelectedTask}
@@ -813,7 +815,7 @@ export default function Kanban() {
                 Cancel
               </button>
               <button type="button" onClick={handleCreate} disabled={createSubmitting} style={{ padding: '0.5rem 1rem', borderRadius: 6, background: 'var(--accent)', color: 'white', border: 'none', cursor: 'pointer' }}>
-                {createSubmitting ? 'Creating…' : 'Create'}
+                {createSubmitting ? 'Creatingâ€¦' : 'Create'}
               </button>
             </div>
           </div>
@@ -842,10 +844,10 @@ export default function Kanban() {
                     <span> · {taskDetail.artifact_count} artifact{taskDetail.artifact_count === 1 ? '' : 's'}</span>
                   )}
                   {(taskDetail?.created_at || selectedTask.created_at) && (
-                    <span> · Created {taskCreatedAtDisplay(taskDetail || selectedTask, serverTimezone)}</span>
+                    <span> · Created {taskCreatedAtDisplay(taskDetail || selectedTask, displayTimezone || serverTimezone)}</span>
                   )}
                   {(taskDetail?.updated_at || selectedTask.updated_at) && (
-                    <span> · Updated {taskUpdatedAtDisplay(taskDetail || selectedTask, serverTimezone)}</span>
+                    <span> · Updated {taskUpdatedAtDisplay(taskDetail || selectedTask, displayTimezone || serverTimezone)}</span>
                   )}
                 </div>
                 {drawerTab === 'details' && selectedIsCeoReview && (
@@ -854,7 +856,7 @@ export default function Kanban() {
                   </div>
                 )}
               </div>
-              <button type="button" onClick={() => setSelectedTask(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.25rem' }}>×</button>
+              <button type="button" onClick={() => setSelectedTask(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.25rem' }}>Ã—</button>
             </div>
             <div
               style={{
@@ -921,7 +923,7 @@ export default function Kanban() {
                   disabled={detailLoading}
                   style={{ padding: '0.3rem 0.6rem', borderRadius: 6, border: '1px solid var(--border)', cursor: 'pointer' }}
                 >
-                  {detailLoading ? 'Retrying…' : 'Retry'}
+                  {detailLoading ? 'Retryingâ€¦' : 'Retry'}
                 </button>
               </div>
             )}
@@ -950,7 +952,7 @@ export default function Kanban() {
                     value={wfApprovalComment}
                     onChange={(e) => setWfApprovalComment(e.target.value)}
                     style={{ width: '100%', marginTop: 4, padding: '0.4rem', borderRadius: 6, border: '1px solid var(--border)' }}
-                    placeholder="Add a note for the workflow…"
+                    placeholder="Add a note for the workflowâ€¦"
                   />
                 </label>
                 <div style={{ display: 'flex', gap: 8 }}>
@@ -1037,14 +1039,14 @@ export default function Kanban() {
                   }}
                 >
                   {approvingReview
-                    ? 'Confirming…'
+                    ? 'Confirmingâ€¦'
                     : confirmIsApplication
-                      ? '✓ Approve applications — proceed with prefill'
-                      : '✓ Acknowledge scoring summary — close workflow'}
+                      ? 'âœ“ Approve applications â€” proceed with prefill'
+                      : 'âœ“ Acknowledge scoring summary â€” close workflow'}
                 </button>
                 <p style={{ margin: '0.4rem 0 0', fontSize: '0.75rem', color: 'var(--muted)' }}>
                   Or type <strong>confirm</strong> in the message box below.
-                  {!confirmIsApplication && ' Jobs will be marked acknowledged — no Application Agent.'}
+                  {!confirmIsApplication && ' Jobs will be marked acknowledged â€” no Application Agent.'}
                 </p>
               </div>
             )}
@@ -1059,7 +1061,7 @@ export default function Kanban() {
                 }}
               >
                 <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: 8 }}>
-                  Below threshold ({reviewQueue.borderline?.min_score}%–{reviewQueue.fit_threshold - 1}%) — include selectively
+                  Below threshold ({reviewQueue.borderline?.min_score}%â€“{reviewQueue.fit_threshold - 1}%) â€” include selectively
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {reviewQueue.borderline_jobs.map((j) => (
@@ -1074,7 +1076,7 @@ export default function Kanban() {
                       }}
                     >
                       <div style={{ fontWeight: 600 }}>
-                        {j.title || 'Untitled'} — {j.company || 'Unknown'} ({j.fit_score ?? '?'}%)
+                        {j.title || 'Untitled'} â€” {j.company || 'Unknown'} ({j.fit_score ?? '?'}%)
                       </div>
                       {j.fit_rationale && (
                         <div style={{ color: 'var(--muted)', marginTop: 4, fontSize: '0.8rem' }}>{j.fit_rationale}</div>
@@ -1094,7 +1096,7 @@ export default function Kanban() {
                           fontSize: '0.8rem',
                         }}
                       >
-                        {includingJobId === j.job_id ? 'Including…' : 'Include in approval'}
+                        {includingJobId === j.job_id ? 'Includingâ€¦' : 'Include in approval'}
                       </button>
                     </div>
                   ))}
@@ -1185,7 +1187,7 @@ export default function Kanban() {
                     <span style={{ fontSize: '0.75rem', color: 'var(--muted)', fontWeight: 600 }}>{m.role}</span>
                     {m.created_at && (
                       <time dateTime={m.created_at} style={{ fontSize: '0.68rem', color: 'var(--muted)' }}>
-                        {rowTimestampDisplay(m, serverTimezone)}
+                        {rowTimestampDisplay(m, displayTimezone || serverTimezone)}
                       </time>
                     )}
                   </div>
@@ -1228,7 +1230,7 @@ export default function Kanban() {
                       <span style={{ fontSize: '0.75rem', color: 'var(--muted)', fontWeight: 600 }}>{t.role}</span>
                       {t.created_at && (
                         <time dateTime={t.created_at} style={{ fontSize: '0.68rem', color: 'var(--muted)' }}>
-                          {rowTimestampDisplay(t, serverTimezone)}
+                          {rowTimestampDisplay(t, displayTimezone || serverTimezone)}
                         </time>
                       )}
                       {t.session_archived && (
@@ -1253,8 +1255,8 @@ export default function Kanban() {
             {drawerTab === 'activity' && activityIsEmpty && (
               <p style={{ fontSize: '0.85rem', color: 'var(--muted)', fontStyle: 'italic', margin: 0 }}>
                 {detailLoading
-                  ? 'Loading activity…'
-                  : 'No activity recorded for this task yet — no delegation exchange, task chat, or linked agent chat. Send a message below to start one.'}
+                  ? 'Loading activityâ€¦'
+                  : 'No activity recorded for this task yet â€” no delegation exchange, task chat, or linked agent chat. Send a message below to start one.'}
               </p>
             )}
             </div>
@@ -1268,7 +1270,7 @@ export default function Kanban() {
                   value={messageInput}
                   onChange={(e) => setMessageInput(e.target.value)}
                   onSend={sendMessage}
-                  placeholder={selectedIsCeoReview ? 'Type confirm to approve, or add a note… (Shift+Enter for new line)' : 'Add message… Attach images/docs for Master Data RAG.'}
+                  placeholder={selectedIsCeoReview ? 'Type confirm to approve, or add a noteâ€¦ (Shift+Enter for new line)' : 'Add messageâ€¦ Attach images/docs for Master Data RAG.'}
                   rows={2}
                   style={{ width: '100%', padding: '0.5rem', borderRadius: 6, border: '1px solid var(--border)', resize: 'vertical' }}
                   disabled={sendingMessage}
@@ -1277,7 +1279,7 @@ export default function Kanban() {
                 />
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                   <button type="submit" disabled={sendingMessage || (!messageInput.trim() && !messageAttachments.length)} style={{ padding: '0.4rem 0.75rem', borderRadius: 6, background: 'var(--accent)', color: 'white', border: 'none', cursor: 'pointer' }}>
-                    {sendingMessage ? 'Sending…' : 'Send'}
+                    {sendingMessage ? 'Sendingâ€¦' : 'Send'}
                   </button>
                 {selectedTask && (taskDetail?.status ?? selectedTask.status) !== 'open' && (
                   <button
@@ -1286,7 +1288,7 @@ export default function Kanban() {
                     disabled={reopeningId === selectedTask.id}
                     style={{ padding: '0.4rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', cursor: 'pointer' }}
                   >
-                    {reopeningId === selectedTask.id ? 'Reopening…' : 'Reopen task'}
+                    {reopeningId === selectedTask.id ? 'Reopeningâ€¦' : 'Reopen task'}
                   </button>
                 )}
                 </div>

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api';
+import { useAuth } from '../context/AuthContext';
+import { formatChatTimestamp } from '../utils/formatDateTime.js';
 
 /**
  * Daily operating Workspace (Product: Workspace).
@@ -12,12 +14,14 @@ import { api } from '../api';
  */
 export default function OperatingWorkspace() {
   const navigate = useNavigate();
+  const { displayTimezone } = useAuth();
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [cmd, setCmd] = useState('');
   const [busy, setBusy] = useState(false);
   const [mentionOpen, setMentionOpen] = useState(false);
+  const [mobilePanel, setMobilePanel] = useState('tasks');
   const inputRef = useRef(null);
 
   const agents = data?.agents || [];
@@ -182,6 +186,9 @@ export default function OperatingWorkspace() {
         <p className="page-hero-sub">
           Run the day with humans and AI employees together. Home stays the company pulse; this
           surface is for work in motion.
+          {displayTimezone ? (
+            <span className="page-muted"> · Times in {displayTimezone}</span>
+          ) : null}
         </p>
       </header>
 
@@ -239,7 +246,27 @@ export default function OperatingWorkspace() {
       )}
 
       <div className="ow-panels">
-        <section className="ow-panel">
+        <div className="ow-mobile-pills" role="tablist" aria-label="Workspace panels">
+          {[
+            { id: 'tasks', label: 'Tasks', count: (data?.tasks || []).length },
+            { id: 'agents', label: 'Team', count: agents.length },
+            { id: 'activity', label: 'Activity', count: (data?.activity || []).length },
+          ].map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              role="tab"
+              aria-selected={mobilePanel === p.id}
+              className={`ow-mobile-pill${mobilePanel === p.id ? ' is-active' : ''}`}
+              onClick={() => setMobilePanel(p.id)}
+            >
+              {p.label}
+              <span className="ow-mobile-pill-count">{p.count}</span>
+            </button>
+          ))}
+        </div>
+
+        <section className={`ow-panel ow-panel-tasks${mobilePanel === 'tasks' ? ' is-active-mobile' : ''}`}>
           <h2 className="ow-panel-title">My tasks</h2>
           <div className="ow-panel-scroll">
             {(data?.tasks || []).length === 0 ? (
@@ -274,7 +301,7 @@ export default function OperatingWorkspace() {
           </div>
         </section>
 
-        <section className="ow-panel">
+        <section className={`ow-panel ow-panel-agents${mobilePanel === 'agents' ? ' is-active-mobile' : ''}`}>
           <h2 className="ow-panel-title">AI workforce</h2>
           <div className="ow-panel-scroll">
             {agents.length === 0 ? (
@@ -301,7 +328,7 @@ export default function OperatingWorkspace() {
           </div>
         </section>
 
-        <section className="ow-panel">
+        <section className={`ow-panel ow-panel-activity${mobilePanel === 'activity' ? ' is-active-mobile' : ''}`}>
           <h2 className="ow-panel-title">Recent AI activity</h2>
           <div className="ow-panel-scroll">
             {(data?.activity || []).length === 0 ? (
@@ -331,7 +358,9 @@ export default function OperatingWorkspace() {
                           feedback
                         </span>
                       ) : null}{' '}
-                      <span className="page-muted">{row.created_at}</span>
+                      <span className="page-muted">
+                        {formatChatTimestamp(row.created_at) || row.created_at || ''}
+                      </span>
                     </div>
                     <div className="page-muted">{row.snippet}</div>
                   </li>
@@ -352,6 +381,9 @@ export default function OperatingWorkspace() {
         }
         .operating-workspace .page-hero {
           flex: 0 0 auto;
+        }
+        .ow-mobile-pills {
+          display: none;
         }
         .ow-panels {
           display: grid;
@@ -428,6 +460,77 @@ export default function OperatingWorkspace() {
           }
           .ow-panel {
             max-height: 42vh;
+          }
+        }
+        @media (max-width: 900px) {
+          .operating-workspace {
+            max-height: none;
+            min-height: 0;
+            overflow: auto;
+            padding-bottom: 5rem;
+          }
+          .operating-workspace .page-hero-top {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 0.75rem;
+          }
+          .operating-workspace .page-hero-top .btn-ghost,
+          .operating-workspace .page-hero-top .btn-primary {
+            flex: 1 1 auto;
+            text-align: center;
+          }
+          .ow-mobile-pills {
+            display: flex;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+            grid-column: 1 / -1;
+            margin-bottom: 0.25rem;
+          }
+          .ow-mobile-pill {
+            flex: 1 1 auto;
+            min-width: 5.5rem;
+            border: 1px solid var(--border);
+            background: var(--surface, transparent);
+            color: var(--text);
+            border-radius: 999px;
+            padding: 0.4rem 0.7rem;
+            font: inherit;
+            font-size: 0.85rem;
+            cursor: pointer;
+          }
+          .ow-mobile-pill.is-active {
+            border-color: var(--accent, #3b82f6);
+            background: color-mix(in srgb, var(--accent, #3b82f6) 14%, transparent);
+          }
+          .ow-mobile-pill-count {
+            margin-left: 0.35rem;
+            opacity: 0.7;
+            font-size: 0.78rem;
+          }
+          .ow-panels {
+            display: flex;
+            flex-direction: column;
+            height: auto;
+            max-height: none;
+            min-height: 0;
+            overflow: visible;
+          }
+          .ow-panel {
+            display: none;
+            height: auto;
+            max-height: none;
+            min-height: 12rem;
+          }
+          .ow-panel.is-active-mobile {
+            display: flex;
+          }
+          .ow-panel-scroll {
+            max-height: min(55vh, 24rem);
+          }
+          .operating-workspace form {
+            position: sticky;
+            bottom: 0;
+            z-index: 5;
           }
         }
       `}</style>

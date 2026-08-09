@@ -104,7 +104,7 @@ export function CeoNavMenu({ collapsed }) {
 
   return (
     <>
-      <NavSection title="Management" collapsed={collapsed}>
+      <NavSection title="Run & Operate" collapsed={collapsed}>
         <NavItem to="/org" end title="My Org" collapsed={collapsed} label="My Org" short="⌂" />
         <NavItem to="/kanban" title="Kanban" collapsed={collapsed} label="Kanban" short="K" />
         {menus.show_crm_menu && (
@@ -160,7 +160,7 @@ export function CeoNavMenu({ collapsed }) {
         <NavItem to="/ibkr-summary" title="IBKR Summary — portfolio and day plans" collapsed={collapsed} label="IBKR Summary" short="IB" />
       </NavSection>
 
-      <NavSection title="Company OS" collapsed={collapsed}>
+      <NavSection title="Company Tools" collapsed={collapsed}>
         <NavItem to="/workflows" title="Workflows" collapsed={collapsed} label="Workflows" short="Wf" />
         <NavItem to="/avatars" title="3D Avatars" collapsed={collapsed} label="3D Avatars" short="3D" />
         <NavItem
@@ -259,7 +259,7 @@ export function AdminNavMenu({ collapsed }) {
         {collapsed ? 'FB' : 'Platform feedback'}
       </NavLink>
 
-      <NavSection title="Company OS" collapsed={collapsed}>
+      <NavSection title="Company Tools" collapsed={collapsed}>
         <NavItem to="/connectors" title="Connectors" collapsed={collapsed} label="Connectors" short="Cn" />
         <NavItem to="/integrations/mcp" title="MCP" collapsed={collapsed} label="MCP" short="M" />
         <NavItem
