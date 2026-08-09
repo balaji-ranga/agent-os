@@ -53,6 +53,7 @@ Independence for a specific company is configured at setup (subjective). The pla
 |---------|-----|---------------|---------------------------|
 | crm_provider=none | — | — | Tasks + AI only |
 | crm_provider=twenty | Workspace-per-company | 2 specialists + 1 approver | Yes |
+| crm_provider=erpnext | ERPNext Company + Sales modules | 2 makers + 1 checker (`erp_*` sales) | Yes (desk SSO /app/crm) |
 | crm_provider=hubspot or zoho | External connect | None required (Phase 1/2) | Yes |
 | erp_provider=none | — | — | — |
 | erp_provider=erpnext | Company + user map | 2 specialists + 1 approver | Finance/Projects yes (Phase 2 depth) |
@@ -132,9 +133,9 @@ Defaults: both `none`. Changing provider updates routing; tool layer remains Flo
 | CRM Maker A | crm=twenty | Pipeline / accounts–contacts execution |
 | CRM Maker B | crm=twenty | Research, enrichment, follow-ups |
 | CRM Checker | crm=twenty | Gate mass/risky CRM writes |
-| ERP Maker A | erp=erpnext | Ops / projects side |
-| ERP Maker B | erp=erpnext | Finance/books side as exposed |
-| ERP Checker | erp=erpnext | Gate spend/book posts |
+| ERP Maker A | erp=erpnext | Full erp_* operational drafts (MCP parity) |
+| ERP Maker B | erp=erpnext | Buying/stock/ops side via erp_* |
+| ERP Checker | erp=erpnext | Submit/cancel + Kanban/workflow approvals |
 
 All owner-scoped and `user_agents`-granted only to that company CEO (and entitled users when multi-human exists).
 

@@ -280,7 +280,8 @@ if (body.mission != null) {
   }
   if (body.crm_provider != null) {
     const c = String(body.crm_provider).trim().toLowerCase() || 'none';
-    if (['none', 'twenty', 'hubspot', 'zoho'].includes(c)) strategic.crm_provider = c;
+    // twenty | erpnext = platform CRM (embed + prefab; ERPNext uses Sales/CRM modules)
+    if (['none', 'twenty', 'erpnext', 'hubspot', 'zoho'].includes(c)) strategic.crm_provider = c;
   }
   if (body.erp_provider != null) {
     const e = String(body.erp_provider).trim().toLowerCase() || 'none';

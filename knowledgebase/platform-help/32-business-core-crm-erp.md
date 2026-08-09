@@ -1,23 +1,26 @@
-# Business Core ├óΓé¼ΓÇ¥ CRM (Twenty), ERP (ERPNext), prefab Maker/Checker, MCP
+# Business Core — CRM (Twenty or ERPNext), ERP (ERPNext), Maker/Checker, MCP
 
 ## Quick answers
 
-**What is Business Core?** Optional platform CRM and ERP bound to your company: **Twenty** for CRM, **ERPNext** for ERP. Not required to use Flolah. Select under **Profile** or **Company setup ├óΓÇáΓÇÖ Systems**.
+**What is Business Core?** Optional platform CRM and ERP bound to your company.
+- **CRM:** **Twenty** or **ERPNext** (Sales/CRM modules: Leads, Opportunities, Customers, Quotations, Orders).
+- **ERP:** **ERPNext** (full books / invoicing / projects when selected as ERP provider).
+Not required to use Flolah. Select under **Profile** or **Company setup → Systems**.
 
-**When I pick platform CRM or ERP, do I get the Maker/Checker AI employees?** **Yes.**  
-- Profile or Company setup Apply with **CRM = Twenty** only: provisions **CRM Maker A**, **CRM Maker B**, **CRM Checker** into **your org**. Not added if CRM is none/HubSpot/Zoho. Switching away **removes** them from the org.
-- **ERP = ERPNext** only: provisions **ERP P&L**, **ERP Invoice**, **ERP Project Manager** into **your org**. Not added if ERP is none/Xero. Switching away **removes** them from the org.
-They appear under **AI Employees** / chat picker and use **content tools** (`crm_*`, `erp_*`).
+**When I pick platform CRM or ERP, do I get the Maker/Checker AI employees?** **Yes.**
+- **CRM = Twenty:** CRM Maker A/B + CRM Checker with crm_* tools; CRM nav opens Twenty SSO.
+- **CRM = ERPNext:** CRM Maker A/B + CRM Checker with Sales-side erp_* tools; CRM nav opens ERPNext desk SSO (/app/crm).
+- **ERP = ERPNext:** ERP Maker A/B (full operational erp_* surface matching MCP), ERP Checker (submit/cancel + Kanban/workflow approvals), plus specialists P&L / Invoice / Project Manager.
+Switching away from a platform provider **removes** those prefab agents from the org.
 
-**Is there MCP for agents and workflows?** **Yes ├óΓé¼ΓÇ¥ real HTTP proxy to Twenty / ERPNext REST (v2), not dummy stubs.** Platform registry seeds (same **business-core-mcp** container):  
-- **`mcp-flolah-crm`** ├óΓé¼ΓÇ¥ `crm_status`, people/companies CRUD list, **opportunities/deals**, **leads** (Twenty has no separate Lead object by default ├óΓÇáΓÇÖ early-stage opportunities: NEW/SCREENING/MEETING/PROPOSAL/QUALIFIED), notes, tasks, `crm_sync_org`  
-- **`mcp-flolah-erp`** ├óΓé¼ΓÇ¥ `erp_status`, customers, leads, items, quotations, sales orders, projects, generic `erp_list_resource` / `erp_create_resource` / `erp_get_resource`, `erp_sync_org`  
+**Is there MCP for agents and workflows?** Yes — v2 HTTP proxy to real REST.
+- **mcp-flolah-crm** — Twenty crm_* tools.
+- **mcp-flolah-erp** — full erp_* operational set: customers/leads/contacts/opportunities, items, quotations, sales orders, delivery notes, sales/purchase invoices & orders, payments, journal entries, material requests, projects/tasks, GL, P&L, generic resource CRUD, **submit/cancel**.
+Every MCP erp_* tool is also a **content tool** (/api/tools/erp-…) for agent Tool access grants (same names). Workflows use MCP with X-Ceo-User-Id.
 
-Requires **`TWENTY_APP_SECRET` + SSO** (preferred) so CRM REST tools mint a **per-company workspace** access token. A single platform `TWENTY_API_KEY` only applies when SSO is off (legacy shared workspace). ERPNext API key/secret remain on platform env for live ERP data. OpenClaw AI employees use matching **content tools** (Tool access grants); workflows use **MCP nodes** / Brain MCP on these server ids.
+**How does owner scope work?** CEO owner identity only; company map from business profile; never trust foreign company ids.
 
-**How does owner scope work?** Pass **`X-Ceo-User-Id`** (your company CEO id) on MCP auth headers from the workflow, or `owner_user_id` in tool args when using service key. Tools resolve Twenty workspace / ERPNext company from **your** business profile ├óΓé¼ΓÇ¥ never trust a foreign company id for authorization.
-
-**When do CRM / ERP nav links appear?** Only when Profile provider is **twenty** / **erpnext**: left nav **CRM** (`/crm`) and **ERP** (`/erp`) open the platform embeds. Daily operate surface: **`/work`** (Work).
+**When do CRM / ERP nav links appear?** Profile CRM is 	wenty or erpnext → **CRM** menu. Profile ERP is erpnext → **ERP** menu. Embeds: Twenty → TWENTY_EMBED_URL; ERPNext CRM/ERP → ERPNEXT_EMBED_URL (e.g. https://erp.crm.flolah.cloud).
 
 ## CEO setup checklist
 
@@ -188,15 +191,15 @@ When API keys + `ERPNEXT_SSO_ENABLED=1` (default), opening **ERP** mints a one-t
 
 ## Prefab ERP AI employees
 
-Selecting **ERP = ERPNext** provisions three specialists (not generic Maker A/B):
+Selecting **ERP = ERPNext** provisions:
 
-| Agent | Focus | Tools (examples) |
-|-------|--------|------------------|
-| **ERP P&L Agent** | Profit & Loss, GL | `erp_profit_and_loss`, `erp_list_gl_entries`, invoice lists |
-| **ERP Invoice Agent** | Sales/Purchase invoices | `erp_create_sales_invoice`, `erp_list_sales_invoices`, customers/items |
-| **ERP Project Manager** | Projects & tasks | `erp_create_project`, `erp_list_projects`, `erp_list_tasks`, `erp_create_task` |
+| Agent | Role | Tools |
+|-------|------|--------|
+| **ERP Maker A / B** | Autonomous draft operations | Full ALL_ERP_TOOLS operational surface (same as mcp-flolah-erp) |
+| **ERP Checker** | Approvals / gates | List + erp_submit_doc / erp_cancel_doc + Kanban assign/move + gent_workflow_certify_* |
+| **ERP P&L / Invoice / Project Manager** | Specialists | Focused tool subsets |
 
-All stay **owner-scoped**; company filter applied on list/create. See also design **AUTOMATED-PNL.md** / help **37**.
+Makers draft; Checker owns submit/cancel and task/workflow approvals.
 
 
 ## Company P&L (design roadmap)

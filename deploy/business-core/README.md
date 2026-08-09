@@ -92,9 +92,9 @@ ERPNEXT_PUBLIC_URL=https://erp.crm.example.com
 ERPNEXT_ADMIN_PASSWORD=admin   # initial Administrator password from create-site
 ```
 
-**SSO:** authenticated CEO → ERP menu → `/flolah-erp-handoff/` one-time token → sets Frappe `sid` for company-scoped user (User Permission on Company).
+**SSO:** CRM menu → Twenty handoff **or** ERPNext desk (`/app/crm`) when CRM=ERPNext. ERP menu → `/flolah-erp-handoff/` one-time token → sets Frappe `sid` for company-scoped user.
 
-**Prefab agents:** ERP P&L, ERP Invoice, ERP Project Manager (`erp_*` tools / `mcp-flolah-erp`).
+**Prefab agents:** CRM Maker A/B + Checker (Twenty `crm_*` or ERPNext sales `erp_*`); ERP = Maker A/B (full operational `erp_*` = MCP), Checker (submit/cancel + Kanban/workflow approvals), plus P&L / Invoice / Project specialists.
 
 ## Platform MCP
 
