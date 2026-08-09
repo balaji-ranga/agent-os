@@ -16,6 +16,10 @@ import {
   listIndustryBlueprintsForOwner,
   searchSetupConnectors,
 } from '../services/company-setup.js';
+import {
+  getCompanyMemoryCapture,
+  updateCompanyMemoryCapture,
+} from '../services/company-memory-capture.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -137,6 +141,30 @@ router.get('/connectors/search', async (req, res) => {
   } catch (e) {
     console.warn('[company-setup] connectors search failed', e?.message || e);
     res.status(e.status || 500).json({ error: e.message || 'Connector search failed' });
+  }
+});
+
+/** GET company_memory capture (Update Company Setup). */
+router.get('/company-memory', (req, res) => {
+  try {
+    const owner = ownerOr403(req, res);
+    if (!owner) return;
+    res.json(getCompanyMemoryCapture(owner));
+  } catch (e) {
+    console.warn('[company-setup] company-memory get failed', e?.message || e);
+    res.status(e.status || 500).json({ error: e.message || 'Failed to load company memory' });
+  }
+});
+
+/** PUT company_memory capture -> Knowledge company_memory + strategic profile. */
+router.put('/company-memory', (req, res) => {
+  try {
+    const owner = ownerOr403(req, res);
+    if (!owner) return;
+    res.json(updateCompanyMemoryCapture(owner, req.body || {}));
+  } catch (e) {
+    console.warn('[company-setup] company-memory put failed', e?.message || e);
+    res.status(e.status || 500).json({ error: e.message || 'Failed to save company memory' });
   }
 });
 

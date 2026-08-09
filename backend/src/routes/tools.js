@@ -85,6 +85,7 @@ import { executeCeoProfile } from '../services/ceo-profile.js';
 import { applyProposal, getState as getOnboardingState, saveAgentProposal, saveDraft } from '../services/onboarding-helper.js';
 import { runCooStatusChecker } from '../services/coo-status-checker.js';
 import { buildThisWeekDigest } from '../services/this-week-digest.js';
+import { buildOperationalEffectiveness } from '../services/operational-effectiveness.js';
 import {
   executeScheduledGoalCreate,
   executeScheduledGoalList,
@@ -1793,6 +1794,62 @@ router.post('/this-week-digest', optionalAuth, async (req, res) => {
     res.status(e.status || 500).json(err);
   }
 });
+
+/**
+ * operational_effectiveness — COO only. Owner-scoped OEI score + explainability.
+ * Body: { days?: number } (default 14)
+ */
+router.post('/operational-effectiveness', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    const caller = getCallerAgent(req);
+    if (!caller || !caller.is_coo) {
+      const err = { error: 'Only COO can use operational_effectiveness' };
+      logTool(req, 'operational_effectiveness', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
+    if (!ownerUserId) {
+      const err = { error: 'Could not resolve CEO user for this session' };
+      logTool(req, 'operational_effectiveness', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const daysRaw = requestPayload.days ?? requestPayload.window_days;
+    const days = daysRaw != null && Number.isFinite(Number(daysRaw)) ? Number(daysRaw) : undefined;
+    const oei = await buildOperationalEffectiveness(ownerUserId, { days });
+    const result = {
+      ok: true,
+      owner_user_id: ownerUserId,
+      score: oei.score,
+      band: oei.band,
+      band_label: oei.band_label,
+      bands: oei.bands,
+      window_days: oei.window_days,
+      verdict: oei.verdict,
+      domains: oei.domains,
+      top_actions: oei.top_actions,
+      methodology: oei.methodology,
+      facts: oei.facts,
+      agent_howto:
+        'Explain Green/Amber/Red using bands (Green≥75). Walk domain scores lowest-first and map top_actions to CEO next steps. CRM counts if platform Twenty is bound OR an MCA CRM connector is connected. Do not invent secrets or cross-tenant data. Not the same as this_week_digest Time Saved / Est. Value.',
+    };
+    logTool(
+      req,
+      'operational_effectiveness',
+      { ...requestPayload, owner_user_id: ownerUserId },
+      { ok: true, score: result.score, band: result.band },
+      'ok',
+      source
+    );
+    res.json(result);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'operational_effectiveness', requestPayload, err, 'error', source);
+    res.status(e.status || 500).json(err);
+  }
+});
+
 function scheduledGoalHandler(toolName, executor, opts = {}) {
   return async (req, res) => {
     const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;

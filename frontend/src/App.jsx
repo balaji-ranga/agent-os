@@ -40,6 +40,7 @@ import MasterData from './pages/MasterData';
 import ContentExplorer from './pages/ContentExplorer';
 import Onboarding from './pages/Onboarding';
 import CompanySetup from './pages/CompanySetup';
+import UpdateCompanySetup from './pages/UpdateCompanySetup';
 import CompanyOperate from './pages/CompanyOperate';
 import VideoTours from './pages/VideoTours';
 import ApiKeys from './pages/ApiKeys';
@@ -170,6 +171,7 @@ function Shell() {
     user.role === 'ceo' &&
     setupGatePending === true &&
     !location.pathname.startsWith('/company-setup') &&
+    !location.pathname.startsWith('/update-company-setup') &&
     location.pathname !== '/profile' &&
     location.pathname !== '/login'
   ) {
@@ -365,6 +367,7 @@ function Shell() {
                 <Route path="/master-data" element={<MasterData />} />
                 <Route path="/content-explorer" element={<ContentExplorer />} />
                 <Route path="/company-setup" element={<CompanySetup />} />
+                <Route path="/update-company-setup" element={<UpdateCompanySetup />} />
                 <Route path="/company-operate" element={<CompanyOperate />} />
                 <Route path="/onboarding" element={<Onboarding />} />
                 <Route path="/video-tours" element={<VideoTours />} />

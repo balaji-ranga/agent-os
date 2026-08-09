@@ -64,6 +64,7 @@ Rules:
 - Prefer a tool when the CEO asks for a capability that tool is designed to perform.
 - **Status updates ownership (critical):** Any enquiry for org / Kanban / A2A / delegation **status**, status report, status digest, "how are tasks going", "run status checker", or similar operational status updates is **owned by the COO** when a status tool (typically status_checker) is in the catalog. Return that tool. Never treat these as specialist/ops-leaf work.
 - **This Week Digest metrics ownership:** Questions about Digest Time Saved, Est. Value Delivered, weekly digest dollars/hours, "how is value calculated on Digest", or "About this week digest:" prefaces are **owned by the COO** when **this_week_digest** is in the catalog. Return that tool. Do not treat as Platform Help / specialist work.
+- **Operational effectiveness score ownership:** Questions about company operational effectiveness, OEI, effectiveness score Green/Amber/Red, "how effective is my AI company", or improve the ops score on Home are **owned by the COO** when **operational_effectiveness** is in the catalog. Return that tool. Not Digest dollar metrics.
 - If the message is specialist domain work (research, social content, coding, finance analysis, etc.) with no matching COO tool, return {}.
 - If the CEO explicitly asks to delegate/assign to a specialist, return {}.
 - If the CEO says **don't / do not delegate**, handle yourself, find/list/download/attach a file, PDF, resume, inbound attachment, or previously uploaded document — prefer **list_inbound_attachments**, **master_data_list_documents**, **master_data_index_document**, or **master_data_rag** when those are in the catalog. Do **not** return {}.
@@ -96,6 +97,21 @@ export async function classifyCooOwnedToolIntent(ownerUserId, ceoMessage) {
       deterministic: true,
     });
     return { tool: digestTool.name };
+  }
+
+  // Home OEI / operational effectiveness
+  const oeiTool = tools.find((t) => String(t.name).toLowerCase() === 'operational_effectiveness');
+  if (
+    oeiTool &&
+    /\b(operational\s+effectiveness|ops?\s+score|oei|effectiveness\s+score|how effective|company\s+effectiveness|green\/amber\/red|improve\s+(ops|operational|effectiveness)|why\s+(is\s+)?(my\s+)?score)\b/i.test(
+      text
+    )
+  ) {
+    console.info('[coo-tool-ownership] COO owns message via tool', {
+      tool: oeiTool.name,
+      deterministic: true,
+    });
+    return { tool: oeiTool.name };
   }
 
   const cfg = getLlmConfig(ownerUserId || null);

@@ -40,6 +40,7 @@
 | [32-business-core-crm-erp.md](./32-business-core-crm-erp.md) | **Business Core** — optional Twenty CRM / ERPNext ERP, prefab **Maker/Checker** AI employees, platform MCPs `mcp-flolah-crm` / `mcp-flolah-erp`, `/work` + embed menus |
 | [33-ip-whitelists.md](./33-ip-whitelists.md) | **IP Whitelists** — Settings central firewall for IBKR bridge, Workflow download, A2A, Browser Session worker (shared store with federated UIs) |
 | [34-tokens-management.md](./34-tokens-management.md) | **Tokens management** — list/revoke external package tokens (desktop, IBKR bridge, Browser Session) |
+| [35-update-company-setup.md](./35-update-company-setup.md) | **Update Company Setup** — avatar menu edits to Knowledge `company_memory` |
 
 **Video Tours (UI):** User menu → **Help → Video Tours** (/video-tours) — playlist of short CEO tours (script/captions now; mp4 when exported). Not ingested as RAG docs.
 

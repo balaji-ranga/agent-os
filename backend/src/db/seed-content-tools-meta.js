@@ -426,6 +426,21 @@ const BUILTIN_TOOLS = [
     is_builtin: 1,
   },
   {
+    name: 'operational_effectiveness',
+    display_name: 'Operational Effectiveness (OEI)',
+    endpoint: '/api/tools/operational-effectiveness',
+    method: 'POST',
+    purpose:
+      'API tool (COO): owner-scoped Operational Effectiveness Index (OEI) for the CEO Home score. ' +
+      'Use when the CEO asks how effective the AI company is, why the ops score is Green/Amber/Red, or how to improve effectiveness. ' +
+      'Returns overall score 0–100 (Green≥75, Amber 50–74, Red 0–49), 14-day window, equal-weight domains (vision, org, goals, workflows, autonomy, CRM, governance), KPI facts, top improve actions with hrefs, and methodology. ' +
+      'CRM credit if platform CRM is bound for this CEO OR an MCA/OpenConnector CRM-class app is connected. ' +
+      'No parameters; never invent BYOK keys; owner from session only. Do not confuse with this_week_digest Time Saved / Est. Value.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
     name: 'status_checker',
     display_name: 'COO Status Checker',
     endpoint: '/api/tools/status-checker',
@@ -685,6 +700,7 @@ const ONBOARDING_PROPOSAL_TOOLS = BUILTIN_TOOLS.filter((t) =>
 const CEO_PROFILE_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'ceo_profile');
 const STATUS_CHECKER_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'status_checker');
 const THIS_WEEK_DIGEST_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'this_week_digest');
+const OPERATIONAL_EFFECTIVENESS_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'operational_effectiveness');
 const SCHEDULED_GOAL_TOOLS = BUILTIN_TOOLS.filter((t) => String(t.name).startsWith('scheduled_goal_'));
 const CONNECTOR_TOOLS = BUILTIN_TOOLS.filter((t) => String(t.name).startsWith('connector_'));
 const MASTER_DATA_TOOLS = BUILTIN_TOOLS.filter(
@@ -908,6 +924,35 @@ export function seedThisWeekDigestToolIfMissing() {
       ins.run(a.id, t.name);
     }
   }
+}
+
+/** Add operational_effectiveness (OEI) tool if missing (COO; for existing DBs). */
+export function seedOperationalEffectivenessToolIfMissing() {
+  const db = getDb();
+  const stmt = db.prepare(
+    `INSERT OR IGNORE INTO content_tools_meta (name, display_name, endpoint, method, purpose, model_used, enabled, is_builtin)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  for (const t of OPERATIONAL_EFFECTIVENESS_TOOLS) {
+    stmt.run(t.name, t.display_name, t.endpoint, t.method, t.purpose, t.model_used, t.enabled, t.is_builtin);
+  }
+  const update = db.prepare(
+    'UPDATE content_tools_meta SET purpose = ?, display_name = ?, endpoint = ?, method = ? WHERE name = ?'
+  );
+  for (const t of OPERATIONAL_EFFECTIVENESS_TOOLS) {
+    update.run(t.purpose, t.display_name, t.endpoint, t.method, t.name);
+  }
+  const ins = db.prepare('INSERT OR IGNORE INTO agent_tool_grants (agent_id, tool_name) VALUES (?, ?)');
+  const coos = db.prepare('SELECT id FROM agents WHERE is_coo = 1').all();
+  for (const a of coos) {
+    for (const t of OPERATIONAL_EFFECTIVENESS_TOOLS) {
+      ins.run(a.id, t.name);
+    }
+  }
+  console.info(
+    '[seed] operational_effectiveness granted to %s COO agent(s)',
+    coos.length
+  );
 }
 
 /** Add scheduled goal tools if missing (COO; for existing DBs). */

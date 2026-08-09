@@ -82,6 +82,17 @@ export default function ProfileMenu({ user, logout, onNavigate }) {
                 Company setup
               </NavLink>
               <NavLink
+                to="/update-company-setup"
+                role="menuitem"
+                className="profile-menu-item"
+                onClick={() => {
+                  close();
+                  onNavigate?.();
+                }}
+              >
+                Update Company Setup
+              </NavLink>
+              <NavLink
                 to="/company-operate"
                 role="menuitem"
                 className="profile-menu-item"

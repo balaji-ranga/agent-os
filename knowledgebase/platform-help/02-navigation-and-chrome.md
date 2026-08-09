@@ -27,6 +27,7 @@ Top-level (always shown; cannot hide in Menu visibility):
 | **Menu visibility** | `/nav-menus` | Show/hide sidebar menus (prefs on your account). Not a security control; CRM/ERP still require Business Core entitlements. |
 | **IP Whitelists** | `/settings/ip-whitelists` | Central firewall for laptop packages and public A2A: IBKR bridge webhooks, Workflow Download for Windows, A2A public access, Browser Session worker. Federated UIs write the same store. |
 | **Tokens management** | `/settings/tokens` | List and revoke issued external package tokens (workflow desktop, IBKR bridge, Browser Session). Masked prefixes only. |
+| **Update Company Setup** (avatar menu) | `/update-company-setup` | Edit company identity fields stored in Knowledge `company_memory` (mission, DNA, name, industry). |
 | **API Keys** | `/api-keys` | Named secret vault (auto-seeded BYOK slots + workflow/MCP/Connector secrets) |
 
 ### Run & Operate

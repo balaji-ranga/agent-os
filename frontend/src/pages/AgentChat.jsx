@@ -50,38 +50,123 @@ function sortAgentsForPicker(list = []) {
   });
 }
 
-function HomeKpiCards({ kpis }) {
-  if (!kpis) return null;
-  const successDetail = kpis.success_rate_detail;
+function HomeKpiCards({ kpis, oei, oeiOpen, onToggleOei }) {
+  if (!kpis && !oei) return null;
+  const successDetail = kpis?.success_rate_detail;
   const successTitle =
     successDetail?.formula ||
     'Completed / (completed + failed) over last 7 platform-TZ days';
+  const oeiTone =
+    oei?.band === 'green' ? 'green' : oei?.band === 'amber' ? 'amber' : oei?.band === 'red' ? 'red' : 'purple';
   const cards = [
-    { key: 'agents', label: 'Active Agents', value: kpis.active_agents ?? '—', tone: 'purple', icon: '🤖' },
-    { key: 'progress', label: 'Tasks in Progress', value: kpis.tasks_in_progress ?? '—', tone: 'blue', icon: '📊' },
-    { key: 'approve', label: 'Awaiting Approval', value: kpis.awaiting_approval ?? '—', tone: 'orange', icon: '⏱' },
+    {
+      key: 'oei',
+      label: 'Ops effectiveness',
+      value: oei?.score != null ? String(oei.score) : '—',
+      tone: oeiTone,
+      icon: '◎',
+      info: true,
+      title: oei?.verdict || 'Operational Effectiveness Index (14d)',
+    },
+    { key: 'agents', label: 'Active Agents', value: kpis?.active_agents ?? '—', tone: 'purple', icon: '🤖' },
+    { key: 'progress', label: 'Tasks in Progress', value: kpis?.tasks_in_progress ?? '—', tone: 'blue', icon: '📊' },
+    { key: 'approve', label: 'Awaiting Approval', value: kpis?.awaiting_approval ?? '—', tone: 'orange', icon: '⏱' },
     {
       key: 'success',
-      label: kpis.success_rate_label || 'Success Rate (7d)',
-      value: kpis.success_rate_7d != null ? `${kpis.success_rate_7d}%` : '—',
+      label: kpis?.success_rate_label || 'Success Rate (7d)',
+      value: kpis?.success_rate_7d != null ? `${kpis.success_rate_7d}%` : '—',
       tone: 'green',
       icon: '✓',
       title: successTitle,
     },
   ];
   return (
-    <div className="home-kpi-row" aria-label="Company snapshot">
-      {cards.map((c) => (
-        <div key={c.key} className={`home-kpi-card home-kpi-${c.tone}`} title={c.title || undefined}>
-          <div className="home-kpi-icon" aria-hidden>
-            {c.icon}
+    <div className="home-kpi-wrap">
+      <div className="home-kpi-row home-kpi-row-5" aria-label="Company snapshot">
+        {cards.map((c) => (
+          <div key={c.key} className={`home-kpi-card home-kpi-${c.tone}`} title={c.title || undefined}>
+            <div className="home-kpi-icon" aria-hidden>
+              {c.icon}
+            </div>
+            <div className="home-kpi-body">
+              <div className="home-kpi-label">
+                {c.label}
+                {c.info && (
+                  <button
+                    type="button"
+                    className="home-kpi-info-btn"
+                    aria-label="Explain operational effectiveness score"
+                    aria-expanded={!!oeiOpen}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleOei?.();
+                    }}
+                  >
+                    i
+                  </button>
+                )}
+              </div>
+              <div className="home-kpi-value">
+                {c.value}
+                {c.key === 'oei' && oei?.band_label ? (
+                  <span className={`home-oei-band home-oei-band-${oei.band}`}>{oei.band_label}</span>
+                ) : null}
+              </div>
+            </div>
           </div>
-          <div className="home-kpi-body">
-            <div className="home-kpi-label">{c.label}</div>
-            <div className="home-kpi-value">{c.value}</div>
+        ))}
+      </div>
+      {oeiOpen && oei && (
+        <div className="home-oei-popover" role="dialog" aria-label="Operational effectiveness details">
+          <div className="home-oei-popover-head">
+            <strong>
+              Score {oei.score} · {oei.band_label}
+            </strong>
+            <span className="muted">14-day window · Green ≥ 75</span>
+            <button type="button" className="home-oei-close" onClick={() => onToggleOei?.()}>
+              Close
+            </button>
           </div>
+          <p className="home-oei-verdict">{oei.verdict}</p>
+          <div className="home-oei-domains">
+            {(oei.domains || []).map((d) => (
+              <div key={d.id} className={`home-oei-domain home-oei-band-${d.band || 'na'}`}>
+                <span className="home-oei-domain-name">{d.name}</span>
+                <span className="home-oei-domain-score">{d.score != null ? d.score : '—'}</span>
+                {d.kpis?.length ? (
+                  <ul className="home-oei-kpis">
+                    {d.kpis.slice(0, 3).map((k) => (
+                      <li key={k.id}>
+                        {k.label}: <strong>{String(k.value)}</strong>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            ))}
+          </div>
+          {(oei.top_actions || []).length > 0 && (
+            <div className="home-oei-actions">
+              <div className="home-oei-actions-title">Steps to improve</div>
+              <ol>
+                {(oei.top_actions || []).slice(0, 5).map((a, i) => (
+                  <li key={i}>
+                    {a.href ? (
+                      <Link to={a.href}>{a.action}</Link>
+                    ) : (
+                      <span>{a.action}</span>
+                    )}
+                    {a.domain_name ? <span className="muted"> ({a.domain_name})</span> : null}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+          {oei.methodology?.summary ? (
+            <p className="home-oei-method muted">{oei.methodology.summary}</p>
+          ) : null}
         </div>
-      ))}
+      )}
     </div>
   );
 }
@@ -189,6 +274,8 @@ export default function AgentChat() {
   const [showHistoryPanel, setShowHistoryPanel] = useState(false);
   const [showBrowserPanel, setShowBrowserPanel] = useState(false);
   const [homeSnap, setHomeSnap] = useState(null);
+  const [oei, setOei] = useState(null);
+  const [oeiOpen, setOeiOpen] = useState(false);
   const [operateBanner, setOperateBanner] = useState(null);
   const scrollRef = useRef(null);
   const abortControllerRef = useRef(null);
@@ -212,6 +299,14 @@ export default function AgentChat() {
         })
         .catch(() => {
           if (!cancelled) setHomeSnap(null);
+        });
+      api
+        .operationalEffectiveness()
+        .then((r) => {
+          if (!cancelled) setOei(r);
+        })
+        .catch(() => {
+          if (!cancelled) setOei(null);
         });
       if (user?.role === 'ceo') {
         api
@@ -527,7 +622,12 @@ export default function AgentChat() {
               </div>
               <div className="home-mobile-greet-sub">Here&apos;s what&apos;s happening with your AI company today.</div>
             </div>
-            <HomeKpiCards kpis={homeSnap?.kpis} />
+            <HomeKpiCards
+              kpis={homeSnap?.kpis}
+              oei={oei}
+              oeiOpen={oeiOpen}
+              onToggleOei={() => setOeiOpen((v) => !v)}
+            />
             {operateBanner?.show_home_banner && (
               <div
                 role="status"

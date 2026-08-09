@@ -515,6 +515,8 @@ export const api = {
   companySetupDesign: () => post('/company-setup/design', {}),
   companySetupDesignChat: (message) => post('/company-setup/design-chat', { message }),
   companySetupConnectorSearch: (q) => get(`/company-setup/connectors/search?q=${encodeURIComponent(q || '')}`),
+  companyMemoryCaptureGet: () => get('/company-setup/company-memory'),
+  companyMemoryCaptureUpdate: (body) => put('/company-setup/company-memory', body || {}),
   companySetupIndustryBlueprints: (industry) =>
     get(`/company-setup/blueprints?industry=${encodeURIComponent(industry || '')}`),
   businessCoreProfile: () => get('/business-core/profile'),
@@ -534,6 +536,12 @@ export const api = {
     if (params.to) q.set('to', params.to);
     const s = q.toString();
     return get('/this-week-digest' + (s ? '?' + s : ''));
+  },
+  operationalEffectiveness: (params = {}) => {
+    const q = new URLSearchParams();
+    if (params.days != null) q.set('days', String(params.days));
+    const s = q.toString();
+    return get('/operational-effectiveness' + (s ? '?' + s : ''));
   },
   uiNavPrefs: () => get('/ui-prefs/nav'),
   uiNavPrefsSave: (body) => put('/ui-prefs/nav', body || {}),

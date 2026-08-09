@@ -58,6 +58,7 @@ Documentation lives here so Cursor and humans can find it. **Root README.md** st
 | [platform-help/27-onboarding-helper.md](./platform-help/27-onboarding-helper.md) | CEO help: selective apply + E2E chat prompt recipes |
 | [platform-help/28-scheduled-goals.md](./platform-help/28-scheduled-goals.md) | CEO help: scheduled goals (hourly/daily/weekdays/weekly; create/edit/pause; COO tools) |
 | [platform-help/29-company-setup.md](./platform-help/29-company-setup.md) | CEO help: Company setup first-run wizard vs Onboarding Helper |
+| [platform-help/35-update-company-setup.md](./platform-help/35-update-company-setup.md) | Update Company Setup → company_memory Knowledge table |
 | [platform-help/30-content-creator-ops.md](./platform-help/30-content-creator-ops.md) | CEO help: content ops publish / community / Ops Reporter (bell not email) |
 | [platform-help/31-mcp-connectors-oauth.md](./platform-help/31-mcp-connectors-oauth.md) | CEO/ops help: Connectors → MCPs OAuth (Facebook, App override, other providers) |
 | [AMENDMENT-CONTENT-MEDIA-API-PUBLISH.md](./AMENDMENT-CONTENT-MEDIA-API-PUBLISH.md) | Design amendment: Meta Graph publish, comments ingest, content_creator pack |
