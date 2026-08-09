@@ -19,11 +19,12 @@ function NavItem({ to, end, title, collapsed, label, short, nested = true }) {
   );
 }
 
+/** v2: product default is all sections collapsed (v1 keys were mostly opened). */
 function sectionStorageKey(title) {
-  return `agent-os-nav-section:${title}`;
+  return `agent-os-nav-section-v2:${title}`;
 }
 
-function NavSection({ title, collapsed, children, defaultOpen = true }) {
+function NavSection({ title, collapsed, children, defaultOpen = false }) {
   const [open, setOpen] = useState(() => {
     try {
       const stored = localStorage.getItem(sectionStorageKey(title));
