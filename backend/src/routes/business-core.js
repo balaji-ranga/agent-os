@@ -30,14 +30,9 @@ import { syncFlolahOrgToBusinessCore, listFlolahOrgSnapshot } from '../services/
 const router = Router();
 
 /**
- * Public one-shot SSO consume (ERP iframe handoff). Registered before auth.
- * Token is short-lived and single-use — no password returned to browser.
- *
- * Modes:
- * - JSON (default / Accept: application/json): { ok, sid, redirect_path, ... }
- * - Cookie redirect (?format=cookie or /erp-sso-apply): Set-Cookie on ERP host + 302 to desk
- *   Prefer same-origin proxy /flolah-erp-sso so Chrome allows embedded-frame cookies
- *   (SameSite=None; Secure; HttpOnly — document.cookie from handoff HTML is unreliable in iframes).
+ * Public ERP SSO consume/apply (handoff before auth).
+ * Tokens are short-lived; re-consume is allowed until expires_at (idempotent Set-Cookie).
+ * Prefer same-origin nginx /flolah-erp-sso → erp-sso-apply with dual Partitioned + non-Partitioned cookies.
  */
 function safeErpRedirectPath(raw) {
   let path = String(raw || '/app').trim() || '/app';
@@ -49,20 +44,35 @@ function applyErpSsoCookies(res, out) {
   const sid = String(out.sid || '').trim();
   const userId = String(out.system_user || out.email || '').trim();
   if (!sid) throw Object.assign(new Error('sid missing'), { status: 500 });
-  // SameSite=None + Secure so sid works inside Flolah iframe (login → erp.crm).
-  // Partitioned (CHIPS) so Chrome accepts the cookie under a third-party embed.
-  const base = 'Path=/; HttpOnly; Secure; SameSite=None; Partitioned';
-  // sid raw (Frappe expects exact session id); sanitize user cookies for cookie grammar
+  // sid raw (Frappe expects exact session id)
   if (!/^[A-Za-z0-9._~+-]+$/.test(sid)) {
     throw Object.assign(new Error('invalid sid format'), { status: 500 });
   }
-  res.append('Set-Cookie', `sid=${sid}; ${base}`);
-  res.append('Set-Cookie', `system_user=yes; Path=/; Secure; SameSite=None; Partitioned`);
+  // Dual cookies:
+  // - Partitioned (CHIPS): accepted inside Flolah iframe (cross-site embed)
+  // - Non-partitioned: first-party for "Open ERP" top-level tab on erp.crm.*
+  // Max-Age so reloads keep desktop session within TTL window.
+  const maxAge = 60 * 60 * 12; // 12h
+  const common = `Path=/; HttpOnly; Secure; SameSite=None; Max-Age=${maxAge}`;
+  const pairs = [[`sid=${sid}`, true]];
+  pairs.push([`system_user=yes`, false]); // not HttpOnly in Frappe often; keep readable attrs loose
   if (userId) {
     const u = encodeURIComponent(userId);
-    res.append('Set-Cookie', `user_id=${u}; Path=/; Secure; SameSite=None; Partitioned`);
-    res.append('Set-Cookie', `full_name=${u}; Path=/; Secure; SameSite=None; Partitioned`);
+    pairs.push([`user_id=${u}`, false]);
+    pairs.push([`full_name=${u}`, false]);
   }
+  for (const [nv, httpOnly] of pairs) {
+    const ho = httpOnly ? 'HttpOnly; ' : '';
+    // Non-partitioned first-party / legacy third-party (if allowed)
+    res.append('Set-Cookie', `${nv}; Path=/; ${ho}Secure; SameSite=None; Max-Age=${maxAge}`);
+    // Partitioned embed (Chrome CHIPS)
+    res.append(
+      'Set-Cookie',
+      `${nv}; Path=/; ${ho}Secure; SameSite=None; Max-Age=${maxAge}; Partitioned`
+    );
+  }
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.setHeader('Pragma', 'no-cache');
 }
 
 router.post('/erp-sso-consume', (req, res) => {

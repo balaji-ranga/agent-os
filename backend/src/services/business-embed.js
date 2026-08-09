@@ -241,14 +241,19 @@ export async function getCrmEmbedForOwner(ownerUserId, { flolahUser } = {}) {
         });
         if (launch.company_id) companyId = launch.company_id;
         if (launch.company_name) companyName = launch.company_name;
-        if (launch.ok && launch.iframe_url) {
-          iframe_url =
-            launch.iframe_url +
-            (launch.iframe_url.includes('?') ? '&' : '?') +
+      if (launch.ok && launch.iframe_url) {
+        const consumeQs =
+          (launch.iframe_url.includes('?') ? '&' : '?') +
+          'consume=' +
+          encodeURIComponent(flolahApi);
+        iframe_url = launch.iframe_url + consumeQs;
+        open_url = launch.open_url
+          ? launch.open_url +
+            (launch.open_url.includes('?') ? '&' : '?') +
             'consume=' +
-            encodeURIComponent(flolahApi);
-          open_url = iframe_url;
-          switch_account_url = launch.switch_account_url || null;
+            encodeURIComponent(flolahApi)
+          : iframe_url;
+        switch_account_url = launch.switch_account_url || null;
           sso = {
             mode: launch.mode || 'session_cookie_sso',
             ok: true,
@@ -442,12 +447,18 @@ export async function getErpEmbedForOwner(ownerUserId, { flolahUser, flolahUserI
       if (launch.company_id) companyId = launch.company_id;
       if (launch.company_name) companyName = launch.company_name;
       if (launch.ok && launch.iframe_url) {
-        iframe_url =
-          launch.iframe_url +
+        const consumeQs =
           (launch.iframe_url.includes('?') ? '&' : '?') +
           'consume=' +
           encodeURIComponent(flolahApi);
-        open_url = iframe_url;
+        iframe_url = launch.iframe_url + consumeQs;
+        // Prefer dedicated open token (buildErpSsoHandoff mints two); never collapse to iframe token
+        open_url = launch.open_url
+          ? launch.open_url +
+            (launch.open_url.includes('?') ? '&' : '?') +
+            'consume=' +
+            encodeURIComponent(flolahApi)
+          : iframe_url;
         switch_account_url = launch.switch_account_url || null;
         sso = {
           mode: launch.mode || 'session_cookie_sso',

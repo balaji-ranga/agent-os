@@ -193,6 +193,7 @@ export function BusinessEmbedPage({ kind }) {
 
       {iframeSrc ? (
         <iframe
+          key={iframeSrc}
           title={title}
           src={iframeSrc}
           style={{

@@ -20,7 +20,7 @@ import {
   baseUrl as erpBaseUrl,
 } from './erpnext-erp.js';
 
-const TOKEN_TTL_MS = 90_000;
+const TOKEN_TTL_MS = 5 * 60_000; // 5m — allow iframe remount + Open tab
 
 function ensureTables() {
   const db = getDb();
@@ -257,7 +257,6 @@ export async function buildErpSsoHandoff(ownerUserId, opts) {
   const ssoUser = await getOrCreateSsoUser(owner, companyName, email, fullName);
   const session = await loginForSid(ssoUser.email, ssoUser.password);
 
-  const token = crypto.randomBytes(24).toString('hex');
   const expires = new Date(Date.now() + TOKEN_TTL_MS).toISOString();
   const rawRedirect = String(opts.redirectPath || opts.redirect_path || '/app').trim() || '/app';
   const redirectBase = rawRedirect.startsWith('/') ? rawRedirect : '/' + rawRedirect;
@@ -267,19 +266,25 @@ export async function buildErpSsoHandoff(ownerUserId, opts) {
       ? (redirectBase.includes('?') ? '&' : '?') + 'company=' + encodeURIComponent(companyName)
       : '');
 
-  getDb()
-    .prepare(
-      'INSERT INTO erpnext_sso_tokens (token, owner_user_id, email, sid, system_user, redirect_path, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
-    )
-    .run(token, owner, email, session.sid, session.system_user, redirectPath, expires);
+  // Separate tokens for embed vs top-level open path.
+  const insertTok = getDb().prepare(
+    'INSERT INTO erpnext_sso_tokens (token, owner_user_id, email, sid, system_user, redirect_path, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  );
+  const tokenIframe = crypto.randomBytes(24).toString('hex');
+  const tokenOpen = crypto.randomBytes(24).toString('hex');
+  for (const token of [tokenIframe, tokenOpen]) {
+    insertTok.run(token, owner, email, session.sid, session.system_user, redirectPath, expires);
+  }
 
   const base = String(opts.publicBase || '').trim().replace(/\/+$/, '');
-  const handoffPath =
-    '/flolah-erp-handoff/?t=' + encodeURIComponent(token) + '&owner=' + encodeURIComponent(owner);
+  const handoffIframe =
+    '/flolah-erp-handoff/?t=' + encodeURIComponent(tokenIframe) + '&owner=' + encodeURIComponent(owner);
+  const handoffOpen =
+    '/flolah-erp-handoff/?t=' + encodeURIComponent(tokenOpen) + '&owner=' + encodeURIComponent(owner);
   const logoutPath =
     '/flolah-erp-handoff/?logout=1&wipe=1&owner=' + encodeURIComponent(owner);
 
-  console.info('[erpnext-sso] minted handoff owner=%s company=%s', owner, companyName);
+  console.info('[erpnext-sso] minted handoff owner=%s company=%s tokens=2', owner, companyName);
 
   return {
     ok: true,
@@ -287,13 +292,17 @@ export async function buildErpSsoHandoff(ownerUserId, opts) {
     company_id: company.company_id,
     company_name: companyName,
     token_ttl_ms: TOKEN_TTL_MS,
-    iframe_url: base ? base + handoffPath : null,
-    open_url: base ? base + handoffPath : null,
-    switch_account_url: base ? base + logoutPath + '&next=' + encodeURIComponent(handoffPath) : null,
+    iframe_url: base ? base + handoffIframe : null,
+    open_url: base ? base + handoffOpen : null,
+    switch_account_url: base ? base + logoutPath + '&next=' + encodeURIComponent(handoffOpen) : null,
     consume_path: '/api/business-core/erp-sso-consume',
   };
 }
 
+/**
+ * Exchange handoff token for Frappe sid.
+ * Idempotent while unexpired: iframe remounts and Open-in-new-tab can replay t= until TTL.
+ */
 export function consumeErpSsoToken(token) {
   ensureTables();
   const t = String(token || '').trim();
@@ -301,11 +310,21 @@ export function consumeErpSsoToken(token) {
   const db = getDb();
   const row = db.prepare('SELECT * FROM erpnext_sso_tokens WHERE token = ?').get(t);
   if (!row) throw Object.assign(new Error('invalid token'), { status: 404 });
-  if (row.used_at) throw Object.assign(new Error('token already used'), { status: 410 });
   if (new Date(row.expires_at).getTime() < Date.now()) {
     throw Object.assign(new Error('token expired'), { status: 410 });
   }
-  db.prepare("UPDATE erpnext_sso_tokens SET used_at = datetime('now') WHERE token = ?").run(t);
+  if (!row.sid) throw Object.assign(new Error('session missing for token'), { status: 500 });
+  const alreadyUsed = Boolean(row.used_at);
+  if (!alreadyUsed) {
+    db.prepare("UPDATE erpnext_sso_tokens SET used_at = datetime('now') WHERE token = ? AND used_at IS NULL").run(
+      t
+    );
+  } else {
+    console.info(
+      '[erpnext-sso] consume replay (token still valid) owner=%s',
+      String(row.owner_user_id || '').slice(0, 24)
+    );
+  }
   return {
     ok: true,
     sid: row.sid,
@@ -313,6 +332,7 @@ export function consumeErpSsoToken(token) {
     email: row.email,
     redirect_path: row.redirect_path || '/app',
     owner_user_id: row.owner_user_id,
+    replay: alreadyUsed,
   };
 }
 
