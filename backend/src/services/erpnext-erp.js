@@ -388,6 +388,11 @@ export async function erpList(ownerUserId, doctype, { limit = 20, filters, field
     }
   }
 
+  // Fiscal Year: never return peer companies / creator emails via generic list
+  if (doctypeKey(dt) === 'fiscal year') {
+    return erpListFiscalYears(ownerUserId, { limit, fields });
+  }
+
   const params = new URLSearchParams();
   params.set('limit_page_length', String(lim(limit)));
   if (fields) params.set('fields', JSON.stringify(fields));
@@ -456,7 +461,13 @@ export async function erpCreate(ownerUserId, doctype, doc = {}, { genericResourc
     method: 'POST',
     body,
   });
-  return { mode: 'live', doctype: dt, data: data?.data || data, company: co };
+  let outDoc = data?.data || data;
+  if (doctypeKey(dt) === 'fiscal year') {
+    outDoc = redactFiscalYearForOwner(outDoc, co);
+  } else {
+    assertDocBelongsToOwner(ownerUserId, outDoc, { doctype: dt });
+  }
+  return { mode: 'live', doctype: dt, data: outDoc, company: co };
 }
 
 export async function erpGet(ownerUserId, doctype, name, { genericResource = false } = {}) {
@@ -481,7 +492,9 @@ export async function erpGet(ownerUserId, doctype, name, { genericResource = fal
   );
   const doc = data?.data || data;
   assertDocBelongsToOwner(ownerUserId, doc, { doctype: dt });
-  return { mode: 'live', doctype: dt, data: doc, company: co };
+  const safe =
+    doctypeKey(dt) === 'fiscal year' ? redactFiscalYearForOwner(doc, co) : doc;
+  return { mode: 'live', doctype: dt, data: safe, company: co };
 }
 
 /** Explicit company helpers for Makers (equal to desk company scope). */
@@ -501,8 +514,8 @@ export async function erpUpdateCompany(ownerUserId, fields = {}) {
 
 /**
  * ERPNext Fiscal Year is **site-global** (unique name like "2026"), not a company-owned parent doc.
- * Companies join via child table `companies` [{ company }]. First creator owns the row (e.g. Aru);
- * other CEOs must **link** their company — they cannot create a second "2026".
+ * Companies join via child table `companies` [{ company }]. Other tenants' company names and
+ * foreign owner emails must NEVER leave Flolah tool responses (entitlement isolation).
  */
 function fiscalYearHasCompany(doc, company) {
   const co = String(company || '').toLowerCase();
@@ -515,6 +528,42 @@ function fiscalYearHasCompany(doc, company) {
   return rows.some((r) => String(r?.company || r || '').toLowerCase() === co);
 }
 
+/** Redact peer companies + foreign PII before any tool / MCP / agent sees the FY doc. */
+function redactFiscalYearForOwner(doc, company) {
+  if (!doc || typeof doc !== 'object') return doc;
+  const co = String(company || '').trim();
+  const coLower = co.toLowerCase();
+  const rows = Array.isArray(doc.companies) ? doc.companies : [];
+  const onlyMine = rows.filter((r) => String(r?.company || r || '').toLowerCase() === coLower);
+  // If empty on server (legacy global), surface only this CEO's company so we never imply peer count
+  const companies =
+    onlyMine.length > 0
+      ? onlyMine.map((r) =>
+          typeof r === 'object'
+            ? { company: r.company, doctype: r.doctype || 'Fiscal Year Company' }
+            : { company: co }
+        )
+      : co
+        ? [{ company: co }]
+        : [];
+
+  const out = {
+    name: doc.name,
+    year: doc.year ?? doc.name,
+    year_start_date: doc.year_start_date,
+    year_end_date: doc.year_end_date,
+    disabled: doc.disabled ?? 0,
+    is_short_year: doc.is_short_year,
+    auto_created: doc.auto_created,
+    doctype: 'Fiscal Year',
+    companies,
+    linked_for_company: co || null,
+    // Never expose who else is linked or who first created (email of another CEO)
+    peer_companies_visible: false,
+  };
+  return out;
+}
+
 async function erpGetFiscalYearDoc(yearName) {
   const data = await frappeFetch(
     `/api/resource/${encodeURIComponent('Fiscal Year')}/${encodeURIComponent(yearName)}`
@@ -523,7 +572,8 @@ async function erpGetFiscalYearDoc(yearName) {
 }
 
 /**
- * Ensure bound company is on Fiscal Year.companies child. Returns { linked, already, data }.
+ * Ensure bound company is on Fiscal Year.companies child.
+ * Response data is redacted (own company only).
  */
 export async function erpEnsureCompanyOnFiscalYear(ownerUserId, yearName) {
   assertErpEntitled(ownerUserId);
@@ -545,11 +595,11 @@ export async function erpEnsureCompanyOnFiscalYear(ownerUserId, yearName) {
       action: 'already_linked',
       year,
       company: co,
-      data: doc,
-      note: 'Your company is already linked to this site Fiscal Year.',
+      data: redactFiscalYearForOwner(doc, co),
+      note: 'Your company is already linked to this Fiscal Year period.',
     };
   }
-  // Empty companies = globally available; explicitly add this company for clarity
+  // Preserve other companies on write server-side; never return them to the caller
   const companies = Array.isArray(doc.companies) ? [...doc.companies] : [];
   const has = companies.some((r) => String(r?.company || '').toLowerCase() === String(co).toLowerCase());
   if (!has) companies.push({ company: co });
@@ -560,13 +610,14 @@ export async function erpEnsureCompanyOnFiscalYear(ownerUserId, yearName) {
       body: { companies },
     }
   );
+  const fresh = updated?.data || (await erpGetFiscalYearDoc(year)) || doc;
   return {
     mode: 'live',
     action: 'linked',
     year,
     company: co,
-    data: updated?.data || updated,
-    note: `Linked company "${co}" to site Fiscal Year "${year}" (FY is shared site-wide; not owned by one Flolah CEO).`,
+    data: redactFiscalYearForOwner(fresh, co),
+    note: `Linked your company "${co}" to Fiscal Year "${year}".`,
   };
 }
 
@@ -579,7 +630,7 @@ export async function erpListFiscalYears(ownerUserId, opts = {}) {
       doctype: 'Fiscal Year',
       data: [],
       company: co,
-      note: 'Fiscal Year is site-global in ERPNext; company joins via companies child table.',
+      note: 'Fiscal Year periods; responses show only your company linkage.',
     };
   }
   const limit = lim(opts.limit, 20);
@@ -589,39 +640,30 @@ export async function erpListFiscalYears(ownerUserId, opts = {}) {
     'year_start_date',
     'year_end_date',
     'disabled',
-    'owner',
   ];
+  // Drop owner from client field requests (tenant PII)
+  const safeFields = (Array.isArray(fields) ? fields : [])
+    .map(String)
+    .filter((f) => !/^(owner|modified_by|creation|modified)$/i.test(f));
+  if (!safeFields.length) {
+    safeFields.push('name', 'year', 'year_start_date', 'year_end_date', 'disabled');
+  }
   const data = await frappeFetch(
     `/api/resource/${encodeURIComponent('Fiscal Year')}?` +
       new URLSearchParams({
         limit_page_length: String(limit),
-        fields: JSON.stringify(fields),
+        fields: JSON.stringify(safeFields),
       }).toString()
   );
   const rows = Array.isArray(data?.data) ? data.data : [];
-  // Enrich with companies child so callers know link state
   const enriched = [];
   for (const row of rows) {
     let full = row;
     try {
       full = (await erpGetFiscalYearDoc(row.name)) || row;
     } catch (_) {}
-    const linked = fiscalYearHasCompany(full, co);
-    const companies = Array.isArray(full?.companies)
-      ? full.companies.map((r) => r.company || r).filter(Boolean)
-      : [];
-    if (!linked) continue; // only years usable for this company (or empty=global)
-    enriched.push({
-      name: full.name || row.name,
-      year: full.year || row.year,
-      year_start_date: full.year_start_date || row.year_start_date,
-      year_end_date: full.year_end_date || row.year_end_date,
-      disabled: full.disabled ?? row.disabled,
-      owner: full.owner || row.owner,
-      companies,
-      linked_for_company: co,
-      site_global: true,
-    });
+    if (!fiscalYearHasCompany(full, co)) continue;
+    enriched.push(redactFiscalYearForOwner(full, co));
   }
   return {
     mode: 'live',
@@ -629,13 +671,13 @@ export async function erpListFiscalYears(ownerUserId, opts = {}) {
     data: enriched,
     company: co,
     count: enriched.length,
-    note:
-      'Fiscal Year is site-global (unique year name). Field "owner" is the first Frappe user who created it (may be another CEO). Your access is via companies child / global empty child.',
+    note: 'Each row shows only your company link. Peer company names and creator emails are never returned.',
   };
 }
 
 /**
  * Create Fiscal Year + link bound company, or if year already exists, link company only.
+ * Responses never include other companies or foreign owner emails.
  */
 export async function erpCreateFiscalYear(ownerUserId, doc = {}) {
   assertErpEntitled(ownerUserId);
@@ -650,7 +692,6 @@ export async function erpCreateFiscalYear(ownerUserId, doc = {}) {
   const year_start_date = doc.year_start_date || `${String(year).slice(0, 4)}-01-01`;
   const year_end_date = doc.year_end_date || `${String(year).slice(0, 4)}-12-31`;
 
-  // Prefetch — if exists, link company instead of inventing a duplicate year name
   try {
     const existing = await erpGetFiscalYearDoc(year);
     if (existing?.name) {
@@ -662,21 +703,14 @@ export async function erpCreateFiscalYear(ownerUserId, doc = {}) {
         year,
         company: co,
         data: linked.data,
-        created_by_other:
-          existing.owner && String(existing.owner).toLowerCase() !== 'administrator'
-            ? existing.owner
-            : existing.owner || null,
         note:
-          `Fiscal Year "${year}" already exists on this ERP site (created by ${existing.owner || 'another user'}). ` +
-          `Your company "${co}" is now linked. You do not get a private copy — years are shared names site-wide.`,
+          `Fiscal Year "${year}" already exists for this accounting period. Your company "${co}" is linked. ` +
+          `Year names are unique per ERP site; you never receive other companies' linkage data.`,
       };
     }
   } catch (e) {
-    if (e.status && e.status !== 404) {
-      // not-found may come as 404 without throw depending on frappeFetch — continue to create
-      if (!/not found|DoesNotExist|404/i.test(String(e.message || e))) {
-        // fall through only for missing; other errors rethrow after try create
-      }
+    if (e.status && e.status !== 404 && !/not found|DoesNotExist|404/i.test(String(e.message || e))) {
+      // continue to create on missing only
     }
   }
 
@@ -698,8 +732,8 @@ export async function erpCreateFiscalYear(ownerUserId, doc = {}) {
       action: 'created',
       year,
       company: co,
-      data: created.data,
-      note: `Created site Fiscal Year "${year}" and linked company "${co}". Other CEOs on this site will link to the same year name when they set it up.`,
+      data: redactFiscalYearForOwner(created.data || created, co),
+      note: `Created Fiscal Year "${year}" and linked your company "${co}".`,
     };
   } catch (e) {
     if (/already exists|DuplicateName/i.test(String(e.message || e))) {
@@ -711,7 +745,7 @@ export async function erpCreateFiscalYear(ownerUserId, doc = {}) {
         year,
         company: co,
         data: linked.data,
-        note: `Fiscal Year "${year}" already existed; linked company "${co}".`,
+        note: `Fiscal Year "${year}" already existed; linked your company "${co}".`,
       };
     }
     throw e;
@@ -863,11 +897,21 @@ export async function erpUpdate(ownerUserId, doctype, name, fields = {}, { gener
   if (COMPANY_SCOPED_DOCTYPES.has(doctypeKey(dt))) {
     body.company = co;
   }
+  // Fiscal Year: never accept a companies array from tools (would leak or wipe peers); merge link only
+  if (doctypeKey(dt) === 'fiscal year') {
+    delete body.companies;
+    delete body.owner;
+    delete body.modified_by;
+  }
   const data = await frappeFetch(
     `/api/resource/${encodeURIComponent(dt)}/${encodeURIComponent(nm)}`,
     { method: 'PUT', body }
   );
-  return { mode: 'live', doctype: dt, name: nm, data: data?.data || data, company: co };
+  let outDoc = data?.data || data;
+  if (doctypeKey(dt) === 'fiscal year') {
+    outDoc = redactFiscalYearForOwner(outDoc, co);
+  }
+  return { mode: 'live', doctype: dt, name: nm, data: outDoc, company: co };
 }
 
 export async function erpSubmitDoc(ownerUserId, doctype, name) {

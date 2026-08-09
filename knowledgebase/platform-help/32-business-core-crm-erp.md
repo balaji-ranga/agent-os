@@ -238,7 +238,7 @@ ERP/CRM **Makers do not use the desk SSO password** — they call Flolah `erp_*`
 | See own Company | `erp_get_company` / `erp_list_resource` (doctype Company → bound only) |
 | Fiscal years (read) | `erp_list_fiscal_years` — **site-global** years your company can use (linked via `companies` child, or empty = all companies) |
 | Fiscal years (write) | Maker A: `erp_create_fiscal_year` creates the year **or links your company** if that year name already exists (e.g. “2026” first created by another CEO on the shared site) |
-| FY ownership myth | Frappe `owner` field is whoever first created the row (e.g. Aru). Not exclusive — other CEOs link the same year name; they do **not** get a private Fiscal Year document |
+| FY ownership myth | Year **names** may be unique site-wide, but tools **never return** peer company names or other CEOs' emails. `companies` in tool responses is **only your company**. |
 | Accounts / warehouses | `erp_list_resource` (Account, Cost Center, Warehouse) company-filtered |
 | Maker A vs B | Independent grants: A = finance/setup/sales-money; B = ops/stock. **Union ≈ CEO desk operational scope** (no System Manager / User admin) |
 | Submit / cancel | **Checker** only (`erp_submit_doc` / `erp_cancel_doc`) |
