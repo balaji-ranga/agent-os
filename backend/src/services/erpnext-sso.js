@@ -89,12 +89,16 @@ async function getOrCreateSsoUser(ownerUserId, companyName, email, fullName) {
           email,
           first_name: String(fullName || email.split('@')[0] || 'CEO').slice(0, 80),
           send_welcome_email: 0,
+          // Never grant System Manager on shared multi-company site (cross-CEO User access).
           roles: [
-            { role: 'System Manager' },
+            { role: 'Sales User' },
+            { role: 'Sales Manager' },
             { role: 'Accounts User' },
             { role: 'Accounts Manager' },
-            { role: 'Sales User' },
+            { role: 'Purchase User' },
+            { role: 'Stock User' },
             { role: 'Projects User' },
+            { role: 'Employee' },
           ],
           new_password: pwd,
         },
@@ -110,7 +114,7 @@ async function getOrCreateSsoUser(ownerUserId, companyName, email, fullName) {
             email,
             first_name: String(fullName || 'CEO').slice(0, 80),
             send_welcome_email: 0,
-            roles: [{ role: 'System Manager' }],
+            roles: [{ role: 'Sales User' }, { role: 'Accounts User' }, { role: 'Stock User' }],
             new_password: pwd,
           },
         });
@@ -120,15 +124,34 @@ async function getOrCreateSsoUser(ownerUserId, companyName, email, fullName) {
         throw Object.assign(new Error('ERPNext SSO user ensure failed: ' + msg), { status: 502 });
       }
     }
-  } else if (!pwd) {
-    pwd = genPassword();
+  } else {
+    // Existing user: tighten roles (strip System Manager) and ensure password.
+    const safeRoles = [
+      { role: 'Sales User' },
+      { role: 'Sales Manager' },
+      { role: 'Accounts User' },
+      { role: 'Accounts Manager' },
+      { role: 'Purchase User' },
+      { role: 'Stock User' },
+      { role: 'Projects User' },
+      { role: 'Employee' },
+    ];
+    if (!pwd) pwd = genPassword();
     try {
       await frappeFetch('/api/resource/User/' + encodeURIComponent(userId), {
         method: 'PUT',
-        body: { new_password: pwd },
+        body: { roles: safeRoles, new_password: pwd },
       });
     } catch (e3) {
-      console.warn('[erpnext-sso] set password failed', e3 && e3.message ? e3.message : e3);
+      console.warn('[erpnext-sso] set roles/password failed', e3 && e3.message ? e3.message : e3);
+      try {
+        await frappeFetch('/api/resource/User/' + encodeURIComponent(userId), {
+          method: 'PUT',
+          body: { new_password: pwd },
+        });
+      } catch (e4) {
+        console.warn('[erpnext-sso] set password failed', e4 && e4.message ? e4.message : e4);
+      }
     }
   }
 

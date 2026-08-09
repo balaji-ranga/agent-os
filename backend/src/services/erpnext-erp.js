@@ -739,7 +739,7 @@ export async function ensureErpnextCompanyForOwner(ownerUserId, { displayName } 
        VALUES (?, ?, ?, ?, ?, datetime('now'))
        ON CONFLICT(owner_user_id, flolah_user_id, erpnext_company_id) DO UPDATE SET
          updated_at = datetime('now')`
-    ).run(owner, owner, owner, companyId, JSON.stringify(['System Manager']));
+    ).run(owner, owner, owner, companyId, JSON.stringify(['Sales Manager', 'Accounts Manager', 'Stock User']));
   } catch (e) {
     console.warn('[erpnext] user map', e?.message || e);
   }
