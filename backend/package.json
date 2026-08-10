@@ -11,7 +11,10 @@
     "test:smoke": "node ../tests/api-smoke.js",
     "test:full": "node ../tests/api-full.js",
     "test:regression:minimal": "node ../tests/regression-minimal.js",
-    "test:regression:full": "node ../tests/regression-full.js"
+    "test:regression:full": "node ../tests/regression-full.js",
+    "test:e2e:goal-plan": "node scripts/test-goal-plan-adhoc-e2e.mjs",
+    "test:goal-plan:unit": "node scripts/_test-goal-plan-multistep.mjs",
+    "test:goal-plan:acceptance": "node scripts/_test-goal-plan-acceptance.mjs"
   },
   "dependencies": {
     "@stoqey/ib": "^1.6.3",

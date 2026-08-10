@@ -130,3 +130,15 @@ Home **Operational Effectiveness (OEI)** counts **scheduled goal runs** in 14 da
 - Company first-run: [29-company-setup.md](./29-company-setup.md)
 - Content ops rollup / publish: [30-content-creator-ops.md](./30-content-creator-ops.md)
 - Kanban / standups / bell: [04-kanban-standups-broadcast.md](./04-kanban-standups-broadcast.md)
+
+## Regression / e2e
+
+Ad-hoc multiphase L2C + Platform Help + notify:
+
+```bash
+cd backend && npm run test:e2e:goal-plan
+# full pack (VPS): bash deploy/scripts/vps-regression-full.sh
+```
+
+See `tests/REGRESSION.md` and `knowledgebase/TESTING.md`.
+

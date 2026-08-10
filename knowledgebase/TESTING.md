@@ -182,7 +182,19 @@ On VPS after deploy:
 
 ```bash
 bash /opt/agent-os/deploy/scripts/vps-smoke-budgets-org-members.sh
-bash /opt/agent-os/deploy/scripts/vps-regression-full.sh   # full post-CEO regression (mints session; no password needed)
+bash /opt/agent-os/deploy/scripts/vps-regression-full.sh
+
+
+### Goal plans (multiphase adhoc)
+```bash
+# Durable CRM→ERP + Platform Help specialty + notify_ceo (force-complete child terminals by default)
+docker exec -w /opt/agent-os/backend agent-os-backend-1 node scripts/test-goal-plan-adhoc-e2e.mjs
+# or via full regression pack on VPS:
+bash /opt/agent-os/deploy/scripts/vps-regression-full.sh
+# npm aliases (from backend/): test:e2e:goal-plan | test:goal-plan:unit | test:goal-plan:acceptance
+```
+Env: `REGRESSION_GOAL_PLAN` (pack, default on), `REGRESSION_GOAL_PLAN_FORCE_TERMINAL` (default 1), `REGRESSION_CEO_ID`, `GOAL_PLAN_MAX_SPECIALTY`.
+   # full post-CEO regression (mints session; no password needed)
 ```
 
 `vps-regression-full.sh` sets `AGENT_OS_REGRESSION_TOKEN` so `tests/lib/ceo-session.js` skips password login (needed when MFA is on or the default password is not in env).

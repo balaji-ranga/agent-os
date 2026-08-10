@@ -171,4 +171,23 @@ for (const u of conn) {
 }
 console.log('connector deleted', deleted, 'of', conn.length);
 
+
+// --- 8 Adhoc L2C + Platform Help + notify_ceo (shared e2e pack) ---
+{
+  const { spawnSync } = await import('node:child_process');
+  const { fileURLToPath } = await import('node:url');
+  const path = await import('node:path');
+  const scriptsDir = path.dirname(fileURLToPath(import.meta.url));
+  const r = spawnSync(process.execPath, [path.join(scriptsDir, 'test-goal-plan-adhoc-e2e.mjs')], {
+    cwd: path.join(scriptsDir, '..'),
+    env: process.env,
+    encoding: 'utf8',
+    timeout: 180000,
+  });
+  if (r.stdout) process.stdout.write(r.stdout);
+  if (r.stderr) process.stderr.write(r.stderr);
+  if (r.status !== 0) throw new Error('test-goal-plan-adhoc-e2e failed status=' + r.status);
+  console.log('PASS adhoc goal plan e2e (CRM+ERP+Help+notify)');
+}
+
 console.log('GOAL_PLAN_ACCEPTANCE_OK');

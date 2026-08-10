@@ -229,6 +229,41 @@ async function main() {
     if (unauth.status !== 401) throw new Error(`expected 401 got ${unauth.status}`);
   });
 
+
+  // --- Durable multi-intent goal plans (CRM→ERP + Platform Help specialty + notify) ---
+  await runner.expectStatus('agent-goal-runs list', 'GET', '/api/agent-goal-runs?limit=5', { token }, 200);
+  await runner.expectStatus('agent-goal-runs unauth → 401', 'GET', '/api/agent-goal-runs', {}, 401);
+  await runner.check('goal plan adhoc e2e (CRM+ERP+Help+notify)', async () => {
+    if (process.env.REGRESSION_GOAL_PLAN === '0') {
+      console.log('    (skipped REGRESSION_GOAL_PLAN=0)');
+      return;
+    }
+    const { spawnSync } = await import('node:child_process');
+    const path = await import('node:path');
+    const { fileURLToPath } = await import('node:url');
+    const testsDir = path.dirname(fileURLToPath(import.meta.url));
+    const root = path.resolve(testsDir, '..');
+    const script = path.join(root, 'backend/scripts/test-goal-plan-adhoc-e2e.mjs');
+    const r = spawnSync(process.execPath, [script], {
+      cwd: path.join(root, 'backend'),
+      env: {
+        ...process.env,
+        REGRESSION_GOAL_PLAN_FORCE_TERMINAL: process.env.REGRESSION_GOAL_PLAN_FORCE_TERMINAL || '1',
+        REGRESSION_CEO_ID: process.env.REGRESSION_CEO_ID || user?.id || '',
+      },
+      encoding: 'utf8',
+      timeout: 180000,
+    });
+    if (r.stdout) process.stdout.write(r.stdout);
+    if (r.stderr) process.stderr.write(r.stderr);
+    if (r.status !== 0) {
+      throw new Error(`goal-plan adhoc e2e exit ${r.status}`);
+    }
+    if (!String(r.stdout || '').includes('GOAL_PLAN_ADHOC_E2E_OK')) {
+      throw new Error('goal-plan adhoc e2e missing OK marker');
+    }
+  });
+
   console.log(`\nCEO user: ${user?.email || user?.id}`);
   process.exit(runner.summary());
 }

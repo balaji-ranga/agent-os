@@ -93,3 +93,7 @@ Hard-deny high-risk CRM write tools on Makers (Checker-only apply). Ship only if
 ## Multi-specialty hybrid goal plans
 
 In addition to CRM/ERP maker-checker workflow steps, residual speciality work in the same goal (research, design, copy, multi-step same agent, **more than two intents**) becomes `specialty_task` steps. Hybrid goals keep workflows **and** speciality residue. Parallel specialty steps share a `parallel_group` and advance when all group members finish. Scheduled goals store the plan as draft until CEO approve (CEO UI); COO tools auto-approve. See [28-scheduled-goals.md](./28-scheduled-goals.md).
+
+## Regression
+
+Adhoc CRM then ERP + Platform Help specialty + `notify_ceo`: `cd backend && npm run test:e2e:goal-plan` (also full pack `tests/regression-full.js`). See help **28** and `tests/REGRESSION.md`.

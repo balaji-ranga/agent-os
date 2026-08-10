@@ -15,6 +15,17 @@ echo "==> full regression (post CEO login) via backend container"
 
 # Prefer host-synced tests (may be ahead of the image), fall back to image-baked /opt/agent-os/tests.
 docker compose exec -T backend mkdir -p /opt/agent-os/tests/lib
+
+# Keep goal-plan e2e script in the image for full pack + optional direct run
+if [[ -f "$ROOT/backend/scripts/test-goal-plan-adhoc-e2e.mjs" ]]; then
+  docker compose exec -T backend mkdir -p /opt/agent-os/backend/scripts
+  docker compose cp "$ROOT/backend/scripts/test-goal-plan-adhoc-e2e.mjs" backend:/opt/agent-os/backend/scripts/test-goal-plan-adhoc-e2e.mjs
+  docker compose cp "$ROOT/backend/scripts/_test-goal-plan-acceptance.mjs" backend:/opt/agent-os/backend/scripts/_test-goal-plan-acceptance.mjs 2>/dev/null || true
+  docker compose cp "$ROOT/backend/scripts/_test-goal-plan-multistep.mjs" backend:/opt/agent-os/backend/scripts/_test-goal-plan-multistep.mjs 2>/dev/null || true
+  docker compose cp "$ROOT/backend/src/services/agent-goal-run.js" backend:/opt/agent-os/backend/src/services/agent-goal-run.js 2>/dev/null || true
+  docker compose cp "$ROOT/backend/src/services/goal-plan-specialty.js" backend:/opt/agent-os/backend/src/services/goal-plan-specialty.js 2>/dev/null || true
+fi
+
 if [[ -f "$ROOT/tests/regression-full.js" ]]; then
   docker compose cp "$ROOT/tests/regression-full.js" backend:/opt/agent-os/tests/regression-full.js
   docker compose cp "$ROOT/tests/regression-minimal.js" backend:/opt/agent-os/tests/regression-minimal.js
@@ -54,4 +65,6 @@ echo "    minted session for ${CEO_EMAIL}"
 docker compose exec -T -w /opt/agent-os \
   -e BASE_URL=http://127.0.0.1:3001 \
   -e AGENT_OS_REGRESSION_TOKEN="$TOKEN" \
+  -e REGRESSION_GOAL_PLAN="${REGRESSION_GOAL_PLAN:-1}" \
+  -e REGRESSION_GOAL_PLAN_FORCE_TERMINAL="${REGRESSION_GOAL_PLAN_FORCE_TERMINAL:-1}" \
   backend node tests/regression-full.js
