@@ -1952,11 +1952,43 @@ export async function stopSseListen(runId, listenNodeId, ownerUserId, { actor = 
  * Try to start workflow from chat message (non-blocking).
  */
 export async function tryTriggerWorkflowFromChat(ownerUserId, message, actor) {
-  const def = store.findPublishedByChatPhrase(ownerUserId, message);
+  const msg = String(message || '').trim();
+  if (!msg) return null;
+  // Ad-hoc multiphase race: CEO→COO chat free-fired the first matching phrase (often ERP)
+  // while COO also called agent_goal_create (CRM then plan ERP) → unbound ERP before CRM.
+  // Scheduled plan-mode never uses this path. Skip single-phrase start when 2+ phrases match.
+  try {
+    const lower = msg.toLowerCase();
+    const defs = (store.listDefinitions(ownerUserId) || []).filter((w) => {
+      if (!w || w.status !== 'published') return false;
+      const modes = Array.isArray(w.trigger_modes) ? w.trigger_modes : [];
+      const phrase = String(w.chat_trigger_phrase || '').trim().toLowerCase();
+      return phrase && modes.includes('chat') && lower.includes(phrase);
+    });
+    const phrases = [
+      ...new Set(
+        defs
+          .map((w) => String(w.chat_trigger_phrase || '').trim().toLowerCase())
+          .filter(Boolean)
+      ),
+    ];
+    if (phrases.length >= 2) {
+      console.info('[agent-workflow] skip chat phrase trigger for multiphase message', {
+        owner: String(ownerUserId || '').slice(0, 24),
+        phrase_count: phrases.length,
+        phrases: phrases.slice(0, 6),
+      });
+      return null;
+    }
+  } catch (e) {
+    console.warn('[agent-workflow] multiphase chat guard failed', e?.message || e);
+  }
+
+  const def = store.findPublishedByChatPhrase(ownerUserId, msg);
   if (!def) return null;
   if (!def.trigger_modes.includes('chat')) return null;
   if (!store.isWorkflowTriggerable(def)) return null;
-  return startAgentWorkflowRun(def.id, ownerUserId, { trigger: 'chat', input: message, actor });
+  return startAgentWorkflowRun(def.id, ownerUserId, { trigger: 'chat', input: msg, actor });
 }
 
 /** Test helper: inject agent step output and continue workflow. */

@@ -173,4 +173,6 @@ See `tests/REGRESSION.md` and `knowledgebase/TESTING.md`.
 
 <!-- async-goal-ack -->
 
+**Ad-hoc chat vs scheduled (duplicate workflow runs):** CEO chat auto-match will **not** free-fire a single maker-checker when the message contains **two or more** published chat phrases (CRM + ERP phrases). That prevents an unbound ERP run racing ahead of a durable goal plan. Multiphase ad-hoc asks must use `agent_goal_create` (COO) or multiphase `agent_workflow_trigger` upgrade. Scheduled plan-mode fires never use CEO chat phrase matching.
+
 **Async ack (major goals):** `agent_goal_create` returns immediately with `async:true`, `goal_run_id` (`agr-...`), and plan steps. The COO should quote the plan and end the turn; platform advances remaining steps when each child workflow/specialty reaches terminal (runner plus watch callbacks). Status callbacks and CEO notifications name the **goal plan id + title** when bound (not only workflow run numbers).

@@ -108,4 +108,4 @@ In addition to CRM/ERP maker-checker workflow steps, residual speciality work in
 
 ## Regression
 
-Adhoc CRM then ERP + Platform Help specialty + `notify_ceo`: `cd backend && npm run test:e2e:goal-plan` (also full pack `tests/regression-full.js`). See help **28** and `tests/REGRESSION.md`.
+CEO multiphase chat does not auto-start a single workflow when both CRM and ERP phrases appear (avoids unbound ERP before plan CRM). Adhoc CRM then ERP + Platform Help specialty + `notify_ceo`: `cd backend && npm run test:e2e:goal-plan` (also full pack `tests/regression-full.js`). See help **28** and `tests/REGRESSION.md`.
