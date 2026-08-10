@@ -20,7 +20,11 @@ The COO uses `scheduled_goal_create` (and related tools) and confirms the schedu
 
 **How do I run a goal right now?** **Run now** on the page, or COO tool `scheduled_goal_run_now`.
 
-**Multi-phase goals (CRM then ERP, multiple workflows)?** If the prompt includes ordered workflow phrases (e.g. `run crm maker checker` then `run erp maker checker`), or clear CRM→O2C intent, the platform **does not** leave multi-step chaining only to COO chat. Fire uses **goal plan mode** (`mode: goal_run_plan`): a durable **`agent_goal_run`** with ordered steps (`workflow_trigger` → … → `notify_ceo`). Platform starts step 1 async and **advances the plan when each child workflow reaches terminal**. COO chat still receives a short “plan started / steps / first run_id” reply. Inspect: COO tools **`agent_goal_list`** / **`agent_goal_status`** (or ask the COO for plan status). See [38-maker-checker-coordination.md](./38-maker-checker-coordination.md).
+**How do multi-intent scheduled goals work?** Creating a schedule from the CEO UI first builds a **draft execution plan** (workflow steps, specialty tasks for N specialist intents, notify). You can regenerate with feedback, **Save draft**, then **Approve plan & schedule** to make it **active**. Until approved, status is **draft** and tick/Run now are blocked. COO/chat tools default to an approved plan so plain-language schedules still activate immediately.
+
+**Specialty vs workflow steps:** Workflow maker-checker phrases become `workflow_trigger` steps. Remaining multi-intent work (research, design, copy, recipe, etc.—not limited to two) becomes `specialty_task` steps (parallel when multiple). A single specialty with lettered/numbered parts can expand into multiple sequential specialty steps on the same agent. Hybrid prompts keep both (CRM→ERP plus residual speciality work is not dropped).
+
+**Multi-phase goals (CRM then ERP, multiple workflows, multi-specialty hybrid)?** Ordered workflow phrases or clear CRM→O2C intent plan to durable **`agent_goal_run`** steps (`workflow_trigger`, optional parallel `specialty_task`, `notify_ceo`). Platform advances when each child workflow or specialty-delegation reaches terminal. Inspect: **`agent_goal_list`** / **`agent_goal_status`**. See [38-maker-checker-coordination.md](./38-maker-checker-coordination.md).
 
 **Does hourly mean every minute?** No. Hourly fires **once per hour** at the chosen minute (`time_local` minutes; the hour part is ignored). Default is on the hour (`:00`). Token cost rises with hourly checks — use for watchers (e.g. price dip notify), not for heavy work.
 
@@ -34,8 +38,8 @@ Related operator clocks: [19-scheduled-jobs-and-crons.md](./19-scheduled-jobs-an
 
 A **scheduled goal** is a durable CEO instruction on a cadence (hourly / daily / weekdays / weekly; perpetual or end date). Each fire either:
 
-1. **Goal plan mode** — when the prompt plans one or more workflows (`workflow_trigger` steps), create/start an **`agent_goal_run`** and advance on child workflow terminals (multi-intent CRM→ERP and similar), or  
-2. **Chat mode** — otherwise deliver the prompt to the target AI employee (usually COO) as a chat-style OpenClaw turn (classic tool use / delegation).
+1. **Goal plan mode** — when the approved/plan stores workflow or specialty steps (`workflow_trigger` / `specialty_task`), create/start an **`agent_goal_run`** and advance on terminals (L2C, multi-specialty hybrid, multi-step specialty), or  
+2. **Chat mode** — single simple continue when the plan is only agent_continue + notify (classic COO turn).
 
 For "alert me when..." market conditions, combine hourly (or weekdays) + tools (web search or quote) + `notify_ceo` only when the condition holds. There is no continuous real-time market feed — polling is intentional.
 
@@ -63,9 +67,10 @@ Defaults when unspecified: target = COO; cadence = daily; time = 09:00 (or `:00`
 ## Create or edit on the page
 
 1. **Management → Scheduled goals**.
-2. **New scheduled goal** or row **Edit** — title (optional), prompt, who runs it, cadence, time, optional end date (empty = perpetual).
-3. Optional **Enrich with AI** before save.
-4. Row actions: Edit, Pause, Resume, Run now, Delete.
+2. **New scheduled goal** or row **Edit** — prompt, agent, cadence/time/ends.
+3. **Generate draft plan** → review steps → optional feedback/regenerate → **Save draft** or **Approve plan & schedule**.
+4. Optional **Enrich with AI** on the prompt text.
+5. Row actions: Edit, Approve plan (draft), Pause, Resume, Run now (active only), Delete.
 
 ## Cadence fields
 
@@ -76,7 +81,7 @@ Defaults when unspecified: target = COO; cadence = daily; time = 09:00 (or `:00`
 | **Weekdays** | Mon–Fri only at that HH:MM |
 | **Weekly** | One weekday (Sun=0 … Sat=6) at that HH:MM |
 | **Ends** | Calendar end date, or perpetual until pause/delete |
-| **Status** | `active` (fires), `paused` (off), `completed` (auto after end date) |
+| **Status** | `active` (fires), `draft` (plan not approved yet—does not fire), `paused` (off), `completed` (auto after end date) |
 
 ## COO tools
 
@@ -89,6 +94,16 @@ Defaults when unspecified: target = COO; cadence = daily; time = 09:00 (or `:00`
 | `scheduled_goal_run_now` | Fire immediately |
 | `agent_goal_list` / `agent_goal_status` | Inspect durable multi-intent **goal plans** created by plan-mode fires (steps, child workflow run ids, status) |
 | `agent_goal_create` | Ad-hoc multi-phase plan from chat (same plan engine as scheduled plan mode) |
+
+## Plan API (CEO UI)
+
+| Method | Path | Role |
+|--------|------|------|
+| POST | `/api/scheduled-goals/plan-preview` | Build draft plan from prompt + optional feedback |
+| POST | `/api/scheduled-goals/:id/plan` | Update draft plan / feedback; optional approve |
+| POST | `/api/scheduled-goals/:id/plan-approve` | Approve stored plan → active |
+
+Env: `GOAL_PLAN_MAX_SPECIALTY` (default 8) caps specialty intents on a plan (chat one-shot specialty still max 2).
 
 ## Isolation
 

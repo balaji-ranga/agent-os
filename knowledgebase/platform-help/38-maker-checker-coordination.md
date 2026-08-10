@@ -84,3 +84,7 @@ Hard-deny high-risk CRM write tools on Makers (Checker-only apply). Ship only if
 - Business Core setup: [32-business-core-crm-erp.md](./32-business-core-crm-erp.md)  
 - Workflow certify analogy: [13-workflow-autonomous-certify.md](./13-workflow-autonomous-certify.md)  
 - Tier A product help excerpts: [39-erpnext-help-tier-a.md](./39-erpnext-help-tier-a.md), [40-twenty-crm-help-tier-a.md](./40-twenty-crm-help-tier-a.md)
+
+## Multi-specialty hybrid goal plans
+
+In addition to CRM/ERP maker-checker workflow steps, residual speciality work in the same goal (research, design, copy, multi-step same agent, **more than two intents**) becomes `specialty_task` steps. Hybrid goals keep workflows **and** speciality residue. Parallel specialty steps share a `parallel_group` and advance when all group members finish. Scheduled goals store the plan as draft until CEO approve (CEO UI); COO tools auto-approve. See [28-scheduled-goals.md](./28-scheduled-goals.md).

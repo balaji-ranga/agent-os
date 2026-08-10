@@ -13,11 +13,14 @@ import { insertChatTurn } from './chat-history.js';
 import {
   createAndStartGoalRun,
   planGoalStepsFromText,
+  planGoalStepsAsync,
+  planUsesGoalRunMode,
   getGoalRun,
+  normalizeStepSpec,
 } from './agent-goal-run.js';
 
 const CADENCES = new Set(['hourly', 'daily', 'weekdays', 'weekly']);
-const STATUSES = new Set(['active', 'paused', 'completed']);
+const STATUSES = new Set(['active', 'paused', 'completed', 'draft']);
 
 function db() { return getDb(); }
 function newId() { return `sg-${randomUUID().replace(/-/g, '').slice(0, 16)}`; }
@@ -122,6 +125,74 @@ function resolveAgentForOwner(ownerUserId, agentId) {
   return agent;
 }
 
+
+function ensureScheduledGoalPlanCols() {
+  try {
+    const cols = db().prepare('PRAGMA table_info(scheduled_goals)').all().map((c) => c.name);
+    if (!cols.includes('plan_json')) db().exec('ALTER TABLE scheduled_goals ADD COLUMN plan_json TEXT');
+    if (!cols.includes('plan_status')) db().exec("ALTER TABLE scheduled_goals ADD COLUMN plan_status TEXT DEFAULT 'none'");
+    if (!cols.includes('plan_feedback_json')) db().exec('ALTER TABLE scheduled_goals ADD COLUMN plan_feedback_json TEXT');
+    if (!cols.includes('plan_version')) db().exec('ALTER TABLE scheduled_goals ADD COLUMN plan_version INTEGER DEFAULT 0');
+  } catch (_) {}
+}
+
+function parsePlanJson(raw) {
+  if (raw == null || raw === '') return null;
+  if (typeof raw === 'object') return raw;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function serializePlanSteps(steps) {
+  return (Array.isArray(steps) ? steps : []).map((s, i) => {
+    const n = normalizeStepSpec(s);
+    return {
+      step_index: i,
+      type: n.type,
+      label: n.label,
+      spec: n.spec || {},
+    };
+  });
+}
+
+/**
+ * Build a draft execution plan for a goal prompt (CEO review before schedule activate).
+ */
+export async function previewGoalPlan(ownerUserId, { prompt, feedback = null, previous_plan = null, explicit_steps = null } = {}) {
+  const p = String(prompt || '').trim();
+  if (!p) throw Object.assign(new Error('prompt is required'), { status: 400 });
+  let steps;
+  if (Array.isArray(explicit_steps) && explicit_steps.length) {
+    steps = planGoalStepsFromText(p, { explicitSteps: explicit_steps });
+  } else {
+    steps = await planGoalStepsAsync(p, {
+      ownerUserId,
+      feedback: feedback || null,
+      maxSpecialty: 8,
+    });
+  }
+  // Optional: if feedback says merge with previous, prefer explicit_steps path
+  if (feedback && previous_plan?.steps && String(feedback).toLowerCase().includes('keep previous')) {
+    steps = planGoalStepsFromText(p, { explicitSteps: previous_plan.steps });
+  }
+  const plan = {
+    version: 1,
+    prompt: p,
+    steps: serializePlanSteps(steps),
+    uses_goal_run_mode: planUsesGoalRunMode(steps),
+    generated_at: new Date().toISOString(),
+    feedback_applied: feedback ? String(feedback).slice(0, 500) : null,
+  };
+  return plan;
+}
+
+function planStatusOf(row) {
+  return String(row.plan_status || 'none').toLowerCase() || 'none';
+}
+
 function scheduleLabel(row) {
   const t = row.time_local || '09:00';
   const tz = row.timezone || getPlatformTimezone();
@@ -145,6 +216,14 @@ function endsLabel(row) {
 export function serializeGoal(row) {
   if (!row) return null;
   const agent = db().prepare('SELECT id, name, role, is_coo FROM agents WHERE id = ?').get(row.agent_id);
+  const plan = parsePlanJson(row.plan_json);
+  let feedback = [];
+  try {
+    const f = row.plan_feedback_json ? JSON.parse(row.plan_feedback_json) : [];
+    feedback = Array.isArray(f) ? f : [];
+  } catch {
+    feedback = [];
+  }
   return {
     id: row.id, owner_user_id: row.owner_user_id, title: row.title, prompt: row.prompt,
     agent_id: row.agent_id, agent_name: agent?.name || row.agent_id, agent_role: agent?.role || null,
@@ -153,6 +232,8 @@ export function serializeGoal(row) {
     is_perpetual: !row.ends_at, status: row.status, schedule_label: scheduleLabel(row),
     last_run_at: row.last_run_at, last_run_status: row.last_run_status, last_run_error: row.last_run_error,
     last_run_key: row.last_run_key, run_count: row.run_count || 0, source: row.source,
+    plan, plan_status: planStatusOf(row), plan_version: Number(row.plan_version) || 0,
+    plan_feedback: feedback.slice(-10),
     created_at: row.created_at, updated_at: row.updated_at,
   };
 }
@@ -174,7 +255,8 @@ export function getScheduledGoal(ownerUserId, id) {
   return row ? serializeGoal(row) : null;
 }
 
-export function createScheduledGoal(ownerUserId, input = {}) {
+export async function createScheduledGoal(ownerUserId, input = {}) {
+  ensureScheduledGoalPlanCols();
   const prompt = String(input.prompt || input.goal || input.message || '').trim();
   if (!prompt) throw Object.assign(new Error('prompt is required'), { status: 400 });
   const agent = resolveAgentForOwner(ownerUserId, input.agent_id || input.agentId || input.agent || 'coo');
@@ -191,15 +273,103 @@ export function createScheduledGoal(ownerUserId, input = {}) {
   const ends_at = parseEndsAt(input.ends_at ?? input.endsAt ?? input.until ?? null);
   const title = String(input.title || '').trim() || prompt.replace(/\s+/g, ' ').slice(0, 72) || 'Scheduled goal';
   const source = String(input.source || 'ceo').slice(0, 32);
+
+  // CEO UI: require draft plan, only activate when approve_plan / plan_status approved
+  const approve =
+    input.approve_plan === true ||
+    input.approvePlan === true ||
+    String(input.plan_status || '').toLowerCase() === 'approved' ||
+    source === 'coo_tool' ||
+    source === 'blueprint' ||
+    input.skip_plan_review === true;
+
+  let plan = null;
+  if (input.plan && Array.isArray(input.plan.steps) && input.plan.steps.length) {
+    plan = {
+      ...input.plan,
+      steps: serializePlanSteps(input.plan.steps),
+      uses_goal_run_mode: planUsesGoalRunMode(input.plan.steps),
+    };
+  } else {
+    plan = await previewGoalPlan(ownerUserId, {
+      prompt,
+      feedback: input.plan_feedback || input.feedback || null,
+      explicit_steps: input.explicit_steps || input.steps || null,
+    });
+  }
+
+  const plan_status = approve ? 'approved' : 'draft';
+  const status = approve ? 'active' : 'draft';
   const id = newId();
   db().prepare(`INSERT INTO scheduled_goals (
     id, owner_user_id, title, prompt, agent_id, cadence, weekday,
-    time_local, timezone, ends_at, status, source
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)`).run(
-    id, ownerUserId, title, prompt, agent.id, cadence, weekday, time_local, timezone, ends_at, source
+    time_local, timezone, ends_at, status, source, plan_json, plan_status, plan_version
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`).run(
+    id, ownerUserId, title, prompt, agent.id, cadence, weekday, time_local, timezone, ends_at,
+    status, source, JSON.stringify(plan), plan_status
   );
-  console.log(`[scheduled-goals] created id=${id} owner=${ownerUserId} agent=${agent.id} cadence=${cadence} time=${time_local}`);
+  console.log(`[scheduled-goals] created id=${id} owner=${ownerUserId} agent=${agent.id} status=${status} plan=${plan_status}`);
   return serializeGoal(getGoalRow(id, ownerUserId));
+}
+
+
+export async function setScheduledGoalPlan(ownerUserId, id, { plan = null, feedback = null, approve = false, prompt = null } = {}) {
+  ensureScheduledGoalPlanCols();
+  const row = getGoalRow(id, ownerUserId);
+  if (!row) throw Object.assign(new Error('Scheduled goal not found'), { status: 404 });
+  let nextPrompt = prompt != null ? String(prompt).trim() || row.prompt : row.prompt;
+  let feedbackLog = [];
+  try {
+    feedbackLog = row.plan_feedback_json ? JSON.parse(row.plan_feedback_json) : [];
+    if (!Array.isArray(feedbackLog)) feedbackLog = [];
+  } catch {
+    feedbackLog = [];
+  }
+  let nextPlan = plan;
+  if (!nextPlan || !Array.isArray(nextPlan.steps)) {
+    nextPlan = await previewGoalPlan(ownerUserId, {
+      prompt: nextPrompt,
+      feedback,
+      previous_plan: parsePlanJson(row.plan_json),
+    });
+  } else {
+    nextPlan = {
+      ...nextPlan,
+      steps: serializePlanSteps(nextPlan.steps),
+      uses_goal_run_mode: planUsesGoalRunMode(nextPlan.steps),
+      generated_at: new Date().toISOString(),
+      feedback_applied: feedback ? String(feedback).slice(0, 500) : null,
+    };
+  }
+  if (feedback && String(feedback).trim()) {
+    feedbackLog.push({
+      at: new Date().toISOString(),
+      feedback: String(feedback).trim().slice(0, 2000),
+      plan_version: (Number(row.plan_version) || 0) + 1,
+    });
+  }
+  const plan_status = approve ? 'approved' : 'draft';
+  let status = row.status;
+  if (approve) status = 'active';
+  else if (row.status === 'active' || row.status === 'draft') status = 'draft';
+  const ver = (Number(row.plan_version) || 0) + 1;
+  db().prepare(`UPDATE scheduled_goals SET prompt=?, plan_json=?, plan_status=?, plan_feedback_json=?, plan_version=?,
+    status=?, updated_at=datetime('now') WHERE id=? AND owner_user_id=?`).run(
+    nextPrompt,
+    JSON.stringify(nextPlan),
+    plan_status,
+    JSON.stringify(feedbackLog.slice(-30)),
+    ver,
+    status,
+    id,
+    ownerUserId
+  );
+  console.log(`[scheduled-goals] plan set id=${id} plan_status=${plan_status} status=${status} v=${ver}`);
+  return serializeGoal(getGoalRow(id, ownerUserId));
+}
+
+export async function approveScheduledGoalPlan(ownerUserId, id) {
+  return setScheduledGoalPlan(ownerUserId, id, { approve: true, plan: parsePlanJson(getGoalRow(id, ownerUserId)?.plan_json) });
 }
 
 export function updateScheduledGoal(ownerUserId, id, patch = {}) {
@@ -250,6 +420,9 @@ export function resumeScheduledGoal(ownerUserId, id) {
   const row = getGoalRow(id, ownerUserId);
   if (!row) throw Object.assign(new Error('Scheduled goal not found'), { status: 404 });
   if (isExpired(row.ends_at)) return updateScheduledGoal(ownerUserId, id, { status: 'completed' });
+  if (planStatusOf(row) === 'draft') {
+    throw Object.assign(new Error('Approve the execution plan before resuming this schedule'), { status: 400 });
+  }
   return updateScheduledGoal(ownerUserId, id, { status: 'active' });
 }
 
@@ -310,6 +483,10 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
     updateScheduledGoal(ownerUserId, id, { status: 'completed' });
     return { ok: false, skipped: true, reason: 'ended' };
   }
+  const earlyPlanStatus = planStatusOf(row);
+  if (row.status === 'draft' || earlyPlanStatus === 'draft') {
+    throw Object.assign(new Error('Goal plan is draft — approve the execution plan before run'), { status: 400 });
+  }
   const tz = resolveTimezone(row.timezone || '');
   const parts = zonedParts(new Date(), tz);
   const runKey = runKeyForParts(row, parts, { force });
@@ -350,10 +527,17 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
     insertChatTurn({ agentId: agent.id, ownerUserId, role: 'user', content: `[Scheduled goal] ${row.title}\n\n${row.prompt}` });
   } catch (e) { console.warn('[scheduled-goals] chat user turn:', e.message); }
 
-  // Prefer durable goal plan/execute when the prompt yields structured steps (any workflows).
-  const planned = planGoalStepsFromText(row.prompt);
-  const hasWorkflowPlan = planned.some((s) => s.type === 'workflow_trigger' || s.step_type === 'workflow_trigger');
-  if (hasWorkflowPlan) {
+  // Prefer durable goal plan when approved stored plan or structured multi-step.
+  const pStatus = planStatusOf(row);
+  let planned = null;
+  const stored = parsePlanJson(row.plan_json);
+  if (stored?.steps?.length && pStatus === 'approved') {
+    planned = stored.steps.map((s) => normalizeStepSpec(s));
+  } else {
+    planned = await planGoalStepsAsync(row.prompt, { ownerUserId });
+  }
+  const hasGoalPlan = planUsesGoalRunMode(planned);
+  if (hasGoalPlan) {
     try {
       console.log(`[scheduled-goals] goal-run plan id=${id} agent=${agent.id} steps=${planned.length}`);
       const started = await createAndStartGoalRun({
@@ -361,6 +545,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
         agentId: agent.id,
         title: row.title,
         prompt: row.prompt,
+        steps: planned,
         source: 'scheduled_goal',
         scheduledGoalId: id,
         scheduledGoalRunId: runId,
@@ -393,7 +578,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
         agent_goal_run_id: g?.id || null,
         first_workflow_run_id: firstWf,
         reply_preview: reply.slice(0, 500),
-        mode: 'goal_run_plan',
+        mode: 'goal_run_plan', plan_steps: planned.length,
       };
     } catch (planErr) {
       console.warn('[scheduled-goals] goal-run plan failed, falling back to chat:', planErr?.message || planErr);

@@ -67,7 +67,7 @@ for (const r of db
   } catch (_) {}
 }
 
-const goal = createScheduledGoal(owner, {
+const goal = await createScheduledGoal(owner, {
   title: 'VPS smoke market insights',
   prompt: 'Daily smoke: summarize one market theme; do not publish.',
   agent_id: 'balserve',
@@ -75,6 +75,7 @@ const goal = createScheduledGoal(owner, {
   time_local: '23:59',
   ends_at: null,
   source: 'vps_smoke',
+  approve_plan: true,
 });
 console.log('created', {
   id: goal.id,
@@ -113,13 +114,14 @@ if (getScheduledGoal(owner, goal.id)) throw new Error('delete failed');
 console.log('delete_ok');
 
 // Deleted must not reappear as due after "restart" (just reload row)
-const g2 = createScheduledGoal(owner, {
+const g2 = await createScheduledGoal(owner, {
   title: 'delete persist check',
   prompt: 'should be gone',
   agent_id: 'balserve',
   time_local: '00:00',
   cadence: 'daily',
   source: 'vps_smoke',
+  approve_plan: true,
 });
 const id2 = g2.id;
 deleteScheduledGoal(owner, id2);
@@ -128,33 +130,36 @@ if (db.prepare('SELECT id FROM scheduled_goals WHERE id = ?').get(id2)) {
 }
 console.log('delete_persistent_ok');
 
-const g3 = createScheduledGoal(owner, {
+const g3 = await createScheduledGoal(owner, {
   title: 'ends 2099',
   prompt: 'temporary',
   agent_id: 'balserve',
   ends_at: '2099-12-31',
   source: 'vps_smoke',
+  approve_plan: true,
 });
 if (g3.is_perpetual) throw new Error('should not be perpetual');
-const g4 = createScheduledGoal(owner, {
+const g4 = await createScheduledGoal(owner, {
   title: 'forever',
   prompt: 'perpetual',
   agent_id: 'balserve',
   ends_at: 'perpetual',
   source: 'vps_smoke',
+  approve_plan: true,
 });
 if (!g4.is_perpetual) throw new Error('should be perpetual');
 deleteScheduledGoal(owner, g3.id);
 deleteScheduledGoal(owner, g4.id);
 
 // Weekdays cadence field
-const g5 = createScheduledGoal(owner, {
+const g5 = await createScheduledGoal(owner, {
   title: 'weekdays',
   prompt: 'weekday only',
   agent_id: 'balserve',
   cadence: 'weekdays',
   time_local: '08:30',
   source: 'vps_smoke',
+  approve_plan: true,
 });
 if (g5.cadence !== 'weekdays') throw new Error('weekdays cadence');
 if (!String(g5.schedule_label).toLowerCase().includes('weekday')) throw new Error('label');
@@ -162,13 +167,14 @@ deleteScheduledGoal(owner, g5.id);
 
 // Hourly + update (edit)
 if (normalizeCadence('every hour') !== 'hourly') throw new Error('normalizeCadence hourly alias');
-const g6 = createScheduledGoal(owner, {
+const g6 = await createScheduledGoal(owner, {
   title: 'hourly smoke',
   prompt: 'hourly check',
   agent_id: 'balserve',
   cadence: 'hourly',
   time_local: '00:15',
   source: 'vps_smoke',
+  approve_plan: true,
 });
 if (g6.cadence !== 'hourly') throw new Error('hourly cadence');
 if (!String(g6.schedule_label).toLowerCase().includes('hourly')) throw new Error('hourly label');

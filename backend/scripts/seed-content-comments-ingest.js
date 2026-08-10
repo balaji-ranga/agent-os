@@ -512,7 +512,8 @@ export async function seedContentCommentsForOwner(ownerUserId = OWNER) {
   const goalTitle = 'Weekly community triage (FB Graph MCP)';
   let goal = listScheduledGoals(ownerUserId).find((g) => String(g.title || '').startsWith('Weekly community triage'));
   if (!goal && cm) {
-    goal = createScheduledGoal(ownerUserId, {
+    goal = await createScheduledGoal(ownerUserId, {
+      approve_plan: true,
       title: goalTitle,
       prompt: [
         'Run community triage workflow (chat: run community triage).',

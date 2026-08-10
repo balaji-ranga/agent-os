@@ -38,8 +38,8 @@ function resolveGoalId(ownerUserId, body) {
   return found.id;
 }
 
-export function executeScheduledGoalCreate(ownerUserId, body = {}) {
-  return createScheduledGoal(ownerUserId, { ...body, source: body.source || 'coo_tool' });
+export async function executeScheduledGoalCreate(ownerUserId, body = {}) {
+  return createScheduledGoal(ownerUserId, { ...body, source: body.source || 'coo_tool', approve_plan: body.approve_plan !== false });
 }
 
 export function executeScheduledGoalList(ownerUserId, body = {}) {

@@ -324,6 +324,7 @@ function ensureGoal(title, prompt, agentId, cadence = "weekly") {
     weekday: cadence === "weekly" ? 1 : null,
     time_local: "09:00",
     source: "complete-content-ops",
+    approve_plan: true,
   });
 }
 

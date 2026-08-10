@@ -1129,7 +1129,7 @@ export async function applyOperateDay1(ownerUserId) {
   }
   try {
     if (bp?.goal_templates?.length) {
-      blueprintGoals = installBlueprintGoalTemplates(ownerUserId, bp.goal_templates, agents);
+      blueprintGoals = await installBlueprintGoalTemplates(ownerUserId, bp.goal_templates, agents);
       console.info(
         "[company-operate] day1 blueprint goals owner=",
         ownerUserId,

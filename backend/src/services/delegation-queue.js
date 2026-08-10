@@ -270,22 +270,88 @@ ${rolePart} Please provide a detailed response addressing this request only. Rep
 }
 
 /**
- * Get recent standup context for intent classification: last user messages and agent responses.
+ * Get recent standup + CEO Dashboard chat context for intent classification.
+ * Dashboard chats use chat_turns, not standup_messages — so without chat_turns
+ * "delegate to MarketWatcher" loses Mag7 from the prior turn.
  * Excludes the current message from lastUserMessages when it matches ceoMessage.
  * @param {number} standupId
- * @param {string} [ceoMessage] - Current message; if provided, the most recent user message matching it is excluded from lastUserMessages
+ * @param {string} [ceoMessage]
+ * @param {string|null} [ownerUserId]
  * @returns {{ lastUserMessages: string[], agentResponses: { agent_id: string, content: string }[] }}
  */
-function getStandupContextForIntent(standupId, ceoMessage = '') {
-  const currentTrim = (ceoMessage || '').trim();
+function getStandupContextForIntent(standupId, ceoMessage = '', ownerUserId = null) {
+  const currentTrim = (ceoMessage || '').trim().replace(/\[(ceo|owner)_user_id:[^\]]+\]/gi, '').trim();
+  const seen = new Set();
+  const lastUserMessages = [];
+
+  const pushMsg = (raw) => {
+    const m = String(raw || '')
+      .trim()
+      .replace(/\[(ceo|owner)_user_id:[^\]]+\]/gi, '')
+      .trim();
+    if (!m || m.length < 3) return;
+    const key = m.toLowerCase().slice(0, 240);
+    if (seen.has(key)) return;
+    // skip pure COO digests
+    if (/^updates from the team|^##\s*coo status report/i.test(m)) return;
+    seen.add(key);
+    lastUserMessages.push(m);
+  };
+
   const userRows = db()
-    .prepare('SELECT content FROM standup_messages WHERE standup_id = ? AND role = ? ORDER BY created_at DESC LIMIT 9')
+    .prepare(
+      'SELECT content FROM standup_messages WHERE standup_id = ? AND role = ? ORDER BY created_at DESC LIMIT 9'
+    )
     .all(standupId, 'user');
-  const lastUserMessages = userRows.map((r) => (r.content || '').trim()).filter(Boolean);
-  if (lastUserMessages.length && currentTrim && lastUserMessages[0] === currentTrim) {
-    lastUserMessages.shift();
+  for (const r of userRows) pushMsg(r.content);
+
+  // Dashboard COO chat (primary for CEO conversations)
+  if (ownerUserId) {
+    try {
+      const chatRows = db()
+        .prepare(
+          `SELECT content FROM chat_turns
+           WHERE owner_user_id = ?
+             AND role = 'user'
+             AND (agent_id = 'balserve' OR agent_id LIKE '%balserve%' OR agent_id LIKE '%coo%')
+           ORDER BY id DESC LIMIT 12`
+        )
+        .all(String(ownerUserId));
+      for (const r of chatRows) pushMsg(r.content);
+    } catch (e) {
+      console.warn('[delegation] chat_turns context load failed:', e?.message || e);
+    }
+    // recent substantive Kanban titles the CEO already created
+    try {
+      const kanbanRows = db()
+        .prepare(
+          `SELECT title FROM kanban_tasks
+           WHERE owner_user_id = ?
+             AND title IS NOT NULL AND trim(title) != ''
+           ORDER BY id DESC LIMIT 8`
+        )
+        .all(String(ownerUserId));
+      for (const r of kanbanRows) {
+        const t = String(r.title || '').trim();
+        if (t.length < 12) continue;
+        if (/^delegate to\b/i.test(t)) continue;
+        if (/deepseek brain summarize/i.test(t)) continue;
+        pushMsg(t);
+      }
+    } catch (e) {
+      console.warn('[delegation] kanban context load failed:', e?.message || e);
+    }
   }
+
+  // chronological oldest→newest for classifiers (we pushed newest-first)
   lastUserMessages.reverse();
+  // drop current message if it appears as last
+  if (lastUserMessages.length && currentTrim) {
+    const last = lastUserMessages[lastUserMessages.length - 1];
+    if (last === currentTrim || last.toLowerCase() === currentTrim.toLowerCase()) {
+      lastUserMessages.pop();
+    }
+  }
 
   const taskRows = db()
     .prepare(
@@ -293,7 +359,9 @@ function getStandupContextForIntent(standupId, ceoMessage = '') {
     )
     .all(standupId, 'completed', '');
   const responseRows = db()
-    .prepare('SELECT agent_id, content, submitted_at FROM standup_responses WHERE standup_id = ? ORDER BY submitted_at DESC LIMIT 10')
+    .prepare(
+      'SELECT agent_id, content, submitted_at FROM standup_responses WHERE standup_id = ? ORDER BY submitted_at DESC LIMIT 10'
+    )
     .all(standupId);
   const withDate = [
     ...taskRows.map((r) => ({ agent_id: r.agent_id, content: r.content || '', at: r.completed_at })),
@@ -302,6 +370,32 @@ function getStandupContextForIntent(standupId, ceoMessage = '') {
   const agentResponses = withDate.slice(0, 10).map((r) => ({ agent_id: r.agent_id, content: r.content }));
 
   return { lastUserMessages, agentResponses };
+}
+
+/** True when query is handoff-routing only or a rewrite of the specialty purpose (no CEO deliverable). */
+function isContextThinOrMetaHandoff(query) {
+  const q = String(query || '').trim();
+  if (!q) return true;
+  if (
+    /^(why not|why didn'?t|should( have)? (have )?(used|delegated)|please (delegate|assign)|ok( go)? ahead|go ahead|do it|delegate that)\b/i.test(
+      q
+    )
+  ) {
+    return true;
+  }
+  if (/^delegate to\b/i.test(q) || /^hand\s*off to\b/i.test(q) || /^assign (to|this)\b/i.test(q)) {
+    return true;
+  }
+  if (/\bdelegate\s+(this\s+)?to\s+\w+/i.test(q) && q.length < 220) return true;
+  // Role/purpose paraphrases (MarketWatcher-style) without a concrete CEO ask
+  if (
+    /monitor the configured|configurable equity\/crypto|watchlist and alert|dip by the configured/i.test(q) &&
+    !/\b(mag\s*7|magnificent|aapl|msft|nvda|voog|insights for)\b/i.test(q)
+  ) {
+    return true;
+  }
+  if (q.length < 48 && /marketwatcher|techresearcher|market researcher|why not/i.test(q)) return true;
+  return false;
 }
 
 /**
@@ -325,53 +419,50 @@ function capAllocatedAgents(allocated, maxAgents = 2) {
   );
 }
 
-/** Meta follow-ups often lose Mag7-style work unit — stitch prior CEO lines into the specialist query. */
+/** Meta / role-echo handoffs lose Mag7-style work unit — stitch prior CEO lines into the specialist query. */
 function enrichTaskQueryWithPriorThread(query, lastUserMessages = [], currentCeoMessage = '') {
   const q = String(query || '').trim();
   if (!q) return q;
   const prior = (Array.isArray(lastUserMessages) ? lastUserMessages : [])
     .map((m) => String(m || '').trim())
     .filter(Boolean);
-  const current = String(currentCeoMessage || '').trim();
-  const meta =
-    /^(why not|why didn'?t|should( have)? (have )?(used|delegated)|please (delegate|assign)|ok( go)? ahead|go ahead|do it|delegate that)\b/i.test(
-      q
-    ) ||
-    (q.length < 80 && /why not|market researcher|techresearcher|instead of you|should have delegated/i.test(q));
+  const current = String(currentCeoMessage || '')
+    .trim()
+    .replace(/\[(ceo|owner)_user_id:[^\]]+\]/gi, '')
+    .trim();
+  const thin = isContextThinOrMetaHandoff(q) || isContextThinOrMetaHandoff(current);
   const alreadyHasWork =
-    q.length > 120 ||
-    prior.some((p) => p.length > 24 && q.toLowerCase().includes(p.slice(0, 40).toLowerCase()));
+    !thin &&
+    (q.length > 120 ||
+      prior.some((p) => p.length > 24 && q.toLowerCase().includes(p.slice(0, 40).toLowerCase())));
 
   if (!prior.length && !current) return q;
-  if (alreadyHasWork && !meta) return q;
+  if (alreadyHasWork) return q;
 
   const thread = [];
-  for (const p of prior.slice(-6)) {
+  for (const p of prior.slice(-8)) {
     if (!thread.includes(p)) thread.push(p);
   }
-  if (current && !thread.includes(current) && !/owner_user_id:/.test(current)) {
-    thread.push(current);
+  if (current && !thread.some((t) => t.toLowerCase() === current.toLowerCase()) && !/owner_user_id:/.test(current)) {
+    // Prefer not treating "delegate to X: role prose" as the work unit
+    if (!isContextThinOrMetaHandoff(current)) thread.push(current);
   }
   if (!thread.length) return q;
 
-  // Prefer last non-meta line as primary work unit
   const substantive = [...thread]
     .reverse()
-    .find(
-      (m) =>
-        m.length > 24 &&
-        !/^(why not|why didn'?t|please (delegate|assign)|ok( go)? ahead|go ahead)\b/i.test(m)
-    );
-  if (!substantive && !meta) return q;
+    .find((m) => m.length > 12 && !isContextThinOrMetaHandoff(m));
+  if (!substantive && !thin) return q;
+  if (!substantive) return q;
 
   return [
     'CEO thread (include this whole unit of work):',
     ...thread.map((m, i) => `${i + 1}. ${m}`),
     '',
-    substantive ? `Primary deliverable:\n${substantive}` : '',
-    meta || q !== substantive ? `Current COO/CEO instruction:\n${q}` : `Task:\n${q}`,
+    `Primary deliverable:\n${substantive}`,
+    thin || q !== substantive ? `Routing / current instruction:\n${q}` : `Task:\n${q}`,
     '',
-    'Execute the primary deliverable (not only the meta instruction).',
+    'Execute the primary deliverable (not only routing/meta text or a generic role description). Include tickers/themes named by the CEO (e.g. Mag7, VOOG).',
   ]
     .filter((line) => line !== '')
     .join('\n');
@@ -399,12 +490,14 @@ function enqueueAllocatedTasks({
     const row = db().prepare('SELECT id FROM agent_delegation_tasks ORDER BY id DESC LIMIT 1').get();
     if (row) {
       taskRows.push({ taskId: row.id, agent: a, query });
-      const title = (query || '').trim().slice(0, 200).replace(/\s+/g, ' ');
+      // Prefer a CEO-facing title from primary deliverable when query is multi-line enriched
+      const titleMatch = /Primary deliverable:\n([\s\S]+?)(?:\nRouting|\nTask:|\nExecute|$)/i.exec(query);
+      const titleSource = (titleMatch?.[1] || query || '').trim().slice(0, 200).replace(/\s+/g, ' ');
       const descParts = [
         ownerUserId ? `owner_user_id: ${ownerUserId}` : '',
         (query || '').trim().slice(0, 4000),
       ].filter(Boolean);
-      kanbanIns.run(title, descParts.join('\n\n'), a.id, standupId, row.id, ownerUserId || null);
+      kanbanIns.run(titleSource, descParts.join('\n\n'), a.id, standupId, row.id, ownerUserId || null);
       if (ownerUserId) {
         const krow = db()
           .prepare('SELECT * FROM kanban_tasks WHERE agent_delegation_task_id = ?')
@@ -461,6 +554,17 @@ export async function scheduleStandupStatusFanout(standupId, ceoUserId = null, c
  * @param {string|null} [ceoUserId]
  * @param {{ restrictToAgentIds?: string[], preAllocated?: Record<string, string>, maxAgents?: number }} [opts]
  */
+
+async function maybeAdvanceGoalRunFromDelegation(taskId) {
+  try {
+    const { findGoalStepByDelegationTask, onDelegationTerminalForGoalRun } = await import('./agent-goal-run.js');
+    if (!findGoalStepByDelegationTask(taskId)) return;
+    await onDelegationTerminalForGoalRun(taskId);
+  } catch (e) {
+    console.warn('[goal-run] delegation terminal advance failed', e?.message || e);
+  }
+}
+
 export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, ceoUserId = null, opts = {}) {
   const ownerUserId = ceoUserId || getStandupOwnerUserId(standupId);
   let agents = getAgentsUnderCoo(ownerUserId);
@@ -472,7 +576,7 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, c
   }
   const agentsMdContent = await readCooAgentsMd(ownerUserId);
   const scopedMessage = withOwnerScope(ceoMessage, ownerUserId);
-  const context = getStandupContextForIntent(standupId, scopedMessage);
+  const context = getStandupContextForIntent(standupId, scopedMessage, ownerUserId);
 
   let allocated =
     opts.preAllocated && typeof opts.preAllocated === 'object' && Object.keys(opts.preAllocated).length
@@ -684,7 +788,7 @@ export async function enqueueGetWorkFromTeam(standupId, contextFromConversation 
     ownerUserId
   );
   const agentsMdContent = await readCooAgentsMd(ownerUserId);
-  const context = getStandupContextForIntent(standupId, fullContext);
+  const context = getStandupContextForIntent(standupId, fullContext, ownerUserId);
   let allocated = agentsMdContent && fullContext
     ? await classifyIntentAndAllocate(fullContext, agentsMdContent, { ...context, ownerUserId }, ownerUserId)
     : null;
@@ -693,8 +797,13 @@ export async function enqueueGetWorkFromTeam(standupId, contextFromConversation 
   let count = 0;
   if (allocated && typeof allocated === 'object' && Object.keys(allocated).length > 0) {
     for (const a of agents) {
-      const query = allocated[a.id?.toLowerCase()] ?? allocated[a.id];
-      if (!query || typeof query !== 'string') continue;
+      const rawQuery = allocated[a.id?.toLowerCase()] ?? allocated[a.id];
+      if (!rawQuery || typeof rawQuery !== 'string') continue;
+      const query = enrichTaskQueryWithPriorThread(
+        rawQuery,
+        context.lastUserMessages || [],
+        fullContext
+      );
       const prompt = buildDetailedPromptForAgent(query, a.name || a.id, a.role);
       ins.run(standupId, requestId, a.id, withOwnerScope(prompt, ownerUserId), ownerUserId);
       count++;
@@ -932,6 +1041,7 @@ export async function processPendingDelegationTasksForCeo(ceoUserId, opts = {}) 
            WHERE id = ?`
         )
         .run('completed', responseText, now, task.id);
+      await maybeAdvanceGoalRunFromDelegation(task.id);
       if (isAgentWorkflowPrompt(task.prompt)) {
         completeAgentWorkflowKanbanForDelegation(task.id, { ok: true });
         try {
@@ -997,6 +1107,7 @@ export async function processPendingDelegationTasksForCeo(ceoUserId, opts = {}) 
         }
       }
       db().prepare('UPDATE agent_delegation_tasks SET status = ?, error_message = ?, completed_at = ? WHERE id = ?').run('failed', errMsg, now, task.id);
+      await maybeAdvanceGoalRunFromDelegation(task.id);
       if (isAgentWorkflowPrompt(task.prompt)) {
         completeAgentWorkflowKanbanForDelegation(task.id, { ok: false });
         await failAgentWorkflowForDelegation({ ...task, status: 'failed', error_message: errMsg });

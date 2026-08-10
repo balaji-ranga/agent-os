@@ -14,6 +14,9 @@ import {
   deleteScheduledGoal,
   runScheduledGoal,
   listRecentRuns,
+  previewGoalPlan,
+  setScheduledGoalPlan,
+  approveScheduledGoalPlan,
 } from '../services/scheduled-goals.js';
 import { enrichGoalTextWithAi } from '../services/ceo-guardrails.js';
 import { getServerTimezone } from '../utils/format-datetime.js';
@@ -63,6 +66,25 @@ router.post('/enrich', async (req, res) => {
   }
 });
 
+
+router.post('/plan-preview', async (req, res) => {
+  try {
+    const ownerUserId = ownerOr403(req, res);
+    if (!ownerUserId) return;
+    const body = req.body || {};
+    const plan = await previewGoalPlan(ownerUserId, {
+      prompt: body.prompt || body.draft || '',
+      feedback: body.feedback || body.plan_feedback || null,
+      previous_plan: body.previous_plan || body.previousPlan || null,
+      explicit_steps: body.explicit_steps || body.steps || null,
+    });
+    res.json({ plan });
+  } catch (e) {
+    console.warn('[scheduled-goals] plan-preview failed', e?.message || e);
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
 router.get('/:id', (req, res) => {
   try {
     const ownerUserId = ownerOr403(req, res);
@@ -76,11 +98,11 @@ router.get('/:id', (req, res) => {
   }
 });
 
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const ownerUserId = ownerOr403(req, res);
     if (!ownerUserId) return;
-    const goal = createScheduledGoal(ownerUserId, { ...(req.body || {}), source: 'ceo_ui' });
+    const goal = await createScheduledGoal(ownerUserId, { ...(req.body || {}), source: 'ceo_ui' });
     res.status(201).json({ goal });
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message });
@@ -93,6 +115,35 @@ router.patch('/:id', (req, res) => {
     if (!ownerUserId) return;
     const goal = updateScheduledGoal(ownerUserId, req.params.id, req.body || {});
     res.json({ goal });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+
+router.post('/:id/plan', async (req, res) => {
+  try {
+    const ownerUserId = ownerOr403(req, res);
+    if (!ownerUserId) return;
+    const body = req.body || {};
+    const goal = await setScheduledGoalPlan(ownerUserId, req.params.id, {
+      plan: body.plan || null,
+      feedback: body.feedback || body.plan_feedback || null,
+      approve: body.approve === true || body.approve_plan === true,
+      prompt: body.prompt || null,
+    });
+    res.json({ goal, message: goal.plan_status === 'approved' ? 'Plan approved — schedule is active.' : 'Draft plan updated. Approve to activate the schedule.' });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+router.post('/:id/plan-approve', async (req, res) => {
+  try {
+    const ownerUserId = ownerOr403(req, res);
+    if (!ownerUserId) return;
+    const goal = await approveScheduledGoalPlan(ownerUserId, req.params.id);
+    res.json({ goal, message: 'Plan approved — goal will run on schedule.' });
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message });
   }

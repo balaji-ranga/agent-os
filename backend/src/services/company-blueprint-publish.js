@@ -592,7 +592,7 @@ export function installBlueprintWorkflowTemplates(ownerUserId, templates, agents
 /**
  * Install scheduled goals by agent name/role (Day 1).
  */
-export function installBlueprintGoalTemplates(ownerUserId, templates, agents) {
+export async function installBlueprintGoalTemplates(ownerUserId, templates, agents) {
   const results = [];
   if (!Array.isArray(templates) || !templates.length) return results;
   const byName = new Map((agents || []).map((a) => [String(a.name || '').toLowerCase(), a]));
@@ -626,7 +626,8 @@ export function installBlueprintGoalTemplates(ownerUserId, templates, agents) {
       }
       let cadence = String(g.cadence || 'weekly').toLowerCase();
       if (!['daily', 'weekdays', 'weekly'].includes(cadence)) cadence = 'weekly';
-      const created = createScheduledGoal(ownerUserId, {
+      const created = await createScheduledGoal(ownerUserId, {
+        approve_plan: true,
         title: g.title,
         prompt: g.prompt,
         agent_id: agent.id,

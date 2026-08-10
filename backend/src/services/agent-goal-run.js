@@ -11,6 +11,14 @@ import { getPromptWithMemoryInjected } from './delegation-queue.js';
 import { insertChatTurn } from './chat-history.js';
 import { triggerAgentWorkflowForOwner } from './agent-workflow-chat-tools.js';
 import { registerWorkflowRunWatch } from './agent-workflow-run-watch.js';
+import {
+  stripWorkflowPhrasesFromPrompt,
+  classifySpecialtyIntentsForPlan,
+  specialtyIntentsToSteps,
+  GOAL_PLAN_MAX_SPECIALTY,
+} from './goal-plan-specialty.js';
+import { getOrCreateDelegationHubStandup } from './standup-hub.js';
+import { scheduleCeoRequestViaOpenClawCron } from './delegation-queue.js';
 
 const TERMINAL_WF = new Set(['completed', 'failed', 'cancelled', 'paused']);
 let _tablesReady = false;
@@ -74,6 +82,13 @@ export function ensureAgentGoalRunTables() {
     CREATE INDEX IF NOT EXISTS idx_agent_goal_steps_run ON agent_goal_steps(goal_run_id, step_index ASC);
     CREATE INDEX IF NOT EXISTS idx_agent_goal_steps_wf ON agent_goal_steps(child_workflow_run_id);
   `);
+  const cols = db().prepare('PRAGMA table_info(agent_goal_steps)').all().map((c) => c.name);
+  if (!cols.includes('child_delegation_task_id')) {
+    db().exec('ALTER TABLE agent_goal_steps ADD COLUMN child_delegation_task_id INTEGER');
+  }
+  try {
+    db().exec('CREATE INDEX IF NOT EXISTS idx_agent_goal_steps_del ON agent_goal_steps(child_delegation_task_id)');
+  } catch (_) {}
   _tablesReady = true;
 }
 
@@ -101,6 +116,26 @@ export function normalizeStepSpec(raw) {
       spec: {
         title: raw.title != null ? String(raw.title) : null,
         body: raw.body != null ? String(raw.body) : null,
+      },
+    };
+  }
+  if (type === 'specialty_task' || type === 'specialty' || type === 'delegate') {
+    const agentId = String(raw.agent_id || raw.agentId || (raw.spec && raw.spec.agent_id) || '').trim();
+    const message = String(raw.message || raw.prompt || (raw.spec && raw.spec.message) || '').trim();
+    const pg =
+      raw.parallel_group != null
+        ? Number(raw.parallel_group)
+        : raw.spec && raw.spec.parallel_group != null
+          ? Number(raw.spec.parallel_group)
+          : null;
+    return {
+      type: 'specialty_task',
+      label: String(raw.label || (agentId ? 'Specialty: ' + agentId : 'Specialty task')).trim(),
+      spec: {
+        agent_id: agentId,
+        message: message || null,
+        parallel_group: Number.isFinite(pg) ? pg : null,
+        phase: raw.phase || (raw.spec && raw.spec.phase) || 'specialty',
       },
     };
   }
@@ -183,6 +218,139 @@ export function planGoalStepsFromText(prompt, { explicitSteps } = {}) {
 }
 
 
+
+/** Workflow-only structural extract (no specialty, no notify). */
+export function extractStructuralWorkflowSteps(prompt) {
+  const text = String(prompt || '');
+  const lower = text.toLowerCase();
+  const steps = [];
+  const crmExplicit = /run\s+crm\s+maker\s+checker/i.test(text);
+  const crmCtx =
+    /\bcrm\b/i.test(text) &&
+    /twenty|pre-order|preorder|opportunity|pipeline|maker\s*checker/.test(lower);
+  const erpExplicit = /run\s+erp\s+maker\s+checker/i.test(text);
+  const erpCtx =
+    /\berp\b/i.test(text) &&
+    /o2c|order-to-cash|order to cash|\botc\b|quotation|sales order|maker\s*checker/.test(lower);
+  if (crmExplicit || crmCtx) {
+    steps.push(
+      normalizeStepSpec({
+        type: 'workflow_trigger',
+        phrase: 'run crm maker checker',
+        phase: 'crm_phase',
+        label: 'CRM maker-checker workflow',
+      })
+    );
+  }
+  if (erpExplicit || erpCtx) {
+    steps.push(
+      normalizeStepSpec({
+        type: 'workflow_trigger',
+        phrase: 'run erp maker checker',
+        phase: 'erp_phase',
+        label: 'ERP O2C maker-checker workflow',
+      })
+    );
+  }
+  if (!steps.length) {
+    const runRe = /\brun\s+([^\n.;]+)/gi;
+    const seen = new Set();
+    let m;
+    while ((m = runRe.exec(text)) && steps.length < 6) {
+      const phrase = ('run ' + String(m[1] || '').trim()).replace(/\s+/g, ' ').slice(0, 240);
+      const key = phrase.toLowerCase();
+      if (!phrase || key === 'run' || seen.has(key)) continue;
+      seen.add(key);
+      steps.push(
+        normalizeStepSpec({ type: 'workflow_trigger', phrase, phase: 'generic', label: phrase })
+      );
+    }
+  }
+  return steps;
+}
+
+/**
+ * Full planner: workflow_trigger + specialty_task (N intents) + notify_ceo.
+ */
+export async function planGoalStepsAsync(prompt, opts = {}) {
+  const { explicitSteps, ownerUserId = null, maxSpecialty = GOAL_PLAN_MAX_SPECIALTY, feedback = null } = opts;
+  if (Array.isArray(explicitSteps) && explicitSteps.length) {
+    return planGoalStepsFromText(prompt, { explicitSteps });
+  }
+
+  let fullPrompt = String(prompt || '');
+  if (feedback && String(feedback).trim()) {
+    fullPrompt =
+      fullPrompt +
+      '\n\n[CEO plan feedback - adjust the execution plan: ' +
+      String(feedback).trim().slice(0, 1500) +
+      ']';
+  }
+
+  const wfSteps = extractStructuralWorkflowSteps(fullPrompt);
+  const residual = stripWorkflowPhrasesFromPrompt(fullPrompt);
+  const residualClean = residual
+    .replace(/\b(goal|success|customer story|how to run)\b[:\s-]*/gi, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+  let specialtyRaw = [];
+  if (ownerUserId && residualClean.length >= 8) {
+    try {
+      specialtyRaw = await classifySpecialtyIntentsForPlan(ownerUserId, residualClean, { maxSpecialty });
+    } catch (e) {
+      console.warn('[goal-run] specialty classify failed', e?.message || e);
+    }
+  } else if (ownerUserId && !wfSteps.length && fullPrompt.trim().length >= 8) {
+    try {
+      specialtyRaw = await classifySpecialtyIntentsForPlan(ownerUserId, fullPrompt, { maxSpecialty });
+    } catch (e) {
+      console.warn('[goal-run] specialty classify failed', e?.message || e);
+    }
+  }
+
+  let specialtySteps = specialtyIntentsToSteps(specialtyRaw, {
+    parallel: specialtyRaw.length > 1,
+  }).map(normalizeStepSpec);
+
+  let steps = [...wfSteps];
+  if (specialtySteps.length) {
+    if (specialtySteps.length > 1) {
+      const g = 1;
+      steps.push(
+        ...specialtySteps.map((s) =>
+          normalizeStepSpec({
+            type: 'specialty_task',
+            agent_id: s.spec?.agent_id,
+            message: s.spec?.message,
+            parallel_group: g,
+            label: s.label,
+          })
+        )
+      );
+    } else {
+      steps.push(...specialtySteps);
+    }
+  }
+
+  if (!steps.length) {
+    steps.push(normalizeStepSpec({ type: 'agent_continue' }));
+  }
+  if (!steps.some((s) => s.type === 'notify_ceo')) {
+    steps.push(normalizeStepSpec({ type: 'notify_ceo' }));
+  }
+  return steps;
+}
+
+/** Whether a planned step list warrants durable goal_run_plan mode. */
+export function planUsesGoalRunMode(planned) {
+  const steps = Array.isArray(planned) ? planned : [];
+  if (steps.some((s) => (s.type || s.step_type) === 'workflow_trigger')) return true;
+  if (steps.some((s) => (s.type || s.step_type) === 'specialty_task')) return true;
+  const real = steps.filter((s) => (s.type || s.step_type) !== 'notify_ceo');
+  return real.length >= 2;
+}
+
 function loadGoalRunRow(id, ownerUserId = null) {
   ensureAgentGoalRunTables();
   const row = ownerUserId
@@ -230,6 +398,7 @@ export function serializeGoalRun(row, steps = null) {
       spec: parseJson(s.spec_json),
       status: s.status,
       child_workflow_run_id: s.child_workflow_run_id,
+      child_delegation_task_id: s.child_delegation_task_id || null,
       result: parseJson(s.result_json, null),
       error_message: s.error_message,
       started_at: s.started_at,
@@ -761,6 +930,163 @@ export function completeGoalStep({ goalRunId, stepId, ownerUserId, result = null
   return { ok: true, done: false, goal: getGoalRun(goalRunId, ownerUserId) };
 }
 
+
+async function executeSpecialtyTaskStep(goal, step) {
+  const spec = parseJson(step.spec_json);
+  const agentId = String(spec.agent_id || '').trim().toLowerCase();
+  if (!agentId) throw new Error('specialty_task requires agent_id');
+  const prior = priorStepSummaries(goal.id, step.step_index);
+  let message =
+    (spec.message && String(spec.message).trim()) ||
+    String(goal.prompt || '').trim() ||
+    'Complete this specialty task for the CEO goal.';
+  if (prior) {
+    message =
+      message +
+      '\n\nPrior completed goal steps:\n' +
+      prior +
+      '\n\nStay focused on your assigned specialty deliverable.';
+  }
+  message =
+    message +
+    `\n\n[goal_run_id: ${goal.id}]\n[goal_step_id: ${step.id}]\n[ceo_user_id: ${goal.owner_user_id}]`;
+
+  const hub = getOrCreateDelegationHubStandup(goal.owner_user_id);
+  const out = await scheduleCeoRequestViaOpenClawCron(hub.id, message, goal.owner_user_id, {
+    preAllocated: { [agentId]: message },
+    restrictToAgentIds: [agentId],
+    maxAgents: 1,
+  });
+  let taskId = null;
+  if (out?.requestId) {
+    const row = db()
+      .prepare(
+        `SELECT id FROM agent_delegation_tasks WHERE request_id = ? AND lower(to_agent_id) = lower(?) ORDER BY id DESC LIMIT 1`
+      )
+      .get(out.requestId, agentId);
+    taskId = row?.id || null;
+  }
+  if (!taskId) {
+    const row = db()
+      .prepare(
+        `SELECT id FROM agent_delegation_tasks WHERE owner_user_id = ? AND lower(to_agent_id) = lower(?) AND status IN ('pending','processing') ORDER BY id DESC LIMIT 1`
+      )
+      .get(goal.owner_user_id, agentId);
+    taskId = row?.id || null;
+  }
+  if (!taskId) {
+    throw new Error(`specialty_task failed to enqueue delegation for ${agentId}`);
+  }
+  db()
+    .prepare(
+      `UPDATE agent_goal_steps SET child_delegation_task_id = ?, status = 'running', started_at = COALESCE(started_at, datetime('now')) WHERE id = ?`
+    )
+    .run(Number(taskId), step.id);
+  touchGoalRun(goal.id, { status: 'running', current_step_index: step.step_index });
+  console.info('[goal-run] specialty_task started', {
+    goalRunId: goal.id,
+    stepId: step.id,
+    agentId,
+    taskId,
+  });
+  return { ok: true, async: true, delegation_task_id: Number(taskId), agent_id: agentId };
+}
+
+export function findGoalStepByDelegationTask(taskId) {
+  ensureAgentGoalRunTables();
+  const id = Number(taskId);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  const step = db()
+    .prepare('SELECT * FROM agent_goal_steps WHERE child_delegation_task_id = ? LIMIT 1')
+    .get(id);
+  if (!step) return null;
+  const goal = loadGoalRunRow(step.goal_run_id);
+  return goal ? { goal, step } : null;
+}
+
+export async function onDelegationTerminalForGoalRun(taskId) {
+  const found = findGoalStepByDelegationTask(taskId);
+  if (!found) return { ok: false, skipped: true, reason: 'no_goal_step' };
+  const { goal, step } = found;
+  if (step.status === 'completed' || step.status === 'failed') {
+    return { ok: true, skipped: true, reason: 'step_already_terminal', goal_run_id: goal.id };
+  }
+  const task = db().prepare('SELECT * FROM agent_delegation_tasks WHERE id = ?').get(Number(taskId));
+  const failed = !task || String(task.status || '') === 'failed';
+  const result = {
+    delegation_task_id: Number(taskId),
+    status: task?.status || 'missing',
+    reply_preview: clip(task?.response_content || '', 400),
+    error_message: task?.error_message || null,
+  };
+  await completeGoalStep({
+    goalRunId: goal.id,
+    stepId: step.id,
+    ownerUserId: goal.owner_user_id,
+    result,
+    failed,
+    error: failed ? task?.error_message || task?.status || 'delegation failed' : null,
+  });
+  if (failed) {
+    return { ok: false, failed: true, goal_run_id: goal.id, task_id: Number(taskId) };
+  }
+  try {
+    return await startGoalRunExecution(goal.id, { ownerUserId: goal.owner_user_id });
+  } catch (e) {
+    return { ok: false, error: e?.message || String(e), goal_run_id: goal.id };
+  }
+}
+
+function parallelGroupOf(step) {
+  const spec = parseJson(step.spec_json);
+  const g = spec?.parallel_group;
+  return g != null && Number.isFinite(Number(g)) ? Number(g) : null;
+}
+
+async function startParallelSpecialtyGroup(goal, steps, group) {
+  const peers = steps.filter(
+    (s) =>
+      s.step_type === 'specialty_task' &&
+      parallelGroupOf(s) === group &&
+      (s.status === 'pending' || s.status === 'running')
+  );
+  const results = [];
+  for (const step of peers) {
+    if (step.status === 'running' && step.child_delegation_task_id) {
+      results.push({ step_id: step.id, already: true });
+      continue;
+    }
+    if (step.status === 'pending') {
+      db()
+        .prepare(
+          `UPDATE agent_goal_steps SET status = 'running', started_at = datetime('now') WHERE id = ?`
+        )
+        .run(step.id);
+    }
+    try {
+      const out = await executeSpecialtyTaskStep(goal, { ...step, status: 'running' });
+      results.push({ step_id: step.id, ...out });
+    } catch (e) {
+      const msg = e?.message || String(e);
+      db()
+        .prepare(
+          `UPDATE agent_goal_steps SET status = 'failed', error_message = ?, completed_at = datetime('now') WHERE id = ?`
+        )
+        .run(msg.slice(0, 1000), step.id);
+      completeGoalRun(goal.id, { status: 'failed', error: msg });
+      return { ok: false, error: msg, goal: getGoalRun(goal.id, goal.owner_user_id) };
+    }
+  }
+  touchGoalRun(goal.id, { status: 'running' });
+  return {
+    ok: true,
+    async: true,
+    parallel_group: group,
+    started: results,
+    goal: getGoalRun(goal.id, goal.owner_user_id),
+  };
+}
+
 export async function startGoalRunExecution(goalRunId, opts = {}) {
   ensureAgentGoalRunTables();
   const ownerUserId = opts.ownerUserId || null;
@@ -775,11 +1101,63 @@ export async function startGoalRunExecution(goalRunId, opts = {}) {
   }
 
   const steps = loadGoalSteps(goalRunId);
-  let step = steps.find((s) => s.status === 'running');
-  if (!step) step = steps.find((s) => s.status === 'pending');
+
+  const runningSpecialty = steps.filter(
+    (s) => s.step_type === 'specialty_task' && s.status === 'running'
+  );
+  if (runningSpecialty.length) {
+    const g0 = parallelGroupOf(runningSpecialty[0]);
+    if (g0 != null) {
+      const groupPeers = steps.filter(
+        (s) => s.step_type === 'specialty_task' && parallelGroupOf(s) === g0
+      );
+      const anyPending = groupPeers.some((s) => s.status === 'pending');
+      const anyRunning = groupPeers.some((s) => s.status === 'running');
+      if (anyPending) {
+        return await startParallelSpecialtyGroup(goal, steps, g0);
+      }
+      if (anyRunning) {
+        return {
+          ok: true,
+          async: true,
+          waiting_parallel: true,
+          parallel_group: g0,
+          goal: getGoalRun(goal.id, goal.owner_user_id),
+        };
+      }
+    } else {
+      return {
+        ok: true,
+        async: true,
+        waiting: true,
+        step_id: runningSpecialty[0].id,
+        goal: getGoalRun(goal.id, goal.owner_user_id),
+      };
+    }
+  }
+
+  const runningWf = steps.find((s) => s.step_type === 'workflow_trigger' && s.status === 'running');
+  if (runningWf) {
+    return {
+      ok: true,
+      async: true,
+      waiting: true,
+      step_id: runningWf.id,
+      goal: getGoalRun(goal.id, goal.owner_user_id),
+    };
+  }
+
+  let step = steps.find((s) => s.status === 'pending');
   if (!step) {
     completeGoalRun(goalRunId, { status: 'completed' });
     return { ok: true, done: true, goal: getGoalRun(goal.id, goal.owner_user_id) };
+  }
+
+  if (step.step_type === 'specialty_task') {
+    const g = parallelGroupOf(step);
+    if (g != null) {
+      return await startParallelSpecialtyGroup(goal, steps, g);
+    }
   }
 
   if (step.status === 'pending') {
@@ -794,6 +1172,11 @@ export async function startGoalRunExecution(goalRunId, opts = {}) {
   try {
     if (step.step_type === 'workflow_trigger') {
       const out = await executeWorkflowStep(goal, step);
+      return { ok: true, async: true, step_id: step.id, ...out, goal: getGoalRun(goal.id, goal.owner_user_id) };
+    }
+
+    if (step.step_type === 'specialty_task') {
+      const out = await executeSpecialtyTaskStep(goal, step);
       return { ok: true, async: true, step_id: step.id, ...out, goal: getGoalRun(goal.id, goal.owner_user_id) };
     }
 
@@ -880,9 +1263,28 @@ export async function onWorkflowTerminalForGoalRun(workflowRunId) {
 }
 
 export async function createAndStartGoalRun(opts = {}) {
-  const goal = createGoalRun(opts);
+  let steps = opts.steps;
+  if (!Array.isArray(steps) || !steps.length) {
+    steps = await planGoalStepsAsync(opts.prompt || '', {
+      ownerUserId: opts.ownerUserId,
+      explicitSteps: opts.explicitSteps,
+    });
+  }
+  const goal = createGoalRun({ ...opts, steps });
   const exec = await startGoalRunExecution(goal.id, { ownerUserId: goal.owner_user_id });
   return { goal, execution: exec };
+}
+
+export async function createGoalRunWithPlan(opts = {}) {
+  let steps = opts.steps;
+  if (!Array.isArray(steps) || !steps.length) {
+    steps = await planGoalStepsAsync(opts.prompt || '', {
+      ownerUserId: opts.ownerUserId,
+      explicitSteps: opts.explicitSteps,
+      feedback: opts.feedback,
+    });
+  }
+  return createGoalRun({ ...opts, steps });
 }
 
 

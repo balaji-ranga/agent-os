@@ -2114,6 +2114,14 @@ export function initDb() {
     );
   } catch (_) {}
 
+  try {
+    const sgCols = _db.prepare('PRAGMA table_info(scheduled_goals)').all().map((c) => c.name);
+    if (!sgCols.includes('plan_json')) _db.exec('ALTER TABLE scheduled_goals ADD COLUMN plan_json TEXT');
+    if (!sgCols.includes('plan_status')) _db.exec("ALTER TABLE scheduled_goals ADD COLUMN plan_status TEXT DEFAULT 'none'");
+    if (!sgCols.includes('plan_feedback_json')) _db.exec('ALTER TABLE scheduled_goals ADD COLUMN plan_feedback_json TEXT');
+    if (!sgCols.includes('plan_version')) _db.exec('ALTER TABLE scheduled_goals ADD COLUMN plan_version INTEGER DEFAULT 0');
+  } catch (_) {}
+
   /**
    * Generic multi-intent goal runs: durable plan steps + advance on async child terminal.
    * Orchestrator-agnostic (any agent_id / any owner); not CRM/ERP-specific.
@@ -2164,6 +2172,13 @@ export function initDb() {
     _db.exec(
       `CREATE INDEX IF NOT EXISTS idx_agent_goal_steps_wf ON agent_goal_steps(child_workflow_run_id)`
     );
+  } catch (_) {}
+
+  try {
+    const agCols = _db.prepare('PRAGMA table_info(agent_goal_steps)').all().map((c) => c.name);
+    if (!agCols.includes('child_delegation_task_id')) {
+      _db.exec('ALTER TABLE agent_goal_steps ADD COLUMN child_delegation_task_id INTEGER');
+    }
   } catch (_) {}
 
   /**

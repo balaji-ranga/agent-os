@@ -129,6 +129,14 @@ export default function GoalPlanPanel({
                 <Link to={`/workflows/runs/${s.child_workflow_run_id}`}>WF #{s.child_workflow_run_id}</Link>
               </>
             ) : null}
+            {s.step_type === 'specialty_task' || s.child_delegation_task_id ? (
+              <span style={{ color: 'var(--muted)' }}>
+                {' · '}
+                specialty
+                {s.child_delegation_task_id ? ` · task #${s.child_delegation_task_id}` : ''}
+                {s.spec?.agent_id ? ` → ${s.spec.agent_id}` : ''}
+              </span>
+            ) : null}
           </li>
         ))}
       </ol>

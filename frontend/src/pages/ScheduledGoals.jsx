@@ -7,7 +7,7 @@ import { Fragment } from 'react';
 
 function statusClass(status) {
   if (status === 'active') return 'sg-badge sg-badge-active';
-  if (status === 'paused') return 'sg-badge sg-badge-paused';
+  if (status === 'paused' || status === 'draft') return 'sg-badge sg-badge-paused';
   return 'sg-badge sg-badge-done';
 }
 
@@ -55,6 +55,9 @@ function ScheduledGoalsPanel() {
   const [planOpenId, setPlanOpenId] = useState(null);
   const [planCache, setPlanCache] = useState({});
   const [planBusy, setPlanBusy] = useState(null);
+  const [draftPlan, setDraftPlan] = useState(null);
+  const [planFeedback, setPlanFeedback] = useState('');
+  const [planBusyLocal, setPlanBusyLocal] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -116,11 +119,15 @@ function ScheduledGoalsPanel() {
     setForm({ ...EMPTY_FORM, agent_id: keepAgentId || form.agent_id || 'balserve' });
     setEditingId(null);
     setShowForm(false);
+    setDraftPlan(null);
+    setPlanFeedback('');
   };
 
   const openCreate = () => {
     setEditingId(null);
     setForm({ ...EMPTY_FORM, agent_id: form.agent_id || 'balserve' });
+    setDraftPlan(null);
+    setPlanFeedback('');
     setShowForm(true);
     setMessage(null);
     setError(null);
@@ -137,6 +144,8 @@ function ScheduledGoalsPanel() {
       ends_at: endsToDateInput(g.ends_at),
       weekday: g.weekday != null ? Number(g.weekday) : 1,
     });
+    setDraftPlan(g.plan || null);
+    setPlanFeedback('');
     setShowForm(true);
     setMessage(null);
     setError(null);
@@ -171,8 +180,32 @@ function ScheduledGoalsPanel() {
     }
   };
 
-  const save = async (e) => {
-    e.preventDefault();
+  const generateDraftPlan = async () => {
+    if (!form.prompt.trim()) {
+      setError('Enter a prompt before generating the execution plan.');
+      return;
+    }
+    setPlanBusyLocal(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const out = await api.scheduledGoalsPlanPreview({
+        prompt: form.prompt,
+        feedback: planFeedback || undefined,
+        previous_plan: draftPlan || undefined,
+      });
+      setDraftPlan(out.plan || null);
+      setMessage('Draft execution plan ready. Review steps, adjust with feedback if needed, then save or approve.');
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setPlanBusyLocal(false);
+    }
+  };
+
+  const save = async (e, opts = {}) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const approvePlan = !!opts.approvePlan;
     setBusyId(editingId || 'create');
     setError(null);
     const body = {
@@ -183,14 +216,37 @@ function ScheduledGoalsPanel() {
       time_local: form.time_local,
       weekday: form.cadence === 'weekly' ? Number(form.weekday) : undefined,
       ends_at: form.ends_at || 'perpetual',
+      plan: draftPlan || undefined,
+      plan_feedback: planFeedback || undefined,
+      approve_plan: approvePlan,
     };
     try {
       if (editingId) {
-        await api.scheduledGoalsUpdate(editingId, body);
-        setMessage('Scheduled goal updated.');
+        await api.scheduledGoalsUpdate(editingId, {
+          title: body.title,
+          prompt: body.prompt,
+          agent_id: body.agent_id,
+          cadence: body.cadence,
+          time_local: body.time_local,
+          weekday: body.weekday,
+          ends_at: body.ends_at,
+        });
+        if (draftPlan || planFeedback || approvePlan) {
+          await api.scheduledGoalsSetPlan(editingId, {
+            plan: draftPlan,
+            feedback: planFeedback || undefined,
+            approve: approvePlan,
+            prompt: form.prompt,
+          });
+        }
+        setMessage(approvePlan ? 'Plan approved — schedule is active.' : 'Scheduled goal updated.');
       } else {
         await api.scheduledGoalsCreate(body);
-        setMessage('Scheduled goal created — it will fire automatically while active.');
+        setMessage(
+          approvePlan
+            ? 'Scheduled goal created and active.'
+            : 'Draft goal saved with plan — approve to activate the schedule.'
+        );
       }
       resetForm(form.agent_id);
       load();
@@ -246,6 +302,7 @@ function ScheduledGoalsPanel() {
           <option value="active">Active</option>
           <option value="paused">Paused</option>
           <option value="completed">Ended</option>
+          <option value="draft">Draft plan</option>
         </select>
         {timezone && (
           <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>Company timezone: {timezone}</span>
@@ -274,8 +331,7 @@ function ScheduledGoalsPanel() {
           </div>
           {editingId && (
             <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--muted)' }}>
-              Change any field below and click <strong>Save changes</strong>. Cadence can be hourly, daily, weekdays,
-              or weekly.
+              Review the execution plan, give feedback if needed, then <strong>Save draft</strong> or <strong>Approve plan &amp; schedule</strong>.
             </p>
           )}
           <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -359,17 +415,47 @@ function ScheduledGoalsPanel() {
               <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Empty = perpetual</span>
             </label>
           </div>
+          <div style={{ marginTop: 4, padding: '0.75rem', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg)' }}>
+            <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: 6 }}>Execution plan</div>
+            <p style={{ margin: '0 0 0.5rem', fontSize: '0.8rem', color: 'var(--muted)' }}>
+              Multi-intent work becomes ordered plan steps. Generate draft, optional feedback, then save draft or approve to activate.
+            </p>
+            <button type="button" className="btn-secondary" style={{ marginBottom: 8 }} disabled={planBusyLocal || !form.prompt.trim()} onClick={generateDraftPlan}>
+              {planBusyLocal ? 'Planning...' : draftPlan ? 'Regenerate plan' : 'Generate draft plan'}
+            </button>
+            {draftPlan?.steps?.length > 0 && (
+              <ol style={{ margin: '0 0 0.65rem', paddingLeft: '1.2rem', fontSize: '0.85rem' }}>
+                {draftPlan.steps.map((s, i) => (
+                  <li key={i} style={{ marginBottom: 4 }}>
+                    <strong>{s.type}</strong>
+                    {s.spec?.parallel_group != null ? ' (parallel)' : ''}: {s.label}
+                    {s.spec?.agent_id ? ` → ${s.spec.agent_id}` : ''}
+                    {s.spec?.phrase ? ` [${s.spec.phrase}]` : ''}
+                  </li>
+                ))}
+              </ol>
+            )}
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Plan feedback (optional)</span>
+              <textarea rows={2} value={planFeedback} onChange={(ev) => setPlanFeedback(ev.target.value)} placeholder="e.g. also add social post research; do specialties in parallel" />
+            </label>
+          </div>
           <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap' }}>
             <button
-              type="submit"
-              className="btn-primary"
+              type="button"
+              className="btn-secondary"
               disabled={busyId === (editingId || 'create') || enrichBusy || !form.prompt.trim()}
+              onClick={() => save(null, { approvePlan: false })}
             >
-              {busyId === (editingId || 'create')
-                ? 'Saving…'
-                : editingId
-                  ? 'Save changes'
-                  : 'Save schedule'}
+              Save draft
+            </button>
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={busyId === (editingId || 'create') || enrichBusy || !form.prompt.trim() || !draftPlan}
+              onClick={() => save(null, { approvePlan: true })}
+            >
+              {busyId === (editingId || 'create') ? 'Saving...' : 'Approve plan & schedule'}
             </button>
             <button
               type="button"
@@ -378,7 +464,7 @@ function ScheduledGoalsPanel() {
               onClick={enrichPromptWithAi}
               title="AI clarifies and structures your goal for the target AI employee"
             >
-              {enrichBusy ? 'Enriching…' : 'Enrich with AI'}
+              {enrichBusy ? 'Enriching...' : 'Enrich with AI'}
             </button>
             {editingId && (
               <button type="button" className="btn-secondary" onClick={() => resetForm(form.agent_id)}>
@@ -401,7 +487,7 @@ function ScheduledGoalsPanel() {
       )}
 
       {loading ? (
-        <p style={{ color: 'var(--muted)' }}>Loading…</p>
+        <p style={{ color: 'var(--muted)' }}>Loading...</p>
       ) : filtered.length === 0 ? (
         <p style={{ color: 'var(--muted)' }}>
           No scheduled goals yet. Chat the COO: “Every hour, check MAGS and notify me if down 2%,” or create one above.
@@ -475,7 +561,7 @@ function ScheduledGoalsPanel() {
                   <td style={{ padding: '0.5rem' }}>{g.schedule_label}</td>
                   <td style={{ padding: '0.5rem' }}>{g.ends_label || (g.is_perpetual ? 'Perpetual' : g.ends_at)}</td>
                   <td style={{ padding: '0.5rem' }}>
-                    <span className={statusClass(g.status)}>{g.status}</span>
+                    <span className={statusClass(g.status)}>{g.status}{g.plan_status && g.plan_status !== 'none' ? ` · plan ${g.plan_status}` : ''}</span>
                   </td>
                   <td style={{ padding: '0.5rem', fontSize: '0.8rem', color: 'var(--muted)' }}>
                     <div>{g.last_run_status || '—'}
@@ -522,13 +608,26 @@ function ScheduledGoalsPanel() {
                           Resume
                         </button>
                       ) : null}
+                      {(g.status === 'draft' || g.plan_status === 'draft') && (
+                        <button
+                          type="button"
+                          className="btn-primary"
+                          disabled={busyId === g.id}
+                          onClick={() =>
+                            runAction(g.id, () => api.scheduledGoalsApprovePlan(g.id), 'Plan approved — schedule active.')
+                          }
+                        >
+                          Approve plan
+                        </button>
+                      )}
                       <button
                         type="button"
                         className="btn-secondary"
-                        disabled={busyId === g.id}
+                        disabled={busyId === g.id || g.status === 'draft' || g.plan_status === 'draft'}
                         onClick={() =>
                           runAction(g.id, () => api.scheduledGoalsRunNow(g.id), 'Run started — check agent chat.')
                         }
+                        title={g.status === 'draft' || g.plan_status === 'draft' ? 'Approve the plan first' : 'Fire now'}
                       >
                         Run now
                       </button>
@@ -550,13 +649,12 @@ function ScheduledGoalsPanel() {
                   <tr key={`${g.id}-plan`} style={{ borderBottom: '1px solid var(--border)' }}>
                     <td colSpan={7} style={{ padding: '0.35rem 0.75rem 0.85rem' }}>
                       {planBusy === g.id ? (
-                        <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>Loading plan…</p>
+                        <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>Loading plan...</p>
                       ) : planCache[g.id]?.error ? (
                         <p style={{ color: 'var(--danger, #c44)', fontSize: '0.85rem' }}>{planCache[g.id].error}</p>
                       ) : !(planCache[g.id] || []).length ? (
                         <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>
-                          No durable goal plan yet for this schedule. Multi-workflow prompts (e.g. CRM then ERP maker-checker)
-                          create one on fire; otherwise the fire uses COO chat.
+                          No fire-time goal plan yet. Multi-intent or multi-workflow prompts create a durable plan on fire after the schedule plan is approved; specialty steps show as specialty_task.
                         </p>
                       ) : (
                         (planCache[g.id] || []).map((plan) => (
