@@ -1,7 +1,7 @@
 {
   "template_key": "erp-maker-checker",
-  "name": "ERP: draft → check → post",
-  "description": "Optional Maker→Checker protocol for ERPNext drafts and submit gate. Kanban remains source of truth. Chat: run erp maker checker",
+  "name": "ERP: draft → CEO gate → check → post",
+  "description": "Maker drafts; optional CEO approval when needs_ceo (e.g. 5% discount); Checker owns submit. No free-form CEO Kanban HITL. Chat: run erp maker checker",
   "chat_trigger_phrase": "run erp maker checker",
   "trigger_modes": [
     "manual",
@@ -25,7 +25,7 @@
         "type": "trigger",
         "position": {
           "x": 40,
-          "y": 200
+          "y": 220
         },
         "data": {
           "label": "Start",
@@ -42,12 +42,12 @@
         "type": "agent",
         "position": {
           "x": 260,
-          "y": 200
+          "y": 220
         },
         "data": {
           "label": "ERP Maker A (draft)",
           "agentNameRef": "ERP Maker A",
-          "prompt": "You are ERP Maker on Flolah. Goal from CEO/COO:\n\n{{input}}\n\nRules:\n1) Company-scoped erp_* only. Create/update DRAFT docs only — never erp_submit_doc / erp_cancel_doc.\n2) When ready for post, kanban_create_task assigned to **ERP Checker** titled [ERP] Submit {doctype} {name} with full context.\n3) Reply with a short summary: objects touched, Kanban task id, next step for Checker.",
+          "prompt": "You are ERP Maker on Flolah. Goal from CEO/COO:\n\n{{input}}\n\nRules:\n1) Company-scoped erp_* only. Create/update DRAFT docs only — never erp_submit_doc / erp_cancel_doc.\n2) HITL is workflow-only: NEVER invent a free-form CEO Kanban card and never ask the CEO to comment Approved outside a workflow. If policy needs CEO (e.g. 5% discount), do drafts if safe, then signal needs_ceo — the run will open a real CEO Approval node.\n3) When ready for checker without CEO: optional Kanban for ERP Checker titled [ERP] Submit {doctype} {name}; never submit yourself.\n4) End your reply with ONLY one JSON line (no markdown):\n{\"decision\":\"ready_for_checker\"|\"needs_ceo\",\"gate\":null|\"discount_5pct\"|\"other\",\"reason\":\"...\",\"docs\":\"doctypes/names touched\"}\nUse decision=needs_ceo when price/discount/credit/compliance needs CEO; gate=discount_5pct for 5%+ discount.",
           "inputBindings": [
             {
               "id": "prompt",
@@ -59,16 +59,56 @@
         }
       },
       {
+        "id": "if-ceo",
+        "type": "if",
+        "position": {
+          "x": 500,
+          "y": 220
+        },
+        "data": {
+          "label": "Needs CEO approval?",
+          "taskConfig": {
+            "sourceNodeId": "maker-1",
+            "sourceOutputKey": "reply",
+            "operator": "contains",
+            "compareValue": "\"decision\":\"needs_ceo\""
+          }
+        }
+      },
+      {
+        "id": "ceo-approval-1",
+        "type": "ceo_approval",
+        "position": {
+          "x": 740,
+          "y": 80
+        },
+        "data": {
+          "label": "CEO Approval (policy gate)",
+          "taskConfig": {
+            "title": "ERP · CEO policy approval",
+            "instructions": "Approve or reject this commercial/policy gate (e.g. 5% discount). Use the Kanban Approve/Reject controls — free-form chat \"Approved\" alone does not resume the workflow."
+          },
+          "inputBindings": [
+            {
+              "id": "summary",
+              "mode": "dynamic",
+              "sourceNodeId": "maker-1",
+              "sourceOutputKey": "reply"
+            }
+          ]
+        }
+      },
+      {
         "id": "checker-1",
         "type": "agent",
         "position": {
-          "x": 500,
-          "y": 200
+          "x": 980,
+          "y": 220
         },
         "data": {
           "label": "ERP Checker (review)",
           "agentNameRef": "ERP Checker",
-          "prompt": "You are ERP Checker. CEO/COO goal / Maker output:\n\n{{input}}\n\nMaker summary:\n{{maker-1.reply}}\n\nRules:\n1) Review with list/get tools. If safe to post: erp_submit_doc / cancel as required; complete related Kanban.\n2) If bad: comment FINDING: on Kanban and reassign to Maker. Do not bulk-draft.\n3) End your reply with ONLY one JSON line:\n{\"decision\":\"approved\"|\"rejected\",\"adjustments\":\"...\",\"notes\":\"...\"}",
+          "prompt": "You are ERP Checker. CEO/COO goal / Maker output:\n\n{{input}}\n\nMaker summary:\n{{maker-1.reply}}\n\nCEO approval (if any):\n{{ceo-approval-1.reply}}\n\nRules:\n1) Review with list/get. If safe: erp_submit_doc / cancel as required.\n2) If bad: FINDING on Kanban and reassign Maker. No bulk-draft.\n3) End with ONLY one JSON line:\n{\"decision\":\"approved\"|\"rejected\",\"adjustments\":\"...\",\"notes\":\"...\"}",
           "inputBindings": [
             {
               "id": "prompt",
@@ -83,8 +123,8 @@
         "id": "if-1",
         "type": "if",
         "position": {
-          "x": 740,
-          "y": 200
+          "x": 1220,
+          "y": 220
         },
         "data": {
           "label": "If approved (pass 1)",
@@ -100,13 +140,13 @@
         "id": "maker-2",
         "type": "agent",
         "position": {
-          "x": 980,
-          "y": 380
+          "x": 1460,
+          "y": 400
         },
         "data": {
           "label": "ERP Maker A (fix)",
           "agentNameRef": "ERP Maker A",
-          "prompt": "Checker rejected your draft. Goal: {{input}}\n\nChecker output:\n{{checker-1.reply}}\n\nFix FINDINGS with erp draft tools only; update Kanban for ERP Checker. Never submit.\nShort summary of fixes.",
+          "prompt": "Checker rejected your draft. Goal: {{input}}\n\nChecker output:\n{{checker-1.reply}}\n\nFix FINDINGS only; never submit; never invent CEO Kanban.\nEnd with JSON:\n{\"decision\":\"ready_for_checker\"|\"needs_ceo\",\"gate\":null|\"discount_5pct\",\"reason\":\"...\",\"docs\":\"...\"}",
           "inputBindings": [
             {
               "id": "prompt",
@@ -121,13 +161,13 @@
         "id": "checker-2",
         "type": "agent",
         "position": {
-          "x": 1220,
-          "y": 380
+          "x": 1700,
+          "y": 400
         },
         "data": {
           "label": "ERP Checker (recheck)",
           "agentNameRef": "ERP Checker",
-          "prompt": "Second review after Maker fix.\n\nOriginal goal: {{input}}\nMaker fix: {{maker-2.reply}}\n\nPrior Checker: {{checker-1.reply}}\n\nSubmit if ok (erp_submit_doc) or reject again.\nEnd with ONLY JSON:\n{\"decision\":\"approved\"|\"rejected\",\"adjustments\":\"...\",\"notes\":\"...\"}",
+          "prompt": "Second review after Maker fix.\n\nOriginal goal: {{input}}\nMaker fix: {{maker-2.reply}}\nPrior Checker: {{checker-1.reply}}\n\nSubmit if ok (erp_submit_doc) or reject.\nEnd with ONLY JSON:\n{\"decision\":\"approved\"|\"rejected\",\"adjustments\":\"...\",\"notes\":\"...\"}",
           "inputBindings": [
             {
               "id": "prompt",
@@ -142,8 +182,8 @@
         "id": "if-2",
         "type": "if",
         "position": {
-          "x": 1460,
-          "y": 300
+          "x": 1940,
+          "y": 320
         },
         "data": {
           "label": "If approved (pass 2)",
@@ -159,15 +199,15 @@
         "id": "notify-ok",
         "type": "content_tool",
         "position": {
-          "x": 1220,
-          "y": 80
+          "x": 1460,
+          "y": 60
         },
         "data": {
           "label": "Notify CEO (approved)",
           "toolName": "notify_ceo",
           "taskConfig": {
             "toolName": "notify_ceo",
-            "bodyJson": "{\"message\": \"Maker/Checker {{input}} completed (approved). See agent chat/Kanban.\", \"title\": \"ERP gate passed\"}"
+            "bodyJson": "{\"message\": \"Maker/Checker completed (approved). See Kanban/Workflows.\", \"title\": \"ERP gate passed\"}"
           },
           "inputBindings": [
             {
@@ -183,15 +223,15 @@
         "id": "notify-escalate",
         "type": "content_tool",
         "position": {
-          "x": 1700,
-          "y": 380
+          "x": 2180,
+          "y": 400
         },
         "data": {
           "label": "Notify CEO (escalated)",
           "toolName": "notify_ceo",
           "taskConfig": {
             "toolName": "notify_ceo",
-            "bodyJson": "{\"message\": \"ERP Maker/Checker still rejected after one fix cycle. Review Kanban findings.\", \"title\": \"ERP gate needs CEO\"}"
+            "bodyJson": "{\"message\": \"ERP Maker/Checker still rejected after one fix cycle.\", \"title\": \"ERP gate needs CEO\"}"
           }
         }
       }
@@ -205,6 +245,23 @@
       {
         "id": "e2",
         "source": "maker-1",
+        "target": "if-ceo"
+      },
+      {
+        "id": "e2t",
+        "source": "if-ceo",
+        "target": "ceo-approval-1",
+        "sourceHandle": "true"
+      },
+      {
+        "id": "e2f",
+        "source": "if-ceo",
+        "target": "checker-1",
+        "sourceHandle": "false"
+      },
+      {
+        "id": "e2c",
+        "source": "ceo-approval-1",
         "target": "checker-1"
       },
       {

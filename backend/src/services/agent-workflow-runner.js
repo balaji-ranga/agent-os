@@ -28,6 +28,11 @@ import { executeCustomScriptTask } from './custom-scripts.js';
 import { runMasterDataQuery } from './master-data.js';
 import { getTaskTypeDef } from './agent-workflow-task-catalog.js';
 import { evaluateCondition } from './agent-workflow-conditions.js';
+import {
+  maybeAutoRegisterRunWatch,
+  notifyWorkflowRunTerminal,
+  notifyWorkflowRunWaitingCeo,
+} from './agent-workflow-run-watch.js';
 import { validateWorkflowBrainCredentials } from './agent-workflow-brain-providers.js';
 import {
   resolveWorkflowInputSchema,
@@ -411,6 +416,11 @@ function failRun(runId, message) {
   void notifyA2ARunTerminal(runId).catch((e) =>
     console.warn('[a2a] notify on fail failed', runId, e?.message || e)
   );
+  try {
+    notifyWorkflowRunTerminal(runId);
+  } catch (e) {
+    console.warn('[wf-run-watch] terminal on fail', runId, e?.message || e);
+  }
 }
 
 /** Node types that can safely re-dispatch after a process restart. */
@@ -553,6 +563,11 @@ function completeRun(runId) {
   void notifyA2ARunTerminal(runId).catch((e) =>
     console.warn('[a2a] notify on complete failed', runId, e?.message || e)
   );
+  try {
+    notifyWorkflowRunTerminal(runId);
+  } catch (e) {
+    console.warn('[wf-run-watch] terminal on complete', runId, e?.message || e);
+  }
 }
 
 function buildAgentPrompt(runId, definitionId, definitionName, node, inputText, ownerUserId) {
@@ -724,7 +739,14 @@ export async function startAgentWorkflowRun(
       processPendingDelegationTasks().catch(() => {});
     });
 
-  return store.getRun(runId, ownerUserId);
+  const started = store.getRun(runId, ownerUserId);
+  try {
+    // COO/chat triggers: register notify-on-waiting/terminal so the chat turn can end immediately.
+    maybeAutoRegisterRunWatch(started, actor);
+  } catch (e) {
+    console.warn('[wf-run-watch] auto-register failed', runId, e?.message || e);
+  }
+  return started;
 }
 
 /**
@@ -917,6 +939,16 @@ async function executeNode(runId, nodeId, graph, context, def, runRow) {
       kanban_task_id: kanbanId,
     });
     updateRunProgress(runId);
+    try {
+      // Ensure watch exists even if run was started without COO actor (e.g. schedule).
+      maybeAutoRegisterRunWatch(
+        { id: runId, owner_user_id: runRow.owner_user_id },
+        { id: 'system', name: 'agent-workflow', type: 'chat' }
+      );
+      notifyWorkflowRunWaitingCeo(runId, { nodeId: node.id, kanbanTaskId: kanbanId });
+    } catch (e) {
+      console.warn('[wf-run-watch] waiting_ceo notify failed', runId, e?.message || e);
+    }
     return;
   }
 

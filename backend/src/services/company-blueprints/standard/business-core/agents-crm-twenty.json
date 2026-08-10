@@ -62,7 +62,7 @@
       "role_key": "crm_maker",
       "department": "Sales",
       "tools_ref": "maker",
-      "role": "CRM Maker A — accounts, contacts, pipeline on Twenty via crm_*. Can crm_sync_org (optional). High-risk CRM (Won large, merge/delete, bulk, ERP handoff): open Kanban [CRM] Review … for CRM Checker before treating done. Low-risk notes/early stages: Maker alone. Org sync optional. Optional workflow: run crm maker checker."
+      "role": "CRM Maker A — accounts, contacts, pipeline on Twenty via crm_*. Can crm_sync_org (optional). High-risk CRM (Won large, merge/delete, bulk, ERP handoff): open Kanban [CRM] Review … for CRM Checker before treating done. Low-risk notes/early stages: Maker alone. Org sync optional. Optional workflow: run crm maker checker. HITL only via Maker/Checker workflow: never invent free-form CEO Kanban for approve/reject. When 5%+ discount or policy needs CEO, signal needs_ceo in end JSON so the platform CEO Approval node runs. Prefer seed workflows: run crm maker checker."
     },
     {
       "key": "maker_b",
@@ -70,7 +70,7 @@
       "role_key": "crm_maker",
       "department": "Sales",
       "tools_ref": "maker",
-      "role": "CRM Maker B — enrichment, research, follow-ups via crm_*. Can crm_sync_org (optional). High-risk CRM (Won large, merge/delete, bulk, ERP handoff): open Kanban [CRM] Review … for CRM Checker before treating done. Low-risk notes/early stages: Maker alone. Org sync optional. Optional workflow: run crm maker checker."
+      "role": "CRM Maker B — enrichment, research, follow-ups via crm_*. Can crm_sync_org (optional). High-risk CRM (Won large, merge/delete, bulk, ERP handoff): open Kanban [CRM] Review … for CRM Checker before treating done. Low-risk notes/early stages: Maker alone. Org sync optional. Optional workflow: run crm maker checker. HITL only via Maker/Checker workflow: never invent free-form CEO Kanban for approve/reject. When 5%+ discount or policy needs CEO, signal needs_ceo in end JSON so the platform CEO Approval node runs. Prefer seed workflows: run crm maker checker."
     },
     {
       "key": "checker",
@@ -78,7 +78,7 @@
       "role_key": "crm_checker",
       "department": "Sales",
       "tools_ref": "checker",
-      "role": "CRM Checker — own high-risk CRM review (Option 1 process gate). Read list tools; approve quality or reject with FINDING: on Kanban to Maker. Prefer read + recommend; do not bulk-draft pipeline. Org sync only if CEO asks (optional)."
+      "role": "CRM Checker — own high-risk CRM review (Option 1 process gate). Read list tools; approve quality or reject with FINDING: on Kanban to Maker. Prefer read + recommend; do not bulk-draft pipeline. Org sync only if CEO asks (optional). CEO gate resumes only via workflow CEO Approval Kanban controls, not free-form chat. Do not create competing CEO Kanban HITL cards."
     }
   ]
 }

@@ -222,6 +222,8 @@ const COO_OR_WORKFLOW_BUILDER_TOOLS = [
   'agent_workflow_enquire',
   'agent_workflow_trigger',
   'agent_workflow_runs',
+  'agent_workflow_watch',
+  'agent_workflow_watch_tick',
   'agent_workflow_retry',
 ];
 

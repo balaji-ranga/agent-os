@@ -51,6 +51,10 @@ import {
 } from '../services/agent-workflow-chat-tools.js';
 import { executeAgentWorkflowRuns } from '../services/agent-workflow-agent-runs.js';
 import { executeAgentWorkflowRetry } from '../services/agent-workflow-retry.js';
+import {
+  registerWorkflowRunWatch,
+  runWorkflowWatchTick,
+} from '../services/agent-workflow-run-watch.js';
 import { applyWorkflowBuilderActions, getWorkflowDraftForAgent } from '../services/agent-workflow-builder.js';
 import { resolveAuthenticatedCeoUserId, attachAuthUser, requireAuth, requireCeoOrAdmin } from '../middleware/auth.js';
 import { requireToolsAccess, attachToolsAuth } from '../middleware/tools-auth.js';
@@ -2514,24 +2518,36 @@ router.post('/agent-workflow-trigger', optionalAuth, async (req, res) => {
       return res.status(400).json(err);
     }
     const ownerUserId = resolveWorkflowOwner(req, requestPayload);
+    const actor = {
+      id: caller?.id || null,
+      name: caller?.name || null,
+      type: isWorkflowBuilderCaller(caller) ? 'workflow_builder' : 'coo',
+    };
     const run = await triggerAgentWorkflowForOwner(ownerUserId, {
       message,
       workflow_id: workflowId,
       input: message,
-      actor: {
-        id: caller.id,
-        name: caller.name,
-        type: isWorkflowBuilderCaller(caller) ? 'workflow_builder' : 'coo',
-      },
+      actor,
+    });
+    // Non-blocking: never wait for terminal status in the HTTP tool path.
+    const watch = registerWorkflowRunWatch(run.id, {
+      ownerUserId,
+      actorAgentId: actor.id,
+      actorName: actor.name,
     });
     const out = {
       ok: true,
+      async: true,
       run_id: run.id,
       run_number: run.run_number,
       definition_id: run.definition_id,
       definition_name: run.definition_name,
       status: run.status,
       ceo_user_id: ownerUserId,
+      watch: watch?.watch || null,
+      instruction:
+        watch?.instruction ||
+        'Workflow started. Confirm run_id to the CEO and end the turn — do not poll or block. Platform notifies on CEO-wait and terminal status; use agent_workflow_runs or agent_workflow_watch_tick only if asked.',
     };
     logTool(req,'agent_workflow_trigger', requestPayload, out, 'ok', source);
     res.json(out);
@@ -2539,6 +2555,83 @@ router.post('/agent-workflow-trigger', optionalAuth, async (req, res) => {
     const err = { error: e.message, details: e.details || undefined };
     logTool(req,'agent_workflow_trigger', requestPayload, err, 'error', source);
     res.status(400).json(err);
+  }
+});
+
+/**
+ * Register notify-on-terminal / CEO-wait for a run (COO or Workflow Builder).
+ * Prefer agent_workflow_trigger (auto-registers). Use this if you only have a run_id.
+ */
+router.post('/agent-workflow-watch', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = req.body || {};
+  try {
+    const caller = getCallerAgent(req);
+    if (!canAccessWorkflowTools(caller)) {
+      const err = { error: 'Only COO or Workflow Builder can watch agent workflow runs' };
+      logTool(req, 'agent_workflow_watch', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const runId = Number(requestPayload.run_id || requestPayload.runId);
+    if (!runId) {
+      const err = { error: 'run_id required' };
+      logTool(req, 'agent_workflow_watch', requestPayload, err, 'error', source);
+      return res.status(400).json(err);
+    }
+    const ownerUserId = resolveWorkflowOwner(req, requestPayload);
+    const out = registerWorkflowRunWatch(runId, {
+      ownerUserId,
+      actorAgentId: caller?.id || null,
+      actorName: caller?.name || null,
+      notifyOnWaiting: requestPayload.notify_on_waiting !== false,
+      notifyOnTerminal: requestPayload.notify_on_terminal !== false,
+    });
+    if (!out.ok) {
+      logTool(req, 'agent_workflow_watch', requestPayload, out, 'error', source);
+      return res.status(404).json(out);
+    }
+    logTool(req, 'agent_workflow_watch', requestPayload, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'agent_workflow_watch', requestPayload, err, 'error', source);
+    res.status(500).json(err);
+  }
+});
+
+/**
+ * COO cron poll for one workflow run: NO_REPLY while running; text when waiting/terminal.
+ * Body: { run_id, cron_job_id? }. Reply field is what the cron agent must emit.
+ */
+router.post('/agent-workflow-watch-tick', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = req.body || {};
+  const runId = Number(requestPayload.run_id || requestPayload.runId);
+  const cronJobId = String(requestPayload.cron_job_id || requestPayload.job_id || '').trim() || null;
+  try {
+    if (!runId) {
+      const err = { error: 'run_id required' };
+      logTool(req, 'agent_workflow_watch_tick', requestPayload, err, 'error', source);
+      return res.status(400).json(err);
+    }
+    const caller = getCallerAgent(req);
+    if (caller && !caller.is_coo && !isWorkflowBuilderCaller(caller)) {
+      const err = { error: 'Only COO or Workflow Builder may use agent_workflow_watch_tick' };
+      logTool(req, 'agent_workflow_watch_tick', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const ownerUserId = resolveWorkflowOwner(req, requestPayload);
+    const out = await runWorkflowWatchTick({ runId, cronJobId, ownerUserId });
+    if (!out.ok) {
+      logTool(req, 'agent_workflow_watch_tick', requestPayload, out, 'error', source);
+      return res.status(404).json(out);
+    }
+    logTool(req, 'agent_workflow_watch_tick', requestPayload, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'agent_workflow_watch_tick', requestPayload, err, 'error', source);
+    res.status(500).json(err);
   }
 });
 

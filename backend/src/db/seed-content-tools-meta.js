@@ -138,7 +138,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/agent-workflow-trigger',
     method: 'POST',
     purpose:
-      'API tool (COO or Workflow Builder): start a published custom agent workflow for the entitled CEO. Invoke with message containing the chat phrase OR workflow_id plus optional input. Owner from session only.',
+      'API tool (COO or Workflow Builder): start a published custom agent workflow for the entitled CEO. Invoke with message containing the chat phrase OR workflow_id plus optional input. Returns immediately with run_id (async:true) — never blocks until the run finishes. Confirm run_id and end the chat turn. Platform auto-registers notify-on-CEO-wait and notify-on-terminal. Poll agent_workflow_runs / agent_workflow_watch_tick only if asked. Owner from session only.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -149,7 +149,29 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/agent-workflow-runs',
     method: 'POST',
     purpose:
-      'API tool (COO or Workflow Builder): list or inspect recent custom agent workflow run statuses/outcomes for the entitled CEO. Pass workflow_id or workflow_query/query to scope one workflow; omit to list recent runs across workflows; pass run_id to inspect one run (steps + errors). Owner from session only. Never use ibkr_order_learnings or other IBKR tools for workflow run status.',
+      'API tool (COO or Workflow Builder): list or inspect recent custom agent workflow run statuses/outcomes for the entitled CEO. Pass workflow_id or workflow_query/query to scope one workflow; omit to list recent runs across workflows; pass run_id to inspect one run (steps + errors). Owner from session only. Never use ibkr_order_learnings or other IBKR tools for workflow run status. Prefer this for status checks — do not block a chat turn waiting for long runs.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'agent_workflow_watch',
+    display_name: 'Watch Agent Workflow Run',
+    endpoint: '/api/tools/agent-workflow-watch',
+    method: 'POST',
+    purpose:
+      'API tool (COO or Workflow Builder): register notify-on-terminal and notify-on-CEO-wait for an existing agent workflow run. Body: run_id (required). Usually unnecessary after agent_workflow_trigger (auto-registers). Owner from session only.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'agent_workflow_watch_tick',
+    display_name: 'Agent Workflow Watch Tick',
+    endpoint: '/api/tools/agent-workflow-watch-tick',
+    method: 'POST',
+    purpose:
+      'API tool (COO watch crons): poll one agent workflow run_id; while running return reply NO_REPLY; when waiting for CEO approval or terminal status return notify_text and optionally remove matching OpenClaw cron (pass cron_job_id). Prefer platform auto-notify from agent_workflow_trigger. Cron agent must reply with exactly the returned reply field.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -678,6 +700,8 @@ const WORKFLOW_TOOLS = BUILTIN_TOOLS.filter((t) =>
     'agent_workflow_enquire',
     'agent_workflow_trigger',
     'agent_workflow_runs',
+    'agent_workflow_watch',
+    'agent_workflow_watch_tick',
     'agent_workflow_retry',
     'agent_workflow_get_draft',
     'agent_workflow_mutate',

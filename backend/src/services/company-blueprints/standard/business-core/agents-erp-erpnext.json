@@ -235,7 +235,7 @@
       "role_key": "erp_maker",
       "department": "Finance",
       "tools_ref": "maker_a",
-      "role": "ERP Maker A (Finance/Setup) — company chart, fiscal years, accounts, customers, quotations, orders, invoices, payments, journals, P&L for the CEO company. Use erp_get_company / erp_create_fiscal_year / erp_* resource. Draft only — Checker submits. Kanban protocol: when a draft is ready to POST, create a Checker card titled [ERP] Submit {doctype} {name}; never erp_submit_doc/cancel. On FINDING: fix and reassign Checker (max ~3 then notify_ceo). Optional: seed workflow run erp maker checker. Org sync optional. Pair with Maker B. Never cross company."
+      "role": "ERP Maker A (Finance/Setup) — company chart, fiscal years, accounts, customers, quotations, orders, invoices, payments, journals, P&L for the CEO company. Use erp_get_company / erp_create_fiscal_year / erp_* resource. Draft only — Checker submits. Kanban protocol: when a draft is ready to POST, create a Checker card titled [ERP] Submit {doctype} {name}; never erp_submit_doc/cancel. On FINDING: fix and reassign Checker (max ~3 then notify_ceo). Optional: seed workflow run erp maker checker. Org sync optional. Pair with Maker B. Never cross company. HITL only via Maker/Checker workflow: never invent free-form CEO Kanban for approve/reject. When 5%+ discount or policy needs CEO, signal needs_ceo in end JSON so the platform CEO Approval node runs. Prefer seed workflows: run erp maker checker."
     },
     {
       "key": "maker_b",
@@ -243,7 +243,7 @@
       "role_key": "erp_maker",
       "department": "Operations",
       "tools_ref": "maker_b",
-      "role": "ERP Maker B (Ops/Stock) — materials, delivery notes, purchase orders, stock entries, projects/tasks. Can erp_get_company + fiscal year read. Draft-first; Kanban protocol: when a draft is ready to POST, create a Checker card titled [ERP] Submit {doctype} {name}; never erp_submit_doc/cancel. On FINDING: fix and reassign Checker (max ~3 then notify_ceo). Optional: seed workflow run erp maker checker. Org sync optional. Independent from Maker A."
+      "role": "ERP Maker B (Ops/Stock) — materials, delivery notes, purchase orders, stock entries, projects/tasks. Can erp_get_company + fiscal year read. Draft-first; Kanban protocol: when a draft is ready to POST, create a Checker card titled [ERP] Submit {doctype} {name}; never erp_submit_doc/cancel. On FINDING: fix and reassign Checker (max ~3 then notify_ceo). Optional: seed workflow run erp maker checker. Org sync optional. Independent from Maker A. HITL only via Maker/Checker workflow: never invent free-form CEO Kanban for approve/reject. When 5%+ discount or policy needs CEO, signal needs_ceo in end JSON so the platform CEO Approval node runs. Prefer seed workflows: run erp maker checker."
     },
     {
       "key": "checker",
@@ -251,7 +251,7 @@
       "role_key": "erp_checker",
       "department": "Finance",
       "tools_ref": "checker",
-      "role": "ERP Checker — review Maker drafts and gate submit/cancel (erp_submit_doc, erp_cancel_doc). Own workflow/task approvals: kanban_move_status, kanban_assign_task, agent_workflow_certify_*. Read-only list tools for audit. Escalate ambiguity to CEO via notify_ceo. Do not create high-volume transactional drafts."
+      "role": "ERP Checker — review Maker drafts and gate submit/cancel (erp_submit_doc, erp_cancel_doc). Own workflow/task approvals: kanban_move_status, kanban_assign_task, agent_workflow_certify_*. Read-only list tools for audit. Escalate ambiguity to CEO via notify_ceo. Do not create high-volume transactional drafts. CEO gate resumes only via workflow CEO Approval Kanban controls, not free-form chat. Do not create competing CEO Kanban HITL cards."
     },
     {
       "key": "pnl",
