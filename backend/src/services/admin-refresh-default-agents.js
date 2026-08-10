@@ -22,6 +22,7 @@ import { usesTenantCeoDb } from '../db/ceo-db-config.js';
 import {
   getPlatformLeanAgentDefs,
   getPlatformLeanAgentIds,
+  getPlatformLeanAgentTools,
   listStandardPrefabInventory,
   invalidateStandardPrefabCache,
 } from './company-blueprints/standard-prefabs.js';
@@ -218,14 +219,19 @@ export async function refreshDefaultAgentsForUsers(opts = {}) {
         if (syncOrg !== false) {
           await syncOrgContextToWorkspace(agent, ceoUserId, pushed.workspace_path);
         }
-        // COO / lean agents keep grant rows; optionally reassert empty tool allowlist from DB grants
+        // tools from platform-agents.json (source of truth), not SQLite agent.tools column
+        const packTools =
+          (Array.isArray(leanDef?.tools) && leanDef.tools.length
+            ? leanDef.tools
+            : getPlatformLeanAgentTools(agent.id)) || [];
         try {
-          if (Array.isArray(agent?.tools) && agent.tools.length) {
-            setAgentToolGrants(agent, agent.tools);
+          if (packTools.length) {
+            setAgentToolGrants(agent, packTools);
           }
-        } catch (_) {
-          /* no tools column / ignore */
+        } catch (e) {
+          console.warn('[refresh-default-agents] set tools id=%s %s', agent.id, e?.message || e);
         }
+        pushed.tools_from_pack = packTools.length;
         ceoResult.agents.push(pushed);
       }
 

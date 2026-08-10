@@ -18,6 +18,8 @@
       "CRM Checker"
     ]
   },
+  "regenerated_from_owner": "ceo-demo-brightbox-744921",
+  "regenerated_at": "2026-08-10T07:41:34.818Z",
   "graph": {
     "nodes": [
       {
@@ -34,7 +36,8 @@
             "chat"
           ],
           "chatPhrase": "run crm maker checker",
-          "scheduleCron": ""
+          "scheduleCron": "",
+          "inputSchema": null
         }
       },
       {
@@ -55,7 +58,10 @@
               "sourceNodeId": "trigger-1",
               "sourceOutputKey": "text"
             }
-          ]
+          ],
+          "agentId": null,
+          "agentName": "CRM Maker A",
+          "agent_id": null
         }
       },
       {
@@ -116,7 +122,10 @@
               "sourceNodeId": "maker-1",
               "sourceOutputKey": "reply"
             }
-          ]
+          ],
+          "agentId": null,
+          "agentName": "CRM Checker",
+          "agent_id": null
         }
       },
       {
@@ -154,7 +163,10 @@
               "sourceNodeId": "checker-1",
               "sourceOutputKey": "reply"
             }
-          ]
+          ],
+          "agentId": null,
+          "agentName": "CRM Maker A",
+          "agent_id": null
         }
       },
       {
@@ -175,7 +187,10 @@
               "sourceNodeId": "maker-2",
               "sourceOutputKey": "reply"
             }
-          ]
+          ],
+          "agentId": null,
+          "agentName": "CRM Checker",
+          "agent_id": null
         }
       },
       {
@@ -303,6 +318,12 @@
         "target": "notify-escalate",
         "sourceHandle": "false"
       }
-    ]
-  }
+    ],
+    "viewport": {
+      "x": 0,
+      "y": 0,
+      "zoom": 1
+    }
+  },
+  "variables": {}
 }

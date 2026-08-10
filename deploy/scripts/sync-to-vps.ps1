@@ -323,6 +323,8 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\seed-meta-graph-mcp.js" `
     "$Repo\backend\scripts\seed-business-core-mcp.js" `
     "$Repo\backend\scripts\seed-business-core-maker-checker-workflows.js" `
+    "$Repo\backend\scripts\publish-balaji-demo-blueprint.js" `
+    "$Repo\backend\scripts\publish-brightbox-and-regenerate-standard.js" `
     "$Repo\backend\scripts\seed-content-publish-social-workflow.js" `
     "$Repo\backend\scripts\seed-content-comments-ingest.js" `
     "$Repo\backend\scripts\complete-content-ops-pipeline.js" `

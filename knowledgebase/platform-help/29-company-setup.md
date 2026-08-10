@@ -80,13 +80,22 @@ Company setup state and apply are CEO tenant–scoped. Requires authenticated CE
 
 
 
-## Demo company blueprint
+## Demo company blueprints
 
 The system pack **Flolah demo (Balaji Ranganathan)** (`demo_balaji_ranganathan`) is a deep snapshot of **BalajiDemoCompany** for clean redeploys: CRM/ERP Maker-Checker agents, IBKR/monthly trading workflows, specialty agents, goals, and connector stubs (no secrets).
 
 - Pack: `backend/src/services/company-blueprints/packs/demo_balaji_ranganathan.json`
 - Export zip: `backend/src/services/company-blueprints/exports/demo_balaji_ranganathan.zip`
 - Re-publish: `node backend/scripts/publish-balaji-demo-blueprint.js` (owner `ceo-bala`) — always secret-scrubs (`apiKey` / bridge tokens cleared; vault `*Ref` kept) and rejects residual live key patterns before writing pack/zip.
+
+The system pack **Flolah demo (BrightBox Gifts)** (`demo_brightbox_gifts`) is the **golden** CRM Twenty + ERP ERPNext Maker–Checker snapshot (BrightBox Demo CEO). Admin re-sync and standard platform packs are regenerated from this company:
+
+- Pack: `backend/src/services/company-blueprints/packs/demo_brightbox_gifts.json`
+- Export zip: `backend/src/services/company-blueprints/exports/demo_brightbox_gifts.zip`
+- Standard packs: `company-blueprints/standard/platform-agents.json` + `business-core/*`
+- Re-publish + regenerate standards: `node backend/scripts/publish-brightbox-and-regenerate-standard.js` (owner `ceo-demo-brightbox-744921`)
+
+Admin → **Refresh default agents** pushes lean tools from `platform-agents.json` (COO / Workflow Builder / Platform Help) and optionally re-syncs Business Core prefabs + Maker/Checker workflows from `standard/business-core/` when the CEO has CRM/ERP enabled on Profile.
 
 
 ## Related

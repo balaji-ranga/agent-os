@@ -145,6 +145,13 @@ export function getPlatformLeanAgentIds() {
   return ids.length ? ids : [...FALLBACK_PLATFORM_LEAN_AGENT_IDS];
 }
 
+/** Tool grant list from platform-agents.json for a lean agent id. */
+export function getPlatformLeanAgentTools(agentId) {
+  const id = String(agentId || '').toLowerCase();
+  const hit = getPlatformLeanAgents().find((a) => String(a.id || '').toLowerCase() === id);
+  return Array.isArray(hit?.tools) ? [...hit.tools] : [];
+}
+
 /**
  * Lean platform defs for Admin refresh / catalog sync.
  * @returns {Array<{ id: string, name: string, role: string, department?: string, workspace_template?: string, template_base_id: string, is_coo: boolean }>}
@@ -181,6 +188,7 @@ export function getPlatformLeanAgentDefs() {
       notes: a.notes || '',
       help_corpus: a.help_corpus || null,
       seed: a.seed || null,
+      tools: Array.isArray(a.tools) ? [...a.tools] : [],
     };
   });
 }
@@ -198,6 +206,7 @@ export function listStandardPrefabInventory() {
       id: a.id,
       name: a.name,
       workspace_template: a.workspace_template,
+      tools: Array.isArray(a.tools) ? a.tools.length : 0,
     })),
     platform_lean_ids: getPlatformLeanAgentIds(),
     business_core: {

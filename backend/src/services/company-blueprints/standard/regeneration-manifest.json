@@ -1,0 +1,25 @@
+{
+  "owner": "ceo-demo-brightbox-744921",
+  "at": "2026-08-10T07:41:34.835Z",
+  "platform_agents": [
+    {
+      "id": "balserve",
+      "tools": 107
+    },
+    {
+      "id": "workflowbuilder",
+      "tools": 20
+    },
+    {
+      "id": "platformhelp",
+      "tools": 7
+    }
+  ],
+  "business_core_files": [
+    "business-core/agents-crm-twenty.json",
+    "business-core/agents-crm-erpnext.json",
+    "business-core/agents-erp-erpnext.json",
+    "business-core/workflow-crm-maker-checker.json",
+    "business-core/workflow-erp-maker-checker.json"
+  ]
+}

@@ -2,6 +2,12 @@
 
 Redeploy-safe source of truth **alongside** industry packs in `../packs/`.
 
+Regenerate from BrightBox Demo CEO:
+
+```bash
+node scripts/publish-brightbox-and-regenerate-standard.js
+```
+
 | Path | Purpose |
 |------|---------|
 | `catalog.json` | Index of platform agents, Business Core packs, IBKR manifests |

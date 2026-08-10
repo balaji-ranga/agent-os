@@ -1,0 +1,23 @@
+{
+  "published_id": "demo_brightbox_gifts",
+  "secrets_scrubbed": true,
+  "secrets_cleared": 0,
+  "zip_bytes": 192090,
+  "coverage": {
+    "knowledge": true,
+    "policies": true,
+    "org": true,
+    "agents": true,
+    "agent_tools": true,
+    "agents_md": true,
+    "agents_md_ops": true,
+    "workflows": true,
+    "workflow_graphs": true,
+    "connectors": true,
+    "goals": true,
+    "secrets_scrubbed": true
+  },
+  "source_owner": "ceo-demo-brightbox-744921",
+  "source_company": "BrightBox Gifts",
+  "refreshed_at": "2026-08-10T07:41:35.021Z"
+}
