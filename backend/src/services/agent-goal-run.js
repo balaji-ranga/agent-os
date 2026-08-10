@@ -92,58 +92,86 @@ export function ensureAgentGoalRunTables() {
   _tablesReady = true;
 }
 
+/**
+ * Normalize a planned step. Idempotent: already-normalized `{ type, label, spec }`
+ * rows (and DB step_type/spec shapes) keep phrase/agent/message instead of
+ * collapsing to defaults on a second pass (createGoalRun re-maps planGoalStepsAsync output).
+ */
 export function normalizeStepSpec(raw) {
-  if (!raw || typeof raw !== 'object') {
-    return { type: 'agent_continue', label: 'Continue with agent', spec: {} };
+  if (!raw || typeof raw !== "object") {
+    return { type: "agent_continue", label: "Continue with agent", spec: {} };
   }
-  const type = String(raw.type || raw.step_type || 'workflow_trigger').toLowerCase();
-  if (type === 'workflow_trigger' || type === 'workflow') {
-    const phrase = String(raw.phrase || raw.message || raw.workflow_phrase || '').trim();
+  const nested = raw.spec && typeof raw.spec === "object" ? raw.spec : {};
+  const type = String(raw.type || raw.step_type || "workflow_trigger").toLowerCase();
+  if (type === "workflow_trigger" || type === "workflow") {
+    const phrase = String(
+      raw.phrase ||
+        raw.message ||
+        raw.workflow_phrase ||
+        nested.phrase ||
+        nested.message ||
+        nested.workflow_phrase ||
+        ""
+    ).trim();
     return {
-      type: 'workflow_trigger',
-      label: String(raw.label || phrase || 'Run workflow').trim(),
+      type: "workflow_trigger",
+      label: String(raw.label || phrase || "Run workflow").trim(),
       spec: {
-        phrase: phrase || 'run workflow',
-        phase: raw.phase || raw.workflow_phase || 'generic',
-        workflow_id: raw.workflow_id || null,
+        phrase: phrase || "run workflow",
+        phase: raw.phase || raw.workflow_phase || nested.phase || "generic",
+        workflow_id: raw.workflow_id || nested.workflow_id || null,
       },
     };
   }
-  if (type === 'notify_ceo' || type === 'notify') {
-    return {
-      type: 'notify_ceo',
-      label: String(raw.label || 'Notify CEO').trim(),
-      spec: {
-        title: raw.title != null ? String(raw.title) : null,
-        body: raw.body != null ? String(raw.body) : null,
-      },
-    };
-  }
-  if (type === 'specialty_task' || type === 'specialty' || type === 'delegate') {
-    const agentId = String(raw.agent_id || raw.agentId || (raw.spec && raw.spec.agent_id) || '').trim();
-    const message = String(raw.message || raw.prompt || (raw.spec && raw.spec.message) || '').trim();
-    const pg =
-      raw.parallel_group != null
-        ? Number(raw.parallel_group)
-        : raw.spec && raw.spec.parallel_group != null
-          ? Number(raw.spec.parallel_group)
+  if (type === "notify_ceo" || type === "notify") {
+    const title =
+      raw.title != null
+        ? String(raw.title)
+        : nested.title != null
+          ? String(nested.title)
+          : null;
+    const body =
+      raw.body != null
+        ? String(raw.body)
+        : nested.body != null
+          ? String(nested.body)
           : null;
     return {
-      type: 'specialty_task',
-      label: String(raw.label || (agentId ? 'Specialty: ' + agentId : 'Specialty task')).trim(),
+      type: "notify_ceo",
+      label: String(raw.label || "Notify CEO").trim(),
+      spec: { title, body },
+    };
+  }
+  if (type === "specialty_task" || type === "specialty" || type === "delegate") {
+    const agentId = String(
+      raw.agent_id || raw.agentId || nested.agent_id || nested.agentId || ""
+    ).trim();
+    const message = String(
+      raw.message || raw.prompt || nested.message || nested.prompt || ""
+    ).trim();
+    const pgRaw =
+      raw.parallel_group != null
+        ? raw.parallel_group
+        : nested.parallel_group != null
+          ? nested.parallel_group
+          : null;
+    const pg = pgRaw != null ? Number(pgRaw) : null;
+    return {
+      type: "specialty_task",
+      label: String(raw.label || (agentId ? "Specialty: " + agentId : "Specialty task")).trim(),
       spec: {
         agent_id: agentId,
         message: message || null,
         parallel_group: Number.isFinite(pg) ? pg : null,
-        phase: raw.phase || (raw.spec && raw.spec.phase) || 'specialty',
+        phase: raw.phase || nested.phase || "specialty",
       },
     };
   }
   return {
-    type: 'agent_continue',
-    label: String(raw.label || 'Agent continue').trim(),
+    type: "agent_continue",
+    label: String(raw.label || "Agent continue").trim(),
     spec: {
-      message: raw.message || raw.prompt || null,
+      message: raw.message || raw.prompt || nested.message || nested.prompt || null,
     },
   };
 }
@@ -942,8 +970,9 @@ async function executeSpecialtyTaskStep(goal, step) {
     message +
     `\n\n[goal_run_id: ${goal.id}]\n[goal_step_id: ${step.id}]\n[ceo_user_id: ${goal.owner_user_id}]`;
 
-  const hub = getOrCreateDelegationHubStandup(goal.owner_user_id);
-  const out = await scheduleCeoRequestViaOpenClawCron(hub.id, message, goal.owner_user_id, {
+  const standupId = getOrCreateDelegationHubStandup(goal.owner_user_id);
+  if (!standupId) throw new Error('specialty_task could not resolve delegation hub standup');
+  const out = await scheduleCeoRequestViaOpenClawCron(standupId, message, goal.owner_user_id, {
     preAllocated: { [agentId]: message },
     restrictToAgentIds: [agentId],
     maxAgents: 1,

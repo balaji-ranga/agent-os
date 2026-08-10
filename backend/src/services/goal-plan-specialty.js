@@ -35,6 +35,67 @@ export function stripWorkflowPhrasesFromPrompt(prompt) {
   return t;
 }
 
+
+/**
+ * Remove goal-plan orchestration leftovers from residual specialty text.
+ * Notify / agent_goal_create are separate step types; leaving them in residual
+ * falsely triggers isCooNativeWork and drops specialty_task steps.
+ */
+export function stripPlanOrchestrationFromResidual(text) {
+  let t = String(text || '');
+  t = t
+    .replace(/\bnotify_ceo\b[\s\S]{0,240}/gi, ' ')
+    .replace(/\bnotify\s+(?:the\s+)?ceo\b[\s\S]{0,240}/gi, ' ')
+    .replace(/\bwhen\s+(?:you(?:'re| are)\s+)?finished\b[\s\S]{0,240}/gi, ' ')
+    .replace(/\bagent_?goal_?(?:create|start|status|get|list|advance)?\b/gi, ' ')
+    .replace(/\bagentgoalcreate\b/gi, ' ')
+    .replace(/\b(start\s+execution|full\s+prompt|include\s+(?:the\s+)?goal\s+run\s+id)\b/gi, ' ')
+    .replace(/\b(use\s+this\s+full\s+prompt|in\s+your\s+reply)\b/gi, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  return t;
+}
+
+/**
+ * Explicit answer via Platform Help residual -> specialty_task (not COO chat).
+ */
+export function extractExplicitPlatformHelpIntent(residual, agentsMd = '') {
+  const t = String(residual || '').trim();
+  if (!t || !/\b(platform\s*help|platformhelp)\b/i.test(t)) return null;
+
+  let agentId = 'platformhelp';
+  try {
+    const roster = parseAgentsFromAgentsMd(agentsMd || '');
+    const hit = roster.find((a) => {
+      const id = String(a.id || '').toLowerCase();
+      const name = (String(a.name || '') + ' ' + String(a.role || '')).toLowerCase();
+      return id === 'platformhelp' || /platformhelp/.test(id) || /platform\s*help/.test(name);
+    });
+    if (hit && hit.id) agentId = String(hit.id).toLowerCase().replace(/[`*]/g, '').trim();
+  } catch (_) {}
+
+  let message = t;
+  const clause =
+    t.match(/(?:also\s+)?(?:answer|ask|check|query|use)\s+(?:via|using|through|with)\s+platform\s*help\b[:\s,]*([\s\S]+)/i) ||
+    t.match(/platform\s*help\b[:\s,]+([\s\S]+)/i) ||
+    t.match(/\bvia\s+platform\s*help\b[:\s,]*([\s\S]+)/i);
+  if (clause && clause[1]) {
+    message = clause[1]
+      .replace(/\bwhen\s+(?:you(?:'re| are)\s+)?finished\b[\s\S]*/i, '')
+      .replace(/\bnotify_ceo\b[\s\S]*/i, '')
+      .trim();
+  }
+  message = stripPlanOrchestrationFromResidual(message) || t;
+  if (message.length < 8) message = t;
+  return {
+    agent_id: agentId,
+    message: message.slice(0, 2000),
+    name: 'Platform Help',
+    purpose: 'Platform help / product how-to',
+    step_label: 'Platform Help: ' + message.slice(0, 48),
+  };
+}
+
 /**
  * Heuristic residual split without LLM: sections like "A) … B) …" or "1) … 2) …".
  * @returns {string[]}
@@ -87,12 +148,25 @@ function purposeByAgentId(md) {
  */
 export async function classifySpecialtyIntentsForPlan(ownerUserId, residualText, opts = {}) {
   const max = Math.max(1, Math.min(GOAL_PLAN_MAX_SPECIALTY, Number(opts.maxSpecialty) || GOAL_PLAN_MAX_SPECIALTY));
-  const residual = String(residualText || '').trim();
-  if (!ownerUserId || !residual || residual.length < 6) return [];
-  if (isRefuseDelegationRequest(residual) || isCooNativeWork(residual)) return [];
+  const residualRaw = String(residualText || '').trim();
+  // Strip notify_ceo / agent_goal_* leftovers before coo-native heuristics; those are other plan steps.
+  const residual = stripPlanOrchestrationFromResidual(residualRaw);
+  if (!ownerUserId || !residual || residual.length < 6) {
+    const mdEarly = ownerUserId ? await readCooAgentsMdForCeo(ownerUserId) : '';
+    const phOnly = extractExplicitPlatformHelpIntent(residualRaw || residual, mdEarly || '');
+    return phOnly ? [phOnly] : [];
+  }
+  if (isRefuseDelegationRequest(residual)) return [];
 
   const md = await readCooAgentsMdForCeo(ownerUserId);
   if (!md?.trim()) return [];
+
+  // Explicit Platform Help routing always becomes a specialty_task (help is not COO chat).
+  const explicitHelp = extractExplicitPlatformHelpIntent(residual, md);
+  if (isCooNativeWork(residual) && !explicitHelp) return [];
+  if (isCooNativeWork(residual) && explicitHelp) {
+    return [explicitHelp];
+  }
 
   const hints = splitResidualIntoIntentHints(residual);
   const byAgent = new Map(); // agent_id -> message (merge later intents with same agent into multi-step)
@@ -176,6 +250,7 @@ export async function classifySpecialtyIntentsForPlan(ownerUserId, residualText,
     const roster = parseAgentsFromAgentsMd(md || '').filter((a) => {
       const id = String(a.id || '').toLowerCase();
       const role = `${a.name || ''} ${a.role || ''}`.toLowerCase();
+      if (/platformhelp|platform\s*help/i.test(role + ' ' + id) && explicitHelp) return true;
       return id && !/\bcoo\b|chief operating|platform help|workflow builder/i.test(role + ' ' + id);
     });
     if (roster.length) {
@@ -193,6 +268,20 @@ export async function classifySpecialtyIntentsForPlan(ownerUserId, residualText,
           step_label: `Specialty: ${(agent.name || agent.id)} — ${h.slice(0, 40)}`,
         };
       });
+    }
+  }
+
+  // Ensure explicit Platform Help intent is never dropped when classifier returned other agents
+  // or empty (hybrid L2C + help docs is a common multi-intent plan).
+  if (explicitHelp) {
+    const hasHelp = out.some(
+      (x) =>
+        /platformhelp|platform\s*help/i.test(String(x.agent_id || '')) ||
+        /platform\s*help/i.test(String(x.name || ''))
+    );
+    if (!hasHelp) {
+      if (out.length >= max) out[out.length - 1] = explicitHelp;
+      else out.push(explicitHelp);
     }
   }
 

@@ -11,6 +11,8 @@ import {
 } from '../src/services/agent-goal-run.js';
 import {
   stripWorkflowPhrasesFromPrompt,
+  stripPlanOrchestrationFromResidual,
+  extractExplicitPlatformHelpIntent,
   splitResidualIntoIntentHints,
   specialtyIntentsToSteps,
   GOAL_PLAN_MAX_SPECIALTY,
@@ -104,6 +106,23 @@ assert(asyncHybrid.filter((s) => s.type === 'workflow_trigger').length >= 2, 'as
 assert(asyncHybrid.some((s) => s.type === 'notify_ceo'), 'async notify');
 // Without owner, specialty not classified; residual must not invent empty specialty silently — wf still present
 assert(planUsesGoalRunMode(asyncHybrid), 'async uses goal mode');
+
+
+// createGoalRun re-maps plan steps — normalize must be idempotent for workflow phrases
+const plannedCrm = normalizeStepSpec({
+  type: 'workflow_trigger',
+  phrase: 'run crm maker checker',
+  phase: 'crm_phase',
+  label: 'CRM maker-checker workflow',
+});
+const renorm = normalizeStepSpec(plannedCrm);
+assert(renorm.spec.phrase === 'run crm maker checker', 'idempotent re-normalize phrase, got ' + renorm.spec.phrase);
+assert(renorm.spec.phase === 'crm_phase', 'idempotent phase');
+const residualNotify = stripPlanOrchestrationFromResidual(
+  'Also answer via Platform Help where CEOs track plans. When finished, notify_ceo with CRM ERP status.'
+);
+assert(!/notify_ceo/i.test(residualNotify), 'orchestration strip notify');
+assert(extractExplicitPlatformHelpIntent(residualNotify), 'explicit platform help');
 
 console.log('GOAL_PLAN_MULTISTEP_UNIT_OK', {
   maxSpecialty: GOAL_PLAN_MAX_SPECIALTY,
