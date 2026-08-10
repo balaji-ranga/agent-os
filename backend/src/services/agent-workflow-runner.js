@@ -209,6 +209,80 @@ function getWhileLoopBodyNodeIds(graph, whileNodeId) {
   return body;
 }
 
+/** Read exclusive branch label from a completed if/while step (true/false/loop). */
+function getStepBranchLabel(stepRow) {
+  if (!stepRow) return null;
+  const full = stepRow.output_json != null
+    ? stepRow
+    : db().prepare(`SELECT output_json FROM agent_workflow_run_steps WHERE id = ?`).get(stepRow.id);
+  try {
+    const out =
+      typeof full?.output_json === 'string'
+        ? JSON.parse(full.output_json || '{}')
+        : full?.output_json || {};
+    return out.branch || out.text || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * True when a node can never run on this run: every path into it is cut by an IF/While
+ * that already took a different branch (or that exclusive source itself is inactive).
+ * Used so diamond merges (if → A | B → join) do not deadlock when one branch is skipped.
+ */
+function isPermanentlyInactiveNode(runId, graph, nodeId, stack = null) {
+  const visiting = stack || new Set();
+  if (visiting.has(nodeId)) return false;
+  visiting.add(nodeId);
+
+  const own = getLatestStepRow(runId, nodeId);
+  if (own && ['completed', 'skipped', 'in_progress', 'listening', 'pending', 'failed'].includes(own.status)) {
+    return false;
+  }
+
+  const incoming = getIncomingEdges(graph, nodeId);
+  if (!incoming.length) {
+    // Trigger / roots with no step: still possible until run starts; treat as active.
+    return false;
+  }
+
+  let anyStillPossible = false;
+  for (const edge of incoming) {
+    const src = edge.source;
+    const srcNode = getNode(graph, src);
+    const srcStep = getLatestStepRow(runId, src);
+
+    if (srcNode && (srcNode.type === 'if' || srcNode.type === 'while') && srcStep) {
+      const branch = getStepBranchLabel(srcStep);
+      const handle = edge.sourceHandle || 'default';
+      if (branch != null && String(branch) !== String(handle)) {
+        // Exclusive handle not taken — this edge cannot activate the target.
+        continue;
+      }
+      if (['completed', 'skipped'].includes(srcStep.status)) {
+        anyStillPossible = true;
+        break;
+      }
+    }
+
+    if (!srcStep) {
+      if (isPermanentlyInactiveNode(runId, graph, src, visiting)) continue;
+      anyStillPossible = true;
+      break;
+    }
+
+    if (srcStep.status === 'failed') continue;
+    if (['completed', 'skipped', 'in_progress', 'listening', 'pending'].includes(srcStep.status)) {
+      anyStillPossible = true;
+      break;
+    }
+  }
+
+  visiting.delete(nodeId);
+  return !anyStillPossible;
+}
+
 function allPredecessorsComplete(runId, graph, nodeId) {
   const incoming = getIncomingEdges(graph, nodeId);
   if (!incoming.length) return true;
@@ -222,20 +296,10 @@ function allPredecessorsComplete(runId, graph, nodeId) {
     loopBackSources = new Set(incoming.filter((e) => bodyIds.has(e.source)).map((e) => e.source));
   }
 
+  let hasActiveIncoming = false;
   for (const edge of incoming) {
     const step = getLatestStepRow(runId, edge.source);
     const srcNode = getNode(graph, edge.source);
-
-    // Exclusive IF/While branches: skip edges for branches that were not taken
-    if (srcNode && (srcNode.type === 'if' || srcNode.type === 'while') && step) {
-      let branch = null;
-      try {
-        const out = typeof step.output_json === 'string' ? JSON.parse(step.output_json || '{}') : step.output_json;
-        // steps table may not expose output_json on getLatestStepRow — reload
-      } catch {
-        /* ignore */
-      }
-    }
 
     if (!step) {
       if (loopBackSources?.has(edge.source)) continue;
@@ -245,32 +309,32 @@ function allPredecessorsComplete(runId, graph, nodeId) {
       if (srcNode && (srcNode.type === 'if' || srcNode.type === 'while')) {
         continue;
       }
+      // Diamond after IF: join has edges from both branches (e.g. if-ceo→checker and
+      // ceo-approval→checker). When IF took false, ceo-approval never runs — treat as skipped.
+      if (isPermanentlyInactiveNode(runId, graph, edge.source)) {
+        continue;
+      }
       return false;
     }
 
-    const isListen = srcNode?.type === 'sse_listen' || srcNode?.type === 'mcp_listen';
-    if (isListen && step.status === 'listening') continue;
-    if (!['completed', 'skipped'].includes(step.status)) return false;
-
     if (srcNode && (srcNode.type === 'if' || srcNode.type === 'while')) {
-      const full = db()
-        .prepare(`SELECT output_json FROM agent_workflow_run_steps WHERE id = ?`)
-        .get(step.id);
-      let branch = null;
-      try {
-        const out = JSON.parse(full?.output_json || '{}');
-        branch = out.branch || out.text || null;
-      } catch {
-        branch = null;
-      }
+      const branch = getStepBranchLabel(step);
       const handle = edge.sourceHandle || 'default';
       if (branch != null && String(branch) !== String(handle)) {
         // This exclusive branch was not taken — do not block the target
         continue;
       }
     }
+
+    hasActiveIncoming = true;
+
+    const isListen = srcNode?.type === 'sse_listen' || srcNode?.type === 'mcp_listen';
+    if (isListen && step.status === 'listening') continue;
+    if (!['completed', 'skipped'].includes(step.status)) return false;
   }
-  return true;
+  // Only true when at least one non-skipped incoming path exists (avoids starting the
+  // exclusive true-side node after IF took the false branch).
+  return hasActiveIncoming;
 }
 
 function buildStepInputRecord(node, graph, context) {
