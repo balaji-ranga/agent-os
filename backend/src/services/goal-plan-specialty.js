@@ -5,33 +5,39 @@
 import { readCooAgentsMdForCeo } from './org-context.js';
 import { classifyIntentAndAllocate, parseAgentsFromAgentsMd } from './intent-classifier.js';
 import { isCooNativeWork, isRefuseDelegationRequest } from './coo-specialty-delegation.js';
+import { listChatTriggerableWorkflows, listPublishedWorkflows } from './agent-workflow-chat-tools.js';
 
 /** Plan builders may use more specialists than one-shot COO chat (default chat still 2). */
 export const GOAL_PLAN_MAX_SPECIALTY =
   Math.max(1, Math.min(12, Number(process.env.GOAL_PLAN_MAX_SPECIALTY) || 8));
 
-const WORKFLOW_STRIP_RES = [
-  // Only strip known structural workflow chat phrases — keep residual specialty text.
-  /run\s+crm\s+maker\s+checker/gi,
-  /run\s+erp\s+maker\s+checker/gi,
-  /run\s+[a-z0-9][\w\s\-]{0,40}?maker\s+checker/gi,
-];
-
 /**
- * Remove structural workflow phrases so residual text drives specialty allocation.
+ * Remove workflow chat-trigger phrases so residual text drives specialty allocation.
+ * Prefer tenant catalog phrases when ownerUserId is provided (no product hardcoding).
  */
-export function stripWorkflowPhrasesFromPrompt(prompt) {
+export function stripWorkflowPhrasesFromPrompt(prompt, ownerUserId = null) {
   let t = String(prompt || '');
-  for (const re of WORKFLOW_STRIP_RES) {
-    t = t.replace(re, ' ');
+  const phrases = [];
+  if (ownerUserId) {
+    try {
+      const chatable = listChatTriggerableWorkflows(ownerUserId) || [];
+      const published = listPublishedWorkflows(ownerUserId) || [];
+      for (const w of [...published, ...chatable]) {
+        const phr = String(w?.chat_trigger_phrase || '').trim();
+        if (phr.length >= 4) phrases.push(phr);
+      }
+    } catch (_) {
+      /* ignore */
+    }
   }
-  // Drop pure CRM/ERP structure lines that remaining after phrase strip
-  t = t
-    .replace(/\b(pre-order|preorder)\s+pipeline\b/gi, ' ')
-    .replace(/\border\s*[- ]?\s*to\s*[- ]?\s*cash\b/gi, ' ')
-    .replace(/\bo2c\b/gi, ' ')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
+  phrases.sort((a, b) => b.length - a.length);
+  for (const phrase of phrases) {
+    const esc = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+    t = t.replace(new RegExp(esc, 'gi'), ' ');
+  }
+  // Generic maker-checker style chat phrases (not CRM/ERP product names)
+  t = t.replace(/\brun\s+[a-z0-9][\w\s\-]{0,48}?maker\s*[- ]?\s*checker\b/gi, ' ');
+  t = t.replace(/\s{2,}/g, ' ').trim();
   return t;
 }
 

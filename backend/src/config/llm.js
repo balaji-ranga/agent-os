@@ -71,6 +71,8 @@ export async function chatCompletions({
   maxTokens = 1024,
   ownerUserId = null,
   toolName = null,
+  temperature = null,
+  responseFormat = null,
 }) {
   const cfg = getLlmConfig(ownerUserId);
   let effectiveModel = modelOverride || cfg.primary.model;
@@ -105,21 +107,59 @@ export async function chatCompletions({
     const headers = { 'Content-Type': 'application/json' };
     if (ep.apiKey) headers.Authorization = `Bearer ${ep.apiKey}`;
     try {
-      const res = await fetch(chatUrl, {
+      const body = {
+        model: ep.model,
+        max_tokens: maxTokens,
+        messages,
+      };
+      if (temperature != null && Number.isFinite(Number(temperature))) {
+        body.temperature = Number(temperature);
+      }
+      // Prefer structured JSON when caller asks (OpenAI-compatible servers; ignored if unsupported).
+      if (responseFormat === 'json_object' || responseFormat === 'json') {
+        body.response_format = { type: 'json_object' };
+      }
+      let res = await fetch(chatUrl, {
         method: 'POST',
         headers,
-        body: JSON.stringify({
-          model: ep.model,
-          max_tokens: maxTokens,
-          messages,
-        }),
-        signal: AbortSignal.timeout(60000),
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(Number(process.env.LLM_CHAT_TIMEOUT_MS) || 120000),
       });
+      // Some providers reject response_format; retry without it.
+      if (!res.ok && body.response_format) {
+        const errPeek = await res.text();
+        if (/response_format|json_object|unsupported/i.test(errPeek) || res.status === 400) {
+          delete body.response_format;
+          res = await fetch(chatUrl, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(body),
+            signal: AbortSignal.timeout(Number(process.env.LLM_CHAT_TIMEOUT_MS) || 120000),
+          });
+        } else {
+          // re-wrap for status handling below
+          res = new Response(errPeek, { status: res.status, statusText: res.statusText });
+        }
+      }
 
       if (res.ok) {
         const data = await res.json();
-        const content = data?.choices?.[0]?.message?.content ?? '';
-        return { content: typeof content === 'string' ? content : String(content), modelUsed: ep.model };
+        const msg = data?.choices?.[0]?.message || {};
+        let content = msg.content ?? '';
+        if (Array.isArray(content)) {
+          content = content
+            .map((p) => (typeof p === 'string' ? p : p?.text || p?.content || ''))
+            .join('\n');
+        }
+        // Prefer visible content; only fall back to reasoning when content is empty.
+        // (Reasoning models often put JSON only in content after long thoughts.)
+        if (!String(content || '').trim() && msg.reasoning_content) {
+          content = msg.reasoning_content;
+        }
+        if (!String(content || '').trim() && msg.reasoning) {
+          content = msg.reasoning;
+        }
+        return { content: typeof content === 'string' ? content : String(content ?? ''), modelUsed: ep.model };
       }
 
       const errText = await res.text();

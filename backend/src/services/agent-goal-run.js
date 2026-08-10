@@ -15,10 +15,15 @@ import {
   stripWorkflowPhrasesFromPrompt,
   classifySpecialtyIntentsForPlan,
   specialtyIntentsToSteps,
-  extractExplicitPlatformHelpIntent,
   GOAL_PLAN_MAX_SPECIALTY,
 } from './goal-plan-specialty.js';
-import { readCooAgentsMdForCeo } from './org-context.js';
+import {
+  classifyGoalPlanIntents,
+  matchWorkflowStepsFromCatalog,
+  resolveCeoEmail,
+} from './goal-plan-intent.js';
+import { invokeContentToolHttp } from './content-tool-http-invoke.js';
+import { listPublishedWorkflows } from './agent-workflow-chat-tools.js';
 import { getOrCreateDelegationHubStandup } from './standup-hub.js';
 import { scheduleCeoRequestViaOpenClawCron } from './delegation-queue.js';
 
@@ -142,6 +147,32 @@ export function normalizeStepSpec(raw) {
       type: "notify_ceo",
       label: String(raw.label || "Notify CEO").trim(),
       spec: { title, body },
+    };
+  }
+  if (type === "agent_tool" || type === "self_tool" || type === "tool") {
+    const toolName = String(
+      raw.tool_name || raw.toolName || nested.tool_name || nested.toolName || ""
+    ).trim();
+    if (toolName === "notify_ceo") {
+      return {
+        type: "notify_ceo",
+        label: String(raw.label || "Notify CEO").trim(),
+        spec: {
+          title: raw.title != null ? String(raw.title) : nested.title != null ? String(nested.title) : null,
+          body: raw.body != null ? String(raw.body) : nested.body != null ? String(nested.body) : null,
+        },
+      };
+    }
+    const argsRaw = raw.args != null ? raw.args : nested.args != null ? nested.args : raw.tool_args != null ? raw.tool_args : nested.tool_args;
+    const args =
+      argsRaw && typeof argsRaw === "object" && !Array.isArray(argsRaw) ? { ...argsRaw } : {};
+    return {
+      type: "agent_tool",
+      label: String(raw.label || toolName || "Run tool").trim(),
+      spec: {
+        tool_name: toolName || null,
+        args,
+      },
     };
   }
   if (type === "specialty_task" || type === "specialty" || type === "delegate") {
@@ -317,75 +348,60 @@ export async function planGoalStepsAsync(prompt, opts = {}) {
       ']';
   }
 
-  const wfSteps = extractStructuralWorkflowSteps(fullPrompt);
-  const residual = stripWorkflowPhrasesFromPrompt(fullPrompt);
-  // Soft-clean residual only — never strip the word "goal" (destroys "goal plan" / help residual).
-  const residualClean = residual
-    .replace(/\b(success story|customer story)\b[:\s-]*/gi, ' ')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
-
-  let specialtyRaw = [];
-  // Prefer residual after workflow phrases; also classify full prompt when residual is thin L2C context only.
-  const classifyTarget =
-    residualClean.length >= 12 ? residualClean : fullPrompt.trim().length >= 8 ? fullPrompt : residualClean;
-  if (ownerUserId && classifyTarget.length >= 8) {
+  // Primary: LLM intent classification with tools / workflows / org specialty catalog.
+  if (ownerUserId && fullPrompt.trim().length >= 8) {
     try {
-      specialtyRaw = await classifySpecialtyIntentsForPlan(ownerUserId, classifyTarget, { maxSpecialty });
-    } catch (e) {
-      console.warn('[goal-run] specialty classify failed', e?.message || e);
-    }
-  }
-
-  // Safety net: scan the ORIGINAL full prompt for explicit Platform Help even if residual was truncated
-  // by a COO rewrite leftover or residual-clean so specialty_task is never dropped when CEO asked for help.
-  if (ownerUserId) {
-    try {
-      const md = await readCooAgentsMdForCeo(ownerUserId);
-      const phFull = extractExplicitPlatformHelpIntent(fullPrompt, md || '');
-      if (phFull?.agent_id) {
-        const hasHelp = specialtyRaw.some(
-          (x) => /platformhelp|platform\s*help/i.test(String(x.agent_id || x.name || ''))
-        );
-        if (!hasHelp) {
-          specialtyRaw = [...specialtyRaw, phFull];
-          console.info('[goal-run] merged Platform Help specialty from full prompt');
-        }
+      const classified = await classifyGoalPlanIntents(ownerUserId, fullPrompt, {
+        orchestratorAgentId: opts.orchestratorAgentId || null,
+      });
+      if (Array.isArray(classified) && classified.length) {
+        const steps = classified.map(normalizeStepSpec);
+        console.info('[goal-run] plan via intent classifier', {
+          steps: steps.map((x) => x.type + ':' + (x.label || '')).slice(0, 12),
+        });
+        return steps;
       }
     } catch (e) {
-      console.warn('[goal-run] Platform Help full-prompt merge failed', e?.message || e);
+      console.warn('[goal-run] intent classifier failed; catalog fallback', e?.message || e);
     }
   }
 
-  let specialtySteps = specialtyIntentsToSteps(specialtyRaw, {
-    parallel: specialtyRaw.length > 1,
-  }).map(normalizeStepSpec);
+  // Fallback: published chat-phrase catalog order + specialty residual (tenant catalog only).
+  let steps = matchWorkflowStepsFromCatalog(fullPrompt, ownerUserId).map(normalizeStepSpec);
+  if (!steps.length && !ownerUserId) {
+    steps = extractStructuralWorkflowSteps(fullPrompt).map(normalizeStepSpec);
+  }
 
-  let steps = [...wfSteps];
-  if (specialtySteps.length) {
-    if (specialtySteps.length > 1) {
-      const g = 1;
-      steps.push(
-        ...specialtySteps.map((s) =>
-          normalizeStepSpec({
-            type: 'specialty_task',
-            agent_id: s.spec?.agent_id,
-            message: s.spec?.message,
-            parallel_group: g,
-            label: s.label,
-          })
-        )
-      );
-    } else {
-      steps.push(...specialtySteps);
+  const residual = stripWorkflowPhrasesFromPrompt(fullPrompt, ownerUserId).replace(/\s{2,}/g, ' ').trim();
+  if (ownerUserId && residual.length >= 8) {
+    try {
+      const specialtyRaw = await classifySpecialtyIntentsForPlan(ownerUserId, residual, { maxSpecialty });
+      const specialtySteps = specialtyIntentsToSteps(specialtyRaw, {
+        parallel: specialtyRaw.length > 1,
+      }).map(normalizeStepSpec);
+      if (specialtySteps.length > 1) {
+        const g = 1;
+        steps.push(
+          ...specialtySteps.map((st) =>
+            normalizeStepSpec({
+              type: 'specialty_task',
+              agent_id: st.spec?.agent_id,
+              message: st.spec?.message,
+              parallel_group: g,
+              label: st.label,
+            })
+          )
+        );
+      } else if (specialtySteps.length) {
+        steps.push(...specialtySteps);
+      }
+    } catch (e) {
+      console.warn('[goal-run] specialty fallback failed', e?.message || e);
     }
   }
 
   if (!steps.length) {
     steps.push(normalizeStepSpec({ type: 'agent_continue' }));
-  }
-  if (!steps.some((s) => s.type === 'notify_ceo')) {
-    steps.push(normalizeStepSpec({ type: 'notify_ceo' }));
   }
   return steps;
 }
@@ -395,6 +411,7 @@ export function planUsesGoalRunMode(planned) {
   const steps = Array.isArray(planned) ? planned : [];
   if (steps.some((s) => (s.type || s.step_type) === 'workflow_trigger')) return true;
   if (steps.some((s) => (s.type || s.step_type) === 'specialty_task')) return true;
+  if (steps.some((s) => (s.type || s.step_type) === 'agent_tool')) return true;
   const real = steps.filter((s) => (s.type || s.step_type) !== 'notify_ceo');
   return real.length >= 2;
 }
@@ -895,6 +912,64 @@ async function executeAgentContinueStep(goal, step) {
   return { ok: true, reply_preview: reply.slice(0, 2000) };
 }
 
+async function executeAgentToolStep(goal, step) {
+  const spec = parseJson(step.spec_json);
+  const toolName = String(spec.tool_name || '').trim();
+  if (!toolName) throw new Error('agent_tool requires tool_name');
+
+  if (toolName === 'notify_ceo') {
+    return executeNotifyCeoStep(goal, step);
+  }
+
+  const prior = priorStepSummaries(goal.id, step.step_index);
+  let args =
+    spec.args && typeof spec.args === 'object' && !Array.isArray(spec.args) ? { ...spec.args } : {};
+
+  if (toolName === 'email_send') {
+    if (!args.to && !args.cc && !args.bcc) {
+      const ceoEmail = resolveCeoEmail(goal.owner_user_id);
+      if (ceoEmail) args.to = ceoEmail;
+    }
+    if (!args.subject) {
+      args.subject = clip(goal.title || 'Goal plan complete', 120);
+    }
+    if (!args.body && !args.text && !args.html) {
+      args.body = [
+        goal.title ? 'Goal: ' + goal.title : '',
+        'goal_run_id: ' + goal.id,
+        clip(goal.prompt, 600),
+        prior ? '\nCompleted steps:\n' + prior : '',
+      ]
+        .filter(Boolean)
+        .join('\n');
+    }
+  }
+
+  if (toolName === 'agent_workflow_list' || toolName === 'agent_workflow_enquire') {
+    try {
+      const all = listPublishedWorkflows(goal.owner_user_id) || [];
+      return {
+        ok: true,
+        tool_name: toolName,
+        count: all.length,
+        workflows: all.map((w) => ({
+          id: w.id,
+          name: w.name,
+          chat_trigger_phrase: w.chat_trigger_phrase || '',
+          status: w.status,
+        })),
+      };
+    } catch (e) {
+      console.warn('[goal-run] workflow list local failed', e?.message || e);
+    }
+  }
+
+  args.ceo_user_id = args.ceo_user_id || goal.owner_user_id;
+  args.owner_user_id = args.owner_user_id || goal.owner_user_id;
+  const out = await invokeContentToolHttp(toolName, args, goal.owner_user_id);
+  return { ok: true, tool_name: toolName, result: out };
+}
+
 async function executeNotifyCeoStep(goal, step) {
   const spec = parseJson(step.spec_json);
   const prior = priorStepSummaries(goal.id, step.step_index + 1);
@@ -1251,6 +1326,17 @@ export async function startGoalRunExecution(goalRunId, opts = {}) {
 
     if (step.step_type === 'notify_ceo') {
       const result = await executeNotifyCeoStep(goal, step);
+      await completeGoalStep({
+        goalRunId: goal.id,
+        stepId: step.id,
+        ownerUserId: goal.owner_user_id,
+        result,
+      });
+      return startGoalRunExecution(goalRunId, { ownerUserId: goal.owner_user_id });
+    }
+
+    if (step.step_type === 'agent_tool') {
+      const result = await executeAgentToolStep(goal, step);
       await completeGoalStep({
         goalRunId: goal.id,
         stepId: step.id,

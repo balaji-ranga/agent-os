@@ -74,7 +74,9 @@ Multi-intent goals (CRM then ERP O2C, or any multi-workflow chain) use a **durab
 3. **Advance** — On workflow **terminal**, platform completes that step and starts the next (generic for any owner/agent; not BrightBox-only).
 4. **CEO HITL** — Still only via workflow **CEO Approval** nodes between maker and checker.
 
-**Step kinds:** `workflow_trigger` (published WF by chat phrase—must keep the exact phrase when the plan is saved), `specialty_task` (residual multi-intent / Platform Help / research), `agent_continue` (wake the goal’s owning agent once), `notify_ceo`. Specialty makers/checkers for CRM/ERP run **inside** child workflows; plan-level `specialty_task` is for residual specialists outside those graphs.
+**Plan intent (catalog + LLM):** published workflow phrases → specialty residual (AGENTS.md) → orchestrator tools (`notify_ceo`, `agent_workflow_list`, `email_send`, …). Create-goal / compliance lines are skip. Acceptance: `test-goal-plan-intent-classify.mjs`.
+
+**Step kinds:** `workflow_trigger` / `specialty_task` / `agent_tool` (orchestrator tools) / `notify_ceo` — planned via intent classify. Legacy note: `workflow_trigger` (published WF by chat phrase—must keep the exact phrase when the plan is saved), `specialty_task` (residual multi-intent / Platform Help / research), `agent_continue` (wake the goal’s owning agent once), `notify_ceo`. Specialty makers/checkers for CRM/ERP run **inside** child workflows; plan-level `specialty_task` is for residual specialists outside those graphs.
 
 **Inspect a plan:** CEO API `GET /api/agent-goal-runs` and `GET /api/agent-goal-runs/:id` (login, owner-scoped). COO tools **`agent_goal_list`** / **`agent_goal_status`**. **Chat** shows a live Goal Plan panel when the assistant mentions `agr-…` or tools `agent_goal_*`. **Scheduled goals → Last plan** expands step progress + workflow run links. **Digest** shows the **2** most recent goal plans for the selected week; **View all plans** lists every plan in that week (`/goal-plans?offset=`).
 
