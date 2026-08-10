@@ -1,10 +1,34 @@
 /**
  * Peer-agent referral: use COO AGENTS.md intent classification.
  * Stay if this agent is a classified target; otherwise point to the best peer.
+ *
+ * Platform Help is exempt: product how-to must answer first (RAG), then may soft-recommend.
  */
 import { getDb } from '../db/schema.js';
+import { isPlatformHelpAgent } from './master-data-tools.js';
 import { readCooAgentsMdForCeo } from './org-context.js';
 import { classifyIntentAndAllocate } from './intent-classifier.js';
+
+/** Product help / graph build desks — never hard-redirect to specialists mid-chat. */
+function isHelpOrBuilderAgent(agent) {
+  if (!agent) return false;
+  if (isPlatformHelpAgent(agent.id) || isPlatformHelpAgent(agent.openclaw_agent_id)) return true;
+  const id = String(agent.id || agent.openclaw_agent_id || '')
+    .trim()
+    .toLowerCase();
+  if (!id) return false;
+  if (id === 'workflowbuilder' || id.endsWith('--workflowbuilder') || /workflowbuilder$/.test(id)) {
+    return true;
+  }
+  if (
+    id === 'onboardinghelper' ||
+    id.endsWith('--onboardinghelper') ||
+    /onboardinghelper$/.test(id)
+  ) {
+    return true;
+  }
+  return false;
+}
 
 /** Operational asks should stay with the current agent (Kanban / workflows / status). */
 function isOperationalMessage(message) {
@@ -18,6 +42,9 @@ function isOperationalMessage(message) {
  */
 export async function tryBuildSpecialtyReferral(ownerUserId, currentAgent, message) {
   if (!ownerUserId || !currentAgent?.id || currentAgent.is_coo) return null;
+  // Platform Help / Workflow Builder / Onboarding Helper: answer in-role; no hard peer redirect.
+  if (isHelpOrBuilderAgent(currentAgent)) return null;
+
   const msg = String(message || '').trim();
   if (!msg || msg.length < 8) return null;
   if (isOperationalMessage(msg)) return null;
@@ -64,6 +91,16 @@ export async function tryBuildSpecialtyReferral(ownerUserId, currentAgent, messa
 /** Hint appended to every Dashboard agent chat so models do not spam notify_ceo. */
 export function buildActiveChatNotifyHint(agentId) {
   const id = String(agentId || 'agent').trim() || 'agent';
+  if (isPlatformHelpAgent(id)) {
+    return (
+      `\n\n[System — Dashboard chat · Platform Help] The CEO is already talking with you in this chat. ` +
+      `You are the product help desk — **answer here first**. Call **master_data_rag** (and related Master Data tools) and give clear numbered UI steps from retrieved help docs. ` +
+      `Never open with "that request fits **X** better than my role" or a specialty-only redirect. ` +
+      `After the how-to, you may **optionally** soft-recommend a peer (COO, CRM Maker, Workflow Builder, etc.) for live data or execution — as a short closing tip only, not a substitute for your answer. ` +
+      `Do **NOT** create a Kanban task for ordinary help Q&A. ` +
+      `Reply here only. Do **NOT** call **notify_ceo** unless they explicitly asked you to reach/notify/ping them.`
+    );
+  }
   return (
     `\n\n[System — Dashboard chat] The CEO is already talking with you in this chat. ` +
     `First decide using YOUR role/purpose in ORG.md / SOUL whether this request is in your specialty. ` +

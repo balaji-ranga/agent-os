@@ -51,3 +51,9 @@ MCP: `mcp-flolah-erp` with `X-Ceo-User-Id` in workflows.
 ## What this doc is not
 
 Full module reference for Manufacturing, HR payroll, Multi-currency tax codes — defer to Frappe docs or specialist. Flolah isolation/setup: **32**.
+
+## Tips for Platform Help answers
+
+1. **Answer first** with product how-to from this doc + **32** + **38** (numbered desk/tool steps).  
+2. Soft-tip **ERP Maker / Checker / COO** only after the help steps if the CEO needs live books or submit. Never specialty-only redirect.  
+3. Live balances and “what is my AR?” → point to **COO** or ERP after explaining which tools/desk screens apply.

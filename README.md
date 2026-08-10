@@ -50,9 +50,9 @@ You do not need to know APIs or Docker for everyday use.
 ### Ask Platform Help (how-to)
 
 1. Open **Chat** with **Platform Help** (home picker, My Org org chart, or AI Employees).
-2. Ask in plain language (examples: “How do I register an MCP server?”, “How do scheduled goals work?”, “What is Company setup?”, “What does the IF node output?”).
-3. The AI employee searches **Flolah Help — …** platform docs (OpenSearch RAG), including **Scheduled Goals** (**28**) and **Company Setup** (**29**).
-4. For *building* or *repairing* a workflow graph, prefer **Workflow Builder**; for standups/delegation/recurring goals, prefer the **COO**.
+2. Ask product questions in plain language (examples: “How do I register an MCP server?”, “How do I capture contacts and leads?”, “How do scheduled goals work?”, “What is Company setup?”, “What does the IF node output?”).
+3. Platform Help **answers with product steps first** via Master Data / OpenSearch RAG (`Flolah Help — …`, including Business Core **32** / **38–40**, scheduled goals **28**, company setup **29**). It may soft-recommend COO, CRM Maker, or Workflow Builder for **live data or execution**, but will not hand you off with only “talk to agent X”.
+4. For *building* or *repairing* a workflow graph, prefer **Workflow Builder** after the how-to; for standups/delegation/recurring goals or live CRM/ERP status, prefer the **COO**.
 
 ### Ask the COO to delegate specialty work
 
@@ -295,8 +295,8 @@ Set in backend `.env`:
 | **Browser Session** | `/browser-session` — managed Playwright, **Client Chrome** (Browser Relay, exclusive lease), or **Desktop Local worker** (Connectors package: headed Playwright + persistent browser-profile; multi-CEO). Agents use **`browse_*`** tools; grant list vs run in Workspace → Tool access. CDP `browser-cdp` when worker offline. Guides: CLIENT-BROWSER-SESSION.md, BROWSER-SESSION-DESKTOP-LOCAL.md, platform-help **22**. |
 | **Master Data & RAG** | Per-CEO tables + documents (OpenSearch BM25 + **local Qwen** k-NN embeddings via Compose `optional-embeddings`; no OpenAI embedding API). UI captures **purpose/description** per table. Agents list tables with purpose and CRUD rows / RAG docs via content tools — **no create/alter/drop table**. On register: starter **departments** table + **Flolah User Guide** + **Platform Help** document set. **Inbound attachments** + **Content Explorer** for chat/channel files. **Purge all uploads** removes CEO uploads only; help/guide docs are protected. |
 | **Profile LLM catalog** | Provider + model picker on **Register** and **Profile** (`llm_provider` / `llm_model`); `GET /api/auth/llm-catalog`; OpenClaw sync on Profile save. BYOK keys only via API Keys vault after login. |
-| **Platform Help** | Standard agent `platformhelp` — product how-to via `master_data_rag` over `knowledgebase/platform-help/`. See [`knowledgebase/platform-help/README.md`](knowledgebase/platform-help/README.md). |
-| **COO specialty delegation** | COO chat hard-path: AGENTS.md purpose intent → specialist(s) (cap 2 for multi-intent) + Kanban; peer specialty referral; COO-native work stays with COO; how-to → Platform Help; graph build → Workflow Builder. |
+| **Platform Help** | Standard agent `platformhelp` — product how-to via `master_data_rag` over `knowledgebase/platform-help/`. **Answer-first:** always explains from help docs; optional soft-recommend of COO/CRM/Workflow Builder after help. Hard peer specialty referral is disabled for `platformhelp`. See [`knowledgebase/platform-help/README.md`](knowledgebase/platform-help/README.md). |
+| **COO specialty delegation** | COO chat hard-path: AGENTS.md purpose intent → specialist(s) (cap 2 for multi-intent) + Kanban; peer specialty referral for specialist peers (**not** Platform Help / Workflow Builder / Onboarding Helper); COO-native work stays with COO; how-to → Platform Help; graph build → Workflow Builder. |
 | **Email send** | `email_send` content tool — agents can send email via configured mail integration (owner-scoped logging). |
 | **Notify CEO** | `notify_ceo` content tool — agents push a platform notification to their CEO (bell feed). **Not email** (ops rollups and community escalations use this by default). |
 | **Broadcast** | Send messages to multiple agents; LLM intent for status+notify; paced fan-out; exclude COO by default. |

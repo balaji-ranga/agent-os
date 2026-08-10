@@ -136,6 +136,9 @@ export function syncEssentialWorkspaceDocs(baseId, destDir) {
   if (!hasOwnTemplate) return;
 
   const src = ownTpl;
+  // Platform Help is platform-owned product desk copy — force full MD bundle so every tenant
+  // receives answer-first help rules (not only TOOLS/AGENTS).
+  const forceIdentityBundle = String(baseId || '').toLowerCase() === 'platformhelp';
   mkdirSync(destDir, { recursive: true });
   for (const name of ['TOOLS.md', 'AGENTS.md', 'SOUL.md', 'MEMORY.md', 'IDENTITY.md']) {
     const from = join(src, name);
@@ -152,8 +155,13 @@ export function syncEssentialWorkspaceDocs(baseId, destDir) {
           (name === 'TOOLS.md' &&
             !/agent_workflow_list|kanban_move_status|Granted tools/i.test(existing) &&
             existing.length < 2000);
-        // Refresh product TOOLS/AGENTS for standard templates; never force SOUL/MEMORY overwrite.
-        shouldWrite = looksLikeStub || name === 'TOOLS.md' || name === 'AGENTS.md';
+        // Refresh product TOOLS/AGENTS for standard templates; SOUL/MEMORY usually left alone
+        // (except platformhelp — force full desk guidance for all CEOs).
+        shouldWrite =
+          looksLikeStub ||
+          name === 'TOOLS.md' ||
+          name === 'AGENTS.md' ||
+          (forceIdentityBundle && (name === 'SOUL.md' || name === 'MEMORY.md' || name === 'IDENTITY.md'));
         // The COO's AGENTS.md is generated from the live org (internal agents + external/A2A leaf
         // members). The template only carries a fixed internal list, so copying it over would drop
         // every leaf member from the delegation table until the next org sync.

@@ -45,6 +45,7 @@ COO has **read-only** CRM list tools to report and to **delegate** to CRM makers
 
 ## Tips for Platform Help answers
 
-1. RAG this file + 32 + 38.  
-2. For “what deals are open?” → tell CEO to ask **COO** or open **CRM**.  
-3. For “how do I submit an invoice?” → that is **ERP**, not Twenty — point to 39 + ERP Checker.
+1. **Answer first:** RAG this file + **32** + **38** and give numbered product steps (enable CRM, nav **CRM** `/work`, People/Companies/Opportunities, `crm_*` tools, Maker/Checker).  
+2. For “how do I capture contacts and leads?” → full how-to from this doc; **then** optional tip that **CRM Maker** / **COO** can execute or read live data. Never specialist-only redirect.  
+3. For “what deals are open?” (live data) → after noting they need live CRM, tell CEO to ask **COO** or open **CRM**.  
+4. For “how do I submit an invoice?” → that is **ERP**, not Twenty — explain from **39** + ERP Checker after RAG.

@@ -5,6 +5,10 @@
 - Brand: **Flolah** (Automate, Innovate, Elevate). Platform codebase: Agent OS.
 - CEO help corpus lives under Master Data documents titled like **Flolah Help — …** (from `knowledgebase/platform-help/`).
 
+## Operating principle
+
+**Answer first, recommend second.** Never specialty-redirect only. CRM/lead/workflow “how do I…?” stays with Platform Help (RAG); optional tip to COO/CRM Maker/Workflow Builder after the how-to.
+
 ## Quick TOC (search these topics via master_data_rag)
 
 1. Getting started — register, login, profile/BYOK
@@ -18,7 +22,8 @@
 9. A2A — external agents, Publish A2A (Public / Secured OAuth client credentials), AgentExchange
 10. Job profiles / job workflows
 11. Tools, custom scripts, AI Snipper
-12. Troubleshooting + handoffs (Workflow Builder, COO, admin)
+12. Business Core CRM/ERP — enablement, `/work`, Maker/Checker (**32**, **38**), Twenty/ERPNext Tier A (**39–40**)
+13. Troubleshooting; soft tips for Workflow Builder, COO, admin **after** help steps
 
 ## Consumption model
 
