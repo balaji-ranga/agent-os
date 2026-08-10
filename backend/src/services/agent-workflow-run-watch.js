@@ -234,6 +234,41 @@ function resolveOrchestratorAgent(ownerUserId, preferredAgentId) {
   return coo || null;
 }
 
+
+function recentScheduledGoalForOwner(ownerUserId) {
+  const owner = String(ownerUserId || '').trim();
+  if (!owner) return null;
+  try {
+    return (
+      db()
+        .prepare(
+          `SELECT id, title, prompt, agent_id, last_run_at, status
+           FROM scheduled_goals
+           WHERE owner_user_id = ?
+           ORDER BY COALESCE(last_run_at, updated_at, created_at) DESC
+           LIMIT 1`
+        )
+        .get(owner) || null
+    );
+  } catch {
+    return null;
+  }
+}
+
+function isCrmMcDefinition(definitionId, definitionName) {
+  const id = String(definitionId || '').toLowerCase();
+  const name = String(definitionName || '').toLowerCase();
+  return id.startsWith('crm-mc-') || (name.includes('crm') && name.includes('maker'));
+}
+
+function goalImpliesCrmToErp(goalText) {
+  const t = String(goalText || '').toLowerCase();
+  if (!t) return false;
+  const hasCrm = /\bcrm\b|twenty|pre-order|maker checker/.test(t);
+  const hasErp = /\berp\b|o2c|order-to-cash|otc|quotation|sales order/.test(t);
+  return hasCrm && hasErp;
+}
+
 /**
  * Re-invoke COO after a terminal run so multi-phase goals continue (CRM then ERP).
  * Idempotent per run/status unless force is set.
@@ -288,37 +323,92 @@ export async function wakeOrchestratorOnWorkflowTerminal(runId, opts = {}) {
   const initial = clip(context.initial_input || '', 2500);
   const stepSummary = buildTerminalStepSummary(id) || '(no step outputs)';
   const err = run.error_message ? String(run.error_message).slice(0, 400) : '';
+  const goal = recentScheduledGoalForOwner(owner);
+  const goalText = goal ? String(goal.prompt || '') : '';
+  const goalBlob = [goalText, initial, name, String(run.definition_id || '')].join('\n');
+  const multiPhaseCrmToErp =
+    run.status === 'completed' &&
+    isCrmMcDefinition(run.definition_id, name) &&
+    goalImpliesCrmToErp(goalBlob);
+  const multiPhaseNote = goal
+    ? '**Active/recent scheduled goal:** "' +
+      clip(goal.title, 120) +
+      '" (id ' +
+      goal.id +
+      ')\n' +
+      clip(goalText, 1800)
+    : '**No scheduled_goals row found** — still apply multi-phase rules from prior chat / run input.';
 
   let prompt =
-    `[Workflow run terminal - continue orchestration]\n` +
-    `[ceo_user_id: ${owner}]\n` +
-    `[owner_user_id: ${owner}]\n` +
-    `[workflow_run_id: ${id}]\n` +
-    `[workflow_run_number: ${run.run_number ?? ''}]\n` +
-    `[definition_id: ${run.definition_id}]\n` +
-    `[definition_name: ${name}]\n` +
-    `[status: ${run.status}]\n\n` +
-    `A workflow you (or this org COO) started has reached a terminal status while your chat turn was already closed (async trigger).\n\n` +
-    `**Workflow:** ${name} · run ${runLabel} (id ${id}) -> **${run.status}**` +
-    (err ? `\n**Error:** ${err}` : '') +
-    `\n\n**Original run input (phase context):**\n${initial || '(empty)'}\n\n` +
-    `**Step outcomes (latest):**\n${stepSummary}\n\n` +
-    `**Your job now:**\n` +
-    `1. If this was one phase of a multi-phase CEO / scheduled goal (e.g. CRM then ERP O2C / OTC), **continue the next phase now**. ` +
-    `Use agent_workflow_trigger (async) with the correct phrase (e.g. run erp maker checker) and pass full customer story + IDs from the step summary above — not a one-liner.\n` +
-    `2. If the full goal is already complete after this run, notify_ceo with a short final summary only.\n` +
-    `3. Do not re-run the same phase unless it failed and the CEO still wants it.\n` +
-    `4. Still non-blocking: trigger next workflow, confirm new run_id, end this turn. Do not sleep/poll.\n` +
-    `5. Never invent free-form CEO HITL Kanban; use workflow CEO Approval via Maker needs_ceo only.\n`;
+    '[Workflow run terminal - continue orchestration]\n' +
+    '[ceo_user_id: ' +
+    owner +
+    ']\n' +
+    '[owner_user_id: ' +
+    owner +
+    ']\n' +
+    '[workflow_run_id: ' +
+    id +
+    ']\n' +
+    '[workflow_run_number: ' +
+    (run.run_number ?? '') +
+    ']\n' +
+    '[definition_id: ' +
+    run.definition_id +
+    ']\n' +
+    '[definition_name: ' +
+    name +
+    ']\n' +
+    '[status: ' +
+    run.status +
+    ']\n' +
+    '[multi_phase_crm_to_erp: ' +
+    (multiPhaseCrmToErp ? 'YES' : 'no') +
+    ']\n\n' +
+    'A workflow you (or this org COO) started has reached a terminal status while your chat turn was already closed (async trigger).\n\n' +
+    '**Workflow:** ' +
+    name +
+    ' · run ' +
+    runLabel +
+    ' (id ' +
+    id +
+    ') -> **' +
+    run.status +
+    '**' +
+    (err ? '\n**Error:** ' + err : '') +
+    '\n\n' +
+    multiPhaseNote +
+    '\n\n' +
+    '**Original run input (phase context):**\n' +
+    (initial || '(empty)') +
+    '\n\n' +
+    '**Step outcomes (latest):**\n' +
+    stepSummary +
+    '\n\n' +
+    '**Your job now (mandatory):**\n' +
+    (multiPhaseCrmToErp
+      ? '1. **HARD REQUIREMENT:** This run was **CRM maker-checker** and the CEO goal still requires **ERP O2C after CRM**. ' +
+        'You MUST call **agent_workflow_trigger** now with phrase **run erp maker checker** (or the ERP workflow_id) and pass the **full customer story + Twenty CRM IDs** from the step outcomes. ' +
+        'Do **not** decide this is CRM-only retest complete. Do **not** only notify_ceo without starting ERP.\n' +
+        '2. After trigger returns run_id, confirm that ERP run_id and end the turn (async).\n' +
+        '3. Never invent free-form CEO HITL Kanban; ERP >=5% discount uses workflow needs_ceo.\n'
+      : '1. If this was one phase of a multi-phase CEO / scheduled goal (e.g. CRM then ERP O2C), continue the next phase now with agent_workflow_trigger (async) and full context.\n' +
+        '2. If the full goal is already complete after this run, notify_ceo with a short final summary only.\n' +
+        '3. Do not re-run the same phase unless it failed and the CEO still wants it.\n' +
+        '4. Still non-blocking; never invent free-form CEO HITL Kanban.\n');
 
   try {
     prompt = await getPromptWithMemoryInjected(agent.id, prompt);
   } catch (_) {
     /* optional */
   }
-  prompt = `[ceo_user_id: ${owner}]\n[owner_user_id: ${owner}]\n${prompt}`;
+  prompt = '[ceo_user_id: ' + owner + ']\n[owner_user_id: ' + owner + ']\n' + prompt;
 
-  const sessionUser = openclaw.sessionUserFor(openclawId, owner, `wf-wake-${id}`);
+  // Prefer the same OpenClaw session as the scheduled goal fire so phase-B context is retained.
+  const sessionThread = goal?.id
+    ? 'sched-' + String(goal.id).slice(0, 12)
+    : 'coo-orch-' + owner.slice(0, 18);
+  const sessionUser = openclaw.sessionUserFor(openclawId, owner, sessionThread);
   try {
     insertChatTurn({
       agentId: agent.id,
