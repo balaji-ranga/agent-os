@@ -230,6 +230,8 @@ CRM Twenty remains stronger isolation: separate workspace DB per company.
 
 **Not automatic for every Flolah user:** only CEOs who choose platform ERPNext CRM and/or ERP. Bind runs on company setup, profile save, SSO open, or sync.
 
+**Company is Mandatory (Selling / Buying):** SSO Users get a **Company User Permission** with **`is_default = 1`**. Without the default flag, ERPNext desk Selling and Buying list views throw *Company is Mandatory* even when the Company document and permission exist. Flolah sets/repairs `is_default` on every SSO handoff (`ensureSsoUserPermissions`). Re-open **ERP** (passwordless handoff) after deploys to refresh the session.
+
 **Org sync expectations:** Departments come from Flolah master-data; agents become **Employees** (status Active) under company Departments. Sync does **not** create a Frappe login User per agent (that would re-expose all tenants in Users). Re-open ERP or run Sync org after a deploy to apply desk User isolation.
 
 **local_bind vs remote:** Older sites had Company create fail (missing **country**, missing **Warehouse Type: Transit**). Flolah still stored synthetic `flolah-co-{ceo}` → desk SSO / dept sync fail (“no access to company”, Stock Settings errors). Fix: ensure country + warehouse types, then create real Company and User Permission.

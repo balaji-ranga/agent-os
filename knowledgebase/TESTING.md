@@ -183,21 +183,24 @@ On VPS after deploy:
 ```bash
 bash /opt/agent-os/deploy/scripts/vps-smoke-budgets-org-members.sh
 bash /opt/agent-os/deploy/scripts/vps-regression-full.sh
-
+```
 
 ### Goal plans (multiphase adhoc)
+
 ```bash
 # Durable CRM→ERP + Platform Help specialty + notify_ceo (force-complete child terminals by default)
 docker exec -w /opt/agent-os/backend agent-os-backend-1 node scripts/test-goal-plan-adhoc-e2e.mjs
-# Async ack + goal-correlated terminal notifies (UI perspective)
+# Async ack + goal-correlated terminal notifies (plan still running after create; notifies include agr + title)
 docker exec -w /opt/agent-os/backend agent-os-backend-1 node scripts/test-goal-plan-async-ui.mjs
-# or via full regression pack on VPS:
+# or via full regression pack on VPS (mints session; no password needed):
 bash /opt/agent-os/deploy/scripts/vps-regression-full.sh
-# npm aliases (from backend/): test:e2e:goal-plan | test:goal-plan:unit | test:goal-plan:acceptance
+# npm aliases (from backend/):
+#   test:e2e:goal-plan | test:goal-plan:async-ui | test:goal-plan:unit | test:goal-plan:acceptance
 ```
+
 Env: `REGRESSION_GOAL_PLAN` (pack, default on), `REGRESSION_GOAL_PLAN_FORCE_TERMINAL` (default 1), `REGRESSION_CEO_ID`, `GOAL_PLAN_MAX_SPECIALTY`.
-   # full post-CEO regression (mints session; no password needed)
-```
+
+Ad-hoc chat **reuse trap:** COO session/MEMORY may quote an old `agr-…` on a similar prompt — start **New chat** or say *create a new plan*. Backend create always stores a new `agr-…` when the tool is invoked. Scheduled **plan-mode** fires also create a new `agr-…` each tick (approved `plan_json` is only the step template).
 
 `vps-regression-full.sh` sets `AGENT_OS_REGRESSION_TOKEN` so `tests/lib/ceo-session.js` skips password login (needed when MFA is on or the default password is not in env).
 

@@ -38,16 +38,18 @@ Part of **full** pack (`REGRESSION_GOAL_PLAN=1` default). Covers durable `agent_
 2. Residual Platform Help becomes `specialty_task`  
 3. Terminal `notify_ceo`  
 4. With `REGRESSION_GOAL_PLAN_FORCE_TERMINAL=1` (default), child workflow/delegation terminals are force-closed so the ladder completes without live CEO gates  
+5. Optional **async-ui** script proves create returns while steps remain incomplete and terminal CEO notify includes **`agr-…` + goal title** (`npm run test:goal-plan:async-ui`)  
 
 Standalone:
 
 ```bash
 cd backend
 npm run test:e2e:goal-plan
+npm run test:goal-plan:async-ui
 # unit: npm run test:goal-plan:unit
 # acceptance (includes adhoc e2e): npm run test:goal-plan:acceptance
 ```
 
 Skip inside full pack: `REGRESSION_GOAL_PLAN=0 npm run test:regression:full`.
 
-VPS: `bash deploy/scripts/vps-regression-full.sh` (mints CEO session; runs pack + goal plan e2e).
+VPS: `bash deploy/scripts/vps-regression-full.sh` (mints CEO session; runs pack + goal plan e2e; also copies `test-goal-plan-async-ui.mjs` into the backend container for direct runs).

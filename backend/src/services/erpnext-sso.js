@@ -58,42 +58,118 @@ function genPassword() {
 }
 
 
-/** Ensure Company + self User permissions (desk cannot list other SSO users). */
+/** Ensure Company + self User permissions (desk cannot list other SSO users).
+ * Company User Permission must have is_default=1 so Selling/Buying modules get a
+ * session default company ("Company is Mandatory" without it).
+ */
 export async function ensureSsoUserPermissions(userId, companyName) {
-  async function ensurePerm({ allow, for_value, apply_to_all_doctypes = 0, applicable_for = null }) {
+  async function listPerms(allow, for_value = null) {
     const filters = [
       ['user', '=', userId],
       ['allow', '=', allow],
-      ['for_value', '=', for_value],
     ];
-    if (applicable_for) filters.push(['applicable_for', '=', applicable_for]);
+    if (for_value != null) filters.push(['for_value', '=', for_value]);
     const perms = await frappeFetch(
       '/api/resource/User Permission?filters=' +
         encodeURIComponent(JSON.stringify(filters)) +
-        '&limit_page_length=1'
+        '&fields=' +
+        encodeURIComponent(
+          JSON.stringify(['name', 'allow', 'for_value', 'is_default', 'apply_to_all_doctypes', 'applicable_for'])
+        ) +
+        '&limit_page_length=20'
     );
-    const has = Array.isArray(perms && perms.data) && perms.data.length > 0;
-    if (has) return { created: false };
+    return Array.isArray(perms && perms.data) ? perms.data : [];
+  }
+
+  async function ensurePerm({
+    allow,
+    for_value,
+    apply_to_all_doctypes = 0,
+    applicable_for = null,
+    is_default = 0,
+  }) {
+    const rows = await listPerms(allow, for_value);
+    const existing = rows[0] || null;
+    if (existing && existing.name) {
+      const needDefault = !!is_default && !Number(existing.is_default);
+      const needApply =
+        !!apply_to_all_doctypes && !Number(existing.apply_to_all_doctypes);
+      if (needDefault || needApply) {
+        const body = {};
+        if (needDefault) body.is_default = 1;
+        if (needApply) body.apply_to_all_doctypes = 1;
+        await frappeFetch('/api/resource/User Permission/' + encodeURIComponent(existing.name), {
+          method: 'PUT',
+          body,
+        });
+        return { created: false, updated: true, name: existing.name };
+      }
+      return { created: false, updated: false, name: existing.name };
+    }
+    // Company may already exist under another for_value (rename) — retarget first match
+    if (allow === 'Company' && for_value) {
+      const anyCo = await listPerms('Company');
+      const other = anyCo[0];
+      if (other && other.name) {
+        await frappeFetch('/api/resource/User Permission/' + encodeURIComponent(other.name), {
+          method: 'PUT',
+          body: {
+            for_value,
+            is_default: is_default ? 1 : 0,
+            apply_to_all_doctypes: apply_to_all_doctypes ? 1 : 0,
+          },
+        });
+        return { created: false, updated: true, name: other.name, retargeted: true };
+      }
+    }
     const body = {
       user: userId,
       allow,
       for_value,
       apply_to_all_doctypes: apply_to_all_doctypes ? 1 : 0,
+      is_default: is_default ? 1 : 0,
     };
     if (applicable_for) body.applicable_for = applicable_for;
-    await frappeFetch('/api/resource/User Permission', { method: 'POST', body });
-    return { created: true };
+    const created = await frappeFetch('/api/resource/User Permission', { method: 'POST', body });
+    return {
+      created: true,
+      updated: false,
+      name: created?.data?.name || null,
+    };
   }
+
   if (companyName) {
     try {
-      await ensurePerm({ allow: 'Company', for_value: companyName, apply_to_all_doctypes: 1 });
+      const r = await ensurePerm({
+        allow: 'Company',
+        for_value: companyName,
+        apply_to_all_doctypes: 1,
+        is_default: 1,
+      });
+      console.info(
+        '[erpnext-sso] company user permission user=%s company=%s created=%s updated=%s',
+        userId,
+        companyName,
+        !!r.created,
+        !!r.updated
+      );
     } catch (e) {
       console.warn('[erpnext-sso] company user permission', e && e.message ? e.message : e);
+    }
+    // Note: frappe.defaults.set_user_default is not API-whitelisted; is_default=1 on
+    // Company User Permission is what Selling/Buying session defaults use.
+    try {
+      await frappeFetch('/api/method/frappe.clear_cache', {
+        method: 'POST',
+        body: { user: userId },
+      });
+    } catch (_) {
+      /* optional */
     }
   }
   // Restrict User list/read to self only (Company UP does not hide User doctype).
   try {
-    await ensurePerm({ allow: 'User', for_value: userId, apply_to_all_doctypes: 0 });
+    await ensurePerm({ allow: 'User', for_value: userId, apply_to_all_doctypes: 0, is_default: 0 });
   } catch (e) {
     console.warn('[erpnext-sso] self user permission', e && e.message ? e.message : e);
   }

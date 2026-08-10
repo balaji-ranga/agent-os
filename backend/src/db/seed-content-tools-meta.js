@@ -149,7 +149,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/agent-goal-create',
     method: 'POST',
     purpose:
-      'API tool (COO or Workflow Builder): create a durable multi-intent goal plan for the entitled CEO and start executing it. Body: prompt (or message), optional title, optional steps[{type,label,spec}]. Platform auto-plans CRM→ERP/workflow phrases when steps omitted. workflow_trigger steps run async; on terminal the platform advances to the next step (no chat block). Prefer this for multi-phase goals instead of manual sequential agent_workflow_trigger.',
+      'API tool (COO or Workflow Builder): create a durable multi-intent goal plan for the entitled CEO and start executing it (async:true + new agr-… every call). Body: prompt (or message), optional title, optional steps[{type,label,spec}]. Platform auto-plans CRM→ERP/workflow phrases + specialty residual when steps omitted. Returns plan_summary immediately — quote agr- id and end turn; do not reuse an older plan from chat/MEMORY for a new multiphase ask. workflow_trigger/specialty steps run async; on terminal the platform advances remaining steps (CEO notifies include goal plan id + title when bound). Prefer this for multi-phase goals instead of manual sequential agent_workflow_trigger.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,

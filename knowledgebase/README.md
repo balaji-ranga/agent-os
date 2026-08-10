@@ -57,7 +57,7 @@ Documentation lives here so Cursor and humans can find it. **Root README.md** st
 | [CONTENT-CREATION-ORG-BLUEPRINT.md](./CONTENT-CREATION-ORG-BLUEPRINT.md) | Future content-studio org + agent/workflow map |
 | [ONBOARDING-HELPER-PLAN.md](./ONBOARDING-HELPER-PLAN.md) | Onboarding Helper plan (UI + OpenClaw bridge) |
 | [platform-help/27-onboarding-helper.md](./platform-help/27-onboarding-helper.md) | CEO help: selective apply + E2E chat prompt recipes |
-| [platform-help/28-scheduled-goals.md](./platform-help/28-scheduled-goals.md) | CEO help: scheduled goals + durable multiphase **goal plans** (`agr-…`, Digest `/goal-plans`, auto-upgrade multiphase trigger) |
+| [platform-help/28-scheduled-goals.md](./platform-help/28-scheduled-goals.md) | CEO help: scheduled goals + durable multiphase **goal plans** (async ack, new agr per create/fire, terminal notify correlation, Digest `/goal-plans`, multiphase trigger upgrade) |
 | [platform-help/29-company-setup.md](./platform-help/29-company-setup.md) | CEO help: Company setup first-run wizard vs Onboarding Helper |
 | [platform-help/35-update-company-details.md](./platform-help/35-update-company-details.md) | Update Company Details → company_memory Knowledge table |
 | [platform-help/36-operational-effectiveness.md](./platform-help/36-operational-effectiveness.md) | Home OEI score, domains, goal-run KPIs, COO tool |

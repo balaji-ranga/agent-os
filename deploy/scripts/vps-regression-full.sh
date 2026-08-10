@@ -20,10 +20,12 @@ docker compose exec -T backend mkdir -p /opt/agent-os/tests/lib
 if [[ -f "$ROOT/backend/scripts/test-goal-plan-adhoc-e2e.mjs" ]]; then
   docker compose exec -T backend mkdir -p /opt/agent-os/backend/scripts
   docker compose cp "$ROOT/backend/scripts/test-goal-plan-adhoc-e2e.mjs" backend:/opt/agent-os/backend/scripts/test-goal-plan-adhoc-e2e.mjs
+  docker compose cp "$ROOT/backend/scripts/test-goal-plan-async-ui.mjs" backend:/opt/agent-os/backend/scripts/test-goal-plan-async-ui.mjs 2>/dev/null || true
   docker compose cp "$ROOT/backend/scripts/_test-goal-plan-acceptance.mjs" backend:/opt/agent-os/backend/scripts/_test-goal-plan-acceptance.mjs 2>/dev/null || true
   docker compose cp "$ROOT/backend/scripts/_test-goal-plan-multistep.mjs" backend:/opt/agent-os/backend/scripts/_test-goal-plan-multistep.mjs 2>/dev/null || true
   docker compose cp "$ROOT/backend/src/services/agent-goal-run.js" backend:/opt/agent-os/backend/src/services/agent-goal-run.js 2>/dev/null || true
   docker compose cp "$ROOT/backend/src/services/goal-plan-specialty.js" backend:/opt/agent-os/backend/src/services/goal-plan-specialty.js 2>/dev/null || true
+  docker compose cp "$ROOT/backend/src/services/agent-workflow-run-watch.js" backend:/opt/agent-os/backend/src/services/agent-workflow-run-watch.js 2>/dev/null || true
 fi
 
 if [[ -f "$ROOT/tests/regression-full.js" ]]; then
