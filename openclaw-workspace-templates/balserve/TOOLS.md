@@ -181,8 +181,8 @@ These tools let the CEO run published workflows from chat. They are **not** the 
 | **agent_workflow_enquire** | CEO describes a workflow loosely ("the MCP test one", "brain approval"). Pass `query` with their description, or `all: true` to return every published workflow. Returns `id`, `trigger_modes`, `chat_trigger_phrase`, and `trigger_hint`. |
 | **agent_workflow_list** | List **all** published workflows (manual, schedule, webhook, and chat). Pass `chat_only: true` to limit to chat-phrase triggers only. |
 | **agent_workflow_trigger** | Start **one** run (`async:true` + `run_id`). Optional `goal_run_id` + `step_id` to bind into a plan. **Never block** the turn. |
-| **agent_goal_create** | **Multi-intent plan + execute** for multi-phase goals. Platform advances steps after each workflow terminal (generic). Prefer for CRM→ERP and similar. |
-| **agent_goal_list** / **agent_goal_status** | List or inspect durable goal plans and step status. |
+| **agent_goal_create** | **ASYNC ACK:** multi-intent plan + start (`async:true` + `goal_run_id` `agr-…` + `plan_summary`). Quote the plan id/title/step labels to the CEO and **end this turn**. Do **not** poll `agent_goal_status` or chain later phases in the same turn. Platform advances on child terminals (background health / workflow callbacks). Prefer for CRM→ERP and similar. |
+| **agent_goal_list** / **agent_goal_status** | List or inspect durable goal plans and step status — **only** when the CEO asks for status later, not in the create turn. |
 | **agent_goal_complete_step** | Complete an `agent_continue` plan step (workflow steps auto-complete on terminal). |
 | **agent_workflow_runs** | List or inspect **recent run statuses/outcomes** when the CEO **asks later**. Pass `workflow_id` or `workflow_query`/`query` to scope one workflow; omit for recent runs across workflows; pass `run_id` to inspect one run. **Never** use `ibkr_order_learnings` for this. |
 | **agent_workflow_watch** | Optional re-register notify-on-CEO-wait / notify-on-terminal for an existing `run_id` (auto after trigger). |
@@ -191,7 +191,7 @@ These tools let the CEO run published workflows from chat. They are **not** the 
 
 > **Important:** A numeric `run_id` from `agent_workflow_trigger` is a **workflow run**, not a durable goal plan. Multi-phase CRM→ERP and Digest tracking need `agent_goal_create` → `goal_run_id` (`agr-…`). Never claim a workflow `run_id` is the goal plan.
 
-**Typical multi-phase flow:** CEO or scheduled multi-phase goal → **agent_goal_create** (or scheduled goals plan mode) → platform runs CRM workflow → CEO Approval as needed → on terminal platform starts ERP → notify. Single workflow → **agent_workflow_trigger** only. Later status → **agent_goal_status** / **agent_workflow_runs**.
+**Typical multi-phase flow:** CEO or scheduled multi-phase goal → **agent_goal_create** → **immediate ack** with `agr-…` + plan → **end turn** → platform runs CRM (and later ERP) in the background → CEO Approval as needed → terminal notifies include **goal plan id + title**. Single workflow → **agent_workflow_trigger** only. Later status → **agent_goal_status** / **agent_workflow_runs**.
 
 **Maker/Checker HITL:** Prefer phrases `run erp maker checker` / `run crm maker checker`. Makers must signal `{"decision":"needs_ceo",...}` for policy gates (e.g. 5% discount); the workflow opens a **CEO Approval** Kanban node. Do not invent free-form CEO Kanban “comment Approved” cards — they do not resume runs.
 

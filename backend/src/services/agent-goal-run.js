@@ -768,10 +768,14 @@ async function executeWorkflowStep(goal, step) {
   registerWorkflowRunWatch(runId, {
     ownerUserId: goal.owner_user_id,
     actorAgentId: goal.agent_id,
-    actorName: null,
+    actorName: 'Goal plan',
     notifyOnWaiting: true,
     notifyOnTerminal: true,
     wakeOrchestratorOnTerminal: false,
+    goalRunId: goal.id,
+    goalTitle: goal.title || null,
+    goalStepLabel: step.label || null,
+    goalStepIndex: step.step_index != null ? Number(step.step_index) : null,
   });
   bindWorkflowRunToGoalStep({
     goalRunId: goal.id,
@@ -1291,8 +1295,14 @@ export async function createAndStartGoalRun(opts = {}) {
     });
   }
   const goal = createGoalRun({ ...opts, steps });
+  // First child starts and returns; remaining steps advance on terminal callbacks (async).
   const exec = await startGoalRunExecution(goal.id, { ownerUserId: goal.owner_user_id });
-  return { goal, execution: exec };
+  return {
+    async: true,
+    goal_run_id: goal.id,
+    goal: getGoalRun(goal.id, goal.owner_user_id) || goal,
+    execution: exec,
+  };
 }
 
 export async function createGoalRunWithPlan(opts = {}) {

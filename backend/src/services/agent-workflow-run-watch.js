@@ -41,7 +41,6 @@ function definitionName(definitionId) {
   return row?.name || definitionId || 'Workflow';
 }
 
-/** True when id is a placeholder, not a real orchestrating agent. */
 function isPlaceholderActor(id) {
   const s = String(id || '')
     .trim()
@@ -83,6 +82,10 @@ export function registerWorkflowRunWatch(
     notifyOnWaiting = true,
     notifyOnTerminal = true,
     wakeOrchestratorOnTerminal = true,
+    goalRunId = null,
+    goalTitle = null,
+    goalStepLabel = null,
+    goalStepIndex = null,
   } = {}
 ) {
   const id = Number(runId);
@@ -113,6 +116,10 @@ export function registerWorkflowRunWatch(
     registered_at: prev.registered_at || new Date().toISOString(),
     refreshed_at: new Date().toISOString(),
     events_sent: Array.isArray(prev.events_sent) ? prev.events_sent : [],
+      goal_run_id: goalRunId || prev.goal_run_id || null,
+    goal_title: goalTitle || prev.goal_title || null,
+    goal_step_label: goalStepLabel != null ? goalStepLabel : prev.goal_step_label || null,
+    goal_step_index: goalStepIndex != null ? goalStepIndex : prev.goal_step_index ?? null,
   };
   saveContext(id, context);
   console.info('[wf-run-watch] registered', {
@@ -126,11 +133,17 @@ export function registerWorkflowRunWatch(
     status: run.status,
     watch: context.coo_run_watch,
     async: true,
-    instruction:
-      'Do not wait on this run in chat. Confirm run_id to the CEO, then stop this turn. ' +
-      'Platform notifies the CEO on CEO approval wait / terminal, and re-wakes you (COO) on terminal ' +
-      'A numeric workflow run_id is NOT a goal plan. Multi-phase goals need agent_goal_create (agr-…). ' +
-      'Use agent_workflow_runs / agent_workflow_watch_tick only if the CEO asks for status.',
+    goal_run_id: context.coo_run_watch.goal_run_id || null,
+    instruction: context.coo_run_watch.goal_run_id
+      ? 'ASYNC: Workflow step of goal plan ' +
+        context.coo_run_watch.goal_run_id +
+        ' started (workflow run_id=' +
+        id +
+        '). Confirm agr-… and this step to the CEO; END TURN. Platform advances remaining plan steps on terminal — do not poll.'
+      : 'Do not wait on this run in chat. Confirm run_id to the CEO, then stop this turn. ' +
+        'Platform notifies the CEO on CEO approval wait / terminal, and may re-wake you (COO) on terminal. ' +
+        'A numeric workflow run_id is NOT a goal plan. Multi-phase goals need agent_goal_create (agr-…). ' +
+        'Use agent_workflow_runs / agent_workflow_watch_tick only if the CEO asks for status.',
   };
 }
 
@@ -168,6 +181,58 @@ function clip(s, n = 400) {
   if (t.length <= n) return t;
   return t.slice(0, n) + '...';
 }
+
+/**
+ * Resolve durable goal plan binding for a workflow run (child step or watch metadata).
+ * @returns {{ goal_run_id: string, title: string, step_label: string|null, step_index: number|null }|null}
+ */
+function resolveGoalPlanRefForRun(runId, watch = null) {
+  try {
+    const found = findGoalStepByWorkflowRun(runId);
+    if (found?.goal?.id) {
+      return {
+        goal_run_id: String(found.goal.id),
+        title: String(found.goal.title || '').trim() || String(found.goal.id),
+        step_label: found.step?.label ? String(found.step.label) : null,
+        step_index:
+          found.step?.step_index != null && Number.isFinite(Number(found.step.step_index))
+            ? Number(found.step.step_index)
+            : null,
+      };
+    }
+  } catch (_) {
+    /* ignore */
+  }
+  const gId = String(watch?.goal_run_id || '').trim();
+  if (gId) {
+    return {
+      goal_run_id: gId,
+      title: String(watch?.goal_title || gId).trim() || gId,
+      step_label: watch?.goal_step_label ? String(watch.goal_step_label) : null,
+      step_index:
+        watch?.goal_step_index != null && Number.isFinite(Number(watch.goal_step_index))
+          ? Number(watch.goal_step_index)
+          : null,
+    };
+  }
+  return null;
+}
+
+function formatGoalPlanRef(ref) {
+  if (!ref?.goal_run_id) return '';
+  const title = ref.title && ref.title !== ref.goal_run_id ? ` \"${clip(ref.title, 80)}\"` : '';
+  let step = '';
+  if (ref.step_label || ref.step_index != null) {
+    step =
+      ' · step ' +
+      (ref.step_index != null ? String(ref.step_index) : '') +
+      (ref.step_label ? ` (${clip(ref.step_label, 60)})` : '');
+  }
+  return `goal plan ${ref.goal_run_id}${title}${step}`;
+}
+
+
+/** True when id is a placeholder, not a real orchestrating agent. */
 
 function stepTextSnippet(outputJson, max = 500) {
   if (!outputJson) return '';
@@ -327,7 +392,9 @@ export async function wakeOrchestratorOnWorkflowTerminal(runId, opts = {}) {
   const goal = recentScheduledGoalForOwner(owner);
   const goalText = goal ? String(goal.prompt || '') : '';
   const goalBlob = [goalText, initial, name, String(run.definition_id || '')].join('\n');
+  const planRefEarly = resolveGoalPlanRefForRun(id, watch);
   const multiPhaseCrmToErp =
+    !planRefEarly &&
     run.status === 'completed' &&
     isCrmMcDefinition(run.definition_id, name) &&
     goalImpliesCrmToErp(goalBlob);
@@ -340,8 +407,20 @@ export async function wakeOrchestratorOnWorkflowTerminal(runId, opts = {}) {
       clip(goalText, 1800)
     : '**No scheduled_goals row found** — still apply multi-phase rules from prior chat / run input.';
 
+  const planRefWake = planRefEarly || resolveGoalPlanRefForRun(id, watch);
   let prompt =
     '[Workflow run terminal - continue orchestration]\n' +
+    (planRefWake
+      ? '[goal_run_id: ' +
+        planRefWake.goal_run_id +
+        ']\n' +
+        '[goal_title: ' +
+        clip(planRefWake.title, 120) +
+        ']\n' +
+        (planRefWake.step_label
+          ? '[goal_step: ' + clip(planRefWake.step_label, 80) + ']\n'
+          : '')
+      : '') +
     '[ceo_user_id: ' +
     owner +
     ']\n' +
@@ -415,7 +494,26 @@ export async function wakeOrchestratorOnWorkflowTerminal(runId, opts = {}) {
       agentId: agent.id,
       ownerUserId: owner,
       role: 'user',
-      content: `[Workflow finished ${run.status}] ${name} run ${runLabel} (workflow run, not a goal plan). Continue multi-phase only via agent_goal_create / existing agr-… — do not invent binding from workflow run ids.`,
+      content: (() => {
+        const planRef = resolveGoalPlanRefForRun(id, watch);
+        const planBit = planRef
+          ? formatGoalPlanRef(planRef) + '. '
+          : 'This workflow run is not bound to a goal plan. ';
+        const nextBit = planRef
+          ? 'Platform advances remaining plan steps; do not invent freeform agent_workflow_trigger for the next phase. Status-only reply if woken.'
+          : 'Continue multi-phase only via agent_goal_create / an existing agr-… — do not invent binding from workflow run ids.';
+        return (
+          '[Workflow finished ' +
+          run.status +
+          '] ' +
+          name +
+          ' run ' +
+          runLabel +
+          '. ' +
+          planBit +
+          nextBit
+        );
+      })(),
     });
   } catch (e) {
     console.warn('[wf-run-watch] chat user turn:', e?.message || e);
@@ -486,13 +584,33 @@ export function notifyWorkflowRunTerminal(runId) {
 
   const name = definitionName(run.definition_id);
   const runLabel = run.run_number != null ? '#' + run.run_number : '#' + id;
-  const title =
-    run.status === 'completed' ? 'Workflow finished: ' + name : 'Workflow ' + run.status + ': ' + name;
+  const planRef = resolveGoalPlanRefForRun(id, watch);
+  const planLabel = planRef ? formatGoalPlanRef(planRef) : '';
+  const title = planRef
+    ? (run.status === 'completed'
+        ? 'Goal plan step finished: ' + (planRef.title || planRef.goal_run_id)
+        : 'Goal plan step ' + run.status + ': ' + (planRef.title || planRef.goal_run_id))
+    : run.status === 'completed'
+      ? 'Workflow finished: ' + name
+      : 'Workflow ' + run.status + ': ' + name;
   const err = run.error_message ? String(run.error_message).slice(0, 280) : '';
   const body =
     run.status === 'completed'
-      ? name + ' · run ' + runLabel + ' completed. Open Workflows for details.'
-      : name + ' · run ' + runLabel + ' ' + run.status + (err ? ': ' + err : '');
+      ? (planLabel ? planLabel + '\n' : '') +
+        name +
+        ' · workflow run ' +
+        runLabel +
+        ' completed.' +
+        (planRef
+          ? ' Platform advances remaining goal-plan steps in the background.'
+          : ' Open Workflows for details (this workflow run is not a goal plan).')
+      : (planLabel ? planLabel + '\n' : '') +
+        name +
+        ' · workflow run ' +
+        runLabel +
+        ' ' +
+        run.status +
+        (err ? ': ' + err : '');
 
   console.info('[wf-run-watch] terminal', { runId: id, status: run.status });
   const notifyResult = pushNotify({
@@ -535,9 +653,14 @@ export function notifyWorkflowRunWaitingCeo(runId, { nodeId, kanbanTaskId = null
 
   const name = definitionName(run.definition_id);
   const runLabel = run.run_number != null ? '#' + run.run_number : '#' + id;
+  const planRef = resolveGoalPlanRefForRun(id, watch);
+  const planLabel = planRef ? formatGoalPlanRef(planRef) : '';
   const kanbanBit = kanbanTaskId ? ' Kanban #' + kanbanTaskId + '.' : '';
-  const title = 'Workflow needs CEO approval: ' + name;
+  const title = planRef
+    ? 'Goal plan needs CEO approval: ' + (planRef.title || planRef.goal_run_id)
+    : 'Workflow needs CEO approval: ' + name;
   const body =
+    (planLabel ? planLabel + '\n' : '') +
     name +
     ' · run ' +
     runLabel +
@@ -611,10 +734,13 @@ export async function runWorkflowWatchTick({ runId, cronJobId = null, ownerUserI
 
   if (TERMINAL.has(status)) {
     const err = clip(run.error_message, 200);
+    const planRef = resolveGoalPlanRefForRun(id, parseContext(run).coo_run_watch);
+    const planPrefix = planRef ? formatGoalPlanRef(planRef) + '. ' : '';
     const reply =
       status === 'completed'
-        ? 'Workflow ' + name + ' run ' + runLabel + ' completed.'
-        : 'Workflow ' +
+        ? planPrefix + 'Workflow ' + name + ' run ' + runLabel + ' completed.'
+        : planPrefix +
+          'Workflow ' +
           name +
           ' run ' +
           runLabel +

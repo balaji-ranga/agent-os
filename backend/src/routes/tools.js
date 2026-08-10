@@ -2562,7 +2562,7 @@ router.post('/agent-workflow-trigger', optionalAuth, async (req, res) => {
             execution: started?.execution || null,
             ceo_user_id: ownerUserId,
             instruction:
-              'Platform created a durable multi-intent goal plan (goal_run_id). Quote goal_run_id (agr-…) to the CEO and end the turn — do not chain manual agent_workflow_trigger for later phases; the platform advances plan steps after each workflow terminal. Workflow run ids are not goal plans.',
+              'ASYNC ACK: Platform created durable multi-intent goal plan (goal_run_id agr-…). Quote id + plan steps to the CEO and END THIS TURN. Do not poll status or chain agent_workflow_trigger for later phases — platform advances steps on child terminals (background). Workflow run ids are not goal plans.',
           };
           logTool(req, 'agent_workflow_trigger', requestPayload, out, 'ok', source);
           logTool(req, 'agent_goal_create', { prompt: message, upgraded_from: 'agent_workflow_trigger' }, out, 'ok', source);
@@ -2664,6 +2664,29 @@ router.post('/agent-goal-create', optionalAuth, async (req, res) => {
       const goal = createGoalRun(base);
       out = { ok: true, goal, deferred: true };
     }
+    const goal = out.goal || null;
+    const steps = Array.isArray(goal?.steps)
+      ? goal.steps.map((st, i) => ({
+          index: st.step_index != null ? st.step_index : i,
+          type: st.step_type || st.type || null,
+          label: st.label || null,
+          status: st.status || null,
+        }))
+      : [];
+    out = {
+      ...out,
+      async: true,
+      goal_run_id: goal?.id || out.goal_run_id || null,
+      plan_summary: {
+        title: goal?.title || null,
+        status: goal?.status || null,
+        step_count: steps.length,
+        steps,
+      },
+      instruction:
+        out.instruction ||
+        'ASYNC ACK: Durable goal plan created (goal_run_id agr-…). Quote goal_run_id + short plan (step labels) to the CEO NOW and END THIS TURN. Do NOT poll agent_goal_status or chain agent_workflow_trigger for later phases. Platform advances remaining steps on workflow/specialty terminal via background health callbacks. Workflow run ids are not goal plans.',
+    };
     logTool(req, 'agent_goal_create', requestPayload, out, 'ok', source);
     res.json(out);
   } catch (e) {

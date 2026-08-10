@@ -153,3 +153,8 @@ cd backend && npm run test:e2e:goal-plan
 
 See `tests/REGRESSION.md` and `knowledgebase/TESTING.md`.
 
+
+
+<!-- async-goal-ack -->
+
+**Async ack (major goals):** `agent_goal_create` returns immediately with `async:true`, `goal_run_id` (`agr-...`), and plan steps. The COO should quote the plan and end the turn; platform advances remaining steps when each child workflow/specialty reaches terminal (runner plus watch callbacks). Status callbacks and CEO notifications name the **goal plan id + title** when bound (not only workflow run numbers).

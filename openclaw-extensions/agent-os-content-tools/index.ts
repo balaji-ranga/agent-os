@@ -208,7 +208,7 @@ const PARAM_SCHEMAS: Record<string, Record<string, unknown>> = {
       prompt: {
         type: "string",
         description:
-          "Full multi-intent CEO goal text. Platform plans steps (e.g. CRM then ERP) when steps omitted.",
+          "Full multi-intent CEO goal text. Returns async plan plus agr id; quote plan and end turn. Platform plans steps when steps omitted and advances remaining steps on child terminals.",
       },
       message: { type: "string", description: "Alias for prompt." },
       input: { type: "string", description: "Alias for prompt." },

@@ -189,6 +189,8 @@ bash /opt/agent-os/deploy/scripts/vps-regression-full.sh
 ```bash
 # Durable CRM→ERP + Platform Help specialty + notify_ceo (force-complete child terminals by default)
 docker exec -w /opt/agent-os/backend agent-os-backend-1 node scripts/test-goal-plan-adhoc-e2e.mjs
+# Async ack + goal-correlated terminal notifies (UI perspective)
+docker exec -w /opt/agent-os/backend agent-os-backend-1 node scripts/test-goal-plan-async-ui.mjs
 # or via full regression pack on VPS:
 bash /opt/agent-os/deploy/scripts/vps-regression-full.sh
 # npm aliases (from backend/): test:e2e:goal-plan | test:goal-plan:unit | test:goal-plan:acceptance
