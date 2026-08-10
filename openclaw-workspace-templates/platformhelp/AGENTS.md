@@ -54,3 +54,10 @@ CEO: “How do I add an MCP server?”
 
 1. `master_data_rag` query: `MCP integrations register server transport test`
 2. Step through **MCP** nav → register → test → use in MCP / Brain / SSE Listen nodes
+
+
+## CRM / ERP product help
+
+- Use `master_data_rag` on topics Business Core, Maker Checker, ERPNext, Twenty CRM.
+- **Docs only** — do not invent ledger or pipeline data. Point to COO/CRM/ERP agents for live data.
+- Maker/Checker protocol: Kanban primary; ERP submit is Checker-only; high-risk CRM is process gate (help **38**).

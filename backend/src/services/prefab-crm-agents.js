@@ -203,7 +203,7 @@ function packDefs(ownerUserId, provider = 'twenty') {
         id: `crm-ap-${s}`.slice(0, 40),
         name: 'CRM Checker',
         role:
-          'CRM Checker for ERPNext Sales — gate submit/cancel, review pipeline risk, Kanban approvals. Prefer list tools.',
+          'CRM Checker for ERPNext Sales — submit/cancel on sales docs when CRM=ERPNext; own high-risk CRM review (Option 1 process gate). Read list tools; approve quality or reject with FINDING: on Kanban to Maker. Prefer read + recommend; do not bulk-draft pipeline. Org sync only if CEO asks (optional).',
         department: 'Sales',
         tools: ERP_CRM_CHECKER_TOOLS,
       },
@@ -214,7 +214,7 @@ function packDefs(ownerUserId, provider = 'twenty') {
       id: `crm-s1-${s}`.slice(0, 40),
       name: 'CRM Maker A',
       role:
-        'CRM Maker - accounts, contacts, pipeline execution on platform Twenty via Flolah CRM tools (crm_* content tools; same surface as MCP mcp-flolah-crm). Can crm_sync_org from Flolah departments + AI employees.',
+        'CRM Maker A — accounts, contacts, pipeline on Twenty via crm_*. Can crm_sync_org (optional). High-risk CRM (Won large, merge/delete, bulk, ERP handoff): open Kanban [CRM] Review … for CRM Checker before treating done. Low-risk notes/early stages: Maker alone. Org sync optional. Optional workflow: run crm maker checker.',
       department: 'Sales',
       tools: CRM_TOOLS,
     },
@@ -222,7 +222,7 @@ function packDefs(ownerUserId, provider = 'twenty') {
       id: `crm-s2-${s}`.slice(0, 40),
       name: 'CRM Maker B',
       role:
-        'CRM Maker - enrichment, research, follow-ups on platform Twenty via Flolah CRM tools (crm_*; MCP mcp-flolah-crm). Can crm_sync_org.',
+        'CRM Maker B — enrichment, research, follow-ups via crm_*. Can crm_sync_org (optional). High-risk CRM (Won large, merge/delete, bulk, ERP handoff): open Kanban [CRM] Review … for CRM Checker before treating done. Low-risk notes/early stages: Maker alone. Org sync optional. Optional workflow: run crm maker checker.',
       department: 'Sales',
       tools: CRM_TOOLS,
     },
@@ -230,7 +230,7 @@ function packDefs(ownerUserId, provider = 'twenty') {
       id: `crm-ap-${s}`.slice(0, 40),
       name: 'CRM Checker',
       role:
-        'CRM Checker - review and gate risky CRM changes; prefer read + recommend unless CEO confirms. Has crm_status/list + crm_sync_org for controlled sync review.',
+        'CRM Checker — own high-risk CRM review (Option 1 process gate). Read list tools; approve quality or reject with FINDING: on Kanban to Maker. Prefer read + recommend; do not bulk-draft pipeline. Org sync only if CEO asks (optional).',
       department: 'Sales',
       tools: CRM_APPROVER_TOOLS,
     },
@@ -301,6 +301,21 @@ export async function ensurePrefabCrmAgents(ownerUserId) {
   }
 
   setPrefabCrmAgentIds(owner, ensured);
+  try {
+    const { seedMakerCheckerWorkflowsForOwner } = await import(
+      '../../scripts/seed-business-core-maker-checker-workflows.js'
+    );
+    const wf = seedMakerCheckerWorkflowsForOwner(owner);
+    if (wf?.results?.length) {
+      console.info(
+        '[prefab-crm] maker-checker workflows owner=%s %s',
+        owner,
+        JSON.stringify(wf.results)
+      );
+    }
+  } catch (e) {
+    console.warn('[prefab-crm] maker-checker workflow seed skipped:', e?.message || e);
+  }
   return { ok: true, created, agents: ensured };
 }
 

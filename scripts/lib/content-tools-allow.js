@@ -1,3 +1,5 @@
+import { COO_CRM_ERP_READONLY_TOOLS } from '../../backend/src/lib/business-core-coo-readonly.js';
+
 /**
  * Canonical Agent OS content-tool names that must appear in OpenClaw
  * `tools.allow` (global) so core tool-policy does not strip them.
@@ -121,6 +123,8 @@ export const COO_CONTENT_TOOLS_ALLOW = [
   'browse_act',
   'browse_recipe_list',
   'browse_recipe_run',
+  'kanban_create_task',
+  ...COO_CRM_ERP_READONLY_TOOLS,
 ];
 
 /** Default Workflow Builder content tools.allow. */

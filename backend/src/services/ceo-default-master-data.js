@@ -150,6 +150,22 @@ export const PLATFORM_HELP_DOCUMENTS = Object.freeze([
     filename: '36-operational-effectiveness.md',
     title: `${PLATFORM_HELP_TITLE_PREFIX}Operational Effectiveness OEI`,
   },
+  {
+    filename: '37-company-pnl.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}Company PnL Design Roadmap`,
+  },
+  {
+    filename: '38-maker-checker-coordination.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}CRM ERP Maker Checker Coordination`,
+  },
+  {
+    filename: '39-erpnext-help-tier-a.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}ERPNext Help Tier A`,
+  },
+  {
+    filename: '40-twenty-crm-help-tier-a.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}Twenty CRM Help Tier A`,
+  },
 ]);
 
 /** Resolve repo README.md (local: agent-os/README.md; Docker: /opt/agent-os/README.md). */

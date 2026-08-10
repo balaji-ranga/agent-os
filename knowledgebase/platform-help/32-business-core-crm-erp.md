@@ -301,3 +301,10 @@ Makers draft; Checker owns submit/cancel and task/workflow approvals. Maker A + 
 ## Company P&L (design roadmap)
 
 Automated **cost + income → ERP** is planned: meters and income events in Flolah, period rollups into ERPNext when ERP is on (Maker/Checker review). See Platform Help [37-company-pnl.md](./37-company-pnl.md) and product plan knowledgebase/AUTOMATED-PNL.md. Until shipped, use CRM for pipeline, ERP for invoices you enter, token budgets for AI burn, and OEI for ops — not as blended book revenue.
+
+## Maker/Checker (Option 1) and org sync
+
+- **Coordination:** Kanban primary + optional seeded workflows; ERP Checker hard-owns submit/cancel; CRM Checker owns high-risk process gates. Full playbook: [38-maker-checker-coordination.md](./38-maker-checker-coordination.md).
+- **Org sync** is **optional** (departments + AI employees as people/employees). Not required for customer pipeline or posting invoices — usually **skip** unless you want a roster mirror in the desk.
+- **COO** may use company-scoped **read-only** `crm_*` / `erp_*` list/report tools to query and to route Makers/Checkers.
+- **Platform Help** answers product how-to from RAG (**39**, **40**, this file); live data → COO or prefab agents.

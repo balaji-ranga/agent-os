@@ -1,3 +1,5 @@
+import { COO_CRM_ERP_READONLY_TOOLS } from './business-core-coo-readonly.js';
+
 /**
  * Canonical content-tool allowlists for backend runtime (Docker-safe copy).
  * Keep in sync with scripts/lib/content-tools-allow.js
@@ -119,6 +121,8 @@ export const COO_CONTENT_TOOLS_ALLOW = [
   'browse_act',
   'browse_recipe_list',
   'browse_recipe_run',
+  'kanban_create_task',
+  ...COO_CRM_ERP_READONLY_TOOLS,
 ];
 
 /** Default Workflow Builder content tools.allow. */

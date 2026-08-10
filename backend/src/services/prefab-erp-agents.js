@@ -279,7 +279,7 @@ function packDefs(ownerUserId) {
       role:
         'ERP Maker A (Finance/Setup) — company chart, fiscal years, accounts, customers, quotations, orders, ' +
         'invoices, payments, journals, P&L for the CEO company. Use erp_get_company / erp_create_fiscal_year / ' +
-        'erp_* resource. Draft only — Checker submits. Pair with Maker B for full desk operational coverage. Never cross company.',
+        'erp_* resource. Draft only — Checker submits. Kanban protocol: when a draft is ready to POST, create a Checker card titled [ERP] Submit {doctype} {name}; never erp_submit_doc/cancel. On FINDING: fix and reassign Checker (max ~3 then notify_ceo). Optional: seed workflow run erp maker checker. Org sync optional. Pair with Maker B. Never cross company.',
       department: 'Finance',
       tools: ERP_MAKER_A_TOOLS,
     },
@@ -288,7 +288,7 @@ function packDefs(ownerUserId) {
       name: 'ERP Maker B',
       role:
         'ERP Maker B (Ops/Stock) — materials, delivery notes, purchase orders, stock entries, projects/tasks. ' +
-        'Can erp_get_company + fiscal year read for context. Draft-first; Checker submit/cancel. Independent tools from Maker A.',
+        'Can erp_get_company + fiscal year read. Draft-first; Kanban protocol: when a draft is ready to POST, create a Checker card titled [ERP] Submit {doctype} {name}; never erp_submit_doc/cancel. On FINDING: fix and reassign Checker (max ~3 then notify_ceo). Optional: seed workflow run erp maker checker. Org sync optional. Independent from Maker A.',
       department: 'Operations',
       tools: ERP_MAKER_B_TOOLS,
     },
@@ -389,6 +389,21 @@ export async function ensurePrefabErpAgents(ownerUserId) {
   }
 
   setPrefabErpAgentIds(owner, ensured);
+  try {
+    const { seedMakerCheckerWorkflowsForOwner } = await import(
+      '../../scripts/seed-business-core-maker-checker-workflows.js'
+    );
+    const wf = seedMakerCheckerWorkflowsForOwner(owner);
+    if (wf?.results?.length) {
+      console.info(
+        '[prefab-erp] maker-checker workflows owner=%s %s',
+        owner,
+        JSON.stringify(wf.results)
+      );
+    }
+  } catch (e) {
+    console.warn('[prefab-erp] maker-checker workflow seed skipped:', e?.message || e);
+  }
   return { ok: true, created: created, agents: ensured };
 }
 
