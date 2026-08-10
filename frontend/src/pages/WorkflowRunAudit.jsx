@@ -98,11 +98,13 @@ export default function WorkflowRunAudit() {
     }
   };
 
-  const retryRun = async (mode) => {
+  const retryRun = async (mode, nodeId = null) => {
     if (!run) return;
     setBusy(true);
     try {
-      const out = await api.agentWorkflowRunRetry(run.id, { mode });
+      const body = { mode };
+      if (nodeId) body.node_id = nodeId;
+      const out = await api.agentWorkflowRunRetry(run.id, body);
       if (mode === 'from_start' && out?.run_id && Number(out.run_id) !== Number(run.id)) {
         showSuccess(out.message || `Started run #${out.run_number}`);
         navigate(`/workflows/runs/${out.run_id}`);
@@ -115,6 +117,19 @@ export default function WorkflowRunAudit() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const retryFromNode = async (nodeId) => {
+    if (!run || !nodeId) return;
+    const label = (run.steps || []).find((s) => s.node_id === nodeId)?.node_label || nodeId;
+    if (
+      !window.confirm(
+        `Retry from step “${label}”?\n\nThis re-dispatches that node and clears downstream steps, then continues the run. If the run is paused it will move to running.`
+      )
+    ) {
+      return;
+    }
+    await retryRun('from_step', nodeId);
   };
 
   const deleteRun = async () => {
@@ -199,15 +214,15 @@ export default function WorkflowRunAudit() {
               Pause
             </button>
           )}
-          {['failed', 'paused'].includes(run.status) && (
+          {['failed', 'paused', 'running'].includes(run.status) && (
             <button
               type="button"
               className="wf-btn"
               disabled={busy}
-              onClick={() => retryRun('from_failed_step')}
-              title="Re-dispatch the failed step on this run"
+              onClick={() => retryRun('from_step')}
+              title="Re-dispatch the failed or stuck step on this run"
             >
-              Retry failed step
+              Retry stuck/failed step
             </button>
           )}
           {['failed', 'paused', 'completed', 'cancelled'].includes(run.status) && (
@@ -235,7 +250,14 @@ export default function WorkflowRunAudit() {
 
       <div className={`wf-run-audit-body ${stepsOpen ? 'wf-run-audit-body--split' : ''}`}>
         <div className="wf-run-audit-graph-wrap">
-          <WorkflowRunGraph run={run} fill />
+          <WorkflowRunGraph
+            run={run}
+            fill
+            retryBusy={busy}
+            onRetryFromStep={
+              ['failed', 'paused', 'running'].includes(run.status) ? retryFromNode : null
+            }
+          />
         </div>
         {stepsOpen && (
           <aside className="wf-run-audit-steps">

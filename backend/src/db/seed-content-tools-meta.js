@@ -182,7 +182,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/agent-workflow-retry',
     method: 'POST',
     purpose:
-      'API tool (COO or Workflow Builder): retry a workflow run. Required: run_id, mode. mode=from_start starts a NEW run with the same (or override) input. mode=from_failed_step re-dispatches the failed step on the SAME run (optional node_id). Owner from session only. Inspect with agent_workflow_runs first.',
+      'API tool (COO or Workflow Builder): retry a workflow run. Required: run_id, mode. mode=from_start starts a NEW run with the same (or override) input. mode=from_step (alias from_failed_step) re-dispatches a step on the SAME run (optional node_id: failed/stuck/selected node) and sets status to running (including when previously paused). Owner from session only. Inspect with agent_workflow_runs first. Fullscreen run audit: click a node → Retry from this step.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,

@@ -3,7 +3,7 @@
  */
 import { getDb } from '../db/schema.js';
 import * as store from './agent-workflow-store.js';
-import { startAgentWorkflowRun, resumeRunFromFailedStep } from './agent-workflow-runner.js';
+import { startAgentWorkflowRun, resumeRunFromStep } from './agent-workflow-runner.js';
 import { cancelAllListenersForRun } from './agent-workflow-event-listener.js';
 
 function db() {
@@ -16,8 +16,20 @@ function normalizeMode(mode) {
     .toLowerCase()
     .replace(/[\s-]+/g, '_');
   if (['from_start', 'start', 'restart', 'new_run'].includes(m)) return 'from_start';
-  if (['from_failed_step', 'from_failed', 'failed_step', 'resume_failed', 'retry_failed'].includes(m)) {
-    return 'from_failed_step';
+  if (
+    [
+      'from_failed_step',
+      'from_failed',
+      'failed_step',
+      'resume_failed',
+      'retry_failed',
+      'from_step',
+      'retry_step',
+      'from_this_step',
+      'resume_step',
+    ].includes(m)
+  ) {
+    return 'from_step';
   }
   return null;
 }
@@ -36,7 +48,7 @@ export async function retryAgentWorkflowRun(runId, ownerUserId, opts = {}) {
   }
   const mode = normalizeMode(opts.mode);
   if (!mode) {
-    const err = new Error('mode must be from_start or from_failed_step');
+    const err = new Error('mode must be from_start or from_step (alias from_failed_step)');
     err.status = 400;
     throw err;
   }
@@ -51,7 +63,7 @@ export async function retryAgentWorkflowRun(runId, ownerUserId, opts = {}) {
   if (mode === 'from_start') {
     return retryFromStart(run, ownerUserId, opts);
   }
-  return retryFromFailedStep(run, ownerUserId, opts);
+  return retryFromStep(run, ownerUserId, opts);
 }
 
 async function retryFromStart(run, ownerUserId, { input, actor } = {}) {
@@ -110,72 +122,76 @@ async function retryFromStart(run, ownerUserId, { input, actor } = {}) {
   };
 }
 
-async function retryFromFailedStep(run, ownerUserId, { node_id, actor } = {}) {
-  if (!['failed', 'paused'].includes(run.status)) {
+/**
+ * Retry from a node (failed, stuck in_progress, or re-run a completed node).
+ * paused → running; running stuck → re-dispatch same node + continue downstream.
+ */
+async function retryFromStep(run, ownerUserId, { node_id, actor } = {}) {
+  if (!['failed', 'paused', 'running'].includes(run.status)) {
     const err = new Error(
-      `Retry from failed step requires a failed or paused run (current status: ${run.status})`
+      `Retry from step requires failed, paused, or running (current status: ${run.status})`
     );
     err.status = 409;
     throw err;
   }
 
   const steps = run.steps || [];
-  let failedStep = null;
+  let target = null;
   const wantNode = String(node_id || '').trim();
   if (wantNode) {
-    failedStep = [...steps].reverse().find((s) => s.node_id === wantNode && s.status === 'failed');
-    if (!failedStep) {
-      failedStep = [...steps].reverse().find((s) => s.node_id === wantNode);
+    target = [...steps].reverse().find((s) => s.node_id === wantNode);
+    if (!target) {
+      // Allow starting a never-reached node if it exists on the graph
+      target = { node_id: wantNode, node_label: wantNode, node_type: null, status: 'pending' };
     }
   } else {
-    failedStep = [...steps].reverse().find((s) => s.status === 'failed');
+    target =
+      [...steps].reverse().find((s) => s.status === 'failed') ||
+      [...steps].reverse().find((s) => s.status === 'in_progress') ||
+      [...steps].reverse().find((s) => s.status === 'listening');
   }
-  if (!failedStep) {
-    const err = new Error('No failed step found on this run — pass node_id or use mode from_start');
+  if (!target?.node_id) {
+    const err = new Error('No step to retry — pass node_id or use mode from_start');
     err.status = 400;
     throw err;
   }
 
   cancelAllListenersForRun(run.id);
 
-  // Cancel leftover pending/processing delegations for this run
-  const pattern = `%agent_wf_run_id: ${run.id}%`;
-  db()
-    .prepare(
-      `UPDATE agent_delegation_tasks SET status = 'failed', error_message = 'workflow retry from failed step',
-       completed_at = datetime('now')
-       WHERE status IN ('pending', 'processing') AND prompt LIKE ?`
-    )
-    .run(pattern);
-
-  const result = await resumeRunFromFailedStep(run.id, failedStep.node_id, {
+  const result = await resumeRunFromStep(run.id, target.node_id, {
     ownerUserId,
     actor,
+    allowRunning: true,
+    reason: 'ui_or_tool_retry_from_step',
   });
 
   store.appendAudit(run.definition_id, {
-    action: 'run_retry_from_failed_step',
-    summary: `Retry from failed step ${failedStep.node_label || failedStep.node_id} on run #${run.run_number}`,
+    action: 'run_retry_from_step',
+    summary: `Retry from step ${target.node_label || target.node_id} on run #${run.run_number}`,
     changedBy: actor?.id,
     changedByName: actor?.name,
   });
 
-  console.info('[agent-workflow] retry from_failed_step', {
+  console.info('[agent-workflow] retry from_step', {
     run_id: run.id,
-    node_id: failedStep.node_id,
+    node_id: target.node_id,
+    prior_status: run.status,
     ownerUserId,
   });
 
   return {
     ok: true,
-    mode: 'from_failed_step',
+    mode: 'from_step',
     run_id: run.id,
     run_number: run.run_number,
-    node_id: failedStep.node_id,
-    node_label: failedStep.node_label || failedStep.node_id,
-    node_type: failedStep.node_type,
+    node_id: target.node_id,
+    node_label: target.node_label || target.node_id,
+    node_type: target.node_type,
     status: 'running',
-    message: result?.message || `Resumed run #${run.run_number} from step ${failedStep.node_label || failedStep.node_id}.`,
+    prior_status: run.status,
+    message:
+      result?.message ||
+      `Resumed run #${run.run_number} from step ${target.node_label || target.node_id}.`,
   };
 }
 

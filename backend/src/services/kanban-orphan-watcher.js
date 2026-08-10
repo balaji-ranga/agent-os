@@ -457,6 +457,14 @@ export async function runKanbanOrphanWatcher({ ownerUserId = null, limit = 25 } 
     console.warn('[orphan-watcher] heal:', e?.message || e);
   }
   const orphans = reinitiateOrphanKanbanCards({ ownerUserId: owner, limit });
+  let workflowOrphan = null;
+  try {
+    const { runWorkflowOrphanWatcher } = await import('./agent-workflow-orphan-watcher.js');
+    workflowOrphan = await runWorkflowOrphanWatcher({ ownerUserId: owner, limit });
+  } catch (e) {
+    console.warn('[orphan-watcher] workflow orphan:', e?.message || e);
+    workflowOrphan = { ok: false, error: e?.message || String(e) };
+  }
   let a2aLeaf = [];
   try {
     // Move ext:/a2a: leaf cards to completed/failed from workflow_a2a_tasks / run status
@@ -470,7 +478,8 @@ export async function runKanbanOrphanWatcher({ ownerUserId = null, limit = 25 } 
     (stale.recovered || 0) +
       (statusOnly.requeued || 0) +
       (infra.repended || 0) +
-      (orphans.reinitiated || 0) >
+      (orphans.reinitiated || 0) +
+      (workflowOrphan?.stale_workflow_processing?.recovered || 0) >
     0;
   let process_pending = null;
   if (needsProcess) {
@@ -507,6 +516,7 @@ export async function runKanbanOrphanWatcher({ ownerUserId = null, limit = 25 } 
     infra_repend: infra,
     heal,
     orphans,
+    workflow_orphan: workflowOrphan,
     a2a_leaf_reconcile: a2aLeaf,
     process_pending,
   };

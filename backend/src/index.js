@@ -679,16 +679,18 @@ registerPlatformCron({
   id: 'kanban_orphan_watcher',
   name: 'Kanban orphan watcher',
   description:
-    'Every 5 min: re-pend specialty delegations stuck in processing, requeue status-only cards, and reinitiate orphan Kanban tasks with the assigned agent.',
+    'Every 5 min: re-pend specialty + workflow-agent delegations stuck in processing, reinitiate orphan Kanban cards, and accurately renudge stuck workflow run steps (hard rule: 24h in_progress; soft: dead/stale agent delegation).',
   schedule: kanbanOrphanCron,
   envVar: 'KANBAN_ORPHAN_WATCHER_CRON',
   handler: async () => {
     const { runKanbanOrphanWatcherForAllCeos } = await import('./services/kanban-orphan-watcher.js');
     const out = await runKanbanOrphanWatcherForAllCeos();
-    const reinitiated = (out.results || []).reduce(
-      (n, r) => n + (r.orphans?.reinitiated || 0) + (r.stale_processing?.recovered || 0),
-      0
-    );
+    const reinitiated = (out.results || []).reduce((n, r) => {
+      const wf =
+        (r.workflow_orphan?.stale_workflow_processing?.recovered || 0) +
+        (r.workflow_orphan?.stuck_steps?.retried || 0);
+      return n + (r.orphans?.reinitiated || 0) + (r.stale_processing?.recovered || 0) + wf;
+    }, 0);
     if (reinitiated) {
       console.log(`[cron] Kanban orphan watcher: ${reinitiated} recovery action(s) across ${out.count} CEO(s)`);
     }

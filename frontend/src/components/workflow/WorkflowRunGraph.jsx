@@ -38,7 +38,13 @@ function MediaPreview({ value }) {
   );
 }
 
-export default function WorkflowRunGraph({ run, height = 420, fill = false }) {
+export default function WorkflowRunGraph({
+  run,
+  height = 420,
+  fill = false,
+  onRetryFromStep = null,
+  retryBusy = false,
+}) {
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const graphHeight = fill ? '100%' : height;
 
@@ -82,6 +88,14 @@ export default function WorkflowRunGraph({ run, height = 420, fill = false }) {
   const selectedStep = selectedNodeId ? stepByNode[selectedNodeId] : null;
   const selectedGraphNode = (baseGraph.nodes || []).find((n) => n.id === selectedNodeId);
 
+  const canRetryStep =
+    typeof onRetryFromStep === 'function' &&
+    selectedNodeId &&
+    run &&
+    ['failed', 'paused', 'running'].includes(run.status) &&
+    selectedNodeId !== 'trigger-1' &&
+    (selectedStep || selectedGraphNode);
+
   const ioSections = [];
   if (selectedStep?.input) {
     const s = formatStepIoFull(selectedStep.input, 'input');
@@ -101,7 +115,7 @@ export default function WorkflowRunGraph({ run, height = 420, fill = false }) {
         height: graphHeight,
         minHeight: fill ? 0 : height,
         border: fill ? 'none' : '1px solid var(--border)',
-        borderRadius: fill ? 0 : 8,
+        borderRadius: fill ? 0 : 0,
         overflow: 'hidden',
       }}
     >
@@ -136,7 +150,11 @@ export default function WorkflowRunGraph({ run, height = 420, fill = false }) {
           fontSize: '0.82rem',
         }}
       >
-        {!selectedNodeId && <p style={{ color: 'var(--muted)' }}>Click a node to inspect inputs, outputs, and attributes.</p>}
+        {!selectedNodeId && (
+          <p style={{ color: 'var(--muted)' }}>
+            Click a node to inspect I/O. Use <strong>Retry from this step</strong> to re-execute that node and continue.
+          </p>
+        )}
         {selectedNodeId && (
           <>
             <h3 style={{ margin: '0 0 8px', fontSize: '0.95rem' }}>{selectedNodeId}</h3>
@@ -144,6 +162,24 @@ export default function WorkflowRunGraph({ run, height = 420, fill = false }) {
               type: {selectedGraphNode?.type || selectedStep?.node_type || '—'} · status:{' '}
               {selectedStep?.status || 'not executed'}
             </div>
+            {canRetryStep && (
+              <div style={{ marginBottom: 10 }}>
+                <button
+                  type="button"
+                  className="wf-btn"
+                  disabled={retryBusy}
+                  title="Reset this node and downstream, re-dispatch, set run to running"
+                  onClick={() => onRetryFromStep(selectedNodeId)}
+                >
+                  {retryBusy ? 'Retrying…' : 'Retry from this step'}
+                </button>
+                {run.status === 'paused' && (
+                  <p style={{ fontSize: '0.72rem', color: 'var(--muted)', margin: '6px 0 0' }}>
+                    Run is paused — this will resume it to <strong>running</strong>.
+                  </p>
+                )}
+              </div>
+            )}
             {selectedStep?.error_message && (
               <p style={{ color: 'var(--danger, #b91c1c)' }}>{selectedStep.error_message}</p>
             )}

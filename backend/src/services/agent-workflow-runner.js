@@ -974,9 +974,10 @@ async function executeNode(runId, nodeId, graph, context, def, runRow) {
 
     db()
       .prepare(
-        `INSERT INTO agent_delegation_tasks (standup_id, request_id, to_agent_id, prompt, status) VALUES (?, ?, ?, ?, 'pending')`
+        `INSERT INTO agent_delegation_tasks (standup_id, request_id, to_agent_id, prompt, status, owner_user_id)
+         VALUES (?, ?, ?, ?, 'pending', ?)`
       )
-      .run(standupId, requestId, agentId, prompt);
+      .run(standupId, requestId, agentId, prompt, runRow.owner_user_id || null);
 
     const delegationId = db().prepare('SELECT id FROM agent_delegation_tasks ORDER BY id DESC LIMIT 1').get()?.id;
     const kanbanId = createAgentWorkflowKanbanTask({
@@ -2000,10 +2001,18 @@ export async function reapTimedOutWorkflowSteps() {
 }
 
 /**
- * Resume a failed/paused run by re-dispatching a specific failed node.
- * Upstream completed steps and context.node_outputs are preserved.
+ * Resume / re-dispatch a run from a specific node (UI “Retry from this step”).
+ * Upstream completed steps and context.node_outputs are preserved; this node +
+ * reachable downstream steps are reset and re-executed.
+ *
+ * Allowed run statuses: failed | paused | running (stuck step) — always sets run to running.
+ * Pass allowRunning=true for orphan watcher / UI retry while still running.
  */
-export async function resumeRunFromFailedStep(runId, nodeId, { ownerUserId = null, actor = null } = {}) {
+export async function resumeRunFromStep(
+  runId,
+  nodeId,
+  { ownerUserId = null, actor = null, reason = null, allowRunning = true } = {}
+) {
   const runRow = ownerUserId
     ? db().prepare('SELECT * FROM agent_workflow_runs WHERE id = ? AND owner_user_id = ?').get(runId, ownerUserId)
     : db().prepare('SELECT * FROM agent_workflow_runs WHERE id = ?').get(runId);
@@ -2012,8 +2021,13 @@ export async function resumeRunFromFailedStep(runId, nodeId, { ownerUserId = nul
     err.status = 404;
     throw err;
   }
-  if (!['failed', 'paused'].includes(runRow.status)) {
-    const err = new Error(`Run must be failed or paused to resume (status=${runRow.status})`);
+  const allowed = allowRunning
+    ? ['failed', 'paused', 'running']
+    : ['failed', 'paused'];
+  if (!allowed.includes(runRow.status)) {
+    const err = new Error(
+      `Run must be ${allowed.join('/')} to retry from a step (status=${runRow.status})`
+    );
     err.status = 409;
     throw err;
   }
@@ -2037,13 +2051,39 @@ export async function resumeRunFromFailedStep(runId, nodeId, { ownerUserId = nul
   }
 
   const step = getLatestStepRow(runId, nodeId);
-  if (!step) {
-    const err = new Error(`No step row for node ${nodeId}`);
-    err.status = 400;
-    throw err;
+  // step may be null for never-executed nodes — created below after reset set
+
+  // Cancel open delegations for this run (orphan / hung checker)
+  const pattern = `%agent_wf_run_id: ${runId}%`;
+  try {
+    const openDels = db()
+      .prepare(
+        `SELECT id FROM agent_delegation_tasks
+         WHERE status IN ('pending', 'processing') AND prompt LIKE ?`
+      )
+      .all(pattern);
+    for (const d of openDels) {
+      db()
+        .prepare(
+          `UPDATE agent_delegation_tasks
+           SET status = 'failed',
+               error_message = ?,
+               completed_at = datetime('now')
+           WHERE id = ? AND status IN ('pending', 'processing')`
+        )
+        .run(reason ? `workflow retry from step: ${reason}` : 'workflow retry from step', d.id);
+      try {
+        const { releaseDelegationRunLock } = await import('./delegation-queue.js');
+        releaseDelegationRunLock(d.id);
+      } catch {
+        /* ignore */
+      }
+    }
+  } catch (e) {
+    console.warn('[agent-workflow] cancel dels on retry-from-step', e?.message || e);
   }
 
-  // Collect failed node + reachable downstream (reset non-completed)
+  // Collect target node + reachable downstream (reset)
   const toReset = new Set([nodeId]);
   const stack = [nodeId];
   while (stack.length) {
@@ -2057,7 +2097,10 @@ export async function resumeRunFromFailedStep(runId, nodeId, { ownerUserId = nul
 
   const context = parseContext(runRow);
   if (!context.node_outputs) context.node_outputs = {};
-  for (const nid of toReset) {
+
+  const resetLatestStep = (nid) => {
+    const row = getLatestStepRow(runId, nid);
+    if (!row) return;
     delete context.node_outputs[nid];
     db()
       .prepare(
@@ -2065,12 +2108,30 @@ export async function resumeRunFromFailedStep(runId, nodeId, { ownerUserId = nul
          SET status = 'pending', error_message = NULL, output_json = NULL,
              completed_at = NULL, started_at = NULL,
              delegation_task_id = NULL, kanban_task_id = NULL
-         WHERE run_id = ? AND node_id = ? AND status IN ('failed', 'pending', 'in_progress', 'listening', 'skipped')`
+         WHERE id = ?`
       )
-      .run(runId, nid);
+      .run(row.id);
+  };
+
+  for (const nid of toReset) {
+    resetLatestStep(nid);
+  }
+  // Ensure primary node is pending even if it was completed
+  resetLatestStep(nodeId);
+
+  // If never executed, create a pending step row (so executeNode has a clean slate)
+  if (!getLatestStepRow(runId, nodeId)) {
+    db()
+      .prepare(
+        `INSERT INTO agent_workflow_run_steps
+           (run_id, node_id, node_type, node_label, status, iteration)
+         VALUES (?, ?, ?, ?, 'pending', 1)`
+      )
+      .run(runId, nodeId, node.type || 'unknown', node.data?.label || nodeId);
   }
   saveContext(runId, context);
 
+  // Paused (or any allowed) → running
   db()
     .prepare(
       `UPDATE agent_workflow_runs
@@ -2084,9 +2145,11 @@ export async function resumeRunFromFailedStep(runId, nodeId, { ownerUserId = nul
   const def = store.getDefinition(runRow.definition_id);
   const refreshed = db().prepare('SELECT * FROM agent_workflow_runs WHERE id = ?').get(runId);
 
-  console.info('[agent-workflow] resume from failed step', {
+  console.info('[agent-workflow] resume from step', {
     runId,
     nodeId,
+    prior_status: runRow.status,
+    reason: reason || null,
     actor: actor?.id || null,
   });
 
@@ -2103,8 +2166,15 @@ export async function resumeRunFromFailedStep(runId, nodeId, { ownerUserId = nul
     ok: true,
     run_id: runId,
     node_id: nodeId,
-    message: `Re-dispatched node ${node.data?.label || nodeId} on run ${runId}`,
+    status: 'running',
+    prior_status: runRow.status,
+    message: `Re-dispatched node ${node.data?.label || nodeId} on run ${runId} (now running)`,
   };
+}
+
+/** @deprecated Prefer resumeRunFromStep — kept for callers that expect the old name. */
+export async function resumeRunFromFailedStep(runId, nodeId, opts = {}) {
+  return resumeRunFromStep(runId, nodeId, { ...opts, allowRunning: false });
 }
 
 /**

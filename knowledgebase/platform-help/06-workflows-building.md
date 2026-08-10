@@ -18,10 +18,11 @@ This doc is about **custom Workflows**.
 4. Configure each node (attributes + **Input / Output** bindings).
 5. **Save draft**.
 6. **Publish** (required before Run). Use **Unpublish** to take offline.
-7. **Run** with optional run input; watch progress on the runs panel (`?run_id=`).
-8. **Import / Export JSON** for backup or sharing definitions.
-9. Optional: **Publish as A2A** (Public or Secured OAuth) to list on AgentExchange.
-10. Optional: **Download for Windows** — run a published workflow from a laptop (local graph + localhost/filesystem; state and remote nodes on Flolah). See [17-desktop-windows-download.md](./17-desktop-windows-download.md).
+7. **Run** with optional run input; watch progress on the runs panel (`?run_id=`) or **fullscreen run audit** (`/workflows/runs/:id`).
+8. On fullscreen audit: click a **node** → **Retry from this step** re-dispatches that node (and clears downstream), sets the run to **running** (also if it was **paused**). Toolbar **Retry stuck/failed step** uses the latest failed/stuck node. **Retry from start** creates a new run.
+9. **Import / Export JSON** for backup or sharing definitions.
+10. Optional: **Publish as A2A** (Public or Secured OAuth) to list on AgentExchange.
+11. Optional: **Download for Windows** — run a published workflow from a laptop (local graph + localhost/filesystem; state and remote nodes on Flolah). See [17-desktop-windows-download.md](./17-desktop-windows-download.md).
 
 ## Workflow Builder agent
 

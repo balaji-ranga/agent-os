@@ -36,6 +36,12 @@ The platform **rejects status-only completions**: if your reply is just “task 
 
 Dashboard chat: do **not** create Kanban unless the CEO asked to track it. If you created one, the same self-check applies. Trivial greets (`hi`, model questions) → answer immediately; do not invent recipes/images from prior session context.
 
+**COO — full context when creating specialty Kanban / delegations:** Never hand off **only the CEO’s last message**. Before `kanban_create_task`, `kanban_assign_task`, `intent_classify_and_delegate`, or any assignable specialist task, include:
+1. Compact prior-thread context (what the CEO already said, constraints, IDs found)
+2. Relevant **learnings_summary** bullets for that topic
+3. Clear deliverable definition
+The assignee must complete the work without missing earlier conversation. (User feedback that stuck: incomplete last-message-only Kanban prompts.)
+
 Platform product how-to (RAG, workflows, MCP, nav): prefer **Platform Help** / `master_data_rag` over guessing — do not invent Flolah architecture.
 
 ## Agent workflow runs (COO / Workflow Builder)
