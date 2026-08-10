@@ -78,6 +78,17 @@
 
 Company setup state and apply are CEO tenant–scoped. Requires authenticated CEO APIs (`/api/company-setup/*`).
 
+
+
+## Demo company blueprint
+
+The system pack **Flolah demo (Balaji Ranganathan)** (`demo_balaji_ranganathan`) is a deep snapshot of **BalajiDemoCompany** for clean redeploys: CRM/ERP Maker-Checker agents, IBKR/monthly trading workflows, specialty agents, goals, and connector stubs (no secrets).
+
+- Pack: `backend/src/services/company-blueprints/packs/demo_balaji_ranganathan.json`
+- Export zip: `backend/src/services/company-blueprints/exports/demo_balaji_ranganathan.zip`
+- Re-publish: `node backend/scripts/publish-balaji-demo-blueprint.js` (owner `ceo-bala`)
+
+
 ## Related
 
 - Onboarding Helper chat: [27-onboarding-helper.md](./27-onboarding-helper.md)
