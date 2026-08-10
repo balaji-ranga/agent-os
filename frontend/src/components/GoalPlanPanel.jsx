@@ -137,6 +137,13 @@ export default function GoalPlanPanel({
                 {s.spec?.agent_id ? ` → ${s.spec.agent_id}` : ''}
               </span>
             ) : null}
+            {s.step_type === 'agent_tool' || s.step_type === 'notify_ceo' ? (
+              <span style={{ color: 'var(--muted)' }}>
+                {' · '}
+                {s.step_type === 'notify_ceo' ? 'notify' : 'tool'}
+                {s.spec?.tool_name ? ` · ${s.spec.tool_name}` : ''}
+              </span>
+            ) : null}
           </li>
         ))}
       </ol>
