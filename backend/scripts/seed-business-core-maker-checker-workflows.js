@@ -164,39 +164,17 @@ End with ONLY JSON:
         },
       },
       {
-        id: "parse-1",
-        type: "brain",
-        position: { x: 740, y: 200 },
-        data: {
-          label: "Parse Checker decision",
-          taskConfig: {
-            modelSource: "platform",
-            maxTokens: 200,
-            systemPrompt:
-              'Extract the Checker decision JSON. Reply ONLY: {"decision":"approved"|"rejected","adjustments":"...","notes":"..."}. If unclear, decision rejected.',
-            mcpToolCalling: false,
-          },
-          inputBindings: [
-            {
-              id: "userMessage",
-              mode: "dynamic",
-              sourceNodeId: "checker-1",
-              sourceOutputKey: "reply",
-            },
-          ],
-        },
-      },
-      {
         id: "if-1",
         type: "if",
-        position: { x: 980, y: 200 },
+        position: { x: 740, y: 200 },
         data: {
           label: "If approved (pass 1)",
           taskConfig: {
-            sourceNodeId: "parse-1",
-            sourceOutputKey: "text",
+            // No Brain parse node (would need CEO vault API keys to publish).
+            sourceNodeId: "checker-1",
+            sourceOutputKey: "reply",
             operator: "contains",
-            compareValue: "approved",
+            compareValue: '"decision":"approved"',
           },
         },
       },
@@ -263,12 +241,11 @@ End with ONLY JSON:
     edges: [
       { id: "e1", source: "trigger-1", target: "maker-1" },
       { id: "e2", source: "maker-1", target: "checker-1" },
-      { id: "e3", source: "checker-1", target: "parse-1" },
-      { id: "e4", source: "parse-1", target: "if-1" },
-      { id: "e5", source: "if-1", target: "notify-ok", sourceHandle: "true" },
-      { id: "e6", source: "if-1", target: "maker-2", sourceHandle: "false" },
-      { id: "e7", source: "maker-2", target: "checker-2" },
-      { id: "e8", source: "checker-2", target: "notify-escalate" },
+      { id: "e3", source: "checker-1", target: "if-1" },
+      { id: "e4", source: "if-1", target: "notify-ok", sourceHandle: "true" },
+      { id: "e5", source: "if-1", target: "maker-2", sourceHandle: "false" },
+      { id: "e6", source: "maker-2", target: "checker-2" },
+      { id: "e7", source: "checker-2", target: "notify-escalate" },
     ],
   };
 }
