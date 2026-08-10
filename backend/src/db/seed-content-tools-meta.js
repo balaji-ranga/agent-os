@@ -822,6 +822,30 @@ export function seedWorkflowToolsIfMissing() {
   for (const t of WORKFLOW_TOOLS) {
     update.run(t.purpose, t.display_name, t.endpoint, t.method, t.model_used, t.name);
   }
+  // COO gets multi-intent goal plan tools + core workflow runners (WFB keeps builder-only via other seed paths).
+  const COO_GOAL_AND_RUN_TOOLS = [
+    'agent_workflow_list',
+    'agent_workflow_enquire',
+    'agent_workflow_trigger',
+    'agent_workflow_runs',
+    'agent_workflow_watch',
+    'agent_workflow_watch_tick',
+    'agent_workflow_retry',
+    'agent_goal_create',
+    'agent_goal_list',
+    'agent_goal_status',
+    'agent_goal_complete_step',
+  ];
+  const ins = db.prepare('INSERT OR IGNORE INTO agent_tool_grants (agent_id, tool_name) VALUES (?, ?)');
+  const coos = db.prepare('SELECT id FROM agents WHERE is_coo = 1').all();
+  for (const a of coos) {
+    for (const name of COO_GOAL_AND_RUN_TOOLS) {
+      ins.run(a.id, name);
+    }
+  }
+  if (coos.length) {
+    console.info('[seed] agent_goal_* + workflow runners granted to %s COO agent(s)', coos.length);
+  }
 }
 
 /** Update purpose for Kanban/intent tools so they state "API tool" and "do not run via exec" (fixes agents using exec). */
