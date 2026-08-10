@@ -140,7 +140,7 @@ Ensure `TOOLS_BASE_URL=http://127.0.0.1:3001` in `.env` (see `.env.example`) so 
 2. Builds/starts Compose profiles **`optional-brave-mcp`**, **`optional-meta-graph-mcp`**, and **`optional-business-core-mcp`**.
 3. Seeds registry rows **`mcp-brave-search`**, **`mcp-meta-graph`**, **`mcp-flolah-crm`**, **`mcp-flolah-erp`** (`is_platform=1`) and default Meta OAuth config for **Connectors → MCPs**.
 
-Business Core MCP proxies owner-scoped `crm_*` / `erp_*` content tools (`TOOLS_API_KEY` + `X-Ceo-User-Id`). Prefab **Maker/Checker** AI employees are provisioned when Profile selects Twenty/ERPNext — not when MCP starts. ERPNext multi-tenant isolation: `flolah_company` masters + native `company` transactions; agents inherit CEO company scope. Multi-phase O2C uses durable **agent goal plans** (`agent_goal_*` / scheduled goal **goal_run_plan** mode; platform advances on async workflow terminal). Docs: `knowledgebase/platform-help/32-business-core-crm-erp.md`, **38**, `deploy/business-core/README.md`.
+Business Core MCP proxies owner-scoped `crm_*` / `erp_*` content tools (`TOOLS_API_KEY` + `X-Ceo-User-Id`). Prefab **Maker/Checker** AI employees are provisioned when Profile selects Twenty/ERPNext — not when MCP starts. ERPNext multi-tenant isolation: `flolah_company` masters + native `company` transactions; agents inherit CEO company scope. Multi-phase O2C uses durable **agent goal plans** (`agent_goal_*` / scheduled goal **goal_run_plan** mode; multiphase `agent_workflow_trigger` may upgrade to a plan; platform advances on async workflow terminal; Digest **2** + `/goal-plans`). Docs: `knowledgebase/platform-help/32-business-core-crm-erp.md`, **28**, **38**, `deploy/business-core/README.md`.
 
 ### OAuth credentials model (canonical — not a VPS hotfix)
 

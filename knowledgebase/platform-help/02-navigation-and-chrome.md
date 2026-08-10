@@ -16,8 +16,8 @@ Top-level (always shown; cannot hide in Menu visibility):
 
 | Label | Route | Use for |
 |-------|-------|---------|
-| Home | `/` | Executive chat (COO / default) |
-| **Digest** | `/this-week` | Weekly company pulse: AI workers, tasks, Time Saved, Est. Value (per-agent $/hr), insights. |
+| Home | `/` | Executive chat (COO / default). On phones: overview first; **Chat** opens a full-screen sheet (help section below). |
+| **Digest** | `/this-week` | Weekly company pulse: AI workers, tasks, Time Saved, Est. Value (per-agent $/hr), **2 goal plans** + **View all** → `/goal-plans`, insights. |
 | Workspace | `/work` | Daily operating workspace — **open Kanban tasks**, AI team, activity, command bar (same task source as **/kanban**) |
 
 ### Settings (nav chrome)
@@ -37,7 +37,8 @@ Top-level (always shown; cannot hide in Menu visibility):
 |-------|-------|---------|
 | My Org / Dashboard | `/org` | Org chart, standups + COO chat, Resync ORG/AGENTS |
 | Kanban | `/kanban` | Work tasks (AI employee / workflow / pipeline cards), CEO approvals, artifacts |
-| **Scheduled goals** | `/scheduled-goals` | Recurring CEO prompts (**hourly** / daily / weekdays / weekly); create **and edit**; pause survives restarts. Also via COO chat. See [28-scheduled-goals.md](./28-scheduled-goals.md) |
+| **Scheduled goals** | `/scheduled-goals` | Recurring CEO prompts (**hourly** / daily / weekdays / weekly); create **and edit**; draft/approve multi-intent goal plans; pause survives restarts. Also via COO chat. See [28-scheduled-goals.md](./28-scheduled-goals.md) |
+| **Goal plans** | `/goal-plans` | Full weekly list of durable multiphase plans (`agr-…`); week filters; linked from Digest **View all plans** |
 | Broadcast | `/broadcast` | Message many AI employees at once |
 | **Knowledge** | `/master-data` | Company knowledge: tables, documents, RAG, **Inbound attachments** (Master Data) |
 | **Content Explorer** | `/content-explorer` | Browse uploaded + generated files (preview/download) |
@@ -138,6 +139,14 @@ Top-nav **Digest** (`/this-week`) shows KPIs (AI workers, tasks completed, estim
 ## Home operational effectiveness (OEI)
 
 Home (`/`) shows an **Operational Effectiveness Index (OEI)** score **0–100** (Green ≥ **75**, Amber 50–74, Red 0–49) over a rolling **14-day** window. Domains (equal-weight mean): vision, org, goals, workflows, autonomy, CRM (platform Twenty **or** MCA CRM connector), governance. Rules-only (no LLM / no Digest dollars).
+
+### Home on phone / small screens
+
+- **Overview first:** greeting, KPI row, Today’s Snapshot, team activity, and recent workflows scroll on the page.
+- **Chat sheet:** tap **Chat with …** to open a full-screen sliding chat panel. Use the **X** control (or Escape) to close and return to the overview. Deep links with `?message=` open the chat sheet automatically.
+- **History / browser panes:** on Home or `/agents/:id/chat`, the clock and browser icons open a **full-height side drawer**. Tap the backdrop or the **X** in the drawer header to close. Desktop layout is unchanged (inline chat + optional side column).
+
+When you open Home in a desktop browser (≥901px), chat and the right-hand overview stay side by side as before.
 
 **Goal KPIs:** **Goal runs (14d)** counts **firings** (`scheduled_goal_runs`), not “distinct goals that ran once.” A single daily goal with seven successful days shows **~7 runs**, not **1**. Distinct-goal count is a separate KPI.
 

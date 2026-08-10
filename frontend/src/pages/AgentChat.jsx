@@ -50,6 +50,41 @@ function sortAgentsForPicker(list = []) {
   });
 }
 
+function useIsNarrow(maxWidth = 900) {
+  const [narrow, setNarrow] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia(`(max-width: ${maxWidth}px)`).matches : false
+  );
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const mq = window.matchMedia(`(max-width: ${maxWidth}px)`);
+    const onChange = () => setNarrow(mq.matches);
+    onChange();
+    if (mq.addEventListener) mq.addEventListener('change', onChange);
+    else mq.addListener(onChange);
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener('change', onChange);
+      else mq.removeListener(onChange);
+    };
+  }, [maxWidth]);
+  return narrow;
+}
+
+function IconX({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconChat({ size = 20 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <path d="M5 6.5A2.5 2.5 0 0 1 7.5 4h9A2.5 2.5 0 0 1 19 6.5v7a2.5 2.5 0 0 1-2.5 2.5H11l-4 3v-3H7.5A2.5 2.5 0 0 1 5 13.5v-7z" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function HomeKpiCards({ kpis, oei, oeiOpen, onToggleOei }) {
   if (!kpis && !oei) return null;
   const successDetail = kpis?.success_rate_detail;
@@ -250,6 +285,7 @@ export default function AgentChat() {
   const location = useLocation();
   const { user, dataCeoUserId, agents: authAgents } = useAuth();
   const isHome = location.pathname === '/' || location.pathname === '';
+  const isNarrow = useIsNarrow(900);
 
   const pickerAgents = useMemo(() => sortAgentsForPicker(authAgents || []), [authAgents]);
   const defaultCooId = useMemo(() => {
@@ -273,6 +309,8 @@ export default function AgentChat() {
   /** Side panes are closed by default; icon toggles open them. */
   const [showHistoryPanel, setShowHistoryPanel] = useState(false);
   const [showBrowserPanel, setShowBrowserPanel] = useState(false);
+  /** Mobile Home: chat is a full-screen slide sheet (desktop always inline). */
+  const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [homeSnap, setHomeSnap] = useState(null);
   const [oei, setOei] = useState(null);
   const [oeiOpen, setOeiOpen] = useState(false);
@@ -280,6 +318,18 @@ export default function AgentChat() {
   const scrollRef = useRef(null);
   const abortControllerRef = useRef(null);
   const sidePanelOpen = showHistoryPanel || showBrowserPanel;
+  const homeChatSheetOpen = !isHome || !isNarrow || mobileChatOpen;
+
+  const closeSidePanels = useCallback(() => {
+    setShowHistoryPanel(false);
+    setShowBrowserPanel(false);
+  }, []);
+
+  const closeMobileChat = useCallback(() => {
+    setMobileChatOpen(false);
+    setShowHistoryPanel(false);
+    setShowBrowserPanel(false);
+  }, []);
 
   useEffect(
     () => () => {
@@ -287,6 +337,42 @@ export default function AgentChat() {
     },
     []
   );
+
+  useEffect(() => {
+    if (!isNarrow) {
+      setMobileChatOpen(false);
+    }
+  }, [isNarrow]);
+
+  useEffect(() => {
+    if (!(isHome && isNarrow && mobileChatOpen)) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [isHome, isNarrow, mobileChatOpen]);
+
+  useEffect(() => {
+    if (!(isHome && isNarrow && mobileChatOpen)) return undefined;
+    const onKey = (ev) => {
+      if (ev.key === 'Escape') {
+        if (sidePanelOpen) closeSidePanels();
+        else closeMobileChat();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isHome, isNarrow, mobileChatOpen, sidePanelOpen, closeSidePanels, closeMobileChat]);
+
+  useEffect(() => {
+    if (!sidePanelOpen || !isNarrow) return undefined;
+    const onKey = (ev) => {
+      if (ev.key === 'Escape') closeSidePanels();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [sidePanelOpen, isNarrow, closeSidePanels]);
 
   useEffect(() => {
     if (!isHome) return undefined;
@@ -515,13 +601,14 @@ export default function AgentChat() {
       const qs = next.toString();
       navigate(`${location.pathname}${qs ? `?${qs}` : ''}`, { replace: true, state: {} });
     }
+    if (isHome) setMobileChatOpen(true);
     if (auto) {
       send(null, text);
     } else {
       setInput(text);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot inbound hop
-  }, [agentId, searchParams, location.state]);
+  }, [agentId, searchParams, location.state, isHome]);
 
   const startNewChat = async () => {
     if (clearing || sending || !agentId) return;
@@ -609,16 +696,104 @@ export default function AgentChat() {
   const hour = new Date().getHours();
   const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
+  const sidePanelEl = sidePanelOpen ? (
+    <>
+      <button
+        type="button"
+        className="chat-side-panel-backdrop"
+        aria-label="Close side panel"
+        onClick={closeSidePanels}
+      />
+      <aside
+        className="chat-history-panel chat-history-panel--drawer"
+        aria-label={
+          showHistoryPanel && showBrowserPanel
+            ? 'Browser session and chat history'
+            : showBrowserPanel
+              ? 'Browser session'
+              : 'Chat history'
+        }
+      >
+        <div className="chat-side-panel-toolbar">
+          <div className="chat-side-panel-toolbar-labels">
+            {showBrowserPanel && (
+              <button type="button" className="chat-side-panel-close" onClick={() => setShowBrowserPanel(false)}>
+                Browser
+              </button>
+            )}
+            {showHistoryPanel && (
+              <button type="button" className="chat-side-panel-close" onClick={() => setShowHistoryPanel(false)}>
+                History
+              </button>
+            )}
+          </div>
+          <button
+            type="button"
+            className="chat-pane-x-btn"
+            onClick={closeSidePanels}
+            aria-label="Close panel"
+            title="Close"
+          >
+            <IconX />
+          </button>
+        </div>
+        {showBrowserPanel && <BrowserTasksLive variant="sidebar" forceShow />}
+        {showHistoryPanel && (
+          <>
+            <div className="chat-history-header">
+              <h2>History</h2>
+              <span className="chat-history-meta">Last 30 days</span>
+            </div>
+            <div className="chat-history-scroll">
+              {historyLoading && <div className="chat-history-empty">Loading…</div>}
+              {!historyLoading && history.length === 0 && (
+                <div className="chat-history-empty">
+                  No archived chats yet. Use New chat to archive the current conversation.
+                </div>
+              )}
+              {history.map((s) => (
+                <div key={s.id} className="chat-history-item">
+                  <div className="chat-history-title" title={s.title}>
+                    {s.title || 'Untitled chat'}
+                  </div>
+                  <div className="chat-history-date">{formatArchivedAt(s.archived_at || s.started_at)}</div>
+                  <div className="chat-history-actions">
+                    <button
+                      type="button"
+                      style={secondaryBtn}
+                      disabled={!!restoreBusyId || sending || clearing}
+                      onClick={() => restoreSession(s, 'as_is')}
+                    >
+                      {restoreBusyId === `${s.id}:as_is` ? '…' : 'Open as-is'}
+                    </button>
+                    <button
+                      type="button"
+                      style={secondaryBtn}
+                      disabled={!!restoreBusyId || sending || clearing}
+                      onClick={() => restoreSession(s, 'summarized')}
+                    >
+                      {restoreBusyId === `${s.id}:summarized` ? '…' : 'Summarize'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </aside>
+    </>
+  ) : null;
+
   return (
     <div
-      className={`page-chat page-chat-inner${sidePanelOpen ? ' page-chat-with-history' : ''}${isHome ? ' page-chat-home' : ''}`}
+      className={`page-chat page-chat-inner${sidePanelOpen ? ' page-chat-with-history' : ''}${isHome ? ' page-chat-home' : ''}${isHome && isNarrow && mobileChatOpen ? ' mobile-chat-open' : ''}${sidePanelOpen ? ' chat-side-open' : ''}`}
     >
       {isHome && (
         <div className="home-dashboard-layout">
-          <div className="chat-main-column">
+          <div className="home-primary-column">
             <div className="home-mobile-greet">
               <div className="home-mobile-greet-title">
-                {greet}, {firstName}! <span aria-hidden>👋</span>
+                {greet}, {firstName}! <span aria-hidden>붿붿</span>
               </div>
               <div className="home-mobile-greet-sub">Here&apos;s what&apos;s happening with your AI company today.</div>
             </div>
@@ -629,80 +804,71 @@ export default function AgentChat() {
               onToggleOei={() => setOeiOpen((v) => !v)}
             />
             {operateBanner?.show_home_banner && (
-              <div
-                role="status"
-                style={{
-                  marginBottom: '0.85rem',
-                  padding: '0.75rem 1rem',
-                  borderRadius: 10,
-                  border: '1px solid var(--border)',
-                  background: 'var(--surface)',
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: '0.65rem',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                }}
-              >
-                <div style={{ minWidth: 0, flex: '1 1 200px' }}>
-                  <strong style={{ display: 'block', marginBottom: 2 }}>
+              <div className="home-operate-banner" role="status">
+                <div className="home-operate-banner-text">
+                  <strong>
                     {operateBanner.banner_reason === 'day1_not_applied'
                       ? 'Day 1 install pending'
                       : 'Operating model incomplete'}
                   </strong>
-                  <span style={{ fontSize: '0.9rem', opacity: 0.85 }}>
+                  <span>
                     {operateBanner.banner_reason === 'day1_not_applied'
                       ? 'Your operating model is confirmed — install MD and workflows so the company can run.'
                       : 'Define how the company runs (cadence, autonomy, channels), then install Day 1 runbooks.'}
                   </span>
                 </div>
-                <Link
-                  to="/company-operate"
-                  style={{
-                    padding: '0.45rem 0.85rem',
-                    background: 'var(--accent)',
-                    color: '#fff',
-                    borderRadius: 8,
-                    textDecoration: 'none',
-                    fontSize: '0.9rem',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
+                <Link to="/company-operate" className="home-operate-banner-link">
                   {operateBanner.banner_reason === 'day1_not_applied' ? 'Install Day 1' : 'How we run'}
                 </Link>
               </div>
             )}
-            <div style={{ flexShrink: 0, marginBottom: '0.75rem' }}>
-              <div
-                style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  alignItems: 'flex-start',
-                  justifyContent: 'space-between',
-                  gap: '0.65rem',
-                }}
-              >
-                <div style={{ minWidth: 0, flex: '1 1 180px' }}>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.55rem' }}>
-                    <RobotAvatar src={agent?.avatar_image} name={agentLabel} size={36} status="online" />
-                    <label style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-                      <span style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>Chat with</span>
-                      <select
-                        value={agentId || ''}
-                        onChange={(e) => selectAgent(e.target.value)}
-                        aria-label="Select agent to chat with"
-                        className="chat-agent-select"
-                      >
-                        {pickerAgents.map((a) => (
-                          <option key={a.id} value={a.id}>
-                            {a.name || a.id}
-                            {a.is_coo ? ' (COO)' : ''}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <span className="chat-online-pill">Online</span>
-                  </div>
+
+            {isNarrow && (
+              <HomeRightPane
+                snapshot={homeSnap?.snapshot}
+                agentActivity={homeSnap?.agent_activity}
+                recentWorkflows={homeSnap?.recent_workflows}
+              />
+            )}
+
+            {isNarrow && !mobileChatOpen && (
+              <div className="home-chat-open-bar">
+                <button
+                  type="button"
+                  className="home-open-chat-btn"
+                  onClick={() => setMobileChatOpen(true)}
+                  aria-label={`Open chat with ${agentLabel}`}
+                >
+                  <IconChat />
+                  <span>Chat with {agentLabel}</span>
+                </button>
+              </div>
+            )}
+
+            <div
+              className={`chat-main-column${homeChatSheetOpen ? ' is-chat-open' : ''}`}
+              aria-hidden={isHome && isNarrow && !mobileChatOpen ? true : undefined}
+            >
+              <div className="chat-sheet-header">
+                <div className="chat-sheet-header-main">
+                  <RobotAvatar src={agent?.avatar_image} name={agentLabel} size={36} status="online" />
+                  <label className="chat-agent-picker">
+                    <span className="chat-agent-picker-label">Chat with</span>
+                    <select
+                      value={agentId || ''}
+                      onChange={(e) => selectAgent(e.target.value)}
+                      aria-label="Select agent to chat with"
+                      className="chat-agent-select"
+                    >
+                      {pickerAgents.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.name || a.id}
+                          {a.is_coo ? ' (COO)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <span className="chat-online-pill">Online</span>
                 </div>
                 <div className="chat-header-actions">
                   <button
@@ -734,35 +900,205 @@ export default function AgentChat() {
                   <button type="button" onClick={startNewChat} disabled={clearing || sending || !agentId} className="chat-new-btn" style={secondaryBtn}>
                     {clearing ? 'Archiving…' : '+ New chat'}
                   </button>
+                  {isNarrow && (
+                    <button
+                      type="button"
+                      className="chat-pane-x-btn chat-sheet-close"
+                      onClick={closeMobileChat}
+                      aria-label="Close chat"
+                      title="Close chat"
+                    >
+                      <IconX />
+                    </button>
+                  )}
                 </div>
+              </div>
+
+              {banner && (
+                <div className={`chat-banner chat-banner-${banner.type || 'info'}`}>
+                  <span className="chat-banner-text">{banner.text}</span>
+                  <span className="chat-banner-actions">
+                    {banner.chatUrl && (
+                      <Link to={banner.chatUrl} style={{ ...secondaryBtn, textDecoration: 'none', display: 'inline-block' }}>
+                        Open {banner.suggestedAgentId || 'specialist'}
+                      </Link>
+                    )}
+                    <button type="button" onClick={() => setBanner(null)} style={secondaryBtn}>
+                      Dismiss
+                    </button>
+                  </span>
+                </div>
+              )}
+
+              {error && <div className="chat-error-banner">{error}</div>}
+
+              <div
+                ref={scrollRef}
+                className="chat-scroll-panel"
+                style={{
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 10,
+                  padding: '0.85rem',
+                  marginBottom: '0.75rem',
+                }}
+              >
+                {emptyHome && (
+                  <div className="chat-home-empty">
+                    <div className="chat-home-empty-title">Good to see you</div>
+                    <div className="chat-home-empty-sub">
+                      Chat with {agentLabel} — priorities, questions, or whatever is on your mind.
+                    </div>
+                  </div>
+                )}
+                {turns.map((t, i) => (
+                  <ChatMessageRow
+                    key={t.id || i}
+                    role={t.role}
+                    content={t.content}
+                    createdAt={t.created_at}
+                    agentId={agentId}
+                    messageId={t.id}
+                    feedbackSource="chat"
+                    toolCalls={t.tool_calls}
+                    attachments={t.attachments}
+                  />
+                ))}
+                {sending && <div style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>…</div>}
+              </div>
+
+              <form onSubmit={send} style={{ flexShrink: 0 }}>
+                <div className="chat-compose-row">
+                  <ChatComposeInput
+                    placeholder={`Message ${agentLabel}…`}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onSend={send}
+                    disabled={sending || !agentId}
+                    attachments={attachments}
+                    onAttachmentsChange={setAttachments}
+                    rows={2}
+                    style={{
+                      padding: '0.65rem 0.85rem',
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 8,
+                      color: 'var(--text)',
+                      resize: 'vertical',
+                      minHeight: 48,
+                      font: 'inherit',
+                      fontSize: '0.92rem',
+                    }}
+                  />
+                  <button
+                    type="submit"
+                    disabled={sending || !agentId || (!input.trim() && !attachments.length)}
+                    style={{
+                      padding: '0.65rem 1.1rem',
+                      background:
+                        sending || !agentId || (!input.trim() && !attachments.length) ? 'var(--border)' : 'var(--accent)',
+                      border: 'none',
+                      borderRadius: 8,
+                      color: '#fff',
+                      fontSize: '0.9rem',
+                    }}
+                  >
+                    Send
+                  </button>
+                  {sending && (
+                    <button type="button" onClick={cancelSend} style={secondaryBtn}>
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              </form>
+            </div>
+          </div>
+
+          {!isNarrow && !sidePanelOpen && (
+            <HomeRightPane
+              snapshot={homeSnap?.snapshot}
+              agentActivity={homeSnap?.agent_activity}
+              recentWorkflows={homeSnap?.recent_workflows}
+            />
+          )}
+          {sidePanelEl}
+        </div>
+      )}
+      {!isHome && (
+        <>
+          <div className="chat-main-column">
+            <div className="chat-sheet-header chat-agent-page-header">
+              <div className="chat-sheet-header-main chat-agent-page-header-main">
+                <Link to="/org" className="chat-back-link">
+                  뿯↽ My Org
+                </Link>
+                <div className="chat-agent-row">
+                  <RobotAvatar src={agent?.avatar_image} name={agentLabel} size={36} />
+                  <label className="chat-agent-picker">
+                    <span className="chat-agent-picker-label">Chat with</span>
+                    <select
+                      value={agentId || ''}
+                      onChange={(e) => selectAgent(e.target.value)}
+                      aria-label="Select agent to chat with"
+                      className="chat-agent-select"
+                    >
+                      {pickerAgents.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.name || a.id}
+                          {a.is_coo ? ' (COO)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <p className="chat-agent-help">
+                  Human–agent chat. Use the paperclip to attach images/docs (Master Data RAG).
+                  {profileId && (
+                    <>
+                      {' '}
+                      Profile context: <code>{profileId}</code>
+                    </>
+                  )}
+                </p>
+              </div>
+              <div className="chat-header-actions">
+                <button
+                  type="button"
+                  className={`chat-pane-icon-btn${showBrowserPanel ? ' is-active' : ''}`}
+                  aria-pressed={showBrowserPanel}
+                  aria-label={showBrowserPanel ? 'Hide browser session panel' : 'Show browser session panel'}
+                  title="Browser session"
+                  onClick={() => setShowBrowserPanel((v) => !v)}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+                    <rect x="3" y="4" width="18" height="14" rx="2" />
+                    <path d="M3 9h18M8 18h8" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  className={`chat-pane-icon-btn${showHistoryPanel ? ' is-active' : ''}`}
+                  aria-pressed={showHistoryPanel}
+                  aria-label={showHistoryPanel ? 'Hide chat history panel' : 'Show chat history panel'}
+                  title="Chat history"
+                  onClick={() => setShowHistoryPanel((v) => !v)}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M12 7v5l3 2" />
+                  </svg>
+                </button>
+                <button type="button" onClick={startNewChat} disabled={clearing || sending || !agentId} style={secondaryBtn}>
+                  {clearing ? 'Archiving…' : 'New chat'}
+                </button>
               </div>
             </div>
 
             {banner && (
-              <div
-                style={{
-                  flexShrink: 0,
-                  padding: '0.55rem 0.85rem',
-                  background:
-                    banner.type === 'warn'
-                      ? 'rgba(251, 191, 36, 0.12)'
-                      : banner.type === 'hint'
-                        ? 'rgba(96, 165, 250, 0.12)'
-                        : 'rgba(52, 211, 153, 0.12)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 8,
-                  marginBottom: '0.75rem',
-                  color: 'var(--text)',
-                  fontSize: '0.85rem',
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: '0.5rem',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                }}
-              >
-                <span style={{ flex: '1 1 200px' }}>{banner.text}</span>
-                <span style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <div className={`chat-banner chat-banner-${banner.type || 'info'}`}>
+                <span className="chat-banner-text">{banner.text}</span>
+                <span className="chat-banner-actions">
                   {banner.chatUrl && (
                     <Link to={banner.chatUrl} style={{ ...secondaryBtn, textDecoration: 'none', display: 'inline-block' }}>
                       Open {banner.suggestedAgentId || 'specialist'}
@@ -775,21 +1111,7 @@ export default function AgentChat() {
               </div>
             )}
 
-            {error && (
-              <div
-                style={{
-                  flexShrink: 0,
-                  padding: '0.5rem 1rem',
-                  background: 'rgba(248,113,113,0.15)',
-                  borderRadius: 8,
-                  marginBottom: '0.75rem',
-                  color: '#f87171',
-                  fontSize: '0.85rem',
-                }}
-              >
-                {error}
-              </div>
-            )}
+            {error && <div className="chat-error-banner">{error}</div>}
 
             <div
               ref={scrollRef}
@@ -797,9 +1119,9 @@ export default function AgentChat() {
               style={{
                 background: 'var(--surface)',
                 border: '1px solid var(--border)',
-                borderRadius: 10,
-                padding: '0.85rem',
-                marginBottom: '0.75rem',
+                borderRadius: 8,
+                padding: '1rem',
+                marginBottom: '1rem',
               }}
             >
               {emptyHome && (
@@ -823,43 +1145,41 @@ export default function AgentChat() {
                   attachments={t.attachments}
                 />
               ))}
-              {sending && <div style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>…</div>}
+              {sending && <div style={{ color: 'var(--muted)' }}>…</div>}
             </div>
 
             <form onSubmit={send} style={{ flexShrink: 0 }}>
               <div className="chat-compose-row">
                 <ChatComposeInput
-                  placeholder={`Message ${agentLabel}…`}
+                  placeholder="Message… (Shift+Enter for new line)"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onSend={send}
                   disabled={sending || !agentId}
                   attachments={attachments}
                   onAttachmentsChange={setAttachments}
-                  rows={2}
+                  rows={3}
                   style={{
-                    padding: '0.65rem 0.85rem',
+                    padding: '0.75rem 1rem',
                     background: 'var(--surface)',
                     border: '1px solid var(--border)',
                     borderRadius: 8,
                     color: 'var(--text)',
                     resize: 'vertical',
-                    minHeight: 48,
+                    minHeight: 56,
                     font: 'inherit',
-                    fontSize: '0.92rem',
                   }}
                 />
                 <button
                   type="submit"
                   disabled={sending || !agentId || (!input.trim() && !attachments.length)}
                   style={{
-                    padding: '0.65rem 1.1rem',
+                    padding: '0.75rem 1.25rem',
                     background:
                       sending || !agentId || (!input.trim() && !attachments.length) ? 'var(--border)' : 'var(--accent)',
                     border: 'none',
                     borderRadius: 8,
                     color: '#fff',
-                    fontSize: '0.9rem',
                   }}
                 >
                   Send
@@ -872,356 +1192,7 @@ export default function AgentChat() {
               </div>
             </form>
           </div>
-          {!sidePanelOpen && (
-            <HomeRightPane
-              snapshot={homeSnap?.snapshot}
-              agentActivity={homeSnap?.agent_activity}
-              recentWorkflows={homeSnap?.recent_workflows}
-            />
-          )}
-          {sidePanelOpen && (
-            <aside className="chat-history-panel" aria-label="Chat side panel">
-              <div className="chat-side-panel-toolbar">
-                {showBrowserPanel && (
-                  <button type="button" className="chat-side-panel-close" onClick={() => setShowBrowserPanel(false)}>
-                    Browser ×
-                  </button>
-                )}
-                {showHistoryPanel && (
-                  <button type="button" className="chat-side-panel-close" onClick={() => setShowHistoryPanel(false)}>
-                    History ×
-                  </button>
-                )}
-              </div>
-              {showBrowserPanel && <BrowserTasksLive variant="sidebar" forceShow />}
-              {showHistoryPanel && (
-                <>
-                  <div className="chat-history-header">
-                    <h2>History</h2>
-                    <span className="chat-history-meta">Last 30 days</span>
-                  </div>
-                  <div className="chat-history-scroll">
-                    {historyLoading && <div className="chat-history-empty">Loading…</div>}
-                    {!historyLoading && history.length === 0 && (
-                      <div className="chat-history-empty">No archived chats yet.</div>
-                    )}
-                    {history.map((s) => (
-                      <div key={s.id} className="chat-history-item">
-                        <div className="chat-history-title" title={s.title}>
-                          {s.title || 'Untitled chat'}
-                        </div>
-                        <div className="chat-history-date">{formatArchivedAt(s.archived_at || s.started_at)}</div>
-                        <div className="chat-history-actions">
-                          <button type="button" style={secondaryBtn} disabled={!!restoreBusyId || sending || clearing} onClick={() => restoreSession(s, 'as_is')}>
-                            {restoreBusyId === `${s.id}:as_is` ? '…' : 'Open as-is'}
-                          </button>
-                          <button type="button" style={secondaryBtn} disabled={!!restoreBusyId || sending || clearing} onClick={() => restoreSession(s, 'summarized')}>
-                            {restoreBusyId === `${s.id}:summarized` ? '…' : 'Summarize'}
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-            </aside>
-          )}
-        </div>
-      )}
-      {!isHome && (
-        <>
-      <div className="chat-main-column">
-        <div style={{ flexShrink: 0, marginBottom: '1rem' }}>
-          <Link to="/org" style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>
-            ← My Org
-          </Link>
-          <div
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              alignItems: 'flex-start',
-              justifyContent: 'space-between',
-              gap: '0.75rem',
-              marginTop: '0.5rem',
-            }}
-          >
-            <div style={{ minWidth: 0, flex: '1 1 220px' }}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.65rem' }}>
-                <RobotAvatar src={agent?.avatar_image} name={agentLabel} size={36} />
-                <label style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Chat with</span>
-                  <select
-                    value={agentId || ''}
-                    onChange={(e) => selectAgent(e.target.value)}
-                    aria-label="Select agent to chat with"
-                    className="chat-agent-select"
-                  >
-                    {pickerAgents.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.name || a.id}
-                        {a.is_coo ? ' (COO)' : ''}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              <p style={{ color: 'var(--muted)', margin: '0.45rem 0 0 0', fontSize: '0.9rem' }}>
-                Human–agent chat. Use the paperclip to attach images/docs (Master Data RAG).
-                {profileId && (
-                  <>
-                    {' '}
-                    Profile context: <code>{profileId}</code>
-                  </>
-                )}
-              </p>
-            </div>
-            <div className="chat-header-actions">
-              <button
-                type="button"
-                className={`chat-pane-icon-btn${showBrowserPanel ? ' is-active' : ''}`}
-                aria-pressed={showBrowserPanel}
-                aria-label={showBrowserPanel ? 'Hide browser session panel' : 'Show browser session panel'}
-                title="Browser session"
-                onClick={() => setShowBrowserPanel((v) => !v)}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-                  <rect x="3" y="4" width="18" height="14" rx="2" />
-                  <path d="M3 9h18M8 18h8" />
-                </svg>
-              </button>
-              <button
-                type="button"
-                className={`chat-pane-icon-btn${showHistoryPanel ? ' is-active' : ''}`}
-                aria-pressed={showHistoryPanel}
-                aria-label={showHistoryPanel ? 'Hide chat history panel' : 'Show chat history panel'}
-                title="Chat history"
-                onClick={() => setShowHistoryPanel((v) => !v)}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-                  <circle cx="12" cy="12" r="9" />
-                  <path d="M12 7v5l3 2" />
-                </svg>
-              </button>
-              <button type="button" onClick={startNewChat} disabled={clearing || sending || !agentId} style={secondaryBtn}>
-                {clearing ? 'Archiving…' : 'New chat'}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {banner && (
-          <div
-            style={{
-              flexShrink: 0,
-              padding: '0.65rem 1rem',
-              background:
-                banner.type === 'warn'
-                  ? 'rgba(251, 191, 36, 0.12)'
-                  : banner.type === 'hint'
-                    ? 'rgba(96, 165, 250, 0.12)'
-                    : 'rgba(52, 211, 153, 0.12)',
-              border: '1px solid var(--border)',
-              borderRadius: 8,
-              marginBottom: '1rem',
-              color: 'var(--text)',
-              fontSize: '0.9rem',
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: '0.5rem',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <span style={{ flex: '1 1 200px' }}>{banner.text}</span>
-            <span style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              {banner.chatUrl && (
-                <Link
-                  to={banner.chatUrl}
-                  style={{ ...secondaryBtn, textDecoration: 'none', display: 'inline-block' }}
-                >
-                  Open {banner.suggestedAgentId || 'specialist'}
-                </Link>
-              )}
-              <button type="button" onClick={() => setBanner(null)} style={secondaryBtn}>
-                Dismiss
-              </button>
-            </span>
-          </div>
-        )}
-
-        {error && (
-          <div
-            style={{
-              flexShrink: 0,
-              padding: '0.5rem 1rem',
-              background: 'rgba(248,113,113,0.15)',
-              borderRadius: 8,
-              marginBottom: '1rem',
-              color: '#f87171',
-            }}
-          >
-            {error}
-          </div>
-        )}
-
-        <div
-          ref={scrollRef}
-          className="chat-scroll-panel"
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 8,
-            padding: '1rem',
-            marginBottom: '1rem',
-          }}
-        >
-          {emptyHome && (
-            <div className="chat-home-empty">
-              <div className="chat-home-empty-title">Good to see you</div>
-              <div className="chat-home-empty-sub">
-                Chat with {agentLabel} — priorities, questions, or whatever is on your mind.
-              </div>
-            </div>
-          )}
-          {turns.map((t, i) => (
-            <ChatMessageRow
-              key={t.id || i}
-              role={t.role}
-              content={t.content}
-              createdAt={t.created_at}
-              agentId={agentId}
-              messageId={t.id}
-              feedbackSource="chat"
-              toolCalls={t.tool_calls}
-              attachments={t.attachments}
-            />
-          ))}
-          {sending && <div style={{ color: 'var(--muted)' }}>…</div>}
-        </div>
-
-        <form onSubmit={send} style={{ flexShrink: 0 }}>
-          <div className="chat-compose-row">
-            <ChatComposeInput
-              placeholder={isHome ? `Message ${agentLabel}…` : 'Message… (Shift+Enter for new line)'}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onSend={send}
-              disabled={sending || !agentId}
-              attachments={attachments}
-              onAttachmentsChange={setAttachments}
-              rows={3}
-              style={{
-                padding: '0.75rem 1rem',
-                background: 'var(--surface)',
-                border: '1px solid var(--border)',
-                borderRadius: 8,
-                color: 'var(--text)',
-                resize: 'vertical',
-                minHeight: 56,
-                font: 'inherit',
-              }}
-            />
-            <button
-              type="submit"
-              disabled={sending || !agentId || (!input.trim() && !attachments.length)}
-              style={{
-                padding: '0.75rem 1.25rem',
-                background:
-                  sending || !agentId || (!input.trim() && !attachments.length) ? 'var(--border)' : 'var(--accent)',
-                border: 'none',
-                borderRadius: 8,
-                color: '#fff',
-              }}
-            >
-              Send
-            </button>
-            {sending && (
-              <button type="button" onClick={cancelSend} style={secondaryBtn}>
-                Cancel
-              </button>
-            )}
-          </div>
-        </form>
-      </div>
-
-      {sidePanelOpen && (
-        <aside
-          className="chat-history-panel"
-          aria-label={
-            showHistoryPanel && showBrowserPanel
-              ? 'Browser session and chat history'
-              : showBrowserPanel
-                ? 'Browser session'
-                : 'Chat history'
-          }
-        >
-          <div className="chat-side-panel-toolbar">
-            {showBrowserPanel && (
-              <button
-                type="button"
-                className="chat-side-panel-close"
-                onClick={() => setShowBrowserPanel(false)}
-                aria-label="Close browser session panel"
-              >
-                Browser ×
-              </button>
-            )}
-            {showHistoryPanel && (
-              <button
-                type="button"
-                className="chat-side-panel-close"
-                onClick={() => setShowHistoryPanel(false)}
-                aria-label="Close chat history panel"
-              >
-                History ×
-              </button>
-            )}
-          </div>
-          {showBrowserPanel && <BrowserTasksLive variant="sidebar" forceShow />}
-          {showHistoryPanel && (
-            <>
-              <div className="chat-history-header">
-                <h2>History</h2>
-                <span className="chat-history-meta">Last 30 days</span>
-              </div>
-              <div className="chat-history-scroll">
-                {historyLoading && <div className="chat-history-empty">Loading…</div>}
-                {!historyLoading && history.length === 0 && (
-                  <div className="chat-history-empty">
-                    No archived chats yet. Use New chat to archive the current conversation.
-                  </div>
-                )}
-                {history.map((s) => (
-                  <div key={s.id} className="chat-history-item">
-                    <div className="chat-history-title" title={s.title}>
-                      {s.title || 'Untitled chat'}
-                    </div>
-                    <div className="chat-history-date">{formatArchivedAt(s.archived_at || s.started_at)}</div>
-                    <div className="chat-history-actions">
-                      <button
-                        type="button"
-                        style={secondaryBtn}
-                        disabled={!!restoreBusyId || sending || clearing}
-                        onClick={() => restoreSession(s, 'as_is')}
-                      >
-                        {restoreBusyId === `${s.id}:as_is` ? '…' : 'Open as-is'}
-                      </button>
-                      <button
-                        type="button"
-                        style={secondaryBtn}
-                        disabled={!!restoreBusyId || sending || clearing}
-                        onClick={() => restoreSession(s, 'summarized')}
-                      >
-                        {restoreBusyId === `${s.id}:summarized` ? '…' : 'Summarize'}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </aside>
-      )}
+          {sidePanelEl}
         </>
       )}
     </div>

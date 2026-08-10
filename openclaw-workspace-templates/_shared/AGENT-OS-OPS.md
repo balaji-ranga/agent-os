@@ -51,7 +51,7 @@ Platform product how-to (RAG, workflows, MCP, nav): prefer **Platform Help** / `
 
 When the CEO asks to **start** a long workflow (ERP/CRM maker-checker, publish, etc.):
 
-1. For **multi-phase goals**, prefer **agent_goal_create** (platform plan + execute). Scheduled goals that mention CRM then ERP (or multiple `run …` phrases) auto-create a goal plan and advance without you blocking.
+1. For **multi-phase goals**, prefer **agent_goal_create** (platform plan + execute; quote `agr-…`). Scheduled goals that mention CRM then ERP (or multiple `run …` phrases) auto-create a goal plan and advance without you blocking. Multiphase freeform **`agent_workflow_trigger`** may auto-upgrade to a goal plan — never treat a numeric workflow `run_id` as a goal plan.
 2. For a **single** workflow: call **agent_workflow_trigger** (or enquire first). It returns **immediately** with `run_id` and `async: true`. Confirm `run_id` and **end the turn**.
 3. Platform notifies the CEO on CEO-wait and terminal. Goal-plan children advance automatically on terminal; freeform (non-plan) runs may re-wake you.
 4. Later status → **agent_goal_status** / **agent_workflow_runs**. Optional **agent_workflow_watch_tick** for channel announces.

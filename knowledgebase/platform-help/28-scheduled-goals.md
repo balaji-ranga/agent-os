@@ -24,7 +24,7 @@ The COO uses `scheduled_goal_create` (and related tools) and confirms the schedu
 
 **Specialty vs workflow steps:** Workflow maker-checker phrases become `workflow_trigger` steps. Remaining multi-intent work (research, design, copy, recipe, etc.—not limited to two) becomes `specialty_task` steps (parallel when multiple). A single specialty with lettered/numbered parts can expand into multiple sequential specialty steps on the same agent. Hybrid prompts keep both (CRM→ERP plus residual speciality work is not dropped).
 
-**Multi-phase goals (CRM then ERP, multiple workflows, multi-specialty hybrid)?** Ordered workflow phrases or clear CRM→O2C intent plan to durable **`agent_goal_run`** steps (`workflow_trigger`, optional parallel `specialty_task`, `notify_ceo`). Platform advances when each child workflow or specialty-delegation reaches terminal. Inspect: **`agent_goal_list`** / **`agent_goal_status`**. See [38-maker-checker-coordination.md](./38-maker-checker-coordination.md).
+**Multi-phase goals (CRM then ERP, multiple workflows, multi-specialty hybrid)?** Ordered workflow phrases or clear CRM→O2C intent plan to durable **`agent_goal_run`** steps (`workflow_trigger`, optional parallel `specialty_task`, `notify_ceo`). Platform advances when each child workflow or specialty-delegation reaches terminal. Ad-hoc COO chat should call **`agent_goal_create`** (returns `goal_run_id` like `agr-…`). If the COO fires **`agent_workflow_trigger`** with multi-workflow language and no plan id, the platform **auto-upgrades** that call into a goal plan. A numeric workflow **`run_id` is not a goal plan** (no Digest ladder / Goal Plan panel). Inspect: **`agent_goal_list`** / **`agent_goal_status`**, Digest, `/goal-plans`. See [38-maker-checker-coordination.md](./38-maker-checker-coordination.md).
 
 **Does hourly mean every minute?** No. Hourly fires **once per hour** at the chosen minute (`time_local` minutes; the hour part is ignored). Default is on the hour (`:00`). Token cost rises with hourly checks — use for watchers (e.g. price dip notify), not for heavy work.
 
@@ -53,7 +53,8 @@ For "alert me when..." market conditions, combine hourly (or weekdays) + tools (
 | COO chat | `/` or `/agents/balserve/chat` | Plain-language create / list / update / pause / delete / run now |
 | Target employee chat | `/agents/:id/chat` | Automatic and Run now replies appear here; multi-intent plans show as Goal Plan panel when `agr-…` id is present |
 | Digest | `/this-week` | **2** most recent **goal plans** for selected week; **View all plans** → `/goal-plans` for full week list |
-| API | `GET /api/agent-goal-runs` | CEO owner-scoped list/get of durable plans |
+| Goal plans page | `/goal-plans` | Paginated week list of `agent_goal_runs` (`from`/`to` or week start/end query) |
+| API | `GET /api/agent-goal-runs` (± `from`/`to`) and `GET /api/agent-goal-runs/:id` | CEO owner-scoped list/get of durable plans |
 
 ## Create via COO (recommended)
 
@@ -92,8 +93,10 @@ Defaults when unspecified: target = COO; cadence = daily; time = 09:00 (or `:00`
 | `scheduled_goal_update` | Edit prompt, cadence, time, agent, pause or resume |
 | `scheduled_goal_delete` | Cancel forever |
 | `scheduled_goal_run_now` | Fire immediately |
-| `agent_goal_list` / `agent_goal_status` | Inspect durable multi-intent **goal plans** created by plan-mode fires (steps, child workflow run ids, status) |
-| `agent_goal_create` | Ad-hoc multi-phase plan from chat (same plan engine as scheduled plan mode) |
+| `agent_goal_list` / `agent_goal_status` | Inspect durable multi-intent **goal plans** (steps, child workflow run ids, status). Quote `agr-…` to the CEO so chat shows the Goal Plan panel. |
+| `agent_goal_create` | Ad-hoc multi-phase plan from chat (same plan engine as scheduled plan mode). Prefer this over sequential freeform `agent_workflow_trigger` for CRM→ERP. |
+| `agent_goal_complete_step` | Complete an `agent_continue` plan step (workflow / specialty steps auto-complete on terminal). |
+| Multiphase `agent_workflow_trigger` | When message plans **≥2** workflows (or mentions `agent_goal_create`) and no `goal_run_id`, platform returns **`upgraded_to_goal_plan`** + `agr-…` instead of a single workflow run. |
 
 ## Plan API (CEO UI)
 

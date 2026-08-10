@@ -66,9 +66,11 @@ Multi-intent goals (CRM then ERP O2C, or any multi-workflow chain) use a **durab
 
 **Inspect a plan:** CEO API `GET /api/agent-goal-runs` and `GET /api/agent-goal-runs/:id` (login, owner-scoped). COO tools **`agent_goal_list`** / **`agent_goal_status`**. **Chat** shows a live Goal Plan panel when the assistant mentions `agr-…` or tools `agent_goal_*`. **Scheduled goals → Last plan** expands step progress + workflow run links. **Digest** shows the **2** most recent goal plans for the selected week; **View all plans** lists every plan in that week (`/goal-plans?offset=`).
 
-COO `agent_workflow_trigger` alone remains for single-workflow fires. Optional bind: `goal_run_id` + `step_id`.
+COO `agent_workflow_trigger` alone remains for **single-workflow** fires. Optional bind: `goal_run_id` + `step_id` when executing a plan step.
 
-`agent_workflow_trigger` returns **immediately** (`async: true`, `run_id`). COO **must** confirm run_id and end the chat turn when using the single-workflow tool. Platform still notifies on **CEO wait** and **terminal**.
+`agent_workflow_trigger` returns **immediately** (`async: true`, `run_id`, or **`upgraded_to_goal_plan` + `goal_run_id`** when multiphase language is upgraded). COO **must** confirm the real id to the CEO (`agr-…` for plans, integer `run_id` only for single workflows) and end the chat turn. Platform still notifies on **CEO wait** and **terminal**. Do **not** re-chain freeform ERP `agent_workflow_trigger` after CRM unless you are on a goal plan path.
+
+Tools are granted to COO/Workflow Builder allowlists and registered in the OpenClaw content-tools plugin contracts (`agent_goal_*`).
 
 Workflows **complement** Kanban: schedule, batch, max loops, audit trail. They do **not** replace the board as source of truth for “who owns SI-42.”
 
