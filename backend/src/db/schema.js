@@ -2115,6 +2115,58 @@ export function initDb() {
   } catch (_) {}
 
   /**
+   * Generic multi-intent goal runs: durable plan steps + advance on async child terminal.
+   * Orchestrator-agnostic (any agent_id / any owner); not CRM/ERP-specific.
+   * Schema must match agent-goal-run.js ensureAgentGoalRunTables().
+   */
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS agent_goal_runs (
+        id TEXT PRIMARY KEY,
+        owner_user_id TEXT NOT NULL,
+        agent_id TEXT NOT NULL,
+        title TEXT DEFAULT '',
+        prompt TEXT DEFAULT '',
+        source TEXT DEFAULT '',
+        scheduled_goal_id TEXT,
+        scheduled_goal_run_id TEXT,
+        status TEXT DEFAULT 'pending',
+        context_json TEXT DEFAULT '{}',
+        current_step_index INTEGER DEFAULT 0,
+        error_message TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        completed_at TEXT
+      )
+    `);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_agent_goal_runs_owner ON agent_goal_runs(owner_user_id, created_at DESC)`
+    );
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS agent_goal_steps (
+        id TEXT PRIMARY KEY,
+        goal_run_id TEXT NOT NULL,
+        step_index INTEGER NOT NULL,
+        step_type TEXT NOT NULL,
+        label TEXT DEFAULT '',
+        spec_json TEXT DEFAULT '{}',
+        status TEXT DEFAULT 'pending',
+        child_workflow_run_id INTEGER,
+        result_json TEXT,
+        error_message TEXT,
+        started_at TEXT,
+        completed_at TEXT
+      )
+    `);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_agent_goal_steps_run ON agent_goal_steps(goal_run_id, step_index ASC)`
+    );
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_agent_goal_steps_wf ON agent_goal_steps(child_workflow_run_id)`
+    );
+  } catch (_) {}
+
+  /**
    * Generic MCP OAuth — client config per MCP server + per-CEO connection tokens (vault refs).
    * Any future OAuth-based MCP can reuse these tables via Connectors → MCPs tab.
    */

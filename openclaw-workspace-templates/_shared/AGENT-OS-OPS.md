@@ -48,10 +48,10 @@ Platform product how-to (RAG, workflows, MCP, nav): prefer **Platform Help** / `
 
 When the CEO asks to **start** a long workflow (ERP/CRM maker-checker, publish, etc.):
 
-1. Call **agent_workflow_trigger** (or enquire first). It returns **immediately** with `run_id` and `async: true`.
-2. Confirm `run_id` to the CEO and **end the turn**. Do not poll or sleep in the same turn.
-3. Platform notifies the CEO on CEO-wait and terminal. On **terminal**, the platform **re-wakes you (COO)** with run/step context so multi-phase goals continue (e.g. CRM done → fire `run erp maker checker` for O2C). Treat that system wake as a real work turn.
-4. Later status only if the CEO asks → **agent_workflow_runs**. Optional cron **agent_workflow_watch_tick** if a channel announce is required (same idea as `kanban_watch_tick`).
+1. For **multi-phase goals**, prefer **agent_goal_create** (platform plan + execute). Scheduled goals that mention CRM then ERP (or multiple `run …` phrases) auto-create a goal plan and advance without you blocking.
+2. For a **single** workflow: call **agent_workflow_trigger** (or enquire first). It returns **immediately** with `run_id` and `async: true`. Confirm `run_id` and **end the turn**.
+3. Platform notifies the CEO on CEO-wait and terminal. Goal-plan children advance automatically on terminal; freeform (non-plan) runs may re-wake you.
+4. Later status → **agent_goal_status** / **agent_workflow_runs**. Optional **agent_workflow_watch_tick** for channel announces.
 
 When the CEO asks for **workflow run status**, recent outcomes, failed runs, or "did that workflow finish":
 

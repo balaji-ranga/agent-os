@@ -225,6 +225,10 @@ const COO_OR_WORKFLOW_BUILDER_TOOLS = [
   'agent_workflow_watch',
   'agent_workflow_watch_tick',
   'agent_workflow_retry',
+  'agent_goal_create',
+  'agent_goal_list',
+  'agent_goal_status',
+  'agent_goal_complete_step',
 ];
 
 const WORKFLOW_BUILDER_ONLY_TOOLS = [

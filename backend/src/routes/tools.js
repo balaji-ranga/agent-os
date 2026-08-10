@@ -55,6 +55,13 @@ import {
   registerWorkflowRunWatch,
   runWorkflowWatchTick,
 } from '../services/agent-workflow-run-watch.js';
+import {
+  createAndStartGoalRun,
+  listGoalRuns,
+  getGoalRun,
+  completeGoalStep,
+  bindWorkflowRunToGoalStep,
+} from '../services/agent-goal-run.js';
 import { applyWorkflowBuilderActions, getWorkflowDraftForAgent } from '../services/agent-workflow-builder.js';
 import { resolveAuthenticatedCeoUserId, attachAuthUser, requireAuth, requireCeoOrAdmin } from '../middleware/auth.js';
 import { requireToolsAccess, attachToolsAuth } from '../middleware/tools-auth.js';
@@ -2535,6 +2542,22 @@ router.post('/agent-workflow-trigger', optionalAuth, async (req, res) => {
       actorAgentId: actor.id,
       actorName: actor.name,
     });
+    const goalRunId = requestPayload.goal_run_id || requestPayload.goalRunId || null;
+    const stepId = requestPayload.step_id || requestPayload.stepId || null;
+    let goal_bind = null;
+    if (goalRunId && stepId) {
+      try {
+        goal_bind = bindWorkflowRunToGoalStep({
+          goalRunId: String(goalRunId),
+          stepId: String(stepId),
+          workflowRunId: run.id,
+          ownerUserId,
+        });
+      } catch (bindErr) {
+        console.warn('[tools] goal bind failed', bindErr?.message || bindErr);
+        goal_bind = { ok: false, error: bindErr?.message || String(bindErr) };
+      }
+    }
     const out = {
       ok: true,
       async: true,
@@ -2545,15 +2568,151 @@ router.post('/agent-workflow-trigger', optionalAuth, async (req, res) => {
       status: run.status,
       ceo_user_id: ownerUserId,
       watch: watch?.watch || null,
+      goal_bind,
       instruction:
         watch?.instruction ||
-        'Workflow started. Confirm run_id to the CEO and end the turn — do not poll or block. Platform notifies CEO on CEO-wait/terminal and re-wakes you on terminal for multi-phase goals; use agent_workflow_runs or agent_workflow_watch_tick only if asked.',
+        'Workflow started. Confirm run_id to the CEO and end the turn — do not poll or block. If this is part of an agent_goal_run plan, platform advances remaining steps on terminal. Otherwise platform notifies CEO and may re-wake you on terminal.',
     };
     logTool(req,'agent_workflow_trigger', requestPayload, out, 'ok', source);
     res.json(out);
   } catch (e) {
     const err = { error: e.message, details: e.details || undefined };
     logTool(req,'agent_workflow_trigger', requestPayload, err, 'error', source);
+    res.status(400).json(err);
+  }
+});
+
+/**
+ * Create a multi-intent goal plan and start executing it (platform advances on child terminals).
+ */
+router.post('/agent-goal-create', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = req.body || {};
+  try {
+    const caller = getCallerAgent(req);
+    if (!canAccessWorkflowTools(caller)) {
+      const err = { error: 'Only COO or Workflow Builder can create goal runs' };
+      logTool(req, 'agent_goal_create', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const ownerUserId = resolveWorkflowOwner(req, requestPayload);
+    const prompt = String(requestPayload.prompt || requestPayload.message || requestPayload.input || '').trim();
+    if (!prompt && !Array.isArray(requestPayload.steps)) {
+      const err = { error: 'prompt or steps required' };
+      logTool(req, 'agent_goal_create', requestPayload, err, 'error', source);
+      return res.status(400).json(err);
+    }
+    const start = requestPayload.start !== false && requestPayload.execute !== false;
+    const base = {
+      ownerUserId,
+      agentId: caller?.id || 'balserve',
+      title: requestPayload.title || '',
+      prompt,
+      steps: requestPayload.steps || null,
+      source: requestPayload.source || 'tool',
+      context: requestPayload.context || {},
+    };
+    let out;
+    if (start) {
+      out = await createAndStartGoalRun(base);
+      out = { ok: true, ...out };
+    } else {
+      // only plan via createGoalRun then return without execute
+      const { createGoalRun } = await import('../services/agent-goal-run.js');
+      const goal = createGoalRun(base);
+      out = { ok: true, goal, deferred: true };
+    }
+    logTool(req, 'agent_goal_create', requestPayload, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'agent_goal_create', requestPayload, err, 'error', source);
+    res.status(400).json(err);
+  }
+});
+
+router.post('/agent-goal-list', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = req.body || {};
+  try {
+    const caller = getCallerAgent(req);
+    if (!canAccessWorkflowTools(caller)) {
+      const err = { error: 'Only COO or Workflow Builder can list goal runs' };
+      logTool(req, 'agent_goal_list', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const ownerUserId = resolveWorkflowOwner(req, requestPayload);
+    const goals = listGoalRuns(ownerUserId, {
+      status: requestPayload.status || null,
+      limit: requestPayload.limit,
+    });
+    const out = { ok: true, count: goals.length, goals };
+    logTool(req, 'agent_goal_list', requestPayload, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'agent_goal_list', requestPayload, err, 'error', source);
+    res.status(500).json(err);
+  }
+});
+
+router.post('/agent-goal-status', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = req.body || {};
+  try {
+    const caller = getCallerAgent(req);
+    if (!canAccessWorkflowTools(caller)) {
+      const err = { error: 'Only COO or Workflow Builder can read goal runs' };
+      logTool(req, 'agent_goal_status', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const ownerUserId = resolveWorkflowOwner(req, requestPayload);
+    const id = String(requestPayload.goal_run_id || requestPayload.id || '').trim();
+    if (!id) {
+      const err = { error: 'goal_run_id required' };
+      logTool(req, 'agent_goal_status', requestPayload, err, 'error', source);
+      return res.status(400).json(err);
+    }
+    const goal = getGoalRun(id, ownerUserId);
+    if (!goal) {
+      const err = { error: 'goal_run not found' };
+      logTool(req, 'agent_goal_status', requestPayload, err, 'error', source);
+      return res.status(404).json(err);
+    }
+    const out = { ok: true, goal };
+    logTool(req, 'agent_goal_status', requestPayload, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'agent_goal_status', requestPayload, err, 'error', source);
+    res.status(500).json(err);
+  }
+});
+
+router.post('/agent-goal-complete-step', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = req.body || {};
+  try {
+    const caller = getCallerAgent(req);
+    if (!canAccessWorkflowTools(caller)) {
+      const err = { error: 'Only COO or Workflow Builder can complete goal steps' };
+      logTool(req, 'agent_goal_complete_step', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const ownerUserId = resolveWorkflowOwner(req, requestPayload);
+    const out = await completeGoalStep({
+      goalRunId: requestPayload.goal_run_id || requestPayload.goalRunId,
+      stepId: requestPayload.step_id || requestPayload.stepId,
+      ownerUserId,
+      result: requestPayload.result || null,
+      failed: !!requestPayload.failed,
+      error: requestPayload.error || null,
+    });
+    logTool(req, 'agent_goal_complete_step', requestPayload, out, out.ok === false ? 'error' : 'ok', source);
+    res.status(out.ok === false ? 400 : 200).json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'agent_goal_complete_step', requestPayload, err, 'error', source);
     res.status(400).json(err);
   }
 });

@@ -50,14 +50,18 @@ Published per company after Business Core prefab agents exist:
 | **ERP: draft → CEO gate → check → post** | `run erp maker checker` | Maker drafts; if Maker signals `needs_ceo`, **ceo_approval** node blocks for CEO; then Checker reviews/submits; 1 fix cycle on reject. |
 | **CRM: draft → CEO gate → check** | `run crm maker checker` | Same shape for CRM high-risk / commercial gates (no ERP submit). |
 
-### COO non-blocking + multi-phase goals
+### COO multi-phase goals (plan → execute)
 
-`agent_workflow_trigger` returns **immediately** (`async: true`, `run_id`). COO **must** confirm run_id and end the chat turn. Platform **registers a run watch**:
+Multi-intent goals (CRM then ERP O2C, or any multi-workflow chain) use a **durable goal plan** (`agent_goal_runs` / `agent_goal_steps`), not ad-hoc chat memory:
 
-1. **CEO bell** — notifies on **CEO wait** and **terminal** status.  
-2. **COO re-wake** — on terminal, the platform **re-invokes the COO** with the run input + step outcomes so multi-phase goals (e.g. scheduled **Leads → Orders to cash**: CRM phase then ERP O2C) continue without the CEO re-stating the goal.
+1. **Plan** — `agent_goal_create` (or scheduled goal fire) builds ordered steps from the CEO prompt (phrases like `run crm maker checker` / `run erp maker checker`, or explicit `steps[]`).
+2. **Execute** — Platform starts the first open step. `workflow_trigger` steps call `agent_workflow_trigger` async and bind the child `run_id`.
+3. **Advance** — On workflow **terminal**, platform completes that step and starts the next (generic for any owner/agent; not BrightBox-only).
+4. **CEO HITL** — Still only via workflow **CEO Approval** nodes between maker and checker.
 
-COO may use `agent_workflow_runs` or optional `agent_workflow_watch_tick` (cron) only when asked for status — not sleep in the same turn. CRM and ERP Maker/Checker remain **separate** published workflows; chaining is orchestration (COO + wake), not a single graph (unless you build a parent workflow).
+COO `agent_workflow_trigger` alone remains for single-workflow fires. Optional bind: `goal_run_id` + `step_id`.
+
+`agent_workflow_trigger` returns **immediately** (`async: true`, `run_id`). COO **must** confirm run_id and end the chat turn when using the single-workflow tool. Platform still notifies on **CEO wait** and **terminal**.
 
 Workflows **complement** Kanban: schedule, batch, max loops, audit trail. They do **not** replace the board as source of truth for “who owns SI-42.”
 

@@ -10,6 +10,7 @@ import * as openclaw from '../gateway/openclaw.js';
 import { ensureTenantOpenClawAgent } from './openclaw-tenant.js';
 import { getPromptWithMemoryInjected } from './delegation-queue.js';
 import { insertChatTurn } from './chat-history.js';
+import { onWorkflowTerminalForGoalRun, findGoalStepByWorkflowRun } from './agent-goal-run.js';
 
 const TERMINAL = new Set(['completed', 'failed', 'cancelled', 'paused']);
 
@@ -503,9 +504,17 @@ export function notifyWorkflowRunTerminal(runId) {
     actorAgentId: watch.actor_agent_id,
   });
 
-  void wakeOrchestratorOnWorkflowTerminal(id).catch((e) =>
-    console.warn('[wf-run-watch] coo wake failed after terminal notify:', e?.message || e)
-  );
+  // Generic goal plan advance (CRM->ERP etc.) — prefer plan engine over ad-hoc COO wake.
+  const bound = typeof findGoalStepByWorkflowRun === 'function' ? findGoalStepByWorkflowRun(id) : null;
+  if (bound?.goal?.id) {
+    void onWorkflowTerminalForGoalRun(id).catch((e) =>
+      console.warn('[wf-run-watch] goal-run advance failed:', e?.message || e)
+    );
+  } else if (watch.wake_orchestrator_on_terminal !== false) {
+    void wakeOrchestratorOnWorkflowTerminal(id).catch((e) =>
+      console.warn('[wf-run-watch] coo wake failed after terminal notify:', e?.message || e)
+    );
+  }
 
   return notifyResult;
 }

@@ -10,6 +10,11 @@ import * as openclaw from '../gateway/openclaw.js';
 import { ensureTenantOpenClawAgent } from './openclaw-tenant.js';
 import { getPromptWithMemoryInjected } from './delegation-queue.js';
 import { insertChatTurn } from './chat-history.js';
+import {
+  createAndStartGoalRun,
+  planGoalStepsFromText,
+  getGoalRun,
+} from './agent-goal-run.js';
 
 const CADENCES = new Set(['hourly', 'daily', 'weekdays', 'weekly']);
 const STATUSES = new Set(['active', 'paused', 'completed']);
@@ -340,13 +345,64 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
   catch (e) { console.warn(`[scheduled-goals] tenant ensure failed agent=${agent.id}:`, e.message); }
 
   const sessionUser = openclaw.sessionUserFor(openclawId, ownerUserId, `sched-${id.slice(0, 12)}`);
-  let prompt = buildRunMessage(row, ownerUserId, { runKey, force });
-  try { prompt = await getPromptWithMemoryInjected(agent.id, prompt); } catch (_) {}
-  prompt = `[ceo_user_id: ${ownerUserId}]\n[owner_user_id: ${ownerUserId}]\n${prompt}`;
 
   try {
     insertChatTurn({ agentId: agent.id, ownerUserId, role: 'user', content: `[Scheduled goal] ${row.title}\n\n${row.prompt}` });
   } catch (e) { console.warn('[scheduled-goals] chat user turn:', e.message); }
+
+  // Prefer durable goal plan/execute when the prompt yields structured steps (any workflows).
+  const planned = planGoalStepsFromText(row.prompt);
+  const hasWorkflowPlan = planned.some((s) => s.type === 'workflow_trigger' || s.step_type === 'workflow_trigger');
+  if (hasWorkflowPlan) {
+    try {
+      console.log(`[scheduled-goals] goal-run plan id=${id} agent=${agent.id} steps=${planned.length}`);
+      const started = await createAndStartGoalRun({
+        ownerUserId,
+        agentId: agent.id,
+        title: row.title,
+        prompt: row.prompt,
+        source: 'scheduled_goal',
+        scheduledGoalId: id,
+        scheduledGoalRunId: runId,
+        context: { run_key: runKey, force },
+      });
+      const g = started?.goal || getGoalRun(started?.goal?.id || started?.id, ownerUserId);
+      const exec = started?.execution || started;
+      const firstWf = exec?.workflow_run_id || exec?.run_id || null;
+      const stepsPreview = (g?.steps || planned)
+        .map((s, i) => `${i + 1}. ${s.label || s.title || s.type || s.step_type || 'step'}`)
+        .join('; ');
+      const reply =
+        `Scheduled goal plan started (agent_goal_run ${g?.id || 'n/a'}).\n` +
+        `Steps: ${stepsPreview}\n` +
+        (firstWf ? `First workflow run_id: ${firstWf} (async). Platform advances the plan on each workflow terminal.\n` : '') +
+        `You do not need to re-trigger phase 1 unless the plan is agent_continue.`;
+      try { insertChatTurn({ agentId: agent.id, ownerUserId, role: 'assistant', content: reply }); } catch (_) {}
+      db().prepare(
+        `UPDATE scheduled_goals SET last_run_status='ok', last_run_error=NULL, run_count=COALESCE(run_count,0)+1, updated_at=datetime('now')
+         WHERE id=? AND owner_user_id=?`
+      ).run(id, ownerUserId);
+      db().prepare(`UPDATE scheduled_goal_runs SET status='ok', reply_preview=? WHERE id=?`).run(reply.slice(0, 2000), runId);
+      if (isExpired(row.ends_at)) updateScheduledGoal(ownerUserId, id, { status: 'completed' });
+      return {
+        ok: true,
+        goal_id: id,
+        run_id: runId,
+        run_key: runKey,
+        agent_id: agent.id,
+        agent_goal_run_id: g?.id || null,
+        first_workflow_run_id: firstWf,
+        reply_preview: reply.slice(0, 500),
+        mode: 'goal_run_plan',
+      };
+    } catch (planErr) {
+      console.warn('[scheduled-goals] goal-run plan failed, falling back to chat:', planErr?.message || planErr);
+    }
+  }
+
+  let prompt = buildRunMessage(row, ownerUserId, { runKey, force });
+  try { prompt = await getPromptWithMemoryInjected(agent.id, prompt); } catch (_) {}
+  prompt = `[ceo_user_id: ${ownerUserId}]\n[owner_user_id: ${ownerUserId}]\n${prompt}`;
 
   try {
     console.log(`[scheduled-goals] firing id=${id} agent=${openclawId} run_key=${runKey}`);
@@ -363,7 +419,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
     ).run(id, ownerUserId);
     db().prepare(`UPDATE scheduled_goal_runs SET status='ok', reply_preview=? WHERE id=?`).run(preview, runId);
     if (isExpired(row.ends_at)) updateScheduledGoal(ownerUserId, id, { status: 'completed' });
-    return { ok: true, goal_id: id, run_id: runId, run_key: runKey, agent_id: agent.id, reply_preview: preview.slice(0, 500) };
+    return { ok: true, goal_id: id, run_id: runId, run_key: runKey, agent_id: agent.id, reply_preview: preview.slice(0, 500), mode: 'chat' };
   } catch (err) {
     const msg = err?.message || String(err);
     console.error(`[scheduled-goals] fail id=${id}:`, msg);
