@@ -152,7 +152,11 @@ bash /opt/agent-os/deploy/scripts/vps-ensure-crm-workspace-dns-cert.sh
 bash /opt/agent-os/deploy/scripts/vps-refresh-tls-certs.sh all
 ```
 
-That checks DNS, expands Let's Encrypt SANs for ready hosts, installs certs, and reloads nginx. Re-open **CRM** in Flolah. New Twenty companies need a cert refresh only when their subdomain is not already a SAN (DNS can be wild-carded; LE SANs are per-FQDN).
+That checks DNS, expands Let's Encrypt SANs for ready hosts, installs certs, and reloads nginx. Re-open **CRM** in Flolah.
+
+**Automatic (preferred, all new companies):** After a company gets a Twenty workspace, Flolah **debounces** a CRM SAN expand (~45s). An hourly platform cron **`crm_tls_workspace_certs`** (Admin → **Crons** — pause / resume / **Run now**) also diffs ACTIVE `{sub}.crm.*` hosts vs the fullchain and expands only when something is missing. Requires DNS `*.crm.<apex>` (or per-workspace A) → VPS and Docker tools on the backend (same as Admin → TLS certs). Env: `CRM_TLS_WORKSPACE_CERT_CRON` (default hourly; `off` disables), `CRM_TLS_WORKSPACE_CERT_AUTO=0` skips the post-create debounce only.
+
+New Twenty companies need a cert SAN only when their subdomain is not already on the cert (DNS can be wild-carded; LE SANs are per-FQDN under TLS-ALPN).
 
 **Infra:** DNS `*.crm.<apex>` → VPS; nginx `server_name` includes `crmΓÇª` and `*.crmΓÇª`; TLS must list each workspace host (or use DNS-01 wildcards separately — this stack uses per-FQDN ALPN). Helpers: `vps-expand-crm-cert.sh`, `vps-refresh-tls-certs.sh`.
 

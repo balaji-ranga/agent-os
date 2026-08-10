@@ -330,6 +330,12 @@ export async function ensureCompanyTwentyWorkspace(ownerUserId, { displayName } 
                 verified_at: new Date().toISOString(),
               },
             });
+            try {
+              const { scheduleCrmWorkspaceTlsSansSync } = await import('./tls-cert-admin.js');
+              scheduleCrmWorkspaceTlsSansSync(`twenty_workspace_activated:${sub}`);
+            } catch (e) {
+              console.warn('[twenty-workspace] TLS SAN schedule skipped:', e?.message || e);
+            }
             return {
               workspace_id: row.id,
               workspace_name: name || act.displayName || row.displayName,
@@ -384,6 +390,14 @@ export async function ensureCompanyTwentyWorkspace(ownerUserId, { displayName } 
     created.id,
     created.subdomain
   );
+
+  // LE SANs are per-FQDN (not free-form wildcards on ALPN). Expand cert when a new sub appears.
+  try {
+    const { scheduleCrmWorkspaceTlsSansSync } = await import('./tls-cert-admin.js');
+    scheduleCrmWorkspaceTlsSansSync(`twenty_workspace_created:${created.subdomain}`);
+  } catch (e) {
+    console.warn('[twenty-workspace] TLS SAN schedule skipped:', e?.message || e);
+  }
 
   return {
     workspace_id: created.id,

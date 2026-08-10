@@ -50,6 +50,13 @@ EOF
 EOF
     added=1
   fi
+  if ! grep -qF 'CRM_TLS_WORKSPACE_CERT_CRON' "$ENV_FILE"; then
+    cat >> "$ENV_FILE" <<'EOF'
+# CRM_TLS_WORKSPACE_CERT_CRON=40 * * * *   # expand LE SANs when new Twenty {sub}.crm.* host missing from cert (Admin → Crons)
+# CRM_TLS_WORKSPACE_CERT_AUTO=1            # 0 = no auto expand after workspace create (cron still may run)
+EOF
+    added=1
+  fi
   if [[ "$added" -eq 1 ]]; then
     echo "ENSURE_CRON_ENV_KEYS_ADDED file=$ENV_FILE"
   fi
@@ -78,6 +85,8 @@ cat >> "$ENV_FILE" <<'EOF'
 # DATA_RETENTION_CRON=15 3 * * *           # daily purge: chats/standup msgs/workflow runs + aged Content Explorer media (hard delete)
 # KANBAN_ORPHAN_WATCHER_CRON=*/5 * * * *   # re-pend stuck processing + reinitiate orphan specialty Kanban
 # SCHEDULED_GOALS_CRON=* * * * *          # CEO scheduled goals: hourly|daily|weekdays|weekly prompts → agent (pause/delete off schedule)
+# CRM_TLS_WORKSPACE_CERT_CRON=40 * * * *   # LE SAN expand for new Twenty workspace hosts (Admin → Crons: crm_tls_workspace_certs)
+# CRM_TLS_WORKSPACE_CERT_AUTO=1            # 0 disables post-provision debounce only; set CRON=off to disable schedule
 EOF
 
 echo "ENSURE_CRON_ENV_ADDED file=$ENV_FILE"

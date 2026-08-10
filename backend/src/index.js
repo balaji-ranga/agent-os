@@ -725,6 +725,33 @@ registerPlatformCron({
   },
 });
 
+// Explicit "off"/"0"/empty-with-disable flag: set CRM_TLS_WORKSPACE_CERT_CRON=off to disable.
+// Unset uses hourly default. (Compose may inject empty string — treat blank as default.)
+const crmTlsCronEnv = String(process.env.CRM_TLS_WORKSPACE_CERT_CRON ?? '').trim();
+const crmTlsWorkspaceCertCron = ['off', '0', 'false', 'disabled', 'none'].includes(
+  crmTlsCronEnv.toLowerCase()
+)
+  ? ''
+  : crmTlsCronEnv || '40 * * * *';
+registerPlatformCron({
+  id: 'crm_tls_workspace_certs',
+  name: 'CRM workspace TLS SANs',
+  description:
+    'Compares ACTIVE Twenty workspace hosts to the LE fullchain. If any {sub}.crm.* is missing (and DNS resolves), runs vps-ensure-crm-workspace-dns-cert (brief nginx stop for TLS-ALPN). No-op when cert already covers all hosts. Also triggered after new workspace provision (debounced). Admin → Crons pause/resume/run. CRM_TLS_WORKSPACE_CERT_CRON=off disables; CRM_TLS_WORKSPACE_CERT_AUTO=0 skips auto from provision.',
+  schedule: crmTlsWorkspaceCertCron,
+  envVar: 'CRM_TLS_WORKSPACE_CERT_CRON',
+  handler: async () => {
+    const { syncCrmWorkspaceTlsSans } = await import('./services/tls-cert-admin.js');
+    const out = await syncCrmWorkspaceTlsSans({ source: 'platform_cron' });
+    if (out?.started) {
+      console.info('[cron] CRM workspace TLS SANs: expand job=%s missing=%s', out.job_id, (out.missing || []).join(','));
+    } else if (out?.skipped && out.skipped !== 'all_sans_present') {
+      console.info('[cron] CRM workspace TLS SANs: skipped=%s', out.skipped);
+    }
+    return out;
+  },
+});
+
 // Keep registry sync/logging here; master tick is owned by platform-cron-registry (Admin pause/resume).
 syncWorkflowScheduleRegistry();
 initAgentWorkflowScheduler({ scheduleMaster: false });

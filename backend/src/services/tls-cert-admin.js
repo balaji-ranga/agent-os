@@ -195,13 +195,44 @@ async function readCertViaRunner() {
   }
 }
 
+/** Public CRM apex host (e.g. crm.flolah.cloud) for workspace FQDNs. */
+export function crmPublicApexHost() {
+  for (const raw of [
+    process.env.TWENTY_EMBED_URL,
+    process.env.TWENTY_SERVER_URL,
+    process.env.CRM_PUBLIC_HOST,
+    process.env.TWENTY_PUBLIC_URL,
+  ]) {
+    const v = String(raw || '').trim();
+    if (!v) continue;
+    try {
+      const u = new URL(v.includes('://') ? v : `https://${v}`);
+      const h = String(u.hostname || '')
+        .toLowerCase()
+        .replace(/\.$/, '');
+      if (!h) continue;
+      // Prefer dedicated crm.<apex>; if workspace host slipped in, strip one left label.
+      if (h.startsWith('crm.')) return h;
+      if (h.includes('.crm.')) {
+        const i = h.indexOf('.crm.');
+        return h.slice(i + 1); // crm.apex…
+      }
+    } catch {
+      /* try next */
+    }
+  }
+  return 'crm.flolah.cloud';
+}
+
 export async function getTlsCertStatus() {
   ensureTlsCertJobsTable();
+  const crmApex = crmPublicApexHost();
   const out = {
     docker_socket: dockerToolsEnabled() || false,
     docker_ping: false,
     host_root: hostRoot(),
     runner_image: RUNNER_IMAGE,
+    crm_apex: crmApex,
     scripts: {
       refresh: `${hostRoot()}/deploy/scripts/vps-refresh-tls-certs.sh`,
       expand_login: `${hostRoot()}/deploy/scripts/vps-expand-login-cert.sh`,
@@ -214,6 +245,8 @@ export async function getTlsCertStatus() {
       'Refresh uses acme.sh TLS-ALPN on :443 (stops nginx briefly).',
       'CRM multi-workspace hosts need DNS A (e.g. *.crm → VPS) before SANs can be added.',
       'Wildcard LE certs require DNS-01; this tool issues per-FQDN SANs.',
+      'Cron `crm_tls_workspace_certs` (Admin → Crons) expands LE SANs when ACTIVE workspaces are missing from the cert (no-op when already covered).',
+      'New Twenty workspace provision debounces the same expand after setup.',
     ],
   };
 
@@ -298,15 +331,21 @@ export async function getTlsCertStatus() {
         .filter(Boolean)
         .map((line) => {
           const [subdomain, displayName, activationStatus] = line.split('|');
+          const host = subdomain ? `${subdomain}.${crmApex}` : null;
+          const wild = `*.${crmApex}`;
           return {
             subdomain: subdomain || '',
             display_name: displayName || '',
             activation_status: activationStatus || '',
-            host: subdomain ? `${subdomain}.crm.flolah.cloud` : null,
+            host,
             on_cert: Boolean(
-              subdomain &&
+              host &&
                 out.certificate?.sans?.some(
-                  (s) => s === `${subdomain}.crm.flolah.cloud` || s === `*.crm.flolah.cloud`
+                  (s) =>
+                    s === host ||
+                    s === wild ||
+                    s === crmApex ||
+                    String(s).toLowerCase() === host.toLowerCase()
                 )
             ),
           };
@@ -417,6 +456,131 @@ export async function startTlsCertRefresh({ scope = 'all', startedBy } = {}) {
 
   console.info(`[tls-cert-admin] started job=${jobId} scope=${sc} by=${startedBy || '?'}`);
   return { job_id: jobId, scope: sc, status: 'running', started_at: startedAt };
+}
+
+/**
+ * ACTIVE CRM workspaces whose host FQDN is not yet on the LE fullchain.
+ * Skips non-ACTIVE / empty subdomain. Wildcard SAN on crm apex counts as covered.
+ */
+export async function listCrmWorkspaceSansGaps() {
+  const status = await getTlsCertStatus();
+  const missing = (status.crm_workspaces || []).filter((w) => {
+    const act = String(w.activation_status || '').toUpperCase();
+    if (act && act !== 'ACTIVE') return false;
+    if (!w.host || !w.subdomain) return false;
+    return !w.on_cert;
+  });
+  return {
+    crm_apex: status.crm_apex || crmPublicApexHost(),
+    certificate_sans: status.certificate?.sans || [],
+    missing,
+    docker_ok: Boolean(status.docker_ping || status.docker_socket_ok),
+    status_error: status.certificate?.error || status.crm_workspaces_error || null,
+  };
+}
+
+/**
+ * Expand CRM workspace TLS SANs when gaps exist (or force=true).
+ * Safe for platform cron + post-provision debounce: no LE call when cert already covers all ACTIVE hosts.
+ *
+ * @param {{ force?: boolean, source?: string }} [opts]
+ */
+export async function syncCrmWorkspaceTlsSans({ force = false, source = 'sync' } = {}) {
+  if (String(process.env.CRM_TLS_WORKSPACE_CERT_AUTO || '1').trim() === '0' && !force) {
+    return { ok: true, skipped: 'auto_disabled', source };
+  }
+
+  const gaps = await listCrmWorkspaceSansGaps();
+  if (!gaps.docker_ok && !force) {
+    console.warn(
+      '[tls-cert-admin] CRM SAN sync skipped (docker tools unavailable) source=%s',
+      source
+    );
+    return {
+      ok: false,
+      skipped: 'docker_unavailable',
+      source,
+      missing: gaps.missing.map((m) => m.host),
+    };
+  }
+
+  if (!force && gaps.missing.length === 0) {
+    console.info('[tls-cert-admin] CRM SAN sync no-op (all ACTIVE hosts on cert) source=%s', source);
+    return {
+      ok: true,
+      skipped: 'all_sans_present',
+      source,
+      crm_apex: gaps.crm_apex,
+      missing: [],
+    };
+  }
+
+  const missingHosts = gaps.missing.map((m) => m.host).filter(Boolean);
+  console.info(
+    '[tls-cert-admin] CRM SAN sync expand source=%s force=%s missing=%s',
+    source,
+    force ? 1 : 0,
+    missingHosts.join(',') || (force ? '(forced)' : '')
+  );
+
+  try {
+    const started = await startTlsCertRefresh({
+      scope: 'crm',
+      startedBy: `cron:${String(source || 'sync').slice(0, 80)}`,
+    });
+    return {
+      ok: true,
+      started: true,
+      source,
+      force: !!force,
+      missing: missingHosts,
+      job_id: started.job_id,
+      status: started.status,
+    };
+  } catch (e) {
+    const status = e?.status || 500;
+    if (status === 409) {
+      return {
+        ok: true,
+        skipped: 'already_running',
+        source,
+        missing: missingHosts,
+        error: e.message,
+      };
+    }
+    console.warn('[tls-cert-admin] CRM SAN sync start failed', e?.message || e);
+    return {
+      ok: false,
+      source,
+      missing: missingHosts,
+      error: e?.message || String(e),
+    };
+  }
+}
+
+/** Debounce post-provision SAN expands (DNS + LE rate limits). */
+let _crmTlsSyncTimer = null;
+export function scheduleCrmWorkspaceTlsSansSync(source = 'workspace_provision') {
+  if (String(process.env.CRM_TLS_WORKSPACE_CERT_AUTO || '1').trim() === '0') {
+    return { scheduled: false, reason: 'auto_disabled' };
+  }
+  const ms = Math.max(
+    5000,
+    Number(process.env.CRM_TLS_WORKSPACE_CERT_DEBOUNCE_MS || 45000) || 45000
+  );
+  if (_crmTlsSyncTimer) clearTimeout(_crmTlsSyncTimer);
+  _crmTlsSyncTimer = setTimeout(() => {
+    _crmTlsSyncTimer = null;
+    syncCrmWorkspaceTlsSans({ source: String(source || 'debounced') }).catch((e) => {
+      console.warn('[tls-cert-admin] debounced CRM SAN sync failed', e?.message || e);
+    });
+  }, ms);
+  console.info(
+    '[tls-cert-admin] scheduled CRM SAN sync in %sms source=%s',
+    ms,
+    source
+  );
+  return { scheduled: true, debounce_ms: ms, source };
 }
 
 async function waitContainer(id, timeoutMs = 25 * 60 * 1000) {
