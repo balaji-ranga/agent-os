@@ -244,22 +244,73 @@ export function getGoalRun(goalRunId, ownerUserId) {
   return serializeGoalRun(row);
 }
 
-export function listGoalRuns(ownerUserId, { limit = 30, status = null } = {}) {
+/** Step-level progress for CEO UI / digest (% completed of planned steps). */
+export function summarizeGoalProgress(goal) {
+  const steps = Array.isArray(goal?.steps) ? goal.steps : [];
+  const total = steps.length;
+  const completed = steps.filter((s) => String(s.status || "") === "completed").length;
+  const failed = steps.filter((s) => String(s.status || "") === "failed").length;
+  const running = steps.filter((s) => String(s.status || "") === "running").length;
+  const pending = steps.filter((s) => String(s.status || "") === "pending").length;
+  const pct = total ? Math.round((completed / total) * 100) : goal?.status === "completed" ? 100 : 0;
+  const current =
+    steps.find((s) => String(s.status || "") === "running") ||
+    steps.find((s) => String(s.status || "") === "pending") ||
+    null;
+  return {
+    total_steps: total,
+    completed_steps: completed,
+    failed_steps: failed,
+    running_steps: running,
+    pending_steps: pending,
+    progress_pct: pct,
+    current_label: current?.label || null,
+    status: goal?.status || null,
+  };
+}
+
+export function listGoalRuns(
+  ownerUserId,
+  { limit = 30, status = null, scheduledGoalId = null } = {}
+) {
   ensureAgentGoalRunTables();
   const lim = Math.min(Math.max(Number(limit) || 30, 1), 200);
-  const rows = status
-    ? db()
-        .prepare(
-          `SELECT * FROM agent_goal_runs WHERE owner_user_id = ? AND status = ?
-           ORDER BY datetime(created_at) DESC LIMIT ?`
-        )
-        .all(ownerUserId, String(status), lim)
-    : db()
-        .prepare(
-          `SELECT * FROM agent_goal_runs WHERE owner_user_id = ?
-           ORDER BY datetime(created_at) DESC LIMIT ?`
-        )
-        .all(ownerUserId, lim);
+  const owner = String(ownerUserId || "").trim();
+  const st = status ? String(status) : null;
+  const sg = scheduledGoalId ? String(scheduledGoalId).trim() : null;
+
+  let rows;
+  if (sg && st) {
+    rows = db()
+      .prepare(
+        `SELECT * FROM agent_goal_runs
+         WHERE owner_user_id = ? AND scheduled_goal_id = ? AND status = ?
+         ORDER BY datetime(created_at) DESC LIMIT ?`
+      )
+      .all(owner, sg, st, lim);
+  } else if (sg) {
+    rows = db()
+      .prepare(
+        `SELECT * FROM agent_goal_runs
+         WHERE owner_user_id = ? AND scheduled_goal_id = ?
+         ORDER BY datetime(created_at) DESC LIMIT ?`
+      )
+      .all(owner, sg, lim);
+  } else if (st) {
+    rows = db()
+      .prepare(
+        `SELECT * FROM agent_goal_runs WHERE owner_user_id = ? AND status = ?
+         ORDER BY datetime(created_at) DESC LIMIT ?`
+      )
+      .all(owner, st, lim);
+  } else {
+    rows = db()
+      .prepare(
+        `SELECT * FROM agent_goal_runs WHERE owner_user_id = ?
+         ORDER BY datetime(created_at) DESC LIMIT ?`
+      )
+      .all(owner, lim);
+  }
   return rows.map((r) => serializeGoalRun(r));
 }
 

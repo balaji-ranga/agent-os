@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { RequireAuth } from '../context/AuthContext';
+import GoalPlanPanel from '../components/GoalPlanPanel';
+import { Fragment } from 'react';
 
 function statusClass(status) {
   if (status === 'active') return 'sg-badge sg-badge-active';
@@ -50,6 +52,9 @@ function ScheduledGoalsPanel() {
   const [enrichBusy, setEnrichBusy] = useState(false);
   const [agents, setAgents] = useState([]);
   const [form, setForm] = useState({ ...EMPTY_FORM });
+  const [planOpenId, setPlanOpenId] = useState(null);
+  const [planCache, setPlanCache] = useState({});
+  const [planBusy, setPlanBusy] = useState(null);
 
   const load = () => {
     setLoading(true);
@@ -83,6 +88,27 @@ function ScheduledGoalsPanel() {
       setError(e.message || String(e));
     } finally {
       setBusyId(null);
+    }
+  };
+
+  const loadLastPlan = async (goalId) => {
+    if (planOpenId === goalId) {
+      setPlanOpenId(null);
+      return;
+    }
+    setPlanOpenId(goalId);
+    if (planCache[goalId]) return;
+    setPlanBusy(goalId);
+    try {
+      const data = await api.agentGoalRunsList({ scheduled_goal_id: goalId, limit: 3 });
+      setPlanCache((prev) => ({ ...prev, [goalId]: data.goals || [] }));
+    } catch (e) {
+      setPlanCache((prev) => ({
+        ...prev,
+        [goalId]: { error: e.message || String(e) },
+      }));
+    } finally {
+      setPlanBusy(null);
     }
   };
 
@@ -396,7 +422,8 @@ function ScheduledGoalsPanel() {
             </thead>
             <tbody>
               {filtered.map((g) => (
-                <tr key={g.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                <Fragment key={g.id}>
+                <tr style={{ borderBottom: planOpenId === g.id ? 'none' : '1px solid var(--border)' }}>
                   <td style={{ padding: '0.65rem 0.5rem', maxWidth: 320 }}>
                     <button
                       type="button"
@@ -451,8 +478,17 @@ function ScheduledGoalsPanel() {
                     <span className={statusClass(g.status)}>{g.status}</span>
                   </td>
                   <td style={{ padding: '0.5rem', fontSize: '0.8rem', color: 'var(--muted)' }}>
-                    {g.last_run_status || '—'}
-                    {g.run_count ? ` · ${g.run_count} run(s)` : ''}
+                    <div>{g.last_run_status || '—'}
+                    {g.run_count ? ` · ${g.run_count} run(s)` : ''}</div>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      style={{ marginTop: 4, fontSize: '0.72rem', padding: '0.15rem 0.45rem' }}
+                      disabled={planBusy === g.id}
+                      onClick={() => loadLastPlan(g.id)}
+                    >
+                      {planOpenId === g.id ? 'Hide plan' : 'Last plan'}
+                    </button>
                   </td>
                   <td style={{ padding: '0.5rem', minWidth: 200 }}>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -510,6 +546,27 @@ function ScheduledGoalsPanel() {
                     </div>
                   </td>
                 </tr>
+                {planOpenId === g.id ? (
+                  <tr key={`${g.id}-plan`} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td colSpan={7} style={{ padding: '0.35rem 0.75rem 0.85rem' }}>
+                      {planBusy === g.id ? (
+                        <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>Loading plan…</p>
+                      ) : planCache[g.id]?.error ? (
+                        <p style={{ color: 'var(--danger, #c44)', fontSize: '0.85rem' }}>{planCache[g.id].error}</p>
+                      ) : !(planCache[g.id] || []).length ? (
+                        <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>
+                          No durable goal plan yet for this schedule. Multi-workflow prompts (e.g. CRM then ERP maker-checker)
+                          create one on fire; otherwise the fire uses COO chat.
+                        </p>
+                      ) : (
+                        (planCache[g.id] || []).map((plan) => (
+                          <GoalPlanPanel key={plan.id} goal={plan} compact />
+                        ))
+                      )}
+                    </td>
+                  </tr>
+                ) : null}
+                </Fragment>
               ))}
             </tbody>
           </table>

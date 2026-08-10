@@ -325,6 +325,58 @@ function capAllocatedAgents(allocated, maxAgents = 2) {
   );
 }
 
+/** Meta follow-ups often lose Mag7-style work unit — stitch prior CEO lines into the specialist query. */
+function enrichTaskQueryWithPriorThread(query, lastUserMessages = [], currentCeoMessage = '') {
+  const q = String(query || '').trim();
+  if (!q) return q;
+  const prior = (Array.isArray(lastUserMessages) ? lastUserMessages : [])
+    .map((m) => String(m || '').trim())
+    .filter(Boolean);
+  const current = String(currentCeoMessage || '').trim();
+  const meta =
+    /^(why not|why didn'?t|should( have)? (have )?(used|delegated)|please (delegate|assign)|ok( go)? ahead|go ahead|do it|delegate that)\b/i.test(
+      q
+    ) ||
+    (q.length < 80 && /why not|market researcher|techresearcher|instead of you|should have delegated/i.test(q));
+  const alreadyHasWork =
+    q.length > 120 ||
+    prior.some((p) => p.length > 24 && q.toLowerCase().includes(p.slice(0, 40).toLowerCase()));
+
+  if (!prior.length && !current) return q;
+  if (alreadyHasWork && !meta) return q;
+
+  const thread = [];
+  for (const p of prior.slice(-6)) {
+    if (!thread.includes(p)) thread.push(p);
+  }
+  if (current && !thread.includes(current) && !/owner_user_id:/.test(current)) {
+    thread.push(current);
+  }
+  if (!thread.length) return q;
+
+  // Prefer last non-meta line as primary work unit
+  const substantive = [...thread]
+    .reverse()
+    .find(
+      (m) =>
+        m.length > 24 &&
+        !/^(why not|why didn'?t|please (delegate|assign)|ok( go)? ahead|go ahead)\b/i.test(m)
+    );
+  if (!substantive && !meta) return q;
+
+  return [
+    'CEO thread (include this whole unit of work):',
+    ...thread.map((m, i) => `${i + 1}. ${m}`),
+    '',
+    substantive ? `Primary deliverable:\n${substantive}` : '',
+    meta || q !== substantive ? `Current COO/CEO instruction:\n${q}` : `Task:\n${q}`,
+    '',
+    'Execute the primary deliverable (not only the meta instruction).',
+  ]
+    .filter((line) => line !== '')
+    .join('\n');
+}
+
 function enqueueAllocatedTasks({
   agents,
   allocated,
@@ -333,20 +385,26 @@ function enqueueAllocatedTasks({
   ownerUserId,
   ins,
   kanbanIns,
+  priorUserMessages = [],
+  currentCeoMessage = '',
 }) {
   const taskRows = [];
   for (const a of agents) {
-    const query = allocated[a.id?.toLowerCase()] ?? allocated[a.id];
-    if (!query || typeof query !== 'string') continue;
+    const rawQuery = allocated[a.id?.toLowerCase()] ?? allocated[a.id];
+    if (!rawQuery || typeof rawQuery !== 'string') continue;
+    const query = enrichTaskQueryWithPriorThread(rawQuery, priorUserMessages, currentCeoMessage);
     const prompt = buildDetailedPromptForAgent(query, a.name || a.id, a.role);
     const scopedPrompt = withOwnerScope(prompt, ownerUserId);
     ins.run(standupId, requestId, a.id, scopedPrompt, ownerUserId);
     const row = db().prepare('SELECT id FROM agent_delegation_tasks ORDER BY id DESC LIMIT 1').get();
     if (row) {
       taskRows.push({ taskId: row.id, agent: a, query });
-      const title = (query || '').trim().slice(0, 200);
-      const desc = ownerUserId ? `owner_user_id: ${ownerUserId}` : '';
-      kanbanIns.run(title, desc, a.id, standupId, row.id, ownerUserId || null);
+      const title = (query || '').trim().slice(0, 200).replace(/\s+/g, ' ');
+      const descParts = [
+        ownerUserId ? `owner_user_id: ${ownerUserId}` : '',
+        (query || '').trim().slice(0, 4000),
+      ].filter(Boolean);
+      kanbanIns.run(title, descParts.join('\n\n'), a.id, standupId, row.id, ownerUserId || null);
       if (ownerUserId) {
         const krow = db()
           .prepare('SELECT * FROM kanban_tasks WHERE agent_delegation_task_id = ?')
@@ -442,6 +500,16 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, c
 
   allocated = capAllocatedAgents(allocated, maxAgents);
 
+  // Stitch prior standup thread into thin/meta task queries before external split or enqueue.
+  if (allocated && typeof allocated === 'object' && context?.lastUserMessages?.length) {
+    const enriched = {};
+    for (const [id, q] of Object.entries(allocated)) {
+      if (typeof q !== 'string') continue;
+      enriched[id] = enrichTaskQueryWithPriorThread(q, context.lastUserMessages, scopedMessage);
+    }
+    allocated = enriched;
+  }
+
   // External / published-A2A leaf members are not OpenClaw agents — invoke them directly.
   let externalOutcome = null;
   const { internal: internalAllocated, leaf: leafAllocated } = splitAllocationByKind(allocated);
@@ -510,6 +578,8 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, c
           ownerUserId,
           ins,
           kanbanIns,
+          priorUserMessages: context.lastUserMessages || [],
+          currentCeoMessage: scopedMessage,
         })
       : [];
 

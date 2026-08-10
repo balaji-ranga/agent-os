@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { formatChatTimestamp } from '../utils/formatDateTime.js';
+import GoalPlanPanel from '../components/GoalPlanPanel';
 
 function KpiIcon({ name }) {
   const common = { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' };
@@ -426,13 +427,18 @@ export default function ThisWeek() {
             </article>
             <article className="digest-card">
               <h2 className="digest-card-title">AI Workers Highlights</h2>
+              {wh.empty_reason ? (
+                <p className="digest-muted" style={{ fontSize: '0.8rem', marginBottom: '0.65rem' }}>
+                  {wh.empty_reason}
+                </p>
+              ) : null}
               <dl className="digest-worker-hl">
                 <div>
                   <dt>Top Performer</dt>
                   <dd>
                     {wh.top_performer ? (
                       <>
-                        {wh.top_performer.name} <span className="digest-muted">({wh.top_performer.tasks} tasks)</span>
+                        {wh.top_performer.name} <span className="digest-muted">({wh.top_performer.tasks} done)</span>
                       </>
                     ) : (
                       <span className="digest-muted">—</span>
@@ -444,7 +450,7 @@ export default function ThisWeek() {
                   <dd>
                     {wh.most_active ? (
                       <>
-                        {wh.most_active.name} <span className="digest-muted">({wh.most_active.tasks} tasks)</span>
+                        {wh.most_active.name} <span className="digest-muted">({wh.most_active.tasks} events)</span>
                       </>
                     ) : (
                       <span className="digest-muted">—</span>
@@ -479,6 +485,40 @@ export default function ThisWeek() {
               </dl>
               <Link className="digest-more" to={data.links?.agents || '/workspace'}>
                 View all AI Workers →
+              </Link>
+            </article>
+          </section>
+
+          <section className="digest-row">
+            <article className="digest-card" style={{ gridColumn: '1 / -1' }}>
+              <h2 className="digest-card-title">Goal plans (plan vs progress)</h2>
+              {!(data.goal_plans || []).length ? (
+                <p className="digest-muted">
+                  No durable multi-intent goal plans yet. Scheduled multi-phase goals (e.g. CRM → ERP) and COO{' '}
+                  <code>agent_goal_create</code> create them.
+                </p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {(data.goal_plans || []).slice(0, 8).map((g) => (
+                    <div key={g.id}>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--muted)', marginBottom: 4 }}>
+                        {g.source || 'goal'} · {g.status}
+                        {g.scheduled_goal_id ? (
+                          <>
+                            {' · '}
+                            <Link to="/scheduled-goals">scheduled goal</Link>
+                          </>
+                        ) : null}
+                        {' · '}
+                        {g.progress?.progress_pct ?? 0}%
+                      </div>
+                      <GoalPlanPanel goal={g} compact />
+                    </div>
+                  ))}
+                </div>
+              )}
+              <Link className="digest-more" to={data.links?.scheduled_goals || '/scheduled-goals'}>
+                Scheduled goals →
               </Link>
             </article>
           </section>

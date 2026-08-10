@@ -1112,6 +1112,17 @@ export const api = {
   scheduledGoalsRunNow: (id) => post(`/scheduled-goals/${encodeURIComponent(id)}/run-now`, {}),
   scheduledGoalsDelete: (id) => del(`/scheduled-goals/${encodeURIComponent(id)}`),
 
+  // Durable multi-intent agent goal plans (CRM→ERP etc.)
+  agentGoalRunsList: (params = {}) => {
+    const sp = new URLSearchParams();
+    if (params.status) sp.set('status', params.status);
+    if (params.limit != null) sp.set('limit', String(params.limit));
+    if (params.scheduled_goal_id) sp.set('scheduled_goal_id', params.scheduled_goal_id);
+    const q = sp.toString();
+    return get(q ? `/agent-goal-runs?${q}` : '/agent-goal-runs');
+  },
+  agentGoalRunsGet: (id) => get(`/agent-goal-runs/${encodeURIComponent(id)}`),
+
   /** IBKR Summary dashboard (portfolio + day-wise planned vs executed). */
   ibkrSummary: (params = {}) => {
     const sp = new URLSearchParams();

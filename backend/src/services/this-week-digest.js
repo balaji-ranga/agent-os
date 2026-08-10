@@ -9,6 +9,7 @@ import { listAgentsForUser, getUserById } from './users.js';
 import { getBusinessProfile } from './company-business-profile.js';
 import { buildThisWeekInsights } from './this-week-digest-insights.js';
 import { buildDigestEstimatesExplain } from './this-week-digest-explain.js';
+import { listGoalRuns, summarizeGoalProgress } from './agent-goal-run.js';
 
 const COMPLETED = new Set(['completed', 'done']);
 const FAILED = new Set(['failed']);
@@ -168,6 +169,24 @@ export async function buildThisWeekDigest(ownerUserId, opts = {}) {
       .all(...ownerFilter.params);
   } catch (e) {
     console.warn('[this-week-digest] kanban', e?.message || e);
+  }
+  // Agent workflows always write Kanban to the platform DB; tenant CEOs also hold cards there.
+  try {
+    if (ceoDb !== platformDb) {
+      const platformTasks = platformDb
+        .prepare(
+          'SELECT k.id, k.title, k.status, k.assigned_agent_id, k.due_date, k.created_at, k.updated_at FROM kanban_tasks k WHERE ' +
+            ownerFilter.clause +
+            ' ORDER BY COALESCE(k.updated_at, k.created_at) DESC LIMIT 500'
+        )
+        .all(...ownerFilter.params);
+      const seen = new Set(allTasks.map((t) => String(t.id)));
+      for (const t of platformTasks) {
+        if (!seen.has(String(t.id))) allTasks.push(t);
+      }
+    }
+  } catch (e) {
+    console.warn('[this-week-digest] platform kanban', e?.message || e);
   }
 
   const weekTasks = allTasks.filter((t) => taskDateInRange(t, weekStart, weekEnd));
@@ -356,9 +375,11 @@ export async function buildThisWeekDigest(ownerUserId, opts = {}) {
   });
 
   const agentById = new Map(agents.map((a) => [String(a.id), a]));
+  /** Multi-source AI worker activity (Kanban alone under-counts Maker/Checker inside workflows). */
   const perAgent = new Map();
-  for (const t of weekTasks) {
-    const aid = String(t.assigned_agent_id || '').trim() || '_unassigned';
+  const bump = (rawId, { tasks = 0, completed = 0 } = {}) => {
+    const aid = String(rawId || '').trim();
+    if (!aid || aid === '_unassigned') return;
     if (!perAgent.has(aid)) {
       perAgent.set(aid, {
         agent_id: aid,
@@ -368,19 +389,135 @@ export async function buildThisWeekDigest(ownerUserId, opts = {}) {
       });
     }
     const row = perAgent.get(aid);
-    row.tasks += 1;
-    if (COMPLETED.has(String(t.status || '').toLowerCase())) row.completed += 1;
+    row.tasks += tasks;
+    row.completed += completed;
+  };
+
+  for (const t of weekTasks) {
+    const aid = t.assigned_agent_id;
+    const done = COMPLETED.has(String(t.status || '').toLowerCase());
+    bump(aid, { tasks: 1, completed: done ? 1 : 0 });
   }
-  const agentRows = [...perAgent.values()].filter((r) => r.agent_id !== '_unassigned');
-  const topPerformer = [...agentRows].sort((a, b) => b.completed - a.completed)[0] || null;
-  const mostActive = [...agentRows].sort((a, b) => b.tasks - a.tasks)[0] || null;
+
+  // Workflow agent nodes + delegations (Maker/Checker on CRM/ERP MC graphs)
+  try {
+    const delRows = platformDb
+      .prepare(
+        `SELECT to_agent_id, status, created_at, completed_at
+         FROM agent_delegation_tasks
+         WHERE owner_user_id = ?
+           AND date(COALESCE(completed_at, created_at), 'localtime') >= ?
+           AND date(COALESCE(completed_at, created_at), 'localtime') <= ?
+         LIMIT 2000`
+      )
+      .all(owner, weekStart, weekEnd);
+    for (const d of delRows) {
+      const st = String(d.status || '').toLowerCase();
+      const done = st === 'completed' || st === 'done' || st === 'success';
+      bump(d.to_agent_id, { tasks: 1, completed: done ? 1 : 0 });
+    }
+  } catch (e) {
+    console.warn('[this-week-digest] delegation ranking', e?.message || e);
+  }
+
+  // Parse workflow run graphs for agent node completions (covers agent steps without delegate row visible)
+  try {
+    for (const r of wfWeek) {
+      let graph = null;
+      try {
+        const full = platformDb
+          .prepare('SELECT graph_json, context_json FROM agent_workflow_runs WHERE id = ?')
+          .get(r.id);
+        graph = full?.graph_json ? JSON.parse(full.graph_json) : null;
+      } catch {
+        graph = null;
+      }
+      if (!graph?.nodes?.length) continue;
+      const agentNodes = graph.nodes.filter((n) => String(n.type || '') === 'agent');
+      if (!agentNodes.length) continue;
+      let steps = [];
+      try {
+        steps = platformDb
+          .prepare(
+            `SELECT node_id, status FROM agent_workflow_run_steps WHERE run_id = ?`
+          )
+          .all(r.id);
+      } catch {
+        steps = [];
+      }
+      const statusByNode = new Map(steps.map((s) => [String(s.node_id), String(s.status || '').toLowerCase()]));
+      for (const n of agentNodes) {
+        const aid = n.data?.agentId || n.data?.agent_id || n.agentId || n.agent_id;
+        if (!aid) continue;
+        const st = statusByNode.get(String(n.id)) || '';
+        const done = st === 'completed' || st === 'skipped';
+        const counted = st === 'completed' || st === 'in_progress' || st === 'failed' || st === 'pending';
+        if (counted || done) bump(aid, { tasks: 1, completed: done && st === 'completed' ? 1 : 0 });
+      }
+    }
+  } catch (e) {
+    console.warn('[this-week-digest] workflow agent ranking', e?.message || e);
+  }
+
+  // Goal-plan orchestrator (COO / balserve) credited for multi-intent plans they own
+  try {
+    const goalsWeek = listGoalRuns(owner, { limit: 50 }) || [];
+    for (const g of goalsWeek) {
+      const day = String(g.created_at || '').slice(0, 10);
+      if (day < weekStart || day > weekEnd) continue;
+      const prog = summarizeGoalProgress(g);
+      bump(g.agent_id, {
+        tasks: Math.max(1, prog.total_steps || 1),
+        completed: prog.completed_steps || (g.status === 'completed' ? 1 : 0),
+      });
+    }
+  } catch (e) {
+    console.warn('[this-week-digest] goal-run ranking', e?.message || e);
+  }
+
+  let agentRows = [...perAgent.values()].filter((r) => r.agent_id !== '_unassigned');
+  // Prefer entitled agents when name is a bare id, re-resolve names
+  for (const r of agentRows) {
+    if (agentById.has(r.agent_id)) r.name = agentById.get(r.agent_id).name || r.name;
+  }
+  // If still empty but the CEO has granted agents, note absence of week volume later;
+  // Top Performer stays null rather than inventing zero-task winners.
+  const topPerformer = [...agentRows].sort((a, b) => b.completed - a.completed || b.tasks - a.tasks)[0] || null;
+  const mostActive = [...agentRows].sort((a, b) => b.tasks - a.tasks || b.completed - a.completed)[0] || null;
   const mostTimeSaved = topPerformer;
   const newThisWeek = agents
     .filter((a) => {
-      const raw = String(a.created_at || '').slice(0, 10);
+      const raw = String(a.created_at || a.granted_at || '').slice(0, 10);
       return raw >= weekStart && raw <= weekEnd;
     })
     .slice(0, 1)[0];
+
+  let goalPlans = [];
+  try {
+    goalPlans = (listGoalRuns(owner, { limit: 12 }) || []).map((g) => {
+      const progress = summarizeGoalProgress(g);
+      return {
+        id: g.id,
+        title: g.title || (g.prompt || '').slice(0, 80) || g.id,
+        source: g.source || null,
+        status: g.status,
+        agent_id: g.agent_id,
+        scheduled_goal_id: g.scheduled_goal_id || null,
+        created_at: g.created_at,
+        completed_at: g.completed_at,
+        progress,
+        steps: (g.steps || []).map((s) => ({
+          step_index: s.step_index,
+          step_type: s.step_type,
+          label: s.label,
+          status: s.status,
+          child_workflow_run_id: s.child_workflow_run_id,
+        })),
+      };
+    });
+  } catch (e) {
+    console.warn('[this-week-digest] goal plans', e?.message || e);
+  }
 
   const byDef = new Map();
   for (const r of wfWeek) {
@@ -567,14 +704,27 @@ export async function buildThisWeekDigest(ownerUserId, opts = {}) {
     organization_highlights: orgHighlights,
     ai_worker_highlights: {
       top_performer: topPerformer
-        ? { name: topPerformer.name, tasks: topPerformer.completed, label: 'Top Performer' }
+        ? {
+            name: topPerformer.name,
+            agent_id: topPerformer.agent_id,
+            tasks: topPerformer.completed,
+            label: 'Top Performer',
+            metric_note: 'Kanban + workflow agent steps + delegations completed',
+          }
         : null,
       most_active: mostActive
-        ? { name: mostActive.name, tasks: mostActive.tasks, label: 'Most Active' }
+        ? {
+            name: mostActive.name,
+            agent_id: mostActive.agent_id,
+            tasks: mostActive.tasks,
+            label: 'Most Active',
+            metric_note: 'Kanban + workflow steps + delegations + goal plans',
+          }
         : null,
       most_time_saved: mostTimeSaved
         ? {
             name: mostTimeSaved.name,
+            agent_id: mostTimeSaved.agent_id,
             hours: Math.round(((mostTimeSaved.completed * minPerTask) / 60) * 10) / 10,
             label: 'Most Time Saved',
           }
@@ -582,7 +732,14 @@ export async function buildThisWeekDigest(ownerUserId, opts = {}) {
       new_this_week: newThisWeek
         ? { name: newThisWeek.name || newThisWeek.id, label: 'New This Week', badge: 'NEW' }
         : null,
+      empty_reason:
+        !topPerformer && !mostActive && agentCount > 0
+          ? 'No worker activity attributed this week (check Kanban assignees, workflow agents, delegations).'
+          : !agentCount
+            ? 'No AI workers granted for this CEO yet.'
+            : null,
     },
+    goal_plans: goalPlans,
     top_workflows: topWorkflows,
     performance: {
       ...performance,
@@ -621,6 +778,7 @@ export async function buildThisWeekDigest(ownerUserId, opts = {}) {
       activity: '/work',
       ask_ai: '/',
       efficiency: '/efficiency',
+      scheduled_goals: '/scheduled-goals',
     },
   };
 }

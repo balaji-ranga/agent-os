@@ -112,6 +112,14 @@ export default function ChatToolCalls({ toolCalls, showChartPreviews = true, sho
   const chartUrls = showChartPreviews ? collectChartUrlsFromToolCalls(list) : [];
   const mediaUrls = showMediaPreviews ? collectGeneratedMediaUrlsFromToolCalls(list) : [];
 
+  const labelFor = (name) => {
+    if (name === 'agent_goal_create') return 'Goal plan create';
+    if (name === 'agent_goal_status') return 'Goal plan status';
+    if (name === 'agent_goal_list') return 'Goal plan list';
+    if (name === 'agent_goal_complete_step') return 'Goal step complete';
+    return name;
+  };
+
   return (
     <div className="chat-tool-calls" style={{ marginTop: '0.55rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
       {chartUrls.length > 0 && (
@@ -138,14 +146,25 @@ export default function ChatToolCalls({ toolCalls, showChartPreviews = true, sho
         {list.map((tc) => {
           const ok = String(tc.status || '').toLowerCase() === 'ok';
           const name = tc.tool_name || 'tool';
+          const isGoal = String(name).startsWith('agent_goal_');
           return (
             <details
               key={tc.id || `${name}-${tc.created_at}`}
               style={{
                 display: 'inline-block',
                 maxWidth: '100%',
-                background: ok ? 'rgba(34,197,94,0.12)' : 'rgba(248,113,113,0.12)',
-                border: `1px solid ${ok ? 'rgba(34,197,94,0.35)' : 'rgba(248,113,113,0.35)'}`,
+                background: isGoal
+                  ? 'rgba(37,99,235,0.1)'
+                  : ok
+                    ? 'rgba(34,197,94,0.12)'
+                    : 'rgba(248,113,113,0.12)',
+                border: `1px solid ${
+                  isGoal
+                    ? 'rgba(37,99,235,0.35)'
+                    : ok
+                      ? 'rgba(34,197,94,0.35)'
+                      : 'rgba(248,113,113,0.35)'
+                }`,
                 borderRadius: 999,
                 padding: '0.15rem 0.55rem',
                 fontSize: '0.72rem',
@@ -168,7 +187,7 @@ export default function ChatToolCalls({ toolCalls, showChartPreviews = true, sho
                     <path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.07 7.07 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 13.9 2h-3.8a.5.5 0 0 0-.49.42l-.36 2.54c-.59.24-1.13.55-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.71 8.48a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94L2.83 14.58a.5.5 0 0 0-.12.64l1.92 3.32c.14.24.43.34.68.22l2.39-.96c.5.39 1.04.7 1.63.94l.36 2.54c.05.24.25.42.49.42h3.8c.24 0 .44-.18.49-.42l.36-2.54c.59-.24 1.13-.55 1.63-.94l2.39.96c.25.12.54.02.68-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z" />
                   </svg>
                 </span>
-                <code style={{ fontSize: '0.72rem', background: 'transparent', padding: 0 }}>{name}</code>
+                <code style={{ fontSize: '0.72rem', background: 'transparent', padding: 0 }}>{labelFor(name)}</code>
                 <span style={{ color: 'var(--muted)', fontSize: '0.65rem' }}>{ok ? 'ok' : tc.status || 'err'}</span>
               </summary>
               <div

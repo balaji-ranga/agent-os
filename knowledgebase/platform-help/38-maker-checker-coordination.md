@@ -61,7 +61,7 @@ Multi-intent goals (CRM then ERP O2C, or any multi-workflow chain) use a **durab
 
 **Step kinds** (no free-form “delegate to agent X” plan rows): `workflow_trigger` (published WF by phrase), `agent_continue` (wake the goal’s owning agent once), `notify_ceo`. Specialty makers/checkers run **inside** child workflows.
 
-**Inspect a plan:** COO tools **`agent_goal_list`** / **`agent_goal_status`** return `agent_goal_run` + steps + `child_workflow_run_id`. Scheduled plan-mode also posts a one-line plan summary into COO chat. Scheduled goals UI shows last fire status only (not the full step ladder yet). Digest does not yet chart plan vs progress.
+**Inspect a plan:** CEO API `GET /api/agent-goal-runs` and `GET /api/agent-goal-runs/:id` (login, owner-scoped). COO tools **`agent_goal_list`** / **`agent_goal_status`**. **Chat** shows a live Goal Plan panel when the assistant mentions `agr-…` or tools `agent_goal_*`. **Scheduled goals → Last plan** expands step progress + workflow run links. **Digest** lists recent goal plans with % complete.
 
 COO `agent_workflow_trigger` alone remains for single-workflow fires. Optional bind: `goal_run_id` + `step_id`.
 

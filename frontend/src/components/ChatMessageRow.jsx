@@ -3,6 +3,7 @@ import ChatMessageAttachments from './ChatMessageAttachments';
 import { formatChatTimestamp } from '../utils/formatDateTime.js';
 import MessageFeedback from './MessageFeedback';
 import ChatToolCalls, { collectChartUrlsFromToolCalls, collectGeneratedMediaUrlsFromToolCalls } from './ChatToolCalls';
+import GoalPlanPanel, { collectGoalRunIds } from './GoalPlanPanel';
 import AuthenticatedMediaImage, {
   AuthenticatedMediaAudio,
   AuthenticatedMediaVideo,
@@ -38,6 +39,11 @@ export default function ChatMessageRow({
       : splitChatAttachmentContent(content);
   const displayText = parsed.text;
   const attachments = parsed.attachments || [];
+  const goalRunIds = !isUser
+    ? collectGoalRunIds({ text: displayText || content || '', toolCalls })
+    : [];
+  // Live plan when create/status tools used, or assistant mentions agr- id (scheduled plan text)
+  const liveIds = goalRunIds.slice(0, 2);
 
   return (
     <div
@@ -88,6 +94,10 @@ export default function ChatMessageRow({
       {(displayText || (!attachments.length && content)) && (
         <ChatMessageContent content={displayText || content} />
       )}
+      {!isUser &&
+        liveIds.map((id) => (
+          <GoalPlanPanel key={id} goalRunId={id} compact pollMs={liveIds.length === 1 ? 12000 : 0} />
+        ))}
       {!isUser && <ChatToolCalls toolCalls={toolCalls} showChartPreviews={false} showMediaPreviews={false} />}
       {!isUser && showFeedback && agentId && (
         <MessageFeedback
