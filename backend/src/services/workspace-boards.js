@@ -3,9 +3,11 @@
  * schema_version 2 enables AI workers / Workflow Builder to design workspaces later.
  */
 import { getDb } from '../db/schema.js';
-import { getDbForCeo } from '../db/request-db.js';
 import { listAgentsForUser } from './users.js';
-import { kanbanOwnerSqlFilter } from './kanban-user-scope.js';
+import {
+  listKanbanTasksForOwner,
+  countOpenKanbanTasksForOwner,
+} from './kanban-user-scope.js';
 import { getBusinessProfile } from './company-business-profile.js';
 import { getTwentyStatusForOwner } from './twenty-crm.js';
 
@@ -475,27 +477,15 @@ function weekBounds(now = new Date()) {
 export async function hydrateBoardData(ownerUserId) {
   const owner = String(ownerUserId || '').trim();
   const week = weekBounds();
-  const ownerFilter = kanbanOwnerSqlFilter({ id: owner, role: 'ceo' });
-  const ceoDb = getDbForCeo(owner);
   const business = getBusinessProfile(owner);
   const twenty = getTwentyStatusForOwner(owner);
 
   let tasks = [];
   let openCount = 0;
   try {
-    tasks = ceoDb
-      .prepare(
-        `SELECT k.id, k.title, k.status, k.assigned_agent_id, k.due_date, k.created_at, k.updated_at
-         FROM kanban_tasks k
-         WHERE ${ownerFilter.clause}
-         ORDER BY COALESCE(k.updated_at, k.created_at) DESC
-         LIMIT 80`
-      )
-      .all(...ownerFilter.params);
-    openCount = tasks.filter((t) => {
-      const st = String(t.status || '').toLowerCase();
-      return !['done', 'completed', 'cancelled', 'archived', 'failed'].includes(st);
-    }).length;
+    // Match Kanban route source of truth (platform DB + optional tenant merge).
+    tasks = listKanbanTasksForOwner(owner, { limit: 80, openOnly: false });
+    openCount = countOpenKanbanTasksForOwner(owner);
   } catch (e) {
     console.warn('[workspace-boards] tasks', e?.message || e);
   }

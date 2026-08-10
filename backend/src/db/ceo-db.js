@@ -117,9 +117,11 @@ function runCeoSchema(db) {
       description TEXT DEFAULT '',
       status TEXT DEFAULT 'open',
       assigned_agent_id TEXT,
+      assigned_member_key TEXT,
       created_by TEXT DEFAULT 'user',
       standup_id INTEGER,
       agent_delegation_task_id INTEGER,
+      owner_user_id TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now')),
       due_date TEXT
@@ -275,6 +277,23 @@ export function initCeoDb(ceoUserId) {
   runCeoSchema(db);
   try {
     db.exec(`ALTER TABLE job_pipeline_state ADD COLUMN active_workflow_run_id INTEGER`);
+  } catch (_) {}
+  // Older tenant files predate Kanban owner isolation — align with platform schema.
+  for (const sql of [
+    `ALTER TABLE kanban_tasks ADD COLUMN owner_user_id TEXT`,
+    `ALTER TABLE kanban_tasks ADD COLUMN assigned_member_key TEXT`,
+  ]) {
+    try {
+      db.exec(sql);
+    } catch (_) {
+      /* already present */
+    }
+  }
+  try {
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_kanban_tasks_owner ON kanban_tasks(owner_user_id)`);
+  } catch (_) {}
+  try {
+    db.prepare(`UPDATE kanban_tasks SET owner_user_id = ? WHERE owner_user_id IS NULL OR owner_user_id = ''`).run(key);
   } catch (_) {}
   db.prepare(`UPDATE job_pipeline_state SET ceo_user_id = ? WHERE id = 1`).run(key);
   _ceoDbs.set(key, db);

@@ -5,9 +5,12 @@
 import { Router } from 'express';
 import { requireAuth, requireCeoOrAdmin, resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
 import { getDb } from '../db/schema.js';
-import { getDbForCeo } from '../db/request-db.js';
 import { listAgentsForUser } from '../services/users.js';
-import { kanbanOwnerSqlFilter } from '../services/kanban-user-scope.js';
+import {
+  kanbanOwnerSqlFilter,
+  listKanbanTasksForOwner,
+  countOpenKanbanTasksForOwner,
+} from '../services/kanban-user-scope.js';
 import { getBusinessProfile } from '../services/company-business-profile.js';
 import { getTwentyStatusForOwner } from '../services/twenty-crm.js';
 
@@ -57,15 +60,17 @@ function isWorkflowShardKanbanTitle(title) {
  * Significant activity only: agent Kanban outcomes + workflow brain runs.
  * Tool call spam and workflow micro-tasks are intentionally omitted.
  */
-function buildRecentActivity(ownerUserId, names, ceoDb, ownerFilter) {
+function buildRecentActivity(ownerUserId, names) {
   const owner = String(ownerUserId || '').trim();
   if (!owner) return [];
   const platformDb = getDb();
+  const ownerFilter = kanbanOwnerSqlFilter({ id: ownerUserId, role: 'ceo' });
   const rows = [];
 
   // --- Kanban terminal outcomes (agent-assigned, not step shards) ---
   try {
-    const kanban = ceoDb
+    // Platform DB matches /kanban; tenant CEO DB rarely holds completed specialty cards.
+    const kanban = platformDb
       .prepare(
         `SELECT k.id, k.title, k.status, k.assigned_agent_id, k.updated_at, k.created_at
          FROM kanban_tasks k
@@ -187,31 +192,13 @@ function buildRecentActivity(ownerUserId, names, ceoDb, ownerFilter) {
 router.get('/snapshot', (req, res) => {
   try {
     const ownerUserId = resolveAuthenticatedCeoUserId(req, req.query || {});
-    const ownerFilter = kanbanOwnerSqlFilter({ id: ownerUserId, role: 'ceo' });
-    const ceoDb = getDbForCeo(ownerUserId);
 
     let tasks = [];
     let openCount = 0;
     try {
-      tasks = ceoDb
-        .prepare(
-          `SELECT k.id, k.title, k.status, k.assigned_agent_id, k.due_date,
-                  k.created_at, k.updated_at
-           FROM kanban_tasks k
-           WHERE ${ownerFilter.clause}
-           ORDER BY COALESCE(k.updated_at, k.created_at) DESC
-           LIMIT 40`
-        )
-        .all(...ownerFilter.params);
-
-      openCount =
-        ceoDb
-          .prepare(
-            `SELECT COUNT(*) AS n FROM kanban_tasks k
-             WHERE ${ownerFilter.clause}
-               AND lower(COALESCE(k.status,'')) NOT IN ('done','completed','cancelled','archived','failed')`
-          )
-          .get(...ownerFilter.params)?.n || 0;
+      // Same merge as Workspace boards / Kanban (platform DB is primary for open work).
+      tasks = listKanbanTasksForOwner(ownerUserId, { limit: 40, openOnly: true });
+      openCount = countOpenKanbanTasksForOwner(ownerUserId);
     } catch (e) {
       console.warn('[company-workspace] tasks query', e?.message || e);
     }
@@ -231,7 +218,7 @@ router.get('/snapshot', (req, res) => {
     }
 
     const names = agentNameMap(ownerUserId);
-    const activity = buildRecentActivity(ownerUserId, names, ceoDb, ownerFilter);
+    const activity = buildRecentActivity(ownerUserId, names);
 
     const business = getBusinessProfile(ownerUserId);
     const twenty = getTwentyStatusForOwner(ownerUserId);
