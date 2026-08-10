@@ -2685,7 +2685,7 @@ router.post('/agent-goal-create', optionalAuth, async (req, res) => {
       },
       instruction:
         out.instruction ||
-        'ASYNC ACK: Durable goal plan created (new goal_run_id agr-… every create). This is a NEW plan — do not swap back to an older agr- from chat/MEMORY. Quote goal_run_id + short plan to the CEO NOW and END THIS TURN. Do NOT poll status or chain later phases. Platform advances remaining steps on child terminals. Workflow run ids are not goal plans.',
+        'ASYNC ACK: Durable goal plan created (new goal_run_id agr-… every create). CRITICAL: always pass the CEO multiphase message VERBATIM as prompt (keep Platform Help / specialty asks) — do not trim to CRM+ERP only. This is a NEW plan — do not swap to an older agr- from chat/MEMORY. Quote goal_run_id + full plan steps (including specialty_task) to the CEO NOW and END THIS TURN. Do NOT poll status or chain freeform agent_workflow_trigger for later phases. Platform advances remaining steps on child terminals. Workflow run ids are not goal plans.',
     };
     logTool(req, 'agent_goal_create', requestPayload, out, 'ok', source);
     res.json(out);

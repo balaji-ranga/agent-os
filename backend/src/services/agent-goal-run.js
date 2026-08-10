@@ -15,8 +15,10 @@ import {
   stripWorkflowPhrasesFromPrompt,
   classifySpecialtyIntentsForPlan,
   specialtyIntentsToSteps,
+  extractExplicitPlatformHelpIntent,
   GOAL_PLAN_MAX_SPECIALTY,
 } from './goal-plan-specialty.js';
+import { readCooAgentsMdForCeo } from './org-context.js';
 import { getOrCreateDelegationHubStandup } from './standup-hub.js';
 import { scheduleCeoRequestViaOpenClawCron } from './delegation-queue.js';
 
@@ -317,23 +319,41 @@ export async function planGoalStepsAsync(prompt, opts = {}) {
 
   const wfSteps = extractStructuralWorkflowSteps(fullPrompt);
   const residual = stripWorkflowPhrasesFromPrompt(fullPrompt);
+  // Soft-clean residual only — never strip the word "goal" (destroys "goal plan" / help residual).
   const residualClean = residual
-    .replace(/\b(goal|success|customer story|how to run)\b[:\s-]*/gi, ' ')
+    .replace(/\b(success story|customer story)\b[:\s-]*/gi, ' ')
     .replace(/\s{2,}/g, ' ')
     .trim();
 
   let specialtyRaw = [];
-  if (ownerUserId && residualClean.length >= 8) {
+  // Prefer residual after workflow phrases; also classify full prompt when residual is thin L2C context only.
+  const classifyTarget =
+    residualClean.length >= 12 ? residualClean : fullPrompt.trim().length >= 8 ? fullPrompt : residualClean;
+  if (ownerUserId && classifyTarget.length >= 8) {
     try {
-      specialtyRaw = await classifySpecialtyIntentsForPlan(ownerUserId, residualClean, { maxSpecialty });
+      specialtyRaw = await classifySpecialtyIntentsForPlan(ownerUserId, classifyTarget, { maxSpecialty });
     } catch (e) {
       console.warn('[goal-run] specialty classify failed', e?.message || e);
     }
-  } else if (ownerUserId && !wfSteps.length && fullPrompt.trim().length >= 8) {
+  }
+
+  // Safety net: scan the ORIGINAL full prompt for explicit Platform Help even if residual was truncated
+  // by a COO rewrite leftover or residual-clean so specialty_task is never dropped when CEO asked for help.
+  if (ownerUserId) {
     try {
-      specialtyRaw = await classifySpecialtyIntentsForPlan(ownerUserId, fullPrompt, { maxSpecialty });
+      const md = await readCooAgentsMdForCeo(ownerUserId);
+      const phFull = extractExplicitPlatformHelpIntent(fullPrompt, md || '');
+      if (phFull?.agent_id) {
+        const hasHelp = specialtyRaw.some(
+          (x) => /platformhelp|platform\s*help/i.test(String(x.agent_id || x.name || ''))
+        );
+        if (!hasHelp) {
+          specialtyRaw = [...specialtyRaw, phFull];
+          console.info('[goal-run] merged Platform Help specialty from full prompt');
+        }
+      }
     } catch (e) {
-      console.warn('[goal-run] specialty classify failed', e?.message || e);
+      console.warn('[goal-run] Platform Help full-prompt merge failed', e?.message || e);
     }
   }
 
@@ -1160,18 +1180,41 @@ export async function startGoalRunExecution(goalRunId, opts = {}) {
     }
   }
 
-  const runningWf = steps.find((s) => s.step_type === 'workflow_trigger' && s.status === 'running');
-  if (runningWf) {
+  // Running workflow steps without a bound child run cannot advance on terminal; re-fire them.
+  const runningWfBound = steps.find(
+    (s) =>
+      s.step_type === 'workflow_trigger' &&
+      s.status === 'running' &&
+      s.child_workflow_run_id
+  );
+  if (runningWfBound) {
     return {
       ok: true,
       async: true,
       waiting: true,
-      step_id: runningWf.id,
+      step_id: runningWfBound.id,
       goal: getGoalRun(goal.id, goal.owner_user_id),
     };
   }
+  const orphanRunningWf = steps.find(
+    (s) =>
+      s.step_type === 'workflow_trigger' &&
+      s.status === 'running' &&
+      !s.child_workflow_run_id
+  );
+  if (orphanRunningWf) {
+    console.warn('[goal-run] re-firing orphan running workflow step (no child_workflow_run_id)', {
+      goalRunId,
+      stepId: orphanRunningWf.id,
+    });
+    db()
+      .prepare(
+        `UPDATE agent_goal_steps SET status = 'pending', started_at = NULL, error_message = NULL WHERE id = ?`
+      )
+      .run(orphanRunningWf.id);
+  }
 
-  let step = steps.find((s) => s.status === 'pending');
+  let step = loadGoalSteps(goalRunId).find((s) => s.status === 'pending');
   if (!step) {
     completeGoalRun(goalRunId, { status: 'completed' });
     return { ok: true, done: true, goal: getGoalRun(goal.id, goal.owner_user_id) };
@@ -1184,7 +1227,9 @@ export async function startGoalRunExecution(goalRunId, opts = {}) {
     }
   }
 
-  if (step.status === 'pending') {
+  // Workflow steps stay pending until executeWorkflowStep / bindWorkflowRunToGoalStep
+  // (sets running + child_workflow_run_id). Other step types mark running here.
+  if (step.status === 'pending' && step.step_type !== 'workflow_trigger') {
     db()
       .prepare(
         `UPDATE agent_goal_steps SET status = 'running', started_at = datetime('now') WHERE id = ?`

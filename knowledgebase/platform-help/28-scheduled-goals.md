@@ -22,6 +22,9 @@ The COO uses `scheduled_goal_create` (and related tools) and confirms the schedu
 
 **How do multi-intent scheduled goals work?** Creating a schedule from the CEO UI first builds a **draft execution plan** (workflow steps, specialty tasks for N specialist intents, notify). You can regenerate with feedback, **Save draft**, then **Approve plan & schedule** to make it **active**. Until approved, status is **draft** and tick/Run now are blocked. COO/chat tools default to an approved plan so plain-language schedules still activate immediately.
 
+
+**COO prompt (critical for specialty steps):** Call gent_goal_create with the CEO multiphase message **verbatim** as prompt. Do not rewrite a hybrid ask down to CRM+ERP only — residual **Platform Help** (and other specialty) language must remain in prompt so plan storage includes specialty_task. The planner also merges explicit Platform Help from the full stored prompt as a safety net.
+
 **Specialty vs workflow steps:** Workflow maker-checker phrases become `workflow_trigger` steps (phrases survive plan storage—renormalizing step specs is idempotent). Remaining multi-intent work (research, design, copy, Platform Help how-to, etc.—not limited to two) becomes `specialty_task` steps (parallel when multiple). Explicit “via Platform Help …” is always a specialty step. Plan orchestration leftovers (`notify_ceo`, `agent_goal_create`) are stripped before specialty classification so they cannot erase residual specialists. A single specialty with lettered/numbered parts can expand into multiple sequential specialty steps on the same agent. Hybrid prompts keep both (CRM→ERP plus residual speciality work is not dropped).
 
 

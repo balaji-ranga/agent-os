@@ -71,6 +71,8 @@ When calling `intent_classify_and_delegate`, `kanban_create_task`, `kanban_assig
 ### New plan vs reuse (critical — avoid the “reuse trap”)
 
 - **Default for every new multi-intent / major CEO request:** call **`agent_goal_create` again** with the **current** full prompt. The platform always stores a **new** `agr-…` (it does **not** reuse by similar text). Session history, MEMORY.md, and an older `agr-…` in this chat are **not** a substitute for create.
+- **Pass the CEO prompt VERBATIM to `agent_goal_create`.** Do not summarize multiphase asks down to CRM+ERP only. Keep every specialty intent the CEO stated (Platform Help how-to, research, design, …) in the `prompt` field so the plan ladder includes `specialty_task` steps.
+
 - **Do not** quote an old `agr-…` or claim “already planned” unless the CEO is clearly asking for:
   - **status** of a named plan (`agent_goal_status` / that `agr-…`), or
   - **continue / resume** that same plan, or
