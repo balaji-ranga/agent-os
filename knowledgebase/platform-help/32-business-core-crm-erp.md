@@ -8,7 +8,7 @@
 Not required to use Flolah. Select under **Profile** or **Company setup → Systems**.
 
 **When I pick platform CRM or ERP, do I get the Maker/Checker AI employees?** **Yes.**
-Packs + workflow graphs ship in source under \ackend/src/services/company-blueprints/standard/\ (with industry blueprints). Enablement on Profile/Company setup **grants those prefabs into your org** and installs the MC workflow (chat: un crm maker checker\ / un erp maker checker\).
+Packs + workflow graphs ship in source under `backend/src/services/company-blueprints/standard/` (with industry blueprints). Enablement on Profile/Company setup **grants those prefabs into your org** and installs the MC workflow (chat: `run crm maker checker` / `run erp maker checker`). **Admin → Refresh default agents** (with Business Core checked) re-ensures those packs + MC graphs for CEOs who already have CRM/ERP selected; lean COO / Workflow Builder / Platform Help are always refreshed from `platform-agents.json` + workspace templates.
 - **CRM = Twenty:** CRM Maker A/B + CRM Checker with crm_* tools; CRM nav opens Twenty SSO.
 - **CRM = ERPNext:** CRM Maker A/B + CRM Checker with Sales-side erp_* tools; CRM nav opens ERPNext desk SSO (/app/crm).
 - **ERP = ERPNext:** ERP Maker A/B (full operational erp_* surface matching MCP), ERP Checker (submit/cancel + Kanban/workflow approvals), plus specialists P&L / Invoice / Project Manager.

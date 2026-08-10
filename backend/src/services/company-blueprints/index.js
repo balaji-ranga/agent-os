@@ -41,5 +41,8 @@ export {
   getErpAgentDefs,
   loadMakerCheckerWorkflowTemplate,
   getPlatformLeanAgents,
+  getPlatformLeanAgentIds,
+  getPlatformLeanAgentDefs,
+  FALLBACK_PLATFORM_LEAN_AGENT_IDS,
   getIbkrWorkflowManifest,
 } from './standard-prefabs.js';

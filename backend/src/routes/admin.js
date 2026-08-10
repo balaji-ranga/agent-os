@@ -282,6 +282,8 @@ router.post('/default-agents/refresh', async (req, res) => {
       syncOrg,
       regrant_defaults,
       regrantDefaults,
+      include_business_core,
+      includeBusinessCore,
     } = req.body || {};
     const { refreshDefaultAgentsForUsers } = await import('../services/admin-refresh-default-agents.js');
     const result = await refreshDefaultAgentsForUsers({
@@ -291,9 +293,22 @@ router.post('/default-agents/refresh', async (req, res) => {
       forceIdentityMd: force_identity_md ?? forceIdentityMd,
       syncOrg: sync_org ?? syncOrg,
       regrantDefaults: regrant_defaults ?? regrantDefaults,
+      // Default true: re-ensure CRM/ERP from company-blueprints/standard/business-core when Profile has them
+      includeBusinessCore:
+        include_business_core === false || includeBusinessCore === false ? false : true,
     });
+    console.info(
+      '[admin] default-agents/refresh by=%s ok=%s users=%s/%s lean=%s bc=%s',
+      req.authUser?.id,
+      result.ok,
+      result.users_ok,
+      result.users_targeted,
+      (result.default_agent_ids || []).join(','),
+      result.include_business_core
+    );
     res.status(result.ok ? 200 : 207).json(result);
   } catch (e) {
+    console.warn('[admin] default-agents/refresh', e?.message || e);
     res.status(400).json({ error: e.message });
   }
 });

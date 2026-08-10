@@ -17,15 +17,16 @@ Redeploy-safe source of truth **alongside** industry packs in `../packs/`.
 
 | Asset | Trigger |
 |-------|---------|
-| COO / Workflow Builder / Platform Help | CEO create + backend startup (`DEFAULT_ONBOARD_AGENT_IDS`) |
-| CRM prefabs + CRM MC workflow | Profile **CRM** = `twenty` or `erpnext` (or Company setup Apply) |
-| ERP prefabs + ERP MC workflow | Profile **ERP** = `erpnext` |
+| COO / Workflow Builder / Platform Help | CEO create + startup grants from `platform-agents.json` (`DEFAULT_ONBOARD` via `getPlatformLeanAgentIds()`). **Admin → Refresh default agents** re-syncs catalog fields + pushes `openclaw-workspace-templates/{id}/` MD (and shared `AGENT-OS-OPS.md`) for every targeted CEO. |
+| CRM prefabs + CRM MC workflow | Profile **CRM** = `twenty` or `erpnext` (or Company setup Apply). Same Admin refresh re-ensures packs + MC graphs when Profile already has CRM. |
+| ERP prefabs + ERP MC workflow | Profile **ERP** = `erpnext`. Same Admin refresh re-ensures when Profile has ERP. |
 | Industry agents / optional Day 1 graphs | Company setup / Operate Day 1 blueprints |
 | IBKR paper workflows | Run seed scripts listed in the trading manifest (not auto Profile) |
 
 Runtime loaders:
 
 - `standard-prefabs.js` — load packs
+- `admin-refresh-default-agents.js` — Admin refresh (lean + optional business-core)
 - `prefab-crm-agents.js` / `prefab-erp-agents.js` — create/grant agents
 - `business-core-maker-checker-workflows.js` — install published workflow defs
 

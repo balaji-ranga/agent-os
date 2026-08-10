@@ -36,6 +36,7 @@ function AdminPanel() {
     force_identity_md: true,
     sync_org: true,
     regrant_defaults: true,
+    include_business_core: true,
   });
   const [refreshBusy, setRefreshBusy] = useState(false);
   const [refreshResult, setRefreshResult] = useState(null);
@@ -216,11 +217,15 @@ function AdminPanel() {
         force_identity_md: refreshForm.force_identity_md,
         sync_org: refreshForm.sync_org,
         regrant_defaults: refreshForm.regrant_defaults,
+        include_business_core: refreshForm.include_business_core,
       });
       setRefreshResult(result);
       showSuccess(
         `Default agents refreshed for ${result.users_ok}/${result.users_targeted} CEO(s)` +
-          (result.users_failed ? ` (${result.users_failed} failed)` : '')
+          (result.users_failed ? ` (${result.users_failed} failed)` : '') +
+          (result.users_business_core_refreshed
+            ? `; Business Core re-ensured for ${result.users_business_core_refreshed}`
+            : '')
       );
     } catch (err) {
       showError(err.message || 'Failed to refresh default agents');
@@ -1194,9 +1199,13 @@ function AdminPanel() {
       <section style={{ marginTop: '2rem', padding: '1rem', border: '1px solid var(--border)', borderRadius: 8 }}>
         <h2 style={{ marginTop: 0 }}>Refresh default agents</h2>
         <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginTop: 0 }}>
-          Push template MD files (TOOLS, AGENTS, SOUL, MEMORY, IDENTITY) and tool allowlists for{' '}
-          <strong>COO</strong>, <strong>Workflow Builder</strong>, and <strong>Platform Help</strong> into each CEO&apos;s
-          tenant OpenClaw workspace. Use after updating <code>openclaw-workspace-templates/</code> or tool grants.
+          Source of truth: <code>backend/src/services/company-blueprints/standard/</code>. Lean platform
+          employees from <code>platform-agents.json</code> (<strong>COO</strong>,{' '}
+          <strong>Workflow Builder</strong>, <strong>Platform Help</strong>) get catalog name/role sync +
+          MD push from the declared <code>openclaw-workspace-templates/</code> folders (+ shared{' '}
+          <code>AGENT-OS-OPS.md</code>). When enabled, Business Core CRM/ERP prefabs and maker-checker
+          workflows re-load from <code>standard/business-core/</code> for CEOs whose Profile already has
+          CRM/ERP providers set.
         </p>
         <form onSubmit={refreshDefaultAgents} style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 640 }}>
           <fieldset style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '0.65rem 0.85rem', margin: 0 }}>
@@ -1272,7 +1281,15 @@ function AdminPanel() {
               checked={refreshForm.regrant_defaults}
               onChange={(e) => setRefreshForm({ ...refreshForm, regrant_defaults: e.target.checked })}
             />
-            Re-grant default agent entitlements
+            Re-grant lean default agent entitlements
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.9rem', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={refreshForm.include_business_core}
+              onChange={(e) => setRefreshForm({ ...refreshForm, include_business_core: e.target.checked })}
+            />
+            Re-ensure Business Core prefabs + MC workflows when Profile has CRM/ERP
           </label>
           <button
             type="submit"

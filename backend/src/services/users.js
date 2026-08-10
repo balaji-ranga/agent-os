@@ -25,11 +25,27 @@ import { PLATFORM_BYOK_KEY_NAME, ensureByokVaultSlots } from './user-api-keys.js
 import { isAgentTombstoned } from './agent-delete.js';
 import { normalizeRetentionDays } from './data-retention.js';
 import { assertTermsAcceptedAtRegister } from './legal-terms.js';
+import {
+  FALLBACK_PLATFORM_LEAN_AGENT_IDS,
+  getPlatformLeanAgentIds,
+} from './company-blueprints/standard-prefabs.js';
 
 export { isUserEnabled } from './user-enabled.js';
 
-/** Default agents granted on CEO register/onboard (user-scoped grants; tenant OpenClaw runtimes). */
-export const DEFAULT_ONBOARD_AGENT_IDS = ['balserve', 'workflowbuilder', 'platformhelp'];
+/**
+ * Default agents granted on CEO register/onboard (user-scoped grants; tenant OpenClaw runtimes).
+ * Source of truth: company-blueprints/standard/platform-agents.json (fallback: hardcoded lean three).
+ */
+export const DEFAULT_ONBOARD_AGENT_IDS = [...FALLBACK_PLATFORM_LEAN_AGENT_IDS];
+
+/** Live lean IDs from standard pack (preferred over the frozen FALLBACK constant). */
+export function getDefaultOnboardAgentIdsFromStandard() {
+  try {
+    return getPlatformLeanAgentIds();
+  } catch {
+    return [...FALLBACK_PLATFORM_LEAN_AGENT_IDS];
+  }
+}
 
 function slugId(prefix, email) {
   const base = String(email || '')
@@ -88,7 +104,8 @@ export function listDefaultOnboardAgentIds() {
       .all()
       .map((r) => r.id)
   );
-  return DEFAULT_ONBOARD_AGENT_IDS.filter((id) => existing.has(id));
+  // Prefer pack order/ids from company-blueprints/standard/platform-agents.json
+  return getDefaultOnboardAgentIdsFromStandard().filter((id) => existing.has(id));
 }
 
 /**
