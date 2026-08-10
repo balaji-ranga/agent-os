@@ -55,11 +55,11 @@ export default function AdminCrons() {
   return (
     <div className="page" style={{ maxWidth: 1100, margin: '0 auto', padding: '1.25rem 1rem 2.5rem' }}>
       <header className="page-hero" style={{ marginBottom: '1.25rem' }}>
-        <h1 style={{ margin: 0, fontSize: '1.45rem' }}>Platform crons</h1>
-        <p style={{ margin: '0.35rem 0 0', color: 'var(--muted, #64748b)', maxWidth: 640 }}>
-          Platform-level timers (one per backend process). Pause / resume and last-run time persist across
-          restarts. Ad-hoc Run executes the job now without waiting for the schedule. Status-checker email is
-          sent only by the daily batch job — not by CEO UI or the COO tool.
+        <h1 style={{ margin: 0, fontSize: '1.45rem' }}>Platform crons & watchers</h1>
+        <p style={{ margin: '0.35rem 0 0', color: 'var(--muted, #64748b)', maxWidth: 720 }}>
+          Platform timers and event watchers (workflow terminal, goal-plan completion nudge, timeout reap).
+          Pause / resume persists across restarts (event pause is a kill-switch). Run now fires the job or
+          reconcile sweep immediately. Status-checker email is only from the daily batch job.
         </p>
       </header>
 
@@ -125,6 +125,20 @@ export default function AdminCrons() {
                         {c.running_now ? ' · running now' : ''}
                       </span>
                       <code style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{c.id}</code>
+                      {c.kind === 'event' && (
+                        <span
+                          style={{
+                            fontSize: '0.7rem',
+                            padding: '0.12rem 0.4rem',
+                            borderRadius: 4,
+                            background: 'rgba(59,130,246,0.12)',
+                            color: '#1d4ed8',
+                            fontWeight: 600,
+                          }}
+                        >
+                          event
+                        </span>
+                      )}
                     </div>
                     <p style={{ margin: '0.35rem 0 0', fontSize: '0.9rem', color: 'var(--muted)' }}>
                       {c.description}
@@ -172,9 +186,16 @@ export default function AdminCrons() {
                   }}
                 >
                   <div>
-                    <dt style={{ color: 'var(--muted)' }}>Schedule</dt>
+                    <dt style={{ color: 'var(--muted)' }}>
+                      {c.kind === 'event' ? 'Event / schedule' : 'Schedule'}
+                    </dt>
                     <dd style={{ margin: 0 }}>
-                      <code>{c.schedule || '—'}</code>
+                      <code>{c.schedule_display || c.schedule || '—'}</code>
+                      {c.kind === 'event' && c.schedule ? (
+                        <span style={{ color: 'var(--muted)', marginLeft: 6 }}>
+                          (safety <code>{c.schedule}</code>)
+                        </span>
+                      ) : null}
                     </dd>
                   </div>
                   <div>

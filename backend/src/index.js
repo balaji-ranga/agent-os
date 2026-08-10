@@ -756,6 +756,55 @@ registerPlatformCron({
   },
 });
 
+// Event watchers (Admin → Crons: pause kill-switch + Run now / safety schedule)
+const goalPlanNudgeCron = process.env.GOAL_PLAN_COMPLETION_NUDGE_CRON || '*/10 * * * *';
+registerPlatformCron({
+  id: 'goal_plan_completion_nudge',
+  kind: 'event',
+  eventWhen: 'on goal plan completed/failed',
+  name: 'Goal plan completion chat nudge',
+  description:
+    'Event: when a durable goal plan reaches completed/failed, post one COO chat ladder + CEO bell (idempotent). Pause disables. Run now / schedule backfills missing coo_completion_nudge_at. Env GOAL_PLAN_COO_COMPLETION_NUDGE=0 hard-off.',
+  schedule: goalPlanNudgeCron,
+  envVar: 'GOAL_PLAN_COMPLETION_NUDGE_CRON',
+  handler: async () => {
+    const { runGoalPlanCompletionNudgeSweep } = await import('./services/platform-event-watchers.js');
+    return runGoalPlanCompletionNudgeSweep();
+  },
+});
+
+const workflowTerminalWatchCron = process.env.WORKFLOW_TERMINAL_WATCH_CRON || '*/5 * * * *';
+registerPlatformCron({
+  id: 'workflow_terminal_watch',
+  kind: 'event',
+  eventWhen: 'on agent-workflow run terminal',
+  name: 'Workflow terminal watch',
+  description:
+    'Event: workflow terminal → CEO bell, optional COO wake (WORKFLOW_COO_WAKE_ON_TERMINAL), goal-plan advance. Pause suppresses notify/wake (goal advance still runs). Run now / schedule re-advances stuck steps after terminal WF.',
+  schedule: workflowTerminalWatchCron,
+  envVar: 'WORKFLOW_TERMINAL_WATCH_CRON',
+  handler: async () => {
+    const { runWorkflowTerminalGoalAdvanceSweep } = await import('./services/platform-event-watchers.js');
+    return runWorkflowTerminalGoalAdvanceSweep();
+  },
+});
+
+const workflowTimeoutCron = process.env.WORKFLOW_TIMEOUT_WATCHDOG_CRON || '*/1 * * * *';
+registerPlatformCron({
+  id: 'workflow_timeout_watchdog',
+  kind: 'event',
+  eventWhen: 'reap timed-out in_progress workflow steps',
+  name: 'Workflow timeout watchdog',
+  description:
+    'Safety net for node timeouts (also in-process ~30s). Pause disables reaper. Run now reaps overdue steps.',
+  schedule: workflowTimeoutCron,
+  envVar: 'WORKFLOW_TIMEOUT_WATCHDOG_CRON',
+  handler: async () => {
+    const { runWorkflowTimeoutReapOnce } = await import('./services/platform-event-watchers.js');
+    return runWorkflowTimeoutReapOnce();
+  },
+});
+
 // Keep registry sync/logging here; master tick is owned by platform-cron-registry (Admin pause/resume).
 syncWorkflowScheduleRegistry();
 initAgentWorkflowScheduler({ scheduleMaster: false });

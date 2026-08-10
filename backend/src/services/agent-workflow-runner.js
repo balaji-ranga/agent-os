@@ -3,6 +3,7 @@
  * Integrates with delegation queue and Kanban (similar to job pipeline, separate tags).
  */
 import { getDb } from '../db/schema.js';
+import { isPlatformCronActive } from './platform-cron-registry.js';
 import * as store from './agent-workflow-store.js';
 import {
   AGENT_WORKFLOW_TAG,
@@ -2403,6 +2404,7 @@ export function startWorkflowTimeoutWatchdog(intervalMs = 30000) {
   if (timeoutWatchdogTimer) return;
   const ms = Math.max(5000, Number(intervalMs) || 30000);
   timeoutWatchdogTimer = setInterval(() => {
+    if (!isPlatformCronActive('workflow_timeout_watchdog')) return;
     void reapTimedOutWorkflowSteps().catch((err) => {
       console.warn('[agent-workflow] timeout watchdog:', err?.message || err);
     });

@@ -76,14 +76,19 @@ export function registerPlatformCron(opts) {
     } catch (_) {}
   }
 
+  const kind = opts.kind === 'event' ? 'event' : 'timer';
   const schedule = String(opts.schedule || '').trim();
-  const enabled = opts.enabled !== false && !!schedule && cron.validate(schedule);
+  const hasValidSchedule = !!schedule && cron.validate(schedule);
+  const enabled =
+    opts.enabled === false ? false : kind === 'event' ? true : hasValidSchedule;
   const entry = {
     id,
     name: opts.name || id,
     description: opts.description || '',
     schedule,
     envVar: opts.envVar || null,
+    kind,
+    eventWhen: opts.eventWhen || null,
     enabled,
     task: null,
     handler: opts.handler,
@@ -94,7 +99,7 @@ export function registerPlatformCron(opts) {
   };
   hydrateLastRun(entry);
 
-  if (enabled) {
+  if (enabled && hasValidSchedule) {
     entry.task = cron.schedule(schedule, () => {
       if (isPaused(id)) {
         console.log(`[platform-cron] skipped (paused): ${id}`);
@@ -106,10 +111,16 @@ export function registerPlatformCron(opts) {
       try {
         entry.task.stop();
       } catch (_) {}
-      console.log(`[platform-cron] registered paused: ${id} (${schedule})`);
+      console.log(`[platform-cron] registered paused: ${id} (${schedule}) kind=${kind}`);
     } else {
-      console.log(`[platform-cron] registered: ${id} (${schedule})`);
+      console.log(`[platform-cron] registered: ${id} (${schedule}) kind=${kind}`);
     }
+  } else if (enabled && kind === 'event') {
+    console.log(
+      `[platform-cron] registered event watcher: ${id}` +
+        (opts.eventWhen ? ` when=${opts.eventWhen}` : '') +
+        (isPaused(id) ? ' (paused)' : '')
+    );
   } else {
     console.warn(
       `[platform-cron] not scheduled: ${id}` +
@@ -119,6 +130,20 @@ export function registerPlatformCron(opts) {
 
   jobs.set(id, entry);
   return entry;
+}
+
+/** Admin kill-switch for event watchers (unregistered id => active / fail-open). */
+export function isPlatformCronActive(id) {
+  const key = String(id || '').trim();
+  if (!key) return true;
+  const entry = jobs.get(key);
+  if (!entry) return true;
+  if (!entry.enabled) return false;
+  return !isPaused(entry.id);
+}
+
+export function isPlatformCronPaused(id) {
+  return isPaused(String(id || '').trim());
 }
 
 export async function runPlatformCron(id, { source = 'manual' } = {}) {
@@ -194,15 +219,27 @@ export function resumePlatformCron(id) {
 
 function describeJob(entry) {
   const paused = isPaused(entry.id);
+  const kind = entry.kind || 'timer';
+  let status = 'running';
+  if (!entry.enabled) status = 'disabled';
+  else if (paused) status = 'paused';
   return {
     id: entry.id,
     name: entry.name,
     description: entry.description,
     schedule: entry.schedule,
+    schedule_display:
+      kind === 'event'
+        ? entry.eventWhen
+          ? 'event: ' + entry.eventWhen
+          : 'event-driven'
+        : entry.schedule || '—',
+    kind,
+    event_when: entry.eventWhen || null,
     env_var: entry.envVar,
     enabled: entry.enabled,
     paused,
-    status: !entry.enabled ? 'disabled' : paused ? 'paused' : 'running',
+    status,
     running_now: !!entry.running,
     last_run_at: entry.lastRunAt,
     last_error: entry.lastError,

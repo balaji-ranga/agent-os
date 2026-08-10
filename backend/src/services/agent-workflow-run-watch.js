@@ -11,6 +11,7 @@ import { ensureTenantOpenClawAgent } from './openclaw-tenant.js';
 import { getPromptWithMemoryInjected } from './delegation-queue.js';
 import { insertChatTurn } from './chat-history.js';
 import { onWorkflowTerminalForGoalRun, findGoalStepByWorkflowRun } from './agent-goal-run.js';
+import { isPlatformCronActive } from './platform-cron-registry.js';
 
 const TERMINAL = new Set(['completed', 'failed', 'cancelled', 'paused']);
 
@@ -344,7 +345,10 @@ export async function wakeOrchestratorOnWorkflowTerminal(runId, opts = {}) {
   const id = Number(runId);
   if (!Number.isFinite(id) || id <= 0) return { ok: false, error: 'run_id required' };
   if (process.env.WORKFLOW_COO_WAKE_ON_TERMINAL === '0') {
-    return { ok: false, skipped: true, reason: 'disabled_by_env' };
+    return { ok: false, skipped: true, reason: 'disabled_by_env' }
+  if (!force && !isPlatformCronActive('workflow_terminal_watch')) {
+    return { ok: false, skipped: true, reason: 'paused_admin' };
+  };
   }
 
   const run = db().prepare('SELECT * FROM agent_workflow_runs WHERE id = ?').get(id);
@@ -565,12 +569,26 @@ export function notifyWorkflowRunTerminal(runId) {
   if (!run || !TERMINAL.has(String(run.status || ''))) return null;
   const context = parseContext(run);
   const watch = context.coo_run_watch;
+  const watchActive = isPlatformCronActive('workflow_terminal_watch');
+  const boundEarly = typeof findGoalStepByWorkflowRun === 'function' ? findGoalStepByWorkflowRun(id) : null;
+  const advanceGoal = () => {
+    if (boundEarly?.goal?.id) {
+      void onWorkflowTerminalForGoalRun(id).catch((e) =>
+        console.warn('[wf-run-watch] goal-run advance failed:', e?.message || e)
+      );
+    }
+  };
+  if (!watchActive) {
+    advanceGoal();
+    return null;
+  }
   if (!watch?.enabled || watch.notify_on_terminal === false) {
     if (watch?.enabled && watch.wake_orchestrator_on_terminal !== false) {
       void wakeOrchestratorOnWorkflowTerminal(id).catch((e) =>
         console.warn('[wf-run-watch] coo wake (notify skip path):', e?.message || e)
       );
     }
+    advanceGoal();
     return null;
   }
   const eventKey = 'terminal:' + run.status;
@@ -578,6 +596,7 @@ export function notifyWorkflowRunTerminal(runId) {
     void wakeOrchestratorOnWorkflowTerminal(id).catch((e) =>
       console.warn('[wf-run-watch] coo wake (replay):', e?.message || e)
     );
+    advanceGoal();
     return null;
   }
   saveContext(id, context);
@@ -623,8 +642,7 @@ export function notifyWorkflowRunTerminal(runId) {
   });
 
   // Generic goal plan advance (CRM->ERP etc.) — prefer plan engine over ad-hoc COO wake.
-  const bound = typeof findGoalStepByWorkflowRun === 'function' ? findGoalStepByWorkflowRun(id) : null;
-  if (bound?.goal?.id) {
+  if (boundEarly?.goal?.id) {
     void onWorkflowTerminalForGoalRun(id).catch((e) =>
       console.warn('[wf-run-watch] goal-run advance failed:', e?.message || e)
     );

@@ -50,6 +50,18 @@ EOF
 EOF
     added=1
   fi
+  
+  if ! grep -qF 'WORKFLOW_TERMINAL_WATCH_CRON' "$ENV_FILE"; then
+    cat >> "$ENV_FILE" <<'EOF'
+# WORKFLOW_TERMINAL_WATCH_CRON=*/5 * * * *  # Admin: WF terminal watch safety sweep + pause kill-switch
+# GOAL_PLAN_COMPLETION_NUDGE_CRON=*/10 * * * * # Admin: goal plan completion nudge safety sweep
+# WORKFLOW_TIMEOUT_WATCHDOG_CRON=*/1 * * * * # Admin: workflow step timeout reaper
+# WORKFLOW_COO_WAKE_ON_TERMINAL=1
+# GOAL_PLAN_COO_COMPLETION_NUDGE=1
+EOF
+    added=1
+  fi
+
   if ! grep -qF 'CRM_TLS_WORKSPACE_CERT_CRON' "$ENV_FILE"; then
     cat >> "$ENV_FILE" <<'EOF'
 # CRM_TLS_WORKSPACE_CERT_CRON=40 * * * *   # expand LE SANs when new Twenty {sub}.crm.* host missing from cert (Admin → Crons)
@@ -85,6 +97,11 @@ cat >> "$ENV_FILE" <<'EOF'
 # DATA_RETENTION_CRON=15 3 * * *           # daily purge: chats/standup msgs/workflow runs + aged Content Explorer media (hard delete)
 # KANBAN_ORPHAN_WATCHER_CRON=*/5 * * * *   # re-pend stuck processing + reinitiate orphan specialty Kanban
 # SCHEDULED_GOALS_CRON=* * * * *          # CEO scheduled goals: hourly|daily|weekdays|weekly prompts → agent (pause/delete off schedule)
+# WORKFLOW_TERMINAL_WATCH_CRON=*/5 * * * * # Admin event: WF terminal notify/wake + goal advance (pause kill-switch)
+# GOAL_PLAN_COMPLETION_NUDGE_CRON=*/10 * * * * # Admin event: goal plan complete → COO chat nudge once
+# WORKFLOW_TIMEOUT_WATCHDOG_CRON=*/1 * * * * # Admin: reap timed-out workflow node steps
+# WORKFLOW_COO_WAKE_ON_TERMINAL=1          # 0 disables COO re-invoke on async WF terminal
+# GOAL_PLAN_COO_COMPLETION_NUDGE=1         # 0 hard-disables goal completion chat nudge
 # CRM_TLS_WORKSPACE_CERT_CRON=40 * * * *   # LE SAN expand for new Twenty workspace hosts (Admin → Crons: crm_tls_workspace_certs)
 # CRM_TLS_WORKSPACE_CERT_AUTO=1            # 0 disables post-provision debounce only; set CRON=off to disable schedule
 EOF

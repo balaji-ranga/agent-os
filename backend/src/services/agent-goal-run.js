@@ -5,6 +5,7 @@
 import { randomUUID } from 'crypto';
 import { getDb } from '../db/schema.js';
 import { sendPlatformNotifications } from './platform-notifications.js';
+import { isPlatformCronActive } from './platform-cron-registry.js';
 import * as openclaw from '../gateway/openclaw.js';
 import { ensureTenantOpenClawAgent } from './openclaw-tenant.js';
 import { getPromptWithMemoryInjected } from './delegation-queue.js';
@@ -1021,7 +1022,10 @@ export function completeGoalRun(goalRunId, { status = 'completed', error = null 
  */
 export async function nudgeCooOnGoalPlanTerminal(goalRunId, opts = {}) {
   if (String(process.env.GOAL_PLAN_COO_COMPLETION_NUDGE || '1') === '0') {
-    return { ok: false, skipped: true, reason: 'disabled_by_env' };
+    return { ok: false, skipped: true, reason: 'disabled_by_env' }
+  if (!opts.force && !isPlatformCronActive('goal_plan_completion_nudge')) {
+    return { ok: false, skipped: true, reason: 'paused_admin' };
+  };
   }
   const id = String(goalRunId || '').trim();
   if (!id) return { ok: false, error: 'goal_run_id required' };

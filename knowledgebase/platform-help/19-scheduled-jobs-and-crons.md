@@ -34,7 +34,14 @@ every deploy).
 | `SCHEDULED_GOALS_CRON` | `* * * * *` (every minute) | **Scheduled goals** dispatcher | For each enabled CEO: fires **active** scheduled prompts to the chosen AI employee when local `time_local` matches. **Paused** / **deleted** goals never fire (DB status only — survives restarts). |
 | `CRM_TLS_WORKSPACE_CERT_CRON` | `40 * * * *` (hourly) | **CRM workspace TLS SANs** | Compares ACTIVE Twenty workspace hosts (`{sub}.crm.*`) to the LE fullchain. **No-op** when all are already on the cert. If any SAN is missing (and public DNS resolves to the VPS), runs `vps-ensure-crm-workspace-dns-cert` → brief nginx stop for TLS-ALPN expand. Same job can **Run now** under **Admin → Crons** (`crm_tls_workspace_certs`). New workspace create also **debounces** this after ~45s (`CRM_TLS_WORKSPACE_CERT_AUTO=0` turns that off; `CRM_TLS_WORKSPACE_CERT_CRON=off` disables the schedule). Prerequisite: DNS A `*.crm.<apex>` (or per-workspace) → VPS. Manual UI: **Admin → TLS certs**. |
 
-Admin operators can **list / pause / resume / Run now** every platform cron under **Admin → Crons** (`/admin/crons`). Pause state persists across restarts.
+
+| `WORKFLOW_TERMINAL_WATCH_CRON` | `*/5 * * * *` | **Workflow terminal watch** (event + safety sweep) | Live: agent-workflow terminal → CEO bell, optional COO wake, goal-plan step advance. **Admin Pause** kills notify/wake (goal advance still runs). Run now re-advances stuck steps. |
+| `GOAL_PLAN_COMPLETION_NUDGE_CRON` | `*/10 * * * *` | **Goal plan completion chat nudge** (event + safety sweep) | Live: when a goal plan reaches completed/failed, one COO chat ladder + CEO bell. Pause disables. Run now backfills missing nudges. Hard-off: `GOAL_PLAN_COO_COMPLETION_NUDGE=0`. |
+| `WORKFLOW_TIMEOUT_WATCHDOG_CRON` | `*/1 * * * *` | **Workflow timeout watchdog** | Reaps in_progress workflow nodes past timeout (also ~30s in-process interval). Pause disables reaper. |
+
+Admin operators can **list / pause / resume / Run now** every platform cron **and event watcher** under **Admin → Crons** (`/admin/crons`). Event watchers show an **event** badge; pause is a kill-switch for the live path; schedule is a safety-net sweep.
+
+Pause state persists across restarts.
 
 **Timezones.** Cron expressions are evaluated in the backend container's clock timezone (`TZ`, UTC
 when unset). Dates *shown to you* (Kanban cards and task chat, status reports) use

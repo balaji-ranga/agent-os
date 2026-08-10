@@ -88,7 +88,7 @@ Top-level (always shown; cannot hide in Menu visibility):
 |-------|-------|---------|
 | Admin | `/admin` | Users, platform LLM switch, workspace templates admin |
 | A2A logs | `/admin/a2a-invocations` | Every A2A card / token / invoke attempt, including denials |
-| **Crons** | `/admin/crons` | Platform cron registry — **Pause**, **Resume**, **Run now**; pause state survives restarts |
+| **Crons** | `/admin/crons` | Platform cron **and event watcher** registry — **Pause**, **Resume**, **Run now**; pause survives restarts. Includes workflow terminal watch, goal-plan completion nudge, timeout reaper (help **19**) | — includes event watchers (workflow terminal, goal-plan completion, timeout reap)
 | Documents RAG | `/admin/documents-rag` | Platform OpenSearch help corpus |
 | Tools Onboarding | `/admin/tool-onboarding` | Docker content-tool containers |
 | **Platform feedback** | `/admin/platform-feedback` | Triage bugs / feedback / enhancements from COO tools (`open` → `implemented` / `rejected`) |
