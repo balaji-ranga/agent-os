@@ -712,11 +712,19 @@ export async function erpList(ownerUserId, doctype, { limit = 20, filters, field
   let fieldList = fields;
   if (needsAnyCompanyScope(dt)) {
     const base = Array.isArray(fields) ? fields.map(String) : ['name', 'owner', 'modified'];
-    if (!base.includes(FLOLAH_TENANT_COMPANY_FIELD)) base.push(FLOLAH_TENANT_COMPANY_FIELD);
+    // Only request flolah_company on doctypes that actually have the custom field.
+    // Requesting it on native-company doctypes (Quotation, Warehouse, Account, …)
+    // fails Frappe with "Field not permitted in query: flolah_company".
+    if (needsTenantTag(dt) && !base.includes(FLOLAH_TENANT_COMPANY_FIELD)) {
+      base.push(FLOLAH_TENANT_COMPANY_FIELD);
+    }
     // Only request native `company` when the doctype actually has it
     fieldList = base.filter((f) => {
       if (String(f).toLowerCase() === 'company') {
         return needsNativeCompany(dt) || doctypeKey(dt) === 'opportunity';
+      }
+      if (String(f).toLowerCase() === FLOLAH_TENANT_COMPANY_FIELD) {
+        return needsTenantTag(dt);
       }
       return true;
     });
