@@ -108,6 +108,9 @@ console.log(
       agents_md: publishedBp?.agents_md?.length,
       workflow_templates: publishedBp?.workflow_templates?.length,
       connectors: !!publishedBp?.connectors,
+      secrets_scrubbed: publishedBp?.secrets_scrubbed ?? true,
+      secrets_cleared: publishedBp?.secrets_cleared ?? 0,
+      secrets_residual: publishedBp?.secrets_residual || [],
     },
     null,
     2
@@ -126,6 +129,9 @@ console.log(
       bytes: zip.length,
       coverage: meta.coverage,
       export_format: meta.export_format,
+      secrets_scrubbed: meta.secrets_scrubbed,
+      secrets_cleared: meta.secrets_cleared,
+      secrets_residual: meta.secrets_residual || [],
     },
     null,
     2

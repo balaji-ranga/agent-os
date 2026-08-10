@@ -350,7 +350,11 @@ function AdminPanel() {
         description: bpForm.description || '',
         set_default: !!bpForm.set_default,
       });
-      showSuccess(`Published blueprint ${result.blueprint?.id || bpForm.name}`);
+      const scrubNote =
+        result.secrets_cleared > 0
+          ? ` (secrets redacted: ${result.secrets_cleared} field${result.secrets_cleared === 1 ? '' : 's'})`
+          : ' (secrets scrubbed)';
+      showSuccess(`Published blueprint ${result.blueprint?.id || bpForm.name}${scrubNote}`);
       setBpForm((f) => ({ ...f, name: '', description: '', set_default: false }));
       loadCompanyBlueprints();
     } catch (err) {
@@ -533,10 +537,13 @@ function AdminPanel() {
           System packs live as JSON under <code>backend/src/services/company-blueprints/packs/</code>. Publish a successful
           CEO company as a named blueprint for an industry so company setup can offer alternatives (default + slide
           picker). Snapshot includes knowledge, policies, org (departments + agent map), agents with tool grants and
-          workspace MD (including ops), workflow graphs, connector catalog (no OAuth secrets), and goal schedules.
-          Content Creator social is FB / Instagram / LinkedIn / blogs — not YouTube. Use <strong>Download zip</strong>{' '}
-          for export format <code>agent-os-company-blueprint-v2</code> (
-          <code>blueprint.json</code> + folders: knowledge, policies, org, agents, workflows, connectors, goals).
+          workspace MD (including ops), workflow graphs, connector catalog, and goal schedules.
+          Publish, JSON inspect, and <strong>Download zip</strong> always secret-scrub: live API keys, bearer tokens,
+          bridge tokens, and passwords are cleared; vault <code>*Ref</code> bindings and{' '}
+          <code>{'{{template}}'}</code> placeholders are kept for re-bind on install. Content Creator social is FB /
+          Instagram / LinkedIn / blogs — not YouTube. Export format{' '}
+          <code>agent-os-company-blueprint-v2</code> (<code>blueprint.json</code> + folders: knowledge, policies, org,
+          agents, workflows, connectors, goals).
         </p>
         <form
           onSubmit={publishCompanyBlueprint}

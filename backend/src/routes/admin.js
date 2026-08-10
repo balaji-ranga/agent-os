@@ -542,7 +542,12 @@ router.get('/company-blueprints/candidates', (req, res) => {
 router.get('/company-blueprints/snapshot/:ownerUserId', async (req, res) => {
   try {
     const snap = await snapshotOwnerAsBlueprintPayloadAsync(req.params.ownerUserId);
-    res.json(snap);
+    // Snapshot path already scrubs in company-blueprint-publish; surface flags for Admin UI
+    res.json({
+      ...snap,
+      secrets_scrubbed: true,
+      secrets_cleared: snap.payload?._secrets_cleared ?? snap.secrets_cleared ?? null,
+    });
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message });
   }
@@ -573,14 +578,24 @@ router.post('/company-blueprints/publish', async (req, res) => {
       expectedCompanyHint: snap.company_name,
     });
     console.info(
-      '[admin] blueprint published id=%s validation_ok=%s issues=%s day1_workflows=%s goals=%s',
+      '[admin] blueprint published id=%s validation_ok=%s issues=%s day1_workflows=%s goals=%s secrets_cleared=%s residual=%s',
       published?.id,
       validation.ok,
       validation.issues?.length || 0,
       snap.payload?.workflow_templates?.length || 0,
-      snap.payload?.goal_templates?.length || 0
+      snap.payload?.goal_templates?.length || 0,
+      published?.secrets_cleared ?? 0,
+      (published?.secrets_residual || []).join(',') || 'none'
     );
-    res.json({ ok: true, blueprint: published, validation, day0_day1: snap.payload?.day0_day1 });
+    res.json({
+      ok: true,
+      blueprint: published,
+      validation,
+      day0_day1: snap.payload?.day0_day1,
+      secrets_scrubbed: true,
+      secrets_cleared: published?.secrets_cleared ?? 0,
+      secrets_residual: published?.secrets_residual || [],
+    });
   } catch (e) {
     console.warn('[admin] publish blueprint', e?.message || e);
     res.status(e.status || 500).json({ error: e.message });
@@ -595,7 +610,12 @@ router.post('/company-blueprints/validate-snapshot', async (req, res) => {
     const validation = validateContentBlueprintPayload(snap.payload, {
       expectedCompanyHint: snap.company_name,
     });
-    res.json({ ok: validation.ok, snapshot: snap, validation });
+    res.json({
+      ok: validation.ok,
+      snapshot: snap,
+      validation,
+      secrets_scrubbed: true,
+    });
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message });
   }
@@ -611,19 +631,25 @@ router.post('/company-blueprints/set-default', (req, res) => {
   }
 });
 
-/** Download blueprint pack as zip (manifest.json + blueprint.json). Admin only. */
+/** Download blueprint pack as zip (secret-scrubbed; never includes live keys). Admin only. */
 router.get('/company-blueprints/:id/export.zip', (req, res) => {
   try {
     const { zip, filename, meta } = buildCompanyBlueprintExportZip(req.params.id);
     console.info(
-      '[admin] blueprint zip download id=%s by=%s bytes=%s',
+      '[admin] blueprint zip download id=%s by=%s bytes=%s secrets_cleared=%s residual=%s',
       meta.id,
       req.authUser?.id,
-      zip.length
+      zip.length,
+      meta.secrets_cleared ?? 0,
+      (meta.secrets_residual || []).join(',') || 'none'
     );
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.setHeader('Content-Length', String(zip.length));
+    res.setHeader('X-Agent-OS-Secrets-Scrubbed', '1');
+    if (meta.secrets_cleared != null) {
+      res.setHeader('X-Agent-OS-Secrets-Cleared', String(meta.secrets_cleared));
+    }
     res.send(zip);
   } catch (e) {
     console.warn('[admin] blueprint zip download', e?.message || e);

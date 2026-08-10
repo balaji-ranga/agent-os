@@ -32,8 +32,9 @@
 # Meta Graph MCP (tools/meta-graph-mcp, profile optional-meta-graph-mcp) + Connectors MCPs OAuth,
 # Business Core MCP (tools/business-core-mcp → mcp-flolah-crm / mcp-flolah-erp),
 # content studio: content-publish-social + content-comments-ingest/community triage (workflow mcp_tool/brain nodes;
-#   not one-off content_comments_* tools), day0+day1 blueprint snapshot/publish (ops MD, tools, org, connectors
-#   no secrets, workflow graphs, goals; zip export v2), validate-company-blueprint-export.mjs,
+#   not one-off content_comments_* tools), day0+day1 blueprint snapshot/publish/export with secret scrub
+#   (API keys, bridge tokens, OAuth secrets scrubbed on Admin publish + zip; vault *Ref kept; zip export v2),
+#   validate-company-blueprint-export.mjs,
 #   complete-content-ops-pipeline,
 # ensure-platform-mcps.sh seeds mcp-brave-search + mcp-meta-graph + mcp-flolah-crm + mcp-flolah-erp (is_platform=1),
 # Business Core prefab Maker/Checker agents when Profile CRM=twenty / ERP=erpnext,

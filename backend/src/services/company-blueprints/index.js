@@ -21,6 +21,12 @@ export {
   buildCompanyBlueprintExportZip,
 } from './registry.js';
 
+export {
+  sanitizeBlueprintSecrets,
+  cloneAndSanitizeBlueprint,
+  findResidualLiveSecrets,
+} from './secret-sanitize.js';
+
 // Lazy COMPAN_TYPE_CARDS for any legacy read of the constant
 import { listCompanyTypeCards } from './registry.js';
 export function getCompanyTypeCards() {

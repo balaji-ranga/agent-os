@@ -8,7 +8,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { getDb } from '../../db/schema.js';
 import { buildZipBuffer } from '../zip-store.js';
-import { sanitizeBlueprintSecrets } from './secret-sanitize.js';
+import { sanitizeBlueprintSecrets, cloneAndSanitizeBlueprint, findResidualLiveSecrets } from './secret-sanitize.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PACKS_DIR = join(__dirname, 'packs');
@@ -396,6 +396,7 @@ export function listAllBlueprintsAdmin() {
 
 /**
  * Full blueprint pack for admin JSON / zip export (published DB or system JSON pack).
+ * Always returns a clones + secret-scrubbed blueprint (never raw credentials).
  * @returns {object|null}
  */
 export function getBlueprintForAdminExport(blueprintId) {
@@ -404,7 +405,11 @@ export function getBlueprintForAdminExport(blueprintId) {
   if (!id) return null;
   const bp = getBlueprint(id);
   if (!bp?.id || bp.source === 'fallback') return null;
-  // Prefer exact DB row when published (preserves raw payload_json)
+
+  let meta = null;
+  let rawBlueprint = null;
+
+  // Prefer exact DB row when published (then scrub — older rows may still contain secrets)
   try {
     const row = getDb()
       .prepare(
@@ -420,30 +425,29 @@ export function getBlueprintForAdminExport(blueprintId) {
       } catch {
         payload = bp;
       }
-      return {
-        meta: {
-          id: row.id,
-          industry_id: row.industry_id,
-          name: row.name,
-          description: row.description || '',
-          depth: row.depth,
-          is_default: !!row.is_default,
-          source: row.source || 'published',
-          source_owner_user_id: row.source_owner_user_id,
-          source_company_name: row.source_company_name,
-          published_by: row.published_by,
-          published: !!row.published,
-          updated_at: row.updated_at,
-          created_at: row.created_at,
-        },
-        blueprint: { ...payload, id: row.id, name: row.name, industry: row.industry_id },
+      meta = {
+        id: row.id,
+        industry_id: row.industry_id,
+        name: row.name,
+        description: row.description || '',
+        depth: row.depth,
+        is_default: !!row.is_default,
+        source: row.source || 'published',
+        source_owner_user_id: row.source_owner_user_id,
+        source_company_name: row.source_company_name,
+        published_by: row.published_by,
+        published: !!row.published,
+        updated_at: row.updated_at,
+        created_at: row.created_at,
       };
+      rawBlueprint = { ...payload, id: row.id, name: row.name, industry: row.industry_id };
     }
   } catch (e) {
     console.warn('[company-blueprints] export db read', e?.message || e);
   }
-  return {
-    meta: {
+
+  if (!rawBlueprint) {
+    meta = {
       id: bp.id,
       industry_id: bp.industry,
       name: bp.name || bp.label,
@@ -455,8 +459,41 @@ export function getBlueprintForAdminExport(blueprintId) {
       source_company_name: bp.source_company_name || null,
       published_by: bp.published_by || null,
       published: bp.source === 'published',
+    };
+    rawBlueprint = bp;
+  }
+
+  const { value: blueprint, stats } = cloneAndSanitizeBlueprint(rawBlueprint);
+  // Extra hard pass on connectors note
+  if (blueprint?.connectors && typeof blueprint.connectors === 'object') {
+    blueprint.connectors.note =
+      blueprint.connectors.note ||
+      'No OAuth tokens, client secrets, API keys, or vault secrets — reconnect on install.';
+  }
+  const residual = findResidualLiveSecrets(blueprint);
+  if (residual.length) {
+    console.warn(
+      '[company-blueprints] residual secret patterns after scrub id=%s findings=%s',
+      id,
+      residual.join(',')
+    );
+  } else if (stats.cleared || stats.scrubbed) {
+    console.info(
+      '[company-blueprints] admin export scrubbed id=%s cleared=%s scrubbed=%s',
+      id,
+      stats.cleared,
+      stats.scrubbed
+    );
+  }
+  return {
+    meta: {
+      ...meta,
+      secrets_scrubbed: true,
+      secrets_cleared: stats.cleared,
+      secrets_substring_scrubbed: stats.scrubbed,
+      secrets_residual: residual,
     },
-    blueprint: bp,
+    blueprint,
   };
 }
 
@@ -622,8 +659,7 @@ function buildBlueprintZipEntries(blueprint, meta) {
 
 /**
  * Build admin-downloadable zip for a company industry blueprint.
- * Includes blueprint.json plus expanded trees: knowledge, policies, org, agents (+MD/tools/ops),
- * workflows (full graphs), connectors (no secrets), goals.
+ * Secret-scrubbed: live API keys / tokens never included (Admin export path).
  * @returns {{ zip: Buffer, filename: string, meta: object }}
  */
 export function buildCompanyBlueprintExportZip(blueprintId) {
@@ -634,7 +670,9 @@ export function buildCompanyBlueprintExportZip(blueprintId) {
     throw err;
   }
   const exportedAt = new Date().toISOString();
-  const bp = pack.blueprint;
+  // Second scrub pass for defense-in-depth (in case of future mutations)
+  const { value: bp, stats: zipScrub } = cloneAndSanitizeBlueprint(pack.blueprint);
+  const residual = findResidualLiveSecrets(bp);
   const coverage = {
     knowledge: Array.isArray(bp.knowledge_tables) && bp.knowledge_tables.length > 0,
     policies: !!(bp.policy_text || Object.keys(bp.policy_templates || {}).length),
@@ -654,13 +692,27 @@ export function buildCompanyBlueprintExportZip(blueprintId) {
         bp.connectors.openconnector)
     ),
     goals: Array.isArray(bp.goal_templates) && bp.goal_templates.length > 0,
+    secrets_scrubbed: true,
   };
   const meta = {
     ...pack.meta,
     exported_at: exportedAt,
     export_format: 'agent-os-company-blueprint-v2',
+    secrets_scrubbed: true,
+    secrets_cleared: (pack.meta?.secrets_cleared || 0) + zipScrub.cleared,
+    secrets_substring_scrubbed: (pack.meta?.secrets_substring_scrubbed || 0) + zipScrub.scrubbed,
+    secrets_residual: residual,
     coverage,
+    note:
+      'Live API keys, tokens, and passwords redacted. Vault *Ref and {{template}} placeholders retained for re-bind.',
   };
+  if (residual.length) {
+    console.warn(
+      '[company-blueprints] zip residual secret patterns id=%s findings=%s',
+      meta.id,
+      residual.join(',')
+    );
+  }
   const safe =
     String(meta.id || 'blueprint')
       .toLowerCase()
@@ -680,12 +732,14 @@ export function buildCompanyBlueprintExportZip(blueprintId) {
     meta.source_owner_user_id ? `Source owner: ${meta.source_owner_user_id}` : null,
     `Exported: ${exportedAt}`,
     `Format: ${meta.export_format}`,
+    'Secrets: scrubbed (no live API keys / tokens / bridge secrets)',
+    meta.secrets_cleared != null ? `Secret fields cleared: ${meta.secrets_cleared}` : null,
     '',
     'Coverage (source company snapshot):',
     ...Object.entries(coverage).map(([k, v]) => `  - ${k}: ${v ? 'yes' : 'no'}`),
     '',
     'Layout:',
-    '  blueprint.json              — full pack (apply-ready)',
+    '  blueprint.json              — full pack (apply-ready, secrets redacted)',
     '  manifest.json               — export metadata + coverage flags',
     '  knowledge/                  — master data table schemas (+ seed samples)',
     '  policies/                   — policy_text.md + templates',
@@ -700,6 +754,7 @@ export function buildCompanyBlueprintExportZip(blueprintId) {
     '',
     'Note: Re-publish from Admin after connecting a CEO company to refresh live artefacts',
     '(agents tools, ops MD, workflow graphs, connector stubs, goals).',
+    'On install, re-bind vault API keys and connector OAuth (never stored in export).',
     '',
     'Apply path: Admin → Company industry blueprints (publish from a CEO) or company setup industry picker after re-publish.',
     '',
@@ -716,12 +771,13 @@ export function buildCompanyBlueprintExportZip(blueprintId) {
   for (const f of files) byName.set(f.name, f);
   const zip = buildZipBuffer([...byName.values()]);
   console.info(
-    '[company-blueprints] export zip id=%s bytes=%s source=%s files=%s coverage=%s',
+    '[company-blueprints] export zip id=%s bytes=%s source=%s files=%s secrets_cleared=%s residual=%s',
     meta.id,
     zip.length,
     meta.source,
     byName.size,
-    JSON.stringify(coverage)
+    meta.secrets_cleared,
+    residual.join(',') || 'none'
   );
   return {
     zip,
@@ -742,6 +798,7 @@ function slugify(name) {
 
 /**
  * Publish a snapshot payload as industry blueprint.
+ * Always secret-scrubs before persist (Admin publish and CLI scripts).
  */
 export function publishBlueprintFromPayload(
   {
@@ -765,18 +822,39 @@ export function publishBlueprintFromPayload(
     err.status = 400;
     throw err;
   }
+
+  // Never store live keys from workflow graphs / variables
+  const { value: cleanPayload, stats: scrubStats } = cloneAndSanitizeBlueprint(
+    payload && typeof payload === 'object' ? payload : {}
+  );
+  const residualPre = findResidualLiveSecrets(cleanPayload);
+  if (scrubStats.cleared || scrubStats.scrubbed) {
+    console.info(
+      '[company-blueprints] publish scrub cleared=%s scrubbed=%s by=%s',
+      scrubStats.cleared,
+      scrubStats.scrubbed,
+      actor?.id || published_by || 'system'
+    );
+  }
+  if (residualPre.length) {
+    console.warn(
+      '[company-blueprints] publish residual secret patterns before normalize findings=%s',
+      residualPre.join(',')
+    );
+  }
+
   const provisionalId =
     forcedId ||
-    (payload && payload.id) ||
+    (cleanPayload && cleanPayload.id) ||
     `${slugify(title)}-${Date.now().toString(36)}`;
   const pack = normalizePack(
     {
-      ...(payload && typeof payload === 'object' ? payload : {}),
+      ...cleanPayload,
       id: provisionalId,
       industry,
       name: title,
       label: title,
-      description: String(description || payload?.description || '').trim(),
+      description: String(description || cleanPayload?.description || '').trim(),
       source: 'published',
       source_owner_user_id,
       source_company_name,
@@ -803,6 +881,11 @@ export function publishBlueprintFromPayload(
   }
   pack.id = id;
   pack.industry = industry;
+
+  // Final scrub after normalize (normalize merges nested structures)
+  const packScrub = { cleared: 0, scrubbed: 0 };
+  sanitizeBlueprintSecrets(pack, packScrub);
+  const residual = findResidualLiveSecrets(pack);
 
   const db = getDb();
   if (set_default) {
@@ -831,14 +914,27 @@ export function publishBlueprintFromPayload(
     pack.description,
     pack.depth,
     set_default ? 1 : 0,
-    JSON.stringify((() => { sanitizeBlueprintSecrets(pack); return pack; })()),
+    JSON.stringify(pack),
     source_owner_user_id,
     source_company_name,
     published_by || actor?.id || null
   );
   invalidateBlueprintCache();
-  console.info('[company-blueprints] published', id, 'industry=', industry, 'by=', actor?.id);
-  return getBlueprint(id);
+  console.info(
+    '[company-blueprints] published id=%s industry=%s by=%s secrets_cleared=%s residual=%s',
+    id,
+    industry,
+    actor?.id,
+    scrubStats.cleared + packScrub.cleared,
+    residual.join(',') || 'none'
+  );
+  const published = getBlueprint(id);
+  if (published && typeof published === 'object') {
+    published.secrets_scrubbed = true;
+    published.secrets_cleared = scrubStats.cleared + packScrub.cleared;
+    published.secrets_residual = residual;
+  }
+  return published;
 }
 
 export function unpublishBlueprint(id) {

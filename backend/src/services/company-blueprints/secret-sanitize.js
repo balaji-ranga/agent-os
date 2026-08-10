@@ -1,6 +1,7 @@
 /**
  * Strip live API keys / tokens from company blueprint payloads and workflow graphs.
  * Keep vault *Ref bindings and {{template}} placeholders.
+ * Used by Admin publish/export, snapshot, and CLI publish scripts.
  */
 /**
  * True if this property name usually holds a secret (not *Ref / budget / maxTokens).
@@ -122,3 +123,40 @@ export function sanitizeBlueprintSecrets(value, stats = { cleared: 0, scrubbed: 
   return value;
 }
 
+/**
+ * JSON-clone then scrub (safe for Admin export / publish without mutating caches).
+ * @returns {{ value: any, stats: { cleared: number, scrubbed: number } }}
+ */
+export function cloneAndSanitizeBlueprint(value) {
+  let clone = null;
+  try {
+    clone = value == null ? value : JSON.parse(JSON.stringify(value));
+  } catch {
+    clone = value;
+  }
+  const stats = { cleared: 0, scrubbed: 0 };
+  sanitizeBlueprintSecrets(clone, stats);
+  return { value: clone, stats };
+}
+
+/**
+ * Post-sanitization scan for residual live credentials (finding labels only — never secret values).
+ * @returns {string[]}
+ */
+export function findResidualLiveSecrets(value) {
+  let txt = '';
+  try {
+    txt = typeof value === 'string' ? value : JSON.stringify(value ?? null);
+  } catch {
+    return ['unserializable'];
+  }
+  const findings = [];
+  if (/sk-proj-[A-Za-z0-9_\-]{20,}/.test(txt)) findings.push('sk-proj');
+  if (/(?:^|[^A-Za-z0-9])sk-[a-zA-Z0-9]{16,}/.test(txt)) findings.push('sk-');
+  if (/AKIA[0-9A-Z]{16}/.test(txt)) findings.push('aws-key');
+  if (/ghp_[A-Za-z0-9]{20,}/.test(txt)) findings.push('github-pat');
+  if (/"local_bridge_token"\s*:\s*"[a-f0-9]{20,}"/i.test(txt)) findings.push('bridge-token');
+  if (/"apiKey"\s*:\s*"(?!\{\{)[^"]{12,}"/.test(txt)) findings.push('apiKey-nonempty');
+  if (/"bearerToken"\s*:\s*"(?!\{\{)[^"]{12,}"/i.test(txt)) findings.push('bearerToken-nonempty');
+  return findings;
+}
