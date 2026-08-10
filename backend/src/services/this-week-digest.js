@@ -168,21 +168,40 @@ export async function buildThisWeekDigest(ownerUserId, opts = {}) {
       )
       .all(...ownerFilter.params);
   } catch (e) {
-    console.warn('[this-week-digest] kanban', e?.message || e);
+    // Tenant CEO SQLite may predate owner_user_id column — whole DB is already that CEO's.
+    if (/owner_user_id/i.test(String(e?.message || e))) {
+      try {
+        allTasks = ceoDb
+          .prepare(
+            `SELECT k.id, k.title, k.status, k.assigned_agent_id, k.due_date, k.created_at, k.updated_at
+             FROM kanban_tasks k
+             ORDER BY COALESCE(k.updated_at, k.created_at) DESC LIMIT 500`
+          )
+          .all();
+      } catch (e2) {
+        console.warn('[this-week-digest] kanban fallback', e2?.message || e2);
+      }
+    } else {
+      console.warn('[this-week-digest] kanban', e?.message || e);
+    }
   }
   // Agent workflows always write Kanban to the platform DB; tenant CEOs also hold cards there.
   try {
     if (ceoDb !== platformDb) {
-      const platformTasks = platformDb
-        .prepare(
-          'SELECT k.id, k.title, k.status, k.assigned_agent_id, k.due_date, k.created_at, k.updated_at FROM kanban_tasks k WHERE ' +
-            ownerFilter.clause +
-            ' ORDER BY COALESCE(k.updated_at, k.created_at) DESC LIMIT 500'
-        )
-        .all(...ownerFilter.params);
-      const seen = new Set(allTasks.map((t) => String(t.id)));
-      for (const t of platformTasks) {
-        if (!seen.has(String(t.id))) allTasks.push(t);
+      try {
+        const platformTasks = platformDb
+          .prepare(
+            'SELECT k.id, k.title, k.status, k.assigned_agent_id, k.due_date, k.created_at, k.updated_at FROM kanban_tasks k WHERE ' +
+              ownerFilter.clause +
+              ' ORDER BY COALESCE(k.updated_at, k.created_at) DESC LIMIT 500'
+          )
+          .all(...ownerFilter.params);
+        const seen = new Set(allTasks.map((t) => String(t.id)));
+        for (const t of platformTasks) {
+          if (!seen.has(String(t.id))) allTasks.push(t);
+        }
+      } catch (e2) {
+        console.warn('[this-week-digest] platform kanban', e2?.message || e2);
       }
     }
   } catch (e) {
