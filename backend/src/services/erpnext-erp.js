@@ -447,16 +447,7 @@ export async function backfillErpnextTenantCompanyTags() {
         `/api/resource/${encodeURIComponent(dt)}?` +
           new URLSearchParams({
             limit_page_length: '200',
-            fields: JSON.stringify([
-              'name',
-              'owner',
-              FLOLAH_TENANT_COMPANY_FIELD,
-              'customer_name',
-              'supplier_name',
-              'lead_name',
-              'item_name',
-              'item_code',
-            ]),
+            fields: JSON.stringify(['name', 'owner', FLOLAH_TENANT_COMPANY_FIELD]),
           }).toString()
       );
       const rows = Array.isArray(listed?.data) ? listed.data : [];
@@ -499,7 +490,10 @@ export async function backfillErpnextTenantCompanyTags() {
     }
   }
   console.info('[erpnext-tenant] backfill', JSON.stringify(stats));
-  _tenantBackfillDone = true;
+  // Only cache success so a failed field list does not skip later repair
+  if (stats.errors === 0 || stats.updated > 0 || stats.skipped > 0) {
+    _tenantBackfillDone = true;
+  }
   return { ok: true, ...stats };
 }
 
@@ -717,12 +711,21 @@ export async function erpList(ownerUserId, doctype, { limit = 20, filters, field
   // Always request tenant fields so post-filter works when Frappe ignores unknown filters poorly
   let fieldList = fields;
   if (needsAnyCompanyScope(dt)) {
-    const base = Array.isArray(fields)
-      ? fields.map(String)
-      : ['name', 'owner', 'modified'];
+    const base = Array.isArray(fields) ? fields.map(String) : ['name', 'owner', 'modified'];
     if (!base.includes(FLOLAH_TENANT_COMPANY_FIELD)) base.push(FLOLAH_TENANT_COMPANY_FIELD);
-    if (!base.includes('company')) base.push('company');
-    fieldList = base;
+    // Only request native `company` when the doctype actually has it
+    fieldList = base.filter((f) => {
+      if (String(f).toLowerCase() === 'company') {
+        return needsNativeCompany(dt) || doctypeKey(dt) === 'opportunity';
+      }
+      return true;
+    });
+    if (
+      (needsNativeCompany(dt) || doctypeKey(dt) === 'opportunity') &&
+      !fieldList.some((f) => String(f).toLowerCase() === 'company')
+    ) {
+      fieldList.push('company');
+    }
   }
   if (fieldList) params.set('fields', JSON.stringify(fieldList));
   const f = Array.isArray(filters) ? [...filters] : [];
