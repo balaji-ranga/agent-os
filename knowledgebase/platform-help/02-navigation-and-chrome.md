@@ -18,7 +18,7 @@ Top-level (always shown; cannot hide in Menu visibility):
 |-------|-------|---------|
 | Home | `/` | Executive chat (COO / default) |
 | **Digest** | `/this-week` | Weekly company pulse: AI workers, tasks, Time Saved, Est. Value (per-agent $/hr), insights. |
-| Workspace | `/work` | Daily operating workspace (tasks + activity + command bar) |
+| Workspace | `/work` | Daily operating workspace — **open Kanban tasks**, AI team, activity, command bar (same task source as **/kanban**) |
 
 ### Settings (nav chrome)
 
@@ -148,11 +148,19 @@ Use the Home **i** popover for domain scores and improve links. REST: `GET /api/
 
 When hiring under **AI Employees** (`/workspace`) or Org Design, set **Hourly value rate (USD)** (default 10). That rate powers Digest Est. Value for tasks assigned to that AI employee.
 
+## Operating Workspace (`/work`)
+
+Daily desk for open work (not Digest). Default board binds **Open tasks** to `workspace.tasks` — the same owner-scoped Kanban rows as **/kanban** (including unassigned cards). Metrics tile **Open tasks** uses that count.
+
+- **Multi-tenant CEOs:** open cards live on the platform Kanban store with `owner_user_id`; Workspace merges platform (+ optional tenant DB) so **Open tasks never goes empty when Kanban still has open work**.
+- Customize layout/bindings in **Workspace Builder** below; **Seed operating template** restores the classic layout if you blank the board.
+
 ## Workspace Builder
 
 **Workspace Builder** (`/workspace-designer`) designs owner-scoped **Workspace** pages for `/work` (not Digest). Components: KPI cards, charts, tables, activity, chat panel, layouts. Each component can bind to **presets**, allowlisted **REST** paths, **master data tables**, or **Knowledge RAG**. Pages are stored as JSON (`company_workspace_boards`) so future AI workers / Workflow Builder can author them too.
 
 - **Preview Live Data** hydrates bindings via `GET /api/workspace-boards/:slug/render`.
 - **Set as Default** publishes that page to the top-nav **Workspace** menu (`/work`); only a designed default replaces the classic hard-built Workspace.
-- **Seed operating template** installs a page that reconstructs the classic Operating Workspace layout.
+- **Seed operating template** installs a page that reconstructs the classic Operating Workspace layout (metrics + open tasks + AI workers + activity).
+- Task presets (`workspace.tasks`, `workspace.metrics.tasks_open`) always hydrate from owner-scoped Kanban (**same board as /kanban**).
 - Auth / owner entitlements apply on all APIs; CRM components may require Business Core CRM.

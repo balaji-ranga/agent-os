@@ -14,7 +14,7 @@ Documentation lives here so Cursor and humans can find it. **Root README.md** st
 
 | **VISION.md** | Product purpose, vision, core strengths, differentiator, and strategic focuses (AI Company OS + governed A2A). |
 | **PITCH.md** | One-pager pitch: problem, solution, differentiators, audience, and success journey (from VISION + AI-COMPANY-OS). |
-| **platform-help/** | CEO end-user Platform Help corpus (RAG). Highlights: **02** Digest/Workspace Builder/nav (sections collapsed by default)/OEI summary; **11** Tools/Model/media + COO digest/OEI tools; **16–17** Connectors/desktop; **19–20** crons + IBKR; **21–27** external→onboarding; **28–32** goals/setup/content/MCP OAuth/Business Core (**32** CRM/ERP tenant isolation, `flolah_company`, fiscal year, Maker A/B, SSO); **22** Browser Session + desktop worker; **33** IP Whitelists; **34** Tokens management; **35** Update Company Details (`company_memory`); **36** Operational Effectiveness (OEI); **37** Company P&L design roadmap (see also **AUTOMATED-PNL.md**); **38** Maker/Checker Option 1 coordination; **39–40** ERPNext / Twenty Tier A (docs-only RAG; Platform Help **answer-first**, soft tips to COO/CRM/ERP only after how-to) |
+| **platform-help/** | CEO end-user Platform Help corpus (RAG). Highlights: **02** Digest/Workspace (open tasks = Kanban)/Builder/nav/OEI; **03** specialty-first COO; **04** Kanban; **11** Tools/Model/media; **12** Workspace vs Kanban; **16–17** Connectors/desktop; **19–20** crons + IBKR; **21–27** external→onboarding; **28–32** goals (multi-intent plans)/setup/content/MCP OAuth/Business Core (`crm-*`/`erp-*` templates, BrightBox golden pack); **33–40** IP/tokens/company details/OEI/P&L design/Maker-Checker/Tier A ERP/CRM; Platform Help **answer-first** |
 | **AGENT-WORKSPACE-TEMPLATES.md** | Platform-shared agent workspace MD templates: apply in Agent Workspace, Admin CRUD, CEO publish-as-template. |
 | **TESTING.md** | Restart steps, full API test, frontend manual tests, smoke test, standup→COO→TechResearcher test, standup UI checklist. |
 | **GITHUB-SETUP.md** | One-time: create agent-os repo on GitHub and push (Options A/B, security check). |
@@ -44,7 +44,7 @@ Documentation lives here so Cursor and humans can find it. **Root README.md** st
 ## Not in knowledgebase (stay at repo root or other paths)
 
 - **README.md** — at `agent-os/README.md` (main project doc).
-- **openclaw-workspace-templates/** — SOUL.md, MEMORY.md, AGENTS.md used by scripts; do not move.
+- **openclaw-workspace-templates/** — SOUL/MEMORY/AGENTS per agent type: lean (`balserve`, `workflowbuilder`, `platformhelp`, …) + **Business Core** role packs (`crm-maker-a`, `crm-maker-b`, `crm-checker`, `erp-maker-a`, `erp-maker-b`, `erp-checker`, `erp-pnl`, `erp-invoice`, `erp-project`) and `business-core-template-map.json`. Do not move.
 - **openclaw-skills/** — SKILL.md and README per skill; install scripts reference these paths.
 - **.cursor/agents/** — Cursor subagent instructions (code-review, remote-host-config, etc.).
 

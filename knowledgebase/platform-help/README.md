@@ -6,9 +6,9 @@
 | Doc | Topics |
 |-----|--------|
 | [01-getting-started.md](./01-getting-started.md) | Register, login, MFA, Profile / BYOK + **chat model** via **API Keys** |
-| [02-navigation-and-chrome.md](./02-navigation-and-chrome.md) | Left nav map, sections **collapsed by default**, Digest formulas (per-agent hourly rates), Workspace Builder, Home **OEI** pointer (**36**) |
+| [02-navigation-and-chrome.md](./02-navigation-and-chrome.md) | Left nav map, sections **collapsed by default**, Digest (goal plans + View all), Operating Workspace open tasks (= Kanban), Workspace Builder, Home **OEI** pointer (**36**) |
 | [03-dashboard-agents-chat.md](./03-dashboard-agents-chat.md) | Org chart, chat **attachments**, inline auth media players, workspace MD, **templates** Apply/Publish, tools access, Resync |
-| [04-kanban-standups-broadcast.md](./04-kanban-standups-broadcast.md) | Kanban (agent-owned status), standups → COO, Broadcast, `notify_ceo` when/when-not |
+| [04-kanban-standups-broadcast.md](./04-kanban-standups-broadcast.md) | Kanban (agent-owned status; same open cards as Workspace `/work`), standups → COO, Broadcast, `notify_ceo` when/when-not |
 | [05-master-data-rag.md](./05-master-data-rag.md) | Tables (incl. **company_memory**), CSV, documents, RAG; **Inbound attachments**; **Purge all uploads**; protected Help/User Guide docs |
 | [06-workflows-building.md](./06-workflows-building.md) | Create / edit / publish / run workflows, I/O mapping, templates |
 | [07-workflow-nodes-reference.md](./07-workflow-nodes-reference.md) | Every node type incl. **Connector**; attributes, inputs, outputs |
@@ -17,7 +17,7 @@
 | [10-policies-guardrails.md](./10-policies-guardrails.md) | CEO common guardrails for all agents + Brain nodes |
 | [10-job-applicant-pipeline.md](./10-job-applicant-pipeline.md) | Job profiles & prebuilt job workflows |
 | [11-content-tools-scripts-profile.md](./11-content-tools-scripts-profile.md) | **Tools** UI, **Tools → Model** mapping, **MEDIA: / auth media lockdown**, platform feedback tools, chat attachments / inbound media, AGENT-OS-OPS, summary caches, scripts, AI Snipper, Efficiency View, Profile **provider + model** |
-| [12-troubleshooting.md](./12-troubleshooting.md) | Common issues (A2A, notify, Kanban, API Keys, Connectors, **WhatsApp Media failed**, inbound attachments, scheduled jobs, storage/purge, department budget) |
+| [12-troubleshooting.md](./12-troubleshooting.md) | Common issues (A2A, notify, Kanban, **Workspace empty vs Kanban open**, API Keys, Connectors, **WhatsApp Media failed**, inbound attachments, scheduled jobs, storage/purge, department budget) |
 | [13-workflow-autonomous-certify.md](./13-workflow-autonomous-certify.md) | Maker/Checker certify jobs, status-on-request, resume inputs |
 | [14-workflow-dynamic-values.md](./14-workflow-dynamic-values.md) | `{{…}}` templates, variables, trigger input, **vault** auth |
 | [15-api-keys-vault.md](./15-api-keys-vault.md) | **API Keys** vault, auto-seeded BYOK slots, `Platform_BYOK` / Replicate / Brave / ElevenLabs |
@@ -33,11 +33,11 @@
 | [25-speech-and-published-scenes.md](./25-speech-and-published-scenes.md) | **Published Scenes** public `/p/vr/:slug`, free Whisper STT + Piper TTS, guest VR tokens vs `MEDIA_PUBLIC_SIGNED`, `speech_stt` / `speech_tts` |
 | [26-content-explorer.md](./26-content-explorer.md) | **Content Explorer** — browse/preview/download uploaded + generated files |
 | [27-onboarding-helper.md](./27-onboarding-helper.md) | **Onboarding Helper** — chat save/apply tools, selective Review cards, **E2E prompt recipes** (MarketWatcher + Workflow Builder Ollama loop) |
-| [28-scheduled-goals.md](./28-scheduled-goals.md) | **Scheduled goals** — hourly/daily/weekdays/weekly CEO prompts; create/edit/pause UI + COO tools |
+| [28-scheduled-goals.md](./28-scheduled-goals.md) | **Scheduled goals** — hourly/daily/weekdays/weekly; create/edit/pause; **draft/approve multi-intent goal plans**; Digest 2 + `/goal-plans` |
 | [29-company-setup.md](./29-company-setup.md) | **Company setup** — first-run wizard `/company-setup` (type, mission, DNA, team Apply, management style); vs Onboarding Helper |
 | [30-content-creator-ops.md](./30-content-creator-ops.md) | **Content creator ops** — Facebook Page via Meta Graph MCP, publish social, comment ingest/triage, Ops Reporter **bell** (not email), Company Operate |
 | [31-mcp-connectors-oauth.md](./31-mcp-connectors-oauth.md) | **Connectors → MCPs** OAuth: Facebook / Meta Graph, CEO App ID override, other OAuth MCPs; OpenConnector config → **16** + OPENCONNECTOR-WEBHOOKS |
-| [32-business-core-crm-erp.md](./32-business-core-crm-erp.md) | **Business Core** — optional Twenty CRM / ERPNext ERP, prefab **Maker/Checker** AI employees, platform MCPs `mcp-flolah-crm` / `mcp-flolah-erp`, `/work` + embed menus |
+| [32-business-core-crm-erp.md](./32-business-core-crm-erp.md) | **Business Core** — Twenty/ERPNext, prefab Maker/Checker, **`crm-*`/`erp-*` workspace templates**, MCPs, `/work` embed |
 | [33-ip-whitelists.md](./33-ip-whitelists.md) | **IP Whitelists** — Settings central firewall for IBKR bridge, Workflow download, A2A, Browser Session worker (shared store with federated UIs) |
 | [34-tokens-management.md](./34-tokens-management.md) | **Tokens management** — list/revoke external package tokens (desktop, IBKR bridge, Browser Session) |
 | [35-update-company-details.md](./35-update-company-details.md) | **Update Company Details** — avatar menu edits to Knowledge `company_memory` |

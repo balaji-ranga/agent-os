@@ -8,6 +8,14 @@ Some screens load a **page** of rows (Content Explorer, Master Data documents, A
 2. Search/filter tools that only apply client-side act on the **current page** (Content Explorer).
 3. Tool/monitor logs are already paged (`limit`/`offset`); same idea for Kanban task activity.
 
+## Workspace says “No open tasks” but Kanban has open cards
+
+1. Confirm you are the same CEO (no stale impersonation / wrong tab account).
+2. Hard-refresh `/work` (Workspace) — data is `GET /api/workspace-boards/default` with live hydrate, not a cached digest-only snapshot.
+3. Prefer **Seed operating template** in Workspace Builder if the default board’s task list binding was removed or pointed elsewhere.
+4. Open cards are always **owner-scoped** (`owner_user_id`); unassigned cards still count. Platform stores Kanban for multi-tenant CEOs; Workspace lists them the same way as **/kanban**.
+5. Still empty after a platform deploy that included the workspace boards fix? Ask ops to restart backend so `listKanbanTasksForOwner` is live.
+
 ## Chat / agent not responding
 
 1. Confirm you are logged in as CEO and opened the correct agent chat.

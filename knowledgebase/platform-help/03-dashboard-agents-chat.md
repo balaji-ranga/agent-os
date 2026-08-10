@@ -24,6 +24,8 @@ To **add a new agent**, use **Agent Workspaces** (nav → Agent Workspaces → *
 
 Prefer the **COO** for work that should be planned or handed to a specialist. Vague “help me” may stay with the COO; clear specialty asks get routed using agent purposes from org docs.
 
+**Specialty-first (all CEOs):** When you name a clear research/market/design/etc. outcome (including Mag7-style one-shots), the COO **delegates full context** to the matching specialty agent — not a thin “Delegate to MarketWatcher…” paraphrase and not a long solo answer. Follow-ups like “what about marketwatcher?” keep the **original deliverable** (e.g. Mag7 insights) in the handoff. See COO workspace `AGENTS.md` **Specialty-first** + shared `AGENT-OS-OPS.md`.
+
 ## Chat (`/` home or `/agents/:id/chat`)
 
 1. Home (`/`) opens chat with the **COO by default**; use the **Chat with** picker for other agents. Home may show **OEI** (operational effectiveness 0–100) and related KPI chips — score is rules-only for your CEO scope; full explainability and goal-run KPIs: [36-operational-effectiveness.md](./36-operational-effectiveness.md). **My Org** (`/org`) has the org chart and standups.

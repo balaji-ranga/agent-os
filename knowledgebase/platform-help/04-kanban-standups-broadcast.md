@@ -4,6 +4,7 @@
 
 Board of tasks by agent and status — shared for agent work, workflow steps, and pipeline tasks.
 
+- **Same cards as Workspace `/work`:** open / in-progress / awaiting cards (including **unassigned**) appear on the operating Workspace **My tasks** list and Open tasks count. If Workspace ever said “No open tasks” while Kanban still had open cards, refresh after a backend update that merges platform Kanban for tenant CEOs.
 - Open a card for detail, **task chat**, artifacts, and workflow run links.
 - Tasks appear when the COO delegates specialty work, when you create tasks, or when workflows / pipelines create step tasks.
 - **CEO Approval** workflow nodes (and similar awaiting-confirmation cards) pause here until you approve or reject (with optional comment).
