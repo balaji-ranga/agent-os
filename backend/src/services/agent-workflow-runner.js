@@ -940,10 +940,10 @@ async function executeNode(runId, nodeId, graph, context, def, runRow) {
     });
     updateRunProgress(runId);
     try {
-      // Ensure watch exists even if run was started without COO actor (e.g. schedule).
+      // Ensure watch exists (merge preserves real COO actor — do not pass system as actor id).
       maybeAutoRegisterRunWatch(
         { id: runId, owner_user_id: runRow.owner_user_id },
-        { id: 'system', name: 'agent-workflow', type: 'chat' }
+        { id: null, name: 'agent-workflow', type: 'chat' }
       );
       notifyWorkflowRunWaitingCeo(runId, { nodeId: node.id, kanbanTaskId: kanbanId });
     } catch (e) {

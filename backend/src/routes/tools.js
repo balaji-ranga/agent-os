@@ -2547,7 +2547,7 @@ router.post('/agent-workflow-trigger', optionalAuth, async (req, res) => {
       watch: watch?.watch || null,
       instruction:
         watch?.instruction ||
-        'Workflow started. Confirm run_id to the CEO and end the turn — do not poll or block. Platform notifies on CEO-wait and terminal status; use agent_workflow_runs or agent_workflow_watch_tick only if asked.',
+        'Workflow started. Confirm run_id to the CEO and end the turn — do not poll or block. Platform notifies CEO on CEO-wait/terminal and re-wakes you on terminal for multi-phase goals; use agent_workflow_runs or agent_workflow_watch_tick only if asked.',
     };
     logTool(req,'agent_workflow_trigger', requestPayload, out, 'ok', source);
     res.json(out);

@@ -50,9 +50,14 @@ Published per company after Business Core prefab agents exist:
 | **ERP: draft → CEO gate → check → post** | `run erp maker checker` | Maker drafts; if Maker signals `needs_ceo`, **ceo_approval** node blocks for CEO; then Checker reviews/submits; 1 fix cycle on reject. |
 | **CRM: draft → CEO gate → check** | `run crm maker checker` | Same shape for CRM high-risk / commercial gates (no ERP submit). |
 
-### COO non-blocking
+### COO non-blocking + multi-phase goals
 
-`agent_workflow_trigger` returns **immediately** (`async: true`, `run_id`). COO **must** confirm run_id and end the chat turn. Platform **registers a run watch**: notifies on **CEO wait** and **terminal** status. COO may later use `agent_workflow_runs` or optional `agent_workflow_watch_tick` (cron) — not sleep in the same turn.
+`agent_workflow_trigger` returns **immediately** (`async: true`, `run_id`). COO **must** confirm run_id and end the chat turn. Platform **registers a run watch**:
+
+1. **CEO bell** — notifies on **CEO wait** and **terminal** status.  
+2. **COO re-wake** — on terminal, the platform **re-invokes the COO** with the run input + step outcomes so multi-phase goals (e.g. scheduled **Leads → Orders to cash**: CRM phase then ERP O2C) continue without the CEO re-stating the goal.
+
+COO may use `agent_workflow_runs` or optional `agent_workflow_watch_tick` (cron) only when asked for status — not sleep in the same turn. CRM and ERP Maker/Checker remain **separate** published workflows; chaining is orchestration (COO + wake), not a single graph (unless you build a parent workflow).
 
 Workflows **complement** Kanban: schedule, batch, max loops, audit trail. They do **not** replace the board as source of truth for “who owns SI-42.”
 

@@ -138,7 +138,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/agent-workflow-trigger',
     method: 'POST',
     purpose:
-      'API tool (COO or Workflow Builder): start a published custom agent workflow for the entitled CEO. Invoke with message containing the chat phrase OR workflow_id plus optional input. Returns immediately with run_id (async:true) — never blocks until the run finishes. Confirm run_id and end the chat turn. Platform auto-registers notify-on-CEO-wait and notify-on-terminal. Poll agent_workflow_runs / agent_workflow_watch_tick only if asked. Owner from session only.',
+      'API tool (COO or Workflow Builder): start a published custom agent workflow for the entitled CEO. Invoke with message containing the chat phrase OR workflow_id plus optional input. Returns immediately with run_id (async:true) — never blocks until the run finishes. Confirm run_id and end the chat turn. Platform notifies CEO on CEO-wait / terminal and re-wakes you (COO) on terminal so multi-phase goals (CRM then ERP O2C) can continue — do not poll. Poll agent_workflow_runs / agent_workflow_watch_tick only if asked. Owner from session only.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
