@@ -202,7 +202,7 @@ When API keys + `ERPNEXT_SSO_ENABLED=1` (default), opening **ERP** mints a one-t
 
 **Why another CEO email could appear (before isolation harden):** All companies share one ERPNext site and a platform **API key** that bypasses desk User Permission. Agents with `erp_list_resource` could list global doctypes such as **User** and see every company SSO email (e.g. another platform customer). That is **not** Flolah granting cross-CEO agent access — it was an unscoped Frappe REST call.
 
-**Enforced now:** blocked doctypes (User, Company list-all, roles, permissions, …), operational allowlist for resource tools, require bound company, force/assert `company` on company-scoped docs. Flolah DB tools (`ceo_profile`, master data) remain single-owner.
+**Enforced now:** blocked doctypes (User, roles, …); resource allowlist; bound company; native `company` on transactions; **`flolah_company`** on global masters (Customer/Supplier/Lead/Item/…). Agents stamp/filter the same field as CEO desk Company User Permission.
 
 CRM Twenty remains stronger isolation: separate workspace DB per company.
 
@@ -228,6 +228,21 @@ Agent tools use API keys (company-scoped filters). Desk SSO uses roles + User Pe
 
 
 
+
+
+
+## Tenant isolation — global masters (Customer / Supplier / …)
+
+ERPNext multi-company on one site does not put company on Customer by default, so Company User Permission alone could not hide peer Customers. Flolah fix:
+
+| Layer | Mechanism |
+|-------|-----------|
+| Schema | Custom Field flolah_company (Link to Company) on Customer, Supplier, Lead, Contact, Address, Item, Item Price, Opportunity |
+| Desk SSO | Company User Permission apply_to_all_doctypes matches that Link; strict User Permissions hide untagged rows |
+| Agents / MCP | Same bound company as the CEO: list/get/create/update stamp and filter flolah_company (site API key cannot bypass) |
+| Backfill | Existing rows tagged from SSO owner email to company, else name heuristics |
+
+Agents inherit the CEO company entitlement (not site-wide System Manager).
 
 ## Maker permissions (company setup)
 

@@ -212,12 +212,9 @@ const ERP_RESOURCE_ALLOWLIST = new Set(
   ].map((x) => x.toLowerCase())
 );
 
-/** Frappe doctypes that usually have a `company` field — always filter when company is bound */
-const COMPANY_SCOPED_DOCTYPES = new Set(
+/** Frappe doctypes with a built-in top-level Link `company` (transactions / org tree). */
+const NATIVE_COMPANY_FIELD_DOCTYPES = new Set(
   [
-    'Customer',
-    'Contact',
-    'Address',
     'Opportunity',
     'Quotation',
     'Sales Order',
@@ -238,7 +235,6 @@ const COMPANY_SCOPED_DOCTYPES = new Set(
     'Material Request',
     'Cost Center',
     'Warehouse',
-    'Supplier',
     'BOM',
     'Work Order',
     'Account',
@@ -248,6 +244,311 @@ const COMPANY_SCOPED_DOCTYPES = new Set(
     'Purchase Taxes and Charges Template',
   ].map((x) => x.toLowerCase())
 );
+
+/**
+ * Global masters (no reliable native company Link). Flolah adds Link field
+ * `flolah_company` → Company so desk Company User Permission + agent filters align.
+ * Opportunity listed here too so CRM parties stay tenant-tagged on create even if native company exists.
+ */
+const TENANT_TAG_DOCTYPES = new Set(
+  [
+    'Customer',
+    'Supplier',
+    'Lead',
+    'Contact',
+    'Address',
+    'Item',
+    'Item Price',
+    'Opportunity',
+  ].map((x) => x.toLowerCase())
+);
+
+/** @deprecated name kept for greps — union of native company + tenant-tag masters */
+const COMPANY_SCOPED_DOCTYPES = new Set([
+  ...NATIVE_COMPANY_FIELD_DOCTYPES,
+  ...TENANT_TAG_DOCTYPES,
+]);
+
+/** Custom field name (Link Company). Must not set ignore_user_permissions. */
+export const FLOLAH_TENANT_COMPANY_FIELD = 'flolah_company';
+
+let _tenantSchemaReady = false;
+let _tenantSchemaPromise = null;
+let _tenantBackfillDone = false;
+
+function needsTenantTag(dt) {
+  return TENANT_TAG_DOCTYPES.has(doctypeKey(dt));
+}
+
+function needsNativeCompany(dt) {
+  return NATIVE_COMPANY_FIELD_DOCTYPES.has(doctypeKey(dt));
+}
+
+function needsAnyCompanyScope(dt) {
+  return needsTenantTag(dt) || needsNativeCompany(dt);
+}
+
+/** Read tenant company from a Frappe doc (tag field preferred). */
+export function getDocTenantCompany(doc) {
+  if (!doc || typeof doc !== 'object') return null;
+  const v = doc[FLOLAH_TENANT_COMPANY_FIELD] ?? doc.company;
+  return v != null && String(v).trim() ? String(v).trim() : null;
+}
+
+function docMatchesBoundCompany(doc, company) {
+  const bound = String(company || '').trim().toLowerCase();
+  if (!bound) return false;
+  const v = getDocTenantCompany(doc);
+  if (!v) return false;
+  return v.toLowerCase() === bound;
+}
+
+/**
+ * Ensure Custom Field flolah_company (Link → Company) on global masters.
+ * Company User Permission then applies on desk like Sales Invoice.company.
+ */
+export async function ensureErpnextTenantIsolationSchema() {
+  if (_tenantSchemaReady) return { ok: true, cached: true };
+  if (_tenantSchemaPromise) return _tenantSchemaPromise;
+  _tenantSchemaPromise = (async () => {
+    if (!isErpnextApiConfigured()) {
+      return { ok: false, reason: 'not_configured' };
+    }
+    const doctypes = [
+      { dt: 'Customer', after: 'customer_name' },
+      { dt: 'Supplier', after: 'supplier_name' },
+      { dt: 'Lead', after: 'lead_name' },
+      { dt: 'Contact', after: 'first_name' },
+      { dt: 'Address', after: 'address_title' },
+      { dt: 'Item', after: 'item_name' },
+      { dt: 'Item Price', after: 'item_code' },
+      { dt: 'Opportunity', after: 'party_name' },
+    ];
+    const created = [];
+    const errors = [];
+    for (const { dt, after } of doctypes) {
+      try {
+        const listed = await frappeFetch(
+          '/api/resource/Custom%20Field?filters=' +
+            encodeURIComponent(
+              JSON.stringify([
+                ['dt', '=', dt],
+                ['fieldname', '=', FLOLAH_TENANT_COMPANY_FIELD],
+              ])
+            ) +
+            '&limit_page_length=1'
+        );
+        if (Array.isArray(listed?.data) && listed.data.length) continue;
+        await frappeFetch('/api/resource/Custom%20Field', {
+          method: 'POST',
+          body: {
+            dt,
+            fieldname: FLOLAH_TENANT_COMPANY_FIELD,
+            label: 'Company (Flolah tenant)',
+            fieldtype: 'Link',
+            options: 'Company',
+            reqd: 0,
+            in_list_view: 1,
+            in_standard_filter: 1,
+            insert_after: after,
+            // Crucial: leave ignore_user_permissions unset/0 so Company UP applies
+            description:
+              'Flolah multi-tenant isolation: bound ERP Company. Desk User Permission (Company) filters this field.',
+          },
+        });
+        created.push(dt);
+      } catch (e) {
+        if (/exists|duplicate|UniqueValidation/i.test(String(e.message || e))) continue;
+        errors.push(`${dt}: ${String(e.message || e).slice(0, 120)}`);
+        console.warn('[erpnext-tenant] custom field', dt, e.message || e);
+      }
+    }
+    try {
+      await frappeFetch('/api/method/frappe.clear_cache', { method: 'POST', body: {} });
+    } catch (_) {
+      /* optional */
+    }
+    // Strict UP: empty company Link does not match → hide untagged global masters on desk
+    if (String(process.env.ERPNEXT_STRICT_USER_PERMISSIONS || '1') !== '0') {
+      try {
+        await frappeFetch('/api/resource/System%20Settings/System%20Settings', {
+          method: 'PUT',
+          body: { apply_strict_user_permissions: 1 },
+        });
+      } catch (e) {
+        console.warn('[erpnext-tenant] strict user permissions', e.message || e);
+      }
+    }
+    console.info(
+      '[erpnext-tenant] isolation schema ready created=%s errors=%s',
+      created.join(',') || 'none',
+      errors.length
+    );
+    _tenantSchemaReady = true;
+    return { ok: true, created, errors };
+  })().finally(() => {
+    _tenantSchemaPromise = null;
+  });
+  return _tenantSchemaPromise;
+}
+
+/**
+ * Backfill flolah_company on existing global masters (owner SSO email → company, then name match).
+ */
+export async function backfillErpnextTenantCompanyTags() {
+  if (!isErpnextApiConfigured()) return { ok: false, reason: 'not_configured' };
+  if (_tenantBackfillDone) return { ok: true, cached: true };
+  await ensureErpnextTenantIsolationSchema();
+
+  const ownerToCompany = new Map();
+  const companyNames = [];
+  try {
+    const { getDb } = await import('../db/schema.js');
+    const rows = getDb()
+      .prepare(
+        `SELECT owner_user_id, erpnext_company_name, erpnext_company_id, erpnext_bind_json
+         FROM company_business_profiles
+         WHERE LOWER(COALESCE(crm_provider,'')) = 'erpnext'
+            OR LOWER(COALESCE(erp_provider,'')) = 'erpnext'`
+      )
+      .all();
+    for (const r of rows) {
+      const co = String(r.erpnext_company_name || r.erpnext_company_id || '').trim();
+      if (!co || co.startsWith('flolah-co-')) continue;
+      companyNames.push(co);
+      let email = null;
+      try {
+        const bind = r.erpnext_bind_json ? JSON.parse(r.erpnext_bind_json) : {};
+        email = bind.sso_email || bind.sso_user || null;
+      } catch (_) {}
+      if (email) ownerToCompany.set(String(email).toLowerCase(), co);
+    }
+  } catch (e) {
+    console.warn('[erpnext-tenant] backfill owner map', e.message || e);
+  }
+  companyNames.sort((a, b) => b.length - a.length);
+
+  function inferCompany(doc) {
+    const owner = String(doc.owner || '').toLowerCase();
+    if (owner && ownerToCompany.has(owner)) return ownerToCompany.get(owner);
+    const blob = `${doc.name || ''} ${doc.customer_name || ''} ${doc.supplier_name || ''} ${doc.lead_name || ''} ${doc.item_name || ''}`.toLowerCase();
+    for (const co of companyNames) {
+      if (blob.includes(String(co).toLowerCase())) return co;
+    }
+    return null;
+  }
+
+  const masters = ['Customer', 'Supplier', 'Lead', 'Contact', 'Address', 'Item', 'Item Price', 'Opportunity'];
+  const stats = { updated: 0, skipped: 0, errors: 0, unmapped: 0 };
+
+  for (const dt of masters) {
+    try {
+      const listed = await frappeFetch(
+        `/api/resource/${encodeURIComponent(dt)}?` +
+          new URLSearchParams({
+            limit_page_length: '200',
+            fields: JSON.stringify([
+              'name',
+              'owner',
+              FLOLAH_TENANT_COMPANY_FIELD,
+              'customer_name',
+              'supplier_name',
+              'lead_name',
+              'item_name',
+              'item_code',
+            ]),
+          }).toString()
+      );
+      const rows = Array.isArray(listed?.data) ? listed.data : [];
+      for (const row of rows) {
+        if (row[FLOLAH_TENANT_COMPANY_FIELD]) {
+          stats.skipped += 1;
+          continue;
+        }
+        // Prefer full doc for owner
+        let doc = row;
+        try {
+          const full = await frappeFetch(
+            `/api/resource/${encodeURIComponent(dt)}/${encodeURIComponent(row.name)}`
+          );
+          doc = full?.data || row;
+        } catch (_) {}
+        if (doc[FLOLAH_TENANT_COMPANY_FIELD]) {
+          stats.skipped += 1;
+          continue;
+        }
+        const co = inferCompany(doc);
+        if (!co) {
+          stats.unmapped += 1;
+          continue;
+        }
+        try {
+          await frappeFetch(
+            `/api/resource/${encodeURIComponent(dt)}/${encodeURIComponent(doc.name)}`,
+            { method: 'PUT', body: { [FLOLAH_TENANT_COMPANY_FIELD]: co } }
+          );
+          stats.updated += 1;
+        } catch (e) {
+          stats.errors += 1;
+          console.warn('[erpnext-tenant] backfill put', dt, doc.name, e.message || e);
+        }
+      }
+    } catch (e) {
+      console.warn('[erpnext-tenant] backfill list', dt, e.message || e);
+      stats.errors += 1;
+    }
+  }
+  console.info('[erpnext-tenant] backfill', JSON.stringify(stats));
+  _tenantBackfillDone = true;
+  return { ok: true, ...stats };
+}
+
+/** Stamp create/update body with tenant company for isolation. */
+function applyTenantCompanyToBody(dt, body, company) {
+  const co = String(company || '').trim();
+  if (!co) return body;
+  const out = { ...(body || {}) };
+  if (needsTenantTag(dt)) {
+    out[FLOLAH_TENANT_COMPANY_FIELD] = co;
+    // Prefer not inventing native `company` on masters that don't have it (avoids Invalid field)
+    // Opportunity may have both
+    if (needsNativeCompany(dt) || doctypeKey(dt) === 'opportunity') {
+      out.company = out.company || co;
+    }
+  } else if (needsNativeCompany(dt)) {
+    out.company = co;
+  } else if (doctypeKey(dt) !== 'fiscal year' && !out.company) {
+    // best-effort for other allowlisted docs
+    out.company = co;
+  }
+  return out;
+}
+
+/** Server-side force after Frappe fetch: reject or strip wrong company. */
+function assertTenantAccess(ownerUserId, doc, dt) {
+  if (!needsAnyCompanyScope(dt) && doctypeKey(dt) !== 'company') return;
+  const co = companyFilter(ownerUserId);
+  if (!co) return;
+  if (isCompanyNamedDoctype(dt)) {
+    assertDocBelongsToOwner(ownerUserId, doc, { doctype: dt });
+    return;
+  }
+  if (doctypeKey(dt) === 'fiscal year') return; // separate path
+  const v = getDocTenantCompany(doc);
+  if (!v) {
+    // Untagged legacy: deny for agents (same entitlements as strict company tenant)
+    const err = new Error(
+      `ERP document is not tagged to your company (missing ${FLOLAH_TENANT_COMPANY_FIELD}/company). Re-create or ask admin to tag under ${co}.`
+    );
+    err.status = 403;
+    throw err;
+  }
+  if (v.toLowerCase() !== String(co).toLowerCase()) {
+    const err = new Error('Document belongs to another company (not accessible)');
+    err.status = 403;
+    throw err;
+  }
+}
 
 /** Singleton/setup docs keyed by bound company name (not free list-all). */
 function isCompanyNamedDoctype(dt) {
@@ -331,8 +632,18 @@ function assertDocBelongsToOwner(ownerUserId, doc, { doctype } = {}) {
     return;
   }
 
-  const docCo = doc.company != null ? String(doc.company).trim() : '';
-  if (!docCo) return;
+  // Prefer Flolah tenant tag, then native company
+  const docCo = getDocTenantCompany(doc);
+  if (!docCo) {
+    if (needsAnyCompanyScope(doctype)) {
+      const err = new Error(
+        `Document is not tagged to a company (${FLOLAH_TENANT_COMPANY_FIELD}/company missing)`
+      );
+      err.status = 403;
+      throw err;
+    }
+    return;
+  }
   if (docCo.toLowerCase() !== String(co).toLowerCase()) {
     console.warn(
       '[erpnext-erp] company isolation reject owner=%s doctype=%s doc.company=%s bound=%s',
@@ -393,26 +704,49 @@ export async function erpList(ownerUserId, doctype, { limit = 20, filters, field
     return erpListFiscalYears(ownerUserId, { limit, fields });
   }
 
+  if (needsTenantTag(dt) || needsNativeCompany(dt)) {
+    try {
+      await ensureErpnextTenantIsolationSchema();
+    } catch (_) {
+      /* continue; filters still applied */
+    }
+  }
+
   const params = new URLSearchParams();
   params.set('limit_page_length', String(lim(limit)));
-  if (fields) params.set('fields', JSON.stringify(fields));
-  const f = Array.isArray(filters) ? [...filters] : [];
-  const coKey = doctypeKey(dt);
-  if (COMPANY_SCOPED_DOCTYPES.has(coKey)) {
-    const withoutCo = f.filter((x) => !(Array.isArray(x) && String(x[0]).toLowerCase() === 'company'));
-    withoutCo.push(['company', '=', co]);
-    f.length = 0;
-    f.push(...withoutCo);
+  // Always request tenant fields so post-filter works when Frappe ignores unknown filters poorly
+  let fieldList = fields;
+  if (needsAnyCompanyScope(dt)) {
+    const base = Array.isArray(fields)
+      ? fields.map(String)
+      : ['name', 'owner', 'modified'];
+    if (!base.includes(FLOLAH_TENANT_COMPANY_FIELD)) base.push(FLOLAH_TENANT_COMPANY_FIELD);
+    if (!base.includes('company')) base.push('company');
+    fieldList = base;
   }
-  if (f.length) params.set('filters', JSON.stringify(f));
+  if (fieldList) params.set('fields', JSON.stringify(fieldList));
+  const f = Array.isArray(filters) ? [...filters] : [];
+  // Strip client attempts to widen company scope
+  const stripped = f.filter(
+    (x) =>
+      !(
+        Array.isArray(x) &&
+        (String(x[0]).toLowerCase() === 'company' ||
+          String(x[0]).toLowerCase() === FLOLAH_TENANT_COMPANY_FIELD)
+      )
+  );
+  if (needsTenantTag(dt)) {
+    stripped.push([FLOLAH_TENANT_COMPANY_FIELD, '=', co]);
+  } else if (needsNativeCompany(dt) || COMPANY_SCOPED_DOCTYPES.has(doctypeKey(dt))) {
+    stripped.push(['company', '=', co]);
+  }
+  if (stripped.length) params.set('filters', JSON.stringify(stripped));
   try {
     const data = await frappeFetch(`/api/resource/${encodeURIComponent(dt)}?${params}`);
     let rows = Array.isArray(data?.data) ? data.data : [];
-    if (COMPANY_SCOPED_DOCTYPES.has(coKey)) {
-      rows = rows.filter((row) => {
-        if (!row || row.company == null || row.company === '') return true;
-        return String(row.company).toLowerCase() === String(co).toLowerCase();
-      });
+    // Hard post-filter — never return untagged or foreign-tenant rows (agents inherit CEO binding)
+    if (needsAnyCompanyScope(dt)) {
+      rows = rows.filter((row) => docMatchesBoundCompany(row, co));
     }
     return {
       mode: 'live',
@@ -423,6 +757,33 @@ export async function erpList(ownerUserId, doctype, { limit = 20, filters, field
     };
   } catch (e) {
     if (e.status === 403 || e.status === 409) throw e;
+    // Fallback: list without invalid filter field, post-filter in process
+    if (needsTenantTag(dt) && /flolah_company|unknown field|invalid/i.test(String(e.message || e))) {
+      try {
+        await ensureErpnextTenantIsolationSchema();
+        const data2 = await frappeFetch(
+          `/api/resource/${encodeURIComponent(dt)}?` +
+            new URLSearchParams({
+              limit_page_length: String(lim(Math.max(limit, 50))),
+              fields: JSON.stringify(
+                fieldList || ['name', FLOLAH_TENANT_COMPANY_FIELD, 'company', 'owner']
+              ),
+            }).toString()
+        );
+        let rows = Array.isArray(data2?.data) ? data2.data : [];
+        rows = rows.filter((row) => docMatchesBoundCompany(row, co));
+        return {
+          mode: 'live',
+          doctype: dt,
+          data: rows.slice(0, lim(limit)),
+          company: co,
+          count: Math.min(rows.length, lim(limit)),
+          note: 'Listed with post-filter after schema ensure',
+        };
+      } catch (e2) {
+        return { mode: 'error', doctype: dt, data: [], error: e2.message, company: co };
+      }
+    }
     return { mode: 'error', doctype: dt, data: [], error: e.message, company: co };
   }
 }
@@ -442,12 +803,12 @@ export async function erpCreate(ownerUserId, doctype, doc = {}, { genericResourc
       { status: 403 }
     );
   }
-  const body = { ...(doc || {}) };
-  if (COMPANY_SCOPED_DOCTYPES.has(doctypeKey(dt))) {
-    body.company = co;
-  } else if (co && !body.company && doctypeKey(dt) !== 'fiscal year') {
-    body.company = co;
+  if (needsTenantTag(dt)) {
+    try {
+      await ensureErpnextTenantIsolationSchema();
+    } catch (_) {}
   }
+  let body = applyTenantCompanyToBody(dt, doc || {}, co);
   // Fiscal Year: ensure companies child includes bound company
   if (doctypeKey(dt) === 'fiscal year') {
     const companies = Array.isArray(body.companies) ? [...body.companies] : [];
@@ -457,6 +818,13 @@ export async function erpCreate(ownerUserId, doctype, doc = {}, { genericResourc
     if (!has) companies.push({ company: co });
     body.companies = companies;
   }
+  // Never allow client override to peer company
+  if (needsTenantTag(dt)) body[FLOLAH_TENANT_COMPANY_FIELD] = co;
+  if (needsNativeCompany(dt)) body.company = co;
+  if (needsTenantTag(dt) && !needsNativeCompany(dt) && doctypeKey(dt) !== 'opportunity') {
+    delete body.company;
+  }
+
   const data = await frappeFetch(`/api/resource/${encodeURIComponent(dt)}`, {
     method: 'POST',
     body,
@@ -889,19 +1257,23 @@ export async function erpUpdate(ownerUserId, doctype, name, fields = {}, { gener
   }
   if (!nm) throw Object.assign(new Error('doctype and name required'), { status: 400 });
   await erpGet(ownerUserId, dt, nm, { genericResource });
-  const body = { ...(fields || {}) };
+  let body = applyTenantCompanyToBody(dt, fields || {}, co);
   if (isCompanyNamedDoctype(dt)) {
     delete body.name;
     delete body.abbr;
   }
-  if (COMPANY_SCOPED_DOCTYPES.has(doctypeKey(dt))) {
-    body.company = co;
-  }
+  // Force tenant — agents cannot reassign to peer company
+  if (needsTenantTag(dt)) body[FLOLAH_TENANT_COMPANY_FIELD] = co;
+  if (needsNativeCompany(dt)) body.company = co;
   // Fiscal Year: never accept a companies array from tools (would leak or wipe peers); merge link only
   if (doctypeKey(dt) === 'fiscal year') {
     delete body.companies;
     delete body.owner;
     delete body.modified_by;
+  }
+  // Masters without native company: drop invalid `company` key if not opportunity
+  if (needsTenantTag(dt) && !needsNativeCompany(dt) && doctypeKey(dt) !== 'opportunity') {
+    delete body.company;
   }
   const data = await frappeFetch(
     `/api/resource/${encodeURIComponent(dt)}/${encodeURIComponent(nm)}`,
@@ -910,6 +1282,8 @@ export async function erpUpdate(ownerUserId, doctype, name, fields = {}, { gener
   let outDoc = data?.data || data;
   if (doctypeKey(dt) === 'fiscal year') {
     outDoc = redactFiscalYearForOwner(outDoc, co);
+  } else if (needsAnyCompanyScope(dt)) {
+    assertDocBelongsToOwner(ownerUserId, outDoc, { doctype: dt });
   }
   return { mode: 'live', doctype: dt, name: nm, data: outDoc, company: co };
 }
@@ -1031,6 +1405,16 @@ export async function ensureErpnextCompanyForOwner(ownerUserId, { displayName } 
     const coName = String(profile.erpnext.company_name || '').trim();
     const isSynthetic = id.startsWith('flolah-co-');
     if (!(isSynthetic && isErpnextApiConfigured() && coName)) {
+      if (isErpnextApiConfigured()) {
+        try {
+          await ensureErpnextTenantIsolationSchema();
+          if (String(process.env.ERPNEXT_TENANT_BACKFILL || '1') !== '0') {
+            await backfillErpnextTenantCompanyTags();
+          }
+        } catch (e) {
+          console.warn('[erpnext] tenant isolation setup (existing)', owner, e?.message || e);
+        }
+      }
       return {
         company_id: profile.erpnext.company_id,
         company_name: profile.erpnext.company_name,
@@ -1142,6 +1526,16 @@ export async function ensureErpnextCompanyForOwner(ownerUserId, { displayName } 
   }
 
   console.info('[erpnext] bound company owner=%s company=%s mode=%s', owner, companyId, mode);
+  if (isErpnextApiConfigured()) {
+    try {
+      await ensureErpnextTenantIsolationSchema();
+      if (String(process.env.ERPNEXT_TENANT_BACKFILL || '1') !== '0') {
+        await backfillErpnextTenantCompanyTags();
+      }
+    } catch (e) {
+      console.warn('[erpnext] tenant isolation setup', owner, e?.message || e);
+    }
+  }
   return {
     company_id: companyId,
     company_name: name,
@@ -1161,8 +1555,10 @@ export function getErpnextStatusForOwner(ownerUserId) {
     company_id: p.erpnext.company_id,
     company_name: p.erpnext.company_name,
     note:
-      'Makers use company-scoped erp_* tools (API key). Company/Fiscal Year/Accounts allowed for the bound company only. ' +
-      'ERP Maker A (finance/setup) + Maker B (ops/stock) together cover CEO desk operational scope; Checker owns submit/cancel.',
+      'Makers use company-scoped erp_* tools (API key) equal to CEO desk company. ' +
+      'Global masters (Customer/Supplier/Lead/Item/…) tagged with flolah_company Link; Company User Permission enforces desk. ' +
+      'Agents always filter/stamp that field — cannot list peer-tenant masters. Checker owns submit/cancel.',
+    tenant_company_field: 'flolah_company',
     setup_objects: ['Company', 'Fiscal Year', 'Account', 'Cost Center', 'Warehouse', 'Bank Account'],
     objects: [
       'Company',
