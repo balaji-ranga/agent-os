@@ -59,6 +59,10 @@ Multi-intent goals (CRM then ERP O2C, or any multi-workflow chain) use a **durab
 3. **Advance** — On workflow **terminal**, platform completes that step and starts the next (generic for any owner/agent; not BrightBox-only).
 4. **CEO HITL** — Still only via workflow **CEO Approval** nodes between maker and checker.
 
+**Step kinds** (no free-form “delegate to agent X” plan rows): `workflow_trigger` (published WF by phrase), `agent_continue` (wake the goal’s owning agent once), `notify_ceo`. Specialty makers/checkers run **inside** child workflows.
+
+**Inspect a plan:** COO tools **`agent_goal_list`** / **`agent_goal_status`** return `agent_goal_run` + steps + `child_workflow_run_id`. Scheduled plan-mode also posts a one-line plan summary into COO chat. Scheduled goals UI shows last fire status only (not the full step ladder yet). Digest does not yet chart plan vs progress.
+
 COO `agent_workflow_trigger` alone remains for single-workflow fires. Optional bind: `goal_run_id` + `step_id`.
 
 `agent_workflow_trigger` returns **immediately** (`async: true`, `run_id`). COO **must** confirm run_id and end the chat turn when using the single-workflow tool. Platform still notifies on **CEO wait** and **terminal**.

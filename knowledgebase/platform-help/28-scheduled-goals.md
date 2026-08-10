@@ -20,6 +20,8 @@ The COO uses `scheduled_goal_create` (and related tools) and confirms the schedu
 
 **How do I run a goal right now?** **Run now** on the page, or COO tool `scheduled_goal_run_now`.
 
+**Multi-phase goals (CRM then ERP, multiple workflows)?** If the prompt includes ordered workflow phrases (e.g. `run crm maker checker` then `run erp maker checker`), or clear CRM→O2C intent, the platform **does not** leave multi-step chaining only to COO chat. Fire uses **goal plan mode** (`mode: goal_run_plan`): a durable **`agent_goal_run`** with ordered steps (`workflow_trigger` → … → `notify_ceo`). Platform starts step 1 async and **advances the plan when each child workflow reaches terminal**. COO chat still receives a short “plan started / steps / first run_id” reply. Inspect: COO tools **`agent_goal_list`** / **`agent_goal_status`** (or ask the COO for plan status). See [38-maker-checker-coordination.md](./38-maker-checker-coordination.md).
+
 **Does hourly mean every minute?** No. Hourly fires **once per hour** at the chosen minute (`time_local` minutes; the hour part is ignored). Default is on the hour (`:00`). Token cost rises with hourly checks — use for watchers (e.g. price dip notify), not for heavy work.
 
 **Does it survive restarts?** Yes. Status is in the database (`active` / `paused` / `completed`). Only **active** goals fire on the platform tick `SCHEDULED_GOALS_CRON` (default every minute dispatcher).
@@ -30,7 +32,10 @@ Related operator clocks: [19-scheduled-jobs-and-crons.md](./19-scheduled-jobs-an
 
 ## What it is
 
-A **scheduled goal** is a durable CEO instruction on a cadence (hourly / daily / weekdays / weekly; perpetual or end date). Each fire sends your prompt to the target AI employee as a chat-style run.
+A **scheduled goal** is a durable CEO instruction on a cadence (hourly / daily / weekdays / weekly; perpetual or end date). Each fire either:
+
+1. **Goal plan mode** — when the prompt plans one or more workflows (`workflow_trigger` steps), create/start an **`agent_goal_run`** and advance on child workflow terminals (multi-intent CRM→ERP and similar), or  
+2. **Chat mode** — otherwise deliver the prompt to the target AI employee (usually COO) as a chat-style OpenClaw turn (classic tool use / delegation).
 
 For "alert me when..." market conditions, combine hourly (or weekdays) + tools (web search or quote) + `notify_ceo` only when the condition holds. There is no continuous real-time market feed — polling is intentional.
 
@@ -80,6 +85,8 @@ Defaults when unspecified: target = COO; cadence = daily; time = 09:00 (or `:00`
 | `scheduled_goal_update` | Edit prompt, cadence, time, agent, pause or resume |
 | `scheduled_goal_delete` | Cancel forever |
 | `scheduled_goal_run_now` | Fire immediately |
+| `agent_goal_list` / `agent_goal_status` | Inspect durable multi-intent **goal plans** created by plan-mode fires (steps, child workflow run ids, status) |
+| `agent_goal_create` | Ad-hoc multi-phase plan from chat (same plan engine as scheduled plan mode) |
 
 ## Isolation
 
