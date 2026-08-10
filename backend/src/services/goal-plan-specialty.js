@@ -44,14 +44,19 @@ export function stripWorkflowPhrasesFromPrompt(prompt) {
 export function stripPlanOrchestrationFromResidual(text) {
   let t = String(text || '');
   t = t
-    .replace(/\bnotify_ceo\b[\s\S]{0,240}/gi, ' ')
-    .replace(/\bnotify\s+(?:the\s+)?ceo\b[\s\S]{0,240}/gi, ' ')
-    .replace(/\bwhen\s+(?:you(?:'re| are)\s+)?finished\b[\s\S]{0,240}/gi, ' ')
+    // Drop whole “when finished / notify …” tail (plan has its own notify_ceo step)
+    .replace(/\bwhen\s+(?:you(?:'re| are)\s+)?finished\b[\s\S]*/gi, ' ')
+    .replace(/\bnotify_ceo\b[\s\S]*/gi, ' ')
+    .replace(/\bnotify\s+(?:the\s+)?ceo\b[\s\S]*/gi, ' ')
+    // Tool / meta instructions from CEO→COO prompts (not specialty work)
+    .replace(/\buse\s+agent_?goalcreate\b[\s\S]{0,160}?\breply\.?/gi, ' ')
     .replace(/\bagent_?goal_?(?:create|start|status|get|list|advance)?\b/gi, ' ')
     .replace(/\bagentgoalcreate\b/gi, ' ')
     .replace(/\b(start\s+execution|full\s+prompt|include\s+(?:the\s+)?goal\s+run\s+id)\b/gi, ' ')
     .replace(/\b(use\s+this\s+full\s+prompt|in\s+your\s+reply)\b/gi, ' ')
+    .replace(/\bwith\s+this\s*,?\s*,?\s*and\s*\.?\s*/gi, ' ')
     .replace(/\s{2,}/g, ' ')
+    .replace(/^[\s,.;:\-]+|[\s,.;:\-]+$/g, '')
     .trim();
   return t;
 }
@@ -161,63 +166,62 @@ export async function classifySpecialtyIntentsForPlan(ownerUserId, residualText,
   const md = await readCooAgentsMdForCeo(ownerUserId);
   if (!md?.trim()) return [];
 
-  // Explicit Platform Help routing always becomes a specialty_task (help is not COO chat).
+  // Help / product how-to is never COO-owned in a goal plan — it is always a specialty_task.
   const explicitHelp = extractExplicitPlatformHelpIntent(residual, md);
   if (isCooNativeWork(residual) && !explicitHelp) return [];
   if (isCooNativeWork(residual) && explicitHelp) {
     return [explicitHelp];
   }
 
-  const hints = splitResidualIntoIntentHints(residual);
-  const byAgent = new Map(); // agent_id -> message (merge later intents with same agent into multi-step)
+  /**
+   * Intent allocation is LLM-guided via classifyIntentAndAllocate (+ AGENTS.md roster).
+   * We only pre-split residual when the CEO listed lettered/numbered deliverables (A)/B) or 1)/2)).
+   * Soft “and / also” prose stays one residual so the model chooses agents — never round-robin.
+   */
+  const letteredOrNumbered =
+    /(?:^|[\n;]\s*)[A-G]\)\s+\S/i.test(residual) || /(?:^|[\n;]\s*)\d+[.)]\s+\S/.test(residual);
+  const hints = letteredOrNumbered ? splitResidualIntoIntentHints(residual) : [residual];
+  const chunks = (hints.length ? hints : [residual]).filter((h) => String(h || '').trim().length >= 6).slice(0, max);
+  const byAgent = new Map();
 
   const classifyChunk = async (chunk) => {
     const instruction =
       `${chunk}\n\n` +
-      `[System: Goal-plan specialty allocation. Return JSON for every distinct specialist deliverable in this text ` +
-      `(up to ${max} agents). Prefer one agent per distinct intent. Multi-step work for the same specialty is OK ` +
-      `as a single detailed task string. Return {} only for pure platform/COO ops with no specialty deliverable.]`;
+      `[System: Goal-plan specialty allocation. From AGENTS.md, assign each distinct specialist deliverable ` +
+      `(research, design, copy, product how-to via Platform Help, domain work) to the best agent id. ` +
+      `Up to ${max} agents. Platform Help is the correct agent for "where do I find… / track goal plans / platform how-to". ` +
+      `Do NOT assign CRM/ERP makers for documentation questions. Multi-step work for one specialist = one detailed task string. ` +
+      `Return {} only if nothing left after workflows for a specialist (pure coordination).]`;
     let allocated = await classifyIntentAndAllocate(instruction, md, { ownerUserId }, ownerUserId);
     if (!allocated || typeof allocated !== 'object') allocated = {};
     if (!Object.keys(allocated).length && chunk.length > 20) {
       const force =
         `${chunk}\n\n` +
         `[System: Pick the closest specialist agent(s) for this deliverable. Up to ${Math.min(3, max)} agents. ` +
-        `Return {} only if pure COO coordination with no specialist work.]`;
+        `Include platformhelp for product/how-to questions. Return {} only for pure COO coordination.]`;
       allocated = (await classifyIntentAndAllocate(force, md, { ownerUserId }, ownerUserId)) || {};
     }
     return allocated;
   };
 
-  if (hints.length === 1) {
-    const allocated = await classifyChunk(hints[0]);
-    for (const [aid, msg] of Object.entries(allocated || {})) {
+  // One residual → one LLM call (model may still return multi-agent JSON). Multi lettered chunks → per chunk.
+  for (const chunk of chunks) {
+    const allocated = await classifyChunk(chunk);
+    const entries = Object.entries(allocated || {}).filter(([, v]) => typeof v === 'string' && v.trim());
+    for (const [aid, msg] of entries) {
+      if (byAgent.size >= max && !byAgent.has(String(aid).toLowerCase())) break;
       const id = String(aid).toLowerCase().replace(/[`*]/g, '').trim();
-      if (!id || !msg) continue;
-      byAgent.set(id, String(msg).trim());
-    }
-  } else {
-    // Each hint classified independently (supports >2 multi-intent goals)
-    for (const hint of hints.slice(0, max)) {
-      const allocated = await classifyChunk(hint);
-      const entries = Object.entries(allocated || {}).filter(([, v]) => typeof v === 'string' && v.trim());
-      if (entries.length) {
-        for (const [aid, msg] of entries.slice(0, 2)) {
-          const id = String(aid).toLowerCase().replace(/[`*]/g, '').trim();
-          if (!id) continue;
-          if (byAgent.has(id)) {
-            byAgent.set(id, `${byAgent.get(id)}\n\nAlso: ${String(msg).trim()}`);
-          } else if (byAgent.size < max) {
-            byAgent.set(id, String(msg).trim());
-          }
-        }
+      if (!id) continue;
+      if (byAgent.has(id)) {
+        byAgent.set(id, `${byAgent.get(id)}\n\nAlso: ${String(msg).trim()}`);
+      } else {
+        byAgent.set(id, String(msg).trim());
       }
     }
   }
 
-  // Over-cap: keep max entries insertion order
   const purpose = purposeByAgentId(md);
-  const out = [];
+  let out = [];
   for (const [agentId, message] of byAgent) {
     if (out.length >= max) break;
     const meta = purpose.get(agentId);
@@ -229,13 +233,11 @@ export async function classifySpecialtyIntentsForPlan(ownerUserId, residualText,
     });
   }
 
-  // Single intent → multi-step: if classifier returned one agent but residual has A)/B) style tasks for same domain, keep one step with combined message (already merged).
-  // If one agent but user wants sequential subtasks: split numerical parts for same residual when classifier collapsed.
-  if (out.length === 1 && hints.length >= 2) {
-    // Expand to multi-step on same agent when lettered/numbered parts exist
+  // Same-agent lettered multi-step only when residual truly lettered/numbered
+  if (out.length === 1 && letteredOrNumbered && chunks.length >= 2) {
     const agentId = out[0].agent_id;
     const name = out[0].name;
-    return hints.slice(0, max).map((h, i) => ({
+    out = chunks.slice(0, max).map((h, i) => ({
       agent_id: agentId,
       message: h,
       name,
@@ -244,35 +246,14 @@ export async function classifySpecialtyIntentsForPlan(ownerUserId, residualText,
     }));
   }
 
-  // Deterministic fallback: multi-hint residual must never be dropped (hybrid CRM+specialty etc.)
-  // when the LLM returns {} — round-robin non-COO agents from AGENTS.md.
-  if (!out.length && hints.length >= 2) {
-    const roster = parseAgentsFromAgentsMd(md || '').filter((a) => {
-      const id = String(a.id || '').toLowerCase();
-      const role = `${a.name || ''} ${a.role || ''}`.toLowerCase();
-      if (/platformhelp|platform\s*help/i.test(role + ' ' + id) && explicitHelp) return true;
-      return id && !/\bcoo\b|chief operating|platform help|workflow builder/i.test(role + ' ' + id);
-    });
-    if (roster.length) {
-      console.info('[goal-plan-specialty] multi-hint fallback (LLM empty)', {
-        hints: hints.length,
-        agents: roster.length,
-      });
-      return hints.slice(0, max).map((h, i) => {
-        const agent = roster[i % roster.length];
-        return {
-          agent_id: String(agent.id).toLowerCase(),
-          message: h,
-          name: agent.name || agent.id,
-          purpose: agent.role || '',
-          step_label: `Specialty: ${(agent.name || agent.id)} — ${h.slice(0, 40)}`,
-        };
-      });
-    }
+  // No inventing specialty agents when the LLM returns empty — only carry explicit Platform Help
+  // (or leave empty so the plan stays workflow + notify). Round-robin was mis-assigning CRM makers.
+  if (!out.length && explicitHelp) {
+    console.info('[goal-plan-specialty] LLM empty; using explicit Platform Help residual');
+    return [explicitHelp];
   }
 
-  // Ensure explicit Platform Help intent is never dropped when classifier returned other agents
-  // or empty (hybrid L2C + help docs is a common multi-intent plan).
+  // Ensure Platform Help is never dropped when residual asked for it
   if (explicitHelp) {
     const hasHelp = out.some(
       (x) =>
@@ -282,16 +263,13 @@ export async function classifySpecialtyIntentsForPlan(ownerUserId, residualText,
     if (!hasHelp) {
       if (out.length >= max) out[out.length - 1] = explicitHelp;
       else out.push(explicitHelp);
+      console.info('[goal-plan-specialty] merged explicit Platform Help into specialty intents');
     }
   }
 
   return out;
 }
 
-/**
- * Build specialty_task step specs from residual classification.
- * multi specialty → same parallel_group for concurrent execution (P2).
- */
 export function specialtyIntentsToSteps(intents, { parallel = true } = {}) {
   const list = Array.isArray(intents) ? intents : [];
   if (!list.length) return [];

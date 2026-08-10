@@ -24,6 +24,17 @@ The COO uses `scheduled_goal_create` (and related tools) and confirms the schedu
 
 **Specialty vs workflow steps:** Workflow maker-checker phrases become `workflow_trigger` steps (phrases survive plan storage—renormalizing step specs is idempotent). Remaining multi-intent work (research, design, copy, Platform Help how-to, etc.—not limited to two) becomes `specialty_task` steps (parallel when multiple). Explicit “via Platform Help …” is always a specialty step. Plan orchestration leftovers (`notify_ceo`, `agent_goal_create`) are stripped before specialty classification so they cannot erase residual specialists. A single specialty with lettered/numbered parts can expand into multiple sequential specialty steps on the same agent. Hybrid prompts keep both (CRM→ERP plus residual speciality work is not dropped).
 
+
+
+## How the plan is derived (mental model)
+
+1. **Workflows (phrase bind)** — Known chat triggers (`run crm maker checker`, `run erp maker checker`, …) become ordered `workflow_trigger` steps so published runs match by phrase.  
+2. **Specialty intents (LLM)** — After those phrases are removed, the **residual** text is classified with the CEO’s `AGENTS.md` via intent allocation (LLM). That produces `specialty_task` steps (research, design, Platform Help how-to, …). Lettered lists like `A) … B) …` may be split before classification; plain “and / also” stays one residual for the model.  
+3. **Notify** — A final `notify_ceo` step is added if missing.  
+
+Orchestration words (`agent_goal_create`, `notify_ceo`, “include the goal run id”) are **not** specialty work. If the model returns no specialists but residual still asks for Platform Help, a single help specialty is still planned. Do not invent random specialists when the residual is only workflow glue.
+
+
 **Multi-phase goals (CRM then ERP, multiple workflows, multi-specialty hybrid)?** Ordered workflow phrases or clear CRM→O2C intent plan to durable **`agent_goal_run`** steps (`workflow_trigger`, optional parallel `specialty_task`, `notify_ceo`). Platform advances when each child workflow or specialty-delegation reaches terminal. Ad-hoc COO chat should call **`agent_goal_create`** (returns `goal_run_id` like `agr-…`). If the COO fires **`agent_workflow_trigger`** with multi-workflow language and no plan id, the platform **auto-upgrades** that call into a goal plan. A numeric workflow **`run_id` is not a goal plan** (no Digest ladder / Goal Plan panel). Inspect: **`agent_goal_list`** / **`agent_goal_status`**, Digest, `/goal-plans`. See [38-maker-checker-coordination.md](./38-maker-checker-coordination.md).
 
 **Does hourly mean every minute?** No. Hourly fires **once per hour** at the chosen minute (`time_local` minutes; the hour part is ignored). Default is on the hour (`:00`). Token cost rises with hourly checks — use for watchers (e.g. price dip notify), not for heavy work.
