@@ -284,11 +284,21 @@ export async function createScheduledGoal(ownerUserId, input = {}) {
     input.skip_plan_review === true;
 
   let plan = null;
-  if (input.plan && Array.isArray(input.plan.steps) && input.plan.steps.length) {
+  // Prefer an explicit CEO plan (including manually amended baseline). Do not re-LLM when
+  // the client sent plan.steps — empty only when amended_manually (still building).
+  const clientPlan = input.plan && typeof input.plan === 'object' ? input.plan : null;
+  const clientSteps = clientPlan && Array.isArray(clientPlan.steps) ? clientPlan.steps : null;
+  const useClientPlan =
+    clientSteps &&
+    (clientSteps.length > 0 ||
+      clientPlan.amended_manually === true ||
+      clientPlan.manual === true);
+  if (useClientPlan) {
     plan = {
-      ...input.plan,
-      steps: serializePlanSteps(input.plan.steps),
-      uses_goal_run_mode: planUsesGoalRunMode(input.plan.steps),
+      ...clientPlan,
+      steps: serializePlanSteps(clientSteps),
+      uses_goal_run_mode: planUsesGoalRunMode(clientSteps),
+      amended_manually: !!(clientPlan.amended_manually || clientPlan.manual),
     };
   } else {
     plan = await previewGoalPlan(ownerUserId, {
@@ -339,6 +349,7 @@ export async function setScheduledGoalPlan(ownerUserId, id, { plan = null, feedb
       uses_goal_run_mode: planUsesGoalRunMode(nextPlan.steps),
       generated_at: new Date().toISOString(),
       feedback_applied: feedback ? String(feedback).slice(0, 500) : null,
+      amended_manually: !!(nextPlan.amended_manually || nextPlan.manual),
     };
   }
   if (feedback && String(feedback).trim()) {

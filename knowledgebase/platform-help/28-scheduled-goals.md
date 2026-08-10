@@ -20,7 +20,7 @@ The COO uses `scheduled_goal_create` (and related tools) and confirms the schedu
 
 **How do I run a goal right now?** **Run now** on the page, or COO tool `scheduled_goal_run_now`.
 
-**How do multi-intent scheduled goals work?** Creating a schedule from the CEO UI first builds a **draft execution plan** (workflow steps, specialty tasks for N specialist intents, notify). You can regenerate with feedback, **Save draft**, then **Approve plan & schedule** to make it **active**. Until approved, status is **draft** and tick/Run now are blocked. COO/chat tools default to an approved plan so plain-language schedules still activate immediately.
+**How do multi-intent scheduled goals work?** Creating a schedule from the CEO UI first builds a **draft execution plan** (workflow steps, specialty tasks, notify). Review the step list, then **Amend plan manually** if intent→step mapping is wrong (or **Build plan manually** from empty). Optional regenerate-with-feedback re-plans via LLM. **Save draft**, then **Approve plan & schedule** to make it **active**. Until approved, status is **draft** and tick/Run now are blocked. COO/chat tools default to an approved plan so plain-language schedules still activate immediately.
 
 
 **COO prompt (critical for specialty steps):** Call gent_goal_create with the CEO multiphase message **verbatim** as prompt. Do not rewrite a hybrid ask down to CRM+ERP only — residual **Platform Help** (and other specialty) language must remain in prompt so plan storage includes specialty_task. The planner also merges explicit Platform Help from the full stored prompt as a safety net.
@@ -98,9 +98,29 @@ Defaults when unspecified: target = COO; cadence = daily; time = 09:00 (or `:00`
 
 1. **Management → Scheduled goals**.
 2. **New scheduled goal** or row **Edit** — prompt, agent, cadence/time/ends.
-3. **Generate draft plan** → review steps → optional feedback/regenerate → **Save draft** or **Approve plan & schedule**.
-4. Optional **Enrich with AI** on the prompt text.
-5. Row actions: Edit, Approve plan (draft), Pause, Resume, Run now (active only), Delete.
+3. **Generate draft plan** → review the step list (this is your dynamic goal workflow: intent → step).
+4. If the draft does not match what you meant → **Amend plan manually**:
+   - Map each intent to a step type (`workflow_trigger`, `specialty_task`, `agent_continue`, `notify_ceo`, `agent_tool`).
+   - Use quick intents (CRM/ERP maker-checker, Platform Help, Notify) or add a custom step; reorder, edit labels/phrases/agents.
+   - Or **Build plan manually** without generating first, then baseline steps yourself.
+5. Prefer **Amend** for precise changes. Optional **Regenerate with feedback** re-runs the planner and can overwrite manual edits.
+6. **Save draft** or **Approve plan & schedule** stores `plan_json` as the baseline for every fire (`amended_manually` when you edited steps in the UI).
+7. Optional **Enrich with AI** on the prompt text.
+8. Row actions: Edit, Approve plan (draft), Pause, Resume, Run now (active only), Delete.
+
+### Manual plan baseline (goal-plan schema)
+
+Treat the execution plan like a small **dynamic workflow**:
+
+| Step type | Maps to | Typical fields |
+|-----------|---------|----------------|
+| `workflow_trigger` | Published workflow by chat phrase | `phrase`, optional `phase` (crm_phase / erp_phase / …) |
+| `specialty_task` | One specialty AI employee | `agent_id`, `message`, optional `parallel_group` |
+| `agent_continue` | Schedule owner agent turn | optional `message` |
+| `notify_ceo` | In-app bell when prior steps finish | optional title/body |
+| `agent_tool` | Named platform tool on schedule agent | `tool_name` |
+
+Quick intents add common CRM/ERP maker-checker and help steps without writing raw JSON. After approve, each fire replays this step template as a new `agr-…` run.
 
 ## Cadence fields
 

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { RequireAuth } from '../context/AuthContext';
 import GoalPlanPanel from '../components/GoalPlanPanel';
+import GoalPlanManualEditor from '../components/GoalPlanManualEditor';
 import { Fragment } from 'react';
 
 function statusClass(status) {
@@ -58,6 +59,7 @@ function ScheduledGoalsPanel() {
   const [draftPlan, setDraftPlan] = useState(null);
   const [planFeedback, setPlanFeedback] = useState('');
   const [planBusyLocal, setPlanBusyLocal] = useState(false);
+  const [amendPlanOpen, setAmendPlanOpen] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -121,6 +123,7 @@ function ScheduledGoalsPanel() {
     setShowForm(false);
     setDraftPlan(null);
     setPlanFeedback('');
+    setAmendPlanOpen(false);
   };
 
   const openCreate = () => {
@@ -128,6 +131,7 @@ function ScheduledGoalsPanel() {
     setForm({ ...EMPTY_FORM, agent_id: form.agent_id || 'balserve' });
     setDraftPlan(null);
     setPlanFeedback('');
+    setAmendPlanOpen(false);
     setShowForm(true);
     setMessage(null);
     setError(null);
@@ -146,6 +150,7 @@ function ScheduledGoalsPanel() {
     });
     setDraftPlan(g.plan || null);
     setPlanFeedback('');
+    setAmendPlanOpen(!!(g.plan && Array.isArray(g.plan.steps) && g.plan.steps.length));
     setShowForm(true);
     setMessage(null);
     setError(null);
@@ -195,7 +200,8 @@ function ScheduledGoalsPanel() {
         previous_plan: draftPlan || undefined,
       });
       setDraftPlan(out.plan || null);
-      setMessage('Draft execution plan ready. Review steps, adjust with feedback if needed, then save or approve.');
+      setAmendPlanOpen(true);
+      setMessage('Draft plan ready. Amend steps if the intent mapping is wrong, then save draft or approve.');
     } catch (err) {
       setError(err.message || String(err));
     } finally {
@@ -206,6 +212,10 @@ function ScheduledGoalsPanel() {
   const save = async (e, opts = {}) => {
     if (e && e.preventDefault) e.preventDefault();
     const approvePlan = !!opts.approvePlan;
+    if (approvePlan && !(draftPlan?.steps?.length)) {
+      setError('Approve needs at least one plan step. Generate a draft or amend the plan, then try again.');
+      return;
+    }
     setBusyId(editingId || 'create');
     setError(null);
     const body = {
@@ -415,31 +425,83 @@ function ScheduledGoalsPanel() {
               <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Empty = perpetual</span>
             </label>
           </div>
-          <div style={{ marginTop: 4, padding: '0.75rem', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg)' }}>
+          <div className="sg-plan-panel">
             <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: 6 }}>Execution plan</div>
             <p style={{ margin: '0 0 0.5rem', fontSize: '0.8rem', color: 'var(--muted)' }}>
-              Multi-intent work becomes ordered plan steps. Generate draft, optional feedback, then save draft or approve to activate.
+              Think of this as a small dynamic workflow: each intent becomes a step (CRM/ERP workflows, specialty AI, notify). Generate a draft, amend if it does not match what you meant, then save or approve.
             </p>
-            <button type="button" className="btn-secondary" style={{ marginBottom: 8 }} disabled={planBusyLocal || !form.prompt.trim()} onClick={generateDraftPlan}>
-              {planBusyLocal ? 'Planning...' : draftPlan ? 'Regenerate plan' : 'Generate draft plan'}
-            </button>
-            {draftPlan?.steps?.length > 0 && (
-              <ol style={{ margin: '0 0 0.65rem', paddingLeft: '1.2rem', fontSize: '0.85rem' }}>
+            <div className="sg-plan-actions">
+              <button type="button" className="btn-secondary" disabled={planBusyLocal || !form.prompt.trim()} onClick={generateDraftPlan}>
+                {planBusyLocal ? 'Planning…' : draftPlan ? 'Regenerate plan' : 'Generate draft plan'}
+              </button>
+              {draftPlan && (
+                <button
+                  type="button"
+                  className={'btn-secondary' + (amendPlanOpen ? ' is-active-toggle' : '')}
+                  disabled={planBusyLocal}
+                  onClick={() => setAmendPlanOpen((v) => !v)}
+                  aria-pressed={amendPlanOpen}
+                >
+                  {amendPlanOpen ? 'Hide manual editor' : 'Amend plan manually'}
+                </button>
+              )}
+              {!draftPlan && (
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  disabled={planBusyLocal || !form.prompt.trim()}
+                  onClick={() => {
+                    setDraftPlan({
+                      version: 1,
+                      prompt: form.prompt,
+                      steps: [],
+                      uses_goal_run_mode: false,
+                      generated_at: new Date().toISOString(),
+                      amended_manually: true,
+                    });
+                    setAmendPlanOpen(true);
+                    setMessage('Empty plan — add intents with Amend plan (CRM maker-checker, specialty, notify, …).');
+                  }}
+                >
+                  Build plan manually
+                </button>
+              )}
+            </div>
+            {draftPlan?.steps?.length > 0 && !amendPlanOpen && (
+              <ol className="sg-plan-summary">
                 {draftPlan.steps.map((s, i) => (
-                  <li key={i} style={{ marginBottom: 4 }}>
+                  <li key={i}>
                     <strong>{s.type}</strong>
                     {s.spec?.parallel_group != null ? ' (parallel)' : ''}: {s.label}
-                    {s.spec?.agent_id ? ` → ${s.spec.agent_id}` : ''}
-                    {s.spec?.phrase ? ` [${s.spec.phrase}]` : ''}
+                    {s.spec?.agent_id ? ' → ' + s.spec.agent_id : ''}
+                    {s.spec?.phrase ? ' [' + s.spec.phrase + ']' : ''}
                   </li>
                 ))}
               </ol>
             )}
-            <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Plan feedback (optional)</span>
-              <textarea rows={2} value={planFeedback} onChange={(ev) => setPlanFeedback(ev.target.value)} placeholder="e.g. also add social post research; do specialties in parallel" />
+            {draftPlan && amendPlanOpen && (
+              <GoalPlanManualEditor
+                plan={draftPlan}
+                prompt={form.prompt}
+                agents={agents}
+                disabled={planBusyLocal || busyId === (editingId || 'create')}
+                onChange={(next) => setDraftPlan(next)}
+              />
+            )}
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }}>
+              <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Regenerate with feedback (optional)</span>
+              <textarea
+                rows={2}
+                value={planFeedback}
+                onChange={(ev) => setPlanFeedback(ev.target.value)}
+                placeholder="e.g. also add social research; run Platform Help in parallel"
+              />
+              <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>
+                Feedback re-runs the planner and can replace manual edits. Prefer Amend for precise step changes.
+              </span>
             </label>
           </div>
+
           <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap' }}>
             <button
               type="button"
@@ -679,6 +741,65 @@ function ScheduledGoalsPanel() {
         .page input, .page select, .page textarea {
           padding: 0.45rem 0.55rem; border-radius: 6px; border: 1px solid var(--border);
           background: var(--bg, var(--surface)); color: var(--text); font: inherit;
+        }
+        .sg-plan-panel {
+          margin-top: 0.35rem; padding: 0.75rem; border: 1px solid var(--border);
+          border-radius: 8px; background: var(--bg, var(--surface));
+        }
+        .sg-plan-actions { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-bottom: 0.55rem; }
+        .btn-secondary.is-active-toggle {
+          outline: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent);
+        }
+        .sg-plan-summary { margin: 0.35rem 0 0; padding-left: 1.2rem; font-size: 0.85rem; line-height: 1.45; }
+        .sg-plan-summary li { margin-bottom: 0.2rem; }
+        .sg-plan-editor {
+          margin-top: 0.45rem; padding: 0.65rem; border: 1px dashed var(--border);
+          border-radius: 8px; background: color-mix(in srgb, var(--surface) 80%, var(--bg));
+        }
+        .sg-plan-editor-title { font-weight: 600; font-size: 0.88rem; }
+        .sg-plan-editor-sub { margin: 0.2rem 0 0.55rem; font-size: 0.78rem; color: var(--muted); line-height: 1.4; }
+        .sg-plan-presets { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; margin-bottom: 0.55rem; }
+        .sg-plan-presets-label { font-size: 0.75rem; color: var(--muted); margin-right: 0.15rem; }
+        .sg-plan-chip {
+          font: inherit; font-size: 0.78rem; padding: 0.25rem 0.55rem; border-radius: 999px;
+          border: 1px solid var(--border); background: var(--bg, var(--surface)); color: var(--text); cursor: pointer;
+        }
+        .sg-plan-chip:hover:not(:disabled) { border-color: var(--accent); }
+        .sg-plan-chip:disabled { opacity: 0.55; cursor: not-allowed; }
+        .sg-plan-chip-ghost { opacity: 0.9; }
+        .sg-plan-empty { margin: 0.4rem 0; font-size: 0.82rem; color: var(--muted); }
+        .sg-plan-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.55rem; }
+        .sg-plan-step {
+          border: 1px solid var(--border); border-radius: 8px; padding: 0.55rem 0.65rem;
+          background: var(--bg, var(--surface));
+        }
+        .sg-plan-step-toolbar {
+          display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-bottom: 0.25rem;
+        }
+        .sg-plan-step-num {
+          font-size: 0.72rem; font-weight: 600; color: var(--muted); min-width: 1.1rem;
+        }
+        .sg-plan-type { min-width: 8.5rem; max-width: 11rem; }
+        .sg-plan-label { flex: 1 1 10rem; min-width: 8rem; }
+        .sg-plan-step-actions { display: flex; gap: 0.2rem; margin-left: auto; }
+        .sg-plan-icon-btn {
+          width: 1.75rem; height: 1.75rem; padding: 0; border-radius: 6px; border: 1px solid var(--border);
+          background: transparent; color: var(--text); cursor: pointer; font-size: 0.9rem; line-height: 1;
+        }
+        .sg-plan-icon-btn:hover:not(:disabled) { border-color: var(--accent); }
+        .sg-plan-icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .sg-plan-icon-danger:hover:not(:disabled) { border-color: var(--danger, #c44); color: var(--danger, #c44); }
+        .sg-plan-type-hint { margin: 0 0 0.4rem; font-size: 0.72rem; color: var(--muted); }
+        .sg-plan-fields {
+          display: grid; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: 0.45rem 0.65rem;
+        }
+        .sg-plan-fields label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.78rem; }
+        .sg-plan-fields label span { color: var(--muted); }
+        .sg-plan-field-wide { grid-column: 1 / -1; }
+        @media (max-width: 640px) {
+          .sg-plan-step-toolbar { flex-direction: column; align-items: stretch; }
+          .sg-plan-step-actions { margin-left: 0; }
+          .sg-plan-type, .sg-plan-label { max-width: none; width: 100%; }
         }
       `}</style>
     </div>
