@@ -119,6 +119,8 @@ upsert TWENTY_DB_USER 'twenty'
 upsert TWENTY_DB_NAME 'twenty'
 upsert TWENTY_DB_PASSWORD 'twenty'
 upsert TWENTY_SSO_ENABLED "1"
+# Same Redis as twenty-server — Flolah DELs flatWorkspaceMemberMaps after JIT membership SQL.
+upsert TWENTY_REDIS_URL "redis://twenty-redis:6379"
 upsert TWENTY_IS_MULTIWORKSPACE_ENABLED "true"
 # Multi-workspace: browser API base = current origin ({sub}.crm.*) not fixed apex URL
 if grep -qE '^TWENTY_FRONT_AUTO_BASE_URL=' "$ENV_FILE" 2>/dev/null; then

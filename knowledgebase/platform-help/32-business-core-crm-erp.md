@@ -122,7 +122,8 @@ When Profile selects platform CRM/ERP, Maker/Checker packs receive full **`crm_*
 | `TWENTY_APP_SECRET` | Same as Twenty `APP_SECRET` ├óΓé¼ΓÇ¥ mint LOGIN tokens |
 | `TWENTY_SSO_ENABLED` | Default on when secret set; `0` = isolation handoff only |
 | `TWENTY_DATABASE_URL` | JIT user + membership in company workspace |
-| `TWENTY_IS_MULTIWORKSPACE_ENABLED` | **`true`** on Twenty server/worker ├óΓé¼ΓÇ¥ required to create additional workspaces |
+| `TWENTY_REDIS_URL` | Same Redis as Twenty (`redis://twenty-redis:6379`) — invalidate member flat-maps after JIT join |
+| `TWENTY_IS_MULTIWORKSPACE_ENABLED` | **`true`** on Twenty server/worker — required to create additional workspaces |
 | `TWENTY_BOOTSTRAP_EMAIL` | Optional admin used to call `signUpInNewWorkspace` (else first ACTIVE member) |
 | `TWENTY_EMBED_URL` / `TWENTY_SERVER_URL` | Platform front origin `https://crm.<apex>` (subdomains built from this host) |
 
@@ -164,9 +165,9 @@ You still see Twenty password UI when:
 1. SSO handoff failed or expired (e.g. after brief outages, or before FRONT_AUTO_BASE_URL / certs were fixed).
 2. `TWENTY_SSO_ENABLED=0` or `TWENTY_APP_SECRET` does not match Twenty `APP_SECRET`.
 3. Browser stayed on an old failing session — use **Open** (new tab) or **Switch CRM account** from the CRM toolbar.
-4. **Membership gap (fixed in SSO JIT):** Bootstrap admin (often the first Flolah CEO such as Balaji) owns newly created Twenty workspaces; other CEOs need a `workspaceMember` row in **their** workspaceΓÇÖs `databaseSchema`. If that row was written into the wrong schema, mint still ΓÇ£succeedsΓÇ¥ but `/verify` shows password. Backend now maps schema via `core.workspace.databaseSchema`, provisions owners as Admin, and preflights token exchange.
+4. **Membership gap (fixed in SSO JIT):** Bootstrap admin (often the first Flolah CEO such as Balaji) owns newly created Twenty workspaces; other CEOs need a `workspaceMember` row in **their** workspace’s `databaseSchema`. If that row was written into the wrong schema, mint still “succeeds” but `/verify` shows password. Backend now maps schema via `core.workspace.databaseSchema`, provisions owners as Admin, and preflights token exchange. After membership SQL, Flolah also invalidates Twenty Redis `flatWorkspaceMemberMaps` (`TWENTY_REDIS_URL`) so REST/MCP tools do not return `FORBIDDEN` / “User is not a member of the workspace”.
 
-Required env: `TWENTY_SSO_ENABLED=1`, shared secret, `TWENTY_DATABASE_URL`, `TWENTY_FRONT_AUTO_BASE_URL=true`, workspace DNS + cert SANs.
+Required env: `TWENTY_SSO_ENABLED=1`, shared secret, `TWENTY_DATABASE_URL`, `TWENTY_REDIS_URL` (default docker hostname), `TWENTY_FRONT_AUTO_BASE_URL=true`, workspace DNS + cert SANs.
 
 CRM opens **in the Flolah iframe** (not a full-page leave); use **Open** for first-party debugging only.
 

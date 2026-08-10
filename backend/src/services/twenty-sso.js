@@ -11,6 +11,7 @@
  * Authorization remains CEO-scoped on Flolah; body workspace ids are never trusted.
  */
 import { createHash, createHmac, randomUUID } from 'crypto';
+import net from 'net';
 import {
   getBusinessProfile,
   setTwentyBind,
@@ -46,6 +47,122 @@ const UUID_RE =
 
 function strip(s) {
   return String(s || '').trim();
+}
+
+/**
+ * Twenty Redis for workspace flat-maps / core-entity caches.
+ * JIT SQL memberships do not notify Twenty — stale flatWorkspaceMemberMaps
+ * makes JWT access tokens fail with "User is not a member of the workspace".
+ */
+function getTwentyRedisUrl() {
+  return (
+    strip(process.env.TWENTY_REDIS_URL) ||
+    strip(process.env.TWENTY_REDIS) ||
+    'redis://twenty-redis:6379'
+  );
+}
+
+function redisRespBulk(s) {
+  const b = Buffer.from(String(s), 'utf8');
+  return Buffer.concat([Buffer.from(`$${b.length}\r\n`), b, Buffer.from('\r\n')]);
+}
+
+function redisRespArray(parts) {
+  const head = Buffer.from(`*${parts.length}\r\n`);
+  return Buffer.concat([head, ...parts.map(redisRespBulk)]);
+}
+
+/**
+ * Minimal Redis DEL for known cache keys (no redis package dependency).
+ * Best-effort: logs and returns false if Redis is unreachable.
+ */
+export async function invalidateTwentyWorkspaceAuthCaches({
+  workspaceId,
+  userId,
+  userWorkspaceId,
+} = {}) {
+  const ws = strip(workspaceId);
+  if (!UUID_RE.test(ws)) return { ok: false, reason: 'invalid_workspace' };
+  const keys = [
+    `engine:workspace:flat-maps:workspace-member:${ws}:data`,
+    `engine:workspace:flat-maps:workspace-member:${ws}:hash`,
+    `engine:workspace:flat-maps:role-target:${ws}:data`,
+    `engine:workspace:flat-maps:role-target:${ws}:hash`,
+    `engine:workspace:flat-maps:role:${ws}:data`,
+    `engine:workspace:flat-maps:role:${ws}:hash`,
+    `engine:workspace:metadata:permissions:roles-permissions:${ws}:data`,
+    `engine:workspace:metadata:permissions:roles-permissions:${ws}:hash`,
+    `engine:workspace:metadata:permissions:api-key-role-map:${ws}:data`,
+    `engine:workspace:metadata:permissions:api-key-role-map:${ws}:hash`,
+    `engine:core-entity:workspace:${ws}:data`,
+    `engine:core-entity:workspace:${ws}:hash`,
+  ];
+  const uid = strip(userId);
+  if (UUID_RE.test(uid)) {
+    keys.push(`engine:core-entity:user:${uid}:data`, `engine:core-entity:user:${uid}:hash`);
+  }
+  const uw = strip(userWorkspaceId);
+  if (UUID_RE.test(uw)) {
+    keys.push(
+      `engine:core-entity:user-workspace:${uw}:data`,
+      `engine:core-entity:user-workspace:${uw}:hash`
+    );
+  }
+
+  const url = getTwentyRedisUrl();
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    console.warn('[twenty-sso] invalidate cache bad redis url');
+    return { ok: false, reason: 'bad_redis_url' };
+  }
+  const host = parsed.hostname || 'twenty-redis';
+  const port = Number(parsed.port || 6379) || 6379;
+
+  return await new Promise((resolve) => {
+    const sock = net.createConnection({ host, port });
+    let buf = Buffer.alloc(0);
+    let settled = false;
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      try {
+        sock.destroy();
+      } catch {
+        /* ignore */
+      }
+      resolve(result);
+    };
+    sock.setTimeout(4000);
+    sock.on('timeout', () => finish({ ok: false, reason: 'redis_timeout' }));
+    sock.on('error', (e) => {
+      console.warn('[twenty-sso] invalidate cache redis error', e?.message || e);
+      finish({ ok: false, reason: e?.message || 'redis_error' });
+    });
+    sock.on('connect', () => {
+      // DEL key1 key2 … then QUIT
+      const cmd = redisRespArray(['DEL', ...keys]);
+      const quit = redisRespArray(['QUIT']);
+      sock.write(Buffer.concat([cmd, quit]));
+    });
+    sock.on('data', (chunk) => {
+      buf = Buffer.concat([buf, chunk]);
+      const text = buf.toString('utf8');
+      // First reply is integer deleted count: :<n>\r\n
+      const m = text.match(/^:(-?\d+)\r\n/);
+      if (m) {
+        const deleted = Number(m[1]);
+        console.info(
+          '[twenty-sso] invalidated twenty workspace auth caches workspace=%s deleted=%s keys=%s',
+          ws,
+          deleted,
+          keys.length
+        );
+        finish({ ok: true, deleted, keys: keys.length });
+      }
+    });
+  });
 }
 
 export function isTwentySsoEnabled() {
@@ -383,6 +500,18 @@ export async function ensureTwentyUserForEmail({
         mail.replace(/(.{2}).+(@.+)/, '$1***$2'),
         ws
       );
+    }
+
+    // JIT SQL memberships skip Twenty's cache layer. Stale flatWorkspaceMemberMaps
+    // causes "User is not a member of the workspace" on subsequent REST/token use.
+    try {
+      await invalidateTwentyWorkspaceAuthCaches({
+        workspaceId: ws,
+        userId: user.id,
+        userWorkspaceId: uw.id,
+      });
+    } catch (e) {
+      console.warn('[twenty-sso] cache invalidate after ensure failed', e?.message || e);
     }
 
     return {
