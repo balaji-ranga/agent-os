@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard';
 import Workspace from './pages/Workspace';
 import OperatingWorkspace from './pages/OperatingWorkspace';
 import ThisWeek from './pages/ThisWeek';
+import GoalPlans from './pages/GoalPlans';
 import WorkspaceDesigner from './pages/WorkspaceDesigner';
 import NavMenuManager from './pages/NavMenuManager';
 import IpWhitelists from './pages/IpWhitelists';
@@ -345,6 +346,7 @@ function Shell() {
               <>
                 <Route path="/" element={<AgentChat />} />
                 <Route path="/this-week" element={<ThisWeek />} />
+                <Route path="/goal-plans" element={<GoalPlans />} />
                 <Route path="/workspace-designer" element={<WorkspaceDesigner />} />
                 <Route path="/nav-menus" element={<NavMenuManager />} />
                 <Route path="/settings/ip-whitelists" element={<IpWhitelists />} />

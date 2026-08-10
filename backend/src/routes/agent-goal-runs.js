@@ -31,13 +31,22 @@ router.get('/', (req, res) => {
     const scheduledGoalId = req.query.scheduled_goal_id
       ? String(req.query.scheduled_goal_id).trim()
       : null;
+    const fromDate = req.query.from || req.query.week_start || null;
+    const toDate = req.query.to || req.query.week_end || null;
     const limit = req.query.limit != null ? Number(req.query.limit) : 30;
     const goals = listGoalRuns(ownerUserId, {
       limit,
       status,
       scheduledGoalId,
+      fromDate: fromDate ? String(fromDate).slice(0, 10) : null,
+      toDate: toDate ? String(toDate).slice(0, 10) : null,
     }).map(withProgress);
-    res.json({ goals, count: goals.length });
+    res.json({
+      goals,
+      count: goals.length,
+      from: fromDate ? String(fromDate).slice(0, 10) : null,
+      to: toDate ? String(toDate).slice(0, 10) : null,
+    });
   } catch (e) {
     console.warn('[agent-goal-runs] list', e?.message || e);
     res.status(e.status || 500).json({ error: e.message });

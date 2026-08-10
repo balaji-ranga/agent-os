@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import { formatChatTimestamp } from '../utils/formatDateTime.js';
 import GoalPlanPanel from '../components/GoalPlanPanel';
@@ -292,10 +292,19 @@ function DigestKpiExplain({ explain }) {
 }
 
 export default function ThisWeek() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [data, setData] = useState(null);
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(true);
-  const [offset, setOffset] = useState(0);
+  const offset = Number(searchParams.get('offset') || 0) || 0;
+  const setOffset = (next) => {
+    const n = typeof next === 'function' ? next(offset) : next;
+    const o = Number(n) || 0;
+    const sp = new URLSearchParams(searchParams);
+    if (o) sp.set('offset', String(o));
+    else sp.delete('offset');
+    setSearchParams(sp, { replace: true });
+  };
   const [ask, setAsk] = useState('');
 
   useEffect(() => {
@@ -494,12 +503,13 @@ export default function ThisWeek() {
               <h2 className="digest-card-title">Goal plans (plan vs progress)</h2>
               {!(data.goal_plans || []).length ? (
                 <p className="digest-muted">
-                  No durable multi-intent goal plans yet. Scheduled multi-phase goals (e.g. CRM → ERP) and COO{' '}
+                  No durable multi-intent goal plans this week. Scheduled multi-phase goals (e.g. CRM → ERP) and COO{' '}
                   <code>agent_goal_create</code> create them.
                 </p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {(data.goal_plans || []).slice(0, 8).map((g) => (
+                  {/* Backend already limits to 2 most recent for the selected week */}
+                  {(data.goal_plans || []).slice(0, 2).map((g) => (
                     <div key={g.id}>
                       <div style={{ fontSize: '0.78rem', color: 'var(--muted)', marginBottom: 4 }}>
                         {g.source || 'goal'} · {g.status}
@@ -517,9 +527,31 @@ export default function ThisWeek() {
                   ))}
                 </div>
               )}
-              <Link className="digest-more" to={data.links?.scheduled_goals || '/scheduled-goals'}>
-                Scheduled goals →
-              </Link>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem 1.25rem', marginTop: '0.65rem' }}>
+                {(Number(data.goal_plans_total) || (data.goal_plans || []).length) > 2 ||
+                (data.goal_plans || []).length > 0 ? (
+                  <Link
+                    className="digest-more"
+                    to={
+                      data.links?.goal_plans ||
+                      `/goal-plans?offset=${offset}${
+                        data?.week?.start_date && data?.week?.end_date
+                          ? `&start=${encodeURIComponent(data.week.start_date)}&end=${encodeURIComponent(data.week.end_date)}`
+                          : ''
+                      }`
+                    }
+                  >
+                    View all plans
+                    {(Number(data.goal_plans_total) || 0) > 0
+                      ? ` (${data.goal_plans_total} this week)`
+                      : ''}{' '}
+                    →
+                  </Link>
+                ) : null}
+                <Link className="digest-more" to={data.links?.scheduled_goals || '/scheduled-goals'}>
+                  Scheduled goals →
+                </Link>
+              </div>
             </article>
           </section>
 

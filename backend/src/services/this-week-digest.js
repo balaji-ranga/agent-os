@@ -512,8 +512,16 @@ export async function buildThisWeekDigest(ownerUserId, opts = {}) {
     .slice(0, 1)[0];
 
   let goalPlans = [];
+  let goalPlansTotal = 0;
   try {
-    goalPlans = (listGoalRuns(owner, { limit: 12 }) || []).map((g) => {
+    const weekGoals = listGoalRuns(owner, {
+      limit: 100,
+      fromDate: weekStart,
+      toDate: weekEnd,
+    }) || [];
+    goalPlansTotal = weekGoals.length;
+    // Digest card: two most recent plans for the selected week only
+    goalPlans = weekGoals.slice(0, 2).map((g) => {
       const progress = summarizeGoalProgress(g);
       return {
         id: g.id,
@@ -531,6 +539,7 @@ export async function buildThisWeekDigest(ownerUserId, opts = {}) {
           label: s.label,
           status: s.status,
           child_workflow_run_id: s.child_workflow_run_id,
+          child_delegation_task_id: s.child_delegation_task_id || null,
         })),
       };
     });
@@ -759,6 +768,7 @@ export async function buildThisWeekDigest(ownerUserId, opts = {}) {
             : null,
     },
     goal_plans: goalPlans,
+    goal_plans_total: goalPlansTotal,
     top_workflows: topWorkflows,
     performance: {
       ...performance,
@@ -798,6 +808,13 @@ export async function buildThisWeekDigest(ownerUserId, opts = {}) {
       ask_ai: '/',
       efficiency: '/efficiency',
       scheduled_goals: '/scheduled-goals',
+      goal_plans:
+        '/goal-plans?offset=' +
+        String(Number(opts.offsetWeeks) || 0) +
+        '&start=' +
+        encodeURIComponent(weekStart) +
+        '&end=' +
+        encodeURIComponent(weekEnd),
     },
   };
 }

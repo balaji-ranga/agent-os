@@ -1121,6 +1121,8 @@ export const api = {
     if (params.status) sp.set('status', params.status);
     if (params.limit != null) sp.set('limit', String(params.limit));
     if (params.scheduled_goal_id) sp.set('scheduled_goal_id', params.scheduled_goal_id);
+    if (params.from || params.week_start) sp.set('from', String(params.from || params.week_start).slice(0, 10));
+    if (params.to || params.week_end) sp.set('to', String(params.to || params.week_end).slice(0, 10));
     const q = sp.toString();
     return get(q ? `/agent-goal-runs?${q}` : '/agent-goal-runs');
   },

@@ -440,46 +440,37 @@ export function summarizeGoalProgress(goal) {
 
 export function listGoalRuns(
   ownerUserId,
-  { limit = 30, status = null, scheduledGoalId = null } = {}
+  { limit = 30, status = null, scheduledGoalId = null, fromDate = null, toDate = null } = {}
 ) {
   ensureAgentGoalRunTables();
   const lim = Math.min(Math.max(Number(limit) || 30, 1), 200);
   const owner = String(ownerUserId || "").trim();
   const st = status ? String(status) : null;
   const sg = scheduledGoalId ? String(scheduledGoalId).trim() : null;
+  const from = fromDate ? String(fromDate).slice(0, 10) : null;
+  const to = toDate ? String(toDate).slice(0, 10) : null;
 
-  let rows;
-  if (sg && st) {
-    rows = db()
-      .prepare(
-        `SELECT * FROM agent_goal_runs
-         WHERE owner_user_id = ? AND scheduled_goal_id = ? AND status = ?
-         ORDER BY datetime(created_at) DESC LIMIT ?`
-      )
-      .all(owner, sg, st, lim);
-  } else if (sg) {
-    rows = db()
-      .prepare(
-        `SELECT * FROM agent_goal_runs
-         WHERE owner_user_id = ? AND scheduled_goal_id = ?
-         ORDER BY datetime(created_at) DESC LIMIT ?`
-      )
-      .all(owner, sg, lim);
-  } else if (st) {
-    rows = db()
-      .prepare(
-        `SELECT * FROM agent_goal_runs WHERE owner_user_id = ? AND status = ?
-         ORDER BY datetime(created_at) DESC LIMIT ?`
-      )
-      .all(owner, st, lim);
-  } else {
-    rows = db()
-      .prepare(
-        `SELECT * FROM agent_goal_runs WHERE owner_user_id = ?
-         ORDER BY datetime(created_at) DESC LIMIT ?`
-      )
-      .all(owner, lim);
+  let sql = 'SELECT * FROM agent_goal_runs WHERE owner_user_id = ?';
+  const params = [owner];
+  if (sg) {
+    sql += ' AND scheduled_goal_id = ?';
+    params.push(sg);
   }
+  if (st) {
+    sql += ' AND status = ?';
+    params.push(st);
+  }
+  if (from) {
+    sql += ' AND date(created_at) >= date(?)';
+    params.push(from);
+  }
+  if (to) {
+    sql += ' AND date(created_at) <= date(?)';
+    params.push(to);
+  }
+  sql += ' ORDER BY datetime(created_at) DESC LIMIT ?';
+  params.push(lim);
+  const rows = db().prepare(sql).all(...params);
   return rows.map((r) => serializeGoalRun(r));
 }
 

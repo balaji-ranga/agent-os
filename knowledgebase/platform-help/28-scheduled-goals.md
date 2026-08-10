@@ -52,7 +52,7 @@ For "alert me when..." market conditions, combine hourly (or weekdays) + tools (
 | Scheduled goals page | `/scheduled-goals` | Create, **edit**, list, pause, resume, run now, delete |
 | COO chat | `/` or `/agents/balserve/chat` | Plain-language create / list / update / pause / delete / run now |
 | Target employee chat | `/agents/:id/chat` | Automatic and Run now replies appear here; multi-intent plans show as Goal Plan panel when `agr-…` id is present |
-| Digest | `/this-week` | Recent **goal plans** with plan skeleton + % complete |
+| Digest | `/this-week` | **2** most recent **goal plans** for selected week; **View all plans** → `/goal-plans` for full week list |
 | API | `GET /api/agent-goal-runs` | CEO owner-scoped list/get of durable plans |
 
 ## Create via COO (recommended)
