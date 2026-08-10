@@ -8,7 +8,7 @@ Documentation lives here so Cursor and humans can find it. **Root README.md** st
 |------|---------|
 | **AI-COMPANY-OS.md** | **Canonical** category (AI Company OS), golden messaging layers, terminology (AI employee vs agent API), OS primitives, screen map, design rule for new features, Phase A–F roadmap. Refer for portal/website copy. |
 | **PHASE-D-E-F-OPERATE.md** | Phase D Day 0 operating model + Day 1 autonomy install; Phase E harden; Phase F self-improve. |
-| **BUSINESS-CORE-WORKSPACE-PLAN.md** | Business Core (Twenty/ERPNext + optional profile), tenancy maps, prefab CRM/ERP agents, Home vs Workspace (`/work`), Phase 1–2; entitlements rules. **Validate Phase 1 before Phase 2.** | Prefab packs: ackend/src/services/company-blueprints/standard/.
+| **BUSINESS-CORE-WORKSPACE-PLAN.md** | Business Core (Twenty/ERPNext + optional profile), tenancy maps, prefab CRM/ERP agents, Home vs Workspace (`/work`), Phase 1–2; entitlements rules. **Validate Phase 1 before Phase 2.** Prefab packs: `backend/src/services/company-blueprints/standard/`. |
 | **AUTOMATED-PNL.md** | **Design plan** — automated company P&L: run-cost (platform · BYOK · outside) + income (CRM · channels · IBKR · manual), meters vs books, CoA sample, period close, phases C0–C5 / R0–R5. Not a shipped feature claim. |
 | **SQLITE-TO-POSTGRES-MIGRATION.md** | **End-to-end** Flolah App SQLite (`agent-os.db` + `ceo.db`) → PostgreSQL DB `flolah` on shared `twenty-db` (separate from Twenty CRM schemas). Architecture, packages A–G, cutover, parity, out-of-scope stores. |
 
