@@ -138,7 +138,9 @@ echo "              CEO home chat (COO default) + My Org (/org); Profile role_ti
 echo "              Chat history/browser panes closed by default (icon toggles);"
 echo "              COO SOUL inbound list→index→RAG + org-context tools line;"
 echo "              COO skip hard-delegate for don't-delegate + find/download/attach files"
-echo "              Marketing apex flolah.cloud + app login.flolah.cloud; acme.sh TLS-ALPN cert script"
+echo "              Marketing apex flolah.cloud + app login.flolah.cloud; acme.sh TLS-ALPN cert script,"
+echo "              Admin company blueprints: secret scrub on publish/export (secret-sanitize.js),"
+echo "              CRM/ERP Maker-Checker ceo_approval HITL + async agent_workflow_trigger/run-watch"
 
 if [[ "$SKIP_GIT" != "1" ]]; then
   if [[ -d "$ROOT/.git" ]]; then
