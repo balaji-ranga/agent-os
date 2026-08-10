@@ -57,6 +57,7 @@ import {
 } from '../services/agent-workflow-run-watch.js';
 import {
   createAndStartGoalRun,
+  planGoalStepsAsync,
   planGoalStepsFromText,
   listGoalRuns,
   getGoalRun,
@@ -2540,7 +2541,8 @@ router.post('/agent-workflow-trigger', optionalAuth, async (req, res) => {
       /\bagent_goal_create\b/i.test(message);
     if (!earlyGoalRunId && !workflowId && message) {
       try {
-        const planned = planGoalStepsFromText(message);
+        // Intent-first plan (LLM); count real workflow legs before freeform multiphase upgrade.
+        const planned = await planGoalStepsAsync(message, { ownerUserId });
         const wfCount = planned.filter((st) => st && st.type === 'workflow_trigger').length;
         if (forceUpgrade || wfCount >= 2) {
           const started = await createAndStartGoalRun({
