@@ -14,7 +14,7 @@
 import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { initDb } from '../src/db/schema.js';
-import { snapshotOwnerAsBlueprintPayloadAsync } from '../src/services/company-blueprint-publish.js';
+import { snapshotOwnerAsBlueprintPayloadAsync, sanitizeBlueprintSecrets } from '../src/services/company-blueprint-publish.js';
 import {
   publishBlueprintFromPayload,
   buildCompanyBlueprintExportZip,
@@ -72,6 +72,7 @@ invalidateBlueprintCache();
 const snap = await snapshotOwnerAsBlueprintPayloadAsync(OWNER);
 const company = snap.company_name || 'BalajiDemoCompany';
 const payload = { ...(snap.payload || {}) };
+sanitizeBlueprintSecrets(payload);
 
 // Clean for demo pack
 payload.workflow_templates = (payload.workflow_templates || []).filter(keepWorkflow);

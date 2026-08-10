@@ -8,6 +8,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { getDb } from '../../db/schema.js';
 import { buildZipBuffer } from '../zip-store.js';
+import { sanitizeBlueprintSecrets } from './secret-sanitize.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PACKS_DIR = join(__dirname, 'packs');
@@ -795,7 +796,9 @@ export function publishBlueprintFromPayload(
     throw err;
   }
   let id = forcedId || pack.id;
-  if (!id || id === industry) {
+  // Only mint a fresh id when caller did not pin one; allow pack id === industry for
+  // system demo packs (e.g. demo_balaji_ranganathan).
+  if (!forcedId && (!id || id === industry)) {
     id = `${slugify(title)}-${Date.now().toString(36)}`;
   }
   pack.id = id;
@@ -828,7 +831,7 @@ export function publishBlueprintFromPayload(
     pack.description,
     pack.depth,
     set_default ? 1 : 0,
-    JSON.stringify(pack),
+    JSON.stringify((() => { sanitizeBlueprintSecrets(pack); return pack; })()),
     source_owner_user_id,
     source_company_name,
     published_by || actor?.id || null

@@ -22,6 +22,18 @@ import { listOauthConnectorsForUser } from './mcp-oauth.js';
 import { getOpenConnectorLink } from './openconnector.js';
 import { TEMPLATE_FILE_KEYS } from './platform-agent-workspace-templates.js';
 import * as workspace from '../workspace/adapter.js';
+import {
+  sanitizeBlueprintSecrets,
+  isAllowlistedSecretPlaceholder,
+  looksLikeLiveSecret,
+  isSecretishBlueprintKey,
+} from './company-blueprints/secret-sanitize.js';
+export {
+  sanitizeBlueprintSecrets,
+  isAllowlistedSecretPlaceholder,
+  looksLikeLiveSecret,
+  isSecretishBlueprintKey,
+} from './company-blueprints/secret-sanitize.js';
 
 /** Workspace MD keys exported into agents_md.files (ops is AGENT-OS-OPS.md). */
 const AGENT_MD_KEYS = [
@@ -226,6 +238,7 @@ function agentIdToNameMap(agents) {
 
 /**
  * Strip absolute agent IDs so graphs can be rematerialized on a new CEO.
+ * Also scrub any embedded live API keys / tokens from node config.
  */
 export function portableWorkflowGraph(graph, agents) {
   const idToName = agentIdToNameMap(agents);
@@ -240,13 +253,21 @@ export function portableWorkflowGraph(graph, agents) {
       data.agentId = null;
       data.agent_id = null;
     }
+    // Drop inline credentials from brain/tool config; keep *Ref vault bindings
+    if (typeof data.apiKey === 'string' && !isAllowlistedSecretPlaceholder(data.apiKey)) data.apiKey = '';
+    if (typeof data.bearerToken === 'string' && !isAllowlistedSecretPlaceholder(data.bearerToken)) data.bearerToken = '';
+    if (data.taskConfig && typeof data.taskConfig === 'object') {
+      sanitizeBlueprintSecrets(data.taskConfig);
+    }
     return { ...n, data };
   });
-  return {
+  const portable = {
     nodes,
     edges: Array.isArray(graph?.edges) ? graph.edges : [],
     viewport: graph?.viewport || { x: 0, y: 0, zoom: 1 },
   };
+  sanitizeBlueprintSecrets(portable);
+  return portable;
 }
 
 export function materializeWorkflowGraph(graph, agents) {
@@ -303,6 +324,9 @@ function workflowTemplatesFromOwner(ownerUserId, agents) {
       } else if (/weekly_ops|ops_rollup|ops rollup/i.test(d.id + d.name)) {
         template_key = 'weekly_ops_rollup';
       }
+      const variables =
+        d.variables && typeof d.variables === 'object' ? { ...d.variables } : {};
+      sanitizeBlueprintSecrets(variables);
       out.push({
         template_key,
         name: d.name,
@@ -310,7 +334,7 @@ function workflowTemplatesFromOwner(ownerUserId, agents) {
         trigger_modes: d.trigger_modes || ['manual'],
         schedule_cron: d.schedule_cron || '',
         chat_trigger_phrase: d.chat_trigger_phrase || '',
-        variables: d.variables && typeof d.variables === 'object' ? d.variables : {},
+        variables,
         graph: portableWorkflowGraph(graphSrc, agents),
         source_definition_id: d.id,
       });
@@ -928,72 +952,83 @@ Never reuse topic fingerprints from content_topics_history within 20 days withou
         { id: 'agent_workflows', label: 'Agent workflows', path: '/agent-workflows' },
       ];
 
+  const payload = {
+    depth: base.depth === 'deep' || agents.length >= 4 ? 'deep' : 'thin',
+    platforms: base.platforms || ['facebook', 'instagram', 'linkedin', 'blog'],
+    departments: departments || [],
+    org: {
+      departments: departments || [],
+      agent_department_map: liveOrg.agent_department_map || [],
+    },
+    agents: agents || [],
+    workflows: answers.workflows?.length
+      ? answers.workflows
+      : workflow_templates.map((w) => ({
+          id: w.template_key,
+          name: w.name,
+          description: w.description,
+        })),
+    workflow_templates,
+    goal_templates,
+    agents_md,
+    connectors,
+    channels: answers.channels?.length ? answers.channels : base.channels || [],
+    knowledge_tables,
+    sop_documents: sopsDedup,
+    systems_recommended,
+    policy_templates: {
+      ...(base.policy_templates && typeof base.policy_templates === 'object' ? base.policy_templates : {}),
+      ...(policy_text
+        ? {
+            after_approval: policy_text,
+            published_from_company: policy_text,
+          }
+        : {}),
+    },
+    policy_text,
+    operate_model_id: base.operate_model_id || industry || 'content_creator',
+    operate_model_snapshot: operate
+      ? {
+          id: operate.id,
+          label: operate.label,
+          loops: operate.loops,
+          daily_tasks: operate.daily_tasks,
+          weekly_rituals: operate.weekly_rituals,
+          channels: operate.channels,
+          systems_run: operate.systems_run,
+          goals: operate.goals,
+          quality_bars: operate.quality_bars,
+          knowledge_seeds: operate.knowledge_seeds,
+          autonomy_matrix: operate.autonomy_matrix,
+          raci: operate.raci,
+          digest: operate.digest,
+          escalations: operate.escalations,
+        }
+      : null,
+    browser_autonomy: publishQuality.browser_autonomy,
+    publish_quality: publishQuality,
+    day0_day1,
+    description: strategic.mission
+      ? `Published Day 0+1 from ${strategic.company_name || ownerUserId}. Mission: ${String(strategic.mission).slice(0, 200)}. Agents+tools+ops MD, knowledge, policies, org, workflows (full graphs), goals, connector stubs (no secrets).`
+      : `Published Day 0+1 from ${strategic.company_name || ownerUserId}. Org, agents (tools + workspace MD including ops), knowledge, policies, goals, multi-agent workflow graphs, connector catalog without secrets.`,
+  };
+  const scrub = { cleared: 0, scrubbed: 0 };
+  sanitizeBlueprintSecrets(payload, scrub);
+  if (scrub.cleared || scrub.scrubbed) {
+    console.info(
+      '[blueprint-publish] sanitized secrets from snapshot owner=%s cleared=%s scrubbed=%s',
+      ownerUserId,
+      scrub.cleared,
+      scrub.scrubbed
+    );
+  }
   return {
     industry,
     company_name: strategic.company_name || null,
     mission: strategic.mission || null,
     operate_gate: strategic.operate_gate || null,
     setup_gate: strategic.setup_gate || null,
-    payload: {
-      depth: base.depth === 'deep' || agents.length >= 4 ? 'deep' : 'thin',
-      platforms: base.platforms || ['facebook', 'instagram', 'linkedin', 'blog'],
-      departments: departments || [],
-      org: {
-        departments: departments || [],
-        agent_department_map: liveOrg.agent_department_map || [],
-      },
-      agents: agents || [],
-      workflows: answers.workflows?.length
-        ? answers.workflows
-        : workflow_templates.map((w) => ({
-            id: w.template_key,
-            name: w.name,
-            description: w.description,
-          })),
-      workflow_templates,
-      goal_templates,
-      agents_md,
-      connectors,
-      channels: answers.channels?.length ? answers.channels : base.channels || [],
-      knowledge_tables,
-      sop_documents: sopsDedup,
-      systems_recommended,
-      policy_templates: {
-        ...(base.policy_templates && typeof base.policy_templates === 'object' ? base.policy_templates : {}),
-        ...(policy_text
-          ? {
-              after_approval: policy_text,
-              published_from_company: policy_text,
-            }
-          : {}),
-      },
-      policy_text,
-      operate_model_id: base.operate_model_id || industry || 'content_creator',
-      operate_model_snapshot: operate
-        ? {
-            id: operate.id,
-            label: operate.label,
-            loops: operate.loops,
-            daily_tasks: operate.daily_tasks,
-            weekly_rituals: operate.weekly_rituals,
-            channels: operate.channels,
-            systems_run: operate.systems_run,
-            goals: operate.goals,
-            quality_bars: operate.quality_bars,
-            knowledge_seeds: operate.knowledge_seeds,
-            autonomy_matrix: operate.autonomy_matrix,
-            raci: operate.raci,
-            digest: operate.digest,
-            escalations: operate.escalations,
-          }
-        : null,
-      browser_autonomy: publishQuality.browser_autonomy,
-      publish_quality: publishQuality,
-      day0_day1,
-      description: strategic.mission
-        ? `Published Day 0+1 from ${strategic.company_name || ownerUserId}. Mission: ${String(strategic.mission).slice(0, 200)}. Agents+tools+ops MD, knowledge, policies, org, workflows (full graphs), goals, connector stubs (no secrets).`
-        : `Published Day 0+1 from ${strategic.company_name || ownerUserId}. Org, agents (tools + workspace MD including ops), knowledge, policies, goals, multi-agent workflow graphs, connector catalog without secrets.`,
-    },
+    payload,
   };
 }
 
@@ -1021,6 +1056,18 @@ export async function snapshotOwnerAsBlueprintPayloadAsync(ownerUserId) {
         : md?.tools) || a.tools || [];
       return { ...a, tools };
     });
+  }
+  {
+    const scrubMd = { cleared: 0, scrubbed: 0 };
+    sanitizeBlueprintSecrets(snap.payload, scrubMd);
+    if (scrubMd.cleared || scrubMd.scrubbed) {
+      console.info(
+        '[blueprint-publish] sanitized secrets after agents_md owner=%s cleared=%s scrubbed=%s',
+        ownerUserId,
+        scrubMd.cleared,
+        scrubMd.scrubbed
+      );
+    }
   }
   if (snap.payload.day0_day1) {
     snap.payload.day0_day1.day1.agents_md = agents_md.length > 0;
