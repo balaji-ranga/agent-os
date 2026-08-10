@@ -65,6 +65,8 @@ Published per company after Business Core prefab agents exist:
 
 **Async ack (major goals):** `agent_goal_create` returns immediately with `async:true`, `goal_run_id` (`agr-...`), and plan steps. The COO should quote the plan and end the turn; platform advances remaining steps when each child workflow/specialty reaches terminal (runner plus watch callbacks). Status callbacks and CEO notifications name the **goal plan id + title** when bound (not only workflow run numbers).
 
+**Completion chat nudge (once):** on plan terminal (`completed`/`failed`), platform posts **one** COO chat status (step ladder + `agr-…`) and a correlated CEO notification so progress is not only in the Goal Plan panel / step result JSON. Deduped with `coo_completion_nudge_at`. Disable with `GOAL_PLAN_COO_COMPLETION_NUDGE=0`.
+
 **Workflow run vs goal plan:** an `agent_workflow_trigger` **run_id** (integer) is only a single agent-workflow execution. Durable multi-phase tracking (Digest, Goal Plan panel, step ladder) requires **`agent_goal_create`** → **`goal_run_id`** (`agr-…`). If the COO triggers multi-phase CRM+ERP language without an agr- id, the platform may auto-upgrade that trigger into a goal plan.
 
 Multi-intent goals (CRM then ERP O2C, or any multi-workflow chain) use a **durable goal plan** (`agent_goal_runs` / `agent_goal_steps`), not ad-hoc chat memory:

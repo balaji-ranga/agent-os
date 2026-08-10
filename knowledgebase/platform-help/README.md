@@ -33,7 +33,7 @@
 | [25-speech-and-published-scenes.md](./25-speech-and-published-scenes.md) | **Published Scenes** public `/p/vr/:slug`, free Whisper STT + Piper TTS, guest VR tokens vs `MEDIA_PUBLIC_SIGNED`, `speech_stt` / `speech_tts` |
 | [26-content-explorer.md](./26-content-explorer.md) | **Content Explorer** — browse/preview/download uploaded + generated files |
 | [27-onboarding-helper.md](./27-onboarding-helper.md) | **Onboarding Helper** — chat save/apply tools, selective Review cards, **E2E prompt recipes** (MarketWatcher + Workflow Builder Ollama loop) |
-| [28-scheduled-goals.md](./28-scheduled-goals.md) | **Scheduled goals** — draft/approve multi-intent plans; **Amend plan manually** (intent→step baseline); `agent_goal_*` **async ack** + new-plan default; schedule fire → new `agr-…`; terminal notifies name plan; e2e `test:e2e:goal-plan` / `test:goal-plan:async-ui`; Digest 2 + `/goal-plans` |
+| [28-scheduled-goals.md](./28-scheduled-goals.md) | **Scheduled goals** — draft/approve multi-intent plans; **Amend plan manually** (intent→step baseline); `agent_goal_*` **async ack** + once-only completion chat nudge; schedule fire → new `agr-…`; terminal notifies name plan; e2e `test:e2e:goal-plan` / `test:goal-plan:async-ui`; Digest 2 + `/goal-plans` |
 | [29-company-setup.md](./29-company-setup.md) | **Company setup** — first-run wizard `/company-setup` (type, mission, DNA, team Apply, management style); vs Onboarding Helper |
 | [30-content-creator-ops.md](./30-content-creator-ops.md) | **Content creator ops** — Facebook Page via Meta Graph MCP, publish social, comment ingest/triage, Ops Reporter **bell** (not email), Company Operate |
 | [31-mcp-connectors-oauth.md](./31-mcp-connectors-oauth.md) | **Connectors → MCPs** OAuth: Facebook / Meta Graph, CEO App ID override, other OAuth MCPs; OpenConnector config → **16** + OPENCONNECTOR-WEBHOOKS |
@@ -43,7 +43,7 @@
 | [35-update-company-details.md](./35-update-company-details.md) | **Update Company Details** — avatar menu edits to Knowledge `company_memory` |
 | [36-operational-effectiveness.md](./36-operational-effectiveness.md) | **OEI** — Home score 0–100 (Green≥75), 14-day domains, **goal runs vs distinct goals**, COO tool `operational_effectiveness` (not Digest $) |
 | [37-company-pnl.md](./37-company-pnl.md) | **Company P&L** — design roadmap: run cost · CRM/channel/IBKR income · vs today’s tokens/CRM/ERP/OEI; full plan `knowledgebase/AUTOMATED-PNL.md` |
-| [38-maker-checker-coordination.md](./38-maker-checker-coordination.md) | Maker/Checker + multiphase goal plans (async ack, new agr default, plan-correlated terminal notifies) |
+| [38-maker-checker-coordination.md](./38-maker-checker-coordination.md) | Maker/Checker + multiphase goal plans (async ack, new agr default, terminal completion chat nudge + plan-correlated notifies) |
 | [39-erpnext-help-tier-a.md](./39-erpnext-help-tier-a.md) | **ERPNext Tier A (Platform Help RAG)** — product how-to only; live books → COO / ERP agents |
 | [40-twenty-crm-help-tier-a.md](./40-twenty-crm-help-tier-a.md) | **Twenty CRM Tier A (Platform Help RAG)** — product how-to only; live pipeline → COO / CRM agents |
 

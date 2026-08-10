@@ -449,6 +449,40 @@ export default function AgentChat() {
     }
   }, [agentId, refreshHistory]);
 
+  /** Soft-poll chat so COO goal-plan completion nudge appears without CEO re-enquire. */
+  const hasGoalPlanInChat = useMemo(() => {
+    return turns.some((t) => /\bagr-[a-f0-9]{8,}\b/i.test(String(t?.content || '')));
+  }, [turns]);
+
+  useEffect(() => {
+    if (!agentId || sending || !hasGoalPlanInChat) return undefined;
+    let cancelled = false;
+    const tick = async () => {
+      if (cancelled || (typeof document !== 'undefined' && document.hidden)) return;
+      try {
+        const r = await api.agentChatHistory(agentId, { limit: 500 });
+        if (cancelled) return;
+        const next = Array.isArray(r?.turns) ? r.turns : [];
+        setTurns((prev) => {
+          if (next.length !== prev.length) return next;
+          const a = prev[prev.length - 1];
+          const b = next[next.length - 1];
+          if ((a?.id != null && b?.id != null && a.id !== b.id) || String(a?.content || '') !== String(b?.content || '')) {
+            return next;
+          }
+          return prev;
+        });
+      } catch {
+        /* keep last turns */
+      }
+    };
+    const id = setInterval(tick, 12000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [agentId, sending, hasGoalPlanInChat]);
+
   useEffect(() => {
     if (!agentId) return;
     api

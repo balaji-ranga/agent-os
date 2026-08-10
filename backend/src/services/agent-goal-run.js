@@ -988,7 +988,7 @@ async function executeNotifyCeoStep(goal, step) {
     userIds: [goal.owner_user_id],
     title,
     body: clip(body, 4000),
-    linkUrl: '/agents',
+    linkUrl: `/goal-plans?highlight=${encodeURIComponent(goal.id)}`,
     createdBy: String(goal.agent_id || 'goal-run').slice(0, 64),
     source: 'agent_goal_run',
     sourceKey: `goal-run:${goal.id}:notify`,
@@ -1003,7 +1003,178 @@ export function completeGoalRun(goalRunId, { status = 'completed', error = null 
     completed_at: status === 'completed' || status === 'failed' ? new Date().toISOString() : null,
   });
   console.info('[goal-run] finished', { goalRunId, status });
+  // Once-only COO chat nudge so the CEO sees a final ladder update without re-asking.
+  if (status === 'completed' || status === 'failed') {
+    void nudgeCooOnGoalPlanTerminal(goalRunId, { status }).catch((e) =>
+      console.warn('[goal-run] completion nudge failed', goalRunId, e?.message || e)
+    );
+  }
   return getGoalRun(goalRunId);
+}
+
+
+
+/**
+ * Once per goal run: wake COO to post a final chat status (and always insert a fallback
+ * assistant turn so the dashboard chat updates without the CEO re-enquiring).
+ * Idempotent via context_json.coo_completion_nudge_at.
+ */
+export async function nudgeCooOnGoalPlanTerminal(goalRunId, opts = {}) {
+  if (String(process.env.GOAL_PLAN_COO_COMPLETION_NUDGE || '1') === '0') {
+    return { ok: false, skipped: true, reason: 'disabled_by_env' };
+  }
+  const id = String(goalRunId || '').trim();
+  if (!id) return { ok: false, error: 'goal_run_id required' };
+
+  ensureAgentGoalRunTables();
+  const row = loadGoalRunRow(id);
+  if (!row) return { ok: false, error: 'goal not found' };
+
+  const ctx = parseJson(row.context_json, {});
+  if (ctx.coo_completion_nudge_at && !opts.force) {
+    return { ok: true, skipped: true, reason: 'already_nudged', at: ctx.coo_completion_nudge_at };
+  }
+
+  const claimedAt = new Date().toISOString();
+  ctx.coo_completion_nudge_at = claimedAt;
+  ctx.coo_completion_nudge_status = opts.status || row.status || 'completed';
+  touchGoalRun(id, { context_json: JSON.stringify(ctx) });
+
+  const goal = getGoalRun(id, row.owner_user_id) || serializeGoalRun(row);
+  const owner = goal?.owner_user_id || row.owner_user_id;
+  const agentId = goal?.agent_id || row.agent_id || 'balserve';
+  const agent = resolveAgentForGoal(owner, agentId);
+  if (!agent) {
+    console.warn('[goal-run] completion nudge: no agent', { id, owner, agentId });
+    return { ok: false, error: 'no_agent' };
+  }
+
+  const terminal = String(opts.status || goal.status || row.status || 'completed');
+  const progress = summarizeGoalProgress(goal);
+  const steps = Array.isArray(goal.steps) ? goal.steps : loadGoalSteps(id);
+  const ladder = steps
+    .map((s, i) => {
+      const st = s.status || '?';
+      const lab = s.label || s.step_type || 'step';
+      const tool = s.spec?.tool_name ? ` (${s.spec.tool_name})` : '';
+      const agentBit = s.spec?.agent_id ? ` → ${s.spec.agent_id}` : '';
+      const child =
+        s.child_workflow_run_id != null
+          ? ` · WF #${s.child_workflow_run_id}`
+          : s.child_delegation_task_id != null
+            ? ` · task #${s.child_delegation_task_id}`
+            : '';
+      return `${i + 1}. [${st}] ${lab}${tool}${agentBit}${child}`;
+    })
+    .join('\n');
+
+  const title = goal.title || clip(goal.prompt, 72) || id;
+  const fallback =
+    terminal === 'failed'
+      ? `## Goal plan failed: \`${id}\`\n\n**${title}** reached a failed status.\n\n` +
+        (goal.error_message ? `Error: ${clip(goal.error_message, 400)}\n\n` : '') +
+        `### Step ladder\n${ladder || '(no steps)'}\n\n` +
+        `Progress: ${progress.completed_steps || 0}/${progress.total_steps || 0} completed.`
+      : `## Goal plan completed: \`${id}\`\n\n**${title}** finished all planned steps.\n\n` +
+        `### Step ladder\n${ladder || '(no steps)'}\n\n` +
+        `Progress: ${progress.completed_steps || 0}/${progress.total_steps || 0} · ${progress.progress_pct || 100}%.\n\n` +
+        `Open **Goal plans** or the GOAL PLAN panel on this message for live detail.`;
+
+  let reply = fallback;
+  let via = 'fallback';
+
+  try {
+    let openclawId = agent.openclaw_agent_id || agent.id;
+    try {
+      openclawId = ensureTenantOpenClawAgent(agent, owner).openclawAgentId;
+    } catch (e) {
+      console.warn('[goal-run] completion nudge tenant ensure', e?.message || e);
+    }
+
+    const prompt =
+      `[ceo_user_id: ${owner}]\n[owner_user_id: ${owner}]\n` +
+      `[SYSTEM goal_plan_terminal_once]\n` +
+      `Goal plan ${id} ("${clip(title, 100)}") just reached terminal status: ${terminal}.\n` +
+      `You are the COO. Post ONE final chat update for the CEO. Rules:\n` +
+      `- Quote the exact goal run id ${id} (agr-…).\n` +
+      `- Summarize every step outcome from the ladder below (completed/failed).\n` +
+      `- Do not create a new plan, re-trigger workflows, or call tools unless agent_goal_status is required.\n` +
+      `- Do not ask the CEO to re-request status — this IS the status post.\n` +
+      `- Keep it short, professional, factual.\n\n` +
+      `### Ladder\n${ladder || '(none)'}\n\n` +
+      (goal.error_message ? `Error: ${clip(goal.error_message, 500)}\n` : '') +
+      `Progress: ${progress.completed_steps || 0}/${progress.total_steps || 0} (${progress.progress_pct || 0}%).`;
+
+    const sessionUser = openclaw.sessionUserFor(
+      openclawId,
+      owner,
+      `goal-done-${String(id).slice(4, 16)}`
+    );
+
+    const timeoutMs = Number(process.env.GOAL_PLAN_COO_NUDGE_TIMEOUT_MS) || 45000;
+    const llmPromise = openclaw.chatCompletions(
+      openclawId,
+      [{ role: 'user', content: prompt }],
+      sessionUser,
+      false,
+      {
+        injectLearningsInstruction: false,
+        injectSessionHistoryInstruction: false,
+        timeoutMs,
+      }
+    );
+    const timed = await Promise.race([
+      llmPromise.then((r) => ({ ok: true, r })),
+      new Promise((resolve) => setTimeout(() => resolve({ ok: false, timeout: true }), timeoutMs + 2000)),
+    ]);
+    if (timed.ok && timed.r) {
+      const text = String(timed.r.content || '').trim();
+      if (text && text.length >= 20) {
+        reply = /\bagr-[a-f0-9]{8,}\b/i.test(text) ? text : `${text}\n\nGoal plan: \`${id}\``;
+        via = 'coo_llm';
+      }
+    }
+  } catch (e) {
+    console.warn('[goal-run] completion nudge LLM skipped', id, e?.message || e);
+  }
+
+  try {
+    insertChatTurn({
+      agentId: agent.id,
+      ownerUserId: owner,
+      role: 'assistant',
+      content: reply,
+    });
+  } catch (e) {
+    console.warn('[goal-run] completion nudge chat insert failed', e?.message || e);
+    return { ok: false, error: e?.message || String(e), via };
+  }
+
+  try {
+    sendPlatformNotifications({
+      userIds: [owner],
+      title:
+        terminal === 'failed'
+          ? `Goal plan failed: ${clip(title, 80)}`
+          : `Goal plan completed: ${clip(title, 80)}`,
+      body: clip(
+        `${id} · ${terminal}\n${ladder || ''}\n\nOpen chat with your COO or Goal plans for full detail.`.slice(
+          0,
+          3500
+        ),
+        4000
+      ),
+      linkUrl: `/agents/${encodeURIComponent(agent.id)}/chat`,
+      createdBy: String(agent.id || 'goal-run').slice(0, 64),
+      source: 'agent_goal_run',
+      sourceKey: `goal-run:${id}:terminal`,
+    });
+  } catch (e) {
+    console.warn('[goal-run] completion push failed', e?.message || e);
+  }
+
+  console.info('[goal-run] completion nudge posted', { goalRunId: id, via, terminal });
+  return { ok: true, via, goal_run_id: id, terminal };
 }
 
 
