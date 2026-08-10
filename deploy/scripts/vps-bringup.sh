@@ -2,7 +2,9 @@
 # Full bring-up after images are built: restore volumes then start stack.
 set -euo pipefail
 cd /opt/agent-os/deploy
-export COMPOSE_FILE=docker-compose.yml:docker-compose.browser.yml
+# shellcheck source=compose-file-defaults.sh
+source /opt/agent-os/deploy/scripts/compose-file-defaults.sh
+export_vps_compose_file /opt/agent-os/deploy/.env
 TRANSFER_DIR=/opt/agent-os-transfer
 PROJECT=agent-os
 

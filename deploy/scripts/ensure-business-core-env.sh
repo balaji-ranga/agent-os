@@ -173,7 +173,9 @@ if [[ "$START_ERPNEXT" == "1" || "$START_ERPNEXT" == "true" ]]; then
   echo "ensure-business-core-env: after site is healthy, create API Key+Secret in Desk → set ERPNEXT_API_KEY/SECRET"
 fi
 
-# Recreate backend so it picks embed env
+# Recreate backend so it picks embed env (uses COMPOSE_FILE — must include vps-client-ip on VPS).
+# Do not use bare `-f docker-compose.yml` here; that historically stripped host ports when
+# nginx remained host-network → login 502. Base compose now also loopback-publishes :3001.
 docker compose --env-file "$ENV_FILE" up -d --no-deps --force-recreate backend \
   || docker compose --env-file "$ENV_FILE" restart backend \
   || true

@@ -80,20 +80,26 @@ if command -v node >/dev/null 2>&1; then
   node ../scripts/ensure-deploy-secrets.js --env-file .env || true
 fi
 
-echo "==> Build + init + up (with browser overlay for Chromium)"
-export COMPOSE_FILE="docker-compose.yml:docker-compose.browser.yml"
+echo "==> Build + init + up (with browser + VPS client-IP overlays)"
+# shellcheck source=compose-file-defaults.sh
+source "$(cd "$(dirname "$0")" && pwd)/compose-file-defaults.sh"
+export_vps_compose_file .env
 docker compose build
 docker compose --profile init run --rm init
 docker compose up -d
 
-echo "==> Waiting for health"
+echo "==> Waiting for health (public + loopback)"
 for i in $(seq 1 60); do
-  if curl -kfsS "https://127.0.0.1/api/health" >/dev/null 2>&1 || curl -kfsS "https://${PUBLIC_HOST}/api/health" >/dev/null 2>&1; then
+  if curl -kfsS "https://127.0.0.1/api/health" >/dev/null 2>&1 \
+    && curl -fsS "http://127.0.0.1:3001/health" >/dev/null 2>&1; then
     echo "Healthy"
     break
   fi
   sleep 3
 done
+if [[ -f scripts/assert-vps-ingress.sh ]]; then
+  bash scripts/assert-vps-ingress.sh || echo "WARN: assert-vps-ingress failed (check ports/COMPOSE_FILE)"
+fi
 
 docker compose ps
 echo "Done bootstrap. Restore data volumes next if not already done."

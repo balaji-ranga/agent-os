@@ -25,14 +25,15 @@
 #   .\deploy\scripts\sync-to-vps.ps1 -Services frontend
 set -euo pipefail
 cd /opt/agent-os/deploy
-export COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml:docker-compose.browser.yml}"
+# shellcheck source=compose-file-defaults.sh
+source /opt/agent-os/deploy/scripts/compose-file-defaults.sh
+export_vps_compose_file /opt/agent-os/deploy/.env
 
 echo "==> Rebuild frontend (+ nginx so upstream IP refreshes)"
 docker compose build frontend
 docker compose up -d --force-recreate frontend nginx
 sleep 4
-curl -kfsS https://127.0.0.1/api/health
-echo
+bash /opt/agent-os/deploy/scripts/assert-vps-ingress.sh
 curl -kfsS -o /dev/null -w "register_http=%{http_code}\n" https://127.0.0.1/register
 curl -kfsS -o /dev/null -w "home_http=%{http_code}\n" https://127.0.0.1/ || true
 

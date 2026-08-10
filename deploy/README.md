@@ -678,22 +678,59 @@ bash /opt/agent-os/deploy/scripts/vps-verify-frontend-media.sh
 
 Always recreate **nginx** after recreating **frontend** so the reverse proxy picks up the new container IP (otherwise you may see HTTP 502).
 
-## VPS client IP overlay (A2A IP policy)
+## VPS client IP overlay (A2A IP policy) + reproducible ingress
 
-On production VPS hosts, `vps-deploy-latest.sh` and `sync-to-vps.ps1` include **`docker-compose.vps-client-ip.yml`** in `COMPOSE_FILE` by default:
+On production VPS hosts, `vps-deploy-latest.sh`, `sync-to-vps.ps1`, and `deploy/.env` **must** use:
 
 ```bash
-export COMPOSE_FILE="docker-compose.yml:docker-compose.browser.yml:docker-compose.vps-client-ip.yml"
+COMPOSE_FILE=docker-compose.yml:docker-compose.browser.yml:docker-compose.vps-client-ip.yml:docker-compose.docker-tools.yml
 ```
 
-Docker’s bridge port proxy makes nginx see the gateway IP instead of the real remote address. The overlay:
+Canonical helper: `deploy/scripts/compose-file-defaults.sh` (`export_vps_compose_file`).
 
-- Runs **nginx** in `network_mode: host` with `nginx.host-network.conf`
-- Publishes **backend** and **frontend** on loopback only (`127.0.0.1:3001`, `127.0.0.1:8080`)
+### Topology (why logins 502 if wrong)
 
-That lets AgentExchange **deny_all / whitelist** IP checks use the actual client IP. Without it, every external caller can look like the same bridge address and whitelist rules will not work as intended.
+| Piece | Expected |
+| --- | --- |
+| nginx | `network_mode: host` + `nginx.host-network.conf` |
+| backend | published **`127.0.0.1:3001→3001`** (base compose + overlay) |
+| frontend | published **`127.0.0.1:8080→80`** |
+| Public `/api/*` | nginx → `http://127.0.0.1:3001` |
 
-Local dev (non-VPS) usually omits this file — use the base `docker-compose.yml` only.
+Host-network nginx **cannot** use Docker DNS `backend:3001`. It only reaches the API via the host loopback publish.
+
+### 2026-08 regression (all logins 502)
+
+Symptom: every CEO/admin login failed with nginx **502**; password unchanged.  
+Root cause: backend container still **healthy** (healthcheck is in-container `curl 127.0.0.1:3001`), but **host port publish was missing** (`docker port` empty). Frontend still had `127.0.0.1:8080`. Edge → connection refused to `127.0.0.1:3001`.
+
+How it happens: any `docker compose up --force-recreate backend` (or partial deploy) with a **truncated `COMPOSE_FILE`** that omitted `vps-client-ip` while nginx stayed host-network. Several legacy scripts defaulted to only `docker-compose.yml:docker-compose.browser.yml`.
+
+Deploy “green” failed to catch it because health wait accepted:
+
+```text
+public health OR in-container curl
+```
+
+In-container curl always works without host ports.
+
+### Hardening (in repo)
+
+1. **Base `docker-compose.yml`** always publishes loopback `3001` and `8080` (safety net if overlay is omitted on recreate).
+2. **Fail-closed** after deploy: `assert-vps-ingress.sh` checks `docker port`, host `127.0.0.1:3001/health`, public `/api/health`, and login endpoint not 502.
+3. **`vps-deploy-latest.sh`** requires **public + loopback** (no in-container-only success).
+4. Rebuild/verify scripts source `compose-file-defaults.sh` and require `vps-client-ip` in `COMPOSE_FILE`.
+
+Ops check anytime:
+
+```bash
+bash /opt/agent-os/deploy/scripts/assert-vps-ingress.sh
+docker port agent-os-backend-1   # must show 127.0.0.1:3001
+```
+
+Never treat `docker compose exec backend curl …/health` alone as proof that login works.
+
+Local dev (non-VPS) can omit the overlay when using bridge nginx (`nginx.conf` → `backend:3001`). Loopback publishes remain harmless.
 
 **API list pagination:** CEO SPA list endpoints return `{ domainKey, total, limit, offset, has_more }` (shared helpers in `backend/src/lib/pagination.js`). Rebuild **backend** + **frontend** after changes. Details: root `README.md` → API (backend).
 

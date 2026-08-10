@@ -409,10 +409,13 @@ bash /opt/agent-os/deploy/scripts/vps-deploy-latest.sh
 # First time after DNS A for login points to VPS (uses acme.sh TLS-ALPN on :443; not certbot HTTP-01):
 bash /opt/agent-os/deploy/scripts/vps-expand-login-cert.sh
 SERVICES=frontend bash /opt/agent-os/deploy/scripts/vps-rebuild-frontend.sh
+bash /opt/agent-os/deploy/scripts/assert-vps-ingress.sh   # must PASS (loopback :3001 + public /api/health + login not 502)
 bash /opt/agent-os/deploy/scripts/vps-verify-frontend-media.sh   # hPanel + fullscreen + CTAs
-bash /opt/agent-os/deploy/scripts/vps-verify-platform.sh         # Platform Help + Master Data + marketing hosts
+bash /opt/agent-os/deploy/scripts/vps-verify-platform.sh         # Platform Help + Master Data + marketing hosts + ingress
 bash /opt/agent-os/deploy/scripts/vps-verify-status-retention-ui.sh  # status checker + retention + Storage UI
 ```
+
+**VPS reproducibility rule:** always keep `COMPOSE_FILE` including `docker-compose.vps-client-ip.yml` (see `deploy/.env.example` and `deploy/scripts/compose-file-defaults.sh`). Host-network nginx talks to **`127.0.0.1:3001`**, not `backend:3001`. A backend recreate that drops that loopback publish returns **502 on all logins** while the container still looks healthy — fixed by base compose loopback ports + `assert-vps-ingress.sh` (details: `deploy/README.md` → *VPS client IP overlay*).
 
 Onboarding Helper + Workflow Builder **chat E2E** (CEO token; prompts in platform-help **27**):
 

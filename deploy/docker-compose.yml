@@ -377,6 +377,11 @@ services:
       - agent_os_data:/data/agent-os:Z
       - openclaw_home:/root/.openclaw:Z
       - workflow_fs:/data/workflow-fs:Z
+    # Loopback-only publish (always). VPS host-network nginx proxies to 127.0.0.1:3001.
+    # Keep this in base (not only vps-client-ip.yml) so a recreate without the overlay
+    # cannot strip the port and 502 all logins while container healthcheck still passes.
+    ports:
+      - "127.0.0.1:3001:3001"
     expose:
       - "3001"
     depends_on:
@@ -405,6 +410,9 @@ services:
         VITE_API_URL: ${VITE_API_URL:-/api}
     image: agent-os-frontend:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    # Loopback-only (always). Host-network nginx uses 127.0.0.1:8080 as SPA upstream.
+    ports:
+      - "127.0.0.1:8080:80"
     expose:
       - "80"
     depends_on:

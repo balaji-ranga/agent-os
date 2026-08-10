@@ -7,9 +7,14 @@ set -euo pipefail
 
 ROOT="${AGENT_OS_ROOT:-/opt/agent-os}"
 cd "$ROOT/deploy"
-export COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml:docker-compose.browser.yml}"
+# shellcheck source=compose-file-defaults.sh
+source "$ROOT/deploy/scripts/compose-file-defaults.sh"
+export_vps_compose_file "$ROOT/deploy/.env"
 
 echo "==> platform verify $(date -Is)"
+
+echo "==> VPS ingress (login path / loopback ports)"
+bash "$ROOT/deploy/scripts/assert-vps-ingress.sh"
 
 echo "==> services"
 docker compose ps backend frontend openclaw --format '{{.Service}} {{.Status}}'

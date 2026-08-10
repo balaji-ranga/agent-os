@@ -10,7 +10,9 @@ set -euo pipefail
 
 ROOT="${AGENT_OS_ROOT:-/opt/agent-os}"
 cd "$ROOT/deploy"
-export COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml:docker-compose.browser.yml:docker-compose.vps-client-ip.yml:docker-compose.docker-tools.yml}"
+# shellcheck source=compose-file-defaults.sh
+source "$ROOT/deploy/scripts/compose-file-defaults.sh"
+export_vps_compose_file "$ROOT/deploy/.env"
 
 LOGIN_HOST="${LOGIN_HOST:-login.flolah.cloud}"
 APEX_HOST="${APEX_HOST:-flolah.cloud}"
@@ -58,6 +60,8 @@ fi
 docker compose up -d --force-recreate --no-deps nginx
 docker compose up -d --no-deps --force-recreate backend || docker compose restart backend
 trap - EXIT
+
+bash "$ROOT/deploy/scripts/assert-vps-ingress.sh"
 
 curl -sS -m 10 -o /dev/null -w "login_home:%{http_code}\n" "https://${LOGIN_HOST}/" || true
 echo "Done. App: https://${LOGIN_HOST}"

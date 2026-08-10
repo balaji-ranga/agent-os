@@ -25,7 +25,9 @@ set -euo pipefail
 
 ROOT="${AGENT_OS_ROOT:-/opt/agent-os}"
 cd "$ROOT"
-export COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml:docker-compose.browser.yml:docker-compose.vps-client-ip.yml:docker-compose.docker-tools.yml}"
+# shellcheck source=compose-file-defaults.sh
+source "$ROOT/deploy/scripts/compose-file-defaults.sh"
+export_vps_compose_file "$ROOT/deploy/.env"
 cd "$ROOT/deploy"
 
 SERVICES="${SERVICES:-frontend backend openclaw}"
@@ -239,22 +241,39 @@ if [[ -f "${ROOT}/deploy/scripts/sync-openclaw-chrome-extension.sh" ]]; then
   FORCE_SYNC=0 bash "${ROOT}/deploy/scripts/sync-openclaw-chrome-extension.sh" || \
     echo "[deploy] WARN: chrome-extension sync skipped"
 fi
-echo "==> wait for backend health"
+echo "==> wait for backend health (public + host loopback — never in-container only)"
+# In-container curl used to mark deploy OK while host nginx got connection refused
+# on 127.0.0.1:3001 (backend ports stripped) and all logins 502.
 ok=0
 for i in $(seq 1 40); do
-  if curl -kfsS "${PUBLIC_URL%/}/api/health" >/dev/null 2>&1 \
-    || curl -kfsS https://127.0.0.1/api/health >/dev/null 2>&1 \
-    || docker compose exec -T backend curl -fsS http://127.0.0.1:3001/health >/dev/null 2>&1; then
+  public_ok=0
+  loop_ok=0
+  if curl -kfsS -m 5 "${PUBLIC_URL%/}/api/health" >/dev/null 2>&1 \
+    || curl -kfsS -m 5 https://127.0.0.1/api/health >/dev/null 2>&1; then
+    public_ok=1
+  fi
+  if curl -fsS -m 3 http://127.0.0.1:3001/health >/dev/null 2>&1; then
+    loop_ok=1
+  fi
+  if [[ "$public_ok" == "1" && "$loop_ok" == "1" ]]; then
     ok=1
-    echo "    healthy after ${i} tries"
+    echo "    healthy after ${i} tries (public+loopback)"
     break
   fi
   sleep 3
 done
 if [[ "$ok" != "1" ]]; then
-  echo "ERROR: backend health check failed"
+  echo "ERROR: backend health check failed (need BOTH public /api/health and host 127.0.0.1:3001/health)"
   docker compose ps
+  docker port agent-os-backend-1 2>/dev/null || true
   exit 1
+fi
+if [[ -f "$ROOT/deploy/scripts/assert-vps-ingress.sh" ]]; then
+  sed -i 's/\r$//' "$ROOT/deploy/scripts/assert-vps-ingress.sh" 2>/dev/null || true
+  bash "$ROOT/deploy/scripts/assert-vps-ingress.sh" || {
+    echo "ERROR: assert-vps-ingress failed after recreate"
+    exit 1
+  }
 fi
 
 # Platform MCPs (Brave BYOK + Meta Graph OAuth): rebuild containers + seed is_platform=1 registry rows

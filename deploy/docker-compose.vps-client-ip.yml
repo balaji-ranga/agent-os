@@ -1,9 +1,13 @@
-# VPS-only networking override (included in vps-deploy-latest.sh COMPOSE_FILE by default).
+# VPS-only networking override (required on production; part of COMPOSE_FILE default).
 #
 # Docker's userland port proxy masks external client IPs as the bridge gateway.
-# Run nginx in host networking and expose only backend/frontend loopback ports so
-# nginx receives the real remote address for A2A deny_all / whitelist IP policy,
-# desktop package, browser worker, and IBKR local-bridge-webhook IP checks.
+# Run nginx in host networking with nginx.host-network.conf so nginx sees the real
+# remote address for A2A deny_all / whitelist IP policy, desktop package, browser
+# worker, and IBKR local-bridge-webhook IP checks.
+#
+# Loopback ports for backend/frontend also live in base docker-compose.yml so a
+# backend-only recreate without this file cannot drop 127.0.0.1:3001 (login 502).
+# Re-declare them here so an older image of this overlay still documents topology.
 services:
   backend:
     ports:

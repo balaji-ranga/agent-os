@@ -161,6 +161,8 @@ if (Test-Path "$Repo\deploy\static\erp-handoff") {
 ssh @ssh "root@$HostIp" "chmod -R a+rX $RemoteRoot/deploy/static/flolah-home; chmod 755 $RemoteRoot/deploy/static/crm-handoff $RemoteRoot/deploy/static/erp-handoff 2>/dev/null; chmod 644 $RemoteRoot/deploy/static/crm-handoff/* $RemoteRoot/deploy/static/erp-handoff/* 2>/dev/null; true"
 scp @ssh `
   "$Repo\deploy\scripts\vps-deploy-latest.sh" `
+  "$Repo\deploy\scripts\compose-file-defaults.sh" `
+  "$Repo\deploy\scripts\assert-vps-ingress.sh" `
   "$Repo\deploy\scripts\vps-expand-login-cert.sh" `
   "$Repo\deploy\scripts\docker-disk-hygiene.sh" `
   "$Repo\deploy\scripts\vps-verify-platform.sh" `
@@ -186,6 +188,9 @@ scp @ssh `
   "$Repo\deploy\scripts\vps-regression-full.sh" `
   "$Repo\deploy\scripts\vps-enable-real-openconnector.sh" `
   "$Repo\deploy\scripts\vps-rebuild-frontend.sh" `
+  "$Repo\deploy\scripts\vps-bootstrap.sh" `
+  "$Repo\deploy\scripts\vps-bringup.sh" `
+  "$Repo\deploy\scripts\vps-build.sh" `
   "$Repo\deploy\scripts\ensure-deepseek-env.sh" `
   "$Repo\deploy\scripts\ensure-workflow-certify-env.sh" `
   "$Repo\deploy\scripts\ensure-cron-env.sh" `
