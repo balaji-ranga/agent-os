@@ -1195,7 +1195,7 @@ export default function Kanban() {
                     <ChatMessageAttachments attachments={parsed.attachments} />
                   )}
                   {(parsed.text || (!parsed.attachments?.length && m.content)) && (
-                    <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: '0.9rem' }}>
+                    <div style={{ wordBreak: 'break-word', fontSize: '0.9rem' }}>
                       <ChatMessageContent content={parsed.text || m.content} />
                     </div>
                   )}
@@ -1243,7 +1243,7 @@ export default function Kanban() {
                       <ChatMessageAttachments attachments={parsed.attachments} />
                     )}
                     {(parsed.text || (!parsed.attachments?.length && t.content)) && (
-                      <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: '0.88rem' }}>
+                      <div style={{ wordBreak: 'break-word', fontSize: '0.88rem' }}>
                         <ChatMessageContent content={parsed.text || t.content} />
                       </div>
                     )}

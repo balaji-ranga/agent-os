@@ -3,9 +3,10 @@ import AuthenticatedMediaImage, {
   AuthenticatedMediaVideo,
   AuthenticatedMediaAudio,
 } from './AuthenticatedMediaImage';
+import { renderChatMarkdown } from '../utils/chatMarkdown.js';
 
 /**
- * Renders chat message content: text plus inline images/audio/videos.
+ * Renders chat message content: markdown text plus inline images/audio/videos.
  * Auth-protected /api/media paths load via Bearer → blob so they play inline (not 401 links).
  */
 
@@ -175,9 +176,15 @@ export default function ChatMessageContent({ content }) {
   if (segments.length === 0) segments.push({ type: 'text', value: contentStr });
 
   return (
-    <div className="chat-message-content" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+    <div className="chat-message-content" style={{ wordBreak: 'break-word' }}>
       {segments.map((seg, i) => {
-        if (seg.type === 'text') return <span key={i}>{seg.value}</span>;
+        if (seg.type === 'text') {
+          return (
+            <div key={i} className="chat-message-md">
+              {renderChatMarkdown(seg.value)}
+            </div>
+          );
+        }
         if (seg.type === 'audio') {
           return <AuthenticatedMediaAudio key={i} src={seg.value} />;
         }

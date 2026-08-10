@@ -43,7 +43,7 @@ You do not need to know APIs or Docker for everyday use.
 
 1. From home chat, pick an AI employee (COO is default) — or open **Chat** from **My Org** / **AI Employees**.
 2. Type your request in plain language and send. Optionally **attach** files (paperclip) — documents/images/audio/video are stored under Knowledge and `inbound/attachments/`.
-3. When the AI employee uses tools (Master Data, notify, email, generate image/TTS, market history, **native OpenClaw `browser`**, etc.), small **tool icons** may appear under the reply so you can see what it did. Generated media plays **inline** in the chat (you must be logged in).
+3. When the AI employee uses tools (Master Data, notify, email, generate image/TTS, market history, **native OpenClaw `browser`**, etc.), small **tool icons** may appear under the reply so you can see what it did. Replies render markdown (**bold**, lists, code, links). Generated media plays **inline** in the chat (you must be logged in).
 4. Prefer asking the **COO** for work that should be planned or handed to a specialist (research, applications, etc.).
 5. To reach an AI employee from **WhatsApp / Slack**, open that employee’s **Channels** wizard (see Platform Help **24**). WhatsApp **group chats are ignored by default** unless you enable groups there.
 
