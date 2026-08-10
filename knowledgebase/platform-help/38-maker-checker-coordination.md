@@ -57,6 +57,12 @@ Published per company after Business Core prefab agents exist:
 
 <!-- async-goal-ack -->
 
+### New plan vs reuse (ad-hoc vs scheduled)
+
+- **Chat:** each new multiphase CEO ask → new `agent_goal_create` / new `agr-...` unless the CEO says status/continue on a named plan. Session history can tempt the COO to reuse; SOUL/AGENTS require create by default.
+- **Scheduled (plan mode):** each fire → new `agr-...` via platform `createAndStartGoalRun`; approved `plan_json` is only the **step template**. Not the chat reuse trap.
+
+
 **Async ack (major goals):** `agent_goal_create` returns immediately with `async:true`, `goal_run_id` (`agr-...`), and plan steps. The COO should quote the plan and end the turn; platform advances remaining steps when each child workflow/specialty reaches terminal (runner plus watch callbacks). Status callbacks and CEO notifications name the **goal plan id + title** when bound (not only workflow run numbers).
 
 **Workflow run vs goal plan:** an `agent_workflow_trigger` **run_id** (integer) is only a single agent-workflow execution. Durable multi-phase tracking (Digest, Goal Plan panel, step ladder) requires **`agent_goal_create`** → **`goal_run_id`** (`agr-…`). If the COO triggers multi-phase CRM+ERP language without an agr- id, the platform may auto-upgrade that trigger into a goal plan.

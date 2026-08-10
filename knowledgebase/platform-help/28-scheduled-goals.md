@@ -37,6 +37,19 @@ Orchestration words (`agent_goal_create`, `notify_ceo`, “include the goal run 
 
 **Multi-phase goals (CRM then ERP, multiple workflows, multi-specialty hybrid)?** Ordered workflow phrases or clear CRM→O2C intent plan to durable **`agent_goal_run`** steps (`workflow_trigger`, optional parallel `specialty_task`, `notify_ceo`). Platform advances when each child workflow or specialty-delegation reaches terminal. Ad-hoc COO chat should call **`agent_goal_create`** (returns `goal_run_id` like `agr-…`). If the COO fires **`agent_workflow_trigger`** with multi-workflow language and no plan id, the platform **auto-upgrades** that call into a goal plan. A numeric workflow **`run_id` is not a goal plan** (no Digest ladder / Goal Plan panel). Inspect: **`agent_goal_list`** / **`agent_goal_status`**, Digest, `/goal-plans`. See [38-maker-checker-coordination.md](./38-maker-checker-coordination.md).
 
+<!-- plan-reuse-scheduled -->
+
+## New plan vs reuse (scheduled vs chat)
+
+| Path | Reuse trap? | What is reused |
+|------|-------------|----------------|
+| **Ad-hoc COO chat** | Yes (LLM) | Session history / MEMORY may quote an old `agr-...` and skip `agent_goal_create` unless the CEO asks for status/continue. Backend create always inserts a **new** row when the tool is called. |
+| **Scheduled goal fire (plan mode)** | **No LLM reuse of `agr-...`** | Each tick / Run now calls `createAndStartGoalRun` to a **new** `agr-...` every fire. If the schedule has an **approved** plan, the **step template** (`plan_json`) is reapplied; executions are still new. Cadence dedupe (`already_ran_this_hour` / today) skips a whole fire — not "same agr". |
+| **Scheduled goal fire (chat fallback)** | Possible (LLM) | If the fire does not use durable plan mode, OpenClaw chat uses a stable `sched-...` session; MEMORY/session reuse heuristics can apply. Prefer approve-plan schedules for multiphase CRM/ERP. |
+
+**Implication:** Daily/hourly multiphase schedules do **not** get stuck on yesterday's `agr-...` in plan mode. Ad-hoc chat still needs new-plan defaulting (COO AGENTS/SOUL). Clearing chat memory is for COO chat tests — not required for scheduled plan-mode fires.
+
+
 **Does hourly mean every minute?** No. Hourly fires **once per hour** at the chosen minute (`time_local` minutes; the hour part is ignored). Default is on the hour (`:00`). Token cost rises with hourly checks — use for watchers (e.g. price dip notify), not for heavy work.
 
 **Does it survive restarts?** Yes. Status is in the database (`active` / `paused` / `completed`). Only **active** goals fire on the platform tick `SCHEDULED_GOALS_CRON` (default every minute dispatcher).
