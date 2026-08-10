@@ -1,0 +1,49 @@
+{
+  "id": "ibkr-workflow-templates",
+  "name": "IBKR paper trading workflow templates",
+  "description": "Source-of-truth seeds for IBKR maker/checker day plan, position poller, and monthly trading W1-W5. Run after clean deploy when paper IBKR is required.",
+  "workflows": [
+    {
+      "id": "ibkr-maker-checker-paper",
+      "name": "IBKR day plan (maker/checker)",
+      "chat_phrase": "run ibkr day plan",
+      "seed_script": "backend/scripts/seed-ibkr-maker-checker-workflow.js",
+      "docs": [
+        "knowledgebase/IBKR-TRADING-WORKFLOW.md",
+        "knowledgebase/IBKR-MONTHLY-WORKFLOWS.md"
+      ]
+    },
+    {
+      "id": "ibkr-position-poller-paper",
+      "name": "IBKR position poller",
+      "seed_script": "backend/scripts/seed-ibkr-poller-workflow.js"
+    },
+    {
+      "id": "monthly-trading-w1-post-close",
+      "name": "Monthly trading W1",
+      "seed_script": "backend/scripts/seed-monthly-trading-w1-workflow.js"
+    },
+    {
+      "id": "monthly-trading-w2",
+      "name": "Monthly trading W2",
+      "seed_script": "backend/scripts/seed-monthly-trading-w2-workflow.js"
+    },
+    {
+      "id": "monthly-trading-w3",
+      "name": "Monthly trading W3",
+      "seed_script": "backend/scripts/seed-monthly-trading-w3-workflow.js"
+    },
+    {
+      "id": "monthly-trading-w4",
+      "name": "Monthly trading W4",
+      "seed_script": "backend/scripts/seed-monthly-trading-w4-workflow.js"
+    },
+    {
+      "id": "monthly-trading-w5",
+      "name": "Monthly trading W5",
+      "seed_script": "backend/scripts/seed-monthly-trading-w5-workflow.js"
+    }
+  ],
+  "industry_pack": "packs/trading_ops.json",
+  "related_agents_note": "Trading_ops industry pack supplies Market Analyst / Risk Monitor thin agents; IBKR graph agents use Brain + vault keys from seed scripts."
+}

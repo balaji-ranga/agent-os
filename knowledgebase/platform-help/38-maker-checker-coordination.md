@@ -36,6 +36,10 @@ Low-risk CRM: notes, early-stage updates — Maker may finish without Checker.
 
 ## Optional workflow templates
 
+**Source in git (clean redeploy):** `backend/src/services/company-blueprints/standard/` — agent packs + full CRM/ERP graph JSON next to industry `packs/`. Lean platform employees (COO / Workflow Builder / Platform Help) are catalogued in `platform-agents.json`; IBKR seed scripts in `trading/ibkr-workflows-manifest.json`.
+
+When Profile **CRM** or **ERP** is set to a platform provider, Flolah **creates Maker/Checker AI employees for that CEO** and **publishes** the matching workflow under `crm-mc-*` / `erp-mc-*`.
+
 Published per company after Business Core prefab agents exist:
 
 | Workflow | Chat phrase (example) | What it does |

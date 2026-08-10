@@ -26,3 +26,14 @@ import { listCompanyTypeCards } from './registry.js';
 export function getCompanyTypeCards() {
   return listCompanyTypeCards();
 }
+
+// Standard platform prefabs (COO / WFB / Help + Business Core + IBKR manifests)
+export {
+  getStandardCatalog,
+  listStandardPrefabInventory,
+  getCrmAgentDefs,
+  getErpAgentDefs,
+  loadMakerCheckerWorkflowTemplate,
+  getPlatformLeanAgents,
+  getIbkrWorkflowManifest,
+} from './standard-prefabs.js';

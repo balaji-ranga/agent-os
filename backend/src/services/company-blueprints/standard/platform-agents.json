@@ -1,0 +1,33 @@
+{
+  "id": "platform-lean-agents",
+  "name": "Lean platform AI employees",
+  "description": "Granted to every CEO on create/startup (DEFAULT_ONBOARD_AGENT_IDS). Workspaces under openclaw-workspace-templates/.",
+  "agents": [
+    {
+      "id": "balserve",
+      "name": "COO / BalServe",
+      "role": "Chief Operating Officer — plan, delegate, track standups and company ops",
+      "workspace_template": "openclaw-workspace-templates/balserve/",
+      "seed": "backend/src/db/seed-default-agents.js",
+      "standard": true,
+      "notes": "Also receives company-scoped read-only crm_* / erp_* when Business Core is entitled (business-core-coo-readonly)."
+    },
+    {
+      "id": "workflowbuilder",
+      "name": "Workflow Builder",
+      "role": "Design, mutate, certify agent workflows",
+      "workspace_template": "openclaw-workspace-templates/workflowbuilder/",
+      "seed": "backend/scripts/seed-workflow-builder-agent.js",
+      "standard": true
+    },
+    {
+      "id": "platformhelp",
+      "name": "Platform Help",
+      "role": "Product how-to via platform-help RAG — never live CRM/ERP books",
+      "workspace_template": "openclaw-workspace-templates/platformhelp/",
+      "seed": "backend/scripts/seed-platform-help-agent.js",
+      "help_corpus": "knowledgebase/platform-help/",
+      "standard": true
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "id": "crm-twenty-prefab",
+  "provider": "twenty",
+  "kind": "crm",
+  "name": "CRM Maker/Checker (Twenty)",
+  "description": "Provisioned when Profile CRM = twenty. Owner-scoped custom agents + user_agents grant.",
+  "id_prefix": {
+    "maker_a": "crm-s1-",
+    "maker_b": "crm-s2-",
+    "checker": "crm-ap-"
+  },
+  "shared_tools": {
+    "maker": [
+      "crm_status",
+      "crm_list_people",
+      "crm_create_person",
+      "crm_list_companies",
+      "crm_create_company",
+      "crm_list_opportunities",
+      "crm_list_deals",
+      "crm_create_opportunity",
+      "crm_create_deal",
+      "crm_update_opportunity",
+      "crm_list_leads",
+      "crm_create_lead",
+      "crm_list_notes",
+      "crm_list_tasks",
+      "crm_sync_org",
+      "kanban_create_task",
+      "kanban_move_status",
+      "notify_ceo",
+      "ceo_profile",
+      "master_data_list_tables",
+      "master_data_list_rows",
+      "master_data_rag",
+      "learnings_summary",
+      "summarize_url"
+    ],
+    "checker": [
+      "crm_status",
+      "crm_list_people",
+      "crm_list_companies",
+      "crm_list_opportunities",
+      "crm_list_deals",
+      "crm_list_leads",
+      "crm_list_notes",
+      "crm_list_tasks",
+      "crm_sync_org",
+      "kanban_create_task",
+      "kanban_move_status",
+      "notify_ceo",
+      "ceo_profile",
+      "master_data_list_tables",
+      "master_data_list_rows",
+      "master_data_rag"
+    ]
+  },
+  "agents": [
+    {
+      "key": "maker_a",
+      "name": "CRM Maker A",
+      "role_key": "crm_maker",
+      "department": "Sales",
+      "tools_ref": "maker",
+      "role": "CRM Maker A — accounts, contacts, pipeline on Twenty via crm_*. Can crm_sync_org (optional). High-risk CRM (Won large, merge/delete, bulk, ERP handoff): open Kanban [CRM] Review … for CRM Checker before treating done. Low-risk notes/early stages: Maker alone. Org sync optional. Optional workflow: run crm maker checker."
+    },
+    {
+      "key": "maker_b",
+      "name": "CRM Maker B",
+      "role_key": "crm_maker",
+      "department": "Sales",
+      "tools_ref": "maker",
+      "role": "CRM Maker B — enrichment, research, follow-ups via crm_*. Can crm_sync_org (optional). High-risk CRM (Won large, merge/delete, bulk, ERP handoff): open Kanban [CRM] Review … for CRM Checker before treating done. Low-risk notes/early stages: Maker alone. Org sync optional. Optional workflow: run crm maker checker."
+    },
+    {
+      "key": "checker",
+      "name": "CRM Checker",
+      "role_key": "crm_checker",
+      "department": "Sales",
+      "tools_ref": "checker",
+      "role": "CRM Checker — own high-risk CRM review (Option 1 process gate). Read list tools; approve quality or reject with FINDING: on Kanban to Maker. Prefer read + recommend; do not bulk-draft pipeline. Org sync only if CEO asks (optional)."
+    }
+  ]
+}

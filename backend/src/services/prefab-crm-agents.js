@@ -1,242 +1,24 @@
 /**
- * Prefabricated CRM workforce for platform Twenty (Profile CRM = Twenty):
- * 2 Makers + 1 Checker, owner-scoped + user_agents grant + crm_* content tools.
- * Yes: provisioned when the CEO selects platform CRM on Profile / Company setup Apply.
+ * Prefabricated CRM workforce for platform Twenty / ERPNext CRM.
+ * Agent packs: company-blueprints/standard/business-core/agents-crm-*.json
+ * Workflow templates: same folder, workflow-crm-maker-checker.json
+ * Provisioned when the CEO selects platform CRM on Profile / Company setup Apply.
  */
 import { getDb } from '../db/schema.js';
 import { createFullAgent } from './create-full-agent.js';
 import { getBusinessProfile, setPrefabCrmAgentIds } from './company-business-profile.js';
 import { setAgentToolGrants } from './openclaw-agent-tools.js';
 import { grantUserAgent, revokeUserAgent } from './users.js';
-
-const CRM_TOOLS = [
-  'crm_status',
-  'crm_list_people',
-  'crm_create_person',
-  'crm_list_companies',
-  'crm_create_company',
-  'crm_list_opportunities',
-  'crm_list_deals',
-  'crm_create_opportunity',
-  'crm_create_deal',
-  'crm_update_opportunity',
-  'crm_list_leads',
-  'crm_create_lead',
-  'crm_list_notes',
-  'crm_list_tasks',
-  'crm_sync_org',
-  'kanban_create_task',
-  'kanban_move_status',
-  'notify_ceo',
-  'ceo_profile',
-  'master_data_list_tables',
-  'master_data_list_rows',
-  'master_data_rag',
-  'learnings_summary',
-  'summarize_url',
-];
-
-const CRM_APPROVER_TOOLS = [
-  'crm_status',
-  'crm_list_people',
-  'crm_list_companies',
-  'crm_list_opportunities',
-  'crm_list_deals',
-  'crm_list_leads',
-  'crm_list_notes',
-  'crm_list_tasks',
-  'crm_sync_org',
-  'kanban_create_task',
-  'kanban_move_status',
-  'notify_ceo',
-  'ceo_profile',
-  'master_data_list_tables',
-  'master_data_list_rows',
-  'master_data_rag',
-];
-
-/** Company context for ERPNext CRM makers (own company only). */
-const ERP_CRM_COMPANY_READ = [
-  'erp_status',
-  'erp_sync_org',
-  'erp_get_company',
-  'erp_list_fiscal_years',
-];
-
-/** CRM Maker A owns company / fiscal writes for Sales CRM on ERPNext. */
-const ERP_CRM_SETUP = [
-  ...ERP_CRM_COMPANY_READ,
-  'erp_update_company',
-  'erp_create_fiscal_year',
-];
-
-/** CRM Maker A — pipeline + company setup for Sales */
-const ERP_CRM_MAKER_A_TOOLS = [
-  ...ERP_CRM_SETUP,
-  'erp_list_customers',
-  'erp_create_customer',
-  'erp_list_leads',
-  'erp_create_lead',
-  'erp_list_contacts',
-  'erp_create_contact',
-  'erp_list_opportunities',
-  'erp_create_opportunity',
-  'erp_list_items',
-  'erp_create_item',
-  'erp_list_quotations',
-  'erp_create_quotation',
-  'erp_list_sales_orders',
-  'erp_create_sales_order',
-  'erp_list_sales_invoices',
-  'erp_create_sales_invoice',
-  'erp_list_resource',
-  'erp_get_resource',
-  'erp_create_resource',
-  'erp_update_resource',
-  'kanban_create_task',
-  'kanban_move_status',
-  'notify_ceo',
-  'ceo_profile',
-  'master_data_list_tables',
-  'master_data_list_rows',
-  'master_data_rag',
-  'learnings_summary',
-  'summarize_url',
-];
-
-/** CRM Maker B — fulfillment side of sales CRM (company read; setup writes = Maker A). */
-const ERP_CRM_MAKER_B_TOOLS = [
-  ...ERP_CRM_COMPANY_READ,
-  'erp_list_customers',
-  'erp_create_customer',
-  'erp_list_contacts',
-  'erp_create_contact',
-  'erp_list_items',
-  'erp_create_item',
-  'erp_list_sales_orders',
-  'erp_create_sales_order',
-  'erp_list_delivery_notes',
-  'erp_create_delivery_note',
-  'erp_list_sales_invoices',
-  'erp_list_resource',
-  'erp_get_resource',
-  'erp_create_resource',
-  'erp_update_resource',
-  'kanban_create_task',
-  'kanban_move_status',
-  'notify_ceo',
-  'ceo_profile',
-  'master_data_list_tables',
-  'master_data_list_rows',
-  'master_data_rag',
-  'learnings_summary',
-  'summarize_url',
-];
-
-const ERP_CRM_MAKER_TOOLS = ERP_CRM_MAKER_A_TOOLS; // legacy alias
-
-const ERP_CRM_CHECKER_TOOLS = [
-  'erp_status',
-  'erp_sync_org',
-  'erp_get_company',
-  'erp_list_fiscal_years',
-  'erp_list_customers',
-  'erp_list_leads',
-  'erp_list_contacts',
-  'erp_list_opportunities',
-  'erp_list_items',
-  'erp_list_quotations',
-  'erp_list_sales_orders',
-  'erp_list_delivery_notes',
-  'erp_list_sales_invoices',
-  'erp_list_resource',
-  'erp_get_resource',
-  'erp_submit_doc',
-  'erp_cancel_doc',
-  'kanban_create_task',
-  'kanban_move_status',
-  'kanban_assign_task',
-  'kanban_reassign_to_coo',
-  'agent_workflow_certify_start',
-  'agent_workflow_certify_status',
-  'agent_workflow_certify_resume',
-  'notify_ceo',
-  'ceo_profile',
-  'master_data_list_tables',
-  'master_data_list_rows',
-  'master_data_rag',
-];
-
-
-function ownerSlug(ownerUserId) {
-  return (
-    String(ownerUserId || '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, '')
-      .slice(0, 12) || 'ceo'
-  );
-}
+import { getCrmAgentDefs, ownerSlug as packOwnerSlug } from './company-blueprints/standard-prefabs.js';
+import { seedMakerCheckerWorkflowsForBusinessProfile } from './business-core-maker-checker-workflows.js';
 
 function packDefs(ownerUserId, provider = 'twenty') {
-  const s = ownerSlug(ownerUserId);
-  if (provider === 'erpnext') {
-    return [
-      {
-        id: `crm-s1-${s}`.slice(0, 40),
-        name: 'CRM Maker A',
-        role:
-          'CRM Maker A on ERPNext Sales — company/fiscal year setup (erp_get_company, fiscal years), leads, opportunities, ' +
-          'quotations, sales orders, invoices. Draft-first; Checker submits. Independent tools from Maker B.',
-        department: 'Sales',
-        tools: ERP_CRM_MAKER_A_TOOLS,
-      },
-      {
-        id: `crm-s2-${s}`.slice(0, 40),
-        name: 'CRM Maker B',
-        role:
-          'CRM Maker B on ERPNext Sales ops — delivery notes, stock-related sales fulfillment, contact enrichment. ' +
-          'Can read company/fiscal years; draft-first. Independent tools from Maker A.',
-        department: 'Sales',
-        tools: ERP_CRM_MAKER_B_TOOLS,
-      },
-      {
-        id: `crm-ap-${s}`.slice(0, 40),
-        name: 'CRM Checker',
-        role:
-          'CRM Checker for ERPNext Sales — submit/cancel on sales docs when CRM=ERPNext; own high-risk CRM review (Option 1 process gate). Read list tools; approve quality or reject with FINDING: on Kanban to Maker. Prefer read + recommend; do not bulk-draft pipeline. Org sync only if CEO asks (optional).',
-        department: 'Sales',
-        tools: ERP_CRM_CHECKER_TOOLS,
-      },
-    ];
+  const defs = getCrmAgentDefs(ownerUserId, provider);
+  if (!defs.length) {
+    console.warn('[prefab-crm] empty agent pack for provider=%s', provider);
   }
-  return [
-    {
-      id: `crm-s1-${s}`.slice(0, 40),
-      name: 'CRM Maker A',
-      role:
-        'CRM Maker A — accounts, contacts, pipeline on Twenty via crm_*. Can crm_sync_org (optional). High-risk CRM (Won large, merge/delete, bulk, ERP handoff): open Kanban [CRM] Review … for CRM Checker before treating done. Low-risk notes/early stages: Maker alone. Org sync optional. Optional workflow: run crm maker checker.',
-      department: 'Sales',
-      tools: CRM_TOOLS,
-    },
-    {
-      id: `crm-s2-${s}`.slice(0, 40),
-      name: 'CRM Maker B',
-      role:
-        'CRM Maker B — enrichment, research, follow-ups via crm_*. Can crm_sync_org (optional). High-risk CRM (Won large, merge/delete, bulk, ERP handoff): open Kanban [CRM] Review … for CRM Checker before treating done. Low-risk notes/early stages: Maker alone. Org sync optional. Optional workflow: run crm maker checker.',
-      department: 'Sales',
-      tools: CRM_TOOLS,
-    },
-    {
-      id: `crm-ap-${s}`.slice(0, 40),
-      name: 'CRM Checker',
-      role:
-        'CRM Checker — own high-risk CRM review (Option 1 process gate). Read list tools; approve quality or reject with FINDING: on Kanban to Maker. Prefer read + recommend; do not bulk-draft pipeline. Org sync only if CEO asks (optional).',
-      department: 'Sales',
-      tools: CRM_APPROVER_TOOLS,
-    },
-  ];
+  return defs;
 }
-
 
 /** Idempotent: create missing prefab agents and grant to this CEO only. */
 export async function ensurePrefabCrmAgents(ownerUserId) {
@@ -264,7 +46,6 @@ export async function ensurePrefabCrmAgents(ownerUserId) {
         }
         grantUserAgent(owner, def.id);
         setAgentToolGrants(row, def.tools);
-        // Keep display names aligned with Maker/Checker pack (idempotent re-provision)
         try {
           getDb()
             .prepare(
@@ -301,27 +82,29 @@ export async function ensurePrefabCrmAgents(ownerUserId) {
   }
 
   setPrefabCrmAgentIds(owner, ensured);
+  let workflows = null;
   try {
-    const { seedMakerCheckerWorkflowsForOwner } = await import(
-      '../../scripts/seed-business-core-maker-checker-workflows.js'
-    );
-    const wf = seedMakerCheckerWorkflowsForOwner(owner);
-    if (wf?.results?.length) {
+    const profileAfter = getBusinessProfile(owner);
+    workflows = seedMakerCheckerWorkflowsForBusinessProfile(owner, profileAfter);
+    if (workflows?.results?.length) {
       console.info(
         '[prefab-crm] maker-checker workflows owner=%s %s',
         owner,
-        JSON.stringify(wf.results)
+        JSON.stringify(workflows.results)
+      );
+    } else if (workflows?.skipped?.length) {
+      console.info(
+        '[prefab-crm] maker-checker seed skipped owner=%s %s',
+        owner,
+        JSON.stringify(workflows.skipped)
       );
     }
   } catch (e) {
-    console.warn('[prefab-crm] maker-checker workflow seed skipped:', e?.message || e);
+    console.warn('[prefab-crm] maker-checker workflow seed failed:', e?.message || e);
   }
-  return { ok: true, created, agents: ensured };
+  return { ok: true, created, agents: ensured, workflows };
 }
 
-/**
- * Candidate CRM prefab agent ids for this CEO (current pack + profile registry).
- */
 export function listPrefabCrmAgentIdsForOwner(ownerUserId) {
   const owner = String(ownerUserId || '').trim();
   const ids = new Set([
@@ -335,25 +118,17 @@ export function listPrefabCrmAgentIdsForOwner(ownerUserId) {
   } catch {
     /* ignore */
   }
-  // Pattern match leftover ids for this CEO slug (re-provision after rename)
   try {
-    const s = ownerSlug(owner);
-    const like = `crm-%-${s}`.slice(0, 40);
-    // exact pack prefixes
+    const s = packOwnerSlug(owner);
     for (const prefix of ['crm-s1-', 'crm-s2-', 'crm-ap-']) {
       ids.add(`${prefix}${s}`.slice(0, 40));
     }
-    void like;
   } catch {
     /* ignore */
   }
   return [...ids];
 }
 
-/**
- * Remove platform CRM agents from this CEO's org when CRM is not Twenty or ERPNext.
- * Agents stay in DB (re-grant on re-select); only user_agents entitlement is disabled.
- */
 export function revokePrefabCrmAgentsFromOrg(ownerUserId) {
   const owner = String(ownerUserId || '').trim();
   if (!owner) throw Object.assign(new Error('owner_user_id required'), { status: 400 });
@@ -374,7 +149,6 @@ export function revokePrefabCrmAgentsFromOrg(ownerUserId) {
   return { ok: true, revoked, agents: [] };
 }
 
-/** Ensure granted when platform CRM = Twenty or ERPNext; otherwise remove from org. */
 export async function syncPrefabCrmAgentsForOwner(ownerUserId) {
   const owner = String(ownerUserId || '').trim();
   const profile = getBusinessProfile(owner);

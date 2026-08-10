@@ -1,0 +1,53 @@
+{
+  "id": "standard-prefabs",
+  "name": "Standard platform prefabs & workflow templates",
+  "description": "Redeploy-safe catalog of lean platform agents, Business Core Maker/Checker packs, and portfolio workflows. Industry packs live in packs/*.json; these are granted on onboard or when Profile CRM/ERP is enabled.",
+  "version": 1,
+  "source_layout": {
+    "industry_blueprints": "backend/src/services/company-blueprints/packs/",
+    "standard_prefabs": "backend/src/services/company-blueprints/standard/",
+    "openclaw_workspaces": "openclaw-workspace-templates/",
+    "platform_help_rag": "knowledgebase/platform-help/"
+  },
+  "platform_agents": {
+    "pack": "platform-agents.json",
+    "grant_on": "ceo_create_and_startup",
+    "agent_ids": ["balserve", "workflowbuilder", "platformhelp"],
+    "workspace_templates": {
+      "balserve": "openclaw-workspace-templates/balserve/",
+      "workflowbuilder": "openclaw-workspace-templates/workflowbuilder/",
+      "platformhelp": "openclaw-workspace-templates/platformhelp/"
+    },
+    "seed_scripts": [
+      "backend/src/db/seed-default-agents.js",
+      "backend/scripts/seed-workflow-builder-agent.js",
+      "backend/scripts/seed-platform-help-agent.js"
+    ]
+  },
+  "business_core": {
+    "enable_triggers": ["profile_crm_erp", "company_setup_apply"],
+    "crm": {
+      "providers": ["twenty", "erpnext"],
+      "pack_twenty": "business-core/agents-crm-twenty.json",
+      "pack_erpnext": "business-core/agents-crm-erpnext.json",
+      "workflow_template": "business-core/workflow-crm-maker-checker.json",
+      "workflow_id_pattern": "crm-mc-{ownerSlug}",
+      "chat_phrase": "run crm maker checker"
+    },
+    "erp": {
+      "providers": ["erpnext"],
+      "pack": "business-core/agents-erp-erpnext.json",
+      "workflow_template": "business-core/workflow-erp-maker-checker.json",
+      "workflow_id_pattern": "erp-mc-{ownerSlug}",
+      "chat_phrase": "run erp maker checker"
+    }
+  },
+  "trading": {
+    "manifest": "trading/ibkr-workflows-manifest.json",
+    "note": "IBKR graphs remain constructed by seed services; manifest documents ids and redeploy commands so a clean VPS can restore paper day-plan + poller + monthly W1–W5."
+  },
+  "industry_blueprints": {
+    "dir": "packs/",
+    "note": "Industry Day 0 org shapes (content_creator, trading_ops, general_ops, saas, talent, blank). Day 1 workflow graphs come from published deep blueprints or companion standard templates."
+  }
+}
