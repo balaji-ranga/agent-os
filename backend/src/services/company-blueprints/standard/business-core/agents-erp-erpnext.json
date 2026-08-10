@@ -233,15 +233,17 @@
       "name": "ERP Maker A",
       "role_key": "erp_maker",
       "department": "Finance",
-      "role": "ERP Maker A (Finance/Setup) — company chart, fiscal years, accounts, customers, quotations, orders, invoices, payments, journals, P&L for the CEO company. Use erp_get_company / erp_create_fiscal_year / erp_* resource. Draft only — Checker submits. Pair with Maker B for full desk operational coverage. Never cross company.",
-      "tools_ref": "maker"
+      "role": "ERP Maker A (Finance/Setup) \u2014 company chart, fiscal years, accounts, customers, quotations, orders, invoices, payments, journals, P&L for the CEO company. Use erp_get_company / erp_create_fiscal_year / erp_* resource. Draft only \u2014 Checker submits. Pair with Maker B for full desk operational coverage. Never cross company.",
+      "tools_ref": "maker",
+      "workspace_template_base": "erp-maker-a",
+      "workspace_template": "openclaw-workspace-templates/erp-maker-a/"
     },
     {
       "key": "maker_b",
       "name": "ERP Maker B",
       "role_key": "erp_maker",
       "department": "Operations",
-      "role": "ERP Maker B (Ops/Stock) — materials, delivery notes, purchase orders, stock entries, projects/tasks. Can erp_get_company + fiscal year read for context. Draft-first; Checker submit/cancel. Independent tools from Maker A.",
+      "role": "ERP Maker B (Ops/Stock) \u2014 materials, delivery notes, purchase orders, stock entries, projects/tasks. Can erp_get_company + fiscal year read for context. Draft-first; Checker submit/cancel. Independent tools from Maker A.",
       "tools": [
         "analyze_image",
         "ceo_profile",
@@ -285,15 +287,19 @@
         "master_data_rag",
         "master_data_update_row",
         "notify_ceo"
-      ]
+      ],
+      "workspace_template_base": "erp-maker-b",
+      "workspace_template": "openclaw-workspace-templates/erp-maker-b/"
     },
     {
       "key": "checker",
       "name": "ERP Checker",
       "role_key": "erp_checker",
       "department": "Finance",
-      "role": "ERP Checker — review Maker drafts and gate submit/cancel (erp_submit_doc, erp_cancel_doc). Own workflow/task approvals: kanban_move_status, kanban_assign_task, agent_workflow_certify_*. Read-only list tools for audit. Escalate ambiguity to CEO via notify_ceo. Do not create high-volume transactional drafts.",
-      "tools_ref": "checker"
+      "role": "ERP Checker \u2014 review Maker drafts and gate submit/cancel (erp_submit_doc, erp_cancel_doc). Own workflow/task approvals: kanban_move_status, kanban_assign_task, agent_workflow_certify_*. Read-only list tools for audit. Escalate ambiguity to CEO via notify_ceo. Do not create high-volume transactional drafts.",
+      "tools_ref": "checker",
+      "workspace_template_base": "erp-checker",
+      "workspace_template": "openclaw-workspace-templates/erp-checker/"
     },
     {
       "key": "pnl",
@@ -301,7 +307,9 @@
       "role_key": "erp_pnl",
       "department": "Finance",
       "role": "Finance specialist for company Profit & Loss on ERPNext. Run erp_profit_and_loss and erp_list_gl_entries only; never invent numbers. Hand posting work to ERP Makers/Checker.",
-      "tools_ref": "pnl"
+      "tools_ref": "pnl",
+      "workspace_template_base": "erp-pnl",
+      "workspace_template": "openclaw-workspace-templates/erp-pnl/"
     },
     {
       "key": "invoice",
@@ -309,7 +317,9 @@
       "role_key": "erp_invoice",
       "department": "Finance",
       "role": "Accounts specialist for Sales/Purchase invoices on ERPNext. Draft invoices; submit only when approved by Checker/CEO.",
-      "tools_ref": "invoice"
+      "tools_ref": "invoice",
+      "workspace_template_base": "erp-invoice",
+      "workspace_template": "openclaw-workspace-templates/erp-invoice/"
     },
     {
       "key": "project",
@@ -317,7 +327,9 @@
       "role_key": "erp_project",
       "department": "Operations",
       "role": "Project specialist: Projects and Tasks on ERPNext company scope only.",
-      "tools_ref": "project"
+      "tools_ref": "project",
+      "workspace_template_base": "erp-project",
+      "workspace_template": "openclaw-workspace-templates/erp-project/"
     }
   ]
 }

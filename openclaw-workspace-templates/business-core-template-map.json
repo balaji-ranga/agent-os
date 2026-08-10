@@ -1,0 +1,184 @@
+{
+  "source_owner": "ceo-demo-brightbox-744921",
+  "slug": "ceodemobrigh",
+  "exported_at": "2026-08-10T09:43:21.339Z",
+  "lean": [
+    "balserve",
+    "workflowbuilder",
+    "platformhelp"
+  ],
+  "crm": {
+    "twenty": {
+      "maker_a": "crm-maker-a",
+      "maker_b": "crm-maker-b",
+      "checker": "crm-checker"
+    },
+    "erpnext": {
+      "maker_a": "crm-maker-a",
+      "maker_b": "crm-maker-b",
+      "checker": "crm-checker"
+    }
+  },
+  "erp": {
+    "maker_a": "erp-maker-a",
+    "maker_b": "erp-maker-b",
+    "checker": "erp-checker",
+    "pnl": "erp-pnl",
+    "invoice": "erp-invoice",
+    "project": "erp-project"
+  },
+  "report": [
+    {
+      "templateId": "balserve",
+      "ok": true,
+      "workspace": "/root/.openclaw/workspace-balserve",
+      "written": [
+        "TOOLS.md",
+        "AGENTS.md",
+        "SOUL.md",
+        "MEMORY.md",
+        "IDENTITY.md"
+      ],
+      "tools": 107
+    },
+    {
+      "templateId": "workflowbuilder",
+      "ok": true,
+      "workspace": "/root/.openclaw/workspace-workflowbuilder",
+      "written": [
+        "TOOLS.md",
+        "AGENTS.md",
+        "SOUL.md",
+        "MEMORY.md",
+        "IDENTITY.md"
+      ],
+      "tools": 10
+    },
+    {
+      "templateId": "platformhelp",
+      "ok": true,
+      "workspace": "/root/.openclaw/workspace-platformhelp",
+      "written": [
+        "TOOLS.md",
+        "AGENTS.md",
+        "SOUL.md",
+        "MEMORY.md"
+      ],
+      "tools": 8
+    },
+    {
+      "templateId": "crm-maker-a",
+      "ok": true,
+      "workspace": "/root/.openclaw/tenants/ceo-demo-brightbox-744921/workspace-crm-s1-ceodemobrigh",
+      "written": [
+        "TOOLS.md",
+        "AGENTS.md",
+        "SOUL.md",
+        "MEMORY.md",
+        "IDENTITY.md"
+      ],
+      "tools": 34
+    },
+    {
+      "templateId": "crm-maker-b",
+      "ok": true,
+      "workspace": "/root/.openclaw/tenants/ceo-demo-brightbox-744921/workspace-crm-s2-ceodemobrigh",
+      "written": [
+        "TOOLS.md",
+        "AGENTS.md",
+        "SOUL.md",
+        "MEMORY.md"
+      ],
+      "tools": 34
+    },
+    {
+      "templateId": "crm-checker",
+      "ok": true,
+      "workspace": "/root/.openclaw/tenants/ceo-demo-brightbox-744921/workspace-crm-ap-ceodemobrigh",
+      "written": [
+        "TOOLS.md",
+        "AGENTS.md",
+        "SOUL.md",
+        "MEMORY.md",
+        "IDENTITY.md"
+      ],
+      "tools": 27
+    },
+    {
+      "templateId": "erp-maker-a",
+      "ok": true,
+      "workspace": "/root/.openclaw/tenants/ceo-demo-brightbox-744921/workspace-erp-s1-ceodemobrigh",
+      "written": [
+        "TOOLS.md",
+        "AGENTS.md",
+        "SOUL.md",
+        "MEMORY.md",
+        "IDENTITY.md"
+      ],
+      "tools": 56
+    },
+    {
+      "templateId": "erp-maker-b",
+      "ok": true,
+      "workspace": "/root/.openclaw/tenants/ceo-demo-brightbox-744921/workspace-erp-s2-ceodemobrigh",
+      "written": [
+        "TOOLS.md",
+        "AGENTS.md",
+        "SOUL.md",
+        "MEMORY.md",
+        "IDENTITY.md"
+      ],
+      "tools": 42
+    },
+    {
+      "templateId": "erp-checker",
+      "ok": true,
+      "workspace": "/root/.openclaw/tenants/ceo-demo-brightbox-744921/workspace-erp-ap-ceodemobrigh",
+      "written": [
+        "TOOLS.md",
+        "AGENTS.md",
+        "SOUL.md",
+        "MEMORY.md",
+        "IDENTITY.md"
+      ],
+      "tools": 46
+    },
+    {
+      "templateId": "erp-pnl",
+      "ok": true,
+      "workspace": "/root/.openclaw/tenants/ceo-demo-brightbox-744921/workspace-erp-pnl-ceodemobrigh",
+      "written": [
+        "TOOLS.md",
+        "AGENTS.md",
+        "SOUL.md",
+        "MEMORY.md"
+      ],
+      "tools": 30
+    },
+    {
+      "templateId": "erp-invoice",
+      "ok": true,
+      "workspace": "/root/.openclaw/tenants/ceo-demo-brightbox-744921/workspace-erp-inv-ceodemobrigh",
+      "written": [
+        "TOOLS.md",
+        "AGENTS.md",
+        "SOUL.md",
+        "MEMORY.md"
+      ],
+      "tools": 37
+    },
+    {
+      "templateId": "erp-project",
+      "ok": true,
+      "workspace": "/root/.openclaw/tenants/ceo-demo-brightbox-744921/workspace-erp-pm-ceodemobrigh",
+      "written": [
+        "TOOLS.md",
+        "AGENTS.md",
+        "SOUL.md",
+        "MEMORY.md"
+      ],
+      "tools": 32
+    }
+  ],
+  "notes": "Role-stable openclaw-workspace-templates folders for Business Core prefabs. Runtime agent ids are owner-scoped (crm-s1-{slug}, erp-ap-{slug}, \u2026); resolveWorkspaceTemplateBaseId maps them here. CRM pack (twenty or erpnext) uses crm-* templates; ERP pack uses erp-* templates. Source export: BrightBox Demo CEO."
+}

@@ -103,6 +103,8 @@ Sync copies Flolah **departments** (Master Data) + **entitled AI employees** int
 
 When Profile selects platform CRM/ERP, Maker/Checker packs receive full **`crm_*` / `erp_*` content tools** (including sync). OpenClaw uses content tools (same endpoints as MCP); workflows use MCP nodes with `X-Ceo-User-Id`.
 
+Workspace MD (TOOLS / AGENTS / SOUL / MEMORY) lives under **`openclaw-workspace-templates/`** role folders (`crm-maker-a`, `crm-maker-b`, `crm-checker`, `erp-maker-a`, `erp-maker-b`, `erp-checker`, `erp-pnl`, `erp-invoice`, `erp-project`). Runtime agent ids stay owner-scoped (`crm-s1-{slug}`, …); the backend maps them via `resolveWorkspaceTemplateBaseId`. Profile enable + Admin refresh force-push those templates into each CEO tenant workspace.
+
 ## CRM browser session vs Flolah user
 
 **Issue:** Browser cookies must not leak across Flolah companies. Each company also needs its **own** Twenty workspace (data isolation).

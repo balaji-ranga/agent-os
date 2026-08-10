@@ -95,7 +95,7 @@ The system pack **Flolah demo (BrightBox Gifts)** (`demo_brightbox_gifts`) is th
 - Standard packs: `company-blueprints/standard/platform-agents.json` + `business-core/*`
 - Re-publish + regenerate standards: `node backend/scripts/publish-brightbox-and-regenerate-standard.js` (owner `ceo-demo-brightbox-744921`)
 
-Admin → **Refresh default agents** pushes lean tools from `platform-agents.json` (COO / Workflow Builder / Platform Help) and optionally re-syncs Business Core prefabs + Maker/Checker workflows from `standard/business-core/` when the CEO has CRM/ERP enabled on Profile.
+Admin → **Refresh default agents** pushes lean tools from `platform-agents.json` (COO / Workflow Builder / Platform Help) and optionally re-syncs Business Core prefabs + Maker/Checker workflows from `standard/business-core/` when the CEO has CRM/ERP enabled on Profile. Workspace MD for CRM/ERP roles is pushed from `openclaw-workspace-templates/crm-*` and `erp-*` (see `business-core-template-map.json`).
 
 
 ## Related

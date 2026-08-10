@@ -601,7 +601,7 @@ agent-os/
 ├── tools/brave-search-mcp-byok/   # Brave Search REST → HTTP MCP wrapper (BYOK headers only)
 ├── tools/meta-graph-mcp/          # Facebook/IG Graph → HTTP MCP
 ├── tools/business-core-mcp/       # Flolah CRM/ERP tools → HTTP MCP (workflows)
-├── openclaw-workspace-templates/  # SOUL, AGENTS, MEMORY, TOOLS, ORG per agent type
+├── openclaw-workspace-templates/  # SOUL, AGENTS, MEMORY, TOOLS per agent type (lean: balserve/… + Business Core: crm-*/erp-*)
 ├── openclaw-skills/            # agent-send, agent-os-content-tools, etc.
 ├── openclaw-extensions/        # agent-os-content-tools plugin, bootstrap watcher (ORG.md)
 ├── deploy/                     # Docker Compose, nginx dual-vhost, static/flolah-home marketing,

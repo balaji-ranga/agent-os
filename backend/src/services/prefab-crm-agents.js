@@ -11,6 +11,10 @@ import { setAgentToolGrants } from './openclaw-agent-tools.js';
 import { grantUserAgent, revokeUserAgent } from './users.js';
 import { getCrmAgentDefs, ownerSlug as packOwnerSlug } from './company-blueprints/standard-prefabs.js';
 import { seedMakerCheckerWorkflowsForBusinessProfile } from './business-core-maker-checker-workflows.js';
+import {
+  ensureTenantOpenClawAgent,
+  forcePushTemplateDocs,
+} from './openclaw-tenant.js';
 
 function packDefs(ownerUserId, provider = 'twenty') {
   const defs = getCrmAgentDefs(ownerUserId, provider);
@@ -18,6 +22,40 @@ function packDefs(ownerUserId, provider = 'twenty') {
     console.warn('[prefab-crm] empty agent pack for provider=%s', provider);
   }
   return defs;
+}
+
+/** Push role-stable openclaw-workspace-templates/{crm-*}/ into tenant workspace. */
+function pushBusinessCoreWorkspace(agentRow, def, ownerUserId) {
+  const templateBase = def.template_base_id || def.workspace_template_base;
+  if (!templateBase) return null;
+  try {
+    const ensured = ensureTenantOpenClawAgent(
+      {
+        ...agentRow,
+        template_base_id: templateBase,
+        workspace_template: def.workspace_template,
+      },
+      ownerUserId
+    );
+    const pushed = forcePushTemplateDocs(templateBase, ensured.workspacePath, {
+      forceIdentity: true,
+    });
+    console.info(
+      '[prefab-crm] workspace template=%s agent=%s files=%s',
+      templateBase,
+      agentRow.id,
+      (pushed.copied || []).join(',')
+    );
+    return pushed;
+  } catch (e) {
+    console.warn(
+      '[prefab-crm] workspace template push failed agent=%s template=%s err=%s',
+      agentRow?.id,
+      templateBase,
+      e?.message || e
+    );
+    return null;
+  }
 }
 
 /** Idempotent: create missing prefab agents and grant to this CEO only. */
@@ -53,6 +91,8 @@ export async function ensurePrefabCrmAgents(ownerUserId) {
             )
             .run(def.name, def.role, def.department, def.id, owner);
         } catch (_) {}
+        const refreshed = getDb().prepare(`SELECT * FROM agents WHERE id = ?`).get(def.id);
+        if (refreshed) pushBusinessCoreWorkspace(refreshed, def, owner);
       } catch (e) {
         console.warn('[prefab-crm] refresh grants', def.id, e?.message);
       }
@@ -67,7 +107,12 @@ export async function ensurePrefabCrmAgents(ownerUserId) {
         department: def.department,
         ownerUserId: owner,
         tools: def.tools,
+        template_base_id: def.template_base_id,
+        workspace_template: def.workspace_template,
+        preserveTemplateWorkspaceDocs: true,
       });
+      const createdRow = getDb().prepare(`SELECT * FROM agents WHERE id = ?`).get(agent.id);
+      if (createdRow) pushBusinessCoreWorkspace(createdRow, def, owner);
       created.push(agent.id);
       ensured.push(agent.id);
     } catch (e) {

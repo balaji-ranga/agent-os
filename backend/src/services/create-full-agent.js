@@ -3,7 +3,8 @@
  * When ownerUserId is set, OpenClaw entry is t-{ceo}--{id} with workspace under tenants/{ceo}/.
  */
 import { writeFileSync, mkdirSync, existsSync } from 'fs';
-import { join } from 'path';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { getDb } from '../db/schema.js';
 import * as workspace from '../workspace/adapter.js';
 import { setAgentToolGrants, syncAllowlistsFile } from './openclaw-agent-tools.js';
@@ -17,6 +18,9 @@ import {
 import { writeAgentToolsMd } from './openclaw-agent-tools.js';
 import { clearAgentTombstone } from './agent-delete.js';
 import { getOpenClawDir } from '../config/openclaw-paths.js';
+import { resolveWorkspaceTemplateBaseId } from './company-blueprints/standard-prefabs.js';
+
+const REPO_TEMPLATES = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'openclaw-workspace-templates');
 
 const OPENCLAW_DIR = getOpenClawDir();
 
@@ -230,13 +234,42 @@ export async function createFullAgent(input) {
   row = db.prepare('SELECT * FROM agents WHERE id = ?').get(id);
 
   // Provision tenant OpenClaw runtime (openclaw.json + tenants/{ceo}/workspace-{id})
-  const ensured = ensureTenantOpenClawAgent(row, ownerUserId);
+  // Prefer template_base_id / workspace_template when provided (Business Core CRM/ERP packs).
+  const ensured = ensureTenantOpenClawAgent(
+    {
+      ...row,
+      template_base_id: input.template_base_id || input.templateBaseId || row.template_base_id,
+      workspace_template: input.workspace_template || input.workspaceTemplate || row.workspace_template,
+    },
+    ownerUserId
+  );
 
-  // Write CEO-specific SOUL/AGENTS/MEMORY into the tenant workspace (overrides template stubs)
+  // Product packs under openclaw-workspace-templates/{role}/ already ship SOUL/AGENTS/MEMORY.
+  // Do not stomp those with generic createFullAgent stubs (CRM/ERP maker-checker, etc.).
+  const templateBaseId = resolveWorkspaceTemplateBaseId({
+    id,
+    template_base_id: input.template_base_id || input.templateBaseId,
+    workspace_template: input.workspace_template || input.workspaceTemplate,
+  });
+  const packSoul = join(REPO_TEMPLATES, templateBaseId, 'SOUL.md');
+  const preservePackDocs =
+    input.preserveTemplateWorkspaceDocs === true ||
+    (input.preserveTemplateWorkspaceDocs !== false &&
+      existsSync(packSoul) &&
+      !['balserve'].includes(String(templateBaseId || '').toLowerCase()));
+
   mkdirSync(join(ensured.workspacePath, 'memory'), { recursive: true });
-  await workspace.writeWorkspaceFile('soul', soulMd, { workspaceRoot: ensured.workspacePath });
-  await workspace.writeWorkspaceFile('agents', agentsMd, { workspaceRoot: ensured.workspacePath });
-  await workspace.writeWorkspaceFile('memory', memoryMd, { workspaceRoot: ensured.workspacePath });
+  if (!preservePackDocs || input.forceGeneratedWorkspaceDocs) {
+    await workspace.writeWorkspaceFile('soul', soulMd, { workspaceRoot: ensured.workspacePath });
+    await workspace.writeWorkspaceFile('agents', agentsMd, { workspaceRoot: ensured.workspacePath });
+    await workspace.writeWorkspaceFile('memory', memoryMd, { workspaceRoot: ensured.workspacePath });
+  } else {
+    console.info(
+      '[create-full-agent] keeping workspace template docs template=%s agent=%s',
+      templateBaseId,
+      id
+    );
+  }
   try {
     await writeAgentToolsMd({ ...row, workspace_path: ensured.workspacePath }, toolsToGrant);
   } catch (e) {

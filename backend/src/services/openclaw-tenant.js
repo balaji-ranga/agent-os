@@ -26,6 +26,7 @@ import {
 import { COO_CONTENT_TOOLS_ALLOW } from '../lib/content-tools-allow.js';
 import { syncOrgContextToWorkspace, isGeneratedCooAgentsMd } from './org-context.js';
 import { readOpenClawConfigSafe, writeOpenClawConfigSafe } from './openclaw-config-safe.js';
+import { resolveWorkspaceTemplateBaseId } from './company-blueprints/standard-prefabs.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_TEMPLATES = join(__dirname, '..', '..', '..', 'openclaw-workspace-templates');
@@ -219,16 +220,17 @@ export function ensureTenantOpenClawAgent(agent, ceoUserId) {
   if (!ceoUserId) throw new Error('ceoUserId required');
 
   const baseOcId = baseOcIdFromAgent(agent);
+  const templateBaseId = resolveWorkspaceTemplateBaseId(agent);
   const runtimeOcId = tenantOpenClawAgentId(ceoUserId, baseOcId);
   const workspacePath = tenantWorkspacePath(ceoUserId, baseOcId);
   const workspacePosix = workspacePath.replace(/\\/g, '/');
 
   if (!existsSync(workspacePath) || readdirSync(workspacePath).length === 0) {
-    copyTemplateWorkspace(baseOcId, workspacePath);
+    copyTemplateWorkspace(templateBaseId, workspacePath);
   } else {
     mkdirSync(workspacePath, { recursive: true });
   }
-  syncEssentialWorkspaceDocs(baseOcId, workspacePath);
+  syncEssentialWorkspaceDocs(templateBaseId, workspacePath);
 
   let grants = grantsForAgentId(agent.id);
   if (!grants.length && agent.is_coo) {

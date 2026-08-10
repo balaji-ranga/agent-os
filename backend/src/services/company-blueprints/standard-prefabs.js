@@ -66,6 +66,45 @@ export function ownerWorkflowSlug(ownerUserId) {
   );
 }
 
+/**
+ * Map runtime/prefab agent id → openclaw-workspace-templates/<folder>.
+ * Prefab agents are owner-scoped (crm-s1-{slug}); templates are role-stable.
+ */
+export function resolveWorkspaceTemplateBaseId(agentOrId) {
+  const raw =
+    typeof agentOrId === 'string'
+      ? agentOrId
+      : agentOrId?.template_base_id ||
+        agentOrId?.workspace_template ||
+        agentOrId?.openclaw_agent_id ||
+        agentOrId?.id ||
+        '';
+  let id = String(raw || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\\/g, '/');
+  if (id.includes('openclaw-workspace-templates/')) {
+    id = id.split('openclaw-workspace-templates/').pop() || id;
+  }
+  id = id.replace(/\/+$/, '');
+  if (id.includes('--')) id = id.split('--').pop() || id;
+  if (id.includes('/')) id = id.split('/').filter(Boolean).pop() || id;
+
+  if (!id) return 'balserve';
+  if (['balserve', 'workflowbuilder', 'platformhelp'].includes(id)) return id;
+  if (id === 'crm-maker-a' || id.startsWith('crm-s1-')) return 'crm-maker-a';
+  if (id === 'crm-maker-b' || id.startsWith('crm-s2-')) return 'crm-maker-b';
+  if (id === 'crm-checker' || id.startsWith('crm-ap-')) return 'crm-checker';
+  if (id === 'erp-maker-a' || id.startsWith('erp-s1-')) return 'erp-maker-a';
+  if (id === 'erp-maker-b' || id.startsWith('erp-s2-')) return 'erp-maker-b';
+  if (id === 'erp-checker' || id.startsWith('erp-ap-')) return 'erp-checker';
+  if (id === 'erp-pnl' || id.startsWith('erp-pnl-')) return 'erp-pnl';
+  if (id === 'erp-invoice' || id.startsWith('erp-inv-')) return 'erp-invoice';
+  if (id === 'erp-project' || id.startsWith('erp-pm-')) return 'erp-project';
+  return id;
+}
+
+
 function resolveTools(pack, agentDef) {
   if (Array.isArray(agentDef.tools) && agentDef.tools.length) return agentDef.tools;
   const ref = agentDef.tools_ref;
@@ -81,14 +120,41 @@ export function materializeAgentDefs(pack, ownerUserId) {
   return pack.agents.map((a) => {
     const prefix = prefixes[a.key] || `${pack.kind || 'prefab'}-${a.key}-`;
     const id = String(prefix + s).slice(0, 40);
+    const kind = String(pack.kind || '').toLowerCase();
+    const roleKey = a.role_key || a.key;
+    let templateBase =
+      a.workspace_template_base ||
+      a.template_base_id ||
+      (kind === 'crm' && a.key === 'maker_a'
+        ? 'crm-maker-a'
+        : kind === 'crm' && a.key === 'maker_b'
+          ? 'crm-maker-b'
+          : kind === 'crm' && a.key === 'checker'
+            ? 'crm-checker'
+            : kind === 'erp' && a.key === 'maker_a'
+              ? 'erp-maker-a'
+              : kind === 'erp' && a.key === 'maker_b'
+                ? 'erp-maker-b'
+                : kind === 'erp' && a.key === 'checker'
+                  ? 'erp-checker'
+                  : kind === 'erp' && a.key === 'pnl'
+                    ? 'erp-pnl'
+                    : kind === 'erp' && a.key === 'invoice'
+                      ? 'erp-invoice'
+                      : kind === 'erp' && a.key === 'project'
+                        ? 'erp-project'
+                        : null);
+    if (!templateBase) templateBase = resolveWorkspaceTemplateBaseId(id);
     return {
       id,
       key: a.key,
       name: a.name,
       role: a.role || a.name,
-      role_key: a.role_key || a.key,
+      role_key: roleKey,
       department: a.department || 'Operations',
       tools: resolveTools(pack, a),
+      template_base_id: templateBase,
+      workspace_template: `openclaw-workspace-templates/${templateBase}/`,
     };
   });
 }

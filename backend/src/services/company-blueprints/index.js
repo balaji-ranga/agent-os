@@ -44,6 +44,7 @@ export {
   getPlatformLeanAgentIds,
   getPlatformLeanAgentDefs,
   getPlatformLeanAgentTools,
+  resolveWorkspaceTemplateBaseId,
   FALLBACK_PLATFORM_LEAN_AGENT_IDS,
   getIbkrWorkflowManifest,
 } from './standard-prefabs.js';

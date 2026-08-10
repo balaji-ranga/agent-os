@@ -25,6 +25,7 @@ import {
   getPlatformLeanAgentTools,
   listStandardPrefabInventory,
   invalidateStandardPrefabCache,
+  resolveWorkspaceTemplateBaseId,
 } from './company-blueprints/standard-prefabs.js';
 import { getBusinessProfile } from './company-business-profile.js';
 import { ensurePrefabCrmAgents } from './prefab-crm-agents.js';
@@ -117,7 +118,10 @@ function resolveAgentRows(agentIds) {
  */
 function pushLeanWorkspaceFromPack(agentRow, leanDef, ceoUserId, { forceIdentityMd }) {
   const ensured = ensureTenantOpenClawAgent(agentRow, ceoUserId);
-  const baseId = leanDef?.template_base_id || baseOcIdFromAgent(agentRow);
+  const baseId =
+    leanDef?.template_base_id ||
+    resolveWorkspaceTemplateBaseId(leanDef || agentRow) ||
+    baseOcIdFromAgent(agentRow);
   const ws = ensured.workspacePath || tenantWorkspacePath(ceoUserId, baseId);
   const pushed = forcePushTemplateDocs(baseId, ws, { forceIdentity: forceIdentityMd !== false });
   return {

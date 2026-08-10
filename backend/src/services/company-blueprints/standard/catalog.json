@@ -12,7 +12,11 @@
   "platform_agents": {
     "pack": "platform-agents.json",
     "grant_on": "ceo_create_and_startup",
-    "agent_ids": ["balserve", "workflowbuilder", "platformhelp"],
+    "agent_ids": [
+      "balserve",
+      "workflowbuilder",
+      "platformhelp"
+    ],
     "workspace_templates": {
       "balserve": "openclaw-workspace-templates/balserve/",
       "workflowbuilder": "openclaw-workspace-templates/workflowbuilder/",
@@ -25,9 +29,15 @@
     ]
   },
   "business_core": {
-    "enable_triggers": ["profile_crm_erp", "company_setup_apply"],
+    "enable_triggers": [
+      "profile_crm_erp",
+      "company_setup_apply"
+    ],
     "crm": {
-      "providers": ["twenty", "erpnext"],
+      "providers": [
+        "twenty",
+        "erpnext"
+      ],
       "pack_twenty": "business-core/agents-crm-twenty.json",
       "pack_erpnext": "business-core/agents-crm-erpnext.json",
       "workflow_template": "business-core/workflow-crm-maker-checker.json",
@@ -35,16 +45,30 @@
       "chat_phrase": "run crm maker checker"
     },
     "erp": {
-      "providers": ["erpnext"],
+      "providers": [
+        "erpnext"
+      ],
       "pack": "business-core/agents-erp-erpnext.json",
       "workflow_template": "business-core/workflow-erp-maker-checker.json",
       "workflow_id_pattern": "erp-mc-{ownerSlug}",
       "chat_phrase": "run erp maker checker"
-    }
+    },
+    "workspace_templates": {
+      "crm_maker_a": "openclaw-workspace-templates/crm-maker-a/",
+      "crm_maker_b": "openclaw-workspace-templates/crm-maker-b/",
+      "crm_checker": "openclaw-workspace-templates/crm-checker/",
+      "erp_maker_a": "openclaw-workspace-templates/erp-maker-a/",
+      "erp_maker_b": "openclaw-workspace-templates/erp-maker-b/",
+      "erp_checker": "openclaw-workspace-templates/erp-checker/",
+      "erp_pnl": "openclaw-workspace-templates/erp-pnl/",
+      "erp_invoice": "openclaw-workspace-templates/erp-invoice/",
+      "erp_project": "openclaw-workspace-templates/erp-project/"
+    },
+    "template_map": "openclaw-workspace-templates/business-core-template-map.json"
   },
   "trading": {
     "manifest": "trading/ibkr-workflows-manifest.json",
-    "note": "IBKR graphs remain constructed by seed services; manifest documents ids and redeploy commands so a clean VPS can restore paper day-plan + poller + monthly W1–W5."
+    "note": "IBKR graphs remain constructed by seed services; manifest documents ids and redeploy commands so a clean VPS can restore paper day-plan + poller + monthly W1\u2013W5."
   },
   "industry_blueprints": {
     "dir": "packs/",

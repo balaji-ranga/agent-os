@@ -19,6 +19,24 @@ node scripts/publish-brightbox-and-regenerate-standard.js
 | `business-core/workflow-erp-maker-checker.json` | Portable graph → `erp-mc-{ownerSlug}` |
 | `trading/ibkr-workflows-manifest.json` | IBKR day-plan / poller / monthly W1–W5 seed scripts |
 
+## Workspace templates (Business Core MD)
+
+Role-stable folders under **`openclaw-workspace-templates/`** (not per-tenant ids). Runtime ids still use owner slug (`crm-s1-{slug}`, `erp-ap-{slug}`, …); `resolveWorkspaceTemplateBaseId()` maps them:
+
+| Template folder | Prefab prefix / keys |
+|-----------------|----------------------|
+| `crm-maker-a` | `crm-s1-*` / maker_a |
+| `crm-maker-b` | `crm-s2-*` / maker_b |
+| `crm-checker` | `crm-ap-*` / checker |
+| `erp-maker-a` | `erp-s1-*` |
+| `erp-maker-b` | `erp-s2-*` |
+| `erp-checker` | `erp-ap-*` |
+| `erp-pnl` / `erp-invoice` / `erp-project` | `erp-pnl-*` / `erp-inv-*` / `erp-pm-*` |
+
+Map JSON: `openclaw-workspace-templates/business-core-template-map.json` (exported from BrightBox Demo CEO).
+
+On Profile CRM/ERP ensure and Admin **Refresh default agents** (`include_business_core`), workspaces are copied/force-pushed from these folders (TOOLS/AGENTS/SOUL/MEMORY + shared `AGENT-OS-OPS.md`).
+
 ## When things land in a user account
 
 | Asset | Trigger |

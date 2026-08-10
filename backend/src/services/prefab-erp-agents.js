@@ -14,6 +14,10 @@ import {
   ownerSlug as packOwnerSlug,
 } from './company-blueprints/standard-prefabs.js';
 import { seedMakerCheckerWorkflowsForBusinessProfile } from './business-core-maker-checker-workflows.js';
+import {
+  ensureTenantOpenClawAgent,
+  forcePushTemplateDocs,
+} from './openclaw-tenant.js';
 
 /** Full list/create/update surface — no submit/cancel (Checker owns those). */
 export const ALL_ERP_TOOLS = [
@@ -73,6 +77,39 @@ function packDefs(ownerUserId) {
   return defs;
 }
 
+function pushBusinessCoreWorkspace(agentRow, def, ownerUserId) {
+  const templateBase = def.template_base_id || def.workspace_template_base;
+  if (!templateBase) return null;
+  try {
+    const ensured = ensureTenantOpenClawAgent(
+      {
+        ...agentRow,
+        template_base_id: templateBase,
+        workspace_template: def.workspace_template,
+      },
+      ownerUserId
+    );
+    const pushed = forcePushTemplateDocs(templateBase, ensured.workspacePath, {
+      forceIdentity: true,
+    });
+    console.info(
+      '[prefab-erp] workspace template=%s agent=%s files=%s',
+      templateBase,
+      agentRow.id,
+      (pushed.copied || []).join(',')
+    );
+    return pushed;
+  } catch (e) {
+    console.warn(
+      '[prefab-erp] workspace template push failed agent=%s template=%s err=%s',
+      agentRow?.id,
+      templateBase,
+      e?.message || e
+    );
+    return null;
+  }
+}
+
 export async function ensurePrefabErpAgents(ownerUserId) {
   const owner = String(ownerUserId || '').trim();
   if (!owner) throw Object.assign(new Error('owner_user_id required'), { status: 400 });
@@ -103,6 +140,8 @@ export async function ensurePrefabErpAgents(ownerUserId) {
             )
             .run(def.name, def.role, def.department, def.id, owner);
         } catch (_) {}
+        const refreshed = getDb().prepare('SELECT * FROM agents WHERE id = ?').get(def.id);
+        if (refreshed) pushBusinessCoreWorkspace(refreshed, def, owner);
       } catch (e) {
         console.warn('[prefab-erp] refresh grants', def.id, e && e.message);
       }
@@ -117,7 +156,12 @@ export async function ensurePrefabErpAgents(ownerUserId) {
         department: def.department,
         ownerUserId: owner,
         tools: def.tools,
+        template_base_id: def.template_base_id,
+        workspace_template: def.workspace_template,
+        preserveTemplateWorkspaceDocs: true,
       });
+      const createdRow = getDb().prepare('SELECT * FROM agents WHERE id = ?').get(agent.id);
+      if (createdRow) pushBusinessCoreWorkspace(createdRow, def, owner);
       created.push(agent.id);
       ensured.push(agent.id);
     } catch (e) {

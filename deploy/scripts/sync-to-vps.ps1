@@ -402,7 +402,7 @@ if ($Services -match "backend|openclaw") {
   scp @ssh "$Repo\tools\business-core-mcp\server.js" "root@${HostIp}:$RemoteRoot/tools/business-core-mcp/"
   scp @ssh -r "$Repo\openclaw-extensions\agent-os-content-tools" "root@${HostIp}:$RemoteRoot/openclaw-extensions/"
   scp @ssh -r "$Repo\openclaw-extensions\agent-os-bootstrap-watcher" "root@${HostIp}:$RemoteRoot/openclaw-extensions/"
-  Write-Host "==> Sync workspace templates (shared ops + COO + TechResearcher + ApplicationAgent + Workflow Builder + Platform Help + Onboarding Helper + Vedic Astrology) + skills + platform-help KB"
+  Write-Host "==> Sync workspace templates (shared ops + lean + Business Core CRM/ERP + specialty agents) + skills + platform-help KB"
   ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/openclaw-workspace-templates $RemoteRoot/openclaw-skills/agent-os-content-tools $RemoteRoot/openclaw-skills/agent-send"
   scp @ssh -r "$Repo\openclaw-workspace-templates\_shared" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   scp @ssh -r "$Repo\openclaw-workspace-templates\balserve" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
@@ -418,6 +418,21 @@ if ($Services -match "backend|openclaw") {
   scp @ssh -r "$Repo\openclaw-workspace-templates\jobdiscovery" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   scp @ssh -r "$Repo\openclaw-workspace-templates\resumetailor" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   scp @ssh -r "$Repo\openclaw-workspace-templates\bala" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
+  # Business Core maker/checker (role-stable templates; runtime ids are crm-s1-{slug}, erp-ap-{slug}, …)
+  foreach ($bcTpl in @(
+    'crm-maker-a','crm-maker-b','crm-checker',
+    'erp-maker-a','erp-maker-b','erp-checker','erp-pnl','erp-invoice','erp-project'
+  )) {
+    $src = Join-Path $Repo "openclaw-workspace-templates\$bcTpl"
+    if (Test-Path $src) {
+      scp @ssh -r $src "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
+    } else {
+      Write-Warning "Missing workspace template folder: $bcTpl"
+    }
+  }
+  if (Test-Path "$Repo\openclaw-workspace-templates\business-core-template-map.json") {
+    scp @ssh "$Repo\openclaw-workspace-templates\business-core-template-map.json" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
+  }
   ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/knowledgebase"
   scp @ssh -r "$Repo\knowledgebase\platform-help" "root@${HostIp}:$RemoteRoot/knowledgebase/"
   scp @ssh "$Repo\knowledgebase\README.md" "root@${HostIp}:$RemoteRoot/knowledgebase/README.md"

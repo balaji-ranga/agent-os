@@ -85,7 +85,9 @@
       "role_key": "crm_maker",
       "department": "Sales",
       "role": "CRM Maker - accounts, contacts, pipeline execution on platform Twenty via Flolah CRM tools (crm_* content tools; same surface as MCP mcp-flolah-crm). Can crm_sync_org from Flolah departments + AI employees.",
-      "tools_ref": "maker"
+      "tools_ref": "maker",
+      "workspace_template_base": "crm-maker-a",
+      "workspace_template": "openclaw-workspace-templates/crm-maker-a/"
     },
     {
       "key": "maker_b",
@@ -93,7 +95,9 @@
       "role_key": "crm_maker",
       "department": "Sales",
       "role": "CRM Maker - enrichment, research, follow-ups on platform Twenty via Flolah CRM tools (crm_*; MCP mcp-flolah-crm). Can crm_sync_org.",
-      "tools_ref": "maker"
+      "tools_ref": "maker",
+      "workspace_template_base": "crm-maker-b",
+      "workspace_template": "openclaw-workspace-templates/crm-maker-b/"
     },
     {
       "key": "checker",
@@ -101,7 +105,9 @@
       "role_key": "crm_checker",
       "department": "Sales",
       "role": "CRM Checker - review and gate risky CRM changes; prefer read + recommend unless CEO confirms. Has crm_status/list + crm_sync_org for controlled sync review.",
-      "tools_ref": "checker"
+      "tools_ref": "checker",
+      "workspace_template_base": "crm-checker",
+      "workspace_template": "openclaw-workspace-templates/crm-checker/"
     }
   ]
 }
