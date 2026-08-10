@@ -163,7 +163,7 @@ export function enquireWorkflows(ownerUserId, query, { limit = 10, all = false, 
   return { query: q, matches, count: matches.length, include_drafts: !!includeDrafts };
 }
 
-/** Resolve a workflow by id, name (fuzzy), or chat phrase substring. */
+/** Resolve a workflow by id, name (fuzzy), or chat phrase (prefer phrase at start of message). */
 export function resolveWorkflowForTrigger(ownerUserId, { workflow_id, workflow_name, name, message } = {}) {
   const id = String(workflow_id || '').trim();
   if (id) {
@@ -192,12 +192,38 @@ export function resolveWorkflowForTrigger(ownerUserId, { workflow_id, workflow_n
     const byPhrase = store.findPublishedByChatPhrase(ownerUserId, msg);
     if (byPhrase) return byPhrase;
     const lower = msg.toLowerCase();
+    const firstLine = lower.split(/\r?\n/)[0].trim();
+    // Prefer chat phrase at the start of the message (goal plans embed multiple phrases in the body).
+    let bestStart = null;
+    let bestStartLen = -1;
     for (const w of listChatTriggerableWorkflows(ownerUserId)) {
-      const phrase = String(w.chat_trigger_phrase || '').toLowerCase();
-      if (phrase && lower.includes(phrase)) {
-        return store.getDefinition(w.id, ownerUserId);
+      const phrase = String(w.chat_trigger_phrase || '').toLowerCase().trim();
+      if (!phrase) continue;
+      const atStart =
+        lower === phrase ||
+        lower.startsWith(phrase + '\n') ||
+        lower.startsWith(phrase + '\r') ||
+        lower.startsWith(phrase + ' ') ||
+        firstLine === phrase ||
+        firstLine.startsWith(phrase + ' ');
+      if (atStart && phrase.length > bestStartLen) {
+        bestStart = w;
+        bestStartLen = phrase.length;
       }
     }
+    if (bestStart) return store.getDefinition(bestStart.id, ownerUserId);
+
+    // Fallback: longest phrase contained in the message.
+    let bestContains = null;
+    let bestContainsLen = -1;
+    for (const w of listChatTriggerableWorkflows(ownerUserId)) {
+      const phrase = String(w.chat_trigger_phrase || '').toLowerCase().trim();
+      if (phrase && lower.includes(phrase) && phrase.length > bestContainsLen) {
+        bestContains = w;
+        bestContainsLen = phrase.length;
+      }
+    }
+    if (bestContains) return store.getDefinition(bestContains.id, ownerUserId);
   }
 
   return null;
@@ -476,16 +502,21 @@ export function parseWorkflowAgentCommand(message, { workflowId = null } = {}) {
 
 /**
  * Start a workflow by chat phrase match, name, or explicit workflow_id.
+ * `message` is used for phrase matching (prefer short phrase); `input` is the run payload when set.
  */
 export async function triggerAgentWorkflowForOwner(
   ownerUserId,
   { message = '', workflow_id, workflow_name, name, input, actor } = {}
 ) {
-  const msg = String(message || input || '').trim();
+  const matchText = String(message || input || '').trim();
+  const runInput =
+    input !== undefined && input !== null && String(input).trim() !== ''
+      ? input
+      : matchText;
   const def = resolveWorkflowForTrigger(ownerUserId, {
     workflow_id,
     workflow_name: workflow_name || name,
-    message: msg,
+    message: matchText,
   });
 
   if (def) {
@@ -494,14 +525,14 @@ export async function triggerAgentWorkflowForOwner(
     }
     return startAgentWorkflowRun(def.id, ownerUserId, {
       trigger: 'chat',
-      input: msg || `Triggered: ${def.name}`,
+      input: runInput || `Triggered: ${def.name}`,
       actor,
     });
   }
 
-  if (!msg) throw new Error('message, workflow name, or workflow_id required');
+  if (!matchText) throw new Error('message, workflow name, or workflow_id required');
 
-  const run = await tryTriggerWorkflowFromChat(ownerUserId, msg, actor);
+  const run = await tryTriggerWorkflowFromChat(ownerUserId, matchText, actor);
   if (!run) {
     const available = listChatTriggerableWorkflows(ownerUserId);
     const all = store.listDefinitions(ownerUserId).filter((w) => w.status === 'published');

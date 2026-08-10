@@ -518,9 +518,9 @@ async function executeWorkflowStep(goal, step) {
   const input = buildWorkflowInput(spec.phase, goal, step);
   const actor = { id: goal.agent_id, type: 'goal_run', name: 'Goal run' };
   const run = await triggerAgentWorkflowForOwner(goal.owner_user_id, {
-    message: phrase + (input ? ('\n\n' + input) : ''),
+    message: phrase,
     workflow_id: spec.workflow_id || undefined,
-    input,
+    input: phrase + (input ? ('\n\n' + input) : ''),
     actor,
   });
   const runId = run?.id ?? run?.run_id;
