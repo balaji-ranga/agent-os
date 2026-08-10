@@ -57,6 +57,7 @@ import {
 } from '../services/agent-workflow-run-watch.js';
 import {
   createAndStartGoalRun,
+  planGoalStepsFromText,
   listGoalRuns,
   getGoalRun,
   completeGoalStep,
@@ -2530,6 +2531,47 @@ router.post('/agent-workflow-trigger', optionalAuth, async (req, res) => {
       name: caller?.name || null,
       type: isWorkflowBuilderCaller(caller) ? 'workflow_builder' : 'coo',
     };
+    // Multi-intent freeform: upgrade phrase triggers that describe 2+ workflows into a durable goal plan.
+    // Prevents treating a numeric workflow run_id as a goal plan — only agr-… ids track Digest/step ladder.
+    const earlyGoalRunId = requestPayload.goal_run_id || requestPayload.goalRunId || null;
+    const forceUpgrade =
+      requestPayload.upgrade_to_goal === true ||
+      requestPayload.as_goal_plan === true ||
+      /\bagent_goal_create\b/i.test(message);
+    if (!earlyGoalRunId && !workflowId && message) {
+      try {
+        const planned = planGoalStepsFromText(message);
+        const wfCount = planned.filter((st) => st && st.type === 'workflow_trigger').length;
+        if (forceUpgrade || wfCount >= 2) {
+          const started = await createAndStartGoalRun({
+            ownerUserId,
+            agentId: caller?.id || 'balserve',
+            title: requestPayload.title || '',
+            prompt: message,
+            steps: null,
+            source: 'tool_upgrade_from_workflow_trigger',
+            context: { upgraded_from: 'agent_workflow_trigger' },
+          });
+          const goal = started?.goal || null;
+          const out = {
+            ok: true,
+            upgraded_to_goal_plan: true,
+            async: true,
+            goal_run_id: goal?.id || null,
+            goal,
+            execution: started?.execution || null,
+            ceo_user_id: ownerUserId,
+            instruction:
+              'Platform created a durable multi-intent goal plan (goal_run_id). Quote goal_run_id (agr-…) to the CEO and end the turn — do not chain manual agent_workflow_trigger for later phases; the platform advances plan steps after each workflow terminal. Workflow run ids are not goal plans.',
+          };
+          logTool(req, 'agent_workflow_trigger', requestPayload, out, 'ok', source);
+          logTool(req, 'agent_goal_create', { prompt: message, upgraded_from: 'agent_workflow_trigger' }, out, 'ok', source);
+          return res.json(out);
+        }
+      } catch (upgradeErr) {
+        console.warn('[tools] multiphase trigger→goal upgrade skipped', upgradeErr?.message || upgradeErr);
+      }
+    }
     const run = await triggerAgentWorkflowForOwner(ownerUserId, {
       message,
       workflow_id: workflowId,

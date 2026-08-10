@@ -188,6 +188,9 @@ These tools let the CEO run published workflows from chat. They are **not** the 
 | **agent_workflow_watch** | Optional re-register notify-on-CEO-wait / notify-on-terminal for an existing `run_id` (auto after trigger). |
 | **agent_workflow_watch_tick** | Optional COO cron poll (like `kanban_watch_tick`): `NO_REPLY` while running; text when waiting for CEO or terminal. Prefer platform auto-notify. |
 
+
+> **Important:** A numeric `run_id` from `agent_workflow_trigger` is a **workflow run**, not a durable goal plan. Multi-phase CRM→ERP and Digest tracking need `agent_goal_create` → `goal_run_id` (`agr-…`). Never claim a workflow `run_id` is the goal plan.
+
 **Typical multi-phase flow:** CEO or scheduled multi-phase goal → **agent_goal_create** (or scheduled goals plan mode) → platform runs CRM workflow → CEO Approval as needed → on terminal platform starts ERP → notify. Single workflow → **agent_workflow_trigger** only. Later status → **agent_goal_status** / **agent_workflow_runs**.
 
 **Maker/Checker HITL:** Prefer phrases `run erp maker checker` / `run crm maker checker`. Makers must signal `{"decision":"needs_ceo",...}` for policy gates (e.g. 5% discount); the workflow opens a **CEO Approval** Kanban node. Do not invent free-form CEO Kanban “comment Approved” cards — they do not resume runs.

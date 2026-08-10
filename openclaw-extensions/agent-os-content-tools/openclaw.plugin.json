@@ -2,7 +2,7 @@
   "id": "agent-os-content-tools",
   "name": "Agent OS Content Tools",
   "description": "Register Agent OS content/workflow/kanban tools that call the backend. No hardcoded URLs; baseUrl and apiKey from config or env.",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "activation": {
     "onStartup": true
   },
@@ -42,7 +42,14 @@
       "speech_stt",
       "analyze_image",
       "agent_workflow_runs",
-      "agent_workflow_retry"
+      "agent_workflow_retry",
+      "agent_goal_create",
+      "agent_goal_list",
+      "agent_goal_status",
+      "agent_goal_complete_step",
+      "agent_workflow_watch",
+      "agent_workflow_watch_tick",
+      "notify_ceo"
     ]
   },
   "toolMetadata": {
@@ -146,6 +153,30 @@
       "optional": true
     },
     "agent_workflow_retry": {
+      "optional": true
+    },
+    "email_send": {
+      "optional": true
+    },
+    "agent_goal_create": {
+      "optional": true
+    },
+    "agent_goal_list": {
+      "optional": true
+    },
+    "agent_goal_status": {
+      "optional": true
+    },
+    "agent_goal_complete_step": {
+      "optional": true
+    },
+    "agent_workflow_watch": {
+      "optional": true
+    },
+    "agent_workflow_watch_tick": {
+      "optional": true
+    },
+    "notify_ceo": {
       "optional": true
     }
   },

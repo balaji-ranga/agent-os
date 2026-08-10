@@ -145,7 +145,7 @@ export function syncAllowlistsFile() {
     const grants = getAgentToolGrants(a.id);
     if (!grants.length) continue;
     const ocId = resolveOpenClawAgentId(a);
-    if (ocId) out[ocId] = grants;
+    if (ocId) out[ocId] = prioritizeCoreAgentTools(grants);
   }
   out = syncTenantAllowlists(out);
   if (!existsSync(OPENCLAW_DIR)) mkdirSync(OPENCLAW_DIR, { recursive: true });
@@ -153,11 +153,36 @@ export function syncAllowlistsFile() {
   return out;
 }
 
+/** Keep multi-intent goal tools near the front of allow lists (visibility under tool caps). */
+const CORE_PRIORITY_TOOLS = [
+  'agent_goal_create',
+  'agent_goal_list',
+  'agent_goal_status',
+  'agent_goal_complete_step',
+  'agent_workflow_list',
+  'agent_workflow_enquire',
+  'agent_workflow_trigger',
+  'agent_workflow_runs',
+  'agent_workflow_watch',
+  'agent_workflow_watch_tick',
+  'notify_ceo',
+];
+
+function prioritizeCoreAgentTools(names = []) {
+  const list = [...new Set((names || []).map((t) => String(t)))];
+  const rank = new Map(CORE_PRIORITY_TOOLS.map((t, i) => [t, i]));
+  return list.sort((a, b) => {
+    const ra = rank.has(a) ? rank.get(a) : 1000;
+    const rb = rank.has(b) ? rank.get(b) : 1000;
+    return ra - rb || a.localeCompare(b);
+  });
+}
+
 function mergeNativeTools(existingAllow = [], contentGrants = []) {
   const contentSet = contentToolNamesSet();
   const native = (existingAllow || []).filter((t) => NATIVE_OPENCLAW_TOOLS.has(t) || !contentSet.has(t));
   const merged = [...new Set([...native, ...contentGrants])];
-  return merged.filter((t) => t !== 'image');
+  return prioritizeCoreAgentTools(merged.filter((t) => t !== 'image'));
 }
 
 export function syncOpenClawJsonForAgent(agent) {

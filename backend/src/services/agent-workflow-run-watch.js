@@ -129,7 +129,7 @@ export function registerWorkflowRunWatch(
     instruction:
       'Do not wait on this run in chat. Confirm run_id to the CEO, then stop this turn. ' +
       'Platform notifies the CEO on CEO approval wait / terminal, and re-wakes you (COO) on terminal ' +
-      'so you can continue multi-phase goals (e.g. ERP O2C after CRM). ' +
+      'A numeric workflow run_id is NOT a goal plan. Multi-phase goals need agent_goal_create (agr-…). ' +
       'Use agent_workflow_runs / agent_workflow_watch_tick only if the CEO asks for status.',
   };
 }
@@ -415,7 +415,7 @@ export async function wakeOrchestratorOnWorkflowTerminal(runId, opts = {}) {
       agentId: agent.id,
       ownerUserId: owner,
       role: 'user',
-      content: `[Workflow finished ${run.status}] ${name} run ${runLabel} - continue multi-phase goal if needed.`,
+      content: `[Workflow finished ${run.status}] ${name} run ${runLabel} (workflow run, not a goal plan). Continue multi-phase only via agent_goal_create / existing agr-… — do not invent binding from workflow run ids.`,
     });
   } catch (e) {
     console.warn('[wf-run-watch] chat user turn:', e?.message || e);

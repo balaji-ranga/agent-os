@@ -256,7 +256,68 @@ const PARAM_SCHEMAS = {
       message: { type: "string", description: "Chat phrase that matches a published workflow." },
       workflow_id: { type: "string", description: "Optional workflow id if phrase is unknown" },
       input: { type: "string", description: "Optional run input (defaults to message)" },
+      goal_run_id: {
+        type: "string",
+        description: "Optional durable goal plan id (agr-…) when executing a plan step.",
+      },
+      step_id: { type: "string", description: "Optional plan step id to bind this workflow run." },
       ceo_user_id: { type: "string", description: "Optional CEO owner user id" },
+    },
+    additionalProperties: true,
+  },
+  agent_goal_create: {
+    type: "object",
+    properties: {
+      prompt: {
+        type: "string",
+        description:
+          "Full multi-intent CEO goal text. Platform plans steps (e.g. CRM then ERP) when steps omitted.",
+      },
+      message: { type: "string", description: "Alias for prompt." },
+      input: { type: "string", description: "Alias for prompt." },
+      title: { type: "string", description: "Optional short plan title." },
+      steps: {
+        type: "array",
+        description: "Optional explicit steps[{type,label,spec}]. Prefer omitting so platform plans.",
+      },
+      start: {
+        type: "boolean",
+        description: "If false, only create the plan (do not execute). Default true.",
+      },
+      execute: {
+        type: "boolean",
+        description: "Alias for start. Default true.",
+      },
+    },
+    additionalProperties: true,
+  },
+  agent_goal_list: {
+    type: "object",
+    properties: {
+      status: { type: "string", description: "Optional status filter." },
+      limit: { type: "number", description: "Max rows (default platform)." },
+    },
+    additionalProperties: true,
+  },
+  agent_goal_status: {
+    type: "object",
+    properties: {
+      goal_run_id: {
+        type: "string",
+        description: "Durable goal plan id (agr-…). Required.",
+      },
+      id: { type: "string", description: "Alias for goal_run_id." },
+    },
+    additionalProperties: true,
+  },
+  agent_goal_complete_step: {
+    type: "object",
+    properties: {
+      goal_run_id: { type: "string", description: "Goal plan id (agr-…)." },
+      step_id: { type: "string", description: "Plan step id to complete." },
+      result: { type: "object", description: "Optional result payload." },
+      failed: { type: "boolean", description: "Mark step failed." },
+      error: { type: "string", description: "Failure message when failed=true." },
     },
     additionalProperties: true,
   },
@@ -717,7 +778,15 @@ export default definePluginEntry({
   description:
     "Register Agent OS content/workflow/kanban tools that call the backend. baseUrl and apiKey from config or env.",
   register(api) {
-    const tools = loadToolsFromFile();
+    const tools = loadToolsFromFile().slice().sort((a, b) => {
+      const rank = (n) =>
+        String(n || "").startsWith("agent_goal_")
+          ? 0
+          : String(n || "").startsWith("agent_workflow_")
+            ? 1
+            : 2;
+      return rank(a?.name) - rank(b?.name) || String(a?.name || "").localeCompare(String(b?.name || ""));
+    }); // Prefer multi-intent goal tools first
     const apiToolNote =
       " Invoke this tool by name with JSON parameters (API call); do not use exec or run as a shell command.";
     for (const t of tools) {

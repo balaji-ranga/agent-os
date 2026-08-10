@@ -52,6 +52,9 @@ Published per company after Business Core prefab agents exist:
 
 ### COO multi-phase goals (plan → execute)
 
+
+> **Workflow run vs goal plan:** an `agent_workflow_trigger` **run_id** (integer) is only a single agent-workflow execution. Durable multi-phase tracking (Digest, Goal Plan panel, step ladder) requires **`agent_goal_create`** → **`goal_run_id`** (`agr-…`). If the COO triggers multi-phase CRM+ERP language without an agr- id, the platform may auto-upgrade that trigger into a goal plan.
+
 Multi-intent goals (CRM then ERP O2C, or any multi-workflow chain) use a **durable goal plan** (`agent_goal_runs` / `agent_goal_steps`), not ad-hoc chat memory:
 
 1. **Plan** — `agent_goal_create` (or scheduled goal fire) builds ordered steps from the CEO prompt (phrases like `run crm maker checker` / `run erp maker checker`, or explicit `steps[]`).
