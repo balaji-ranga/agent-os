@@ -19,6 +19,8 @@ import {
   publishBlueprintFromPayload,
   buildCompanyBlueprintExportZip,
   invalidateBlueprintCache,
+  findResidualLiveSecrets,
+  cloneAndSanitizeBlueprint,
 } from '../src/services/company-blueprints/index.js';
 
 const OWNER = process.env.SOURCE_OWNER_USER_ID || 'ceo-bala';
@@ -27,6 +29,10 @@ const INDUSTRY = process.env.INDUSTRY_ID || 'demo_balaji_ranganathan';
 const OUT_DIR = process.env.OUT_DIR || '/tmp/balaji-demo-bp';
 const SET_DEFAULT = process.env.SET_DEFAULT === '1';
 const DRY = process.env.DRY_RUN === '1';
+// Optional: also write pack/zip into source tree (e.g. .../company-blueprints)
+const SOURCE_ROOT =
+  process.env.SOURCE_BLUEPRINT_ROOT ||
+  join(process.cwd(), 'src/services/company-blueprints');
 
 /** Keep product-demo workflows only (drop smoke, certify, chatops, one-off ids). */
 function keepWorkflow(w) {
@@ -72,7 +78,8 @@ invalidateBlueprintCache();
 const snap = await snapshotOwnerAsBlueprintPayloadAsync(OWNER);
 const company = snap.company_name || 'BalajiDemoCompany';
 const payload = { ...(snap.payload || {}) };
-sanitizeBlueprintSecrets(payload);
+const scrubSnap = { cleared: 0, scrubbed: 0 };
+sanitizeBlueprintSecrets(payload, scrubSnap);
 
 // Clean for demo pack
 payload.workflow_templates = (payload.workflow_templates || []).filter(keepWorkflow);
@@ -93,6 +100,21 @@ payload.source_owner_user_id = OWNER;
 payload.source_company_name = company;
 payload.demo = true;
 payload.demo_owner_name = 'Balaji Ranganathan';
+
+// Final clone scrub after filtering (defense in depth)
+const { value: cleanPayload, stats: scrubStats } = cloneAndSanitizeBlueprint(payload);
+Object.assign(payload, cleanPayload);
+const residual = findResidualLiveSecrets(payload);
+if (residual.length) {
+  console.error('REJECTED residual live secret patterns', residual.join(','));
+  process.exit(3);
+}
+console.info(
+  '[publish-balaji-demo] secrets cleared_snapshot=%s cleared_final=%s scrubbed=%s residual=none',
+  scrubSnap.cleared,
+  scrubStats.cleared,
+  scrubStats.scrubbed + scrubSnap.scrubbed
+);
 
 // Slim systems_recommended
 payload.systems_recommended = payload.systems_recommended || [
@@ -163,12 +185,44 @@ const { zip, filename, meta } = buildCompanyBlueprintExportZip(BLUEPRINT_ID);
 const zipPath = join(OUT_DIR, filename);
 writeFileSync(zipPath, zip);
 
+// Also refresh in-repo packs/ + exports/ when writable (Docker build context / laptop checkout)
+try {
+  const packsDir = join(SOURCE_ROOT, 'packs');
+  const exportsDir = join(SOURCE_ROOT, 'exports');
+  mkdirSync(packsDir, { recursive: true });
+  mkdirSync(exportsDir, { recursive: true });
+  writeFileSync(join(packsDir, `${BLUEPRINT_ID}.json`), JSON.stringify(pack, null, 2) + '\n');
+  writeFileSync(join(exportsDir, filename), zip);
+  writeFileSync(
+    join(exportsDir, `${BLUEPRINT_ID}.manifest.json`),
+    JSON.stringify(
+      {
+        published_id: published?.id,
+        secrets_scrubbed: true,
+        secrets_cleared: (scrubSnap.cleared || 0) + (scrubStats.cleared || 0),
+        zip_bytes: zip.length,
+        coverage: meta.coverage,
+        summary,
+        refreshed_at: new Date().toISOString(),
+      },
+      null,
+      2
+    ) + '\n'
+  );
+  console.info('[publish-balaji-demo] wrote source packs+exports under', SOURCE_ROOT);
+} catch (e) {
+  console.warn('[publish-balaji-demo] source-tree write skipped:', e?.message || e);
+}
+
 const manifesto = {
   published_id: published?.id,
   pack_path: packPath,
   zip_path: zipPath,
   zip_bytes: zip.length,
   coverage: meta.coverage,
+  secrets_scrubbed: true,
+  secrets_cleared: (scrubSnap.cleared || 0) + (scrubStats.cleared || 0),
+  secrets_residual: residual,
   summary,
 };
 writeFileSync(join(OUT_DIR, 'manifest.json'), JSON.stringify(manifesto, null, 2) + '\n');

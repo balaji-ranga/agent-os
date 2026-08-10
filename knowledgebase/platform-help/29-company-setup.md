@@ -86,7 +86,7 @@ The system pack **Flolah demo (Balaji Ranganathan)** (`demo_balaji_ranganathan`)
 
 - Pack: `backend/src/services/company-blueprints/packs/demo_balaji_ranganathan.json`
 - Export zip: `backend/src/services/company-blueprints/exports/demo_balaji_ranganathan.zip`
-- Re-publish: `node backend/scripts/publish-balaji-demo-blueprint.js` (owner `ceo-bala`)
+- Re-publish: `node backend/scripts/publish-balaji-demo-blueprint.js` (owner `ceo-bala`) — always secret-scrubs (`apiKey` / bridge tokens cleared; vault `*Ref` kept) and rejects residual live key patterns before writing pack/zip.
 
 
 ## Related
