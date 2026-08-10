@@ -1,0 +1,141 @@
+{
+  "published_id": "demo_balaji_ranganathan",
+  "pack_path": "/tmp/balaji-demo-bp/demo_balaji_ranganathan.json",
+  "zip_path": "/tmp/balaji-demo-bp/demo_balaji_ranganathan.zip",
+  "zip_bytes": 294379,
+  "coverage": {
+    "knowledge": true,
+    "policies": true,
+    "org": true,
+    "agents": true,
+    "agent_tools": true,
+    "agents_md": true,
+    "agents_md_ops": true,
+    "workflows": true,
+    "workflow_graphs": true,
+    "connectors": true,
+    "goals": true
+  },
+  "summary": {
+    "owner": "ceo-bala",
+    "company": "BalajiDemoCompany",
+    "agents": [
+      "MarketWatcher",
+      "CRM Checker",
+      "CRM Maker A",
+      "CRM Maker B",
+      "ERP Checker",
+      "ERP Invoice Agent",
+      "ERP Maker A",
+      "ERP Maker B",
+      "ERP P&L Agent",
+      "ERP Project Manager",
+      "Platform Help",
+      "Vedic Astrology",
+      "Weather Forecasting"
+    ],
+    "departments": 9,
+    "workflow_templates": [
+      {
+        "key": "erp-mc",
+        "nodes": 9
+      },
+      {
+        "key": "crm-mc",
+        "nodes": 9
+      },
+      {
+        "key": "summarize-inbound-media-attachment-msa4bqbo",
+        "nodes": 3
+      },
+      {
+        "key": "monthly-trading-w2-execute",
+        "nodes": 9
+      },
+      {
+        "key": "monthly-trading-w1-post-close",
+        "nodes": 22
+      },
+      {
+        "key": "monthly-trading-w5-weekly",
+        "nodes": 6
+      },
+      {
+        "key": "monthly-trading-w3-events",
+        "nodes": 17
+      },
+      {
+        "key": "ibkr-maker-checker-paper",
+        "nodes": 16
+      },
+      {
+        "key": "avatar-out-avr_079689da54cc93faf7fb",
+        "nodes": 7
+      },
+      {
+        "key": "avatar-in-avr_079689da54cc93faf7fb",
+        "nodes": 8
+      },
+      {
+        "key": "avatar-out-avr_45870beda6c75d6260fb",
+        "nodes": 7
+      },
+      {
+        "key": "avatar-in-avr_45870beda6c75d6260fb",
+        "nodes": 8
+      },
+      {
+        "key": "wf-async-a2a-callback-demo",
+        "nodes": 1
+      },
+      {
+        "key": "wf-balaji-brave-byok",
+        "nodes": 4
+      },
+      {
+        "key": "hacker-news-connector-demo-mruj9965",
+        "nodes": 3
+      },
+      {
+        "key": "sample-job-discovery-email",
+        "nodes": 3
+      },
+      {
+        "key": "masterdata-rag-brain-demo",
+        "nodes": 4
+      },
+      {
+        "key": "ibkr-position-poller-paper",
+        "nodes": 15
+      },
+      {
+        "key": "demoemail-mrg2s7rb",
+        "nodes": 3
+      },
+      {
+        "key": "template-job-applicant-pipeline",
+        "nodes": 5
+      }
+    ],
+    "goal_templates": [
+      "Morning MAG7 & VOOG market performance",
+      "Daily Status Checker Digest Email"
+    ],
+    "knowledge_tables": [
+      "company_memory",
+      "departments",
+      "vedic_birth_charts",
+      "vedic_readings",
+      "demo",
+      "Demo Products (RAG test)",
+      "content_topics_history",
+      "publish_log"
+    ],
+    "agents_md": 13,
+    "policy_chars": 1022,
+    "connectors": {
+      "mcp_oauth": 2,
+      "openconnector": true
+    }
+  }
+}
