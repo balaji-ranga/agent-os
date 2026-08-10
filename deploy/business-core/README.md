@@ -97,11 +97,22 @@ ERPNEXT_PUBLIC_URL=https://erp.crm.example.com
 ERPNEXT_ADMIN_PASSWORD=admin   # initial Administrator password from create-site
 ```
 
-**SSO:** CRM menu → Twenty handoff **or** ERPNext desk (`/app/crm`) when CRM=ERPNext. ERP menu → `/flolah-erp-handoff/?t=…` → same-origin `/flolah-erp-sso` (Set-Cookie `sid` + 302 Desk) for company-scoped user. Requires nginx proxy to backend `erp-sso-apply` (see `nginx.host-network.conf`).
+**SSO:** CRM menu → Twenty handoff **or** ERPNext desk (`/app/crm`) when CRM=ERPNext. ERP menu → `/flolah-erp-handoff/?t=…` → same-origin `/flolah-erp-sso` (Set-Cookie `sid` + 302 Desk) for company-scoped user. Requires nginx proxy to backend `erp-sso-apply` (see `nginx.host-network.conf`). Each apply clears prior ERP session cookies so CEOs on the shared host do not keep another user’s `sid`.
 
-**Tenant isolation:** ERP tools use site API key on a multi-company ERPNext site; agent/MCP paths block User/Company-list and company-scope list filters so Maker agents only see the CEO-bound company (not other Flolah CEOs).
+**Tenant isolation (desk + agents share CEO scope):**
 
-**Prefab agents:** CRM Maker A/B + Checker (Twenty `crm_*` or ERPNext sales `erp_*`); ERP = Maker A/B (full operational `erp_*` = MCP), Checker (submit/cancel + Kanban/workflow approvals), plus P&L / Invoice / Project specialists.
+| Layer | How |
+|-------|-----|
+| Map | 1 Flolah CEO → 1 ERPNext **Company** + SSO User (not System Manager) + Company User Permission + User UP (self) |
+| Global masters | Custom field **`flolah_company`** on Customer, Supplier, Lead, Contact, Address, Item, Item Price, Opportunity; strict User Permissions; backfill via `ERPNEXT_TENANT_BACKFILL` |
+| Transactions | Native `company` forced/filtered on invoices, orders, stock, projects, GL, warehouse, accounts, … |
+| Fiscal Year | Site-global year name; tools link bound company only and **never return** peer company names |
+| Agents / MCP | API key + `X-Ceo-User-Id` → same bound company filters as desk (cannot list peer masters) |
+| Org sync | `erp_sync_org` / `crm_sync_org`: Departments + **Employees** (not desk Users) under company |
+
+Remaining shared setup masters (Item Group, Mode of Payment, …) are not `flolah_company`-tagged yet — see platform-help **32**.
+
+**Prefab agents:** CRM Maker A/B + Checker (Twenty `crm_*` or ERPNext sales `erp_*`); ERP Maker A (finance/setup: company + fiscal write + money path), Maker B (ops/stock, company/fiscal read), Checker (submit/cancel + Kanban/workflow approvals), plus P&L / Invoice / Project specialists. A∪B ≈ CEO desk ops for the bound company.
 
 ## Platform MCP
 
@@ -136,14 +147,20 @@ Pass `X-Ceo-User-Id` on workflow MCP auth. Deploy hook: `deploy/scripts/ensure-p
 | TWENTY_IS_MULTIWORKSPACE_ENABLED | `true` on Twenty + backend (required for additional company workspaces) |
 | TWENTY_BOOTSTRAP_EMAIL | Optional admin used for signUpInNewWorkspace |
 | TWENTY_WORKSPACE_ID | Optional/legacy — not shared across CEOs |
+| ERPNEXT_URL | Internal Frappe base (prefer `http://erpnext-frontend:8080`) |
+| ERPNEXT_API_KEY / ERPNEXT_API_SECRET | Site API token for tools (bypasses desk UP — Flolah re-applies company filters) |
+| ERPNEXT_SSO_ENABLED | Default on — passwordless desk handoff |
+| ERPNEXT_DEFAULT_COUNTRY / CURRENCY | Used when provisioning Company |
+| ERPNEXT_STRICT_USER_PERMISSIONS | `1` (default in code) — untagged Link company fields hidden on desk |
+| ERPNEXT_TENANT_BACKFILL | `1` (default) — stamp `flolah_company` on existing global masters |
+| ERPNEXT_EMBED_URL / ERPNEXT_PUBLIC_URL | Public ERP host (`https://erp.crm.*`) |
+| BUSINESS_CORE_MCP_URL | Internal MCP registry endpoint |
 
-**Passwordless browser SSO vs password form**
+**Passwordless browser SSO vs password form (Twenty)**
 
 - Flolah **View as user / admin impersonation** does **not** block CRM passwordless login. Impersonation creates a session as the company CEO; CRM SSO mints a Twenty LOGIN token for that **CEO email** into the company workspace.
 - You still see Twenty’s **password** screen when the LOGIN handoff did not complete (expired token, prior “Unable to Reach Back-end”, incomplete certs/DNS, or SSO env off). Use **Open** (new tab) after a fix, or **Switch CRM account**, not a different admin password.
 - Force `TWENTY_SSO_ENABLED=1`, shared `TWENTY_APP_SECRET` (= Twenty `APP_SECRET`), `TWENTY_DATABASE_URL`, `TWENTY_FRONT_AUTO_BASE_URL=true`.
-| ERPNEXT_* | ERP stack + embed |
-| BUSINESS_CORE_MCP_URL | Internal MCP registry endpoint |
 
 ## Security
 
@@ -154,6 +171,9 @@ Pass `X-Ceo-User-Id` on workflow MCP auth. Deploy hook: `deploy/scripts/ensure-p
 ## Org sync
 
 `POST /api/business-core/sync-org` or tools `crm_sync_org` / `erp_sync_org`.
+
+- **Twenty CRM:** people/dept stubs under workspace.
+- **ERPNext:** ensures real Company + departments (`{name} - {abbr}`) + **Employees** for AI employees (HR fields: joining date, gender, DOB). Does **not** create desk Users per agent. Also tightens SSO desk permissions (Company + self User).
 
 ## CRM provider: ERPNext vs Twenty
 

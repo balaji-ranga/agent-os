@@ -18,27 +18,29 @@ Switching away from a platform provider **removes** those prefab agents from the
 - **mcp-flolah-erp** — full erp_* operational set: customers/leads/contacts/opportunities, items, quotations, sales orders, delivery notes, sales/purchase invoices & orders, payments, journal entries, material requests, projects/tasks, GL, P&L, generic resource CRUD, **submit/cancel**.
 Every MCP erp_* tool is also a **content tool** (/api/tools/erp-…) for agent Tool access grants (same names). Workflows use MCP with X-Ceo-User-Id.
 
+
+**Company / fiscal / customers isolation?** Yes — bound company only. Customer & parties use `flolah_company`; fiscal years do not expose peer companies; agents match CEO entitlements. See **Tenant isolation** below.
 **How does owner scope work?** CEO owner identity only; company map from business profile; never trust foreign company ids.
 
-**When do CRM / ERP nav links appear?** Profile CRM is 	wenty or erpnext → **CRM** menu. Profile ERP is erpnext → **ERP** menu. Embeds: Twenty → TWENTY_EMBED_URL; ERPNext CRM/ERP → ERPNEXT_EMBED_URL (e.g. https://erp.crm.flolah.cloud).
+**When do CRM / ERP nav links appear?** Profile CRM is **twenty** or **erpnext** → **CRM** menu. Profile ERP is erpnext → **ERP** menu. Embeds: Twenty → TWENTY_EMBED_URL; ERPNext CRM/ERP → ERPNEXT_EMBED_URL (e.g. https://erp.crm.flolah.cloud).
 
 ## CEO setup checklist
 
-1. **Profile** (or Company setup Systems) ├óΓÇáΓÇÖ set CRM to **Twenty** and/or ERP to **ERPNext** ├óΓÇáΓÇÖ Save / Apply.  
+1. **Profile** (or Company setup Systems) → set CRM to **Twenty** and/or ERP to **ERPNext** → Save / Apply.  
 2. Confirm Maker/Checker employees appear under **AI Employees** / Chat picker.  
 3. Optional: open **CRM** / **ERP** menus when embeds are configured (`TWENTY_EMBED_URL` / `ERPNEXT_EMBED_URL`).  
-4. Workflows: **Integrations ├óΓÇáΓÇÖ MCP** ├óΓÇáΓÇÖ platform servers `mcp-flolah-crm` / `mcp-flolah-erp` ├óΓÇáΓÇÖ Test ├óΓÇáΓÇÖ use in MCP or Brain nodes with header `X-Ceo-User-Id: <your ceo user id>`.  
+4. Workflows: **Integrations → MCP** → platform servers `mcp-flolah-crm` / `mcp-flolah-erp` → Test → use in MCP or Brain nodes with header `X-Ceo-User-Id: <your ceo user id>`.  
 5. Agents chat: grant `crm_*` / `erp_*` on the prefab employees (already granted at provision).
 
 ## Operators (deploy)
 
 | Piece | Detail |
 |-------|--------|
-| MCP image | `deploy/docker/business-core-mcp.Dockerfile` ├é┬╖ `tools/business-core-mcp/server.js` |
-| Compose profile | `optional-business-core-mcp` ├é┬╖ service `business-core-mcp` ├é┬╖ port 8082 |
+| MCP image | `deploy/docker/business-core-mcp.Dockerfile` · `tools/business-core-mcp/server.js` |
+| Compose profile | `optional-business-core-mcp` · service `business-core-mcp` · port 8082 |
 | Env | `BUSINESS_CORE_MCP_URL=http://business-core-mcp:8082/mcp`, `TOOLS_API_KEY` (injected into MCP container for backend calls) |
 | Seed | `node backend/scripts/seed-business-core-mcp.js` or `deploy/scripts/ensure-platform-mcps.sh` |
-| CRM/ERP stacks | `deploy/docker-compose.business-core.yml` ├é┬╖ [business-core/README.md](../../deploy/business-core/README.md) |
+| CRM/ERP stacks | `deploy/docker-compose.business-core.yml` · [business-core/README.md](../../deploy/business-core/README.md) |
 | Plan | [BUSINESS-CORE-WORKSPACE-PLAN.md](../BUSINESS-CORE-WORKSPACE-PLAN.md) |
 
 ## Related
@@ -90,7 +92,7 @@ Even then the current overlay is **infra + stub backend** (site init still requi
 
 **Init / sync:** Profile Apply + provision runs `ensureTwentyWorkspaceForCompany` (real Twenty workspace UUID + subdomain when multi-workspace is enabled) / `ensureErpnextCompanyForOwner`. Live org population uses:
 
-- UI: CRM or ERP page ├óΓÇáΓÇÖ **Sync Flolah org**
+- UI: CRM or ERP page → **Sync Flolah org**
 - API: `POST /api/business-core/sync-org` `{ "targets": ["crm"] }` or `["erp"]`
 - Tools / MCP: `crm_sync_org`, `erp_sync_org`
 
@@ -104,7 +106,7 @@ When Profile selects platform CRM/ERP, Maker/Checker packs receive full **`crm_*
 
 **Issue:** Browser cookies must not leak across Flolah companies. Each company also needs its **own** Twenty workspace (data isolation).
 
-**Mapping:** **1 Flolah company (CEO owner)** ├óΓÇáΓÇÖ **1 Twenty workspace** (UUID + subdomain), stored on `company_business_profiles` (`twenty_workspace_id` + bind JSON with `subdomain`). Ensured on CRM open / Profile provision via `ensureCompanyTwentyWorkspace` (GraphQL `signUpInNewWorkspace` + `activateWorkspace` when multi-workspace is on). Local `flolah-ws-*` binds are upgraded to real remote workspaces.
+**Mapping:** **1 Flolah company (CEO owner)** → **1 Twenty workspace** (UUID + subdomain), stored on `company_business_profiles` (`twenty_workspace_id` + bind JSON with `subdomain`). Ensured on CRM open / Profile provision via `ensureCompanyTwentyWorkspace` (GraphQL `signUpInNewWorkspace` + `activateWorkspace` when multi-workspace is on). Local `flolah-ws-*` binds are upgraded to real remote workspaces.
 
 **On CRM click (`/crm`):**
 1. Resolve authenticated owner (never body `ceo_user_id` for auth).
@@ -133,14 +135,14 @@ Twenty multi-workspace opens each company at https://{workspace-subdomain}.crm.f
 | Browser: host server IP address could not be found | No A/CNAME for workspace host (NXDOMAIN). Apex crm.flolah.cloud alone is not enough. |
 | TLS error after DNS works | Cert SANs missing that host |
 
-**Hostinger DNS (zone flolah.cloud) ΓÇö do one of:**
+**Hostinger DNS (zone flolah.cloud) — do one of:**
 
-1. **Wildcard (preferred)** ΓÇö Type A, Name `*.crm`, Points to `76.13.209.30`, TTL 300
-2. **Per workspace** ΓÇö Type A, Name e.g. `wise-mustard-elephant.crm` (also `faru18d2addc.crm`, `fcomskc0w0r.crm`), Points to `76.13.209.30`
+1. **Wildcard (preferred)** — Type A, Name `*.crm`, Points to `76.13.209.30`, TTL 300
+2. **Per workspace** — Type A, Name e.g. `wise-mustard-elephant.crm` (also `faru18d2addc.crm`, `fcomskc0w0r.crm`), Points to `76.13.209.30`
 
 **Refresh TLS (after DNS works):**
 
-- **Admin UI (preferred):** sign in as platform admin ΓåÆ **TLS certs** (`/admin/tls-certs`) ΓåÆ unlock with TOTP ΓåÆ **Run Let's Encrypt refresh** (scope **all** or **crm**). Same acme.sh TLS-ALPN path as the VPS bash scripts; brief nginx downtime for ALPN. Shows current SANs, Twenty workspace hosts, and job logs.
+- **Admin UI (preferred):** sign in as platform admin → **TLS certs** (`/admin/tls-certs`) → unlock with TOTP → **Run Let's Encrypt refresh** (scope **all** or **crm**). Same acme.sh TLS-ALPN path as the VPS bash scripts; brief nginx downtime for ALPN. Shows current SANs, Twenty workspace hosts, and job logs.
 - **CLI on VPS:**
 
 ```bash
@@ -151,7 +153,7 @@ bash /opt/agent-os/deploy/scripts/vps-refresh-tls-certs.sh all
 
 That checks DNS, expands Let's Encrypt SANs for ready hosts, installs certs, and reloads nginx. Re-open **CRM** in Flolah. New Twenty companies need a cert refresh only when their subdomain is not already a SAN (DNS can be wild-carded; LE SANs are per-FQDN).
 
-**Infra:** DNS `*.crm.<apex>` ΓåÆ VPS; nginx `server_name` includes `crmΓÇª` and `*.crmΓÇª`; TLS must list each workspace host (or use DNS-01 wildcards separately ΓÇö this stack uses per-FQDN ALPN). Helpers: `vps-expand-crm-cert.sh`, `vps-refresh-tls-certs.sh`.
+**Infra:** DNS `*.crm.<apex>` → VPS; nginx `server_name` includes `crmΓÇª` and `*.crmΓÇª`; TLS must list each workspace host (or use DNS-01 wildcards separately — this stack uses per-FQDN ALPN). Helpers: `vps-expand-crm-cert.sh`, `vps-refresh-tls-certs.sh`.
 
 
 ### Password form after CRM open (including admin View as user)
@@ -161,16 +163,16 @@ That checks DNS, expands Let's Encrypt SANs for ready hosts, installs certs, and
 You still see Twenty password UI when:
 1. SSO handoff failed or expired (e.g. after brief outages, or before FRONT_AUTO_BASE_URL / certs were fixed).
 2. `TWENTY_SSO_ENABLED=0` or `TWENTY_APP_SECRET` does not match Twenty `APP_SECRET`.
-3. Browser stayed on an old failing session ΓÇö use **Open** (new tab) or **Switch CRM account** from the CRM toolbar.
+3. Browser stayed on an old failing session — use **Open** (new tab) or **Switch CRM account** from the CRM toolbar.
 4. **Membership gap (fixed in SSO JIT):** Bootstrap admin (often the first Flolah CEO such as Balaji) owns newly created Twenty workspaces; other CEOs need a `workspaceMember` row in **their** workspaceΓÇÖs `databaseSchema`. If that row was written into the wrong schema, mint still ΓÇ£succeedsΓÇ¥ but `/verify` shows password. Backend now maps schema via `core.workspace.databaseSchema`, provisions owners as Admin, and preflights token exchange.
 
 Required env: `TWENTY_SSO_ENABLED=1`, shared secret, `TWENTY_DATABASE_URL`, `TWENTY_FRONT_AUTO_BASE_URL=true`, workspace DNS + cert SANs.
 
 CRM opens **in the Flolah iframe** (not a full-page leave); use **Open** for first-party debugging only.
 
-**Note:** CRM REST tools mint **per-company** workspace access tokens (LOGIN exchange for the CEO email + bound workspace). They do **not** use a single shared `TWENTY_API_KEY` when SSO is enabled ΓÇö that previously wrote Agent/MCP creates into the bootstrap admin workspace by mistake.
+**Note:** CRM REST tools mint **per-company** workspace access tokens (LOGIN exchange for the CEO email + bound workspace). They do **not** use a single shared `TWENTY_API_KEY` when SSO is enabled — that previously wrote Agent/MCP creates into the bootstrap admin workspace by mistake.
 
-**Workspace name** ("Welcome, ΓÇª"): Twenty Settings ΓåÆ Workspace. Toolbar **Switch CRM account** ΓåÆ wipe + `/welcome`.
+**Workspace name** ("Welcome, ΓÇª"): Twenty Settings → Workspace. Toolbar **Switch CRM account** → wipe + `/welcome`.
 
 **Enterprise OIDC:** Not required for this LOGIN-token path.
 
@@ -180,9 +182,9 @@ CRM opens **in the Flolah iframe** (not a full-page leave); use **Open** for fir
 ## ERPNext stack (Docker)
 
 - Compose profile **`optional-erpnext`**: MariaDB + Redis + configurator + **create-site** + gunicorn **erpnext-backend** + workers.
-- ERPNext **requires MariaDB** (not Twenty's Postgres). Isolation still mirrors CRM: **1 Flolah company ΓåÆ 1 ERPNext Company** + User Permission on the company SSO user.
+- ERPNext **requires MariaDB** (not Twenty's Postgres). Isolation still mirrors CRM: **1 Flolah company → 1 ERPNext Company** + User Permission on the company SSO user.
 - Start: `START_ERPNEXT=1 bash deploy/scripts/ensure-business-core-env.sh`
-- After first site: Administrator login on Desk ΓåÆ User ΓåÆ API Access ΓåÆ API Key + Secret ΓåÆ set `ERPNEXT_API_KEY` / `ERPNEXT_API_SECRET` on backend. Internal URL: `ERPNEXT_URL=http://erpnext-backend:8000`.
+- After first site: Administrator login on Desk → User → API Access → API Key + Secret → set `ERPNEXT_API_KEY` / `ERPNEXT_API_SECRET` on backend. Internal URL: `ERPNEXT_URL=http://erpnext-backend:8000`.
 - Public embed: `ERPNEXT_EMBED_URL` (prefer `https://erp.crm.…` on :443) with nginx handoff **`/flolah-erp-handoff/`** and cookie apply **`/flolah-erp-sso`**.
 
 ## ERP menu SSO (passwordless)
@@ -231,18 +233,38 @@ Agent tools use API keys (company-scoped filters). Desk SSO uses roles + User Pe
 
 
 
-## Tenant isolation — global masters (Customer / Supplier / …)
+## Tenant isolation (desk CEO = agent entitlements)
 
-ERPNext multi-company on one site does not put company on Customer by default, so Company User Permission alone could not hide peer Customers. Flolah fix:
+Flolah maps **1 CEO → 1 ERPNext Company** on a **shared multi-company site**. Isolation is enforced on **desk SSO** and **agent/MCP tools** the same way.
 
-| Layer | Mechanism |
-|-------|-----------|
-| Schema | Custom Field flolah_company (Link to Company) on Customer, Supplier, Lead, Contact, Address, Item, Item Price, Opportunity |
-| Desk SSO | Company User Permission apply_to_all_doctypes matches that Link; strict User Permissions hide untagged rows |
-| Agents / MCP | Same bound company as the CEO: list/get/create/update stamp and filter flolah_company (site API key cannot bypass) |
-| Backfill | Existing rows tagged from SSO owner email to company, else name heuristics |
+### Global masters (`flolah_company` custom Link)
 
-Agents inherit the CEO company entitlement (not site-wide System Manager).
+ERPNext does not put `company` on Customer by default. Flolah adds **`flolah_company`** (Link → Company):
+
+| Tagged doctypes | Customer, Supplier, Lead, Contact, Address, Item, Item Price, Opportunity |
+| Desk | Company **User Permission** + **Apply strict user permissions** hide peer masters |
+| Agents | Create/list/get/update **stamp + filter** `flolah_company` (API key cannot list peer rows) |
+| Tools | `erp_get_company`, `erp_update_company` (own company only); masters inherit CEO company |
+
+Backfill on company ensure: SSO `owner` email → company, else name heuristics (`ERPNEXT_TENANT_BACKFILL=1` default).
+
+### Transactions (native `company`)
+
+Sales/Purchase/Stock/Projects/GL/Warehouse/Account/Department/Employee etc. use ERPNext’s built-in **`company`** field + Company User Permission + agent force-filter.
+
+### Special cases
+
+| DocType | Behavior |
+|---------|----------|
+| **User** | Desk: User Permission `allow=User → self` (hides other CEOs’ emails). Agents: **blocked**. |
+| **Fiscal Year** | Site-global year **name**; companies join via child table. Tools **redact** peer companies and creator emails. Create/link only for bound company (`erp_list_fiscal_years` / `erp_create_fiscal_year`). |
+| **Company** | Tools never list all companies; only bound company. |
+
+### Still shared / not flolah_company-tagged
+
+Item Group, Mode of Payment, Payment Terms Template, Terms and Conditions, Tax Category, Currency Exchange, ToDo/Note/File (loose), many Setup masters not on agent allowlist. Expand tags if multi-tenant setup data becomes a product requirement.
+
+**Agents inherit the CEO’s bound company** for tagged masters and native-company docs (not site-wide System Manager).
 
 ## Maker permissions (company setup)
 
@@ -278,4 +300,4 @@ Makers draft; Checker owns submit/cancel and task/workflow approvals. Maker A + 
 
 ## Company P&L (design roadmap)
 
-Automated **cost + income ΓåÆ ERP** is planned: meters and income events in Flolah, period rollups into ERPNext when ERP is on (Maker/Checker review). See Platform Help [37-company-pnl.md](./37-company-pnl.md) and product plan knowledgebase/AUTOMATED-PNL.md. Until shipped, use CRM for pipeline, ERP for invoices you enter, token budgets for AI burn, and OEI for ops ΓÇö not as blended book revenue.
+Automated **cost + income → ERP** is planned: meters and income events in Flolah, period rollups into ERPNext when ERP is on (Maker/Checker review). See Platform Help [37-company-pnl.md](./37-company-pnl.md) and product plan knowledgebase/AUTOMATED-PNL.md. Until shipped, use CRM for pipeline, ERP for invoices you enter, token budgets for AI burn, and OEI for ops — not as blended book revenue.

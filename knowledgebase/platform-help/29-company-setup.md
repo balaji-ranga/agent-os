@@ -28,8 +28,8 @@
 **Optional CRM / ERP (Business Core):** On the systems step (and on Profile anytime) you may select **platform Twenty (CRM)** and/or **platform ERPNext (ERP)**. That is optional — leave as none if you do not need SoR CRM/ERP.
 
 - Selecting **Twenty** provisions **CRM Maker A**, **CRM Maker B**, **CRM Checker** (your company only) with `crm_*` tools, and unlocks **CRM** nav when embeds are configured.
-- Selecting **ERPNext** provisions **ERP Maker A**, **ERP Maker B**, **ERP Checker** with `erp_*` tools, and unlocks **ERP** nav when embeds are configured.
-- Workflows can use platform MCPs **`mcp-flolah-crm`** / **`mcp-flolah-erp`**. Guide: [32-business-core-crm-erp.md](./32-business-core-crm-erp.md).
+- Selecting **ERPNext** as CRM and/or ERP provisions prefab Makers/Checker (and ERP specialists) with **company-scoped** `erp_*` tools—same entitlements as your desk SSO company (Customer/masters use `flolah_company`; see [32-business-core-crm-erp.md](./32-business-core-crm-erp.md)).
+- Workflows can use platform MCPs **`mcp-flolah-crm`** / **`mcp-flolah-erp`**.
 
 **Can Platform Help help me after setup?** Yes — ask how-to questions about nav, scheduled goals, workflows, CRM/ERP, and use **COO** for day-to-day goals.
 

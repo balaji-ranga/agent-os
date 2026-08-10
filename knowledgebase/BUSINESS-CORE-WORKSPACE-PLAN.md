@@ -133,9 +133,11 @@ Defaults: both `none`. Changing provider updates routing; tool layer remains Flo
 | CRM Maker A | crm=twenty | Pipeline / accounts–contacts execution |
 | CRM Maker B | crm=twenty | Research, enrichment, follow-ups |
 | CRM Checker | crm=twenty | Gate mass/risky CRM writes |
-| ERP Maker A | erp=erpnext | Full erp_* operational drafts (MCP parity) |
-| ERP Maker B | erp=erpnext | Buying/stock/ops side via erp_* |
+| ERP Maker A | erp=erpnext | Finance/setup: company + fiscal write, sales money path, journals, P&L (`erp_*`) |
+| ERP Maker B | erp=erpnext | Ops/stock: PO/DN/MR/items/projects; company + fiscal **read** |
 | ERP Checker | erp=erpnext | Submit/cancel + Kanban/workflow approvals |
+
+**Tenancy (shared ERPNext site):** 1 CEO → 1 Company. Global masters tagged with Custom Field **`flolah_company`**; transactions force `company`. Agents match CEO company filters (not peer Customers / peer Fiscal Year company lists). See platform-help **32**.
 
 All owner-scoped and `user_agents`-granted only to that company CEO (and entitled users when multi-human exists).
 
