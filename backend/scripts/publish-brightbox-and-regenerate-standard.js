@@ -28,8 +28,8 @@ import {
   invalidateBlueprintCache,
   findResidualLiveSecrets,
   cloneAndSanitizeBlueprint,
-  ownerSlug,
 } from '../src/services/company-blueprints/index.js';
+import { ownerSlug } from '../src/services/company-blueprints/standard-prefabs.js';
 
 const OWNER = process.env.SOURCE_OWNER_USER_ID || 'ceo-demo-brightbox-744921';
 const BLUEPRINT_ID = process.env.BLUEPRINT_ID || 'demo_brightbox_gifts';

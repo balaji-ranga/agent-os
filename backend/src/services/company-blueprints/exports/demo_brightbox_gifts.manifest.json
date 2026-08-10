@@ -2,7 +2,7 @@
   "published_id": "demo_brightbox_gifts",
   "secrets_scrubbed": true,
   "secrets_cleared": 0,
-  "zip_bytes": 192090,
+  "zip_bytes": 195378,
   "coverage": {
     "knowledge": true,
     "policies": true,
@@ -19,5 +19,5 @@
   },
   "source_owner": "ceo-demo-brightbox-744921",
   "source_company": "BrightBox Gifts",
-  "refreshed_at": "2026-08-10T07:41:35.021Z"
+  "refreshed_at": "2026-08-10T10:33:00.406Z"
 }
