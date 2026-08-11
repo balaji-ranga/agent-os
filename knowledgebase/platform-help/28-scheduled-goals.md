@@ -118,7 +118,7 @@ Treat the execution plan like a small **dynamic workflow**:
 | `specialty_task` | One specialty AI employee | `agent_id`, `message`, optional `parallel_group` |
 | `agent_continue` | Schedule owner agent turn | optional `message` |
 | `notify_ceo` | In-app bell when prior steps finish | optional title/body |
-| `agent_tool` | Named platform tool on schedule agent | `tool_name` |
+| `agent_tool` | Named platform tool on schedule agent | `tool_name` (self-invoked as the plan’s orchestrator agent id so COO-gated tools work like chat) |
 
 Quick intents add common CRM/ERP maker-checker and help steps without writing raw JSON. After approve, each fire replays this step template as a new `agr-…` run.
 

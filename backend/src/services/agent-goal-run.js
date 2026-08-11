@@ -967,7 +967,11 @@ async function executeAgentToolStep(goal, step) {
 
   args.ceo_user_id = args.ceo_user_id || goal.owner_user_id;
   args.owner_user_id = args.owner_user_id || goal.owner_user_id;
-  const out = await invokeContentToolHttp(toolName, args, goal.owner_user_id);
+  const caller = resolveAgentForGoal(goal.owner_user_id, goal.agent_id);
+  const out = await invokeContentToolHttp(toolName, args, goal.owner_user_id, {
+    agentId: caller?.id || goal.agent_id || null,
+    openclawAgentId: caller?.openclaw_agent_id || caller?.id || goal.agent_id || null,
+  });
   return { ok: true, tool_name: toolName, result: out };
 }
 

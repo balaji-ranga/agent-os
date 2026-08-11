@@ -468,8 +468,8 @@ function maybeNotifyWorkflowStep(runId, node, status, prevStatus) {
   }
 }
 
-async function invokeContentTool(toolName, body, ownerUserId = null) {
-  return invokeContentToolHttp(toolName, body, ownerUserId);
+async function invokeContentTool(toolName, body, ownerUserId = null, opts = {}) {
+  return invokeContentToolHttp(toolName, body, ownerUserId, opts);
 }
 
 function failRun(runId, message) {
@@ -1084,7 +1084,15 @@ async function executeNode(runId, nodeId, graph, context, def, runRow) {
 
     upsertStep(runId, node, 'in_progress', { input: inputRecord });
     try {
-      const result = await invokeContentTool(toolName, payload, runRow.owner_user_id);
+      const actorId =
+        context?.actor?.id ||
+        context?.actor?.agent_id ||
+        context?.actor_agent_id ||
+        null;
+      const result = await invokeContentTool(toolName, payload, runRow.owner_user_id, {
+        agentId: actorId,
+        openclawAgentId: context?.actor?.openclaw_agent_id || actorId,
+      });
       const outputs = { result, text: typeof result === 'string' ? result : JSON.stringify(result, null, 2) };
       storeNodeOutput(context, node.id, outputs);
       saveContext(runId, context);

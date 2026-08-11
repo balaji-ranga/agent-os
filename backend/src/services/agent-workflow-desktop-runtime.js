@@ -143,8 +143,8 @@ function updateProgress(runId) {
     .run(pct, runId);
 }
 
-async function invokeContentTool(toolName, body, ownerUserId = null) {
-  return invokeContentToolHttp(toolName, body, ownerUserId);
+async function invokeContentTool(toolName, body, ownerUserId = null, opts = {}) {
+  return invokeContentToolHttp(toolName, body, ownerUserId, opts);
 }
 
 /**
