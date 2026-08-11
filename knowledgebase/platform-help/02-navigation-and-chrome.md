@@ -37,7 +37,7 @@ Top-level (always shown; cannot hide in Menu visibility):
 | Label | Route | Use for |
 |-------|-------|---------|
 | My Org / Dashboard | `/org` | Org chart, standups + COO chat, Resync ORG/AGENTS |
-| Kanban | `/kanban` | Work tasks (AI employee / workflow / pipeline cards), CEO approvals, artifacts |
+| Kanban | `/kanban` | Work tasks (Weekly default; agent filter / Select all / task ID), CEO approvals, artifacts; deep-link `?task=` from global search |
 | **Scheduled goals** | `/scheduled-goals` | Recurring CEO prompts (**hourly** / daily / weekdays / weekly); create **and edit**; draft/approve multi-intent goal plans; pause survives restarts. Also via COO chat. See [28-scheduled-goals.md](./28-scheduled-goals.md) |
 | **Goal plans** | `/goal-plans` | Full weekly list of durable multiphase plans (`agr-…`); week filters; linked from Digest **View all plans** |
 | Broadcast | `/broadcast` | Message many AI employees at once |

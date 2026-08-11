@@ -14,7 +14,7 @@ Documentation lives here so Cursor and humans can find it. **Root README.md** st
 
 | **VISION.md** | Product purpose, vision, core strengths, differentiator, and strategic focuses (AI Company OS + governed A2A). |
 | **PITCH.md** | One-pager pitch: problem, solution, differentiators, audience, and success journey (from VISION + AI-COMPANY-OS). |
-| **platform-help/** | CEO end-user Platform Help corpus (RAG). Highlights: **02** Digest/Workspace (open tasks = Kanban)/Builder/nav/OEI; **03** specialty-first COO; **04** Kanban; **11** Tools/Model/media; **12** Workspace vs Kanban; **16–17** Connectors/desktop; **19–20** crons + IBKR; **21–27** external→onboarding; **28–32** goals (multi-intent plans)/setup/content/MCP OAuth/Business Core (`crm-*`/`erp-*` templates, BrightBox golden pack); **33–40** IP/tokens/company details/OEI/P&L design/Maker-Checker/Tier A ERP/CRM; Platform Help **answer-first** |
+| **platform-help/** | CEO end-user Platform Help corpus (RAG). Highlights: **02** Digest/Workspace + **global search (task/run ids)** /Builder/nav/OEI; **03** specialty-first COO; **04** Kanban (Weekly default, agent filter, Select all, task ID); **06** WF run id; **11** Tools/Model/media; **12** Workspace vs Kanban; **16–17** Connectors/desktop; **19–20** crons + IBKR; **21–27** external→onboarding; **28–32** goals (Amend plan manually / multi-intent plans)/setup/content/MCP OAuth/Business Core; **33–40** IP/tokens/company details/OEI/P&L design/Maker-Checker/Tier A ERP/CRM; Platform Help **answer-first** |
 | **AGENT-WORKSPACE-TEMPLATES.md** | Platform-shared agent workspace MD templates: apply in Agent Workspace, Admin CRUD, CEO publish-as-template. |
 | **TESTING.md** | Restart steps, full API test, frontend manual tests, smoke test, standup→COO→TechResearcher test, standup UI checklist. |
 | **GITHUB-SETUP.md** | One-time: create agent-os repo on GitHub and push (Options A/B, security check). |
@@ -57,7 +57,7 @@ Documentation lives here so Cursor and humans can find it. **Root README.md** st
 | [CONTENT-CREATION-ORG-BLUEPRINT.md](./CONTENT-CREATION-ORG-BLUEPRINT.md) | Future content-studio org + agent/workflow map |
 | [ONBOARDING-HELPER-PLAN.md](./ONBOARDING-HELPER-PLAN.md) | Onboarding Helper plan (UI + OpenClaw bridge) |
 | [platform-help/27-onboarding-helper.md](./platform-help/27-onboarding-helper.md) | CEO help: selective apply + E2E chat prompt recipes |
-| [platform-help/28-scheduled-goals.md](./platform-help/28-scheduled-goals.md) | CEO help: scheduled goals + durable multiphase **goal plans** (async ack, new agr per create/fire, terminal notify correlation, Digest `/goal-plans`, multiphase trigger upgrade) |
+| [platform-help/28-scheduled-goals.md](./platform-help/28-scheduled-goals.md) | CEO help: scheduled goals + durable multiphase **goal plans** (Amend plan manually, async ack, new agr per create/fire, terminal notify correlation, Digest `/goal-plans`, multiphase trigger upgrade) |
 | [platform-help/29-company-setup.md](./platform-help/29-company-setup.md) | CEO help: Company setup first-run wizard vs Onboarding Helper |
 | [platform-help/35-update-company-details.md](./platform-help/35-update-company-details.md) | Update Company Details → company_memory Knowledge table |
 | [platform-help/36-operational-effectiveness.md](./platform-help/36-operational-effectiveness.md) | Home OEI score, domains, goal-run KPIs, COO tool |

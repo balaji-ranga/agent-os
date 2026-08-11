@@ -16,7 +16,9 @@
 # scripts/, openclaw extensions/skills/templates — then rebuilds via vps-deploy-latest.sh.
 #
 # Features covered: Kanban orphan watcher (re-pend stuck processing + reinitiate specialty cards),
-# Scheduled goals (hourly|daily|weekdays|weekly, create/edit/pause UI, SCHEDULED_GOALS_CRON,
+# Kanban Weekly-default board + agent filter + Select all + task ID deep-link,
+# Global search task id / workflow run id (GET /api/home/search),
+# Scheduled goals (hourly|daily|weekdays|weekly, create/edit/pause/amend plan UI, SCHEDULED_GOALS_CRON,
 #   vps-verify-scheduled-goals.sh + _smoke-scheduled-goals.mjs, platform-help 28),
 # Home OEI (operational_effectiveness API/tool; scheduled_goal_runs fire counts; help 36),
 # Company setup (/company-setup, platform-help 29),
