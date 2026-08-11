@@ -11,6 +11,7 @@ const TYPE_LABELS = {
   task: 'Task',
   agent: 'Agent',
   workflow: 'Workflow',
+  workflow_run: 'WF run',
   table: 'Table',
   table_row: 'Row',
   document: 'Doc',
@@ -47,7 +48,9 @@ export default function GlobalSearch({ compact = false }) {
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     const term = q.trim();
-    if (term.length < 2) {
+    const isNumericId = /^\d+$/.test(term);
+    // Pure numeric (task id / run id) may be 1+ digits; free text still needs 2 chars.
+    if (!term || (term.length < 2 && !isNumericId)) {
       setResults([]);
       setLoading(false);
       return undefined;
@@ -71,6 +74,13 @@ export default function GlobalSearch({ compact = false }) {
     if (item?.href) navigate(item.href);
   };
 
+  const canSearch = (() => {
+    const term = q.trim();
+    if (!term) return false;
+    if (/^\d+$/.test(term)) return true;
+    return term.length >= 2;
+  })();
+
   return (
     <div className={`global-search${compact ? ' global-search-compact' : ''}`} ref={rootRef}>
       <div className="global-search-field">
@@ -89,14 +99,14 @@ export default function GlobalSearch({ compact = false }) {
           }}
           onFocus={() => setOpen(true)}
           placeholder={compact ? 'Search…' : 'Search (Ctrl + K)'}
-          aria-label="Search chats, tasks, master tables, documents, and workflows"
+          aria-label="Search chats, tasks by id, workflow runs by id, master tables, documents, and workflows"
           autoComplete="off"
         />
       </div>
-      {open && (q.trim().length >= 2 || loading) && (
+      {open && (canSearch || loading) && (
         <div className="global-search-dropdown" role="listbox">
           {loading && <div className="global-search-empty">Searching…</div>}
-          {!loading && results.length === 0 && q.trim().length >= 2 && (
+          {!loading && results.length === 0 && canSearch && (
             <div className="global-search-empty">No matches for “{q.trim()}”</div>
           )}
           {results.map((r) => (

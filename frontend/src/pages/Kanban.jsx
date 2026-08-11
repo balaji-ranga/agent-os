@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import WizardReturnBanner from '../components/WizardReturnBanner.jsx';
 import KanbanTaskDescription, { isCeoJobReviewTask, isWorkflowCeoApprovalTask, parseCeoReviewContext } from '../components/KanbanTaskDescription.jsx';
@@ -36,6 +37,7 @@ function isConfirmApprovalMessage(text) {
 
 export default function Kanban() {
   const { displayTimezone } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [agents, setAgents] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [view, setView] = useState('weekly');
@@ -166,6 +168,35 @@ export default function Kanban() {
     fetchTasks();
     setLoading(false);
   }, [view, rangeFrom, rangeTo]);
+
+  // Deep-link /kanban?task=123 from global search (open drawer even outside weekly filter).
+  useEffect(() => {
+    const raw = searchParams.get('task');
+    if (!raw) return undefined;
+    const taskId = Number(raw);
+    if (!Number.isFinite(taskId) || taskId <= 0) return undefined;
+    let cancelled = false;
+    api
+      .kanbanTaskGet(taskId)
+      .then((detail) => {
+        if (cancelled || !detail) return;
+        setSelectedTask(detail);
+        setTaskDetail(detail);
+        if (detail.server_timezone) setServerTimezone(detail.server_timezone);
+        setSearchParams(
+          (prev) => {
+            const next = new URLSearchParams(prev);
+            next.delete('task');
+            return next;
+          },
+          { replace: true }
+        );
+      })
+      .catch((err) => showError(err?.message || `Task #${taskId} not found`));
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams]);
 
   const loadTaskDetail = (taskId) => {
     if (!taskId) return Promise.resolve();

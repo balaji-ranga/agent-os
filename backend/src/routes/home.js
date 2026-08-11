@@ -1,7 +1,8 @@
 /**
  * Home dashboard snapshot + global search.
  * GET /api/home/snapshot — org-wide KPIs for the authenticated CEO (platform TZ today)
- * GET /api/home/search?q= — chats, kanban, agents, workflows, master tables, RAG docs
+ * GET /api/home/search?q= — chats, kanban (title + task id), agents, workflow defs,
+ *   workflow runs (run id / run number), master tables, RAG docs
  */
 import { Router } from 'express';
 import { requireAuth, requireCeoOrAdmin, resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
@@ -353,9 +354,13 @@ router.get('/search', async (req, res) => {
   try {
     const owner = resolveAuthenticatedCeoUserId(req, req.query || {});
     const q = String(req.query.q || req.query.query || '').trim().slice(0, 120);
-    if (q.length < 2) return res.json({ q, results: [] });
+    // Allow short pure-numeric queries (task id / workflow run id).
+    const isNumericId = /^\d+$/.test(q);
+    if (q.length < 2 && !isNumericId) return res.json({ q, results: [] });
+    if (!q) return res.json({ q, results: [] });
     const safe = q.replace(/[%_]/g, '');
     const like = `%${safe}%`;
+    const idExact = isNumericId ? Number(q) : null;
     const db = getDb();
     const ownerFilter = kanbanOwnerSqlFilter(req.authUser);
     const results = [];
@@ -392,22 +397,47 @@ router.get('/search', async (req, res) => {
     }
 
     try {
+      // Exact task id first (global search by Kanban task id).
+      if (idExact != null && Number.isFinite(idExact)) {
+        const byId = db
+          .prepare(
+            `SELECT k.id, k.title, k.status, k.updated_at
+             FROM kanban_tasks k
+             WHERE ${ownerFilter.clause} AND k.id = ?
+             LIMIT 1`
+          )
+          .get(...ownerFilter.params, idExact);
+        if (byId) {
+          push({
+            type: 'task',
+            id: byId.id,
+            title: byId.title || `Task #${byId.id}`,
+            subtitle: `Kanban · id ${byId.id} · ${byId.status}`,
+            href: `/kanban?task=${byId.id}`,
+            updated_at: byId.updated_at,
+          });
+        }
+      }
       const tasks = db
         .prepare(
           `SELECT k.id, k.title, k.status, k.updated_at
            FROM kanban_tasks k
            WHERE ${ownerFilter.clause}
-             AND (k.title LIKE ? COLLATE NOCASE OR IFNULL(k.description,'') LIKE ? COLLATE NOCASE)
+             AND (
+               k.title LIKE ? COLLATE NOCASE
+               OR IFNULL(k.description,'') LIKE ? COLLATE NOCASE
+               OR CAST(k.id AS TEXT) LIKE ?
+             )
            ORDER BY COALESCE(k.updated_at, k.created_at) DESC
            LIMIT 12`
         )
-        .all(...ownerFilter.params, like, like);
+        .all(...ownerFilter.params, like, like, like);
       for (const t of tasks) {
         push({
           type: 'task',
           id: t.id,
           title: t.title || `Task #${t.id}`,
-          subtitle: `Kanban · ${t.status}`,
+          subtitle: `Kanban · id ${t.id} · ${t.status}`,
           href: `/kanban?task=${t.id}`,
           updated_at: t.updated_at,
         });
@@ -420,7 +450,7 @@ router.get('/search', async (req, res) => {
       const agents = listAgentsForUser(owner) || [];
       const ql = q.toLowerCase();
       for (const a of agents) {
-        const hay = `${a.name || ''} ${a.role || ''} ${a.department || ''}`.toLowerCase();
+        const hay = `${a.name || ''} ${a.role || ''} ${a.department || ''} ${a.id || ''}`.toLowerCase();
         if (!hay.includes(ql)) continue;
         push({
           type: 'agent',
@@ -440,11 +470,14 @@ router.get('/search', async (req, res) => {
         .prepare(
           `SELECT id, name, status, updated_at
            FROM agent_workflow_definitions
-           WHERE owner_user_id = ? AND name LIKE ? COLLATE NOCASE
+           WHERE owner_user_id = ? AND (
+             name LIKE ? COLLATE NOCASE
+             OR id LIKE ? COLLATE NOCASE
+           )
            ORDER BY updated_at DESC
            LIMIT 10`
         )
-        .all(owner, like);
+        .all(owner, like, like);
       for (const w of wfs) {
         push({
           type: 'workflow',
@@ -457,6 +490,82 @@ router.get('/search', async (req, res) => {
       }
     } catch (e) {
       console.warn('[home] search workflows:', e?.message || e);
+    }
+
+    try {
+      // Workflow run instances by run id and/or run number.
+      if (idExact != null && Number.isFinite(idExact)) {
+        const byRunId = db
+          .prepare(
+            `SELECT r.id, r.run_number, r.status, r.definition_id, r.updated_at, r.started_at,
+                    d.name AS definition_name
+             FROM agent_workflow_runs r
+             LEFT JOIN agent_workflow_definitions d ON d.id = r.definition_id
+             WHERE r.owner_user_id = ? AND r.id = ?
+             LIMIT 1`
+          )
+          .get(owner, idExact);
+        if (byRunId) {
+          push({
+            type: 'workflow_run',
+            id: byRunId.id,
+            title: `Run #${byRunId.run_number}${byRunId.definition_name ? ` · ${byRunId.definition_name}` : ''}`,
+            subtitle: `WF run id ${byRunId.id} · ${byRunId.status}`,
+            href: `/workflows?run_id=${encodeURIComponent(byRunId.id)}`,
+            updated_at: byRunId.updated_at || byRunId.started_at,
+          });
+        }
+        const byRunNumber = db
+          .prepare(
+            `SELECT r.id, r.run_number, r.status, r.definition_id, r.updated_at, r.started_at,
+                    d.name AS definition_name
+             FROM agent_workflow_runs r
+             LEFT JOIN agent_workflow_definitions d ON d.id = r.definition_id
+             WHERE r.owner_user_id = ? AND r.run_number = ?
+             ORDER BY COALESCE(r.updated_at, r.started_at) DESC
+             LIMIT 6`
+          )
+          .all(owner, idExact);
+        for (const r of byRunNumber || []) {
+          push({
+            type: 'workflow_run',
+            id: r.id,
+            title: `Run #${r.run_number}${r.definition_name ? ` · ${r.definition_name}` : ''}`,
+            subtitle: `WF run id ${r.id} · ${r.status}`,
+            href: `/workflows?run_id=${encodeURIComponent(r.id)}`,
+            updated_at: r.updated_at || r.started_at,
+          });
+        }
+      }
+      const runHits = db
+        .prepare(
+          `SELECT r.id, r.run_number, r.status, r.definition_id, r.updated_at, r.started_at,
+                  d.name AS definition_name
+           FROM agent_workflow_runs r
+           LEFT JOIN agent_workflow_definitions d ON d.id = r.definition_id
+           WHERE r.owner_user_id = ?
+             AND (
+               CAST(r.id AS TEXT) LIKE ?
+               OR CAST(r.run_number AS TEXT) LIKE ?
+               OR IFNULL(d.name,'') LIKE ? COLLATE NOCASE
+               OR IFNULL(r.definition_id,'') LIKE ? COLLATE NOCASE
+             )
+           ORDER BY COALESCE(r.updated_at, r.started_at) DESC
+           LIMIT 10`
+        )
+        .all(owner, like, like, like, like);
+      for (const r of runHits) {
+        push({
+          type: 'workflow_run',
+          id: r.id,
+          title: `Run #${r.run_number}${r.definition_name ? ` · ${r.definition_name}` : ''}`,
+          subtitle: `WF run id ${r.id} · ${r.status}`,
+          href: `/workflows?run_id=${encodeURIComponent(r.id)}`,
+          updated_at: r.updated_at || r.started_at,
+        });
+      }
+    } catch (e) {
+      console.warn('[home] search workflow runs:', e?.message || e);
     }
 
     // Master Data tables + row samples (CEO tenant/shared DB)
