@@ -73,6 +73,7 @@ export default function Kanban() {
   const [detailError, setDetailError] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [mobileStatus, setMobileStatus] = useState('in_progress');
+  const [agentFilter, setAgentFilter] = useState('all');
   const taskChatScrollRef = useRef(null);
   const [isMobileKanban, setIsMobileKanban] = useState(
     () => (typeof window !== 'undefined' ? window.matchMedia('(max-width: 900px)').matches : false)
@@ -94,10 +95,15 @@ export default function Kanban() {
       return next;
     });
   };
+  const taskAgentKey = (t) => t.assigned_agent_id || t.assigned_member_key || '__unassigned__';
+
   const selectAllTasks = (e) => {
     if (e) e.stopPropagation();
-    if (selectedTaskIds.size === tasks.length) setSelectedTaskIds(new Set());
-    else setSelectedTaskIds(new Set(tasks.map((t) => t.id)));
+    const visible = tasks.filter((t) => agentFilter === 'all' || taskAgentKey(t) === agentFilter);
+    const allSelected =
+      visible.length > 0 && visible.every((t) => selectedTaskIds.has(t.id)) && selectedTaskIds.size === visible.length;
+    if (allSelected) setSelectedTaskIds(new Set());
+    else setSelectedTaskIds(new Set(visible.map((t) => t.id)));
   };
   const deleteSelected = () => {
     if (selectedTaskIds.size === 0) return;
@@ -218,18 +224,17 @@ export default function Kanban() {
     if (el) el.scrollTop = el.scrollHeight;
   }, [taskDetail?.messages]);
 
-  const totalCount = tasks.length;
   const byAgentAndStatus = {};
   const memberKeys = [...new Set(tasks.map((t) => t.assigned_member_key).filter(Boolean))];
-  const agentIds = ['__unassigned__', ...agents.map((a) => a.id), ...memberKeys];
-  agentIds.forEach((aid) => {
+  const agentIdsAll = ['__unassigned__', ...agents.map((a) => a.id), ...memberKeys];
+  agentIdsAll.forEach((aid) => {
     byAgentAndStatus[aid] = {};
     STATUSES.forEach((s) => (byAgentAndStatus[aid][s] = []));
   });
   // External / A2A leaf members are not in `agents`, so their cards are keyed by member key.
   const memberRowNames = {};
   tasks.forEach((t) => {
-    const aid = t.assigned_agent_id || t.assigned_member_key || '__unassigned__';
+    const aid = taskAgentKey(t);
     if (t.assigned_member_key && t.assigned_agent_name) {
       memberRowNames[t.assigned_member_key] = t.assigned_agent_name;
     }
@@ -248,6 +253,15 @@ export default function Kanban() {
     if (memberRowNames[id]) return `${memberRowNames[id]} (external)`;
     return id;
   };
+
+  const filteredTasks = agentFilter === 'all' ? tasks : tasks.filter((t) => taskAgentKey(t) === agentFilter);
+  const totalCount = filteredTasks.length;
+  const agentIds = agentFilter === 'all' ? agentIdsAll : agentIdsAll.filter((aid) => aid === agentFilter);
+
+  const allVisibleSelected =
+    filteredTasks.length > 0 &&
+    filteredTasks.every((t) => selectedTaskIds.has(t.id)) &&
+    selectedTaskIds.size === filteredTasks.length;
 
   const handleDragStart = (e, task) => {
     setDraggingTask(task);
@@ -515,10 +529,10 @@ export default function Kanban() {
     chatContextTurns.length === 0;
 
   const statusCounts = STATUSES.reduce((acc, s) => {
-    acc[s] = tasks.filter((t) => t.status === s).length;
+    acc[s] = filteredTasks.filter((t) => t.status === s).length;
     return acc;
   }, {});
-  const mobileTasks = tasks
+  const mobileTasks = filteredTasks
     .filter((t) => t.status === mobileStatus)
     .slice()
     .sort((a, b) => {
@@ -546,7 +560,7 @@ export default function Kanban() {
             Times in {displayTimezone || serverTimezone}
           </span>
         )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
           {['all', 'daily', 'weekly', 'monthly'].map((v) => (
             <button
               key={v}
@@ -564,6 +578,31 @@ export default function Kanban() {
               {v === 'all' ? 'All' : v.charAt(0).toUpperCase() + v.slice(1)}
             </button>
           ))}
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: '0.25rem', fontSize: '0.85rem' }}>
+            <span style={{ color: 'var(--muted)' }}>Agent</span>
+            <select
+              value={agentFilter}
+              onChange={(e) => {
+                setAgentFilter(e.target.value);
+                setSelectedTaskIds(new Set());
+              }}
+              aria-label="Filter board by agent"
+              style={{ padding: '0.35rem 0.5rem', borderRadius: 6, border: '1px solid var(--border)', maxWidth: 220 }}
+            >
+              <option value="all">All agents</option>
+              <option value="__unassigned__">Unassigned</option>
+              {agents.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name || a.id}
+                </option>
+              ))}
+              {memberKeys.map((mk) => (
+                <option key={mk} value={mk}>
+                  {memberRowNames[mk] ? `${memberRowNames[mk]} (external)` : mk}
+                </option>
+              ))}
+            </select>
+          </label>
           <span style={{ marginLeft: '0.5rem' }}>Range:</span>
           <input
             type="date"
@@ -623,9 +662,18 @@ export default function Kanban() {
             disabled={deleting}
             style={{ padding: '0.5rem 1rem', borderRadius: 6, background: 'var(--error, #dc2626)', color: 'white', border: 'none', cursor: 'pointer' }}
           >
-            {deleting ? 'Deletingâ€¦' : `Delete selected (${selectedTaskIds.size})`}
+            {deleting ? 'Deleting…' : `Delete selected (${selectedTaskIds.size})`}
           </button>
         )}
+        <button
+          type="button"
+          onClick={selectAllTasks}
+          disabled={filteredTasks.length === 0}
+          title={allVisibleSelected ? 'Clear selection' : 'Select all visible tasks'}
+          style={{ padding: '0.5rem 1rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface, transparent)', cursor: filteredTasks.length ? 'pointer' : 'not-allowed' }}
+        >
+          {allVisibleSelected ? 'Clear selection' : `Select all${filteredTasks.length ? ` (${filteredTasks.length})` : ''}`}
+        </button>
         <button
           type="button"
           onClick={() => setCreateOpen(true)}
@@ -708,16 +756,6 @@ export default function Kanban() {
         <table className="kanban-board-table">
           <thead>
             <tr>
-              <th style={{ width: 36 }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 2, cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={tasks.length > 0 && selectedTaskIds.size === tasks.length}
-                    onChange={selectAllTasks}
-                    title="Select all"
-                  />
-                </label>
-              </th>
               <th className="kanban-col-agent">Agent</th>
               {STATUSES.map((s) => (
                 <th key={s} className="kanban-col-status">
@@ -729,15 +767,14 @@ export default function Kanban() {
           <tbody>
             {agentIds.map((aid) => (
               <tr key={aid}>
-                <td />
-                <td style={{ fontWeight: 500, wordBreak: 'break-word' }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <td className="kanban-col-agent" title={agentName(aid)}>
+                  <span className="kanban-agent-cell">
                     <RobotAvatar
                       src={agents.find((a) => a.id === aid)?.avatar_image}
                       name={agentName(aid)}
                       size={22}
                     />
-                    {agentName(aid)}
+                    <span className="kanban-agent-name">{agentName(aid)}</span>
                   </span>
                 </td>
                 {STATUSES.map((status) => (
@@ -839,6 +876,11 @@ export default function Kanban() {
               <div>
                 <h2 style={{ margin: '0 0 0.25rem', fontSize: '1.1rem' }}>{taskDetail?.title ?? selectedTask.title}</h2>
                 <div style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
+                  <span title="Task ID">
+                    Task ID{' '}
+                    <code style={{ fontSize: '0.8rem' }}>{taskDetail?.id ?? selectedTask.id}</code>
+                  </span>
+                  {' · '}
                   {taskDetail?.assigned_agent_name || selectedTask.assigned_agent_name || 'Unassigned'} · {STATUS_LABELS[taskDetail?.status ?? selectedTask.status]}
                   {taskDetail?.artifact_count > 0 && (
                     <span> · {taskDetail.artifact_count} artifact{taskDetail.artifact_count === 1 ? '' : 's'}</span>

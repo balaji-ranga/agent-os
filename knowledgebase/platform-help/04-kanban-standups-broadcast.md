@@ -2,6 +2,10 @@
 
 ## Kanban (`/kanban`)
 
+- **Task details** show the **task ID** (numeric id) next to assignee and status.
+- **Agent filter** in the top toolbar narrows the board (and mobile list) to one AI employee, Unassigned, or All.
+- **Select all** is a toolbar button next to **+ New task** (selects / clears visible tasks for the current filter). Per-card checkboxes remain for multi-select; the old left checkbox column was removed so agent names have more room and no longer wrap tightly.
+
 Board of tasks by agent and status — shared for agent work, workflow steps, and pipeline tasks.
 
 - **Same cards as Workspace `/work`:** open / in-progress / awaiting cards (including **unassigned**) appear on the operating Workspace **My tasks** list and Open tasks count. If Workspace ever said “No open tasks” while Kanban still had open cards, refresh after a backend update that merges platform Kanban for tenant CEOs.

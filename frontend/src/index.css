@@ -3039,10 +3039,29 @@ body.wf-props-resizing .react-flow {
   font-weight: 600;
 }
 .kanban-col-agent {
-  width: 72px;
+  width: 148px;
+  min-width: 120px;
+  max-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  vertical-align: middle;
+  font-weight: 500;
+}
+.kanban-agent-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+}
+.kanban-agent-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 .kanban-col-status {
-  width: calc((100% - 88px) / 5);
+  width: calc((100% - 148px) / 5);
 }
 .kanban-card-compact {
   padding: 0.28rem 0.35rem;

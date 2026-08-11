@@ -566,7 +566,12 @@ export default function AgentWorkflows() {
                   onClick={() => setSearchParams({ run_id: String(r.id) })}
                   style={{ cursor: 'pointer', background: selectedRun?.id === r.id ? 'var(--surface)' : undefined }}
                 >
-                  <td>#{r.run_number}</td>
+                  <td>
+                    <div>#{r.run_number}</div>
+                    <code style={{ fontSize: '0.7rem', color: 'var(--muted)' }} title="Workflow run id">
+                      run {r.id}
+                    </code>
+                  </td>
                   <td>
                     <div>{r.definition_name || r.definition_id}</div>
                     {r.definition_name && (
@@ -666,9 +671,12 @@ export default function AgentWorkflows() {
                   </button>
                 </div>
               </div>
-              <div style={{ marginTop: 8 }}>
-                <StatusBadge status={selectedRun.status} />{' '}
-                <span style={{ marginLeft: 8 }}>{selectedRun.progress_pct}%</span>
+              <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.5rem' }}>
+                <StatusBadge status={selectedRun.status} />
+                <span>{selectedRun.progress_pct}%</span>
+                <code style={{ fontSize: '0.78rem', color: 'var(--muted)' }} title="Workflow run id">
+                  WF run id {selectedRun.id}
+                </code>
               </div>
               {selectedRun.error_message && (
                 <p style={{ color: '#dc2626', fontSize: '0.85rem' }}>{selectedRun.error_message}</p>
