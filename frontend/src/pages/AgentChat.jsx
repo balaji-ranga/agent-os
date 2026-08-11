@@ -226,7 +226,13 @@ function HomeRightPane({ snapshot, agentActivity, recentWorkflows }) {
           <li>
             <span className="home-snap-dot home-dot-green" />
             Tasks completed
-            <strong>{snap.tasks_completed_today ?? 0}</strong>
+            <strong title={
+              snap.tasks_completed_today_detail
+                ? `Kanban ${snap.tasks_completed_today_detail.kanban ?? 0} + goals ${snap.tasks_completed_today_detail.goals ?? 0}`
+                : undefined
+            }>
+              {snap.tasks_completed_today ?? 0}
+            </strong>
           </li>
           <li>
             <span className="home-snap-dot home-dot-orange" />
@@ -236,7 +242,13 @@ function HomeRightPane({ snapshot, agentActivity, recentWorkflows }) {
           <li>
             <span className="home-snap-dot home-dot-red" />
             Errors / Failed
-            <strong>{snap.errors_failed_today ?? 0}</strong>
+            <strong title={
+              snap.errors_failed_today_detail
+                ? `Kanban ${snap.errors_failed_today_detail.kanban ?? 0} + goals ${snap.errors_failed_today_detail.goals ?? 0} + workflows ${snap.errors_failed_today_detail.workflows ?? 0}`
+                : undefined
+            }>
+              {snap.errors_failed_today ?? 0}
+            </strong>
           </li>
         </ul>
       </section>

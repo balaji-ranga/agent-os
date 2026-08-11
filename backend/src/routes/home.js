@@ -100,6 +100,46 @@ function sqlCount(db, ownerFilter, status, sinceIso) {
   );
 }
 
+/** Owner-scoped goal-run terminal counts (completed | failed). */
+function countGoalRuns(db, ownerUserId, status, sinceIso) {
+  try {
+    return (
+      db
+        .prepare(
+          `SELECT COUNT(*) AS n FROM agent_goal_runs
+           WHERE owner_user_id = ?
+             AND lower(status) = lower(?)
+             AND COALESCE(completed_at, updated_at, created_at) >= ?`
+        )
+        .get(ownerUserId, status, sinceIso)?.n || 0
+    );
+  } catch (e) {
+    console.warn('[home] goal run counts:', e?.message || e);
+    return 0;
+  }
+}
+
+/** Owner-scoped workflow run terminal counts. */
+function countWorkflowRuns(db, ownerUserId, statuses, sinceIso) {
+  try {
+    const list = Array.isArray(statuses) ? statuses : [statuses];
+    const placeholders = list.map(() => '?').join(',');
+    return (
+      db
+        .prepare(
+          `SELECT COUNT(*) AS n FROM agent_workflow_runs
+           WHERE owner_user_id = ?
+             AND lower(status) IN (${placeholders})
+             AND COALESCE(completed_at, started_at, updated_at) >= ?`
+        )
+        .get(ownerUserId, ...list.map((s) => String(s).toLowerCase()), sinceIso)?.n || 0
+    );
+  } catch (e) {
+    console.warn('[home] workflow run counts:', e?.message || e);
+    return 0;
+  }
+}
+
 router.get('/snapshot', (req, res) => {
   try {
     const owner = resolveAuthenticatedCeoUserId(req, req.query || {});
@@ -131,21 +171,39 @@ router.get('/snapshot', (req, res) => {
     const inProgress = byStatus.in_progress;
     const awaiting = byStatus.awaiting_confirmation;
 
-    let completedToday = 0;
-    let failedToday = 0;
-    let completed7d = 0;
-    let failed7d = 0;
+    let kanbanCompletedToday = 0;
+    let kanbanFailedToday = 0;
+    let kanbanCompleted7d = 0;
+    let kanbanFailed7d = 0;
     try {
-      completedToday = sqlCount(db, ownerFilter, 'completed', todayWin.startIso);
-      failedToday = sqlCount(db, ownerFilter, 'failed', todayWin.startIso);
-      completed7d = sqlCount(db, ownerFilter, 'completed', weekWin.startIso);
-      failed7d = sqlCount(db, ownerFilter, 'failed', weekWin.startIso);
+      kanbanCompletedToday = sqlCount(db, ownerFilter, 'completed', todayWin.startIso);
+      kanbanFailedToday = sqlCount(db, ownerFilter, 'failed', todayWin.startIso);
+      kanbanCompleted7d = sqlCount(db, ownerFilter, 'completed', weekWin.startIso);
+      kanbanFailed7d = sqlCount(db, ownerFilter, 'failed', weekWin.startIso);
     } catch (e) {
       console.warn('[home] task window counts:', e?.message || e);
     }
 
-    // Success rate (7d): completed / (completed + failed) over last 7 platform-TZ days.
-    // Open / in-progress / awaiting cards are excluded.
+    // Durable goal plans (agr-…) count as CEO work units in Today's Snapshot + Success Rate.
+    const goalsCompletedToday = countGoalRuns(db, owner, 'completed', todayWin.startIso);
+    const goalsFailedToday = countGoalRuns(db, owner, 'failed', todayWin.startIso);
+    const goalsCompleted7d = countGoalRuns(db, owner, 'completed', weekWin.startIso);
+    const goalsFailed7d = countGoalRuns(db, owner, 'failed', weekWin.startIso);
+
+    const workflowsCompletedToday = countWorkflowRuns(db, owner, ['completed'], todayWin.startIso);
+    const workflowsFailedToday = countWorkflowRuns(db, owner, ['failed'], todayWin.startIso);
+    const workflowsCompleted7d = countWorkflowRuns(db, owner, ['completed'], weekWin.startIso);
+    const workflowsFailed7d = countWorkflowRuns(db, owner, ['failed'], weekWin.startIso);
+
+    // Tasks completed: Kanban completed + goal plans completed (each agr-… completion is a unit of work).
+    const completedToday = kanbanCompletedToday + goalsCompletedToday;
+    // Errors / Failed: Kanban + goals + workflows that terminated failed (today).
+    const failedToday = kanbanFailedToday + goalsFailedToday + workflowsFailedToday;
+
+    // Success rate (7d): all terminal work units (tasks + goals + workflows).
+    // completed / (completed + failed). Open / in-progress excluded. 100% only when nothing terminal failed.
+    const completed7d = kanbanCompleted7d + goalsCompleted7d + workflowsCompleted7d;
+    const failed7d = kanbanFailed7d + goalsFailed7d + workflowsFailed7d;
     const decided7d = completed7d + failed7d;
     const successRate = decided7d > 0 ? Math.round((completed7d / decided7d) * 100) : 100;
 
@@ -248,18 +306,34 @@ router.get('/snapshot', (req, res) => {
         tasks_in_progress: inProgress,
         awaiting_approval: awaiting,
         success_rate_7d: successRate,
-        success_rate_label: 'Success rate (7d)',
+        success_rate_label: 'Success Rate (7d)',
         success_rate_detail: {
           completed_7d: completed7d,
           failed_7d: failed7d,
-          formula: 'completed / (completed + failed) over last 7 platform-TZ days',
+          kanban_completed_7d: kanbanCompleted7d,
+          kanban_failed_7d: kanbanFailed7d,
+          goals_completed_7d: goalsCompleted7d,
+          goals_failed_7d: goalsFailed7d,
+          workflows_completed_7d: workflowsCompleted7d,
+          workflows_failed_7d: workflowsFailed7d,
+          formula:
+            'completed / (completed + failed) over last 7 platform-TZ days — Kanban tasks + goal plans (agr-…) + workflow runs',
         },
       },
       snapshot: {
         workflows_running: workflowsRunning,
         tasks_completed_today: completedToday,
+        tasks_completed_today_detail: {
+          kanban: kanbanCompletedToday,
+          goals: goalsCompletedToday,
+        },
         approvals_pending: awaiting,
         errors_failed_today: failedToday,
+        errors_failed_today_detail: {
+          kanban: kanbanFailedToday,
+          goals: goalsFailedToday,
+          workflows: workflowsFailedToday,
+        },
         total_tasks: totalTasks,
         by_status: byStatus,
         day_start_utc: todayWin.startIso,

@@ -143,6 +143,8 @@ Home (`/`) shows an **Operational Effectiveness Index (OEI)** score **0–100** 
 ### Home on phone / small screens
 
 - **Overview first:** greeting, KPI row, Today’s Snapshot, team activity, and recent workflows scroll on the page.
+- **Today’s Snapshot counts:** **Tasks completed** = Kanban tasks completed **today** + durable **goal plans** (`agr-…`) that **completed** today. **Errors / Failed** = Kanban **failed** + goal plans **failed** + workflow runs **failed** (today, platform TZ). Hover the numbers for breakdown.
+- **Success Rate (7d)** on the Home KPI row uses the same three work units over the last 7 platform-TZ days: completed / (completed + failed) for **Kanban + goal plans + workflow runs**. Failed goals (and workflows) lower the rate below 100%.
 - **Chat sheet:** tap **Chat with …** to open a full-screen sliding chat panel. Use the **X** control (or Escape) to close and return to the overview. Deep links with `?message=` open the chat sheet automatically.
 - **History / browser panes:** on Home or `/agents/:id/chat`, the clock and browser icons open a **full-height side drawer**. Tap the backdrop or the **X** in the drawer header to close. Desktop layout is unchanged (inline chat + optional side column).
 
