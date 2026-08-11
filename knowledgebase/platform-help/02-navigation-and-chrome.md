@@ -122,7 +122,7 @@ Positioning: **AI Company OS** — see [`../AI-COMPANY-OS.md`](../AI-COMPANY-OS.
 
 ## Digest (This Week Digest)
 
-Top-nav **Digest** (`/this-week`) shows KPIs (AI workers, tasks completed, estimated Time Saved and Est. Value Delivered), organization and AI worker highlights, **goal plans** (2 most recent for the selected week; **View all plans** opens `/goal-plans?offset=` for that week), top workflows, task performance donut, activity timeline, and **Insights & recommendations**. Click the **i** on Time Saved / Est. Value for formulas.
+Top-nav **Digest** (`/this-week`) shows KPIs (AI workers, tasks completed, estimated Time Saved and Est. Value Delivered), organization and AI worker highlights, **goal plans (plan vs progress)** (2 most recent for the selected week, each with **goal run timestamp**; **View all plans** opens `/goal-plans?offset=` for that week), top workflows, task performance donut, activity timeline, and **Insights & recommendations**. Click the **i** on Time Saved / Est. Value for formulas.
 
 ### Metric formulas
 

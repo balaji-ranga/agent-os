@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import GoalPlanPanel from '../components/GoalPlanPanel';
+import { formatChatTimestamp } from '../utils/formatDateTime.js';
 
 function pad2(n) {
   return String(n).padStart(2, '0');
@@ -159,9 +160,24 @@ export default function GoalPlans() {
                     <Link to="/scheduled-goals">scheduled goal</Link>
                   </>
                 ) : null}
+                {g.created_at ? (
+                  <>
+                    {' · '}
+                    <time dateTime={String(g.created_at)} title="Goal run started">
+                      {formatChatTimestamp(g.created_at)}
+                    </time>
+                  </>
+                ) : null}
+                {g.completed_at ? (
+                  <>
+                    {' · done '}
+                    <time dateTime={String(g.completed_at)} title="Goal run completed">
+                      {formatChatTimestamp(g.completed_at)}
+                    </time>
+                  </>
+                ) : null}
                 {' · '}
                 {g.progress?.progress_pct ?? 0}%
-                {g.created_at ? ' · ' + String(g.created_at).slice(0, 10) : ''}
               </div>
               <GoalPlanPanel goal={g} compact />
             </div>

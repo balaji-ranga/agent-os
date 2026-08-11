@@ -519,6 +519,22 @@ export default function ThisWeek() {
                             <Link to="/scheduled-goals">scheduled goal</Link>
                           </>
                         ) : null}
+                        {g.created_at ? (
+                          <>
+                            {' · '}
+                            <time dateTime={String(g.created_at)} title="Goal run started">
+                              {formatChatTimestamp(g.created_at)}
+                            </time>
+                          </>
+                        ) : null}
+                        {g.completed_at ? (
+                          <>
+                            {' · done '}
+                            <time dateTime={String(g.completed_at)} title="Goal run completed">
+                              {formatChatTimestamp(g.completed_at)}
+                            </time>
+                          </>
+                        ) : null}
                         {' · '}
                         {g.progress?.progress_pct ?? 0}%
                       </div>

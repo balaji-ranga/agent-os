@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
+import { formatChatTimestamp } from '../utils/formatDateTime.js';
 
 function statusColor(status) {
   const s = String(status || '').toLowerCase();
@@ -96,6 +97,22 @@ export default function GoalPlanPanel({
             {' · '}
             <span style={{ color: statusColor(goal.status) }}>{goal.status}</span>
             {` · ${pct}%`}
+            {goal.created_at ? (
+              <>
+                {' · '}
+                <time dateTime={String(goal.created_at)} title="Goal run started">
+                  {formatChatTimestamp(goal.created_at)}
+                </time>
+              </>
+            ) : null}
+            {goal.completed_at ? (
+              <>
+                {' · done '}
+                <time dateTime={String(goal.completed_at)} title="Goal run completed">
+                  {formatChatTimestamp(goal.completed_at)}
+                </time>
+              </>
+            ) : null}
           </div>
         </div>
       </div>
