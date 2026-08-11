@@ -7,6 +7,13 @@ import { getPublicBaseUrl } from '../config/public-url.js';
 import { internalAuthHeaders } from '../middleware/internal-auth.js';
 
 function backendBaseUrl() {
+  // Prefer internal loopback so container self-dispatch does not hairpin public HTTPS (502).
+  const internal =
+    process.env.TOOLS_BASE_URL ||
+    process.env.AGENT_OS_INTERNAL_URL ||
+    process.env.BACKEND_INTERNAL_URL ||
+    '';
+  if (String(internal).trim()) return String(internal).replace(/\/$/, '');
   return getPublicBaseUrl() || `http://127.0.0.1:${process.env.PORT || 3001}`;
 }
 
