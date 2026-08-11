@@ -532,45 +532,12 @@ export async function hydrateBoardData(ownerUserId) {
     spend = { error: e?.message || String(e), href: '/efficiency' };
   }
 
-  let activity = tasks
-    .filter((t) => ['completed', 'failed', 'done'].includes(String(t.status || '').toLowerCase()))
-    .slice(0, 20)
-    .map((t) => ({
-      id: 'kanban-' + t.id,
-      kind: 'kanban',
-      snippet: String(t.status) + ': ' + String(t.title || '').slice(0, 100),
-      text: String(t.status) + ': ' + String(t.title || '').slice(0, 100),
-      created_at: t.updated_at || t.created_at,
-      task_id: t.id,
-      status: t.status,
-    }));
-
+  let activity = [];
   try {
-    const runs = getDb()
-      .prepare(
-        `SELECT r.id, r.status, r.completed_at, r.updated_at, r.started_at, d.name AS definition_name
-         FROM agent_workflow_runs r
-         LEFT JOIN agent_workflow_definitions d ON d.id = r.definition_id
-         WHERE r.owner_user_id = ?
-           AND lower(COALESCE(r.status,'')) IN ('completed','failed','error')
-         ORDER BY COALESCE(r.completed_at, r.updated_at) DESC
-         LIMIT 20`
-      )
-      .all(owner);
-    for (const r of runs) {
-      activity.push({
-        id: 'wf-' + r.id,
-        kind: 'workflow',
-        snippet: (r.definition_name || 'Workflow') + ' ' + r.status,
-        text: (r.definition_name || 'Workflow') + ' ' + r.status,
-        created_at: r.completed_at || r.updated_at || r.started_at,
-        status: r.status,
-      });
-    }
-    activity.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
-    activity = activity.slice(0, 25);
+    const { buildWorkspaceRecentActivity } = await import('./workspace-activity.js');
+    activity = buildWorkspaceRecentActivity(owner, { limit: 25 });
   } catch (e) {
-    console.warn('[workspace-boards] wf activity', e?.message || e);
+    console.warn('[workspace-boards] activity', e?.message || e);
   }
 
   const customers = {

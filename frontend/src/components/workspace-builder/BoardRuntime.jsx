@@ -207,12 +207,39 @@ function ComponentBody({ component, designMode, onCommand }) {
     return (
       <ul className="ws-feed">
         {rows.length === 0 && <li className="ws-muted">No recent activity</li>}
-        {rows.map((a) => (
-          <li key={a.id || a.snippet || a.text}>
-            <div className="ws-feed-time">{formatChatTimestamp(a.created_at || a.at)}</div>
-            <div>{a.text || a.snippet}</div>
-          </li>
-        ))}
+        {rows.map((a) => {
+          const line = a.text || a.snippet || '';
+          const kind =
+            a.kind === 'goal'
+              ? 'Goal'
+              : a.kind === 'workflow'
+                ? 'Workflow'
+                : a.kind === 'kanban'
+                  ? 'Task'
+                  : a.kind === 'feedback'
+                    ? 'Feedback'
+                    : null;
+          const body = (
+            <>
+              <div className="ws-feed-time">
+                {kind ? <span className="ws-feed-kind">{kind} · </span> : null}
+                {formatChatTimestamp(a.created_at || a.at)}
+              </div>
+              <div>{line}</div>
+            </>
+          );
+          return (
+            <li key={a.id || line}>
+              {a.href && !designMode ? (
+                <Link to={a.href} style={{ textDecoration: 'none', color: 'inherit' }}>
+                  {body}
+                </Link>
+              ) : (
+                body
+              )}
+            </li>
+          );
+        })}
       </ul>
     );
   }

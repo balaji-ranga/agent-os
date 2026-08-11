@@ -392,38 +392,61 @@ export default function OperatingWorkspace() {
           <div className="ow-panel-scroll">
             {(data?.activity || []).length === 0 ? (
               <p className="page-muted">
-                No recent agent tasks or workflow runs yet.
+                No recent agent tasks, goal plans, or workflow runs yet.
               </p>
             ) : (
               <ul className="ow-list" style={{ fontSize: '0.85rem' }}>
-                {(data.activity || []).map((row) => (
-                  <li key={row.id} className="ow-list-item ow-list-item-stack">
-                    <div>
-                      <strong>
-                        {row.agent_name ||
-                          row.agent_id ||
-                          (row.kind === 'workflow' ? 'Workflow brain' : 'Agent')}
-                      </strong>
-                      {row.kind === 'kanban' ? (
-                        <span className="page-muted" style={{ marginLeft: 6 }}>
-                          task {row.status || ''}
+                {(data.activity || []).map((row) => {
+                  const kindLabel =
+                    row.kind === 'kanban'
+                      ? `task ${row.status || ''}`
+                      : row.kind === 'workflow'
+                        ? `workflow ${row.status || ''}`
+                        : row.kind === 'goal'
+                          ? `goal plan ${row.status || ''}`
+                          : row.kind === 'feedback'
+                            ? 'feedback'
+                            : row.kind || '';
+                  const who =
+                    row.agent_name ||
+                    row.agent_id ||
+                    (row.kind === 'workflow'
+                      ? 'Workflow brain'
+                      : row.kind === 'goal'
+                        ? 'Goal plan'
+                        : 'Agent');
+                  const body = (
+                    <>
+                      <div>
+                        <strong>{who}</strong>
+                        {kindLabel ? (
+                          <span className="page-muted" style={{ marginLeft: 6 }}>
+                            {kindLabel}
+                          </span>
+                        ) : null}{' '}
+                        <span className="page-muted">
+                          {formatChatTimestamp(row.created_at) || row.created_at || ''}
                         </span>
-                      ) : row.kind === 'workflow' ? (
-                        <span className="page-muted" style={{ marginLeft: 6 }}>
-                          workflow {row.status || ''}
-                        </span>
-                      ) : row.kind === 'feedback' ? (
-                        <span className="page-muted" style={{ marginLeft: 6 }}>
-                          feedback
-                        </span>
-                      ) : null}{' '}
-                      <span className="page-muted">
-                        {formatChatTimestamp(row.created_at) || row.created_at || ''}
-                      </span>
-                    </div>
-                    <div className="page-muted">{row.snippet}</div>
-                  </li>
-                ))}
+                      </div>
+                      <div className="page-muted">{row.snippet || row.text}</div>
+                    </>
+                  );
+                  return (
+                    <li key={row.id} className="ow-list-item ow-list-item-stack">
+                      {row.href ? (
+                        <Link
+                          to={row.href}
+                          className="ow-activity-link"
+                          style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}
+                        >
+                          {body}
+                        </Link>
+                      ) : (
+                        body
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>

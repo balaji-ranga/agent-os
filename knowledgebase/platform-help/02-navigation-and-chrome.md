@@ -162,7 +162,7 @@ When hiring under **AI Employees** (`/workspace`) or Org Design, set **Hourly va
 
 ## Operating Workspace (`/work`)
 
-Daily desk for open work (not Digest). Default board binds **Open tasks** to `workspace.tasks` — the same owner-scoped Kanban rows as **/kanban** (including unassigned cards). Metrics tile **Open tasks** uses that count.
+Daily desk for open work (not Digest). Default board binds **Open tasks** to `workspace.tasks` — the same owner-scoped Kanban rows as **/kanban** (including unassigned cards). Metrics tile **Open tasks** uses that count. **Recent AI activity** merges terminal **Kanban tasks**, durable **goal plans** (`agr-…` completed/failed), and **workflow runs** (plus light feedback), newest first — not tasks alone.
 
 - **Multi-tenant CEOs:** open cards live on the platform Kanban store with `owner_user_id`; Workspace merges platform (+ optional tenant DB) so **Open tasks never goes empty when Kanban still has open work**.
 - Customize layout/bindings in **Workspace Builder** below; **Seed operating template** restores the classic layout if you blank the board.
