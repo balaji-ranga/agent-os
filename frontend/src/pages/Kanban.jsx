@@ -38,7 +38,7 @@ export default function Kanban() {
   const { displayTimezone } = useAuth();
   const [agents, setAgents] = useState([]);
   const [tasks, setTasks] = useState([]);
-  const [view, setView] = useState('all');
+  const [view, setView] = useState('weekly');
   const [rangeFrom, setRangeFrom] = useState('');
   const [rangeTo, setRangeTo] = useState('');
   const [loading, setLoading] = useState(true);
