@@ -27,6 +27,7 @@ import { invokeContentToolHttp } from './content-tool-http-invoke.js';
 import { listPublishedWorkflows } from './agent-workflow-chat-tools.js';
 import { getOrCreateDelegationHubStandup } from './standup-hub.js';
 import { scheduleCeoRequestViaOpenClawCron } from './delegation-queue.js';
+import { resolveAgentToolArgsForGoal } from './goal-plan-tool-args.js';
 
 const TERMINAL_WF = new Set(['completed', 'failed', 'cancelled', 'paused']);
 let _tablesReady = false;
@@ -639,6 +640,21 @@ export function priorStepSummaries(goalRunId, beforeIndex = Infinity) {
       lines.push(`- ${label}: ${clip(result.reply_preview, 600)}`);
     } else if (result?.body) {
       lines.push(`- ${label}: ${clip(result.body, 400)}`);
+    } else if (s.step_type === 'agent_tool' && result) {
+      // Include multi-symbol / tool payload so agent_continue can synthesize like chat.
+      const payload =
+        result.multi_symbol && Array.isArray(result.results)
+          ? {
+              tool: result.tool_name || spec.tool_name,
+              multi_symbol: true,
+              symbols: result.symbols,
+              results: result.results,
+              errors: result.errors,
+            }
+          : result.result != null
+            ? { tool: result.tool_name || spec.tool_name, result: result.result }
+            : result;
+      lines.push(`- ${label} (tool): ${clip(JSON.stringify(payload), 3500)}`);
     } else {
       lines.push(`- ${label}: completed`);
     }
@@ -965,13 +981,69 @@ async function executeAgentToolStep(goal, step) {
     }
   }
 
+  // Chat-like arg fill: goal plans often store args:{} while chat's tool-loop fills symbol etc.
+  let multiSymbols;
+  try {
+    const resolved = await resolveAgentToolArgsForGoal({
+      toolName,
+      args,
+      goalPrompt: goal.prompt || '',
+      goalTitle: goal.title || '',
+      priorSummary: prior || '',
+      ownerUserId: goal.owner_user_id,
+    });
+    args = resolved.args || args;
+    multiSymbols = resolved.symbols;
+  } catch (e) {
+    console.warn('[goal-run] tool arg resolve failed', toolName, e?.message || e);
+  }
+
   args.ceo_user_id = args.ceo_user_id || goal.owner_user_id;
   args.owner_user_id = args.owner_user_id || goal.owner_user_id;
   const caller = resolveAgentForGoal(goal.owner_user_id, goal.agent_id);
-  const out = await invokeContentToolHttp(toolName, args, goal.owner_user_id, {
+  const invokeOpts = {
     agentId: caller?.id || goal.agent_id || null,
     openclawAgentId: caller?.openclaw_agent_id || caller?.id || goal.agent_id || null,
-  });
+  };
+
+  // Single-symbol tools + multi-ticker goals (MAG7, lists): invoke per symbol and aggregate.
+  if (Array.isArray(multiSymbols) && multiSymbols.length > 1) {
+    const results = [];
+    const errors = [];
+    for (const sym of multiSymbols.slice(0, 20)) {
+      const body = { ...args, symbol: sym };
+      delete body.symbols;
+      try {
+        const out = await invokeContentToolHttp(toolName, body, goal.owner_user_id, invokeOpts);
+        results.push({ symbol: sym, ok: true, result: out });
+      } catch (e) {
+        const msg = e?.message || String(e);
+        errors.push({ symbol: sym, ok: false, error: msg });
+        console.warn('[goal-run] multi-symbol tool fail', { toolName, sym, err: msg });
+      }
+    }
+    if (!results.length) {
+      throw new Error(
+        errors[0]?.error || `tool ${toolName} failed for all symbols (${multiSymbols.join(',')})`
+      );
+    }
+    console.info('[goal-run] multi-symbol agent_tool', {
+      toolName,
+      ok: results.length,
+      fail: errors.length,
+      symbols: multiSymbols.slice(0, 12),
+    });
+    return {
+      ok: true,
+      tool_name: toolName,
+      multi_symbol: true,
+      symbols: multiSymbols,
+      results,
+      errors: errors.length ? errors : undefined,
+    };
+  }
+
+  const out = await invokeContentToolHttp(toolName, args, goal.owner_user_id, invokeOpts);
   return { ok: true, tool_name: toolName, result: out };
 }
 

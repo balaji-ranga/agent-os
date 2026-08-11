@@ -37,6 +37,11 @@ export const GOAL_PLAN_SELF_TOOLS_PREFER = [
   'ceo_profile',
   'kanban_create_task',
   'learnings_summary',
+  // Market data — args (symbols) resolved at execute time from goal prose (MAG7, lists, …)
+  'market_history',
+  'market_fundamentals',
+  'market_regime',
+  'market_screener',
 ];
 
 const SKIP_META_TOOLS = new Set([
@@ -1072,7 +1077,27 @@ export async function classifyGoalPlanIntents(ownerUserId, prompt, opts = {}) {
   });
 
   // Strip internal order key
-  const steps = all.map(({ _order, ...rest }) => rest).slice(0, MAX_INTENTS);
+  let steps = all.map(({ _order, ...rest }) => rest).slice(0, MAX_INTENTS);
+
+  // Chat-like close: when tools pull data and the CEO wants a report / reply in this chat,
+  // schedule an agent_continue so the orchestrator synthesizes with the same path as chat.
+  try {
+    const { goalWantsChatSynthesis } = await import('./goal-plan-tool-args.js');
+    const hasTool = steps.some((s) => s.type === 'agent_tool');
+    const hasContinue = steps.some((s) => s.type === 'agent_continue');
+    if (hasTool && !hasContinue && goalWantsChatSynthesis(text)) {
+      steps = [
+        ...steps,
+        {
+          type: 'agent_continue',
+          label: 'Synthesize report in chat',
+          message: null,
+        },
+      ].slice(0, MAX_INTENTS);
+    }
+  } catch (e) {
+    console.warn('[goal-plan-intent] synthesis step append skipped', e?.message || e);
+  }
 
   if (!steps.length) return null;
   console.info('[goal-plan-intent] classified', {
