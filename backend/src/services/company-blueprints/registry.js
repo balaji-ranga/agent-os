@@ -344,6 +344,68 @@ export function listCompanyTypeCards() {
   });
 }
 
+/**
+ * Resolve industry card + labels for UI (How We Run, Company setup, Knowledge).
+ *
+ * IMPORTANT: never pick a card solely by maps_to === general_ops — that returns
+ * the first thin industry in industries.json (Restaurant) for every education/
+ * retail/healthcare company that only stored the resolved blueprint type.
+ *
+ * Preference: company_type_card id → company_type as card id/label → optional memory → blueprint type label.
+ *
+ * @param {{ company_type_card?: string, company_type?: string, industry?: string }} strategic
+ * @param {{ memoryIndustry?: string|null }} [opts]
+ * @returns {{ company_type_card: string|null, company_type: string, company_type_label: string, industry_card: object|null }}
+ */
+export function resolveCompanyIndustryIdentity(strategic = {}, opts = {}) {
+  const cards = listCompanyTypeCards();
+  const byId = new Map(cards.map((c) => [String(c.id), c]));
+  const byLabel = new Map(cards.map((c) => [String(c.label || '').toLowerCase(), c]));
+
+  const matchCard = (raw) => {
+    const s = String(raw || '').trim();
+    if (!s) return null;
+    if (byId.has(s)) return byId.get(s);
+    const slug = s.toLowerCase().replace(/\s+/g, '_').replace(/-/g, '_');
+    if (byId.has(slug)) return byId.get(slug);
+    const byLab = byLabel.get(s.toLowerCase());
+    if (byLab) return byLab;
+    // Humanize "education" style already covered by id; try partial label
+    for (const c of cards) {
+      if (String(c.label || '').toLowerCase() === s.toLowerCase()) return c;
+    }
+    return null;
+  };
+
+  let card =
+    matchCard(strategic.company_type_card) ||
+    matchCard(strategic.company_type) ||
+    matchCard(strategic.industry) ||
+    matchCard(opts.memoryIndustry) ||
+    null;
+
+  // Only if still missing: match exact card whose id equals resolved maps_to pack (general_ops card itself)
+  if (!card) {
+    const resolved = resolveCompanyTypeId(
+      strategic.company_type || strategic.company_type_card || opts.memoryIndustry || 'general_ops'
+    );
+    card = byId.get(resolved) || null;
+  }
+
+  const company_type = resolveCompanyTypeId(
+    card?.id || strategic.company_type || strategic.company_type_card || opts.memoryIndustry || 'general_ops'
+  );
+  const bp = getBlueprint(company_type);
+  const company_type_label = card?.label || byId.get(company_type)?.label || bp.label || company_type;
+
+  return {
+    company_type_card: card?.id || (matchCard(strategic.company_type_card)?.id ?? null),
+    company_type,
+    company_type_label,
+    industry_card: card,
+  };
+}
+
 export function inferCompanyTypeFromText(text) {
   const t = String(text || '').toLowerCase();
   if (/content|instagram|facebook|linkedin|blog|social|creator|shorts|publish|media/.test(t)) {

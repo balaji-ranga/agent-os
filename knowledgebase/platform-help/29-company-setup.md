@@ -8,6 +8,8 @@
 
 **How do I update mission / DNA without re-running the full wizard?** Profile menu → **Update Company Details** (`/update-company-details`). This edits the Knowledge table `company_memory` (`item`/`detail` columns; creates table if missing) and keeps the setup `strategic_profile` in sync. Full Apply (teams/blueprints) remains under Company setup.
 
+**Industry vs How we run Type:** Company type is an **industry card** (e.g. Education). Many thin industries share the **`general_ops`** blueprint for Day 0/1 operate templates. **How we run** must show the **card label** (Education), not the first thin pack in the catalog (Restaurant). Stored as `company_type_card` on strategic profile + Knowledge row **Industry type**; pack id resolves via `maps_to` only for templates.
+
 **What if I already skipped?** Profile → **Company setup** (or `/company-setup`) — you can start create again anytime. Skipped state does not block the product permanently.
 
 **Is Company setup the same as Onboarding Helper?** No.

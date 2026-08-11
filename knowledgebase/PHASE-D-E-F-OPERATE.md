@@ -44,7 +44,7 @@ Stored as versioned company artifact (e.g. `company_operating_model` + optional 
 | Company type | Default source | CEO can |
 |--------------|----------------|---------|
 | **Dedicated vertical pack** (e.g. Content Creator deep) | **Template** operating model for that industry | Edit, then confirm |
-| **Thin pack** (SaaS, talent, trading, etc.) | Template skeleton + pack-specific cadences | Edit / regenerate |
+| **Thin pack** (SaaS, talent, trading, Education, Restaurant, etc.) | Template pack is often **`general_ops`**; **Type label must stay the industry card** (Education ≠ Restaurant). Prefer `company_type_card` / Knowledge Industry — never first `maps_to=general_ops` card. | Edit / regenerate |
 | **Custom / LLM-only** | **LLM proposes** full operating model from Phase C context | Edit, regenerate, confirm |
 
 **Rule:** Template when a pack exists; LLM when none or CEO chooses design-with-AI. Human always **confirms**.

@@ -12,8 +12,8 @@ import {
 } from "./onboarding-helper.js";
 import {
   getBlueprint,
-  listCompanyTypeCards,
   resolveCompanyTypeId,
+  resolveCompanyIndustryIdentity,
 } from "./company-blueprints/index.js";
 import {
   getOperatingModelTemplate,
@@ -25,7 +25,7 @@ import {
 import { designOperatingModelWithLlm } from "./company-llm-operate.js";
 import { buildChannelsSystemsMdSection } from "./company-operate-models/operate-catalog.js";
 import { listAgentsForUser } from "./users.js";
-import { createTable, findTableByName, insertRow, uploadDocument } from "./master-data.js";
+import { createTable, findTableByName, insertRow, uploadDocument, listRows } from "./master-data.js";
 import { createDefinition, getDefinition, updateDraft, publishDefinition } from "./agent-workflow-store.js";
 import * as workspace from "../workspace/adapter.js";
 import { ensureUniversalSafetyGuardrails } from "./ceo-guardrails.js";
@@ -163,13 +163,15 @@ export function getOperateGate(ownerUserId) {
   }
   const confirmed = gate === "day0_confirmed" || gate === "day1_applied";
   const day1Done = gate === "day1_applied";
+  const identity = resolveCompanyIndustryIdentity(strategic, {});
   return {
     owner_user_id: ownerUserId,
     operate_gate: gate,
     company_formed: formed,
     company_name: strategic.company_name || null,
-    company_type: strategic.company_type || null,
-    company_type_card: strategic.company_type_card || null,
+    company_type: identity.company_type || strategic.company_type || null,
+    company_type_card: identity.company_type_card || strategic.company_type_card || null,
+    company_type_label: identity.company_type_label || null,
     mission: strategic.mission || null,
     setup_gate: strategic.setup_gate || null,
     operating_model_version: strategic.operating_model_version || null,
@@ -214,11 +216,71 @@ export function beginOperate(ownerUserId) {
   return getOperateState(ownerUserId);
 }
 
+function readIndustryFromCompanyMemory(ownerUserId) {
+  try {
+    const table = findTableByName(ownerUserId, "company_memory");
+    if (!table?.id) return null;
+    let offset = 0;
+    for (;;) {
+      const page = listRows(ownerUserId, table.id, { limit: 100, offset });
+      const rows = page.rows || [];
+      for (const r of rows) {
+        const item = String(r.data?.item || "").trim().toLowerCase();
+        if (item === "industry type" || item === "industry") {
+          const d = String(r.data?.detail || "").trim();
+          if (d) return d;
+        }
+      }
+      if (!rows.length || offset + rows.length >= (page.total || 0)) break;
+      offset += 100;
+      if (offset > 2000) break;
+    }
+  } catch (e) {
+    console.warn("[company-operate] company_memory industry read:", e?.message || e);
+  }
+  return null;
+}
+
+/**
+ * Resolve display industry for How We Run; heal missing company_type_card from Knowledge.
+ */
+function resolveOperateCompanyIdentity(ownerUserId, strategic, row, journey) {
+  const memoryIndustry = readIndustryFromCompanyMemory(ownerUserId);
+  const identity = resolveCompanyIndustryIdentity(strategic, { memoryIndustry });
+
+  // Soft-heal strategic so Day0/Day1 and future reads stay consistent with Knowledge.
+  const needHeal =
+    identity.company_type_card &&
+    String(strategic.company_type_card || "").trim() !== String(identity.company_type_card);
+  if (needHeal || (!strategic.company_type_card && identity.company_type_card)) {
+    try {
+      strategic.company_type_card = identity.company_type_card;
+      strategic.company_type = identity.company_type;
+      if (journey) {
+        journey.company_type_card = identity.company_type_card;
+        journey.company_type = identity.company_type;
+      }
+      writeStrategic(ownerUserId, row, journey || parseJson(row.draft_journey_json, defaultJourney()), strategic);
+      console.info("[company-operate] healed company_type_card", {
+        owner: String(ownerUserId).slice(0, 24),
+        card: identity.company_type_card,
+        type: identity.company_type,
+        from_memory: !!memoryIndustry,
+      });
+    } catch (e) {
+      console.warn("[company-operate] industry heal failed:", e?.message || e);
+    }
+  }
+  return identity;
+}
+
 export function getOperateState(ownerUserId) {
   const row = ensureStrategyRow(ownerUserId);
+  const journey = parseJson(row.draft_journey_json, defaultJourney());
   const strategic = getStrategic(row);
   const gate = getOperateGate(ownerUserId);
-  const companyType = resolveCompanyTypeId(strategic.company_type || "general_ops");
+  const identity = resolveOperateCompanyIdentity(ownerUserId, strategic, row, journey);
+  const companyType = identity.company_type;
   const bp = getBlueprint(companyType);
   const agents = listAgentsForUser(ownerUserId).map((a) => ({
     id: a.id,
@@ -230,19 +292,13 @@ export function getOperateState(ownerUserId) {
     strategic.operating_model && typeof strategic.operating_model === "object"
       ? strategic.operating_model
       : null;
-  const cards = listCompanyTypeCards();
-  const card = cards.find(
-    (c) =>
-      c.id === strategic.company_type_card ||
-      c.id === strategic.company_type ||
-      c.maps_to === companyType
-  );
 
   return {
     ...gate,
     operate_step: strategic.operate_step || "welcome",
     company_type: companyType,
-    company_type_label: card?.label || bp.label || companyType,
+    company_type_card: identity.company_type_card || strategic.company_type_card || null,
+    company_type_label: identity.company_type_label,
     company_name: strategic.company_name || null,
     mission: strategic.mission || null,
     org_dna: strategic.org_dna || null,
@@ -258,6 +314,7 @@ export function getOperateState(ownerUserId) {
     day1_result: strategic.operate_day1 || null,
     has_template: true,
     template_hint: shouldUseLlmOperateDesign(companyType) ? "llm_preferred" : "template_preferred",
+    template_pack_label: bp.label || companyType,
   };
 }
 
@@ -350,18 +407,18 @@ export async function designOperate(ownerUserId, body = {}) {
     throw err;
   }
 
-  const companyType = resolveCompanyTypeId(strategic.company_type || "general_ops");
-  const cards = listCompanyTypeCards();
-  const card = cards.find((c) => c.id === strategic.company_type_card || c.maps_to === companyType);
+  const identityFull = resolveOperateCompanyIdentity(ownerUserId, strategic, row, journey);
+  const companyTypeFinal = identityFull.company_type;
+  const typeLabel = identityFull.company_type_label;
   const sourcePref = String(body.source || "auto").toLowerCase();
   const force = sourcePref === "llm" || sourcePref === "template" ? sourcePref : undefined;
-  const useLlm = shouldUseLlmOperateDesign(companyType, { force });
+  const useLlm = shouldUseLlmOperateDesign(companyTypeFinal, { force });
 
   const setupSystems = Array.isArray(strategic.systems) ? strategic.systems : [];
   const orgChannels =
     strategic.channels ||
     journey?.answers?.channels ||
-    getBlueprint(companyType)?.channels ||
+    getBlueprint(companyTypeFinal)?.channels ||
     [];
 
   let design;
@@ -369,13 +426,13 @@ export async function designOperate(ownerUserId, body = {}) {
     const agents = listAgentsForUser(ownerUserId);
     design = await designOperatingModelWithLlm(ownerUserId, {
       company_name: strategic.company_name || "",
-      company_type: companyType,
-      company_type_label: card?.label || companyType,
+      company_type: companyTypeFinal,
+      company_type_label: typeLabel,
       mission: strategic.mission || "",
       org_dna: strategic.org_dna || "",
       org_dna_notes: strategic.org_dna_notes || "",
       management_style: strategic.management_style || "after_approval",
-      industry: strategic.industry || "",
+      industry: typeLabel || strategic.industry || "",
       describe_company: strategic.describe_company || "",
       agents,
       setup_systems: setupSystems,
@@ -383,7 +440,7 @@ export async function designOperate(ownerUserId, body = {}) {
     });
   } else {
     design = {
-      model: getOperatingModelTemplate(companyType, {
+      model: getOperatingModelTemplate(companyTypeFinal, {
         management_style: strategic.management_style,
         blueprint_id: strategic.blueprint_id,
       }),

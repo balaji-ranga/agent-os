@@ -12,7 +12,11 @@ import {
 } from './master-data.js';
 import { ensureStrategyRow, parseJson, persistJourney } from './onboarding-helper.js';
 import { ORG_DNA_PRESETS, getSetupGate } from './company-setup.js';
-import { listCompanyTypeCards } from './company-blueprints/index.js';
+import {
+  listCompanyTypeCards,
+  resolveCompanyTypeId,
+  resolveCompanyIndustryIdentity,
+} from './company-blueprints/index.js';
 
 const TABLE_NAME = 'company_memory';
 const TABLE_DESC =
@@ -95,6 +99,9 @@ export function getCompanyMemoryCapture(ownerUserId) {
   const byItem = Object.fromEntries(rows.map((r) => [String(r.item).toLowerCase(), r.detail]));
   const dnaId = strategic.org_dna || null;
   const dnaPreset = ORG_DNA_PRESETS.find((d) => d.id === dnaId) || null;
+  const identity = resolveCompanyIndustryIdentity(strategic, {
+    memoryIndustry: byItem['industry type'] || null,
+  });
   return {
     owner_user_id: owner,
     table: table
@@ -107,7 +114,12 @@ export function getCompanyMemoryCapture(ownerUserId) {
       org_dna_label: dnaPreset?.label || '',
       org_dna_notes: strategic.org_dna_notes || byItem['dna notes'] || '',
       company_type:
-        strategic.company_type_card || strategic.company_type || byItem['industry type'] || '',
+        identity.company_type_card ||
+        strategic.company_type_card ||
+        strategic.company_type ||
+        byItem['industry type'] ||
+        '',
+      company_type_label: identity.company_type_label || '',
     },
     memory_rows: rows,
     org_dna_presets: ORG_DNA_PRESETS,
@@ -149,8 +161,14 @@ export function updateCompanyMemoryCapture(ownerUserId, body = {}) {
   }
   if (Object.prototype.hasOwnProperty.call(body, 'company_type') || Object.prototype.hasOwnProperty.call(body, 'company_type_card') || Object.prototype.hasOwnProperty.call(body, 'industry_type')) {
     if (company_type) {
-      strategic.company_type_card = company_type;
-      strategic.company_type = company_type;
+      // Normalize: accept card id or label; keep card + resolved pack separate (education → general_ops).
+      const identity = resolveCompanyIndustryIdentity(
+        { company_type_card: company_type, company_type },
+        {}
+      );
+      const cardId = identity.company_type_card || company_type;
+      strategic.company_type_card = cardId;
+      strategic.company_type = resolveCompanyTypeId(cardId);
     }
   }
   strategic.company_memory_updated_at = new Date().toISOString();
@@ -162,7 +180,12 @@ export function updateCompanyMemoryCapture(ownerUserId, body = {}) {
   const nameVal = company_name || strategic.company_name || '';
   const missionVal = mission || strategic.mission || '';
   const notesVal = org_dna_notes || strategic.org_dna_notes || '';
-  const industryVal = company_type || strategic.company_type_card || strategic.company_type || '';
+  // Store industry card id in Knowledge so How We Run can resolve Education not Restaurant.
+  const industryVal =
+    strategic.company_type_card ||
+    company_type ||
+    strategic.company_type ||
+    '';
   const desired = [];
   if (nameVal) desired.push({ item: ITEMS.company, detail: nameVal });
   if (missionVal) desired.push({ item: ITEMS.mission, detail: missionVal });

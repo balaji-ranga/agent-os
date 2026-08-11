@@ -21,6 +21,7 @@ import {
   getDefaultBlueprintIdForIndustry,
   inferCompanyTypeFromText,
   resolveCompanyTypeId,
+  resolveCompanyIndustryIdentity,
   policyTextForStyle,
   hasDedicatedCompanyTemplate,
 } from './company-blueprints/index.js';
@@ -447,11 +448,12 @@ export async function designCompanyOrg(ownerUserId) {
   const row = ensureStrategyRow(ownerUserId);
   let journey = parseJson(row.draft_journey_json, defaultJourney());
   const strategic = getStrategic(row);
-  const companyType = resolveCompanyTypeId(strategic.company_type || journey.company_type || 'general_ops');
+  const identity = resolveCompanyIndustryIdentity(strategic, {
+    memoryIndustry: strategic.industry || null,
+  });
+  const companyType = identity.company_type;
   const bp = resolveSelectedBlueprint(strategic, journey);
-  const typeCards = listCompanyTypeCards();
-  const card = typeCards.find((c) => c.id === strategic.company_type_card || c.id === strategic.company_type || c.id === companyType || c.maps_to === companyType);
-  const typeLabel = card?.label || bp.label || companyType;
+  const typeLabel = identity.company_type_label || bp.label || companyType;
 
   const useLlm = shouldUseLlmOrgDesign(companyType, {
     describe: strategic.describe_company || journey.answers?.purpose || '',
@@ -614,17 +616,12 @@ export async function designChatRefine(ownerUserId, { message } = {}) {
   const row = ensureStrategyRow(ownerUserId);
   const journey = parseJson(row.draft_journey_json, defaultJourney());
   const strategic = getStrategic(row);
-  const companyType = resolveCompanyTypeId(strategic.company_type || journey.company_type || 'general_ops');
+  const identity = resolveCompanyIndustryIdentity(strategic, {
+    memoryIndustry: strategic.industry || null,
+  });
+  const companyType = identity.company_type;
   const bp = resolveSelectedBlueprint(strategic, journey);
-  const typeCards = listCompanyTypeCards();
-  const card = typeCards.find(
-    (c) =>
-      c.id === strategic.company_type_card ||
-      c.id === strategic.company_type ||
-      c.id === companyType ||
-      c.maps_to === companyType
-  );
-  const typeLabel = card?.label || bp.label || companyType;
+  const typeLabel = identity.company_type_label || bp.label || companyType;
   const answers = journey.answers || {};
   const history = Array.isArray(strategic.design_chat) ? strategic.design_chat : [];
 

@@ -7,6 +7,7 @@ export {
   listBlueprintsForIndustry,
   listIndustries,
   resolveCompanyTypeId,
+  resolveCompanyIndustryIdentity,
   inferCompanyTypeFromText,
   policyTextForStyle,
   hasDedicatedCompanyTemplate,
