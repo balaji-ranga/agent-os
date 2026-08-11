@@ -474,7 +474,7 @@ export function serializeGoalRun(row, steps = null) {
   };
 }
 
-export function getGoalRun(goalRunId, ownerUserId) {
+export function getGoalRun(goalRunId, ownerUserId = null) {
   const row = loadGoalRunRow(goalRunId, ownerUserId);
   if (!row) return null;
   return serializeGoalRun(row);
@@ -1086,6 +1086,16 @@ export function completeGoalRun(goalRunId, { status = 'completed', error = null 
       console.warn('[goal-run] completion nudge failed', goalRunId, e?.message || e)
     );
   }
+  // On failure: recovery Kanban + pending delegation (chat/tool path, not a new goal plan).
+  if (status === 'failed') {
+    void import('./goal-plan-failure-kanban.js')
+      .then(({ enqueueGoalPlanFailureKanban }) =>
+        enqueueGoalPlanFailureKanban(goalRunId, { error })
+      )
+      .catch((e) =>
+        console.warn('[goal-run] failure recovery kanban failed', goalRunId, e?.message || e)
+      );
+  }
   return getGoalRun(goalRunId);
 }
 
@@ -1098,10 +1108,10 @@ export function completeGoalRun(goalRunId, { status = 'completed', error = null 
  */
 export async function nudgeCooOnGoalPlanTerminal(goalRunId, opts = {}) {
   if (String(process.env.GOAL_PLAN_COO_COMPLETION_NUDGE || '1') === '0') {
-    return { ok: false, skipped: true, reason: 'disabled_by_env' }
+    return { ok: false, skipped: true, reason: 'disabled_by_env' };
+  }
   if (!opts.force && !isPlatformCronActive('goal_plan_completion_nudge')) {
     return { ok: false, skipped: true, reason: 'paused_admin' };
-  };
   }
   const id = String(goalRunId || '').trim();
   if (!id) return { ok: false, error: 'goal_run_id required' };
