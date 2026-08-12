@@ -96,9 +96,9 @@ IBKR plans, positions, fills, and budget are **per CEO** (not shared with other 
 
 ### OpenConnector tips
 
-- Prefer vaulted secrets from **API Keys** when an app needs a static API key (see [15-api-keys-vault.md](./15-api-keys-vault.md)).
+- Prefer vaulted secrets from **API Keys** when an app needs a static API key for workflows/agents (see [15-api-keys-vault.md](./15-api-keys-vault.md)). The Connectors **Save API key** control stores the key on the **OpenConnector connection** only — it does **not** create an API Keys vault entry.
 - Failures often mean: not provisioned, OAuth expired, wrong action id, or app not connected for this CEO.
-- Ask **Platform Help**: “How do I connect GitHub?” or “How do I use a Connector node?”
+- Ask **Platform Help**: “How do I connect GitHub?” or “How do I use a Connector node?” or “How do I override OpenConnector App ID?”
 - Operator-level OpenConnector webhooks: `knowledgebase/OPENCONNECTOR-WEBHOOKS.md` (ops; not required for everyday CEO connect).
 
 ---

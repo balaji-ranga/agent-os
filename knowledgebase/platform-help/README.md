@@ -21,7 +21,7 @@
 | [13-workflow-autonomous-certify.md](./13-workflow-autonomous-certify.md) | Maker/Checker certify jobs, status-on-request, resume inputs |
 | [14-workflow-dynamic-values.md](./14-workflow-dynamic-values.md) | `{{…}}` templates, variables, trigger input, **vault** auth |
 | [15-api-keys-vault.md](./15-api-keys-vault.md) | **API Keys** vault, auto-seeded BYOK slots, `Platform_BYOK` / Replicate / Brave / ElevenLabs |
-| [16-connectors-openconnector.md](./16-connectors-openconnector.md) | **Connectors → OpenConnector** SaaS apps + Connector node + IBKR bridge; MCPs tab points to **31** |
+| [16-connectors-openconnector.md](./16-connectors-openconnector.md) | **Connectors → OpenConnector**: OAuth / API key / no-auth, CEO **App ID/secret override (BYOA)**, admin Provider OAuth apps, Connector node, IBKR/Browser packages; MCPs tab → **31** |
 | [17-desktop-windows-download.md](./17-desktop-windows-download.md) | **Download for Windows** — local orchestrator, tokens, IP whitelist (W2 execute) |
 | [18-agent-budgets-and-org-members.md](./18-agent-budgets-and-org-members.md) | Department purpose/budget, **agent token + error budgets** (warn-then-block), **Efficiency → Agent View**, external/A2A agents as org leaf members |
 | [19-scheduled-jobs-and-crons.md](./19-scheduled-jobs-and-crons.md) | Platform crons vs your own schedules, **COO status checker** (daily report + HTML email), **data retention** purge, Storage (MB); points to **Scheduled goals** |
@@ -36,7 +36,7 @@
 | [28-scheduled-goals.md](./28-scheduled-goals.md) | **Scheduled goals** — draft/approve multi-intent plans; **Amend plan manually** (intent→step baseline); `agent_goal_*` **async ack** + once-only completion chat nudge; `agent_tool` arg fill (MAG7/tickers) + optional `agent_continue` synthesis; schedule fire → new `agr-…`; terminal notifies name plan; e2e `test:e2e:goal-plan` / `test:goal-plan:async-ui`; Digest 2 + `/goal-plans` |
 | [29-company-setup.md](./29-company-setup.md) | **Company setup** — first-run wizard `/company-setup` (type, mission, DNA, team Apply, management style); vs Onboarding Helper |
 | [30-content-creator-ops.md](./30-content-creator-ops.md) | **Content creator ops** — Facebook Page via Meta Graph MCP, publish social, comment ingest/triage, Ops Reporter **bell** (not email), Company Operate |
-| [31-mcp-connectors-oauth.md](./31-mcp-connectors-oauth.md) | **Connectors → MCPs** OAuth: Facebook / Meta Graph, CEO App ID override, other OAuth MCPs; OpenConnector config → **16** + OPENCONNECTOR-WEBHOOKS |
+| [31-mcp-connectors-oauth.md](./31-mcp-connectors-oauth.md) | **Connectors → MCPs** OAuth: Facebook / Meta Graph, CEO App ID override, other OAuth MCPs; OpenConnector BYOA → **16** + OPENCONNECTOR-WEBHOOKS |
 | [32-business-core-crm-erp.md](./32-business-core-crm-erp.md) | **Business Core** — Twenty/ERPNext, prefab Maker/Checker, **`crm-*`/`erp-*` workspace templates**, MCPs, `/work` embed |
 | [33-ip-whitelists.md](./33-ip-whitelists.md) | **IP Whitelists** — Settings central firewall for IBKR bridge, Workflow download, A2A, Browser Session worker (shared store with federated UIs) |
 | [34-tokens-management.md](./34-tokens-management.md) | **Tokens management** — list/revoke external package tokens (desktop, IBKR bridge, Browser Session) |

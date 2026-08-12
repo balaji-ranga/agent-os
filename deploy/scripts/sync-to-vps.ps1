@@ -307,6 +307,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-openconnector-connectors-e2e.js" `
     "$Repo\backend\scripts\test-openconnector-selfservice.js" `
     "$Repo\backend\scripts\test-openconnector-oauth-override.js" `
+    "$Repo\backend\scripts\probe-oc-custom-oauth.js" `
     "$Repo\backend\scripts\provision-openconnector-ceos.js" `
     "$Repo\backend\scripts\vps-test-balaji-agents-kanban.js" `
     "$Repo\backend\scripts\vps-test-coo-biryani-delegate.js" `

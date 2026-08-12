@@ -128,19 +128,25 @@ Set in `.env`: `OLLAMA_BASE_URL=http://ollama:11434` (default in compose). OpenC
 
 For workflow SSE/hook testing only — not required in production unless you host MCP integrations here.
 
-### OpenConnector mock (`optional-openconnector` profile)
+### OpenConnector (`optional-openconnector` profile)
 
-Registers SaaS-action MCP tools for workflows (list/search/execute). For staging:
+Real runtime (recommended) or MCP mock for staging:
 
 ```bash
-# In deploy/.env:
-# OPENCONNECTOR_MCP_URL=http://openconnector-mcp-mock:3105/mcp
+# In deploy/.env (real OC):
+# OPENCONNECTOR_URL=http://openconnector:3000
+# OPENCONNECTOR_ADMIN_TOKEN=…
+# OPENCONNECTOR_ENCRYPTION_KEY=…
+# OPENCONNECTOR_PUBLIC_ORIGIN=https://your.host/openconnector
+# OPENCONNECTOR_IMAGE_TAG=tip
+# OOMOL_CONNECT_ALLOWED_CUSTOM_OAUTH=*
+# OPENCONNECTOR_MCP_URL=http://openconnector:3000/mcp
 
 podman compose --profile optional-openconnector up -d
 podman compose exec backend node scripts/seed-openconnector-mcp.js
 ```
 
-Production: point `OPENCONNECTOR_MCP_URL` at a real OpenConnector `/mcp` endpoint (and set `OPENCONNECTOR_MCP_BEARER` if required). See **OPENCONNECTOR-WEBHOOKS.md**.
+CEO **App ID/secret override (BYOA)** needs `tip` (or newer) + `OOMOL_CONNECT_ALLOWED_CUSTOM_OAUTH` — help **16** / **OPENCONNECTOR-WEBHOOKS.md**. Mock profile: `optional-openconnector-mock` + `OPENCONNECTOR_MCP_URL=http://openconnector-mcp-mock:3105/mcp`.
 
 ### Job Applicant browser login (`optional-browser-login`)
 

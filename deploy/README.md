@@ -179,7 +179,7 @@ META_GRAPH_MCP_URL=http://meta-graph-mcp:8081/mcp
 # SEED_CONTENT_MEDIA_OWNER=ceo-...
 ```
 
-Guides: MCP OAuth setup `knowledgebase/platform-help/31-mcp-connectors-oauth.md`; content ops `30-content-creator-ops.md`; OpenConnector (separate) `16-connectors-openconnector.md` + `OPENCONNECTOR-WEBHOOKS.md`.
+Guides: MCP OAuth setup `knowledgebase/platform-help/31-mcp-connectors-oauth.md`; content ops `30-content-creator-ops.md`; OpenConnector (CEO BYOA App override, `OPENCONNECTOR_IMAGE_TAG=tip`) `16-connectors-openconnector.md` + `OPENCONNECTOR-WEBHOOKS.md`. Smoke: `backend/scripts/test-openconnector-oauth-override.js`, `probe-oc-custom-oauth.js`.
 
 ## Environment & LLM secrets
 
@@ -262,8 +262,12 @@ Gets the same gateway LLM vars plus:
 | `MFA_MODE`, `AGENT_OS_REQUIRE_MFA`, `AGENT_OS_DISABLE_MFA` | Platform MFA defaults (production: `MFA_MODE=TOTP`, `AGENT_OS_REQUIRE_MFA=1`) |
 | `EMAIL_INBOUND_WEBHOOK_SECRET` | Optional platform secret for email inbound webhooks |
 | `OPENCONNECTOR_URL` | Base URL of the OpenConnector runtime (e.g. `http://openconnector:3000`). Enables Connector workflow nodes + User Profile auto-provision. |
+| `OPENCONNECTOR_PUBLIC_ORIGIN` / `OOMOL_CONNECT_ORIGIN` | Public HTTPS origin for OAuth callbacks (e.g. `https://flolah.cloud/openconnector`) |
 | `OPENCONNECTOR_ADMIN_TOKEN` | Admin token for the OpenConnector runtime (bootstraps user runtime tokens) |
-| `OPENCONNECTOR_ENCRYPTION_KEY` | Encryption key for OpenConnector token store |
+| `OPENCONNECTOR_ENCRYPTION_KEY` | Encryption key for OpenConnector token store (`OOMOL_CONNECT_ENCRYPTION_KEY`) |
+| `OPENCONNECTOR_IMAGE_TAG` | OC image tag (default **`tip`**). Use `tip` for connection-scoped CEO BYOA OAuth; official `v1.3.5` / `latest` ignores authorize `clientId`. |
+| `OOMOL_CONNECT_ALLOWED_CUSTOM_OAUTH` | On `openconnector` service: `*` or provider list enabling connection-scoped `clientId`/`clientSecret` on authorize |
+| `OPENCONNECTOR_ALLOWED_CUSTOM_OAUTH` | Backend mirror for status/UI (`custom_oauth_enabled`) |
 | `OPENCONNECTOR_MCP_*` | OpenConnector MCP URL / bearer / transport (Brain+MCP tool-calling) |
 | `OPENSEARCH_ENABLED` | `1` (default) to use OpenSearch for document meta + RAG; `0` disables document ops (tables still work) |
 | `OPENSEARCH_URL` | Internal URL only: `http://opensearch:9200` (never publish host ports) |
@@ -564,7 +568,8 @@ docker compose --profile optional-mcp up -d
 # Seed into registry: docker compose exec backend node scripts/seed-local-mcp-random-sse.js
 
 # Real OpenConnector runtime (port 3000 internal)
-# Set OPENCONNECTOR_URL=http://openconnector:3000 and OPENCONNECTOR_ADMIN_TOKEN in .env
+# Set OPENCONNECTOR_URL=http://openconnector:3000, OPENCONNECTOR_ADMIN_TOKEN, OPENCONNECTOR_ENCRYPTION_KEY,
+# OPENCONNECTOR_IMAGE_TAG=tip, OOMOL_CONNECT_ALLOWED_CUSTOM_OAUTH=* in .env
 docker compose --profile optional-openconnector up -d
 
 # OpenConnector MCP mock (port 3105 internal) — staging/e2e only

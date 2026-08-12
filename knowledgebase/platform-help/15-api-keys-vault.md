@@ -7,10 +7,10 @@ Path: **Settings → API Keys** (`/api-keys`).
 A per-CEO **named secret vault** for:
 
 - Workflow **Brain / API / MCP / External agent** auth
-- **Connectors** (OpenConnector) API-key apps
+- Prefer for static keys you also use outside Connectors (agents/workflows by **key name**)
 - **BYOK** (bring your own key) for OpenAI / OpenRouter agent chat
 
-Secrets are **never** shown again after save (list shows name + hint only). Platform access logs redact API Keys routes and never print Authorization headers or key bodies.
+**Note:** Connectors → OpenConnector **Save API key** stores the key on the **OpenConnector connection**, not in this vault. Optional CEO **App ID/secret override** for OAuth apps is also separate (help **16**). Secrets are **never** shown again after save (list shows name + hint only). Platform access logs redact API Keys routes and never print Authorization headers or key bodies.
 
 ## Add a key
 
@@ -106,7 +106,7 @@ Exporting a workflow should **not** embed live secrets when you used vault refs.
 | Page | Relationship |
 |------|----------------|
 | **Profile** | Provider preference; points here for `Platform_BYOK` |
-| **Connectors** | API-key apps can use vaulted secrets |
+| **Connectors** | Prefer vault for reusable named keys; OpenConnector **Save API key** / OAuth App override live on Connectors (help **16**), not this vault list |
 | **MCP / External agents / Workflows** | Auth fields can reference vault keys |
 | **Efficiency / AI Snipper** | Usage analytics — unrelated to storing secrets |
 
