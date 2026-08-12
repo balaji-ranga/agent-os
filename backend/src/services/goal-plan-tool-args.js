@@ -346,10 +346,9 @@ export function rewriteCompositionalToolsForAgentInterpretation(steps, prompt = 
           message: [
             '[Goal run — agent interpretation]',
             'Prior plan steps already gathered data or finished workflows.',
-            `Finish the CEO goal now using your tools (especially: ${removedTools.join(', ')}).`,
-            'Interpret prior outputs — do not paste the goal plan or raw tool JSON into an email body.',
-            'Match formatting the CEO asked for (HTML report, subject, recipients, do-not-notify rules).',
-            'Work like chat: call tools with real content, then briefly confirm.',
+            `Finish the CEO goal now. Prefer tools: ${removedTools.join(', ')}.`,
+            'If a prior step already produced HTML/markdown (e.g. status digest), the platform sends that artifact via email_send — do not invent a short plain-text email and do not call email_send twice.',
+            'Match CEO rules (recipients, do-not-notify). Confirm briefly when delivery is done.',
           ].join('\n'),
         };
         // Place before trailing notify_ceo (if any), else append.

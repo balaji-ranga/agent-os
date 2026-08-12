@@ -31,6 +31,7 @@ import {
   resolveAgentToolArgsForGoal,
   isCompositionalTool,
   toolNeedsAgentInterpretation,
+  goalWantsChatSynthesis,
 } from './goal-plan-tool-args.js';
 
 const TERMINAL_WF = new Set(['completed', 'failed', 'cancelled', 'paused']);
@@ -715,14 +716,13 @@ export function priorStepContextForAgent(goalRunId, beforeIndex = Infinity) {
       const html = String(inner?.html || result?.html || '').trim();
       const markdown = String(inner?.markdown || result?.markdown || '').trim();
       if (html || markdown) {
-        const block = [`### ${label} (${tool || 'tool'}) — use for email_send / report composition`];
-        if (markdown) block.push('Markdown:\n' + clip(markdown, 24000));
-        if (html) {
-          block.push(
-            'HTML (prefer for email_send `html` when the CEO asked for an HTML/appealing report):\n' +
-              clip(html, 120000)
-          );
-        }
+        const block = [
+          `### ${label} (${tool || 'tool'}) — emailable artifact ready`,
+          html
+            ? `HTML digest available (${html.length} chars). Platform delivers this via email_send when the goal asks for email — do NOT re-author a plain-text substitute and do NOT call email_send again after platform delivery.`
+            : null,
+          markdown ? `Markdown preview:\n${clip(markdown, 4000)}` : null,
+        ].filter(Boolean);
         parts.push(block.join('\n'));
         continue;
       }
@@ -750,27 +750,140 @@ export function priorStepContextForAgent(goalRunId, beforeIndex = Infinity) {
   return parts.join('\n\n');
 }
 
-/** Pull HTML/markdown digest from a prior status_checker / this_week_digest agent_tool step. */
+/** Pull HTML/markdown from a prior agent_tool result suitable for email_send. */
 export function findPriorDigestForEmail(goalRunId, beforeIndex = Infinity) {
   const steps = loadGoalSteps(goalRunId).filter(
     (s) => s.status === 'completed' && s.step_index < beforeIndex
   );
+  // Prefer known digest tools first, then any prior tool that returned html/markdown.
+  const prefer = new Set(['status_checker', 'this_week_digest']);
+  const candidates = [];
   for (let i = steps.length - 1; i >= 0; i -= 1) {
     const s = steps[i];
     if (s.step_type !== 'agent_tool') continue;
     const spec = parseJson(s.spec_json);
     const result = parseJson(s.result_json);
     const tool = String(result?.tool_name || spec?.tool_name || '').trim();
-    if (tool !== 'status_checker' && tool !== 'this_week_digest') continue;
     const inner = result?.result != null && typeof result.result === 'object' ? result.result : result;
     const html = String(inner?.html || result?.html || '').trim();
     const markdown = String(inner?.markdown || result?.markdown || '').trim();
     const counts = inner?.counts || inner?.digest?.counts || null;
-    if (html || markdown) {
-      return { tool, html: html || null, markdown: markdown || null, counts };
-    }
+    if (!html && !markdown) continue;
+    candidates.push({ tool, html: html || null, markdown: markdown || null, counts, prefer: prefer.has(tool) });
   }
-  return null;
+  if (!candidates.length) return null;
+  return candidates.find((c) => c.prefer) || candidates[0];
+}
+
+function extractEmailRecipientFromPrompt(prompt) {
+  const m = String(prompt || '').match(
+    /\b(?:to|email)\s*[=:]\s*["']?([a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,})["']?/i
+  );
+  return m ? m[1].trim() : null;
+}
+
+function extractEmailSubjectFromPrompt(prompt) {
+  const m = String(prompt || '').match(/\bsubject\s*[=:]\s*["']([^"']{3,120})["']/i);
+  return m ? m[1].trim() : null;
+}
+
+function goalContextObject(goal) {
+  const raw = goal?.context_json;
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) return { ...raw };
+  return parseJson(raw, {});
+}
+
+/**
+ * When prior tools already produced HTML/markdown and the CEO goal asks for email,
+ * deliver that artifact via email_send once (platform). Agents routinely invent short
+ * plain-text bodies and skip `html=` when asked to re-pass large digests.
+ */
+async function deliverPriorEmailArtifactIfNeeded(goal, step) {
+  const prompt = String(goal.prompt || '');
+  if (!/\bemail(_send)?\b/i.test(prompt)) return null;
+
+  const ctx = goalContextObject(goal);
+  if (ctx.prior_email_delivered_at) {
+    return {
+      skipped: true,
+      reason: 'already_delivered',
+      to: ctx.prior_email_to || null,
+      html_len: ctx.prior_email_html_len || 0,
+      messageId: ctx.prior_email_message_id || null,
+    };
+  }
+
+  const artifact = findPriorDigestForEmail(goal.id, step.step_index);
+  if (!artifact?.html && !artifact?.markdown) return null;
+
+  const to =
+    extractEmailRecipientFromPrompt(prompt) || resolveCeoEmail(goal.owner_user_id) || null;
+  if (!to) {
+    console.warn('[goal-run] prior email artifact found but no recipient', { goalRunId: goal.id });
+    return null;
+  }
+
+  let subject = extractEmailSubjectFromPrompt(prompt);
+  if (!subject) {
+    const c = artifact.counts || {};
+    const failedN = c.failed ?? c.failed_1d ?? 0;
+    const attention = c.needs_attention ?? (c.awaiting_ceo ?? 0) + failedN;
+    subject =
+      artifact.tool === 'this_week_digest'
+        ? clip(goal.title || 'This Week Digest', 120)
+        : `COO Status Report — ${attention} need attention · ${failedN} failed · ${c.awaiting_ceo ?? 0} awaiting you`;
+  }
+
+  const args = {
+    to,
+    subject,
+    html: artifact.html || undefined,
+    body:
+      artifact.markdown ||
+      (artifact.html ? artifact.html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : ''),
+    ceo_user_id: goal.owner_user_id,
+    owner_user_id: goal.owner_user_id,
+  };
+
+  const caller = resolveAgentForGoal(goal.owner_user_id, goal.agent_id);
+  const invokeOpts = {
+    agentId: caller?.id || goal.agent_id || null,
+    openclawAgentId: caller?.openclaw_agent_id || caller?.id || goal.agent_id || null,
+  };
+
+  const out = await invokeContentToolHttp('email_send', args, goal.owner_user_id, invokeOpts);
+  const htmlLen = String(artifact.html || '').length;
+  const nextCtx = {
+    ...ctx,
+    prior_email_delivered_at: new Date().toISOString(),
+    prior_email_to: to,
+    prior_email_subject: subject,
+    prior_email_html_len: htmlLen,
+    prior_email_tool: artifact.tool || null,
+    prior_email_message_id: out?.messageId || out?.message_id || null,
+  };
+  touchGoalRun(goal.id, { context_json: JSON.stringify(nextCtx) });
+  // Keep in-memory goal row fresh for later steps in this process.
+  goal.context_json = JSON.stringify(nextCtx);
+
+  console.info('[goal-run] platform delivered prior email artifact', {
+    goalRunId: goal.id,
+    tool: artifact.tool,
+    to,
+    html_len: htmlLen,
+    body_len: String(args.body || '').length,
+    messageId: nextCtx.prior_email_message_id,
+  });
+
+  return {
+    ok: true,
+    via: 'platform_prior_artifact',
+    to,
+    subject,
+    html_len: htmlLen,
+    tool: artifact.tool,
+    result: out,
+  };
 }
 
 function promptForbidsNotifyCeo(prompt) {
@@ -997,6 +1110,57 @@ async function executeAgentContinueStep(goal, step) {
   }
 
   const prior = priorStepContextForAgent(goal.id, step.step_index);
+
+  // Prefer platform delivery of prior HTML/markdown artifacts (agents drop html= on large digests).
+  let delivered = null;
+  try {
+    delivered = await deliverPriorEmailArtifactIfNeeded(goal, step);
+  } catch (e) {
+    console.warn('[goal-run] prior email artifact delivery failed', e?.message || e);
+  }
+
+  const deliveryNote = delivered?.ok
+    ? [
+        '',
+        '[Platform email delivery]',
+        `Already sent email_send once with the prior ${delivered.tool || 'tool'} HTML/markdown artifact.`,
+        `to=${delivered.to} subject=${JSON.stringify(delivered.subject)} html_len=${delivered.html_len}`,
+        'Do NOT call email_send again. Do NOT invent a new plain-text digest body.',
+        'Briefly confirm delivery and summarize highlights only.',
+      ].join('\n')
+    : delivered?.skipped
+      ? [
+          '',
+          '[Platform email delivery]',
+          'Email artifact was already delivered for this goal run. Do NOT call email_send again.',
+        ].join('\n')
+      : '';
+
+  // Email-only goals with platform-delivered HTML: skip OpenClaw (avoids duplicate plain-text sends).
+  if (delivered?.ok && !goalWantsChatSynthesis(goal.prompt || '')) {
+    const reply = [
+      `Sent daily digest email to ${delivered.to} with prior HTML artifact (${delivered.html_len} chars).`,
+      `Subject: ${delivered.subject}`,
+      'Did not call notify_ceo (honored prompt rules when present).',
+    ].join('\n');
+    try {
+      insertChatTurn({
+        agentId: resolveAgentForGoal(goal.owner_user_id, goal.agent_id)?.id || goal.agent_id,
+        ownerUserId: goal.owner_user_id,
+        role: 'assistant',
+        content: reply,
+      });
+    } catch (_) {
+      /* optional */
+    }
+    return {
+      ok: true,
+      via: 'platform_prior_artifact',
+      email: delivered,
+      reply_preview: reply.slice(0, 2000),
+    };
+  }
+
   let prompt =
     spec.message ||
     [
@@ -1004,15 +1168,20 @@ async function executeAgentContinueStep(goal, step) {
       `[goal_run_id: ${goal.id}]`,
       '',
       `CEO goal:\n${goal.prompt}`,
-      prior ? `\nPrior step outputs (interpret — do not paste the goal plan into emails):\n${prior}` : '',
+      prior ? `\nPrior step outputs:\n${prior}` : '',
+      deliveryNote,
       '',
       'Continue executing this goal with your tools. Work autonomously; summarize outcomes when done.',
-      'If the goal requires email_send (or similar), call it with real HTML/body from prior outputs.',
+      delivered?.ok || delivered?.skipped
+        ? 'Email already sent by platform — do not call email_send.'
+        : 'If the goal requires email_send and no HTML artifact exists yet, call email_send once with real content.',
     ].join('\n');
 
-  // When the plan already stored an interpretation message, still attach rich priors.
+  // When the plan already stored an interpretation message, still attach rich priors + delivery note.
   if (spec.message && prior) {
-    prompt = `${String(spec.message).trim()}\n\n[goal_run_id: ${goal.id}]\n\nCEO goal:\n${goal.prompt}\n\nPrior step outputs:\n${prior}`;
+    prompt = `${String(spec.message).trim()}\n\n[goal_run_id: ${goal.id}]\n\nCEO goal:\n${goal.prompt}\n\nPrior step outputs:\n${prior}${deliveryNote}`;
+  } else if (spec.message && deliveryNote) {
+    prompt = `${String(spec.message).trim()}\n${deliveryNote}`;
   }
 
   try {
@@ -1240,10 +1409,29 @@ async function executeAgentToolStep(goal, step) {
 }
 
 /**
- * Run a compositional agent_tool (email_send, …) through the OpenClaw agent loop
- * so the model interprets CEO goal + prior outputs like chat — not dry HTTP.
+ * Run a compositional agent_tool (email_send, …) through platform artifact delivery
+ * when prior HTML exists; otherwise OpenClaw interpretation (not dry plan-dump HTTP).
  */
 async function executeCompositionalToolViaAgent(goal, step, toolName) {
+  if (toolName === 'email_send') {
+    try {
+      const delivered = await deliverPriorEmailArtifactIfNeeded(goal, step);
+      if (delivered?.ok || delivered?.skipped) {
+        return {
+          ok: true,
+          tool_name: toolName,
+          via: delivered.ok ? 'platform_prior_artifact' : 'platform_prior_artifact_skipped',
+          email: delivered,
+          reply_preview: delivered.ok
+            ? `Sent email to ${delivered.to} with prior HTML (${delivered.html_len} chars).`
+            : `Email already delivered earlier in this goal run.`,
+        };
+      }
+    } catch (e) {
+      console.warn('[goal-run] compositional email platform delivery failed; falling back to agent', e?.message || e);
+    }
+  }
+
   const agent = resolveAgentForGoal(goal.owner_user_id, goal.agent_id);
   if (!agent) throw new Error(`Agent not found or not entitled: ${goal.agent_id}`);
 
@@ -1270,7 +1458,7 @@ async function executeCompositionalToolViaAgent(goal, step, toolName) {
     '',
     `Invoke **${toolName}** once with correct parameters derived from the CEO goal and prior outputs.`,
     isCompositionalTool(toolName)
-      ? 'For email: use proper HTML when the goal asks for HTML/appealing report; put human-readable plain text in body; never paste the goal plan or raw JSON dumps.'
+      ? 'For email: if a prior HTML artifact exists, pass it in `html` (never invent a short plain-text substitute). Call email_send exactly once.'
       : '',
     ceoEmail && toolName === 'email_send' ? `Default recipient if goal does not override: ${ceoEmail}` : '',
     'Do not invent a new goal plan. Do not call unrelated tools except what this step requires.',
