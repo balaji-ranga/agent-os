@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 
 import { Link } from 'react-router-dom';
 
@@ -1390,7 +1390,7 @@ function JobProfilesPanel() {
 
                     <p style={{ fontSize: '0.85rem', color: 'var(--muted)', margin: '0 0 0.75rem' }}>
 
-                      Saves session via OpenClaw browser (no passwords stored). Open login browser → sign in inside Chromium → **Save & connect** (required — cookies are not saved until then).
+                      Saves session via AgentSystem browser (no passwords stored). Open login browser → sign in inside Chromium → **Save & connect** (required — cookies are not saved until then).
 
                     </p>
 
@@ -1430,7 +1430,7 @@ function JobProfilesPanel() {
 
                     <p style={{ fontSize: '0.8rem', color: 'var(--muted)', margin: '0 0 0.75rem' }}>
 
-                      Opens OpenClaw Playwright Chromium — no passwords stored in Agent OS. After logging in, click <strong>Mark logged in</strong>.
+                      Opens AgentSystem Playwright Chromium — no passwords stored in Agent OS. After logging in, click <strong>Mark logged in</strong>.
 
                     </p>
 

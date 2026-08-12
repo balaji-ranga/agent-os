@@ -1,6 +1,6 @@
-/**
+﻿/**
  * Per-CEO client vs managed browser session preferences.
- * Client Chrome uses a shared OpenClaw relay — exclusive lease so only one CEO
+ * Client Chrome uses a shared AgentSystem relay — exclusive lease so only one CEO
  * may drive profile=chrome at a time (prevents cross-user tab control).
  */
 import { readFileSync, existsSync } from 'fs';
@@ -23,8 +23,8 @@ function nowIso() {
 }
 
 /**
- * OpenClaw Browser Relay pairing string for remote Chrome.
- * Token is per OpenClaw gateway install (shared by all CEOs on this host) — not per Flolah user.
+ * AgentSystem browser Relay pairing string for remote Chrome.
+ * Token is per AgentSystem gateway install (shared by all CEOs on this host) — not per Flolah user.
  */
 export function getExtensionPairingInfo() {
   const publicUrl = String(process.env.AGENT_OS_PUBLIC_URL || '').replace(/\/$/, '');
@@ -52,10 +52,10 @@ export function getExtensionPairingInfo() {
     gateway_host: host || null,
     token_present: Boolean(token),
     token_source: tokenSource,
-    /** False: one relay secret per OpenClaw gateway, shared across entitled CEOs on this deploy. */
+    /** False: one relay secret per AgentSystem gateway, shared across entitled CEOs on this deploy. */
     unique_per_user: false,
     uniqueness_note:
-      'The pairing WSS URL uses the OpenClaw gateway relay token for this server — it is shared by all users on this Flolah instance, not unique per CEO. Only one CEO may Mark client session ready at a time (exclusive chrome lease); others use managed Playwright until the lease is released.',
+      'The pairing WSS URL uses the AgentSystem gateway relay token for this server — it is shared by all users on this Flolah instance, not unique per CEO. Only one CEO may Mark client session ready at a time (exclusive chrome lease); others use managed Playwright until the lease is released.',
   };
 }
 
@@ -269,7 +269,7 @@ export function upsertCeoBrowserSession(ceoUserId, patch = {}) {
 }
 
 /**
- * Effective OpenClaw browser profile for this CEO.
+ * Effective AgentSystem browser profile for this CEO.
  * profile=chrome only when this CEO holds the exclusive Client Chrome lease.
  */
 export function resolveBrowserProfile(ceoUserId) {
@@ -355,7 +355,7 @@ export async function getBrowserSessionStatus(ceoUserId) {
       prefer_load_unpacked: true,
       extension_download: getChromeExtensionDownloadInfo(),
       steps: [
-        'Download the OpenClaw chrome-extension zip from this page, unzip it, then Load unpacked (do not use the Chrome Web Store build for remote/VPS — it only talks to localhost).',
+        'Download the AgentSystem chrome-extension zip from this page, unzip it, then Load unpacked (do not use the Chrome Web Store build for remote/VPS — it only talks to localhost).',
         'Open chrome://extensions → turn on Developer mode → Load unpacked → select the unzipped chrome-extension folder.',
         'Open the extension popup. Paste the pairing WSS string shown on this page (Copy button).',
         'Open the site tab you want agents to control → click the extension icon → share/attach that tab (look for the OpenClaw tab group).',

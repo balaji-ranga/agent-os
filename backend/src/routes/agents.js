@@ -1,4 +1,4 @@
-import { Router } from 'express';
+﻿import { Router } from 'express';
 import { join } from 'path';
 import { existsSync, rmSync, writeFileSync, readFileSync, readdirSync } from 'fs';
 import { getDb } from '../db/schema.js';
@@ -30,7 +30,7 @@ import { ensureManagedBrowserReady } from '../services/job-browser-auth.js';
 import * as agentTools from '../services/openclaw-agent-tools.js';
 import { ensureTenantOpenClawAgent } from '../services/openclaw-tenant.js';
 import { writeOpenClawConfigSafe } from '../services/openclaw-config-safe.js';
-import { isOpenClawEmptyResponse } from '../services/openclaw-runtime-tools.js';
+import { isOpenClawEmptyResponse, toAgentSystemUserMessage, AGENT_SYSTEM_EMPTY_REPLY } from '../services/openclaw-runtime-tools.js';
 import { tryHandleCooReachMeRequest } from '../services/reach-me-delegation.js';
 import { tryHandleCooSpecialtyDelegation } from '../services/coo-specialty-delegation.js';
 import { tryHandleCooOrgAgentsList } from '../services/coo-org-agents-list.js';
@@ -684,7 +684,7 @@ router.get('/:id/chat', requireAuth, async (req, res) => {
   }
 });
 
-// Chat: send message and get reply (OpenClaw gateway)
+// Chat: send message and get reply (AgentSystem gateway)
 router.post('/:id/chat', requireAuth, async (req, res) => {
   try {
     const agentId = req.params.id;
@@ -963,7 +963,11 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       replyText: reply,
       sessionId: threadId,
     });
-    const replyText = stripEchoedCeoScope(normalizeReplyContent(reply));
+    const replyText = toAgentSystemUserMessage(
+      isOpenClawEmptyResponse(reply)
+        ? AGENT_SYSTEM_EMPTY_REPLY
+        : stripEchoedCeoScope(normalizeReplyContent(reply))
+    );
     const tool_calls = listToolCallsSince(agentId, ownerUserId, toolsSince);
 
     // Persist user message and assistant reply (same normalized string shape as standup chat)
@@ -997,10 +1001,10 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
   } catch (e) {
     const raw = e?.message || String(e);
     const lower = raw.toLowerCase();
-    let msg = raw;
+    let msg = toAgentSystemUserMessage(raw);
     if (lower.includes('fetch failed') || lower.includes('econnrefused') || lower.includes('econnreset')) {
       msg =
-        `${raw}. OpenClaw/Ollama may be overloaded or unreachable. ` +
+        `${toAgentSystemUserMessage(raw)}. AgentSystem/Ollama may be overloaded or unreachable. ` +
         `If this CEO uses Ollama BYOK, ensure the ollama container is up, model ${process.env.OLLAMA_MODEL || 'llama3.2'} is pulled, and try New chat.`;
     }
     res.status(e.status || 502).json({ error: msg });

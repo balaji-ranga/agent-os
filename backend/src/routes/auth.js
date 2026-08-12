@@ -1,4 +1,4 @@
-import { Router } from 'express';
+﻿import { Router } from 'express';
 import { getSessionRow, revokeSession } from '../services/auth/session.js';
 import {
   authenticateUser,
@@ -122,7 +122,7 @@ router.post('/register', async (req, res) => {
     res.status(201).json({
       ...loginResult,
       openclaw,
-      message: 'CEO account created. Standard workspace agents granted and OpenClaw tenants provisioned.',
+      message: 'CEO account created. Standard workspace agents granted and AgentSystem tenants provisioned.',
     });
   } catch (e) {
     res.status(e.status || 400).json({ error: e.message });

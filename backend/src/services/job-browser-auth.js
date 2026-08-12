@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Browser auth status for LinkedIn / JobStreet (OpenClaw managed Playwright profile).
  */
 import { existsSync, readFileSync, mkdirSync, writeFileSync } from 'fs';
@@ -83,7 +83,7 @@ export function getBrowserAuthStatus() {
     login_script: 'node scripts/openclaw-browser-login.js',
     manual_steps: [
       'Job Profiles → Connect portals → Open login browser',
-      'Log in to LinkedIn and JobStreet in the OpenClaw Chromium window',
+      'Log in to LinkedIn and JobStreet in the AgentSystem Chromium window',
       'Click Save & connect (stores cookies in the persistent browser profile)',
     ],
     warmup: `node scripts/warmup-openclaw-browser.js`,
@@ -290,7 +290,7 @@ export async function assertDiscoveryBrowserReady(intake = {}) {
 
   if (!authLive.persistent_profile_exists) {
     throw new PortalLoginRequiredError(
-      'No OpenClaw browser profile yet. Job Profiles → Connect portals → Open login browser → log in → Save & connect.',
+      'No AgentSystem browser profile yet. Job Profiles → Connect portals → Open login browser → log in → Save & connect.',
       { auth: authLive, probes }
     );
   }
@@ -382,7 +382,7 @@ export async function startBrowserLoginFlow({ spawnTerminal = false } = {}) {
     terminal,
     login_script: 'node scripts/openclaw-browser-login.js',
     instructions: [
-      'Log in to LinkedIn and JobStreet in the OpenClaw Chromium window.',
+      'Log in to LinkedIn and JobStreet in the AgentSystem Chromium window.',
       'When done, click **Save & connect** on Job Profiles (persists cookies to disk).',
       spawnTerminal
         ? 'A terminal window opened the full login script — complete login there, then Save & connect in the UI.'
@@ -393,7 +393,7 @@ export async function startBrowserLoginFlow({ spawnTerminal = false } = {}) {
 
 export function browserPreflightMessage(status = getBrowserAuthStatus()) {
   if (status.session_ready) {
-    return 'Browser session ready (OpenClaw profile=openclaw). Proceed with discovery using pre-filtered search URLs.';
+    return 'Browser session ready (AgentSystem profile=openclaw). Proceed with discovery using pre-filtered search URLs.';
   }
   if (status.persistent_profile_exists && status.linkedin_logged_in) {
     return 'Browser profile exists — use profile=openclaw. Dismiss sign-in modals if job listings are visible.';
@@ -413,7 +413,7 @@ export async function ensureManagedBrowserReady({ restartOnFailure = false, forc
     const reachable = await isGatewayReachable();
     if (!reachable) {
       throw new Error(
-        'OpenClaw gateway is not running (port 18789). Start it: openclaw gateway --port 18789, or run agent-os/start-all.ps1'
+        'AgentSystem gateway is not running (port 18789). Start it: openclaw gateway --port 18789, or run agent-os/start-all.ps1'
       );
     }
 
@@ -440,7 +440,7 @@ export async function ensureManagedBrowserReady({ restartOnFailure = false, forc
         };
       }
       throw new Error(
-        `OpenClaw browser control failed (${result.status}): ${result.text.slice(0, 300)}. ` +
+        `AgentSystem browser control failed (${result.status}): ${result.text.slice(0, 300)}. ` +
           'Try: node scripts/warmup-openclaw-browser.js or restart the gateway.'
       );
     }

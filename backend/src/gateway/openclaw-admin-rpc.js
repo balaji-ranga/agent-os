@@ -1,4 +1,4 @@
-/**
+﻿/**
  * OpenClaw Admin HTTP RPC client (POST /api/v1/admin/rpc).
  * Used for operator methods that are not on the chat-completions HTTP API
  * (e.g. web.login.start / web.login.wait for WhatsApp QR).
@@ -66,7 +66,7 @@ export async function openclawAdminRpc(method, params = {}, opts = {}) {
   } catch (e) {
     const msg = e?.message || String(e);
     console.error('[openclaw-admin-rpc] unreachable method=%s err=%s', name, msg);
-    throw new Error(`OpenClaw admin RPC unreachable (${getGatewayUrl()}): ${msg}`);
+    throw new Error(`AgentSystem admin RPC unreachable (${getGatewayUrl()}): ${msg}`);
   }
 
   const text = await res.text();

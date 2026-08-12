@@ -113,14 +113,14 @@ export async function chatCompletions(agentId, messages, sessionUser = null, str
       const msg = e?.message || String(e);
       if (name === 'TimeoutError' || name === 'AbortError') {
         throw new Error(
-          `OpenClaw gateway timeout after ${timeoutMs}ms (${getGatewayUrl()}). Local Ollama BYOK chats can be slow on first load — retry or use New chat.`
+          `AgentSystem gateway timeout after ${timeoutMs}ms (${getGatewayUrl()}). Local Ollama BYOK chats can be slow on first load — retry or use New chat.`
         );
       }
       if (attempt < maxAttempts) {
         await new Promise((r) => setTimeout(r, 250 * attempt));
         continue;
       }
-      throw new Error(`OpenClaw gateway unreachable (${getGatewayUrl()}): ${msg}`);
+      throw new Error(`AgentSystem gateway unreachable (${getGatewayUrl()}): ${msg}`);
     }
 
     if (res.ok) break;
@@ -152,7 +152,7 @@ export async function chatCompletions(agentId, messages, sessionUser = null, str
       errJson = JSON.parse(lastErrText);
     } catch (_) {}
     const msg = errJson?.error?.message || lastErrText || res?.statusText || 'unknown';
-    throw new Error(`OpenClaw gateway error ${res?.status || 0}: ${msg}`);
+    throw new Error(`AgentSystem gateway error ${res?.status || 0}: ${msg}`);
   }
 
   if (stream) {

@@ -1,4 +1,4 @@
-# Business Core — CRM (Twenty or ERPNext), ERP (ERPNext), Maker/Checker, MCP
+﻿# Business Core — CRM (Twenty or ERPNext), ERP (ERPNext), Maker/Checker, MCP
 
 ## Quick answers
 
@@ -101,7 +101,7 @@ Sync copies Flolah **departments** (Master Data) + **entitled AI employees** int
 
 ## Prefab Maker/Checker tool access
 
-When Profile selects platform CRM/ERP, Maker/Checker packs receive full **`crm_*` / `erp_*` content tools** (including sync). OpenClaw uses content tools (same endpoints as MCP); workflows use MCP nodes with `X-Ceo-User-Id`.
+When Profile selects platform CRM/ERP, Maker/Checker packs receive full **`crm_*` / `erp_*` content tools** (including sync). AgentSystem uses content tools (same endpoints as MCP); workflows use MCP nodes with `X-Ceo-User-Id`.
 
 Workspace MD (TOOLS / AGENTS / SOUL / MEMORY) lives under **`openclaw-workspace-templates/`** role folders (`crm-maker-a`, `crm-maker-b`, `crm-checker`, `erp-maker-a`, `erp-maker-b`, `erp-checker`, `erp-pnl`, `erp-invoice`, `erp-project`). Runtime agent ids stay owner-scoped (`crm-s1-{slug}`, …); the backend maps them via `resolveWorkspaceTemplateBaseId`. Profile enable + Admin refresh force-push those templates into each CEO tenant workspace.
 
@@ -206,7 +206,7 @@ When API keys + `ERPNEXT_SSO_ENABLED=1` (default), opening **ERP** mints a one-t
 
 1. **CEO user** (`owner_user_id`) — your login tenant root
 2. **`company_business_profiles`** — CRM/ERP provider + binds for that CEO only
-3. **Prefab agents** (ERP Maker A/B, Checker, …) — `agents.owner_user_id` + entitlement to that CEO; OpenClaw runtime `t-{ceo}--{agentId}`
+3. **Prefab agents** (ERP Maker A/B, Checker, …) — `agents.owner_user_id` + entitlement to that CEO; AgentSystem runtime `t-{ceo}--{agentId}`
 4. **ERPNext** — shared multi-company *site*; each CEO maps to **one Company** document + desk SSO User
 5. Tools run with Flolah owner context (`x-ceo-user-id` from your chat session), **not** other CEO sessions
 

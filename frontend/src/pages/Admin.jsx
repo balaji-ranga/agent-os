@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth, RequireAuth } from '../context/AuthContext';
@@ -331,7 +331,7 @@ function AdminPanel() {
       const status = await api.adminPlatformLlmGet();
       setPlatformLlm(status);
       showSuccess(
-        `Platform LLM set to ${result.llm_active_endpoint} (${result.openclaw?.primary || 'synced'})`
+        `Platform LLM set to ${result.llm_active_endpoint} (${result.AgentSystem?.primary || 'synced'})`
       );
     } catch (e) {
       showError(e.message);
@@ -459,7 +459,7 @@ function AdminPanel() {
         <h2 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem' }}>Platform LLM (Flolah)</h2>
         <p style={{ margin: '0 0 0.75rem 0', color: 'var(--muted)', fontSize: '0.9rem' }}>
           Switch the shared platform model for CEOs on platform default (not BYOK). Options come from deploy{' '}
-          <code>.env</code> (<code>OPENAI_*</code> / <code>OPENAI_SECONDARY_*</code>). OpenClaw defaults update when you
+          <code>.env</code> (<code>OPENAI_*</code> / <code>OPENAI_SECONDARY_*</code>). AgentSystem defaults update when you
           switch.
         </p>
         {platformLlm ? (
@@ -894,7 +894,7 @@ function AdminPanel() {
                     <div style={{ fontWeight: 650, marginBottom: 6, color: '#b91c1c' }}>Offboard user</div>
                     <p style={{ margin: '0 0 0.65rem', fontSize: '0.85rem', color: 'var(--muted)' }}>
                       Permanently remove this CEO and all associated data: standups, workflow schedules, workflows,
-                      agent grants, notifications, tenant DB, Master Data files, and OpenClaw tenant workspaces.
+                      agent grants, notifications, tenant DB, Master Data files, and AgentSystem tenant workspaces.
                       Protected accounts (Balaji Ranganathan, Admin, Aru, Senthil Loganathan) cannot be offboarded.
                     </p>
                     <input
@@ -1202,7 +1202,7 @@ function AdminPanel() {
           Source of truth: <code>backend/src/services/company-blueprints/standard/</code>. Lean platform
           employees from <code>platform-agents.json</code> (<strong>COO</strong>,{' '}
           <strong>Workflow Builder</strong>, <strong>Platform Help</strong>) get catalog name/role sync +
-          MD push from the declared <code>openclaw-workspace-templates/</code> folders (+ shared{' '}
+          MD push from the declared <code>AgentSystem-workspace-templates/</code> folders (+ shared{' '}
           <code>AGENT-OS-OPS.md</code>). When enabled, Business Core CRM/ERP prefabs and maker-checker
           workflows re-load from <code>standard/business-core/</code> for CEOs whose Profile already has
           CRM/ERP providers set.

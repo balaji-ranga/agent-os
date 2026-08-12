@@ -1,4 +1,4 @@
-# 3D Avatars, Virtual Rooms & Scenes
+﻿# 3D Avatars, Virtual Rooms & Scenes
 
 **Audience:** CEOs  
 **Path:** **3D Avatars** (`/avatars`) · **Open Room** → `/vr-rooms/:roomId` · legacy `/agents/:id/virtual-room` redirects into that agent’s primary room.

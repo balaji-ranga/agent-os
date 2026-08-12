@@ -1,4 +1,4 @@
-# CRM & ERP Maker/Checker coordination (Option 1)
+﻿# CRM & ERP Maker/Checker coordination (Option 1)
 
 ## Purpose
 
@@ -86,7 +86,7 @@ COO `agent_workflow_trigger` alone remains for **single-workflow** fires. Option
 
 `agent_workflow_trigger` returns **immediately** (`async: true`, `run_id`, or **`upgraded_to_goal_plan` + `goal_run_id`** when multiphase language is upgraded). COO **must** confirm the real id to the CEO (`agr-…` for plans, integer `run_id` only for single workflows) and end the chat turn. Platform still notifies on **CEO wait** and **terminal**. Do **not** re-chain freeform ERP `agent_workflow_trigger` after CRM unless you are on a goal plan path.
 
-Tools are granted to COO/Workflow Builder allowlists and registered in the OpenClaw content-tools plugin contracts (`agent_goal_*`).
+Tools are granted to COO/Workflow Builder allowlists and registered in the AgentSystem content-tools plugin contracts (`agent_goal_*`).
 
 Workflows **complement** Kanban: schedule, batch, max loops, audit trail. They do **not** replace the board as source of truth for “who owns SI-42.”
 

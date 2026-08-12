@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Portal login registry + profile portal_auth for Connect Portals flow.
  */
 import { warmupManagedBrowser, getBrowserAuthStatus, markPortalLoggedIn } from './job-browser-auth.js';
@@ -101,7 +101,7 @@ export async function connectPortalsForProfile(ceoUserId, profileId, opts = {}) 
     login_script: 'node scripts/openclaw-browser-login.js',
     manual_steps: [
       'Run: node scripts/openclaw-browser-login.js from agent-os folder',
-      'Log in to each portal in the OpenClaw Playwright Chromium window',
+      'Log in to each portal in the AgentSystem Playwright Chromium window',
       'Press Enter in the terminal when done',
       'Call POST .../connect-portals again or mark-logged-in to refresh status',
     ],

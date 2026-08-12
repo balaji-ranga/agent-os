@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Per-agent content tool grants — DB source of truth, hot-sync to OpenClaw without gateway restart.
  * - agent_tool_grants table
  * - ~/.openclaw/agent-tool-allowlists.json (plugin reads on each tool factory call)
@@ -106,7 +106,7 @@ export function assertCallerMayUseTool(source, toolName) {
 
   if (parsed) {
     if (!caller) {
-      return { ok: false, error: `Unknown tenant OpenClaw agent "${source}"` };
+      return { ok: false, error: `Unknown tenant AgentSystem agent "${source}"` };
     }
     const entitled = getDb()
       .prepare(
@@ -392,7 +392,7 @@ export function buildToolsMdContent(grantedToolNames) {
     '',
     '## Browser automation (OpenClaw + Playwright)',
     '',
-    'You have the **browser** tool when enabled in OpenClaw config.',
+    'You have the **browser** tool when enabled in AgentSystem config.',
     '',
     '- **Always use `profile="openclaw"`** for managed Playwright/Chromium.',
     ''

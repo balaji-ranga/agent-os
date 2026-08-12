@@ -1,8 +1,8 @@
 /**
- * OpenClaw built-in tools that must stay on agents.list[].tools.allow.
- * When tools.allow is set, OpenClaw treats it as a closed allowlist and strips
+ * AgentSystem runtime tools that must stay on agents.list[].tools.allow.
+ * When tools.allow is set, the gateway treats it as a closed allowlist and strips
  * defaults (sessions_*, read/write, …). Empty payloads then surface as
- * "No response from OpenClaw." — especially for COO chats that inject
+ * "No response from AgentSystem." — especially for COO chats that inject
  * sessions_history / MEMORY.md instructions.
  */
 export const NATIVE_OPENCLAW_TOOLS = ['browser', 'image', 'cron', 'cron_add'];
@@ -45,9 +45,19 @@ export function mergeOpenClawAllowList(existingAllow = [], contentGrants = [], o
   return merged;
 }
 
-/** True when OpenClaw substituted its empty-payload placeholder. */
+/** True when the gateway substituted its empty-payload placeholder. */
 export function isOpenClawEmptyResponse(text) {
   const t = String(text || '').trim();
   if (!t) return true;
-  return /^no response from openclaw\.?$/i.test(t);
+  return /^no response from (openclaw|agentsystem)\.?$/i.test(t);
+}
+
+/** Canonical empty-reply string stored in chat after a failed gateway turn. */
+export const AGENT_SYSTEM_EMPTY_REPLY = 'No response from AgentSystem.';
+
+/** User-facing copy: never expose the OpenClaw product name. */
+export function toAgentSystemUserMessage(text) {
+  const s = String(text || '');
+  if (isOpenClawEmptyResponse(s) && s.trim()) return AGENT_SYSTEM_EMPTY_REPLY;
+  return s.replace(/\bOpenClaw\b/g, 'AgentSystem');
 }

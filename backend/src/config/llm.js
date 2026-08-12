@@ -1,7 +1,7 @@
-/**
+﻿/**
  * Central LLM config: primary and secondary OpenAPI-compliant endpoints (base URL + API key + model).
  * Precedence: per-user BYOK (openai / openrouter / ollama_free) → platform .env when platform_decided or unset.
- * Uses the same .env vars as OpenClaw gateway when falling back:
+ * Uses the same .env vars as AgentSystem gateway when falling back:
  * OPENAI_API_KEY, OPENAI_BASE_URL, OPENCLAW_MODEL_PRIMARY — with OPENAI_PRIMARY_* as aliases.
  */
 import { resolveLlmConfigForUser } from '../services/user-llm-settings.js';
@@ -96,7 +96,7 @@ export async function chatCompletions({
     throw new Error(
       cfg.using_byok
         ? 'User BYOK API key missing or invalid'
-        : 'OPENAI_API_KEY or OPENAI_PRIMARY_API_KEY not set in backend/.env (same key used by OpenClaw gateway), or set BYOK on your profile'
+        : 'OPENAI_API_KEY or OPENAI_PRIMARY_API_KEY not set in backend/.env (same key used by AgentSystem gateway), or set BYOK on your profile'
     );
   }
 

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Job Applicant pipeline API (status, manual tick, enable/disable).
  */
 import { Router } from 'express';
@@ -516,7 +516,7 @@ router.post('/browser-auth/complete-login', requireCeoOrAdmin, async (req, res) 
     }
     if (!result.ready && !result.session_ready) {
       return res.status(400).json({
-        error: 'Could not verify portal access. Log in inside the OpenClaw Chromium window, then try Save & connect again.',
+        error: 'Could not verify portal access. Log in inside the AgentSystem Chromium window, then try Save & connect again.',
         ...result,
       });
     }

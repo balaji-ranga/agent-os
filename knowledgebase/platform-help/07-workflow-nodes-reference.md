@@ -1,4 +1,4 @@
-# Workflow nodes reference (attributes, inputs, outputs)
+﻿# Workflow nodes reference (attributes, inputs, outputs)
 
 Palette types in the visual editor. Use this when configuring nodes or answering “what does X node output?”.
 
@@ -18,7 +18,7 @@ Palette types in the visual editor. Use this when configuring nodes or answering
 
 ## Agent (`agent`)
 
-**Purpose:** Run a workspace OpenClaw agent with a prompt.
+**Purpose:** Run a workspace AgentSystem agent with a prompt.
 
 **Key attributes:** `agentId` (your org agent).
 

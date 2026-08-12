@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Fragment } from 'react';
 import { api } from '../api';
 import { formatLocalDateTime } from '../utils/formatDateTime.js';
@@ -296,7 +296,7 @@ export default function ContentToolsLogs() {
           </div>
         </div>
         <p className="page-hero-sub">
-          Manage tools (endpoint, purpose, model), test them, enable/disable serving, and onboard new published endpoints. Restart the OpenClaw gateway after changes so AI employees see the updated list.
+          Manage tools (endpoint, purpose, model), test them, enable/disable serving, and onboard new published endpoints. Restart the AgentSystem gateway after changes so AI employees see the updated list.
         </p>
       </header>
 
@@ -716,7 +716,7 @@ export default function ContentToolsLogs() {
           >
             <h3 style={{ marginTop: 0 }}>Onboard new tool</h3>
             <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '1rem' }}>
-              Add a published endpoint. It will be registered in the registry and in OpenClaw (after gateway restart). Use full URL for external endpoints.
+              Add a published endpoint. It will be registered in the registry and in AgentSystem (after gateway restart). Use full URL for external endpoints.
             </p>
             {onboardError && (
               <div style={{ padding: '0.5rem', marginBottom: '1rem', background: 'rgba(248,113,113,0.15)', borderRadius: 6, color: '#f87171', fontSize: '0.9rem' }}>

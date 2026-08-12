@@ -1,4 +1,4 @@
-# Agent budgets, Agent View, and external agents in your org
+﻿# Agent budgets, Agent View, and external agents in your org
 
 Covers three connected features:
 
@@ -57,7 +57,7 @@ Tokens come from the durable `token_usage` ledger. It records:
 
 | Source | When |
 |--------|------|
-| `openclaw_chat` | Dashboard / agent chat turns |
+| `AgentSystem_chat` | Dashboard / agent chat turns |
 | `delegation` | COO-delegated runs executed by an agent |
 | `workflow_brain` | Brain node LLM calls |
 | `a2a_outbound` | Calls out to an external / published-A2A leaf member |
@@ -93,7 +93,7 @@ The 10-call minimum stops a single early failure from blocking a low-volume agen
 When an agent is blocked:
 
 - **Chat** returns HTTP 429 with the reason.
-- **COO delegation to an internal agent** is refused **before** Kanban / OpenClaw work is
+- **COO delegation to an internal agent** is refused **before** Kanban / AgentSystem work is
   created. The COO replies with `Blocked by budget: …` (same wording as for leaf members). A late
   pending-task worker also fails any leftover task if the agent went over budget between enqueue
   and run.

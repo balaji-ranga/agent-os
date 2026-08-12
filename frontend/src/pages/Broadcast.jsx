@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { api } from '../api';
 import ChatMessageContent from '../components/ChatMessageContent';
 
@@ -59,7 +59,7 @@ export default function Broadcast() {
     <div style={{ padding: '1.5rem', maxWidth: 900 }}>
       <h1 style={{ marginTop: 0, marginBottom: '1rem' }}>Broadcast to agents</h1>
       <p style={{ color: 'var(--muted)', marginBottom: '1rem' }}>
-        Send a message to all or selected agents (COO excluded by default) and see their replies. Uses CEO-scoped OpenClaw
+        Send a message to all or selected agents (COO excluded by default) and see their replies. Uses CEO-scoped AgentSystem
         sessions so <code>notify_ceo</code> can reach your bell. Status + “send notification” broadcasts require every
         agent to call <code>notify_ceo</code>.         Delivery is paced (2 at a time) to avoid OpenAI rate limits — large fans may
         take a few minutes. Whether agents must call <code>notify_ceo</code> is decided by

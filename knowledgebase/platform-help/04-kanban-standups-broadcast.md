@@ -1,4 +1,4 @@
-# Kanban, standups, Broadcast, notifications
+﻿# Kanban, standups, Broadcast, notifications
 
 ## Kanban (`/kanban`)
 
@@ -15,7 +15,7 @@ Board of tasks by agent and status — shared for agent work, workflow steps, an
 - Reopen a task if work must continue. After reopen, the next agent reply moves the card to **in_progress**. Cards in **awaiting confirmation** stay there until **you** confirm — the agent will not auto-advance them. COO/tool-created cards (including assigned ones) start as **open**; the assigned agent moves them to awaiting confirmation only when they need your input.
 - **Agents own card status** for research/build work: they move to `in_progress` when they start, `awaiting_confirmation` when they need you, `completed` only after a real deliverable, or `failed` only when they could not produce the main deliverable at all. Optional side steps (e.g. saving to a missing Master Data table, notify, email) must **not** flip a good deliverable to `failed`. If an agent only posts “marked completed” with no answer, the platform keeps the card **in progress** and **auto-retries the same agent once** (you do not need to nudge).
 - Short clarification Q&A on an already-open card may auto-complete; longer research/implementation stays **in_progress** until the agent finishes the deliverable (or you close it).
-- Kanban task chat with an assigned agent is also mirrored into that agent’s **Dashboard chat** (tagged `[Kanban #id]`) so you can see the same exchange there. OpenClaw still keeps a per-task session for isolation.
+- Kanban task chat with an assigned agent is also mirrored into that agent’s **Dashboard chat** (tagged `[Kanban #id]`) so you can see the same exchange there. AgentSystem still keeps a per-task session for isolation.
 - **Archiving an agent chat never empties a card.** The card's **Activity** tab reads the linked agent-chat turns straight from chat history, so work done in a chat that was later archived still shows (each turn is tagged `archived` with the archived chat's title). When a card genuinely has no delegation exchange, task chat, or linked chat, Activity says so instead of rendering blank.
 - **COO tool `kanban_get_task`:** returns the same content the board shows — status, description, task messages, **`deliverable` / `delegation_response`**, and agent-chat turns — so the COO can summarize what a completed card produced without guessing from the title.
 - **All dates on the board and in cards use the platform timezone** (`PLATFORM_TIMEZONE`, else the server `TZ`) — never raw UTC. The board header shows which zone is in effect, e.g. "Times in Asia/Singapore".
@@ -87,4 +87,4 @@ When you chat with the COO (web Agent Chat):
 - Product how-to can be answered by **Platform Help** or via Master Data RAG (`master_data_rag`).
 - “Have **X** reach / contact / notify me” → COO hands off to **X**; **X** rings your bell (not the COO).
 
-WhatsApp (and other OpenClaw channels) already go straight to the COO agent, so the same tools apply without the web hard-delegation step.
+WhatsApp (and other AgentSystem channels) already go straight to the COO agent, so the same tools apply without the web hard-delegation step.

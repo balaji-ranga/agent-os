@@ -1,4 +1,4 @@
-# A2A, External agents, and AgentExchange
+﻿# A2A, External agents, and AgentExchange
 
 ## Two directions
 
@@ -304,7 +304,7 @@ That override runs **nginx in host network mode** and binds backend/frontend to 
 
 | Goal | Use |
 |------|-----|
-| Call your own OpenClaw specialist | **Agent** node |
+| Call your own AgentSystem specialist | **Agent** node |
 | Call a third-party A2A service | **External Agent** node |
 | Expose your automation openly | **Publish A2A** → Visibility Public + Public auth |
 | Expose your automation with credentials | **Publish A2A** → Visibility Public + Secured (OAuth) |

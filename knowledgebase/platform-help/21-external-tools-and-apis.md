@@ -1,7 +1,7 @@
-# External tools & APIs (keys and dependencies)
+﻿# External tools & APIs (keys and dependencies)
 
 **Audience:** CEOs, Platform Help, and operators configuring Flolah.  
-**Scope:** Third-party services the platform calls that typically need an **API key**, **token**, or **SMTP credentials**. Internal-only secrets (`OPENCLAW_GATEWAY_TOKEN`, `TOOLS_API_KEY`, `AGENT_OS_INTERNAL_TOKEN`) are omitted — those are not vendor APIs.
+**Scope:** Third-party services the platform calls that typically need an **API key**, **token**, or **SMTP credentials**. Internal-only secrets (`AgentSystem_GATEWAY_TOKEN`, `TOOLS_API_KEY`, `AGENT_OS_INTERNAL_TOKEN`) are omitted — those are not vendor APIs.
 
 Related: [15-api-keys-vault.md](./15-api-keys-vault.md) (how CEOs store secrets), [08-mcp-integrations.md](./08-mcp-integrations.md) (Brave MCP BYOK), [20-ibkr-monthly-trading.md](./20-ibkr-monthly-trading.md) (FMP + IBKR).
 
@@ -22,9 +22,9 @@ Related: [15-api-keys-vault.md](./15-api-keys-vault.md) (how CEOs store secrets)
 |--------------------|-------------------------|------------------|------------------|-----------|-------|
 | **DeepSeek** | Platform default OpenAI-compatible LLM (agent chat, COO, many tools); optional Brain `modelSource=deepseek` | `OPENAI_API_KEY` (+ `OPENAI_BASE_URL=https://api.deepseek.com/v1`) or Brain `apiKey` | Platform `.env` **or** Brain / vault | **Yes** for cloud primary (unless you switch primary elsewhere) | Production default model is often `deepseek-v4-flash`. Brain does **not** read platform `.env` — put the key on the node or vault. |
 | **OpenAI** | Secondary / BYOK chat; image content tool (`TOOLS_IMAGE_*`); **analyze_image** vision (platform primary or BYOK `Platform_BYOK`) | `OPENAI_SECONDARY_API_KEY` or vault **`Platform_BYOK`** | Platform `.env` and/or **API Keys** | Optional | Profile → OpenAI preference needs `Platform_BYOK`. Image gen needs a key that can call GPT-image (or compatible host). Vision uses platform **primary** for Platform default Profiles (fails if primary is text-only); BYOK Profiles use vault only. Master Data **embeddings use local Qwen**, not this key. |
-| **Anthropic (Claude)** | OpenClaw gateway models (`anthropic/…`, e.g. Claude Opus) | `ANTHROPIC_API_KEY` | Platform `.env` | Optional | Only needed if OpenClaw model slug is Anthropic. |
+| **Anthropic (Claude)** | AgentSystem gateway models (`anthropic/…`, e.g. Claude Opus) | `ANTHROPIC_API_KEY` | Platform `.env` | Optional | Only needed if AgentSystem model slug is Anthropic. |
 | **OpenRouter** | BYOK agent chat; Brain `modelSource=openrouter` | Vault **`Platform_BYOK`** or `OPENROUTER_API_KEY` / Brain `apiKey` | **API Keys** (preferred) or `.env` / node | Optional | Profile → OpenRouter + `Platform_BYOK`. Optional `OPENROUTER_HTTP_REFERER` / `OPENROUTER_SITE_TITLE`. |
-| **Ollama (local)** | Free / local BYOK chat; Brain `ollama`; optional OpenClaw fallback | Usually no real key (`ollama` / `OLLAMA_API_KEY` placeholder) | Local Ollama service + Profile / Brain | Optional | Not a paid vendor API; needs the Ollama process and pulled models. |
+| **Ollama (local)** | Free / local BYOK chat; Brain `ollama`; optional AgentSystem fallback | Usually no real key (`ollama` / `OLLAMA_API_KEY` placeholder) | Local Ollama service + Profile / Brain | Optional | Not a paid vendor API; needs the Ollama process and pulled models. |
 | **Brevo (SMTP)** | MFA email OTP, workflow **Send Email**, `email_send` tool (ICS invites), COO status HTML email | `WORKFLOW_SMTP_HOST` / `USER` / `PASS` / `FROM` (Brevo: `smtp-relay.brevo.com`) | Platform `.env` (or per-node SMTP) | **Yes** for outbound email / email MFA | Sender domain must be verified in Brevo. In-app `notify_ceo` does **not** need SMTP. |
 | **Brave Search** | Agent content tool `brave_web_search`; also workflow Brave MCP | Platform: `BRAVE_API_KEY`; non-platform Profile: vault **`BRAVE_SEARCH_BYOK`** | Platform `.env` **or** **API Keys** | Optional | Platform default Profile → ops key. Any other Profile → CEO `BRAVE_SEARCH_BYOK` only (no platform fall-back). Workflow MCP remains header/vault BYOK on the node. |
 | **Financial Modeling Prep (FMP)** | Market regime, screener, history, fundamentals (IBKR monthly trading tools) | `MARKET_DATA_API_KEY` | Platform `.env` | Optional (required for live market tools) | Default base `https://financialmodelingprep.com/stable`. Free tier has daily call limits; paid recommended for daily screens. |
@@ -39,7 +39,7 @@ Related: [15-api-keys-vault.md](./15-api-keys-vault.md) (how CEOs store secrets)
 
 ## By product area
 
-### Agent chat & OpenClaw
+### Agent chat & AgentSystem
 
 | Need | Provider(s) | Key path |
 |------|-------------|----------|
@@ -95,7 +95,7 @@ Minimum for a typical Flolah VPS:
 2. **`WORKFLOW_SMTP_*`** (Brevo) — MFA email + outbound mail  
 3. Optional: **`MARKET_DATA_API_KEY`** (FMP) if monthly trading / market tools are used  
 4. Optional: **`REPLICATE_API_TOKEN`** if video tools are granted  
-5. Optional: **`ANTHROPIC_API_KEY`** if Claude is the OpenClaw model  
+5. Optional: **`ANTHROPIC_API_KEY`** if Claude is the AgentSystem model  
 6. Optional secondary: **`OPENAI_SECONDARY_*`** for Admin failover  
 
 CEOs still add **`Platform_BYOK`** (chat), **`Replicate_BYOK`** (video when Profile ≠ platform default), and Brave / Brain keys under **Settings → API Keys** when they bring their own keys.

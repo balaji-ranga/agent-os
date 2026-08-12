@@ -1,4 +1,4 @@
-# Master Data and document RAG
+﻿# Master Data and document RAG
 
 ## Open Master Data (`/master-data`)
 
@@ -53,7 +53,7 @@ Agents never spoof `owner_user_id`; indexing always targets the entitled CEO.
 |-----|--------|----------------|
 | CEO uploads | Your user OpenSearch indices | Master Data → Documents |
 | Platform Help / User Guide | Platform OpenSearch indices | Admin → **Documents RAG** |
-| Platform Help agent | Same platform indices (backend routes `platformhelp` automatically) | No OpenClaw config change |
+| Platform Help agent | Same platform indices (backend routes `platformhelp` automatically) | No AgentSystem config change |
 
 Admins can open **OpenSearch console** (Dashboards) from Admin or Documents RAG — same pattern as OpenConnector: nginx `/opensearch/` → backend BFF, admin session cookie only. Ports `9200`/`5601` are **not** published to the internet.
 

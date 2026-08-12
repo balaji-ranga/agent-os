@@ -1,4 +1,4 @@
-# MCP integrations onboarding
+﻿# MCP integrations onboarding
 
 ## What MCP is in Flolah
 
@@ -65,5 +65,5 @@ Path: **MCP** → `/integrations/mcp`.
 - **Include any OAuth MCP:** Admin opens **Connectors → MCPs → Include from MCP registry**, picks a server already registered (or seed a new one), chooses a provider preset (Facebook, LinkedIn, GitHub, Google, or custom OAuth 2.0), sets client id/secret (or env), and saves. CEOs then **Connect** their own session. Future LinkedIn MCP: register the server, then Include with provider `linkedin`. Details: [31](./31-mcp-connectors-oauth.md).
 - Soft-remove with **Remove from tab** (disables OAuth config; does not delete the MCP registry row).
 - Deploy repeatability: `deploy/scripts/ensure-platform-mcps.sh` starts Brave, Meta Graph, and **Business Core** optional profiles and seeds `mcp-brave-search`, `mcp-meta-graph`, **`mcp-flolah-crm`**, **`mcp-flolah-erp`** (`is_platform=1`). Skip with `SKIP_PLATFORM_MCPS=1`.
-- **Flolah CRM / ERP MCP (Business Core):** HTTP service `business-core-mcp` (`optional-business-core-mcp`, port 8082). Proxies company-scoped content tools for workflows. Pass **`X-Ceo-User-Id`**. OpenClaw prefab **Maker/Checker** packs use the same tools as **content tools** when Profile CRM=Twenty or ERP=ERPNext. Full guide: [32-business-core-crm-erp.md](./32-business-core-crm-erp.md).
+- **Flolah CRM / ERP MCP (Business Core):** HTTP service `business-core-mcp` (`optional-business-core-mcp`, port 8082). Proxies company-scoped content tools for workflows. Pass **`X-Ceo-User-Id`**. AgentSystem prefab **Maker/Checker** packs use the same tools as **content tools** when Profile CRM=Twenty or ERP=ERPNext. Full guide: [32-business-core-crm-erp.md](./32-business-core-crm-erp.md).
 - **Connectors → OpenConnector** (SaaS apps + **Connector** nodes) is separate — [16-connectors-openconnector.md](./16-connectors-openconnector.md) and [OPENCONNECTOR-WEBHOOKS.md](../OPENCONNECTOR-WEBHOOKS.md). The Connectors **MCPs** tab is documented in [31](./31-mcp-connectors-oauth.md).

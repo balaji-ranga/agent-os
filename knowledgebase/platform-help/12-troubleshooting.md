@@ -1,4 +1,4 @@
-# Troubleshooting (CEO)
+﻿# Troubleshooting (CEO)
 
 ## Lists look incomplete or “nothing more to delete”
 
@@ -19,10 +19,10 @@ Some screens load a **page** of rows (Content Explorer, Master Data documents, A
 ## Chat / agent not responding
 
 1. Confirm you are logged in as CEO and opened the correct agent chat.
-2. Check OpenClaw gateway is up (admin/ops). Symptom: gateway errors or timeouts.
-3. If the assistant literally says **“No response from OpenClaw.”**, the gateway ran but returned an empty payload — often because the agent’s `tools.allow` list stripped built-ins (`sessions_history`, `read`, `sessions_send`). Ops: redeploy backend (runtime tools are always merged into allowlists) and retry; use **New chat** if needed.
+2. Check AgentSystem gateway is up (admin/ops). Symptom: gateway errors or timeouts.
+3. If the assistant literally says **“No response from AgentSystem.”**, the gateway ran but returned an empty payload — often because the agent’s `tools.allow` list stripped built-ins (`sessions_history`, `read`, `sessions_send`). Ops: redeploy backend (runtime tools are always merged into allowlists) and retry; use **New chat** if needed.
 4. Clear the agent session and retry a short message.
-5. Verify **Tools access** if the agent should call tools but tool icons never appear. Content tools need grants + successful `/api/tools` log rows; native OpenClaw tools (especially **`browser`**) need session transcripts under the shared OpenClaw agents directory (backend `OPENCLAW_DIR` volume).
+5. Verify **Tools access** if the agent should call tools but tool icons never appear. Content tools need grants + successful `/api/tools` log rows; native AgentSystem tools (especially **`browser`**) need session transcripts under the shared AgentSystem agents directory (backend `AgentSystem_DIR` volume).
 6. Ask **COO** or **Platform Help**; for gateway pairing errors ops use `knowledgebase/GATEWAY-PAIRING-1008.md`.
 
 ## Agent gave wrong how-to steps
@@ -148,7 +148,7 @@ Removing an agent is now a single all-or-nothing step, so this should no longer 
 - **"Cannot delete the COO agent"** — the COO is the delegation root and is never deletable. Remove the specialists under it instead.
 - **"Agent not found"** — the agent is not in your workspace. You can only remove agents you own or were granted.
 
-What removal does: the agent's chat history, standup responses, delegation records and tool grants are deleted; its **Kanban cards are kept and simply unassigned** so your board history survives; and any agents reporting to it move up to its parent. Removal is recorded, so the agent will not reappear after a platform restart or after **Sync from OpenClaw**.
+What removal does: the agent's chat history, standup responses, delegation records and tool grants are deleted; its **Kanban cards are kept and simply unassigned** so your board history survives; and any agents reporting to it move up to its parent. Removal is recorded, so the agent will not reappear after a platform restart or after **Sync from AgentSystem**.
 
 To bring the same agent back, create it again from **Agent Workspaces → Add agent** — recreating an agent explicitly clears the removal record.
 
@@ -221,7 +221,7 @@ Confirm **Job profile** is complete and pipeline/cron is enabled for your enviro
 
 ## WhatsApp / Slack “Media failed” or no audio
 
-1. Agents must paste **`MEDIA:/abs/path`** (`paste_exactly` from the tool) on its **own line** so WhatsApp attaches from the shared OpenClaw disk. Auth-only `https://…/api/media/…` links fail without a browser session.
+1. Agents must paste **`MEDIA:/abs/path`** (`paste_exactly` from the tool) on its **own line** so WhatsApp attaches from the shared AgentSystem disk. Auth-only `https://…/api/media/…` links fail without a browser session.
 2. Leave ops flag **`MEDIA_PUBLIC_SIGNED`** off unless you deliberately need legacy signed public fetch.
 3. For TTS on WhatsApp, prefer **OGG/Opus or MP3** — WAV often fails attach; Dashboard still plays WAV inline.
 4. Dashboard blank / broken media — hard-refresh while logged in; players need Bearer. “Open full size” opening a new tab for audio meant an older UI bug (audio should show an inline player).
@@ -230,7 +230,7 @@ Confirm **Job profile** is complete and pipeline/cron is enabled for your enviro
 ## Inbound voice / image not seen by the agent
 
 1. Confirm the agent’s **Channels** row is **enabled** (WhatsApp / Slack).
-2. Wait a few seconds for mirror into workspace **`inbound/attachments/`** (OpenClaw stages under `~/.openclaw/media/inbound` first).
+2. Wait a few seconds for mirror into workspace **`inbound/attachments/`** (AgentSystem stages under `~/.openclaw/media/inbound` first).
 3. If the chat shows “[whatsapp attachment unavailable]”, still try the latest file under `inbound/attachments/` with `speech_stt` or the summarize-inbound workflow.
 4. Web paperclip uploads always go to Master Data + `inbound/attachments/` for that CEO.
 

@@ -1,4 +1,4 @@
-# Getting started (CEO)
+﻿# Getting started (CEO)
 
 ## What Flolah is
 
@@ -47,7 +47,7 @@ Path: avatar → **Profile** (`/profile`). Same **provider + default model** pic
 
 Full vault guide: [15-api-keys-vault.md](./15-api-keys-vault.md). Browse uploads/generated media: [26-content-explorer.md](./26-content-explorer.md).
 
-AI employees still run through OpenClaw; your BYOK preference affects how the platform selects models for eligible paths.
+AI employees still run through AgentSystem; your BYOK preference affects how the platform selects models for eligible paths.
 
 ## Multi-tenant isolation
 

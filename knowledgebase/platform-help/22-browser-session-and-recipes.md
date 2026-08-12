@@ -1,14 +1,14 @@
-# Browser Session, recipes, and browse_* agent tools
+﻿# Browser Session, recipes, and browse_* agent tools
 
 ## What it is
 
 **Browser Session** (`/browser-session`) lets you run natural-language browser work in:
 
 1. **Managed Playwright** (`openclaw` profile) — server-side Chromium on the platform.
-2. **Client Chrome** — your desktop Chrome with the OpenClaw Browser Relay extension (shared gateway WSS; exclusive lease).
+2. **Client Chrome** — your desktop Chrome with the AgentSystem Browser Relay extension (shared gateway WSS; exclusive lease).
 3. **Desktop Local worker** (recommended multi-user) — long-lived Windows Playwright on **your** PC, online via Connectors package. Concurrent CEOs each run their own worker; no shared tab lease.
 
-Agents do **not** drive this with the built-in OpenClaw `browser` tool in chat (that path is denied for specialists). They use Agent OS **`browse_*` content tools**. When your desktop worker is **Online**, open/snapshot/act and many recipes route to the laptop; otherwise the backend uses managed OpenClaw / CDP (`browser-cdp`).
+Agents do **not** drive this with the built-in AgentSystem `browser` tool in chat (that path is denied for specialists). They use Agent OS **`browse_*` content tools**. When your desktop worker is **Online**, open/snapshot/act and many recipes route to the laptop; otherwise the backend uses managed AgentSystem / CDP (`browser-cdp`).
 
 ## CEO setup A — Client Chrome (Browser Relay)
 
@@ -86,9 +86,9 @@ Thumbs **down** on an agent chat reply requires a short comment. Comments feed *
 ## Ops / redeploy (admins)
 
 - Backend seeds `browse_*` in `content_tools_meta` and grants defaults (`seed-browser-session-tools.js`).
-- OpenClaw: `browser.enabled=true`, dedicated **`browser-cdp`** agent; no global tools.allow strip of CDP.
+- AgentSystem: `browser.enabled=true`, dedicated **`browser-cdp`** agent; no global tools.allow strip of CDP.
 - Env (cloud): `BROWSER_TASK_CDP_AGENT_ID`, `BROWSER_WORKER_OFFLINE_MS`, `BROWSER_WORKER_JOB_TIMEOUT_MS`.
 - Package source: `backend/local-browser-worker/` (worker version 1.1+; Playwright **1.55.1+** for verified browser downloads; `launchPersistentContext`).
-- Verify OpenClaw: `node deploy/scripts/verify-openclaw-parity.js`.
+- Verify AgentSystem: `node deploy/scripts/verify-AgentSystem-parity.js`.
 
 More detail: [CLIENT-BROWSER-SESSION.md](../CLIENT-BROWSER-SESSION.md), [BROWSER-SESSION-DESKTOP-LOCAL.md](../BROWSER-SESSION-DESKTOP-LOCAL.md).

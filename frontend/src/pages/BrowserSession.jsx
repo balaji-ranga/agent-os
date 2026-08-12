@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import { api } from '../api';
 import { RequireAuth } from '../context/AuthContext';
 import WizardReturnBanner from '../components/WizardReturnBanner.jsx';
@@ -338,7 +338,7 @@ function BrowserSessionPanel() {
           {(setupSteps.length
             ? setupSteps
             : [
-                'Download the OpenClaw chrome-extension zip, unzip, Load unpacked.',
+                'Download the AgentSystem chrome-extension zip, unzip, Load unpacked.',
                 'Paste the pairing WSS string below into the extension popup.',
                 'Share the tab(s) you want agents to control.',
                 'Opt in and mark ready below.',
@@ -387,7 +387,7 @@ function BrowserSessionPanel() {
             </>
           ) : (
             <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--warn, #a16207)' }}>
-              Pairing string unavailable — OpenClaw relay secret not found on this host.
+              Pairing string unavailable — AgentSystem relay secret not found on this host.
             </p>
           )}
         </div>

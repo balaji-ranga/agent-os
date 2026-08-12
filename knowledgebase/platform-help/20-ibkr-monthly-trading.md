@@ -1,4 +1,4 @@
-# IBKR Monthly Positive Return trading (CEO)
+﻿# IBKR Monthly Positive Return trading (CEO)
 
 Automate post-close **planning on Flolah (cloud)** and **order placement on your laptop** (IB Gateway + local bridge). Paper accounts first.
 
@@ -382,7 +382,7 @@ docker compose -f /opt/agent-os/deploy/docker-compose.yml exec backend \
 
 | File | Role |
 |------|------|
-| `deploy/docker-compose.yml` (+ browser/vps overlays) | Backend, frontend, OpenClaw, MCPs |
+| `deploy/docker-compose.yml` (+ browser/vps overlays) | Backend, frontend, AgentSystem, MCPs |
 | `deploy/.env.example` | Documented keys for FMP, IBKR paper notes, monthly brain vault refs |
 | `backend/local-ibkr-bridge/.env.example` | Laptop bridge only |
 | `deploy/scripts/vps-deploy-latest.sh` | Rebuild/recreate services |

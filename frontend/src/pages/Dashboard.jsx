@@ -917,7 +917,7 @@ export default function Dashboard() {
         )}
       </section>
 
-      {/* Sync from OpenClaw — hidden from Dashboard (API still available for admin/scripts) */}
+      {/* Sync from AgentSystem — hidden from Dashboard (API still available for admin/scripts) */}
     </div>
   );
 }

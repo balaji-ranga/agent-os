@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../api';
 import DepartmentPicker from '../components/DepartmentPicker';
@@ -39,7 +39,7 @@ export default function AgentWorkspace() {
   const [avatarSaving, setAvatarSaving] = useState(false);
 
   const clearSessions = () => {
-    if (!window.confirm('Clear all OpenClaw sessions for this agent? Chat and task session history will be reset.')) return;
+    if (!window.confirm('Clear all AgentSystem sessions for this agent? Chat and task session history will be reset.')) return;
     setClearingSessions(true);
     setError(null);
     api.agentSessionsClear(agentId)
@@ -250,7 +250,7 @@ export default function AgentWorkspace() {
         <span>Workspace — {agent?.name || agentId}</span>
       </h1>
       <p style={{ color: 'var(--muted)', marginBottom: '1rem' }}>
-        Edit identity and policy docs and manage which platform tools this AI employee can invoke. MD saves write to the OpenClaw workspace and apply on the next message. Tool access changes apply immediately without restart.
+        Edit identity and policy docs and manage which platform tools this AI employee can invoke. MD saves write to the AgentSystem workspace and apply on the next message. Tool access changes apply immediately without restart.
         {workspaceRoot && (
           <>
             {' '}
@@ -596,7 +596,7 @@ export default function AgentWorkspace() {
                 type="button"
                 onClick={clearSessions}
                 disabled={clearingSessions}
-                title="Clear OpenClaw session history for this agent"
+                title="Clear AgentSystem session history for this agent"
                 style={{
                   padding: '0.5rem 1.25rem',
                   background: clearingSessions ? 'var(--muted)' : 'var(--surface)',

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * CEO scheduled goals — durable schedules for agent prompts.
  * Pause/delete are status/row only; platform tick ignores non-active; survives restarts.
  */
@@ -532,7 +532,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
   try { openclawId = ensureTenantOpenClawAgent(agent, ownerUserId).openclawAgentId; }
   catch (e) { console.warn(`[scheduled-goals] tenant ensure failed agent=${agent.id}:`, e.message); }
 
-  // Per-fire OpenClaw session — never share across scheduled goals (even same agent/CEO).
+  // Per-fire AgentSystem session — never share across scheduled goals (even same agent/CEO).
   const sessionUser = openclaw.sessionUserFor(
     openclawId,
     ownerUserId,
@@ -714,7 +714,7 @@ export function reconcileStuckScheduledGoalRuns(now = new Date()) {
       if (row.agr_status !== 'completed') err = preview;
     } else if (!row.agr_id && String(row.created_at || '') <= cutoff) {
       nextStatus = 'error';
-      err = `Timed out while running (no agent_goal_run after ${stuckMins}m; likely OpenClaw hang or backend restart)`;
+      err = `Timed out while running (no agent_goal_run after ${stuckMins}m; likely AgentSystem hang or backend restart)`;
       preview = err;
     } else if (row.agr_id && String(row.created_at || '') <= cutoff) {
       // agr still non-terminal but sgr claimed long ago — leave agr alone; only age-out orphan sgr without agr above.

@@ -1,4 +1,4 @@
-# Content Explorer (file browser)
+﻿# Content Explorer (file browser)
 
 Browse **your** uploaded and generated files in one place — chat attachments, channel inbound media, and tool-generated image/audio/video.
 
@@ -33,9 +33,9 @@ Each row shows filename, kind (doc / image / audio / video), size, and optional 
 
 Profile **Data persistence** (default 90 days) also hard-deletes aged Content Explorer files by **file mtime** on the nightly retention job — same window as chat/workflow history. Master Data documents are still **not** purged by retention (use Master Data purge for those).
 
-## WhatsApp / OpenClaw staging
+## WhatsApp / AgentSystem staging
 
-Channel media is mirrored into **Uploaded** (inbound/attachments/). Once mirrored, Agent OS **removes** the temporary OpenClaw file under `~/.openclaw/media/inbound/`. Clean space from Content Explorer (delete here); staging will not keep re-creating files after delete (ledger suppresses remirror).
+Channel media is mirrored into **Uploaded** (inbound/attachments/). Once mirrored, Agent OS **removes** the temporary AgentSystem file under `~/.openclaw/media/inbound/`. Clean space from Content Explorer (delete here); staging will not keep re-creating files after delete (ledger suppresses remirror).
 
 ## Related places
 
@@ -49,7 +49,7 @@ Channel media is mirrored into **Uploaded** (inbound/attachments/). Once mirrore
 
 ## Ops notes
 
-- Paths are constrained by `WORKFLOW_FS_ROOTS` (compose typically includes `/data/workflow-fs`, OpenClaw `tenants`, and `media`).
+- Paths are constrained by `WORKFLOW_FS_ROOTS` (compose typically includes `/data/workflow-fs`, AgentSystem `tenants`, and `media`).
 - API: `GET /api/workspace/content-explorer`, download, `POST /api/workspace/content-explorer/delete` (CEO entitlement / auth required).
 
 Ask **Platform Help**: "How do I browse my uploaded files?" or "How do I delete Content Explorer media?"

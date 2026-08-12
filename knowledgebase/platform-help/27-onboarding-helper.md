@@ -1,4 +1,4 @@
-# Onboarding Helper - strategic org setup
+﻿# Onboarding Helper - strategic org setup
 
 **Audience:** CEOs and Platform Help / Onboarding Helper.  
 **Surfaces:** Dashboard chat with **Onboarding Helper** (`onboardinghelper`) | User menu -> **Onboarding** (`/onboarding`).
@@ -26,7 +26,7 @@ Workflow graphs are **not** created by Onboarding Apply - hand off to **Workflow
 
 ## Selective review and apply
 
-1. After the helper saves a proposal, open **`/onboarding`** (banner shows when the draft came from OpenClaw).
+1. After the helper saves a proposal, open **`/onboarding`** (banner shows when the draft came from AgentSystem).
 2. On **Review**, check/uncheck departments, agents, workflow notes, MD files.
 3. Acknowledge override if you already have custom agents.
 4. Click **Apply override** - or tell the helper in chat to call `onboarding_apply_proposal`.

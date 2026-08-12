@@ -1,4 +1,4 @@
-# Agent OS — Knowledge base
+﻿# Agent OS — Knowledge base
 
 Documentation lives here so Cursor and humans can find it. **Root README.md** stays at `agent-os/README.md` and is the main entry point.
 
@@ -20,12 +20,12 @@ Documentation lives here so Cursor and humans can find it. **Root README.md** st
 | **GITHUB-SETUP.md** | One-time: create agent-os repo on GitHub and push (Options A/B, security check). |
 | **IMPLEMENTATION_PLAN.md** | Product/roadmap: vision, architecture, phases (1–5), skills, TTS, token monitoring, references. |
 | **AGENT_REVIEW_AND_SKILLS.md** | Agent review (COO, TechResearcher, SocialAssistant); secure skill recommendations and where skills live. |
-| **CONFIGURE-CLAUDE-OPUS.md** | How to set Claude Opus (or other Anthropic models) in `~/.openclaw/openclaw.json` and API key. |
-| **GATEWAY-PAIRING-1008.md** | Fix "gateway closed (1008): pairing required" — token in openclaw.json and OPENCLAW_GATEWAY_TOKEN. |
+| **CONFIGURE-CLAUDE-OPUS.md** | How to set Claude Opus (or other Anthropic models) in `~/.AgentSystem/AgentSystem.json` and API key. |
+| **GATEWAY-PAIRING-1008.md** | Fix "gateway closed (1008): pairing required" — token in AgentSystem.json and OPENCLAW_GATEWAY_TOKEN. |
 | **SESSION-HISTORY-VISIBILITY-TREE.md** | Fix "Session history visibility is restricted to the current session tree" — use injected session key or set `tools.sessions.visibility`. |
 | **JOB-APPLICANT-WORKFLOW.md** | Job Applicant pipeline: four agents, profile intake, tools, Sheets/GDrive/Playwright plan, setup via `scripts/setup-job-applicant-agents.js`. |
-| **DEPLOY-CENTOS-PODMAN.md** | Production deploy on CentOS/RHEL/Hostinger with Podman or Docker Compose: SELinux, firewall, volumes, OpenClaw/Chromium, OpenConnector, browser login, optional profiles. |
-| **knowledgeGraph.md** | Neo4j knowledge graph for internal OpenClaw agent behavior, Kanban feedback, autonomous self-improvement, and progressive improvement dashboard. |
+| **DEPLOY-CENTOS-PODMAN.md** | Production deploy on CentOS/RHEL/Hostinger with Podman or Docker Compose: SELinux, firewall, volumes, AgentSystem/Chromium, OpenConnector, browser login, optional profiles. |
+| **knowledgeGraph.md** | Neo4j knowledge graph for internal AgentSystem agent behavior, Kanban feedback, autonomous self-improvement, and progressive improvement dashboard. |
 | **IBKR-TRADING-WORKFLOW.md** | IBKR MCP options, maker/checker paper workflow (budget, brackets, CEO day plan), Agent OS wiring, env vars, and security guardrails. |
 | **IBKR-MONTHLY-TRADING-PLAN.md** | Monthly Positive Return trading system: split VPS/laptop architecture, market-data tools, Maker (Claude Opus)/Checker (deepseek-v4-flash), monthly drawdown guardrail, notifications + daily digest email, and phased implementation plan. |
 | **platform-help/20-ibkr-monthly-trading.md** | **CEO / Platform Help:** W1–W5 purpose & outcomes, isolation, flow diagrams, bridge, **prerequisites**, **step-by-step setup**, **run/monitor**, **VPS deploy**, **IBKR Summary + Clear data**. |
@@ -35,7 +35,7 @@ Documentation lives here so Cursor and humans can find it. **Root README.md** st
 | **IBKR-MONTHLY-MAKER-PROMPT.md** | Canonical Maker system prompt (strategy + execution recovery + JSON schema). |
 | **IBKR-MONTHLY-CHECKER-PROMPT.md** | Canonical Checker system prompt (approve/reject checklist + recovery focus). |
 | **IBKR-MONTHLY-PHASE4.md** | Phase 4 runbook: certify env (Opus + deepseek-v4-flash), paper E2E script, W1/W3/W5 certify helper (not W2), Task Scheduler, multi-week paper before live. |
-| **CLIENT-BROWSER-SESSION.md** | Client Chrome Browser Relay + NL browser tasks, `browse_*` tools, recipes, desktop local worker pointer, OpenClaw `browser-cdp`. |
+| **CLIENT-BROWSER-SESSION.md** | Client Chrome Browser Relay + NL browser tasks, `browse_*` tools, recipes, desktop local worker pointer, AgentSystem `browser-cdp`. |
 | **BROWSER-SESSION-DESKTOP-LOCAL.md** | Implemented: Connectors Browser Session package; headed Playwright + persistent profile (BROWSER_HEADLESS=0, BROWSER_USER_DATA_DIR); owner jobs / IP whitelist. |
 | **platform-help/22-browser-session-and-recipes.md** | CEO Platform Help: Browser Session UI, tool grants, recipe vs autonomous, feedback. |
 | **IBKR-LOCAL-BRIDGE.md** | Laptop Phase 2 local HTTP bridge (`backend/local-ibkr-bridge/`): loopback auth, Gateway wrappers, webhook events, Task Scheduler, offline test. |
@@ -56,7 +56,7 @@ Documentation lives here so Cursor and humans can find it. **Root README.md** st
 | [video-tours/](./video-tours/) | Local scripts, VTT, exported mp4 assets |
 | [CONTENT-CREATION-ORG-BLUEPRINT.md](./CONTENT-CREATION-ORG-BLUEPRINT.md) | Video content-studio org + agent/workflow map |
 | [VIDEO-CONTENT-GENERATION-PLAN.md](./VIDEO-CONTENT-GENERATION-PLAN.md) | **Approved plan:** `video_content` pack; templates in `openclaw-workspace-templates/video-*`; graphs in `company-blueprints/standard/video-content/`; Replicate `google/veo-*`; storyboard HTML/PDF/image (S3) |
-| [ONBOARDING-HELPER-PLAN.md](./ONBOARDING-HELPER-PLAN.md) | Onboarding Helper plan (UI + OpenClaw bridge) |
+| [ONBOARDING-HELPER-PLAN.md](./ONBOARDING-HELPER-PLAN.md) | Onboarding Helper plan (UI + AgentSystem bridge) |
 | [platform-help/27-onboarding-helper.md](./platform-help/27-onboarding-helper.md) | CEO help: selective apply + E2E chat prompt recipes |
 | [platform-help/28-scheduled-goals.md](./platform-help/28-scheduled-goals.md) | CEO help: scheduled goals + durable multiphase **goal plans** (Amend plan manually, async ack, new agr per create/fire, terminal notify correlation, Digest `/goal-plans`, multiphase trigger upgrade) |
 | [platform-help/29-company-setup.md](./platform-help/29-company-setup.md) | CEO help: Company setup first-run wizard vs Onboarding Helper |

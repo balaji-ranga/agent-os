@@ -1,4 +1,4 @@
-# API Keys vault (Settings → API Keys)
+﻿# API Keys vault (Settings → API Keys)
 
 ## What it is
 
@@ -54,7 +54,7 @@ For agent chat with **your** OpenAI or OpenRouter key:
 2. **Edit** it (or **Add** if missing) and paste your provider API key.
 3. Open **Profile** → choose OpenAI or OpenRouter **and** a **chat model** (curated list or custom id).
 
-OpenClaw then uses vault **`Platform_BYOK`** against the provider endpoint from the internal catalog (OpenAI → `api.openai.com`, OpenRouter → `openrouter.ai`, …). On **Profile**, pick the **chat model** from the curated list (or a custom model id). Saving Profile syncs that provider + model into OpenClaw for your tenant agents.
+AgentSystem then uses vault **`Platform_BYOK`** against the provider endpoint from the internal catalog (OpenAI → `api.openai.com`, OpenRouter → `openrouter.ai`, …). On **Profile**, pick the **chat model** from the curated list (or a custom model id). Saving Profile syncs that provider + model into AgentSystem for your tenant agents.
 
 Do **not** paste keys on Register or Profile anymore — Profile only selects the provider and model; the secret lives in API Keys.
 

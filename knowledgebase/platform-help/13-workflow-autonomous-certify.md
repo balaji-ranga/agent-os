@@ -1,6 +1,6 @@
-# Autonomous Workflow Certify (Maker / Checker)
+﻿# Autonomous Workflow Certify (Maker / Checker)
 
-**Audience:** CEOs using Workflow Builder (UI chat or OpenClaw **Workflow Builder** agent).
+**Audience:** CEOs using Workflow Builder (UI chat or AgentSystem **Workflow Builder** agent).
 
 ## What it is
 
@@ -11,9 +11,9 @@ Ask Workflow Builder to **build, test, and certify** a workflow from a plain-lan
 3. **Checker** grades acceptance criteria (deterministic; optional LLM soft check)  
 4. Loop until **certified**, **blocked on input**, or budget exhausted  
 
-OpenClaw Workflow Builder is the **face**: it starts the job and reports progress **when you ask**.
+AgentSystem Workflow Builder is the **face**: it starts the job and reports progress **when you ask**.
 
-## How to use (OpenClaw / Workflow Builder chat)
+## How to use (AgentSystem / Workflow Builder chat)
 
 | You say | Agent does |
 |---------|------------|

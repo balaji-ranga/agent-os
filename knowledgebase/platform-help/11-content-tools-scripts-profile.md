@@ -1,4 +1,4 @@
-# Tools, custom scripts, AI Snipper, Profile
+﻿# Tools, custom scripts, AI Snipper, Profile
 
 ## Tools (`/content-tools`)
 
@@ -122,7 +122,7 @@ Ops dashboard next to AI Snipper, with three tabs: **Org**, **Department**, and 
 | Feedback positive % | Thumbs-up share of ratings |
 | AI workflows | Definitions you own (incl. published count) |
 | Successful / failed / total runs | Workflow run outcomes |
-| Storage (MB) | Estimated data for **your** tenant: chats, standup messages, workflow payloads, Master Data document files, **OpenSearch Master Data RAG indices** (meta + search/vectors), Content Explorer media, avatars/VR, CEO SQLite, OpenClaw tenant workspace. Click the **i** icon for a line-item breakdown. |
+| Storage (MB) | Estimated data for **your** tenant: chats, standup messages, workflow payloads, Master Data document files, **OpenSearch Master Data RAG indices** (meta + search/vectors), Content Explorer media, avatars/VR, CEO SQLite, AgentSystem tenant workspace. Click the **i** icon for a line-item breakdown. |
 
 **Time switch:** last 7 / 14 / 30 / 90 days, or **All** (the "1 month" and "3 months" buttons mean rolling **30** and **90** days, not calendar months). Charts: Tasks, Feedback, Workflow runs. Storage is a point-in-time estimate (not range-filtered).
 
@@ -154,7 +154,7 @@ Name, email, region, mobile, password, MFA, **model provider + chat model**, and
 
 - After the retention window, agent chat turns, standup **messages**, workflow run/step records, and aged **Content Explorer** uploaded/generated media are permanently deleted from disk (daily job; purge also available on Profile and Dashboard). Standup records themselves, Kanban cards, Master Data and API keys are never purged by retention. Job schedules: [19-scheduled-jobs-and-crons.md](./19-scheduled-jobs-and-crons.md).
 - OpenAI / OpenRouter need vault key **`Platform_BYOK`** under **API Keys**, then a **chat model** on Profile — see [15-api-keys-vault.md](./15-api-keys-vault.md). Non-platform Profiles auto-seed that slot (plus Replicate / Brave / ElevenLabs) as **unset**.
-- Profile model is the default for OpenClaw agent chat and for content tools that call the LLM. To override **only** specific tools, use **Tools → Model** on `/content-tools` (see above).
+- Profile model is the default for AgentSystem agent chat and for content tools that call the LLM. To override **only** specific tools, use **Tools → Model** on `/content-tools` (see above).
 - Prefer **Settings → API Keys** for all long-lived secrets (never shown in platform access logs).
 - Browse files: [26-content-explorer.md](./26-content-explorer.md).
 ## How agents learn company knowledge
@@ -163,7 +163,7 @@ Name, email, region, mobile, password, MFA, **model provider + chat model**, and
 |-------|------|
 | Workspace MD | SOUL / AGENTS / TOOLS / MEMORY / ORG / **AGENT-OS-OPS** always in agent context |
 | Master Data RAG | Uploaded docs (including Platform Help) via `master_data_rag` |
-| Skills | Shared OpenClaw skills (content-tools, agent-send) |
+| Skills | Shared AgentSystem skills (content-tools, agent-send) |
 | Learnings | `learnings_summary` over past CEO feedback / Kanban decisions (required before non-trivial specialist work) |
 
 Platform Help agent: short workspace instructions + RAG over these help documents (recommended). Do not dump the full help tree into SOUL.

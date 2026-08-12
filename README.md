@@ -1,6 +1,6 @@
-# Flolah — AI Company OS
+﻿# Flolah — AI Company OS
 
-**Flolah (Automate, Innovate, Elevate)** is the **AI Company OS**: hire and run digital employees (AI workers) on [OpenClaw](https://docs.openclaw.ai/gateway) with org structure, human–AI chat, workspace identity docs, **custom visual workflows**, **AgentExchange (A2A)**, **Job Applicant pipeline**, **MCP integrations**, Kanban, standups, content tools, and multi-tenant CEO isolation. Metadata is stored in a **lightweight SQLite** database.
+**Flolah (Automate, Innovate, Elevate)** is the **AI Company OS**: hire and run digital employees (AI workers) on [AgentSystem](https://docs.openclaw.ai/gateway) with org structure, human–AI chat, workspace identity docs, **custom visual workflows**, **AgentExchange (A2A)**, **Job Applicant pipeline**, **MCP integrations**, Kanban, standups, content tools, and multi-tenant CEO isolation. Metadata is stored in a **lightweight SQLite** database.
 
 > **Messaging, terminology, and OS primitives:** [`knowledgebase/AI-COMPANY-OS.md`](knowledgebase/AI-COMPANY-OS.md)  
 > Browser tab title: **Flolah — AI Company OS**. Login: **Sign in to run your AI company**.
@@ -44,7 +44,7 @@ You do not need to know APIs or Docker for everyday use.
 
 1. From home chat, pick an AI employee (COO is default) — or open **Chat** from **My Org** / **AI Employees**.
 2. Type your request in plain language and send. Optionally **attach** files (paperclip) — documents/images/audio/video are stored under Knowledge and `inbound/attachments/`.
-3. When the AI employee uses tools (Master Data, notify, email, generate image/TTS, market history, **native OpenClaw `browser`**, etc.), small **tool icons** may appear under the reply so you can see what it did. Replies render markdown (**bold**, lists, code, links). Generated media plays **inline** in the chat (you must be logged in).
+3. When the AI employee uses tools (Master Data, notify, email, generate image/TTS, market history, **native AgentSystem `browser`**, etc.), small **tool icons** may appear under the reply so you can see what it did. Replies render markdown (**bold**, lists, code, links). Generated media plays **inline** in the chat (you must be logged in).
 4. Prefer asking the **COO** for work that should be planned or handed to a specialist (research, applications, etc.).
 5. To reach an AI employee from **WhatsApp / Slack**, open that employee’s **Channels** wizard (see Platform Help **24**). WhatsApp **group chats are ignored by default** unless you enable groups there.
 
@@ -134,7 +134,7 @@ Grant or revoke tools on each agent’s **Workspace → Tools access**.
 
 1. Open your **Profile**.
 2. Choose **provider** (platform default, Ollama/DeepSeek free, or OpenAI/OpenRouter via **API Keys** → `Platform_BYOK`). Non-platform Profiles auto-seed recommended vault slots as unset.
-3. For OpenAI/OpenRouter (and optionally Ollama), also choose a **chat model** from the curated list (or a custom model id). Saving Profile syncs provider + model into OpenClaw for your tenant agents. Catalog: `GET /api/auth/llm-catalog`.
+3. For OpenAI/OpenRouter (and optionally Ollama), also choose a **chat model** from the curated list (or a custom model id). Saving Profile syncs provider + model into AgentSystem for your tenant agents. Catalog: `GET /api/auth/llm-catalog`.
 4. Optional **per-tool model**: **Tools** → **Tools → Model** overrides Profile (or platform) model for specific BYOK-aware tools only (keys still from Profile/vault). Help: `knowledgebase/platform-help/11-content-tools-scripts-profile.md`.
 5. Browse uploads and generated media under **Content Explorer** (`/content-explorer`).
 6. Optional: avatar → **Company setup** (`/company-setup`) for the structured company wizard (help **29**), and/or **Onboarding** / **Onboarding Helper** for freeform dept/agent proposals (help **27**).
@@ -156,12 +156,12 @@ Grant or revoke tools on each agent’s **Workspace → Tools access**.
 | **Kanban timezone + archived-chat activity** | Every Kanban date (board tooltips, card **Created**/**Updated**, task chat) renders in the platform timezone (`PLATFORM_TIMEZONE`, else `TZ`) with the zone shown in the board header — no raw UTC. A card's **Activity** tab now also pulls the linked agent-chat turns, so work done in a chat that was later **archived** still shows (tagged `archived`); cards with genuinely no activity say so instead of rendering blank, and a failed detail load shows an error + **Retry**. |
 | **COO status checker** | Dashboard → **Run status checker** (COO-entitled `status_checker` tool) opens an HTML CEO report: needs-attention, awaiting-you, **all failed Kanban cards of any age** with failure reason / A2A task + workflow run ids, and recent completions. Also runs daily (`COO_STATUS_CHECKER_CRON`, default 09:00) → standup chat post + HTML email. |
 | **Data retention** | Profile → **Data persistence** (30/60/90/120/365 days, default 90). Nightly purge permanently deletes aged chat turns, standup **messages**, workflow runs/steps, and aged **Content Explorer** uploaded/generated media (hard delete). Kanban, Master Data and API keys untouched; manual Content Explorer delete available. |
-| **Storage (MB)** | Efficiency View → **Org** tab shows estimated storage for your tenant (chats, standups, workflow runs, Master Data files, **OpenSearch RAG indices**, OpenClaw workspace). Click **i** for breakdown. |
+| **Storage (MB)** | Efficiency View → **Org** tab shows estimated storage for your tenant (chats, standups, workflow runs, Master Data files, **OpenSearch RAG indices**, AgentSystem workspace). Click **i** for breakdown. |
 | **Admin → Crons** | `/admin/crons` lists every platform cron (standup dispatcher, legacy standup, delegation queue, job pipeline, COO status checker, data retention, workflow scheduler, **CRM workspace TLS SANs**) with **Pause** / **Resume** / **Run now**. Pause state persists across restarts. |
 | **Platform API logging** | `PLATFORM_LOG_LEVEL=off\|error\|info` controls backend access/error logs. Keys, tokens, `Authorization` headers, passwords and MFA codes are redacted, and sensitive paths (API Keys, auth) log method + route only. |
 | **Company setup** | Profile → **Company setup** (`/company-setup`): first-run (or re-run) funnel for company type, mission, DNA, team blueprint Apply, systems, management style. Gate may redirect new CEOs until complete/skip. Help: platform-help **29**. Distinct from Onboarding Helper (**27**). |
 | **Update Company Details** | Profile avatar → **Update Company Details** (`/update-company-details`): edit mission/DNA/name/industry into Knowledge `company_memory` (creates table if needed). Help **35**. |
-| **Scheduled goals + goal plans** | Management → **Scheduled goals** (`/scheduled-goals`): recurring CEO prompts (**hourly** / daily / weekdays / weekly). Create/**edit**/list/pause/run-now or COO `scheduled_goal_*`. Multi-intent uses durable **`agent_goal_runs`** (`agr-…`): **async** first step, remaining steps advance on workflow/specialty terminal (watch notifies name **goal plan id + title** when bound). On **completed/failed**, a **once-only** COO chat completion nudge posts the step ladder (plus CEO bell) — `GOAL_PLAN_COO_COMPLETION_NUDGE`; plan **failed** can enqueue recovery Kanban (`GOAL_PLAN_FAILURE_KANBAN`). Chat soft-polls while `agr-…` is open. Stored plans keep workflow phrases + specialty residual (Platform Help). **UI:** Generate draft → **Amend plan manually** / Build plan manually → Save draft / Approve (CEO UI draft; COO tools auto-approve). Each schedule fire (plan mode) → **new** `agr-…` (template steps only reused). Ad-hoc: **`agent_goal_create`** always **new** `agr-…` for new multiphase asks. Multiphase freeflow on **`agent_workflow_trigger`** can auto-upgrade to a plan. **`agent_tool` data steps** fill missing params from goal prose (MAG7/MAGS/tickers for `market_history`, multi-symbol multi-call). **Compositional tools** (`email_send`, …) after prior work rewrite to **`agent_continue`** (OpenClaw agent interpretation like chat — not dry plan-dump emails). Chat-synthesis / HTML-email goals also append continue. Plan intent/args LLM = owner BYOK `chatCompletions`; continue = OpenClaw agent (same as chat). Workflow integer **`run_id` ≠ goal plan**. Inspect: Digest **2** plan-vs-progress **with run timestamps** + `/goal-plans`, chat Goal Plan panel, `agent_goal_*`, `GET /api/agent-goal-runs`. Env: `GOAL_PLAN_MAX_SPECIALTY`, `SCHEDULED_GOALS_CRON`, `WORKFLOW_COO_WAKE_ON_TERMINAL`, `GOAL_PLAN_*`. Help **28**/**38**. E2E: `npm run test:e2e:goal-plan`, `npm run test:goal-plan:async-ui` (`REGRESSION_GOAL_PLAN=0` to skip pack). |
+| **Scheduled goals + goal plans** | Management → **Scheduled goals** (`/scheduled-goals`): recurring CEO prompts (**hourly** / daily / weekdays / weekly). Create/**edit**/list/pause/run-now or COO `scheduled_goal_*`. Multi-intent uses durable **`agent_goal_runs`** (`agr-…`): **async** first step, remaining steps advance on workflow/specialty terminal (watch notifies name **goal plan id + title** when bound). On **completed/failed**, a **once-only** COO chat completion nudge posts the step ladder (plus CEO bell) — `GOAL_PLAN_COO_COMPLETION_NUDGE`; plan **failed** can enqueue recovery Kanban (`GOAL_PLAN_FAILURE_KANBAN`). Chat soft-polls while `agr-…` is open. Stored plans keep workflow phrases + specialty residual (Platform Help). **UI:** Generate draft → **Amend plan manually** / Build plan manually → Save draft / Approve (CEO UI draft; COO tools auto-approve). Each schedule fire (plan mode) → **new** `agr-…` (template steps only reused). Ad-hoc: **`agent_goal_create`** always **new** `agr-…` for new multiphase asks. Multiphase freeflow on **`agent_workflow_trigger`** can auto-upgrade to a plan. **`agent_tool` data steps** fill missing params from goal prose (MAG7/MAGS/tickers for `market_history`, multi-symbol multi-call). **Compositional tools** (`email_send`, …) after prior work rewrite to **`agent_continue`**. When a prior tool already produced **HTML/markdown**, the **platform sends that artifact once** via `email_send` (agent must not invent plain-text substitutes or re-send). Scheduled/goal-plan fires use a **fresh-run** prompt (no MEMORY/“already done today?” dedupe). Parallel schedule ticks + unique AgentSystem sessions per fire. Plan intent/args LLM = owner BYOK `chatCompletions`; continue = AgentSystem agent when still needed. Workflow integer **`run_id` ≠ goal plan**. Inspect: Digest **2** plan-vs-progress **with run timestamps** + `/goal-plans`, chat Goal Plan panel, `agent_goal_*`, `GET /api/agent-goal-runs`. Env: `GOAL_PLAN_MAX_SPECIALTY`, `SCHEDULED_GOALS_CRON`, `WORKFLOW_COO_WAKE_ON_TERMINAL`, `GOAL_PLAN_*`. Help **28**/**38**. E2E: `npm run test:e2e:goal-plan`, `npm run test:goal-plan:async-ui` (`REGRESSION_GOAL_PLAN=0` to skip pack). |
 | **Workflow runs UI** | **Workflows → Run instances** shows **#run_number** and **run {id}**; detail panel shows **WF run id**. Fullscreen audit `/workflows/runs/:id` also lists the numeric id. Search/global search can jump by that id. Help **06**. |
 | **Home snapshot + Workspace activity** | Home Today Snapshot counts completed tasks, **completed goal plans**, and failed Kanban/goals/workflows (platform TZ day); 7d success rate blends those units. Operating Workspace / board **Recent AI activity** merges terminal Kanban, **agr-…** goals, and workflow runs with deep links. |
 | **Content creator ops** | Company Operate + `content_creator` pack: production loop, **Facebook Page** publish via platform MCP **`mcp-meta-graph`** (Connectors → MCPs OAuth; Page posts only; optional CEO App ID override), OpenConnector for other SaaS, **content-comments-ingest** + community triage, Channel Publisher **`agent_workflow_trigger`** → `content-publish-social`. Help: **30** (ops) + **31** (MCP OAuth setup). Operators: `ensure-platform-mcps.sh`, optional `SEED_CONTENT_MEDIA_OWNER`. |
@@ -186,33 +186,33 @@ Grant or revoke tools on each agent’s **Workspace → Tools access**.
 | **Get work from team** | The Dashboard standup button fans status requests out to every agent under the COO (budget-aware), instead of classifying the button label as a specialty ask. |
 | **Broadcast + notify** | Broadcast can ask agents to report back and ping your bell; quieter when you only want a rollup. |
 | **Master Data + document search** | Tables with purposes; documents agents can search; starter **departments** + User Guide + Platform Help docs on register. |
-| **Chat tool icons** | See which tools an agent used under a reply (Agent OS content tools + native OpenClaw `browser` / `image` / `cron` from session logs). |
+| **Chat tool icons** | See which tools an agent used under a reply (Agent OS content tools + native AgentSystem `browser` / `image` / `cron` from session logs). |
 | **Notification tooltips** | Hover the bell snippet for the full message. |
 | **Tenant Workspace docs** | Your CEO workspace files stay in your space; Resync keeps ORG/AGENTS accurate. |
 | **Shared notification dismiss** | Clear/dismiss keeps the bell feed tidy across platform + agent items. |
-| **Agent channels (Slack / WhatsApp)** | Per-agent **Channels** wizard (BYOK vault + OpenClaw bindings). Outbound media must use `MEDIA:/abs/path` so WhatsApp attaches from disk; inbound WhatsApp media is mirrored to `inbound/attachments/` for chat/STT. WhatsApp **groups are disabled by default** (`groupPolicy: disabled`) so group chats are not ingested even when the linked phone is in them — only DMs per `dmPolicy`/`allowFrom`. See platform-help **24**. |
+| **Agent channels (Slack / WhatsApp)** | Per-agent **Channels** wizard (BYOK vault + AgentSystem bindings). Outbound media must use `MEDIA:/abs/path` so WhatsApp attaches from disk; inbound WhatsApp media is mirrored to `inbound/attachments/` for chat/STT. WhatsApp **groups are disabled by default** (`groupPolicy: disabled`) so group chats are not ingested even when the linked phone is in them — only DMs per `dmPolicy`/`allowFrom`. See platform-help **24**. |
 | **Chat attachments + inline media** | Paperclip on Agent Chat uploads files into Master Data + `inbound/attachments/`. Generated image/audio/video play **inline** in chat (login required). Generated media is **auth-only** by default — not world-public (`MEDIA_PUBLIC_SIGNED=1` opt-in). See platform-help **03**, **11**. |
-| **Free speech (Whisper + Piper)** | Chat mic + Speak reply; content tools / workflow nodes `speech_stt` / `speech_tts`. Prefer OGG/Opus (or MP3) for WhatsApp TTS attach. Published Scenes guests use slug-scoped public VR tokens (not the signed openclaw media flag). See **25**. |
+| **Free speech (Whisper + Piper)** | Chat mic + Speak reply; content tools / workflow nodes `speech_stt` / `speech_tts`. Prefer OGG/Opus (or MP3) for WhatsApp TTS attach. Published Scenes guests use slug-scoped public VR tokens (not the signed AgentSystem media flag). See **25**. |
 | **Platform feedback (Admin)** | COO / Platform Help can file bugs via `platform_feedback_*`. Admins triage at **Platform feedback** (`/admin/platform-feedback`): open → implemented / rejected. |
 
 ---
 
-## Interface: OpenClaw Gateway
+## Interface: AgentSystem Gateway
 
-The backend uses the [OpenClaw Gateway](https://docs.openclaw.ai/gateway) HTTP API:
+The backend uses the [AgentSystem Gateway](https://docs.openclaw.ai/gateway) HTTP API:
 
 - **Chat:** `POST /v1/chat/completions` (OpenAI-compatible)
   - Auth: `Authorization: Bearer <token>`
   - Agent: `x-openclaw-agent-id: main` (or agent id)
   - Session: `user` in body for stable session (per-agent, per-user)
-- Enable in OpenClaw config: `gateway.http.endpoints.chatCompletions.enabled: true`
+- Enable in AgentSystem config: `gateway.http.endpoints.chatCompletions.enabled: true`
 - Default gateway port: **18789**
-- **Per-CEO tenants:** each CEO gets isolated OpenClaw agent runtimes and workspaces (`openclaw-tenant`); prompts are tagged with `owner_user_id` / `ceo_user_id`.
+- **Per-CEO tenants:** each CEO gets isolated AgentSystem agent runtimes and workspaces (`openclaw-tenant`); prompts are tagged with `owner_user_id` / `ceo_user_id`.
 
 ## Prerequisites
 
-- **Node.js 18+** (Node **22.12+** for OpenClaw CLI)
-- **OpenClaw** installed and (for chat) **gateway** running with chat completions enabled
+- **Node.js 18+** (Node **22.12+** for AgentSystem CLI)
+- **AgentSystem** installed and (for chat) **gateway** running with chat completions enabled
 - **Workspace path** where SOUL.md, AGENTS.md, MEMORY.md live (for MD editor)
 - **OPENAI_API_KEY** in backend `.env` for **Run COO** (standup + CEO summary via OpenAI). Optional: `OPENAI_COO_MODEL` (default `gpt-4o-mini`).
 - Optional: **cron schedules** — every job has a code default, so nothing is required. Commented reference block lives in `backend/.env.example` / `deploy/.env.example` (and is appended to `deploy/.env` by `deploy/scripts/ensure-cron-env.sh`): `STANDUP_SCHEDULE_CRON`, `STANDUP_CRON_SCHEDULE`, `DELEGATION_CRON_SCHEDULE`, `AGENT_WORKFLOW_SCHEDULER_CRON`, `JOB_PIPELINE_CRON_SCHEDULE`, `COO_STATUS_CHECKER_CRON`, `DATA_RETENTION_CRON`, `KANBAN_ORPHAN_WATCHER_CRON`, `SCHEDULED_GOALS_CRON`, `CRM_TLS_WORKSPACE_CERT_CRON`. See [Schedulers and crons](#multi-tenancy--schedulers-platform-crons-vs-user-schedules).
@@ -249,11 +249,11 @@ Frontend runs at **http://127.0.0.1:3000** and proxies `/api` to the backend (ov
 
 ### 3. Log in
 
-Open **http://127.0.0.1:3000/login**. Default admin is seeded from `.env` (`AGENT_OS_ADMIN_*`). CEO users see home chat, **My Org**, Workflows, Kanban, Job profiles, AgentExchange, etc. Admin users manage platform accounts and MCP registry. New CEOs register at `/register` and get provisioned OpenClaw agents, org context, starter **departments**, and this README as a Master Data document.
+Open **http://127.0.0.1:3000/login**. Default admin is seeded from `.env` (`AGENT_OS_ADMIN_*`). CEO users see home chat, **My Org**, Workflows, Kanban, Job profiles, AgentExchange, etc. Admin users manage platform accounts and MCP registry. New CEOs register at `/register` and get provisioned AgentSystem agents, org context, starter **departments**, and this README as a Master Data document.
 
-### 4. OpenClaw gateway (for chat)
+### 4. AgentSystem gateway (for chat)
 
-OpenClaw is installed globally (`npm install -g openclaw@latest`). A config with **chat completions enabled** is at `~/.openclaw/openclaw.json` (copy from `agent-os/openclaw-config.example.json`).
+AgentSystem is installed globally (`npm install -g openclaw@latest`). A config with **chat completions enabled** is at `~/.openclaw/openclaw.json` (copy from `agent-os/openclaw-config.example.json`).
 
 Start the gateway:
 
@@ -265,15 +265,15 @@ openclaw gateway --port 18789
 Set in backend `.env`:
 
 - `OPENCLAW_GATEWAY_URL=http://127.0.0.1:18789`
-- `OPENCLAW_GATEWAY_TOKEN=<your gateway token or password>` (if you set `gateway.auth` in OpenClaw config). **If you see "gateway closed (1008): pairing required"**, see **knowledgebase/GATEWAY-PAIRING-1008.md**.
+- `OPENCLAW_GATEWAY_TOKEN=<your gateway token or password>` (if you set `gateway.auth` in AgentSystem config). **If you see "gateway closed (1008): pairing required"**, see **knowledgebase/GATEWAY-PAIRING-1008.md**.
 
-**Setting up OpenClaw from scratch:** Run `.\scripts\setup-openclaw-from-scratch.ps1` from the `agent-os` folder. It bootstraps OpenClaw, seeds the DB (all agents + ExpenseManager), installs agent-send and content-tools skills and extension, applies `openclaw.json` (agents, plugins, Ollama), ensures workspace templates (SOUL/MEMORY/TOOLS) and COO AGENTS.md, and ensures agent dirs. Then run `openclaw gateway --port 18789` and start backend + frontend.
+**Setting up AgentSystem from scratch:** Run `.\scripts\setup-openclaw-from-scratch.ps1` from the `agent-os` folder. It bootstraps AgentSystem, seeds the DB (all agents + ExpenseManager), installs agent-send and content-tools skills and extension, applies `openclaw.json` (agents, plugins, Ollama), ensures workspace templates (SOUL/MEMORY/TOOLS) and COO AGENTS.md, and ensures agent dirs. Then run `openclaw gateway --port 18789` and start backend + frontend.
 
 ## What’s included
 
 | Feature | Description |
 |--------|-------------|
-| **Auth & roles** | Login/register; **admin** (user management, MCP registry, platform crons, A2A logs) and **ceo** (agents, workflows, kanban, job pipeline). JWT sessions. New CEO registration provisions OpenClaw agents, syncs org context, seeds **departments** + default **User Guide** document. |
+| **Auth & roles** | Login/register; **admin** (user management, MCP registry, platform crons, A2A logs) and **ceo** (agents, workflows, kanban, job pipeline). JWT sessions. New CEO registration provisions AgentSystem agents, syncs org context, seeds **departments** + default **User Guide** document. |
 | **Admin platform crons** | `/admin/crons` — registry of every platform timer with **Pause** / **Resume** / **Run now**; pause state is persisted so a paused job stays paused after a restart. |
 | **Admin company blueprints** | `/admin` → **Company industry blueprints** — snapshot/publish a CEO company pack + **Download zip** (`agent-os-company-blueprint-v2`). **Secrets always redacted** (API keys, bridge tokens, passwords; vault `*Ref` kept). Help **29**. Demo packs: `demo_balaji_ranganathan`, **`demo_brightbox_gifts`** (golden CRM/ERP). Standard lean+BC packs under `company-blueprints/standard/` (regenerate: `publish-brightbox-and-regenerate-standard.js`). **Refresh default agents** applies `platform-agents.json` tools + optional Business Core re-sync. |
 | **Platform logging & redaction** | `PLATFORM_LOG_LEVEL=off\|error\|info` for backend request/error logs. Secrets (API keys, bearer tokens, `Authorization`, passwords, MFA codes) are redacted from URLs, JSON bodies and headers; API Keys / auth routes log method + route only. Unit tests: `backend/scripts/test-security-hardening-unit.js`. |
@@ -282,7 +282,7 @@ Set in backend `.env`:
 | **Home chat** | `/` — COO chat by default; agent picker; history/browser panes; **OEI** KPI + explain popover (help **36**). On phones: overview first, **Chat** opens a full-screen sheet; history/browser icons open a side drawer (desktop unchanged). |
 | **My Org** | `/org` — Org chart; standups with COO chat (owner-scoped only); **Resync ORG.md & AGENTS.md**. Profile **Your title** is display-only. Add agents from **Agent Workspaces**. |
 | **Agent Workspaces** | List agents; **Hire AI employee** (optional icon/image, default robot); per-agent **SOUL.md, AGENTS.md, ORG.md, MEMORY.md, TOOLS.md** editor; **Tools access**; **Publish to Agent Exchange** (Flolah / Public). |
-| **Chat** | 1:1 chat with an OpenClaw agent via gateway; session affinity per agent; history stored in SQLite; **tool-call icons** on assistant replies when Agent OS tools ran; assistant turns show **icon + name**. |
+| **Chat** | 1:1 chat with an AgentSystem agent via gateway; session affinity per agent; history stored in SQLite; **tool-call icons** on assistant replies when Agent OS tools ran; assistant turns show **icon + name**. |
 | **Notifications** | **Bell icon** in nav: agent responses + platform notifications; hover for full text; link to agent Chat; clear/dismiss (shared feed). |
 | **Kanban** | Board view (tasks by agent and status); task detail with **task chat**, artifacts, workflow run links, and linked agent-chat turns (including chats archived later). Reopen task; create task (COO or direct to agent). Auto-completes when COO chat delegations finish. All dates in the platform timezone. |
 | **Custom workflows** | Visual **Workflows** editor: trigger (manual / schedule / chat / event webhook), agent, API, MCP tool, **SSE listen**, **sub-workflow**, Brain (LLM + optional MCP tool calling; **Thinking mode** for DeepSeek/OpenRouter), email, IF/While, parallel/merge, CEO approval, **external agent (A2A)**. Publish, run instances, paginated run history, search, **stop SSE listen** on active runs. |
@@ -300,16 +300,16 @@ Set in backend `.env`:
 | **Business Core (CRM/ERP)** | Optional **Twenty** or **ERPNext** CRM / **ERPNext** ERP on Profile or Company setup. CRM=Twenty -> Twenty SSO + Maker/Checker (`crm_*`). CRM=ERPNext -> ERPNext desk SSO + sales `erp_*`. ERP=ERPNext -> Maker A/B, Checker, P&L/Invoice/Project specialists. Prefab workspace MD under **`openclaw-workspace-templates/crm-*` and `erp-*`** (role-stable; runtime ids `crm-s1-{slug}` … via `resolveWorkspaceTemplateBaseId`). **Option 1 coordination:** Kanban control plane; ERP Checker hard-submit; CRM high-risk process gate; seed workflows (`run erp/crm maker checker`) with Maker `needs_ceo` -> **ceo_approval** for e.g. 5% discount (not free-form CEO Kanban HITL). Multi-phase O2C via durable **goal plans** (`agent_goal_create` async ack + new plan default; scheduled plan-mode = new `agr-…` each fire; multiphase-trigger upgrade — help **28**/**38**). **COO:** company-scoped **read-only** list/report; **`agent_workflow_trigger` is async** (prefer goal plans for CRM→ERP). **Golden pack:** `demo_brightbox_gifts` (BrightBox Demo CEO). Docs: platform-help **32**/**38-40**, `deploy/business-core/README.md`, `company-blueprints/standard/`. |
 | **Automated company P&L (design)** | Planned run-cost + income pipelines (usage meters, CRM/channel/IBKR income events, period ERP postings, operating vs trading success). Design: [`knowledgebase/AUTOMATED-PNL.md`](knowledgebase/AUTOMATED-PNL.md). CEO pointer: platform-help **37**. |
 | **External agents (A2A)** | Register external agent endpoints; invoke from workflow **External Agent** node. |
-| **Tools** (UI `/content-tools`) | Agent-callable **content tools**: summarize URL, image/video gen, Kanban, **intent_classify_and_delegate**, workflow trigger/enquire/mutate, **agent_goal_create/list/status/complete_step** (COO/WFB multiphase plans), job applicant tools, **email_send**, **notify_ceo**, **Master Data**, learnings, etc.; owner-scoped logs UI; **Tools → Model** (per-CEO tool→model overrides for BYOK-aware tools; excludes custom-script review and embeddings); onboard new APIs via script. Goal tools are granted on COO allowlists and OpenClaw plugin contracts (`openclaw-extensions/agent-os-content-tools`). |
+| **Tools** (UI `/content-tools`) | Agent-callable **content tools**: summarize URL, image/video gen, Kanban, **intent_classify_and_delegate**, workflow trigger/enquire/mutate, **agent_goal_create/list/status/complete_step** (COO/WFB multiphase plans), job applicant tools, **email_send**, **notify_ceo**, **Master Data**, learnings, etc.; owner-scoped logs UI; **Tools → Model** (per-CEO tool→model overrides for BYOK-aware tools; excludes custom-script review and embeddings); onboard new APIs via script. Goal tools are granted on COO allowlists and AgentSystem plugin contracts (`openclaw-extensions/agent-os-content-tools`). |
 | **Browser Session** | `/browser-session` — managed Playwright, **Client Chrome** (Browser Relay, exclusive lease), or **Desktop Local worker** (Connectors package: headed Playwright + persistent browser-profile; multi-CEO). Agents use **`browse_*`** tools; grant list vs run in Workspace → Tool access. CDP `browser-cdp` when worker offline. Guides: CLIENT-BROWSER-SESSION.md, BROWSER-SESSION-DESKTOP-LOCAL.md, platform-help **22**. |
 | **Master Data & RAG** | Per-CEO tables + documents (OpenSearch BM25 + **local Qwen** k-NN embeddings via Compose `optional-embeddings`; no OpenAI embedding API). UI captures **purpose/description** per table. Agents list tables with purpose and CRUD rows / RAG docs via content tools — **no create/alter/drop table**. On register: starter **departments** table + **Flolah User Guide** + **Platform Help** document set. **Inbound attachments** + **Content Explorer** for chat/channel files. **Purge all uploads** removes CEO uploads only; help/guide docs are protected. |
-| **Profile LLM catalog** | Provider + model picker on **Register** and **Profile** (`llm_provider` / `llm_model`); `GET /api/auth/llm-catalog`; OpenClaw sync on Profile save. BYOK keys only via API Keys vault after login. |
+| **Profile LLM catalog** | Provider + model picker on **Register** and **Profile** (`llm_provider` / `llm_model`); `GET /api/auth/llm-catalog`; AgentSystem sync on Profile save. BYOK keys only via API Keys vault after login. |
 | **Platform Help** | Standard agent `platformhelp` — product how-to via `master_data_rag` over `knowledgebase/platform-help/`. **Answer-first:** always explains from help docs; optional soft-recommend of COO/CRM/Workflow Builder after help. Hard peer specialty referral is disabled for `platformhelp`. See [`knowledgebase/platform-help/README.md`](knowledgebase/platform-help/README.md). |
 | **COO specialty delegation** | COO chat hard-path: **specialty-first** routing from AGENTS.md purposes → specialist(s) (cap 2 multi-intent chat; higher for durable goal plans) + Kanban with the **full work unit** (prior Mag7/research context on thin follow-ups). Peer specialty referral for specialist peers (**not** Platform Help / Workflow Builder / Onboarding Helper); COO-native work stays with COO; how-to → Platform Help; graph build → Workflow Builder. |
 | **Email send** | `email_send` content tool — agents can send email via configured mail integration (owner-scoped logging). |
 | **Notify CEO** | `notify_ceo` content tool — agents push a platform notification to their CEO (bell feed). **Not email** (ops rollups and community escalations use this by default). |
 | **Broadcast** | Send messages to multiple agents; LLM intent for status+notify; paced fan-out; exclude COO by default. |
-| **Tools onboarding** | Script `scripts/onboard-api-tool.js` onboards a new API as a tool from JSON (updates DB, OpenClaw tool list). See `scripts/tool-definitions/README.md`. |
+| **Tools onboarding** | Script `scripts/onboard-api-tool.js` onboards a new API as a tool from JSON (updates DB, AgentSystem tool list). See `scripts/tool-definitions/README.md`. |
 | **Workspace (legacy MD)** | Global workspace MD editor (older path); prefer **Agent workspace** per agent. |
 | **DB** | SQLite: agents, users, chat, standups (`owner_user_id`), delegations (`owner_user_id`), kanban, content tools, job profiles/applications, MCP servers, agent workflow definitions/runs, A2A publications, external agents, platform notifications, audit. |
 | **Agent memory** | Backend injects each agent’s MEMORY.md into delegation prompts and appends summaries on task completion (tenant workspace path). |
@@ -322,7 +322,7 @@ Set in backend `.env`:
 |--------------------------|---------|----------|----------------|
 | `STANDUP_SCHEDULE_CRON` | `* * * * *` | Dispatcher for user-created standups | standup `scheduled_at` (daily, once/day, owner enabled) |
 | `STANDUP_CRON_SCHEDULE` | *(empty = off)* | Legacy auto-collect standup per enabled CEO (`owner_user_id` + owner-tagged prompts) | — |
-| `DELEGATION_CRON_SCHEDULE` | `* * * * *` | Claims only that CEO’s `pending` `agent_delegation_tasks`, runs agents in that CEO’s OpenClaw tenant, posts callbacks only for that CEO’s request IDs | queued COO→agent tasks |
+| `DELEGATION_CRON_SCHEDULE` | `* * * * *` | Claims only that CEO’s `pending` `agent_delegation_tasks`, runs agents in that CEO’s AgentSystem tenant, posts callbacks only for that CEO’s request IDs | queued COO→agent tasks |
 | `AGENT_WORKFLOW_SCHEDULER_CRON` | `* * * * *` | Master tick for custom agent workflows | definition `schedule_cron` + `schedule` trigger mode |
 | `JOB_PIPELINE_CRON_SCHEDULE` | `0 * * * *` | Job Applicant pipeline tick across active profiles | profile `workflow_schedule` (hourly/daily/weekly) |
 | `COO_STATUS_CHECKER_CRON` | `0 9 * * *` | COO status digest per enabled CEO → standup post + HTML email | CEO email, own Kanban/A2A state |
@@ -332,7 +332,7 @@ Set in backend `.env`:
 
 Cron expressions use the container clock (`TZ`). Dates **shown to users** (Kanban, task chat, reports) use `PLATFORM_TIMEZONE` when set, otherwise `TZ` — so the UI never renders raw UTC.
 
-Not crons: workflow **timeout watchdog** (30s `setInterval`, reaps timed-out steps after restarts) and **one-shot OpenClaw Gateway cron jobs** created per delegated task (fire once, then gone).
+Not crons: workflow **timeout watchdog** (30s `setInterval`, reaps timed-out steps after restarts) and **one-shot AgentSystem Gateway cron jobs** created per delegated task (fire once, then gone).
 
 Manual triggers: `POST /api/cron/run-standup`, `/cron/process-delegations`, `/cron/run-status-checker`, `/cron/run-data-retention`; UI buttons **Run COO**, **Run status checker**, **Purge data older than N days**, **Scheduled goals → Run now**. Crons guide: `knowledgebase/platform-help/19-scheduled-jobs-and-crons.md`. CEO scheduled goals: `knowledgebase/platform-help/28-scheduled-goals.md`.
 
@@ -362,7 +362,7 @@ New CEOs start with **empty** standups (no other user’s chats or agents), star
 
 ### Tools access vs TOOLS.md
 
-- **Tools access** (Workspace UI): enforcement — which Agent OS tools OpenClaw exposes to the agent (`agent_tool_grants`, `~/.openclaw/agent-tool-allowlists.json`).
+- **Tools access** (Workspace UI): enforcement — which Agent OS tools AgentSystem exposes to the agent (`agent_tool_grants`, `~/.openclaw/agent-tool-allowlists.json`).
 - **TOOLS.md**: instructions for the LLM — when and how to use granted tools. Sync from template via Workspace UI.
 - **COO defaults:** if a COO has no grants, backend applies `COO_CONTENT_TOOLS_ALLOW` (includes delegation, Kanban, `email_send`, `notify_ceo`).
 
@@ -384,7 +384,7 @@ Workflow hook URLs, cron webhooks, A2A cards, and MCP/API endpoints in graphs sh
 
 ## Production deploy (Docker / Podman)
 
-Container stack: **nginx** + **frontend** + **backend** + **OpenClaw gateway**, with optional **init**, **Ollama**, **MCP / OpenConnector mock**, and **browser-login** profiles.
+Container stack: **nginx** + **frontend** + **backend** + **AgentSystem gateway**, with optional **init**, **Ollama**, **MCP / OpenConnector mock**, and **browser-login** profiles.
 
 Hosts (production):
 
@@ -450,7 +450,7 @@ Create a JSON file in `scripts/tool-definitions/` with `name`, `description`, `e
 node scripts/onboard-api-tool.js scripts/tool-definitions/your-tool.json
 ```
 
-Restart the OpenClaw gateway. See `scripts/tool-definitions/README.md`.
+Restart the AgentSystem gateway. See `scripts/tool-definitions/README.md`.
 
 ## API (backend)
 
@@ -571,8 +571,8 @@ Examples: `workflows`, `tasks`, `standups`, `documents`, `items`, `users`, `agen
 
 ### Media
 
-- `GET /api/media/openclaw/*` — OpenClaw-generated media for Dashboard chat / Kanban. **Requires login (Bearer)** by default. Optional anonymous `?exp=&sig=` only when ops sets `MEDIA_PUBLIC_SIGNED=1` (off by default; see `deploy/.env.example`).
-- Content tools (`generate_image`, `generate_video`, `speech_tts`, …) return `paste_exactly` / `media_uri` as **`MEDIA:/abs/path`** for **WhatsApp file attach** on the shared OpenClaw volume, plus auth-only `relative_url` (`/api/media/…`) for the web UI.
+- `GET /api/media/openclaw/*` — AgentSystem-generated media for Dashboard chat / Kanban. **Requires login (Bearer)** by default. Optional anonymous `?exp=&sig=` only when ops sets `MEDIA_PUBLIC_SIGNED=1` (off by default; see `deploy/.env.example`).
+- Content tools (`generate_image`, `generate_video`, `speech_tts`, …) return `paste_exactly` / `media_uri` as **`MEDIA:/abs/path`** for **WhatsApp file attach** on the shared AgentSystem volume, plus auth-only `relative_url` (`/api/media/…`) for the web UI.
 - Dashboard chat renders `MEDIA:` and `/api/media` as **inline** image / audio / video players (authenticated blob fetch). Do **not** paste bare auth HTTPS media URLs into WhatsApp (shows “Media failed”).
 - Guest Published Scenes use separate `/api/public/vr/:slug/artifacts/…?t=…` tokens — unrelated to `MEDIA_PUBLIC_SIGNED`.
 - Docs: `knowledgebase/platform-help/11-content-tools-scripts-profile.md`, `24-agent-channels.md`, `25-speech-and-published-scenes.md`.
@@ -597,7 +597,7 @@ See **knowledgebase/TESTING.md** for full test cases and restart steps.
 - **Protected docs:** `backend/src/services/master-data-protected-docs.js` — help/guide titles & filenames cannot be deleted by CEOs (seed refresh uses `{ force: true }`)
 - **Agent delete:** `backend/src/services/agent-delete.js` — `deleteAgentCascade()` runs in one transaction and clears every table that references `agents(id)` (kanban cards are **unassigned**, not deleted; children reparent to the deleted agent's parent). Deletes are recorded in `deleted_agents`, so the startup catalog re-grant (`grantStandardAgents`) and `POST /api/openclaw/sync` will not recreate the agent; an explicit create clears the tombstone
 - **Backend scripts:** `backend/scripts/` — seeds, E2E tests (`test-purge-all-documents.js`, `test-agent-delete-cascade.js`, learnings/history cache, …), MCP seed, workflow tests, COO org/delegation smoke, `cleanup-workflow-runs.js`
-- **OpenClaw scripts:** `scripts/` — `setup-openclaw-from-scratch.ps1`, `onboard-api-tool.js`, `apply-openclaw-agents-config.js`, `setup-job-applicant-agents.js`, `sync-browser-tools-md.js`, `install-agent-os-content-tools-extension.js`, kill/restart helpers
+- **AgentSystem scripts:** `scripts/` — `setup-openclaw-from-scratch.ps1`, `onboard-api-tool.js`, `apply-openclaw-agents-config.js`, `setup-job-applicant-agents.js`, `sync-browser-tools-md.js`, `install-agent-os-content-tools-extension.js`, kill/restart helpers
 - **Allowlists:** `backend/src/lib/content-tools-allow.js` (Docker-safe; keep in sync with `scripts/lib/content-tools-allow.js`)
 
 No separate migration folder; schema changes use `ALTER TABLE` blocks in `schema.js`.
@@ -608,7 +608,7 @@ No separate migration folder; schema changes use `ALTER TABLE` blocks in `schema
 agent-os/
 ├── README.md
 ├── knowledgebase/              # Extended docs (see index below)
-├── scripts/                    # OpenClaw/workspace; onboard-api-tool.js; tool-definitions/
+├── scripts/                    # AgentSystem/workspace; onboard-api-tool.js; tool-definitions/
 ├── tools/local-mcp-random-sse/ # Dev MCP + SSE test server (port 3099)
 ├── tools/brave-search-mcp-byok/   # Brave Search REST → HTTP MCP wrapper (BYOK headers only)
 ├── tools/meta-graph-mcp/          # Facebook/IG Graph → HTTP MCP
@@ -659,7 +659,7 @@ All project docs except this README live in **`knowledgebase/`**:
 | **TESTING.md** | Restart, API tests, frontend manual tests, smoke test |
 | **JOB-APPLICANT-WORKFLOW.md** | Job pipeline agents, tools, profile intake, setup |
 | **GATEWAY-PAIRING-1008.md** | Fix gateway pairing / token |
-| **SESSION-HISTORY-VISIBILITY-TREE.md** | OpenClaw session visibility |
+| **SESSION-HISTORY-VISIBILITY-TREE.md** | AgentSystem session visibility |
 | **AGENT_REVIEW_AND_SKILLS.md** | Agent roles and skills |
 | **CONFIGURE-CLAUDE-OPUS.md** | Anthropic model in openclaw.json |
 | **IMPLEMENTATION_PLAN.md** | Roadmap and phases |

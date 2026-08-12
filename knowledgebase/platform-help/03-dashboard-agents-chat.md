@@ -1,10 +1,10 @@
-# Dashboard, agents, chat, and workspaces
+﻿# Dashboard, agents, chat, and workspaces
 
 ## Dashboard (`/org` — My Org)
 
 - **Org chart** of your agents (COO and specialists). Home chat is at **`/`** (COO by default).
 - **Standups** — create standup, chat with COO, get work from team, run COO summary, approve, delete.
-- **Remove agent** — deletes the agent's chat history, standup responses, delegation records and tool grants. **Kanban cards are kept and unassigned** so the board history survives, and any agents reporting to it move up to its parent. The COO cannot be removed. Removal sticks: the agent does not reappear after a restart or a **Sync from OpenClaw**.
+- **Remove agent** — deletes the agent's chat history, standup responses, delegation records and tool grants. **Kanban cards are kept and unassigned** so the board history survives, and any agents reporting to it move up to its parent. The COO cannot be removed. Removal sticks: the agent does not reappear after a restart or a **Sync from AgentSystem**.
 - **Resync ORG.md & AGENTS.md** — after add/rename/reorganize agents, resync so every agent’s org docs list the correct CEO, peers, and COO delegatees. On the COO’s **AGENTS.md**, only the live roster sections are refreshed (CEO for this org, agent table, external/A2A leaf members, session keys). **Role / Priorities / Tools / Guardrails / any custom sections you edited by hand are preserved.**
 - Per-agent **Chat** shortcuts; optional Edge TTS to read replies.
 
@@ -31,7 +31,7 @@ Prefer the **COO** for work that should be planned or handed to a specialist. Va
 1. Home (`/`) opens chat with the **COO by default**; use the **Chat with** picker for other agents. Home may show **OEI** (operational effectiveness 0–100) and related KPI chips — score is rules-only for your CEO scope; full explainability and goal-run KPIs: [36-operational-effectiveness.md](./36-operational-effectiveness.md). **My Org** (`/org`) has the org chart and standups.
 2. Type plain language and send. Use the **paperclip** to attach documents, images, audio, or video (size limits apply; ~40MB class). Attachments are stored as Master Data documents and mirrored under workspace **`inbound/attachments/`** so tools like `speech_stt` can use the path. Agent replies render common **markdown** in the web chat (bold, italics, lists, headings, `code`, links) — the same markup WhatsApp understands. Each assistant turn shows the employee **icon + name**.
 3. **History** and **Browser session** side panes are **hidden by default**. Use the clock (history) and window (browser session) icons next to **New chat** to open or close them.
-4. **Tool icons** under replies show which tools ran for that turn: **Agent OS content tools** (Master Data, notify, email, workflows, `speech_tts`, `generate_image`, `market_history`, …) **and native OpenClaw tools** when they appear in the agent session transcript (`browser`, `image`, `cron`). Expand a chip to see request/response (large browser payloads are truncated).
+4. **Tool icons** under replies show which tools ran for that turn: **Agent OS content tools** (Master Data, notify, email, workflows, `speech_tts`, `generate_image`, `market_history`, …) **and native AgentSystem tools** when they appear in the agent session transcript (`browser`, `image`, `cron`). Expand a chip to see request/response (large browser payloads are truncated).
 5. **Generated media plays inline** while you are logged in: images, audio (TTS), and video use authenticated fetch (not a public link). Bare `/api/media` URLs without a session return 401.
 6. Agents should paste **`MEDIA:/abs/path`** (tool `paste_exactly`) for WhatsApp parity — not world-open HTTPS. See [11-content-tools-scripts-profile.md](./11-content-tools-scripts-profile.md) and [24-agent-channels.md](./24-agent-channels.md).
 7. Optional **mic** (Whisper) and **Speak reply** (Piper) when free speech is deployed — [25-speech-and-published-scenes.md](./25-speech-and-published-scenes.md).
@@ -47,7 +47,7 @@ Tips:
 - WhatsApp / Slack: configure **Channels** on the agent (`/agents/:id/channels`).
 ## Agent Workspaces (`/workspace` → `/agents/:id/workspace`)
 
-**Add agent / Hire AI employee** — creates a full OpenClaw tenant agent for your CEO account (custom agent), with workspace files and default tool grants. Optionally set a **monthly token budget** and **error budget %** at creation (see [18-agent-budgets-and-org-members.md](./18-agent-budgets-and-org-members.md)). Choose an **icon or image** (default robot icon if none). The same icon shows in chat (next to the employee name), Agent Workspace, and Agent Exchange.
+**Add agent / Hire AI employee** — creates a full AgentSystem tenant agent for your CEO account (custom agent), with workspace files and default tool grants. Optionally set a **monthly token budget** and **error budget %** at creation (see [18-agent-budgets-and-org-members.md](./18-agent-budgets-and-org-members.md)). Choose an **icon or image** (default robot icon if none). The same icon shows in chat (next to the employee name), Agent Workspace, and Agent Exchange.
 
 **Publish to Agent Exchange** — from the employee list or workspace, publish as **Flolah** (other Flolah CEOs can Add to org → imported into their workspace + org) or **Public** (internet A2A). Unpublish from the same modal or Exchange **⋯**. Workflow A2A publish is separate and unchanged — see [09-a2a-agent-exchange.md](./09-a2a-agent-exchange.md).
 
@@ -64,7 +64,7 @@ Edit personality and operating docs:
 
 ### Tools access
 
-Workspace → **Tools access**: grant or revoke Agent OS content tools for that agent. Changes sync to OpenClaw allowlists (often without gateway restart).  
+Workspace → **Tools access**: grant or revoke Agent OS content tools for that agent. Changes sync to AgentSystem allowlists (often without gateway restart).  
 
 - **Tools access** = enforcement (what the agent may call).  
 - **TOOLS.md** = instructions (how the LLM should use them). Use **Sync TOOLS.md from template** to refresh tool instructions from a workspace template without wiping SOUL/MEMORY.
@@ -87,4 +87,4 @@ Use templates to bootstrap a new specialist’s personality and ops rules, then 
 
 ## Clear sessions
 
-From agent list or workspace you can clear OpenClaw sessions if a chat is stuck or polluted — then start a fresh chat.
+From agent list or workspace you can clear AgentSystem sessions if a chat is stuck or polluted — then start a fresh chat.

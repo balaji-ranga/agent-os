@@ -1,4 +1,4 @@
-# Agent channels (Slack / WhatsApp)
+﻿# Agent channels (Slack / WhatsApp)
 
 **Audience:** CEOs enabling Slack or WhatsApp for an org agent; ops installing gateway plugins.
 
@@ -10,15 +10,15 @@ Telegram / Discord are not in V1 (wizard may show “coming soon”).
 
 ## Deploy / ops (no config drift)
 
-Channel routing is re-applied automatically so recreating OpenClaw does not drop WhatsApp/Slack:
+Channel routing is re-applied automatically so recreating AgentSystem does not drop WhatsApp/Slack:
 
 1. **DB** (`ceo_agent_channels`) is source of truth for enabled/pairing channels.  
 2. **Sidecar** `~/.openclaw/agent-os-channel-routing.json` snapshots `channels` + `bindings`.  
 3. **configure-openclaw-docker.js** / **apply-openclaw-agents-config.js** restore from the sidecar if `openclaw.json` lost routing.  
 4. **openclaw-entrypoint** runs `restore-openclaw-channel-routing.js` after configure.  
-5. **Backend startup** calls `syncEnabledAgentChannelsToOpenClaw()`.  
+5. **Backend startup** calls `syncEnabledAgentChannelsToAgentSystem()`.  
 6. **Every VPS deploy** runs `vps-verify-agent-channels.sh` (fatal on drift).
-7. **Every VPS deploy** runs `vps-verify-openclaw-chat.sh` (fatal if `POST /v1/chat/completions` is **404** — usually wiped `gateway` in `openclaw.json`). Repair: `ensure-openclaw-gateway-config.js` + restart OpenClaw. Backend rewrites must use `openclaw-config-safe.js`.
+7. **Every VPS deploy** runs `vps-verify-openclaw-chat.sh` (fatal if `POST /v1/chat/completions` is **404** — usually wiped `gateway` in `openclaw.json`). Repair: `ensure-openclaw-gateway-config.js` + restart AgentSystem. Backend rewrites must use `openclaw-config-safe.js`.
 
 Manual repair:
 
@@ -49,7 +49,7 @@ Status badges: `draft` | `pairing` | `enabled` | `disabled`.
 
 When an agent sends an image, video, or TTS audio on WhatsApp:
 
-1. Tool results include **`paste_exactly`** / **`media_uri`** as `MEDIA:/abs/path` on the shared OpenClaw volume.
+1. Tool results include **`paste_exactly`** / **`media_uri`** as `MEDIA:/abs/path` on the shared AgentSystem volume.
 2. The agent must put that **`MEDIA:` line alone** in the reply so the gateway attaches the file from disk.
 3. Pasting auth-only `https://…/api/media/…` (or signed public URLs when disabled) shows **“Media failed”** on WhatsApp.
 4. Dashboard chat still plays the same file inline via `/api/media/…` while you are logged in.
@@ -59,9 +59,9 @@ See [11-content-tools-scripts-profile.md](./11-content-tools-scripts-profile.md)
 
 ## Inbound media (WhatsApp → workspace)
 
-1. OpenClaw stages inbound bytes briefly under `~/.openclaw/media/inbound/…` **only for messages that pass channel access control** (DM policy + WhatsApp `groupPolicy`).
+1. AgentSystem stages inbound bytes briefly under `~/.openclaw/media/inbound/…` **only for messages that pass channel access control** (DM policy + WhatsApp `groupPolicy`).
 2. Backend mirrors them into the CEO workspace as **`inbound/attachments/<file>`** (Content Explorer) when Channels are enabled.
-3. **After a successful mirror, the OpenClaw staging file is deleted** so Content Explorer is the only durable copy (no double disk use / re-sync).
+3. **After a successful mirror, the AgentSystem staging file is deleted** so Content Explorer is the only durable copy (no double disk use / re-sync).
 4. Agents can run **`analyze_image`** (images), **`speech_stt`**, or a summarize-inbound workflow with that relative path / `MEDIA:` line.
 5. If chat text says “[whatsapp attachment unavailable]”, still check `inbound/attachments/` — sync can lag a few seconds.
 6. Web chat **paperclip** uploads use the same `inbound/attachments/` folder (plus Master Data).

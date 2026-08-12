@@ -1,5 +1,5 @@
-/**
- * OpenClaw config sync — scoped to the signed-in CEO's tenant runtimes.
+﻿/**
+ * AgentSystem config sync — scoped to the signed-in CEO's tenant runtimes.
  * Tenant OpenClaw ids: t-{ceoUserId}--{baseAgentId}
  */
 import { Router } from 'express';
@@ -29,7 +29,7 @@ function readOpenClawList() {
     const config = JSON.parse(readFileSync(configPath, 'utf8'));
     return { configPath, openclawList: config?.agents?.list ?? [] };
   } catch (e) {
-    throw new Error('Could not read OpenClaw config: ' + e.message);
+    throw new Error('Could not read AgentSystem config: ' + e.message);
   }
 }
 
@@ -96,7 +96,7 @@ router.post('/sync', (req, res) => {
     const ceoUserId = resolveCeoId(req);
     const { configPath, openclawList } = readOpenClawList();
     if (!existsSync(configPath) && openclawList.length === 0) {
-      return res.status(400).json({ error: 'OpenClaw config not found at ' + configPath });
+      return res.status(400).json({ error: 'AgentSystem config not found at ' + configPath });
     }
 
     const filterRaw = req.body?.agent_id ? String(req.body.agent_id).trim().toLowerCase() : null;

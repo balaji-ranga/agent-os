@@ -1,4 +1,4 @@
-# Policies and common guardrails
+﻿# Policies and common guardrails
 
 CEO account setting: rules that apply to **every agent** and **every workflow Brain node**.
 
@@ -15,7 +15,7 @@ Saving writes **`POLICY.md`** into each of your agent workspaces and updates org
 ## How agents see it
 
 - Workspace file: `POLICY.md` (also referenced from `ORG.md`).
-- OpenClaw bootstrap reloads `POLICY.md` with other workspace MD files.
+- AgentSystem bootstrap reloads `POLICY.md` with other workspace MD files.
 - Agents must treat POLICY.md as a **prerequisite** before SOUL / AGENTS / user requests.
 
 ## How Brain nodes see it

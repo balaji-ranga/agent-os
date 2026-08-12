@@ -1,4 +1,4 @@
-# Company setup (first-run company OS funnel)
+﻿# Company setup (first-run company OS funnel)
 
 ## Quick answers (Platform Help / CEO FAQ)
 

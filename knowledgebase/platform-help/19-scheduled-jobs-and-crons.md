@@ -1,4 +1,4 @@
-# Scheduled jobs: platform crons, your own schedules, and data retention
+﻿# Scheduled jobs: platform crons, your own schedules, and data retention
 
 Flolah runs work on a clock in two layers:
 
@@ -30,7 +30,7 @@ every deploy).
 | `JOB_PIPELINE_CRON_SCHEDULE` | `0 * * * *` (hourly) | Job Applicant pipeline tick | Checks every active job profile's own `workflow_schedule` (hourly/daily/weekly) |
 | `COO_STATUS_CHECKER_CRON` | `0 9 * * *` (09:00 daily) | **COO status checker** digest | For each enabled CEO: builds that CEO's Kanban/A2A digest, posts it into their standup chat, **and emails the HTML report** (email only on this batch path). Counts are **all ages** (same as Kanban **All** view — not the Weekly filter). |
 | `DATA_RETENTION_CRON` | `15 3 * * *` (03:15 daily) | **Data retention purge** | For each enabled CEO: deletes data older than **that user's** `data_retention_days` (Profile setting) |
-| `KANBAN_ORPHAN_WATCHER_CRON` | `*/5 * * * *` (every 5 min) | **Kanban orphan watcher** | Re-pends specialty delegations stuck in `processing` (after OpenClaw fetch timeout + ~60s, or `DELEGATION_SPECIALTY_PROCESSING_TIMEOUT_MS`), requeues status-only cards, reinitiates orphan `open`/`in_progress`/`failed` specialty cards, then **immediately kicks the pending delegation worker** so Admin "Run now" does not wait for the minute cron. Caps retries via `KANBAN_ORPHAN_MAX_RETRIES`. |
+| `KANBAN_ORPHAN_WATCHER_CRON` | `*/5 * * * *` (every 5 min) | **Kanban orphan watcher** | Re-pends specialty delegations stuck in `processing` (after AgentSystem fetch timeout + ~60s, or `DELEGATION_SPECIALTY_PROCESSING_TIMEOUT_MS`), requeues status-only cards, reinitiates orphan `open`/`in_progress`/`failed` specialty cards, then **immediately kicks the pending delegation worker** so Admin "Run now" does not wait for the minute cron. Caps retries via `KANBAN_ORPHAN_MAX_RETRIES`. |
 | `SCHEDULED_GOALS_CRON` | `* * * * *` (every minute) | **Scheduled goals** dispatcher | For each enabled CEO: fires **active** scheduled prompts to the chosen AI employee when local `time_local` matches. **Paused** / **deleted** goals never fire (DB status only — survives restarts). |
 | `CRM_TLS_WORKSPACE_CERT_CRON` | `40 * * * *` (hourly) | **CRM workspace TLS SANs** | Compares ACTIVE Twenty workspace hosts (`{sub}.crm.*`) to the LE fullchain. **No-op** when all are already on the cert. If any SAN is missing (and public DNS resolves to the VPS), runs `vps-ensure-crm-workspace-dns-cert` → brief nginx stop for TLS-ALPN expand. Same job can **Run now** under **Admin → Crons** (`crm_tls_workspace_certs`). New workspace create also **debounces** this after ~45s (`CRM_TLS_WORKSPACE_CERT_AUTO=0` turns that off; `CRM_TLS_WORKSPACE_CERT_CRON=off` disables the schedule). Prerequisite: DNS A `*.crm.<apex>` (or per-workspace) → VPS. Manual UI: **Admin → TLS certs**. |
 
@@ -50,7 +50,7 @@ both are `Asia/Singapore`.
 
 Not a cron, but worth knowing: a **workflow timeout watchdog** runs on a 30-second interval to reap
 workflow steps whose node timeout elapsed (covers restarts and lost timers), and COO delegation also
-creates **one-shot OpenClaw Gateway cron jobs** per delegated task — these fire once and disappear,
+creates **one-shot AgentSystem Gateway cron jobs** per delegated task — these fire once and disappear,
 they are not recurring schedules.
 
 Setting an invalid cron expression disables that job with a warning in the backend log instead of
@@ -119,7 +119,7 @@ has its own purge). Manual deletes: [26-content-explorer.md](./26-content-explor
 
 The **Efficiency View → Org** tab shows **Storage (MB)** so you can see the effect: it sums your
 chats, standups, workflow runs, Master Data **document files**, **per-tenant OpenSearch RAG indices**
-(meta + search/vectors), Content Explorer media, OpenClaw tenant workspace files (including inbound
+(meta + search/vectors), Content Explorer media, AgentSystem tenant workspace files (including inbound
 uploads), and `media/generated/<you>/`. Click the **i** next to Storage (MB) for a component
 breakdown. Run a purge and the number drops on the next refresh (RAG index size drops only after
 Master Data document delete / purge, not retention purge alone).
