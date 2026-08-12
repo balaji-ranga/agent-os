@@ -20,9 +20,10 @@ Some screens load a **page** of rows (Content Explorer, Master Data documents, A
 
 1. Confirm you are logged in as CEO and opened the correct agent chat.
 2. Check OpenClaw gateway is up (admin/ops). Symptom: gateway errors or timeouts.
-3. Clear the agent session and retry a short message.
-4. Verify **Tools access** if the agent should call tools but tool icons never appear. Content tools need grants + successful `/api/tools` log rows; native OpenClaw tools (especially **`browser`**) need session transcripts under the shared OpenClaw agents directory (backend `OPENCLAW_DIR` volume).
-5. Ask **COO** or **Platform Help**; for gateway pairing errors ops use `knowledgebase/GATEWAY-PAIRING-1008.md`.
+3. If the assistant literally says **“No response from OpenClaw.”**, the gateway ran but returned an empty payload — often because the agent’s `tools.allow` list stripped built-ins (`sessions_history`, `read`, `sessions_send`). Ops: redeploy backend (runtime tools are always merged into allowlists) and retry; use **New chat** if needed.
+4. Clear the agent session and retry a short message.
+5. Verify **Tools access** if the agent should call tools but tool icons never appear. Content tools need grants + successful `/api/tools` log rows; native OpenClaw tools (especially **`browser`**) need session transcripts under the shared OpenClaw agents directory (backend `OPENCLAW_DIR` volume).
+6. Ask **COO** or **Platform Help**; for gateway pairing errors ops use `knowledgebase/GATEWAY-PAIRING-1008.md`.
 
 ## Agent gave wrong how-to steps
 

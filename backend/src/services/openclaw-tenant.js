@@ -27,10 +27,14 @@ import { COO_CONTENT_TOOLS_ALLOW } from '../lib/content-tools-allow.js';
 import { syncOrgContextToWorkspace, isGeneratedCooAgentsMd } from './org-context.js';
 import { readOpenClawConfigSafe, writeOpenClawConfigSafe } from './openclaw-config-safe.js';
 import { resolveWorkspaceTemplateBaseId } from './company-blueprints/standard-prefabs.js';
+import {
+  NATIVE_OPENCLAW_TOOLS as NATIVE_OPENCLAW_TOOLS_LIST,
+  mergeOpenClawAllowList,
+} from './openclaw-runtime-tools.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_TEMPLATES = join(__dirname, '..', '..', '..', 'openclaw-workspace-templates');
-const NATIVE_OPENCLAW_TOOLS = new Set(['browser', 'image', 'cron', 'cron_add']);
+const NATIVE_OPENCLAW_TOOLS = new Set(NATIVE_OPENCLAW_TOOLS_LIST);
 
 function sanitizeIdPart(value) {
   return String(value || '')
@@ -228,8 +232,9 @@ function prioritizeGoalToolsFirst(names = []) {
 }
 
 function mergeNativeTools(existingAllow = [], contentGrants = []) {
-  const merged = [...new Set([...(existingAllow || []), ...contentGrants, ...NATIVE_OPENCLAW_TOOLS])];
-  return prioritizeGoalToolsFirst(merged.filter((t) => t !== 'image'));
+  return prioritizeGoalToolsFirst(
+    mergeOpenClawAllowList(existingAllow, contentGrants, { dropImage: true, dropBrowser: false })
+  );
 }
 
 /**

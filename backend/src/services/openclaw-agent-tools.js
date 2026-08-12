@@ -19,6 +19,10 @@ import {
 } from './openclaw-tenant.js';
 import { COO_CONTENT_TOOLS_ALLOW } from '../lib/content-tools-allow.js';
 import { readOpenClawConfigSafe, writeOpenClawConfigSafe } from './openclaw-config-safe.js';
+import {
+  NATIVE_OPENCLAW_TOOLS as NATIVE_OPENCLAW_TOOLS_LIST,
+  mergeOpenClawAllowList,
+} from './openclaw-runtime-tools.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_TEMPLATES = join(__dirname, '..', '..', '..', 'openclaw-workspace-templates');
@@ -28,7 +32,7 @@ const CONFIG_PATH = getOpenClawConfigPath();
 const ALLOWLISTS_PATH = join(OPENCLAW_DIR, 'agent-tool-allowlists.json');
 const home = process.env.USERPROFILE || process.env.HOME || '';
 
-const NATIVE_OPENCLAW_TOOLS = new Set(['browser', 'image', 'cron', 'cron_add']);
+const NATIVE_OPENCLAW_TOOLS = new Set(NATIVE_OPENCLAW_TOOLS_LIST);
 
 function readConfig() {
   const c = readOpenClawConfigSafe();
@@ -179,10 +183,9 @@ function prioritizeCoreAgentTools(names = []) {
 }
 
 function mergeNativeTools(existingAllow = [], contentGrants = []) {
-  const contentSet = contentToolNamesSet();
-  const native = (existingAllow || []).filter((t) => NATIVE_OPENCLAW_TOOLS.has(t) || !contentSet.has(t));
-  const merged = [...new Set([...native, ...contentGrants])];
-  return prioritizeCoreAgentTools(merged.filter((t) => t !== 'image'));
+  return prioritizeCoreAgentTools(
+    mergeOpenClawAllowList(existingAllow, contentGrants, { dropImage: true, dropBrowser: true })
+  );
 }
 
 export function syncOpenClawJsonForAgent(agent) {

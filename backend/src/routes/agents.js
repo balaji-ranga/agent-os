@@ -24,6 +24,7 @@ import { ensureManagedBrowserReady } from '../services/job-browser-auth.js';
 import * as agentTools from '../services/openclaw-agent-tools.js';
 import { ensureTenantOpenClawAgent } from '../services/openclaw-tenant.js';
 import { writeOpenClawConfigSafe } from '../services/openclaw-config-safe.js';
+import { isOpenClawEmptyResponse } from '../services/openclaw-runtime-tools.js';
 import { tryHandleCooReachMeRequest } from '../services/reach-me-delegation.js';
 import { tryHandleCooSpecialtyDelegation } from '../services/coo-specialty-delegation.js';
 import { tryHandleCooOrgAgentsList } from '../services/coo-org-agents-list.js';
@@ -894,6 +895,28 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
         false,
         chatOpts
       ));
+      // Closed tools.allow without runtime builtins can yield empty payloads → this placeholder.
+      // Re-ensure tenant allowlist (sessions_*/read/…) and retry once.
+      if (isOpenClawEmptyResponse(reply)) {
+        console.warn(
+          '[agents] empty OpenClaw reply; re-syncing runtime tools and retrying agent=%s owner=%s',
+          openclawAgentId,
+          ownerUserId
+        );
+        try {
+          ensureTenantOpenClawAgent(agent, ownerUserId);
+        } catch (syncErr) {
+          console.warn('[agents] tenant re-sync after empty reply:', syncErr?.message || syncErr);
+        }
+        await new Promise((r) => setTimeout(r, 400));
+        ({ content: reply, usage } = await openclaw.chatCompletions(
+          openclawAgentId,
+          messages,
+          sessionUser,
+          false,
+          chatOpts
+        ));
+      }
     } finally {
       clearActiveDashboardChat(agentId, ownerUserId);
     }
