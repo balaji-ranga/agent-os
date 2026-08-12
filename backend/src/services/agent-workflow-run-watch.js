@@ -1,14 +1,15 @@
 /**
  * COO-friendly workflow run watches: fire-and-forget after agent_workflow_trigger.
- * Platform notifies the entitled CEO on CEO-wait / terminal, and re-wakes the COO
- * orchestrator on terminal so multi-phase goals (CRM then ERP O2C) can continue.
+ * Platform notifies the entitled CEO on CEO-wait / terminal, and re-wakes the
+ * triggering orchestrator (COO / Workflow Builder / Content Orchestrator) on
+ * terminal so multi-phase goals (CRM then ERP O2C) can continue — not for
+ * unrelated digests or scheduled-goal re-fires.
  */
 import { getDb } from '../db/schema.js';
 import { sendPlatformNotifications } from './platform-notifications.js';
 import { openclawAdminRpc } from '../gateway/openclaw-admin-rpc.js';
 import * as openclaw from '../gateway/openclaw.js';
 import { ensureTenantOpenClawAgent } from './openclaw-tenant.js';
-import { getPromptWithMemoryInjected } from './delegation-queue.js';
 import { insertChatTurn } from './chat-history.js';
 import { onWorkflowTerminalForGoalRun, findGoalStepByWorkflowRun } from './agent-goal-run.js';
 import { isPlatformCronActive } from './platform-cron-registry.js';
@@ -265,7 +266,34 @@ function buildTerminalStepSummary(runId) {
   return lines.slice(-12).join('\n');
 }
 
-function resolveOrchestratorAgent(ownerUserId, preferredAgentId) {
+function isVideoPackDefinition(definitionId, definitionName) {
+  const id = String(definitionId || '').toLowerCase();
+  const name = String(definitionName || '').toLowerCase();
+  return (
+    id.startsWith('video-reasoning') ||
+    id.startsWith('video-') ||
+    /storyboard|video content|content orchestrat/.test(name)
+  );
+}
+
+function resolveVideoOrchAgent(ownerUserId) {
+  const owner = String(ownerUserId || '').trim();
+  if (!owner) return null;
+  return (
+    db()
+      .prepare(
+        `SELECT a.* FROM agents a
+         INNER JOIN user_agents ua ON ua.agent_id = a.id AND ua.user_id = ? AND ua.enabled = 1
+         WHERE lower(a.id) LIKE 'video-orch-%'
+            OR lower(COALESCE(a.openclaw_agent_id, '')) LIKE '%video-orch%'
+            OR lower(COALESCE(a.name, '')) LIKE '%content orchestrat%'
+         ORDER BY a.id ASC LIMIT 1`
+      )
+      .get(owner) || null
+  );
+}
+
+function resolveOrchestratorAgent(ownerUserId, preferredAgentId, { preferVideoOrch = false } = {}) {
   const owner = String(ownerUserId || '').trim();
   let pref = String(preferredAgentId || '').trim();
   if (pref.includes('--')) pref = pref.split('--').pop() || pref;
@@ -279,7 +307,13 @@ function resolveOrchestratorAgent(ownerUserId, preferredAgentId) {
         `SELECT 1 AS ok FROM user_agents WHERE user_id = ? AND agent_id = ? AND enabled = 1`
       )
       .get(owner, agent.id);
-    if (!entitled && !agent.is_coo && !/workflow.?builder/i.test(String(agent.id || ''))) {
+    const idL = String(agent.id || '').toLowerCase();
+    if (
+      !entitled &&
+      !agent.is_coo &&
+      !/workflow.?builder/i.test(idL) &&
+      !idL.startsWith('video-orch-')
+    ) {
       return null;
     }
     return agent;
@@ -287,6 +321,11 @@ function resolveOrchestratorAgent(ownerUserId, preferredAgentId) {
 
   const fromPref = tryId(pref);
   if (fromPref) return fromPref;
+
+  if (preferVideoOrch) {
+    const video = resolveVideoOrchAgent(owner);
+    if (video) return video;
+  }
 
   const coo =
     db()
@@ -337,18 +376,19 @@ function goalImpliesCrmToErp(goalText) {
 }
 
 /**
- * Re-invoke COO after a terminal run so multi-phase goals continue (CRM then ERP).
- * Idempotent per run/status unless force is set.
+ * Re-invoke the triggering orchestrator after a terminal run so multi-phase
+ * goals continue (CRM then ERP O2C). Idempotent per run/status unless force.
+ * Unbound specialty wakes (e.g. video storyboard) must not re-fire digests.
  */
 export async function wakeOrchestratorOnWorkflowTerminal(runId, opts = {}) {
   const force = !!opts.force;
   const id = Number(runId);
   if (!Number.isFinite(id) || id <= 0) return { ok: false, error: 'run_id required' };
   if (process.env.WORKFLOW_COO_WAKE_ON_TERMINAL === '0') {
-    return { ok: false, skipped: true, reason: 'disabled_by_env' }
+    return { ok: false, skipped: true, reason: 'disabled_by_env' };
+  }
   if (!force && !isPlatformCronActive('workflow_terminal_watch')) {
     return { ok: false, skipped: true, reason: 'paused_admin' };
-  };
   }
 
   const run = db().prepare('SELECT * FROM agent_workflow_runs WHERE id = ?').get(id);
@@ -375,10 +415,27 @@ export async function wakeOrchestratorOnWorkflowTerminal(runId, opts = {}) {
   saveContext(id, context);
 
   const owner = String(watch.owner_user_id || run.owner_user_id || '').trim();
-  const agent = resolveOrchestratorAgent(owner, watch.actor_agent_id);
+  const name = definitionName(run.definition_id);
+  const videoPack = isVideoPackDefinition(run.definition_id, name);
+  const planRefEarly = resolveGoalPlanRefForRun(id, watch);
+  const agent = resolveOrchestratorAgent(owner, watch.actor_agent_id, {
+    preferVideoOrch: videoPack && !planRefEarly,
+  });
   if (!agent) {
     console.warn('[wf-run-watch] coo wake: no orchestrator agent', { runId: id, owner });
     return { ok: false, error: 'no_orchestrator_agent' };
+  }
+
+  // Unbound video completion with no Content Orchestrator → CEO bell is enough; do not
+  // fall through to COO (that used to inject unrelated scheduled digests).
+  const agentIsCoo = !!(agent.is_coo || /balserve|^coo/i.test(String(agent.id || '')));
+  if (videoPack && !planRefEarly && agentIsCoo && !String(watch.actor_agent_id || '').trim()) {
+    console.info('[wf-run-watch] skip COO wake for unbound video pack', {
+      runId: id,
+      definition: run.definition_id,
+      agent: agent.id,
+    });
+    return { ok: false, skipped: true, reason: 'video_pack_no_coo_wake' };
   }
 
   let openclawId = agent.openclaw_agent_id || agent.id;
@@ -388,30 +445,56 @@ export async function wakeOrchestratorOnWorkflowTerminal(runId, opts = {}) {
     console.warn('[wf-run-watch] tenant ensure failed', agent.id, e?.message || e);
   }
 
-  const name = definitionName(run.definition_id);
   const runLabel = run.run_number != null ? '#' + run.run_number : '#' + id;
   const initial = clip(context.initial_input || '', 2500);
   const stepSummary = buildTerminalStepSummary(id) || '(no step outputs)';
   const err = run.error_message ? String(run.error_message).slice(0, 400) : '';
-  const goal = recentScheduledGoalForOwner(owner);
+
+  // Only pull a scheduled goal when CRM→ERP continuation might apply — never
+  // inject the most-recent digest schedule into unrelated wakes (video, etc.).
+  const goal =
+    isCrmMcDefinition(run.definition_id, name) && !planRefEarly
+      ? recentScheduledGoalForOwner(owner)
+      : null;
   const goalText = goal ? String(goal.prompt || '') : '';
   const goalBlob = [goalText, initial, name, String(run.definition_id || '')].join('\n');
-  const planRefEarly = resolveGoalPlanRefForRun(id, watch);
   const multiPhaseCrmToErp =
     !planRefEarly &&
     run.status === 'completed' &&
     isCrmMcDefinition(run.definition_id, name) &&
     goalImpliesCrmToErp(goalBlob);
-  const multiPhaseNote = goal
-    ? '**Active/recent scheduled goal:** "' +
+  const multiPhaseNote = multiPhaseCrmToErp
+    ? '**Active/recent scheduled goal (CRM→ERP context only):** "' +
       clip(goal.title, 120) +
       '" (id ' +
       goal.id +
       ')\n' +
       clip(goalText, 1800)
-    : '**No scheduled_goals row found** — still apply multi-phase rules from prior chat / run input.';
+    : '**Do not** treat unrelated scheduled goals (Daily Status Digest, MAG7, etc.) as this wake’s job.';
 
   const planRefWake = planRefEarly || resolveGoalPlanRefForRun(id, watch);
+  const statusOnly =
+    !multiPhaseCrmToErp && !planRefWake && run.status === 'completed';
+
+  const jobBlock = multiPhaseCrmToErp
+    ? '1. **HARD REQUIREMENT:** This run was **CRM maker-checker** and the CEO goal still requires **ERP O2C after CRM**. ' +
+      'You MUST call **agent_workflow_trigger** now with phrase **run erp maker checker** (or the ERP workflow_id) and pass the **full customer story + Twenty CRM IDs** from the step outcomes. ' +
+      'Do **not** decide this is CRM-only retest complete. Do **not** only notify_ceo without starting ERP.\n' +
+      '2. After trigger returns run_id, confirm that ERP run_id and end the turn (async).\n' +
+      '3. Never invent free-form CEO HITL Kanban; ERP >=5% discount uses workflow needs_ceo.\n'
+    : statusOnly
+      ? '1. **STATUS ONLY — do not overreact.** Acknowledge this terminal run briefly (name + run id + status).\n' +
+        '2. **FORBIDDEN on this wake alone:** status_checker, this_week_digest, email_send, scheduled_goal_run_now, ' +
+        'or inventing/sending a Daily Status Digest / any scheduled routine. Platform clocks fire those separately.\n' +
+        '3. Do **not** start a new unrelated workflow or agent_goal_create unless the CEO already asked for a next phase in prior chat for **this** run.\n' +
+        '4. If you are Content Orchestrator: present/attach storyboard exports if useful; otherwise end turn.\n' +
+        '5. If failed/cancelled (not this completed path): short notify_ceo only when useful — still no digest.\n'
+      : '1. If this was one phase of a multi-phase CEO goal bound to an agr-…, let platform advance — status-only reply.\n' +
+        '2. If a true CRM→ERP freeform continuation is required, trigger ERP async with full context.\n' +
+        '3. Do **not** re-run Daily Status Digest / status_checker / email_send from this wake.\n' +
+        '4. Do not re-run the same phase unless it failed and the CEO still wants it.\n' +
+        '5. Still non-blocking; never invent free-form CEO HITL Kanban.\n';
+
   let prompt =
     '[Workflow run terminal - continue orchestration]\n' +
     (planRefWake
@@ -448,8 +531,11 @@ export async function wakeOrchestratorOnWorkflowTerminal(runId, opts = {}) {
     ']\n' +
     '[multi_phase_crm_to_erp: ' +
     (multiPhaseCrmToErp ? 'YES' : 'no') +
+    ']\n' +
+    '[wake_mode: ' +
+    (statusOnly ? 'status_only' : multiPhaseCrmToErp ? 'crm_to_erp' : 'orchestrate') +
     ']\n\n' +
-    'A workflow you (or this org COO) started has reached a terminal status while your chat turn was already closed (async trigger).\n\n' +
+    'A workflow you (or this org orchestrator) started has reached a terminal status while your chat turn was already closed (async trigger).\n\n' +
     '**Workflow:** ' +
     name +
     ' · run ' +
@@ -470,28 +556,22 @@ export async function wakeOrchestratorOnWorkflowTerminal(runId, opts = {}) {
     stepSummary +
     '\n\n' +
     '**Your job now (mandatory):**\n' +
-    (multiPhaseCrmToErp
-      ? '1. **HARD REQUIREMENT:** This run was **CRM maker-checker** and the CEO goal still requires **ERP O2C after CRM**. ' +
-        'You MUST call **agent_workflow_trigger** now with phrase **run erp maker checker** (or the ERP workflow_id) and pass the **full customer story + Twenty CRM IDs** from the step outcomes. ' +
-        'Do **not** decide this is CRM-only retest complete. Do **not** only notify_ceo without starting ERP.\n' +
-        '2. After trigger returns run_id, confirm that ERP run_id and end the turn (async).\n' +
-        '3. Never invent free-form CEO HITL Kanban; ERP >=5% discount uses workflow needs_ceo.\n'
-      : '1. If this was one phase of a multi-phase CEO / scheduled goal (e.g. CRM then ERP O2C), continue the next phase now with agent_workflow_trigger (async) and full context.\n' +
-        '2. If the full goal is already complete after this run, notify_ceo with a short final summary only.\n' +
-        '3. Do not re-run the same phase unless it failed and the CEO still wants it.\n' +
-        '4. Still non-blocking; never invent free-form CEO HITL Kanban.\n');
+    jobBlock;
 
-  try {
-    prompt = await getPromptWithMemoryInjected(agent.id, prompt);
-  } catch (_) {
-    /* optional */
-  }
+  // Fresh wake — do NOT inject MEMORY/sessions_history dedupe (that biases digests / "already done").
+  prompt =
+    'This is a platform workflow-terminal wake. Execute only the instructions below for **this** run. ' +
+    'Ignore MEMORY.md / prior digest routines unless this prompt explicitly requires CRM→ERP continuation.\n\n' +
+    '---\n' +
+    prompt.trim() +
+    '\n---';
   prompt = '[ceo_user_id: ' + owner + ']\n[owner_user_id: ' + owner + ']\n' + prompt;
 
-  // Prefer the same OpenClaw session as the scheduled goal fire so phase-B context is retained.
-  const sessionThread = goal?.id
+  // Keep CRM→ERP on the scheduled-goal session; everything else gets a per-run wake thread
+  // so Daily Status Digest session history cannot bleed into video/specialty wakes.
+  const sessionThread = multiPhaseCrmToErp && goal?.id
     ? 'sched-' + String(goal.id).slice(0, 12)
-    : 'coo-orch-' + owner.slice(0, 18);
+    : 'wf-wake-' + String(id);
   const sessionUser = openclaw.sessionUserFor(openclawId, owner, sessionThread);
   try {
     insertChatTurn({
@@ -505,7 +585,9 @@ export async function wakeOrchestratorOnWorkflowTerminal(runId, opts = {}) {
           : 'This workflow run is not bound to a goal plan. ';
         const nextBit = planRef
           ? 'Platform advances remaining plan steps; do not invent freeform agent_workflow_trigger for the next phase. Status-only reply if woken.'
-          : 'Continue multi-phase only via agent_goal_create / an existing agr-… — do not invent binding from workflow run ids.';
+          : statusOnly
+            ? 'Status-only: do not run status_checker / email_send / Daily Status Digest from this wake.'
+            : 'Continue multi-phase only via agent_goal_create / an existing agr-… — do not invent binding from workflow run ids.';
         return (
           '[Workflow finished ' +
           run.status +
@@ -529,6 +611,7 @@ export async function wakeOrchestratorOnWorkflowTerminal(runId, opts = {}) {
       status: run.status,
       agent: agent.id,
       openclawId,
+      wakeMode: statusOnly ? 'status_only' : multiPhaseCrmToErp ? 'crm_to_erp' : 'orchestrate',
     });
     const { content } = await openclaw.chatCompletions(
       openclawId,

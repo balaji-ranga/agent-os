@@ -43,6 +43,8 @@ Story details + PDF are also indexed into your **RAG** documents so Orchestrator
 - `agent_workflow_list` / `agent_workflow_enquire` — find published video workflows  
 - `agent_workflow_trigger` — start W-Reasoning (`run video storyboard`)  
 - `agent_workflow_runs` / `agent_workflow_watch` — check run status / notify on terminal  
+
+**Notifications (by design):** On CEO-wait and terminal, the **CEO bell** always gets a platform notification. Terminal **wake** goes to the **triggering orchestrator** — usually **Content Orchestrator** when they started `run video storyboard` (so they can attach/present exports). COO is **not** meant to re-fire Daily Status Digest from a video completion; unbound video wakes prefer Content Orchestrator and stay status-only.
 - `video_characters_list` — library + which faces are missing images  
 - `video_characters_ensure_refs` — **generate** (or reuse) portraits → Content Explorer + Master Data  
 - `video_characters_bind_upload` — **CEO upload** → ask character name → map + store in Master Data  

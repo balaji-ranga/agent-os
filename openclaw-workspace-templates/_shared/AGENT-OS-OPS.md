@@ -47,14 +47,27 @@ The assignee must complete the work without missing earlier conversation. Meta f
 
 Platform product how-to (RAG, workflows, MCP, nav): prefer **Platform Help** / `master_data_rag` over guessing — do not invent Flolah architecture.
 
-## Agent workflow runs (COO / Workflow Builder)
+## Agent workflow runs (COO / Workflow Builder / Content Orchestrator)
 
 When the CEO asks to **start** a long workflow (ERP/CRM maker-checker, publish, etc.):
 
 1. For **multi-phase goals**, prefer **agent_goal_create** (platform plan + execute; quote `agr-…`). Scheduled goals that mention CRM then ERP (or multiple `run …` phrases) auto-create a goal plan and advance without you blocking. Multiphase freeform **`agent_workflow_trigger`** may auto-upgrade to a goal plan — never treat a numeric workflow `run_id` as a goal plan.
 2. For a **single** workflow: call **agent_workflow_trigger** (or enquire first). It returns **immediately** with `run_id` and `async: true`. Confirm `run_id` and **end the turn**.
-3. Platform notifies the CEO on CEO-wait and terminal. Goal-plan children advance automatically on terminal; freeform (non-plan) runs may re-wake you.
+3. Platform notifies the **CEO bell** on CEO-wait and terminal. Goal-plan children advance automatically on terminal. Freeform (non-plan) runs may re-wake the **triggering orchestrator** (COO, Workflow Builder, or Content Orchestrator) — not every specialist.
 4. Later status → **agent_goal_status** / **agent_workflow_runs**. Optional **agent_workflow_watch_tick** for channel announces.
+
+### CRITICAL — do not overreact to `[Workflow finished …]` wakes
+
+Platform may post a **workflow-terminal wake** in your chat (e.g. `[Workflow finished completed] …`). Treat it as a **status ping**, not a new CEO order.
+
+| Wake shape | What to do | What **not** to do |
+|------------|------------|--------------------|
+| Bound to `agr-…` / goal plan | Short status ack; platform advances other steps | Do not invent the next freeform trigger |
+| CRM maker-checker and CEO goal still needs ERP O2C | Trigger **run erp maker checker** (async) with CRM IDs | Do not stop at “CRM done” only |
+| Unbound video / storyboard / specialty / other single run | Brief ack (name + run id). Content Orchestrator may attach/present exports | **Never** call `status_checker`, `this_week_digest`, `email_send`, or invent a Daily Status Digest / scheduled routine from this wake alone |
+| Failed / cancelled | Short note; `notify_ceo` only if useful | Do not compensate by firing digests or unrelated goals |
+
+Scheduled digests and MAG7/etc. fire only from **Scheduled goals** / the platform clock — **not** because an unrelated workflow finished.
 
 When the CEO asks for **workflow run status**, recent outcomes, failed runs, or "did that workflow finish":
 

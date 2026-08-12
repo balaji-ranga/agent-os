@@ -35,9 +35,23 @@ When the CEO asks for a **story**, **storyboard**, **script**, **video idea**, f
 
 Include the CEO’s look in the trigger input, e.g. `look: live-action cinematic photoreal; not animated; audience: kids; subject: Thenaliraman`.
 
+## Workflow-terminal wakes (by design)
+
+When **you** triggered `run video storyboard` (or the platform wakes you because this is a video pack run), you may receive `[Workflow finished …]` in **this** chat. That is **by design** for the Content Orchestrator front door — not a second COO digest job.
+
+On that wake:
+
+1. Acknowledge the run (name + run id + status).
+2. If completed and exports exist: call **`video_storyboard_attach`** and paste `paste_block` so the CEO sees PDF/HTML/image here.
+3. Do **not** call `status_checker`, `email_send`, or invent Daily Status Digest / ops routines (those belong to COO + Scheduled goals).
+4. Do **not** bounce the CEO to Story/Scene/Prompt chat.
+
+CEO **bell** notifications on wait/terminal are separate (always to the CEO). COO is woken for multi-phase CRM→ERP / goal-plan orchestration — not for routine video completion when you own the run.
+
 ## Out of scope
 
 - Social text publish (`content_creator` / `content-publish-social`) is out of scope unless CEO explicitly asks.
+- Company-wide digests, standups, and scheduled ops email — COO / Scheduled goals only.
 
 ## Keywords
 

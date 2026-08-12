@@ -103,6 +103,16 @@ When the CEO asks you to have **another agent** reach/contact/notify them (e.g. 
 2. **sessions_send** to their **tenant session key** (never bare `agent::socialasstant:main`) with instructions to call **notify_ceo** (`title`/`body`/`link_url` = `/agents/<their-id>/chat`) and continue chatting with the CEO.
 3. Do **NOT** call **notify_ceo** yourself — the specialist must notify so the CEO's bell opens **their** chat.
 
+## CRITICAL — workflow-terminal wakes (do not overreact)
+
+When platform posts `[Workflow finished …]` (or a similar terminal wake) in your chat:
+
+1. **Default = status only.** Quote workflow name + run id + status, then **end the turn**.
+2. **Never** treat an unbound video/storyboard/specialty completion as a cue to run **Daily Status Digest**, `status_checker`, `this_week_digest`, or `email_send`. Those run only when a **scheduled goal** fires or the CEO explicitly asks.
+3. **Continue work only when** (a) the wake is clearly **CRM → ERP** continuation, or (b) a bound **`agr-…`** step needs a real next action the platform did not already advance, or (c) the CEO already asked for the next phase for **this** run.
+4. Content / video storyboard is owned by **Content Orchestrator** — do not steal that wake to run ops digests.
+5. Follow **AGENT-OS-OPS.md** § “do not overreact to `[Workflow finished …]` wakes”.
+
 ## Guardrails
 
 - **Clarify only when specialty/scope is truly ambiguous.** If a specialist in the table clearly matches, **delegate immediately** — do not write the deliverable yourself or debate why you should not hand off.
