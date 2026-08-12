@@ -66,8 +66,8 @@ async function main() {
 
   const wfBefore = db
     .prepare(
-      `SELECT id, status, updated_at FROM agent_workflow_runs
-       WHERE owner_user_id = ? AND (workflow_id LIKE 'video-reasoning%' OR workflow_id LIKE '%video-reasoning%')
+      `SELECT id, status, updated_at, definition_id FROM agent_workflow_runs
+       WHERE owner_user_id = ? AND definition_id LIKE 'video-reasoning%'
        ORDER BY updated_at DESC LIMIT 5`
     )
     .all(ceo.id);
@@ -141,8 +141,8 @@ async function main() {
     latestRun =
       db
         .prepare(
-          `SELECT id, workflow_id, status, updated_at FROM agent_workflow_runs
-           WHERE owner_user_id = ? AND (workflow_id LIKE 'video-reasoning%' OR workflow_id LIKE '%video-reasoning%')
+          `SELECT id, definition_id, status, updated_at FROM agent_workflow_runs
+           WHERE owner_user_id = ? AND definition_id LIKE 'video-reasoning%'
            ORDER BY updated_at DESC LIMIT 1`
         )
         .get(ceo.id) || null;
