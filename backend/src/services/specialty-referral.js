@@ -30,9 +30,26 @@ function isHelpOrBuilderAgent(agent) {
   return false;
 }
 
+/**
+ * Video Content Orchestrator is the pack front door for story/storyboard/video asks.
+ * Never hard-redirect to Story/Scene/Prompt (those are workflow-only specialties).
+ */
+function isVideoOrchestratorAgent(agent) {
+  if (!agent) return false;
+  const id = String(agent.id || agent.openclaw_agent_id || '')
+    .trim()
+    .toLowerCase();
+  const name = String(agent.name || '')
+    .trim()
+    .toLowerCase();
+  if (id.startsWith('video-orch-') || id.includes('video-orchestrator')) return true;
+  if (name === 'content orchestrator' || /^content\s+orchestrator\b/.test(name)) return true;
+  return false;
+}
+
 /** Operational asks should stay with the current agent (Kanban / workflows / status). */
 function isOperationalMessage(message) {
-  return /\b(kanban|create\s+(a\s+)?task|move\s+(the\s+)?task|workflow|notify_ceo|sessions_send|stand-?up|status)\b/i.test(
+  return /\b(kanban|create\s+(a\s+)?task|move\s+(the\s+)?task|workflow|notify_ceo|sessions_send|stand-?up|status|storyboard|run\s+video)\b/i.test(
     String(message || '')
   );
 }
@@ -44,6 +61,8 @@ export async function tryBuildSpecialtyReferral(ownerUserId, currentAgent, messa
   if (!ownerUserId || !currentAgent?.id || currentAgent.is_coo) return null;
   // Platform Help / Workflow Builder / Onboarding Helper: answer in-role; no hard peer redirect.
   if (isHelpOrBuilderAgent(currentAgent)) return null;
+  // Video Content Orchestrator owns story/storyboard intake — never bounce to Story Agent chat.
+  if (isVideoOrchestratorAgent(currentAgent)) return null;
 
   const msg = String(message || '').trim();
   if (!msg || msg.length < 8) return null;
