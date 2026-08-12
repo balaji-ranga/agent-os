@@ -11,9 +11,9 @@ Social Facebook/LinkedIn posting remains the separate **content_creator** pack.
 ## CEO quick start
 
 1. Company setup → industry **Video content (shorts / animated / Veo)**, or ask an admin to run the video install for your account.
-2. Open chat with **Content Orchestrator**.
+2. Open chat with **Content Orchestrator** (only front door — do **not** chat Story/Scene/Prompt agents for stories).
 3. Attach character reference images (or describe characters).
-4. Ask for a storyboard (e.g. a 60-second fable). Orchestrator triggers **run video storyboard**.
+4. Ask for a storyboard in plain language (e.g. Thenaliraman for kids, cinematic live-action, not animated). Orchestrator triggers **run video storyboard** itself.
 5. Review the board; ask for edits (“change scene 4”).
 6. Open exported **HTML / PDF / SVG** via `MEDIA:` links or Content Explorer.
 7. Optionally copy Veo/Flow prompts into Google Flow for a manual test.
