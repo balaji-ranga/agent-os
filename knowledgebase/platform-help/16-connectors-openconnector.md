@@ -46,7 +46,8 @@ For providers where the OAuth **app** is tied to Pages/orgs you own (or you pref
 - Stored **per CEO** in Agent OS (secret encrypted with `USER_API_KEYS_KEK` when set).
 - On Connect, Flolah passes those credentials to OpenConnector as a **connection-scoped** custom OAuth client (`connectionName` = your CEO alias). OpenConnector keeps them for **token refresh** — no global admin client swap.
 - Register the same callback as the platform: `{OPENCONNECTOR_PUBLIC_ORIGIN}/oauth/callback`.
-- Requires OpenConnector env `OOMOL_CONNECT_ALLOWED_CUSTOM_OAUTH` (e.g. `*` or `github,linkedin,facebook`) and `OOMOL_CONNECT_ENCRYPTION_KEY`.
+- Requires OpenConnector env `OOMOL_CONNECT_ALLOWED_CUSTOM_OAUTH` (e.g. `*` or `github,linkedin,facebook`) and `OOMOL_CONNECT_ENCRYPTION_KEY` when the OC image supports connection-scoped clients.
+- **Current OC image (e.g. 1.3.5):** connection-scoped `clientId` on authorize is ignored. Flolah then **temporarily seeds** the global OC OAuth client for your app for the Connect/callback window (and again on Connector execute if you have an override), then restores the **platform** client. Admin must **re-Save** each platform OAuth client once after upgrade so Flolah can cache it for restore.
 - Leave override empty to use the **platform** admin OAuth client.
 
 For OpenConnector service deploy, seed, `execute_action`, webhooks, and catalog ops: **[OPENCONNECTOR-WEBHOOKS.md](../OPENCONNECTOR-WEBHOOKS.md)** — do not configure Meta Graph Page posting here (use **MCPs** tab / help **31** for Meta).

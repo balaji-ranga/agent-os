@@ -51,8 +51,8 @@ function parseScopes(raw) {
 
 export function getOpenConnectorOauthOverrideRow(appId, ownerUserId) {
   const app = String(appId || '').trim().toLowerCase();
-  const owner = String(ownerUserId || '').trim();
-  if (!app || !owner) return null;
+  if (!app) return null;
+  const owner = ownerUserId == null ? '' : String(ownerUserId).trim();
   return (
     db()
       .prepare(
@@ -122,7 +122,7 @@ export function resolveOpenConnectorOauthClientForAuthorize(appId, ownerUserId) 
   } catch (e) {
     console.warn('[oc-oauth-override] decrypt failed', {
       app_id: String(appId || '').trim(),
-      owner: String(ownerUserId || '').trim(),
+      owner: String(ownerUserId || '').trim() || '(platform)',
       error: e.message,
     });
     throw Object.assign(new Error('Could not decrypt stored OpenConnector OAuth client secret'), {
@@ -131,6 +131,7 @@ export function resolveOpenConnectorOauthClientForAuthorize(appId, ownerUserId) 
   }
   clientSecret = String(clientSecret || '').trim();
   if (!clientId || !clientSecret) {
+    if (ownerUserId === '' || ownerUserId == null) return null;
     throw Object.assign(
       new Error(
         'OpenConnector App ID/secret override is incomplete — save both Client ID and Client secret, or clear the override'
@@ -145,8 +146,47 @@ export function resolveOpenConnectorOauthClientForAuthorize(appId, ownerUserId) 
     clientSecret,
     ...(scopes.length ? { requestedScopes: scopes } : {}),
     ...(Object.keys(extra).length ? { extra } : {}),
-    _credentials_source: 'user',
+    _credentials_source: ownerUserId ? 'user' : 'platform',
   };
+}
+
+/** Cache platform (admin) OC OAuth client in Flolah for seed-restore after CEO BYOA. */
+export function upsertOpenConnectorPlatformOauthClient(appId, body = {}) {
+  const app = String(appId || '').trim().toLowerCase();
+  if (!app) throw Object.assign(new Error('app_id required'), { status: 400 });
+  const clientId = String(body.clientId || body.client_id || '').trim();
+  const clientSecretRaw = String(body.clientSecret || body.client_secret || '').trim();
+  if (!clientId || !clientSecretRaw) {
+    throw Object.assign(new Error('clientId and clientSecret required'), { status: 400 });
+  }
+  const clientSecret = encryptOauthClientSecret(clientSecretRaw);
+  let scopes = '';
+  if (body.scopes != null) {
+    scopes = Array.isArray(body.scopes)
+      ? body.scopes.map((x) => String(x).trim()).filter(Boolean).join(',')
+      : String(body.scopes || '').trim();
+  }
+  let extraJson = '{}';
+  if (body.extra && typeof body.extra === 'object') extraJson = JSON.stringify(body.extra);
+  db()
+    .prepare(
+      `INSERT INTO openconnector_oauth_client_overrides
+         (app_id, owner_user_id, client_id, client_secret, scopes, extra_json, enabled, updated_at)
+       VALUES (?, '', ?, ?, ?, ?, 1, datetime('now'))
+       ON CONFLICT(app_id, owner_user_id) DO UPDATE SET
+         client_id = excluded.client_id,
+         client_secret = excluded.client_secret,
+         scopes = excluded.scopes,
+         extra_json = excluded.extra_json,
+         enabled = 1,
+         updated_at = datetime('now')`
+    )
+    .run(app, clientId, clientSecret, scopes, extraJson);
+  console.info('[oc-oauth-override] platform client cached', {
+    app_id: app,
+    client_id_hint: maskClientId(clientId),
+  });
+  return { app_id: app, platform_cached: true, client_id_hint: maskClientId(clientId) };
 }
 
 export function upsertOpenConnectorOauthOverride(appId, ownerUserId, body = {}) {

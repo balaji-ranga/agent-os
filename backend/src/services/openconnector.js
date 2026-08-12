@@ -10,6 +10,11 @@ import {
   isOpenConnectorCustomOauthEnabledInEnv,
   resolveOpenConnectorOauthClientForAuthorize,
 } from './openconnector-oauth-override.js';
+import {
+  authorizationUrlUsesClientId,
+  seedOpenConnectorOauthClientForAuthorize,
+  withOpenConnectorOauthClientSeed,
+} from './openconnector-oauth-lease.js';
 
 function db() {
   return getDb();
@@ -649,41 +654,54 @@ export async function getConnectorActionGuide(userId, actionId) {
 }
 
 export async function executeConnectorAction(userId, actionId, input = {}, { connectionName = '' } = {}) {
-  const runtime = getRuntimeTokenForUser(userId);
-  const alias = String(connectionName || runtime.connectionName || '').trim();
-  const headers = alias ? { 'x-oo-connector-alias': alias } : {};
-  const body = {
-    actionId,
-    input: input && typeof input === 'object' ? input : {},
+  const id = String(actionId || '').trim();
+  const appGuess = id.includes('.') ? id.split('.')[0] : '';
+  const custom =
+    appGuess && userId ? resolveOpenConnectorOauthClientForAuthorize(appGuess, userId) : null;
+
+  const run = async () => {
+    const runtime = getRuntimeTokenForUser(userId);
+    const alias = String(connectionName || runtime.connectionName || '').trim();
+    const headers = alias ? { 'x-oo-connector-alias': alias } : {};
+    const body = {
+      actionId: id,
+      input: input && typeof input === 'object' ? input : {},
+    };
+    try {
+      const direct = await openConnectorFetch(`/v1/actions/${encodeURIComponent(id)}`, {
+        method: 'POST',
+        headers,
+        body: { input: body.input },
+        auth: 'runtime',
+        userId,
+      });
+      return {
+        ok: true,
+        action_id: id,
+        connection_name: alias || null,
+        data: direct,
+        text: typeof direct === 'string' ? direct : JSON.stringify(direct, null, 2),
+        transport: 'http',
+      };
+    } catch (err) {
+      const mcp = await callOpenConnectorMcpTool(userId, 'execute_action', body);
+      return {
+        ok: true,
+        action_id: id,
+        connection_name: alias || null,
+        data: mcp.structured?.data || mcp.structured || null,
+        text: mcp.text || '',
+        transport: 'mcp',
+        fallback_error: err.message,
+      };
+    }
   };
-  try {
-    const direct = await openConnectorFetch(`/v1/actions/${encodeURIComponent(actionId)}`, {
-      method: 'POST',
-      headers,
-      body: { input: body.input },
-      auth: 'runtime',
-      userId,
-    });
-    return {
-      ok: true,
-      action_id: actionId,
-      connection_name: alias || null,
-      data: direct,
-      text: typeof direct === 'string' ? direct : JSON.stringify(direct, null, 2),
-      transport: 'http',
-    };
-  } catch (err) {
-    const mcp = await callOpenConnectorMcpTool(userId, 'execute_action', body);
-    return {
-      ok: true,
-      action_id: actionId,
-      connection_name: alias || null,
-      data: mcp.structured?.data || mcp.structured || null,
-      text: mcp.text || '',
-      transport: 'mcp',
-      fallback_error: err.message,
-    };
+
+  // When CEO BYOA is active and OC may refresh tokens using the global client, seed for the call.
+  if (custom) {
+    return withOpenConnectorOauthClientSeed(appGuess, custom, run);
   }
+  return run();
 }
 
 export async function getConnectorConnectionsForUser(userId) {
@@ -778,9 +796,42 @@ export async function startConnectorOAuth(userId, appId) {
     }
     throw e;
   }
-  const data = payload?.data || payload;
-  const authorizationUrl =
+  let data = payload?.data || payload;
+  let authorizationUrl =
     data?.authorizationUrl || data?.authorization_url || data?.url || data?.authorizeUrl || null;
+
+  let credentialsSource = customClient ? 'user' : 'platform';
+  let delivery = customClient ? 'connection_scoped' : 'platform';
+
+  // OC images before connection-scoped BYOA silently ignore clientId — seed global config for the lease window.
+  if (customClient && !authorizationUrlUsesClientId(authorizationUrl, customClient.clientId)) {
+    console.warn(
+      '[openconnector] OC authorize URL did not use CEO clientId — falling back to temporary global seed lease',
+      { app, connection_name: alias }
+    );
+    const { hasPlatformOauthClientCached } = await import('./openconnector-oauth-lease.js');
+    if (!hasPlatformOauthClientCached(app)) {
+      throw new Error(
+        `Your App ID/secret override is saved, but this OpenConnector build does not honor connection-scoped clientId, and Flolah has no cached platform OAuth client for "${app}" to restore after a temporary seed. Admin: open Connectors → Provider OAuth apps and re-Save the platform client for ${app} once (credentials are cached in Flolah for safe BYOA). Then retry Connect.`
+      );
+    }
+    await seedOpenConnectorOauthClientForAuthorize(app, customClient);
+    payload = await openConnectorFetch('/api/oauth/authorizations', {
+      method: 'POST',
+      auth: 'admin',
+      body: { service: app, connectionName: alias },
+    });
+    data = payload?.data || payload;
+    authorizationUrl =
+      data?.authorizationUrl || data?.authorization_url || data?.url || data?.authorizeUrl || null;
+    delivery = 'seed_lease';
+    if (!authorizationUrlUsesClientId(authorizationUrl, customClient.clientId)) {
+      throw new Error(
+        `OpenConnector still did not use your App client id after seeding. Re-save platform OAuth client (admin) so Flolah can restore it, confirm OPENCONNECTOR_ENCRYPTION_KEY, and retry. Got URL prefix: ${String(authorizationUrl || '').slice(0, 120)}`
+      );
+    }
+  }
+
   if (!authorizationUrl) {
     throw new Error(
       payload?.message ||
@@ -792,7 +843,8 @@ export async function startConnectorOAuth(userId, appId) {
     connection_name: alias,
     authorization_url: authorizationUrl,
     oauth_ready: true,
-    credentials_source: customClient ? 'user' : 'platform',
+    credentials_source: credentialsSource,
+    credentials_delivery: delivery,
   };
 }
 
@@ -869,6 +921,17 @@ export async function upsertOAuthClientConfig(appId, body = {}) {
       ...(body.extra && typeof body.extra === 'object' ? { extra: body.extra } : {}),
     },
   });
+  try {
+    const { upsertOpenConnectorPlatformOauthClient } = await import('./openconnector-oauth-override.js');
+    upsertOpenConnectorPlatformOauthClient(app, {
+      clientId,
+      clientSecret,
+      extra: body.extra,
+      scopes: body.scopes || body.requestedScopes,
+    });
+  } catch (e) {
+    console.warn('[openconnector] platform OAuth client cache failed', { app, error: e.message });
+  }
   return { app_id: app, configured: true, data: payload?.data || payload };
 }
 
