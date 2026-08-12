@@ -157,8 +157,28 @@ function isWorkflowBuilderCaller(caller) {
   return id === 'workflowbuilder';
 }
 
-/** COO or Workflow Builder may list/enquire/trigger — always scoped to entitled owner. */
+function isVideoContentOrchestratorCaller(caller) {
+  if (!caller) return false;
+  const id = String(caller.id || '').toLowerCase();
+  const name = String(caller.name || '').toLowerCase();
+  if (id.startsWith('video-orch-') || id.includes('video-orchestrator')) return true;
+  if (name === 'content orchestrator' || /^content\s+orchestrator\b/.test(name)) return true;
+  return false;
+}
+
+/**
+ * COO, Workflow Builder, or Video Content Orchestrator may list/enquire/trigger/runs/watch —
+ * always scoped to entitled owner. Goal tools stay COO/WFB-only (see canAccessGoalTools).
+ */
 function canAccessWorkflowTools(caller) {
+  return !!(
+    caller &&
+    (caller.is_coo || isWorkflowBuilderCaller(caller) || isVideoContentOrchestratorCaller(caller))
+  );
+}
+
+/** Multi-intent goal plans remain COO / Workflow Builder only. */
+function canAccessGoalTools(caller) {
   return !!(caller && (caller.is_coo || isWorkflowBuilderCaller(caller)));
 }
 function getBackendBaseUrl() {
@@ -2374,7 +2394,7 @@ router.post('/agent-workflow-enquire', optionalAuth, (req, res) => {
   try {
     const caller = getCallerAgent(req);
     if (!canAccessWorkflowTools(caller)) {
-      const err = { error: 'Only COO or Workflow Builder can enquire about agent workflows' };
+      const err = { error: 'Only COO, Workflow Builder, or Content Orchestrator can enquire about agent workflows' };
       logTool(req,'agent_workflow_enquire', requestPayload, err, 'error', source);
       return res.status(403).json(err);
     }
@@ -2419,7 +2439,7 @@ router.post('/agent-workflow-runs', optionalAuth, (req, res) => {
   try {
     const caller = getCallerAgent(req);
     if (!canAccessWorkflowTools(caller)) {
-      const err = { error: 'Only COO or Workflow Builder can list agent workflow runs' };
+      const err = { error: 'Only COO, Workflow Builder, or Content Orchestrator can list agent workflow runs' };
       logTool(req, 'agent_workflow_runs', requestPayload, err, 'error', source);
       return res.status(403).json(err);
     }
@@ -2446,7 +2466,7 @@ router.post('/agent-workflow-retry', optionalAuth, async (req, res) => {
   try {
     const caller = getCallerAgent(req);
     if (!canAccessWorkflowTools(caller)) {
-      const err = { error: 'Only COO or Workflow Builder can retry agent workflow runs' };
+      const err = { error: 'Only COO, Workflow Builder, or Content Orchestrator can retry agent workflow runs' };
       logTool(req, 'agent_workflow_retry', requestPayload, err, 'error', source);
       return res.status(403).json(err);
     }
@@ -2478,7 +2498,7 @@ router.post('/agent-workflow-list', optionalAuth, (req, res) => {
   try {
     const caller = getCallerAgent(req);
     if (!canAccessWorkflowTools(caller)) {
-      const err = { error: 'Only COO or Workflow Builder can list agent workflows' };
+      const err = { error: 'Only COO, Workflow Builder, or Content Orchestrator can list agent workflows' };
       logTool(req,'agent_workflow_list', requestPayload, err, 'error', source);
       return res.status(403).json(err);
     }
@@ -2515,7 +2535,7 @@ router.post('/agent-workflow-trigger', optionalAuth, async (req, res) => {
   try {
     const caller = getCallerAgent(req);
     if (!canAccessWorkflowTools(caller)) {
-      const err = { error: 'Only COO or Workflow Builder can trigger agent workflows' };
+      const err = { error: 'Only COO, Workflow Builder, or Content Orchestrator can trigger agent workflows' };
       logTool(req,'agent_workflow_trigger', requestPayload, err, 'error', source);
       return res.status(403).json(err);
     }
@@ -2530,7 +2550,11 @@ router.post('/agent-workflow-trigger', optionalAuth, async (req, res) => {
     const actor = {
       id: caller?.id || null,
       name: caller?.name || null,
-      type: isWorkflowBuilderCaller(caller) ? 'workflow_builder' : 'coo',
+      type: isWorkflowBuilderCaller(caller)
+        ? 'workflow_builder'
+        : isVideoContentOrchestratorCaller(caller)
+          ? 'video_orchestrator'
+          : 'coo',
     };
     // Multi-intent freeform: upgrade phrase triggers that describe 2+ workflows into a durable goal plan.
     // Prevents treating a numeric workflow run_id as a goal plan — only agr-… ids track Digest/step ladder.
@@ -2634,7 +2658,7 @@ router.post('/agent-goal-create', optionalAuth, async (req, res) => {
   const requestPayload = req.body || {};
   try {
     const caller = getCallerAgent(req);
-    if (!canAccessWorkflowTools(caller)) {
+    if (!canAccessGoalTools(caller)) {
       const err = { error: 'Only COO or Workflow Builder can create goal runs' };
       logTool(req, 'agent_goal_create', requestPayload, err, 'error', source);
       return res.status(403).json(err);
@@ -2703,7 +2727,7 @@ router.post('/agent-goal-list', optionalAuth, async (req, res) => {
   const requestPayload = req.body || {};
   try {
     const caller = getCallerAgent(req);
-    if (!canAccessWorkflowTools(caller)) {
+    if (!canAccessGoalTools(caller)) {
       const err = { error: 'Only COO or Workflow Builder can list goal runs' };
       logTool(req, 'agent_goal_list', requestPayload, err, 'error', source);
       return res.status(403).json(err);
@@ -2728,7 +2752,7 @@ router.post('/agent-goal-status', optionalAuth, async (req, res) => {
   const requestPayload = req.body || {};
   try {
     const caller = getCallerAgent(req);
-    if (!canAccessWorkflowTools(caller)) {
+    if (!canAccessGoalTools(caller)) {
       const err = { error: 'Only COO or Workflow Builder can read goal runs' };
       logTool(req, 'agent_goal_status', requestPayload, err, 'error', source);
       return res.status(403).json(err);
@@ -2761,7 +2785,7 @@ router.post('/agent-goal-complete-step', optionalAuth, async (req, res) => {
   const requestPayload = req.body || {};
   try {
     const caller = getCallerAgent(req);
-    if (!canAccessWorkflowTools(caller)) {
+    if (!canAccessGoalTools(caller)) {
       const err = { error: 'Only COO or Workflow Builder can complete goal steps' };
       logTool(req, 'agent_goal_complete_step', requestPayload, err, 'error', source);
       return res.status(403).json(err);
@@ -2794,7 +2818,7 @@ router.post('/agent-workflow-watch', optionalAuth, async (req, res) => {
   try {
     const caller = getCallerAgent(req);
     if (!canAccessWorkflowTools(caller)) {
-      const err = { error: 'Only COO or Workflow Builder can watch agent workflow runs' };
+      const err = { error: 'Only COO, Workflow Builder, or Content Orchestrator can watch agent workflow runs' };
       logTool(req, 'agent_workflow_watch', requestPayload, err, 'error', source);
       return res.status(403).json(err);
     }

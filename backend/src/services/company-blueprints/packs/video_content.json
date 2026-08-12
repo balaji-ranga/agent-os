@@ -47,6 +47,7 @@
         "agent_workflow_enquire",
         "agent_workflow_trigger",
         "agent_workflow_runs",
+        "agent_workflow_watch",
         "generate_image",
         "video_storyboard_export",
         "video_characters_save",

@@ -807,7 +807,8 @@ export function maybeAutoRegisterRunWatch(run, actor) {
   const looksCoo =
     actorType === 'coo' ||
     actorType === 'workflow_builder' ||
-    /balserve|coo|workflowbuilder/i.test(actorId);
+    actorType === 'video_orchestrator' ||
+    /balserve|coo|workflowbuilder|video-orch/i.test(actorId);
   if (!looksCoo && actorType !== 'chat') return null;
   return registerWorkflowRunWatch(run.id, {
     ownerUserId: run.owner_user_id,

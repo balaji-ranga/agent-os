@@ -8,6 +8,7 @@ import { getDb } from '../db/schema.js';
 import { isPlatformHelpAgent } from './master-data-tools.js';
 import { readCooAgentsMdForCeo } from './org-context.js';
 import { classifyIntentAndAllocate } from './intent-classifier.js';
+import { isVideoContentOrchestratorAgent } from './openclaw-agent-tools.js';
 
 /** Product help / graph build desks — never hard-redirect to specialists mid-chat. */
 function isHelpOrBuilderAgent(agent) {
@@ -35,16 +36,7 @@ function isHelpOrBuilderAgent(agent) {
  * Never hard-redirect to Story/Scene/Prompt (those are workflow-only specialties).
  */
 function isVideoOrchestratorAgent(agent) {
-  if (!agent) return false;
-  const id = String(agent.id || agent.openclaw_agent_id || '')
-    .trim()
-    .toLowerCase();
-  const name = String(agent.name || '')
-    .trim()
-    .toLowerCase();
-  if (id.startsWith('video-orch-') || id.includes('video-orchestrator')) return true;
-  if (name === 'content orchestrator' || /^content\s+orchestrator\b/.test(name)) return true;
-  return false;
+  return isVideoContentOrchestratorAgent(agent);
 }
 
 /** Operational asks should stay with the current agent (Kanban / workflows / status). */

@@ -256,6 +256,15 @@ const COO_OR_WORKFLOW_BUILDER_TOOLS = [
   'agent_goal_complete_step',
 ];
 
+/** Content Orchestrator (video_content pack) may keep these owner-scoped workflow tools. */
+export const VIDEO_CONTENT_ORCHESTRATOR_WORKFLOW_TOOLS = [
+  'agent_workflow_list',
+  'agent_workflow_enquire',
+  'agent_workflow_trigger',
+  'agent_workflow_runs',
+  'agent_workflow_watch',
+];
+
 const WORKFLOW_BUILDER_ONLY_TOOLS = [
   'agent_workflow_get_draft',
   'agent_workflow_mutate',
@@ -264,21 +273,44 @@ const WORKFLOW_BUILDER_ONLY_TOOLS = [
   'agent_workflow_certify_resume',
 ];
 
+/** Video Content Orchestrator — chat front door for storyboard workflows (not COO / WFB). */
+export function isVideoContentOrchestratorAgent(agent) {
+  if (!agent) return false;
+  const id = String(agent.id || agent.openclaw_agent_id || '')
+    .trim()
+    .toLowerCase();
+  const name = String(agent.name || '')
+    .trim()
+    .toLowerCase();
+  if (id.startsWith('video-orch-') || id.includes('video-orchestrator')) return true;
+  if (name === 'content orchestrator' || /^content\s+orchestrator\b/.test(name)) return true;
+  return false;
+}
+
 /**
- * Strip workflow catalog/trigger tools from agents that are not COO or Workflow Builder.
+ * Strip workflow catalog/trigger tools from agents that are not COO, Workflow Builder,
+ * or Video Content Orchestrator (allowed list only for the latter).
  * Prevents specialists (e.g. TechResearcher in Virtual Room) from attempting agent_workflow_trigger.
  */
 export function revokeUnauthorizedWorkflowToolGrants() {
   const db = getDb();
-  const agents = db.prepare('SELECT id, is_coo FROM agents').all();
+  const agents = db.prepare('SELECT id, name, is_coo FROM agents').all();
   const del = db.prepare('DELETE FROM agent_tool_grants WHERE agent_id = ? AND tool_name = ?');
+  const orchAllow = new Set(VIDEO_CONTENT_ORCHESTRATOR_WORKFLOW_TOOLS);
   let revoked = 0;
   for (const agent of agents) {
     const id = String(agent.id || '').toLowerCase();
     const isCoo = !!agent.is_coo;
     const isWfb = id === 'workflowbuilder';
+    const isVideoOrch = isVideoContentOrchestratorAgent(agent);
     const strip = [];
-    if (!isCoo && !isWfb) strip.push(...COO_OR_WORKFLOW_BUILDER_TOOLS);
+    if (!isCoo && !isWfb) {
+      if (isVideoOrch) {
+        strip.push(...COO_OR_WORKFLOW_BUILDER_TOOLS.filter((t) => !orchAllow.has(t)));
+      } else {
+        strip.push(...COO_OR_WORKFLOW_BUILDER_TOOLS);
+      }
+    }
     if (!isWfb) strip.push(...WORKFLOW_BUILDER_ONLY_TOOLS);
     for (const tool of strip) {
       const r = del.run(agent.id, tool);

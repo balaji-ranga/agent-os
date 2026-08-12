@@ -35,7 +35,9 @@ Social Facebook/LinkedIn posting remains the separate **content_creator** pack.
 
 ## Tools (Orchestrator)
 
-- `agent_workflow_trigger` — start W-Reasoning  
+- `agent_workflow_list` / `agent_workflow_enquire` — find published video workflows  
+- `agent_workflow_trigger` — start W-Reasoning (`run video storyboard`)  
+- `agent_workflow_runs` / `agent_workflow_watch` — check run status / notify on terminal  
 - `video_characters_save` — store character refs  
 - `video_storyboard_export` — HTML + PDF + SVG + persist row  
 - `generate_image` — optional extra visual  
