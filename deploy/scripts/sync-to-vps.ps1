@@ -336,6 +336,8 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\publish-brightbox-and-regenerate-standard.js" `
     "$Repo\backend\scripts\seed-content-publish-social-workflow.js" `
     "$Repo\backend\scripts\seed-content-comments-ingest.js" `
+    "$Repo\backend\scripts\seed-video-content-workflows.js" `
+    "$Repo\backend\scripts\test-video-content-phase1.js" `
     "$Repo\backend\scripts\complete-content-ops-pipeline.js" `
     "$Repo\backend\scripts\test-content-ops-org-e2e.js" `
     "$Repo\backend\scripts\republish-content-ops-blueprint.js" `
@@ -416,6 +418,10 @@ if ($Services -match "backend|openclaw") {
   scp @ssh -r "$Repo\openclaw-workspace-templates\platformhelp" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   scp @ssh -r "$Repo\openclaw-workspace-templates\onboardinghelper" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   scp @ssh -r "$Repo\openclaw-workspace-templates\vedic-astrology" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
+  scp @ssh -r "$Repo\openclaw-workspace-templates\video-orchestrator" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
+  scp @ssh -r "$Repo\openclaw-workspace-templates\video-story" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
+  scp @ssh -r "$Repo\openclaw-workspace-templates\video-scene" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
+  scp @ssh -r "$Repo\openclaw-workspace-templates\video-prompt" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   scp @ssh -r "$Repo\openclaw-workspace-templates\socialasstant" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   scp @ssh -r "$Repo\openclaw-workspace-templates\expensemanager" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   scp @ssh -r "$Repo\openclaw-workspace-templates\fitscorer" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
@@ -445,6 +451,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\knowledgebase\ONBOARDING-HELPER-PLAN.md" `
     "$Repo\knowledgebase\VIDEO-TOURS-CEO-CURRICULUM.md" `
     "$Repo\knowledgebase\CONTENT-CREATION-ORG-BLUEPRINT.md" `
+    "$Repo\knowledgebase\VIDEO-CONTENT-GENERATION-PLAN.md" `
     "$Repo\knowledgebase\BUSINESS-CORE-WORKSPACE-PLAN.md" `
     "root@${HostIp}:$RemoteRoot/knowledgebase/"
   if (Test-Path "$Repo\knowledgebase\video-tours") {
