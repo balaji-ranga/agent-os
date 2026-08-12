@@ -260,6 +260,144 @@ export async function exportVideoStoryboard(ownerUserId, input = {}) {
   };
 }
 
+function sliceJsonObject(text, start) {
+  let depth = 0;
+  let inStr = false;
+  let esc = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (ch === '\\') esc = true;
+      else if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') inStr = true;
+    else if (ch === '{') depth += 1;
+    else if (ch === '}') {
+      depth -= 1;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
+function tryParseJson(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+function unwrapStoryboardObject(obj) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return null;
+  if (Array.isArray(obj.scenes)) return obj;
+  if (obj.storyboard && Array.isArray(obj.storyboard.scenes)) return obj.storyboard;
+  if (obj.plan && Array.isArray(obj.plan.scenes)) return obj.plan;
+  return null;
+}
+
+/** True when parsed JSON looks like a video storyboard (scenes with prompts/descriptions). */
+export function looksLikeVideoStoryboard(obj) {
+  const board = unwrapStoryboardObject(obj);
+  if (!board || !Array.isArray(board.scenes) || !board.scenes.length) return false;
+  return board.scenes.some(
+    (s) => s && typeof s === 'object' && (s.veo_prompt || s.description || s.camera || s.negative_prompt)
+  );
+}
+
+/**
+ * Pull storyboard JSON from agent prose, fenced blocks, or a nested { storyboard | plan } wrapper.
+ */
+export function extractStoryboardFromText(raw) {
+  if (raw == null) return null;
+  if (typeof raw === 'object') return unwrapStoryboardObject(raw);
+  let t = String(raw).trim();
+  if (!t) return null;
+
+  const fence = t.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence) t = fence[1].trim();
+
+  let obj = tryParseJson(t);
+  if (!obj) {
+    const i = t.indexOf('{');
+    if (i >= 0) {
+      const sliced = sliceJsonObject(t, i);
+      obj = sliced ? tryParseJson(sliced) : null;
+    }
+  }
+  return unwrapStoryboardObject(obj);
+}
+
+/** Human-readable scene list for the CEO approval Kanban card (prompts live in the PDF). */
+export function formatStoryboardApprovalSummary(rawBoard) {
+  const board = normalizeStoryboard(rawBoard);
+  const lines = [`${board.title}`, `${board.duration_sec}s · ${board.scenes.length} scenes`];
+  if (board.logline) lines.push(String(board.logline));
+  if (board.tone) lines.push(`Tone: ${board.tone}`);
+  if (board.characters.length) {
+    lines.push(
+      `Characters: ${board.characters.map((c) => c.name || c.id).filter(Boolean).join(', ')}`
+    );
+  }
+  lines.push('', 'Scenes:');
+  for (let i = 0; i < board.scenes.length; i++) {
+    const sc = board.scenes[i];
+    const idx = sc.index ?? i + 1;
+    const dur = sc.duration_sec || 8;
+    const desc = String(sc.description || '').replace(/\s+/g, ' ').trim().slice(0, 240);
+    lines.push(`${idx}. (${dur}s) ${desc || '(no description)'}`);
+  }
+  return lines.join('\n');
+}
+
+/**
+ * Parse agent storyboard output, export HTML/PDF/SVG, and return Kanban-ready summary + /api/media URLs.
+ * Returns null when the text is not a storyboard. Never throws for parse misses.
+ */
+export async function exportStoryboardForCeoApproval(ownerUserId, { rawText, workflowRunId } = {}) {
+  const parsed = extractStoryboardFromText(rawText);
+  if (!looksLikeVideoStoryboard(parsed)) return null;
+  const owner = String(ownerUserId || '').trim();
+  const board = normalizeStoryboard(parsed);
+  const textSummary = formatStoryboardApprovalSummary(board);
+  if (!owner) {
+    return { summary: textSummary, pdfUrl: '', htmlUrl: '', imageUrl: '', exported: null };
+  }
+  try {
+    const exported = await exportVideoStoryboard(owner, {
+      storyboard: parsed,
+      persist: true,
+      workflow_run_id: workflowRunId != null ? String(workflowRunId) : '',
+      formats: ['html', 'pdf', 'image'],
+    });
+    const pdfUrl = exported.exports?.pdf?.relative_url || '';
+    const htmlUrl = exported.exports?.html?.relative_url || '';
+    const imageUrl = exported.exports?.image?.relative_url || '';
+    const parts = [textSummary, ''];
+    if (pdfUrl) {
+      parts.push('## Storyboard PDF', pdfUrl);
+    }
+    if (htmlUrl) {
+      parts.push('', '## Storyboard HTML', htmlUrl);
+    }
+    if (imageUrl) {
+      parts.push('', '## Storyboard contact sheet', imageUrl);
+    }
+    return {
+      summary: parts.join('\n'),
+      pdfUrl,
+      htmlUrl,
+      imageUrl,
+      exported,
+    };
+  } catch (e) {
+    console.warn('[video-storyboard] ceo-approval export failed', e?.message || e);
+    return { summary: textSummary, pdfUrl: '', htmlUrl: '', imageUrl: '', exported: null };
+  }
+}
+
 /** Upsert characters into video_characters (owner-scoped). */
 export function saveVideoCharacters(ownerUserId, characters = []) {
   const owner = String(ownerUserId || '').trim();

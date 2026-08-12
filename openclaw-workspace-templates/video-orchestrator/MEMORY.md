@@ -4,7 +4,7 @@
 
 - Scene length budget: **6–8 seconds** per scene unless CEO overrides
 - Target: short-form (~30–60s) unless specified
-- Export after W-Reasoning: **HTML + PDF + image** via `video_storyboard_export`
+- Export after W-Reasoning: CEO Kanban card gets HTML + PDF + image automatically; optional extra `video_storyboard_export` in this chat
 - Video gen path (Phase 2): Replicate **`google/veo-*`** via `generate_video` + `Replicate_BYOK`
 - If CEO says “story” / “storyboard” / “script”, treat as **your** job via **run video storyboard** — not a handoff
 

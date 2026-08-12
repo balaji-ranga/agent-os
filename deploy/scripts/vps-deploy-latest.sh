@@ -989,6 +989,14 @@ if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/seed-
     || echo "    WARN: inbound media workflow seed failed (see /tmp/inbound-media-wf.log)"
 fi
 
+# Refresh video storyboard graphs (CEO-gate PDF bindings) for owners who already have video specialists.
+if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/seed-video-content-workflows.js 2>/dev/null; then
+  docker compose exec -T -w /opt/agent-os/backend -e REFRESH_WORKFLOWS_ONLY=1 backend \
+    node scripts/seed-video-content-workflows.js >/tmp/video-content-wf-refresh.log 2>&1 \
+    && echo "    video content workflow refresh OK" \
+    || echo "    WARN: video content workflow refresh failed (see /tmp/video-content-wf-refresh.log)"
+fi
+
 # Optional content-media workflows (per CEO): publish-social + FB comments ingest/triage (standard workflow nodes).
 # Set SEED_CONTENT_MEDIA_OWNER=ceo-... in deploy/.env (or export) to re-seed after image rebuilds.
 # Brains use Platform_BYOK vault when set; otherwise ollama.

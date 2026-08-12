@@ -19,6 +19,21 @@ Also run from repo root: `node scripts/ensure-all-agent-workspaces.js` and `node
 
 Help corpus: `knowledgebase/platform-help/` → Master Data docs titled `Flolah Help — …`. Agent id: `platformhelp`.
 
+## Video content studio (storyboard CEO PDF)
+
+After changing `standard/video-content/workflow-reasoning.json` or the CEO-gate PDF attach path:
+
+```powershell
+cd backend
+node scripts/test-video-storyboard-ceo-approval.js
+# Re-publish golden graphs for CEOs who already have Story/Scene/Prompt (no new hires):
+$env:REFRESH_WORKFLOWS_ONLY='1'; node scripts/seed-video-content-workflows.js
+# Full pack smoke (install + two sample boards):
+$env:WORKFLOW_SEED_OWNER_ID='ceo-bala'; node scripts/test-video-content-phase1.js
+```
+
+The **run video storyboard** CEO Kanban card must show a scene summary and a PDF on **Artifacts**.
+
 ## OpenClaw chat 404 / Agent Chat 502 (Docker / VPS)
 
 Healthcheck only hits gateway `/`. If `openclaw.json` lost `gateway.http.endpoints.chatCompletions`, **POST `/v1/chat/completions` returns 404** while the container stays “healthy”, and Agent OS chat maps that to **502**.

@@ -4,6 +4,8 @@
  * Usage:
  *   WORKFLOW_SEED_OWNER_ID=ceo-bala node backend/scripts/seed-video-content-workflows.js
  *   WORKFLOW_SEED_OWNER_ID=ceo-bala INCLUDE_STUB_WORKFLOWS=1 node backend/scripts/seed-video-content-workflows.js
+ *   REFRESH_WORKFLOWS_ONLY=1 node backend/scripts/seed-video-content-workflows.js
+ *     (re-publish golden graphs for CEOs who already have Story/Scene/Prompt; does not hire agents)
  */
 import { config } from 'dotenv';
 import { dirname, join, resolve as pathResolve } from 'path';
@@ -48,12 +50,28 @@ if (isDirectRun()) {
     console.warn('[seed-video] tool meta', e?.message || e);
   }
   const includeStubs = String(process.env.INCLUDE_STUB_WORKFLOWS || '').trim() === '1';
+  const refreshOnly = String(process.env.REFRESH_WORKFLOWS_ONLY || '').trim() === '1';
   const ceos = listTargetCeos(getDb);
   if (!ceos.length) {
     console.error('[seed-video] no CEO targets (set WORKFLOW_SEED_OWNER_ID)');
     process.exit(1);
   }
+  const { seedVideoContentWorkflowsForOwner } = await import('../src/services/video-content-workflows.js');
   for (const ceo of ceos) {
+    if (refreshOnly) {
+      const out = seedVideoContentWorkflowsForOwner(ceo.id, { includeStubs });
+      console.log(
+        JSON.stringify({
+          owner: ceo.id,
+          name: ceo.name,
+          mode: 'refresh_workflows',
+          ok: out.ok,
+          results: out.results,
+          skipped: out.skipped,
+        })
+      );
+      continue;
+    }
     const out = await installVideoContentForOwner(ceo.id, { includeStubWorkflows: includeStubs });
     console.log(
       JSON.stringify({

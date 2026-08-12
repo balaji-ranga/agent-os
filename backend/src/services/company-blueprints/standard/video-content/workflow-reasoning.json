@@ -135,7 +135,19 @@
         },
         "data": {
           "label": "CEO review storyboard",
-          "prompt": "Review storyboard (prompts ready for Google Flow / later Veo). Approve to persist as production plan, or reject with feedback for Orchestrator re-run."
+          "prompt": "Review the storyboard PDF on this Kanban card (Artifacts). Approve to persist as the production plan, or reject with feedback for Orchestrator re-run.",
+          "taskConfig": {
+            "title": "CEO review: video storyboard",
+            "instructions": "Open Artifacts for the storyboard PDF (scenes + Veo/Flow prompts). Approve to persist as the production plan, or reject with feedback."
+          },
+          "inputBindings": [
+            {
+              "id": "summary",
+              "mode": "dynamic",
+              "sourceNodeId": "prompt-1",
+              "sourceOutputKey": "reply"
+            }
+          ]
         }
       }
     ],

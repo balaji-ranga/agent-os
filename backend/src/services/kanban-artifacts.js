@@ -223,6 +223,9 @@ function extractUrlsFromText(text, sourceId = 'text') {
     if (/\.pdf(\?|$)/i.test(lower)) {
       kind = 'pdf';
       inline = true;
+    } else if (/\.(html?|svg)(\?|$)/i.test(lower)) {
+      kind = /\.svg(\?|$)/i.test(lower) ? 'image' : 'link';
+      inline = kind === 'image';
     } else if (/\.(png|jpe?g|gif|webp)(\?|$)/i.test(lower) || lower.includes('/media/')) {
       kind = 'image';
       inline = true;

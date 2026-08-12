@@ -136,7 +136,7 @@ Store under Content Explorer (`media/generated/<ceo>/…`); return `MEDIA:` link
 | **S0** | This plan + blueprint + scaffold templates/pack/standard | **Done** |
 | **S1** | Seed/install agents + publish **W-Reasoning** from `standard/video-content/` | **Done** (`prefab-video-agents.js`, `seed-video-content-workflows.js`) |
 | **S2** | Characters Master Data + `video_characters_save` | **Done** |
-| **S3** | Storyboard **HTML/PDF/image** via `video_storyboard_export` | **Done** |
+| **S3** | Storyboard **HTML/PDF/image** via `video_storyboard_export`; CEO-gate Kanban card gets the PDF automatically | **Done** |
 | **S4** | Async Replicate `google/veo-*` scene jobs (expand `workflow-media.json`) | Pending |
 | **S5** | FFmpeg + expand `workflow-assembly.json` + QC + regen intents | Pending |
 | **S6** | README/help/.env.example, local + VPS deploy, Operate readiness | Partial (help 41 + KB) |

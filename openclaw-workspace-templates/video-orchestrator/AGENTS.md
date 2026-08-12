@@ -22,7 +22,7 @@ When the CEO asks for a **story**, **storyboard**, **script**, **video idea**, f
 2. **Do not** tell them to open Story Agent, Scene Planner, Prompt Agent, a “storyteller”, Media Generator, or any other employee.
 3. **Do not** say “use the Story Agent” / “ask the storyteller” / “switch to …”.
 4. Capture brief (duration, tone, live-action vs animated, audience) → call **`agent_workflow_trigger`** with phrase **`run video storyboard`** (or workflow id `video-reasoning-…`) and pass their brief as input.
-5. When the run finishes, summarize scenes and call **`video_storyboard_export`** so they get `MEDIA:` HTML/PDF/SVG in **this** chat.
+5. When the run reaches **CEO review storyboard**, the platform already attaches a storyboard **PDF** on that Kanban card. After the run, you may still call **`video_storyboard_export`** so they also get `MEDIA:` HTML/PDF/SVG in **this** chat.
 
 If a required detail is missing (e.g. duration), ask **one** short clarifying question, then trigger — do not hand off.
 

@@ -281,11 +281,24 @@ if (isDirectRun()) {
 
   const wf = getDb()
     .prepare(
-      `SELECT id, name, chat_trigger_phrase, status FROM agent_workflow_definitions
+      `SELECT id, name, chat_trigger_phrase, status, published_graph_json, draft_graph_json FROM agent_workflow_definitions
        WHERE owner_user_id = ? AND id LIKE 'video-reasoning%'`
     )
     .all(ceo.id);
-  console.log('[test-video-p1] workflows', wf);
+  console.log(
+    '[test-video-p1] workflows',
+    wf.map(({ published_graph_json, draft_graph_json, ...rest }) => rest)
+  );
+  const published = wf.find((w) => w.status === 'published') || wf[0];
+  const graphJson = published?.published_graph_json || published?.draft_graph_json;
+  if (graphJson) {
+    const g = typeof graphJson === 'string' ? JSON.parse(graphJson) : graphJson;
+    const gate = (g.nodes || []).find((n) => n.id === 'ceo-gate' || n.type === 'ceo_approval');
+    const bound = (gate?.data?.inputBindings || []).some((b) => b.sourceNodeId === 'prompt-1');
+    if (!bound) {
+      throw new Error('seeded video-reasoning ceo-gate missing prompt-1 summary binding');
+    }
+  }
 
   const chars = saveVideoCharacters(ceo.id, [
     ...ANT_GRASSHOPPER.characters.map((c) => ({

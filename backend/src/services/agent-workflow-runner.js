@@ -142,6 +142,66 @@ function getIncomingEdges(graph, nodeId) {
   return graph.edges.filter((e) => e.target === nodeId);
 }
 
+function collectCeoApprovalSourceText(node, graph, context, inputRecord, fallbackSummary) {
+  const chunks = [];
+  const push = (v) => {
+    if (v == null) return;
+    const s = typeof v === 'object' ? JSON.stringify(v) : String(v);
+    if (s.trim() && s !== '(no input)' && s !== '(in progress)') chunks.push(s);
+  };
+  push(fallbackSummary);
+  const resolved = inputRecord?.resolved || {};
+  for (const key of ['summary', 'storyboard', 'prompt', 'body', 'text', 'result']) {
+    push(resolved[key]);
+  }
+  for (const edge of (graph?.edges || []).filter((e) => e.target === node.id)) {
+    const raw = context?.node_outputs?.[edge.source];
+    if (raw == null) continue;
+    if (typeof raw === 'string') push(raw);
+    else {
+      push(raw.text);
+      push(raw.result);
+      if (!raw.text && !raw.result) push(raw);
+    }
+  }
+  return chunks.join('\n\n');
+}
+
+/** When the prior step looks like a video storyboard, attach a PDF/HTML for the CEO to review. */
+async function enrichCeoApprovalSummaryWithStoryboardPdf({
+  node,
+  graph,
+  context,
+  inputRecord,
+  ownerUserId,
+  runId,
+  summary,
+}) {
+  const rawText = collectCeoApprovalSourceText(node, graph, context, inputRecord, summary);
+  if (!rawText.trim()) return summary;
+  try {
+    const { exportStoryboardForCeoApproval } = await import('./video-storyboard-export.js');
+    const attached = await exportStoryboardForCeoApproval(ownerUserId, {
+      rawText,
+      workflowRunId: runId,
+    });
+    if (attached?.summary) {
+      if (attached.pdfUrl) {
+        console.info('[wf-ceo-approval] storyboard PDF attached run=%s node=%s', runId, node.id);
+      } else {
+        console.warn('[wf-ceo-approval] storyboard parsed without PDF run=%s node=%s', runId, node.id);
+      }
+      return attached.summary;
+    }
+  } catch (e) {
+    console.warn('[wf-ceo-approval] storyboard PDF attach failed run=%s', runId, e?.message || e);
+  }
+  if (summary && summary !== '(no input)') return summary;
+  const clipped = rawText.trim();
+  if (clipped.length > 8000) return `${clipped.slice(0, 8000)}\n\n… (truncated)`;
+  return clipped || summary;
+}
+
 function getOutgoingEdges(graph, nodeId) {
   return graph.edges.filter((e) => e.source === nodeId);
 }
@@ -976,7 +1036,16 @@ async function executeNode(runId, nodeId, graph, context, def, runRow) {
 
   if (node.type === 'ceo_approval') {
     const inputRecord = buildStepInputRecord(node, graph, context);
-    const summary = inputRecord.resolved.summary || resolveInputText(node, graph, context);
+    let summary = inputRecord.resolved.summary || resolveInputText(node, graph, context);
+    summary = await enrichCeoApprovalSummaryWithStoryboardPdf({
+      node,
+      graph,
+      context,
+      inputRecord,
+      ownerUserId: runRow.owner_user_id,
+      runId,
+      summary,
+    });
     const config = node.data?.taskConfig || {};
     const standupId = runRow.standup_id || ensureWorkflowStandup();
     const title = config.title || `${def.name} · CEO Approval`;

@@ -14,7 +14,7 @@ Invoke by **tool name with JSON**. Owner comes from the OpenClaw/CEO session —
 | **kanban_create_task** / **kanban_move_status** | CEO approval gates |
 | **notify_ceo** | Bell when a board or final is ready (if not already in chat) |
 | **generate_image** | Optional storyboard contact-sheet image |
-| **video_storyboard_export** | Export storyboard JSON → HTML/PDF/SVG + MEDIA: lines + video_storyboards row |
+| **video_storyboard_export** | Export storyboard JSON → HTML/PDF/SVG + MEDIA: lines + video_storyboards row (also auto-run at the CEO Kanban gate) |
 | **video_characters_save** | Upsert character refs into video_characters |
 | **content_tools_enquire** | Discover export / media tools |
 

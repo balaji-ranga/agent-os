@@ -4,7 +4,7 @@
 
 **Video content** is a Flolah industry pack for short-form / animated video **storyboards**. You chat with **Content Orchestrator**; specialists (Story, Scene Planner, Prompt) run inside the certified workflow **run video storyboard** — not as separate chat destinations.
 
-Phase 1 ends at a complete storyboard (prompts + character refs) plus **HTML / PDF / image** exports you can open from chat or **Content Explorer**. You can paste prompts into Google Flow manually. Phase 2 (later) adds Replicate `google/veo-*` clip generation and assembly.
+Phase 1 ends at a complete storyboard (prompts + character refs) plus **HTML / PDF / image** exports. The **CEO approval** Kanban card for **run video storyboard** includes a scene summary and an inline **PDF** on Artifacts so you can review before approving. You can also open exports from chat or **Content Explorer**. You can paste prompts into Google Flow manually. Phase 2 (later) adds Replicate `google/veo-*` clip generation and assembly.
 
 Social Facebook/LinkedIn posting remains the separate **content_creator** pack.
 
@@ -14,8 +14,8 @@ Social Facebook/LinkedIn posting remains the separate **content_creator** pack.
 2. Open chat with **Content Orchestrator** (only front door — do **not** chat Story/Scene/Prompt agents for stories).
 3. Attach character reference images (or describe characters).
 4. Ask for a storyboard in plain language (e.g. Thenaliraman for kids, cinematic live-action, not animated). Orchestrator triggers **run video storyboard** itself.
-5. Review the board; ask for edits (“change scene 4”).
-6. Open exported **HTML / PDF / SVG** via `MEDIA:` links or Content Explorer.
+5. Review the **CEO review: video storyboard** Kanban card: the **Summary** lists scenes; **Artifacts** shows the storyboard **PDF** (and HTML/contact sheet). Approve or reject there.
+6. Open exported **HTML / PDF / SVG** from that card, chat `MEDIA:` links, or Content Explorer.
 7. Optionally copy Veo/Flow prompts into Google Flow for a manual test.
 
 ## Chat phrase
