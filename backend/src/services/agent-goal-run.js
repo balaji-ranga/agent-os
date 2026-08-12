@@ -8,7 +8,7 @@ import { sendPlatformNotifications } from './platform-notifications.js';
 import { isPlatformCronActive } from './platform-cron-registry.js';
 import * as openclaw from '../gateway/openclaw.js';
 import { ensureTenantOpenClawAgent } from './openclaw-tenant.js';
-import { getPromptWithMemoryInjected } from './delegation-queue.js';
+import { getPromptForFreshGoalRun } from './delegation-queue.js';
 import { insertChatTurn } from './chat-history.js';
 import { triggerAgentWorkflowForOwner } from './agent-workflow-chat-tools.js';
 import { registerWorkflowRunWatch } from './agent-workflow-run-watch.js';
@@ -1185,7 +1185,8 @@ async function executeAgentContinueStep(goal, step) {
   }
 
   try {
-    prompt = await getPromptWithMemoryInjected(agent.id, prompt);
+    // Fresh run only — do not inject MEMORY/"already done today?" (confuses scheduled digests).
+    prompt = getPromptForFreshGoalRun(prompt);
   } catch (_) {
     /* optional */
   }
@@ -1217,6 +1218,8 @@ async function executeAgentContinueStep(goal, step) {
     {
       injectLearningsInstruction: true,
       injectKanbanInstruction: true,
+      // Do not tell the agent to pull unrelated chat/session history into this goal fire.
+      injectSessionHistoryInstruction: false,
       timeoutMs: Number(process.env.GOAL_AGENT_CONTINUE_TIMEOUT_MS || process.env.OPENCLAW_FETCH_TIMEOUT_MS || 240000),
     }
   );
@@ -1467,7 +1470,7 @@ async function executeCompositionalToolViaAgent(goal, step, toolName) {
     .join('\n');
 
   try {
-    prompt = await getPromptWithMemoryInjected(agent.id, prompt);
+    prompt = getPromptForFreshGoalRun(prompt);
   } catch (_) {
     /* optional */
   }
@@ -1498,6 +1501,7 @@ async function executeCompositionalToolViaAgent(goal, step, toolName) {
     {
       injectLearningsInstruction: true,
       injectKanbanInstruction: true,
+      injectSessionHistoryInstruction: false,
       timeoutMs: Number(process.env.GOAL_AGENT_CONTINUE_TIMEOUT_MS || process.env.OPENCLAW_FETCH_TIMEOUT_MS || 240000),
     }
   );

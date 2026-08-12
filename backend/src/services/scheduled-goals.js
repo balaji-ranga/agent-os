@@ -8,7 +8,7 @@ import { getPlatformTimezone, formatServerDateTime } from '../utils/format-datet
 import { isUserEnabled } from './user-enabled.js';
 import * as openclaw from '../gateway/openclaw.js';
 import { ensureTenantOpenClawAgent } from './openclaw-tenant.js';
-import { getPromptWithMemoryInjected } from './delegation-queue.js';
+import { getPromptForFreshGoalRun } from './delegation-queue.js';
 import { insertChatTurn } from './chat-history.js';
 import {
   createAndStartGoalRun,
@@ -602,7 +602,9 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
   }
 
   let prompt = buildRunMessage(row, ownerUserId, { runKey, force });
-  try { prompt = await getPromptWithMemoryInjected(agent.id, prompt); } catch (_) {}
+  try {
+    prompt = getPromptForFreshGoalRun(prompt);
+  } catch (_) {}
   prompt = `[ceo_user_id: ${ownerUserId}]\n[owner_user_id: ${ownerUserId}]\n${prompt}`;
 
   try {
@@ -612,6 +614,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
       {
         injectLearningsInstruction: true,
         injectKanbanInstruction: true,
+        injectSessionHistoryInstruction: false,
         timeoutMs: Number(process.env.SCHEDULED_GOAL_CHAT_TIMEOUT_MS || process.env.OPENCLAW_FETCH_TIMEOUT_MS || 240000),
       }
     );

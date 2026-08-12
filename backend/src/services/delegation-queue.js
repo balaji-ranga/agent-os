@@ -246,6 +246,10 @@ export async function appendToAgentMemory(agentId, summaryLine, ceoUserId = null
  * Build prompt instructing the agent to get session history for context, read MEMORY.md, and only respond if not already done today.
  * We do not inject memory content here (it was truncated); the agent reads MEMORY.md from its workspace.
  * Exported for use by standup-delegate and cron/standup so all COO-sent instructions include this.
+ *
+ * Do NOT use for scheduled goals or goal-plan agent_continue — those must run fresh every fire;
+ * the "already done today?" hint causes the agent to reuse yesterday's outcome / invent short
+ * summaries instead of executing the current run's tools and prior-step artifacts.
  */
 export async function getPromptWithMemoryInjected(agentId, basePrompt) {
   return `Before responding: get your session history for context (use sessions_history with your session key if available) so you have the conversation context. Then read your MEMORY.md file in your workspace. If you have already responded to this request or a very similar one today (check the entries there), reply briefly that you already did so and ask whether to redo or reuse. If not, respond to the request below.
@@ -253,6 +257,17 @@ export async function getPromptWithMemoryInjected(agentId, basePrompt) {
 ---
 ${basePrompt.trim()}
 ---`;
+}
+
+/**
+ * Scheduled / goal-plan turns: execute this run only — no MEMORY / sessions_history dedupe.
+ */
+export function getPromptForFreshGoalRun(basePrompt) {
+  return (
+    `Execute this goal run now using the CEO instructions and any prior steps of THIS run only. ` +
+    `Do not skip because a similar scheduled goal ran earlier today. Do not reuse or paraphrase prior emails/digests from memory — use fresh tool outputs for this run.\n\n` +
+    `---\n${String(basePrompt || '').trim()}\n---`
+  );
 }
 
 /**
