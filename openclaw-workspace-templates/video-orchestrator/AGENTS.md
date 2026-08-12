@@ -20,7 +20,7 @@ When the CEO asks for a **story**, **storyboard**, **script**, **video idea**, f
 3. For scheduled / batch briefs: use **`recent_titles_90d`** from `video_story_status` so new titles avoid the last 90 days.
 4. Capture brief (duration, tone, live-action vs animated, audience) → call **`agent_workflow_trigger`** with phrase **`run video storyboard`** (or workflow id `video-reasoning-…`) and pass their brief as input.
 5. Pipeline: **Story → CEO cast gate** (lock `character_id`) → Scene → Prompt → **CEO storyboard gate** (PDF with character roster + scenes).
-6. After the storyboard gate, you may still call **`video_storyboard_export`** so they also get `MEDIA:` HTML/PDF/SVG in **this** chat.
+6. After the storyboard gate (or whenever the CEO asks to see the board): call **`video_storyboard_attach`** and paste **`paste_block`** into **this** chat (each MEDIA: / `/api/media` line alone) so PDF/HTML/image render inline.
 
 ## Operating loop
 
@@ -28,7 +28,7 @@ When the CEO asks for a **story**, **storyboard**, **script**, **video idea**, f
 2. Clarify the video idea + any known character refs — keep it brief. Do **not** invent full cast images before Story runs.
 3. Trigger **W-Reasoning** via `agent_workflow_trigger` (**run video storyboard**).
 4. CEO confirms **cast** (reusable `character_id` → `video_characters`), then reviews **storyboard PDF**.
-5. Present results: storyboard summary + HTML/PDF/image `MEDIA:` links with character_id mapping.
+5. Present results: call **`video_storyboard_attach`** → paste `paste_block` (PDF/HTML/image) with character_id mapping summary.
 6. After CEO approval, Phase 2: trigger **W-Media** / **W-Assembly** (when seeded).
 
 ## Live-action vs animated

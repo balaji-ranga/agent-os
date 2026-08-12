@@ -64,6 +64,7 @@ export const REQUIRED_GLOBAL_CONTENT_TOOLS = [
   'video_storyboard_export',
   'video_characters_save',
   'video_story_status',
+  'video_storyboard_attach',
   'browser',
 ];
 

@@ -225,3 +225,101 @@ export function AuthenticatedMediaVideo({ src, maxHeight = 480, className = 'cha
     </span>
   );
 }
+
+function fileLabelFromSrc(src, kind) {
+  const path = String(resolveMediaSrc(src) || src).split('?')[0];
+  const leaf = path.split('/').filter(Boolean).pop() || kind || 'file';
+  if (kind === 'pdf') return leaf.toLowerCase().endsWith('.pdf') ? leaf : `${leaf}.pdf`;
+  if (kind === 'html') return /\.html?$/i.test(leaf) ? leaf : `${leaf}.html`;
+  return leaf;
+}
+
+/**
+ * PDF / HTML (and other docs) for authenticated /api/media — inline preview + open/download.
+ */
+export function AuthenticatedMediaFile({ src, kind = 'file', className = 'chat-inline-media' }) {
+  const resolved = resolveMediaSrc(src);
+  const apiPath = normalizeApiPath(resolved);
+  const needsAuth = isAuthenticatedApiPath(apiPath);
+  const [blobUrl, setBlobUrl] = useState(null);
+  const [error, setError] = useState(null);
+  const label = fileLabelFromSrc(src, kind);
+  const typeHint = kind === 'pdf' ? 'application/pdf' : kind === 'html' ? 'text/html' : undefined;
+
+  useEffect(() => {
+    if (!needsAuth) return undefined;
+    let objectUrl;
+    let cancelled = false;
+    setBlobUrl(null);
+    setError(null);
+    api
+      .fetchBlobUrl(apiPath, typeHint ? { typeHint } : undefined)
+      .then((u) => {
+        if (cancelled) {
+          URL.revokeObjectURL(u);
+          return;
+        }
+        objectUrl = u;
+        setBlobUrl(u);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e.message || 'Failed to load file');
+      });
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [apiPath, needsAuth, typeHint]);
+
+  const openSrc = needsAuth ? blobUrl : resolved;
+
+  return (
+    <span
+      className={className}
+      style={{
+        display: 'block',
+        margin: '0.75rem 0',
+        padding: '0.75rem',
+        border: '1px solid var(--border, #ddd)',
+        borderRadius: 8,
+        background: 'var(--surface-2, #f7f7f5)',
+        maxWidth: 560,
+      }}
+    >
+      <span style={{ display: 'block', fontWeight: 600, fontSize: '0.9rem', marginBottom: 6 }}>
+        {kind === 'pdf' ? 'Storyboard PDF' : kind === 'html' ? 'Storyboard HTML' : 'Attachment'} · {label}
+      </span>
+      {error ? (
+        <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--muted)', marginBottom: 6 }}>{error}</span>
+      ) : null}
+      {kind === 'pdf' && openSrc ? (
+        <iframe
+          title={label}
+          src={openSrc}
+          style={{ width: '100%', height: 360, border: '1px solid var(--border, #ccc)', borderRadius: 6, background: '#fff' }}
+        />
+      ) : null}
+      {kind === 'html' && openSrc ? (
+        <iframe
+          title={label}
+          src={openSrc}
+          sandbox="allow-same-origin"
+          style={{ width: '100%', height: 280, border: '1px solid var(--border, #ccc)', borderRadius: 6, background: '#fff' }}
+        />
+      ) : null}
+      {!openSrc && needsAuth && !error ? (
+        <span style={{ display: 'block', fontSize: '0.85rem', color: 'var(--muted)', marginBottom: 6 }}>Loading…</span>
+      ) : null}
+      <span style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
+        <AuthenticatedApiLink href={resolved} style={{ fontSize: '0.85rem' }}>
+          Open {kind === 'pdf' ? 'PDF' : kind === 'html' ? 'HTML' : 'file'}
+        </AuthenticatedApiLink>
+        {openSrc ? (
+          <a href={openSrc} download={label} style={{ fontSize: '0.85rem', color: 'var(--accent)' }}>
+            Download
+          </a>
+        ) : null}
+      </span>
+    </span>
+  );
+}

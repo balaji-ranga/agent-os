@@ -3511,4 +3511,39 @@ router.post('/video-story-status', optionalAuth, async (req, res) => {
   }
 });
 
+/**
+ * video_storyboard_attach — paste-ready MEDIA: /api/media lines for PDF/HTML/image exports into chat.
+ */
+router.post('/video-storyboard-attach', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
+    if (!ownerUserId) {
+      const err = { error: 'Could not resolve CEO user for this session' };
+      logTool(req, 'video_storyboard_attach', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const { attachVideoStoryboardMedia } = await import('../services/video-storyboard-export.js');
+    const out = attachVideoStoryboardMedia(ownerUserId, {
+      storyboard_id: requestPayload.storyboard_id || requestPayload.id || '',
+      title: requestPayload.title || '',
+      workflow_run_id: requestPayload.workflow_run_id || requestPayload.run_id || '',
+    });
+    logTool(
+      req,
+      'video_storyboard_attach',
+      { storyboard_id: out.storyboard_id, title: out.title },
+      { ok: true, lines: out.media_lines?.length || 0 },
+      'ok',
+      source
+    );
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'video_storyboard_attach', requestPayload, err, 'error', source);
+    res.status(e.status || 500).json(err);
+  }
+});
+
 export default router;

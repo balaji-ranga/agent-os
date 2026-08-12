@@ -38,6 +38,7 @@ Story details + PDF are also indexed into your **RAG** documents so Orchestrator
 ## Tools (Orchestrator)
 
 - `video_story_status` — **call first**; pending approval + recent 90-day titles  
+- `video_storyboard_attach` — **required** to put final PDF/HTML/image into chat (`paste_block`)  
 - `agent_workflow_list` / `agent_workflow_enquire` — find published video workflows  
 - `agent_workflow_trigger` — start W-Reasoning (`run video storyboard`)  
 - `agent_workflow_runs` / `agent_workflow_watch` — check run status / notify on terminal  
@@ -46,7 +47,7 @@ Story details + PDF are also indexed into your **RAG** documents so Orchestrator
 - `generate_image` — optional character sheet after cast is known  
 - `master_data_rag` / `master_data_list_documents` — knowledge / RAG  
 
-All are **owner-scoped** to your CEO login.
+After approval (or when you ask to see the board), Orchestrator pastes `MEDIA:` / `/api/media` lines so **Dashboard chat** shows the PDF/HTML/SVG inline (open + download).
 
 ## Where engineers maintain the golden source
 

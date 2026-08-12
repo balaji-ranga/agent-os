@@ -110,6 +110,8 @@ export function isResolvableMediaUrl(url) {
 const imageExt = /\.(png|jpe?g|gif|webp|bmp|svg)(\?[^\s"'<>]*)?$/i;
 const videoExt = /\.(mp4|webm|ogv)(\?[^\s"'<>]*)?$/i;
 const audioExt = /\.(wav|mp3|m4a|aac|opus|flac|ogg)(\?[^\s"'<>]*)?$/i;
+const pdfExt = /\.pdf(\?[^\s"'<>]*)?$/i;
+const htmlExt = /\.html?(\?[^\s"'<>]*)?$/i;
 const imageInPath = /\.(png|jpe?g|gif|webp|bmp|svg)([\?&]|$)/i;
 
 /** Classify media for inline chat render (artifact downloads often omit extensions). */
@@ -121,12 +123,18 @@ export function guessChatMediaType(url) {
   if (/^data:image\//i.test(raw) || /^data:/i.test(raw)) return 'image';
   if (audioExt.test(resolved) || audioExt.test(raw)) return 'audio';
   if (videoExt.test(resolved) || videoExt.test(raw)) return 'video';
+  if (pdfExt.test(resolved) || pdfExt.test(raw)) return 'pdf';
+  if (htmlExt.test(resolved) || htmlExt.test(raw)) return 'html';
   if (imageExt.test(resolved) || imageExt.test(raw) || imageInPath.test(resolved)) return 'image';
   if (/\/api\/media\/artifacts\//i.test(resolved) || /\/media\/artifacts\//i.test(raw)) {
     if (/speech|audio|tts|\.wav|\.mp3|\.m4a|\.ogg|\.opus/i.test(raw + resolved)) return 'audio';
     if (/video|\.mp4|\.webm/i.test(raw + resolved)) return 'video';
+    if (/\.pdf/i.test(raw + resolved)) return 'pdf';
+    if (/\.html?/i.test(raw + resolved)) return 'html';
     return 'audio';
   }
   if (/\/api\/media\/openclaw\//i.test(resolved) && /speech|tts|audio/i.test(resolved)) return 'audio';
+  if (/\/api\/media\/openclaw\//i.test(resolved) && /\.pdf/i.test(resolved)) return 'pdf';
+  if (/\/api\/media\/openclaw\//i.test(resolved) && /\.html?/i.test(resolved)) return 'html';
   return 'image';
 }

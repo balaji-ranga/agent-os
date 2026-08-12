@@ -728,8 +728,21 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/video-story-status',
     method: 'POST',
     purpose:
-      'Before starting run video storyboard: list video_storyboards knowledge rows (storyboard_id, title, status, workflow_run_id). ' +
+      'Before starting run video storyboard: list video_storyboards knowledge rows (storyboard_id, title, status, workflow_run_id, media_lines/paste_block when exports exist). ' +
       'Body: { title? }. If any row is pending_ceo_approval, tell the CEO to approve/reject that Kanban card before generating a new story. Also returns recent_titles_90d for scheduled goals.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'video_storyboard_attach',
+    display_name: 'Video Storyboard — Attach PDF/HTML/Image to Chat',
+    endpoint: '/api/tools/video-storyboard-attach',
+    method: 'POST',
+    purpose:
+      'Load final storyboard exports (PDF, HTML, SVG/image) for this CEO and return paste_block / media_lines (MEDIA: and /api/media paths). ' +
+      'Body: { storyboard_id? } or { title? } or { workflow_run_id? } (omit all = newest with exports). ' +
+      'REQUIRED after CEO storyboard approval or when the CEO asks to see/open the board: call this tool, then paste paste_block into your reply with each MEDIA:/api/media line on its own line so Dashboard renders PDF/HTML/image inline.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -822,7 +835,8 @@ const VIDEO_STORYBOARD_TOOLS = BUILTIN_TOOLS.filter(
   (t) =>
     t.name === 'video_storyboard_export' ||
     t.name === 'video_characters_save' ||
-    t.name === 'video_story_status'
+    t.name === 'video_story_status' ||
+    t.name === 'video_storyboard_attach'
 );
 
 export function seedContentToolsMetaIfEmpty() {

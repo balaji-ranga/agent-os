@@ -2,6 +2,7 @@ import { resolveMediaSrc, isResolvableMediaUrl, guessChatMediaType } from '../ut
 import AuthenticatedMediaImage, {
   AuthenticatedMediaVideo,
   AuthenticatedMediaAudio,
+  AuthenticatedMediaFile,
 } from './AuthenticatedMediaImage';
 import { renderChatMarkdown } from '../utils/chatMarkdown.js';
 
@@ -49,6 +50,8 @@ function cleanMediaUrl(url) {
 const imageExt = /\.(png|jpe?g|gif|webp|bmp|svg)(\?[^\s"'<>]*)?$/i;
 const videoExt = /\.(mp4|webm|ogv)(\?[^\s"'<>]*)?$/i;
 const audioExt = /\.(wav|mp3|m4a|aac|opus|flac|ogg)(\?[^\s"'<>]*)?$/i;
+const pdfExt = /\.pdf(\?[^\s"'<>]*)?$/i;
+const htmlExt = /\.html?(\?[^\s"'<>]*)?$/i;
 const imageInPath = /\.(png|jpe?g|gif|webp|bmp|svg)([\?&]|$)/i;
 
 export default function ChatMessageContent({ content }) {
@@ -113,6 +116,8 @@ export default function ChatMessageContent({ content }) {
       (audioExt.test(url) ||
         videoExt.test(url) ||
         imageExt.test(url) ||
+        pdfExt.test(url) ||
+        htmlExt.test(url) ||
         imageInPath.test(url) ||
         /\/api\/media\//i.test(url) ||
         /^MEDIA:/i.test(url) ||
@@ -130,6 +135,8 @@ export default function ChatMessageContent({ content }) {
       (audioExt.test(url) ||
         videoExt.test(url) ||
         imageExt.test(url) ||
+        pdfExt.test(url) ||
+        htmlExt.test(url) ||
         imageInPath.test(url) ||
         /\/api\/media\//i.test(url) ||
         /^MEDIA:/i.test(url) ||
@@ -158,7 +165,15 @@ export default function ChatMessageContent({ content }) {
   while ((m = reHttp.exec(contentStr)) !== null) {
     const url = m[0];
     if (!overlaps(m.index, url.length)) {
-      if (audioExt.test(url) || videoExt.test(url) || imageExt.test(url) || imageInPath.test(url) || /\/api\/media\//i.test(url)) {
+      if (
+        audioExt.test(url) ||
+        videoExt.test(url) ||
+        imageExt.test(url) ||
+        pdfExt.test(url) ||
+        htmlExt.test(url) ||
+        imageInPath.test(url) ||
+        /\/api\/media\//i.test(url)
+      ) {
         media.push({ index: m.index, length: url.length, type: guessChatMediaType(url), src: url });
       }
     }
@@ -193,6 +208,9 @@ export default function ChatMessageContent({ content }) {
         }
         if (seg.type === 'image') {
           return <AuthenticatedMediaImage key={i} src={seg.value} alt={seg.alt || 'Image'} />;
+        }
+        if (seg.type === 'pdf' || seg.type === 'html') {
+          return <AuthenticatedMediaFile key={i} src={seg.value} kind={seg.type} />;
         }
         return null;
       })}

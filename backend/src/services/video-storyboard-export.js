@@ -4,8 +4,11 @@
  * Cast mid-gate: story draft → CEO confirm reusable character_ids → Scene/Prompt.
  */
 import { randomUUID } from 'crypto';
+import { existsSync } from 'fs';
+import { join } from 'path';
 import PDFDocument from 'pdfkit';
 import { persistGeneratedOpenClawMedia } from './media-url.js';
+import { getOpenClawMediaDir } from '../config/openclaw-paths.js';
 import { findTableByName, insertRow, updateRow, listRows, ensureTableColumns } from './master-data.js';
 import { seedVideoContentKnowledgeTables } from './video-content-knowledge.js';
 
@@ -633,6 +636,98 @@ export function formatCastApprovalSummary(draft, resolvedCharacters) {
 /**
  * List storyboard knowledge rows (for Orchestrator / tools).
  */
+function pasteLinesFromStoredPath(pathOrMedia) {
+  const raw = String(pathOrMedia || '').trim();
+  if (!raw) return { media_lines: [], relative_url: '', paste_exactly: '' };
+  if (/^MEDIA:/i.test(raw)) {
+    const local = raw.replace(/^MEDIA:\s*/i, '');
+    const m = local.replace(/\\/g, '/').match(/\/media\/([^/]+)\/(.+)$/i);
+    const relative_url = m ? `/api/media/openclaw/${m[1]}/${m[2]}` : '';
+    return { media_lines: [raw, relative_url].filter(Boolean), relative_url, paste_exactly: raw };
+  }
+  if (raw.startsWith('/api/media/openclaw/')) {
+    try {
+      const rest = raw.slice('/api/media/openclaw/'.length);
+      const [subdir, ...nameParts] = rest.split('/');
+      const local = join(getOpenClawMediaDir(subdir), ...nameParts);
+      if (existsSync(local)) {
+        const paste = `MEDIA:${local}`;
+        return { media_lines: [paste, raw], relative_url: raw, paste_exactly: paste };
+      }
+    } catch {
+      /* fall through */
+    }
+    return { media_lines: [raw], relative_url: raw, paste_exactly: raw };
+  }
+  if (raw.startsWith('/api/media/')) {
+    return { media_lines: [raw], relative_url: raw, paste_exactly: raw };
+  }
+  return { media_lines: [raw], relative_url: raw, paste_exactly: raw };
+}
+
+/**
+ * Resolve stored storyboard export paths into chat-ready MEDIA: /api/media lines for Orchestrator.
+ */
+export function attachVideoStoryboardMedia(ownerUserId, { storyboard_id = '', title = '', workflow_run_id = '' } = {}) {
+  const owner = String(ownerUserId || '').trim();
+  if (!owner) throw Object.assign(new Error('owner_user_id required'), { status: 403 });
+  ensureVideoTables(owner);
+  const table = findTableByName(owner, 'video_storyboards');
+  if (!table) throw Object.assign(new Error('video_storyboards table missing'), { status: 500 });
+  const listed = listRows(owner, table.id, { limit: 500 });
+  let row = null;
+  if (storyboard_id) {
+    row = (listed?.rows || []).find((r) => String(r.data?.storyboard_id) === String(storyboard_id));
+  }
+  if (!row && workflow_run_id) {
+    row = (listed?.rows || []).find((r) => String(r.data?.workflow_run_id) === String(workflow_run_id));
+  }
+  if (!row && title) {
+    const needle = String(title).toLowerCase();
+    const matches = (listed?.rows || []).filter((r) => String(r.data?.title || '').toLowerCase().includes(needle));
+    matches.sort((a, b) => String(b.data?.updated || '').localeCompare(String(a.data?.updated || '')));
+    row = matches[0] || null;
+  }
+  if (!row && !storyboard_id && !title && !workflow_run_id) {
+    const all = [...(listed?.rows || [])].sort((a, b) =>
+      String(b.data?.updated || '').localeCompare(String(a.data?.updated || ''))
+    );
+    row = all.find((r) => r.data?.pdf_path || r.data?.html_path || r.data?.image_path) || all[0] || null;
+  }
+  if (!row?.data) {
+    throw Object.assign(new Error('storyboard not found for attach'), { status: 404 });
+  }
+  const d = row.data;
+  const pdf = pasteLinesFromStoredPath(d.pdf_path);
+  const html = pasteLinesFromStoredPath(d.html_path);
+  const image = pasteLinesFromStoredPath(d.image_path);
+  const media_lines = [...pdf.media_lines, ...html.media_lines, ...image.media_lines].filter(Boolean);
+  const unique = [...new Set(media_lines)];
+  const paste_block = unique.join('\n');
+  console.info(
+    '[video-storyboard] attach owner=%s id=%s lines=%s',
+    owner,
+    d.storyboard_id,
+    unique.length
+  );
+  return {
+    ok: true,
+    storyboard_id: d.storyboard_id,
+    title: d.title,
+    status: d.status,
+    workflow_run_id: d.workflow_run_id || '',
+    exports: {
+      pdf: { relative_url: pdf.relative_url || d.pdf_path || '', paste_exactly: pdf.paste_exactly },
+      html: { relative_url: html.relative_url || d.html_path || '', paste_exactly: html.paste_exactly },
+      image: { relative_url: image.relative_url || d.image_path || '', paste_exactly: image.paste_exactly },
+    },
+    media_lines: unique,
+    paste_block,
+    delivery_hint:
+      'Paste paste_block into the chat reply: each MEDIA: or /api/media line on its own line so Dashboard shows PDF/HTML/image inline and WhatsApp can attach files.',
+  };
+}
+
 export function listVideoStoryStatuses(ownerUserId, { title = '', limit = 50 } = {}) {
   const owner = String(ownerUserId || '').trim();
   if (!owner) throw Object.assign(new Error('owner_user_id required'), { status: 403 });
@@ -643,16 +738,27 @@ export function listVideoStoryStatuses(ownerUserId, { title = '', limit = 50 } =
   const needle = String(title || '')
     .trim()
     .toLowerCase();
-  let stories = (listed?.rows || []).map((r) => ({
-    row_id: r.id,
-    storyboard_id: r.data?.storyboard_id,
-    title: r.data?.title,
-    status: r.data?.status,
-    workflow_run_id: r.data?.workflow_run_id,
-    pdf_path: r.data?.pdf_path,
-    rag_document_id: r.data?.rag_document_id,
-    updated: r.data?.updated,
-  }));
+  let stories = (listed?.rows || []).map((r) => {
+    const pdf = pasteLinesFromStoredPath(r.data?.pdf_path);
+    const html = pasteLinesFromStoredPath(r.data?.html_path);
+    const image = pasteLinesFromStoredPath(r.data?.image_path);
+    const media_lines = [...new Set([...pdf.media_lines, ...html.media_lines, ...image.media_lines].filter(Boolean))];
+    return {
+      row_id: r.id,
+      storyboard_id: r.data?.storyboard_id,
+      title: r.data?.title,
+      status: r.data?.status,
+      workflow_run_id: r.data?.workflow_run_id,
+      pdf_path: r.data?.pdf_path,
+      html_path: r.data?.html_path,
+      image_path: r.data?.image_path,
+      rag_document_id: r.data?.rag_document_id,
+      updated: r.data?.updated,
+      media_lines,
+      paste_block: media_lines.join('\n'),
+      has_exports: Boolean(r.data?.pdf_path || r.data?.html_path || r.data?.image_path),
+    };
+  });
   if (needle) {
     stories = stories.filter((s) => String(s.title || '').toLowerCase().includes(needle));
   }

@@ -3,8 +3,9 @@
 - Scene length budget: **6–8 seconds** per scene unless CEO overrides
 - Status values on `video_storyboards`: **pending_ceo_approval** → **ceo_approved** → **video_generated**
 - Always call **video_story_status** before a new run; block if pending CEO approval
+- After approval / “show me the board”: **video_storyboard_attach** → paste `paste_block` (PDF/HTML/SVG) into this chat
 - Cast gate locks **character_id** into `video_characters` for reuse across episodes
-- Export after Prompt: CEO Kanban gets HTML + PDF + image with **character_id mapping**; optional extra `video_storyboard_export` in this chat
+- Export after Prompt: CEO Kanban gets HTML + PDF + image with **character_id mapping**; chat attach via `video_storyboard_attach`
 - Video gen path (Phase 2): Replicate **`google/veo-*`** via `generate_video` + `Replicate_BYOK`
 - If CEO says “story” / “storyboard” / “script”, treat as **your** job via **run video storyboard** — not a handoff
 - Ask for character reference images when helpful; otherwise Story proposes names → CEO cast gate locks ids
