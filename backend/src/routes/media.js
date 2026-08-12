@@ -5,36 +5,51 @@
  * WhatsApp delivery uses MEDIA:/abs/path attach on the shared volume, not public HTTPS.
  */
 import { Router } from 'express';
-import { join, normalize } from 'path';
-import { existsSync, createReadStream } from 'fs';
+import { basename, join, normalize } from 'path';
+import { closeSync, createReadStream, existsSync, openSync, readSync } from 'fs';
 import { stat } from 'fs/promises';
 import { requireAuth } from '../middleware/auth.js';
 import { getOpenClawMediaDir } from '../config/openclaw-paths.js';
 import { isMediaPublicSignedEnabled, verifyMediaPublicSig } from '../services/media-url.js';
 import { canAccessOpenClawMedia } from '../services/openclaw-media-ownership.js';
+import { guessMimeFromFilename } from '../services/master-data-extract.js';
 
 const router = Router();
 const MEDIA_ROOT = getOpenClawMediaDir();
 
-const MIME = {
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.gif': 'image/gif',
-  '.webp': 'image/webp',
-  '.bmp': 'image/bmp',
-  '.svg': 'image/svg+xml',
-  '.mp4': 'video/mp4',
-  '.webm': 'video/webm',
-  '.ogv': 'video/ogg',
-  '.ogg': 'audio/ogg',
-  '.wav': 'audio/wav',
-  '.mp3': 'audio/mpeg',
-  '.m4a': 'audio/mp4',
-  '.aac': 'audio/aac',
-  '.opus': 'audio/opus',
-  '.flac': 'audio/flac',
-};
+function readFileHead(filePath, n = 16) {
+  let fd;
+  try {
+    fd = openSync(filePath, 'r');
+    const buf = Buffer.alloc(n);
+    const got = readSync(fd, buf, 0, n, 0);
+    return buf.subarray(0, got);
+  } catch {
+    return Buffer.alloc(0);
+  } finally {
+    if (fd != null) closeSync(fd);
+  }
+}
+
+/** Path extname (not lastIndexOf on the full path — ".openclaw" must not win). */
+export function resolveOpenClawMediaMime(filePath) {
+  const name = basename(String(filePath || ''));
+  let mime = guessMimeFromFilename(name);
+  if (mime && mime !== 'application/octet-stream') return mime;
+  const head = readFileHead(filePath, 16);
+  if (head.length >= 5 && head.subarray(0, 5).toString('latin1') === '%PDF-') {
+    return 'application/pdf';
+  }
+  return mime || 'application/octet-stream';
+}
+
+function contentDispositionFilename(filePath, mime) {
+  let name = basename(String(filePath || 'file')) || 'file';
+  if (mime === 'application/pdf' && !/\.pdf$/i.test(name)) name = `${name}.pdf`;
+  if (mime === 'text/html' && !/\.html?$/i.test(name)) name = `${name}.html`;
+  if (mime === 'image/svg+xml' && !/\.svg$/i.test(name)) name = `${name}.svg`;
+  return name.replace(/["\\\r\n]/g, '_');
+}
 
 function safeMediaPath(relativePath) {
   const cleaned = String(relativePath || '').replace(/^\/+/, '').replace(/\\/g, '/');
@@ -53,9 +68,11 @@ async function streamMediaFile(rel, res) {
   }
   const st = await stat(filePath);
   if (!st.isFile()) return res.status(404).json({ error: 'Not a file' });
-  const ext = filePath.slice(filePath.lastIndexOf('.')).toLowerCase();
-  const mime = MIME[ext] || 'application/octet-stream';
+  const mime = resolveOpenClawMediaMime(filePath);
+  const filename = contentDispositionFilename(filePath, mime);
   res.setHeader('Content-Type', mime);
+  res.setHeader('Content-Length', st.size);
+  res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
   res.setHeader('Cache-Control', 'private, no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   createReadStream(filePath).pipe(res);

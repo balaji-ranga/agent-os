@@ -14,7 +14,7 @@ Social Facebook/LinkedIn posting remains the separate **content_creator** pack.
 2. Open chat with **Content Orchestrator** (only front door — do **not** chat Story/Scene/Prompt agents for stories).
 3. Attach character reference images (or describe characters).
 4. Ask for a storyboard in plain language (e.g. Thenaliraman for kids, cinematic live-action, not animated). Orchestrator triggers **run video storyboard** itself.
-5. Review the **CEO review: video storyboard** Kanban card: the **Summary** lists scenes; **Artifacts** shows the storyboard **PDF** (and HTML/contact sheet). Approve or reject there.
+5. Review the **CEO review: video storyboard** Kanban card: the **Summary** lists scenes; **Artifacts** shows the storyboard **PDF** inline (use **Download PDF** if you want a `.pdf` file). Approve or reject there.
 6. Open exported **HTML / PDF / SVG** from that card, chat `MEDIA:` links, or Content Explorer.
 7. Optionally copy Veo/Flow prompts into Google Flow for a manual test.
 

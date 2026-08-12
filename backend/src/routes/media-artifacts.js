@@ -84,12 +84,19 @@ router.get('/:id/download', requireAuth, requireCeoOrAdmin, (req, res) => {
     const got = readMediaArtifactBuffer(owner, req.params.id);
     if (!got) return res.status(404).json({ error: 'Not found' });
     const { row, buffer } = got;
-    res.setHeader('Content-Type', row.mime_type || 'application/octet-stream');
+    let mime = row.mime_type || 'application/octet-stream';
+    let filename = String(row.filename || 'file').replace(/["\\\r\n]/g, '_');
+    if (
+      (mime === 'application/pdf' ||
+        (Buffer.isBuffer(buffer) && buffer.length >= 5 && buffer.subarray(0, 5).toString('latin1') === '%PDF-')) &&
+      !/\.pdf$/i.test(filename)
+    ) {
+      mime = 'application/pdf';
+      filename = `${filename}.pdf`;
+    }
+    res.setHeader('Content-Type', mime);
     res.setHeader('Content-Length', buffer.length);
-    res.setHeader(
-      'Content-Disposition',
-      `inline; filename="${String(row.filename || 'file').replace(/"/g, '')}"`
-    );
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
     res.send(buffer);
   } catch (e) {
     console.error('[media] download failed', e?.message || e);

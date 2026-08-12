@@ -7,6 +7,12 @@ import { isAuthenticatedApiPath, normalizeApiPath } from '../utils/authenticated
 const KIND_LABELS = { pdf: 'PDF', csv: 'CSV', image: 'Image', link: 'Link', text: 'Text' };
 const FILE_KINDS = new Set(['pdf', 'csv', 'image']);
 
+function downloadNameFromUrl(url, fallback = 'storyboard.pdf') {
+  const path = String(url || '').split('?')[0];
+  const leaf = path.split('/').filter(Boolean).pop() || fallback;
+  return /\.pdf$/i.test(leaf) ? leaf : `${leaf.replace(/\.[a-z0-9]{1,8}$/i, '')}.pdf`;
+}
+
 function PdfInline({ url, label }) {
   const [blobUrl, setBlobUrl] = useState(null);
   const [error, setError] = useState(null);
@@ -18,7 +24,7 @@ function PdfInline({ url, label }) {
     setLoading(true);
     setError(null);
     api
-      .fetchBlobUrl(url)
+      .fetchBlobUrl(url, { typeHint: 'application/pdf' })
       .then((u) => {
         if (cancelled) {
           URL.revokeObjectURL(u);
@@ -38,6 +44,14 @@ function PdfInline({ url, label }) {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [url]);
+
+  const downloadPdf = () => {
+    if (!blobUrl) return;
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = downloadNameFromUrl(url, `${String(label || 'storyboard').replace(/\W+/g, '-').slice(0, 40)}.pdf`);
+    a.click();
+  };
 
   if (loading) {
     return <div style={{ fontSize: '0.8rem', color: 'var(--muted)', padding: '0.5rem 0' }}>Loading {label}…</div>;
@@ -59,17 +73,35 @@ function PdfInline({ url, label }) {
   }
 
   return (
-    <iframe
-      title={label}
-      src={blobUrl}
-      style={{
-        width: '100%',
-        height: 420,
-        border: '1px solid var(--border)',
-        borderRadius: 8,
-        background: '#fff',
-      }}
-    />
+    <div>
+      <iframe
+        title={label}
+        src={`${blobUrl}#toolbar=1`}
+        style={{
+          width: '100%',
+          height: 420,
+          border: '1px solid var(--border)',
+          borderRadius: 8,
+          background: '#fff',
+        }}
+      />
+      <button
+        type="button"
+        onClick={downloadPdf}
+        style={{
+          marginTop: 8,
+          padding: '0.35rem 0.7rem',
+          fontSize: '0.8rem',
+          borderRadius: 6,
+          border: '1px solid var(--border)',
+          background: 'var(--surface)',
+          color: 'inherit',
+          cursor: 'pointer',
+        }}
+      >
+        Download PDF
+      </button>
+    </div>
   );
 }
 

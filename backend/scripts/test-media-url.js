@@ -62,4 +62,19 @@ assert.ok(String(persisted.paste_exactly).startsWith('MEDIA:'));
 assert.ok(String(persisted.relative_url).includes('/api/media/openclaw/generated/'));
 assert.strictEqual(persisted.public_url, null);
 
+const { guessMimeFromFilename } = await import('../src/services/master-data-extract.js');
+assert.strictEqual(guessMimeFromFilename('storyboard.pdf'), 'application/pdf');
+assert.strictEqual(guessMimeFromFilename('board.html'), 'text/html');
+
+const { writeFileSync, mkdtempSync } = await import('fs');
+const { tmpdir } = await import('os');
+const tmp = mkdtempSync(join(tmpdir(), 'media-mime-'));
+const namedPdf = join(tmp, 'board.pdf');
+writeFileSync(namedPdf, Buffer.from('%PDF-1.3\n%'));
+const barePdf = join(tmp, '5b0bb15b-a258-4db3-822a-b1ff29d5c49d');
+writeFileSync(barePdf, Buffer.from('%PDF-1.3\n%'));
+const { resolveOpenClawMediaMime } = await import('../src/routes/media.js');
+assert.strictEqual(resolveOpenClawMediaMime(namedPdf), 'application/pdf');
+assert.strictEqual(resolveOpenClawMediaMime(barePdf), 'application/pdf');
+
 console.log('OK media-url helpers (MEDIA: + auth-only; signed public opt-in)');

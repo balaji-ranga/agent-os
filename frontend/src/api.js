@@ -84,6 +84,23 @@ export function resolveFetchUrl(path) {
     : `${base}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
+function inferMimeFromPath(path) {
+  const p = String(path || '').split('?')[0].toLowerCase();
+  if (p.endsWith('.pdf')) return 'application/pdf';
+  if (p.endsWith('.html') || p.endsWith('.htm')) return 'text/html';
+  if (p.endsWith('.svg')) return 'image/svg+xml';
+  if (p.endsWith('.png')) return 'image/png';
+  if (p.endsWith('.jpg') || p.endsWith('.jpeg')) return 'image/jpeg';
+  if (p.endsWith('.gif')) return 'image/gif';
+  if (p.endsWith('.webp')) return 'image/webp';
+  if (p.endsWith('.mp4')) return 'video/mp4';
+  if (p.endsWith('.webm')) return 'video/webm';
+  if (p.endsWith('.wav')) return 'audio/wav';
+  if (p.endsWith('.mp3')) return 'audio/mpeg';
+  if (p.endsWith('.csv')) return 'text/csv';
+  return '';
+}
+
 /** Fetch authenticated binary (PDF, image) and return a blob object URL. Caller should revoke when done. */
 async function fetchBlobUrl(path, opts = {}) {
   const url = resolveFetchUrl(path);
@@ -102,6 +119,10 @@ async function fetchBlobUrl(path, opts = {}) {
     .split(';')[0]
     .trim();
   if ((!ct || ct === 'application/octet-stream') && hint) ct = hint;
+  if ((!ct || ct === 'application/octet-stream')) {
+    const inferred = inferMimeFromPath(path);
+    if (inferred) ct = inferred;
+  }
   const buf = await res.arrayBuffer();
   const blob = ct ? new Blob([buf], { type: ct }) : new Blob([buf]);
   return URL.createObjectURL(blob);
