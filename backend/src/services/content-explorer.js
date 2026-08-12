@@ -40,8 +40,22 @@ function kindFromMime(mime, filename) {
   const e = extname(filename || '').toLowerCase();
   if (m.startsWith('audio/') || ['.ogg', '.opus', '.mp3', '.wav', '.m4a', '.aac', '.flac'].includes(e)) return 'audio';
   if (m.startsWith('video/') || ['.mp4', '.webm', '.mov', '.mkv'].includes(e)) return 'video';
-  if (m.startsWith('image/') || ['.png', '.jpg', '.jpeg', '.gif', '.webp'].includes(e)) return 'image';
-  if (m.includes('pdf') || e === '.pdf') return 'document';
+  if (
+    m.startsWith('image/') ||
+    m === 'image/svg+xml' ||
+    ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico', '.avif'].includes(e)
+  ) {
+    return 'image';
+  }
+  if (
+    m.includes('pdf') ||
+    e === '.pdf' ||
+    m === 'text/html' ||
+    ['.html', '.htm', '.txt', '.md', '.csv', '.json', '.xml', '.log'].includes(e) ||
+    m.startsWith('text/')
+  ) {
+    return 'document';
+  }
   return 'file';
 }
 

@@ -88,10 +88,17 @@ function guessMimeFromFilename(filename) {
   if (/\.(jpe?g)$/i.test(name)) return 'image/jpeg';
   if (/\.(gif)$/i.test(name)) return 'image/gif';
   if (/\.(webp)$/i.test(name)) return 'image/webp';
+  if (/\.(svg)$/i.test(name)) return 'image/svg+xml';
+  if (/\.(bmp)$/i.test(name)) return 'image/bmp';
+  if (/\.(ico)$/i.test(name)) return 'image/x-icon';
+  if (/\.(avif)$/i.test(name)) return 'image/avif';
   if (/\.(mp3)$/i.test(name)) return 'audio/mpeg';
   if (/\.(wav)$/i.test(name)) return 'audio/wav';
+  if (/\.(ogg|opus)$/i.test(name)) return 'audio/ogg';
+  if (/\.(m4a)$/i.test(name)) return 'audio/mp4';
   if (/\.(mp4)$/i.test(name)) return 'video/mp4';
   if (/\.(webm)$/i.test(name)) return 'video/webm';
+  if (/\.(mov)$/i.test(name)) return 'video/quicktime';
   return 'application/octet-stream';
 }
 

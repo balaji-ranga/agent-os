@@ -31,6 +31,66 @@ function formatBytes(n) {
   return `${(v / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function extOf(filename) {
+  const m = String(filename || '')
+    .toLowerCase()
+    .match(/(\.[a-z0-9]{1,8})$/);
+  return m ? m[1] : '';
+}
+
+/** How to render preview (browser-native when possible). */
+function previewModeFor(item) {
+  const e = extOf(item?.filename);
+  const mime = String(item?.mime_guess || '').toLowerCase();
+  const kind = String(item?.kind || '').toLowerCase();
+  if (e === '.pdf' || mime.includes('pdf')) return 'pdf';
+  if (e === '.html' || e === '.htm' || mime === 'text/html') return 'html';
+  if (
+    ['.txt', '.md', '.csv', '.json', '.xml', '.log', '.yml', '.yaml'].includes(e) ||
+    (mime.startsWith('text/') && mime !== 'text/html')
+  ) {
+    return 'text';
+  }
+  if (
+    kind === 'image' ||
+    mime.startsWith('image/') ||
+    ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico', '.avif'].includes(e)
+  ) {
+    return 'image';
+  }
+  if (kind === 'audio' || mime.startsWith('audio/')) return 'audio';
+  if (kind === 'video' || mime.startsWith('video/')) return 'video';
+  return 'download';
+}
+
+function mimeHintForItem(item) {
+  const mime = String(item?.mime_guess || '').trim();
+  if (mime && mime !== 'application/octet-stream') return mime;
+  const e = extOf(item?.filename);
+  const map = {
+    '.svg': 'image/svg+xml',
+    '.pdf': 'application/pdf',
+    '.html': 'text/html',
+    '.htm': 'text/html',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+    '.bmp': 'image/bmp',
+    '.txt': 'text/plain',
+    '.md': 'text/markdown',
+    '.csv': 'text/csv',
+    '.json': 'application/json',
+    '.xml': 'application/xml',
+    '.mp3': 'audio/mpeg',
+    '.wav': 'audio/wav',
+    '.mp4': 'video/mp4',
+    '.webm': 'video/webm',
+  };
+  return map[e] || '';
+}
+
 function kindIcon(kind) {
   if (kind === 'audio') return 'Audio';
   if (kind === 'video') return 'Video';
@@ -124,12 +184,25 @@ export default function ContentExplorer() {
   }
 
   async function openPreview(item) {
-    setPreview({ item, objectUrl: null, loading: true, err: '' });
+    const mode = previewModeFor(item);
+    const typeHint = mimeHintForItem(item) || item?.mime_guess || '';
+    setPreview({ item, mode, objectUrl: null, text: '', loading: true, err: '' });
     try {
-      const blobUrl = await api.contentExplorerDownloadBlob(item);
-      setPreview({ item, objectUrl: blobUrl, loading: false, err: '' });
+      const enriched = { ...item, mime_guess: typeHint || item?.mime_guess };
+      const blobUrl = await api.contentExplorerDownloadBlob(enriched);
+      let text = '';
+      if (mode === 'text') {
+        try {
+          const res = await fetch(blobUrl);
+          text = await res.text();
+          if (text.length > 400_000) text = `${text.slice(0, 400_000)}\n\n… truncated …`;
+        } catch {
+          text = '';
+        }
+      }
+      setPreview({ item: enriched, mode, objectUrl: blobUrl, text, loading: false, err: '' });
     } catch (e) {
-      setPreview({ item, objectUrl: null, loading: false, err: e?.message || 'Preview failed' });
+      setPreview({ item, mode, objectUrl: null, text: '', loading: false, err: e?.message || 'Preview failed' });
     }
   }
 
@@ -534,29 +607,82 @@ export default function ContentExplorer() {
             </div>
             {preview.loading && <p style={{ color: 'var(--muted)' }}>Loading preview…</p>}
             {preview.err && <p style={{ color: '#f87171' }}>{preview.err}</p>}
-            {preview.objectUrl && preview.item.kind === 'image' && (
+            {preview.objectUrl && preview.mode === 'image' && (
               <img
                 src={preview.objectUrl}
                 alt={preview.item.filename}
-                style={{ maxWidth: '100%', borderRadius: 8 }}
+                style={{ maxWidth: '100%', maxHeight: '75vh', borderRadius: 8, background: '#fff' }}
               />
             )}
-            {preview.objectUrl && preview.item.kind === 'audio' && (
+            {preview.objectUrl && preview.mode === 'audio' && (
               <audio controls src={preview.objectUrl} style={{ width: '100%' }} />
             )}
-            {preview.objectUrl && preview.item.kind === 'video' && (
+            {preview.objectUrl && preview.mode === 'video' && (
               <video controls src={preview.objectUrl} style={{ width: '100%', maxHeight: '70vh' }} />
             )}
-            {preview.objectUrl && !['image', 'audio', 'video'].includes(preview.item.kind) && (
+            {preview.objectUrl && preview.mode === 'pdf' && (
+              <iframe
+                title={preview.item.filename}
+                src={preview.objectUrl}
+                style={{
+                  width: '100%',
+                  height: 'min(75vh, 820px)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 8,
+                  background: '#fff',
+                }}
+              />
+            )}
+            {preview.objectUrl && preview.mode === 'html' && (
+              <iframe
+                title={preview.item.filename}
+                src={preview.objectUrl}
+                sandbox="allow-same-origin"
+                style={{
+                  width: '100%',
+                  height: 'min(75vh, 820px)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 8,
+                  background: '#fff',
+                }}
+              />
+            )}
+            {preview.mode === 'text' && preview.text != null && !preview.loading && !preview.err && (
+              <pre
+                style={{
+                  margin: 0,
+                  padding: '0.75rem',
+                  maxHeight: '70vh',
+                  overflow: 'auto',
+                  background: 'var(--bg, #0f1115)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 8,
+                  fontSize: '0.85rem',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                }}
+              >
+                {preview.text || '(empty)'}
+              </pre>
+            )}
+            {preview.objectUrl && preview.mode === 'download' && (
               <p style={{ color: 'var(--muted)' }}>
-                Preview not available for this type.{' '}
+                In-browser preview is not available for this type.{' '}
                 <a href={preview.objectUrl} download={preview.item.filename}>
                   Download
                 </a>
               </p>
             )}
+            {preview.objectUrl && preview.mode !== 'download' && (
+              <p style={{ marginTop: 10 }}>
+                <a href={preview.objectUrl} download={preview.item.filename} style={{ color: 'var(--accent)' }}>
+                  Download file
+                </a>
+              </p>
+            )}
             <p style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: 12 }}>
               {preview.item.relative_path}
+              {preview.mode ? ` · ${preview.mode}` : ''}
             </p>
           </div>
         </div>

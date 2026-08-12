@@ -85,7 +85,7 @@ export function resolveFetchUrl(path) {
 }
 
 /** Fetch authenticated binary (PDF, image) and return a blob object URL. Caller should revoke when done. */
-async function fetchBlobUrl(path) {
+async function fetchBlobUrl(path, opts = {}) {
   const url = resolveFetchUrl(path);
   const headers = {};
   if (_authToken) headers.Authorization = `Bearer ${_authToken}`;
@@ -94,10 +94,14 @@ async function fetchBlobUrl(path) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(err.error || res.statusText);
   }
-  // Preserve Content-Type so <audio>/<video> can play blob URLs (octet-stream often fails).
-  const ct = String(res.headers.get('content-type') || '')
+  // Preserve Content-Type so <audio>/<video>/<img>/<iframe> can play blob URLs (octet-stream often fails).
+  let ct = String(res.headers.get('content-type') || '')
     .split(';')[0]
     .trim();
+  const hint = String(opts.typeHint || opts.mime || '')
+    .split(';')[0]
+    .trim();
+  if ((!ct || ct === 'application/octet-stream') && hint) ct = hint;
   const buf = await res.arrayBuffer();
   const blob = ct ? new Blob([buf], { type: ct }) : new Blob([buf]);
   return URL.createObjectURL(blob);
@@ -464,7 +468,12 @@ export const api = {
     const path =
       item?.download_url ||
       `/api/workspace/content-explorer/download?kind=${encodeURIComponent(item?.source === 'generated' ? 'generated' : 'uploaded')}&path=${encodeURIComponent(item?.relative_path || '')}`;
-    return fetchBlobUrl(path.startsWith('/api/') ? path : `/api${path.startsWith('/') ? path : `/${path}`}`);
+    const typeHint =
+      (item?.mime_guess && item.mime_guess !== 'application/octet-stream' && item.mime_guess) ||
+      undefined;
+    return fetchBlobUrl(path.startsWith('/api/') ? path : `/api${path.startsWith('/') ? path : `/${path}`}`, {
+      typeHint,
+    });
   },
   /** Hard-delete selected items or all (body.all). Permanent disk delete. */
   contentExplorerDelete: (body) => post('/workspace/content-explorer/delete', body),

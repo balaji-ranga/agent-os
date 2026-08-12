@@ -18,7 +18,13 @@ Each row shows filename, kind (doc / image / audio / video), size, and optional 
 
 ## Preview, download, and delete
 
-- Click **View** to **preview** when the browser can play it (image / audio / video).
+- Click **View** to **preview** in the browser when possible:
+  - **Images** including **SVG**
+  - **PDF** (embedded viewer)
+  - **HTML** storyboards / pages (sandboxed)
+  - **Text** (`.txt`, `.md`, `.csv`, `.json`, …)
+  - **Audio** / **video**
+- Other types still offer **Download**.
 - Downloads use your logged-in session — files are **not** world-public.
 - Select rows → **Delete selected**, or **Delete all** (respects the Uploaded/Generated/All filter).
 - Delete is a **hard delete from disk** (workspace inbound + workflow-fs mirror for uploads; `media/generated/<you>/` for generated). There is **no** recycle bin or tmp staging.
