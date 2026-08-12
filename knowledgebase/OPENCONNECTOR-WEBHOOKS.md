@@ -10,7 +10,7 @@ OpenConnector runs as a **separate** service (Docker or Node). Agent OS register
    # or: docker compose --profile optional-openconnector up -d
    ```
 2. Configure env (`deploy/.env`): `OPENCONNECTOR_URL`, `OPENCONNECTOR_ADMIN_TOKEN`, `OPENCONNECTOR_ENCRYPTION_KEY`, `OPENCONNECTOR_PUBLIC_ORIGIN` / `OOMOL_CONNECT_ORIGIN`
-3. **CEO BYOA OAuth apps:** set `OOMOL_CONNECT_ALLOWED_CUSTOM_OAUTH=*` (or a provider list) on the `openconnector` service so `POST /api/oauth/authorizations` accepts per-connection `clientId`/`clientSecret`. Flolah stores CEO overrides in `openconnector_oauth_client_overrides` and passes them on Connect (help **16**).
+3. **CEO BYOA OAuth apps:** set `OOMOL_CONNECT_ALLOWED_CUSTOM_OAUTH=*` (or a provider list) on the `openconnector` service. Use image tag **`tip`** (`OPENCONNECTOR_IMAGE_TAG=tip`) — official `v1.3.5` / `:latest` ignores per-connection `clientId`. Flolah stores CEO overrides and passes them on Connect (help **16**).
 4. Seed MCP row: `node backend/scripts/seed-openconnector-mcp.js`
 5. Status: `GET /api/integrations/openconnector/status`
 6. Smoke override + HN: `docker compose exec -T backend node scripts/test-openconnector-oauth-override.js`
