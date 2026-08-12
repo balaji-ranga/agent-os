@@ -561,9 +561,16 @@ export function createGoalRun({
     throw err;
   }
 
-  const planned = Array.isArray(steps) && steps.length
+  const plannedRaw = Array.isArray(steps) && steps.length
     ? steps.map(normalizeStepSpec)
     : planGoalStepsFromText(prompt, {});
+  // Honor explicit "do not call notify_ceo" in CEO / scheduled prompts.
+  const planned = promptForbidsNotifyCeo(prompt)
+    ? plannedRaw.filter((s) => (s.type || s.step_type) !== 'notify_ceo')
+    : plannedRaw;
+  if (plannedRaw.length !== planned.length) {
+    console.info('[goal-run] stripped notify_ceo step(s) per prompt instruction');
+  }
 
   const id = `agr-${randomUUID().replace(/-/g, '').slice(0, 16)}`;
   db()
@@ -641,26 +648,76 @@ export function priorStepSummaries(goalRunId, beforeIndex = Infinity) {
     } else if (result?.body) {
       lines.push(`- ${label}: ${clip(result.body, 400)}`);
     } else if (s.step_type === 'agent_tool' && result) {
-      // Include multi-symbol / tool payload so agent_continue can synthesize like chat.
-      const payload =
-        result.multi_symbol && Array.isArray(result.results)
-          ? {
-              tool: result.tool_name || spec.tool_name,
-              multi_symbol: true,
-              symbols: result.symbols,
-              results: result.results,
-              errors: result.errors,
-            }
-          : result.result != null
-            ? { tool: result.tool_name || spec.tool_name, result: result.result }
-            : result;
-      lines.push(`- ${label} (tool): ${clip(JSON.stringify(payload), 3500)}`);
+      const tool = String(result.tool_name || spec.tool_name || '').trim();
+      const inner = result.result != null && typeof result.result === 'object' ? result.result : result;
+      // Never dump full status_checker JSON into email/notify fallbacks — HTML lives on the step result.
+      if (tool === 'status_checker' && (inner?.html || inner?.digest || inner?.counts)) {
+        const c = inner.counts || inner.digest?.counts || {};
+        lines.push(
+          `- ${label} (status_checker): awaiting=${c.awaiting_ceo ?? 0} failed=${c.failed ?? c.failed_1d ?? 0} ` +
+            `open=${c.open ?? 0} completed_1d=${c.completed_1d ?? 0}; HTML digest ready for email_send`
+        );
+      } else if (tool === 'this_week_digest' && (inner?.html || inner?.kpis)) {
+        lines.push(`- ${label} (this_week_digest): completed; HTML/KPI digest ready for email_send`);
+      } else {
+        const payload =
+          result.multi_symbol && Array.isArray(result.results)
+            ? {
+                tool: result.tool_name || spec.tool_name,
+                multi_symbol: true,
+                symbols: result.symbols,
+                results: result.results,
+                errors: result.errors,
+              }
+            : result.result != null
+              ? { tool: result.tool_name || spec.tool_name, result: result.result }
+              : result;
+        lines.push(`- ${label} (tool): ${clip(JSON.stringify(payload), 3500)}`);
+      }
     } else {
       lines.push(`- ${label}: completed`);
     }
     if (spec.phrase) lines[lines.length - 1] = `- [${spec.phrase}] ${lines[lines.length - 1].slice(2)}`;
   }
   return lines.join('\n');
+}
+
+/** Pull HTML/markdown digest from a prior status_checker / this_week_digest agent_tool step. */
+export function findPriorDigestForEmail(goalRunId, beforeIndex = Infinity) {
+  const steps = loadGoalSteps(goalRunId).filter(
+    (s) => s.status === 'completed' && s.step_index < beforeIndex
+  );
+  for (let i = steps.length - 1; i >= 0; i -= 1) {
+    const s = steps[i];
+    if (s.step_type !== 'agent_tool') continue;
+    const spec = parseJson(s.spec_json);
+    const result = parseJson(s.result_json);
+    const tool = String(result?.tool_name || spec?.tool_name || '').trim();
+    if (tool !== 'status_checker' && tool !== 'this_week_digest') continue;
+    const inner = result?.result != null && typeof result.result === 'object' ? result.result : result;
+    const html = String(inner?.html || result?.html || '').trim();
+    const markdown = String(inner?.markdown || result?.markdown || '').trim();
+    const counts = inner?.counts || inner?.digest?.counts || null;
+    if (html || markdown) {
+      return { tool, html: html || null, markdown: markdown || null, counts };
+    }
+  }
+  return null;
+}
+
+function promptForbidsNotifyCeo(prompt) {
+  return /\bdo\s+not\s+call\s+notify[_ ]?ceo\b|\bdon'?t\s+call\s+notify[_ ]?ceo\b|\bdo\s+not\s+notify(_ceo)?\b/i.test(
+    String(prompt || '')
+  );
+}
+
+function looksLikeGoalPlanDumpEmail(text) {
+  const t = String(text || '');
+  return (
+    /\bgoal_run_id:\s*agr-/i.test(t) ||
+    /\bCompleted steps:\s*\n-\s*.*\(tool\):/i.test(t) ||
+    (/\bGoal:\s*/i.test(t) && /\bstatus_checker\b/i.test(t) && /\{"ok":true/.test(t))
+  );
 }
 
 export function buildWorkflowInput(phase, goalRun, stepRow) {
@@ -952,10 +1009,31 @@ async function executeAgentToolStep(goal, step) {
       const ceoEmail = resolveCeoEmail(goal.owner_user_id);
       if (ceoEmail) args.to = ceoEmail;
     }
-    if (!args.subject) {
-      args.subject = clip(goal.title || 'Goal plan complete', 120);
-    }
-    if (!args.body && !args.text && !args.html) {
+    const digestMail = findPriorDigestForEmail(goal.id, step.step_index);
+    if (digestMail?.html || digestMail?.markdown) {
+      // Prefer the real status_checker / digest HTML — never the goal-plan dump.
+      if (!args.html && digestMail.html) args.html = digestMail.html;
+      if (!args.body && !args.text) {
+        args.body =
+          digestMail.markdown ||
+          (digestMail.html ? digestMail.html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : '');
+      }
+      if (!args.subject || /^goal plan complete$/i.test(String(args.subject)) || args.subject === clip(goal.title || '', 120)) {
+        const c = digestMail.counts || {};
+        const failedN = c.failed ?? c.failed_1d ?? 0;
+        const attention = c.needs_attention ?? (c.awaiting_ceo ?? 0) + failedN;
+        args.subject =
+          digestMail.tool === 'this_week_digest'
+            ? clip(goal.title || 'This Week Digest', 120)
+            : `COO Status Report — ${attention} need attention · ${failedN} failed · ${c.awaiting_ceo ?? 0} awaiting you`;
+      }
+      console.info('[goal-run] email_send using prior digest HTML', {
+        goalRunId: goal.id,
+        tool: digestMail.tool,
+        html_len: String(args.html || '').length,
+        body_len: String(args.body || '').length,
+      });
+    } else if (!args.body && !args.text && !args.html) {
       args.body = [
         goal.title ? 'Goal: ' + goal.title : '',
         'goal_run_id: ' + goal.id,
@@ -964,6 +1042,9 @@ async function executeAgentToolStep(goal, step) {
       ]
         .filter(Boolean)
         .join('\n');
+    }
+    if (!args.subject) {
+      args.subject = clip(goal.title || 'Goal plan complete', 120);
     }
   }
 
@@ -1001,6 +1082,26 @@ async function executeAgentToolStep(goal, step) {
     multiSymbols = resolved.symbols;
   } catch (e) {
     console.warn('[goal-run] tool arg resolve failed', toolName, e?.message || e);
+  }
+
+  // Re-assert digest HTML after LLM arg fill — models often paste the goal dump into body.
+  if (toolName === 'email_send') {
+    const digestMail = findPriorDigestForEmail(goal.id, step.step_index);
+    if (digestMail?.html || digestMail?.markdown) {
+      const bodyNow = String(args.body || args.text || '');
+      if (!args.html || looksLikeGoalPlanDumpEmail(bodyNow)) {
+        if (digestMail.html) args.html = digestMail.html;
+        args.body =
+          digestMail.markdown ||
+          (digestMail.html ? digestMail.html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : bodyNow);
+        if (looksLikeGoalPlanDumpEmail(String(args.subject || ''))) {
+          const c = digestMail.counts || {};
+          const failedN = c.failed ?? c.failed_1d ?? 0;
+          const attention = c.needs_attention ?? (c.awaiting_ceo ?? 0) + failedN;
+          args.subject = `COO Status Report — ${attention} need attention · ${failedN} failed · ${c.awaiting_ceo ?? 0} awaiting you`;
+        }
+      }
+    }
   }
 
   args.ceo_user_id = args.ceo_user_id || goal.owner_user_id;
@@ -1605,6 +1706,16 @@ export async function startGoalRunExecution(goalRunId, opts = {}) {
     }
 
     if (step.step_type === 'notify_ceo') {
+      if (promptForbidsNotifyCeo(goal.prompt)) {
+        console.info('[goal-run] skipping notify_ceo (prompt forbids)', { goalRunId: goal.id, stepId: step.id });
+        await completeGoalStep({
+          goalRunId: goal.id,
+          stepId: step.id,
+          ownerUserId: goal.owner_user_id,
+          result: { ok: true, skipped: true, reason: 'prompt_forbids_notify_ceo' },
+        });
+        return startGoalRunExecution(goalRunId, { ownerUserId: goal.owner_user_id });
+      }
       const result = await executeNotifyCeoStep(goal, step);
       await completeGoalStep({
         goalRunId: goal.id,
