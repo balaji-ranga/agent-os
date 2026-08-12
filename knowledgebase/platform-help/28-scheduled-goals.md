@@ -22,6 +22,8 @@ The COO uses `scheduled_goal_create` (and related tools) and confirms the schedu
 
 **Last run stuck on “running” / no COO reply?** Morning schedules claim `running` then call OpenClaw (or a durable `agent_goal_run`). If OpenClaw hangs or the backend restarts mid-flight, the row can stay `running` with no assistant chat turn. Platform tick now **reconciles** stuck runs (marks `ok` when the linked goal plan finished, or `error` after ~30 minutes with no plan). COO empty replies (“No response from OpenClaw.”) were also caused by stripped runtime tools (`sessions_history` / `read`) — fixed by always merging those into allowlists. Use **Run now** after a heal/deploy if today’s fire never produced a digest.
 
+**Do schedules block each other?** No. Each due scheduled goal is launched **independently in parallel** on the minute tick, with its **own OpenClaw session/context** for that agent (even when several goals target the same COO). A hung digest cannot delay a market report at 9:05, and long-running fires do not hold the cron (so later minutes still fire). Steps *inside* one goal still run in plan order.
+
 **How do multi-intent scheduled goals work?** Creating a schedule from the CEO UI first builds a **draft execution plan** (workflow steps, specialty tasks, notify). Review the step list, then **Amend plan manually** if intent→step mapping is wrong (or **Build plan manually** from empty). Optional regenerate-with-feedback re-plans via LLM. **Save draft**, then **Approve plan & schedule** to make it **active**. Until approved, status is **draft** and tick/Run now are blocked. COO/chat tools default to an approved plan so plain-language schedules still activate immediately.
 
 
@@ -58,7 +60,7 @@ Orchestration words (`agent_goal_create`, `notify_ceo`, “include the goal run 
 |------|-------------|----------------|
 | **Ad-hoc COO chat** | Yes (LLM) | Session history / MEMORY may quote an old `agr-...` and skip `agent_goal_create` unless the CEO asks for status/continue. Backend create always inserts a **new** row when the tool is called. |
 | **Scheduled goal fire (plan mode)** | **No LLM reuse of `agr-...`** | Each tick / Run now calls `createAndStartGoalRun` to a **new** `agr-...` every fire. If the schedule has an **approved** plan, the **step template** (`plan_json`) is reapplied; executions are still new. Cadence dedupe (`already_ran_this_hour` / today) skips a whole fire — not "same agr". |
-| **Scheduled goal fire (chat fallback)** | Possible (LLM) | If the fire does not use durable plan mode, OpenClaw chat uses a stable `sched-...` session; MEMORY/session reuse heuristics can apply. Prefer approve-plan schedules for multiphase CRM/ERP. |
+| **Scheduled goal fire (chat fallback)** | Isolated per fire | Each fire uses a unique `sched-{goal}-{run}` OpenClaw session (not shared with other schedules on the same agent). Prefer approve-plan schedules for multiphase CRM/ERP. |
 
 **Implication:** Daily/hourly multiphase schedules do **not** get stuck on yesterday's `agr-...` in plan mode. Ad-hoc chat still needs new-plan defaulting (COO AGENTS/SOUL). Clearing chat memory is for COO chat tests — not required for scheduled plan-mode fires.
 

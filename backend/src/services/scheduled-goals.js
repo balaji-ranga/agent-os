@@ -532,7 +532,12 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
   try { openclawId = ensureTenantOpenClawAgent(agent, ownerUserId).openclawAgentId; }
   catch (e) { console.warn(`[scheduled-goals] tenant ensure failed agent=${agent.id}:`, e.message); }
 
-  const sessionUser = openclaw.sessionUserFor(openclawId, ownerUserId, `sched-${id.slice(0, 12)}`);
+  // Per-fire OpenClaw session — never share across scheduled goals (even same agent/CEO).
+  const sessionUser = openclaw.sessionUserFor(
+    openclawId,
+    ownerUserId,
+    `sched-${String(id).replace(/^sg-/, '')}-${String(runId).replace(/^sgr-/, '').slice(0, 12)}`
+  );
 
   try {
     insertChatTurn({ agentId: agent.id, ownerUserId, role: 'user', content: `[Scheduled goal] ${row.title}\n\n${row.prompt}` });
@@ -647,14 +652,37 @@ export async function tickScheduledGoals(now = new Date()) {
   const rows = db().prepare(
     `SELECT g.* FROM scheduled_goals g INNER JOIN platform_users u ON u.id=g.owner_user_id AND u.enabled=1 WHERE g.status='active'`
   ).all();
-  const results = [];
-  for (const row of rows) {
-    if (!isGoalDueNow(row, now)) continue;
-    try { results.push(await runScheduledGoal(row.owner_user_id, row.id, { force: false })); }
-    catch (e) { results.push({ ok: false, goal_id: row.id, error: e.message }); }
+  const due = rows.filter((row) => isGoalDueNow(row, now));
+  if (!due.length) return { count: 0, results: [], launched: [] };
+
+  // Independent executions: start every due goal in parallel and do not await completion.
+  // A hung OpenClaw chat / long agent_tool chain on one schedule must not block siblings
+  // or hold the platform cron (which skips overlapping ticks while running).
+  const launched = [];
+  for (const row of due) {
+    launched.push({ goal_id: row.id, title: row.title, agent_id: row.agent_id, owner_user_id: row.owner_user_id });
+    void runScheduledGoal(row.owner_user_id, row.id, { force: false })
+      .then((r) => {
+        if (r?.skipped) {
+          console.info(
+            `[scheduled-goals] skipped id=${row.id} reason=${r.reason || 'skipped'}`
+          );
+          return;
+        }
+        console.info(
+          `[scheduled-goals] finished id=${row.id} ok=${!!r?.ok} mode=${r?.mode || (r?.error ? 'error' : 'done')}`
+        );
+      })
+      .catch((e) => {
+        console.error(`[scheduled-goals] async fail id=${row.id}:`, e?.message || e);
+      });
   }
-  if (results.length) console.log(`[scheduled-goals] tick fired ${results.length} goal(s)`);
-  return { count: results.length, results };
+  console.log(
+    `[scheduled-goals] tick launched ${launched.length} goal(s) in parallel (non-blocking): ${launched
+      .map((g) => g.goal_id)
+      .join(',')}`
+  );
+  return { count: launched.length, launched, async: true, results: [] };
 }
 
 /**

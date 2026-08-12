@@ -894,7 +894,8 @@ async function executeAgentContinueStep(goal, step) {
   const sessionUser = openclaw.sessionUserFor(
     openclawId,
     goal.owner_user_id,
-    `goal-${String(goal.id).slice(4, 16)}`
+    // Unique per agent_goal_run so concurrent scheduled goals on the same agent never share session.
+    `goalrun-${String(goal.id).replace(/^agr-/, '')}`
   );
 
   try {

@@ -720,7 +720,7 @@ registerPlatformCron({
   id: 'scheduled_goals',
   name: 'Scheduled goals',
   description:
-    'CEO scheduled prompts: fires active goals at time_local to the target AI employee. Paused/deleted goals never fire (DB status only; survives restarts).',
+    'CEO scheduled prompts: fires each due active goal independently in parallel (own OpenClaw session per fire). One hung goal never blocks siblings or the next minute tick. Paused/deleted goals never fire.',
   schedule: scheduledGoalsCron,
   envVar: 'SCHEDULED_GOALS_CRON',
   handler: async () => {
