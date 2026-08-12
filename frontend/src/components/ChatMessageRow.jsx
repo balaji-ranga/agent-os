@@ -32,8 +32,8 @@ export default function ChatMessageRow({
   agentName = null,
   agentAvatar = null,
 }) {
-  const label = roleLabel || (!isUser && agentName) || role;
   const isUser = role === 'user';
+  const label = roleLabel || (!isUser && agentName) || role;
   const chartUrls = !isUser ? collectChartUrlsFromToolCalls(toolCalls) : [];
   const mediaUrls = !isUser ? collectGeneratedMediaUrlsFromToolCalls(toolCalls) : [];
   const parsed =
