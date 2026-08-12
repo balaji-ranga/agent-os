@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { api } from '../api';
 import DepartmentPicker from './DepartmentPicker';
+import AgentAvatarPicker from './AgentAvatarPicker.jsx';
 
 /**
  * Hire a CEO-owned AI employee (OpenClaw agent under the tenant + org chart).
@@ -14,6 +15,7 @@ export default function AddAgentForm({ agents = [], onCreated, compact = false }
   const [tokenBudget, setTokenBudget] = useState('');
   const [errorBudget, setErrorBudget] = useState('');
   const [hourlyRate, setHourlyRate] = useState('10');
+  const [avatarImage, setAvatarImage] = useState('');
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -44,6 +46,7 @@ export default function AddAgentForm({ agents = [], onCreated, compact = false }
       error_budget_pct: errorBudget || null,
       hourly_rate_usd: hourlyRate === '' ? 10 : Number(hourlyRate),
       parent_id: parentId || coo?.id || undefined,
+      avatar_image: avatarImage || '',
     };
     api
       .agentCreate(body)
@@ -55,6 +58,7 @@ export default function AddAgentForm({ agents = [], onCreated, compact = false }
         setTokenBudget('');
         setErrorBudget('');
         setHourlyRate('10');
+        setAvatarImage('');
         setMessage(
           `"${agent.name}" hired` +
             (agent.department ? ` · ${agent.department}` : '') +
@@ -83,6 +87,7 @@ export default function AddAgentForm({ agents = [], onCreated, compact = false }
           aria-label="AI employee name"
           style={inputStyle}
         />
+        <AgentAvatarPicker value={avatarImage} name={name} onChange={setAvatarImage} size={48} />
         <input
           type="text"
           placeholder="Role (optional)"

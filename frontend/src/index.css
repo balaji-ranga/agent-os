@@ -585,7 +585,7 @@ html.auth-route #root {
 .agent-workspace-card-meta {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   gap: 0.5rem 0.75rem;
   min-width: 0;
   flex: 1;
@@ -3641,6 +3641,32 @@ body.wf-props-resizing .react-flow {
   background: linear-gradient(135deg, #0d9488, #059669);
   display: flex; align-items: center; justify-content: center;
   font-weight: 700; font-size: 1.1rem;
+}
+.mcp-pg-card-icon-avatar {
+  background: transparent;
+  padding: 0;
+  overflow: hidden;
+}
+.agent-avatar-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.agent-avatar-picker-label {
+  font-size: 0.85rem;
+  color: var(--text);
+}
+.agent-avatar-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.agent-avatar-picker-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 .mcp-pg-status {
   font-size: 0.65rem; text-transform: uppercase; font-weight: 700;

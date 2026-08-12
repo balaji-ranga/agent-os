@@ -9,6 +9,10 @@ import {
   handleA2AJsonRpc,
   issueA2AAccessToken,
 } from '../services/workflow-a2a-publish.js';
+import {
+  getAgentPublicationById,
+  handleAgentA2AJsonRpc,
+} from '../services/agent-a2a-publish.js';
 import { checkA2AClientIp } from '../services/workflow-a2a-access.js';
 import { clientIpFromRequest } from '../services/agent-workflow-desktop-auth.js';
 import {
@@ -37,19 +41,58 @@ function cardHandler(req, res) {
   try {
     const pub = getPublicationById(publishId);
     if (!pub) {
+      const agentPub = getAgentPublicationById(publishId);
+      if (!agentPub) {
+        logA2AInvocation({
+          publish_id: publishId,
+          client_ip: clientIp,
+          endpoint: 'card',
+          outcome: 'error',
+          reason_code: 'not_found',
+          reason_message: 'A2A agent not found',
+          http_status: 404,
+          latency_ms: Date.now() - started,
+          source: 'public',
+          response: { error: 'A2A agent not found' },
+        });
+        return res.status(404).json({ error: 'A2A agent not found' });
+      }
+      if (agentPub.visibility === 'flolah') {
+        const body = {
+          error: 'This agent is Flolah-only and is not available on the public internet',
+        };
+        logA2AInvocation({
+          publish_id: publishId,
+          owner_user_id: agentPub.owner_user_id,
+          agent_name: agentPub.name,
+          client_ip: clientIp,
+          endpoint: 'card',
+          outcome: 'denied',
+          reason_code: 'flolah_only',
+          reason_message: body.error,
+          http_status: 403,
+          latency_ms: Date.now() - started,
+          source: 'public',
+          response: body,
+        });
+        return res.status(403).json(body);
+      }
       logA2AInvocation({
         publish_id: publishId,
+        owner_user_id: agentPub.owner_user_id,
+        agent_name: agentPub.name,
         client_ip: clientIp,
         endpoint: 'card',
-        outcome: 'error',
-        reason_code: 'not_found',
-        reason_message: 'A2A agent not found',
-        http_status: 404,
+        outcome: 'success',
+        reason_code: 'card_ok',
+        reason_message: 'Agent card served',
+        http_status: 200,
         latency_ms: Date.now() - started,
         source: 'public',
-        response: { error: 'A2A agent not found' },
       });
-      return res.status(404).json({ error: 'A2A agent not found' });
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      return res.json(agentPub.agent_card);
     }
     const ctx = publicationLogContext(pub);
     const ipAccess = checkA2AClientIp(pub, clientIp);
@@ -144,24 +187,33 @@ router.post(
     try {
       const pub = getPublicationById(publishId);
       if (!pub) {
-        const body = {
-          error: 'invalid_client',
-          error_description: 'A2A agent not found',
-        };
+        const agentPub = getAgentPublicationById(publishId);
+        const body = agentPub
+          ? {
+              error: 'invalid_request',
+              error_description:
+                agentPub.visibility === 'flolah'
+                  ? 'This agent is Flolah-only and is not available on the public internet'
+                  : 'This published AI employee does not use OAuth',
+            }
+          : {
+              error: 'invalid_client',
+              error_description: 'A2A agent not found',
+            };
         logA2AInvocation({
           publish_id: publishId,
           client_ip: clientIp,
           endpoint: 'oauth_token',
           outcome: 'error',
-          reason_code: 'not_found',
-          reason_message: 'A2A agent not found',
-          http_status: 404,
+          reason_code: agentPub ? 'no_oauth' : 'not_found',
+          reason_message: body.error_description,
+          http_status: agentPub ? 400 : 404,
           latency_ms: Date.now() - started,
           source: 'public',
           request: reqSnap,
           response: body,
         });
-        return res.status(404).json(body);
+        return res.status(agentPub ? 400 : 404).json(body);
       }
       const ctx = publicationLogContext(pub);
       const ipAccess = checkA2AClientIp(pub, clientIp);
@@ -259,6 +311,84 @@ router.post('/:publishId', async (req, res) => {
   const authHeader = req.headers.authorization || req.headers['x-a2a-auth'] || null;
   const body = req.body && typeof req.body === 'object' ? req.body : {};
   const pub = getPublicationById(publishId);
+  if (!pub) {
+    const agentPub = getAgentPublicationById(publishId);
+    try {
+      if (!agentPub) {
+        const errBody = {
+          jsonrpc: '2.0',
+          id: body?.id ?? null,
+          error: { code: -32001, message: 'A2A agent not found' },
+        };
+        logA2AInvocation({
+          publish_id: publishId,
+          client_ip: clientIp,
+          endpoint: 'invoke',
+          rpc_method: body?.method || null,
+          outcome: 'error',
+          reason_code: 'not_found',
+          reason_message: 'A2A agent not found',
+          http_status: 404,
+          latency_ms: Date.now() - started,
+          source: 'public',
+          request: body,
+          response: errBody,
+        });
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        return res.status(404).json(errBody);
+      }
+      const out = await handleAgentA2AJsonRpc(publishId, body, { bypassAccessChecks: false });
+      const httpStatus =
+        out.error?.code === -32001
+          ? 404
+          : out.error?.code === -32005
+            ? 403
+            : out.error
+              ? 400
+              : 200;
+      logA2AInvocation({
+        publish_id: publishId,
+        owner_user_id: agentPub.owner_user_id,
+        agent_name: agentPub.name,
+        client_ip: clientIp,
+        endpoint: 'invoke',
+        rpc_method: body?.method || null,
+        outcome: out.error ? (httpStatus === 403 ? 'denied' : 'error') : 'success',
+        reason_code: out.error ? String(out.error.code) : 'invoke_ok',
+        reason_message: out.error?.message || 'invoke ok',
+        http_status: httpStatus,
+        jsonrpc_code: out.error?.code ?? null,
+        jsonrpc_id: out.id != null ? String(out.id) : body?.id != null ? String(body.id) : null,
+        latency_ms: Date.now() - started,
+        source: 'public',
+        request: body,
+        response: out.error || { listing_kind: 'agent' },
+      });
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      return res.status(httpStatus).json(out);
+    } catch (e) {
+      const errBody = {
+        jsonrpc: '2.0',
+        id: body?.id ?? null,
+        error: { code: -32603, message: e.message },
+      };
+      logA2AInvocation({
+        publish_id: publishId,
+        client_ip: clientIp,
+        endpoint: 'invoke',
+        outcome: 'error',
+        reason_code: 'exception',
+        reason_message: e.message,
+        http_status: 500,
+        latency_ms: Date.now() - started,
+        source: 'public',
+        request: body,
+        response: errBody,
+      });
+      return res.status(500).json(errBody);
+    }
+  }
   const ctx = publicationLogContext(pub);
   try {
     const out = await handleA2AJsonRpc(publishId, body, {

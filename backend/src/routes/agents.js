@@ -18,6 +18,12 @@ import * as workspace from '../workspace/adapter.js';
 import { normalizeReplyContent } from '../services/delegation-queue.js';
 import { mirrorChatMediaToInbound } from '../services/inbound-attachments.js';
 import { createFullAgent } from '../services/create-full-agent.js';
+import { normalizeAgentAvatar } from '../lib/agent-avatar.js';
+import {
+  getPublicationForAgent,
+  publishAgentToExchange,
+  unpublishAgentByWorkspaceAgent,
+} from '../services/agent-a2a-publish.js';
 import { deleteAgentCascade } from '../services/agent-delete.js';
 import { log } from '../utils/logger.js';
 import { ensureManagedBrowserReady } from '../services/job-browser-auth.js';
@@ -487,6 +493,7 @@ router.post('/', requireAuth, requireCeoOrAdmin, async (req, res) => {
       error_budget_pct,
       hourly_rate_usd,
       hourlyRateUsd,
+      avatar_image,
     } = req.body || {};
     let ownerUserId = null;
     if (req.authUser.role === 'ceo') {
@@ -513,10 +520,44 @@ router.post('/', requireAuth, requireCeoOrAdmin, async (req, res) => {
       monthly_token_budget: monthly_token_budget ?? null,
       error_budget_pct: error_budget_pct ?? null,
       hourly_rate_usd: hourly_rate_usd ?? hourlyRateUsd ?? null,
+      avatar_image: avatar_image || '',
     });
     res.status(201).json(row);
   } catch (e) {
     res.status(400).json({ error: e.message });
+  }
+});
+
+router.get('/:id/a2a-publication', requireAuth, requireCeoOrAdmin, (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.query || {});
+    assertUserAgentAccess(req.authUser, req.params.id);
+    const pub = getPublicationForAgent(req.params.id, ownerUserId);
+    if (!pub) return res.status(404).json({ error: 'No Agent Exchange publication for this AI employee' });
+    res.json(pub);
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+router.post('/:id/publish-a2a', requireAuth, requireCeoOrAdmin, (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.body || {});
+    assertUserAgentAccess(req.authUser, req.params.id);
+    const pub = publishAgentToExchange(ownerUserId, req.params.id, req.body || {});
+    res.status(201).json(pub);
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message });
+  }
+});
+
+router.delete('/:id/a2a-publication', requireAuth, requireCeoOrAdmin, (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.query || {});
+    assertUserAgentAccess(req.authUser, req.params.id);
+    res.json(unpublishAgentByWorkspaceAgent(ownerUserId, req.params.id));
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message });
   }
 });
 
@@ -537,16 +578,11 @@ router.patch('/:id', requireAuth, requireCeoOrAdmin, (req, res) => {
       updates.avatar_image = '';
     }
     if (updates.avatar_image !== undefined && updates.avatar_image !== null && updates.avatar_image !== '') {
-      const img = String(updates.avatar_image).trim();
-      if (img.length > 900_000) {
-        return res.status(400).json({ error: 'Agent avatar is too large (max ~650KB)' });
+      try {
+        updates.avatar_image = normalizeAgentAvatar(updates.avatar_image);
+      } catch (avatarErr) {
+        return res.status(400).json({ error: avatarErr.message });
       }
-      if (!/^data:image\/(png|jpe?g|webp|gif);base64,/i.test(img) && !/^https?:\/\//i.test(img)) {
-        return res
-          .status(400)
-          .json({ error: 'Agent avatar must be a data URL (png/jpeg/webp/gif) or https URL' });
-      }
-      updates.avatar_image = img;
     }
     if (updates.hourly_rate_usd !== undefined && updates.hourly_rate_usd !== null && updates.hourly_rate_usd !== '') {
       const n = Number(updates.hourly_rate_usd);

@@ -8,6 +8,7 @@ import {
   buildA2ATestSample,
 } from '../utils/a2aTestSample';
 import AddToOrgDialog from '../components/AddToOrgDialog';
+import RobotAvatar from '../components/RobotAvatar.jsx';
 
 /** Inline ⋯ menu for AgentExchange card actions (keeps the card uncluttered). */
 function CardActionsMenu({ items }) {
@@ -195,6 +196,48 @@ function CallbackTip({ agent }) {
         </>
       }
       sample={sample}
+    />
+  );
+}
+
+function PublishInfoTip({ agent }) {
+  const published = agent?.published_at
+    ? new Date(String(agent.published_at).includes('T') ? agent.published_at : `${agent.published_at}Z`)
+    : null;
+  const dateLabel =
+    published && !Number.isNaN(published.getTime())
+      ? published.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+      : agent?.published_at || 'Unknown';
+  const kind = agent?.listing_kind === 'agent' ? 'AI employee' : 'Workflow A2A';
+  const vis =
+    agent?.listing_kind === 'agent'
+      ? agent.visibility === 'public'
+        ? 'Public (internet A2A)'
+        : 'Flolah (in-app only)'
+      : agent?.visibility === 'private'
+        ? 'Private (org only)'
+        : 'Public';
+  return (
+    <JsonSampleTip
+      title="Listing info"
+      ariaLabel="Published by and date"
+      note={
+        <>
+          <strong>{kind}</strong>
+          <br />
+          Published by {agent?.owner_name || agent?.owner_email || 'Unknown'}
+          <br />
+          Published {dateLabel}
+          <br />
+          Visibility: {vis}
+        </>
+      }
+      sample={{
+        listing_kind: agent?.listing_kind || 'workflow',
+        published_by: agent?.owner_name || agent?.owner_email || null,
+        published_at: agent?.published_at || null,
+        visibility: agent?.visibility || null,
+      }}
     />
   );
 }
@@ -744,9 +787,12 @@ function PublishedAgentCard({
   const [busyOrg, setBusyOrg] = useState(false);
 
   const unpublish = async () => {
+    const isAgent = a.listing_kind === 'agent';
     if (
       !window.confirm(
-        `Unpublish "${a.name}"? Its public card, invoke, token and enquiry endpoints will stop immediately. The workflow remains published for authenticated UI/API use.`
+        isAgent
+          ? `Unpublish "${a.name}" from Agent Exchange? Public A2A (if any) stops immediately. Importers keep their copies. Your AI employee stays in your workspace.`
+          : `Unpublish "${a.name}"? Its public card, invoke, token and enquiry endpoints will stop immediately. The workflow remains published for authenticated UI/API use.`
       )
     ) {
       return;
@@ -781,11 +827,17 @@ function PublishedAgentCard({
     }
   };
 
+  const isAgentListing = a.listing_kind === 'agent';
+  const alreadyImported = !!a.imported_agent_id;
+  const canAddToOrg = isAgentListing ? !!a.can_add_to_org && !alreadyImported : !!a.can_manage;
+  const canTest = a.can_test !== false;
+
   const menuItems = [
     {
       id: 'copy-ep',
       label: copied === `${a.id}-ep` ? 'Copied endpoint' : 'Copy endpoint',
       onClick: () => onCopy(a.endpoint_url, `${a.id}-ep`),
+      hidden: isAgentListing && a.visibility === 'flolah',
     },
     {
       id: 'copy-card',
@@ -804,13 +856,16 @@ function PublishedAgentCard({
       id: 'test',
       label: panel === 'test' ? 'Close test' : 'Test agent',
       onClick: () => setPanel((p) => (p === 'test' ? null : 'test')),
+      hidden: !canTest,
     },
     {
       id: 'org',
-      label: orgMember ? 'Edit org placement' : 'Add to org',
-      hidden: !a.can_manage,
+      label: alreadyImported ? 'Already in workspace' : orgMember ? 'Edit org placement' : 'Add to org',
+      hidden: isAgentListing ? !canAddToOrg && !alreadyImported : !a.can_manage,
+      disabled: alreadyImported,
       onClick: () =>
         onOrgDialog({
+          kind: isAgentListing ? 'agent_publish' : 'a2a_publish',
           refId: a.id,
           defaultName: a.name,
           defaultPurpose: a.description || '',
@@ -818,16 +873,22 @@ function PublishedAgentCard({
         }),
     },
     {
+      id: 'open-imported',
+      label: 'Open in workspace',
+      href: alreadyImported ? `/agents/${encodeURIComponent(a.imported_agent_id)}/workspace` : undefined,
+      hidden: !alreadyImported,
+    },
+    {
       id: 'org-remove',
       label: busyOrg ? 'Removing…' : 'Remove from org',
-      hidden: !a.can_manage || !orgMember,
+      hidden: !a.can_manage || !orgMember || isAgentListing,
       disabled: busyOrg,
       onClick: removeFromOrg,
     },
     {
       id: 'security',
       label: panel === 'security' ? 'Close security' : 'Security',
-      hidden: !a.can_manage,
+      hidden: !a.can_manage || isAgentListing,
       onClick: () => setPanel((p) => (p === 'security' ? null : 'security')),
     },
     {
@@ -843,53 +904,78 @@ function PublishedAgentCard({
   return (
     <article className="mcp-pg-card" style={{ cursor: 'default' }}>
       <div className="mcp-pg-card-head">
-        <div className="mcp-pg-card-icon">{a.name?.charAt(0)?.toUpperCase() || 'A'}</div>
+        <div className="mcp-pg-card-icon mcp-pg-card-icon-avatar">
+          {isAgentListing ? (
+            <RobotAvatar src={a.avatar_image} name={a.name} size={40} />
+          ) : (
+            a.name?.charAt(0)?.toUpperCase() || 'A'
+          )}
+        </div>
         <div className="mcp-pg-card-head-end">
           <div className="mcp-pg-card-badges">
             <span className="mcp-pg-status mcp-pg-status-healthy">published</span>
-            <span className="mcp-pg-transport">A2A</span>
-            {asyncMode ? (
+            <span className="mcp-pg-transport">{isAgentListing ? 'AI employee' : 'A2A'}</span>
+            {isAgentListing ? (
+              a.visibility === 'public' ? (
+                <span className="mcp-pg-tag mine">Public</span>
+              ) : (
+                <span className="mcp-pg-tag platform">Flolah</span>
+              )
+            ) : asyncMode ? (
               <span className="mcp-pg-tag platform" title="Async invoke">
                 Async
               </span>
             ) : (
               <span className="mcp-pg-tag mine">Sync</span>
             )}
-            {(a.auth_mode === 'secured' || a.has_auth) && (
+            {(a.auth_mode === 'secured' || a.has_auth) && !isAgentListing && (
               <span className="mcp-pg-tag platform">Secured</span>
             )}
-            {a.auth_mode !== 'secured' && !a.has_auth && (
+            {a.auth_mode !== 'secured' && !a.has_auth && !isAgentListing && (
               <span className="mcp-pg-tag mine">Public auth</span>
             )}
-            {a.visibility === 'private' ? (
-              <span className="mcp-pg-tag platform">Private</span>
-            ) : (
-              <span className="mcp-pg-tag mine">Listed</span>
+            {!isAgentListing && (
+              <>
+                {a.visibility === 'private' ? (
+                  <span className="mcp-pg-tag platform">Private</span>
+                ) : (
+                  <span className="mcp-pg-tag mine">Listed</span>
+                )}
+                <span
+                  className={`mcp-pg-tag ${
+                    a.visibility === 'private'
+                      ? 'platform'
+                      : (a.access_policy || 'deny_all') === 'allow_all'
+                        ? 'mine'
+                        : 'platform'
+                  }`}
+                >
+                  {a.visibility === 'private'
+                    ? 'Org only'
+                    : (a.access_policy || 'deny_all') === 'allow_all'
+                      ? 'Allow all IPs'
+                      : (a.access_policy || 'deny_all') === 'whitelist'
+                        ? 'IP whitelist'
+                        : 'Deny all IPs'}
+                </span>
+              </>
             )}
-            <span
-              className={`mcp-pg-tag ${
-                a.visibility === 'private'
-                  ? 'platform'
-                  : (a.access_policy || 'deny_all') === 'allow_all'
-                    ? 'mine'
-                    : 'platform'
-              }`}
-            >
-              {a.visibility === 'private'
-                ? 'Org only'
-                : (a.access_policy || 'deny_all') === 'allow_all'
-                  ? 'Allow all IPs'
-                  : (a.access_policy || 'deny_all') === 'whitelist'
-                    ? 'IP whitelist'
-                    : 'Deny all IPs'}
-            </span>
           </div>
+          <PublishInfoTip agent={a} />
           <CardActionsMenu items={menuItems} />
         </div>
       </div>
       <h3>{a.name}</h3>
       <p className="mcp-pg-card-desc">{a.description || 'No description'}</p>
-      <code className="mcp-pg-card-url">{a.endpoint_url}</code>
+      {!(isAgentListing && a.visibility === 'flolah') && (
+        <code className="mcp-pg-card-url">{a.endpoint_url}</code>
+      )}
+      {isAgentListing && a.visibility === 'flolah' && (
+        <p className="mcp-pg-card-desc">Flolah listing — add to org to use in your workspace. Not callable on the public internet.</p>
+      )}
+      {alreadyImported && (
+        <p className="mcp-pg-card-desc">In your Agent Workspace as a hired AI employee.</p>
+      )}
       <div className="mcp-pg-card-meta">
         <span>by {a.owner_name || 'Unknown'}</span>
         {a.workflow_name && <span>{a.workflow_name}</span>}
@@ -942,7 +1028,7 @@ function PublishedAgentCard({
         </div>
       )}
       <AgentTestPanel agent={a} open={panel === 'test'} onClose={() => setPanel(null)} />
-      {a.can_manage && (
+      {a.can_manage && a.listing_kind !== 'agent' && (
         <AgentAccessControls
           agent={a}
           open={panel === 'security'}
@@ -1010,6 +1096,8 @@ export default function AgentExchange() {
         a.owner_name,
         a.owner_email,
         a.workflow_name,
+        a.listing_kind,
+        a.visibility,
         a.skill_id,
         a.endpoint_url,
         a.invoke_mode,
@@ -1047,11 +1135,13 @@ export default function AgentExchange() {
           </button>
         </div>
         <p className="page-hero-sub">
-          Browse all published A2A agent cards across the platform — workflows exposed as{' '}
+          Browse published <strong>AI employees</strong> (Flolah or Public) and workflow A2A cards.
+          Publish an employee from <Link to="/workspace">AI Employees</Link>. Workflow A2A still uses{' '}
+          <strong>Publish A2A</strong> in the editor. Public AI employees are callable as{' '}
           <a href="https://a2a-protocol.org/" target="_blank" rel="noreferrer">
-            A2A-compliant
-          </a>{' '}
-          agents. Use their endpoints in workflow <strong>External Agent (A2A)</strong> nodes or external A2A clients.
+            A2A
+          </a>
+          ; Flolah listings are in-app only — Add to org imports them into your workspace.
         </p>
       </header>
 
@@ -1096,9 +1186,10 @@ export default function AgentExchange() {
           </div>
           {!filtered.length && (
             <div className="mcp-pg-empty">
-              <p>{agents.length ? 'No published agents match your search.' : 'No A2A agents published yet.'}</p>
+              <p>{agents.length ? 'No published agents match your search.' : 'No agents published yet.'}</p>
               <p style={{ fontSize: '0.9rem', color: 'var(--muted)' }}>
-                Open a published workflow and use <strong>Publish A2A</strong> to list it here.
+                Publish an AI employee from <strong>AI Employees</strong>, or open a published workflow and use{' '}
+                <strong>Publish A2A</strong>.
               </p>
               <Link to="/workflows" className="mcp-pg-btn-primary" style={{ display: 'inline-block', textDecoration: 'none' }}>
                 Go to Workflows
@@ -1110,7 +1201,7 @@ export default function AgentExchange() {
 
       {orgDialog && (
         <AddToOrgDialog
-          kind="a2a_publish"
+          kind={orgDialog.kind || 'a2a_publish'}
           refId={orgDialog.refId}
           defaultName={orgDialog.defaultName}
           defaultPurpose={orgDialog.defaultPurpose}

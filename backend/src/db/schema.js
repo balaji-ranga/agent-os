@@ -2078,6 +2078,19 @@ export function initDb() {
     _db.exec(`ALTER TABLE agents ADD COLUMN avatar_image TEXT DEFAULT ''`);
   } catch (_) {}
 
+  /** How this AI employee was created: hired | imported_agent (from Agent Exchange). */
+  try {
+    _db.exec(`ALTER TABLE agents ADD COLUMN source_kind TEXT DEFAULT 'hired'`);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE agents ADD COLUMN source_publish_id TEXT DEFAULT ''`);
+  } catch (_) {}
+  try {
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_agents_source_publish ON agents(owner_user_id, source_publish_id)`
+    );
+  } catch (_) {}
+
   /** USD hourly value rate for Digest Est. Value (hire default 10). */
   try {
     _db.exec(`ALTER TABLE agents ADD COLUMN hourly_rate_usd REAL DEFAULT 10`);
@@ -2377,6 +2390,44 @@ export function initDb() {
         updated_at TEXT DEFAULT (datetime('now'))
       )
     `);
+  } catch (_) {}
+
+  /**
+   * AI employees published to Agent Exchange (separate from workflow A2A).
+   * visibility: public (internet A2A) | flolah (in-app Exchange only).
+   */
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS agent_a2a_publications (
+        id TEXT PRIMARY KEY,
+        agent_id TEXT NOT NULL,
+        owner_user_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        avatar_image TEXT DEFAULT '',
+        visibility TEXT NOT NULL DEFAULT 'flolah',
+        auth_mode TEXT NOT NULL DEFAULT 'public',
+        access_policy TEXT NOT NULL DEFAULT 'allow_all',
+        status TEXT NOT NULL DEFAULT 'published',
+        skill_id TEXT DEFAULT 'chat',
+        published_at TEXT,
+        unpublished_at TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_agent_a2a_pub_owner
+       ON agent_a2a_publications(owner_user_id, status, published_at DESC)`
+    );
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_agent_a2a_pub_agent
+       ON agent_a2a_publications(agent_id, status)`
+    );
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_agent_a2a_pub_listed
+       ON agent_a2a_publications(status, visibility, published_at DESC)`
+    );
   } catch (_) {}
 
   return _db;

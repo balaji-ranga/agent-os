@@ -29,7 +29,7 @@ Prefer the **COO** for work that should be planned or handed to a specialist. Va
 ## Chat (`/` home or `/agents/:id/chat`)
 
 1. Home (`/`) opens chat with the **COO by default**; use the **Chat with** picker for other agents. Home may show **OEI** (operational effectiveness 0–100) and related KPI chips — score is rules-only for your CEO scope; full explainability and goal-run KPIs: [36-operational-effectiveness.md](./36-operational-effectiveness.md). **My Org** (`/org`) has the org chart and standups.
-2. Type plain language and send. Use the **paperclip** to attach documents, images, audio, or video (size limits apply; ~40MB class). Attachments are stored as Master Data documents and mirrored under workspace **`inbound/attachments/`** so tools like `speech_stt` can use the path. Agent replies render common **markdown** in the web chat (bold, italics, lists, headings, `code`, links) — the same markup WhatsApp understands.
+2. Type plain language and send. Use the **paperclip** to attach documents, images, audio, or video (size limits apply; ~40MB class). Attachments are stored as Master Data documents and mirrored under workspace **`inbound/attachments/`** so tools like `speech_stt` can use the path. Agent replies render common **markdown** in the web chat (bold, italics, lists, headings, `code`, links) — the same markup WhatsApp understands. Each assistant turn shows the employee **icon + name**.
 3. **History** and **Browser session** side panes are **hidden by default**. Use the clock (history) and window (browser session) icons next to **New chat** to open or close them.
 4. **Tool icons** under replies show which tools ran for that turn: **Agent OS content tools** (Master Data, notify, email, workflows, `speech_tts`, `generate_image`, `market_history`, …) **and native OpenClaw tools** when they appear in the agent session transcript (`browser`, `image`, `cron`). Expand a chip to see request/response (large browser payloads are truncated).
 5. **Generated media plays inline** while you are logged in: images, audio (TTS), and video use authenticated fetch (not a public link). Bare `/api/media` URLs without a session return 401.
@@ -47,7 +47,9 @@ Tips:
 - WhatsApp / Slack: configure **Channels** on the agent (`/agents/:id/channels`).
 ## Agent Workspaces (`/workspace` → `/agents/:id/workspace`)
 
-**Add agent** — creates a full OpenClaw tenant agent for your CEO account (custom agent), with workspace files and default tool grants. Optionally set a **monthly token budget** and **error budget %** at creation (see [18-agent-budgets-and-org-members.md](./18-agent-budgets-and-org-members.md)).
+**Add agent / Hire AI employee** — creates a full OpenClaw tenant agent for your CEO account (custom agent), with workspace files and default tool grants. Optionally set a **monthly token budget** and **error budget %** at creation (see [18-agent-budgets-and-org-members.md](./18-agent-budgets-and-org-members.md)). Choose an **icon or image** (default robot icon if none). The same icon shows in chat (next to the employee name), Agent Workspace, and Agent Exchange.
+
+**Publish to Agent Exchange** — from the employee list or workspace, publish as **Flolah** (other Flolah CEOs can Add to org → imported into their workspace + org) or **Public** (internet A2A). Unpublish from the same modal or Exchange **⋯**. Workflow A2A publish is separate and unchanged — see [09-a2a-agent-exchange.md](./09-a2a-agent-exchange.md).
 
 Edit personality and operating docs:
 

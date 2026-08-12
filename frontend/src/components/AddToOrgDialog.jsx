@@ -6,7 +6,7 @@ import DepartmentPicker from './DepartmentPicker.jsx';
  * Place an external agent or published A2A workflow in the org chart as a leaf member.
  * Leaf members always report to an internal agent and never manage others.
  *
- * @param {{ kind: 'external'|'a2a_publish', refId: string, defaultName?: string,
+ * @param {{ kind: 'external'|'a2a_publish'|'agent_publish', refId: string, defaultName?: string,
  *           defaultPurpose?: string, existing?: object|null, onClose: Function, onSaved?: Function }} props
  */
 export default function AddToOrgDialog({
@@ -53,16 +53,27 @@ export default function AddToOrgDialog({
     setSaving(true);
     setError(null);
     try {
-      await api.orgMemberUpsert({
-        kind,
-        ref_id: refId,
-        display_name: displayName.trim() || defaultName,
-        purpose: purpose.trim(),
-        department,
-        parent_id: parentId,
-        monthly_token_budget: tokenBudget || null,
-        error_budget_pct: errorBudget || null,
-      });
+      if (kind === 'agent_publish') {
+        await api.agentExchangeAddToOrg(refId, {
+          display_name: displayName.trim() || defaultName,
+          purpose: purpose.trim(),
+          department,
+          parent_id: parentId,
+          monthly_token_budget: tokenBudget || null,
+          error_budget_pct: errorBudget || null,
+        });
+      } else {
+        await api.orgMemberUpsert({
+          kind,
+          ref_id: refId,
+          display_name: displayName.trim() || defaultName,
+          purpose: purpose.trim(),
+          department,
+          parent_id: parentId,
+          monthly_token_budget: tokenBudget || null,
+          error_budget_pct: errorBudget || null,
+        });
+      }
       onSaved?.();
       onClose?.();
     } catch (err) {
@@ -82,8 +93,9 @@ export default function AddToOrgDialog({
           </button>
         </div>
         <p className="mcp-pg-card-desc">
-          This agent joins your org chart as a leaf member: it gets a department and reports to an
-          internal agent, and the COO can delegate matching work to it. It cannot manage other agents.
+          {kind === 'agent_publish'
+            ? 'This AI employee is copied into your Agent Workspace and placed in your org (department + reports-to). You can chat with it like any hired employee.'
+            : 'This agent joins your org chart as a leaf member: it gets a department and reports to an internal agent, and the COO can delegate matching work to it. It cannot manage other agents.'}
         </p>
         {error && <div className="mcp-pg-alert mcp-pg-alert-error">{error}</div>}
         <label className="mcp-pg-field">

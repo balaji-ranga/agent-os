@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { ensureDepartmentsTable, loadDepartments, addDepartment } from '../utils/departmentsMasterData.js';
 import { DEPARTMENT_PRESETS, mapOrgLeafMembersToAgents } from '../utils/orgHierarchy.js';
+import AgentAvatarPicker from './AgentAvatarPicker.jsx';
 
 /**
  * Visual org designer: department columns, drag-drop agents, create dept / add agent.
@@ -28,6 +29,7 @@ export default function OrgDesigner({
     monthly_token_budget: '',
     error_budget_pct: '',
     hourly_rate_usd: '10',
+    avatar_image: '',
   });
   const [dragId, setDragId] = useState(null);
 
@@ -121,6 +123,7 @@ export default function OrgDesigner({
         monthly_token_budget: draft.monthly_token_budget || null,
         error_budget_pct: draft.error_budget_pct || null,
         hourly_rate_usd: draft.hourly_rate_usd === '' ? 10 : Number(draft.hourly_rate_usd),
+        avatar_image: draft.avatar_image || '',
       });
       setShowAdd(false);
       setDraft({
@@ -131,6 +134,7 @@ export default function OrgDesigner({
         monthly_token_budget: '',
         error_budget_pct: '',
         hourly_rate_usd: '10',
+        avatar_image: '',
       });
       await onChanged?.();
       flash(`Agent “${draft.name.trim()}” created`);
@@ -404,6 +408,11 @@ export default function OrgDesigner({
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--muted)' }}>
               Creates a digital employee in your company (isolated — not shared with other CEOs).
             </p>
+            <AgentAvatarPicker
+              value={draft.avatar_image}
+              name={draft.name}
+              onChange={(avatar_image) => setDraft((d) => ({ ...d, avatar_image }))}
+            />
             <label style={{ fontSize: '0.85rem' }}>
               Name
               <input

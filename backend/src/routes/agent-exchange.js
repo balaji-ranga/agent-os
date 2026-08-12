@@ -12,6 +12,13 @@ import {
   unpublishA2APublicationById,
 } from '../services/workflow-a2a-publish.js';
 import {
+  getAgentPublicationById,
+  handleAgentA2AJsonRpc,
+  importPublishedAgentToOrg,
+  listPublishedAgentListings,
+  unpublishAgentPublication,
+} from '../services/agent-a2a-publish.js';
+import {
   addA2AIpWhitelistEntry,
   getA2AAccessSettings,
   removeA2AIpWhitelistEntry,
@@ -60,22 +67,44 @@ router.get('/', (req, res) => {
     const ownerUserId = entitledOwnerUserId(req);
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
     const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
-    const page = listAllPublishedA2AAgents({
+    const wfList = listAllPublishedA2AAgents({
       includePrivateForOwnerId: ownerUserId,
+    });
+    const workflows = (Array.isArray(wfList) ? wfList : wfList.agents || []).map((agent) => {
+      const can_manage = !!ownerUserId && agent.owner_user_id === ownerUserId;
+      return {
+        ...agent,
+        listing_kind: 'workflow',
+        can_manage,
+        can_add_to_org: can_manage,
+        can_test: true,
+        imported_agent_id: null,
+      };
+    });
+    const agentsList = listPublishedAgentListings({ viewerOwnerId: ownerUserId }).map((agent) => {
+      const can_manage = !!ownerUserId && agent.owner_user_id === ownerUserId;
+      return {
+        ...agent,
+        listing_kind: 'agent',
+        can_manage,
+        can_add_to_org: !can_manage,
+        can_test: agent.visibility === 'public' || can_manage,
+      };
+    });
+    const merged = [...workflows, ...agentsList].sort((a, b) => {
+      const ta = String(a.published_at || a.created_at || '');
+      const tb = String(b.published_at || b.created_at || '');
+      if (ta === tb) return String(a.name || '').localeCompare(String(b.name || ''));
+      return tb.localeCompare(ta);
+    });
+    const page = merged.slice(offset, offset + limit);
+    res.json({
+      agents: page,
+      count: merged.length,
+      total: merged.length,
       limit,
       offset,
-    });
-    const agents = (page.agents || []).map((agent) => ({
-      ...agent,
-      can_manage: !!ownerUserId && agent.owner_user_id === ownerUserId,
-    }));
-    res.json({
-      agents,
-      count: page.count ?? page.total ?? agents.length,
-      total: page.total ?? agents.length,
-      limit: page.limit ?? limit,
-      offset: page.offset ?? offset,
-      has_more: !!page.has_more,
+      has_more: offset + page.length < merged.length,
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -175,9 +204,13 @@ router.delete('/:publishId/ip-whitelist/:entryId', (req, res) => {
  */
 router.get('/:publishId/test-sample', (req, res) => {
   try {
-    const pub = listAllPublishedA2AAgents({
+    const wfList = listAllPublishedA2AAgents({
       includePrivateForOwnerId: entitledOwnerUserId(req),
-    }).find((a) => a.id === req.params.publishId);
+    });
+    let pub = (Array.isArray(wfList) ? wfList : []).find((a) => a.id === req.params.publishId);
+    if (!pub) {
+      pub = getAgentPublicationById(req.params.publishId);
+    }
     if (!pub) return res.status(404).json({ error: 'Agent not found or unpublished' });
 
     const skills = Array.isArray(pub.agent_card?.skills) ? pub.agent_card.skills : [];
@@ -273,7 +306,8 @@ router.post('/:publishId/test', async (req, res) => {
     const row = db
       .prepare(`SELECT * FROM workflow_a2a_publications WHERE id = ? AND status = 'published'`)
       .get(publishId);
-    if (!row) {
+    const agentPub = row ? null : getAgentPublicationById(publishId);
+    if (!row && !agentPub) {
       logA2AInvocation({
         publish_id: publishId,
         client_ip: clientIp,
@@ -286,6 +320,61 @@ router.post('/:publishId/test', async (req, res) => {
         source: 'agent_exchange_test',
       });
       return res.status(404).json({ error: 'Agent not found or unpublished' });
+    }
+
+    if (agentPub) {
+      const ownerUserId = entitledOwnerUserId(req);
+      const isOwner = !!ownerUserId && String(agentPub.owner_user_id) === String(ownerUserId);
+      if (agentPub.visibility === 'flolah' && !isOwner) {
+        return res.status(403).json({
+          error: 'Flolah listings are not callable on the public internet. Add to org to use this AI employee in your workspace.',
+        });
+      }
+      let body = req.body?.rpc;
+      if (!body || typeof body !== 'object') {
+        const input = req.body?.input ?? req.body?.message ?? '';
+        const parts =
+          input !== null && typeof input === 'object' && !Array.isArray(input)
+            ? [{ kind: 'data', data: input }]
+            : [{ kind: 'text', text: String(input) }];
+        body = {
+          jsonrpc: '2.0',
+          id: randomUUID(),
+          method: 'message/send',
+          params: {
+            message: { role: 'user', messageId: randomUUID(), parts },
+            metadata: { skillId: agentPub.skill_id || 'chat' },
+          },
+        };
+      }
+      const result = await handleAgentA2AJsonRpc(publishId, body, {
+        bypassAccessChecks: isOwner,
+      });
+      const httpStatus = result?.error
+        ? result.error.code === -32005
+          ? 403
+          : result.error.code === -32001
+            ? 404
+            : 400
+        : 200;
+      logA2AInvocation({
+        publish_id: publishId,
+        owner_user_id: agentPub.owner_user_id,
+        agent_name: agentPub.name,
+        client_ip: clientIp,
+        endpoint: 'invoke',
+        outcome: result?.error ? 'error' : 'success',
+        reason_code: result?.error ? String(result.error.code) : 'invoke_ok',
+        reason_message: result?.error?.message || 'agent test ok',
+        http_status: httpStatus,
+        latency_ms: Date.now() - started,
+        source: 'agent_exchange_test',
+      });
+      return res.status(httpStatus).json({
+        ok: !result?.error,
+        bypassed_access: isOwner,
+        result,
+      });
     }
 
     const ownerUserId = entitledOwnerUserId(req);
@@ -418,15 +507,30 @@ router.post('/:publishId/test', async (req, res) => {
   }
 });
 
+router.post('/:publishId/add-to-org', async (req, res) => {
+  try {
+    const ownerUserId = requireEntitledOwner(req, res);
+    if (!ownerUserId) return;
+    const out = await importPublishedAgentToOrg(ownerUserId, req.params.publishId, req.body || {});
+    res.status(out.imported ? 201 : 200).json(out);
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message });
+  }
+});
+
 router.delete('/:publishId', (req, res) => {
   try {
     const ownerUserId = requireEntitledOwner(req, res);
     if (!ownerUserId) return;
+    const agentPub = getAgentPublicationById(req.params.publishId);
+    if (agentPub) {
+      return res.json(unpublishAgentPublication(ownerUserId, req.params.publishId));
+    }
     res.json(
       unpublishA2APublicationById(ownerUserId, req.params.publishId, actor(req))
     );
   } catch (e) {
-    const status = e.message.includes('not found') || e.message.includes('not owned') ? 404 : 400;
+    const status = e.status || (e.message.includes('not found') || e.message.includes('not owned') ? 404 : 400);
     res.status(status).json({ error: e.message });
   }
 });

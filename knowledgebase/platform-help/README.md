@@ -13,7 +13,7 @@
 | [06-workflows-building.md](./06-workflows-building.md) | Create / edit / publish / run workflows, I/O mapping, templates, **WF run id** on run list/detail |
 | [07-workflow-nodes-reference.md](./07-workflow-nodes-reference.md) | Every node type incl. **Connector**; attributes, inputs, outputs |
 | [08-mcp-integrations.md](./08-mcp-integrations.md) | Register MCP, test, use in workflows / Brain (vs Connectors OAuth tab) |
-| [09-a2a-agent-exchange.md](./09-a2a-agent-exchange.md) | External agents, Publish A2A (sync/async, callback, deny_all/whitelist), AgentExchange **Test agent**, Admin **A2A invocation logs**, mock callback inbox |
+| [09-a2a-agent-exchange.md](./09-a2a-agent-exchange.md) | External agents, Publish A2A (sync/async, callback, deny_all/whitelist), **publish AI employees** (Flolah / Public), AgentExchange **Test agent**, Admin **A2A invocation logs**, mock callback inbox |
 | [10-policies-guardrails.md](./10-policies-guardrails.md) | CEO common guardrails for all agents + Brain nodes |
 | [10-job-applicant-pipeline.md](./10-job-applicant-pipeline.md) | Job profiles & prebuilt job workflows |
 | [11-content-tools-scripts-profile.md](./11-content-tools-scripts-profile.md) | **Tools** UI, **Tools → Model** mapping, **MEDIA: / auth media lockdown**, platform feedback tools, chat attachments / inbound media, AGENT-OS-OPS, summary caches, scripts, AI Snipper, Efficiency View, Profile **provider + model** |

@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../api';
 import DepartmentPicker from '../components/DepartmentPicker';
+import AgentAvatarPicker from '../components/AgentAvatarPicker.jsx';
+import PublishAgentToExchangeModal from '../components/PublishAgentToExchangeModal.jsx';
+import RobotAvatar from '../components/RobotAvatar.jsx';
 
 const FILE_NAMES = ['soul', 'agents', 'memory', 'tools', 'ops', 'identity'];
 const TOOLS_TAB = '__tool_access__';
@@ -32,6 +35,8 @@ export default function AgentWorkspace() {
   const [publishingTemplate, setPublishingTemplate] = useState(false);
   const [publishName, setPublishName] = useState('');
   const [templateMessage, setTemplateMessage] = useState(null);
+  const [showPublish, setShowPublish] = useState(false);
+  const [avatarSaving, setAvatarSaving] = useState(false);
 
   const clearSessions = () => {
     if (!window.confirm('Clear all OpenClaw sessions for this agent? Chat and task session history will be reset.')) return;
@@ -214,6 +219,18 @@ export default function AgentWorkspace() {
       .finally(() => setOrgSaving(false));
   };
 
+  const saveAvatar = (avatar_image) => {
+    setAvatarSaving(true);
+    api
+      .agentUpdate(agentId, {
+        avatar_image: avatar_image || '',
+        clear_avatar_image: !avatar_image,
+      })
+      .then((updated) => setAgent(updated))
+      .catch((e) => setError(e.message))
+      .finally(() => setAvatarSaving(false));
+  };
+
   if (error && !agent) return <div style={{ padding: '2rem', color: '#f87171' }}>Error: {error}. <Link to="/">Dashboard</Link></div>;
 
   const tabs = [...(files.files || []).map((f) => f.name), ...(files.daily || []).map((f) => `memory/${f.name}`)];
@@ -228,7 +245,10 @@ export default function AgentWorkspace() {
         <Link to={`/agents/${agentId}/channels`} style={{ color: 'var(--accent)', fontSize: '0.9rem', marginLeft: '1rem' }}>Channels</Link>
         <Link to={`/agents/${agentId}/chat`} style={{ color: 'var(--muted)', fontSize: '0.9rem', marginLeft: '1rem' }}>Chat</Link>
       </div>
-      <h1 style={{ marginTop: 0 }}>Workspace — {agent?.name || agentId}</h1>
+      <h1 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <RobotAvatar src={agent?.avatar_image} name={agent?.name || agentId} size={44} />
+        <span>Workspace — {agent?.name || agentId}</span>
+      </h1>
       <p style={{ color: 'var(--muted)', marginBottom: '1rem' }}>
         Edit identity and policy docs and manage which platform tools this AI employee can invoke. MD saves write to the OpenClaw workspace and apply on the next message. Tool access changes apply immediately without restart.
         {workspaceRoot && (
@@ -253,8 +273,16 @@ export default function AgentWorkspace() {
       >
         <h2 style={{ margin: '0 0 0.5rem', fontSize: '1rem' }}>Org</h2>
         <p style={{ margin: '0 0 0.75rem', fontSize: '0.85rem', color: 'var(--muted)' }}>
-          Department and reporting line for the Dashboard org chart.
+          Department and reporting line for the Dashboard org chart. Icon appears in chat and Agent Exchange.
         </p>
+        <div style={{ marginBottom: '0.85rem' }}>
+          <AgentAvatarPicker
+            value={agent?.avatar_image || ''}
+            name={agent?.name || ''}
+            disabled={avatarSaving}
+            onChange={saveAvatar}
+          />
+        </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'flex-start' }}>
           <DepartmentPicker
             value={orgDept}
@@ -304,6 +332,22 @@ export default function AgentWorkspace() {
             {orgSaving ? 'Saving…' : 'Save org'}
           </button>
           {orgMessage && <span style={{ color: '#22c55e', fontSize: '0.85rem' }}>{orgMessage}</span>}
+        </div>
+        <div style={{ marginTop: '0.85rem' }}>
+          <button
+            type="button"
+            onClick={() => setShowPublish(true)}
+            style={{
+              padding: '0.5rem 1rem',
+              background: 'transparent',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              color: 'var(--text)',
+              cursor: 'pointer',
+            }}
+          >
+            Publish to Agent Exchange
+          </button>
         </div>
       </section>
 
@@ -567,6 +611,13 @@ export default function AgentWorkspace() {
           </>
         )}
       </div>
+      {showPublish && agent && (
+        <PublishAgentToExchangeModal
+          agent={agent}
+          onClose={() => setShowPublish(false)}
+          onChanged={() => setShowPublish(false)}
+        />
+      )}
     </div>
   );
 }

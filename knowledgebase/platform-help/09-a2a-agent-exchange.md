@@ -209,13 +209,33 @@ Secured agent cards include `securitySchemes.oauth2` (client credentials) and `t
 
 ## AgentExchange (`/agent-exchange`)
 
-- Browse published A2A workflow agents across the platform.
-- Cards show **Public** vs **Secured**, **Sync** vs **Async**, and the **token URL** when secured.
-- Copy card URL, skill id, and endpoints for partners.
-- Use discovered endpoints when registering an external agent in another tenant or system.
+- Browse **two kinds of listing**:
+  - **Workflow A2A** — unchanged: Public / Private, Sync / Async, Security IP policy, Add to org as an **org/department leaf only**.
+  - **AI employee** — published from **AI Employees** / Agent Workspace. **Flolah** (in-app only; other CEOs **Add to org** imports a copy into their workspace + org chart) or **Public** (listed and callable on the internet as A2A at `/api/a2a/:publishId`).
+- Cards show the agent **icon/image** (default robot if none), **published by**, and **published date** (i-button).
+- Workflow owners keep **Security** / **Unpublish** / **Add to org** (leaf). Other CEOs **Add to org** on **AI employee** listings (import). Publishers unpublish their own employee listings; importers keep their copies.
 - `client_secret` is never listed on AgentExchange (only shown once at publish/rotate time to the publisher).
-- Agent owners open the card **⋯** menu for **Copy endpoint**, **Copy card URL**, **Open card**, **Test agent**, **Add to org** / **Edit org placement**, **Security**, and **Unpublish**. Other users see copy/open/test actions but cannot modify another owner's agent.
-- Every newly published A2A agent starts with **Deny all IPs**. Explicitly switch to **Allow all** or configure an **IP whitelist** before external clients can access its card/invoke/token/enquiry endpoints.
+- Every newly published **workflow** A2A agent starts with **Deny all IPs**. Explicitly switch to **Allow all** or configure an **IP whitelist** before external clients can access its card/invoke/token/enquiry endpoints. **Public AI employees** are internet-callable (no OAuth) unless unpublished.
+
+### Publish an AI employee
+
+From **AI Employees** (`/workspace`) or the employee **Workspace** page:
+
+1. Choose **icon or image** (same picker as **Hire AI employee**; default robot icon if none).
+2. Open **Publish to Agent Exchange**.
+3. Choose **Flolah** or **Public**, name, description, icon.
+4. **Unpublish** from the same modal or the Exchange card **⋯** menu.
+
+**Add to org (AI employee vs workflow):**
+
+| Listing | Add to org does |
+|---------|-----------------|
+| Workflow A2A | Org/department **leaf only** (COO can delegate). Does **not** create an AI employee in Agent Workspace. |
+| AI employee | Imports a **new AI employee** into the buyer’s Agent Workspace **and** places them in org/department (reports-to). Chat and workspace work like a hired employee. |
+
+Flolah listings are **not** available on the public internet (card/invoke return `403`). Public listings accept A2A `message/send` against the publisher’s agent.
+
+---
 
 ### Test agent (owner vs non-owner)
 

@@ -4,6 +4,7 @@ import { formatChatTimestamp } from '../utils/formatDateTime.js';
 import MessageFeedback from './MessageFeedback';
 import ChatToolCalls, { collectChartUrlsFromToolCalls, collectGeneratedMediaUrlsFromToolCalls } from './ChatToolCalls';
 import GoalPlanPanel, { collectGoalRunIds } from './GoalPlanPanel';
+import RobotAvatar from './RobotAvatar.jsx';
 import AuthenticatedMediaImage, {
   AuthenticatedMediaAudio,
   AuthenticatedMediaVideo,
@@ -28,8 +29,10 @@ export default function ChatMessageRow({
   showFeedback = true,
   toolCalls = null,
   attachments: attachmentsProp = null,
+  agentName = null,
+  agentAvatar = null,
 }) {
-  const label = roleLabel || role;
+  const label = roleLabel || (!isUser && agentName) || role;
   const isUser = role === 'user';
   const chartUrls = !isUser ? collectChartUrlsFromToolCalls(toolCalls) : [];
   const mediaUrls = !isUser ? collectGeneratedMediaUrlsFromToolCalls(toolCalls) : [];
@@ -57,7 +60,8 @@ export default function ChatMessageRow({
         ...style,
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.35rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.35rem' }}>
+        {!isUser && <RobotAvatar src={agentAvatar} name={label} size={22} />}
         <span style={{ fontSize: '0.75rem', fontWeight: 600, color: isUser ? 'var(--text)' : 'var(--accent)' }}>
           {label}
         </span>

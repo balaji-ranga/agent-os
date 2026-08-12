@@ -1008,6 +1008,8 @@ export default function AgentChat() {
                     feedbackSource="chat"
                     toolCalls={t.tool_calls}
                     attachments={t.attachments}
+                    agentName={agentLabel}
+                    agentAvatar={agent?.avatar_image}
                   />
                 ))}
                 {sending && <div style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>…</div>}
@@ -1189,6 +1191,8 @@ export default function AgentChat() {
                   feedbackSource="chat"
                   toolCalls={t.tool_calls}
                   attachments={t.attachments}
+                  agentName={agentLabel}
+                  agentAvatar={agent?.avatar_image}
                 />
               ))}
               {sending && <div style={{ color: 'var(--muted)' }}>…</div>}

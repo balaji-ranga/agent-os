@@ -146,9 +146,13 @@ tasks ok/failed, failure rate, average latency (from its recorded invocations), 
 
 ## 4. External and published-A2A agents as org members
 
-Registered **External Agents** and your own **AgentExchange** publications can join the org chart as
+Registered **External Agents** and your own **workflow AgentExchange** publications can join the org chart as
 **leaf members**: they get a department and report to an internal agent, but they can never manage
-other agents.
+other agents. That path is unchanged.
+
+**Published AI employees** (Flolah / Public on Agent Exchange) are different: **Add to org** imports
+a real AI employee into the buyer’s **Agent Workspace** (chat, tools, org chart) — not a leaf.
+See [09-a2a-agent-exchange.md](./09-a2a-agent-exchange.md).
 
 ### Adding one
 

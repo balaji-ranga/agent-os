@@ -112,7 +112,7 @@ Tips:
    - **Callback URL** at publish time, or per-invoke override via `params.metadata.callbackUrl` (plain JSON webhook — not A2A JSON-RPC).
    - **Access (IP):** new listings default to **Deny all** (card, invoke, OAuth token, and enquiry return `403` until you open access). Switch to **Allow all** or an **IP whitelist** under **AgentExchange → ⋯ → Security** (ignored while Visibility is Private). IP entries are owner-scoped in the **central IP whitelist** (also **Settings → IP Whitelists**).
    - **Auth:** **Public auth** (no token) or **Secured** (OAuth `client_id` + `client_secret` → Bearer access token; secret shown once). **Publish as new agent** or update an existing listing with `publish_id`.
-3. **AgentExchange** — browse published workflow agents (Public / Private / Secured badges, token URL when secured). Card **⋯** menu: copy/open, **Test agent**, **Add to org**, **Security** (visibility + IP), **Unpublish**. **Test agent** autofills sample input; **owners bypass IP/OAuth/private** for testing — non-owners still hit policy. Mock callback inbox: `POST/GET /api/a2a-callback-inbox`. **Admins** see history at **`/admin/a2a-invocations`**.
+3. **AgentExchange** — browse **AI employees** (Flolah / Public, icon + published-by i-button) and workflow A2A (Public / Private / Secured). Publish employees from **AI Employees**. Workflow **Add to org** remains a leaf only; employee **Add to org** imports a copy into the buyer’s workspace + org. Card **⋯**: copy/open, **Test agent**, **Add to org**, **Security** (workflows), **Unpublish**. **Test agent** autofills sample input; workflow **owners bypass IP/OAuth/private** for testing — non-owners still hit policy. Flolah employee listings are not internet-callable. Mock callback inbox: `POST/GET /api/a2a-callback-inbox`. **Admins** see history at **`/admin/a2a-invocations`**.
 
 ### Job search pipeline (optional)
 
@@ -280,14 +280,14 @@ Set in backend `.env`:
 | **Org-aware agents** | Every agent in a CEO’s org gets **ORG.md** (CEO, departments, peers with soul/purpose/skills) plus a tenant-specific COO **AGENTS.md** (delegatees). Synced on provision, agent create, and backend startup. Bootstrap watcher reloads `ORG.md` each turn. |
 | **Home chat** | `/` — COO chat by default; agent picker; history/browser panes; **OEI** KPI + explain popover (help **36**). On phones: overview first, **Chat** opens a full-screen sheet; history/browser icons open a side drawer (desktop unchanged). |
 | **My Org** | `/org` — Org chart; standups with COO chat (owner-scoped only); **Resync ORG.md & AGENTS.md**. Profile **Your title** is display-only. Add agents from **Agent Workspaces**. |
-| **Chat** | 1:1 chat with an OpenClaw agent via gateway; session affinity per agent; history stored in SQLite; **tool-call icons** on assistant replies when Agent OS tools ran. |
-| **Agent Workspaces** | List agents; **Add agent**; per-agent **SOUL.md, AGENTS.md, ORG.md, MEMORY.md, TOOLS.md** editor; **Tools access** panel (grant/revoke content tools per agent, hot-sync to OpenClaw without gateway restart). |
+| **Agent Workspaces** | List agents; **Hire AI employee** (optional icon/image, default robot); per-agent **SOUL.md, AGENTS.md, ORG.md, MEMORY.md, TOOLS.md** editor; **Tools access**; **Publish to Agent Exchange** (Flolah / Public). |
+| **Chat** | 1:1 chat with an OpenClaw agent via gateway; session affinity per agent; history stored in SQLite; **tool-call icons** on assistant replies when Agent OS tools ran; assistant turns show **icon + name**. |
 | **Notifications** | **Bell icon** in nav: agent responses + platform notifications; hover for full text; link to agent Chat; clear/dismiss (shared feed). |
 | **Kanban** | Board view (tasks by agent and status); task detail with **task chat**, artifacts, workflow run links, and linked agent-chat turns (including chats archived later). Reopen task; create task (COO or direct to agent). Auto-completes when COO chat delegations finish. All dates in the platform timezone. |
 | **Custom workflows** | Visual **Workflows** editor: trigger (manual / schedule / chat / event webhook), agent, API, MCP tool, **SSE listen**, **sub-workflow**, Brain (LLM + optional MCP tool calling; **Thinking mode** for DeepSeek/OpenRouter), email, IF/While, parallel/merge, CEO approval, **external agent (A2A)**. Publish, run instances, paginated run history, search, **stop SSE listen** on active runs. |
 | **Download for Windows** | From a **published** workflow: download a PS1 + params package (optional portable Node 18). Local graph orchestration + localhost API / filesystem; run state and other nodes on Flolah. Desktop token + optional IP whitelist. See `knowledgebase/platform-help/17-desktop-windows-download.md`. |
 | **Publish as A2A** | **Publish A2A** exposes a workflow as an A2A agent (agent card + JSON-RPC). **Visibility** Public (default) or **Private** (org-only). **Sync** or **Async** invoke; optional **callback URL**. **Deny all** IP access by default; **Allow all** or **IP whitelist**. **Public auth** or **Secured** (OAuth). **Publish as new agent** or update by `publish_id`. |
-| **AgentExchange** | Browse published A2A workflow agents (`/agent-exchange`). Card **⋯** menu for copy/open, **Security**, **Test agent**, **Add to org**, **Unpublish**. Private listings are hidden from other CEOs. Admin **A2A logs** (`/admin/a2a-invocations`). |
+| **AgentExchange** | Browse **AI employees** (Flolah / Public) and workflow A2A (`/agent-exchange`). Employee **Add to org** imports into the buyer’s workspace + org; workflow **Add to org** stays a leaf. Card **⋯** for copy/open, **Security** (workflows), **Test agent**, **Add to org**, **Unpublish**. i-button shows published by / date. Admin **A2A logs** (`/admin/a2a-invocations`). |
 | **Workflow Builder chat** | LLM assistant in the workflow editor to create/edit graphs via natural language. |
 | **Job profiles** | CEO job search profiles (intake, resume, preferences); gate for Job Applicant pipeline. |
 | **Job workflows** | Multi-agent **Job Applicant** pipeline (Discovery → Fit Scoring → Resume Tailoring → Application); Kanban-tracked stages; browser/Playwright apply path. See **knowledgebase/JOB-APPLICANT-WORKFLOW.md**. |
@@ -518,19 +518,23 @@ Examples: `workflows`, `tasks`, `standups`, `documents`, `items`, `users`, `agen
 
 ### AgentExchange & A2A
 
-- `GET /agent-exchange?limit=&offset=` — list published A2A workflow agents (CEO/Admin); owner `can_manage` for Security / Unpublish
+- `GET /agent-exchange?limit=&offset=` — list published workflow A2A **and** AI-employee listings (CEO/Admin); `listing_kind`, owner `can_manage`, `can_add_to_org`, `imported_agent_id`
+- `POST /agent-exchange/:publishId/add-to-org` — import a published **AI employee** into this CEO’s workspace + org (not used for workflow A2A; those still use `POST /org-members`)
 - `GET /agent-exchange/:publishId/test-sample` — sample input from agent card `inputSchema` (Test UI autofill)
-- `POST /agent-exchange/:publishId/test` — authenticated test invoke (owners bypass IP deny/whitelist and OAuth; logged as `source=agent_exchange_test`)
+- `POST /agent-exchange/:publishId/test` — authenticated test invoke (workflow owners bypass IP deny/whitelist and OAuth; Flolah employee listings: owner-only; logged as `source=agent_exchange_test`)
 - `GET /admin/a2a-invocations` — admin report of all A2A attempts (`denied` / `error` / `success` / `failed`), including blocks before a workflow run starts
-- `GET/PUT /agent-exchange/:publishId/access` — access policy (`deny_all` | `allow_all` | `whitelist`); body may also set `visibility`
-- `PUT /agent-exchange/:publishId/visibility` — `public` (default) | `private` (disables public calling; org COO / reports-to lead only)
+- `GET/PUT /agent-exchange/:publishId/access` — access policy (`deny_all` | `allow_all` | `whitelist`); body may also set `visibility` (**workflow listings**)
+- `PUT /agent-exchange/:publishId/visibility` — `public` (default) | `private` (disables public calling; org COO / reports-to lead only) — **workflow listings**
 - `POST/DELETE /agent-exchange/:publishId/ip-whitelist` — whitelist entries (IPv4 CIDR ok; IPv6 exact only)
-- `DELETE /agent-exchange/:publishId` — unpublish A2A listing (workflow remains published)
-- `GET /a2a/:publishId/.well-known/agent-card.json` — agent card (403 when visibility=private or IP denied)
+- `DELETE /agent-exchange/:publishId` — unpublish listing (workflow remains published; AI employee stays in the publisher’s workspace)
+- `POST /agents/:id/publish-a2a` — publish this AI employee to Exchange (`visibility`: `flolah` \| `public`)
+- `GET/DELETE /agents/:id/a2a-publication` — current employee listing / unpublish
+- `GET /a2a/:publishId/.well-known/agent-card.json` — agent card (403 when workflow visibility=private, AI-employee visibility=flolah, or IP denied)
 - `POST /a2a/:publishId/oauth/token` — `grant_type=client_credentials` + `client_id` / `client_secret` → Bearer access token
-- `POST /a2a/:publishId` — A2A JSON-RPC invoke (blocked when `visibility=private`, `deny_all`, or IP not whitelisted; no auth when public auth + allowed; Bearer when secured). Async enquire / `tasks/get`: final step text in **`result.parts[0].text`**; state in **`result.task.status.state`**; run meta in **`result.metadata.run`**. Callback webhook: same text in **`final_output`**.
+- `POST /a2a/:publishId` — A2A JSON-RPC invoke. **Workflow:** blocked when `visibility=private`, `deny_all`, or IP not whitelisted. **AI employee:** blocked when `visibility=flolah`; Public listings accept `message/send`. Async enquire / `tasks/get` apply to **workflow** listings.
 - `POST/GET /a2a-callback-inbox` — mock async callback receiver (GET requires CEO auth; sample webhook JSON in response)
-- **Publish body:** `visibility: public|private`, `invoke_mode: sync|async`, `callback_url`, `as_new_agent`, `publish_id` (update), `auth_mode: public|secured`
+- **Workflow publish body:** `visibility: public|private`, `invoke_mode: sync|async`, `callback_url`, `as_new_agent`, `publish_id` (update), `auth_mode: public|secured`
+- **AI employee publish body:** `visibility: flolah|public`, `name`, `description`, `avatar_image`
 - Optional env: `A2A_ACCESS_TOKEN_TTL_SEC` (default `3600`), `A2A_SYNC_TIMEOUT_MS`, `A2A_ASYNC_WATCH_TIMEOUT_MS`, `A2A_CALLBACK_TIMEOUT_MS`
 
 ### MCP & external agents

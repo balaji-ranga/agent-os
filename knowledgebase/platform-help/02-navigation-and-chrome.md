@@ -67,12 +67,12 @@ Top-level (always shown; cannot hide in Menu visibility):
 | Label | Route | Use for |
 |-------|-------|---------|
 | Workflows | `/workflows` | Custom visual workflows; editor at `/workflows/:id/edit` |
-| **AI Employees** | `/workspace` | Hire AI employees, list team → workspace MD / tools / **templates** |
+| **AI Employees** | `/workspace` | Hire AI employees (icon/image), list team → workspace MD / tools / **templates** / **Publish to Agent Exchange** |
 | Tools | `/content-tools` | Catalog, test invoke, logs, **Tools → Model** overrides |
 | **Connectors** | `/connectors` | Link SaaS apps (OpenConnector) for **Connector** workflow nodes |
 | MCP | `/integrations/mcp` | Register and test MCP servers |
 | Custom scripts | `/integrations/custom-scripts` | Sandboxed Python/JS/LangGraph scripts |
-| AgentExchange | `/agent-exchange` | Browse published A2A services (Public / Secured) |
+| AgentExchange | `/agent-exchange` | Browse published **AI employees** (Flolah / Public) and workflow A2A (Public / Private / Secured) |
 | External AI | `/integrations/external-agents` | Onboard third-party A2A partners |
 
 ### Direct AI employee routes (not always in nav)

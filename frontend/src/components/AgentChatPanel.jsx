@@ -24,6 +24,7 @@ export default function AgentChatPanel({
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [speakReply, setSpeakReply] = useState(false);
+  const [agentMeta, setAgentMeta] = useState(null);
   const scrollRef = useRef(null);
   const abortControllerRef = useRef(null);
   const mediaRecRef = useRef(null);
@@ -45,6 +46,10 @@ export default function AgentChatPanel({
       .agentChatHistory(agentId)
       .then((r) => setTurns(Array.isArray(r) ? r : r.turns || []))
       .catch(() => setTurns([]));
+    api
+      .agentGet(agentId)
+      .then((a) => setAgentMeta(a))
+      .catch(() => setAgentMeta(null));
   }, [agentId]);
 
   useEffect(() => {
@@ -246,6 +251,8 @@ export default function AgentChatPanel({
             feedbackContext={profileId ? { profile_id: profileId } : {}}
             toolCalls={t.tool_calls}
             attachments={t.attachments}
+            agentName={agentMeta?.name}
+            agentAvatar={agentMeta?.avatar_image}
           />
         ))}
         {sending && <div style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>…</div>}

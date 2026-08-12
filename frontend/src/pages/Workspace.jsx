@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
 import AddAgentForm from '../components/AddAgentForm';
+import RobotAvatar from '../components/RobotAvatar.jsx';
+import PublishAgentToExchangeModal from '../components/PublishAgentToExchangeModal.jsx';
 
 export default function Workspace() {
   const [agents, setAgents] = useState([]);
@@ -9,6 +11,7 @@ export default function Workspace() {
   const [error, setError] = useState(null);
   const [clearingAgentId, setClearingAgentId] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [publishAgent, setPublishAgent] = useState(null);
 
   const clearSessions = (agentId) => {
     if (!window.confirm('Clear all sessions for this AI employee? Chat and task history will be reset.')) return;
@@ -98,6 +101,7 @@ export default function Workspace() {
         {agents.map((a) => (
           <li key={a.id} className="agent-workspace-card">
             <div className="agent-workspace-card-meta">
+              <RobotAvatar src={a.avatar_image} name={a.name} size={40} />
               <span className="agent-workspace-card-name">{a.name}</span>
               {a.role && <span className="agent-workspace-card-role">{a.role}</span>}
               {a.department && <span className="agent-workspace-card-dept">{a.department}</span>}
@@ -109,6 +113,13 @@ export default function Workspace() {
               <Link to={`/agents/${a.id}/chat`} className="btn-secondary btn-sm">
                 Chat
               </Link>
+              <button
+                type="button"
+                className="btn-ghost btn-sm"
+                onClick={() => setPublishAgent(a)}
+              >
+                Publish
+              </button>
               <button
                 type="button"
                 className="btn-ghost btn-sm"
@@ -137,6 +148,14 @@ export default function Workspace() {
             </button>
           )}
         </div>
+      )}
+
+      {publishAgent && (
+        <PublishAgentToExchangeModal
+          agent={publishAgent}
+          onClose={() => setPublishAgent(null)}
+          onChanged={() => fetchAgents()}
+        />
       )}
     </div>
   );

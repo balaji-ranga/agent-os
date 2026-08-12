@@ -143,6 +143,9 @@ export const api = {
   agentGet: (id) => get(`/agents/${id}`),
   agentCreate: (body) => post('/agents', body),
   agentUpdate: (id, body) => patch(`/agents/${id}`, body),
+  agentA2APublication: (id) => get(`/agents/${encodeURIComponent(id)}/a2a-publication`),
+  agentPublishA2A: (id, body) => post(`/agents/${encodeURIComponent(id)}/publish-a2a`, body),
+  agentUnpublishA2A: (id) => del(`/agents/${encodeURIComponent(id)}/a2a-publication`),
   agentDelete: (id) => del(`/agents/${id}`),
   agentChatHistory: async (id, params = {}) => {
     const tz =
@@ -985,6 +988,8 @@ export const api = {
     ),
   agentExchangeUnpublish: (publishId) =>
     del(`/agent-exchange/${encodeURIComponent(publishId)}`),
+  agentExchangeAddToOrg: (publishId, body) =>
+    post(`/agent-exchange/${encodeURIComponent(publishId)}/add-to-org`, body),
   agentExchangeTestSample: (publishId) =>
     get(`/agent-exchange/${encodeURIComponent(publishId)}/test-sample`),
   agentExchangeTest: (publishId, body) =>
