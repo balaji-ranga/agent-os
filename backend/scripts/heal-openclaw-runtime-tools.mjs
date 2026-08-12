@@ -1,6 +1,6 @@
 /**
  * Re-merge ESSENTIAL_OPENCLAW_RUNTIME_TOOLS into tenant OpenClaw allowlists
- * (fixes "No response from OpenClaw." when sessions_*/read were stripped).
+ * (fixes "No response from OpenClaw." when sessions_history/read were stripped).
  *
  * Usage:
  *   OWNER_USER_ID=ceo-bala node scripts/heal-openclaw-runtime-tools.mjs
