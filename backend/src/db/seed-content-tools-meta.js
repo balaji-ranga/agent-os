@@ -785,6 +785,55 @@ const BUILTIN_TOOLS = [
     is_builtin: 1,
   },
   {
+    name: 'video_media_generate',
+    display_name: 'Video Media — Generate Scene Clips (S4)',
+    endpoint: '/api/tools/video-media-generate',
+    method: 'POST',
+    purpose:
+      'S4: generate one clip per storyboard scene (max 8 seconds each — Google Flow/Veo limit). ' +
+      'Body: { storyboard_id (required), provider: flow_browser|replicate_api, scene_index?, force?, use_test_clips? }. ' +
+      'flow_browser uses Desktop Local browse_* (CEO Google Flow login); replicate_api uses generate_video/Replicate BYOK. ' +
+      'Writes video_jobs. After all clips ready, call video_assemble.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'video_media_ingest_clip',
+    display_name: 'Video Media — Ingest Scene Clip',
+    endpoint: '/api/tools/video-media-ingest-clip',
+    method: 'POST',
+    purpose:
+      'Map a CEO-downloaded / inbound / MEDIA scene clip into video_jobs (Flavour 1 after Flow download). ' +
+      'Body: { storyboard_id, scene_index, relative_path|media|MEDIA path, provider?=flow_browser, duration_sec? }.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'video_media_jobs',
+    display_name: 'Video Media — List Jobs / Manifest',
+    endpoint: '/api/tools/video-media-jobs',
+    method: 'POST',
+    purpose:
+      'List video_jobs + asset manifest for a storyboard_id (clip completeness, missing scenes, browse task ids).',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'video_assemble',
+    display_name: 'Video Assemble — FFmpeg + QC (S5)',
+    endpoint: '/api/tools/video-assemble',
+    method: 'POST',
+    purpose:
+      'S5: QC scene clips then FFmpeg-stitch into final MP4 under Content Explorer. ' +
+      'No video model required. Body: { storyboard_id }. On success sets video_storyboards.status=video_generated and returns paste_block.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
     name: 'vedic_compute_chart',
     display_name: 'Vedic Astrology — Compute Chart Data',
     endpoint: '/api/tools/vedic-compute-chart',
@@ -876,7 +925,11 @@ const VIDEO_STORYBOARD_TOOLS = BUILTIN_TOOLS.filter(
     t.name === 'video_storyboard_attach' ||
     t.name === 'video_characters_ensure_refs' ||
     t.name === 'video_characters_bind_upload' ||
-    t.name === 'video_characters_list'
+    t.name === 'video_characters_list' ||
+    t.name === 'video_media_generate' ||
+    t.name === 'video_media_ingest_clip' ||
+    t.name === 'video_media_jobs' ||
+    t.name === 'video_assemble'
 );
 
 export function seedContentToolsMetaIfEmpty() {

@@ -162,20 +162,27 @@ export function seedVideoContentWorkflowsForOwner(ownerUserId, opts = {}) {
   const results = [];
   const skipped = [];
 
+  const needsAgents = (tpl) =>
+    (tpl?.graph?.nodes || []).some((n) => String(n.type || '') === 'agent');
+
   if (!specialists.story || !specialists.scene || !specialists.prompt) {
-    return {
-      ok: false,
-      owner,
-      results: [],
-      skipped: [
-        {
-          reason: 'video_specialists_missing',
-          story: !!specialists.story,
-          scene: !!specialists.scene,
-          prompt: !!specialists.prompt,
-        },
-      ],
-    };
+    // Still allow seeding tool-only Phase 2 graphs (media/assembly).
+    const onlyToolGraphs = (templates || []).every((t) => !needsAgents(t));
+    if (!onlyToolGraphs) {
+      return {
+        ok: false,
+        owner,
+        results: [],
+        skipped: [
+          {
+            reason: 'video_specialists_missing',
+            story: !!specialists.story,
+            scene: !!specialists.scene,
+            prompt: !!specialists.prompt,
+          },
+        ],
+      };
+    }
   }
 
   for (const tpl of templates) {
@@ -187,7 +194,11 @@ export function seedVideoContentWorkflowsForOwner(ownerUserId, opts = {}) {
       skipped.push({ template_key: tpl.template_key, reason: 'stub_skipped' });
       continue;
     }
-    const graph = bindVideoAgentsInGraph(tpl.graph, specialists);
+    if (needsAgents(tpl) && (!specialists.story || !specialists.scene || !specialists.prompt)) {
+      skipped.push({ template_key: tpl.template_key, reason: 'video_specialists_missing' });
+      continue;
+    }
+    const graph = needsAgents(tpl) ? bindVideoAgentsInGraph(tpl.graph, specialists) : tpl.graph;
     const forcedId = String(tpl.workflow_id_pattern || 'video-reasoning-{ownerSlug}')
       .replace('{ownerSlug}', safe)
       .replace(/[^a-zA-Z0-9-_]/g, '-')

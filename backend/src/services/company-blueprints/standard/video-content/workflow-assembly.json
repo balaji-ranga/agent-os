@@ -1,21 +1,18 @@
 {
   "template_key": "video-assembly",
   "name": "Video: W-Assembly (FFmpeg + QC)",
-  "description": "Phase 2 stub — asset manifest → FFmpeg assemble → QC → Content Explorer. Expand when S5 ships. Chat: run video assembly",
+  "description": "S5: asset manifest → FFmpeg assemble → QC → Content Explorer final MP4; marks status video_generated. Chat: run video assembly",
   "chat_trigger_phrase": "run video assembly",
-  "trigger_modes": [
-    "manual",
-    "chat"
-  ],
+  "trigger_modes": ["manual", "chat"],
   "workflow_id_pattern": "video-assembly-{ownerSlug}",
   "kind": "video_content",
   "phase": 2,
-  "status": "stub",
+  "status": "ready",
   "maintained_in": "company-blueprints/standard/video-content/workflow-assembly.json",
   "notes": [
-    "FFmpeg worker: paths only in steps (no base64).",
-    "QC agent checks missing scenes / failed clips / duration.",
-    "Orchestrator presents final MEDIA: MP4."
+    "No video model required — only clip paths from S4 (Flow or Replicate).",
+    "FFmpeg: paths only in steps (no base64).",
+    "On success: video_storyboards.status = video_generated."
   ],
   "graph": {
     "nodes": [
@@ -30,17 +27,32 @@
         }
       },
       {
-        "id": "brain-stub",
-        "type": "brain",
-        "position": { "x": 280, "y": 200 },
+        "id": "assemble-1",
+        "type": "tool",
+        "position": { "x": 300, "y": 200 },
         "data": {
-          "label": "Stub — implement S5",
-          "prompt": "W-Assembly is not fully implemented yet. Reply with: status=stub, next=FFmpeg worker + QC. Do not claim a final MP4 was rendered."
+          "label": "Assemble final MP4",
+          "toolName": "video_assemble",
+          "toolPayload": {},
+          "inputBindings": [
+            {
+              "id": "storyboard_id",
+              "mode": "dynamic",
+              "sourceNodeId": "trigger-1",
+              "sourceOutputKey": "text"
+            },
+            {
+              "id": "input",
+              "mode": "dynamic",
+              "sourceNodeId": "trigger-1",
+              "sourceOutputKey": "text"
+            }
+          ]
         }
       }
     ],
     "edges": [
-      { "id": "e1", "source": "trigger-1", "target": "brain-stub" }
+      { "id": "e1", "source": "trigger-1", "target": "assemble-1" }
     ]
   }
 }

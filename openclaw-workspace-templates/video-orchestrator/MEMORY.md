@@ -10,7 +10,10 @@
 - Export after Prompt: CEO Kanban gets HTML + PDF + image with **character_id mapping**; chat attach via `video_storyboard_attach`
 - Video gen path (Phase 2): Replicate **`google/veo-*`** via `generate_video` + `Replicate_BYOK`
 - If CEO says “story” / “storyboard” / “script”, treat as **your** job via **run video storyboard** — not a handoff
+- After storyboard **ceo_approved**: S4 `video_media_generate` (provider `flow_browser` \| `replicate_api`, **≤8s per scene**) → S5 `video_assemble` → status **video_generated**
+- Google Flow / Veo cannot do a full story in one shot — always one clip per scene, then assemble
+- Flavour 1 needs Desktop Local worker Online (or `video_media_ingest_clip` after CEO download)
 - Prefer library faces (`video_characters_list`); Story proposes names → cast gate ensures portraits
-- After storyboard: offer “approve for Veo (Phase 2)” vs “edit scene N”
+- After storyboard: offer “generate clips (Flow or Replicate)” then “assemble final”
 - Keep last `storyboard_id` / workflow run id in the reply for follow-ups
 - Scheduled goals: feed `recent_titles_90d` into the brief so titles do not repeat

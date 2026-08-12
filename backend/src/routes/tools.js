@@ -3644,4 +3644,125 @@ router.post('/video-characters-list', optionalAuth, async (req, res) => {
   }
 });
 
+/** S4 — generate per-scene clips (flow_browser | replicate_api), max 8s each. */
+router.post('/video-media-generate', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
+    if (!ownerUserId) {
+      const err = { error: 'Could not resolve CEO user for this session' };
+      logTool(req, 'video_media_generate', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const { generateVideoMedia } = await import('../services/video-media.js');
+    const out = await generateVideoMedia(ownerUserId, requestPayload);
+    logTool(
+      req,
+      'video_media_generate',
+      { storyboard_id: out.storyboard_id, provider: out.provider },
+      { ok: true, complete: out.manifest?.complete, n: out.results?.length },
+      'ok',
+      source
+    );
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message, code: e.code };
+    logTool(req, 'video_media_generate', requestPayload, err, 'error', source);
+    res.status(e.status || 500).json(err);
+  }
+});
+
+/** S4 Flavour 1 — bind downloaded Flow clip to a scene. */
+router.post('/video-media-ingest-clip', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
+    if (!ownerUserId) {
+      const err = { error: 'Could not resolve CEO user for this session' };
+      logTool(req, 'video_media_ingest_clip', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const { ingestVideoSceneClip } = await import('../services/video-media.js');
+    const out = await ingestVideoSceneClip(ownerUserId, requestPayload);
+    logTool(
+      req,
+      'video_media_ingest_clip',
+      { storyboard_id: requestPayload.storyboard_id, scene_index: requestPayload.scene_index },
+      { ok: true, job_id: out.job?.job_id },
+      'ok',
+      source
+    );
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message, code: e.code };
+    logTool(req, 'video_media_ingest_clip', requestPayload, err, 'error', source);
+    res.status(e.status || 500).json(err);
+  }
+});
+
+/** S4 — list jobs + manifest. */
+router.post('/video-media-jobs', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
+    if (!ownerUserId) {
+      const err = { error: 'Could not resolve CEO user for this session' };
+      logTool(req, 'video_media_jobs', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const { listVideoJobs, buildAssetManifest, refreshFlowBrowseJobs } = await import(
+      '../services/video-media.js'
+    );
+    const storyboard_id = String(requestPayload.storyboard_id || '').trim();
+    const jobs = listVideoJobs(ownerUserId, {
+      storyboard_id,
+      scene_index: requestPayload.scene_index,
+    });
+    const manifest = storyboard_id ? buildAssetManifest(ownerUserId, storyboard_id) : null;
+    const browse =
+      requestPayload.refresh_browse && storyboard_id
+        ? await refreshFlowBrowseJobs(ownerUserId, { storyboard_id })
+        : null;
+    const out = { ok: true, ...jobs, manifest, browse };
+    logTool(req, 'video_media_jobs', requestPayload, { ok: true, n: jobs.jobs?.length || 0 }, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'video_media_jobs', requestPayload, err, 'error', source);
+    res.status(e.status || 500).json(err);
+  }
+});
+
+/** S5 — FFmpeg assemble + mark video_generated. */
+router.post('/video-assemble', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
+    if (!ownerUserId) {
+      const err = { error: 'Could not resolve CEO user for this session' };
+      logTool(req, 'video_assemble', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const { assembleVideoStoryboard } = await import('../services/video-assemble.js');
+    const out = await assembleVideoStoryboard(ownerUserId, requestPayload);
+    logTool(
+      req,
+      'video_assemble',
+      { storyboard_id: out.storyboard_id },
+      { ok: out.ok, status: out.status, code: out.code },
+      out.ok ? 'ok' : 'error',
+      source
+    );
+    res.status(out.ok ? 200 : 409).json(out);
+  } catch (e) {
+    const err = { error: e.message, code: e.code };
+    logTool(req, 'video_assemble', requestPayload, err, 'error', source);
+    res.status(e.status || 500).json(err);
+  }
+});
+
 export default router;

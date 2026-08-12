@@ -118,16 +118,29 @@ Store under Content Explorer (`media/generated/<ceo>/…`); return `MEDIA:` link
 
 ## Phase 2 — Automated video production
 
-1. **Veo / clips** — Extend `generate_video` (or thin wrapper) for per-scene prompt + refs; async Replicate prediction poll; persist paths; Tools→Model can pin `google/veo-*`. Non-platform CEOs need `Replicate_BYOK`.  
-2. **FFmpeg worker** — Assemble/trim/transitions/titles/mux audio/subs; paths only in workflow steps (no base64).  
-3. **QC + regen** — Missing/failed scenes, duration budget; Orchestrator intents patch plan and re-trigger only affected scenes.  
-4. **Workflows** — W-Media (plan → clips + optional voice/subs → manifest); W-Assembly (manifest → FFmpeg → QC → Explorer). Interlocks: no W-Media without storyboard approval; no final without QC.
+**Clip budget:** Google Flow / Veo produce **≤ ~8 seconds per generation**. S4 therefore generates **one clip per scene** (scene `duration_sec` capped at 8), never a single long render for the whole story. S5 concatenates those clips.
+
+### S4 providers (two flavours)
+
+| Flavour | `provider` | Mechanism |
+|---------|------------|-----------|
+| **1** | `flow_browser` | Desktop Local browser worker + Google Flow UI; durable ingest via `video_media_ingest_clip` |
+| **2** | `replicate_api` | `generate_video` / Replicate `google/veo-*` + vault `Replicate_BYOK` / Tools→Model |
+
+Shared: Master Data `video_jobs` (paths only) + asset manifest.
+
+### S5 (shared — no video model)
+
+1. QC manifest (all scenes have readable clips, duration ≤8s).  
+2. FFmpeg normalize + concat → final MP4 under Content Explorer.  
+3. Set `video_storyboards.status` = **`video_generated`**; RAG index final summary; Orchestrator pastes `MEDIA:`.
 
 ### Phase 2 acceptance
 
-- Approved storyboard → clips → stitched preview in Explorer.  
+- Approved storyboard → per-scene clips → stitched preview in Explorer.  
 - “Regenerate scene N” replaces one clip and reassembles.  
-- Final MP4 playable via existing media / `MEDIA:` cards.
+- Final MP4 playable via existing media / `MEDIA:` cards.  
+- Status after S5 is **`video_generated`**.
 
 ---
 
@@ -136,11 +149,11 @@ Store under Content Explorer (`media/generated/<ceo>/…`); return `MEDIA:` link
 | Slice | Scope |
 |-------|--------|
 | **S0** | This plan + blueprint + scaffold templates/pack/standard | **Done** |
-| **S1** | Seed/install agents + publish **W-Reasoning** from `standard/video-content/` | **Done** (`prefab-video-agents.js`, `seed-video-content-workflows.js`) |
-| **S2** | Characters Master Data + save/list + **ensure_refs** (generate) + **bind_upload** (CEO name→image) | **Done** |
-| **S3** | Storyboard **HTML/PDF/image** via `video_storyboard_export`; cast + storyboard CEO gates; status + RAG | **Done** (mid-gate cast with portraits; PDF character_id map; `video_story_status`) |
-| **S4** | Async Replicate `google/veo-*` scene jobs (expand `workflow-media.json`) | Pending |
-| **S5** | FFmpeg + expand `workflow-assembly.json` + QC + regen intents | Pending |
+| **S1** | Seed/install agents + publish **W-Reasoning** from `standard/video-content/` | **Done** |
+| **S2** | Characters Master Data + save/list + **ensure_refs** + **bind_upload** | **Done** |
+| **S3** | Storyboard **HTML/PDF/image**; cast + storyboard CEO gates; status + RAG | **Done** |
+| **S4** | Dual flavour scene jobs ≤8s: `flow_browser` + `replicate_api` (`workflow-media.json`) | **Done** |
+| **S5** | FFmpeg + `workflow-assembly.json` + QC; mark **`video_generated`** | **Done** |
 | **S6** | README/help/.env.example, local + VPS deploy, Operate readiness | Partial (help 41 + KB) |
 
 ---
@@ -170,4 +183,5 @@ Store under Content Explorer (`media/generated/<ceo>/…`); return `MEDIA:` link
 |------|------|
 | 2026-08-12 | Plan drafted from demo.docx; decisions locked (new pack, Replicate Veo, workflow specialists, HTML/PDF/image in S3). |
 | 2026-08-12 | Scaffolded `openclaw-workspace-templates/video-*` + `packs/video_content.json` + `standard/video-content/`; maintenance must stay in those trees. |
+| 2026-08-12 | S4 dual flavour (`flow_browser` \| `replicate_api`) + S5 FFmpeg; ≤8s/scene; status `video_generated` after assemble. |
 | 2026-08-12 | S1–S3 harden: Story→CEO cast→Scene→Prompt→CEO storyboard; `video_storyboards.status` + RAG; PDF character_id roster; `video_story_status` blocks pending approvals. |

@@ -15,8 +15,8 @@
 | Key | Phrase | Status |
 |-----|--------|--------|
 | `video-reasoning` | **run video storyboard** | Phase 1 ready (Story→CEO cast→Scene→Prompt→CEO storyboard) |
-| `video-media` | **run video media** | Phase 2 stub (Replicate `google/veo-*`) |
-| `video-assembly` | **run video assembly** | Phase 2 stub (FFmpeg + QC) |
+| `video-media` | **run video media** | Phase 2 ready — S4 clips ≤8s/scene (`flow_browser` \| `replicate_api`) |
+| `video-assembly` | **run video assembly** | Phase 2 ready — S5 FFmpeg + QC → `video_generated` |
 
 Runtime id pattern: `video-{reasoning|media|assembly}-{ownerSlug}`.
 

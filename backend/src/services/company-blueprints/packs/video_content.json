@@ -56,6 +56,14 @@
         "video_characters_ensure_refs",
         "video_characters_bind_upload",
         "video_characters_list",
+        "video_media_generate",
+        "video_media_ingest_clip",
+        "video_media_jobs",
+        "video_assemble",
+        "generate_video",
+        "browse_session_status",
+        "browse_task_start",
+        "browse_task_status",
         "list_inbound_attachments",
         "master_data_index_document",
         "master_data_list_documents",
@@ -110,7 +118,8 @@
   ],
   "workflows": [
     "CEO/Orchestrator chat → video_story_status check → agent_workflow_trigger W-Reasoning (Story→CEO cast→Scene→Prompt→CEO storyboard) → HTML/PDF with character_id map → Kanban approvals",
-    "Phase 2: approve → W-Media (generate_video Replicate google/veo-*) → W-Assembly (FFmpeg + QC) → final MP4 in Content Explorer",
+    "Phase 2 S4: video_media_generate with provider=flow_browser (Desktop Local Google Flow, ≤8s/scene) OR replicate_api → video_jobs",
+    "Phase 2 S5: video_assemble FFmpeg+QC → final MP4; status video_generated",
     "Feedback loop: Orchestrator patches brief → re-trigger W-Reasoning or single-scene regen"
   ],
   "workflow_templates": [
@@ -124,19 +133,20 @@
       "standard_path": "standard/video-content/workflow-media.json",
       "chat_phrase": "run video media",
       "phase": 2,
-      "status": "stub"
+      "status": "ready"
     },
     {
       "template_key": "video-assembly",
       "standard_path": "standard/video-content/workflow-assembly.json",
       "chat_phrase": "run video assembly",
       "phase": 2,
-      "status": "stub"
+      "status": "ready"
     }
   ],
   "channels": [
     "Phase 1: Manual Google Flow test using exported prompts + character refs.",
-    "Phase 2: Replicate BYOK (Replicate_BYOK) for google/veo-* via generate_video / Tools→Model.",
+    "Phase 2 Flavour 1: Google Flow via Desktop Local browse_* (≤8s per scene) + video_media_ingest_clip.",
+    "Phase 2 Flavour 2: Replicate BYOK (Replicate_BYOK) for google/veo-* via video_media_generate / generate_video.",
     "Not the social content_creator FB/LI publish pack — hand off only if CEO asks."
   ],
   "knowledge_tables": [
@@ -168,6 +178,8 @@
         "html_path",
         "pdf_path",
         "image_path",
+        "final_video_path",
+        "asset_manifest_json",
         "workflow_run_id",
         "rag_document_id",
         "updated"
@@ -176,13 +188,18 @@
     },
     {
       "name": "video_jobs",
-      "description": "Phase 2 per-scene generation jobs (Replicate).",
+      "description": "Per-scene clip jobs (≤8s). provider=flow_browser|replicate_api; media_path under Content Explorer.",
       "columns": [
         "job_id",
         "storyboard_id",
         "scene_index",
         "status",
+        "provider",
+        "prompt",
+        "duration_sec",
         "media_path",
+        "browse_task_id",
+        "replicate_prediction_id",
         "error",
         "updated"
       ],

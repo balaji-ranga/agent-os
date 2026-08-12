@@ -4,7 +4,16 @@
 
 **Video content** is a Flolah industry pack for short-form / animated video **storyboards**. You chat with **Content Orchestrator**; specialists (Story, Scene Planner, Prompt) run inside the certified workflow **run video storyboard** — not as separate chat destinations.
 
-Pipeline: **Story → CEO cast gate** (lock reusable `character_id`) → Scene → Prompt → **CEO storyboard gate** (PDF with scenes + character_id map). Phase 1 ends at that approved storyboard. You can paste prompts into Google Flow manually. Phase 2 (later) adds Replicate `google/veo-*` clip generation and assembly.
+Pipeline: **Story → CEO cast gate** → Scene → Prompt → **CEO storyboard gate** → (Phase 2) **S4 scene clips ≤8s** → **S5 FFmpeg assemble** → status **`video_generated`**.
+
+Phase 1 ends at the approved storyboard. Phase 2 clip producers:
+
+| Flavour | Provider | How |
+|---------|----------|-----|
+| **1** | `flow_browser` | Desktop Local `browse_*` / Google Flow (CEO login); ingest downloads with `video_media_ingest_clip` |
+| **2** | `replicate_api` | Server Replicate `google/veo-*` via `video_media_generate` / BYOK |
+
+**Important:** Google Flow / Veo generate **at most ~8 seconds per clip**. Each storyboard scene is generated separately, then S5 stitches them. S5 does **not** call any video model.
 
 Social Facebook/LinkedIn posting remains the separate **content_creator** pack.
 
@@ -17,13 +26,17 @@ Social Facebook/LinkedIn posting remains the separate **content_creator** pack.
 5. **Upload a character face** (optional, any time in chat): attach an image; Orchestrator asks for the **character name**, then stores it in Master Data `video_characters` (`ref_media` + `image_id`) under Content Explorer for reuse.
 6. Approve **CEO review: video storyboard** — Summary lists scenes + character_ids; **Artifacts** shows the storyboard **PDF** (roster + scenes + prompts).
 7. Open exported **HTML / PDF / SVG** from that card, chat `MEDIA:` links, or Content Explorer.
-8. Optionally copy Veo/Flow prompts into Google Flow for a manual test.
+8. Optionally copy Veo/Flow prompts into Google Flow for a manual test — or run Phase 2:
+   - **run video media** / `video_media_generate` (`flow_browser` or `replicate_api`) — **one ≤8s clip per scene**
+   - **run video assembly** / `video_assemble` — final MP4; status becomes **`video_generated`**
 
-## Chat phrase
+## Chat phrases
 
 | Phrase | Workflow |
 |--------|----------|
 | **run video storyboard** | W-Reasoning: Story → cast CEO gate → Scene → Prompt → storyboard CEO gate |
+| **run video media** | W-Media S4: per-scene clips (≤8s) |
+| **run video assembly** | W-Assembly S5: FFmpeg + QC → `video_generated` |
 
 ## Master Data (your company only)
 
@@ -51,6 +64,10 @@ Story details + PDF are also indexed into your **RAG** documents so Orchestrator
 - `list_inbound_attachments` — find paperclip uploads before bind  
 - `video_characters_save` — metadata-only upsert (no image generate)  
 - `video_storyboard_export` — HTML + PDF + SVG + persist row + RAG  
+- `video_media_generate` — **S4** clips (≤8s/scene); `provider=flow_browser` \| `replicate_api`  
+- `video_media_ingest_clip` — Flavour 1: bind Flow download to a scene  
+- `video_media_jobs` — job list + asset manifest  
+- `video_assemble` — **S5** FFmpeg + QC → final MP4; sets **`video_generated`**  
 - `master_data_rag` / `master_data_list_documents` — knowledge / RAG  
 
 After approval (or when you ask to see the board), Orchestrator pastes `MEDIA:` / `/api/media` lines so **Dashboard chat** shows the PDF/HTML/SVG inline (open + download).

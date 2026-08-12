@@ -68,6 +68,10 @@ export const REQUIRED_GLOBAL_CONTENT_TOOLS = [
   'video_characters_ensure_refs',
   'video_characters_bind_upload',
   'video_characters_list',
+  'video_media_generate',
+  'video_media_ingest_clip',
+  'video_media_jobs',
+  'video_assemble',
   'browser',
 ];
 

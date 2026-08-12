@@ -28,6 +28,8 @@ const STORYBOARD_COLS = [
   'html_path',
   'pdf_path',
   'image_path',
+  'final_video_path',
+  'asset_manifest_json',
   'workflow_run_id',
   'rag_document_id',
   'updated',
@@ -790,6 +792,29 @@ function recentTitles(stories, days) {
     if (s.title) titles.push({ title: s.title, status: s.status, updated: s.updated, storyboard_id: s.storyboard_id });
   }
   return titles;
+}
+
+/** Load one storyboard Master Data row (CEO-scoped). */
+export function getVideoStoryboardRecord(ownerUserId, { storyboard_id = '', title = '', workflow_run_id = '' } = {}) {
+  const owner = String(ownerUserId || '').trim();
+  if (!owner) return null;
+  ensureVideoTables(owner);
+  const table = findTableByName(owner, 'video_storyboards');
+  if (!table) return null;
+  const listed = listRows(owner, table.id, { limit: 500 });
+  let row = null;
+  if (storyboard_id) {
+    row = (listed?.rows || []).find((r) => String(r.data?.storyboard_id) === String(storyboard_id));
+  }
+  if (!row && workflow_run_id) {
+    row = (listed?.rows || []).find((r) => String(r.data?.workflow_run_id) === String(workflow_run_id));
+  }
+  if (!row && title) {
+    const needle = String(title).toLowerCase();
+    row = (listed?.rows || []).find((r) => String(r.data?.title || '').toLowerCase().includes(needle));
+  }
+  if (!row) return null;
+  return { row_id: row.id, ...(row.data || {}) };
 }
 
 export function updateVideoStoryboardStatus(ownerUserId, { storyboard_id, workflow_run_id, title, status }) {

@@ -1,21 +1,19 @@
 {
   "template_key": "video-media",
-  "name": "Video: W-Media (Veo clips)",
-  "description": "Phase 2 stub — plan id → generate_video (Replicate google/veo-*) per scene → asset manifest. Expand graph when S4 ships. Chat: run video media",
+  "name": "Video: W-Media (scene clips ≤8s)",
+  "description": "S4: per-scene clips (Google Flow ≤8s each or Replicate Veo). Body/input: storyboard_id, provider=flow_browser|replicate_api. Chat: run video media",
   "chat_trigger_phrase": "run video media",
-  "trigger_modes": [
-    "manual",
-    "chat"
-  ],
+  "trigger_modes": ["manual", "chat"],
   "workflow_id_pattern": "video-media-{ownerSlug}",
   "kind": "video_content",
   "phase": 2,
-  "status": "stub",
+  "status": "ready",
   "maintained_in": "company-blueprints/standard/video-content/workflow-media.json",
   "notes": [
-    "Wire tool nodes to generate_video with Tools→Model override for google/veo-*.",
+    "Google Flow / Veo generate at most ~8 seconds — each scene is a separate job.",
+    "provider=flow_browser (Flavour 1 Desktop Local browse_*) or replicate_api (Flavour 2).",
     "Persist paths only under media/generated/{ceo}/; write video_jobs rows.",
-    "Orchestrator triggers after storyboard approval — do not invent success."
+    "Orchestrator triggers after storyboard ceo_approved — do not invent success."
   ],
   "graph": {
     "nodes": [
@@ -30,17 +28,34 @@
         }
       },
       {
-        "id": "brain-stub",
-        "type": "brain",
-        "position": { "x": 280, "y": 200 },
+        "id": "media-1",
+        "type": "tool",
+        "position": { "x": 300, "y": 200 },
         "data": {
-          "label": "Stub — implement S4",
-          "prompt": "W-Media is not fully implemented yet. Reply with: status=stub, next=implement generate_video scene loop from storyboard_id in input. Do not claim videos were generated."
+          "label": "Generate scene clips",
+          "toolName": "video_media_generate",
+          "toolPayload": {
+            "provider": "flow_browser"
+          },
+          "inputBindings": [
+            {
+              "id": "storyboard_id",
+              "mode": "dynamic",
+              "sourceNodeId": "trigger-1",
+              "sourceOutputKey": "text"
+            },
+            {
+              "id": "input",
+              "mode": "dynamic",
+              "sourceNodeId": "trigger-1",
+              "sourceOutputKey": "text"
+            }
+          ]
         }
       }
     ],
     "edges": [
-      { "id": "e1", "source": "trigger-1", "target": "brain-stub" }
+      { "id": "e1", "source": "trigger-1", "target": "media-1" }
     ]
   }
 }

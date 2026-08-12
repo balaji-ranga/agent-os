@@ -18,7 +18,7 @@
       "template_key": "video-media",
       "file": "workflow-media.json",
       "phase": 2,
-      "status": "stub",
+      "status": "ready",
       "chat_phrase": "run video media",
       "workflow_id_pattern": "video-media-{ownerSlug}",
       "seed_script": "backend/scripts/seed-video-content-workflows.js"
@@ -27,7 +27,7 @@
       "template_key": "video-assembly",
       "file": "workflow-assembly.json",
       "phase": 2,
-      "status": "stub",
+      "status": "ready",
       "chat_phrase": "run video assembly",
       "workflow_id_pattern": "video-assembly-{ownerSlug}",
       "seed_script": "backend/scripts/seed-video-content-workflows.js"
