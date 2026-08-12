@@ -913,7 +913,11 @@ async function executeAgentContinueStep(goal, step) {
     [{ role: 'user', content: prompt }],
     sessionUser,
     false,
-    { injectLearningsInstruction: true, injectKanbanInstruction: true }
+    {
+      injectLearningsInstruction: true,
+      injectKanbanInstruction: true,
+      timeoutMs: Number(process.env.GOAL_AGENT_CONTINUE_TIMEOUT_MS || process.env.OPENCLAW_FETCH_TIMEOUT_MS || 240000),
+    }
   );
   const reply = String(content || '').trim() || '(no response)';
   try {
@@ -1516,6 +1520,20 @@ export async function startGoalRunExecution(goalRunId, opts = {}) {
     }
   }
 
+  // Running agent_continue is backgrounded (OpenClaw chat can hang); do not re-enter.
+  const runningContinue = steps.find(
+    (s) => s.step_type === 'agent_continue' && s.status === 'running'
+  );
+  if (runningContinue) {
+    return {
+      ok: true,
+      async: true,
+      waiting: true,
+      step_id: runningContinue.id,
+      goal: getGoalRun(goal.id, goal.owner_user_id),
+    };
+  }
+
   // Running workflow steps without a bound child run cannot advance on terminal; re-fire them.
   const runningWfBound = steps.find(
     (s) =>
@@ -1608,14 +1626,51 @@ export async function startGoalRunExecution(goalRunId, opts = {}) {
     }
 
     if (step.step_type === 'agent_continue') {
-      const result = await executeAgentContinueStep(goal, step);
-      await completeGoalStep({
-        goalRunId: goal.id,
-        stepId: step.id,
-        ownerUserId: goal.owner_user_id,
-        result,
+      // Non-blocking: OpenClaw chat can hang for minutes (or longer if the gateway stalls).
+      // Keep step=running and finish via background so scheduled-goals / HTTP callers are not stuck.
+      const goalId = goal.id;
+      const stepId = step.id;
+      const owner = goal.owner_user_id;
+      const stepSnap = { ...step };
+      const goalSnap = { ...goal };
+      setImmediate(() => {
+        Promise.resolve()
+          .then(() => executeAgentContinueStep(goalSnap, stepSnap))
+          .then(async (result) => {
+            await completeGoalStep({
+              goalRunId: goalId,
+              stepId,
+              ownerUserId: owner,
+              result,
+            });
+            await startGoalRunExecution(goalId, { ownerUserId: owner });
+          })
+          .catch((e) => {
+            const msg = e?.message || String(e);
+            console.error('[goal-run] agent_continue background failed', {
+              goalRunId: goalId,
+              stepId,
+              error: msg,
+            });
+            try {
+              db()
+                .prepare(
+                  `UPDATE agent_goal_steps SET status = 'failed', error_message = ?, completed_at = datetime('now') WHERE id = ? AND status = 'running'`
+                )
+                .run(msg.slice(0, 1000), stepId);
+              completeGoalRun(goalId, { status: 'failed', error: msg });
+            } catch (failErr) {
+              console.warn('[goal-run] agent_continue fail finalize:', failErr?.message || failErr);
+            }
+          });
       });
-      return startGoalRunExecution(goalRunId, { ownerUserId: goal.owner_user_id });
+      return {
+        ok: true,
+        async: true,
+        waiting: true,
+        step_id: step.id,
+        goal: getGoalRun(goal.id, goal.owner_user_id),
+      };
     }
 
     throw new Error(`Unknown step type: ${step.step_type}`);

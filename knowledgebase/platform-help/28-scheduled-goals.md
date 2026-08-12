@@ -20,6 +20,8 @@ The COO uses `scheduled_goal_create` (and related tools) and confirms the schedu
 
 **How do I run a goal right now?** **Run now** on the page, or COO tool `scheduled_goal_run_now`.
 
+**Last run stuck on “running” / no COO reply?** Morning schedules claim `running` then call OpenClaw (or a durable `agent_goal_run`). If OpenClaw hangs or the backend restarts mid-flight, the row can stay `running` with no assistant chat turn. Platform tick now **reconciles** stuck runs (marks `ok` when the linked goal plan finished, or `error` after ~30 minutes with no plan). COO empty replies (“No response from OpenClaw.”) were also caused by stripped runtime tools (`sessions_history` / `read`) — fixed by always merging those into allowlists. Use **Run now** after a heal/deploy if today’s fire never produced a digest.
+
 **How do multi-intent scheduled goals work?** Creating a schedule from the CEO UI first builds a **draft execution plan** (workflow steps, specialty tasks, notify). Review the step list, then **Amend plan manually** if intent→step mapping is wrong (or **Build plan manually** from empty). Optional regenerate-with-feedback re-plans via LLM. **Save draft**, then **Approve plan & schedule** to make it **active**. Until approved, status is **draft** and tick/Run now are blocked. COO/chat tools default to an approved plan so plain-language schedules still activate immediately.
 
 

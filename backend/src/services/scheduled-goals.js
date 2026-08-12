@@ -604,7 +604,11 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
     console.log(`[scheduled-goals] firing id=${id} agent=${openclawId} run_key=${runKey}`);
     const { content } = await openclaw.chatCompletions(
       openclawId, [{ role: 'user', content: prompt }], sessionUser, false,
-      { injectLearningsInstruction: true, injectKanbanInstruction: true }
+      {
+        injectLearningsInstruction: true,
+        injectKanbanInstruction: true,
+        timeoutMs: Number(process.env.SCHEDULED_GOAL_CHAT_TIMEOUT_MS || process.env.OPENCLAW_FETCH_TIMEOUT_MS || 240000),
+      }
     );
     const reply = String(content || '').trim() || '(no response)';
     const preview = reply.slice(0, 2000);
@@ -628,6 +632,11 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
 }
 
 export async function tickScheduledGoals(now = new Date()) {
+  try {
+    reconcileStuckScheduledGoalRuns(now);
+  } catch (e) {
+    console.warn('[scheduled-goals] reconcile stuck:', e?.message || e);
+  }
   const actives = db().prepare(`SELECT id, owner_user_id, ends_at FROM scheduled_goals WHERE status='active'`).all();
   for (const r of actives) {
     if (isExpired(r.ends_at, now)) {
@@ -646,6 +655,60 @@ export async function tickScheduledGoals(now = new Date()) {
   }
   if (results.length) console.log(`[scheduled-goals] tick fired ${results.length} goal(s)`);
   return { count: results.length, results };
+}
+
+/**
+ * Heal scheduled_goal_runs left at status=running when the parent await died
+ * (backend restart) or when linked agent_goal_run already finished.
+ */
+export function reconcileStuckScheduledGoalRuns(now = new Date()) {
+  const stuckMins = Math.max(5, Number(process.env.SCHEDULED_GOAL_STUCK_MINUTES || 30) || 30);
+  const cutoff = new Date(now.getTime() - stuckMins * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19);
+  const rows = db()
+    .prepare(
+      `SELECT sgr.*, agr.id AS agr_id, agr.status AS agr_status
+       FROM scheduled_goal_runs sgr
+       LEFT JOIN agent_goal_runs agr ON agr.scheduled_goal_run_id = sgr.id
+       WHERE sgr.status = 'running'`
+    )
+    .all();
+  let healed = 0;
+  for (const row of rows) {
+    let nextStatus = null;
+    let preview = null;
+    let err = null;
+    if (row.agr_id && (row.agr_status === 'completed' || row.agr_status === 'failed' || row.agr_status === 'cancelled')) {
+      nextStatus = row.agr_status === 'completed' ? 'ok' : 'error';
+      preview = `Reconciled from agent_goal_run ${row.agr_id} (${row.agr_status})`;
+      if (row.agr_status !== 'completed') err = preview;
+    } else if (!row.agr_id && String(row.created_at || '') <= cutoff) {
+      nextStatus = 'error';
+      err = `Timed out while running (no agent_goal_run after ${stuckMins}m; likely OpenClaw hang or backend restart)`;
+      preview = err;
+    } else if (row.agr_id && String(row.created_at || '') <= cutoff) {
+      // agr still non-terminal but sgr claimed long ago — leave agr alone; only age-out orphan sgr without agr above.
+      continue;
+    } else {
+      continue;
+    }
+    db()
+      .prepare(
+        `UPDATE scheduled_goal_runs SET status = ?, reply_preview = COALESCE(?, reply_preview), error = COALESCE(?, error) WHERE id = ? AND status = 'running'`
+      )
+      .run(nextStatus, preview, err, row.id);
+    const goalStatus = nextStatus === 'ok' ? 'ok' : 'error';
+    db()
+      .prepare(
+        `UPDATE scheduled_goals SET last_run_status = ?, last_run_error = ?, updated_at = datetime('now')
+         WHERE id = ? AND owner_user_id = ? AND last_run_status = 'running'`
+      )
+      .run(goalStatus, err, row.goal_id, row.owner_user_id);
+    healed += 1;
+    console.warn(
+      `[scheduled-goals] healed stuck run sgr=${row.id} goal=${row.goal_id} -> ${nextStatus}`
+    );
+  }
+  return { healed, scanned: rows.length };
 }
 
 export function findGoalForOwner(ownerUserId, query) {
