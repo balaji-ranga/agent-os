@@ -204,7 +204,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/agent-workflow-watch',
     method: 'POST',
     purpose:
-      'API tool (COO or Workflow Builder): register notify-on-terminal and notify-on-CEO-wait for an existing agent workflow run. Body: run_id (required). Usually unnecessary after agent_workflow_trigger (auto-registers). Owner from session only.',
+      'API tool (COO, Workflow Builder, or Content Orchestrator): register notify-on-terminal and notify-on-CEO-wait for an existing agent workflow run. Body: run_id (required). Usually unnecessary after agent_workflow_trigger (auto-registers). Agent chat wake respects Knowledge table agent_workflow_notify_prefs (no rows for agent = all workflows; rows = allowlist of workflow_id patterns). CEO bell is always sent. Owner from session only.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,

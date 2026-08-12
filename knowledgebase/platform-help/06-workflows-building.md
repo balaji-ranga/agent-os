@@ -108,6 +108,20 @@ Shared fields often include:
 - Steps often create Kanban tasks; failures (non-2xx API, MCP `is_error`, SSL errors) fail the run.
 - For **SSE Listen**, you can stop listening on an active run from the UI/API.
 
+## Agent wake opt-in (`agent_workflow_notify_prefs`)
+
+Platform always sends the **CEO bell** on CEO-wait / terminal for watched runs. **Agent chat wakes** (COO / Workflow Builder / Content Orchestrator) can be limited via Knowledge table **`agent_workflow_notify_prefs`**:
+
+| Columns | Meaning |
+|---------|---------|
+| `agent_id` | Agent id (e.g. `video-orch-ceobala`, `balserve`) |
+| `workflow_id` | Definition id, name fragment, or glob (`video-reasoning*`) |
+| `enabled` | `true` / `1` (default) or `false` / `0` to ignore that row |
+
+- **No rows** for that agent → wake for **all** workflows (default).
+- **Any rows** for that agent → wake **only** for matching workflows.
+- Created empty for every CEO on register/startup. Edit in **Master Data**. `agent_workflow_watch` / terminal wake both respect this table.
+
 ## Validation checklist before Publish
 
 1. Exactly one Trigger (start).

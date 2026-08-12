@@ -2809,8 +2809,9 @@ router.post('/agent-goal-complete-step', optionalAuth, async (req, res) => {
 });
 
 /**
- * Register notify-on-terminal / CEO-wait for a run (COO or Workflow Builder).
+ * Register notify-on-terminal / CEO-wait for a run (COO, Workflow Builder, or Content Orchestrator).
  * Prefer agent_workflow_trigger (auto-registers). Use this if you only have a run_id.
+ * Agent wake respects Knowledge agent_workflow_notify_prefs (allowlist when rows exist).
  */
 router.post('/agent-workflow-watch', optionalAuth, async (req, res) => {
   const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;

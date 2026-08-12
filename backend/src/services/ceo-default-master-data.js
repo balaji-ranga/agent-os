@@ -320,9 +320,16 @@ export async function ensurePlatformHelpDocuments(_ownerUserId, _opts = {}) {
 /** Departments only for one CEO (platform help lives in OpenSearch under PLATFORM_OWNER_ID). */
 export async function ensureCeoDefaultMasterData(ownerUserId, opts = {}) {
   const departments = ensureDepartmentsMasterData(ownerUserId);
+  let workflowNotifyPrefs = null;
+  try {
+    const { ensureAgentWorkflowNotifyPrefsTable } = await import('./agent-workflow-notify-prefs.js');
+    workflowNotifyPrefs = ensureAgentWorkflowNotifyPrefsTable(ownerUserId);
+  } catch (e) {
+    console.warn('[ceo-default-master-data] workflow notify prefs:', e?.message || e);
+  }
   const guide = await ensureDefaultReadmeDocument(ownerUserId, opts);
   const platformHelp = await ensurePlatformHelpDocuments(ownerUserId, opts);
-  return { departments, guide, platformHelp };
+  return { departments, workflowNotifyPrefs, guide, platformHelp };
 }
 
 /**

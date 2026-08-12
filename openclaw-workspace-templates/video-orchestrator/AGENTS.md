@@ -40,6 +40,8 @@ Include the CEO’s look in the trigger input, e.g. `look: live-action cinematic
 
 When **you** triggered `run video storyboard` (or the platform wakes you because this is a video pack run), you may receive `[Workflow finished …]` in **this** chat. That is **by design** for the Content Orchestrator front door — not a second COO digest job.
 
+To limit wakes to video only: ask the CEO to add Knowledge rows in **`agent_workflow_notify_prefs`** (`agent_id` = your id, `workflow_id` = `video-reasoning*` or `video-*`, `enabled` = true). **No rows** = all workflows; **any rows** = allowlist only. CEO bell is separate and always sent.
+
 On that wake:
 
 1. Acknowledge the run (name + run id + status).

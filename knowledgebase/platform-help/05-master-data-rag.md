@@ -10,6 +10,7 @@ Two pillars:
 ## Tables
 
 - New CEOs get a **departments** table (Executive, Research, Finance, Social, Engineering, Operations, Job Pipeline, …) with `name`, **`purpose`** and **`monthly_token_budget`** columns. Purpose is synced into agent workspaces via ORG.md — see [18-agent-budgets-and-org-members.md](./18-agent-budgets-and-org-members.md).
+- New CEOs also get an empty **`agent_workflow_notify_prefs`** table (`agent_id`, `workflow_id`, `enabled`) for optional agent→workflow wake allowlists — see [06-workflows-building.md](./06-workflows-building.md) / [19-scheduled-jobs-and-crons.md](./19-scheduled-jobs-and-crons.md). No rows for an agent = notify all; rows = only matching workflows. CEO bell is unchanged.
 - Add columns and rows; import CSV when available.
 - Capture a **purpose/description** on the table so agents know what it is for.
 - Agents with Master Data tools can list tables, list/insert/update/delete **rows**. They generally **cannot** create/alter/drop tables from chat — that stays in the UI.

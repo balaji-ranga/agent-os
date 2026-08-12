@@ -13,6 +13,9 @@ import { ensureTenantOpenClawAgent } from './openclaw-tenant.js';
 import { insertChatTurn } from './chat-history.js';
 import { onWorkflowTerminalForGoalRun, findGoalStepByWorkflowRun } from './agent-goal-run.js';
 import { isPlatformCronActive } from './platform-cron-registry.js';
+import {
+  resolveAgentWorkflowNotifyPreference,
+} from './agent-workflow-notify-prefs.js';
 
 const TERMINAL = new Set(['completed', 'failed', 'cancelled', 'paused']);
 
@@ -100,10 +103,30 @@ export function registerWorkflowRunWatch(
   const owner = String(ownerUserId || run.owner_user_id || '').trim();
   if (!owner) return { ok: false, error: 'owner_user_id required' };
 
+  const defName = definitionName(run.definition_id);
   const context = parseContext(run);
   const prev =
     context.coo_run_watch && typeof context.coo_run_watch === 'object' ? context.coo_run_watch : {};
   const mergedActor = mergeActorId(actorAgentId, prev.actor_agent_id);
+  let wakeOk =
+    wakeOrchestratorOnTerminal !== false && prev.wake_orchestrator_on_terminal !== false;
+  let notifyPref = null;
+  if (wakeOk && mergedActor) {
+    notifyPref = resolveAgentWorkflowNotifyPreference(owner, {
+      agentId: mergedActor,
+      definitionId: run.definition_id,
+      definitionName: defName,
+    });
+    if (!notifyPref.allowed) {
+      wakeOk = false;
+      console.info('[wf-run-watch] wake disabled by notify prefs', {
+        runId: id,
+        actor: mergedActor,
+        definitionId: run.definition_id,
+        reason: notifyPref.reason || notifyPref.mode,
+      });
+    }
+  }
   context.coo_run_watch = {
     enabled: true,
     owner_user_id: owner,
@@ -111,14 +134,13 @@ export function registerWorkflowRunWatch(
     actor_name: mergeActorName(actorName, prev.actor_name, mergedActor),
     notify_on_waiting: notifyOnWaiting !== false,
     notify_on_terminal: notifyOnTerminal !== false,
-    wake_orchestrator_on_terminal:
-      wakeOrchestratorOnTerminal === false || prev.wake_orchestrator_on_terminal === false
-        ? false
-        : true,
+    wake_orchestrator_on_terminal: wakeOk,
+    notify_pref_mode: notifyPref?.mode || null,
+    notify_pref_reason: notifyPref && !notifyPref.allowed ? notifyPref.reason || null : null,
     registered_at: prev.registered_at || new Date().toISOString(),
     refreshed_at: new Date().toISOString(),
     events_sent: Array.isArray(prev.events_sent) ? prev.events_sent : [],
-      goal_run_id: goalRunId || prev.goal_run_id || null,
+    goal_run_id: goalRunId || prev.goal_run_id || null,
     goal_title: goalTitle || prev.goal_title || null,
     goal_step_label: goalStepLabel != null ? goalStepLabel : prev.goal_step_label || null,
     goal_step_index: goalStepIndex != null ? goalStepIndex : prev.goal_step_index ?? null,
@@ -128,7 +150,12 @@ export function registerWorkflowRunWatch(
     runId: id,
     owner,
     actorAgentId: mergedActor,
+    wake: wakeOk,
   });
+  const prefHint =
+    notifyPref && !notifyPref.allowed
+      ? ' Agent wake skipped: Knowledge table agent_workflow_notify_prefs has an allowlist for this agent that does not include this workflow (CEO bell still notifies). Add a matching workflow_id row or remove prefs to allow all.'
+      : '';
   return {
     ok: true,
     run_id: id,
@@ -136,16 +163,22 @@ export function registerWorkflowRunWatch(
     watch: context.coo_run_watch,
     async: true,
     goal_run_id: context.coo_run_watch.goal_run_id || null,
+    wake_orchestrator_on_terminal: wakeOk,
+    notify_pref: notifyPref
+      ? { mode: notifyPref.mode, allowed: notifyPref.allowed, reason: notifyPref.reason || null }
+      : null,
     instruction: context.coo_run_watch.goal_run_id
       ? 'ASYNC: Workflow step of goal plan ' +
         context.coo_run_watch.goal_run_id +
         ' started (workflow run_id=' +
         id +
-        '). Confirm agr-… and this step to the CEO; END TURN. Platform advances remaining plan steps on terminal — do not poll.'
+        '). Confirm agr-… and this step to the CEO; END TURN. Platform advances remaining plan steps on terminal — do not poll.' +
+        prefHint
       : 'Do not wait on this run in chat. Confirm run_id to the CEO, then stop this turn. ' +
-        'Platform notifies the CEO on CEO approval wait / terminal, and may re-wake you (COO) on terminal. ' +
+        'Platform notifies the CEO on CEO approval wait / terminal, and may re-wake you on terminal when your notify prefs allow. ' +
         'A numeric workflow run_id is NOT a goal plan. Multi-phase goals need agent_goal_create (agr-…). ' +
-        'Use agent_workflow_runs / agent_workflow_watch_tick only if the CEO asks for status.',
+        'Use agent_workflow_runs / agent_workflow_watch_tick only if the CEO asks for status.' +
+        prefHint,
   };
 }
 
@@ -424,6 +457,27 @@ export async function wakeOrchestratorOnWorkflowTerminal(runId, opts = {}) {
   if (!agent) {
     console.warn('[wf-run-watch] coo wake: no orchestrator agent', { runId: id, owner });
     return { ok: false, error: 'no_orchestrator_agent' };
+  }
+
+  const prefGate = resolveAgentWorkflowNotifyPreference(owner, {
+    agentId: agent.id,
+    definitionId: run.definition_id,
+    definitionName: name,
+  });
+  if (!prefGate.allowed) {
+    console.info('[wf-run-watch] skip wake: notify prefs', {
+      runId: id,
+      agent: agent.id,
+      definition: run.definition_id,
+      reason: prefGate.reason || prefGate.mode,
+    });
+    return {
+      ok: false,
+      skipped: true,
+      reason: 'notify_prefs',
+      agent_id: agent.id,
+      notify_pref: prefGate,
+    };
   }
 
   // Unbound video completion with no Content Orchestrator → CEO bell is enough; do not

@@ -9,8 +9,8 @@
 | [02-navigation-and-chrome.md](./02-navigation-and-chrome.md) | Left nav map, sections **collapsed by default**, **Global search** (task id / WF run id), Digest (goal plans + timestamps + View all), Operating Workspace open tasks + activity (= Kanban/goals/runs), Workspace Builder, Home **OEI** pointer (**36**), **Appearance** themes (Day/Night + Aurora Glass / Vivid Board) |
 | [03-dashboard-agents-chat.md](./03-dashboard-agents-chat.md) | Org chart, chat **attachments**, inline auth media players, workspace MD, **templates** Apply/Publish, tools access, Resync |
 | [04-kanban-standups-broadcast.md](./04-kanban-standups-broadcast.md) | Kanban (**Weekly default**, agent filter, Select all, task ID, deep-link `?task=`), standups → COO, Broadcast, `notify_ceo` when/when-not |
-| [05-master-data-rag.md](./05-master-data-rag.md) | Tables (incl. **company_memory**), CSV, documents, RAG; **Inbound attachments**; **Purge all uploads**; protected Help/User Guide docs |
-| [06-workflows-building.md](./06-workflows-building.md) | Create / edit / publish / run workflows, I/O mapping, templates, **WF run id** on run list/detail |
+| [05-master-data-rag.md](./05-master-data-rag.md) | Tables (incl. **company_memory**, **agent_workflow_notify_prefs**), CSV, documents, RAG; **Inbound attachments**; **Purge all uploads**; protected Help/User Guide docs |
+| [06-workflows-building.md](./06-workflows-building.md) | Create / edit / publish / run workflows, I/O mapping, templates, **WF run id**, agent wake opt-in prefs |
 | [07-workflow-nodes-reference.md](./07-workflow-nodes-reference.md) | Every node type incl. **Connector**; attributes, inputs, outputs |
 | [08-mcp-integrations.md](./08-mcp-integrations.md) | Register MCP, test, use in workflows / Brain (vs Connectors OAuth tab) |
 | [09-a2a-agent-exchange.md](./09-a2a-agent-exchange.md) | External agents, Publish A2A (sync/async, callback, deny_all/whitelist), **publish AI employees** (Flolah / Public), AgentExchange **Test agent**, Admin **A2A invocation logs**, mock callback inbox |

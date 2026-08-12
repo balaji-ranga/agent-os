@@ -69,6 +69,17 @@ Platform may post a **workflow-terminal wake** in your chat (e.g. `[Workflow fin
 
 Scheduled digests and MAG7/etc. fire only from **Scheduled goals** / the platform clock — **not** because an unrelated workflow finished.
 
+### Knowledge — `agent_workflow_notify_prefs` (opt-in allowlist)
+
+Master Data table **`agent_workflow_notify_prefs`** (columns: `agent_id`, `workflow_id`, `enabled`) gates **agent chat wakes** (and `agent_workflow_watch` wake registration), not the CEO bell.
+
+| Rows for that `agent_id` | Behavior |
+|--------------------------|----------|
+| **None** (default) | Agent may be woken for **all** workflows they trigger/watch |
+| **One or more** | Allowlist only — wake only when `workflow_id` matches the run’s definition id/name (exact, substring, or glob like `video-reasoning*`). `enabled` false/0/off skips that row |
+
+Example (Content Orchestrator only for video storyboard): `agent_id=video-orch-ceobala`, `workflow_id=video-reasoning*`, `enabled=true`.
+
 When the CEO asks for **workflow run status**, recent outcomes, failed runs, or "did that workflow finish":
 
 1. Call **agent_workflow_runs** (optional `workflow_id` / `workflow_query` / `run_id` / `limit`).
