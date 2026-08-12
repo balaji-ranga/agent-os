@@ -1,19 +1,23 @@
-﻿# Video content studio (Phase 1 storyboard)
+﻿# Video content studio
 
 ## What it is
 
-**Video content** is a Flolah industry pack for short-form / animated video **storyboards**. You chat with **Content Orchestrator**; specialists (Story, Scene Planner, Prompt) run inside the certified workflow **run video storyboard** — not as separate chat destinations.
+**Video content** is a Flolah industry pack for short-form / cinematic video. You chat with **Content Orchestrator**; specialists (Story, Scene Planner, Prompt) run inside certified workflows — not as separate chat destinations.
 
-Pipeline: **Story → CEO cast gate** → Scene → Prompt → **CEO storyboard gate** → (Phase 2) **S4 scene clips ≤8s** → **S5 FFmpeg assemble** → status **`video_generated`**.
+Pipeline:
 
-Phase 1 ends at the approved storyboard. Phase 2 clip producers:
+1. **Phase 1 (storyboard)** — Story → CEO cast gate → Scene → Prompt → CEO storyboard gate (PDF/HTML/image)
+2. **Phase 2 S4 (clips)** — one clip **per scene**, each **≤ ~8 seconds** (Google Flow / Veo limit)
+3. **Phase 2 S5 (assemble)** — FFmpeg + QC → final MP4; story status becomes **`video_generated`**
+
+### S4 flavours
 
 | Flavour | Provider | How |
 |---------|----------|-----|
-| **1** | `flow_browser` | Desktop Local `browse_*` / Google Flow (CEO login); ingest downloads with `video_media_ingest_clip` |
-| **2** | `replicate_api` | Server Replicate `google/veo-*` via `video_media_generate` / BYOK |
+| **1** | `flow_browser` | **Desktop Local** browser worker + Google Flow; bind downloads with `video_media_ingest_clip` |
+| **2** | `replicate_api` | Server Replicate `google/veo-*` via `video_media_generate` / vault **`Replicate_BYOK`** |
 
-**Important:** Google Flow / Veo generate **at most ~8 seconds per clip**. Each storyboard scene is generated separately, then S5 stitches them. S5 does **not** call any video model.
+S5 does **not** call any video model — it only stitches clip files from `video_jobs`.
 
 Social Facebook/LinkedIn posting remains the separate **content_creator** pack.
 
@@ -22,13 +26,22 @@ Social Facebook/LinkedIn posting remains the separate **content_creator** pack.
 1. Company setup → industry **Video content (shorts / animated / Veo)**, or ask an admin to run the video install for your account.
 2. Open chat with **Content Orchestrator** (only front door — do **not** chat Story/Scene/Prompt agents for stories).
 3. Ask for a storyboard in plain language (e.g. Thenaliraman for kids, cinematic live-action). Orchestrator first checks **story status / RAG**; if a prior board is still **pending CEO approval**, it asks you to finish that Kanban card before starting a new run.
-4. Approve **CEO review: video cast** — confirms `character_id` → name mapping and **portraits** (generated or reused from your library). Cast Summary includes portrait MEDIA lines when available.
-5. **Upload a character face** (optional, any time in chat): attach an image; Orchestrator asks for the **character name**, then stores it in Master Data `video_characters` (`ref_media` + `image_id`) under Content Explorer for reuse.
-6. Approve **CEO review: video storyboard** — Summary lists scenes + character_ids; **Artifacts** shows the storyboard **PDF** (roster + scenes + prompts).
-7. Open exported **HTML / PDF / SVG** from that card, chat `MEDIA:` links, or Content Explorer.
-8. Optionally copy Veo/Flow prompts into Google Flow for a manual test — or run Phase 2:
-   - **run video media** / `video_media_generate` (`flow_browser` or `replicate_api`) — **one ≤8s clip per scene**
-   - **run video assembly** / `video_assemble` — final MP4; status becomes **`video_generated`**
+4. Approve **CEO review: video cast** — confirms `character_id` → name mapping and **portraits** (generated or reused). Cast Summary includes portrait MEDIA lines when available.
+5. **Upload a character face** (optional): attach an image; Orchestrator asks for the **character name**, then stores it in Master Data `video_characters` (`ref_media` + `image_id`).
+6. Approve **CEO review: video storyboard** — Summary lists scenes + character_ids; **Artifacts** shows the storyboard **PDF**.
+7. After **`ceo_approved`**, run Phase 2:
+   - **run video media** — S4 clips (`flow_browser` or `replicate_api`)
+   - **run video assembly** — S5 final MP4 → status **`video_generated`**
+8. Paste `MEDIA:` / `/api/media` lines from Orchestrator so Dashboard shows PDF/HTML/video inline.
+
+### Flavour 1 (Google Flow) — Desktop Local sign-in
+
+1. **Connectors** → download **Browser Session package** (full or lite). See help **22**.
+2. Run `Start-BrowserWorker.ps1` with `BROWSER_HEADLESS=0`.
+3. In the **worker Chromium** window (not everyday Chrome), sign into Google / Flow. Cookies live in `BROWSER_USER_DATA_DIR` (default `browser-profile`).
+4. To use a different profile folder, set `BROWSER_USER_DATA_DIR` in the package `.env` and restart the worker (new folder = sign in again).
+5. Confirm **Online** on Connectors, then ask Orchestrator to **run video media** with `provider=flow_browser`.
+6. If a clip downloads outside the tool path, Orchestrator maps it with **`video_media_ingest_clip`** (storyboard_id + scene_index + MEDIA/inbound path).
 
 ## Chat phrases
 
@@ -38,39 +51,43 @@ Social Facebook/LinkedIn posting remains the separate **content_creator** pack.
 | **run video media** | W-Media S4: per-scene clips (≤8s) |
 | **run video assembly** | W-Assembly S5: FFmpeg + QC → `video_generated` |
 
+## Status values (`video_storyboards`)
+
+| Status | Meaning |
+|--------|---------|
+| `pending_ceo_approval` | Cast or storyboard waiting on Kanban |
+| `ceo_approved` | Storyboard approved — ready for S4 |
+| `video_generated` | S5 finished; final MP4 stored |
+| `rejected` | CEO rejected a gate |
+
 ## Master Data (your company only)
 
 | Table | Purpose |
 |-------|---------|
 | `video_characters` | Reusable cast: `character_id`, name, role, `ref_media`, `image_id`, appearance, series |
-| `video_storyboards` | `storyboard_id`, title, **status** (`pending_ceo_approval` / `ceo_approved` / `video_generated`), workflow_run_id, export paths, RAG doc id |
-| `video_jobs` | Reserved for Phase 2 clip jobs |
+| `video_storyboards` | `storyboard_id`, title, **status**, export paths, `final_video_path`, RAG doc id |
+| `video_jobs` | Per-scene S4 jobs: provider, prompt, `media_path`, browse/replicate ids (≤8s) |
 | `brand_voice` | Tone guidance for story/prompts |
 
-Story details + PDF are also indexed into your **RAG** documents so Orchestrator can recall titles and status.
+Story details + PDF + final summary are indexed into your **RAG** documents.
 
 ## Tools (Orchestrator)
 
 - `video_story_status` — **call first**; pending approval + recent 90-day titles  
-- `video_storyboard_attach` — **required** to put final PDF/HTML/image into chat (`paste_block`)  
-- `agent_workflow_list` / `agent_workflow_enquire` — find published video workflows  
-- `agent_workflow_trigger` — start W-Reasoning (`run video storyboard`)  
-- `agent_workflow_runs` / `agent_workflow_watch` — check run status / notify on terminal  
+- `video_storyboard_attach` — put storyboard PDF/HTML/image into chat (`paste_block`)  
+- `agent_workflow_list` / `agent_workflow_enquire` / `agent_workflow_trigger` / `agent_workflow_runs` / `agent_workflow_watch`  
+- `video_characters_list` / `video_characters_ensure_refs` / `video_characters_bind_upload` / `video_characters_save`  
+- `list_inbound_attachments` — paperclip uploads before bind / clip ingest  
+- `video_storyboard_export` — HTML + PDF + SVG + persist + RAG  
+- `video_media_generate` — **S4** (`flow_browser` \| `replicate_api`)  
+- `video_media_ingest_clip` — Flavour 1: bind downloaded clip to a scene  
+- `video_media_jobs` — jobs + asset manifest  
+- `video_assemble` — **S5**; sets **`video_generated`**  
+- `browse_session_status` / `browse_task_start` / `browse_task_status` — Flavour 1 worker (prefer `video_media_generate`)  
+- `generate_video` — low-level Replicate; prefer `video_media_generate` for storyboards  
+- `master_data_rag` / `master_data_list_documents`  
 
-**Notifications (by design):** On CEO-wait and terminal, the **CEO bell** always gets a platform notification. Terminal **wake** goes to the **triggering orchestrator** — usually **Content Orchestrator** when they started `run video storyboard` (so they can attach/present exports). Limit which workflows wake an agent via Knowledge **`agent_workflow_notify_prefs`** (no rows = all; rows = allowlist, e.g. `video-reasoning*`). COO is **not** meant to re-fire Daily Status Digest from a video completion; unbound video wakes prefer Content Orchestrator and stay status-only.
-- `video_characters_list` — library + which faces are missing images  
-- `video_characters_ensure_refs` — **generate** (or reuse) portraits → Content Explorer + Master Data  
-- `video_characters_bind_upload` — **CEO upload** → ask character name → map + store in Master Data  
-- `list_inbound_attachments` — find paperclip uploads before bind  
-- `video_characters_save` — metadata-only upsert (no image generate)  
-- `video_storyboard_export` — HTML + PDF + SVG + persist row + RAG  
-- `video_media_generate` — **S4** clips (≤8s/scene); `provider=flow_browser` \| `replicate_api`  
-- `video_media_ingest_clip` — Flavour 1: bind Flow download to a scene  
-- `video_media_jobs` — job list + asset manifest  
-- `video_assemble` — **S5** FFmpeg + QC → final MP4; sets **`video_generated`**  
-- `master_data_rag` / `master_data_list_documents` — knowledge / RAG  
-
-After approval (or when you ask to see the board), Orchestrator pastes `MEDIA:` / `/api/media` lines so **Dashboard chat** shows the PDF/HTML/SVG inline (open + download).
+**Notifications:** CEO bell on CEO-wait and terminal. Terminal wake prefers **Content Orchestrator**. Knowledge **`agent_workflow_notify_prefs`** can allowlist workflow id patterns.
 
 ## Where engineers maintain the golden source
 
@@ -79,11 +96,13 @@ After approval (or when you ask to see the board), Orchestrator pastes `MEDIA:` 
 | Agent MD | `openclaw-workspace-templates/video-orchestrator/` · `video-story/` · `video-scene/` · `video-prompt/` |
 | Pack | `backend/src/services/company-blueprints/packs/video_content.json` |
 | Workflows | `backend/src/services/company-blueprints/standard/video-content/` |
+| Services | `backend/src/services/video-media.js`, `video-assemble.js`, `video-characters.js`, `video-storyboard-export.js` |
 
 Do not hotfix only on the VPS — edit those trees and re-seed / refresh.
 
 ## Related
 
 - Plan: [`VIDEO-CONTENT-GENERATION-PLAN.md`](../VIDEO-CONTENT-GENERATION-PLAN.md)  
+- Desktop Local: [22-browser-session-and-recipes.md](./22-browser-session-and-recipes.md), [`BROWSER-SESSION-DESKTOP-LOCAL.md`](../BROWSER-SESSION-DESKTOP-LOCAL.md)  
 - Blueprint: [`CONTENT-CREATION-ORG-BLUEPRINT.md`](../CONTENT-CREATION-ORG-BLUEPRINT.md)  
 - Social ops: [30-content-creator-ops.md](./30-content-creator-ops.md)

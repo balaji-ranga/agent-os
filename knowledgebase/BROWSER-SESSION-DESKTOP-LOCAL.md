@@ -29,6 +29,7 @@
 - Keep `BROWSER_HEADLESS=0` for first login / 2FA.
 - Do not delete `browser-profile\` while you want sessions to stick; restarts reuse it.
 - Profile is **excluded** from re-download zips (only a `.gitkeep` placeholder is packed).
+- **Change profile:** set `BROWSER_USER_DATA_DIR` in the package `.env` to another relative or absolute folder, restart the worker, then sign in again. Used by video Flavour 1 (Google Flow) — see platform-help **41**.
 
 ### Existing installs (upgrade)
 

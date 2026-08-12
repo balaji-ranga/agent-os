@@ -216,6 +216,8 @@ Confirm **Job profile** is complete and pipeline/cron is enabled for your enviro
 4. Client Chrome not ready — Browser Session → opt in, attach tab, Mark ready.
 5. Opens blocked — check URL allow/deny lists.
 6. Desktop Local worker offline / jobs fail — Connectors shows Offline: run `Start-BrowserWorker.ps1`, check `.env` token + `AGENT_OS_BASE_URL`, firewall outbound HTTPS, optional IP whitelist match.
+7. Video Flavour 1 (`flow_browser`) needs worker **Online** and Google signed in **inside the worker Chromium** (not everyday Chrome). Change profile via `BROWSER_USER_DATA_DIR` then restart. Clips are **≤8s per scene**; assemble with **run video assembly** → status `video_generated` (help **41**).
+8. Video Flavour 2 needs vault **`Replicate_BYOK`** (or platform `REPLICATE_API_TOKEN`) and Tools→Model for `generate_video` / `video_media_generate`.
 7. Lost sessions after restart — you need headed worker with `BROWSER_USER_DATA_DIR=browser-profile` (re-download package if old ephemeral build); log in again once.
 8. Full guide: [22-browser-session-and-recipes.md](./22-browser-session-and-recipes.md); desktop ops [BROWSER-SESSION-DESKTOP-LOCAL.md](../BROWSER-SESSION-DESKTOP-LOCAL.md).
 

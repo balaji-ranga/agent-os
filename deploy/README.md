@@ -252,7 +252,8 @@ Gets the same gateway LLM vars plus:
 | `STANDUP_SCHEDULE_CRON`, `STANDUP_CRON_SCHEDULE`, `DELEGATION_CRON_SCHEDULE`, `AGENT_WORKFLOW_SCHEDULER_CRON`, `JOB_PIPELINE_CRON_SCHEDULE`, `KANBAN_ORPHAN_WATCHER_CRON` | Remaining platform timers. All optional — every job has a code default; `deploy/scripts/ensure-cron-env.sh` keeps a commented reference block in `deploy/.env`. Admins can pause/resume/run each one at `/admin/crons`. |
 | `TOOLS_API_KEY` | OpenClaw content-tools ↔ backend (required in production; must match plugin `apiKey`) |
 | `OPENAI_COO_MODEL`, `OPENAI_INTENT_MODEL` | COO / intent classifier |
-| `REPLICATE_API_TOKEN` | Video generation content tool |
+| `REPLICATE_API_TOKEN` | Platform video generation (`generate_video` / `video_media_generate` Flavour 2); CEOs may use vault `Replicate_BYOK` instead |
+| `VIDEO_FLOW_START_URL` / `VIDEO_FLOW_TEST_FIXTURES` / `FFMPEG_PATH` | Optional video pack S4/S5 overrides (see `.env.example`) |
 | `OPENROUTER_*` | Dev/test scripts; Brain nodes still use per-node keys |
 | `CUSTOM_SCRIPT_*` | Python/JS workflow script sandbox (`python3` in image); includes LLM security review at registration |
 | `WORKFLOW_SMTP_*` | Send Email workflow task, `email_send` content tool (incl. ICS invites), MFA email OTP. Use a verified sender domain with your SMTP provider. |

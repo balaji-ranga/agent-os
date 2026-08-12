@@ -44,6 +44,18 @@ Only **one** user can hold **Client Chrome** at a time (**exclusive lease**):
 8. Optional IP lock: **Settings → IP Whitelists** (Browser Session package) or the Connectors IP panel — **same store**.
 9. Revoke old tokens under **Settings → Tokens management** if a zip is lost; re-download mints a new token.
 
+### Sign-in and changing the browser profile
+
+- This is **Playwright Chromium**, not your installed Google Chrome — everyday Chrome cookies are not reused.
+- Keep `BROWSER_HEADLESS=0` for Google / Flow login and 2FA.
+- Default profile folder: `browser-profile\` under the unzipped package (`BROWSER_USER_DATA_DIR=browser-profile`).
+- To use another profile: set `BROWSER_USER_DATA_DIR` in the package `.env` to a new relative or absolute path, restart the worker, then sign in again in that window.
+- Do not delete the active profile folder if you want the Google session to stick; do not share `browser-profile\` or the zip `.env`.
+
+### Video content (Google Flow flavour)
+
+Video pack **Flavour 1** (`flow_browser`) needs this worker **Online**, with Google signed in inside the worker window. Orchestrator then runs **run video media** (≤8s per scene) and **run video assembly**. Details: [41-video-content-studio.md](./41-video-content-studio.md).
+
 Ops detail: [BROWSER-SESSION-DESKTOP-LOCAL.md](../BROWSER-SESSION-DESKTOP-LOCAL.md). Token inventory: [34-tokens-management.md](./34-tokens-management.md). IP rules: [33-ip-whitelists.md](./33-ip-whitelists.md).
 
 ### Loopback (optional workflows)

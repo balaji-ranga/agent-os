@@ -656,7 +656,7 @@ All project docs except this README live in **`knowledgebase/`**:
 
 | File | Purpose |
 |------|---------|
-| **platform-help/** | CEO Platform Help RAG corpus (incl. **22** Browser Session desktop worker, **33** IP Whitelists, **34** Tokens; **35** Update Company Details) |
+| **platform-help/** | CEO Platform Help RAG corpus (incl. **22** Browser Session desktop worker, **41** Video content S1–S5, **33** IP Whitelists, **34** Tokens; **35** Update Company Details) |
 | **TESTING.md** | Restart, API tests, frontend manual tests, smoke test |
 | **JOB-APPLICANT-WORKFLOW.md** | Job pipeline agents, tools, profile intake, setup |
 | **GATEWAY-PAIRING-1008.md** | Fix gateway pairing / token |
@@ -674,7 +674,8 @@ All project docs except this README live in **`knowledgebase/`**:
 | **IBKR-MONTHLY-TRADING-PLAN.md** | Monthly system architecture, phases, strategy appendix |
 | **IBKR-MONTHLY-EXECUTION-MODEL.md** | Cloud vs laptop execution + laptop↔VPS recovery |
 | **IBKR-LOCAL-BRIDGE.md** | Laptop HTTP bridge, Connectors zip, Gateway, webhooks |
-| **CLIENT-BROWSER-SESSION.md** / **BROWSER-SESSION-DESKTOP-LOCAL.md** | Client Chrome + multi-user local Browser Session worker |
+| **CLIENT-BROWSER-SESSION.md** / **BROWSER-SESSION-DESKTOP-LOCAL.md** | Client Chrome + multi-user local Browser Session worker (sign-in / `BROWSER_USER_DATA_DIR` profile) |
+| **VIDEO-CONTENT-GENERATION-PLAN.md** / **platform-help/41** | Video pack S1–S5: storyboard, dual S4 flavours, S5 FFmpeg → `video_generated` |
 | **platform-help/22**, **33**, **34**, **35** | Browser Session; IP Whitelists; Tokens; Update Company Details |
 | **platform-help/20-ibkr-monthly-trading.md** | **CEO help:** W1–W5 defs, flow diagrams, isolation, **IBKR Summary / Clear data**, bridge setup |
 | **IBKR-MONTHLY-PHASE4.md** | Paper E2E + certify runbook before live |

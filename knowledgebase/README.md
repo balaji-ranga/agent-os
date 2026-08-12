@@ -55,7 +55,7 @@ Documentation lives here so Cursor and humans can find it. **Root README.md** st
 | [VIDEO-TOURS-CEO-CURRICULUM.md](./VIDEO-TOURS-CEO-CURRICULUM.md) | <=12 CEO Video Tours playlist, production checklist |
 | [video-tours/](./video-tours/) | Local scripts, VTT, exported mp4 assets |
 | [CONTENT-CREATION-ORG-BLUEPRINT.md](./CONTENT-CREATION-ORG-BLUEPRINT.md) | Video content-studio org + agent/workflow map |
-| [VIDEO-CONTENT-GENERATION-PLAN.md](./VIDEO-CONTENT-GENERATION-PLAN.md) | **Approved plan:** `video_content` pack; templates in `openclaw-workspace-templates/video-*`; graphs in `company-blueprints/standard/video-content/`; Replicate `google/veo-*`; storyboard HTML/PDF/image (S3) |
+| [VIDEO-CONTENT-GENERATION-PLAN.md](./VIDEO-CONTENT-GENERATION-PLAN.md) | **Plan:** `video_content` pack; S1–S5 (dual S4 flavours `flow_browser`/`replicate_api`, ≤8s/scene; S5 FFmpeg → `video_generated`) |
 | [ONBOARDING-HELPER-PLAN.md](./ONBOARDING-HELPER-PLAN.md) | Onboarding Helper plan (UI + AgentSystem bridge) |
 | [platform-help/27-onboarding-helper.md](./platform-help/27-onboarding-helper.md) | CEO help: selective apply + E2E chat prompt recipes |
 | [platform-help/28-scheduled-goals.md](./platform-help/28-scheduled-goals.md) | CEO help: scheduled goals + durable multiphase **goal plans** (Amend plan manually, async ack, new agr per create/fire, terminal notify correlation, Digest `/goal-plans`, multiphase trigger upgrade) |
@@ -63,6 +63,6 @@ Documentation lives here so Cursor and humans can find it. **Root README.md** st
 | [platform-help/35-update-company-details.md](./platform-help/35-update-company-details.md) | Update Company Details → company_memory Knowledge table |
 | [platform-help/36-operational-effectiveness.md](./platform-help/36-operational-effectiveness.md) | Home OEI score, domains, goal-run KPIs, COO tool |
 | [platform-help/30-content-creator-ops.md](./platform-help/30-content-creator-ops.md) | CEO help: content ops publish / community / Ops Reporter (bell not email) |
-| [platform-help/41-video-content-studio.md](./platform-help/41-video-content-studio.md) | CEO help: video storyboard Phase 1 (Orchestrator + cast portraits generate/upload + W-Reasoning + HTML/PDF/image) |
+| [platform-help/41-video-content-studio.md](./platform-help/41-video-content-studio.md) | CEO help: video storyboard + cast portraits + S4/S5 (`run video media` / `run video assembly`) → `video_generated` |
 | [platform-help/31-mcp-connectors-oauth.md](./platform-help/31-mcp-connectors-oauth.md) | CEO/ops help: Connectors → MCPs OAuth (Facebook, App override, other providers) |
 | [AMENDMENT-CONTENT-MEDIA-API-PUBLISH.md](./AMENDMENT-CONTENT-MEDIA-API-PUBLISH.md) | Design amendment: Meta Graph publish, comments ingest, content_creator pack |
