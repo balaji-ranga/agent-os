@@ -1,7 +1,7 @@
 {
   "template_key": "video-reasoning",
-  "name": "Video: Story → Scene → Prompt (storyboard)",
-  "description": "W-Reasoning: Story Agent → Scene Planner → Prompt Agent → optional CEO gate. Chat: run video storyboard. Orchestrator triggers; specialists are workflow nodes only.",
+  "name": "Video: Story → Cast → Scene → Prompt (storyboard)",
+  "description": "W-Reasoning: Story → CEO cast gate (reusable character_id) → Scene → Prompt → CEO storyboard gate. Chat: run video storyboard.",
   "chat_trigger_phrase": "run video storyboard",
   "trigger_modes": [
     "manual",
@@ -27,16 +27,10 @@
       {
         "id": "trigger-1",
         "type": "trigger",
-        "position": {
-          "x": 40,
-          "y": 220
-        },
+        "position": { "x": 40, "y": 240 },
         "data": {
           "label": "Start",
-          "triggerModes": [
-            "manual",
-            "chat"
-          ],
+          "triggerModes": ["manual", "chat"],
           "chatPhrase": "run video storyboard",
           "scheduleCron": "",
           "inputSchema": null
@@ -45,15 +39,12 @@
       {
         "id": "story-1",
         "type": "agent",
-        "position": {
-          "x": 260,
-          "y": 220
-        },
+        "position": { "x": 240, "y": 240 },
         "data": {
           "label": "Story Agent",
           "agentNameRef": "Story Agent",
           "agentName": "Story Agent",
-          "prompt": "You are Story Agent (video). Brief and character refs from input:\n\n{{input}}\n\nProduce narrative beats for short-form video within the duration budget. End with ONLY one JSON object: title, duration_sec, logline, beats[], characters_used[], tone, cta.",
+          "prompt": "You are Story Agent (video). Brief from input:\n\n{{input}}\n\nPrefer reusable cast ids from Master Data video_characters when the brief names known characters. Produce narrative beats for short-form video within the duration budget.\nEnd with ONLY one JSON object: title, duration_sec, logline, beats[], characters_used[{name,role,character_id?}], tone, cta.\nDo NOT invent final Veo prompts or scene cards — cast must be CEO-confirmed next.",
           "inputBindings": [
             {
               "id": "prompt",
@@ -65,23 +56,69 @@
         }
       },
       {
+        "id": "ceo-cast",
+        "type": "ceo_approval",
+        "position": { "x": 480, "y": 240 },
+        "data": {
+          "label": "CEO review cast",
+          "prompt": "Confirm cast character_id mapping and reuse refs before Scene/Prompt.",
+          "taskConfig": {
+            "title": "CEO review: video cast",
+            "instructions": "Confirm character_id → name mapping (and reuse library refs when listed). Approve to lock cast into Master Data video_characters and continue Scene→Prompt. Reject to stop."
+          },
+          "inputBindings": [
+            {
+              "id": "summary",
+              "mode": "dynamic",
+              "sourceNodeId": "story-1",
+              "sourceOutputKey": "reply"
+            }
+          ]
+        }
+      },
+      {
+        "id": "if-cast",
+        "type": "if",
+        "position": { "x": 700, "y": 240 },
+        "data": {
+          "label": "Cast approved?",
+          "taskConfig": {
+            "sourceNodeId": "ceo-cast",
+            "sourceOutputKey": "decision",
+            "operator": "approved"
+          }
+        }
+      },
+      {
+        "id": "cast-rejected",
+        "type": "brain",
+        "position": { "x": 700, "y": 420 },
+        "data": {
+          "label": "Cast rejected",
+          "prompt": "Cast was rejected by the CEO. Reply briefly: status=rejected_cast. Do not invent scenes or claim a storyboard was produced."
+        }
+      },
+      {
         "id": "scene-1",
         "type": "agent",
-        "position": {
-          "x": 500,
-          "y": 220
-        },
+        "position": { "x": 920, "y": 160 },
         "data": {
           "label": "Scene Planner",
           "agentNameRef": "Scene Planner",
           "agentName": "Scene Planner",
-          "prompt": "You are Scene Planner (video). Story JSON / text:\n\n{{story}}\n\nOriginal brief:\n{{input}}\n\nBreak into 6–8 second scenes. End with ONLY one JSON object: duration_sec, scenes[{index,duration_sec,characters,description,continuity_notes,camera}].",
+          "prompt": "You are Scene Planner (video). Story JSON:\n\n{{story}}\n\nApproved cast context:\n{{cast}}\n\nOriginal brief:\n{{input}}\n\nBreak into 6–8 second scenes. Every scene.characters[] MUST use the locked character_id values from the cast (not free-form new names).\nEnd with ONLY one JSON object: duration_sec, scenes[{index,duration_sec,characters,description,continuity_notes,camera}].",
           "inputBindings": [
             {
               "id": "story",
               "mode": "dynamic",
               "sourceNodeId": "story-1",
               "sourceOutputKey": "reply"
+            },
+            {
+              "id": "cast",
+              "mode": "dynamic",
+              "sourceNodeId": "ceo-cast",
+              "sourceOutputKey": "summary"
             },
             {
               "id": "input",
@@ -95,15 +132,12 @@
       {
         "id": "prompt-1",
         "type": "agent",
-        "position": {
-          "x": 740,
-          "y": 220
-        },
+        "position": { "x": 1160, "y": 160 },
         "data": {
           "label": "Prompt Agent",
           "agentNameRef": "Prompt Agent",
           "agentName": "Prompt Agent",
-          "prompt": "You are Prompt Agent (video). Scene plan:\n\n{{scenes}}\n\nStory:\n{{story}}\n\nBrief:\n{{input}}\n\nWrite Flow/Veo-ready prompts. End with ONLY the full storyboard JSON: title, duration_sec, characters[{id,name,role,ref_media}], scenes[{index,duration_sec,characters,description,veo_prompt,negative_prompt,continuity_notes}].",
+          "prompt": "You are Prompt Agent (video). Scene plan:\n\n{{scenes}}\n\nStory:\n{{story}}\n\nApproved cast (character_id mapping — reuse these exact ids and ref_media):\n{{cast}}\n\nBrief:\n{{input}}\n\nWrite Flow/Veo-ready prompts. Every veo_prompt must mention locked character appearance and character_id.\nEnd with ONLY the full storyboard JSON: title, duration_sec, characters[{character_id,id,name,role,ref_media,appearance}], scenes[{index,duration_sec,characters,description,veo_prompt,negative_prompt,continuity_notes}].\nscenes[].characters must be character_id strings matching characters[].character_id.",
           "inputBindings": [
             {
               "id": "scenes",
@@ -118,6 +152,12 @@
               "sourceOutputKey": "reply"
             },
             {
+              "id": "cast",
+              "mode": "dynamic",
+              "sourceNodeId": "ceo-cast",
+              "sourceOutputKey": "summary"
+            },
+            {
               "id": "input",
               "mode": "dynamic",
               "sourceNodeId": "trigger-1",
@@ -129,16 +169,13 @@
       {
         "id": "ceo-gate",
         "type": "ceo_approval",
-        "position": {
-          "x": 980,
-          "y": 220
-        },
+        "position": { "x": 1400, "y": 160 },
         "data": {
           "label": "CEO review storyboard",
-          "prompt": "Review the storyboard PDF on this Kanban card (Artifacts). Approve to persist as the production plan, or reject with feedback for Orchestrator re-run.",
+          "prompt": "Review the storyboard PDF (scenes + character_id roster). Approve to persist as production plan.",
           "taskConfig": {
             "title": "CEO review: video storyboard",
-            "instructions": "Open Artifacts for the storyboard PDF (scenes + Veo/Flow prompts). Approve to persist as the production plan, or reject with feedback."
+            "instructions": "Open Artifacts for the storyboard PDF (character_id mapping + scenes + Veo/Flow prompts). Approve to mark ceo_approved, or reject with feedback."
           },
           "inputBindings": [
             {
@@ -149,29 +186,50 @@
             }
           ]
         }
+      },
+      {
+        "id": "if-storyboard",
+        "type": "if",
+        "position": { "x": 1620, "y": 160 },
+        "data": {
+          "label": "Storyboard approved?",
+          "taskConfig": {
+            "sourceNodeId": "ceo-gate",
+            "sourceOutputKey": "decision",
+            "operator": "approved"
+          }
+        }
+      },
+      {
+        "id": "storyboard-done",
+        "type": "brain",
+        "position": { "x": 1840, "y": 80 },
+        "data": {
+          "label": "Storyboard approved",
+          "prompt": "Storyboard CEO-approved. Reply with status=ceo_approved and remind that character_id rows are in Master Data video_characters for reuse. Do not claim Veo clips were generated."
+        }
+      },
+      {
+        "id": "storyboard-rejected",
+        "type": "brain",
+        "position": { "x": 1840, "y": 260 },
+        "data": {
+          "label": "Storyboard rejected",
+          "prompt": "Storyboard rejected by CEO. Reply status=rejected_storyboard. Orchestrator may re-trigger with feedback."
+        }
       }
     ],
     "edges": [
-      {
-        "id": "e1",
-        "source": "trigger-1",
-        "target": "story-1"
-      },
-      {
-        "id": "e2",
-        "source": "story-1",
-        "target": "scene-1"
-      },
-      {
-        "id": "e3",
-        "source": "scene-1",
-        "target": "prompt-1"
-      },
-      {
-        "id": "e4",
-        "source": "prompt-1",
-        "target": "ceo-gate"
-      }
+      { "id": "e1", "source": "trigger-1", "target": "story-1" },
+      { "id": "e2", "source": "story-1", "target": "ceo-cast" },
+      { "id": "e3", "source": "ceo-cast", "target": "if-cast" },
+      { "id": "e4", "source": "if-cast", "target": "scene-1", "sourceHandle": "true" },
+      { "id": "e5", "source": "if-cast", "target": "cast-rejected", "sourceHandle": "false" },
+      { "id": "e6", "source": "scene-1", "target": "prompt-1" },
+      { "id": "e7", "source": "prompt-1", "target": "ceo-gate" },
+      { "id": "e8", "source": "ceo-gate", "target": "if-storyboard" },
+      { "id": "e9", "source": "if-storyboard", "target": "storyboard-done", "sourceHandle": "true" },
+      { "id": "e10", "source": "if-storyboard", "target": "storyboard-rejected", "sourceHandle": "false" }
     ]
   }
 }

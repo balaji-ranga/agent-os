@@ -30,7 +30,10 @@
         "notify_ceo",
         "content_tools_enquire",
         "video_storyboard_export",
-        "video_characters_save"
+        "video_characters_save",
+        "video_story_status",
+        "master_data_index_document",
+        "master_data_list_documents"
       ]
     },
     {

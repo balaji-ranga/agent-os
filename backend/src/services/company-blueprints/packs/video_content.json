@@ -51,6 +51,9 @@
         "generate_image",
         "video_storyboard_export",
         "video_characters_save",
+        "video_story_status",
+        "master_data_index_document",
+        "master_data_list_documents",
         "kanban_create_task",
         "kanban_move_status",
         "notify_ceo",
@@ -101,7 +104,7 @@
     }
   ],
   "workflows": [
-    "CEO/Orchestrator chat → agent_workflow_trigger W-Reasoning (Story→Scene→Prompt) → storyboard JSON + HTML/PDF/image → CEO review in chat/Kanban",
+    "CEO/Orchestrator chat → video_story_status check → agent_workflow_trigger W-Reasoning (Story→CEO cast→Scene→Prompt→CEO storyboard) → HTML/PDF with character_id map → Kanban approvals",
     "Phase 2: approve → W-Media (generate_video Replicate google/veo-*) → W-Assembly (FFmpeg + QC) → final MP4 in Content Explorer",
     "Feedback loop: Orchestrator patches brief → re-trigger W-Reasoning or single-scene regen"
   ],
@@ -134,12 +137,14 @@
   "knowledge_tables": [
     {
       "name": "video_characters",
-      "description": "Reusable character cards and reference media paths.",
+      "description": "Reusable character cards: stable character_id + reference media + appearance bible for visual continuity across videos.",
       "columns": [
         "character_id",
         "name",
         "role",
         "ref_media",
+        "appearance",
+        "series",
         "notes",
         "updated"
       ],
@@ -147,7 +152,7 @@
     },
     {
       "name": "video_storyboards",
-      "description": "Durable storyboard / production_plan JSON + export paths.",
+      "description": "Durable storyboard rows: storyboard_id, title, status (pending_ceo_approval|ceo_approved|video_generated), workflow_run_id, export paths, RAG doc id.",
       "columns": [
         "storyboard_id",
         "title",
@@ -158,6 +163,7 @@
         "pdf_path",
         "image_path",
         "workflow_run_id",
+        "rag_document_id",
         "updated"
       ],
       "seed_rows": []
@@ -190,7 +196,7 @@
         },
         {
           "topic": "consistency",
-          "guidance": "Reuse video_characters refs; do not invent new faces mid-board."
+          "guidance": "Reuse video_characters character_id + ref_media; do not invent new faces for known series roles."
         }
       ]
     }
@@ -199,12 +205,12 @@
     {
       "title": "SOP - Video storyboard (Phase 1)",
       "filename": "sop-video-storyboard.md",
-      "contentText": "# Video storyboard (Phase 1)\n\n1. CEO chats **Content Orchestrator** with idea + character refs.\n2. Orchestrator triggers workflow **video-reasoning** (chat: run video storyboard).\n3. Story → Scene Planner → Prompt agents run as workflow nodes only.\n4. Persist plan to Master Data **video_storyboards**; export HTML/PDF/image to Content Explorer.\n5. Orchestrator returns MEDIA links in the same chat.\n6. CEO may manually paste prompts into Google Flow.\n7. Feedback: Orchestrator re-triggers with patched brief — do not edit specialist SOUL ad-hoc in chat.\n\nCanonical templates: openclaw-workspace-templates/video-* /\nCanonical graphs: company-blueprints/standard/video-content/\n"
+      "contentText": "# Video storyboard (Phase 1)\n\n1. CEO chats **Content Orchestrator** with idea + optional character refs.\n2. Orchestrator calls **video_story_status** (and RAG). If any story is **pending_ceo_approval**, ask CEO to approve/reject that Kanban card before a new run.\n3. Trigger **run video storyboard**: Story → **CEO cast** (lock character_id) → Scene → Prompt → **CEO storyboard** (PDF with character_id map).\n4. Knowledge: video_storyboards status + RAG of story details/PDF; video_characters for reusable faces.\n5. Scheduled goals: pass recent_titles_90d so Story avoids last 90 days titles.\n\nCanonical templates: openclaw-workspace-templates/video-* /\nCanonical graphs: company-blueprints/standard/video-content/\n"
     }
   ],
   "policy_templates": {
-    "after_approval": "Generate storyboards freely; require CEO Kanban approval before Phase 2 Veo spend.",
-    "autonomous": "Orchestrator may run W-Reasoning and present boards; still gate paid Veo generation behind explicit approve unless Profile says otherwise."
+    "after_approval": "Generate storyboards freely after cast+storyboard CEO gates; require CEO Kanban approval before Phase 2 Veo spend.",
+    "autonomous": "Orchestrator must block new runs when a same/any title is pending_ceo_approval; may run W-Reasoning after clear status."
   },
   "systems": [
     {

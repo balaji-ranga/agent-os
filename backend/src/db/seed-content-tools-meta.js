@@ -703,8 +703,9 @@ const BUILTIN_TOOLS = [
     method: 'POST',
     purpose:
       'Phase 1 video studio: export a storyboard JSON to HTML + PDF + SVG contact sheet under this CEO\'s Content Explorer media. ' +
-      'Body: { storyboard: { title, duration_sec, characters[], scenes[{index,duration_sec,description,veo_prompt,negative_prompt,continuity_notes,characters}] }, optional storyboard_id, formats, persist }. ' +
-      'Returns MEDIA: paste lines for chat. Persists row in Master Data video_storyboards. Owner is session-scoped.',
+      'PDF includes character_id → name/role/ref_media mapping and per-scene character_ids. ' +
+      'Body: { storyboard: { title, duration_sec, characters[{character_id,name,role,ref_media,appearance}], scenes[...] }, optional storyboard_id, formats, persist, status }. ' +
+      'Persists video_storyboards (status: pending_ceo_approval|ceo_approved|video_generated) and indexes story+PDF into CEO RAG. Owner is session-scoped.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -715,8 +716,20 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/video-characters-save',
     method: 'POST',
     purpose:
-      'Save or update character cards for video storyboards (name, role, ref_media MEDIA:/… paths). ' +
-      'Body: { characters: [{ character_id?, name, role, ref_media, notes }] }. Owner-scoped Master Data video_characters only.',
+      'Save or update reusable character cards (character_id, name, role, ref_media, appearance, series). ' +
+      'Body: { characters: [{ character_id?, name, role, ref_media, appearance, series, notes }] }. Owner-scoped Master Data video_characters only. Reuse the same character_id across stories so faces stay consistent.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'video_story_status',
+    display_name: 'Video Story — Status / Pending Check',
+    endpoint: '/api/tools/video-story-status',
+    method: 'POST',
+    purpose:
+      'Before starting run video storyboard: list video_storyboards knowledge rows (storyboard_id, title, status, workflow_run_id). ' +
+      'Body: { title? }. If any row is pending_ceo_approval, tell the CEO to approve/reject that Kanban card before generating a new story. Also returns recent_titles_90d for scheduled goals.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -806,7 +819,10 @@ const MASTER_DATA_TOOLS = BUILTIN_TOOLS.filter(
 const VEDIC_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'vedic_compute_chart');
 const CHART_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'generate_chart');
 const VIDEO_STORYBOARD_TOOLS = BUILTIN_TOOLS.filter(
-  (t) => t.name === 'video_storyboard_export' || t.name === 'video_characters_save'
+  (t) =>
+    t.name === 'video_storyboard_export' ||
+    t.name === 'video_characters_save' ||
+    t.name === 'video_story_status'
 );
 
 export function seedContentToolsMetaIfEmpty() {

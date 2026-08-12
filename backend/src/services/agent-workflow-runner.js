@@ -167,7 +167,7 @@ function collectCeoApprovalSourceText(node, graph, context, inputRecord, fallbac
   return chunks.join('\n\n');
 }
 
-/** When the prior step looks like a video storyboard, attach a PDF/HTML for the CEO to review. */
+/** Video gates: storyboard PDF attach, or mid-pipeline cast card (character_id mapping). */
 async function enrichCeoApprovalSummaryWithStoryboardPdf({
   node,
   graph,
@@ -180,7 +180,10 @@ async function enrichCeoApprovalSummaryWithStoryboardPdf({
   const rawText = collectCeoApprovalSourceText(node, graph, context, inputRecord, summary);
   if (!rawText.trim()) return summary;
   try {
-    const { exportStoryboardForCeoApproval } = await import('./video-storyboard-export.js');
+    const {
+      exportStoryboardForCeoApproval,
+      exportCastForCeoApproval,
+    } = await import('./video-storyboard-export.js');
     const attached = await exportStoryboardForCeoApproval(ownerUserId, {
       rawText,
       workflowRunId: runId,
@@ -193,8 +196,16 @@ async function enrichCeoApprovalSummaryWithStoryboardPdf({
       }
       return attached.summary;
     }
+    const cast = await exportCastForCeoApproval(ownerUserId, {
+      rawText,
+      workflowRunId: runId,
+    });
+    if (cast?.summary) {
+      console.info('[wf-ceo-approval] cast card attached run=%s node=%s', runId, node.id);
+      return cast.summary;
+    }
   } catch (e) {
-    console.warn('[wf-ceo-approval] storyboard PDF attach failed run=%s', runId, e?.message || e);
+    console.warn('[wf-ceo-approval] storyboard/cast attach failed run=%s', runId, e?.message || e);
   }
   if (summary && summary !== '(no input)') return summary;
   const clipped = rawText.trim();
@@ -1910,6 +1921,21 @@ export async function completeCeoApprovalResponse({ kanbanTaskId, decision, comm
   });
 
   updateRunProgress(meta.run_id);
+
+  try {
+    const { onVideoCeoApprovalDecision } = await import('./video-storyboard-export.js');
+    onVideoCeoApprovalDecision({
+      ownerUserId: runRow.owner_user_id,
+      runId: meta.run_id,
+      nodeId: meta.node_id,
+      nodeLabel: node?.data?.label || '',
+      approved,
+      context,
+    });
+  } catch (e) {
+    console.warn('[wf-ceo-approval] video status hook failed', e?.message || e);
+  }
+
   await advanceFromNode(meta.run_id, meta.node_id);
   return { decision: decisionLabel, run_id: meta.run_id, advanced: true, outputs };
 }

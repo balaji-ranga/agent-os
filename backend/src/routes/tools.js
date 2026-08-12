@@ -3473,4 +3473,42 @@ router.post('/video-characters-save', optionalAuth, async (req, res) => {
   }
 });
 
+/**
+ * video_story_status — list storyboard knowledge rows + pending CEO approval advice.
+ */
+router.post('/video-story-status', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
+    if (!ownerUserId) {
+      const err = { error: 'Could not resolve CEO user for this session' };
+      logTool(req, 'video_story_status', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const { listVideoStoryStatuses } = await import('../services/video-storyboard-export.js');
+    const out = listVideoStoryStatuses(ownerUserId, {
+      title: requestPayload.title || requestPayload.query || '',
+      limit: requestPayload.limit,
+    });
+    logTool(
+      req,
+      'video_story_status',
+      { title: requestPayload.title || null },
+      {
+        ok: true,
+        n: out.stories?.length || 0,
+        pending: out.pending_ceo_approval?.length || 0,
+      },
+      'ok',
+      source
+    );
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'video_story_status', requestPayload, err, 'error', source);
+    res.status(e.status || 500).json(err);
+  }
+});
+
 export default router;

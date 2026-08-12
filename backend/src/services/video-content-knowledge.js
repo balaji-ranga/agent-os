@@ -3,7 +3,7 @@
  * Owner-scoped only — never cross-tenant.
  */
 import { getBlueprint } from './company-blueprints/registry.js';
-import { createTable, findTableByName, insertRow, listRows } from './master-data.js';
+import { createTable, ensureTableColumns, findTableByName, insertRow, listRows } from './master-data.js';
 
 const TABLE_NAMES = ['video_characters', 'video_storyboards', 'video_jobs', 'brand_voice'];
 
@@ -28,6 +28,12 @@ export function seedVideoContentKnowledgeTables(ownerUserId) {
       });
       created.push(name);
       console.info('[video-knowledge] created table=%s owner=%s', name, owner);
+    } else if (Array.isArray(tbl.columns) && tbl.columns.length && table.id) {
+      try {
+        ensureTableColumns(owner, table.id, tbl.columns);
+      } catch (e) {
+        console.warn('[video-knowledge] ensure columns failed', name, e?.message || e);
+      }
     }
     const seedRows = Array.isArray(tbl.seed_rows) ? tbl.seed_rows : [];
     if (!seedRows.length) continue;

@@ -14,7 +14,7 @@
 
 | Key | Phrase | Status |
 |-----|--------|--------|
-| `video-reasoning` | **run video storyboard** | Phase 1 ready (Story→Scene→Prompt→CEO gate) |
+| `video-reasoning` | **run video storyboard** | Phase 1 ready (Story→CEO cast→Scene→Prompt→CEO storyboard) |
 | `video-media` | **run video media** | Phase 2 stub (Replicate `google/veo-*`) |
 | `video-assembly` | **run video assembly** | Phase 2 stub (FFmpeg + QC) |
 

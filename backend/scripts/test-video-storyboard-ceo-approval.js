@@ -25,11 +25,12 @@ const SAMPLE = {
   duration_sec: 16,
   logline: 'A short board for approval.',
   tone: 'cinematic',
-  characters: [{ id: 'hero', name: 'Hero', role: 'lead' }],
+  characters: [{ character_id: 'hero', id: 'hero', name: 'Hero', role: 'lead' }],
   scenes: [
     {
       index: 1,
       duration_sec: 8,
+      characters: ['hero'],
       description: 'Hero walks into a sunlit courtyard.',
       veo_prompt: 'cinematic courtyard walk',
       negative_prompt: 'text overlay',
@@ -37,6 +38,7 @@ const SAMPLE = {
     {
       index: 2,
       duration_sec: 8,
+      characters: ['hero'],
       description: 'Close-up smile, then cut.',
       veo_prompt: 'close-up smile',
     },
@@ -49,6 +51,8 @@ async function main() {
     looksLikeVideoStoryboard,
     formatStoryboardApprovalSummary,
     exportStoryboardForCeoApproval,
+    exportCastForCeoApproval,
+    looksLikeStoryCastDraft,
   } = await import('../src/services/video-storyboard-export.js');
 
   const goldenPath = join(
@@ -58,11 +62,17 @@ async function main() {
   const golden = JSON.parse(readFileSync(goldenPath, 'utf8'));
   const ceoGate = (golden.graph?.nodes || []).find((n) => n.id === 'ceo-gate');
   if (ceoGate?.type !== 'ceo_approval') throw new Error('golden ceo-gate missing');
+  const ceoCast = (golden.graph?.nodes || []).find((n) => n.id === 'ceo-cast');
+  if (ceoCast?.type !== 'ceo_approval') throw new Error('golden ceo-cast missing');
   const bound = (ceoGate.data?.inputBindings || []).some(
     (b) => b.id === 'summary' && b.sourceNodeId === 'prompt-1'
   );
   if (!bound) throw new Error('golden ceo-gate must bind summary from prompt-1');
   if (!ceoGate.data?.taskConfig?.title) throw new Error('golden ceo-gate missing taskConfig.title');
+  const castBound = (ceoCast.data?.inputBindings || []).some(
+    (b) => b.id === 'summary' && b.sourceNodeId === 'story-1'
+  );
+  if (!castBound) throw new Error('golden ceo-cast must bind summary from story-1');
 
   const wrapped = `Here is the board.\n\`\`\`json\n${JSON.stringify(SAMPLE)}\n\`\`\`\nThanks.`;
   const parsed = extractStoryboardFromText(wrapped);
@@ -84,6 +94,22 @@ async function main() {
   if (!summary.includes('CEO Gate Sample') || !summary.includes('Hero walks')) {
     throw new Error('formatStoryboardApprovalSummary missing title/scene: ' + summary);
   }
+  if (!summary.includes('character_id: hero')) {
+    throw new Error('summary must include character_id mapping: ' + summary);
+  }
+
+  const castDraft = {
+    title: 'Thenali Kids Pilot',
+    duration_sec: 60,
+    logline: 'Witty advisor helps the king.',
+    beats: ['meet', 'test', 'win'],
+    characters_used: [
+      { name: 'Thenali', role: 'lead', character_id: 'thenali' },
+      { name: 'King', role: 'supporting' },
+    ],
+  };
+  if (!looksLikeStoryCastDraft(castDraft)) throw new Error('cast draft should match');
+  if (looksLikeStoryCastDraft(SAMPLE)) throw new Error('full storyboard must not look like cast-only draft');
 
   config({ path: join(__dirname, '..', '.env') });
   config({ path: join(__dirname, '../../deploy/.env') });
@@ -101,6 +127,14 @@ async function main() {
     return;
   }
 
+  const castAttached = await exportCastForCeoApproval(ceo.id, {
+    rawText: JSON.stringify(castDraft),
+    workflowRunId: 'test-cast-gate',
+  });
+  if (!castAttached?.summary?.includes('character_id: thenali')) {
+    throw new Error('cast summary missing thenali id: ' + castAttached?.summary);
+  }
+
   const attached = await exportStoryboardForCeoApproval(ceo.id, {
     rawText: wrapped,
     workflowRunId: 'test-ceo-gate',
@@ -111,6 +145,9 @@ async function main() {
   if (!attached.summary.includes(attached.pdfUrl)) {
     throw new Error('Kanban summary must include PDF URL for Artifacts');
   }
+  if (!attached.summary.includes('character_id: hero')) {
+    throw new Error('storyboard summary must include character_id');
+  }
   const pdfPath = attached.exported?.exports?.pdf?.local_path;
   if (pdfPath && !existsSync(pdfPath)) throw new Error('PDF file missing: ' + pdfPath);
 
@@ -120,7 +157,8 @@ async function main() {
       owner: ceo.id,
       pdfUrl: attached.pdfUrl,
       htmlUrl: attached.htmlUrl,
-      summary_preview: attached.summary.slice(0, 240),
+      cast_storyboard_id: castAttached.storyboard_id,
+      summary_preview: attached.summary.slice(0, 280),
     })
   );
 }

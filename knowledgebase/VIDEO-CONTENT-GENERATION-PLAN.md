@@ -135,8 +135,8 @@ Store under Content Explorer (`media/generated/<ceo>/…`); return `MEDIA:` link
 |-------|--------|
 | **S0** | This plan + blueprint + scaffold templates/pack/standard | **Done** |
 | **S1** | Seed/install agents + publish **W-Reasoning** from `standard/video-content/` | **Done** (`prefab-video-agents.js`, `seed-video-content-workflows.js`) |
-| **S2** | Characters Master Data + `video_characters_save` | **Done** |
-| **S3** | Storyboard **HTML/PDF/image** via `video_storyboard_export`; CEO-gate Kanban card gets the PDF automatically | **Done** |
+| **S2** | Characters Master Data + `video_characters_save` (reusable `character_id`) | **Done** |
+| **S3** | Storyboard **HTML/PDF/image** via `video_storyboard_export`; cast + storyboard CEO gates; status + RAG | **Done** (mid-gate cast; PDF character_id map; `video_story_status`) |
 | **S4** | Async Replicate `google/veo-*` scene jobs (expand `workflow-media.json`) | Pending |
 | **S5** | FFmpeg + expand `workflow-assembly.json` + QC + regen intents | Pending |
 | **S6** | README/help/.env.example, local + VPS deploy, Operate readiness | Partial (help 41 + KB) |
@@ -168,3 +168,4 @@ Store under Content Explorer (`media/generated/<ceo>/…`); return `MEDIA:` link
 |------|------|
 | 2026-08-12 | Plan drafted from demo.docx; decisions locked (new pack, Replicate Veo, workflow specialists, HTML/PDF/image in S3). |
 | 2026-08-12 | Scaffolded `openclaw-workspace-templates/video-*` + `packs/video_content.json` + `standard/video-content/`; maintenance must stay in those trees. |
+| 2026-08-12 | S1–S3 harden: Story→CEO cast→Scene→Prompt→CEO storyboard; `video_storyboards.status` + RAG; PDF character_id roster; `video_story_status` blocks pending approvals. |

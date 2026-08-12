@@ -4,7 +4,7 @@
 
 **Video content** is a Flolah industry pack for short-form / animated video **storyboards**. You chat with **Content Orchestrator**; specialists (Story, Scene Planner, Prompt) run inside the certified workflow **run video storyboard** — not as separate chat destinations.
 
-Phase 1 ends at a complete storyboard (prompts + character refs) plus **HTML / PDF / image** exports. The **CEO approval** Kanban card for **run video storyboard** includes a scene summary and an inline **PDF** on Artifacts so you can review before approving. You can also open exports from chat or **Content Explorer**. You can paste prompts into Google Flow manually. Phase 2 (later) adds Replicate `google/veo-*` clip generation and assembly.
+Pipeline: **Story → CEO cast gate** (lock reusable `character_id`) → Scene → Prompt → **CEO storyboard gate** (PDF with scenes + character_id map). Phase 1 ends at that approved storyboard. You can paste prompts into Google Flow manually. Phase 2 (later) adds Replicate `google/veo-*` clip generation and assembly.
 
 Social Facebook/LinkedIn posting remains the separate **content_creator** pack.
 
@@ -12,9 +12,9 @@ Social Facebook/LinkedIn posting remains the separate **content_creator** pack.
 
 1. Company setup → industry **Video content (shorts / animated / Veo)**, or ask an admin to run the video install for your account.
 2. Open chat with **Content Orchestrator** (only front door — do **not** chat Story/Scene/Prompt agents for stories).
-3. Attach character reference images (or describe characters).
-4. Ask for a storyboard in plain language (e.g. Thenaliraman for kids, cinematic live-action, not animated). Orchestrator triggers **run video storyboard** itself.
-5. Review the **CEO review: video storyboard** Kanban card: the **Summary** lists scenes; **Artifacts** shows the storyboard **PDF** inline (use **Download PDF** if you want a `.pdf` file). Approve or reject there.
+3. Ask for a storyboard in plain language (e.g. Thenaliraman for kids, cinematic live-action). Orchestrator first checks **story status / RAG**; if a prior board is still **pending CEO approval**, it asks you to finish that Kanban card before starting a new run.
+4. Approve **CEO review: video cast** — confirms `character_id` → name mapping (reuse library faces when listed).
+5. Approve **CEO review: video storyboard** — Summary lists scenes + character_ids; **Artifacts** shows the storyboard **PDF** (roster + scenes + prompts).
 6. Open exported **HTML / PDF / SVG** from that card, chat `MEDIA:` links, or Content Explorer.
 7. Optionally copy Veo/Flow prompts into Google Flow for a manual test.
 
@@ -22,27 +22,31 @@ Social Facebook/LinkedIn posting remains the separate **content_creator** pack.
 
 | Phrase | Workflow |
 |--------|----------|
-| **run video storyboard** | W-Reasoning: Story → Scene → Prompt → CEO gate |
+| **run video storyboard** | W-Reasoning: Story → cast CEO gate → Scene → Prompt → storyboard CEO gate |
 
 ## Master Data (your company only)
 
 | Table | Purpose |
 |-------|---------|
-| `video_characters` | Character name, role, ref media paths |
-| `video_storyboards` | Saved plans + export paths |
+| `video_characters` | Reusable cast: `character_id`, name, role, ref_media, appearance, series |
+| `video_storyboards` | `storyboard_id`, title, **status** (`pending_ceo_approval` / `ceo_approved` / `video_generated`), workflow_run_id, export paths, RAG doc id |
 | `video_jobs` | Reserved for Phase 2 clip jobs |
 | `brand_voice` | Tone guidance for story/prompts |
 
+Story details + PDF are also indexed into your **RAG** documents so Orchestrator can recall titles and status.
+
 ## Tools (Orchestrator)
 
+- `video_story_status` — **call first**; pending approval + recent 90-day titles  
 - `agent_workflow_list` / `agent_workflow_enquire` — find published video workflows  
 - `agent_workflow_trigger` — start W-Reasoning (`run video storyboard`)  
 - `agent_workflow_runs` / `agent_workflow_watch` — check run status / notify on terminal  
-- `video_characters_save` — store character refs  
-- `video_storyboard_export` — HTML + PDF + SVG + persist row  
-- `generate_image` — optional extra visual  
+- `video_characters_save` — store reusable character refs  
+- `video_storyboard_export` — HTML + PDF + SVG + persist row + RAG  
+- `generate_image` — optional character sheet after cast is known  
+- `master_data_rag` / `master_data_list_documents` — knowledge / RAG  
 
-All are **owner-scoped** to your CEO login. Agents you are not granted cannot use your tables or media.
+All are **owner-scoped** to your CEO login.
 
 ## Where engineers maintain the golden source
 
