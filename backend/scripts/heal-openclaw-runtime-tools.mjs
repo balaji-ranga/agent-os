@@ -6,13 +6,12 @@
  *   OWNER_USER_ID=ceo-bala node scripts/heal-openclaw-runtime-tools.mjs
  *   node scripts/heal-openclaw-runtime-tools.mjs   # all CEOs with user_agents
  */
+import { existsSync, readFileSync } from 'fs';
 import { initDb, getDb } from '../src/db/schema.js';
 import { ensureTenantOpenClawAgent } from '../src/services/openclaw-tenant.js';
 import { syncAllowlistsFile } from '../src/services/openclaw-agent-tools.js';
-import {
-  ESSENTIAL_OPENCLAW_RUNTIME_TOOLS,
-  readOpenClawConfigSafe,
-} from '../src/services/openclaw-runtime-tools.js';
+import { ESSENTIAL_OPENCLAW_RUNTIME_TOOLS } from '../src/services/openclaw-runtime-tools.js';
+import { getOpenClawConfigPath } from '../src/config/openclaw-paths.js';
 
 initDb();
 const db = getDb();
@@ -56,11 +55,8 @@ for (const row of rows) {
 }
 syncAllowlistsFile();
 
-// Verify COO runtime tools present
-const { readFileSync, existsSync } = await import('fs');
-const { getOpenClawConfigPath } = await import('../src/config/openclaw-paths.js');
-const cfgPath = getOpenClawConfigPath();
 let balserveCheck = null;
+const cfgPath = getOpenClawConfigPath();
 if (existsSync(cfgPath)) {
   const cfg = JSON.parse(readFileSync(cfgPath, 'utf8'));
   const entry = (cfg.agents?.list || []).find(
