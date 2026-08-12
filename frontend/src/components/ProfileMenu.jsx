@@ -17,7 +17,7 @@ function initialsFromName(name) {
 export default function ProfileMenu({ user, logout, onNavigate }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
-  const { theme, toggleTheme } = useTheme();
+  const { themeMeta, toggleTheme, isAdvancedTheme } = useTheme();
 
   useEffect(() => {
     if (!open) return undefined;
@@ -127,6 +127,17 @@ export default function ProfileMenu({ user, logout, onNavigate }) {
           >
             Edit profile
           </NavLink>
+          <NavLink
+            to="/profile#appearance"
+            role="menuitem"
+            className="profile-menu-item"
+            onClick={() => {
+              close();
+              onNavigate?.();
+            }}
+          >
+            Appearance
+          </NavLink>
           {isCeo && (
             <>
               <div className="profile-menu-section" role="presentation">
@@ -164,7 +175,11 @@ export default function ProfileMenu({ user, logout, onNavigate }) {
               toggleTheme();
             }}
           >
-            {theme === 'dark' ? 'Light theme' : 'Dark theme'}
+            {isAdvancedTheme
+              ? `Day theme (exit ${themeMeta.label})`
+              : themeMeta?.colorScheme === 'dark'
+                ? 'Day theme'
+                : 'Night theme'}
           </button>
           <button
             type="button"

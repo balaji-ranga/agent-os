@@ -6,8 +6,8 @@
 - **Nav sections** (Settings, Run & Operate, Prebuilt Workflows, Company Tools, …) start **collapsed by default**. Expand with the section chevron; choices remember in this browser (`agent-os-nav-section-v2:*` keys).
 - **Notification bell** — platform alerts (`notify_ceo`) and agent/standup responses. Each item shows its datetime. Hover a short snippet for the full title/body. Open linked chat or Kanban. Clear/dismiss items you have handled.
 - **Global search** (Ctrl+K / top bar) — chats, agents, workflows, master tables/docs, **Kanban task id**, and **workflow run id** (also run number). Task hits open the Kanban drawer via `/kanban?task=`.
-- **Profile menu** — Edit profile (`/profile`), **Company setup** (`/company-setup` — first-run company wizard; [29-company-setup.md](./29-company-setup.md)), **Onboarding** (`/onboarding` — freeform org draft/Review/Apply; [27-onboarding-helper.md](./27-onboarding-helper.md)), light/dark theme, Logout.
-- **Theme toggle** — sun/moon control in the top bar (also under Profile). Choice is saved in the browser.
+- **Profile menu** — Edit profile (`/profile`), **Appearance** (`/profile#appearance` — Day/Night plus advanced themes), **Company setup** (`/company-setup` — first-run company wizard; [29-company-setup.md](./29-company-setup.md)), **Onboarding** (`/onboarding` — freeform org draft/Review/Apply; [27-onboarding-helper.md](./27-onboarding-helper.md)), quick Day/Night toggle, Logout.
+- **Theme toggle** — sun/moon in the top bar switches Day ↔ Night (also under Profile). **Advanced themes** (**Aurora Glass**, **Vivid Board**) are chosen under **Profile → Appearance**; choice is saved in this browser (`agent-os-theme`).
 - **Impersonation banner** — only when an admin is impersonating a CEO.
 - **Scrollbars** — hidden platform-wide (nav, panels, tables). Content still scrolls with trackpad/wheel/touch.
 

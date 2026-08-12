@@ -67,10 +67,12 @@
     <script>
       (function () {
         try {
+          var allowed = { light: 1, dark: 1, 'aurora-glass': 1, 'vivid-board': 1 };
           var t = localStorage.getItem('agent-os-theme');
-          if (t !== 'dark' && t !== 'light') t = 'light';
+          if (!allowed[t]) t = 'light';
           document.documentElement.setAttribute('data-theme', t);
-          document.documentElement.style.colorScheme = t;
+          document.documentElement.style.colorScheme =
+            t === 'dark' || t === 'aurora-glass' ? 'dark' : 'light';
         } catch (e) {}
       })();
     </script>

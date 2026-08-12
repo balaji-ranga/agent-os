@@ -1,18 +1,24 @@
 import { useTheme } from '../context/ThemeContext';
 
-/** Compact sun/moon control for topbar / mobile chrome. */
+/** Compact Day/Night control for topbar / mobile chrome. Advanced themes: Profile → Appearance. */
 export default function ThemeToggle({ className = '' }) {
-  const { theme, toggleTheme } = useTheme();
-  const isDark = theme === 'dark';
+  const { theme, toggleTheme, themeMeta, isAdvancedTheme } = useTheme();
+  const prefersDarkChrome = themeMeta?.colorScheme === 'dark';
+  const title = isAdvancedTheme
+    ? `${themeMeta.label} (click for Day/Night)`
+    : prefersDarkChrome
+      ? 'Switch to Day theme'
+      : 'Switch to Night theme';
   return (
     <button
       type="button"
       className={`theme-toggle-btn ${className}`.trim()}
       onClick={toggleTheme}
-      title={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
-      aria-label={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
+      title={title}
+      aria-label={title}
+      data-theme-active={theme}
     >
-      <span aria-hidden>{isDark ? '☀' : '☾'}</span>
+      <span aria-hidden>{prefersDarkChrome ? '☀' : '☾'}</span>
     </button>
   );
 }

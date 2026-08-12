@@ -6,6 +6,7 @@ import { ROLE_TITLE_PRESETS, userRoleTitle } from '../utils/userRoleTitle.js';
 import { COMMON_DISPLAY_TIMEZONES } from '../utils/commonTimezones.js';
 import { formatLocalDateTime } from '../utils/formatDateTime.js';
 import RobotAvatar, { fileToDataUrl } from '../components/RobotAvatar.jsx';
+import ThemePicker from '../components/ThemePicker.jsx';
 
 function UserProfilePanel() {
   const { user, reload, platformTimezone, displayTimezone } = useAuth();
@@ -64,6 +65,15 @@ function UserProfilePanel() {
       .then((data) => setOcConnections(data.connections || []))
       .catch(() => setOcConnections([]));
   };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.location.hash !== '#appearance') return;
+    const el = document.getElementById('appearance');
+    if (el) {
+      requestAnimationFrame(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    }
+  }, []);
 
   useEffect(() => {
     if (!user || user.role !== 'ceo') return;
@@ -344,7 +354,7 @@ function UserProfilePanel() {
   };
 
   return (
-    <div style={{ padding: '1.5rem', maxWidth: 520, margin: '0 auto' }}>
+    <div style={{ padding: '1.5rem', maxWidth: 640, margin: '0 auto' }}>
       <Link to="/org" style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>← My Org</Link>
       <h1 style={{ margin: '0.5rem 0 0' }}>My profile</h1>
       <p style={{ color: 'var(--muted)', marginTop: '0.25rem' }}>
@@ -359,6 +369,10 @@ function UserProfilePanel() {
 
       {error && <div style={{ color: '#f87171', marginTop: '1rem' }}>{error}</div>}
       {message && <div style={{ color: '#22c55e', marginTop: '1rem' }}>{message}</div>}
+
+      <div id="appearance" style={{ marginTop: '1.25rem' }}>
+        <ThemePicker />
+      </div>
 
       <form onSubmit={save} style={{ marginTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>

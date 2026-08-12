@@ -133,15 +133,16 @@ Grant or revoke tools on each agent’s **Workspace → Tools access**.
 ### Profile and AI model
 
 1. Open your **Profile**.
-2. Choose **provider** (platform default, Ollama/DeepSeek free, or OpenAI/OpenRouter via **API Keys** → `Platform_BYOK`). Non-platform Profiles auto-seed recommended vault slots as unset.
-3. For OpenAI/OpenRouter (and optionally Ollama), also choose a **chat model** from the curated list (or a custom model id). Saving Profile syncs provider + model into AgentSystem for your tenant agents. Catalog: `GET /api/auth/llm-catalog`.
-4. Optional **per-tool model**: **Tools** → **Tools → Model** overrides Profile (or platform) model for specific BYOK-aware tools only (keys still from Profile/vault). Help: `knowledgebase/platform-help/11-content-tools-scripts-profile.md`.
-5. Browse uploads and generated media under **Content Explorer** (`/content-explorer`).
-6. Optional: avatar → **Company setup** (`/company-setup`) for the structured company wizard (help **29**), and/or **Onboarding** / **Onboarding Helper** for freeform dept/agent proposals (help **27**).
-7. Optional: **Management → Scheduled goals** or COO chat for lasting daily/weekly prompts (help **28**).
-8. Optional (content creator): **Connectors → MCPs** for Facebook Page OAuth (help **31** setup; optional CEO App ID/secret override); publish / community / weekly ops rollup (help **30**). Ops rollup uses the **bell** (`notify_ceo`), not email.
-9. Keep MFA settings as required by your organization.
-10. Set **Data persistence** (30 / 60 / 90 / 120 / 365 days). A nightly job permanently deletes your chats, chat history, standup conversations and workflow runs older than that; **Purge aged data now** does it immediately. Watch the effect on **Efficiency View → Org → Storage (MB)**.
+2. **Appearance** (top of Profile, also Profile menu → Appearance): choose **Day** / **Night** (default) or advanced themes **Aurora Glass** (3D glass neon) / **Vivid Board** (elevated colorful boards). Saved in this browser; top-bar sun/moon still toggles Day ↔ Night.
+3. Choose **provider** (platform default, Ollama/DeepSeek free, or OpenAI/OpenRouter via **API Keys** → `Platform_BYOK`). Non-platform Profiles auto-seed recommended vault slots as unset.
+4. For OpenAI/OpenRouter (and optionally Ollama), also choose a **chat model** from the curated list (or a custom model id). Saving Profile syncs provider + model into AgentSystem for your tenant agents. Catalog: `GET /api/auth/llm-catalog`.
+5. Optional **per-tool model**: **Tools** → **Tools → Model** overrides Profile (or platform) model for specific BYOK-aware tools only (keys still from Profile/vault). Help: `knowledgebase/platform-help/11-content-tools-scripts-profile.md`.
+6. Browse uploads and generated media under **Content Explorer** (`/content-explorer`).
+7. Optional: avatar → **Company setup** (`/company-setup`) for the structured company wizard (help **29**), and/or **Onboarding** / **Onboarding Helper** for freeform dept/agent proposals (help **27**).
+8. Optional: **Management → Scheduled goals** or COO chat for lasting daily/weekly prompts (help **28**).
+9. Optional (content creator): **Connectors → MCPs** for Facebook Page OAuth (help **31** setup; optional CEO App ID/secret override); publish / community / weekly ops rollup (help **30**). Ops rollup uses the **bell** (`notify_ceo`), not email.
+10. Keep MFA settings as required by your organization.
+11. Set **Data persistence** (30 / 60 / 90 / 120 / 365 days). A nightly job permanently deletes your chats, chat history, standup conversations and workflow runs older than that; **Purge aged data now** does it immediately. Watch the effect on **Efficiency View → Org → Storage (MB)**.
 
 ---
 
@@ -155,7 +156,7 @@ Grant or revoke tools on each agent’s **Workspace → Tools access**.
 | **Global search (Ctrl+K)** | Top-bar search: chats, agents, workflow defs, master tables/docs, **Kanban task id**, and **workflow run id** / run number (`GET /api/home/search`). Task hits open `/kanban?task=` (drawer); runs open `/workflows?run_id=`. Pure numeric queries work from 1 digit. |
 | **Kanban timezone + archived-chat activity** | Every Kanban date (board tooltips, card **Created**/**Updated**, task chat) renders in the platform timezone (`PLATFORM_TIMEZONE`, else `TZ`) with the zone shown in the board header — no raw UTC. A card's **Activity** tab now also pulls the linked agent-chat turns, so work done in a chat that was later **archived** still shows (tagged `archived`); cards with genuinely no activity say so instead of rendering blank, and a failed detail load shows an error + **Retry**. |
 | **COO status checker** | Dashboard → **Run status checker** (COO-entitled `status_checker` tool) opens an HTML CEO report: needs-attention, awaiting-you, **all failed Kanban cards of any age** with failure reason / A2A task + workflow run ids, and recent completions. Also runs daily (`COO_STATUS_CHECKER_CRON`, default 09:00) → standup chat post + HTML email. |
-| **Data retention** | Profile → **Data persistence** (30/60/90/120/365 days, default 90). Nightly purge permanently deletes aged chat turns, standup **messages**, workflow runs/steps, and aged **Content Explorer** uploaded/generated media (hard delete). Kanban, Master Data and API keys untouched; manual Content Explorer delete available. |
+| **Appearance themes** | Profile → **Appearance** (or avatar → Appearance): **Day** / **Night** defaults plus advanced **Aurora Glass** (glass + purple–pink glow) and **Vivid Board** (elevated colorful cards). Browser-local (`agent-os-theme`). Top-bar sun/moon toggles Day ↔ Night. Help: platform-help **02**. |
 | **Storage (MB)** | Efficiency View → **Org** tab shows estimated storage for your tenant (chats, standups, workflow runs, Master Data files, **OpenSearch RAG indices**, AgentSystem workspace). Click **i** for breakdown. |
 | **Admin → Crons** | `/admin/crons` lists every platform cron (standup dispatcher, legacy standup, delegation queue, job pipeline, COO status checker, data retention, workflow scheduler, **CRM workspace TLS SANs**) with **Pause** / **Resume** / **Run now**. Pause state persists across restarts. |
 | **Platform API logging** | `PLATFORM_LOG_LEVEL=off\|error\|info` controls backend access/error logs. Keys, tokens, `Authorization` headers, passwords and MFA codes are redacted, and sensitive paths (API Keys, auth) log method + route only. |
