@@ -76,7 +76,7 @@
 # openclaw.json safe writers (openclaw-config-safe.js) + deploy chatCompletions gate
 # (ensure-openclaw-gateway-config.js + vps-verify-openclaw-chat.sh) so Agent Chat never goes 404,
 # COO AGENTS.md org-generated marker (workspace template sync no longer clobbers leaf members),
-# agent_workflow_runs tool (COO/WB; never ibkr_order_learnings for workflow run status),
+# agent_workflow_runs tool (COO/WB/Content Orchestrator; never ibkr_order_learnings for workflow run status),
 # mixed internal+leaf COO specialty refine (Session-keys table no longer drops internals),
 # department purpose + monthly_token_budget, agent monthly token/error budgets (token_usage ledger,
 # warn-then-block; internal COO delegation budget gate), Brain token attribution to a2a leaf members,
@@ -338,6 +338,8 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\seed-content-comments-ingest.js" `
     "$Repo\backend\scripts\seed-video-content-workflows.js" `
     "$Repo\backend\scripts\test-video-content-phase1.js" `
+    "$Repo\backend\scripts\grant-video-orch-workflow-tools.mjs" `
+    "$Repo\backend\scripts\e2e-video-content-ui-phase1.mjs" `
     "$Repo\backend\scripts\complete-content-ops-pipeline.js" `
     "$Repo\backend\scripts\test-content-ops-org-e2e.js" `
     "$Repo\backend\scripts\republish-content-ops-blueprint.js" `
