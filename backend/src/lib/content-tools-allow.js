@@ -65,6 +65,9 @@ export const REQUIRED_GLOBAL_CONTENT_TOOLS = [
   'video_characters_save',
   'video_story_status',
   'video_storyboard_attach',
+  'video_characters_ensure_refs',
+  'video_characters_bind_upload',
+  'video_characters_list',
   'browser',
 ];
 

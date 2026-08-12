@@ -89,8 +89,10 @@ User ↔ Content Orchestrator (chat only)
 
 ### Character setup
 
-- Chat attach images; optional Avatars / Content Explorer paths.
-- Persist: name, role, reference media path in Master Data `video_characters` (CEO-scoped).
+- **Generate:** after Story names cast (cast gate / `video_characters_ensure_refs`) create portraits → Content Explorer `media/generated/<ceo>/` → Master Data `video_characters` (`character_id`, `ref_media`, `image_id`, appearance).
+- **CEO upload:** Orchestrator asks for **character name**, then `video_characters_bind_upload` maps inbound/MEDIA path into the same Master Data row.
+- List/reuse via `video_characters_list`; metadata-only upsert via `video_characters_save`.
+- Persist: name, role, reference media path + image_id in Master Data `video_characters` (CEO-scoped).
 
 ### Storyboard contract
 
@@ -135,8 +137,8 @@ Store under Content Explorer (`media/generated/<ceo>/…`); return `MEDIA:` link
 |-------|--------|
 | **S0** | This plan + blueprint + scaffold templates/pack/standard | **Done** |
 | **S1** | Seed/install agents + publish **W-Reasoning** from `standard/video-content/` | **Done** (`prefab-video-agents.js`, `seed-video-content-workflows.js`) |
-| **S2** | Characters Master Data + `video_characters_save` (reusable `character_id`) | **Done** |
-| **S3** | Storyboard **HTML/PDF/image** via `video_storyboard_export`; cast + storyboard CEO gates; status + RAG | **Done** (mid-gate cast; PDF character_id map; `video_story_status`) |
+| **S2** | Characters Master Data + save/list + **ensure_refs** (generate) + **bind_upload** (CEO name→image) | **Done** |
+| **S3** | Storyboard **HTML/PDF/image** via `video_storyboard_export`; cast + storyboard CEO gates; status + RAG | **Done** (mid-gate cast with portraits; PDF character_id map; `video_story_status`) |
 | **S4** | Async Replicate `google/veo-*` scene jobs (expand `workflow-media.json`) | Pending |
 | **S5** | FFmpeg + expand `workflow-assembly.json` + QC + regen intents | Pending |
 | **S6** | README/help/.env.example, local + VPS deploy, Operate readiness | Partial (help 41 + KB) |

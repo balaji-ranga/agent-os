@@ -53,6 +53,10 @@
         "video_characters_save",
         "video_story_status",
         "video_storyboard_attach",
+        "video_characters_ensure_refs",
+        "video_characters_bind_upload",
+        "video_characters_list",
+        "list_inbound_attachments",
         "master_data_index_document",
         "master_data_list_documents",
         "kanban_create_task",
@@ -138,12 +142,13 @@
   "knowledge_tables": [
     {
       "name": "video_characters",
-      "description": "Reusable character cards: stable character_id + reference media + appearance bible for visual continuity across videos.",
+      "description": "Reusable character cards: stable character_id + reference media paths (Content Explorer) + image_id + appearance bible for visual continuity across videos.",
       "columns": [
         "character_id",
         "name",
         "role",
         "ref_media",
+        "image_id",
         "appearance",
         "series",
         "notes",
@@ -206,7 +211,7 @@
     {
       "title": "SOP - Video storyboard (Phase 1)",
       "filename": "sop-video-storyboard.md",
-      "contentText": "# Video storyboard (Phase 1)\n\n1. CEO chats **Content Orchestrator** with idea + optional character refs.\n2. Orchestrator calls **video_story_status** (and RAG). If any story is **pending_ceo_approval**, ask CEO to approve/reject that Kanban card before a new run.\n3. Trigger **run video storyboard**: Story → **CEO cast** (lock character_id) → Scene → Prompt → **CEO storyboard** (PDF with character_id map).\n4. Knowledge: video_storyboards status + RAG of story details/PDF; video_characters for reusable faces.\n5. Scheduled goals: pass recent_titles_90d so Story avoids last 90 days titles.\n\nCanonical templates: openclaw-workspace-templates/video-* /\nCanonical graphs: company-blueprints/standard/video-content/\n"
+      "contentText": "# Video storyboard (Phase 1)\n\n1. CEO chats **Content Orchestrator** with idea + optional character refs.\n2. Orchestrator calls **video_story_status** (and RAG). If any story is **pending_ceo_approval**, ask CEO to approve/reject that Kanban card before a new run.\n3. Trigger **run video storyboard**: Story → **CEO cast** (ensure/generate portraits + lock character_id) → Scene → Prompt → **CEO storyboard** (PDF with character_id map).\n4. Character faces: **video_characters_ensure_refs** generates; CEO upload → ask name → **video_characters_bind_upload** stores ref_media/image_id in Master Data.\n5. Knowledge: video_storyboards status + RAG of story details/PDF; video_characters for reusable faces.\n6. Scheduled goals: pass recent_titles_90d so Story avoids last 90 days titles.\n\nCanonical templates: openclaw-workspace-templates/video-* /\nCanonical graphs: company-blueprints/standard/video-content/\n"
     }
   ],
   "policy_templates": {

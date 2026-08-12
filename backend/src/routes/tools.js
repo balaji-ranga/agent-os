@@ -3546,4 +3546,102 @@ router.post('/video-storyboard-attach', optionalAuth, async (req, res) => {
   }
 });
 
+/**
+ * video_characters_ensure_refs — generate/reuse portraits → Content Explorer + video_characters.ref_media/image_id.
+ */
+router.post('/video-characters-ensure-refs', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
+    if (!ownerUserId) {
+      const err = { error: 'Could not resolve CEO user for this session' };
+      logTool(req, 'video_characters_ensure_refs', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const { ensureVideoCharacterRefs } = await import('../services/video-characters.js');
+    const characters = Array.isArray(requestPayload.characters) ? requestPayload.characters : [];
+    const out = await ensureVideoCharacterRefs(ownerUserId, {
+      characters,
+      force_regenerate: Boolean(requestPayload.force_regenerate || requestPayload.force),
+      style_hint: requestPayload.style_hint || requestPayload.style || '',
+      series: requestPayload.series || '',
+    });
+    logTool(
+      req,
+      'video_characters_ensure_refs',
+      { n: characters.length },
+      { ok: true, results: out.results?.map((r) => ({ id: r.character_id, action: r.action })) },
+      'ok',
+      source
+    );
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message, code: e.code };
+    logTool(req, 'video_characters_ensure_refs', requestPayload, err, 'error', source);
+    res.status(e.status || 500).json(err);
+  }
+});
+
+/**
+ * video_characters_bind_upload — map CEO-uploaded image to character_name in video_characters.
+ */
+router.post('/video-characters-bind-upload', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
+    if (!ownerUserId) {
+      const err = { error: 'Could not resolve CEO user for this session' };
+      logTool(req, 'video_characters_bind_upload', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const { bindVideoCharacterUpload } = await import('../services/video-characters.js');
+    const out = bindVideoCharacterUpload(ownerUserId, requestPayload);
+    if (out?.code === 'character_name_required') {
+      logTool(req, 'video_characters_bind_upload', requestPayload, out, 'ok', source);
+      return res.status(200).json(out);
+    }
+    logTool(
+      req,
+      'video_characters_bind_upload',
+      { character_id: out.character_id },
+      { ok: true, action: out.action, image_id: out.image_id },
+      'ok',
+      source
+    );
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message, code: e.code };
+    logTool(req, 'video_characters_bind_upload', requestPayload, err, 'error', source);
+    res.status(e.status || 500).json(err);
+  }
+});
+
+/**
+ * video_characters_list — list reusable cast with has_image / missing_images.
+ */
+router.post('/video-characters-list', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
+    if (!ownerUserId) {
+      const err = { error: 'Could not resolve CEO user for this session' };
+      logTool(req, 'video_characters_list', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const { listVideoCharacters } = await import('../services/video-characters.js');
+    const out = listVideoCharacters(ownerUserId, {
+      query: requestPayload.query || requestPayload.title || '',
+    });
+    logTool(req, 'video_characters_list', requestPayload, { ok: true, n: out.characters?.length || 0 }, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'video_characters_list', requestPayload, err, 'error', source);
+    res.status(e.status || 500).json(err);
+  }
+});
+
 export default router;

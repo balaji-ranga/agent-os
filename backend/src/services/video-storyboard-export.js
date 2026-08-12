@@ -38,6 +38,7 @@ const CHARACTER_COLS = [
   'name',
   'role',
   'ref_media',
+  'image_id',
   'appearance',
   'series',
   'notes',
@@ -62,7 +63,7 @@ export function slugCharacterId(nameOrId) {
   return raw || `c-${randomUUID().slice(0, 6)}`;
 }
 
-function normalizeCharacter(c = {}) {
+export function normalizeCharacter(c = {}) {
   const character_id = slugCharacterId(c.character_id || c.id || c.name);
   return {
     character_id,
@@ -70,6 +71,7 @@ function normalizeCharacter(c = {}) {
     name: String(c.name || character_id).trim() || character_id,
     role: String(c.role || '').trim(),
     ref_media: String(c.ref_media || c.media || '').trim(),
+    image_id: String(c.image_id || '').trim(),
     appearance: String(c.appearance || c.appearance_notes || '').trim(),
     series: String(c.series || '').trim(),
     notes: String(c.notes || '').trim(),
@@ -107,6 +109,8 @@ function listCharacterLibrary(ownerUserId) {
   return (listed?.rows || []).map((r) => normalizeCharacter(r.data || {}));
 }
 
+export { listCharacterLibrary };
+
 function buildCharacterRosterLines(characters) {
   const lines = ['Character roster (character_id → Master Data video_characters)', ''];
   if (!characters.length) {
@@ -115,7 +119,7 @@ function buildCharacterRosterLines(characters) {
   }
   for (const c of characters) {
     lines.push(
-      `- character_id: ${c.character_id} | name: ${c.name} | role: ${c.role || '—'} | ref_media: ${c.ref_media || '(none)'} | appearance: ${c.appearance || '—'}`
+      `- character_id: ${c.character_id} | name: ${c.name} | role: ${c.role || '—'} | image_id: ${c.image_id || '—'} | ref_media: ${c.ref_media || '(none)'} | appearance: ${c.appearance || '—'}`
     );
   }
   return lines.join('\n');
@@ -582,6 +586,7 @@ function charactersFromStoryDraft(draft, library = []) {
         normalizeCharacter({
           ...proposed,
           ref_media: proposed.ref_media || hit?.ref_media || '',
+          image_id: proposed.image_id || hit?.image_id || '',
           appearance: proposed.appearance || hit?.appearance || '',
           series: proposed.series || hit?.series || '',
           notes: proposed.notes || (hit ? 'reused from library' : 'new — confirm refs'),
@@ -832,6 +837,7 @@ export function saveVideoCharacters(ownerUserId, characters = []) {
       name: norm.name,
       role: norm.role,
       ref_media: norm.ref_media,
+      image_id: norm.image_id,
       appearance: norm.appearance,
       series: norm.series,
       notes: norm.notes,
@@ -921,9 +927,35 @@ export async function exportCastForCeoApproval(ownerUserId, { rawText, workflowR
   if (!draft || !looksLikeStoryCastDraft(draft)) return null;
   const owner = String(ownerUserId || '').trim();
   const library = owner ? listCharacterLibrary(owner) : [];
-  const resolved = charactersFromStoryDraft(draft, library);
+  let resolved = charactersFromStoryDraft(draft, library);
+  if (!owner) {
+    return {
+      summary: formatCastApprovalSummary(draft, resolved),
+      kind: 'cast',
+      characters: resolved,
+    };
+  }
+
+  // Generate or reuse portraits before CEO cast review.
+  try {
+    const { ensureVideoCharacterRefs } = await import('./video-characters.js');
+    const ensured = await ensureVideoCharacterRefs(owner, {
+      characters: resolved,
+      style_hint: 'photoreal cinematic kids-friendly character portrait, consistent face',
+    });
+    const byId = new Map((ensured.characters || []).map((c) => [c.character_id, c]));
+    resolved = resolved.map((c) =>
+      normalizeCharacter({
+        ...c,
+        ref_media: byId.get(c.character_id)?.ref_media || c.ref_media,
+        image_id: byId.get(c.character_id)?.image_id || c.image_id,
+      })
+    );
+  } catch (e) {
+    console.warn('[video-storyboard] cast ensure refs failed', e?.message || e);
+  }
+
   const summary = formatCastApprovalSummary(draft, resolved);
-  if (!owner) return { summary, kind: 'cast', characters: resolved };
 
   const storyboardId = `sb-${randomUUID().slice(0, 8)}`;
   const title = String(draft.title || 'Untitled').trim();
@@ -960,8 +992,14 @@ export async function exportCastForCeoApproval(ownerUserId, { rawText, workflowR
     console.warn('[video-storyboard] cast RAG index failed', e?.message || e);
   }
 
+  const portraitLines = resolved
+    .filter((c) => c.ref_media)
+    .flatMap((c) => [`## Portrait · ${c.character_id} (${c.name})`, c.ref_media]);
+
   const parts = [
     summary,
+    '',
+    ...portraitLines,
     '',
     `storyboard_id: ${storyboardId}`,
     `status: ${STORY_STATUS.PENDING_CEO}`,

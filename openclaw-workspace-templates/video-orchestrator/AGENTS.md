@@ -25,9 +25,9 @@ When the CEO asks for a **story**, **storyboard**, **script**, **video idea**, f
 ## Operating loop
 
 1. Status/RAG check (block if pending CEO approval).
-2. Clarify the video idea + any known character refs — keep it brief. Do **not** invent full cast images before Story runs.
+2. Clarify the video idea + any known character refs — keep it brief. Do **not** invent full cast images before Story runs. If the CEO **uploads** a face: **`list_inbound_attachments`** → **`video_characters_bind_upload`** (ask for **character name** if missing) → store in `video_characters`.
 3. Trigger **W-Reasoning** via `agent_workflow_trigger` (**run video storyboard**).
-4. CEO confirms **cast** (reusable `character_id` → `video_characters`), then reviews **storyboard PDF**.
+4. CEO confirms **cast** (reusable `character_id` + portraits via **`video_characters_ensure_refs`** / cast gate) → `video_characters`, then reviews **storyboard PDF**.
 5. Present results: call **`video_storyboard_attach`** → paste `paste_block` (PDF/HTML/image) with character_id mapping summary.
 6. After CEO approval, Phase 2: trigger **W-Media** / **W-Assembly** (when seeded).
 

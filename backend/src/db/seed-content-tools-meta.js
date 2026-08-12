@@ -748,6 +748,43 @@ const BUILTIN_TOOLS = [
     is_builtin: 1,
   },
   {
+    name: 'video_characters_ensure_refs',
+    display_name: 'Video Characters — Ensure Portrait Refs',
+    endpoint: '/api/tools/video-characters-ensure-refs',
+    method: 'POST',
+    purpose:
+      'For cast members missing images: generate_image portrait, store under Content Explorer media/generated/<ceo>/, upsert Master Data video_characters with character_id, ref_media, image_id. ' +
+      'Reuses existing ref_media unless force_regenerate. Body: { characters: [{character_id?, name, role, appearance, series}], style_hint?, force_regenerate? }. ' +
+      'Paste paste_block to show portraits. Call before/at cast review so faces are reusable across stories.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'video_characters_bind_upload',
+    display_name: 'Video Characters — Bind CEO Upload',
+    endpoint: '/api/tools/video-characters-bind-upload',
+    method: 'POST',
+    purpose:
+      'When the CEO uploads a character image: map it to a character name and store in video_characters (ref_media + image_id). ' +
+      'Body: { character_name (required), relative_path|inbound_path|media|MEDIA path, role?, appearance?, series? }. ' +
+      'If character_name is missing, returns ask_ceo prompt — ask the CEO the character name, then call again. list_inbound_attachments first for paperclip uploads.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'video_characters_list',
+    display_name: 'Video Characters — List Library',
+    endpoint: '/api/tools/video-characters-list',
+    method: 'POST',
+    purpose:
+      'List reusable video_characters for this CEO (character_id, name, ref_media, image_id, has_image, missing_images). Body: { query? }.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
     name: 'vedic_compute_chart',
     display_name: 'Vedic Astrology — Compute Chart Data',
     endpoint: '/api/tools/vedic-compute-chart',
@@ -836,7 +873,10 @@ const VIDEO_STORYBOARD_TOOLS = BUILTIN_TOOLS.filter(
     t.name === 'video_storyboard_export' ||
     t.name === 'video_characters_save' ||
     t.name === 'video_story_status' ||
-    t.name === 'video_storyboard_attach'
+    t.name === 'video_storyboard_attach' ||
+    t.name === 'video_characters_ensure_refs' ||
+    t.name === 'video_characters_bind_upload' ||
+    t.name === 'video_characters_list'
 );
 
 export function seedContentToolsMetaIfEmpty() {
