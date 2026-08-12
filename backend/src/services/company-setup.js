@@ -831,6 +831,27 @@ export async function applyCompanySetup(ownerUserId, { confirm_override: confirm
     console.warn('[company-setup] company memory seed', e?.message || e);
   }
 
+  // Video content studio: ensure golden templates + W-Reasoning (idempotent; does not revoke other packs)
+  let videoContent = null;
+  try {
+    const bpId = String(blueprint?.id || blueprint?.industry || '').toLowerCase();
+    if (bpId === 'video_content' || (blueprint?.aliases || []).includes('video_studio')) {
+      const { installVideoContentForOwner } = await import('./prefab-video-agents.js');
+      videoContent = await installVideoContentForOwner(ownerUserId, { includeStubWorkflows: false });
+      extras.video_content = {
+        agents: videoContent?.agents || [],
+        workflows: videoContent?.workflows?.results || [],
+      };
+      console.info(
+        '[company-setup] video_content installed owner=%s agents=%s',
+        ownerUserId,
+        (videoContent?.agents || []).join(',')
+      );
+    }
+  } catch (e) {
+    console.warn('[company-setup] video_content install (non-fatal):', e?.message || e);
+  }
+
   const style = strategic.management_style || 'after_approval';
   try {
     const stylePolicy = policyTextForStyle(blueprint, style) || '';

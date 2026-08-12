@@ -3387,4 +3387,66 @@ router.post('/browse-recipe-run', optionalAuth, async (req, res) => {
 });
 
 
+/**
+ * video_storyboard_export — HTML/PDF/SVG storyboard for entitled CEO (Phase 1 video studio).
+ * Body: { storyboard, storyboard_id?, formats?, persist?, workflow_run_id? }
+ */
+router.post('/video-storyboard-export', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
+    if (!ownerUserId) {
+      const err = { error: 'Could not resolve CEO user for this session' };
+      logTool(req, 'video_storyboard_export', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const { exportVideoStoryboard } = await import('../services/video-storyboard-export.js');
+    const out = await exportVideoStoryboard(ownerUserId, requestPayload);
+    logTool(
+      req,
+      'video_storyboard_export',
+      { storyboard_id: out.storyboard_id, title: out.title, scene_count: out.scene_count },
+      { ok: true, storyboard_id: out.storyboard_id, media_lines: out.media_lines },
+      'ok',
+      source
+    );
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'video_storyboard_export', requestPayload, err, 'error', source);
+    res.status(e.status || 500).json(err);
+  }
+});
+
+/**
+ * video_characters_save — upsert character refs into Master Data video_characters (owner-scoped).
+ */
+router.post('/video-characters-save', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
+    if (!ownerUserId) {
+      const err = { error: 'Could not resolve CEO user for this session' };
+      logTool(req, 'video_characters_save', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const { saveVideoCharacters } = await import('../services/video-storyboard-export.js');
+    const characters = Array.isArray(requestPayload.characters) ? requestPayload.characters : [];
+    if (!characters.length) {
+      const err = { error: 'characters array required' };
+      logTool(req, 'video_characters_save', requestPayload, err, 'error', source);
+      return res.status(400).json(err);
+    }
+    const out = saveVideoCharacters(ownerUserId, characters);
+    logTool(req, 'video_characters_save', { count: characters.length }, out, 'ok', source);
+    res.json(out);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'video_characters_save', requestPayload, err, 'error', source);
+    res.status(e.status || 500).json(err);
+  }
+});
+
 export default router;

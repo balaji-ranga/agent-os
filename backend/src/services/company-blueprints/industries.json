@@ -4,7 +4,14 @@
     "label": "Content Creator (Social media)",
     "featured": true,
     "default_blueprint_id": "content_creator",
-    "description": "Facebook, Instagram, LinkedIn, and blogs. Not YouTube long-form (coming as Animated Youtube Videos Industry)."
+    "description": "Facebook, Instagram, LinkedIn, and blogs. For short-form / animated / Veo video studio use Video content."
+  },
+  {
+    "id": "video_content",
+    "label": "Video content (shorts / animated / Veo)",
+    "featured": true,
+    "default_blueprint_id": "video_content",
+    "description": "Content Orchestrator + W-Reasoning storyboard (HTML/PDF/image); Phase 2 Replicate google/veo-*. Separate from social content_creator."
   },
   {
     "id": "demo_balaji_ranganathan",

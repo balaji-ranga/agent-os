@@ -101,6 +101,10 @@ export function resolveWorkspaceTemplateBaseId(agentOrId) {
   if (id === 'erp-pnl' || id.startsWith('erp-pnl-')) return 'erp-pnl';
   if (id === 'erp-invoice' || id.startsWith('erp-inv-')) return 'erp-invoice';
   if (id === 'erp-project' || id.startsWith('erp-pm-')) return 'erp-project';
+  if (id === 'video-orchestrator' || id.startsWith('video-orch-')) return 'video-orchestrator';
+  if (id === 'video-story' || id.startsWith('video-story-')) return 'video-story';
+  if (id === 'video-scene' || id.startsWith('video-scene-')) return 'video-scene';
+  if (id === 'video-prompt' || id.startsWith('video-prompt-')) return 'video-prompt';
   return id;
 }
 
@@ -183,6 +187,84 @@ export function loadMakerCheckerWorkflowTemplate(kind) {
   if (k === 'erp') return loadJson('business-core/workflow-erp-maker-checker.json');
   if (k === 'crm') return loadJson('business-core/workflow-crm-maker-checker.json');
   return null;
+}
+
+/** Video content studio — agents.json under standard/video-content/ */
+export function loadVideoContentAgentPack() {
+  return loadJson('video-content/agents.json');
+}
+
+/**
+ * Materialize video_content prefab agents (id_pattern: video-orch-{ownerSlug}, …).
+ * Golden templates: openclaw-workspace-templates/video-*
+ */
+export function getVideoAgentDefs(ownerUserId) {
+  const pack = loadVideoContentAgentPack();
+  if (!pack || !Array.isArray(pack.agents)) return [];
+  const s = ownerSlug(ownerUserId);
+  const wf = ownerWorkflowSlug(ownerUserId);
+  return pack.agents.map((a) => {
+    const pattern = String(a.id_pattern || `video-${a.role_key || 'agent'}-{ownerSlug}`);
+    const id = pattern
+      .replace(/\{ownerSlug\}/gi, s)
+      .replace(/\{ownerWorkflowSlug\}/gi, wf)
+      .replace(/[^a-zA-Z0-9-_]/g, '-')
+      .slice(0, 40);
+    const templateBase =
+      a.workspace_template_base ||
+      a.template_base_id ||
+      workspaceTemplateBaseId(a.workspace_template) ||
+      resolveWorkspaceTemplateBaseId(id);
+    return {
+      id,
+      key: a.role_key || a.key,
+      role_key: a.role_key || a.key,
+      name: a.name,
+      role: a.role || a.name,
+      department: a.department || 'Creative',
+      user_facing: a.user_facing !== false,
+      tools: Array.isArray(a.tools) ? [...a.tools] : [],
+      template_base_id: templateBase,
+      workspace_template:
+        a.workspace_template || `openclaw-workspace-templates/${templateBase}/`,
+    };
+  });
+}
+
+export function loadVideoContentWorkflowsManifest() {
+  return loadJson('video-content/workflows-manifest.json');
+}
+
+/** Load one video workflow template from standard/video-content/ (golden source). */
+export function loadVideoContentWorkflowTemplate(templateKeyOrFile) {
+  const key = String(templateKeyOrFile || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\.json$/i, '');
+  const manifest = loadVideoContentWorkflowsManifest();
+  const hit = (manifest?.workflows || []).find(
+    (w) =>
+      String(w.template_key || '').toLowerCase() === key ||
+      String(w.file || '')
+        .toLowerCase()
+        .replace(/\.json$/i, '') === key
+  );
+  const file = hit?.file || (key.startsWith('workflow-') ? `${key}.json` : `workflow-${key.replace(/^video-/, '')}.json`);
+  const tpl = loadJson(`video-content/${file}`);
+  if (tpl && hit?.status) tpl.status = hit.status;
+  return tpl;
+}
+
+export function listVideoContentWorkflowTemplates(opts = {}) {
+  const includeStubs = opts.includeStubs === true;
+  const manifest = loadVideoContentWorkflowsManifest();
+  const out = [];
+  for (const w of manifest?.workflows || []) {
+    if (!includeStubs && String(w.status || '') === 'stub') continue;
+    const tpl = loadVideoContentWorkflowTemplate(w.template_key || w.file);
+    if (tpl?.graph?.nodes?.length) out.push(tpl);
+  }
+  return out;
 }
 
 /**
@@ -283,6 +365,18 @@ export function listStandardPrefabInventory() {
       workflow_erp: !!loadMakerCheckerWorkflowTemplate('erp'),
     },
     trading: getIbkrWorkflowManifest(),
+    video_content: {
+      agents: getVideoAgentDefs('ceo-preview').map((a) => ({
+        id_pattern: a.id,
+        name: a.name,
+        workspace_template: a.workspace_template,
+      })),
+      workflows: (loadVideoContentWorkflowsManifest()?.workflows || []).map((w) => ({
+        template_key: w.template_key,
+        status: w.status,
+        file: w.file,
+      })),
+    },
     industry_packs_dir: 'packs/',
     standard_dir: 'company-blueprints/standard/',
   };

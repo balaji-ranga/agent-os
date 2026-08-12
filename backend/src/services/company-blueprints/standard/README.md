@@ -18,6 +18,7 @@ node scripts/publish-brightbox-and-regenerate-standard.js
 | `business-core/workflow-crm-maker-checker.json` | Portable graph → `crm-mc-{ownerSlug}` |
 | `business-core/workflow-erp-maker-checker.json` | Portable graph → `erp-mc-{ownerSlug}` |
 | `trading/ibkr-workflows-manifest.json` | IBKR day-plan / poller / monthly W1–W5 seed scripts |
+| `video-content/` | Video studio agents + W-Reasoning / W-Media / W-Assembly graphs (`packs/video_content.json`) |
 
 ## Workspace templates (Business Core MD)
 
@@ -46,6 +47,17 @@ On Profile CRM/ERP ensure and Admin **Refresh default agents** (`include_busines
 | ERP prefabs + ERP MC workflow | Profile **ERP** = `erpnext`. Same Admin refresh re-ensures when Profile has ERP. |
 | Industry agents / optional Day 1 graphs | Company setup / Operate Day 1 blueprints |
 | IBKR paper workflows | Run seed scripts listed in the trading manifest (not auto Profile) |
+| Video content agents + W-Reasoning | Company setup / Operate `video_content`; workspaces from `openclaw-workspace-templates/video-*`; graphs from `standard/video-content/` |
+
+### Video content maintenance
+
+| Fix type | Edit here |
+|----------|-----------|
+| Agent SOUL/AGENTS/TOOLS/MEMORY | `openclaw-workspace-templates/video-orchestrator\|video-story\|video-scene\|video-prompt/` |
+| Workflow graph / chat phrase | `standard/video-content/workflow-*.json` + `workflows-manifest.json` |
+| Day 0 org / Master Data tables | `packs/video_content.json` |
+
+Do not patch live CEO copies only — update these sources and re-seed/refresh.
 
 Runtime loaders:
 

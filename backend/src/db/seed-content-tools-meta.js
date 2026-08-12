@@ -697,6 +697,31 @@ const BUILTIN_TOOLS = [
     is_builtin: 1,
   },
   {
+    name: 'video_storyboard_export',
+    display_name: 'Video Storyboard — Export HTML/PDF/Image',
+    endpoint: '/api/tools/video-storyboard-export',
+    method: 'POST',
+    purpose:
+      'Phase 1 video studio: export a storyboard JSON to HTML + PDF + SVG contact sheet under this CEO\'s Content Explorer media. ' +
+      'Body: { storyboard: { title, duration_sec, characters[], scenes[{index,duration_sec,description,veo_prompt,negative_prompt,continuity_notes,characters}] }, optional storyboard_id, formats, persist }. ' +
+      'Returns MEDIA: paste lines for chat. Persists row in Master Data video_storyboards. Owner is session-scoped.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'video_characters_save',
+    display_name: 'Video Characters — Save Refs',
+    endpoint: '/api/tools/video-characters-save',
+    method: 'POST',
+    purpose:
+      'Save or update character cards for video storyboards (name, role, ref_media MEDIA:/… paths). ' +
+      'Body: { characters: [{ character_id?, name, role, ref_media, notes }] }. Owner-scoped Master Data video_characters only.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
     name: 'vedic_compute_chart',
     display_name: 'Vedic Astrology — Compute Chart Data',
     endpoint: '/api/tools/vedic-compute-chart',
@@ -780,6 +805,9 @@ const MASTER_DATA_TOOLS = BUILTIN_TOOLS.filter(
 );
 const VEDIC_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'vedic_compute_chart');
 const CHART_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'generate_chart');
+const VIDEO_STORYBOARD_TOOLS = BUILTIN_TOOLS.filter(
+  (t) => t.name === 'video_storyboard_export' || t.name === 'video_characters_save'
+);
 
 export function seedContentToolsMetaIfEmpty() {
   const db = getDb();
@@ -1122,6 +1150,22 @@ export function seedVedicChartToolIfMissing() {
     'UPDATE content_tools_meta SET purpose = ?, display_name = ?, endpoint = ?, method = ? WHERE name = ?'
   );
   for (const t of [...VEDIC_TOOLS, ...CHART_TOOLS]) {
+    stmt.run(t.name, t.display_name, t.endpoint, t.method, t.purpose, t.model_used, t.enabled, t.is_builtin);
+    update.run(t.purpose, t.display_name, t.endpoint, t.method, t.name);
+  }
+}
+
+/** Video storyboard export + character save tools (Phase 1). */
+export function seedVideoStoryboardToolsIfMissing() {
+  const db = getDb();
+  const stmt = db.prepare(
+    `INSERT OR IGNORE INTO content_tools_meta (name, display_name, endpoint, method, purpose, model_used, enabled, is_builtin)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  const update = db.prepare(
+    'UPDATE content_tools_meta SET purpose = ?, display_name = ?, endpoint = ?, method = ? WHERE name = ?'
+  );
+  for (const t of VIDEO_STORYBOARD_TOOLS) {
     stmt.run(t.name, t.display_name, t.endpoint, t.method, t.purpose, t.model_used, t.enabled, t.is_builtin);
     update.run(t.purpose, t.display_name, t.endpoint, t.method, t.name);
   }

@@ -1,0 +1,7 @@
+{
+  "template_id": "video-prompt",
+  "pack": "video_content",
+  "role": "Prompt Agent",
+  "maintained_in": "openclaw-workspace-templates/video-prompt/",
+  "notes": "Workflow-only specialty for W-Reasoning Veo/Flow prompts."
+}

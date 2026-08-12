@@ -70,8 +70,21 @@
     "manifest": "trading/ibkr-workflows-manifest.json",
     "note": "IBKR graphs remain constructed by seed services; manifest documents ids and redeploy commands so a clean VPS can restore paper day-plan + poller + monthly W1\u2013W5."
   },
+  "video_content": {
+    "pack": "packs/video_content.json",
+    "agents": "video-content/agents.json",
+    "workflows_manifest": "video-content/workflows-manifest.json",
+    "readme": "video-content/README.md",
+    "workspace_templates": {
+      "video-orchestrator": "openclaw-workspace-templates/video-orchestrator/",
+      "video-story": "openclaw-workspace-templates/video-story/",
+      "video-scene": "openclaw-workspace-templates/video-scene/",
+      "video-prompt": "openclaw-workspace-templates/video-prompt/"
+    },
+    "note": "Canonical MD under openclaw-workspace-templates/video-*; graphs under standard/video-content/. Fix there and re-seed/refresh — no hotfixes."
+  },
   "industry_blueprints": {
     "dir": "packs/",
-    "note": "Industry Day 0 org shapes (content_creator, trading_ops, general_ops, saas, talent, blank). Day 1 workflow graphs come from published deep blueprints or companion standard templates."
+    "note": "Industry Day 0 org shapes (content_creator, video_content, trading_ops, general_ops, saas, talent, blank). Day 1 workflow graphs come from published deep blueprints or companion standard templates."
   }
 }

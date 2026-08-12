@@ -408,10 +408,20 @@ export function resolveCompanyIndustryIdentity(strategic = {}, opts = {}) {
 
 export function inferCompanyTypeFromText(text) {
   const t = String(text || '').toLowerCase();
-  if (/content|instagram|facebook|linkedin|blog|social|creator|shorts|publish|media/.test(t)) {
-    // youtube alone no longer maps to content_creator if only youtube - still social
+  // Video studio (Veo / shorts / animated) before generic social content
+  if (
+    /video\s*content|video\s*studio|animated\s*youtube|veo\b|storyboard|short[\s-]?form\s*video|generate\s*video/.test(
+      t
+    ) ||
+    (/youtube|youtu\.be|shorts/.test(t) &&
+      /video|animat|veo|storyboard|film|clip/.test(t) &&
+      !/instagram|facebook|linkedin|blog/.test(t))
+  ) {
+    return 'video_content';
+  }
+  if (/content|instagram|facebook|linkedin|blog|social|creator|publish|media/.test(t)) {
     if (/youtube|youtu\.be/.test(t) && !/instagram|facebook|linkedin|blog|social/.test(t)) {
-      return 'general_ops'; // YouTube-only deferred to future pack
+      return 'video_content';
     }
     return 'content_creator';
   }
@@ -431,7 +441,8 @@ export function policyTextForStyle(blueprint, managementStyle) {
 export function hasDedicatedCompanyTemplate(companyType) {
   const bp = getBlueprint(companyType);
   if (bp?.depth === 'deep') return true;
-  if (['content_creator', 'saas', 'talent', 'trading_ops'].includes(bp?.id || bp?.industry)) return true;
+  if (['content_creator', 'video_content', 'saas', 'talent', 'trading_ops'].includes(bp?.id || bp?.industry))
+    return true;
   return false;
 }
 

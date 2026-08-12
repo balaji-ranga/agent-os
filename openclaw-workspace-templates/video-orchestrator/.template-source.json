@@ -1,0 +1,7 @@
+{
+  "template_id": "video-orchestrator",
+  "pack": "video_content",
+  "role": "Content Orchestrator",
+  "maintained_in": "openclaw-workspace-templates/video-orchestrator/",
+  "notes": "User-facing front door. Specialists run in standard/video-content workflows. Fix prompts/tools here; redeploy/refresh pushes to CEOs."
+}

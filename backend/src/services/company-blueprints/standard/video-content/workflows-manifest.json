@@ -1,0 +1,42 @@
+{
+  "id": "video-content-workflows",
+  "pack": "video_content",
+  "industry_pack": "packs/video_content.json",
+  "agents_pack": "video-content/agents.json",
+  "description": "Canonical workflow graphs for video_content. Edit JSON here for fixes; seed/install scripts must load from this folder (not one-off hotfix copies).",
+  "workflows": [
+    {
+      "template_key": "video-reasoning",
+      "file": "workflow-reasoning.json",
+      "phase": 1,
+      "status": "ready",
+      "chat_phrase": "run video storyboard",
+      "workflow_id_pattern": "video-reasoning-{ownerSlug}",
+      "seed_script": "backend/scripts/seed-video-content-workflows.js"
+    },
+    {
+      "template_key": "video-media",
+      "file": "workflow-media.json",
+      "phase": 2,
+      "status": "stub",
+      "chat_phrase": "run video media",
+      "workflow_id_pattern": "video-media-{ownerSlug}",
+      "seed_script": "backend/scripts/seed-video-content-workflows.js"
+    },
+    {
+      "template_key": "video-assembly",
+      "file": "workflow-assembly.json",
+      "phase": 2,
+      "status": "stub",
+      "chat_phrase": "run video assembly",
+      "workflow_id_pattern": "video-assembly-{ownerSlug}",
+      "seed_script": "backend/scripts/seed-video-content-workflows.js"
+    }
+  ],
+  "workspace_templates": {
+    "video-orchestrator": "openclaw-workspace-templates/video-orchestrator/",
+    "video-story": "openclaw-workspace-templates/video-story/",
+    "video-scene": "openclaw-workspace-templates/video-scene/",
+    "video-prompt": "openclaw-workspace-templates/video-prompt/"
+  }
+}

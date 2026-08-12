@@ -12,6 +12,7 @@ import {
 import { findTableByName, insertRow, listRows } from './master-data.js';
 import { createFullAgent } from './create-full-agent.js';
 import { grantUserAgent } from './users.js';
+import { ownerSlug } from './company-blueprints/standard-prefabs.js';
 import { writeFileSync, mkdirSync } from 'fs';
 import { dirname, join } from 'path';
 import {
@@ -686,13 +687,25 @@ export async function applyProposal(ownerUserId, { confirm_override: confirmOver
   const defaultParentId = getDb().prepare('SELECT id FROM agents WHERE is_coo = 1 LIMIT 1').get()?.id || null;
   for (const ag of proposal.agents || []) {
     try {
+      let id = ag.id || undefined;
+      if (!id && ag.id_pattern) {
+        id = String(ag.id_pattern)
+          .replace(/\{ownerSlug\}/gi, ownerSlug(ownerUserId))
+          .replace(/[^a-zA-Z0-9-_]/g, '-')
+          .slice(0, 40);
+      }
+      const templateBase = ag.workspace_template_base || ag.template_base_id || null;
       const agent = await createFullAgent({
+        id,
         name: ag.name,
         role: ag.role || ag.name,
         department: ag.department || 'Operations',
         parent_id: ag.parent_id || ag.reporting_to || ag.reportingTo || defaultParentId,
         ownerUserId,
         tools: Array.isArray(ag.tools) ? ag.tools : undefined,
+        template_base_id: templateBase || undefined,
+        workspace_template: ag.workspace_template || undefined,
+        preserveTemplateWorkspaceDocs: !!templateBase,
       });
       grantUserAgent(ownerUserId, agent.id);
       createdAgents.push(agent.id);

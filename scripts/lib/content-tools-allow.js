@@ -61,6 +61,8 @@ export const REQUIRED_GLOBAL_CONTENT_TOOLS = [
   'master_data_rag',
   'master_data_index_document',
   'list_inbound_attachments',
+  'video_storyboard_export',
+  'video_characters_save',
   'browser',
 ];
 

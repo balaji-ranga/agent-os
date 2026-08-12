@@ -1,0 +1,46 @@
+{
+  "template_key": "video-assembly",
+  "name": "Video: W-Assembly (FFmpeg + QC)",
+  "description": "Phase 2 stub — asset manifest → FFmpeg assemble → QC → Content Explorer. Expand when S5 ships. Chat: run video assembly",
+  "chat_trigger_phrase": "run video assembly",
+  "trigger_modes": [
+    "manual",
+    "chat"
+  ],
+  "workflow_id_pattern": "video-assembly-{ownerSlug}",
+  "kind": "video_content",
+  "phase": 2,
+  "status": "stub",
+  "maintained_in": "company-blueprints/standard/video-content/workflow-assembly.json",
+  "notes": [
+    "FFmpeg worker: paths only in steps (no base64).",
+    "QC agent checks missing scenes / failed clips / duration.",
+    "Orchestrator presents final MEDIA: MP4."
+  ],
+  "graph": {
+    "nodes": [
+      {
+        "id": "trigger-1",
+        "type": "trigger",
+        "position": { "x": 40, "y": 200 },
+        "data": {
+          "label": "Start",
+          "triggerModes": ["manual", "chat"],
+          "chatPhrase": "run video assembly"
+        }
+      },
+      {
+        "id": "brain-stub",
+        "type": "brain",
+        "position": { "x": 280, "y": 200 },
+        "data": {
+          "label": "Stub — implement S5",
+          "prompt": "W-Assembly is not fully implemented yet. Reply with: status=stub, next=FFmpeg worker + QC. Do not claim a final MP4 was rendered."
+        }
+      }
+    ],
+    "edges": [
+      { "id": "e1", "source": "trigger-1", "target": "brain-stub" }
+    ]
+  }
+}

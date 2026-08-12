@@ -86,7 +86,7 @@ import { ensureCeoDefaultMasterDataForAllCeos } from './services/ceo-default-mas
 import { initDb, getDb } from './db/schema.js';
 import { ensureExternalTokenTables } from './services/external-tokens.js';
 import { seedDefaultAgentsIfEmpty, seedAgentDepartmentsIfMissing } from './db/seed-default-agents.js';
-import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, seedWorkflowToolsIfMissing, seedLearningsToolsIfMissing, seedEmailSendToolIfMissing, seedSpeechToolsIfMissing, seedVisionToolsIfMissing, seedNotifyCeoToolIfMissing, seedOnboardingProposalToolsIfMissing, seedCeoProfileToolIfMissing, seedStatusCheckerToolIfMissing, seedThisWeekDigestToolIfMissing, seedOperationalEffectivenessToolIfMissing, seedMasterDataToolsIfMissing, seedConnectorToolsIfMissing, seedVedicChartToolIfMissing, updateKanbanToolPurposes, seedPlatformFeedbackToolsIfMissing, grantPlatformFeedbackTools, seedScheduledGoalToolsIfMissing, seedCrmToolsIfMissing, seedErpToolsIfMissing } from './db/seed-content-tools-meta.js';
+import { seedContentToolsMetaIfEmpty, seedKanbanToolsIfMissing, seedWorkflowToolsIfMissing, seedLearningsToolsIfMissing, seedEmailSendToolIfMissing, seedSpeechToolsIfMissing, seedVisionToolsIfMissing, seedNotifyCeoToolIfMissing, seedOnboardingProposalToolsIfMissing, seedCeoProfileToolIfMissing, seedStatusCheckerToolIfMissing, seedThisWeekDigestToolIfMissing, seedOperationalEffectivenessToolIfMissing, seedMasterDataToolsIfMissing, seedConnectorToolsIfMissing, seedVedicChartToolIfMissing, seedVideoStoryboardToolsIfMissing, updateKanbanToolPurposes, seedPlatformFeedbackToolsIfMissing, grantPlatformFeedbackTools, seedScheduledGoalToolsIfMissing, seedCrmToolsIfMissing, seedErpToolsIfMissing } from './db/seed-content-tools-meta.js';
 import businessCoreRoutes from './routes/business-core.js';
 import companyWorkspaceRoutes from './routes/company-workspace.js';
 import uiPrefsRoutes from './routes/ui-prefs.js';
@@ -305,6 +305,7 @@ try {
 }
 
 seedVedicChartToolIfMissing();
+seedVideoStoryboardToolsIfMissing();
 seedConnectorToolsIfMissing();
 updateKanbanToolPurposes();
 seedJobApplicantToolsIfMissing();

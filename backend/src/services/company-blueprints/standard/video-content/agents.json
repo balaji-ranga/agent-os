@@ -1,0 +1,81 @@
+{
+  "id": "video-content-agents",
+  "pack": "video_content",
+  "name": "Video content studio agents",
+  "description": "Prefab agents for video_content. Workspaces from openclaw-workspace-templates/video-*. Maintain MD there; keep this JSON in sync for grants/roles.",
+  "version": 1,
+  "agents": [
+    {
+      "role_key": "orchestrator",
+      "name": "Content Orchestrator",
+      "department": "Creative",
+      "user_facing": true,
+      "workspace_template_base": "video-orchestrator",
+      "workspace_template": "openclaw-workspace-templates/video-orchestrator/",
+      "id_pattern": "video-orch-{ownerSlug}",
+      "tools": [
+        "learnings_summary",
+        "master_data_rag",
+        "master_data_list_rows",
+        "master_data_insert_row",
+        "master_data_update_row",
+        "agent_workflow_list",
+        "agent_workflow_enquire",
+        "agent_workflow_trigger",
+        "agent_workflow_runs",
+        "generate_image",
+        "kanban_create_task",
+        "kanban_move_status",
+        "notify_ceo",
+        "content_tools_enquire",
+        "video_storyboard_export",
+        "video_characters_save"
+      ]
+    },
+    {
+      "role_key": "story",
+      "name": "Story Agent",
+      "department": "Creative",
+      "user_facing": false,
+      "workspace_template_base": "video-story",
+      "workspace_template": "openclaw-workspace-templates/video-story/",
+      "id_pattern": "video-story-{ownerSlug}",
+      "tools": [
+        "learnings_summary",
+        "master_data_rag",
+        "master_data_list_rows",
+        "kanban_create_task"
+      ]
+    },
+    {
+      "role_key": "scene",
+      "name": "Scene Planner",
+      "department": "Creative",
+      "user_facing": false,
+      "workspace_template_base": "video-scene",
+      "workspace_template": "openclaw-workspace-templates/video-scene/",
+      "id_pattern": "video-scene-{ownerSlug}",
+      "tools": [
+        "learnings_summary",
+        "master_data_rag",
+        "master_data_list_rows"
+      ]
+    },
+    {
+      "role_key": "prompt",
+      "name": "Prompt Agent",
+      "department": "Creative",
+      "user_facing": false,
+      "workspace_template_base": "video-prompt",
+      "workspace_template": "openclaw-workspace-templates/video-prompt/",
+      "id_pattern": "video-prompt-{ownerSlug}",
+      "tools": [
+        "learnings_summary",
+        "master_data_rag",
+        "master_data_list_rows",
+        "analyze_image",
+        "generate_image"
+      ]
+    }
+  ]
+}

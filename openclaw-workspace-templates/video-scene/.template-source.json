@@ -1,0 +1,7 @@
+{
+  "template_id": "video-scene",
+  "pack": "video_content",
+  "role": "Scene Planner",
+  "maintained_in": "openclaw-workspace-templates/video-scene/",
+  "notes": "Workflow-only specialty for W-Reasoning."
+}

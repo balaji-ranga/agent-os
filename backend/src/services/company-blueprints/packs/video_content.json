@@ -1,0 +1,221 @@
+{
+  "aliases": [
+    "video_studio",
+    "animated_youtube",
+    "short_form_video",
+    "veo_content"
+  ],
+  "depth": "deep",
+  "is_default": true,
+  "source": "system",
+  "industry": "video_content",
+  "name": "Video content studio",
+  "description": "Short-form / animated video: Content Orchestrator chat front door; Story→Scene→Prompt via W-Reasoning; Phase 2 Replicate google/veo-* + assembly. Separate from social content_creator.",
+  "departments": [
+    {
+      "name": "Creative",
+      "purpose": "Orchestration, story, scenes, prompts, CEO review."
+    },
+    {
+      "name": "Production",
+      "purpose": "Character refs, Veo clip generation, voice/subs (Phase 2)."
+    },
+    {
+      "name": "Assembly",
+      "purpose": "FFmpeg edit, QC, export (Phase 2)."
+    },
+    {
+      "name": "Operations",
+      "purpose": "Pipeline status and approvals."
+    }
+  ],
+  "agents": [
+    {
+      "name": "Content Orchestrator",
+      "role": "Chat front door: initiate storyboard/production, present HTML/PDF/image and finals, collect feedback",
+      "department": "Creative",
+      "workspace_template_base": "video-orchestrator",
+      "workspace_template": "openclaw-workspace-templates/video-orchestrator/",
+      "user_facing": true,
+      "tools": [
+        "learnings_summary",
+        "master_data_rag",
+        "master_data_list_rows",
+        "master_data_insert_row",
+        "master_data_update_row",
+        "agent_workflow_list",
+        "agent_workflow_enquire",
+        "agent_workflow_trigger",
+        "agent_workflow_runs",
+        "generate_image",
+        "video_storyboard_export",
+        "video_characters_save",
+        "kanban_create_task",
+        "kanban_move_status",
+        "notify_ceo",
+        "content_tools_enquire"
+      ]
+    },
+    {
+      "name": "Story Agent",
+      "role": "Workflow specialty: storyline and narrative beats",
+      "department": "Creative",
+      "workspace_template_base": "video-story",
+      "workspace_template": "openclaw-workspace-templates/video-story/",
+      "user_facing": false,
+      "tools": [
+        "learnings_summary",
+        "master_data_rag",
+        "master_data_list_rows",
+        "kanban_create_task"
+      ]
+    },
+    {
+      "name": "Scene Planner",
+      "role": "Workflow specialty: 6–8s scene cards and character assignment",
+      "department": "Creative",
+      "workspace_template_base": "video-scene",
+      "workspace_template": "openclaw-workspace-templates/video-scene/",
+      "user_facing": false,
+      "tools": [
+        "learnings_summary",
+        "master_data_rag",
+        "master_data_list_rows"
+      ]
+    },
+    {
+      "name": "Prompt Agent",
+      "role": "Workflow specialty: Flow/Veo-ready prompts per scene",
+      "department": "Creative",
+      "workspace_template_base": "video-prompt",
+      "workspace_template": "openclaw-workspace-templates/video-prompt/",
+      "user_facing": false,
+      "tools": [
+        "learnings_summary",
+        "master_data_rag",
+        "master_data_list_rows",
+        "analyze_image",
+        "generate_image"
+      ]
+    }
+  ],
+  "workflows": [
+    "CEO/Orchestrator chat → agent_workflow_trigger W-Reasoning (Story→Scene→Prompt) → storyboard JSON + HTML/PDF/image → CEO review in chat/Kanban",
+    "Phase 2: approve → W-Media (generate_video Replicate google/veo-*) → W-Assembly (FFmpeg + QC) → final MP4 in Content Explorer",
+    "Feedback loop: Orchestrator patches brief → re-trigger W-Reasoning or single-scene regen"
+  ],
+  "workflow_templates": [
+    {
+      "template_key": "video-reasoning",
+      "standard_path": "standard/video-content/workflow-reasoning.json",
+      "chat_phrase": "run video storyboard"
+    },
+    {
+      "template_key": "video-media",
+      "standard_path": "standard/video-content/workflow-media.json",
+      "chat_phrase": "run video media",
+      "phase": 2,
+      "status": "stub"
+    },
+    {
+      "template_key": "video-assembly",
+      "standard_path": "standard/video-content/workflow-assembly.json",
+      "chat_phrase": "run video assembly",
+      "phase": 2,
+      "status": "stub"
+    }
+  ],
+  "channels": [
+    "Phase 1: Manual Google Flow test using exported prompts + character refs.",
+    "Phase 2: Replicate BYOK (Replicate_BYOK) for google/veo-* via generate_video / Tools→Model.",
+    "Not the social content_creator FB/LI publish pack — hand off only if CEO asks."
+  ],
+  "knowledge_tables": [
+    {
+      "name": "video_characters",
+      "description": "Reusable character cards and reference media paths.",
+      "columns": [
+        "character_id",
+        "name",
+        "role",
+        "ref_media",
+        "notes",
+        "updated"
+      ],
+      "seed_rows": []
+    },
+    {
+      "name": "video_storyboards",
+      "description": "Durable storyboard / production_plan JSON + export paths.",
+      "columns": [
+        "storyboard_id",
+        "title",
+        "status",
+        "duration_sec",
+        "plan_json",
+        "html_path",
+        "pdf_path",
+        "image_path",
+        "workflow_run_id",
+        "updated"
+      ],
+      "seed_rows": []
+    },
+    {
+      "name": "video_jobs",
+      "description": "Phase 2 per-scene generation jobs (Replicate).",
+      "columns": [
+        "job_id",
+        "storyboard_id",
+        "scene_index",
+        "status",
+        "media_path",
+        "error",
+        "updated"
+      ],
+      "seed_rows": []
+    },
+    {
+      "name": "brand_voice",
+      "description": "Tone and must-include guidance for story/prompts.",
+      "columns": [
+        "topic",
+        "guidance"
+      ],
+      "seed_rows": [
+        {
+          "topic": "tone",
+          "guidance": "Cinematic, clear visual storytelling; avoid unreadable on-screen text unless requested."
+        },
+        {
+          "topic": "consistency",
+          "guidance": "Reuse video_characters refs; do not invent new faces mid-board."
+        }
+      ]
+    }
+  ],
+  "sop_documents": [
+    {
+      "title": "SOP - Video storyboard (Phase 1)",
+      "filename": "sop-video-storyboard.md",
+      "contentText": "# Video storyboard (Phase 1)\n\n1. CEO chats **Content Orchestrator** with idea + character refs.\n2. Orchestrator triggers workflow **video-reasoning** (chat: run video storyboard).\n3. Story → Scene Planner → Prompt agents run as workflow nodes only.\n4. Persist plan to Master Data **video_storyboards**; export HTML/PDF/image to Content Explorer.\n5. Orchestrator returns MEDIA links in the same chat.\n6. CEO may manually paste prompts into Google Flow.\n7. Feedback: Orchestrator re-triggers with patched brief — do not edit specialist SOUL ad-hoc in chat.\n\nCanonical templates: openclaw-workspace-templates/video-* /\nCanonical graphs: company-blueprints/standard/video-content/\n"
+    }
+  ],
+  "policy_templates": {
+    "after_approval": "Generate storyboards freely; require CEO Kanban approval before Phase 2 Veo spend.",
+    "autonomous": "Orchestrator may run W-Reasoning and present boards; still gate paid Veo generation behind explicit approve unless Profile says otherwise."
+  },
+  "systems": [
+    {
+      "id": "replicate",
+      "label": "Replicate BYOK (google/veo-*)",
+      "path": "/api-keys",
+      "required_phase": 2
+    }
+  ],
+  "standard_prefab": {
+    "agents": "standard/video-content/agents.json",
+    "workflows_manifest": "standard/video-content/workflows-manifest.json",
+    "readme": "standard/video-content/README.md"
+  }
+}

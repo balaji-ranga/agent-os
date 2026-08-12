@@ -1,0 +1,7 @@
+{
+  "template_id": "video-story",
+  "pack": "video_content",
+  "role": "Story Agent",
+  "maintained_in": "openclaw-workspace-templates/video-story/",
+  "notes": "Workflow-only specialty for W-Reasoning. Fix story prompts here."
+}

@@ -1,0 +1,165 @@
+{
+  "template_key": "video-reasoning",
+  "name": "Video: Story → Scene → Prompt (storyboard)",
+  "description": "W-Reasoning: Story Agent → Scene Planner → Prompt Agent → optional CEO gate. Chat: run video storyboard. Orchestrator triggers; specialists are workflow nodes only.",
+  "chat_trigger_phrase": "run video storyboard",
+  "trigger_modes": [
+    "manual",
+    "chat"
+  ],
+  "workflow_id_pattern": "video-reasoning-{ownerSlug}",
+  "kind": "video_content",
+  "phase": 1,
+  "agent_roles": {
+    "story": [
+      "Story Agent"
+    ],
+    "scene": [
+      "Scene Planner"
+    ],
+    "prompt": [
+      "Prompt Agent"
+    ]
+  },
+  "maintained_in": "company-blueprints/standard/video-content/workflow-reasoning.json",
+  "graph": {
+    "nodes": [
+      {
+        "id": "trigger-1",
+        "type": "trigger",
+        "position": {
+          "x": 40,
+          "y": 220
+        },
+        "data": {
+          "label": "Start",
+          "triggerModes": [
+            "manual",
+            "chat"
+          ],
+          "chatPhrase": "run video storyboard",
+          "scheduleCron": "",
+          "inputSchema": null
+        }
+      },
+      {
+        "id": "story-1",
+        "type": "agent",
+        "position": {
+          "x": 260,
+          "y": 220
+        },
+        "data": {
+          "label": "Story Agent",
+          "agentNameRef": "Story Agent",
+          "agentName": "Story Agent",
+          "prompt": "You are Story Agent (video). Brief and character refs from input:\n\n{{input}}\n\nProduce narrative beats for short-form video within the duration budget. End with ONLY one JSON object: title, duration_sec, logline, beats[], characters_used[], tone, cta.",
+          "inputBindings": [
+            {
+              "id": "prompt",
+              "mode": "dynamic",
+              "sourceNodeId": "trigger-1",
+              "sourceOutputKey": "text"
+            }
+          ]
+        }
+      },
+      {
+        "id": "scene-1",
+        "type": "agent",
+        "position": {
+          "x": 500,
+          "y": 220
+        },
+        "data": {
+          "label": "Scene Planner",
+          "agentNameRef": "Scene Planner",
+          "agentName": "Scene Planner",
+          "prompt": "You are Scene Planner (video). Story JSON / text:\n\n{{story}}\n\nOriginal brief:\n{{input}}\n\nBreak into 6–8 second scenes. End with ONLY one JSON object: duration_sec, scenes[{index,duration_sec,characters,description,continuity_notes,camera}].",
+          "inputBindings": [
+            {
+              "id": "story",
+              "mode": "dynamic",
+              "sourceNodeId": "story-1",
+              "sourceOutputKey": "reply"
+            },
+            {
+              "id": "input",
+              "mode": "dynamic",
+              "sourceNodeId": "trigger-1",
+              "sourceOutputKey": "text"
+            }
+          ]
+        }
+      },
+      {
+        "id": "prompt-1",
+        "type": "agent",
+        "position": {
+          "x": 740,
+          "y": 220
+        },
+        "data": {
+          "label": "Prompt Agent",
+          "agentNameRef": "Prompt Agent",
+          "agentName": "Prompt Agent",
+          "prompt": "You are Prompt Agent (video). Scene plan:\n\n{{scenes}}\n\nStory:\n{{story}}\n\nBrief:\n{{input}}\n\nWrite Flow/Veo-ready prompts. End with ONLY the full storyboard JSON: title, duration_sec, characters[{id,name,role,ref_media}], scenes[{index,duration_sec,characters,description,veo_prompt,negative_prompt,continuity_notes}].",
+          "inputBindings": [
+            {
+              "id": "scenes",
+              "mode": "dynamic",
+              "sourceNodeId": "scene-1",
+              "sourceOutputKey": "reply"
+            },
+            {
+              "id": "story",
+              "mode": "dynamic",
+              "sourceNodeId": "story-1",
+              "sourceOutputKey": "reply"
+            },
+            {
+              "id": "input",
+              "mode": "dynamic",
+              "sourceNodeId": "trigger-1",
+              "sourceOutputKey": "text"
+            }
+          ]
+        }
+      },
+      {
+        "id": "ceo-gate",
+        "type": "ceo_approval",
+        "position": {
+          "x": 980,
+          "y": 220
+        },
+        "data": {
+          "label": "CEO review storyboard",
+          "prompt": "Review storyboard (prompts ready for Google Flow / later Veo). Approve to persist as production plan, or reject with feedback for Orchestrator re-run."
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "source": "trigger-1",
+        "target": "story-1"
+      },
+      {
+        "id": "e2",
+        "source": "story-1",
+        "target": "scene-1"
+      },
+      {
+        "id": "e3",
+        "source": "scene-1",
+        "target": "prompt-1"
+      },
+      {
+        "id": "e4",
+        "source": "prompt-1",
+        "target": "ceo-gate"
+      }
+    ]
+  }
+}
