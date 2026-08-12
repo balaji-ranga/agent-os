@@ -339,6 +339,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\seed-video-content-workflows.js" `
     "$Repo\backend\scripts\test-video-content-phase1.js" `
     "$Repo\backend\scripts\grant-video-orch-workflow-tools.mjs" `
+    "$Repo\backend\scripts\verify-video-orch-workflow-tools.mjs" `
     "$Repo\backend\scripts\e2e-video-content-ui-phase1.mjs" `
     "$Repo\backend\scripts\complete-content-ops-pipeline.js" `
     "$Repo\backend\scripts\test-content-ops-org-e2e.js" `
