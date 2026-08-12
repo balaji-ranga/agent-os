@@ -27,7 +27,11 @@ import { invokeContentToolHttp } from './content-tool-http-invoke.js';
 import { listPublishedWorkflows } from './agent-workflow-chat-tools.js';
 import { getOrCreateDelegationHubStandup } from './standup-hub.js';
 import { scheduleCeoRequestViaOpenClawCron } from './delegation-queue.js';
-import { resolveAgentToolArgsForGoal } from './goal-plan-tool-args.js';
+import {
+  resolveAgentToolArgsForGoal,
+  isCompositionalTool,
+  toolNeedsAgentInterpretation,
+} from './goal-plan-tool-args.js';
 
 const TERMINAL_WF = new Set(['completed', 'failed', 'cancelled', 'paused']);
 let _tablesReady = false;
@@ -682,6 +686,70 @@ export function priorStepSummaries(goalRunId, beforeIndex = Infinity) {
   return lines.join('\n');
 }
 
+/**
+ * Rich prior context for OpenClaw agent turns (agent_continue / interpreted tools).
+ * Includes digest HTML/markdown so the agent can compose email like chat — not one-line stubs.
+ */
+export function priorStepContextForAgent(goalRunId, beforeIndex = Infinity) {
+  const steps = loadGoalSteps(goalRunId).filter(
+    (s) => s.status === 'completed' && s.step_index < beforeIndex
+  );
+  const parts = [];
+  for (const s of steps) {
+    const spec = parseJson(s.spec_json);
+    const result = parseJson(s.result_json);
+    const label = s.label || s.step_type;
+    if (s.step_type === 'workflow_trigger' && s.child_workflow_run_id) {
+      parts.push(
+        `### ${label} (workflow #${s.child_workflow_run_id})\n${clip(result?.summary || result?.status || 'completed', 2000)}`
+      );
+      continue;
+    }
+    if (result?.reply_preview) {
+      parts.push(`### ${label}\n${clip(result.reply_preview, 4000)}`);
+      continue;
+    }
+    if (s.step_type === 'agent_tool' && result) {
+      const tool = String(result.tool_name || spec.tool_name || '').trim();
+      const inner = result.result != null && typeof result.result === 'object' ? result.result : result;
+      const html = String(inner?.html || result?.html || '').trim();
+      const markdown = String(inner?.markdown || result?.markdown || '').trim();
+      if (html || markdown) {
+        const block = [`### ${label} (${tool || 'tool'}) — use for email_send / report composition`];
+        if (markdown) block.push('Markdown:\n' + clip(markdown, 24000));
+        if (html) {
+          block.push(
+            'HTML (prefer for email_send `html` when the CEO asked for an HTML/appealing report):\n' +
+              clip(html, 120000)
+          );
+        }
+        parts.push(block.join('\n'));
+        continue;
+      }
+      const payload =
+        result.multi_symbol && Array.isArray(result.results)
+          ? {
+              tool: result.tool_name || spec.tool_name,
+              multi_symbol: true,
+              symbols: result.symbols,
+              results: result.results,
+              errors: result.errors,
+            }
+          : result.result != null
+            ? { tool: result.tool_name || spec.tool_name, result: result.result }
+            : result;
+      parts.push(`### ${label} (${tool || 'tool'})\n${clip(JSON.stringify(payload), 8000)}`);
+      continue;
+    }
+    if (result?.body) {
+      parts.push(`### ${label}\n${clip(result.body, 2000)}`);
+    } else {
+      parts.push(`### ${label}\ncompleted`);
+    }
+  }
+  return parts.join('\n\n');
+}
+
 /** Pull HTML/markdown digest from a prior status_checker / this_week_digest agent_tool step. */
 export function findPriorDigestForEmail(goalRunId, beforeIndex = Infinity) {
   const steps = loadGoalSteps(goalRunId).filter(
@@ -928,7 +996,7 @@ async function executeAgentContinueStep(goal, step) {
     console.warn('[goal-run] tenant ensure failed', agent.id, e?.message || e);
   }
 
-  const prior = priorStepSummaries(goal.id, step.step_index);
+  const prior = priorStepContextForAgent(goal.id, step.step_index);
   let prompt =
     spec.message ||
     [
@@ -936,10 +1004,16 @@ async function executeAgentContinueStep(goal, step) {
       `[goal_run_id: ${goal.id}]`,
       '',
       `CEO goal:\n${goal.prompt}`,
-      prior ? `\nPrior steps:\n${prior}` : '',
+      prior ? `\nPrior step outputs (interpret — do not paste the goal plan into emails):\n${prior}` : '',
       '',
       'Continue executing this goal with your tools. Work autonomously; summarize outcomes when done.',
+      'If the goal requires email_send (or similar), call it with real HTML/body from prior outputs.',
     ].join('\n');
+
+  // When the plan already stored an interpretation message, still attach rich priors.
+  if (spec.message && prior) {
+    prompt = `${String(spec.message).trim()}\n\n[goal_run_id: ${goal.id}]\n\nCEO goal:\n${goal.prompt}\n\nPrior step outputs:\n${prior}`;
+  }
 
   try {
     prompt = await getPromptWithMemoryInjected(agent.id, prompt);
@@ -1001,6 +1075,18 @@ async function executeAgentToolStep(goal, step) {
   }
 
   const prior = priorStepSummaries(goal.id, step.step_index);
+  const hasPriorSteps = Boolean(String(prior || '').trim());
+
+  // Compositional tools after prior work: OpenClaw interpretation (like chat), not dry plan-dump HTTP.
+  if (toolNeedsAgentInterpretation(toolName, { hasPriorSteps })) {
+    console.info('[goal-run] compositional agent_tool via agent interpretation', {
+      goalRunId: goal.id,
+      toolName,
+      stepId: step.id,
+    });
+    return executeCompositionalToolViaAgent(goal, step, toolName);
+  }
+
   let args =
     spec.args && typeof spec.args === 'object' && !Array.isArray(spec.args) ? { ...spec.args } : {};
 
@@ -1151,6 +1237,105 @@ async function executeAgentToolStep(goal, step) {
 
   const out = await invokeContentToolHttp(toolName, args, goal.owner_user_id, invokeOpts);
   return { ok: true, tool_name: toolName, result: out };
+}
+
+/**
+ * Run a compositional agent_tool (email_send, …) through the OpenClaw agent loop
+ * so the model interprets CEO goal + prior outputs like chat — not dry HTTP.
+ */
+async function executeCompositionalToolViaAgent(goal, step, toolName) {
+  const agent = resolveAgentForGoal(goal.owner_user_id, goal.agent_id);
+  if (!agent) throw new Error(`Agent not found or not entitled: ${goal.agent_id}`);
+
+  let openclawId = agent.openclaw_agent_id || agent.id;
+  try {
+    openclawId = ensureTenantOpenClawAgent(agent, goal.owner_user_id).openclawAgentId;
+  } catch (e) {
+    console.warn('[goal-run] tenant ensure failed', agent.id, e?.message || e);
+  }
+
+  const prior = priorStepContextForAgent(goal.id, step.step_index);
+  const ceoEmail = resolveCeoEmail(goal.owner_user_id);
+  let prompt = [
+    '[Goal run — interpreted tool step]',
+    `[goal_run_id: ${goal.id}]`,
+    `[required_tool: ${toolName}]`,
+    '',
+    'CEO goal (follow exactly, including formatting and "do not …" rules):',
+    goal.prompt,
+    '',
+    prior
+      ? `Prior step outputs (use these — do not re-fetch unless missing):\n${prior}`
+      : 'No prior step outputs.',
+    '',
+    `Invoke **${toolName}** once with correct parameters derived from the CEO goal and prior outputs.`,
+    isCompositionalTool(toolName)
+      ? 'For email: use proper HTML when the goal asks for HTML/appealing report; put human-readable plain text in body; never paste the goal plan or raw JSON dumps.'
+      : '',
+    ceoEmail && toolName === 'email_send' ? `Default recipient if goal does not override: ${ceoEmail}` : '',
+    'Do not invent a new goal plan. Do not call unrelated tools except what this step requires.',
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  try {
+    prompt = await getPromptWithMemoryInjected(agent.id, prompt);
+  } catch (_) {
+    /* optional */
+  }
+  prompt = `[ceo_user_id: ${goal.owner_user_id}]\n[owner_user_id: ${goal.owner_user_id}]\n${prompt}`;
+
+  const sessionUser = openclaw.sessionUserFor(
+    openclawId,
+    goal.owner_user_id,
+    `goalrun-${String(goal.id).replace(/^agr-/, '')}-tool-${String(toolName).slice(0, 24)}`
+  );
+
+  try {
+    insertChatTurn({
+      agentId: agent.id,
+      ownerUserId: goal.owner_user_id,
+      role: 'user',
+      content: clip(prompt, 4000),
+    });
+  } catch (e) {
+    console.warn('[goal-run] chat user turn (interpreted tool):', e?.message || e);
+  }
+
+  const { content } = await openclaw.chatCompletions(
+    openclawId,
+    [{ role: 'user', content: prompt }],
+    sessionUser,
+    false,
+    {
+      injectLearningsInstruction: true,
+      injectKanbanInstruction: true,
+      timeoutMs: Number(process.env.GOAL_AGENT_CONTINUE_TIMEOUT_MS || process.env.OPENCLAW_FETCH_TIMEOUT_MS || 240000),
+    }
+  );
+  const reply = String(content || '').trim() || '(no response)';
+  try {
+    insertChatTurn({
+      agentId: agent.id,
+      ownerUserId: goal.owner_user_id,
+      role: 'assistant',
+      content: reply,
+    });
+  } catch (e) {
+    console.warn('[goal-run] chat assistant turn (interpreted tool):', e?.message || e);
+  }
+
+  console.info('[goal-run] compositional tool via agent done', {
+    goalRunId: goal.id,
+    toolName,
+    reply_len: reply.length,
+  });
+  return {
+    ok: true,
+    tool_name: toolName,
+    via: 'agent_interpretation',
+    reply_preview: reply.slice(0, 2000),
+  };
 }
 
 async function executeNotifyCeoStep(goal, step) {

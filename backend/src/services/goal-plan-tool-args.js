@@ -252,6 +252,149 @@ export function goalWantsChatSynthesis(prompt) {
 }
 
 /**
+ * Outbound / free-form compose tools — dry HTTP with empty args dumps the goal plan
+ * instead of agent interpretation. After data/workflow priors, these must run via
+ * OpenClaw (agent_continue or interpreted agent_tool), same as chat.
+ */
+export const COMPOSITIONAL_TOOLS = new Set(['email_send']);
+
+export function isCompositionalTool(toolName) {
+  const name = String(toolName || '').trim();
+  if (!name) return false;
+  if (COMPOSITIONAL_TOOLS.has(name)) return true;
+  if (/^(email|sms|slack|teams|whatsapp|telegram)_/.test(name)) return true;
+  if (/_(send|message|post)$/.test(name) && !/^agent_/.test(name)) return true;
+  return false;
+}
+
+/**
+ * Goal wants agent interpretation after data tools (email HTML, craft report, chat summary, …).
+ */
+export function goalWantsAgentInterpretation(prompt) {
+  if (goalWantsChatSynthesis(prompt)) return true;
+  const t = String(prompt || '');
+  return (
+    /\bemail\b/i.test(t) ||
+    /\bhtml\b/i.test(t) ||
+    /\bappealing\b/i.test(t) ||
+    /\bcraft\b/i.test(t) ||
+    /\bformat(ted)?\s+(report|digest|email)\b/i.test(t) ||
+    /\bsend (that |the |this )?(digest|report|email|summary)\b/i.test(t)
+  );
+}
+
+function promptForbidsNotifyCeoText(prompt) {
+  return /\bdo\s+not\s+call\s+notify[_ ]?ceo\b|\bdon'?t\s+call\s+notify[_ ]?ceo\b|\bdo\s+not\s+notify(_ceo)?\b/i.test(
+    String(prompt || '')
+  );
+}
+
+function stepToolName(step) {
+  if (!step || typeof step !== 'object') return '';
+  return String(step.tool_name || step.spec?.tool_name || '').trim();
+}
+
+/**
+ * Collapse compositional agent_tool steps (email_send, …) that follow data/workflow
+ * work into a single agent_continue so the orchestrator interprets like chat.
+ * Also strips notify_ceo when the prompt forbids it; appends continue for chat synthesis.
+ *
+ * @param {object[]} steps — classifier or normalized steps
+ * @param {string} prompt
+ * @param {{ maxSteps?: number }} [opts]
+ */
+export function rewriteCompositionalToolsForAgentInterpretation(steps, prompt = '', opts = {}) {
+  const maxSteps = Number(opts.maxSteps) > 0 ? Number(opts.maxSteps) : 24;
+  if (!Array.isArray(steps) || !steps.length) return steps;
+
+  let out = steps.map((s) => (s && typeof s === 'object' ? { ...s } : s));
+  const text = String(prompt || '');
+
+  if (promptForbidsNotifyCeoText(text)) {
+    out = out.filter((s) => {
+      if (!s || typeof s !== 'object') return true;
+      if (s.type === 'notify_ceo') return false;
+      if (s.type === 'agent_tool' && stepToolName(s) === 'notify_ceo') return false;
+      return true;
+    });
+  }
+
+  const compIdx = [];
+  out.forEach((s, i) => {
+    if (s?.type === 'agent_tool' && isCompositionalTool(stepToolName(s))) compIdx.push(i);
+  });
+
+  if (compIdx.length) {
+    const first = compIdx[0];
+    const hasPriorWork = out.slice(0, first).some((s) => {
+      if (!s || typeof s !== 'object') return false;
+      return (
+        s.type === 'agent_tool' ||
+        s.type === 'workflow_trigger' ||
+        s.type === 'specialty_task'
+      );
+    });
+    if (hasPriorWork) {
+      const removedTools = [
+        ...new Set(compIdx.map((i) => stepToolName(out[i]) || 'tool').filter(Boolean)),
+      ];
+      out = out.filter((_, i) => !compIdx.includes(i));
+      if (!out.some((s) => s?.type === 'agent_continue')) {
+        const continueStep = {
+          type: 'agent_continue',
+          label: 'Complete goal (agent interpretation)',
+          message: [
+            '[Goal run — agent interpretation]',
+            'Prior plan steps already gathered data or finished workflows.',
+            `Finish the CEO goal now using your tools (especially: ${removedTools.join(', ')}).`,
+            'Interpret prior outputs — do not paste the goal plan or raw tool JSON into an email body.',
+            'Match formatting the CEO asked for (HTML report, subject, recipients, do-not-notify rules).',
+            'Work like chat: call tools with real content, then briefly confirm.',
+          ].join('\n'),
+        };
+        // Place before trailing notify_ceo (if any), else append.
+        let insertAt = out.length;
+        for (let i = out.length - 1; i >= 0; i -= 1) {
+          if (out[i]?.type === 'notify_ceo') {
+            insertAt = i;
+            continue;
+          }
+          break;
+        }
+        out.splice(insertAt, 0, continueStep);
+        console.info('[goal-plan-tool-args] rewrite compositional → agent_continue', {
+          tools: removedTools,
+          steps: out.map((s) => s?.type).slice(0, 12),
+        });
+      }
+    }
+  }
+
+  const wants = goalWantsAgentInterpretation(text);
+  const hasDataTool = out.some(
+    (s) => s?.type === 'agent_tool' && !isCompositionalTool(stepToolName(s))
+  );
+  const hasContinue = out.some((s) => s?.type === 'agent_continue');
+  if (wants && hasDataTool && !hasContinue) {
+    out.push({
+      type: 'agent_continue',
+      label: 'Synthesize / complete in agent turn',
+      message: null,
+    });
+  }
+
+  return out.slice(0, maxSteps);
+}
+
+/**
+ * Execute-time: compositional tool after prior steps needs OpenClaw interpretation
+ * (not dry HTTP with plan-dump fallback).
+ */
+export function toolNeedsAgentInterpretation(toolName, { hasPriorSteps = false } = {}) {
+  return Boolean(hasPriorSteps && isCompositionalTool(toolName));
+}
+
+/**
  * Resolve args (+ optional multi-symbol list) before content-tool HTTP invoke.
  * @returns {Promise<{ args: object, symbols?: string[] }>}
  */

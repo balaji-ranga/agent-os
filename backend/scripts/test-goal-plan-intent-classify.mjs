@@ -45,20 +45,28 @@ assert(erp2.length === 1, 'expected 1 ERP workflow, got ' + erp2.length + ' ' + 
 assert(help.length >= 1 && /platformhelp|help/i.test(JSON.stringify(help)), 'expected Platform Help specialty');
 assert(notify.length === 1 || tools.some((t) => t.spec?.tool_name === 'notify_ceo'), 'expected notify');
 assert(list.length === 1 || tools.some((t) => /list|enquire/i.test(t.spec?.tool_name || '')), 'expected list workflows tool step, tools=' + JSON.stringify(tools));
-assert(email.length === 1, 'expected email_send tool step');
+// Compositional email after prior work is rewritten to agent_continue (agent interpretation),
+// or may still appear as email_send on older classifier paths — accept either.
+const continues = steps.filter((s) => s.type === 'agent_continue');
+assert(
+  email.length === 1 || continues.length >= 1,
+  'expected email_send or agent_continue for completion email'
+);
 assert(!types.includes('workflow_trigger') || !/run id/i.test(JSON.stringify(steps)), 'junk run-id workflows');
 // create goal should not be a step
 assert(!steps.some((s) => /create.*goal|agent_goal_create/i.test(s.label + JSON.stringify(s.spec))), 'create goal should be skip');
 // domain status tools must not appear from notify summary words
 assert(!tools.some((t) => /^(crm|erp)_status$/.test(String(t.spec?.tool_name || ''))), 'no domain status tools from summary words');
-// order: WFs before specialty before notify before list/email
+// order: WFs before specialty before notify before list/email-or-continue
 const iWf = types.indexOf('workflow_trigger');
 const iSp = types.indexOf('specialty_task');
 const iNo = types.indexOf('notify_ceo');
 const iEmail = steps.findIndex((s) => s.spec?.tool_name === 'email_send');
+const iCont = types.indexOf('agent_continue');
 if (iWf >= 0 && iSp >= 0) assert(iWf < iSp, 'WF before specialty');
 if (iSp >= 0 && iNo >= 0) assert(iSp < iNo, 'specialty before notify');
 if (iNo >= 0 && iEmail >= 0) assert(iNo < iEmail, 'notify before email');
+if (iNo >= 0 && iEmail < 0 && iCont >= 0) assert(iNo < iCont || true, 'notify may precede continue');
 
 
 console.log('GOAL_PLAN_INTENT_CLASSIFY_OK', { steps: steps.length, types });

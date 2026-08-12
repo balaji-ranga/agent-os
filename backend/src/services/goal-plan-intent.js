@@ -1079,24 +1079,18 @@ export async function classifyGoalPlanIntents(ownerUserId, prompt, opts = {}) {
   // Strip internal order key
   let steps = all.map(({ _order, ...rest }) => rest).slice(0, MAX_INTENTS);
 
-  // Chat-like close: when tools pull data and the CEO wants a report / reply in this chat,
-  // schedule an agent_continue so the orchestrator synthesizes with the same path as chat.
+  // Agent interpretation: compositional tools (email_send, …) after data/workflow steps
+  // become agent_continue so the orchestrator composes like chat — not dry HTTP dumps.
+  // Also appends continue when the goal asks for chat synthesis / HTML email / craft.
   try {
-    const { goalWantsChatSynthesis } = await import('./goal-plan-tool-args.js');
-    const hasTool = steps.some((s) => s.type === 'agent_tool');
-    const hasContinue = steps.some((s) => s.type === 'agent_continue');
-    if (hasTool && !hasContinue && goalWantsChatSynthesis(text)) {
-      steps = [
-        ...steps,
-        {
-          type: 'agent_continue',
-          label: 'Synthesize report in chat',
-          message: null,
-        },
-      ].slice(0, MAX_INTENTS);
-    }
+    const { rewriteCompositionalToolsForAgentInterpretation } = await import(
+      './goal-plan-tool-args.js'
+    );
+    steps = rewriteCompositionalToolsForAgentInterpretation(steps, text, {
+      maxSteps: MAX_INTENTS,
+    });
   } catch (e) {
-    console.warn('[goal-plan-intent] synthesis step append skipped', e?.message || e);
+    console.warn('[goal-plan-intent] agent-interpretation rewrite skipped', e?.message || e);
   }
 
   if (!steps.length) return null;
