@@ -90,15 +90,6 @@
         }
       },
       {
-        "id": "cast-rejected",
-        "type": "brain",
-        "position": { "x": 700, "y": 420 },
-        "data": {
-          "label": "Cast rejected",
-          "prompt": "Cast was rejected by the CEO. Reply briefly: status=rejected_cast. Do not invent scenes or claim a storyboard was produced."
-        }
-      },
-      {
         "id": "scene-1",
         "type": "agent",
         "position": { "x": 920, "y": 160 },
@@ -186,37 +177,6 @@
             }
           ]
         }
-      },
-      {
-        "id": "if-storyboard",
-        "type": "if",
-        "position": { "x": 1620, "y": 160 },
-        "data": {
-          "label": "Storyboard approved?",
-          "taskConfig": {
-            "sourceNodeId": "ceo-gate",
-            "sourceOutputKey": "decision",
-            "operator": "approved"
-          }
-        }
-      },
-      {
-        "id": "storyboard-done",
-        "type": "brain",
-        "position": { "x": 1840, "y": 80 },
-        "data": {
-          "label": "Storyboard approved",
-          "prompt": "Storyboard CEO-approved. Reply with status=ceo_approved and remind that character_id rows are in Master Data video_characters for reuse. Do not claim Veo clips were generated."
-        }
-      },
-      {
-        "id": "storyboard-rejected",
-        "type": "brain",
-        "position": { "x": 1840, "y": 260 },
-        "data": {
-          "label": "Storyboard rejected",
-          "prompt": "Storyboard rejected by CEO. Reply status=rejected_storyboard. Orchestrator may re-trigger with feedback."
-        }
       }
     ],
     "edges": [
@@ -224,12 +184,8 @@
       { "id": "e2", "source": "story-1", "target": "ceo-cast" },
       { "id": "e3", "source": "ceo-cast", "target": "if-cast" },
       { "id": "e4", "source": "if-cast", "target": "scene-1", "sourceHandle": "true" },
-      { "id": "e5", "source": "if-cast", "target": "cast-rejected", "sourceHandle": "false" },
       { "id": "e6", "source": "scene-1", "target": "prompt-1" },
-      { "id": "e7", "source": "prompt-1", "target": "ceo-gate" },
-      { "id": "e8", "source": "ceo-gate", "target": "if-storyboard" },
-      { "id": "e9", "source": "if-storyboard", "target": "storyboard-done", "sourceHandle": "true" },
-      { "id": "e10", "source": "if-storyboard", "target": "storyboard-rejected", "sourceHandle": "false" }
+      { "id": "e7", "source": "prompt-1", "target": "ceo-gate" }
     ]
   }
 }

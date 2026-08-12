@@ -74,18 +74,20 @@ async function main() {
 
   const def = db
     .prepare(
-      `SELECT id, name, published FROM agent_workflow_definitions
-       WHERE owner_user_id = ? AND (id LIKE 'video-reasoning%' OR lower(name) LIKE '%storyboard%')
+      `SELECT id, name FROM agent_workflow_definitions
+       WHERE owner_user_id = ? AND (id LIKE 'video-reasoning%' OR lower(name) LIKE '%storyboard%' OR lower(name) LIKE '%story →%')
        ORDER BY updated_at DESC LIMIT 1`
     )
     .get(ceo.id);
   if (!def?.id) throw new Error('video-reasoning workflow missing for ' + ceo.id);
-  if (!def.published) throw new Error('workflow not published: ' + def.id);
-
-  const graphRow = db
-    .prepare(`SELECT published_graph_json FROM agent_workflow_definitions WHERE id = ?`)
+  const pub = db
+    .prepare(`SELECT published_graph_json, status FROM agent_workflow_definitions WHERE id = ?`)
     .get(def.id);
-  const graph = JSON.parse(graphRow.published_graph_json || '{}');
+  if (!String(pub?.published_graph_json || '').trim()) {
+    throw new Error('workflow not published: ' + def.id);
+  }
+
+  const graph = JSON.parse(pub.published_graph_json || '{}');
   const nodeIds = (graph.nodes || []).map((n) => n.id);
   for (const need of ['story-1', 'ceo-cast', 'scene-1', 'prompt-1', 'ceo-gate']) {
     if (!nodeIds.includes(need)) throw new Error(`published graph missing ${need}`);
