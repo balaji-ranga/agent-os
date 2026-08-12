@@ -742,6 +742,13 @@ export const api = {
   openconnectorOAuthConfigs: () => get('/integrations/openconnector/oauth/configs'),
   openconnectorOAuthConfigUpsert: (appId, body = {}) =>
     put(`/integrations/openconnector/oauth/configs/${encodeURIComponent(appId)}`, body),
+  openconnectorOauthOverrides: () => get('/integrations/openconnector/oauth/overrides'),
+  openconnectorOauthOverride: (appId) =>
+    get(`/integrations/openconnector/oauth/overrides/${encodeURIComponent(appId)}`),
+  openconnectorOauthOverrideSave: (appId, body = {}) =>
+    put(`/integrations/openconnector/oauth/overrides/${encodeURIComponent(appId)}`, body),
+  openconnectorOauthOverrideClear: (appId) =>
+    del(`/integrations/openconnector/oauth/overrides/${encodeURIComponent(appId)}`),
   openconnectorConsoleLaunch: () => post('/integrations/openconnector/console-launch', {}),
   opensearchConsoleLaunch: () => post('/integrations/opensearch/console-launch', {}),
   adminPlatformDocuments: () => get('/admin/platform-documents'),

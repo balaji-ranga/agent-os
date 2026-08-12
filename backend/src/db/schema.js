@@ -1280,6 +1280,34 @@ export function initDb() {
     );
   } catch (_) {}
 
+  /**
+   * Per-CEO OpenConnector OAuth app credentials (BYOA).
+   * When set, startConnectorOAuth passes clientId/clientSecret on OC
+   * POST /api/oauth/authorizations (connection-scoped; OC keeps them for refresh).
+   * client_secret encrypted with USER_API_KEYS_KEK (enc:g1: prefix) when available.
+   */
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS openconnector_oauth_client_overrides (
+        app_id TEXT NOT NULL,
+        owner_user_id TEXT NOT NULL,
+        client_id TEXT NOT NULL DEFAULT '',
+        client_secret TEXT NOT NULL DEFAULT '',
+        scopes TEXT DEFAULT '',
+        extra_json TEXT DEFAULT '{}',
+        enabled INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        PRIMARY KEY (app_id, owner_user_id),
+        FOREIGN KEY (owner_user_id) REFERENCES platform_users(id) ON DELETE CASCADE
+      )
+    `);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_oc_oauth_overrides_owner
+       ON openconnector_oauth_client_overrides(owner_user_id, app_id)`
+    );
+  } catch (_) {}
+
   try {
     _db.exec(`
       CREATE TABLE IF NOT EXISTS agent_response_feedback (

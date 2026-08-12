@@ -249,6 +249,9 @@ x-backend-env: &backend-env
   OPENCONNECTOR_ADMIN_TOKEN: ${OPENCONNECTOR_ADMIN_TOKEN:-}
   OOMOL_CONNECT_ORIGIN: ${OOMOL_CONNECT_ORIGIN:-}
   OPENCONNECTOR_PUBLIC_ORIGIN: ${OPENCONNECTOR_PUBLIC_ORIGIN:-}
+  # Mirror for status/UI; real gate is OOMOL_CONNECT_ALLOWED_CUSTOM_OAUTH on openconnector service
+  OPENCONNECTOR_ALLOWED_CUSTOM_OAUTH: ${OPENCONNECTOR_ALLOWED_CUSTOM_OAUTH:-*}
+  OOMOL_CONNECT_ALLOWED_CUSTOM_OAUTH: ${OOMOL_CONNECT_ALLOWED_CUSTOM_OAUTH:-*}
   # OpenSearch (document meta + RAG; internal Docker network only — no host ports)
   OPENSEARCH_ENABLED: ${OPENSEARCH_ENABLED:-1}
   OPENSEARCH_URL: ${OPENSEARCH_URL:-http://opensearch:9200}
@@ -550,6 +553,8 @@ services:
       OOMOL_CONNECT_ENCRYPTION_KEY: ${OPENCONNECTOR_ENCRYPTION_KEY:-}
       OOMOL_CONNECT_ORIGIN: ${OOMOL_CONNECT_ORIGIN:-}
       OOMOL_CONNECT_RUNTIME_TOKEN: ${OPENCONNECTOR_BOOTSTRAP_RUNTIME_TOKEN:-}
+      # Connection-scoped BYOA OAuth (CEO App ID/secret on authorize + refresh). * or comma list e.g. github,linkedin,facebook
+      OOMOL_CONNECT_ALLOWED_CUSTOM_OAUTH: ${OOMOL_CONNECT_ALLOWED_CUSTOM_OAUTH:-*}
     volumes:
       - openconnector_data:/app/data:Z
     expose:

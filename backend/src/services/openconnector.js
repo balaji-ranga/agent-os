@@ -6,6 +6,10 @@ import { getDb } from '../db/schema.js';
 import { getMcpServer, listVisibleMcpServers } from './mcp-servers.js';
 import { McpHttpClient } from './mcp-client.js';
 import { resolveUserApiKey, tryResolveUserApiKey } from './user-api-keys.js';
+import {
+  isOpenConnectorCustomOauthEnabledInEnv,
+  resolveOpenConnectorOauthClientForAuthorize,
+} from './openconnector-oauth-override.js';
 
 function db() {
   return getDb();
@@ -115,6 +119,11 @@ export function getOpenConnectorEnvConfig() {
     has_admin_token: Boolean(String(process.env.OPENCONNECTOR_ADMIN_TOKEN || '').trim()),
     origin: publicOrigin,
     public_origin: publicOrigin,
+    allowed_custom_oauth: String(
+      process.env.OPENCONNECTOR_ALLOWED_CUSTOM_OAUTH ||
+        process.env.OOMOL_CONNECT_ALLOWED_CUSTOM_OAUTH ||
+        ''
+    ).trim(),
   };
 }
 
@@ -734,22 +743,56 @@ export async function startConnectorOAuth(userId, appId) {
     await provisionOpenConnectorForUser({ id: userId }, { ensureConnections: false });
   }
 
-  const payload = await openConnectorFetch('/api/oauth/authorizations', {
-    method: 'POST',
-    auth: 'admin',
-    body: { service: app, connectionName: alias },
-  });
+  const customClient = resolveOpenConnectorOauthClientForAuthorize(app, userId);
+  const authBody = { service: app, connectionName: alias };
+  if (customClient) {
+    authBody.clientId = customClient.clientId;
+    authBody.clientSecret = customClient.clientSecret;
+    if (customClient.requestedScopes?.length) {
+      authBody.requestedScopes = customClient.requestedScopes;
+    }
+    if (customClient.extra && typeof customClient.extra === 'object') {
+      authBody.extra = customClient.extra;
+    }
+    console.info('[openconnector] oauth start with CEO app override', {
+      app,
+      connection_name: alias,
+      client_id_hint: maskSecret(customClient.clientId),
+      scopes: customClient.requestedScopes || null,
+    });
+  }
+
+  let payload;
+  try {
+    payload = await openConnectorFetch('/api/oauth/authorizations', {
+      method: 'POST',
+      auth: 'admin',
+      body: authBody,
+    });
+  } catch (e) {
+    const msg = String(e.message || e);
+    if (customClient && /custom|clientId|client_id|ALLOWED_CUSTOM|not allowed/i.test(msg)) {
+      throw new Error(
+        `${msg} — OpenConnector must allow connection-scoped OAuth apps (set OOMOL_CONNECT_ALLOWED_CUSTOM_OAUTH on the openconnector service, e.g. * or github,linkedin,facebook) and OOMOL_CONNECT_ENCRYPTION_KEY`
+      );
+    }
+    throw e;
+  }
   const data = payload?.data || payload;
   const authorizationUrl =
     data?.authorizationUrl || data?.authorization_url || data?.url || data?.authorizeUrl || null;
   if (!authorizationUrl) {
-    throw new Error(payload?.message || 'OpenConnector did not return authorizationUrl — is OAuth client configured for this provider?');
+    throw new Error(
+      payload?.message ||
+        'OpenConnector did not return authorizationUrl — is OAuth client configured for this provider (admin platform client or your App ID/secret override)?'
+    );
   }
   return {
     app_id: app,
     connection_name: alias,
     authorization_url: authorizationUrl,
     oauth_ready: true,
+    credentials_source: customClient ? 'user' : 'platform',
   };
 }
 
@@ -989,6 +1032,7 @@ export function getOpenConnectorStatus(authUser) {
     configured: Boolean(env.mcp_url || server || env.url),
     env,
     link,
+    custom_oauth_enabled: isOpenConnectorCustomOauthEnabledInEnv(),
     server: server
       ? {
           id: server.id,

@@ -44,6 +44,9 @@ function ConnectorsPanel() {
   const [bwStatus, setBwStatus] = useState(null);
   const [bwIpRule, setBwIpRule] = useState('');
   const [bwIpLabel, setBwIpLabel] = useState('');
+  const [overrideOpen, setOverrideOpen] = useState(false);
+  const [overrideInfo, setOverrideInfo] = useState(null);
+  const [overrideForm, setOverrideForm] = useState({ clientId: '', clientSecret: '', scopes: '' });
 
   const refresh = useCallback(async () => {
     try {
@@ -116,11 +119,76 @@ function ConnectorsPanel() {
     setApiKey('');
     setError(null);
     setMessage(null);
+    setOverrideOpen(false);
+    setOverrideInfo(null);
+    setOverrideForm({ clientId: '', clientSecret: '', scopes: '' });
     try {
       const data = await api.openconnectorProvider(appId);
       setProvider(data.provider || data);
     } catch (e) {
       setProvider({ error: e.message });
+    }
+    if (!isAdmin) {
+      try {
+        const ov = await api.openconnectorOauthOverride(appId);
+        setOverrideInfo(ov);
+        setOverrideForm({
+          clientId: '',
+          clientSecret: '',
+          scopes: ov.scopes || '',
+        });
+      } catch {
+        setOverrideInfo(null);
+      }
+    }
+  };
+
+  const saveAppOverride = async (appId) => {
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const body = {};
+      const cid = overrideForm.clientId.trim();
+      const secret = overrideForm.clientSecret.trim();
+      if (cid) body.client_id = cid;
+      else if (!overrideInfo?.has_user_override) throw new Error('Client ID required');
+      if (secret) body.client_secret = secret;
+      else if (!overrideInfo?.secret_set) throw new Error('Client secret required for a new override');
+      body.scopes = overrideForm.scopes || '';
+      const ov = await api.openconnectorOauthOverrideSave(appId, body);
+      setOverrideInfo(ov);
+      setOverrideForm((f) => ({ ...f, clientSecret: '' }));
+      setMessage(
+        `Saved App ID/secret override for ${appId}. Secret is encrypted at rest. Connect with OAuth next (uses your app for this connection + refresh).`
+      );
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const clearAppOverride = async (appId) => {
+    if (
+      !window.confirm(
+        `Clear your App ID/secret override for ${appId}? Platform admin OAuth client will be used on next Connect.`
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await api.openconnectorOauthOverrideClear(appId);
+      const ov = await api.openconnectorOauthOverride(appId).catch(() => null);
+      setOverrideInfo(ov);
+      setOverrideForm({ clientId: '', clientSecret: '', scopes: '' });
+      setMessage(`Cleared override for ${appId} — using platform OAuth client defaults`);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -700,6 +768,100 @@ function ConnectorsPanel() {
                 <p style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
                   Auth: {authTypes.length ? authTypes.join(', ') : 'unknown (try OAuth or API key)'}
                 </p>
+                {(authTypes.includes('oauth2') || authTypes.includes('oauth') || !authTypes.length) &&
+                  selectedApp !== 'hackernews' &&
+                  !isAdmin && (
+                    <div style={{ marginBottom: 10 }}>
+                      <button
+                        type="button"
+                        className="wf-btn"
+                        disabled={busy}
+                        onClick={() => setOverrideOpen((v) => !v)}
+                      >
+                        {overrideOpen ? 'Hide' : 'App ID / secret override'}…
+                      </button>
+                      {overrideInfo?.has_user_override && (
+                        <span style={{ marginLeft: 8, fontSize: '0.8rem', color: 'var(--muted)' }}>
+                          Using your app {overrideInfo.client_id_hint || ''}
+                          {overrideInfo.secret_set ? ' (secret set)' : ''}
+                        </span>
+                      )}
+                      {overrideOpen && (
+                        <div
+                          style={{
+                            marginTop: 8,
+                            display: 'grid',
+                            gap: 8,
+                            maxWidth: 420,
+                            padding: '0.75rem',
+                            border: '1px solid var(--border)',
+                            borderRadius: 6,
+                          }}
+                        >
+                          <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--muted)' }}>
+                            Optional bring-your-own OAuth app (e.g. LinkedIn/Facebook page mapping). Register callback{' '}
+                            <code style={{ fontSize: '0.75rem' }}>
+                              {overrideInfo?.expected_redirect_uri ||
+                                `${status?.public_origin || 'OPENCONNECTOR_PUBLIC_ORIGIN'}/oauth/callback`}
+                            </code>
+                            . Stored per CEO; passed to OpenConnector only for your connection (and refresh). Leave empty
+                            to use the platform admin client.
+                          </p>
+                          {!status?.custom_oauth_enabled && (
+                            <p style={{ margin: 0, fontSize: '0.8rem', color: '#b45309' }}>
+                              Platform status: connection-scoped custom OAuth may be off — ask admin to set{' '}
+                              <code>OOMOL_CONNECT_ALLOWED_CUSTOM_OAUTH</code> on OpenConnector.
+                            </p>
+                          )}
+                          <input
+                            value={overrideForm.clientId}
+                            onChange={(e) => setOverrideForm((f) => ({ ...f, clientId: e.target.value }))}
+                            placeholder={
+                              overrideInfo?.client_id_hint
+                                ? `Client ID (saved ${overrideInfo.client_id_hint})`
+                                : 'Client ID'
+                            }
+                            style={{ padding: '0.5rem' }}
+                          />
+                          <input
+                            type="password"
+                            value={overrideForm.clientSecret}
+                            onChange={(e) => setOverrideForm((f) => ({ ...f, clientSecret: e.target.value }))}
+                            placeholder={
+                              overrideInfo?.secret_set ? 'Client secret (leave blank to keep)' : 'Client secret'
+                            }
+                            style={{ padding: '0.5rem' }}
+                          />
+                          <input
+                            value={overrideForm.scopes}
+                            onChange={(e) => setOverrideForm((f) => ({ ...f, scopes: e.target.value }))}
+                            placeholder="scopes (optional subset)"
+                            style={{ padding: '0.5rem' }}
+                          />
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <button
+                              type="button"
+                              className="wf-btn-primary"
+                              disabled={busy}
+                              onClick={() => saveAppOverride(selectedApp)}
+                            >
+                              Save override
+                            </button>
+                            {overrideInfo?.has_user_override && (
+                              <button
+                                type="button"
+                                className="wf-btn"
+                                disabled={busy}
+                                onClick={() => clearAppOverride(selectedApp)}
+                              >
+                                Use platform defaults
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 {(authTypes.includes('no_auth') || selectedApp === 'hackernews') && (
                   <button type="button" className="wf-btn" disabled={busy} onClick={() => enableNoAuth(selectedApp)}>
                     Enable (no login)
@@ -742,8 +904,10 @@ function ConnectorsPanel() {
         <section style={{ marginTop: '1.25rem', padding: '1rem', border: '1px solid var(--border)', borderRadius: 8 }}>
           <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.05rem' }}>Provider OAuth apps</h2>
           <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--muted)' }}>
-            Paste Google/GitHub OAuth client credentials once. Callback URL must match{' '}
-            <code>{status?.public_origin || 'OPENCONNECTOR_PUBLIC_ORIGIN'}/oauth/callback</code>.
+            Paste Google/GitHub OAuth client credentials once (platform default). Callback URL must match{' '}
+            <code>{status?.public_origin || 'OPENCONNECTOR_PUBLIC_ORIGIN'}/oauth/callback</code>. CEOs may optionally
+            set a personal App ID/secret override on each app (connection-scoped BYOA; requires{' '}
+            <code>OOMOL_CONNECT_ALLOWED_CUSTOM_OAUTH</code> on OpenConnector).
           </p>
 
           <h3 style={{ margin: '1rem 0 0.35rem', fontSize: '0.95rem' }}>Saved OAuth clients</h3>

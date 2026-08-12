@@ -26,6 +26,12 @@ import {
   upsertOpenConnectorLink,
 } from '../services/openconnector.js';
 import {
+  deleteOpenConnectorOauthOverride,
+  getOpenConnectorOauthOverridePublic,
+  listOpenConnectorOauthOverridesForUser,
+  upsertOpenConnectorOauthOverride,
+} from '../services/openconnector-oauth-override.js';
+import {
   createOcConsoleLaunchUrl,
   getOcConsolePublicUrl,
   getOpenConnectorPublicOrigin,
@@ -147,7 +153,71 @@ router.post('/connections/:appId/oauth/start', async (req, res) => {
     const ownerUserId = resolveAuthenticatedCeoUserId(req, req.body);
     res.json(await startConnectorOAuth(ownerUserId, req.params.appId));
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    res.status(e.status || 400).json({ error: e.message });
+  }
+});
+
+router.get('/oauth/overrides', (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.query);
+    res.json({
+      overrides: listOpenConnectorOauthOverridesForUser(ownerUserId),
+      expected_redirect_uri: (() => {
+        const origin = getOpenConnectorPublicOrigin();
+        return origin ? `${String(origin).replace(/\/$/, '')}/oauth/callback` : null;
+      })(),
+    });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message });
+  }
+});
+
+router.get('/oauth/overrides/:appId', (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.query);
+    const pub = getOpenConnectorOauthOverridePublic(req.params.appId, ownerUserId);
+    const origin = getOpenConnectorPublicOrigin();
+    res.json({
+      ...pub,
+      expected_redirect_uri: origin ? `${String(origin).replace(/\/$/, '')}/oauth/callback` : null,
+    });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message });
+  }
+});
+
+router.put('/oauth/overrides/:appId', (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.body);
+    if (req.authUser?.role === 'admin' && !req.authUser?.impersonation && req.authUser?.id === ownerUserId) {
+      return res.status(403).json({
+        error:
+          'Sign in as a CEO, impersonate a CEO, or (as admin) target a CEO via ceo_user_id / X-Impersonate-Ceo to set a personal OpenConnector App ID/secret override. Admins configure platform OAuth clients under Provider OAuth apps.',
+      });
+    }
+    if (req.authUser?.role !== 'admin' && req.authUser?.id !== ownerUserId) {
+      return res.status(403).json({ error: 'Not allowed to set OAuth override for another user' });
+    }
+    res.json(upsertOpenConnectorOauthOverride(req.params.appId, ownerUserId, req.body || {}));
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message });
+  }
+});
+
+router.delete('/oauth/overrides/:appId', (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.query);
+    if (req.authUser?.role === 'admin' && !req.authUser?.impersonation && req.authUser?.id === ownerUserId) {
+      return res.status(403).json({
+        error: 'Sign in as a CEO (or impersonate a CEO) to clear a personal OpenConnector OAuth override',
+      });
+    }
+    if (req.authUser?.role !== 'admin' && req.authUser?.id !== ownerUserId) {
+      return res.status(403).json({ error: 'Not allowed to clear OAuth override for another user' });
+    }
+    res.json(deleteOpenConnectorOauthOverride(req.params.appId, ownerUserId));
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message });
   }
 });
 

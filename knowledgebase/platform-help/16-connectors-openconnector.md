@@ -15,7 +15,7 @@ Registry vs Connectors:
 |--|--------------------------------|----------------------|----------------------------------------|
 | Purpose | SaaS apps via OpenConnector | Platform OAuth sessions for MCP tools | Register any HTTP/SSE MCP server |
 | Use in workflows | **Connector** node | **MCP tool** node | **MCP** / **SSE Listen** / Brain MCP tools |
-| Isolation | Per CEO app connections | Per CEO OAuth tokens (+ optional App credential override) | Per CEO (+ admin-shared) servers |
+| Isolation | Per CEO app connections (+ optional App credential override) | Per CEO OAuth tokens (+ optional App credential override) | Per CEO (+ admin-shared) servers |
 
 ---
 
@@ -37,9 +37,19 @@ Remove a connection from the Connectors page when you no longer want workflows t
 
 ### Admin note (OAuth client config)
 
-Admins configure OAuth **client id/secret** for OpenConnector apps (GitHub, Google, …) on the Connectors admin view. CEOs then complete the OAuth link for their own account. Without admin OAuth config, some OAuth apps cannot start.
+Admins configure OAuth **client id/secret** for OpenConnector apps (GitHub, Google, …) on the Connectors admin view (**Provider OAuth apps**). CEOs then complete the OAuth link for their own account. Without admin OAuth config, some OAuth apps cannot start unless the CEO sets a personal override.
 
-For OpenConnector service deploy, seed, `execute_action`, webhooks, and catalog ops: **[OPENCONNECTOR-WEBHOOKS.md](../OPENCONNECTOR-WEBHOOKS.md)** — do not configure Meta Graph Page posting here.
+### CEO App ID / secret override (BYOA)
+
+For providers where the OAuth **app** is tied to Pages/orgs you own (or you prefer your own GitHub/Google app), open the app on **Connectors → OpenConnector** → **App ID / secret override…**, paste your Client ID/secret, then **Connect with OAuth**.
+
+- Stored **per CEO** in Agent OS (secret encrypted with `USER_API_KEYS_KEK` when set).
+- On Connect, Flolah passes those credentials to OpenConnector as a **connection-scoped** custom OAuth client (`connectionName` = your CEO alias). OpenConnector keeps them for **token refresh** — no global admin client swap.
+- Register the same callback as the platform: `{OPENCONNECTOR_PUBLIC_ORIGIN}/oauth/callback`.
+- Requires OpenConnector env `OOMOL_CONNECT_ALLOWED_CUSTOM_OAUTH` (e.g. `*` or `github,linkedin,facebook`) and `OOMOL_CONNECT_ENCRYPTION_KEY`.
+- Leave override empty to use the **platform** admin OAuth client.
+
+For OpenConnector service deploy, seed, `execute_action`, webhooks, and catalog ops: **[OPENCONNECTOR-WEBHOOKS.md](../OPENCONNECTOR-WEBHOOKS.md)** — do not configure Meta Graph Page posting here (use **MCPs** tab / help **31** for Meta).
 
 ### Use in a workflow (Connector node)
 
