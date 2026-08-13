@@ -209,12 +209,32 @@ function extractUrlsFromText(text, sourceId = 'text') {
   if (!text) return [];
   const items = [];
   const seen = new Set();
-  const urlRe = /(https?:\/\/[^\s<>"')\]]+|\/api\/[^\s<>"')\]]+|sandbox:\/(?:api\/media\/|media\/)[^\s<>"')\]]+)/gi;
-  let m;
-  while ((m = urlRe.exec(text)) !== null) {
-    const raw = m[1].replace(/[.,;:!?)]+$/, '');
-    if (seen.has(raw)) continue;
-    if (raw.startsWith('http://127.0.0.1') || raw.startsWith('http://localhost')) continue;
+
+  const pushUrl = (rawIn, labelHint = '') => {
+    let raw = String(rawIn || '').trim().replace(/[.,;:!?)]+$/, '');
+    if (!raw || seen.has(raw)) return;
+
+    // MEDIA:/abs/.openclaw/media/... → /api/media/openclaw/...
+    if (/^MEDIA:\s*/i.test(raw)) {
+      const local = raw.replace(/^MEDIA:\s*/i, '').replace(/\\/g, '/');
+      const oc = local.match(/\/\.?openclaw\/media\/([^/]+)\/(.+)$/i) || local.match(/\/media\/([^/]+)\/(.+)$/i);
+      if (oc) {
+        raw = `/api/media/openclaw/${oc[1]}/${oc[2]}`;
+      } else if (local.startsWith('/api/media/')) {
+        // MEDIA:/api/media/... — drop MEDIA: prefix; reject non-openclaw stubs below
+        raw = local;
+      } else {
+        return;
+      }
+    }
+
+    // Drop agent placeholder refs (no openclaw path / no real file)
+    if (/^\/api\/media\/(?!openclaw\/)/i.test(raw) && !/\.(png|jpe?g|gif|webp|svg|pdf|html?)(\?|$)/i.test(raw)) {
+      return;
+    }
+
+    if (seen.has(raw)) return;
+    if (raw.startsWith('http://127.0.0.1') || raw.startsWith('http://localhost')) return;
     seen.add(raw);
 
     let kind = 'link';
@@ -248,12 +268,25 @@ function extractUrlsFromText(text, sourceId = 'text') {
       makeArtifact({
         id: `${sourceId}:url:${items.length}`,
         kind,
-        label: kind === 'pdf' ? 'PDF' : kind === 'image' ? 'Image' : 'Link',
+        label: labelHint || (kind === 'pdf' ? 'PDF' : kind === 'image' ? 'Image' : 'Link'),
         url: toRelativeApiUrl(url),
         inline,
         group: 'From task content',
       })
     );
+  };
+
+  // Prefer full MEDIA: tokens so we do not scrape broken /api/… substrings from inside them
+  const mediaRe = /MEDIA:\s*[^\s<>"')\]]+/gi;
+  let m;
+  while ((m = mediaRe.exec(text)) !== null) {
+    pushUrl(m[0]);
+  }
+
+  const scrubbed = text.replace(/MEDIA:\s*[^\s<>"')\]]+/gi, ' ');
+  const urlRe = /(https?:\/\/[^\s<>"')\]]+|\/api\/[^\s<>"')\]]+|sandbox:\/(?:api\/media\/|media\/)[^\s<>"')\]]+)/gi;
+  while ((m = urlRe.exec(scrubbed)) !== null) {
+    pushUrl(m[1]);
   }
   return items;
 }

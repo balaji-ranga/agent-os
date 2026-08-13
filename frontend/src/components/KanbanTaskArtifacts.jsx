@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api';
-import { resolveMediaSrc } from '../utils/resolveMediaSrc';
+import { resolveMediaSrc, normalizeMediaUrl, isResolvableMediaUrl } from '../utils/resolveMediaSrc';
 import AuthenticatedApiLink from './AuthenticatedApiLink.jsx';
 import { isAuthenticatedApiPath, normalizeApiPath } from '../utils/authenticatedApiUrl';
 
@@ -199,11 +199,13 @@ function ArtifactPreview({ artifact }) {
   if (kind === 'pdf' && url) return <PdfInline url={url} label={label} />;
   if (kind === 'csv' && url) return <CsvDownload url={url} label={label} />;
   if (kind === 'image' && url) {
-    return url.startsWith('/api/') ? (
-      <AuthenticatedImage url={url} label={label} />
-    ) : (
+    const resolved = normalizeMediaUrl(url) || resolveMediaSrc(url) || url;
+    if (resolved.startsWith('/api/') || isResolvableMediaUrl(url)) {
+      return <AuthenticatedImage url={resolved.startsWith('/api/') ? resolved : normalizeMediaUrl(url)} label={label} />;
+    }
+    return (
       <img
-        src={resolveMediaSrc(url)}
+        src={resolved}
         alt={label}
         style={{ maxWidth: '100%', maxHeight: 360, borderRadius: 8, border: '1px solid var(--border)' }}
       />

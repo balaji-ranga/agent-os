@@ -80,6 +80,61 @@ export function normalizeCharacter(c = {}) {
   };
 }
 
+/**
+ * True when ref_media points at a real OpenClaw media file — not agent placeholders
+ * like MEDIA:/api/media/thenali-raman-ref (no openclaw path / no image bytes).
+ */
+export function isUsableVideoRefMedia(ref) {
+  const raw = String(ref || '').trim();
+  if (!raw) return false;
+  if (/^(?:MEDIA:\s*)?\/api\/media\/(?!openclaw\/)/i.test(raw)) return false;
+  if (/^MEDIA:/i.test(raw) && /\.openclaw\/media\//i.test(raw)) return true;
+  if (/^(?:MEDIA:\s*)?\/api\/media\/openclaw\//i.test(raw)) return true;
+  if (/\.(png|jpe?g|gif|webp|svg)(\?|$)/i.test(raw) && /(?:openclaw\/media|\/media\/)/i.test(raw)) {
+    return true;
+  }
+  return false;
+}
+
+/** Prefer Master Data portrait over Story/Prompt invented ref_media. */
+function mergeCharacterRef(proposed, libraryHit) {
+  const p = normalizeCharacter(proposed || {});
+  const hit = libraryHit ? normalizeCharacter(libraryHit) : null;
+  const ref =
+    (hit && isUsableVideoRefMedia(hit.ref_media) && hit.ref_media) ||
+    (isUsableVideoRefMedia(p.ref_media) && p.ref_media) ||
+    '';
+  const image_id =
+    (hit && isUsableVideoRefMedia(hit.ref_media) && hit.image_id) ||
+    (isUsableVideoRefMedia(p.ref_media) && p.image_id) ||
+    hit?.image_id ||
+    p.image_id ||
+    '';
+  return normalizeCharacter({
+    ...p,
+    name: p.name || hit?.name || p.character_id,
+    role: p.role || hit?.role || '',
+    appearance: p.appearance || hit?.appearance || '',
+    series: p.series || hit?.series || '',
+    notes: p.notes || (hit ? 'reused from library' : p.notes),
+    ref_media: ref,
+    image_id: ref ? image_id : '',
+  });
+}
+
+/** Kanban Artifacts: emit /api/media/openclaw… so AuthenticatedImage can load portraits. */
+function portraitArtifactLines(characters) {
+  const lines = [];
+  for (const c of characters || []) {
+    if (!isUsableVideoRefMedia(c.ref_media)) continue;
+    const pasted = pasteLinesFromStoredPath(c.ref_media);
+    const apiUrl = pasted.relative_url || (String(c.ref_media).startsWith('/api/media/') ? c.ref_media : '');
+    if (!apiUrl) continue;
+    lines.push(`## Portrait · ${c.character_id} (${c.name})`, apiUrl);
+  }
+  return lines;
+}
+
 function normalizeStoryboard(raw) {
   const board = raw && typeof raw === 'object' ? raw : {};
   const characters = (Array.isArray(board.characters) ? board.characters : []).map(normalizeCharacter);
@@ -584,16 +639,7 @@ function charactersFromStoryDraft(draft, library = []) {
     if (item && typeof item === 'object') {
       const proposed = normalizeCharacter(item);
       const hit = libById.get(proposed.character_id) || libByName.get(proposed.name.toLowerCase());
-      out.push(
-        normalizeCharacter({
-          ...proposed,
-          ref_media: proposed.ref_media || hit?.ref_media || '',
-          image_id: proposed.image_id || hit?.image_id || '',
-          appearance: proposed.appearance || hit?.appearance || '',
-          series: proposed.series || hit?.series || '',
-          notes: proposed.notes || (hit ? 'reused from library' : 'new — confirm refs'),
-        })
-      );
+      out.push(mergeCharacterRef(proposed, hit));
     }
   }
   return out;
@@ -894,14 +940,7 @@ export async function exportStoryboardForCeoApproval(ownerUserId, { rawText, wor
     const byId = new Map(lib.map((c) => [c.character_id, c]));
     board.characters = board.characters.map((c) => {
       const hit = byId.get(c.character_id);
-      return hit
-        ? normalizeCharacter({
-            ...c,
-            ref_media: c.ref_media || hit.ref_media,
-            appearance: c.appearance || hit.appearance,
-            series: c.series || hit.series,
-          })
-        : c;
+      return hit ? mergeCharacterRef(c, hit) : mergeCharacterRef(c, null);
     });
   }
   const textSummary = formatStoryboardApprovalSummary(board);
@@ -921,6 +960,8 @@ export async function exportStoryboardForCeoApproval(ownerUserId, { rawText, wor
     const htmlUrl = exported.exports?.html?.relative_url || '';
     const imageUrl = exported.exports?.image?.relative_url || '';
     const parts = [textSummary, ''];
+    const portraits = portraitArtifactLines(board.characters);
+    if (portraits.length) parts.push(...portraits, '');
     if (pdfUrl) parts.push('## Storyboard PDF', pdfUrl);
     if (htmlUrl) parts.push('', '## Storyboard HTML', htmlUrl);
     if (imageUrl) parts.push('', '## Storyboard contact sheet', imageUrl);
@@ -969,13 +1010,7 @@ export async function exportCastForCeoApproval(ownerUserId, { rawText, workflowR
       style_hint: 'photoreal cinematic kids-friendly character portrait, consistent face',
     });
     const byId = new Map((ensured.characters || []).map((c) => [c.character_id, c]));
-    resolved = resolved.map((c) =>
-      normalizeCharacter({
-        ...c,
-        ref_media: byId.get(c.character_id)?.ref_media || c.ref_media,
-        image_id: byId.get(c.character_id)?.image_id || c.image_id,
-      })
-    );
+    resolved = resolved.map((c) => mergeCharacterRef(c, byId.get(c.character_id) || c));
   } catch (e) {
     console.warn('[video-storyboard] cast ensure refs failed', e?.message || e);
   }
@@ -1017,9 +1052,7 @@ export async function exportCastForCeoApproval(ownerUserId, { rawText, workflowR
     console.warn('[video-storyboard] cast RAG index failed', e?.message || e);
   }
 
-  const portraitLines = resolved
-    .filter((c) => c.ref_media)
-    .flatMap((c) => [`## Portrait · ${c.character_id} (${c.name})`, c.ref_media]);
+  const portraitLines = portraitArtifactLines(resolved);
 
   const parts = [
     summary,
