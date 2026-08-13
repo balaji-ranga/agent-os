@@ -39,6 +39,9 @@ upsert META_GRAPH_MCP_URL 'http://meta-graph-mcp:8081/mcp'
 upsert BUSINESS_CORE_MCP_URL 'http://business-core-mcp:8082/mcp'
 upsert SOCIAL_RESEARCH_MCP_URL 'http://social-research-mcp:8084/mcp'
 upsert INSTALOADER_URL 'http://instaloader-sidecar:8083'
+# Optional; empty until ops/CEO set them. Prefer per-CEO vault INSTAGRAM_SESSIONID / X_API_BYOK.
+upsert INSTAGRAM_SESSIONID ''
+upsert X_BEARER_TOKEN ''
 # FACEBOOK_APP_ID / FACEBOOK_APP_SECRET / MCP_OAUTH_CALLBACK_URL are operator secrets — do not invent.
 
 if ! grep -q 'optional-meta-graph-mcp' "$ENV_FILE" 2>/dev/null; then
@@ -49,7 +52,7 @@ if ! grep -q 'optional-meta-graph-mcp' "$ENV_FILE" 2>/dev/null; then
 # Brave: workflow/node BYOK headers (no BRAVE_API_KEY in MCP container).
 # Facebook: admin FACEBOOK_APP_* or Connectors → MCPs (platform App; CEOs may override App ID/secret); each CEO Connects.
 # Business Core: CRM (Twenty) + ERP (ERPNext) tools; pass X-Ceo-User-Id. Prefab Maker/Checker AI employees when Profile selects platform.
-# Social Research: Places + Instaloader + indexed search; pass X-Ceo-User-Id. Docs: knowledgebase/platform-help/42-social-research-business-discovery.md
+# Social Research: Places + Instaloader (optional INSTAGRAM_SESSIONID) + X hydrate / X_BEARER_TOKEN; pass X-Ceo-User-Id. Docs: knowledgebase/platform-help/42-social-research-business-discovery.md
 # SKIP_PLATFORM_MCPS=1 to skip containers/seeds. Docs: knowledgebase/platform-help/32-business-core-crm-erp.md (+ 08, 31)
 # BRAVE_MCP_URL=http://brave-search-mcp:8080/mcp
 # META_GRAPH_MCP_URL=http://meta-graph-mcp:8081/mcp
