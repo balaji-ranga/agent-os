@@ -39,6 +39,7 @@ upsert META_GRAPH_MCP_URL 'http://meta-graph-mcp:8081/mcp'
 upsert BUSINESS_CORE_MCP_URL 'http://business-core-mcp:8082/mcp'
 upsert SOCIAL_RESEARCH_MCP_URL 'http://social-research-mcp:8084/mcp'
 upsert INSTALOADER_URL 'http://instaloader-sidecar:8083'
+upsert INSTALOADER_ALLOW_ANONYMOUS '0'
 # Optional; empty until ops/CEO set them. Prefer per-CEO vault INSTAGRAM_SESSIONID / X_API_BYOK.
 upsert INSTAGRAM_SESSIONID ''
 upsert X_BEARER_TOKEN ''

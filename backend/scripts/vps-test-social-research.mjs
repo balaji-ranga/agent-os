@@ -142,12 +142,14 @@ if (existsSync(soulSr)) {
   const text = readFileSync(soulSr, 'utf8');
   ok(/social_research_profile/i.test(text), 'publisher SOUL mentions social_research_profile');
   ok(/social_research_x/i.test(text) && /posts\[\]/i.test(text), 'publisher SOUL distinguishes posts[] vs search');
+  ok(/self-hosted/i.test(text) && /429/i.test(text), 'publisher SOUL explains sidecar vs instagram.com 429');
 }
 
 try {
   const igHealth = await fetch(`${instaloaderUrl}/health`, { signal: AbortSignal.timeout(8000) });
   const igj = await igHealth.json().catch(() => ({}));
   ok(igHealth.ok && igj.ok, 'instaloader sidecar health', igj);
+  ok(igj.self_hosted === true, 'instaloader sidecar health self_hosted', igj);
 } catch (e) {
   ok(false, 'instaloader sidecar health', e.message);
 }
@@ -229,9 +231,19 @@ if (braveConfigured) {
     posts: igPosts.length,
     with_image: igPosts.filter((p) => p.image_url).length,
     indexed: ig.data.indexed_results?.length,
+    instaloader_skipped: ig.data.instaloader?.skipped,
+    instaloader_self_hosted: ig.data.instaloader?.self_hosted,
+    instaloader_reason: ig.data.instaloader?.reason,
+    instagram_http: ig.data.instaloader?.instagram_http,
     instaloader_error: ig.data.instaloader_error,
     next_step: ig.data.next_step,
   });
+  ok(ig.data.instaloader?.self_hosted === true, 'instaloader sidecar reported self-hosted');
+  ok(
+    ig.data.instaloader?.skipped === true || ig.data.adapter === 'instaloader',
+    'anonymous instaloader skipped (or session succeeded)',
+    ig.data.instaloader
+  );
   ok(
     igPosts.every((p) => p.url && /instagram\.com/i.test(p.url)),
     'instagram posts have permalinks',

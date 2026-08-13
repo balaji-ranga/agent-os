@@ -1,7 +1,8 @@
-# Instagram Instaloader sidecar. Optional sessionid is passed per request (never logged).
+# Self-hosted Instaloader sidecar. Calls instagram.com (HTTP 429 is Instagram, not this container).
+# Optional sessionid is passed per request (never logged). Production: Waitress, not Flask dev server.
 FROM python:3.12-slim
 WORKDIR /app
-RUN pip install --no-cache-dir instaloader flask
+RUN pip install --no-cache-dir instaloader flask waitress
 COPY tools/instaloader-sidecar/server.py ./server.py
 ENV INSTALOADER_PORT=8083
 EXPOSE 8083

@@ -121,6 +121,8 @@ x-backend-env: &backend-env
   GOOGLE_PLACES_API_KEY: ${GOOGLE_PLACES_API_KEY:-}
   INSTAGRAM_SESSIONID: ${INSTAGRAM_SESSIONID:-}
   X_BEARER_TOKEN: ${X_BEARER_TOKEN:-}
+  # 0 = skip anonymous Instaloader (instagram.com 429s this VPS IP). 1 = probe anyway.
+  INSTALOADER_ALLOW_ANONYMOUS: ${INSTALOADER_ALLOW_ANONYMOUS:-0}
   INSTALOADER_URL: ${INSTALOADER_URL:-http://instaloader-sidecar:8083}
   SOCIAL_RESEARCH_MCP_URL: ${SOCIAL_RESEARCH_MCP_URL:-http://social-research-mcp:8084/mcp}
   FLOLAH_EXCHANGE_PUBLISHER_USER_ID: ${FLOLAH_EXCHANGE_PUBLISHER_USER_ID:-}
@@ -552,7 +554,7 @@ services:
       retries: 5
       start_period: 15s
 
-  # Instaloader sidecar — Instagram adapter (optional sessionid per request, never logged).
+  # Instaloader sidecar — self-hosted client. Still calls instagram.com (429 = Instagram, not SaaS Instaconnect).
   # Start: docker compose --profile optional-social-research-mcp up -d --build instaloader-sidecar
   instaloader-sidecar:
     profiles: ["optional-social-research-mcp"]

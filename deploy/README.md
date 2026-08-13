@@ -17,7 +17,7 @@ Works with **Docker Compose** and **Podman Compose** on CentOS/RHEL, Ubuntu (Hos
 | `brave-search-mcp` | Optional | internal | Platform Brave Search MCP BYOK (`optional-brave-mcp`) |
 | `meta-graph-mcp` | Optional | internal | Platform Meta Graph MCP for Facebook/IG (`optional-meta-graph-mcp`) |
 | `social-research-mcp` | Optional | internal | Social Research MCP (`optional-social-research-mcp`) |
-| `instaloader-sidecar` | Optional | internal | Public Instagram Instaloader adapter (`optional-social-research-mcp`) |
+| `instaloader-sidecar` | Optional | internal | Self-hosted Instaloader client (`optional-social-research-mcp`). Still calls instagram.com (HTTP 429 = Instagram, not a SaaS Instaconnect). |
 | `opensearch` | Required | internal `:9200` only | Document meta + RAG search (per-user + platform indices) |
 | `opensearch-dashboards` | Required | internal `:5601` only | Admin Dashboards via `/opensearch/` BFF |
 | `openconnector` | Optional | internal | Real OpenConnector runtime, `:3000` (`optional-openconnector`) |

@@ -38,5 +38,5 @@ Invoke tools **by name with JSON**. Never exec.
 ## Guardrails
 
 - No LinkedIn crawler. No password scraping.
-- Instagram captions/timestamps need vault **INSTAGRAM_SESSIONID** (session cookie). Without it, you may still get real **images** via hydrated `/p/` URLs — say so.
+- Instagram captions/timestamps need vault **INSTAGRAM_SESSIONID**. The Instaloader sidecar is **self-hosted**; HTTP **429** is **instagram.com** rate-limiting this VPS IP (not HTTP 409, not a missing Instaconnect SaaS). Without the cookie you may still get real **images** via hydrated `/p/` URLs — say so.
 - Owner-scoped: never pass another CEO’s id.

@@ -1,13 +1,26 @@
 /**
- * Instagram adapter: Instaloader (optional session cookie), then hydrate
- * /p/{shortcode}/ URLs from indexed search (media redirect or Graph oEmbed).
+ * Instagram adapter: self-hosted Instaloader sidecar (optional session cookie),
+ * then hydrate /p/{shortcode}/ URLs (media redirect or Graph oEmbed).
+ *
+ * The sidecar is local Docker. It is not a SaaS "Instaconnect". Anonymous calls
+ * still hit instagram.com, which rate-limits datacenter IPs with HTTP 429
+ * (agents sometimes mislabel this as 409). Skip anonymous Instaloader by default.
  */
 import { getInstagramSessionConfig, getMetaAppAccessToken } from '../../../config/tools.js';
 import { searchSite, webSearch } from './web-search.js';
 import { hydrateInstagramFromSearch } from './post-hydrate.js';
 
+const INSTALOADER_COOLDOWN_MS = 15 * 60 * 1000;
+/** @type {Map<string, number>} */
+const instaloaderCooldownUntil = new Map();
+
 function instaloaderUrl() {
   return String(process.env.INSTALOADER_URL || '').trim().replace(/\/+$/, '') || 'http://instaloader-sidecar:8083';
+}
+
+function allowAnonymousInstaloader() {
+  const v = String(process.env.INSTALOADER_ALLOW_ANONYMOUS || '').trim().toLowerCase();
+  return v === '1' || v === 'true' || v === 'yes';
 }
 
 function normalizeHandle(raw) {
@@ -19,8 +32,26 @@ function normalizeHandle(raw) {
     .replace(/[^a-zA-Z0-9._]/g, '');
 }
 
+function isInstagramRateLimit(err) {
+  return /\b(429|403)\b|Too Many Requests|rate.?limit|please wait/i.test(String(err || ''));
+}
+
+function parseInstagramHttp(err) {
+  const m = String(err || '').match(/\b(429|403|401|409|400)\b/);
+  return m ? Number(m[1]) : null;
+}
+
+function sidecarMeta(extra = {}) {
+  return {
+    self_hosted: true,
+    sidecar: 'instaloader-sidecar',
+    upstream: 'instagram.com',
+    ...extra,
+  };
+}
+
 function sessionNextStep() {
-  return 'Anonymous Instaloader is rate-limited from datacenter IPs. Add vault INSTAGRAM_SESSIONID (browser cookie from instagram.com while logged in) under Settings → API Keys for a real caption/timestamp feed. Graph cannot query arbitrary brand accounts.';
+  return 'Instaloader sidecar is self-hosted on this VPS; Instagram.com still rate-limits anonymous datacenter IPs (HTTP 429, not 409 / not a SaaS Instaconnect). Add vault INSTAGRAM_SESSIONID for captions and timestamps.';
 }
 
 export async function researchInstagram(ownerUserId, { handle, brand, days = 30, limit = 40 } = {}) {
@@ -28,9 +59,16 @@ export async function researchInstagram(ownerUserId, { handle, brand, days = 30,
   const windowDays = Math.min(Math.max(Number(days) || 30, 1), 90);
   const cap = Math.min(Math.max(Number(limit) || 40, 1), 80);
   const session = getInstagramSessionConfig(ownerUserId);
+  const cooldownKey = session.configured ? `sess:${ownerUserId || 'anon'}` : 'anonymous';
 
   let instaloaderError = null;
-  if (username) {
+  let instaloaderMeta = sidecarMeta({ skipped: false, used_session: session.configured });
+
+  const coolUntil = instaloaderCooldownUntil.get(cooldownKey) || 0;
+  const cooling = Date.now() < coolUntil;
+  const skipAnonymous = !session.configured && !allowAnonymousInstaloader();
+
+  if (username && !skipAnonymous && !cooling) {
     const loaded = await tryInstaloader({
       username,
       days: windowDays,
@@ -42,14 +80,50 @@ export async function researchInstagram(ownerUserId, { handle, brand, days = 30,
         ...loaded,
         has_session: session.configured,
         session_source: session.source,
+        instaloader: sidecarMeta({
+          skipped: false,
+          used_session: session.configured,
+          instagram_http: null,
+        }),
       };
     }
-    instaloaderError = loaded.error || 'empty';
+    instaloaderError = loaded.error || loaded.instagram_error || 'empty';
+    const igHttp = loaded.instagram_http || parseInstagramHttp(instaloaderError);
+    instaloaderMeta = sidecarMeta({
+      skipped: false,
+      used_session: session.configured,
+      instagram_http: igHttp,
+      rate_limited: loaded.rate_limited || isInstagramRateLimit(instaloaderError),
+    });
+    if (instaloaderMeta.rate_limited) {
+      instaloaderCooldownUntil.set(cooldownKey, Date.now() + INSTALOADER_COOLDOWN_MS);
+      console.info(
+        '[social-research] instaloader cooldown 15m key=%s instagram_http=%s (upstream instagram.com, sidecar self-hosted)',
+        cooldownKey,
+        igHttp || 'unknown'
+      );
+    } else {
+      console.info(
+        '[social-research] instaloader miss username=%s has_session=%s fallback=hydrate err=%s',
+        username,
+        session.configured,
+        instaloaderError
+      );
+    }
+  } else if (username) {
+    instaloaderMeta = sidecarMeta({
+      skipped: true,
+      reason: cooling ? 'instagram_rate_limit_cooldown' : 'no_session',
+      used_session: session.configured,
+      instagram_http: cooling ? 429 : null,
+    });
+    instaloaderError = skipAnonymous
+      ? 'skipped_anonymous: sidecar is self-hosted; instagram.com returns 429 to this VPS IP without INSTAGRAM_SESSIONID'
+      : 'skipped_cooldown: instagram.com rate-limited this sidecar recently (HTTP 429)';
     console.info(
-      '[social-research] instaloader miss username=%s has_session=%s fallback=hydrate err=%s',
+      '[social-research] instaloader skip username=%s reason=%s self_hosted=true upstream=instagram.com',
       username,
-      session.configured,
-      instaloaderError
+      instaloaderMeta.reason
     );
   }
 
@@ -92,10 +166,11 @@ export async function researchInstagram(ownerUserId, { handle, brand, days = 30,
     fallback: posts.length === 0,
     has_session: session.configured,
     session_source: session.source,
+    instaloader: instaloaderMeta,
     instaloader_error: instaloaderError,
     next_step: posts.length
       ? posts.some((p) => p.caption_source === 'search_hint')
-        ? 'Images are real CDN thumbnails. Captions are search hints unless INSTAGRAM_SESSIONID is set for Instaloader.'
+        ? 'Images are real CDN thumbnails. Captions are search hints unless INSTAGRAM_SESSIONID is set. Instaloader sidecar is self-hosted; 429s come from instagram.com (not HTTP 409, not a SaaS Instaconnect).'
         : null
       : sessionNextStep(),
   };
@@ -120,11 +195,15 @@ async function tryInstaloader({ username, days, limit, sessionid }) {
       return { ok: false, error: 'Instaloader returned non-JSON', fallback: true, adapter: 'instaloader' };
     }
     if (!data.ok) {
+      const err = String(data.error || `Instaloader HTTP ${res.status}`).slice(0, 400);
       return {
         ok: false,
-        error: String(data.error || `Instaloader HTTP ${res.status}`).slice(0, 400),
+        error: err,
         fallback: true,
         adapter: 'instaloader',
+        instagram_http: data.instagram_http || parseInstagramHttp(err),
+        rate_limited: Boolean(data.rate_limited) || isInstagramRateLimit(err),
+        self_hosted: data.self_hosted !== false,
       };
     }
     console.info(
@@ -147,12 +226,13 @@ async function tryInstaloader({ username, days, limit, sessionid }) {
       fallback: false,
     };
   } catch (e) {
-    console.warn('[social-research] instaloader unreachable: %s', e.message || e);
+    console.warn('[social-research] instaloader sidecar unreachable: %s', e.message || e);
     return {
       ok: false,
       error: String(e.message || e).slice(0, 400),
       fallback: true,
       adapter: 'instaloader',
+      self_hosted: true,
     };
   }
 }

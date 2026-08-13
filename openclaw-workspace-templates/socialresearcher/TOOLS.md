@@ -7,7 +7,7 @@ Report from **`posts[]`**. **`indexed_results` / `results` are search hits, not 
 | Tool | When |
 |------|------|
 | **social_research_profile** | Brand across Instagram / X / LinkedIn / Facebook. `{ "brand": "Nike", "days": 30, "platforms": ["instagram","x"] }` |
-| **social_research_instagram** | Instagram handle. Instaloader (vault `INSTAGRAM_SESSIONID`) or hydrated `/p/` images. |
+| **social_research_instagram** | Instagram handle. Self-hosted Instaloader sidecar (vault `INSTAGRAM_SESSIONID`) or hydrated `/p/` images. 429s are instagram.com, not a SaaS Instaconnect. |
 | **social_research_x** | X handle. Official API (`X_API_BYOK` / `X_BEARER_TOKEN`) or hydrated status URLs (text + media). |
 | **social_research_facebook** | Facebook. Meta Graph if connected (owned Pages only); else indexed search. |
 | **social_research_search** | Indexed Brave search. Optional `site` (`linkedin.com`, `facebook.com`, `instagram.com`, `x.com`). Not a tweet/IG feed. |

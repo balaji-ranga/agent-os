@@ -40,7 +40,7 @@ The **Social Research MCP** (`mcp-social-research`) and matching content tools s
 
 | Platform | Adapter |
 |----------|---------|
-| Instagram | **Instaloader** when vault **`INSTAGRAM_SESSIONID`** (browser `sessionid` cookie) is set. If blocked: hydrate `instagram.com/p/{shortcode}/` (real CDN image; caption may be a search hint). Graph cannot query arbitrary brand IG accounts. |
+| Instagram | **Self-hosted Instaloader sidecar** (Docker on this VPS — not a SaaS Instaconnect). Without vault **`INSTAGRAM_SESSIONID`**, anonymous instagram.com calls from the VPS IP are **HTTP 429** (not 409), so the tool skips Instaloader and hydrates `instagram.com/p/{shortcode}/` (real CDN image). Graph cannot query arbitrary brand IG accounts. |
 | X | Official **X API v2** when `X_BEARER_TOKEN` (platform) or vault **`X_API_BYOK`** is set. Otherwise hydrate `x.com/.../status/{id}` URLs (tweet text + media). Free X API often cannot read other users’ timelines. |
 | Facebook | **Meta Graph** after **Connect** on **Connectors → MCPs** — **your Pages only** (`/me/accounts`). Public brands (Nike) are not in that list. Indexed search is separate. |
 | LinkedIn / public web | Indexed **Brave Search** (optional Browser Session if search is empty). No LinkedIn crawler. |
@@ -108,7 +108,7 @@ Register **Social Research** MCP (`mcp-social-research`) is seeded as a platform
 ## Troubleshooting
 
 - Places errors: set `GOOGLE_PLACES_API_KEY` or vault **GOOGLE_PLACES_BYOK**; confirm Places API (New) is enabled.
-- Instagram `429` / empty Instaloader: expected without **`INSTAGRAM_SESSIONID`**. Check `posts[].image_url` for hydrated images; add the cookie for captions.
+- Instagram **429** (agents sometimes say 409 / “Instaconnect”): the **Instaloader sidecar is self-hosted** on this VPS. It is not a cloud Instaconnect. Anonymous calls still go to **instagram.com**, which rate-limits datacenter IPs. The tool skips those probes (`instaloader.skipped: no_session`) and hydrates `/p/` images instead. Add **`INSTAGRAM_SESSIONID`** for captions. Ops can set `INSTALOADER_ALLOW_ANONYMOUS=1` to force a probe.
 - Facebook Graph empty for a public brand: Graph only sees **your** connected Pages; Connect Facebook if you have not.
 - X empty `posts`: confirm Brave returns `/status/` URLs; then hydration fills text/media. Add **X_API_BYOK** only if you need the official timeline.
 - Meta oEmbed unused: `FACEBOOK_APP_ID` missing in `.env` even if App secret is stored on Connectors.
