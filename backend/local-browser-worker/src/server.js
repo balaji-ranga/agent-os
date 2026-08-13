@@ -36,6 +36,8 @@ const LOOPBACK_PORT = Number(process.env.LOOPBACK_PORT || 3020);
 // Default headed (0). Only force headless when explicitly 1/true/yes.
 const HEADLESS = ['1', 'true', 'yes'].includes(String(process.env.BROWSER_HEADLESS ?? '0').toLowerCase());
 const HEARTBEAT_MS = Math.max(10000, Number(process.env.HEARTBEAT_MS || 30000));
+/** Use installed Chrome for Google login: set BROWSER_CHANNEL=chrome (avoids "browser may not be secure"). */
+const BROWSER_CHANNEL = String(process.env.BROWSER_CHANNEL || '').trim().toLowerCase();
 const rawUserData = String(process.env.BROWSER_USER_DATA_DIR || 'browser-profile').trim() || 'browser-profile';
 const USER_DATA_DIR = isAbsolute(rawUserData) ? rawUserData : join(ROOT, rawUserData);
 
@@ -74,24 +76,34 @@ async function ensureBrowser() {
     context = null;
     page = null;
   }
+  const channel = BROWSER_CHANNEL === 'chrome' || BROWSER_CHANNEL === 'msedge' ? BROWSER_CHANNEL : '';
   console.info(
-    '[browser-worker] launching persistent chromium headless=%s profile=%s existing=%s',
+    '[browser-worker] launching persistent browser headless=%s channel=%s profile=%s existing=%s',
     HEADLESS,
+    channel || 'chromium',
     USER_DATA_DIR,
     profileHasLocalState()
   );
-  context = await chromium.launchPersistentContext(USER_DATA_DIR, {
+  const launchOpts = {
     headless: HEADLESS,
     viewport: { width: 1280, height: 900 },
     args: ['--disable-dev-shm-usage'],
+    // Helps Google account sign-in (Playwright Chromium is often blocked as "not secure").
+    ignoreDefaultArgs: ['--enable-automation'],
     acceptDownloads: true,
-  });
+  };
+  if (channel) launchOpts.channel = channel;
+  context = await chromium.launchPersistentContext(USER_DATA_DIR, launchOpts);
   const pages = context.pages();
   page = pages.length ? pages[0] : await context.newPage();
   context.on('page', (p) => {
     page = p;
   });
-  console.info('[browser-worker] chromium ready headless=%s persistent=true', HEADLESS);
+  console.info(
+    '[browser-worker] browser ready headless=%s channel=%s persistent=true',
+    HEADLESS,
+    channel || 'chromium'
+  );
   return page;
 }
 
