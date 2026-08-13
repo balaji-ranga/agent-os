@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Social Researcher + Business Discovery: tools, MCP, Instaloader, Exchange, agent chat.
-# Places live search is skipped when GOOGLE_PLACES_API_KEY is unset (asserts 503).
+# Places live search runs when platform GOOGLE_PLACES_API_KEY or vault GOOGLE_PLACES_BYOK
+# is present (geocode 200). Otherwise asserts structured 503.
 set -euo pipefail
 ROOT="${AGENT_OS_ROOT:-/opt/agent-os}"
 cd "$ROOT/deploy"

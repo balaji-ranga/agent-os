@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Ensure OpenClaw HTTP chat API is live after deploy.
 # Catches openclaw.json wipes that drop gateway.http.endpoints.chatCompletions
-# (symptoms: UI chat 502, gateway body "Not Found" / HTTP 404 on POST /v1/chat/completions).
+# or an empty models.providers catalog (symptoms: UI chat 502, gateway body
+# "Not Found" / HTTP 404, or "Unknown model: openai/…").
 #
 # Usage:
 #   bash /opt/agent-os/deploy/scripts/vps-verify-openclaw-chat.sh

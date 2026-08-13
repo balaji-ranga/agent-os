@@ -459,7 +459,7 @@ On VPS after sync (or after `git pull` on the box), `vps-deploy-latest.sh` rebui
 2. **`docker-disk-hygiene.sh`** — prune BuildKit cache older than `DOCKER_BUILDER_PRUNE_UNTIL` (default **72h**), remove dangling `<none>` images, drop leftover test containers (`oc-fix-ep`). Does **not** remove Admin-onboarded tool containers or app volumes. Skip with `SKIP_DOCKER_PRUNE=1`; full wipe with `DOCKER_BUILDER_PRUNE_ALL=1`.
 3. `optional-voice` whisper + piper (unless `SKIP_VOICE=1`)
 4. **`vps-verify-agent-channels.sh`** — WhatsApp/Slack drift gate (fatal; runs even with `SKIP_SMOKE=1`)
-5. **`vps-verify-openclaw-chat.sh`** — repairs `openclaw.json` via `ensure-openclaw-gateway-config.js` + probes `POST /v1/chat/completions` (fatal on **404**; runs even with `SKIP_SMOKE=1`). Catches wiped `gateway.http.endpoints.chatCompletions` (container stays “healthy”, Agent Chat returns 502/404).
+5. **`vps-verify-openclaw-chat.sh`** — repairs `openclaw.json` via `ensure-openclaw-gateway-config.js` (gateway + **model catalog**) and probes `POST /v1/chat/completions` (fatal on **404**; runs even with `SKIP_SMOKE=1`). If the catalog is empty it re-runs `configure-openclaw-docker.js` and restarts OpenClaw. Catches wiped `gateway.http.endpoints.chatCompletions` **and** empty `models.providers` (Agent Chat 502 `Unknown model`).
 6. **`vps-verify-media-delivery.sh`** — MEDIA dual-write / audio MIME (fatal)
 7. `vps-smoke-new-features.sh` — email_send, notify_ceo, master_data, **platformhelp agent**, org sync, A2A public + OAuth secured, shared notification dismiss, **public VR / speech / channels route probes** (skipped when `SKIP_SMOKE=1`)
 8. `vps-smoke-broadcast-notify.sh` — Broadcast → TechResearcher → notify_ceo (needs OpenClaw + LLM; non-fatal)
@@ -471,12 +471,13 @@ On VPS after sync (or after `git pull` on the box), `vps-deploy-latest.sh` rebui
 | Symptom | Cause |
 |---------|--------|
 | `POST /api/agents/*/chat` → **502**, gateway body **404 Not Found** | `openclaw.json` lost `gateway` (or `gateway.http.endpoints.chatCompletions.enabled`) |
+| `POST /api/agents/*/chat` → **502**, `Unknown model: openai/…` | `models.providers` catalog empty after recreate; `OPENCLAW_MODEL_PRIMARY` not registered |
 | OpenClaw container still healthy | Healthcheck only curls `/` (Control UI), not chat API |
 
 **Prevention (shipped):**
 - Backend writes use `backend/src/services/openclaw-config-safe.js` (never drop `gateway` / `tools` / `plugins` / `browser`)
-- OpenClaw entrypoint: `ensure-openclaw-gateway-config.js` → `configure-openclaw-docker.js` → channel restore
-- Every deploy: `vps-verify-openclaw-chat.sh` (auto-repair + live probe)
+- OpenClaw entrypoint: `ensure-openclaw-gateway-config.js` (also restores empty **models** from bak) → `configure-openclaw-docker.js` → channel restore
+- Every deploy: `vps-verify-openclaw-chat.sh` (auto-repair + live probe; configure if catalog empty)
 
 **Manual repair:**
 ```bash
@@ -484,6 +485,7 @@ cd /opt/agent-os/deploy
 bash scripts/vps-verify-openclaw-chat.sh
 # or:
 docker compose exec -T -w /opt/agent-os backend node deploy/scripts/ensure-openclaw-gateway-config.js
+docker compose exec -T -w /opt/agent-os openclaw node /opt/agent-os/deploy/scripts/configure-openclaw-docker.js
 docker compose restart openclaw
 ```
 

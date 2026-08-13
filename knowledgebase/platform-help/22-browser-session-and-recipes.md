@@ -1,22 +1,22 @@
-﻿# Browser Session, recipes, and browse_* agent tools
+# Browser Session, recipes, and browse_* agent tools
 
 ## What it is
 
 **Browser Session** (`/browser-session`) lets you run natural-language browser work in:
 
-1. **Managed Playwright** (`openclaw` profile) � server-side Chromium on the platform.
-2. **Client Chrome** � your desktop Chrome with the AgentSystem Browser Relay extension (shared gateway WSS; exclusive lease).
-3. **Desktop Local worker** (recommended multi-user) � long-lived Windows Playwright on **your** PC, online via Connectors package. Concurrent CEOs each run their own worker; no shared tab lease.
+1. **Managed Playwright** (`openclaw` profile) ? server-side Chromium on the platform.
+2. **Client Chrome** ? your desktop Chrome with the AgentSystem Browser Relay extension (shared gateway WSS; exclusive lease).
+3. **Desktop Local worker** (recommended multi-user) ? long-lived Windows Playwright on **your** PC, online via Connectors package. Concurrent CEOs each run their own worker; no shared tab lease.
 
 Agents do **not** drive this with the built-in AgentSystem `browser` tool in chat (that path is denied for specialists). They use Agent OS **`browse_*` content tools**. When your desktop worker is **Online**, open/snapshot/act and many recipes route to the laptop; otherwise the backend uses managed AgentSystem / CDP (`browser-cdp`).
 
-## CEO setup A � Client Chrome (Browser Relay)
+## CEO setup A ? Client Chrome (Browser Relay)
 
 1. Open **Browser Session** in the left nav.
 2. Opt in to Client Chrome / Browser Relay and install the extension pack if prompted.
 3. Attach a tab, log into sites you care about, then **Mark ready**.
 4. Optionally set **URL allow / deny** lists (deny always wins).
-5. **Recorder (wizard):** **Record a recipe** ? navigate and **Capture this page** ? **Done � save recipe**.
+5. **Recorder (wizard):** **Record a recipe** ? navigate and **Capture this page** ? **Done ? save recipe**.
 
 ### Multi-user lease (relay only)
 
@@ -27,7 +27,7 @@ Only **one** user can hold **Client Chrome** at a time (**exclusive lease**):
 - If Mark ready fails because someone else holds the lease, wait until they **Opt out**, use **managed Playwright**, or use the **Desktop Local worker** below.
 - Status shows who holds the lease. Agents never drive another user's attached Chrome tabs.
 
-## CEO setup B � Desktop Local worker (Connectors package)
+## CEO setup B ? Desktop Local worker (Connectors package)
 
 **Best path when multiple CEOs need real browser sessions at the same time.**
 
@@ -35,18 +35,18 @@ Only **one** user can hold **Client Chrome** at a time (**exclusive lease**):
 2. Download **full** package (portable Node) or **lite** (Node 18+ on PATH).
 3. Unzip privately. Keep `.env` secret (`BROWSER_WORKER_TOKEN` starts with `bwk_`).
 4. Confirm package defaults:
-   - `BROWSER_HEADLESS=0` (headed window � use this for logins / 2FA)
-   - `BROWSER_USER_DATA_DIR=browser-profile` (cookies/logins persist across restarts)
+   - `BROWSER_HEADLESS=0` (headed window ? use this for logins / 2FA)
+   - `BROWSER_CHANNEL=chrome` and `BROWSER_USER_DATA_DIR=browser-profile-chrome` (cookies/logins persist)
    - `AGENT_OS_BASE_URL` = your Flolah origin (no `/api` suffix)
-5. Run `scripts\Start-BrowserWorker.ps1` (first run installs Playwright Chromium).
-6. Log into sites **in the worker Chromium window** (not necessarily your everyday Chrome profile).
+5. Run `scripts\Start-BrowserWorker.ps1` (first run installs Playwright).
+6. Log into sites **in the worker window** (Chrome channel; not necessarily your everyday Chrome profile).
 7. Leave the process running (optional Task Scheduler script). Confirm **Online** on Connectors.
-8. Optional IP lock: **Settings ? IP Whitelists** (Browser Session package) or the Connectors IP panel � **same store**.
+8. Optional IP lock: **Settings ? IP Whitelists** (Browser Session package) or the Connectors IP panel ? **same store**.
 9. Revoke old tokens under **Settings ? Tokens management** if a zip is lost; re-download mints a new token.
 
 ### Sign-in and changing the browser profile
 
-- Default engine is Playwright Chromium / channel=chrome — everyday Chrome cookies are not reused.
+- Default engine is Playwright Chromium / channel=chrome ? everyday Chrome cookies are not reused.
 - Keep `BROWSER_HEADLESS=0` for Google / Flow login and 2FA.
 - If Google shows **This browser or app may not be secure** (even with `BROWSER_CHANNEL=chrome`):
   1. Stop the worker.
@@ -58,7 +58,7 @@ Only **one** user can hold **Client Chrome** at a time (**exclusive lease**):
 - Do not delete the active profile folder if you want the Google session to stick; do not share profiles or the zip `.env`.
 ### Video content (Google Flow flavour)
 
-Video pack **Flavour 1** (`flow_browser`) needs this worker **Online**, with Google signed in inside the worker window. Orchestrator then runs **run video media** (=8s per scene) and **run video assembly**. Details: [41-video-content-studio.md](./41-video-content-studio.md).
+Video pack **Flavour 1** (`flow_browser`) needs this worker **Online**, with Google signed in inside the worker window. Orchestrator then runs **run video media** (?8s per scene, serial) and **run video assembly**. Details: [41-video-content-studio.md](./41-video-content-studio.md).
 
 Ops detail: [BROWSER-SESSION-DESKTOP-LOCAL.md](../BROWSER-SESSION-DESKTOP-LOCAL.md). Token inventory: [34-tokens-management.md](./34-tokens-management.md). IP rules: [33-ip-whitelists.md](./33-ip-whitelists.md).
 
@@ -95,9 +95,9 @@ Thumbs **down** on an agent chat reply requires a short comment. Comments feed *
 ## Safety
 
 - Do not book, pay, or submit via automation.
-- Blocked URLs return an error � agents must not bypass allow/deny lists.
+- Blocked URLs return an error ? agents must not bypass allow/deny lists.
 - Prefer deep-link search summaries over clicking Book/Pay.
-- Desktop worker profile cookies are **private to that laptop folder** � treat `browser-profile\` like a password store; do not share the zip or profile directory.
+- Desktop worker profile cookies are **private to that laptop folder** ? treat `browser-profile\` like a password store; do not share the zip or profile directory.
 
 ## Ops / redeploy (admins)
 

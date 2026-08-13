@@ -974,7 +974,7 @@ if [[ "$SKIP_SMOKE" != "1" ]]; then
     bash "$ROOT/deploy/scripts/vps-smoke-meta-graph-mcp.sh" || echo "WARN: Meta Graph MCP smoke failed (non-fatal)"
   fi
   if [[ -f "$ROOT/deploy/scripts/vps-smoke-social-research.sh" ]]; then
-    echo "==> Social Researcher + Business Discovery smoke (Places live skipped without GOOGLE_PLACES_API_KEY)"
+    echo "==> Social Researcher + Business Discovery smoke (Places live when platform key or vault GOOGLE_PLACES_BYOK)"
     sed -i 's/\r$//' "$ROOT/deploy/scripts/vps-smoke-social-research.sh" 2>/dev/null || true
     bash "$ROOT/deploy/scripts/vps-smoke-social-research.sh" || echo "WARN: social research smoke failed (non-fatal)"
   fi

@@ -322,6 +322,21 @@ Test from the **Dashboard** in the browser. No backend scripts required.
 
 **Expected flow:** Create or open standup → COO chat is the main view → give tasks in chat → COO delegates via cron → child agent responses show up in this chat. Each standup has its own chat history.
 
+## Social Researcher + Business Discovery (VPS)
+
+Requires hired employees (AgentExchange) and Places: platform `GOOGLE_PLACES_API_KEY` **or** vault **`GOOGLE_PLACES_BYOK`**. Live Nearby/Discover runs when geocode returns 200; otherwise the smoke asserts structured 503.
+
+```bash
+cd /opt/agent-os/deploy
+bash scripts/vps-smoke-social-research.sh
+# or:
+docker compose --env-file .env exec -T -w /opt/agent-os/backend backend node scripts/test-places-parse-text.mjs
+docker compose --env-file .env exec -T -w /opt/agent-os/backend backend node scripts/vps-test-social-research.mjs
+# Tampines research-brief chat (fresh session + table assert):
+docker compose --env-file .env exec -T -w /opt/agent-os/backend backend node scripts/e2e-tampines-discover.mjs
+```
+
+Help **42**. Nearby Search FieldMask must not include `nextPageToken` (HTTP 400). After adding a Places key, start a **new chat**.
 
 ## Admin Tools Onboarding (VPS Docker)
 

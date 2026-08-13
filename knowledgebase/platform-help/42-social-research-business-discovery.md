@@ -60,7 +60,7 @@ The **Social Research MCP** (`mcp-social-research`) and matching content tools s
 | Facebook OAuth | CEO | Connectors → MCPs (`mcp-meta-graph`) for **owned** Pages only |
 | `FACEBOOK_APP_ID` / `FACEBOOK_APP_SECRET` | Ops / Admin | Completes Meta app token for Instagram/Facebook oEmbed. App ID must be set even if the secret is already stored on Connectors. |
 
-Enable **Places API (New)** on the Google Cloud key. Nearby Search uses lat/lng + radius + type; rating filters are applied after the API returns places. Indexed social search uses Brave `freshness` (past day/week/month), not a crawler.
+Enable **Places API (New)** on the Google Cloud key. Nearby Search uses lat/lng + radius + type; if Nearby is empty or errors, **Text Search** is used. Rating filters are applied after the API returns places. Indexed social search uses Brave `freshness` (past day/week/month), not a crawler.
 
 ## How to get Instagram posts reliably
 
@@ -127,7 +127,7 @@ Register **Social Research** MCP (`mcp-social-research`) is seeded as a platform
 
 ## Troubleshooting
 
-- Places errors: set `GOOGLE_PLACES_API_KEY` or vault **GOOGLE_PLACES_BYOK**; confirm Places API (New) is enabled. Platform-default Profiles use the vault key when the platform env key is unset. After adding a key, start a **new chat session** so the employee does not reuse an older “Places missing” memory.
+- Places errors: set `GOOGLE_PLACES_API_KEY` or vault **GOOGLE_PLACES_BYOK**; confirm Places API (New) is enabled. Platform-default Profiles use the vault key when the platform env key is unset (even if Profile is “platform decided”). After adding a key, start a **new chat session** so the employee does not reuse an older “Places missing” memory.
 - Instagram **429** (agents sometimes say 409 / “Instaconnect”): the **Instaloader sidecar is self-hosted** on this VPS. It is not a cloud Instaconnect. Anonymous calls still go to **instagram.com**, which rate-limits datacenter IPs. The tool skips those probes (`instaloader.skipped: no_session`) and hydrates `/p/` images instead. Add **`INSTAGRAM_SESSIONID`** for captions. Ops can set `INSTALOADER_ALLOW_ANONYMOUS=1` to force a probe.
 - Facebook Graph empty for a public brand: Graph only sees **your** connected Pages; Connect Facebook if you have not.
 - X empty `posts`: confirm Brave returns `/status/` URLs; then hydration fills text/media. Add **X_API_BYOK** only if you need the official timeline.

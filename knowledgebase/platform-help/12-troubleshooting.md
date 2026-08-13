@@ -216,10 +216,19 @@ Confirm **Job profile** is complete and pipeline/cron is enabled for your enviro
 4. Client Chrome not ready — Browser Session → opt in, attach tab, Mark ready.
 5. Opens blocked — check URL allow/deny lists.
 6. Desktop Local worker offline / jobs fail — Connectors shows Offline: run `Start-BrowserWorker.ps1`, check `.env` token + `AGENT_OS_BASE_URL`, firewall outbound HTTPS, optional IP whitelist match.
-7. Video Flavour 1 (`flow_browser`) needs worker **Online** and Google signed in **inside the worker Chromium** (not everyday Chrome). Change profile via `BROWSER_USER_DATA_DIR` then restart. Clips are **≤8s per scene**; assemble with **run video assembly** → status `video_generated` (help **41**).
+7. Video Flavour 1 (`flow_browser`) needs worker **Online** and Google signed in **inside the worker window**. Default channel is Chrome (`browser-profile-chrome\`). If Google blocks the window, stop the worker, run `Start-ChromeForGoogleLogin.ps1`, set `BROWSER_CDP_URL=http://127.0.0.1:9222`, then start the worker again. Clips are **≤8s per scene** and **serial** (one scene at a time); assemble with **run video assembly** → status `video_generated` (help **41**).
 8. Video Flavour 2 needs vault **`Replicate_BYOK`** (or platform `REPLICATE_API_TOKEN`) and Tools→Model for `generate_video` / `video_media_generate`.
-7. Lost sessions after restart — you need headed worker with `BROWSER_USER_DATA_DIR=browser-profile` (re-download package if old ephemeral build); log in again once.
-8. Full guide: [22-browser-session-and-recipes.md](./22-browser-session-and-recipes.md); desktop ops [BROWSER-SESSION-DESKTOP-LOCAL.md](../BROWSER-SESSION-DESKTOP-LOCAL.md).
+9. Lost sessions after restart — you need headed worker with `BROWSER_USER_DATA_DIR` (re-download package if old ephemeral build); log in again once.
+10. Full guide: [22-browser-session-and-recipes.md](./22-browser-session-and-recipes.md); desktop ops [BROWSER-SESSION-DESKTOP-LOCAL.md](../BROWSER-SESSION-DESKTOP-LOCAL.md).
+
+## Google Places / Business Discovery
+
+1. “Places not configured” while you already added **`GOOGLE_PLACES_BYOK`** — Platform default uses the vault key when `GOOGLE_PLACES_API_KEY` is unset. Start a **new chat** so the employee does not reuse old memory. Enable **Places API (New)** on the Google Cloud key. Help **42**.
+2. Research table invented from ClinicGeek / Brave — the employee must call **`business_discover`** in that turn. Do not permanently track unless you asked to Track or Act.
+
+## Agent Chat 502 / Unknown model
+
+1. Chat returns **502** with `Unknown model: openai/…` after an OpenClaw recreate — the live `openclaw.json` catalog was wiped. Ops: `bash deploy/scripts/vps-verify-openclaw-chat.sh` (restores catalog + re-runs configure). Help for CEOs: wait for ops; do not invent a new model on Profile.
 
 ## WhatsApp / Slack “Media failed” or no audio
 

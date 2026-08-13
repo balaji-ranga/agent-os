@@ -14,7 +14,7 @@ Pipeline:
 
 | Flavour | Provider | How |
 |---------|----------|-----|
-| **1** | `flow_browser` | **Desktop Local** browser worker + Google Flow; bind downloads with `video_media_ingest_clip` |
+| **1** | `flow_browser` | **Desktop Local** browser worker + Google Flow; **one scene at a time** (serial); bind downloads with `video_media_ingest_clip` |
 | **2** | `replicate_api` | Server Replicate `google/veo-*` via `video_media_generate` / vault **`Replicate_BYOK`** |
 
 S5 does **not** call any video model — it only stitches clip files from `video_jobs`.
@@ -37,11 +37,12 @@ Social Facebook/LinkedIn posting remains the separate **content_creator** pack.
 ### Flavour 1 (Google Flow) — Desktop Local sign-in
 
 1. **Connectors** → download **Browser Session package** (full or lite). See help **22**.
-2. Run `Start-BrowserWorker.ps1` with `BROWSER_HEADLESS=0`.
-3. In the **worker Chromium** window (not everyday Chrome), sign into Google / Flow. Cookies live in `BROWSER_USER_DATA_DIR` (default `browser-profile`).
+2. Run `Start-BrowserWorker.ps1` with `BROWSER_HEADLESS=0` (Chrome channel by default).
+3. In the **worker window**, sign into Google / Flow. Cookies live in `BROWSER_USER_DATA_DIR` (default `browser-profile-chrome`). If Google blocks the window, use `Start-ChromeForGoogleLogin.ps1` + `BROWSER_CDP_URL` (help **22**).
 4. To use a different profile folder, set `BROWSER_USER_DATA_DIR` in the package `.env` and restart the worker (new folder = sign in again).
 5. Confirm **Online** on Connectors, then ask Orchestrator to **run video media** with `provider=flow_browser`.
-6. If a clip downloads outside the tool path, Orchestrator maps it with **`video_media_ingest_clip`** (storyboard_id + scene_index + MEDIA/inbound path).
+6. Flow S4 is **serial**: one scene clip, then ingest/complete, then the next `scene_index`. The worker browse is interactive (project → prompt → generate on the current Flow UI). If Google blocks Playwright Chromium, use `Start-ChromeForGoogleLogin.ps1` + `BROWSER_CDP_URL` (help **22**).
+7. If a clip downloads outside the tool path, Orchestrator maps it with **`video_media_ingest_clip`** (storyboard_id + scene_index + MEDIA/inbound path).
 
 ## Chat phrases
 

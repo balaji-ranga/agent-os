@@ -5,6 +5,7 @@
  *   gateway.mode / port / http.endpoints.chatCompletions.enabled
  *   gateway.auth.token from OPENCLAW_GATEWAY_TOKEN when set
  *   tools / plugins / browser present (restored from openclaw.json.bak* if wiped)
+ *   models.providers catalog restored from bak when empty (empty catalog → Agent Chat 502 Unknown model)
  *   agents.defaults.model.primary when missing
  *
  * Run from openclaw or backend container, or host with OPENCLAW_CONFIG_PATH set.
