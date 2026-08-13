@@ -15,6 +15,7 @@ import {
   researchProfile,
   researchInstagram,
   researchFacebook,
+  researchX,
   geocodeLocality,
   nearbySearch,
   discoverBusinesses,
@@ -49,7 +50,7 @@ function redact(obj) {
   if (!obj || typeof obj !== 'object') return obj;
   const out = { ...obj };
   for (const k of Object.keys(out)) {
-    if (/key|token|secret|password|authorization/i.test(k)) out[k] = '[redacted]';
+    if (/key|token|secret|password|authorization|sessionid|session_id|cookie/i.test(k)) out[k] = '[redacted]';
   }
   return out;
 }
@@ -109,6 +110,18 @@ router.post(
   '/social-research-instagram',
   wrap('social_research_instagram', (owner, body) =>
     researchInstagram(owner, {
+      handle: body.handle || body.username,
+      brand: body.brand || body.query,
+      days: body.days,
+      limit: body.limit,
+    })
+  )
+);
+
+router.post(
+  '/social-research-x',
+  wrap('social_research_x', (owner, body) =>
+    researchX(owner, {
       handle: body.handle || body.username,
       brand: body.brand || body.query,
       days: body.days,

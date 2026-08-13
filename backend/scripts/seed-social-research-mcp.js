@@ -34,7 +34,7 @@ export async function seedSocialResearchMcp() {
   const authUser = { id: admin.id, role: admin.role };
   const url = getSocialResearchMcpUrl();
   const description =
-    'Social Research MCP (Places, Instaloader, indexed search, Meta Graph). Pass X-Ceo-User-Id. Same tools as social_research_* / business_discover content tools.';
+    'Social Research MCP (Places, Instaloader, X/Instagram post hydrate, Meta Graph). Pass X-Ceo-User-Id. Same tools as social_research_* / business_discover content tools.';
 
   let server = getMcpServer(SOCIAL_RESEARCH_MCP_ID, authUser);
   if (!server) {

@@ -4,6 +4,7 @@
  */
 import { researchInstagram } from './adapters/instagram.js';
 import { researchFacebook } from './adapters/facebook.js';
+import { researchX } from './adapters/x.js';
 import { searchSite, webSearch, daysToBraveFreshness } from './adapters/web-search.js';
 
 const PLATFORM_SITES = {
@@ -61,19 +62,9 @@ export async function researchProfile(ownerUserId, opts = {}) {
   }
   if (platforms.includes('x') || platforms.includes('twitter')) {
     jobs.push(
-      (async () => {
-        const a = await searchSite(ownerUserId, { query: brand, site: PLATFORM_SITES.x, count: 8, days });
-        const b = await searchSite(ownerUserId, {
-          query: brand,
-          site: PLATFORM_SITES.twitter,
-          count: 5,
-          days,
-        });
-        const results = [...(a.results || []), ...(b.results || [])].filter(
-          (r, i, arr) => r.url && arr.findIndex((x) => x.url === r.url) === i
-        );
-        out.x = { ok: results.length > 0, adapter: 'web_search', results };
-      })()
+      researchX(ownerUserId, { handle, brand, days }).then((r) => {
+        out.x = r;
+      })
     );
   }
   if (platforms.includes('linkedin')) {
@@ -92,9 +83,9 @@ export async function researchProfile(ownerUserId, opts = {}) {
   }
 
   const any =
-    (out.instagram && (out.instagram.ok || out.instagram.indexed_results?.length)) ||
+    (out.instagram && (out.instagram.ok || out.instagram.posts?.length || out.instagram.indexed_results?.length)) ||
     (out.facebook && out.facebook.ok) ||
-    (out.x && out.x.ok) ||
+    (out.x && (out.x.ok || out.x.posts?.length)) ||
     (out.linkedin && out.linkedin.ok);
   out.ok = Boolean(any);
   if (!out.ok) {

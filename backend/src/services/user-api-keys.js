@@ -13,6 +13,10 @@ export const REPLICATE_BYOK_KEY_NAME = 'Replicate_BYOK';
 export const BRAVE_SEARCH_BYOK_KEY_NAME = 'BRAVE_SEARCH_BYOK';
 /** Vault name for Google Places API (New) when Profile LLM is not Platform default. */
 export const GOOGLE_PLACES_BYOK_KEY_NAME = 'GOOGLE_PLACES_BYOK';
+/** Vault name for X API v2 bearer when Profile LLM is not Platform default. */
+export const X_API_BYOK_KEY_NAME = 'X_API_BYOK';
+/** Per-CEO Instagram sessionid cookie for Instaloader (not a shared platform login). */
+export const INSTAGRAM_SESSIONID_KEY_NAME = 'INSTAGRAM_SESSIONID';
 /** Vault name used by avatar / workflow ElevenLabs TTS templates. */
 export const ELEVENLABS_BYOK_KEY_NAME = 'elevenlabs-key';
 /** Stored secret for seeded slots until the CEO pastes a real key. Never returned as usable. */
@@ -52,6 +56,14 @@ export function allByokVaultSlots() {
     {
       key_name: GOOGLE_PLACES_BYOK_KEY_NAME,
       purpose: 'google_places_nearby / business_discover',
+    },
+    {
+      key_name: X_API_BYOK_KEY_NAME,
+      purpose: 'social_research_x official timeline (X API v2)',
+    },
+    {
+      key_name: INSTAGRAM_SESSIONID_KEY_NAME,
+      purpose: 'social_research_instagram Instaloader session cookie',
     },
     {
       key_name: ELEVENLABS_BYOK_KEY_NAME,

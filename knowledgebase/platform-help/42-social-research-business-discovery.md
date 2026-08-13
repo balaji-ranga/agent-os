@@ -23,15 +23,27 @@ They are **not** SocialAssistant (content posting). Research and discovery only.
 
 Flolah listings are in-app only (not public internet A2A). See [09-a2a-agent-exchange.md](./09-a2a-agent-exchange.md).
 
+## Accurate posts vs search hits
+
+Tool JSON has two lists. The employee must use **`posts[]`** when you ask for posts, captions, or images.
+
+| Field | Meaning |
+|-------|---------|
+| **`posts[]`** | Hydrated posts: permalink, text/caption, timestamp when known, `image_url` when known |
+| **`indexed_results`** | Brave search hits (page titles/snippets). **Not** a post feed |
+
+Anonymous Instaloader and Meta Graph **cannot** read Nike’s Instagram or Facebook from a VPS IP. That is why older chats fell back to web search and then invented a summary from snippets.
+
 ## Social research sources (adapters)
 
-The **Social Research MCP** (`mcp-social-research`) and matching content tools share one adapter layer. Swap Instaloader or Places without changing the employee, workflows, or UI.
+The **Social Research MCP** (`mcp-social-research`) and matching content tools share one adapter layer.
 
 | Platform | Adapter |
 |----------|---------|
-| LinkedIn, X, public web | Indexed **Brave Search** (optional Browser Session if search is empty) |
-| Instagram | Public **Instaloader** first; if blocked/empty, Brave/browser search. No Instagram login. |
-| Facebook | **Meta Graph** when you **Connect** Facebook on **Connectors → MCPs**; otherwise indexed search |
+| Instagram | **Instaloader** when vault **`INSTAGRAM_SESSIONID`** (browser `sessionid` cookie) is set. If blocked: hydrate `instagram.com/p/{shortcode}/` (real CDN image; caption may be a search hint). Graph cannot query arbitrary brand IG accounts. |
+| X | Official **X API v2** when `X_BEARER_TOKEN` (platform) or vault **`X_API_BYOK`** is set. Otherwise hydrate `x.com/.../status/{id}` URLs (tweet text + media). Free X API often cannot read other users’ timelines. |
+| Facebook | **Meta Graph** after **Connect** on **Connectors → MCPs** — **your Pages only** (`/me/accounts`). Public brands (Nike) are not in that list. Indexed search is separate. |
+| LinkedIn / public web | Indexed **Brave Search** (optional Browser Session if search is empty). No LinkedIn crawler. |
 | Google Business / locality | Official **Places API (New)** Nearby / Text Search |
 
 ## Keys
@@ -42,9 +54,40 @@ The **Social Research MCP** (`mcp-social-research`) and matching content tools s
 | **`BRAVE_SEARCH_BYOK`** | CEO vault | Any other Profile LLM |
 | `GOOGLE_PLACES_API_KEY` | Ops `.env` | Platform default Profile — Places |
 | **`GOOGLE_PLACES_BYOK`** | CEO vault | Any other Profile LLM |
-| Facebook OAuth | CEO | Connectors → MCPs (`mcp-meta-graph`) for Graph-backed Facebook research |
+| **`INSTAGRAM_SESSIONID`** | CEO vault (preferred) | Instaloader captions + timestamps. Cookie from instagram.com while logged in (Application → Cookies → `sessionid`). Optional platform `INSTAGRAM_SESSIONID` is a shared fallback (ban risk — prefer per-CEO vault). |
+| **`X_API_BYOK`** | CEO vault | Official X timelines when Profile is not Platform default |
+| `X_BEARER_TOKEN` | Ops `.env` | Platform default Profile — official X API v2 |
+| Facebook OAuth | CEO | Connectors → MCPs (`mcp-meta-graph`) for **owned** Pages only |
+| `FACEBOOK_APP_ID` / `FACEBOOK_APP_SECRET` | Ops / Admin | Completes Meta app token for Instagram/Facebook oEmbed. App ID must be set even if the secret is already stored on Connectors. |
 
 Enable **Places API (New)** on the Google Cloud key. Nearby Search uses lat/lng + radius + type; rating filters are applied after the API returns places. Indexed social search uses Brave `freshness` (past day/week/month), not a crawler.
+
+## How to get Instagram posts reliably
+
+1. Log into Instagram in a browser.
+2. Copy the `sessionid` cookie for `.instagram.com`.
+3. **Settings → API Keys** → add **`INSTAGRAM_SESSIONID`** (or Edit the seeded slot).
+4. Ask Social Researcher again. `adapter` should be `instaloader` with captions and timestamps.
+
+Without the cookie, the tool still returns **real post images** (`image_url` from Instagram’s public media redirect) plus permalinks. Captions may be search hints (`caption_source: search_hint`) — the employee should say that.
+
+Do **not** paste your Instagram password. Rotate the cookie if Instaloader starts returning 401/429.
+
+## How to get X posts reliably
+
+No extra key is required for **hydrated tweets**: Brave finds `x.com/{handle}/status/{id}` URLs; the adapter fills `posts[]` with text, time, and media.
+
+For an official user timeline (and when hydration misses):
+
+1. Create an X developer bearer token.
+2. Platform default Profile: ops `X_BEARER_TOKEN`. Other Profiles: vault **`X_API_BYOK`**.
+3. Free X API tiers often **cannot** read other accounts’ tweets — the tool then keeps using hydration.
+
+## Facebook
+
+1. Ops/admin: Meta App ID + secret (help [31](./31-mcp-connectors-oauth.md)).
+2. You: **Connectors → MCPs → Connect** Facebook.
+3. Graph returns **your** Pages. Asking for Nike’s Page will stay on indexed search unless Nike is in `/me/accounts`.
 
 ## Business Discovery + CRM
 
@@ -65,6 +108,8 @@ Register **Social Research** MCP (`mcp-social-research`) is seeded as a platform
 ## Troubleshooting
 
 - Places errors: set `GOOGLE_PLACES_API_KEY` or vault **GOOGLE_PLACES_BYOK**; confirm Places API (New) is enabled.
-- Instagram empty: Instaloader is often rate-limited; the employee should still summarise indexed search hits.
-- Facebook Graph empty for a public brand: Graph only sees **your** connected Pages; public brands use indexed search.
+- Instagram `429` / empty Instaloader: expected without **`INSTAGRAM_SESSIONID`**. Check `posts[].image_url` for hydrated images; add the cookie for captions.
+- Facebook Graph empty for a public brand: Graph only sees **your** connected Pages; Connect Facebook if you have not.
+- X empty `posts`: confirm Brave returns `/status/` URLs; then hydration fills text/media. Add **X_API_BYOK** only if you need the official timeline.
+- Meta oEmbed unused: `FACEBOOK_APP_ID` missing in `.env` even if App secret is stored on Connectors.
 - Listings missing on AgentExchange: ops seed `node scripts/seed-social-research-agents.js` (publisher CEO from `FLOLAH_EXCHANGE_PUBLISHER_USER_ID` or the first enabled CEO).

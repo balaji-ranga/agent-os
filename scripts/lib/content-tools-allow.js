@@ -75,6 +75,7 @@ export const REQUIRED_GLOBAL_CONTENT_TOOLS = [
   'browser',
   'social_research_search',
   'social_research_instagram',
+  'social_research_x',
   'social_research_facebook',
   'social_research_profile',
   'google_places_geocode',

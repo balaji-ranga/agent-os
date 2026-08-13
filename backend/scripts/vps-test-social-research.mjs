@@ -69,6 +69,7 @@ ok(seeded?.ok, 'exchange seed', { owner: seeded?.owner, n: seeded?.published?.le
 const toolNames = [
   'social_research_search',
   'social_research_instagram',
+  'social_research_x',
   'social_research_facebook',
   'social_research_profile',
   'google_places_geocode',
@@ -91,7 +92,7 @@ const srGrants = new Set(
 const bdGrants = new Set(
   db.prepare('SELECT tool_name FROM agent_tool_grants WHERE agent_id = ?').all('businessdiscovery').map((r) => r.tool_name)
 );
-for (const t of ['social_research_search', 'social_research_instagram', 'social_research_facebook', 'social_research_profile', 'brave_web_search']) {
+for (const t of ['social_research_search', 'social_research_instagram', 'social_research_x', 'social_research_facebook', 'social_research_profile', 'brave_web_search']) {
   ok(srGrants.has(t), `socialresearcher grant ${t}`);
 }
 ok(!srGrants.has('business_discover'), 'socialresearcher does not get business_discover');
@@ -127,6 +128,7 @@ if (existsSync(ocPath)) {
     const allow = JSON.parse(readFileSync(allowPath, 'utf8'));
     const list = allow[srRuntime] || [];
     ok(list.includes('social_research_profile'), 'allowlist social_research_profile', srRuntime);
+    ok(list.includes('social_research_x'), 'allowlist social_research_x', srRuntime);
   }
 } else {
   console.log('SKIP openclaw.json (not mounted in this process)');
@@ -139,6 +141,7 @@ ok(existsSync(soulBd) || existsSync('/opt/agent-os/openclaw-workspace-templates/
 if (existsSync(soulSr)) {
   const text = readFileSync(soulSr, 'utf8');
   ok(/social_research_profile/i.test(text), 'publisher SOUL mentions social_research_profile');
+  ok(/social_research_x/i.test(text) && /posts\[\]/i.test(text), 'publisher SOUL distinguishes posts[] vs search');
 }
 
 try {
@@ -212,18 +215,49 @@ if (braveConfigured) {
     { handle: 'nike', days: 30, limit: 8 },
     toolHeaders('socialresearcher')
   );
+  const igPosts = ig.data.posts || [];
   const igOk =
     ig.status === 200 &&
     ig.data.ok &&
-    (ig.data.adapter === 'instaloader' ? (ig.data.posts?.length || ig.data.followers != null) : (ig.data.indexed_results || []).length > 0);
-  ok(igOk, 'instagram nike (instaloader or search fallback)', {
+    (ig.data.adapter === 'instaloader'
+      ? igPosts.length > 0 || ig.data.followers != null
+      : igPosts.length > 0);
+  ok(igOk, 'instagram nike hydrated posts (not search-only)', {
     status: ig.status,
     adapter: ig.data.adapter,
     fallback: ig.data.fallback,
-    posts: ig.data.posts?.length,
+    posts: igPosts.length,
+    with_image: igPosts.filter((p) => p.image_url).length,
     indexed: ig.data.indexed_results?.length,
     instaloader_error: ig.data.instaloader_error,
+    next_step: ig.data.next_step,
   });
+  ok(
+    igPosts.every((p) => p.url && /instagram\.com/i.test(p.url)),
+    'instagram posts have permalinks',
+    igPosts.slice(0, 2).map((p) => p.url)
+  );
+
+  const xTool = await api(
+    'POST',
+    '/api/tools/social-research-x',
+    { handle: 'Nike', days: 30, limit: 8 },
+    toolHeaders('socialresearcher')
+  );
+  const xPosts = xTool.data.posts || [];
+  ok(
+    xTool.status === 200 && xTool.data.ok && xPosts.length > 0,
+    'x nike hydrated tweets (not search-only)',
+    {
+      status: xTool.status,
+      adapter: xTool.data.adapter,
+      posts: xPosts.length,
+      with_text: xPosts.filter((p) => p.text).length,
+      sample: xPosts.slice(0, 2).map((p) => ({ url: p.url, text: String(p.text || '').slice(0, 80) })),
+      indexed: xTool.data.indexed_results?.length,
+      x_api_error: xTool.data.x_api_error,
+    }
+  );
 
   const fb = await api(
     'POST',
@@ -235,7 +269,10 @@ if (braveConfigured) {
     adapter: fb.data.adapter,
     meta_connected: fb.data.meta_connected,
     indexed: fb.data.indexed_results?.length,
+    posts: fb.data.posts?.length,
+    reason: fb.data.reason,
   });
+  ok(fb.data.meta_connected === false || Array.isArray(fb.data.pages), 'facebook reports meta_connected');
 
   const profile = await api(
     'POST',
@@ -246,13 +283,14 @@ if (braveConfigured) {
   const profileOk =
     profile.status === 200 &&
     profile.data.ok &&
-    (profile.data.instagram?.ok || profile.data.instagram?.indexed_results?.length || profile.data.x?.ok);
-  ok(profileOk, 'profile Nike instagram+x 30d', {
+    ((profile.data.instagram?.posts || []).length > 0 || (profile.data.x?.posts || []).length > 0);
+  ok(profileOk, 'profile Nike instagram+x hydrated posts', {
     status: profile.status,
     ok: profile.data.ok,
     ig_adapter: profile.data.instagram?.adapter,
-    x_n: profile.data.x?.results?.length,
-    ig_n: profile.data.instagram?.indexed_results?.length || profile.data.instagram?.posts?.length,
+    ig_posts: profile.data.instagram?.posts?.length,
+    x_adapter: profile.data.x?.adapter,
+    x_posts: profile.data.x?.posts?.length,
   });
 }
 
@@ -382,7 +420,7 @@ if (toolsKey) {
   });
   const listed = await mcpList.json().catch(() => ({}));
   const names = (listed?.result?.tools || []).map((t) => t.name);
-  ok(mcpList.ok && names.includes('social_research_profile') && names.includes('business_discover'), 'MCP tools/list', names);
+  ok(mcpList.ok && names.includes('social_research_profile') && names.includes('social_research_x') && names.includes('business_discover'), 'MCP tools/list', names);
   if (braveConfigured) {
     const mcpCall = await fetch(`${mcpUrl}/mcp`, {
       method: 'POST',

@@ -10,14 +10,19 @@ import {
   REPLICATE_BYOK_KEY_NAME,
   BRAVE_SEARCH_BYOK_KEY_NAME,
   GOOGLE_PLACES_BYOK_KEY_NAME,
+  X_API_BYOK_KEY_NAME,
+  INSTAGRAM_SESSIONID_KEY_NAME,
   tryResolveUserApiKey,
 } from '../services/user-api-keys.js';
 import { getToolModelOverride } from '../services/tool-model-overrides.js';
+import { resolveOauthConfig, resolveOauthClientCredentials } from '../services/mcp-oauth.js';
 export {
   PLATFORM_BYOK_KEY_NAME,
   REPLICATE_BYOK_KEY_NAME,
   BRAVE_SEARCH_BYOK_KEY_NAME,
   GOOGLE_PLACES_BYOK_KEY_NAME,
+  X_API_BYOK_KEY_NAME,
+  INSTAGRAM_SESSIONID_KEY_NAME,
 };
 
 const BRAVE_WEB_SEARCH_URL = 'https://api.search.brave.com/res/v1/web/search';
@@ -693,4 +698,117 @@ export function getGooglePlacesConfig(ownerUserId = null) {
     error: null,
     error_code: null,
   };
+}
+
+/**
+ * X API v2 bearer (same Profile rule as Brave Search).
+ *
+ * - Platform default Profile (or no owner): platform `X_BEARER_TOKEN` / `TWITTER_BEARER_TOKEN`.
+ * - Any other Profile: vault **`X_API_BYOK` only**.
+ */
+export function getXApiConfig(ownerUserId = null) {
+  let provider = 'platform_decided';
+  if (ownerUserId) {
+    try {
+      const llm = getLlmConfig(ownerUserId);
+      provider = String(llm?.provider || 'platform_decided').trim() || 'platform_decided';
+    } catch {
+      provider = 'platform_decided';
+    }
+  }
+
+  const usePlatformKey = !ownerUserId || provider === 'platform_decided';
+  const apiUrl = 'https://api.twitter.com/2';
+
+  if (usePlatformKey) {
+    const apiKey = String(process.env.X_BEARER_TOKEN || process.env.TWITTER_BEARER_TOKEN || '').trim();
+    return {
+      apiUrl,
+      apiKey,
+      using_byok: false,
+      provider,
+      source: 'platform_env',
+      x_api_byok_key_name: X_API_BYOK_KEY_NAME,
+      error: apiKey
+        ? null
+        : 'X API not configured. Indexed tweet URLs are still hydrated without a key. For official timelines set platform X_BEARER_TOKEN, or switch Profile LLM and add vault X_API_BYOK.',
+      error_code: apiKey ? null : 'x_api_platform_key_missing',
+    };
+  }
+
+  const vault = tryResolveUserApiKey(ownerUserId, X_API_BYOK_KEY_NAME);
+  const byokKey = String(vault?.value || '').trim();
+  if (!byokKey) {
+    return {
+      apiUrl,
+      apiKey: '',
+      using_byok: true,
+      provider,
+      source: 'user_byok_vault',
+      x_api_byok_key_name: X_API_BYOK_KEY_NAME,
+      error: `Create API key "${X_API_BYOK_KEY_NAME}" under Settings → API Keys for X API v2, or switch Profile LLM to Platform default.`,
+      error_code: 'x_api_byok_required',
+    };
+  }
+  return {
+    apiUrl,
+    apiKey: byokKey,
+    using_byok: true,
+    provider,
+    source: 'user_byok_vault',
+    x_api_byok_key_name: X_API_BYOK_KEY_NAME,
+    error: null,
+    error_code: null,
+  };
+}
+
+/**
+ * Instagram session cookie for Instaloader. Always prefer the CEO vault
+ * (personal login cookie) over a shared platform env value.
+ */
+export function getInstagramSessionConfig(ownerUserId = null) {
+  if (ownerUserId) {
+    const vault = tryResolveUserApiKey(ownerUserId, INSTAGRAM_SESSIONID_KEY_NAME);
+    const vaultVal = String(vault?.value || '').trim();
+    if (vaultVal) {
+      return {
+        sessionid: vaultVal,
+        configured: true,
+        source: 'user_vault',
+        instagram_session_key_name: INSTAGRAM_SESSIONID_KEY_NAME,
+        error: null,
+      };
+    }
+  }
+  const envVal = String(process.env.INSTAGRAM_SESSIONID || '').trim();
+  if (envVal) {
+    return {
+      sessionid: envVal,
+      configured: true,
+      source: 'platform_env',
+      instagram_session_key_name: INSTAGRAM_SESSIONID_KEY_NAME,
+      error: null,
+    };
+  }
+  return {
+    sessionid: '',
+    configured: false,
+    source: null,
+    instagram_session_key_name: INSTAGRAM_SESSIONID_KEY_NAME,
+    error:
+      'Add vault INSTAGRAM_SESSIONID (instagram.com sessionid cookie) under Settings → API Keys for Instaloader captions.',
+  };
+}
+
+/** Meta app token `appId|appSecret` for oEmbed. Empty when App ID/secret are incomplete. Never log the value. */
+export function getMetaAppAccessToken(ownerUserId = null) {
+  try {
+    const cfg = resolveOauthConfig('mcp-meta-graph', ownerUserId);
+    if (!cfg) return '';
+    const creds = resolveOauthClientCredentials(cfg);
+    if (!creds.clientId || !creds.clientSecret) return '';
+    return `${creds.clientId}|${creds.clientSecret}`;
+  } catch {
+    return '';
+  }
 }

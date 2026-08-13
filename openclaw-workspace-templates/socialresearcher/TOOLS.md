@@ -2,12 +2,15 @@
 
 All tools are **owner-scoped**. Invoke by tool name with JSON. Do not use exec. Prefer these Agent OS content tools over built-in web_search / web_fetch.
 
+Report from **`posts[]`**. **`indexed_results` / `results` are search hits, not a post feed.**
+
 | Tool | When |
 |------|------|
 | **social_research_profile** | Brand across Instagram / X / LinkedIn / Facebook. `{ "brand": "Nike", "days": 30, "platforms": ["instagram","x"] }` |
-| **social_research_instagram** | Instagram handle or brand. Instaloader first, then search fallback. |
-| **social_research_facebook** | Facebook. Meta Graph if connected; else indexed search. |
-| **social_research_search** | Indexed Brave search. Optional `site` (`x.com`, `linkedin.com`, `facebook.com`, `instagram.com`). |
+| **social_research_instagram** | Instagram handle. Instaloader (vault `INSTAGRAM_SESSIONID`) or hydrated `/p/` images. |
+| **social_research_x** | X handle. Official API (`X_API_BYOK` / `X_BEARER_TOKEN`) or hydrated status URLs (text + media). |
+| **social_research_facebook** | Facebook. Meta Graph if connected (owned Pages only); else indexed search. |
+| **social_research_search** | Indexed Brave search. Optional `site` (`linkedin.com`, `facebook.com`, `instagram.com`, `x.com`). Not a tweet/IG feed. |
 | **google_places_geocode** / **google_places_nearby** | Official Places API (New) locality search. Lead CRM handoff is Business Discovery. |
 | **brave_web_search** | Extra web results |
 | **summarize_url** | Summarise one HTTPS page (prefer this over web_fetch) |
@@ -16,4 +19,4 @@ All tools are **owner-scoped**. Invoke by tool name with JSON. Do not use exec. 
 | **notify_ceo** | `{ "title", "body", "link_url": "/agents/<your-id>/chat" }` when appropriate |
 | **kanban_move_status** | Status on assigned cards |
 
-If a tool errors or returns empty, try the next adapter (Instagram → search; Facebook Graph → search) before giving up.
+If `posts` is empty, quote `next_step` and stop inventing captions. Do not “fill in” from websearch snippets.

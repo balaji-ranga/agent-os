@@ -1,9 +1,12 @@
 /**
  * Facebook adapter: Meta Graph when the CEO has Connectors → MCPs OAuth;
- * otherwise publicly indexed web search (not a crawler).
+ * otherwise indexed search plus oEmbed hydration when a Meta app token exists.
+ * Graph only returns Pages the CEO manages — not arbitrary public brands.
  */
 import { resolveMcpOauthAccessToken } from '../../mcp-oauth.js';
+import { getMetaAppAccessToken } from '../../../config/tools.js';
 import { searchSite, webSearch } from './web-search.js';
+import { extractFacebookPostUrls, hydrateFacebookOembed, mapLimit } from './post-hydrate.js';
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
 const META_SERVER_ID = 'mcp-meta-graph';
@@ -71,7 +74,7 @@ export async function researchFacebook(ownerUserId, { brand, days = 30, limit = 
       for (const page of matched.slice(0, 3)) {
         try {
           const postsRes = await graphGet(token, `/${page.id}/posts`, {
-            fields: 'id,message,created_time,permalink_url',
+            fields: 'id,message,created_time,permalink_url,full_picture',
             limit: cap,
           });
           const posts = Array.isArray(postsRes?.data) ? postsRes.data : [];
@@ -86,6 +89,9 @@ export async function researchFacebook(ownerUserId, { brand, days = 30, limit = 
               message: String(p.message || '').slice(0, 500),
               created_time: p.created_time || '',
               permalink_url: p.permalink_url || '',
+              image_url: p.full_picture || '',
+              hydrated: true,
+              adapter: 'meta_graph',
             });
           }
         } catch (e) {
@@ -94,6 +100,11 @@ export async function researchFacebook(ownerUserId, { brand, days = 30, limit = 
       }
       out.adapter = 'meta_graph';
       out.ok = out.pages.length > 0 || out.posts.length > 0;
+      if (label && pages.length && !matched.length) {
+        out.reason = 'graph_no_matching_owned_page';
+        out.next_step =
+          'Facebook Graph only lists Pages connected to this CEO’s Meta login (/me/accounts). Public brands such as Nike are not available unless that Page is in the connected account.';
+      }
       console.info(
         '[social-research] facebook meta pages=%s posts=%s brand_len=%s',
         out.pages.length,
@@ -104,6 +115,10 @@ export async function researchFacebook(ownerUserId, { brand, days = 30, limit = 
       console.warn('[social-research] facebook meta graph failed: %s', e.message || e);
       out.meta_error = String(e.message || e).slice(0, 400);
     }
+  } else {
+    out.reason = 'meta_not_connected';
+    out.next_step =
+      'Connect Facebook on Connectors → MCPs. Graph still only returns Pages you manage — not arbitrary public brands. Indexed search hits are not Page posts.';
   }
 
   if (label) {
@@ -120,6 +135,19 @@ export async function researchFacebook(ownerUserId, { brand, days = 30, limit = 
     if (out.indexed_results.length) out.ok = true;
     if (!token) out.adapter = 'web_search';
     else if (!out.posts.length) out.adapter = 'meta_graph+web_search';
+  }
+
+  if (!out.posts.length) {
+    const appToken = getMetaAppAccessToken(ownerUserId);
+    const urls = extractFacebookPostUrls(out.indexed_results.map((r) => r.url)).slice(0, 8);
+    if (appToken && urls.length) {
+      const hydrated = (await mapLimit(urls, 3, (u) => hydrateFacebookOembed(u, appToken))).filter(Boolean);
+      if (hydrated.length) {
+        out.posts = hydrated;
+        out.adapter = 'facebook_oembed';
+        out.ok = true;
+      }
+    }
   }
 
   if (!token && !label) {

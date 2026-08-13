@@ -19,8 +19,17 @@ export const SOCIAL_RESEARCH_TOOLS = [
     endpoint: '/api/tools/social-research-instagram',
     method: 'POST',
     purpose:
-      'API tool: Instagram public research. Tries Instaloader (anonymous); falls back to indexed web search. Pass handle or brand, optional days (default 30). No Instagram login. Do not use exec.',
-    model_used: 'Instaloader / Brave Search',
+      'API tool: Instagram public research. Instaloader with optional vault INSTAGRAM_SESSIONID; otherwise hydrates /p/{shortcode}/ URLs (real image CDN + caption hint). Indexed hits stay in indexed_results and are not a post feed. Pass handle or brand, optional days (default 30). Do not use exec.',
+    model_used: 'Instaloader / Instagram media / Brave Search',
+  },
+  {
+    name: 'social_research_x',
+    display_name: 'Social research X',
+    endpoint: '/api/tools/social-research-x',
+    method: 'POST',
+    purpose:
+      'API tool: X/Twitter research. Official API v2 when X_BEARER_TOKEN or vault X_API_BYOK is set; otherwise hydrates status URLs (tweet text + media). Indexed hits stay in indexed_results. Pass handle or brand, optional days. Do not use exec.',
+    model_used: 'X API / fxtwitter / Brave Search',
   },
   {
     name: 'social_research_facebook',
@@ -28,7 +37,7 @@ export const SOCIAL_RESEARCH_TOOLS = [
     endpoint: '/api/tools/social-research-facebook',
     method: 'POST',
     purpose:
-      'API tool: Facebook research. Uses Meta Graph when the CEO has Connectors → MCPs Facebook connected; otherwise public indexed search. Pass brand, optional days. Do not use exec.',
+      'API tool: Facebook research. Uses Meta Graph when the CEO has Connectors → MCPs Facebook connected (owned Pages only); otherwise public indexed search. Pass brand, optional days. Indexed hits are not Page posts. Do not use exec.',
     model_used: 'Meta Graph / Brave Search',
   },
   {
@@ -37,7 +46,7 @@ export const SOCIAL_RESEARCH_TOOLS = [
     endpoint: '/api/tools/social-research-profile',
     method: 'POST',
     purpose:
-      'API tool: analyse a brand across Instagram, X, LinkedIn, Facebook for a time window. Pass brand (required), optional handle, platforms[], days (default 30). Do not use exec.',
+      'API tool: analyse a brand across Instagram, X, LinkedIn, Facebook for a time window. Pass brand (required), optional handle, platforms[], days (default 30). Use posts[] for actual posts; indexed_results are search hits only. Do not use exec.',
     model_used: 'Social Research adapters',
   },
   {

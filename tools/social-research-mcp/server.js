@@ -20,6 +20,7 @@ function jsonRpcErr(id, code, message) {
 const TOOL_ENDPOINT = {
   social_research_search: '/api/tools/social-research-search',
   social_research_instagram: '/api/tools/social-research-instagram',
+  social_research_x: '/api/tools/social-research-x',
   social_research_facebook: '/api/tools/social-research-facebook',
   social_research_profile: '/api/tools/social-research-profile',
   google_places_geocode: '/api/tools/google-places-geocode',
@@ -44,7 +45,21 @@ const TOOLS = [
   },
   {
     name: 'social_research_instagram',
-    description: 'Instagram public research (Instaloader, then web search fallback).',
+    description:
+      'Instagram research. Instaloader (optional INSTAGRAM_SESSIONID); else hydrates post images from /p/{shortcode}/. Use posts[] not indexed_results.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        handle: { type: 'string' },
+        brand: { type: 'string' },
+        days: { type: 'number' },
+      },
+    },
+  },
+  {
+    name: 'social_research_x',
+    description:
+      'X/Twitter research. Official API when configured; else hydrates tweet text+media from status URLs. Use posts[] not indexed_results.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -56,7 +71,7 @@ const TOOLS = [
   },
   {
     name: 'social_research_facebook',
-    description: 'Facebook research via Meta Graph OAuth when connected, else indexed search.',
+    description: 'Facebook research via Meta Graph OAuth when connected (owned Pages only); else indexed search (not a post feed).',
     inputSchema: {
       type: 'object',
       properties: { brand: { type: 'string' }, days: { type: 'number' } },
@@ -175,7 +190,7 @@ async function handleMcp(body, req) {
       capabilities: { tools: {} },
       serverInfo: { name: 'flolah-social-research-mcp', version: '1.0.0' },
       instructions:
-        'Social Research adapters (web search, Instaloader, Meta Graph, Google Places). Pass X-Ceo-User-Id. Swap adapters without changing agents or UI.',
+        'Social Research adapters (Instaloader, X hydrate, Meta Graph, Google Places). Pass X-Ceo-User-Id. Use posts[] for actual posts; indexed_results are search hits only.',
     });
   }
   if (method === 'notifications/initialized') return jsonRpcOk(id, {});

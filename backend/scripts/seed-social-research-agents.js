@@ -57,7 +57,7 @@ const DEFS = [
     template_base_id: 'socialresearcher',
     tools: SOCIAL_TOOLS,
     description:
-      'Analyse public Instagram, X, LinkedIn and Facebook via indexed search, Instaloader, and Meta Graph when connected. Example: “Analyse Nike’s Instagram and X for the last 30 days.”',
+      'Analyse public Instagram, X, LinkedIn and Facebook. Instagram/X return hydrated posts[] (images/text); Meta Graph is owned Pages only. Example: “Analyse Nike’s Instagram and X for the last 30 days.”',
   },
   {
     id: 'businessdiscovery',
