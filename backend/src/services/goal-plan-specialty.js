@@ -2,7 +2,7 @@
  * Specialty + multi-intent goal plan expansion and async specialization steps.
  * Used by agent-goal-run (specialty_task) and scheduled-goals draft plans.
  */
-import { readCooAgentsMdForCeo } from './org-context.js';
+import { readCooAgentsMdForCeo, getAgentsUnderCooForCeo } from './org-context.js';
 import { classifyIntentAndAllocate, parseAgentsFromAgentsMd } from './intent-classifier.js';
 import { isCooNativeWork, isRefuseDelegationRequest } from './coo-specialty-delegation.js';
 import { listChatTriggerableWorkflows, listPublishedWorkflows } from './agent-workflow-chat-tools.js';
@@ -84,6 +84,59 @@ export function shouldSkipAllSpecialtyAsCooNative(
   if (residualIsLetteredOrNumbered(residual)) return false;
   if (residualNamesRosterAgent(residual, agentsMd)) return false;
   return true;
+}
+
+/** Merge AGENTS.md table + live under-COO roster (Exchange hires may be missing from MD). */
+export function rosterAgentsForGoalPlan(agentsMd, ownerUserId = null) {
+  const map = new Map();
+  for (const a of parseAgentsFromAgentsMd(agentsMd || '')) {
+    const id = String(a.id || '').toLowerCase();
+    if (id) map.set(id, { id, name: a.name || id, role: a.role || '' });
+  }
+  if (ownerUserId) {
+    try {
+      for (const a of getAgentsUnderCooForCeo(ownerUserId) || []) {
+        const id = String(a.id || '').toLowerCase();
+        if (!id || a.is_coo) continue;
+        if (map.has(id)) continue;
+        map.set(id, {
+          id,
+          name: a.name || id,
+          role: [a.department, a.role].filter(Boolean).join(' — ') || '',
+        });
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return [...map.values()].filter((a) => {
+    const id = String(a.id || '').toLowerCase();
+    return id && id !== 'balserve' && !/coo|chief operating/i.test(`${a.name || ''} ${a.role || ''}`);
+  });
+}
+
+/**
+ * Longest roster name/id appearing in text (lettered "A) Business Discovery …").
+ */
+export function matchNamedRosterAgentInText(text, roster) {
+  const lower = String(text || '').toLowerCase();
+  if (!lower.trim()) return null;
+  let best = null;
+  let bestLen = 0;
+  for (const a of roster || []) {
+    const id = String(a.id || '').trim().toLowerCase();
+    const name = String(a.name || '').trim().toLowerCase();
+    const compact = name.replace(/\s+/g, '');
+    for (const tok of [name, id, compact]) {
+      if (!tok || tok.length < 4) continue;
+      if (!lower.includes(tok)) continue;
+      if (tok.length > bestLen) {
+        best = a;
+        bestLen = tok.length;
+      }
+    }
+  }
+  return best;
 }
 
 /**
@@ -274,7 +327,32 @@ export async function classifySpecialtyIntentsForPlan(ownerUserId, residualText,
     }
   }
 
+  const roster = rosterAgentsForGoalPlan(md, ownerUserId);
+  if (letteredOrNumbered && chunks.length >= 1) {
+    for (const chunk of chunks) {
+      const hit = matchNamedRosterAgentInText(chunk, roster);
+      if (!hit?.id) continue;
+      const id = String(hit.id).toLowerCase();
+      if (byAgent.has(id)) continue;
+      if (byAgent.size >= max) break;
+      byAgent.set(id, chunk);
+      console.info('[goal-plan-specialty] lettered named-agent fallback', {
+        agent: id,
+        chunk: String(chunk).slice(0, 80),
+      });
+    }
+  } else if (!byAgent.size) {
+    const hit = matchNamedRosterAgentInText(residual, roster);
+    if (hit?.id) {
+      byAgent.set(String(hit.id).toLowerCase(), residual);
+      console.info('[goal-plan-specialty] named-agent fallback', { agent: hit.id });
+    }
+  }
+
   const purpose = purposeByAgentId(md);
+  for (const a of roster) {
+    if (!purpose.has(String(a.id).toLowerCase())) purpose.set(String(a.id).toLowerCase(), a);
+  }
   let out = [];
   for (const [agentId, message] of byAgent) {
     if (out.length >= max) break;
@@ -288,16 +366,23 @@ export async function classifySpecialtyIntentsForPlan(ownerUserId, residualText,
   }
 
   // Same-agent lettered multi-step only when residual truly lettered/numbered
+  // and chunks do not name different roster employees.
   if (out.length === 1 && letteredOrNumbered && chunks.length >= 2) {
-    const agentId = out[0].agent_id;
-    const name = out[0].name;
-    out = chunks.slice(0, max).map((h, i) => ({
-      agent_id: agentId,
-      message: h,
-      name,
-      purpose: out[0].purpose,
-      step_label: `Step ${i + 1}: ${h.slice(0, 48)}`,
-    }));
+    const named = chunks
+      .map((h) => matchNamedRosterAgentInText(h, roster)?.id)
+      .filter(Boolean);
+    const distinct = new Set(named.map((id) => String(id).toLowerCase()));
+    if (distinct.size <= 1) {
+      const agentId = out[0].agent_id;
+      const name = out[0].name;
+      out = chunks.slice(0, max).map((h, i) => ({
+        agent_id: agentId,
+        message: h,
+        name,
+        purpose: out[0].purpose,
+        step_label: `Step ${i + 1}: ${h.slice(0, 48)}`,
+      }));
+    }
   }
 
   // No inventing specialty agents when the LLM returns empty — only carry explicit Platform Help

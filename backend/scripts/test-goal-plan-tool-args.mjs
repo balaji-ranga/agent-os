@@ -62,6 +62,19 @@ assert(
   'keeps status_checker'
 );
 
+const withSpecialty = rewriteCompositionalToolsForAgentInterpretation(
+  [
+    { type: 'specialty_task', agent_id: 'researchx', label: 'Research' },
+    { type: 'agent_tool', tool_name: 'kanban_create_task', label: 'Kanban' },
+    { type: 'notify_ceo', label: 'Notify' },
+  ],
+  'Rank the top 5 prospects and create a Kanban card'
+);
+assert(
+  !withSpecialty.some((s) => s.type === 'agent_continue'),
+  'specialty plans must not collapse to agent_continue just because rank/prospects/kanban appear'
+);
+
 const loneEmail = rewriteCompositionalToolsForAgentInterpretation(
   [{ type: 'agent_tool', tool_name: 'email_send', label: 'Email', args: { to: 'a@b.c', body: 'hi' } }],
   'Just email_send a note'

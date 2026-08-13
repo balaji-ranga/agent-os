@@ -374,11 +374,12 @@ export function rewriteCompositionalToolsForAgentInterpretation(steps, prompt = 
   }
 
   const wants = goalWantsAgentInterpretation(text);
+  const hasSpecialty = out.some((s) => s?.type === 'specialty_task');
   const hasDataTool = out.some(
     (s) => s?.type === 'agent_tool' && !isCompositionalTool(stepToolName(s))
   );
   const hasContinue = out.some((s) => s?.type === 'agent_continue');
-  if (wants && hasDataTool && !hasContinue) {
+  if (wants && hasDataTool && !hasContinue && !hasSpecialty) {
     out.push({
       type: 'agent_continue',
       label: 'Synthesize / complete in agent turn',

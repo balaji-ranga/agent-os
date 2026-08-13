@@ -7,6 +7,8 @@ import {
   residualIsLetteredOrNumbered,
   residualNamesRosterAgent,
   shouldSkipAllSpecialtyAsCooNative,
+  matchNamedRosterAgentInText,
+  rosterAgentsForGoalPlan,
 } from '../src/services/goal-plan-specialty.js';
 
 const MD = `
@@ -39,5 +41,17 @@ assert(
   shouldSkipAllSpecialtyAsCooNative(coordOnly, MD),
   'pure COO coordination should still skip specialty'
 );
+
+const roster = rosterAgentsForGoalPlan(MD, null);
+const aHit = matchNamedRosterAgentInText(
+  'Business Discovery employee: research clinics. Create a Kanban card.',
+  roster
+);
+const bHit = matchNamedRosterAgentInText(
+  'CRM Maker A employee, only after A: create Company, Person, and Opportunity.',
+  roster
+);
+assert(aHit?.id === 'businessdiscovery', 'chunk A maps to Business Discovery, got ' + aHit?.id);
+assert(bHit?.id === 'crm-s1-demo', 'chunk B maps to CRM Maker A, got ' + bHit?.id);
 
 console.log('GOAL_PLAN_SPECIALTY_COO_NATIVE_OK');

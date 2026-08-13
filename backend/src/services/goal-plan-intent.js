@@ -952,14 +952,20 @@ export async function classifyGoalPlanIntents(ownerUserId, prompt, opts = {}) {
       const lowerText = text.toLowerCase();
       for (const st of specialtySteps) {
         const id = String(st.agent_id || '').toLowerCase();
-        const name = String(st.label || '').toLowerCase();
-        let at = id ? lowerText.indexOf(id) : -1;
+        const name = String(st.label || '')
+          .replace(/specialty:\s*/i, '')
+          .trim()
+          .toLowerCase();
+        const needles = [name, id, name.replace(/\s+/g, ''), id.replace(/[-_]/g, ' ')].filter(
+          (n) => n && n.length >= 4
+        );
+        let at = -1;
+        for (const n of needles) {
+          const i = lowerText.indexOf(n);
+          if (i >= 0 && (at < 0 || i < at)) at = i;
+        }
         if (at < 0 && id.includes('help')) {
           at = lowerText.search(/platform\s*help|platformhelp/);
-        }
-        if (at < 0 && name) {
-          const token = name.replace(/specialty:\s*/i, '').slice(0, 24).trim();
-          if (token.length >= 4) at = lowerText.indexOf(token);
         }
         st._order = at >= 0 ? at : text.length;
       }
@@ -1140,16 +1146,42 @@ export async function classifyGoalPlanIntents(ownerUserId, prompt, opts = {}) {
     }
   }
 
-  // Final ordered list
+  // Orchestrator self-tools that only appear as instructions *inside* a specialty
+  // step (e.g. "create a Kanban card assigned to CRM Maker") must not become
+  // their own COO plan steps — that used to sort Kanban/notify ahead of specialists.
+  if (specialtyMerged.length) {
+    const specBlob = specialtyMerged
+      .map((s) => `${s.message || ''} ${s.label || ''}`)
+      .join(' ')
+      .toLowerCase();
+    for (let i = toolSteps.length - 1; i >= 0; i -= 1) {
+      const st = toolSteps[i];
+      if (!st || st.type === 'notify_ceo') continue;
+      const token = String(st.tool_name || '')
+        .split('_')
+        .find((p) => p.length >= 5);
+      if (token && specBlob.includes(token.toLowerCase())) {
+        toolSteps.splice(i, 1);
+      }
+    }
+  }
+
+  function laneRank(t) {
+    if (t.type === 'workflow_trigger') return 0;
+    if (t.type === 'specialty_task') return 1;
+    if (t.type === 'notify_ceo') return 4;
+    if (t.type === 'agent_continue') return 3;
+    return 2;
+  }
+
+  // Final ordered list: lane first (specialty before COO tools/notify), then prompt order.
   const all = [...wfCatalogSteps, ...specialtyMerged, ...toolSteps];
   all.sort((a, b) => {
+    const lr = laneRank(a) - laneRank(b);
+    if (lr !== 0) return lr;
     const oa = a._order != null ? a._order : 1e9;
     const ob = b._order != null ? b._order : 1e9;
-    if (oa !== ob) return oa - ob;
-    // stable lane priority when same order: wf < specialty < tools
-    const rank = (t) =>
-      t.type === 'workflow_trigger' ? 0 : t.type === 'specialty_task' ? 1 : 2;
-    return rank(a) - rank(b);
+    return oa - ob;
   });
 
   // Strip internal order key
