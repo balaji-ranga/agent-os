@@ -1,0 +1,86 @@
+"""Public Instagram profile research via Instaloader (no login)."""
+from __future__ import annotations
+
+import os
+from datetime import datetime, timedelta, timezone
+
+from flask import Flask, jsonify, request
+
+app = Flask(__name__)
+
+try:
+    import instaloader
+except ImportError:  # pragma: no cover
+    instaloader = None
+
+LOADER = None
+if instaloader:
+    LOADER = instaloader.Instaloader(
+        download_pictures=False,
+        download_videos=False,
+        download_video_thumbnails=False,
+        download_geotags=False,
+        download_comments=False,
+        save_metadata=False,
+        compress_json=False,
+        quiet=True,
+    )
+
+
+@app.get("/health")
+def health():
+    return jsonify({"ok": True, "service": "instaloader-sidecar", "instaloader": bool(LOADER)})
+
+
+@app.post("/profile")
+def profile():
+    if not LOADER:
+        return jsonify({"ok": False, "error": "instaloader not installed", "fallback": True}), 200
+    body = request.get_json(silent=True) or {}
+    username = str(body.get("username") or "").strip().lstrip("@")
+    days = int(body.get("days") or 30)
+    limit = int(body.get("limit") or 40)
+    days = max(1, min(days, 90))
+    limit = max(1, min(limit, 80))
+    if not username:
+        return jsonify({"ok": False, "error": "username required"}), 400
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+    try:
+        profile = instaloader.Profile.from_username(LOADER.context, username)
+        posts = []
+        for post in profile.get_posts():
+            dt = post.date_utc.replace(tzinfo=timezone.utc)
+            if dt < since:
+                break
+            posts.append(
+                {
+                    "shortcode": post.shortcode,
+                    "url": f"https://www.instagram.com/p/{post.shortcode}/",
+                    "caption": (post.caption or "")[:500],
+                    "likes": int(post.likes or 0),
+                    "comments": int(post.comments or 0),
+                    "timestamp": dt.isoformat(),
+                    "is_video": bool(post.is_video),
+                }
+            )
+            if len(posts) >= limit:
+                break
+        return jsonify(
+            {
+                "ok": True,
+                "adapter": "instaloader",
+                "username": username,
+                "full_name": profile.full_name or "",
+                "followers": int(profile.followers or 0),
+                "biography": (profile.biography or "")[:500],
+                "posts": posts,
+                "count": len(posts),
+            }
+        )
+    except Exception as exc:  # noqa: BLE001 — sidecar returns fallback for the Node adapter
+        return jsonify({"ok": False, "error": str(exc)[:400], "fallback": True}), 200
+
+
+if __name__ == "__main__":
+    port = int(os.environ.get("INSTALOADER_PORT", "8083"))
+    app.run(host="0.0.0.0", port=port)

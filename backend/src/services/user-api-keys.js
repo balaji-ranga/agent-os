@@ -11,6 +11,8 @@ export const PLATFORM_BYOK_KEY_NAME = 'Platform_BYOK';
 export const REPLICATE_BYOK_KEY_NAME = 'Replicate_BYOK';
 /** Vault name for Brave Search when Profile LLM is not Platform default. */
 export const BRAVE_SEARCH_BYOK_KEY_NAME = 'BRAVE_SEARCH_BYOK';
+/** Vault name for Google Places API (New) when Profile LLM is not Platform default. */
+export const GOOGLE_PLACES_BYOK_KEY_NAME = 'GOOGLE_PLACES_BYOK';
 /** Vault name used by avatar / workflow ElevenLabs TTS templates. */
 export const ELEVENLABS_BYOK_KEY_NAME = 'elevenlabs-key';
 /** Stored secret for seeded slots until the CEO pastes a real key. Never returned as usable. */
@@ -46,6 +48,10 @@ export function allByokVaultSlots() {
     {
       key_name: BRAVE_SEARCH_BYOK_KEY_NAME,
       purpose: 'brave_web_search',
+    },
+    {
+      key_name: GOOGLE_PLACES_BYOK_KEY_NAME,
+      purpose: 'google_places_nearby / business_discover',
     },
     {
       key_name: ELEVENLABS_BYOK_KEY_NAME,
@@ -661,6 +667,20 @@ export function findApiKeyDependencies(ownerUserId, keyName) {
         id: owner,
         name: 'Brave Search BYOK',
         detail: `provider=${u.llm_provider || 'unknown'} (brave_web_search)`,
+      });
+    }
+  }
+
+  if (name === GOOGLE_PLACES_BYOK_KEY_NAME) {
+    const u = db()
+      .prepare(`SELECT id, llm_provider FROM platform_users WHERE id = ?`)
+      .get(owner);
+    if (u && String(u.llm_provider || '') !== 'platform_decided') {
+      deps.push({
+        type: 'byok',
+        id: owner,
+        name: 'Google Places BYOK',
+        detail: `provider=${u.llm_provider || 'unknown'} (google_places_nearby)`,
       });
     }
   }

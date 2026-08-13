@@ -1,0 +1,129 @@
+/**
+ * Seed Social Research + Business Discovery content tools.
+ */
+import { getDb } from './schema.js';
+
+export const SOCIAL_RESEARCH_TOOLS = [
+  {
+    name: 'social_research_search',
+    display_name: 'Social research search',
+    endpoint: '/api/tools/social-research-search',
+    method: 'POST',
+    purpose:
+      'API tool: public web/search for LinkedIn, X, Facebook, Instagram (Brave indexed results). Pass query (required), optional site, count (1–20), days. Not a crawler. Do not use exec.',
+    model_used: 'Brave Search API',
+  },
+  {
+    name: 'social_research_instagram',
+    display_name: 'Social research Instagram',
+    endpoint: '/api/tools/social-research-instagram',
+    method: 'POST',
+    purpose:
+      'API tool: Instagram public research. Tries Instaloader (anonymous); falls back to indexed web search. Pass handle or brand, optional days (default 30). No Instagram login. Do not use exec.',
+    model_used: 'Instaloader / Brave Search',
+  },
+  {
+    name: 'social_research_facebook',
+    display_name: 'Social research Facebook',
+    endpoint: '/api/tools/social-research-facebook',
+    method: 'POST',
+    purpose:
+      'API tool: Facebook research. Uses Meta Graph when the CEO has Connectors → MCPs Facebook connected; otherwise public indexed search. Pass brand, optional days. Do not use exec.',
+    model_used: 'Meta Graph / Brave Search',
+  },
+  {
+    name: 'social_research_profile',
+    display_name: 'Social research profile',
+    endpoint: '/api/tools/social-research-profile',
+    method: 'POST',
+    purpose:
+      'API tool: analyse a brand across Instagram, X, LinkedIn, Facebook for a time window. Pass brand (required), optional handle, platforms[], days (default 30). Do not use exec.',
+    model_used: 'Social Research adapters',
+  },
+  {
+    name: 'google_places_geocode',
+    display_name: 'Google Places geocode',
+    endpoint: '/api/tools/google-places-geocode',
+    method: 'POST',
+    purpose:
+      'API tool: geocode a locality via Google Places API (New). Pass locality. Key: Platform default uses GOOGLE_PLACES_API_KEY; other Profiles use vault GOOGLE_PLACES_BYOK. Do not use exec.',
+    model_used: 'Google Places API (New)',
+  },
+  {
+    name: 'google_places_nearby',
+    display_name: 'Google Places nearby',
+    endpoint: '/api/tools/google-places-nearby',
+    method: 'POST',
+    purpose:
+      'API tool: Nearby Search (New) around lat/lng or locality. Pass locality or lat/lng, optional radius_meters, business_type, min_rating, max_results, rank_preference (POPULARITY|DISTANCE). Do not use exec.',
+    model_used: 'Google Places API (New)',
+  },
+  {
+    name: 'business_discover',
+    display_name: 'Business discover',
+    endpoint: '/api/tools/business-discover',
+    method: 'POST',
+    purpose:
+      'API tool: find businesses in a locality, enrich website/Instagram/LinkedIn, skip Knowledge duplicates (discovered_opportunities), and create a Kanban task for a CRM employee if one exists else the CEO. Pass locality, business_type, optional radius_km, min_rating, max_results, query. Do not use exec.',
+    model_used: 'Google Places API (New) + Social Research',
+  },
+];
+
+export const SOCIAL_RESEARCH_TOOL_NAMES = SOCIAL_RESEARCH_TOOLS.map((t) => t.name);
+
+export function seedSocialResearchToolsIfMissing() {
+  const db = getDb();
+  const insert = db.prepare(
+    `INSERT OR IGNORE INTO content_tools_meta (name, display_name, endpoint, method, purpose, model_used, enabled, is_builtin)
+     VALUES (?, ?, ?, ?, ?, ?, 1, 1)`
+  );
+  const update = db.prepare(
+    'UPDATE content_tools_meta SET purpose = ?, display_name = ?, endpoint = ?, method = ?, model_used = ? WHERE name = ?'
+  );
+  for (const t of SOCIAL_RESEARCH_TOOLS) {
+    insert.run(t.name, t.display_name, t.endpoint, t.method, t.purpose, t.model_used);
+    update.run(t.purpose, t.display_name, t.endpoint, t.method, t.model_used, t.name);
+  }
+  console.info('[startup] social research tools seeded (%s)', SOCIAL_RESEARCH_TOOLS.length);
+}
+
+const GRANT_BASE_IDS = ['socialresearcher', 'businessdiscovery'];
+
+export function grantSocialResearchToolsToAgents() {
+  const db = getDb();
+  const agents = db.prepare('SELECT id FROM agents').all();
+  const insert = db.prepare(
+    'INSERT OR IGNORE INTO agent_tool_grants (agent_id, tool_name) VALUES (?, ?)'
+  );
+  let n = 0;
+  for (const a of agents) {
+    const id = String(a.id || '');
+    const base = id.includes('--') ? id.split('--').pop() : id;
+    if (!GRANT_BASE_IDS.includes(base)) continue;
+    const names =
+      base === 'socialresearcher'
+        ? SOCIAL_RESEARCH_TOOL_NAMES.filter((n) => n !== 'business_discover')
+        : SOCIAL_RESEARCH_TOOL_NAMES;
+    const extra =
+      base === 'socialresearcher'
+        ? ['brave_web_search', 'summarize_url', 'learnings_summary', 'notify_ceo', 'kanban_move_status']
+        : [
+            'brave_web_search',
+            'learnings_summary',
+            'notify_ceo',
+            'kanban_create_task',
+            'kanban_move_status',
+            'master_data_list_tables',
+            'master_data_list_rows',
+            'master_data_insert_row',
+          ];
+    for (const name of [...names, ...extra]) {
+      const info = insert.run(a.id, name);
+      n += info.changes || 0;
+    }
+  }
+  if (n > 0) {
+    console.info('[startup] granted social research tools to %s grant(s)', n);
+  }
+  return n;
+}
