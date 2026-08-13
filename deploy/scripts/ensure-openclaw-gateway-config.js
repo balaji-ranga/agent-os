@@ -25,6 +25,14 @@ const PRIMARY =
 
 const CRITICAL = ['gateway', 'tools', 'plugins', 'browser'];
 
+function providersEmpty(models) {
+  const p = models?.providers;
+  if (!p || typeof p !== 'object') return true;
+  const names = Object.keys(p);
+  if (!names.length) return true;
+  return names.every((n) => !Array.isArray(p[n]?.models) || p[n].models.length === 0);
+}
+
 function loadJson(path) {
   try {
     return JSON.parse(readFileSync(path, 'utf8'));
@@ -135,6 +143,11 @@ if (!config.browser || typeof config.browser !== 'object') {
     noSandbox: true,
   };
   repairs.push('created browser');
+}
+
+if (providersEmpty(config.models) && bak?.models && !providersEmpty(bak.models)) {
+  config.models = clone(bak.models);
+  repairs.push('restored models from bak');
 }
 
 if (!config.agents || typeof config.agents !== 'object') config.agents = { list: [] };

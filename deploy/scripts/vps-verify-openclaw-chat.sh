@@ -59,7 +59,13 @@ const fs = require("fs");
 const p = process.env.OPENCLAW_CONFIG_PATH || "/root/.openclaw/openclaw.json";
 const c = JSON.parse(fs.readFileSync(p, "utf8"));
 const chat = c && c.gateway && c.gateway.http && c.gateway.http.endpoints && c.gateway.http.endpoints.chatCompletions;
-const ok = !!(c && c.gateway && c.gateway.mode && chat && chat.enabled === true);
+const providers = (c && c.models && c.models.providers) || {};
+const hasCatalog = Object.keys(providers).some(function (n) {
+  const ms = providers[n] && providers[n].models;
+  return Array.isArray(ms) && ms.length > 0;
+});
+const primary = (c && c.agents && c.agents.defaults && c.agents.defaults.model && c.agents.defaults.model.primary) || "";
+const ok = !!(c && c.gateway && c.gateway.mode && chat && chat.enabled === true && hasCatalog && primary);
 const agent = ((c && c.agents && c.agents.list) || []).map(function (a) { return a.id; }).find(Boolean) || "";
 process.stdout.write(JSON.stringify({
   ok: ok,
@@ -69,13 +75,57 @@ process.stdout.write(JSON.stringify({
   hasTools: !!(c && c.tools),
   hasPlugins: !!(c && c.plugins),
   hasBrowser: !!(c && c.browser),
+  hasCatalog: hasCatalog,
+  primary: primary || null,
   agentId: agent
 }));
 ' 2>/dev/null || echo '{"ok":false}'
 )
 echo "    struct: $STRUCT"
 if ! echo "$STRUCT" | grep -q '"ok":true' && ! echo "$STRUCT" | grep -q '"ok": true'; then
-  echo "ERROR: openclaw.json missing gateway.chatCompletions (keys wiped?)"
+  if [[ "${SKIP_OPENCLAW_CHAT_REPAIR:-0}" != "1" ]]; then
+    echo "    catalog/gateway missing - ensure + configure + restart openclaw..."
+    run_ensure >/dev/null
+    docker compose exec -T openclaw node /opt/agent-os/deploy/scripts/configure-openclaw-docker.js >/dev/null 2>&1 || true
+    docker compose restart openclaw >/dev/null 2>&1 || true
+    for _i in $(seq 1 40); do
+      st=$(docker compose ps --format "{{.Health}}" openclaw 2>/dev/null | head -1 || true)
+      [[ "$st" == "healthy" ]] && break
+      sleep 2
+    done
+    STRUCT=$(
+      docker compose exec -T openclaw node -e '
+const fs = require("fs");
+const p = process.env.OPENCLAW_CONFIG_PATH || "/root/.openclaw/openclaw.json";
+const c = JSON.parse(fs.readFileSync(p, "utf8"));
+const chat = c && c.gateway && c.gateway.http && c.gateway.http.endpoints && c.gateway.http.endpoints.chatCompletions;
+const providers = (c && c.models && c.models.providers) || {};
+const hasCatalog = Object.keys(providers).some(function (n) {
+  const ms = providers[n] && providers[n].models;
+  return Array.isArray(ms) && ms.length > 0;
+});
+const primary = (c && c.agents && c.agents.defaults && c.agents.defaults.model && c.agents.defaults.model.primary) || "";
+const ok = !!(c && c.gateway && c.gateway.mode && chat && chat.enabled === true && hasCatalog && primary);
+const agent = ((c && c.agents && c.agents.list) || []).map(function (a) { return a.id; }).find(Boolean) || "";
+process.stdout.write(JSON.stringify({
+  ok: ok,
+  keys: Object.keys(c || {}).sort(),
+  mode: (c && c.gateway && c.gateway.mode) || null,
+  chatCompletions: chat || null,
+  hasTools: !!(c && c.tools),
+  hasPlugins: !!(c && c.plugins),
+  hasBrowser: !!(c && c.browser),
+  hasCatalog: hasCatalog,
+  primary: primary || null,
+  agentId: agent
+}));
+' 2>/dev/null || echo '{"ok":false}'
+    )
+    echo "    struct2: $STRUCT"
+  fi
+fi
+if ! echo "$STRUCT" | grep -q '"ok":true' && ! echo "$STRUCT" | grep -q '"ok": true'; then
+  echo "ERROR: openclaw.json missing gateway.chatCompletions or model catalog (keys wiped?)"
   echo "    Fix: bash deploy/scripts/vps-verify-openclaw-chat.sh"
   exit 1
 fi
