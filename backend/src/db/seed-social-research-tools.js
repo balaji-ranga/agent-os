@@ -89,6 +89,13 @@ export function seedSocialResearchToolsIfMissing() {
 
 const GRANT_BASE_IDS = ['socialresearcher', 'businessdiscovery'];
 
+function socialResearchGrantBase(agent) {
+  const id = String(agent?.id || '');
+  const idBase = id.includes('--') ? id.split('--').pop() : id;
+  if (GRANT_BASE_IDS.includes(idBase)) return idBase;
+  return null;
+}
+
 export function grantSocialResearchToolsToAgents() {
   const db = getDb();
   const agents = db.prepare('SELECT id FROM agents').all();
@@ -97,9 +104,8 @@ export function grantSocialResearchToolsToAgents() {
   );
   let n = 0;
   for (const a of agents) {
-    const id = String(a.id || '');
-    const base = id.includes('--') ? id.split('--').pop() : id;
-    if (!GRANT_BASE_IDS.includes(base)) continue;
+    const base = socialResearchGrantBase(a);
+    if (!base) continue;
     const names =
       base === 'socialresearcher'
         ? SOCIAL_RESEARCH_TOOL_NAMES.filter((n) => n !== 'business_discover')

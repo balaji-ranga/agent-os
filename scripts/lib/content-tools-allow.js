@@ -73,6 +73,13 @@ export const REQUIRED_GLOBAL_CONTENT_TOOLS = [
   'video_media_jobs',
   'video_assemble',
   'browser',
+  'social_research_search',
+  'social_research_instagram',
+  'social_research_facebook',
+  'social_research_profile',
+  'google_places_geocode',
+  'google_places_nearby',
+  'business_discover',
 ];
 
 /** Client Browser Session / recipe tools (Agent OS content tools — not built-in browser). */

@@ -39,7 +39,8 @@ When Profile LLM is **not** Platform default (Ollama free, DeepSeek, OpenAI, Ope
 |----------|----------|
 | **`Platform_BYOK`** | OpenAI / OpenRouter agent chat |
 | **`Replicate_BYOK`** | `generate_video` |
-| **`BRAVE_SEARCH_BYOK`** | `brave_web_search` |
+| **`BRAVE_SEARCH_BYOK`** | `brave_web_search` / social research search |
+| **`GOOGLE_PLACES_BYOK`** | `google_places_nearby` / `business_discover` |
 | **`elevenlabs-key`** | Avatar / workflow ElevenLabs TTS templates |
 
 Slots appear with hint **`unset`** until you **Edit** and paste a real secret. Resolvers treat unset as missing (no platform fall-back for Brave/Replicate on BYOK Profiles). Seeding runs on CEO register (non-platform provider), Profile provider change, and when opening **API Keys**.
@@ -89,6 +90,8 @@ For agent tool **`brave_web_search`**:
 2. Keep Profile on a non-platform provider (or switch back to Platform default to use the shared platform key).
 
 Missing `BRAVE_SEARCH_BYOK` while Profile is not Platform default → `brave_web_search` returns an error (no silent fall-back). Workflow Brave MCP nodes still pass headers/vault refs separately (MCP container does not read env).
+
+For **Google Places** (`google_places_nearby`, `business_discover`) the same Profile rule applies: platform `GOOGLE_PLACES_API_KEY` vs vault **`GOOGLE_PLACES_BYOK`**. Enable **Places API (New)** on the Google Cloud key. See [42-social-research-business-discovery.md](./42-social-research-business-discovery.md).
 
 ## Use vault keys in workflows
 

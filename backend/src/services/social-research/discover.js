@@ -166,7 +166,7 @@ export async function discoverBusinesses(ownerUserId, opts = {}, { createdByAgen
   if (handoff && (fresh.length || duplicates.length)) {
     kanban = createDiscoveryKanbanTask({
       ownerUserId,
-      createdByAgentId: createdByAgentId || 'businessdiscovery',
+      createdByAgentId: createdByAgentId || null,
       title: `Leads: ${textQuery}`.slice(0, 180),
       query: textQuery,
       newLeads: fresh,

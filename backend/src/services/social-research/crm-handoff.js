@@ -93,7 +93,7 @@ export function createDiscoveryKanbanTask({
     formatLeadLines(skippedLeads) || '(none)',
     '',
     `owner_user_id: ${owner}`,
-    `created_by_agent: ${createdByAgentId || 'businessdiscovery'}`,
+    `created_by_agent: ${createdByAgentId || 'business_discover'}`,
   ].join('\n');
 
   const db = getDb();
@@ -104,7 +104,7 @@ export function createDiscoveryKanbanTask({
     String(title || 'Business Discovery leads').slice(0, 200),
     description,
     assignedAgentId,
-    createdByAgentId || 'businessdiscovery',
+    createdByAgentId || 'user',
     null,
     owner
   );

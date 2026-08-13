@@ -368,6 +368,7 @@ export async function importPublishedAgentToOrg(importerUserId, publishId, body 
     avatar_image: pubRow.avatar_image || source?.avatar_image || '',
     source_kind: 'imported_agent',
     source_publish_id: pubRow.id,
+    template_base_id: source?.template_base_id || undefined,
     monthly_token_budget: body.monthly_token_budget ?? null,
     error_budget_pct: body.error_budget_pct ?? null,
   });

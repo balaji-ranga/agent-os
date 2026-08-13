@@ -235,6 +235,8 @@ From **AI Employees** (`/workspace`) or the employee **Workspace** page:
 
 Flolah listings are **not** available on the public internet (card/invoke return `403`). Public listings accept A2A `message/send` against the publisher’s agent.
 
+**Platform Flolah listings:** **Social Researcher** and **Business Discovery** are seeded as Flolah AgentExchange listings (not auto-hired on register). **Add to org** to use them. Help **[42](./42-social-research-business-discovery.md)**.
+
 ---
 
 ### Test agent (owner vs non-owner)

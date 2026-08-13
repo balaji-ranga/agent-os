@@ -118,6 +118,10 @@ x-backend-env: &backend-env
   # Do NOT inject into brave-search-mcp service — that remains header BYOK only.
   BRAVE_API_KEY: ${BRAVE_API_KEY:-}
   BRAVE_MCP_URL: ${BRAVE_MCP_URL:-http://brave-search-mcp:8080/mcp}
+  GOOGLE_PLACES_API_KEY: ${GOOGLE_PLACES_API_KEY:-}
+  INSTALOADER_URL: ${INSTALOADER_URL:-http://instaloader-sidecar:8083}
+  SOCIAL_RESEARCH_MCP_URL: ${SOCIAL_RESEARCH_MCP_URL:-http://social-research-mcp:8084/mcp}
+  FLOLAH_EXCHANGE_PUBLISHER_USER_ID: ${FLOLAH_EXCHANGE_PUBLISHER_USER_ID:-}
   # Market data (FMP) for monthly trading W1 screener / regime — paper mode falls back when 402
   MARKET_DATA_PROVIDER: ${MARKET_DATA_PROVIDER:-fmp}
   MARKET_DATA_BASE_URL: ${MARKET_DATA_BASE_URL:-}
@@ -541,6 +545,51 @@ services:
       - backend
     healthcheck:
       test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8082/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # Instaloader sidecar — public Instagram adapter for Social Research (no login).
+  # Start: docker compose --profile optional-social-research-mcp up -d --build instaloader-sidecar
+  instaloader-sidecar:
+    profiles: ["optional-social-research-mcp"]
+    build:
+      context: ..
+      dockerfile: deploy/docker/instaloader-sidecar.Dockerfile
+    image: agent-os-instaloader-sidecar:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      INSTALOADER_PORT: "8083"
+    expose:
+      - "8083"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8083/health')\""]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+
+  # Social Research MCP (HTTP) — Places + Instaloader + indexed search + Meta Graph adapters.
+  # Start: docker compose --profile optional-social-research-mcp up -d --build social-research-mcp
+  # Seed: docker compose exec backend node scripts/seed-social-research-mcp.js
+  social-research-mcp:
+    profiles: ["optional-social-research-mcp"]
+    build:
+      context: ..
+      dockerfile: deploy/docker/social-research-mcp.Dockerfile
+    image: agent-os-social-research-mcp:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      SOCIAL_RESEARCH_MCP_PORT: "8084"
+      AGENT_OS_TOOLS_URL: ${AGENT_OS_TOOLS_URL:-http://backend:3001}
+      TOOLS_API_KEY: ${TOOLS_API_KEY:-}
+    expose:
+      - "8084"
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8084/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
       interval: 30s
       timeout: 5s
       retries: 5

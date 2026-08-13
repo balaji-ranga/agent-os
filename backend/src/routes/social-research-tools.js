@@ -144,11 +144,7 @@ router.post(
 router.post(
   '/business-discover',
   wrap('business_discover', (owner, body, ctx) => {
-    const createdBy =
-      String(ctx.source || '')
-        .split('--')
-        .pop()
-        ?.replace(/^agent:/, '') || 'businessdiscovery';
+    const createdBy = String(ctx.source || '').trim() || null;
     return discoverBusinesses(owner, body, { createdByAgentId: createdBy });
   })
 );

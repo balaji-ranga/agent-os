@@ -32,6 +32,7 @@ import {
   enquirePlatformFeedback,
 } from '../services/platform-feedback.js';
 import { saveInboundAttachment } from '../services/inbound-attachments.js';
+import socialResearchTools from './social-research-tools.js';
 
 function sanitizeTenantId(value) {
   return String(value || '')
@@ -3765,5 +3766,7 @@ router.post('/video-assemble', optionalAuth, async (req, res) => {
     res.status(e.status || 500).json(err);
   }
 });
+
+router.use(socialResearchTools);
 
 export default router;

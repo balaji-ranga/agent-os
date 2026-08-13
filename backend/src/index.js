@@ -98,6 +98,7 @@ import { seedJobApplicantToolsIfMissing } from './db/seed-job-applicant-tools.js
 import { seedIbkrTradingToolsIfMissing } from './db/seed-ibkr-trading-tools.js';
 import { seedBrowserSessionToolsIfMissing, grantBrowserSessionToolsToAllAgents } from './db/seed-browser-session-tools.js';
 import { seedBraveSearchToolIfMissing, grantBraveSearchToolToDefaultAgents } from './db/seed-brave-search-tool.js';
+import { seedSocialResearchToolsIfMissing, grantSocialResearchToolsToAgents } from './db/seed-social-research-tools.js';
 import { seedMarketDataToolsIfMissing } from './db/seed-market-data-tools.js';
 import { writeOpenClawToolsList } from './services/content-tools-meta.js';
 import {
@@ -124,6 +125,7 @@ import { registerPlatformCron } from './services/platform-cron-registry.js';
 import { seedWorkflowBuilderAgent } from '../scripts/seed-workflow-builder-agent.js';
 import { seedPlatformHelpAgent } from '../scripts/seed-platform-help-agent.js';
 import { seedOnboardingHelperAgent } from '../scripts/seed-onboarding-helper-agent.js';
+import { seedSocialResearchExchangeAgents } from '../scripts/seed-social-research-agents.js';
 import { healAgentWorkspacePaths } from './workspace/adapter.js';
 import { healStuckKanbanForCompletedDelegations } from './services/kanban-workflow-stage.js';
 import { requeueStuckStatusOnlyKanbanCards, rependInfraFailedStatusOnlyRetries } from './services/delegation-status-only-retry.js';
@@ -324,6 +326,16 @@ try {
   console.warn('[startup] browse tool grants:', e.message);
 }
 seedBraveSearchToolIfMissing();
+seedSocialResearchToolsIfMissing();
+try {
+  const socialGranted = grantSocialResearchToolsToAgents();
+  if (socialGranted) {
+    console.log('[startup] granted social research tools (%s grant(s))', socialGranted);
+    syncAllowlistsFile();
+  }
+} catch (e) {
+  console.warn('[startup] social research tool grants:', e.message);
+}
 try {
   const braveGranted = grantBraveSearchToolToDefaultAgents();
   if (braveGranted) {
@@ -427,6 +439,23 @@ try {
   seedOnboardingHelperAgent();
 } catch (e) {
   console.warn('[startup] onboarding helper agent seed:', e.message);
+}
+try {
+  seedSocialResearchExchangeAgents()
+    .then((r) => {
+      if (r?.ok) {
+        console.log(
+          '[startup] social research Exchange listings owner=%s n=%s',
+          r.owner,
+          r.published?.length || 0
+        );
+      } else if (r?.skipped) {
+        console.log('[startup] social research Exchange seed skipped: %s', r.reason);
+      }
+    })
+    .catch((e) => console.warn('[startup] social research Exchange seed:', e.message));
+} catch (e) {
+  console.warn('[startup] social research Exchange seed:', e.message);
 }
 try {
   // After platform-help (and COO) agents exist so enquire/submit grants stick.

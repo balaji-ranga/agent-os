@@ -76,8 +76,9 @@ function includedTypeFor(businessType) {
   return '';
 }
 
-async function placesPost(apiKey, path, body, fieldMask) {
-  const res = await fetch(`https://places.googleapis.com/v1${path}`, {
+async function placesPost(apiKey, apiUrl, path, body, fieldMask) {
+  const base = String(apiUrl || 'https://places.googleapis.com/v1').replace(/\/+$/, '');
+  const res = await fetch(`${base}${path}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -126,6 +127,7 @@ export async function geocodeLocality(ownerUserId, { locality } = {}) {
   const cfg = requirePlacesKey(ownerUserId);
   const data = await placesPost(
     cfg.apiKey,
+    cfg.apiUrl,
     '/places:searchText',
     { textQuery: place, maxResultCount: 1 },
     'places.id,places.displayName,places.formattedAddress,places.location'
@@ -179,7 +181,7 @@ export async function nearbySearch(ownerUserId, opts = {}) {
   };
   if (includedType) body.includedTypes = [includedType];
 
-  const data = await placesPost(cfg.apiKey, '/places:searchNearby', body, PLACE_FIELD_MASK);
+  const data = await placesPost(cfg.apiKey, cfg.apiUrl, '/places:searchNearby', body, PLACE_FIELD_MASK);
   let places = (data.places || []).map(mapPlace).filter(Boolean);
   places = applyMinRating(places, opts.min_rating);
   places = places.slice(0, maxResults);
@@ -236,7 +238,7 @@ export async function textSearchPlaces(ownerUserId, opts = {}) {
     }
     if (includedType) body.includedType = includedType;
     if (pageToken) body.pageToken = pageToken;
-    const data = await placesPost(cfg.apiKey, '/places:searchText', body, PLACE_FIELD_MASK);
+    const data = await placesPost(cfg.apiKey, cfg.apiUrl, '/places:searchText', body, PLACE_FIELD_MASK);
     const batch = (data.places || []).map(mapPlace).filter(Boolean);
     collected.push(...batch);
     pageToken = String(data.nextPageToken || '').trim();

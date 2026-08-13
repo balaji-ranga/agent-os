@@ -166,6 +166,14 @@ export const PLATFORM_HELP_DOCUMENTS = Object.freeze([
     filename: '40-twenty-crm-help-tier-a.md',
     title: `${PLATFORM_HELP_TITLE_PREFIX}Twenty CRM Help Tier A`,
   },
+  {
+    filename: '41-video-content-studio.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}Video Content Studio`,
+  },
+  {
+    filename: '42-social-research-business-discovery.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}Social Research Business Discovery`,
+  },
 ]);
 
 /** Resolve repo README.md (local: agent-os/README.md; Docker: /opt/agent-os/README.md). */

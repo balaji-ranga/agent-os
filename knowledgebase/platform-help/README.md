@@ -37,6 +37,7 @@
 | [29-company-setup.md](./29-company-setup.md) | **Company setup** — first-run wizard `/company-setup` (type, mission, DNA, team Apply, management style); vs Onboarding Helper |
 | [30-content-creator-ops.md](./30-content-creator-ops.md) | **Content creator ops** — Facebook Page via Meta Graph MCP, publish social, comment ingest/triage, Ops Reporter **bell** (not email), Company Operate |
 | [41-video-content-studio.md](./41-video-content-studio.md) | **Video content studio** — Phase 1 storyboard + cast portraits; Phase 2 S4 (`flow_browser` / `replicate_api`, ≤8s/scene) + S5 FFmpeg → `video_generated`; Desktop Local sign-in for Flow |
+| [42-social-research-business-discovery.md](./42-social-research-business-discovery.md) | **Social Researcher** + **Business Discovery** on AgentExchange; Social Research MCP; Places API (New); Instaloader; Knowledge `discovered_opportunities`; CRM Kanban handoff |
 | [31-mcp-connectors-oauth.md](./31-mcp-connectors-oauth.md) | **Connectors → MCPs** OAuth: Facebook / Meta Graph, CEO App ID override, other OAuth MCPs; OpenConnector BYOA → **16** + OPENCONNECTOR-WEBHOOKS |
 | [32-business-core-crm-erp.md](./32-business-core-crm-erp.md) | **Business Core** — Twenty/ERPNext, prefab Maker/Checker, **`crm-*`/`erp-*` workspace templates**, MCPs, `/work` embed |
 | [33-ip-whitelists.md](./33-ip-whitelists.md) | **IP Whitelists** — Settings central firewall for IBKR bridge, Workflow download, A2A, Browser Session worker (shared store with federated UIs) |
