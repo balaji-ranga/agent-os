@@ -16,6 +16,7 @@ import {
   stripWorkflowPhrasesFromPrompt,
   classifySpecialtyIntentsForPlan,
   specialtyIntentsToSteps,
+  residualIsLetteredOrNumbered,
   GOAL_PLAN_MAX_SPECIALTY,
 } from './goal-plan-specialty.js';
 import {
@@ -385,22 +386,9 @@ export async function planGoalStepsAsync(prompt, opts = {}) {
     try {
       const specialtyRaw = await classifySpecialtyIntentsForPlan(ownerUserId, residual, { maxSpecialty });
       const specialtySteps = specialtyIntentsToSteps(specialtyRaw, {
-        parallel: specialtyRaw.length > 1,
+        parallel: specialtyRaw.length > 1 && !residualIsLetteredOrNumbered(residual),
       }).map(normalizeStepSpec);
-      if (specialtySteps.length > 1) {
-        const g = 1;
-        steps.push(
-          ...specialtySteps.map((st) =>
-            normalizeStepSpec({
-              type: 'specialty_task',
-              agent_id: st.spec?.agent_id,
-              message: st.spec?.message,
-              parallel_group: g,
-              label: st.label,
-            })
-          )
-        );
-      } else if (specialtySteps.length) {
+      if (specialtySteps.length) {
         steps.push(...specialtySteps);
       }
     } catch (e) {

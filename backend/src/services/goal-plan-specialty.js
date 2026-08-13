@@ -42,6 +42,50 @@ export function stripWorkflowPhrasesFromPrompt(prompt, ownerUserId = null) {
 }
 
 
+/** Lettered A) / numbered 1) lists in a goal residual (ordered specialty deliverables). */
+export function residualIsLetteredOrNumbered(text) {
+  const residual = String(text || '');
+  return (
+    /(?:^|[\n;]\s*)[A-G]\)\s+\S/i.test(residual) || /(?:^|[\n;]\s*)\d+[.)]\s+\S/.test(residual)
+  );
+}
+
+/** True when residual names an org employee id or display name from AGENTS.md. */
+export function residualNamesRosterAgent(residual, agentsMd) {
+  const lower = String(residual || '').toLowerCase();
+  if (!lower.trim()) return false;
+  const roster = parseAgentsFromAgentsMd(agentsMd || '');
+  for (const a of roster) {
+    const id = String(a.id || '')
+      .trim()
+      .toLowerCase();
+    const name = String(a.name || '')
+      .trim()
+      .toLowerCase();
+    if (id && id.length >= 4 && lower.includes(id)) return true;
+    if (name && name.length >= 4 && lower.includes(name)) return true;
+  }
+  return false;
+}
+
+/**
+ * COO-chat native heuristic (kanban / workflows / notify / master_data) must not
+ * wipe goal-plan specialties. Those tokens are often instructions *inside* a
+ * named employee's task or a lettered A)/B) list. Drop all specialty only when
+ * the residual is coordination-only (no lettered list, no roster employee).
+ */
+export function shouldSkipAllSpecialtyAsCooNative(
+  residual,
+  agentsMd,
+  { explicitHelp = false } = {}
+) {
+  if (explicitHelp) return false;
+  if (!isCooNativeWork(residual)) return false;
+  if (residualIsLetteredOrNumbered(residual)) return false;
+  if (residualNamesRosterAgent(residual, agentsMd)) return false;
+  return true;
+}
+
 /**
  * Remove goal-plan orchestration leftovers from residual specialty text.
  * Notify / agent_goal_create are separate step types; leaving them in residual
@@ -174,8 +218,13 @@ export async function classifySpecialtyIntentsForPlan(ownerUserId, residualText,
 
   // Help / product how-to is never COO-owned in a goal plan — it is always a specialty_task.
   const explicitHelp = extractExplicitPlatformHelpIntent(residual, md);
-  if (isCooNativeWork(residual) && !explicitHelp) return [];
-  if (isCooNativeWork(residual) && explicitHelp) {
+  if (shouldSkipAllSpecialtyAsCooNative(residual, md, { explicitHelp })) return [];
+  if (
+    isCooNativeWork(residual) &&
+    explicitHelp &&
+    !residualIsLetteredOrNumbered(residual) &&
+    !residualNamesRosterAgent(residual, md)
+  ) {
     return [explicitHelp];
   }
 
@@ -184,8 +233,7 @@ export async function classifySpecialtyIntentsForPlan(ownerUserId, residualText,
    * We only pre-split residual when the CEO listed lettered/numbered deliverables (A)/B) or 1)/2)).
    * Soft “and / also” prose stays one residual so the model chooses agents — never round-robin.
    */
-  const letteredOrNumbered =
-    /(?:^|[\n;]\s*)[A-G]\)\s+\S/i.test(residual) || /(?:^|[\n;]\s*)\d+[.)]\s+\S/.test(residual);
+  const letteredOrNumbered = residualIsLetteredOrNumbered(residual);
   const hints = letteredOrNumbered ? splitResidualIntoIntentHints(residual) : [residual];
   const chunks = (hints.length ? hints : [residual]).filter((h) => String(h || '').trim().length >= 6).slice(0, max);
   const byAgent = new Map();

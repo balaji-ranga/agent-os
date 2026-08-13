@@ -15,6 +15,7 @@ import {
   classifySpecialtyIntentsForPlan,
   specialtyIntentsToSteps,
   stripWorkflowPhrasesFromPrompt,
+  residualIsLetteredOrNumbered,
 } from './goal-plan-specialty.js';
 import { listChatTriggerableWorkflows, listPublishedWorkflows } from './agent-workflow-chat-tools.js';
 import { getAgentToolGrants } from './openclaw-agent-tools.js';
@@ -936,8 +937,9 @@ export async function classifyGoalPlanIntents(ownerUserId, prompt, opts = {}) {
         const specialtyRaw = await classifySpecialtyIntentsForPlan(owner, residualForSpecialty, {
           maxSpecialty: opts.maxSpecialty || 4,
         });
+        const lettered = residualIsLetteredOrNumbered(residualForSpecialty);
         specialtySteps = specialtyIntentsToSteps(specialtyRaw, {
-          parallel: specialtyRaw.length > 1,
+          parallel: specialtyRaw.length > 1 && !lettered,
         }).map((st) => ({
           type: 'specialty_task',
           label: st.label,
