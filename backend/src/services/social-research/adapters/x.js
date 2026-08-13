@@ -176,6 +176,19 @@ export async function researchX(ownerUserId, { handle, brand, days = 30, limit =
     }
   }
 
+  const since = Date.now() - windowDays * 86400000;
+  const inWindow = posts.filter((p) => {
+    const ts = Date.parse(p.timestamp);
+    return Number.isFinite(ts) && ts >= since;
+  });
+  if (inWindow.length) {
+    posts = inWindow;
+  } else if (posts.length) {
+    out.outside_window = true;
+    out.next_step =
+      'Hydrated tweets are older than the requested window. Brave indexed older /status/ URLs. Add vault X_API_BYOK (or platform X_BEARER_TOKEN) for an official recent timeline.';
+  }
+
   out.posts = posts;
   out.count = posts.length;
   out.ok = posts.length > 0 || indexed.length > 0;
