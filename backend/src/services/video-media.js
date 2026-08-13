@@ -12,6 +12,7 @@ import { persistGeneratedOpenClawMedia } from './media-url.js';
 import { resolveInboundRelativePath } from './inbound-attachments.js';
 import { isBrowserWorkerOnline } from './browser-worker-dispatch.js';
 import { startBrowserTask, getBrowserTask } from './browser-tasks.js';
+import { getDb } from '../db/schema.js';
 import {
   STORY_STATUS,
   getVideoStoryboardRecord,
@@ -537,6 +538,30 @@ async function generateOneReplicateScene(owner, boardRec, scene, index, force) {
   return { ...job, action: 'error', error: lastErr };
 }
 
+async function sleep(ms) {
+  await new Promise((r) => setTimeout(r, ms));
+}
+
+/** Desktop Local has one Chrome — never run multiple Flow browse tasks at once. */
+async function waitForIdleFlowBrowse(owner, { timeoutMs = 180000 } = {}) {
+  const db = getDb();
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeoutMs) {
+    const running = db
+      .prepare(
+        `SELECT id FROM browser_tasks
+         WHERE ceo_user_id = ?
+           AND status IN ('running', 'queued', 'pending')
+           AND goal_text LIKE '%Google Flow%'
+         LIMIT 8`
+      )
+      .all(owner);
+    if (!running.length) return { ok: true, waited_ms: Date.now() - t0 };
+    await sleep(2500);
+  }
+  return { ok: false, error: 'Timed out waiting for prior Google Flow browse task to finish' };
+}
+
 async function generateOneFlowScene(owner, boardRec, scene, index, force, { use_test_clips = false } = {}) {
   const { jobs } = listVideoJobs(owner, { storyboard_id: boardRec.storyboard_id, scene_index: index });
   const existing = jobs[0];
@@ -593,14 +618,30 @@ async function generateOneFlowScene(owner, boardRec, scene, index, force, { use_
     };
   }
 
+  const idle = await waitForIdleFlowBrowse(owner);
+  if (!idle.ok) {
+    const job = upsertJob(owner, {
+      storyboard_id: boardRec.storyboard_id,
+      scene_index: index,
+      status: 'awaiting_flow',
+      provider: VIDEO_PROVIDERS.FLOW_BROWSER,
+      prompt,
+      duration_sec,
+      error: idle.error,
+    });
+    return { ...job, action: 'busy', error: idle.error, ask_ceo: idle.error };
+  }
+
   const goal = [
-    `Open Google Flow (${FLOW_START_URL}) in the existing logged-in session.`,
-    `Create ONE new video generation for a single scene (max ${duration_sec} seconds — Flow/Veo clips are ≤8s; do not combine scenes).`,
-    `Paste this prompt exactly into the prompt box:`,
+    `Open Google Flow (${FLOW_START_URL}) in the existing logged-in Desktop Local session (already signed in).`,
+    `Work on SCENE ${index} only (max ${duration_sec}s — Flow/Veo clips are ≤8s; do not combine scenes).`,
+    `If you are already inside a Flow project editor (prompt textbox / Add Media / Scenes visible), stay there — do NOT hunt for a "New project" button.`,
+    `If on the Flow home/projects list, open an existing project or create one, then use the project editor prompt box.`,
+    `Clear any prior prompt text, then paste this prompt exactly into the prompt / editable text box:`,
     prompt,
-    `Start generation and wait until the clip is ready.`,
+    `Start generation for this one scene and wait until the clip is ready.`,
     `Download the resulting video file to the default Downloads folder.`,
-    `When done, summarize the download filename and path. Do not claim success without a downloaded file.`,
+    `When done, summarize the download filename and full path. Do not claim success without a downloaded file.`,
   ].join('\n');
 
   let task;
@@ -609,7 +650,8 @@ async function generateOneFlowScene(owner, boardRec, scene, index, force, { use_
       goal_text: goal,
       start_url: FLOW_START_URL,
       mode: 'autonomous',
-      max_steps: 28,
+      max_steps: 36,
+      agent_id: 'video-orch-ceobala',
     });
   } catch (e) {
     const job = upsertJob(owner, {
@@ -695,9 +737,38 @@ export async function generateVideoMedia(
   const prov = normalizeProvider(
     provider || coerceProvider({ provider, input, text })
   );
-  const targets = scenes
+  let targets = scenes
     .map((sc, i) => ({ scene: sc, index: Number(sc.index ?? i + 1) }))
     .filter((t) => scene_index == null || scene_index === '' || Number(t.index) === Number(scene_index));
+
+  // Flow uses one shared Desktop Local Chrome — never fan out all scenes in one call.
+  // Kick the first incomplete scene; Orchestrator continues with scene_index=N+1.
+  let flowContinueHint = null;
+  if (prov === VIDEO_PROVIDERS.FLOW_BROWSER && (scene_index == null || scene_index === '')) {
+    const incomplete = [];
+    for (const t of targets) {
+      const { jobs: existingJobs } = listVideoJobs(owner, {
+        storyboard_id: sid,
+        scene_index: t.index,
+      });
+      const hit = existingJobs[0];
+      if (!(hit?.media_path && hit.status === 'completed') || force) incomplete.push(t);
+    }
+    if (!incomplete.length) {
+      targets = [];
+    } else {
+      const next = incomplete[0];
+      targets = [next];
+      if (incomplete.length > 1) {
+        flowContinueHint = {
+          next_scene_index: incomplete[1].index,
+          remaining_scenes: incomplete.slice(1).map((x) => x.index),
+          instruction:
+            'Flow browser is serial. After this scene clip is ingested/completed, call video_media_generate again with the same storyboard_id, provider=flow_browser, and scene_index=next_scene_index.',
+        };
+      }
+    }
+  }
 
   const results = [];
   for (const t of targets) {
@@ -727,17 +798,19 @@ export async function generateVideoMedia(
     provider: prov,
     storyboard_id: sid,
     title: boardRec.title,
-    max_scene_duration_sec: MAX_SCENE_DURATION_SEC,
     results,
     manifest,
     media_lines: uniqueLines,
     paste_block: uniqueLines.join('\n'),
-    next:
-      manifest.complete
-        ? 'All scene clips ready — call video_assemble (run video assembly) to stitch and mark video_generated.'
+    flow_serial: prov === VIDEO_PROVIDERS.FLOW_BROWSER,
+    flow_continue: flowContinueHint,
+    delivery_hint: flowContinueHint
+      ? flowContinueHint.instruction
+      : manifest.complete
+        ? 'All scene clips ready — run video assembly when CEO asks.'
         : prov === VIDEO_PROVIDERS.FLOW_BROWSER
-          ? 'Some scenes still need Flow clips. Poll browse tasks, then video_media_ingest_clip per scene, or retry with use_test_clips for fixtures.'
-          : 'Some scenes failed or are running — check video_media_jobs and retry failed scene_index.',
+          ? 'Flow generation started for one scene. Poll browse task / video_media_jobs; ingest download with video_media_ingest_clip; then continue next scene_index.'
+          : 'Check video_media_jobs for per-scene status.',
   };
 }
 
