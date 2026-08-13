@@ -853,7 +853,22 @@ export function getVideoStoryboardRecord(ownerUserId, { storyboard_id = '', titl
     row = (listed?.rows || []).find((r) => String(r.data?.storyboard_id) === String(storyboard_id));
   }
   if (!row && workflow_run_id) {
-    row = (listed?.rows || []).find((r) => String(r.data?.workflow_run_id) === String(workflow_run_id));
+    const matches = (listed?.rows || []).filter((r) => String(r.data?.workflow_run_id) === String(workflow_run_id));
+    row =
+      matches.find((r) => r.data?.pdf_path || r.data?.html_path || r.data?.image_path) ||
+      matches.find((r) => {
+        try {
+          const plan =
+            typeof r.data?.plan_json === 'string' ? JSON.parse(r.data.plan_json) : r.data?.plan || r.data?.plan_json || {};
+          return Array.isArray(plan.scenes) && plan.scenes.length > 0;
+        } catch {
+          return false;
+        }
+      }) ||
+      [...matches].reverse().find((r) => String(r.data?.status) === STORY_STATUS.CEO_APPROVED) ||
+      matches[matches.length - 1] ||
+      matches[0] ||
+      null;
   }
   if (!row && title) {
     const needle = String(title).toLowerCase();
@@ -875,7 +890,17 @@ export function updateVideoStoryboardStatus(ownerUserId, { storyboard_id, workfl
     row = (listed?.rows || []).find((r) => String(r.data?.storyboard_id) === String(storyboard_id));
   }
   if (!row && workflow_run_id) {
-    row = (listed?.rows || []).find((r) => String(r.data?.workflow_run_id) === String(workflow_run_id));
+    const matches = (listed?.rows || []).filter((r) => String(r.data?.workflow_run_id) === String(workflow_run_id));
+    // Prefer the storyboard-export row (PDF/scenes) over the earlier cast-only row for the same run.
+    row =
+      matches.find((r) => r.data?.pdf_path || r.data?.html_path || r.data?.image_path) ||
+      matches.find((r) => {
+        const plan = r.data?.plan || r.data?.plan_json || {};
+        return Array.isArray(plan.scenes) && plan.scenes.length > 0;
+      }) ||
+      matches[matches.length - 1] ||
+      matches[0] ||
+      null;
   }
   if (!row && title) {
     const needle = String(title).toLowerCase();
@@ -888,6 +913,23 @@ export function updateVideoStoryboardStatus(ownerUserId, { storyboard_id, workfl
     updated: new Date().toISOString(),
   };
   updateRow(owner, table.id, row.id, next);
+  // When approving/rejecting by workflow run, keep sibling cast-only rows from blocking status checks.
+  if (workflow_run_id && !storyboard_id && status === STORY_STATUS.CEO_APPROVED) {
+    const siblings = (listed?.rows || []).filter(
+      (r) =>
+        r.id !== row.id &&
+        String(r.data?.workflow_run_id) === String(workflow_run_id) &&
+        String(r.data?.status) === STORY_STATUS.PENDING_CEO
+    );
+    for (const sib of siblings) {
+      updateRow(owner, table.id, sib.id, {
+        ...(sib.data || {}),
+        status: 'superseded_by_export',
+        updated: new Date().toISOString(),
+        notes: `superseded by ${next.storyboard_id}`,
+      });
+    }
+  }
   return { ok: true, storyboard_id: next.storyboard_id, status: next.status, title: next.title };
 }
 
