@@ -4,7 +4,7 @@
  */
 import { researchInstagram } from './adapters/instagram.js';
 import { researchFacebook } from './adapters/facebook.js';
-import { searchSite, webSearch } from './adapters/web-search.js';
+import { searchSite, webSearch, daysToBraveFreshness } from './adapters/web-search.js';
 
 const PLATFORM_SITES = {
   x: 'x.com',
@@ -117,5 +117,5 @@ export async function researchSearch(ownerUserId, opts = {}) {
   const days = Number(opts.days) || 0;
   const count = Math.min(Math.max(Number(opts.count) || 8, 1), 20);
   if (site) return searchSite(ownerUserId, { query, site, count, days });
-  return webSearch(ownerUserId, { query, count });
+  return webSearch(ownerUserId, { query, count, freshness: daysToBraveFreshness(days) });
 }

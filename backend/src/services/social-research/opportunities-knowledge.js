@@ -34,10 +34,10 @@ export const OPPORTUNITIES_COLUMNS = [
   'notes',
 ];
 
-export function fingerprintFor({ place_id, business_name, locality } = {}) {
+export function fingerprintFor({ place_id, business_name, name, locality } = {}) {
   const pid = String(place_id || '').trim().toLowerCase();
   if (pid) return `place:${pid}`;
-  const name = String(business_name || '')
+  const nameSlug = String(business_name || name || '')
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
@@ -47,7 +47,7 @@ export function fingerprintFor({ place_id, business_name, locality } = {}) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
-  return `name:${name}|${loc}`;
+  return `name:${nameSlug}|${loc}`;
 }
 
 export function ensureOpportunitiesTable(ownerUserId) {

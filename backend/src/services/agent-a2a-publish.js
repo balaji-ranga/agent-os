@@ -266,8 +266,20 @@ export function unpublishAgentByWorkspaceAgent(ownerUserId, agentId) {
   return { ...unpublishAgentPublication(ownerUserId, pub.id), unpublished: true };
 }
 
+function defaultCooId(ownerUserId) {
+  const row = db()
+    .prepare(
+      `SELECT a.id FROM agents a
+       INNER JOIN user_agents ua ON ua.agent_id = a.id AND ua.user_id = ? AND ua.enabled = 1
+       WHERE a.is_coo = 1
+       LIMIT 1`
+    )
+    .get(String(ownerUserId));
+  return row?.id || null;
+}
+
 function assertInternalParent(ownerUserId, parentId) {
-  const pid = String(parentId || '').trim();
+  const pid = String(parentId || '').trim() || defaultCooId(ownerUserId) || '';
   if (!pid) throw new Error('reports_to (internal agent) is required');
   const row = db()
     .prepare(

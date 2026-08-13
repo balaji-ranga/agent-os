@@ -44,7 +44,7 @@ The **Social Research MCP** (`mcp-social-research`) and matching content tools s
 | **`GOOGLE_PLACES_BYOK`** | CEO vault | Any other Profile LLM |
 | Facebook OAuth | CEO | Connectors → MCPs (`mcp-meta-graph`) for Graph-backed Facebook research |
 
-Enable **Places API (New)** on the Google Cloud key. Nearby Search uses lat/lng + radius + type; rating filters are applied after the API returns places.
+Enable **Places API (New)** on the Google Cloud key. Nearby Search uses lat/lng + radius + type; rating filters are applied after the API returns places. Indexed social search uses Brave `freshness` (past day/week/month), not a crawler.
 
 ## Business Discovery + CRM
 

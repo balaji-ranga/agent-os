@@ -205,6 +205,7 @@ scp @ssh `
   "$Repo\deploy\scripts\enable-docker-tools-on-vps.sh" `
   "$Repo\deploy\scripts\vps-smoke-brave-byok.sh" `
   "$Repo\deploy\scripts\vps-smoke-meta-graph-mcp.sh" `
+  "$Repo\deploy\scripts\vps-smoke-social-research.sh" `
   "$Repo\deploy\scripts\configure-openclaw-docker.js" `
   "$Repo\deploy\scripts\verify-openclaw-parity.js" `
   "$Repo\deploy\scripts\up.sh" `
@@ -333,6 +334,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\seed-business-core-mcp.js" `
     "$Repo\backend\scripts\seed-social-research-mcp.js" `
     "$Repo\backend\scripts\seed-social-research-agents.js" `
+    "$Repo\backend\scripts\vps-test-social-research.mjs" `
     "$Repo\backend\scripts\seed-business-core-maker-checker-workflows.js" `
     "$Repo\backend\scripts\publish-balaji-demo-blueprint.js" `
     "$Repo\backend\scripts\publish-brightbox-and-regenerate-standard.js" `
