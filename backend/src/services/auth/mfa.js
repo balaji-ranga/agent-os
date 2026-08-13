@@ -241,16 +241,37 @@ export function updateUserMfaSettings(userId, { mfa_policy, mfa_mode } = {}) {
   };
 }
 
-async function sendLoginOtpEmail(user, code) {
+export function maskUserEmail(email) {
+  return maskEmail(email);
+}
+
+export function newEmailOtp() {
+  const code = generateEmailOtp();
+  return { code, codeHash: hashOtp(code) };
+}
+
+export function emailOtpMatches(code, codeHash) {
+  const codeStr = String(code || '').replace(/\s/g, '');
+  if (!codeHash || !codeStr) return false;
+  return safeEqualHex(codeHash, hashOtp(codeStr));
+}
+
+/**
+ * Send a 6-digit OTP email (login or privileged admin actions).
+ * Does not log the code.
+ */
+export async function sendUserOtpEmail(user, code, { subject, intro, expiresMinutes = 5 } = {}) {
   const smtp = smtpFromEnv();
-  const subject = 'Your Agent OS login code';
+  const subj = subject || 'Your Agent OS login code';
+  const lead = intro || 'Your Agent OS verification code is';
+  const mins = Math.max(1, Number(expiresMinutes) || 5);
   const body =
-    `Your Agent OS verification code is: ${code}\n\n` +
-    `It expires in 5 minutes. If you did not try to sign in, ignore this email.\n`;
+    `${lead}: ${code}\n\n` +
+    `It expires in ${mins} minute${mins === 1 ? '' : 's'}. If you did not request this, ignore this email.\n`;
   const result = await sendSmtpMail({
     ...smtp,
     to: user.email,
-    subject,
+    subject: subj,
     body,
   });
   if (!result.sent) {
@@ -259,6 +280,14 @@ async function sendLoginOtpEmail(user, code) {
     throw err;
   }
   return result;
+}
+
+async function sendLoginOtpEmail(user, code) {
+  return sendUserOtpEmail(user, code, {
+    subject: 'Your Agent OS login code',
+    intro: 'Your Agent OS verification code is',
+    expiresMinutes: 5,
+  });
 }
 
 /**

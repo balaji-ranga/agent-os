@@ -230,6 +230,12 @@ Confirm **Job profile** is complete and pipeline/cron is enabled for your enviro
 
 1. Chat returns **502** with `Unknown model: openai/…` after an OpenClaw recreate — the live `openclaw.json` catalog was wiped. Ops: `bash deploy/scripts/vps-verify-openclaw-chat.sh` (restores catalog + re-runs configure). Help for CEOs: wait for ops; do not invent a new model on Profile.
 
+## Agent Chat queued then fails
+
+1. The AgentSystem gateway lane is full (delegations, goal-plan recovery, scheduled goals). New chat sits in queue and then errors.
+2. **CEOs:** wait; do not spam retry. Pause your own scheduled goals if you started a noisy loop.
+3. **Admins:** **Admin → AgentSystem recovery** (`/admin/openclaw-recovery`) — OTP unlock (30 min), **Unblock lane** for the CEO, optional gateway restart. Details: [43-admin-agentsystem-recovery.md](./43-admin-agentsystem-recovery.md). You can also pause `delegation_queue` / `scheduled_goals` / `kanban_orphan_watcher` on **Admin → Crons**.
+
 ## WhatsApp / Slack “Media failed” or no audio
 
 1. Agents must paste **`MEDIA:/abs/path`** (`paste_exactly` from the tool) on its **own line** so WhatsApp attaches from the shared AgentSystem disk. Auth-only `https://…/api/media/…` links fail without a browser session.

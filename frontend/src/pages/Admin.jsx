@@ -421,6 +421,7 @@ function AdminPanel() {
         <h1 style={{ margin: 0 }}>Admin</h1>
         <div className="admin-toolbar" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
           <Link to="/connectors" className="wf-btn">Connectors</Link>
+          <Link to="/admin/openclaw-recovery" className="wf-btn">AgentSystem recovery</Link>
           <button
             type="button"
             className="wf-btn"

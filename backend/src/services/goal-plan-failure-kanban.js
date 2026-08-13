@@ -9,6 +9,7 @@ import { getDb } from '../db/schema.js';
 import { getOrCreateDelegationHubStandup } from './standup-hub.js';
 import { withOwnerScope } from './org-context.js';
 import { sendPlatformNotifications } from './platform-notifications.js';
+import { getPlatformSetting, setPlatformSetting } from './platform-llm-settings.js';
 
 const TAG = '[goal_plan_recovery]';
 
@@ -32,8 +33,22 @@ function parseJson(raw, fallback = {}) {
   }
 }
 
-function recoveryDisabled() {
+const FAILURE_KANBAN_SETTING = 'goal_plan_failure_kanban';
+
+/** Env default, overridable by Admin platform setting (0/1). */
+export function isGoalPlanFailureKanbanDisabled() {
+  const fromSettings = getPlatformSetting(FAILURE_KANBAN_SETTING, null);
+  if (fromSettings === '0' || fromSettings === '1') return fromSettings === '0';
   return String(process.env.GOAL_PLAN_FAILURE_KANBAN || '1') === '0';
+}
+
+export function setGoalPlanFailureKanbanEnabled(enabled) {
+  setPlatformSetting(FAILURE_KANBAN_SETTING, enabled ? '1' : '0');
+  return { enabled: !!enabled, disabled: !enabled };
+}
+
+function recoveryDisabled() {
+  return isGoalPlanFailureKanbanDisabled();
 }
 
 /**

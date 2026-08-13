@@ -26,8 +26,8 @@ async function request(path, options = {}) {
   return res.json();
 }
 
-async function get(path) {
-  return request(path, { method: 'GET' });
+async function get(path, options = {}) {
+  return request(path, { ...options, method: 'GET' });
 }
 
 async function post(path, body, options = {}) {
@@ -816,6 +816,56 @@ export const api = {
   adminTlsCertsStepup: (code) => post('/admin/tls-certs/stepup', { code }),
   adminTlsCertsRefresh: (scope, stepupToken) =>
     post('/admin/tls-certs/refresh', { scope, stepup_token: stepupToken }),
+  adminPrivilegedSessionStatus: (token) =>
+    get('/admin/privileged-session', {
+      headers: token ? { 'X-Agent-OS-Privileged-Session': token } : {},
+    }),
+  adminPrivilegedSessionChallenge: (purpose) =>
+    post('/admin/privileged-session/challenge', purpose ? { purpose } : {}),
+  adminPrivilegedSessionVerify: (body) => post('/admin/privileged-session/verify', body || {}),
+  adminOpenclawRecoveryStatus: (ceoUserId) =>
+    get(
+      `/admin/openclaw-recovery/status${ceoUserId ? `?ceo_user_id=${encodeURIComponent(ceoUserId)}` : ''}`
+    ),
+  adminOpenclawRecoveryAgents: (ceoUserId) =>
+    get(`/admin/openclaw-recovery/agents?ceo_user_id=${encodeURIComponent(ceoUserId || '')}`),
+  adminOpenclawRecoveryGatewayCrons: () => get('/admin/openclaw-recovery/gateway-crons'),
+  adminOpenclawRecoveryDrain: (token, body) =>
+    post('/admin/openclaw-recovery/drain', body || {}, {
+      headers: { 'X-Agent-OS-Privileged-Session': token },
+    }),
+  adminOpenclawRecoveryUnblock: (token, body) =>
+    post('/admin/openclaw-recovery/unblock', body || {}, {
+      headers: { 'X-Agent-OS-Privileged-Session': token },
+    }),
+  adminOpenclawRecoveryRestart: (token) =>
+    post('/admin/openclaw-recovery/restart-gateway', {}, {
+      headers: { 'X-Agent-OS-Privileged-Session': token },
+    }),
+  adminOpenclawRecoveryRepairConfig: (token) =>
+    post('/admin/openclaw-recovery/repair-config', {}, {
+      headers: { 'X-Agent-OS-Privileged-Session': token },
+    }),
+  adminOpenclawRecoveryHeal: (token, body) =>
+    post('/admin/openclaw-recovery/heal-workspaces', body || {}, {
+      headers: { 'X-Agent-OS-Privileged-Session': token },
+    }),
+  adminOpenclawRecoveryClearSession: (token, body) =>
+    post('/admin/openclaw-recovery/clear-session', body || {}, {
+      headers: { 'X-Agent-OS-Privileged-Session': token },
+    }),
+  adminOpenclawRecoveryResetStore: (token, body) =>
+    post('/admin/openclaw-recovery/reset-session-store', body || {}, {
+      headers: { 'X-Agent-OS-Privileged-Session': token },
+    }),
+  adminOpenclawRecoveryRemoveCron: (token, body) =>
+    post('/admin/openclaw-recovery/gateway-crons/remove', body || {}, {
+      headers: { 'X-Agent-OS-Privileged-Session': token },
+    }),
+  adminOpenclawRecoveryFailureKanban: (token, body) =>
+    post('/admin/openclaw-recovery/failure-kanban', body || {}, {
+      headers: { 'X-Agent-OS-Privileged-Session': token },
+    }),
   agentWorkflowCreate: (body) => post('/agent-workflows', body),
   agentWorkflowUpdate: (id, body) => patch(`/agent-workflows/${encodeURIComponent(id)}`, body),
   agentWorkflowPublish: (id) => post(`/agent-workflows/${encodeURIComponent(id)}/publish`, {}),

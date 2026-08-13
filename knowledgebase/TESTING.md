@@ -353,3 +353,9 @@ docker compose exec -T -w /opt/agent-os/backend \
 
 Grant via Agent Workspace tool access, then optional TechResearcher invoke smoke:
 `node scripts/test-techresearcher-echo-probe-grant.js`.
+
+## Admin AgentSystem recovery (privileged session)
+
+Helpers (no OTP, no mutate): `cd backend && node scripts/test-admin-privileged-session.js`
+
+UI: Admin login → **AgentSystem recovery**. Status loads without OTP. Drain / restart / repair require OTP; session lasts 30 minutes (`ADMIN_PRIVILEGED_SESSION_TTL_MS`). Help **43**.

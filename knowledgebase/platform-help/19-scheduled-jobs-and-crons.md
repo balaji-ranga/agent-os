@@ -128,6 +128,8 @@ Master Data document delete / purge, not retention purge alone).
 
 ## 5. Where to check that a job ran
 
+- **Admin → Crons** — pause / resume / run platform timers (including `delegation_queue` and `scheduled_goals`).
+- **Admin → AgentSystem recovery** — OTP-gated drain of a CEO’s feeder queues, gateway restart, config/workspace repair, gateway cron cleanup. Help **43**.
 - **Standup chat** — status checker posts its digest there each morning.
 - **Bell / notifications** — delegation callbacks and `notify_ceo` pushes.
 - **Kanban** — cards move as delegation and workflow ticks progress.

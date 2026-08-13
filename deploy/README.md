@@ -552,7 +552,7 @@ Pull/deploy HTTP tool images on the **same Docker host as the backend**, registe
 | Env keys | `DOCKER_TOOLS_*`, `DOCKER_GID` in `.env.example` |
 | Ensure keys exist | `scripts/ensure-docker-tools-env.sh` (runs from `vps-deploy-latest.sh`) |
 | Enable on VPS | `scripts/enable-docker-tools-on-vps.sh` |
-| Admin UI | `/admin/tool-onboarding` (TOTP step-up for pull/deploy/stop/delete) |
+| Admin UI | `/admin/tool-onboarding` (privileged OTP session for pull/deploy/stop/delete; 30 min TTL) |
 | Smoke (backend container) | `node scripts/test-docker-tool-onboarding-vps.js` |
 
 Repeatable VPS enable:

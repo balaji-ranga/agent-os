@@ -58,6 +58,8 @@ import opensearchConsoleRoutes from './routes/opensearch-console.js';
 import adminPlatformDocsRoutes from './routes/admin-platform-docs.js';
 import adminToolOnboardingRoutes from './routes/admin-tool-onboarding.js';
 import adminTlsCertsRoutes from './routes/admin-tls-certs.js';
+import adminPrivilegedSessionRoutes from './routes/admin-privileged-session.js';
+import adminOpenclawRecoveryRoutes from './routes/admin-openclaw-recovery.js';
 import {
   openSearchConsoleProxy,
   waitForOpenSearch,
@@ -78,6 +80,7 @@ import { ensureToolsApiKeyConfigured } from './config/tools.js';
 import { attachRedactedRequestUrl } from './utils/redact-secrets.js';
 import { log, platformApiAccessLogger, getPlatformLogLevel, refreshPlatformLogLevel } from './utils/logger.js';
 import { ensureMfaTables } from './services/auth/mfa.js';
+import { ensurePrivilegedSessionTable } from './services/admin-privileged-session.js';
 import { ensurePlatformFeedbackTables } from './services/platform-feedback.js';
 import { ensurePasswordResetTables } from './services/password-reset.js';
 import { ensurePlatformSettingsTable } from './services/platform-llm-settings.js';
@@ -168,6 +171,7 @@ try {
 ensureInternalTokenConfigured();
 ensureToolsApiKeyConfigured();
 ensureMfaTables();
+ensurePrivilegedSessionTable();
 ensurePlatformFeedbackTables();
 ensurePasswordResetTables();
 ensurePlatformSettingsTable();
@@ -536,6 +540,8 @@ apiRouter.use('/master-data', masterDataRoutes);
 apiRouter.use('/admin/platform-documents', adminPlatformDocsRoutes);
 apiRouter.use('/admin/tool-onboarding', adminToolOnboardingRoutes);
 apiRouter.use('/admin/tls-certs', adminTlsCertsRoutes);
+apiRouter.use('/admin/privileged-session', adminPrivilegedSessionRoutes);
+apiRouter.use('/admin/openclaw-recovery', adminOpenclawRecoveryRoutes);
 apiRouter.use('/ceo-guardrails', ceoGuardrailsRoutes);
 apiRouter.use('/onboarding/helper', onboardingHelperRoutes);
 apiRouter.use('/company-setup', companySetupRoutes);

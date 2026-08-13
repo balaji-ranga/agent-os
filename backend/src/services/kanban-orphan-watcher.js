@@ -11,6 +11,7 @@
  */
 import { getDb } from '../db/schema.js';
 import { getOrCreateDelegationHubStandup } from './standup-hub.js';
+import { isGoalPlanFailureKanbanDisabled } from './goal-plan-failure-kanban.js';
 import {
   requeueStuckStatusOnlyKanbanCards,
   rependInfraFailedStatusOnlyRetries,
@@ -226,7 +227,7 @@ export function reinitiateKanbanDelegation(
     descLower.includes('[goal_plan_recovery]')
   ) {
     if (
-      String(process.env.GOAL_PLAN_FAILURE_KANBAN || '1') === '0' ||
+      isGoalPlanFailureKanbanDisabled() ||
       /google places not configured|places not configured|recovery paused|hard-stop: google places/i.test(
         `${kanban.description || ''}\n${kanban.title || ''}`
       )

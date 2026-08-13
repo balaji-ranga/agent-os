@@ -33,6 +33,7 @@ import AdminCrons from './pages/AdminCrons';
 import AdminPlatformDocuments from './pages/AdminPlatformDocuments';
 import AdminToolOnboarding from './pages/AdminToolOnboarding';
 import AdminTlsCerts from './pages/AdminTlsCerts';
+import AdminOpenclawRecovery from './pages/AdminOpenclawRecovery';
 import McpIntegrations from './pages/McpIntegrations';
 import CustomScripts from './pages/CustomScripts';
 import ExternalAgents from './pages/ExternalAgents';
@@ -332,6 +333,7 @@ function Shell() {
                 <Route path="/admin/documents-rag" element={<AdminPlatformDocuments />} />
                 <Route path="/admin/tool-onboarding" element={<AdminToolOnboarding />} />
                 <Route path="/admin/tls-certs" element={<AdminTlsCerts />} />
+                <Route path="/admin/openclaw-recovery" element={<AdminOpenclawRecovery />} />
                 <Route path="/admin/platform-feedback" element={<AdminPlatformFeedback />} />
                 <Route path="/integrations/mcp/*" element={<McpIntegrations />} />
                 <Route path="/integrations/custom-scripts" element={<CustomScripts />} />

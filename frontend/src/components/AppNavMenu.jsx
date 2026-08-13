@@ -210,6 +210,13 @@ export function AdminNavMenu({ collapsed }) {
         {collapsed ? 'TLS' : 'TLS certs'}
       </NavLink>
       <NavLink
+        to="/admin/openclaw-recovery"
+        className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+        title="AgentSystem recovery"
+      >
+        {collapsed ? 'AS' : 'AgentSystem recovery'}
+      </NavLink>
+      <NavLink
         to="/admin/platform-feedback"
         className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
         title="Platform feedback"

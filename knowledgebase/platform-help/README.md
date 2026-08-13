@@ -17,7 +17,7 @@
 | [10-policies-guardrails.md](./10-policies-guardrails.md) | CEO common guardrails for all agents + Brain nodes |
 | [10-job-applicant-pipeline.md](./10-job-applicant-pipeline.md) | Job profiles & prebuilt job workflows |
 | [11-content-tools-scripts-profile.md](./11-content-tools-scripts-profile.md) | **Tools** UI, **Tools → Model** mapping, **MEDIA: / auth media lockdown**, platform feedback tools, chat attachments / inbound media, AGENT-OS-OPS, summary caches, scripts, AI Snipper, Efficiency View, Profile **provider + model** |
-| [12-troubleshooting.md](./12-troubleshooting.md) | Common issues (A2A, notify, Kanban, **Workspace empty vs Kanban open**, API Keys, Connectors, **WhatsApp Media failed**, inbound attachments, scheduled jobs, storage/purge, department budget, **Places / Agent Chat 502**) |
+| [12-troubleshooting.md](./12-troubleshooting.md) | Common issues (A2A, notify, Kanban, **Workspace empty vs Kanban open**, API Keys, Connectors, **WhatsApp Media failed**, inbound attachments, scheduled jobs, storage/purge, department budget, **Places / Agent Chat 502**, **queued Agent Chat / Admin AgentSystem recovery**) |
 | [13-workflow-autonomous-certify.md](./13-workflow-autonomous-certify.md) | Maker/Checker certify jobs, status-on-request, resume inputs |
 | [14-workflow-dynamic-values.md](./14-workflow-dynamic-values.md) | `{{…}}` templates, variables, trigger input, **vault** auth |
 | [15-api-keys-vault.md](./15-api-keys-vault.md) | **API Keys** vault, auto-seeded BYOK slots, `Platform_BYOK` / Replicate / Brave / **Places** / X / Instagram / ElevenLabs |
@@ -48,6 +48,7 @@
 | [38-maker-checker-coordination.md](./38-maker-checker-coordination.md) | Maker/Checker + multiphase goal plans (async ack, new agr default, terminal completion chat nudge + plan-correlated notifies) |
 | [39-erpnext-help-tier-a.md](./39-erpnext-help-tier-a.md) | **ERPNext Tier A (Platform Help RAG)** — product how-to only; live books → COO / ERP agents |
 | [40-twenty-crm-help-tier-a.md](./40-twenty-crm-help-tier-a.md) | **Twenty CRM Tier A (Platform Help RAG)** — product how-to only; live pipeline → COO / CRM agents |
+| [43-admin-agentsystem-recovery.md](./43-admin-agentsystem-recovery.md) | **Admin** — AgentSystem recovery (OTP 30-min privileged session, drain queues, restart gateway, repair config/workspaces, gateway crons) |
 
 **Video Tours (UI):** User menu → **Help → Video Tours** (/video-tours) — playlist of short CEO tours (script/captions now; mp4 when exported). Not ingested as RAG docs.
 

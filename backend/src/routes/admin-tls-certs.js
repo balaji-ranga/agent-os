@@ -79,16 +79,17 @@ router.get('/jobs/:id', (req, res) => {
   }
 });
 
-router.post('/stepup', (req, res) => {
+router.post('/stepup', async (req, res) => {
   try {
     assertPureAdmin(req);
-    const { code } = req.body || {};
-    if (!code) return res.status(400).json({ error: 'TOTP code required' });
-    const out = issueAdminStepup({
+    const { code, mfa_token } = req.body || {};
+    if (!code) return res.status(400).json({ error: 'OTP code required' });
+    const out = await issueAdminStepup({
       userId: req.authUser.id,
       role: req.authUser.role,
       impersonation: req.authUser.impersonation,
       code,
+      mfaToken: mfa_token,
       purpose: PURPOSE,
     });
     res.json(out);
