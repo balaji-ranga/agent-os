@@ -13,8 +13,15 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const BACKEND_ROOT = join(__dirname, '../..');
 const PACKAGE_ROOT = join(BACKEND_ROOT, 'local-browser-worker');
 
-// browser-profile = local Chrome user-data; never ship profile contents in zip.
-const SKIP_DIR_NAMES = new Set(['node_modules', 'data', 'logs', '.git', 'browser-profile']);
+// browser-profile* = local Chrome user-data; never ship profile contents in zip.
+const SKIP_DIR_NAMES = new Set([
+  'node_modules',
+  'data',
+  'logs',
+  '.git',
+  'browser-profile',
+  'browser-profile-chrome',
+]);
 const SKIP_FILE_NAMES = new Set(['.env', 'package-lock.json']);
 
 function walkFiles(dir, base = dir) {
@@ -76,22 +83,23 @@ export async function buildLocalBrowserWorkerPackageZip({
     'LOOPBACK_PORT=3020',
     // Headed by default so logins / 2FA work; set 1 only for intentional headless.
     'BROWSER_HEADLESS=0',
-    // Playwright persistent Chromium profile (cookies/logins survive restarts).
-    'BROWSER_USER_DATA_DIR=browser-profile',
+    // Installed Google Chrome (Playwright channel) — avoids Google "browser may not be secure" on Chromium.
+    'BROWSER_CHANNEL=chrome',
+    'BROWSER_USER_DATA_DIR=browser-profile-chrome',
     'HEARTBEAT_MS=30000',
     '',
   ].join('\n');
   files.push({ name: '.env', content: envContent, compress: true });
 
   files.push({
-    name: 'browser-profile/.gitkeep',
+    name: 'browser-profile-chrome/.gitkeep',
     content: '',
     compress: true,
   });
 
   const meta = {
     format: 'agent-os-local-browser-worker',
-    version: 1.1,
+    version: 1.2,
     exported_at: new Date().toISOString(),
     owner_user_id: ownerUserId,
     public_base_url: baseUrl || null,
@@ -103,7 +111,8 @@ export async function buildLocalBrowserWorkerPackageZip({
     api_base: baseUrl ? `${baseUrl}/api/browser-worker/v1` : null,
     headless_default: false,
     persistent_profile: true,
-    user_data_dir: 'browser-profile',
+    browser_channel: 'chrome',
+    user_data_dir: 'browser-profile-chrome',
   };
   files.push({
     name: 'worker.meta.json',
@@ -120,10 +129,12 @@ export async function buildLocalBrowserWorkerPackageZip({
     '',
     'Browser profile (cookies / logins)',
     '---------------------------------',
-    'Uses Playwright launchPersistentContext with BROWSER_USER_DATA_DIR (default browser-profile).',
-    'Logins (e.g. Facebook, LinkedIn) in the headed window persist across worker restarts.',
-    'This is NOT your real Google Chrome profile; log in once inside the worker window.',
-    'Keep BROWSER_HEADLESS=0 for first logins and 2FA. Do not delete browser-profile\\ while logged in.',
+    'Uses Playwright launchPersistentContext with installed Google Chrome (BROWSER_CHANNEL=chrome).',
+    'Default profile folder: browser-profile-chrome (cookies/logins survive restarts).',
+    'This is NOT your everyday Chrome profile; log in once inside the worker window.',
+    'Keep BROWSER_HEADLESS=0 for first logins and 2FA. Do not delete the profile folder while logged in.',
+    'Requires Google Chrome installed. To force Playwright Chromium instead: set BROWSER_CHANNEL=',
+    'and BROWSER_USER_DATA_DIR=browser-profile (Google sign-in may show "browser may not be secure").',
     '',
     'Setup',
     '-----',
@@ -133,10 +144,11 @@ export async function buildLocalBrowserWorkerPackageZip({
     '   - AGENT_OS_BASE_URL (your Flolah origin, no /api suffix)',
     '   - LOOPBACK_PORT=3020',
     '   - BROWSER_HEADLESS=0  (headed; only set 1 if you intentionally want headless)',
-    '   - BROWSER_USER_DATA_DIR=browser-profile',
-    '3. First run installs Playwright Chromium (npm once) if node_modules is missing:',
+    '   - BROWSER_CHANNEL=chrome',
+    '   - BROWSER_USER_DATA_DIR=browser-profile-chrome',
+    '3. First run installs Playwright deps (npm once) if node_modules is missing:',
     '     .\\scripts\\Start-BrowserWorker.ps1',
-    '4. A Chromium window opens. Log into sites you need; leave the process running.',
+    '4. A Chrome window opens. Log into sites you need (e.g. Google Flow); leave the process running.',
     '5. Optional: .\\scripts\\Register-TaskScheduler.ps1  (start at Windows logon)',
     '',
     'Connectors -> Browser Session package',
@@ -157,7 +169,7 @@ export async function buildLocalBrowserWorkerPackageZip({
     '- Token is hashed on Flolah; only your owner_user_id receives jobs.',
     '- Loopback binds 127.0.0.1 only by default.',
     '- IP whitelist applies to worker -> cloud calls when configured.',
-    '- browser-profile holds session cookies - treat like a password store; do not share.',
+    '- browser-profile-chrome holds session cookies - treat like a password store; do not share.',
     '',
     withRuntime
       ? `Bundled Node ${DESKTOP_NODE_VERSION} under runtime\\node.exe`
