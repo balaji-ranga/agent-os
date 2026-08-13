@@ -13,6 +13,7 @@ import { createSession } from '../src/services/auth/session.js';
 import { seedSocialResearchToolsIfMissing, grantSocialResearchToolsToAgents } from '../src/db/seed-social-research-tools.js';
 import { seedSocialResearchExchangeAgents } from './seed-social-research-agents.js';
 import { fingerprintFor, ensureOpportunitiesTable, recordOpportunities, loadOpportunityIndex, lookupOpportunity } from '../src/services/social-research/opportunities-knowledge.js';
+import { parsePlacesSearchText } from '../src/services/social-research/adapters/google-places.js';
 import { createDiscoveryKanbanTask, findCrmHandoffAgentId } from '../src/services/social-research/crm-handoff.js';
 import { setUserEnabled } from '../src/services/users.js';
 import { existsSync, readFileSync } from 'fs';
@@ -97,9 +98,17 @@ for (const t of ['social_research_search', 'social_research_instagram', 'social_
   ok(srGrants.has(t), `socialresearcher grant ${t}`);
 }
 ok(!srGrants.has('business_discover'), 'socialresearcher does not get business_discover');
-for (const t of ['business_discover', 'google_places_geocode', 'google_places_nearby', 'social_research_search', 'master_data_rag', 'summarize_url']) {
+for (const t of ['business_discover', 'google_places_geocode', 'google_places_nearby', 'social_research_search', 'master_data_rag', 'summarize_url', 'agent_goal_create', 'agent_goal_list', 'agent_goal_status']) {
   ok(bdGrants.has(t), `businessdiscovery grant ${t}`);
 }
+
+const parsedPlaces = parsePlacesSearchText(
+  'Research dental clinics within 5 km of Tampines, Singapore. Find up to 20 businesses using Google Places.'
+);
+ok(/tampines/i.test(parsedPlaces.locality || ''), 'parsePlacesSearchText locality', parsedPlaces.locality);
+ok(parsedPlaces.business_type === 'dentist', 'parsePlacesSearchText type', parsedPlaces.business_type);
+ok(parsedPlaces.radius_km === 5, 'parsePlacesSearchText radius', parsedPlaces.radius_km);
+ok(parsedPlaces.max_results === 20, 'parsePlacesSearchText max', parsedPlaces.max_results);
 
 const pubs = db
   .prepare(
@@ -144,6 +153,11 @@ if (existsSync(soulSr)) {
   ok(/social_research_profile/i.test(text), 'publisher SOUL mentions social_research_profile');
   ok(/social_research_x/i.test(text) && /posts\[\]/i.test(text), 'publisher SOUL distinguishes posts[] vs search');
   ok(/self-hosted/i.test(text) && /429/i.test(text), 'publisher SOUL explains sidecar vs instagram.com 429');
+}
+if (existsSync(soulBd)) {
+  const text = readFileSync(soulBd, 'utf8');
+  ok(/agent_goal_create/i.test(text), 'publisher BD SOUL uses agent_goal_create');
+  ok(!/brief_markdown/i.test(text), 'publisher BD SOUL does not depend on brief_markdown');
 }
 
 try {
@@ -370,45 +384,19 @@ Use fresh information where possible. Reuse recently collected data if it is sti
     status: disc.status,
     error: disc.data.error,
     count: disc.data.count,
-    modes: disc.data.modes_used,
-    goal: disc.data.goal_run_id,
   });
-  ok(
-    Array.isArray(disc.data.modes_used) &&
-      disc.data.modes_used.includes('discover') &&
-      disc.data.modes_used.includes('research') &&
-      !disc.data.modes_used.includes('track') &&
-      !disc.data.modes_used.includes('act'),
-    'Tampines modes discover+research only',
-    disc.data.modes_used
-  );
+  ok(Number(disc.data.count) >= 1 && Array.isArray(disc.data.businesses), 'Tampines Places results', {
+    count: disc.data.count,
+    n: disc.data.businesses?.length,
+  });
   ok(disc.data.persist === false && !disc.data.kanban, 'Tampines did not persist or CRM-handoff', {
     persist: disc.data.persist,
     kanban: disc.data.kanban,
   });
-  ok(
-    Array.isArray(disc.data.brief?.table) && disc.data.brief.table.length >= 1,
-    'research brief table',
-    disc.data.brief?.table?.length
-  );
-  ok(
-    Array.isArray(disc.data.top_prospects) && disc.data.top_prospects.length <= 5 && disc.data.top_prospects.length >= 1,
-    'top 5 prospects',
-    disc.data.top_prospects?.length
-  );
-  ok(/^agr-/.test(String(disc.data.goal_run_id || '')), 'goal plan agr- id', disc.data.goal_run_id);
-  ok(/CRM/i.test(String(disc.data.next_action || '')), 'next action asks CRM', disc.data.next_action);
-  if (disc.data.goal_run_id) {
-    const plan = db.prepare('SELECT id, status, agent_id FROM agent_goal_runs WHERE id = ? AND owner_user_id = ?').get(
-      disc.data.goal_run_id,
-      ceo.id
-    );
-    ok(!!plan, 'goal plan row owner-scoped', plan);
-    const steps = db
-      .prepare('SELECT label, status FROM agent_goal_steps WHERE goal_run_id = ? ORDER BY step_index')
-      .all(disc.data.goal_run_id);
-    ok(steps.length >= 4 && steps.every((s) => s.status === 'completed'), 'goal steps completed', steps);
-  }
+  ok(!disc.data.goal_run_id && !disc.data.brief, 'discover tool does not embed a goal plan or brief', {
+    goal: disc.data.goal_run_id,
+    brief: disc.data.brief,
+  });
 }
 
 const fpPlace = fingerprintFor({ place_id: 'ChIJtest123', name: 'Gym A', locality: 'Tampines' });
@@ -709,11 +697,11 @@ Use fresh information where possible. Reuse recently collected data if it is sti
     const bdLog = db
       .prepare(
         `SELECT tool_name, status FROM content_tool_logs
-         WHERE owner_user_id = ? AND tool_name = 'business_discover'
+         WHERE owner_user_id = ? AND tool_name IN ('business_discover','agent_goal_create','google_places_nearby')
          ORDER BY id DESC LIMIT 1`
       )
       .get(ceo.id);
-    ok(!!bdLog, 'publisher chat invoked business_discover', bdLog);
+    ok(!!bdLog, 'publisher chat invoked discover or goal plan', bdLog);
   }
 }
 

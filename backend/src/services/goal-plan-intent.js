@@ -44,6 +44,70 @@ export const GOAL_PLAN_SELF_TOOLS_PREFER = [
   'market_screener',
 ];
 
+function orchestratorBaseId(orchestratorAgentId) {
+  const raw = String(orchestratorAgentId || '').trim();
+  if (!raw) return '';
+  return raw.includes('--') ? raw.split('--').pop() : raw;
+}
+
+/**
+ * COO / Workflow Builder keep nested specialty_task + prefer-list tool filtering.
+ * Any other orchestrator (granted agent_goal_create) plans against its own grants.
+ */
+export function isCooStyleOrchestrator(orchestratorAgentId) {
+  if (!orchestratorAgentId) return true;
+  const id = String(orchestratorAgentId).trim().toLowerCase();
+  if (!id) return true;
+  const base = orchestratorBaseId(id).toLowerCase();
+  if (base === 'balserve' || base === 'workflowbuilder') return true;
+  try {
+    const coo = getCooAgentRow();
+    const cooId = String(coo?.id || '').toLowerCase();
+    if (cooId && (id === cooId || base === cooId)) return true;
+    const row = getDb()
+      .prepare('SELECT is_coo FROM agents WHERE lower(id) = ? OR lower(id) = ? LIMIT 1')
+      .get(id, base);
+    if (row?.is_coo) return true;
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
+function grantsForOrchestrator(orchestratorAgentId, ownerUserId) {
+  const ids = [];
+  const raw = String(orchestratorAgentId || '').trim();
+  if (raw) ids.push(raw);
+  const base = orchestratorBaseId(raw);
+  if (base && base !== raw) ids.push(base);
+  const owner = String(ownerUserId || '').trim();
+  if (owner && base && !String(raw).includes('--')) {
+    ids.push(`t-${owner}--${base}`);
+  }
+  if (!raw) {
+    try {
+      const coo = getCooAgentRow();
+      if (coo?.id) ids.push(coo.id);
+    } catch {
+      /* ignore */
+    }
+    ids.push('balserve');
+  }
+  const seen = new Set();
+  for (const id of ids) {
+    const key = String(id || '').trim();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    try {
+      const g = getAgentToolGrants(key) || [];
+      if (g.length) return g;
+    } catch {
+      /* ignore */
+    }
+  }
+  return [];
+}
+
 const SKIP_META_TOOLS = new Set([
   'agent_goal_create',
   'agent_workflow_trigger',
@@ -271,14 +335,7 @@ function resolveCeoEmail(ownerUserId) {
  * Catalog of tool names the goal owner agent may self-execute on plan steps.
  */
 export function listOrchestratorToolsForGoalPlan(ownerUserId, orchestratorAgentId = null) {
-  let grants = [];
-  try {
-    const coo = getCooAgentRow();
-    const agentId = orchestratorAgentId || coo?.id || 'balserve';
-    grants = getAgentToolGrants(agentId) || [];
-  } catch {
-    grants = [];
-  }
+  const grants = grantsForOrchestrator(orchestratorAgentId, ownerUserId);
   const grantSet = new Set(grants.map((g) => String(g).toLowerCase()));
   const enabled = listEnabledContentTools();
   const tools = enabled
@@ -677,6 +734,16 @@ export function matchSelfToolsFromCatalog(prompt, tools) {
       }
     }
 
+    // 5) Small catalogs (specialty orchestrators): distinctive purpose tokens from the registry.
+    if (idx < 0 && (tools || []).length <= 28 && !prefer.has(t.name)) {
+      const purpose = normalizeIntentText(String(t.purpose || t.display_name || ''));
+      const toks = purpose.split(' ').filter((s) => s.length >= 6 && !GENERIC_TOKENS.has(s));
+      if (toks.length >= 2) {
+        const near = tokensNear(lower, toks.slice(0, 2), 96, { wholeWord: true });
+        if (near >= 0) idx = near;
+      }
+    }
+
     if (idx >= 0) hits.push({ idx, t });
   }
 
@@ -853,6 +920,7 @@ export async function classifyGoalPlanIntents(ownerUserId, prompt, opts = {}) {
   const tools = listOrchestratorToolsForGoalPlan(owner, opts.orchestratorAgentId || null);
   const workflows = listWorkflowCatalogForGoalPlan(owner);
   const agents = await listSpecialtyAgentsForGoalPlan(owner);
+  const cooStyle = isCooStyleOrchestrator(opts.orchestratorAgentId);
 
   // --- Lane A: tenant published workflow phrases (catalog order) ---
   const wfCatalogSteps = matchWorkflowStepsFromCatalog(text, owner);
@@ -860,24 +928,25 @@ export async function classifyGoalPlanIntents(ownerUserId, prompt, opts = {}) {
   // --- Lane B: specialty residual via org roster + specialty LLM allocator ---
   let specialtySteps = [];
   try {
-    const residualForSpecialty = stripWorkflowPhrasesFromPrompt(text, owner)
-      .replace(/\s{2,}/g, ' ')
-      .trim();
-    if (residualForSpecialty.length >= 8) {
-      const specialtyRaw = await classifySpecialtyIntentsForPlan(owner, residualForSpecialty, {
-        maxSpecialty: opts.maxSpecialty || 4,
-      });
-      specialtySteps = specialtyIntentsToSteps(specialtyRaw, {
-        parallel: specialtyRaw.length > 1,
-      }).map((st) => ({
-        type: 'specialty_task',
-        label: st.label,
-        agent_id: st.agent_id || st.spec?.agent_id,
-        message: st.message || st.spec?.message || null,
-        parallel_group: st.parallel_group || st.spec?.parallel_group || null,
-        _order: null,
-      }));
-      // anchor specialty order by agent id / human name first mention
+    if (cooStyle) {
+      const residualForSpecialty = stripWorkflowPhrasesFromPrompt(text, owner)
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+      if (residualForSpecialty.length >= 8) {
+        const specialtyRaw = await classifySpecialtyIntentsForPlan(owner, residualForSpecialty, {
+          maxSpecialty: opts.maxSpecialty || 4,
+        });
+        specialtySteps = specialtyIntentsToSteps(specialtyRaw, {
+          parallel: specialtyRaw.length > 1,
+        }).map((st) => ({
+          type: 'specialty_task',
+          label: st.label,
+          agent_id: st.agent_id || st.spec?.agent_id,
+          message: st.message || st.spec?.message || null,
+          parallel_group: st.parallel_group || st.spec?.parallel_group || null,
+          _order: null,
+        }));
+      }
       const lowerText = text.toLowerCase();
       for (const st of specialtySteps) {
         const id = String(st.agent_id || '').toLowerCase();
@@ -915,10 +984,12 @@ export async function classifyGoalPlanIntents(ownerUserId, prompt, opts = {}) {
         s.type === 'notify_ceo' ? 'notify_ceo' : s.tool_name
       )
     );
-    toolCatalogSteps = toolCatalogSteps.filter((s) => {
-      const key = s.type === 'notify_ceo' ? 'notify_ceo' : s.tool_name;
-      return preferSet2.has(key) || exact2.has(key);
-    });
+    if (cooStyle) {
+      toolCatalogSteps = toolCatalogSteps.filter((s) => {
+        const key = s.type === 'notify_ceo' ? 'notify_ceo' : s.tool_name;
+        return preferSet2.has(key) || exact2.has(key);
+      });
+    }
     toolCatalogSteps.sort((a, b) => (a._order ?? 1e9) - (b._order ?? 1e9));
   } catch (e) {
     console.warn('[goal-plan-intent] tool multi-label wire failed', e?.message || e);
@@ -1015,10 +1086,11 @@ export async function classifyGoalPlanIntents(ownerUserId, prompt, opts = {}) {
         ownerUserId: owner,
       }).filter((st) => {
         if (st.type === 'workflow_trigger') return false;
-        if (st.type === 'specialty_task') return true;
+        if (st.type === 'specialty_task') return cooStyle;
         if (st.type === 'notify_ceo') return true;
-        // Self tools: only prefer-set or exact-in-text (catalog already matched)
+        // Self tools: COO prefer-set or exact-in-text; specialty orchestrators keep granted catalog tools
         if (st.type === 'agent_tool') {
+          if (!cooStyle) return true;
           const prefer = new Set(GOAL_PLAN_SELF_TOOLS_PREFER);
           const exact = matchSelfToolsFromCatalog(text, tools).some(
             (x) => x.tool_name === st.tool_name || (st.tool_name === 'notify_ceo' && x.type === 'notify_ceo')
@@ -1042,7 +1114,7 @@ export async function classifyGoalPlanIntents(ownerUserId, prompt, opts = {}) {
   for (const st of [...toolCatalogSteps, ...llmExtra.filter((x) => x.type === 'agent_tool' || x.type === 'notify_ceo')]) {
     const key = st.type === 'notify_ceo' ? 'notify_ceo' : st.tool_name;
     if (!key || seenTool.has(key)) continue;
-    if (st.type === 'agent_tool' && !preferTools.has(key) && !exactToolNames.has(key)) continue;
+    if (st.type === 'agent_tool' && cooStyle && !preferTools.has(key) && !exactToolNames.has(key)) continue;
     seenTool.add(key);
     if (st._order == null) {
       // place after specialties by text search
@@ -1053,15 +1125,17 @@ export async function classifyGoalPlanIntents(ownerUserId, prompt, opts = {}) {
     toolSteps.push(st);
   }
 
-  // Specialty: catalog residual primary; merge LLM specialty not already present
-  const specialtyMerged = [...specialtySteps];
+  // Specialty: catalog residual primary; merge LLM specialty not already present (COO-style only)
+  const specialtyMerged = cooStyle ? [...specialtySteps] : [];
   const seenAgent = new Set(specialtyMerged.map((s) => String(s.agent_id || '').toLowerCase()));
-  for (const st of llmExtra.filter((x) => x.type === 'specialty_task')) {
-    const id = String(st.agent_id || '').toLowerCase();
-    if (!id || seenAgent.has(id)) continue;
-    seenAgent.add(id);
-    if (st._order == null) st._order = text.length;
-    specialtyMerged.push(st);
+  if (cooStyle) {
+    for (const st of llmExtra.filter((x) => x.type === 'specialty_task')) {
+      const id = String(st.agent_id || '').toLowerCase();
+      if (!id || seenAgent.has(id)) continue;
+      seenAgent.add(id);
+      if (st._order == null) st._order = text.length;
+      specialtyMerged.push(st);
+    }
   }
 
   // Final ordered list

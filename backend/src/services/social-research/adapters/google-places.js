@@ -76,6 +76,60 @@ function includedTypeFor(businessType) {
   return '';
 }
 
+/**
+ * Fill Places args from free text when the caller did not pass structured fields.
+ * Generic: used by nearby search and business_discover.
+ */
+export function parsePlacesSearchText(text, opts = {}) {
+  const blob = [opts.intent, opts.prompt, opts.query, opts.message, text].filter(Boolean).join('\n');
+  const t = String(blob || '').replace(/\s+/g, ' ').trim();
+  let locality = String(opts.locality || opts.location || '').trim();
+  if (!locality) {
+    const within = t.match(
+      /\bwithin\s+\d+(?:\.\d+)?\s*k(?:m|ilomet(?:er|re)s?)\s+of\s+([^.\n]+?)(?:\.|$)/i
+    );
+    if (within) locality = within[1].replace(/\s+/g, ' ').trim();
+    else {
+      const near = t.match(/\b(?:near|around|in)\s+([A-Z][A-Za-z0-9 .,'-]{2,80}?)(?:\.|$)/);
+      if (near && !/^(their|the|this|that|more|depth)\b/i.test(near[1])) {
+        locality = near[1].replace(/\s+/g, ' ').trim();
+      }
+    }
+  }
+  let business_type = String(opts.business_type || opts.type || opts.included_type || '').trim();
+  if (!business_type) {
+    const lower = t.toLowerCase();
+    const keys = Object.keys(TYPE_ALIASES).sort((a, b) => b.length - a.length);
+    for (const k of keys) {
+      if (new RegExp(`\\b${k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(lower)) {
+        business_type = TYPE_ALIASES[k];
+        break;
+      }
+    }
+  }
+  let radius_km = null;
+  if (opts.radius_km != null && opts.radius_km !== '') radius_km = Number(opts.radius_km);
+  else if (opts.radius_meters != null && opts.radius_meters !== '') radius_km = Number(opts.radius_meters) / 1000;
+  else {
+    const m =
+      t.match(/\bwithin\s+(\d+(?:\.\d+)?)\s*k(?:m|ilomet(?:er|re)s?)\b/i) ||
+      t.match(/\b(\d+(?:\.\d+)?)\s*k(?:m|ilomet(?:er|re)s?)\s+(?:of|from|around|near)\b/i);
+    if (m) radius_km = Number(m[1]);
+  }
+  let max_results = null;
+  if (opts.max_results != null && opts.max_results !== '') max_results = Number(opts.max_results);
+  else {
+    const m = t.match(/\bup to\s+(\d+)\s+business/i) || t.match(/\bfind\s+(?:up to\s+)?(\d+)\s+business/i);
+    if (m) max_results = Number(m[1]);
+  }
+  return {
+    locality,
+    business_type,
+    radius_km: Number.isFinite(radius_km) && radius_km > 0 ? radius_km : null,
+    max_results: Number.isFinite(max_results) && max_results > 0 ? max_results : null,
+  };
+}
+
 async function placesPost(apiKey, apiUrl, path, body, fieldMask) {
   const base = String(apiUrl || 'https://places.googleapis.com/v1').replace(/\/+$/, '');
   const res = await fetch(`${base}${path}`, {
@@ -158,17 +212,25 @@ function applyMinRating(places, minRating) {
 }
 
 export async function nearbySearch(ownerUserId, opts = {}) {
+  const parsed = parsePlacesSearchText(opts.intent || opts.prompt || opts.query || '', opts);
   const cfg = requirePlacesKey(ownerUserId);
   let lat = Number(opts.lat);
   let lng = Number(opts.lng);
+  const locality = String(opts.locality || parsed.locality || '').trim();
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-    const geo = await geocodeLocality(ownerUserId, { locality: opts.locality });
+    const geo = await geocodeLocality(ownerUserId, { locality });
     lat = geo.lat;
     lng = geo.lng;
   }
-  const radius = Math.min(Math.max(Number(opts.radius_meters) || 3000, 50), 50000);
-  const maxResults = Math.min(Math.max(Number(opts.max_results) || 20, 1), 60);
-  const includedType = includedTypeFor(opts.included_type || opts.business_type);
+  const radius = Math.min(
+    Math.max(
+      Number(opts.radius_meters) || (parsed.radius_km != null ? parsed.radius_km * 1000 : 0) || 3000,
+      50
+    ),
+    50000
+  );
+  const maxResults = Math.min(Math.max(Number(opts.max_results) || parsed.max_results || 20, 1), 60);
+  const includedType = includedTypeFor(opts.included_type || opts.business_type || parsed.business_type);
   const rank =
     String(opts.rank_preference || 'POPULARITY').toUpperCase() === 'DISTANCE' ? 'DISTANCE' : 'POPULARITY';
 

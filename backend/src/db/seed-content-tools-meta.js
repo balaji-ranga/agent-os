@@ -149,7 +149,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/agent-goal-create',
     method: 'POST',
     purpose:
-      'API tool (COO or Workflow Builder): create a durable multi-intent goal plan for the entitled CEO and start executing it (async:true + new agr-… every call). Body: prompt (or message), optional title, optional steps[{type,label,spec}]. Platform auto-plans CRM→ERP/workflow phrases + specialty residual when steps omitted. Returns plan_summary immediately — quote agr- id and end turn; do not reuse an older plan from chat/MEMORY for a new multiphase ask. workflow_trigger/specialty steps run async; on terminal the platform advances remaining steps (CEO notifies include goal plan id + title when bound). Prefer this for multi-phase goals instead of manual sequential agent_workflow_trigger.',
+      'API tool (COO, Workflow Builder, or an agent granted this tool): create a durable multi-intent goal plan for the entitled CEO and start executing it (async:true + new agr-… every call). Body: prompt (or message), optional title, optional steps[{type,label,spec}]. Platform auto-plans workflow phrases + specialty residual (COO-style) or the caller’s granted tools (specialty self-plan) when steps omitted. Returns plan_summary immediately — quote agr- id and end turn; do not reuse an older plan from chat/MEMORY for a new multiphase ask. workflow_trigger/specialty steps run async; on terminal the platform advances remaining steps (CEO notifies include goal plan id + title when bound). Prefer this for multi-phase goals instead of manual sequential agent_workflow_trigger.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -160,7 +160,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/agent-goal-list',
     method: 'POST',
     purpose:
-      'API tool (COO or Workflow Builder): list recent agent_goal_runs for the entitled CEO. Optional status, limit. Owner from session only.',
+      'API tool (COO, Workflow Builder, or an agent granted this tool): list recent agent_goal_runs for the entitled CEO. Optional status, limit. Owner from session only.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -171,7 +171,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/agent-goal-status',
     method: 'POST',
     purpose:
-      'API tool (COO or Workflow Builder): get one agent_goal_run by goal_run_id including plan steps and child workflow run ids. Owner from session only.',
+      'API tool (COO, Workflow Builder, or an agent granted this tool): get one agent_goal_run by goal_run_id including plan steps and child workflow run ids. Owner from session only.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -182,7 +182,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/agent-goal-complete-step',
     method: 'POST',
     purpose:
-      'API tool (COO or Workflow Builder): mark an agent_continue goal step complete (or failed) and advance the plan. Body: goal_run_id, step_id, optional result, failed, error. Workflow steps auto-complete on workflow terminal.',
+      'API tool (COO, Workflow Builder, or an agent granted this tool): mark an agent_continue goal step complete (or failed) and advance the plan. Body: goal_run_id, step_id, optional result, failed, error. Workflow steps auto-complete on workflow terminal.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,

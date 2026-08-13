@@ -244,7 +244,7 @@ export function importGrantsFromOpenClawConfig() {
   return imported;
 }
 
-/** COO / Workflow Builder–only tools — specialists must not hold these grants (API rejects them anyway). */
+/** COO / Workflow Builder workflow-orchestration tools — specialists must not hold these (API rejects them). Goal plan tools (agent_goal_*) are grant-gated instead. */
 const COO_OR_WORKFLOW_BUILDER_TOOLS = [
   'agent_workflow_list',
   'agent_workflow_enquire',
@@ -253,10 +253,6 @@ const COO_OR_WORKFLOW_BUILDER_TOOLS = [
   'agent_workflow_watch',
   'agent_workflow_watch_tick',
   'agent_workflow_retry',
-  'agent_goal_create',
-  'agent_goal_list',
-  'agent_goal_status',
-  'agent_goal_complete_step',
 ];
 
 /** Content Orchestrator (video_content pack) may keep these owner-scoped workflow tools. */

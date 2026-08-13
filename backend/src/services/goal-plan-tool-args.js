@@ -247,7 +247,11 @@ export function goalWantsChatSynthesis(prompt) {
     /\b(clean|brief|morning)\s+report\b/i.test(t) ||
     /\bin this chat\b/i.test(t) ||
     /\bsend (it )?to the ceo in (this )?chat\b/i.test(t) ||
-    /\breply (in|with)\b/i.test(t)
+    /\breply (in|with)\b/i.test(t) ||
+    /\brank( the|ed)?\b/i.test(t) ||
+    /\bprospects?\b/i.test(t) ||
+    /\bcompar(e|ative)\b/i.test(t) ||
+    /\btop\s+\d+\b/i.test(t)
   );
 }
 

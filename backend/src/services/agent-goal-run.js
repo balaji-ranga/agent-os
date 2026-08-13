@@ -22,6 +22,7 @@ import {
   classifyGoalPlanIntents,
   matchWorkflowStepsFromCatalog,
   resolveCeoEmail,
+  isCooStyleOrchestrator,
 } from './goal-plan-intent.js';
 import { invokeContentToolHttp } from './content-tool-http-invoke.js';
 import { listPublishedWorkflows } from './agent-workflow-chat-tools.js';
@@ -380,7 +381,7 @@ export async function planGoalStepsAsync(prompt, opts = {}) {
   }
 
   const residual = stripWorkflowPhrasesFromPrompt(fullPrompt, ownerUserId).replace(/\s{2,}/g, ' ').trim();
-  if (ownerUserId && residual.length >= 8) {
+  if (ownerUserId && residual.length >= 8 && isCooStyleOrchestrator(opts.orchestratorAgentId)) {
     try {
       const specialtyRaw = await classifySpecialtyIntentsForPlan(ownerUserId, residual, { maxSpecialty });
       const specialtySteps = specialtyIntentsToSteps(specialtyRaw, {
@@ -2228,6 +2229,7 @@ export async function createAndStartGoalRun(opts = {}) {
     steps = await planGoalStepsAsync(opts.prompt || '', {
       ownerUserId: opts.ownerUserId,
       explicitSteps: opts.explicitSteps,
+      orchestratorAgentId: opts.orchestratorAgentId || opts.agentId || null,
     });
   }
   const goal = createGoalRun({ ...opts, steps });
@@ -2248,6 +2250,7 @@ export async function createGoalRunWithPlan(opts = {}) {
       ownerUserId: opts.ownerUserId,
       explicitSteps: opts.explicitSteps,
       feedback: opts.feedback,
+      orchestratorAgentId: opts.orchestratorAgentId || opts.agentId || null,
     });
   }
   return createGoalRun({ ...opts, steps });

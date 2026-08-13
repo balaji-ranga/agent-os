@@ -20,9 +20,9 @@ for i in $(seq 1 30); do
   sleep 2
 done
 
-echo "==> business discovery mode/score unit tests"
+echo "==> places free-text parse"
 docker compose --env-file .env exec -T -w /opt/agent-os/backend \
-  backend node scripts/test-business-discover-modes.mjs
+  backend node scripts/test-places-parse-text.mjs
 
 echo "==> vps-test-social-research.mjs"
 docker compose --env-file .env exec -T -w /opt/agent-os/backend \

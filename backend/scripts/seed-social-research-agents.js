@@ -49,6 +49,9 @@ const DISCOVERY_TOOLS = [
   'master_data_insert_row',
   'master_data_rag',
   'master_data_index_document',
+  'agent_goal_create',
+  'agent_goal_list',
+  'agent_goal_status',
 ];
 
 const DEFS = [

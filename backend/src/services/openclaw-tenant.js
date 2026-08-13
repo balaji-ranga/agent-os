@@ -167,6 +167,23 @@ export function syncEssentialWorkspaceDocs(baseId, destDir) {
           name === 'TOOLS.md' ||
           name === 'AGENTS.md' ||
           (forceIdentityBundle && (name === 'SOUL.md' || name === 'MEMORY.md' || name === 'IDENTITY.md'));
+        // Product-template employees (not COO): keep SOUL/MEMORY aligned when the file still
+        // uses the template title (operators have not customized identity).
+        if (
+          !shouldWrite &&
+          (name === 'SOUL.md' || name === 'MEMORY.md') &&
+          String(baseId || '').toLowerCase() !== 'balserve'
+        ) {
+          try {
+            const tpl = readFileSync(from, 'utf8');
+            const tplTitle = (tpl.match(/^#\s+.+$/m) || [''])[0].trim();
+            if (tplTitle && existing.includes(tplTitle.slice(0, Math.min(40, tplTitle.length)))) {
+              shouldWrite = true;
+            }
+          } catch {
+            /* keep existing */
+          }
+        }
         // The COO's AGENTS.md is generated from the live org (internal agents + external/A2A leaf
         // members). The template only carries a fixed internal list, so copying it over would drop
         // every leaf member from the delegation table until the next org sync.

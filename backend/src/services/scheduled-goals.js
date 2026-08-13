@@ -550,7 +550,10 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
   if (stored?.steps?.length && pStatus === 'approved') {
     planned = stored.steps.map((s) => normalizeStepSpec(s));
   } else {
-    planned = await planGoalStepsAsync(row.prompt, { ownerUserId });
+    planned = await planGoalStepsAsync(row.prompt, {
+      ownerUserId,
+      orchestratorAgentId: agent.id,
+    });
   }
   const hasGoalPlan = planUsesGoalRunMode(planned);
   if (hasGoalPlan) {

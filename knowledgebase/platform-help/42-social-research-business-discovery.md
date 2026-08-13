@@ -91,23 +91,22 @@ For an official user timeline (and when hydration misses):
 
 ## Business Discovery modes
 
-Business Discovery maps your wording onto **Discover → Research → Track → Act** (one mode, several, or all):
+Business Discovery maps your wording onto **Discover → Research → Track → Act** (one mode, several, or all). That mapping lives in the employee’s workspace (SOUL) plus the **existing goal plan** (`agent_goal_create` → `agr-…`) and **existing tools** — not a Business Discovery-only platform pipeline.
 
 | Mode | Source | You might say |
 |------|--------|----------------|
-| **Discover** | Google Places | “Find businesses” |
-| **Research** | Website + Instagram + LinkedIn | “Tell me about them” / “Research … and rank prospects” |
-| **Track** | OpenSearch (your indexed docs) | “Tell me what changes” |
-| **Act** | CRM + Email + Social + Workflows | “Do something about it” / “save to CRM” |
+| **Discover** | Google Places (`business_discover` / `google_places_nearby`) | “Find businesses” |
+| **Research** | Website + Instagram + LinkedIn URLs from discover, then the employee ranks in chat | “Tell me about them” / “Research … and rank prospects” |
+| **Track** | OpenSearch via **`master_data_rag`** (your indexed docs) | “Tell me what changes” |
+| **Act** | CRM + Email + Social + Workflows (`handoff: true` or Kanban) | “Do something about it” / “save to CRM” |
 
-A research ask (find up to 20, rank top 5, **do not track**) runs **Discover + Research** only. The tool:
+A research ask (find up to 20, rank top 5, **do not track**) should:
 
-1. Creates a durable **goal plan** (`agr-…`) with those steps.
-2. Discovers via Places, researches public web/social, reuses Knowledge if it is still current (default 7 days).
-3. Returns a **brief**: table (Business, Google rating/reviews, Website Good/Poor, Instagram Active/Inactive/None, Digital Presence, Opportunity stars), top-opportunity reasoning, and a next-step question — usually *“Would you like me to save these 5 prospects to CRM or research them in more depth?”*
-4. Does **not** write `discovered_opportunities` or create a Kanban card unless you asked to Track or Act.
+1. Create a durable **goal plan** (`agent_goal_create`) with those steps, or call **`business_discover`** once (Places + public URLs). Default **does not** persist or CRM-handoff.
+2. Present a **table from tool facts** (Business, Google rating/reviews, Website Good/Poor, Instagram Active/Inactive/None, Digital Presence, Opportunity stars), top-opportunity reasoning, and *“Would you like me to save these 5 prospects to CRM or research them in more depth?”*
+3. **Not** write `discovered_opportunities` or create a Kanban card unless you asked to Track or Act.
 
-Opportunity stars are **high** when Google reputation is strong and digital/social presence is **weak**.
+Opportunity stars are **high** when Google reputation is strong and digital/social presence is **weak**. If Places is not configured, the employee must **not** invent the table from Brave or memory.
 
 ## Business Discovery + CRM (Act)
 

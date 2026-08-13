@@ -52,6 +52,8 @@ The COO uses `scheduled_goal_create` (and related tools) and confirms the schedu
 Orchestration words (`agent_goal_create`, `notify_ceo`, “include the goal run id”) are **not** specialty work. If the model returns no specialists but residual still asks for Platform Help, a single help specialty is still planned. Do not invent random specialists when the residual is only workflow glue.
 
 
+**Specialty self-plans:** An AI employee that is **granted** `agent_goal_create` (not only the COO) can create a durable plan for **its own** tools. The planner then skips nested `specialty_task` (no re-delegation) and keeps that employee’s granted catalog instead of the COO prefer-list. Ranking / comparative tables in chat are `agent_continue` synthesis after data tools.
+
 **Multi-phase goals (CRM then ERP, multiple workflows, multi-specialty hybrid)?** Ordered workflow phrases or clear CRM→O2C intent plan to durable **`agent_goal_run`** steps (`workflow_trigger`, optional parallel `specialty_task`, `notify_ceo`). Platform advances when each child workflow or specialty-delegation reaches terminal. Ad-hoc COO chat should call **`agent_goal_create`** (returns `goal_run_id` like `agr-…`). If the COO fires **`agent_workflow_trigger`** with multi-workflow language and no plan id, the platform **auto-upgrades** that call into a goal plan. A numeric workflow **`run_id` is not a goal plan** (no Digest ladder / Goal Plan panel). Inspect: **`agent_goal_list`** / **`agent_goal_status`**, Digest, `/goal-plans`. See [38-maker-checker-coordination.md](./38-maker-checker-coordination.md).
 
 <!-- plan-reuse-scheduled -->

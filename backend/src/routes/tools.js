@@ -11,7 +11,7 @@ import { getSummarizeUrlConfig, getToolsApiKey, getOpenAiConfig, getImageConfig,
 import { chatCompletions } from '../config/llm.js';
 import { getDb } from '../db/schema.js';
 import * as meta from '../services/content-tools-meta.js';
-import { assertCallerMayUseTool } from '../services/openclaw-agent-tools.js';
+import { assertCallerMayUseTool, getAgentToolGrants } from '../services/openclaw-agent-tools.js';
 import { parseTenantOpenClawAgentId, resolveAgentFromOpenClawCallerId } from '../services/openclaw-tenant.js';
 import { resolveOwnerFromOpenClawSession } from '../services/tool-owner-scope.js';
 import {
@@ -169,7 +169,7 @@ function isVideoContentOrchestratorCaller(caller) {
 
 /**
  * COO, Workflow Builder, or Video Content Orchestrator may list/enquire/trigger/runs/watch —
- * always scoped to entitled owner. Goal tools stay COO/WFB-only (see canAccessGoalTools).
+ * always scoped to entitled owner. Goal tools: COO/WFB or any agent granted that tool.
  */
 function canAccessWorkflowTools(caller) {
   return !!(
@@ -178,9 +178,28 @@ function canAccessWorkflowTools(caller) {
   );
 }
 
-/** Multi-intent goal plans remain COO / Workflow Builder only. */
-function canAccessGoalTools(caller) {
-  return !!(caller && (caller.is_coo || isWorkflowBuilderCaller(caller)));
+function callerHasToolGrant(caller, toolName) {
+  if (!caller?.id || !toolName) return false;
+  try {
+    const grants = getAgentToolGrants(caller.id) || [];
+    if (grants.includes(toolName)) return true;
+    const id = String(caller.id || '');
+    const base = id.includes('--') ? id.split('--').pop() : id;
+    if (base && base !== id) {
+      const baseGrants = getAgentToolGrants(base) || [];
+      if (baseGrants.includes(toolName)) return true;
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
+
+/** COO / Workflow Builder, or an agent granted the matching agent_goal_* tool. */
+function canAccessGoalTools(caller, toolName = 'agent_goal_create') {
+  if (!caller) return false;
+  if (caller.is_coo || isWorkflowBuilderCaller(caller)) return true;
+  return callerHasToolGrant(caller, toolName);
 }
 function getBackendBaseUrl() {
   // Prefer explicit internal URL for tool self-dispatch. Public HTTPS often fails inside
@@ -2567,7 +2586,10 @@ router.post('/agent-workflow-trigger', optionalAuth, async (req, res) => {
     if (!earlyGoalRunId && !workflowId && message) {
       try {
         // Intent-first plan (LLM); count real workflow legs before freeform multiphase upgrade.
-        const planned = await planGoalStepsAsync(message, { ownerUserId });
+        const planned = await planGoalStepsAsync(message, {
+          ownerUserId,
+          orchestratorAgentId: caller?.id || null,
+        });
         const wfCount = planned.filter((st) => st && st.type === 'workflow_trigger').length;
         if (forceUpgrade || wfCount >= 2) {
           const started = await createAndStartGoalRun({
@@ -2659,8 +2681,8 @@ router.post('/agent-goal-create', optionalAuth, async (req, res) => {
   const requestPayload = req.body || {};
   try {
     const caller = getCallerAgent(req);
-    if (!canAccessGoalTools(caller)) {
-      const err = { error: 'Only COO or Workflow Builder can create goal runs' };
+    if (!canAccessGoalTools(caller, 'agent_goal_create')) {
+      const err = { error: 'Only COO, Workflow Builder, or an agent granted agent_goal_create can create goal runs' };
       logTool(req, 'agent_goal_create', requestPayload, err, 'error', source);
       return res.status(403).json(err);
     }
@@ -2728,8 +2750,8 @@ router.post('/agent-goal-list', optionalAuth, async (req, res) => {
   const requestPayload = req.body || {};
   try {
     const caller = getCallerAgent(req);
-    if (!canAccessGoalTools(caller)) {
-      const err = { error: 'Only COO or Workflow Builder can list goal runs' };
+    if (!canAccessGoalTools(caller, 'agent_goal_list')) {
+      const err = { error: 'Only COO, Workflow Builder, or an agent granted agent_goal_list can list goal runs' };
       logTool(req, 'agent_goal_list', requestPayload, err, 'error', source);
       return res.status(403).json(err);
     }
@@ -2753,8 +2775,8 @@ router.post('/agent-goal-status', optionalAuth, async (req, res) => {
   const requestPayload = req.body || {};
   try {
     const caller = getCallerAgent(req);
-    if (!canAccessGoalTools(caller)) {
-      const err = { error: 'Only COO or Workflow Builder can read goal runs' };
+    if (!canAccessGoalTools(caller, 'agent_goal_status')) {
+      const err = { error: 'Only COO, Workflow Builder, or an agent granted agent_goal_status can read goal runs' };
       logTool(req, 'agent_goal_status', requestPayload, err, 'error', source);
       return res.status(403).json(err);
     }
@@ -2786,8 +2808,8 @@ router.post('/agent-goal-complete-step', optionalAuth, async (req, res) => {
   const requestPayload = req.body || {};
   try {
     const caller = getCallerAgent(req);
-    if (!canAccessGoalTools(caller)) {
-      const err = { error: 'Only COO or Workflow Builder can complete goal steps' };
+    if (!canAccessGoalTools(caller, 'agent_goal_complete_step')) {
+      const err = { error: 'Only COO, Workflow Builder, or an agent granted agent_goal_complete_step can complete goal steps' };
       logTool(req, 'agent_goal_complete_step', requestPayload, err, 'error', source);
       return res.status(403).json(err);
     }

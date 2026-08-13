@@ -73,7 +73,7 @@ export const SOCIAL_RESEARCH_TOOLS = [
     endpoint: '/api/tools/business-discover',
     method: 'POST',
     purpose:
-      'API tool: Business Discovery pipeline Discover → Research → Track → Act. Finds businesses (Google Places), researches website/Instagram/LinkedIn, optionally checks this CEO’s OpenSearch index, ranks reputation vs weak digital presence, and only persists/CRM-handoffs in Track/Act. Pass intent (CEO wording) and/or locality + business_type. Optional radius_km, max_results, mode. Creates a goal plan (agr-…). Research does not permanently track unless asked. Do not use exec.',
+      'API tool: find local businesses via Google Places API (New), enrich public website/Instagram/LinkedIn URLs, optionally persist Knowledge discovered_opportunities and Kanban-handoff to CRM. Pass intent (CEO wording) and/or locality + business_type. Optional radius_km, max_results, persist, handoff (default false). Ranking, tracking, and CRM Act are existing goal-plan / master_data / kanban tools — not this pipeline. Do not use exec.',
     model_used: 'Google Places API (New) + Social Research',
   },
 ];
@@ -134,6 +134,9 @@ export function grantSocialResearchToolsToAgents() {
             'master_data_insert_row',
             'master_data_rag',
             'master_data_index_document',
+            'agent_goal_create',
+            'agent_goal_list',
+            'agent_goal_status',
           ];
     for (const name of [...names, ...extra]) {
       const info = insert.run(a.id, name);

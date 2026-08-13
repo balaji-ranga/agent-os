@@ -120,7 +120,7 @@ const TOOLS = [
   {
     name: 'business_discover',
     description:
-      'Discover → Research → Track → Act. Find businesses (Places), research website/Instagram/LinkedIn, rank reputation vs weak digital presence, optional OpenSearch track and CRM handoff. Pass intent (CEO wording). Research does not persist unless asked.',
+      'Find local businesses (Google Places API New), enrich public website/Instagram/LinkedIn URLs, optionally persist Knowledge and Kanban-handoff to CRM. Pass intent (CEO wording) and/or locality + business_type. Default persist/handoff false. Ranking and tracking use the agent goal plan + master_data_rag, not this tool.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -128,7 +128,6 @@ const TOOLS = [
         locality: { type: 'string' },
         business_type: { type: 'string' },
         query: { type: 'string' },
-        mode: { type: 'string', description: 'discover | research | track | act | auto' },
         radius_km: { type: 'number' },
         min_rating: { type: 'number' },
         max_results: { type: 'number' },
