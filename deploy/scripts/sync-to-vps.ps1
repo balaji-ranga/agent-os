@@ -251,6 +251,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-opensearch-rag-smoke.js" `
     "$Repo\backend\scripts\test-opensearch-agent-rag-e2e.js" `
     "$Repo\backend\scripts\test-docker-tool-onboarding-vps.js" `
+    "$Repo\backend\scripts\test-admin-privileged-session.js" `
     "$Repo\backend\scripts\test-techresearcher-echo-probe-grant.js" `
     "$Repo\backend\scripts\test-master-data-e2e.js" `
     "$Repo\backend\scripts\test-platform-help-chat.js" `
