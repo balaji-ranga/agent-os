@@ -73,7 +73,7 @@ export const SOCIAL_RESEARCH_TOOLS = [
     endpoint: '/api/tools/business-discover',
     method: 'POST',
     purpose:
-      'API tool: find businesses in a locality, enrich website/Instagram/LinkedIn, skip Knowledge duplicates (discovered_opportunities), and create a Kanban task for a CRM employee if one exists else the CEO. Pass locality, business_type, optional radius_km, min_rating, max_results, query. Do not use exec.',
+      'API tool: Business Discovery pipeline Discover → Research → Track → Act. Finds businesses (Google Places), researches website/Instagram/LinkedIn, optionally checks this CEO’s OpenSearch index, ranks reputation vs weak digital presence, and only persists/CRM-handoffs in Track/Act. Pass intent (CEO wording) and/or locality + business_type. Optional radius_km, max_results, mode. Creates a goal plan (agr-…). Research does not permanently track unless asked. Do not use exec.',
     model_used: 'Google Places API (New) + Social Research',
   },
 ];
@@ -124,6 +124,7 @@ export function grantSocialResearchToolsToAgents() {
         ? ['brave_web_search', 'summarize_url', 'learnings_summary', 'notify_ceo', 'kanban_move_status']
         : [
             'brave_web_search',
+            'summarize_url',
             'learnings_summary',
             'notify_ceo',
             'kanban_create_task',
@@ -131,6 +132,8 @@ export function grantSocialResearchToolsToAgents() {
             'master_data_list_tables',
             'master_data_list_rows',
             'master_data_insert_row',
+            'master_data_rag',
+            'master_data_index_document',
           ];
     for (const name of [...names, ...extra]) {
       const info = insert.run(a.id, name);

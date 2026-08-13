@@ -95,6 +95,7 @@ function wrap(toolName, handler) {
       if (e.google_places_byok_key_name) {
         err.google_places_byok_key_name = e.google_places_byok_key_name;
       }
+      if (e.goal_run_id) err.goal_run_id = e.goal_run_id;
       logTool(req, toolName, requestPayload, err, 'error', source);
       res.status(status).json(err);
     }

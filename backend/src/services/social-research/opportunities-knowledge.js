@@ -31,6 +31,8 @@ export const OPPORTUNITIES_COLUMNS = [
   'status',
   'kanban_task_id',
   'discovered_at',
+  'researched_at',
+  'research_json',
   'notes',
 ];
 
@@ -147,6 +149,8 @@ export function recordOpportunities(ownerUserId, leads, { status = 'identified',
       status,
       kanban_task_id: kanbanTaskId != null ? String(kanbanTaskId) : existing?.kanban_task_id || '',
       discovered_at: existing?.discovered_at || now,
+      researched_at: lead.researched_at || now,
+      research_json: lead.research_json || existing?.research_json || '',
       notes: lead.notes || existing?.notes || '',
     };
     if (existing?.id) {

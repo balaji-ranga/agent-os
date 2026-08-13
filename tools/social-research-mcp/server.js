@@ -120,18 +120,21 @@ const TOOLS = [
   {
     name: 'business_discover',
     description:
-      'Find businesses, enrich social presence, skip Knowledge duplicates, Kanban handoff to CRM or CEO.',
+      'Discover → Research → Track → Act. Find businesses (Places), research website/Instagram/LinkedIn, rank reputation vs weak digital presence, optional OpenSearch track and CRM handoff. Pass intent (CEO wording). Research does not persist unless asked.',
     inputSchema: {
       type: 'object',
       properties: {
+        intent: { type: 'string' },
         locality: { type: 'string' },
         business_type: { type: 'string' },
         query: { type: 'string' },
+        mode: { type: 'string', description: 'discover | research | track | act | auto' },
         radius_km: { type: 'number' },
         min_rating: { type: 'number' },
         max_results: { type: 'number' },
+        persist: { type: 'boolean' },
+        handoff: { type: 'boolean' },
       },
-      required: ['locality'],
     },
   },
 ];
@@ -165,11 +168,12 @@ async function callBackend(toolName, args, req) {
   delete body.owner_user_id;
   delete body.ownerUserId;
   delete body.ceo_user_id;
+  const timeoutMs = toolName === 'business_discover' ? 180000 : 120000;
   const res = await fetch(BACKEND + path, {
     method: 'POST',
     headers,
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(120000),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   const text = await res.text();
   let data;

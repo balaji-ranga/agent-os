@@ -20,6 +20,10 @@ for i in $(seq 1 30); do
   sleep 2
 done
 
+echo "==> business discovery mode/score unit tests"
+docker compose --env-file .env exec -T -w /opt/agent-os/backend \
+  backend node scripts/test-business-discover-modes.mjs
+
 echo "==> vps-test-social-research.mjs"
 docker compose --env-file .env exec -T -w /opt/agent-os/backend \
   -e SKIP_CHAT="${SKIP_CHAT:-0}" \

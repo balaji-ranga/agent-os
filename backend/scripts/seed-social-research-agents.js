@@ -39,6 +39,7 @@ const SOCIAL_TOOLS = [
 const DISCOVERY_TOOLS = [
   ...SOCIAL_RESEARCH_TOOL_NAMES,
   'brave_web_search',
+  'summarize_url',
   'learnings_summary',
   'notify_ceo',
   'kanban_create_task',
@@ -46,6 +47,8 @@ const DISCOVERY_TOOLS = [
   'master_data_list_tables',
   'master_data_list_rows',
   'master_data_insert_row',
+  'master_data_rag',
+  'master_data_index_document',
 ];
 
 const DEFS = [
@@ -62,12 +65,12 @@ const DEFS = [
   {
     id: 'businessdiscovery',
     name: 'Business Discovery',
-    role: 'Local business discovery and lead enrichment',
+    role: 'Local business Discover → Research → Track → Act',
     department: 'Research',
     template_base_id: 'businessdiscovery',
     tools: DISCOVERY_TOOLS,
     description:
-      'Find businesses in a locality with Google Places API (New), enrich website/Instagram/LinkedIn, skip Knowledge duplicates, and Kanban-handoff to CRM or the CEO. Example: “Find dental clinics within 3 km of Tampines with rating above 4.2.”',
+      'Find local businesses (Google Places), research website/Instagram/LinkedIn, rank reputation vs weak digital presence, and only save to CRM when asked. Example: “Research dental clinics within 5 km of Tampines.”',
   },
 ];
 

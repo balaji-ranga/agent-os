@@ -10,9 +10,9 @@ Hire these AI employees from **AgentExchange** (**Add to org**). They are **not*
 | Employee | Use when |
 |----------|----------|
 | **Social Researcher** | Public Instagram, X, LinkedIn, Facebook research. Example: “Analyse Nike’s Instagram and X for the last 30 days.” |
-| **Business Discovery** | Locality + business type leads via **Google Places API (New)**, then website/Instagram/LinkedIn enrichment. Example: “Find dental clinics within 3 km of Tampines with rating above 4.2 and identify potential leads.” |
+| **Business Discovery** | Local **Discover → Research → Track → Act**. Google Places to find businesses; website + Instagram + LinkedIn research; OpenSearch for “what changed”; CRM/Kanban only when you ask to Act. Example: “Research dental clinics within 5 km of Tampines.” |
 
-They are **not** SocialAssistant (content posting). Research and discovery only.
+They are **not** SocialAssistant (content posting). Social Researcher stays on public social analysis. Business Discovery researches local businesses and only **Acts** (CRM / Kanban) when you ask.
 
 ## How to hire
 
@@ -89,17 +89,37 @@ For an official user timeline (and when hydration misses):
 2. You: **Connectors → MCPs → Connect** Facebook.
 3. Graph returns **your** Pages. Asking for Nike’s Page will stay on indexed search unless Nike is in `/me/accounts`.
 
-## Business Discovery + CRM
+## Business Discovery modes
+
+Business Discovery maps your wording onto **Discover → Research → Track → Act** (one mode, several, or all):
+
+| Mode | Source | You might say |
+|------|--------|----------------|
+| **Discover** | Google Places | “Find businesses” |
+| **Research** | Website + Instagram + LinkedIn | “Tell me about them” / “Research … and rank prospects” |
+| **Track** | OpenSearch (your indexed docs) | “Tell me what changes” |
+| **Act** | CRM + Email + Social + Workflows | “Do something about it” / “save to CRM” |
+
+A research ask (find up to 20, rank top 5, **do not track**) runs **Discover + Research** only. The tool:
+
+1. Creates a durable **goal plan** (`agr-…`) with those steps.
+2. Discovers via Places, researches public web/social, reuses Knowledge if it is still current (default 7 days).
+3. Returns a **brief**: table (Business, Google rating/reviews, Website Good/Poor, Instagram Active/Inactive/None, Digital Presence, Opportunity stars), top-opportunity reasoning, and a next-step question — usually *“Would you like me to save these 5 prospects to CRM or research them in more depth?”*
+4. Does **not** write `discovered_opportunities` or create a Kanban card unless you asked to Track or Act.
+
+Opportunity stars are **high** when Google reputation is strong and digital/social presence is **weak**.
+
+## Business Discovery + CRM (Act)
 
 1. Places search around the locality.
 2. Enrich website / Instagram / LinkedIn (indexed search).
-3. Write Knowledge table **`discovered_opportunities`** (dedup by `place_id` / fingerprint).
+3. Write Knowledge table **`discovered_opportunities`** (dedup by `place_id` / fingerprint) **when persisting**.
 4. Create a **Kanban** card:
    - Assigned to a **CRM** AI employee if your org has one (Business Core Twenty/ERPNext).
    - Otherwise assigned to **you** (CEO inbox) with the lead set.
 5. CRM employees must **not** recreate leads already in that table or already in CRM (name + locality).
 
-Ask Business Discovery to show `discovered_opportunities` via Master Data if you want the history.
+Ask Business Discovery to show `discovered_opportunities` via Master Data if you want the history. Quote the `agr-…` id in chat to open the Goal Plan panel.
 
 ## Workflows
 

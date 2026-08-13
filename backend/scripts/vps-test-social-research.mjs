@@ -10,7 +10,7 @@
  */
 import { initDb, getDb } from '../src/db/schema.js';
 import { createSession } from '../src/services/auth/session.js';
-import { seedSocialResearchToolsIfMissing } from '../src/db/seed-social-research-tools.js';
+import { seedSocialResearchToolsIfMissing, grantSocialResearchToolsToAgents } from '../src/db/seed-social-research-tools.js';
 import { seedSocialResearchExchangeAgents } from './seed-social-research-agents.js';
 import { fingerprintFor, ensureOpportunitiesTable, recordOpportunities, loadOpportunityIndex, lookupOpportunity } from '../src/services/social-research/opportunities-knowledge.js';
 import { createDiscoveryKanbanTask, findCrmHandoffAgentId } from '../src/services/social-research/crm-handoff.js';
@@ -36,6 +36,7 @@ function ok(cond, msg, extra) {
 
 initDb();
 seedSocialResearchToolsIfMissing();
+grantSocialResearchToolsToAgents();
 const db = getDb();
 
 const ceo =
@@ -96,7 +97,7 @@ for (const t of ['social_research_search', 'social_research_instagram', 'social_
   ok(srGrants.has(t), `socialresearcher grant ${t}`);
 }
 ok(!srGrants.has('business_discover'), 'socialresearcher does not get business_discover');
-for (const t of ['business_discover', 'google_places_geocode', 'google_places_nearby', 'social_research_search']) {
+for (const t of ['business_discover', 'google_places_geocode', 'google_places_nearby', 'social_research_search', 'master_data_rag', 'summarize_url']) {
   ok(bdGrants.has(t), `businessdiscovery grant ${t}`);
 }
 
@@ -310,10 +311,11 @@ const placesKey = Boolean(String(process.env.GOOGLE_PLACES_API_KEY || '').trim()
 const geo = await api(
   'POST',
   '/api/tools/google-places-geocode',
-  { locality: 'Tampines' },
+  { locality: 'Tampines, Singapore' },
   toolHeaders('businessdiscovery')
 );
-if (!placesKey) {
+const placesLive = geo.status === 200 && geo.data.ok && Number.isFinite(geo.data.lat);
+if (!placesLive) {
   ok(geo.status === 503 && geo.data.code === 'google_places_platform_key_missing', 'places geocode 503 without key', {
     status: geo.status,
     code: geo.data.code,
@@ -322,33 +324,91 @@ if (!placesKey) {
   const nearby = await api(
     'POST',
     '/api/tools/google-places-nearby',
-    { locality: 'Tampines', business_type: 'dentist', radius_meters: 3000, min_rating: 4.2 },
+    { locality: 'Tampines', business_type: 'dentist', radius_meters: 3000, min_rating: 4.2, plan_goal: false },
     toolHeaders('businessdiscovery')
   );
   ok(nearby.status === 503, 'places nearby 503 without key', nearby.status);
   const disc = await api(
     'POST',
     '/api/tools/business-discover',
-    { locality: 'Tampines', business_type: 'dentist', radius_km: 3, min_rating: 4.2, max_results: 5 },
+    { locality: 'Tampines', business_type: 'dentist', radius_km: 3, min_rating: 4.2, max_results: 5, plan_goal: false },
     toolHeaders('businessdiscovery')
   );
   ok(disc.status === 503, 'business_discover 503 without Places key', disc.status);
 } else {
-  ok(geo.status === 200 && geo.data.ok && Number.isFinite(geo.data.lat), 'places geocode Tampines', {
+  ok(true, 'places geocode Tampines', {
     lat: geo.data.lat,
     lng: geo.data.lng,
   });
+  const TAMPINES_PROMPT = `Research dental clinics within 5 km of Tampines, Singapore.
+
+Find up to 20 businesses using Google Business/Places and research their publicly available online presence.
+
+For each business, identify:
+
+Business name, location, Google rating and number of reviews
+Website
+Instagram and LinkedIn presence, if available
+How recently they have posted on social media
+Main services they promote
+Any notable promotions or campaigns
+Overall quality of their digital/social presence
+
+Identify businesses that appear to have a strong business reputation but weak digital or social-media presence.
+
+Rank the top 5 potential prospects and briefly explain why each is a good opportunity.
+
+Use fresh information where possible. Reuse recently collected data if it is still current; otherwise refresh the source. Do not permanently track these businesses unless I ask you to.`;
   const disc = await api(
     'POST',
     '/api/tools/business-discover',
-    { locality: 'Tampines', business_type: 'dentist', radius_km: 3, min_rating: 4.2, max_results: 5 },
-    toolHeaders('businessdiscovery')
+    { intent: TAMPINES_PROMPT, persist: false, handoff: false },
+    toolHeaders('businessdiscovery'),
+    180000
   );
-  ok(disc.status === 200 && disc.data.ok, 'business_discover live', {
+  ok(disc.status === 200 && disc.data.ok, 'business_discover Tampines research', {
+    status: disc.status,
+    error: disc.data.error,
     count: disc.data.count,
-    new_count: disc.data.new_count,
-    handoff: disc.data.handoff_target,
+    modes: disc.data.modes_used,
+    goal: disc.data.goal_run_id,
   });
+  ok(
+    Array.isArray(disc.data.modes_used) &&
+      disc.data.modes_used.includes('discover') &&
+      disc.data.modes_used.includes('research') &&
+      !disc.data.modes_used.includes('track') &&
+      !disc.data.modes_used.includes('act'),
+    'Tampines modes discover+research only',
+    disc.data.modes_used
+  );
+  ok(disc.data.persist === false && !disc.data.kanban, 'Tampines did not persist or CRM-handoff', {
+    persist: disc.data.persist,
+    kanban: disc.data.kanban,
+  });
+  ok(
+    Array.isArray(disc.data.brief?.table) && disc.data.brief.table.length >= 1,
+    'research brief table',
+    disc.data.brief?.table?.length
+  );
+  ok(
+    Array.isArray(disc.data.top_prospects) && disc.data.top_prospects.length <= 5 && disc.data.top_prospects.length >= 1,
+    'top 5 prospects',
+    disc.data.top_prospects?.length
+  );
+  ok(/^agr-/.test(String(disc.data.goal_run_id || '')), 'goal plan agr- id', disc.data.goal_run_id);
+  ok(/CRM/i.test(String(disc.data.next_action || '')), 'next action asks CRM', disc.data.next_action);
+  if (disc.data.goal_run_id) {
+    const plan = db.prepare('SELECT id, status, agent_id FROM agent_goal_runs WHERE id = ? AND owner_user_id = ?').get(
+      disc.data.goal_run_id,
+      ceo.id
+    );
+    ok(!!plan, 'goal plan row owner-scoped', plan);
+    const steps = db
+      .prepare('SELECT label, status FROM agent_goal_steps WHERE goal_run_id = ? ORDER BY step_index')
+      .all(disc.data.goal_run_id);
+    ok(steps.length >= 4 && steps.every((s) => s.status === 'completed'), 'goal steps completed', steps);
+  }
 }
 
 const fpPlace = fingerprintFor({ place_id: 'ChIJtest123', name: 'Gym A', locality: 'Tampines' });
@@ -599,30 +659,61 @@ if (!skipChat) {
     { log, reply: reply.slice(0, 500) }
   );
 
-  console.log('Chatting as publisher with Business Discovery (Places key may be missing)...');
+  console.log('Chatting as publisher with Business Discovery...');
   const chatBd = await api(
     'POST',
     '/api/agents/businessdiscovery/chat',
     {
-      message:
-        'Find dental clinics within 3 km of Tampines with rating above 4.2 and identify potential leads. If Google Places is not configured, say so in one sentence naming GOOGLE_PLACES_API_KEY or GOOGLE_PLACES_BYOK. Do not invent clinics.',
+      message: placesLive
+        ? `Research dental clinics within 5 km of Tampines, Singapore.
+
+Find up to 20 businesses using Google Business/Places and research their publicly available online presence.
+
+For each business, identify:
+
+Business name, location, Google rating and number of reviews
+Website
+Instagram and LinkedIn presence, if available
+How recently they have posted on social media
+Main services they promote
+Any notable promotions or campaigns
+Overall quality of their digital/social presence
+
+Identify businesses that appear to have a strong business reputation but weak digital or social-media presence.
+
+Rank the top 5 potential prospects and briefly explain why each is a good opportunity.
+
+Use fresh information where possible. Reuse recently collected data if it is still current; otherwise refresh the source. Do not permanently track these businesses unless I ask you to.`
+        : 'Find dental clinics within 3 km of Tampines with rating above 4.2 and identify potential leads. If Google Places is not configured, say so in one sentence naming GOOGLE_PLACES_API_KEY or GOOGLE_PLACES_BYOK. Do not invent clinics.',
       tz: 'Asia/Singapore',
     },
     {},
-    180000
+    300000
   );
   const replyBd = String(
     chatBd.data.reply || chatBd.data.message || chatBd.data.content || chatBd.data.text || JSON.stringify(chatBd.data)
   );
   ok(chatBd.status === 200, 'publisher Business Discovery chat HTTP', { status: chatBd.status, error: chatBd.data.error });
-  if (!placesKey) {
+  if (!placesLive) {
     ok(
       /GOOGLE_PLACES/i.test(replyBd) || /not configured|Places/i.test(replyBd),
       'Business Discovery explains missing Places key',
       replyBd.slice(0, 500)
     );
   } else {
-    ok(/dental|clinic|tampines|lead/i.test(replyBd), 'Business Discovery returned lead-style answer', replyBd.slice(0, 500));
+    ok(
+      /\| *Business *\|/i.test(replyBd) || /opportunity|prospect|tampines|clinic/i.test(replyBd),
+      'Business Discovery returned research brief',
+      replyBd.slice(0, 800)
+    );
+    const bdLog = db
+      .prepare(
+        `SELECT tool_name, status FROM content_tool_logs
+         WHERE owner_user_id = ? AND tool_name = 'business_discover'
+         ORDER BY id DESC LIMIT 1`
+      )
+      .get(ceo.id);
+    ok(!!bdLog, 'publisher chat invoked business_discover', bdLog);
   }
 }
 
