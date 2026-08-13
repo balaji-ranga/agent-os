@@ -397,6 +397,18 @@ Use fresh information where possible. Reuse recently collected data if it is sti
     goal: disc.data.goal_run_id,
     brief: disc.data.brief,
   });
+  const nearbyLive = await api(
+    'POST',
+    '/api/tools/google-places-nearby',
+    { locality: 'Tampines, Singapore', business_type: 'dentist', radius_meters: 5000, max_results: 10 },
+    toolHeaders('businessdiscovery'),
+    60000
+  );
+  ok(nearbyLive.status === 200 && nearbyLive.data.ok, 'places nearby Tampines dentists', {
+    status: nearbyLive.status,
+    error: nearbyLive.data.error,
+    count: nearbyLive.data.count || nearbyLive.data.places?.length,
+  });
 }
 
 const fpPlace = fingerprintFor({ place_id: 'ChIJtest123', name: 'Gym A', locality: 'Tampines' });
@@ -648,6 +660,11 @@ if (!skipChat) {
   );
 
   console.log('Chatting as publisher with Business Discovery...');
+  const freshBd = await api('POST', '/api/agents/businessdiscovery/sessions/new', {}, {}, 60000);
+  ok(freshBd.status === 200 && freshBd.data.ok !== false, 'Business Discovery fresh session', {
+    status: freshBd.status,
+    error: freshBd.data.error,
+  });
   const chatBd = await api(
     'POST',
     '/api/agents/businessdiscovery/chat',
@@ -697,14 +714,18 @@ Use fresh information where possible. Reuse recently collected data if it is sti
       'Business Discovery returned research brief table',
       replyBd.slice(0, 1200)
     );
-    const bdLog = db
+    const bdLogs = db
       .prepare(
         `SELECT tool_name, status FROM content_tool_logs
          WHERE owner_user_id = ? AND tool_name IN ('business_discover','agent_goal_create','google_places_nearby')
-         ORDER BY id DESC LIMIT 1`
+         ORDER BY id DESC LIMIT 8`
       )
-      .get(ceo.id);
-    ok(!!bdLog, 'publisher chat invoked discover or goal plan', bdLog);
+      .all(ceo.id);
+    ok(
+      bdLogs.some((r) => r.tool_name === 'business_discover'),
+      'publisher chat invoked business_discover',
+      bdLogs
+    );
   }
 }
 

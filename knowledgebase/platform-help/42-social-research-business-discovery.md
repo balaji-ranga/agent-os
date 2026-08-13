@@ -127,7 +127,7 @@ Register **Social Research** MCP (`mcp-social-research`) is seeded as a platform
 
 ## Troubleshooting
 
-- Places errors: set `GOOGLE_PLACES_API_KEY` or vault **GOOGLE_PLACES_BYOK**; confirm Places API (New) is enabled.
+- Places errors: set `GOOGLE_PLACES_API_KEY` or vault **GOOGLE_PLACES_BYOK**; confirm Places API (New) is enabled. Platform-default Profiles use the vault key when the platform env key is unset. After adding a key, start a **new chat session** so the employee does not reuse an older “Places missing” memory.
 - Instagram **429** (agents sometimes say 409 / “Instaconnect”): the **Instaloader sidecar is self-hosted** on this VPS. It is not a cloud Instaconnect. Anonymous calls still go to **instagram.com**, which rate-limits datacenter IPs. The tool skips those probes (`instaloader.skipped: no_session`) and hydrates `/p/` images instead. Add **`INSTAGRAM_SESSIONID`** for captions. Ops can set `INSTALOADER_ALLOW_ANONYMOUS=1` to force a probe.
 - Facebook Graph empty for a public brand: Graph only sees **your** connected Pages; Connect Facebook if you have not.
 - X empty `posts`: confirm Brave returns `/status/` URLs; then hydration fills text/media. Add **X_API_BYOK** only if you need the official timeline.

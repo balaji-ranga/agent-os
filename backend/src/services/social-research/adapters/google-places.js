@@ -4,7 +4,8 @@
  */
 import { getGooglePlacesConfig } from '../../../config/tools.js';
 
-const PLACE_FIELD_MASK = [
+/** Nearby Search (New) rejects nextPageToken in FieldMask (HTTP 400 INVALID_ARGUMENT). */
+export const PLACE_FIELD_MASK = [
   'places.id',
   'places.displayName',
   'places.formattedAddress',
@@ -16,8 +17,10 @@ const PLACE_FIELD_MASK = [
   'places.nationalPhoneNumber',
   'places.types',
   'places.businessStatus',
-  'nextPageToken',
 ].join(',');
+
+/** Text Search (New) paginates with nextPageToken; Nearby does not. */
+export const TEXT_SEARCH_FIELD_MASK = `${PLACE_FIELD_MASK},nextPageToken`;
 
 /** Common English phrases → Places Table A types. Unknown phrases use text search. */
 const TYPE_ALIASES = {
@@ -151,9 +154,11 @@ async function placesPost(apiKey, apiUrl, path, body, fieldMask) {
     throw new Error('Places API returned non-JSON');
   }
   if (!res.ok || data.error) {
+    const statusName = data.error?.status || '';
     const msg = data.error?.message || text.slice(0, 400);
-    const err = new Error(`Places API HTTP ${res.status}: ${msg}`);
+    const err = new Error(`Places API HTTP ${res.status}: ${msg}${statusName ? ` (${statusName})` : ''}`);
     err.status = res.status >= 400 && res.status < 500 ? 400 : 502;
+    err.places_status = statusName || null;
     throw err;
   }
   return data;
@@ -291,7 +296,6 @@ export async function textSearchPlaces(ownerUserId, opts = {}) {
     const body = {
       textQuery: query,
       maxResultCount: Math.min(20, maxResults - collected.length),
-      pageSize: Math.min(20, maxResults - collected.length),
     };
     if (Number.isFinite(lat) && Number.isFinite(lng)) {
       body.locationBias = {
@@ -300,7 +304,7 @@ export async function textSearchPlaces(ownerUserId, opts = {}) {
     }
     if (includedType) body.includedType = includedType;
     if (pageToken) body.pageToken = pageToken;
-    const data = await placesPost(cfg.apiKey, cfg.apiUrl, '/places:searchText', body, PLACE_FIELD_MASK);
+    const data = await placesPost(cfg.apiKey, cfg.apiUrl, '/places:searchText', body, TEXT_SEARCH_FIELD_MASK);
     const batch = (data.places || []).map(mapPlace).filter(Boolean);
     collected.push(...batch);
     pageToken = String(data.nextPageToken || '').trim();

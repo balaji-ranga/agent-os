@@ -111,17 +111,22 @@ export async function discoverBusinesses(ownerUserId, opts = {}, { createdByAgen
 
   let search;
   if (businessType && Number.isFinite(lat) && Number.isFinite(lng)) {
-    search = await nearbySearch(ownerUserId, {
-      lat,
-      lng,
-      locality,
-      radius_meters: radius,
-      included_type: businessType,
-      min_rating: minRating,
-      max_results: maxResults,
-      rank_preference: opts.rank_preference,
-    });
-    if (!search.places?.length) {
+    try {
+      search = await nearbySearch(ownerUserId, {
+        lat,
+        lng,
+        locality,
+        radius_meters: radius,
+        included_type: businessType,
+        min_rating: minRating,
+        max_results: maxResults,
+        rank_preference: opts.rank_preference,
+      });
+    } catch (e) {
+      console.warn('[social-research] nearby failed; text search fallback %s', e.message || e);
+      search = null;
+    }
+    if (!search?.places?.length) {
       search = await textSearchPlaces(ownerUserId, {
         query: textQuery,
         lat,

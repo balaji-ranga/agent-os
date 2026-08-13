@@ -335,6 +335,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\seed-social-research-mcp.js" `
     "$Repo\backend\scripts\seed-social-research-agents.js" `
     "$Repo\backend\scripts\vps-test-social-research.mjs" `
+    "$Repo\backend\scripts\e2e-tampines-discover.mjs" `
     "$Repo\backend\scripts\test-places-parse-text.mjs" `
     "$Repo\backend\scripts\test-goal-plan-specialty-orchestrator.mjs" `
     "$Repo\backend\scripts\seed-business-core-maker-checker-workflows.js" `

@@ -2,7 +2,11 @@
  * Generic Places free-text arg parse (nearby / business_discover).
  * Usage: node scripts/test-places-parse-text.mjs
  */
-import { parsePlacesSearchText } from '../src/services/social-research/adapters/google-places.js';
+import {
+  parsePlacesSearchText,
+  PLACE_FIELD_MASK,
+  TEXT_SEARCH_FIELD_MASK,
+} from '../src/services/social-research/adapters/google-places.js';
 
 function assert(c, m) {
   if (!c) throw new Error(m);
@@ -26,5 +30,8 @@ assert(structured.locality === 'Orchard', 'structured locality wins');
 assert(structured.business_type === 'gym', 'structured type wins');
 assert(structured.radius_km === 2, 'structured radius wins');
 assert(structured.max_results === 8, 'structured max wins');
+
+assert(!PLACE_FIELD_MASK.includes('nextPageToken'), 'Nearby FieldMask must not include nextPageToken');
+assert(TEXT_SEARCH_FIELD_MASK.includes('nextPageToken'), 'Text Search FieldMask includes nextPageToken');
 
 console.log('PLACES_PARSE_TEXT_OK', p);
