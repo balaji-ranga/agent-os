@@ -636,10 +636,12 @@ async function generateOneFlowScene(owner, boardRec, scene, index, force, { use_
     `Open Google Flow (${FLOW_START_URL}) in the existing logged-in Desktop Local session (already signed in).`,
     `Work on SCENE ${index} only (max ${duration_sec}s — Flow/Veo clips are ≤8s; do not combine scenes).`,
     `If you are already inside a Flow project editor (prompt textbox / Add Media / Scenes visible), stay there — do NOT hunt for a "New project" button.`,
-    `If on the Flow home/projects list, open an existing project or create one, then use the project editor prompt box.`,
-    `Clear any prior prompt text, then paste this prompt exactly into the prompt / editable text box:`,
+    `If on the Flow home/projects list, click an existing project or create one, then use the project editor prompt box.`,
+    `Clear any prior prompt text, then paste/type this prompt exactly into the prompt / editable text box:`,
+    `<<<FLOW_PROMPT_START>>>`,
     prompt,
-    `Start generation for this one scene and wait until the clip is ready.`,
+    `<<<FLOW_PROMPT_END>>>`,
+    `Click to start generation for this one scene and wait until the clip is ready.`,
     `Download the resulting video file to the default Downloads folder.`,
     `When done, summarize the download filename and full path. Do not claim success without a downloaded file.`,
   ].join('\n');
@@ -650,7 +652,7 @@ async function generateOneFlowScene(owner, boardRec, scene, index, force, { use_
       goal_text: goal,
       start_url: FLOW_START_URL,
       mode: 'autonomous',
-      max_steps: 36,
+      max_steps: 48,
       agent_id: 'video-orch-ceobala',
     });
   } catch (e) {

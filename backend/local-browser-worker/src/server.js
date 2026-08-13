@@ -285,12 +285,26 @@ async function runAction(action, args = {}) {
     await new Promise((r) => setTimeout(r, Math.min(30000, Number(args.ms || args.timeout || 1500))));
     return { ok: true };
   }
+  // OpenClaw / browse recipes sometimes emit "start" after open — treat as no-op if already on a page,
+  // otherwise navigate when a URL is provided.
+  if (act === 'start' || act === 'browser_start') {
+    const url = String(args.url || args.targetUrl || args.startUrl || '').trim();
+    if (url) {
+      await p.goto(url, { waitUntil: 'domcontentloaded', timeout: 90000 });
+    }
+    return {
+      ok: true,
+      action: 'start',
+      url: p.url(),
+      title: await p.title().catch(() => ''),
+    };
+  }
   throw new Error('unsupported action: ' + act);
 }
 
 function workerCapabilities() {
   return {
-    actions: ['open', 'snapshot', 'act', 'status', 'evaluate'],
+    actions: ['open', 'snapshot', 'act', 'status', 'evaluate', 'wait', 'start'],
     persistent_profile: true,
     headless: HEADLESS,
     user_data_dir_configured: true,

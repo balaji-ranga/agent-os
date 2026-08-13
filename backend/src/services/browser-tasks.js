@@ -334,6 +334,236 @@ function goalLooksSocialPublish(goalText) {
   );
 }
 
+function goalLooksGoogleFlow(goalText) {
+  const g = String(goalText || '');
+  return /google\s*flow|labs\.google\/fx\/tools\/flow|FLOW_PROMPT_START|scene\s+\d+/i.test(g);
+}
+
+/** Extract the clip prompt body from a Flow browse goal (between markers or after paste/type line). */
+function extractFlowPromptFromGoal(goalText) {
+  const g = String(goalText || '');
+  const marked = g.match(/<<<FLOW_PROMPT_START>>>\s*([\s\S]*?)\s*<<<FLOW_PROMPT_END>>>/);
+  if (marked?.[1]) return marked[1].trim();
+  const paste = g.match(
+    /paste\/type this prompt exactly[^\n]*:\s*\n([\s\S]*?)\n(?:Click to start|Start generation|Download the resulting)/i
+  );
+  if (paste?.[1]) return paste[1].trim();
+  const paste2 = g.match(/paste this prompt exactly[^\n]*:\s*\n([\s\S]*?)\n(?:Start generation|Download the resulting)/i);
+  if (paste2?.[1]) return paste2[1].trim();
+  return '';
+}
+
+/** Brief action instructions for the decision LLM (omit huge Veo prompt bodies). */
+function goalBriefForDecision(goalText) {
+  const g = String(goalText || '');
+  if (!goalLooksGoogleFlow(g)) return g.slice(0, 2500);
+  const prompt = extractFlowPromptFromGoal(g);
+  const lines = g
+    .split('\n')
+    .filter((l) => !prompt || !l.includes(prompt.slice(0, 40)))
+    .join('\n');
+  return (
+    lines.slice(0, 1200) +
+    (prompt
+      ? `\n[Flow prompt length=${prompt.length} chars — when typing, use action=type with text="__FLOW_PROMPT__" as placeholder; the runtime substitutes the full prompt.]`
+      : '')
+  );
+}
+
+/**
+ * Google Flow home → open/create a project, fill the scene prompt, click generate.
+ * Flow's a11y tree is sparse; DOM evaluate is more reliable than LLM click refs.
+ */
+async function tryGoogleFlowBootstrap(ceoUserId, agentId, goal, steps) {
+  if (!goalLooksGoogleFlow(goal)) return false;
+  if (steps.some((s) => s.action === 'google_flow_bootstrap')) return false;
+  const prompt = extractFlowPromptFromGoal(goal);
+  const out = { opened: false, filled: false, generate: false, detail: [] };
+
+  const openFn =
+    `(() => {` +
+    `  const visible = (el) => !!(el && (el.offsetParent !== null || el.getClientRects().length));` +
+    `  const editors = Array.from(document.querySelectorAll('textarea,[contenteditable="true"],[role="textbox"]')).filter(visible);` +
+    `  if (editors.length) return 'editor_ready';` +
+    `  const labelOf = (el) => ((el.innerText||'')+' '+(el.getAttribute('aria-label')||'')+' '+(el.getAttribute('title')||'')).trim();` +
+    `  const controls = Array.from(document.querySelectorAll('button,a,[role="button"]'));` +
+    `  const neu = controls.find((el) => /new project|create project|\\+\\s*new|start new/i.test(labelOf(el)));` +
+    `  if (neu && visible(neu)) { neu.click(); return 'clicked_new:' + labelOf(neu).slice(0,60); }` +
+    `  const links = Array.from(document.querySelectorAll('a[href]')).filter((a) => /project|flow\\//i.test(a.href) && !/tools\\/flow\\/?$/i.test(a.href) && visible(a));` +
+    `  if (links[0]) { links[0].click(); return 'clicked_link:' + String(links[0].href).slice(0,120); }` +
+    `  const tiles = Array.from(document.querySelectorAll('button,a,article,[role="listitem"],div[role="button"]'))` +
+    `    .filter((el) => visible(el) && /untitled|project|thenali|scene|video|recent/i.test(labelOf(el)) && labelOf(el).length > 2 && labelOf(el).length < 100);` +
+    `  if (tiles[0]) { tiles[0].click(); return 'clicked_tile:' + labelOf(tiles[0]).slice(0,60); }` +
+    `  return 'no_project_control';` +
+    `})()`;
+  try {
+    const ev = await evaluateInBrowser(ceoUserId, agentId, openFn);
+    out.detail.push(String(ev.detail || '').slice(0, 200));
+    out.opened = /editor_ready|clicked_/i.test(String(ev.detail || ''));
+  } catch (e) {
+    out.detail.push('open_err:' + (e.message || e));
+  }
+  await sleep(2500);
+
+  if (prompt) {
+    const fillFn =
+      `(() => {` +
+      `  const prompt = ${JSON.stringify(prompt)};` +
+      `  const visible = (el) => !!(el && (el.offsetParent !== null || el.getClientRects().length));` +
+      `  const editors = Array.from(document.querySelectorAll('textarea,[contenteditable="true"],[role="textbox"]')).filter(visible);` +
+      `  const el = editors[0];` +
+      `  if (!el) return 'no_editor';` +
+      `  el.focus();` +
+      `  if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {` +
+      `    el.value = ''; el.value = prompt;` +
+      `    el.dispatchEvent(new Event('input', { bubbles: true }));` +
+      `    el.dispatchEvent(new Event('change', { bubbles: true }));` +
+      `  } else {` +
+      `    el.textContent = '';` +
+      `    el.textContent = prompt;` +
+      `    el.dispatchEvent(new InputEvent('input', { bubbles: true, data: prompt, inputType: 'insertText' }));` +
+      `  }` +
+      `  return 'filled:' + prompt.length;` +
+      `})()`;
+    try {
+      const ev = await evaluateInBrowser(ceoUserId, agentId, fillFn);
+      out.detail.push(String(ev.detail || '').slice(0, 200));
+      out.filled = /filled:/i.test(String(ev.detail || ''));
+    } catch (e) {
+      out.detail.push('fill_err:' + (e.message || e));
+    }
+    await sleep(800);
+  }
+
+  const genFn =
+    `(() => {` +
+    `  const labelOf = (el) => ((el.innerText||'')+' '+(el.getAttribute('aria-label')||'')).trim();` +
+    `  const visible = (el) => !!(el && (el.offsetParent !== null || el.getClientRects().length));` +
+    `  const buttons = Array.from(document.querySelectorAll('button,[role="button"]')).filter(visible);` +
+    `  const gen = buttons.find((b) => {` +
+    `    const l = labelOf(b);` +
+    `    if (/go back|arrow_back|back|cancel|close|dismiss|help/i.test(l)) return false;` +
+    `    return /^(generate|create)$|generate video|generate clip|create clip|create video|make video|arrow_forward|send$|start generation/i.test(l);` +
+    `  });` +
+    `  if (gen) { gen.click(); return 'clicked_generate:' + labelOf(gen).slice(0,60); }` +
+    `  return 'no_generate_button';` +
+    `})()`;
+  try {
+    const ev = await evaluateInBrowser(ceoUserId, agentId, genFn);
+    out.detail.push(String(ev.detail || '').slice(0, 200));
+    out.generate = /clicked_generate/i.test(String(ev.detail || ''));
+  } catch (e) {
+    out.detail.push('gen_err:' + (e.message || e));
+  }
+
+  steps.push({ t: nowIso(), action: 'google_flow_bootstrap', ...out });
+  console.info(
+    '[browser-task] google flow bootstrap opened=%s filled=%s generate=%s detail=%s',
+    out.opened,
+    out.filled,
+    out.generate,
+    out.detail.join(' | ').slice(0, 240)
+  );
+  return out.opened || out.filled || out.generate;
+}
+
+/**
+ * After bootstrap (prompt filled), keep clicking generate / download without relying on LLM JSON.
+ */
+async function runGoogleFlowGenerateDownload(ceoUserId, agentId, goal, steps) {
+  if (!goalLooksGoogleFlow(goal)) return null;
+  const genFn =
+    `(() => {` +
+    `  const labelOf = (el) => ((el.innerText||'')+' '+(el.getAttribute('aria-label')||'')+' '+(el.getAttribute('title')||'')+' '+(el.getAttribute('data-tooltip')||'')).trim();` +
+    `  const visible = (el) => !!(el && (el.offsetParent !== null || el.getClientRects().length));` +
+    `  const bad = (l) => /go back|arrow_back|back|cancel|close|dismiss|help|settings|subscribe|bonus|menu|more_vert|sign out|delete|remove/i.test(l);` +
+    `  const buttons = Array.from(document.querySelectorAll('button,[role="button"],[aria-label]')).filter(visible);` +
+    `  const prefer = buttons.find((b) => {` +
+    `    const l = labelOf(b);` +
+    `    if (!l || bad(l)) return false;` +
+    `    return /^(generate|create)$|generate video|generate clip|create clip|create video|make video|arrow_forward|send$|submit|run prompt|start generation/i.test(l);` +
+    `  });` +
+    `  if (prefer) { prefer.click(); return 'clicked_generate:' + labelOf(prefer).slice(0,80); }` +
+    `  return 'no_generate_button labels=' + buttons.slice(0,20).map((b)=>labelOf(b).slice(0,40)).filter(Boolean).join('|');` +
+    `})()`;
+  const dlFn =
+    `(() => {` +
+    `  const labelOf = (el) => ((el.innerText||'')+' '+(el.getAttribute('aria-label')||'')+' '+(el.getAttribute('title')||'')).trim();` +
+    `  const visible = (el) => !!(el && (el.offsetParent !== null || el.getClientRects().length));` +
+    `  const nodes = Array.from(document.querySelectorAll('button,a,[role="button"],[download]')).filter(visible);` +
+    `  const dl = nodes.find((el) => /download|save video|export|save as/i.test(labelOf(el)) || el.hasAttribute('download'));` +
+    `  if (dl) { dl.click(); return 'clicked_download:' + labelOf(dl).slice(0,80); }` +
+    `  return 'no_download';` +
+    `})()`;
+  const readyFn =
+    `(() => {` +
+    `  const t = (document.body && document.body.innerText || '').slice(0, 12000);` +
+    `  const hasVideo = !!document.querySelector('video');` +
+    `  const vid = document.querySelector('video');` +
+    `  const dur = vid && Number.isFinite(vid.duration) ? vid.duration : 0;` +
+    `  const ready = hasVideo && dur > 0.5;` +
+    `  return JSON.stringify({ ready, hasVideo, duration: dur, snippet: t.replace(/\\s+/g,' ').slice(0,240) });` +
+    `})()`;
+
+  let generateDetail = '';
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const ev = await evaluateInBrowser(ceoUserId, agentId, genFn);
+    generateDetail = String(ev.detail || '');
+    steps.push({ t: nowIso(), action: 'google_flow_generate_click', attempt, detail: generateDetail.slice(0, 240) });
+    if (/clicked_/i.test(generateDetail)) break;
+    await sleep(1500);
+  }
+  if (!/clicked_/i.test(generateDetail)) {
+    return {
+      ok: false,
+      blocked: true,
+      summary:
+        'Flow editor prompt was filled, but no Generate control was found. In the Chrome Flow window, click Generate (or the send/arrow control), wait for the clip, download the mp4, then tell CO to ingest — or re-run S4 scene 1.',
+      note: 'flow_generate_button_missing',
+      generateDetail,
+    };
+  }
+
+  let ready = null;
+  for (let w = 0; w < 24; w += 1) {
+    await sleep(5000);
+    const ev = await evaluateInBrowser(ceoUserId, agentId, readyFn);
+    try {
+      ready = JSON.parse(String(ev.detail || '{}'));
+    } catch {
+      ready = { ready: false, snippet: String(ev.detail || '').slice(0, 200) };
+    }
+    steps.push({ t: nowIso(), action: 'google_flow_wait', w, ready });
+    if (ready?.ready) break;
+    // Re-click generate once if still idle after ~30s
+    if (w === 5) {
+      await evaluateInBrowser(ceoUserId, agentId, genFn).catch(() => {});
+    }
+  }
+
+  let downloadDetail = 'skipped';
+  for (let d = 0; d < 5; d += 1) {
+    const ev = await evaluateInBrowser(ceoUserId, agentId, dlFn);
+    downloadDetail = String(ev.detail || '');
+    steps.push({ t: nowIso(), action: 'google_flow_download_click', d, detail: downloadDetail.slice(0, 200) });
+    if (/clicked_download/i.test(downloadDetail)) break;
+    await sleep(2000);
+  }
+
+  const ok = /clicked_download/i.test(downloadDetail);
+  return {
+    ok,
+    blocked: !ok,
+    summary: ok
+      ? `Flow generate clicked; download=${downloadDetail}. Check Downloads for the newest mp4 and ingest with video_media_ingest_clip.`
+      : `Flow generate may have started (detail=${generateDetail.slice(0, 120)}), but download control was not found. If the clip is ready in Chrome Flow, click Download, then we will ingest the mp4 from Downloads.`,
+    note: ok ? 'flow_generate_download' : 'flow_generate_pending_download',
+    generateDetail,
+    downloadDetail,
+    ready,
+  };
+}
+
 /** Prefer publish body extractor shared with autonomous social module. */
 function extractPublishBodyFromGoal(goalText) {
   return extractPublishBody(goalText);
@@ -595,6 +825,7 @@ async function confirmSocialPostResult(ceoUserId, agentId) {
 
 async function decideNextAction({ ceoUserId, goal, snapshot, history, startUrl, modalOpen = false }) {
   const interactive = goalLooksInteractive(goal);
+  const flowGoal = goalLooksGoogleFlow(goal);
   const system = `You drive a browser for a CEO. Reply with ONLY one minified JSON object. No markdown fences, no commentary.
 Schema: {"action":"click|type|press|scroll|open|done|wait_login|wait_approval","ref":"","text":"","url":"","key":"","summary":"","reason":""}
 Rules:
@@ -608,13 +839,18 @@ Rules:
 - Never invent credentials or fake post URLs. Keep JSON under 500 characters when possible.
 ${interactive ? '- This goal is interactive (publish/compose/reply). Do not mark done after only opening the page.' : ''}
 ${
+  flowGoal
+    ? `- Google Flow video goal: open/create a project, type the scene prompt into the prompt box (use text="__FLOW_PROMPT__"), click Generate, wait for the clip, then download. done only with download filename/path — never done from the home/projects list alone.`
+    : ''
+}
+${
   modalOpen
     ? `- CRITICAL: A post/share composer MODAL/DIALOG is open. Do NOT scroll the background feed. Do NOT click "Start a post" again.
 - Work ONLY inside the dialog: focus the contenteditable / textbox, type the EXACT post body from the goal, then click the enabled Post/Publish button in the dialog.
 - Never click Like, Comment, or feed posts while the composer modal is open.`
     : ''
 }`;
-  const user = `Goal: ${goal}
+  const user = `Goal: ${goalBriefForDecision(goal)}
 Start URL: ${startUrl || '(current)'}
 ComposerModalOpen: ${modalOpen ? 'yes' : 'no'}
 Recent steps: ${JSON.stringify(history.slice(-8))}
@@ -643,6 +879,9 @@ ${String(snapshot || '').slice(0, 12000)}`;
       summary: 'Type into modal (scroll blocked)',
       reason: 'modal_open_scroll_suppressed',
     };
+  }
+  if (String(parsed.text || '') === '__FLOW_PROMPT__') {
+    parsed.text = extractFlowPromptFromGoal(goal) || parsed.text;
   }
   return parsed;
 }
@@ -687,10 +926,15 @@ async function executeDecision(ceoUserId, decision, agentId) {
     );
   }
   if (action === 'type' && (decision.ref || decision.text != null)) {
+    let text = decision.text;
+    if (String(text || '') === '__FLOW_PROMPT__') {
+      // Caller should have substituted; keep safe no-op if not
+      text = decision.text;
+    }
     return browserInvoke(
       ceoUserId,
       'act',
-      { request: { kind: 'type', ref: decision.ref, text: decision.text }, ref: decision.ref, text: decision.text },
+      { request: { kind: 'type', ref: decision.ref, text }, ref: decision.ref, text },
       agentId
     );
   }
@@ -1068,7 +1312,7 @@ function completedTaskSummary(summary, task) {
  */
 function goalLooksInteractive(goalText) {
   const g = String(goalText || '');
-  return /\b(publish|post|compose|submit|share|create a (new )?(post|tweet|update)|reply|comment|type|fill|click|upload|message|send|like|follow|connect|apply)\b/i.test(
+  return /\b(publish|post|compose|submit|share|create a (new )?(post|tweet|update)|reply|comment|type|fill|click|upload|message|send|like|follow|connect|apply|paste|download|generate|prompt box|prompt text|start generation|scene\s+\d+|google flow|labs\.google\/fx\/tools\/flow)\b/i.test(
     g
   );
 }
@@ -1175,7 +1419,34 @@ async function runAutonomous(ceoUserId, taskId) {
 
   if (goalLooksInteractive(task.goal_text)) {
     await tryLinkedInComposerBootstrap(ceoUserId, agentId, task.goal_text, steps);
+    const flowBoot = await tryGoogleFlowBootstrap(ceoUserId, agentId, task.goal_text, steps);
     updateTask(ceoUserId, taskId, { steps });
+    if (flowBoot && goalLooksGoogleFlow(task.goal_text)) {
+      const flowRun = await runGoogleFlowGenerateDownload(ceoUserId, agentId, task.goal_text, steps);
+      if (flowRun) {
+        const blocked = Boolean(flowRun.blocked) && !flowRun.ok;
+        updateTask(ceoUserId, taskId, {
+          status: blocked ? 'blocked_on_input' : flowRun.ok ? 'completed' : 'completed',
+          result: {
+            summary: flowRun.summary,
+            note: flowRun.note,
+            steps: steps.length,
+            flow: flowRun,
+            needs: blocked ? 'flow_generate_or_download' : undefined,
+          },
+          steps,
+          wait_reason: blocked ? flowRun.summary : null,
+          error: flowRun.ok ? null : flowRun.summary,
+        });
+        recordBrowserTaskOutcome(ceoUserId, getTask(ceoUserId, taskId), {
+          rating: flowRun.ok ? 'up' : 'down',
+          comment: flowRun.summary,
+          note: flowRun.note,
+        });
+        console.info('[browser-task] google flow generate/download path id=%s ok=%s', taskId, flowRun.ok);
+        return;
+      }
+    }
   }
 
   // Read/research goals with a start URL + substantial page text can complete early.
@@ -1306,7 +1577,14 @@ async function runAutonomous(ceoUserId, taskId) {
       }
     }
 
-    const snapshot = await takeSnapshot(ceoUserId, agentId);
+    const snapshotA11y = await takeSnapshot(ceoUserId, agentId);
+    let snapshot = snapshotA11y;
+    if (goalLooksGoogleFlow(task.goal_text)) {
+      const domText = await extractVisibleDomText(ceoUserId, agentId).catch(() => '');
+      if (domText) {
+        snapshot = `DOM_VISIBLE_TEXT:\n${domText.slice(0, 8000)}\n\nA11Y_SNIPPET:\n${String(snapshotA11y || '').slice(0, 6000)}`;
+      }
+    }
     void LOGIN_HINT_RE;
     const modalState = socialPublish ? await detectSocialComposerState(ceoUserId, agentId) : { open: false };
     const decision = await decideNextAction({
