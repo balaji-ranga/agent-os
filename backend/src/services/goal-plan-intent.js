@@ -930,9 +930,7 @@ export async function classifyGoalPlanIntents(ownerUserId, prompt, opts = {}) {
   let specialtySteps = [];
   try {
     if (cooStyle) {
-      const residualForSpecialty = stripWorkflowPhrasesFromPrompt(text, owner)
-        .replace(/\s{2,}/g, ' ')
-        .trim();
+      const residualForSpecialty = stripWorkflowPhrasesFromPrompt(text, owner).trim();
       if (residualForSpecialty.length >= 8) {
         const specialtyRaw = await classifySpecialtyIntentsForPlan(owner, residualForSpecialty, {
           maxSpecialty: opts.maxSpecialty || 4,

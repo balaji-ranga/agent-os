@@ -37,17 +37,27 @@ export function stripWorkflowPhrasesFromPrompt(prompt, ownerUserId = null) {
   }
   // Generic maker-checker style chat phrases (not CRM/ERP product names)
   t = t.replace(/\brun\s+[a-z0-9][\w\s\-]{0,48}?maker\s*[- ]?\s*checker\b/gi, ' ');
-  t = t.replace(/\s{2,}/g, ' ').trim();
+  t = collapsePlanWhitespace(t);
   return t;
 }
 
+/** Collapse spaces/tabs only — keep newlines so A)/B) lists stay detectable. */
+export function collapsePlanWhitespace(text) {
+  return String(text || '')
+    .replace(/[^\S\n]{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
 
 /** Lettered A) / numbered 1) lists in a goal residual (ordered specialty deliverables). */
 export function residualIsLetteredOrNumbered(text) {
   const residual = String(text || '');
-  return (
-    /(?:^|[\n;]\s*)[A-G]\)\s+\S/i.test(residual) || /(?:^|[\n;]\s*)\d+[.)]\s+\S/.test(residual)
-  );
+  // Space-prefixed A) covers residuals whose newlines were flattened to spaces.
+  const lettered = /(?:^|[\n;]|\s)[A-G]\)\s+\S/i.test(residual);
+  const numberedLine = /(?:^|[\n;]\s*)\d+[.)]\s+\S/.test(residual);
+  // `1)` mid-paragraph is a list; do not treat sentence `5. Write` as numbered.
+  const numberedParen = /(?:^|[\n;]|\s)\d+\)\s+\S/.test(residual);
+  return lettered || numberedLine || numberedParen;
 }
 
 /** True when residual names an org employee id or display name from AGENTS.md. */
@@ -158,10 +168,8 @@ export function stripPlanOrchestrationFromResidual(text) {
     .replace(/\b(start\s+execution|full\s+prompt|include\s+(?:the\s+)?goal\s+run\s+id)\b/gi, ' ')
     .replace(/\b(use\s+this\s+full\s+prompt|in\s+your\s+reply)\b/gi, ' ')
     .replace(/\bwith\s+this\s*,?\s*,?\s*and\s*\.?\s*/gi, ' ')
-    .replace(/\s{2,}/g, ' ')
-    .replace(/^[\s,.;:\-]+|[\s,.;:\-]+$/g, '')
-    .trim();
-  return t;
+    .replace(/^[\s,.;:\-]+|[\s,.;:\-]+$/g, '');
+  return collapsePlanWhitespace(t);
 }
 
 /**
@@ -213,13 +221,14 @@ export function splitResidualIntoIntentHints(residual) {
   if (!text) return [];
   // Allow A)/B) mid-sentence (e.g. hybrid residual: "Also A) research … B) design …")
   if (/[A-G]\)\s+\S/i.test(text)) {
-    const byLetter = text
-      .split(/(?:^|[\n;]|\s)(?=[A-G]\)\s+)/i)
+    const rawParts = text.split(/(?:^|[\n;]|\s)(?=[A-G]\)\s+)/i);
+    const hasPreamble = rawParts.length >= 2 && !/^[A-G]\)/i.test(String(rawParts[0] || '').trim());
+    const byLetter = rawParts
+      .slice(hasPreamble ? 1 : 0)
       .map((s) => s.replace(/^[A-G]\)\s+/i, '').trim())
       .filter((s) => s.length > 8);
-    // Drop leading preamble before the first lettered intent (e.g. "for Acme. Also")
     const lettered = byLetter.filter((s) => !/^(also|then|for|and|with|the)\b/i.test(s) || s.length > 40);
-    const intents = lettered.length >= 2 ? lettered : byLetter.slice(1);
+    const intents = lettered.length >= 2 ? lettered : byLetter;
     if (intents.length >= 2) return intents.slice(0, GOAL_PLAN_MAX_SPECIALTY);
   }
   if (/\d+[\).]\s+\S/.test(text)) {

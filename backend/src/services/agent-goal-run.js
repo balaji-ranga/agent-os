@@ -381,7 +381,7 @@ export async function planGoalStepsAsync(prompt, opts = {}) {
     steps = extractStructuralWorkflowSteps(fullPrompt).map(normalizeStepSpec);
   }
 
-  const residual = stripWorkflowPhrasesFromPrompt(fullPrompt, ownerUserId).replace(/\s{2,}/g, ' ').trim();
+  const residual = stripWorkflowPhrasesFromPrompt(fullPrompt, ownerUserId).trim();
   if (ownerUserId && residual.length >= 8 && isCooStyleOrchestrator(opts.orchestratorAgentId)) {
     try {
       const specialtyRaw = await classifySpecialtyIntentsForPlan(ownerUserId, residual, { maxSpecialty });

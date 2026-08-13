@@ -9,6 +9,8 @@ import {
   shouldSkipAllSpecialtyAsCooNative,
   matchNamedRosterAgentInText,
   rosterAgentsForGoalPlan,
+  splitResidualIntoIntentHints,
+  collapsePlanWhitespace,
 } from '../src/services/goal-plan-specialty.js';
 
 const MD = `
@@ -53,5 +55,42 @@ const bHit = matchNamedRosterAgentInText(
 );
 assert(aHit?.id === 'businessdiscovery', 'chunk A maps to Business Discovery, got ' + aHit?.id);
 assert(bHit?.id === 'crm-s1-demo', 'chunk B maps to CRM Maker A, got ' + bHit?.id);
+
+const collapsed = hybrid.replace(/\s+/g, ' ');
+assert(
+  residualIsLetteredOrNumbered(collapsed),
+  'whitespace-collapsed A)/B) must still count as lettered'
+);
+const hints = splitResidualIntoIntentHints(collapsed);
+assert(hints.length === 2, 'preamble dropped; expected 2 lettered chunks, got ' + hints.length);
+assert(
+  matchNamedRosterAgentInText(hints[0], roster)?.id === 'businessdiscovery',
+  'collapsed chunk 0 → Business Discovery'
+);
+assert(
+  matchNamedRosterAgentInText(hints[1], roster)?.id === 'crm-s1-demo',
+  'collapsed chunk 1 → CRM Maker A'
+);
+assert(
+  collapsePlanWhitespace('A) one\n\n\nB) two').includes('\n'),
+  'collapsePlanWhitespace must keep newlines'
+);
+assert(
+  !residualIsLetteredOrNumbered('Rank top 5. Write Knowledge discovered_opportunities.'),
+  'sentence-ending 5. Write is not a numbered list'
+);
+
+const withPreamble = `Unattended E2E. Sequential only. A) Business Discovery employee: research clinics. Create a Kanban card assigned to CRM Maker A. B) CRM Maker A employee, only after A: create Company, Person, and Opportunity.`;
+assert(residualIsLetteredOrNumbered(withPreamble), 'preamble + A)/B) is lettered');
+const preambleHints = splitResidualIntoIntentHints(withPreamble);
+assert(preambleHints.length === 2, 'preamble must not be a third specialty chunk, got ' + preambleHints.length);
+assert(
+  matchNamedRosterAgentInText(preambleHints[0], roster)?.id === 'businessdiscovery',
+  'preamble chunk 0 → Business Discovery'
+);
+assert(
+  matchNamedRosterAgentInText(preambleHints[1], roster)?.id === 'crm-s1-demo',
+  'preamble chunk 1 → CRM Maker A'
+);
 
 console.log('GOAL_PLAN_SPECIALTY_COO_NATIVE_OK');
