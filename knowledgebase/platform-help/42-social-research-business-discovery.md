@@ -52,7 +52,7 @@ The **Social Research MCP** (`mcp-social-research`) and matching content tools s
 |-----|-----|------|
 | `BRAVE_API_KEY` | Ops `.env` | Platform default Profile — web/social search |
 | **`BRAVE_SEARCH_BYOK`** | CEO vault | Any other Profile LLM |
-| `GOOGLE_PLACES_API_KEY` | Ops `.env` | Platform default Profile — Places |
+| `GOOGLE_PLACES_API_KEY` | Ops `.env` | Platform default Profile — Places (if unset, vault **`GOOGLE_PLACES_BYOK`** is used when present) |
 | **`GOOGLE_PLACES_BYOK`** | CEO vault | Any other Profile LLM |
 | **`INSTAGRAM_SESSIONID`** | CEO vault (preferred) | Instaloader captions + timestamps. Cookie from instagram.com while logged in (Application → Cookies → `sessionid`). Optional platform `INSTAGRAM_SESSIONID` is a shared fallback (ban risk — prefer per-CEO vault). |
 | **`X_API_BYOK`** | CEO vault | Official X timelines when Profile is not Platform default |
@@ -102,9 +102,10 @@ Business Discovery maps your wording onto **Discover → Research → Track → 
 
 A research ask (find up to 20, rank top 5, **do not track**) should:
 
-1. Create a durable **goal plan** (`agent_goal_create`) with those steps, or call **`business_discover`** once (Places + public URLs). Default **does not** persist or CRM-handoff.
+1. Call **`business_discover`** in that chat (Places + public URLs). Default **does not** persist or CRM-handoff.
 2. Present a **table from tool facts** (Business, Google rating/reviews, Website Good/Poor, Instagram Active/Inactive/None, Digital Presence, Opportunity stars), top-opportunity reasoning, and *“Would you like me to save these 5 prospects to CRM or research them in more depth?”*
 3. **Not** write `discovered_opportunities` or create a Kanban card unless you asked to Track or Act.
+4. Use **`agent_goal_create`** only if you also asked to Track over time or Act.
 
 Opportunity stars are **high** when Google reputation is strong and digital/social presence is **weak**. If Places is not configured, the employee must **not** invent the table from Brave or memory.
 

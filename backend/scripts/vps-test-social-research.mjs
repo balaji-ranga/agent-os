@@ -690,9 +690,12 @@ Use fresh information where possible. Reuse recently collected data if it is sti
     );
   } else {
     ok(
-      /\| *Business *\|/i.test(replyBd) || /opportunity|prospect|tampines|clinic/i.test(replyBd),
-      'Business Discovery returned research brief',
-      replyBd.slice(0, 800)
+      /\| *Business *\|/i.test(replyBd) &&
+        /Google/i.test(replyBd) &&
+        /Opportunity/i.test(replyBd) &&
+        /CRM|in more depth/i.test(replyBd),
+      'Business Discovery returned research brief table',
+      replyBd.slice(0, 1200)
     );
     const bdLog = db
       .prepare(

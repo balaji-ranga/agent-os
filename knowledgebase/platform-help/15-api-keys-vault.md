@@ -93,7 +93,14 @@ For agent tool **`brave_web_search`**:
 
 Missing `BRAVE_SEARCH_BYOK` while Profile is not Platform default → `brave_web_search` returns an error (no silent fall-back). Workflow Brave MCP nodes still pass headers/vault refs separately (MCP container does not read env).
 
-For **Google Places** (`google_places_nearby`, `business_discover`) the same Profile rule applies: platform `GOOGLE_PLACES_API_KEY` vs vault **`GOOGLE_PLACES_BYOK`**. Enable **Places API (New)** on the Google Cloud key.
+For **Google Places** (`google_places_nearby`, `business_discover`):
+
+| Profile LLM | Places key used |
+|-------------|-----------------|
+| **Platform default** | Platform `GOOGLE_PLACES_API_KEY`, or vault **`GOOGLE_PLACES_BYOK`** if the platform key is unset |
+| **Anything else** | Vault **`GOOGLE_PLACES_BYOK` only** — platform key is **not** used |
+
+Enable **Places API (New)** on the Google Cloud key. See [42-social-research-business-discovery.md](./42-social-research-business-discovery.md).
 
 **Instagram captions:** vault **`INSTAGRAM_SESSIONID`** (browser `sessionid` cookie) is always preferred over a shared platform env cookie. Without it, Instagram still hydrates post **images** from public `/p/` URLs.
 

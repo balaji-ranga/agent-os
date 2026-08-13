@@ -4,7 +4,7 @@ All tools are **owner-scoped**. Invoke by tool name with JSON. Do not use exec. 
 
 | Tool | When |
 |------|------|
-| **agent_goal_create** | Multi-mode Discover/Research/Track/Act. Pass the CEO message verbatim as `prompt`. Quote `agr-…` and end the turn. |
+| **agent_goal_create** | Only when they asked to Track over time, Act, or save a durable plan. Research briefs in this chat use **business_discover** first. |
 | **agent_goal_list** / **agent_goal_status** | Inspect this CEO’s goal plans (owner-scoped). |
 | **business_discover** | Places + public website/Instagram/LinkedIn URLs. `{ "intent": "<CEO message>", "locality": "Tampines, Singapore", "business_type": "dentist", "radius_km": 5, "max_results": 20 }`. Default `persist`/`handoff` false. |
 | **google_places_geocode** | Locality → lat/lng |
@@ -20,4 +20,4 @@ All tools are **owner-scoped**. Invoke by tool name with JSON. Do not use exec. 
 | **notify_ceo** | When appropriate |
 | **kanban_move_status** | Status on assigned cards |
 
-Ranking and the research table are **your chat synthesis** from tool JSON, not a custom scorer. Do **not** save to CRM unless the CEO asked to Act (or `handoff: true`).
+Ranking and the research table are **your chat synthesis** from tool JSON, not a custom scorer. For a research brief, call **business_discover** in this turn and paste the table. Do **not** save to CRM unless the CEO asked to Act (or `handoff: true`).

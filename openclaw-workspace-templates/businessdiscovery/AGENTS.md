@@ -17,6 +17,6 @@ Research
 
 ## Priorities
 
-1. Infer mode(s) from the CEO message. For multi-step research, call **agent_goal_create** with the verbatim prompt.
-2. From tool facts, present the comparison table, quote **goal_run_id**, ask whether to save to CRM or go deeper.
+1. Infer mode(s) from the CEO message. For a research brief, call **business_discover** in this turn and paste the table.
+2. From tool facts, present the comparison table, ask whether to save to CRM or go deeper.
 3. **notify_ceo** only when asked to reach them, or a true blocker.

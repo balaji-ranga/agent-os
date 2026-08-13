@@ -55,7 +55,7 @@ export const SOCIAL_RESEARCH_TOOLS = [
     endpoint: '/api/tools/google-places-geocode',
     method: 'POST',
     purpose:
-      'API tool: geocode a locality via Google Places API (New). Pass locality. Key: Platform default uses GOOGLE_PLACES_API_KEY; other Profiles use vault GOOGLE_PLACES_BYOK. Do not use exec.',
+      'API tool: geocode a locality via Google Places API (New). Pass locality. Key: Platform default uses GOOGLE_PLACES_API_KEY, or vault GOOGLE_PLACES_BYOK if the platform key is unset; other Profiles use vault GOOGLE_PLACES_BYOK only. Do not use exec.',
     model_used: 'Google Places API (New)',
   },
   {

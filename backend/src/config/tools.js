@@ -624,14 +624,19 @@ export function getBraveSearchConfig(ownerUserId = null) {
 const PLACES_API_NEW_BASE = 'https://places.googleapis.com/v1';
 
 /**
- * Google Places API (New) key resolution (same Profile rule as Brave Search).
- *
- * - Profile **Platform default** (or no owner): platform `GOOGLE_PLACES_API_KEY`.
- * - Any other Profile LLM preference: vault **`GOOGLE_PLACES_BYOK` only** — never the platform key.
- *
- * @param {string|null} [ownerUserId]
+ * Profile Platform default: platform env key, else entitled vault BYOK if present.
+ * Other Profiles: vault only (never the platform env key).
  */
-export function getGooglePlacesConfig(ownerUserId = null) {
+function resolvePlatformThenVaultKey({
+  ownerUserId = null,
+  platformEnvValue = '',
+  vaultKeyName,
+  logLabel,
+  missingPlatformCode,
+  missingVaultCode,
+  missingPlatformError,
+  missingVaultError,
+}) {
   let provider = 'platform_decided';
   if (ownerUserId) {
     try {
@@ -641,62 +646,101 @@ export function getGooglePlacesConfig(ownerUserId = null) {
       provider = 'platform_decided';
     }
   }
-
   const usePlatformKey = !ownerUserId || provider === 'platform_decided';
-  const apiUrl = PLACES_API_NEW_BASE;
-
   if (usePlatformKey) {
-    const apiKey = String(process.env.GOOGLE_PLACES_API_KEY || '').trim();
+    const apiKey = String(platformEnvValue || '').trim();
+    if (apiKey) {
+      return { apiKey, using_byok: false, provider, source: 'platform_env', error: null, error_code: null };
+    }
+    if (ownerUserId) {
+      const vault = tryResolveUserApiKey(ownerUserId, vaultKeyName);
+      const byokKey = String(vault?.value || '').trim();
+      if (byokKey) {
+        console.info(
+          '[tools] %s platform key missing; using vault %s owner=%s',
+          logLabel,
+          vaultKeyName,
+          ownerUserId
+        );
+        return {
+          apiKey: byokKey,
+          using_byok: true,
+          provider,
+          source: 'user_byok_vault_fallback',
+          error: null,
+          error_code: null,
+        };
+      }
+    }
     return {
-      apiUrl,
-      apiKey,
+      apiKey: '',
       using_byok: false,
       provider,
       source: 'platform_env',
-      google_places_byok_key_name: GOOGLE_PLACES_BYOK_KEY_NAME,
-      error: apiKey
-        ? null
-        : 'Google Places not configured. Set platform GOOGLE_PLACES_API_KEY in deploy/.env (Places API New), or switch Profile LLM and add vault GOOGLE_PLACES_BYOK.',
-      error_code: apiKey ? null : 'google_places_platform_key_missing',
+      error: missingPlatformError,
+      error_code: missingPlatformCode,
     };
   }
 
-  const vault = tryResolveUserApiKey(ownerUserId, GOOGLE_PLACES_BYOK_KEY_NAME);
+  const vault = tryResolveUserApiKey(ownerUserId, vaultKeyName);
   const byokKey = String(vault?.value || '').trim();
   if (!byokKey) {
     console.info(
-      '[tools] google_places blocked owner=%s provider=%s missing vault=%s',
+      '[tools] %s blocked owner=%s provider=%s missing vault=%s',
+      logLabel,
       ownerUserId,
       provider,
-      GOOGLE_PLACES_BYOK_KEY_NAME
+      vaultKeyName
     );
     return {
-      apiUrl,
       apiKey: '',
       using_byok: true,
       provider,
       source: 'user_byok_vault',
-      google_places_byok_key_name: GOOGLE_PLACES_BYOK_KEY_NAME,
-      error: `Create API key "${GOOGLE_PLACES_BYOK_KEY_NAME}" under Settings → API Keys for Google Places API (New), or switch Profile LLM to Platform default.`,
-      error_code: 'google_places_byok_required',
+      error: missingVaultError,
+      error_code: missingVaultCode,
     };
   }
-
-  console.info(
-    '[tools] google_places using vault %s owner=%s provider=%s',
-    GOOGLE_PLACES_BYOK_KEY_NAME,
-    ownerUserId,
-    provider
-  );
+  console.info('[tools] %s using vault %s owner=%s provider=%s', logLabel, vaultKeyName, ownerUserId, provider);
   return {
-    apiUrl,
     apiKey: byokKey,
     using_byok: true,
     provider,
     source: 'user_byok_vault',
-    google_places_byok_key_name: GOOGLE_PLACES_BYOK_KEY_NAME,
     error: null,
     error_code: null,
+  };
+}
+
+/**
+ * Google Places API (New) key resolution (same Profile rule as Brave Search).
+ *
+ * - Profile **Platform default** (or no owner): platform `GOOGLE_PLACES_API_KEY`, else vault **`GOOGLE_PLACES_BYOK`** if set.
+ * - Any other Profile LLM preference: vault **`GOOGLE_PLACES_BYOK` only** — never the platform key.
+ *
+ * @param {string|null} [ownerUserId]
+ */
+export function getGooglePlacesConfig(ownerUserId = null) {
+  const resolved = resolvePlatformThenVaultKey({
+    ownerUserId,
+    platformEnvValue: process.env.GOOGLE_PLACES_API_KEY,
+    vaultKeyName: GOOGLE_PLACES_BYOK_KEY_NAME,
+    logLabel: 'google_places',
+    missingPlatformCode: 'google_places_platform_key_missing',
+    missingVaultCode: 'google_places_byok_required',
+    missingPlatformError:
+      'Google Places not configured. Set platform GOOGLE_PLACES_API_KEY in deploy/.env (Places API New), or add vault GOOGLE_PLACES_BYOK.',
+    missingVaultError: `Create API key "${GOOGLE_PLACES_BYOK_KEY_NAME}" under Settings → API Keys for Google Places API (New), or switch Profile LLM to Platform default.`,
+  });
+  return {
+    apiUrl: PLACES_API_NEW_BASE,
+    apiKey: resolved.apiKey,
+    using_byok: resolved.using_byok,
+    provider: resolved.provider,
+    source: resolved.source,
+    google_places_byok_key_name: GOOGLE_PLACES_BYOK_KEY_NAME,
+    error: resolved.error,
+    error_code: resolved.error_code,
   };
 }
 
