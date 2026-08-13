@@ -76,7 +76,7 @@ function isCeoApprovalCard(task) {
 
 function isPermanentFailure(errorMessage) {
   const msg = String(errorMessage || '');
-  return /budget exceeded|budget-gate|agent not found|not entitled|private a2a|monthly token budget exhausted/i.test(
+  return /budget exceeded|budget-gate|agent not found|not entitled|private a2a|monthly token budget exhausted|Google Places not configured|Places not configured|recovery paused|Hard-stop: Google Places/i.test(
     msg
   );
 }
@@ -216,6 +216,24 @@ export function reinitiateKanbanDelegation(
   if (!kanban.assigned_agent_id) return { ok: false, reason: 'no_assigned_agent' };
   if (kanban.assigned_member_key) return { ok: false, reason: 'external_leaf' };
   if (isCeoApprovalCard(kanban)) return { ok: false, reason: 'ceo_approval' };
+
+  // Do not re-fire goal-plan recovery loops (esp. config failures like Places).
+  const descLower = String(kanban.description || '').toLowerCase();
+  const titleLower = String(kanban.title || '').toLowerCase();
+  if (
+    titleLower.startsWith('goal recovery:') ||
+    descLower.includes('goal_plan_recovery') ||
+    descLower.includes('[goal_plan_recovery]')
+  ) {
+    if (
+      String(process.env.GOAL_PLAN_FAILURE_KANBAN || '1') === '0' ||
+      /google places not configured|places not configured|recovery paused|hard-stop: google places/i.test(
+        `${kanban.description || ''}\n${kanban.title || ''}`
+      )
+    ) {
+      return { ok: false, reason: 'goal_recovery_suppressed' };
+    }
+  }
 
   let retries = resetRetries ? 0 : getOrphanRetryCount(kanban.description);
   if (retries >= maxOrphanRetries()) {

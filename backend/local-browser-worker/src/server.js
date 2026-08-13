@@ -11,7 +11,7 @@ import { chromium } from 'playwright';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
-const WORKER_VERSION = '1.1.0';
+const WORKER_VERSION = '1.2.0';
 
 function loadEnvFile() {
   const envPath = join(ROOT, '.env');
@@ -38,6 +38,12 @@ const HEADLESS = ['1', 'true', 'yes'].includes(String(process.env.BROWSER_HEADLE
 const HEARTBEAT_MS = Math.max(10000, Number(process.env.HEARTBEAT_MS || 30000));
 /** Use installed Chrome for Google login: set BROWSER_CHANNEL=chrome (avoids "browser may not be secure"). */
 const BROWSER_CHANNEL = String(process.env.BROWSER_CHANNEL || '').trim().toLowerCase();
+/**
+ * Preferred for Google account sign-in: attach to a Chrome you started yourself
+ * (Start-ChromeForGoogleLogin.ps1) via CDP — Playwright launch is often blocked by Google.
+ * Example: BROWSER_CDP_URL=http://127.0.0.1:9222
+ */
+const BROWSER_CDP_URL = String(process.env.BROWSER_CDP_URL || '').trim();
 const rawUserData = String(process.env.BROWSER_USER_DATA_DIR || 'browser-profile').trim() || 'browser-profile';
 const USER_DATA_DIR = isAbsolute(rawUserData) ? rawUserData : join(ROOT, rawUserData);
 
@@ -52,6 +58,8 @@ if (!BASE_URL) {
 
 mkdirSync(USER_DATA_DIR, { recursive: true });
 
+/** @type {import('playwright').Browser | null} */
+let cdpBrowser = null;
 /** @type {import('playwright').BrowserContext | null} */
 let context = null;
 /** @type {import('playwright').Page | null} */
@@ -67,6 +75,37 @@ function profileHasLocalState() {
 
 async function ensureBrowser() {
   if (page && !page.isClosed()) return page;
+
+  // CDP attach: do not close the user's Chrome — only drop our handles.
+  if (BROWSER_CDP_URL) {
+    if (cdpBrowser) {
+      try {
+        const contexts = cdpBrowser.contexts();
+        context = contexts[0] || null;
+        if (context) {
+          const pages = context.pages();
+          page = pages.find((p) => !p.isClosed()) || (await context.newPage());
+          if (page && !page.isClosed()) return page;
+        }
+      } catch {
+        cdpBrowser = null;
+        context = null;
+        page = null;
+      }
+    }
+    console.info('[browser-worker] connecting over CDP %s', BROWSER_CDP_URL);
+    cdpBrowser = await chromium.connectOverCDP(BROWSER_CDP_URL);
+    const contexts = cdpBrowser.contexts();
+    context = contexts[0] || (await cdpBrowser.newContext({ acceptDownloads: true }));
+    const pages = context.pages();
+    page = pages.find((p) => !p.isClosed()) || (await context.newPage());
+    context.on('page', (p) => {
+      page = p;
+    });
+    console.info('[browser-worker] browser ready via CDP contexts=%s', contexts.length);
+    return page;
+  }
+
   if (context) {
     try {
       await context.close();
@@ -87,13 +126,20 @@ async function ensureBrowser() {
   const launchOpts = {
     headless: HEADLESS,
     viewport: { width: 1280, height: 900 },
-    args: ['--disable-dev-shm-usage'],
+    args: ['--disable-dev-shm-usage', '--disable-blink-features=AutomationControlled'],
     // Helps Google account sign-in (Playwright Chromium is often blocked as "not secure").
     ignoreDefaultArgs: ['--enable-automation'],
     acceptDownloads: true,
   };
   if (channel) launchOpts.channel = channel;
   context = await chromium.launchPersistentContext(USER_DATA_DIR, launchOpts);
+  await context.addInitScript(() => {
+    try {
+      Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+    } catch {
+      /* ignore */
+    }
+  });
   const pages = context.pages();
   page = pages.length ? pages[0] : await context.newPage();
   context.on('page', (p) => {
@@ -278,12 +324,18 @@ async function cloudFetch(path, { method = 'GET', body = null } = {}) {
   return json;
 }
 
+function driverMode() {
+  if (BROWSER_CDP_URL) return 'chrome_cdp';
+  if (BROWSER_CHANNEL === 'chrome' || BROWSER_CHANNEL === 'msedge') return `playwright_${BROWSER_CHANNEL}`;
+  return 'playwright_persistent';
+}
+
 async function registerAndHeartbeat() {
   await cloudFetch('/register', {
     method: 'POST',
     body: {
       worker_version: WORKER_VERSION,
-      driver_mode: 'playwright_persistent',
+      driver_mode: driverMode(),
       capabilities: workerCapabilities(),
     },
   });
@@ -299,7 +351,7 @@ async function jobLoop() {
           method: 'POST',
           body: {
             worker_version: WORKER_VERSION,
-            driver_mode: 'playwright_persistent',
+            driver_mode: driverMode(),
             capabilities: workerCapabilities(),
           },
         }).catch(() => {});
@@ -404,7 +456,7 @@ async function main() {
       method: 'POST',
       body: {
         worker_version: WORKER_VERSION,
-        driver_mode: 'playwright_persistent',
+        driver_mode: driverMode(),
         capabilities: workerCapabilities(),
       },
     }).catch((e) => console.warn('[browser-worker] heartbeat failed: %s', e.message || e));
