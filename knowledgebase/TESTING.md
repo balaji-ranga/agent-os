@@ -340,7 +340,7 @@ Help **42**. Nearby Search FieldMask must not include `nextPageToken` (HTTP 400)
 
 ## Admin Tools Onboarding (VPS Docker)
 
-Requires `DOCKER_TOOLS_ENABLED=1`, compose overlay `docker-compose.docker-tools.yml`, and admin TOTP.
+Requires `DOCKER_TOOLS_ENABLED=1`, compose overlay `docker-compose.docker-tools.yml`, and a privileged OTP session (authenticator if enrolled, otherwise email; 30 min, `ADMIN_PRIVILEGED_SESSION_TTL_MS`).
 
 ```bash
 cd /opt/agent-os/deploy

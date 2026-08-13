@@ -146,7 +146,7 @@ Twenty multi-workspace opens each company at https://{workspace-subdomain}.crm.f
 
 **Refresh TLS (after DNS works):**
 
-- **Admin UI (preferred):** sign in as platform admin → **TLS certs** (`/admin/tls-certs`) → unlock with TOTP → **Run Let's Encrypt refresh** (scope **all** or **crm**). Same acme.sh TLS-ALPN path as the VPS bash scripts; brief nginx downtime for ALPN. Shows current SANs, Twenty workspace hosts, and job logs.
+- **Admin UI (preferred):** sign in as platform admin → **TLS certs** (`/admin/tls-certs`) → unlock with OTP (authenticator or email; 30-minute privileged session, shared with AgentSystem recovery / Tools Onboarding) → **Run Let's Encrypt refresh** (scope **all** or **crm**). Same acme.sh TLS-ALPN path as the VPS bash scripts; brief nginx downtime for ALPN. Shows current SANs, Twenty workspace hosts, and job logs.
 - **CLI on VPS:**
 
 ```bash

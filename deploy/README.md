@@ -263,6 +263,7 @@ Gets the same gateway LLM vars plus:
 | `DEEPSEEK_BASE_URL`, `DEEPSEEK_MODEL` | Optional DeepSeek override. Brain `deepseek` defaults to cloud V4 (`https://api.deepseek.com/v1`, `deepseek-v4-flash`) with per-node API key; set these to Ollama for local. Profile BYOK `deepseek` still uses local Ollama when pointed here. |
 | `BRAVE_API_KEY` | Agent content tool **`brave_web_search`** when Profile is Platform default. Also test/workflow run input for Brave MCP demos. **Not** injected into the Brave MCP container (that stays header BYOK). Vault **`BRAVE_SEARCH_BYOK`** for non-platform Profiles. Profile `optional-brave-mcp`. |
 | `MFA_MODE`, `AGENT_OS_REQUIRE_MFA`, `AGENT_OS_DISABLE_MFA` | Platform MFA defaults (production: `MFA_MODE=TOTP`, `AGENT_OS_REQUIRE_MFA=1`) |
+| `ADMIN_PRIVILEGED_SESSION_TTL_MS` | OTP session TTL for Admin AgentSystem recovery, Tools Onboarding, TLS refresh (default `1800000` = 30 min). Fallback `DOCKER_TOOLS_STEPUP_TTL_MS`. |
 | `EMAIL_INBOUND_WEBHOOK_SECRET` | Optional platform secret for email inbound webhooks |
 | `OPENCONNECTOR_URL` | Base URL of the OpenConnector runtime (e.g. `http://openconnector:3000`). Enables Connector workflow nodes + User Profile auto-provision. |
 | `OPENCONNECTOR_PUBLIC_ORIGIN` / `OOMOL_CONNECT_ORIGIN` | Public HTTPS origin for OAuth callbacks (e.g. `https://flolah.cloud/openconnector`) |
@@ -398,6 +399,7 @@ All proxied under `/api` (rebuild backend + frontend images after upgrade):
 | Profile LLM catalog | Provider + model on **Register** and **Profile** (`llm_model`); `GET /api/auth/llm-catalog`; registry `backend/src/config/llm-provider-registry.js`; BYOK vault after login; soft fallbacks `OPENAI_BYOK_MODEL` / `OPENROUTER_MODEL` |
 | Generated media lockdown | `/api/media/openclaw/*` auth-only by default; WhatsApp uses disk `MEDIA:`; Dashboard inline players (Bearer→blob). Opt-in signed public: `MEDIA_PUBLIC_SIGNED=1` in `deploy/.env`. Docs: platform-help **11** |
 | Platform feedback (Admin) | `/admin/platform-feedback` + COO tools `platform_feedback_*`; statuses open / implemented / rejected |
+| Admin AgentSystem recovery | `/admin/openclaw-recovery` — diagnose gateway + CEO feeder queues; OTP privileged session (30 min) to drain, restart gateway, repair config/workspaces, clear sessions, remove leftover gateway crons, toggle goal-plan recovery Kanban. No Control UI link. Help **43**. |
 
 **Repeatable deploy (laptop → VPS):**
 
@@ -565,6 +567,17 @@ docker compose up -d --force-recreate backend
 ```
 
 `vps-deploy-latest.sh` defaults `COMPOSE_FILE` to include the docker-tools overlay. Keep `DOCKER_TOOLS_ENABLED=0` until registry allow-list + sock are ready. Tool containers are **not** Compose services (Hostinger hPanel may omit them); manage via Admin UI or `docker ps --filter label=agent-os.managed=1`.
+
+## Admin AgentSystem recovery
+
+When Agent Chat **queues then fails**, the gateway lane is usually saturated (delegations, goal-plan recovery Kanban, scheduled goals, browser tasks). Admins recover from **Admin → AgentSystem recovery** (`/admin/openclaw-recovery`). Status/diagnose is admin-only (no OTP). Drain / restart / repair / session reset / kill-switch require the **same privileged OTP session** as Tools Onboarding and TLS certs (`ADMIN_PRIVILEGED_SESSION_TTL_MS`, default 30 min). Authenticator TOTP if enrolled, otherwise email OTP.
+
+Gateway restart needs `docker.sock` via `docker-compose.docker-tools.yml`. Config repair uses shared `openclaw_home` (`ensure-openclaw-gateway-config.js` + channel restore). Goal-plan failure Kanban can be disabled from the recovery UI (platform setting `goal_plan_failure_kanban`) without a compose recreate.
+
+Smoke (no OTP, no mutate): `docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-admin-privileged-session.js`
+
+Help **43**. There is **no** AgentSystem Control UI link.
+
 ## Optional Compose profiles
 
 ```bash

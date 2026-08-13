@@ -25,6 +25,11 @@ upsert DOCKER_TOOLS_MAX_MEMORY_MB 512
 upsert DOCKER_TOOLS_MAX_CPUS 1
 upsert DOCKER_TOOLS_STEPUP_TTL_MS 1800000
 upsert ADMIN_PRIVILEGED_SESSION_TTL_MS 1800000
+# Align legacy 5-minute Docker-tools TTL with the shared 30-minute privileged session.
+if grep -qE '^DOCKER_TOOLS_STEPUP_TTL_MS=300000$' "$ENV_FILE" 2>/dev/null; then
+  sed -i 's/^DOCKER_TOOLS_STEPUP_TTL_MS=300000$/DOCKER_TOOLS_STEPUP_TTL_MS=1800000/' "$ENV_FILE"
+  echo "ensure-docker-tools-env: updated DOCKER_TOOLS_STEPUP_TTL_MS 300000 -> 1800000"
+fi
 upsert DOCKER_TOOLS_RESTART_OPENCLAW 1
 upsert DOCKER_GID 0
 if ! grep -q 'Docker tool onboarding' "$ENV_FILE" 2>/dev/null; then

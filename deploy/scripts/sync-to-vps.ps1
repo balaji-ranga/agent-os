@@ -93,7 +93,8 @@
 # agent delete cascade (transactional, clears kanban assignments) + deleted_agents tombstone
 # (startup catalog re-grant and OpenClaw sync no longer resurrect a deleted agent),
 # Browser Session + browse_* tools (recipe list/run, browser-cdp, Client Chrome relay),
-# Admin Tools Onboarding (docker.sock overlay, TOTP step-up, registry allow-list,
+# Admin Tools Onboarding (docker.sock overlay, privileged OTP session, registry allow-list,
+# Admin AgentSystem recovery (OTP 30-min session, drain/restart/repair; help 43),
 # content-tool register + OpenClaw reload; Admin Crons last_run persists),
 # CEO home chat + My Org, collapsible chat history/browser panes (icon toggles),
 # Home KPI cards + right snapshot pane + global search (Ctrl+K) + mobile Kanban list UX,

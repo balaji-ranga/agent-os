@@ -64,7 +64,7 @@ EOF
 
   if ! grep -qF 'GOAL_PLAN_FAILURE_KANBAN' "$ENV_FILE"; then
     cat >> "$ENV_FILE" <<'EOF'
-# GOAL_PLAN_FAILURE_KANBAN=1              # 0 disables recovery Kanban+delegation when a goal plan fails
+# GOAL_PLAN_FAILURE_KANBAN=1              # 0 disables recovery Kanban+delegation when a goal plan fails (Admin → AgentSystem recovery can override)
 # GOAL_PLAN_MAX_SPECIALTY=8              # Max specialty_task intents per durable goal plan
 EOF
     added=1
@@ -110,7 +110,7 @@ cat >> "$ENV_FILE" <<'EOF'
 # WORKFLOW_TIMEOUT_WATCHDOG_CRON=*/1 * * * * # Admin: reap timed-out workflow node steps
 # WORKFLOW_COO_WAKE_ON_TERMINAL=1          # 0 disables COO re-invoke on async WF terminal
 # GOAL_PLAN_COO_COMPLETION_NUDGE=1         # 0 hard-disables goal completion chat nudge
-# GOAL_PLAN_FAILURE_KANBAN=1              # 0 disables recovery Kanban when a plan fails
+# GOAL_PLAN_FAILURE_KANBAN=1              # 0 disables recovery Kanban when a plan fails (Admin recovery UI can override)
 # CRM_TLS_WORKSPACE_CERT_CRON=40 * * * *   # LE SAN expand for new Twenty workspace hosts (Admin → Crons: crm_tls_workspace_certs)
 # CRM_TLS_WORKSPACE_CERT_AUTO=1            # 0 disables post-provision debounce only; set CRON=off to disable schedule
 EOF

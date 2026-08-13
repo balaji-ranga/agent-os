@@ -88,3 +88,5 @@ Use templates to bootstrap a new specialist’s personality and ops rules, then 
 ## Clear sessions
 
 From agent list or workspace you can clear AgentSystem sessions if a chat is stuck or polluted — then start a fresh chat.
+
+If **many chats queue then fail**, the gateway lane is full (not a dirty thread). CEOs: pause noisy scheduled goals and wait. Admins: **Admin → AgentSystem recovery** (help **43**).

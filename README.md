@@ -211,6 +211,7 @@ The backend uses the [AgentSystem Gateway](https://docs.openclaw.ai/gateway) HTT
 - Default gateway port: **18789**
 - **Per-CEO tenants:** each CEO gets isolated AgentSystem agent runtimes and workspaces (`openclaw-tenant`); prompts are tagged with `owner_user_id` / `ceo_user_id`.
 - **Deploy repair:** `deploy/scripts/ensure-openclaw-gateway-config.js` restores wiped `gateway` / `tools` / `plugins` / `browser` **and** an empty **model catalog**. `vps-verify-openclaw-chat.sh` re-runs `configure-openclaw-docker.js` when the catalog is empty (Agent Chat **502** `Unknown model: openai/…`). `OPENCLAW_MODEL_PRIMARY` (default `openai/deepseek-v4-flash`) must exist as `deepseek-v4-flash` under `models.providers.openai`.
+- **Admin recovery:** when chats **queue then fail**, use **Admin → AgentSystem recovery** (`/admin/openclaw-recovery`) — OTP privileged session (30 min). Help **43**. There is no AgentSystem Control UI link.
 
 ## Prerequisites
 
@@ -223,6 +224,7 @@ The backend uses the [AgentSystem Gateway](https://docs.openclaw.ai/gateway) HTT
 - Optional: **AGENT_OS_DATA_DIR** — directory for SQLite DB (default: `backend/data`).
 - Optional: **PLATFORM_LOG_LEVEL** — `off` (silent), `error` (failures only), or `info` (default; one line per API call). Secrets are redacted at every level.
 - Optional: **AGENT_OS_ADMIN_EMAIL** / **AGENT_OS_ADMIN_PASSWORD** — platform admin seeded on first startup.
+- Optional: **ADMIN_PRIVILEGED_SESSION_TTL_MS** — OTP session length for Admin AgentSystem recovery, Tools Onboarding, and TLS refresh (default `1800000` = 30 min). Fallback: `DOCKER_TOOLS_STEPUP_TTL_MS`.
 - Optional: **AGENT_OS_BALA_CEO_*** — default CEO user for legacy job profiles and workflows.
 
 ## Quick start
@@ -252,7 +254,7 @@ Frontend runs at **http://127.0.0.1:3000** and proxies `/api` to the backend (ov
 
 ### 3. Log in
 
-Open **http://127.0.0.1:3000/login**. Default admin is seeded from `.env` (`AGENT_OS_ADMIN_*`). CEO users see home chat, **My Org**, Workflows, Kanban, Job profiles, AgentExchange, etc. Admin users manage platform accounts and MCP registry. New CEOs register at `/register` and get provisioned AgentSystem agents, org context, starter **departments**, and this README as a Master Data document.
+Open **http://127.0.0.1:3000/login**. Default admin is seeded from `.env` (`AGENT_OS_ADMIN_*`). CEO users see home chat, **My Org**, Workflows, Kanban, Job profiles, AgentExchange, etc. Admin users manage platform accounts, MCP registry, TLS certs, Tools Onboarding, and **AgentSystem recovery**. New CEOs register at `/register` and get provisioned AgentSystem agents, org context, starter **departments**, and this README as a Master Data document.
 
 ### 4. AgentSystem gateway (for chat)
 
@@ -276,7 +278,7 @@ Set in backend `.env`:
 
 | Feature | Description |
 |--------|-------------|
-| **Auth & roles** | Login/register; **admin** (user management, MCP registry, platform crons, A2A logs) and **ceo** (agents, workflows, kanban, job pipeline). JWT sessions. New CEO registration provisions AgentSystem agents, syncs org context, seeds **departments** + default **User Guide** document. |
+| **Auth & roles** | Login/register; **admin** (user management, MCP registry, platform crons, A2A logs, TLS certs, Tools Onboarding, **AgentSystem recovery**) and **ceo** (agents, workflows, kanban, job pipeline). JWT sessions. Privileged admin mutations use OTP then a 30-minute session (`ADMIN_PRIVILEGED_SESSION_TTL_MS`). New CEO registration provisions AgentSystem agents, syncs org context, seeds **departments** + default **User Guide** document. |
 | **Admin platform crons** | `/admin/crons` — registry of every platform timer with **Pause** / **Resume** / **Run now**; pause state is persisted so a paused job stays paused after a restart. |
 | **Admin company blueprints** | `/admin` → **Company industry blueprints** — snapshot/publish a CEO company pack + **Download zip** (`agent-os-company-blueprint-v2`). **Secrets always redacted** (API keys, bridge tokens, passwords; vault `*Ref` kept). Help **29**. Demo packs: `demo_balaji_ranganathan`, **`demo_brightbox_gifts`** (golden CRM/ERP). Standard lean+BC packs under `company-blueprints/standard/` (regenerate: `publish-brightbox-and-regenerate-standard.js`). **Refresh default agents** applies `platform-agents.json` tools + optional Business Core re-sync. |
 | **Platform logging & redaction** | `PLATFORM_LOG_LEVEL=off\|error\|info` for backend request/error logs. Secrets (API keys, bearer tokens, `Authorization`, passwords, MFA codes) are redacted from URLs, JSON bodies and headers; API Keys / auth routes log method + route only. Unit tests: `backend/scripts/test-security-hardening-unit.js`. |

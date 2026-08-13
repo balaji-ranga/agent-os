@@ -89,9 +89,11 @@ Top-level (always shown; cannot hide in Menu visibility):
 |-------|-------|---------|
 | Admin | `/admin` | Users, platform LLM switch, workspace templates admin |
 | A2A logs | `/admin/a2a-invocations` | Every A2A card / token / invoke attempt, including denials |
-| **Crons** | `/admin/crons` | Platform cron **and event watcher** registry — **Pause**, **Resume**, **Run now**; pause survives restarts. Includes workflow terminal watch, goal-plan completion nudge, timeout reaper (help **19**) | — includes event watchers (workflow terminal, goal-plan completion, timeout reap)
+| **Crons** | `/admin/crons` | Platform cron **and event watcher** registry — **Pause**, **Resume**, **Run now**; pause survives restarts. Includes workflow terminal watch, goal-plan completion nudge, timeout reaper (help **19**) |
 | Documents RAG | `/admin/documents-rag` | Platform OpenSearch help corpus |
-| Tools Onboarding | `/admin/tool-onboarding` | Docker content-tool containers |
+| Tools Onboarding | `/admin/tool-onboarding` | Docker content-tool containers (privileged OTP session, 30 min) |
+| **TLS certs** | `/admin/tls-certs` | Let's Encrypt SAN status + refresh (same privileged OTP session) |
+| **AgentSystem recovery** | `/admin/openclaw-recovery` | Diagnose/unblock gateway lane, drain queues, restart gateway, repair config/workspaces (help **43**). Privileged OTP, 30 min. |
 | **Platform feedback** | `/admin/platform-feedback` | Triage bugs / feedback / enhancements from COO tools (`open` → `implemented` / `rejected`) |
 
 Admins also see Connectors (OAuth client config), MCP, Custom scripts, AgentExchange, External AI, and Profile.
