@@ -4,7 +4,7 @@
  */
 import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { getOpenClawDir } from '../config/openclaw-paths.js';
+import { getOpenClawDir, getOpenClawConfigPath } from '../config/openclaw-paths.js';
 import { baseOcIdFromAgent, tenantOpenClawAgentId } from './openclaw-tenant.js';
 import { readOpenClawConfigSafe, writeOpenClawConfigSafe } from './openclaw-config-safe.js';
 
