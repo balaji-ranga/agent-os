@@ -6,6 +6,7 @@ import { allowInternalOrAuth } from '../middleware/internal-auth.js';
 import { resolveEntitledOwnerUserId } from '../services/tool-owner-scope.js';
 import { parseForceFlag } from '../services/tool-summary-cache.js';
 import * as marketData from '../services/market-data.js';
+import { toolApiRateLimitMiddleware } from '../services/tool-api-rate-limits.js';
 
 const router = Router();
 
@@ -24,6 +25,7 @@ function sendResult(res, result) {
 }
 
 router.use(allowInternalOrAuth);
+router.use(toolApiRateLimitMiddleware);
 
 router.post('/regime', async (req, res) => {
   try {

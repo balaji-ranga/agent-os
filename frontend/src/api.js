@@ -289,6 +289,18 @@ export const api = {
   /** CEO Tools → model mapping (BYOK tools; excludes embeddings / custom-script review). */
   contentToolsModelMappings: () => get('/tools/model-mappings'),
   contentToolsModelMappingsSave: (mappings) => put('/tools/model-mappings', { mappings }),
+  /** CEO Tools → per-user API-key call budgets (daily/monthly). Independent of agent token budgets. */
+  contentToolsRateLimits: () => get('/tools/rate-limits'),
+  contentToolsRateLimitsSave: (mappings) => put('/tools/rate-limits', { mappings }),
+  contentToolsRateLimitsReset: (toolName, period = 'both') =>
+    post('/tools/rate-limits/reset', { tool_name: toolName, period }),
+  contentToolsRateLimitResets: (params = {}) => {
+    const sp = new URLSearchParams();
+    if (params.tool) sp.set('tool', params.tool);
+    if (params.limit != null) sp.set('limit', params.limit);
+    const q = sp.toString();
+    return get(q ? `/tools/rate-limits/resets?${q}` : '/tools/rate-limits/resets');
+  },
   // Content tools: monitor logs
   contentToolsLogs: (params = {}) => {
     const sp = new URLSearchParams();

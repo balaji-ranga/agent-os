@@ -6,6 +6,8 @@ Covers three connected features:
 2. **Per-agent monthly token and error budgets** with warn-then-block enforcement
 3. **External / published-A2A agents as leaf members** of your org chart, delegable by the COO
 
+Per-agent **token** budgets are unchanged by **Tools → Rate limits** (that UI caps vendor **API calls** per CEO per tool — see [11-content-tools-scripts-profile.md](./11-content-tools-scripts-profile.md)). Both can apply on the same run.
+
 ---
 
 ## 1. Departments: purpose and monthly token budget

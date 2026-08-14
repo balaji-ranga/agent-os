@@ -2054,6 +2054,48 @@ export function initDb() {
     );
   } catch (_) {}
 
+  // Per-CEO tool API call budgets (Tools → Rate limits). Independent of agent token budgets.
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS tool_api_rate_limits (
+        owner_user_id TEXT NOT NULL,
+        tool_name TEXT NOT NULL,
+        max_calls_per_day INTEGER,
+        max_calls_per_month INTEGER,
+        calls_today INTEGER NOT NULL DEFAULT 0,
+        calls_this_month INTEGER NOT NULL DEFAULT 0,
+        period_day TEXT,
+        period_month TEXT,
+        updated_at TEXT DEFAULT (datetime('now')),
+        PRIMARY KEY (owner_user_id, tool_name)
+      )
+    `);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_tool_api_rate_limits_owner ON tool_api_rate_limits(owner_user_id)`
+    );
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS tool_api_rate_limit_resets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        owner_user_id TEXT NOT NULL,
+        tool_name TEXT NOT NULL,
+        reset_kind TEXT NOT NULL,
+        period TEXT NOT NULL,
+        budget_max_day INTEGER,
+        budget_max_month INTEGER,
+        actuals_day INTEGER,
+        actuals_month INTEGER,
+        period_day TEXT,
+        period_month TEXT,
+        reset_by TEXT,
+        created_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_tool_api_rate_limit_resets_owner
+       ON tool_api_rate_limit_resets(owner_user_id, tool_name, created_at)`
+    );
+  } catch (_) {}
+
   /** User profile photo (data URL or relative media path). */
   try {
     _db.exec(`ALTER TABLE platform_users ADD COLUMN profile_image TEXT DEFAULT ''`);

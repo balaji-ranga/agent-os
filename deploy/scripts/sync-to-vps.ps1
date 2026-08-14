@@ -18,8 +18,9 @@
 # Features covered: Kanban orphan watcher (re-pend stuck processing + reinitiate specialty cards),
 # Kanban Weekly-default board + agent filter + Select all + task ID deep-link,
 # Global search task id / workflow run id (GET /api/home/search),
-# Scheduled goals (hourly|daily|weekdays|weekly, create/edit/pause/amend plan UI, SCHEDULED_GOALS_CRON,
-#   vps-verify-scheduled-goals.sh + _smoke-scheduled-goals.mjs, platform-help 28),
+# Scheduled goals (hourly|daily|weekdays|weekly, create/edit/pause; Generate draft COO-only;
+#   other employees Save & schedule; BD Act handoff via Kanban orphan watcher; SCHEDULED_GOALS_CRON
+#   + GOAL_PLAN_* in compose; vps-verify-scheduled-goals.sh + _smoke-scheduled-goals.mjs, help 28/42),
 # Home OEI (operational_effectiveness API/tool; scheduled_goal_runs fire counts; help 36),
 # Company setup (/company-setup, platform-help 29),
 # Legal register accept + /legal static pages (AGENT_OS_TERMS_VERSION / AGENT_OS_PRIVACY_VERSION),
@@ -378,6 +379,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-internal-delegation-budget-gate.js" `
     "$Repo\backend\scripts\test-department-efficiency.js" `
     "$Repo\backend\scripts\test-token-usage-reset.js" `
+    "$Repo\backend\scripts\test-tool-api-rate-limits.js" `
     "$Repo\backend\scripts\test-kanban-status-only-reply.js" `
     "$Repo\backend\scripts\test-delegation-status-only-retry.js" `
     "$Repo\backend\scripts\vps-test-coo-rag-kanban-flow.js" `
@@ -465,6 +467,7 @@ if ($Services -match "backend|openclaw") {
   ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/knowledgebase"
   scp @ssh -r "$Repo\knowledgebase\platform-help" "root@${HostIp}:$RemoteRoot/knowledgebase/"
   scp @ssh "$Repo\knowledgebase\README.md" "root@${HostIp}:$RemoteRoot/knowledgebase/README.md"
+  scp @ssh "$Repo\knowledgebase\TESTING.md" "root@${HostIp}:$RemoteRoot/knowledgebase/TESTING.md"
   scp @ssh `
     "$Repo\knowledgebase\AUTOMATED-PNL.md" `
     "$Repo\knowledgebase\ONBOARDING-HELPER-PLAN.md" `

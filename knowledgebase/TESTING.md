@@ -191,6 +191,7 @@ node backend/scripts/verify-budgets-org-members.js   # tables + ledger + warn-th
 node backend/scripts/verify-module-graph.js          # routers/services import cleanly (no circular breaks)
 node backend/scripts/verify-agent-view-api.js        # authenticated Agent View / budgets / org-members (backend up)
 node backend/scripts/test-org-member-delegation-e2e.js  # mock A2A leaf member + COO delegation + budget block
+node backend/scripts/test-tool-api-rate-limits.js       # per-user tool API call caps (day/month, audit, block)
 ```
 
 On VPS after deploy:
@@ -321,6 +322,23 @@ Test from the **Dashboard** in the browser. No backend scripts required.
 - [ ] Sending a message and using **Get work from team** / **Check for updates** keeps everything in this standup's chat.
 
 **Expected flow:** Create or open standup → COO chat is the main view → give tasks in chat → COO delegates via cron → child agent responses show up in this chat. Each standup has its own chat history.
+
+## Scheduled goals (COO plan vs specialty employee)
+
+Help **28**. **Generate draft plan** is COO-only (`agentAllowsScheduledGoalPlan` = `is_coo`).
+
+- [ ] On `/scheduled-goals`, pick a non-COO employee (e.g. Business Discovery): Generate / Amend / Build / feedback are disabled; hover mentions COO-only plans.
+- [ ] **Save & schedule** activates with `plan_status: none` (no specialty ladder).
+- [ ] Pick the COO: Generate draft works; lettered `A) … B) …` stays sequential specialties (not `kanban_create_task` → `notify_ceo` → `agent_continue`).
+- [ ] BD Act schedule: prompt `business_discover` persist + handoff; do **not** name `kanban_create_task` / `notify_ceo` or a **B) CRM Maker** block. CRM starts from the assigned Kanban card (orphan watcher, ~5 min).
+
+```powershell
+# Local / container:
+cd backend
+node scripts/test-goal-plan-specialty-coo-native.mjs
+```
+
+VPS: `bash /opt/agent-os/deploy/scripts/vps-verify-scheduled-goals.sh`
 
 ## Social Researcher + Business Discovery (VPS)
 

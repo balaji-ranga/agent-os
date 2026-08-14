@@ -85,6 +85,13 @@ import {
   putToolModelMappings,
 } from '../services/tool-model-overrides.js';
 import {
+  listToolApiRateLimits,
+  putToolApiRateLimits,
+  resetToolApiRateLimit,
+  listToolApiRateLimitResets,
+  toolApiRateLimitMiddleware,
+} from '../services/tool-api-rate-limits.js';
+import {
   notifyKanbanTaskCreated,
   clearKanbanTaskNotification,
 } from '../services/platform-notifications.js';
@@ -422,6 +429,87 @@ router.put('/model-mappings', attachToolsAuth, requireAuth, requireCeoOrAdmin, (
 });
 
 /**
+ * GET /rate-limits — CEO Tools → per-user API-key call budgets (owner-scoped).
+ */
+router.get('/rate-limits', attachToolsAuth, requireAuth, requireCeoOrAdmin, (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.query || {});
+    if (!ownerUserId) return res.status(403).json({ error: 'CEO owner required' });
+    res.json(listToolApiRateLimits(ownerUserId));
+  } catch (e) {
+    console.warn('[tools] rate-limits GET failed: %s', e?.message || e);
+    const status = Number(e?.status) || 500;
+    res.status(status >= 400 && status < 600 ? status : 500).json({
+      error: e.message || 'Failed to load tool rate limits',
+    });
+  }
+});
+
+/**
+ * GET /rate-limits/resets — audit of budget vs actuals at each reset.
+ */
+router.get('/rate-limits/resets', attachToolsAuth, requireAuth, requireCeoOrAdmin, (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.query || {});
+    if (!ownerUserId) return res.status(403).json({ error: 'CEO owner required' });
+    const toolName = typeof req.query.tool === 'string' ? req.query.tool.trim() : null;
+    const limit = req.query.limit;
+    res.json({ resets: listToolApiRateLimitResets(ownerUserId, { toolName, limit }) });
+  } catch (e) {
+    console.warn('[tools] rate-limits resets GET failed: %s', e?.message || e);
+    res.status(e?.status || 500).json({ error: e.message || 'Failed to load rate-limit resets' });
+  }
+});
+
+/**
+ * PUT /rate-limits — save per-tool daily/monthly call caps.
+ * Body: { mappings: [{ tool_name, max_calls_per_day, max_calls_per_month }] }
+ * Empty / 0 max clears the limit (unlimited).
+ */
+router.put('/rate-limits', attachToolsAuth, requireAuth, requireCeoOrAdmin, (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.body || {});
+    if (!ownerUserId) return res.status(403).json({ error: 'CEO owner required' });
+    const mappings = req.body?.mappings ?? req.body?.tools ?? [];
+    const result = putToolApiRateLimits(ownerUserId, mappings);
+    res.json(result);
+  } catch (e) {
+    console.warn('[tools] rate-limits PUT failed: %s', e?.message || e);
+    const msg = e?.message || 'Failed to save tool rate limits';
+    if (e?.status) {
+      return res.status(Number(e.status) || 403).json({ error: msg });
+    }
+    if (/required|not rate-limitable|too large|must be/i.test(msg)) {
+      return res.status(400).json({ error: msg });
+    }
+    res.status(500).json({ error: msg });
+  }
+});
+
+/**
+ * POST /rate-limits/reset — audit then zero actuals (day, month, or both).
+ * Body: { tool_name, period?: 'day'|'month'|'both' }
+ */
+router.post('/rate-limits/reset', attachToolsAuth, requireAuth, requireCeoOrAdmin, (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.body || {});
+    if (!ownerUserId) return res.status(403).json({ error: 'CEO owner required' });
+    const toolName = String(req.body?.tool_name || req.body?.name || '').trim();
+    const period = String(req.body?.period || 'both').trim();
+    const result = resetToolApiRateLimit(ownerUserId, toolName, {
+      period,
+      resetBy: req.authUser?.id || ownerUserId,
+    });
+    res.json(result);
+  } catch (e) {
+    console.warn('[tools] rate-limits reset failed: %s', e?.message || e);
+    const msg = e?.message || 'Failed to reset tool rate limit';
+    if (/required|period must/i.test(msg)) return res.status(400).json({ error: msg });
+    res.status(e?.status || 500).json({ error: msg });
+  }
+});
+
+/**
  * PATCH /meta/:name — update tool metadata.
  */
 router.patch('/meta/:name', attachToolsAuth, requireAuth, requireCeoOrAdmin, (req, res) => {
@@ -576,6 +664,7 @@ router.delete('/logs', attachAuthUser, requireAuth, (req, res) => {
 });
 
 router.use(optionalAuth);
+router.use(toolApiRateLimitMiddleware);
 
 router.use(jobApplicantTools);
 router.use(crmTools);

@@ -725,6 +725,17 @@ if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-
     && echo "    Token usage reset (one / all) OK" \
     || echo "    WARN: token usage reset failed (see /tmp/token-reset.log)"
 fi
+if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-tool-api-rate-limits.js 2>/dev/null; then
+  docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-tool-api-rate-limits.js >/tmp/tool-api-rate-limits.log 2>&1 \
+    && echo "    Tool API rate limits (per-user daily/monthly) OK" \
+    || echo "    WARN: tool API rate limits failed (see /tmp/tool-api-rate-limits.log)"
+fi
+if docker compose exec -T frontend sh -c 'grep -Rql "Tools → Rate limits" /usr/share/nginx/html/assets/*.js 2>/dev/null' \
+  || docker compose exec -T frontend sh -c 'grep -Rql "Rate limits" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend assets: Tools → Rate limits OK"
+else
+  echo "    WARN: Tools → Rate limits not found in frontend JS"
+fi
 if docker compose exec -T -w /opt/agent-os/backend backend grep -q "resetTokenUsage" src/services/token-usage.js 2>/dev/null \
   && docker compose exec -T -w /opt/agent-os/backend backend grep -q "usage/reset" src/routes/efficiency.js 2>/dev/null; then
   echo "    Token usage reset API deployed OK"

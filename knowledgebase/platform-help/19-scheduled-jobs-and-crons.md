@@ -19,7 +19,7 @@ another's — each pass is owner-scoped (`owner_user_id`).
 All keys are **optional** — each has a code default, so a fresh install schedules everything with no
 `.env` changes. They are listed commented in `deploy/.env`, `deploy/.env.example` and
 `backend/.env.example` for reference (`deploy/scripts/ensure-cron-env.sh` keeps `.env` in sync on
-every deploy).
+every deploy). **Compose:** cron keys plus `GOAL_PLAN_*`, `SCHEDULED_GOAL_CHAT_TIMEOUT_MS`, `SCHEDULED_GOAL_STUCK_MINUTES`, `GOAL_AGENT_CONTINUE_TIMEOUT_MS`, and `WORKFLOW_COO_WAKE_ON_TERMINAL` are injected in `deploy/docker-compose.yml` backend environment. Comment-only `.env` changes need a container recreate.
 
 | Env var | Default | What runs on each tick | Per-user behaviour |
 |---------|---------|------------------------|--------------------|
@@ -29,9 +29,10 @@ every deploy).
 | `AGENT_WORKFLOW_SCHEDULER_CRON` | `* * * * *` | Master tick for **custom agent workflows** | Starts a run only for definitions whose own `schedule_cron` is due, `schedule` trigger enabled, owner scoped |
 | `JOB_PIPELINE_CRON_SCHEDULE` | `0 * * * *` (hourly) | Job Applicant pipeline tick | Checks every active job profile's own `workflow_schedule` (hourly/daily/weekly) |
 | `COO_STATUS_CHECKER_CRON` | `0 9 * * *` (09:00 daily) | **COO status checker** digest | For each enabled CEO: builds that CEO's Kanban/A2A digest, posts it into their standup chat, **and emails the HTML report** (email only on this batch path). Counts are **all ages** (same as Kanban **All** view — not the Weekly filter). |
+| `TOOL_API_RATE_LIMIT_RESET_CRON` | `5 0 * * *` (00:05 daily) | **Tool API rate-limit reset** | Audits then zeros per-user tool API **call** actuals when the calendar day or month rolls (`PLATFORM_TIMEZONE`). Validator also lazy-resets on the next tool call. Pause disables the timer only. UI: **Tools → Rate limits**. |
 | `DATA_RETENTION_CRON` | `15 3 * * *` (03:15 daily) | **Data retention purge** | For each enabled CEO: deletes data older than **that user's** `data_retention_days` (Profile setting) |
 | `KANBAN_ORPHAN_WATCHER_CRON` | `*/5 * * * *` (every 5 min) | **Kanban orphan watcher** | Re-pends specialty delegations stuck in `processing` (after AgentSystem fetch timeout + ~60s, or `DELEGATION_SPECIALTY_PROCESSING_TIMEOUT_MS`), requeues status-only cards, reinitiates orphan `open`/`in_progress`/`failed` specialty cards, then **immediately kicks the pending delegation worker** so Admin "Run now" does not wait for the minute cron. Caps retries via `KANBAN_ORPHAN_MAX_RETRIES`. |
-| `SCHEDULED_GOALS_CRON` | `* * * * *` (every minute) | **Scheduled goals** dispatcher | For each enabled CEO: fires **active** scheduled prompts to the chosen AI employee when local `time_local` matches. **Paused** / **deleted** goals never fire (DB status only — survives restarts). |
+| `SCHEDULED_GOALS_CRON` | `* * * * *` (every minute) | **Scheduled goals** dispatcher | For each enabled CEO: fires **active** scheduled prompts to the chosen AI employee when local `time_local` matches. **Paused** / **deleted** goals never fire (DB status only — survives restarts). **Generate draft plan** is COO-only; other employees **Save & schedule** (no specialty ladder). |
 | `CRM_TLS_WORKSPACE_CERT_CRON` | `40 * * * *` (hourly) | **CRM workspace TLS SANs** | Compares ACTIVE Twenty workspace hosts (`{sub}.crm.*`) to the LE fullchain. **No-op** when all are already on the cert. If any SAN is missing (and public DNS resolves to the VPS), runs `vps-ensure-crm-workspace-dns-cert` → brief nginx stop for TLS-ALPN expand. Same job can **Run now** under **Admin → Crons** (`crm_tls_workspace_certs`). New workspace create also **debounces** this after ~45s (`CRM_TLS_WORKSPACE_CERT_AUTO=0` turns that off; `CRM_TLS_WORKSPACE_CERT_CRON=off` disables the schedule). Prerequisite: DNS A `*.crm.<apex>` (or per-workspace) → VPS. Manual UI: **Admin → TLS certs**. |
 
 
@@ -63,7 +64,7 @@ crashing the process; the startup log prints each active schedule.
 | Where | Setting | Effect |
 |-------|---------|--------|
 | **Kanban / Standups** → standup | Scheduled time (`scheduled_at`) | Your standup auto-runs daily at that time and delegates outcomes via the COO |
-| **Scheduled goals** (`/scheduled-goals`) | Active goal + cadence | Saves a CEO prompt that auto-fires to an AI employee (**hourly** / daily / weekdays / weekly). Create and **edit** in UI or COO chat. Pause/delete off across restarts. Full guide: [28-scheduled-goals.md](./28-scheduled-goals.md) |
+| **Scheduled goals** (`/scheduled-goals`) | Active goal + cadence | Saves a CEO prompt that auto-fires to an AI employee (**hourly** / daily / weekdays / weekly). **Generate draft plan** is COO-only; other employees **Save & schedule** and run the prompt directly. Create and **edit** in UI or COO chat. Pause/delete off across restarts. Full guide: [28-scheduled-goals.md](./28-scheduled-goals.md) |
 | **Workflows** → editor → trigger | `schedule_cron` + `schedule` trigger mode | Your workflow starts when its cron is due; pause removes it from the registry |
 | **Job workflows** → profile | `workflow_schedule` = hourly / daily / weekly | Discovery + pipeline stages run at that cadence |
 | **Profile** → Data persistence | `data_retention_days` = 30 / 60 / 90 / 120 / 365 (**default 90**) | Nightly purge window for your chat turns, standup messages and workflow runs |

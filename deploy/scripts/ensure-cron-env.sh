@@ -69,10 +69,26 @@ EOF
 EOF
     added=1
   fi
+  if ! grep -qF 'GOAL_PLAN_MAX_INTENTS' "$ENV_FILE"; then
+    cat >> "$ENV_FILE" <<'EOF'
+# GOAL_PLAN_MAX_INTENTS=12               # Max hybrid intents classified per plan (4–20)
+# SCHEDULED_GOAL_CHAT_TIMEOUT_MS=240000  # Chat-mode scheduled goal AgentSystem timeout
+# SCHEDULED_GOAL_STUCK_MINUTES=30        # Reconcile last_status=running with no plan after this many minutes
+# GOAL_AGENT_CONTINUE_TIMEOUT_MS=240000  # AgentSystem agent_continue timeout for goal-plan interpretation steps
+# GOAL_PLAN_COO_NUDGE_TIMEOUT_MS=45000   # Max wait for optional COO LLM wording before deterministic ladder fallback
+EOF
+    added=1
+  fi
   if ! grep -qF 'CRM_TLS_WORKSPACE_CERT_CRON' "$ENV_FILE"; then
     cat >> "$ENV_FILE" <<'EOF'
 # CRM_TLS_WORKSPACE_CERT_CRON=40 * * * *   # expand LE SANs when new Twenty {sub}.crm.* host missing from cert (Admin → Crons)
 # CRM_TLS_WORKSPACE_CERT_AUTO=1            # 0 = no auto expand after workspace create (cron still may run)
+EOF
+    added=1
+  fi
+  if ! grep -qF 'TOOL_API_RATE_LIMIT_RESET_CRON' "$ENV_FILE"; then
+    cat >> "$ENV_FILE" <<'EOF'
+# TOOL_API_RATE_LIMIT_RESET_CRON=5 0 * * * # audit+zero per-user tool API call actuals at day/month roll (Tools → Rate limits)
 EOF
     added=1
   fi
@@ -101,10 +117,15 @@ cat >> "$ENV_FILE" <<'EOF'
 # AGENT_WORKFLOW_SCHEDULER_CRON=* * * * *  # master tick: runs user workflows whose schedule_cron is due
 # JOB_PIPELINE_CRON_SCHEDULE=0 * * * *     # Job Applicant pipeline tick across active job profiles
 # COO_STATUS_CHECKER_CRON=0 9 * * *        # daily CEO status report -> standup chat + HTML email
+# TOOL_API_RATE_LIMIT_RESET_CRON=5 0 * * * # audit+zero per-user tool API call actuals at day/month roll (Tools → Rate limits)
 # DATA_RETENTION_CRON=15 3 * * *           # daily purge: chats/standup msgs/workflow runs + aged Content Explorer media (hard delete)
 # KANBAN_ORPHAN_WATCHER_CRON=*/5 * * * *   # re-pend stuck processing + reinitiate orphan specialty Kanban
 # SCHEDULED_GOALS_CRON=* * * * *          # CEO scheduled goals: hourly|daily|weekdays|weekly prompts → agent (pause/delete off schedule)
 # GOAL_PLAN_MAX_SPECIALTY=8              # Max specialty_task intents per durable goal plan
+# GOAL_PLAN_MAX_INTENTS=12               # Max hybrid intents classified per plan (4–20)
+# SCHEDULED_GOAL_CHAT_TIMEOUT_MS=240000  # Chat-mode scheduled goal AgentSystem timeout
+# SCHEDULED_GOAL_STUCK_MINUTES=30        # Reconcile last_status=running with no plan after this many minutes
+# GOAL_AGENT_CONTINUE_TIMEOUT_MS=240000  # AgentSystem agent_continue timeout for goal-plan interpretation
 # WORKFLOW_TERMINAL_WATCH_CRON=*/5 * * * * # Admin event: WF terminal notify/wake + goal advance (pause kill-switch)
 # GOAL_PLAN_COMPLETION_NUDGE_CRON=*/10 * * * * # Admin event: goal plan complete → COO chat nudge once
 # WORKFLOW_TIMEOUT_WATCHDOG_CRON=*/1 * * * * # Admin: reap timed-out workflow node steps

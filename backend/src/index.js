@@ -841,6 +841,20 @@ registerPlatformCron({
   },
 });
 
+const toolApiRateLimitResetCron = process.env.TOOL_API_RATE_LIMIT_RESET_CRON || '5 0 * * *';
+registerPlatformCron({
+  id: 'tool_api_rate_limit_reset',
+  name: 'Tool API rate-limit reset',
+  description:
+    'Daily: audit then zero per-user tool API call actuals when the calendar day or month rolls (PLATFORM_TIMEZONE). Validator also lazy-resets on the next call. Pause disables the timer; next tool invoke still rolls over.',
+  schedule: toolApiRateLimitResetCron,
+  envVar: 'TOOL_API_RATE_LIMIT_RESET_CRON',
+  handler: async () => {
+    const { applyDueToolRateLimitResets } = await import('./services/tool-api-rate-limits.js');
+    return applyDueToolRateLimitResets({ resetBy: 'cron' });
+  },
+});
+
 // Keep registry sync/logging here; master tick is owned by platform-cron-registry (Admin pause/resume).
 syncWorkflowScheduleRegistry();
 initAgentWorkflowScheduler({ scheduleMaster: false });

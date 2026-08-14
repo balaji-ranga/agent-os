@@ -156,6 +156,8 @@ To bring the same agent back, create it again from **Agent Workspaces → Add ag
 
 1. Check what you own first:
    - **Scheduled goals** (`/scheduled-goals`) — status must be **active** (not paused/deleted); cadence and local time must match. Use **Run now** or ask the COO. Guide: [28-scheduled-goals.md](./28-scheduled-goals.md).
+   - **Generate draft plan** disabled — the selected employee is not the COO. **Save & schedule** instead, or set **Who runs it** to the COO for a nested specialty ladder.
+   - Business Discovery ran but CRM stayed empty — Act needs `business_discover` **persist true** and **handoff true**. Wait for the Kanban orphan watcher (~5 min) or Reopen the assigned card (help **04** / **42**). Do not put a lettered **B) CRM Maker** block on a BD schedule.
    - Standup `scheduled_at`, workflow **schedule** trigger + cron expression, or Job profile schedule. A draft workflow never runs on a schedule.
 2. Platform timers are shared. Ask your admin to open **Admin → Crons** (`/admin/crons`) — a job
    shown as **Paused** stays paused across restarts until someone hits **Resume**. Confirm **scheduled_goals** is not paused and `SCHEDULED_GOALS_CRON` is set. **Run now**
@@ -188,6 +190,13 @@ To bring the same agent back, create it again from **Agent Workspaces → Add ag
    a blank cell shows as **No department budget**.
 2. Members only roll up when their **department** matches the table row exactly.
 3. Department figures are for planning — blocking is per agent, on **Agent View**.
+
+## Tool says rate limit reached
+
+1. Open **Tools → Rate limits**. Check **Used today / Used month** vs **Max / day** and **Max / month** for that tool (your login only).
+2. Wait for the next calendar day/month, or click **Day** / **Month** / **Both** to reset actuals (the previous budget vs used is stored in **Audit**).
+3. Agents should fall back to **Browser Session** (`browse_task_start` / recipes) or server Playwright — not retry the same API tool in a loop.
+4. Per-agent **token** budgets on Efficiency → Agent View are a different cap; this one is API **calls** per tool per CEO.
 
 ## Wrong agent got the work
 

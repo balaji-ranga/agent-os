@@ -134,6 +134,20 @@ export default function ContentToolsLogs() {
   /** tool name -> use free-text model field */
   const [modelMapCustom, setModelMapCustom] = useState({});
 
+  const [rateMapOpen, setRateMapOpen] = useState(false);
+  const [rateMapLoading, setRateMapLoading] = useState(false);
+  const [rateMapSaving, setRateMapSaving] = useState(false);
+  const [rateMapError, setRateMapError] = useState(null);
+  const [rateMapData, setRateMapData] = useState(null);
+  /** @type {Record<string, { max_calls_per_day: string, max_calls_per_month: string }>} */
+  const [rateMapDraft, setRateMapDraft] = useState({});
+  const [rateMapFilter, setRateMapFilter] = useState('');
+  const [rateMapKind, setRateMapKind] = useState('');
+  const [rateMapResetting, setRateMapResetting] = useState(null);
+  const [rateMapAuditTool, setRateMapAuditTool] = useState(null);
+  const [rateMapAuditRows, setRateMapAuditRows] = useState([]);
+  const [rateMapAuditLoading, setRateMapAuditLoading] = useState(false);
+
   const [logs, setLogs] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -280,6 +294,74 @@ export default function ContentToolsLogs() {
       .finally(() => setModelMapSaving(false));
   };
 
+  const applyRateMapData = (data) => {
+    setRateMapData(data);
+    const draft = {};
+    for (const t of data.tools || []) {
+      draft[t.name] = {
+        max_calls_per_day: t.max_calls_per_day != null && t.max_calls_per_day !== '' ? String(t.max_calls_per_day) : '',
+        max_calls_per_month: t.max_calls_per_month != null && t.max_calls_per_month !== '' ? String(t.max_calls_per_month) : '',
+      };
+    }
+    setRateMapDraft(draft);
+  };
+
+  const openRateMap = () => {
+    setRateMapOpen(true);
+    setRateMapLoading(true);
+    setRateMapError(null);
+    setRateMapAuditTool(null);
+    api
+      .contentToolsRateLimits()
+      .then(applyRateMapData)
+      .catch((e) => setRateMapError(e.message))
+      .finally(() => setRateMapLoading(false));
+  };
+
+  const saveRateMap = () => {
+    if (!rateMapData?.tools) return;
+    setRateMapSaving(true);
+    setRateMapError(null);
+    const mappings = rateMapData.tools.map((t) => {
+      const d = rateMapDraft[t.name] || {};
+      return {
+        tool_name: t.name,
+        max_calls_per_day: d.max_calls_per_day === '' || d.max_calls_per_day == null ? '' : d.max_calls_per_day,
+        max_calls_per_month: d.max_calls_per_month === '' || d.max_calls_per_month == null ? '' : d.max_calls_per_month,
+      };
+    });
+    api
+      .contentToolsRateLimitsSave(mappings)
+      .then(applyRateMapData)
+      .catch((e) => setRateMapError(e.message))
+      .finally(() => setRateMapSaving(false));
+  };
+
+  const resetRateMapTool = (toolName, period) => {
+    setRateMapResetting(`${toolName}:${period}`);
+    setRateMapError(null);
+    api
+      .contentToolsRateLimitsReset(toolName, period)
+      .then(applyRateMapData)
+      .catch((e) => setRateMapError(e.message))
+      .finally(() => setRateMapResetting(null));
+  };
+
+  const openRateMapAudit = (toolName) => {
+    if (rateMapAuditTool === toolName) {
+      setRateMapAuditTool(null);
+      setRateMapAuditRows([]);
+      return;
+    }
+    setRateMapAuditTool(toolName);
+    setRateMapAuditLoading(true);
+    api
+      .contentToolsRateLimitResets({ tool: toolName, limit: 20 })
+      .then((data) => setRateMapAuditRows(data.resets || []))
+      .catch((e) => setRateMapError(e.message))
+      .finally(() => setRateMapAuditLoading(false));
+  };
+
   if (toolsLoading && tools.length === 0) {
     return (
       <div style={{ padding: '2rem' }}>Loading…</div>
@@ -324,6 +406,21 @@ export default function ContentToolsLogs() {
               }}
             >
               Tools → Model
+            </button>
+            <button
+              type="button"
+              onClick={openRateMap}
+              style={{
+                padding: '0.4rem 0.75rem',
+                background: 'var(--surface)',
+                color: 'var(--text)',
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                cursor: 'pointer',
+                fontSize: '0.9rem',
+              }}
+            >
+              Tools → Rate limits
             </button>
             <button
               type="button"
@@ -674,6 +771,331 @@ export default function ContentToolsLogs() {
                 type="button"
                 onClick={() => setModelMapOpen(false)}
                 disabled={modelMapSaving}
+                style={{
+                  padding: '0.4rem 0.75rem',
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  color: 'var(--text)',
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {rateMapOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.4)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10,
+          }}
+          onClick={() => !rateMapSaving && !rateMapResetting && setRateMapOpen(false)}
+        >
+          <div
+            style={{
+              background: 'var(--bg)',
+              border: '1px solid var(--border)',
+              borderRadius: 12,
+              padding: '1.5rem',
+              maxWidth: 980,
+              width: '96%',
+              maxHeight: '88vh',
+              overflow: 'auto',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ marginTop: 0 }}>Tools → Rate limits</h3>
+            <p style={{ marginTop: 0, color: 'var(--muted)', fontSize: '0.9rem' }}>
+              Per-user call budgets for tools that use API keys or external tokens. Empty = unlimited.
+              Actuals reset automatically at day/month end ({rateMapData?.tz || 'UTC'}) and are audited
+              (budget vs used) before zeroing. Agent token budgets are unchanged — this is on top.
+              When a cap is hit, the agent gets a failure and should try Browser Session / Playwright.
+            </p>
+            {rateMapData && (
+              <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginTop: 0 }}>
+                Period: {rateMapData.day} · month {rateMapData.month}
+              </p>
+            )}
+            {rateMapError && (
+              <div style={{ marginBottom: '0.75rem', color: '#f87171', fontSize: '0.9rem' }}>{rateMapError}</div>
+            )}
+            {rateMapLoading ? (
+              <div style={{ padding: '1rem', color: 'var(--muted)' }}>Loading…</div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+                  <input
+                    type="search"
+                    placeholder="Filter tools…"
+                    value={rateMapFilter}
+                    onChange={(e) => setRateMapFilter(e.target.value)}
+                    style={{
+                      flex: '1 1 180px',
+                      padding: '0.35rem 0.5rem',
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 6,
+                      color: 'var(--text)',
+                    }}
+                  />
+                  <select
+                    value={rateMapKind}
+                    onChange={(e) => setRateMapKind(e.target.value)}
+                    style={{
+                      padding: '0.35rem 0.5rem',
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 6,
+                      color: 'var(--text)',
+                    }}
+                  >
+                    <option value="">All kinds</option>
+                    {[...new Set((rateMapData?.tools || []).map((t) => t.kind).filter(Boolean))]
+                      .sort()
+                      .map((k) => (
+                        <option key={k} value={k}>
+                          {k}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                        <th style={{ textAlign: 'left', padding: '0.45rem' }}>Tool</th>
+                        <th style={{ textAlign: 'left', padding: '0.45rem' }}>Kind</th>
+                        <th style={{ textAlign: 'left', padding: '0.45rem', minWidth: 90 }}>Max / day</th>
+                        <th style={{ textAlign: 'left', padding: '0.45rem', minWidth: 90 }}>Max / month</th>
+                        <th style={{ textAlign: 'left', padding: '0.45rem' }}>Used today</th>
+                        <th style={{ textAlign: 'left', padding: '0.45rem' }}>Used month</th>
+                        <th style={{ textAlign: 'left', padding: '0.45rem' }}>Reset</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(rateMapData?.tools || [])
+                        .filter((t) => {
+                          if (rateMapKind && t.kind !== rateMapKind) return false;
+                          const q = rateMapFilter.trim().toLowerCase();
+                          if (!q) return true;
+                          return [t.name, t.label, t.provider, t.description, t.kind]
+                            .join(' ')
+                            .toLowerCase()
+                            .includes(q);
+                        })
+                        .map((t) => {
+                          const draft = rateMapDraft[t.name] || { max_calls_per_day: '', max_calls_per_month: '' };
+                          const dayBusy = rateMapResetting === `${t.name}:day`;
+                          const monthBusy = rateMapResetting === `${t.name}:month`;
+                          const bothBusy = rateMapResetting === `${t.name}:both`;
+                          return (
+                            <Fragment key={t.name}>
+                              <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                                <td style={{ padding: '0.45rem', verticalAlign: 'top' }}>
+                                  <div style={{ fontWeight: 500 }}>{t.label || t.name}</div>
+                                  <div style={{ color: 'var(--muted)', fontSize: '0.75rem' }}>{t.name}</div>
+                                  <div style={{ color: 'var(--muted)', fontSize: '0.72rem' }}>{t.provider}</div>
+                                </td>
+                                <td style={{ padding: '0.45rem', color: 'var(--muted)', verticalAlign: 'top' }}>{t.kind}</td>
+                                <td style={{ padding: '0.45rem', verticalAlign: 'top' }}>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    placeholder="∞"
+                                    value={draft.max_calls_per_day}
+                                    onChange={(e) =>
+                                      setRateMapDraft((d) => ({
+                                        ...d,
+                                        [t.name]: { ...draft, max_calls_per_day: e.target.value },
+                                      }))
+                                    }
+                                    style={{
+                                      width: 88,
+                                      padding: '0.3rem',
+                                      background: 'var(--surface)',
+                                      border: '1px solid var(--border)',
+                                      borderRadius: 6,
+                                      color: 'var(--text)',
+                                    }}
+                                  />
+                                </td>
+                                <td style={{ padding: '0.45rem', verticalAlign: 'top' }}>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    placeholder="∞"
+                                    value={draft.max_calls_per_month}
+                                    onChange={(e) =>
+                                      setRateMapDraft((d) => ({
+                                        ...d,
+                                        [t.name]: { ...draft, max_calls_per_month: e.target.value },
+                                      }))
+                                    }
+                                    style={{
+                                      width: 88,
+                                      padding: '0.3rem',
+                                      background: 'var(--surface)',
+                                      border: '1px solid var(--border)',
+                                      borderRadius: 6,
+                                      color: 'var(--text)',
+                                    }}
+                                  />
+                                </td>
+                                <td style={{ padding: '0.45rem', verticalAlign: 'top' }}>
+                                  {t.calls_today || 0}
+                                  {t.max_calls_per_day ? ` / ${t.max_calls_per_day}` : ''}
+                                </td>
+                                <td style={{ padding: '0.45rem', verticalAlign: 'top' }}>
+                                  {t.calls_this_month || 0}
+                                  {t.max_calls_per_month ? ` / ${t.max_calls_per_month}` : ''}
+                                </td>
+                                <td style={{ padding: '0.45rem', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
+                                  <button
+                                    type="button"
+                                    disabled={!!rateMapResetting || !t.limited}
+                                    onClick={() => resetRateMapTool(t.name, 'day')}
+                                    title="Audit then zero today's actuals"
+                                    style={{
+                                      marginRight: 4,
+                                      padding: '0.2rem 0.4rem',
+                                      fontSize: '0.75rem',
+                                      background: 'var(--surface)',
+                                      border: '1px solid var(--border)',
+                                      borderRadius: 4,
+                                      color: 'var(--text)',
+                                      cursor: t.limited ? 'pointer' : 'not-allowed',
+                                    }}
+                                  >
+                                    {dayBusy ? '…' : 'Day'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={!!rateMapResetting || !t.limited}
+                                    onClick={() => resetRateMapTool(t.name, 'month')}
+                                    title="Audit then zero this month's actuals"
+                                    style={{
+                                      marginRight: 4,
+                                      padding: '0.2rem 0.4rem',
+                                      fontSize: '0.75rem',
+                                      background: 'var(--surface)',
+                                      border: '1px solid var(--border)',
+                                      borderRadius: 4,
+                                      color: 'var(--text)',
+                                      cursor: t.limited ? 'pointer' : 'not-allowed',
+                                    }}
+                                  >
+                                    {monthBusy ? '…' : 'Month'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={!!rateMapResetting || !t.limited}
+                                    onClick={() => resetRateMapTool(t.name, 'both')}
+                                    title="Audit then zero day and month actuals"
+                                    style={{
+                                      marginRight: 4,
+                                      padding: '0.2rem 0.4rem',
+                                      fontSize: '0.75rem',
+                                      background: 'var(--surface)',
+                                      border: '1px solid var(--border)',
+                                      borderRadius: 4,
+                                      color: 'var(--text)',
+                                      cursor: t.limited ? 'pointer' : 'not-allowed',
+                                    }}
+                                  >
+                                    {bothBusy ? '…' : 'Both'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => openRateMapAudit(t.name)}
+                                    style={{
+                                      padding: '0.2rem 0.4rem',
+                                      fontSize: '0.75rem',
+                                      background: 'none',
+                                      border: 'none',
+                                      color: 'var(--accent)',
+                                      cursor: 'pointer',
+                                    }}
+                                  >
+                                    {rateMapAuditTool === t.name ? 'Hide audit' : 'Audit'}
+                                  </button>
+                                </td>
+                              </tr>
+                              {rateMapAuditTool === t.name ? (
+                                <tr>
+                                  <td colSpan={7} style={{ padding: '0.4rem 0.45rem 0.8rem', background: 'var(--surface)' }}>
+                                    {rateMapAuditLoading ? (
+                                      <span style={{ color: 'var(--muted)' }}>Loading audit…</span>
+                                    ) : rateMapAuditRows.length === 0 ? (
+                                      <span style={{ color: 'var(--muted)' }}>No resets recorded yet.</span>
+                                    ) : (
+                                      <table style={{ width: '100%', fontSize: '0.75rem', borderCollapse: 'collapse' }}>
+                                        <thead>
+                                          <tr>
+                                            <th style={{ textAlign: 'left', padding: '0.2rem' }}>When</th>
+                                            <th style={{ textAlign: 'left', padding: '0.2rem' }}>Kind</th>
+                                            <th style={{ textAlign: 'left', padding: '0.2rem' }}>Budget day/month</th>
+                                            <th style={{ textAlign: 'left', padding: '0.2rem' }}>Actuals day/month</th>
+                                            <th style={{ textAlign: 'left', padding: '0.2rem' }}>By</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {rateMapAuditRows.map((r) => (
+                                            <tr key={r.id}>
+                                              <td style={{ padding: '0.2rem' }}>{formatLocalDateTime(r.created_at)}</td>
+                                              <td style={{ padding: '0.2rem' }}>{r.reset_kind}</td>
+                                              <td style={{ padding: '0.2rem' }}>
+                                                {r.budget_max_day ?? '∞'} / {r.budget_max_month ?? '∞'}
+                                              </td>
+                                              <td style={{ padding: '0.2rem' }}>
+                                                {r.actuals_day ?? 0} / {r.actuals_month ?? 0}
+                                              </td>
+                                              <td style={{ padding: '0.2rem' }}>{r.reset_by || '—'}</td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    )}
+                                  </td>
+                                </tr>
+                              ) : null}
+                            </Fragment>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={saveRateMap}
+                disabled={rateMapLoading || rateMapSaving || !rateMapData}
+                style={{
+                  padding: '0.4rem 0.75rem',
+                  background: 'var(--accent)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 6,
+                  cursor: rateMapSaving ? 'wait' : 'pointer',
+                  fontSize: '0.9rem',
+                }}
+              >
+                {rateMapSaving ? 'Saving…' : 'Save limits'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setRateMapOpen(false)}
+                disabled={rateMapSaving || !!rateMapResetting}
                 style={{
                   padding: '0.4rem 0.75rem',
                   background: 'var(--surface)',

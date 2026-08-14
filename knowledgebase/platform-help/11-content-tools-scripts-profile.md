@@ -24,6 +24,7 @@ Catalog of Agent OS tools agents and workflows can call, for example:
 3. Grant tools per agent under **Workspace → Tools access**.
 4. In workflows, use a **Content Tool** node with the **exact** `toolName`.
 5. Optionally set **Tools → Model** (per-tool model overrides) — see below.
+6. Optionally set **Tools → Rate limits** (per-user daily/monthly API call caps) — see below.
 
 Workflow Builder can recommend tools via `content_tools_enquire`.
 
@@ -42,6 +43,23 @@ On **Tools**, open **Tools → Model**. Map a **chat / vision / image / video mo
 Save applies immediately for later tool runs (no gateway restart). Image models (e.g. `gpt-image-1`) and video (Replicate model/version id) use **Custom…** when not in the chat model list.
 
 APIs (CEO/admin session, owner-scoped): `GET/PUT /api/tools/model-mappings`.
+
+### Tools → Rate limits
+
+On **Tools**, open **Tools → Rate limits**. Set **per-user** daily and/or monthly **call** caps for tools that consume **API keys or external tokens** (Places, Brave, Replicate, SMTP, CRM/ERP tokens, FMP, connectors, image/video, and other vendor APIs). This is **on top of** per-agent **token budgets** (those stay on Efficiency / org members — unchanged).
+
+| What | Detail |
+|------|--------|
+| **Max / day** (`max_calls_per_day`) | Optional. Empty = unlimited for the calendar day |
+| **Max / month** (`max_calls_per_month`) | Optional. Empty = unlimited for the calendar month |
+| **Actuals** | Used today / this month. Incremented when the tool runs (generic validator on the tool HTTP layer) |
+| **Auto reset** | At day or month roll (`PLATFORM_TIMEZONE` / `TZ`). Cron `tool_api_rate_limit_reset` (`TOOL_API_RATE_LIMIT_RESET_CRON`, default `5 0 * * *`) plus lazy reset on the next call |
+| **Manual reset** | **Day** / **Month** / **Both** on the row — audits then zeros actuals |
+| **Audit** | Every reset stores budget vs actuals for that tool before zeroing. Open **Audit** on the row |
+| **When blocked** | Agent gets `tool_rate_limit_reached` and is told to try **Browser Session** (`browse_task_start` / `browse_recipe_run`) or server Playwright. HTTP **429** |
+| **Not listed** | Browser Session tools (they are the fallback), local speech, Kanban / Master Data internals |
+
+Empty both maxes and **Save** clears the limit (unlimited again). Owner-scoped APIs: `GET/PUT /api/tools/rate-limits`, `POST /api/tools/rate-limits/reset`, `GET /api/tools/rate-limits/resets`.
 
 ### Shared specialist ops (AGENT-OS-OPS)
 

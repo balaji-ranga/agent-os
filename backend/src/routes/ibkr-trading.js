@@ -25,6 +25,7 @@ import {
 } from '../services/trading-day-plans.js';
 import { summarizeJournal } from '../services/trading-journal.js';
 import { resolveIbkrCashUsd } from '../services/ibkr-cash-resolve.js';
+import { toolApiRateLimitMiddleware } from '../services/tool-api-rate-limits.js';
 
 const router = Router();
 
@@ -224,6 +225,7 @@ router.post('/local-bridge-webhook', async (req, res) => {
 });
 
 router.use(allowInternalOrAuth);
+router.use(toolApiRateLimitMiddleware);
 
 router.get('/config', (req, res) => {
   const budgetOpts = resolveWorkflowBudgetOpts(req);

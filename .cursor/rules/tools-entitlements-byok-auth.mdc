@@ -38,3 +38,4 @@ equireAuth / tools auth / internal token as appropriate) by default.
 3. Entitlement-aligned lists/grants if the tool is agent-invokable
 4. Register meta/purpose; add to tool-model mappable allowlist if it uses chat/vision/image LLM under BYOK
 5. Logs redacted and owner-scoped
+6. If the tool consumes a vendor API key or external call token, it is covered by the generic **tool API rate-limit validator** (`assertAndConsumeToolRateLimit` / `toolApiRateLimitMiddleware`). CEOs set caps on **Tools → Rate limits**; do not add one-off limit logic per tool.

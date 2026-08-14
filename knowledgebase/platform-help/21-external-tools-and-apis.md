@@ -14,6 +14,8 @@ Related: [15-api-keys-vault.md](./15-api-keys-vault.md) (how CEOs store secrets)
 | **Workflow node / MCP headers** | CEO / Workflow Builder | Per-run or vault-ref keys (DeepSeek Brain, Brave `X-Subscription-Token`, etc.) |
 | **Connectors (OpenConnector)** | CEO | OAuth or API key per SaaS app |
 
+**Call budgets:** on **Tools → Rate limits**, set per-user daily/monthly **call** caps for these vendor tools (independent of per-agent token budgets). When a cap is hit, agents are told to use Browser Session / Playwright instead. See [11-content-tools-scripts-profile.md](./11-content-tools-scripts-profile.md).
+
 ---
 
 ## Master table — external dependencies that need a key
