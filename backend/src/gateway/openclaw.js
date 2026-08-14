@@ -60,8 +60,12 @@ function postGatewayJson(url, { headers, body, timeoutMs }) {
           resolve({
             ok: res.statusCode >= 200 && res.statusCode < 300,
             status: res.statusCode,
+            statusText: res.statusMessage || '',
             async text() {
               return text;
+            },
+            async json() {
+              return text ? JSON.parse(text) : {};
             },
           });
         });
