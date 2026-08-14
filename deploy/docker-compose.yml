@@ -667,6 +667,8 @@ services:
       # 8B@65k was SIGKILL'd on 16GB RAM (9.2GiB KV).
       OLLAMA_CONTEXT_LENGTH: ${OLLAMA_NUM_CTX:-32768}
       OLLAMA_FLASH_ATTENTION: "1"
+      # q4_0/q8_0 cut KV RAM (needs flash-attn). CPU 16GB hosts: ensure-local sets q4_0.
+      OLLAMA_KV_CACHE_TYPE: ${OLLAMA_KV_CACHE_TYPE:-}
     volumes:
       - ollama_data:/root/.ollama:Z
     expose:

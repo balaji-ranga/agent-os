@@ -19,9 +19,9 @@ A typical 16 GB CPU VPS **cannot** load 128B. `ensure-local-openclaw-ollama.sh` 
 
 Never pulls `*:cloud` / `*-cloud` tags.
 
-**Context window:** OpenClaw precheck subtracts a **20k thinking reserve** from the catalog window, so `OLLAMA_CONTEXT_WINDOW=65536`. **Ollama runtime KV** is separate: `OLLAMA_NUM_CTX=32768` (and `OLLAMA_CONTEXT_LENGTH`). 8B at 65k allocated **9.2 GiB KV** on this VPS and was SIGKILL’d → OpenClaw **408 upstream provider timeout**. CPU hosts use `llama3.2`. OpenClaw Ollama provider uses native `/api/chat` (not `/v1`) with `timeoutSeconds` from `OPENCLAW_OLLAMA_CHAT_TIMEOUT_MS` (900s on CPU hosts), `params.thinking=false`, `keep_alive=30m`. Backend fetch uses the same budget for undici `headersTimeout` (Node’s default 300s was closing COO **hi** while llama was still prefilling).
+**Context window:** OpenClaw precheck subtracts a **20k thinking reserve** from the catalog window, so `OLLAMA_CONTEXT_WINDOW=65536`. **Ollama runtime KV** is separate: `OLLAMA_NUM_CTX=32768` (and `OLLAMA_CONTEXT_LENGTH`). 8B at 65k allocated **9.2 GiB KV** on this VPS and was SIGKILL’d → OpenClaw **408 upstream provider timeout**. CPU hosts use `llama3.2` and `OLLAMA_KV_CACHE_TYPE=q4_0` so 32k KV fits ~15 GB RAM.
 
-**Dashboard UX on local Ollama:** **New chat** titles the archive from the first user message (no extra LLM call — that used to hang **Archiving…** forever). Background specialty retries are skipped, and OpenClaw `maxConcurrent` is **1**, so Kanban floods cannot starve COO **hi**. Greetings skip tool-bootstrap instructions. First **hi** can still take a few minutes of CPU prefill; it should complete, not 408.
+**Dashboard UX on local Ollama:** **New chat** titles the archive from the first user message (no extra LLM call — that used to hang **Archiving…** forever). Background specialty retries are skipped, and OpenClaw `maxConcurrent` is **1**, so Kanban floods cannot starve COO **hi**. Greetings skip tool-bootstrap instructions. Backend waits up to **900s** (Node `http` instead of fetch’s 300s headers timeout). First **hi** can still take several minutes of CPU prefill.
 
 ## Enable on a host
 

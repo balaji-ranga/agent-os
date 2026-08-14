@@ -120,6 +120,7 @@ TIMEOUT_MS=300000
 if [[ "$gpu_mb" -lt 1000 ]]; then
   # CPU prefill of the ~20k COO bootstrap is minutes; Node undici headersTimeout defaults to 300s.
   TIMEOUT_MS=900000
+  set_key OLLAMA_KV_CACHE_TYPE q4_0
 elif [[ "$MODEL" == "mistral-medium-3.5"* || "$MODEL" == *"128b"* ]]; then
   TIMEOUT_MS=900000
 elif [[ "$MODEL" == "gpt-oss:20b"* ]]; then
