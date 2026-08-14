@@ -14,12 +14,12 @@ A typical 16 GB CPU VPS **cannot** load 128B. `ensure-local-openclaw-ollama.sh` 
 |------|----------------|
 | ≥78 GB GPU or ≥96 GB RAM | `mistral-medium-3.5` (128B) |
 | ≥22 GB GPU or ≥32 GB RAM | `gpt-oss:20b` |
-| ≥12 GB RAM | `deepseek-r1:8b` (already pulled on the current VPS) |
-| smaller | `llama3.2` |
+| ≥12 GB RAM **with GPU** | `deepseek-r1:8b` |
+| CPU-only / 16 GB class | `llama3.2` (8B + 20k COO prompt OOM-kills 15 GB RAM) |
 
 Never pulls `*:cloud` / `*-cloud` tags.
 
-**Context window:** OpenClaw precheck subtracts a **20k thinking reserve** from the catalog window. VPS logs for COO “hi” showed `estimatedPromptTokens≈19490` with `promptBudgetBeforeReserve=12768` at 32k (`overflowTokens≈6700`). Set `OLLAMA_CONTEXT_WINDOW=65536` (and Ollama `OLLAMA_CONTEXT_LENGTH`). `ollama show deepseek-r1:8b` reports native **131072**; hosts with ≥48 GB RAM or ≥22 GB GPU may use that native max. Do not default to 128k on a 16 GB VPS (KV cache will OOM). Do not go below 65k while Ollama is the platform primary.
+**Context window:** OpenClaw precheck subtracts a **20k thinking reserve** from the catalog window, so `OLLAMA_CONTEXT_WINDOW=65536`. **Ollama runtime KV** is separate: `OLLAMA_NUM_CTX=32768` (and `OLLAMA_CONTEXT_LENGTH`). 8B at 65k allocated **9.2 GiB KV** on this VPS and was SIGKILL’d → OpenClaw **408 upstream provider timeout**. CPU hosts use `llama3.2`. OpenClaw Ollama provider uses native `/api/chat` (not `/v1`) with `timeoutSeconds=300`, `params.thinking=false`, `keep_alive=30m`.
 
 ## Enable on a host
 

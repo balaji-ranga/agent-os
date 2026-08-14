@@ -385,12 +385,18 @@ export function syncPlatformEndpointToOpenClaw() {
   if (localOllamaPrimary) {
     if (!config.models) config.models = {};
     if (!config.models.providers) config.models.providers = {};
-    const modelId = String(primary.model || 'llama3.2').replace(/^[^/]+\//, '');
+    const modelId = String(primary.model || process.env.OLLAMA_MODEL || 'llama3.2').replace(/^[^/]+\//, '');
+    const inferCtx = Math.max(8192, Number(process.env.OLLAMA_NUM_CTX || 32768) || 32768);
+    const timeoutSec = Math.max(60, Math.ceil((Number(process.env.OPENCLAW_OLLAMA_CHAT_TIMEOUT_MS || 300000) || 300000) / 1000));
+    const ollamaBase = String(primary.baseUrl || process.env.OLLAMA_BASE_URL || 'http://ollama:11434')
+      .replace(/\/$/, '')
+      .replace(/\/v1$/i, '');
     config.models.providers.ollama = {
       ...(config.models.providers.ollama || {}),
-      baseUrl: primary.baseUrl.endsWith('/v1') ? primary.baseUrl : `${primary.baseUrl}/v1`,
+      baseUrl: ollamaBase,
       apiKey: primary.apiKey || process.env.OLLAMA_API_KEY || 'ollama-local',
-      api: 'openai-completions',
+      api: 'ollama',
+      timeoutSeconds: timeoutSec,
       models: [
         {
           id: modelId,
@@ -398,13 +404,17 @@ export function syncPlatformEndpointToOpenClaw() {
           reasoning: false,
           input: ['text'],
           cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-          // COO bootstrap ~19.5k + OpenClaw thinking reserve 20k; 32k overflows "hi".
           contextWindow: Math.max(
             65536,
             Number(process.env.OLLAMA_CONTEXT_WINDOW || 65536) || 65536
           ),
           maxTokens: Math.max(1024, Number(process.env.OLLAMA_MAX_TOKENS || 4096) || 4096),
-          api: 'openai-completions',
+          api: 'ollama',
+          params: {
+            num_ctx: inferCtx,
+            thinking: false,
+            keep_alive: '30m',
+          },
         },
       ],
     };

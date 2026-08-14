@@ -912,12 +912,20 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     let chatOpts = isDiscovery ? { timeoutMs: discoveryTimeout } : {};
     try {
       const llm = llmForOwner || resolveLlmConfigForUser(ownerUserId);
-      if (llm?.provider === 'ollama_free' || llm?.provider === 'deepseek') {
+      const localOllama =
+        process.env.PLATFORM_USE_LOCAL_OLLAMA === '1' ||
+        process.env.PLATFORM_USE_LOCAL_OLLAMA === 'true' ||
+        /ollama/i.test(String(process.env.OPENAI_BASE_URL || '')) ||
+        llm?.provider === 'ollama_free' ||
+        llm?.provider === 'deepseek';
+      if (localOllama) {
         chatOpts = {
           ...chatOpts,
           injectLearningsInstruction: false,
           injectSessionHistoryInstruction: false,
-          timeoutMs: chatOpts.timeoutMs || Number(process.env.OPENCLAW_OLLAMA_CHAT_TIMEOUT_MS || 300000),
+          timeoutMs:
+            chatOpts.timeoutMs ||
+            Number(process.env.OPENCLAW_OLLAMA_CHAT_TIMEOUT_MS || process.env.OPENCLAW_FETCH_TIMEOUT_MS || 300000),
         };
       }
     } catch (_) {

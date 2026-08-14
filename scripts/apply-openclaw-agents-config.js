@@ -15,7 +15,11 @@ import {
   WORKFLOW_BUILDER_CONTENT_TOOLS_ALLOW,
   PLATFORM_HELP_CONTENT_TOOLS_ALLOW,
 } from './lib/content-tools-allow.js';
-import { resolveLocalOllamaContextWindow } from './lib/local-ollama-context.js';
+import {
+  resolveLocalOllamaContextWindow,
+  resolveLocalOllamaInferCtx,
+  resolveLocalOllamaTimeoutSeconds,
+} from './lib/local-ollama-context.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const AGENT_OS_ROOT = join(__dirname, '..');
@@ -277,6 +281,7 @@ function ollamaModelObject(id) {
     process.env.OLLAMA_CONTEXT_WINDOW || process.env.OPENCLAW_OLLAMA_CONTEXT_WINDOW,
     process.env.OLLAMA_MODEL_NATIVE_CONTEXT
   );
+  const inferCtx = resolveLocalOllamaInferCtx(process.env.OLLAMA_NUM_CTX);
   const maxTok = Math.max(
     1024,
     Number(process.env.OLLAMA_MAX_TOKENS || process.env.OPENCLAW_OLLAMA_MAX_TOKENS || 4096) || 4096
@@ -289,11 +294,14 @@ function ollamaModelObject(id) {
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     contextWindow: ctx,
     maxTokens: maxTok,
-    api: 'openai-completions',
+    api: 'ollama',
+    params: { num_ctx: inferCtx, thinking: false, keep_alive: '30m' },
   };
 }
 {
-  const ollamaBase = (process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434').replace(/\/?$/, '');
+  const ollamaBase = (process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434')
+    .replace(/\/?$/, '')
+    .replace(/\/v1$/i, '');
   const ids = [];
   const primary = String(DEFAULT_MODEL || '').trim();
   if (primary.toLowerCase().startsWith('ollama/')) ids.push(primary.slice(primary.indexOf('/') + 1));
@@ -317,14 +325,15 @@ function ollamaModelObject(id) {
           if (!byId.has(id)) byId.set(id, ollamaModelObject(id));
         }
         return [...byId.values()].map((m) =>
-          typeof m === 'string' ? ollamaModelObject(m) : { ...m, api: m.api || 'openai-completions' }
+          typeof m === 'string' ? ollamaModelObject(m) : { ...m, api: m.api || 'ollama' }
         );
       })();
   config.models.providers.ollama = {
     ...(existing || {}),
-    baseUrl: ollamaBase + '/v1',
+    baseUrl: ollamaBase,
     apiKey: process.env.OLLAMA_API_KEY || 'ollama-local',
-    api: 'openai-completions',
+    api: 'ollama',
+    timeoutSeconds: resolveLocalOllamaTimeoutSeconds(process.env.OPENCLAW_OLLAMA_CHAT_TIMEOUT_MS),
     models,
   };
 }

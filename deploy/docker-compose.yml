@@ -59,6 +59,7 @@ x-llm-env: &llm-env
   OLLAMA_API_KEY: ${OLLAMA_API_KEY:-ollama-local}
   OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2}
   OLLAMA_CONTEXT_WINDOW: ${OLLAMA_CONTEXT_WINDOW:-}
+  OLLAMA_NUM_CTX: ${OLLAMA_NUM_CTX:-32768}
   OLLAMA_MAX_TOKENS: ${OLLAMA_MAX_TOKENS:-}
   OPENCLAW_OLLAMA_CHAT_TIMEOUT_MS: ${OPENCLAW_OLLAMA_CHAT_TIMEOUT_MS:-}
   PLATFORM_USE_LOCAL_OLLAMA: ${PLATFORM_USE_LOCAL_OLLAMA:-0}
@@ -249,6 +250,7 @@ x-backend-env: &backend-env
   AGENT_OS_PRIVACY_VERSION: ${AGENT_OS_PRIVACY_VERSION:-}
   # Optional Ollama context window for BYOK / local models
   OLLAMA_CONTEXT_WINDOW: ${OLLAMA_CONTEXT_WINDOW:-}
+  OLLAMA_NUM_CTX: ${OLLAMA_NUM_CTX:-32768}
   OPENCLAW_OLLAMA_CHAT_TIMEOUT_MS: ${OPENCLAW_OLLAMA_CHAT_TIMEOUT_MS:-}
   CUSTOM_SCRIPT_MAX_BYTES: ${CUSTOM_SCRIPT_MAX_BYTES:-131072}
   CUSTOM_SCRIPT_TIMEOUT_MS: ${CUSTOM_SCRIPT_TIMEOUT_MS:-60000}
@@ -661,8 +663,9 @@ services:
     image: ollama/ollama:latest
     restart: unless-stopped
     environment:
-      # Must match OpenClaw catalog. 32k still overflows COO "hi" (19.5k prompt + 20k thinking reserve).
-      OLLAMA_CONTEXT_LENGTH: ${OLLAMA_CONTEXT_WINDOW:-65536}
+      # Runtime KV. Catalog contextWindow stays OLLAMA_CONTEXT_WINDOW (65k precheck).
+      # 8B@65k was SIGKILL'd on 16GB RAM (9.2GiB KV).
+      OLLAMA_CONTEXT_LENGTH: ${OLLAMA_NUM_CTX:-32768}
       OLLAMA_FLASH_ATTENTION: "1"
     volumes:
       - ollama_data:/root/.ollama:Z

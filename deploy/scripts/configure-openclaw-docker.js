@@ -22,7 +22,11 @@ import {
   WORKFLOW_BUILDER_CONTENT_TOOLS_ALLOW,
   PLATFORM_HELP_CONTENT_TOOLS_ALLOW,
 } from '../../scripts/lib/content-tools-allow.js';
-import { resolveLocalOllamaContextWindow } from '../../scripts/lib/local-ollama-context.js';
+import {
+  resolveLocalOllamaContextWindow,
+  resolveLocalOllamaInferCtx,
+  resolveLocalOllamaTimeoutSeconds,
+} from '../../scripts/lib/local-ollama-context.js';
 
 const OPENCLAW_DIR = resolveOpenClawDir();
 const CONFIG_PATH = process.env.OPENCLAW_CONFIG_PATH || join(OPENCLAW_DIR, 'openclaw.json');
@@ -30,7 +34,9 @@ const CONFIG_PATH = process.env.OPENCLAW_CONFIG_PATH || join(OPENCLAW_DIR, 'open
 const GATEWAY_TOKEN = String(process.env.OPENCLAW_GATEWAY_TOKEN || '').trim();
 const TOOLS_API_KEY = String(process.env.TOOLS_API_KEY || '').trim();
 const INTERNAL_API = String(process.env.AGENT_OS_INTERNAL_API_URL || 'http://backend:3001').replace(/\/$/, '');
-const OLLAMA_BASE = String(process.env.OLLAMA_BASE_URL || 'http://ollama:11434').replace(/\/?$/, '');
+const OLLAMA_BASE = String(process.env.OLLAMA_BASE_URL || 'http://ollama:11434')
+  .replace(/\/?$/, '')
+  .replace(/\/v1$/i, '');
 const GATEWAY_PORT = Number(process.env.OPENCLAW_GATEWAY_PORT || 18789);
 const SESSION_VISIBILITY = process.env.OPENCLAW_SESSION_VISIBILITY || 'agent';
 
@@ -43,7 +49,7 @@ function isLocalOllamaBase(baseUrl) {
   }
 }
 
-function ollamaModelObject(id, ctx, maxTok) {
+function ollamaModelObject(id, ctx, maxTok, inferCtx) {
   return {
     id,
     name: id,
@@ -52,7 +58,12 @@ function ollamaModelObject(id, ctx, maxTok) {
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     contextWindow: ctx,
     maxTokens: maxTok,
-    api: 'openai-completions',
+    api: 'ollama',
+    params: {
+      num_ctx: inferCtx,
+      thinking: false,
+      keep_alive: '30m',
+    },
   };
 }
 
@@ -302,6 +313,10 @@ console.log('Set agent-os-content-tools baseUrl:', INTERNAL_API);
     1024,
     Number(process.env.OLLAMA_MAX_TOKENS || process.env.OPENCLAW_OLLAMA_MAX_TOKENS || 4096) || 4096
   );
+  const ollamaInferCtx = resolveLocalOllamaInferCtx(process.env.OLLAMA_NUM_CTX);
+  const ollamaTimeoutSec = resolveLocalOllamaTimeoutSeconds(
+    process.env.OPENCLAW_OLLAMA_CHAT_TIMEOUT_MS
+  );
   const wantedIds = [];
   const primaryHint = String(process.env.OPENCLAW_MODEL_PRIMARY || '').trim();
   if (primaryHint.toLowerCase().startsWith('ollama/')) {
@@ -323,31 +338,42 @@ console.log('Set agent-os-content-tools baseUrl:', INTERNAL_API);
     if (!id) continue;
     byId.set(
       id,
-      typeof m === 'string' ? ollamaModelObject(id, ollamaCtx, ollamaMaxTok) : { ...m, id }
+      typeof m === 'string'
+        ? ollamaModelObject(id, ollamaCtx, ollamaMaxTok, ollamaInferCtx)
+        : { ...m, id }
     );
   }
   for (const id of wantedIds) {
-    if (!byId.has(id)) byId.set(id, ollamaModelObject(id, ollamaCtx, ollamaMaxTok));
+    if (!byId.has(id)) byId.set(id, ollamaModelObject(id, ollamaCtx, ollamaMaxTok, ollamaInferCtx));
   }
   if (!byId.size) {
-    byId.set('llama3.2', ollamaModelObject('llama3.2', ollamaCtx, ollamaMaxTok));
+    byId.set('llama3.2', ollamaModelObject('llama3.2', ollamaCtx, ollamaMaxTok, ollamaInferCtx));
   }
   const models = [...byId.values()].map((m) => ({
     ...m,
-    api: 'openai-completions',
+    api: 'ollama',
     contextWindow: ollamaCtx,
     maxTokens: Math.min(Math.max(Number(m.maxTokens) || 0, 1024), ollamaMaxTok) || ollamaMaxTok,
+    params: {
+      ...(m.params && typeof m.params === 'object' ? m.params : {}),
+      num_ctx: ollamaInferCtx,
+      thinking: false,
+      keep_alive: m.params?.keep_alive || '30m',
+    },
   }));
   config.models.providers.ollama = {
     ...existingOllama,
-    baseUrl: `${OLLAMA_BASE}/v1`,
+    baseUrl: OLLAMA_BASE,
     apiKey: process.env.OLLAMA_API_KEY || existingOllama.apiKey || 'ollama-local',
-    api: 'openai-completions',
+    api: 'ollama',
+    timeoutSeconds: ollamaTimeoutSec,
     models,
   };
   console.log(
     'Set Ollama provider',
-    `${OLLAMA_BASE}/v1`,
+    OLLAMA_BASE,
+    `timeoutSeconds=${ollamaTimeoutSec}`,
+    `num_ctx=${ollamaInferCtx}`,
     'models=',
     models.map((m) => `${m.id}:${m.contextWindow}`).join(', ')
   );

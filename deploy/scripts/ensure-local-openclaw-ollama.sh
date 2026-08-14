@@ -79,7 +79,9 @@ pick_model() {
     echo "gpt-oss:20b"
     return
   fi
-  if [[ "$total_ram_mb" -ge 12000 ]]; then
+  # 8B Q4 + 20k COO prompt needs ~8GiB weights+KV; 16GB CPU VPS OOM-kills that
+  # (llama n_ctx=65536 → 9.2GiB KV → SIGKILL → OpenClaw 408). Use 3B on CPU.
+  if [[ "$gpu_mb" -ge 1000 ]]; then
     echo "deepseek-r1:8b"
     return
   fi
@@ -109,6 +111,11 @@ fi
 if [[ "$CTX" -gt "$NATIVE_CAP" ]]; then
   CTX="$NATIVE_CAP"
 fi
+# Runtime KV (Ollama num_ctx). Catalog window stays $CTX for OpenClaw precheck.
+INFER_CTX=32768
+if [[ "$gpu_mb" -ge 22000 || "$total_ram_mb" -ge 48000 ]]; then
+  INFER_CTX="$CTX"
+fi
 TIMEOUT_MS=300000
 if [[ "$MODEL" == "mistral-medium-3.5"* || "$MODEL" == *"128b"* ]]; then
   TIMEOUT_MS=600000
@@ -118,7 +125,7 @@ fi
 
 echo "==> Local OpenClaw + platform LLM -> Ollama (free, no cloud)"
 echo "    host RAM=${total_ram_mb}MiB available=${avail_mb}MiB GPU=${gpu_mb}MiB"
-echo "    wanted=${WANTED} (128B) selected=${MODEL} ctx=${CTX}"
+echo "    wanted=${WANTED} (128B) selected=${MODEL} catalog_ctx=${CTX} num_ctx=${INFER_CTX}"
 
 old_base="$(env_get OPENAI_BASE_URL)"
 old_key="$(env_get OPENAI_API_KEY)"
@@ -139,6 +146,7 @@ set_key OLLAMA_BASE_URL 'http://ollama:11434'
 set_key OLLAMA_API_KEY 'ollama-local'
 set_key OLLAMA_MODEL "$MODEL"
 set_key OLLAMA_CONTEXT_WINDOW "$CTX"
+set_key OLLAMA_NUM_CTX "${INFER_CTX}"
 set_key OPENCLAW_OLLAMA_CHAT_TIMEOUT_MS "$TIMEOUT_MS"
 set_key OPENCLAW_OLLAMA_FALLBACK_MODEL "$MODEL"
 set_key OPENCLAW_ENABLE_OLLAMA_FALLBACK 0
@@ -174,7 +182,7 @@ fi
 
 echo "==> Start optional-ollama"
 ollama_cur="$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' agent-os-ollama-1 2>/dev/null | awk -F= '/^OLLAMA_CONTEXT_LENGTH=/ {print $2; exit}' || true)"
-if [[ "$ollama_cur" != "$CTX" ]]; then
+if [[ "$ollama_cur" != "$INFER_CTX" ]]; then
   docker compose --profile optional-ollama up -d --force-recreate ollama
 else
   docker compose --profile optional-ollama up -d ollama
@@ -231,9 +239,13 @@ if [[ "$native" =~ ^[0-9]+$ ]] && [[ "$native" -gt 0 ]]; then
 fi
 
 ollama_now="$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' agent-os-ollama-1 2>/dev/null | awk -F= '/^OLLAMA_CONTEXT_LENGTH=/ {print $2; exit}' || true)"
-if [[ "$ollama_now" != "$CTX" ]]; then
-  echo "    recreate ollama for OLLAMA_CONTEXT_LENGTH=$CTX"
+if [[ "$ollama_now" != "$INFER_CTX" ]]; then
+  echo "    recreate ollama for OLLAMA_CONTEXT_LENGTH=$INFER_CTX"
   docker compose --profile optional-ollama up -d --force-recreate ollama
 fi
 
-echo "ENSURE_LOCAL_OPENCLAW_OLLAMA_DONE model=$MODEL wanted=$WANTED ctx=$CTX native=${native:-unknown} gpu_mb=$gpu_mb ram_mb=$total_ram_mb"
+echo "    warmup $MODEL (keep_alive, 45s cap)"
+timeout 45 docker compose --profile optional-ollama exec -T ollama \
+  ollama run "$MODEL" "Say hi." >/dev/null 2>&1 || echo "    warmup skipped"
+
+echo "ENSURE_LOCAL_OPENCLAW_OLLAMA_DONE model=$MODEL wanted=$WANTED ctx=$CTX num_ctx=$INFER_CTX native=${native:-unknown} gpu_mb=$gpu_mb ram_mb=$total_ram_mb"
