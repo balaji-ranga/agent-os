@@ -22,6 +22,14 @@ const EMPTY_FORM = {
   weekday: 1,
 };
 
+const COO_PLAN_TIP =
+  'Execution plans apply only to the COO. Other AI employees run the scheduled prompt directly.';
+
+function agentIsCoo(agents, agentId) {
+  const hit = (agents || []).find((a) => a.id === agentId);
+  return !!hit?.is_coo;
+}
+
 function endsToDateInput(endsAt) {
   if (!endsAt) return '';
   const s = String(endsAt);
@@ -148,9 +156,9 @@ function ScheduledGoalsPanel() {
       ends_at: endsToDateInput(g.ends_at),
       weekday: g.weekday != null ? Number(g.weekday) : 1,
     });
-    setDraftPlan(g.plan || null);
+    setDraftPlan(g.is_coo && g.plan ? g.plan : null);
     setPlanFeedback('');
-    setAmendPlanOpen(!!(g.plan && Array.isArray(g.plan.steps) && g.plan.steps.length));
+    setAmendPlanOpen(!!(g.is_coo && g.plan && Array.isArray(g.plan.steps) && g.plan.steps.length));
     setShowForm(true);
     setMessage(null);
     setError(null);
@@ -186,6 +194,10 @@ function ScheduledGoalsPanel() {
   };
 
   const generateDraftPlan = async () => {
+    if (!agentIsCoo(agents, form.agent_id)) {
+      setError(COO_PLAN_TIP);
+      return;
+    }
     if (!form.prompt.trim()) {
       setError('Enter a prompt before generating the execution plan.');
       return;
@@ -196,6 +208,7 @@ function ScheduledGoalsPanel() {
     try {
       const out = await api.scheduledGoalsPlanPreview({
         prompt: form.prompt,
+        agent_id: form.agent_id,
         feedback: planFeedback || undefined,
         previous_plan: draftPlan || undefined,
       });
@@ -211,8 +224,9 @@ function ScheduledGoalsPanel() {
 
   const save = async (e, opts = {}) => {
     if (e && e.preventDefault) e.preventDefault();
+    const planForCoo = agentIsCoo(agents, form.agent_id);
     const approvePlan = !!opts.approvePlan;
-    if (approvePlan && !(draftPlan?.steps?.length)) {
+    if (planForCoo && approvePlan && !(draftPlan?.steps?.length)) {
       setError('Approve needs at least one plan step. Generate a draft or amend the plan, then try again.');
       return;
     }
@@ -226,8 +240,8 @@ function ScheduledGoalsPanel() {
       time_local: form.time_local,
       weekday: form.cadence === 'weekly' ? Number(form.weekday) : undefined,
       ends_at: form.ends_at || 'perpetual',
-      plan: draftPlan || undefined,
-      plan_feedback: planFeedback || undefined,
+      plan: planForCoo ? draftPlan || undefined : undefined,
+      plan_feedback: planForCoo ? planFeedback || undefined : undefined,
       approve_plan: approvePlan,
     };
     try {
@@ -241,21 +255,35 @@ function ScheduledGoalsPanel() {
           weekday: body.weekday,
           ends_at: body.ends_at,
         });
-        if (draftPlan || planFeedback || approvePlan) {
+        if (planForCoo && (draftPlan || planFeedback || approvePlan)) {
           await api.scheduledGoalsSetPlan(editingId, {
             plan: draftPlan,
             feedback: planFeedback || undefined,
             approve: approvePlan,
             prompt: form.prompt,
           });
+        } else if (!planForCoo && approvePlan) {
+          await api.scheduledGoalsResume(editingId);
         }
-        setMessage(approvePlan ? 'Plan approved — schedule is active.' : 'Scheduled goal updated.');
+        setMessage(
+          planForCoo
+            ? approvePlan
+              ? 'Plan approved — schedule is active.'
+              : 'Scheduled goal updated.'
+            : approvePlan
+              ? 'Scheduled — this employee runs the prompt directly (no COO execution plan).'
+              : 'Scheduled goal updated.'
+        );
       } else {
         await api.scheduledGoalsCreate(body);
         setMessage(
-          approvePlan
-            ? 'Scheduled goal created and active.'
-            : 'Draft goal saved with plan — approve to activate the schedule.'
+          planForCoo
+            ? approvePlan
+              ? 'Scheduled goal created and active.'
+              : 'Draft goal saved with plan — approve to activate the schedule.'
+            : approvePlan
+              ? 'Scheduled — this employee runs the prompt directly (no COO execution plan).'
+              : 'Saved paused — use Save & schedule or Resume to activate.'
         );
       }
       resetForm(form.agent_id);
@@ -281,6 +309,8 @@ function ScheduledGoalsPanel() {
             : f.time_local,
     }));
   };
+
+  const planForCoo = agentIsCoo(agents, form.agent_id);
 
   return (
     <div className="page" style={{ maxWidth: 980 }}>
@@ -341,7 +371,17 @@ function ScheduledGoalsPanel() {
           </div>
           {editingId && (
             <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--muted)' }}>
-              Review the execution plan, give feedback if needed, then <strong>Save draft</strong> or <strong>Approve plan &amp; schedule</strong>.
+              {planForCoo ? (
+                <>
+                  Review the execution plan, give feedback if needed, then <strong>Save draft</strong> or{' '}
+                  <strong>Approve plan &amp; schedule</strong>.
+                </>
+              ) : (
+                <>
+                  This employee runs the prompt directly. Execution plans are COO-only.{' '}
+                  <strong>Save &amp; schedule</strong> to activate.
+                </>
+              )}
             </p>
           )}
           <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -365,7 +405,18 @@ function ScheduledGoalsPanel() {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 160 }}>
               <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Who runs it</span>
-              <select value={form.agent_id} onChange={(ev) => setForm((f) => ({ ...f, agent_id: ev.target.value }))}>
+              <select
+                value={form.agent_id}
+                onChange={(ev) => {
+                  const agent_id = ev.target.value;
+                  setForm((f) => ({ ...f, agent_id }));
+                  if (!agentIsCoo(agents, agent_id)) {
+                    setDraftPlan(null);
+                    setAmendPlanOpen(false);
+                    setPlanFeedback('');
+                  }
+                }}
+              >
                 {agents.length === 0 && <option value="balserve">COO (BalServe)</option>}
                 {agents.map((a) => (
                   <option key={a.id} value={a.id}>
@@ -428,13 +479,25 @@ function ScheduledGoalsPanel() {
           <div className="sg-plan-panel">
             <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: 6 }}>Execution plan</div>
             <p style={{ margin: '0 0 0.5rem', fontSize: '0.8rem', color: 'var(--muted)' }}>
-              Think of this as a small dynamic workflow: each intent becomes a step (CRM/ERP workflows, specialty AI, notify). Generate a draft, amend if it does not match what you meant, then save or approve.
+              {planForCoo
+                ? 'Think of this as a small dynamic workflow: each intent becomes a step (CRM/ERP workflows, specialty AI, notify). Generate a draft, amend if it does not match what you meant, then save or approve.'
+                : COO_PLAN_TIP}
             </p>
             <div className="sg-plan-actions">
-              <button type="button" className="btn-secondary" disabled={planBusyLocal || !form.prompt.trim()} onClick={generateDraftPlan}>
-                {planBusyLocal ? 'Planning…' : draftPlan ? 'Regenerate plan' : 'Generate draft plan'}
-              </button>
-              {draftPlan && (
+              <span
+                className="sg-plan-tip-wrap"
+                title={!planForCoo ? COO_PLAN_TIP : undefined}
+              >
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  disabled={!planForCoo || planBusyLocal || !form.prompt.trim()}
+                  onClick={generateDraftPlan}
+                >
+                  {planBusyLocal ? 'Planning…' : draftPlan ? 'Regenerate plan' : 'Generate draft plan'}
+                </button>
+              </span>
+              {planForCoo && draftPlan && (
                 <button
                   type="button"
                   className={'btn-secondary' + (amendPlanOpen ? ' is-active-toggle' : '')}
@@ -445,7 +508,7 @@ function ScheduledGoalsPanel() {
                   {amendPlanOpen ? 'Hide manual editor' : 'Amend plan manually'}
                 </button>
               )}
-              {!draftPlan && (
+              {planForCoo && !draftPlan && (
                 <button
                   type="button"
                   className="btn-secondary"
@@ -467,7 +530,7 @@ function ScheduledGoalsPanel() {
                 </button>
               )}
             </div>
-            {draftPlan?.steps?.length > 0 && !amendPlanOpen && (
+            {planForCoo && draftPlan?.steps?.length > 0 && !amendPlanOpen && (
               <ol className="sg-plan-summary">
                 {draftPlan.steps.map((s, i) => (
                   <li key={i}>
@@ -479,7 +542,7 @@ function ScheduledGoalsPanel() {
                 ))}
               </ol>
             )}
-            {draftPlan && amendPlanOpen && (
+            {planForCoo && draftPlan && amendPlanOpen && (
               <GoalPlanManualEditor
                 plan={draftPlan}
                 prompt={form.prompt}
@@ -488,6 +551,7 @@ function ScheduledGoalsPanel() {
                 onChange={(next) => setDraftPlan(next)}
               />
             )}
+            {planForCoo && (
             <label style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }}>
               <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Regenerate with feedback (optional)</span>
               <textarea
@@ -500,6 +564,7 @@ function ScheduledGoalsPanel() {
                 Feedback re-runs the planner and can replace manual edits. Prefer Amend for precise step changes.
               </span>
             </label>
+            )}
           </div>
 
           <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap' }}>
@@ -514,10 +579,20 @@ function ScheduledGoalsPanel() {
             <button
               type="button"
               className="btn-primary"
-              disabled={busyId === (editingId || 'create') || enrichBusy || !form.prompt.trim() || !draftPlan}
+              disabled={
+                busyId === (editingId || 'create') ||
+                enrichBusy ||
+                !form.prompt.trim() ||
+                (planForCoo && !draftPlan)
+              }
               onClick={() => save(null, { approvePlan: true })}
+              title={!planForCoo ? COO_PLAN_TIP : undefined}
             >
-              {busyId === (editingId || 'create') ? 'Saving...' : 'Approve plan & schedule'}
+              {busyId === (editingId || 'create')
+                ? 'Saving...'
+                : planForCoo
+                  ? 'Approve plan & schedule'
+                  : 'Save & schedule'}
             </button>
             <button
               type="button"
@@ -670,7 +745,7 @@ function ScheduledGoalsPanel() {
                           Resume
                         </button>
                       ) : null}
-                      {(g.status === 'draft' || g.plan_status === 'draft') && (
+                      {(g.status === 'draft' || g.plan_status === 'draft') && g.is_coo && (
                         <button
                           type="button"
                           className="btn-primary"
@@ -680,6 +755,23 @@ function ScheduledGoalsPanel() {
                           }
                         >
                           Approve plan
+                        </button>
+                      )}
+                      {(g.status === 'draft' || g.plan_status === 'draft') && !g.is_coo && (
+                        <button
+                          type="button"
+                          className="btn-primary"
+                          disabled={busyId === g.id}
+                          title={COO_PLAN_TIP}
+                          onClick={() =>
+                            runAction(
+                              g.id,
+                              () => api.scheduledGoalsResume(g.id),
+                              'Activated — this employee runs the prompt directly (no COO execution plan).'
+                            )
+                          }
+                        >
+                          Activate
                         </button>
                       )}
                       <button
@@ -746,7 +838,9 @@ function ScheduledGoalsPanel() {
           margin-top: 0.35rem; padding: 0.75rem; border: 1px solid var(--border);
           border-radius: 8px; background: var(--bg, var(--surface));
         }
-        .sg-plan-actions { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-bottom: 0.55rem; }
+        .sg-plan-actions { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-bottom: 0.55rem; align-items: center; }
+        .sg-plan-tip-wrap { display: inline-block; }
+        .sg-plan-tip-wrap .btn-secondary:disabled { pointer-events: none; }
         .btn-secondary.is-active-toggle {
           outline: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent);
         }

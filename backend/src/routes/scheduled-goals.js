@@ -77,6 +77,7 @@ router.post('/plan-preview', async (req, res) => {
       feedback: body.feedback || body.plan_feedback || null,
       previous_plan: body.previous_plan || body.previousPlan || null,
       explicit_steps: body.explicit_steps || body.steps || null,
+      agent_id: body.agent_id || body.agentId || null,
     });
     res.json({ plan });
   } catch (e) {

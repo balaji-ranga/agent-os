@@ -24,7 +24,7 @@ The COO uses `scheduled_goal_create` (and related tools) and confirms the schedu
 
 **Do schedules block each other?** No. Each due scheduled goal is launched **independently in parallel** on the minute tick, with its **own AgentSystem session/context** for that agent (even when several goals target the same COO). A hung digest cannot delay a market report at 9:05, and long-running fires do not hold the cron (so later minutes still fire). Steps *inside* one goal still run in plan order.
 
-**How do multi-intent scheduled goals work?** Creating a schedule from the CEO UI first builds a **draft execution plan** (workflow steps, specialty tasks, notify). Review the step list, then **Amend plan manually** if intent→step mapping is wrong (or **Build plan manually** from empty). Optional regenerate-with-feedback re-plans via LLM. **Save draft**, then **Approve plan & schedule** to make it **active**. Until approved, status is **draft** and tick/Run now are blocked. COO/chat tools default to an approved plan so plain-language schedules still activate immediately.
+**How do multi-intent scheduled goals work?** On the **COO**, creating a schedule from the CEO UI first builds a **draft execution plan** (workflow steps, specialty tasks, notify). Review the step list, then **Amend plan manually** if intent→step mapping is wrong (or **Build plan manually** from empty). Optional regenerate-with-feedback re-plans via LLM. **Save draft**, then **Approve plan & schedule** to make it **active**. Until approved, status is **draft** and tick/Run now are blocked. **Generate draft plan** is COO-only (hover the disabled control on other employees). A specialty employee **Save & schedule**s without a ladder and runs the prompt directly. COO/chat tools default to an approved plan so plain-language schedules still activate immediately.
 
 
 **COO prompt (critical for specialty steps):** Call gent_goal_create with the CEO multiphase message **verbatim** as prompt. Do not rewrite a hybrid ask down to CRM+ERP only — residual **Platform Help** (and other specialty) language must remain in prompt so plan storage includes specialty_task. The planner also merges explicit Platform Help from the full stored prompt as a safety net.
@@ -112,15 +112,15 @@ Defaults when unspecified: target = COO; cadence = daily; time = 09:00 (or `:00`
 
 1. **Management → Scheduled goals**.
 2. **New scheduled goal** or row **Edit** — prompt, agent, cadence/time/ends.
-3. **Generate draft plan** → review the step list (this is your dynamic goal workflow: intent → step).
+3. **Generate draft plan** (COO only) → review the step list (this is your dynamic goal workflow: intent → step). Hover the disabled button on other employees: execution plans apply only to the COO; they run the prompt directly.
 4. If the draft does not match what you meant → **Amend plan manually**:
    - Map each intent to a step type (`workflow_trigger`, `specialty_task`, `agent_continue`, `notify_ceo`, `agent_tool`).
    - Use quick intents (CRM/ERP maker-checker, Platform Help, Notify) or add a custom step; reorder, edit labels/phrases/agents.
    - Or **Build plan manually** without generating first, then baseline steps yourself.
 5. Prefer **Amend** for precise changes. Optional **Regenerate with feedback** re-runs the planner and can overwrite manual edits.
-6. **Save draft** or **Approve plan & schedule** stores `plan_json` as the baseline for every fire (`amended_manually` when you edited steps in the UI).
+6. **Save draft** or **Approve plan & schedule** stores `plan_json` as the baseline for every fire (`amended_manually` when you edited steps in the UI). For a **non-COO** employee, skip Generate draft — **Save & schedule** activates with no specialty ladder (the employee runs the prompt; Kanban handoff can still wake CRM).
 7. Optional **Enrich with AI** on the prompt text.
-8. Row actions: Edit, Approve plan (draft), Pause, Resume, Run now (active only), Delete.
+8. Row actions: Edit, Approve plan (COO draft), Activate (non-COO draft), Pause, Resume, Run now (active only), Delete.
 
 ### Manual plan baseline (goal-plan schema)
 
