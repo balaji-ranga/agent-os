@@ -1,0 +1,20 @@
+# Optional overlay: attach NVIDIA GPUs to the Ollama service.
+# Included automatically by ensure-local-openclaw-ollama.sh when nvidia-smi reports VRAM.
+# Do not add this file on CPU-only VPS hosts — Compose will fail without the NVIDIA toolkit.
+#
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.ollama-gpu.yml
+#   docker compose --profile optional-ollama up -d ollama
+
+services:
+  ollama:
+    gpus: all
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

@@ -137,6 +137,7 @@ scp @ssh `
   "$Repo\deploy\docker-compose.vps-client-ip.yml" `
   "$Repo\deploy\docker-compose.docker-tools.yml" `
   "$Repo\deploy\docker-compose.business-core.yml" `
+  "$Repo\deploy\docker-compose.ollama-gpu.yml" `
   "$Repo\deploy\.env.example" `
   "$Repo\deploy\README.md" `
   "root@${HostIp}:$RemoteRoot/deploy/"
@@ -197,6 +198,7 @@ scp @ssh `
   "$Repo\deploy\scripts\vps-bringup.sh" `
   "$Repo\deploy\scripts\vps-build.sh" `
   "$Repo\deploy\scripts\ensure-deepseek-env.sh" `
+  "$Repo\deploy\scripts\ensure-local-openclaw-ollama.sh" `
   "$Repo\deploy\scripts\ensure-workflow-certify-env.sh" `
   "$Repo\deploy\scripts\ensure-cron-env.sh" `
   "$Repo\deploy\scripts\ensure-opensearch-env.sh" `
@@ -471,6 +473,7 @@ if ($Services -match "backend|openclaw") {
   scp @ssh "$Repo\knowledgebase\TESTING.md" "root@${HostIp}:$RemoteRoot/knowledgebase/TESTING.md"
   scp @ssh `
     "$Repo\knowledgebase\AUTOMATED-PNL.md" `
+    "$Repo\knowledgebase\LOCAL-OPENCLAW-OLLAMA.md" `
     "$Repo\knowledgebase\ONBOARDING-HELPER-PLAN.md" `
     "$Repo\knowledgebase\VIDEO-TOURS-CEO-CURRICULUM.md" `
     "$Repo\knowledgebase\CONTENT-CREATION-ORG-BLUEPRINT.md" `
@@ -516,6 +519,7 @@ sed -i 's/\r`$//' \
   $RemoteRoot/deploy/scripts/vps-smoke-budgets-org-members.sh \
   $RemoteRoot/deploy/scripts/vps-regression-full.sh \
   $RemoteRoot/deploy/scripts/ensure-deepseek-env.sh \
+  $RemoteRoot/deploy/scripts/ensure-local-openclaw-ollama.sh \
   $RemoteRoot/deploy/scripts/ensure-platform-mcps.sh \
   $RemoteRoot/deploy/scripts/vps-smoke-meta-graph-mcp.sh \
   $RemoteRoot/deploy/scripts/vps-rebuild-frontend.sh \

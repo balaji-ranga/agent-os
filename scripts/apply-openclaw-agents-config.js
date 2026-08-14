@@ -214,7 +214,15 @@ if (!config.models.providers) config.models.providers = {};
   const primaryId = DEFAULT_MODEL.includes('/')
     ? DEFAULT_MODEL.slice(DEFAULT_MODEL.indexOf('/') + 1)
     : DEFAULT_MODEL || 'gpt-4o-mini';
-  if (openaiKey) {
+  const primaryIsOllama = String(DEFAULT_MODEL || '').toLowerCase().startsWith('ollama/');
+  let ollamaHost = false;
+  try {
+    const host = new URL(openaiBase).hostname.toLowerCase();
+    ollamaHost = host === 'localhost' || host === '127.0.0.1' || host === 'ollama';
+  } catch {
+    ollamaHost = false;
+  }
+  if (openaiKey && !primaryIsOllama && !ollamaHost) {
     const existing = config.models.providers.openai || {};
     const catalogIds = useOfficialOpenAi
       ? [primaryId, 'gpt-4o-mini', 'gpt-4o']
@@ -264,26 +272,60 @@ if (!config.models.providers) config.models.providers = {};
 // Set OLLAMA_API_KEY=ollama-local (or any value) so OpenClaw can use Ollama; baseUrl defaults to localhost:11434.
 // OpenClaw requires models.providers.ollama.models to be an array of model objects (not strings).
 function ollamaModelObject(id) {
+  const ctx = Math.max(
+    8192,
+    Number(process.env.OLLAMA_CONTEXT_WINDOW || process.env.OPENCLAW_OLLAMA_CONTEXT_WINDOW || 8192) || 8192
+  );
+  const maxTok = Math.max(
+    1024,
+    Number(process.env.OLLAMA_MAX_TOKENS || process.env.OPENCLAW_OLLAMA_MAX_TOKENS || 4096) || 4096
+  );
   return {
     id,
     name: id,
     reasoning: false,
     input: ['text'],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-    contextWindow: 8192,
-    maxTokens: 81920,
+    contextWindow: ctx,
+    maxTokens: maxTok,
+    api: 'openai-completions',
   };
 }
-if (!config.models.providers.ollama) {
+{
   const ollamaBase = (process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434').replace(/\/?$/, '');
+  const ids = [];
+  const primary = String(DEFAULT_MODEL || '').trim();
+  if (primary.toLowerCase().startsWith('ollama/')) ids.push(primary.slice(primary.indexOf('/') + 1));
+  for (const raw of [process.env.OLLAMA_MODEL, OLLAMA_FALLBACK]) {
+    const id = String(raw || '').trim();
+    if (id && !ids.includes(id)) ids.push(id);
+  }
+  if (!ids.length) ids.push('llama3.2');
+  const existing = config.models.providers.ollama;
+  const needRebuild =
+    !existing ||
+    !Array.isArray(existing.models) ||
+    (existing.models[0] && typeof existing.models[0] === 'string');
+  const models = needRebuild
+    ? ids.map((id) => ollamaModelObject(id))
+    : (() => {
+        const byId = new Map(
+          existing.models.map((m) => [typeof m === 'string' ? m : m?.id, m]).filter(([id]) => id)
+        );
+        for (const id of ids) {
+          if (!byId.has(id)) byId.set(id, ollamaModelObject(id));
+        }
+        return [...byId.values()].map((m) =>
+          typeof m === 'string' ? ollamaModelObject(m) : { ...m, api: m.api || 'openai-completions' }
+        );
+      })();
   config.models.providers.ollama = {
+    ...(existing || {}),
     baseUrl: ollamaBase + '/v1',
     apiKey: process.env.OLLAMA_API_KEY || 'ollama-local',
-    api: 'openai-responses',
-    models: [ollamaModelObject(OLLAMA_FALLBACK)],
+    api: 'openai-completions',
+    models,
   };
-} else if (!Array.isArray(config.models.providers.ollama.models) || (config.models.providers.ollama.models[0] && typeof config.models.providers.ollama.models[0] === 'string')) {
-  config.models.providers.ollama.models = [ollamaModelObject(OLLAMA_FALLBACK)];
 }
 
 // Agent-to-agent: explicit allow list (gateway may not accept "*"). All listed agents can use sessions_send.

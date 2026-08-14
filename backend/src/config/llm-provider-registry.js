@@ -131,6 +131,9 @@ export const LLM_PROVIDER_MODELS = Object.freeze({
     allowCustom: true,
     defaultModel: 'llama3.2',
     models: [
+      { id: 'mistral-medium-3.5', label: 'Mistral Medium 3.5 (128B local)' },
+      { id: 'gpt-oss:20b', label: 'gpt-oss 20B (local)' },
+      { id: 'deepseek-r1:8b', label: 'DeepSeek R1 8B (local)' },
       { id: 'llama3.2', label: 'Llama 3.2' },
       { id: 'llama3.1', label: 'Llama 3.1' },
       { id: 'mistral', label: 'Mistral' },
@@ -191,13 +194,23 @@ export function resolveProviderBaseUrl(providerId) {
 
 export function getProviderModelCatalog(providerId) {
   const id = String(providerId || '').trim();
-  return (
+  const base =
     LLM_PROVIDER_MODELS[id] || {
       allowCustom: false,
       defaultModel: null,
       models: [],
-    }
-  );
+    };
+  if (id !== 'ollama_free') return base;
+  const envModel = String(process.env.OLLAMA_MODEL || '').trim();
+  const models = [...(base.models || [])];
+  if (envModel && !models.some((m) => m.id === envModel)) {
+    models.unshift({ id: envModel, label: `${envModel} (host)` });
+  }
+  return {
+    ...base,
+    defaultModel: envModel || base.defaultModel,
+    models,
+  };
 }
 
 /** Providers shown on Profile (excludes reserved/not-yet-wired). */

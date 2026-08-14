@@ -26,7 +26,7 @@ Related: [15-api-keys-vault.md](./15-api-keys-vault.md) (how CEOs store secrets)
 | **OpenAI** | Secondary / BYOK chat; image content tool (`TOOLS_IMAGE_*`); **analyze_image** vision (platform primary or BYOK `Platform_BYOK`) | `OPENAI_SECONDARY_API_KEY` or vault **`Platform_BYOK`** | Platform `.env` and/or **API Keys** | Optional | Profile → OpenAI preference needs `Platform_BYOK`. Image gen needs a key that can call GPT-image (or compatible host). Vision uses platform **primary** for Platform default Profiles (fails if primary is text-only); BYOK Profiles use vault only. Master Data **embeddings use local Qwen**, not this key. |
 | **Anthropic (Claude)** | AgentSystem gateway models (`anthropic/…`, e.g. Claude Opus) | `ANTHROPIC_API_KEY` | Platform `.env` | Optional | Only needed if AgentSystem model slug is Anthropic. |
 | **OpenRouter** | BYOK agent chat; Brain `modelSource=openrouter` | Vault **`Platform_BYOK`** or `OPENROUTER_API_KEY` / Brain `apiKey` | **API Keys** (preferred) or `.env` / node | Optional | Profile → OpenRouter + `Platform_BYOK`. Optional `OPENROUTER_HTTP_REFERER` / `OPENROUTER_SITE_TITLE`. |
-| **Ollama (local)** | Free / local BYOK chat; Brain `ollama`; optional AgentSystem fallback | Usually no real key (`ollama` / `OLLAMA_API_KEY` placeholder) | Local Ollama service + Profile / Brain | Optional | Not a paid vendor API; needs the Ollama process and pulled models. |
+| **Ollama (local)** | Free / local BYOK chat; **optional platform + OpenClaw primary** (`PLATFORM_USE_LOCAL_OLLAMA=1`); Brain `ollama` | Usually no real key (`ollama` / `OLLAMA_API_KEY` placeholder) | Local Ollama service + Profile / Brain / ops `.env` | Optional (required if platform primary is local) | Not a paid vendor API; never Ollama Cloud. Wanted model `mistral-medium-3.5` (128B) needs ~80GB GPU/RAM; small VPS auto-selects `deepseek-r1:8b` / `llama3.2`. See [LOCAL-OPENCLAW-OLLAMA.md](../LOCAL-OPENCLAW-OLLAMA.md). |
 | **Brevo (SMTP)** | MFA email OTP, workflow **Send Email**, `email_send` tool (ICS invites), COO status HTML email | `WORKFLOW_SMTP_HOST` / `USER` / `PASS` / `FROM` (Brevo: `smtp-relay.brevo.com`) | Platform `.env` (or per-node SMTP) | **Yes** for outbound email / email MFA | Sender domain must be verified in Brevo. In-app `notify_ceo` does **not** need SMTP. |
 | **Brave Search** | Agent content tool `brave_web_search`; also workflow Brave MCP | Platform: `BRAVE_API_KEY`; non-platform Profile: vault **`BRAVE_SEARCH_BYOK`** | Platform `.env` **or** **API Keys** | Optional | Platform default Profile → ops key. Any other Profile → CEO `BRAVE_SEARCH_BYOK` only (no platform fall-back). Workflow MCP remains header/vault BYOK on the node. |
 | **Google Places API (New)** | `google_places_geocode` / `google_places_nearby` / `business_discover` | Platform: `GOOGLE_PLACES_API_KEY` (falls back to vault **`GOOGLE_PLACES_BYOK`** if unset); non-platform Profile: vault **`GOOGLE_PLACES_BYOK` only** | Platform `.env` **or** **API Keys** | Optional | Enable Places API (New). See [42-social-research-business-discovery.md](./42-social-research-business-discovery.md). |
@@ -48,11 +48,11 @@ Related: [15-api-keys-vault.md](./15-api-keys-vault.md) (how CEOs store secrets)
 
 | Need | Provider(s) | Key path |
 |------|-------------|----------|
-| Default platform LLM | DeepSeek (or whatever `OPENAI_BASE_URL` points at) | `OPENAI_API_KEY` |
+| Default platform LLM | DeepSeek cloud **or** local Ollama when `PLATFORM_USE_LOCAL_OLLAMA=1` | `OPENAI_API_KEY` (cloud) or placeholder `ollama-local` |
 | Admin secondary LLM | OpenAI / DeepSeek / other OpenAI-compatible | `OPENAI_SECONDARY_*` |
 | CEO BYOK chat | OpenAI or OpenRouter | Vault name exactly **`Platform_BYOK`** (auto-seeded unset on non-platform Profiles) + Profile **provider + chat model** (`GET /api/auth/llm-catalog`) |
 | Claude models | Anthropic | `ANTHROPIC_API_KEY` |
-| Local free | Ollama | No paid key; service must be up |
+| Local free | Ollama (`optional-ollama`) | No paid key; `ensure-local-openclaw-ollama.sh` |
 
 ### Content tools
 

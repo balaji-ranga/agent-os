@@ -44,6 +44,10 @@ if [[ -f "$ROOT/deploy/scripts/ensure-deepseek-env.sh" ]]; then
   sed -i 's/\r$//' "$ROOT/deploy/scripts/ensure-deepseek-env.sh" 2>/dev/null || true
   bash "$ROOT/deploy/scripts/ensure-deepseek-env.sh" "$ROOT/deploy/.env" || true
 fi
+if [[ -f "$ROOT/deploy/scripts/ensure-local-openclaw-ollama.sh" ]]; then
+  sed -i 's/\r$//' "$ROOT/deploy/scripts/ensure-local-openclaw-ollama.sh" 2>/dev/null || true
+  bash "$ROOT/deploy/scripts/ensure-local-openclaw-ollama.sh" "$ROOT/deploy/.env" || true
+fi
 if [[ -f "$ROOT/deploy/scripts/ensure-workflow-certify-env.sh" ]]; then
   sed -i 's/\r$//' "$ROOT/deploy/scripts/ensure-workflow-certify-env.sh" 2>/dev/null || true
   bash "$ROOT/deploy/scripts/ensure-workflow-certify-env.sh" "$ROOT/deploy/.env" || true

@@ -55,7 +55,7 @@ The `init` container runs `setup-openclaw-from-scratch.sh --docker`, which match
 | Browser TOOLS.md / AGENT-OS-OPS recipe vs autonomous | sync / templates | ✓ workspace templates |
 
 | Session visibility (`tools.sessions.visibility`) | manual one-off | ✓ `agent` |
-| Ollama fallback provider | ✓ | ✓ (use `optional-ollama` profile) |
+| Ollama local primary | ✓ | ✓ (`optional-ollama`; `PLATFORM_USE_LOCAL_OLLAMA=1`) |
 | Hot-reload workspace MD (bootstrap watcher) | ✓ | ✓ (includes `AGENT-OS-OPS.md`) |
 | Platform agent workspace templates (Admin + CEO apply/publish) | ✓ | ✓ (DB table `platform_agent_workspace_templates`) |
 | Custom workflow scripts (Python/JS sandbox) | ✓ | ✓ (`python3` in backend image) |
@@ -234,7 +234,7 @@ docker compose up -d --force-recreate openclaw backend
 | `OPENAI_API_KEY`, `OPENAI_BASE_URL` | Default OpenAI-compatible provider |
 | `OPENAI_PRIMARY_*`, `OPENAI_SECONDARY_*` | Aliases / fallback endpoint |
 | `ANTHROPIC_API_KEY` | Claude models (e.g. `anthropic/claude-opus-4-6`) |
-| `OPENCLAW_MODEL_PRIMARY` | Default agent model slug (also in `openclaw.json` at init) |
+| `OPENCLAW_MODEL_PRIMARY` | Default agent model slug (also in `openclaw.json` at init). Local free: `ollama/<tag>` |
 | `OPENCLAW_ENABLE_OLLAMA_FALLBACK` | `0` clears silent Ollama fallbacks (default); `1` to enable |
 | `OLLAMA_BASE_URL`, `OLLAMA_API_KEY` | Local Ollama fallback |
 | `OPENROUTER_*` | If using OpenRouter-backed models in OpenClaw config |
@@ -357,7 +357,7 @@ All proxied under `/api` (rebuild backend + frontend images after upgrade):
 | OpenConnector | `/api/openconnector`, MCP via `OPENCONNECTOR_MCP_URL` |
 | Email inbound | `POST /api/integrations/email-inbound/:definitionId` |
 | BYOK LLM / vault | Profile provider + Settings → API Keys (`Platform_BYOK` etc.). Non-platform Profiles auto-seed unset slots. Ollama needs `optional-ollama` |
-| DeepSeek | Platform/OpenClaw: set `OPENAI_*` + `OPENCLAW_MODEL_PRIMARY` to DeepSeek V4 cloud. Brain `deepseek`: cloud V4 + thinking mode UI; or Ollama endpoint without key. Profile BYOK `deepseek` → local Ollama |
+| DeepSeek | Cloud: set `OPENAI_*` + `OPENCLAW_MODEL_PRIMARY` to DeepSeek V4. **Free local platform:** `APPLY_LOCAL_OLLAMA=1 bash deploy/scripts/ensure-local-openclaw-ollama.sh` (wanted `mistral-medium-3.5` 128B; auto-selects a smaller tag on small VPS). Brain `deepseek`: cloud V4 + thinking UI, or Ollama without key. Profile BYOK `deepseek` → local Ollama |
 | Brain thinking | DeepSeek / OpenRouter only: `thinkingMode` + `thinkingEffort` on Brain node; outputs `reasoning_content`, `thinking_mode` |
 | `email_send` tool | `POST /api/tools/email-send` (SMTP + optional calendar ICS); granted to agents at boot |
 | `notify_ceo` tool | `POST /api/tools/notify-ceo` (in-app push to entitled CEO user); granted to agents at boot |
@@ -596,9 +596,13 @@ docker compose --profile optional-openconnector up -d
 docker compose --profile optional-openconnector-mock up -d
 docker compose exec backend node scripts/seed-openconnector-mcp.js
 
-# Ollama fallback / BYOK local models
+# Ollama fallback / BYOK local models / optional platform primary (free, no Ollama Cloud)
 docker compose --profile optional-ollama up -d
 # pull a model after start: docker compose exec ollama ollama pull llama3.2
+# Point OpenClaw + platform LLM at local Ollama (wanted 128B Mistral Medium 3.5; auto-downgrades on small hosts):
+#   APPLY_LOCAL_OLLAMA=1 bash deploy/scripts/ensure-local-openclaw-ollama.sh
+# Then recreate: docker compose up -d --force-recreate openclaw backend
+# GPU hosts: add docker-compose.ollama-gpu.yml to COMPOSE_FILE (ensure script does this when nvidia-smi works).
 
 # DeepSeek on Brain: prefer cloud V4 (API key on the Brain node in the editor).
 # Optional local Ollama DeepSeek (Profile BYOK "deepseek" / legacy Brain Ollama endpoint):

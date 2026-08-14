@@ -33,6 +33,28 @@ const OLLAMA_BASE = String(process.env.OLLAMA_BASE_URL || 'http://ollama:11434')
 const GATEWAY_PORT = Number(process.env.OPENCLAW_GATEWAY_PORT || 18789);
 const SESSION_VISIBILITY = process.env.OPENCLAW_SESSION_VISIBILITY || 'agent';
 
+function isLocalOllamaBase(baseUrl) {
+  try {
+    const host = new URL(String(baseUrl || '')).hostname.toLowerCase();
+    return host === 'localhost' || host === '127.0.0.1' || host === 'ollama';
+  } catch {
+    return false;
+  }
+}
+
+function ollamaModelObject(id, ctx, maxTok) {
+  return {
+    id,
+    name: id,
+    reasoning: false,
+    input: ['text'],
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    contextWindow: ctx,
+    maxTokens: maxTok,
+    api: 'openai-completions',
+  };
+}
+
 if (!existsSync(CONFIG_PATH)) {
   console.error('openclaw.json not found at', CONFIG_PATH);
   process.exit(1);
@@ -259,10 +281,9 @@ config.plugins.entries['agent-os-content-tools'] = {
 };
 console.log('Set agent-os-content-tools baseUrl:', INTERNAL_API);
 
-if (config.models?.providers?.ollama) {
-  config.models.providers.ollama.baseUrl = `${OLLAMA_BASE}/v1`;
-  console.log('Set Ollama baseUrl:', `${OLLAMA_BASE}/v1`);
-  // Agent bootstrap is large, but forcing 128k makes small VPS Ollama thrash / "fetch failed".
+{
+  if (!config.models) config.models = {};
+  if (!config.models.providers) config.models.providers = {};
   const ollamaCtx = Math.max(
     8192,
     Number(process.env.OLLAMA_CONTEXT_WINDOW || process.env.OPENCLAW_OLLAMA_CONTEXT_WINDOW || 32768) || 32768
@@ -271,31 +292,55 @@ if (config.models?.providers?.ollama) {
     1024,
     Number(process.env.OLLAMA_MAX_TOKENS || process.env.OPENCLAW_OLLAMA_MAX_TOKENS || 4096) || 4096
   );
-  const ollamaModels = config.models.providers.ollama.models;
-  if (Array.isArray(ollamaModels)) {
-    config.models.providers.ollama.models = ollamaModels.map((m) => {
-      if (typeof m === 'string') {
-        return {
-          id: m,
-          name: m,
-          reasoning: false,
-          input: ['text'],
-          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-          contextWindow: ollamaCtx,
-          maxTokens: ollamaMaxTok,
-        };
-      }
-      return {
-        ...m,
-        contextWindow: Math.min(Math.max(Number(m.contextWindow) || 0, 8192), ollamaCtx) || ollamaCtx,
-        maxTokens: Math.min(Math.max(Number(m.maxTokens) || 0, 1024), ollamaMaxTok) || ollamaMaxTok,
-      };
-    });
-    console.log(
-      'Set ollama contextWindow:',
-      config.models.providers.ollama.models.map((m) => `${m.id}:${m.contextWindow}`).join(', ')
+  const wantedIds = [];
+  const primaryHint = String(process.env.OPENCLAW_MODEL_PRIMARY || '').trim();
+  if (primaryHint.toLowerCase().startsWith('ollama/')) {
+    wantedIds.push(primaryHint.slice(primaryHint.indexOf('/') + 1));
+  }
+  for (const raw of [
+    process.env.OLLAMA_MODEL,
+    process.env.OPENCLAW_OLLAMA_FALLBACK_MODEL,
+    process.env.OPENAI_PRIMARY_MODEL,
+  ]) {
+    const id = String(raw || '').trim();
+    if (id && !id.includes('://') && !wantedIds.includes(id)) wantedIds.push(id);
+  }
+  const existingOllama = config.models.providers.ollama || {};
+  const existingModels = Array.isArray(existingOllama.models) ? existingOllama.models : [];
+  const byId = new Map();
+  for (const m of existingModels) {
+    const id = typeof m === 'string' ? m : m?.id;
+    if (!id) continue;
+    byId.set(
+      id,
+      typeof m === 'string' ? ollamaModelObject(id, ollamaCtx, ollamaMaxTok) : { ...m, id }
     );
   }
+  for (const id of wantedIds) {
+    if (!byId.has(id)) byId.set(id, ollamaModelObject(id, ollamaCtx, ollamaMaxTok));
+  }
+  if (!byId.size) {
+    byId.set('llama3.2', ollamaModelObject('llama3.2', ollamaCtx, ollamaMaxTok));
+  }
+  const models = [...byId.values()].map((m) => ({
+    ...m,
+    api: 'openai-completions',
+    contextWindow: Math.min(Math.max(Number(m.contextWindow) || 0, 8192), ollamaCtx) || ollamaCtx,
+    maxTokens: Math.min(Math.max(Number(m.maxTokens) || 0, 1024), ollamaMaxTok) || ollamaMaxTok,
+  }));
+  config.models.providers.ollama = {
+    ...existingOllama,
+    baseUrl: `${OLLAMA_BASE}/v1`,
+    apiKey: process.env.OLLAMA_API_KEY || existingOllama.apiKey || 'ollama-local',
+    api: 'openai-completions',
+    models,
+  };
+  console.log(
+    'Set Ollama provider',
+    `${OLLAMA_BASE}/v1`,
+    'models=',
+    models.map((m) => `${m.id}:${m.contextWindow}`).join(', ')
+  );
 }
 
 // Register OpenAI-compatible provider from env (official OpenAI or DeepSeek / other bases).
@@ -318,6 +363,12 @@ const useSecondaryPlatform =
   String(process.env.OPENAI_SECONDARY_API_KEY || '').trim() &&
   String(process.env.OPENAI_SECONDARY_MODEL || '').trim();
 
+const envPrimary = String(process.env.OPENCLAW_MODEL_PRIMARY || 'openai/gpt-4o-mini').trim();
+const useLocalOllamaPrimary =
+  !useSecondaryPlatform &&
+  (process.env.PLATFORM_USE_LOCAL_OLLAMA === '1' ||
+    process.env.PLATFORM_USE_LOCAL_OLLAMA === 'true' ||
+    envPrimary.toLowerCase().startsWith('ollama/'));
 const openaiKey = useSecondaryPlatform
   ? String(process.env.OPENAI_SECONDARY_API_KEY || '').trim()
   : String(process.env.OPENAI_API_KEY || process.env.OPENAI_PRIMARY_API_KEY || '').trim();
@@ -325,12 +376,15 @@ const primarySlug = useSecondaryPlatform
   ? markerPrimarySlug && markerPrimarySlug.startsWith('openai/')
     ? markerPrimarySlug
     : `openai/${String(process.env.OPENAI_SECONDARY_MODEL || 'gpt-4o').trim().replace(/^[^/]+\//, '')}`
-  : markerPrimarySlug || String(process.env.OPENCLAW_MODEL_PRIMARY || 'openai/gpt-4o-mini').trim();
+  : useLocalOllamaPrimary
+    ? envPrimary
+    : markerPrimarySlug || envPrimary;
 const primaryId = primarySlug.includes('/')
   ? primarySlug.slice(primarySlug.indexOf('/') + 1)
   : primarySlug || 'gpt-4o-mini';
+const primaryIsOllama = String(primarySlug || '').toLowerCase().startsWith('ollama/');
 const primaryModelHint = `${primarySlug} ${useSecondaryPlatform ? process.env.OPENAI_SECONDARY_MODEL : process.env.OPENAI_PRIMARY_MODEL || ''}`.toLowerCase();
-const looksLikeDeepSeek = primaryModelHint.includes('deepseek');
+const looksLikeDeepSeek = !primaryIsOllama && primaryModelHint.includes('deepseek');
 let openaiBaseRaw = useSecondaryPlatform
   ? String(process.env.OPENAI_SECONDARY_BASE_URL || '')
       .trim()
@@ -362,7 +416,7 @@ if (useSecondaryPlatform) {
     openaiBase
   );
 }
-if (openaiKey) {
+if (openaiKey && !primaryIsOllama && !isLocalOllamaBase(openaiBase)) {
   if (!config.models) config.models = {};
   if (!config.models.providers) config.models.providers = {};
   const existing = config.models.providers.openai || {};
@@ -460,6 +514,19 @@ if (openaiKey) {
     );
   } catch (e) {
     console.warn('Could not write platform-llm-runtime.env:', e?.message || e);
+  }
+} else if (primaryIsOllama || isLocalOllamaBase(openaiBase)) {
+  try {
+    const runtimePath = join(OPENCLAW_DIR, 'platform-llm-runtime.env');
+    const ollamaKey = process.env.OLLAMA_API_KEY || openaiKey || 'ollama-local';
+    writeFileSync(
+      runtimePath,
+      `OPENAI_API_KEY=${ollamaKey}\nOPENAI_BASE_URL=${OLLAMA_BASE}/v1\n`,
+      'utf8'
+    );
+    console.log('Wrote', runtimePath, 'for local Ollama primary=', primarySlug);
+  } catch (e) {
+    console.warn('Could not write platform-llm-runtime.env for Ollama:', e?.message || e);
   }
 } else {
   console.warn('OPENAI_API_KEY not set — openai/* models may fall back to ollama and overflow context');

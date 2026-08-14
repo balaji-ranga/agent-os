@@ -34,6 +34,10 @@ if [[ -f scripts/ensure-embeddings-env.sh ]]; then
   sed -i 's/\r$//' scripts/ensure-embeddings-env.sh 2>/dev/null || true
   bash scripts/ensure-embeddings-env.sh "${DEPLOY_DIR}/.env" || true
 fi
+if [[ -f scripts/ensure-local-openclaw-ollama.sh ]]; then
+  sed -i 's/\r$//' scripts/ensure-local-openclaw-ollama.sh 2>/dev/null || true
+  bash scripts/ensure-local-openclaw-ollama.sh "${DEPLOY_DIR}/.env" || true
+fi
 if [[ -f scripts/ensure-platform-mcps.sh ]]; then
   sed -i 's/\r$//' scripts/ensure-platform-mcps.sh 2>/dev/null || true
   # Env keys first; containers + registry seeds after stack is up

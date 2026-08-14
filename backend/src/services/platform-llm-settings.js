@@ -380,10 +380,24 @@ export function syncPlatformEndpointToOpenClaw() {
     const modelId = String(primary.model || 'llama3.2').replace(/^[^/]+\//, '');
     config.models.providers.ollama = {
       ...(config.models.providers.ollama || {}),
-      baseUrl: primary.baseUrl,
-      apiKey: primary.apiKey || 'ollama',
+      baseUrl: primary.baseUrl.endsWith('/v1') ? primary.baseUrl : `${primary.baseUrl}/v1`,
+      apiKey: primary.apiKey || process.env.OLLAMA_API_KEY || 'ollama-local',
       api: 'openai-completions',
-      models: [{ id: modelId, name: modelId }],
+      models: [
+        {
+          id: modelId,
+          name: modelId,
+          reasoning: false,
+          input: ['text'],
+          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+          contextWindow: Math.max(
+            8192,
+            Number(process.env.OLLAMA_CONTEXT_WINDOW || 8192) || 8192
+          ),
+          maxTokens: Math.max(1024, Number(process.env.OLLAMA_MAX_TOKENS || 4096) || 4096),
+          api: 'openai-completions',
+        },
+      ],
     };
   }
 
