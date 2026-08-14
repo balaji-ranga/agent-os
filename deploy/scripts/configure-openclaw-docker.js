@@ -331,7 +331,7 @@ console.log('Set agent-os-content-tools baseUrl:', INTERNAL_API);
   const models = [...byId.values()].map((m) => ({
     ...m,
     api: 'openai-completions',
-    contextWindow: Math.min(Math.max(Number(m.contextWindow) || 0, 8192), ollamaCtx) || ollamaCtx,
+    contextWindow: ollamaCtx,
     maxTokens: Math.min(Math.max(Number(m.maxTokens) || 0, 1024), ollamaMaxTok) || ollamaMaxTok,
   }));
   config.models.providers.ollama = {
