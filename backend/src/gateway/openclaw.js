@@ -7,6 +7,7 @@
  */
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
+import { Agent } from 'node:undici';
 
 const DEFAULT_PORT = 18789;
 let _cachedGatewayToken = null;
@@ -97,6 +98,11 @@ export async function chatCompletions(agentId, messages, sessionUser = null, str
   const timeoutMs = Number(
     options.timeoutMs || process.env.OPENCLAW_FETCH_TIMEOUT_MS || 240000
   );
+  const dispatcher = new Agent({
+    headersTimeout: timeoutMs,
+    bodyTimeout: timeoutMs,
+    connectTimeout: 30_000,
+  });
   const maxAttempts = Math.max(1, Number(options.retries ?? process.env.OPENCLAW_CHAT_RETRIES ?? 3));
   let res;
   let lastErrText = '';
@@ -107,11 +113,18 @@ export async function chatCompletions(agentId, messages, sessionUser = null, str
         headers,
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(timeoutMs),
+        dispatcher,
       });
     } catch (e) {
       const name = e?.name || 'Error';
       const msg = e?.message || String(e);
-      if (name === 'TimeoutError' || name === 'AbortError') {
+      const code = e?.code || e?.cause?.code || '';
+      if (
+        name === 'TimeoutError' ||
+        name === 'AbortError' ||
+        code === 'UND_ERR_HEADERS_TIMEOUT' ||
+        code === 'UND_ERR_BODY_TIMEOUT'
+      ) {
         throw new Error(
           `AgentSystem gateway timeout after ${timeoutMs}ms (${getGatewayUrl()}). Local Ollama BYOK chats can be slow on first load — retry or use New chat.`
         );

@@ -579,12 +579,18 @@ if (primaryIsOllama && !config.agents.defaults.compaction) {
   console.log('Set agents.defaults.compaction.mode=safeguard for local Ollama primary');
 }
 if (primaryIsOllama) {
+  const ocTimeoutSec = resolveLocalOllamaTimeoutSeconds(
+    process.env.OPENCLAW_OLLAMA_CHAT_TIMEOUT_MS
+  );
   config.agents.defaults.maxConcurrent = 1;
+  config.agents.defaults.timeoutSeconds = ocTimeoutSec;
   if (!config.agents.defaults.subagents || typeof config.agents.defaults.subagents !== 'object') {
     config.agents.defaults.subagents = {};
   }
   config.agents.defaults.subagents.maxConcurrent = 1;
-  console.log('Set agents.defaults.maxConcurrent=1 for local Ollama primary');
+  console.log(
+    `Set agents.defaults.maxConcurrent=1 timeoutSeconds=${ocTimeoutSec} for local Ollama primary`
+  );
 }
 
 // Model fallbacks: OPENCLAW_MODEL_FALLBACKS (comma-separated) or optional Ollama toggle.

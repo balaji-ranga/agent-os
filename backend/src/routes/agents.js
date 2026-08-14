@@ -924,7 +924,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       if (localOllama) {
         const timeoutMs =
           chatOpts.timeoutMs ||
-          Number(process.env.OPENCLAW_OLLAMA_CHAT_TIMEOUT_MS || process.env.OPENCLAW_FETCH_TIMEOUT_MS || 600000);
+            Number(process.env.OPENCLAW_OLLAMA_CHAT_TIMEOUT_MS || process.env.OPENCLAW_FETCH_TIMEOUT_MS || 900000);
         chatOpts = {
           ...chatOpts,
           injectLearningsInstruction: false,
