@@ -21,7 +21,7 @@ You do not need to know APIs or Docker for everyday use.
 ### Sign in and first look
 
 1. Open **https://login.flolah.cloud** (or **Register** if you are new). Marketing site is **https://flolah.cloud**.
-2. After login you land on **home chat** (`/`) with the **COO** selected by default. Switch agents from the **Chat with** picker. **History** and **Browser session** side panes start closed — use the icons next to **New chat** to open them. Org chart and standups are under **My Org** (`/org`).
+2. After login you land on **home chat** (`/`) with the **COO** selected by default. Switch agents from the **Chat with** picker. **History** and **Browser session** side panes start closed — use the icons next to **New chat** to open them. **New chat** archives the current thread; on local Ollama the archive title is heuristic so **Archiving…** does not wait on the same CPU model. Org chart and standups are under **My Org** (`/org`).
 3. The **bell** in the top bar is your notification center (agent replies and messages pushed to you).
 4. **New CEOs** may open **Company setup** first (`/company-setup`, also avatar → **Company setup**) to pick company type, mission, DNA, team pack, and management style — or skip and finish later. Platform Help guide: `knowledgebase/platform-help/29-company-setup.md`.
 

@@ -117,7 +117,10 @@ if [[ "$gpu_mb" -ge 22000 || "$total_ram_mb" -ge 48000 ]]; then
   INFER_CTX="$CTX"
 fi
 TIMEOUT_MS=300000
-if [[ "$MODEL" == "mistral-medium-3.5"* || "$MODEL" == *"128b"* ]]; then
+if [[ "$gpu_mb" -lt 1000 ]]; then
+  # CPU prefill of the ~20k COO bootstrap is minutes; 300s 408s the UI "hi".
+  TIMEOUT_MS=600000
+elif [[ "$MODEL" == "mistral-medium-3.5"* || "$MODEL" == *"128b"* ]]; then
   TIMEOUT_MS=600000
 elif [[ "$MODEL" == "gpt-oss:20b"* ]]; then
   TIMEOUT_MS=420000

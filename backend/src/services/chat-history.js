@@ -335,6 +335,7 @@ async function generateSessionTitleAndSummary(turns, ownerUserId) {
     return { title: fallbackTitle(new Date().toISOString()), summary: '' };
   }
   if (isPlatformLocalOllama()) {
+    console.info('[chat-history] skip LLM archive title (local Ollama); using heuristic');
     return { title: heuristic || fallbackTitle(new Date().toISOString()), summary: '' };
   }
   try {

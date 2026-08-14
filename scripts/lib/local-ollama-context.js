@@ -33,6 +33,6 @@ export function resolveLocalOllamaInferCtx(envValue) {
 
 export function resolveLocalOllamaTimeoutSeconds(envMs) {
   const parsed = Number(envMs);
-  const ms = Number.isFinite(parsed) && parsed > 0 ? parsed : 300000;
+  const ms = Number.isFinite(parsed) && parsed > 0 ? parsed : 600000;
   return Math.max(60, Math.ceil(ms / 1000));
 }

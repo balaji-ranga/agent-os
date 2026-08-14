@@ -859,7 +859,8 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
           role: 'system',
           content:
             `You are the COO for this CEO only (internal owner id ${ownerUserId}). ` +
-            `Answer briefly in plain language. Prefer real tool calls when needed; never invent fake tool JSON or paste internal instructions. ` +
+            `Answer briefly in plain language. Greetings and yes/no questions: reply in 1-2 sentences and do not call tools. ` +
+            `Prefer real tool calls only when the user asked for an action or lookup; never invent fake tool JSON or paste internal instructions. ` +
             `For org agents / team questions, list agents from context/tools — do not confuse agents with workflows.`,
         });
         userContent = message;
@@ -921,14 +922,24 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
         llm?.provider === 'ollama_free' ||
         llm?.provider === 'deepseek';
       if (localOllama) {
+        const timeoutMs =
+          chatOpts.timeoutMs ||
+          Number(process.env.OPENCLAW_OLLAMA_CHAT_TIMEOUT_MS || process.env.OPENCLAW_FETCH_TIMEOUT_MS || 600000);
         chatOpts = {
           ...chatOpts,
           injectLearningsInstruction: false,
           injectSessionHistoryInstruction: false,
-          timeoutMs:
-            chatOpts.timeoutMs ||
-            Number(process.env.OPENCLAW_OLLAMA_CHAT_TIMEOUT_MS || process.env.OPENCLAW_FETCH_TIMEOUT_MS || 300000),
+          injectBrowserInstruction: false,
+          injectKanbanInstruction: false,
+          retries: 1,
+          timeoutMs,
         };
+        console.info(
+          '[agents] local Ollama chat agent=%s owner=%s timeoutMs=%s retries=1',
+          openclawAgentId,
+          ownerUserId,
+          timeoutMs
+        );
       }
     } catch (_) {
       /* keep defaults */
