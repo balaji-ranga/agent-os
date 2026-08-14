@@ -7,7 +7,8 @@
  */
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { Agent } from 'node:undici';
+import http from 'node:http';
+import https from 'node:https';
 
 const DEFAULT_PORT = 18789;
 let _cachedGatewayToken = null;
@@ -30,6 +31,56 @@ export const CHAT_INSTRUCTION_LEARNINGS =
 /** Agent owns Kanban status — complete only after real deliverable. */
 export const CHAT_INSTRUCTION_KANBAN =
   'When you have a Kanban task_id: move to in_progress when you start; move to completed ONLY after you actually finished the deliverable (research written, recipe+image, etc.). If summarize_url 404/403: try one alternate URL or browse_task_start / granted browser — then still deliver your best brief with citations/gaps noted. Do not chain three extra summarize_url calls. Use failed ONLY when you produced no usable deliverable. Optional side tools (master_data_*, email) must NOT cause failed if the main ask succeeded — skip inventing tables; call master_data_list_tables first if needed.';
+
+function postGatewayJson(url, { headers, body, timeoutMs }) {
+  return new Promise((resolve, reject) => {
+    let parsed;
+    try {
+      parsed = new URL(url);
+    } catch (e) {
+      reject(e);
+      return;
+    }
+    const lib = parsed.protocol === 'https:' ? https : http;
+    const hdrs = { ...headers, 'Content-Length': Buffer.byteLength(body) };
+    const req = lib.request(
+      {
+        protocol: parsed.protocol,
+        hostname: parsed.hostname,
+        port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+        path: `${parsed.pathname}${parsed.search}`,
+        method: 'POST',
+        headers: hdrs,
+      },
+      (res) => {
+        const chunks = [];
+        res.on('data', (c) => chunks.push(c));
+        res.on('end', () => {
+          const text = Buffer.concat(chunks).toString('utf8');
+          resolve({
+            ok: res.statusCode >= 200 && res.statusCode < 300,
+            status: res.statusCode,
+            async text() {
+              return text;
+            },
+          });
+        });
+      }
+    );
+    req.setTimeout(timeoutMs, () => {
+      req.destroy(Object.assign(new Error('TimeoutError'), { name: 'TimeoutError' }));
+    });
+    req.on('error', (e) => {
+      if (e?.name === 'TimeoutError' || /TimeoutError/i.test(String(e?.message || ''))) {
+        reject(Object.assign(new Error('TimeoutError'), { name: 'TimeoutError' }));
+        return;
+      }
+      reject(e);
+    });
+    req.write(body);
+    req.end();
+  });
+}
 
 function getGatewayUrl() {
   const base = process.env.OPENCLAW_GATEWAY_URL || `http://127.0.0.1:${DEFAULT_PORT}`;
@@ -98,33 +149,21 @@ export async function chatCompletions(agentId, messages, sessionUser = null, str
   const timeoutMs = Number(
     options.timeoutMs || process.env.OPENCLAW_FETCH_TIMEOUT_MS || 240000
   );
-  const dispatcher = new Agent({
-    headersTimeout: timeoutMs,
-    bodyTimeout: timeoutMs,
-    connectTimeout: 30_000,
-  });
   const maxAttempts = Math.max(1, Number(options.retries ?? process.env.OPENCLAW_CHAT_RETRIES ?? 3));
   let res;
   let lastErrText = '';
+  const payload = JSON.stringify(body);
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      res = await fetch(url, {
-        method: 'POST',
+      res = await postGatewayJson(url, {
         headers,
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(timeoutMs),
-        dispatcher,
+        body: payload,
+        timeoutMs,
       });
     } catch (e) {
       const name = e?.name || 'Error';
       const msg = e?.message || String(e);
-      const code = e?.code || e?.cause?.code || '';
-      if (
-        name === 'TimeoutError' ||
-        name === 'AbortError' ||
-        code === 'UND_ERR_HEADERS_TIMEOUT' ||
-        code === 'UND_ERR_BODY_TIMEOUT'
-      ) {
+      if (name === 'TimeoutError' || name === 'AbortError') {
         throw new Error(
           `AgentSystem gateway timeout after ${timeoutMs}ms (${getGatewayUrl()}). Local Ollama BYOK chats can be slow on first load — retry or use New chat.`
         );
