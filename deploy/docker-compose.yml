@@ -661,8 +661,9 @@ services:
     image: ollama/ollama:latest
     restart: unless-stopped
     environment:
-      # Must match OpenClaw models.providers.ollama contextWindow (8k overflows COO bootstrap).
-      OLLAMA_CONTEXT_LENGTH: ${OLLAMA_CONTEXT_WINDOW:-32768}
+      # Must match OpenClaw catalog. 32k still overflows COO "hi" (19.5k prompt + 20k thinking reserve).
+      OLLAMA_CONTEXT_LENGTH: ${OLLAMA_CONTEXT_WINDOW:-65536}
+      OLLAMA_FLASH_ATTENTION: "1"
     volumes:
       - ollama_data:/root/.ollama:Z
     expose:

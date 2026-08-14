@@ -392,7 +392,7 @@ export function syncUserLlmToOpenClaw(ceoUserId) {
     /ollama|127\.0\.0\.1|localhost/i.test(String(primary.baseUrl || ''));
   const ollamaCtx = Math.max(
     8192,
-    Number(process.env.OLLAMA_CONTEXT_WINDOW || process.env.OPENCLAW_OLLAMA_CONTEXT_WINDOW || 32768) || 32768
+    Number(process.env.OLLAMA_CONTEXT_WINDOW || process.env.OPENCLAW_OLLAMA_CONTEXT_WINDOW || 65536) || 65536
   );
   const ollamaMaxTok = Math.max(
     1024,

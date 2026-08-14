@@ -22,6 +22,7 @@ import {
   WORKFLOW_BUILDER_CONTENT_TOOLS_ALLOW,
   PLATFORM_HELP_CONTENT_TOOLS_ALLOW,
 } from '../../scripts/lib/content-tools-allow.js';
+import { resolveLocalOllamaContextWindow } from '../../scripts/lib/local-ollama-context.js';
 
 const OPENCLAW_DIR = resolveOpenClawDir();
 const CONFIG_PATH = process.env.OPENCLAW_CONFIG_PATH || join(OPENCLAW_DIR, 'openclaw.json');
@@ -284,16 +285,19 @@ console.log('Set agent-os-content-tools baseUrl:', INTERNAL_API);
 {
   if (!config.models) config.models = {};
   if (!config.models.providers) config.models.providers = {};
-  const ollamaCtxFloor =
+  const ollamaIsPrimary =
     process.env.PLATFORM_USE_LOCAL_OLLAMA === '1' ||
     process.env.PLATFORM_USE_LOCAL_OLLAMA === 'true' ||
-    String(process.env.OPENCLAW_MODEL_PRIMARY || '').toLowerCase().startsWith('ollama/')
-      ? 32768
-      : 8192;
-  const ollamaCtx = Math.max(
-    ollamaCtxFloor,
-    Number(process.env.OLLAMA_CONTEXT_WINDOW || process.env.OPENCLAW_OLLAMA_CONTEXT_WINDOW || 32768) || 32768
-  );
+    String(process.env.OPENCLAW_MODEL_PRIMARY || '').toLowerCase().startsWith('ollama/');
+  const ollamaCtx = ollamaIsPrimary
+    ? resolveLocalOllamaContextWindow(
+        process.env.OLLAMA_CONTEXT_WINDOW || process.env.OPENCLAW_OLLAMA_CONTEXT_WINDOW,
+        process.env.OLLAMA_MODEL_NATIVE_CONTEXT
+      )
+    : Math.max(
+        8192,
+        Number(process.env.OLLAMA_CONTEXT_WINDOW || process.env.OPENCLAW_OLLAMA_CONTEXT_WINDOW || 8192) || 8192
+      );
   const ollamaMaxTok = Math.max(
     1024,
     Number(process.env.OLLAMA_MAX_TOKENS || process.env.OPENCLAW_OLLAMA_MAX_TOKENS || 4096) || 4096

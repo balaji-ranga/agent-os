@@ -19,7 +19,7 @@ A typical 16 GB CPU VPS **cannot** load 128B. `ensure-local-openclaw-ollama.sh` 
 
 Never pulls `*:cloud` / `*-cloud` tags.
 
-**Context window:** local OpenClaw primary uses `OLLAMA_CONTEXT_WINDOW=32768` (and Ollama `OLLAMA_CONTEXT_LENGTH`). An 8k window rejects even "hi" because COO bootstrap + tool schemas exceed 8k (`Context overflow: prompt too large for the model`). Do not lower this below 32k while Ollama is the platform primary.
+**Context window:** OpenClaw precheck subtracts a **20k thinking reserve** from the catalog window. VPS logs for COO “hi” showed `estimatedPromptTokens≈19490` with `promptBudgetBeforeReserve=12768` at 32k (`overflowTokens≈6700`). Set `OLLAMA_CONTEXT_WINDOW=65536` (and Ollama `OLLAMA_CONTEXT_LENGTH`). `ollama show deepseek-r1:8b` reports native **131072**; hosts with ≥48 GB RAM or ≥22 GB GPU may use that native max. Do not default to 128k on a 16 GB VPS (KV cache will OOM). Do not go below 65k while Ollama is the platform primary.
 
 ## Enable on a host
 

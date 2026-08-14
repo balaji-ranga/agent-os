@@ -15,6 +15,7 @@ import {
   WORKFLOW_BUILDER_CONTENT_TOOLS_ALLOW,
   PLATFORM_HELP_CONTENT_TOOLS_ALLOW,
 } from './lib/content-tools-allow.js';
+import { resolveLocalOllamaContextWindow } from './lib/local-ollama-context.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const AGENT_OS_ROOT = join(__dirname, '..');
@@ -272,9 +273,9 @@ if (!config.models.providers) config.models.providers = {};
 // Set OLLAMA_API_KEY=ollama-local (or any value) so OpenClaw can use Ollama; baseUrl defaults to localhost:11434.
 // OpenClaw requires models.providers.ollama.models to be an array of model objects (not strings).
 function ollamaModelObject(id) {
-  const ctx = Math.max(
-    32768,
-    Number(process.env.OLLAMA_CONTEXT_WINDOW || process.env.OPENCLAW_OLLAMA_CONTEXT_WINDOW || 32768) || 32768
+  const ctx = resolveLocalOllamaContextWindow(
+    process.env.OLLAMA_CONTEXT_WINDOW || process.env.OPENCLAW_OLLAMA_CONTEXT_WINDOW,
+    process.env.OLLAMA_MODEL_NATIVE_CONTEXT
   );
   const maxTok = Math.max(
     1024,

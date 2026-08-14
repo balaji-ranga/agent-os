@@ -92,10 +92,23 @@ if [[ "$MODEL" == *"-cloud"* || "$MODEL" == *":cloud"* ]]; then
   exit 1
 fi
 
-# OpenClaw COO bootstrap (SOUL/AGENTS + tool schemas) does not fit in 8k — that
-# rejects even "hi" with "Context overflow: prompt too large for the model".
-# 32k is the platform default; 128k thrashes small VPS RAM.
-CTX=32768
+# OpenClaw COO "hi" overflow (VPS logs): estimatedPromptTokens≈19490,
+# reserveTokens=20000 (thinking). 32768 leaves promptBudget=12768 → overflow.
+# Need ≥ prompt+reserve+headroom ≈ 48k → 65536. deepseek-r1:8b native is 131072;
+# 128k KV is too large for 16GB RAM (set native only on ≥48GB RAM / 22GB GPU).
+NEEDED_CTX=65536
+NATIVE_CAP=131072
+existing_ctx="$(env_get OLLAMA_CONTEXT_WINDOW)"
+CTX="$NEEDED_CTX"
+# Honor a larger operator value only on hosts that can hold the KV cache.
+if [[ "$existing_ctx" =~ ^[0-9]+$ ]] && [[ "$existing_ctx" -gt "$CTX" ]]; then
+  if [[ "$total_ram_mb" -ge 48000 || "$gpu_mb" -ge 22000 ]]; then
+    CTX="$existing_ctx"
+  fi
+fi
+if [[ "$CTX" -gt "$NATIVE_CAP" ]]; then
+  CTX="$NATIVE_CAP"
+fi
 TIMEOUT_MS=300000
 if [[ "$MODEL" == "mistral-medium-3.5"* || "$MODEL" == *"128b"* ]]; then
   TIMEOUT_MS=600000
@@ -160,7 +173,12 @@ if [[ "$gpu_mb" -ge 1000 && -f "$ROOT/deploy/docker-compose.ollama-gpu.yml" ]]; 
 fi
 
 echo "==> Start optional-ollama"
-docker compose --profile optional-ollama up -d ollama
+ollama_cur="$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' agent-os-ollama-1 2>/dev/null | awk -F= '/^OLLAMA_CONTEXT_LENGTH=/ {print $2; exit}' || true)"
+if [[ "$ollama_cur" != "$CTX" ]]; then
+  docker compose --profile optional-ollama up -d --force-recreate ollama
+else
+  docker compose --profile optional-ollama up -d ollama
+fi
 
 echo "==> Wait for Ollama"
 ready=0
@@ -192,4 +210,30 @@ else
   fi
 fi
 
-echo "ENSURE_LOCAL_OPENCLAW_OLLAMA_DONE model=$MODEL wanted=$WANTED gpu_mb=$gpu_mb ram_mb=$total_ram_mb"
+native=""
+show="$(docker compose --profile optional-ollama exec -T ollama ollama show "$MODEL" 2>/dev/null || true)"
+if [[ -n "$show" ]]; then
+  native="$(printf '%s\n' "$show" | awk 'tolower($0) ~ /context length/ {print $NF; exit}')"
+fi
+if [[ "$native" =~ ^[0-9]+$ ]] && [[ "$native" -gt 0 ]]; then
+  set_key OLLAMA_MODEL_NATIVE_CONTEXT "$native"
+  if [[ "$native" -lt "$CTX" ]]; then
+    echo "    model native context $native < $CTX; capping to native"
+    CTX="$native"
+    set_key OLLAMA_CONTEXT_WINDOW "$CTX"
+  elif { [[ "$total_ram_mb" -ge 48000 ]] || [[ "$gpu_mb" -ge 22000 ]]; } && [[ "$native" -gt "$CTX" ]]; then
+    echo "    host can hold native context $native; raising from $CTX"
+    CTX="$native"
+    set_key OLLAMA_CONTEXT_WINDOW "$CTX"
+  else
+    echo "    model native context $native; using measured $CTX"
+  fi
+fi
+
+ollama_now="$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' agent-os-ollama-1 2>/dev/null | awk -F= '/^OLLAMA_CONTEXT_LENGTH=/ {print $2; exit}' || true)"
+if [[ "$ollama_now" != "$CTX" ]]; then
+  echo "    recreate ollama for OLLAMA_CONTEXT_LENGTH=$CTX"
+  docker compose --profile optional-ollama up -d --force-recreate ollama
+fi
+
+echo "ENSURE_LOCAL_OPENCLAW_OLLAMA_DONE model=$MODEL wanted=$WANTED ctx=$CTX native=${native:-unknown} gpu_mb=$gpu_mb ram_mb=$total_ram_mb"

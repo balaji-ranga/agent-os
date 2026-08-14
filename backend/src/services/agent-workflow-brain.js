@@ -48,7 +48,7 @@ function ollamaOpenAiExtraBody({ provider, baseUrl } = {}) {
   if (!ollamaLike) return {};
   const numCtx = Math.max(
     8192,
-    Number(process.env.OLLAMA_CONTEXT_WINDOW || process.env.OPENCLAW_OLLAMA_CONTEXT_WINDOW || 32768) || 32768
+    Number(process.env.OLLAMA_CONTEXT_WINDOW || process.env.OPENCLAW_OLLAMA_CONTEXT_WINDOW || 65536) || 65536
   );
   return { options: { num_ctx: numCtx } };
 }

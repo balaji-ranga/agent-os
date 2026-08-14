@@ -390,9 +390,10 @@ export function syncPlatformEndpointToOpenClaw() {
           reasoning: false,
           input: ['text'],
           cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+          // COO bootstrap ~19.5k + OpenClaw thinking reserve 20k; 32k overflows "hi".
           contextWindow: Math.max(
-            32768,
-            Number(process.env.OLLAMA_CONTEXT_WINDOW || 32768) || 32768
+            65536,
+            Number(process.env.OLLAMA_CONTEXT_WINDOW || 65536) || 65536
           ),
           maxTokens: Math.max(1024, Number(process.env.OLLAMA_MAX_TOKENS || 4096) || 4096),
           api: 'openai-completions',
