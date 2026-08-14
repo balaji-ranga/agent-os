@@ -48,8 +48,8 @@ Related: [15-api-keys-vault.md](./15-api-keys-vault.md) (how CEOs store secrets)
 
 | Need | Provider(s) | Key path |
 |------|-------------|----------|
-| Default platform LLM | DeepSeek cloud **or** local Ollama when `PLATFORM_USE_LOCAL_OLLAMA=1` | `OPENAI_API_KEY` (cloud) or placeholder `ollama-local` |
-| Admin secondary LLM | OpenAI / DeepSeek / other OpenAI-compatible | `OPENAI_SECONDARY_*` |
+| Default platform LLM | Paid **DeepSeek Flash** (`deepseek-v4-flash`) **or** local Ollama when `PLATFORM_USE_LOCAL_OLLAMA=1` | `OPENAI_API_KEY` (cloud) or placeholder `ollama-local` |
+| Admin secondary LLM | OpenAI **gpt-4o-mini** (`OPENAI_SECONDARY_*`) | `OPENAI_SECONDARY_API_KEY` |
 | CEO BYOK chat | OpenAI or OpenRouter | Vault name exactly **`Platform_BYOK`** (auto-seeded unset on non-platform Profiles) + Profile **provider + chat model** (`GET /api/auth/llm-catalog`) |
 | Claude models | Anthropic | `ANTHROPIC_API_KEY` |
 | Local free | Ollama (`optional-ollama`) | No paid key; `ensure-local-openclaw-ollama.sh` |

@@ -1,6 +1,6 @@
-# Local OpenClaw + free Ollama (no cloud)
+# Local OpenClaw + free Ollama (opt-in, no cloud)
 
-Point **Agent OS platform LLM** and the **local OpenClaw gateway** (Docker service `openclaw` on the VPS) at **self-hosted Ollama**. This does **not** use Ollama Cloud or paid DeepSeek/OpenAI for the platform primary.
+Production platform primary is **paid DeepSeek Flash** (`deepseek-v4-flash`) with **OpenAI gpt-4o-mini** as Admin secondary. This document is the **opt-in** path: point platform LLM and the local OpenClaw gateway at **self-hosted Ollama**. It does **not** use Ollama Cloud.
 
 ## Intended model (128B)
 
@@ -44,6 +44,6 @@ GPU hosts: the script appends `docker-compose.ollama-gpu.yml` when `nvidia-smi` 
 
 Admin **Use secondary** still works if `OPENAI_SECONDARY_*` is set (paid). Leave it unused to stay free.
 
-## Revert to cloud DeepSeek
+## Revert to cloud DeepSeek (production default)
 
-Restore `OPENAI_*` / `OPENCLAW_MODEL_PRIMARY` from `DEEPSEEK_CLOUD_*`, set `PLATFORM_USE_LOCAL_OLLAMA=0`, recreate `openclaw` + `backend`.
+Restore `OPENAI_*` / `OPENCLAW_MODEL_PRIMARY` from `DEEPSEEK_CLOUD_*` (model `deepseek-v4-flash`), keep `OPENAI_SECONDARY_MODEL=gpt-4o-mini`, set `PLATFORM_USE_LOCAL_OLLAMA=0`, recreate `openclaw` + `backend`.
