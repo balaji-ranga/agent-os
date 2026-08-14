@@ -19,6 +19,17 @@ Also run from repo root: `node scripts/ensure-all-agent-workspaces.js` and `node
 
 Help corpus: `knowledgebase/platform-help/` → Master Data docs titled `Flolah Help — …`. Agent id: `platformhelp`.
 
+## Tool API rate limits (per-user call caps)
+
+After changing `backend/src/services/tool-api-rate-limits.js` or the Tools → Rate limits UI:
+
+```powershell
+cd backend
+node scripts/test-tool-api-rate-limits.js
+```
+
+Expect: consume → 429 when capped → manual/auto reset audit → skip Kanban/browse. UI: **Tools → Rate limits** on `/content-tools` (help **11**). Cron: `TOOL_API_RATE_LIMIT_RESET_CRON` (default `5 0 * * *`).
+
 ## Video content studio (storyboard CEO PDF)
 
 After changing `standard/video-content/workflow-reasoning.json` or the CEO-gate PDF attach path:

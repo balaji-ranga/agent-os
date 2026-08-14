@@ -68,7 +68,7 @@ Top-level (always shown; cannot hide in Menu visibility):
 |-------|-------|---------|
 | Workflows | `/workflows` | Custom visual workflows; editor at `/workflows/:id/edit` |
 | **AI Employees** | `/workspace` | Hire AI employees (icon/image), list team → workspace MD / tools / **templates** / **Publish to Agent Exchange** |
-| Tools | `/content-tools` | Catalog, test invoke, logs, **Tools → Model** overrides |
+| Tools | `/content-tools` | Catalog, test invoke, logs, **Tools → Model** overrides, **Tools → Rate limits** (per-user daily/monthly API call caps) |
 | **Connectors** | `/connectors` | Link SaaS apps (OpenConnector) for **Connector** workflow nodes |
 | MCP | `/integrations/mcp` | Register and test MCP servers |
 | Custom scripts | `/integrations/custom-scripts` | Sandboxed Python/JS/LangGraph scripts |
@@ -89,7 +89,7 @@ Top-level (always shown; cannot hide in Menu visibility):
 |-------|-------|---------|
 | Admin | `/admin` | Users, platform LLM switch, workspace templates admin |
 | A2A logs | `/admin/a2a-invocations` | Every A2A card / token / invoke attempt, including denials |
-| **Crons** | `/admin/crons` | Platform cron **and event watcher** registry — **Pause**, **Resume**, **Run now**; pause survives restarts. Includes workflow terminal watch, goal-plan completion nudge, timeout reaper (help **19**) |
+| **Crons** | `/admin/crons` | Platform cron **and event watcher** registry — **Pause**, **Resume**, **Run now**; pause survives restarts. Includes workflow terminal watch, goal-plan completion nudge, timeout reaper, **tool API rate-limit reset** (help **11** / **19**) |
 | Documents RAG | `/admin/documents-rag` | Platform OpenSearch help corpus |
 | Tools Onboarding | `/admin/tool-onboarding` | Docker content-tool containers (privileged OTP session, 30 min) |
 | **TLS certs** | `/admin/tls-certs` | Let's Encrypt SAN status + refresh (same privileged OTP session) |

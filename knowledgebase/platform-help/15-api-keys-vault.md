@@ -65,6 +65,8 @@ Do **not** paste keys on Register or Profile anymore — Profile only selects th
 
 **Per-tool model (optional):** Profile chooses the default chat model; **Tools → Model** on `/content-tools` can override the model for individual BYOK-aware tools (keys still come from this vault / platform). See [11-content-tools-scripts-profile.md](./11-content-tools-scripts-profile.md).
 
+**Per-tool call caps (optional):** **Tools → Rate limits** sets daily/monthly **call** budgets for tools that use these keys (Places, Brave, Replicate, SMTP, CRM/ERP tokens, …). Independent of per-agent token budgets. When a cap is hit, agents should use Browser Session / Playwright instead.
+
 ## Replicate_BYOK (video when not on Platform default)
 
 For **`generate_video`** (Replicate):

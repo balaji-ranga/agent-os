@@ -43,7 +43,7 @@
 # Business Core prefab Maker/Checker agents when Profile CRM=twenty / ERP=erpnext,
 # SEED_CONTENT_MEDIA_OWNER (optional) post-deploy seeds publish+comments workflows for that CEO,
 # Brave agent tool brave_web_search (backend BRAVE_API_KEY + vault BRAVE_SEARCH_BYOK),
-# cron reference block in deploy/.env (ensure-cron-env.sh) + platform-help 19 (+ SCHEDULED_GOALS_CRON)
+# cron reference block in deploy/.env (ensure-cron-env.sh) + platform-help 19 (+ SCHEDULED_GOALS_CRON, TOOL_API_RATE_LIMIT_RESET_CRON)
 # (scheduled jobs / retention incl. Content Explorer media hard-delete), Org Storage (MB)
 # (tenant + media/generated/<ceo>), COO status_checker report, data retention purge,
 # Content Explorer (/content-explorer list/download/delete), Profile LLM catalog (provider+model),
@@ -52,6 +52,7 @@
 # free STT/TTS optional-voice (ensure-voice-env.sh → SPEECH_* + whisper/piper),
 # Flolah branding, hPanel shell + light/dark theme (ThemeToggle, data-theme),
 # Agent Workspaces Add agent (AddAgentForm), Tools nav label (/content-tools),
+# Tools → Model + Tools → Rate limits (per-user daily/monthly API call caps; help 11),
 # workflow editor fullscreen (shell-focus-mode), run audit fullscreen (/workflows/runs/:id),
 # Register MCP/Agents primary CTAs,
 # multi-tenant standups/delegation, Kanban owner_user_id isolation (no shared-agent leak),

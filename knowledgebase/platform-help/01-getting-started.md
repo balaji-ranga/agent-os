@@ -45,7 +45,7 @@ Path: avatar → **Profile** (`/profile`). Same **provider + default model** pic
   - **OpenAI / OpenRouter** — pick **provider** and a curated (or custom) **chat model** at Register or Profile. Then fill vault key **`Platform_BYOK`** under **API Keys** so AI employees can call the API. Endpoints come from `GET /api/auth/llm-catalog` — you do not paste base URLs or keys on Register.
 - **Workflow Brain:** for DeepSeek or OpenRouter nodes you can set **Thinking mode** (and effort) in the node attributes — see [07-workflow-nodes-reference](./07-workflow-nodes-reference.md).
 
-Full vault guide: [15-api-keys-vault.md](./15-api-keys-vault.md). Browse uploads/generated media: [26-content-explorer.md](./26-content-explorer.md).
+Full vault guide: [15-api-keys-vault.md](./15-api-keys-vault.md). Optional **Tools → Model** / **Tools → Rate limits** on `/content-tools` (help **11**). Browse uploads/generated media: [26-content-explorer.md](./26-content-explorer.md).
 
 AI employees still run through AgentSystem; your BYOK preference affects how the platform selects models for eligible paths.
 

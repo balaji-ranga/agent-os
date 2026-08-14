@@ -19,7 +19,7 @@ another's — each pass is owner-scoped (`owner_user_id`).
 All keys are **optional** — each has a code default, so a fresh install schedules everything with no
 `.env` changes. They are listed commented in `deploy/.env`, `deploy/.env.example` and
 `backend/.env.example` for reference (`deploy/scripts/ensure-cron-env.sh` keeps `.env` in sync on
-every deploy). **Compose:** cron keys plus `GOAL_PLAN_*`, `SCHEDULED_GOAL_CHAT_TIMEOUT_MS`, `SCHEDULED_GOAL_STUCK_MINUTES`, `GOAL_AGENT_CONTINUE_TIMEOUT_MS`, and `WORKFLOW_COO_WAKE_ON_TERMINAL` are injected in `deploy/docker-compose.yml` backend environment. Comment-only `.env` changes need a container recreate.
+every deploy). **Compose:** cron keys plus `GOAL_PLAN_*`, `SCHEDULED_GOAL_CHAT_TIMEOUT_MS`, `SCHEDULED_GOAL_STUCK_MINUTES`, `GOAL_AGENT_CONTINUE_TIMEOUT_MS`, `WORKFLOW_COO_WAKE_ON_TERMINAL`, and `TOOL_API_RATE_LIMIT_RESET_CRON` are injected in `deploy/docker-compose.yml` backend environment. Comment-only `.env` changes need a container recreate.
 
 | Env var | Default | What runs on each tick | Per-user behaviour |
 |---------|---------|------------------------|--------------------|
