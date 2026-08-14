@@ -14,10 +14,13 @@ ok() { echo "  OK  $1"; }
 bad() { echo "  FAIL $1"; fail=$((fail + 1)); }
 
 echo "==> scheduled goals — source / compose / docs"
-if grep -q 'SCHEDULED_GOALS_CRON' "$ROOT/deploy/docker-compose.yml" 2>/dev/null; then
-  ok "compose injects SCHEDULED_GOALS_CRON"
+if grep -q 'GOAL_PLAN_FAILURE_KANBAN' "$ROOT/deploy/docker-compose.yml" 2>/dev/null \
+  && grep -q 'GOAL_PLAN_MAX_SPECIALTY' "$ROOT/deploy/docker-compose.yml" 2>/dev/null \
+  && grep -q 'SCHEDULED_GOAL_CHAT_TIMEOUT_MS' "$ROOT/deploy/docker-compose.yml" 2>/dev/null \
+  && grep -q 'WORKFLOW_TERMINAL_WATCH_CRON' "$ROOT/deploy/docker-compose.yml" 2>/dev/null; then
+  ok "compose injects GOAL_PLAN_* / SCHEDULED_GOAL_CHAT / WORKFLOW_TERMINAL_WATCH"
 else
-  bad "compose missing SCHEDULED_GOALS_CRON"
+  bad "compose missing goal-plan env (GOAL_PLAN_MAX_SPECIALTY / SCHEDULED_GOAL_CHAT_TIMEOUT_MS / WORKFLOW_TERMINAL_WATCH_CRON)"
 fi
 if grep -q 'SCHEDULED_GOALS_CRON' "$ROOT/deploy/.env.example" 2>/dev/null; then
   ok "deploy/.env.example mentions SCHEDULED_GOALS_CRON"
@@ -70,10 +73,23 @@ if grep -q 'SCHEDULED_GOALS_CRON' "$ROOT/knowledgebase/platform-help/19-schedule
 else
   bad "help 19 missing SCHEDULED_GOALS_CRON"
 fi
-if test -f "$ROOT/knowledgebase/platform-help/28-scheduled-goals.md"; then
-  ok "help 28 scheduled-goals.md present"
+if grep -q 'COO vs other employees' "$ROOT/knowledgebase/platform-help/28-scheduled-goals.md" 2>/dev/null \
+  && grep -q 'Save & schedule' "$ROOT/knowledgebase/platform-help/28-scheduled-goals.md" 2>/dev/null; then
+  ok "help 28 documents COO-only Generate draft vs Save & schedule"
 else
-  bad "help 28-scheduled-goals.md missing"
+  bad "help 28 missing COO vs other employees / Save & schedule"
+fi
+if grep -q 'agentAllowsScheduledGoalPlan' "$ROOT/backend/src/services/scheduled-goals.js" 2>/dev/null \
+  && grep -q 'is_coo' "$ROOT/backend/src/services/scheduled-goals.js" 2>/dev/null; then
+  ok "API gates plan preview/set to is_coo"
+else
+  bad "scheduled-goals.js missing agentAllowsScheduledGoalPlan / is_coo"
+fi
+if grep -q 'COO_PLAN_TIP' "$ROOT/frontend/src/pages/ScheduledGoals.jsx" 2>/dev/null \
+  && grep -q 'agentIsCoo' "$ROOT/frontend/src/pages/ScheduledGoals.jsx" 2>/dev/null; then
+  ok "frontend Generate draft gated to COO"
+else
+  bad "ScheduledGoals.jsx missing COO_PLAN_TIP / agentIsCoo"
 fi
 if grep -qE 'hourly|Hourly' "$ROOT/knowledgebase/platform-help/28-scheduled-goals.md" 2>/dev/null; then
   ok "help 28 documents hourly cadence"
@@ -183,10 +199,10 @@ if [[ -n "$FE" ]]; then
   else
     bad "frontend bundle missing Edit UI — deploy 19c76b3+ / rebuild frontend"
   fi
-  if docker exec "$FE" sh -c 'grep -Rql "Hourly\|value:\"hourly\"\|cadence:\"hourly\"" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
-    ok "frontend bundle includes Hourly cadence"
+  if docker exec "$FE" sh -c 'grep -Rql "Save \& schedule\|Execution plans apply only to the COO" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+    ok "frontend bundle includes COO-only plan / Save & schedule"
   else
-    bad "frontend bundle missing Hourly cadence"
+    bad "frontend bundle missing COO-only Generate draft copy — rebuild frontend"
   fi
 else
   bad "frontend container not found"

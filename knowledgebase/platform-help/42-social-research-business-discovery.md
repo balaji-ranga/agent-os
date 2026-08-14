@@ -91,7 +91,7 @@ For an official user timeline (and when hydration misses):
 
 ## Business Discovery modes
 
-Business Discovery maps your wording onto **Discover → Research → Track → Act** (one mode, several, or all). That mapping lives in the employee’s workspace (SOUL) plus the **existing goal plan** (`agent_goal_create` → `agr-…`) and **existing tools** — not a Business Discovery-only platform pipeline.
+Business Discovery maps your wording onto **Discover → Research → Track → Act** (one mode, several, or all). That mapping lives in the employee’s workspace (SOUL) plus **existing tools** (`business_discover`, Knowledge, Kanban). A **COO scheduled goal** with **Generate draft plan** can wrap BD + CRM Maker as sequential `specialty_task` steps (`agr-…`). A **Business Discovery scheduled goal** must **not** Generate draft (COO-only) — **Save & schedule** and use Act `handoff: true` so Kanban wakes CRM (help **28**).
 
 | Mode | Source | You might say |
 |------|--------|----------------|
@@ -119,7 +119,11 @@ Opportunity stars are **high** when Google reputation is strong and digital/soci
    - Otherwise assigned to **you** (CEO inbox) with the lead set.
 5. CRM employees must **not** recreate leads already in that table or already in CRM (name + locality).
 
-Ask Business Discovery to show `discovered_opportunities` via Master Data if you want the history. Quote the `agr-…` id in chat to open the Goal Plan panel.
+Ask Business Discovery to show `discovered_opportunities` via Master Data if you want the history. Quote an `agr-…` id in **COO** chat to open the Goal Plan panel.
+
+### Scheduled Act (no COO plan)
+
+On **Scheduled goals**, set **Who runs it** to Business Discovery and **Save & schedule** (Generate draft is disabled). Prompt Act with `business_discover` **persist true** and **handoff true**. Do not add a lettered **B) CRM Maker** section. Handoff assigns the Kanban card to your CRM employee; the orphan watcher starts that employee (help **04**, **28**). For unattended **A then B** in one ladder, use the **COO** + Generate draft instead.
 
 ## Workflows
 

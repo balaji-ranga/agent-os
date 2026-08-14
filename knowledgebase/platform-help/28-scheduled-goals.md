@@ -26,8 +26,7 @@ The COO uses `scheduled_goal_create` (and related tools) and confirms the schedu
 
 **How do multi-intent scheduled goals work?** On the **COO**, creating a schedule from the CEO UI first builds a **draft execution plan** (workflow steps, specialty tasks, notify). Review the step list, then **Amend plan manually** if intent→step mapping is wrong (or **Build plan manually** from empty). Optional regenerate-with-feedback re-plans via LLM. **Save draft**, then **Approve plan & schedule** to make it **active**. Until approved, status is **draft** and tick/Run now are blocked. **Generate draft plan** is COO-only (hover the disabled control on other employees). A specialty employee **Save & schedule**s without a ladder and runs the prompt directly. COO/chat tools default to an approved plan so plain-language schedules still activate immediately.
 
-
-**COO prompt (critical for specialty steps):** Call gent_goal_create with the CEO multiphase message **verbatim** as prompt. Do not rewrite a hybrid ask down to CRM+ERP only — residual **Platform Help** (and other specialty) language must remain in prompt so plan storage includes specialty_task. The planner also merges explicit Platform Help from the full stored prompt as a safety net.
+**COO prompt (critical for specialty steps):** Call `agent_goal_create` with the CEO multiphase message **verbatim** as prompt. Do not rewrite a hybrid ask down to CRM+ERP only — residual **Platform Help** (and other specialty) language must remain in prompt so plan storage includes specialty_task. The planner also merges explicit Platform Help from the full stored prompt as a safety net.
 
 **Intent classification (goal plans):** The durable plan is built by **catalog + LLM hybrid intent classification** (`goal-plan-intent.js`): (1) **workflows** — match published tenant `chat_trigger_phrase` values present in the goal (order of appearance); (2) **specialty** — residual text vs org AGENTS.md roster (Platform Help etc.); (3) **self tools** — orchestrator tool grants + Tools-registry names/display + LLM multi-label enum (not product CRM/ERP keywords). Lanes: `workflow_trigger`, `specialty_task`, `agent_tool` (self-execute list/email/market data/…), `notify_ceo`, `agent_continue`, or skip (meta create-goal / compliance). Same engine for ad-hoc `agent_goal_create` and scheduled plan-mode. Acceptance: `node scripts/test-goal-plan-intent-classify.mjs`, `node scripts/test-goal-plan-tool-args.mjs`, and `node scripts/test-goal-plan-specialty-coo-native.mjs` (backend container).
 
@@ -52,7 +51,7 @@ The COO uses `scheduled_goal_create` (and related tools) and confirms the schedu
 Orchestration words (`agent_goal_create`, `notify_ceo`, “include the goal run id”) are **not** specialty work. If the model returns no specialists but residual still asks for Platform Help, a single help specialty is still planned. Do not invent random specialists when the residual is only workflow glue.
 
 
-**Specialty self-plans:** An AI employee that is **granted** `agent_goal_create` (not only the COO) can create a durable plan for **its own** tools. The planner then skips nested `specialty_task` (no re-delegation) and keeps that employee’s granted catalog instead of the COO prefer-list. Ranking / comparative tables in chat are `agent_continue` synthesis after data tools.
+**Specialty self-plans:** An AI employee that is **granted** `agent_goal_create` (not only the COO) can create a durable plan for **its own** tools **from chat**. The planner then skips nested `specialty_task` (no re-delegation) and keeps that employee’s granted catalog instead of the COO prefer-list. Ranking / comparative tables in chat are `agent_continue` synthesis after data tools. **Scheduled goals → Generate draft** is still **COO-only** (help section above).
 
 **Multi-phase goals (CRM then ERP, multiple workflows, multi-specialty hybrid)?** Ordered workflow phrases or clear CRM→O2C intent plan to durable **`agent_goal_run`** steps (`workflow_trigger`, optional parallel `specialty_task`, `notify_ceo`). Platform advances when each child workflow or specialty-delegation reaches terminal. Ad-hoc COO chat should call **`agent_goal_create`** (returns `goal_run_id` like `agr-…`). If the COO fires **`agent_workflow_trigger`** with multi-workflow language and no plan id, the platform **auto-upgrades** that call into a goal plan. A numeric workflow **`run_id` is not a goal plan** (no Digest ladder / Goal Plan panel). Inspect: **`agent_goal_list`** / **`agent_goal_status`**, Digest, `/goal-plans`. See [38-maker-checker-coordination.md](./38-maker-checker-coordination.md).
 
@@ -107,6 +106,19 @@ For "alert me when..." market conditions, combine hourly (or weekdays) + tools (
 4. Confirm the row is **active** under Management → Scheduled goals.
 
 Defaults when unspecified: target = COO; cadence = daily; time = 09:00 (or `:00` for hourly).
+
+## COO vs other employees
+
+| Target | Generate draft / Amend / Approve plan | What runs |
+|--------|----------------------------------------|-----------|
+| **COO** | Yes — nested `specialty_task` + workflows + notify | Approved `plan_json` each fire (`agr-…`) |
+| **Any other employee** (Business Discovery, CRM Maker, …) | **Disabled** (hover: plans apply only to the COO) | **Save & schedule** — no specialty ladder. Fire uses that employee’s own tools / chat. |
+
+Use the **COO** when the prompt is sequential **A) employee … B) employee …** (lettered lists stay sequential even as one paragraph). Do **not** put `run crm maker checker` in that prompt unless you intend the published CRM maker-checker **workflow**.
+
+Use **Business Discovery** (no Generate draft) when BD should Discover/Act itself. Act with `persist true` and `handoff true` creates a **Kanban** assigned to your CRM employee. The **orphan watcher** (every 5 min; assigned `open` cards skip the 3-minute cool-off) starts CRM Maker from that card. That is not a COO specialty step.
+
+Do **not** name `kanban_create_task` or `notify_ceo` in a BD prompt unless you want those as extra BD tool steps. Do **not** include a **B) CRM Maker** block on a BD schedule — BD cannot nested-delegate.
 
 ## Create or edit on the page
 
@@ -169,7 +181,7 @@ Quick intents add common CRM/ERP maker-checker and help steps without writing ra
 | POST | `/api/scheduled-goals/:id/plan` | Update draft plan / feedback; optional approve |
 | POST | `/api/scheduled-goals/:id/plan-approve` | Approve stored plan → active |
 
-Env: `GOAL_PLAN_MAX_SPECIALTY` (default 8) caps specialty intents on a plan (chat one-shot specialty still max 2).
+Env: `GOAL_PLAN_MAX_SPECIALTY` (default 8) caps specialty intents on a plan (chat one-shot specialty still max 2). `GOAL_PLAN_MAX_INTENTS` (default 12) caps classified hybrid intents. Chat-mode fires use `SCHEDULED_GOAL_CHAT_TIMEOUT_MS`. These keys (plus completion-nudge / `GOAL_PLAN_FAILURE_KANBAN` / workflow-terminal watch) are in `deploy/docker-compose.yml` backend-env — a `.env`-only change without recreate does nothing.
 
 ## Isolation
 
@@ -193,6 +205,7 @@ Home **Operational Effectiveness (OEI)** counts **scheduled goal runs** in 14 da
 - Company first-run: [29-company-setup.md](./29-company-setup.md)
 - Content ops rollup / publish: [30-content-creator-ops.md](./30-content-creator-ops.md)
 - Kanban / standups / bell: [04-kanban-standups-broadcast.md](./04-kanban-standups-broadcast.md)
+- Business Discovery Act / CRM handoff: [42-social-research-business-discovery.md](./42-social-research-business-discovery.md)
 
 ## Regression / e2e
 

@@ -17,7 +17,8 @@
 # Also COPYs deploy/ (ensure-openclaw-gateway-config.js used by vps-verify-openclaw-chat via backend).
 # Sources MUST be UTF-8 (not UTF-16); UTF-16 .js fails Node with "Invalid regular expression".
 # Scheduled goals: backend services/routes + schema; master tick SCHEDULED_GOALS_CRON in compose;
-# help docs 19/28 must ship in platform-help COPY; seed tools in seed-content-tools-meta.js.
+# GOAL_PLAN_* / SCHEDULED_GOAL_CHAT_TIMEOUT_MS / WORKFLOW_TERMINAL_WATCH_CRON also in compose backend-env;
+# help docs 19/28/42 must ship in platform-help COPY; seed tools in seed-content-tools-meta.js.
 # Also: public VR routes, speech STT/TTS APIs + COO content tools speech_tts/speech_stt,
 # agent channels, optional-voice (whisper+piper),
 # platform MCP OAuth (mcp-oauth tables) + Meta Graph seed (seed-meta-graph-mcp.js) +
