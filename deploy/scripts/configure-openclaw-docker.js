@@ -284,8 +284,14 @@ console.log('Set agent-os-content-tools baseUrl:', INTERNAL_API);
 {
   if (!config.models) config.models = {};
   if (!config.models.providers) config.models.providers = {};
+  const ollamaCtxFloor =
+    process.env.PLATFORM_USE_LOCAL_OLLAMA === '1' ||
+    process.env.PLATFORM_USE_LOCAL_OLLAMA === 'true' ||
+    String(process.env.OPENCLAW_MODEL_PRIMARY || '').toLowerCase().startsWith('ollama/')
+      ? 32768
+      : 8192;
   const ollamaCtx = Math.max(
-    8192,
+    ollamaCtxFloor,
     Number(process.env.OLLAMA_CONTEXT_WINDOW || process.env.OPENCLAW_OLLAMA_CONTEXT_WINDOW || 32768) || 32768
   );
   const ollamaMaxTok = Math.max(
@@ -538,6 +544,10 @@ if (!config.agents.defaults) config.agents.defaults = {};
 if (!config.agents.defaults.model) config.agents.defaults.model = {};
 config.agents.defaults.model.primary = primarySlug;
 console.log('Set agents.defaults.model.primary=', primarySlug);
+if (primaryIsOllama && !config.agents.defaults.compaction) {
+  config.agents.defaults.compaction = { mode: 'safeguard' };
+  console.log('Set agents.defaults.compaction.mode=safeguard for local Ollama primary');
+}
 
 // Model fallbacks: OPENCLAW_MODEL_FALLBACKS (comma-separated) or optional Ollama toggle.
 // OPENCLAW_ENABLE_OLLAMA_FALLBACK=0 strips ollama/* even if listed in OPENCLAW_MODEL_FALLBACKS

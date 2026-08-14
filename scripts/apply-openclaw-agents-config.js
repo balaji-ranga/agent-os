@@ -273,8 +273,8 @@ if (!config.models.providers) config.models.providers = {};
 // OpenClaw requires models.providers.ollama.models to be an array of model objects (not strings).
 function ollamaModelObject(id) {
   const ctx = Math.max(
-    8192,
-    Number(process.env.OLLAMA_CONTEXT_WINDOW || process.env.OPENCLAW_OLLAMA_CONTEXT_WINDOW || 8192) || 8192
+    32768,
+    Number(process.env.OLLAMA_CONTEXT_WINDOW || process.env.OPENCLAW_OLLAMA_CONTEXT_WINDOW || 32768) || 32768
   );
   const maxTok = Math.max(
     1024,

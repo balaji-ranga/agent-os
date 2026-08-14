@@ -92,16 +92,15 @@ if [[ "$MODEL" == *"-cloud"* || "$MODEL" == *":cloud"* ]]; then
   exit 1
 fi
 
-CTX=8192
+# OpenClaw COO bootstrap (SOUL/AGENTS + tool schemas) does not fit in 8k — that
+# rejects even "hi" with "Context overflow: prompt too large for the model".
+# 32k is the platform default; 128k thrashes small VPS RAM.
+CTX=32768
 TIMEOUT_MS=300000
 if [[ "$MODEL" == "mistral-medium-3.5"* || "$MODEL" == *"128b"* ]]; then
-  CTX=32768
   TIMEOUT_MS=600000
 elif [[ "$MODEL" == "gpt-oss:20b"* ]]; then
-  CTX=16384
   TIMEOUT_MS=420000
-elif [[ "$total_ram_mb" -ge 28000 ]]; then
-  CTX=16384
 fi
 
 echo "==> Local OpenClaw + platform LLM -> Ollama (free, no cloud)"

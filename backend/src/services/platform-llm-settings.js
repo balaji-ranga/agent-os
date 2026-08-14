@@ -391,8 +391,8 @@ export function syncPlatformEndpointToOpenClaw() {
           input: ['text'],
           cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
           contextWindow: Math.max(
-            8192,
-            Number(process.env.OLLAMA_CONTEXT_WINDOW || 8192) || 8192
+            32768,
+            Number(process.env.OLLAMA_CONTEXT_WINDOW || 32768) || 32768
           ),
           maxTokens: Math.max(1024, Number(process.env.OLLAMA_MAX_TOKENS || 4096) || 4096),
           api: 'openai-completions',
