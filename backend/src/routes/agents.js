@@ -55,6 +55,7 @@ import {
   formatSessionForApi,
 } from '../services/chat-history.js';
 import { resolveLlmConfigForUser } from '../services/user-llm-settings.js';
+import { isPlatformLocalOllama } from '../services/platform-llm-settings.js';
 import { meterOpenClawUsage } from '../services/token-usage.js';
 import { BudgetBlockedError, enforceBudget } from '../services/agent-budgets.js';
 import {
@@ -847,7 +848,9 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     let userContent = message;
     const llmForOwner = resolveLlmConfigForUser(ownerUserId);
     const isLocalLlmByok =
-      llmForOwner?.provider === 'ollama_free' || llmForOwner?.provider === 'deepseek';
+      isPlatformLocalOllama() ||
+      llmForOwner?.provider === 'ollama_free' ||
+      llmForOwner?.provider === 'deepseek';
 
     if (agent.is_coo && !message.includes('[ceo_user_id:')) {
       if (isLocalLlmByok) {
@@ -913,8 +916,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
     try {
       const llm = llmForOwner || resolveLlmConfigForUser(ownerUserId);
       const localOllama =
-        process.env.PLATFORM_USE_LOCAL_OLLAMA === '1' ||
-        process.env.PLATFORM_USE_LOCAL_OLLAMA === 'true' ||
+        isPlatformLocalOllama() ||
         /ollama/i.test(String(process.env.OPENAI_BASE_URL || '')) ||
         llm?.provider === 'ollama_free' ||
         llm?.provider === 'deepseek';

@@ -21,6 +21,7 @@ import { isAgentWorkflowPrompt } from './agent-workflow-kanban.js';
 import { healStuckKanbanForCompletedDelegations } from './kanban-workflow-stage.js';
 import { reconcileA2AKanbanForOwner } from './coo-status-checker.js';
 import { releaseDelegationRunLock } from './delegation-queue.js';
+import { isPlatformLocalOllama } from './platform-llm-settings.js';
 
 const ORPHAN_TAG_RE = /\[orphan_retry:(\d+)\]/i;
 const PIPELINE_TAG = '[job_pipeline';
@@ -77,9 +78,20 @@ function isCeoApprovalCard(task) {
 
 function isPermanentFailure(errorMessage) {
   const msg = String(errorMessage || '');
-  return /budget exceeded|budget-gate|agent not found|not entitled|private a2a|monthly token budget exhausted|Google Places not configured|Places not configured|recovery paused|Hard-stop: Google Places/i.test(
-    msg
-  );
+  if (
+    /budget exceeded|budget-gate|agent not found|not entitled|private a2a|monthly token budget exhausted|Google Places not configured|Places not configured|recovery paused|Hard-stop: Google Places/i.test(
+      msg
+    )
+  ) {
+    return true;
+  }
+  // Local CPU Ollama cannot serve a flood of specialty retries; 408/OOM would loop forever.
+  if (isPlatformLocalOllama()) {
+    return /408|upstream provider timeout|llama-server process|resource limitations|model runner has unexpectedly stopped|Request was aborted/i.test(
+      msg
+    );
+  }
+  return false;
 }
 
 function resolvePromptFromKanban(kanban, oldDelegation) {

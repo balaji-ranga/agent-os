@@ -150,6 +150,15 @@ export function getEffectivePlatformLlmEndpoints() {
   return { primary, secondary, active: 'primary' };
 }
 
+/** True when platform + OpenClaw primary is self-hosted Ollama (CPU box must not block UI on LLM titles). */
+export function isPlatformLocalOllama() {
+  return (
+    process.env.PLATFORM_USE_LOCAL_OLLAMA === '1' ||
+    process.env.PLATFORM_USE_LOCAL_OLLAMA === 'true' ||
+    String(process.env.OPENCLAW_MODEL_PRIMARY || '').toLowerCase().startsWith('ollama/')
+  );
+}
+
 function readOpenClawConfig() {
   const c = readOpenClawConfigSafe();
   if (!c.agents) c.agents = { defaults: { model: {} } };

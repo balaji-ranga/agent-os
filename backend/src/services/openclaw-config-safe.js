@@ -89,7 +89,19 @@ export function readOpenClawConfigSafe() {
 export function writeOpenClawConfigSafe(config) {
   const dir = getOpenClawDir();
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  const prev = readDiskConfig();
   const merged = preserveOpenClawCriticalSections(config);
+  const agents = merged?.agents;
+  const hasAgents = agents && typeof agents === 'object' && (agents.defaults || Array.isArray(agents.list));
+  if (!merged?.gateway || !hasAgents) {
+    console.error(
+      '[openclaw-config] refuse to write incomplete config (gateway=%s agents.defaults=%s list=%s)',
+      Boolean(merged?.gateway),
+      Boolean(agents?.defaults),
+      Array.isArray(agents?.list) ? agents.list.length : 'n/a'
+    );
+    return prev || merged;
+  }
   const path = getOpenClawConfigPath();
   writeFileSync(path, `${JSON.stringify(merged, null, 2)}\n`, 'utf8');
   return merged;

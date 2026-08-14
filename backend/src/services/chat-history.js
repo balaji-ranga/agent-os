@@ -5,6 +5,7 @@
 import { randomUUID } from 'crypto';
 import { getDb } from '../db/schema.js';
 import { chatCompletions } from '../config/llm.js';
+import { isPlatformLocalOllama } from './platform-llm-settings.js';
 import {
   ensureChatSessionMetaTable,
   getChatThreadId,
@@ -332,6 +333,9 @@ async function generateSessionTitleAndSummary(turns, ownerUserId) {
     .join('\n');
   if (!sample.trim()) {
     return { title: fallbackTitle(new Date().toISOString()), summary: '' };
+  }
+  if (isPlatformLocalOllama()) {
+    return { title: heuristic || fallbackTitle(new Date().toISOString()), summary: '' };
   }
   try {
     const { content } = await chatCompletions({
