@@ -578,6 +578,14 @@ if (primaryIsOllama && !config.agents.defaults.compaction) {
   config.agents.defaults.compaction = { mode: 'safeguard' };
   console.log('Set agents.defaults.compaction.mode=safeguard for local Ollama primary');
 }
+if (primaryIsOllama) {
+  config.agents.defaults.maxConcurrent = 1;
+  if (!config.agents.defaults.subagents || typeof config.agents.defaults.subagents !== 'object') {
+    config.agents.defaults.subagents = {};
+  }
+  config.agents.defaults.subagents.maxConcurrent = 1;
+  console.log('Set agents.defaults.maxConcurrent=1 for local Ollama primary');
+}
 
 // Model fallbacks: OPENCLAW_MODEL_FALLBACKS (comma-separated) or optional Ollama toggle.
 // OPENCLAW_ENABLE_OLLAMA_FALLBACK=0 strips ollama/* even if listed in OPENCLAW_MODEL_FALLBACKS

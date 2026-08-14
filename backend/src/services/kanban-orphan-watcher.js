@@ -467,6 +467,10 @@ export function cancelDelegationsForDeletedKanban(taskIds = []) {
 
 /** One watcher pass for a CEO (or all when ownerUserId omitted). */
 export async function runKanbanOrphanWatcher({ ownerUserId = null, limit = 25 } = {}) {
+  if (isPlatformLocalOllama()) {
+    console.info('[orphan-watcher] skip reinitiate on local Ollama (CPU cannot fan-out specialty retries)');
+    return { skipped: true, reason: 'local_ollama', owner_user_id: String(ownerUserId || '').trim() || null };
+  }
   const owner = String(ownerUserId || '').trim() || null;
   const stale = recoverStaleSpecialtyProcessingDelegations({ ownerUserId: owner, limit });
   let statusOnly = { requeued: 0 };

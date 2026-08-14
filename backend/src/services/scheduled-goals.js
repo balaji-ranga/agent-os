@@ -691,6 +691,16 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
 
 export async function tickScheduledGoals(now = new Date()) {
   try {
+    const { isPlatformLocalOllama } = await import('./platform-llm-settings.js');
+    const { hasAnyActiveDashboardChat } = await import('./tool-owner-scope.js');
+    if (isPlatformLocalOllama() && hasAnyActiveDashboardChat()) {
+      console.info('[scheduled-goals] skip tick: dashboard chat owns local Ollama');
+      return { count: 0, results: [], launched: [], skipped: 'local_ollama_dashboard_chat' };
+    }
+  } catch (e) {
+    console.warn('[scheduled-goals] local-ollama chat gate:', e?.message || e);
+  }
+  try {
     reconcileStuckScheduledGoalRuns(now);
   } catch (e) {
     console.warn('[scheduled-goals] reconcile stuck:', e?.message || e);

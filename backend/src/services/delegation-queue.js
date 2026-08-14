@@ -7,6 +7,8 @@ import { readFile, appendFile } from 'fs/promises';
 import { join } from 'path';
 import { getDb } from '../db/schema.js';
 import * as openclaw from '../gateway/openclaw.js';
+import { isPlatformLocalOllama } from './platform-llm-settings.js';
+import { hasAnyActiveDashboardChat } from './tool-owner-scope.js';
 import { extractOwnerUserIdFromText } from './agent-chat-scope.js';
 import { insertChatTurn } from './chat-history.js';
 import { cronAddOneShotWebhook } from '../gateway/openclaw-cron.js';
@@ -905,7 +907,21 @@ export async function processPendingDelegationTasksForCeo(ceoUserId, opts = {}) 
        ORDER BY created_at LIMIT 20`
     )
     .all('pending', ceoUserId, ceoUserId);
-  const pending = filterPipelineDelegationsForProcessing(allPending);
+  let pending = filterPipelineDelegationsForProcessing(allPending);
+  if (isPlatformLocalOllama()) {
+    if (hasAnyActiveDashboardChat()) {
+      console.info('[delegation] skip ceo=%s: dashboard chat owns local Ollama', ceoUserId);
+      return 0;
+    }
+    if (pending.length > 1) {
+      console.info(
+        '[delegation] local Ollama: running 1 of %s pending for ceo=%s',
+        pending.length,
+        ceoUserId
+      );
+      pending = pending.slice(0, 1);
+    }
+  }
   const now = new Date().toISOString();
 
   async function runOne(task) {
@@ -1137,7 +1153,11 @@ export async function processPendingDelegationTasksForCeo(ceoUserId, opts = {}) 
     }
   }
 
-  await Promise.allSettled(pending.map((task) => runOne(task)));
+  if (isPlatformLocalOllama()) {
+    for (const task of pending) await runOne(task);
+  } else {
+    await Promise.allSettled(pending.map((task) => runOne(task)));
+  }
 
   // Only scan request_ids that belong to this CEO so callbacks don't mix across tenants
   const requestIds = db()
@@ -1150,6 +1170,7 @@ export async function processPendingDelegationTasksForCeo(ceoUserId, opts = {}) 
   for (const requestId of requestIds) {
     postCallbackForRequestId(requestId);
   }
+  return pending.length;
 }
 
 /**
@@ -1160,6 +1181,20 @@ export async function processPendingDelegationTasksForAllCeos() {
   const ceos = db()
     .prepare(`SELECT id FROM platform_users WHERE role = 'ceo' AND enabled = 1`)
     .all();
+  if (isPlatformLocalOllama()) {
+    if (hasAnyActiveDashboardChat()) {
+      console.info('[delegation] skip all-CEO tick: dashboard chat owns local Ollama');
+      return;
+    }
+    for (const { id } of ceos) {
+      const n = await processPendingDelegationTasksForCeo(id);
+      if (n > 0) {
+        console.info('[delegation] local Ollama: stopped after ceo=%s processed=%s', id, n);
+        return;
+      }
+    }
+    return;
+  }
   // Also handle orphaned tasks (owner_user_id NULL, not matched to any CEO above)
   const results = await Promise.allSettled(
     ceos.map(({ id }) => processPendingDelegationTasksForCeo(id))

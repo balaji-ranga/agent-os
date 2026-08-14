@@ -44,6 +44,19 @@ export function lookupActiveDashboardChat(agentId, ownerUserId) {
   return row;
 }
 
+/** True when any Dashboard agent chat is waiting on OpenClaw (local CPU Ollama must not fan out). */
+export function hasAnyActiveDashboardChat() {
+  const now = Date.now();
+  for (const [key, row] of activeDashboardChat) {
+    if (!row || row.expiresAt <= now) {
+      activeDashboardChat.delete(key);
+      continue;
+    }
+    return true;
+  }
+  return false;
+}
+
 function pruneSessionOwners() {
   const now = Date.now();
   for (const [key, row] of sessionOwnerRegistry) {

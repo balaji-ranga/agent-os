@@ -21,7 +21,7 @@ Never pulls `*:cloud` / `*-cloud` tags.
 
 **Context window:** OpenClaw precheck subtracts a **20k thinking reserve** from the catalog window, so `OLLAMA_CONTEXT_WINDOW=65536`. **Ollama runtime KV** is separate: `OLLAMA_NUM_CTX=32768` (and `OLLAMA_CONTEXT_LENGTH`). 8B at 65k allocated **9.2 GiB KV** on this VPS and was SIGKILL’d → OpenClaw **408 upstream provider timeout**. CPU hosts use `llama3.2`. OpenClaw Ollama provider uses native `/api/chat` (not `/v1`) with `timeoutSeconds` from `OPENCLAW_OLLAMA_CHAT_TIMEOUT_MS` (600s on CPU hosts), `params.thinking=false`, `keep_alive=30m`.
 
-**Dashboard UX on local Ollama:** **New chat** titles the archive from the first user message (no extra LLM call — that used to hang **Archiving…** forever). Kanban orphan watcher does **not** re-queue 408 / llama-server / timeout failures (those floods starved COO **hi**). Greetings skip tool-bootstrap instructions. First **hi** can still take a few minutes of CPU prefill; it should complete, not 408.
+**Dashboard UX on local Ollama:** **New chat** titles the archive from the first user message (no extra LLM call — that used to hang **Archiving…** forever). Background specialty retries are skipped, and OpenClaw `maxConcurrent` is **1**, so Kanban floods cannot starve COO **hi**. Greetings skip tool-bootstrap instructions. First **hi** can still take a few minutes of CPU prefill; it should complete, not 408.
 
 ## Enable on a host
 
