@@ -1021,7 +1021,9 @@ export async function processPendingDelegationTasksForCeo(ceoUserId, opts = {}) 
         [{ role: 'user', content: promptWithMemory }],
         sessionUser,
         false,
-        isDiscovery ? { timeoutMs: discoveryTimeout } : {}
+        isDiscovery
+          ? { timeoutMs: discoveryTimeout, injectLearningsInstruction: false, injectSessionHistoryInstruction: false }
+          : { injectLearningsInstruction: false, injectSessionHistoryInstruction: false }
       );
       meterOpenClawUsage(ownerForTenant, task.to_agent_id, {
         usage,

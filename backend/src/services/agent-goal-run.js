@@ -1205,7 +1205,7 @@ async function executeAgentContinueStep(goal, step) {
     sessionUser,
     false,
     {
-      injectLearningsInstruction: true,
+      injectLearningsInstruction: false,
       injectKanbanInstruction: true,
       // Do not tell the agent to pull unrelated chat/session history into this goal fire.
       injectSessionHistoryInstruction: false,
@@ -1488,7 +1488,7 @@ async function executeCompositionalToolViaAgent(goal, step, toolName) {
     sessionUser,
     false,
     {
-      injectLearningsInstruction: true,
+      injectLearningsInstruction: false,
       injectKanbanInstruction: true,
       injectSessionHistoryInstruction: false,
       timeoutMs: Number(process.env.GOAL_AGENT_CONTINUE_TIMEOUT_MS || process.env.OPENCLAW_FETCH_TIMEOUT_MS || 240000),
@@ -1681,6 +1681,7 @@ export async function nudgeCooOnGoalPlanTerminal(goalRunId, opts = {}) {
       false,
       {
         injectLearningsInstruction: false,
+        injectKanbanInstruction: false,
         injectSessionHistoryInstruction: false,
         timeoutMs,
       }

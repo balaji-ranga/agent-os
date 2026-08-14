@@ -91,7 +91,7 @@ export function buildKanbanChatStatusGuidance(taskId, status, { userText = '', t
         `   - YES (research brief body / full recipe+image markdown / factual answer / etc.) → call {"task_id": ${taskId}, "new_status": "completed"}\n` +
         `   - NO usable deliverable in the reply → call failed or awaiting_confirmation.\n` +
         `   Never reply with only a status sentence — include the work product in the same message.\n` +
-        `3. If summarize_url 404/403: try ≥3 other domains or browser — still complete if you delivered a substantive brief with gaps noted.\n` +
+        `3. If summarize_url 404/403: try one alternate URL or browse_task_start / granted browser — still complete if you delivered a substantive brief with gaps noted. Do not chain three extra summarize_url calls.\n` +
         `4. Optional side tools (master_data_*, email) failing must NOT cause failed if the main deliverable is done.\n` +
         `The platform will NOT auto-complete this card on a status-only reply.\n---`;
     }

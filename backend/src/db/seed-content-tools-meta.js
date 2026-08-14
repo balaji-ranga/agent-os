@@ -10,7 +10,7 @@ const BUILTIN_TOOLS = [
     display_name: 'Summarize URL',
     endpoint: '/api/tools/summarize-url',
     method: 'POST',
-    purpose: 'Fetch a web page (HTTPS) and return a short summary and title. Retired URLs (e.g. old nasa.gov/mission_pages) may auto-remap; on 404 returns hint + suggested_url — try that or browser. Never invent page content.',
+    purpose: 'Fetch an HTTPS page and return title + short summary. On 404 use suggested_url or one alternate URL / browse_task_start. Never invent page content.',
     model_used: 'gpt-4o-mini (optional, for summary)',
     enabled: 1,
     is_builtin: 1,
@@ -138,7 +138,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/agent-workflow-trigger',
     method: 'POST',
     purpose:
-      'API tool (COO or Workflow Builder): start a published custom agent workflow for the entitled CEO. Invoke with message containing the chat phrase OR workflow_id plus optional input. Optional goal_run_id + step_id bind this run to a multi-intent plan (agent_goal_*). Returns immediately with run_id (async:true). Prefer agent_goal_create for multi-phase goals so the platform advances steps after terminal. Do not poll. Owner from session only.',
+      'Start a published workflow. Params: message (chat phrase) or workflow_id, optional input, optional goal_run_id+step_id. Returns run_id async:true. Prefer agent_goal_create for multi-phase. Do not poll. Owner from session.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -149,7 +149,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/agent-goal-create',
     method: 'POST',
     purpose:
-      'API tool (COO, Workflow Builder, or an agent granted this tool): create a durable multi-intent goal plan for the entitled CEO and start executing it (async:true + new agr-… every call). Body: prompt (or message), optional title, optional steps[{type,label,spec}]. Platform auto-plans workflow phrases + specialty residual (COO-style) or the caller’s granted tools (specialty self-plan) when steps omitted. Returns plan_summary immediately — quote agr- id and end turn; do not reuse an older plan from chat/MEMORY for a new multiphase ask. workflow_trigger/specialty steps run async; on terminal the platform advances remaining steps (CEO notifies include goal plan id + title when bound). Prefer this for multi-phase goals instead of manual sequential agent_workflow_trigger.',
+      'Create+start a durable goal plan. Params: prompt (required, verbatim CEO ask), title?, steps[{type,label,spec}]?. Returns agr-… async:true — quote id, end turn. New agr- every call; do not reuse MEMORY plans.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -204,7 +204,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/agent-workflow-watch',
     method: 'POST',
     purpose:
-      'API tool (COO, Workflow Builder, or Content Orchestrator): register notify-on-terminal and notify-on-CEO-wait for an existing agent workflow run. Body: run_id (required). Usually unnecessary after agent_workflow_trigger (auto-registers). Agent chat wake respects Knowledge table agent_workflow_notify_prefs (no rows for agent = all workflows; rows = allowlist of workflow_id patterns). CEO bell is always sent. Owner from session only.',
+      'Register notify-on-terminal / CEO-wait for run_id. Usually unnecessary after agent_workflow_trigger. CEO bell always sent. Owner from session.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -436,7 +436,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/notify-ceo',
     method: 'POST',
     purpose:
-      'Send an in-app push to the entitled CEO ONLY when they asked you to reach/notify/ping them, or for a true blocker/approval while they are NOT already in your Dashboard chat. Do NOT call this for ordinary chat replies, task acknowledgements, or research/content answers — reply in chat instead. Never pass user_id. Parameters: title (required), body?, link_url? (prefer /agents/<your-id>/chat), source_key?.',
+      'Bell the CEO. Params: title (required), body?, link_url? (prefer /agents/<your-id>/chat). Only if they asked to be reached or a true blocker. Never for ordinary chat replies. No user_id.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -483,10 +483,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/this-week-digest',
     method: 'POST',
     purpose:
-      'API tool (COO): load owner-scoped This Week Digest KPIs with methodology. Use when the CEO asks about Digest Time Saved, Est. Value Delivered, $/dollar value, weekly digest numbers, or "how is X calculated on Digest". ' +
-      'Returns week window, KPIs (ai workers, tasks completed, time saved hours, est. value USD), formulas, and estimates.explain bullets. ' +
-      'Parameters: offset_weeks? (0=current week, -1=previous). Owner from session only. ' +
-      'CRITICAL: Time Saved = minutes_per_task x completed / 60; Value = sum of (hours_unit x each AI employee hourly_rate_usd, hire default 10; workflows/unassigned use THIS_WEEK_VALUE_USD_PER_HOUR default 10) — NOT CRM revenue, NOT status_checker, NOT task value tags. Explain using methodology; do not invent or deflect to Platform Help.',
+      'COO: This Week Digest KPIs (Time Saved, Est. Value). Optional offset_weeks (0=current, -1=previous). Use returned methodology; not CRM revenue or status_checker counts.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -497,11 +494,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/operational-effectiveness',
     method: 'POST',
     purpose:
-      'API tool (COO): owner-scoped Operational Effectiveness Index (OEI) for the CEO Home score. ' +
-      'Use when the CEO asks how effective the AI company is, why the ops score is Green/Amber/Red, or how to improve effectiveness. ' +
-      'Returns overall score 0–100 (Green≥75, Amber 50–74, Red 0–49), 14-day window, equal-weight domains (vision, org, goals, workflows, autonomy, CRM, governance), KPI facts, top improve actions with hrefs, and methodology. ' +
-      'CRM credit if platform CRM is bound for this CEO OR an MCA/OpenConnector CRM-class app is connected. ' +
-      'No parameters; never invent BYOK keys; owner from session only. Do not confuse with this_week_digest Time Saved / Est. Value.',
+      'COO: Home OEI score 0–100 (Green≥75 / Amber / Red), domain scores, top actions. No params. Not Digest Time Saved dollars.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -512,7 +505,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/status-checker',
     method: 'POST',
     purpose:
-      'API tool (COO only): reconcile A2A/Kanban task status and post a task-count digest to the CEO standup chat (returns HTML). Counts only (awaiting/failed/open/done) — does NOT compute Time Saved or Est. Value dollars. For Digest $ / hours use this_week_digest. Does NOT email — the daily platform batch cron sends the HTML email. Optional: post_standup (default true). Do not invent task outcomes — Kanban is source of truth.',
+      'COO only: Kanban/A2A task-count digest (HTML) to standup. Counts only — not Digest dollars (use this_week_digest). Optional post_standup (default true). Does not email.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -523,11 +516,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/scheduled-goal-create',
     method: 'POST',
     purpose:
-      'API tool (COO): create a recurring CEO prompt that auto-fires to an AI employee. ' +
-      'Use when the CEO says every hour / every day / weekdays / weekly / schedule / always do X. ' +
-      'Parameters: prompt (required — exact CEO instructions), title?, agent_id? (default coo/balserve), ' +
-      'cadence (hourly|daily|weekdays|weekly), time_local (HH:MM; for hourly only :MM is used, default 00:00; else default 09:00), weekday? (0=Sun..6=Sat for weekly), ' +
-      'ends_at? (YYYY-MM-DD or "perpetual"). Owner is session-scoped. Confirm to CEO in plain language.',
+      'COO: create a recurring CEO prompt. Params: prompt (required), title?, agent_id?, cadence (hourly|daily|weekdays|weekly), time_local (HH:MM), weekday? (0=Sun..6=Sat), ends_at?. Confirm in plain language.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -1006,6 +995,8 @@ export function updateKanbanToolPurposes() {
   for (const t of KANBAN_TOOLS) {
     update.run(t.purpose, t.name);
   }
+  const extra = BUILTIN_TOOLS.filter((t) => t.name === 'summarize_url');
+  for (const t of extra) update.run(t.purpose, t.name);
 }
 
 /** Add learnings_summary tool if missing (for existing DBs). */

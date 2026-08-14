@@ -1,6 +1,6 @@
 /**
- * Regression: Dashboard / org sync must refresh only the live roster sections in COO AGENTS.md.
- * Role, Priorities, Tools, Guardrails, and custom ## sections the CEO edited by hand must survive.
+ * Refresh live-org roster plus lean Priorities/Tools defaults (AGENT-OS-OPS pointers).
+ * Preserves Role, Guardrails, and custom ## sections the CEO edited by hand.
  *
  * Usage: node backend/scripts/test-coo-agents-md-merge.js
  */
@@ -100,6 +100,7 @@ check('merge keeps custom ## section', after.includes('Keep the Friday ops check
 check('merge refreshes agent roster with new agent', after.includes('socialasstant'));
 check('merge still lists leaf member', after.includes('ext:ops-echo'));
 check('merge still has session keys section', after.includes('## Session keys (sessions_send — required)'));
+check('merge refreshes Tools to point at AGENT-OS-OPS', after.includes('AGENT-OS-OPS.md'));
 
 const withoutLeaves = mergeCooAgentsMd(after, fakeCtx({ leaf_members: [] }));
 check(

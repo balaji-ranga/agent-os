@@ -6,7 +6,6 @@
  */
 import { getDb } from '../db/schema.js';
 import { getUserById } from './users.js';
-import { requeueStuckStatusOnlyKanbanCards, rependInfraFailedStatusOnlyRetries } from './delegation-status-only-retry.js';
 import { getOrCreateDelegationHubStandup } from './standup-hub.js';
 import { executeEmailSend } from './email-send.js';
 
@@ -585,26 +584,10 @@ export async function runCooStatusChecker(ownerUserId, { email = false, postStan
     throw err;
   }
 
-  // Auto-retry specialty cards stuck after status-only chatter / orphaned runs.
-  let statusOnlyRetry = null;
-  try {
-    const { runKanbanOrphanWatcher } = await import('./kanban-orphan-watcher.js');
-    statusOnlyRetry = await runKanbanOrphanWatcher({ ownerUserId: owner, limit: 15 });
-  } catch (e) {
-    console.warn('[status-checker] orphan watcher:', e?.message || e);
-    try {
-      statusOnlyRetry = requeueStuckStatusOnlyKanbanCards({ ownerUserId: owner, limit: 15 });
-      const recovered = rependInfraFailedStatusOnlyRetries({ ownerUserId: owner, limit: 15 });
-      if (recovered?.repended) {
-        statusOnlyRetry = {
-          ...(statusOnlyRetry || {}),
-          repended: recovered.repended,
-        };
-      }
-    } catch (e2) {
-      console.warn('[status-checker] status-only requeue:', e2?.message || e2);
-    }
-  }
+  // Orphan / status-only healing runs on kanban_orphan_watcher (*/5) and the
+  // delegation-queue tick — do not re-run it here (avoids a second OpenClaw fan-out
+  // when the CEO clicks Run status checker or the daily digest fires).
+  const statusOnlyRetry = null;
 
   const digest = buildStatusDigest(owner, { reconcile: true });
   const markdown = formatDigestMarkdown(digest);
@@ -635,7 +618,7 @@ export async function runCooStatusChecker(ownerUserId, { email = false, postStan
   console.log(
     `[status-checker] owner=${owner} standup=${standupId} awaiting=${digest.counts.awaiting_ceo} email=${
       email ? (emailResult?.sent ? 'sent' : emailResult?.error || 'skipped/failed') : 'disabled'
-    } status_only_requeued=${statusOnlyRetry?.requeued || 0}`
+    } status_only_requeued=0 (orphan watcher is a separate cron)`
   );
   return { digest, markdown, html, standup_id: standupId, email: emailResult, status_only_retry: statusOnlyRetry };
 }

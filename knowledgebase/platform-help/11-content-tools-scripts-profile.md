@@ -63,10 +63,10 @@ Empty both maxes and **Save** clears the limit (unlimited again). Owner-scoped A
 
 ### Shared specialist ops (AGENT-OS-OPS)
 
-All specialists share platform rules in workspace **`AGENT-OS-OPS.md`** (also summarized in TOOLS.md). Expect agents to:
+All specialists share platform rules in workspace **`AGENT-OS-OPS.md`** (canonical — SOUL / TOOLS / AGENTS point here instead of repeating the essays). Expect agents to:
 
-1. **`learnings_summary`** once at the start of non-trivial work and apply past CEO likes/rejects — skip for one-word greets. **Chat thumbs-down comments are required** and treated as hard rules (including browser recipe vs autonomous mistakes). **Feedback lookback window = 30 days by default** (the `days` parameter; valid range 1–365). This 30-day window is what decides *how far back feedback is read* — do **not** confuse it with the 7-day cache rebuild cadence below (`LEARNINGS_FULL_REBUILD_DAYS`), which only controls how often the cached summary is fully regenerated.
-2. **Own Kanban status** — `completed` only after a real deliverable; do not mark `failed` just because an optional Master Data insert/notify/email step failed.
+1. **`learnings_summary`** once at the start of non-trivial **Dashboard** work and apply past CEO likes/rejects — skip for one-word greets. Scheduled goals, delegation, and workflow wakes do **not** force this tool (OPS still applies). **Chat thumbs-down comments are required** and treated as hard rules (including browser recipe vs autonomous mistakes). **Feedback lookback window = 30 days by default** (the `days` parameter; valid range 1–365). This 30-day window is what decides *how far back feedback is read* — do **not** confuse it with the 7-day cache rebuild cadence below (`LEARNINGS_FULL_REBUILD_DAYS`), which only controls how often the cached summary is fully regenerated.
+2. **Own Kanban status** — `completed` only after a real deliverable; do not mark `failed` just because an optional Master Data insert/notify/email step failed. If `summarize_url` 404s, try **one** alternate URL or Browser Session — do not chain three extra URL summaries.
 3. **`master_data_list_tables` before insert** — never invent table names.
 4. **`master_data_rag` without `summarize`** — for the **agent tool**, `summarize` defaults to `false`, so agents get raw excerpts in `chunks[]` and write the answer themselves (no extra LLM cost). They only pass `summarize: true` when excerpts are too long or scattered to answer directly. (The Master Data UI RAG box and the workflow **Master Data** node default to `summarize: true` — different path, different default.)
 5. **`notify_ceo`** only when you asked to be reached / for true blockers / specialist “contact me” handoffs — not for ordinary live chat replies.
@@ -182,6 +182,6 @@ Name, email, region, mobile, password, MFA, **model provider + chat model**, and
 | Workspace MD | SOUL / AGENTS / TOOLS / MEMORY / ORG / **AGENT-OS-OPS** always in agent context |
 | Master Data RAG | Uploaded docs (including Platform Help) via `master_data_rag` |
 | Skills | Shared AgentSystem skills (content-tools, agent-send) |
-| Learnings | `learnings_summary` over past CEO feedback / Kanban decisions (required before non-trivial specialist work) |
+| Learnings | `learnings_summary` over past CEO feedback / Kanban decisions (forced on Dashboard chat; optional on cron/delegation — OPS still applies) |
 
 Platform Help agent: short workspace instructions + RAG over these help documents (recommended). Do not dump the full help tree into SOUL.

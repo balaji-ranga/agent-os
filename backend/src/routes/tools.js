@@ -739,7 +739,7 @@ router.post('/summarize-url', async (req, res) => {
         error: lastStatus ? `Upstream returned ${lastStatus}` : fetchErr || 'Failed to fetch URL',
         tried_urls: tried,
         hint:
-          'This URL may be retired or blocked. Try ≥3 other live domains (en.wikipedia.org, bbc.com, reuters.com, relevant *.gov.in), follow suggested_url if present, or use browser with profile="openclaw". Do not invent page content. Still deliver a brief with gaps noted if some sources work.',
+          'This URL may be retired or blocked. Follow suggested_url if present, try one alternate live URL, or use browse_task_start / browser profile="openclaw". Do not invent page content. Still deliver a brief with gaps noted.',
         suggested_url: remapped || undefined,
       };
       logTool(req, 'summarize_url', requestPayload, err, 'error', source);

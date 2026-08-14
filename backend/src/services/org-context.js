@@ -329,23 +329,20 @@ function defaultCooAgentsUserSections(ctx) {
       lines: [
         '1. Run standups → aggregate updates → produce CEO digest.',
         '2. Escalate blockers to the CEO.',
-        '3. **Specialty-first:** Hand research / market insights (e.g. Mag7), content, finance, CRM/ERP specialty work to the **best-matching agent in the table above** — even if you have tools that could answer. You coordinate; specialists deliver.',
-        '4. Never hand off only a meta follow-up (“why not MarketResearcher?”) — always include the **original CEO request** + constraints in the intent/Kanban/session message.',
+        '3. **Specialty-first / full-context handoffs:** Follow **AGENT-OS-OPS.md**. Hand matching specialty work to the org table — include the original CEO request, not only a meta follow-up.',
       ],
     },
     {
       heading: 'Tools (Agent OS)',
       lines: [
-        '- **learnings_summary**: Before non-trivial tasks, call with a short `topic` (optional `days`, default 30). 👎 comments about skipping specialty agents are hard rules.',
-        '- **intent_classify_and_delegate**: When the CEO asks for specialist work (recipe/content, **market/research**, expense, social, code) — **even one intent** — or multi-intent messages, call with a **full handoff string**: prior-thread original ask + current instruction (not the last meta line alone). Creates Kanban + delegation for the right agents in this org. Do not invent agent ids; do not do specialist work yourself. **Skip** when they say **don\'t/do not delegate** or only want to find/download/attach an existing file (use list_inbound / master_data tools).',
-        '- **agent_workflow_list** / **agent_workflow_trigger** / **agent_workflow_enquire** / **agent_workflow_runs** / **agent_workflow_watch** / **agent_workflow_watch_tick** / **agent_workflow_retry**: List/enquire/trigger published workflows, inspect runs, and retry. Trigger is **async** (returns run_id immediately; platform notifies on CEO-wait and terminal). Never use ibkr_order_learnings for workflow run status.',
-        '- **kanban_assign_task**, **kanban_move_status**, **kanban_reassign_to_coo**, **kanban_get_task**, **kanban_watch_tick**: Kanban assign/move/read. **kanban_get_task** returns full content (`deliverable`, `delegation_response`, messages, chat turns) — use it when the CEO asks what a completed task produced. For “notify me when task #N finishes” (WhatsApp), create a cron that calls **kanban_watch_tick** (timeout ≥180s; name includes `#N`); it returns `reply` (`NO_REPLY` or notify text) and auto-removes the cron when completed/failed.',
-        '- **speech_tts** / **speech_stt** / **analyze_image** / **list_inbound_attachments** / **master_data_index_document** / **master_data_rag** / **master_data_list_documents**: Free Piper TTS and Whisper STT when the CEO asks to speak or transcribe (optional-voice). WhatsApp/web media lands under `inbound/attachments/`. Find/download/re-attach files with **list_inbound_attachments** and paste `paste_in_chat` markdown in your reply. If you see “[whatsapp attachment unavailable]” (or Telegram equivalent) or any channel file: (1) **list_inbound_attachments**, (2) newest matching `relative_path`, (3) if `rag_indexable` → **master_data_index_document** then **master_data_rag**; if image → **analyze_image**; if audio/video → **speech_stt** / summarize. Do not stop at “unavailable” — bytes usually land in inbound within a few seconds.',
-        '- **notify_ceo**: ONLY when the CEO explicitly asked you to reach/notify/ping them, or for a true blocker while they are not in your chat. Prefer `link_url` = `/agents/<your-agent-id>/chat`. Never use notify_ceo for ordinary chat replies.',
-        '- **ceo_profile**: Call before answering questions about the CEO\'s name, email, mobile, region, or business. Prefer live profile over chat memory; if a field is empty, ask the CEO or say you fell back to chat memory.',
-        '- **status_checker**: Reconcile A2A/Kanban statuses and post a **task-status** digest to standup chat (returns HTML). Counts only (awaiting / failed / open / done). **Does not** compute Time Saved or dollar value. Email is sent only by the daily platform batch.',
-        '- **this_week_digest**: Load the CEO This Week Digest (nav Digest): KPIs including Time Saved and Est. Value Delivered, with methodology. Value = sum((min_per_task/60)*each AI employee hourly_rate_usd) for completed Kanban; workflows/unassigned use platform default USD/hr (env, default 10). Hire default rate is 10. Formula hours: completed count x minutes_per_task / 60. Not CRM revenue. Answer yourself — do not send the CEO to Platform Help for these numbers.',
-        '- **operational_effectiveness**: Load the CEO Home Operational Effectiveness Index (OEI): score 0–100 (Green≥75 / Amber 50–74 / Red 0–49), 14-day window, domain scores (vision, org, goals, workflows, autonomy, CRM platform-or-MCA, governance), and top improve actions. Use when the CEO asks how effective the company is or how to raise the ops score. Not Digest Time Saved dollars.',
+        '- Shared rules (learnings, Kanban, notify, inbound, wakes): **AGENT-OS-OPS.md** — do not restate them here.',
+        '- **intent_classify_and_delegate**: Specialist work (even one intent) → call with a **full handoff** (original CEO ask + constraints). Skip when they say do not delegate, or only want find/download/attach of an existing file.',
+        '- **agent_goal_create** / **agent_workflow_***: Multi-phase → `agent_goal_create` (verbatim prompt, new agr-…, quote id, end turn). Single workflow → enquire then trigger (`async:true`). Never treat a numeric `run_id` as a goal plan. Never use ibkr_order_learnings for workflow status.',
+        '- **kanban_*** / **kanban_get_task** / **kanban_watch_tick**: Assign/move/read. Watch-finish → cron calling **kanban_watch_tick** (see TOOLS.md).',
+        '- **notify_ceo** / **ceo_profile** / inbound RAG: follow **AGENT-OS-OPS.md**. Prefer `link_url` = `/agents/<your-agent-id>/chat`.',
+        '- **status_checker**: Task-count digest (HTML) to standup — not Digest dollars. Email only from the daily batch.',
+        '- **this_week_digest**: Time Saved / Est. Value. Answer yourself — do not send the CEO to Platform Help.',
+        '- **operational_effectiveness**: Home OEI score and improve actions. Not Digest dollars.',
       ],
     },
     {
@@ -427,11 +424,9 @@ export function buildCooAgentsMd(ctx) {
 }
 
 /**
- * Refresh only the live-org roster sections in an existing COO AGENTS.md.
- * Preserves Role, Priorities, Tools, Guardrails, and any custom ## sections.
- *
- * @param {string} existingText
- * @param {ReturnType<typeof buildOrgContextForCeo>} ctx
+ * Refresh live-org roster plus lean Priorities/Tools defaults.
+ * Preserves Role, Guardrails, reach-me, and any custom ## sections.
+ * Drops leftover Specialty-first / Handoff essays (canonical copy is AGENT-OS-OPS.md).
  */
 export function mergeCooAgentsMd(existingText, ctx) {
   const text = String(existingText || '').trim();
@@ -439,20 +434,42 @@ export function mergeCooAgentsMd(existingText, ctx) {
 
   const { preamble, sections } = parseMdSections(text);
   const managed = buildManagedCooAgentsSections(ctx);
-  const preserved = sections.filter((s) => !isManagedCooAgentsHeading(s.heading));
+  const defaults = defaultCooAgentsUserSections(ctx);
+  const priorities = defaults.find((s) => normalizeHeading(s.heading) === 'priorities');
+  const tools = defaults.find((s) => normalizeHeading(s.heading).startsWith('tools'));
+
+  function dropForLeanRefresh(heading) {
+    const n = normalizeHeading(heading);
+    return (
+      n === 'priorities' ||
+      n === 'tools (agent os)' ||
+      n === 'tools' ||
+      n.startsWith('specialty-first') ||
+      n.startsWith('handoff message') ||
+      n.includes('workflow-terminal')
+    );
+  }
+
+  const preserved = sections.filter(
+    (s) => !isManagedCooAgentsHeading(s.heading) && !dropForLeanRefresh(s.heading)
+  );
   const roleIdx = preserved.findIndex((s) => normalizeHeading(s.heading) === 'role');
 
   const ordered = [];
   if (roleIdx >= 0) {
     ordered.push(preserved[roleIdx]);
     ordered.push(...managed);
+    if (priorities) ordered.push(priorities);
+    if (tools) ordered.push(tools);
     for (let i = 0; i < preserved.length; i++) {
       if (i === roleIdx) continue;
       ordered.push(preserved[i]);
     }
   } else {
     ordered.push(...managed);
-    ordered.push(...preserved);
+    if (priorities) ordered.push(priorities);
+    if (tools) ordered.push(tools);
+    for (const s of preserved) ordered.push(s);
   }
 
   return assembleCooAgentsMd(rebuildCooAgentsPreamble(preamble), ordered);

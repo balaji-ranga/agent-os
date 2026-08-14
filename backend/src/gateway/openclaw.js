@@ -28,7 +28,7 @@ export const CHAT_INSTRUCTION_LEARNINGS =
 
 /** Agent owns Kanban status — complete only after real deliverable. */
 export const CHAT_INSTRUCTION_KANBAN =
-  'When you have a Kanban task_id: move to in_progress when you start; move to completed ONLY after you actually finished the deliverable (research written, recipe+image, etc.). If summarize_url 404/403: try ≥3 different reputable domains (e.g. wikipedia.org, bbc.com, reuters.com, *.gov.in) or browser profile=openclaw — then still deliver your best brief with citations/gaps noted. Use failed ONLY when you produced no usable deliverable. Optional side tools (master_data_*, email) must NOT cause failed if the main ask succeeded — skip inventing tables; call master_data_list_tables first if needed.';
+  'When you have a Kanban task_id: move to in_progress when you start; move to completed ONLY after you actually finished the deliverable (research written, recipe+image, etc.). If summarize_url 404/403: try one alternate URL or browse_task_start / granted browser — then still deliver your best brief with citations/gaps noted. Do not chain three extra summarize_url calls. Use failed ONLY when you produced no usable deliverable. Optional side tools (master_data_*, email) must NOT cause failed if the main ask succeeded — skip inventing tables; call master_data_list_tables first if needed.';
 
 function getGatewayUrl() {
   const base = process.env.OPENCLAW_GATEWAY_URL || `http://127.0.0.1:${DEFAULT_PORT}`;

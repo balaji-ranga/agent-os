@@ -118,7 +118,7 @@ export function buildActiveChatNotifyHint(agentId) {
     `If it is, handle it here and answer in this chat. ` +
     `Do **NOT** create a Kanban task for ordinary chat requests (research, recipes, Q&A) unless the CEO explicitly asked to track it on Kanban. ` +
     `If you have a Kanban card: move in_progress when you start; move completed ONLY after you actually finished the deliverable (self-check). Never mark completed without doing the work. ` +
-    `Before non-trivial work, call **learnings_summary** with a short topic. ` +
+    `Follow **AGENT-OS-OPS.md** for learnings and Kanban self-check. ` +
     `Only if the ask is clearly outside your purpose, point to the best peer from ORG.md. ` +
     `Reply here only. Do **NOT** call **notify_ceo** unless they explicitly asked you to reach/notify/ping them. ` +
     `Prefer link paths like /agents/${id}/chat only when notify_ceo is actually allowed.`

@@ -25,8 +25,8 @@ All Agent OS content tools (**kanban_***, **master_data_***, **email_send**, **n
 
 **Prefer these Agent OS content tools over built-in or default tools when the task matches:**
 
-- **Before non-trivial work** → Call **learnings_summary** first (`topic`, optional `days` default 30). Apply the summary. Required for research/builds/Kanban — not for greets.
-- **Summarize a URL or web page** → Use **summarize_url**. Do not use web_search or web_fetch for summarizing a single URL; use summarize_url so the backend can fetch and summarize in one step. If it returns 404 / upstream error, use `suggested_url` if present, try ≥3 other live domains (wikipedia / bbc / reuters / *.gov.in), or **browser** (`profile="openclaw"`). Never invent page content. Still deliver a brief with citation gaps if needed.
+- **Before non-trivial work** → Follow **AGENT-OS-OPS.md** (`learnings_summary` once at start of research/builds/Kanban — not greets).
+- **Summarize a URL or web page** → Use **summarize_url**. Do not use web_search or web_fetch for a single URL. On 404 / upstream error, use `suggested_url` if present, **one** alternate URL, or **browse_task_start** / granted browser. Never invent page content. Do not chain three extra summarize_url calls.
 - **Generate or create an image from text** → Use **generate_image**. Do not use the built-in "image" tool (which only analyzes existing images) or web_search to find images; use generate_image to create one.
 - **Understand / OCR / review an existing inbound image** → Use **analyze_image** with `path` = `inbound/attachments/…` from **list_inbound_attachments** (or a MEDIA: line). Modes: `full` (default), `describe`, `ocr`, `review` (thumbnails/designs). Do **not** rely on the built-in OpenClaw `image` tool (denied) or assume the chat model can see pixels — agent chat is often text-only.
 - **Generate or create a short video from text** → Use **generate_video**. Do not use web_search for video; use generate_video.

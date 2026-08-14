@@ -662,7 +662,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
     const { content } = await openclaw.chatCompletions(
       openclawId, [{ role: 'user', content: prompt }], sessionUser, false,
       {
-        injectLearningsInstruction: true,
+        injectLearningsInstruction: false,
         injectKanbanInstruction: true,
         injectSessionHistoryInstruction: false,
         timeoutMs: Number(process.env.SCHEDULED_GOAL_CHAT_TIMEOUT_MS || process.env.OPENCLAW_FETCH_TIMEOUT_MS || 240000),

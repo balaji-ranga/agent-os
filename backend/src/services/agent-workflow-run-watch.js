@@ -672,7 +672,7 @@ export async function wakeOrchestratorOnWorkflowTerminal(runId, opts = {}) {
       [{ role: 'user', content: prompt }],
       sessionUser,
       false,
-      { injectLearningsInstruction: true, injectKanbanInstruction: true }
+      { injectLearningsInstruction: false, injectKanbanInstruction: true, injectSessionHistoryInstruction: false }
     );
     const reply = String(content || '').trim() || '(no response)';
     try {

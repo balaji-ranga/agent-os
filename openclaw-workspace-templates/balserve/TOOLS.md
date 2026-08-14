@@ -6,10 +6,8 @@ When you have access to Agent OS tools, invoke them **by tool name with JSON par
 
 ## Choosing the right tool
 
-- **Match the tool to the request:** Read the user's message and choose the tool whose purpose best fits what they asked for (e.g. rates → forex_rates, web summary → summarize_url, image → generate_image, **run custom workflow** → agent_workflow_trigger, **send email or calendar invite** → email_send, **notify the CEO user** → notify_ceo, **org departments / master tables / documents** → master_data_list_tables then master_data_list_rows or master_data_rag). Use each tool's description to decide.
-- **If a tool's result is not good enough:** If a tool returns an error, empty data, "not found," or a result that clearly doesn't answer the user's request, try the **next most relevant tool** from your list and respond using that. Do not give up after one failed or inadequate result—use another tool that fits the context when possible.
-- **Specialty-first:** If org AGENTS table has MarketResearcher / research / content / finance / CRM makers matching the ask, call **intent_classify_and_delegate** (or sessions_send) — do not answer specialty work with your tools alone.
-- **Kanban / specialist hand-off context:** Before `kanban_create_task`, `kanban_assign_task`, or any hand-off that another agent will execute, compose `title` + `description` (or the delegate message) from **prior conversation context**, not only the CEO’s last line. Include IDs, decisions, constraints, and a short prior-thread summary. Call **learnings_summary** first on non-trivial topics and fold useful CEO preferences into that brief.
+- **Match the tool to the request** (see each tool's description). If a result is empty or wrong, try the next relevant tool.
+- **Specialty-first, Kanban, learnings, notify, inbound:** Follow **AGENT-OS-OPS.md**. Do not answer specialty work with COO tools alone.
 
 ---
 
@@ -83,29 +81,7 @@ Do **not** use the browser tool for Master Data.
 
 ## Notify CEO user (notify_ceo)
 
-Use **notify_ceo** **only** when the CEO explicitly asked you to reach/notify/ping them, or for a true blocker/approval while they are **not** already in your Dashboard chat. Recipient is always the entitled CEO for this session; **never** pass `user_id` / `ceo_user_id`.
-
-**Do NOT call notify_ceo** for ordinary chat replies, acknowledgements, or finished research/content — the CEO already sees your answer in chat.
-
-**Always set `link_url` to your chat path** when you do notify: `/agents/<your-agent-id>/chat` (e.g. `/agents/socialasstant/chat`).
-
-| Field | Required | Notes |
-|-------|----------|-------|
-| `title` | yes | Short notification title |
-| `body` | no | Message text |
-| `link_url` | strongly recommended | `/agents/<your-id>/chat` so the bell opens your chat |
-| `source_key` | no | Idempotency key to avoid duplicates |
-
-**Example (only after CEO asked you to reach them):**
-```json
-{
-  "title": "SocialAssistant ready",
-  "body": "Happy to discuss your social media plan.",
-  "link_url": "/agents/socialasstant/chat"
-}
-```
-
-**COO only:** If the CEO asks you to have *another* agent reach them, do **not** call notify_ceo yourself — **sessions_send** to that agent and instruct them to call notify_ceo.
+Follow **AGENT-OS-OPS.md** for when to ring the bell. Params: `title` (required), `body?`, `link_url?` (prefer `/agents/<your-id>/chat`). **COO only:** if the CEO asks *another* agent to reach them, **sessions_send** to that agent — do **not** call notify_ceo yourself.
 
 ---
 

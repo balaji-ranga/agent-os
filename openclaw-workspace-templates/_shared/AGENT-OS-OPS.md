@@ -1,6 +1,6 @@
 /**
- * Shared operating rules for all Agent OS specialists (copy into TOOLS.md / AGENTS.md).
- * Keep learnings + Kanban self-assessment consistent across agents.
+ * Canonical operating rules for all Agent OS specialists (one copy per workspace).
+ * SOUL.md / TOOLS.md / AGENTS.md should point here — do not paste these sections again.
  */
 
 # Agent OS — shared operating rules
@@ -27,7 +27,7 @@ The platform **rejects status-only completions**: if your reply is just “task 
 **Self-check before `completed` (all must be true):**
 1. You did the requested work (research written, factual answer given, recipe+image produced, etc.) — not just acknowledged the ask.
 2. You used tools when needed (`master_data_rag`, `summarize_url`, `browse_*` / `browser` if granted, `generate_image`, …) and incorporated results.
-3. If a tool 404'd / failed, you tried alternates (≥3 domains or **browse_task_start** / granted browser) and still produced a usable deliverable with gaps noted — **do not** mark completed with empty work.
+3. If a tool 404'd / failed, you tried **one** alternate URL **or** **browse_task_start** / granted browser and still produced a usable deliverable with gaps noted — **do not** mark completed with empty work. Do **not** chain three extra `summarize_url` calls by default.
 4. Your reply contains the deliverable (or a clear blocker), not only status chatter.
 
 **Use `failed` only when** you could not produce the main deliverable at all (no research brief, no recipe/image, etc.). Do **not** mark `failed` because an optional side step failed (e.g. `master_data_insert_row` into a non-existent table, notify, email). If the CEO got the recipe+image or research brief in chat, move to **`completed`**.
@@ -89,9 +89,8 @@ When the CEO asks for **workflow run status**, recent outcomes, failed runs, or 
 ## summarize_url failures
 
 If **summarize_url** returns 404 / 403 / upstream error:
-1. Prefer live pages: `en.wikipedia.org`, `bbc.com`, `reuters.com`, relevant `*.gov.in` (e.g. MeitY, NITI Aayog), major newspapers with current article URLs.
-2. Or use **browse_task_start** (Client Chrome / Browser Session) when granted; else **browser** (`profile="openclaw"`) on a search/results page if that tool is granted — then summarize a working article URL.
-3. Never invent page content. After retries, still deliver a concise brief and cite what worked vs what failed — then `completed` if the brief is substantive.
+1. Use `suggested_url` if the tool returned one, **or** try **one** clear alternate live URL, **or** **browse_task_start** (Browser Session) / granted **browser** (`profile="openclaw"`).
+2. Never invent page content. After that single fallback, still deliver a concise brief and cite what worked vs what failed — then `completed` if the brief is substantive. Do **not** run three extra `summarize_url` calls by default.
 
 ## Master Data
 
