@@ -136,7 +136,10 @@ export function getEnvLlmEndpoints() {
  */
 export function getEffectivePlatformLlmEndpoints() {
   const { primary, secondary } = getEnvLlmEndpoints();
-  const active = getPlatformLlmActiveEndpoint();
+  const forceLocal =
+    process.env.PLATFORM_USE_LOCAL_OLLAMA === '1' ||
+    process.env.PLATFORM_USE_LOCAL_OLLAMA === 'true';
+  const active = forceLocal ? 'primary' : getPlatformLlmActiveEndpoint();
   if (active === 'secondary' && secondary) {
     return {
       primary: { ...secondary, source: 'env_secondary_active' },
@@ -373,8 +376,13 @@ export function syncPlatformEndpointToOpenClaw() {
   const providerSync = applyPlatformOpenAiProvider(config, primary);
   writePlatformLlmRuntimeEnv(primary);
 
-  // Ensure ollama provider exists when active secondary is local
-  if (isLocalOllama(primary.baseUrl)) {
+  // Ensure ollama provider exists when platform primary is local Ollama
+  const localOllamaPrimary =
+    isLocalOllama(primary.baseUrl) ||
+    process.env.PLATFORM_USE_LOCAL_OLLAMA === '1' ||
+    process.env.PLATFORM_USE_LOCAL_OLLAMA === 'true' ||
+    String(process.env.OPENCLAW_MODEL_PRIMARY || '').toLowerCase().startsWith('ollama/');
+  if (localOllamaPrimary) {
     if (!config.models) config.models = {};
     if (!config.models.providers) config.models.providers = {};
     const modelId = String(primary.model || 'llama3.2').replace(/^[^/]+\//, '');

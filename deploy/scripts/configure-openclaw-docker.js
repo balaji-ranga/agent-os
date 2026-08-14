@@ -368,17 +368,17 @@ try {
 } catch {
   /* ignore */
 }
+const envPrimary = String(process.env.OPENCLAW_MODEL_PRIMARY || 'openai/gpt-4o-mini').trim();
+const forceLocalOllama =
+  process.env.PLATFORM_USE_LOCAL_OLLAMA === '1' ||
+  process.env.PLATFORM_USE_LOCAL_OLLAMA === 'true' ||
+  envPrimary.toLowerCase().startsWith('ollama/');
 const useSecondaryPlatform =
+  !forceLocalOllama &&
   platformActive === 'secondary' &&
   String(process.env.OPENAI_SECONDARY_API_KEY || '').trim() &&
   String(process.env.OPENAI_SECONDARY_MODEL || '').trim();
-
-const envPrimary = String(process.env.OPENCLAW_MODEL_PRIMARY || 'openai/gpt-4o-mini').trim();
-const useLocalOllamaPrimary =
-  !useSecondaryPlatform &&
-  (process.env.PLATFORM_USE_LOCAL_OLLAMA === '1' ||
-    process.env.PLATFORM_USE_LOCAL_OLLAMA === 'true' ||
-    envPrimary.toLowerCase().startsWith('ollama/'));
+const useLocalOllamaPrimary = forceLocalOllama;
 const openaiKey = useSecondaryPlatform
   ? String(process.env.OPENAI_SECONDARY_API_KEY || '').trim()
   : String(process.env.OPENAI_API_KEY || process.env.OPENAI_PRIMARY_API_KEY || '').trim();

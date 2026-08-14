@@ -43,6 +43,21 @@ export function preserveOpenClawCriticalSections(nextConfig) {
       c.agents = { ...c.agents, defaults: prev.agents.defaults };
       console.warn('[openclaw-config] restored agents.defaults from disk');
     }
+    const prevProviders = prev.models?.providers;
+    if (prevProviders && typeof prevProviders === 'object') {
+      if (!c.models || typeof c.models !== 'object') c.models = { ...(prev.models || {}), providers: {} };
+      if (!c.models.providers || typeof c.models.providers !== 'object') {
+        c.models.providers = { ...prevProviders };
+        console.warn('[openclaw-config] restored models.providers from disk');
+      } else {
+        for (const [k, v] of Object.entries(prevProviders)) {
+          if (c.models.providers[k] == null && v != null) {
+            c.models.providers[k] = v;
+            console.warn('[openclaw-config] restored missing models.providers.%s from disk', k);
+          }
+        }
+      }
+    }
   }
 
   if (c.gateway && typeof c.gateway === 'object') {

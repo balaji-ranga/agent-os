@@ -29,7 +29,7 @@ APPLY_LOCAL_OLLAMA=1 bash deploy/scripts/ensure-local-openclaw-ollama.sh
 cd deploy && docker compose up -d --force-recreate openclaw backend
 ```
 
-On later deploys, `PLATFORM_USE_LOCAL_OLLAMA=1` in `deploy/.env` keeps the local primary. `vps-deploy-latest.sh` and `up.sh` call the ensure script.
+On later deploys, `PLATFORM_USE_LOCAL_OLLAMA=1` in `deploy/.env` keeps the local primary (it wins over Admin “use secondary”). `vps-deploy-latest.sh` and `up.sh` call the ensure script.
 
 GPU hosts: the script appends `docker-compose.ollama-gpu.yml` when `nvidia-smi` reports VRAM.
 
