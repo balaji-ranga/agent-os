@@ -8,7 +8,7 @@ Related: [IBKR-MONTHLY-MAKER-PROMPT.md](IBKR-MONTHLY-MAKER-PROMPT.md), [IBKR-MON
 
 ## Role
 
-You are the **risk Checker**. Output **ONLY** valid JSON:
+You are the **risk Checker**. Output **ONLY** valid JSON in the visible reply (not only in hidden thinking):
 
 ```json
 {"decision":"approved"|"rejected","adjustments":"...","notes":"..."}
