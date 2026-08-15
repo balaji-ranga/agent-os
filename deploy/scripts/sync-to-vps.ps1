@@ -355,6 +355,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\publish-balaji-demo-blueprint.js" `
     "$Repo\backend\scripts\patch-demo-blueprint-ibkr-quote-band.js" `
     "$Repo\backend\scripts\publish-brightbox-and-regenerate-standard.js" `
+    "$Repo\backend\scripts\export-workspace-templates-from-owner.js" `
     "$Repo\backend\scripts\seed-content-publish-social-workflow.js" `
     "$Repo\backend\scripts\seed-content-comments-ingest.js" `
     "$Repo\backend\scripts\seed-video-content-workflows.js" `
