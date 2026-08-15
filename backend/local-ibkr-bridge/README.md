@@ -1,12 +1,12 @@
 # Local IBKR Bridge
 
-Slim Node (ESM) HTTP service on the **laptop** that talks to IB Gateway / TWS and exposes a loopback JSON API for desktop workflow W2. Fill / equity / account / EOD events are pushed to a VPS workflow webhook.
+Slim Node (ESM) HTTP service on the **laptop** that talks to IB Gateway / TWS and exposes a loopback JSON API for desktop workflow W2. It **polls** Gateway (default every 5 minutes) and POSTs snapshots/fills to the VPS **ingest** URL. The W3 workflow runs on **EOD** by default (then starts W1) — not on every tick.
 
 Related: [IBKR-MONTHLY-TRADING-PLAN.md](../../knowledgebase/IBKR-MONTHLY-TRADING-PLAN.md), [IBKR-LOCAL-BRIDGE.md](../../knowledgebase/IBKR-LOCAL-BRIDGE.md), CEO help: [platform-help/20-ibkr-monthly-trading.md](../../knowledgebase/platform-help/20-ibkr-monthly-trading.md).
 
 ## Who owns the data?
 
-Snapshots and events you push land under the **CEO owner of the W3 webhook workflow** (your Flolah login). They are **not merged with other users**. Cloud tables (`trading_day_plans`, `ibkr_account_snapshot_cache`, fills, equity marks, …) all key by `owner_user_id` for that CEO.
+Snapshots and events you push land under the **CEO owner of the W3 webhook workflow** (your Flolah login — the ingest URL authenticates with that workflow’s hook secret). They are **not merged with other users**. Cloud tables (`trading_day_plans`, `ibkr_account_snapshot_cache`, fills, equity marks, …) all key by `owner_user_id` for that CEO.
 
 ## Workflows that use this bridge
 
@@ -14,7 +14,7 @@ Snapshots and events you push land under the **CEO owner of the W3 webhook workf
 |---|------|---------|
 | **W1** Post-Close Review & Plan | Plan next session using latest book + learnings | Day plan for W2 |
 | **W2** Execute | At open, run approved plan through **this bridge** | Orders at Gateway + execution report |
-| **W3** IBKR Events | Ingest webhooks from **this bridge** | Cache, fills, EOD → W1 |
+| **W3** IBKR Events | EOD graph (journal / notify / start W1). Ingest URL uses this workflow’s **hook secret** | Cache already from ingest; EOD → W1 |
 | **W4** | Not used | — |
 | **W5** Weekly Review | Journal / email only (no bridge orders) | Weekly digest |
 
@@ -38,7 +38,7 @@ npm install
 1. Copy `.env.example` → `.env`.
 2. Set `LOCAL_BRIDGE_TOKEN` to a long random secret.
 3. Prefer keeping `IBKR_*` in `backend/.env` (this package loads `../.env` then `./.env`).
-4. Set `WEBHOOK_URL` + `WEBHOOK_SECRET` to the VPS W3 workflow hook when ready.
+4. Keep `WEBHOOK_URL` as `https://<your-host>/api/ibkr-trading/local-bridge-webhook` (Connectors zip prefills this). Set `WEBHOOK_SECRET` to **your W3** event-hook secret. Do **not** point at `/api/agent-workflows/hooks/monthly-trading-w3-events` unless you want every 5‑minute tick to start a W3 run.
 
 **Security**
 
@@ -96,7 +96,15 @@ curl -s -X POST -H "Authorization: Bearer $LOCAL_BRIDGE_TOKEN" -H "Content-Type:
 
 ## Webhook events
 
-POST to `WEBHOOK_URL` with header `x-workflow-hook-secret: WEBHOOK_SECRET`:
+Default `WEBHOOK_URL` is **`/api/ibkr-trading/local-bridge-webhook`** (not the W3 workflow hook). POST with header `x-workflow-hook-secret: WEBHOOK_SECRET` (same secret as W3). The ingest API:
+
+| Event | Persists book / order events | Starts **W3 workflow** |
+|-------|------------------------------|------------------------|
+| `account_snapshot` / `equity_mark` | yes | no |
+| `fill` / `reject` / `cancel` / `order_status` | yes | no (unless `fanout_w3=1`) |
+| `eod_snapshot` | yes | **yes** → W3 starts W1 |
+
+There is **no** standing IBKR fill subscription; the bridge reads Gateway on `EQUITY_MARK_INTERVAL_SEC` (default **300**) and around W2 / place / `/push-*`.
 
 ```json
 {
@@ -107,7 +115,7 @@ POST to `WEBHOOK_URL` with header `x-workflow-hook-secret: WEBHOOK_SECRET`:
 }
 ```
 
-**Session book for VPS (W1):** After any successful Gateway snapshot (equity timer, EOD, local `/account-snapshot`, or end of `/execute-day-plan` regardless of order success), the bridge emits **`account_snapshot`**. W3 ingests into VPS cache; W1 reads `GET /api/ibkr-trading/account-snapshot/latest`.
+**Session book for VPS (W1):** After any successful Gateway snapshot (equity timer, EOD, local `/account-snapshot`, or end of `/execute-day-plan` regardless of order success), the bridge emits **`account_snapshot`**. The ingest API writes VPS cache; W1 reads `GET /api/ibkr-trading/account-snapshot/latest`.
 
 Failed deliveries go to an in-memory queue and optional `data/webhook-retry.json` with exponential backoff. Logs are redacted (no secrets).
 
