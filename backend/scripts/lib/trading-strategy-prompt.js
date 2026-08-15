@@ -62,6 +62,7 @@ W2 places a native stock bracket only when every new_entry has qty >= 1, entry_p
 
 ## Discipline
 - No news/emotion/revenge trading. Journal every trade. Honor regime, guardrail, screener, fundamentals, snapshot, and journal inputs.
+- When market_regime is risk_on, guardrail is not halt_new, cash is available, and SCREENER has candidates, you MUST emit at least one bookable new_entry sized to the spendable cap. Empty actions[] is not allowed in that case.
 
 ## EXECUTION RECOVERY / LAPTOP<->VPS SYNC
 Rules you MUST follow each W1 (post-close) run:

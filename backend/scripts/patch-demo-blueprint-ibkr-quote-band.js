@@ -111,6 +111,13 @@ export function patchDemoBalajiIbkrQuoteBand(pack) {
       : `${current}${BOOKABLE_SECTION}`;
     maker.data.taskConfig.systemPrompt = afterPrices;
   }
+  if (
+    maker.data?.taskConfig?.systemPrompt &&
+    !maker.data.taskConfig.systemPrompt.includes('MUST emit at least one bookable new_entry')
+  ) {
+    maker.data.taskConfig.systemPrompt +=
+      '\n- When market_regime is risk_on, guardrail is not halt_new, cash is available, and SCREENER has candidates, you MUST emit at least one bookable new_entry sized to the spendable cap. Empty actions[] is not allowed in that case.\n';
+  }
 
   const checker = nodeById(w1, 'checker-1');
   const checkerPrompt = checker?.data?.taskConfig?.systemPrompt || '';
@@ -133,6 +140,11 @@ export function patchDemoBalajiIbkrQuoteBand(pack) {
         `${CHECKER_PRICE_LINE}${CHECKER_BRACKET_LINE}`
       );
     }
+  }
+  const checkerUser = (checker.data.inputBindings || []).find((b) => b.id === 'userMessage');
+  if (checkerUser?.value && !String(checkerUser.value).includes('{{tool-screener.text}}')) {
+    checkerUser.value =
+      '=== MAKER PLAN (JSON) ===\n{{maker-1.text}}\n\n=== MARKET REGIME ===\n{{tool-regime.text}}\n\n=== GUARDRAIL ===\n{{tool-guardrail.text}}\n\n=== OPEN PLANS ===\n{{api-open-plans.bodyText}}\n\n=== ACCOUNT SNAPSHOT ===\n{{api-snapshot.bodyText}}\n\n=== SCREENER ===\n{{tool-screener.text}}\n\n=== ORDER LEARNINGS ===\n{{tool-learnings.text}}';
   }
 
   for (const key of ['ibkr-maker-checker-paper', 'ibkr-position-poller-paper']) {

@@ -234,6 +234,27 @@ async function main() {
   });
   assert.strictEqual(sizedOk.ok, true, `sized new_entry should pass: ${JSON.stringify(sizedOk.errors)}`);
 
+  const emptyWithScreener = hardGates({
+    plan_text: JSON.stringify({
+      prior_plan_reconcile: { notes: 'x' },
+      actions: [],
+      risk_summary: { risk_mode: 'normal' },
+    }),
+    regime: { risk_on: true },
+    account_snapshot: JSON.stringify({
+      cash_usd: 10000,
+      equity_usd: 10000,
+      reference_prices: { 'NASDAQ:NVDA': { reference_price: 225 } },
+    }),
+    screener: JSON.stringify({
+      ok: true,
+      count: 1,
+      candidates: [{ symbol: 'NVDA', price: 225 }],
+    }),
+  });
+  assert.strictEqual(emptyWithScreener.ok, false);
+  assert.ok(emptyWithScreener.errors.some((e) => /requires at least one bookable new_entry/i.test(e)), emptyWithScreener.errors);
+
   const {
     evaluateBuyLimitVsReference,
     filterBuyTradesByReference,
@@ -298,8 +319,12 @@ async function main() {
   const hgBind = (hardGatesNode?.data?.inputBindings || []).map((b) => b.id);
   assert.ok(hgBind.includes('account_snapshot'), 'W1 hard gates bind account snapshot');
   assert.ok(hgBind.includes('screener'), 'W1 hard gates bind screener');
+  const checkerUser = String(
+    (checker.data.inputBindings || []).find((b) => b.id === 'userMessage')?.value || ''
+  );
+  assert.ok(checkerUser.includes('{{tool-screener.text}}'), 'W1 Checker user message must include screener');
+  assert.ok(checkerUser.includes('{{api-snapshot.bodyText}}'), 'W1 Checker user message must include snapshot');
   assert.ok(MAKER_STRATEGY_SYSTEM_PROMPT.includes('entry_discount_pct_max'));
-  assert.ok(CHECKER_STRATEGY_SYSTEM_PROMPT.includes('entry_discount_pct_max'));
   assert.ok(MAKER_STRATEGY_SYSTEM_PROMPT.includes('Bookable IBKR stock bracket'));
   assert.ok(CHECKER_STRATEGY_SYSTEM_PROMPT.includes('tp_price above entry'));
 
@@ -324,6 +349,10 @@ async function main() {
   assert.ok(String(demoMaker?.data?.taskConfig?.systemPrompt || '').includes('Bookable IBKR stock bracket'));
   assert.ok(String(demoChecker?.data?.taskConfig?.systemPrompt || '').includes('entry_discount_pct_max'));
   assert.ok(String(demoChecker?.data?.taskConfig?.systemPrompt || '').includes('tp_price above entry'));
+  const demoCheckerUser = String(
+    (demoChecker?.data?.inputBindings || []).find((b) => b.id === 'userMessage')?.value || ''
+  );
+  assert.ok(demoCheckerUser.includes('{{tool-screener.text}}'), 'demo pack Checker user message must include screener');
   const demoIbkr = (demoPack.workflow_templates || []).find(
     (w) => w.template_key === 'ibkr-maker-checker-paper'
   );

@@ -60,6 +60,7 @@ Output **ONLY** valid JSON (no markdown fences).
 
 ### Discipline
 - No news/emotion/revenge trading. Honor regime, guardrail, screener, fundamentals, snapshot, journal, order_learnings.
+- When `risk_on`, not `halt_new`, cash available, and screener has candidates: emit at least one bookable `new_entry` sized to spendable. Empty `actions[]` is not allowed in that case.
 
 ---
 

@@ -19,7 +19,8 @@ Approve when:
 - every new_entry / raise_stop / reduce / exit / partial_profit has stop or clear exit intent where required
 - discretionary loss sells (loss_pct_if_exit >= {{var.discretionary_loss_sell_pct}}) have requires_ceo_approval: true
 - carry_forward actions do not re-buy already filled adds; partial recovery only schedules remaining work
-- empty actions[] is valid when risk_mode is halt_new / reduce and notes explain why
+- empty actions[] is valid ONLY when risk_mode is halt_new, regime is risk_off, or the screener has zero candidates (notes must say why)
+- when risk_on, cash available, and screener has candidates, require at least one bookable new_entry using spendable — reject empty actions[]
 
 Reject if:
 - missing prior_plan_reconcile

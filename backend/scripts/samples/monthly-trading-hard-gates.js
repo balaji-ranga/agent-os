@@ -93,6 +93,13 @@ function lookupRef(refs, key) {
   return refs[sym] > 0 ? refs[sym] : null;
 }
 
+function screenerCandidates(inputs = {}) {
+  const scr = parseJsonish(inputs.screener ?? inputs.market_screener ?? inputs.tool_screener);
+  if (Array.isArray(scr?.candidates)) return scr.candidates;
+  if (Array.isArray(scr?.result?.candidates)) return scr.result.candidates;
+  return [];
+}
+
 export function run(inputs = {}, context = {}) {
   const vars = context?.workflow_variables || context?.variables || {};
   const makerText =
@@ -344,6 +351,19 @@ export function run(inputs = {}, context = {}) {
   }
   if (maxTrades != null && newEntryCount > maxTrades) {
     errors.push(`new_entry count ${newEntryCount} exceeds max_trades_per_day=${maxTrades}`);
+  }
+  const candidates = screenerCandidates(inputs);
+  if (
+    newEntryCount === 0 &&
+    riskOn &&
+    !haltNew &&
+    cashUsd != null &&
+    cashUsd > 0 &&
+    candidates.length > 0
+  ) {
+    errors.push(
+      `risk_on with cash_usd=${cashUsd} and ${candidates.length} screener candidates requires at least one bookable new_entry sized to spendable ≈ ${targetCap}; empty actions[] only when halt_new, risk_off, or screener is empty`
+    );
   }
   if (spendableCap != null && newEntryNotional > spendableCap + 1e-6) {
     const label =
