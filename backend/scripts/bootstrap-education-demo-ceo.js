@@ -341,18 +341,32 @@ async function smokeCrmErp(ownerId) {
     console.warn('[edu-demo] CRM lead (non-fatal)', e?.message || e);
   }
   try {
-    const { erpCreateCustomer, erpCreateItem, erpCreateSalesInvoice } = await import('../src/services/erpnext-erp.js');
-    const customer = await erpCreateCustomer(ownerId, {
-      customer_name: 'Parent of Aisha Rahman',
-      customer_type: 'Individual',
-    });
-    const item = await erpCreateItem(ownerId, {
-      item_code: 'TUITION-DIP-BIZ',
-      item_name: 'Diploma in Business — term tuition',
-      item_group: 'Products',
-      stock_uom: 'Nos',
-      is_stock_item: 0,
-    });
+    const { erpCreateCustomer, erpCreateItem, erpCreateSalesInvoice, erpGet } = await import(
+      '../src/services/erpnext-erp.js'
+    );
+    let customer;
+    try {
+      customer = await erpCreateCustomer(ownerId, {
+        customer_name: 'Parent of Aisha Rahman',
+        customer_type: 'Individual',
+      });
+    } catch (e) {
+      if (!/already exists/i.test(String(e?.message || e))) throw e;
+      customer = await erpGet(ownerId, 'Customer', 'Parent of Aisha Rahman');
+    }
+    let item;
+    try {
+      item = await erpCreateItem(ownerId, {
+        item_code: 'TUITION-DIP-BIZ',
+        item_name: 'Diploma in Business — term tuition',
+        item_group: 'Products',
+        stock_uom: 'Nos',
+        is_stock_item: 0,
+      });
+    } catch (e) {
+      if (!/already exists/i.test(String(e?.message || e))) throw e;
+      item = await erpGet(ownerId, 'Item', 'TUITION-DIP-BIZ');
+    }
     const customerName = customer?.name || customer?.data?.name;
     const itemName = item?.name || item?.data?.name || 'TUITION-DIP-BIZ';
     const invoice = await erpCreateSalesInvoice(ownerId, {
