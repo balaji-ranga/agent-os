@@ -31,8 +31,7 @@ function cleanupOrphanedStatusFanoutNotifications(ownerUserId) {
       `SELECT id, source_key FROM platform_user_notifications
        WHERE user_id = ?
          AND source = 'kanban_task'
-         AND title LIKE 'Kanban: Provide your status and deliverables%'
-         AND datetime(created_at) >= datetime('now', '-2 days')`
+         AND title LIKE 'Kanban: Provide your status and deliverables%'`
     )
     .all(ownerUserId);
   let deleted = 0;
