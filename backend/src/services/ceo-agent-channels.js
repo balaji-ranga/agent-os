@@ -148,6 +148,13 @@ export function getAgentChannelForOwner(ownerUserId, channelId) {
   return hydrateChannel(getRow(ownerUserId, channelId));
 }
 
+/** True when this CEO agent's WhatsApp account has linked auth files on disk. */
+export function isWhatsAppSessionPaired(ownerUserId, agentId) {
+  const agent = assertAgentGrantedToCeo(ownerUserId, agentId);
+  const { accountId } = channelBindingIds(ownerUserId, agent);
+  return !!whatsappSessionDir(accountId);
+}
+
 function normalizeChannelInput(body = {}) {
   const channel = String(body.channel || '').trim().toLowerCase();
   if (!CHANNELS.has(channel)) {

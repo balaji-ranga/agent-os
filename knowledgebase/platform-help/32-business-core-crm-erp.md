@@ -64,12 +64,12 @@ Every MCP erp_* tool is also a **content tool** (/api/tools/erp-…) for agent T
 
 ## CRM / ERP iframe
 
-Ops set browser-reachable HTTPS URLs (mixed content blocks `http://` iframes on `https://login├óΓé¼┬ª`):
+Ops set browser-reachable HTTPS URLs (mixed content blocks `http://` iframes on `https://login.flolah.cloud`):
 
-- `TWENTY_EMBED_URL` / `TWENTY_SERVER_URL` ├óΓé¼ΓÇ¥ **`https://crm.flolah.cloud`** (dedicated CRM subdomain)
-- \ERPNEXT_EMBED_URL\ / \ERPNEXT_PUBLIC_URL\ — **\https://erp.crm.flolah.cloud\** (nginx TLS :443 → ERPNext on W.0.0.1:8085\; reuses \*.crm\ DNS). Do **not** rely on \:8444\ (Hostinger often drops it).
+- `TWENTY_EMBED_URL` / `TWENTY_SERVER_URL` — **`https://crm.flolah.cloud`** (dedicated CRM subdomain)
+- `ERPNEXT_EMBED_URL` / `ERPNEXT_PUBLIC_URL` — **`https://erp.crm.flolah.cloud`** (nginx TLS :443 → ERPNext on `127.0.0.1:8085`; reuses `*.crm` DNS). Do **not** rely on `:8444` (Hostinger often drops it).
 
-**If the iframe stays blank but Flolah itself loads:** confirm the embed host is on **:443**, cert SAN includes the ERP host (\ash deploy/scripts/vps-expand-crm-cert.sh\), and nginx has the exact \erp.crm…\ server before the CRM wildcard. Twenty does **not** support path-prefix embeds under \/crm/...\.
+**If the iframe stays blank but Flolah itself loads:** confirm the embed host is on **:443**, cert SAN includes the ERP host (`bash deploy/scripts/vps-expand-crm-cert.sh`), and nginx has the exact `erp.crm…` server before the CRM wildcard. Twenty does **not** support path-prefix embeds under `/crm/...`.
 
 Deploy helper: `deploy/scripts/ensure-business-core-env.sh` (starts Twenty by default; **ERPNext profile is off** until `START_ERPNEXT=1`).
 
@@ -83,16 +83,16 @@ START_ERPNEXT=1 bash deploy/scripts/ensure-business-core-env.sh
 docker compose -f docker-compose.yml -f docker-compose.business-core.yml --profile optional-erpnext up -d
 ```
 
-Even then the current overlay is **infra + stub backend** (site init still required ├óΓé¼ΓÇ¥ see `deploy/business-core/README.md`). Public ERP host returns **502** until a real ERPNext site listens on 127.0.0.1:8085.
+Even then the current overlay is **infra + stub backend** (site init still required — see `deploy/business-core/README.md`). Public ERP host returns **502** until a real ERPNext site listens on 127.0.0.1:8085.
 
-### Flolah company ├óΓÇáΓÇ¥ CRM / ERP wiring
+### Flolah company — CRM / ERP wiring
 
 | Layer | Storage | Rule |
 |-------|---------|------|
 | Profile choice | SQLite `company_business_profiles` | `crm_provider=twenty|erpnext` / `erp_provider=erpnext` per **CEO owner** |
 | CRM bind | `twenty_workspace_id` (+ bind JSON) | **One Twenty workspace per Flolah company** |
 | ERP bind | `erpnext_company_id` (+ user map table) | **One ERPNext Company per Flolah company** (multi-company site later) |
-| Authorization | tools + embeds | Always `resolveAuthenticatedCeoUserId` ├óΓé¼ΓÇ¥ never body-supplied foreign owner/workspace |
+| Authorization | tools + embeds | Always `resolveAuthenticatedCeoUserId` — never body-supplied foreign owner/workspace |
 
 **Init / sync:** Profile Apply + provision runs `ensureTwentyWorkspaceForCompany` (real Twenty workspace UUID + subdomain when multi-workspace is enabled) / `ensureErpnextCompanyForOwner`. Live org population uses:
 
@@ -108,6 +108,15 @@ When Profile selects platform CRM/ERP, Maker/Checker packs receive **`crm_*` / `
 
 Workspace MD (TOOLS / AGENTS / SOUL / MEMORY) lives under **`openclaw-workspace-templates/`** role folders (`crm-maker-a`, `crm-maker-b`, `crm-checker`, `erp-maker-a`, `erp-maker-b`, `erp-checker`, `erp-pnl`, `erp-invoice`, `erp-project`). Runtime agent ids stay owner-scoped (`crm-s1-{slug}`, …); the backend maps them via `resolveWorkspaceTemplateBaseId`. Profile enable + Admin refresh force-push those templates into each CEO tenant workspace, including **DOMAIN.md** (Twenty CRM / ERPNext SME card from `_shared/TWENTY-CRM-SME.md` / `_shared/ERPNEXT-SME.md`). Makers/Checkers also RAG Platform Help **39** / **40**.
 
+### CRM deletes (duplicates / inactive)
+
+Do **not** archive in the Twenty UI and do **not** grant delete tools to Maker.
+
+1. **Maker** lists people/companies, writes keep vs drop ids, and creates Kanban **`[CRM] Review delete …`** assigned to **CRM Checker**. Maker is not granted `crm_delete_*`.
+2. **Checker** lists to audit, then `crm_delete_person` / `crm_delete_company` with `{ id, confirm: true }` (Twenty soft-delete / archive; ERPNext CRM facade deletes Contact / Customer after owner get). Then complete the card.
+
+Same protocol in workspace **AGENT-OS-OPS.md** / **DOMAIN.md** and help **38** / **40**.
+
 ## CRM browser session vs Flolah user
 
 **Issue:** Browser cookies must not leak across Flolah companies. Each company also needs its **own** Twenty workspace (data isolation).
@@ -119,13 +128,13 @@ Workspace MD (TOOLS / AGENTS / SOUL / MEMORY) lives under **`openclaw-workspace-
 2. Ensure company workspace (create if missing / non-UUID).
 3. JIT-add the signed-in Flolah user into **that** workspace only.
 4. Mint LOGIN JWT for **that** `workspaceId` (`APP_SECRET` + workspace + `LOGIN`).
-5. Browser handoff on the **workspace origin** `https://{subdomain}.crm.<apex>/flolah-handoff/?next=/verify?loginToken=├óΓé¼┬ª` then `/verify`.
+5. Browser handoff on the **workspace origin** `https://{subdomain}.crm.<apex>/flolah-handoff/?next=/verify?loginToken=…` then `/verify`.
 
 **Mitigation (always):** handoff wipes cookies/localStorage on owner change / `wipe=1` / loginToken (`deploy/static/crm-handoff/`).
 
 | Env | Purpose |
 |-----|---------|
-| `TWENTY_APP_SECRET` | Same as Twenty `APP_SECRET` ├óΓé¼ΓÇ¥ mint LOGIN tokens |
+| `TWENTY_APP_SECRET` | Same as Twenty `APP_SECRET` — mint LOGIN tokens |
 | `TWENTY_SSO_ENABLED` | Default on when secret set; `0` = isolation handoff only |
 | `TWENTY_DATABASE_URL` | JIT user + membership in company workspace |
 | `TWENTY_REDIS_URL` | Same Redis as Twenty (`redis://twenty-redis:6379`) — invalidate member flat-maps after JIT join |
@@ -166,7 +175,7 @@ That checks DNS, expands Let's Encrypt SANs for ready hosts, installs certs, and
 
 New Twenty companies need a cert SAN only when their subdomain is not already on the cert (DNS can be wild-carded; LE SANs are per-FQDN under TLS-ALPN).
 
-**Infra:** DNS `*.crm.<apex>` → VPS; nginx `server_name` includes `crmΓÇª` and `*.crmΓÇª`; TLS must list each workspace host (or use DNS-01 wildcards separately — this stack uses per-FQDN ALPN). Helpers: `vps-expand-crm-cert.sh`, `vps-refresh-tls-certs.sh`.
+**Infra:** DNS `*.crm.<apex>` → VPS; nginx `server_name` includes `crm…` and `*.crm…`; TLS must list each workspace host (or use DNS-01 wildcards separately — this stack uses per-FQDN ALPN). Helpers: `vps-expand-crm-cert.sh`, `vps-refresh-tls-certs.sh`.
 
 
 ### Password form after CRM open (including admin View as user)

@@ -1,6 +1,6 @@
 ﻿/**
  * Resolve CEO user id for content-tool invocations (OpenClaw plugin, COO tools, logs).
- * Owner must come from authenticated session or registered AgentSystem session â€” never another CEO.
+ * Owner must come from authenticated session or registered AgentSystem session — never another CEO.
  */
 import { extractOwnerUserIdFromText } from './agent-chat-scope.js';
 import { parseTenantOpenClawAgentId } from './openclaw-tenant.js';
@@ -179,7 +179,7 @@ export function resolveEntitledOwnerUserId(req, { fallbackToBala = true } = {}) 
 }
 
 export function resolveToolOwnerUserId(req, body = {}, resolveAuthenticatedCeoUserId = null) {
-  // Skip placeholder internalServiceUser (always ceo-bala) â€” resolve from session/tenant/headers.
+  // Skip placeholder internalServiceUser (always ceo-bala) — resolve from session/tenant/headers.
   if (req?.authUser?.role === 'ceo' && !isPlaceholderServiceUser(req.authUser)) {
     return req.authUser.id;
   }
@@ -223,7 +223,7 @@ export function resolveToolOwnerUserId(req, body = {}, resolveAuthenticatedCeoUs
   if (fromText) return fromText;
 
   const err = new Error(
-    'ceo_user_id could not be resolved â€” chat with the agent from the UI so the session is registered, or pass x-openclaw-session-key from the active AgentSystem session'
+    'ceo_user_id could not be resolved — chat with the agent from the UI so the session is registered, or pass x-openclaw-session-key from the active AgentSystem session'
   );
   err.status = 400;
   throw err;

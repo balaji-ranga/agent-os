@@ -18,6 +18,7 @@ import {
   getGoalRun,
   normalizeStepSpec,
 } from './agent-goal-run.js';
+import { normalizeDeliverTo, deliverScheduledGoalOutcome } from './agent-channel-announce.js';
 
 const CADENCES = new Set(['hourly', 'daily', 'weekdays', 'weekly']);
 const STATUSES = new Set(['active', 'paused', 'completed', 'draft']);
@@ -137,6 +138,7 @@ function ensureScheduledGoalPlanCols() {
     if (!cols.includes('plan_status')) db().exec("ALTER TABLE scheduled_goals ADD COLUMN plan_status TEXT DEFAULT 'none'");
     if (!cols.includes('plan_feedback_json')) db().exec('ALTER TABLE scheduled_goals ADD COLUMN plan_feedback_json TEXT');
     if (!cols.includes('plan_version')) db().exec('ALTER TABLE scheduled_goals ADD COLUMN plan_version INTEGER DEFAULT 0');
+    if (!cols.includes('deliver_to')) db().exec(`ALTER TABLE scheduled_goals ADD COLUMN deliver_to TEXT DEFAULT '["web"]'`);
   } catch (_) {}
 }
 
@@ -247,6 +249,7 @@ export function serializeGoal(row) {
     last_run_key: row.last_run_key, run_count: row.run_count || 0, source: row.source,
     plan, plan_status: planStatusOf(row), plan_version: Number(row.plan_version) || 0,
     plan_feedback: feedback.slice(-10),
+    deliver_to: normalizeDeliverTo(row.deliver_to),
     created_at: row.created_at, updated_at: row.updated_at,
   };
 }
@@ -286,6 +289,7 @@ export async function createScheduledGoal(ownerUserId, input = {}) {
   const ends_at = parseEndsAt(input.ends_at ?? input.endsAt ?? input.until ?? null);
   const title = String(input.title || '').trim() || prompt.replace(/\s+/g, ' ').slice(0, 72) || 'Scheduled goal';
   const source = String(input.source || 'ceo').slice(0, 32);
+  const deliver_to = JSON.stringify(normalizeDeliverTo(input.deliver_to || input.deliverTo, input));
 
   // CEO UI: require draft plan, only activate when approve_plan / plan_status approved
   const approve =
@@ -332,12 +336,12 @@ export async function createScheduledGoal(ownerUserId, input = {}) {
   const id = newId();
   db().prepare(`INSERT INTO scheduled_goals (
     id, owner_user_id, title, prompt, agent_id, cadence, weekday,
-    time_local, timezone, ends_at, status, source, plan_json, plan_status, plan_version
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`).run(
+    time_local, timezone, ends_at, status, source, plan_json, plan_status, plan_version, deliver_to
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`).run(
     id, ownerUserId, title, prompt, agent.id, cadence, weekday, time_local, timezone, ends_at,
-    status, source, plan ? JSON.stringify(plan) : null, plan_status
+    status, source, plan ? JSON.stringify(plan) : null, plan_status, deliver_to
   );
-  console.log(`[scheduled-goals] created id=${id} owner=${ownerUserId} agent=${agent.id} status=${status} plan=${plan_status}`);
+  console.log(`[scheduled-goals] created id=${id} owner=${ownerUserId} agent=${agent.id} status=${status} plan=${plan_status} deliver_to=${deliver_to}`);
   return serializeGoal(getGoalRow(id, ownerUserId));
 }
 
@@ -415,6 +419,7 @@ export function updateScheduledGoal(ownerUserId, id, patch = {}) {
   if (!row) throw Object.assign(new Error('Scheduled goal not found'), { status: 404 });
   let title = row.title, prompt = row.prompt, agent_id = row.agent_id, cadence = row.cadence;
   let weekday = row.weekday, time_local = row.time_local, timezone = row.timezone, ends_at = row.ends_at, status = row.status;
+  let deliver_to = row.deliver_to;
   if (patch.title != null) title = String(patch.title).trim() || title;
   if (patch.prompt != null || patch.goal != null || patch.message != null) {
     const p = String(patch.prompt ?? patch.goal ?? patch.message).trim();
@@ -446,16 +451,27 @@ export function updateScheduledGoal(ownerUserId, id, patch = {}) {
     status = String(patch.status).toLowerCase();
     if (!STATUSES.has(status)) throw Object.assign(new Error('status must be active, paused, or completed'), { status: 400 });
   }
+  if (
+    patch.deliver_to != null ||
+    patch.deliverTo != null ||
+    patch.also_whatsapp != null ||
+    patch.deliver_whatsapp != null ||
+    patch.whatsapp != null ||
+    patch.also_slack != null ||
+    patch.deliver_slack != null
+  ) {
+    deliver_to = JSON.stringify(normalizeDeliverTo(patch.deliver_to ?? patch.deliverTo ?? row.deliver_to, patch));
+  }
   if (clearPlan) {
     if (status === 'draft') status = 'paused';
     db().prepare(`UPDATE scheduled_goals SET title=?, prompt=?, agent_id=?, cadence=?, weekday=?,
-      time_local=?, timezone=?, ends_at=?, status=?, plan_json=NULL, plan_status='none', updated_at=datetime('now')
-      WHERE id=? AND owner_user_id=?`).run(title, prompt, agent_id, cadence, weekday, time_local, timezone, ends_at, status, id, ownerUserId);
+      time_local=?, timezone=?, ends_at=?, status=?, plan_json=NULL, plan_status='none', deliver_to=?, updated_at=datetime('now')
+      WHERE id=? AND owner_user_id=?`).run(title, prompt, agent_id, cadence, weekday, time_local, timezone, ends_at, status, deliver_to, id, ownerUserId);
     console.log(`[scheduled-goals] updated id=${id} status=${status} cleared plan (non-COO agent)`);
   } else {
     db().prepare(`UPDATE scheduled_goals SET title=?, prompt=?, agent_id=?, cadence=?, weekday=?,
-      time_local=?, timezone=?, ends_at=?, status=?, updated_at=datetime('now')
-      WHERE id=? AND owner_user_id=?`).run(title, prompt, agent_id, cadence, weekday, time_local, timezone, ends_at, status, id, ownerUserId);
+      time_local=?, timezone=?, ends_at=?, status=?, deliver_to=?, updated_at=datetime('now')
+      WHERE id=? AND owner_user_id=?`).run(title, prompt, agent_id, cadence, weekday, time_local, timezone, ends_at, status, deliver_to, id, ownerUserId);
     console.log(`[scheduled-goals] updated id=${id} status=${status}`);
   }
   return serializeGoal(getGoalRow(id, ownerUserId));
@@ -635,6 +651,7 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
       ).run(id, ownerUserId);
       db().prepare(`UPDATE scheduled_goal_runs SET status='ok', reply_preview=? WHERE id=?`).run(reply.slice(0, 2000), runId);
       if (isExpired(row.ends_at)) updateScheduledGoal(ownerUserId, id, { status: 'completed' });
+      // Plan-mode: WhatsApp waits for the once-only completion nudge (completed/failed), not "plan started".
       return {
         ok: true,
         goal_id: id,
@@ -671,6 +688,14 @@ export async function runScheduledGoal(ownerUserId, id, opts = {}) {
     const reply = String(content || '').trim() || '(no response)';
     const preview = reply.slice(0, 2000);
     try { insertChatTurn({ agentId: agent.id, ownerUserId, role: 'assistant', content: reply }); } catch (_) {}
+    void deliverScheduledGoalOutcome({
+      ownerUserId,
+      agentId: agent.id,
+      deliverTo: row.deliver_to,
+      scheduledGoalId: id,
+      text: reply,
+      sourceKey: `sg:${id}:${runId}`,
+    }).catch((e) => console.warn('[scheduled-goals] channel fan-out', e?.message || e));
     db().prepare(
       `UPDATE scheduled_goals SET last_run_status='ok', last_run_error=NULL, run_count=COALESCE(run_count,0)+1, updated_at=datetime('now')
        WHERE id=? AND owner_user_id=?`

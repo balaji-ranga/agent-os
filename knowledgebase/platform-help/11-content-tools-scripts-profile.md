@@ -17,6 +17,8 @@ Catalog of Agent OS tools agents and workflows can call, for example:
 - `learnings_summary`, `brain_history`, `content_tools_enquire`
 - **Browser Session:** `browse_session_status`, `browse_task_start`, `browse_task_status`, `browse_snapshot`, `browse_act`, `browse_recipe_list`, `browse_recipe_run` (see [22-browser-session-and-recipes](./22-browser-session-and-recipes.md)); specialists should use these — not the native `browser` tool in chat
 - **Web scrape:** `web_scrape_url` / `web_scrape_domain` (Crawlee sidecar; workflow **Web Scrape** node). See [44-web-scrape.md](./44-web-scrape.md)
+- **CRM (`crm_*`):** list/create/update/sync for Twenty (or ERPNext Sales when Profile CRM = erpnext). **Checker-only:** `crm_delete_person` / `crm_delete_company` (`id` + `confirm=true`). Maker proposes keep/drop ids on Kanban `[CRM] Review delete …`. Help **32** / **38** / **40**.
+- **ERP (`erp_*`):** operational ERPNext tools. **Checker-only:** `erp_submit_doc` / `erp_cancel_doc`. Help **32** / **38** / **39**.
 
 ### CEO actions
 

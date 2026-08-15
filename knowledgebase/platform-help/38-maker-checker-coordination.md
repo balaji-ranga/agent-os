@@ -32,7 +32,7 @@ One **card per business object** (e.g. doctype + name, or CRM opportunity id) fo
 5. **Max ~3** reject cycles → `notify_ceo` / reassign COO.
 
 **CEO policy HITL (e.g. 5% discount):** Only via the Maker/Checker **workflow CEO Approval node**. Maker ends with  
-`{"decision":"needs_ceo","gate":"discount_5pct",...}` → runner creates an `awaiting_confirmation` card (`created_by=agent_workflow_ceo`). CEO uses board **Approve/Reject**. Free-form chat “Approved” on inventend Kanban **does not** resume runs.
+`{"decision":"needs_ceo","gate":"discount_5pct",...}` → runner creates an `awaiting_confirmation` card (`created_by=agent_workflow_ceo`). CEO uses board **Approve/Reject**. Free-form chat “Approved” on invented Kanban **does not** resume runs.
 
 High-risk CRM examples (process gate): stage **Won** over a large amount; merge/delete company or person (**Maker proposes, Checker deletes**); bulk stage change; “create ERP customer + quotation from this opp”.
 

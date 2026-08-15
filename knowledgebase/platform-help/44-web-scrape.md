@@ -30,7 +30,7 @@ Tools: `scrape_url`, `scrape_domain`. Pass **`X-Ceo-User-Id`**. Seeded as a plat
 
 ## Safety
 
-- HTTPS only (no private/link-local SSRF)
+- HTTPS only; SSRF blocks private/link-local (public IPv6 allowed so CDNs such as Instagram AAAA work)
 - Same-origin by default
 - `robots.txt` honored unless you turn it off on the node
 - Hard caps on pages/depth/time

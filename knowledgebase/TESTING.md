@@ -385,7 +385,16 @@ docker compose --env-file .env exec -T -w /opt/agent-os/backend backend node scr
 docker compose --env-file .env exec -T -w /opt/agent-os/backend backend node scripts/test-web-scrape-instagram-workflow.js
 ```
 
-Help **44**. Default target is a **public post permalink** (`/p/…`). Profile grids often 302 to login. The test requires a completed run plus usable page text (caption/title), not only a 429 visit.
+Help **44**. Default target is a **public post permalink** (`/p/…`). Profile grids often 302 to login. The test requires a completed run plus usable page text (caption/title), not only a 429 visit. SSRF allows **public IPv6** (Instagram AAAA); private/link-local stays blocked.
+
+## CRM Maker/Checker deletes (Twenty)
+
+Maker **proposes**; Checker **deletes**. Do not archive in the Twenty UI.
+
+1. Ask **CRM Maker** to list duplicates and open Kanban `[CRM] Review delete …` for **CRM Checker** (keep id + drop ids). Maker must not have `crm_delete_*`.
+2. Ask **CRM Checker** to `crm_list_*`, then `crm_delete_person` / `crm_delete_company` with `confirm=true`, then complete the card.
+
+Grants: prefab `agents-crm-twenty.json` `shared_tools.checker`. Workspace **AGENT-OS-OPS.md** / **DOMAIN.md**. Help **32** / **38** / **40**.
 
 ## Admin Tools Onboarding (VPS Docker)
 

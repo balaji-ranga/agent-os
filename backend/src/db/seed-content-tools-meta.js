@@ -516,7 +516,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/scheduled-goal-create',
     method: 'POST',
     purpose:
-      'COO: create a recurring CEO prompt. Params: prompt (required), title?, agent_id?, cadence (hourly|daily|weekdays|weekly), time_local (HH:MM), weekday? (0=Sun..6=Sat), ends_at?. Confirm in plain language.',
+      'COO: create a recurring CEO prompt. Params: prompt (required), title?, agent_id?, cadence (hourly|daily|weekdays|weekly), time_local (HH:MM), weekday? (0=Sun..6=Sat), ends_at?, deliver_to? (["web"] default; add "whatsapp" and/or "slack" to copy the final outcome to that employee\'s bound channel), also_whatsapp?. Confirm in plain language. Not a goal-plan step — platform delivers after the run.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -539,7 +539,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/scheduled-goal-update',
     method: 'POST',
     purpose:
-      'API tool (COO): update/edit a scheduled goal. Pass goal_id (or query title). Patch: title, prompt, agent_id, cadence (hourly|daily|weekdays|weekly), time_local, ends_at, ' +
+      'API tool (COO): update/edit a scheduled goal. Pass goal_id (or query title). Patch: title, prompt, agent_id, cadence (hourly|daily|weekdays|weekly), time_local, ends_at, deliver_to / also_whatsapp (copy final outcome to bound WhatsApp/Slack; web chat always), ' +
       'status ("paused" removes from schedule; "active" resumes — persists across restarts). Prefer status pause/resume over delete when temporary. CEO UI also has Edit on Scheduled goals.',
     model_used: '',
     enabled: 1,

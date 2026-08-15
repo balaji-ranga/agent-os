@@ -259,7 +259,7 @@ Upload/approve scripts under **Custom scripts**.
 |--------|---------|
 | `startUrl`, `phrases`, optional `cookie` | `ok`, `text`, `matches`, `pages`, `stats`, `result` |
 
-Instagram.com with empty Cookie uses vault **`INSTAGRAM_SESSIONID`** when set. Logged-in Chrome still uses Browser Session. Help **[44-web-scrape.md](./44-web-scrape.md)**.
+Instagram.com with empty Cookie uses vault **`INSTAGRAM_SESSIONID`** when set. Public **IPv6** is allowed in the sidecar SSRF guard. Logged-in Chrome still uses Browser Session. Help **[44-web-scrape.md](./44-web-scrape.md)**.
 
 ---
 

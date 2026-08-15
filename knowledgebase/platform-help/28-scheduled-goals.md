@@ -20,6 +20,8 @@ The COO uses `scheduled_goal_create` (and related tools) and confirms the schedu
 
 **How do I run a goal right now?** **Run now** on the page, or COO tool `scheduled_goal_run_now`.
 
+**Can the outcome also go to WhatsApp or Slack?** Dashboard/web chat is always on. Ask the COO to add **`deliver_to`: `["web","whatsapp"]`** and/or `"slack"` (or `also_whatsapp: true`) on create/update. Flolah copies the **final** outcome to that employee’s bound channel when the session is paired. Unpaired / missing DM is skipped and logged — the goal still succeeds. Plan-mode waits for the once-only completion nudge, not “plan started”. Help **24** for channel bind.
+
 **Last run stuck on “running” / no COO reply?** Morning schedules claim `running` then call AgentSystem (or a durable `agent_goal_run`). If AgentSystem hangs or the backend restarts mid-flight, the row can stay `running` with no assistant chat turn. Platform tick now **reconciles** stuck runs (marks `ok` when the linked goal plan finished, or `error` after ~30 minutes with no plan). COO empty replies (“No response from AgentSystem.”) were also caused by stripped runtime tools (`sessions_history` / `read`) — fixed by always merging those into allowlists. Use **Run now** after a heal/deploy if today’s fire never produced a digest.
 
 **Do schedules block each other?** No. Each due scheduled goal is launched **independently in parallel** on the minute tick, with its **own AgentSystem session/context** for that agent (even when several goals target the same COO). A hung digest cannot delay a market report at 9:05, and long-running fires do not hold the cron (so later minutes still fire). Steps *inside* one goal still run in plan order.

@@ -2208,6 +2208,7 @@ export function initDb() {
     if (!sgCols.includes('plan_status')) _db.exec("ALTER TABLE scheduled_goals ADD COLUMN plan_status TEXT DEFAULT 'none'");
     if (!sgCols.includes('plan_feedback_json')) _db.exec('ALTER TABLE scheduled_goals ADD COLUMN plan_feedback_json TEXT');
     if (!sgCols.includes('plan_version')) _db.exec('ALTER TABLE scheduled_goals ADD COLUMN plan_version INTEGER DEFAULT 0');
+    if (!sgCols.includes('deliver_to')) _db.exec(`ALTER TABLE scheduled_goals ADD COLUMN deliver_to TEXT DEFAULT '["web"]'`);
   } catch (_) {}
 
   /**
