@@ -10,6 +10,9 @@
  *   EDU_DEMO_EMAIL, EDU_DEMO_PASS, EDU_DEMO_NAME, EDU_DEMO_COMPANY
  *   SOURCE_OWNER_USER_ID (default ceo-bala) — vault copy for Platform_BYOK / BRAVE_SEARCH_BYOK / elevenlabs-key
  *   SKIP_COMPANY_APPLY=1, SKIP_SMOKE=1, SKIP_WHATSAPP=1
+ *
+ * Publish a secret-scrubbed Company setup pack (does not regenerate BrightBox standard/):
+ *   node scripts/publish-education-demo-blueprint.js
  */
 import { config } from 'dotenv';
 import { dirname, join } from 'path';

@@ -28,6 +28,13 @@
     "description": "Deep demo company: CRM Twenty + ERP ERPNext Maker-Checker, BrightBox Gifts snapshot for clean redeploy demos."
   },
   {
+    "id": "demo_education",
+    "label": "Flolah demo (Meridian College)",
+    "featured": true,
+    "default_blueprint_id": "demo_education",
+    "description": "Deep demo: Education industry, Twenty CRM + ERPNext Maker–Checker, COO WhatsApp PA (text + TTS), thought inbox and consultant-brief goals. Snapshot of Meridian College. Thin Education card still maps to general_ops. Do not regenerate standard/business-core from this pack."
+  },
+  {
     "id": "saas",
     "label": "SaaS startup",
     "featured": false,

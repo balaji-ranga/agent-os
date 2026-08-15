@@ -8,6 +8,9 @@ Regenerate from live CEOs:
 # BrightBox: demo pack + platform-agents + business-core agent packs / 11-node MC graphs
 node scripts/publish-brightbox-and-regenerate-standard.js
 
+# Education (Meridian College): demo pack only — do **not** regenerate standard/business-core
+node scripts/publish-education-demo-blueprint.js
+
 # Balaji: demo pack + zip + standard/video-content graphs (keeps richer BrightBox CRM/ERP graphs)
 node scripts/publish-balaji-demo-blueprint.js
 

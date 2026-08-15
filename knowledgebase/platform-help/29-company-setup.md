@@ -76,7 +76,7 @@
 - **API Keys** — fill `Platform_BYOK` if you chose OpenAI/OpenRouter.
 - **Resync** — after org changes, My Org → Resync ORG/AGENTS when needed.
 - **Onboarding Helper** — for additional custom departments/agents beyond the blueprint.
-- **Education industry** — Company type **Education** keeps that card label; Day 0/1 templates still use the thin **`general_ops`** pack (`maps_to`). Optional CRM **Twenty** (admissions Leads) + ERP **ERPNext**. College books map onto existing ERP doctypes (no Education-module Student/Program tools): prospect → Twenty Lead; enrolled student/parent → Customer; program/tuition → Item (service); fee bill → Sales Invoice; collection → Payment Entry; faculty → Employee; batch → Project. Thought capture + PA are COO **WhatsApp** (text + TTS) + Knowledge tables + scheduled goals. Ops bootstrap (VPS): `node scripts/bootstrap-education-demo-ceo.js` (BYOK vault copy from a source CEO; secrets never committed). Help **24** / **32**.
+- **Education industry** — Company type **Education** keeps that card label; Day 0/1 templates still use the thin **`general_ops`** pack (`maps_to`). Optional CRM **Twenty** (admissions Leads) + ERP **ERPNext**. College books map onto existing ERP doctypes (no Education-module Student/Program tools): prospect → Twenty Lead; enrolled student/parent → Customer; program/tuition → Item (service); fee bill → Sales Invoice; collection → Payment Entry; faculty → Employee; batch → Project. Thought capture + PA are COO **WhatsApp** (text + TTS) + Knowledge tables + scheduled goals. Deep demo pack: **`demo_education`** (`publish-education-demo-blueprint.js`). Ops bootstrap (VPS): `node scripts/bootstrap-education-demo-ceo.js` (BYOK vault copy from a source CEO; secrets never committed). Help **24** / **32**.
 
 ## Isolation and entitlements
 
@@ -101,6 +101,14 @@ The system pack **Flolah demo (BrightBox Gifts)** (`demo_brightbox_gifts`) is th
 - Standard packs: `company-blueprints/standard/platform-agents.json` + `business-core/*`
 - Re-publish + regenerate standards: `node backend/scripts/publish-brightbox-and-regenerate-standard.js` (owner `ceo-demo-brightbox-744921`)
 - Last live snapshot: **15 Aug 2026** (COO 111 tools; CRM/ERP Maker–Checker 11-node graphs). Manifest: `exports/demo_brightbox_gifts.manifest.json`.
+
+The system pack **Flolah demo (Meridian College)** (`demo_education`) is a deep snapshot of the Education demo CEO (WhatsApp PA, thought inbox, Twenty + ERPNext Maker–Checker). **Do not** regenerate `standard/business-core` from this company — BrightBox stays golden.
+
+- Pack: `backend/src/services/company-blueprints/packs/demo_education.json`
+- Export zip: `backend/src/services/company-blueprints/exports/demo_education.zip`
+- Re-publish from live CEO: `SOURCE_OWNER_USER_ID=ceo-meridian-college-f101c7 node backend/scripts/publish-education-demo-blueprint.js`
+- Last live snapshot: **16 Aug 2026** from `ceo-meridian-college-f101c7` (CRM/ERP 11-node Maker–Checker, WhatsApp PA goals, thought_inbox). Manifest: `exports/demo_education.manifest.json`.
+- Thin Company setup card **Education** still `maps_to` **`general_ops`**. Ops bootstrap: `backend/scripts/bootstrap-education-demo-ceo.js`.
 
 Admin → **Refresh default agents** pushes lean tools from `platform-agents.json` (COO / Workflow Builder / Platform Help) and optionally re-syncs Business Core prefabs + Maker/Checker workflows from `standard/business-core/` when the CEO has CRM/ERP enabled on Profile. Workspace MD for CRM/ERP roles is pushed from `openclaw-workspace-templates/crm-*` and `erp-*` (see `business-core-template-map.json`).
 

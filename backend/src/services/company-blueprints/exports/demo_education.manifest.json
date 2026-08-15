@@ -1,0 +1,76 @@
+{
+  "published_id": "demo_education",
+  "secrets_scrubbed": true,
+  "secrets_cleared": 0,
+  "zip_bytes": 248484,
+  "coverage": {
+    "knowledge": true,
+    "policies": true,
+    "org": true,
+    "agents": true,
+    "agent_tools": true,
+    "agents_md": true,
+    "agents_md_ops": true,
+    "workflows": true,
+    "workflow_graphs": true,
+    "connectors": true,
+    "goals": true,
+    "secrets_scrubbed": true
+  },
+  "summary": {
+    "owner": "ceo-meridian-college-f101c7",
+    "company": "Meridian College",
+    "agents": [
+      "Research Analyst",
+      "Ops Coordinator",
+      "Business Advisor",
+      "CRM Checker",
+      "CRM Maker A",
+      "CRM Maker B",
+      "ERP Checker",
+      "ERP Invoice Agent",
+      "ERP Maker A",
+      "ERP Maker B",
+      "ERP P&L Agent",
+      "ERP Project Manager"
+    ],
+    "departments": 7,
+    "workflow_templates": [
+      {
+        "key": "summarize-inbound-media",
+        "nodes": 3
+      },
+      {
+        "key": "crm-mc",
+        "nodes": 11
+      },
+      {
+        "key": "erp-mc",
+        "nodes": 11
+      }
+    ],
+    "goal_templates": [
+      "Meridian morning briefing",
+      "Meridian evening thought prompt",
+      "Meridian weekly consultant brief"
+    ],
+    "knowledge_tables": [
+      "company_memory",
+      "thought_inbox",
+      "consultant_contacts",
+      "program_catalog",
+      "departments",
+      "agent_workflow_notify_prefs",
+      "content_topics_history",
+      "publish_log"
+    ],
+    "agents_md": 14,
+    "policy_chars": 1468,
+    "connectors": {
+      "mcp_oauth": 2,
+      "openconnector": false
+    }
+  },
+  "refreshed_at": "2026-08-15T16:22:59.946Z",
+  "note": "Do not regenerate company-blueprints/standard/business-core from this owner. BrightBox remains golden."
+}
