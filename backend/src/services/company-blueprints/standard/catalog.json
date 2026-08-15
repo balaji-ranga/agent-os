@@ -85,6 +85,6 @@
   },
   "industry_blueprints": {
     "dir": "packs/",
-    "note": "Industry Day 0 org shapes (content_creator, video_content, trading_ops, general_ops, saas, talent, blank). Day 1 workflow graphs come from published deep blueprints or companion standard templates."
+    "note": "Industry Day 0 org shapes (content_creator, video_content, trading_ops, general_ops, saas, talent, blank). Day 1 workflow graphs come from published deep blueprints or companion standard templates. trading_ops is thin (org only); IBKR/monthly graphs live in seed scripts + deep pack demo_balaji_ranganathan (BUY entry_discount_pct_max)."
   }
 }

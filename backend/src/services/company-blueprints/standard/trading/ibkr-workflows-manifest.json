@@ -1,7 +1,7 @@
 {
   "id": "ibkr-workflow-templates",
   "name": "IBKR paper trading workflow templates",
-  "description": "Source-of-truth seeds for IBKR maker/checker day plan, position poller, and monthly trading W1-W5. Run after clean deploy when paper IBKR is required.",
+  "description": "Source-of-truth seeds for IBKR maker/checker day plan, position poller, and monthly trading W1-W5 (BUY quote band: entry_slip_pct_max / entry_discount_pct_max). Run after clean deploy when paper IBKR is required. Deep demo pack demo_balaji_ranganathan embeds the same graphs for Company setup apply.",
   "workflows": [
     {
       "id": "ibkr-maker-checker-paper",

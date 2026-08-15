@@ -53,6 +53,8 @@ Default crons and **budget caps** live in workflow **Variables** (seed: `backend
 
 Override in Workflows → W1 → Variables (then Publish). Re-seed merges defaults if the keys were missing.
 
+Company setup / Operate Day 1 from the **Flolah demo** pack (`demo_balaji_ranganathan`) installs these graphs from the frozen JSON (not only the seed scripts). Keep that pack’s W1 hard-gates bindings and `entry_discount_pct_max` in sync (`patch-demo-blueprint-ibkr-quote-band.js` + `FROM_PACK_FILE=1 publish-balaji-demo-blueprint.js`). Thin industry pack `trading_ops` is org-only.
+
 ---
 
 ## Day-plan statuses (W1 ↔ W2)

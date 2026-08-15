@@ -17,7 +17,7 @@ node scripts/publish-brightbox-and-regenerate-standard.js
 | `business-core/agents-erp-erpnext.json` | ERP Maker A/B, Checker, P&L / Invoice / Project |
 | `business-core/workflow-crm-maker-checker.json` | Portable graph → `crm-mc-{ownerSlug}` |
 | `business-core/workflow-erp-maker-checker.json` | Portable graph → `erp-mc-{ownerSlug}` |
-| `trading/ibkr-workflows-manifest.json` | IBKR day-plan / poller / monthly W1–W5 seed scripts |
+| `trading/ibkr-workflows-manifest.json` | IBKR day-plan / poller / monthly W1–W5 seed scripts (includes `entry_discount_pct_max` BUY quote band) |
 | `video-content/` | Video studio agents + W-Reasoning / W-Media / W-Assembly graphs (`packs/video_content.json`) |
 
 ## Workspace templates (Business Core MD)
@@ -46,7 +46,7 @@ On Profile CRM/ERP ensure and Admin **Refresh default agents** (`include_busines
 | CRM prefabs + CRM MC workflow | Profile **CRM** = `twenty` or `erpnext` (or Company setup Apply). Same Admin refresh re-ensures packs + MC graphs when Profile already has CRM. |
 | ERP prefabs + ERP MC workflow | Profile **ERP** = `erpnext`. Same Admin refresh re-ensures when Profile has ERP. |
 | Industry agents / optional Day 1 graphs | Company setup / Operate Day 1 blueprints |
-| IBKR paper workflows | Run seed scripts listed in the trading manifest (not auto Profile) |
+| IBKR paper workflows | Run seed scripts listed in the trading manifest (not auto Profile). Deep demo pack `demo_balaji_ranganathan` also embeds W1–W5 + IBKR day-plan graphs (BUY quote band: `entry_slip_pct_max` / `entry_discount_pct_max`). |
 | Video content agents + W-Reasoning | Company setup / Operate `video_content`; workspaces from `openclaw-workspace-templates/video-*`; graphs from `standard/video-content/` |
 
 ### Video content maintenance

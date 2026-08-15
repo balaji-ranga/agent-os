@@ -210,9 +210,9 @@ async function main() {
   }
   const maker = g1.nodes.find((n) => n.id === 'maker-1');
   const checker = g1.nodes.find((n) => n.id === 'checker-1');
-  assert.strictEqual(maker.data.taskConfig.modelSource, 'anthropic');
+  assert.strictEqual(maker.data.taskConfig.modelSource, 'openai');
   assert.strictEqual(checker.data.taskConfig.modelSource, 'deepseek');
-  assert.ok(String(maker.data.taskConfig.model).includes('claude') || maker.data.taskConfig.model);
+  assert.ok(String(maker.data.taskConfig.model).includes('gpt') || maker.data.taskConfig.model);
   assert.ok(String(checker.data.taskConfig.model).includes('deepseek'));
   const hardGatesNode = g1.nodes.find((n) => n.id === 'hard-gates');
   const hgBind = (hardGatesNode?.data?.inputBindings || []).map((b) => b.id);
@@ -220,6 +220,34 @@ async function main() {
   assert.ok(hgBind.includes('screener'), 'W1 hard gates bind screener');
   assert.ok(MAKER_STRATEGY_SYSTEM_PROMPT.includes('entry_discount_pct_max'));
   assert.ok(CHECKER_STRATEGY_SYSTEM_PROMPT.includes('entry_discount_pct_max'));
+
+  const demoPack = JSON.parse(
+    readFileSync(
+      join(__dirname, '../src/services/company-blueprints/packs/demo_balaji_ranganathan.json'),
+      'utf8'
+    )
+  );
+  const demoW1 = (demoPack.workflow_templates || []).find(
+    (w) => w.template_key === 'monthly-trading-w1-post-close'
+  );
+  assert.ok(demoW1, 'demo_balaji_ranganathan pack must include W1');
+  assert.strictEqual(demoW1.variables?.entry_discount_pct_max, 3);
+  const demoHg = (demoW1.graph?.nodes || []).find((n) => n.id === 'hard-gates');
+  const demoHgBind = (demoHg?.data?.inputBindings || []).map((b) => b.id);
+  assert.ok(demoHgBind.includes('account_snapshot'), 'demo pack W1 hard gates bind snapshot');
+  assert.ok(demoHgBind.includes('screener'), 'demo pack W1 hard gates bind screener');
+  const demoMaker = (demoW1.graph?.nodes || []).find((n) => n.id === 'maker-1');
+  const demoChecker = (demoW1.graph?.nodes || []).find((n) => n.id === 'checker-1');
+  assert.ok(String(demoMaker?.data?.taskConfig?.systemPrompt || '').includes('entry_discount_pct_max'));
+  assert.ok(String(demoChecker?.data?.taskConfig?.systemPrompt || '').includes('entry_discount_pct_max'));
+  const demoIbkr = (demoPack.workflow_templates || []).find(
+    (w) => w.template_key === 'ibkr-maker-checker-paper'
+  );
+  assert.strictEqual(demoIbkr?.variables?.entry_discount_pct_max, 3);
+  const demoIbkrMaker = (demoIbkr?.graph?.nodes || []).find((n) => n.id === 'maker-1');
+  assert.ok(
+    String(demoIbkrMaker?.data?.taskConfig?.systemPrompt || '').includes('entry_discount_pct_max')
+  );
 
   const g2 = buildMonthlyTradingW2Graph();
   const t2 = collectTypes(g2);

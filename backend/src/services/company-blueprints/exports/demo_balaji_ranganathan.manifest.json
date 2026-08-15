@@ -1,8 +1,8 @@
 {
   "published_id": "demo_balaji_ranganathan",
-  "pack_path": "/tmp/balaji-demo-bp/demo_balaji_ranganathan.json",
-  "zip_path": "/tmp/balaji-demo-bp/demo_balaji_ranganathan.zip",
-  "zip_bytes": 294389,
+  "secrets_scrubbed": true,
+  "secrets_cleared": 0,
+  "zip_bytes": 295296,
   "coverage": {
     "knowledge": true,
     "policies": true,
@@ -135,18 +135,5 @@
       "openconnector": true
     }
   },
-  "secrets_scrubbed": true,
-  "secrets_residual": [],
-  "refreshed_at": "2026-08-10T05:57:22.924585+00:00",
-  "pack_bytes": 581799,
-  "validation": {
-    "sk_proj": 0,
-    "sk": 0,
-    "aws": 0,
-    "ghp": 0,
-    "apiKey_live": 0,
-    "nonempty_secret_fields": 0
-  },
-  "source_owner": "ceo-bala",
-  "source_company": "BalajiDemoCompany"
+  "refreshed_at": "2026-08-15T03:08:47.697Z"
 }

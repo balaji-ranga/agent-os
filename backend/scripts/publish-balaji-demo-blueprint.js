@@ -10,8 +10,9 @@
  *   OUT_DIR=/tmp/balaji-demo-bp
  *   SET_DEFAULT=0
  *   DRY_RUN=1
+ *   FROM_PACK_FILE=1  — publish existing packs/<id>.json (no live CEO snapshot)
  */
-import { mkdirSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { initDb } from '../src/db/schema.js';
 import { snapshotOwnerAsBlueprintPayloadAsync, sanitizeBlueprintSecrets } from '../src/services/company-blueprint-publish.js';
@@ -29,6 +30,7 @@ const INDUSTRY = process.env.INDUSTRY_ID || 'demo_balaji_ranganathan';
 const OUT_DIR = process.env.OUT_DIR || '/tmp/balaji-demo-bp';
 const SET_DEFAULT = process.env.SET_DEFAULT === '1';
 const DRY = process.env.DRY_RUN === '1';
+const FROM_PACK_FILE = process.env.FROM_PACK_FILE === '1';
 // Optional: also write pack/zip into source tree (e.g. .../company-blueprints)
 const SOURCE_ROOT =
   process.env.SOURCE_BLUEPRINT_ROOT ||
@@ -75,15 +77,28 @@ function portableAgent(a) {
 initDb();
 invalidateBlueprintCache();
 
-const snap = await snapshotOwnerAsBlueprintPayloadAsync(OWNER);
-const company = snap.company_name || 'BalajiDemoCompany';
-const payload = { ...(snap.payload || {}) };
 const scrubSnap = { cleared: 0, scrubbed: 0 };
-sanitizeBlueprintSecrets(payload, scrubSnap);
+let payload;
+let company;
 
-// Clean for demo pack
-payload.workflow_templates = (payload.workflow_templates || []).filter(keepWorkflow);
-payload.agents = (payload.agents || []).map(portableAgent);
+if (FROM_PACK_FILE) {
+  const packFile = join(SOURCE_ROOT, 'packs', `${BLUEPRINT_ID}.json`);
+  if (!existsSync(packFile)) {
+    console.error('FROM_PACK_FILE=1 but missing', packFile);
+    process.exit(2);
+  }
+  payload = JSON.parse(readFileSync(packFile, 'utf8'));
+  company = payload.source_company_name || 'BalajiDemoCompany';
+  sanitizeBlueprintSecrets(payload, scrubSnap);
+  console.info('[publish-balaji-demo] FROM_PACK_FILE=%s', packFile);
+} else {
+  const snap = await snapshotOwnerAsBlueprintPayloadAsync(OWNER);
+  company = snap.company_name || 'BalajiDemoCompany';
+  payload = { ...(snap.payload || {}) };
+  sanitizeBlueprintSecrets(payload, scrubSnap);
+  payload.workflow_templates = (payload.workflow_templates || []).filter(keepWorkflow);
+  payload.agents = (payload.agents || []).map(portableAgent);
+}
 // Prefer label that shows as demo
 payload.id = BLUEPRINT_ID;
 payload.industry = INDUSTRY;
