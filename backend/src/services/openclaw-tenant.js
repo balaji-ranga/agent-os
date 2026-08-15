@@ -31,6 +31,7 @@ import {
   NATIVE_OPENCLAW_TOOLS as NATIVE_OPENCLAW_TOOLS_LIST,
   mergeOpenClawAllowList,
 } from './openclaw-runtime-tools.js';
+import { applyIdentityNameToAgentEntry } from '../../../scripts/lib/openclaw-whatsapp-from-prefix.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_TEMPLATES = join(__dirname, '..', '..', '..', 'openclaw-workspace-templates');
@@ -331,6 +332,7 @@ export function ensureTenantOpenClawAgent(agent, ceoUserId) {
   entry.tools = entry.tools || {};
   entry.tools.allow = mergeNativeTools(entry.tools.allow, grants);
   if (!entry.tools.deny) entry.tools.deny = ['image'];
+  applyIdentityNameToAgentEntry(entry, agent.name || baseOcId);
   applyByokModelToAgentEntry(entry, ceoUserId);
   writeOpenClawConfig(config);
 

@@ -17,6 +17,10 @@ import { join } from 'path';
 import { resolveOpenClawDir } from '../../scripts/lib/openclaw-paths.js';
 import { ensureChannelRoutingOnConfig } from '../../scripts/lib/openclaw-channel-routing.js';
 import {
+  applyWhatsAppFromPrefixToChannel,
+  applyIdentityNameToAgentEntry,
+} from '../../scripts/lib/openclaw-whatsapp-from-prefix.js';
+import {
   REQUIRED_GLOBAL_CONTENT_TOOLS,
   COO_CONTENT_TOOLS_ALLOW,
   WORKFLOW_BUILDER_CONTENT_TOOLS_ALLOW,
@@ -687,6 +691,7 @@ if (config.channels?.whatsapp?.accounts) {
     if (!config.channels.whatsapp.groupPolicy) {
       config.channels.whatsapp.groupPolicy = 'disabled';
     }
+    applyWhatsAppFromPrefixToChannel(config.channels.whatsapp);
     const accounts = config.channels.whatsapp.accounts;
     if (accounts && typeof accounts === 'object') {
       for (const id of Object.keys(accounts)) {
@@ -697,6 +702,11 @@ if (config.channels?.whatsapp?.accounts) {
       }
     }
   }
+  if (Array.isArray(config.agents?.list)) {
+    for (const entry of config.agents.list) {
+      applyIdentityNameToAgentEntry(entry);
+    }
+  }
   writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
-  console.log('Set WhatsApp/agents mediaMaxMb=', mediaMaxMb);
+  console.log('Set WhatsApp/agents mediaMaxMb=', mediaMaxMb, 'responsePrefix=From: {identityName}');
 }

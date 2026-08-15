@@ -7,6 +7,7 @@ import { join } from 'path';
 import { getOpenClawDir, getOpenClawConfigPath } from '../config/openclaw-paths.js';
 import { baseOcIdFromAgent, tenantOpenClawAgentId } from './openclaw-tenant.js';
 import { readOpenClawConfigSafe, writeOpenClawConfigSafe } from './openclaw-config-safe.js';
+import { applyWhatsAppFromPrefixToChannel } from '../../../scripts/lib/openclaw-whatsapp-from-prefix.js';
 
 const CHANNEL_ROUTING_SIDECAR = 'agent-os-channel-routing.json';
 
@@ -144,6 +145,7 @@ function whatsappAccountPatch(config, accountId, { enabled, dmPolicy, allowFrom,
   if (config.channels.whatsapp.groupPolicy == null || config.channels.whatsapp.groupPolicy === 'open') {
     config.channels.whatsapp.groupPolicy = 'disabled';
   }
+  applyWhatsAppFromPrefixToChannel(config.channels.whatsapp);
   config.channels.whatsapp.enabled = Object.values(config.channels.whatsapp.accounts).some(
     (a) => a?.enabled !== false
   );

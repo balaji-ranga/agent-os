@@ -141,6 +141,13 @@ if grep -q 'From: <your employee name>' "$ROOT/openclaw-workspace-templates/_sha
 else
   bad "AGENT-OS-OPS missing From: agent name on WhatsApp"
 fi
+if grep -q 'WHATSAPP_FROM_RESPONSE_PREFIX' "$ROOT/scripts/lib/openclaw-whatsapp-from-prefix.js" 2>/dev/null \
+  && grep -q 'applyWhatsAppFromPrefixToChannel' "$ROOT/backend/src/services/openclaw-channels-config.js" 2>/dev/null \
+  && grep -q 'applyIdentityNameToAgentEntry' "$ROOT/backend/src/services/openclaw-tenant.js" 2>/dev/null; then
+  ok "WhatsApp From: prefix (responsePrefix + identity.name)"
+else
+  bad "missing WhatsApp From: responsePrefix wiring"
+fi
 if grep -q 'deliver_whatsapp' "$ROOT/frontend/src/pages/ScheduledGoals.jsx" 2>/dev/null; then
   ok "frontend WhatsApp deliver-to checkbox"
 else
@@ -196,6 +203,20 @@ if [[ -f "$ROOT/backend/scripts/test-agent-channel-announce.mjs" ]]; then
   fi
 else
   bad "test-agent-channel-announce.mjs missing"
+fi
+
+if [[ -f "$ROOT/scripts/lib/test-openclaw-whatsapp-from-prefix.mjs" ]]; then
+  if node "$ROOT/scripts/lib/test-openclaw-whatsapp-from-prefix.mjs" 2>&1 | tee /tmp/wa-from-prefix-unit.log | tail -5; then
+    if grep -q 'WHATSAPP_FROM_PREFIX_UNIT_OK' /tmp/wa-from-prefix-unit.log; then
+      ok "WhatsApp From: prefix unit WHATSAPP_FROM_PREFIX_UNIT_OK"
+    else
+      bad "from-prefix unit did not print WHATSAPP_FROM_PREFIX_UNIT_OK"
+    fi
+  else
+    bad "test-openclaw-whatsapp-from-prefix.mjs failed"
+  fi
+else
+  bad "test-openclaw-whatsapp-from-prefix.mjs missing"
 fi
 
 # Avoid grep -q under pipefail: early exit can SIGPIPE docker logs (nonzero pipeline).

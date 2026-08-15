@@ -189,6 +189,8 @@ check "syncEnabledAgentChannelsToOpenClaw export" grep -q "syncEnabledAgentChann
 check "configure preserves channel routing" grep -q "ensureChannelRoutingOnConfig" "$ROOT/deploy/scripts/configure-openclaw-docker.js"
 check "entrypoint restores channel routing" grep -q "restore-openclaw-channel-routing" "$ROOT/deploy/docker/openclaw-entrypoint.sh"
 check "openclaw-channels-config" test -f "$ROOT/backend/src/services/openclaw-channels-config.js"
+check "WhatsApp From: prefix helper" test -f "$ROOT/scripts/lib/openclaw-whatsapp-from-prefix.js"
+check "configure WhatsApp From: prefix" grep -q "applyWhatsAppFromPrefixToChannel" "$ROOT/deploy/scripts/configure-openclaw-docker.js"
 check "agent-workflow-speech service" test -f "$ROOT/backend/src/services/agent-workflow-speech.js"
 check "PublicVirtualRoom page" test -f "$ROOT/frontend/src/pages/PublicVirtualRoom.jsx"
 check "PublishedScenes page" test -f "$ROOT/frontend/src/pages/PublishedScenes.jsx"

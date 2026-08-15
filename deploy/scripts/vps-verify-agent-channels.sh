@@ -83,11 +83,18 @@ const sidecarOk = existsSync(sidecarPath);
 
 // WhatsApp groupPolicy must default to disabled (DM allowFrom does not cover @g.us).
 const waGroupPolicy = [];
+const waMissingFromPrefix = [];
 const waAccountsObj = cfg.channels?.whatsapp?.accounts || {};
 for (const id of Object.keys(waAccountsObj)) {
   const gp = String(waAccountsObj[id]?.groupPolicy || cfg.channels?.whatsapp?.groupPolicy || '').toLowerCase();
   if (gp !== 'disabled' && gp !== 'allowlist' && gp !== 'open') {
     waGroupPolicy.push(`${id}:missing`);
+  }
+  const prefix = String(
+    waAccountsObj[id]?.responsePrefix || cfg.channels?.whatsapp?.responsePrefix || ''
+  );
+  if (!/From:\s*\{identityName\}|From:/i.test(prefix)) {
+    waMissingFromPrefix.push(id);
   }
 }
 const channelWaGroupPolicy = String(cfg.channels?.whatsapp?.groupPolicy || '').toLowerCase();
@@ -112,6 +119,9 @@ if (expectWa > 0 && waGroupPolicy.length) {
 }
 if (expectWa > 0 && !['disabled', 'allowlist', 'open'].includes(channelWaGroupPolicy)) {
   drift.push('channels.whatsapp.groupPolicy missing (expect disabled by default)');
+}
+if (expectWa > 0 && waMissingFromPrefix.length) {
+  drift.push(`whatsapp responsePrefix missing From: (${waMissingFromPrefix.join(',')})`);
 }
 
 const out = {
