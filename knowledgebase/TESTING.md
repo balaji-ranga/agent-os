@@ -385,7 +385,7 @@ docker compose --env-file .env exec -T -w /opt/agent-os/backend backend node scr
 docker compose --env-file .env exec -T -w /opt/agent-os/backend backend node scripts/test-web-scrape-instagram-workflow.js
 ```
 
-Help **44**. Instagram may return a login wall or HTTP 429 without vault `INSTAGRAM_SESSIONID`. The test still requires at least one visited page.
+Help **44**. Default target is a **public post permalink** (`/p/…`). Profile grids often 302 to login. The test requires a completed run plus usable page text (caption/title), not only a 429 visit.
 
 ## Admin Tools Onboarding (VPS Docker)
 

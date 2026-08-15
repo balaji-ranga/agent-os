@@ -19,8 +19,8 @@ initDb();
 export const WORKFLOW_ID = 'wf-web-scrape-instagram';
 
 export function buildInstagramScrapeGraph() {
-  const startUrl = String(process.env.WEB_SCRAPE_TEST_URL || 'https://www.instagram.com/instagram/').trim();
-  const phrases = String(process.env.WEB_SCRAPE_TEST_PHRASES || 'instagram, photo, follow').trim();
+  const startUrl = String(process.env.WEB_SCRAPE_TEST_URL || 'https://www.instagram.com/p/C5bj13LJSQd/').trim();
+  const phrases = String(process.env.WEB_SCRAPE_TEST_PHRASES || 'nasa, jupiter, eclipse').trim();
   return {
     nodes: [
       {
@@ -42,8 +42,8 @@ export function buildInstagramScrapeGraph() {
           label: 'Scrape Instagram',
           taskConfig: {
             render: 'playwright',
-            maxPages: 3,
-            maxDepth: 1,
+            maxPages: 2,
+            maxDepth: 0,
             sameOriginOnly: true,
             respectRobotsTxt: false,
             timeoutMs: 180000,

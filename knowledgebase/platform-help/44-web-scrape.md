@@ -47,4 +47,4 @@ docker compose exec backend node scripts/seed-web-scrape-mcp.js
 
 Env: `WEB_SCRAPE_MCP_URL=http://web-scrape-mcp:8085/mcp`
 
-Instagram login walls and datacenter **429**s are expected without a session cookie — this is not a replacement for Instaloader.
+Public Instagram **post permalinks** (`/p/{shortcode}/`) often return HTML without login; profile grids (`/nasa/`) often **302 to login**. Datacenter **429**s still happen on login URLs and some crawls — this node is not a replacement for Instaloader captions/feed (help **42**).

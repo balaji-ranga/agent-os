@@ -104,6 +104,11 @@ async function main() {
 
   assert(run.status === 'completed', `workflow failed: ${run.status} ${run.error_message || ''}`);
   assert(visited >= 1, `sidecar visited 0 pages (blocked or unreachable). stats=${JSON.stringify(stats)}`);
+  const hay = `${pages[0]?.title || ''} ${pages[0]?.text || ''} ${text}`.toLowerCase();
+  assert(
+    Number(stats.matched || 0) >= 1 || /nasa|jupiter|eclipse|instagram/.test(hay),
+    `public post HTML had no usable text. stats=${JSON.stringify(stats)} title=${pages[0]?.title || ''}`
+  );
   console.log('PASS web-scrape Instagram workflow');
 }
 
