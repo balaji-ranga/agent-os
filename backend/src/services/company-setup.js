@@ -28,6 +28,7 @@ import {
 import { createTable, findTableByName, insertRow, uploadDocument, clearTableRows } from './master-data.js';
 import { upsertCeoGuardrails, mergeUniversalSafetyPolicy, ensureUniversalSafetyGuardrails } from './ceo-guardrails.js';
 import { updateUserProfile } from './users.js';
+import { normalizeCountryRegion, formatIsoLocationLabel, parseIsoLocation } from '../lib/iso-country-region.js';
 import {
   shouldUseLlmOrgDesign,
   designCompanyOrgWithLlm,
@@ -274,7 +275,20 @@ if (body.mission != null) {
     }
   }
   if (body.headcount != null) strategic.headcount = String(body.headcount);
-  if (body.country != null) strategic.country = String(body.country).slice(0, 120);
+  if (body.country != null || body.region != null) {
+    const loc = normalizeCountryRegion({
+      country: body.country != null ? body.country : strategic.country,
+      region: body.region != null ? body.region : strategic.region,
+    });
+    strategic.country = loc.country;
+    strategic.region = loc.region;
+    console.info(
+      '[company-setup] location owner=%s country=%s region=%s',
+      ownerUserId,
+      loc.country || '-',
+      loc.region || '-'
+    );
+  }
   if (body.industry != null) strategic.industry = String(body.industry).slice(0, 120);
   if (Array.isArray(body.systems)) {
     strategic.systems = body.systems.map((s) => String(s).slice(0, 64)).slice(0, 40);
@@ -376,6 +390,8 @@ export function getFunnelState(ownerUserId) {
   const gate = getSetupGate(ownerUserId);
   const onboarding = getOnboardingState(ownerUserId);
   const strategic = onboarding.strategic_profile || {};
+  const loc = parseIsoLocation(strategic.country, strategic.region);
+  const strategicPublic = { ...strategic, country: loc.country, region: loc.region };
   const companyType = strategic.company_type || 'general_ops';
   const blueprint = resolveSelectedBlueprint(strategic, onboarding.journey || {});
   const industryBlueprints = listBlueprintsForIndustry(strategic.company_type_card || companyType);
@@ -395,7 +411,7 @@ export function getFunnelState(ownerUserId) {
   return {
     ...gate,
     funnel_step: strategic.funnel_step || 'welcome',
-    strategic_profile: strategic,
+    strategic_profile: strategicPublic,
     proposal: enriched,
     blueprint: {
       id: blueprint.id,
@@ -468,7 +484,10 @@ export async function designCompanyOrg(ownerUserId) {
       company_type_label: typeLabel,
       describe_company: strategic.describe_company || journey.answers?.purpose || '',
       industry: strategic.industry || typeLabel || '',
-      country: strategic.country || '',
+      country: (() => {
+        const loc = parseIsoLocation(strategic.country, strategic.region);
+        return formatIsoLocationLabel(loc.country, loc.region) || loc.country || strategic.country || '';
+      })(),
       headcount: strategic.headcount || '',
       mission: strategic.mission || '',
       org_dna: strategic.org_dna || '',

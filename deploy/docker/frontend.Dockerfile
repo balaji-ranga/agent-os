@@ -1,7 +1,8 @@
 # Agent OS frontend — Vite SPA (hPanel shell + light/dark theme, ThemeToggle,
 # Agent Workspaces Add agent, Tools nav (/content-tools), fullscreen workflow editor,
 # Scheduled goals (/scheduled-goals — create/edit/pause, hourly|daily|weekdays|weekly),
-# Company setup (/company-setup), TOTP first-login QR + security key,
+# Company setup (/company-setup) with ISO 3166 country/region dropdowns,
+# TOTP first-login QR + security key,
 # IBKR Summary (/ibkr-summary — portfolio + planned vs executed + Clear transactional data),
 # OrgDesigner dashboard, Efficiency Agent View, Add-to-org for external/A2A leaf members,
 # department purpose/budget UI, Master Data Purge all uploads + protected help/guide badges).

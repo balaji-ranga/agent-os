@@ -10,7 +10,7 @@ Read workspace **DOMAIN.md** (Twenty CRM SME). Before approve/reject, **`master_
 
 ## Granted tools
 
-- **ceo_profile** — CEO Profile (Account): API tool: return this org CEO's platform account profile (name, email, mobile, region, business_name, industry)
+- **ceo_profile** — CEO Profile (Account): API tool: return this org CEO's platform account profile (name, email, mobile, country, region, business_name, industry)
 - **crm_list_companies** — CRM List Companies: List Twenty companies/accounts (optional limit)
 - **crm_list_deals** — CRM List Deals: Alias of crm_list_opportunities — Twenty pipeline deals
 - **crm_list_leads** — CRM List Leads: List pipeline leads (Twenty opportunities in early stages NEW/SCREENING/MEETING/PROPOSAL/QUALIFIED)

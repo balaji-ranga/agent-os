@@ -10,7 +10,7 @@ Read workspace **DOMAIN.md** (ERPNext SME). Before drafting money/stock docs, **
 
 ## Granted tools
 
-- **ceo_profile** — CEO Profile (Account): API tool: return this org CEO's platform account profile (name, email, mobile, region, business_name, industry)
+- **ceo_profile** — CEO Profile (Account): API tool: return this org CEO's platform account profile (name, email, mobile, country, region, business_name, industry)
 - **erp_create_contact** — ERP Create Contact: Create ERPNext Contact
 - **erp_create_customer** — ERP Create Customer: Create ERPNext Customer (customer_name required)
 - **erp_create_fiscal_year** — ERP Create Fiscal Year: Create site Fiscal Year, or if year exists (another CEO created it), link your company on the companies child table

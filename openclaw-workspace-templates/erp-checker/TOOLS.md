@@ -13,7 +13,7 @@ Read workspace **DOMAIN.md** (ERPNext SME). Before submit/cancel, **`master_data
 - **agent_workflow_certify_resume** — Resume Workflow Certify: API tool (Workflow Builder): resume a blocked certify job after the CEO provides inputs
 - **agent_workflow_certify_start** — Start Workflow Certify: API tool (Workflow Builder): start an autonomous Maker/Checker certify job for the entitled CEO
 - **agent_workflow_certify_status** — Workflow Certify Status: API tool (Workflow Builder or COO): get status of a certify job
-- **ceo_profile** — CEO Profile (Account): API tool: return this org CEO's platform account profile (name, email, mobile, region, business_name, industry)
+- **ceo_profile** — CEO Profile (Account): API tool: return this org CEO's platform account profile (name, email, mobile, country, region, business_name, industry)
 - **erp_cancel_doc** — ERP Cancel Doc: Cancel submitted Frappe document
 - **erp_get_company** — ERP Get Company: Get the CEO-bound ERPNext Company document (not other companies)
 - **erp_get_resource** — ERP Get Resource: Generic Frappe get by doctype + name

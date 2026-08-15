@@ -10,7 +10,7 @@ Read workspace **DOMAIN.md** (ERPNext SME). Before stock/buying drafts, **`maste
 
 ## Granted tools
 
-- **ceo_profile** — CEO Profile (Account): API tool: return this org CEO's platform account profile (name, email, mobile, region, business_name, industry)
+- **ceo_profile** — CEO Profile (Account): API tool: return this org CEO's platform account profile (name, email, mobile, country, region, business_name, industry)
 - **erp_create_customer** — ERP Create Customer: Create ERPNext Customer (customer_name required)
 - **erp_create_delivery_note** — ERP Create Delivery Note: Create ERPNext Delivery Note
 - **erp_create_item** — ERP Create Item: Create ERPNext Item (item_code or item_name)

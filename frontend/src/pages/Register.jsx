@@ -5,6 +5,7 @@ import { api } from '../api';
 import { LEGAL_PATHS, FALLBACK_LEGAL_VERSIONS } from '../utils/legalLinks';
 import TotpEnrollmentDetails from '../components/TotpEnrollmentDetails';
 import { resolveTotpEnrollment } from '../utils/totpEnrollment';
+import IsoCountryRegionSelect from '../components/IsoCountryRegionSelect.jsx';
 
 const FALLBACK_LLM_PROVIDERS = [
   { id: 'platform_decided', label: 'Platform decided (use .env)', needs_vault_key: false, models: [], default_model: null },
@@ -51,6 +52,7 @@ export default function Register() {
     name: '',
     email: '',
     password: '',
+    country: '',
     region: '',
     mobile: '',
     db_mode: 'tenant',
@@ -278,7 +280,14 @@ export default function Register() {
         {field('Full name', 'name', 'text', true)}
         {field('Email', 'email', 'email', true)}
         {field('Password', 'password', 'password', true)}
-        {field('Region', 'region')}
+        <IsoCountryRegionSelect
+          country={form.country}
+          region={form.region}
+          onChange={({ country, region }) => setForm((f) => ({ ...f, country, region }))}
+          countryLabel="Country"
+          regionLabel="Region"
+          selectStyle={{ width: '100%', padding: '0.5rem', borderRadius: 6, border: '1px solid var(--border)' }}
+        />
         {field('Mobile', 'mobile', 'tel')}
         <label>
           <span style={{ display: 'block', fontSize: '0.85rem', marginBottom: 4 }}>Industry</span>

@@ -9,6 +9,8 @@ import {
   setErpnextBind,
 } from './company-business-profile.js';
 import { getDb } from '../db/schema.js';
+import { getUserById } from './users.js';
+import { parseIsoLocation, erpnextCountryName } from '../lib/iso-country-region.js';
 
 export function baseUrl() {
   return String(process.env.ERPNEXT_URL || '')
@@ -22,6 +24,40 @@ function apiKey() {
 
 function apiSecret() {
   return String(process.env.ERPNEXT_API_SECRET || '').trim();
+}
+
+function parseJsonSafe(raw, fallback) {
+  try {
+    const v = JSON.parse(raw || '');
+    return v && typeof v === 'object' ? v : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function resolveErpnextCountryName(ownerUserId) {
+  const envFallback =
+    String(process.env.ERPNEXT_DEFAULT_COUNTRY || 'United States').trim() || 'United States';
+  try {
+    const user = getUserById(ownerUserId);
+    const fromUser = parseIsoLocation(user?.country, user?.region);
+    const named = erpnextCountryName(fromUser.country);
+    if (named) return named;
+  } catch (e) {
+    console.warn('[erpnext] country from profile', e?.message || e);
+  }
+  try {
+    const row = getDb()
+      .prepare(`SELECT strategic_profile_json FROM ceo_org_strategy WHERE owner_user_id = ?`)
+      .get(ownerUserId);
+    const strategic = parseJsonSafe(row?.strategic_profile_json, {});
+    const fromCo = parseIsoLocation(strategic.country, strategic.region);
+    const named = erpnextCountryName(fromCo.country);
+    if (named) return named;
+  } catch (e) {
+    console.warn('[erpnext] country from company setup', e?.message || e);
+  }
+  return envFallback;
 }
 
 export function isErpnextApiConfigured() {
@@ -1463,8 +1499,8 @@ export async function ensureErpnextCompanyForOwner(ownerUserId, { displayName } 
           .slice(0, 5)
           .toUpperCase() || 'FL';
       // country is mandatory on ERPNext Company; missing it left CEOs on local_bind-only (no real Company doc).
-      const country =
-        String(process.env.ERPNEXT_DEFAULT_COUNTRY || 'United States').trim() || 'United States';
+      const country = resolveErpnextCountryName(owner);
+      console.info('[erpnext] company country owner=%s country=%s', owner, country);
       const currency = String(process.env.ERPNEXT_DEFAULT_CURRENCY || 'USD').trim() || 'USD';
       let data = null;
       let lastErr = null;

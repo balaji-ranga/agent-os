@@ -6,7 +6,7 @@ When you have access to Agent OS tools, invoke them **by tool name with JSON par
 
 ## Granted tools
 
-- **ceo_profile** — CEO Profile (Account): API tool: return this org CEO's platform account profile (name, email, mobile, region, business_name, industry)
+- **ceo_profile** — CEO Profile (Account): API tool: return this org CEO's platform account profile (name, email, mobile, country, region, business_name, industry)
 - **erp_get_company** — ERP Get Company: Get the CEO-bound ERPNext Company document (not other companies)
 - **erp_get_resource** — ERP Get Resource: Generic Frappe get by doctype + name
 - **erp_list_fiscal_years** — ERP List Fiscal Years: List Fiscal Years usable by your bound company

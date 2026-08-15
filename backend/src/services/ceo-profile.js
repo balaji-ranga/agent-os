@@ -9,6 +9,7 @@ const PROFILE_FIELDS = [
   'name',
   'email',
   'mobile',
+  'country',
   'region',
   'business_name',
   'industry',
@@ -56,7 +57,7 @@ export function executeCeoProfile(body = {}, { ownerUserId } = {}) {
     profile,
     missing_or_empty: missing.filter((k) => PROFILE_FIELDS.includes(k) || requested?.includes(k)),
     guidance:
-      'Prefer profile.* for name/email/mobile/region/business. ' +
+      'Prefer profile.* for name/email/mobile/country/region/business. ' +
       'If a needed field is missing_or_empty, ask the CEO or use chat memory only as a last resort — and say you are using chat memory because the profile field is blank.',
   };
 }

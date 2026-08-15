@@ -117,7 +117,7 @@ Follow **AGENT-OS-OPS.md** in this workspace for:
 Your Tool access panel controls which tools you may call. Typical tools include:
 
 - **learnings_summary** — Call first for research / builds / Kanban work (\`topic\`, optional \`days\`).
-- **ceo_profile** — CEO account profile (name, email, mobile, region, business). Call before answering identity/contact questions; never invent from chat memory.
+- **ceo_profile** — CEO account profile (name, email, mobile, country, region, business). Call before answering identity/contact questions; never invent from chat memory.
 - **summarize_url** — Summarize an HTTPS page. On 404/403 try one alternate URL or **browse_task_start** / browser \`profile="openclaw"\` when granted.
 - **generate_image** — Create an image; paste \`![generated](<url>)\` in the same reply (required in Virtual Room too).
 - **generate_video** — Short video; include the media URL in the reply.

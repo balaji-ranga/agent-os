@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth, RequireAuth } from '../context/AuthContext';
 import ActionFeedbackBanner from '../components/ActionFeedbackBanner';
+import IsoCountryRegionSelect from '../components/IsoCountryRegionSelect.jsx';
 import { useActionFeedback } from '../hooks/useActionFeedback';
 
 const USERS_PAGE_SIZE = 10;
@@ -17,7 +18,7 @@ function AdminPanel() {
   const [selected, setSelected] = useState(null);
   const [selectedAgents, setSelectedAgents] = useState([]);
   const [impersonatingUserId, setImpersonatingUserId] = useState(null);
-  const [form, setForm] = useState({ name: '', email: '', password: '', region: '', mobile: '', db_mode: 'tenant' });
+  const [form, setForm] = useState({ name: '', email: '', password: '', country: '', region: '', mobile: '', db_mode: 'tenant' });
   const [notifyForm, setNotifyForm] = useState({
     title: '',
     body: '',
@@ -146,7 +147,7 @@ function AdminPanel() {
     e.preventDefault();
     try {
       await api.adminRegisterUser(form);
-      setForm({ name: '', email: '', password: '', region: '', mobile: '', db_mode: 'tenant' });
+      setForm({ name: '', email: '', password: '', country: '', region: '', mobile: '', db_mode: 'tenant' });
       load();
       showSuccess('User registered successfully.');
     } catch (err) {
@@ -283,7 +284,7 @@ function AdminPanel() {
     const q = userSearch.trim().toLowerCase();
     if (!q) return users;
     return users.filter((u) => {
-      const hay = [u.name, u.email, u.role, u.id, u.region, u.mobile, u.industry, u.business_name]
+      const hay = [u.name, u.email, u.role, u.id, u.country, u.region, u.mobile, u.industry, u.business_name]
         .filter(Boolean)
         .join(' ')
         .toLowerCase();
@@ -798,7 +799,14 @@ function AdminPanel() {
             <input placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required style={{ padding: '0.45rem', borderRadius: 6, border: '1px solid var(--border)' }} />
             <input placeholder="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required style={{ padding: '0.45rem', borderRadius: 6, border: '1px solid var(--border)' }} />
             <input placeholder="Password" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required style={{ padding: '0.45rem', borderRadius: 6, border: '1px solid var(--border)' }} />
-            <input placeholder="Region" value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })} style={{ padding: '0.45rem', borderRadius: 6, border: '1px solid var(--border)' }} />
+            <IsoCountryRegionSelect
+              country={form.country}
+              region={form.region}
+              onChange={({ country, region }) => setForm((f) => ({ ...f, country, region }))}
+              countryLabel="Country"
+              regionLabel="Region"
+              selectStyle={{ padding: '0.45rem', borderRadius: 6, border: '1px solid var(--border)' }}
+            />
             <input placeholder="Mobile" value={form.mobile} onChange={(e) => setForm({ ...form, mobile: e.target.value })} style={{ padding: '0.45rem', borderRadius: 6, border: '1px solid var(--border)' }} />
             <select value={form.db_mode} onChange={(e) => setForm({ ...form, db_mode: e.target.value })} style={{ padding: '0.45rem', borderRadius: 6, border: '1px solid var(--border)' }}>
               <option value="tenant">Dedicated tenant DB</option>

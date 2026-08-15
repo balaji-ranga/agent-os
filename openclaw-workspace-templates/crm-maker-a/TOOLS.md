@@ -10,7 +10,7 @@ Read workspace **DOMAIN.md** (Twenty CRM SME). Before non-trivial pipeline work,
 
 ## Granted tools
 
-- **ceo_profile** — CEO Profile (Account): API tool: return this org CEO's platform account profile (name, email, mobile, region, business_name, industry)
+- **ceo_profile** — CEO Profile (Account): API tool: return this org CEO's platform account profile (name, email, mobile, country, region, business_name, industry)
 - **crm_create_company** — CRM Create Company: Create Twenty company (name required; domain_url?, employees?)
 - **crm_create_deal** — CRM Create Deal: Create deal (opportunity) default stage PROPOSAL
 - **crm_create_lead** — CRM Create Lead: Create lead as Twenty opportunity with stage NEW (name, amount?, company_id?)

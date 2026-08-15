@@ -6,7 +6,7 @@ When you have access to Agent OS tools, invoke them **by tool name with JSON par
 
 ## Granted tools
 
-- **ceo_profile** — CEO Profile (Account): API tool: return this org CEO's platform account profile (name, email, mobile, region, business_name, industry)
+- **ceo_profile** — CEO Profile (Account): API tool: return this org CEO's platform account profile (name, email, mobile, country, region, business_name, industry)
 - **erp_create_project** — ERP Create Project: Create Project
 - **erp_create_resource** — ERP Create Resource: Generic Frappe create doctype
 - **erp_create_task** — ERP Create Task: Create Task (subject required)

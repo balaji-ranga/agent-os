@@ -75,6 +75,7 @@ router.post('/register', async (req, res) => {
       email,
       password,
       name,
+      country,
       region,
       mobile,
       db_mode,
@@ -95,6 +96,7 @@ router.post('/register', async (req, res) => {
       email,
       password,
       name,
+      country,
       region,
       mobile,
       db_mode,
@@ -285,6 +287,7 @@ router.patch('/me', requireAuth, (req, res) => {
     const {
       name,
       email,
+      country,
       region,
       mobile,
       role_title,
@@ -307,6 +310,7 @@ router.patch('/me', requireAuth, (req, res) => {
     const user = updateUserProfile(req.authUser.id, {
       name,
       email,
+      country,
       region,
       mobile,
       role_title,

@@ -16,7 +16,7 @@
 - **Company setup** (`/company-setup`) — structured funnel + blueprints for first company shape.
 - **Onboarding Helper** (`/onboarding`, agent `onboardinghelper`) — freeform chat proposal with selective Review / Apply (see [27-onboarding-helper.md](./27-onboarding-helper.md)).
 
-**What steps does the wizard include?** Welcome → company type → identity (name, headcount, country, industry) → mission → org DNA → preview team → systems → management style → review / apply → done.
+**What steps does the wizard include?** Welcome → company type → identity (name, headcount, **ISO country + region**, industry) → mission → org DNA → preview team → systems → management style → review / apply → done.
 
 **What management styles exist?**
 - **AI suggests** — employees draft; you decide and act.
@@ -50,7 +50,7 @@
 1. Register and log in as CEO.
 2. If the app opens Company setup first, choose **Create a company** (or skip if offered).
 3. Pick a **company type** (for example content creator) or describe your business.
-4. Fill **identity** (company name, headcount band, country, industry).
+4. Fill **identity** (company name, headcount band, ISO country + optional ISO region, industry).
 5. Write a **mission** / what success looks like.
 6. Choose **org DNA** (startup, enterprise, cost-conscious, creative agency, etc.).
 7. **Preview** the proposed AI employees and departments; adjust selection checkboxes.
@@ -76,6 +76,7 @@
 - **API Keys** — fill `Platform_BYOK` if you chose OpenAI/OpenRouter.
 - **Resync** — after org changes, My Org → Resync ORG/AGENTS when needed.
 - **Onboarding Helper** — for additional custom departments/agents beyond the blueprint.
+- **Education industry** — Company type **Education** keeps that card label; Day 0/1 templates still use the thin **`general_ops`** pack (`maps_to`). Optional CRM **Twenty** (admissions Leads) + ERP **ERPNext**. College books map onto existing ERP doctypes (no Education-module Student/Program tools): prospect → Twenty Lead; enrolled student/parent → Customer; program/tuition → Item (service); fee bill → Sales Invoice; collection → Payment Entry; faculty → Employee; batch → Project. Thought capture + PA are COO **WhatsApp** (text + TTS) + Knowledge tables + scheduled goals. Ops bootstrap (VPS): `node scripts/bootstrap-education-demo-ceo.js` (BYOK vault copy from a source CEO; secrets never committed). Help **24** / **32**.
 
 ## Isolation and entitlements
 

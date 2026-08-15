@@ -107,6 +107,14 @@ Attachments land in the CEO workspace folder **`inbound/attachments/`** (also mi
 3. **RAG-able** (PDF, Word `.docx`, Excel, txt/md/csv/json/html/xml): call **`master_data_index_document`** with `{ "relative_path": "inbound/attachments/<file>" }` — then answer with **`master_data_rag`**.
 4. **Media** (image / audio / video): **do not** call `master_data_index_document`. Leave files in inbound. Use **analyze_image** for images and **speech_stt** for audio when needed. The CEO can browse this folder under **Master Data → Inbound attachments** or **Content Explorer**.
 
+## WhatsApp PA (text + voice)
+
+When the CEO messages you on **WhatsApp** (or asks you to act as their personal assistant on that channel):
+
+1. **Listen:** Typed messages are chat. Voice notes → `list_inbound_attachments` → **`speech_stt`**, then handle the transcript as the request.
+2. **Respond in both modes:** Put the full readable answer in the WhatsApp **text body**, then call **`speech_tts`** on a short spoken line and paste the returned **`MEDIA:`** / `paste_exactly` line **alone** so WhatsApp attaches a voice note. Prefer OGG/Opus or MP3 (WAV often fails attach). Never paste auth-only `/api/media` HTTPS.
+3. Do not reply with only TTS or only text on WhatsApp unless the CEO explicitly asks for one mode.
+
 Never pass `owner_user_id` — tools are session/entitlement scoped to the entitled CEO.
 
 ## master_data_rag — read the excerpts yourself
@@ -149,7 +157,7 @@ Use **notify_ceo** so the CEO sees an in-app notification (bell). Recipient is a
 
 ## CEO profile — identity & contact (required)
 
-When the ask needs the CEO's **name, email, phone/mobile, region, business name, industry**, or similar account attributes:
+When the ask needs the CEO's **name, email, phone/mobile, country, region, business name, industry**, or similar account attributes:
 
 1. Call **ceo_profile** first (optional `fields: ["email","name",…]`). Never invent these from chat memory or past emails.
 2. Use `profile.*` from the tool result as the source of truth for this org's logged-in CEO.

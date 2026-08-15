@@ -19,6 +19,7 @@
 # Scheduled goals: backend services/routes + schema; master tick SCHEDULED_GOALS_CRON in compose;
 # GOAL_PLAN_* / SCHEDULED_GOAL_CHAT_TIMEOUT_MS / WORKFLOW_TERMINAL_WATCH_CRON / TOOL_API_RATE_LIMIT_RESET_CRON also in compose backend-env;
 # help docs 11/19/28/42 must ship in platform-help COPY; seed tools in seed-content-tools-meta.js.
+# ISO 3166 country/region on Profile/Register/Company setup (iso-3166 dep; platform_users.country).
 # Also: public VR routes, speech STT/TTS APIs + COO content tools speech_tts/speech_stt,
 # agent channels, optional-voice (whisper+piper),
 # platform MCP OAuth (mcp-oauth tables) + Meta Graph seed (seed-meta-graph-mcp.js) +

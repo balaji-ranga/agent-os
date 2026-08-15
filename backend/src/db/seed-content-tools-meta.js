@@ -469,7 +469,7 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/ceo-profile',
     method: 'POST',
     purpose:
-      'API tool: return this org CEO\'s platform account profile (name, email, mobile, region, business_name, industry). ' +
+      'API tool: return this org CEO\'s platform account profile (name, email, mobile, country, region, business_name, industry). ' +
       'ALWAYS call this before answering questions about the CEO\'s identity/contact details — do NOT invent from chat memory. ' +
       'Never pass user_id (owner is session-scoped). Optional: fields:[\"email\",\"name\",...] to request a subset. ' +
       'If a needed field is empty in missing_or_empty, ask the CEO or fall back to chat memory and say so.',

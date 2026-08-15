@@ -7,12 +7,14 @@ import { COMMON_DISPLAY_TIMEZONES } from '../utils/commonTimezones.js';
 import { formatLocalDateTime } from '../utils/formatDateTime.js';
 import RobotAvatar, { fileToDataUrl } from '../components/RobotAvatar.jsx';
 import ThemePicker from '../components/ThemePicker.jsx';
+import IsoCountryRegionSelect from '../components/IsoCountryRegionSelect.jsx';
 
 function UserProfilePanel() {
   const { user, reload, platformTimezone, displayTimezone } = useAuth();
   const [form, setForm] = useState({
     name: '',
     email: '',
+    country: '',
     region: '',
     mobile: '',
     role_title: 'CEO',
@@ -129,6 +131,7 @@ function UserProfilePanel() {
       ...f,
       name: user.name || '',
       email: user.email || '',
+      country: user.country || '',
       region: user.region || '',
       mobile: user.mobile || '',
       role_title: userRoleTitle(user),
@@ -227,6 +230,7 @@ function UserProfilePanel() {
       const body = {
         name: form.name,
         email: form.email,
+        country: form.country,
         region: form.region,
         mobile: form.mobile,
         role_title: String(form.role_title || '').trim() || 'CEO',
@@ -532,14 +536,20 @@ function UserProfilePanel() {
             style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
           />
         </label>
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Region</span>
-          <input
-            value={form.region}
-            onChange={(e) => set('region', e.target.value)}
-            style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
-          />
-        </label>
+        <IsoCountryRegionSelect
+          country={form.country}
+          region={form.region}
+          onChange={({ country, region }) => setForm((f) => ({ ...f, country, region }))}
+          countryLabel="Country"
+          regionLabel="Region"
+          selectStyle={{
+            padding: '0.6rem 0.75rem',
+            borderRadius: 6,
+            border: '1px solid var(--border)',
+            background: 'var(--surface)',
+            color: 'var(--text)',
+          }}
+        />
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Mobile</span>
           <input

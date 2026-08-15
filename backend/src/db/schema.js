@@ -2115,6 +2115,11 @@ export function initDb() {
     _db.exec(`ALTER TABLE platform_users ADD COLUMN privacy_version TEXT`);
   } catch (_) {}
 
+  /** ISO 3166-1 alpha-2 (SG). region holds ISO 3166-2 (US-CA) or empty. */
+  try {
+    _db.exec(`ALTER TABLE platform_users ADD COLUMN country TEXT DEFAULT ''`);
+  } catch (_) {}
+
   /** Agent icon / profile pic (data URL; default UI uses robot icon when empty). */
   try {
     _db.exec(`ALTER TABLE agents ADD COLUMN avatar_image TEXT DEFAULT ''`);

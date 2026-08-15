@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api';
+import IsoCountryRegionSelect from '../components/IsoCountryRegionSelect.jsx';
 
 const STYLES = [
   { id: 'suggest', title: 'AI suggests', desc: 'AI employees draft; you decide and act.' },
@@ -88,6 +89,7 @@ export default function CompanySetup() {
   const [companyName, setCompanyName] = useState('');
   const [headcount, setHeadcount] = useState('just_me');
   const [country, setCountry] = useState('');
+  const [region, setRegion] = useState('');
   const [industry, setIndustry] = useState('');
   const [selectedType, setSelectedType] = useState('content_creator');
   const [selectedBlueprintId, setSelectedBlueprintId] = useState('');
@@ -156,7 +158,10 @@ export default function CompanySetup() {
       if (data.company_name) setCompanyName(data.company_name);
       if (data.strategic_profile?.describe_company) setDescribe(data.strategic_profile.describe_company);
       if (data.strategic_profile?.headcount) setHeadcount(data.strategic_profile.headcount);
-      if (data.strategic_profile?.country) setCountry(data.strategic_profile.country);
+      if (data.strategic_profile?.country || data.strategic_profile?.region) {
+        setCountry(data.strategic_profile.country || '');
+        setRegion(data.strategic_profile.region || '');
+      }
       if (data.strategic_profile?.industry) setIndustry(data.strategic_profile.industry);
       if (Array.isArray(data.systems)) setSystems(data.systems);
       if (data.strategic_profile?.crm_provider) setCrmProvider(data.strategic_profile.crm_provider);
@@ -317,6 +322,7 @@ export default function CompanySetup() {
           company_name: companyName.trim(),
           headcount,
           country: country || undefined,
+          region: region || undefined,
           industry: industry || undefined,
           company_type: selectedType,
           blueprint_id: bp,
@@ -846,11 +852,16 @@ export default function CompanySetup() {
               </button>
             ))}
           </div>
-          <label style={{ display: 'block', marginBottom: 4 }}>Country / region</label>
-          <input
-            value={country}
-            onChange={(e) => setCountry(e.target.value)}
-            style={{
+          <IsoCountryRegionSelect
+            country={country}
+            region={region}
+            onChange={({ country: nextCountry, region: nextRegion }) => {
+              setCountry(nextCountry);
+              setRegion(nextRegion);
+            }}
+            countryLabel="Country"
+            regionLabel="Region"
+            selectStyle={{
               width: '100%',
               padding: '0.55rem 0.7rem',
               borderRadius: 8,
@@ -858,7 +869,6 @@ export default function CompanySetup() {
               background: 'var(--surface)',
               color: 'var(--text)',
               font: 'inherit',
-              marginBottom: '0.85rem',
             }}
           />
           <label style={{ display: 'block', marginBottom: 4 }}>Industry (optional)</label>

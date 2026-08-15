@@ -29,6 +29,7 @@ import {
   FALLBACK_PLATFORM_LEAN_AGENT_IDS,
   getPlatformLeanAgentIds,
 } from './company-blueprints/standard-prefabs.js';
+import { normalizeCountryRegion, parseIsoLocation } from '../lib/iso-country-region.js';
 
 export { isUserEnabled } from './user-enabled.js';
 
@@ -199,6 +200,7 @@ export async function registerCeoUser({
   email,
   password,
   name,
+  country = '',
   region = '',
   mobile = '',
   db_mode,
@@ -265,17 +267,19 @@ export async function registerCeoUser({
   });
   if (!modelNorm.ok) throw Object.assign(new Error(modelNorm.error), { status: 400 });
   const modelToStore = provider === 'platform_decided' ? null : modelNorm.model;
+  const loc = normalizeCountryRegion({ country, region });
 
   db.prepare(
     `INSERT INTO platform_users
-      (id, email, password_hash, name, region, mobile, role, enabled, ceo_db_mode, mfa_policy, mfa_mode, mfa_enabled, llm_provider, llm_model, llm_api_key, industry, industry_other, business_name, terms_accepted_at, terms_version, privacy_version)
-     VALUES (?, ?, ?, ?, ?, ?, 'ceo', 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      (id, email, password_hash, name, country, region, mobile, role, enabled, ceo_db_mode, mfa_policy, mfa_mode, mfa_enabled, llm_provider, llm_model, llm_api_key, industry, industry_other, business_name, terms_accepted_at, terms_version, privacy_version)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'ceo', 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     normalizedEmail,
     hashPassword(password),
     String(name).trim(),
-    String(region).trim(),
+    loc.country,
+    loc.region,
     String(mobile).trim(),
     mode,
     policy,
@@ -298,6 +302,7 @@ export async function registerCeoUser({
       legal.terms_version,
       legal.privacy_version
     );
+    console.info('[registerCeoUser] location user=%s country=%s region=%s', id, loc.country || '-', loc.region || '-');
   }
 
   if (mode === 'tenant' && !isPlatformLegacyCeo(id)) initCeoDb(id);
@@ -324,7 +329,8 @@ export async function registerCeoUser({
     id,
     email: normalizedEmail,
     name: String(name).trim(),
-    region: String(region).trim(),
+    country: loc.country,
+    region: loc.region,
     mobile: String(mobile).trim(),
     role: 'ceo',
     enabled: true,
@@ -343,7 +349,7 @@ export async function registerCeoUser({
   };
 }
 
-export function registerAdminUser({ email, password, name, region = '', mobile = '' }) {
+export function registerAdminUser({ email, password, name, country = '', region = '', mobile = '' }) {
   const db = getDb();
   const normalizedEmail = String(email || '').trim().toLowerCase();
   if (!normalizedEmail || !password || !name) {
@@ -352,11 +358,20 @@ export function registerAdminUser({ email, password, name, region = '', mobile =
   const existing = db.prepare('SELECT id FROM platform_users WHERE email = ?').get(normalizedEmail);
   if (existing) throw new Error('Email already registered');
 
+  const loc = normalizeCountryRegion({ country, region });
   const id = slugId('admin', normalizedEmail);
   db.prepare(
-    `INSERT INTO platform_users (id, email, password_hash, name, region, mobile, role, enabled)
-     VALUES (?, ?, ?, ?, ?, ?, 'admin', 1)`
-  ).run(id, normalizedEmail, hashPassword(password), String(name).trim(), String(region).trim(), String(mobile).trim());
+    `INSERT INTO platform_users (id, email, password_hash, name, country, region, mobile, role, enabled)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'admin', 1)`
+  ).run(
+    id,
+    normalizedEmail,
+    hashPassword(password),
+    String(name).trim(),
+    loc.country,
+    loc.region,
+    String(mobile).trim()
+  );
 
   return {
     id,
@@ -379,11 +394,13 @@ export function authenticateUser(email, password) {
 export function userPublic(row) {
   if (!row) return null;
   const llm = userLlmPublic(row);
+  const loc = parseIsoLocation(row.country, row.region);
   const out = {
     id: row.id,
     email: row.email,
     name: row.name,
-    region: row.region || '',
+    country: loc.country,
+    region: loc.region,
     mobile: row.mobile || '',
     role: row.role,
     role_title: String(row.role_title || '').trim(),
@@ -427,13 +444,18 @@ export function getUserById(id) {
 }
 
 export function listUsers({ limit = null, offset = 0 } = {}) {
-  const baseSql = `SELECT id, email, name, region, mobile, role, enabled, ceo_db_mode, industry, industry_other, business_name, last_login_at, created_at, updated_at, terms_accepted_at, terms_version, privacy_version
+  const baseSql = `SELECT id, email, name, country, region, mobile, role, enabled, ceo_db_mode, industry, industry_other, business_name, last_login_at, created_at, updated_at, terms_accepted_at, terms_version, privacy_version
        FROM platform_users`;
-  const mapRow = (row) => ({
-    ...row,
-    enabled: !!row.enabled,
-    ceo_db_mode: row.role === 'ceo' ? row.ceo_db_mode || defaultCeoDbMode() : null,
-  });
+  const mapRow = (row) => {
+    const loc = parseIsoLocation(row.country, row.region);
+    return {
+      ...row,
+      country: loc.country,
+      region: loc.region,
+      enabled: !!row.enabled,
+      ceo_db_mode: row.role === 'ceo' ? row.ceo_db_mode || defaultCeoDbMode() : null,
+    };
+  };
   if (limit == null) {
     return getDb()
       .prepare(`${baseSql} ORDER BY created_at DESC`)
@@ -565,6 +587,7 @@ export function updateUserProfile(
   {
     name,
     email,
+    country,
     region,
     mobile,
     role_title,
@@ -595,7 +618,14 @@ export function updateUserProfile(
     if (!trimmed) throw new Error('name cannot be empty');
     updates.name = trimmed;
   }
-  if (region !== undefined) updates.region = String(region).trim();
+  if (country !== undefined || region !== undefined) {
+    const loc = normalizeCountryRegion({
+      country: country !== undefined ? country : row.country,
+      region: region !== undefined ? region : row.region,
+    });
+    updates.country = loc.country;
+    updates.region = loc.region;
+  }
   if (mobile !== undefined) updates.mobile = String(mobile).trim();
   if (role_title !== undefined) {
     const title = String(role_title).trim().slice(0, 64);
@@ -649,6 +679,14 @@ export function updateUserProfile(
       ...keys.map((k) => updates[k]),
       userId
     );
+    if (updates.country !== undefined || updates.region !== undefined) {
+      console.info(
+        '[updateUserProfile] location user=%s country=%s region=%s',
+        userId,
+        updates.country || '-',
+        updates.region || '-'
+      );
+    }
   }
 
   if (mfa_policy !== undefined || mfa_mode !== undefined) {
@@ -700,7 +738,7 @@ export function ensureDefaultAdmin() {
   const existing = db.prepare('SELECT id FROM platform_users WHERE role = ? LIMIT 1').get('admin');
   if (existing) return null;
   assertNonDefaultPassword(password, 'AGENT_OS_ADMIN_PASSWORD', 'admin-change-me');
-  const user = registerAdminUser({ email, password, name: 'Platform Admin', region: 'global' });
+  const user = registerAdminUser({ email, password, name: 'Platform Admin', country: '', region: '' });
   console.log(`Agent OS: seeded admin user ${user.email} (change AGENT_OS_ADMIN_PASSWORD)`);
   return user;
 }
@@ -715,7 +753,10 @@ export function ensureBalaCeoUser() {
   const email = (process.env.AGENT_OS_BALA_EMAIL || 'bala@agent-os.local').trim().toLowerCase();
   const password = process.env.AGENT_OS_BALA_PASSWORD || 'bala-change-me';
   const name = process.env.AGENT_OS_BALA_NAME || 'Balaji Muthukrishnan';
-  const region = process.env.AGENT_OS_BALA_REGION || 'Singapore';
+  const loc = parseIsoLocation(
+    process.env.AGENT_OS_BALA_COUNTRY || '',
+    process.env.AGENT_OS_BALA_REGION || 'Singapore'
+  );
   const mobile = process.env.AGENT_OS_BALA_MOBILE || '';
 
   let row = db.prepare('SELECT id FROM platform_users WHERE id = ?').get(id);
@@ -730,9 +771,9 @@ export function ensureBalaCeoUser() {
   if (!row) {
     assertNonDefaultPassword(password, 'AGENT_OS_BALA_PASSWORD', 'bala-change-me');
     db.prepare(
-      `INSERT INTO platform_users (id, email, password_hash, name, region, mobile, role, enabled, ceo_db_mode)
-       VALUES (?, ?, ?, ?, ?, ?, 'ceo', 1, 'shared')`
-    ).run(id, email, hashPassword(password), name, region, mobile);
+      `INSERT INTO platform_users (id, email, password_hash, name, country, region, mobile, role, enabled, ceo_db_mode)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'ceo', 1, 'shared')`
+    ).run(id, email, hashPassword(password), name, loc.country, loc.region, mobile);
     console.log(`Agent OS: seeded Bala CEO ${email} (id=${id}) — uses existing platform DB`);
     grantStandardAgents(id);
     return { id, email, name, created: true };
