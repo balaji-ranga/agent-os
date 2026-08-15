@@ -919,25 +919,30 @@ export async function applyCompanySetup(ownerUserId, { confirm_override: confirm
 
   // Optional CRM/ERP (Business Core) — never required; does not fail company setup.
   // Prefab AI employees join the org only for platform Twenty / ERPNext.
+  // CRM and ERP are independent: a Twenty workspace-cap failure must not skip ERP bind.
   let businessCore = null;
+  const crmProvider = String(strategicDone.crm_provider || 'none').trim().toLowerCase() || 'none';
+  const erpProvider = String(strategicDone.erp_provider || 'none').trim().toLowerCase() || 'none';
+  const { updateBusinessProviders, getBusinessProfile } = await import('./company-business-profile.js');
   try {
-    const crmProvider = String(strategicDone.crm_provider || 'none').trim().toLowerCase() || 'none';
-    const erpProvider = String(strategicDone.erp_provider || 'none').trim().toLowerCase() || 'none';
-    const { updateBusinessProviders, getBusinessProfile } = await import('./company-business-profile.js');
     updateBusinessProviders(ownerUserId, {
       crm_provider: crmProvider,
       erp_provider: erpProvider,
     });
-    const user = await import('./users.js').then((m) => m.getUserById(ownerUserId));
-    const displayName = strategicDone.company_name || user?.business_name || user?.name;
     businessCore = { profile: getBusinessProfile(ownerUserId) };
+  } catch (e) {
+    console.warn('[company-setup] business core profile (non-fatal):', e?.message || e);
+  }
+  const user = await import('./users.js').then((m) => m.getUserById(ownerUserId));
+  const displayName = strategicDone.company_name || user?.business_name || user?.name;
 
+  try {
     if (crmProvider === 'twenty') {
       const { ensureTwentyWorkspaceForCompany } = await import('./twenty-crm.js');
       const { ensurePrefabCrmAgents } = await import('./prefab-crm-agents.js');
       const twenty = await ensureTwentyWorkspaceForCompany(ownerUserId, { displayName });
       const prefab = await ensurePrefabCrmAgents(ownerUserId);
-      businessCore = { ...businessCore, profile: getBusinessProfile(ownerUserId), twenty, prefab };
+      businessCore = { ...(businessCore || {}), profile: getBusinessProfile(ownerUserId), twenty, prefab };
       console.info(
         '[company-setup] business core CRM twenty owner=%s workspace=%s prefab=%s',
         ownerUserId,
@@ -950,7 +955,7 @@ export async function applyCompanySetup(ownerUserId, { confirm_override: confirm
       const erpnextCrm = await ensureErpnextCompanyForOwner(ownerUserId, { displayName });
       const prefab = await ensurePrefabCrmAgents(ownerUserId);
       businessCore = {
-        ...businessCore,
+        ...(businessCore || {}),
         profile: getBusinessProfile(ownerUserId),
         erpnext: erpnextCrm,
         prefab,
@@ -964,16 +969,20 @@ export async function applyCompanySetup(ownerUserId, { confirm_override: confirm
     } else {
       const { revokePrefabCrmAgentsFromOrg } = await import('./prefab-crm-agents.js');
       const prefab = revokePrefabCrmAgentsFromOrg(ownerUserId);
-      businessCore = { ...businessCore, profile: getBusinessProfile(ownerUserId), prefab };
+      businessCore = { ...(businessCore || {}), profile: getBusinessProfile(ownerUserId), prefab };
     }
+  } catch (e) {
+    console.warn('[company-setup] business core CRM provision (non-fatal):', e?.message || e);
+  }
 
+  try {
     if (erpProvider === 'erpnext') {
       const { ensureErpnextCompanyForOwner } = await import('./erpnext-erp.js');
       const { ensurePrefabErpAgents } = await import('./prefab-erp-agents.js');
       const erpnext = await ensureErpnextCompanyForOwner(ownerUserId, { displayName });
       const prefab_erp = await ensurePrefabErpAgents(ownerUserId);
       businessCore = {
-        ...businessCore,
+        ...(businessCore || {}),
         profile: getBusinessProfile(ownerUserId),
         erpnext,
         prefab_erp,
@@ -988,13 +997,13 @@ export async function applyCompanySetup(ownerUserId, { confirm_override: confirm
       const { revokePrefabErpAgentsFromOrg } = await import('./prefab-erp-agents.js');
       const prefab_erp = revokePrefabErpAgentsFromOrg(ownerUserId);
       businessCore = {
-        ...businessCore,
+        ...(businessCore || {}),
         profile: getBusinessProfile(ownerUserId),
         prefab_erp,
       };
     }
   } catch (e) {
-    console.warn('[company-setup] business core provision (non-fatal):', e?.message || e);
+    console.warn('[company-setup] business core ERP provision (non-fatal):', e?.message || e);
   }
 
   const day1 = buildDay1Briefing(ownerUserId, strategicDone, applied, extras);

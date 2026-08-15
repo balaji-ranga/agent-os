@@ -366,10 +366,24 @@ export async function ensureCompanyTwentyWorkspace(ownerUserId, { displayName } 
     trySub = `${trySub.slice(0, 40)}${i + 1}`;
   }
 
-  const created = await createAndActivateTwentyWorkspace({
-    displayName: name,
-    subdomain: trySub,
-  });
+  let created;
+  try {
+    created = await createAndActivateTwentyWorkspace({
+      displayName: name,
+      subdomain: trySub,
+    });
+  } catch (e) {
+    const msg = String(e?.message || e);
+    if (/more than \d+ workspaces/i.test(msg) || /enterprise key/i.test(msg)) {
+      throw Object.assign(
+        new Error(
+          'Twenty self-hosted workspace cap reached (typically 5 without an enterprise key). Soft-delete an unused workspace (core.workspace.deletedAt) and retry. Never bind another CEO’s workspace.'
+        ),
+        { status: 409, cause: e }
+      );
+    }
+    throw e;
+  }
 
   setTwentyBind(owner, {
     workspace_id: created.id,

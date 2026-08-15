@@ -130,6 +130,7 @@ Workspace MD (TOOLS / AGENTS / SOUL / MEMORY) lives under **`openclaw-workspace-
 | `TWENTY_DATABASE_URL` | JIT user + membership in company workspace |
 | `TWENTY_REDIS_URL` | Same Redis as Twenty (`redis://twenty-redis:6379`) — invalidate member flat-maps after JIT join |
 | `TWENTY_IS_MULTIWORKSPACE_ENABLED` | **`true`** on Twenty server/worker — required to create additional workspaces |
+| Twenty workspace cap | Self-hosted Twenty without a valid **enterprise key** allows **5 workspaces**. Company setup still binds **ERP independently** if CRM create fails. Free a slot by soft-deleting an unused `core.workspace` (`deletedAt`); **never** reuse another CEO’s workspace. |
 | `TWENTY_BOOTSTRAP_EMAIL` | Optional admin used to call `signUpInNewWorkspace` (else first ACTIVE member) |
 | `TWENTY_EMBED_URL` / `TWENTY_SERVER_URL` | Platform front origin `https://crm.<apex>` (subdomains built from this host) |
 

@@ -137,7 +137,7 @@ async function ensureCeo() {
     password,
     name: NAME,
     country: 'SG',
-    region: 'Asia',
+    region: 'SG-01',
     industry: 'education',
     business_name: COMPANY,
     ceo_db_mode: 'tenant',
@@ -311,7 +311,7 @@ async function smokeSpeech(ownerId) {
   });
   let sttText = '';
   try {
-    const artifactId = tts?.audio?.id || tts?.id;
+    const artifactId = tts?.audio?.artifactId || tts?.audio?.id || tts?.id;
     const stt = await executeSpeechSttTool(
       artifactId ? { artifact_id: artifactId } : { media_uri: media, path: media },
       ownerId
@@ -401,6 +401,7 @@ async function main() {
       erp_provider: 'erpnext',
       org_dna: 'execution',
       country: 'SG',
+      region: 'SG-01',
       industry: 'education',
       mission:
         'Run a well-governed college: admissions, tuition collections, and a CEO personal assistant that captures thoughts and briefs the owner — under human approval.',
@@ -459,7 +460,8 @@ async function main() {
     whatsapp = ensureWhatsAppDraft(ownerId);
     try {
       if (whatsapp?.id && String(whatsapp.status || '') === 'draft') {
-        whatsapp = applyAgentChannel(ownerId, whatsapp.id);
+        const applied = applyAgentChannel(ownerId, whatsapp.id);
+        whatsapp = applied?.channel || whatsapp;
         console.info('[edu-demo] WhatsApp apply', { id: whatsapp.id, status: whatsapp.status });
       }
     } catch (e) {
