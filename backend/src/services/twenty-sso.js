@@ -94,6 +94,12 @@ export async function invalidateTwentyWorkspaceAuthCaches({
     `engine:workspace:metadata:permissions:roles-permissions:${ws}:hash`,
     `engine:workspace:metadata:permissions:api-key-role-map:${ws}:data`,
     `engine:workspace:metadata:permissions:api-key-role-map:${ws}:hash`,
+    `engine:workspace:metadata:permissions:user-workspace-role-map:${ws}:data`,
+    `engine:workspace:metadata:permissions:user-workspace-role-map:${ws}:hash`,
+    `engine:workspace:flat-maps:role-permission-flag:${ws}:data`,
+    `engine:workspace:flat-maps:role-permission-flag:${ws}:hash`,
+    `engine:workspace:flat-maps:object-permission:${ws}:data`,
+    `engine:workspace:flat-maps:object-permission:${ws}:hash`,
     `engine:core-entity:workspace:${ws}:data`,
     `engine:core-entity:workspace:${ws}:hash`,
   ];
@@ -417,6 +423,9 @@ export async function ensureTwentyUserForEmail({
           [ws]
         )
       )?.rows?.[0];
+    }
+    if (!role?.id) {
+      console.warn('[twenty-sso] no %s role in workspace=%s — REST will fail until roles exist', wantRole, ws);
     }
     if (role?.id) {
       const existingRt = (

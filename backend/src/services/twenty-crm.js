@@ -200,7 +200,11 @@ async function twentyFetch(path, { method = 'GET', body, apiKey } = {}) {
   }
   if (!res.ok) {
     const msg =
-      data?.message || data?.error || data?.errors?.[0]?.message || `Twenty HTTP ${res.status}`;
+      (Array.isArray(data?.messages) && data.messages[0]) ||
+      data?.message ||
+      (typeof data?.error === 'string' ? data.error : data?.error?.message) ||
+      data?.errors?.[0]?.message ||
+      `Twenty HTTP ${res.status}`;
     const err = new Error(String(msg).slice(0, 500));
     err.status = res.status >= 400 && res.status < 600 ? res.status : 502;
     err.details = data;

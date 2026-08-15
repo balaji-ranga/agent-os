@@ -60,6 +60,33 @@ function resolveErpnextCountryName(ownerUserId) {
   return envFallback;
 }
 
+/** Match Company default_currency to country so invoices and Debtors use the same currency. */
+const ERPNEXT_CURRENCY_BY_COUNTRY = {
+  Singapore: 'SGD',
+  'United States': 'USD',
+  'United Kingdom': 'GBP',
+  India: 'INR',
+  Australia: 'AUD',
+  Canada: 'CAD',
+  'New Zealand': 'NZD',
+  'United Arab Emirates': 'AED',
+  Malaysia: 'MYR',
+  Indonesia: 'IDR',
+  China: 'CNY',
+  Japan: 'JPY',
+  'Hong Kong': 'HKD',
+  Germany: 'EUR',
+  France: 'EUR',
+  Netherlands: 'EUR',
+  Ireland: 'EUR',
+};
+
+function resolveErpnextCurrency(ownerUserId) {
+  const country = resolveErpnextCountryName(ownerUserId);
+  if (ERPNEXT_CURRENCY_BY_COUNTRY[country]) return ERPNEXT_CURRENCY_BY_COUNTRY[country];
+  return String(process.env.ERPNEXT_DEFAULT_CURRENCY || 'USD').trim() || 'USD';
+}
+
 export function isErpnextApiConfigured() {
   return Boolean(baseUrl() && apiKey() && apiSecret());
 }
@@ -1190,7 +1217,17 @@ export async function erpListSalesInvoices(ownerUserId, opts) {
   return erpList(ownerUserId, 'Sales Invoice', opts);
 }
 export async function erpCreateSalesInvoice(ownerUserId, doc = {}) {
-  return erpCreate(ownerUserId, 'Sales Invoice', doc);
+  const body = { ...(doc || {}) };
+  if (!body.currency) {
+    try {
+      const co = await erpGetCompany(ownerUserId);
+      const cur = String(co?.data?.default_currency || '').trim();
+      if (cur) body.currency = cur;
+    } catch (e) {
+      console.warn('[erpnext] invoice currency from company', e?.message || e);
+    }
+  }
+  return erpCreate(ownerUserId, 'Sales Invoice', body);
 }
 export async function erpListPurchaseInvoices(ownerUserId, opts) {
   return erpList(ownerUserId, 'Purchase Invoice', opts);
@@ -1500,8 +1537,8 @@ export async function ensureErpnextCompanyForOwner(ownerUserId, { displayName } 
           .toUpperCase() || 'FL';
       // country is mandatory on ERPNext Company; missing it left CEOs on local_bind-only (no real Company doc).
       const country = resolveErpnextCountryName(owner);
-      console.info('[erpnext] company country owner=%s country=%s', owner, country);
-      const currency = String(process.env.ERPNEXT_DEFAULT_CURRENCY || 'USD').trim() || 'USD';
+      console.info('[erpnext] company country owner=%s country=%s currency=%s', owner, country, currency);
+      const currency = resolveErpnextCurrency(owner);
       let data = null;
       let lastErr = null;
       for (let i = 0; i < 6; i++) {

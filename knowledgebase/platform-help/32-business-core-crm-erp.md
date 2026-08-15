@@ -133,6 +133,7 @@ Workspace MD (TOOLS / AGENTS / SOUL / MEMORY) lives under **`openclaw-workspace-
 | Twenty workspace cap | Self-hosted Twenty without a valid **enterprise key** allows **5 workspaces**. Company setup still binds **ERP independently** if CRM create fails. Free a slot by soft-deleting an unused `core.workspace` (`deletedAt`); **never** reuse another CEO’s workspace. |
 | `TWENTY_BOOTSTRAP_EMAIL` | Optional admin used to call `signUpInNewWorkspace` (else first ACTIVE member) |
 | `TWENTY_EMBED_URL` / `TWENTY_SERVER_URL` | Platform front origin `https://crm.<apex>` (subdomains built from this host) |
+| `ERPNEXT_DEFAULT_CURRENCY` | Fallback when country has no mapped ISO currency. New companies use country currency when known (Singapore → SGD) so Debtors and invoices match. |
 
 ### CRM menu blank / server IP address could not be found
 
