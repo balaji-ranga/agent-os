@@ -47,6 +47,14 @@ On every new_entry you MUST choose one style and set it on the action:
 
 Never leave the choice implicit. If you cannot forecast a week-plus grind, prefer a full bracket.
 
+## How to decide grind vs swing
+Use SCREENER candidate stats from FMP when present: pe, sma_50, sma_200, above_sma50, above_sma200, momentum_3m, momentum_6m, pct_from_high_52w, revenue_yoy, eps_yoy, avg_volume_20.
+- Prefer hold-for-weeks when 3m and 6m momentum are both positive, price is above sma_50 and sma_200, earnings/revenue YoY are not collapsing, and you expect the name to work higher over the next week or few weeks rather than hit a nearby 15% target.
+- Prefer a full bracket when the name is extended into the 52-week high, 3m momentum is strong but 6m is not a grind, PE looks stretched without growth, or you have a defined swing target inside days.
+Cite the FMP fields you used in thesis/why_now. Do not invent PE, SMA, or momentum.
+
+If those FMP fields are missing (stats_enriched false, history_error, 402, or the name was past enrich_limit), you MAY call Brave Search MCP as a fallback for PE, 3-month/6-month trend, and latest earnings or revenue growth. Use only a number you can quote from a snippet; say stats_source search in why_now. If search also has no number, do not invent stats — default to a full bracket instead of claiming a multi-week grind.
+
 ## Stop Loss
 - Bracket entries: predefined stop; exit if hit; never average down.
 - Hold-for-weeks: optional protective stop as above; never average down. Subsequent day plans manage the exit.

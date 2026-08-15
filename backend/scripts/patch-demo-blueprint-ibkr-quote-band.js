@@ -54,6 +54,7 @@ function ensureMonthlyBandVars(variables) {
   if (!variables || typeof variables !== 'object') return;
   if (variables.entry_slip_pct_max == null) variables.entry_slip_pct_max = 0.25;
   variables.entry_discount_pct_max = 3;
+  if (variables.screener_enrich_limit == null) variables.screener_enrich_limit = 8;
 }
 
 export function patchDemoBalajiIbkrQuoteBand(pack) {
@@ -85,6 +86,15 @@ export function patchDemoBalajiIbkrQuoteBand(pack) {
     sourceNodeId: 'tool-screener',
     sourceOutputKey: 'text',
   });
+
+  const screener = nodeById(w1, 'tool-screener');
+  if (screener?.data?.toolPayload && typeof screener.data.toolPayload === 'object') {
+    screener.data.toolPayload.enrich = true;
+    screener.data.toolPayload.enrichLimit = '{{var.screener_enrich_limit}}';
+  }
+  if (w1.variables && w1.variables.screener_enrich_limit == null) {
+    w1.variables.screener_enrich_limit = 8;
+  }
 
   const maker = nodeById(w1, 'maker-1');
   const makerPrompt = maker?.data?.taskConfig?.systemPrompt || '';
@@ -125,6 +135,13 @@ export function patchDemoBalajiIbkrQuoteBand(pack) {
   ) {
     maker.data.taskConfig.systemPrompt +=
       '\n- When market_regime is risk_on, guardrail is not halt_new, cash is available, and SCREENER has candidates, you MUST emit at least one bookable new_entry sized to the spendable cap. Empty actions[] is not allowed in that case.\n';
+  }
+  if (
+    maker.data?.taskConfig?.systemPrompt &&
+    !maker.data.taskConfig.systemPrompt.includes('How to decide grind vs swing')
+  ) {
+    maker.data.taskConfig.systemPrompt +=
+      '\n## How to decide grind vs swing\nUse SCREENER candidate stats from FMP when present: pe, sma_50, sma_200, momentum_3m, momentum_6m, pct_from_high_52w, revenue_yoy, eps_yoy. If those FMP fields are missing, you MAY call Brave Search MCP as a fallback; do not invent stats.\n';
   }
 
   const checker = nodeById(w1, 'checker-1');

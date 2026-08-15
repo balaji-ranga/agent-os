@@ -89,6 +89,21 @@ if (!hasKey) {
   assert(screener.ok === false, 'screener without key -> ok:false');
 } else if (!offline) {
   assert(screener.ok === true, `screener ok count=${screener.count}`);
+  const enriched = await marketData.runScreener({
+    minMarketCap: 5e10,
+    limit: 3,
+    enrich: true,
+    enrichLimit: 2,
+    force: false,
+  });
+  assert(enriched.ok === true, `enriched screener ok count=${enriched.count}`);
+  assert(enriched.enriched === true, 'enriched flag set');
+  const first = enriched.candidates?.[0];
+  assert(first?.symbol, 'enriched candidate has symbol');
+  assert(
+    first.sma_50 != null || first.history_error || first.stats_enriched === true || first.pe != null,
+    `enriched candidate has stats or skip reason (${first?.symbol})`
+  );
 }
 
 const hist = await marketData.getHistory({ symbol: 'AAPL', days: 260, force: false });

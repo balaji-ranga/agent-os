@@ -28,7 +28,7 @@ export const MARKET_DATA_TOOLS = [
     endpoint: '/api/market-data/screener',
     method: 'POST',
     purpose:
-      'Screen liquid large-cap US names (default mcap ≥ $50B). Returns ranked candidates. Body optional: minMarketCap, limit, country, exchange, volumeMoreThan, force.',
+      'Screen liquid large-cap US names (default mcap ≥ $50B). Returns ranked candidates. Optional body enrich=true (+ enrichLimit) attaches FMP PE, SMA50/200, 3m/6m momentum, 52w distance, revenue/EPS YoY on the top N names. Body optional: minMarketCap, limit, country, exchange, volumeMoreThan, force, enrich, enrichLimit.',
     model_used: '',
     enabled: 1,
     is_builtin: 0,
@@ -62,7 +62,7 @@ export const MARKET_DATA_TOOL_NAMES = MARKET_DATA_TOOLS.map((t) => t.name);
 /** Sample bodies for Content tools UI Test panel. */
 export const MARKET_DATA_DEFAULT_TEST_BODIES = {
   market_regime: { indexSymbol: 'SPY', force: false },
-  market_screener: { minMarketCap: 5e10, limit: 25, country: 'US', force: false },
+  market_screener: { minMarketCap: 5e10, limit: 25, country: 'US', force: false, enrich: false },
   market_history: { symbol: 'AAPL', days: 260, force: false },
   market_fundamentals: { symbol: 'AAPL', force: false },
 };

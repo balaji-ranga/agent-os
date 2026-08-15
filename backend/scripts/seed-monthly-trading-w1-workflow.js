@@ -128,15 +128,15 @@ function makerBrainSystemPrompt() {
 
 ## Optional web research (MCP)
 You may call Brave Search MCP tools when you need timely public-web context (catalysts, filings headlines, macro notes) that is not in the regime/screener/snapshot payloads.
-Do not use web search as a substitute for FMP regime/screener or the laptop IBKR account snapshot.
-Never invent prices or positions from search snippets — plan levels still come from provided market data + strategy rules.`;
+Fallback for missing FMP screener stats: if a candidate has no pe / sma_50 / momentum_3m / revenue_yoy, search for that ticker PE, 3-month and 6-month trend, and latest earnings or revenue growth. Use only figures present in snippets. Do not invent prices, PE, or positions from search. Plan entry still comes from snapshot or screener last.
+Do not use web search as a substitute for FMP regime/screener or the laptop IBKR account snapshot when those payloads are present.`;
 }
 
 function checkerBrainSystemPrompt() {
   return `${CHECKER_STRATEGY_SYSTEM_PROMPT}
 
 ## Optional web research (MCP)
-You may call Brave Search MCP only to double-check a concrete claim that blocks approval (e.g. halted ticker, major event). Prefer the payloads already in the user message. Do not expand the plan or invent levels from search.`;
+You may call Brave Search MCP only to double-check a concrete claim that blocks approval (halted ticker, major event) or to verify grind vs swing stats when the SCREENER row is missing FMP pe / SMA / momentum / YoY. Prefer the payloads already in the user message. Do not expand the plan or invent levels from search.`;
 }
 
 export function buildMonthlyTradingW1Graph({
@@ -229,6 +229,8 @@ export function buildMonthlyTradingW1Graph({
             limit: '{{var.screener_limit}}',
             country: 'US',
             force: false,
+            enrich: true,
+            enrichLimit: '{{var.screener_enrich_limit}}',
           },
           inputBindings: [],
         },

@@ -430,7 +430,12 @@ async function main() {
   assert.ok(checkerUser.includes('{{api-snapshot.bodyText}}'), 'W1 Checker user message must include snapshot');
   assert.ok(MAKER_STRATEGY_SYSTEM_PROMPT.includes('entry_discount_pct_max'));
   assert.ok(MAKER_STRATEGY_SYSTEM_PROMPT.includes('Entry protective orders'));
+  assert.ok(MAKER_STRATEGY_SYSTEM_PROMPT.includes('How to decide grind vs swing'));
   assert.ok(CHECKER_STRATEGY_SYSTEM_PROMPT.includes('later_day_plan'));
+  assert.ok(CHECKER_STRATEGY_SYSTEM_PROMPT.includes('Brave Search'));
+  const screenerNode = g1.nodes.find((n) => n.id === 'tool-screener');
+  assert.strictEqual(screenerNode?.data?.toolPayload?.enrich, true);
+  assert.ok(String(screenerNode?.data?.toolPayload?.enrichLimit || '').includes('screener_enrich_limit'));
 
   const demoPack = JSON.parse(
     readFileSync(
@@ -451,6 +456,9 @@ async function main() {
   const demoChecker = (demoW1.graph?.nodes || []).find((n) => n.id === 'checker-1');
   assert.ok(String(demoMaker?.data?.taskConfig?.systemPrompt || '').includes('entry_discount_pct_max'));
   assert.ok(String(demoMaker?.data?.taskConfig?.systemPrompt || '').includes('Entry protective orders'));
+  assert.ok(String(demoMaker?.data?.taskConfig?.systemPrompt || '').includes('How to decide grind vs swing'));
+  const demoScreener = (demoW1.graph?.nodes || []).find((n) => n.id === 'tool-screener');
+  assert.strictEqual(demoScreener?.data?.toolPayload?.enrich, true);
   assert.ok(String(demoChecker?.data?.taskConfig?.systemPrompt || '').includes('entry_discount_pct_max'));
   assert.ok(String(demoChecker?.data?.taskConfig?.systemPrompt || '').includes('later_day_plan'));
   const demoCheckerUser = String(

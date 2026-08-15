@@ -49,6 +49,7 @@ Default crons and **budget caps** live in workflow **Variables** (seed: `backend
 | `cash_band_pct_*` | 30 / 80 | Target cash band % |
 | `entry_slip_pct_max` | `0.25` | Max % a BUY limit may sit **above** last (chase) |
 | `entry_discount_pct_max` | `3` | Max % a BUY limit may sit **below** last (unfillable / invented prices). W1 hard gates reject; W2 skips the buy if Gateway/FMP last disagrees |
+| `screener_enrich_limit` | `8` | Top N screener names get FMP PE, SMA50/200, 3m/6m momentum, 52w distance, revenue/EPS YoY. Missing stats → Brave Search fallback. |
 | `monthly_drawdown_stop_pct` | `4` | Guardrail halt new entries |
 
 Override in Workflows → W1 → Variables (then Publish). Re-seed merges defaults if the keys were missing.

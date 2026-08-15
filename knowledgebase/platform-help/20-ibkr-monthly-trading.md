@@ -195,6 +195,7 @@ Open **Workflows → monthly-trading-w1-post-close → Variables**:
 | `cash_band_pct_*` | Target cash band |
 | `monthly_drawdown_stop_pct` | Halt new entries after drawdown from **your** month high-water mark |
 | `entry_slip_pct_max` / `entry_discount_pct_max` | BUY limit vs last: not more than 0.25% **above** / 3% **below** (default). Stops invented cheap limits that would never fill. Company setup from the Flolah demo pack installs the same W1 bindings. |
+| `screener_enrich_limit` | Top N screener names get FMP PE / SMA / 3m–6m momentum / YoY (default 8). Missing fields → Maker may use Brave Search. |
 
 Budget applies to **buys only**, not sells. Prefer an IBKR **Cash** account so the broker itself blocks margin borrowing.
 
@@ -203,7 +204,7 @@ Maker must **choose** on every `new_entry`:
 - **Full bracket** (`bracket: true`): qty, entry, stop below, take-profit above. W2 places parent BUY + stop + TP.
 - **Hold for weeks** (`bracket: false`, `exit_plan: later_day_plan`, `forecast_up_weeks` ≥ 1): omit take-profit when the name is predicted to grind higher over the next week or few weeks. A later day’s W1 plan decides hold / raise_stop / partial / sell. Keep a protective stop when a breakdown would invalidate the thesis. W2 places `stop_only` or `entry_only` — it does **not** skip a documented hold-for-weeks entry.
 
-A `new_entry` with `tp_price: null` and **no** later-day-plan choice is still rejected. Paper fills are not required for a successful book — open working orders (including **PreSubmitted** on weekends) count.
+W1 screener rows include FMP **PE, SMA 50/200, 3m/6m momentum, 52-week distance, revenue/EPS YoY** on the top `screener_enrich_limit` names (default 8). If those fields are missing (402 / not enriched), Maker may use **Brave Search** as a fallback and must quote a snippet — it must not invent PE or trend. A `new_entry` with `tp_price: null` and **no** later-day-plan choice is still rejected. Paper fills are not required for a successful book — open working orders (including **PreSubmitted** on weekends) count.
 
 ---
 

@@ -49,7 +49,7 @@ router.post('/screener', async (req, res) => {
     const owner = entitledOwnerId(req);
     const body = req.body || {};
     const force = parseForceFlag(body);
-    console.log('[market-data] screener owner=%s force=%s', owner, force);
+    console.log('[market-data] screener owner=%s force=%s enrich=%s', owner, force, body.enrich ?? body.include_history ?? false);
     const {
       force: _f,
       refresh: _r,

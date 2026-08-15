@@ -32,7 +32,7 @@ Requires env `MARKET_DATA_API_KEY` (Financial Modeling Prep). Provider is abstra
 | Tool | API key | Paper | Live | Cache policy |
 |------|---------|-------|------|--------------|
 | `market_regime` | **Yes — FMP** (free tier OK) | Key + network | Same key; prefer paid if daily volume exceeds free 250 calls/day | **EOD cache** — valid until next UTC day. 200-DMA regime does not need intraday refresh. |
-| `market_screener` | **Yes — FMP** | Free key OK for small universes / infrequent tests; expect to hit 250/day limit | **Paid FMP recommended** for daily 50–100 name screens | **Paper:** TTL **6h**. **Live:** TTL until next US session date (or **12h**). Screener is the biggest call consumer — always cache. |
+| `market_screener` | **Yes — FMP** | Free key OK for small universes / infrequent tests; expect to hit 250/day limit | **Paid FMP recommended** for daily 50–100 name screens | **Paper:** TTL **6h**. **Live:** TTL until next US session date (or **12h**). Screener is the biggest call consumer — always cache. Optional `enrich=true` (W1 default) attaches history + fundamentals on the top `enrichLimit` names (PE, SMA50/200, 3m/6m momentum, 52w, revenue/EPS YoY). |
 | `market_history` | **Yes — FMP** | Free key OK with cache | Paid if screening many symbols daily | **Completed calendar days:** cache **indefinitely**. **Current day bar:** refresh **Paper 1h** / **Live 15m**. |
 | `market_fundamentals` | **Yes — FMP** | Free key OK (basic US income statements) | Same; paid for higher limits / deeper history | **Paper:** TTL **7 days**. **Live:** TTL **3 days**. Fundamentals change slowly. |
 

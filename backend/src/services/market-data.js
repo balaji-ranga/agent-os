@@ -143,6 +143,23 @@ function num(v, d = null) {
   return Number.isFinite(n) ? n : d;
 }
 
+function truthyFlag(v) {
+  if (v === true || v === 1) return true;
+  const s = String(v || '').trim().toLowerCase();
+  return s === 'true' || s === '1' || s === 'yes';
+}
+
+function peFromRow(row = {}) {
+  return num(
+    row.pe ??
+      row.peRatio ??
+      row.priceToEarnings ??
+      row.priceEarningsRatio ??
+      row.trailingPE ??
+      row.peTTM
+  );
+}
+
 function sma(values, period) {
   if (!Array.isArray(values) || values.length < period || period <= 0) return null;
   const slice = values.slice(-period);
@@ -567,6 +584,7 @@ async function getProfile(symbol, { force = false } = {}) {
     marketCap: num(row.marketCap),
     volume: num(row.volume),
     price: num(row.price),
+    pe: peFromRow(row),
     exchange: row.exchangeShortName || row.exchange || null,
     sector: row.sector || null,
     industry: row.industry || null,
@@ -600,6 +618,7 @@ async function screenerViaUniverse(filters) {
       marketCap: prof.marketCap,
       volume: prof.volume,
       price: prof.price,
+      pe: prof.pe,
       exchange: prof.exchange,
       sector: prof.sector,
       industry: prof.industry,
@@ -630,6 +649,11 @@ export async function runScreener({
   volumeMoreThan = null,
   priceMoreThan = null,
   isActivelyTrading = true,
+  enrich = false,
+  enrichLimit = 8,
+  enrich_limit = null,
+  include_history = false,
+  include_fundamentals = false,
   ...extra
 } = {}) {
   ensureMarketDataCacheTable();
@@ -637,6 +661,12 @@ export async function runScreener({
   if (missing) return missing;
 
   const kind = 'screener';
+  const doEnrich =
+    truthyFlag(enrich) || truthyFlag(include_history) || truthyFlag(include_fundamentals);
+  const enrichCap = Math.min(
+    Math.max(num(enrichLimit ?? enrich_limit, 8) || 8, 1),
+    25
+  );
   const filters = {
     minMarketCap: num(minMarketCap, 5e10),
     limit: Math.min(Math.max(num(limit, 100) || 100, 1), 200),
@@ -645,6 +675,8 @@ export async function runScreener({
     volumeMoreThan: num(volumeMoreThan),
     priceMoreThan: num(priceMoreThan),
     isActivelyTrading,
+    enrich: doEnrich,
+    enrichLimit: doEnrich ? enrichCap : 0,
     ...extra,
   };
   const cacheKey = `${providerName()}:screener:${hashFilters(filters)}`;
@@ -687,6 +719,7 @@ export async function runScreener({
         marketCap: num(r.marketCap),
         volume: num(r.volume),
         price: num(r.price),
+        pe: peFromRow(r),
         exchange: r.exchangeShortName || r.exchange || null,
         sector: r.sector || null,
         industry: r.industry || null,
@@ -703,6 +736,21 @@ export async function runScreener({
       cached: false,
       mode: 'company_screener',
     };
+  }
+
+  if (result?.ok && doEnrich && Array.isArray(result.candidates) && result.candidates.length) {
+    result.candidates = await enrichScreenerCandidates(result.candidates, {
+      enrichLimit: enrichCap,
+      force: false,
+    });
+    result.enriched = true;
+    result.enrich_limit = enrichCap;
+    result.stats_source = 'fmp';
+    console.info('[market-data] screener enrich', {
+      count: result.candidates.length,
+      enrich_limit: enrichCap,
+      with_sma: result.candidates.filter((c) => c.sma_50 != null).length,
+    });
   }
 
   setCached({
@@ -860,6 +908,53 @@ export async function getFundamentals({ symbol, force = false } = {}) {
     expiresAt: expiresInSeconds(ttlSeconds('fundamentals')),
   });
   return result;
+}
+
+async function enrichOneCandidate(c, { force = false } = {}) {
+  const out = { ...c, stats_source: 'fmp', stats_enriched: false };
+  const hist = await getHistory({ symbol: c.symbol, days: 260, force });
+  if (hist?.ok) {
+    out.last_close = hist.last_close ?? out.price ?? null;
+    out.sma_50 = hist.sma_50;
+    out.sma_200 = hist.sma_200;
+    out.above_sma50 =
+      hist.sma_50 != null && hist.last_close != null ? hist.last_close >= hist.sma_50 : null;
+    out.above_sma200 =
+      hist.sma_200 != null && hist.last_close != null ? hist.last_close >= hist.sma_200 : null;
+    out.momentum_3m = hist.momentum_3m;
+    out.momentum_6m = hist.momentum_6m;
+    out.high_52w = hist.high_52w;
+    out.pct_from_high_52w = hist.pct_from_high_52w;
+    out.avg_volume_20 = hist.avg_volume_20;
+    out.history_as_of = hist.as_of || null;
+    out.stats_enriched = true;
+  } else {
+    out.history_error = hist?.reason || hist?.error || 'history_failed';
+  }
+
+  const fund = await getFundamentals({ symbol: c.symbol, force });
+  if (fund?.ok) {
+    out.revenue_yoy = fund.revenue_yoy;
+    out.eps_yoy = fund.eps_yoy;
+    out.fiscal_year_latest = fund.fiscal_year_latest;
+    out.stats_enriched = true;
+  } else {
+    out.fundamentals_error = fund?.reason || fund?.error || 'fundamentals_failed';
+  }
+
+  if (out.pe == null) {
+    const prof = await getProfile(c.symbol, { force: false });
+    if (prof?.ok && prof.pe != null) out.pe = prof.pe;
+  }
+  return out;
+}
+
+async function enrichScreenerCandidates(candidates, { enrichLimit = 8, force = false } = {}) {
+  const lim = Math.min(Math.max(Number(enrichLimit) || 8, 1), 25);
+  const head = candidates.slice(0, lim);
+  const tail = candidates.slice(lim).map((c) => ({ ...c, stats_enriched: false, stats_source: null }));
+  const enriched = await Promise.all(head.map((c) => enrichOneCandidate(c, { force })));
+  return [...enriched, ...tail];
 }
 
 export {

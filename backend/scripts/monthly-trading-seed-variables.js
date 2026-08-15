@@ -35,6 +35,8 @@ export const MONTHLY_TRADING_VARIABLES = {
   order_history_days: 30,
   open_plans_limit: 14,
   screener_limit: 25,
+  /** FMP history + fundamentals attached to the top N screener names (PE, SMA, 3m/6m momentum, YoY). */
+  screener_enrich_limit: 8,
   digest_email_to: '',
   /** BUY limit may not exceed last by this % (chase). */
   entry_slip_pct_max: 0.25,
