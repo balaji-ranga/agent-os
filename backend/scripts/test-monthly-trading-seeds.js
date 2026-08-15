@@ -380,6 +380,15 @@ async function main() {
   const eod = eventParse({ payload: JSON.stringify({ event: 'eod_snapshot', payload: {} }) });
   assert.strictEqual(eod.is_eod_snapshot, 'true');
 
+  const { run: parseChecker } = await import('./samples/ibkr-parse-checker.js');
+  const fromReasoning = parseChecker({
+    text: '',
+    reasoning_content:
+      '{"decision":"rejected","adjustments":"reduce qty to 3 so notional stays under 8% of equity"}',
+  });
+  assert.strictEqual(fromReasoning.decision, 'rejected');
+  assert.ok(/qty to 3/i.test(fromReasoning.adjustments), fromReasoning.adjustments);
+
   const { buildMonthlyTradingW1Graph, WORKFLOW_ID: W1 } = await import(
     './seed-monthly-trading-w1-workflow.js'
   );
@@ -436,6 +445,9 @@ async function main() {
   const screenerNode = g1.nodes.find((n) => n.id === 'tool-screener');
   assert.strictEqual(screenerNode?.data?.toolPayload?.enrich, true);
   assert.ok(String(screenerNode?.data?.toolPayload?.enrichLimit || '').includes('screener_enrich_limit'));
+  const parseNode = g1.nodes.find((n) => n.id === 'parse-checker');
+  const parseBind = (parseNode?.data?.inputBindings || []).map((b) => b.id);
+  assert.ok(parseBind.includes('reasoning_content'), 'W1 parse-checker binds checker reasoning_content');
 
   const demoPack = JSON.parse(
     readFileSync(

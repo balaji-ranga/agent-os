@@ -3,6 +3,13 @@
  * Must export: run(inputs, context)
  */
 export function run(inputs = {}, context = {}) {
+  const reasoning =
+    inputs.reasoning_content ||
+    inputs.reasoningContent ||
+    context?.node_outputs?.['checker-1']?.reasoning_content ||
+    context?.node_outputs?.['checker-1']?.reasoningContent ||
+    context?.node_outputs?.['checker-exit']?.reasoning_content ||
+    '';
   const text =
     inputs.text ||
     inputs.payload ||
@@ -10,7 +17,7 @@ export function run(inputs = {}, context = {}) {
     context?.node_outputs?.['checker-1']?.text ||
     context?.node_outputs?.['checker-exit']?.text ||
     '';
-  const raw = String(text || '').trim();
+  const raw = String(text || reasoning || '').trim();
   let parsed = null;
   try {
     const fence = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);

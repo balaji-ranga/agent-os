@@ -96,6 +96,16 @@ export function patchDemoBalajiIbkrQuoteBand(pack) {
     w1.variables.screener_enrich_limit = 8;
   }
 
+  const parseChecker = nodeById(w1, 'parse-checker');
+  if (parseChecker?.data) {
+    parseChecker.data.inputBindings = ensureBinding(parseChecker.data.inputBindings || [], {
+      id: 'reasoning_content',
+      mode: 'dynamic',
+      sourceNodeId: 'checker-1',
+      sourceOutputKey: 'reasoning_content',
+    });
+  }
+
   const maker = nodeById(w1, 'maker-1');
   const makerPrompt = maker?.data?.taskConfig?.systemPrompt || '';
   if (makerPrompt && !makerPrompt.includes('entry_discount_pct_max')) {

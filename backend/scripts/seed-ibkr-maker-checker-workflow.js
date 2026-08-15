@@ -353,6 +353,12 @@ export function buildIbkrMakerCheckerGraph({ parseScriptId = PARSE_SCRIPT_ID } =
               sourceNodeId: 'checker-1',
               sourceOutputKey: 'text',
             },
+            {
+              id: 'reasoning_content',
+              mode: 'dynamic',
+              sourceNodeId: 'checker-1',
+              sourceOutputKey: 'reasoning_content',
+            },
           ],
           taskConfig: {
             customScriptId: parseScriptId,
