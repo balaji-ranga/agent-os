@@ -51,6 +51,10 @@
         "agent_workflow_runs",
         "agent_workflow_watch",
         "generate_image",
+        "kanban_create_task",
+        "kanban_move_status",
+        "notify_ceo",
+        "content_tools_enquire",
         "video_storyboard_export",
         "video_characters_save",
         "video_story_status",
@@ -69,10 +73,10 @@
         "list_inbound_attachments",
         "master_data_index_document",
         "master_data_list_documents",
-        "kanban_create_task",
-        "kanban_move_status",
-        "notify_ceo",
-        "content_tools_enquire"
+        "analyze_image",
+        "browse_recipe_run",
+        "kanban_get_task",
+        "master_data_list_tables"
       ]
     },
     {

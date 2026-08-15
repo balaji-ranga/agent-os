@@ -11,6 +11,7 @@
  *   SET_DEFAULT=0
  *   DRY_RUN=1
  *   FROM_PACK_FILE=1  — publish existing packs/<id>.json (no live CEO snapshot)
+ *   WRITE_STANDARD=1  — also refresh standard/video-content + CRM/ERP MC graphs from this snapshot (default)
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
@@ -31,10 +32,12 @@ const OUT_DIR = process.env.OUT_DIR || '/tmp/balaji-demo-bp';
 const SET_DEFAULT = process.env.SET_DEFAULT === '1';
 const DRY = process.env.DRY_RUN === '1';
 const FROM_PACK_FILE = process.env.FROM_PACK_FILE === '1';
+const WRITE_STANDARD = process.env.WRITE_STANDARD !== '0';
 // Optional: also write pack/zip into source tree (e.g. .../company-blueprints)
 const SOURCE_ROOT =
   process.env.SOURCE_BLUEPRINT_ROOT ||
   join(process.cwd(), 'src/services/company-blueprints');
+const STANDARD_ROOT = process.env.STANDARD_DIR || join(SOURCE_ROOT, 'standard');
 
 /** Keep product-demo workflows only (drop smoke, certify, chatops, one-off ids). */
 function keepWorkflow(w) {
@@ -72,6 +75,157 @@ function portableAgent(a) {
     department: a.department || 'Operations',
     tools: Array.isArray(a.tools) ? a.tools : [],
   };
+}
+
+function nodeCount(graph) {
+  return Array.isArray(graph?.nodes) ? graph.nodes.length : 0;
+}
+
+function readJsonIfExists(path) {
+  if (!existsSync(path)) return null;
+  try {
+    return JSON.parse(readFileSync(path, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function writeJson(path, obj) {
+  mkdirSync(join(path, '..'), { recursive: true });
+  writeFileSync(path, `${JSON.stringify(obj, null, 2)}\n`, 'utf8');
+}
+
+const VIDEO_WORKFLOW_FILES = {
+  'video-reasoning': 'video-content/workflow-reasoning.json',
+  'video-media': 'video-content/workflow-media.json',
+  'video-assembly': 'video-content/workflow-assembly.json',
+};
+
+const BC_WORKFLOW_FILES = {
+  'crm-mc': 'business-core/workflow-crm-maker-checker.json',
+  'erp-mc': 'business-core/workflow-erp-maker-checker.json',
+};
+
+const VIDEO_TOOL_ALLOW = new Set([
+  'analyze_image',
+  'browse_recipe_list',
+  'browse_recipe_run',
+  'browse_session_status',
+  'browse_task_start',
+  'browse_task_status',
+  'kanban_get_task',
+  'master_data_list_tables',
+  'master_data_delete_row',
+]);
+
+function mergeVideoAgentTools(existing = [], live = []) {
+  const out = [...existing];
+  for (const t of live || []) {
+    if (out.includes(t)) continue;
+    if (String(t).startsWith('video_') || VIDEO_TOOL_ALLOW.has(t)) out.push(t);
+  }
+  return out;
+}
+
+function writeStandardFromBalaji(payload) {
+  if (!WRITE_STANDARD) return { skipped: true };
+  const report = { workflows: [], agents: [] };
+  const templates = payload.workflow_templates || [];
+  const byKey = new Map(templates.map((w) => [String(w.template_key || ''), w]));
+
+  for (const [key, rel] of Object.entries(VIDEO_WORKFLOW_FILES)) {
+    const live = byKey.get(key);
+    if (!live?.graph?.nodes?.length) {
+      report.workflows.push({ key, action: 'missing_live' });
+      continue;
+    }
+    const path = join(STANDARD_ROOT, rel);
+    const existing = readJsonIfExists(path);
+    const liveNodes = nodeCount(live.graph);
+    const existNodes = nodeCount(existing?.graph);
+    if (existing && existNodes > liveNodes) {
+      report.workflows.push({ key, action: 'keep_existing', existNodes, liveNodes });
+      continue;
+    }
+    const next = {
+      ...(existing || {}),
+      template_key: existing?.template_key || key,
+      name: existing?.name || live.name,
+      description: existing?.description || live.description || '',
+      chat_trigger_phrase: existing?.chat_trigger_phrase || live.chat_trigger_phrase,
+      trigger_modes: existing?.trigger_modes || live.trigger_modes || ['manual', 'chat'],
+      workflow_id_pattern: existing?.workflow_id_pattern || `video-${key.replace(/^video-/, '')}-{ownerSlug}`,
+      kind: existing?.kind || 'video_content',
+      phase: existing?.phase,
+      status: existing?.status || 'ready',
+      agent_roles: existing?.agent_roles,
+      maintained_in: existing?.maintained_in || `company-blueprints/standard/${rel}`,
+      notes: existing?.notes,
+      regenerated_from_owner: OWNER,
+      regenerated_at: new Date().toISOString(),
+      graph: live.graph,
+    };
+    if (!DRY) writeJson(path, next);
+    report.workflows.push({ key, action: 'wrote', nodes: liveNodes });
+  }
+
+  for (const [key, rel] of Object.entries(BC_WORKFLOW_FILES)) {
+    const live = byKey.get(key);
+    if (!live?.graph?.nodes?.length) {
+      report.workflows.push({ key, action: 'missing_live' });
+      continue;
+    }
+    const path = join(STANDARD_ROOT, rel);
+    const existing = readJsonIfExists(path);
+    const liveNodes = nodeCount(live.graph);
+    const existNodes = nodeCount(existing?.graph);
+    if (existing && existNodes > liveNodes) {
+      report.workflows.push({ key, action: 'keep_existing', existNodes, liveNodes });
+      continue;
+    }
+    const next = {
+      ...(existing || {}),
+      graph: live.graph,
+      variables: live.variables && Object.keys(live.variables).length ? live.variables : existing?.variables,
+      regenerated_from_owner: OWNER,
+      regenerated_at: new Date().toISOString(),
+    };
+    if (!DRY) writeJson(path, next);
+    report.workflows.push({ key, action: 'wrote', nodes: liveNodes });
+  }
+
+  const agentsPath = join(STANDARD_ROOT, 'video-content/agents.json');
+  const agentsPack = readJsonIfExists(agentsPath);
+  if (agentsPack?.agents) {
+    const md = payload.agents_md || [];
+    const byName = new Map(md.map((m) => [String(m.agent_name || '').toLowerCase(), m]));
+    let changed = false;
+    for (const a of agentsPack.agents) {
+      const live = byName.get(String(a.name || '').toLowerCase());
+      if (!live?.tools?.length) continue;
+      const merged = mergeVideoAgentTools(a.tools || [], live.tools);
+      if (merged.length !== (a.tools || []).length || merged.some((t, i) => t !== a.tools[i])) {
+        a.tools = merged;
+        changed = true;
+        report.agents.push({ name: a.name, tools: merged.length });
+      }
+    }
+    if (changed && !DRY) {
+      agentsPack.regenerated_from_owner = OWNER;
+      agentsPack.regenerated_at = new Date().toISOString();
+      writeJson(agentsPath, agentsPack);
+    }
+  }
+
+  if (!DRY) {
+    const manifestPath = join(STANDARD_ROOT, 'video-content/regeneration-manifest.json');
+    writeJson(manifestPath, {
+      owner: OWNER,
+      at: new Date().toISOString(),
+      report,
+    });
+  }
+  return report;
 }
 
 initDb();
@@ -161,6 +315,9 @@ const summary = {
 };
 
 console.log('SUMMARY', JSON.stringify(summary, null, 2));
+
+const standardReport = writeStandardFromBalaji(payload);
+console.info('[publish-balaji-demo] standard', JSON.stringify(standardReport));
 
 if (DRY) {
   console.log('DRY_RUN=1 — not publishing/writing');

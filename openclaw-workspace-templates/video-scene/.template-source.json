@@ -1,7 +1,30 @@
 {
+  "source_owner": "ceo-bala",
   "template_id": "video-scene",
-  "pack": "video_content",
-  "role": "Scene Planner",
-  "maintained_in": "openclaw-workspace-templates/video-scene/",
-  "notes": "Workflow-only specialty for W-Reasoning."
+  "exported_at": "2026-08-15T08:23:21.265Z",
+  "keep_better": true,
+  "skipped": [],
+  "source_agent_id": "video-scene-ceobala",
+  "source_workspace": "/root/.openclaw/tenants/ceo-bala/workspace-video-scene-ceobala",
+  "tools": [
+    "analyze_image",
+    "ceo_profile",
+    "email_send",
+    "kanban_create_task",
+    "kanban_get_task",
+    "kanban_move_status",
+    "kanban_reassign_to_coo",
+    "learnings_summary",
+    "list_inbound_attachments",
+    "master_data_delete_row",
+    "master_data_index_document",
+    "master_data_insert_row",
+    "master_data_list_documents",
+    "master_data_list_rows",
+    "master_data_list_tables",
+    "master_data_rag",
+    "master_data_update_row",
+    "notify_ceo"
+  ],
+  "role": "scene"
 }

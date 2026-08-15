@@ -1,0 +1,19 @@
+{
+  "source_owner": "ceo-bala",
+  "template_id": "platformhelp",
+  "exported_at": "2026-08-15T08:23:21.232Z",
+  "keep_better": true,
+  "skipped": [],
+  "source_agent_id": "platformhelp",
+  "source_workspace": "/root/.openclaw/workspace-platformhelp",
+  "tools": [
+    "content_tools_enquire",
+    "learnings_summary",
+    "master_data_list_documents",
+    "master_data_list_rows",
+    "master_data_list_tables",
+    "master_data_rag",
+    "notify_ceo"
+  ],
+  "role": "platformhelp"
+}

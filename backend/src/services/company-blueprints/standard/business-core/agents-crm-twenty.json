@@ -5,7 +5,7 @@
   "name": "CRM Maker/Checker (Twenty)",
   "description": "Provisioned when Profile CRM = twenty. Owner-scoped custom agents + user_agents grant. Regenerated from BrightBox Demo CEO tools/roles.",
   "regenerated_from_owner": "ceo-demo-brightbox-744921",
-  "regenerated_at": "2026-08-10T07:41:34.813Z",
+  "regenerated_at": "2026-08-15T08:22:37.272Z",
   "id_prefix": {
     "maker_a": "crm-s1-",
     "maker_b": "crm-s2-",
@@ -85,9 +85,7 @@
       "role_key": "crm_maker",
       "department": "Sales",
       "role": "CRM Maker - accounts, contacts, pipeline execution on platform Twenty via Flolah CRM tools (crm_* content tools; same surface as MCP mcp-flolah-crm). Can crm_sync_org from Flolah departments + AI employees.",
-      "tools_ref": "maker",
-      "workspace_template_base": "crm-maker-a",
-      "workspace_template": "openclaw-workspace-templates/crm-maker-a/"
+      "tools_ref": "maker"
     },
     {
       "key": "maker_b",
@@ -95,9 +93,7 @@
       "role_key": "crm_maker",
       "department": "Sales",
       "role": "CRM Maker - enrichment, research, follow-ups on platform Twenty via Flolah CRM tools (crm_*; MCP mcp-flolah-crm). Can crm_sync_org.",
-      "tools_ref": "maker",
-      "workspace_template_base": "crm-maker-b",
-      "workspace_template": "openclaw-workspace-templates/crm-maker-b/"
+      "tools_ref": "maker"
     },
     {
       "key": "checker",
@@ -105,9 +101,7 @@
       "role_key": "crm_checker",
       "department": "Sales",
       "role": "CRM Checker - review and gate risky CRM changes; prefer read + recommend unless CEO confirms. Has crm_status/list + crm_sync_org for controlled sync review.",
-      "tools_ref": "checker",
-      "workspace_template_base": "crm-checker",
-      "workspace_template": "openclaw-workspace-templates/crm-checker/"
+      "tools_ref": "checker"
     }
   ]
 }

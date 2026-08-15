@@ -78,7 +78,7 @@ Master Data table **`agent_workflow_notify_prefs`** (columns: `agent_id`, `workf
 | **None** (default) | Agent may be woken for **all** workflows they trigger/watch |
 | **One or more** | Allowlist only — wake only when `workflow_id` matches the run’s definition id/name (exact, substring, or glob like `video-reasoning*`). `enabled` false/0/off skips that row |
 
-Example (Content Orchestrator only for video storyboard): `agent_id=video-orch-ceobala`, `workflow_id=video-reasoning*`, `enabled=true`.
+Example (Content Orchestrator only for video storyboard): `agent_id=video-orch-{ownerSlug}`, `workflow_id=video-reasoning*`, `enabled=true`.
 
 When the CEO asks for **workflow run status**, recent outcomes, failed runs, or "did that workflow finish":
 

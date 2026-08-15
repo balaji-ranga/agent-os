@@ -33,6 +33,8 @@ node backend/scripts/seed-video-content-workflows.js
 
 **Who gets it:** Company setup Apply for industry **Video content** *or* **Flolah demo (Balaji Ranganathan)** (`companion_packs: ["video_content"]`). Operate Day 1 uses the same `installVideoContentForOwner` path (canonical ids `video-reasoning-{ownerSlug}` etc.) — not a stub `bp-video-*` graph. Overlay hydrates graphs from this folder at `getBlueprint` time.
 
+Refresh from live Balaji (`ceo-bala`): `node backend/scripts/publish-balaji-demo-blueprint.js` writes these graphs when the live studio is on par or better. Workspace MD: `SOURCE_OWNER_USER_ID=ceo-bala node backend/scripts/export-workspace-templates-from-owner.js` (`KEEP_BETTER=1`).
+
 ## Related
 
 - Pack: `../packs/video_content.json` (repo: `company-blueprints/packs/video_content.json`)

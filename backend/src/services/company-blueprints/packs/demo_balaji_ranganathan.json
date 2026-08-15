@@ -958,6 +958,11 @@
   ],
   "workflows": [
     {
+      "id": "monthly-trading-w1-post-close",
+      "name": "Monthly Trading W1 — Post-Close Plan",
+      "description": "Post-close: regime → guardrail → open plans → bridge-cached snapshot → screener → learnings → Maker(OpenAI GPT via vault openAI_key)↔Checker(DeepSeek cloud via vault deepseek_key) + Brave Search MCP → hard gates → optional CEO → save approved plan → digest + notify"
+    },
+    {
       "id": "video-reasoning",
       "name": "Video: Story → Cast → Scene → Prompt (storyboard)",
       "description": "W-Reasoning: Story → CEO cast gate (reusable character_id) → Scene → Prompt → CEO storyboard gate. Chat: run video storyboard."
@@ -991,11 +996,6 @@
       "id": "test-a2a-publish-smoke",
       "name": "A2A Publish Smoke Test",
       "description": ""
-    },
-    {
-      "id": "monthly-trading-w1-post-close",
-      "name": "Monthly Trading W1 — Post-Close Plan",
-      "description": "Post-close: regime → guardrail → open plans → bridge-cached snapshot → screener → learnings → Maker(OpenAI GPT via vault openAI_key)↔Checker(DeepSeek cloud via vault deepseek_key) + Brave Search MCP → hard gates → optional CEO → save approved plan → digest + notify"
     },
     {
       "id": "erp-mc",
@@ -1220,395 +1220,6 @@
   ],
   "workflow_templates": [
     {
-      "template_key": "video-reasoning",
-      "name": "Video: Story → Cast → Scene → Prompt (storyboard)",
-      "description": "W-Reasoning: Story → CEO cast gate (reusable character_id) → Scene → Prompt → CEO storyboard gate. Chat: run video storyboard.",
-      "trigger_modes": [
-        "manual",
-        "chat"
-      ],
-      "schedule_cron": "",
-      "chat_trigger_phrase": "run video storyboard",
-      "variables": {},
-      "graph": {
-        "nodes": [
-          {
-            "id": "trigger-1",
-            "type": "trigger",
-            "position": {
-              "x": 40,
-              "y": 240
-            },
-            "data": {
-              "label": "Start",
-              "triggerModes": [
-                "manual",
-                "chat"
-              ],
-              "chatPhrase": "run video storyboard",
-              "scheduleCron": "",
-              "inputSchema": null
-            }
-          },
-          {
-            "id": "story-1",
-            "type": "agent",
-            "position": {
-              "x": 240,
-              "y": 240
-            },
-            "data": {
-              "label": "Story Agent",
-              "agentNameRef": "Story Agent",
-              "agentName": "Story Agent",
-              "prompt": "You are Story Agent (video). Brief from input:\n\n{{input}}\n\nPrefer reusable cast ids from Master Data video_characters when the brief names known characters. Produce narrative beats for short-form video within the duration budget.\nEnd with ONLY one JSON object: title, duration_sec, logline, beats[], characters_used[{name,role,character_id?}], tone, cta.\nDo NOT invent final Veo prompts or scene cards — cast must be CEO-confirmed next.",
-              "inputBindings": [
-                {
-                  "id": "prompt",
-                  "mode": "dynamic",
-                  "sourceNodeId": "trigger-1",
-                  "sourceOutputKey": "text"
-                }
-              ],
-              "agentId": null,
-              "agent_id": null
-            }
-          },
-          {
-            "id": "ceo-cast",
-            "type": "ceo_approval",
-            "position": {
-              "x": 480,
-              "y": 240
-            },
-            "data": {
-              "label": "CEO review cast",
-              "prompt": "Confirm cast character_id mapping and reuse refs before Scene/Prompt.",
-              "taskConfig": {
-                "title": "CEO review: video cast",
-                "instructions": "Confirm character_id → name mapping (and reuse library refs when listed). Approve to lock cast into Master Data video_characters and continue Scene→Prompt. Reject to stop."
-              },
-              "inputBindings": [
-                {
-                  "id": "summary",
-                  "mode": "dynamic",
-                  "sourceNodeId": "story-1",
-                  "sourceOutputKey": "reply"
-                }
-              ]
-            }
-          },
-          {
-            "id": "if-cast",
-            "type": "if",
-            "position": {
-              "x": 700,
-              "y": 240
-            },
-            "data": {
-              "label": "Cast approved?",
-              "taskConfig": {
-                "sourceNodeId": "ceo-cast",
-                "sourceOutputKey": "decision",
-                "operator": "approved"
-              }
-            }
-          },
-          {
-            "id": "scene-1",
-            "type": "agent",
-            "position": {
-              "x": 920,
-              "y": 160
-            },
-            "data": {
-              "label": "Scene Planner",
-              "agentNameRef": "Scene Planner",
-              "agentName": "Scene Planner",
-              "prompt": "You are Scene Planner (video). Story JSON:\n\n{{story}}\n\nApproved cast context:\n{{cast}}\n\nOriginal brief:\n{{input}}\n\nBreak into 6–8 second scenes. Every scene.characters[] MUST use the locked character_id values from the cast (not free-form new names).\nEnd with ONLY one JSON object: duration_sec, scenes[{index,duration_sec,characters,description,continuity_notes,camera}].",
-              "inputBindings": [
-                {
-                  "id": "story",
-                  "mode": "dynamic",
-                  "sourceNodeId": "story-1",
-                  "sourceOutputKey": "reply"
-                },
-                {
-                  "id": "cast",
-                  "mode": "dynamic",
-                  "sourceNodeId": "ceo-cast",
-                  "sourceOutputKey": "summary"
-                },
-                {
-                  "id": "input",
-                  "mode": "dynamic",
-                  "sourceNodeId": "trigger-1",
-                  "sourceOutputKey": "text"
-                }
-              ],
-              "agentId": null,
-              "agent_id": null
-            }
-          },
-          {
-            "id": "prompt-1",
-            "type": "agent",
-            "position": {
-              "x": 1160,
-              "y": 160
-            },
-            "data": {
-              "label": "Prompt Agent",
-              "agentNameRef": "Prompt Agent",
-              "agentName": "Prompt Agent",
-              "prompt": "You are Prompt Agent (video). Scene plan:\n\n{{scenes}}\n\nStory:\n{{story}}\n\nApproved cast (character_id mapping — reuse these exact ids and ref_media):\n{{cast}}\n\nBrief:\n{{input}}\n\nWrite Flow/Veo-ready prompts. Every veo_prompt must mention locked character appearance and character_id.\nEnd with ONLY the full storyboard JSON: title, duration_sec, characters[{character_id,id,name,role,ref_media,appearance}], scenes[{index,duration_sec,characters,description,veo_prompt,negative_prompt,continuity_notes}].\nscenes[].characters must be character_id strings matching characters[].character_id.",
-              "inputBindings": [
-                {
-                  "id": "scenes",
-                  "mode": "dynamic",
-                  "sourceNodeId": "scene-1",
-                  "sourceOutputKey": "reply"
-                },
-                {
-                  "id": "story",
-                  "mode": "dynamic",
-                  "sourceNodeId": "story-1",
-                  "sourceOutputKey": "reply"
-                },
-                {
-                  "id": "cast",
-                  "mode": "dynamic",
-                  "sourceNodeId": "ceo-cast",
-                  "sourceOutputKey": "summary"
-                },
-                {
-                  "id": "input",
-                  "mode": "dynamic",
-                  "sourceNodeId": "trigger-1",
-                  "sourceOutputKey": "text"
-                }
-              ],
-              "agentId": null,
-              "agent_id": null
-            }
-          },
-          {
-            "id": "ceo-gate",
-            "type": "ceo_approval",
-            "position": {
-              "x": 1400,
-              "y": 160
-            },
-            "data": {
-              "label": "CEO review storyboard",
-              "prompt": "Review the storyboard PDF (scenes + character_id roster). Approve to persist as production plan.",
-              "taskConfig": {
-                "title": "CEO review: video storyboard",
-                "instructions": "Open Artifacts for the storyboard PDF (character_id mapping + scenes + Veo/Flow prompts). Approve to mark ceo_approved, or reject with feedback."
-              },
-              "inputBindings": [
-                {
-                  "id": "summary",
-                  "mode": "dynamic",
-                  "sourceNodeId": "prompt-1",
-                  "sourceOutputKey": "reply"
-                }
-              ]
-            }
-          }
-        ],
-        "edges": [
-          {
-            "id": "e1",
-            "source": "trigger-1",
-            "target": "story-1"
-          },
-          {
-            "id": "e2",
-            "source": "story-1",
-            "target": "ceo-cast"
-          },
-          {
-            "id": "e3",
-            "source": "ceo-cast",
-            "target": "if-cast"
-          },
-          {
-            "id": "e4",
-            "source": "if-cast",
-            "target": "scene-1",
-            "sourceHandle": "true"
-          },
-          {
-            "id": "e6",
-            "source": "scene-1",
-            "target": "prompt-1"
-          },
-          {
-            "id": "e7",
-            "source": "prompt-1",
-            "target": "ceo-gate"
-          }
-        ],
-        "viewport": {
-          "x": 0,
-          "y": 0,
-          "zoom": 1
-        }
-      },
-      "source_definition_id": "video-reasoning-ceo-bala"
-    },
-    {
-      "template_key": "video-media",
-      "name": "Video: W-Media (scene clips ≤8s)",
-      "description": "S4: per-scene clips (Google Flow ≤8s each or Replicate Veo). Body/input: storyboard_id, provider=flow_browser|replicate_api. Chat: run video media",
-      "trigger_modes": [
-        "manual",
-        "chat"
-      ],
-      "schedule_cron": "",
-      "chat_trigger_phrase": "run video media",
-      "variables": {},
-      "graph": {
-        "nodes": [
-          {
-            "id": "trigger-1",
-            "type": "trigger",
-            "position": {
-              "x": 40,
-              "y": 200
-            },
-            "data": {
-              "label": "Start",
-              "triggerModes": [
-                "manual",
-                "chat"
-              ],
-              "chatPhrase": "run video media",
-              "scheduleCron": "",
-              "inputSchema": null
-            }
-          },
-          {
-            "id": "media-1",
-            "type": "tool",
-            "position": {
-              "x": 300,
-              "y": 200
-            },
-            "data": {
-              "label": "Generate scene clips",
-              "toolName": "video_media_generate",
-              "toolPayload": {
-                "provider": "flow_browser"
-              },
-              "inputBindings": [
-                {
-                  "id": "storyboard_id",
-                  "mode": "dynamic",
-                  "sourceNodeId": "trigger-1",
-                  "sourceOutputKey": "text"
-                },
-                {
-                  "id": "input",
-                  "mode": "dynamic",
-                  "sourceNodeId": "trigger-1",
-                  "sourceOutputKey": "text"
-                }
-              ]
-            }
-          }
-        ],
-        "edges": [
-          {
-            "id": "e1",
-            "source": "trigger-1",
-            "target": "media-1"
-          }
-        ],
-        "viewport": {
-          "x": 0,
-          "y": 0,
-          "zoom": 1
-        }
-      },
-      "source_definition_id": "video-media-ceo-bala"
-    },
-    {
-      "template_key": "video-assembly",
-      "name": "Video: W-Assembly (FFmpeg + QC)",
-      "description": "S5: asset manifest → FFmpeg assemble → QC → Content Explorer final MP4; marks status video_generated. Chat: run video assembly",
-      "trigger_modes": [
-        "manual",
-        "chat"
-      ],
-      "schedule_cron": "",
-      "chat_trigger_phrase": "run video assembly",
-      "variables": {},
-      "graph": {
-        "nodes": [
-          {
-            "id": "trigger-1",
-            "type": "trigger",
-            "position": {
-              "x": 40,
-              "y": 200
-            },
-            "data": {
-              "label": "Start",
-              "triggerModes": [
-                "manual",
-                "chat"
-              ],
-              "chatPhrase": "run video assembly",
-              "scheduleCron": "",
-              "inputSchema": null
-            }
-          },
-          {
-            "id": "assemble-1",
-            "type": "tool",
-            "position": {
-              "x": 300,
-              "y": 200
-            },
-            "data": {
-              "label": "Assemble final MP4",
-              "toolName": "video_assemble",
-              "toolPayload": {},
-              "inputBindings": [
-                {
-                  "id": "storyboard_id",
-                  "mode": "dynamic",
-                  "sourceNodeId": "trigger-1",
-                  "sourceOutputKey": "text"
-                },
-                {
-                  "id": "input",
-                  "mode": "dynamic",
-                  "sourceNodeId": "trigger-1",
-                  "sourceOutputKey": "text"
-                }
-              ]
-            }
-          }
-        ],
-        "edges": [
-          {
-            "id": "e1",
-            "source": "trigger-1",
-            "target": "assemble-1"
-          }
-        ],
-        "viewport": {
-          "x": 0,
-          "y": 0,
-          "zoom": 1
-        }
-      },
-      "source_definition_id": "video-assembly-ceo-bala"
-    },
-    {
       "template_key": "monthly-trading-w1-post-close",
       "name": "Monthly Trading W1 — Post-Close Plan",
       "description": "Post-close: regime → guardrail → open plans → bridge-cached snapshot → screener → learnings → Maker(OpenAI GPT via vault openAI_key)↔Checker(DeepSeek cloud via vault deepseek_key) + Brave Search MCP → hard gates → optional CEO → save approved plan → digest + notify",
@@ -1650,12 +1261,12 @@
         "order_history_days": 30,
         "open_plans_limit": 14,
         "screener_limit": 25,
+        "screener_enrich_limit": 8,
         "digest_email_to": "",
         "entry_slip_pct_max": 0.25,
         "entry_discount_pct_max": 3,
         "local_bridge_base_url": "http://127.0.0.1:3010",
-        "local_bridge_token": "",
-        "screener_enrich_limit": 8
+        "local_bridge_token": ""
       },
       "graph": {
         "nodes": [
@@ -1882,7 +1493,7 @@
                 "apiKeyRef": "openAI_key",
                 "model": "gpt-4o",
                 "maxTokens": 8192,
-                "systemPrompt": "You are the Trading Maker for the Monthly Positive Return Trading System.\n\nObjective: Generate consistent monthly gains while protecting capital. Success is measured by the combined value of cash and open positions at month end.\n\n## Universe\n- US market. Trade only highly liquid stocks with market capitalisation above US${{var.min_market_cap_usd}}.\n- Focus on approximately {{var.universe_size_min}}-{{var.universe_size_max}} stocks with the strongest relative strength and liquidity.\n- Avoid low-volume or highly speculative stocks.\n\n## Market Filter\n- Only take new long positions when the broader market index is above its 200-day moving average (risk_on from market_regime).\n- When the market is below its 200-day moving average: reduce exposure, increase cash, take only exceptional high-conviction setups.\n\n## Stock Selection\n- Strong 3-month and 6-month momentum.\n- Above 50-day and 200-day moving averages.\n- Within {{var.pct_from_52w_high_max}}% of their 52-week high.\n- Strong earnings and revenue growth.\n- High trading volume.\n\n## Entry Rules\n- Break above well-defined resistance or consolidation.\n- Volume at least {{var.entry_volume_mult}}x the recent average.\n- Relative strength improving; build positions gradually.\n\n## Position Sizing / dollar budget\n- **Hard dollar cap:** total notional of new_entry actions in this plan must stay within US${{var.daily_budget_usd}} (sum of notional_usd, or qty × entry/trigger price). Prefer cash left in the account snapshot when lower.\n- At most {{var.max_trades_per_day}} new_entry actions per plan (carry_forward entries that only finish prior legs do not count against this if marked carry_forward: true and notional already reserved).\n- Risk no more than {{var.risk_per_trade_pct}}% of total portfolio value on any single trade.\n- Initial allocation {{var.position_size_pct_min}}-{{var.position_size_pct_max}}% of the portfolio.\n- Maximum exposure to any single stock {{var.position_size_pct_hard_max}}%.\n- On each new_entry set notional_usd (or qty + entry_price/trigger_price) so Checker and hard gates can enforce the dollar budget.\n- **Use the spendable cap:** when you take new_entry, set integer qty so notional uses min(daily_budget_usd, cash_usd, portfolio × position_size_pct_max/100) as fully as whole shares allow (at least the position_size_pct_min band when cash allows). Do not leave a leftover that could still buy another share.\n- **Prices:** set entry_price from the account snapshot reference_prices or screener last — never invent a round number. BUY limit must be within {{var.entry_slip_pct_max}}% above and {{var.entry_discount_pct_max}}% below that last. Far-below limits will not fill and hard gates will reject them.\n\n## Entry protective orders (W2) — decide bracket vs hold-for-weeks\nOn every new_entry you MUST choose one style: full IBKR bracket (bracket true: qty, entry, stop below, tp above) or hold-for-weeks (bracket false, exit_plan later_day_plan, forecast_up_weeks >= 1, omit tp so a later day plan decides the sell).\n## Stop Loss\n- Every position must have a predefined stop. Exit immediately if triggered. Never average down.\n\n## Profit Management\n- Trail winners; consider partial profits after {{var.partial_profit_pct_min}}-{{var.partial_profit_pct_max}}%.\n\n## Cash Management\n- Hold {{var.cash_band_pct_min}}-{{var.cash_band_pct_max}}% cash when opportunities are limited.\n\n## Daily / Weekly / Monthly\n- Daily post-close: review positions and watchlist; manage risk.\n- Weekly: prune weak names, promote stronger candidates.\n- If monthly target {{var.monthly_target_pct_min}}-{{var.monthly_target_pct_max}}% is reached, reduce risk.\n- If drawdown from month HWM exceeds {{var.monthly_drawdown_stop_pct}}%, halt new positions (risk_mode halt_new).\n\n## Discretionary sell approval\n- Loss sells at >= {{var.discretionary_loss_sell_pct}}% require CEO Kanban approval.\n- Set requires_ceo_approval: true on those actions (and set loss_pct_if_exit).\n\n## Discipline\n- No news/emotion/revenge trading. Journal every trade. Honor regime, guardrail, screener, fundamentals, snapshot, and journal inputs.\n\n## EXECUTION RECOVERY / LAPTOP<->VPS SYNC\nRules you MUST follow each W1 (post-close) run:\n1. Load prior day plan(s) still open (status approved|executing|partial|failed) + live IBKR snapshot (or last known equity mark if snapshot unavailable).\n2. Reconcile plan intents vs reality (positions, open orders, fills). IBKR truth wins over VPS plan status.\n3. If prior plan is approved but not executed (laptop offline / no webhook): do NOT blindly duplicate. Either (a) carry forward unfilled legs into today's plan with carry_forward: true and the same risk rules, or (b) mark superseded and rebuild if market regime/guardrail changed. Explain in notes.\n4. If partial: only schedule remaining undone actions; never re-buy filled adds; never average down losers.\n5. If VPS missed fill confirmations: treat positions present in snapshot as done; update plan status recommendations in notes (suggested_status: partial|executed).\n6. If laptop repeatedly fails: reduce new entries, prefer risk-reducing exits, note that digest should alert CEO.\n7. Always set prior_plan_reconcile in output JSON summarizing what was open, what filled, what carries forward.\n\n## Output\nOutput ONLY valid JSON (no markdown fences). Schema:\n{\n  \"prior_plan_reconcile\": {\n    \"prior_dates\": [],\n    \"carried_forward\": [],\n    \"closed_as_done\": [],\n    \"superseded\": [],\n    \"notes\": \"\"\n  },\n  \"actions\": [\n    {\n      \"type\": \"hold|reduce|exit|raise_stop|partial_profit|new_entry\",\n      \"key\": \"NASDAQ:AAPL\",\n      \"qty\": 1,\n      \"trigger_price\": null,\n      \"stop_price\": null,\n      \"tp_price\": null,\n      \"entry_price\": null,\n      \"notional_usd\": null,\n      \"loss_pct_if_exit\": null,\n      \"requires_ceo_approval\": false,\n      \"carry_forward\": false,\n      \"thesis\": \"\",\n      \"risks\": \"\",\n      \"why_now\": \"\",\n      \"rationale\": \"\"\n    }\n  ],\n  \"watchlist\": [],\n  \"risk_summary\": {\n    \"cash_pct\": 0,\n    \"exposure_pct\": 0,\n    \"open_stop_risk_pct\": 0,\n    \"risk_mode\": \"normal|reduce|halt_new\"\n  },\n  \"notes\": \"\"\n}\n\nChecker feedback (may be empty on first pass): {{parse-checker.adjustments}}\n\n\n## Optional web research (MCP)\nYou may call Brave Search MCP tools when you need timely public-web context (catalysts, filings headlines, macro notes) that is not in the regime/screener/snapshot payloads.\nDo not use web search as a substitute for FMP regime/screener or the laptop IBKR account snapshot.\nNever invent prices or positions from search snippets — plan levels still come from provided market data + strategy rules.\n- When market_regime is risk_on, guardrail is not halt_new, cash is available, and SCREENER has candidates, you MUST emit at least one bookable new_entry sized to the spendable cap. Empty actions[] is not allowed in that case.\n\n## How to decide grind vs swing\nUse SCREENER candidate stats from FMP when present: pe, sma_50, sma_200, momentum_3m, momentum_6m, pct_from_high_52w, revenue_yoy, eps_yoy. If those FMP fields are missing, you MAY call Brave Search MCP as a fallback; do not invent stats.\n",
+                "systemPrompt": "You are the Trading Maker for the Monthly Positive Return Trading System.\n\nObjective: Generate consistent monthly gains while protecting capital. Success is measured by the combined value of cash and open positions at month end.\n\n## Universe\n- US market. Trade only highly liquid stocks with market capitalisation above US${{var.min_market_cap_usd}}.\n- Focus on approximately {{var.universe_size_min}}-{{var.universe_size_max}} stocks with the strongest relative strength and liquidity.\n- Avoid low-volume or highly speculative stocks.\n\n## Market Filter\n- Only take new long positions when the broader market index is above its 200-day moving average (risk_on from market_regime).\n- When the market is below its 200-day moving average: reduce exposure, increase cash, take only exceptional high-conviction setups.\n\n## Stock Selection\n- Strong 3-month and 6-month momentum.\n- Above 50-day and 200-day moving averages.\n- Within {{var.pct_from_52w_high_max}}% of their 52-week high.\n- Strong earnings and revenue growth.\n- High trading volume.\n\n## Entry Rules\n- Break above well-defined resistance or consolidation.\n- Volume at least {{var.entry_volume_mult}}x the recent average.\n- Relative strength improving; build positions gradually.\n\n## Position Sizing / dollar budget\n- **Hard dollar cap:** total notional of new_entry actions in this plan must stay within US${{var.daily_budget_usd}} (sum of notional_usd, or qty × entry/trigger price). Prefer cash left in the account snapshot when lower.\n- **Use the spendable cap:** when you take new_entry, set integer qty so notional uses min(daily_budget_usd, cash_usd, portfolio × position_size_pct_max/100) as fully as whole shares allow (at least the position_size_pct_min band when cash allows). Do not leave a leftover that could still buy another share.\n- At most {{var.max_trades_per_day}} new_entry actions per plan (carry_forward entries that only finish prior legs do not count against this if marked carry_forward: true and notional already reserved).\n- Risk no more than {{var.risk_per_trade_pct}}% of total portfolio value on any single trade.\n- Initial allocation {{var.position_size_pct_min}}-{{var.position_size_pct_max}}% of the portfolio.\n- Maximum exposure to any single stock {{var.position_size_pct_hard_max}}%.\n- On each new_entry set notional_usd (or qty + entry_price/trigger_price) so Checker and hard gates can enforce the dollar budget.\n- **Prices:** set entry_price from the account snapshot reference_prices or screener last — never invent a round number. BUY limit must be within {{var.entry_slip_pct_max}}% above and {{var.entry_discount_pct_max}}% below that last. Far-below limits will not fill and hard gates will reject them.\n\n## Entry protective orders (W2) — decide bracket vs hold-for-weeks\nOn every new_entry you MUST choose one style and set it on the action:\n\n1. **Full IBKR bracket** (bracket: true): use when the setup is a swing or you expect a defined target inside days (not a multi-week grind). Set qty, entry_price, stop_price below entry, and tp_price above entry (default first target about {{var.partial_profit_pct_min}}% unless the setup is tighter). W2 places parent BUY + stop + take-profit.\n\n2. **Hold for weeks** (bracket: false, exit_plan: \"later_day_plan\", forecast_up_weeks >= 1): use when you predict the name continues higher over the next week or few weeks. Do **not** attach a take-profit that would sell a winner early. Leave tp_price null. A later W1 day plan (about a week out, or sooner if thesis breaks) decides hold / raise_stop / partial_profit / exit. You may keep a protective stop_price if a breakdown would invalidate the thesis; omit stop only when the multi-week upside thesis is explicit in thesis/why_now.\n\nNever leave the choice implicit. If you cannot forecast a week-plus grind, prefer a full bracket.\n\n## How to decide grind vs swing\nUse SCREENER candidate stats from FMP when present: pe, sma_50, sma_200, above_sma50, above_sma200, momentum_3m, momentum_6m, pct_from_high_52w, revenue_yoy, eps_yoy, avg_volume_20.\n- Prefer hold-for-weeks when 3m and 6m momentum are both positive, price is above sma_50 and sma_200, earnings/revenue YoY are not collapsing, and you expect the name to work higher over the next week or few weeks rather than hit a nearby 15% target.\n- Prefer a full bracket when the name is extended into the 52-week high, 3m momentum is strong but 6m is not a grind, PE looks stretched without growth, or you have a defined swing target inside days.\nCite the FMP fields you used in thesis/why_now. Do not invent PE, SMA, or momentum.\n\nIf those FMP fields are missing (stats_enriched false, history_error, 402, or the name was past enrich_limit), you MAY call Brave Search MCP as a fallback for PE, 3-month/6-month trend, and latest earnings or revenue growth. Use only a number you can quote from a snippet; say stats_source search in why_now. If search also has no number, do not invent stats — default to a full bracket instead of claiming a multi-week grind.\n\n## Stop Loss\n- Bracket entries: predefined stop; exit if hit; never average down.\n- Hold-for-weeks: optional protective stop as above; never average down. Subsequent day plans manage the exit.\n\n## Profit Management\n- Bracket: take-profit on the order; also trail via later raise_stop if still open.\n- Hold-for-weeks: no take-profit today. Later W1 reviews the open position and decides to sell or not.\n\n## Cash Management\n- Hold {{var.cash_band_pct_min}}-{{var.cash_band_pct_max}}% cash when opportunities are limited.\n\n## Daily / Weekly / Monthly\n- Daily post-close: review positions and watchlist; manage risk.\n- Weekly: prune weak names, promote stronger candidates.\n- If monthly target {{var.monthly_target_pct_min}}-{{var.monthly_target_pct_max}}% is reached, reduce risk.\n- If drawdown from month HWM exceeds {{var.monthly_drawdown_stop_pct}}%, halt new positions (risk_mode halt_new).\n\n## Discretionary sell approval\n- Loss sells at >= {{var.discretionary_loss_sell_pct}}% require CEO Kanban approval.\n- Set requires_ceo_approval: true on those actions (and set loss_pct_if_exit).\n\n## Discipline\n- No news/emotion/revenge trading. Journal every trade. Honor regime, guardrail, screener, fundamentals, snapshot, and journal inputs.\n- When market_regime is risk_on, guardrail is not halt_new, cash is available, and SCREENER has candidates, you MUST emit at least one bookable new_entry sized to the spendable cap. Empty actions[] is not allowed in that case.\n\n## EXECUTION RECOVERY / LAPTOP<->VPS SYNC\nRules you MUST follow each W1 (post-close) run:\n1. Load prior day plan(s) still open (status approved|executing|partial|failed) + live IBKR snapshot (or last known equity mark if snapshot unavailable).\n2. Reconcile plan intents vs reality (positions, open orders, fills). IBKR truth wins over VPS plan status.\n3. If prior plan is approved but not executed (laptop offline / no webhook): do NOT blindly duplicate. Either (a) carry forward unfilled legs into today's plan with carry_forward: true and the same risk rules, or (b) mark superseded and rebuild if market regime/guardrail changed. Explain in notes.\n4. If partial: only schedule remaining undone actions; never re-buy filled adds; never average down losers.\n5. If VPS missed fill confirmations: treat positions present in snapshot as done; update plan status recommendations in notes (suggested_status: partial|executed).\n6. If laptop repeatedly fails: reduce new entries, prefer risk-reducing exits, note that digest should alert CEO.\n7. Always set prior_plan_reconcile in output JSON summarizing what was open, what filled, what carries forward.\n8. Open positions booked without a take-profit (hold-for-weeks): do not invent a TP to “complete” a bracket. Decide on THIS day whether to hold, raise_stop, take partial_profit, or exit.\n\n## Output\nOutput ONLY valid JSON (no markdown fences).\nFor new_entry always set qty (>=1) and entry_price. If bracket is true, also set stop_price below entry and tp_price above entry. If bracket is false, set exit_plan \"later_day_plan\" and forecast_up_weeks >= 1; omit tp_price so a later day plan can sell.\nSchema:\n{\n  \"prior_plan_reconcile\": {\n    \"prior_dates\": [],\n    \"carried_forward\": [],\n    \"closed_as_done\": [],\n    \"superseded\": [],\n    \"notes\": \"\"\n  },\n  \"actions\": [\n    {\n      \"type\": \"hold|reduce|exit|raise_stop|partial_profit|new_entry\",\n      \"key\": \"NASDAQ:AAPL\",\n      \"qty\": 1,\n      \"trigger_price\": null,\n      \"stop_price\": null,\n      \"tp_price\": null,\n      \"entry_price\": null,\n      \"notional_usd\": null,\n      \"bracket\": true,\n      \"forecast_up_weeks\": 0,\n      \"exit_plan\": \"bracket_tp|later_day_plan\",\n      \"loss_pct_if_exit\": null,\n      \"requires_ceo_approval\": false,\n      \"carry_forward\": false,\n      \"thesis\": \"\",\n      \"risks\": \"\",\n      \"why_now\": \"\",\n      \"rationale\": \"\"\n    }\n  ],\n  \"watchlist\": [],\n  \"risk_summary\": {\n    \"cash_pct\": 0,\n    \"exposure_pct\": 0,\n    \"open_stop_risk_pct\": 0,\n    \"risk_mode\": \"normal|reduce|halt_new\"\n  },\n  \"notes\": \"\"\n}\n\nChecker feedback (may be empty on first pass): {{parse-checker.adjustments}}\n\n\n## Optional web research (MCP)\nYou may call Brave Search MCP tools when you need timely public-web context (catalysts, filings headlines, macro notes) that is not in the regime/screener/snapshot payloads.\nFallback for missing FMP screener stats: if a candidate has no pe / sma_50 / momentum_3m / revenue_yoy, search for that ticker PE, 3-month and 6-month trend, and latest earnings or revenue growth. Use only figures present in snippets. Do not invent prices, PE, or positions from search. Plan entry still comes from snapshot or screener last.\nDo not use web search as a substitute for FMP regime/screener or the laptop IBKR account snapshot when those payloads are present.",
                 "mcpToolCalling": true,
                 "mcpServerIds": [
                   "mcp-brave-search"
@@ -1922,7 +1533,7 @@
                 "apiKeyRef": "deepseek_key",
                 "model": "deepseek-chat",
                 "maxTokens": 4096,
-                "systemPrompt": "You are the Trading Checker (risk reviewer) for the Monthly Positive Return Trading System.\nOutput ONLY valid JSON:\n{\"decision\":\"approved\"|\"rejected\",\"adjustments\":\"...\",\"notes\":\"...\"}\n\nThe Maker plan JSON is in the user message. Also use market_regime, monthly_guardrail, open day-plans, account/equity snapshot, screener, order_learnings, and brain history excerpts.\n\nApprove when:\n- prior_plan_reconcile is present and consistent with open plans / snapshot (IBKR truth wins)\n- actions[] respect: never average down; new_entry only when regime is risk_on (unless exceptional and explained); halt_new / guardrail blocks new_entry\n- risk_per_trade_pct <= {{var.risk_per_trade_pct}}; position sizing within {{var.position_size_pct_min}}-{{var.position_size_pct_max}}% (hard max {{var.position_size_pct_hard_max}}%)\n- sum of new_entry notional_usd (or qty×price) <= {{var.daily_budget_usd}}; new_entry count <= {{var.max_trades_per_day}} (excluding pure carry_forward finishers when clearly notional-neutral)\n- every new_entry has a real entry_price within {{var.entry_slip_pct_max}}% above / {{var.entry_discount_pct_max}}% below snapshot or screener last (reject invented far-below-market limits)\n- every new_entry is bookable: qty >= 1 and entry_price. Either a full bracket (bracket true: stop below entry and tp above) OR hold-for-weeks (bracket false, exit_plan later_day_plan, forecast_up_weeks >= 1, tp omitted so a later day plan decides the sell)\n- every new_entry / raise_stop / reduce / exit / partial_profit has stop or clear exit intent where required\n- discretionary loss sells (loss_pct_if_exit >= {{var.discretionary_loss_sell_pct}}) have requires_ceo_approval: true\n- carry_forward actions do not re-buy already filled adds; partial recovery only schedules remaining work\n- empty actions[] is valid when risk_mode is halt_new / reduce and notes explain why\n\nReject if:\n- missing prior_plan_reconcile\n- averages down losers or duplicates filled entries\n- new_entry while risk_mode halt_new or regime risk_off without exceptional justification\n- weak/missing thesis, risks, or why_now on material actions (exit/new_entry/reduce)\n- ignores cash band, position caps, or open-stop risk\n- Maker ignored previous adjustments without explaining why\n\nOn reject: adjustments MUST be a non-empty, concrete, actionable string (what to change). Never leave adjustments empty.\n\n\n## Optional web research (MCP)\nYou may call Brave Search MCP only to double-check a concrete claim that blocks approval (e.g. halted ticker, major event). Prefer the payloads already in the user message. Do not expand the plan or invent levels from search.",
+                "systemPrompt": "You are the Trading Checker (risk reviewer) for the Monthly Positive Return Trading System.\nOutput ONLY valid JSON:\n{\"decision\":\"approved\"|\"rejected\",\"adjustments\":\"...\",\"notes\":\"...\"}\nPut that JSON in the visible reply text (not only in hidden thinking). Empty text is treated as rejected.\n\nThe Maker plan JSON is in the user message. Also use market_regime, monthly_guardrail, open day-plans, account/equity snapshot, screener, order_learnings, and brain history excerpts.\n\nApprove when:\n- prior_plan_reconcile is present and consistent with open plans / snapshot (IBKR truth wins)\n- actions[] respect: never average down; new_entry only when regime is risk_on (unless exceptional and explained); halt_new / guardrail blocks new_entry\n- risk_per_trade_pct <= {{var.risk_per_trade_pct}}; position sizing within {{var.position_size_pct_min}}-{{var.position_size_pct_max}}% (hard max {{var.position_size_pct_hard_max}}%)\n- sum of new_entry notional_usd (or qty×price) <= {{var.daily_budget_usd}} and uses min(daily_budget, cash, portfolio × position_size_pct_max/100) as fully as whole shares allow\n- new_entry count <= {{var.max_trades_per_day}} (excluding pure carry_forward finishers when clearly notional-neutral)\n- every new_entry has a real entry_price within {{var.entry_slip_pct_max}}% above / {{var.entry_discount_pct_max}}% below snapshot or screener last (reject invented far-below-market limits)\n- every new_entry is bookable: qty >= 1 and entry_price. Either a full bracket (bracket true: stop below entry and tp above) OR hold-for-weeks (bracket false, exit_plan later_day_plan, forecast_up_weeks >= 1, tp omitted so a later day plan decides the sell)\n- hold-for-weeks cites FMP screener stats (momentum_3m/6m, above_sma50/200, pe, revenue_yoy) or a Brave Search snippet if those FMP fields were missing\n- every new_entry / raise_stop / reduce / exit / partial_profit has stop or clear exit intent where required (hold-for-weeks may omit stop only with an explicit multi-week upside thesis)\n- discretionary loss sells (loss_pct_if_exit >= {{var.discretionary_loss_sell_pct}}) have requires_ceo_approval: true\n- carry_forward actions do not re-buy already filled adds; partial recovery only schedules remaining work\n- empty actions[] is valid ONLY when risk_mode is halt_new, regime is risk_off, or the screener has zero candidates (notes must say why)\n- when risk_on, cash available, and screener has candidates, require at least one bookable new_entry using spendable — reject empty actions[]\n\nReject if:\n- missing prior_plan_reconcile\n- averages down losers or duplicates filled entries\n- new_entry while risk_mode halt_new or regime risk_off without exceptional justification\n- new_entry missing qty or entry_price\n- new_entry with neither a full bracket (stop+tp) nor a documented hold-for-weeks choice (bracket false + later_day_plan + forecast_up_weeks >= 1)\n- hold-for-weeks grind claim with no FMP screener stats (momentum_3m/6m, SMA, pe, revenue_yoy) and no Brave Search note when those fields were missing\n- new_entry that leaves unused spendable large enough to buy another share\n- weak/missing thesis, risks, or why_now on material actions (exit/new_entry/reduce)\n- ignores cash band, position caps, or open-stop risk\n- Maker ignored previous adjustments without explaining why\n\nOn reject: adjustments MUST be a non-empty, concrete, actionable string (what to change). Never leave adjustments empty.\n\n\n## Optional web research (MCP)\nYou may call Brave Search MCP only to double-check a concrete claim that blocks approval (halted ticker, major event) or to verify grind vs swing stats when the SCREENER row is missing FMP pe / SMA / momentum / YoY. Prefer the payloads already in the user message. Do not expand the plan or invent levels from search.",
                 "mcpToolCalling": true,
                 "mcpServerIds": [
                   "mcp-brave-search"
@@ -2373,6 +1984,395 @@
         }
       },
       "source_definition_id": "monthly-trading-w1-post-close"
+    },
+    {
+      "template_key": "video-reasoning",
+      "name": "Video: Story → Cast → Scene → Prompt (storyboard)",
+      "description": "W-Reasoning: Story → CEO cast gate (reusable character_id) → Scene → Prompt → CEO storyboard gate. Chat: run video storyboard.",
+      "trigger_modes": [
+        "manual",
+        "chat"
+      ],
+      "schedule_cron": "",
+      "chat_trigger_phrase": "run video storyboard",
+      "variables": {},
+      "graph": {
+        "nodes": [
+          {
+            "id": "trigger-1",
+            "type": "trigger",
+            "position": {
+              "x": 40,
+              "y": 240
+            },
+            "data": {
+              "label": "Start",
+              "triggerModes": [
+                "manual",
+                "chat"
+              ],
+              "chatPhrase": "run video storyboard",
+              "scheduleCron": "",
+              "inputSchema": null
+            }
+          },
+          {
+            "id": "story-1",
+            "type": "agent",
+            "position": {
+              "x": 240,
+              "y": 240
+            },
+            "data": {
+              "label": "Story Agent",
+              "agentNameRef": "Story Agent",
+              "agentName": "Story Agent",
+              "prompt": "You are Story Agent (video). Brief from input:\n\n{{input}}\n\nPrefer reusable cast ids from Master Data video_characters when the brief names known characters. Produce narrative beats for short-form video within the duration budget.\nEnd with ONLY one JSON object: title, duration_sec, logline, beats[], characters_used[{name,role,character_id?}], tone, cta.\nDo NOT invent final Veo prompts or scene cards — cast must be CEO-confirmed next.",
+              "inputBindings": [
+                {
+                  "id": "prompt",
+                  "mode": "dynamic",
+                  "sourceNodeId": "trigger-1",
+                  "sourceOutputKey": "text"
+                }
+              ],
+              "agentId": null,
+              "agent_id": null
+            }
+          },
+          {
+            "id": "ceo-cast",
+            "type": "ceo_approval",
+            "position": {
+              "x": 480,
+              "y": 240
+            },
+            "data": {
+              "label": "CEO review cast",
+              "prompt": "Confirm cast character_id mapping and reuse refs before Scene/Prompt.",
+              "taskConfig": {
+                "title": "CEO review: video cast",
+                "instructions": "Confirm character_id → name mapping (and reuse library refs when listed). Approve to lock cast into Master Data video_characters and continue Scene→Prompt. Reject to stop."
+              },
+              "inputBindings": [
+                {
+                  "id": "summary",
+                  "mode": "dynamic",
+                  "sourceNodeId": "story-1",
+                  "sourceOutputKey": "reply"
+                }
+              ]
+            }
+          },
+          {
+            "id": "if-cast",
+            "type": "if",
+            "position": {
+              "x": 700,
+              "y": 240
+            },
+            "data": {
+              "label": "Cast approved?",
+              "taskConfig": {
+                "sourceNodeId": "ceo-cast",
+                "sourceOutputKey": "decision",
+                "operator": "approved"
+              }
+            }
+          },
+          {
+            "id": "scene-1",
+            "type": "agent",
+            "position": {
+              "x": 920,
+              "y": 160
+            },
+            "data": {
+              "label": "Scene Planner",
+              "agentNameRef": "Scene Planner",
+              "agentName": "Scene Planner",
+              "prompt": "You are Scene Planner (video). Story JSON:\n\n{{story}}\n\nApproved cast context:\n{{cast}}\n\nOriginal brief:\n{{input}}\n\nBreak into 6–8 second scenes. Every scene.characters[] MUST use the locked character_id values from the cast (not free-form new names).\nEnd with ONLY one JSON object: duration_sec, scenes[{index,duration_sec,characters,description,continuity_notes,camera}].",
+              "inputBindings": [
+                {
+                  "id": "story",
+                  "mode": "dynamic",
+                  "sourceNodeId": "story-1",
+                  "sourceOutputKey": "reply"
+                },
+                {
+                  "id": "cast",
+                  "mode": "dynamic",
+                  "sourceNodeId": "ceo-cast",
+                  "sourceOutputKey": "summary"
+                },
+                {
+                  "id": "input",
+                  "mode": "dynamic",
+                  "sourceNodeId": "trigger-1",
+                  "sourceOutputKey": "text"
+                }
+              ],
+              "agentId": null,
+              "agent_id": null
+            }
+          },
+          {
+            "id": "prompt-1",
+            "type": "agent",
+            "position": {
+              "x": 1160,
+              "y": 160
+            },
+            "data": {
+              "label": "Prompt Agent",
+              "agentNameRef": "Prompt Agent",
+              "agentName": "Prompt Agent",
+              "prompt": "You are Prompt Agent (video). Scene plan:\n\n{{scenes}}\n\nStory:\n{{story}}\n\nApproved cast (character_id mapping — reuse these exact ids and ref_media):\n{{cast}}\n\nBrief:\n{{input}}\n\nWrite Flow/Veo-ready prompts. Every veo_prompt must mention locked character appearance and character_id.\nEnd with ONLY the full storyboard JSON: title, duration_sec, characters[{character_id,id,name,role,ref_media,appearance}], scenes[{index,duration_sec,characters,description,veo_prompt,negative_prompt,continuity_notes}].\nscenes[].characters must be character_id strings matching characters[].character_id.",
+              "inputBindings": [
+                {
+                  "id": "scenes",
+                  "mode": "dynamic",
+                  "sourceNodeId": "scene-1",
+                  "sourceOutputKey": "reply"
+                },
+                {
+                  "id": "story",
+                  "mode": "dynamic",
+                  "sourceNodeId": "story-1",
+                  "sourceOutputKey": "reply"
+                },
+                {
+                  "id": "cast",
+                  "mode": "dynamic",
+                  "sourceNodeId": "ceo-cast",
+                  "sourceOutputKey": "summary"
+                },
+                {
+                  "id": "input",
+                  "mode": "dynamic",
+                  "sourceNodeId": "trigger-1",
+                  "sourceOutputKey": "text"
+                }
+              ],
+              "agentId": null,
+              "agent_id": null
+            }
+          },
+          {
+            "id": "ceo-gate",
+            "type": "ceo_approval",
+            "position": {
+              "x": 1400,
+              "y": 160
+            },
+            "data": {
+              "label": "CEO review storyboard",
+              "prompt": "Review the storyboard PDF (scenes + character_id roster). Approve to persist as production plan.",
+              "taskConfig": {
+                "title": "CEO review: video storyboard",
+                "instructions": "Open Artifacts for the storyboard PDF (character_id mapping + scenes + Veo/Flow prompts). Approve to mark ceo_approved, or reject with feedback."
+              },
+              "inputBindings": [
+                {
+                  "id": "summary",
+                  "mode": "dynamic",
+                  "sourceNodeId": "prompt-1",
+                  "sourceOutputKey": "reply"
+                }
+              ]
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "e1",
+            "source": "trigger-1",
+            "target": "story-1"
+          },
+          {
+            "id": "e2",
+            "source": "story-1",
+            "target": "ceo-cast"
+          },
+          {
+            "id": "e3",
+            "source": "ceo-cast",
+            "target": "if-cast"
+          },
+          {
+            "id": "e4",
+            "source": "if-cast",
+            "target": "scene-1",
+            "sourceHandle": "true"
+          },
+          {
+            "id": "e6",
+            "source": "scene-1",
+            "target": "prompt-1"
+          },
+          {
+            "id": "e7",
+            "source": "prompt-1",
+            "target": "ceo-gate"
+          }
+        ],
+        "viewport": {
+          "x": 0,
+          "y": 0,
+          "zoom": 1
+        }
+      },
+      "source_definition_id": "video-reasoning-ceo-bala"
+    },
+    {
+      "template_key": "video-media",
+      "name": "Video: W-Media (scene clips ≤8s)",
+      "description": "S4: per-scene clips (Google Flow ≤8s each or Replicate Veo). Body/input: storyboard_id, provider=flow_browser|replicate_api. Chat: run video media",
+      "trigger_modes": [
+        "manual",
+        "chat"
+      ],
+      "schedule_cron": "",
+      "chat_trigger_phrase": "run video media",
+      "variables": {},
+      "graph": {
+        "nodes": [
+          {
+            "id": "trigger-1",
+            "type": "trigger",
+            "position": {
+              "x": 40,
+              "y": 200
+            },
+            "data": {
+              "label": "Start",
+              "triggerModes": [
+                "manual",
+                "chat"
+              ],
+              "chatPhrase": "run video media",
+              "scheduleCron": "",
+              "inputSchema": null
+            }
+          },
+          {
+            "id": "media-1",
+            "type": "tool",
+            "position": {
+              "x": 300,
+              "y": 200
+            },
+            "data": {
+              "label": "Generate scene clips",
+              "toolName": "video_media_generate",
+              "toolPayload": {
+                "provider": "flow_browser"
+              },
+              "inputBindings": [
+                {
+                  "id": "storyboard_id",
+                  "mode": "dynamic",
+                  "sourceNodeId": "trigger-1",
+                  "sourceOutputKey": "text"
+                },
+                {
+                  "id": "input",
+                  "mode": "dynamic",
+                  "sourceNodeId": "trigger-1",
+                  "sourceOutputKey": "text"
+                }
+              ]
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "e1",
+            "source": "trigger-1",
+            "target": "media-1"
+          }
+        ],
+        "viewport": {
+          "x": 0,
+          "y": 0,
+          "zoom": 1
+        }
+      },
+      "source_definition_id": "video-media-ceo-bala"
+    },
+    {
+      "template_key": "video-assembly",
+      "name": "Video: W-Assembly (FFmpeg + QC)",
+      "description": "S5: asset manifest → FFmpeg assemble → QC → Content Explorer final MP4; marks status video_generated. Chat: run video assembly",
+      "trigger_modes": [
+        "manual",
+        "chat"
+      ],
+      "schedule_cron": "",
+      "chat_trigger_phrase": "run video assembly",
+      "variables": {},
+      "graph": {
+        "nodes": [
+          {
+            "id": "trigger-1",
+            "type": "trigger",
+            "position": {
+              "x": 40,
+              "y": 200
+            },
+            "data": {
+              "label": "Start",
+              "triggerModes": [
+                "manual",
+                "chat"
+              ],
+              "chatPhrase": "run video assembly",
+              "scheduleCron": "",
+              "inputSchema": null
+            }
+          },
+          {
+            "id": "assemble-1",
+            "type": "tool",
+            "position": {
+              "x": 300,
+              "y": 200
+            },
+            "data": {
+              "label": "Assemble final MP4",
+              "toolName": "video_assemble",
+              "toolPayload": {},
+              "inputBindings": [
+                {
+                  "id": "storyboard_id",
+                  "mode": "dynamic",
+                  "sourceNodeId": "trigger-1",
+                  "sourceOutputKey": "text"
+                },
+                {
+                  "id": "input",
+                  "mode": "dynamic",
+                  "sourceNodeId": "trigger-1",
+                  "sourceOutputKey": "text"
+                }
+              ]
+            }
+          }
+        ],
+        "edges": [
+          {
+            "id": "e1",
+            "source": "trigger-1",
+            "target": "assemble-1"
+          }
+        ],
+        "viewport": {
+          "x": 0,
+          "y": 0,
+          "zoom": 1
+        }
+      },
+      "source_definition_id": "video-assembly-ceo-bala"
     },
     {
       "template_key": "erp-mc",

@@ -89,8 +89,8 @@ The system pack **Flolah demo (Balaji Ranganathan)** (`demo_balaji_ranganathan`)
 
 - Pack: `backend/src/services/company-blueprints/packs/demo_balaji_ranganathan.json`
 - Export zip: `backend/src/services/company-blueprints/exports/demo_balaji_ranganathan.zip`
-- Last live snapshot: **15 Aug 2026** from `ceo-bala` (Content Orchestrator + video graphs, Business Discovery / Social Researcher, video Master Data). Manifest: `exports/demo_balaji_ranganathan.manifest.json`.
-- Re-publish from live CEO: `node backend/scripts/publish-balaji-demo-blueprint.js` (owner `ceo-bala`) — always secret-scrubs (`apiKey` / bridge tokens cleared; vault `*Ref` kept) and rejects residual live key patterns before writing pack/zip.
+- Last live snapshot: **15 Aug 2026** from `ceo-bala` (IBKR/monthly W1–W5 with FMP screener enrich + bracket vs hold-for-weeks, Content Orchestrator + video graphs, CRM/ERP Maker–Checker, Business Discovery / Social Researcher, video Master Data). Manifest: `exports/demo_balaji_ranganathan.manifest.json`.
+- Re-publish from live CEO: `node backend/scripts/publish-balaji-demo-blueprint.js` (owner `ceo-bala`) — secret-scrubs, writes pack/zip, and refreshes `standard/video-content/` graphs + video agent grants when live is on par or better. CRM/ERP **standard** Maker–Checker graphs stay on the richer BrightBox 11-node templates when Balaji’s live graphs are thinner.
 - Re-publish the frozen pack (no live snapshot): `FROM_PACK_FILE=1 node backend/scripts/publish-balaji-demo-blueprint.js` after `node backend/scripts/patch-demo-blueprint-ibkr-quote-band.js` when IBKR graphs in the pack need a surgical update (e.g. W1 hard gates bind snapshot/screener; BUY `entry_discount_pct_max` 3%). Published DB rows override the JSON pack, so Company setup apply needs this republish on each environment.
 
 The system pack **Flolah demo (BrightBox Gifts)** (`demo_brightbox_gifts`) is the **golden** CRM Twenty + ERP ERPNext Maker–Checker snapshot (BrightBox Demo CEO). Admin re-sync and standard platform packs are regenerated from this company:
@@ -99,6 +99,7 @@ The system pack **Flolah demo (BrightBox Gifts)** (`demo_brightbox_gifts`) is th
 - Export zip: `backend/src/services/company-blueprints/exports/demo_brightbox_gifts.zip`
 - Standard packs: `company-blueprints/standard/platform-agents.json` + `business-core/*`
 - Re-publish + regenerate standards: `node backend/scripts/publish-brightbox-and-regenerate-standard.js` (owner `ceo-demo-brightbox-744921`)
+- Last live snapshot: **15 Aug 2026** (COO 111 tools; CRM/ERP Maker–Checker 11-node graphs). Manifest: `exports/demo_brightbox_gifts.manifest.json`.
 
 Admin → **Refresh default agents** pushes lean tools from `platform-agents.json` (COO / Workflow Builder / Platform Help) and optionally re-syncs Business Core prefabs + Maker/Checker workflows from `standard/business-core/` when the CEO has CRM/ERP enabled on Profile. Workspace MD for CRM/ERP roles is pushed from `openclaw-workspace-templates/crm-*` and `erp-*` (see `business-core-template-map.json`).
 

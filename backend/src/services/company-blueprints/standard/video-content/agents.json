@@ -46,7 +46,11 @@
         "browse_task_status",
         "list_inbound_attachments",
         "master_data_index_document",
-        "master_data_list_documents"
+        "master_data_list_documents",
+        "analyze_image",
+        "browse_recipe_run",
+        "kanban_get_task",
+        "master_data_list_tables"
       ]
     },
     {
@@ -61,7 +65,10 @@
         "learnings_summary",
         "master_data_rag",
         "master_data_list_rows",
-        "kanban_create_task"
+        "kanban_create_task",
+        "analyze_image",
+        "kanban_get_task",
+        "master_data_list_tables"
       ]
     },
     {
@@ -75,7 +82,10 @@
       "tools": [
         "learnings_summary",
         "master_data_rag",
-        "master_data_list_rows"
+        "master_data_list_rows",
+        "analyze_image",
+        "kanban_get_task",
+        "master_data_list_tables"
       ]
     },
     {
@@ -91,8 +101,12 @@
         "master_data_rag",
         "master_data_list_rows",
         "analyze_image",
-        "generate_image"
+        "generate_image",
+        "kanban_get_task",
+        "master_data_list_tables"
       ]
     }
-  ]
+  ],
+  "regenerated_from_owner": "ceo-bala",
+  "regenerated_at": "2026-08-15T08:22:56.132Z"
 }

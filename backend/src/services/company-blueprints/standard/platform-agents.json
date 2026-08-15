@@ -3,7 +3,7 @@
   "name": "Lean platform AI employees",
   "description": "Source of truth for COO / Workflow Builder / Platform Help. Admin Refresh default agents and CEO onboard use this pack (DEFAULT_ONBOARD_AGENT_IDS). Tools mirror live grants from the regenerating CEO (BrightBox demo). Workspaces under openclaw-workspace-templates/.",
   "regenerated_from_owner": "ceo-demo-brightbox-744921",
-  "regenerated_at": "2026-08-10T07:41:34.811Z",
+  "regenerated_at": "2026-08-15T08:22:37.271Z",
   "agents": [
     {
       "id": "balserve",
@@ -15,6 +15,10 @@
       "notes": "Also receives company-scoped read-only crm_* / erp_* when Business Core is entitled. Always include prior conversation / Kanban / chat context when creating specialty work.",
       "standard": true,
       "tools": [
+        "agent_goal_complete_step",
+        "agent_goal_create",
+        "agent_goal_list",
+        "agent_goal_status",
         "agent_workflow_enquire",
         "agent_workflow_list",
         "agent_workflow_retry",

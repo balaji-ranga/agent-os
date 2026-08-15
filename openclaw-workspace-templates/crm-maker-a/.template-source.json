@@ -1,9 +1,24 @@
 {
-  "source_owner": "ceo-demo-brightbox-744921",
+  "source_owner": "ceo-bala",
   "template_id": "crm-maker-a",
-  "exported_at": "2026-08-10T09:43:21.327Z",
-  "source_agent_id": "crm-s1-ceodemobrigh",
-  "source_workspace": "/root/.openclaw/tenants/ceo-demo-brightbox-744921/workspace-crm-s1-ceodemobrigh",
+  "exported_at": "2026-08-15T08:23:21.233Z",
+  "keep_better": true,
+  "skipped": [
+    {
+      "name": "SOUL.md",
+      "reason": "source_better",
+      "existing_bytes": 1323,
+      "live_bytes": 3149
+    },
+    {
+      "name": "IDENTITY.md",
+      "reason": "source_better",
+      "existing_bytes": 1276,
+      "live_bytes": 1276
+    }
+  ],
+  "source_agent_id": "crm-s1-ceobala",
+  "source_workspace": "/root/.openclaw/tenants/ceo-bala/workspace-crm-s1-ceobala",
   "tools": [
     "analyze_image",
     "ceo_profile",

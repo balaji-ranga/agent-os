@@ -3,7 +3,10 @@
   "name": "Video: W-Media (scene clips ≤8s)",
   "description": "S4: per-scene clips (Google Flow ≤8s each or Replicate Veo). Body/input: storyboard_id, provider=flow_browser|replicate_api. Chat: run video media",
   "chat_trigger_phrase": "run video media",
-  "trigger_modes": ["manual", "chat"],
+  "trigger_modes": [
+    "manual",
+    "chat"
+  ],
   "workflow_id_pattern": "video-media-{ownerSlug}",
   "kind": "video_content",
   "phase": 2,
@@ -20,17 +23,28 @@
       {
         "id": "trigger-1",
         "type": "trigger",
-        "position": { "x": 40, "y": 200 },
+        "position": {
+          "x": 40,
+          "y": 200
+        },
         "data": {
           "label": "Start",
-          "triggerModes": ["manual", "chat"],
-          "chatPhrase": "run video media"
+          "triggerModes": [
+            "manual",
+            "chat"
+          ],
+          "chatPhrase": "run video media",
+          "scheduleCron": "",
+          "inputSchema": null
         }
       },
       {
         "id": "media-1",
         "type": "tool",
-        "position": { "x": 300, "y": 200 },
+        "position": {
+          "x": 300,
+          "y": 200
+        },
         "data": {
           "label": "Generate scene clips",
           "toolName": "video_media_generate",
@@ -55,7 +69,18 @@
       }
     ],
     "edges": [
-      { "id": "e1", "source": "trigger-1", "target": "media-1" }
-    ]
-  }
+      {
+        "id": "e1",
+        "source": "trigger-1",
+        "target": "media-1"
+      }
+    ],
+    "viewport": {
+      "x": 0,
+      "y": 0,
+      "zoom": 1
+    }
+  },
+  "regenerated_from_owner": "ceo-bala",
+  "regenerated_at": "2026-08-15T08:22:56.130Z"
 }

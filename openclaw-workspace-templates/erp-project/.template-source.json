@@ -1,9 +1,11 @@
 {
-  "source_owner": "ceo-demo-brightbox-744921",
+  "source_owner": "ceo-bala",
   "template_id": "erp-project",
-  "exported_at": "2026-08-10T09:43:21.339Z",
-  "source_agent_id": "erp-pm-ceodemobrigh",
-  "source_workspace": "/root/.openclaw/tenants/ceo-demo-brightbox-744921/workspace-erp-pm-ceodemobrigh",
+  "exported_at": "2026-08-15T08:23:21.244Z",
+  "keep_better": true,
+  "skipped": [],
+  "source_agent_id": "erp-pm-ceobala",
+  "source_workspace": "/root/.openclaw/tenants/ceo-bala/workspace-erp-pm-ceobala",
   "tools": [
     "analyze_image",
     "ceo_profile",

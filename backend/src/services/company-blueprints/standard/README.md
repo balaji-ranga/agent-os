@@ -2,10 +2,18 @@
 
 Redeploy-safe source of truth **alongside** industry packs in `../packs/`.
 
-Regenerate from BrightBox Demo CEO:
+Regenerate from live CEOs:
 
 ```bash
+# BrightBox: demo pack + platform-agents + business-core agent packs / 11-node MC graphs
 node scripts/publish-brightbox-and-regenerate-standard.js
+
+# Balaji: demo pack + zip + standard/video-content graphs (keeps richer BrightBox CRM/ERP graphs)
+node scripts/publish-balaji-demo-blueprint.js
+
+# Workspace MD (KEEP_BETTER=1): video from Balaji; CRM/ERP/lean compared vs source
+SOURCE_OWNER_USER_ID=ceo-bala node scripts/export-workspace-templates-from-owner.js
+SOURCE_OWNER_USER_ID=ceo-demo-brightbox-744921 node scripts/export-workspace-templates-from-owner.js
 ```
 
 | Path | Purpose |

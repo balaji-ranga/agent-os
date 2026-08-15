@@ -1,7 +1,9 @@
 {
   "source_owner": "ceo-demo-brightbox-744921",
   "slug": "ceodemobrigh",
-  "exported_at": "2026-08-10T09:43:21.339Z",
+  "exported_at": "2026-08-15T08:23:21.011Z",
+  "keep_better": true,
+  "include_video": true,
   "lean": [
     "balserve",
     "workflowbuilder",
@@ -14,9 +16,9 @@
       "checker": "crm-checker"
     },
     "erpnext": {
-      "maker_a": "crm-maker-a",
-      "maker_b": "crm-maker-b",
-      "checker": "crm-checker"
+      "maker_a": "erp-maker-a",
+      "maker_b": "erp-maker-b",
+      "checker": "erp-checker"
     }
   },
   "erp": {
@@ -27,6 +29,12 @@
     "invoice": "erp-invoice",
     "project": "erp-project"
   },
+  "video": {
+    "orchestrator": "video-orchestrator",
+    "story": "video-story",
+    "scene": "video-scene",
+    "prompt": "video-prompt"
+  },
   "report": [
     {
       "templateId": "balserve",
@@ -36,10 +44,12 @@
         "TOOLS.md",
         "AGENTS.md",
         "SOUL.md",
-        "MEMORY.md",
         "IDENTITY.md"
       ],
-      "tools": 107
+      "skipped": [
+        "MEMORY.md"
+      ],
+      "tools": 111
     },
     {
       "templateId": "workflowbuilder",
@@ -52,7 +62,8 @@
         "MEMORY.md",
         "IDENTITY.md"
       ],
-      "tools": 10
+      "skipped": [],
+      "tools": 20
     },
     {
       "templateId": "platformhelp",
@@ -64,7 +75,8 @@
         "SOUL.md",
         "MEMORY.md"
       ],
-      "tools": 8
+      "skipped": [],
+      "tools": 7
     },
     {
       "templateId": "crm-maker-a",
@@ -74,7 +86,9 @@
         "TOOLS.md",
         "AGENTS.md",
         "SOUL.md",
-        "MEMORY.md",
+        "MEMORY.md"
+      ],
+      "skipped": [
         "IDENTITY.md"
       ],
       "tools": 34
@@ -87,8 +101,10 @@
         "TOOLS.md",
         "AGENTS.md",
         "SOUL.md",
-        "MEMORY.md"
+        "MEMORY.md",
+        "IDENTITY.md"
       ],
+      "skipped": [],
       "tools": 34
     },
     {
@@ -99,7 +115,9 @@
         "TOOLS.md",
         "AGENTS.md",
         "SOUL.md",
-        "MEMORY.md",
+        "MEMORY.md"
+      ],
+      "skipped": [
         "IDENTITY.md"
       ],
       "tools": 27
@@ -112,7 +130,9 @@
         "TOOLS.md",
         "AGENTS.md",
         "SOUL.md",
-        "MEMORY.md",
+        "MEMORY.md"
+      ],
+      "skipped": [
         "IDENTITY.md"
       ],
       "tools": 56
@@ -125,7 +145,9 @@
         "TOOLS.md",
         "AGENTS.md",
         "SOUL.md",
-        "MEMORY.md",
+        "MEMORY.md"
+      ],
+      "skipped": [
         "IDENTITY.md"
       ],
       "tools": 42
@@ -138,7 +160,9 @@
         "TOOLS.md",
         "AGENTS.md",
         "SOUL.md",
-        "MEMORY.md",
+        "MEMORY.md"
+      ],
+      "skipped": [
         "IDENTITY.md"
       ],
       "tools": 46
@@ -153,6 +177,7 @@
         "SOUL.md",
         "MEMORY.md"
       ],
+      "skipped": [],
       "tools": 30
     },
     {
@@ -165,6 +190,7 @@
         "SOUL.md",
         "MEMORY.md"
       ],
+      "skipped": [],
       "tools": 37
     },
     {
@@ -177,8 +203,28 @@
         "SOUL.md",
         "MEMORY.md"
       ],
+      "skipped": [],
       "tools": 32
+    },
+    {
+      "templateId": "video-orchestrator",
+      "ok": false,
+      "error": "agent not found: video-orch-ceodemobrigh"
+    },
+    {
+      "templateId": "video-story",
+      "ok": false,
+      "error": "agent not found: video-story-ceodemobrigh"
+    },
+    {
+      "templateId": "video-scene",
+      "ok": false,
+      "error": "agent not found: video-scene-ceodemobrigh"
+    },
+    {
+      "templateId": "video-prompt",
+      "ok": false,
+      "error": "agent not found: video-prompt-ceodemobrigh"
     }
-  ],
-  "notes": "Role-stable openclaw-workspace-templates folders for Business Core prefabs. Runtime agent ids are owner-scoped (crm-s1-{slug}, erp-ap-{slug}, \u2026); resolveWorkspaceTemplateBaseId maps them here. CRM pack (twenty or erpnext) uses crm-* templates; ERP pack uses erp-* templates. Source export: BrightBox Demo CEO."
+  ]
 }

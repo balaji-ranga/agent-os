@@ -1,0 +1,53 @@
+{
+  "owner": "ceo-bala",
+  "at": "2026-08-15T08:22:56.132Z",
+  "report": {
+    "workflows": [
+      {
+        "key": "video-reasoning",
+        "action": "wrote",
+        "nodes": 7
+      },
+      {
+        "key": "video-media",
+        "action": "wrote",
+        "nodes": 2
+      },
+      {
+        "key": "video-assembly",
+        "action": "wrote",
+        "nodes": 2
+      },
+      {
+        "key": "crm-mc",
+        "action": "keep_existing",
+        "existNodes": 11,
+        "liveNodes": 9
+      },
+      {
+        "key": "erp-mc",
+        "action": "keep_existing",
+        "existNodes": 11,
+        "liveNodes": 9
+      }
+    ],
+    "agents": [
+      {
+        "name": "Content Orchestrator",
+        "tools": 38
+      },
+      {
+        "name": "Story Agent",
+        "tools": 8
+      },
+      {
+        "name": "Scene Planner",
+        "tools": 7
+      },
+      {
+        "name": "Prompt Agent",
+        "tools": 8
+      }
+    ]
+  }
+}

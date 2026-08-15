@@ -5,7 +5,7 @@
   "name": "CRM Maker/Checker (ERPNext Sales)",
   "description": "Provisioned when Profile CRM = erpnext (sales path). Regenerated from BrightBox ERP desk agents (sales-facing tools).",
   "regenerated_from_owner": "ceo-demo-brightbox-744921",
-  "regenerated_at": "2026-08-10T07:41:34.813Z",
+  "regenerated_at": "2026-08-15T08:22:37.272Z",
   "id_prefix": {
     "maker_a": "erp-s1-",
     "maker_b": "erp-s2-",
@@ -114,17 +114,15 @@
       "name": "CRM Maker A (ERPNext)",
       "role_key": "crm_maker",
       "department": "Finance",
-      "role": "ERP Maker A (Finance/Setup) \u2014 company chart, fiscal years, accounts, customers, quotations, orders, invoices, payments, journals, P&L for the CEO company. Use erp_get_company / erp_create_fiscal_year / erp_* resource. Draft only \u2014 Checker submits. Pair with Maker B for full desk operational coverage. Never cross company.",
-      "tools_ref": "maker",
-      "workspace_template_base": "crm-maker-a",
-      "workspace_template": "openclaw-workspace-templates/crm-maker-a/"
+      "role": "ERP Maker A (Finance/Setup) — company chart, fiscal years, accounts, customers, quotations, orders, invoices, payments, journals, P&L for the CEO company. Use erp_get_company / erp_create_fiscal_year / erp_* resource. Draft only — Checker submits. Pair with Maker B for full desk operational coverage. Never cross company.",
+      "tools_ref": "maker"
     },
     {
       "key": "maker_b",
       "name": "CRM Maker B (ERPNext)",
       "role_key": "crm_maker",
       "department": "Operations",
-      "role": "ERP Maker B (Ops/Stock) \u2014 materials, delivery notes, purchase orders, stock entries, projects/tasks. Can erp_get_company + fiscal year read for context. Draft-first; Checker submit/cancel. Independent tools from Maker A.",
+      "role": "ERP Maker B (Ops/Stock) — materials, delivery notes, purchase orders, stock entries, projects/tasks. Can erp_get_company + fiscal year read for context. Draft-first; Checker submit/cancel. Independent tools from Maker A.",
       "tools": [
         "analyze_image",
         "ceo_profile",
@@ -163,19 +161,15 @@
         "master_data_list_tables",
         "master_data_rag",
         "notify_ceo"
-      ],
-      "workspace_template_base": "crm-maker-b",
-      "workspace_template": "openclaw-workspace-templates/crm-maker-b/"
+      ]
     },
     {
       "key": "checker",
       "name": "CRM Checker (ERPNext)",
       "role_key": "crm_checker",
       "department": "Finance",
-      "role": "ERP Checker \u2014 review Maker drafts and gate submit/cancel (erp_submit_doc, erp_cancel_doc). Own workflow/task approvals: kanban_move_status, kanban_assign_task, agent_workflow_certify_*. Read-only list tools for audit. Escalate ambiguity to CEO via notify_ceo. Do not create high-volume transactional drafts.",
-      "tools_ref": "checker",
-      "workspace_template_base": "crm-checker",
-      "workspace_template": "openclaw-workspace-templates/crm-checker/"
+      "role": "ERP Checker — review Maker drafts and gate submit/cancel (erp_submit_doc, erp_cancel_doc). Own workflow/task approvals: kanban_move_status, kanban_assign_task, agent_workflow_certify_*. Read-only list tools for audit. Escalate ambiguity to CEO via notify_ceo. Do not create high-volume transactional drafts.",
+      "tools_ref": "checker"
     }
   ]
 }

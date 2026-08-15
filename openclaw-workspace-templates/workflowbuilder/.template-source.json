@@ -1,0 +1,39 @@
+{
+  "source_owner": "ceo-bala",
+  "template_id": "workflowbuilder",
+  "exported_at": "2026-08-15T08:23:21.230Z",
+  "keep_better": true,
+  "skipped": [
+    {
+      "name": "IDENTITY.md",
+      "reason": "source_better",
+      "existing_bytes": 634,
+      "live_bytes": 634
+    }
+  ],
+  "source_agent_id": "workflowbuilder",
+  "source_workspace": "/root/.openclaw/workspace-workflowbuilder",
+  "tools": [
+    "agent_workflow_certify_resume",
+    "agent_workflow_certify_start",
+    "agent_workflow_certify_status",
+    "agent_workflow_enquire",
+    "agent_workflow_get_draft",
+    "agent_workflow_list",
+    "agent_workflow_mutate",
+    "agent_workflow_trigger",
+    "content_tools_enquire",
+    "learnings_summary",
+    "list_inbound_attachments",
+    "master_data_delete_row",
+    "master_data_index_document",
+    "master_data_insert_row",
+    "master_data_list_documents",
+    "master_data_list_rows",
+    "master_data_list_tables",
+    "master_data_rag",
+    "master_data_update_row",
+    "notify_ceo"
+  ],
+  "role": "workflowbuilder"
+}
