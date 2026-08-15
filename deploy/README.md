@@ -469,6 +469,7 @@ On VPS after sync (or after `git pull` on the box), `vps-deploy-latest.sh` rebui
 8. `vps-smoke-broadcast-notify.sh` — Broadcast → TechResearcher → notify_ceo (needs OpenClaw + LLM; non-fatal)
 9. `vps-smoke-deepseek-brain.sh` — DeepSeek@Ollama (non-fatal if model not pulled)
 10. `vps-verify-platform.sh` — Master Data, Platform Help docs/agent/RAG, per-CEO delegation, allowlists, openclaw chat ensure scripts present
+11. `test-standup-get-work-from-team.js` — **dry-run** (no standup / Kanban / OpenClaw / CEO bell). Must not persist a live Get work from team fan-out.
 
 ### OpenClaw chat 404 (gateway “healthy” but UI chat fails)
 

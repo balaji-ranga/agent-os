@@ -16,6 +16,10 @@ Some screens load a **page** of rows (Content Explorer, Master Data documents, A
 4. Open cards are always **owner-scoped** (`owner_user_id`); unassigned cards still count. Platform stores Kanban for multi-tenant CEOs; Workspace lists them the same way as **/kanban**.
 5. Still empty after a platform deploy that included the workspace boards fix? Ask ops to restart backend so `listKanbanTasksForOwner` is live.
 
+## Bell says “Kanban: Provide your status…” but Org standup is empty
+
+That title is the **Get work from team** status prompt. A visible standup should exist for a click you made on Dashboard. If you did **not** click it and there is no standup today, older operator deploy probes used to fan out against the live CEO then delete the standup, leaving bells behind. Current deploys dry-run that check (no cards, no bells). Dismiss the leftover bells; they are not a new standup.
+
 ## Chat / agent not responding
 
 1. Confirm you are logged in as CEO and opened the correct agent chat.

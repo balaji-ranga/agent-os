@@ -798,6 +798,7 @@ if [[ -f "$ROOT/deploy/scripts/vps-verify-scheduled-goals.sh" ]]; then
     tail -20 /tmp/scheduled-goals-verify.log 2>/dev/null || true
   fi
 fi
+# Dry-run only (persist:false). Must not create Kanban cards or CEO bells on the live org.
 if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-standup-get-work-from-team.js 2>/dev/null; then
   docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-standup-get-work-from-team.js >/tmp/get-work.log 2>&1 \
     && echo "    standup get_work_from_team fanout OK" \

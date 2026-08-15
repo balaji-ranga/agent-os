@@ -71,7 +71,8 @@ Specialists follow shared ops rules (`AGENT-OS-OPS.md`):
 | You (or the COO) asked a **specialist** to contact you — **that specialist** calls `notify_ceo` with a link to **their** chat | The **COO** notifying on behalf of a specialist (COO should hand off so the specialist notifies) |
 | | Spam / every tiny status tweak — one clear notify per ask |
 
-Creating a Kanban card may also raise a platform bell. Status moves alone do **not** replace `notify_ceo` when you asked to be reached.
+- **Get work from team** creates one Kanban card per specialist and rings the bell (`Kanban: Provide your status…`). That is the Dashboard button on a **visible** standup — it is not a silent background job. Operator deploy checks verify the same fan-out as a **dry-run** (no cards, no OpenClaw jobs, no bell) so a deploy cannot leave bells with no Org standup row.
+- Creating a Kanban card may also raise a platform bell. Status moves alone do **not** replace `notify_ceo` when you asked to be reached.
 
 **Ops Reporter / scheduled rollups** use `notify_ceo` → **bell only**. They do **not** send email unless you separately grant and prompt `email_send` with SMTP configured. See [30-content-creator-ops.md](./30-content-creator-ops.md).
 

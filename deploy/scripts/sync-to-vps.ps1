@@ -62,7 +62,7 @@
 # Master Data + RAG tools, Platform Help agent + help corpus,
 # notify_ceo + email_send, Broadcast (intent-based notify + paced fan-out), AGENTS.md intent
 # COO specialty delegation, peer specialty referral, chat tool-call icons,
-# notification tooltips + datetime, deploy smokes self-clean (no CEO standup/notify pollution),
+# notification tooltips + datetime, deploy smokes dry-run get_work_from_team (no CEO standup/Kanban/bell),
 # CEO Policies/guardrails (POLICY.md + Brain prepend), org sync (tenant ORG.md/AGENTS.md/POLICY.md),
 # AgentExchange/A2A (Test agent UI; sync/async + callback/enquire; deny_all default IP;
 # Admin A2A invocation logs; allow/whitelist via vps-client-ip compose on VPS; owner unpublish),

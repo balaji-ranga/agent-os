@@ -200,6 +200,8 @@ npm run test:smoke
 
 Runs GET /health, GET /agents, GET /standups. Backend must be running.
 
+VPS `vps-deploy-latest.sh` also runs `backend/scripts/test-standup-get-work-from-team.js` as a **dry-run** (`persist:false`): it checks agents exist under the COO without creating a standup, Kanban cards, OpenClaw jobs, or CEO bells. The previous live persist+delete left bells with no Org standup row. Isolated labs can opt in with `STANDUP_FANOUT_LIVE=1` (still `notify:false` / no OpenClaw).
+
 ## Budgets / Agent View / org leaf members
 
 No running backend needed — these hit the DB and module graph directly:

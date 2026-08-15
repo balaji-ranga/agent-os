@@ -495,6 +495,7 @@ function enqueueAllocatedTasks({
   kanbanIns,
   priorUserMessages = [],
   currentCeoMessage = '',
+  notify = true,
 }) {
   const taskRows = [];
   for (const a of agents) {
@@ -515,7 +516,7 @@ function enqueueAllocatedTasks({
         (query || '').trim().slice(0, 4000),
       ].filter(Boolean);
       kanbanIns.run(titleSource, descParts.join('\n\n'), a.id, standupId, row.id, ownerUserId || null);
-      if (ownerUserId) {
+      if (notify && ownerUserId) {
         const krow = db()
           .prepare('SELECT * FROM kanban_tasks WHERE agent_delegation_task_id = ?')
           .get(row.id);
@@ -531,7 +532,7 @@ function enqueueAllocatedTasks({
  * Does not use specialty intent classification — that path incorrectly returns zero
  * agents for the literal button text "Get work from team."
  */
-export async function scheduleStandupStatusFanout(standupId, ceoUserId = null, contextText = '') {
+export async function scheduleStandupStatusFanout(standupId, ceoUserId = null, contextText = '', opts = {}) {
   const ownerUserId = ceoUserId || getStandupOwnerUserId(standupId);
   // Status fan-out targets operating specialists — skip meta/platform helper agents.
   const SKIP = /^(platformhelp|workflowbuilder|demo|notify-delegate-test|test-)/i;
@@ -559,6 +560,9 @@ export async function scheduleStandupStatusFanout(standupId, ceoUserId = null, c
   const out = await scheduleCeoRequestViaOpenClawCron(standupId, statusPrompt, ownerUserId, {
     preAllocated,
     maxAgents: Math.max(agents.length, 1),
+    persist: opts.persist,
+    notify: opts.notify,
+    scheduleOpenClaw: opts.scheduleOpenClaw,
   });
   return { ...out, mode: 'status_fanout', agentsAvailable: agents.length };
 }
@@ -569,7 +573,9 @@ export async function scheduleStandupStatusFanout(standupId, ceoUserId = null, c
  * @param {number} standupId
  * @param {string} ceoMessage
  * @param {string|null} [ceoUserId]
- * @param {{ restrictToAgentIds?: string[], preAllocated?: Record<string, string>, maxAgents?: number }} [opts]
+ * @param {{ restrictToAgentIds?: string[], preAllocated?: Record<string, string>, maxAgents?: number, persist?: boolean, notify?: boolean, scheduleOpenClaw?: boolean }} [opts]
+ * persist/notify/scheduleOpenClaw default true. Deploy/CI probes must pass persist:false so a live
+ * CEO is never Kanban-notified or OpenClaw-scheduled.
  */
 
 async function maybeAdvanceGoalRunFromDelegation(taskId) {
@@ -583,6 +589,9 @@ async function maybeAdvanceGoalRunFromDelegation(taskId) {
 }
 
 export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, ceoUserId = null, opts = {}) {
+  const persist = opts.persist !== false;
+  const notify = persist && opts.notify !== false;
+  const scheduleOpenClaw = persist && opts.scheduleOpenClaw !== false;
   const ownerUserId = ceoUserId || getStandupOwnerUserId(standupId);
   let agents = getAgentsUnderCoo(ownerUserId);
   const maxAgents = Math.max(1, Math.min(100, Number(opts.maxAgents) || 2));
@@ -634,7 +643,7 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, c
   // External / published-A2A leaf members are not OpenClaw agents — invoke them directly.
   let externalOutcome = null;
   const { internal: internalAllocated, leaf: leafAllocated } = splitAllocationByKind(allocated);
-  if (Object.keys(leafAllocated).length) {
+  if (persist && Object.keys(leafAllocated).length) {
     try {
       // Lazy import: org-member-delegation pulls in the A2A publish service, which transitively
       // imports this module.
@@ -646,6 +655,8 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, c
     } catch (e) {
       console.warn('[delegation] external member delegation failed:', e?.message || e);
     }
+    allocated = internalAllocated;
+  } else if (!persist) {
     allocated = internalAllocated;
   }
 
@@ -679,6 +690,30 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, c
     }
   }
 
+  if (!persist) {
+    const wouldEnqueue = (agents || []).filter((a) => {
+      const q = allocated?.[a.id?.toLowerCase()] ?? allocated?.[a.id];
+      return typeof q === 'string' && q.trim();
+    });
+    const leafNames = Object.keys(leafAllocated || {});
+    console.log(
+      `[delegation] dry-run fanout persist=false owner=${ownerUserId} would_enqueue=${wouldEnqueue.length} leaves=${leafNames.length}`
+    );
+    return {
+      requestId: null,
+      count: wouldEnqueue.length + leafNames.length,
+      scheduledCount: 0,
+      pendingCount: wouldEnqueue.length,
+      agentNames: [
+        ...wouldEnqueue.map((a) => a.name || a.id),
+        ...leafNames,
+      ],
+      kanbanTaskIds: [],
+      internalBlocked,
+      persist: false,
+    };
+  }
+
   const requestId = `req-${standupId}-${Date.now()}`;
   const baseUrl = getBaseUrl();
   const ins = db().prepare(
@@ -701,12 +736,14 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, c
           kanbanIns,
           priorUserMessages: context.lastUserMessages || [],
           currentCeoMessage: scopedMessage,
+          notify,
         })
       : [];
 
   let scheduledCount = 0;
   const cronBlockedIds = new Set();
-  for (const { taskId, agent } of taskRows) {
+  if (scheduleOpenClaw) {
+    for (const { taskId, agent } of taskRows) {
     const task = db().prepare('SELECT * FROM agent_delegation_tasks WHERE id = ?').get(taskId);
     if (!task) continue;
     // Re-check just before starting OpenClaw so a race with another run cannot spend past budget.
@@ -761,6 +798,7 @@ export async function scheduleCeoRequestViaOpenClawCron(standupId, ceoMessage, c
       markKanbanInProgressForDelegation(taskId);
     } else {
       console.warn('[delegation] cron_add failed for', agent.id, result.error);
+    }
     }
   }
   const pendingCount = taskRows.length - scheduledCount - cronBlockedIds.size;

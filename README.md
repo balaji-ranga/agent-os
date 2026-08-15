@@ -188,7 +188,7 @@ Grant or revoke tools on each agent’s **Workspace → Tools access**.
 | **Platform Help agent** | Dedicated `platformhelp` agent + Master Data help corpus (`knowledgebase/platform-help/`) via keyword RAG. |
 | **COO specialty routing** | COO chat routes specialty asks using agent purposes (org docs), not guesswork keywords (multi-intent up to 2). Over-budget internal agents are refused with **Blocked by budget** before any Kanban card or cron job is created. |
 | **COO AGENTS.md keeps your edits** | **Resync ORG.md & AGENTS.md** refreshes only the org-generated roster sections of the COO's `AGENTS.md`; your manual Role / Priorities / Tools / Guardrails / custom sections are merged back, and workspace template sync no longer clobbers the generated file. |
-| **Get work from team** | The Dashboard standup button fans status requests out to every agent under the COO (budget-aware), instead of classifying the button label as a specialty ask. |
+| **Get work from team** | The Dashboard standup button fans status requests out to every agent under the COO (budget-aware), instead of classifying the button label as a specialty ask. Each specialist gets a Kanban card and a bell. VPS deploy smoke verifies this path as a **dry-run** (no cards, no OpenClaw jobs, no bell). |
 | **Broadcast + notify** | Broadcast can ask agents to report back and ping your bell; quieter when you only want a rollup. |
 | **Master Data + document search** | Tables with purposes; documents agents can search; starter **departments** + User Guide + Platform Help docs on register. |
 | **Chat tool icons** | See which tools an agent used under a reply (Agent OS content tools + native AgentSystem `browser` / `image` / `cron` from session logs). |
@@ -445,7 +445,7 @@ node backend/scripts/e2e-onboarding-wf-prompts.mjs
 
 `vps-deploy-latest.sh` already chains these: `ensure-cron-env.sh` (cron reference block in `deploy/.env`),
 the status/retention checks, `reupload-platform-help-docs.js` (help corpus → every CEO's Master Data),
-then the smoke suite (`vps-smoke-new-features.sh`, `vps-smoke-budgets-org-members.sh`,
+then the smoke suite (`test-standup-get-work-from-team.js` is a **dry-run** against the live CEO — it must not create Kanban cards or bells), (`vps-smoke-new-features.sh`, `vps-smoke-budgets-org-members.sh`,
 `vps-smoke-brave-byok.sh` when `BRAVE_API_KEY` is set, `vps-smoke-social-research.sh`,
 `vps-verify-platform.sh`). Social research live Places uses platform `GOOGLE_PLACES_API_KEY` or vault `GOOGLE_PLACES_BYOK`. OpenClaw chat gate also restores an empty model catalog.
 
