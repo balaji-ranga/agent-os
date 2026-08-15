@@ -17,7 +17,7 @@ export const MARKET_DATA_TOOLS = [
     endpoint: '/api/market-data/regime',
     method: 'POST',
     purpose:
-      'Index (default SPY) vs 200-DMA regime. Returns last_close, sma_200, risk_on. Body optional: { "indexSymbol": "SPY", "force": false }. Requires MARKET_DATA_API_KEY.',
+      'Index vs 200-DMA regime. Body: { "indexSymbol": "SPY" } or comma-separated / indexSymbols[]. Invalid and FMP 402 (plan-gated) tickers are skipped; remaining symbols and MARKET_DATA_REGIME_FALLBACK_SYMBOLS are tried. Requires MARKET_DATA_API_KEY.',
     model_used: '',
     enabled: 1,
     is_builtin: 0,

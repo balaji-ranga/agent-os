@@ -66,7 +66,7 @@ flowchart LR
 ## Phase 1 — VPS foundation (new backend code)
 
 1. **Market data service + content tools** — new `backend/src/services/market-data.js` + `backend/src/routes/market-data.js` (owner-entitled like `ibkr-trading.js`), seeded into `content_tools_meta`:
-   - `market_regime` — index (SPY) vs 200-DMA -> risk_on/risk_off.
+   - `market_regime` — broader index vs 200-DMA -> risk_on/risk_off. Body `indexSymbol` (or comma-separated / `indexSymbols[]`); W1 uses `{{var.index_symbol}}`. Invalid/templates never hit FMP; 402 tickers are skipped; then `MARKET_DATA_REGIME_FALLBACK_SYMBOLS`.
    - `market_screener` — mcap > $50B, liquidity, momentum 3m/6m, above 50/200-DMA, within 15% of 52-wk high, volume; returns ranked candidates.
    - `market_history` — daily bars for DMA/momentum/volume-ratio calcs.
    - `market_fundamentals` — earnings/revenue growth.

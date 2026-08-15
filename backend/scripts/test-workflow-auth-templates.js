@@ -67,5 +67,22 @@ assert(mergedOverride.Authorization === 'Bearer tok_oauth', `A2A node bearer ove
 assert(mergedOverride['X-Dyn'] === 'tok_from_login', `A2A dynamic header merged (got ${mergedOverride['X-Dyn']})`);
 assert(mergedOverride['X-Reg'] === 'reg', 'A2A registry header kept when not overridden');
 
+const { renderPayloadTemplates } = await import('../src/services/agent-workflow-io.js');
+const toolPayload = renderPayloadTemplates(
+  { indexSymbol: '{{var.index_symbol}}', force: false, nested: { cap: '{{var.daily_budget_usd}}' } },
+  { workflow_variables: { index_symbol: 'QQQ', daily_budget_usd: 1000 } }
+);
+assert(toolPayload.indexSymbol === 'QQQ', `toolPayload indexSymbol interpolated (got ${toolPayload.indexSymbol})`);
+assert(toolPayload.force === false, 'toolPayload boolean preserved');
+assert(String(toolPayload.nested.cap) === '1000', `toolPayload nested var interpolated (got ${toolPayload.nested.cap})`);
+assert(
+  renderWorkflowTemplates('{{var.index_symbol}}', { workflow_variables: { index_symbol: 'QQQ' } }) === 'QQQ',
+  'bare {{var}} string is not JSON-quoted'
+);
+assert(
+  renderPayloadTemplates({ indexSymbol: '{{var.missing}}' }, { workflow_variables: {} }).indexSymbol === '',
+  'missing var renders empty rather than leftover template'
+);
+
 console.log(`\n=== Done: ${passed} passed, ${failed} failed ===`);
 process.exit(failed ? 1 : 0);

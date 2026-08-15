@@ -25,7 +25,9 @@ Related: [IBKR-MONTHLY-TRADING-PLAN.md](IBKR-MONTHLY-TRADING-PLAN.md), [IBKR-TRA
 
 Requires env `MARKET_DATA_API_KEY` (Financial Modeling Prep). Provider is abstracted; default = FMP **stable** API (`MARKET_DATA_BASE_URL=https://financialmodelingprep.com/stable`). Legacy `/api/v3` returns 403 for new keys.
 
-**Free-tier note:** `company-screener` often returns **402** on free plans — Agent OS falls back to `MARKET_DATA_SCREENER_UNIVERSE` (or a built-in mega-cap list) + `/profile` enrichment.
+**Free-tier note:** `company-screener` often returns **402** on free plans — Agent OS falls back to `MARKET_DATA_SCREENER_UNIVERSE` (or a built-in mega-cap list) + `/profile` enrichment. Regime uses EOD `/historical-price-eod/light` (then `/full` only if needed). Leftover workflow templates (`{{var.index_symbol}}`) are **never** sent to FMP. Plan-gated tickers (HTTP 402, e.g. some ETFs like VOOG on free) are skipped for the rest of the UTC day; remaining requested indexes then `MARKET_DATA_REGIME_FALLBACK_SYMBOLS` (default `SPY,QQQ,DIA,IWM`) are tried. First usable 200-DMA wins.
+
+**Why one index (often SPY)?** `market_regime` is the **broader-market filter** (index vs 200-DMA → `risk_on` / `risk_off`), not the stock universe. The screener supplies candidate names. W1 variable `index_symbol` can be a single ticker or a comma-separated list; it is not hardcoded to SPY in the fetch path.
 
 | Tool | API key | Paper | Live | Cache policy |
 |------|---------|-------|------|--------------|
@@ -128,4 +130,4 @@ These are independent of FMP / IBKR.
 | IBKR snapshot / ledger / guardrail | Always fresh | Always fresh | Trading correctness |
 | LLM summaries (learnings / brain history) | Existing daily watermark cache | Same | Cost control without stale decisions |
 
-Env overrides (optional): `MARKET_DATA_CACHE_SCREENER_TTL_SEC_PAPER`, `MARKET_DATA_CACHE_SCREENER_TTL_SEC_LIVE`, `MARKET_DATA_CACHE_FUNDAMENTALS_TTL_SEC_PAPER`, `MARKET_DATA_CACHE_FUNDAMENTALS_TTL_SEC_LIVE`, `MARKET_DATA_CACHE_TODAY_BAR_TTL_SEC_PAPER`, `MARKET_DATA_CACHE_TODAY_BAR_TTL_SEC_LIVE`.
+Env overrides (optional): `MARKET_DATA_REGIME_FALLBACK_SYMBOLS`, `MARKET_DATA_CACHE_SCREENER_TTL_SEC_PAPER`, `MARKET_DATA_CACHE_SCREENER_TTL_SEC_LIVE`, `MARKET_DATA_CACHE_FUNDAMENTALS_TTL_SEC_PAPER`, `MARKET_DATA_CACHE_FUNDAMENTALS_TTL_SEC_LIVE`, `MARKET_DATA_CACHE_TODAY_BAR_TTL_SEC_PAPER`, `MARKET_DATA_CACHE_TODAY_BAR_TTL_SEC_LIVE`.

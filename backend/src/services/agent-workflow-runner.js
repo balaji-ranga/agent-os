@@ -17,7 +17,7 @@ import {
 } from './agent-workflow-kanban.js';
 import { processPendingDelegationTasks } from './delegation-queue.js';
 import { invokeContentToolHttp } from './content-tool-http-invoke.js';
-import { resolveNodeInputs, resolveInputText, storeNodeOutput } from './agent-workflow-io.js';
+import { resolveNodeInputs, resolveInputText, storeNodeOutput, renderPayloadTemplates } from './agent-workflow-io.js';
 import { executeEmailTask, executeApiTask, executeFilesystemTask } from './agent-workflow-tasks.js';
 import { executeElevenLabsTask } from './agent-workflow-elevenlabs.js';
 import { executeSpeechSttTask, executeSpeechTtsTask } from './agent-workflow-speech.js';
@@ -1159,6 +1159,7 @@ async function executeNode(runId, nodeId, graph, context, def, runRow) {
     }
     const inputRecord = buildStepInputRecord(node, graph, context);
     let payload = { ...(node.data?.toolPayload || node.data?.tool_payload || {}), ...inputRecord.resolved };
+    payload = renderPayloadTemplates(payload, context) || payload;
     if (payload.message == null && inputRecord.resolved.payload) payload.message = inputRecord.resolved.payload;
     if (payload.input == null && inputRecord.resolved.body) payload.input = inputRecord.resolved.body;
 

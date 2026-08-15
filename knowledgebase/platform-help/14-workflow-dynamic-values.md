@@ -102,6 +102,8 @@ Allowlist: {{var.allowlist_keys}}
 
 Use variables for config that should not live in every node (IBKR day-plan limits, shared endpoints, feature flags). Use prior-step templates for **secrets and data produced during the run** (tokens, search results, Brain text).
 
+**Content Tool `toolPayload`:** JSON fields also accept `{{var.key}}` / `{{nodeId.outputKey}}`. The runner substitutes them before invoking the tool. Example: W1 `market_regime` uses `{ "indexSymbol": "{{var.index_symbol}}" }` so FMP receives a real ticker, not the template string.
+
 ---
 
 ## Input binding modes (I/O panel)

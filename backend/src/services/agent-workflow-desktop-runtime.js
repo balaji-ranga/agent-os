@@ -6,7 +6,7 @@
 import { getDb } from '../db/schema.js';
 import * as store from './agent-workflow-store.js';
 import { isUserEnabled } from './users.js';
-import { resolveNodeInputs, resolveInputText, storeNodeOutput } from './agent-workflow-io.js';
+import { resolveNodeInputs, resolveInputText, storeNodeOutput, renderPayloadTemplates } from './agent-workflow-io.js';
 import { getTaskTypeDef } from './agent-workflow-task-catalog.js';
 import { executeBrainTask } from './agent-workflow-brain.js';
 import { executeEmailTask, executeApiTask } from './agent-workflow-tasks.js';
@@ -391,6 +391,7 @@ async function runRemoteNodeWork(node, graph, context, inputRecord, meta) {
       const toolName = node.data?.toolName || node.data?.tool_name;
       if (!toolName) throw new Error('No tool selected');
       let payload = { ...(node.data?.toolPayload || node.data?.tool_payload || {}), ...inputRecord.resolved };
+      payload = renderPayloadTemplates(payload, context) || payload;
       if (payload.message == null && inputRecord.resolved.payload) payload.message = inputRecord.resolved.payload;
       if (payload.input == null && inputRecord.resolved.body) payload.input = inputRecord.resolved.body;
       const result = await invokeContentTool(toolName, payload, meta.ownerUserId);

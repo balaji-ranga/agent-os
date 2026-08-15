@@ -25,6 +25,13 @@ import { summarizeJournal } from '../src/services/trading-journal.js';
 initDb();
 ensureIbkrMonthlyTables();
 
+const {
+  isValidMarketSymbol,
+  parseSymbolList,
+  classifyFmpRestriction,
+  resolveRegimeSymbols,
+} = marketData;
+
 const offline = process.argv.includes('--offline');
 const hasKey = Boolean(String(process.env.MARKET_DATA_API_KEY || '').trim());
 let failed = 0;
@@ -36,6 +43,22 @@ function assert(cond, msg) {
   } else {
     console.log('ok', msg);
   }
+}
+
+assert(isValidMarketSymbol('SPY') && isValidMarketSymbol('voog') && isValidMarketSymbol('BRK-B'), 'valid tickers');
+assert(!isValidMarketSymbol('{{var.index_symbol}}'), 'template is not a ticker');
+assert(!isValidMarketSymbol('{{VAR.INDEX_SYMBOL}}'), 'uppercased template is not a ticker');
+assert(parseSymbolList('SPY, QQQ, {{var.x}}, VOOG').join(',') === 'SPY,QQQ,VOOG', 'parseSymbolList drops invalid');
+assert(classifyFmpRestriction({ ok: false, status: 402, body: "Premium Query Parameter: 'Special Endpoint : This value set for 'symbol'" }) === 'symbol', '402 symbol restriction');
+assert(classifyFmpRestriction({ ok: false, status: 402, body: 'Restricted Endpoint: This endpoint is not available' }) === 'endpoint', '402 endpoint restriction');
+{
+  const r = resolveRegimeSymbols({ indexSymbol: '{{var.index_symbol}}' });
+  assert(r.requested.length === 0, 'unresolved template is not requested');
+  assert(r.ordered.includes('SPY') && r.ordered.includes('QQQ'), 'fallbacks still ordered');
+}
+{
+  const r = resolveRegimeSymbols({ indexSymbol: 'VOOG,SPY' });
+  assert(r.requested[0] === 'VOOG' && r.ordered[0] === 'VOOG', 'caller symbols stay first');
 }
 
 console.log('=== Market data + monthly portfolio foundation smoke ===');
@@ -54,6 +77,11 @@ if (!hasKey) {
 } else {
   assert(regime.ok === true, `regime ok (risk_on=${regime.risk_on})`);
   assert(regime.sma_200 != null, 'regime has sma_200');
+  assert(regime.synthetic !== true, 'regime is not synthetic paper fallback');
+  assert(isValidMarketSymbol(regime.index), `regime.index is a real ticker (got ${regime.index})`);
+
+  const histBad = await marketData.getHistory({ symbol: '{{var.x}}', force: false });
+  assert(histBad.skipped === true && histBad.reason === 'invalid_symbol', 'history refuses leftover templates without FMP');
 }
 
 const screener = await marketData.runScreener({ minMarketCap: 5e10, limit: 5, force: false });

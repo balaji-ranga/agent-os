@@ -256,7 +256,7 @@ Do these once before the first paper day.
    - **`openAI_key`** — W1 Maker (OpenAI GPT)
    - **`deepseek_key`** — W1 Checker (DeepSeek cloud)
    - Optional **`BRAVE_SEARCH_BYOK`** — Maker/Checker web search MCP
-5. Cloud market data for W1 screener/regime: platform **`MARKET_DATA_API_KEY`** (FMP) in the server `.env` (ops). Without a paid key, W1 may use paper risk-on fallback.
+5. Cloud market data for W1 screener/regime: platform **`MARKET_DATA_API_KEY`** (FMP) in the server `.env` (ops). **Free tier is enough** for regime (EOD light + cache). Gated symbols (HTTP 402) are skipped; leftover `{{var.*}}` templates are never sent to FMP. W1 **`index_symbol`** is the broader-market filter (comma-separated OK), not the stock universe — screener supplies names. Optional `MARKET_DATA_REGIME_FALLBACK_SYMBOLS` (default `SPY,QQQ,DIA,IWM`). If every index fails, W1 may still use paper risk-on fallback.
 
 ### B. Cloud (VPS) product surfaces
 
@@ -355,7 +355,7 @@ Laptop Gateway never replaces the cloud app; deploy Agent OS so W1/W3/Summary an
 1. Push `main` to GitHub; on VPS pull **or** laptop `deploy/scripts/sync-to-vps.ps1` if the VPS cannot pull.
 2. Align `deploy/.env` with **`deploy/.env.example`** (no secrets in git). Required themes for monthly trading:
    - `AGENT_OS_PUBLIC_URL=https://login.<your-domain>`
-   - `MARKET_DATA_PROVIDER=fmp` + `MARKET_DATA_API_KEY` (paid FMP for real regime/screener)
+   - `MARKET_DATA_PROVIDER=fmp` + `MARKET_DATA_API_KEY` (FMP **free tier OK** for regime; paid helps large daily screens). Optional `MARKET_DATA_REGIME_FALLBACK_SYMBOLS=SPY,QQQ,DIA,IWM`
    - Workflow SMTP if digests mail (optional)
    - Do **not** put CEO vault OpenAI/DeepSeek keys only in platform env; W1 seed uses **vault** `openAI_key` / `deepseek_key`
 3. Rebuild/restart:

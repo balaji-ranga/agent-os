@@ -6,7 +6,8 @@ export const MONTHLY_TRADING_VARIABLES = {
   min_market_cap_usd: 50_000_000_000,
   universe_size_min: 50,
   universe_size_max: 100,
-  index_symbol: 'SPY',
+  /** Broader-market filter (not the stock universe). Comma-separated OK; first usable ticker wins. */
+  index_symbol: 'SPY,QQQ,DIA,IWM',
   pct_from_52w_high_max: 15,
   entry_volume_mult: 1.5,
   require_above_sma50: true,

@@ -87,6 +87,8 @@ function formatTemplateEmbed(value, { quotedStringContext = false } = {}) {
 
 function isLikelyJsonTemplate(text) {
   const t = String(text || '').trim();
+  // Bare {{var.x}} / {{node.out}} start with '{' but are not JSON objects.
+  if (t.startsWith('{{')) return false;
   return (t.startsWith('{') && t.endsWith('}')) || (t.startsWith('[') && t.endsWith(']'));
 }
 
@@ -144,6 +146,27 @@ export function renderWorkflowTemplates(text, context) {
   );
 
   return out;
+}
+
+/**
+ * Deep-render {{var.*}} / {{nodeId.key}} inside a tool/API payload object.
+ * Workflow toolPayload was previously passed through unrendered, so
+ * indexSymbol "{{var.index_symbol}}" was sent to vendors as a literal.
+ */
+export function renderPayloadTemplates(payload, context) {
+  if (payload == null || !context) return payload;
+  if (typeof payload === 'string') {
+    return payload.includes('{{') ? renderWorkflowTemplates(payload, context) : payload;
+  }
+  if (typeof payload !== 'object') return payload;
+  try {
+    const raw = JSON.stringify(payload);
+    if (!raw.includes('{{')) return payload;
+    return JSON.parse(renderWorkflowTemplates(raw, context));
+  } catch (e) {
+    console.warn('[workflow] renderPayloadTemplates failed: %s', e.message || e);
+    return payload;
+  }
 }
 
 /**

@@ -34,7 +34,8 @@ router.post('/regime', async (req, res) => {
     const force = parseForceFlag(body);
     console.log('[market-data] regime owner=%s force=%s', owner, force);
     const result = await marketData.getRegime({
-      indexSymbol: body.indexSymbol || body.index_symbol || body.symbol || 'SPY',
+      indexSymbol: body.indexSymbol || body.index_symbol || body.symbol,
+      indexSymbols: body.indexSymbols || body.index_symbols,
       force,
     });
     sendResult(res, result);

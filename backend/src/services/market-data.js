@@ -103,6 +103,36 @@ function logCache(kind, symbol, hit) {
   console.log(`[market-data] cache ${hit ? 'hit' : 'miss'} kind=${kind}${sym}`);
 }
 
+function restrictedCacheKey(symbol) {
+  return `${providerName()}:restricted:${String(symbol || '').trim().toUpperCase()}`;
+}
+
+function rememberRestrictedSymbol(symbol, error) {
+  const sym = String(symbol || '').trim().toUpperCase();
+  if (!isValidMarketSymbol(sym)) return;
+  setCached({
+    cacheKey: restrictedCacheKey(sym),
+    provider: providerName(),
+    kind: 'restricted',
+    payload: {
+      ok: false,
+      skipped: true,
+      reason: 'symbol_restricted',
+      status: 402,
+      symbol: sym,
+      error: String(error || 'symbol not available on this plan').slice(0, 200),
+    },
+    expiresAt: nextUtcDayExpires(),
+  });
+}
+
+function knownRestrictedSymbol(symbol) {
+  const sym = String(symbol || '').trim().toUpperCase();
+  if (!isValidMarketSymbol(sym)) return null;
+  const hit = getCached(restrictedCacheKey(sym));
+  return hit?.payload || null;
+}
+
 function hashFilters(obj) {
   return createHash('sha1').update(JSON.stringify(obj || {})).digest('hex').slice(0, 16);
 }
@@ -142,6 +172,18 @@ async function fmpGet(path, query = {}) {
   const key = apiKey();
   if (!key) return { ok: false, error: MISSING_KEY.error, status: 503 };
 
+  if (query.symbol != null && String(query.symbol).trim() !== '') {
+    if (!isValidMarketSymbol(query.symbol)) {
+      console.info('[market-data] refuse invalid symbol (no HTTP)');
+      return { ok: false, skipped: true, reason: 'invalid_symbol', status: 400, error: 'invalid symbol' };
+    }
+    const known = knownRestrictedSymbol(query.symbol);
+    if (known) {
+      logCache('restricted', query.symbol, true);
+      return { ...known, cached: true };
+    }
+  }
+
   const qs = new URLSearchParams();
   for (const [k, v] of Object.entries(query)) {
     if (v == null || v === '') continue;
@@ -164,12 +206,16 @@ async function fmpGet(path, query = {}) {
       redactKeyInUrl(url),
       String(text).slice(0, 200)
     );
-    return {
+    const failed = {
       ok: false,
       error: `market data provider HTTP ${res.status}`,
       status: res.status >= 500 ? 502 : res.status,
       body: String(text).slice(0, 400),
     };
+    if (classifyFmpRestriction(failed) === 'symbol' && query.symbol) {
+      rememberRestrictedSymbol(query.symbol, text);
+    }
+    return failed;
   }
   let data;
   try {
@@ -181,6 +227,114 @@ async function fmpGet(path, query = {}) {
     return { ok: false, error: String(data['Error Message']), status: 502 };
   }
   return { ok: true, data };
+}
+
+/**
+ * Classify FMP 402s: some symbols/ETFs are plan-gated; some whole endpoints are paid.
+ * Symbol restrictions should skip that ticker and continue; endpoint restrictions need a fallback path.
+ */
+export function classifyFmpRestriction(raw) {
+  if (!raw || raw.ok) return null;
+  const status = Number(raw.status || 0);
+  const body = `${raw.body || ''} ${raw.error || ''}`;
+  const gated =
+    status === 402 ||
+    status === 403 ||
+    /not available under your current subscription|Restricted Endpoint|Premium Query Parameter/i.test(
+      body
+    );
+  if (!gated) return null;
+  if (/value set for ['"]?symbol|Premium Query Parameter/i.test(body)) return 'symbol';
+  if (/Restricted Endpoint/i.test(body)) return 'endpoint';
+  return 'symbol';
+}
+
+/** Reject leftover {{var.*}} templates and non-tickers so we never spend FMP credits on them. */
+export function isValidMarketSymbol(value) {
+  const s = String(value || '')
+    .trim()
+    .toUpperCase();
+  if (!s || /[{}$\s,]/.test(s)) return false;
+  if (s.includes('VAR.') || s.includes('{{')) return false;
+  return /^[A-Z][A-Z0-9.]{0,14}(-[A-Z0-9.]{1,6})?$/.test(s);
+}
+
+export function parseSymbolList(value) {
+  if (value == null || value === '') return [];
+  const parts = Array.isArray(value)
+    ? value
+    : String(value)
+        .split(/[,;|\s]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+  const out = [];
+  const seen = new Set();
+  for (const p of parts) {
+    const s = String(p).trim().toUpperCase();
+    if (!isValidMarketSymbol(s) || seen.has(s)) continue;
+    seen.add(s);
+    out.push(s);
+  }
+  return out;
+}
+
+function regimeFallbackSymbols() {
+  return parseSymbolList(process.env.MARKET_DATA_REGIME_FALLBACK_SYMBOLS || 'SPY,QQQ,DIA,IWM');
+}
+
+/**
+ * Ordered unique tickers: caller list first, then env fallbacks (never call FMP with templates).
+ */
+export function resolveRegimeSymbols({ indexSymbol, indexSymbols, symbol } = {}) {
+  const requested = [
+    ...parseSymbolList(indexSymbol),
+    ...parseSymbolList(indexSymbols),
+    ...parseSymbolList(symbol),
+  ];
+  const seen = new Set();
+  const ordered = [];
+  for (const s of [...requested, ...regimeFallbackSymbols()]) {
+    if (seen.has(s)) continue;
+    seen.add(s);
+    ordered.push(s);
+  }
+  return { requested: [...new Set(requested)], ordered };
+}
+
+async function fetchEodHistory(symbol) {
+  const known = knownRestrictedSymbol(symbol);
+  if (known) return { ...known, cached: true };
+  const light = await fmpGet('/historical-price-eod/light', { symbol });
+  if (light.ok) return { ok: true, data: light.data, via: 'light' };
+  if (light.skipped || classifyFmpRestriction(light) === 'symbol') {
+    return {
+      ok: false,
+      skipped: true,
+      reason: light.reason || 'symbol_restricted',
+      status: light.status || 402,
+      symbol,
+      error: light.error,
+    };
+  }
+  const full = await fmpGet('/historical-price-eod/full', { symbol });
+  if (full.ok) return { ok: true, data: full.data, via: 'full' };
+  if (full.skipped || classifyFmpRestriction(full) === 'symbol') {
+    return {
+      ok: false,
+      skipped: true,
+      reason: full.reason || 'symbol_restricted',
+      status: full.status || 402,
+      symbol,
+      error: full.error,
+    };
+  }
+  return {
+    ok: false,
+    error: full.error || light.error || 'eod history failed',
+    status: full.status || light.status,
+    body: full.body || light.body,
+    symbol,
+  };
 }
 
 function requireKeyOrError() {
@@ -200,92 +354,137 @@ function barClose(b) {
 
 /**
  * Index vs 200-DMA regime.
+ * Tries caller symbols (comma-separated or array) then MARKET_DATA_REGIME_FALLBACK_SYMBOLS.
+ * Invalid / template leftovers never hit FMP. Plan-gated tickers (e.g. some ETFs on free tier) are skipped.
  */
-export async function getRegime({ indexSymbol = 'SPY', force = false } = {}) {
+export async function getRegime({
+  indexSymbol,
+  indexSymbols,
+  symbol,
+  force = false,
+} = {}) {
   ensureMarketDataCacheTable();
   const missing = requireKeyOrError();
   if (missing) return missing;
 
-  const symbol = String(indexSymbol || 'SPY').trim().toUpperCase() || 'SPY';
+  const { requested, ordered } = resolveRegimeSymbols({ indexSymbol, indexSymbols, symbol });
   const kind = 'regime';
-  const cacheKey = `${providerName()}:regime:${symbol}`;
+  const cacheKey = `${providerName()}:regime:${(requested.length ? requested : ordered).join(',') || 'auto'}`;
 
   if (!force) {
     const hit = getCached(cacheKey);
     if (hit?.payload) {
-      logCache(kind, symbol, true);
+      logCache(kind, requested[0] || ordered[0] || '', true);
       return { ...hit.payload, cached: true };
     }
   } else {
     invalidateCache({ cacheKey });
   }
 
-  logCache(kind, symbol, false);
+  logCache(kind, requested.join(',') || ordered[0] || 'auto', false);
 
-  const raw = await fmpGet('/historical-price-eod/full', { symbol });
-  if (!raw.ok) {
-    // Paper trading / free-tier: never hard-kill W1 on FMP 402/403/5xx — synthetic risk-on allowlist path.
-    if (isPaperMode() && (raw.status === 402 || raw.status === 403 || raw.status >= 500 || !apiKey())) {
-      const synthetic = {
-        ok: true,
-        index: symbol,
-        last_close: null,
-        sma_200: null,
-        risk_on: true,
-        regime: 'risk_on',
-        as_of: todayUtc(),
-        paper: true,
-        cached: false,
-        synthetic: true,
-        note: `market data provider unavailable (${raw.error || raw.status}); paper fallback risk_on`,
-      };
-      console.warn('[market-data] getRegime paper fallback', { symbol, error: raw.error, status: raw.status });
-      setCached({
-        cacheKey,
-        provider: providerName(),
-        kind,
-        payload: synthetic,
-        expiresAt: expiresInSeconds(900),
-      });
-      return synthetic;
+  const skipped = [];
+  const rawRequested = [indexSymbol, indexSymbols, symbol]
+    .flatMap((v) => (Array.isArray(v) ? v : v == null || v === '' ? [] : String(v).split(/[,;|\s]+/)))
+    .map((s) => String(s).trim())
+    .filter(Boolean);
+  for (const raw of rawRequested) {
+    if (!isValidMarketSymbol(raw)) {
+      skipped.push({ symbol: String(raw).slice(0, 80), reason: 'invalid_symbol' });
+      console.info('[market-data] skip invalid regime symbol (no FMP call)');
     }
-    return raw;
   }
 
-  const hist = extractBars(raw.data);
-  // Stable API returns newest-first
-  const chronological = [...hist].reverse();
-  const closes = chronological.map((b) => barClose(b)).filter((c) => c != null);
-  if (closes.length < 200) {
-    return {
-      ok: false,
-      error: `insufficient history for ${symbol} (need ≥200 closes)`,
-      status: 422,
+  if (!ordered.length) {
+    skipped.push({ symbol: '', reason: 'no_valid_symbols' });
+  }
+
+  for (const candidate of ordered) {
+    const hist = await fetchEodHistory(candidate);
+    if (hist.skipped || classifyFmpRestriction(hist) === 'symbol') {
+      skipped.push({ symbol: candidate, reason: hist.reason || 'symbol_restricted' });
+      console.info('[market-data] skip restricted regime symbol=%s', candidate);
+      continue;
+    }
+    if (!hist.ok) {
+      skipped.push({
+        symbol: candidate,
+        reason: hist.error || `http_${hist.status || 'error'}`,
+      });
+      console.warn('[market-data] regime fetch failed symbol=%s status=%s', candidate, hist.status || '');
+      continue;
+    }
+
+    const bars = extractBars(hist.data);
+    const chronological = [...bars].reverse();
+    const closes = chronological.map((b) => barClose(b)).filter((c) => c != null);
+    if (closes.length < 200) {
+      skipped.push({ symbol: candidate, reason: 'insufficient_history' });
+      continue;
+    }
+    const last_close = closes[closes.length - 1];
+    const sma_200 = sma(closes, 200);
+    const risk_on = sma_200 != null && last_close >= sma_200;
+    const as_of = chronological[chronological.length - 1]?.date || todayUtc();
+    const result = {
+      ok: true,
+      index: candidate,
+      last_close,
+      sma_200: sma_200 != null ? Number(sma_200.toFixed(4)) : null,
+      risk_on,
+      regime: risk_on ? 'risk_on' : 'risk_off',
+      as_of,
+      paper: isPaperMode(),
+      cached: false,
+      synthetic: false,
+      eod_source: hist.via || null,
+      requested_indexes: requested,
+      skipped_symbols: skipped,
     };
+    setCached({
+      cacheKey,
+      provider: providerName(),
+      kind,
+      payload: result,
+      expiresAt: nextUtcDayExpires(),
+    });
+    return result;
   }
-  const last_close = closes[closes.length - 1];
-  const sma_200 = sma(closes, 200);
-  const risk_on = sma_200 != null && last_close >= sma_200;
-  const as_of = chronological[chronological.length - 1]?.date || todayUtc();
 
-  const result = {
-    ok: true,
-    index: symbol,
-    last_close,
-    sma_200: sma_200 != null ? Number(sma_200.toFixed(4)) : null,
-    risk_on,
-    as_of,
-    paper: isPaperMode(),
-    cached: false,
+  const skipNote = skipped.map((s) => `${s.symbol || '?'}:${s.reason}`).join('; ');
+  if (isPaperMode()) {
+    const synthetic = {
+      ok: true,
+      index: requested[0] || ordered[0] || null,
+      last_close: null,
+      sma_200: null,
+      risk_on: true,
+      regime: 'risk_on',
+      as_of: todayUtc(),
+      paper: true,
+      cached: false,
+      synthetic: true,
+      requested_indexes: requested,
+      skipped_symbols: skipped,
+      note: `no usable index history (${skipNote || 'no symbols'}); paper fallback risk_on`,
+    };
+    console.warn('[market-data] getRegime paper fallback', { skipped: skipped.length });
+    setCached({
+      cacheKey,
+      provider: providerName(),
+      kind,
+      payload: synthetic,
+      expiresAt: expiresInSeconds(900),
+    });
+    return synthetic;
+  }
+  return {
+    ok: false,
+    error: `no usable index history (${skipNote || 'no symbols'})`,
+    status: 422,
+    requested_indexes: requested,
+    skipped_symbols: skipped,
   };
-  setCached({
-    cacheKey,
-    provider: providerName(),
-    kind,
-    payload: result,
-    expiresAt: nextUtcDayExpires(),
-  });
-  return result;
 }
 
 function buildHistoryMetrics(barsChronological) {
@@ -338,6 +537,9 @@ function buildHistoryMetrics(barsChronological) {
 
 async function getProfile(symbol, { force = false } = {}) {
   const sym = String(symbol || '').trim().toUpperCase();
+  if (!isValidMarketSymbol(sym)) {
+    return { ok: false, skipped: true, reason: 'invalid_symbol', error: 'symbol is invalid', status: 400 };
+  }
   const kind = 'profile';
   const cacheKey = `${providerName()}:profile:${sym}`;
   if (!force) {
@@ -349,7 +551,13 @@ async function getProfile(symbol, { force = false } = {}) {
   }
   logCache(kind, sym, false);
   const raw = await fmpGet('/profile', { symbol: sym });
-  if (!raw.ok) return raw;
+  if (!raw.ok) {
+    if (classifyFmpRestriction(raw) === 'symbol') {
+      console.info('[market-data] skip restricted profile symbol=%s', sym);
+      return { ok: false, skipped: true, reason: 'symbol_restricted', status: 402, symbol: sym };
+    }
+    return raw;
+  }
   const row = Array.isArray(raw.data) ? raw.data[0] : raw.data;
   if (!row) return { ok: false, error: `no profile for ${sym}`, status: 404 };
   const result = {
@@ -377,7 +585,9 @@ async function getProfile(symbol, { force = false } = {}) {
 async function screenerViaUniverse(filters) {
   const universe = screenerUniverse().slice(0, Math.max(filters.limit * 3, filters.limit));
   const candidates = [];
-  for (const sym of universe) {
+  for (const rawSym of universe) {
+    const sym = String(rawSym || '').trim().toUpperCase();
+    if (!isValidMarketSymbol(sym)) continue;
     if (candidates.length >= filters.limit) break;
     const prof = await getProfile(sym, { force: false });
     if (!prof.ok) continue;
@@ -515,6 +725,9 @@ export async function getHistory({ symbol, days = 260, force = false } = {}) {
 
   const sym = String(symbol || '').trim().toUpperCase();
   if (!sym) return { ok: false, error: 'symbol is required', status: 400 };
+  if (!isValidMarketSymbol(sym)) {
+    return { ok: false, skipped: true, reason: 'invalid_symbol', error: 'symbol is invalid', status: 400, symbol: sym };
+  }
 
   const dayCount = Math.min(Math.max(num(days, 260) || 260, 30), 1000);
   const kind = 'history';
@@ -532,7 +745,11 @@ export async function getHistory({ symbol, days = 260, force = false } = {}) {
 
   logCache(kind, sym, false);
 
-  const raw = await fmpGet('/historical-price-eod/full', { symbol: sym });
+  const raw = await fetchEodHistory(sym);
+  if (raw.skipped) {
+    console.info('[market-data] skip restricted history symbol=%s', sym);
+    return raw;
+  }
   if (!raw.ok) return raw;
 
   const hist = extractBars(raw.data);
@@ -578,6 +795,9 @@ export async function getFundamentals({ symbol, force = false } = {}) {
 
   const sym = String(symbol || '').trim().toUpperCase();
   if (!sym) return { ok: false, error: 'symbol is required', status: 400 };
+  if (!isValidMarketSymbol(sym)) {
+    return { ok: false, skipped: true, reason: 'invalid_symbol', error: 'symbol is invalid', status: 400, symbol: sym };
+  }
 
   const kind = 'fundamentals';
   const cacheKey = `${providerName()}:fundamentals:${sym}`;
@@ -595,7 +815,13 @@ export async function getFundamentals({ symbol, force = false } = {}) {
   logCache(kind, sym, false);
 
   const raw = await fmpGet('/income-statement', { symbol: sym, limit: 5, period: 'annual' });
-  if (!raw.ok) return raw;
+  if (!raw.ok) {
+    if (classifyFmpRestriction(raw) === 'symbol') {
+      console.info('[market-data] skip restricted fundamentals symbol=%s', sym);
+      return { ok: false, skipped: true, reason: 'symbol_restricted', status: 402, symbol: sym };
+    }
+    return raw;
+  }
 
   const rows = Array.isArray(raw.data) ? raw.data : [];
   const latest = rows[0] || null;
