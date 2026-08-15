@@ -129,10 +129,22 @@ if grep -q 'scheduled.goal' "$ROOT/openclaw-workspace-templates/balserve/AGENTS.
 else
   bad "COO AGENTS.md missing scheduled_goal tools"
 fi
-if grep -q 'hourly' "$ROOT/openclaw-workspace-templates/balserve/TOOLS.md" 2>/dev/null; then
-  ok "COO TOOLS.md hourly cadence"
+if grep -q 'deliver_to' "$ROOT/backend/src/services/scheduled-goals.js" 2>/dev/null \
+  && test -f "$ROOT/backend/src/services/agent-channel-announce.js"; then
+  ok "scheduled-goals deliver_to + agent-channel-announce"
 else
-  bad "COO TOOLS.md missing hourly"
+  bad "missing deliver_to / agent-channel-announce.js"
+fi
+if grep -q 'From: <your employee name>' "$ROOT/openclaw-workspace-templates/_shared/AGENT-OS-OPS.md" 2>/dev/null \
+  || grep -q 'From: <your name>' "$ROOT/openclaw-workspace-templates/_shared/AGENT-OS-OPS.md" 2>/dev/null; then
+  ok "AGENT-OS-OPS WhatsApp From: agent name"
+else
+  bad "AGENT-OS-OPS missing From: agent name on WhatsApp"
+fi
+if grep -q 'deliver_whatsapp' "$ROOT/frontend/src/pages/ScheduledGoals.jsx" 2>/dev/null; then
+  ok "frontend WhatsApp deliver-to checkbox"
+else
+  bad "ScheduledGoals.jsx missing deliver_whatsapp"
 fi
 
 echo "==> scheduled goals — live backend (container)"
@@ -169,6 +181,21 @@ if docker exec -w /opt/agent-os/backend "$BE" node scripts/_smoke-scheduled-goal
   fi
 else
   bad "smoke script failed"
+fi
+
+if [[ -f "$ROOT/backend/scripts/test-agent-channel-announce.mjs" ]]; then
+  docker cp "$ROOT/backend/scripts/test-agent-channel-announce.mjs" "$BE:/opt/agent-os/backend/scripts/test-agent-channel-announce.mjs" 2>/dev/null || true
+  if docker exec -w /opt/agent-os/backend "$BE" node scripts/test-agent-channel-announce.mjs 2>&1 | tee /tmp/sg-announce-unit.log | tail -5; then
+    if grep -q 'CHANNEL_ANNOUNCE_UNIT_OK' /tmp/sg-announce-unit.log; then
+      ok "channel announce unit CHANNEL_ANNOUNCE_UNIT_OK"
+    else
+      bad "announce unit did not print CHANNEL_ANNOUNCE_UNIT_OK"
+    fi
+  else
+    bad "test-agent-channel-announce.mjs failed"
+  fi
+else
+  bad "test-agent-channel-announce.mjs missing"
 fi
 
 # Avoid grep -q under pipefail: early exit can SIGPIPE docker logs (nonzero pipeline).

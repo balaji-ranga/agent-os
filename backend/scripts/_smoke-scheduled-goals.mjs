@@ -85,6 +85,14 @@ console.log('created', {
   is_perpetual: goal.is_perpetual,
 });
 if (!goal.is_perpetual) throw new Error('expected perpetual');
+if (!Array.isArray(goal.deliver_to) || !goal.deliver_to.includes('web') || goal.deliver_to.includes('whatsapp')) {
+  throw new Error(`expected default deliver_to web-only, got ${JSON.stringify(goal.deliver_to)}`);
+}
+const withWa = updateScheduledGoal(owner, goal.id, { also_whatsapp: true });
+if (!withWa.deliver_to?.includes('whatsapp')) throw new Error('also_whatsapp did not stick');
+const webOnly = updateScheduledGoal(owner, goal.id, { deliver_to: ['web'] });
+if (webOnly.deliver_to?.includes('whatsapp')) throw new Error('deliver_to web did not clear whatsapp');
+console.log('deliver_to_ok', webOnly.deliver_to);
 
 const listed = listScheduledGoals(owner);
 if (!listed.find((g) => g.id === goal.id)) throw new Error('list missing created');

@@ -41,7 +41,7 @@ import {
 } from '../src/services/user-api-keys.js';
 import { createTable, listTables, insertRow } from '../src/services/master-data.js';
 import { createFullAgent } from '../src/services/create-full-agent.js';
-import { createScheduledGoal, listScheduledGoals } from '../src/services/scheduled-goals.js';
+import { createScheduledGoal, listScheduledGoals, updateScheduledGoal } from '../src/services/scheduled-goals.js';
 import {
   listAgentChannels,
   createAgentChannel,
@@ -222,7 +222,7 @@ This CEO uses you as a personal assistant on WhatsApp.
 
 - Listen: text as chat; voice notes → list_inbound_attachments → speech_stt, then treat the transcript as the request.
 - Capture thoughts: if they say remember / capture / later, insert a row in Knowledge table thought_inbox (captured_at, thought, status=open, follow_up).
-- Respond on WhatsApp always in both modes: full readable text body, then speech_tts on a short spoken line, paste MEDIA: / paste_exactly alone so WhatsApp attaches a voice note (OGG/Opus or MP3, never WAV-only, never /api/media HTTPS).
+- Respond on WhatsApp always in both modes: first line `From: <your name>`, then full readable text body, then speech_tts on a short spoken line, paste MEDIA: / paste_exactly alone so WhatsApp attaches a voice note (OGG/Opus or MP3, never WAV-only, never /api/media HTTPS).
 - Evening scheduled goal: prompt open thought_inbox rows the same dual way.
 `;
   await workspace.writeWorkspaceFile('memory', `${current.trimEnd()}\n${block}`, { workspaceRoot: root });
@@ -260,7 +260,17 @@ async function ensureScheduledGoals(ownerId) {
   const created = [];
   for (const spec of specs) {
     if (titles.has(spec.title)) {
-      console.info('[edu-demo] scheduled goal exists', { title: spec.title });
+      const existingRow = existing.find((g) => g.title === spec.title);
+      if (existingRow?.id) {
+        try {
+          updateScheduledGoal(ownerId, existingRow.id, { deliver_to: ['web', 'whatsapp'] });
+          console.info('[edu-demo] scheduled goal deliver_to web+whatsapp', { id: existingRow.id, title: spec.title });
+        } catch (e) {
+          console.warn('[edu-demo] scheduled goal deliver_to patch failed', spec.title, e?.message || e);
+        }
+      } else {
+        console.info('[edu-demo] scheduled goal exists', { title: spec.title });
+      }
       continue;
     }
     const row = await createScheduledGoal(ownerId, {
@@ -270,6 +280,7 @@ async function ensureScheduledGoals(ownerId) {
       source: 'coo_tool',
       approve_plan: true,
       skip_plan_review: true,
+      deliver_to: ['web', 'whatsapp'],
       plan: {
         steps: [{ type: 'agent_continue', title: spec.title, prompt: spec.prompt }],
         amended_manually: true,
