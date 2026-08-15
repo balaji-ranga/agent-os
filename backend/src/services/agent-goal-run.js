@@ -28,6 +28,7 @@ import {
 import { invokeContentToolHttp } from './content-tool-http-invoke.js';
 import { listPublishedWorkflows } from './agent-workflow-chat-tools.js';
 import { getOrCreateDelegationHubStandup } from './standup-hub.js';
+import { deliverScheduledGoalOutcome } from './agent-channel-announce.js';
 import { scheduleCeoRequestViaOpenClawCron } from './delegation-queue.js';
 import {
   resolveAgentToolArgsForGoal,
@@ -1734,6 +1735,16 @@ export async function nudgeCooOnGoalPlanTerminal(goalRunId, opts = {}) {
     });
   } catch (e) {
     console.warn('[goal-run] completion push failed', e?.message || e);
+  }
+
+  if (row.scheduled_goal_id) {
+    void deliverScheduledGoalOutcome({
+      ownerUserId: owner,
+      agentId: agent.id,
+      scheduledGoalId: row.scheduled_goal_id,
+      text: reply,
+      sourceKey: `agr:${id}:terminal`,
+    }).catch((e) => console.warn('[goal-run] channel fan-out', e?.message || e));
   }
 
   console.info('[goal-run] completion nudge posted', { goalRunId: id, via, terminal });

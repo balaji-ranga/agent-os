@@ -20,6 +20,7 @@ const EMPTY_FORM = {
   time_local: '09:00',
   ends_at: '',
   weekday: 1,
+  deliver_whatsapp: false,
 };
 
 const COO_PLAN_TIP =
@@ -155,6 +156,7 @@ function ScheduledGoalsPanel() {
       time_local: g.time_local || (g.cadence === 'hourly' ? '00:00' : '09:00'),
       ends_at: endsToDateInput(g.ends_at),
       weekday: g.weekday != null ? Number(g.weekday) : 1,
+      deliver_whatsapp: Array.isArray(g.deliver_to) && g.deliver_to.includes('whatsapp'),
     });
     setDraftPlan(g.is_coo && g.plan ? g.plan : null);
     setPlanFeedback('');
@@ -240,6 +242,7 @@ function ScheduledGoalsPanel() {
       time_local: form.time_local,
       weekday: form.cadence === 'weekly' ? Number(form.weekday) : undefined,
       ends_at: form.ends_at || 'perpetual',
+      deliver_to: form.deliver_whatsapp ? ['web', 'whatsapp'] : ['web'],
       plan: planForCoo ? draftPlan || undefined : undefined,
       plan_feedback: planForCoo ? planFeedback || undefined : undefined,
       approve_plan: approvePlan,
@@ -254,6 +257,7 @@ function ScheduledGoalsPanel() {
           time_local: body.time_local,
           weekday: body.weekday,
           ends_at: body.ends_at,
+          deliver_to: body.deliver_to,
         });
         if (planForCoo && (draftPlan || planFeedback || approvePlan)) {
           await api.scheduledGoalsSetPlan(editingId, {
@@ -319,7 +323,8 @@ function ScheduledGoalsPanel() {
         <p style={{ margin: '0.4rem 0 0', color: 'var(--muted)', maxWidth: 640 }}>
           Recurring prompts your AI employees run on a schedule (hourly, daily, weekdays, or weekly). Chat the COO in
           plain language, or create and <strong>edit</strong> schedules here. Pause or delete stops the clock immediately
-          and after restarts.
+          and after restarts. Optional <strong>WhatsApp</strong> copies the <em>final outcome</em> to that employee’s
+          bound channel (chat schedules: the reply; plan schedules: completed/failed nudge) — not each workflow terminal.
         </p>
       </header>
 
@@ -474,6 +479,29 @@ function ScheduledGoalsPanel() {
                 onChange={(ev) => setForm((f) => ({ ...f, ends_at: ev.target.value }))}
               />
               <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Empty = perpetual</span>
+            </label>
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 8,
+                minWidth: 240,
+                marginTop: 18,
+                fontSize: '0.85rem',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={!!form.deliver_whatsapp}
+                onChange={(ev) => setForm((f) => ({ ...f, deliver_whatsapp: ev.target.checked }))}
+                style={{ marginTop: 3 }}
+              />
+              <span>
+                Also send the <strong>final outcome</strong> on this employee’s WhatsApp
+                <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--muted)' }}>
+                  Needs Channels → WhatsApp enabled and a DM (allow-from or Profile mobile). Unpaired skips WhatsApp; web still works.
+                </span>
+              </span>
             </label>
           </div>
           <div className="sg-plan-panel">
@@ -699,6 +727,9 @@ function ScheduledGoalsPanel() {
                   <td style={{ padding: '0.5rem' }}>{g.ends_label || (g.is_perpetual ? 'Perpetual' : g.ends_at)}</td>
                   <td style={{ padding: '0.5rem' }}>
                     <span className={statusClass(g.status)}>{g.status}{g.plan_status && g.plan_status !== 'none' ? ` · plan ${g.plan_status}` : ''}</span>
+                    {Array.isArray(g.deliver_to) && g.deliver_to.includes('whatsapp') ? (
+                      <div style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: 4 }}>Web + WhatsApp</div>
+                    ) : null}
                   </td>
                   <td style={{ padding: '0.5rem', fontSize: '0.8rem', color: 'var(--muted)' }}>
                     <div>{g.last_run_status || '—'}

@@ -134,7 +134,8 @@ Do **not** name `kanban_create_task` or `notify_ceo` in a BD prompt unless you w
 5. Prefer **Amend** for precise changes. Optional **Regenerate with feedback** re-runs the planner and can overwrite manual edits.
 6. **Save draft** or **Approve plan & schedule** stores `plan_json` as the baseline for every fire (`amended_manually` when you edited steps in the UI). For a **non-COO** employee, skip Generate draft — **Save & schedule** activates with no specialty ladder (the employee runs the prompt; Kanban handoff can still wake CRM).
 7. Optional **Enrich with AI** on the prompt text.
-8. Row actions: Edit, Approve plan (COO draft), Activate (non-COO draft), Pause, Resume, Run now (active only), Delete.
+8. Optional **Also send the final outcome on WhatsApp** — copies the finished reply (chat schedules) or the once-only **completed/failed** plan nudge (plan schedules) to that employee’s bound WhatsApp. Not a goal-plan step. Needs Channels → WhatsApp **enabled** plus a DM (`allowFrom` or Profile **mobile**). Unpaired skips WhatsApp; web chat still lands. Mid-step workflow terminals stay web-only.
+9. Row actions: Edit, Approve plan (COO draft), Activate (non-COO draft), Pause, Resume, Run now (active only), Delete.
 
 ### Manual plan baseline (goal-plan schema)
 
@@ -158,6 +159,8 @@ Quick intents add common CRM/ERP maker-checker and help steps without writing ra
 | **Daily** | Once per local day at full `time_local` HH:MM |
 | **Weekdays** | Mon–Fri only at that HH:MM |
 | **Weekly** | One weekday (Sun=0 … Sat=6) at that HH:MM |
+
+**Deliver-to (web + optional WhatsApp/Slack):** Default is **web** (that employee’s chat). Add `whatsapp` / `slack` on the schedule (`deliver_to` or COO `also_whatsapp`) so platform announces the **final outcome** on the bound channel — same OpenClaw send path as channel announce, prefixed `From: {agent name}`. Chat-mode fires send the assistant reply; plan-mode waits for the completion nudge. Workflow terminal bells are not copied.
 | **Ends** | Calendar end date, or perpetual until pause/delete |
 | **Status** | `active` (fires), `draft` (plan not approved yet—does not fire), `paused` (off), `completed` (auto after end date) |
 

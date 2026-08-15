@@ -36,9 +36,9 @@ You do not need to know APIs or Docker for everyday use.
 ### Scheduled goals (recurring CEO prompts)
 
 1. Open **Management → Scheduled goals** (`/scheduled-goals`), **or** ask the **COO** in plain language (examples: “Every weekday at 9, prepare market insights…” or “Every hour, check MAGS; notify me if down 2%”).
-2. Each goal stores a prompt plus cadence (**hourly** / daily / weekdays / weekly), local time (for hourly only the **minute** of the hour is used), perpetual or end date, and target AI employee (default COO).
+2. Each goal stores a prompt plus cadence (**hourly** / daily / weekdays / weekly), local time (for hourly only the **minute** of the hour is used), perpetual or end date, target AI employee (default COO), and optional **deliver-to** (web always; WhatsApp/Slack copy the **final outcome**).
 3. Multi-intent prompts on the **COO** get a **draft execution plan** (workflows + specialty + notify). On the page: **Generate draft plan** (COO only; other employees run the prompt directly) → **Amend plan manually** (or **Build plan manually**) if intent→step mapping is wrong → **Save draft** / **Approve plan & schedule**. COO tools auto-approve. **Each schedule fire (plan mode)** creates a **new** `agr-…` from the approved step template (not chat reuse of yesterday's plan). A **Business Discovery** (or other non-COO) schedule uses **Save & schedule** — no nested CRM specialty; Act with `handoff: true` so Kanban + the orphan watcher start CRM Maker. Ad-hoc multiphase in chat: COO **`agent_goal_create`** (**async ack** — plan + `agr-…`, platform advances steps; new multiphase asks create a **new** plan unless CEO says status/continue). Digest shows last **2** plans (with run timestamps) → **View all** `/goal-plans`.
-4. **Create** and **edit** on the page (Edit → Save changes), or via COO tools. **Pause** / **Delete** stops automatic fires and **survives backend restarts**; only **active** goals run. **Run now** fires immediately. Optional **Enrich with AI** on create/edit.
+4. **Create** and **edit** on the page (Edit → Save changes), or via COO tools. **Pause** / **Delete** stops automatic fires and **survives backend restarts**; only **active** goals run. **Run now** fires immediately. Optional **Enrich with AI** on create/edit. Optional **Also send the final outcome on WhatsApp** (Channels must be paired; unpaired skips WhatsApp).
 5. Platform master tick: `SCHEDULED_GOALS_CRON` (default every minute). CEO tools: `scheduled_goal_*` + COO multiphase `agent_goal_*`. Full guide: `knowledgebase/platform-help/28-scheduled-goals.md` and **38**. Market-condition watches ≈ scheduled check + tools + `notify_ceo` (not a real-time tick feed).
 
 ### Chat with an agent
@@ -47,7 +47,7 @@ You do not need to know APIs or Docker for everyday use.
 2. Type your request in plain language and send. Optionally **attach** files (paperclip) — documents/images/audio/video are stored under Knowledge and `inbound/attachments/`.
 3. When the AI employee uses tools (Master Data, notify, email, generate image/TTS, market history, **native AgentSystem `browser`**, etc.), small **tool icons** may appear under the reply so you can see what it did. Replies render markdown (**bold**, lists, code, links). Generated media plays **inline** in the chat (you must be logged in).
 4. Prefer asking the **COO** for work that should be planned or handed to a specialist (research, applications, etc.).
-5. To reach an AI employee from **WhatsApp / Slack**, open that employee’s **Channels** wizard (see Platform Help **24**). WhatsApp **group chats are ignored by default** unless you enable groups there.
+5. To reach an AI employee from **WhatsApp / Slack**, open that employee’s **Channels** wizard (see Platform Help **24**). WhatsApp **group chats are ignored by default** unless you enable groups there. Agent WhatsApp replies start with **`From: {employee name}`**.
 
 ### Ask Platform Help (how-to)
 

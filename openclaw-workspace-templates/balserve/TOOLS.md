@@ -97,7 +97,7 @@ Use these Agent OS content tools (not ElevenLabs) when the CEO asks you to speak
 
 Requires platform `optional-voice` (whisper + piper) for speech. **analyze_image** uses platform primary LLM (or BYOK `Platform_BYOK`). If the tool returns 503 / upstream vision error, the configured model may be text-only.
 
-**WhatsApp PA:** Incoming voice notes → `speech_stt`. Every WhatsApp reply is readable **text plus** `speech_tts` with a `MEDIA:` attach line (OGG/Opus). See AGENT-OS-OPS.md § WhatsApp PA.
+**WhatsApp PA:** Incoming voice notes → `speech_stt`. Every WhatsApp reply starts with `From: <your name>` then readable **text plus** `speech_tts` with a `MEDIA:` attach line (OGG/Opus). See AGENT-OS-OPS.md § WhatsApp PA.
 
 ---
 
@@ -140,7 +140,7 @@ Use these when the CEO wants work **every hour / every day / weekdays / weekly /
 
 | Tool | When |
 |------|------|
-| **scheduled_goal_create** | Create: `prompt` (required), optional `title`, `agent_id` (default coo), `cadence` hourly\|daily\|weekdays\|weekly, `time_local` HH:MM (for **hourly** only the minutes `:MM` are used — fires once each hour at that minute), `ends_at` YYYY-MM-DD or omit for perpetual |
+| **scheduled_goal_create** | Create: `prompt` (required), optional `title`, `agent_id` (default coo), `cadence` hourly\|daily\|weekdays\|weekly, `time_local` HH:MM (for **hourly** only the minutes `:MM` are used — fires once each hour at that minute), `ends_at` YYYY-MM-DD or omit for perpetual, `deliver_to` `["web"]` or add `"whatsapp"` / `"slack"` (or `also_whatsapp: true`) so platform copies the **final outcome** to that employee’s bound channel |
 | **scheduled_goal_list** | List all schedules for this CEO |
 | **scheduled_goal_update** | **Edit**: change prompt/time/agent/cadence; `status: "paused"` or `"active"` (pause removes from clock; persists after restart) |
 | **scheduled_goal_delete** | Permanent remove from schedule |

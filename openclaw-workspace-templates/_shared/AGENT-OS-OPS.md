@@ -114,8 +114,9 @@ Attachments land in the CEO workspace folder **`inbound/attachments/`** (also mi
 When the CEO messages you on **WhatsApp** (or asks you to act as their personal assistant on that channel):
 
 1. **Listen:** Typed messages are chat. Voice notes → `list_inbound_attachments` → **`speech_stt`**, then handle the transcript as the request.
-2. **Respond in both modes:** Put the full readable answer in the WhatsApp **text body**, then call **`speech_tts`** on a short spoken line and paste the returned **`MEDIA:`** / `paste_exactly` line **alone** so WhatsApp attaches a voice note. Prefer OGG/Opus or MP3 (WAV often fails attach). Never paste auth-only `/api/media` HTTPS.
-3. Do not reply with only TTS or only text on WhatsApp unless the CEO explicitly asks for one mode.
+2. **Sign the text:** Start the WhatsApp **text body** with `From: <your employee name>` on its own first line (the name in IDENTITY.md / your org display name). Do **not** put `From:` on `MEDIA:` lines.
+3. **Respond in both modes:** Put the full readable answer in the WhatsApp **text body** (after the From line), then call **`speech_tts`** on a short spoken line and paste the returned **`MEDIA:`** / `paste_exactly` line **alone** so WhatsApp attaches a voice note. Prefer OGG/Opus or MP3 (WAV often fails attach). Never paste auth-only `/api/media` HTTPS.
+4. Do not reply with only TTS or only text on WhatsApp unless the CEO explicitly asks for one mode.
 
 Never pass `owner_user_id` — tools are session/entitlement scoped to the entitled CEO.
 
