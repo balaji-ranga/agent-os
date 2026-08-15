@@ -1077,6 +1077,9 @@ async function executeWorkflowStep(goal, step) {
 function resolveAgentForGoal(ownerUserId, agentId) {
   const owner = String(ownerUserId || '').trim();
   let id = String(agentId || '').trim();
+  if (!id) {
+    return db().prepare('SELECT * FROM agents WHERE is_coo = 1 LIMIT 1').get() || null;
+  }
   if (id.includes('--')) id = id.split('--').pop() || id;
   const agent = db().prepare('SELECT * FROM agents WHERE lower(id) = lower(?)').get(id);
   if (!agent) return null;
@@ -1605,7 +1608,7 @@ export async function nudgeCooOnGoalPlanTerminal(goalRunId, opts = {}) {
 
   const goal = getGoalRun(id, row.owner_user_id) || serializeGoalRun(row);
   const owner = goal?.owner_user_id || row.owner_user_id;
-  const agentId = goal?.agent_id || row.agent_id || 'balserve';
+  const agentId = goal?.agent_id || row.agent_id || null;
   const agent = resolveAgentForGoal(owner, agentId);
   if (!agent) {
     console.warn('[goal-run] completion nudge: no agent', { id, owner, agentId });

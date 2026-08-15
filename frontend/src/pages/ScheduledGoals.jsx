@@ -15,7 +15,7 @@ function statusClass(status) {
 const EMPTY_FORM = {
   title: '',
   prompt: '',
-  agent_id: 'balserve',
+  agent_id: '',
   cadence: 'daily',
   time_local: '09:00',
   ends_at: '',
@@ -29,6 +29,11 @@ const COO_PLAN_TIP =
 function agentIsCoo(agents, agentId) {
   const hit = (agents || []).find((a) => a.id === agentId);
   return !!hit?.is_coo;
+}
+
+function cooAgentId(agents) {
+  const hit = (agents || []).find((a) => a.is_coo);
+  return hit?.id || (agents && agents[0] && agents[0].id) || '';
 }
 
 function endsToDateInput(endsAt) {
@@ -85,7 +90,11 @@ function ScheduledGoalsPanel() {
 
   useEffect(() => {
     load();
-    api.agentsList().then((list) => setAgents(Array.isArray(list) ? list : list?.agents || [])).catch(() => {});
+    api.agentsList().then((list) => {
+      const next = Array.isArray(list) ? list : list?.agents || [];
+      setAgents(next);
+      setForm((f) => (f.agent_id ? f : { ...f, agent_id: cooAgentId(next) }));
+    }).catch(() => {});
   }, []);
 
   const filtered = goals.filter((g) => (filter === 'all' ? true : g.status === filter));
@@ -127,7 +136,7 @@ function ScheduledGoalsPanel() {
   };
 
   const resetForm = (keepAgentId) => {
-    setForm({ ...EMPTY_FORM, agent_id: keepAgentId || form.agent_id || 'balserve' });
+    setForm({ ...EMPTY_FORM, agent_id: keepAgentId || form.agent_id || cooAgentId(agents) });
     setEditingId(null);
     setShowForm(false);
     setDraftPlan(null);
@@ -137,7 +146,7 @@ function ScheduledGoalsPanel() {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ ...EMPTY_FORM, agent_id: form.agent_id || 'balserve' });
+    setForm({ ...EMPTY_FORM, agent_id: form.agent_id || cooAgentId(agents) });
     setDraftPlan(null);
     setPlanFeedback('');
     setAmendPlanOpen(false);
@@ -151,7 +160,7 @@ function ScheduledGoalsPanel() {
     setForm({
       title: g.title || '',
       prompt: g.prompt || '',
-      agent_id: g.agent_id || 'balserve',
+      agent_id: g.agent_id || cooAgentId(agents),
       cadence: g.cadence || 'daily',
       time_local: g.time_local || (g.cadence === 'hourly' ? '00:00' : '09:00'),
       ends_at: endsToDateInput(g.ends_at),
@@ -339,9 +348,15 @@ function ScheduledGoalsPanel() {
         >
           {showForm && !editingId ? 'Cancel' : 'New scheduled goal'}
         </button>
-        <Link to="/agents/balserve/chat" className="btn-secondary" style={{ textDecoration: 'none' }}>
-          Ask COO
-        </Link>
+        {cooAgentId(agents) ? (
+          <Link
+            to={`/agents/${encodeURIComponent(cooAgentId(agents))}/chat`}
+            className="btn-secondary"
+            style={{ textDecoration: 'none' }}
+          >
+            Ask COO
+          </Link>
+        ) : null}
         <select value={filter} onChange={(ev) => setFilter(ev.target.value)} aria-label="Filter status">
           <option value="all">All</option>
           <option value="active">Active</option>
@@ -422,7 +437,7 @@ function ScheduledGoalsPanel() {
                   }
                 }}
               >
-                {agents.length === 0 && <option value="balserve">COO (BalServe)</option>}
+                {agents.length === 0 && <option value="">Loading employees…</option>}
                 {agents.map((a) => (
                   <option key={a.id} value={a.id}>
                     {a.name || a.id}

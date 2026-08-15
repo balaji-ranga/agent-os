@@ -107,16 +107,18 @@ function isExpired(endsAt, now = new Date()) {
 }
 
 function resolveAgentForOwner(ownerUserId, agentId) {
-  const id = String(agentId || '').trim().toLowerCase();
-  if (!id) throw Object.assign(new Error('agent_id required'), { status: 400 });
-  let agent = db().prepare('SELECT * FROM agents WHERE lower(id) = ?').get(id);
-  if (!agent && id.includes('--')) {
-    agent = db().prepare('SELECT * FROM agents WHERE lower(id) = ?').get(id.split('--').pop());
-  }
-  if (!agent && (id === 'coo' || id === 'balserve')) {
+  const raw = String(agentId || '').trim();
+  const id = raw.toLowerCase();
+  let agent = null;
+  if (!id || id === 'coo') {
     agent = db().prepare('SELECT * FROM agents WHERE is_coo = 1 LIMIT 1').get();
+  } else {
+    agent = db().prepare('SELECT * FROM agents WHERE lower(id) = ?').get(id);
+    if (!agent && id.includes('--')) {
+      agent = db().prepare('SELECT * FROM agents WHERE lower(id) = ?').get(id.split('--').pop());
+    }
   }
-  if (!agent) throw Object.assign(new Error(`Unknown agent: ${agentId}`), { status: 400 });
+  if (!agent) throw Object.assign(new Error(raw ? `Unknown agent: ${agentId}` : 'agent_id required'), { status: 400 });
   const entitled = db().prepare(
     `SELECT 1 AS ok FROM user_agents WHERE user_id = ? AND agent_id = ? AND enabled = 1`
   ).get(ownerUserId, agent.id);
@@ -275,7 +277,7 @@ export async function createScheduledGoal(ownerUserId, input = {}) {
   ensureScheduledGoalPlanCols();
   const prompt = String(input.prompt || input.goal || input.message || '').trim();
   if (!prompt) throw Object.assign(new Error('prompt is required'), { status: 400 });
-  const agent = resolveAgentForOwner(ownerUserId, input.agent_id || input.agentId || input.agent || 'coo');
+  const agent = resolveAgentForOwner(ownerUserId, input.agent_id || input.agentId || input.agent);
   const cadence = normalizeCadence(input.cadence || 'daily');
   let weekday = input.weekday != null ? Number(input.weekday) : null;
   if (cadence === 'weekly') {
