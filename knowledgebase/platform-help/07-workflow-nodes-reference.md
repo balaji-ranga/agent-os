@@ -249,6 +249,20 @@ Upload/approve scripts under **Custom scripts**.
 
 ---
 
+## Web Scrape (`web_scrape`)
+
+**Purpose:** Crawl an HTTPS website or domain (Crawlee sidecar) and optionally filter pages by search phrases.
+
+**Key attributes:** `render` auto\|http\|playwright; `maxPages` (default 25, cap 200); `maxDepth`; same-origin; include/exclude globs; `respectRobotsTxt`; node timeout.
+
+| Inputs | Outputs |
+|--------|---------|
+| `startUrl`, `phrases`, optional `cookie` | `ok`, `text`, `matches`, `pages`, `stats`, `result` |
+
+Instagram.com with empty Cookie uses vault **`INSTAGRAM_SESSIONID`** when set. Logged-in Chrome still uses Browser Session. Help **[44-web-scrape.md](./44-web-scrape.md)**.
+
+---
+
 ## Content Tool (`tool`)
 
 **Purpose:** Invoke a registered Agent OS content tool by exact name.
@@ -334,3 +348,4 @@ Stop listen from run UI when needed.
 4. **API → Agent:** Agent prompt `Summarize: {{api-1.body}}`.
 5. **MCP tool → Brain:** Brain `userMessage` from MCP `text` or `result`.
 6. **Connector → Brain:** Brain summarizes `{{connector-1.text}}` after a GitHub/Gmail action.
+7. **Web Scrape → Brain:** bind Brain `userMessage` from `{{scrape-1.text}}` (or `matches`) after a domain crawl.

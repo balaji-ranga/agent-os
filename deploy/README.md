@@ -18,6 +18,7 @@ Works with **Docker Compose** and **Podman Compose** on CentOS/RHEL, Ubuntu (Hos
 | `meta-graph-mcp` | Optional | internal | Platform Meta Graph MCP for Facebook/IG (`optional-meta-graph-mcp`) |
 | `social-research-mcp` | Optional | internal | Social Research MCP (`optional-social-research-mcp`) |
 | `instaloader-sidecar` | Optional | internal | Self-hosted Instaloader client (`optional-social-research-mcp`). Still calls instagram.com (HTTP 429 = Instagram, not a SaaS Instaconnect). |
+| `web-scrape-mcp` | Optional | internal | Crawlee web scrape MCP + workflow Web Scrape node (`optional-web-scrape-mcp`) |
 | `opensearch` | Required | internal `:9200` only | Document meta + RAG search (per-user + platform indices) |
 | `opensearch-dashboards` | Required | internal `:5601` only | Admin Dashboards via `/opensearch/` BFF |
 | `openconnector` | Optional | internal | Real OpenConnector runtime, `:3000` (`optional-openconnector`) |
@@ -134,13 +135,13 @@ docker compose exec openclaw node deploy/scripts/verify-openclaw-parity.js
 
 Ensure `TOOLS_BASE_URL=http://127.0.0.1:3001` in `.env` (see `.env.example`) so backend tool self-invoke does not use public HTTPS. For VPS **IP whitelists** (A2A, desktop package, browser worker, IBKR bridge webhooks), see **[VPS client IP overlay](#vps-client-ip-overlay-a2a-ip-policy)** (`COMPOSE_FILE` includes `docker-compose.vps-client-ip.yml`). Central UI: **Settings → IP Whitelists** (`knowledgebase/platform-help/33-ip-whitelists.md`). **Browser Session package** (local worker zip) is built into the backend image from ackend/local-browser-worker/ (headed + persistent profile defaults). Package token inventory: **Settings → Tokens management** (`/settings/tokens`, `34-tokens-management.md`). API vault: **Settings → API Keys**.
 
-## Platform MCPs (Brave Search + Meta Graph + Business Core CRM/ERP + Social Research)
+## Platform MCPs (Brave Search + Meta Graph + Business Core CRM/ERP + Social Research + Web Scrape)
 
 `deploy/scripts/up.sh` and `vps-deploy-latest.sh` call **`scripts/ensure-platform-mcps.sh`** (skip with `SKIP_PLATFORM_MCPS=1`):
 
-1. Ensures `BRAVE_MCP_URL` / `META_GRAPH_MCP_URL` / `BUSINESS_CORE_MCP_URL` / `SOCIAL_RESEARCH_MCP_URL` / `INSTALOADER_URL` in `deploy/.env`.
-2. Builds/starts Compose profiles **`optional-brave-mcp`**, **`optional-meta-graph-mcp`**, **`optional-business-core-mcp`**, and **`optional-social-research-mcp`**.
-3. Seeds registry rows **`mcp-brave-search`**, **`mcp-meta-graph`**, **`mcp-flolah-crm`**, **`mcp-flolah-erp`**, **`mcp-social-research`** (`is_platform=1`) and default Meta OAuth config for **Connectors → MCPs**.
+1. Ensures `BRAVE_MCP_URL` / `META_GRAPH_MCP_URL` / `BUSINESS_CORE_MCP_URL` / `SOCIAL_RESEARCH_MCP_URL` / `INSTALOADER_URL` / `WEB_SCRAPE_MCP_URL` in `deploy/.env`.
+2. Builds/starts Compose profiles **`optional-brave-mcp`**, **`optional-meta-graph-mcp`**, **`optional-business-core-mcp`**, **`optional-social-research-mcp`**, and **`optional-web-scrape-mcp`**.
+3. Seeds registry rows **`mcp-brave-search`**, **`mcp-meta-graph`**, **`mcp-flolah-crm`**, **`mcp-flolah-erp`**, **`mcp-social-research`**, **`mcp-web-scrape`** (`is_platform=1`) and default Meta OAuth config for **Connectors → MCPs**.
 
 Business Core MCP proxies owner-scoped `crm_*` / `erp_*` content tools (`TOOLS_API_KEY` + `X-Ceo-User-Id`). Prefab **Maker/Checker** AI employees are provisioned when Profile selects Twenty/ERPNext — not when MCP starts. ERPNext multi-tenant isolation: `flolah_company` masters + native `company` transactions; agents inherit CEO company scope. Multi-phase O2C uses durable **agent goal plans** (`agent_goal_*` async ack + new agr per create; scheduled **goal_run_plan** fire = new agr each tick; multiphase `agent_workflow_trigger` may upgrade; platform advances on async workflow terminal; **once-only completion chat nudge** + notify/watch correlate **agr + title**; Digest **2** + `/goal-plans`). Docs: `knowledgebase/platform-help/32-business-core-crm-erp.md`, **28**, **38**, `deploy/business-core/README.md`.
 

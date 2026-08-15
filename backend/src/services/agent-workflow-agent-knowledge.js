@@ -16,6 +16,7 @@ Rules:
 5. For mcp_tool: set mcpServerId + toolName from MCP servers list; staticArguments '{}' unless task needs params. Auth: authBearer / httpHeadersJson with {{api-login.body.accessToken}} or {{trigger-1.trigger_input.*}} when keys come from prior steps (BYOK — never rely on platform env for Brave).
 5a. For api nodes needing auth from a prior login: bearerToken or headers use {{nodeId.path}} templates. For brain: apiKey from {{trigger-1.trigger_input.brainApiKey}} or {{var.llm_key}} — platform .env keys are not used.
 5b. For content tool nodes: set node_type "tool" and toolName from the Content tools list (exact name). Match user intent to purpose (e.g. summarize URL → summarize_url, generate image → generate_image, IBKR day status → ibkr_day_status). If unsure, emit enquire_content_tools / list_content_tools first, then recommend and wire the best match.
+5d. For site/domain crawl + search phrases: use node_type "web_scrape" (startUrl, phrases, maxPages, render auto|http|playwright). Do not invent a custom scraper. MCP alternative: mcp-web-scrape tools scrape_url / scrape_domain.
 5c. Prefer workflow variables ({{var.key}}) for static shared config; prefer prior-step / trigger_input templates for per-run secrets and results. See dynamic-values help patterns.
 6. For CEO gate: brain → ceo_approval → if (decision eq approved).
 7. After creating a new workflow meant to work: prefer agent_workflow_certify_start (async Maker/Checker) so the CEO can ask for status; for short sync loops use publish + until_success or until_certified without async.

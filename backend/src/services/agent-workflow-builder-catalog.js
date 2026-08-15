@@ -20,6 +20,8 @@ const NODE_PURPOSE = {
   custom_script: 'Runs an approved Python/JS script in a sandbox (customScriptId).',
   masterdata: 'Query this CEO master-data tables (CSV) or RAG over uploaded documents. Owner is always the workflow owner — never spoof.',
   filesystem: 'List/stat/read/move files under WORKFLOW_FS_ROOTS. Prefer schedule trigger to poll a folder instead of a separate file-poller service.',
+  web_scrape:
+    'Crawl an HTTPS site/domain (Crawlee sidecar) with optional search phrases. Caps pages/depth, robots.txt, same-origin. Prefer this over chaining summarize_url. Logged-in Chrome still uses browse_*.',
   parallel: 'Fans out to multiple branches concurrently.',
   merge: 'Joins parallel branches before continuing.',
   ceo_approval: 'Pauses for CEO approve/reject; outputs decision (approved/rejected).',
@@ -175,7 +177,7 @@ export function tryCatalogQueryResponse(message) {
   const contentToolsHit = tryContentToolsQueryResponse(t);
   if (contentToolsHit) return contentToolsHit;
 
-  const typeMatch = t.match(/\b(trigger|agent|brain|tool|mcp_tool|mcp_listen|sse_listen|sub_workflow|email|api|externalAgent|custom_script|masterdata|parallel|merge|ceo_approval|if|while)\b/i);
+  const typeMatch = t.match(/\b(trigger|agent|brain|tool|mcp_tool|mcp_listen|sse_listen|sub_workflow|email|api|externalAgent|custom_script|masterdata|filesystem|web_scrape|parallel|merge|ceo_approval|if|while)\b/i);
   const asksCatalog =
     /(?:what|explain|describe|how\s+(?:do|does)|tell\s+me\s+about).*(?:node|nodes|step|steps|catalog|attribute|config|task_config)/i.test(t) ||
     /(?:node|nodes)\s+(?:types?|catalog|reference)/i.test(t) ||

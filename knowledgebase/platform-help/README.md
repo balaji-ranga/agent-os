@@ -39,7 +39,7 @@
 | [41-video-content-studio.md](./41-video-content-studio.md) | **Video content studio** — apply industry **Video content** or Balaji demo (`companion_packs: video_content`); Phase 1 storyboard + cast portraits; Phase 2 S4 (`flow_browser` serial one scene at a time / `replicate_api`, ≤8s/scene) + S5 FFmpeg → `video_generated`; Desktop Local Chrome/CDP sign-in for Flow |
 | [42-social-research-business-discovery.md](./42-social-research-business-discovery.md) | **Social Researcher** + **Business Discovery** (Discover → Research → Track → Act; COO Generate draft vs BD **Save & schedule** + Act `handoff`; Social Research MCP; Places API (New) + vault **GOOGLE_PLACES_BYOK**; Instaloader + **INSTAGRAM_SESSIONID**; X hydrate / **X_API_BYOK**; Knowledge `discovered_opportunities`; CRM Kanban on Act) |
 | [31-mcp-connectors-oauth.md](./31-mcp-connectors-oauth.md) | **Connectors → MCPs** OAuth: Facebook / Meta Graph, CEO App ID override, other OAuth MCPs; OpenConnector BYOA → **16** + OPENCONNECTOR-WEBHOOKS |
-| [32-business-core-crm-erp.md](./32-business-core-crm-erp.md) | **Business Core** — Twenty/ERPNext, prefab Maker/Checker, **`crm-*`/`erp-*` workspace templates**, MCPs, `/work` embed |
+| [32-business-core-crm-erp.md](./32-business-core-crm-erp.md) | **Business Core** — Twenty/ERPNext, prefab Maker/Checker, **`crm-*`/`erp-*` workspace templates**, MCPs, `/work` embed, **Twenty 5-workspace self-hosted cap** |
 | [33-ip-whitelists.md](./33-ip-whitelists.md) | **IP Whitelists** — Settings central firewall for IBKR bridge, Workflow download, A2A, Browser Session worker (shared store with federated UIs) |
 | [34-tokens-management.md](./34-tokens-management.md) | **Tokens management** — list/revoke external package tokens (desktop, IBKR bridge, Browser Session) |
 | [35-update-company-details.md](./35-update-company-details.md) | **Update Company Details** — avatar menu edits to Knowledge `company_memory` |
@@ -49,6 +49,7 @@
 | [39-erpnext-help-tier-a.md](./39-erpnext-help-tier-a.md) | **ERPNext SME** — sales cycle, draft/submit, Maker A/B vs Checker, Flolah `erp_*`; live books → COO / ERP agents |
 | [40-twenty-crm-help-tier-a.md](./40-twenty-crm-help-tier-a.md) | **Twenty CRM SME** — People/Companies/Opportunities, stages, intake/dedup, high-risk Checker; live pipeline → COO / CRM agents |
 | [43-admin-agentsystem-recovery.md](./43-admin-agentsystem-recovery.md) | **Admin** — AgentSystem recovery (OTP 30-min privileged session, drain queues, restart gateway, repair config/workspaces, gateway crons) |
+| [44-web-scrape.md](./44-web-scrape.md) | **Web Scrape** workflow node + Crawlee MCP sidecar (`scrape_url` / `scrape_domain`, phrase filter, Playwright opt-in) |
 
 **Video Tours (UI):** User menu → **Help → Video Tours** (/video-tours) — playlist of short CEO tours (script/captions now; mp4 when exported). Not ingested as RAG docs.
 

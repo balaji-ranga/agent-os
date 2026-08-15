@@ -235,6 +235,25 @@ export function FilesystemNode({ id, data }) {
   );
 }
 
+export function WebScrapeNode({ id, data }) {
+  const cfg = data.taskConfig || {};
+  const url =
+    data.inputBindings?.find((b) => b.id === 'startUrl')?.value || cfg.startUrl || cfg.url || '';
+  const phrases = data.inputBindings?.find((b) => b.id === 'phrases')?.value || cfg.phrases || '';
+  const sub = url
+    ? `${String(url).slice(0, 28)}${phrases ? ' · phrases' : ''}`
+    : `${cfg.render || 'auto'} · max ${cfg.maxPages || 25}`;
+  return (
+    <NodeShell
+      nodeId={id}
+      color="#c2410c"
+      icon="🕸"
+      title={data.label || 'Web Scrape'}
+      subtitle={String(sub).slice(0, 42)}
+    />
+  );
+}
+
 export function ParallelNode({ id, data }) {
   return (
     <NodeShell nodeId={id} color="#ea580c" icon="⑂" title={data.label || 'Parallel'} subtitle="Run branches concurrently" />
@@ -363,6 +382,7 @@ export const workflowNodeTypes = {
   custom_script: CustomScriptNode,
   masterdata: MasterDataNode,
   filesystem: FilesystemNode,
+  web_scrape: WebScrapeNode,
   parallel: ParallelNode,
   merge: MergeNode,
   ceo_approval: CeoApprovalNode,
@@ -389,6 +409,7 @@ export const PALETTE_ITEMS = [
   { type: 'custom_script', label: 'Custom Script', color: '#b45309', desc: 'Run approved LangGraph / Python / JS in sandbox' },
   { type: 'masterdata', label: 'Master Data', color: '#0f766e', desc: 'Query CEO tables (CSV) or RAG over uploaded documents' },
   { type: 'filesystem', label: 'Filesystem', color: '#57534e', desc: 'List/stat/read/move files (use with schedule to poll a folder)' },
+  { type: 'web_scrape', label: 'Web Scrape', color: '#c2410c', desc: 'Crawl a site/domain with optional search phrases (Crawlee)' },
   { type: 'tool', label: 'Content Tool', color: '#9333ea', desc: 'Invoke a content tool' },
   { type: 'mcp_tool', label: 'MCP', color: '#0ea5e9', desc: 'Call MCP tool, prompt, or resource' },
   { type: 'mcp_listen', label: 'SSE Listen', color: '#0284c7', desc: 'Long-running SSE stream — dispatches downstream on each event' },
@@ -410,7 +431,7 @@ export function defaultNodeData(type, extra = {}) {
   if (type === 'tool') {
     data = { ...data, toolName: '', toolPayload: {} };
   }
-  if (type === 'email' || type === 'brain' || type === 'ceo_approval' || type === 'mcp_tool' || type === 'mcp_listen' || type === 'sse_listen' || type === 'sub_workflow' || type === 'externalAgent' || type === 'custom_script' || type === 'masterdata' || type === 'filesystem' || type === 'connector' || type === 'elevenlabs' || type === 'speech_stt' || type === 'speech_tts' || type === 'model3d' || type === 'api') {
+  if (type === 'email' || type === 'brain' || type === 'ceo_approval' || type === 'mcp_tool' || type === 'mcp_listen' || type === 'sse_listen' || type === 'sub_workflow' || type === 'externalAgent' || type === 'custom_script' || type === 'masterdata' || type === 'filesystem' || type === 'web_scrape' || type === 'connector' || type === 'elevenlabs' || type === 'speech_stt' || type === 'speech_tts' || type === 'model3d' || type === 'api') {
     data = { ...data, inputBindings: data.inputBindings || [], outputs: data.outputs || [], taskConfig: data.taskConfig || {} };
   }
   if (type === 'filesystem') {
@@ -420,6 +441,18 @@ export function defaultNodeData(type, extra = {}) {
       glob: '*',
       destination: '',
       maxBytes: 65536,
+      ...(data.taskConfig || {}),
+    };
+  }
+  if (type === 'web_scrape') {
+    data.taskConfig = {
+      render: 'auto',
+      maxPages: 25,
+      maxDepth: 2,
+      sameOriginOnly: true,
+      respectRobotsTxt: true,
+      includeGlobs: '',
+      excludeGlobs: '',
       ...(data.taskConfig || {}),
     };
   }

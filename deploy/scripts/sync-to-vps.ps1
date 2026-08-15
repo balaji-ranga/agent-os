@@ -40,7 +40,7 @@
 #   (API keys, bridge tokens, OAuth secrets scrubbed on Admin publish + zip; vault *Ref kept; zip export v2),
 #   validate-company-blueprint-export.mjs,
 #   complete-content-ops-pipeline,
-# ensure-platform-mcps.sh seeds mcp-brave-search + mcp-meta-graph + mcp-flolah-crm + mcp-flolah-erp + mcp-social-research (is_platform=1),
+# ensure-platform-mcps.sh seeds mcp-brave-search + mcp-meta-graph + mcp-flolah-crm + mcp-flolah-erp + mcp-social-research + mcp-web-scrape (is_platform=1),
 # Business Core prefab Maker/Checker agents when Profile CRM=twenty / ERP=erpnext,
 # SEED_CONTENT_MEDIA_OWNER (optional) post-deploy seeds publish+comments workflows for that CEO,
 # Brave agent tool brave_web_search (backend BRAVE_API_KEY + vault BRAVE_SEARCH_BYOK),
@@ -349,6 +349,9 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\seed-business-core-mcp.js" `
     "$Repo\backend\scripts\seed-social-research-mcp.js" `
     "$Repo\backend\scripts\seed-social-research-agents.js" `
+    "$Repo\backend\scripts\seed-web-scrape-mcp.js" `
+    "$Repo\backend\scripts\seed-web-scrape-instagram-workflow.js" `
+    "$Repo\backend\scripts\test-web-scrape-instagram-workflow.js" `
     "$Repo\backend\scripts\vps-test-social-research.mjs" `
     "$Repo\backend\scripts\e2e-tampines-discover.mjs" `
     "$Repo\backend\scripts\test-places-parse-text.mjs" `
@@ -374,6 +377,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\republish-content-ops-blueprint.js" `
     "$Repo\backend\scripts\validate-company-blueprint-export.mjs" `
     "$Repo\backend\scripts\bootstrap-content-publish-phase01.js" `
+    "$Repo\backend\scripts\bootstrap-education-demo-ceo.js" `
     "$Repo\backend\scripts\e2e-content-publish-social-li.js" `
     "$Repo\backend\scripts\create-content-media-ceo.mjs" `
     "$Repo\backend\scripts\seed-balaji-brave-byok-workflow.js" `
@@ -435,12 +439,18 @@ if ($Services -match "backend|openclaw") {
   scp @ssh "$Repo\tests\lib\ceo-session.js" "root@${HostIp}:$RemoteRoot/tests/lib/"
   scp @ssh -r "$Repo\scripts" "root@${HostIp}:$RemoteRoot/"
   Write-Host "==> Sync platform MCP tool sources (Brave + Meta Graph + Business Core + Social Research)"
-  ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/tools/brave-search-mcp-byok $RemoteRoot/tools/meta-graph-mcp $RemoteRoot/tools/business-core-mcp $RemoteRoot/tools/social-research-mcp $RemoteRoot/tools/instaloader-sidecar"
+  ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/tools/brave-search-mcp-byok $RemoteRoot/tools/meta-graph-mcp $RemoteRoot/tools/business-core-mcp $RemoteRoot/tools/social-research-mcp $RemoteRoot/tools/instaloader-sidecar $RemoteRoot/tools/web-scrape-mcp"
   scp @ssh "$Repo\tools\brave-search-mcp-byok\server.js" "root@${HostIp}:$RemoteRoot/tools/brave-search-mcp-byok/"
   scp @ssh "$Repo\tools\meta-graph-mcp\server.js" "root@${HostIp}:$RemoteRoot/tools/meta-graph-mcp/"
   scp @ssh "$Repo\tools\business-core-mcp\server.js" "root@${HostIp}:$RemoteRoot/tools/business-core-mcp/"
   scp @ssh "$Repo\tools\social-research-mcp\server.js" "root@${HostIp}:$RemoteRoot/tools/social-research-mcp/"
   scp @ssh "$Repo\tools\instaloader-sidecar\server.py" "root@${HostIp}:$RemoteRoot/tools/instaloader-sidecar/"
+  scp @ssh `
+    "$Repo\tools\web-scrape-mcp\package.json" `
+    "$Repo\tools\web-scrape-mcp\server.js" `
+    "$Repo\tools\web-scrape-mcp\crawler.js" `
+    "$Repo\tools\web-scrape-mcp\ssrf.js" `
+    "root@${HostIp}:$RemoteRoot/tools/web-scrape-mcp/"
   scp @ssh -r "$Repo\openclaw-extensions\agent-os-content-tools" "root@${HostIp}:$RemoteRoot/openclaw-extensions/"
   scp @ssh -r "$Repo\openclaw-extensions\agent-os-bootstrap-watcher" "root@${HostIp}:$RemoteRoot/openclaw-extensions/"
   Write-Host "==> Sync workspace templates (shared ops + lean + Business Core CRM/ERP + specialty agents) + skills + platform-help KB"

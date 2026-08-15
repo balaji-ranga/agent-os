@@ -81,6 +81,8 @@ export const REQUIRED_GLOBAL_CONTENT_TOOLS = [
   'google_places_geocode',
   'google_places_nearby',
   'business_discover',
+  'web_scrape_url',
+  'web_scrape_domain',
 ];
 
 /** Client Browser Session / recipe tools (Agent OS content tools — not built-in browser). */
@@ -152,6 +154,8 @@ export const COO_CONTENT_TOOLS_ALLOW = [
   'browse_act',
   'browse_recipe_list',
   'browse_recipe_run',
+  'web_scrape_url',
+  'web_scrape_domain',
   'kanban_create_task',
   ...COO_CRM_ERP_READONLY_TOOLS,
 ];

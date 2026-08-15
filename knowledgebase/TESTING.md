@@ -374,6 +374,17 @@ docker compose --env-file .env exec -T -w /opt/agent-os/backend backend node scr
 
 Help **42**. Nearby Search FieldMask must not include `nextPageToken` (HTTP 400). After adding a Places key, start a **new chat**.
 
+## Web Scrape node + Crawlee sidecar (VPS)
+
+```bash
+cd /opt/agent-os/deploy
+docker compose --env-file .env --profile optional-web-scrape-mcp up -d --build web-scrape-mcp
+docker compose --env-file .env exec -T -w /opt/agent-os/backend backend node scripts/seed-web-scrape-mcp.js
+docker compose --env-file .env exec -T -w /opt/agent-os/backend backend node scripts/test-web-scrape-instagram-workflow.js
+```
+
+Help **44**. Instagram may return a login wall or HTTP 429 without vault `INSTAGRAM_SESSIONID`. The test still requires at least one visited page.
+
 ## Admin Tools Onboarding (VPS Docker)
 
 Requires `DOCKER_TOOLS_ENABLED=1`, compose overlay `docker-compose.docker-tools.yml`, and a privileged OTP session (authenticator if enrolled, otherwise email; 30 min, `ADMIN_PRIVILEGED_SESSION_TTL_MS`).

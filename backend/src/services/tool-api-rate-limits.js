@@ -55,6 +55,8 @@ export const TOOL_API_RATE_LIMIT_CATALOG = Object.freeze([
   { name: 'social_research_x', label: 'Social research X', kind: 'social', provider: 'X API' },
   { name: 'social_research_facebook', label: 'Social research Facebook', kind: 'social', provider: 'Facebook' },
   { name: 'social_research_profile', label: 'Social research profile', kind: 'social', provider: 'Social' },
+  { name: 'web_scrape_url', label: 'Web scrape URL', kind: 'scrape', provider: 'Crawlee sidecar' },
+  { name: 'web_scrape_domain', label: 'Web scrape domain', kind: 'scrape', provider: 'Crawlee sidecar' },
   { name: 'email_send', label: 'Send email', kind: 'email', provider: 'SMTP' },
   { name: 'connector_list_apps', label: 'Connectors — list apps', kind: 'connector', provider: 'OpenConnector' },
   { name: 'connector_search_actions', label: 'Connectors — search actions', kind: 'connector', provider: 'OpenConnector' },
@@ -78,6 +80,7 @@ const PREFIX_KIND = [
   ['google_places_', 'places', 'Google Places'],
   ['connector_', 'connector', 'OpenConnector'],
   ['job_', 'job', 'Job APIs'],
+  ['web_scrape_', 'scrape', 'Web scrape'],
 ];
 
 function parseIntOrNull(v) {

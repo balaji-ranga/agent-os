@@ -743,6 +743,68 @@ export const WORKFLOW_TASK_TYPES = {
       { id: 'maxBytes', label: 'Max read bytes', type: 'number', default: 65536 },
     ],
   },
+  web_scrape: {
+    type: 'web_scrape',
+    label: 'Web Scrape',
+    color: '#c2410c',
+    inputs: [
+      {
+        id: 'startUrl',
+        label: 'Start URL / domain',
+        required: true,
+        mode: 'static',
+        description: 'HTTPS URL or domain to crawl (same-origin by default)',
+      },
+      {
+        id: 'phrases',
+        label: 'Search phrases',
+        required: false,
+        mode: 'static',
+        description: 'Comma-separated or JSON array. Empty = extract pages within caps',
+      },
+      {
+        id: 'cookie',
+        label: 'Cookie header (optional)',
+        required: false,
+        mode: 'static',
+        description: 'Optional Cookie header. Instagram.com uses vault INSTAGRAM_SESSIONID when empty.',
+      },
+    ],
+    outputs: [
+      { id: 'ok', label: 'Success' },
+      { id: 'text', label: 'Summary text' },
+      { id: 'matches', label: 'Matching pages JSON' },
+      { id: 'pages', label: 'Visited pages JSON' },
+      { id: 'stats', label: 'Crawl stats JSON' },
+      { id: 'result', label: 'Full result JSON' },
+    ],
+    configFields: withNodeTimeoutConfigFields([
+      {
+        id: 'render',
+        label: 'Render',
+        type: 'select',
+        options: ['auto', 'http', 'playwright'],
+        default: 'auto',
+        description: 'auto = HTTP then Playwright if the page looks empty/login-walled',
+      },
+      { id: 'maxPages', label: 'Max pages', type: 'number', default: 25 },
+      { id: 'maxDepth', label: 'Max depth', type: 'number', default: 2 },
+      {
+        id: 'sameOriginOnly',
+        label: 'Same origin only',
+        type: 'boolean',
+        default: true,
+      },
+      {
+        id: 'respectRobotsTxt',
+        label: 'Respect robots.txt',
+        type: 'boolean',
+        default: true,
+      },
+      { id: 'includeGlobs', label: 'Include URL globs', type: 'text', placeholder: 'https://example.com/blog/*' },
+      { id: 'excludeGlobs', label: 'Exclude URL globs', type: 'text', placeholder: '*/tag/*' },
+    ]),
+  },
 };
 
 export function getTaskCatalog() {
@@ -779,7 +841,7 @@ export function defaultNodeConfig(type) {
     config.timeoutAction = config.timeoutAction || 'fail';
     config.defaultTimeoutOutput = config.defaultTimeoutOutput || '{}';
   }
-  if (type === 'brain' || type === 'mcp_tool' || type === 'custom_script' || type === 'masterdata') {
+  if (type === 'brain' || type === 'mcp_tool' || type === 'custom_script' || type === 'masterdata' || type === 'web_scrape') {
     config.timeoutMs = config.timeoutMs || DEFAULT_NODE_TIMEOUT_MS;
     config.timeoutAction = config.timeoutAction || 'fail';
     config.defaultTimeoutOutput = config.defaultTimeoutOutput || '{}';

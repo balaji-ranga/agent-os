@@ -1022,6 +1022,78 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
         </>
       )}
 
+      {node.type === 'web_scrape' && (
+        <>
+          <label className="wf-field">
+            Render
+            <select
+              value={data.taskConfig?.render || 'auto'}
+              onChange={(e) => set({ taskConfig: { ...data.taskConfig, render: e.target.value } })}
+            >
+              <option value="auto">Auto (HTTP, Playwright if thin)</option>
+              <option value="http">HTTP (Cheerio)</option>
+              <option value="playwright">Playwright (JS sites)</option>
+            </select>
+          </label>
+          <label className="wf-field">
+            Max pages
+            <input
+              type="number"
+              min={1}
+              max={200}
+              value={data.taskConfig?.maxPages ?? 25}
+              onChange={(e) => set({ taskConfig: { ...data.taskConfig, maxPages: Number(e.target.value) || 25 } })}
+            />
+          </label>
+          <label className="wf-field">
+            Max depth
+            <input
+              type="number"
+              min={0}
+              max={6}
+              value={data.taskConfig?.maxDepth ?? 2}
+              onChange={(e) => set({ taskConfig: { ...data.taskConfig, maxDepth: Number(e.target.value) || 0 } })}
+            />
+          </label>
+          <label className="wf-field" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <input
+              type="checkbox"
+              checked={data.taskConfig?.sameOriginOnly !== false}
+              onChange={(e) => set({ taskConfig: { ...data.taskConfig, sameOriginOnly: e.target.checked } })}
+            />
+            Same origin only
+          </label>
+          <label className="wf-field" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <input
+              type="checkbox"
+              checked={data.taskConfig?.respectRobotsTxt !== false}
+              onChange={(e) => set({ taskConfig: { ...data.taskConfig, respectRobotsTxt: e.target.checked } })}
+            />
+            Respect robots.txt
+          </label>
+          <label className="wf-field">
+            Include URL globs
+            <input
+              value={data.taskConfig?.includeGlobs || ''}
+              onChange={(e) => set({ taskConfig: { ...data.taskConfig, includeGlobs: e.target.value } })}
+              placeholder="https://example.com/blog/*"
+            />
+          </label>
+          <label className="wf-field">
+            Exclude URL globs
+            <input
+              value={data.taskConfig?.excludeGlobs || ''}
+              onChange={(e) => set({ taskConfig: { ...data.taskConfig, excludeGlobs: e.target.value } })}
+              placeholder="*/tag/*,*/login*"
+            />
+          </label>
+          <small>
+            Crawlee sidecar (HTTPS, robots.txt). Phrase filter is an Input. Instagram.com can use vault{' '}
+            <code>INSTAGRAM_SESSIONID</code> when Cookie is empty. Logged-in Chrome still uses Browser Session.
+          </small>
+        </>
+      )}
+
       {node.type === 'mcp_tool' && (
         <>
           <label className="wf-field">

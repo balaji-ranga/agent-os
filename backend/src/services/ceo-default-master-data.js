@@ -178,6 +178,10 @@ export const PLATFORM_HELP_DOCUMENTS = Object.freeze([
     filename: '43-admin-agentsystem-recovery.md',
     title: `${PLATFORM_HELP_TITLE_PREFIX}Admin AgentSystem Recovery`,
   },
+  {
+    filename: '44-web-scrape.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}Web Scrape`,
+  },
 ]);
 
 /** Resolve repo README.md (local: agent-os/README.md; Docker: /opt/agent-os/README.md). */

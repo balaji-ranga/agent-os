@@ -33,6 +33,7 @@ import {
 } from '../services/platform-feedback.js';
 import { saveInboundAttachment } from '../services/inbound-attachments.js';
 import socialResearchTools from './social-research-tools.js';
+import webScrapeTools from './web-scrape-tools.js';
 
 function sanitizeTenantId(value) {
   return String(value || '')
@@ -3879,5 +3880,6 @@ router.post('/video-assemble', optionalAuth, async (req, res) => {
 });
 
 router.use(socialResearchTools);
+router.use(webScrapeTools);
 
 export default router;

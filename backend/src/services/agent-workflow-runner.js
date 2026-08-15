@@ -20,6 +20,7 @@ import { invokeContentToolHttp } from './content-tool-http-invoke.js';
 import { resolveNodeInputs, resolveInputText, storeNodeOutput, renderPayloadTemplates } from './agent-workflow-io.js';
 import { executeEmailTask, executeApiTask, executeFilesystemTask } from './agent-workflow-tasks.js';
 import { executeElevenLabsTask } from './agent-workflow-elevenlabs.js';
+import { executeWebScrapeTask } from './agent-workflow-web-scrape.js';
 import { executeSpeechSttTask, executeSpeechTtsTask } from './agent-workflow-speech.js';
 import { executeAnalyzeImageTask } from './image-vision-tools.js';
 import { executeModel3dTask } from './agent-workflow-model3d.js';
@@ -570,6 +571,7 @@ const RESUMABLE_IN_PROGRESS_TYPES = new Set([
   'tool',
   'connector',
   'filesystem',
+  'web_scrape',
   'masterdata',
   'sub_workflow',
 ]);
@@ -1618,6 +1620,34 @@ async function executeNode(runId, nodeId, graph, context, def, runRow) {
         nodeLabel: node.data?.label || '3D Model',
         summary: (outputs.text || '').slice(0, 160),
         detail: { inputs: inputRecord.summary, outputs },
+      }),
+    });
+    return;
+  }
+
+  if (node.type === 'web_scrape') {
+    const inputRecord = buildStepInputRecord(node, graph, context);
+    const config = node.data?.taskConfig || node.data?.config || {};
+    const { timeoutMs } = resolveNodeTimeoutConfig(config);
+    await completeTimedNodeStep({
+      runId,
+      node,
+      nodeId,
+      def,
+      runRow,
+      context,
+      inputRecord,
+      work: () =>
+        executeWebScrapeTask(inputRecord.resolved, { ...config, timeoutMs }, {
+          ...context,
+          owner_user_id: runRow.owner_user_id,
+        }),
+      kanban: (outputs) => ({
+        nodeLabel: node.data?.label || 'Web Scrape',
+        summary: outputs.timed_out
+          ? `Web scrape timed out (${Math.round(timeoutMs / 1000)}s)`
+          : `Scrape ${outputs.ok ? 'ok' : 'failed'} · ${outputs.stats?.visited ?? 0} pages`,
+        detail: { inputs: inputRecord.summary, stats: outputs.stats },
       }),
     });
     return;

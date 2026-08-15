@@ -16,6 +16,7 @@ Catalog of Agent OS tools agents and workflows can call, for example:
 - Master Data (`master_data_list_tables`, row CRUD, `master_data_list_documents`, `master_data_rag`)
 - `learnings_summary`, `brain_history`, `content_tools_enquire`
 - **Browser Session:** `browse_session_status`, `browse_task_start`, `browse_task_status`, `browse_snapshot`, `browse_act`, `browse_recipe_list`, `browse_recipe_run` (see [22-browser-session-and-recipes](./22-browser-session-and-recipes.md)); specialists should use these — not the native `browser` tool in chat
+- **Web scrape:** `web_scrape_url` / `web_scrape_domain` (Crawlee sidecar; workflow **Web Scrape** node). See [44-web-scrape.md](./44-web-scrape.md)
 
 ### CEO actions
 

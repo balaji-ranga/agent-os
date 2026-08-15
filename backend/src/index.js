@@ -102,6 +102,7 @@ import { seedIbkrTradingToolsIfMissing } from './db/seed-ibkr-trading-tools.js';
 import { seedBrowserSessionToolsIfMissing, grantBrowserSessionToolsToAllAgents } from './db/seed-browser-session-tools.js';
 import { seedBraveSearchToolIfMissing, grantBraveSearchToolToDefaultAgents } from './db/seed-brave-search-tool.js';
 import { seedSocialResearchToolsIfMissing, grantSocialResearchToolsToAgents } from './db/seed-social-research-tools.js';
+import { seedWebScrapeToolsIfMissing } from './db/seed-web-scrape-tools.js';
 import { seedMarketDataToolsIfMissing } from './db/seed-market-data-tools.js';
 import { writeOpenClawToolsList } from './services/content-tools-meta.js';
 import {
@@ -331,6 +332,7 @@ try {
 }
 seedBraveSearchToolIfMissing();
 seedSocialResearchToolsIfMissing();
+seedWebScrapeToolsIfMissing();
 try {
   const socialGranted = grantSocialResearchToolsToAgents();
   if (socialGranted) {

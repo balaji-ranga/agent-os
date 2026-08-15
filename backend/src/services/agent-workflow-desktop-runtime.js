@@ -10,6 +10,7 @@ import { resolveNodeInputs, resolveInputText, storeNodeOutput, renderPayloadTemp
 import { getTaskTypeDef } from './agent-workflow-task-catalog.js';
 import { executeBrainTask } from './agent-workflow-brain.js';
 import { executeEmailTask, executeApiTask } from './agent-workflow-tasks.js';
+import { executeWebScrapeTask } from './agent-workflow-web-scrape.js';
 import { executeConnectorAction } from './openconnector.js';
 import { executeCustomScriptTask } from './custom-scripts.js';
 import { executeExternalAgentTask } from './agent-workflow-external-agent.js';
@@ -43,6 +44,7 @@ const REMOTE_NODE_TYPES = new Set([
   'custom_script',
   'masterdata',
   'externalAgent',
+  'web_scrape',
 ]);
 
 const UNSUPPORTED_DESKTOP = new Set([
@@ -387,6 +389,8 @@ async function runRemoteNodeWork(node, graph, context, inputRecord, meta) {
       return executeEmailTask(inputRecord.resolved, config, context);
     case 'api':
       return executeApiTask(inputRecord.resolved, config, context);
+    case 'web_scrape':
+      return executeWebScrapeTask(inputRecord.resolved, config, { ...context, owner_user_id: meta.ownerUserId });
     case 'tool': {
       const toolName = node.data?.toolName || node.data?.tool_name;
       if (!toolName) throw new Error('No tool selected');

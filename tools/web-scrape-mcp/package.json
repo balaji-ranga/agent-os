@@ -1,0 +1,16 @@
+{
+  "name": "web-scrape-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Generic HTTPS domain crawler MCP (Crawlee). Phrase filter, robots.txt, SSRF guards.",
+  "main": "server.js",
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "@crawlee/cheerio": "^3.13.8",
+    "@crawlee/memory-storage": "^3.13.8",
+    "@crawlee/playwright": "^3.13.8",
+    "crawlee": "^3.13.8",
+    "playwright": "^1.52.0"
+  }
+}
