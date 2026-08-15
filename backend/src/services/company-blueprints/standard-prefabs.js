@@ -345,6 +345,37 @@ export function getIbkrWorkflowManifest() {
   return loadJson('trading/ibkr-workflows-manifest.json');
 }
 
+/** Load one IBKR monthly workflow template from standard/trading/ (golden source). */
+export function loadIbkrWorkflowTemplate(templateKeyOrFile) {
+  const key = String(templateKeyOrFile || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\.json$/i, '');
+  const manifest = getIbkrWorkflowManifest();
+  const hit = (manifest?.workflows || []).find(
+    (w) =>
+      String(w.template_key || w.id || '').toLowerCase() === key ||
+      String(w.file || '')
+        .toLowerCase()
+        .replace(/\.json$/i, '') === key
+  );
+  if (!hit?.file) return null;
+  const tpl = loadJson(`trading/${hit.file}`);
+  if (tpl && hit?.status) tpl.status = hit.status;
+  return tpl;
+}
+
+export function listIbkrWorkflowTemplates() {
+  const manifest = getIbkrWorkflowManifest();
+  const out = [];
+  for (const w of manifest?.workflows || []) {
+    if (!w.file) continue;
+    const tpl = loadIbkrWorkflowTemplate(w.template_key || w.id);
+    if (tpl?.graph?.nodes?.length) out.push(tpl);
+  }
+  return out;
+}
+
 export function listStandardPrefabInventory() {
   const cat = getStandardCatalog();
   return {
@@ -364,7 +395,13 @@ export function listStandardPrefabInventory() {
       workflow_crm: !!loadMakerCheckerWorkflowTemplate('crm'),
       workflow_erp: !!loadMakerCheckerWorkflowTemplate('erp'),
     },
-    trading: getIbkrWorkflowManifest(),
+    trading: {
+      workflows: (getIbkrWorkflowManifest()?.workflows || []).map((w) => ({
+        id: w.id,
+        file: w.file || null,
+        seed_script: w.seed_script,
+      })),
+    },
     video_content: {
       agents: getVideoAgentDefs('ceo-preview').map((a) => ({
         id_pattern: a.id,

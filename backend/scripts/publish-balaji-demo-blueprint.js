@@ -11,7 +11,7 @@
  *   SET_DEFAULT=0
  *   DRY_RUN=1
  *   FROM_PACK_FILE=1  — publish existing packs/<id>.json (no live CEO snapshot)
- *   WRITE_STANDARD=1  — also refresh standard/video-content + CRM/ERP MC graphs from this snapshot (default)
+ *   WRITE_STANDARD=1  — also refresh standard/video-content + CRM/ERP MC + IBKR monthly graphs (default)
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
@@ -24,6 +24,7 @@ import {
   findResidualLiveSecrets,
   cloneAndSanitizeBlueprint,
 } from '../src/services/company-blueprints/index.js';
+import { writeStandardIbkrWorkflows } from './lib/write-standard-ibkr-workflows.js';
 
 const OWNER = process.env.SOURCE_OWNER_USER_ID || 'ceo-bala';
 const BLUEPRINT_ID = process.env.BLUEPRINT_ID || 'demo_balaji_ranganathan';
@@ -168,6 +169,13 @@ function writeStandardFromBalaji(payload) {
     if (!DRY) writeJson(path, next);
     report.workflows.push({ key, action: 'wrote', nodes: liveNodes });
   }
+
+  const ibkrReport = writeStandardIbkrWorkflows(payload, {
+    standardRoot: STANDARD_ROOT,
+    dry: DRY,
+    sourceLabel: `publish-balaji-demo:${OWNER}`,
+  });
+  report.workflows.push(...(ibkrReport.workflows || []));
 
   for (const [key, rel] of Object.entries(BC_WORKFLOW_FILES)) {
     const live = byKey.get(key);

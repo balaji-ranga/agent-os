@@ -1,49 +1,64 @@
 {
   "id": "ibkr-workflow-templates",
-  "name": "IBKR paper trading workflow templates",
-  "description": "Source-of-truth seeds for IBKR maker/checker day plan, position poller, and monthly trading W1-W5 (BUY quote band: entry_slip_pct_max / entry_discount_pct_max). Run after clean deploy when paper IBKR is required. Deep demo pack demo_balaji_ranganathan embeds the same graphs for Company setup apply.",
+  "name": "IBKR monthly trading workflow templates",
+  "description": "Golden IBKR monthly W1–W5 graphs in this folder (W1 per-order stop: risk_per_trade_pct default 5, blank = Maker decides). Paper day-plan / poller remain seed-only (deprecated). Deep demo pack demo_balaji_ranganathan overlays these graphs at Company setup Apply. Refresh: node scripts/export-standard-ibkr-workflows.js",
+  "industry_pack": "packs/trading_ops.json",
+  "related_agents_note": "Trading_ops industry pack supplies Market Analyst / Risk Monitor thin agents; IBKR graph agents use Brain + vault keys from seed scripts.",
   "workflows": [
     {
-      "id": "ibkr-maker-checker-paper",
-      "name": "IBKR day plan (maker/checker)",
-      "chat_phrase": "run ibkr day plan",
-      "seed_script": "backend/scripts/seed-ibkr-maker-checker-workflow.js",
+      "id": "monthly-trading-w1-post-close",
+      "template_key": "monthly-trading-w1-post-close",
+      "name": "Monthly trading W1 — Post-Close Plan",
+      "file": "workflow-w1-post-close.json",
+      "chat_phrase": "run monthly trading review",
+      "seed_script": "backend/scripts/seed-monthly-trading-w1-workflow.js",
       "docs": [
-        "knowledgebase/IBKR-TRADING-WORKFLOW.md",
-        "knowledgebase/IBKR-MONTHLY-WORKFLOWS.md"
+        "knowledgebase/IBKR-MONTHLY-WORKFLOWS.md",
+        "knowledgebase/platform-help/20-ibkr-monthly-trading.md"
       ]
     },
     {
-      "id": "ibkr-position-poller-paper",
-      "name": "IBKR position poller",
-      "seed_script": "backend/scripts/seed-ibkr-poller-workflow.js"
-    },
-    {
-      "id": "monthly-trading-w1-post-close",
-      "name": "Monthly trading W1",
-      "seed_script": "backend/scripts/seed-monthly-trading-w1-workflow.js"
-    },
-    {
-      "id": "monthly-trading-w2",
-      "name": "Monthly trading W2",
+      "id": "monthly-trading-w2-execute",
+      "template_key": "monthly-trading-w2-execute",
+      "name": "Monthly trading W2 — Execute",
+      "file": "workflow-w2-execute.json",
       "seed_script": "backend/scripts/seed-monthly-trading-w2-workflow.js"
     },
     {
-      "id": "monthly-trading-w3",
-      "name": "Monthly trading W3",
+      "id": "monthly-trading-w3-events",
+      "template_key": "monthly-trading-w3-events",
+      "name": "Monthly trading W3 — IBKR Events",
+      "file": "workflow-w3-events.json",
       "seed_script": "backend/scripts/seed-monthly-trading-w3-workflow.js"
     },
     {
       "id": "monthly-trading-w4",
       "name": "Monthly trading W4",
-      "seed_script": "backend/scripts/seed-monthly-trading-w4-workflow.js"
+      "seed_script": "backend/scripts/seed-monthly-trading-w4-workflow.js",
+      "note": "No frozen graph; seed-only if present."
     },
     {
-      "id": "monthly-trading-w5",
-      "name": "Monthly trading W5",
+      "id": "monthly-trading-w5-weekly",
+      "template_key": "monthly-trading-w5-weekly",
+      "name": "Monthly trading W5 — Weekly",
+      "file": "workflow-w5-weekly.json",
       "seed_script": "backend/scripts/seed-monthly-trading-w5-workflow.js"
+    },
+    {
+      "id": "ibkr-maker-checker-paper",
+      "name": "IBKR day plan (maker/checker) — deprecated",
+      "chat_phrase": "run ibkr day plan",
+      "seed_script": "backend/scripts/seed-ibkr-maker-checker-workflow.js",
+      "deprecated": true,
+      "docs": [
+        "knowledgebase/IBKR-TRADING-WORKFLOW.md"
+      ]
+    },
+    {
+      "id": "ibkr-position-poller-paper",
+      "name": "IBKR position poller — deprecated",
+      "seed_script": "backend/scripts/seed-ibkr-poller-workflow.js",
+      "deprecated": true
     }
-  ],
-  "industry_pack": "packs/trading_ops.json",
-  "related_agents_note": "Trading_ops industry pack supplies Market Analyst / Risk Monitor thin agents; IBKR graph agents use Brain + vault keys from seed scripts."
+  ]
 }

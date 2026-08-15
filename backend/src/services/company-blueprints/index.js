@@ -48,6 +48,8 @@ export {
   resolveWorkspaceTemplateBaseId,
   FALLBACK_PLATFORM_LEAN_AGENT_IDS,
   getIbkrWorkflowManifest,
+  loadIbkrWorkflowTemplate,
+  listIbkrWorkflowTemplates,
 } from './standard-prefabs.js';
 
 export {
@@ -56,3 +58,9 @@ export {
   blueprintWantsVideoContent,
   isVideoWorkflowTemplate,
 } from './video-content-pack.js';
+
+export {
+  overlayTestedIbkrWorkflows,
+  hydrateIbkrMonthlyWorkflows,
+  isIbkrMonthlyWorkflowTemplate,
+} from './ibkr-trading-pack.js';

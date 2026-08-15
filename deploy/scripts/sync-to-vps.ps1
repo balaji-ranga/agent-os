@@ -285,6 +285,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-market-data-tools.js" `
     "$Repo\backend\scripts\monthly-trading-seed-variables.js" `
     "$Repo\backend\scripts\seed-monthly-trading-w1-workflow.js" `
+    "$Repo\backend\scripts\export-standard-ibkr-workflows.js" `
     "$Repo\backend\scripts\seed-monthly-trading-w2-workflow.js" `
     "$Repo\backend\scripts\seed-monthly-trading-w3-workflow.js" `
     "$Repo\backend\scripts\seed-monthly-trading-w5-workflow.js" `
@@ -415,6 +416,7 @@ if ($Services -match "backend|openclaw") {
   scp @ssh `
     "$Repo\backend\scripts\lib\trading-strategy-prompt.js" `
     "$Repo\backend\scripts\lib\trading-checker-prompt.js" `
+    "$Repo\backend\scripts\lib\write-standard-ibkr-workflows.js" `
     "root@${HostIp}:$RemoteRoot/backend/scripts/lib/"
   scp @ssh `
     "$Repo\backend\scripts\samples\monthly-trading-hard-gates.js" `

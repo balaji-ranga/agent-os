@@ -11,6 +11,9 @@ node scripts/publish-brightbox-and-regenerate-standard.js
 # Balaji: demo pack + zip + standard/video-content graphs (keeps richer BrightBox CRM/ERP graphs)
 node scripts/publish-balaji-demo-blueprint.js
 
+# IBKR monthly W1–W5 golden graphs from the demo pack
+node scripts/export-standard-ibkr-workflows.js
+
 # Workspace MD (KEEP_BETTER=1): video from Balaji; CRM/ERP/lean compared vs source
 SOURCE_OWNER_USER_ID=ceo-bala node scripts/export-workspace-templates-from-owner.js
 SOURCE_OWNER_USER_ID=ceo-demo-brightbox-744921 node scripts/export-workspace-templates-from-owner.js
@@ -25,7 +28,8 @@ SOURCE_OWNER_USER_ID=ceo-demo-brightbox-744921 node scripts/export-workspace-tem
 | `business-core/agents-erp-erpnext.json` | ERP Maker A/B, Checker, P&L / Invoice / Project |
 | `business-core/workflow-crm-maker-checker.json` | Portable graph → `crm-mc-{ownerSlug}` |
 | `business-core/workflow-erp-maker-checker.json` | Portable graph → `erp-mc-{ownerSlug}` |
-| `trading/ibkr-workflows-manifest.json` | IBKR day-plan / poller / monthly W1–W5 seed scripts (includes `entry_discount_pct_max` BUY quote band) |
+| `trading/ibkr-workflows-manifest.json` | IBKR monthly W1–W5 golden graphs (`workflow-w*.json`; W1 `risk_per_trade_pct` default 5) + deprecated paper seed scripts |
+| `trading/README.md` | How to refresh IBKR graphs from the demo pack |
 | `video-content/` | Video studio agents + W-Reasoning / W-Media / W-Assembly graphs (`packs/video_content.json`) |
 
 ## Workspace templates (Business Core MD)
@@ -54,7 +58,8 @@ On Profile CRM/ERP ensure and Admin **Refresh default agents** (`include_busines
 | CRM prefabs + CRM MC workflow | Profile **CRM** = `twenty` or `erpnext` (or Company setup Apply). Same Admin refresh re-ensures packs + MC graphs when Profile already has CRM. |
 | ERP prefabs + ERP MC workflow | Profile **ERP** = `erpnext`. Same Admin refresh re-ensures when Profile has ERP. |
 | Industry agents / optional Day 1 graphs | Company setup / Operate Day 1 blueprints |
-| IBKR paper workflows | Run seed scripts listed in the trading manifest (not auto Profile). Deep demo pack `demo_balaji_ranganathan` also embeds W1–W5 + IBKR day-plan graphs (BUY quote band: `entry_slip_pct_max` / `entry_discount_pct_max`). |
+| IBKR paper workflows | Deprecated seed scripts in the trading manifest. Prefer monthly W1–W5. |
+| IBKR monthly W1–W5 | Golden graphs in `standard/trading/workflow-w*.json`. Company setup **demo_balaji_ranganathan** overlays them at Apply. Refresh: `node scripts/export-standard-ibkr-workflows.js`. W1 `risk_per_trade_pct` default 5 (blank = Maker decides). |
 | Video content agents + W-Reasoning / W-Media / W-Assembly | Company setup / Operate **`video_content`** or **`demo_balaji_ranganathan`** (`companion_packs: ["video_content"]`). Runtime overlay hydrates full graphs from `standard/video-content/` so every Apply gets the tested studio (Content Orchestrator id `video-orch-{ownerSlug}`). Workspaces from `openclaw-workspace-templates/video-*`. |
 
 ### Video content maintenance

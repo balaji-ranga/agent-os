@@ -10,6 +10,7 @@ import { getDb } from '../../db/schema.js';
 import { buildZipBuffer } from '../zip-store.js';
 import { sanitizeBlueprintSecrets, cloneAndSanitizeBlueprint, findResidualLiveSecrets } from './secret-sanitize.js';
 import { overlayTestedVideoStudio } from './video-content-pack.js';
+import { overlayTestedIbkrWorkflows } from './ibkr-trading-pack.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PACKS_DIR = join(__dirname, 'packs');
@@ -203,7 +204,7 @@ function allPacksMerged() {
   // Overlay tested video studio from golden standard JSON (graphs + agent id_patterns)
   // onto video_content and any pack that lists companion_packs: ["video_content"].
   for (const [id, bp] of [...map.entries()]) {
-    map.set(id, overlayTestedVideoStudio(bp, byId));
+    map.set(id, overlayTestedIbkrWorkflows(overlayTestedVideoStudio(bp, byId)));
   }
   return { map, industries };
 }

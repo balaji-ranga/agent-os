@@ -68,7 +68,8 @@
   },
   "trading": {
     "manifest": "trading/ibkr-workflows-manifest.json",
-    "note": "IBKR graphs remain constructed by seed services; manifest documents ids and redeploy commands so a clean VPS can restore paper day-plan + poller + monthly W1\u2013W5."
+    "readme": "trading/README.md",
+    "note": "Golden monthly W1–W5 graphs live in standard/trading/workflow-*.json (W1 risk_per_trade_pct default 5, blank = Maker decides). Refresh with node scripts/export-standard-ibkr-workflows.js. Paper day-plan/poller remain seed-only (deprecated). Deep pack demo_balaji_ranganathan overlays these graphs at Apply."
   },
   "video_content": {
     "pack": "packs/video_content.json",
@@ -85,6 +86,6 @@
   },
   "industry_blueprints": {
     "dir": "packs/",
-    "note": "Industry Day 0 org shapes (content_creator, video_content, trading_ops, general_ops, saas, talent, blank). Day 1 workflow graphs come from published deep blueprints or companion standard templates. trading_ops is thin (org only); IBKR/monthly graphs live in seed scripts + deep pack demo_balaji_ranganathan (BUY entry_discount_pct_max). demo_balaji_ranganathan companions video_content so Apply/Operate install the tested Content Orchestrator + W-Reasoning/Media/Assembly graphs."
+    "note": "Industry Day 0 org shapes (content_creator, video_content, trading_ops, general_ops, saas, talent, blank). Day 1 workflow graphs come from published deep blueprints or companion standard templates. trading_ops is org-only; IBKR/monthly graphs live in standard/trading/ + seed scripts + deep pack demo_balaji_ranganathan (W1 risk_per_trade_pct). demo_balaji_ranganathan companions video_content so Apply/Operate install the tested Content Orchestrator + W-Reasoning/Media/Assembly graphs."
   }
 }

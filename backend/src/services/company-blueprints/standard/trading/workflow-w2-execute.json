@@ -1,0 +1,338 @@
+{
+  "template_key": "monthly-trading-w2-execute",
+  "name": "Monthly Trading W2 — Execute (Laptop)",
+  "description": "Desktop/manual: fetch open plan → map Maker actions via local bridge /execute-day-plan → report status. No brain/ceo_approval/agent.",
+  "chat_trigger_phrase": "",
+  "trigger_modes": [
+    "manual"
+  ],
+  "schedule_cron": "",
+  "kind": "ibkr_monthly",
+  "status": "ready",
+  "maintained_in": "company-blueprints/standard/trading/workflow-w2-execute.json",
+  "variables": {
+    "min_market_cap_usd": 50000000000,
+    "universe_size_min": 50,
+    "universe_size_max": 100,
+    "index_symbol": "SPY",
+    "pct_from_52w_high_max": 15,
+    "entry_volume_mult": 1.5,
+    "require_above_sma50": true,
+    "require_above_sma200": true,
+    "daily_budget_usd": 1000,
+    "max_trades_per_day": 5,
+    "risk_per_trade_pct": 5,
+    "position_size_pct_min": 3,
+    "position_size_pct_max": 8,
+    "position_size_pct_hard_max": 15,
+    "partial_profit_pct_min": 15,
+    "partial_profit_pct_max": 25,
+    "cash_band_pct_min": 30,
+    "cash_band_pct_max": 80,
+    "monthly_target_pct_min": 3,
+    "monthly_target_pct_max": 5,
+    "monthly_drawdown_stop_pct": 4,
+    "discretionary_loss_sell_pct": 3,
+    "cron_post_close_fallback": "5 21 * * 1-5",
+    "cron_weekly_review": "0 10 * * 6",
+    "checker_max_loops": 3,
+    "brain_history_days": 14,
+    "order_history_days": 30,
+    "open_plans_limit": 14,
+    "screener_limit": 25,
+    "digest_email_to": "",
+    "local_bridge_base_url": "http://127.0.0.1:3010",
+    "local_bridge_token": "",
+    "entry_slip_pct_max": 0.25,
+    "entry_discount_pct_max": 3,
+    "screener_enrich_limit": 8
+  },
+  "graph": {
+    "nodes": [
+      {
+        "id": "trigger-1",
+        "type": "trigger",
+        "position": {
+          "x": 40,
+          "y": 200
+        },
+        "data": {
+          "label": "Manual / desktop execute",
+          "triggerModes": [
+            "manual"
+          ],
+          "chatPhrase": "",
+          "scheduleCron": "",
+          "inputSchema": null
+        }
+      },
+      {
+        "id": "tool-fetch-plan",
+        "type": "tool",
+        "position": {
+          "x": 240,
+          "y": 200
+        },
+        "data": {
+          "label": "Fetch trading plan (remote)",
+          "toolName": "trading_plan_fetch",
+          "toolPayload": {},
+          "inputBindings": [
+            {
+              "id": "payload",
+              "mode": "static",
+              "value": "{\"open\":true,\"limit\":5}"
+            }
+          ]
+        }
+      },
+      {
+        "id": "api-open-plans",
+        "type": "api",
+        "position": {
+          "x": 460,
+          "y": 200
+        },
+        "data": {
+          "label": "Open plans detail",
+          "inputBindings": [
+            {
+              "id": "url",
+              "mode": "static",
+              "value": "http://127.0.0.1:3001/api/ibkr-trading/day-plan?open=true&limit=5"
+            },
+            {
+              "id": "headers",
+              "mode": "static",
+              "value": "{\"Content-Type\":\"application/json\",\"x-internal-test\":\"1\"}"
+            }
+          ],
+          "taskConfig": {
+            "method": "GET",
+            "authType": "none",
+            "timeoutMs": 60000,
+            "executeOn": "server"
+          }
+        }
+      },
+      {
+        "id": "if-has-plan",
+        "type": "if",
+        "position": {
+          "x": 680,
+          "y": 200
+        },
+        "data": {
+          "label": "Has open plan?",
+          "taskConfig": {
+            "sourceNodeId": "api-open-plans",
+            "sourceOutputKey": "bodyText",
+            "operator": "contains",
+            "compareValue": "plan_date"
+          }
+        }
+      },
+      {
+        "id": "api-mark-executing",
+        "type": "api",
+        "position": {
+          "x": 900,
+          "y": 100
+        },
+        "data": {
+          "label": "Mark executing",
+          "inputBindings": [
+            {
+              "id": "url",
+              "mode": "static",
+              "value": "http://127.0.0.1:3001/api/ibkr-trading/day-plan/execution"
+            },
+            {
+              "id": "body",
+              "mode": "static",
+              "value": "{\"status\":\"executing\",\"execution_report\":{\"source\":\"w2\",\"phase\":\"start\"}}"
+            },
+            {
+              "id": "headers",
+              "mode": "static",
+              "value": "{\"Content-Type\":\"application/json\",\"x-internal-test\":\"1\"}"
+            }
+          ],
+          "taskConfig": {
+            "method": "POST",
+            "authType": "none",
+            "timeoutMs": 60000,
+            "executeOn": "server"
+          }
+        }
+      },
+      {
+        "id": "api-execute-plan",
+        "type": "api",
+        "position": {
+          "x": 1120,
+          "y": 100
+        },
+        "data": {
+          "label": "Local execute-day-plan (map actions → orders)",
+          "inputBindings": [
+            {
+              "id": "url",
+              "mode": "static",
+              "value": "{{var.local_bridge_base_url}}/execute-day-plan"
+            },
+            {
+              "id": "body",
+              "mode": "dynamic",
+              "sourceNodeId": "api-open-plans",
+              "sourceOutputKey": "bodyText"
+            },
+            {
+              "id": "headers",
+              "mode": "static",
+              "value": "{\"Content-Type\":\"application/json\",\"Authorization\":\"Bearer {{var.local_bridge_token}}\"}"
+            }
+          ],
+          "taskConfig": {
+            "method": "POST",
+            "authType": "none",
+            "timeoutMs": 180000
+          }
+        }
+      },
+      {
+        "id": "api-report",
+        "type": "api",
+        "position": {
+          "x": 1340,
+          "y": 100
+        },
+        "data": {
+          "label": "Report execution status",
+          "inputBindings": [
+            {
+              "id": "url",
+              "mode": "static",
+              "value": "http://127.0.0.1:3001/api/ibkr-trading/day-plan/execution"
+            },
+            {
+              "id": "body",
+              "mode": "static",
+              "value": "{\"status\":\"{{api-execute-plan.body.suggested_status}}\",\"plan_date\":\"{{api-execute-plan.body.plan_date}}\",\"execution_report\":{\"source\":\"w2\",\"phase\":\"execute-day-plan\",\"execute\":{{api-execute-plan.bodyText}}}}"
+            },
+            {
+              "id": "headers",
+              "mode": "static",
+              "value": "{\"Content-Type\":\"application/json\",\"x-internal-test\":\"1\"}"
+            }
+          ],
+          "taskConfig": {
+            "method": "POST",
+            "authType": "none",
+            "timeoutMs": 60000,
+            "executeOn": "server"
+          }
+        }
+      },
+      {
+        "id": "tool-notify",
+        "type": "tool",
+        "position": {
+          "x": 1560,
+          "y": 100
+        },
+        "data": {
+          "label": "Notify CEO (optional)",
+          "toolName": "notify_ceo",
+          "toolPayload": {
+            "title": "W2 execution reported",
+            "body": "Laptop execution workflow mapped plan actions and reported status.",
+            "link_url": "/workflows",
+            "source_key": "monthly-trading-w2"
+          },
+          "inputBindings": []
+        }
+      },
+      {
+        "id": "api-skip",
+        "type": "api",
+        "position": {
+          "x": 900,
+          "y": 320
+        },
+        "data": {
+          "label": "No open plan — noop log",
+          "inputBindings": [
+            {
+              "id": "url",
+              "mode": "static",
+              "value": "http://127.0.0.1:3001/api/ibkr-trading/day-plan?open=true&limit=1"
+            },
+            {
+              "id": "headers",
+              "mode": "static",
+              "value": "{\"Content-Type\":\"application/json\",\"x-internal-test\":\"1\"}"
+            }
+          ],
+          "taskConfig": {
+            "method": "GET",
+            "authType": "none",
+            "timeoutMs": 30000,
+            "executeOn": "server"
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "source": "trigger-1",
+        "target": "tool-fetch-plan"
+      },
+      {
+        "id": "e2",
+        "source": "tool-fetch-plan",
+        "target": "api-open-plans"
+      },
+      {
+        "id": "e3",
+        "source": "api-open-plans",
+        "target": "if-has-plan"
+      },
+      {
+        "id": "e4",
+        "source": "if-has-plan",
+        "target": "api-mark-executing",
+        "sourceHandle": "true"
+      },
+      {
+        "id": "e5",
+        "source": "if-has-plan",
+        "target": "api-skip",
+        "sourceHandle": "false"
+      },
+      {
+        "id": "e6",
+        "source": "api-mark-executing",
+        "target": "api-execute-plan"
+      },
+      {
+        "id": "e7",
+        "source": "api-execute-plan",
+        "target": "api-report"
+      },
+      {
+        "id": "e8",
+        "source": "api-report",
+        "target": "tool-notify"
+      }
+    ],
+    "viewport": {
+      "x": 0,
+      "y": 0,
+      "zoom": 0.55
+    }
+  },
+  "regenerated_from": "packs/demo_balaji_ranganathan.json",
+  "regenerated_at": "2026-08-15T14:41:27.657Z"
+}

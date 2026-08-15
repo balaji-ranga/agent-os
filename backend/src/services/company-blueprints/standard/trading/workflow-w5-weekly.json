@@ -1,0 +1,245 @@
+{
+  "template_key": "monthly-trading-w5-weekly",
+  "name": "Monthly Trading W5 — Weekly Review",
+  "description": "Saturday cron: journal stats + guardrail + analytics → email summary; monthly metrics section when day-of-month <= 7",
+  "chat_trigger_phrase": "",
+  "trigger_modes": [
+    "schedule",
+    "manual"
+  ],
+  "schedule_cron": "0 10 * * 6",
+  "kind": "ibkr_monthly",
+  "status": "ready",
+  "maintained_in": "company-blueprints/standard/trading/workflow-w5-weekly.json",
+  "variables": {
+    "min_market_cap_usd": 50000000000,
+    "universe_size_min": 50,
+    "universe_size_max": 100,
+    "index_symbol": "SPY",
+    "pct_from_52w_high_max": 15,
+    "entry_volume_mult": 1.5,
+    "require_above_sma50": true,
+    "require_above_sma200": true,
+    "daily_budget_usd": 1000,
+    "max_trades_per_day": 5,
+    "risk_per_trade_pct": 5,
+    "position_size_pct_min": 3,
+    "position_size_pct_max": 8,
+    "position_size_pct_hard_max": 15,
+    "partial_profit_pct_min": 15,
+    "partial_profit_pct_max": 25,
+    "cash_band_pct_min": 30,
+    "cash_band_pct_max": 80,
+    "monthly_target_pct_min": 3,
+    "monthly_target_pct_max": 5,
+    "monthly_drawdown_stop_pct": 4,
+    "discretionary_loss_sell_pct": 3,
+    "cron_post_close_fallback": "5 21 * * 1-5",
+    "cron_weekly_review": "0 10 * * 6",
+    "checker_max_loops": 3,
+    "brain_history_days": 14,
+    "order_history_days": 30,
+    "open_plans_limit": 14,
+    "screener_limit": 25,
+    "digest_email_to": "",
+    "local_bridge_base_url": "http://127.0.0.1:3010",
+    "local_bridge_token": "",
+    "entry_slip_pct_max": 0.25,
+    "entry_discount_pct_max": 3,
+    "screener_enrich_limit": 8
+  },
+  "graph": {
+    "nodes": [
+      {
+        "id": "trigger-1",
+        "type": "trigger",
+        "position": {
+          "x": 40,
+          "y": 180
+        },
+        "data": {
+          "label": "Saturday weekly review",
+          "triggerModes": [
+            "schedule",
+            "manual"
+          ],
+          "chatPhrase": "",
+          "scheduleCron": "0 10 * * 6",
+          "inputSchema": null
+        }
+      },
+      {
+        "id": "tool-journal",
+        "type": "tool",
+        "position": {
+          "x": 260,
+          "y": 180
+        },
+        "data": {
+          "label": "Journal stats",
+          "toolName": "trading_journal",
+          "toolPayload": {
+            "days": 7
+          },
+          "inputBindings": []
+        }
+      },
+      {
+        "id": "tool-guardrail",
+        "type": "tool",
+        "position": {
+          "x": 480,
+          "y": 180
+        },
+        "data": {
+          "label": "Monthly guardrail",
+          "toolName": "ibkr_monthly_guardrail",
+          "toolPayload": {
+            "drawdown_stop_pct": "{{var.monthly_drawdown_stop_pct}}"
+          },
+          "inputBindings": []
+        }
+      },
+      {
+        "id": "api-analytics",
+        "type": "api",
+        "position": {
+          "x": 700,
+          "y": 180
+        },
+        "data": {
+          "label": "Portfolio analytics",
+          "inputBindings": [
+            {
+              "id": "url",
+              "mode": "static",
+              "value": "http://127.0.0.1:3001/api/ibkr-trading/analytics/summary"
+            },
+            {
+              "id": "body",
+              "mode": "static",
+              "value": "{}"
+            },
+            {
+              "id": "headers",
+              "mode": "static",
+              "value": "{\"Content-Type\":\"application/json\",\"x-internal-test\":\"1\"}"
+            }
+          ],
+          "taskConfig": {
+            "method": "POST",
+            "authType": "none",
+            "timeoutMs": 90000
+          }
+        }
+      },
+      {
+        "id": "weekly-compose",
+        "type": "custom_script",
+        "position": {
+          "x": 920,
+          "y": 180
+        },
+        "data": {
+          "label": "Compose weekly (+ monthly if DOM<=7)",
+          "inputBindings": [
+            {
+              "id": "journal",
+              "mode": "dynamic",
+              "sourceNodeId": "tool-journal",
+              "sourceOutputKey": "text"
+            },
+            {
+              "id": "guardrail",
+              "mode": "dynamic",
+              "sourceNodeId": "tool-guardrail",
+              "sourceOutputKey": "text"
+            },
+            {
+              "id": "analytics",
+              "mode": "dynamic",
+              "sourceNodeId": "api-analytics",
+              "sourceOutputKey": "bodyText"
+            }
+          ],
+          "taskConfig": {
+            "customScriptId": "script-monthly-trading-weekly-digest",
+            "customScriptName": "Monthly Trading Weekly Digest"
+          }
+        }
+      },
+      {
+        "id": "email-weekly",
+        "type": "email",
+        "position": {
+          "x": 1140,
+          "y": 180
+        },
+        "data": {
+          "label": "Weekly summary email",
+          "inputBindings": [
+            {
+              "id": "to",
+              "mode": "static",
+              "value": "{{var.digest_email_to}}"
+            },
+            {
+              "id": "subject",
+              "mode": "static",
+              "value": "Monthly trading — weekly review"
+            },
+            {
+              "id": "body",
+              "mode": "dynamic",
+              "sourceNodeId": "weekly-compose",
+              "sourceOutputKey": "text"
+            }
+          ],
+          "taskConfig": {
+            "useEnvSmtp": true,
+            "smtpHost": "smtp-relay.brevo.com",
+            "smtpPort": 587,
+            "smtpSecure": false,
+            "smtpUser": "b1b650001@smtp-brevo.com",
+            "smtpPass": "",
+            "fromAddress": "admin@flolah.com"
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "source": "trigger-1",
+        "target": "tool-journal"
+      },
+      {
+        "id": "e2",
+        "source": "tool-journal",
+        "target": "tool-guardrail"
+      },
+      {
+        "id": "e3",
+        "source": "tool-guardrail",
+        "target": "api-analytics"
+      },
+      {
+        "id": "e4",
+        "source": "api-analytics",
+        "target": "weekly-compose"
+      },
+      {
+        "id": "e5",
+        "source": "weekly-compose",
+        "target": "email-weekly"
+      }
+    ],
+    "viewport": {
+      "x": 0,
+      "y": 0,
+      "zoom": 0.75
+    }
+  },
+  "regenerated_from": "packs/demo_balaji_ranganathan.json",
+  "regenerated_at": "2026-08-15T14:41:27.658Z"
+}

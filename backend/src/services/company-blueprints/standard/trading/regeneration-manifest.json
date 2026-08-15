@@ -1,0 +1,32 @@
+{
+  "source": "packs/demo_balaji_ranganathan.json",
+  "at": "2026-08-15T14:41:27.659Z",
+  "report": {
+    "workflows": [
+      {
+        "key": "monthly-trading-w1-post-close",
+        "action": "wrote",
+        "nodes": 22,
+        "file": "trading/workflow-w1-post-close.json"
+      },
+      {
+        "key": "monthly-trading-w2-execute",
+        "action": "wrote",
+        "nodes": 9,
+        "file": "trading/workflow-w2-execute.json"
+      },
+      {
+        "key": "monthly-trading-w3-events",
+        "action": "wrote",
+        "nodes": 17,
+        "file": "trading/workflow-w3-events.json"
+      },
+      {
+        "key": "monthly-trading-w5-weekly",
+        "action": "wrote",
+        "nodes": 6,
+        "file": "trading/workflow-w5-weekly.json"
+      }
+    ]
+  }
+}

@@ -551,6 +551,31 @@ async function main() {
     (demoChecker?.data?.inputBindings || []).find((b) => b.id === 'userMessage')?.value || ''
   );
   assert.ok(demoCheckerUser.includes('{{tool-screener.text}}'), 'demo pack Checker user message must include screener');
+
+  const { writeStandardIbkrWorkflows } = await import('./lib/write-standard-ibkr-workflows.js');
+  const dryIbkr = writeStandardIbkrWorkflows(demoPack, {
+    standardRoot: join(__dirname, '../src/services/company-blueprints/standard'),
+    dry: true,
+    sourceLabel: 'test-dry',
+  });
+  assert.ok(
+    dryIbkr.workflows.some((w) => w.key === 'monthly-trading-w1-post-close' && w.action === 'would_write'),
+    `W1 should export to standard/trading: ${JSON.stringify(dryIbkr)}`
+  );
+
+  const { loadIbkrWorkflowTemplate, listIbkrWorkflowTemplates } = await import(
+    '../src/services/company-blueprints/standard-prefabs.js'
+  );
+  const stdW1 = loadIbkrWorkflowTemplate('monthly-trading-w1-post-close');
+  assert.ok(stdW1?.graph?.nodes?.length, 'standard/trading W1 graph must exist');
+  assert.strictEqual(stdW1.variables?.risk_per_trade_pct, 5);
+  const stdMaker = (stdW1.graph.nodes || []).find((n) => n.id === 'maker-1');
+  assert.ok(String(stdMaker?.data?.taskConfig?.systemPrompt || '').includes('Per-order stop'));
+  const listed = listIbkrWorkflowTemplates();
+  assert.ok(
+    listed.some((w) => w.template_key === 'monthly-trading-w1-post-close'),
+    'listIbkrWorkflowTemplates includes W1'
+  );
   const demoIbkr = (demoPack.workflow_templates || []).find(
     (w) => w.template_key === 'ibkr-maker-checker-paper'
   );
