@@ -25,13 +25,13 @@ Runtime id pattern: `video-{reasoning|media|assembly}-{ownerSlug}`.
 - **Content Orchestrator** = only user-facing chat front door (initiate, review, feedback, finals).
 - Story / Scene / Prompt = **workflow nodes** only.
 
-## Seed (when script lands)
+## Seed
 
 ```bash
 node backend/scripts/seed-video-content-workflows.js
 ```
 
-Until the seed script exists, graphs remain the template source for Workflow Builder / install code.
+**Who gets it:** Company setup Apply for industry **Video content** *or* **Flolah demo (Balaji Ranganathan)** (`companion_packs: ["video_content"]`). Operate Day 1 uses the same `installVideoContentForOwner` path (canonical ids `video-reasoning-{ownerSlug}` etc.) — not a stub `bp-video-*` graph. Overlay hydrates graphs from this folder at `getBlueprint` time.
 
 ## Related
 

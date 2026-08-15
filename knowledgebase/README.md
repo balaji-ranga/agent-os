@@ -56,7 +56,7 @@ Documentation lives here so Cursor and humans can find it. **Root README.md** st
 | [VIDEO-TOURS-CEO-CURRICULUM.md](./VIDEO-TOURS-CEO-CURRICULUM.md) | <=12 CEO Video Tours playlist, production checklist |
 | [video-tours/](./video-tours/) | Local scripts, VTT, exported mp4 assets |
 | [CONTENT-CREATION-ORG-BLUEPRINT.md](./CONTENT-CREATION-ORG-BLUEPRINT.md) | Video content-studio org + agent/workflow map |
-| [VIDEO-CONTENT-GENERATION-PLAN.md](./VIDEO-CONTENT-GENERATION-PLAN.md) | **Plan:** `video_content` pack; S1–S5 (dual S4 flavours `flow_browser`/`replicate_api`, ≤8s/scene; S5 FFmpeg → `video_generated`) |
+| [VIDEO-CONTENT-GENERATION-PLAN.md](./VIDEO-CONTENT-GENERATION-PLAN.md) | **Shipped:** `video_content` pack; S1–S5; Balaji demo companions the tested studio |
 | [ONBOARDING-HELPER-PLAN.md](./ONBOARDING-HELPER-PLAN.md) | Onboarding Helper plan (UI + AgentSystem bridge) |
 | [platform-help/27-onboarding-helper.md](./platform-help/27-onboarding-helper.md) | CEO help: selective apply + E2E chat prompt recipes |
 | [platform-help/28-scheduled-goals.md](./platform-help/28-scheduled-goals.md) | CEO help: scheduled goals + durable multiphase **goal plans** (**Generate draft is COO-only**; other employees Save & schedule; BD Act Kanban handoff; Amend plan manually, async ack, new agr per create/fire, Digest `/goal-plans`) |

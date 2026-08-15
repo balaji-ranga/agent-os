@@ -46,10 +46,10 @@ function keepWorkflow(w) {
   ) {
     // keep deliberately named demos even if ids have suffixes
     if (
-      /^(erp-mc|crm-mc|ibkr-|monthly-trading|template-job|sample-job|summarize-inbound|avatar-|masterdata-rag|hacker-news|async-a2a-callback|demoemail|brave-byok)/.test(
+      /^(erp-mc|crm-mc|ibkr-|monthly-trading|template-job|sample-job|summarize-inbound|avatar-|masterdata-rag|hacker-news|async-a2a-callback|demoemail|brave-byok|video-reasoning|video-media|video-assembly)/.test(
         key
       ) ||
-      /ibkr-maker-checker|ibkr-position-poller|monthly-trading-w|template-job-applicant|sample-job-discovery|content-publish|crm-mc|erp-mc|masterdata-rag-brain-demo|hacker-news-connector-demo|wf-async-a2a-callback-demo|demoemail|wf-balaji-brave/.test(
+      /ibkr-maker-checker|ibkr-position-poller|monthly-trading-w|template-job-applicant|sample-job-discovery|content-publish|crm-mc|erp-mc|masterdata-rag-brain-demo|hacker-news-connector-demo|wf-async-a2a-callback-demo|demoemail|wf-balaji-brave|video-reasoning|video-media|video-assembly/.test(
         key
       )
     ) {
@@ -59,7 +59,7 @@ function keepWorkflow(w) {
   }
   return (
     /^(erp-mc|crm-mc)/.test(key) ||
-    /ibkr|monthly-trading|job-applicant|job-discovery|inbound-media|avatar-|masterdata-rag|hacker-news|a2a-callback-demo|brave-byok|demoemail/.test(
+    /ibkr|monthly-trading|job-applicant|job-discovery|inbound-media|avatar-|masterdata-rag|hacker-news|a2a-callback-demo|brave-byok|demoemail|video-reasoning|video-media|video-assembly/.test(
       key
     )
   );
@@ -106,11 +106,12 @@ payload.name = process.env.BLUEPRINT_NAME || `Flolah demo — ${company} (Balaji
 payload.label = payload.name;
 payload.description =
   process.env.BLUEPRINT_DESCRIPTION ||
-  'Demo company snapshot from Balaji Ranganathan: CRM/ERP Maker–Checker, trading/IBKR workflows, specialty agents (MarketWatcher, Vedic Astrology, Weather), goals, and connector stubs (no secrets). Use for clean redeploy demos and Company setup deep pack.';
+  'Demo company snapshot from Balaji Ranganathan: CRM/ERP Maker–Checker, trading/IBKR workflows, specialty agents (MarketWatcher, Vedic Astrology, Weather), tested video content studio (companion pack video_content), goals, and connector stubs (no secrets). Use for clean redeploy demos and Company setup deep pack.';
 payload.depth = 'deep';
 payload.source = 'system';
 payload.is_default = false;
 payload.aliases = ['balaji_demo', 'balaji_ranganathan_demo', 'flolah_demo_company', 'demo_company'];
+payload.companion_packs = [...new Set([...(payload.companion_packs || []), 'video_content'])];
 payload.source_owner_user_id = OWNER;
 payload.source_company_name = company;
 payload.demo = true;

@@ -1,6 +1,6 @@
 # Video content generation — implementation plan
 
-**Status:** Approved design (not shipped).  
+**Status:** Shipped (Phase 1 storyboard + Phase 2 S4/S5). Company setup / Operate install the tested studio from `standard/video-content/` (Balaji Ranganathan validation). Demo pack `demo_balaji_ranganathan` companions `video_content`.  
 **Product:** Flolah / Agent OS  
 **Related:** [CONTENT-CREATION-ORG-BLUEPRINT.md](./CONTENT-CREATION-ORG-BLUEPRINT.md), [platform-help/30-content-creator-ops.md](./platform-help/30-content-creator-ops.md) (social ops — separate pack)  
 **Source requirements:** CEO demo journey (Phase 1 storyboard → manual Google Flow; Phase 2 Veo → edit → QC → final)

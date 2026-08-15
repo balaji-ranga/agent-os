@@ -70,6 +70,7 @@
 ## After setup tips
 
 - **Scheduled goals** — ask the COO to schedule recurring work, or open **Management → Scheduled goals** ([28-scheduled-goals.md](./28-scheduled-goals.md)).
+- **Video content pack** — Company setup industry **Video content (shorts / animated / Veo)** (or the Balaji demo pack, which companions `video_content`) provisions **Content Orchestrator** and certified video workflows. Guide: [41-video-content-studio.md](./41-video-content-studio.md).
 - **Content creator pack** — Connect Facebook under **Connectors → MCPs**, then use **Company Operate** / operate workflows for production, publish, comments, and Ops Reporter rollup (**bell**, not email). Guide: [30-content-creator-ops.md](./30-content-creator-ops.md).
 - **Policies** — common guardrails apply across AI employees.
 - **API Keys** — fill `Platform_BYOK` if you chose OpenAI/OpenRouter.
@@ -84,7 +85,7 @@ Company setup state and apply are CEO tenant–scoped. Requires authenticated CE
 
 ## Demo company blueprints
 
-The system pack **Flolah demo (Balaji Ranganathan)** (`demo_balaji_ranganathan`) is a deep snapshot of **BalajiDemoCompany** for clean redeploys: CRM/ERP Maker-Checker agents, IBKR/monthly trading workflows, specialty agents, goals, and connector stubs (no secrets).
+The system pack **Flolah demo (Balaji Ranganathan)** (`demo_balaji_ranganathan`) is a deep snapshot of **BalajiDemoCompany** for clean redeploys: CRM/ERP Maker-Checker agents, IBKR/monthly trading workflows, specialty agents, **tested video content studio** (companion pack `video_content`: Content Orchestrator + **run video storyboard / media / assembly**), goals, and connector stubs (no secrets). Apply this demo (or industry **Video content**) so every CEO gets the same studio Balaji validated — graphs come from `standard/video-content/`, not a one-off VPS copy.
 
 - Pack: `backend/src/services/company-blueprints/packs/demo_balaji_ranganathan.json`
 - Export zip: `backend/src/services/company-blueprints/exports/demo_balaji_ranganathan.zip`

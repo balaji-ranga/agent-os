@@ -23,7 +23,7 @@ Social Facebook/LinkedIn posting remains the separate **content_creator** pack.
 
 ## CEO quick start
 
-1. Company setup → industry **Video content (shorts / animated / Veo)**, or ask an admin to run the video install for your account.
+1. Company setup → industry **Video content (shorts / animated / Veo)**, **or** apply **Flolah demo (Balaji Ranganathan)** (companions the same tested pack), or ask an admin to run the video install for your account. Re-apply extends the org; it does not wipe other employees.
 2. Open chat with **Content Orchestrator** (only front door — do **not** chat Story/Scene/Prompt agents for stories).
 3. Ask for a storyboard in plain language (e.g. Thenaliraman for kids, cinematic live-action). Orchestrator first checks **story status / RAG**; if a prior board is still **pending CEO approval**, it asks you to finish that Kanban card before starting a new run.
 4. Approve **CEO review: video cast** — confirms `character_id` → name mapping and **portraits** (generated or reused). Cast Summary includes portrait `/api/media/openclaw/…` lines so **Artifacts** can render faces (not WhatsApp-only `MEDIA:` paths).

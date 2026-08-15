@@ -49,3 +49,10 @@ export {
   FALLBACK_PLATFORM_LEAN_AGENT_IDS,
   getIbkrWorkflowManifest,
 } from './standard-prefabs.js';
+
+export {
+  overlayTestedVideoStudio,
+  hydrateVideoContentPack,
+  blueprintWantsVideoContent,
+  isVideoWorkflowTemplate,
+} from './video-content-pack.js';

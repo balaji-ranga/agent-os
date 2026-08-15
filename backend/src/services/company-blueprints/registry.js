@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 import { getDb } from '../../db/schema.js';
 import { buildZipBuffer } from '../zip-store.js';
 import { sanitizeBlueprintSecrets, cloneAndSanitizeBlueprint, findResidualLiveSecrets } from './secret-sanitize.js';
+import { overlayTestedVideoStudio } from './video-content-pack.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PACKS_DIR = join(__dirname, 'packs');
@@ -90,6 +91,8 @@ function normalizePack(raw, fallbacks = {}) {
     publish_quality: raw.publish_quality && typeof raw.publish_quality === 'object' ? raw.publish_quality : null,
     // Day 0+1 artefacts (from admin publish of a working company)
     workflow_templates: Array.isArray(raw.workflow_templates) ? raw.workflow_templates : [],
+    companion_packs: Array.isArray(raw.companion_packs) ? raw.companion_packs.map(String) : [],
+    standard_prefab: raw.standard_prefab && typeof raw.standard_prefab === 'object' ? raw.standard_prefab : null,
     goal_templates: Array.isArray(raw.goal_templates) ? raw.goal_templates : [],
     agents_md: Array.isArray(raw.agents_md) ? raw.agents_md : [],
     policy_text: typeof raw.policy_text === 'string' ? raw.policy_text : '',
@@ -196,6 +199,11 @@ function allPacksMerged() {
   const map = new Map(byId);
   for (const p of loadPublishedPacks()) {
     map.set(p.id, p); // published can override same id
+  }
+  // Overlay tested video studio from golden standard JSON (graphs + agent id_patterns)
+  // onto video_content and any pack that lists companion_packs: ["video_content"].
+  for (const [id, bp] of [...map.entries()]) {
+    map.set(id, overlayTestedVideoStudio(bp, byId));
   }
   return { map, industries };
 }

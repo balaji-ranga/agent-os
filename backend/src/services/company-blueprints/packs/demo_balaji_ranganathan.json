@@ -7962,13 +7962,16 @@
       "sop_documents": true
     }
   },
-  "description": "Demo company snapshot from Balaji Ranganathan: CRM/ERP Maker–Checker, trading/IBKR workflows, specialty agents (MarketWatcher, Vedic Astrology, Weather), goals, and connector stubs (no secrets). Use for clean redeploy demos and Company setup deep pack.",
+  "description": "Demo company snapshot from Balaji Ranganathan: CRM/ERP Maker–Checker, trading/IBKR workflows, specialty agents (MarketWatcher, Vedic Astrology, Weather), tested video content studio (Content Orchestrator + W-Reasoning/Media/Assembly via companion pack video_content), goals, and connector stubs (no secrets). Use for clean redeploy demos and Company setup deep pack.",
   "id": "demo_balaji_ranganathan",
   "industry": "demo_balaji_ranganathan",
   "name": "Flolah demo — BalajiDemoCompany (Balaji Ranganathan)",
   "label": "Flolah demo — BalajiDemoCompany (Balaji Ranganathan)",
   "source": "system",
   "is_default": false,
+  "companion_packs": [
+    "video_content"
+  ],
   "aliases": [
     "balaji_demo",
     "balaji_ranganathan_demo",

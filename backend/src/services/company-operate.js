@@ -36,6 +36,8 @@ import {
   applyBlueprintAgentsMd,
   applyBlueprintPolicyText,
 } from "./company-blueprint-publish.js";
+import { blueprintWantsVideoContent, isVideoWorkflowTemplate } from "./company-blueprints/video-content-pack.js";
+import { installVideoContentForOwner } from "./prefab-video-agents.js";
 
 const OPERATE_GATES = new Set([
   "pending",
@@ -1165,9 +1167,30 @@ export async function applyOperateDay1(ownerUserId) {
   let blueprintWorkflows = [];
   let blueprintGoals = [];
   let blueprintAgentsMd = [];
+  let videoContent = null;
   try {
-    if (bp?.workflow_templates?.length) {
-      blueprintWorkflows = installBlueprintWorkflowTemplates(ownerUserId, bp.workflow_templates, agents, {
+    if (blueprintWantsVideoContent(bp)) {
+      videoContent = await installVideoContentForOwner(ownerUserId, { includeStubWorkflows: false });
+      const wfResults = videoContent?.workflows?.results || [];
+      for (const w of wfResults) {
+        workflows.push({ ...w, source: "video_content_standard" });
+      }
+      console.info(
+        "[company-operate] day1 video_content owner=",
+        ownerUserId,
+        "agents=",
+        (videoContent?.agents || []).join(","),
+        "workflows=",
+        wfResults.length
+      );
+    }
+  } catch (e) {
+    console.warn("[company-operate] day1 video_content", e?.message || e);
+  }
+  try {
+    const genericTemplates = (bp?.workflow_templates || []).filter((t) => !isVideoWorkflowTemplate(t));
+    if (genericTemplates.length) {
+      blueprintWorkflows = installBlueprintWorkflowTemplates(ownerUserId, genericTemplates, agents, {
         id: ownerUserId,
         name: "company-operate-day1",
       });

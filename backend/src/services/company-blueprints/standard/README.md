@@ -47,7 +47,7 @@ On Profile CRM/ERP ensure and Admin **Refresh default agents** (`include_busines
 | ERP prefabs + ERP MC workflow | Profile **ERP** = `erpnext`. Same Admin refresh re-ensures when Profile has ERP. |
 | Industry agents / optional Day 1 graphs | Company setup / Operate Day 1 blueprints |
 | IBKR paper workflows | Run seed scripts listed in the trading manifest (not auto Profile). Deep demo pack `demo_balaji_ranganathan` also embeds W1–W5 + IBKR day-plan graphs (BUY quote band: `entry_slip_pct_max` / `entry_discount_pct_max`). |
-| Video content agents + W-Reasoning | Company setup / Operate `video_content`; workspaces from `openclaw-workspace-templates/video-*`; graphs from `standard/video-content/` |
+| Video content agents + W-Reasoning / W-Media / W-Assembly | Company setup / Operate **`video_content`** or **`demo_balaji_ranganathan`** (`companion_packs: ["video_content"]`). Runtime overlay hydrates full graphs from `standard/video-content/` so every Apply gets the tested studio (Content Orchestrator id `video-orch-{ownerSlug}`). Workspaces from `openclaw-workspace-templates/video-*`. |
 
 ### Video content maintenance
 
