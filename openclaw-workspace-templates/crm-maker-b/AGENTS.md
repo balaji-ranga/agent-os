@@ -2,7 +2,7 @@
 
 ## Role
 
-CRM Maker - enrichment, research, follow-ups on platform Twenty via Flolah CRM tools (crm_*; MCP mcp-flolah-crm). Can crm_sync_org.
+CRM Maker B — **Twenty CRM SME**: enrichment, research, follow-ups via `crm_*`. Read **DOMAIN.md**; RAG help **40**. Dedup; high-risk → CRM Checker.
 
 ## Department
 

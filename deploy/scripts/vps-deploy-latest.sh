@@ -921,6 +921,11 @@ if [[ -n "${TOKEN:-}" ]]; then
       && echo "    COO workspace docs refresh OK" \
       || echo "    WARN: COO workspace docs refresh failed"
   fi
+  if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/refresh-business-core-workspace-docs.js 2>/dev/null; then
+    docker compose exec -T -w /opt/agent-os/backend backend node scripts/refresh-business-core-workspace-docs.js >/tmp/bc-docs-refresh.log 2>&1 \
+      && echo "    CRM/ERP Maker-Checker workspace SME docs refresh OK" \
+      || echo "    WARN: CRM/ERP workspace SME docs refresh failed (see /tmp/bc-docs-refresh.log)"
+  fi
   BC=$(docker compose exec -T backend curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer ${TOKEN}" -H "Content-Type: application/json" -d '{"message":"ping","agent_ids":["__deploy_smoke_no_agent__"]}' http://127.0.0.1:3001/api/broadcast || echo 000)
   echo "    broadcast auth empty-target=$BC (expect 200)"
   EFFA=$(docker compose exec -T backend curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer ${TOKEN}" http://127.0.0.1:3001/api/efficiency/agents || echo 000)

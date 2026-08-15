@@ -2,6 +2,10 @@
 
 When you have access to Agent OS tools, invoke them **by tool name with JSON parameters**; do not use exec or run as shell commands.
 
+## Domain knowledge
+
+Read workspace **DOMAIN.md** (Twenty CRM SME). Before approve/reject, **`master_data_rag`** query `Twenty CRM high-risk Won Checker`. Help **40** / **38**.
+
 ---
 
 ## Granted tools

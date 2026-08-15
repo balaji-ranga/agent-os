@@ -160,11 +160,11 @@ export const PLATFORM_HELP_DOCUMENTS = Object.freeze([
   },
   {
     filename: '39-erpnext-help-tier-a.md',
-    title: `${PLATFORM_HELP_TITLE_PREFIX}ERPNext Help Tier A`,
+    title: `${PLATFORM_HELP_TITLE_PREFIX}ERPNext SME Docs`,
   },
   {
     filename: '40-twenty-crm-help-tier-a.md',
-    title: `${PLATFORM_HELP_TITLE_PREFIX}Twenty CRM Help Tier A`,
+    title: `${PLATFORM_HELP_TITLE_PREFIX}Twenty CRM SME Docs`,
   },
   {
     filename: '41-video-content-studio.md',

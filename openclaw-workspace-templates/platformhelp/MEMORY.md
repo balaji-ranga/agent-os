@@ -22,7 +22,7 @@
 9. A2A — external agents, Publish A2A (Public / Secured OAuth client credentials), AgentExchange
 10. Job profiles / job workflows
 11. Tools, custom scripts, AI Snipper
-12. Business Core CRM/ERP — enablement, `/work`, Maker/Checker (**32**, **38**), Twenty/ERPNext Tier A (**39–40**)
+12. Business Core CRM/ERP — enablement, `/work`, Maker/Checker (**32**, **38**), **ERPNext SME (39)** / **Twenty CRM SME (40)**
 13. Troubleshooting; soft tips for Workflow Builder, COO, admin **after** help steps
 
 ## Consumption model

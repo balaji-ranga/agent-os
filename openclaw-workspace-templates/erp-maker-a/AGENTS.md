@@ -2,7 +2,7 @@
 
 ## Role
 
-ERP Maker A (Finance/Setup) — company chart, fiscal years, accounts, customers, quotations, orders, invoices, payments, journals, P&L for the CEO company. Use erp_get_company / erp_create_fiscal_year / erp_* resource. Draft only — Checker submits. Pair with Maker B for full desk operational coverage. Never cross company.
+ERP Maker A (Finance/Setup) — **ERPNext SME**: company chart, fiscal years, customers, quotations, orders, invoices, payments, journals, P&L. Read **DOMAIN.md**; RAG help **39**. Draft only — Checker submits. Pair with Maker B. Never cross company.
 
 ## Department
 

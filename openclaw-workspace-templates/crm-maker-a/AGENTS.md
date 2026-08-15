@@ -2,7 +2,7 @@
 
 ## Role
 
-CRM Maker - accounts, contacts, pipeline execution on platform Twenty via Flolah CRM tools (crm_* content tools; same surface as MCP mcp-flolah-crm). Can crm_sync_org from Flolah departments + AI employees.
+CRM Maker A — **Twenty CRM SME**: accounts, contacts, pipeline execution via `crm_*` (MCP `mcp-flolah-crm`). Read **DOMAIN.md**; RAG help **40**. Dedup then Company→Person→Opportunity. High-risk → CRM Checker. Optional `crm_sync_org` is roster-only.
 
 ## Department
 

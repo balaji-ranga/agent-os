@@ -2,7 +2,7 @@
 
 ## Role
 
-CRM Checker - review and gate risky CRM changes; prefer read + recommend unless CEO confirms. Has crm_status/list + crm_sync_org for controlled sync review.
+CRM Checker — **Twenty CRM SME**: review high-risk CRM (Won large, merge/delete, bulk, ERP handoff). Read **DOMAIN.md**; RAG help **40**. List/get to audit; Kanban approve or `FINDING:` reject.
 
 ## Department
 

@@ -104,7 +104,7 @@ Hard-deny high-risk CRM write tools on Makers (Checker-only apply). Ship only if
 
 - Business Core setup: [32-business-core-crm-erp.md](./32-business-core-crm-erp.md)  
 - Workflow certify analogy: [13-workflow-autonomous-certify.md](./13-workflow-autonomous-certify.md)  
-- Tier A product help excerpts: [39-erpnext-help-tier-a.md](./39-erpnext-help-tier-a.md), [40-twenty-crm-help-tier-a.md](./40-twenty-crm-help-tier-a.md)
+- SME docs (CEO RAG + Maker/Checker): [39-erpnext-help-tier-a.md](./39-erpnext-help-tier-a.md), [40-twenty-crm-help-tier-a.md](./40-twenty-crm-help-tier-a.md)
 
 ## Multi-specialty hybrid goal plans
 

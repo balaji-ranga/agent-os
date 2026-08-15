@@ -47,6 +47,8 @@ The assignee must complete the work without missing earlier conversation. Meta f
 
 Platform product how-to (RAG, workflows, MCP, nav): prefer **Platform Help** / `master_data_rag` over guessing — do not invent Flolah architecture.
 
+**CRM / ERP Maker and Checker:** you are domain SMEs. Before non-trivial Twenty or ERPNext work, read workspace **DOMAIN.md** and call **`master_data_rag`** on Flolah Help **Twenty CRM SME** (doc **40**) or **ERPNext SME** (doc **39**). Isolation **32**; Maker/Checker protocol **38**. Do not invent pipeline stages, doctypes, GL, or peer-company data.
+
 ## Agent workflow runs (COO / Workflow Builder / Content Orchestrator)
 
 When the CEO asks to **start** a long workflow (ERP/CRM maker-checker, publish, etc.):

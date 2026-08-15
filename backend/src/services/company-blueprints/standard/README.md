@@ -30,7 +30,7 @@ SOURCE_OWNER_USER_ID=ceo-demo-brightbox-744921 node scripts/export-workspace-tem
 
 ## Workspace templates (Business Core MD)
 
-Role-stable folders under **`openclaw-workspace-templates/`** (not per-tenant ids). Runtime ids still use owner slug (`crm-s1-{slug}`, `erp-ap-{slug}`, …); `resolveWorkspaceTemplateBaseId()` maps them:
+Role-stable folders under **`openclaw-workspace-templates/`** (not per-tenant ids). Runtime ids still use owner slug (`crm-s1-{slug}`, `erp-ap-{slug}`, …); `resolveWorkspaceTemplateBaseId()` maps them. **DOMAIN.md** (Twenty / ERPNext SME) is copied from `_shared/TWENTY-CRM-SME.md` / `_shared/ERPNEXT-SME.md` on template push. Full playbooks: platform-help **39** / **40**.
 
 | Template folder | Prefab prefix / keys |
 |-----------------|----------------------|

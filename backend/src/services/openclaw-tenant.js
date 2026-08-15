@@ -118,6 +118,7 @@ function copyTemplateWorkspace(baseId, destDir) {
     const to = join(destDir, name);
     if (!existsSync(to)) cpSync(from, to, { recursive: true });
   }
+  copySharedDomainKnowledge(baseId, destDir);
 }
 
 /** Keep standard-agent skill docs in sync. Never overwrite custom-agent identity with balserve. */
@@ -136,6 +137,7 @@ export function syncEssentialWorkspaceDocs(baseId, destDir) {
       /* non-fatal — agent still has TOOLS.md guidance */
     }
   }
+  copySharedDomainKnowledge(baseId, destDir);
 
   // No agent-specific template ⇒ custom/onboarded agent. Do not sync from balserve fallback.
   if (!hasOwnTemplate) return;
@@ -224,7 +226,36 @@ export function forcePushTemplateDocs(baseId, destDir, { forceIdentity = true } 
     cpSync(sharedOps, join(destDir, 'AGENT-OS-OPS.md'), { recursive: true });
     copied.push('AGENT-OS-OPS.md');
   }
+  if (copySharedDomainKnowledge(baseId, destDir)) copied.push('DOMAIN.md');
   return { template: ownTpl, copied };
+}
+
+/**
+ * CRM/ERP Maker-Checker (and ERP specialists): platform-owned Twenty / ERPNext SME card.
+ * Copied as DOMAIN.md so agents have vendor+Flolah decision rules without bloating SOUL.
+ * @returns {boolean} true when DOMAIN.md was written
+ */
+export function copySharedDomainKnowledge(baseId, destDir) {
+  const id = String(baseId || '').toLowerCase();
+  let srcName = null;
+  if (id.startsWith('crm-')) srcName = 'TWENTY-CRM-SME.md';
+  else if (id.startsWith('erp-')) srcName = 'ERPNEXT-SME.md';
+  if (!srcName) return false;
+  const from = join(REPO_TEMPLATES, '_shared', srcName);
+  if (!existsSync(from) || !destDir) return false;
+  try {
+    mkdirSync(destDir, { recursive: true });
+    cpSync(from, join(destDir, 'DOMAIN.md'), { recursive: true });
+    return true;
+  } catch (e) {
+    console.warn(
+      '[openclaw-tenant] DOMAIN.md copy failed template=%s dest=%s err=%s',
+      baseId,
+      destDir,
+      e?.message || e
+    );
+    return false;
+  }
 }
 
 const GOAL_PRIORITY_TOOLS = [

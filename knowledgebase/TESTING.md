@@ -17,7 +17,7 @@ node scripts/test-platform-help-chat.js
 
 Also run from repo root: `node scripts/ensure-all-agent-workspaces.js` and `node scripts/apply-openclaw-agents-config.js`, then restart the gateway.
 
-Help corpus: `knowledgebase/platform-help/` → Master Data docs titled `Flolah Help — …`. Agent id: `platformhelp`.
+Help corpus: `knowledgebase/platform-help/` → Master Data docs titled `Flolah Help — …` (incl. **ERPNext SME 39** / **Twenty CRM SME 40**). Agent id: `platformhelp`. CRM/ERP Maker-Checker also get workspace **DOMAIN.md** from `_shared/TWENTY-CRM-SME.md` / `_shared/ERPNEXT-SME.md`.
 
 ## Tool API rate limits (per-user call caps)
 

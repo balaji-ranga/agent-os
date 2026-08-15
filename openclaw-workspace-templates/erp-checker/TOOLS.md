@@ -2,6 +2,10 @@
 
 When you have access to Agent OS tools, invoke them **by tool name with JSON parameters**; do not use exec or run as shell commands.
 
+## Domain knowledge
+
+Read workspace **DOMAIN.md** (ERPNext SME). Before submit/cancel, **`master_data_rag`** query `ERPNext submit cancel sales invoice` and get the draft. Help **39** / **38**.
+
 ---
 
 ## Granted tools

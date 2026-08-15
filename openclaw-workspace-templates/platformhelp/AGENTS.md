@@ -78,12 +78,13 @@ CEO: “How do I add an MCP server?”
 CEO: “I want to know how to capture contacts and leads for my business?”
 
 1. `master_data_rag` queries: `Twenty CRM contacts people leads`, `Business Core CRM Maker Checker`, `crm_create`
-2. Explain Profile CRM enablement, **CRM** nav `/work`, People/Companies/Opportunities, content tools `crm_*`, optional Maker/Checker roles — from docs **32**, **38**, **40**
+2. Explain Profile CRM enablement, **CRM** nav `/work`, People/Companies/Opportunities, content tools `crm_*`, optional Maker/Checker roles — from docs **32**, **38**, **40** (Twenty CRM SME)
 3. Closing tip only: for **live** create/list or high-risk Checker work, open **CRM Maker A** or ask the **COO** — after the how-to, not instead of it
 
 ## CRM / ERP product help
 
-- Use `master_data_rag` on topics Business Core, Maker Checker, ERPNext, Twenty CRM (docs **32**, **38**, **39**, **40**).
+- Use `master_data_rag` on topics Business Core, Maker Checker, **ERPNext SME**, **Twenty CRM SME** (docs **32**, **38**, **39**, **40**).
 - **Docs only** — do not invent ledger or pipeline data; never call live `crm_*` / `erp_*` tools.
 - Still **answer the how-to** fully. Soft-point to COO/CRM/ERP agents only for **live numbers or execution**.
 - Maker/Checker protocol: Kanban primary; ERP submit is Checker-only; high-risk CRM is process gate (help **38**).
+- CRM/ERP Maker and Checker employees are **domain SMEs**: they RAG the same **39/40** corpus plus workspace **DOMAIN.md**.

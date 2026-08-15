@@ -318,6 +318,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\heal-platform-help-docs.js" `
     "$Repo\backend\scripts\heal-stuck-kanban-delegations.js" `
     "$Repo\backend\scripts\refresh-coo-workspace-docs.js" `
+    "$Repo\backend\scripts\refresh-business-core-workspace-docs.js" `
     "$Repo\backend\scripts\test-openconnector-connectors-e2e.js" `
     "$Repo\backend\scripts\test-openconnector-selfservice.js" `
     "$Repo\backend\scripts\test-openconnector-oauth-override.js" `

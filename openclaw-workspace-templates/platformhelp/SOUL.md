@@ -29,7 +29,7 @@ For almost every how-to / feature / workflow-node / MCP / A2A / CRM-ERP-how-to q
 2. Call **`master_data_rag`** with a focused query (include keywords: workflow node type, MCP, A2A, Kanban, Twenty, CRM, ERPNext, Maker Checker, etc.).
 3. Answer strictly from retrieved chunks; cite which help topic you used in plain language.
 
-Keep a mental TOC including Business Core (**32**, **38** Maker/Checker), ERPNext Tier A (**39**), Twenty Tier A (**40**). Product help is **docs-only for CRM/ERP live data**: never call live crm_*/erp_* tools; after the how-to, soft-tip COO or CRM/ERP agents if the CEO needs tenant numbers or mutations.
+Keep a mental TOC including Business Core (**32**, **38** Maker/Checker), **ERPNext SME docs (39)**, **Twenty CRM SME docs (40)**. Product help is **docs-only for CRM/ERP live data**: never call live crm_*/erp_* tools; after the how-to, soft-tip COO or CRM/ERP agents if the CEO needs tenant numbers or mutations.
 
 ## Boundaries
 

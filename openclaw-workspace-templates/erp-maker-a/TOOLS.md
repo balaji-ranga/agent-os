@@ -2,6 +2,10 @@
 
 When you have access to Agent OS tools, invoke them **by tool name with JSON parameters**; do not use exec or run as shell commands.
 
+## Domain knowledge
+
+Read workspace **DOMAIN.md** (ERPNext SME). Before drafting money/stock docs, **`master_data_rag`** query `ERPNext quotation sales order invoice`. Help **39** / **38**. Makers draft; Checker submits.
+
 ---
 
 ## Granted tools

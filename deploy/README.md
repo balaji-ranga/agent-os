@@ -422,7 +422,7 @@ All proxied under `/api` (rebuild backend + frontend images after upgrade):
 `sync-to-vps.ps1` syncs **full build contexts**: `frontend/src` + package files, `backend/src` + key scripts (incl. `seed-platform-help-agent.js`, `_smoke-scheduled-goals.mjs`, `reupload-platform-help-docs.js`), `deploy/*` (**including `vps-verify-scheduled-goals.sh`**, `ensure-cron-env.sh`, `deploy/static/flolah-home`) + compose (`SCHEDULED_GOALS_CRON`), OpenClaw templates (COO scheduled-goal tools), and `knowledgebase/platform-help/` (**28** scheduled goals, **29** company setup) — then `vps-deploy-latest.sh` rebuilds selected images, runs `ensure-cron-env.sh`, reindexes Platform Help, and verifies scheduled goals when backend is in the service set.
 
 **After UI-only changes:** always rebuild **frontend** (backend-only leaves a stale SPA without Edit / Hourly).  
-**After help-doc changes:** rebuild **backend** (corpus is COPY'd into the backend image) so RAG reupload picks up **28** / **29**.
+**After help-doc changes:** rebuild **backend** (corpus is COPY'd into the backend image) so RAG reupload picks up **28** / **29** / **39** / **40**. Post-deploy also refreshes CRM/ERP Maker-Checker **DOMAIN.md** via `refresh-business-core-workspace-docs.js`.
 
 **Public URL:** set `AGENT_OS_PUBLIC_URL` in `deploy/.env` (production app: `https://login.flolah.cloud`). Marketing homepage is the apex `https://flolah.cloud` (`deploy/static/flolah-home`). Use the login host for API smoke and prompt E2E.
 
