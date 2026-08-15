@@ -452,6 +452,71 @@ export async function crmCreateOpportunity(
   };
 }
 
+function assertConfirm(confirm) {
+  const v = confirm;
+  if (v === true || v === 1 || v === '1' || String(v || '').toLowerCase() === 'true') return;
+  throw Object.assign(new Error('Pass confirm=true after Checker audit to soft-delete'), { status: 400 });
+}
+
+function assertRecordId(id) {
+  const recId = String(id || '').trim();
+  if (!/^[a-zA-Z0-9_-]{8,80}$/.test(recId)) {
+    throw Object.assign(new Error('id required (workspace record id)'), { status: 400 });
+  }
+  return recId;
+}
+
+async function twentySoftDelete(ownerUserId, object, recId) {
+  const auth = await resolveOwnerWorkspaceAuth(ownerUserId);
+  const path = `/rest/${object}/${encodeURIComponent(recId)}`;
+  try {
+    const data = await twentyFetch(path, { method: 'DELETE', apiKey: auth.apiKey });
+    return { auth, data, via: 'rest_delete' };
+  } catch (e) {
+    const status = Number(e?.status) || 0;
+    if (status !== 404 && status !== 405 && status !== 400) throw e;
+    const typeName = object === 'people' ? 'People' : object === 'companies' ? 'Companies' : object;
+    const data = await twentyFetch('/graphql', {
+      method: 'POST',
+      apiKey: auth.apiKey,
+      body: {
+        query: `mutation Delete($ids: [UUID!]!) { delete${typeName}(ids: $ids) }`,
+        variables: { ids: [recId] },
+      },
+    });
+    if (data?.errors?.length) {
+      throw Object.assign(new Error(String(data.errors[0]?.message || 'Twenty GraphQL delete failed').slice(0, 400)), {
+        status: 502,
+      });
+    }
+    return { auth, data, via: 'graphql_delete' };
+  }
+}
+
+/** Soft-delete a person (Twenty deletedAt / archive). Checker-only grant. */
+export async function crmDeletePerson(ownerUserId, { id, confirm } = {}) {
+  if (!isTwentyConfigured()) {
+    throw Object.assign(new Error('TWENTY_API_URL not configured'), { status: 503 });
+  }
+  assertConfirm(confirm);
+  const recId = assertRecordId(id);
+  const { auth, data, via } = await twentySoftDelete(ownerUserId, 'people', recId);
+  console.info('[twenty-crm] deletePerson owner workspace=%s person=%s via=%s', auth.workspaceId, recId, via);
+  return { ...scopeMeta(auth), mode: 'live', deleted: true, id: recId, person: data?.data || data, via };
+}
+
+/** Soft-delete a company (Twenty deletedAt / archive). Checker-only grant. */
+export async function crmDeleteCompany(ownerUserId, { id, confirm } = {}) {
+  if (!isTwentyConfigured()) {
+    throw Object.assign(new Error('TWENTY_API_URL not configured'), { status: 503 });
+  }
+  assertConfirm(confirm);
+  const recId = assertRecordId(id);
+  const { auth, data, via } = await twentySoftDelete(ownerUserId, 'companies', recId);
+  console.info('[twenty-crm] deleteCompany owner workspace=%s company=%s via=%s', auth.workspaceId, recId, via);
+  return { ...scopeMeta(auth), mode: 'live', deleted: true, id: recId, company: data?.data || data, via };
+}
+
 export async function crmUpdateOpportunity(ownerUserId, { id, patch } = {}) {
   if (!isTwentyConfigured()) {
     throw Object.assign(new Error('TWENTY_API_URL not configured'), { status: 503 });

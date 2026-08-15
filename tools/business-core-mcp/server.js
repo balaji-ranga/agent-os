@@ -33,6 +33,8 @@ const TOOL_ENDPOINT = {
   crm_create_lead: '/api/tools/crm-create-lead',
   crm_list_notes: '/api/tools/crm-list-notes',
   crm_list_tasks: '/api/tools/crm-list-tasks',
+  crm_delete_person: '/api/tools/crm-delete-person',
+  crm_delete_company: '/api/tools/crm-delete-company',
   crm_sync_org: '/api/tools/crm-sync-org',
   erp_status: '/api/tools/erp-status',
   erp_list_customers: '/api/tools/erp-list-customers',

@@ -60,6 +60,8 @@
       "crm_list_tasks",
       "crm_status",
       "crm_sync_org",
+      "crm_delete_company",
+      "crm_delete_person",
       "email_send",
       "kanban_create_task",
       "kanban_get_task",
@@ -84,7 +86,7 @@
       "name": "CRM Maker A",
       "role_key": "crm_maker",
       "department": "Sales",
-      "role": "CRM Maker - accounts, contacts, pipeline execution on platform Twenty via Flolah CRM tools (crm_* content tools; same surface as MCP mcp-flolah-crm). Can crm_sync_org from Flolah departments + AI employees.",
+      "role": "CRM Maker - accounts, contacts, pipeline execution on platform Twenty via Flolah CRM tools (crm_*). Propose deletes to CRM Checker on Kanban — do not call crm_delete_*. Can crm_sync_org from Flolah departments + AI employees.",
       "tools_ref": "maker"
     },
     {
@@ -92,7 +94,7 @@
       "name": "CRM Maker B",
       "role_key": "crm_maker",
       "department": "Sales",
-      "role": "CRM Maker - enrichment, research, follow-ups on platform Twenty via Flolah CRM tools (crm_*; MCP mcp-flolah-crm). Can crm_sync_org.",
+      "role": "CRM Maker - enrichment, research, follow-ups on platform Twenty via Flolah CRM tools (crm_*). Propose deletes to CRM Checker on Kanban — do not call crm_delete_*. Can crm_sync_org.",
       "tools_ref": "maker"
     },
     {
@@ -100,7 +102,7 @@
       "name": "CRM Checker",
       "role_key": "crm_checker",
       "department": "Sales",
-      "role": "CRM Checker - review and gate risky CRM changes; prefer read + recommend unless CEO confirms. Has crm_status/list + crm_sync_org for controlled sync review.",
+      "role": "CRM Checker - review high-risk CRM; execute crm_delete_person / crm_delete_company after Maker Kanban proposal. List/status/sync for audit. Never bulk-mutate pipeline.",
       "tools_ref": "checker"
     }
   ]

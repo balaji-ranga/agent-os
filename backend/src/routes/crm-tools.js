@@ -20,6 +20,8 @@ import {
   crmCreateLead,
   crmListNotes,
   crmListTasks,
+  crmDeletePerson,
+  crmDeleteCompany,
 } from '../services/twenty-crm.js';
 import {
   isErpnextCrmOwner,
@@ -35,6 +37,8 @@ import {
   erpCrmCreateLead,
   erpCrmListNotes,
   erpCrmListTasks,
+  erpCrmDeletePerson,
+  erpCrmDeleteCompany,
 } from '../services/erpnext-crm-facade.js';
 import { syncFlolahOrgToBusinessCore } from '../services/business-core-org-sync.js';
 
@@ -251,6 +255,30 @@ router.post('/crm-list-tasks', (req, res) =>
     assertCrmEntitled(ownerUserId);
     if (isErpnextCrmOwner(ownerUserId)) return erpCrmListTasks(ownerUserId, { limit: req.body?.limit });
     return crmListTasks(ownerUserId, { limit: req.body?.limit });
+  })
+);
+
+router.post('/crm-delete-person', (req, res) =>
+  run(res, async () => {
+    const ownerUserId = owner(req, req.body || {});
+    assertCrmEntitled(ownerUserId);
+    const b = req.body || {};
+    if (isErpnextCrmOwner(ownerUserId)) {
+      return erpCrmDeletePerson(ownerUserId, { id: b.id || b.name, confirm: b.confirm });
+    }
+    return crmDeletePerson(ownerUserId, { id: b.id || b.person_id, confirm: b.confirm });
+  })
+);
+
+router.post('/crm-delete-company', (req, res) =>
+  run(res, async () => {
+    const ownerUserId = owner(req, req.body || {});
+    assertCrmEntitled(ownerUserId);
+    const b = req.body || {};
+    if (isErpnextCrmOwner(ownerUserId)) {
+      return erpCrmDeleteCompany(ownerUserId, { id: b.id || b.name, confirm: b.confirm });
+    }
+    return crmDeleteCompany(ownerUserId, { id: b.id || b.company_id, confirm: b.confirm });
   })
 );
 

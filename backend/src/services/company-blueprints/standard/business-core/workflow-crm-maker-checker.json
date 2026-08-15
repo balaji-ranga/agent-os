@@ -50,7 +50,7 @@
         "data": {
           "label": "CRM Maker A (draft)",
           "agentNameRef": "CRM Maker A",
-          "prompt": "You are CRM Maker on Flolah. Goal from CEO/COO:\n\n{{input}}\n\nRules:\n1) Company-scoped crm_* / Twenty tools only.\n2) HITL is workflow-only: NEVER invent a free-form CEO Kanban for approval. Signal needs_ceo for commercial gates — the runner creates CEO Approval.\n3) When ready without CEO, short summary for CRM Checker.\n4) End with ONLY one JSON line:\n{\"decision\":\"ready_for_checker\"|\"needs_ceo\",\"gate\":null|\"discount_5pct\"|\"other\",\"reason\":\"...\",\"docs\":\"records touched\"}",
+          "prompt": "You are CRM Maker on Flolah. Goal from CEO/COO:\n\n{{input}}\n\nRules:\n1) Company-scoped crm_* / Twenty tools only. NEVER call crm_delete_person or crm_delete_company.\n2) Duplicate/inactive deletes: list keep vs drop ids in docs; Checker will delete.\n3) HITL is workflow-only: NEVER invent a free-form CEO Kanban for approval. Signal needs_ceo for commercial gates — the runner creates CEO Approval.\n4) When ready without CEO, short summary for CRM Checker.\n5) End with ONLY one JSON line:\n{\"decision\":\"ready_for_checker\"|\"needs_ceo\",\"gate\":null|\"discount_5pct\"|\"other\",\"reason\":\"...\",\"docs\":\"records touched or keep/drop ids\"}",
           "inputBindings": [
             {
               "id": "prompt",
@@ -114,7 +114,7 @@
         "data": {
           "label": "CRM Checker (review)",
           "agentNameRef": "CRM Checker",
-          "prompt": "You are CRM Checker. Goal / Maker output:\n\n{{input}}\n\nMaker:\n{{maker-1.reply}}\n\nCEO approval (if any):\n{{ceo-approval-1.reply}}\n\nRules:\n1) Review Maker work; approve or FINDING and send back.\n2) End with ONLY JSON:\n{\"decision\":\"approved\"|\"rejected\",\"adjustments\":\"...\",\"notes\":\"...\"}",
+          "prompt": "You are CRM Checker. Goal / Maker output:\n\n{{input}}\n\nMaker:\n{{maker-1.reply}}\n\nCEO approval (if any):\n{{ceo-approval-1.reply}}\n\nRules:\n1) Review Maker work. If Maker proposed person/company deletes, list to verify then call crm_delete_person / crm_delete_company with confirm=true for each drop id.\n2) Approve or FINDING and send back.\n3) End with ONLY JSON:\n{\"decision\":\"approved\"|\"rejected\",\"adjustments\":\"...\",\"notes\":\"...\"}",
           "inputBindings": [
             {
               "id": "prompt",
@@ -155,7 +155,7 @@
         "data": {
           "label": "CRM Maker A (fix)",
           "agentNameRef": "CRM Maker A",
-          "prompt": "Checker rejected your draft. Goal: {{input}}\n\nChecker output:\n{{checker-1.reply}}\n\nFix FINDINGS only; never submit; never invent CEO Kanban.\nEnd with JSON:\n{\"decision\":\"ready_for_checker\"|\"needs_ceo\",\"gate\":null|\"discount_5pct\",\"reason\":\"...\",\"docs\":\"...\"}",
+          "prompt": "Checker rejected your draft. Goal: {{input}}\n\nChecker output:\n{{checker-1.reply}}\n\nFix FINDINGS only; never submit; never crm_delete_*; never invent CEO Kanban.\nEnd with JSON:\n{\"decision\":\"ready_for_checker\"|\"needs_ceo\",\"gate\":null|\"discount_5pct\",\"reason\":\"...\",\"docs\":\"...\"}",
           "inputBindings": [
             {
               "id": "prompt",
@@ -179,7 +179,7 @@
         "data": {
           "label": "CRM Checker (recheck)",
           "agentNameRef": "CRM Checker",
-          "prompt": "Second review after Maker fix.\n\nOriginal goal: {{input}}\nMaker fix: {{maker-2.reply}}\nPrior Checker: {{checker-1.reply}}\n\nSubmit if ok or reject.\nEnd with ONLY JSON:\n{\"decision\":\"approved\"|\"rejected\",\"adjustments\":\"...\",\"notes\":\"...\"}",
+          "prompt": "Second review after Maker fix.\n\nOriginal goal: {{input}}\nMaker fix: {{maker-2.reply}}\nPrior Checker: {{checker-1.reply}}\n\nIf deletes remain, execute crm_delete_person / crm_delete_company with confirm=true. Submit if ok or reject.\nEnd with ONLY JSON:\n{\"decision\":\"approved\"|\"rejected\",\"adjustments\":\"...\",\"notes\":\"...\"}",
           "inputBindings": [
             {
               "id": "prompt",

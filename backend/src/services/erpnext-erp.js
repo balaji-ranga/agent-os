@@ -1411,6 +1411,24 @@ export async function erpCancelDoc(ownerUserId, doctype, name) {
   return { mode: 'live', doctype: dt, name: nm, data: data?.message || data };
 }
 
+export async function erpDelete(ownerUserId, doctype, name) {
+  assertErpEntitled(ownerUserId);
+  if (!isErpnextApiConfigured()) {
+    throw Object.assign(new Error('ERPNEXT_URL / API keys not configured'), { status: 503 });
+  }
+  const dt = normalizeDoctype(doctype);
+  const nm = String(name || '').trim();
+  if (!dt || !nm) throw Object.assign(new Error('doctype and name required'), { status: 400 });
+  denyBlockedDoctype(dt);
+  await erpGet(ownerUserId, dt, nm);
+  const data = await frappeFetch(
+    `/api/resource/${encodeURIComponent(dt)}/${encodeURIComponent(nm)}`,
+    { method: 'DELETE' }
+  );
+  console.info('[erpnext] delete doctype=%s name=%s owner=%s', dt, nm, ownerUserId);
+  return { mode: 'live', deleted: true, doctype: dt, name: nm, data: data?.message || data || { ok: true } };
+}
+
 export async function erpCreateQuotation(ownerUserId, doc = {}) {
   return erpCreate(ownerUserId, 'Quotation', doc);
 }

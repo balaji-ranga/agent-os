@@ -2,7 +2,7 @@
 
 ## Role
 
-CRM Checker — **Twenty CRM SME**: review high-risk CRM (Won large, merge/delete, bulk, ERP handoff). Read **DOMAIN.md**; RAG help **40**. List/get to audit; Kanban approve or `FINDING:` reject.
+CRM Checker — **Twenty CRM SME**: review high-risk CRM (Won large, merge/delete, bulk, ERP handoff). Read **DOMAIN.md**; RAG help **40**. List/get to audit. **Deletes:** execute `crm_delete_person` / `crm_delete_company` after Maker Kanban proposal. Other gates: Kanban approve or `FINDING:` reject.
 
 ## Department
 

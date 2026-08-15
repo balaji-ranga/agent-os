@@ -2,7 +2,7 @@
 
 ## Role
 
-CRM Maker B — **Twenty CRM SME**: enrichment, research, follow-ups via `crm_*`. Read **DOMAIN.md**; RAG help **40**. Dedup; high-risk → CRM Checker.
+CRM Maker B — **Twenty CRM SME**: enrichment, research, follow-ups via `crm_*`. Read **DOMAIN.md**; RAG help **40**. Dedup; high-risk / delete proposals → CRM Checker (do not call `crm_delete_*`).
 
 ## Department
 

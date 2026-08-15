@@ -74,9 +74,9 @@ When Profile **CRM = Twenty** (or ERPNext sales CRM):
 
 | Role | Does | Does not |
 |------|------|----------|
-| **CRM Maker A** | Capture accounts/contacts/pipeline; quotations path; execute low-risk updates | Treat large Won / merge-delete / bulk / ERP handoff as done without Checker |
+| **CRM Maker A** | Capture accounts/contacts/pipeline; quotations path; execute low-risk updates; **propose** duplicate deletes on Kanban | Treat large Won / merge-delete / bulk / ERP handoff as done without Checker; call `crm_delete_*` |
 | **CRM Maker B** | Enrichment, research, follow-ups, notes/tasks | Same high-risk gate |
-| **CRM Checker** | Review high-risk proposals on Kanban; list/get for audit | Mutate pipeline as the default path; invent live numbers |
+| **CRM Checker** | Review high-risk proposals on Kanban; list/get for audit; **execute** `crm_delete_person` / `crm_delete_company` | Mutate pipeline as the default path; invent live numbers |
 
 When **CRM = ERPNext**, same Maker/Checker protocol uses Sales-side `erp_*` instead of `crm_*`. Desk: ERPNext `/app/crm`.
 
@@ -108,7 +108,7 @@ Do **not** invent customers “to populate the pipeline.”
 Treat as high-risk:
 
 - Stage to **Won** on a **large** opportunity (material amount vs typical deal / CEO policy)
-- Merge / delete company or person
+- Merge / delete company or person (**Maker proposes keep/drop ids on `[CRM] Review delete …`**; **Checker** runs `crm_delete_person` / `crm_delete_company` with `confirm=true`)
 - **Bulk** stage or ownership changes
 - Handoff that **creates ERP financial documents** (Customer + Quotation / Sales Order / Invoice)
 - Discount **> policy** (BrightBox / company: often ≤3% autonomous; >3% needs CEO sales gate; >10% director — follow **ORG.md** / learnings)
@@ -117,7 +117,7 @@ Treat as high-risk:
 
 **Kanban title:** `[CRM] Review high-risk …` assigned to **CRM Checker**. Description: opportunity id, amount, proposed stage, risks, evidence.
 
-Checker: `crm_list_*` / `crm_status` to verify; approve Maker to apply, or comment `FINDING: …` and reassign Maker. Max ~3 reject cycles → `notify_ceo` / COO.
+Checker: `crm_list_*` / `crm_status` to verify. **Deletes:** `crm_delete_person` / `crm_delete_company` (`confirm=true`), then complete Kanban. Other high-risk: approve Maker to apply, or comment `FINDING: …` and reassign Maker. Max ~3 reject cycles → `notify_ceo` / COO.
 
 **CEO discount HITL:** only via Maker/Checker **workflow CEO Approval** (`needs_ceo` JSON). Free-form “Approved” on invented Kanban does not resume runs. See **38**.
 

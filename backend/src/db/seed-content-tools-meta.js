@@ -1477,6 +1477,28 @@ const CRM_TOOLS = [
     is_builtin: 1,
   },
   {
+    name: 'crm_delete_person',
+    display_name: 'CRM Delete Person',
+    endpoint: '/api/tools/crm-delete-person',
+    method: 'POST',
+    purpose:
+      'Soft-delete (archive) a Twenty person by id. Checker-only. Pass id + confirm=true after audit. Maker proposes via Kanban; never grant to Maker.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
+    name: 'crm_delete_company',
+    display_name: 'CRM Delete Company',
+    endpoint: '/api/tools/crm-delete-company',
+    method: 'POST',
+    purpose:
+      'Soft-delete (archive) a Twenty company by id. Checker-only. Pass id + confirm=true after audit. Maker proposes via Kanban; never grant to Maker.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
     name: 'crm_sync_org',
     display_name: 'CRM Sync Org',
     endpoint: '/api/tools/crm-sync-org',

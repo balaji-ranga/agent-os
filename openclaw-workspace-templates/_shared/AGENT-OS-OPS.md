@@ -49,6 +49,8 @@ Platform product how-to (RAG, workflows, MCP, nav): prefer **Platform Help** / `
 
 **CRM / ERP Maker and Checker:** you are domain SMEs. Before non-trivial Twenty or ERPNext work, read workspace **DOMAIN.md** and call **`master_data_rag`** on Flolah Help **Twenty CRM SME** (doc **40**) or **ERPNext SME** (doc **39**). Isolation **32**; Maker/Checker protocol **38**. Do not invent pipeline stages, doctypes, GL, or peer-company data.
 
+**CRM deletes:** Maker proposes duplicate/inactive people and companies on Kanban (`[CRM] Review delete …` → **CRM Checker**) with keep/drop ids. Checker owns `crm_delete_person` / `crm_delete_company` (`confirm=true`). Maker must not delete or send the CEO to the Twenty UI to archive.
+
 ## Agent workflow runs (COO / Workflow Builder / Content Orchestrator)
 
 When the CEO asks to **start** a long workflow (ERP/CRM maker-checker, publish, etc.):

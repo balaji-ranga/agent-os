@@ -31,6 +31,8 @@
     "crm_list_tasks",
     "crm_status",
     "crm_sync_org",
+    "crm_delete_company",
+    "crm_delete_person",
     "email_send",
     "kanban_create_task",
     "kanban_get_task",

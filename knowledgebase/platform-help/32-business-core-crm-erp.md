@@ -9,7 +9,7 @@ Not required to use Flolah. Select under **Profile** or **Company setup → Syst
 
 **When I pick platform CRM or ERP, do I get the Maker/Checker AI employees?** **Yes.**
 Packs + workflow graphs ship in source under `backend/src/services/company-blueprints/standard/` (with industry blueprints). Enablement on Profile/Company setup **grants those prefabs into your org** and installs the MC workflow (chat: `run crm maker checker` / `run erp maker checker`). **Admin → Refresh default agents** (with Business Core checked) re-ensures those packs + MC graphs for CEOs who already have CRM/ERP selected; lean COO / Workflow Builder / Platform Help are always refreshed from `platform-agents.json` + workspace templates.
-- **CRM = Twenty:** CRM Maker A/B + CRM Checker with crm_* tools; CRM nav opens Twenty SSO.
+- **CRM = Twenty:** CRM Maker A/B + CRM Checker with crm_* tools; Checker also has `crm_delete_person` / `crm_delete_company`. CRM nav opens Twenty SSO.
 - **CRM = ERPNext:** CRM Maker A/B + CRM Checker with Sales-side erp_* tools; CRM nav opens ERPNext desk SSO (/app/crm).
 - **ERP = ERPNext:** ERP Maker A/B (full operational erp_* surface matching MCP), ERP Checker (submit/cancel + Kanban/workflow approvals), plus specialists P&L / Invoice / Project Manager.
 Switching away from a platform provider **removes** those prefab agents from the org.
@@ -104,7 +104,7 @@ Sync copies Flolah **departments** (Master Data) + **entitled AI employees** int
 
 ## Prefab Maker/Checker tool access
 
-When Profile selects platform CRM/ERP, Maker/Checker packs receive full **`crm_*` / `erp_*` content tools** (including sync). AgentSystem uses content tools (same endpoints as MCP); workflows use MCP nodes with `X-Ceo-User-Id`.
+When Profile selects platform CRM/ERP, Maker/Checker packs receive **`crm_*` / `erp_*` content tools** (including sync). **CRM person/company delete** (`crm_delete_person`, `crm_delete_company`) is **Checker-only**. AgentSystem uses content tools (same endpoints as MCP); workflows use MCP nodes with `X-Ceo-User-Id`.
 
 Workspace MD (TOOLS / AGENTS / SOUL / MEMORY) lives under **`openclaw-workspace-templates/`** role folders (`crm-maker-a`, `crm-maker-b`, `crm-checker`, `erp-maker-a`, `erp-maker-b`, `erp-checker`, `erp-pnl`, `erp-invoice`, `erp-project`). Runtime agent ids stay owner-scoped (`crm-s1-{slug}`, …); the backend maps them via `resolveWorkspaceTemplateBaseId`. Profile enable + Admin refresh force-push those templates into each CEO tenant workspace, including **DOMAIN.md** (Twenty CRM / ERPNext SME card from `_shared/TWENTY-CRM-SME.md` / `_shared/ERPNEXT-SME.md`). Makers/Checkers also RAG Platform Help **39** / **40**.
 
@@ -321,7 +321,7 @@ Automated **cost + income → ERP** is planned: meters and income events in Flol
 
 ## Maker/Checker (Option 1) and org sync
 
-- **Coordination:** Kanban primary + optional seeded workflows; ERP Checker hard-owns submit/cancel; CRM Checker owns high-risk process gates. Full playbook: [38-maker-checker-coordination.md](./38-maker-checker-coordination.md).
+- **Coordination:** Kanban primary + optional seeded workflows; ERP Checker hard-owns submit/cancel; CRM Checker owns high-risk process gates **and CRM person/company delete**. Full playbook: [38-maker-checker-coordination.md](./38-maker-checker-coordination.md).
 - **Org sync** is **optional** (departments + AI employees as people/employees). Not required for customer pipeline or posting invoices — usually **skip** unless you want a roster mirror in the desk.
 - **COO** may use company-scoped **read-only** `crm_*` / `erp_*` list/report tools to query and to route Makers/Checkers.
 - **Platform Help** answers product how-to from RAG (**39 ERPNext SME**, **40 Twenty CRM SME**, this file); live data → COO or prefab agents. CRM/ERP Maker and Checker workspaces also get **DOMAIN.md** (Twenty/ERPNext SME card) from `openclaw-workspace-templates/_shared/`.

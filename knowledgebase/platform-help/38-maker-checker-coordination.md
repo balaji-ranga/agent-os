@@ -11,7 +11,7 @@ Keep **risk control** without hard CRM tool locks (v1). ERP already has a **hard
 | Role | ERP | CRM (Twenty or ERPNext Sales) |
 |------|-----|-------------------------------|
 | **Maker A/B** | Draft create/update (quotes, invoices, stock, …). **Never submit/cancel.** For ≥5% discount / policy gates signal `needs_ceo` in end JSON — **do not** invent free-form CEO Kanban. | Day-to-day pipeline create/update. High-risk / discount → `needs_ceo` or Checker Kanban; never free-form CEO HITL cards. |
-| **Checker** | Review drafts; **only role with submit/cancel**. Kanban approve or reject with findings. | Review high-risk CRM proposals; reject with findings or approve Maker to apply / confirm quality. |
+| **Checker** | Review drafts; **only role with submit/cancel**. Kanban approve or reject with findings. | Review high-risk CRM proposals; **only role with `crm_delete_person` / `crm_delete_company`**. Reject with findings or execute delete / confirm quality. |
 | **COO** | List/get/report (read-only entitled tools). Create/route Kanban; **async** `agent_workflow_trigger` (confirm run_id, end turn — no blocking poll). No submit. | Same |
 | **CEO** | Policy, exceptions; resume **workflow CEO Approval** Kanban Approve/Reject (not free-form “Approved” comments). Desk SSO when preferred | Same |
 | **Platform Help** | Product how-to from RAG only — never live books | Same → ask COO/CRM/ERP agents for data |
@@ -22,10 +22,11 @@ One **card per business object** (e.g. doctype + name, or CRM opportunity id) fo
 
 1. **Maker** drafts (ERP tools / CRM tools).  
 2. Ready for gate → **`kanban_create_task`** assigned to **Checker**  
-   - Title: `[ERP] Submit SI-…` or `[CRM] Review high-risk …`  
-   - Description: object id, summary, risks, draft evidence.  
+   - Title: `[ERP] Submit SI-…` or `[CRM] Review high-risk …` / `[CRM] Review delete …`  
+   - Description: object id, summary, risks, draft evidence (for deletes: keep id + drop ids).  
 3. **Checker** reviews with list/get tools.  
    - **Approve ERP:** `erp_submit_doc` / cancel as needed; move card completed.  
+   - **Approve CRM delete:** `crm_delete_person` / `crm_delete_company` with `confirm=true`; move card completed.  
    - **Reject:** comment `FINDING: …`; reassign or create card for **Maker**.  
 4. **Maker** fixes → reassign Checker.  
 5. **Max ~3** reject cycles → `notify_ceo` / reassign COO.
@@ -33,7 +34,7 @@ One **card per business object** (e.g. doctype + name, or CRM opportunity id) fo
 **CEO policy HITL (e.g. 5% discount):** Only via the Maker/Checker **workflow CEO Approval node**. Maker ends with  
 `{"decision":"needs_ceo","gate":"discount_5pct",...}` → runner creates an `awaiting_confirmation` card (`created_by=agent_workflow_ceo`). CEO uses board **Approve/Reject**. Free-form chat “Approved” on inventend Kanban **does not** resume runs.
 
-High-risk CRM examples (process gate): stage **Won** over a large amount; merge/delete company; bulk stage change; “create ERP customer + quotation from this opp”.
+High-risk CRM examples (process gate): stage **Won** over a large amount; merge/delete company or person (**Maker proposes, Checker deletes**); bulk stage change; “create ERP customer + quotation from this opp”.
 
 Low-risk CRM: notes, early-stage updates — Maker may finish without Checker.
 
@@ -98,7 +99,7 @@ COO may call company-scoped **list/get/report** CRM and ERP tools (and optional 
 
 ## What Option 2 would add later
 
-Hard-deny high-risk CRM write tools on Makers (Checker-only apply). Ship only if Option 1 is skipped in practice.
+Hard-deny remaining high-risk CRM **write** tools on Makers (Checker-only apply for Won/bulk). **Deletes are already Checker-only** (`crm_delete_person` / `crm_delete_company`).
 
 ## Related
 

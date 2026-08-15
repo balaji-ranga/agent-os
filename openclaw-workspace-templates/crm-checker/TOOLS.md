@@ -20,6 +20,8 @@ Read workspace **DOMAIN.md** (Twenty CRM SME). Before approve/reject, **`master_
 - **crm_list_tasks** — CRM List Tasks: List Twenty tasks for this workspace
 - **crm_status** — CRM Status: Twenty CRM status: bind, API key set?, objects (people/companies/opportunities/notes/tasks)
 - **crm_sync_org** — CRM Sync Org: Sync Flolah departments + AI employees into Twenty (people)
+- **crm_delete_person** — CRM Delete Person: Soft-delete (archive) a person by id. Pass `id` + `confirm=true` after you audited the Maker proposal. Checker-only.
+- **crm_delete_company** — CRM Delete Company: Soft-delete (archive) a company by id. Pass `id` + `confirm=true` after audit. Checker-only.
 - **kanban_create_task** — Kanban Create Task: API tool: create a Kanban task for the CEO
 - **kanban_move_status** — Kanban Move Status: API tool: move a Kanban task status
 - **master_data_list_rows** — Master Data — List / Query Rows: API tool: READ DATA from an existing Master Data table
@@ -31,6 +33,7 @@ Read workspace **DOMAIN.md** (Twenty CRM SME). Before approve/reject, **`master_
 
 ## Choosing the right tool
 
+- **Deletes:** On a `[CRM] Review delete …` card, `crm_list_*` to verify keep vs drop ids, then `crm_delete_person` / `crm_delete_company` with `confirm=true`. Complete the Kanban. Do not tell Maker to archive in the Twenty UI.
 - **Match the tool to the request:** Read the user's message and choose the tool whose purpose best fits.
 - **If a tool's result is not good enough:** Try the next most relevant granted tool before giving up.
 

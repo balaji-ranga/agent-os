@@ -15,6 +15,7 @@ import {
   erpCreateOpportunity,
   erpListTasks,
   erpCreateTask,
+  erpDelete,
 } from './erpnext-erp.js';
 
 function lim(n, d = 20) {
@@ -212,4 +213,29 @@ export async function erpCrmListTasks(ownerUserId, { limit } = {}) {
     doctype: 'Task',
     tasks: r.data || [],
   };
+}
+
+function assertConfirm(confirm) {
+  if (confirm === true || confirm === 1 || confirm === '1' || String(confirm || '').toLowerCase() === 'true') {
+    return;
+  }
+  throw Object.assign(new Error('Pass confirm=true after Checker audit to delete'), { status: 400 });
+}
+
+export async function erpCrmDeletePerson(ownerUserId, { id, confirm } = {}) {
+  assertCrmEntitled(ownerUserId);
+  assertConfirm(confirm);
+  const name = String(id || '').trim();
+  if (!name) throw Object.assign(new Error('id required (Contact name)'), { status: 400 });
+  const r = await erpDelete(ownerUserId, 'Contact', name);
+  return { ...r, source: 'erpnext', doctype: 'Contact', id: name };
+}
+
+export async function erpCrmDeleteCompany(ownerUserId, { id, confirm } = {}) {
+  assertCrmEntitled(ownerUserId);
+  assertConfirm(confirm);
+  const name = String(id || '').trim();
+  if (!name) throw Object.assign(new Error('id required (Customer name)'), { status: 400 });
+  const r = await erpDelete(ownerUserId, 'Customer', name);
+  return { ...r, source: 'erpnext', doctype: 'Customer', id: name };
 }

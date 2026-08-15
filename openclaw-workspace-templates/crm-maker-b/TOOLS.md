@@ -39,6 +39,7 @@ Read workspace **DOMAIN.md** (Twenty CRM SME). Before non-trivial pipeline work,
 
 ## Choosing the right tool
 
+- **Deletes / duplicates:** You do **not** have `crm_delete_*`. List keep vs drop ids, then `kanban_create_task` assigned to **CRM Checker**, title `[CRM] Review delete …`.
 - **Match the tool to the request:** Read the user's message and choose the tool whose purpose best fits.
 - **If a tool's result is not good enough:** Try the next most relevant granted tool before giving up.
 
