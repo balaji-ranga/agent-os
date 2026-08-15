@@ -55,6 +55,8 @@ When an agent sends an image, video, or TTS audio on WhatsApp:
 4. Dashboard chat still plays the same file inline via `/api/media/…` while you are logged in.
 5. TTS: prefer **OGG/Opus or MP3** for WhatsApp; WAV often fails attach.
 
+**Personal assistant (COO on WhatsApp):** The COO listens to **text and voice notes** (`speech_stt`) and replies with **both** a readable text body and a TTS voice note (`speech_tts` + `MEDIA:` attach). That is existing COO tools + Channels — not a separate PA app. Free speech needs platform `optional-voice` (Whisper + Piper). See [25-speech-and-published-scenes.md](./25-speech-and-published-scenes.md).
+
 See [11-content-tools-scripts-profile.md](./11-content-tools-scripts-profile.md).
 
 ## Inbound media (WhatsApp → workspace)

@@ -97,6 +97,8 @@ Use these Agent OS content tools (not ElevenLabs) when the CEO asks you to speak
 
 Requires platform `optional-voice` (whisper + piper) for speech. **analyze_image** uses platform primary LLM (or BYOK `Platform_BYOK`). If the tool returns 503 / upstream vision error, the configured model may be text-only.
 
+**WhatsApp PA:** Incoming voice notes → `speech_stt`. Every WhatsApp reply is readable **text plus** `speech_tts` with a `MEDIA:` attach line (OGG/Opus). See AGENT-OS-OPS.md § WhatsApp PA.
+
 ---
 
 ## Watch a Kanban task + notify when done (COO cron)

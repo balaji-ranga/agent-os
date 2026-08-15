@@ -183,7 +183,9 @@ CRM opens **in the Flolah iframe** (not a full-page leave); use **Open** for fir
 
 **Note:** CRM REST tools mint **per-company** workspace access tokens (LOGIN exchange for the CEO email + bound workspace). They do **not** use a single shared `TWENTY_API_KEY` when SSO is enabled — that previously wrote Agent/MCP creates into the bootstrap admin workspace by mistake.
 
-**Workspace name** ("Welcome, ΓÇª"): Twenty Settings → Workspace. Toolbar **Switch CRM account** → wipe + `/welcome`.
+**Workspace name** ("Welcome, …"): Twenty Settings → Workspace. Toolbar **Switch CRM account** → wipe + `/welcome`.
+
+**Education / college (CEO mapping, no extra doctypes):** Flolah `erp_*` allowlist is Selling / HR / Projects — not ERPNext Education (`Student`, `Program`, `Fee Schedule`). Map in the CEO tenant: admissions prospect → **Twenty Lead**; enrolled student or parent payer → **Customer**; tuition/hostel/exam fee → **Item** (service, no stock); fee bill → **Sales Invoice**; fee collected → **Payment Entry**; faculty/staff → **Employee**; academic batch → **Project**. Reference catalogs stay in Knowledge tables. Maker drafts; Checker submits. Same isolation as any ERPNext company.
 
 **Enterprise OIDC:** Not required for this LOGIN-token path.
 
