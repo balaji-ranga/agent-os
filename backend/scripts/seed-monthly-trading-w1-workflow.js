@@ -20,7 +20,10 @@ import {
 import * as store from '../src/services/agent-workflow-store.js';
 import { notifySchedulerConfigurationChanged } from '../src/services/agent-workflow-scheduler.js';
 import { ensureIbkrMonthlyTables } from '../src/services/ibkr-monthly-guardrail.js';
-import { MONTHLY_TRADING_VARIABLES } from './monthly-trading-seed-variables.js';
+import {
+  MONTHLY_TRADING_VARIABLES,
+  mergeMonthlyTradingVariables,
+} from './monthly-trading-seed-variables.js';
 import { MAKER_STRATEGY_SYSTEM_PROMPT } from './lib/trading-strategy-prompt.js';
 import { CHECKER_STRATEGY_SYSTEM_PROMPT } from './lib/trading-checker-prompt.js';
 import { BRAVE_MCP_ID } from './seed-brave-search-mcp.js';
@@ -679,6 +682,13 @@ export async function seedMonthlyTradingW1(ownerUserId, { publish = true } = {})
   });
   const cron = MONTHLY_TRADING_VARIABLES.cron_post_close_fallback || '5 21 * * 1-5';
   const existingVars = store.getDefinition(WORKFLOW_ID, ownerUserId)?.variables || {};
+  const variables = mergeMonthlyTradingVariables(existingVars);
+  const riskCap = variables.risk_per_trade_pct;
+  const riskCapLabel =
+    riskCap === '' || riskCap == null || Number(riskCap) <= 0
+      ? '(blank — Maker decides stop distance)'
+      : `${riskCap}% per order`;
+  console.log('[seed-monthly-w1] risk_per_trade_pct:', riskCapLabel);
   const patch = {
     name: 'Monthly Trading W1 — Post-Close Plan',
     description:
@@ -687,7 +697,7 @@ export async function seedMonthlyTradingW1(ownerUserId, { publish = true } = {})
     trigger_modes: ['manual', 'chat', 'event', 'schedule'],
     schedule_cron: cron,
     chat_trigger_phrase: CHAT_PHRASE,
-    variables: { ...MONTHLY_TRADING_VARIABLES, ...existingVars },
+    variables,
   };
   upsertWorkflow(ownerUserId, actor, patch);
 

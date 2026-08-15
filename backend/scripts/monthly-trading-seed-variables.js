@@ -15,7 +15,8 @@ export const MONTHLY_TRADING_VARIABLES = {
   /** Max new-entry notional (USD) for the session / day plan — set in W1 Variables panel */
   daily_budget_usd: 1000,
   max_trades_per_day: 5,
-  risk_per_trade_pct: 0.75,
+  /** Max stop distance below entry per order (%). Blank / 0 = Maker chooses. */
+  risk_per_trade_pct: 5,
   position_size_pct_min: 3,
   position_size_pct_max: 8,
   position_size_pct_hard_max: 15,
@@ -46,5 +47,24 @@ export const MONTHLY_TRADING_VARIABLES = {
   local_bridge_base_url: 'http://127.0.0.1:3010',
   local_bridge_token: '',
 };
+
+/** Previous seed default — bump to 5 on re-seed unless the CEO already changed it. */
+export const LEGACY_RISK_PER_TRADE_PCT_DEFAULT = 0.75;
+
+function isLegacyRiskPerTradeDefault(value) {
+  return value === LEGACY_RISK_PER_TRADE_PCT_DEFAULT || value === '0.75';
+}
+
+/**
+ * Merge seed defaults under existing CEO variables.
+ * Blank/0 `risk_per_trade_pct` is preserved (Maker decides). Old 0.75 default becomes 5.
+ */
+export function mergeMonthlyTradingVariables(existing = {}) {
+  const merged = { ...MONTHLY_TRADING_VARIABLES, ...existing };
+  if (isLegacyRiskPerTradeDefault(existing.risk_per_trade_pct)) {
+    merged.risk_per_trade_pct = MONTHLY_TRADING_VARIABLES.risk_per_trade_pct;
+  }
+  return merged;
+}
 
 export default MONTHLY_TRADING_VARIABLES;

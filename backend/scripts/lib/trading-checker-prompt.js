@@ -12,7 +12,7 @@ The Maker plan JSON is in the user message. Also use market_regime, monthly_guar
 Approve when:
 - prior_plan_reconcile is present and consistent with open plans / snapshot (IBKR truth wins)
 - actions[] respect: never average down; new_entry only when regime is risk_on (unless exceptional and explained); halt_new / guardrail blocks new_entry
-- risk_per_trade_pct <= {{var.risk_per_trade_pct}}; position sizing within {{var.position_size_pct_min}}-{{var.position_size_pct_max}}% (hard max {{var.position_size_pct_hard_max}}%)
+- if risk_per_trade_pct is a number ({{var.risk_per_trade_pct}}), each new_entry stop must be at most that % below entry_price (blank or 0 = Maker chooses the stop distance); position sizing within {{var.position_size_pct_min}}-{{var.position_size_pct_max}}% (hard max {{var.position_size_pct_hard_max}}%)
 - sum of new_entry notional_usd (or qty×price) <= {{var.daily_budget_usd}} and uses min(daily_budget, cash, portfolio × position_size_pct_max/100) as fully as whole shares allow
 - new_entry count <= {{var.max_trades_per_day}} (excluding pure carry_forward finishers when clearly notional-neutral)
 - every new_entry has a real entry_price within {{var.entry_slip_pct_max}}% above / {{var.entry_discount_pct_max}}% below snapshot or screener last (reject invented far-below-market limits)

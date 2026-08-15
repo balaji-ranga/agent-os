@@ -44,7 +44,7 @@ Default crons and **budget caps** live in workflow **Variables** (seed: `backend
 | `daily_budget_usd` | `1000` | Max USD notional for **new_entry** actions in a plan |
 | Cash for spendable | IBKR snapshot → workflow fallback | `spendable = min(daily_budget, cash)`; cash is **not** NetLiquidation. Target notional for a new_entry is `min(spendable, equity × position_size_pct_max%)`, at least the `position_size_pct_min` band, using leftover that can still buy a share. |
 | `max_trades_per_day` | `5` | Max **new_entry** count per plan |
-| `risk_per_trade_pct` | `0.75` | Max risk % of portfolio per trade |
+| `risk_per_trade_pct` | `5` | Max **stop distance % below entry per order**. Blank or `0` = Maker chooses. Re-seed bumps the old `0.75` default to `5`. |
 | `position_size_pct_*` | 3 / 8 / 15 | Soft band + hard max position % |
 | `cash_band_pct_*` | 30 / 80 | Target cash band % |
 | `entry_slip_pct_max` | `0.25` | Max % a BUY limit may sit **above** last (chase) |
@@ -52,7 +52,7 @@ Default crons and **budget caps** live in workflow **Variables** (seed: `backend
 | `screener_enrich_limit` | `8` | Top N screener names get FMP PE, SMA50/200, 3m/6m momentum, 52w distance, revenue/EPS YoY. Missing stats → Brave Search fallback. |
 | `monthly_drawdown_stop_pct` | `4` | Guardrail halt new entries |
 
-Override in Workflows → W1 → Variables (then Publish). Re-seed merges defaults if the keys were missing.
+Override in Workflows → W1 → Variables (then Publish). Blank or `0` on `risk_per_trade_pct` leaves stop distance to the Maker. Re-seed bumps the old `0.75` default to `5` and keeps other CEO overrides.
 
 Maker **chooses** on each `new_entry`: full IBKR bracket (stop+tp) **or** hold-for-weeks (`bracket` false, `exit_plan` later_day_plan, `forecast_up_weeks` ≥ 1, omit tp). A later W1 day plan then decides sell / hold / raise_stop. W2 places `bracket`, `stop_only`, or `entry_only`.
 

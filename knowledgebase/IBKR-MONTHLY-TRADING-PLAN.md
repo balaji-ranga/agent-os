@@ -78,7 +78,7 @@ flowchart LR
    - `ibkr_equity_marks` (owner, date, equity, cash, month_key, month_hwm) and tool `ibkr_monthly_guardrail` -> `{ mtd_return_pct, drawdown_from_hwm_pct, guardrail_breached, risk_mode }`.
    - `trading_day_plans` (owner, date, status pending/approved/executed, plan_json, checker_verdict, approvals) + endpoints `POST/GET /api/ibkr-trading/day-plan` and tools `trading_plan_save` / `trading_plan_fetch`.
    - Trade journal: extend `ibkr_order_events.detail_json` usage with entry/exit reasons; add `trading_journal` view tool for weekly stats (win rate, profit factor, avg win/loss, max DD, holding period).
-3. **Seed strategy variables** — script like `backend/scripts/ibkr-seed-variables.js`: universe/momentum/entry thresholds, risk_per_trade 0.5-1%, position 3-8% (max 15%), partial-profit band 15-25%, cash band 30-80%, monthly target 3-5%, `monthly_drawdown_stop_pct` default 4, borderline bands, schedule crons.
+3. **Seed strategy variables** — script like `backend/scripts/monthly-trading-seed-variables.js`: universe/momentum/entry thresholds, `risk_per_trade_pct` default 5% stop below entry per order (blank = Maker chooses), position 3-8% (max 15%), partial-profit band 15-25%, cash band 30-80%, monthly target 3-5%, `monthly_drawdown_stop_pct` default 4, borderline bands, schedule crons.
 
 ## Phase 2 — Laptop IBKR bridge
 
@@ -91,7 +91,7 @@ flowchart LR
 ## Where the Maker gets the strategy (goals and objectives)
 
 - **Canonical strategy prompt module** — the full "Monthly Positive Return Trading System" goal (universe, market filter, selection, entry, sizing, stops, profit/cash management, discipline rules, monthly drawdown guardrail; see Appendix) is captured verbatim in `backend/scripts/lib/trading-strategy-prompt.js`, versioned in git. The W1 seed script installs it as the **Maker Brain node's `systemPrompt`** in the workflow definition.
-- **Numbers are variables, not prose** — every threshold in the prompt references workflow variables (e.g. "risk no more than `{{var.risk_per_trade_pct}}`% per trade"), so behavior is tunable from the Variables panel without re-seeding or editing the prompt.
+- **Numbers are variables, not prose** — every threshold in the prompt references workflow variables (e.g. "stop at most `{{var.risk_per_trade_pct}}`% below entry per order; blank = Maker chooses"), so behavior is tunable from the Variables panel without re-seeding or editing the prompt.
 - **Per-run facts as node inputs** — Maker receives live data wired from upstream nodes each run: market regime, current positions/cash (laptop snapshot), screener candidates with technicals + fundamentals, guardrail status, and past-trade learnings (`ibkr_order_learnings` + journal stats) so monthly statistics feed back into decisions.
 - **Checker gets an independent checklist rendering** of the same rules to audit the Maker's plan; the `custom_script` hard gates enforce the non-negotiables in deterministic code so an out-of-policy trade cannot pass even if both LLMs err.
 - **Certify goal is separate** — the WorkflowGoal for certification describes pipeline success criteria (plan produced, gates pass, digest sent), not trading rules.
@@ -170,12 +170,11 @@ See runbook: [IBKR-MONTHLY-PHASE4.md](IBKR-MONTHLY-PHASE4.md).
 - Build positions gradually rather than buying the full allocation immediately.
 
 **Position Sizing**
-- Risk no more than 0.5-1% of total portfolio value on any single trade.
 - Initial allocation per position should typically be 3-8% of the portfolio.
 - Maximum exposure to any single stock should not exceed 15%.
 
 **Stop Loss**
-- Every position must have a predefined stop.
+- Every position must have a predefined stop. Default max distance is `risk_per_trade_pct` (5% below entry per order); blank lets the Maker choose.
 - Exit immediately if the stop is triggered.
 - Never average down losing trades.
 

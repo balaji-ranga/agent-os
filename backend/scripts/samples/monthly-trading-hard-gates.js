@@ -2,7 +2,8 @@
  * Deterministic hard gates for Monthly Positive Return Maker JSON.
  * Must export: run(inputs, context)
  *
- * Checks: risk %, never average down, market filter for new_entry,
+ * Checks: per-order stop distance (risk_per_trade_pct; blank/0 = Maker decides),
+ * never average down, market filter for new_entry,
  * guardrail halt_new blocks new_entry, position caps, CEO approval flags,
  * bookable IBKR bracket (qty, entry, stop below, tp above), BUY limit within
  * slip/discount of snapshot or screener last, spendable notional uses
@@ -26,6 +27,15 @@ function num(v, d = null) {
   if (v == null || v === '') return d;
   const n = Number(v);
   return Number.isFinite(n) ? n : d;
+}
+
+/** Blank / 0 / non-numeric = no cap (Maker decides stop distance). */
+function optionalPctCap(v) {
+  if (v == null) return null;
+  if (typeof v === 'string' && !String(v).trim()) return null;
+  const n = Number(v);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n;
 }
 
 function truthy(v) {
@@ -145,7 +155,7 @@ export function run(inputs = {}, context = {}) {
   const riskSummary = plan.risk_summary && typeof plan.risk_summary === 'object' ? plan.risk_summary : {};
   const riskMode = String(riskSummary.risk_mode || 'normal').toLowerCase();
 
-  const riskCap = num(vars.risk_per_trade_pct, 0.75);
+  const riskCap = optionalPctCap(vars.risk_per_trade_pct);
   const sizeMin = num(vars.position_size_pct_min, 3);
   const sizeMax = num(vars.position_size_pct_max, 8);
   const sizeHard = num(vars.position_size_pct_hard_max, 15);
@@ -311,6 +321,14 @@ export function run(inputs = {}, context = {}) {
           `${label}: no snapshot/screener quotes bound — cannot verify entry ${entryPx} vs last`
         );
       }
+      if (riskCap != null && entryPx > 0 && stopPx > 0) {
+        const stopDistPct = ((entryPx - stopPx) / entryPx) * 100;
+        if (stopDistPct > riskCap + 1e-9) {
+          errors.push(
+            `${label}: stop ${stopPx} is ${stopDistPct.toFixed(2)}% below entry ${entryPx} (max risk_per_trade_pct=${riskCap}% per order)`
+          );
+        }
+      }
     }
 
     // Never average down: reject reduce/new_entry that adds to a loser without exit intent
@@ -344,8 +362,8 @@ export function run(inputs = {}, context = {}) {
     }
 
     const riskPct = num(a.risk_pct ?? a.risk_per_trade_pct);
-    if (riskPct != null && riskPct > riskCap) {
-      errors.push(`${label}: risk ${riskPct}% exceeds cap ${riskCap}%`);
+    if (riskCap != null && riskPct != null && riskPct > riskCap) {
+      errors.push(`${label}: risk ${riskPct}% exceeds cap ${riskCap}% per order`);
     }
 
     if (key) {
@@ -359,7 +377,7 @@ export function run(inputs = {}, context = {}) {
   }
 
   const openStop = num(riskSummary.open_stop_risk_pct);
-  if (openStop != null && openStop > riskCap * 10) {
+  if (riskCap != null && openStop != null && openStop > riskCap * 10) {
     warnings.push(`open_stop_risk_pct=${openStop} looks elevated vs risk_per_trade_pct=${riskCap}`);
   }
 

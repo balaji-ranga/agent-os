@@ -191,13 +191,16 @@ Open **Workflows → monthly-trading-w1-post-close → Variables**:
 |----------|---------|
 | `daily_budget_usd` | Max **USD notional for new buys** (`new_entry`) in a plan |
 | `max_trades_per_day` | Max new buy count |
-| `risk_per_trade_pct` / `position_size_pct_*` | Risk and size % caps. New entries must use min(daily budget, cash, `position_size_pct_max` of equity) as fully as whole shares allow. |
+| `risk_per_trade_pct` | Max **stop-loss % below entry per order** (default **5**). Leave blank or `0` so the Maker chooses the stop. Hard gates reject a `new_entry` whose stop is farther than this. |
+| `position_size_pct_*` | Size % caps. New entries must use min(daily budget, cash, `position_size_pct_max` of equity) as fully as whole shares allow. |
 | `cash_band_pct_*` | Target cash band |
 | `monthly_drawdown_stop_pct` | Halt new entries after drawdown from **your** month high-water mark |
 | `entry_slip_pct_max` / `entry_discount_pct_max` | BUY limit vs last: not more than 0.25% **above** / 3% **below** (default). Stops invented cheap limits that would never fill. Company setup from the Flolah demo pack installs the same W1 bindings. |
 | `screener_enrich_limit` | Top N screener names get FMP PE / SMA / 3m–6m momentum / YoY (default 8). Missing fields → Maker may use Brave Search. |
 
 Budget applies to **buys only**, not sells. Prefer an IBKR **Cash** account so the broker itself blocks margin borrowing.
+
+**How to set the per-order stop cap:** on W1 Variables, set `risk_per_trade_pct` to a number (default **5** = stop at most 5% below entry). Clear the value (or set `0`) and **Publish** so the Maker picks the stop; hard gates will not cap distance.
 
 Maker must **choose** on every `new_entry`:
 

@@ -33,8 +33,13 @@ function rowsToObject(rows) {
     if (row.type === 'boolean') {
       out[key] = row.value === true || row.value === 'true' || row.value === '1';
     } else if (row.type === 'number') {
-      const n = Number(row.value);
-      out[key] = Number.isFinite(n) ? n : row.value;
+      const raw = String(row.value ?? '').trim();
+      if (!raw) {
+        out[key] = '';
+      } else {
+        const n = Number(raw);
+        out[key] = Number.isFinite(n) ? n : row.value;
+      }
     } else if (row.type === 'json') {
       try {
         out[key] = JSON.parse(row.value || 'null');
@@ -93,6 +98,7 @@ export default function WorkflowVariablesPanel({ variables, onChange }) {
       <p className="wf-variables-hint">
         Static config for this workflow. Use in prompts/API bodies as{' '}
         <code>{'{{var.key}}'}</code>. Saved with draft; used at run time from the definition.
+        Leave a number blank to store an empty value (treated as unset).
       </p>
       {error && <div className="wf-variables-error">{error}</div>}
       <div className="wf-variables-list">

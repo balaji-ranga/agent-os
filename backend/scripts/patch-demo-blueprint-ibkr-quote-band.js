@@ -32,6 +32,15 @@ const CHECKER_PRICE_LINE =
 const CHECKER_BRACKET_LINE =
   '- every new_entry is bookable: qty >= 1 and entry_price. Either a full bracket (bracket true: stop below entry and tp above) OR hold-for-weeks (bracket false, exit_plan later_day_plan, forecast_up_weeks >= 1, tp omitted so a later day plan decides the sell)\n';
 
+const MAKER_RISK_LINE_OLD =
+  '- Risk no more than {{var.risk_per_trade_pct}}% of total portfolio value on any single trade.';
+const MAKER_RISK_LINE_NEW =
+  '- Per-order stop: if risk_per_trade_pct is a number (value {{var.risk_per_trade_pct}}), stop_price must be at most that percent below entry_price on each new_entry. Set risk_pct to that stop distance. If the variable is blank or 0, YOU choose the stop distance per order and still set risk_pct. Never average down.';
+const CHECKER_RISK_LINE_OLD =
+  '- risk_per_trade_pct <= {{var.risk_per_trade_pct}}; position sizing within {{var.position_size_pct_min}}-{{var.position_size_pct_max}}% (hard max {{var.position_size_pct_hard_max}}%)';
+const CHECKER_RISK_LINE_NEW =
+  '- if risk_per_trade_pct is a number ({{var.risk_per_trade_pct}}), each new_entry stop must be at most that % below entry_price (blank or 0 = Maker chooses the stop distance); position sizing within {{var.position_size_pct_min}}-{{var.position_size_pct_max}}% (hard max {{var.position_size_pct_hard_max}}%)';
+
 const IBKR_BUY_LINE =
   '- BUY entry ≤ reference_price + {{var.entry_slip_pct_max}}% and ≥ reference_price − {{var.entry_discount_pct_max}}% (do not invent far-below-market limits)';
 
@@ -57,6 +66,15 @@ function ensureMonthlyBandVars(variables) {
   if (variables.screener_enrich_limit == null) variables.screener_enrich_limit = 8;
 }
 
+function ensureMonthlyRiskPerTradePct(variables) {
+  if (!variables || typeof variables !== 'object') return;
+  if (variables.risk_per_trade_pct === 0.75 || variables.risk_per_trade_pct === '0.75') {
+    variables.risk_per_trade_pct = 5;
+  } else if (variables.risk_per_trade_pct == null) {
+    variables.risk_per_trade_pct = 5;
+  }
+}
+
 export function patchDemoBalajiIbkrQuoteBand(pack) {
   const monthlyKeys = [
     'monthly-trading-w1-post-close',
@@ -66,7 +84,10 @@ export function patchDemoBalajiIbkrQuoteBand(pack) {
   ];
   for (const key of monthlyKeys) {
     const w = wf(pack, key);
-    if (w) ensureMonthlyBandVars(w.variables);
+    if (w) {
+      ensureMonthlyBandVars(w.variables);
+      ensureMonthlyRiskPerTradePct(w.variables);
+    }
   }
 
   const w1 = wf(pack, 'monthly-trading-w1-post-close');
@@ -153,6 +174,12 @@ export function patchDemoBalajiIbkrQuoteBand(pack) {
     maker.data.taskConfig.systemPrompt +=
       '\n## How to decide grind vs swing\nUse SCREENER candidate stats from FMP when present: pe, sma_50, sma_200, momentum_3m, momentum_6m, pct_from_high_52w, revenue_yoy, eps_yoy. If those FMP fields are missing, you MAY call Brave Search MCP as a fallback; do not invent stats.\n';
   }
+  if (maker.data?.taskConfig?.systemPrompt?.includes(MAKER_RISK_LINE_OLD)) {
+    maker.data.taskConfig.systemPrompt = maker.data.taskConfig.systemPrompt.replace(
+      MAKER_RISK_LINE_OLD,
+      MAKER_RISK_LINE_NEW
+    );
+  }
 
   const checker = nodeById(w1, 'checker-1');
   const checkerPrompt = checker?.data?.taskConfig?.systemPrompt || '';
@@ -186,6 +213,12 @@ export function patchDemoBalajiIbkrQuoteBand(pack) {
       );
     }
   }
+  if (checker.data?.taskConfig?.systemPrompt?.includes(CHECKER_RISK_LINE_OLD)) {
+    checker.data.taskConfig.systemPrompt = checker.data.taskConfig.systemPrompt.replace(
+      CHECKER_RISK_LINE_OLD,
+      CHECKER_RISK_LINE_NEW
+    );
+  }
   const checkerUser = (checker.data.inputBindings || []).find((b) => b.id === 'userMessage');
   if (checkerUser?.value && !String(checkerUser.value).includes('{{tool-screener.text}}')) {
     checkerUser.value =
@@ -194,7 +227,11 @@ export function patchDemoBalajiIbkrQuoteBand(pack) {
 
   for (const key of ['ibkr-maker-checker-paper', 'ibkr-position-poller-paper']) {
     const w = wf(pack, key);
-    if (w) ensureMonthlyBandVars(w.variables);
+    if (w) {
+      ensureMonthlyBandVars(w.variables);
+      // Paper IBKR uses stop_pct_min/max, not monthly W1 risk_per_trade_pct.
+      if (w.variables && w.variables.stop_pct_max != null) delete w.variables.risk_per_trade_pct;
+    }
   }
 
   const ibkr = wf(pack, 'ibkr-maker-checker-paper');
@@ -231,9 +268,13 @@ function main() {
     JSON.stringify(
       {
         w1_entry_discount_pct_max: w1.variables.entry_discount_pct_max,
+        w1_risk_per_trade_pct: w1.variables.risk_per_trade_pct,
         hard_gates_bindings: (hg.data.inputBindings || []).map((b) => b.id),
         maker_has_discount: String(nodeById(w1, 'maker-1').data.taskConfig.systemPrompt).includes(
           'entry_discount_pct_max'
+        ),
+        maker_has_per_order_stop: String(nodeById(w1, 'maker-1').data.taskConfig.systemPrompt).includes(
+          'Per-order stop'
         ),
         checker_has_discount: String(nodeById(w1, 'checker-1').data.taskConfig.systemPrompt).includes(
           'entry_discount_pct_max'

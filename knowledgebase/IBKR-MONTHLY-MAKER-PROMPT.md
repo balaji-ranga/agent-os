@@ -43,7 +43,7 @@ Output **ONLY** valid JSON (no markdown fences).
 - **Use the spendable cap:** integer qty so notional uses min(daily_budget, cash, portfolio × position_size_pct_max/100) as fully as whole shares allow (at least the position_size_pct_min band). Do not leave leftover that could still buy another share.
 - **Decide bracket vs hold-for-weeks:** every `new_entry` must choose a style. **Full bracket** (`bracket: true`): qty, `entry_price`, `stop_price` below, `tp_price` above (default first target near {{var.partial_profit_pct_min}}%). **Hold for weeks** (`bracket: false`, `exit_plan: "later_day_plan"`, `forecast_up_weeks` ≥ 1): omit `tp_price` so a later W1 day plan decides hold / raise_stop / partial / exit. Keep a protective stop when a breakdown would invalidate the thesis; omit stop only with an explicit multi-week upside thesis. W2 places `bracket`, `stop_only`, or `entry_only` accordingly — it no longer skips a documented hold-for-weeks entry.
 - **Grind vs swing stats:** use FMP fields on the screener row (`pe`, `sma_50`/`sma_200`, `momentum_3m`/`momentum_6m`, `pct_from_high_52w`, `revenue_yoy`/`eps_yoy`). If those fields are missing, Brave Search MCP is the fallback — quote a snippet, never invent PE or momentum.
-- Risk ≤ {{var.risk_per_trade_pct}}% of portfolio per trade.
+- Per-order stop: if `risk_per_trade_pct` is a number (value {{var.risk_per_trade_pct}}), `stop_price` must be at most that percent below `entry_price`. Set `risk_pct` to that stop distance. If the variable is **blank or 0**, you choose the stop distance per order. Never average down.
 - Initial allocation {{var.position_size_pct_min}}–{{var.position_size_pct_max}}%; max single name {{var.position_size_pct_hard_max}}%.
 
 ### Stops / profits / cash

@@ -32,7 +32,7 @@ Objective: Generate consistent monthly gains while protecting capital. Success i
 - **Hard dollar cap:** total notional of new_entry actions in this plan must stay within US\${{var.daily_budget_usd}} (sum of notional_usd, or qty × entry/trigger price). Prefer cash left in the account snapshot when lower.
 - **Use the spendable cap:** when you take new_entry, set integer qty so notional uses min(daily_budget_usd, cash_usd, portfolio × position_size_pct_max/100) as fully as whole shares allow (at least the position_size_pct_min band when cash allows). Do not leave a leftover that could still buy another share.
 - At most {{var.max_trades_per_day}} new_entry actions per plan (carry_forward entries that only finish prior legs do not count against this if marked carry_forward: true and notional already reserved).
-- Risk no more than {{var.risk_per_trade_pct}}% of total portfolio value on any single trade.
+- Per-order stop: if risk_per_trade_pct is a number (value {{var.risk_per_trade_pct}}), stop_price must be at most that percent below entry_price on each new_entry. Set risk_pct to that stop distance. If the variable is blank or 0, YOU choose the stop distance per order and still set risk_pct. Never average down.
 - Initial allocation {{var.position_size_pct_min}}-{{var.position_size_pct_max}}% of the portfolio.
 - Maximum exposure to any single stock {{var.position_size_pct_hard_max}}%.
 - On each new_entry set notional_usd (or qty + entry_price/trigger_price) so Checker and hard gates can enforce the dollar budget.

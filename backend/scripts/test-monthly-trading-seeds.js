@@ -47,16 +47,25 @@ async function main() {
   }
   assertUtf8AsciiHead('../src/services/trading-day-plans.js', '2f2a2a0a');
 
-  const { MONTHLY_TRADING_VARIABLES } = await import('./monthly-trading-seed-variables.js');
+  const { MONTHLY_TRADING_VARIABLES, mergeMonthlyTradingVariables } = await import(
+    './monthly-trading-seed-variables.js'
+  );
   assert.ok(MONTHLY_TRADING_VARIABLES.cron_post_close_fallback);
   assert.ok(MONTHLY_TRADING_VARIABLES.local_bridge_base_url.includes('127.0.0.1'));
+  assert.strictEqual(MONTHLY_TRADING_VARIABLES.risk_per_trade_pct, 5);
+  assert.strictEqual(mergeMonthlyTradingVariables({ risk_per_trade_pct: 0.75 }).risk_per_trade_pct, 5);
+  assert.strictEqual(mergeMonthlyTradingVariables({ risk_per_trade_pct: '' }).risk_per_trade_pct, '');
+  assert.strictEqual(mergeMonthlyTradingVariables({ risk_per_trade_pct: 3 }).risk_per_trade_pct, 3);
 
   const { MAKER_STRATEGY_SYSTEM_PROMPT } = await import('./lib/trading-strategy-prompt.js');
   const { CHECKER_STRATEGY_SYSTEM_PROMPT } = await import('./lib/trading-checker-prompt.js');
   assert.ok(MAKER_STRATEGY_SYSTEM_PROMPT.includes('EXECUTION RECOVERY'));
   assert.ok(MAKER_STRATEGY_SYSTEM_PROMPT.includes('prior_plan_reconcile'));
   assert.ok(MAKER_STRATEGY_SYSTEM_PROMPT.includes('{{var.discretionary_loss_sell_pct}}'));
+  assert.ok(MAKER_STRATEGY_SYSTEM_PROMPT.includes('Per-order stop'));
+  assert.ok(MAKER_STRATEGY_SYSTEM_PROMPT.includes('blank or 0'));
   assert.ok(CHECKER_STRATEGY_SYSTEM_PROMPT.includes('prior_plan_reconcile'));
+  assert.ok(CHECKER_STRATEGY_SYSTEM_PROMPT.includes('Maker chooses the stop distance'));
 
   const {
     PLAN_STATUSES,
@@ -107,6 +116,70 @@ async function main() {
   });
   assert.strictEqual(failAvg.ok, false);
   assert.ok(failAvg.errors.some((e) => /average_down/i.test(e)));
+
+  const stopCapInputs = {
+    regime: { risk_on: true },
+    account_snapshot: JSON.stringify({
+      cash_usd: 10000,
+      equity_usd: 10000,
+      reference_prices: { 'NASDAQ:AMD': { reference_price: 100 } },
+    }),
+  };
+  const wideStopPlan = JSON.stringify({
+    prior_plan_reconcile: { notes: 'x' },
+    actions: [
+      {
+        type: 'new_entry',
+        key: 'NASDAQ:AMD',
+        qty: 8,
+        entry_price: 100,
+        stop_price: 94,
+        tp_price: 110,
+        notional_usd: 800,
+        bracket: true,
+      },
+    ],
+    risk_summary: { risk_mode: 'normal' },
+  });
+  const stopTooWide = hardGates({ plan_text: wideStopPlan, ...stopCapInputs }, { workflow_variables: { risk_per_trade_pct: 5 } });
+  assert.strictEqual(stopTooWide.ok, false, stopTooWide.errors);
+  assert.ok(stopTooWide.errors.some((e) => /risk_per_trade_pct=5% per order/i.test(e)), stopTooWide.errors);
+
+  const makerDecides = hardGates(
+    { plan_text: wideStopPlan, ...stopCapInputs },
+    { workflow_variables: { risk_per_trade_pct: '' } }
+  );
+  assert.strictEqual(makerDecides.ok, true, `blank cap should pass: ${JSON.stringify(makerDecides.errors)}`);
+
+  const makerDecidesZero = hardGates(
+    { plan_text: wideStopPlan, ...stopCapInputs },
+    { workflow_variables: { risk_per_trade_pct: 0 } }
+  );
+  assert.strictEqual(makerDecidesZero.ok, true, `zero cap should pass: ${JSON.stringify(makerDecidesZero.errors)}`);
+
+  const stopOk = hardGates(
+    {
+      plan_text: JSON.stringify({
+        prior_plan_reconcile: { notes: 'x' },
+        actions: [
+          {
+            type: 'new_entry',
+            key: 'NASDAQ:AMD',
+            qty: 8,
+            entry_price: 100,
+            stop_price: 96,
+            tp_price: 110,
+            notional_usd: 800,
+            bracket: true,
+          },
+        ],
+        risk_summary: { risk_mode: 'normal' },
+      }),
+      ...stopCapInputs,
+    },
+    { workflow_variables: { risk_per_trade_pct: 5 } }
+  );
+  assert.strictEqual(stopOk.ok, true, `4% stop should pass 5% cap: ${JSON.stringify(stopOk.errors)}`);
 
   const farBelow = hardGates({
     plan_text: JSON.stringify({
@@ -460,6 +533,7 @@ async function main() {
   );
   assert.ok(demoW1, 'demo_balaji_ranganathan pack must include W1');
   assert.strictEqual(demoW1.variables?.entry_discount_pct_max, 3);
+  assert.strictEqual(demoW1.variables?.risk_per_trade_pct, 5);
   const demoHg = (demoW1.graph?.nodes || []).find((n) => n.id === 'hard-gates');
   const demoHgBind = (demoHg?.data?.inputBindings || []).map((b) => b.id);
   assert.ok(demoHgBind.includes('account_snapshot'), 'demo pack W1 hard gates bind snapshot');
