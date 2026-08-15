@@ -143,6 +143,8 @@ check "api masterDataTableUpdate" grep -q masterDataTableUpdate "$ROOT/frontend/
 check "SKILL anti-browser" grep -q 'never browser' "$ROOT/openclaw-skills/agent-os-content-tools/SKILL.md"
 check "TOOLS anti-browser" grep -q 'browser tool for Master Data' "$ROOT/openclaw-workspace-templates/balserve/TOOLS.md"
 check "platform-help docs on disk" test -f "$ROOT/knowledgebase/platform-help/01-getting-started.md"
+check "help TOTP QR + security key" grep -q 'security key' "$ROOT/knowledgebase/platform-help/01-getting-started.md"
+check "TOTP enrollment UI" test -f "$ROOT/frontend/src/components/TotpEnrollmentDetails.jsx"
 check "platform-help cron/retention doc" test -f "$ROOT/knowledgebase/platform-help/19-scheduled-jobs-and-crons.md"
 check "platform-help agent channels doc" test -f "$ROOT/knowledgebase/platform-help/24-agent-channels.md"
 check "platform-help speech/published scenes doc" test -f "$ROOT/knowledgebase/platform-help/25-speech-and-published-scenes.md"

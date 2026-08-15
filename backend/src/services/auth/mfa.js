@@ -317,14 +317,18 @@ export async function finishLoginAfterPassword(user) {
         mfa: resolved,
       };
     }
+    const { secret, otpauth_url } = ensureTotpPendingSecret(row || user);
     const challenge = createMfaChallenge(user.id, 'setup');
+    console.info('[mfa] TOTP first-login enrollment required user_id=%s', user.id);
     return {
       mfa_setup_required: true,
       mfa_mode: 'TOTP',
       mfa_token: challenge.mfa_token,
       expires_at: challenge.expires_at,
+      secret,
+      otpauth_url,
       user: { id: user.id, email: user.email, role: user.role, name: user.name },
-      message: 'Authenticator MFA enrollment required before session can be issued',
+      message: 'Scan the QR code or enter the security key in your authenticator, then enter the 6-digit code',
       mfa: resolved,
     };
   }
@@ -488,6 +492,21 @@ export function confirmMfaSetup(userId, code) {
   return { ok: true, mfa_enabled: true, mfa_mode: 'TOTP', mfa_policy: 'on' };
 }
 
+/** Persist a pending TOTP secret (reuse if already issued) and return enrollment fields. Never log the secret. */
+function ensureTotpPendingSecret(user) {
+  let secret = user?.mfa_pending_secret;
+  if (!secret) {
+    secret = generateTotpSecret();
+    getDb()
+      .prepare(`UPDATE platform_users SET mfa_pending_secret = ? WHERE id = ?`)
+      .run(secret, user.id);
+  }
+  return {
+    secret,
+    otpauth_url: totpOtpauthUrl({ secret, email: user?.email || user.id }),
+  };
+}
+
 function finishAfterSetup(userId) {
   const session = createSession(userId);
   const user = getDb()
@@ -523,30 +542,29 @@ export function mfaSetupChallengeStep({ mfa_token, code }) {
   }
 
   if (!user?.mfa_pending_secret) {
-    const secret = generateTotpSecret();
-    getDb()
-      .prepare(`UPDATE platform_users SET mfa_pending_secret = ? WHERE id = ?`)
-      .run(secret, challengeRow.user_id);
+    const enrolled = ensureTotpPendingSecret({ ...user, id: challengeRow.user_id });
     if (!code) {
       return {
         mfa_setup_required: true,
         mfa_mode: 'TOTP',
         mfa_token,
-        secret,
-        otpauth_url: totpOtpauthUrl({ secret, email: user?.email || challengeRow.user_id }),
-        message: 'Scan otpauth_url / enter secret in authenticator, then POST code',
+        secret: enrolled.secret,
+        otpauth_url: enrolled.otpauth_url,
+        message: 'Scan the QR code or enter the security key in your authenticator, then POST code',
       };
     }
     user = getUserMfa(challengeRow.user_id);
   }
 
   if (!code) {
+    const enrolled = ensureTotpPendingSecret(user);
     return {
       mfa_setup_required: true,
       mfa_mode: 'TOTP',
       mfa_token,
-      secret: user.mfa_pending_secret,
-      otpauth_url: totpOtpauthUrl({ secret: user.mfa_pending_secret, email: user.email }),
+      secret: enrolled.secret,
+      otpauth_url: enrolled.otpauth_url,
+      message: 'Scan the QR code or enter the security key in your authenticator, then POST code',
     };
   }
 

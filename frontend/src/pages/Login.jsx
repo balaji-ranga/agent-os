@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
+import TotpEnrollmentDetails from '../components/TotpEnrollmentDetails';
+import { resolveTotpEnrollment } from '../utils/totpEnrollment';
 
 export default function Login() {
   const { login, completeMfa, resendMfa } = useAuth();
@@ -33,9 +35,8 @@ export default function Login() {
         return;
       }
       if (result?.mfa_setup_required) {
-        // TOTP forced enrollment
-        const setup = await api.authMfaSetupChallenge({ mfa_token: result.mfa_token });
-        setMfa({ ...result, ...setup });
+        const setup = await resolveTotpEnrollment(result, api.authMfaSetupChallenge);
+        setMfa(setup);
         setTotpSecret(setup.secret || null);
         setOtp('');
         return;
@@ -144,19 +145,11 @@ export default function Login() {
           {isEmail
             ? `We sent a 6-digit code to ${mfa.email_hint || 'your email'}.`
             : mfa.mfa_setup_required
-              ? 'Scan the authenticator setup, then enter the 6-digit code.'
+              ? 'Add this account to your authenticator app, then enter the 6-digit code.'
               : 'Enter the 6-digit code from your authenticator app.'}
         </p>
-        {!isEmail && (totpSecret || mfa.secret) && (
-          <p style={{ fontSize: '0.8rem', wordBreak: 'break-all', marginBottom: '1rem', color: 'var(--muted)' }}>
-            Secret: <code>{totpSecret || mfa.secret}</code>
-            {mfa.otpauth_url ? (
-              <>
-                <br />
-                <a href={mfa.otpauth_url}>Open authenticator link</a>
-              </>
-            ) : null}
-          </p>
+        {!isEmail && mfa.mfa_setup_required && (
+          <TotpEnrollmentDetails secret={totpSecret || mfa.secret} otpauthUrl={mfa.otpauth_url} />
         )}
         <form onSubmit={submitOtp} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <label>

@@ -184,6 +184,9 @@ After opening http://127.0.0.1:3000:
 6. **Human–agent interaction**  
    From the Dashboard or Workspace page, open "Chat" for an agent. Send a message; the reply appears (requires OpenClaw gateway running and agent workspace/agent dir set up).
 
+7. **TOTP first login**  
+   With `MFA_MODE=TOTP` and MFA required, a new CEO/admin who has not enrolled yet must see both a **QR code** and the **security key** on login/register, then a 6-digit code field. Enrolled users only see the code field (no QR/key).
+
 ## Smoke test (quick)
 
 ```powershell

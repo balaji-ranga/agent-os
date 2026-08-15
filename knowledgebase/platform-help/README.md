@@ -5,7 +5,7 @@
 
 | Doc | Topics |
 |-----|--------|
-| [01-getting-started.md](./01-getting-started.md) | Register, login, MFA, Profile / BYOK + **chat model** via **API Keys** |
+| [01-getting-started.md](./01-getting-started.md) | Register, login, MFA (TOTP QR + security key on first enrollment), Profile / BYOK + **chat model** via **API Keys** |
 | [02-navigation-and-chrome.md](./02-navigation-and-chrome.md) | Left nav map, sections **collapsed by default**, **Global search** (task id / WF run id), Digest (goal plans + timestamps + View all), Operating Workspace open tasks + activity (= Kanban/goals/runs), Workspace Builder, Home **OEI** pointer (**36**), **Appearance** themes (Day/Night + Aurora Glass / Vivid Board), **Admin** TLS certs + AgentSystem recovery (`/admin/openclaw-recovery`, help **43**), Tools **Rate limits** |
 | [03-dashboard-agents-chat.md](./03-dashboard-agents-chat.md) | Org chart, chat **attachments**, inline auth media players, workspace MD, **templates** Apply/Publish, tools access, Resync |
 | [04-kanban-standups-broadcast.md](./04-kanban-standups-broadcast.md) | Kanban (**Weekly default**, agent filter, Select all, task ID, deep-link `?task=`), standups → COO, Broadcast, `notify_ceo` when/when-not |

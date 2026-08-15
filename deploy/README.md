@@ -263,7 +263,7 @@ Gets the same gateway LLM vars plus:
 | `WORKFLOW_TEST_EMAIL_TO` | Optional recipient for SMTP smoke scripts (`test-email-send-tool.js`) |
 | `DEEPSEEK_BASE_URL`, `DEEPSEEK_MODEL` | Optional DeepSeek override. Brain `deepseek` defaults to cloud V4 (`https://api.deepseek.com/v1`, `deepseek-v4-flash`) with per-node API key; set these to Ollama for local. Profile BYOK `deepseek` still uses local Ollama when pointed here. |
 | `BRAVE_API_KEY` | Agent content tool **`brave_web_search`** when Profile is Platform default. Also test/workflow run input for Brave MCP demos. **Not** injected into the Brave MCP container (that stays header BYOK). Vault **`BRAVE_SEARCH_BYOK`** for non-platform Profiles. Profile `optional-brave-mcp`. |
-| `MFA_MODE`, `AGENT_OS_REQUIRE_MFA`, `AGENT_OS_DISABLE_MFA` | Platform MFA defaults (production: `MFA_MODE=TOTP`, `AGENT_OS_REQUIRE_MFA=1`) |
+| `MFA_MODE`, `AGENT_OS_REQUIRE_MFA`, `AGENT_OS_DISABLE_MFA` | Platform MFA defaults (production: `MFA_MODE=TOTP`, `AGENT_OS_REQUIRE_MFA=1`). TOTP first login/register shows a QR code plus the security key until the authenticator is enrolled. |
 | `ADMIN_PRIVILEGED_SESSION_TTL_MS` | OTP session TTL for Admin AgentSystem recovery, Tools Onboarding, TLS refresh (default `1800000` = 30 min). Fallback `DOCKER_TOOLS_STEPUP_TTL_MS`. |
 | `EMAIL_INBOUND_WEBHOOK_SECRET` | Optional platform secret for email inbound webhooks |
 | `OPENCONNECTOR_URL` | Base URL of the OpenConnector runtime (e.g. `http://openconnector:3000`). Enables Connector workflow nodes + User Profile auto-provision. |

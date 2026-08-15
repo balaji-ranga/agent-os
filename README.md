@@ -21,9 +21,10 @@ You do not need to know APIs or Docker for everyday use.
 ### Sign in and first look
 
 1. Open **https://login.flolah.cloud** (or **Register** if you are new). Marketing site is **https://flolah.cloud**.
-2. After login you land on **home chat** (`/`) with the **COO** selected by default. Switch agents from the **Chat with** picker. **History** and **Browser session** side panes start closed — use the icons next to **New chat** to open them. **New chat** archives the current thread; on local Ollama the archive title is heuristic so **Archiving…** does not wait on the same CPU model. Org chart and standups are under **My Org** (`/org`).
-3. The **bell** in the top bar is your notification center (agent replies and messages pushed to you).
-4. **New CEOs** may open **Company setup** first (`/company-setup`, also avatar → **Company setup**) to pick company type, mission, DNA, team pack, and management style — or skip and finish later. Platform Help guide: `knowledgebase/platform-help/29-company-setup.md`.
+2. If your org requires **authenticator (TOTP)** MFA and you have not enrolled yet, the first login (and register) screen shows a **QR code** and the **security key**. Scan the QR with your authenticator app, or type the security key manually, then enter the 6-digit code.
+3. After login you land on **home chat** (`/`) with the **COO** selected by default. Switch agents from the **Chat with** picker. **History** and **Browser session** side panes start closed — use the icons next to **New chat** to open them. **New chat** archives the current thread; on local Ollama the archive title is heuristic so **Archiving…** does not wait on the same CPU model. Org chart and standups are under **My Org** (`/org`).
+4. The **bell** in the top bar is your notification center (agent replies and messages pushed to you).
+5. **New CEOs** may open **Company setup** first (`/company-setup`, also avatar → **Company setup**) to pick company type, mission, DNA, team pack, and management style — or skip and finish later. Platform Help guide: `knowledgebase/platform-help/29-company-setup.md`.
 
 ### Company setup (first-run wizard)
 
@@ -152,6 +153,7 @@ Grant or revoke tools on each agent’s **Workspace → Tools access**.
 
 | Area | What you get in the UI |
 |------|-------------------------|
+| **TOTP first-login enrollment** | When MFA mode is **TOTP** and you are not enrolled yet, login and register show a **QR code** and the **security key** (copyable) plus an authenticator link. Scan or type the key, then enter the 6-digit code. Enrolled users only enter the code. |
 | **Kanban board + orphan watcher** | Default filter is **Weekly** (current week); switch **All** for every card of any age (Daily / Monthly / custom range also available). Toolbar **Agent** filter, **Select all** next to **+ New task** (no left checkbox column), **Task ID** in the detail drawer. Specialty cards stuck `in_progress` are re-pended/reinitiated every 5 minutes (`KANBAN_ORPHAN_WATCHER_CRON`) and from the delegation cron. **status_checker** reports only (does not also run the orphan watcher). **status_checker** always counts **All** ages — deleting only the Weekly slice leaves older awaiting/failed cards in the report. Deleting a card cancels its pending agent run. |
 | **Global search (Ctrl+K)** | Top-bar search: chats, agents, workflow defs, master tables/docs, **Kanban task id**, and **workflow run id** / run number (`GET /api/home/search`). Task hits open `/kanban?task=` (drawer); runs open `/workflows?run_id=`. Pure numeric queries work from 1 digit. |
 | **Kanban timezone + archived-chat activity** | Every Kanban date (board tooltips, card **Created**/**Updated**, task chat) renders in the platform timezone (`PLATFORM_TIMEZONE`, else `TZ`) with the zone shown in the board header — no raw UTC. A card's **Activity** tab now also pulls the linked agent-chat turns, so work done in a chat that was later **archived** still shows (tagged `archived`); cards with genuinely no activity say so instead of rendering blank, and a failed detail load shows an error + **Retry**. |

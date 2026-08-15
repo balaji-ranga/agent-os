@@ -23,6 +23,7 @@
 #   + GOAL_PLAN_* in compose; vps-verify-scheduled-goals.sh + _smoke-scheduled-goals.mjs, help 28/42),
 # Home OEI (operational_effectiveness API/tool; scheduled_goal_runs fire counts; help 36),
 # Company setup (/company-setup, platform-help 29),
+# TOTP first-login QR + security key (Login/Register enrollment),
 # Legal register accept + /legal static pages (AGENT_OS_TERMS_VERSION / AGENT_OS_PRIVACY_VERSION),
 # Left nav sections collapsed by default (AppNavMenu agent-os-nav-section-v2),
 # Kanban All view (default) aligned with status_checker all-ages counts,
@@ -128,7 +129,12 @@ scp @ssh `
   "$Repo\frontend\index.html" `
   "$Repo\frontend\package.json" `
   "$Repo\frontend\package-lock.json" `
+  "$Repo\frontend\vite.config.js" `
   "root@${HostIp}:$RemoteRoot/frontend/"
+if (Test-Path "$Repo\frontend\scripts") {
+  ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/frontend/scripts"
+  scp @ssh -r "$Repo\frontend\scripts" "root@${HostIp}:$RemoteRoot/frontend/"
+}
 
 Write-Host "==> Sync deploy compose + nginx + dockerfiles + scripts + README"
 scp @ssh `
@@ -251,6 +257,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\video-tours-render-slides.js" `
     "$Repo\backend\scripts\_smoke-scheduled-goals.mjs" `
     "$Repo\backend\scripts\test-platform-help-seed.js" `
+    "$Repo\backend\scripts\test-totp-enrollment-fields.js" `
     "$Repo\backend\scripts\reupload-platform-help-docs.js" `
     "$Repo\backend\scripts\test-platform-help-rag.js" `
     "$Repo\backend\scripts\test-opensearch-rag-smoke.js" `

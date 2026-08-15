@@ -17,9 +17,10 @@ Admin accounts manage platform users; CEOs get the full product nav.
 
 Your org may **require** MFA or leave it optional (**inherit** platform default).
 
-1. On first login (when required), choose **EMAIL** (OTP to your address) or **TOTP** (authenticator app) as offered.
-2. Complete the code challenge; use **resend** if the email OTP is delayed.
-3. Later: **Profile** → MFA settings (enable/disable when policy allows).
+1. On first login (when required), complete **EMAIL** (OTP to your address) or **TOTP** (authenticator app) as offered.
+2. **TOTP first enrollment:** the screen shows a **QR code** and the **security key**. Scan the QR with Google Authenticator, Authy, Microsoft Authenticator, or 1Password — or type the security key manually — then enter the 6-digit code. Store the security key somewhere safe.
+3. Complete the code challenge; use **resend** if the email OTP is delayed.
+4. Later: **Profile** → MFA settings (enable/disable when policy allows).
 
 ## First five minutes
 

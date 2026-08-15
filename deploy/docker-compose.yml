@@ -269,6 +269,7 @@ x-backend-env: &backend-env
   WORKFLOW_SMTP_FROM: ${WORKFLOW_SMTP_FROM:-}
   # Optional recipient for SMTP smoke scripts (test-email-send-tool.js, etc.)
   WORKFLOW_TEST_EMAIL_TO: ${WORKFLOW_TEST_EMAIL_TO:-}
+  # TOTP first login/register shows QR + security key until enrolled.
   MFA_MODE: ${MFA_MODE:-}
   AGENT_OS_REQUIRE_MFA: ${AGENT_OS_REQUIRE_MFA:-}
   AGENT_OS_DISABLE_MFA: ${AGENT_OS_DISABLE_MFA:-}
