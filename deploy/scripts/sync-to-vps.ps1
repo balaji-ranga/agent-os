@@ -75,7 +75,7 @@
 # Workflow autonomous certify (Maker/Checker; LLM Checker default OFF — WORKFLOW_CERTIFY_*),
 # Desktop Windows packages (PS1 + optional portable Node 18; token + IP whitelist; ASCII-safe PS1),
 # Local IBKR bridge Connectors zip + monthly trading W1–W5 + bridge-order-events learnings ingest,
-# laptop account_snapshot push → W3 ingest → W1 latest cache; IBKR Summary UI + clear APIs,
+# laptop poll + ingest /api/ibkr-trading/local-bridge-webhook (W3 secret; W3 graph on EOD) → W1 cache; IBKR Summary UI + clear APIs,
 # openclaw.json safe writers (openclaw-config-safe.js) + deploy chatCompletions gate
 # (ensure-openclaw-gateway-config.js + vps-verify-openclaw-chat.sh) so Agent Chat never goes 404,
 # COO AGENTS.md org-generated marker (workspace template sync no longer clobbers leaf members),

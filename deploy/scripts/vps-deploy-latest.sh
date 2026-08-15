@@ -56,6 +56,30 @@ if [[ -f "$ROOT/deploy/scripts/ensure-cron-env.sh" ]]; then
   sed -i 's/\r$//' "$ROOT/deploy/scripts/ensure-cron-env.sh" 2>/dev/null || true
   bash "$ROOT/deploy/scripts/ensure-cron-env.sh" "$ROOT/deploy/.env" || true
 fi
+# Keep IBKR ingest vs W3 comment on live deploy/.env (no secrets).
+if [[ -f "$ROOT/deploy/.env" ]] && ! grep -q 'W3 workflow runs on eod_snapshot' "$ROOT/deploy/.env"; then
+  if grep -q 'local-bridge-webhook' "$ROOT/deploy/.env"; then
+    python3 - "$ROOT/deploy/.env" <<'PY' || true
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+text = p.read_text(encoding="utf-8")
+needle = "local-bridge-webhook"
+line = "# Ingest saves snapshots/fills; W3 workflow runs on eod_snapshot (or fanout_w3=1), not every 5-min tick.\n"
+if needle in text and "W3 workflow runs on eod_snapshot" not in text:
+    parts = text.splitlines(keepends=True)
+    out = []
+    inserted = False
+    for ln in parts:
+        out.append(ln)
+        if (not inserted) and "local-bridge-webhook" in ln and ln.lstrip().startswith("#"):
+            out.append(line)
+            inserted = True
+    p.write_text("".join(out), encoding="utf-8")
+PY
+    echo "    deploy/.env IBKR ingest vs W3 comment added"
+  fi
+fi
 if [[ -f "$ROOT/deploy/scripts/ensure-opensearch-env.sh" ]]; then
   sed -i 's/\r$//' "$ROOT/deploy/scripts/ensure-opensearch-env.sh" 2>/dev/null || true
   bash "$ROOT/deploy/scripts/ensure-opensearch-env.sh" "$ROOT/deploy/.env" || true
@@ -880,6 +904,11 @@ if [[ -n "${TOKEN:-}" ]]; then
     docker compose exec -T -w /opt/agent-os/backend backend node scripts/reupload-platform-help-docs.js >/tmp/help-reupload.log 2>&1 \
       && echo "    platform help + user guide re-upload OK" \
       || echo "    WARN: platform help re-upload failed (see /tmp/help-reupload.log)"
+    if docker compose exec -T backend grep -q 'Ingest URL vs W3 run' /opt/agent-os/knowledgebase/platform-help/20-ibkr-monthly-trading.md 2>/dev/null; then
+      echo "    backend image help 20 ingest vs W3 OK"
+    else
+      echo "    WARN: help 20 ingest vs W3 missing in backend image (rebuild backend)"
+    fi
   fi
   # Drop duplicate/stale help docs so RAG can only retrieve the freshly uploaded versions.
   if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/heal-platform-help-docs.js 2>/dev/null; then
