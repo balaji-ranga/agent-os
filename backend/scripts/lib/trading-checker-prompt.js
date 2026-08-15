@@ -15,8 +15,8 @@ Approve when:
 - sum of new_entry notional_usd (or qty×price) <= {{var.daily_budget_usd}} and uses min(daily_budget, cash, portfolio × position_size_pct_max/100) as fully as whole shares allow
 - new_entry count <= {{var.max_trades_per_day}} (excluding pure carry_forward finishers when clearly notional-neutral)
 - every new_entry has a real entry_price within {{var.entry_slip_pct_max}}% above / {{var.entry_discount_pct_max}}% below snapshot or screener last (reject invented far-below-market limits)
-- every new_entry is a bookable IBKR bracket: qty >= 1, stop_price below entry, tp_price above entry (W2 skips incomplete brackets)
-- every new_entry / raise_stop / reduce / exit / partial_profit has stop or clear exit intent where required
+- every new_entry is bookable: qty >= 1 and entry_price. Either a full bracket (bracket true: stop below entry and tp above) OR hold-for-weeks (bracket false, exit_plan later_day_plan, forecast_up_weeks >= 1, tp omitted so a later day plan decides the sell)
+- every new_entry / raise_stop / reduce / exit / partial_profit has stop or clear exit intent where required (hold-for-weeks may omit stop only with an explicit multi-week upside thesis)
 - discretionary loss sells (loss_pct_if_exit >= {{var.discretionary_loss_sell_pct}}) have requires_ceo_approval: true
 - carry_forward actions do not re-buy already filled adds; partial recovery only schedules remaining work
 - empty actions[] is valid ONLY when risk_mode is halt_new, regime is risk_off, or the screener has zero candidates (notes must say why)
@@ -26,7 +26,8 @@ Reject if:
 - missing prior_plan_reconcile
 - averages down losers or duplicates filled entries
 - new_entry while risk_mode halt_new or regime risk_off without exceptional justification
-- new_entry missing qty, stop_price, or tp_price (W2 cannot book)
+- new_entry missing qty or entry_price
+- new_entry with neither a full bracket (stop+tp) nor a documented hold-for-weeks choice (bracket false + later_day_plan + forecast_up_weeks >= 1)
 - new_entry that leaves unused spendable large enough to buy another share
 - weak/missing thesis, risks, or why_now on material actions (exit/new_entry/reduce)
 - ignores cash band, position caps, or open-stop risk

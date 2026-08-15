@@ -378,8 +378,17 @@ export async function placeBracketTrade(trade, { postAckWatchMs = 0, cancelSourc
       });
 
     const entry = roundPrice(trade.entry_price, secType);
-    const tp = roundPrice(trade.tp_price, secType);
-    const stop = roundPrice(trade.stop_price, secType);
+    const tpRaw = roundPrice(trade.tp_price, secType);
+    const stopRaw = roundPrice(trade.stop_price, secType);
+    const tp = Number.isFinite(tpRaw) && tpRaw > 0 ? tpRaw : null;
+    const stop = Number.isFinite(stopRaw) && stopRaw > 0 ? stopRaw : null;
+    const orderStyle = stop && tp ? 'bracket' : stop ? 'stop_only' : tp ? 'tp_only' : 'entry_only';
+    console.info('[ibkr] place stock order', {
+      key: trade.key || trade.symbol,
+      order_style: orderStyle,
+      has_stop: !!stop,
+      has_tp: !!tp,
+    });
 
     const makerRetry =
       trade.retry_with_commission === true ||
@@ -400,10 +409,10 @@ export async function placeBracketTrade(trade, { postAckWatchMs = 0, cancelSourc
 
     const placeOnce = async (errorOverride) => {
       const parentId = orderId++;
-      const tpId = orderId++;
-      const slId = orderId++;
-      const orderIds = [parentId, tpId, slId];
+      const orderIds = [parentId];
       const ov = errorOverride ? String(errorOverride) : null;
+      const ovSpread = ov ? { advancedErrorOverride: ov } : {};
+      const hasChild = !!(tp || stop);
 
       const parent = {
         orderId: parentId,
@@ -413,41 +422,47 @@ export async function placeBracketTrade(trade, { postAckWatchMs = 0, cancelSourc
         lmtPrice: entry,
         tif: TimeInForce.DAY,
         account,
-        transmit: false,
+        transmit: !hasChild,
         outsideRth: false,
-        ...(ov ? { advancedErrorOverride: ov } : {}),
+        ...ovSpread,
       };
-      const takeProfit = {
-        orderId: tpId,
-        action: OrderAction.SELL,
-        orderType: OrderType.LMT,
-        totalQuantity: qty,
-        lmtPrice: tp,
-        tif: TimeInForce.GTC,
-        account,
-        parentId,
-        transmit: false,
-        outsideRth: false,
-        ...(ov ? { advancedErrorOverride: ov } : {}),
-      };
-      const stopLoss = {
-        orderId: slId,
-        action: OrderAction.SELL,
-        orderType: OrderType.STP,
-        totalQuantity: qty,
-        auxPrice: stop,
-        tif: TimeInForce.GTC,
-        account,
-        parentId,
-        transmit: true,
-        outsideRth: false,
-        ...(ov ? { advancedErrorOverride: ov } : {}),
-      };
+      const takeProfit = tp
+        ? {
+            orderId: orderId++,
+            action: OrderAction.SELL,
+            orderType: OrderType.LMT,
+            totalQuantity: qty,
+            lmtPrice: tp,
+            tif: TimeInForce.GTC,
+            account,
+            parentId,
+            transmit: !stop,
+            outsideRth: false,
+            ...ovSpread,
+          }
+        : null;
+      if (takeProfit) orderIds.push(takeProfit.orderId);
+      const stopLoss = stop
+        ? {
+            orderId: orderId++,
+            action: OrderAction.SELL,
+            orderType: OrderType.STP,
+            totalQuantity: qty,
+            auxPrice: stop,
+            tif: TimeInForce.GTC,
+            account,
+            parentId,
+            transmit: true,
+            outsideRth: false,
+            ...ovSpread,
+          }
+        : null;
+      if (stopLoss) orderIds.push(stopLoss.orderId);
 
       const ackParent = waitAck(parentId);
       ib.placeOrder(parentId, contract, parent);
-      ib.placeOrder(tpId, contract, takeProfit);
-      ib.placeOrder(slId, contract, stopLoss);
+      if (takeProfit) ib.placeOrder(takeProfit.orderId, contract, takeProfit);
+      if (stopLoss) ib.placeOrder(stopLoss.orderId, contract, stopLoss);
       await ackParent;
       await new Promise((r) => setTimeout(r, 800));
       const terminal = await watchOrderTerminal(ib, [parentId], { watchMs: postAckWatchMs });

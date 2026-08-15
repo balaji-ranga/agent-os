@@ -100,6 +100,19 @@ function screenerCandidates(inputs = {}) {
   return [];
 }
 
+function isLaterDayPlanExit(a = {}) {
+  const exit = String(a.exit_plan || a.exitPlan || '')
+    .toLowerCase()
+    .replace(/-/g, '_');
+  if (['later_day_plan', 'hold_for_weeks', 'no_bracket', 'entry_only'].includes(exit)) return true;
+  if (a.bracket === false || a.use_bracket === false || a.useBracket === false) return true;
+  const weeks = num(a.forecast_up_weeks ?? a.forecastUpWeeks ?? a.horizon_weeks);
+  if (weeks != null && weeks >= 1) return true;
+  const days = num(a.forecast_horizon_days ?? a.horizon_days);
+  if (days != null && days >= 5) return true;
+  return false;
+}
+
 export function run(inputs = {}, context = {}) {
   const vars = context?.workflow_variables || context?.variables || {};
   const makerText =
@@ -235,20 +248,44 @@ export function run(inputs = {}, context = {}) {
       const entryPx = num(a.entry_price ?? a.trigger_price ?? a.limit_price);
       const stopPx = num(a.stop_price);
       const tpPx = num(a.tp_price ?? a.take_profit_price ?? a.target_price);
+      const later = isLaterDayPlanExit(a);
+      const forecastWeeks = num(a.forecast_up_weeks ?? a.forecastUpWeeks ?? a.horizon_weeks);
       if (!(entryPx > 0)) {
-        errors.push(`${label}: new_entry requires entry_price (W2 cannot place a bracket without it)`);
+        errors.push(`${label}: new_entry requires entry_price (W2 cannot place without it)`);
       }
-      if (!(stopPx > 0)) {
-        errors.push(`${label}: new_entry requires stop_price (W2 cannot place a bracket)`);
-      } else if (entryPx > 0 && !(stopPx < entryPx)) {
-        errors.push(`${label}: stop_price ${stopPx} must be below entry ${entryPx} for longs`);
-      }
-      if (!(tpPx > 0)) {
-        errors.push(
-          `${label}: new_entry requires tp_price above entry (null tp is skipped by W2 mapper)`
-        );
-      } else if (entryPx > 0 && !(tpPx > entryPx)) {
-        errors.push(`${label}: tp_price ${tpPx} must be above entry ${entryPx}`);
+      if (later) {
+        const horizonDays = num(a.forecast_horizon_days ?? a.horizon_days);
+        if (!(forecastWeeks >= 1) && !(horizonDays >= 5)) {
+          errors.push(
+            `${label}: hold-for-weeks requires forecast_up_weeks >= 1 (or forecast_horizon_days >= 5) so a later day plan can decide the sell`
+          );
+        }
+        if (tpPx > 0) {
+          errors.push(
+            `${label}: hold-for-weeks must omit tp_price so a later day plan decides the sell`
+          );
+        }
+        if (stopPx > 0 && entryPx > 0 && !(stopPx < entryPx)) {
+          errors.push(`${label}: stop_price ${stopPx} must be below entry ${entryPx} for longs`);
+        }
+        if (!(stopPx > 0) && !(forecastWeeks >= 1)) {
+          errors.push(
+            `${label}: omit stop only when forecast_up_weeks >= 1 with an explicit multi-week thesis`
+          );
+        }
+      } else {
+        if (!(stopPx > 0)) {
+          errors.push(`${label}: full bracket requires stop_price (or set bracket false + later_day_plan)`);
+        } else if (entryPx > 0 && !(stopPx < entryPx)) {
+          errors.push(`${label}: stop_price ${stopPx} must be below entry ${entryPx} for longs`);
+        }
+        if (!(tpPx > 0)) {
+          errors.push(
+            `${label}: full bracket requires tp_price above entry (or set bracket false + later_day_plan if you forecast a week-plus grind)`
+          );
+        } else if (entryPx > 0 && !(tpPx > entryPx)) {
+          errors.push(`${label}: tp_price ${tpPx} must be above entry ${entryPx}`);
+        }
       }
       if (entryPx > 0 && hasQuoteSource) {
         const ref = lookupRef(refs, key);

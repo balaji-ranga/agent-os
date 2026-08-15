@@ -14,7 +14,7 @@ Quick reference for the Monthly Positive Return suite. Detail and recovery: [IBK
 | Short | System name | Workflow ID | Goal | Outcome |
 |-------|-------------|-------------|------|---------|
 | **W1** | Post-Close Review & Plan | `monthly-trading-w1-post-close` | Build the **next trading session’s** plan from market regime, portfolio snapshot, open prior plans, screener, order learnings, Maker (OpenAI GPT) + Checker (DeepSeek cloud) + hard gates (+ optional CEO for discretionary loss sells) | Day plan row in `trading_day_plans` (`approved` or pending CEO); digest + `notify_ceo`; ready for W2 |
-| **W2** | Execute | `monthly-trading-w2-execute` | At open (laptop), **fetch your open plan** and **execute** via local IBKR bridge (map actions → brackets / stops / sells) | Orders submitted at Gateway; plan status `executing` → `partial` \| `executed` \| `failed` + execution report |
+| **W2** | Execute | `monthly-trading-w2-execute` | At open (laptop), **fetch your open plan** and **execute** via local IBKR bridge (map actions → full brackets, stop-only, entry-only, stops, sells) | Orders submitted at Gateway; plan status `executing` → `partial` \| `executed` \| `failed` + execution report |
 | **W3** | IBKR Events | `monthly-trading-w3-events` | Event graph for **EOD** (and optional `fanout_w3`): journal, `notify_ceo`, guardrail, **start W1**. Default laptop POSTs go to the ingest API (`/api/ibkr-trading/local-bridge-webhook`) using **this workflow’s hook secret** — 5‑min snapshots/fills save cache **without** starting W3 | On EOD: journal/notify + **W1 started**; book/order events already persisted by ingest |
 | **W4** | *(not used)* | — | Reserved / unused in the current suite | No workflow |
 | **W5** | Weekly Review | `monthly-trading-w5-weekly` | Weekly (default Saturday) **performance digest** from journal + guardrail | Email summary only; **no order placement** |
@@ -52,6 +52,8 @@ Default crons and **budget caps** live in workflow **Variables** (seed: `backend
 | `monthly_drawdown_stop_pct` | `4` | Guardrail halt new entries |
 
 Override in Workflows → W1 → Variables (then Publish). Re-seed merges defaults if the keys were missing.
+
+Maker **chooses** on each `new_entry`: full IBKR bracket (stop+tp) **or** hold-for-weeks (`bracket` false, `exit_plan` later_day_plan, `forecast_up_weeks` ≥ 1, omit tp). A later W1 day plan then decides sell / hold / raise_stop. W2 places `bracket`, `stop_only`, or `entry_only`.
 
 Company setup / Operate Day 1 from the **Flolah demo** pack (`demo_balaji_ranganathan`) installs these graphs from the frozen JSON (not only the seed scripts). Keep that pack’s W1 hard-gates bindings and `entry_discount_pct_max` in sync (`patch-demo-blueprint-ibkr-quote-band.js` + `FROM_PACK_FILE=1 publish-balaji-demo-blueprint.js`). Thin industry pack `trading_ops` is org-only.
 

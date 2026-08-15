@@ -178,7 +178,70 @@ async function main() {
     }),
   });
   assert.strictEqual(missingTp.ok, false);
-  assert.ok(missingTp.errors.some((e) => /tp_price/i.test(e)), missingTp.errors);
+  assert.ok(missingTp.errors.some((e) => /tp_price|later_day_plan|full bracket/i.test(e)), missingTp.errors);
+
+  const laterDayPlan = hardGates({
+    plan_text: JSON.stringify({
+      prior_plan_reconcile: { notes: 'x' },
+      actions: [
+        {
+          type: 'new_entry',
+          key: 'NASDAQ:AMD',
+          qty: 8,
+          entry_price: 100,
+          stop_price: 97,
+          tp_price: null,
+          notional_usd: 800,
+          bracket: false,
+          exit_plan: 'later_day_plan',
+          forecast_up_weeks: 2,
+          thesis: 'multi-week grind higher',
+          why_now: 'risk_on',
+        },
+      ],
+      risk_summary: { risk_mode: 'normal' },
+    }),
+    regime: { risk_on: true },
+    account_snapshot: JSON.stringify({
+      cash_usd: 10000,
+      equity_usd: 10000,
+      reference_prices: { 'NASDAQ:AMD': { reference_price: 100 } },
+    }),
+  });
+  assert.strictEqual(
+    laterDayPlan.ok,
+    true,
+    `hold-for-weeks new_entry should pass: ${JSON.stringify(laterDayPlan.errors)}`
+  );
+
+  const laterDayPlanWithTp = hardGates({
+    plan_text: JSON.stringify({
+      prior_plan_reconcile: { notes: 'x' },
+      actions: [
+        {
+          type: 'new_entry',
+          key: 'NASDAQ:AMD',
+          qty: 8,
+          entry_price: 100,
+          stop_price: 97,
+          tp_price: 104,
+          notional_usd: 800,
+          bracket: false,
+          exit_plan: 'later_day_plan',
+          forecast_up_weeks: 2,
+        },
+      ],
+      risk_summary: { risk_mode: 'normal' },
+    }),
+    regime: { risk_on: true },
+    account_snapshot: JSON.stringify({
+      cash_usd: 10000,
+      equity_usd: 10000,
+      reference_prices: { 'NASDAQ:AMD': { reference_price: 100 } },
+    }),
+  });
+  assert.strictEqual(laterDayPlanWithTp.ok, false);
+  assert.ok(laterDayPlanWithTp.errors.some((e) => /omit tp_price/i.test(e)), laterDayPlanWithTp.errors);
 
   const undersized = hardGates({
     plan_text: JSON.stringify({
@@ -258,6 +321,7 @@ async function main() {
   const {
     evaluateBuyLimitVsReference,
     filterBuyTradesByReference,
+    mapDayPlanToBridgeOrders,
   } = await import('../src/services/trading-plan-bridge-map.js');
   const bandOk = evaluateBuyLimitVsReference(500, 500, { entry_slip_pct_max: 0.25, entry_discount_pct_max: 3 });
   assert.strictEqual(bandOk.ok, true);
@@ -271,6 +335,46 @@ async function main() {
   );
   assert.strictEqual(filtered.trades.length, 0);
   assert.strictEqual(filtered.skipped[0].reason, 'entry_below_discount');
+
+  const holdMap = mapDayPlanToBridgeOrders({
+    status: 'approved',
+    plan: {
+      actions: [
+        {
+          type: 'new_entry',
+          key: 'NASDAQ:AMD',
+          qty: 8,
+          entry_price: 100,
+          stop_price: 97,
+          bracket: false,
+          exit_plan: 'later_day_plan',
+          forecast_up_weeks: 2,
+        },
+      ],
+    },
+  });
+  assert.strictEqual(holdMap.summary.trade_count, 1, JSON.stringify(holdMap.skipped));
+  assert.strictEqual(holdMap.trades[0].order_style, 'stop_only');
+  assert.ok(!(holdMap.trades[0].tp_price > 0));
+
+  const entryOnlyMap = mapDayPlanToBridgeOrders({
+    status: 'approved',
+    plan: {
+      actions: [
+        {
+          type: 'new_entry',
+          key: 'NASDAQ:AMD',
+          qty: 8,
+          entry_price: 100,
+          bracket: false,
+          exit_plan: 'later_day_plan',
+          forecast_up_weeks: 2,
+        },
+      ],
+    },
+  });
+  assert.strictEqual(entryOnlyMap.summary.trade_count, 1, JSON.stringify(entryOnlyMap.skipped));
+  assert.strictEqual(entryOnlyMap.trades[0].order_style, 'entry_only');
 
   const { run: eventParse } = await import('./samples/monthly-trading-event-parse.js');
   const eod = eventParse({ payload: JSON.stringify({ event: 'eod_snapshot', payload: {} }) });
@@ -325,8 +429,8 @@ async function main() {
   assert.ok(checkerUser.includes('{{tool-screener.text}}'), 'W1 Checker user message must include screener');
   assert.ok(checkerUser.includes('{{api-snapshot.bodyText}}'), 'W1 Checker user message must include snapshot');
   assert.ok(MAKER_STRATEGY_SYSTEM_PROMPT.includes('entry_discount_pct_max'));
-  assert.ok(MAKER_STRATEGY_SYSTEM_PROMPT.includes('Bookable IBKR stock bracket'));
-  assert.ok(CHECKER_STRATEGY_SYSTEM_PROMPT.includes('tp_price above entry'));
+  assert.ok(MAKER_STRATEGY_SYSTEM_PROMPT.includes('Entry protective orders'));
+  assert.ok(CHECKER_STRATEGY_SYSTEM_PROMPT.includes('later_day_plan'));
 
   const demoPack = JSON.parse(
     readFileSync(
@@ -346,9 +450,9 @@ async function main() {
   const demoMaker = (demoW1.graph?.nodes || []).find((n) => n.id === 'maker-1');
   const demoChecker = (demoW1.graph?.nodes || []).find((n) => n.id === 'checker-1');
   assert.ok(String(demoMaker?.data?.taskConfig?.systemPrompt || '').includes('entry_discount_pct_max'));
-  assert.ok(String(demoMaker?.data?.taskConfig?.systemPrompt || '').includes('Bookable IBKR stock bracket'));
+  assert.ok(String(demoMaker?.data?.taskConfig?.systemPrompt || '').includes('Entry protective orders'));
   assert.ok(String(demoChecker?.data?.taskConfig?.systemPrompt || '').includes('entry_discount_pct_max'));
-  assert.ok(String(demoChecker?.data?.taskConfig?.systemPrompt || '').includes('tp_price above entry'));
+  assert.ok(String(demoChecker?.data?.taskConfig?.systemPrompt || '').includes('later_day_plan'));
   const demoCheckerUser = String(
     (demoChecker?.data?.inputBindings || []).find((b) => b.id === 'userMessage')?.value || ''
   );

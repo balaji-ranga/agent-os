@@ -24,13 +24,13 @@ const SPENDABLE_BULLET =
   '- **Use the spendable cap:** when you take new_entry, set integer qty so notional uses min(daily_budget_usd, cash_usd, portfolio × position_size_pct_max/100) as fully as whole shares allow (at least the position_size_pct_min band when cash allows). Do not leave a leftover that could still buy another share.\n';
 
 const BOOKABLE_SECTION =
-  '\n## Bookable IBKR stock bracket (W2)\nW2 places a native stock bracket only when every new_entry has qty >= 1, entry_price, stop_price below entry, and tp_price above entry. Null tp_price is rejected by hard gates and the laptop mapper will skip the order. Default first take-profit to about {{var.partial_profit_pct_min}}% above entry unless the setup implies a tighter target.\n';
+  '\n## Entry protective orders (W2) — decide bracket vs hold-for-weeks\nOn every new_entry you MUST choose one style: full IBKR bracket (bracket true: qty, entry, stop below, tp above) or hold-for-weeks (bracket false, exit_plan later_day_plan, forecast_up_weeks >= 1, omit tp so a later day plan decides the sell).\n';
 
 const CHECKER_PRICE_LINE =
   '- every new_entry has a real entry_price within {{var.entry_slip_pct_max}}% above / {{var.entry_discount_pct_max}}% below snapshot or screener last (reject invented far-below-market limits)\n';
 
 const CHECKER_BRACKET_LINE =
-  '- every new_entry is a bookable IBKR bracket: qty >= 1, stop_price below entry, tp_price above entry (W2 skips incomplete brackets)\n';
+  '- every new_entry is bookable: qty >= 1 and entry_price. Either a full bracket (bracket true: stop below entry and tp above) OR hold-for-weeks (bracket false, exit_plan later_day_plan, forecast_up_weeks >= 1, tp omitted so a later day plan decides the sell)\n';
 
 const IBKR_BUY_LINE =
   '- BUY entry ≤ reference_price + {{var.entry_slip_pct_max}}% and ≥ reference_price − {{var.entry_discount_pct_max}}% (do not invent far-below-market limits)';
@@ -104,7 +104,15 @@ export function patchDemoBalajiIbkrQuoteBand(pack) {
     }
     maker.data.taskConfig.systemPrompt = current.replace(pricesNeedle, `${SPENDABLE_BULLET}${pricesNeedle}`);
   }
-  if (maker.data?.taskConfig?.systemPrompt && !maker.data.taskConfig.systemPrompt.includes('Bookable IBKR stock bracket')) {
+  if (maker.data?.taskConfig?.systemPrompt?.includes('## Bookable IBKR stock bracket (W2)')) {
+    maker.data.taskConfig.systemPrompt = maker.data.taskConfig.systemPrompt.replace(
+      /## Bookable IBKR stock bracket \(W2\)[\s\S]*?(?=\n## )/,
+      BOOKABLE_SECTION.trim()
+    );
+  } else if (
+    maker.data?.taskConfig?.systemPrompt &&
+    !maker.data.taskConfig.systemPrompt.includes('Entry protective orders')
+  ) {
     const current = maker.data.taskConfig.systemPrompt;
     const afterPrices = current.includes(PRICES_BULLET)
       ? current.replace(PRICES_BULLET, `${PRICES_BULLET}${BOOKABLE_SECTION}`)
@@ -132,7 +140,17 @@ export function patchDemoBalajiIbkrQuoteBand(pack) {
       `${CHECKER_PRICE_LINE}${CHECKER_BRACKET_LINE}${needle}`
     );
   }
-  if (checker.data?.taskConfig?.systemPrompt && !checker.data.taskConfig.systemPrompt.includes('bookable IBKR bracket')) {
+  const oldCheckerBracket =
+    '- every new_entry is a bookable IBKR bracket: qty >= 1, stop_price below entry, tp_price above entry (W2 skips incomplete brackets)\n';
+  if (checker.data?.taskConfig?.systemPrompt?.includes(oldCheckerBracket)) {
+    checker.data.taskConfig.systemPrompt = checker.data.taskConfig.systemPrompt.replace(
+      oldCheckerBracket,
+      CHECKER_BRACKET_LINE
+    );
+  } else if (
+    checker.data?.taskConfig?.systemPrompt &&
+    !checker.data.taskConfig.systemPrompt.includes('later_day_plan')
+  ) {
     const current = checker.data.taskConfig.systemPrompt;
     if (current.includes(CHECKER_PRICE_LINE) && !current.includes(CHECKER_BRACKET_LINE)) {
       checker.data.taskConfig.systemPrompt = current.replace(

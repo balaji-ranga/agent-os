@@ -34,6 +34,20 @@ function num(v) {
   return Number.isFinite(n) ? n : null;
 }
 
+/** Hold-for-weeks: omit take-profit (and optionally stop) so a later W1 day plan exits. */
+export function isLaterDayPlanExit(a = {}) {
+  const exit = String(a.exit_plan || a.exitPlan || '')
+    .toLowerCase()
+    .replace(/-/g, '_');
+  if (['later_day_plan', 'hold_for_weeks', 'no_bracket', 'entry_only'].includes(exit)) return true;
+  if (a.bracket === false || a.use_bracket === false || a.useBracket === false) return true;
+  const weeks = num(a.forecast_up_weeks ?? a.forecastUpWeeks ?? a.horizon_weeks);
+  if (weeks != null && weeks >= 1) return true;
+  const days = num(a.forecast_horizon_days ?? a.horizon_days);
+  if (days != null && days >= 5) return true;
+  return false;
+}
+
 /** Default: do not chase more than 0.25% above last; do not rest a buy 3%+ below last. */
 export const ENTRY_BAND_DEFAULTS = Object.freeze({
   entry_slip_pct_max: 0.25,
@@ -341,16 +355,33 @@ export function mapDayPlanToBridgeOrders(input = {}, opts = {}) {
           skipped.push({ action: a, reason: 'missing_qty' });
           break;
         }
-        if (!(t.entry_price > 0) || !(t.stop_price > 0) || !(t.tp_price > 0)) {
+        if (!(t.entry_price > 0)) {
+          skipped.push({ action: a, reason: 'missing_entry_price' });
+          break;
+        }
+        const later = isLaterDayPlanExit(a);
+        const hasStop = t.stop_price > 0;
+        const hasTp = t.tp_price > 0;
+        if (hasStop && hasTp) {
+          t.order_style = 'bracket';
+          trades.push(t);
+        } else if (hasStop && !hasTp) {
+          t.order_style = 'stop_only';
+          trades.push(t);
+        } else if (hasTp && !hasStop) {
+          t.order_style = 'tp_only';
+          trades.push(t);
+        } else if (later) {
+          t.order_style = 'entry_only';
+          trades.push(t);
+        } else {
           skipped.push({
             action: a,
             reason: 'incomplete_bracket_prices',
-            note: 'entry_price, stop_price and tp_price required for stock brackets',
+            note: 'full bracket needs stop+tp; hold-for-weeks (bracket false / later_day_plan) may omit tp',
             trade: t,
           });
-          break;
         }
-        trades.push(t);
         break;
       }
       case 'raise_stop':

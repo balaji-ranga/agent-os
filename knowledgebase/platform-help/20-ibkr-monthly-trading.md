@@ -193,13 +193,17 @@ Open **Workflows → monthly-trading-w1-post-close → Variables**:
 | `max_trades_per_day` | Max new buy count |
 | `risk_per_trade_pct` / `position_size_pct_*` | Risk and size % caps. New entries must use min(daily budget, cash, `position_size_pct_max` of equity) as fully as whole shares allow. |
 | `cash_band_pct_*` | Target cash band |
-| `cash_band_pct_*` | Target cash band |
 | `monthly_drawdown_stop_pct` | Halt new entries after drawdown from **your** month high-water mark |
 | `entry_slip_pct_max` / `entry_discount_pct_max` | BUY limit vs last: not more than 0.25% **above** / 3% **below** (default). Stops invented cheap limits that would never fill. Company setup from the Flolah demo pack installs the same W1 bindings. |
 
 Budget applies to **buys only**, not sells. Prefer an IBKR **Cash** account so the broker itself blocks margin borrowing.
 
-W2 books a native stock **bracket** only when every `new_entry` has qty, `entry_price`, `stop_price` below entry, and `tp_price` above entry. A plan with `tp_price: null` is rejected by W1 hard gates (the laptop mapper would skip it). Paper fills are not required for a successful book — open working orders count.
+Maker must **choose** on every `new_entry`:
+
+- **Full bracket** (`bracket: true`): qty, entry, stop below, take-profit above. W2 places parent BUY + stop + TP.
+- **Hold for weeks** (`bracket: false`, `exit_plan: later_day_plan`, `forecast_up_weeks` ≥ 1): omit take-profit when the name is predicted to grind higher over the next week or few weeks. A later day’s W1 plan decides hold / raise_stop / partial / sell. Keep a protective stop when a breakdown would invalidate the thesis. W2 places `stop_only` or `entry_only` — it does **not** skip a documented hold-for-weeks entry.
+
+A `new_entry` with `tp_price: null` and **no** later-day-plan choice is still rejected. Paper fills are not required for a successful book — open working orders (including **PreSubmitted** on weekends) count.
 
 ---
 
@@ -360,7 +364,7 @@ Ops references: [IBKR-LOCAL-BRIDGE.md](../IBKR-LOCAL-BRIDGE.md), [IBKR-MONTHLY-W
 ### Healthy signals
 
 - Snapshot **cash** on Summary matches bridge (after a push).
-- Day row **ORDERS** lists IB order ids after W2 when brackets were placed (entry + TP + SL).
+- Day row **ORDERS** lists IB order ids after W2 (full bracket = entry + TP + SL; hold-for-weeks may be entry-only or entry + stop).
 - **Gap** empty when planned actions and execution report align.
 - Open orders on paper can show **PreSubmitted** until filled — that is still “in book,” not a missing position fill.
 

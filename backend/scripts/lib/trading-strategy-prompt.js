@@ -38,14 +38,22 @@ Objective: Generate consistent monthly gains while protecting capital. Success i
 - On each new_entry set notional_usd (or qty + entry_price/trigger_price) so Checker and hard gates can enforce the dollar budget.
 - **Prices:** set entry_price from the account snapshot reference_prices or screener last — never invent a round number. BUY limit must be within {{var.entry_slip_pct_max}}% above and {{var.entry_discount_pct_max}}% below that last. Far-below limits will not fill and hard gates will reject them.
 
-## Bookable IBKR stock bracket (W2)
-W2 places a native stock bracket only when every new_entry has qty >= 1, entry_price, stop_price below entry, and tp_price above entry. Null tp_price is rejected by hard gates and the laptop mapper will skip the order. Default first take-profit to about {{var.partial_profit_pct_min}}% above entry unless the setup implies a tighter target.
+## Entry protective orders (W2) — decide bracket vs hold-for-weeks
+On every new_entry you MUST choose one style and set it on the action:
+
+1. **Full IBKR bracket** (bracket: true): use when the setup is a swing or you expect a defined target inside days (not a multi-week grind). Set qty, entry_price, stop_price below entry, and tp_price above entry (default first target about {{var.partial_profit_pct_min}}% unless the setup is tighter). W2 places parent BUY + stop + take-profit.
+
+2. **Hold for weeks** (bracket: false, exit_plan: "later_day_plan", forecast_up_weeks >= 1): use when you predict the name continues higher over the next week or few weeks. Do **not** attach a take-profit that would sell a winner early. Leave tp_price null. A later W1 day plan (about a week out, or sooner if thesis breaks) decides hold / raise_stop / partial_profit / exit. You may keep a protective stop_price if a breakdown would invalidate the thesis; omit stop only when the multi-week upside thesis is explicit in thesis/why_now.
+
+Never leave the choice implicit. If you cannot forecast a week-plus grind, prefer a full bracket.
 
 ## Stop Loss
-- Every position must have a predefined stop. Exit immediately if triggered. Never average down.
+- Bracket entries: predefined stop; exit if hit; never average down.
+- Hold-for-weeks: optional protective stop as above; never average down. Subsequent day plans manage the exit.
 
 ## Profit Management
-- Trail winners; consider partial profits after {{var.partial_profit_pct_min}}-{{var.partial_profit_pct_max}}%.
+- Bracket: take-profit on the order; also trail via later raise_stop if still open.
+- Hold-for-weeks: no take-profit today. Later W1 reviews the open position and decides to sell or not.
 
 ## Cash Management
 - Hold {{var.cash_band_pct_min}}-{{var.cash_band_pct_max}}% cash when opportunities are limited.
@@ -73,10 +81,11 @@ Rules you MUST follow each W1 (post-close) run:
 5. If VPS missed fill confirmations: treat positions present in snapshot as done; update plan status recommendations in notes (suggested_status: partial|executed).
 6. If laptop repeatedly fails: reduce new entries, prefer risk-reducing exits, note that digest should alert CEO.
 7. Always set prior_plan_reconcile in output JSON summarizing what was open, what filled, what carries forward.
+8. Open positions booked without a take-profit (hold-for-weeks): do not invent a TP to “complete” a bracket. Decide on THIS day whether to hold, raise_stop, take partial_profit, or exit.
 
 ## Output
 Output ONLY valid JSON (no markdown fences).
-For new_entry fill qty (>=1), entry_price, stop_price below entry, and tp_price above entry — never leave tp_price null (hard gates reject; W2 skips incomplete brackets).
+For new_entry always set qty (>=1) and entry_price. If bracket is true, also set stop_price below entry and tp_price above entry. If bracket is false, set exit_plan "later_day_plan" and forecast_up_weeks >= 1; omit tp_price so a later day plan can sell.
 Schema:
 {
   "prior_plan_reconcile": {
@@ -96,6 +105,9 @@ Schema:
       "tp_price": null,
       "entry_price": null,
       "notional_usd": null,
+      "bracket": true,
+      "forecast_up_weeks": 0,
+      "exit_plan": "bracket_tp|later_day_plan",
       "loss_pct_if_exit": null,
       "requires_ceo_approval": false,
       "carry_forward": false,
