@@ -89,6 +89,7 @@ The system pack **Flolah demo (Balaji Ranganathan)** (`demo_balaji_ranganathan`)
 
 - Pack: `backend/src/services/company-blueprints/packs/demo_balaji_ranganathan.json`
 - Export zip: `backend/src/services/company-blueprints/exports/demo_balaji_ranganathan.zip`
+- Last live snapshot: **15 Aug 2026** from `ceo-bala` (Content Orchestrator + video graphs, Business Discovery / Social Researcher, video Master Data). Manifest: `exports/demo_balaji_ranganathan.manifest.json`.
 - Re-publish from live CEO: `node backend/scripts/publish-balaji-demo-blueprint.js` (owner `ceo-bala`) — always secret-scrubs (`apiKey` / bridge tokens cleared; vault `*Ref` kept) and rejects residual live key patterns before writing pack/zip.
 - Re-publish the frozen pack (no live snapshot): `FROM_PACK_FILE=1 node backend/scripts/publish-balaji-demo-blueprint.js` after `node backend/scripts/patch-demo-blueprint-ibkr-quote-band.js` when IBKR graphs in the pack need a surgical update (e.g. W1 hard gates bind snapshot/screener; BUY `entry_discount_pct_max` 3%). Published DB rows override the JSON pack, so Company setup apply needs this republish on each environment.
 

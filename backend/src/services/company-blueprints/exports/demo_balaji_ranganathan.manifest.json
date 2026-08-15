@@ -1,8 +1,8 @@
 {
   "published_id": "demo_balaji_ranganathan",
   "secrets_scrubbed": true,
-  "secrets_cleared": 0,
-  "zip_bytes": 295296,
+  "secrets_cleared": 10,
+  "zip_bytes": 483326,
   "coverage": {
     "knowledge": true,
     "policies": true,
@@ -21,106 +21,66 @@
     "owner": "ceo-bala",
     "company": "BalajiDemoCompany",
     "agents": [
-      "MarketWatcher",
+      "Research Analyst",
+      "Ops Coordinator",
+      "Business Discovery",
       "CRM Checker",
       "CRM Maker A",
       "CRM Maker B",
+      "Content Orchestrator",
       "ERP Checker",
       "ERP Invoice Agent",
       "ERP Maker A",
       "ERP Maker B",
       "ERP P&L Agent",
       "ERP Project Manager",
+      "MarketWatcher",
       "Platform Help",
+      "Prompt Agent",
+      "Scene Planner",
+      "Social Researcher",
+      "Story Agent",
       "Vedic Astrology",
       "Weather Forecasting"
     ],
-    "departments": 9,
+    "departments": 10,
     "workflow_templates": [
-      {
-        "key": "erp-mc",
-        "nodes": 9
-      },
-      {
-        "key": "crm-mc",
-        "nodes": 9
-      },
-      {
-        "key": "monthly-trading-w2-execute",
-        "nodes": 9
-      },
-      {
-        "key": "monthly-trading-w1-post-close",
-        "nodes": 22
-      },
-      {
-        "key": "monthly-trading-w5-weekly",
-        "nodes": 6
-      },
-      {
-        "key": "monthly-trading-w3-events",
-        "nodes": 17
-      },
-      {
-        "key": "ibkr-maker-checker-paper",
-        "nodes": 16
-      },
-      {
-        "key": "avatar-out-avr_079689da54cc93faf7fb",
-        "nodes": 7
-      },
-      {
-        "key": "avatar-in-avr_079689da54cc93faf7fb",
-        "nodes": 8
-      },
-      {
-        "key": "avatar-out-avr_45870beda6c75d6260fb",
-        "nodes": 7
-      },
-      {
-        "key": "avatar-in-avr_45870beda6c75d6260fb",
-        "nodes": 8
-      },
-      {
-        "key": "wf-async-a2a-callback-demo",
-        "nodes": 1
-      },
-      {
-        "key": "wf-balaji-brave-byok",
-        "nodes": 4
-      },
-      {
-        "key": "hacker-news-connector-demo-mruj9965",
-        "nodes": 3
-      },
-      {
-        "key": "sample-job-discovery-email",
-        "nodes": 3
-      },
-      {
-        "key": "masterdata-rag-brain-demo",
-        "nodes": 4
-      },
-      {
-        "key": "ibkr-position-poller-paper",
-        "nodes": 15
-      },
-      {
-        "key": "demoemail-mrg2s7rb",
-        "nodes": 3
-      },
-      {
-        "key": "template-job-applicant-pipeline",
-        "nodes": 5
-      }
+      { "key": "video-reasoning", "nodes": 7 },
+      { "key": "video-media", "nodes": 2 },
+      { "key": "video-assembly", "nodes": 2 },
+      { "key": "monthly-trading-w1-post-close", "nodes": 22 },
+      { "key": "erp-mc", "nodes": 9 },
+      { "key": "crm-mc", "nodes": 9 },
+      { "key": "monthly-trading-w2-execute", "nodes": 9 },
+      { "key": "monthly-trading-w5-weekly", "nodes": 6 },
+      { "key": "monthly-trading-w3-events", "nodes": 17 },
+      { "key": "ibkr-maker-checker-paper", "nodes": 16 },
+      { "key": "avatar-out-avr_079689da54cc93faf7fb", "nodes": 7 },
+      { "key": "avatar-in-avr_079689da54cc93faf7fb", "nodes": 8 },
+      { "key": "avatar-out-avr_45870beda6c75d6260fb", "nodes": 7 },
+      { "key": "avatar-in-avr_45870beda6c75d6260fb", "nodes": 8 },
+      { "key": "wf-async-a2a-callback-demo", "nodes": 1 },
+      { "key": "wf-balaji-brave-byok", "nodes": 4 },
+      { "key": "hacker-news-connector-demo-mruj9965", "nodes": 3 },
+      { "key": "sample-job-discovery-email", "nodes": 3 },
+      { "key": "masterdata-rag-brain-demo", "nodes": 4 },
+      { "key": "ibkr-position-poller-paper", "nodes": 15 },
+      { "key": "demoemail-mrg2s7rb", "nodes": 3 },
+      { "key": "template-job-applicant-pipeline", "nodes": 5 }
     ],
     "goal_templates": [
       "Morning MAG7 & VOOG market performance",
       "Daily Status Checker Digest Email"
     ],
     "knowledge_tables": [
-      "company_memory",
+      "discovered_opportunities",
+      "video_jobs",
+      "video_storyboards",
+      "video_characters",
+      "agent_workflow_notify_prefs",
       "departments",
+      "brand_voice",
+      "company_memory",
       "vedic_birth_charts",
       "vedic_readings",
       "demo",
@@ -128,12 +88,14 @@
       "content_topics_history",
       "publish_log"
     ],
-    "agents_md": 13,
+    "agents_md": 19,
     "policy_chars": 1022,
     "connectors": {
       "mcp_oauth": 2,
       "openconnector": true
     }
   },
-  "refreshed_at": "2026-08-15T03:08:47.697Z"
+  "refreshed_at": "2026-08-15T04:25:00.000Z",
+  "source": "live snapshot ceo-bala (Balaji Ranganathan / BalajiDemoCompany)",
+  "companion_packs": ["video_content"]
 }
