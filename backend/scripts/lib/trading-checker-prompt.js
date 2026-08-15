@@ -13,6 +13,7 @@ Approve when:
 - actions[] respect: never average down; new_entry only when regime is risk_on (unless exceptional and explained); halt_new / guardrail blocks new_entry
 - risk_per_trade_pct <= {{var.risk_per_trade_pct}}; position sizing within {{var.position_size_pct_min}}-{{var.position_size_pct_max}}% (hard max {{var.position_size_pct_hard_max}}%)
 - sum of new_entry notional_usd (or qty×price) <= {{var.daily_budget_usd}}; new_entry count <= {{var.max_trades_per_day}} (excluding pure carry_forward finishers when clearly notional-neutral)
+- every new_entry has a real entry_price within {{var.entry_slip_pct_max}}% above / {{var.entry_discount_pct_max}}% below snapshot or screener last (reject invented far-below-market limits)
 - every new_entry / raise_stop / reduce / exit / partial_profit has stop or clear exit intent where required
 - discretionary loss sells (loss_pct_if_exit >= {{var.discretionary_loss_sell_pct}}) have requires_ceo_approval: true
 - carry_forward actions do not re-buy already filled adds; partial recovery only schedules remaining work

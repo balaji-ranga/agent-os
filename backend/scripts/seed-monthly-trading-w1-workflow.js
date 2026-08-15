@@ -404,6 +404,18 @@ export function buildMonthlyTradingW1Graph({
               sourceNodeId: 'tool-guardrail',
               sourceOutputKey: 'text',
             },
+            {
+              id: 'account_snapshot',
+              mode: 'dynamic',
+              sourceNodeId: 'api-snapshot',
+              sourceOutputKey: 'bodyText',
+            },
+            {
+              id: 'screener',
+              mode: 'dynamic',
+              sourceNodeId: 'tool-screener',
+              sourceOutputKey: 'text',
+            },
           ],
           taskConfig: {
             customScriptId: hardGatesScriptId,
@@ -658,6 +670,7 @@ export async function seedMonthlyTradingW1(ownerUserId, { publish = true } = {})
     hardGatesScriptId: hardScript.id,
   });
   const cron = MONTHLY_TRADING_VARIABLES.cron_post_close_fallback || '5 21 * * 1-5';
+  const existingVars = store.getDefinition(WORKFLOW_ID, ownerUserId)?.variables || {};
   const patch = {
     name: 'Monthly Trading W1 — Post-Close Plan',
     description:
@@ -666,7 +679,7 @@ export async function seedMonthlyTradingW1(ownerUserId, { publish = true } = {})
     trigger_modes: ['manual', 'chat', 'event', 'schedule'],
     schedule_cron: cron,
     chat_trigger_phrase: CHAT_PHRASE,
-    variables: { ...MONTHLY_TRADING_VARIABLES },
+    variables: { ...MONTHLY_TRADING_VARIABLES, ...existingVars },
   };
   upsertWorkflow(ownerUserId, actor, patch);
 

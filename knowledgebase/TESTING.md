@@ -98,6 +98,8 @@ node scripts/seed-monthly-trading-w3-workflow.js
 
 Docs: `knowledgebase/IBKR-MONTHLY-WORKFLOWS.md`, `platform-help/20-ibkr-monthly-trading.md` (Summary UI + clear), Phase 4 runbook `IBKR-MONTHLY-PHASE4.md`. UI route: `/ibkr-summary`.
 
+W1 hard gates + W2 `/execute-day-plan` refuse BUY limits more than `entry_discount_pct_max` (default 3%) below last (or with no quote). Direct `/place-bracket` smoke scripts can still use intentionally cheap limits.
+
 ## Master Data purge-all + protected help docs
 
 ```powershell

@@ -685,6 +685,76 @@ async function fetchReferenceQuotes(ib, instruments = []) {
   return reference_prices;
 }
 
+function redactMarketDataKey(url) {
+  return String(url || '').replace(/([?&]apikey=)[^&]*/gi, '$1***');
+}
+
+/** Fallback last prices for equities when IBKR market data is empty (paper often has no MD). */
+async function enrichEquityReferencePrices(instruments = [], existing = {}) {
+  const out = { ...existing };
+  const key = String(process.env.MARKET_DATA_API_KEY || '').trim();
+  if (!key) return out;
+  const base = String(process.env.MARKET_DATA_BASE_URL || 'https://financialmodelingprep.com/stable')
+    .trim()
+    .replace(/\/+$/, '');
+  const list = normalizeAllowlist(instruments).filter(
+    (i) => i.secType !== 'CRYPTO' && i.market !== 'CRYPTO'
+  );
+  for (const inst of list) {
+    if (out[inst.key]?.reference_price > 0) continue;
+    const url = `${base}/quote?symbol=${encodeURIComponent(inst.symbol)}&apikey=${key}`;
+    try {
+      const res = await fetch(url, {
+        signal: AbortSignal.timeout(8000),
+        headers: { Accept: 'application/json' },
+      });
+      if (!res.ok) {
+        console.warn('[ibkr] fmp quote HTTP', res.status, redactMarketDataKey(url));
+        continue;
+      }
+      const body = await res.json();
+      const row = Array.isArray(body) ? body[0] : body;
+      const price = Number(row?.price ?? row?.previousClose ?? row?.previous_close);
+      if (!(price > 0)) continue;
+      out[inst.key] = {
+        key: inst.key,
+        symbol: inst.symbol,
+        exchange: inst.exchange,
+        market: inst.market,
+        currency: inst.currency,
+        sec_type: inst.secType,
+        reference_price: Number(price.toFixed(4)),
+        source: 'fmp_quote',
+      };
+    } catch (e) {
+      console.warn('[ibkr] fmp quote failed', inst.symbol, e?.message || e);
+    }
+  }
+  return out;
+}
+
+function instrumentsFromPositions(positions = []) {
+  const out = [];
+  const seen = new Set();
+  for (const p of positions) {
+    const symbol = String(p.symbol || '').trim().toUpperCase();
+    if (!symbol || seen.has(symbol)) continue;
+    seen.add(symbol);
+    const exchange = String(p.exchange || 'SMART').trim().toUpperCase() || 'SMART';
+    const secType = String(p.sec_type || p.secType || 'STK').trim().toUpperCase() || 'STK';
+    out.push({
+      key: `${exchange}:${symbol}`,
+      symbol,
+      exchange,
+      currency: String(p.currency || 'USD').toUpperCase(),
+      secType,
+      sec_type: secType,
+      market: secType === 'CRYPTO' ? 'CRYPTO' : 'US',
+    });
+  }
+  return out;
+}
+
 /** Fallback USD spots for crypto when IBKR market data is not subscribed. */
 async function enrichCryptoReferencePrices(instruments = [], existing = {}) {
   const out = { ...existing };
@@ -841,19 +911,38 @@ export async function fetchAccountSnapshot({ timeoutMs = 90000, allowlist = null
       });
 
       let reference_prices = {};
-      if (Array.isArray(allowlist) && allowlist.length) {
-        const catalog = normalizeAllowlist(allowlist);
+      const catalogInput =
+        Array.isArray(allowlist) && allowlist.length
+          ? allowlist
+          : instrumentsFromPositions(positions);
+      if (catalogInput.length) {
+        const catalog = normalizeAllowlist(catalogInput);
         const equity = catalog.filter((i) => i.secType !== 'CRYPTO' && i.market !== 'CRYPTO');
         const crypto = catalog.filter((i) => i.secType === 'CRYPTO' || i.market === 'CRYPTO');
         if (equity.length) {
           try {
             reference_prices = await fetchReferenceQuotes(ib, equity);
-          } catch {
-            /* ignore */
+          } catch (e) {
+            console.warn('[ibkr] reference quotes failed', e?.message || e);
+          }
+          try {
+            reference_prices = await enrichEquityReferencePrices(equity, reference_prices);
+          } catch (e) {
+            console.warn('[ibkr] fmp equity quote fallback failed', e?.message || e);
           }
         }
         // Crypto MD often unsubscribed on paper — use public USD spots
         reference_prices = await enrichCryptoReferencePrices(crypto, reference_prices);
+        const quoted = Object.keys(reference_prices).length;
+        if (quoted < catalog.length) {
+          console.log(
+            '[ibkr] snapshot quotes',
+            quoted,
+            'of',
+            catalog.length,
+            'symbols (empty last is fail-closed at W2)'
+          );
+        }
       }
 
       const pendingSells = openOrders.filter((o) => String(o.action).toUpperCase() === 'SELL');

@@ -35,6 +35,7 @@ Objective: Generate consistent monthly gains while protecting capital. Success i
 - Initial allocation {{var.position_size_pct_min}}-{{var.position_size_pct_max}}% of the portfolio.
 - Maximum exposure to any single stock {{var.position_size_pct_hard_max}}%.
 - On each new_entry set notional_usd (or qty + entry_price/trigger_price) so Checker and hard gates can enforce the dollar budget.
+- **Prices:** set entry_price from the account snapshot reference_prices or screener last — never invent a round number. BUY limit must be within {{var.entry_slip_pct_max}}% above and {{var.entry_discount_pct_max}}% below that last. Far-below limits will not fill and hard gates will reject them.
 
 ## Stop Loss
 - Every position must have a predefined stop. Exit immediately if triggered. Never average down.

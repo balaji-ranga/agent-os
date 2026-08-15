@@ -230,7 +230,8 @@ export async function startBridge(cfgOverride = null) {
 
       if (method === 'POST' && path === '/execute-day-plan') {
         const body = await readJson(req);
-        const { mapDayPlanToBridgeOrders, suggestExecutionStatus } = await loadPlanMap();
+        const { mapDayPlanToBridgeOrders, suggestExecutionStatus, filterBuyTradesByReference, allowlistFromTrades } =
+          await loadPlanMap();
         const mapping = mapDayPlanToBridgeOrders(body, {
           respectCeoApproval: body.respect_ceo_approval !== false,
         });
@@ -251,6 +252,44 @@ export async function startBridge(cfgOverride = null) {
           sells: mapping.summary.sell_count,
           skipped: mapping.summary.skipped_count,
         });
+
+        const quoteGate =
+          cfg.ibkr.tradingEnabled &&
+          !cfg.mockIbkr &&
+          mapping.trades.length > 0 &&
+          typeof filterBuyTradesByReference === 'function';
+        if (quoteGate) {
+          const allowlist =
+            typeof allowlistFromTrades === 'function' ? allowlistFromTrades(mapping.trades) : [];
+          let liveRefs = {};
+          try {
+            const snap = await ibkr.fetchAccountSnapshot({ allowlist });
+            liveRefs = snap?.reference_prices || {};
+          } catch (e) {
+            logWarn('execute-day-plan quote snapshot failed', { error: e.message || String(e) });
+          }
+          const policy = {
+            entry_slip_pct_max: Number(body.entry_slip_pct_max) || 0.25,
+            entry_discount_pct_max: Number(body.entry_discount_pct_max) || 3,
+          };
+          const filtered = filterBuyTradesByReference(mapping.trades, liveRefs, policy);
+          if (filtered.skipped.length) {
+            logWarn('execute-day-plan skipped buys vs live last', {
+              skipped: filtered.skipped.map((s) => ({
+                symbol: s.trade?.symbol || s.trade?.key,
+                reason: s.reason,
+                entry: s.entry,
+                ref: s.ref,
+              })),
+            });
+            mapping.skipped.push(...filtered.skipped);
+            mapping.trades = filtered.trades;
+            mapping.summary.trade_count = mapping.trades.length;
+            mapping.summary.skipped_count = mapping.skipped.length;
+            mapping.summary.actionable =
+              mapping.trades.length + mapping.modify_stops.length + mapping.sells.length;
+          }
+        }
 
         const place_bracket = await ibkr.placeBracket(mapping.trades, {
           ownerUserId: body.owner_user_id || null,

@@ -34,6 +34,121 @@ function num(v) {
   return Number.isFinite(n) ? n : null;
 }
 
+/** Default: do not chase more than 0.25% above last; do not rest a buy 3%+ below last. */
+export const ENTRY_BAND_DEFAULTS = Object.freeze({
+  entry_slip_pct_max: 0.25,
+  entry_discount_pct_max: 3,
+});
+
+/**
+ * BUY limit vs a live/screener last. Rejects invented far-below-market limits
+ * (never fill) and marketable limits that pay through last.
+ */
+export function evaluateBuyLimitVsReference(entry, ref, opts = {}) {
+  const slip = Number(opts.entry_slip_pct_max ?? opts.entrySlipPctMax ?? ENTRY_BAND_DEFAULTS.entry_slip_pct_max);
+  const discount = Number(
+    opts.entry_discount_pct_max ?? opts.entryDiscountPctMax ?? ENTRY_BAND_DEFAULTS.entry_discount_pct_max
+  );
+  const e = Number(entry);
+  const r = Number(ref);
+  if (!(r > 0) || !(e > 0)) {
+    return { ok: false, reason: 'missing_entry_or_ref', entry: e, ref: r, slip, discount };
+  }
+  const maxEntry = r * (1 + slip / 100);
+  const minEntry = r * (1 - discount / 100);
+  if (e > maxEntry + 1e-9) {
+    return { ok: false, reason: 'entry_above_slip', entry: e, ref: r, slip, discount, maxEntry, minEntry };
+  }
+  if (e < minEntry - 1e-9) {
+    return { ok: false, reason: 'entry_below_discount', entry: e, ref: r, slip, discount, maxEntry, minEntry };
+  }
+  return { ok: true, entry: e, ref: r, slip, discount, maxEntry, minEntry };
+}
+
+export function lookupReferencePrice(referencePrices, key, symbol) {
+  const map = referencePrices && typeof referencePrices === 'object' ? referencePrices : {};
+  const k = String(key || '').trim().toUpperCase();
+  const sym = String(symbol || (k.includes(':') ? k.split(':').pop() : k) || '')
+    .trim()
+    .toUpperCase();
+  const pick = (v) => {
+    if (v == null) return null;
+    if (typeof v === 'number') return v > 0 ? v : null;
+    const n = Number(v.reference_price ?? v.price ?? v.last ?? v.close);
+    return n > 0 ? n : null;
+  };
+  if (k && pick(map[k]) != null) return pick(map[k]);
+  if (sym && pick(map[sym]) != null) return pick(map[sym]);
+  for (const [mk, mv] of Object.entries(map)) {
+    const uk = String(mk).toUpperCase();
+    if (uk === k || uk === sym || uk.endsWith(':' + sym)) {
+      const p = pick(mv);
+      if (p != null) return p;
+    }
+  }
+  return null;
+}
+
+export function allowlistFromTrades(trades = []) {
+  const out = [];
+  const seen = new Set();
+  for (const t of asArray(trades)) {
+    const parsed = parseKey(t.key || t.symbol);
+    if (!parsed.symbol || seen.has(parsed.key)) continue;
+    seen.add(parsed.key);
+    out.push({
+      key: parsed.key,
+      symbol: parsed.symbol,
+      exchange: t.exchange || parsed.exchange || 'SMART',
+      currency: t.currency || parsed.currency || 'USD',
+      secType: t.secType || t.sec_type || 'STK',
+      sec_type: t.secType || t.sec_type || 'STK',
+    });
+  }
+  return out;
+}
+
+/**
+ * Drop BUY trades with no last or a limit outside the entry band.
+ * Sells / non-buys pass through.
+ */
+export function filterBuyTradesByReference(trades = [], referencePrices = {}, policy = {}) {
+  const kept = [];
+  const skipped = [];
+  for (const t of asArray(trades)) {
+    const side = String(t.side || 'BUY').toUpperCase();
+    if (side !== 'BUY') {
+      kept.push(t);
+      continue;
+    }
+    const ref = lookupReferencePrice(referencePrices, t.key, t.symbol);
+    if (!(ref > 0)) {
+      skipped.push({
+        trade: t,
+        reason: 'missing_live_quote',
+        note: 'no Gateway/FMP last for this symbol — refusing to place an invented limit',
+      });
+      continue;
+    }
+    const ev = evaluateBuyLimitVsReference(t.entry_price ?? t.entry, ref, policy);
+    if (!ev.ok) {
+      skipped.push({
+        trade: t,
+        reason: ev.reason,
+        ref: ev.ref,
+        entry: ev.entry,
+        note:
+          ev.reason === 'entry_below_discount'
+            ? `BUY limit ${ev.entry} is more than ${ev.discount}% below last ${ev.ref}`
+            : `BUY limit ${ev.entry} exceeds +${ev.slip}% of last ${ev.ref}`,
+      });
+      continue;
+    }
+    kept.push({ ...t, reference_price: ref });
+  }
+  return { trades: kept, skipped };
+}
+
 function actionType(a = {}) {
   return String(a.type || a.action || '')
     .trim()

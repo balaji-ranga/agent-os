@@ -35,6 +35,10 @@ export const MONTHLY_TRADING_VARIABLES = {
   open_plans_limit: 14,
   screener_limit: 25,
   digest_email_to: '',
+  /** BUY limit may not exceed last by this % (chase). */
+  entry_slip_pct_max: 0.25,
+  /** BUY limit may not sit more than this % below last (unfillable / invented prices). */
+  entry_discount_pct_max: 3,
   /** Laptop bridge (W2) — placeholders; CEO fills secrets in UI / desktop env, never commit real tokens */
   local_bridge_base_url: 'http://127.0.0.1:3010',
   local_bridge_token: '',

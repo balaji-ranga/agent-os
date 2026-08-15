@@ -22,6 +22,8 @@ export const IBKR_POLICY_DEFAULTS = Object.freeze({
   tp_pct_min: 0.5,
   tp_pct_max: 2.0,
   entry_slip_pct_max: 0.25,
+  /** Max % a BUY limit may sit below last (momentum — far-below limits never fill). */
+  entry_discount_pct_max: 3,
   no_margin: true,
   sgd_usd_rate: 0.74,
   /** IBKR Fixed commission estimate when Maker sets retry_with_commission */
@@ -167,6 +169,7 @@ export function resolveIbkrPolicy(variables = {}) {
     tp_pct_min: num(vars.tp_pct_min, d.tp_pct_min),
     tp_pct_max: num(vars.tp_pct_max, d.tp_pct_max),
     entry_slip_pct_max: num(vars.entry_slip_pct_max, d.entry_slip_pct_max),
+    entry_discount_pct_max: num(vars.entry_discount_pct_max, d.entry_discount_pct_max),
     no_margin: bool(vars.no_margin, d.no_margin),
     sgd_usd_rate: num(vars.sgd_usd_rate, d.sgd_usd_rate),
     commission_usd_per_share: num(vars.commission_usd_per_share, d.commission_usd_per_share),

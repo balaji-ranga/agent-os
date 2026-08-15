@@ -38,6 +38,7 @@ Output **ONLY** valid JSON (no markdown fences).
 - Improving relative strength; build positions gradually.
 
 ### Position sizing
+- **Prices:** set `entry_price` from snapshot `reference_prices` or screener last — never invent a round number. BUY limit must be within {{var.entry_slip_pct_max}}% above and {{var.entry_discount_pct_max}}% below that last. Far-below limits will not fill and hard gates reject them.
 - **Dollar cap:** total new_entry notional ≤ US${{var.daily_budget_usd}}; at most {{var.max_trades_per_day}} new entries (set `notional_usd` or qty×price on each).
 - Risk ≤ {{var.risk_per_trade_pct}}% of portfolio per trade.
 - Initial allocation {{var.position_size_pct_min}}–{{var.position_size_pct_max}}%; max single name {{var.position_size_pct_hard_max}}%.

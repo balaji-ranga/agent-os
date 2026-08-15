@@ -47,6 +47,8 @@ Default crons and **budget caps** live in workflow **Variables** (seed: `backend
 | `risk_per_trade_pct` | `0.75` | Max risk % of portfolio per trade |
 | `position_size_pct_*` | 3 / 8 / 15 | Soft band + hard max position % |
 | `cash_band_pct_*` | 30 / 80 | Target cash band % |
+| `entry_slip_pct_max` | `0.25` | Max % a BUY limit may sit **above** last (chase) |
+| `entry_discount_pct_max` | `3` | Max % a BUY limit may sit **below** last (unfillable / invented prices). W1 hard gates reject; W2 skips the buy if Gateway/FMP last disagrees |
 | `monthly_drawdown_stop_pct` | `4` | Guardrail halt new entries |
 
 Override in Workflows → W1 → Variables (then Publish). Re-seed merges defaults if the keys were missing.

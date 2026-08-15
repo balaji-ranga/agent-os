@@ -108,6 +108,69 @@ async function main() {
   assert.strictEqual(failAvg.ok, false);
   assert.ok(failAvg.errors.some((e) => /average_down/i.test(e)));
 
+  const farBelow = hardGates({
+    plan_text: JSON.stringify({
+      prior_plan_reconcile: { notes: 'x' },
+      actions: [
+        {
+          type: 'new_entry',
+          key: 'NASDAQ:AMD',
+          qty: 1,
+          entry_price: 78,
+          stop_price: 74,
+          tp_price: 85,
+          notional_usd: 78,
+        },
+      ],
+      risk_summary: { risk_mode: 'normal' },
+    }),
+    regime: { risk_on: true },
+    account_snapshot: JSON.stringify({
+      reference_prices: { 'NASDAQ:AMD': { reference_price: 500 } },
+    }),
+  });
+  assert.strictEqual(farBelow.ok, false);
+  assert.ok(farBelow.errors.some((e) => /below last/i.test(e)), farBelow.errors);
+
+  const missingQuote = hardGates({
+    plan_text: JSON.stringify({
+      prior_plan_reconcile: { notes: 'x' },
+      actions: [
+        {
+          type: 'new_entry',
+          key: 'NASDAQ:AMD',
+          qty: 1,
+          entry_price: 500,
+          stop_price: 490,
+          tp_price: 510,
+          notional_usd: 500,
+        },
+      ],
+      risk_summary: { risk_mode: 'normal' },
+    }),
+    regime: { risk_on: true },
+    account_snapshot: JSON.stringify({ reference_prices: {} }),
+  });
+  assert.strictEqual(missingQuote.ok, false);
+  assert.ok(missingQuote.errors.some((e) => /invented entry_price/i.test(e)), missingQuote.errors);
+
+  const {
+    evaluateBuyLimitVsReference,
+    filterBuyTradesByReference,
+  } = await import('../src/services/trading-plan-bridge-map.js');
+  const bandOk = evaluateBuyLimitVsReference(500, 500, { entry_slip_pct_max: 0.25, entry_discount_pct_max: 3 });
+  assert.strictEqual(bandOk.ok, true);
+  const bandLow = evaluateBuyLimitVsReference(78, 500, { entry_slip_pct_max: 0.25, entry_discount_pct_max: 3 });
+  assert.strictEqual(bandLow.ok, false);
+  assert.strictEqual(bandLow.reason, 'entry_below_discount');
+  const filtered = filterBuyTradesByReference(
+    [{ key: 'NASDAQ:AMD', symbol: 'AMD', side: 'BUY', qty: 1, entry_price: 78 }],
+    { 'NASDAQ:AMD': { reference_price: 500 } },
+    { entry_discount_pct_max: 3 }
+  );
+  assert.strictEqual(filtered.trades.length, 0);
+  assert.strictEqual(filtered.skipped[0].reason, 'entry_below_discount');
+
   const { run: eventParse } = await import('./samples/monthly-trading-event-parse.js');
   const eod = eventParse({ payload: JSON.stringify({ event: 'eod_snapshot', payload: {} }) });
   assert.strictEqual(eod.is_eod_snapshot, 'true');
@@ -151,6 +214,12 @@ async function main() {
   assert.strictEqual(checker.data.taskConfig.modelSource, 'deepseek');
   assert.ok(String(maker.data.taskConfig.model).includes('claude') || maker.data.taskConfig.model);
   assert.ok(String(checker.data.taskConfig.model).includes('deepseek'));
+  const hardGatesNode = g1.nodes.find((n) => n.id === 'hard-gates');
+  const hgBind = (hardGatesNode?.data?.inputBindings || []).map((b) => b.id);
+  assert.ok(hgBind.includes('account_snapshot'), 'W1 hard gates bind account snapshot');
+  assert.ok(hgBind.includes('screener'), 'W1 hard gates bind screener');
+  assert.ok(MAKER_STRATEGY_SYSTEM_PROMPT.includes('entry_discount_pct_max'));
+  assert.ok(CHECKER_STRATEGY_SYSTEM_PROMPT.includes('entry_discount_pct_max'));
 
   const g2 = buildMonthlyTradingW2Graph();
   const t2 = collectTypes(g2);

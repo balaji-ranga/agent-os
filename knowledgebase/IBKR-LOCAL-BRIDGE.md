@@ -23,7 +23,7 @@ Phase 2 of the [Monthly Positive Return plan](IBKR-MONTHLY-TRADING-PLAN.md): a l
 |-----------|--------|------|
 | IB Gateway / TWS | Laptop | Socket API (paper 4002) |
 | **local-ibkr-bridge** | Laptop `127.0.0.1:3010` | Auth’d JSON API + webhook pusher |
-| W2 Execution | Laptop desktop package | Calls bridge at market open |
+| W2 Execution | Laptop desktop package | Calls bridge at market open; `/execute-day-plan` skips BUY limits far from live last |
 | W3 Event Handler | VPS webhook | Receives `account_snapshot` / `fill` / `equity_mark` / `eod_snapshot` into that CEO’s private tables |
 
 ## Simple end-to-end (ops)

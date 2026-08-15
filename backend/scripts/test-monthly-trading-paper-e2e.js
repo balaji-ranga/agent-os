@@ -107,8 +107,11 @@ function sampleMakerPlan({ withCeoLossSell = false, averageDown = false } = {}) 
     {
       type: 'new_entry',
       key: 'NASDAQ:MSFT',
-      qty: 5,
-      stop_price: 400,
+      qty: 2,
+      entry_price: 420,
+      stop_price: 412,
+      tp_price: 426,
+      notional_usd: 840,
       position_size_pct: 5,
       risk_pct: 0.6,
       average_down: averageDown,

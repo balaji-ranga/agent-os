@@ -76,7 +76,7 @@ node scripts/test-bridge-offline.js
 | POST | `/account-snapshot` | yes | `fetchAccountSnapshot` + queue `account_snapshot` webhook |
 | POST | `/place-bracket` | yes | body `{ trades: [...] }` — dry-run when `IBKR_TRADING_ENABLED` off |
 | POST | `/map-day-plan` | yes | Map Maker day-plan / open-plans JSON → `{ trades, modify_stops, sells, skipped }` (no Gateway) |
-| POST | `/execute-day-plan` | yes | Map + place-bracket + modify-stop + sell-to-close; **always** re-snapshot after session and push `account_snapshot` (orders may fail) |
+| POST | `/execute-day-plan` | yes | Map + **live-quote gate** on BUY limits + place-bracket + modify-stop + sell-to-close; **always** re-snapshot after session and push `account_snapshot` (orders may fail). Buys with no last or a limit >3% below / >0.25% above last are skipped (not placed). Direct `/place-bracket` is unchanged (smoke tests). |
 | POST | `/sell-to-close` | yes | SELL_TO_CLOSE via place path |
 | POST | `/modify-stop` | yes | Best-effort cancel+replace STP (IB has no reliable in-place amend) |
 | POST | `/cancel` | yes | `{ order_id }` / `{ symbol }` / `{ all: true }` |

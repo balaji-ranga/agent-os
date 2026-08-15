@@ -127,7 +127,7 @@ The monthly suite uses **W1, W2, W3, and W5**. There is **no W4** in this produc
 | ID | Name in UI / system | Where it runs | Goal (purpose) | Expected outcome |
 |----|---------------------|---------------|----------------|------------------|
 | **W1** | **Post-Close Review & Plan** · id `monthly-trading-w1-post-close` | **Cloud (VPS)** | After the market day, review regime, your positions, learnings, and screener → Maker builds a plan → Checker + hard gates validate → optional CEO approval on loss sells → save the next trading-day plan | Your **day plan** is stored (`approved` or waiting CEO); you get a **digest / notify**; plan is ready for W2 |
-| **W2** | **Execute** · id `monthly-trading-w2-execute` | **Your laptop** (desktop package) | At US open (or when you run it), fetch **your** open/approved plan and send actions to the local IBKR bridge | IB Gateway receives place / stop / sell instructions; plan status becomes **`executing` → `partial` / `executed` / `failed`** with an execution report |
+| **W2** | **Execute** · id `monthly-trading-w2-execute` | **Your laptop** (desktop package) | At US open (or when you run it), fetch **your** open/approved plan and send actions to the local IBKR bridge. Buys whose limit is far from the live last are **skipped** (not placed) | IB Gateway receives place / stop / sell instructions; plan status becomes **`executing` → `partial` / `executed` / `failed`** with an execution report |
 | **W3** | **IBKR Events** · id `monthly-trading-w3-events` | **Cloud (VPS)** webhook | Receive events from the local bridge all day: account snapshots, equity marks, fills, cancels, rejects, EOD | **Your** book cache, equity/HWM, order learnings, and journal stay updated; milestones can **notify you**; **EOD** starts **W1** for the next plan |
 | **W4** | — | — | **Not used** in the Monthly Positive Return suite (no workflow id) | — |
 | **W5** | **Weekly Review** · id `monthly-trading-w5-weekly` | **Cloud (VPS)** | Once a week (default Saturday), summarize performance and guardrail for review | **Email digest only** — does **not** place orders |
@@ -170,6 +170,7 @@ Open **Workflows → monthly-trading-w1-post-close → Variables**:
 | `risk_per_trade_pct` / `position_size_pct_*` | Risk and size % caps |
 | `cash_band_pct_*` | Target cash band |
 | `monthly_drawdown_stop_pct` | Halt new entries after drawdown from **your** month high-water mark |
+| `entry_slip_pct_max` / `entry_discount_pct_max` | BUY limit vs last: not more than 0.25% **above** / 3% **below** (default). Stops invented cheap limits that would never fill |
 
 Budget applies to **buys only**, not sells. Prefer an IBKR **Cash** account so the broker itself blocks margin borrowing.
 

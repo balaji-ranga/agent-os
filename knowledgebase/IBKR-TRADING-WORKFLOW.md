@@ -19,7 +19,7 @@ Tradable instruments and trading policy are **workflow Variables** on the day-pl
 | `allowlist` | Array of instruments: `key`, `symbol`, `exchange`, `market`, `currency`, `board_lot`, `sec_type` |
 | `allowlist_keys` | Derived keys (prompt convenience) |
 | `markets` | Labels for the maker |
-| `daily_budget_usd`, `max_trades_per_day`, `stop_pct_*`, `tp_pct_*`, `entry_slip_pct_max`, `max_hold_days`, … | Policy |
+| `daily_budget_usd`, `max_trades_per_day`, `stop_pct_*`, `tp_pct_*`, `entry_slip_pct_max`, `entry_discount_pct_max`, `max_hold_days`, … | Policy |
 
 Seed scripts write an initial example universe into the definition once (`backend/scripts/ibkr-seed-variables.js`). After that, change tickers only in the Variables UI (or API) — not in code or `.env`.
 

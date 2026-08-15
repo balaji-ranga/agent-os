@@ -10,6 +10,7 @@ import {
   IBKR_POLICY_DEFAULTS,
 } from './ibkr-workflow-variables.js';
 import { computeSpendableUsd } from './ibkr-cash-resolve.js';
+import { evaluateBuyLimitVsReference } from './trading-plan-bridge-map.js';
 
 function isQtyMultipleOfLot(qty, lot) {
   const q = Number(qty);
@@ -95,6 +96,7 @@ function policyFromOpts(opts = {}) {
     tp_pct_min: opts.tpPctMin ?? opts.tp_pct_min,
     tp_pct_max: opts.tpPctMax ?? opts.tp_pct_max,
     entry_slip_pct_max: opts.entrySlipPctMax ?? opts.entry_slip_pct_max,
+    entry_discount_pct_max: opts.entryDiscountPctMax ?? opts.entry_discount_pct_max,
     sgd_usd_rate: opts.sgdUsdRate ?? opts.sgd_usd_rate,
     min_rationale_chars: opts.minRationaleChars ?? opts.min_rationale_chars,
     block_duplicate_buys: opts.blockDuplicateBuys ?? opts.block_duplicate_buys,
@@ -309,9 +311,17 @@ export function validateTradePlan(planInput, opts = {}) {
       continue;
     }
     if (side === 'BUY') {
-      const maxEntry = ref * (1 + policy.entry_slip_pct_max / 100);
-      if (entry > maxEntry + 1e-9) {
-        errors.push(`Trade ${i + 1}: entry ${entry} exceeds +${policy.entry_slip_pct_max}% of ref ${ref}`);
+      const band = evaluateBuyLimitVsReference(entry, ref, policy);
+      if (!band.ok) {
+        if (band.reason === 'entry_below_discount') {
+          errors.push(
+            `Trade ${i + 1}: entry ${entry} is more than ${band.discount}% below ref ${ref}`
+          );
+        } else {
+          errors.push(
+            `Trade ${i + 1}: entry ${entry} exceeds +${policy.entry_slip_pct_max}% of ref ${ref}`
+          );
+        }
         continue;
       }
       const retryCommission = truthyFlag(t.retry_with_commission);

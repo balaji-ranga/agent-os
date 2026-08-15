@@ -3,7 +3,8 @@
  * Must export: run(inputs, context)
  *
  * Checks: risk %, never average down, market filter for new_entry,
- * guardrail halt_new blocks new_entry, position caps, CEO approval flags.
+ * guardrail halt_new blocks new_entry, position caps, CEO approval flags,
+ * entry_price present, BUY limit within slip/discount of snapshot or screener last.
  */
 function parseMakerPlan(text) {
   const raw = String(text || '').trim();
@@ -27,6 +28,67 @@ function num(v, d = null) {
 
 function truthy(v) {
   return v === true || v === 'true' || v === 1 || v === '1';
+}
+
+function parseJsonish(raw) {
+  if (raw == null || raw === '') return null;
+  if (typeof raw === 'object') return raw;
+  const text = String(raw).trim();
+  if (!text) return null;
+  try {
+    const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    const body = fence ? fence[1].trim() : text;
+    const start = body.indexOf('{');
+    const end = body.lastIndexOf('}');
+    if (start >= 0 && end > start) return JSON.parse(body.slice(start, end + 1));
+    return JSON.parse(body);
+  } catch {
+    return null;
+  }
+}
+
+function collectReferencePrices(inputs = {}) {
+  const refs = {};
+  const add = (key, px) => {
+    const n = num(px);
+    if (!(n > 0) || !key) return;
+    const k = String(key).trim().toUpperCase();
+    refs[k] = n;
+    const sym = k.includes(':') ? k.split(':').pop() : k;
+    if (sym) refs[sym] = n;
+  };
+  const snap = parseJsonish(
+    inputs.account_snapshot ??
+      inputs.snapshot ??
+      inputs.api_snapshot ??
+      inputs.reference_prices
+  );
+  const rp =
+    (snap && typeof snap === 'object' && (snap.reference_prices || snap.payload?.reference_prices)) ||
+    (inputs.reference_prices && typeof inputs.reference_prices === 'object' ? inputs.reference_prices : null);
+  if (rp && typeof rp === 'object') {
+    for (const [k, v] of Object.entries(rp)) {
+      add(k, v && typeof v === 'object' ? v.reference_price ?? v.price ?? v.last : v);
+    }
+  }
+  const scr = parseJsonish(inputs.screener ?? inputs.market_screener ?? inputs.tool_screener);
+  const cands = Array.isArray(scr?.candidates)
+    ? scr.candidates
+    : Array.isArray(scr?.result?.candidates)
+      ? scr.result.candidates
+      : [];
+  for (const c of cands) {
+    const sym = String(c?.symbol || c?.key || '').trim();
+    add(sym, c?.price ?? c?.last ?? c?.close);
+  }
+  return refs;
+}
+
+function lookupRef(refs, key) {
+  const k = String(key || '').trim().toUpperCase();
+  if (refs[k] > 0) return refs[k];
+  const sym = k.includes(':') ? k.split(':').pop() : k;
+  return refs[sym] > 0 ? refs[sym] : null;
 }
 
 export function run(inputs = {}, context = {}) {
@@ -68,6 +130,15 @@ export function run(inputs = {}, context = {}) {
   const discLoss = num(vars.discretionary_loss_sell_pct, 3);
   const dailyBudget = num(vars.daily_budget_usd, 1000);
   const maxTrades = num(vars.max_trades_per_day, 5);
+  const entrySlipPct = num(vars.entry_slip_pct_max, 0.25);
+  const entryDiscountPct = num(vars.entry_discount_pct_max, 3);
+  const refs = collectReferencePrices(inputs);
+  const hasQuoteSource =
+    inputs.account_snapshot != null ||
+    inputs.snapshot != null ||
+    inputs.screener != null ||
+    inputs.market_screener != null ||
+    inputs.reference_prices != null;
 
   // Cash: IBKR snapshot fields on inputs (or nested) first; workflow cash only as fallback.
   // Spendable new_entry notional ≤ min(daily_budget, cash) when cash known.
@@ -129,6 +200,33 @@ export function run(inputs = {}, context = {}) {
       if (!riskOn) errors.push(`${label}: new_entry blocked while market regime is risk_off`);
       if (a.stop_price == null && a.stop_pct == null) {
         errors.push(`${label}: new_entry requires stop_price (or stop_pct)`);
+      }
+      const entryPx = num(a.entry_price ?? a.trigger_price ?? a.limit_price);
+      if (!(entryPx > 0)) {
+        errors.push(`${label}: new_entry requires entry_price (W2 cannot place a bracket without it)`);
+      } else if (hasQuoteSource) {
+        const ref = lookupRef(refs, key);
+        if (!(ref > 0)) {
+          errors.push(
+            `${label}: no live/screener last for ${key || 'symbol'} — refusing invented entry_price ${entryPx}`
+          );
+        } else {
+          const maxEntry = ref * (1 + entrySlipPct / 100);
+          const minEntry = ref * (1 - entryDiscountPct / 100);
+          if (entryPx > maxEntry + 1e-9) {
+            errors.push(
+              `${label}: entry ${entryPx} exceeds +${entrySlipPct}% of last ${ref}`
+            );
+          } else if (entryPx < minEntry - 1e-9) {
+            errors.push(
+              `${label}: entry ${entryPx} is more than ${entryDiscountPct}% below last ${ref} (unfillable limit)`
+            );
+          }
+        }
+      } else {
+        warnings.push(
+          `${label}: no snapshot/screener quotes bound — cannot verify entry ${entryPx} vs last`
+        );
       }
     }
 

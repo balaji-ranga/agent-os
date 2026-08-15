@@ -69,9 +69,9 @@ Hard constraints:
 - Side: BUY or SELL_TO_CLOSE only (no shorting)
 - Respect each instrument board_lot / sec_type from allowlist (fractional crypto, SGX lots, etc.)
 - stop_pct in [{{var.stop_pct_min}}, {{var.stop_pct_max}}]; tp_pct in [{{var.tp_pct_min}}, {{var.tp_pct_max}}] for BUY
-- BUY entry ≤ reference_price + {{var.entry_slip_pct_max}}%
+- BUY entry ≤ reference_price + {{var.entry_slip_pct_max}}% and ≥ reference_price − {{var.entry_discount_pct_max}}% (do not invent far-below-market limits)
 - Respect cash/positions/pending sells/reference_prices from account snapshot in the user message
-- When snapshot.reference_prices[key].reference_price is present, USE it as reference_price (do not invent)
+- When snapshot.reference_prices[key].reference_price is present, USE it as reference_price (do not invent). If missing, skip the name — never guess.
 - Read ORDER HISTORY (summarized) and any snapshot.order_learnings:
   - Hard avoid_hints: do not repeat those IB system cancels (e.g. paper crypto/PAXOS unavailable)
   - commission_decisions: for each listed symbol, DECIDE for THIS run using market context:
