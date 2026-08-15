@@ -355,7 +355,7 @@ New CEOs start with **empty** standups (no other user’s chats or agents), star
 - **Dynamic auth:** API / MCP / Brain `apiKey` / External Agent override / SSE headers accept the same `{{…}}` templates (values look static in the UI; runner substitutes at execute time). Brave Search MCP is **BYOK** (workflow headers only — no container `BRAVE_API_KEY` fallback). Agent tool `brave_web_search` uses platform `BRAVE_API_KEY` or vault `BRAVE_SEARCH_BYOK` by Profile.
 - **A2A publish:** Publish → AgentExchange + agent card / JSON-RPC under `/api/a2a/:publishId`. **Visibility** `public` (default) or `private` (public endpoints always denied; COO / reports-to lead via org path only). **Sync** or **Async**; optional callback URL. **Deny all** IP default; **Allow all** or IP whitelist. **Public auth** or **Secured** OAuth.
 - **Download for Windows:** Published workflow → **Download for Windows** (lite or with portable Node 18). Local orchestrator; Flolah holds run state + remote nodes. Guide: `knowledgebase/platform-help/17-desktop-windows-download.md`.
-- **IBKR Monthly Positive Return:** Cloud plans (W1/W3/W5) + laptop execute (W2) + local bridge. W1 hard gates + W2 execute skip BUY limits far from last (`entry_discount_pct_max`, default 3%). **IBKR Summary** UI `/ibkr-summary` (owner-scoped portfolio & plan vs done; **Clear data…** wipes transactional rows only). CEO help **20**; ops `knowledgebase/IBKR-MONTHLY-WORKFLOWS.md`; bridge `backend/local-ibkr-bridge/`.
+- **IBKR Monthly Positive Return:** Cloud plans (W1/W3/W5) + laptop execute (W2) + local bridge. Bridge **polls** Gateway (default 5 min) and POSTs to ingest `/api/ibkr-trading/local-bridge-webhook` (W3 hook secret); **W3 workflow runs on EOD** (starts W1), not every snapshot. W1 hard gates require a **complete stock bracket** (`qty`, `entry_price`, `stop` below, `tp` above) and size new buys to min(daily budget, cash, `position_size_pct_max` of equity); W2 skips incomplete brackets and BUY limits far from last (`entry_discount_pct_max`, default 3%). **IBKR Summary** UI `/ibkr-summary` (owner-scoped portfolio & plan vs done; **Clear data…** wipes transactional rows only). CEO help **20**; ops `knowledgebase/IBKR-MONTHLY-WORKFLOWS.md`; bridge `backend/local-ibkr-bridge/`.
 - **Runs:** Kanban tasks per step; fail run on API/MCP errors (non-2xx HTTP, SSL errors, MCP `is_error`)
 - **Help:** Platform Help agent RAG over `knowledgebase/platform-help/` (re-upload with `node backend/scripts/reupload-platform-help-docs.js` after doc changes).
 - **Tests:** `node backend/scripts/test-sse-workflow.js`, `node backend/scripts/test-balaji-brave-byok-workflow.js`, `node backend/scripts/test-workflow-auth-templates.js`, `node backend/scripts/test-workflow-desktop-package.js`
@@ -684,11 +684,11 @@ All project docs except this README live in **`knowledgebase/`**:
 | **IBKR-MONTHLY-WORKFLOWS.md** | Monthly Positive Return **W1–W5** (+ bridge): names, goals, outcomes; Summary UI + clear-transactional APIs |
 | **IBKR-MONTHLY-TRADING-PLAN.md** | Monthly system architecture, phases, strategy appendix |
 | **IBKR-MONTHLY-EXECUTION-MODEL.md** | Cloud vs laptop execution + laptop↔VPS recovery |
-| **IBKR-LOCAL-BRIDGE.md** | Laptop HTTP bridge, Connectors zip, Gateway, webhooks |
+| **IBKR-LOCAL-BRIDGE.md** | Laptop HTTP bridge, Connectors zip, Gateway, ingest webhook vs W3 EOD run |
 | **CLIENT-BROWSER-SESSION.md** / **BROWSER-SESSION-DESKTOP-LOCAL.md** | Client Chrome + multi-user local Browser Session worker (sign-in / `BROWSER_USER_DATA_DIR` profile) |
 | **VIDEO-CONTENT-GENERATION-PLAN.md** / **platform-help/41** | Video pack S1–S5: storyboard, dual S4 flavours, S5 FFmpeg → `video_generated` |
 | **platform-help/22**, **33**, **34**, **35** | Browser Session; IP Whitelists; Tokens; Update Company Details |
-| **platform-help/20-ibkr-monthly-trading.md** | **CEO help:** W1–W5 defs, flow diagrams, isolation, **IBKR Summary / Clear data**, bridge setup |
+| **platform-help/20-ibkr-monthly-trading.md** | **CEO help:** W1–W5 defs, flow diagrams, isolation, ingest URL vs W3 run, **IBKR Summary / Clear data**, bridge setup |
 | **IBKR-MONTHLY-PHASE4.md** | Paper E2E + certify runbook before live |
 | **knowledgeGraph.md** | Neo4j knowledge graph / self-improvement |
 

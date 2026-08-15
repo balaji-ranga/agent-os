@@ -15,10 +15,10 @@ Quick reference for the Monthly Positive Return suite. Detail and recovery: [IBK
 |-------|-------------|-------------|------|---------|
 | **W1** | Post-Close Review & Plan | `monthly-trading-w1-post-close` | Build the **next trading session’s** plan from market regime, portfolio snapshot, open prior plans, screener, order learnings, Maker (OpenAI GPT) + Checker (DeepSeek cloud) + hard gates (+ optional CEO for discretionary loss sells) | Day plan row in `trading_day_plans` (`approved` or pending CEO); digest + `notify_ceo`; ready for W2 |
 | **W2** | Execute | `monthly-trading-w2-execute` | At open (laptop), **fetch your open plan** and **execute** via local IBKR bridge (map actions → brackets / stops / sells) | Orders submitted at Gateway; plan status `executing` → `partial` \| `executed` \| `failed` + execution report |
-| **W3** | IBKR Events | `monthly-trading-w3-events` | **Ingest** laptop bridge webhooks: account snapshots, equity marks, fills, cancels, rejects, order status, EOD | Owner-scoped book cache + HWM/guardrail + `ibkr_order_events` learnings + journal; notifies on milestones; **EOD chains to W1** (async) |
+| **W3** | IBKR Events | `monthly-trading-w3-events` | Event graph for **EOD** (and optional `fanout_w3`): journal, `notify_ceo`, guardrail, **start W1**. Default laptop POSTs go to the ingest API (`/api/ibkr-trading/local-bridge-webhook`) using **this workflow’s hook secret** — 5‑min snapshots/fills save cache **without** starting W3 | On EOD: journal/notify + **W1 started**; book/order events already persisted by ingest |
 | **W4** | *(not used)* | — | Reserved / unused in the current suite | No workflow |
 | **W5** | Weekly Review | `monthly-trading-w5-weekly` | Weekly (default Saturday) **performance digest** from journal + guardrail | Email summary only; **no order placement** |
-| **Bridge** | Local IBKR bridge | Connectors zip / `backend/local-ibkr-bridge` | Loopback HTTP to Gateway + push events to W3 | Gateway reachable; cloud receives your session book and fills |
+| **Bridge** | Local IBKR bridge | Connectors zip / `backend/local-ibkr-bridge` | Loopback HTTP to Gateway; **polls** (no live fill stream); POST ingest URL + W3 secret | Gateway reachable; cloud receives your session book and fills |
 
 ---
 
@@ -28,12 +28,12 @@ Quick reference for the Monthly Positive Return suite. Detail and recovery: [IBK
 |----------|-----|-------|--------------------|------------|---------|---------|
 | **W1** Post-close review & plan | `monthly-trading-w1-post-close` | VPS | (1) W3 `eod_snapshot` chain; (2) cron `cron_post_close_fallback` default `5 21 * * 1-5` (server TZ); (3) chat `run monthly trading review`; (4) manual | `market_regime`, `ibkr_monthly_guardrail`, open day-plans API, **account-snapshot/latest** (laptop cache), `market_screener`, `ibkr_order_learnings`, brain history, Maker (OpenAI GPT + vault openAI_key), Checker (DeepSeek cloud + vault deepseek_key), optional Brave MCP, hard gates, optional `ceo_approval`, save plan, email digest, `notify_ceo` | Build next session plan from regime, learnings, open plans, last successful laptop snapshot | `trading_day_plans` **approved** (or pending CEO); digest + notify; ready for W2 |
 | **W2** Execute | `monthly-trading-w2-execute` | Laptop | US open via Task Scheduler / desktop `Run-Workflow.ps1` (manual trigger in graph; schedule is OS-side) | `trading_plan_fetch`, local bridge `execute-day-plan` / place / exit / stop, plan execution report APIs, `notify_ceo` | Place approved/partial plan against IB Gateway | Orders at IBKR; plan `executing` → `partial` / `executed` / `failed`; post-session **account_snapshot** pushed for learnings |
-| **W3** Event handler | `monthly-trading-w3-events` | VPS | Webhook anytime (`event` + manual); bridge POSTs `account_snapshot` / fill / reject / cancel / stop_out / equity_mark / eod_snapshot / order_status | `account-snapshot/ingest`, `ibkr_equity_mark`, `ibkr_monthly_guardrail`, ingest → `ibkr_order_events`, `trading_journal`, `notify_ceo`; on EOD → start W1 | Persist book cache / marks / journal / **order learnings**; CEO notify on milestones; W1 on EOD |
+| **W3** Event handler | `monthly-trading-w3-events` | VPS | Default: **`eod_snapshot`** from ingest API (also manual Run, or `fanout_w3=1`). Direct W3 hook URL runs the graph on every POST | `account-snapshot/ingest`, `ibkr_equity_mark`, `ibkr_monthly_guardrail`, ingest → `ibkr_order_events`, `trading_journal`, `notify_ceo`; on EOD → start W1 | Journal / notify / **W1 on EOD**. Intraday book + order events persist via ingest without this run |
 | **W5** Weekly review | `monthly-trading-w5-weekly` | VPS | Saturday cron `cron_weekly_review` default `0 10 * * 6`; manual | `trading_journal`, `ibkr_monthly_guardrail`, email | Weekly (and first-week monthly) performance digest | Email summary; **no orders** |
 
 | Process | ID / path | Where | Schedule | Role | Outcome |
 |---------|-----------|-------|----------|------|---------|
-| **Local IBKR bridge** | `backend/local-ibkr-bridge` (Connectors zip) | Laptop | Always-on / Task Scheduler while Gateway up | HTTP↔TWS adapter; push webhooks to W3 | Gateway reachable; events reach VPS under that CEO owner |
+| **Local IBKR bridge** | `backend/local-ibkr-bridge` (Connectors zip) | Laptop | Always-on / Task Scheduler while Gateway up; equity timer default **300s** | HTTP↔TWS adapter; poll Gateway; POST ingest URL (`WEBHOOK_SECRET` = W3 hook secret) | Gateway reachable; snapshots/fills reach VPS under that CEO owner |
 
 W2 must **not** use `ceo_approval`, `brain`, or `agent` nodes (desktop package limit).
 
@@ -42,7 +42,7 @@ Default crons and **budget caps** live in workflow **Variables** (seed: `backend
 | Variable | Default | Meaning |
 |----------|---------|---------|
 | `daily_budget_usd` | `1000` | Max USD notional for **new_entry** actions in a plan |
-| Cash for spendable | IBKR snapshot → workflow fallback | `spendable = min(daily_budget_remaining, cash)`; cash is **not** NetLiquidation |
+| Cash for spendable | IBKR snapshot → workflow fallback | `spendable = min(daily_budget, cash)`; cash is **not** NetLiquidation. Target notional for a new_entry is `min(spendable, equity × position_size_pct_max%)`, at least the `position_size_pct_min` band, using leftover that can still buy a share. |
 | `max_trades_per_day` | `5` | Max **new_entry** count per plan |
 | `risk_per_trade_pct` | `0.75` | Max risk % of portfolio per trade |
 | `position_size_pct_*` | 3 / 8 / 15 | Soft band + hard max position % |
@@ -86,7 +86,8 @@ If W2 ran but VPS missed updates: next W1 reconciles vs **IBKR snapshot** (IBKR 
 | `GET /api/ibkr-trading/summary/clear-transactional` | Preview delete counts |
 | `POST /api/ibkr-trading/summary/clear-transactional` | Clear plans/events/fills/marks/…; **keeps** workflow Variables |
 | `GET /api/ibkr-trading/account-snapshot/latest` | Last laptop-pushed book for W1 |
-| `POST /api/ibkr-trading/account-snapshot/ingest` | W3 ingest of bridge `account_snapshot` |
+| `POST /api/ibkr-trading/local-bridge-webhook` | Laptop default ingest (W3 hook secret + optional IP whitelist). Saves snapshot/fills; **starts W3 only** on `eod_snapshot` or `fanout_w3=1` |
+| `POST /api/ibkr-trading/account-snapshot/ingest` | Internal/W3 node ingest of bridge `account_snapshot` |
 
 Clear service: `backend/src/services/ibkr-transactional-clear.js` (confirm phrase `CLEAR_IBKR_TRANSACTIONAL`).  
 CEO help: [platform-help/20-ibkr-monthly-trading.md](platform-help/20-ibkr-monthly-trading.md).

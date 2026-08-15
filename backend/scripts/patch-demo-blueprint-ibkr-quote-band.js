@@ -20,8 +20,17 @@ const PACK_PATH = join(
 const PRICES_BULLET =
   '- **Prices:** set entry_price from the account snapshot reference_prices or screener last — never invent a round number. BUY limit must be within {{var.entry_slip_pct_max}}% above and {{var.entry_discount_pct_max}}% below that last. Far-below limits will not fill and hard gates will reject them.\n';
 
+const SPENDABLE_BULLET =
+  '- **Use the spendable cap:** when you take new_entry, set integer qty so notional uses min(daily_budget_usd, cash_usd, portfolio × position_size_pct_max/100) as fully as whole shares allow (at least the position_size_pct_min band when cash allows). Do not leave a leftover that could still buy another share.\n';
+
+const BOOKABLE_SECTION =
+  '\n## Bookable IBKR stock bracket (W2)\nW2 places a native stock bracket only when every new_entry has qty >= 1, entry_price, stop_price below entry, and tp_price above entry. Null tp_price is rejected by hard gates and the laptop mapper will skip the order. Default first take-profit to about {{var.partial_profit_pct_min}}% above entry unless the setup implies a tighter target.\n';
+
 const CHECKER_PRICE_LINE =
   '- every new_entry has a real entry_price within {{var.entry_slip_pct_max}}% above / {{var.entry_discount_pct_max}}% below snapshot or screener last (reject invented far-below-market limits)\n';
+
+const CHECKER_BRACKET_LINE =
+  '- every new_entry is a bookable IBKR bracket: qty >= 1, stop_price below entry, tp_price above entry (W2 skips incomplete brackets)\n';
 
 const IBKR_BUY_LINE =
   '- BUY entry ≤ reference_price + {{var.entry_slip_pct_max}}% and ≥ reference_price − {{var.entry_discount_pct_max}}% (do not invent far-below-market limits)';
@@ -87,6 +96,21 @@ export function patchDemoBalajiIbkrQuoteBand(pack) {
     }
     maker.data.taskConfig.systemPrompt = makerPrompt.replace(needle, `${needle}${PRICES_BULLET}`);
   }
+  if (makerPrompt && !String(maker.data.taskConfig.systemPrompt).includes('Use the spendable cap')) {
+    const pricesNeedle = PRICES_BULLET;
+    const current = maker.data.taskConfig.systemPrompt;
+    if (!current.includes(pricesNeedle)) {
+      throw new Error('W1 Maker prompt missing Prices bullet; cannot insert spendable cap');
+    }
+    maker.data.taskConfig.systemPrompt = current.replace(pricesNeedle, `${SPENDABLE_BULLET}${pricesNeedle}`);
+  }
+  if (maker.data?.taskConfig?.systemPrompt && !maker.data.taskConfig.systemPrompt.includes('Bookable IBKR stock bracket')) {
+    const current = maker.data.taskConfig.systemPrompt;
+    const afterPrices = current.includes(PRICES_BULLET)
+      ? current.replace(PRICES_BULLET, `${PRICES_BULLET}${BOOKABLE_SECTION}`)
+      : `${current}${BOOKABLE_SECTION}`;
+    maker.data.taskConfig.systemPrompt = afterPrices;
+  }
 
   const checker = nodeById(w1, 'checker-1');
   const checkerPrompt = checker?.data?.taskConfig?.systemPrompt || '';
@@ -98,8 +122,17 @@ export function patchDemoBalajiIbkrQuoteBand(pack) {
     }
     checker.data.taskConfig.systemPrompt = checkerPrompt.replace(
       needle,
-      `${CHECKER_PRICE_LINE}${needle}`
+      `${CHECKER_PRICE_LINE}${CHECKER_BRACKET_LINE}${needle}`
     );
+  }
+  if (checker.data?.taskConfig?.systemPrompt && !checker.data.taskConfig.systemPrompt.includes('bookable IBKR bracket')) {
+    const current = checker.data.taskConfig.systemPrompt;
+    if (current.includes(CHECKER_PRICE_LINE) && !current.includes(CHECKER_BRACKET_LINE)) {
+      checker.data.taskConfig.systemPrompt = current.replace(
+        CHECKER_PRICE_LINE,
+        `${CHECKER_PRICE_LINE}${CHECKER_BRACKET_LINE}`
+      );
+    }
   }
 
   for (const key of ['ibkr-maker-checker-paper', 'ibkr-position-poller-paper']) {

@@ -4,7 +4,9 @@
  *
  * Checks: risk %, never average down, market filter for new_entry,
  * guardrail halt_new blocks new_entry, position caps, CEO approval flags,
- * entry_price present, BUY limit within slip/discount of snapshot or screener last.
+ * bookable IBKR bracket (qty, entry, stop below, tp above), BUY limit within
+ * slip/discount of snapshot or screener last, spendable notional uses
+ * min(daily_budget, cash, equity × position_size_pct_max%).
  */
 function parseMakerPlan(text) {
   const raw = String(text || '').trim();
@@ -140,14 +142,23 @@ export function run(inputs = {}, context = {}) {
     inputs.market_screener != null ||
     inputs.reference_prices != null;
 
-  // Cash: IBKR snapshot fields on inputs (or nested) first; workflow cash only as fallback.
+  // Snapshot arrives as API bodyText (JSON string). Parse before reading cash/equity.
+  const snapBag = parseJsonish(
+    inputs.account_snapshot ?? inputs.snapshot ?? inputs.api_snapshot ?? inputs.book
+  );
+  const snapObj = snapBag && typeof snapBag === 'object' ? snapBag : {};
+  const snapPayload =
+    snapObj.payload && typeof snapObj.payload === 'object' ? snapObj.payload : {};
+
+  // Cash: IBKR snapshot first; workflow cash only as fallback.
   // Spendable new_entry notional ≤ min(daily_budget, cash) when cash known.
   let cashUsd =
     num(inputs.cash_usd) ??
     num(inputs.cash) ??
-    num(inputs.account_snapshot?.cash_usd) ??
-    num(inputs.snapshot?.cash_usd) ??
-    num(inputs.book?.cash_usd);
+    num(snapObj.cash_usd) ??
+    num(snapObj.cash) ??
+    num(snapPayload.cash_usd) ??
+    num(snapObj.book?.cash_usd);
   if (cashUsd == null) {
     cashUsd =
       num(vars.cash_usd) ??
@@ -155,12 +166,22 @@ export function run(inputs = {}, context = {}) {
       num(context?.run_context?.cash_usd) ??
       num(context?.run_context?.cash);
   }
+  const equityUsd =
+    num(inputs.equity_usd) ??
+    num(inputs.equity) ??
+    num(snapObj.equity_usd) ??
+    num(snapObj.equity) ??
+    num(snapPayload.equity_usd);
   const spendableCap =
     cashUsd != null && dailyBudget != null
       ? Math.min(dailyBudget, cashUsd)
       : cashUsd != null
         ? cashUsd
         : dailyBudget;
+  const sizeMaxNotional = equityUsd != null && equityUsd > 0 ? equityUsd * (sizeMax / 100) : null;
+  const sizeMinNotional = equityUsd != null && equityUsd > 0 ? equityUsd * (sizeMin / 100) : null;
+  const targetCaps = [spendableCap, sizeMaxNotional].filter((n) => n != null && n > 0);
+  const targetCap = targetCaps.length ? Math.min(...targetCaps) : spendableCap;
 
   // Optional upstream context (strings or objects from prior nodes)
   let regime = inputs.regime || inputs.market_regime || null;
@@ -198,13 +219,31 @@ export function run(inputs = {}, context = {}) {
     if (type === 'new_entry') {
       if (haltNew) errors.push(`${label}: new_entry blocked while risk_mode/guardrail is halt_new`);
       if (!riskOn) errors.push(`${label}: new_entry blocked while market regime is risk_off`);
-      if (a.stop_price == null && a.stop_pct == null) {
-        errors.push(`${label}: new_entry requires stop_price (or stop_pct)`);
+      const qty = num(a.qty ?? a.quantity);
+      if (!(qty >= 1)) {
+        errors.push(`${label}: new_entry requires qty >= 1 (W2 cannot place a bracket)`);
+      } else if (Math.abs(qty - Math.round(qty)) > 1e-9) {
+        errors.push(`${label}: new_entry qty must be a whole share count`);
       }
       const entryPx = num(a.entry_price ?? a.trigger_price ?? a.limit_price);
+      const stopPx = num(a.stop_price);
+      const tpPx = num(a.tp_price ?? a.take_profit_price ?? a.target_price);
       if (!(entryPx > 0)) {
         errors.push(`${label}: new_entry requires entry_price (W2 cannot place a bracket without it)`);
-      } else if (hasQuoteSource) {
+      }
+      if (!(stopPx > 0)) {
+        errors.push(`${label}: new_entry requires stop_price (W2 cannot place a bracket)`);
+      } else if (entryPx > 0 && !(stopPx < entryPx)) {
+        errors.push(`${label}: stop_price ${stopPx} must be below entry ${entryPx} for longs`);
+      }
+      if (!(tpPx > 0)) {
+        errors.push(
+          `${label}: new_entry requires tp_price above entry (null tp is skipped by W2 mapper)`
+        );
+      } else if (entryPx > 0 && !(tpPx > entryPx)) {
+        errors.push(`${label}: tp_price ${tpPx} must be above entry ${entryPx}`);
+      }
+      if (entryPx > 0 && hasQuoteSource) {
         const ref = lookupRef(refs, key);
         if (!(ref > 0)) {
           errors.push(
@@ -223,7 +262,7 @@ export function run(inputs = {}, context = {}) {
             );
           }
         }
-      } else {
+      } else if (entryPx > 0 && !hasQuoteSource) {
         warnings.push(
           `${label}: no snapshot/screener quotes bound — cannot verify entry ${entryPx} vs last`
         );
@@ -315,6 +354,34 @@ export function run(inputs = {}, context = {}) {
       `new_entry notional_usd sum ${newEntryNotional.toFixed(2)} exceeds spendable ${label}`
     );
   }
+  if (
+    newEntryCount > 0 &&
+    cashUsd != null &&
+    targetCap != null &&
+    targetCap > 0 &&
+    newEntryNotional <= spendableCap + 1e-6
+  ) {
+    if (
+      sizeMinNotional != null &&
+      sizeMinNotional <= targetCap + 1e-6 &&
+      newEntryNotional + 1e-6 < sizeMinNotional
+    ) {
+      errors.push(
+        `new_entry notional ${newEntryNotional.toFixed(2)} is below position_size_pct_min ${sizeMin}% of equity (${sizeMinNotional.toFixed(2)}); size toward min(daily_budget, cash, ${sizeMax}% equity) ≈ ${targetCap.toFixed(2)}`
+      );
+    }
+    const leftover = targetCap - newEntryNotional;
+    const minEntryPx = actions.reduce((m, a) => {
+      if (String(a.type || a.action || '').toLowerCase() !== 'new_entry') return m;
+      const px = num(a.entry_price ?? a.trigger_price ?? a.limit_price);
+      return px > 0 && (m == null || px < m) ? px : m;
+    }, null);
+    if (minEntryPx > 0 && leftover >= minEntryPx) {
+      errors.push(
+        `new_entry notional ${newEntryNotional.toFixed(2)} leaves unused spendable ${leftover.toFixed(2)}; increase qty to use min(daily_budget, cash, ${sizeMax}% equity) ≈ ${targetCap.toFixed(2)}`
+      );
+    }
+  }
   if (cashUsd == null && newEntryNotional > 0) {
     warnings.push(
       'no cash_usd from IBKR snapshot (or workflow fallback) — enforced daily_budget only; cannot min(budget, cash)'
@@ -322,6 +389,15 @@ export function run(inputs = {}, context = {}) {
   }
 
   const ok = errors.length === 0;
+  if (!ok) {
+    console.info('[monthly-trading-hard-gates] rejected', {
+      errors,
+      new_entry_notional: newEntryNotional,
+      target_cap: targetCap,
+      cash_usd: cashUsd,
+      equity_usd: equityUsd,
+    });
+  }
   const out = {
     ok,
     pass: ok,

@@ -154,6 +154,86 @@ async function main() {
   assert.strictEqual(missingQuote.ok, false);
   assert.ok(missingQuote.errors.some((e) => /invented entry_price/i.test(e)), missingQuote.errors);
 
+  const missingTp = hardGates({
+    plan_text: JSON.stringify({
+      prior_plan_reconcile: { notes: 'x' },
+      actions: [
+        {
+          type: 'new_entry',
+          key: 'NASDAQ:AMD',
+          qty: 8,
+          entry_price: 100,
+          stop_price: 97,
+          tp_price: null,
+          notional_usd: 800,
+        },
+      ],
+      risk_summary: { risk_mode: 'normal' },
+    }),
+    regime: { risk_on: true },
+    account_snapshot: JSON.stringify({
+      cash_usd: 10000,
+      equity_usd: 10000,
+      reference_prices: { 'NASDAQ:AMD': { reference_price: 100 } },
+    }),
+  });
+  assert.strictEqual(missingTp.ok, false);
+  assert.ok(missingTp.errors.some((e) => /tp_price/i.test(e)), missingTp.errors);
+
+  const undersized = hardGates({
+    plan_text: JSON.stringify({
+      prior_plan_reconcile: { notes: 'x' },
+      actions: [
+        {
+          type: 'new_entry',
+          key: 'NASDAQ:AMD',
+          qty: 1,
+          entry_price: 100,
+          stop_price: 97,
+          tp_price: 104,
+          notional_usd: 100,
+        },
+      ],
+      risk_summary: { risk_mode: 'normal' },
+    }),
+    regime: { risk_on: true },
+    account_snapshot: JSON.stringify({
+      cash_usd: 10000,
+      equity_usd: 10000,
+      reference_prices: { 'NASDAQ:AMD': { reference_price: 100 } },
+    }),
+  });
+  assert.strictEqual(undersized.ok, false);
+  assert.ok(
+    undersized.errors.some((e) => /position_size_pct_min|unused spendable/i.test(e)),
+    undersized.errors
+  );
+
+  const sizedOk = hardGates({
+    plan_text: JSON.stringify({
+      prior_plan_reconcile: { notes: 'x' },
+      actions: [
+        {
+          type: 'new_entry',
+          key: 'NASDAQ:AMD',
+          qty: 8,
+          entry_price: 100,
+          stop_price: 97,
+          tp_price: 104,
+          notional_usd: 800,
+        },
+      ],
+      risk_summary: { risk_mode: 'normal' },
+    }),
+    regime: { risk_on: true },
+    account_snapshot: JSON.stringify({
+      cash_usd: 10000,
+      equity_usd: 10000,
+      reference_prices: { 'NASDAQ:AMD': { reference_price: 100 } },
+    }),
+  });
+  assert.strictEqual(sizedOk.ok, true, `sized new_entry should pass: ${JSON.stringify(sizedOk.errors)}`);
+
   const {
     evaluateBuyLimitVsReference,
     filterBuyTradesByReference,
@@ -220,6 +300,8 @@ async function main() {
   assert.ok(hgBind.includes('screener'), 'W1 hard gates bind screener');
   assert.ok(MAKER_STRATEGY_SYSTEM_PROMPT.includes('entry_discount_pct_max'));
   assert.ok(CHECKER_STRATEGY_SYSTEM_PROMPT.includes('entry_discount_pct_max'));
+  assert.ok(MAKER_STRATEGY_SYSTEM_PROMPT.includes('Bookable IBKR stock bracket'));
+  assert.ok(CHECKER_STRATEGY_SYSTEM_PROMPT.includes('tp_price above entry'));
 
   const demoPack = JSON.parse(
     readFileSync(
@@ -239,7 +321,9 @@ async function main() {
   const demoMaker = (demoW1.graph?.nodes || []).find((n) => n.id === 'maker-1');
   const demoChecker = (demoW1.graph?.nodes || []).find((n) => n.id === 'checker-1');
   assert.ok(String(demoMaker?.data?.taskConfig?.systemPrompt || '').includes('entry_discount_pct_max'));
+  assert.ok(String(demoMaker?.data?.taskConfig?.systemPrompt || '').includes('Bookable IBKR stock bracket'));
   assert.ok(String(demoChecker?.data?.taskConfig?.systemPrompt || '').includes('entry_discount_pct_max'));
+  assert.ok(String(demoChecker?.data?.taskConfig?.systemPrompt || '').includes('tp_price above entry'));
   const demoIbkr = (demoPack.workflow_templates || []).find(
     (w) => w.template_key === 'ibkr-maker-checker-paper'
   );

@@ -69,7 +69,7 @@ Optional later: IBKR **real-time US market data subscriptions** for live quotes 
 
 | Tool | API key | Paper | Live | Cache |
 |------|---------|-------|------|-------|
-| `ibkr_monthly_guardrail` | No | Equity marks from EOD snapshot / webhook | Same | **Recompute always** from `ibkr_equity_marks` (cheap DB read) |
+| `ibkr_monthly_guardrail` | No | Equity marks from ingest / EOD snapshot | Same | **Recompute always** from `ibkr_equity_marks` (cheap DB read) |
 | `trading_journal` | No | Fills/events in DB | Same | **Recompute always** (or soft ≤5m if hot) |
 | `trading_plan_save` / `trading_plan_fetch` | No | Stored plans | Same | N/A (CRUD) |
 | `brain_history` | **platform/BYOK LLM** when summarized | Same | Same | Existing daily `tool_summary_cache` |

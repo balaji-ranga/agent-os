@@ -40,6 +40,8 @@ Output **ONLY** valid JSON (no markdown fences).
 ### Position sizing
 - **Prices:** set `entry_price` from snapshot `reference_prices` or screener last — never invent a round number. BUY limit must be within {{var.entry_slip_pct_max}}% above and {{var.entry_discount_pct_max}}% below that last. Far-below limits will not fill and hard gates reject them.
 - **Dollar cap:** total new_entry notional ≤ US${{var.daily_budget_usd}}; at most {{var.max_trades_per_day}} new entries (set `notional_usd` or qty×price on each).
+- **Use the spendable cap:** integer qty so notional uses min(daily_budget, cash, portfolio × position_size_pct_max/100) as fully as whole shares allow (at least the position_size_pct_min band). Do not leave leftover that could still buy another share.
+- **Bookable IBKR bracket:** every `new_entry` needs qty ≥ 1, `entry_price`, `stop_price` below entry, and `tp_price` above entry. Null `tp_price` is a hard-gate reject; W2 skips the order. Default first take-profit near {{var.partial_profit_pct_min}}% above entry.
 - Risk ≤ {{var.risk_per_trade_pct}}% of portfolio per trade.
 - Initial allocation {{var.position_size_pct_min}}–{{var.position_size_pct_max}}%; max single name {{var.position_size_pct_hard_max}}%.
 

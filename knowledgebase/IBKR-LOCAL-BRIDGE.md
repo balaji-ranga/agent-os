@@ -1,13 +1,13 @@
 # IBKR Local Bridge (laptop)
 
-Phase 2 of the [Monthly Positive Return plan](IBKR-MONTHLY-TRADING-PLAN.md): a loopback HTTP service on the trading laptop that wraps `backend/src/services/ibkr-gateway-client.js` and pushes fill / equity / **account snapshot** events to the VPS.
+Phase 2 of the [Monthly Positive Return plan](IBKR-MONTHLY-TRADING-PLAN.md): a loopback HTTP service on the trading laptop that wraps `backend/src/services/ibkr-gateway-client.js`, **polls** Gateway, and POSTs fill / equity / **account snapshot** events to the VPS ingest API (`/api/ibkr-trading/local-bridge-webhook`, W3 hook secret). The W3 **workflow** runs on **EOD** by default.
 
 **CEO end-user guide (prerequisites, setup, run/monitor, VPS deploy, privacy):** [platform-help/20-ibkr-monthly-trading.md](platform-help/20-ibkr-monthly-trading.md).
 **Summary UI** reads execution order ids from flat `order_ids` or nested/stringified W2 `execute` / `place_bracket.results` so day-row ORDERS match laptop brackets.
 
-**Data isolation:** webhook events update **only the CEO** who owns the W3 workflow (session / workflow owner). IBKR cloud tables are keyed by `owner_user_id` — not shared across users.
+**Data isolation:** webhook events update **only the CEO** who owns the W3 workflow (the ingest URL authenticates with that workflow’s hook secret). IBKR cloud tables are keyed by `owner_user_id` — not shared across users.
 
-**Workflow roles (W1–W5):** W1 plans (cloud) · W2 executes (laptop → this bridge) · W3 ingests events · **W4 unused** · W5 weekly email. Full names/goals/outcomes: [platform-help/20-ibkr-monthly-trading.md](platform-help/20-ibkr-monthly-trading.md), [IBKR-MONTHLY-WORKFLOWS.md](IBKR-MONTHLY-WORKFLOWS.md).
+**Workflow roles (W1–W5):** W1 plans (cloud) · W2 executes (laptop → this bridge) · W3 event graph on **EOD** (journal/notify/start W1; secret also binds the ingest URL) · **W4 unused** · W5 weekly email. Full names/goals/outcomes: [platform-help/20-ibkr-monthly-trading.md](platform-help/20-ibkr-monthly-trading.md), [IBKR-MONTHLY-WORKFLOWS.md](IBKR-MONTHLY-WORKFLOWS.md).
 
 **Cloud UI:** [IBKR Summary](platform-help/20-ibkr-monthly-trading.md#ibkr-summary-page-ibkr-summary) (`/ibkr-summary`) shows plan vs executed and can **clear transactional** data without wiping budget Variables.
 
@@ -22,22 +22,27 @@ Phase 2 of the [Monthly Positive Return plan](IBKR-MONTHLY-TRADING-PLAN.md): a l
 | Component | Where | Role |
 |-----------|--------|------|
 | IB Gateway / TWS | Laptop | Socket API (paper 4002) |
-| **local-ibkr-bridge** | Laptop `127.0.0.1:3010` | Auth’d JSON API + webhook pusher |
+| **local-ibkr-bridge** | Laptop `127.0.0.1:3010` | Auth’d JSON API; **polls** Gateway (timer default 300s); POST ingest URL |
 | W2 Execution | Laptop desktop package | Calls bridge at market open; `/execute-day-plan` skips BUY limits far from live last |
-| W3 Event Handler | VPS webhook | Receives `account_snapshot` / `fill` / `equity_mark` / `eod_snapshot` into that CEO’s private tables |
+| Ingest API | VPS `POST /api/ibkr-trading/local-bridge-webhook` | Same **W3 hook secret**; persists book/fills immediately; **starts W3 only** on `eod_snapshot` or `fanout_w3=1` |
+| W3 Event Handler | VPS workflow | EOD (default): journal, `notify_ceo`, guardrail, **start W1** |
 
 ## Simple end-to-end (ops)
 
 ```mermaid
 flowchart LR
   GW[IB Gateway] --> Bridge[Local bridge]
-  Bridge -->|WEBHOOK account_snapshot fill eod| W3[W3 owner-scoped]
-  W3 --> Cache[That CEO cache + learnings]
+  Bridge -->|WEBHOOK ingest URL + W3 secret| Ingest[Ingest API]
+  Ingest --> Cache[That CEO cache + learnings]
+  Bridge -->|eod_snapshot| W3[W3 owner-scoped]
+  W3 --> Cache
   Cache --> W1[W1 plan]
   W1 --> Plan[That CEO day plan]
   Plan --> W2[W2 laptop]
   W2 --> Bridge
 ```
+
+The laptop does **not** subscribe to a live IBKR fill stream. Fills after place are seen on the **next poll/snapshot**. Default `WEBHOOK_URL` is the ingest API, not `/api/agent-workflows/hooks/monthly-trading-w3-events`.
 
 ## Auth and bind
 

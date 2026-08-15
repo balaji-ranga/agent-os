@@ -1,6 +1,6 @@
 # IBKR Monthly Positive Return Trading System — Implementation Plan
 
-Event-driven, split-architecture trading system: the VPS runs screening, Maker (OpenAI GPT) / Checker (DeepSeek cloud) planning, CEO approval, notifications, and the daily digest email; the laptop runs a small execution workflow plus a local IBKR bridge that places orders against the local IB Gateway and pushes fill/equity/**account_snapshot** events back to the VPS via webhooks.
+Event-driven, split-architecture trading system: the VPS runs screening, Maker (OpenAI GPT) / Checker (DeepSeek cloud) planning, CEO approval, notifications, and the daily digest email; the laptop runs a small execution workflow plus a local IBKR bridge that places orders against the local IB Gateway and **polls** the book (no live fill stream), then POSTs snapshots/fills to the VPS ingest API (`/api/ibkr-trading/local-bridge-webhook`, W3 hook secret). The W3 **workflow** runs on **EOD** by default (then starts W1).
 
 **CEO-facing flow diagrams + “data is per-user”:** [platform-help/20-ibkr-monthly-trading.md](platform-help/20-ibkr-monthly-trading.md).
 
@@ -12,7 +12,7 @@ Event-driven, split-architecture trading system: the VPS runs screening, Maker (
 |---|------|------|---------|
 | **W1** | Post-Close Review & Plan (`monthly-trading-w1-post-close`) | Plan **next** session (Maker/Checker + gates + optional CEO) | Approved/pending day plan + digest |
 | **W2** | Execute (`monthly-trading-w2-execute`) | Place open plan on **laptop** via bridge | Orders at IBKR + plan status / execution report |
-| **W3** | IBKR Events (`monthly-trading-w3-events`) | Ingest bridge snapshots/fills/marks/EOD | Owner book + learnings; EOD starts W1 |
+| **W3** | IBKR Events (`monthly-trading-w3-events`) | EOD event graph (journal/notify/start W1). Ingest URL uses this workflow’s **hook secret** | Owner book already cached by ingest; EOD starts W1 |
 | **W4** | — | Not used in this suite | — |
 | **W5** | Weekly Review (`monthly-trading-w5-weekly`) | Weekly performance email | Digest only (no trades) |
 
@@ -41,7 +41,8 @@ flowchart LR
     w2 --> bridge
   end
   subgraph vps [VPS Flolah]
-    w3[W3 Event Handler webhook]
+    ingest[Ingest API local-bridge-webhook]
+    w3[W3 Event Handler EOD]
     w1[W1 Post-Close Review and Plan]
     w4[W5 Weekly Review cron]
     maker[Maker Brain OpenAI GPT]
@@ -51,9 +52,11 @@ flowchart LR
     digest[Daily digest email node]
     notify[notify_ceo milestones]
   end
-  bridge -->|"fills, equity marks, account_snapshot, eod (webhook)"| w3
+  bridge -->|"account_snapshot fill equity (ingest; no W3 run)"| ingest
+  ingest --> snapCache[(ibkr_account_snapshot_cache)]
+  bridge -->|eod_snapshot| ingest
+  ingest -->|fanout W3| w3
   w3 -->|post-close eod| w1
-  w3 -->|ingest book cache| snapCache[(ibkr_account_snapshot_cache)]
   w1 -->|GET /account-snapshot/latest| snapCache
   w1 --> maker --> checker --> gates --> approval
   w1 --> digest
@@ -81,7 +84,7 @@ flowchart LR
 
 4. **New `backend/local-ibkr-bridge/`** — slim Node service reusing `backend/src/services/ibkr-gateway-client.js` logic, loopback HTTP (e.g. 127.0.0.1:3010, local token auth):
    - Endpoints: `/ping`, `/account-snapshot`, `/place-bracket` (STP-LMT breakout entries + TP + stop), `/modify-stop` (trailing raise), `/sell-to-close`, `/cancel`, `/open-orders`, `/push-equity-mark`, `/push-eod-snapshot`.
-   - Event pusher: order-status / equity / **account_snapshot** / EOD envelopes → HTTPS POST to VPS workflow webhook (`x-workflow-hook-secret`), with retry queue (`data/webhook-retry.json`). Full book is pushed after every successful Gateway session (including end of execute-day-plan when orders fail). Post-close `eod_snapshot` triggers W1 later; W1 reads VPS cache via `GET /api/ibkr-trading/account-snapshot/latest`.
+   - Event pusher: order-status / equity / **account_snapshot** / EOD envelopes → HTTPS POST to VPS **ingest** URL `/api/ibkr-trading/local-bridge-webhook` with `x-workflow-hook-secret` = **W3 hook secret** (retry queue `data/webhook-retry.json`). Default zip prefills this URL — **not** the W3 workflow hook. Full book is pushed after every successful Gateway session (including end of execute-day-plan when orders fail). Intraday POSTs save cache/order events **without** starting W3. Post-close `eod_snapshot` **does** start W3, which starts W1; W1 reads VPS cache via `GET /api/ibkr-trading/account-snapshot/latest`. Equity timer `EQUITY_MARK_INTERVAL_SEC` default **300**. Optional: point `WEBHOOK_URL` at `/api/agent-workflows/hooks/monthly-trading-w3-events` to run the full W3 graph on every event.
    - Windows setup: `scripts/run-bridge.ps1` + `scripts/register-task-scheduler.ps1` (pattern from `platform-help/17-desktop-windows-download.md`).
    - Docs: [IBKR-LOCAL-BRIDGE.md](IBKR-LOCAL-BRIDGE.md) and `backend/local-ibkr-bridge/README.md`. Offline: `npm run test:offline` (`BRIDGE_MOCK_IBKR=1`).
 
@@ -117,7 +120,7 @@ Keep in sync with `backend/scripts/lib/trading-strategy-prompt.js`.
 
 5. **W1 Post-Close Review & Plan (VPS, event-triggered by EOD snapshot webhook; cron fallback)** — `market_regime` -> guardrail check -> position review (50/200-DMA, momentum, abnormal volume) -> `market_screener` + fundamentals -> **Maker Brain (OpenAI GPT via vault openAI_key; optional Brave MCP)** produces plan JSON (holds/reduces/exits/stop-raises/partial-profits/new breakout entries with trigger levels and 1.5x volume condition) -> **Checker Brain (DeepSeek cloud via vault deepseek_key)** validates against rules -> `custom_script` deterministic gates (risk %, exposure caps, market filter, guardrail, never-average-down) -> IF plan contains discretionary sells at >= 3% loss -> `ceo_approval` Kanban gate for those items only -> save to `trading_day_plans` -> **daily consolidated digest email** (equity, MTD return vs target, fills today, plan for tomorrow, guardrail status) + `notify_ceo` summary.
 6. **W2 Execution (laptop desktop package, Task Scheduler at US market open)** — fetch approved plan (remote tool node) -> local API nodes to bridge: place bracket entries, apply stop raises, execute exits/partial profits -> report results (remote tool nodes `ibkr_confirm_fill` / plan status update). No ceo_approval/brain nodes locally (desktop-runner constraint).
-7. **W3 IBKR Event Handler (VPS, webhook trigger)** — on fill/stop-out/reject/equity-mark events: update ledger + journal, recompute guardrail; `notify_ceo` on milestones (fills, stop-outs, partial profits taken, monthly target reached -> risk-reduction mode, guardrail breach -> halt new entries); when a post-close snapshot arrives, chain-trigger W1.
+7. **W3 IBKR Event Handler (VPS)** — default trigger is **`eod_snapshot`** fan-out from the ingest API (or `fanout_w3=1` / direct W3 hook). Graph: journal + `notify_ceo` on milestones; recompute guardrail; chain-trigger W1. Intraday fills/snapshots persist on ingest **without** this run.
 8. **W5 Weekly Review (VPS, cron Saturday)** — prune weak watchlist names, promote candidates, performance stats email; monthly section (metrics, HWM reset note) on the first weekly run of each month.
 
 ## Phase 4 — Certify, validate, deploy

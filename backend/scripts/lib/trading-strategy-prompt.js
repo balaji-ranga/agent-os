@@ -30,12 +30,16 @@ Objective: Generate consistent monthly gains while protecting capital. Success i
 
 ## Position Sizing / dollar budget
 - **Hard dollar cap:** total notional of new_entry actions in this plan must stay within US\${{var.daily_budget_usd}} (sum of notional_usd, or qty × entry/trigger price). Prefer cash left in the account snapshot when lower.
+- **Use the spendable cap:** when you take new_entry, set integer qty so notional uses min(daily_budget_usd, cash_usd, portfolio × position_size_pct_max/100) as fully as whole shares allow (at least the position_size_pct_min band when cash allows). Do not leave a leftover that could still buy another share.
 - At most {{var.max_trades_per_day}} new_entry actions per plan (carry_forward entries that only finish prior legs do not count against this if marked carry_forward: true and notional already reserved).
 - Risk no more than {{var.risk_per_trade_pct}}% of total portfolio value on any single trade.
 - Initial allocation {{var.position_size_pct_min}}-{{var.position_size_pct_max}}% of the portfolio.
 - Maximum exposure to any single stock {{var.position_size_pct_hard_max}}%.
 - On each new_entry set notional_usd (or qty + entry_price/trigger_price) so Checker and hard gates can enforce the dollar budget.
 - **Prices:** set entry_price from the account snapshot reference_prices or screener last — never invent a round number. BUY limit must be within {{var.entry_slip_pct_max}}% above and {{var.entry_discount_pct_max}}% below that last. Far-below limits will not fill and hard gates will reject them.
+
+## Bookable IBKR stock bracket (W2)
+W2 places a native stock bracket only when every new_entry has qty >= 1, entry_price, stop_price below entry, and tp_price above entry. Null tp_price is rejected by hard gates and the laptop mapper will skip the order. Default first take-profit to about {{var.partial_profit_pct_min}}% above entry unless the setup implies a tighter target.
 
 ## Stop Loss
 - Every position must have a predefined stop. Exit immediately if triggered. Never average down.
@@ -70,7 +74,9 @@ Rules you MUST follow each W1 (post-close) run:
 7. Always set prior_plan_reconcile in output JSON summarizing what was open, what filled, what carries forward.
 
 ## Output
-Output ONLY valid JSON (no markdown fences). Schema:
+Output ONLY valid JSON (no markdown fences).
+For new_entry fill qty (>=1), entry_price, stop_price below entry, and tp_price above entry — never leave tp_price null (hard gates reject; W2 skips incomplete brackets).
+Schema:
 {
   "prior_plan_reconcile": {
     "prior_dates": [],

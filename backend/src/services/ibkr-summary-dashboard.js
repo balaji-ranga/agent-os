@@ -187,6 +187,9 @@ function extractExecution(planRow) {
     dry_run: dryRaw === true ? true : dryRaw === false ? false : null,
     suggested_status: execute?.suggested_status || null,
     mapping_summary: execute?.mapping?.summary || placeObj?.mapping?.summary || null,
+    mapping_skipped_reasons: asArray(execute?.mapping?.skipped || placeObj?.mapping?.skipped)
+      .map((s) => s?.reason)
+      .filter(Boolean),
     place_ok: placeObj?.ok,
     place_skipped: placeObj?.skipped === true,
     raw: exec,
@@ -222,7 +225,14 @@ function buildGapNotes(planned, executed, status) {
   if (planned.mappable.actionable > 0 && !executed.has_report && status === 'approved') {
     notes.push('Plan approved but not yet executed on laptop (W2).');
   }
-  if (executed.place_skipped) notes.push('Bridge reported place skip (no trades[] / empty mapping).');
+  if (executed.place_skipped) {
+    const reasons = (executed.mapping_skipped_reasons || []).join(', ');
+    notes.push(
+      reasons
+        ? `Bridge skipped placing: ${reasons}`
+        : 'Bridge reported place skip (no trades[] / empty mapping).'
+    );
+  }
   if (executed.dry_run) notes.push('Execution was dry-run (IBKR_TRADING_ENABLED off).');
   if (planned.mappable.actionable > 0 && executed.has_report && executed.order_ids.length === 0 && !executed.dry_run) {
     notes.push('Actions mapped as actionable but no order ids recorded in execution report.');

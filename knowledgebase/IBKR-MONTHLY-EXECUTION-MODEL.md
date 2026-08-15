@@ -11,7 +11,7 @@ When each workflow runs, what it does, and the expected outcome. **Quick tables 
 | Workflow | ID | When it runs | What it does | Expected outcome |
 |----------|----|--------------|--------------|------------------|
 | **W1 Post-Close Review & Plan** | `monthly-trading-w1-post-close` | After US close: (1) W3 receives `eod_snapshot` webhook from laptop, or (2) schedule fallback cron (`cron_post_close_fallback`, default ~21:05 Mon–Fri server local time), or (3) chat phrase `run monthly trading review` | Market regime, guardrail, screener, reconcile **prior open/partial plans**, Maker (OpenAI GPT) + Checker (DeepSeek cloud) + hard gates, optional CEO approval for discretionary loss sells ≥ threshold, save day plan, daily digest email + in-app notify | `trading_day_plans` row status **`approved`** (or pending CEO), digest email sent, CEO notified; plan ready for W2 |
-| **W3 Event Handler** | `monthly-trading-w3-events` | Anytime laptop bridge POSTs webhook (`fill`, `reject`, `stop_out`, `equity_mark`, `eod_snapshot`, `order_status`) | Persist equity marks / update plan execution hints / milestone `notify_ceo`; on `eod_snapshot` chain-trigger W1 | DB marks/journal updated; CEO bell on milestones; W1 started after EOD |
+| **W3 Event Handler** | `monthly-trading-w3-events` | Default: ingest API fans out on **`eod_snapshot`** (also manual Run, or `fanout_w3=1`). Direct W3 hook URL runs the graph on every POST | Journal, `notify_ceo`, guardrail; on `eod_snapshot` chain-trigger W1 | Journal/notify; W1 started after EOD. Intraday book/fills persist via ingest without this run |
 | **W5 Weekly Review** | `monthly-trading-w5-weekly` | Saturday cron (`cron_weekly_review`) | Journal stats, watchlist hygiene notes, email; first week of month adds monthly metrics | Weekly (and monthly) email summary; no orders |
 
 VPS does **not** talk to IB Gateway. It plans, gates, notifies, and stores state.
@@ -22,7 +22,7 @@ VPS does **not** talk to IB Gateway. It plans, gates, notifies, and stores state
 
 | Workflow / process | ID / name | When it runs | What it does | Expected outcome |
 |--------------------|-----------|--------------|--------------|------------------|
-| **Local IBKR Bridge** | `backend/local-ibkr-bridge` | At logon / always-on (Task Scheduler) while Gateway is up | HTTP on `127.0.0.1:3010`; snapshot/place/cancel; push fills & equity & EOD to VPS webhook | Gateway reachable; events reach W3 |
+| **Local IBKR Bridge** | `backend/local-ibkr-bridge` | At logon / always-on (Task Scheduler) while Gateway is up; equity timer default **300s** | HTTP on `127.0.0.1:3010`; snapshot/place/cancel; **poll** Gateway (no live fill stream); POST ingest URL (`WEBHOOK_SECRET` = W3 secret) | Gateway reachable; snapshots/fills reach VPS; W3 graph on EOD |
 | **W2 Execution** | `monthly-trading-w2-execute` | US market open (Task Scheduler / `Run-Workflow.ps1` desktop package) | Fetch **approved/partial** plan from VPS; call local bridge to place brackets, exits, stop raises; report `executing` → `partial` / `executed` / `failed` back to VPS | Orders at IBKR; VPS plan status updated; optional notify |
 
 W2 must **not** include `ceo_approval`, `brain`, or `agent` nodes (unsupported in desktop packages).
@@ -62,15 +62,17 @@ W2 must **not** include `ceo_approval`, `brain`, or `agent` nodes (unsupported i
 ```mermaid
 sequenceDiagram
   participant Bridge as LaptopBridge
+  participant Ingest as VPS_ingest
   participant W3 as VPS_W3
   participant W1 as VPS_W1
   participant W2 as Laptop_W2
-  Bridge->>W3: eod_snapshot webhook
+  Bridge->>Ingest: eod_snapshot
+  Ingest->>W3: start W3
   W3->>W1: trigger post-close review
   W1->>W1: Maker Checker gates save approved plan
   W1->>W1: digest email plus notify_ceo
   W2->>W1: fetch approved plan
   W2->>Bridge: place bracket exit raise_stop
-  Bridge->>W3: fill equity_mark webhooks
+  Bridge->>Ingest: account_snapshot equity_mark fill (cache only)
   W2->>W1: plan status partial or executed
 ```

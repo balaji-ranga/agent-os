@@ -56,7 +56,7 @@ Pipeline covered without live Claude Opus:
 8. W3 event parse + optional webhook fill smoke  
 9. Journal + weekly digest compose (+ email node presence on W1/W5)
 
-By default the E2E verifies W3 hook secret handling (`verifyHookSecret`) without starting a live workflow run. Set `POST_WEBHOOK=1` to also POST a fill to the hook (may time out while W3 tools run — soft-passed). Optional skips: `SKIP_BRIDGE_MOCK=1`.
+By default the E2E verifies W3 hook secret handling (`verifyHookSecret`) without starting a live workflow run. Set `POST_WEBHOOK=1` to also POST a fill to the **W3 hook URL** (may time out while W3 tools run — soft-passed). Production laptop default is ingest `/api/ibkr-trading/local-bridge-webhook` (fill POSTs do **not** start W3 unless `fanout_w3=1`). Optional skips: `SKIP_BRIDGE_MOCK=1`.
 
 ## Laptop Task Scheduler
 
@@ -73,7 +73,7 @@ Automated Phase 4 covers scripts + env docs. Before flipping live:
 
 - [ ] Paper account only (`IBKR_IS_PAPER=true`, port 4002)  
 - [ ] Bridge + W2 Task Scheduler stable for several sessions  
-- [ ] W1 digest emails arrive; W3 fills/equity marks update guardrail  
+- [ ] W1 digest emails arrive; ingest snapshots/fills update Summary; EOD W3 starts W1; guardrail from equity marks  
 - [ ] Discretionary loss sells hit Kanban; buys/profitable sells stay automatic  
 - [ ] Monthly drawdown guardrail observed at least once in simulation or real drawdown  
 - [ ] Only then consider `IBKR_TRADING_ENABLED=1` / live ports (`IBKR_ALLOW_LIVE` stays off until explicitly approved)

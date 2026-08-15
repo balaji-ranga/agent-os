@@ -36,7 +36,7 @@ flowchart TB
 
   subgraph cloud [Flolah cloud]
     W1[W1: build tomorrow plan]
-    W3[W3: record events]
+    W3[W3: EOD events then start W1]
     Plans[(Your day plans)]
     Book[(Your last account snapshot)]
     Learn[(Your fills / cancels / PnL)]
@@ -60,8 +60,10 @@ flowchart TB
   Plans --> W2
   W2 --> Bridge
   Bridge --> GW
-  Bridge -->|positions, fills, equity| W3
-  W3 --> Book
+  Bridge -->|snapshots fills equity| Ingest[Cloud ingest API]
+  Ingest --> Book
+  Ingest --> Learn
+  Ingest -->|EOD only| W3
   W3 --> Learn
   W3 -->|end of day| W1
 ```
@@ -71,8 +73,9 @@ Plain language:
 1. **Evening (cloud):** W1 looks at the market, **your** last IBKR positions, and past learnings → proposes a day plan (Maker + Checker).
 2. **You approve** what needs CEO approval (e.g. discretionary loss sells).
 3. **Next open (laptop):** W2 downloads **your** approved plan → local bridge → IB Gateway places orders.
-4. **All day (laptop → cloud):** bridge sends fills and fresh account snapshots to W3 for **your** account only.
-5. **Anytime:** IBKR Summary shows plan vs execution and portfolio for **you**.
+4. **All day (laptop → cloud):** the bridge **polls** Gateway (default every **5 minutes**) and after W2/place, then POSTs snapshots/fills to Flolah for **your** account. That updates Summary/W1 cache. It does **not** start a W3 workflow run on every tick.
+5. **After US close:** `eod_snapshot` **does** run **W3**, which starts **W1** for tomorrow.
+6. **Anytime:** IBKR Summary shows plan vs execution and portfolio for **you**.
 
 ---
 
@@ -88,8 +91,8 @@ sequenceDiagram
 
   Note over Bridge,GW: Laptop must be on with Gateway + bridge running
   Bridge->>GW: Read cash + positions (successful session)
-  Bridge->>Cloud: Push account snapshot for your user
-  Cloud->>Cloud: W3 stores book in your private cache
+  Bridge->>Cloud: POST account snapshot (ingest API + W3 secret)
+  Cloud->>Cloud: Store book in your private cache (W3 workflow does not run)
 
   Note over W2,Bridge: US market open
   W2->>Cloud: Fetch your open day plan
@@ -99,12 +102,13 @@ sequenceDiagram
   W2->>Cloud: Execution report status for that plan day
 
   opt Fills and marks during the day
-    Bridge->>Cloud: fill / equity_mark / cancel events
+    Bridge->>Cloud: fill / equity_mark / cancel (ingest only; W3 does not run)
   end
 
   Note over Bridge,W1: After US close
   Bridge->>Cloud: eod_snapshot
-  Cloud->>W1: Start next-day plan using your book + learnings
+  Cloud->>Cloud: Ingest book, then start W3
+  Cloud->>W1: W3 starts next-day plan using your book + learnings
   W1->>Cloud: Save your new day plan
 ```
 
@@ -128,10 +132,10 @@ The monthly suite uses **W1, W2, W3, and W5**. There is **no W4** in this produc
 |----|---------------------|---------------|----------------|------------------|
 | **W1** | **Post-Close Review & Plan** · id `monthly-trading-w1-post-close` | **Cloud (VPS)** | After the market day, review regime, your positions, learnings, and screener → Maker builds a plan → Checker + hard gates validate → optional CEO approval on loss sells → save the next trading-day plan | Your **day plan** is stored (`approved` or waiting CEO); you get a **digest / notify**; plan is ready for W2 |
 | **W2** | **Execute** · id `monthly-trading-w2-execute` | **Your laptop** (desktop package) | At US open (or when you run it), fetch **your** open/approved plan and send actions to the local IBKR bridge. Buys whose limit is far from the live last are **skipped** (not placed) | IB Gateway receives place / stop / sell instructions; plan status becomes **`executing` → `partial` / `executed` / `failed`** with an execution report |
-| **W3** | **IBKR Events** · id `monthly-trading-w3-events` | **Cloud (VPS)** webhook | Receive events from the local bridge all day: account snapshots, equity marks, fills, cancels, rejects, EOD | **Your** book cache, equity/HWM, order learnings, and journal stay updated; milestones can **notify you**; **EOD** starts **W1** for the next plan |
+| **W3** | **IBKR Events** · id `monthly-trading-w3-events` | **Cloud (VPS)** | Owns the **webhook secret** that binds the laptop to **you**. Runs the event graph for **EOD** (and optional `fanout_w3`): journal, `notify_ceo`, guardrail, **start W1**. Default 5‑minute snapshots and fills persist on the ingest API **without** starting this workflow | Book/order events already on disk from ingest; on EOD you get journal/notify + **W1 kicked off** |
 | **W4** | — | — | **Not used** in the Monthly Positive Return suite (no workflow id) | — |
 | **W5** | **Weekly Review** · id `monthly-trading-w5-weekly` | **Cloud (VPS)** | Once a week (default Saturday), summarize performance and guardrail for review | **Email digest only** — does **not** place orders |
-| **Bridge** | Local IBKR bridge (Connectors download) | **Your laptop** | Always-on adapter: Gateway on loopback + push webhooks to W3 | Cloud always has **your** latest session book/fills when Gateway + `WEBHOOK_URL` work |
+| **Bridge** | Local IBKR bridge (Connectors download) | **Your laptop** | Always-on adapter: Gateway on loopback; **polls** (does not subscribe to a live IBKR fill stream); POSTs to the ingest URL with the W3 secret | Cloud always has **your** latest session book when Gateway + `WEBHOOK_URL` work |
 
 ### When each runs
 
@@ -139,19 +143,39 @@ The monthly suite uses **W1, W2, W3, and W5**. There is **no W4** in this produc
 |----|-----------------|
 | **W1** | Bridge **EOD snapshot** (via W3); schedule fallback after US close; chat phrase `run monthly trading review`; manual run |
 | **W2** | Windows Task Scheduler / desktop **Run-Workflow** around US open; manual |
-| **W3** | Anytime the bridge POSTs to the W3 **webhook** (also manual test) |
+| **W3** | **`eod_snapshot`** from the bridge (default). Also manual **Run**, or `fanout_w3=1` on the ingest URL. Not every 5‑minute snapshot |
 | **W5** | Saturday cron (variable `cron_weekly_review`, default morning); manual |
 
 ### How they chain
 
 ```mermaid
 flowchart LR
-  Bridge[Local bridge on laptop] -->|fills equity snapshots EOD| W3[W3 Events]
+  Bridge[Local bridge on laptop] -->|5 min snapshot fill equity| Ingest[Ingest API]
+  Ingest --> Cache[Your book and learnings]
+  Bridge -->|eod_snapshot| Ingest
+  Ingest -->|EOD starts W3| W3[W3 Events]
   W3 -->|after EOD| W1[W1 Plan]
+  Cache --> W1
   W1 -->|approved day plan| W2[W2 Execute]
   W2 --> Bridge
   W5[W5 Weekly] -.->|email only| You[You]
 ```
+
+### Ingest URL vs W3 run (default Connectors zip)
+
+The laptop does **not** keep a standing IBKR event socket. It **reads Gateway** on a timer (`EQUITY_MARK_INTERVAL_SEC`, default **300** = 5 minutes) and around W2 / place / `/push-*`. Those POSTs go to:
+
+`WEBHOOK_URL=https://<your-host>/api/ibkr-trading/local-bridge-webhook`
+
+with header `x-workflow-hook-secret` = **your W3 workflow’s** hook secret (that is how the cloud knows the laptop is **you**). Settings → IP Whitelists (IBKR bridge) can further lock the laptop public IP.
+
+| Bridge event | What the ingest API does | Does the **W3 workflow** run? |
+|--------------|--------------------------|-------------------------------|
+| `account_snapshot` / `equity_mark` (5‑min timer) | Saves **your** book + equity | **No** |
+| `fill` / `reject` / `cancel` / `order_status` (after place, if classified) | Saves **your** order events (Summary drilldown) | **No** (unless `fanout_w3=1`) |
+| `eod_snapshot` (`POST /push-eod-snapshot`) | Saves book, then **starts W3** | **Yes** — W3 then starts **W1** |
+
+Point `WEBHOOK_URL` at `/api/agent-workflows/hooks/monthly-trading-w3-events` only if you want **every** event to run the full W3 graph (journal, notify, ingest nodes). That is slower; the ingest URL is the default so Summary/W1 stay fresh without a workflow run every 5 minutes.
 
 Day-plan statuses W1/W2 use: `pending` → `approved` → `executing` → `partial` / `executed` / `failed` (or `superseded` by a newer W1).
 
@@ -167,12 +191,15 @@ Open **Workflows → monthly-trading-w1-post-close → Variables**:
 |----------|---------|
 | `daily_budget_usd` | Max **USD notional for new buys** (`new_entry`) in a plan |
 | `max_trades_per_day` | Max new buy count |
-| `risk_per_trade_pct` / `position_size_pct_*` | Risk and size % caps |
+| `risk_per_trade_pct` / `position_size_pct_*` | Risk and size % caps. New entries must use min(daily budget, cash, `position_size_pct_max` of equity) as fully as whole shares allow. |
+| `cash_band_pct_*` | Target cash band |
 | `cash_band_pct_*` | Target cash band |
 | `monthly_drawdown_stop_pct` | Halt new entries after drawdown from **your** month high-water mark |
 | `entry_slip_pct_max` / `entry_discount_pct_max` | BUY limit vs last: not more than 0.25% **above** / 3% **below** (default). Stops invented cheap limits that would never fill. Company setup from the Flolah demo pack installs the same W1 bindings. |
 
 Budget applies to **buys only**, not sells. Prefer an IBKR **Cash** account so the broker itself blocks margin borrowing.
+
+W2 books a native stock **bracket** only when every `new_entry` has qty, `entry_price`, `stop_price` below entry, and `tp_price` above entry. A plan with `tp_price: null` is rejected by W1 hard gates (the laptop mapper would skip it). Paper fills are not required for a successful book — open working orders count.
 
 ---
 
@@ -181,7 +208,7 @@ Budget applies to **buys only**, not sells. Prefer an IBKR **Cash** account so t
 1. **Connectors** → **Download local IBKR bridge** (or lite without Node).
 2. Unzip; keep minted `LOCAL_BRIDGE_TOKEN` private.
 3. Paste the same token into W2 variable `local_bridge_token`.
-4. Set `WEBHOOK_URL` to your W3 hook (so **snapshots and fills** reach **your** cloud account); optional `WEBHOOK_SECRET`.
+4. Keep `WEBHOOK_URL` as **`/api/ibkr-trading/local-bridge-webhook`** (Connectors zip prefills this). Set `WEBHOOK_SECRET` to **your W3** event-hook secret (not a different CEO’s). Do **not** point at the W3 hook URL unless you want every 5‑minute tick to start a W3 run.
 5. Run IB Gateway (paper **4002**) → `npm install` → `.\scripts\run-bridge.ps1`.
 
 Details: [IBKR-LOCAL-BRIDGE.md](../IBKR-LOCAL-BRIDGE.md). Desktop W2 package: [17-desktop-windows-download.md](./17-desktop-windows-download.md).
@@ -195,9 +222,9 @@ Details: [IBKR-LOCAL-BRIDGE.md](../IBKR-LOCAL-BRIDGE.md). Desktop W2 package: [1
 | Bridge **account_snapshot** (after any good Gateway read) | Updates **your** last positions/cash for W1 / Summary |
 | Bridge fill / cancel / reject | **Your** order learnings for the Maker |
 | W2 execution report | Plan day status (`executed` / `partial` / `failed`) for plan-vs-done |
-| Equity marks (~every 5 min if configured) | **Your** equity + monthly guardrail |
+| Equity marks (~every 5 min if configured) | **Your** equity on the ingest API; monthly guardrail recompute is a **W3** step (EOD / fan-out), not every timer tick |
 
-W1 reads **your last laptop snapshot** (`account-snapshot/latest`), not a live Gateway on the cloud server.
+W1 reads **your last laptop snapshot** (`account-snapshot/latest`), not a live Gateway on the cloud server. A fill hours after place is picked up on the **next poll/snapshot**, not the instant IBKR fills.
 
 ---
 
@@ -317,7 +344,7 @@ Ops references: [IBKR-LOCAL-BRIDGE.md](../IBKR-LOCAL-BRIDGE.md), [IBKR-MONTHLY-W
 | Pre-session | You / Task Scheduler | Gateway + bridge up | Bridge `/health`; cash updates on **IBKR Summary** |
 | After US close | W3 → W1 (or manual Run) | Plan next day | W1 run completes; day plan `approved` or CEO pending |
 | US open | W2 package | Execute open plan | W2 run `completed`; plan `executing` → `executed` / `partial` / `failed` |
-| Intraday | Bridge → W3 | Snapshots, fills, cancels | Order events on Summary day drilldown; equity marks / guardrail |
+| Intraday | Bridge → ingest API | Snapshots, fills, cancels | Order events on Summary day drilldown; equity marks. W3 graph does **not** run each tick |
 | Anytime | You | Review | **IBKR Summary** metrics, day table gap notes, drilldown |
 
 ### Product commands (CEO UI)

@@ -29,7 +29,7 @@ Documentation lives here so Cursor and humans can find it. **Root README.md** st
 | **knowledgeGraph.md** | Neo4j knowledge graph for internal AgentSystem agent behavior, Kanban feedback, autonomous self-improvement, and progressive improvement dashboard. |
 | **IBKR-TRADING-WORKFLOW.md** | IBKR MCP options, maker/checker paper workflow (budget, brackets, CEO day plan), Agent OS wiring, env vars, and security guardrails. |
 | **IBKR-MONTHLY-TRADING-PLAN.md** | Monthly Positive Return trading system: split VPS/laptop architecture, market-data tools, Maker (Claude Opus)/Checker (deepseek-v4-flash), monthly drawdown guardrail, notifications + daily digest email, and phased implementation plan. |
-| **platform-help/20-ibkr-monthly-trading.md** | **CEO / Platform Help:** W1–W5 purpose & outcomes, isolation, flow diagrams, bridge, **prerequisites**, **step-by-step setup**, **run/monitor**, **VPS deploy**, **IBKR Summary + Clear data**. |
+| **platform-help/20-ibkr-monthly-trading.md** | **CEO / Platform Help:** W1–W5 purpose & outcomes, isolation, flow diagrams, **ingest URL vs W3 run**, bridge, **prerequisites**, **step-by-step setup**, **run/monitor**, **VPS deploy**, **IBKR Summary + Clear data**. |
 | **IBKR-MONTHLY-MAKER-TOOLS.md** | Maker tool catalog: paper vs live requirements, which tools need API keys (FMP / Anthropic / DeepSeek / IBKR), and caching TTLs. |
 | **IBKR-MONTHLY-WORKFLOWS.md** | W1–W5 + bridge defs, ops tables, Summary UI / clear APIs. |
 | **IBKR-MONTHLY-EXECUTION-MODEL.md** | Cloud vs laptop workflows: when each runs, expected outcomes, day-plan statuses, and laptop↔VPS failure recovery. |
