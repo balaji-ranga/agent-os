@@ -27,7 +27,12 @@ export function isPrivateIp(ip) {
   const v4mapped = raw.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i);
   const v4 = v4mapped ? v4mapped[1] : net.isIP(raw) === 4 ? raw : null;
   if (!v4) {
-    return net.isIP(raw) === 6;
+    // Public IPv6 is allowed. Block multicast / documentation ranges only.
+    if (net.isIP(raw) === 6) {
+      if (/^ff/i.test(raw) || /^2001:db8:/i.test(raw)) return true;
+      return false;
+    }
+    return true;
   }
   const p = v4.split('.').map((n) => Number(n));
   if (p.length !== 4 || p.some((n) => !Number.isFinite(n))) return true;
