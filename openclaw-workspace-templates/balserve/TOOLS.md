@@ -54,10 +54,10 @@ Use these for **org master tables** (e.g. departments) and **document RAG**. Dat
 | **master_data_insert_row** | Insert `{ table_name, data:{…} }` into an existing table. |
 | **master_data_update_row** | Update `{ table_name, row_id, data:{…} }`. |
 | **master_data_delete_row** | Delete `{ table_name, row_id }` (row only — not the table). |
-| **master_data_list_documents** | DISCOVERY for already-indexed docs (optional before RAG). |
+| **master_data_list_documents** | DISCOVERY for already-indexed docs **plus Flolah Help** (`corpus=ceo` / `corpus=platform-help`). |
 | **list_inbound_attachments** | Find chat / WhatsApp / channel files under `inbound/attachments/` (`relative_path`, `download_url`, `paste_in_chat`, `rag_indexable`, `is_media`). |
 | **master_data_index_document** | Index a **RAG-able** file into this CEO's OpenSearch docs (same as Master Data → Documents). Prefer `{ "relative_path": "inbound/attachments/…" }` from list_inbound. Or `content_base64` / `content_text` + `filename`. **Rejects** images/audio/video. |
-| **master_data_rag** | Answer from **indexed document** content (`query` required). Omit `summarize` (defaults `false`) and answer from `chunks[]` yourself. |
+| **master_data_rag** | Answer from **indexed document** content **and Flolah Help** (`query` required). Omit `summarize` (defaults `false`) and answer from `chunks[]` yourself. |
 
 **Chat / WhatsApp / channel attachments:**
 1. **`list_inbound_attachments`** — see what landed in `inbound/attachments/` (match filename loosely).

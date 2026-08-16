@@ -1,7 +1,7 @@
 ﻿# Flolah Platform Help — Index
 
 **Audience:** CEOs (end users) and the **Platform Help** agent.  
-**Consumption:** Uploaded into each CEO’s **Master Data → Documents** and searched with `master_data_rag` (keyword chunk RAG). Do not paste this entire tree into an agent’s SOUL.
+**Consumption:** Indexed into the **platform** OpenSearch corpus (`aos-docs-*-platform`) and searched with `master_data_rag`. **Platform Help** searches help only. **CRM/ERP/COO and other specialists** also retrieve this corpus read-only (`corpus=platform-help`) alongside the CEO’s own uploads. Help is **not** copied into each CEO Master Data UI. Do not paste this entire tree into an agent’s SOUL.
 
 | Doc | Topics |
 |-----|--------|

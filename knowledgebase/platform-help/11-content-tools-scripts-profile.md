@@ -183,7 +183,7 @@ Name, email, **country + region (ISO 3166-1 / ISO 3166-2 dropdowns)**, mobile, p
 | Layer | What |
 |-------|------|
 | Workspace MD | SOUL / AGENTS / TOOLS / MEMORY / ORG / **AGENT-OS-OPS** always in agent context |
-| Master Data RAG | Uploaded docs (including Platform Help) via `master_data_rag` |
+| Master Data RAG | CEO uploads via `master_data_rag`; specialists also get read-only Flolah Help (`corpus=platform-help`). Platform Help agent is help-only. |
 | Skills | Shared AgentSystem skills (content-tools, agent-send) |
 | Learnings | `learnings_summary` over past CEO feedback / Kanban decisions (forced on Dashboard chat; optional on cron/delegation — OPS still applies) |
 

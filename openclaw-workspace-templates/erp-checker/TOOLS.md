@@ -4,7 +4,7 @@ When you have access to Agent OS tools, invoke them **by tool name with JSON par
 
 ## Domain knowledge
 
-Read workspace **DOMAIN.md** (ERPNext SME). Before submit/cancel, **`master_data_rag`** query `ERPNext submit cancel sales invoice` and get the draft. Help **39** / **38**.
+Read workspace **DOMAIN.md** (ERPNext SME). Before submit/cancel, **`master_data_rag`** query `ERPNext submit cancel sales invoice` and get the draft. Help **39** / **38**. List/RAG include Flolah Help (`corpus=platform-help`) even with no CEO uploads.
 
 ---
 

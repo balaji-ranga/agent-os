@@ -5,7 +5,7 @@
 > **Messaging, terminology, and OS primitives:** [`knowledgebase/AI-COMPANY-OS.md`](knowledgebase/AI-COMPANY-OS.md)  
 > Browser tab title: **Flolah — AI Company OS**. Login: **Sign in to run your AI company**.
 
-When you register as a CEO, Flolah automatically sets up your standard AI employees (including **Platform Help** and **Workflow Builder**), a starter **departments** list, the **Flolah User Guide**, and the full **Platform Help** document set in Knowledge (Master Data) so employees can look them up via RAG.
+When you register as a CEO, Flolah automatically sets up your standard AI employees (including **Platform Help** and **Workflow Builder**), a starter **departments** list, and indexes the **Flolah User Guide** plus **Platform Help** into the **shared platform** OpenSearch corpus so employees can look them up via `master_data_rag` (specialists merge that corpus with your own uploads; the Master Data UI lists your uploads only).
 
 ---
 
@@ -14,7 +14,7 @@ When you register as a CEO, Flolah automatically sets up your standard AI employ
 This section is a short overview. For the complete end-user guide (navigation, every workflow node, input/output mapping, MCP, A2A, Job pipeline, troubleshooting), use:
 
 - **In-app:** chat with the **Platform Help** agent (`platformhelp`) — it searches Master Data help docs with `master_data_rag`.
-- **Docs:** [`knowledgebase/platform-help/`](knowledgebase/platform-help/README.md) (source of truth uploaded into each CEO’s Master Data on register/startup).
+- **Docs:** [`knowledgebase/platform-help/`](knowledgebase/platform-help/README.md) (source of truth indexed into the platform OpenSearch corpus; specialists retrieve it via `master_data_rag`).
 
 You do not need to know APIs or Docker for everyday use.
 
@@ -310,7 +310,7 @@ Set in backend `.env`:
 | **External agents (A2A)** | Register external agent endpoints; invoke from workflow **External Agent** node. |
 | **Tools** (UI `/content-tools`) | Agent-callable **content tools**: summarize URL, image/video gen, Kanban, **intent_classify_and_delegate**, workflow trigger/enquire/mutate, **agent_goal_create/list/status/complete_step** (COO/WFB multiphase plans), job applicant tools, **email_send**, **notify_ceo**, **Master Data**, learnings, etc.; owner-scoped logs UI; **Tools → Model** (per-CEO tool→model overrides for BYOK-aware tools; excludes custom-script review and embeddings); **Tools → Rate limits** (per-CEO daily/monthly call caps for API-key tools; audit on reset; `tool_api_rate_limits` / `tool_api_rate_limit_resets`); onboard new APIs via script. Goal tools are granted on COO allowlists and AgentSystem plugin contracts (`openclaw-extensions/agent-os-content-tools`). |
 | **Browser Session** | `/browser-session` — managed Playwright, **Client Chrome** (Browser Relay, exclusive lease), or **Desktop Local worker** (Connectors package: headed Playwright + persistent browser-profile; multi-CEO). Agents use **`browse_*`** tools (`browse_recipe_list` / `browse_recipe_run`); grant list vs run in Workspace → Tool access. CDP `browser-cdp` when worker offline. Guides: CLIENT-BROWSER-SESSION.md, BROWSER-SESSION-DESKTOP-LOCAL.md, platform-help **22**. |
-| **Master Data & RAG** | Per-CEO tables + documents (OpenSearch BM25 + **local Qwen** k-NN embeddings via Compose `optional-embeddings`; no OpenAI embedding API). UI captures **purpose/description** per table. Agents list tables with purpose and CRUD rows / RAG docs via content tools — **no create/alter/drop table**. On register: starter **departments** table + **Flolah User Guide** + **Platform Help** document set. **Inbound attachments** + **Content Explorer** for chat/channel files. **Purge all uploads** removes CEO uploads only; help/guide docs are protected. |
+| **Master Data & RAG** | Per-CEO tables + documents (OpenSearch BM25 + **local Qwen** k-NN embeddings via Compose `optional-embeddings`; no OpenAI embedding API). UI captures **purpose/description** per table. Agents list tables with purpose and CRUD rows / RAG docs via content tools — **no create/alter/drop table**. On register: starter **departments** table. **Platform Help** + User Guide live in the **platform** OpenSearch index; specialist `master_data_rag` merges that corpus read-only (`corpus=platform-help`). **Inbound attachments** + **Content Explorer** for chat/channel files. **Purge all uploads** removes CEO uploads only; help/guide docs are protected. |
 | **Profile LLM catalog** | Provider + model picker on **Register** and **Profile** (`llm_provider` / `llm_model`); `GET /api/auth/llm-catalog`; AgentSystem sync on Profile save. BYOK keys only via API Keys vault after login. |
 | **ISO country / region** | Profile, Register, Admin “Register CEO”, and Company setup identity use **ISO 3166-1 / 3166-2 dropdowns** (not free text). Stored as country alpha-2 (`SG`) and optional region (`US-CA`). |
 | **Platform Help** | Standard agent `platformhelp` — product how-to via `master_data_rag` over `knowledgebase/platform-help/`. **Answer-first:** always explains from help docs; optional soft-recommend of COO/CRM/Workflow Builder after help. Hard peer specialty referral is disabled for `platformhelp`. CRM/ERP how-to uses **39** (ERPNext SME) and **40** (Twenty CRM SME). See [`knowledgebase/platform-help/README.md`](knowledgebase/platform-help/README.md). |

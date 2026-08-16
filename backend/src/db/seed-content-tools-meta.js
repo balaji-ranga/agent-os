@@ -632,8 +632,10 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/master-data-list-documents',
     method: 'POST',
     purpose:
-      'API tool: DISCOVERY for already-indexed Master Data documents (title, filename, document_id, chunk_count). ' +
-      'Use when the CEO asks which docs are indexed, or to find a resume/PDF by name after list_inbound does not match. ' +
+      'API tool: DISCOVERY for already-indexed documents (title, filename, document_id, chunk_count, corpus). ' +
+      'For specialists (CRM/ERP/COO/etc.) this lists this CEO\'s uploads (corpus=ceo) PLUS read-only Flolah Help (corpus=platform-help), including Twenty CRM SME and ERPNext SME. ' +
+      'Platform Help agent lists Flolah Help only. Master Data UI stays CEO-uploads only. ' +
+      'Use when the CEO asks which docs are indexed, or to find a resume/PDF / Flolah Help title. ' +
       'Then master_data_rag with query (optional document_id). For raw bytes still only in inbound (not indexed), use list_inbound_attachments first. ' +
       'Do not use for structured table questions (departments etc.) — those use list_tables → list_rows.',
     model_used: '',
@@ -646,10 +648,11 @@ const BUILTIN_TOOLS = [
     endpoint: '/api/tools/master-data-rag',
     method: 'POST',
     purpose:
-      'API tool: answer questions from this CEO\'s uploaded Master Data documents (PDF, Word .docx, Excel, text) via keyword retrieval. ' +
+      'API tool: answer questions from documents via keyword retrieval. Specialists search this CEO\'s uploads AND read-only Flolah Help (Twenty CRM SME / ERPNext SME / product how-to); chunks are tagged corpus=ceo or corpus=platform-help. ' +
+      'Platform Help agent searches Flolah Help only. An empty CEO Master Data UI does not mean you lack help docs — call this tool. ' +
       'Parameters: query (required), optional document_id, top_k, summarize. ' +
       'summarize defaults to FALSE — you get raw excerpts in chunks[] and write the answer yourself; only pass summarize=true when excerpts are too long or scattered to answer directly. ' +
-      'Use when the ask is about document content, policies, resumes, handbooks, or "what does the doc say…". ' +
+      'Use when the ask is about document content, policies, resumes, handbooks, Twenty/ERPNext SME, or "what does the doc say…". ' +
       'Do NOT use for structured master tables (use list_tables → list_rows by purpose). Prefer rag directly with the user question; list_documents only if you need document_id.',
     model_used: 'platform/BYOK LLM only when summarize=true',
     enabled: 1,

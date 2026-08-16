@@ -610,7 +610,11 @@ const PARAM_SCHEMAS = {
   master_data_rag: {
     type: "object",
     properties: {
-      query: { type: "string", description: "Question or keywords to search documents. Required." },
+      query: {
+        type: "string",
+        description:
+          "Question or keywords. Searches this CEO's documents plus Flolah Help (Twenty CRM / ERPNext SME). Required.",
+      },
       top_k: { type: "number", description: "Max excerpts (default 5)." },
       document_id: { type: "string", description: "Optional limit search to one document id." },
       summarize: {

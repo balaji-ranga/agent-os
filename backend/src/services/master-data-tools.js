@@ -4,8 +4,11 @@
  * RAG-able documents into this CEO's OpenSearch indices —
  * never create/alter/drop tables or change columns.
  *
- * Platform Help agent routes list/RAG to PLATFORM_OWNER_ID OpenSearch indices.
+ * Platform Help agent (`platformhelp`) list/RAG is **platform-only**
+ * (PLATFORM_OWNER_ID). Other agents list/RAG **this CEO's uploads plus**
+ * the shared Flolah Help corpus (read-only; chunks tagged corpus=platform-help).
  * Indexing always targets the entitled CEO owner (never spoofed; never platform).
+ * Master Data UI / workflow RAG stay CEO-index only.
  */
 import { readFileSync } from 'fs';
 import { basename } from 'path';
@@ -22,6 +25,12 @@ import {
 } from './inbound-attachments.js';
 import { parseTenantOpenClawAgentId } from './openclaw-tenant.js';
 import { PLATFORM_OWNER_ID } from './opensearch/index.js';
+import { chatCompletions } from '../config/llm.js';
+
+const PLATFORM_HELP_AGENT_NOTE =
+  'Platform Help corpus only (not this CEO\'s uploads).';
+const SPECIALIST_HELP_NOTE =
+  'chunks[] / documents[] include this CEO\'s uploads (corpus=ceo) plus read-only Flolah Help (corpus=platform-help), including Twenty CRM SME and ERPNext SME. Help is not listed in Master Data UI. Do not claim you lack help docs.';
 
 const FORBIDDEN_SCHEMA_ACTIONS = new Set([
   'create_table',
@@ -58,13 +67,97 @@ export function isPlatformHelpAgent(agentIdOrSource) {
 }
 
 /**
- * Resolve OpenSearch owner for document list/RAG.
+ * Resolve OpenSearch owner for **platform-only** vs CEO indices.
  * Platform Help agent → PLATFORM_OWNER_ID; otherwise CEO owner.
+ * Specialist list/RAG still merge Flolah Help at the tools layer (see
+ * listDocumentsForAgent / ragDocumentsForAgent) — they do not copy help
+ * into the CEO index.
  */
 export function resolveDocumentOwnerUserId(ceoOwnerUserId, { agentId = null, source = null } = {}) {
   const hint = agentId || source || '';
   if (isPlatformHelpAgent(hint)) return PLATFORM_OWNER_ID;
   return String(ceoOwnerUserId || '').trim();
+}
+
+function mapListedDocument(d, corpus) {
+  return {
+    id: d.id,
+    title: d.title,
+    filename: d.filename,
+    chunk_count: d.chunk_count,
+    text_excerpt: (d.text_excerpt || '').slice(0, 240),
+    created_at: d.created_at,
+    tags: d.tags || [],
+    source: d.source || null,
+    corpus,
+  };
+}
+
+function tagChunks(chunks, corpus) {
+  return (Array.isArray(chunks) ? chunks : []).map((c) => ({ ...c, corpus }));
+}
+
+function excerptsFromChunks(chunks) {
+  const contextText = (chunks || [])
+    .map((h, i) => `[${i + 1}] (${h.title || h.filename})\n${h.content}`)
+    .join('\n\n');
+  return { contextText, excerpt: contextText.slice(0, 2000) };
+}
+
+function wantsRagSummarize(params = {}) {
+  return params.summarize === true || String(params.summarize).toLowerCase() === 'true';
+}
+
+async function summarizeMergedChunks(ownerUserId, query, chunks) {
+  const { contextText, excerpt } = excerptsFromChunks(chunks);
+  if (!chunks.length) return { summary: '', text: '' };
+  try {
+    const { content } = await chatCompletions({
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Answer using only the provided document excerpts for this user. If unsure, say so. Cite excerpt numbers.',
+        },
+        {
+          role: 'user',
+          content: `Question: ${query}\n\nExcerpts:\n${contextText.slice(0, 12000)}`,
+        },
+      ],
+      maxTokens: 800,
+      ownerUserId,
+      toolName: 'master_data_rag',
+    });
+    const summary = String(content || '').trim();
+    return { summary, text: summary };
+  } catch (e) {
+    const fallback = `(LLM summary unavailable: ${e.message})\n\nTop excerpts:\n${excerpt}`;
+    return { summary: fallback, text: fallback };
+  }
+}
+
+async function listPlatformHelpDocumentsSafe() {
+  try {
+    const documents = await md.listDocuments(PLATFORM_OWNER_ID);
+    return Array.isArray(documents) ? documents : [];
+  } catch (e) {
+    console.warn('[master-data-tools] platform help list failed: %s', e?.message || e);
+    return [];
+  }
+}
+
+async function ragPlatformHelpSafe(query, { topK, documentId } = {}) {
+  try {
+    return await md.ragDocuments(PLATFORM_OWNER_ID, {
+      query,
+      topK,
+      documentId: documentId || null,
+      summarize: false,
+    });
+  } catch (e) {
+    console.warn('[master-data-tools] platform help RAG failed: %s', e?.message || e);
+    return { chunks: [], hit_count: 0, query };
+  }
 }
 
 export function listTablesForAgent(ownerUserId) {
@@ -188,25 +281,42 @@ export function deleteRowForAgent(ownerUserId, params = {}) {
  */
 export async function listDocumentsForAgent(ownerUserId, opts = {}) {
   const agentId = opts.agentId || opts.agent_id || opts.source || null;
-  const docOwner = resolveDocumentOwnerUserId(ownerUserId, {
-    agentId,
-    source: opts.source || agentId,
+  if (isPlatformHelpAgent(agentId || opts.source)) {
+    const documents = await md.listDocuments(PLATFORM_OWNER_ID);
+    return {
+      ok: true,
+      count: documents.length,
+      owner_user_id: PLATFORM_OWNER_ID,
+      includes_platform_help: true,
+      corpus: 'platform-help',
+      note: PLATFORM_HELP_AGENT_NOTE,
+      documents: documents.map((d) => mapListedDocument(d, 'platform-help')),
+    };
+  }
+
+  const ceo = String(ownerUserId || '').trim();
+  const [ceoDocs, helpDocs] = await Promise.all([
+    md.listDocuments(ceo),
+    listPlatformHelpDocumentsSafe(),
+  ]);
+  const documents = [
+    ...(Array.isArray(ceoDocs) ? ceoDocs : []).map((d) => mapListedDocument(d, 'ceo')),
+    ...helpDocs.map((d) => mapListedDocument(d, 'platform-help')),
+  ];
+  console.info('[master-data-tools] listDocuments merge', {
+    owner: ceo,
+    ceo_count: Array.isArray(ceoDocs) ? ceoDocs.length : 0,
+    platform_help_count: helpDocs.length,
   });
-  const documents = await md.listDocuments(docOwner);
   return {
     ok: true,
     count: documents.length,
-    owner_user_id: docOwner,
-    documents: documents.map((d) => ({
-      id: d.id,
-      title: d.title,
-      filename: d.filename,
-      chunk_count: d.chunk_count,
-      text_excerpt: (d.text_excerpt || '').slice(0, 240),
-      created_at: d.created_at,
-      tags: d.tags || [],
-      source: d.source || null,
-    })),
+    owner_user_id: ceo,
+    includes_platform_help: true,
+    ceo_count: Array.isArray(ceoDocs) ? ceoDocs.length : 0,
+    platform_help_count: helpDocs.length,
+    note: SPECIALIST_HELP_NOTE,
+    documents,
   };
 }
 
@@ -215,22 +325,126 @@ export async function listDocumentsForAgent(ownerUserId, opts = {}) {
  * @param {{ query?, agentId?, source?, agent_id?, top_k?, document_id?, summarize? }} [params]
  */
 export async function ragDocumentsForAgent(ownerUserId, params = {}) {
-  const query =
-    params.query || params.q || params.question || params.prompt || params.message || '';
-  if (!String(query).trim()) throw new Error('query required');
+  const query = String(
+    params.query || params.q || params.question || params.prompt || params.message || ''
+  ).trim();
+  if (!query) throw new Error('query required');
   const agentId = params.agentId || params.agent_id || params.source || null;
-  const docOwner = resolveDocumentOwnerUserId(ownerUserId, {
-    agentId,
-    source: params.source || agentId,
+  const topK = params.top_k ?? params.topK ?? params.limit;
+  const documentId = params.document_id || params.documentId || null;
+  const wantSummarize = wantsRagSummarize(params);
+
+  if (isPlatformHelpAgent(agentId)) {
+    const result = await md.ragDocuments(PLATFORM_OWNER_ID, {
+      query,
+      topK,
+      documentId,
+      summarize: wantSummarize,
+    });
+    return {
+      ok: true,
+      corpus: 'platform-help',
+      includes_platform_help: true,
+      note: PLATFORM_HELP_AGENT_NOTE,
+      ...result,
+      chunks: tagChunks(result.chunks, 'platform-help'),
+    };
+  }
+
+  const ceo = String(ownerUserId || '').trim();
+  if (documentId) {
+    const ceoDoc = await md.getDocument(ceo, documentId);
+    if (ceoDoc) {
+      const result = await md.ragDocuments(ceo, {
+        query,
+        topK,
+        documentId,
+        summarize: wantSummarize,
+      });
+      return {
+        ok: true,
+        corpus: 'ceo',
+        includes_platform_help: false,
+        ...result,
+        chunks: tagChunks(result.chunks, 'ceo'),
+      };
+    }
+    const platDoc = await md.getDocument(PLATFORM_OWNER_ID, documentId);
+    if (!platDoc) throw new Error('Document not found');
+    const result = await ragPlatformHelpSafe(query, { topK, documentId });
+    const chunks = tagChunks(result.chunks, 'platform-help');
+    let summary = result.summary;
+    let text = result.text;
+    if (wantSummarize) {
+      const s = await summarizeMergedChunks(ceo, query, chunks);
+      summary = s.summary;
+      text = s.text;
+    } else {
+      const { excerpt } = excerptsFromChunks(chunks);
+      summary = excerpt;
+      text = excerpt;
+    }
+    console.info('[master-data-tools] rag platform-help document', {
+      owner: ceo,
+      document_id: documentId,
+      hit_count: chunks.length,
+    });
+    return {
+      ok: true,
+      owner_user_id: ceo,
+      corpus: 'platform-help',
+      includes_platform_help: true,
+      query,
+      hit_count: chunks.length,
+      ceo_hit_count: 0,
+      platform_help_hit_count: chunks.length,
+      chunks,
+      summary,
+      text,
+      note: SPECIALIST_HELP_NOTE,
+    };
+  }
+
+  const [ceoResult, helpResult] = await Promise.all([
+    md.ragDocuments(ceo, { query, topK, summarize: false }),
+    ragPlatformHelpSafe(query, { topK }),
+  ]);
+  const chunks = [
+    ...tagChunks(ceoResult.chunks, 'ceo'),
+    ...tagChunks(helpResult.chunks, 'platform-help'),
+  ];
+  const ceoHits = Number(ceoResult.hit_count || 0);
+  const helpHits = Number(helpResult.hit_count || 0);
+  let summary = ceoResult.summary;
+  let text = ceoResult.text;
+  if (wantSummarize) {
+    const s = await summarizeMergedChunks(ceo, query, chunks);
+    summary = s.summary;
+    text = s.text;
+  } else {
+    const { excerpt } = excerptsFromChunks(chunks);
+    summary = excerpt;
+    text = excerpt;
+  }
+  console.info('[master-data-tools] rag merge', {
+    owner: ceo,
+    ceo_hits: ceoHits,
+    platform_help_hits: helpHits,
+    hit_count: chunks.length,
   });
-  const result = await md.ragDocuments(docOwner, {
-    query: String(query).trim(),
-    topK: params.top_k ?? params.topK ?? params.limit,
-    documentId: params.document_id || params.documentId || null,
-    // Opt-in: agents get excerpts by default and must ask for the LLM answer.
-    summarize: params.summarize === true || String(params.summarize).toLowerCase() === 'true',
-  });
-  return { ok: true, ...result };
+  return {
+    ok: true,
+    owner_user_id: ceo,
+    query,
+    hit_count: chunks.length,
+    ceo_hit_count: ceoHits,
+    platform_help_hit_count: helpHits,
+    includes_platform_help: true,
+    chunks,
+    summary,
+    text,
+    note: SPECIALIST_HELP_NOTE,
+  };
 }
 
 /**

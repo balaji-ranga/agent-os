@@ -129,6 +129,8 @@ check "Admin Documents RAG nav" grep -q '/admin/documents-rag' "$ROOT/frontend/s
 check "api opensearchConsoleLaunch" grep -q opensearchConsoleLaunch "$ROOT/frontend/src/api.js"
 check "opensearch rag smoke script" test -f "$ROOT/backend/scripts/test-opensearch-rag-smoke.js"
 check "opensearch agent e2e script" test -f "$ROOT/backend/scripts/test-opensearch-agent-rag-e2e.js"
+check "platform help merge rag script" test -f "$ROOT/backend/scripts/test-platform-help-merge-rag.js"
+check "specialist rag merges platform help" grep -q 'includes_platform_help' "$ROOT/backend/src/services/master-data-tools.js"
 check "protected docs helper" test -f "$ROOT/backend/src/services/master-data-protected-docs.js"
 check "purgeAllUserDocuments" grep -q purgeAllUserDocuments "$ROOT/backend/src/services/master-data.js"
 check "purge-all route" grep -q 'documents/purge-all' "$ROOT/backend/src/routes/master-data.js"
@@ -434,6 +436,8 @@ docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-opense
 # Legacy per-CEO SQLite help smoke may WARN after OpenSearch migration — keep soft.
 docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-platform-help-rag.js \
   || echo "WARN: legacy platform-help RAG script failed (platform docs live in OpenSearch now)"
+echo "==> specialist Flolah Help merge RAG (CRM Maker Twenty SME)"
+docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-platform-help-merge-rag.js
 echo "==> master_data invoke smoke"
 docker compose exec -T backend node <<'NODE'
 import { initDb } from './src/db/schema.js';

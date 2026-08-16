@@ -4,7 +4,7 @@ When you have access to Agent OS tools, invoke them **by tool name with JSON par
 
 ## Domain knowledge
 
-Read workspace **DOMAIN.md** (Twenty CRM SME). Before approve/reject, **`master_data_rag`** query `Twenty CRM high-risk Won Checker`. Help **40** / **38**.
+Read workspace **DOMAIN.md** (Twenty CRM SME). Before approve/reject, **`master_data_rag`** query `Twenty CRM high-risk Won Checker`. Help **40** / **38**. List/RAG include Flolah Help (`corpus=platform-help`) even with no CEO uploads.
 
 ---
 

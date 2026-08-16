@@ -2142,7 +2142,7 @@ router.post('/master-data-delete-row', optionalAuth, (req, res) => {
 });
 
 /**
- * master_data_list_documents — list this CEO's uploaded master-data documents.
+ * master_data_list_documents — CEO uploads plus read-only Flolah Help (platformhelp = help only).
  */
 router.post('/master-data-list-documents', optionalAuth, async (req, res) => {
   const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
@@ -2164,7 +2164,7 @@ router.post('/master-data-list-documents', optionalAuth, async (req, res) => {
 });
 
 /**
- * master_data_rag — keyword RAG over this CEO's documents (+ optional LLM summary).
+ * master_data_rag — keyword RAG over CEO docs + Flolah Help (platformhelp = help only).
  */
 router.post('/master-data-rag', optionalAuth, async (req, res) => {
   const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;

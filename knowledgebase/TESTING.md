@@ -13,11 +13,13 @@ node scripts/test-platform-help-rag.js
 $env:SKIP_CHAT='1'; node scripts/test-platform-help-chat.js
 # Full chat (needs OpenClaw gateway paired + content-tools plugin loaded):
 node scripts/test-platform-help-chat.js
+# Specialists (CRM Maker-shaped id) retrieve Flolah Help Twenty CRM SME:
+node scripts/test-platform-help-merge-rag.js
 ```
 
 Also run from repo root: `node scripts/ensure-all-agent-workspaces.js` and `node scripts/apply-openclaw-agents-config.js`, then restart the gateway.
 
-Help corpus: `knowledgebase/platform-help/` → Master Data docs titled `Flolah Help — …` (incl. **ERPNext SME 39** / **Twenty CRM SME 40**). Agent id: `platformhelp`. CRM/ERP Maker-Checker also get workspace **DOMAIN.md** from `_shared/TWENTY-CRM-SME.md` / `_shared/ERPNEXT-SME.md`.
+Help corpus: `knowledgebase/platform-help/` → platform OpenSearch docs titled `Flolah Help — …` (incl. **ERPNext SME 39** / **Twenty CRM SME 40**). Agent id: `platformhelp` (help-only RAG). CRM/ERP Maker-Checker also get workspace **DOMAIN.md** and specialist `master_data_rag` includes the same Flolah Help corpus (`corpus=platform-help`).
 
 ## Tool API rate limits (per-user call caps)
 

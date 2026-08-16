@@ -311,8 +311,8 @@ Compose always starts `opensearch` + `opensearch-dashboards` (internal network o
 |---------|-------------|
 | CEO Master Data → Documents / RAG | `aos-docs-meta-{fp}` + `aos-docs-search-{fp}` |
 | Admin → Documents RAG | platform indices |
-| Agent `platformhelp` + `master_data_rag` | platform indices (no OpenClaw config change) |
-| COO / other agents `master_data_rag` | calling CEO’s user indices |
+| Agent `platformhelp` + `master_data_rag` | platform indices only (no OpenClaw config change) |
+| COO / CRM / ERP / other agents `master_data_rag` | CEO user indices **plus** read-only Flolah Help merge (`corpus=platform-help`) |
 | Admin OpenSearch console | `/opensearch/` → backend BFF (admin session cookie) |
 
 Fresh machine checklist (after `cp .env.example .env`):

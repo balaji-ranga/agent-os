@@ -205,6 +205,27 @@ check(
   'Platform Help does not leak CEO A user document'
 );
 
+const twentyRag = await invokeRag(
+  userA.userId,
+  'balserve',
+  'Twenty CRM people companies opportunities stages'
+);
+check(
+  twentyRag.status === 200,
+  'COO Twenty CRM SME RAG authorized',
+  `status=${twentyRag.status}`
+);
+const twentyBlob = JSON.stringify(twentyRag.data.chunks || []).toLowerCase();
+check(
+  (twentyRag.data.platform_help_hit_count || 0) > 0 || /twenty/.test(twentyBlob),
+  'COO master_data_rag includes Flolah Help Twenty CRM SME',
+  `platform_help_hits=${twentyRag.data.platform_help_hit_count || 0} hits=${twentyRag.data.hit_count || 0}`
+);
+check(
+  !JSON.stringify(twentyRag.data.chunks || []).includes(uniqueMaster),
+  'Twenty CRM help query does not leak CEO A unique master blob'
+);
+
 const crossAgent = await invokeRag(userB.userId, 'balserve', uniqueMaster);
 check(crossAgent.status === 200, 'CEO B COO tool invoke authorized for CEO B', `status=${crossAgent.status}`);
 check(

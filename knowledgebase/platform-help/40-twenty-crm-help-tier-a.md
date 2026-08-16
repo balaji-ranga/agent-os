@@ -161,7 +161,7 @@ Never mark CRM “Won + invoiced” unless ERP documents exist (or CEO explicitl
 
 ## Tips for CRM Maker / Checker
 
-1. You are a **CRM SME**. Prefer this doc + **DOMAIN.md** + `master_data_rag` over guessing Twenty semantics.
+1. You are a **CRM SME**. Prefer this doc + **DOMAIN.md** + `master_data_rag` over guessing Twenty semantics. `master_data_rag` already includes this Flolah Help file (`corpus=platform-help`) — do not say you lack Twenty CRM help docs.
 2. List before create. Dedup. Link Person→Company→Opportunity.
 3. Stages UPPERCASE; leads = early opportunities.
 4. High-risk → Checker Kanban. Discounts → company policy / `needs_ceo`.

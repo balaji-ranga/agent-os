@@ -29,7 +29,7 @@ Update those identity fields anytime via avatar → **Update Company Details** (
 - Each CEO has **two isolated OpenSearch indices**:
   - `aos-docs-meta-{fingerprint}` — document meta (title, source, tags, storage path, excerpt)
   - `aos-docs-search-{fingerprint}` — chunk text for BM25 search (+ local Qwen k-NN embeddings)
-- Platform help / README live in **`aos-docs-*-platform`** (admin-managed). They are **not** copied into each CEO index.
+- Platform help / README live in **`aos-docs-*-platform`** (admin-managed). They are **not** copied into each CEO index. CEO **Master Data UI** and the workflow Master Data node stay on the CEO index only. Agent tools **`master_data_list_documents`** / **`master_data_rag`** for non-`platformhelp` agents **also search Flolah Help read-only** (chunks tagged `corpus=platform-help`) so CRM/ERP Makers can retrieve Twenty CRM / ERPNext SME docs.
 - File **bytes** stay on disk under `master-data/{owner}/docs/`; only meta + chunks are indexed in OpenSearch.
 - Upload policies, handbooks, and guides as **PDF, Word (.docx), Excel (.xlsx/.xls), or text** (`.txt`, `.md`, `.csv`, …).
 - Text is extracted on upload and indexed. Image-only PDFs and legacy `.doc` (not `.docx`) are not indexed well — convert or paste text.
@@ -54,7 +54,8 @@ Agents never spoof `owner_user_id`; indexing always targets the entitled CEO.
 |-----|--------|----------------|
 | CEO uploads | Your user OpenSearch indices | Master Data → Documents |
 | Platform Help / User Guide | Platform OpenSearch indices | Admin → **Documents RAG** |
-| Platform Help agent | Same platform indices (backend routes `platformhelp` automatically) | No AgentSystem config change |
+| Platform Help agent | Same platform indices only (backend routes `platformhelp` automatically) | No AgentSystem config change |
+| CRM/ERP/COO and other specialists | CEO index **plus** read-only Flolah Help merge on `master_data_rag` / `list_documents` | Help titles like **Flolah Help — Twenty CRM SME Docs**; `corpus=platform-help` |
 
 Admins can open **OpenSearch console** (Dashboards) from Admin or Documents RAG — same pattern as OpenConnector: nginx `/opensearch/` → backend BFF, admin session cookie only. Ports `9200`/`5601` are **not** published to the internet.
 
@@ -71,8 +72,13 @@ Admins can open **OpenSearch console** (Dashboards) from Admin or Documents RAG 
 2. `master_data_rag` with a focused query (e.g. “workflow IF node input mapping”, “register MCP server”).
 3. Answer from retrieved chunks; do not invent UI steps that contradict the docs.
 
-CEO agents calling `master_data_rag` only see **that CEO’s** document indices (entitlement + index isolation).
+### Agent pattern for specialists (CRM Maker, ERP, COO, …)
+
+1. `master_data_rag` with the question (e.g. `Twenty CRM people companies opportunities stages`).
+2. Read `chunks[]`. Flolah Help hits have `corpus=platform-help` (Twenty CRM SME, ERPNext SME, product how-to). CEO uploads have `corpus=ceo`.
+3. Optional `master_data_list_documents` — includes Flolah Help titles even when this CEO has **no** uploads. Do **not** say you lack help docs.
+4. Other CEOs’ uploads are never visible (entitlement + index isolation). The **Master Data UI** RAG box still searches **this CEO only**.
 
 ## Workflow Master Data node
 
-In custom workflows, the **Master Data** node can query tables or RAG documents mid-graph (`mode`: auto / table / rag). See the workflow nodes reference.
+In custom workflows, the **Master Data** node can query tables or RAG documents mid-graph (`mode`: auto / table / rag). That node searches **this CEO’s** documents only (no Flolah Help merge). Agents in chat use the merge described above. See the workflow nodes reference.

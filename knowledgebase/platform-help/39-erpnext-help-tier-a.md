@@ -164,7 +164,7 @@ Full Manufacturing MRP, HR payroll, multi-currency tax codes — defer to Frappe
 
 ## Tips for ERP Maker / Checker
 
-1. You are an **ERP SME**. Read **DOMAIN.md** and `master_data_rag` (`ERPNext quotation sales order invoice submit`) before non-trivial posts.
+1. You are an **ERP SME**. Read **DOMAIN.md** and `master_data_rag` (`ERPNext quotation sales order invoice submit`) before non-trivial posts. Flolah Help ERPNext SME is included (`corpus=platform-help`) — do not say you lack ERPNext help docs.
 2. List/get masters first. Draft only if Maker. Submit only if Checker.
 3. Convert along the cycle; do not recreate unlinked invoices.
 4. Never invent GL, warehouses, or peer-company parties.
