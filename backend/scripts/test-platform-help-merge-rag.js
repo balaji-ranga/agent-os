@@ -37,7 +37,7 @@ console.log('OK list includes Twenty CRM SME', `help=${list.platform_help_count}
 
 const rag = await ragDocumentsForAgent(ceo.id, {
   agentId: crmAgentId,
-  query: 'Twenty CRM people companies opportunities stages',
+  query: 'Twenty CRM lead prospect opportunity order process stages',
   top_k: 8,
   summarize: false,
 });
@@ -45,9 +45,10 @@ const blob = JSON.stringify(rag.chunks || []).toLowerCase();
 if (
   !rag.includes_platform_help ||
   (rag.platform_help_hit_count || 0) < 1 ||
-  !/twenty/.test(blob)
+  !/twenty/.test(blob) ||
+  !/lead|prospect|order/.test(blob)
 ) {
-  console.error('FAIL: CRM-shaped RAG missing Twenty CRM help', {
+  console.error('FAIL: CRM-shaped RAG missing Twenty CRM process help', {
     hit_count: rag.hit_count,
     platform_help_hit_count: rag.platform_help_hit_count,
     ceo_hit_count: rag.ceo_hit_count,

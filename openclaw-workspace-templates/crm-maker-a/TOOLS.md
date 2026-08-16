@@ -4,7 +4,7 @@ When you have access to Agent OS tools, invoke them **by tool name with JSON par
 
 ## Domain knowledge
 
-Read workspace **DOMAIN.md** (Twenty CRM SME). Before non-trivial pipeline work, **`master_data_rag`** query `Twenty CRM people companies opportunities stages`. Help **40** / **38**. List/RAG include Flolah Help (`corpus=platform-help`) even with no CEO uploads.
+Read workspace **DOMAIN.md** (Twenty CRM SME). Own Lead→Prospect→Proposal→Won→ERP Order. Before non-trivial pipeline work, **`master_data_rag`** query `Twenty CRM lead prospect opportunity order process stages`. Help **40** / **38**. List/RAG include Flolah Help (`corpus=platform-help`) even with no CEO uploads.
 
 ---
 

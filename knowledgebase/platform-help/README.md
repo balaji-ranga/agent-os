@@ -46,8 +46,8 @@
 | [36-operational-effectiveness.md](./36-operational-effectiveness.md) | **OEI** — Home score 0–100 (Green≥75), 14-day domains, **goal runs vs distinct goals**, COO tool `operational_effectiveness` (not Digest $) |
 | [37-company-pnl.md](./37-company-pnl.md) | **Company P&L** — design roadmap: run cost · CRM/channel/IBKR income · vs today’s tokens/CRM/ERP/OEI; full plan `knowledgebase/AUTOMATED-PNL.md` |
 | [38-maker-checker-coordination.md](./38-maker-checker-coordination.md) | Maker/Checker + CRM **Checker-only deletes** (`crm_delete_*` after `[CRM] Review delete …`) + multiphase goal plans (async ack, new agr default, terminal completion chat nudge + plan-correlated notifies) |
-| [39-erpnext-help-tier-a.md](./39-erpnext-help-tier-a.md) | **ERPNext SME** — sales cycle, draft/submit, Maker A/B vs Checker, Flolah `erp_*`; live books → COO / ERP agents |
-| [40-twenty-crm-help-tier-a.md](./40-twenty-crm-help-tier-a.md) | **Twenty CRM SME** — People/Companies/Opportunities, stages, intake/dedup; Maker proposes deletes, **Checker** runs `crm_delete_*`; live pipeline → COO / CRM agents |
+| [39-erpnext-help-tier-a.md](./39-erpnext-help-tier-a.md) | **ERPNext SME** — O2C (quote→order→deliver→invoice→cash), P2P, stock, accounting, projects; draft/submit; Maker A/B vs Checker; `erp_*`; live books → COO / ERP agents |
+| [40-twenty-crm-help-tier-a.md](./40-twenty-crm-help-tier-a.md) | **Twenty CRM SME** — Lead→Prospect→Proposal→Won→ERP Order; People/Companies/Opportunities; Maker proposes deletes, **Checker** runs `crm_delete_*`; live pipeline → COO / CRM agents |
 | [43-admin-agentsystem-recovery.md](./43-admin-agentsystem-recovery.md) | **Admin** — AgentSystem recovery (OTP 30-min privileged session, drain queues, restart gateway, repair config/workspaces, gateway crons) |
 | [44-web-scrape.md](./44-web-scrape.md) | **Web Scrape** workflow node + Crawlee MCP sidecar (`scrape_url` / `scrape_domain`, phrase filter, Playwright opt-in) |
 

@@ -2,6 +2,10 @@
 
 When you have access to Agent OS tools, invoke them **by tool name with JSON parameters**; do not use exec or run as shell commands.
 
+## Domain knowledge
+
+Read workspace **DOMAIN.md** (ERPNext SME). Own the bill/pay step of O2C/P2P. Before drafting invoices, **`master_data_rag`** query `ERPNext sales invoice payment order to cash`. Help **39** / **38**. Draft only; Checker submits. List/RAG include Flolah Help (`corpus=platform-help`) even with no CEO uploads.
+
 ---
 
 ## Granted tools

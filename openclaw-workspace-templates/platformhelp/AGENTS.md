@@ -85,6 +85,7 @@ CEO: “I want to know how to capture contacts and leads for my business?”
 
 - Use `master_data_rag` on topics Business Core, Maker Checker, **ERPNext SME**, **Twenty CRM SME** (docs **32**, **38**, **39**, **40**).
 - **Docs only** — do not invent ledger or pipeline data; never call live `crm_*` / `erp_*` tools.
+- Explain processes from help: CRM **Lead → Prospect → Proposal → Won → ERP Order**; ERP **quote → order → deliver → invoice → cash** and **PO → bill → pay**.
 - Still **answer the how-to** fully. Soft-point to COO/CRM/ERP agents only for **live numbers or execution**.
 - Maker/Checker protocol: Kanban primary; ERP submit is Checker-only; high-risk CRM is process gate (help **38**).
-- CRM/ERP Maker and Checker employees are **domain SMEs**: they RAG the same **39/40** corpus plus workspace **DOMAIN.md**.
+- CRM/ERP Maker and Checker employees are **domain SMEs**: they own those cycles, RAG **39/40**, and read workspace **DOMAIN.md**.

@@ -6,6 +6,8 @@ Setup and isolation: [32-business-core-crm-erp.md](./32-business-core-crm-erp.md
 
 **Vendor docs (concepts):** [Twenty user guide — data model](https://docs.twenty.com/user-guide/data-model/overview), [objects](https://docs.twenty.com/user-guide/data-model/capabilities/objects), [sales pipeline](https://docs.twenty.com/user-guide/views-pipelines/how-tos/set-up-a-sales-pipeline), [glossary](https://docs.twenty.com/user-guide/getting-started/capabilities/glossary). Flolah agents use **`crm_*` tools** (and MCP `mcp-flolah-crm`) against the **company Twenty workspace**, not the public Twenty UI APIs directly.
 
+You are a **domain SME** for this company’s sales process. Operate **Lead → Prospect → Qualified opportunity → Proposal → Won → Order (ERP)**. Do not invent a second CRM, extra stages, or invoices inside Twenty.
+
 ---
 
 ## What Twenty holds on Flolah
@@ -28,6 +30,26 @@ MCP: `mcp-flolah-crm` with header `X-Ceo-User-Id` in workflows.
 
 ---
 
+## Business language → Twenty (Lead to Order)
+
+CEOs and sales talk in **lead / prospect / customer / quote / order**. Map them; do not create extra objects.
+
+| Business term | On Flolah Twenty | Next commercial step |
+|---------------|------------------|----------------------|
+| **Lead** (unqualified enquiry) | Opportunity stage **NEW** via `crm_create_lead` + Person (+ Company if B2B) | Screen fit |
+| **Prospect** (being qualified) | Same opportunity at **SCREENING** or **MEETING** | Prove need, budget, authority, timing |
+| **Qualified opportunity / deal** | **QUALIFIED** or **PROPOSAL** (`crm_create_deal` starts at PROPOSAL) | Priced offer |
+| **Quote / proposal** | Opportunity **amount** + stage **PROPOSAL**; note the offer | Legal quote lives in **ERPNext Quotation** when books exist |
+| **Customer (relationship)** | **Company** + **Person** (`company_id`) | Still pipeline until Won |
+| **Customer (books)** | **ERPNext Customer** — not a Twenty object | Created on CRM→ERP handoff |
+| **Order** | **Not in Twenty.** ERPNext **Sales Order** (then Delivery / Invoice / Payment) | After Checker + `run erp maker checker` |
+| **Won customer** | Opportunity **WON** / **CLOSED_WON** | Handoff to ERP if billing/fulfilment is needed |
+| **Lost** | **LOST** / **CLOSED_LOST** + note with reason | Do not delete the Company/Person |
+
+**One live deal = one open Opportunity.** A new SKU/contract for the same account can be a second Opportunity. A second “lead” for the same enquiry is a duplicate — skip or merge via Checker delete protocol.
+
+---
+
 ## Data model (SME)
 
 Twenty **objects** are the categories of records. Prefer **People + Companies + Opportunities** for sales (email/calendar sync and Flolah tools only cover these). Do **not** invent custom objects via tools — Flolah `crm_*` is the standard set.
@@ -45,6 +67,7 @@ Twenty **objects** are the categories of records. Prefer **People + Companies + 
 - One **open** Opportunity per live deal. Do not spawn a second opp for the same enquiry unless it is a distinct SKU/contract.
 - Categories (prospect vs partner) are **fields**, not new objects. Use views/filters, not duplicate Companies.
 - Amounts: Flolah stores Twenty money as **amountMicros** internally; pass a normal number to `crm_create_opportunity` / `crm_update_opportunity` (e.g. `95` not micros).
+- Log work in **notes** and **tasks** (next call, send quote, wait for CEO gate). Pipeline without activity is stale.
 
 ---
 
@@ -52,19 +75,83 @@ Twenty **objects** are the categories of records. Prefer **People + Companies + 
 
 Twenty pipelines are a **Kanban of Opportunities**; columns come from the Opportunity **Stage** field. Flolah tools send stages in **UPPERCASE**.
 
-| Stage | Use |
-|-------|-----|
-| **NEW** | Fresh enquiry / Business Discovery handoff / `crm_create_lead` |
-| **SCREENING** | Qualifying fit (need, budget, authority) |
-| **MEETING** | Conversation scheduled or held |
-| **PROPOSAL** | Quote/offer sent (`crm_create_deal` default) |
-| **QUALIFIED** | Confirmed good-fit, still open |
-| **WON** / **CLOSED_WON** | Closed won — **high-risk** if amount is material |
-| **LOST** / **CLOSED_LOST** | Closed lost — record a reason in notes when possible |
+| Stage | Business meaning | Maker does | Advance when |
+|-------|------------------|------------|--------------|
+| **NEW** | Fresh enquiry / BD handoff / `crm_create_lead` | Dedup; capture Company+Person; first note | You know who they are and there is a real ask |
+| **SCREENING** | Qualify (need, budget, authority, timing) | Ask/record BANT-style facts in notes | Fit is yes, no, or needs a meeting |
+| **MEETING** | Conversation scheduled or held | Task for the meeting; note outcomes | Ready to price or disqualify |
+| **PROPOSAL** | Quote/offer sent (`crm_create_deal` default) | Amount from **ORG.md / Master Data price list** — never invent catalog | Customer is reviewing a real number |
+| **QUALIFIED** | Confirmed good-fit, still open | Keep amount honest; follow-up tasks | Commercial next step (proposal or Won path) |
+| **WON** / **CLOSED_WON** | Closed won | **High-risk** if amount is material → CRM Checker, then ERP order path | Customer committed; books/fulfilment if needed |
+| **LOST** / **CLOSED_LOST** | Closed lost | Note reason (price, timing, competitor, no fit) | Do not reopen as a new lead without a new enquiry |
 
 `crm_list_leads` returns opportunities in **NEW / SCREENING / MEETING / PROPOSAL / QUALIFIED** (and missing stage). Won/Lost are **not** leads.
 
 **5–7 stages is enough.** Do not invent extra stages unless the CEO’s workspace already has them (`crm_list_opportunities` to see live values). If a stage patch fails, list first and reuse an existing stage string.
+
+**Do not skip NEW → WON** on a first contact unless the CEO already has a signed deal and asks to capture it. Screening exists so you do not pollute Won or ERP.
+
+---
+
+## End-to-end process (Lead → Prospect → Order)
+
+Operate this cycle. Tools in parentheses.
+
+### 1. Capture (Lead)
+
+Real enquiry only (website, chat, WhatsApp, Business Discovery Act, CEO ask). **Never invent customers to fill the pipeline.**
+
+1. `learnings_summary` (`topic`: CRM / customer / discount).
+2. `master_data_rag` query `Twenty CRM lead prospect opportunity order process stages` when the decision is non-trivial.
+3. **Dedup:** `crm_list_companies` / `crm_list_people` / `crm_list_leads` (name, email, domain, locality). Knowledge **`discovered_opportunities`**: skip `previously_identified` or `handed_to_crm`.
+4. Create **Company** (B2B) → **Person** (`company_id`) → **Opportunity** at **NEW** (`crm_create_lead`). Consumer: Person + Opportunity.
+5. Note source and ask. Task for first follow-up if you are not quoting now.
+
+### 2. Qualify (Prospect)
+
+Move **NEW → SCREENING** (and **MEETING** when a call/visit is real).
+
+Record in notes (as known — do not invent):
+
+- **Need** — what they want vs catalog
+- **Budget** — band vs list price (ORG.md / Master Data)
+- **Authority** — who signs
+- **Timing** — when they need it
+
+**No fit / no budget / no authority:** **LOST** with reason, or leave at SCREENING with a future task. Do not create ERP Customer yet.
+
+### 3. Propose (Deal)
+
+Move to **PROPOSAL** (`crm_create_deal` or `crm_update_opportunity`). Set **amount** from company price list.
+
+- Discount **within** policy (often ≤3%): Maker may continue.
+- Discount **above** policy: `needs_ceo` on **run crm maker checker** (workflow CEO Approval) — not a free-form “Approved” Kanban.
+
+Twenty amount is a **pipeline number**. A customer-facing / auditable quotation is **ERPNext Quotation** after Checker when ERP is on.
+
+### 4. Commit (Won)
+
+Material **WON**: CRM Checker Kanban `[CRM] Review high-risk …` (opportunity id, amount, evidence). Low-value / CEO-explicit small close: Maker may stage Won after listing the record.
+
+Won in CRM **is not an order**.
+
+### 5. Order and cash (ERP)
+
+Twenty = **pipeline SoR**. ERPNext = **books SoR**.
+
+When the deal is ready to quote/bill/fulfil:
+
+1. Do **not** invent GL, invoices, or stock in CRM.
+2. Checker Kanban if high-risk, then COO/goal plan **`run erp maker checker`** with CRM ids (company name, person, amount, SKU).
+3. ERP Maker drafts **Customer → Quotation → Sales Order** (then Delivery / Invoice / Payment per **39**). **ERP Checker** submits.
+
+Never mark CRM “Won + invoiced” unless ERP documents exist (or CEO explicitly wants CRM-only close).
+
+### 6. After-sale
+
+- Expansion: **new Opportunity** on the same Company, not a fake new lead.
+- Lost-and-return: new enquiry → new Opportunity; reuse Company/Person.
+- Bad duplicates: Maker proposes delete; **Checker** runs `crm_delete_*`.
 
 ---
 
@@ -74,11 +161,11 @@ When Profile **CRM = Twenty** (or ERPNext sales CRM):
 
 | Role | Does | Does not |
 |------|------|----------|
-| **CRM Maker A** | Capture accounts/contacts/pipeline; quotations path; execute low-risk updates; **propose** duplicate deletes on Kanban | Treat large Won / merge-delete / bulk / ERP handoff as done without Checker; call `crm_delete_*` |
-| **CRM Maker B** | Enrichment, research, follow-ups, notes/tasks | Same high-risk gate |
+| **CRM Maker A** | Capture accounts/contacts/pipeline; Lead→Prospect→Proposal; execute low-risk updates; **propose** duplicate deletes on Kanban | Treat large Won / merge-delete / bulk / ERP handoff as done without Checker; call `crm_delete_*` |
+| **CRM Maker B** | Enrichment, research, follow-ups, notes/tasks; keep stages honest | Same high-risk gate |
 | **CRM Checker** | Review high-risk proposals on Kanban; list/get for audit; **execute** `crm_delete_person` / `crm_delete_company` | Mutate pipeline as the default path; invent live numbers |
 
-When **CRM = ERPNext**, same Maker/Checker protocol uses Sales-side `erp_*` instead of `crm_*`. Desk: ERPNext `/app/crm`.
+When **CRM = ERPNext**, same Maker/Checker protocol uses Sales-side `erp_*` (or `crm_*` facade): **Lead → Opportunity → Customer → Quotation → Sales Order**. Desk: ERPNext `/app/crm`. Object map: people=Contact, companies=Customer, opportunities=Opportunity, leads=Lead. Stages on the facade may be ERPNext **sales_stage** strings (e.g. Prospecting / Proposal) — **list first**, then reuse live values. Billing still needs ERP Checker submit (**39**).
 
 **COO** has **read-only** list tools to report and **delegate**. **Platform Help** answers from this doc + **32** + **38**; never calls live `crm_*`.
 
@@ -89,13 +176,13 @@ When **CRM = ERPNext**, same Maker/Checker protocol uses Sales-side `erp_*` inst
 On a real enquiry (website, chat, Business Discovery Act, CEO ask):
 
 1. Call **`learnings_summary`** (`topic`: CRM / customer / discount as relevant).
-2. Call **`master_data_rag`** with keywords from this file (`Twenty CRM people companies opportunities stages`) when the decision is non-trivial (duplicates, stage, discount, ERP handoff).
+2. Call **`master_data_rag`** with keywords from this file (`Twenty CRM lead prospect opportunity order process stages`) when the decision is non-trivial (duplicates, stage, discount, ERP handoff).
 3. **Dedup before create:**
    - `crm_list_companies` / `crm_list_people` / `crm_list_leads` (name, email, domain, locality).
    - Knowledge table **`discovered_opportunities`** when the card came from Business Discovery — skip `previously_identified` or `handed_to_crm`.
 4. Create **Company** (if B2B) → **Person** (with `company_id`) → **Opportunity** at **NEW** (or **PROPOSAL** if a priced offer is already going out).
 5. If pricing is known, create/update the opportunity **amount** from **company price list / Master Data** — never invent catalog prices.
-6. Reply with ids + next step (follow-up task, quotation, Checker Kanban).
+6. Reply with ids + next step (follow-up task, qualification, quotation, Checker Kanban, ERP order).
 
 Do **not** invent customers “to populate the pipeline.”
 
@@ -131,7 +218,7 @@ When a deal is ready to quote/bill:
 
 1. Do **not** invent GL lines or invoices in CRM.
 2. High-risk: Checker Kanban, then COO/goal plan **`run erp maker checker`** with CRM ids (company name, person, amount, SKU).
-3. ERP Maker creates **Customer / Quotation / Sales Order** as **drafts**; **ERP Checker** submits.
+3. ERP Maker creates **Customer / Quotation / Sales Order** as **drafts**; **ERP Checker** submits. Fulfilment: Delivery Note (goods) → Sales Invoice → Payment Entry (**39**).
 
 Never mark CRM “Won + invoiced” unless ERP documents exist (or CEO explicitly wants CRM-only close).
 
@@ -157,12 +244,12 @@ Never mark CRM “Won + invoiced” unless ERP documents exist (or CEO explicitl
 1. **Answer first** from this doc + **32** + **38** (numbered steps, real labels).
 2. Soft-tip **CRM Maker / Checker / COO** only after the how-to if the CEO needs live data or execution.
 3. “What deals are open?” → live data: open **CRM** or ask **COO** / Maker — after explaining list tools.
-4. “How do I submit an invoice?” → **ERP**, not Twenty — **39** + ERP Checker.
+4. “How do I submit an invoice / raise an order?” → **ERP**, not Twenty — **39** + ERP Checker.
 
 ## Tips for CRM Maker / Checker
 
-1. You are a **CRM SME**. Prefer this doc + **DOMAIN.md** + `master_data_rag` over guessing Twenty semantics. `master_data_rag` already includes this Flolah Help file (`corpus=platform-help`) — do not say you lack Twenty CRM help docs.
-2. List before create. Dedup. Link Person→Company→Opportunity.
-3. Stages UPPERCASE; leads = early opportunities.
-4. High-risk → Checker Kanban. Discounts → company policy / `needs_ceo`.
+1. You are a **CRM SME**. Own **Lead → Prospect → Proposal → Won → ERP Order**. Prefer this doc + **DOMAIN.md** + `master_data_rag` over guessing Twenty semantics. `master_data_rag` already includes this Flolah Help file (`corpus=platform-help`) — do not say you lack Twenty CRM help docs.
+2. List before create. Dedup. Link Person→Company→Opportunity. One open opp per live deal.
+3. Stages UPPERCASE; leads = early opportunities. Qualify before Won.
+4. High-risk → Checker Kanban. Discounts → company policy / `needs_ceo`. Orders → ERP, not CRM invoices.
 5. Never spoof `ceo_user_id`. Tools are session-scoped to this CEO’s workspace.

@@ -2,6 +2,10 @@
 
 When you have access to Agent OS tools, invoke them **by tool name with JSON parameters**; do not use exec or run as shell commands.
 
+## Domain knowledge
+
+Read workspace **DOMAIN.md** (ERPNext SME). Own Project + Task for delivery (not a substitute for Sales Order). Before project drafts, **`master_data_rag`** query `ERPNext project task sales order invoice`. Help **39**. Billing still SI → Checker. List/RAG include Flolah Help (`corpus=platform-help`) even with no CEO uploads.
+
 ---
 
 ## Granted tools

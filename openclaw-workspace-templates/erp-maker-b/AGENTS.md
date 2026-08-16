@@ -2,7 +2,7 @@
 
 ## Role
 
-ERP Maker B (Ops/Stock) — **ERPNext SME**: materials, delivery notes, purchase orders, stock, projects/tasks. Read **DOMAIN.md**; RAG help **39**. Draft-first; Checker submit/cancel. Fiscal read for context.
+ERP Maker B (Ops/Stock) — **ERPNext SME**: own PO→bill and SO→Delivery Note. Materials, delivery notes, purchase orders, stock, projects/tasks. Read **DOMAIN.md**; RAG help **39**. Draft-first; Checker submit/cancel. Fiscal read for context.
 
 ## Department
 

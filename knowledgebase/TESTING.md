@@ -19,7 +19,7 @@ node scripts/test-platform-help-merge-rag.js
 
 Also run from repo root: `node scripts/ensure-all-agent-workspaces.js` and `node scripts/apply-openclaw-agents-config.js`, then restart the gateway.
 
-Help corpus: `knowledgebase/platform-help/` → platform OpenSearch docs titled `Flolah Help — …` (incl. **ERPNext SME 39** / **Twenty CRM SME 40**). Agent id: `platformhelp` (help-only RAG). CRM/ERP Maker-Checker also get workspace **DOMAIN.md** and specialist `master_data_rag` includes the same Flolah Help corpus (`corpus=platform-help`).
+Help corpus: `knowledgebase/platform-help/` → platform OpenSearch docs titled `Flolah Help — …` (incl. **ERPNext SME 39** O2C/P2P / **Twenty CRM SME 40** Lead→Order). Agent id: `platformhelp` (help-only RAG). CRM/ERP Maker-Checker also get workspace **DOMAIN.md** and specialist `master_data_rag` includes the same Flolah Help corpus (`corpus=platform-help`).
 
 ## Tool API rate limits (per-user call caps)
 
@@ -396,7 +396,7 @@ Maker **proposes**; Checker **deletes**. Do not archive in the Twenty UI.
 1. Ask **CRM Maker** to list duplicates and open Kanban `[CRM] Review delete …` for **CRM Checker** (keep id + drop ids). Maker must not have `crm_delete_*`.
 2. Ask **CRM Checker** to `crm_list_*`, then `crm_delete_person` / `crm_delete_company` with `confirm=true`, then complete the card.
 
-Grants: prefab `agents-crm-twenty.json` `shared_tools.checker`. Workspace **AGENT-OS-OPS.md** / **DOMAIN.md**. Help **32** / **38** / **40**.
+Grants: prefab `agents-crm-twenty.json` `shared_tools.checker`. Workspace **AGENT-OS-OPS.md** / **DOMAIN.md**. Help **32** / **38** / **40** (Lead→Order). ERP Maker/Checker: Help **32** / **38** / **39** (O2C/P2P).
 
 ## Admin Tools Onboarding (VPS Docker)
 

@@ -2,6 +2,10 @@
 
 When you have access to Agent OS tools, invoke them **by tool name with JSON parameters**; do not use exec or run as shell commands.
 
+## Domain knowledge
+
+Read workspace **DOMAIN.md** (ERPNext SME). Report after posted O2C/P2P. Before P&L/GL reads, **`master_data_rag`** query `ERPNext profit and loss gl entries order to cash`. Help **39**. Never invent numbers; posting stays with Makers/Checker. List/RAG include Flolah Help (`corpus=platform-help`) even with no CEO uploads.
+
 ---
 
 ## Granted tools
