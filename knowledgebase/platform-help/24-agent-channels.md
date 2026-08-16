@@ -59,6 +59,8 @@ When an agent sends an image, video, or TTS audio on WhatsApp:
 
 **Scheduled-goal outcomes on WhatsApp:** On **Scheduled goals**, opt in **Also send the final outcome on WhatsApp**. Platform copies the finished brief (chat reply, or the once-only completed/failed plan nudge) to that employee’s bound WhatsApp. Mid-step workflow terminals stay web-only. Unpaired / no DM: web still works. Help **28**.
 
+**Which number gets the push?** Outbound (scheduled-goal copy, server announce) uses the **first allow-from** number on that employee’s WhatsApp channel. If allow-from is empty, it uses the CEO **Profile mobile**. Store E.164 (`+6590057664`), not a local 8-digit number. Inbound DMs are different: whoever messages the **linked agent WhatsApp** (the phone that scanned QR) gets the live reply in that chat.
+
 See [11-content-tools-scripts-profile.md](./11-content-tools-scripts-profile.md).
 
 ## Inbound media (WhatsApp → workspace)

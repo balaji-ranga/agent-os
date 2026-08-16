@@ -33,6 +33,9 @@ assert(deliverToIncludes(json, 'slack') && !deliverToIncludes(json, 'whatsapp'),
 const { body, mediaLines } = splitMediaLines('Hello\nMEDIA:/tmp/a.ogg\nMore');
 assert(body.includes('Hello') && mediaLines.length === 1, 'split media');
 
+const unknownRpc = /unknown method|not (found|allowed|supported)|invalid method|is not supported/i;
+assert(unknownRpc.test('admin HTTP RPC method is not supported: send'), 'rpc not-supported is unknown');
+
 const prefixed = prefixFromAgentName('Morning briefing ready.', 'BalServe');
 assert(prefixed.startsWith('From: BalServe'), `prefix got: ${prefixed.slice(0, 40)}`);
 const again = prefixFromAgentName(prefixed, 'BalServe');

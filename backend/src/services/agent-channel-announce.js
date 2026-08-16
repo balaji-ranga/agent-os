@@ -16,6 +16,8 @@ import { ensureTenantOpenClawAgent } from './openclaw-tenant.js';
 export const CHANNEL_DELIVER_OPTIONS = ['web', 'whatsapp', 'slack'];
 const MAX_TEXT_CHARS = 3500;
 const SEND_METHODS = ['send', 'message.send'];
+const UNKNOWN_RPC_METHOD =
+  /unknown method|not (found|allowed|supported)|invalid method|is not supported/i;
 
 function parseJson(raw, fallback) {
   if (raw == null || raw === '') return fallback;
@@ -189,7 +191,61 @@ export function resolveAgentChannelTarget(ownerUserId, agentId, channel) {
   return { ok: true, to, accountId, channelRow: row };
 }
 
+function gatewayUrlAndToken() {
+  const base = String(process.env.OPENCLAW_GATEWAY_URL || 'http://127.0.0.1:18789').replace(/\/$/, '');
+  const token =
+    process.env.OPENCLAW_GATEWAY_TOKEN || process.env.OPENCLAW_GATEWAY_PASSWORD || '';
+  return { base, token };
+}
+
+/** OpenClaw admin HTTP RPC does not expose send — use the native `message` tool. */
+async function sendViaMessageTool({ channel, to, accountId, message, mediaUrls, idempotencyKey }) {
+  const { base, token } = gatewayUrlAndToken();
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const args = {
+    action: 'send',
+    channel,
+    accountId,
+    to,
+    text: message,
+    message,
+    idempotencyKey: String(idempotencyKey || '').slice(0, 200) || undefined,
+  };
+  if (Array.isArray(mediaUrls) && mediaUrls.length) {
+    args.media = mediaUrls[0];
+    args.mediaUrls = mediaUrls;
+  }
+  const res = await fetch(`${base}/tools/invoke`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ tool: 'message', agentId: accountId, args }),
+    signal: AbortSignal.timeout(45000),
+  });
+  const raw = await res.text();
+  let data;
+  try {
+    data = raw ? JSON.parse(raw) : {};
+  } catch {
+    data = { error: raw };
+  }
+  if (!res.ok) {
+    const errMsg = data?.error?.message || data?.error || data?.message || raw || res.statusText;
+    throw new Error(`tools.invoke message: ${errMsg}`);
+  }
+  const status = String(data?.result?.status || data?.status || '').toLowerCase();
+  if (status === 'error' || status === 'failed') {
+    throw new Error(data?.result?.message || data?.message || 'message tool failed');
+  }
+  return { ok: true, method: 'tools.invoke:message', result: data?.result || data };
+}
+
 async function sendViaOpenClaw({ channel, to, accountId, message, mediaUrls, idempotencyKey }) {
+  try {
+    return await sendViaMessageTool({ channel, to, accountId, message, mediaUrls, idempotencyKey });
+  } catch (e) {
+    console.warn('[channel-announce] message tool failed: %s', e?.message || e);
+  }
   const params = {
     to,
     message,
@@ -209,7 +265,7 @@ async function sendViaOpenClaw({ channel, to, accountId, message, mediaUrls, ide
     } catch (e) {
       lastErr = e;
       const msg = String(e?.message || e);
-      const unknown = /unknown method|not (found|allowed)|invalid method/i.test(msg);
+      const unknown = UNKNOWN_RPC_METHOD.test(msg);
       console.warn('[channel-announce] send method=%s failed: %s', method, msg);
       if (!unknown) break;
     }
