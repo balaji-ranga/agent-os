@@ -7,6 +7,9 @@ import {
   prefixFromAgentName,
   splitMediaLines,
   deliverToIncludes,
+  mediaKindFromPath,
+  mimeTypeForMediaPath,
+  resolveAnnounceMediaFile,
 } from '../src/services/agent-channel-announce.js';
 
 function assert(cond, msg) {
@@ -44,5 +47,12 @@ assert((again.match(/^From:/gm) || []).length === 1, 'idempotent From');
 const withMedia = prefixFromAgentName('Hi\nMEDIA:/root/.openclaw/media/x.ogg', 'COO');
 assert(withMedia.startsWith('From: COO'), 'from before body');
 assert(/^MEDIA:/m.test(withMedia.split('\n').pop()), 'media last line alone');
+
+assert(mediaKindFromPath('speech-tts.ogg') === 'audio', 'ogg is audio');
+assert(mediaKindFromPath('shot.png') === 'image', 'png is image');
+assert(mimeTypeForMediaPath('note.ogg') === 'audio/ogg', 'ogg mime');
+assert(resolveAnnounceMediaFile('https://login.example/api/media/x.ogg') == null, 'reject https');
+assert(resolveAnnounceMediaFile('MEDIA:https://login.example/api/media/x.ogg') == null, 'reject MEDIA https');
+assert(resolveAnnounceMediaFile('MEDIA:/tmp/not-in-openclaw-media.ogg') == null, 'reject outside media root');
 
 console.log('CHANNEL_ANNOUNCE_UNIT_OK');

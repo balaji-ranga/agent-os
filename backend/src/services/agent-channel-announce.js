@@ -3,10 +3,13 @@
  * Used by scheduled-goal outcome fan-out — not a new content tool and not a goal-plan step.
  * Unpaired / missing DM target: skip + log; never fail the originating goal.
  */
+import { existsSync, readFileSync, statSync } from 'fs';
+import { basename, normalize, sep } from 'path';
 import { getDb } from '../db/schema.js';
 import { getUserById } from './users.js';
 import { openclawAdminRpc } from '../gateway/openclaw-admin-rpc.js';
 import { channelBindingIds } from './openclaw-channels-config.js';
+import { getOpenClawMediaDir } from '../config/openclaw-paths.js';
 import {
   listAgentChannels,
   isWhatsAppSessionPaired,
@@ -15,9 +18,14 @@ import { ensureTenantOpenClawAgent } from './openclaw-tenant.js';
 
 export const CHANNEL_DELIVER_OPTIONS = ['web', 'whatsapp', 'slack'];
 const MAX_TEXT_CHARS = 3500;
+/** Stay under OpenClaw `/tools/invoke` ~2MB JSON body after base64. */
+const MAX_MEDIA_BUFFER_BYTES = 1_200_000;
 const SEND_METHODS = ['send', 'message.send'];
 const UNKNOWN_RPC_METHOD =
   /unknown method|not (found|allowed|supported)|invalid method|is not supported/i;
+const AUDIO_EXT = /\.(ogg|opus|mp3|m4a|wav|aac)$/i;
+const IMAGE_EXT = /\.(png|jpe?g|gif|webp|svg)$/i;
+const VIDEO_EXT = /\.(mp4|webm|mov)$/i;
 
 function parseJson(raw, fallback) {
   if (raw == null || raw === '') return fallback;
@@ -77,6 +85,74 @@ export function splitMediaLines(text) {
     else rest.push(line);
   }
   return { body: rest.join('\n').trim(), mediaLines };
+}
+
+export function mediaKindFromPath(filePath) {
+  const name = basename(String(filePath || ''));
+  if (AUDIO_EXT.test(name)) return 'audio';
+  if (IMAGE_EXT.test(name)) return 'image';
+  if (VIDEO_EXT.test(name)) return 'video';
+  return 'file';
+}
+
+export function mimeTypeForMediaPath(filePath) {
+  const name = basename(String(filePath || '')).toLowerCase();
+  if (name.endsWith('.ogg') || name.endsWith('.opus')) return 'audio/ogg';
+  if (name.endsWith('.mp3')) return 'audio/mpeg';
+  if (name.endsWith('.m4a')) return 'audio/mp4';
+  if (name.endsWith('.wav')) return 'audio/wav';
+  if (name.endsWith('.aac')) return 'audio/aac';
+  if (name.endsWith('.png')) return 'image/png';
+  if (name.endsWith('.jpg') || name.endsWith('.jpeg')) return 'image/jpeg';
+  if (name.endsWith('.gif')) return 'image/gif';
+  if (name.endsWith('.webp')) return 'image/webp';
+  if (name.endsWith('.svg')) return 'image/svg+xml';
+  if (name.endsWith('.mp4')) return 'video/mp4';
+  if (name.endsWith('.webm')) return 'video/webm';
+  if (name.endsWith('.mov')) return 'video/quicktime';
+  return 'application/octet-stream';
+}
+
+/** Only AgentSystem media store paths — never arbitrary disk from agent text. */
+export function resolveAnnounceMediaFile(mediaLine) {
+  const raw = String(mediaLine || '').replace(/^MEDIA:\s*/i, '').trim();
+  if (!raw || /^https?:\/\//i.test(raw) || /^data:/i.test(raw)) return null;
+  const abs = normalize(raw);
+  const root = normalize(getOpenClawMediaDir());
+  const rootPrefix = root.endsWith(sep) ? root : `${root}${sep}`;
+  if (abs !== root && !abs.startsWith(rootPrefix)) return null;
+  if (!existsSync(abs)) return null;
+  try {
+    const st = statSync(abs);
+    if (!st.isFile() || st.size <= 0) return null;
+    const kind = mediaKindFromPath(abs);
+    return {
+      path: abs,
+      bytes: st.size,
+      kind,
+      filename: basename(abs),
+      mimeType: mimeTypeForMediaPath(abs),
+      asVoice: kind === 'audio',
+    };
+  } catch {
+    return null;
+  }
+}
+
+function packMediaForSend(file) {
+  if (!file) return null;
+  const packed = {
+    path: file.path,
+    filename: file.filename,
+    mimeType: file.mimeType,
+    kind: file.kind,
+    asVoice: !!file.asVoice,
+    bytes: file.bytes,
+  };
+  if (file.bytes <= MAX_MEDIA_BUFFER_BYTES) {
+    packed.bufferBase64 = readFileSync(file.path).toString('base64');
+  }
+  return packed;
 }
 
 export function resolveAgentDisplayName(ownerUserId, agentId) {
@@ -199,7 +275,7 @@ function gatewayUrlAndToken() {
 }
 
 /** OpenClaw admin HTTP RPC does not expose send — use the native `message` tool. */
-async function sendViaMessageTool({ channel, to, accountId, message, mediaUrls, idempotencyKey }) {
+async function sendViaMessageTool({ channel, to, accountId, message, mediaFile, idempotencyKey }) {
   const { base, token } = gatewayUrlAndToken();
   const headers = { 'Content-Type': 'application/json' };
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -212,9 +288,37 @@ async function sendViaMessageTool({ channel, to, accountId, message, mediaUrls, 
     message,
     idempotencyKey: String(idempotencyKey || '').slice(0, 200) || undefined,
   };
-  if (Array.isArray(mediaUrls) && mediaUrls.length) {
-    args.media = mediaUrls[0];
-    args.mediaUrls = mediaUrls;
+  if (mediaFile?.bufferBase64) {
+    // Buffer-only: if `media` is also set, OpenClaw deletes the buffer and the file never attaches.
+    args.buffer = mediaFile.bufferBase64;
+    args.filename = mediaFile.filename;
+    args.mimeType = mediaFile.mimeType;
+    args.contentType = mediaFile.mimeType;
+    if (mediaFile.asVoice) {
+      args.asVoice = true;
+      args.audioAsVoice = true;
+      if (!String(args.message || '').trim()) {
+        args.message = '[[audio]]';
+        args.text = '[[audio]]';
+      }
+    }
+  } else if (mediaFile?.path) {
+    args.media = mediaFile.path;
+    args.filename = mediaFile.filename;
+    args.mimeType = mediaFile.mimeType;
+    args.contentType = mediaFile.mimeType;
+    args.attachments = [
+      {
+        type: mediaFile.kind || 'file',
+        media: mediaFile.path,
+        name: mediaFile.filename,
+        mimeType: mediaFile.mimeType,
+      },
+    ];
+    if (mediaFile.asVoice) {
+      args.asVoice = true;
+      args.audioAsVoice = true;
+    }
   }
   const res = await fetch(`${base}/tools/invoke`, {
     method: 'POST',
@@ -240,9 +344,9 @@ async function sendViaMessageTool({ channel, to, accountId, message, mediaUrls, 
   return { ok: true, method: 'tools.invoke:message', result: data?.result || data };
 }
 
-async function sendViaOpenClaw({ channel, to, accountId, message, mediaUrls, idempotencyKey }) {
+async function sendViaOpenClaw({ channel, to, accountId, message, mediaFile, idempotencyKey }) {
   try {
-    return await sendViaMessageTool({ channel, to, accountId, message, mediaUrls, idempotencyKey });
+    return await sendViaMessageTool({ channel, to, accountId, message, mediaFile, idempotencyKey });
   } catch (e) {
     console.warn('[channel-announce] message tool failed: %s', e?.message || e);
   }
@@ -253,10 +357,12 @@ async function sendViaOpenClaw({ channel, to, accountId, message, mediaUrls, ide
     accountId,
     idempotencyKey: String(idempotencyKey || '').slice(0, 200) || undefined,
   };
-  if (Array.isArray(mediaUrls) && mediaUrls.length) {
-    params.mediaUrls = mediaUrls;
-    params.mediaUrl = mediaUrls[0];
+  if (mediaFile?.path) {
+    params.mediaUrls = [mediaFile.path];
+    params.mediaUrl = mediaFile.path;
+    params.media = mediaFile.path;
   }
+  if (mediaFile?.asVoice) params.asVoice = true;
   let lastErr = null;
   for (const method of SEND_METHODS) {
     try {
@@ -298,9 +404,7 @@ export async function announceOnAgentChannel({
     const agentName = resolveAgentDisplayName(ownerUserId, agentId);
     const prefixed = prefixFromAgentName(text, agentName);
     const { body, mediaLines } = splitMediaLines(prefixed);
-    const mediaUrls = mediaLines
-      .map((line) => String(line).replace(/^MEDIA:/i, '').trim())
-      .filter((p) => p && !/^https?:\/\//i.test(p));
+    const mediaFiles = mediaLines.map(resolveAnnounceMediaFile).filter(Boolean);
     try {
       ensureTenantOpenClawAgent(
         getDb().prepare('SELECT * FROM agents WHERE id = ?').get(agentId),
@@ -312,17 +416,58 @@ export async function announceOnAgentChannel({
       to: resolved.to,
       accountId: resolved.accountId,
       message: body,
-      mediaUrls,
       idempotencyKey,
     });
+    let mediaSent = 0;
+    for (const file of mediaFiles) {
+      try {
+        const packed = packMediaForSend(file);
+        await sendViaOpenClaw({
+          channel: ch,
+          to: resolved.to,
+          accountId: resolved.accountId,
+          message: packed.asVoice ? '[[audio]]' : '',
+          mediaFile: packed,
+          idempotencyKey: idempotencyKey ? `${idempotencyKey}:m${mediaSent}` : undefined,
+        });
+        mediaSent += 1;
+        console.info('[channel-announce] media sent', {
+          owner: ownerUserId,
+          agent: agentId,
+          channel: ch,
+          kind: file.kind,
+          filename: file.filename,
+          as_voice: packed.asVoice,
+          bytes: file.bytes,
+          via: packed.bufferBase64 ? 'buffer' : 'path',
+        });
+      } catch (mediaErr) {
+        console.warn('[channel-announce] media send failed', {
+          owner: ownerUserId,
+          agent: agentId,
+          channel: ch,
+          filename: file.filename,
+          err: mediaErr?.message || mediaErr,
+        });
+      }
+    }
+    if (mediaLines.length && !mediaFiles.length) {
+      console.warn('[channel-announce] MEDIA lines present but no local file attached', {
+        owner: ownerUserId,
+        agent: agentId,
+        channel: ch,
+        media_lines: mediaLines.length,
+      });
+    }
     console.info('[channel-announce] sent', {
       owner: ownerUserId,
       agent: agentId,
       channel: ch,
       method: sent.method,
+      media_sent: mediaSent,
       to: String(resolved.to).replace(/\d(?=\d{4})/g, '•'),
     });
-    return { ok: true, channel: ch, method: sent.method, to_set: true };
+    return { ok: true, channel: ch, method: sent.method, to_set: true, media_sent: mediaSent };
   } catch (e) {
     const msg = e?.message || String(e);
     console.warn('[channel-announce] failed', {

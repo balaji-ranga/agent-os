@@ -12,7 +12,7 @@
 
 The COO uses `scheduled_goal_create` (and related tools) and confirms the schedule.
 
-**How do I also get the outcome on WhatsApp or Slack?** On the schedule, check **Also send the final outcome on WhatsApp** (or ask the COO: “also send this on WhatsApp”). COO tools accept `deliver_to: ["web","whatsapp"]` and/or `"slack"` (or `also_whatsapp: true`). Chat schedules send the reply; plan schedules send the once-only **completed/failed** nudge. Pair that employee’s channel in **Channels** and set allow-from or Profile mobile. Unpaired skips the channel; web still works. Replies start with **From: {employee name}**. Help **24**.
+**How do I also get the outcome on WhatsApp or Slack?** On the schedule, check **Also send the final outcome on WhatsApp** (or ask the COO: “also send this on WhatsApp”). COO tools accept `deliver_to: ["web","whatsapp"]` and/or `"slack"` (or `also_whatsapp: true`). Chat schedules send the reply; plan schedules send the once-only **completed/failed** nudge. TTS `MEDIA:` lines are sent as a real WhatsApp voice note (not text that only *says* audio is attached). Pair that employee’s channel in **Channels** and set allow-from or Profile mobile. Unpaired skips the channel; web still works. Replies start with **From: {employee name}**. Help **24**.
 
 **How do I edit a scheduled goal?** On the Scheduled goals page click **Edit**, change prompt/agent/cadence/time/end, and **Save changes**. Or ask the COO to update it (`scheduled_goal_update`).
 
@@ -162,7 +162,7 @@ Quick intents add common CRM/ERP maker-checker and help steps without writing ra
 | **Ends** | Calendar end date, or perpetual until pause/delete |
 | **Status** | `active` (fires), `draft` (plan not approved yet—does not fire), `paused` (off), `completed` (auto after end date) |
 
-**Deliver-to (web + optional WhatsApp/Slack):** Default is **web** (that employee’s chat). Add `whatsapp` / `slack` on the schedule (`deliver_to` or COO `also_whatsapp`) so platform announces the **final outcome** on the bound channel — same OpenClaw send path as channel announce, prefixed `From: {agent name}`. Chat-mode fires send the assistant reply; plan-mode waits for the completion nudge. Workflow terminal bells are not copied.
+**Deliver-to (web + optional WhatsApp/Slack):** Default is **web** (that employee’s chat). Add `whatsapp` / `slack` on the schedule (`deliver_to` or COO `also_whatsapp`) so platform announces the **final outcome** on the bound channel — same OpenClaw send path as channel announce, prefixed `From: {agent name}`. Chat-mode fires send the assistant reply; plan-mode waits for the completion nudge. `MEDIA:` TTS/image/video in that reply is attached as a follow-up (audio as a voice note). Workflow terminal bells are not copied.
 
 ## COO tools
 
