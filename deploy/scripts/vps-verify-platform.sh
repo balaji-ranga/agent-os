@@ -283,6 +283,7 @@ check "web scrape compose profile" grep -q 'optional-web-scrape-mcp' "$ROOT/depl
 check "web scrape node catalog" grep -q "type: 'web_scrape'" "$ROOT/backend/src/services/agent-workflow-task-catalog.js"
 check "help Twenty CRM SME" grep -q 'Twenty CRM SME' "$ROOT/knowledgebase/platform-help/40-twenty-crm-help-tier-a.md"
 check "help Twenty Lead to Order process" grep -q 'Lead → Prospect → Qualified opportunity' "$ROOT/knowledgebase/platform-help/40-twenty-crm-help-tier-a.md"
+check "help troubleshooting CRM no help docs" grep -q 'CRM / ERP agent says it has no help docs' "$ROOT/knowledgebase/platform-help/12-troubleshooting.md"
 check "help ERPNext SME" grep -q 'ERPNext SME' "$ROOT/knowledgebase/platform-help/39-erpnext-help-tier-a.md"
 check "help ERPNext O2C process" grep -q 'order-to-cash' "$ROOT/knowledgebase/platform-help/39-erpnext-help-tier-a.md"
 check "shared Twenty CRM SME card" test -f "$ROOT/openclaw-workspace-templates/_shared/TWENTY-CRM-SME.md"

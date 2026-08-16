@@ -111,7 +111,7 @@ cd backend
 node scripts/test-purge-all-documents.js
 ```
 
-UI: **Master Data → Documents → Purge all uploads** deletes CEO uploads only. Platform Help / User Guide show a **protected** badge and cannot be deleted.
+UI: **Master Data → Documents → Purge all uploads** deletes CEO uploads only. Platform Help / User Guide live in the **platform** OpenSearch corpus (Admin → Documents RAG), not in the CEO Documents list — they cannot be purged from that UI.
 
 ## Agent delete: FK cascade + no resurrection
 

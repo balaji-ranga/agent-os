@@ -31,10 +31,17 @@ That title is the **Get work from team** status prompt. A visible standup should
 
 ## Agent gave wrong how-to steps
 
-1. Ask **Platform Help** explicitly; it should call `master_data_rag`.
-2. Open **Master Data → Documents** and confirm Platform Help docs are present (they show a **protected** badge and cannot be deleted/purged).
-3. Re-ask with keywords from the doc title (“workflow nodes IF operator”, “MCP register”).
-4. If help docs are missing: restart backend or re-run `node backend/scripts/reupload-platform-help-docs.js` (admin/ops) — register/startup also re-seeds them.
+1. Ask **Platform Help** explicitly; it should call `master_data_rag` on the **platform** help corpus (not your Master Data uploads).
+2. Flolah Help is **not** listed under **Master Data → Documents** (that UI is your uploads only). Admins confirm the corpus under **Admin → Documents RAG**.
+3. Re-ask with keywords from the doc title (“workflow nodes IF operator”, “MCP register”, “Twenty CRM lead prospect”, “ERPNext order to cash”).
+4. If help is stale after a product update: ops rebuild **backend** and re-run `node backend/scripts/reupload-platform-help-docs.js` — register/startup also re-seeds them.
+
+## CRM / ERP agent says it has no help docs
+
+1. That is outdated. Specialists already retrieve Flolah Help via `master_data_rag` (`corpus=platform-help`) even when **Master Data → Documents** is empty. CRM/ERP workspaces also have **DOMAIN.md** (Twenty Lead→Order / ERPNext O2C–P2P).
+2. Start a **new chat** with CRM Maker / Checker or ERP Maker / Checker so SOUL and DOMAIN.md reload.
+3. Ask them to RAG `Twenty CRM lead prospect opportunity order process stages` or `ERPNext order to cash purchase to pay`.
+4. Still empty after a help-doc deploy? Ops: rebuild backend (help is COPY’d into the image) and run `refresh-business-core-workspace-docs.js`. Help **05** / **32** / **39** / **40**.
 
 ## Purge removed the wrong files?
 

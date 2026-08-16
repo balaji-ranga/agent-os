@@ -20,6 +20,8 @@ To **add a new agent**, use **Agent Workspaces** (nav → Agent Workspaces → *
 | Social / Facebook-style content | SocialAssistant |
 | Build or fix a visual workflow | **Workflow Builder** |
 | How to use Flolah / MCP / A2A / nodes | **Platform Help** |
+| Sales pipeline (Lead → Prospect → Won → ERP Order) | **CRM Maker** / **CRM Checker** (Twenty or ERPNext Sales; help **40**) |
+| Books (quote → order → invoice → cash / PO → bill) | **ERP Maker A/B** / **ERP Checker** (ERPNext; help **39**) |
 | Job discovery → apply pipeline | Job pipeline agents (via Job profiles/workflows) |
 
 Prefer the **COO** for work that should be planned or handed to a specialist. Vague “help me” may stay with the COO; clear specialty asks get routed using agent purposes from org docs.

@@ -7,6 +7,11 @@
 - **ERP:** **ERPNext** (full books / invoicing / projects when selected as ERP provider).
 Not required to use Flolah. Select under **Profile** or **Company setup → Systems**.
 
+**What process do the AI employees run?** They are **domain SMEs**, not form-fillers.
+- **CRM:** **Lead → Prospect → Qualified deal → Proposal → Won → ERP Order**. Twenty is pipeline; ERPNext is books. Full playbook: [40-twenty-crm-help-tier-a.md](./40-twenty-crm-help-tier-a.md) + workspace **DOMAIN.md**.
+- **ERP:** **quote → order → deliver → invoice → cash** (O2C) and **request → PO → bill → pay** (P2P), plus stock / accounting / projects. Full playbook: [39-erpnext-help-tier-a.md](./39-erpnext-help-tier-a.md) + workspace **DOMAIN.md**.
+Makers/Checkers retrieve those docs with `master_data_rag` even if Knowledge uploads are empty. Start a **new chat** after a help deploy.
+
 **When I pick platform CRM or ERP, do I get the Maker/Checker AI employees?** **Yes.**
 Packs + workflow graphs ship in source under `backend/src/services/company-blueprints/standard/` (with industry blueprints). Enablement on Profile/Company setup **grants those prefabs into your org** and installs the MC workflow (chat: `run crm maker checker` / `run erp maker checker`). **Admin → Refresh default agents** (with Business Core checked) re-ensures those packs + MC graphs for CEOs who already have CRM/ERP selected; lean COO / Workflow Builder / Platform Help are always refreshed from `platform-agents.json` + workspace templates.
 - **CRM = Twenty:** CRM Maker A/B + CRM Checker with crm_* tools; Checker also has `crm_delete_person` / `crm_delete_company`. CRM nav opens Twenty SSO.

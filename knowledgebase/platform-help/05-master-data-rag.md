@@ -74,7 +74,7 @@ Admins can open **OpenSearch console** (Dashboards) from Admin or Documents RAG 
 
 ### Agent pattern for specialists (CRM Maker, ERP, COO, …)
 
-1. `master_data_rag` with the question (e.g. `Twenty CRM people companies opportunities stages`).
+1. `master_data_rag` with the question (e.g. `Twenty CRM lead prospect opportunity order process stages` or `ERPNext order to cash purchase to pay`).
 2. Read `chunks[]`. Flolah Help hits have `corpus=platform-help` (Twenty CRM SME, ERPNext SME, product how-to). CEO uploads have `corpus=ceo`.
 3. Optional `master_data_list_documents` — includes Flolah Help titles even when this CEO has **no** uploads. Do **not** say you lack help docs.
 4. Other CEOs’ uploads are never visible (entitlement + index isolation). The **Master Data UI** RAG box still searches **this CEO only**.
