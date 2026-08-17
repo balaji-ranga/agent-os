@@ -20,9 +20,33 @@ const FORMAT_MIME = {
   mp3: 'audio/mpeg',
   m4a: 'audio/mp4',
   aac: 'audio/mp4',
-  ogg: 'audio/ogg',
-  opus: 'audio/ogg',
+  // WhatsApp PTT (OpenClaw always sends audio/* as ptt:true) needs the codec parameter.
+  ogg: 'audio/ogg; codecs=opus',
+  opus: 'audio/ogg; codecs=opus',
 };
+
+/** FFmpeg args after `-i <in>` for WhatsApp voice notes (48 kHz mono Opus in OGG). */
+export const WHATSAPP_OPUS_FFMPEG_ARGS = [
+  '-vn',
+  '-ac',
+  '1',
+  '-ar',
+  '48000',
+  '-c:a',
+  'libopus',
+  '-b:a',
+  '32k',
+  '-vbr',
+  'on',
+  '-application',
+  'voip',
+  '-avoid_negative_ts',
+  'make_zero',
+  '-map_metadata',
+  '-1',
+  '-f',
+  'ogg',
+];
 
 export function normalizeAudioFormat(raw) {
   const f = String(raw || 'wav').trim().toLowerCase().replace(/^\./, '');
@@ -97,8 +121,7 @@ export async function convertAudioBuffer(inputBuffer, targetFormat = 'wav', opts
   } else if (format === 'm4a' || format === 'aac') {
     args.push('-codec:a', 'aac', '-b:a', '128k');
   } else if (format === 'ogg' || format === 'opus') {
-    // WhatsApp voice notes: OGG container + Opus codec
-    args.push('-codec:a', 'libopus', '-b:a', '32k', '-vbr', 'on', '-application', 'voip');
+    args.push(...WHATSAPP_OPUS_FFMPEG_ARGS);
   } else {
     // Whisper-friendly mono 16 kHz PCM
     args.push('-vn', '-ac', '1', '-ar', '16000', '-codec:a', 'pcm_s16le');
@@ -122,14 +145,13 @@ export async function convertAudioBuffer(inputBuffer, targetFormat = 'wav', opts
   }
 }
 
-/** Prefer WhatsApp-safe OGG/Opus for channel MEDIA: attach (WAV often "Media failed"). */
+/**
+ * Prefer WhatsApp-safe OGG/Opus for channel MEDIA: attach.
+ * Do not fall back to MP3: OpenClaw WhatsApp sends every audio/* as a PTT voice note,
+ * and MP3/WAV PTT shows "Media error" on the phone.
+ */
 export async function toWhatsAppSafeAudio(inputBuffer, inputExt = 'wav') {
-  try {
-    return await convertAudioBuffer(inputBuffer, 'ogg', { inputExt });
-  } catch (e) {
-    console.warn('[audio-convert] ogg failed, trying mp3', { error: e?.message || String(e) });
-    return convertAudioBuffer(inputBuffer, 'mp3', { inputExt });
-  }
+  return convertAudioBuffer(inputBuffer, 'ogg', { inputExt });
 }
 
 /**

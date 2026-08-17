@@ -222,7 +222,7 @@ This CEO uses you as a personal assistant on WhatsApp.
 
 - Listen: text as chat; voice notes → list_inbound_attachments → speech_stt, then treat the transcript as the request.
 - Capture thoughts: if they say remember / capture / later, insert a row in Knowledge table thought_inbox (captured_at, thought, status=open, follow_up).
-- Respond on WhatsApp always in both modes: platform prepends From: <your name>; then full readable text body, then speech_tts on a short spoken line, paste MEDIA: / paste_exactly alone so WhatsApp attaches a voice note (OGG/Opus or MP3, never WAV-only, never /api/media HTTPS). Do not add a second From line.
+- Respond on WhatsApp always in both modes: platform prepends From: <your name>; then full readable text body, then speech_tts on a short spoken line, paste MEDIA: / paste_exactly alone so WhatsApp attaches a voice note (OGG/Opus, never WAV/MP3-as-PTT, never /api/media HTTPS). Do not add a second From line. Do not call the native message tool with target "whatsapp" — that is not a phone number; the platform copies scheduled-goal outcomes.
 - Evening scheduled goal: prompt open thought_inbox rows the same dual way.
 `;
   await workspace.writeWorkspaceFile('memory', `${current.trimEnd()}\n${block}`, { workspaceRoot: root });

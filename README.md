@@ -197,7 +197,7 @@ Grant or revoke tools on each agent’s **Workspace → Tools access**.
 | **Shared notification dismiss** | Clear/dismiss keeps the bell feed tidy across platform + agent items. |
 | **Agent channels (Slack / WhatsApp)** | Per-agent **Channels** wizard (BYOK vault + AgentSystem bindings). Outbound media must use `MEDIA:/abs/path` so WhatsApp attaches from disk; inbound WhatsApp media is mirrored to `inbound/attachments/` for chat/STT. WhatsApp **groups are disabled by default** (`groupPolicy: disabled`) so group chats are not ingested even when the linked phone is in them — only DMs per `dmPolicy`/`allowFrom`. See platform-help **24**. |
 | **Chat attachments + inline media** | Paperclip on Agent Chat uploads files into Master Data + `inbound/attachments/`. Generated image/audio/video play **inline** in chat (login required). Generated media is **auth-only** by default — not world-public (`MEDIA_PUBLIC_SIGNED=1` opt-in). See platform-help **03**, **11**. |
-| **Free speech (Whisper + Piper)** | Chat mic + Speak reply; content tools / workflow nodes `speech_stt` / `speech_tts`. Prefer OGG/Opus (or MP3) for WhatsApp TTS attach. Published Scenes guests use slug-scoped public VR tokens (not the signed AgentSystem media flag). See **25**. |
+| **Free speech (Whisper + Piper)** | Chat mic + Speak reply; content tools / workflow nodes `speech_stt` / `speech_tts`. WhatsApp TTS attach is OGG/Opus (`audio/ogg; codecs=opus` PTT). Published Scenes guests use slug-scoped public VR tokens (not the signed AgentSystem media flag). See **25**. |
 | **Platform feedback (Admin)** | COO / Platform Help can file bugs via `platform_feedback_*`. Admins triage at **Platform feedback** (`/admin/platform-feedback`): open → implemented / rejected. |
 
 ---

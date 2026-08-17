@@ -260,8 +260,8 @@ Confirm **Job profile** is complete and pipeline/cron is enabled for your enviro
 
 1. Agents must paste **`MEDIA:/abs/path`** (`paste_exactly` from the tool) on its **own line** so WhatsApp attaches from the shared AgentSystem disk. Auth-only `https://…/api/media/…` links fail without a browser session.
 2. Leave ops flag **`MEDIA_PUBLIC_SIGNED`** off unless you deliberately need legacy signed public fetch.
-3. For TTS on WhatsApp, prefer **OGG/Opus or MP3** — WAV often fails attach; Dashboard still plays WAV inline.
-4. Scheduled-goal WhatsApp copies: if the text says a voice note is attached but there is no bubble, the platform now sends that `MEDIA:` file as a **follow-up voice note**. Live WhatsApp replies still need the agent to paste `MEDIA:` on its own line.
+3. For TTS on WhatsApp, the file must be **OGG/Opus, 48 kHz, mono**, sent with MIME **`audio/ogg; codecs=opus`**. OpenClaw sends all audio as a voice note (PTT); WAV/MP3 PTT shows **Media error**. Platform `speech_tts` dual-writes OGG/Opus for `MEDIA:` paste.
+4. Scheduled-goal WhatsApp copies: if the text says a voice note is attached but there is no bubble, the platform extracts `MEDIA:` (own line or markdown) and sends the file as a follow-up voice note. If the employee called the native `message` tool with `target: "whatsapp"` instead of pasting `MEDIA:`, that send fails — the copy still goes out from the final reply.
 5. Dashboard blank / broken media — hard-refresh while logged in; players need Bearer. “Open full size” opening a new tab for audio meant an older UI bug (audio should show an inline player).
 6. Full delivery rules: [11-content-tools-scripts-profile.md](./11-content-tools-scripts-profile.md), [24-agent-channels.md](./24-agent-channels.md).
 

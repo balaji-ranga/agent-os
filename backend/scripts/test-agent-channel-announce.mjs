@@ -10,7 +10,9 @@ import {
   mediaKindFromPath,
   mimeTypeForMediaPath,
   resolveAnnounceMediaFile,
+  recentOwnerGeneratedAudioLines,
 } from '../src/services/agent-channel-announce.js';
+import { WHATSAPP_OPUS_FFMPEG_ARGS } from '../src/services/audio-convert.js';
 
 function assert(cond, msg) {
   if (!cond) throw new Error(msg);
@@ -50,9 +52,24 @@ assert(/^MEDIA:/m.test(withMedia.split('\n').pop()), 'media last line alone');
 
 assert(mediaKindFromPath('speech-tts.ogg') === 'audio', 'ogg is audio');
 assert(mediaKindFromPath('shot.png') === 'image', 'png is image');
-assert(mimeTypeForMediaPath('note.ogg') === 'audio/ogg', 'ogg mime');
+assert(mimeTypeForMediaPath('note.ogg') === 'audio/ogg; codecs=opus', 'ogg mime is WhatsApp PTT');
+assert(mimeTypeForMediaPath('note.opus') === 'audio/ogg; codecs=opus', 'opus mime is WhatsApp PTT');
 assert(resolveAnnounceMediaFile('https://login.example/api/media/x.ogg') == null, 'reject https');
 assert(resolveAnnounceMediaFile('MEDIA:https://login.example/api/media/x.ogg') == null, 'reject MEDIA https');
 assert(resolveAnnounceMediaFile('MEDIA:/tmp/not-in-openclaw-media.ogg') == null, 'reject outside media root');
+
+const md = splitMediaLines(
+  'Listen:\n🔊 [Audio Summary](MEDIA:/root/.openclaw/media/generated/ceo-x/a.ogg)\nDone'
+);
+assert(md.mediaLines.length === 1 && md.mediaLines[0].endsWith('/a.ogg'), 'extract MEDIA from markdown');
+assert(!/MEDIA:/i.test(md.body), 'strip MEDIA from body');
+assert(md.body.includes('Listen:') && md.body.includes('Done'), 'keep surrounding text');
+
+const inline = splitMediaLines('Voice: MEDIA:/root/.openclaw/media/generated/ceo-x/b.ogg thanks');
+assert(inline.mediaLines.some((l) => l.endsWith('/b.ogg')), 'extract inline MEDIA');
+
+assert(Array.isArray(recentOwnerGeneratedAudioLines('no-such-owner')), 'recent audio returns array');
+assert(WHATSAPP_OPUS_FFMPEG_ARGS.includes('48000'), 'opus resample 48k');
+assert(WHATSAPP_OPUS_FFMPEG_ARGS.includes('libopus'), 'opus codec');
 
 console.log('CHANNEL_ANNOUNCE_UNIT_OK');

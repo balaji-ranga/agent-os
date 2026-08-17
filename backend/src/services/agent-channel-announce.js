@@ -3,8 +3,8 @@
  * Used by scheduled-goal outcome fan-out — not a new content tool and not a goal-plan step.
  * Unpaired / missing DM target: skip + log; never fail the originating goal.
  */
-import { existsSync, readFileSync, statSync } from 'fs';
-import { basename, normalize, sep } from 'path';
+import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
+import { basename, extname, join, normalize, sep } from 'path';
 import { getDb } from '../db/schema.js';
 import { getUserById } from './users.js';
 import { openclawAdminRpc } from '../gateway/openclaw-admin-rpc.js';
@@ -15,6 +15,8 @@ import {
   isWhatsAppSessionPaired,
 } from './ceo-agent-channels.js';
 import { ensureTenantOpenClawAgent } from './openclaw-tenant.js';
+import { getCeoGeneratedMediaDir } from './content-explorer.js';
+import { toWhatsAppSafeAudio } from './audio-convert.js';
 
 export const CHANNEL_DELIVER_OPTIONS = ['web', 'whatsapp', 'slack'];
 const MAX_TEXT_CHARS = 3500;
@@ -24,8 +26,14 @@ const SEND_METHODS = ['send', 'message.send'];
 const UNKNOWN_RPC_METHOD =
   /unknown method|not (found|allowed|supported)|invalid method|is not supported/i;
 const AUDIO_EXT = /\.(ogg|opus|mp3|m4a|wav|aac)$/i;
+const VOICE_EXT = /\.(ogg|opus)$/i;
 const IMAGE_EXT = /\.(png|jpe?g|gif|webp|svg)$/i;
 const VIDEO_EXT = /\.(mp4|webm|mov)$/i;
+const WHATSAPP_VOICE_MIME = 'audio/ogg; codecs=opus';
+/** MEDIA: absolute/sandbox path, including markdown `(MEDIA:/…)` and inline prose. */
+const MEDIA_PATH_RE = /MEDIA:\s*((?:\/|sandbox:)[^\s)\]"'<>]+)/gi;
+const RECENT_AUDIO_MAX_AGE_MS = 3 * 60 * 1000;
+const RECENT_AUDIO_LIMIT = 4;
 
 function parseJson(raw, fallback) {
   if (raw == null || raw === '') return fallback;
@@ -76,15 +84,75 @@ export function deliverToIncludes(deliverTo, channel) {
 }
 
 export function splitMediaLines(text) {
-  const lines = String(text || '').split(/\r?\n/);
+  const src = String(text || '');
   const mediaLines = [];
-  const rest = [];
-  for (const line of lines) {
+  const seen = new Set();
+  const add = (raw) => {
+    let p = String(raw || '').trim().replace(/^MEDIA:\s*/i, '');
+    p = p.replace(/[)\].,;]+$/g, '');
+    if (!p) return;
+    const line = `MEDIA:${p}`;
+    if (seen.has(line)) return;
+    seen.add(line);
+    mediaLines.push(line);
+  };
+  for (const line of src.split(/\r?\n/)) {
     const m = String(line || '').trim().match(/^MEDIA:\s*(.+)$/i);
-    if (m) mediaLines.push(`MEDIA:${m[1].trim()}`);
-    else rest.push(line);
+    if (m) add(m[1]);
   }
-  return { body: rest.join('\n').trim(), mediaLines };
+  MEDIA_PATH_RE.lastIndex = 0;
+  let m;
+  while ((m = MEDIA_PATH_RE.exec(src))) add(m[1]);
+  const body = src
+    .split(/\r?\n/)
+    .map((line) => {
+      if (/^\s*MEDIA:\s*/i.test(line)) return '';
+      return String(line || '')
+        .replace(MEDIA_PATH_RE, '')
+        .replace(/\[[^\]]*\]\(\s*\)/g, '')
+        .replace(/[ \t]+\n/g, '\n')
+        .trimEnd();
+    })
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  return { body, mediaLines };
+}
+
+/** Recent TTS/audio under this CEO's generated media dir (scheduled-goal copy fallback). */
+export function recentOwnerGeneratedAudioLines(
+  ownerUserId,
+  { maxAgeMs = RECENT_AUDIO_MAX_AGE_MS, limit = RECENT_AUDIO_LIMIT } = {}
+) {
+  const owner = String(ownerUserId || '').trim();
+  if (!owner) return [];
+  let dir;
+  try {
+    dir = getCeoGeneratedMediaDir(owner);
+  } catch {
+    return [];
+  }
+  if (!dir || !existsSync(dir)) return [];
+  const now = Date.now();
+  const files = [];
+  try {
+    for (const name of readdirSync(dir)) {
+      if (!AUDIO_EXT.test(name)) continue;
+      const abs = join(dir, name);
+      try {
+        const st = statSync(abs);
+        if (!st.isFile() || st.size <= 0) continue;
+        if (now - st.mtimeMs > maxAgeMs) continue;
+        files.push({ abs, mtime: st.mtimeMs });
+      } catch {
+        /* skip unreadable */
+      }
+    }
+  } catch {
+    return [];
+  }
+  files.sort((a, b) => a.mtime - b.mtime);
+  return files.slice(-Math.max(1, limit)).map((f) => `MEDIA:${f.abs}`);
 }
 
 export function mediaKindFromPath(filePath) {
@@ -97,7 +165,7 @@ export function mediaKindFromPath(filePath) {
 
 export function mimeTypeForMediaPath(filePath) {
   const name = basename(String(filePath || '')).toLowerCase();
-  if (name.endsWith('.ogg') || name.endsWith('.opus')) return 'audio/ogg';
+  if (name.endsWith('.ogg') || name.endsWith('.opus')) return WHATSAPP_VOICE_MIME;
   if (name.endsWith('.mp3')) return 'audio/mpeg';
   if (name.endsWith('.m4a')) return 'audio/mp4';
   if (name.endsWith('.wav')) return 'audio/wav';
@@ -111,6 +179,10 @@ export function mimeTypeForMediaPath(filePath) {
   if (name.endsWith('.webm')) return 'video/webm';
   if (name.endsWith('.mov')) return 'video/quicktime';
   return 'application/octet-stream';
+}
+
+function isWhatsAppVoicePath(filePath) {
+  return VOICE_EXT.test(basename(String(filePath || '')));
 }
 
 /** Only AgentSystem media store paths — never arbitrary disk from agent text. */
@@ -132,10 +204,37 @@ export function resolveAnnounceMediaFile(mediaLine) {
       kind,
       filename: basename(abs),
       mimeType: mimeTypeForMediaPath(abs),
-      asVoice: kind === 'audio',
+      asVoice: kind === 'audio' && isWhatsAppVoicePath(abs),
     };
   } catch {
     return null;
+  }
+}
+
+async function ensureWhatsAppAudioFile(file) {
+  if (!file || file.kind !== 'audio') return file;
+  if (file.asVoice && String(file.mimeType || '').includes('codecs=opus')) return file;
+  const ext = extname(file.filename || file.path || '').replace(/^\./, '') || 'wav';
+  try {
+    const input = file.bufferBase64
+      ? Buffer.from(file.bufferBase64, 'base64')
+      : readFileSync(file.path);
+    const safe = await toWhatsAppSafeAudio(input, ext);
+    const filename = String(file.filename || 'speech-tts.ogg').replace(/\.[^.]+$/, '.ogg');
+    return {
+      ...file,
+      filename,
+      mimeType: WHATSAPP_VOICE_MIME,
+      asVoice: true,
+      bytes: safe.buffer.length,
+      bufferBase64: safe.buffer.toString('base64'),
+    };
+  } catch (e) {
+    console.warn('[channel-announce] opus convert failed', {
+      filename: file.filename,
+      err: e?.message || e,
+    });
+    return { ...file, asVoice: false };
   }
 }
 
@@ -149,7 +248,9 @@ function packMediaForSend(file) {
     asVoice: !!file.asVoice,
     bytes: file.bytes,
   };
-  if (file.bytes <= MAX_MEDIA_BUFFER_BYTES) {
+  if (file.bufferBase64) {
+    packed.bufferBase64 = file.bufferBase64;
+  } else if (file.bytes <= MAX_MEDIA_BUFFER_BYTES) {
     packed.bufferBase64 = readFileSync(file.path).toString('base64');
   }
   return packed;
@@ -297,10 +398,8 @@ async function sendViaMessageTool({ channel, to, accountId, message, mediaFile, 
     if (mediaFile.asVoice) {
       args.asVoice = true;
       args.audioAsVoice = true;
-      if (!String(args.message || '').trim()) {
-        args.message = '[[audio]]';
-        args.text = '[[audio]]';
-      }
+      args.ptt = true;
+      // Empty caption: WhatsApp PTT ignores captions; "[[audio]]" showed as a broken bubble.
     }
   } else if (mediaFile?.path) {
     args.media = mediaFile.path;
@@ -403,7 +502,20 @@ export async function announceOnAgentChannel({
     }
     const agentName = resolveAgentDisplayName(ownerUserId, agentId);
     const prefixed = prefixFromAgentName(text, agentName);
-    const { body, mediaLines } = splitMediaLines(prefixed);
+    const split = splitMediaLines(prefixed);
+    let mediaLines = split.mediaLines;
+    const body = split.body;
+    if (ch === 'whatsapp' && !mediaLines.length) {
+      const recent = recentOwnerGeneratedAudioLines(ownerUserId);
+      if (recent.length) {
+        mediaLines = recent;
+        console.info('[channel-announce] using recent generated audio', {
+          owner: ownerUserId,
+          agent: agentId,
+          count: recent.length,
+        });
+      }
+    }
     const mediaFiles = mediaLines.map(resolveAnnounceMediaFile).filter(Boolean);
     try {
       ensureTenantOpenClawAgent(
@@ -421,12 +533,14 @@ export async function announceOnAgentChannel({
     let mediaSent = 0;
     for (const file of mediaFiles) {
       try {
-        const packed = packMediaForSend(file);
+        const ready =
+          ch === 'whatsapp' && file.kind === 'audio' ? await ensureWhatsAppAudioFile(file) : file;
+        const packed = packMediaForSend(ready);
         await sendViaOpenClaw({
           channel: ch,
           to: resolved.to,
           accountId: resolved.accountId,
-          message: packed.asVoice ? '[[audio]]' : '',
+          message: '',
           mediaFile: packed,
           idempotencyKey: idempotencyKey ? `${idempotencyKey}:m${mediaSent}` : undefined,
         });
@@ -436,9 +550,10 @@ export async function announceOnAgentChannel({
           agent: agentId,
           channel: ch,
           kind: file.kind,
-          filename: file.filename,
+          filename: packed.filename || file.filename,
           as_voice: packed.asVoice,
-          bytes: file.bytes,
+          bytes: packed.bytes || file.bytes,
+          mime: packed.mimeType,
           via: packed.bufferBase64 ? 'buffer' : 'path',
         });
       } catch (mediaErr) {
