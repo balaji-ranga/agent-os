@@ -9,7 +9,7 @@ import AuthenticatedMediaImage, {
   AuthenticatedMediaAudio,
   AuthenticatedMediaVideo,
 } from './AuthenticatedMediaImage';
-import { guessChatMediaType } from '../utils/resolveMediaSrc';
+import { guessChatMediaType, resolveMediaSrc, extractMediaUrlsFromText } from '../utils/resolveMediaSrc';
 import { splitChatAttachmentContent } from '../utils/chatAttachments.js';
 
 /**
@@ -35,13 +35,21 @@ export default function ChatMessageRow({
   const isUser = role === 'user';
   const label = roleLabel || (!isUser && agentName) || role;
   const chartUrls = !isUser ? collectChartUrlsFromToolCalls(toolCalls) : [];
-  const mediaUrls = !isUser ? collectGeneratedMediaUrlsFromToolCalls(toolCalls) : [];
   const parsed =
     Array.isArray(attachmentsProp) && attachmentsProp.length
       ? { text: content, attachments: attachmentsProp }
       : splitChatAttachmentContent(content);
   const displayText = parsed.text;
   const attachments = parsed.attachments || [];
+  const textMediaKeys = new Set(
+    extractMediaUrlsFromText(displayText || '').map((u) => resolveMediaSrc(u) || u)
+  );
+  const mediaUrls = !isUser
+    ? collectGeneratedMediaUrlsFromToolCalls(toolCalls).filter((src) => {
+        const key = resolveMediaSrc(src) || src;
+        return !textMediaKeys.has(key);
+      })
+    : [];
   const goalRunIds = !isUser
     ? collectGoalRunIds({ text: displayText || content || '', toolCalls })
     : [];

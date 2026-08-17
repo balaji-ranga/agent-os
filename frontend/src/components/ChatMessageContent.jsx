@@ -180,6 +180,13 @@ export default function ChatMessageContent({ content }) {
   }
 
   media.sort((a, b) => a.index - b.index);
+  const seenResolved = new Set();
+  for (const med of media) {
+    const key = resolveMediaSrc(med.src) || med.src;
+    if (!key) continue;
+    if (seenResolved.has(key)) med.type = 'omit';
+    else seenResolved.add(key);
+  }
   const segments = [];
   let pos = 0;
   for (const med of media) {
@@ -199,6 +206,9 @@ export default function ChatMessageContent({ content }) {
               {renderChatMarkdown(seg.value)}
             </div>
           );
+        }
+        if (seg.type === 'omit') {
+          return null;
         }
         if (seg.type === 'audio') {
           return <AuthenticatedMediaAudio key={i} src={seg.value} />;

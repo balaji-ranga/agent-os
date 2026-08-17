@@ -2,7 +2,8 @@
 
 ## Dashboard (`/org` — My Org)
 
-- **Org chart** of your agents (COO and specialists). Home chat is at **`/`** (COO by default).
+- **Org chart** of your AI employees (COO and specialists) and **people** (human employees). Home chat is at **`/`** (COO by default).
+- **People** tab — invite employees (name, email, phone → invite email), assign **CEO Delegate** or **Member** (or a custom role), place them in a department. Employees inherit the **CEO company** (tools, Knowledge, CRM/ERP binds). AgentSystem workspaces stay on the CEO. Guide: [45-company-people.md](./45-company-people.md).
 - **Standups** — create standup, chat with COO, get work from team, run COO summary, approve, delete.
 - **Remove agent** — deletes the agent's chat history, standup responses, delegation records and tool grants. **Kanban cards are kept and unassigned** so the board history survives, and any agents reporting to it move up to its parent. The COO cannot be removed. Removal sticks: the agent does not reappear after a restart or a **Sync from AgentSystem**.
 - **Resync ORG.md & AGENTS.md** — after add/rename/reorganize agents, resync so every agent’s org docs list the correct CEO, peers, and COO delegatees. On the COO’s **AGENTS.md**, only the live roster sections are refreshed (CEO for this org, agent table, external/A2A leaf members, session keys). **Role / Priorities / Tools / Guardrails / any custom sections you edited by hand are preserved.**
@@ -34,7 +35,7 @@ Prefer the **COO** for work that should be planned or handed to a specialist. Va
 2. Type plain language and send. Use the **paperclip** to attach documents, images, audio, or video (size limits apply; ~40MB class). Attachments are stored as Master Data documents and mirrored under workspace **`inbound/attachments/`** so tools like `speech_stt` can use the path. Agent replies render common **markdown** in the web chat (bold, italics, lists, headings, `code`, links) — the same markup WhatsApp understands. Each assistant turn shows the employee **icon + name**.
 3. **History** and **Browser session** side panes are **hidden by default**. Use the clock (history) and window (browser session) icons next to **New chat** to open or close them. **New chat** archives the current thread (title from the first user message). On local Ollama, that title is heuristic — the button should not stay on **Archiving…**.
 4. **Tool icons** under replies show which tools ran for that turn: **Agent OS content tools** (Master Data, notify, email, workflows, `speech_tts`, `generate_image`, `market_history`, …) **and native AgentSystem tools** when they appear in the agent session transcript (`browser`, `image`, `cron`). Expand a chip to see request/response (large browser payloads are truncated).
-5. **Generated media plays inline** while you are logged in: images, audio (TTS), and video use authenticated fetch (not a public link). Bare `/api/media` URLs without a session return 401.
+5. **Generated media plays inline** while you are logged in: images, audio (TTS), and video use authenticated fetch (not a public link). Bare `/api/media` URLs without a session return 401. TTS plays **once** per clip — the `MEDIA:` line and the `speech_tts` tool result are the same file (not a second WAV artifact player).
 6. Agents should paste **`MEDIA:/abs/path`** (tool `paste_exactly`) for WhatsApp parity — not world-open HTTPS. See [11-content-tools-scripts-profile.md](./11-content-tools-scripts-profile.md) and [24-agent-channels.md](./24-agent-channels.md).
 7. Optional **mic** (Whisper) and **Speak reply** (Piper) when free speech is deployed — [25-speech-and-published-scenes.md](./25-speech-and-published-scenes.md).
 8. Sessions are per agent (and per tenant); history is stored for you.

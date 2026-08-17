@@ -62,46 +62,49 @@ export function collectChartUrlsFromToolCalls(toolCalls) {
   return urls;
 }
 
+function isGeneratedMediaUrl(url) {
+  const u = String(url || '').trim();
+  if (!u) return false;
+  return (
+    /^MEDIA:/i.test(u) ||
+    /\/api\/media\//i.test(u) ||
+    /^https?:\/\//i.test(u) ||
+    /\.openclaw\/media\//i.test(u)
+  );
+}
+
 /** Inline generated images/audio/videos from tool responses when the model forgets to paste URLs. */
 export function collectGeneratedMediaUrlsFromToolCalls(toolCalls) {
   const urls = [];
   const seen = new Set();
+  const push = (raw) => {
+    const url = String(raw || '').trim();
+    if (!isGeneratedMediaUrl(url)) return;
+    const dedupeKey = resolveMediaSrc(url) || url;
+    if (seen.has(dedupeKey)) return;
+    seen.add(dedupeKey);
+    urls.push(url);
+  };
   for (const tc of toolCalls || []) {
     const name = String(tc.tool_name || '');
     if (name !== 'generate_image' && name !== 'generate_video' && name !== 'speech_tts') continue;
     if (String(tc.status || '').toLowerCase() !== 'ok') continue;
     const resp = parseJsonMaybe(tc.response);
     if (!resp || typeof resp !== 'object') continue;
-    // Prefer dashboard-playable relative_url; MEDIA: aliases resolve to the same file.
-    const candidates = [
-      resp.relative_url,
-      resp.audio?.relative_url,
-      resp.media_uri,
-      resp.paste_exactly,
-      resp.audio?.media_uri,
-      resp.audio?.url,
-      resp.url,
-      resp.image_url,
-      resp.video_url,
-      resp.media_url,
-      resp.artifact_url,
-      resp.public_url,
-    ].filter(Boolean);
-    if (Array.isArray(resp.urls)) candidates.push(...resp.urls);
-    for (const u of candidates) {
-      const url = String(u || '').trim();
-      if (!url) continue;
-      const ok =
-        /^MEDIA:/i.test(url) ||
-        /\/api\/media\//i.test(url) ||
-        /^https?:\/\//i.test(url) ||
-        /\.openclaw\/media\//i.test(url);
-      if (!ok) continue;
-      const dedupeKey = resolveMediaSrc(url) || url;
-      if (seen.has(dedupeKey)) continue;
-      seen.add(dedupeKey);
-      urls.push(url);
+    if (name === 'speech_tts') {
+      // Dual-write: WAV artifact + OGG channel file. Play the channel file once (same as MEDIA: paste).
+      push(
+        resp.relative_url ||
+          resp.audio?.relative_url ||
+          resp.paste_exactly ||
+          resp.media_uri ||
+          resp.audio?.media_uri ||
+          resp.url
+      );
+      continue;
     }
+    push(resp.relative_url || resp.paste_exactly || resp.media_uri || resp.url || resp.image_url || resp.video_url);
+    if (Array.isArray(resp.urls)) resp.urls.forEach(push);
   }
   return urls;
 }

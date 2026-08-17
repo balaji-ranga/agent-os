@@ -14,7 +14,8 @@ When you register as a CEO, Flolah automatically sets up your standard AI employ
 This section is a short overview. For the complete end-user guide (navigation, every workflow node, input/output mapping, MCP, A2A, Job pipeline, troubleshooting), use:
 
 - **In-app:** chat with the **Platform Help** agent (`platformhelp`) — it searches Master Data help docs with `master_data_rag`.
-- **Docs:** [`knowledgebase/platform-help/`](knowledgebase/platform-help/README.md) (source of truth indexed into the platform OpenSearch corpus; specialists retrieve it via `master_data_rag`).
+- **Public docs (no login):** [https://flolah.cloud/docs/](https://flolah.cloud/docs/) (Docusaurus; same guide on the login host at `/docs/`).
+- **Source:** [`docs-site/`](docs-site/README.md) (public) and [`knowledgebase/platform-help/`](knowledgebase/platform-help/README.md) (in-app RAG).
 
 You do not need to know APIs or Docker for everyday use.
 
@@ -401,6 +402,7 @@ Hosts (production):
 | Host | Content |
 |------|---------|
 | `https://flolah.cloud` | Marketing homepage (`deploy/static/flolah-home`) |
+| `https://flolah.cloud/docs/` | Public user guide (Docusaurus, open access; source `docs-site/`) |
 | `https://login.flolah.cloud` | Login + React SPA + API (`AGENT_OS_PUBLIC_URL`) |
 
 ```bash
@@ -588,7 +590,7 @@ Examples: `workflows`, `tasks`, `standups`, `documents`, `items`, `users`, `agen
 
 - `GET /api/media/openclaw/*` — AgentSystem-generated media for Dashboard chat / Kanban. **Requires login (Bearer)** by default. Optional anonymous `?exp=&sig=` only when ops sets `MEDIA_PUBLIC_SIGNED=1` (off by default; see `deploy/.env.example`).
 - Content tools (`generate_image`, `generate_video`, `speech_tts`, …) return `paste_exactly` / `media_uri` as **`MEDIA:/abs/path`** for **WhatsApp file attach** on the shared AgentSystem volume, plus auth-only `relative_url` (`/api/media/…`) for the web UI.
-- Dashboard chat renders `MEDIA:` and `/api/media` as **inline** image / audio / video players (authenticated blob fetch). Do **not** paste bare auth HTTPS media URLs into WhatsApp (shows “Media failed”).
+- Dashboard chat renders `MEDIA:` and `/api/media` as **inline** image / audio / video players (authenticated blob fetch). Each TTS clip plays **once** (the `MEDIA:` line and the `speech_tts` tool result are the same file). Do **not** paste bare auth HTTPS media URLs into WhatsApp (shows “Media failed”).
 - Guest Published Scenes use separate `/api/public/vr/:slug/artifacts/…?t=…` tokens — unrelated to `MEDIA_PUBLIC_SIGNED`.
 - Docs: `knowledgebase/platform-help/11-content-tools-scripts-profile.md`, `24-agent-channels.md`, `25-speech-and-published-scenes.md`.
 
@@ -631,6 +633,7 @@ agent-os/
 ├── openclaw-workspace-templates/  # SOUL, AGENTS, MEMORY, TOOLS per agent type (lean: balserve/… + Business Core: crm-*/erp-*)
 ├── openclaw-skills/            # agent-send, agent-os-content-tools, etc.
 ├── openclaw-extensions/        # agent-os-content-tools plugin, bootstrap watcher (ORG.md)
+├── docs-site/                  # Public Docusaurus user guide → /docs/ on flolah.cloud + login host
 ├── deploy/                     # Docker Compose, nginx dual-vhost, static/flolah-home marketing,
 │                               #   sync-to-vps.ps1, vps-deploy-latest.sh, vps-expand-login-cert.sh
 ├── backend/

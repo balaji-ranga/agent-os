@@ -72,13 +72,14 @@ export function extractMediaUrlsFromText(text) {
     const looks =
       /^https?:\/\//i.test(url) ||
       /^\/api\/media\//i.test(url) ||
-      /\.(png|jpe?g|gif|webp|mp4|webm)(\?|$)/i.test(url);
+      /\.(png|jpe?g|gif|webp|mp4|webm|wav|mp3|m4a|ogg|opus)(\?|$)/i.test(url);
     if (!looks) return;
     if (!out.includes(url)) out.push(url);
   };
   for (const m of s.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g)) push(m[1]);
   for (const m of s.matchAll(/\[[^\]]*\]\(([^)]*api\/media\/[^)]+)\)/gi)) push(m[1]);
   for (const m of s.matchAll(/\[[^\]]*\]\((MEDIA:[^)]+)\)/gi)) push(m[1]);
+  for (const m of s.matchAll(/MEDIA:\s*(\S+)/gi)) push(m[0]);
   for (const m of s.matchAll(
     /(?:https?:\/\/[^\s)\]"'<>]+)|(?:\/?api\/media\/[^\s)\]"'<>]*?\.(?:\s*)(?:png|jpe?g|gif|webp|mp4|webm|wav|mp3|m4a|ogg|opus))/gi
   )) {
