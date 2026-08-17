@@ -376,7 +376,7 @@ export function initDb() {
         name TEXT NOT NULL,
         region TEXT DEFAULT '',
         mobile TEXT DEFAULT '',
-        role TEXT NOT NULL CHECK (role IN ('admin', 'ceo')),
+        role TEXT NOT NULL CHECK (role IN ('admin', 'ceo', 'org_user')),
         enabled INTEGER DEFAULT 1,
         created_at TEXT DEFAULT (datetime('now')),
         updated_at TEXT DEFAULT (datetime('now'))
@@ -2478,7 +2478,125 @@ export function initDb() {
     );
   } catch (_) {}
 
+  ensureOrgPeopleSchema(_db);
+
   return _db;
+}
+
+function quoteIdent(name) {
+  return `"${String(name).replace(/"/g, '""')}"`;
+}
+
+/** People (sub-users), roles, and Kanban human assignees under a CEO root tenant. */
+function ensureOrgPeopleSchema(_db) {
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS org_roles (
+        id TEXT PRIMARY KEY,
+        owner_user_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        slug TEXT NOT NULL,
+        is_ceo_delegate INTEGER DEFAULT 0,
+        is_builtin INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(owner_user_id, slug)
+      )
+    `);
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS org_role_permissions (
+        role_id TEXT NOT NULL,
+        permission_key TEXT NOT NULL,
+        PRIMARY KEY (role_id, permission_key),
+        FOREIGN KEY (role_id) REFERENCES org_roles(id) ON DELETE CASCADE
+      )
+    `);
+  } catch (e) {
+    console.warn('[schema] org_roles tables:', e.message);
+  }
+
+  for (const sql of [
+    `ALTER TABLE platform_users ADD COLUMN owner_user_id TEXT`,
+    `ALTER TABLE platform_users ADD COLUMN org_role_id TEXT`,
+    `ALTER TABLE platform_users ADD COLUMN department TEXT DEFAULT ''`,
+    `ALTER TABLE platform_users ADD COLUMN parent_id TEXT DEFAULT ''`,
+    `ALTER TABLE kanban_tasks ADD COLUMN assigned_user_id TEXT`,
+  ]) {
+    try {
+      _db.exec(sql);
+    } catch (_) {
+      /* already exists */
+    }
+  }
+  try {
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_platform_users_owner ON platform_users(owner_user_id)`);
+  } catch (_) {}
+  try {
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_org_roles_owner ON org_roles(owner_user_id)`);
+  } catch (_) {}
+  try {
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_kanban_assigned_user ON kanban_tasks(assigned_user_id)`);
+  } catch (_) {}
+
+  try {
+    const row = _db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='platform_users'`).get();
+    const sql = String(row?.sql || '');
+    if (sql && !sql.includes("'org_user'")) {
+      migratePlatformUsersRoleCheck(_db);
+    }
+  } catch (e) {
+    console.warn('[schema] platform_users org_user role migration:', e.message);
+  }
+}
+
+function migratePlatformUsersRoleCheck(_db) {
+  const cols = _db.prepare('PRAGMA table_info(platform_users)').all();
+  if (!cols.length) return;
+  const pkCols = cols.filter((c) => c.pk).sort((a, b) => a.pk - b.pk);
+  const colDefs = cols.map((c) => {
+    if (c.name === 'role') {
+      return `role TEXT NOT NULL CHECK (role IN ('admin', 'ceo', 'org_user'))`;
+    }
+    let def = `${quoteIdent(c.name)} ${c.type || 'TEXT'}`;
+    if (c.notnull && !c.pk) def += ' NOT NULL';
+    if (c.dflt_value != null && c.dflt_value !== undefined) {
+      let dflt = String(c.dflt_value);
+      if (!/^\(.*\)$/.test(dflt) && /^[A-Za-z_][A-Za-z0-9_]*\s*\(/.test(dflt)) {
+        dflt = `(${dflt})`;
+      }
+      def += ` DEFAULT ${dflt}`;
+    }
+    return def;
+  });
+  if (pkCols.length === 1) {
+    const i = cols.findIndex((c) => c.name === pkCols[0].name);
+    if (i >= 0) colDefs[i] += ' PRIMARY KEY';
+  } else if (pkCols.length > 1) {
+    colDefs.push(`PRIMARY KEY (${pkCols.map((c) => quoteIdent(c.name)).join(', ')})`);
+  }
+  const names = cols.map((c) => quoteIdent(c.name)).join(', ');
+  _db.exec('PRAGMA foreign_keys=OFF');
+  try {
+    _db.exec('DROP TABLE IF EXISTS platform_users_org_migrated');
+    _db.exec(`CREATE TABLE platform_users_org_migrated (${colDefs.join(', ')})`);
+    _db.exec(`INSERT INTO platform_users_org_migrated (${names}) SELECT ${names} FROM platform_users`);
+    _db.exec('DROP TABLE platform_users');
+    _db.exec('ALTER TABLE platform_users_org_migrated RENAME TO platform_users');
+  } catch (e) {
+    try {
+      _db.exec('DROP TABLE IF EXISTS platform_users_org_migrated');
+    } catch (_) {}
+    _db.exec('PRAGMA foreign_keys=ON');
+    throw e;
+  }
+  try {
+    _db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_platform_users_email ON platform_users(email)`);
+  } catch (_) {}
+  try {
+    _db.exec(`CREATE INDEX IF NOT EXISTS idx_platform_users_owner ON platform_users(owner_user_id)`);
+  } catch (_) {}
+  _db.exec('PRAGMA foreign_keys=ON');
+  console.info('[schema] migrated platform_users.role CHECK to include org_user');
 }
 
 export function getDb() {

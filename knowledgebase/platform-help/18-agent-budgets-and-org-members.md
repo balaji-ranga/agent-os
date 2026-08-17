@@ -1,10 +1,11 @@
 ﻿# Agent budgets, Agent View, and external agents in your org
 
-Covers three connected features:
+Covers connected features:
 
-1. **Department purpose + monthly token budget** (Master Data → `departments`)
+1. **Department purpose + monthly token budget** (Master Data → `departments`) plus **people task rollup**
 2. **Per-agent monthly token and error budgets** with warn-then-block enforcement
 3. **External / published-A2A agents as leaf members** of your org chart, delegable by the COO
+4. **Efficiency User View** — Kanban performance for invited people (help **45**)
 
 Per-agent **token** budgets are unchanged by **Tools → Rate limits** (that UI caps vendor **API calls** per CEO per tool — see [11-content-tools-scripts-profile.md](./11-content-tools-scripts-profile.md)). Both can apply on the same run.
 
@@ -32,6 +33,8 @@ empty purpose and no budget.
 
 Department purpose appears in **ORG.md** under a **Departments** section, so any agent reading its
 workspace knows which department owns which kind of work.
+
+The **Department** tab also lists **people** in that department with Kanban assigned / done / failed. **User View** (`/efficiency?tab=user`) is the people equivalent of Agent View (task outcomes, not token budgets). See [45-company-people.md](./45-company-people.md).
 
 ---
 

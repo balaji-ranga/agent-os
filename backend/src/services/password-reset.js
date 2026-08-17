@@ -48,23 +48,29 @@ function buildResetUrl(rawToken) {
   return `${base}/reset-password?token=${encodeURIComponent(rawToken)}`;
 }
 
-async function sendResetEmail(user, resetUrl, { initiatedByAdmin = false } = {}) {
+async function sendResetEmail(user, resetUrl, { initiatedByAdmin = false, initiatedByInvite = false } = {}) {
   const smtp = smtpFromEnv();
   if (!smtp.host) {
     const err = new Error('SMTP not configured (set WORKFLOW_SMTP_HOST)');
     err.status = 503;
     throw err;
   }
-  const subject = initiatedByAdmin
-    ? 'Your Agent OS password reset link'
-    : 'Reset your Agent OS password';
-  const body =
-    `Hello ${user.name || 'there'},\n\n` +
-    (initiatedByAdmin
-      ? 'An administrator generated a password reset link for your Agent OS account.\n\n'
-      : 'We received a request to reset your Agent OS password.\n\n') +
-    `Open this link within 1 hour to set a new password:\n${resetUrl}\n\n` +
-    `If you did not request this, you can ignore this email.\n`;
+  const subject = initiatedByInvite
+    ? 'Set your Flolah password — you were added to a company'
+    : initiatedByAdmin
+      ? 'Your Agent OS password reset link'
+      : 'Reset your Agent OS password';
+  const body = initiatedByInvite
+    ? `Hello ${user.name || 'there'},\n\n` +
+      'Your CEO added you as an employee on Flolah (AI Company OS).\n\n' +
+      `Open this link within 7 days to set your password and sign in:\n${resetUrl}\n\n` +
+      `If you did not expect this, you can ignore this email.\n`
+    : `Hello ${user.name || 'there'},\n\n` +
+      (initiatedByAdmin
+        ? 'An administrator generated a password reset link for your Agent OS account.\n\n'
+        : 'We received a request to reset your Agent OS password.\n\n') +
+      `Open this link within 1 hour to set a new password:\n${resetUrl}\n\n` +
+      `If you did not request this, you can ignore this email.\n`;
   const result = await sendSmtpMail({
     ...smtp,
     to: user.email,
@@ -96,9 +102,10 @@ export async function createAndSendPasswordReset(userIdOrEmail, opts = {}) {
     err.status = 400;
     throw err;
   }
+  const ttl = Number(opts.ttlMs) > 0 ? Number(opts.ttlMs) : TOKEN_TTL_MS;
   const raw = newRawToken();
   const tokenHash = hashToken(raw);
-  const expiresAt = new Date(Date.now() + TOKEN_TTL_MS).toISOString();
+  const expiresAt = new Date(Date.now() + ttl).toISOString();
   const db = getDb();
   db.prepare(
     `INSERT INTO password_reset_tokens (token_hash, user_id, created_by, expires_at)
@@ -106,11 +113,15 @@ export async function createAndSendPasswordReset(userIdOrEmail, opts = {}) {
   ).run(tokenHash, user.id, opts.createdBy || null, expiresAt);
 
   const resetUrl = buildResetUrl(raw);
-  await sendResetEmail(user, resetUrl, { initiatedByAdmin: !!opts.initiatedByAdmin });
+  await sendResetEmail(user, resetUrl, {
+    initiatedByAdmin: !!opts.initiatedByAdmin,
+    initiatedByInvite: !!opts.initiatedByInvite,
+  });
   console.info('[password-reset] emailed link', {
     userId: user.id,
     by: opts.createdBy || 'self',
     admin: !!opts.initiatedByAdmin,
+    invite: !!opts.initiatedByInvite,
   });
   const out = { ok: true, emailed: true, expires_at: expiresAt, email: user.email };
   if (opts.includeUrl) out.reset_url = resetUrl;

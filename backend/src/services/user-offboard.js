@@ -8,6 +8,7 @@ import { closeCeoDb } from '../db/ceo-db.js';
 import { usesTenantCeoDb } from '../db/ceo-db-config.js';
 import { getBalaCeoAuthId, getDefaultCeoUserId } from './job-applicant-ceo.js';
 import { setUserEnabled, getUserById } from './users.js';
+import { disableOrgPeopleForOwner } from './org-people.js';
 import { revokeAllSessions } from './auth/session.js';
 import { removeWorkflowSchedulesForOwner } from './agent-workflow-store.js';
 import { deleteDefinitionWithCleanup } from './agent-workflow-run-manager.js';
@@ -292,6 +293,11 @@ export function offboardUser(userId, opts = {}) {
     summary.steps.disabled = true;
   } catch (e) {
     summary.steps.disabled_error = e?.message || String(e);
+  }
+  try {
+    summary.steps.org_people_disabled = disableOrgPeopleForOwner(row.id);
+  } catch (e) {
+    summary.steps.org_people_error = e?.message || String(e);
   }
   try {
     revokeAllSessions(row.id);

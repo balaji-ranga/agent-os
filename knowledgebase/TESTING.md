@@ -193,6 +193,17 @@ After opening http://127.0.0.1:3000:
 7. **TOTP first login**  
    With `MFA_MODE=TOTP` and MFA required, a new CEO/admin who has not enrolled yet must see both a **QR code** and the **security key** on login/register, then a 6-digit code field. Enrolled users only see the code field (no QR/key).
 
+## Company people (employees / sub-users)
+
+```powershell
+cd backend
+node scripts/test-org-people.js
+```
+
+Creates a temporary CEO + two employees, then checks tenant inherit (no `user_agents` grants), department agent filter, Kanban mutate, API permission map, and Efficiency User View rollup. Cleans up after itself.
+
+Manual: **My Org → People** invite → set password from email → login as employee → Home/Kanban always on; other menus follow the role. Department member can chat with COO + same-dept AI employees only. Kanban: see all, act only same department. Efficiency **User View** lists people task counts. CRM/ERP (if granted) SSO uses **that person’s email** in the CEO company workspace.
+
 ## Smoke test (quick)
 
 ```powershell

@@ -5,6 +5,7 @@ import { getDb } from '../db/schema.js';
 import { requireAuth, requireCeoOrAdmin, resolveAuthenticatedCeoUserId, resolveCeoDataUserIdFromRequest } from '../middleware/auth.js';
 import { allowInternalOrAuth } from '../middleware/internal-auth.js';
 import { listAgentsForUser } from '../services/users.js';
+import { listEntitledAgentsForActor } from '../services/org-permissions.js';
 import {
   assertUserAgentAccess,
   extractOwnerUserIdFromText,
@@ -158,6 +159,8 @@ function getAgentWorkspaceRoot(agent, req = null) {
   if (req?.authUser) {
     if (req.authUser.role === 'ceo' || req.authUser.impersonation) {
       ceoUserId = String(req.authUser.id || '').trim();
+    } else if (req.authUser.role === 'org_user' && req.authUser.owner_user_id) {
+      ceoUserId = String(req.authUser.owner_user_id).trim();
     } else if (req.authUser.role === 'admin') {
       ceoUserId = String(
         req.query?.owner_user_id || req.query?.ownerUserId || req.body?.owner_user_id || req.body?.ownerUserId || ''
@@ -171,6 +174,9 @@ router.get('/', requireAuth, (req, res) => {
   try {
     if (req.authUser.role === 'admin' && !req.authUser.impersonation) {
       return res.json([]);
+    }
+    if (req.authUser.role === 'org_user' || req.authUser.role === 'ceo') {
+      return res.json(listEntitledAgentsForActor(req.authUser));
     }
     return res.json(listAgentsForUser(req.authUser.id));
   } catch (e) {
@@ -187,6 +193,8 @@ router.post('/org/sync', requireAuth, requireCeoOrAdmin, async (req, res) => {
     let ownerUserId = null;
     if (req.authUser.role === 'ceo' || req.authUser.impersonation) {
       ownerUserId = String(req.authUser.id).trim();
+    } else if (req.authUser.role === 'org_user' && req.authUser.owner_user_id) {
+      ownerUserId = String(req.authUser.owner_user_id).trim();
     } else if (req.authUser.role === 'admin') {
       ownerUserId = String(req.body?.owner_user_id || req.body?.ownerUserId || '').trim();
       if (!ownerUserId) {
@@ -745,7 +753,9 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       }
 
       // Hard path: specialty work / "delegate …" — schedule real agents, don't let COO do the work
-      const delegated = await tryHandleCooSpecialtyDelegation(ownerUserId, message.trim());
+      const delegated = await tryHandleCooSpecialtyDelegation(ownerUserId, message.trim(), {
+        actingUser: req.authUser,
+      });
       if (delegated?.ok) {
         insertChatTurn({ agentId, ownerUserId, role: 'user', content: message });
         insertChatTurn({ agentId, ownerUserId, role: 'assistant', content: delegated.cooReply });

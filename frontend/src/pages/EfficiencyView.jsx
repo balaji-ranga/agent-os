@@ -832,8 +832,7 @@ function DepartmentView() {
           <div className="ai-snip-range-static">{data?.period || 'This month'}</div>
         </div>
         <p className="ai-snip-note">
-          Month-to-date tokens used by agents (and external / A2A leaf members) in each department,
-          compared to the department&apos;s monthly token budget from Master Data.
+          Month-to-date tokens used by AI employees, plus Kanban task performance for people in each department.
         </p>
 
         <div className="eff-metrics">
@@ -842,11 +841,8 @@ function DepartmentView() {
             <div className="ai-snip-metric-label">Departments</div>
           </div>
           <div className="ai-snip-metric">
-            <div className="ai-snip-metric-value">{formatCompact(totals.members || 0)}</div>
-            <div className="ai-snip-metric-label">
-              Members assigned{' '}
-              <InfoTip text="Agents and leaf members with a department set" />
-            </div>
+            <div className="ai-snip-metric-value">{formatCompact(totals.people || 0)}</div>
+            <div className="ai-snip-metric-label">People</div>
           </div>
           <div className="ai-snip-metric">
             <div className="ai-snip-metric-value">{formatCompact(totals.tokens_used || 0)}</div>
@@ -910,13 +906,37 @@ function DepartmentView() {
               label="Department tokens this month"
               used={dept.tokens_used || 0}
               limit={dept.monthly_token_budget || 0}
-              tip={`${dept.token_calls || 0} metered calls across ${dept.member_count || 0} member(s) in ${data?.period || 'this month'}. Set the department budget in Master Data → departments or Org designer.`}
+              tip={`${dept.token_calls || 0} metered calls across ${dept.member_count || 0} AI employee(s) in ${data?.period || 'this month'}. Set the department budget in Master Data → departments or Org designer.`}
             />
           </div>
         )}
 
+        {dept?.tasks ? (
+          <div className="ai-snip-metrics" style={{ marginTop: '0.75rem' }}>
+            <div className="ai-snip-metric">
+              <div className="ai-snip-metric-value">{formatCompact(dept.tasks.assigned || 0)}</div>
+              <div className="ai-snip-metric-label">Tasks assigned</div>
+            </div>
+            <div className="ai-snip-metric">
+              <div className="ai-snip-metric-value">{formatCompact(dept.tasks.completed || 0)}</div>
+              <div className="ai-snip-metric-label">Completed</div>
+            </div>
+            <div className="ai-snip-metric">
+              <div className="ai-snip-metric-value">{formatCompact(dept.tasks.failed || 0)}</div>
+              <div className="ai-snip-metric-label">Failed</div>
+            </div>
+            <div className="ai-snip-metric">
+              <div className="ai-snip-metric-value">
+                {dept.tasks.completion_pct != null ? `${dept.tasks.completion_pct}%` : '—'}
+              </div>
+              <div className="ai-snip-metric-label">Completion</div>
+            </div>
+          </div>
+        ) : null}
+
         {dept?.members?.length ? (
           <div className="eff-tool-list" style={{ marginTop: '1rem' }}>
+            <div className="ai-snip-note">AI employees</div>
             {dept.members.map((m) => (
               <div key={m.member_key} className="eff-tool-row">
                 <span>
@@ -936,8 +956,23 @@ function DepartmentView() {
               </div>
             ))}
           </div>
-        ) : dept ? (
-          <p className="ai-snip-note">No agents assigned to this department yet.</p>
+        ) : null}
+        {dept?.people?.length ? (
+          <div className="eff-tool-list" style={{ marginTop: '1rem' }}>
+            <div className="ai-snip-note">People</div>
+            {dept.people.map((p) => (
+              <div key={p.user_id} className="eff-tool-row">
+                <span>{p.name}</span>
+                <span>
+                  {p.tasks_completed || 0} done / {p.tasks_failed || 0} failed
+                  {p.completion_pct != null ? ` · ${p.completion_pct}%` : ''}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {dept && !dept.members?.length && !dept.people?.length ? (
+          <p className="ai-snip-note">No AI employees or people in this department yet.</p>
         ) : null}
       </section>
 
@@ -965,7 +1000,7 @@ function DepartmentView() {
                 <span>
                   {d.name}
                   <span className="ai-snip-note" style={{ marginLeft: 8 }}>
-                    {d.member_count} member{d.member_count === 1 ? '' : 's'}
+                    {d.member_count} AI · {d.people_count || 0} people
                   </span>
                 </span>
                 <span style={{ color: BUDGET_STATE_COLOR[d.state] || 'inherit' }}>
@@ -983,12 +1018,204 @@ function DepartmentView() {
   );
 }
 
+function UserView() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [selected, setSelected] = useState('');
+  const [detail, setDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    api
+      .efficiencyUsers()
+      .then((res) => {
+        if (cancelled) return;
+        setData(res);
+        setSelected((cur) => {
+          if (cur && (res?.users || []).some((u) => u.user_id === cur)) return cur;
+          return res?.users?.[0]?.user_id || '';
+        });
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setError(e.message || 'Failed to load people metrics');
+        setData(null);
+      })
+      .finally(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!selected) {
+      setDetail(null);
+      return;
+    }
+    let cancelled = false;
+    setDetailLoading(true);
+    api
+      .efficiencyUser(selected)
+      .then((res) => {
+        if (!cancelled) setDetail(res);
+      })
+      .catch(() => {
+        if (!cancelled) setDetail(null);
+      })
+      .finally(() => !cancelled && setDetailLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [selected]);
+
+  if (loading) {
+    return (
+      <p className="ai-snip-note" style={{ padding: '1.5rem' }}>
+        Loading people metrics…
+      </p>
+    );
+  }
+  if (error) {
+    return (
+      <p className="ai-snip-error" style={{ padding: '1.5rem' }}>
+        {error}
+      </p>
+    );
+  }
+
+  const users = data?.users || [];
+  const totals = data?.totals || {};
+  const person = users.find((u) => u.user_id === selected) || null;
+
+  return (
+    <>
+      <p className="ai-snip-note" style={{ marginBottom: '1rem' }}>
+        Kanban task performance for people in your company (this month). AI employees stay on Agent View.
+      </p>
+      <div className="ai-snip-metrics">
+        <div className="ai-snip-metric">
+          <div className="ai-snip-metric-value">{formatCompact(totals.people || 0)}</div>
+          <div className="ai-snip-metric-label">People</div>
+        </div>
+        <div className="ai-snip-metric">
+          <div className="ai-snip-metric-value">{formatCompact(totals.assigned || 0)}</div>
+          <div className="ai-snip-metric-label">Tasks assigned</div>
+        </div>
+        <div className="ai-snip-metric">
+          <div className="ai-snip-metric-value">{formatCompact(totals.completed || 0)}</div>
+          <div className="ai-snip-metric-label">Completed</div>
+        </div>
+        <div className="ai-snip-metric">
+          <div className="ai-snip-metric-value">
+            {totals.completion_pct != null ? `${totals.completion_pct}%` : '—'}
+          </div>
+          <div className="ai-snip-metric-label">Completion</div>
+        </div>
+      </div>
+      <div className="eff-split">
+        <section className="card">
+          <h2 className="ai-snip-h2" style={{ marginTop: 0 }}>
+            {person?.name || 'Person'}
+          </h2>
+          {person ? (
+            <>
+              <p className="ai-snip-note">
+                {person.department || 'No department'}
+                {person.role_title ? ` · ${person.role_title}` : ''}
+              </p>
+              <div className="ai-snip-metrics">
+                <div className="ai-snip-metric">
+                  <div className="ai-snip-metric-value">{formatCompact(person.assigned || 0)}</div>
+                  <div className="ai-snip-metric-label">Assigned</div>
+                </div>
+                <div className="ai-snip-metric">
+                  <div className="ai-snip-metric-value">{formatCompact(person.completed || 0)}</div>
+                  <div className="ai-snip-metric-label">Done</div>
+                </div>
+                <div className="ai-snip-metric">
+                  <div className="ai-snip-metric-value">{formatCompact(person.failed || 0)}</div>
+                  <div className="ai-snip-metric-label">Failed</div>
+                </div>
+                <div className="ai-snip-metric">
+                  <div className="ai-snip-metric-value">
+                    {person.completion_pct != null ? `${person.completion_pct}%` : '—'}
+                  </div>
+                  <div className="ai-snip-metric-label">Rate</div>
+                </div>
+              </div>
+              {detailLoading ? (
+                <p className="ai-snip-note">Loading recent tasks…</p>
+              ) : detail?.recent_tasks?.length ? (
+                <div className="eff-tool-list" style={{ marginTop: '1rem' }}>
+                  {detail.recent_tasks.map((t) => (
+                    <div key={t.id} className="eff-tool-row">
+                      <span>{t.title}</span>
+                      <span className="ai-snip-note">{t.status}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="ai-snip-note">No Kanban tasks assigned this month.</p>
+              )}
+            </>
+          ) : (
+            <p className="ai-snip-note">Invite people from My Org → People to see task performance here.</p>
+          )}
+        </section>
+        <section className="card">
+          <h2 className="ai-snip-h2" style={{ marginTop: 0 }}>
+            All people
+          </h2>
+          {users.length ? (
+            <div className="eff-tool-list">
+              {users.map((u) => (
+                <button
+                  key={u.user_id}
+                  type="button"
+                  className="eff-tool-row"
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    background: u.user_id === selected ? 'var(--surface-2, transparent)' : 'transparent',
+                    border: 'none',
+                    padding: '0.5rem 0',
+                  }}
+                  onClick={() => setSelected(u.user_id)}
+                >
+                  <span>
+                    {u.name}
+                    <span className="ai-snip-note" style={{ marginLeft: 8 }}>
+                      {u.department || '—'}
+                    </span>
+                  </span>
+                  <span>
+                    {u.completed || 0}/{u.assigned || 0}
+                    {u.completion_pct != null ? ` · ${u.completion_pct}%` : ''}
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="ai-snip-note">No people yet.</p>
+          )}
+        </section>
+      </div>
+    </>
+  );
+}
+
 export default function EfficiencyView() {
   const [view, setView] = useState(() => {
     if (typeof window === 'undefined') return 'org';
     const tab = new URLSearchParams(window.location.search).get('tab');
     if (tab === 'agent') return 'agent';
     if (tab === 'department' || tab === 'dept') return 'department';
+    if (tab === 'user' || tab === 'people') return 'user';
     return 'org';
   });
   const [range, setRange] = useState('14');
@@ -1062,8 +1289,10 @@ export default function EfficiencyView() {
     view === 'agent'
       ? 'Per-agent activity, outcomes, and monthly token / error budgets.'
       : view === 'department'
-        ? 'Department monthly token budget vs tokens used by agents in that department.'
-        : 'Agents, automated tasks, feedback quality, and AI workflow run outcomes.';
+        ? 'Department monthly token budget vs tokens used by AI employees, plus people task performance.'
+        : view === 'user'
+          ? 'Kanban task performance for people in your company (this month).'
+          : 'Agents, automated tasks, feedback quality, and AI workflow run outcomes.';
 
   return (
     <div className="ai-snip-page eff-page">
@@ -1099,6 +1328,15 @@ export default function EfficiencyView() {
             >
               Agent View
             </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={view === 'user'}
+              className={`ai-snip-pill${view === 'user' ? ' active' : ''}`}
+              onClick={() => setView('user')}
+            >
+              User View
+            </button>
           </div>
         </div>
         {view === 'org' || view === 'agent' ? (
@@ -1121,6 +1359,7 @@ export default function EfficiencyView() {
 
       {view === 'agent' && <AgentView range={range} rangeLabelText={label} />}
       {view === 'department' && <DepartmentView />}
+      {view === 'user' && <UserView />}
 
       {view === 'org' && (
         <>

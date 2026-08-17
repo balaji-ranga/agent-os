@@ -15,6 +15,8 @@ import {
   filterKanbanTasksForUser,
   kanbanTaskBelongsToUser,
   assertKanbanTaskAccess,
+  assertKanbanTaskMutate,
+  canMutateKanbanTask,
   kanbanOwnerSqlFilter,
 } from '../services/kanban-user-scope.js';
 import {
@@ -80,14 +82,16 @@ function messagesWithDisplayTimes(rows) {
 
 const KANBAN_SELECT = `
   SELECT k.id, k.title, k.description, k.status, k.assigned_agent_id, k.assigned_member_key,
-         k.created_by, k.standup_id,
+         k.assigned_user_id, k.created_by, k.standup_id,
          k.agent_delegation_task_id, k.owner_user_id, k.created_at, k.updated_at, k.due_date,
-         COALESCE(a.name, om.display_name) AS assigned_agent_name,
-         om.kind AS assigned_member_kind
+         COALESCE(a.name, om.display_name, pu.name) AS assigned_agent_name,
+         om.kind AS assigned_member_kind,
+         pu.name AS assigned_user_name
   FROM kanban_tasks k
   LEFT JOIN agents a ON a.id = k.assigned_agent_id
   LEFT JOIN org_agent_members om
     ON om.id = k.assigned_member_key AND om.owner_user_id = k.owner_user_id
+  LEFT JOIN platform_users pu ON pu.id = k.assigned_user_id
 `;
 
 function resolveWorkflowStepIo(description) {
@@ -170,7 +174,10 @@ router.get('/tasks', (req, res) => {
     const rows = db().prepare(sql).all(...params, limit, offset);
     const scoped = filterKanbanTasksForUser(rows, req.authUser);
     const server_timezone = getServerTimezone();
-    const tasks = scoped.map(withDisplayTimes);
+    const tasks = scoped.map((row) => ({
+      ...withDisplayTimes(row),
+      can_mutate: canMutateKanbanTask(row, req.authUser),
+    }));
     res.json({
       tasks,
       total,
@@ -363,8 +370,8 @@ router.patch('/tasks/:id', (req, res) => {
   try {
     const task = db().prepare('SELECT * FROM kanban_tasks WHERE id = ?').get(req.params.id);
     if (!task) return res.status(404).json({ error: 'Task not found' });
-    assertKanbanTaskAccess(task, req.authUser);
-    const { status, assigned_agent_id, title, description, due_date } = req.body;
+    assertKanbanTaskMutate(task, req.authUser);
+    const { status, assigned_agent_id, assigned_user_id, title, description, due_date } = req.body;
     const updates = [];
     const values = [];
     if (status !== undefined && VALID_STATUSES.includes(status)) {
@@ -374,6 +381,18 @@ router.patch('/tasks/:id', (req, res) => {
     if (assigned_agent_id !== undefined) {
       updates.push('assigned_agent_id = ?');
       values.push(assigned_agent_id || null);
+      if (assigned_agent_id) {
+        updates.push('assigned_user_id = ?');
+        values.push(null);
+      }
+    }
+    if (assigned_user_id !== undefined) {
+      updates.push('assigned_user_id = ?');
+      values.push(assigned_user_id || null);
+      if (assigned_user_id) {
+        updates.push('assigned_agent_id = ?');
+        values.push(null);
+      }
     }
     if (title !== undefined && typeof title === 'string') {
       updates.push('title = ?');
@@ -438,7 +457,7 @@ router.post('/tasks/:id/reopen', (req, res) => {
   try {
     const task = db().prepare('SELECT * FROM kanban_tasks WHERE id = ?').get(req.params.id);
     if (!task) return res.status(404).json({ error: 'Task not found' });
-    assertKanbanTaskAccess(task, req.authUser);
+    assertKanbanTaskMutate(task, req.authUser);
     db().prepare("UPDATE kanban_tasks SET status = 'open', updated_at = datetime('now') WHERE id = ?").run(req.params.id);
     let reinit = null;
     if (task.assigned_agent_id && !task.assigned_member_key) {
@@ -477,7 +496,7 @@ router.delete('/tasks/:id', (req, res) => {
   try {
     const task = db().prepare('SELECT * FROM kanban_tasks WHERE id = ?').get(req.params.id);
     if (!task) return res.status(404).json({ error: 'Task not found' });
-    assertKanbanTaskAccess(task, req.authUser);
+    assertKanbanTaskMutate(task, req.authUser);
     const id = Number(req.params.id);
     clearKanbanTaskNotification(id, req.authUser?.id);
     cancelDelegationsForDeletedKanban([id]);
@@ -498,7 +517,7 @@ router.delete('/tasks', (req, res) => {
     const allowed = [];
     for (const id of ids) {
       const task = db().prepare('SELECT * FROM kanban_tasks WHERE id = ?').get(id);
-      if (task && kanbanTaskBelongsToUser(task, req.authUser)) allowed.push(id);
+      if (task && canMutateKanbanTask(task, req.authUser)) allowed.push(id);
     }
     if (!allowed.length) return res.status(404).json({ error: 'No accessible tasks found' });
     const placeholders = allowed.map(() => '?').join(',');
@@ -545,11 +564,11 @@ router.post('/tasks/:id/messages', async (req, res) => {
   try {
     const task = db()
       .prepare(
-        'SELECT id, title, description, status, assigned_agent_id, agent_delegation_task_id, owner_user_id FROM kanban_tasks WHERE id = ?'
+        'SELECT id, title, description, status, assigned_agent_id, assigned_user_id, agent_delegation_task_id, owner_user_id FROM kanban_tasks WHERE id = ?'
       )
       .get(req.params.id);
     if (!task) return res.status(404).json({ error: 'Task not found' });
-    assertKanbanTaskAccess(task, req.authUser);
+    assertKanbanTaskMutate(task, req.authUser);
     const { role, content } = req.body;
     const r = (role || 'user').toString().toLowerCase();
     const c = content != null ? (typeof content === 'string' ? content : JSON.stringify(content)) : '';

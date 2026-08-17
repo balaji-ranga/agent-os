@@ -10,6 +10,8 @@ import { isAskSpecialistToReachMe } from './reach-me-delegation.js';
 import { getOrCreateDelegationHubStandup } from './standup-hub.js';
 import { splitAllocationByKind } from './org-member-keys.js';
 import { enforceBudget } from './agent-budgets.js';
+import { getDb } from '../db/schema.js';
+import { isOrgUser, isTenantFullAccess, normalizeDept } from './org-permissions.js';
 
 /** Match intent-classifier + delegation-queue multi-intent cap. */
 const MAX_DELEGATE_AGENTS = 2;
@@ -164,7 +166,7 @@ export async function classifyCooDelegationTargets(ownerUserId, ceoMessage) {
 /**
  * @returns {null | { ok: true, cooReply: string, result: object, standup_id: number }}
  */
-export async function tryHandleCooSpecialtyDelegation(ownerUserId, ceoMessage) {
+export async function tryHandleCooSpecialtyDelegation(ownerUserId, ceoMessage, { actingUser } = {}) {
   const t = String(ceoMessage || '').trim();
   if (!ownerUserId || !t || t.length < 8) return null;
   if (isAskSpecialistToReachMe(t)) return null;
@@ -198,7 +200,23 @@ export async function tryHandleCooSpecialtyDelegation(ownerUserId, ceoMessage) {
 
   // Generic: match intent to agents listed in COO AGENTS.md (purposes), not keywords.
   const allocated = await classifyCooDelegationTargets(ownerUserId, t);
-  const { internal, leaf } = splitAllocationByKind(allocated);
+  const { internal: rawInternal, leaf: rawLeaf } = splitAllocationByKind(allocated);
+  let internal = rawInternal;
+  let leaf = rawLeaf;
+  const restrictDept =
+    actingUser && isOrgUser(actingUser) && !isTenantFullAccess(actingUser)
+      ? normalizeDept(actingUser.department)
+      : '';
+  if (restrictDept) {
+    const under = getAgentsUnderCooForCeo(ownerUserId);
+    const allowedIds = new Set(
+      under.filter((a) => normalizeDept(a.department) === restrictDept).map((a) => String(a.id).toLowerCase())
+    );
+    internal = Object.fromEntries(
+      Object.entries(internal).filter(([id]) => allowedIds.has(String(id).toLowerCase()))
+    );
+    leaf = {};
+  }
 
   // External / published-A2A leaf members run outside OpenClaw — call them directly.
   let leafOutcome = null;
@@ -248,6 +266,16 @@ export async function tryHandleCooSpecialtyDelegation(ownerUserId, ceoMessage) {
     // No specialist fit — leave to COO LLM (answer, clarify, or tool use).
     // Explicit "delegate" with no match: still tell the CEO we couldn't map it.
     if (!isExplicitDelegateRequest(t)) return null;
+    const human = pickHumanAssignee(ownerUserId, actingUser);
+    if (human) {
+      const taskId = assignKanbanToHuman(ownerUserId, t, human);
+      return {
+        ok: true,
+        cooReply: `No specialist AI employee matched. I assigned this to **${human.name}** (Kanban #${taskId}) for human follow-up.`,
+        result: { count: 1, agentNames: [human.name], kanbanTaskIds: [taskId], assigned_user_id: human.id },
+        standup_id: null,
+      };
+    }
     return {
       ok: true,
       cooReply:
@@ -377,4 +405,36 @@ function buildNoInternalReply({ leafOutcome = null, internalBlocked = [] } = {})
     },
     standup_id: null,
   };
+}
+
+function pickHumanAssignee(ownerUserId, actingUser) {
+  const db = getDb();
+  const dept = normalizeDept(actingUser?.department);
+  const rows = db
+    .prepare(
+      `SELECT id, name, department FROM platform_users
+       WHERE owner_user_id = ? AND role = 'org_user' AND enabled = 1
+       ORDER BY name`
+    )
+    .all(ownerUserId);
+  if (dept) {
+    const match = rows.find((r) => normalizeDept(r.department) === dept);
+    if (match) return match;
+  }
+  if (actingUser?.role === 'org_user') {
+    const self = rows.find((r) => r.id === actingUser.id);
+    if (self) return self;
+  }
+  return rows[0] || db.prepare('SELECT id, name FROM platform_users WHERE id = ?').get(ownerUserId);
+}
+
+function assignKanbanToHuman(ownerUserId, title, human) {
+  const db = getDb();
+  const info = db
+    .prepare(
+      `INSERT INTO kanban_tasks (title, description, status, assigned_user_id, created_by, owner_user_id)
+       VALUES (?, ?, 'awaiting_confirmation', ?, 'coo', ?)`
+    )
+    .run(String(title).slice(0, 200), String(title).slice(0, 4000), human.id, ownerUserId);
+  return Number(info.lastInsertRowid);
 }

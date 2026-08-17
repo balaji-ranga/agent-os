@@ -66,6 +66,7 @@ import { useAuth } from './context/AuthContext';
 import { api } from './api';
 import { NotificationProvider } from './context/NotificationContext';
 import { userRoleTitle } from './utils/userRoleTitle.js';
+import { isCompanyUser, isTenantFullAccess, hasPermission } from './utils/orgAccess.js';
 
 /** Login/Register are top-level routes (outside Shell) — enable document scroll here. */
 function AuthLayout({ children }) {
@@ -86,6 +87,16 @@ function AuthLayout({ children }) {
       {children}
     </div>
   );
+}
+
+function Perm({ user, k, children }) {
+  if (!hasPermission(user, k)) return <Navigate to="/" replace />;
+  return children;
+}
+
+function TenantFull({ user, children }) {
+  if (!isTenantFullAccess(user)) return <Navigate to="/" replace />;
+  return children;
 }
 
 function Shell() {
@@ -184,7 +195,7 @@ function Shell() {
   const closeMobileNav = () => setMobileNavOpen(false);
   const homePath = user.role === 'admin' ? '/admin' : '/';
   const isHomeRoute =
-    user.role === 'ceo' &&
+    isCompanyUser(user) &&
     (location.pathname === '/' || location.pathname === '');
   const firstName = String(user.name || '')
     .trim()
@@ -258,7 +269,7 @@ function Shell() {
         </div>
         <div className="app-nav-links" onClick={closeMobileNav}>
           {user.role === 'admin' && <AdminNavMenu collapsed={menuCollapsed} />}
-          {user.role === 'ceo' && (
+          {isCompanyUser(user) && (
             <>
               <NavLink
                 to="/"
@@ -268,6 +279,7 @@ function Shell() {
               >
                 {menuCollapsed ? '⌂' : 'Home'}
               </NavLink>
+              {hasPermission(user, 'this-week') && (
               <NavLink
                 to="/this-week"
                 className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
@@ -275,6 +287,8 @@ function Shell() {
               >
                 {menuCollapsed ? 'D' : 'Digest'}
               </NavLink>
+              )}
+              {hasPermission(user, 'work') && (
               <NavLink
                 to="/work"
                 className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
@@ -282,11 +296,12 @@ function Shell() {
               >
                 {menuCollapsed ? 'W' : 'Workspace'}
               </NavLink>
+              )}
               <CeoNavMenu collapsed={menuCollapsed} />
             </>
           )}
         </div>
-        {user.role === 'ceo' && !menuCollapsed && (
+        {isCompanyUser(user) && !menuCollapsed && (
           <div className="app-nav-footer-user">
             <ProfileMenu user={user} logout={logout} />
             <div className="app-nav-footer-meta">
@@ -313,7 +328,7 @@ function Shell() {
               )}
             </div>
             <div className="app-topbar-center">
-              {user.role === 'ceo' && <GlobalSearch />}
+              {isCompanyUser(user) && <GlobalSearch />}
             </div>
             <div className="app-topbar-actions">
               <ThemeToggle />
@@ -344,57 +359,57 @@ function Shell() {
                 <Route path="*" element={<Navigate to="/admin" replace />} />
               </>
             )}
-            {user.role === 'ceo' && (
+            {isCompanyUser(user) && (
               <>
                 <Route path="/" element={<AgentChat />} />
-                <Route path="/this-week" element={<ThisWeek />} />
-                <Route path="/goal-plans" element={<GoalPlans />} />
-                <Route path="/workspace-designer" element={<WorkspaceDesigner />} />
-                <Route path="/nav-menus" element={<NavMenuManager />} />
-                <Route path="/settings/ip-whitelists" element={<IpWhitelists />} />
-                <Route path="/settings/tokens" element={<TokensManagement />} />
-                <Route path="/work" element={<OperatingWorkspace />} />
-                <Route path="/crm" element={<CrmPage />} />
-                <Route path="/erp" element={<ErpPage />} />
-                <Route path="/org" element={<Dashboard />} />
+                <Route path="/this-week" element={<Perm user={user} k="this-week"><ThisWeek /></Perm>} />
+                <Route path="/goal-plans" element={<Perm user={user} k="this-week"><GoalPlans /></Perm>} />
+                <Route path="/workspace-designer" element={<Perm user={user} k="workspace-designer"><WorkspaceDesigner /></Perm>} />
+                <Route path="/nav-menus" element={<Perm user={user} k="nav-menus"><NavMenuManager /></Perm>} />
+                <Route path="/settings/ip-whitelists" element={<Perm user={user} k="ip-whitelists"><IpWhitelists /></Perm>} />
+                <Route path="/settings/tokens" element={<Perm user={user} k="tokens-management"><TokensManagement /></Perm>} />
+                <Route path="/work" element={<Perm user={user} k="work"><OperatingWorkspace /></Perm>} />
+                <Route path="/crm" element={<Perm user={user} k="crm"><CrmPage /></Perm>} />
+                <Route path="/erp" element={<Perm user={user} k="erp"><ErpPage /></Perm>} />
+                <Route path="/org" element={<Perm user={user} k="org"><Dashboard /></Perm>} />
                 <Route path="/profile" element={<UserProfile />} />
-                <Route path="/connectors" element={<Connectors />} />
-                <Route path="/job-profiles" element={<JobProfiles />} />
-                <Route path="/browser-session" element={<BrowserSession />} />
-                <Route path="/workspace" element={<Workspace />} />
-                <Route path="/content-tools" element={<ContentToolsLogs />} />
-                <Route path="/integrations/mcp/*" element={<McpIntegrations />} />
-                <Route path="/integrations/custom-scripts" element={<CustomScripts />} />
-                <Route path="/integrations/external-agents" element={<ExternalAgents />} />
-                <Route path="/agent-exchange" element={<AgentExchange />} />
-                <Route path="/broadcast" element={<Broadcast />} />
+                <Route path="/connectors" element={<Perm user={user} k="connectors"><Connectors /></Perm>} />
+                <Route path="/job-profiles" element={<Perm user={user} k="job-profiles"><JobProfiles /></Perm>} />
+                <Route path="/browser-session" element={<Perm user={user} k="browser-session"><BrowserSession /></Perm>} />
+                <Route path="/workspace" element={<Perm user={user} k="ai-employees"><Workspace /></Perm>} />
+                <Route path="/content-tools" element={<Perm user={user} k="content-tools"><ContentToolsLogs /></Perm>} />
+                <Route path="/integrations/mcp/*" element={<Perm user={user} k="mcp"><McpIntegrations /></Perm>} />
+                <Route path="/integrations/custom-scripts" element={<Perm user={user} k="custom-scripts"><CustomScripts /></Perm>} />
+                <Route path="/integrations/external-agents" element={<Perm user={user} k="external-ai"><ExternalAgents /></Perm>} />
+                <Route path="/agent-exchange" element={<Perm user={user} k="agent-exchange"><AgentExchange /></Perm>} />
+                <Route path="/broadcast" element={<Perm user={user} k="broadcast"><Broadcast /></Perm>} />
                 <Route path="/kanban" element={<Kanban />} />
-                <Route path="/master-data" element={<MasterData />} />
-                <Route path="/content-explorer" element={<ContentExplorer />} />
-                <Route path="/company-setup" element={<CompanySetup />} />
-                <Route path="/update-company-details" element={<UpdateCompanySetup />} />
+                <Route path="/master-data" element={<Perm user={user} k="master-data"><MasterData /></Perm>} />
+                <Route path="/content-explorer" element={<Perm user={user} k="content-explorer"><ContentExplorer /></Perm>} />
+                <Route path="/company-setup" element={<TenantFull user={user}><CompanySetup /></TenantFull>} />
+                <Route path="/update-company-details" element={<TenantFull user={user}><UpdateCompanySetup /></TenantFull>} />
                 <Route path="/update-company-setup" element={<Navigate to="/update-company-details" replace />} />
-                <Route path="/company-operate" element={<CompanyOperate />} />
-                <Route path="/onboarding" element={<Onboarding />} />
+                <Route path="/company-operate" element={<TenantFull user={user}><CompanyOperate /></TenantFull>} />
+                <Route path="/onboarding" element={<TenantFull user={user}><Onboarding /></TenantFull>} />
                 <Route path="/video-tours" element={<VideoTours />} />
-                <Route path="/api-keys" element={<ApiKeys />} />
-                <Route path="/policies" element={<Policies />} />
-                <Route path="/scheduled-goals" element={<ScheduledGoals />} />
-                <Route path="/ai-snipper" element={<AiSnipper />} />
-                <Route path="/efficiency" element={<EfficiencyView />} />
-                <Route path="/ibkr-summary" element={<IbkrSummary />} />
-                <Route path="/job-workflows" element={<JobWorkflows />} />
-                <Route path="/workflows" element={<AgentWorkflows />} />
-                <Route path="/workflows/runs/:runId" element={<WorkflowRunAudit />} />
-                <Route path="/workflows/:workflowId/edit" element={<AgentWorkflowEditor />} />
-                <Route path="/avatars" element={<Avatars />} />
-                <Route path="/published-scenes" element={<PublishedScenes />} />
-                <Route path="/avatars/:avatarId/room" element={<VirtualRoom />} />
-                <Route path="/vr-rooms/:roomId" element={<VirtualRoom />} />
-                <Route path="/agents/:agentId/workspace" element={<AgentWorkspace />} />
+                <Route path="/api-keys" element={<Perm user={user} k="api-keys"><ApiKeys /></Perm>} />
+                <Route path="/policies" element={<Perm user={user} k="policies"><Policies /></Perm>} />
+                <Route path="/scheduled-goals" element={<Perm user={user} k="scheduled-goals"><ScheduledGoals /></Perm>} />
+                <Route path="/ai-snipper" element={<Perm user={user} k="ai-snipper"><AiSnipper /></Perm>} />
+                <Route path="/efficiency" element={<Perm user={user} k="efficiency"><EfficiencyView /></Perm>} />
+                <Route path="/ibkr-summary" element={<Perm user={user} k="ibkr-summary"><IbkrSummary /></Perm>} />
+                <Route path="/job-workflows" element={<Perm user={user} k="job-workflows"><JobWorkflows /></Perm>} />
+                <Route path="/workflows" element={<Perm user={user} k="workflows"><AgentWorkflows /></Perm>} />
+                <Route path="/workflows/runs/:runId" element={<Perm user={user} k="workflows"><WorkflowRunAudit /></Perm>} />
+                <Route path="/workflows/:workflowId/edit" element={<Perm user={user} k="workflows"><AgentWorkflowEditor /></Perm>} />
+                <Route path="/avatars" element={<Perm user={user} k="avatars"><Avatars /></Perm>} />
+                <Route path="/published-scenes" element={<Perm user={user} k="published-scenes"><PublishedScenes /></Perm>} />
+                <Route path="/avatars/:avatarId/room" element={<Perm user={user} k="avatars"><VirtualRoom /></Perm>} />
+                <Route path="/vr-rooms/:roomId" element={<Perm user={user} k="avatars"><VirtualRoom /></Perm>} />
+                <Route path="/agents/:agentId/workspace" element={<Perm user={user} k="ai-employees"><AgentWorkspace /></Perm>} />
                 <Route path="/agents/:agentId/chat" element={<AgentChat />} />
-                <Route path="/agents/:agentId/channels" element={<AgentChannels />} />
-                <Route path="/agents/:agentId/virtual-room" element={<VirtualRoom />} />
+                <Route path="/agents/:agentId/channels" element={<Perm user={user} k="ai-employees"><AgentChannels /></Perm>} />
+                <Route path="/agents/:agentId/virtual-room" element={<Perm user={user} k="avatars"><VirtualRoom /></Perm>} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </>
             )}

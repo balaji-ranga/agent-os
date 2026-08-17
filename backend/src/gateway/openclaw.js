@@ -9,6 +9,7 @@ import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import http from 'node:http';
 import https from 'node:https';
+import { stripOpenClawDeliveryNoise } from '../services/openclaw-runtime-tools.js';
 
 const DEFAULT_PORT = 18789;
 let _cachedGatewayToken = null;
@@ -217,7 +218,11 @@ export async function chatCompletions(agentId, messages, sessionUser = null, str
 
   const data = await res.json();
   const choice = data.choices?.[0];
-  const content = choice?.message?.content ?? '';
+  const rawContent = choice?.message?.content ?? '';
+  const content = stripOpenClawDeliveryNoise(rawContent);
+  if (String(rawContent) !== String(content)) {
+    console.info('[openclaw] stripped gateway message-failed banner from assistant reply agent=%s', agentId);
+  }
   const usage = data.usage || null;
   return { content, usage, raw: data };
 }

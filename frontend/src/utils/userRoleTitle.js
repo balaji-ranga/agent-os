@@ -17,6 +17,8 @@ export function userRoleTitle(user) {
   const custom = String(user?.role_title || '').trim();
   if (custom) return custom;
   if (user?.role === 'ceo') return 'CEO';
+  if (user?.is_ceo_delegate) return 'CEO Delegate';
+  if (user?.role === 'org_user') return 'Employee';
   if (user?.role === 'admin') return 'Admin';
   return user?.role ? String(user.role) : 'User';
 }

@@ -134,7 +134,7 @@ export function AuthProvider({ children }) {
       localStorage.setItem(TOKEN_KEY, data.session.token);
       setAuthToken(data.session.token);
       setUser(data.user);
-      if (data.user?.role === 'ceo') {
+      if (data.user?.role === 'ceo' || data.user?.role === 'org_user') {
         const me = await api.authMe();
         applyMe(me);
         return me.user;

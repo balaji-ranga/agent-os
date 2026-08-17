@@ -78,7 +78,7 @@ Every Flolah capability should map to one or more of these primitives. Orphan fe
 
 | Primitive | Meaning | Primary product surfaces (today) |
 |-----------|---------|----------------------------------|
-| **People** | Human users (CEO, admin) | Login, Profile, entitlements, admin users |
+| **People** | Human users: CEO (root / company owner), invited **employees** (sub-users), platform admin | Login, Profile, **My Org → People**, Org Designer, entitlements (employees inherit the CEO company) |
 | **Employees** | AI workers | My Org, AI Employees (`/workspace`), agent chat/workspace/channels |
 | **Departments** | Org structure | Org designer, department budgets, Efficiency → Department |
 | **Projects** | Work containers | *Not first-class yet* — do not market as core until shipped; Kanban cards may proxy later |
@@ -104,14 +104,14 @@ Every Flolah capability should map to one or more of these primitives. Orphan fe
 | Route / surface | Primitives | User-facing label baseline |
 |-----------------|------------|----------------------------|
 | `/` home chat | Employees, Tasks, Memory | Chat with AI employees |
-| `/org` My Org | People, Employees, Departments | My Org |
-| `/kanban` | Tasks, Approvals | Kanban |
+| `/org` My Org | People, Employees, Departments | My Org (org chart, standups, **People**) |
+| `/kanban` | Tasks, Approvals, People | Kanban (all cards visible; department employees act on own department) |
 | `/broadcast` | Employees, Tasks | Broadcast |
 | `/master-data` | Knowledge | **Knowledge** (Master Data) |
 | `/content-explorer` | Knowledge | Content Explorer |
 | `/api-keys` | Tools, Policies | API Keys |
 | `/policies` | Policies | Policies |
-| `/efficiency` | Policies, Employees, Departments | Efficiency View |
+| `/efficiency` | Policies, Employees, Departments, People | Efficiency View (Org / Department / Agent View / **User View**) |
 | `/workspace` | Employees | **AI Employees** |
 | `/agents/:id/*` | Employees, Tools, Memory | Employee workspace / chat / channels |
 | `/workflows*` | Workflows | Workflows |

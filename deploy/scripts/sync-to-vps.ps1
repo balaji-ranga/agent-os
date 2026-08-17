@@ -566,7 +566,8 @@ sed -i 's/\r`$//' \
   $RemoteRoot/deploy/scripts/ensure-platform-mcps.sh \
   $RemoteRoot/deploy/scripts/vps-smoke-meta-graph-mcp.sh \
   $RemoteRoot/deploy/scripts/vps-rebuild-frontend.sh \
-  $RemoteRoot/deploy/scripts/up.sh
+  $RemoteRoot/deploy/scripts/up.sh \
+  $RemoteRoot/deploy/scripts/build-public-docs.sh
 SKIP_GIT=1 $smokeEnv $cacheEnv SERVICES='$Services' bash $RemoteRoot/deploy/scripts/vps-deploy-latest.sh
 "@ 2>&1
 if ($LASTEXITCODE -ne 0) {

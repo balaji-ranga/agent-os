@@ -97,7 +97,8 @@ export default function Kanban() {
       return next;
     });
   };
-  const taskAgentKey = (t) => t.assigned_agent_id || t.assigned_member_key || '__unassigned__';
+  const taskAgentKey = (t) =>
+    t.assigned_agent_id || t.assigned_member_key || (t.assigned_user_id ? `user:${t.assigned_user_id}` : '__unassigned__');
 
   const selectAllTasks = (e) => {
     if (e) e.stopPropagation();
@@ -257,7 +258,8 @@ export default function Kanban() {
 
   const byAgentAndStatus = {};
   const memberKeys = [...new Set(tasks.map((t) => t.assigned_member_key).filter(Boolean))];
-  const agentIdsAll = ['__unassigned__', ...agents.map((a) => a.id), ...memberKeys];
+  const peopleKeys = [...new Set(tasks.filter((t) => t.assigned_user_id).map((t) => `user:${t.assigned_user_id}`))];
+  const agentIdsAll = ['__unassigned__', ...agents.map((a) => a.id), ...memberKeys, ...peopleKeys];
   agentIdsAll.forEach((aid) => {
     byAgentAndStatus[aid] = {};
     STATUSES.forEach((s) => (byAgentAndStatus[aid][s] = []));
@@ -279,6 +281,11 @@ export default function Kanban() {
 
   const agentName = (id) => {
     if (id === '__unassigned__') return 'Unassigned';
+    if (String(id).startsWith('user:')) {
+      const uid = String(id).slice(5);
+      const hit = tasks.find((t) => t.assigned_user_id === uid);
+      return hit?.assigned_user_name ? `${hit.assigned_user_name} (employee)` : 'Employee';
+    }
     const a = agents.find((x) => x.id === id);
     if (a) return a.name;
     if (memberRowNames[id]) return `${memberRowNames[id]} (external)`;
@@ -295,6 +302,10 @@ export default function Kanban() {
     selectedTaskIds.size === filteredTasks.length;
 
   const handleDragStart = (e, task) => {
+    if (task.can_mutate === false) {
+      e.preventDefault();
+      return;
+    }
     setDraggingTask(task);
     e.dataTransfer.setData('text/plain', String(task.id));
     e.dataTransfer.effectAllowed = 'move';
@@ -463,6 +474,7 @@ export default function Kanban() {
   const sendMessage = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     if ((!messageInput.trim() && !messageAttachments.length) || !selectedTask) return;
+    if (selectedTask.can_mutate === false) return;
 
     const trimmed = messageInput.trim();
     const files = [...messageAttachments];
@@ -508,6 +520,8 @@ export default function Kanban() {
       .catch((err) => showError(err.message || 'Failed to reopen task'))
       .finally(() => setReopeningId(null));
   };
+
+  const selectedCanMutate = selectedTask?.can_mutate !== false;
 
   const selectedIsWorkflowApproval =
     selectedTask &&
@@ -625,6 +639,11 @@ export default function Kanban() {
               {agents.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.name || a.id}
+                </option>
+              ))}
+              {peopleKeys.map((pk) => (
+                <option key={pk} value={pk}>
+                  {agentName(pk)}
                 </option>
               ))}
               {memberKeys.map((mk) => (
@@ -1032,7 +1051,7 @@ export default function Kanban() {
                   <button
                     type="button"
                     onClick={() => respondWorkflowApproval('approve')}
-                    disabled={wfApproving}
+                    disabled={wfApproving || !selectedCanMutate}
                     style={{
                       flex: 1,
                       padding: '0.65rem',
@@ -1049,7 +1068,7 @@ export default function Kanban() {
                   <button
                     type="button"
                     onClick={() => respondWorkflowApproval('reject')}
-                    disabled={wfApproving}
+                    disabled={wfApproving || !selectedCanMutate}
                     style={{
                       flex: 1,
                       padding: '0.65rem',
@@ -1098,7 +1117,7 @@ export default function Kanban() {
                 <button
                   type="button"
                   onClick={approveJobReview}
-                  disabled={approvingReview}
+                  disabled={approvingReview || !selectedCanMutate}
                   style={{
                     width: '100%',
                     padding: '0.75rem 1rem',
@@ -1343,22 +1362,28 @@ export default function Kanban() {
                   value={messageInput}
                   onChange={(e) => setMessageInput(e.target.value)}
                   onSend={sendMessage}
-                  placeholder={selectedIsCeoReview ? 'Type confirm to approve, or add a noteâ€¦ (Shift+Enter for new line)' : 'Add messageâ€¦ Attach images/docs for Master Data RAG.'}
+                  placeholder={
+                    selectedTask?.can_mutate === false
+                      ? 'View only — you can act on tasks in your department'
+                      : selectedIsCeoReview
+                        ? 'Type confirm to approve, or add a note… (Shift+Enter for new line)'
+                        : 'Add message… Attach images/docs for Master Data RAG.'
+                  }
                   rows={2}
                   style={{ width: '100%', padding: '0.5rem', borderRadius: 6, border: '1px solid var(--border)', resize: 'vertical' }}
-                  disabled={sendingMessage}
+                  disabled={sendingMessage || selectedTask?.can_mutate === false}
                   attachments={messageAttachments}
                   onAttachmentsChange={setMessageAttachments}
                 />
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  <button type="submit" disabled={sendingMessage || (!messageInput.trim() && !messageAttachments.length)} style={{ padding: '0.4rem 0.75rem', borderRadius: 6, background: 'var(--accent)', color: 'white', border: 'none', cursor: 'pointer' }}>
+                  <button type="submit" disabled={sendingMessage || selectedTask?.can_mutate === false || (!messageInput.trim() && !messageAttachments.length)} style={{ padding: '0.4rem 0.75rem', borderRadius: 6, background: 'var(--accent)', color: 'white', border: 'none', cursor: 'pointer' }}>
                     {sendingMessage ? 'Sendingâ€¦' : 'Send'}
                   </button>
                 {selectedTask && (taskDetail?.status ?? selectedTask.status) !== 'open' && (
                   <button
                     type="button"
                     onClick={() => reopenTask(selectedTask)}
-                    disabled={reopeningId === selectedTask.id}
+                    disabled={reopeningId === selectedTask.id || selectedTask.can_mutate === false}
                     style={{ padding: '0.4rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', cursor: 'pointer' }}
                   >
                     {reopeningId === selectedTask.id ? 'Reopeningâ€¦' : 'Reopen task'}

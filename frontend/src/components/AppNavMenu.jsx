@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { buildCeoNavCatalog, filterNavByHidden } from '../utils/ceoNavCatalog.js';
+import { filterCatalogByPermissions, isTenantFullAccess } from '../utils/orgAccess.js';
 
 function NavItem({ to, end, title, collapsed, label, short, nested = true }) {
   return (
@@ -122,15 +123,17 @@ export function CeoNavMenu({ collapsed }) {
   }, []);
 
   const catalog = useMemo(
-    () =>
-      filterNavByHidden(
+    () => {
+      const hiddenFiltered = filterNavByHidden(
         buildCeoNavCatalog({
           showCrm: menus.show_crm_menu,
           showErp: menus.show_erp_menu,
         }),
-        hidden
-      ),
-    [menus.show_crm_menu, menus.show_erp_menu, hidden]
+        isTenantFullAccess(user) ? hidden : []
+      );
+      return filterCatalogByPermissions(hiddenFiltered, user);
+    },
+    [menus.show_crm_menu, menus.show_erp_menu, hidden, user]
   );
 
   const byGroup = useMemo(() => {

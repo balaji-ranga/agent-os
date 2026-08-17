@@ -3,6 +3,10 @@ import { join } from 'path';
 import { getDb } from '../db/schema.js';
 import { listAgentsForUser } from './users.js';
 import {
+  actorCanAccessAgent,
+  resolveRootOwnerUserId,
+} from './org-permissions.js';
+import {
   getBalaCeoAuthId,
   getDefaultCeoUserId,
   resolveCeoDataUserId,
@@ -17,6 +21,13 @@ export function resolveChatOwnerUserId(req, body = {}) {
     throw err;
   }
   if (req.authUser.role === 'ceo') return req.authUser.id;
+  if (req.authUser.role === 'org_user') {
+    const owner = resolveRootOwnerUserId(req.authUser);
+    if (owner) return owner;
+    const err = new Error('Employee is not tagged to a company');
+    err.status = 403;
+    throw err;
+  }
   if (req.authUser.role === 'admin') {
     const err = new Error('Admin must impersonate a user to access agent chat');
     err.status = 403;
@@ -27,6 +38,14 @@ export function resolveChatOwnerUserId(req, body = {}) {
   throw err;
 }
 
+/** Acting human for personal chat history (CEO or employee), not the OpenClaw tenant owner. */
+export function resolveChatHistoryOwnerUserId(req) {
+  if (req?.authUser?.role === 'ceo' || req?.authUser?.role === 'org_user') {
+    return req.authUser.id;
+  }
+  return resolveChatOwnerUserId(req);
+}
+
 export function chatOwnerIdsForRead(authUserId) {
   const dataUserId = resolveCeoDataUserId(authUserId);
   return [...new Set([authUserId, dataUserId].filter(Boolean))];
@@ -35,7 +54,11 @@ export function chatOwnerIdsForRead(authUserId) {
 export function userCanAccessAgent(authUser, agentId) {
   if (!authUser?.id || !agentId) return false;
   if (authUser.role === 'admin' && !authUser.impersonation) return false;
-  const agents = listAgentsForUser(authUser.id);
+  if (authUser.role === 'org_user' || authUser.role === 'ceo') {
+    return actorCanAccessAgent(authUser, agentId);
+  }
+  const ownerId = authUser.role === 'ceo' ? authUser.id : authUser.id;
+  const agents = listAgentsForUser(ownerId);
   return agents.some((a) => a.id === agentId);
 }
 

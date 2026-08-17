@@ -1549,10 +1549,14 @@ router.post('/kanban-assign-task', optionalAuth, (req, res) => {
   const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
   const requestPayload = req.body || {};
   const taskId = Number(requestPayload.task_id);
-  const toAgentId = (requestPayload.to_agent_id || requestPayload.agent_id || '').toString().trim().toLowerCase();
-  try {
-    if (!taskId || !toAgentId) {
-      const err = { error: 'task_id and to_agent_id required' };
+    const assignTo = String(
+      requestPayload.to_agent_id || requestPayload.agent_id || requestPayload.assign_to || ''
+    )
+      .trim()
+      .toLowerCase();
+    try {
+    if (!taskId || !assignTo) {
+      const err = { error: 'task_id and to_agent_id (or assign_to) required' };
       logTool(req,'kanban_assign_task', requestPayload, err, 'error', source);
       return res.status(400).json(err);
     }
@@ -1563,12 +1567,6 @@ router.post('/kanban-assign-task', optionalAuth, (req, res) => {
       return res.status(403).json(err);
     }
     const db = getDb();
-    const agent = db.prepare('SELECT id FROM agents WHERE LOWER(id) = ? OR LOWER(openclaw_agent_id) = ?').get(toAgentId, toAgentId);
-    if (!agent) {
-      const err = { error: 'Agent not found' };
-      logTool(req,'kanban_assign_task', requestPayload, err, 'error', source);
-      return res.status(404).json(err);
-    }
     const task = db.prepare('SELECT * FROM kanban_tasks WHERE id = ?').get(taskId);
     if (!task) {
       const err = { error: 'Task not found' };
@@ -1582,9 +1580,36 @@ router.post('/kanban-assign-task', optionalAuth, (req, res) => {
       logTool(req, 'kanban_assign_task', requestPayload, err, 'error', source);
       return res.status(e.status || 403).json(err);
     }
+    if (assignTo.startsWith('user:')) {
+      const userId = String(requestPayload.to_agent_id || requestPayload.assign_to || '')
+        .trim()
+        .replace(/^user:/i, '');
+      const person = db
+        .prepare(
+          `SELECT id FROM platform_users WHERE id = ? AND (id = ? OR owner_user_id = ?) AND enabled = 1`
+        )
+        .get(userId, task.owner_user_id, task.owner_user_id);
+      if (!person) {
+        const err = { error: 'Employee not found in this company' };
+        logTool(req,'kanban_assign_task', requestPayload, err, 'error', source);
+        return res.status(404).json(err);
+      }
+      db.prepare(
+        "UPDATE kanban_tasks SET assigned_user_id = ?, assigned_agent_id = NULL, status = 'awaiting_confirmation', updated_at = datetime('now') WHERE id = ?"
+      ).run(person.id, taskId);
+      const out = { ok: true, task_id: taskId, assigned_user_id: person.id };
+      logTool(req,'kanban_assign_task', requestPayload, out, 'ok', source);
+      return res.json(out);
+    }
+    const agent = db.prepare('SELECT id FROM agents WHERE LOWER(id) = ? OR LOWER(openclaw_agent_id) = ?').get(assignTo, assignTo);
+    if (!agent) {
+      const err = { error: 'Agent not found' };
+      logTool(req,'kanban_assign_task', requestPayload, err, 'error', source);
+      return res.status(404).json(err);
+    }
     // Keep/open as open so the assignee (or orphan watcher) can start work; agent moves to
     // awaiting_confirmation only when they need CEO confirmation.
-    db.prepare("UPDATE kanban_tasks SET assigned_agent_id = ?, status = 'open', updated_at = datetime('now') WHERE id = ?").run(agent.id, taskId);
+    db.prepare("UPDATE kanban_tasks SET assigned_agent_id = ?, assigned_user_id = NULL, status = 'open', updated_at = datetime('now') WHERE id = ?").run(agent.id, taskId);
     const out = { ok: true, task_id: taskId, assigned_agent_id: agent.id };
     logTool(req,'kanban_assign_task', requestPayload, out, 'ok', source);
     res.json(out);

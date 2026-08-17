@@ -10,6 +10,7 @@ import {
   requireEfficiencyMember,
 } from '../services/agent-efficiency.js';
 import { getDepartmentEfficiency } from '../services/department-efficiency.js';
+import { getUserEfficiency, getUsersEfficiencySummary } from '../services/user-efficiency.js';
 import { getMemberBudgetStatus, listAgentBudgets, setAgentBudget } from '../services/agent-budgets.js';
 import { resetTokenUsage, monthPeriod } from '../services/token-usage.js';
 import { purgeOwnerRetention, RETENTION_DAY_OPTIONS, normalizeRetentionDays } from '../services/data-retention.js';
@@ -43,6 +44,25 @@ router.get('/departments', (req, res) => {
     res.json(getDepartmentEfficiency(ownerUserId));
   } catch (e) {
     console.warn('[efficiency] departments failed:', e?.message || e);
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+router.get('/users', (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.query || {});
+    res.json(getUsersEfficiencySummary(ownerUserId));
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+router.get('/users/:userId', (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.query || {});
+    const days = req.query.days != null ? req.query.days : 30;
+    res.json(getUserEfficiency(ownerUserId, req.params.userId, { days }));
+  } catch (e) {
     res.status(e.status || 500).json({ error: e.message });
   }
 });

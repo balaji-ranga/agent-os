@@ -160,6 +160,19 @@ function ownerOf(req) {
   return resolveAuthenticatedCeoUserId(req, req.body || req.query || {});
 }
 
+/** Desk SSO identity: employee email when a sub-user opens CRM/ERP; CEO otherwise. Company bind stays on owner. */
+function embedActorUser(req, ownerUserId) {
+  const ownerProfile = getUserById(ownerUserId);
+  const actor = req.authUser || {};
+  const useActor = actor.role === 'org_user' && actor.email;
+  return {
+    id: useActor ? actor.id : ownerUserId,
+    email: useActor ? actor.email : ownerProfile?.email || actor.email || null,
+    name: useActor ? actor.name : ownerProfile?.name || actor.name || null,
+    impersonation: actor.impersonation || null,
+  };
+}
+
 router.get('/profile', (req, res) => {
   try {
     const ownerUserId = ownerOf(req);
@@ -221,22 +234,13 @@ router.get('/erp-logout-targets', (req, res) => {
 
 /**
  * GET /api/business-core/embed/crm — Twenty iframe config (platform CRM only).
- * Passwordless SSO always mints for the **company owner (CEO)** email of the
- * active company scope — including when an admin is impersonating that CEO.
- * (Impersonation swaps the session to the CEO; we still resolve via owner id.)
+ * Passwordless SSO mints for the **signed-in person** (CEO root or employee email) in the
+ * company Twenty workspace. Workspace bind stays on the CEO owner.
  */
 router.get('/embed/crm', async (req, res) => {
   try {
     const ownerUserId = ownerOf(req);
-    // Prefer company owner profile email for Twenty LOGIN token (not platform admin).
-    const ownerProfile = getUserById(ownerUserId);
-    const flolahUser = {
-      id: ownerUserId,
-      email: ownerProfile?.email || req.authUser?.email || null,
-      name: ownerProfile?.name || req.authUser?.name || null,
-      // surface for UI/debug when admin is viewing-as-user
-      impersonation: req.authUser?.impersonation || null,
-    };
+    const flolahUser = embedActorUser(req, ownerUserId);
     const embed = await getCrmEmbedForOwner(ownerUserId, { flolahUser });
     let stack_status = null;
     try {
@@ -265,13 +269,7 @@ router.get('/embed/crm', async (req, res) => {
 router.get('/embed/erp', async (req, res) => {
   try {
     const ownerUserId = ownerOf(req);
-    const ownerProfile = getUserById(ownerUserId);
-    const flolahUser = {
-      id: ownerUserId,
-      email: ownerProfile?.email || req.authUser?.email || null,
-      name: ownerProfile?.name || req.authUser?.name || null,
-      impersonation: req.authUser?.impersonation || null,
-    };
+    const flolahUser = embedActorUser(req, ownerUserId);
     const embed = await getErpEmbedForOwner(ownerUserId, { flolahUser });
     let stack_status = null;
     try {

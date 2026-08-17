@@ -34,6 +34,7 @@ run_js "verify-budgets-org-members.js" "schema + ledger + warn-then-block"
 run_js "verify-module-graph.js" "module graph (no circular import breaks)"
 run_js "test-org-member-delegation-e2e.js" "COO → external leaf member delegation e2e"
 run_js "verify-agent-view-api.js" "authenticated Agent View / budgets / org-members API"
+run_js "test-org-people.js" "company people RBAC (employees / sub-users)"
 
 # Frontend SPA markers
 if docker compose exec -T frontend sh -c 'grep -Rql "Agent View" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
@@ -48,10 +49,10 @@ else
   echo "    FAIL: Add to org missing from frontend bundle"
   fail=1
 fi
-if docker compose exec -T frontend sh -c 'grep -Rql "Department tokens this month" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
-  echo "    frontend: Department tab OK"
+if docker compose exec -T frontend sh -c 'grep -Rql "User View" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then
+  echo "    frontend: User View tab OK"
 else
-  echo "    FAIL: Department tab missing from frontend bundle"
+  echo "    FAIL: User View tab missing from frontend bundle"
   fail=1
 fi
 if docker compose exec -T frontend sh -c 'grep -Rql "Reset usage" /usr/share/nginx/html/assets/*.js 2>/dev/null'; then

@@ -30,6 +30,7 @@ import {
   getPlatformLeanAgentIds,
 } from './company-blueprints/standard-prefabs.js';
 import { normalizeCountryRegion, parseIsoLocation } from '../lib/iso-country-region.js';
+import { ensureBuiltInRoles, hydrateOrgFields } from './org-permissions.js';
 
 export { isUserEnabled } from './user-enabled.js';
 
@@ -307,6 +308,11 @@ export async function registerCeoUser({
 
   if (mode === 'tenant' && !isPlatformLegacyCeo(id)) initCeoDb(id);
   const agents = grantStandardAgents(id);
+  try {
+    ensureBuiltInRoles(id);
+  } catch (e) {
+    console.warn(`[registerCeoUser] built-in org roles for ${id}:`, e.message);
+  }
 
   try {
     ensureByokVaultSlots(id, provider);
@@ -431,6 +437,7 @@ export function userPublic(row) {
     terms_version: row.terms_version || null,
     privacy_version: row.privacy_version || null,
   };
+  hydrateOrgFields(out, row);
   if (row.role === 'ceo') {
     out.ceo_db_mode = getCeoDbModeForUser(row.id);
     out.data_retention_days = Number(row.data_retention_days) || 90;

@@ -55,9 +55,29 @@ export function isOpenClawEmptyResponse(text) {
 /** Canonical empty-reply string stored in chat after a failed gateway turn. */
 export const AGENT_SYSTEM_EMPTY_REPLY = 'No response from AgentSystem.';
 
+/**
+ * OpenClaw injects a delivery-status line when the native `message` tool fails
+ * (unknown target like "whatsapp", allowFrom miss, etc.). That is gateway noise,
+ * not the employee's answer — strip before Dashboard, chat_turns, and channel copies.
+ */
+const GATEWAY_MESSAGE_FAILED_LINE_RE = /^\s*(?:⚠️\s*)?✉️\s*Message failed\s*$/gim;
+const GATEWAY_MESSAGE_FAILED_INLINE_RE = /(?:⚠️\s*)?✉️\s*Message failed/gi;
+
+export function stripOpenClawDeliveryNoise(text) {
+  const raw = String(text ?? '');
+  if (!raw) return raw;
+  const stripped = raw
+    .replace(GATEWAY_MESSAGE_FAILED_LINE_RE, '')
+    .replace(GATEWAY_MESSAGE_FAILED_INLINE_RE, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trimEnd();
+  return stripped;
+}
+
 /** User-facing copy: never expose the OpenClaw product name. */
 export function toAgentSystemUserMessage(text) {
-  const s = String(text || '');
+  const s = stripOpenClawDeliveryNoise(String(text || ''));
   if (isOpenClawEmptyResponse(s) && s.trim()) return AGENT_SYSTEM_EMPTY_REPLY;
   return s.replace(/\bOpenClaw\b/g, 'AgentSystem');
 }

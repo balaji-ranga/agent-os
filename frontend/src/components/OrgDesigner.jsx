@@ -16,6 +16,7 @@ export default function OrgDesigner({
   const [departments, setDepartments] = useState([...DEPARTMENT_PRESETS]);
   const [deptMeta, setDeptMeta] = useState(new Map());
   const [leafMembers, setLeafMembers] = useState([]);
+  const [people, setPeople] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
@@ -51,6 +52,10 @@ export default function OrgDesigner({
       .orgMembers()
       .then((r) => setLeafMembers(r.members || []))
       .catch(() => setLeafMembers([]));
+    api
+      .orgPeople()
+      .then((r) => setPeople(r.people || []))
+      .catch(() => setPeople([]));
   }, []);
 
   const byDept = useMemo(() => {
@@ -67,8 +72,20 @@ export default function OrgDesigner({
       if (!map.has(d)) map.set(d, []);
       map.get(d).push(leaf);
     }
+    for (const p of people) {
+      const d = String(p.department || '').trim() || 'Unassigned';
+      if (!map.has(d)) map.set(d, []);
+      map.get(d).push({
+        id: `user:${p.id}`,
+        name: p.name,
+        role: p.org_role_name || 'Employee',
+        department: p.department,
+        _person: true,
+        _userId: p.id,
+      });
+    }
     return [...map.entries()];
-  }, [agents, departments, leafMembers]);
+  }, [agents, departments, leafMembers, people]);
 
   const flash = (msg) => {
     setMessage(msg);
@@ -79,8 +96,15 @@ export default function OrgDesigner({
     setBusy(true);
     setError(null);
     try {
-      await api.agentUpdate(agentId, { department: department === 'Unassigned' ? '' : department });
-      await onChanged?.();
+      const dept = department === 'Unassigned' ? '' : department;
+      if (String(agentId).startsWith('user:')) {
+        await api.orgPeopleUpdate(String(agentId).slice(5), { department: dept });
+        const next = await api.orgPeople();
+        setPeople(next.people || []);
+      } else {
+        await api.agentUpdate(agentId, { department: dept });
+        await onChanged?.();
+      }
       flash(`Moved to ${department}`);
     } catch (err) {
       setError(err.message);
@@ -269,6 +293,21 @@ export default function OrgDesigner({
                 >
                   <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>
                     {a.name}
+                    {a._person && (
+                      <span
+                        style={{
+                          marginLeft: 6,
+                          fontSize: '0.65rem',
+                          fontWeight: 500,
+                          padding: '1px 6px',
+                          borderRadius: 999,
+                          border: '1px solid var(--border)',
+                          color: 'var(--muted)',
+                        }}
+                      >
+                        Employee
+                      </span>
+                    )}
                     {a._leaf && (
                       <span
                         style={{

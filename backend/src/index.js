@@ -69,12 +69,13 @@ import { migrateSqliteDocsForAllOwners } from './services/opensearch/migrate-sql
 import aiSnipperRoutes from './routes/ai-snipper.js';
 import efficiencyRoutes from './routes/efficiency.js';
 import orgMembersRoutes from './routes/org-members.js';
+import orgPeopleRoutes from './routes/org-people.js';
 import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
 import platformNotificationsRoutes from './routes/platform-notifications.js';
 import userApiKeysRoutes from './routes/user-api-keys.js';
 import homeRoutes from './routes/home.js';
-import { attachAuthUser, requireAuth, requireCeoOrAdmin } from './middleware/auth.js';
+import { attachAuthUser, requireAuth, requireCeoOrAdmin, enforceOrgUserApiPermissions } from './middleware/auth.js';
 import { ensureInternalTokenConfigured } from './middleware/internal-auth.js';
 import { ensureToolsApiKeyConfigured } from './config/tools.js';
 import { attachRedactedRequestUrl } from './utils/redact-secrets.js';
@@ -523,6 +524,7 @@ app.get('/health', healthHandler);
 
 // Single /api router so all /api/* routes are registered in one place
 const apiRouter = express.Router();
+apiRouter.use(enforceOrgUserApiPermissions);
 apiRouter.get('/health', healthHandler);
 apiRouter.get('/debug/intent-last', requireAuth, requireCeoOrAdmin, (req, res) => {
   try {
@@ -592,6 +594,7 @@ apiRouter.use('/ibkr-trading', ibkrTradingRoutes);
 apiRouter.use('/market-data', marketDataRoutes);
 apiRouter.use('/ai-snipper', aiSnipperRoutes);
 apiRouter.use('/efficiency', efficiencyRoutes);
+apiRouter.use('/org-people', orgPeopleRoutes);
 apiRouter.use('/org-members', orgMembersRoutes);
 apiRouter.use('/media/openclaw', mediaRoutes);
 apiRouter.use('/media/artifacts', mediaArtifactsRoutes);

@@ -150,6 +150,9 @@ export function resolveEntitledOwnerUserId(req, { fallbackToBala = true } = {}) 
   if (req?.authUser?.role === 'ceo' && !isPlaceholderServiceUser(req.authUser)) {
     return String(req.authUser.id).trim();
   }
+  if (req?.authUser?.role === 'org_user' && req.authUser.owner_user_id) {
+    return String(req.authUser.owner_user_id).trim();
+  }
   if (req?.authUser?.role === 'admin' && req.authUser.impersonation) {
     return String(req.authUser.id).trim();
   }
@@ -182,6 +185,9 @@ export function resolveToolOwnerUserId(req, body = {}, resolveAuthenticatedCeoUs
   // Skip placeholder internalServiceUser (always ceo-bala) — resolve from session/tenant/headers.
   if (req?.authUser?.role === 'ceo' && !isPlaceholderServiceUser(req.authUser)) {
     return req.authUser.id;
+  }
+  if (req?.authUser?.role === 'org_user' && req.authUser.owner_user_id) {
+    return req.authUser.owner_user_id;
   }
 
   if (req?.authUser?.role === 'admin') {

@@ -55,6 +55,18 @@ export function buildOrgContextForCeo(ceoUserId) {
   } catch (e) {
     console.warn('[org-context] org leaf members lookup failed', ceoUserId, e?.message || e);
   }
+  let people = [];
+  try {
+    people = getDb()
+      .prepare(
+        `SELECT id, name, email, department, parent_id, org_role_id, enabled
+         FROM platform_users WHERE owner_user_id = ? AND role = 'org_user'
+         ORDER BY name`
+      )
+      .all(ceoUserId);
+  } catch (e) {
+    console.warn('[org-context] people lookup failed', ceoUserId, e?.message || e);
+  }
   return {
     ceo: ceo
       ? { id: ceo.id, name: ceo.name, email: ceo.email || '' }
@@ -64,6 +76,7 @@ export function buildOrgContextForCeo(ceoUserId) {
     agents,
     departments,
     leaf_members: leafMembers,
+    people,
     delegatees: getAgentsUnderCooForCeo(ceoUserId),
   };
 }
@@ -141,6 +154,24 @@ export function formatOrgMd(ctx) {
     for (const m of leafMembers) {
       lines.push(
         `| \`${m.id}\` | ${String(m.display_name).replace(/\|/g, ' ')} | ${m.kind} | ${m.department || '—'} | ${String(m.purpose || '—').replace(/\|/g, ' ')} | ${m.parent_id || ctx.coo_id} |`
+      );
+    }
+  }
+  const people = Array.isArray(ctx.people) ? ctx.people : [];
+  if (people.length) {
+    lines.push(
+      '',
+      '## People (human employees / sub-users)',
+      '',
+      'These are company employees under the CEO (root). They inherit company entitlements. Prefer **AI employees** for execution. Send **approvals** to humans (`user:{id}`). If no specialist AI employee fits, assign the Kanban card to a person in that department.',
+      '',
+      '| User key | Name | Department | Reports to | Email |',
+      '|----------|------|------------|------------|-------|'
+    );
+    for (const p of people) {
+      if (!p.enabled && p.enabled !== undefined && Number(p.enabled) === 0) continue;
+      lines.push(
+        `| \`user:${p.id}\` | ${String(p.name || '').replace(/\|/g, ' ')} | ${p.department || '—'} | ${p.parent_id || ctx.coo_id} | ${String(p.email || '').replace(/\|/g, ' ')} |`
       );
     }
   }

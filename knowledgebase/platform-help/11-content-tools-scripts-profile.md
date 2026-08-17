@@ -171,6 +171,8 @@ after at least 10 terminal calls). See
 
 ## Profile (`/profile`)
 
+Always available to the CEO and to invited **employees** (sub-users). Employees inherit **company** BYOK, tools, and CRM/ERP binds from the CEO root — they do not get a separate tenant. Help **45**.
+
 Name, email, **country + region (ISO 3166-1 / ISO 3166-2 dropdowns)**, mobile, password, MFA, **model provider + chat model**, and **data persistence** (30 / 60 / 90 / 120 / 365 days; **default 90** when you have never changed it).
 
 - After the retention window, agent chat turns, standup **messages**, workflow run/step records, and aged **Content Explorer** uploaded/generated media are permanently deleted from disk (daily job; purge also available on Profile and Dashboard). Standup records themselves, Kanban cards, Master Data and API keys are never purged by retention. Job schedules: [19-scheduled-jobs-and-crons.md](./19-scheduled-jobs-and-crons.md).

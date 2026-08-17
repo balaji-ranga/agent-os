@@ -9,6 +9,7 @@ import ChatComposeInput from '../components/ChatComposeInput';
 import MessageFeedback from '../components/MessageFeedback';
 import OrgChart from '../components/OrgChart';
 import OrgDesigner from '../components/OrgDesigner';
+import OrgPeoplePanel from '../components/OrgPeoplePanel';
 import { formatLocalDateTime, formatChatTimestamp, toLocalDateTimeInputValue } from '../utils/formatDateTime.js';
 import { buildMessageWithAttachments, uploadChatAttachments } from '../utils/chatAttachments.js';
 import { userRoleTitle } from '../utils/userRoleTitle.js';
@@ -96,7 +97,7 @@ export default function Dashboard() {
   const [openclawSyncing, setOpenclawSyncing] = useState(false);
   const [orgDocSyncing, setOrgDocSyncing] = useState(false);
   const [orgDocSyncMessage, setOrgDocSyncMessage] = useState(null);
-  const [orgMode, setOrgMode] = useState('chart'); // chart | design
+  const [orgMode, setOrgMode] = useState('chart'); // chart | design | people
   const [showCreateStandupModal, setShowCreateStandupModal] = useState(false);
   const [standupTitle, setStandupTitle] = useState('');
   const [standupOutcomes, setStandupOutcomes] = useState('');
@@ -575,8 +576,25 @@ export default function Dashboard() {
           >
             Design
           </button>
+          <button
+            type="button"
+            onClick={() => setOrgMode('people')}
+            style={{
+              padding: '0.35rem 0.75rem',
+              borderRadius: 6,
+              border: `1px solid ${orgMode === 'people' ? 'var(--accent)' : 'var(--border)'}`,
+              background: orgMode === 'people' ? 'var(--accent)' : 'transparent',
+              color: orgMode === 'people' ? '#fff' : 'var(--text)',
+              cursor: 'pointer',
+              fontSize: '0.85rem',
+            }}
+          >
+            People
+          </button>
         </div>
-        {orgMode === 'design' ? (
+        {orgMode === 'people' ? (
+          <OrgPeoplePanel agents={agents} />
+        ) : orgMode === 'design' ? (
           <OrgDesigner
             agents={agents}
             onRemove={removeAgent}

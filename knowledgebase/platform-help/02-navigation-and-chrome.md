@@ -9,6 +9,7 @@
 - **Profile menu** — Edit profile (`/profile`), **Appearance** (`/profile#appearance` — Day/Night plus advanced themes), **Company setup** (`/company-setup` — first-run company wizard; [29-company-setup.md](./29-company-setup.md)), **Onboarding** (`/onboarding` — freeform org draft/Review/Apply; [27-onboarding-helper.md](./27-onboarding-helper.md)), quick Day/Night toggle, Logout.
 - **Theme toggle** — sun/moon in the top bar switches Day ↔ Night (also under Profile). **Advanced themes** (**Aurora Glass**, **Vivid Board**) are chosen under **Profile → Appearance**; choice is saved in this browser (`agent-os-theme`).
 - **Impersonation banner** — only when an admin is impersonating a CEO.
+- **Company people** — invited employees (sub-users) see a **permission-filtered** nav. Always on: Home, Kanban, Profile. CEO Delegate matches the CEO except platform Admin. Help **45**.
 - **Scrollbars** — hidden platform-wide (nav, panels, tables). Content still scrolls with trackpad/wheel/touch.
 
 ## CEO left navigation
@@ -36,7 +37,7 @@ Top-level (always shown; cannot hide in Menu visibility):
 
 | Label | Route | Use for |
 |-------|-------|---------|
-| My Org / Dashboard | `/org` | Org chart, standups + COO chat, Resync ORG/AGENTS |
+| My Org / Dashboard | `/org` | Org chart, standups + COO chat, **People** (invite employees / sub-users — help **45**), Resync ORG/AGENTS |
 | Kanban | `/kanban` | Work tasks (Weekly default; agent filter / Select all / task ID), CEO approvals, artifacts; deep-link `?task=` from global search |
 | **Scheduled goals** | `/scheduled-goals` | Recurring CEO prompts (**hourly** / daily / weekdays / weekly); create **and edit**; **Generate draft plan is COO-only** (other employees **Save & schedule**); pause survives restarts. Also via COO chat. See [28-scheduled-goals.md](./28-scheduled-goals.md) |
 | **Goal plans** | `/goal-plans` | Full weekly list of durable multiphase plans (`agr-…`); week filters; linked from Digest **View all plans** |
@@ -46,7 +47,7 @@ Top-level (always shown; cannot hide in Menu visibility):
 | Policies | `/policies` | CEO common guardrails for all AI employees + Brain nodes |
 | AI Snipper | `/ai-snipper` | Prompt / token / tool-call usage timeline |
 | **Browser Session** | `/browser-session` | Managed Playwright, Client Chrome relay, recipes; multi-user also uses Connectors **Browser Session package** (local worker) |
-| **Efficiency View** | `/efficiency` | **Org** tab: AI employees, automated tasks, feedback, workflow run success/fail, Storage (MB). **Department** tab: month-to-date tokens vs department budget. **Agent View** tab: per-employee activity, outcomes, token/error budgets, **Reset usage** |
+| **Efficiency View** | `/efficiency` | **Org** tab: AI employees, automated tasks, feedback, workflow run success/fail, Storage (MB). **Department** tab: month-to-date tokens vs department budget **plus people task counts**. **Agent View** tab: per-employee activity, outcomes, token/error budgets, **Reset usage**. **User View** tab: Kanban performance for people (`/efficiency?tab=user`) |
 | **CRM** | `/crm` | Shown when Profile CRM = Twenty or ERPNext (desk embed). Pipeline work: CRM Maker/Checker (Lead→Order — help **40**) |
 | **ERP** | `/erp` | Shown when Profile ERP = ERPNext (desk embed). Books: ERP Maker/Checker (O2C/P2P — help **39**) |
 | **3D Avatars** | `/avatars` | Avatar models, Virtual Rooms, publish public scenes |

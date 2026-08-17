@@ -681,6 +681,18 @@ export const api = {
   efficiencyRetentionSet: (data_retention_days) => put('/efficiency/retention', { data_retention_days }),
   efficiencyRetentionPurge: (days = null) =>
     post('/efficiency/retention/purge', days != null ? { days } : {}),
+  efficiencyUser: (userId, days = 30) =>
+    get(`/efficiency/users/${encodeURIComponent(userId)}?days=${encodeURIComponent(days)}`),
+  efficiencyUsers: () => get('/efficiency/users'),
+  orgPeople: () => get('/org-people'),
+  orgPeopleCatalog: () => get('/org-people/catalog'),
+  orgPeopleInvite: (body) => post('/org-people', body),
+  orgPeopleUpdate: (id, body) => patch(`/org-people/${encodeURIComponent(id)}`, body),
+  orgPeopleResendInvite: (id) => post(`/org-people/${encodeURIComponent(id)}/resend-invite`, {}),
+  orgPeopleRoles: () => get('/org-people/roles/list'),
+  orgPeopleRoleCreate: (body) => post('/org-people/roles', body),
+  orgPeopleRoleUpdate: (roleId, body) => put(`/org-people/roles/${encodeURIComponent(roleId)}`, body),
+  orgPeopleRoleDelete: (roleId) => del(`/org-people/roles/${encodeURIComponent(roleId)}`),
   orgMembers: () => get('/org-members'),
   orgMemberUpsert: (body) => post('/org-members', body),
   orgMemberDelete: (id) => del(`/org-members/${encodeURIComponent(id)}`),

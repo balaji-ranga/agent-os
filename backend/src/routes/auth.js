@@ -4,10 +4,10 @@ import {
   authenticateUser,
   registerCeoUser,
   getUserById,
-  listAgentsForUser,
   updateUserProfile,
   listIndustries,
 } from '../services/users.js';
+import { listEntitledAgentsForActor, resolveRootOwnerUserId } from '../services/org-permissions.js';
 import { resolveCeoDataUserId, getBalaCeoAuthId } from '../services/job-applicant-ceo.js';
 import { getCeoDbModeForUser, usesTenantCeoDb } from '../db/ceo-db-config.js';
 import { attachAuthUser, requireAuth, logout } from '../middleware/auth.js';
@@ -137,7 +137,9 @@ router.post('/login', async (req, res) => {
     const { email, password } = req.body || {};
     const user = authenticateUser(email, password);
     if (!user) return res.status(401).json({ error: 'Invalid email or password' });
-    if (user.role !== 'ceo') return res.status(403).json({ error: 'Use admin login for admin accounts' });
+    if (user.role !== 'ceo' && user.role !== 'org_user') {
+      return res.status(403).json({ error: 'Use admin login for admin accounts' });
+    }
     res.json(await finishLoginAfterPassword(user));
   } catch (e) {
     res.status(e.status || 400).json({ error: e.message });
@@ -256,13 +258,15 @@ router.get('/me', requireAuth, (req, res) => {
     const user = getUserById(req.authUser.id);
     const mfaRow = getUserMfa(req.authUser.id);
     const resolved = resolveUserMfa(mfaRow);
+    const ownerId = resolveRootOwnerUserId(req.authUser) || (req.authUser.role === 'ceo' ? req.authUser.id : null);
+    const agents = ownerId ? listEntitledAgentsForActor(req.authUser) : [];
     const payload = {
       user: req.authUser.impersonation ? { ...user, impersonation: req.authUser.impersonation } : user,
-      agents: req.authUser.role === 'ceo' ? listAgentsForUser(req.authUser.id) : [],
-      data_ceo_user_id: req.authUser.role === 'ceo' ? resolveCeoDataUserId(req.authUser.id) : null,
-      ceo_db_mode: req.authUser.role === 'ceo' ? getCeoDbModeForUser(req.authUser.id) : null,
-      uses_shared_db: req.authUser.role === 'ceo' ? !usesTenantCeoDb(req.authUser.id) : null,
-      uses_platform_db: req.authUser.role === 'ceo' && req.authUser.id === getBalaCeoAuthId(),
+      agents,
+      data_ceo_user_id: ownerId ? resolveCeoDataUserId(ownerId) : null,
+      ceo_db_mode: ownerId ? getCeoDbModeForUser(ownerId) : null,
+      uses_shared_db: ownerId ? !usesTenantCeoDb(ownerId) : null,
+      uses_platform_db: ownerId && ownerId === getBalaCeoAuthId(),
       /** Platform default (PLATFORM_TIMEZONE); empty user.display_timezone falls back to this for UI. */
       platform_timezone: getServerTimezone(),
       mfa: {

@@ -37,6 +37,8 @@ Use the **agent-send** skill (sessions_list, sessions_send, sessions_history) to
 
 Follow **AGENT-OS-OPS.md** for learnings, Kanban status, specialty-first, full-context handoffs, notify_ceo, inbound files, summarize_url fallbacks, and workflow-terminal wakes. Do not restate those rules here.
 
+Treat **People** (human employees / sub-users, keys `user:{id}` in ORG.md) as company employees alongside AI employees. Prefer AI employees for execution. Send approvals to humans. If no specialist AI employee fits, assign the Kanban card to a person in that department (`kanban_assign_task` with `assign_to` = `user:{id}`).
+
 ## Tools (Agent OS)
 
 - **intent_classify_and_delegate**: When the CEO asks for **any specialist work** (recipe/content, research, expense, social posts, coding, Vedic/Jyotish astrology, weather) — **even a single intent** — call **intent_classify_and_delegate** with a **full handoff** (original CEO request + constraints, not only the last meta line). The backend creates Kanban + delegation. **Do not** invent agent ids. **Do not** write the specialty deliverable yourself. **Skip** when the CEO says **don't/do not delegate** or only asks to find/download/attach an existing file.

@@ -5,8 +5,13 @@
 import { resolveCeoDataUserId } from './job-applicant-ceo.js';
 import { getDb } from '../db/schema.js';
 import { getDbForCeo } from '../db/request-db.js';
+import { isOrgUser, isTenantFullAccess, resolveRootOwnerUserId } from './org-permissions.js';
 
-export function getKanbanScopeIds(authUserId) {
+export function getKanbanScopeIds(authUserOrId) {
+  let authUserId = authUserOrId;
+  if (authUserOrId && typeof authUserOrId === 'object') {
+    authUserId = resolveRootOwnerUserId(authUserOrId) || authUserOrId.id;
+  }
   const dataUserId = resolveCeoDataUserId(authUserId);
   return [...new Set([authUserId, dataUserId].filter(Boolean))];
 }
@@ -41,7 +46,7 @@ export function kanbanTaskBelongsToUser(task, authUser) {
   // Platform admin without impersonation does not share a CEO Kanban board
   if (authUser.role === 'admin' && !authUser.impersonation) return false;
 
-  const scopeIds = getKanbanScopeIds(authUser.id);
+  const scopeIds = getKanbanScopeIds(authUser);
   const ownerId = resolveKanbanTaskOwnerId(task);
   if (!ownerId) return false;
   return scopeIds.includes(ownerId);
@@ -59,6 +64,56 @@ export function assertKanbanTaskAccess(task, authUser) {
   }
 }
 
+function agentDepartment(agentId) {
+  if (!agentId) return '';
+  const row = getDb().prepare('SELECT department FROM agents WHERE id = ?').get(agentId);
+  return String(row?.department || '').trim().toLowerCase();
+}
+
+function userDepartment(userId) {
+  if (!userId) return '';
+  const row = getDb().prepare('SELECT department, role FROM platform_users WHERE id = ?').get(userId);
+  if (!row) return '';
+  if (row.role === 'ceo') return '*';
+  return String(row.department || '').trim().toLowerCase();
+}
+
+function normalizeDept(name) {
+  return String(name || '').trim().toLowerCase();
+}
+
+/** Department of a card's assignee (agent or human). Empty if unassigned. */
+export function kanbanTaskAssigneeDepartment(task) {
+  if (!task) return '';
+  if (task.assigned_user_id) return userDepartment(task.assigned_user_id);
+  if (task.assigned_agent_id) return agentDepartment(task.assigned_agent_id);
+  return '';
+}
+
+/**
+ * CEO / CEO Delegate can mutate any company card.
+ * Department employees may mutate only when the assignee is in their department.
+ */
+export function canMutateKanbanTask(task, authUser) {
+  if (!kanbanTaskBelongsToUser(task, authUser)) return false;
+  if (isTenantFullAccess(authUser) || authUser?.role === 'ceo') return true;
+  if (!isOrgUser(authUser)) return false;
+  const actorDept = normalizeDept(authUser.department);
+  if (!actorDept) return false;
+  const taskDept = kanbanTaskAssigneeDepartment(task);
+  if (!taskDept || taskDept === '*') return false;
+  return taskDept === actorDept;
+}
+
+export function assertKanbanTaskMutate(task, authUser) {
+  assertKanbanTaskAccess(task, authUser);
+  if (!canMutateKanbanTask(task, authUser)) {
+    const err = new Error('You can only act on tasks for your department');
+    err.status = 403;
+    throw err;
+  }
+}
+
 /** SQL fragment + params for owner-scoped Kanban list queries. */
 export function kanbanOwnerSqlFilter(authUser, { alias = 'k' } = {}) {
   if (!authUser?.id) {
@@ -67,7 +122,7 @@ export function kanbanOwnerSqlFilter(authUser, { alias = 'k' } = {}) {
   if (authUser.role === 'admin' && !authUser.impersonation) {
     return { clause: '1=0', params: [] };
   }
-  const scopeIds = getKanbanScopeIds(authUser.id);
+  const scopeIds = getKanbanScopeIds(authUser);
   if (!scopeIds.length) return { clause: '1=0', params: [] };
   const placeholders = scopeIds.map(() => '?').join(',');
   return {
