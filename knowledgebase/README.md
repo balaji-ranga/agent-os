@@ -65,5 +65,6 @@ Documentation lives here so Cursor and humans can find it. **Root README.md** st
 | [platform-help/36-operational-effectiveness.md](./platform-help/36-operational-effectiveness.md) | Home OEI score, domains, goal-run KPIs, COO tool |
 | [platform-help/30-content-creator-ops.md](./platform-help/30-content-creator-ops.md) | CEO help: content ops publish / community / Ops Reporter (bell not email) |
 | [platform-help/41-video-content-studio.md](./platform-help/41-video-content-studio.md) | CEO help: video storyboard + cast portraits + S4/S5 (`run video media` / `run video assembly`) → `video_generated` |
+| [platform-help/16-connectors-openconnector.md](./platform-help/16-connectors-openconnector.md) | CEO help: Connectors catalog — **~1,300** SaaS apps via [Open Connector](https://openconnector.dev/#connectors) |
 | [platform-help/31-mcp-connectors-oauth.md](./platform-help/31-mcp-connectors-oauth.md) | CEO/ops help: Connectors → MCPs OAuth (Facebook, App override, other providers) |
 | [AMENDMENT-CONTENT-MEDIA-API-PUBLISH.md](./AMENDMENT-CONTENT-MEDIA-API-PUBLISH.md) | Design amendment: Meta Graph publish, comments ingest, content_creator pack |

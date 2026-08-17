@@ -22,7 +22,7 @@
 | [13-workflow-autonomous-certify.md](./13-workflow-autonomous-certify.md) | Maker/Checker certify jobs, status-on-request, resume inputs |
 | [14-workflow-dynamic-values.md](./14-workflow-dynamic-values.md) | `{{…}}` templates, variables, trigger input, **vault** auth |
 | [15-api-keys-vault.md](./15-api-keys-vault.md) | **API Keys** vault, auto-seeded BYOK slots, `Platform_BYOK` / Replicate / Brave / **Places** / X / Instagram / ElevenLabs; pointer to **Tools → Rate limits** |
-| [16-connectors-openconnector.md](./16-connectors-openconnector.md) | **Connectors → OpenConnector**: OAuth / API key / no-auth, CEO **App ID/secret override (BYOA)**, admin Provider OAuth apps, Connector node, IBKR/Browser packages; MCPs tab → **31** |
+| [16-connectors-openconnector.md](./16-connectors-openconnector.md) | **Connectors → OpenConnector**: **~1,300 apps** via [Open Connector](https://openconnector.dev/#connectors); OAuth / API key / no-auth, CEO **App ID/secret override (BYOA)**, Connector node, IBKR/Browser packages; MCPs tab → **31** |
 | [17-desktop-windows-download.md](./17-desktop-windows-download.md) | **Download for Windows** — local orchestrator, tokens, IP whitelist (W2 execute) |
 | [18-agent-budgets-and-org-members.md](./18-agent-budgets-and-org-members.md) | Department purpose/budget, **agent token + error budgets** (warn-then-block), **Efficiency → Agent View / User View**, external/A2A agents as org leaf members; vs **Tools → Rate limits** (API calls) |
 | [19-scheduled-jobs-and-crons.md](./19-scheduled-jobs-and-crons.md) | Platform crons vs your own schedules, **COO status checker** (daily report + HTML email), **data retention** purge, Storage (MB); points to **Scheduled goals** |

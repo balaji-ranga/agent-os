@@ -239,13 +239,22 @@ Upload/approve scripts under **Custom scripts**.
 
 ## Filesystem (`filesystem`)
 
-**Purpose:** List / exists / stat / read_text / move under allowed roots (`WORKFLOW_FS_ROOTS`). Often paired with schedule triggers to poll a folder.
+**Purpose:** Read and write files. **Local disk** uses Windows (`C:\data\file.txt`) or Unix (`/var/data/file.txt`) paths. **FTP / FTPS / SFTP** talks to a remote host. Pair with a schedule trigger to poll a folder.
 
-**Key attributes:** `operation`, default `path`/`glob`/`destination`, `maxBytes`.
+**Where it runs**
+
+| How you start the workflow | Local disk | FTP | SFTP |
+|----------------------------|------------|-----|------|
+| Run on Flolah (browser / schedule / chat) | Server volume under `WORKFLOW_FS_ROOTS` | Flolah connects to the site | Flolah connects to the site |
+| **Download for Windows** desktop package | **Laptop** path (Windows or Unix) | Laptop connects (LAN FTP works) | Flolah connects (vault password/key). Set **Execute on = Flolah** or leave Auto. |
+
+**Key attributes:** `transport` (`local` \| `ftp` \| `ftps` \| `sftp`), `operation` (`list` \| `exists` \| `stat` \| `read_text` \| `write_text` \| `move`), `path`, `glob`, `content` (write), `destination` (move), `host` / `port` / `username`, password or private key via **vault key** (Settings → API Keys), `executeOn` (`auto` \| `local` \| `server`) for desktop packages, `maxBytes`.
+
+Do not put FTP/SFTP passwords in logs. Prefer a vault ref over a literal on the node.
 
 | Inputs | Outputs |
 |--------|---------|
-| `path`, `glob`, `destination` | `ok`, `count`, `names`, `text`, `has_files`, `files`, `path`, `result` |
+| `path`, `glob`, `content` (write_text), `destination` (move) | `ok`, `count`, `names`, `text`, `has_files`, `files`, `path`, `result` |
 
 ---
 
@@ -319,9 +328,9 @@ Stop listen from run UI when needed.
 
 ## Connector (`connector`)
 
-**Purpose:** Run an **OpenConnector** SaaS app action as the signed-in CEO (GitHub, Gmail, Drive, …).
+**Purpose:** Run an **OpenConnector** SaaS app action as the signed-in CEO. The catalog is about **1,300** apps via [Open Connector](https://openconnector.dev/#connectors) (GitHub, Gmail, Drive, Slack, HubSpot, …).
 
-**Prerequisite:** Connect the app under **Connectors** (`/connectors`) and provision the runtime token. See [16-connectors-openconnector.md](./16-connectors-openconnector.md).
+**Prerequisite:** Connect the app under **Connectors** (`/connectors`) and provision the runtime token. See [16-connectors-openconnector.md](./16-connectors-openconnector.md). Credit: [openconnector.dev/#connectors](https://openconnector.dev/#connectors).
 
 **Key attributes:** `appId` / `appName`, `actionId`, optional connection alias; action input fields (static or `{{…}}`).
 

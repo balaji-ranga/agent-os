@@ -16,7 +16,7 @@ Follow the sections in order if you are new:
 5. [First 15 minutes](/start/first-15-minutes)
 6. [Company setup](/setup/company-setup) through knowledge and hiring
 7. [Run day to day](/run/chat-and-coo) — COO, Kanban, goals
-8. [Tools and systems](/systems/workflows) — workflows, CRM, channels
+8. [Tools and systems](/systems/workflows) — workflows, [~1,300 Connectors](/systems/connectors-and-mcp), CRM, channels
 9. [Operate and grow](/operate/maker-checker) — approvals, budgets, troubleshooting
 
 Already logged in? Open **Platform Help** in the product for the same topics in chat, or use the sidebar here.

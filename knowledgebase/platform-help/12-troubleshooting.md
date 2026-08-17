@@ -120,6 +120,8 @@ Open **Kanban**, find the approval card, approve or reject with a comment. IF no
 
 ## Connectors / Connector node fails
 
+The **Connectors** catalog is about **1,300** SaaS apps via [Open Connector](https://openconnector.dev/#connectors). Search there in-product; we do not list every app in this help file.
+
 1. Provision runtime token on **Connectors**.
 2. App connected for **this** CEO? OAuth expired → reconnect.
 3. Workflow **Connector** node has the correct app + action.

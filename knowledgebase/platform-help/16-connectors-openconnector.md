@@ -2,6 +2,12 @@
 
 Path: **Agentic Workflows → Connectors** (`/connectors`).
 
+## Catalog (about 1,300 apps)
+
+Flolah’s **OpenConnector** tab searches the **[Open Connector](https://openconnector.dev/#connectors)** SaaS catalog — **about 1,300 connectors** (GitHub, Slack, Gmail, Google Drive, Notion, Linear, HubSpot, Salesforce, Jira, Stripe, Shopify, Discord, LinkedIn, Facebook, and many more). You connect an app once (OAuth, API key, or no-auth), then call it from workflow **Connector** nodes and `connector_*` tools.
+
+**Credit:** Integration coverage is provided by [Open Connector](https://openconnector.dev/#connectors) (open-source AI integration platform). Browse the live list there; Flolah does not duplicate that catalog as a static page. Search from **Connectors** in the product.
+
 Two tabs on the same page:
 
 | Tab | Purpose | Setup guide |
@@ -27,7 +33,7 @@ Connect **SaaS apps** to your CEO account via **OpenConnector**. Connected apps 
 
 1. Open **Connectors**.
 2. Click **Provision runtime token** (or equivalent “ensure linked”) so workflows can call apps as you.
-3. Use a **starter** (Hacker News, GitHub, Gmail, Google Drive) or **search** the app catalog.
+3. Use a **starter** (Hacker News, GitHub, Gmail, Google Drive) or **search** the Open Connector catalog (about **1,300** apps — [openconnector.dev/#connectors](https://openconnector.dev/#connectors)).
 4. Open an app → follow **OAuth** (browser popup / redirect) or paste an **API key** when the provider requires it.
 5. Confirm the app appears under **Your connections**.
 
