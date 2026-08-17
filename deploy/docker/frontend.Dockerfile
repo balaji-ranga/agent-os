@@ -26,6 +26,8 @@ FROM nginx:1.27-alpine
 
 COPY deploy/nginx/frontend.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
+# Keep OSS attribution next to /legal/*.html even if public/ copy is stale
+COPY THIRD_PARTY_NOTICES.md /usr/share/nginx/html/legal/THIRD_PARTY_NOTICES.md
 
 EXPOSE 80
 

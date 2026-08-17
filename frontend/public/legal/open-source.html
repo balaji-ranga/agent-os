@@ -18,30 +18,51 @@
       </nav>
     </header>
     <h1>Open Source Notices</h1>
-    <p class="meta">Version <strong>2026-08-09</strong></p>
-    <p>Flolah is a commercial product. Application, branding, and proprietary services are owned by the Flolah operator unless stated otherwise. The repository includes a top-level LICENSE and THIRD_PARTY_NOTICES for dependency attribution.</p>
+    <p class="meta">Version <strong>2026-08-17</strong></p>
+    <p>Flolah is a commercial product. Application, branding, and proprietary services are owned by the Flolah operator unless stated otherwise. Open-source and third-party components keep their own licenses. Using hosted Flolah does not grant rights to redistribute Flolah proprietary code under those licenses.</p>
+    <p>Full attribution, Apache NOTICE text, and npm package tables: <a href="THIRD_PARTY_NOTICES.md">THIRD_PARTY_NOTICES.md</a>.</p>
+
     <h2>How open source relates to your use</h2>
     <ul>
-      <li>The Service embeds open-source libraries (for example React, Express, and other Node packages).</li>
-      <li>Those packages keep their own licenses; authors typically disclaim warranties.</li>
-      <li>Using hosted Flolah does not grant rights to redistribute Flolah proprietary code under those OSS licenses.</li>
-      <li>If redistributable binaries or images require notice, notices are published in the repository and/or this page.</li>
+      <li>The Service embeds libraries (React, Express, Node packages) and may run sidecars (search, connectors, optional CRM/ERP).</li>
+      <li>Authors typically disclaim warranties. Copyleft programs (for example Twenty CRM, ERPNext) keep AGPL/GPL obligations for <em>those</em> programs.</li>
+      <li>Provider names and trademarks belong to their owners and are used only to identify interoperable services.</li>
     </ul>
-    <h2>Stack highlights (non-exhaustive)</h2>
+
+    <h2>Named open-source components</h2>
+    <p>Representative projects Flolah ships or optionally runs. This list is not every transitive npm/OS package.</p>
     <ul>
-      <li>Web UI: React, Vite, and related libraries</li>
-      <li>API: Node.js, Express, SQLite tooling</li>
-      <li>AI/runtime integrations including OpenClaw where deployed</li>
-      <li>Infrastructure: Nginx, Docker, OpenSearch Dashboards (admin), OpenConnector, optional Playwright/Chromium automation</li>
-      <li>Optional Business Core (for example Twenty CRM) with separate licenses</li>
+      <li><strong>Node.js</strong> — MIT (plus bundled component licenses) — runtime</li>
+      <li><strong>Docker</strong> / Compose — Apache-2.0 — containers</li>
+      <li><strong>Nginx</strong> — BSD-2-Clause — reverse proxy</li>
+      <li><strong>SQLite</strong> — public domain — metadata store</li>
+      <li><strong>React</strong>, <strong>Vite</strong>, <strong>React Flow</strong> (@xyflow/react), <strong>three.js</strong> — MIT — web UI and workflow editor</li>
+      <li><strong>Express</strong> — MIT — HTTP API</li>
+      <li><strong>Docusaurus</strong> — MIT — public user guide at <a href="/docs/">/docs/</a></li>
+      <li><strong>OpenSearch</strong> and <strong>OpenSearch Dashboards</strong> — Apache-2.0 — document search / RAG. Copyright OpenSearch Contributors; includes software developed by Elasticsearch, the Apache Software Foundation, Joda.org, and Morten Haraldsen (ethlo).</li>
+      <li><strong>Open Connector</strong> (<a href="https://github.com/oomol-lab/open-connector">oomol-lab/open-connector</a>, Apache-2.0, OOMOL Lab) — SaaS connector catalog (~1,300 apps in Flolah). Live list: <a href="https://openconnector.dev/#connectors">openconnector.dev/#connectors</a>. OOMOL Connect is Apache-2.0 except where otherwise noted. Third-party provider names, trademarks, logos, APIs, and brand assets remain with their owners; references are for identification and interoperability only.</li>
+      <li><strong>OpenClaw</strong> — MIT, Copyright (c) 2026 OpenClaw Foundation — AI employee gateway where deployed</li>
+      <li><strong>Playwright</strong> (Apache-2.0) and <strong>Chromium</strong> (BSD and other Chromium licenses) — browser automation where enabled</li>
+      <li><strong>FFmpeg</strong> — LGPL/GPL (Debian package) — video assembly</li>
+      <li><strong>Crawlee</strong> — Apache-2.0 — optional web scrape</li>
+      <li><strong>Ollama</strong> — MIT — optional local LLM runtime (model weights have separate terms)</li>
+      <li><strong>Piper</strong> (MIT) and <strong>faster-whisper</strong> (MIT) — optional local speech</li>
+      <li><strong>Twenty CRM</strong> — AGPL-3.0 — optional Business Core CRM</li>
+      <li><strong>ERPNext</strong> / Frappe — GPL-3.0 — optional Business Core ERP</li>
+      <li><strong>PostgreSQL</strong> — PostgreSQL License; <strong>MariaDB</strong> — GPL-2.0 — optional Business Core databases</li>
     </ul>
-    <p>Full dependency attribution lives in <code>THIRD_PARTY_NOTICES.md</code> in the engineering repository.</p>
+
+    <h2>Optional Hunyuan3D</h2>
+    <p>If the operator enables Hunyuan3D for 3D avatars: Tencent Hunyuan 3D 2.0 is licensed under the Tencent Hunyuan 3D 2.0 Community License Agreement, Copyright © 2025 Tencent. All Rights Reserved. The trademark rights of “Tencent Hunyuan” are owned by Tencent or its affiliate. That community license is not Apache-2.0 and has territory and usage limits.</p>
+
     <h2>Free models and free third-party services</h2>
-    <p>Optional free/local models (for example Ollama) and free APIs may have usage terms that are not OSS licenses. Comply with those terms when you enable them.</p>
+    <p>Optional free/local models (for example Ollama weights) and free APIs may have usage terms that are not OSS licenses. Comply with those terms when you enable them.</p>
+
     <footer>
       <a href="terms.html">Terms</a>
       <a href="privacy.html">Privacy</a>
       <a href="cookies.html">Cookies</a>
+      <a href="THIRD_PARTY_NOTICES.md">Full notices</a>
       <a href="/">Flolah home</a>
     </footer>
   </div>

@@ -25,6 +25,7 @@
 # Company setup (/company-setup, platform-help 29),
 # TOTP first-login QR + security key (Login/Register enrollment),
 # Legal register accept + /legal static pages (AGENT_OS_TERMS_VERSION / AGENT_OS_PRIVACY_VERSION),
+#   THIRD_PARTY_NOTICES.md (OpenSearch, Open Connector, Node.js, Docker, OpenClaw, npm, optional Twenty/ERPNext),
 # Left nav sections collapsed by default (AppNavMenu agent-os-nav-section-v2),
 # Kanban All view (default) aligned with status_checker all-ages counts,
 # private A2A publications reachable from COO delegation when registered as an
@@ -357,6 +358,8 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\vps-test-coo-moon-fuel.js" `
     "$Repo\backend\scripts\vps-test-application-masterdata-notify.js" `
     "$Repo\backend\scripts\offboard-users-except-keepers.js" `
+    "$Repo\backend\scripts\offboard-users-by-name-prefix.js" `
+    "$Repo\backend\scripts\test-user-insights.js" `
     "$Repo\backend\scripts\onboard-vedic-astrology-agent.js" `
     "$Repo\backend\scripts\vps-onboard-specialty-agents-bala.js" `
     "$Repo\backend\scripts\test-vedic-compute-chart.js" `
@@ -558,6 +561,9 @@ if ($Services -match "backend|openclaw") {
     "$Repo\knowledgebase\IBKR-TRADING-WORKFLOW.md" `
     "root@${HostIp}:$RemoteRoot/knowledgebase/"
   scp @ssh "$Repo\README.md" "root@${HostIp}:$RemoteRoot/README.md"
+  if (Test-Path "$Repo\THIRD_PARTY_NOTICES.md") {
+    scp @ssh "$Repo\THIRD_PARTY_NOTICES.md" "root@${HostIp}:$RemoteRoot/THIRD_PARTY_NOTICES.md"
+  }
   scp @ssh -r "$Repo\openclaw-skills\agent-os-content-tools" "root@${HostIp}:$RemoteRoot/openclaw-skills/"
   scp @ssh -r "$Repo\openclaw-skills\agent-send" "root@${HostIp}:$RemoteRoot/openclaw-skills/"
 }

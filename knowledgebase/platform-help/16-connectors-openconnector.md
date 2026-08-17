@@ -2,7 +2,7 @@
 
 Path: **Connectors** (`/connectors`).
 
-Flolah Connectors is backed by **[Open Connector](https://openconnector.dev/#connectors)** ([github.com/oomol-lab/open-connector](https://github.com/oomol-lab/open-connector), Apache-2.0, OOMOL Lab). The catalog in Flolah is about **1,300 connectors** (upstream project: **1,000+ providers** and **10,000+ prebuilt actions**). Search in **Connectors**, connect with OAuth or an API key, then call the app from a workflow **Connector** node. Provider names and trademarks belong to their respective owners.
+Flolah Connectors is backed by **[Open Connector](https://openconnector.dev/#connectors)** ([github.com/oomol-lab/open-connector](https://github.com/oomol-lab/open-connector), Apache-2.0, OOMOL Lab). The catalog in Flolah is about **1,300 connectors** (upstream project: **1,000+ providers** and **10,000+ prebuilt actions**). Search in **Connectors**, connect with OAuth or an API key, then call the app from a workflow **Connector** node. Provider names and trademarks belong to their respective owners. License and NOTICE text: [`THIRD_PARTY_NOTICES.md`](../../THIRD_PARTY_NOTICES.md) and `/legal/open-source.html`.
 
 Two tabs on the same page:
 

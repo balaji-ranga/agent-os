@@ -31,6 +31,15 @@ Makers draft. **Checkers** review and perform high-risk actions (including CRM *
 3. Ask the **COO** for pipeline or books **status**, or talk to the Maker for creates and stage changes.
 4. **Platform Help** explains the process; it does not read live pipeline or ledgers.
 
+## Licenses
+
+Optional Business Core runs **open-source** CRM/ERP next to Flolah:
+
+- **Twenty CRM** — [github.com/twentyhq/twenty](https://github.com/twentyhq/twenty), AGPL-3.0
+- **ERPNext** — [github.com/frappe/erpnext](https://github.com/frappe/erpnext), GPL-3.0
+
+Those licenses apply to Twenty and ERPNext, not to Flolah proprietary code. See [Open source notices](https://flolah.cloud/legal/open-source.html).
+
 Never invent customers to “fill” the pipeline. Real enquiries only (website, chat, WhatsApp, Business Discovery Act, or your ask).
 
 If a CRM workspace hostname does not load in the browser, contact support — DNS for company subdomains is handled by the platform.

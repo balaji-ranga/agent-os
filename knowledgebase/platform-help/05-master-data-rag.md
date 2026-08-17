@@ -5,7 +5,7 @@
 Two pillars:
 
 1. **Tables** — structured rows/columns (CSV-friendly). Still stored in the CEO SQLite database.
-2. **Documents** — uploaded files indexed in **OpenSearch** (not SQLite) for search and RAG.
+2. **Documents** — uploaded files indexed in **OpenSearch** (Apache-2.0; [opensearch.org](https://opensearch.org/)) for search and RAG. Attribution: `/legal/open-source.html`.
 
 ## Tables
 

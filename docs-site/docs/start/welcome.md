@@ -34,7 +34,7 @@ You can hire more specialists, enable optional CRM/ERP, and connect WhatsApp, Sl
 | **This site** (`/docs`) | Open, public walkthrough — start here before or after you sign in |
 | **Platform Help** (in the app) | Ask in plain language while you are logged in; it searches the same product how-to corpus |
 
-Legal documents (Terms, Privacy, Cookies, Open source) live under [Legal](https://flolah.cloud/legal/terms.html) and in the login footer.
+Legal documents (Terms, Privacy, Cookies, Open source) live under [Legal](https://flolah.cloud/legal/terms.html) and in the login footer. Named component attribution: [Open source notices](https://flolah.cloud/legal/open-source.html).
 
 ## What this guide does not cover
 

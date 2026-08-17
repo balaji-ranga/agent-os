@@ -3,7 +3,7 @@
 **Audience:** CEOs, Platform Help, and operators configuring Flolah.  
 **Scope:** Third-party services the platform calls that typically need an **API key**, **token**, or **SMTP credentials**. Internal-only secrets (`AgentSystem_GATEWAY_TOKEN`, `TOOLS_API_KEY`, `AGENT_OS_INTERNAL_TOKEN`) are omitted — those are not vendor APIs.
 
-Related: [15-api-keys-vault.md](./15-api-keys-vault.md) (how CEOs store secrets), [08-mcp-integrations.md](./08-mcp-integrations.md) (Brave MCP BYOK), [20-ibkr-monthly-trading.md](./20-ibkr-monthly-trading.md) (FMP + IBKR).
+Related: [15-api-keys-vault.md](./15-api-keys-vault.md) (how CEOs store secrets), [08-mcp-integrations.md](./08-mcp-integrations.md) (Brave MCP BYOK), [20-ibkr-monthly-trading.md](./20-ibkr-monthly-trading.md) (FMP + IBKR). Open-source runtimes (OpenSearch, Open Connector, Node.js, Docker, optional Twenty/ERPNext): [`THIRD_PARTY_NOTICES.md`](../../THIRD_PARTY_NOTICES.md) and `/legal/open-source.html`.
 
 ## How keys are supplied
 

@@ -367,6 +367,7 @@ services:
 
   # Document meta + RAG search. Not published to the host — backend only.
   # Security plugin disabled; isolation is Docker network (same pattern as OpenClaw gateway).
+  # License: Apache-2.0 — see repo THIRD_PARTY_NOTICES.md (OpenSearch NOTICE reproduced there).
   opensearch:
     image: opensearchproject/opensearch:2.18.0
     restart: unless-stopped
@@ -654,6 +655,7 @@ services:
       start_period: 45s
 
   # tip = main builds (connection-scoped BYOA OAuth). Official :latest / v1.3.5 release ignores authorize clientId.
+  # Open Connector: Apache-2.0 (OOMOL Lab). NOTICE + attribution: THIRD_PARTY_NOTICES.md / /legal/open-source.html
   openconnector:
     profiles: ["optional-openconnector"]
     image: ghcr.io/oomol-lab/open-connector:${OPENCONNECTOR_IMAGE_TAG:-tip}

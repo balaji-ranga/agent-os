@@ -328,7 +328,7 @@ Stop listen from run UI when needed.
 
 ## Connector (`connector`)
 
-**Purpose:** Run an **OpenConnector** SaaS app action as the signed-in CEO. The catalog is about **1,300** apps via [Open Connector](https://github.com/oomol-lab/open-connector) (GitHub, Gmail, Drive, Slack, HubSpot, …).
+**Purpose:** Run an **OpenConnector** SaaS app action as the signed-in CEO. The catalog is about **1,300** apps via [Open Connector](https://github.com/oomol-lab/open-connector) (Apache-2.0, OOMOL Lab; GitHub, Gmail, Drive, Slack, HubSpot, …). Notices: `/legal/open-source.html`.
 
 **Prerequisite:** Connect the app under **Connectors** (`/connectors`) and provision the runtime token. See [16-connectors-openconnector.md](./16-connectors-openconnector.md). Credit: [github.com/oomol-lab/open-connector](https://github.com/oomol-lab/open-connector) and [openconnector.dev/#connectors](https://openconnector.dev/#connectors).
 

@@ -36,4 +36,4 @@ You do **not** need to install software to start. Optional Windows packages (des
 
 ## Privacy and terms
 
-Self-serve registration requires accepting the **Terms of Service** and **Privacy Policy**. Read them from the login/register footer or from [flolah.cloud/legal](https://flolah.cloud/legal/terms.html).
+Self-serve registration requires accepting the **Terms of Service** and **Privacy Policy**. Read them from the login/register footer or from [flolah.cloud/legal](https://flolah.cloud/legal/terms.html). Open-source component notices: [Open source](https://flolah.cloud/legal/open-source.html).

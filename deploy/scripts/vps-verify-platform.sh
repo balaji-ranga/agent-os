@@ -76,6 +76,7 @@ check "auth legal-versions route" grep -q 'legal-versions' "$ROOT/backend/src/ro
 check "terms columns schema" grep -q 'terms_accepted_at' "$ROOT/backend/src/db/schema.js"
 check "register accept terms UI" grep -q 'acceptTerms' "$ROOT/frontend/src/pages/Register.jsx"
 check "nginx marketing legal route" grep -q 'location ^~ /legal/' "$ROOT/deploy/nginx/nginx.conf"
+check "nginx legal markdown type" grep -q 'text/plain md' "$ROOT/deploy/nginx/nginx.conf"
 check "nginx login legal route" grep -q 'root /usr/share/nginx/flolah-home' "$ROOT/deploy/nginx/nginx.conf" && grep -A2 'location ^~ /legal/' "$ROOT/deploy/nginx/nginx.host-network.conf" | grep -q flolah-home
 check "sync frontend public" grep -q 'frontend\\\\public\|frontend/public\|frontend\\public' "$ROOT/deploy/scripts/sync-to-vps.ps1" || grep -q 'frontend\\public' "$ROOT/deploy/scripts/sync-to-vps.ps1" || grep -q 'frontend/public' "$ROOT/deploy/scripts/sync-to-vps.ps1"
 check "marketing CTA login host" grep -q 'https://login.flolah.cloud' "$ROOT/deploy/static/flolah-home/index.html"

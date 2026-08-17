@@ -1,6 +1,6 @@
 # Web Scrape (workflow node + MCP sidecar)
 
-Bounded **HTTPS** crawl of a website or domain, with optional **search phrases**. Engine is a Crawlee sidecar (`optional-web-scrape-mcp`), not the backend and not Browser Session.
+Bounded **HTTPS** crawl of a website or domain, with optional **search phrases**. Engine is a **Crawlee** sidecar (`optional-web-scrape-mcp`, Apache-2.0 — [crawlee.dev](https://crawlee.dev/)), not the backend and not Browser Session.
 
 ## When to use which tool
 

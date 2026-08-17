@@ -12,7 +12,7 @@ Path: **Connectors** (`/connectors`).
 
 Flolah uses **[Open Connector](https://github.com/oomol-lab/open-connector)** as the SaaS integration layer. Through that catalog you can search and connect **about 1,300 apps** (GitHub, Slack, Gmail, Google Drive, Notion, Linear, HubSpot, Salesforce, Jira, Stripe, and many more), then call them from workflow **Connector** nodes and connector tools.
 
-**Credit:** Connector coverage comes from [Open Connector](https://github.com/oomol-lab/open-connector) by [OOMOL Lab](https://github.com/oomol-lab) (Apache-2.0). Upstream: **1,000+ providers** and **10,000+ prebuilt actions**. Browse the live list at [openconnector.dev/#connectors](https://openconnector.dev/#connectors). Flolah does not re-host their catalog copy — we search and connect it from **Connectors**. Provider names and trademarks belong to their respective owners.
+**Credit:** Connector coverage comes from [Open Connector](https://github.com/oomol-lab/open-connector) by [OOMOL Lab](https://github.com/oomol-lab) (Apache-2.0). Upstream: **1,000+ providers** and **10,000+ prebuilt actions**. Browse the live list at [openconnector.dev/#connectors](https://openconnector.dev/#connectors). Flolah does not re-host their catalog copy — we search and connect it from **Connectors**. Provider names and trademarks belong to their respective owners. Public notices: [Open source](https://flolah.cloud/legal/open-source.html).
 
 Typical families in the catalog:
 

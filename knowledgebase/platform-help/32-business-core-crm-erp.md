@@ -3,9 +3,9 @@
 ## Quick answers
 
 **What is Business Core?** Optional platform CRM and ERP bound to your company.
-- **CRM:** **Twenty** or **ERPNext** (Sales/CRM modules: Leads, Opportunities, Customers, Quotations, Orders).
-- **ERP:** **ERPNext** (full books / invoicing / projects when selected as ERP provider).
-Not required to use Flolah. Select under **Profile** or **Company setup → Systems**.
+- **CRM:** **Twenty** ([github.com/twentyhq/twenty](https://github.com/twentyhq/twenty), **AGPL-3.0**) or **ERPNext** (Sales/CRM modules: Leads, Opportunities, Customers, Quotations, Orders).
+- **ERP:** **ERPNext** ([github.com/frappe/erpnext](https://github.com/frappe/erpnext), **GPL-3.0**) — full books / invoicing / projects when selected as ERP provider.
+Not required to use Flolah. Select under **Profile** or **Company setup → Systems**. Open-source attribution: `/legal/open-source.html` and [`THIRD_PARTY_NOTICES.md`](../../THIRD_PARTY_NOTICES.md).
 
 **What process do the AI employees run?** They are **domain SMEs**, not form-fillers.
 - **CRM:** **Lead → Prospect → Qualified deal → Proposal → Won → ERP Order**. Twenty is pipeline; ERPNext is books. Full playbook: [40-twenty-crm-help-tier-a.md](./40-twenty-crm-help-tier-a.md) + workspace **DOMAIN.md**.

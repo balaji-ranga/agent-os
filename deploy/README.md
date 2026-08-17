@@ -404,6 +404,7 @@ All proxied under `/api` (rebuild backend + frontend images after upgrade):
 | Profile LLM catalog | Provider + model on **Register** and **Profile** (`llm_model`); `GET /api/auth/llm-catalog`; registry `backend/src/config/llm-provider-registry.js`; BYOK vault after login; soft fallbacks `OPENAI_BYOK_MODEL` / `OPENROUTER_MODEL` |
 | Generated media lockdown | `/api/media/openclaw/*` auth-only by default; WhatsApp uses disk `MEDIA:`; Dashboard inline players (Bearer→blob). Opt-in signed public: `MEDIA_PUBLIC_SIGNED=1` in `deploy/.env`. Docs: platform-help **11** |
 | Platform feedback (Admin) | `/admin/platform-feedback` + COO tools `platform_feedback_*`; statuses open / implemented / rejected |
+| User Insights (Admin) | `/admin/user-insights` + `GET /admin/user-insights` — new CEOs today/week, inactive 7d, adoption highlights (help **47**) |
 | Admin AgentSystem recovery | `/admin/openclaw-recovery` — diagnose gateway + CEO feeder queues; OTP privileged session (30 min) to drain, restart gateway, repair config/workspaces, clear sessions, remove leftover gateway crons, toggle goal-plan recovery Kanban. No Control UI link. Help **43**. |
 
 **Repeatable deploy (laptop → VPS):**

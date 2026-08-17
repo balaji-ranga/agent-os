@@ -396,6 +396,18 @@ elif curl -kfsS "${APEX_URL%/}/legal/terms.html" 2>/dev/null | grep -qi 'Terms o
 else
   echo "    WARN: marketing legal terms page missing (/legal/ on flolah-home?)"
 fi
+if curl -kfsS -H "Host: flolah.cloud" https://127.0.0.1/legal/open-source.html 2>/dev/null | grep -qi 'Open Connector'; then
+  echo "    marketing legal open-source (Open Connector): OK"
+elif curl -kfsS "${APEX_URL%/}/legal/open-source.html" 2>/dev/null | grep -qi 'Open Connector'; then
+  echo "    marketing legal ${APEX_URL}/legal/open-source.html: OK"
+else
+  echo "    WARN: marketing /legal/open-source.html missing Open Connector credit"
+fi
+if docker compose exec -T nginx test -f /usr/share/nginx/flolah-home/legal/THIRD_PARTY_NOTICES.md 2>/dev/null; then
+  echo "    nginx mount: /usr/share/nginx/flolah-home/legal/THIRD_PARTY_NOTICES.md OK"
+else
+  echo "    WARN: THIRD_PARTY_NOTICES.md missing on flolah-home/legal"
+fi
 if docker compose exec -T frontend test -f /usr/share/nginx/html/legal/terms.html 2>/dev/null; then
   echo "    frontend mount: /usr/share/nginx/html/legal/terms.html OK"
 else
@@ -788,6 +800,11 @@ if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-
   docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-org-people.js >/tmp/org-people.log 2>&1 \
     && echo "    Company people RBAC (employees / sub-users) OK" \
     || echo "    WARN: org people RBAC failed (see /tmp/org-people.log)"
+fi
+if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-user-insights.js 2>/dev/null; then
+  docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-user-insights.js >/tmp/user-insights.log 2>&1 \
+    && echo "    Admin User Insights OK" \
+    || echo "    WARN: user insights failed (see /tmp/user-insights.log)"
 fi
 if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-token-usage-reset.js 2>/dev/null; then
   docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-token-usage-reset.js >/tmp/token-reset.log 2>&1 \

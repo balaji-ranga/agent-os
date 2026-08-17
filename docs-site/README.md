@@ -13,7 +13,7 @@ This corpus is written for the public website. It does **not** include operator 
 
 Keep public pages sequenced: access → register → setup → run → operate.
 
-**Connectors catalog:** the public [Connectors and MCP](./docs/systems/connectors-and-mcp.md) page credits **[Open Connector](https://github.com/oomol-lab/open-connector)** (~1,300 connectors; live list at [openconnector.dev/#connectors](https://openconnector.dev/#connectors)).
+**Connectors catalog:** the public [Connectors and MCP](./docs/systems/connectors-and-mcp.md) page credits **[Open Connector](https://github.com/oomol-lab/open-connector)** (~1,300 connectors; Apache-2.0; live list at [openconnector.dev/#connectors](https://openconnector.dev/#connectors)). Full stack attribution: repo [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md) and [flolah.cloud/legal/open-source.html](https://flolah.cloud/legal/open-source.html).
 
 ## Build
 

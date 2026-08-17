@@ -45,6 +45,7 @@ Documentation lives here so Cursor and humans can find it. **Root README.md** st
 ## Not in knowledgebase (stay at repo root or other paths)
 
 - **README.md** — at `agent-os/README.md` (main project doc).
+- **THIRD_PARTY_NOTICES.md** — open-source / dependency attribution (OpenSearch, Open Connector, Docker, Node.js, OpenClaw, npm packages, optional Twenty/ERPNext). Public: `/legal/open-source.html` and `/legal/THIRD_PARTY_NOTICES.md`.
 - **openclaw-workspace-templates/** — SOUL/MEMORY/AGENTS per agent type: lean (`balserve`, `workflowbuilder`, `platformhelp`, …) + **Business Core** role packs (`crm-maker-a`, `crm-maker-b`, `crm-checker`, `erp-maker-a`, `erp-maker-b`, `erp-checker`, `erp-pnl`, `erp-invoice`, `erp-project`) and `business-core-template-map.json`. Do not move.
 - **openclaw-skills/** — SKILL.md and README per skill; install scripts reference these paths.
 - **.cursor/agents/** — Cursor subagent instructions (code-review, remote-host-config, etc.).
