@@ -205,6 +205,21 @@ else
   bad "test-agent-channel-announce.mjs missing"
 fi
 
+if [[ -f "$ROOT/backend/scripts/test-openclaw-delivery-noise.mjs" ]]; then
+  docker cp "$ROOT/backend/scripts/test-openclaw-delivery-noise.mjs" "$BE:/opt/agent-os/backend/scripts/test-openclaw-delivery-noise.mjs" 2>/dev/null || true
+  if docker exec -w /opt/agent-os/backend "$BE" node scripts/test-openclaw-delivery-noise.mjs 2>&1 | tee /tmp/sg-delivery-noise-unit.log | tail -5; then
+    if grep -q 'OPENCLAW_DELIVERY_NOISE_OK' /tmp/sg-delivery-noise-unit.log; then
+      ok "delivery-noise unit OPENCLAW_DELIVERY_NOISE_OK"
+    else
+      bad "delivery-noise unit did not print OPENCLAW_DELIVERY_NOISE_OK"
+    fi
+  else
+    bad "test-openclaw-delivery-noise.mjs failed"
+  fi
+else
+  bad "test-openclaw-delivery-noise.mjs missing"
+fi
+
 if [[ -f "$ROOT/scripts/lib/test-openclaw-whatsapp-from-prefix.mjs" ]]; then
   if node "$ROOT/scripts/lib/test-openclaw-whatsapp-from-prefix.mjs" 2>&1 | tee /tmp/wa-from-prefix-unit.log | tail -5; then
     if grep -q 'WHATSAPP_FROM_PREFIX_UNIT_OK' /tmp/wa-from-prefix-unit.log; then

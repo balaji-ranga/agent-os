@@ -38,6 +38,21 @@ export function resolveMediaSrc(src) {
   return trimmed;
 }
 
+/** Gateway injects this when native `message` fails; hide from Dashboard chat. */
+const GATEWAY_MESSAGE_FAILED_LINE_RE = /^\s*(?:⚠️\s*)?✉️\s*Message failed\s*$/gim;
+const GATEWAY_MESSAGE_FAILED_INLINE_RE = /(?:⚠️\s*)?✉️\s*Message failed/gi;
+
+export function stripGatewayDeliveryBanners(text) {
+  const raw = String(text ?? '');
+  if (!raw) return raw;
+  return raw
+    .replace(GATEWAY_MESSAGE_FAILED_LINE_RE, '')
+    .replace(GATEWAY_MESSAGE_FAILED_INLINE_RE, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trimEnd();
+}
+
 /**
  * Normalize agent-emitted media URLs before fetch.
  * Handles ". png" spaces, "ai/api/media/..." prefixes, trailing punctuation.

@@ -1,4 +1,4 @@
-import { resolveMediaSrc, isResolvableMediaUrl, guessChatMediaType } from '../utils/resolveMediaSrc';
+import { resolveMediaSrc, isResolvableMediaUrl, guessChatMediaType, stripGatewayDeliveryBanners } from '../utils/resolveMediaSrc';
 import AuthenticatedMediaImage, {
   AuthenticatedMediaVideo,
   AuthenticatedMediaAudio,
@@ -57,7 +57,8 @@ const imageInPath = /\.(png|jpe?g|gif|webp|bmp|svg)([\?&]|$)/i;
 export default function ChatMessageContent({ content }) {
   const text = toText(content);
   if (!text) return null;
-  let contentStr = typeof text === 'string' ? text : String(text);
+  let contentStr = stripGatewayDeliveryBanners(typeof text === 'string' ? text : String(text));
+  if (!contentStr.trim()) return null;
 
   const parsed = parseContentParts(contentStr);
   const extraImageMedia = parsed.imageUrls.map(({ url, index }) => ({

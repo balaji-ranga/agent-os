@@ -5,6 +5,7 @@
 import {
   resolveMediaSrc,
   extractMediaUrlsFromText,
+  stripGatewayDeliveryBanners,
 } from '../src/utils/resolveMediaSrc.js';
 
 function assert(cond, msg) {
@@ -25,5 +26,8 @@ const extracted = extractMediaUrlsFromText(text);
 const keys = [...new Set(extracted.map((u) => resolveMediaSrc(u) || u))];
 assert(keys.length === 1, `expected 1 unique clip, got ${keys.length}: ${keys.join(', ')}`);
 assert(keys[0] === oggApi, `unique key should be API path, got ${keys[0]}`);
+
+const withBanner = 'Clip ready.\n⚠️ ✉️ Message failed\n';
+assert(stripGatewayDeliveryBanners(withBanner).trim() === 'Clip ready.', 'hide message-failed banner');
 
 console.log('CHAT_MEDIA_DEDUPE_OK');

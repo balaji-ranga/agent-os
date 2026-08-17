@@ -590,7 +590,7 @@ Examples: `workflows`, `tasks`, `standups`, `documents`, `items`, `users`, `agen
 
 - `GET /api/media/openclaw/*` — AgentSystem-generated media for Dashboard chat / Kanban. **Requires login (Bearer)** by default. Optional anonymous `?exp=&sig=` only when ops sets `MEDIA_PUBLIC_SIGNED=1` (off by default; see `deploy/.env.example`).
 - Content tools (`generate_image`, `generate_video`, `speech_tts`, …) return `paste_exactly` / `media_uri` as **`MEDIA:/abs/path`** for **WhatsApp file attach** on the shared AgentSystem volume, plus auth-only `relative_url` (`/api/media/…`) for the web UI.
-- Dashboard chat renders `MEDIA:` and `/api/media` as **inline** image / audio / video players (authenticated blob fetch). Each TTS clip plays **once** (the `MEDIA:` line and the `speech_tts` tool result are the same file). Do **not** paste bare auth HTTPS media URLs into WhatsApp (shows “Media failed”).
+- Dashboard chat renders `MEDIA:` and `/api/media` as **inline** image / audio / video players (authenticated blob fetch). Each TTS clip plays **once** (the `MEDIA:` line and the `speech_tts` tool result are the same file). Do **not** paste bare auth HTTPS media URLs into WhatsApp (shows “Media failed”). Native `message` failures can inject a **Message failed** banner; the platform strips that from chat and channel copies.
 - Guest Published Scenes use separate `/api/public/vr/:slug/artifacts/…?t=…` tokens — unrelated to `MEDIA_PUBLIC_SIGNED`.
 - Docs: `knowledgebase/platform-help/11-content-tools-scripts-profile.md`, `24-agent-channels.md`, `25-speech-and-published-scenes.md`.
 

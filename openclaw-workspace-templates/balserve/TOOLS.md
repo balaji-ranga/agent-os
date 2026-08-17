@@ -97,7 +97,7 @@ Use these Agent OS content tools (not ElevenLabs) when the CEO asks you to speak
 
 Requires platform `optional-voice` (whisper + piper) for speech. **analyze_image** uses platform primary LLM (or BYOK `Platform_BYOK`). If the tool returns 503 / upstream vision error, the configured model may be text-only.
 
-**WhatsApp PA:** Incoming voice notes → `speech_stt`. Platform prepends `From: <your name>`. Then readable **text plus** `speech_tts` with a `MEDIA:` attach line (OGG/Opus). Do **not** call the native `message` tool with `target: "whatsapp"` — paste `MEDIA:` and let the platform copy scheduled outcomes. See AGENT-OS-OPS.md § WhatsApp PA.
+**WhatsApp PA:** Incoming voice notes → `speech_stt`. Platform prepends `From: <your name>`. Then readable **text plus** `speech_tts` with a `MEDIA:` attach line (OGG/Opus). Do **not** call the native `message` tool with `target: "whatsapp"` — that fails and used to show **Message failed** in Dashboard chat; paste `MEDIA:` and let the platform copy scheduled outcomes. See AGENT-OS-OPS.md § WhatsApp PA.
 
 ---
 

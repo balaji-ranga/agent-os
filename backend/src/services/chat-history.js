@@ -13,6 +13,7 @@ import {
   newChatThreadId,
 } from './chat-session-policy.js';
 import { clearOpenClawSessionForUser } from './agent-chat-scope.js';
+import { stripOpenClawDeliveryNoise } from './openclaw-runtime-tools.js';
 
 const HISTORY_DAYS = 30;
 const TITLE_MAX = 72;
@@ -296,7 +297,12 @@ export function listSessionTurns(sessionId, { limit = 200, offset = 0 } = {}) {
       `SELECT id, agent_id, owner_user_id, role, content, created_at, session_id
        FROM chat_turns WHERE session_id = ? ORDER BY created_at ASC, id ASC LIMIT ? OFFSET ?`
     )
-    .all(sessionId, lim, off);
+    .all(sessionId, lim, off)
+    .map((row) =>
+      row.role === 'assistant'
+        ? { ...row, content: stripOpenClawDeliveryNoise(row.content) }
+        : row
+    );
 }
 
 export function listActiveSessionTurns(agentId, ownerUserId, { limit = 200, offset = 0 } = {}) {
@@ -316,12 +322,14 @@ export function listActiveSessionTurns(agentId, ownerUserId, { limit = 200, offs
 
 export function insertChatTurn({ agentId, ownerUserId, role, content, sessionId = null }) {
   const sid = sessionId || backfillActiveSession(agentId, ownerUserId).id;
+  const stored =
+    role === 'assistant' ? stripOpenClawDeliveryNoise(content) : content;
   db()
     .prepare(
       `INSERT INTO chat_turns (agent_id, owner_user_id, role, content, session_id)
        VALUES (?, ?, ?, ?, ?)`
     )
-    .run(agentId, ownerUserId, role, content, sid);
+    .run(agentId, ownerUserId, role, stored, sid);
   return sid;
 }
 
