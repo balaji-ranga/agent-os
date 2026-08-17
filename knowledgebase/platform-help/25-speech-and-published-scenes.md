@@ -16,7 +16,7 @@ Mobile: public page stacks the 3D canvas above a bottom chat sheet (`max-width: 
 
 ## Free STT / TTS (optional-voice)
 
-Deploy profile **`optional-voice`** (auto-started by `deploy/scripts/ensure-voice-env.sh` from `up.sh` / `vps-deploy-latest.sh`):
+Deploy profile **`optional-voice`** (auto-started by `deploy/scripts/ensure-voice-env.sh` from `up.sh` / `vps-deploy-latest.sh`). **faster-whisper** (MIT) and **Piper** (MIT) — see `/legal/open-source.html`.
 
 ```bash
 # Manual (same as deploy helper):
@@ -60,4 +60,5 @@ Without the Compose profile / env URLs, speech APIs and nodes return **503** wit
 - [23-avatars-virtual-room.md](./23-avatars-virtual-room.md)  
 - [07-workflow-nodes-reference.md](./07-workflow-nodes-reference.md)  
 - [24-agent-channels.md](./24-agent-channels.md)  
+- [46-voice-caller-employees.md](./46-voice-caller-employees.md) (Slow Caller WhatsApp notes vs Realtime WebRTC — not Whisper/Piper on the live path)
 - [21-external-tools-and-apis.md](./21-external-tools-and-apis.md) (ElevenLabs keys)

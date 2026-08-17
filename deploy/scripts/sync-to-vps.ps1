@@ -121,6 +121,12 @@ $ssh = @("-i", $Key, "-o", "IdentitiesOnly=yes", "-o", "BatchMode=yes")
 Write-Host "==> Sync frontend (full src tree + package files + index.html + public)"
 ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/frontend/src $RemoteRoot/frontend/public $RemoteRoot/deploy/scripts $RemoteRoot/deploy/docker $RemoteRoot/deploy/nginx $RemoteRoot/backend/scripts $RemoteRoot/scripts"
 scp @ssh "$Repo\README.md" "root@${HostIp}:$RemoteRoot/"
+if (Test-Path "$Repo\THIRD_PARTY_NOTICES.md") {
+  scp @ssh "$Repo\THIRD_PARTY_NOTICES.md" "root@${HostIp}:$RemoteRoot/"
+}
+if (Test-Path "$Repo\LICENSE") {
+  scp @ssh "$Repo\LICENSE" "root@${HostIp}:$RemoteRoot/"
+}
 scp @ssh -r "$Repo\frontend\src" "root@${HostIp}:$RemoteRoot/frontend/"
 if (Test-Path "$Repo\frontend\public") {
   scp @ssh -r "$Repo\frontend\public" "root@${HostIp}:$RemoteRoot/frontend/"
@@ -263,7 +269,6 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-media-url.js" `
     "$Repo\backend\scripts\seed-inbound-media-summarize-workflow.js" `
     "$Repo\backend\scripts\test-workflow-desktop-package.js" `
-    "$Repo\backend\scripts\test-workflow-filesystem.mjs" `
     "$Repo\backend\scripts\test-local-ibkr-bridge-package.js" `
     "$Repo\backend\scripts\vps-test-platform-help.js" `
     "$Repo\backend\scripts\seed-workflow-builder-agent.js" `
@@ -499,6 +504,17 @@ if ($Services -match "backend|openclaw") {
   scp @ssh -r "$Repo\openclaw-workspace-templates\jobdiscovery" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   scp @ssh -r "$Repo\openclaw-workspace-templates\resumetailor" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
   scp @ssh -r "$Repo\openclaw-workspace-templates\bala" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
+  foreach ($callerTpl in @('slow-caller','realtime-caller')) {
+    $src = Join-Path $Repo "openclaw-workspace-templates\$callerTpl"
+    if (Test-Path $src) {
+      scp @ssh -r $src "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
+    } else {
+      Write-Warning "Missing workspace template folder: $callerTpl"
+    }
+  }
+  if (Test-Path "$Repo\openclaw-workspace-templates\hireable-roles.json") {
+    scp @ssh "$Repo\openclaw-workspace-templates\hireable-roles.json" "root@${HostIp}:$RemoteRoot/openclaw-workspace-templates/"
+  }
   # Business Core maker/checker (role-stable templates; runtime ids are crm-s1-{slug}, erp-ap-{slug}, …)
   foreach ($bcTpl in @(
     'crm-maker-a','crm-maker-b','crm-checker',

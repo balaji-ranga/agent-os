@@ -14,7 +14,9 @@ AI employees are durable roles: name, purpose, workspace instructions, and **too
 
 Pick an **icon or image** (a default robot icon is used if you skip). The same icon appears in chat, the workspace, and AgentExchange.
 
-Optional at hire: monthly **token budget** and **error budget**. See [Budgets](../operate/budgets.md).
+Optional at hire: pick a **role template** (Slow Caller, Realtime Caller) so workspace files and default tools are applied. Monthly **token budget** and **error budget** are also optional. See [Budgets](../operate/budgets.md).
+
+**Slow Caller** uses WhatsApp voice notes + chat mic (Whisper/Piper). **Realtime Caller** uses Agent Chat **Call** and a public Voice widget (`/p/voice/:slug`) and needs an OpenAI Realtime-capable key. Phone numbers are not included. See [Channels](../systems/channels.md).
 
 ## Workspace files (identity)
 

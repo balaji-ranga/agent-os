@@ -55,6 +55,7 @@ import Avatars from './pages/Avatars';
 import VirtualRoom from './pages/VirtualRoom';
 import PublishedScenes from './pages/PublishedScenes';
 import PublicVirtualRoom from './pages/PublicVirtualRoom';
+import PublicVoiceCall from './pages/PublicVoiceCall';
 import AgentChannels from './pages/AgentChannels';
 import NotificationBell from './components/NotificationBell';
 import ProfileMenu from './components/ProfileMenu';
@@ -453,6 +454,14 @@ export default function App() {
         element={
           <AuthLayout>
             <PublicVirtualRoom />
+          </AuthLayout>
+        }
+      />
+      <Route
+        path="/p/voice/:slug"
+        element={
+          <AuthLayout>
+            <PublicVoiceCall />
           </AuthLayout>
         }
       />

@@ -2142,6 +2142,34 @@ export function initDb() {
   try {
     _db.exec(`ALTER TABLE agents ADD COLUMN hourly_rate_usd REAL DEFAULT 10`);
   } catch (_) {}
+  /** Role pack folder under openclaw-workspace-templates/ (slow-caller, realtime-caller, …). */
+  try {
+    _db.exec(`ALTER TABLE agents ADD COLUMN template_base_id TEXT DEFAULT ''`);
+  } catch (_) {}
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS ceo_voice_sessions (
+        id TEXT PRIMARY KEY,
+        owner_user_id TEXT NOT NULL,
+        agent_id TEXT NOT NULL,
+        channel_id TEXT,
+        public_slug TEXT,
+        token_hash TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'open',
+        transcript_json TEXT DEFAULT '[]',
+        created_at TEXT DEFAULT (datetime('now')),
+        ended_at TEXT,
+        expires_at TEXT,
+        is_guest INTEGER DEFAULT 0
+      );
+      CREATE INDEX IF NOT EXISTS idx_ceo_voice_sessions_owner
+        ON ceo_voice_sessions(owner_user_id, agent_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_ceo_voice_sessions_token ON ceo_voice_sessions(token_hash);
+    `);
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE ceo_voice_sessions ADD COLUMN is_guest INTEGER DEFAULT 0`);
+  } catch (_) {}
   try {
     _db.exec(`UPDATE agents SET hourly_rate_usd = 10 WHERE hourly_rate_usd IS NULL`);
   } catch (_) {}

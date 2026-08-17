@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { api, resolveFetchUrl } from '../api';
 import ChatMessageRow from './ChatMessageRow';
 import ChatComposeInput from './ChatComposeInput';
 import { useAuth } from '../context/AuthContext';
 import { buildMessageWithAttachments, uploadChatAttachments, buildDisplayAttachmentsFromFiles, revokeAttachmentPreviews } from '../utils/chatAttachments.js';
+import AgentVoiceCall from './AgentVoiceCall.jsx';
 
 /**
  * Embeddable chat panel for an OpenClaw agent.
@@ -24,6 +25,7 @@ export default function AgentChatPanel({
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [speakReply, setSpeakReply] = useState(false);
+  const [calling, setCalling] = useState(false);
   const [agentMeta, setAgentMeta] = useState(null);
   const scrollRef = useRef(null);
   const abortControllerRef = useRef(null);
@@ -56,6 +58,8 @@ export default function AgentChatPanel({
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [turns, sending]);
+
+  const mintVoiceSession = useCallback(() => api.agentVoiceSession(agentId), [agentId]);
 
   const playAssistantSpeech = async (text) => {
     const spoken = String(text || '').trim();
@@ -255,6 +259,13 @@ export default function AgentChatPanel({
             agentAvatar={agentMeta?.avatar_image}
           />
         ))}
+        {calling && (
+          <AgentVoiceCall
+            heading={`Call ${agentMeta?.name || 'employee'}`}
+            mintSession={mintVoiceSession}
+            onClose={() => setCalling(false)}
+          />
+        )}
         {sending && <div style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>…</div>}
       </div>
       {quickActions.length > 0 && (
@@ -298,6 +309,23 @@ export default function AgentChatPanel({
           }}
         >
           {transcribing ? 'Transcribing…' : recording ? 'Stop mic' : 'Mic'}
+        </button>
+        <button
+          type="button"
+          disabled={sending || micBusy || calling}
+          onClick={() => setCalling(true)}
+          title="Live WebRTC call. Needs an OpenAI Realtime-capable key (Realtime Caller)."
+          style={{
+            padding: '0.35rem 0.65rem',
+            fontSize: '0.8rem',
+            borderRadius: 6,
+            border: '1px solid var(--border)',
+            background: calling ? 'color-mix(in srgb, var(--accent) 12%, transparent)' : 'var(--surface)',
+            color: 'var(--text)',
+            cursor: sending || micBusy || calling ? 'not-allowed' : 'pointer',
+          }}
+        >
+          Call
         </button>
         <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', color: 'var(--muted)', cursor: 'pointer' }}>
           <input

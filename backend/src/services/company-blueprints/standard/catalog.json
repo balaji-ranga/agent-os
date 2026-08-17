@@ -84,6 +84,16 @@
     },
     "note": "Canonical MD under openclaw-workspace-templates/video-*; graphs under standard/video-content/. Fix there and re-seed/refresh — no hotfixes."
   },
+  "caller": {
+    "hireable_roles": "openclaw-workspace-templates/hireable-roles.json",
+    "workspace_templates": {
+      "slow-caller": "openclaw-workspace-templates/slow-caller/",
+      "realtime-caller": "openclaw-workspace-templates/realtime-caller/"
+    },
+    "workflow_template": "caller/workflow-caller-wrap-up.json",
+    "chat_phrase": "run caller wrap up",
+    "note": "Hire via AI Employees role template. Slow Caller = WhatsApp + chat mic. Realtime Caller = Voice channel WebRTC. Bind wrap-up graph to the hired employee (do not rely on display name). Goal plans remain the durable path."
+  },
   "industry_blueprints": {
     "dir": "packs/",
     "note": "Industry Day 0 org shapes (content_creator, video_content, trading_ops, general_ops, saas, talent, blank). Deep demos: demo_balaji_ranganathan (companions video_content), demo_brightbox_gifts (golden CRM/ERP), demo_education (Meridian College — do not regenerate standard/business-core from this owner). Day 1 workflow graphs come from published deep blueprints or companion standard templates. trading_ops is org-only; IBKR/monthly graphs live in standard/trading/ + seed scripts + deep pack demo_balaji_ranganathan (W1 risk_per_trade_pct)."

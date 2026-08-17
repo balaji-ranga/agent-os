@@ -1,0 +1,52 @@
+{
+  "template_key": "caller-wrap-up",
+  "name": "Caller wrap-up",
+  "description": "After a Slow Caller or Realtime Caller conversation: summarize the transcript, log CRM/Kanban, escalate only if needed. Chat: run caller wrap up. Bind the agent node to your hired Caller employee.",
+  "chat_trigger_phrase": "run caller wrap up",
+  "trigger_modes": ["manual", "chat"],
+  "workflow_id_pattern": "caller-wrap-{ownerSlug}",
+  "kind": "caller",
+  "agent_roles": {
+    "caller": ["Slow Caller", "Realtime Caller"]
+  },
+  "graph": {
+    "nodes": [
+      {
+        "id": "trigger-1",
+        "type": "trigger",
+        "position": { "x": 40, "y": 200 },
+        "data": {
+          "label": "Start",
+          "triggerModes": ["manual", "chat"],
+          "chatPhrase": "run caller wrap up",
+          "scheduleCron": "",
+          "inputSchema": null
+        }
+      },
+      {
+        "id": "wrap-1",
+        "type": "agent",
+        "position": { "x": 280, "y": 200 },
+        "data": {
+          "label": "Caller wrap-up",
+          "agentNameRef": "hired Caller employee",
+          "agentName": "",
+          "prompt": "You are wrapping up a support conversation. Transcript / notes:\n\n{{input}}\n\nDo this:\n1) Short summary (facts only).\n2) master_data_rag if a policy/FAQ is involved.\n3) Dedup then CRM create/list as needed. No crm_delete_*.\n4) Kanban only if a human must act.\n5) notify_ceo only for true escalation or if the CEO asked.\n6) If follow-up is multi-step, agent_goal_create (quote agr-… and stop).\nEnd with a short wrap-up the CEO can read.",
+          "inputBindings": [
+            {
+              "id": "prompt",
+              "mode": "dynamic",
+              "sourceNodeId": "trigger-1",
+              "sourceOutputKey": "text"
+            }
+          ],
+          "agentId": null,
+          "agent_id": null
+        }
+      }
+    ],
+    "edges": [
+      { "id": "e-trigger-wrap", "source": "trigger-1", "target": "wrap-1" }
+    ]
+  }
+}

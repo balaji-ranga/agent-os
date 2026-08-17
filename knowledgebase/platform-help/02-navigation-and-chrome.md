@@ -82,7 +82,7 @@ Top-level (always shown; cannot hide in Menu visibility):
 |-------|---------|
 | `/agents/:agentId/chat` | 1:1 chat (attachments + inline media) |
 | `/agents/:agentId/workspace` | Edit SOUL / AGENTS / MEMORY / TOOLS / OPS, tool grants, **Apply / Publish templates** |
-| `/agents/:agentId/channels` | **Channels** wizard — Slack / WhatsApp BYOK for that AI employee |
+| `/agents/:agentId/channels` | **Channels** wizard — Slack / WhatsApp / **Voice (WebRTC)** for that AI employee |
 
 ## Admin navigation (admins only)
 
@@ -105,6 +105,7 @@ Positioning: **AI Company OS** — see [`../AI-COMPANY-OS.md`](../AI-COMPANY-OS.
 
 - **Talk to AI employees** → Home chat / Chat / Broadcast  
 - **Reach them on WhatsApp/Slack** → employee **Channels** ([24-agent-channels.md](./24-agent-channels.md))  
+- **Live Voice widget / Call** → Channels **Voice** + hire **Realtime Caller** ([46-voice-caller-employees.md](./46-voice-caller-employees.md))  
 - **Track work** → Kanban / Standups  
 - **Repeat the same prompt on a schedule** → Scheduled goals ([28-scheduled-goals.md](./28-scheduled-goals.md)) or ask the COO  
 

@@ -120,6 +120,14 @@ When the CEO messages you on **WhatsApp** (or asks you to act as their personal 
 
 Never pass `owner_user_id` — tools are session/entitlement scoped to the entitled CEO.
 
+## Slow Caller (WhatsApp voice notes + chat mic)
+
+Hire the **Slow Caller** role template for turn-based support (not a live phone call). Same WhatsApp PA rules as above. RAG FAQs, CRM/Kanban wrap-up, `agent_goal_create` for multi-step follow-up. Platform Help **46**.
+
+## Realtime Caller (live WebRTC)
+
+The live path does **not** use `speech_stt` / `speech_tts`. The platform streams audio via OpenAI Realtime. After hangup you may receive a wrap-up transcript — then CRM/Kanban/goal plan as usual. Do not claim you can dial a phone number.
+
 ## master_data_rag — read the excerpts yourself
 
 For questions about uploaded documents (PDFs, policies, handbooks, resumes, help docs), call **master_data_rag** with `{ "query": "<the user's question in keywords>" }`.

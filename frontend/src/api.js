@@ -163,6 +163,7 @@ export const api = {
   orgSyncAgentDocs: (body) => post('/agents/org/sync', body || {}),
   agentGet: (id) => get(`/agents/${id}`),
   agentCreate: (body) => post('/agents', body),
+  agentHireTemplates: () => get('/agents/hire-templates'),
   agentUpdate: (id, body) => patch(`/agents/${id}`, body),
   agentA2APublication: (id) => get(`/agents/${encodeURIComponent(id)}/a2a-publication`),
   agentPublishA2A: (id, body) => post(`/agents/${encodeURIComponent(id)}/publish-a2a`, body),
@@ -974,6 +975,10 @@ export const api = {
     post(`/agent-channels/${encodeURIComponent(id)}/whatsapp-qr/start`, body),
   agentChannelsWhatsAppQrWait: (id, body = {}) =>
     post(`/agent-channels/${encodeURIComponent(id)}/whatsapp-qr/wait`, body),
+  agentVoiceSession: (agentId) => post(`/agents/${encodeURIComponent(agentId)}/voice/session`, {}),
+  agentVoiceStatus: (agentId) => get(`/agents/${encodeURIComponent(agentId)}/voice/status`),
+  publicVoiceGet: (slug) => get(`/public/voice/${encodeURIComponent(slug)}`),
+  publicVoiceSession: (slug) => post(`/public/voice/${encodeURIComponent(slug)}/session`, {}),
 
   mediaArtifactsUpload: (body) => post('/media/artifacts', body),
   mediaArtifactsList: (params = {}) => {

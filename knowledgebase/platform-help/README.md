@@ -30,7 +30,7 @@
 | [21-external-tools-and-apis.md](./21-external-tools-and-apis.md) | **External tools & APIs** needing keys; local Ollama as optional free platform/AgentSystem primary; content-tool delivery (`MEDIA:` + auth `/api/media`) |
 | [22-browser-session-and-recipes.md](./22-browser-session-and-recipes.md) | **Browser Session**, Client Chrome, **Desktop Local worker** (Connectors package, headed + persistent profile), `browse_*`, recipes, learnings |
 | [23-avatars-virtual-room.md](./23-avatars-virtual-room.md) | **3D Avatars**, Virtual Rooms, scenes, @mention routing, media overlays (`MEDIA:` not bare HTTPS), ElevenLabs TTS/STT, optional Hunyuan3D |
-| [24-agent-channels.md](./24-agent-channels.md) | **Slack / WhatsApp** BYOK wizard, vault tokens, AgentSystem bindings, **outbound MEDIA: attach**, **inbound → inbound/attachments/**, COO **PA dual-mode** (text + TTS; **`From: {agent}`**), scheduled-goal **deliver_to** WhatsApp |
+| [24-agent-channels.md](./24-agent-channels.md) | **Slack / WhatsApp / Voice** BYOK wizard, vault tokens, AgentSystem bindings, **outbound MEDIA: attach**, **inbound → inbound/attachments/**, COO **PA dual-mode** (text + TTS; **`From: {agent}`**), scheduled-goal **deliver_to** WhatsApp; Voice WebRTC widget → **46** |
 | [25-speech-and-published-scenes.md](./25-speech-and-published-scenes.md) | **Published Scenes** public `/p/vr/:slug`, free Whisper STT + Piper TTS, guest VR tokens vs `MEDIA_PUBLIC_SIGNED`, `speech_stt` / `speech_tts` |
 | [26-content-explorer.md](./26-content-explorer.md) | **Content Explorer** — browse/preview/download uploaded + generated files |
 | [27-onboarding-helper.md](./27-onboarding-helper.md) | **Onboarding Helper** — chat save/apply tools, selective Review cards, **E2E prompt recipes** (MarketWatcher + Workflow Builder Ollama loop) |
@@ -52,6 +52,7 @@
 | [43-admin-agentsystem-recovery.md](./43-admin-agentsystem-recovery.md) | **Admin** — AgentSystem recovery (OTP 30-min privileged session, drain queues, restart gateway, repair config/workspaces, gateway crons) |
 | [44-web-scrape.md](./44-web-scrape.md) | **Web Scrape** workflow node + Crawlee MCP sidecar (`scrape_url` / `scrape_domain`, phrase filter, Playwright opt-in) |
 | [45-company-people.md](./45-company-people.md) | **People** — invite employees (sub-users), roles (CEO Delegate / Member), department placement, inherit CEO entitlements, Kanban department act, Efficiency User View |
+| [46-voice-caller-employees.md](./46-voice-caller-employees.md) | **Voice channel** + **Slow Caller** (WhatsApp notes + chat mic) / **Realtime Caller** (WebRTC). No PSTN in core; telephony MCP later. |
 
 **Video Tours (UI):** User menu → **Help → Video Tours** (/video-tours) — playlist of short CEO tours (script/captions now; mp4 when exported). Not ingested as RAG docs.
 

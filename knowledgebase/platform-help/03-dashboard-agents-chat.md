@@ -9,7 +9,7 @@
 - **Resync ORG.md & AGENTS.md** — after add/rename/reorganize agents, resync so every agent’s org docs list the correct CEO, peers, and COO delegatees. On the COO’s **AGENTS.md**, only the live roster sections are refreshed (CEO for this org, agent table, external/A2A leaf members, session keys). **Role / Priorities / Tools / Guardrails / any custom sections you edited by hand are preserved.**
 - Per-agent **Chat** shortcuts; optional Edge TTS to read replies.
 
-To **add a new agent**, use **Agent Workspaces** (nav → Agent Workspaces → **Add agent**), or Org chart → **Design** on the Dashboard.
+To **add a new agent**, use **AI Employees** (nav → **Hire AI employee**, optional **role template**: Slow Caller / Realtime Caller), or Org chart → **Design** on My Org.
 
 ## Who to ask
 
@@ -22,6 +22,7 @@ To **add a new agent**, use **Agent Workspaces** (nav → Agent Workspaces → *
 | Build or fix a visual workflow | **Workflow Builder** |
 | How to use Flolah / MCP / A2A / nodes | **Platform Help** |
 | Sales pipeline (Lead → Prospect → Won → ERP Order) | **CRM Maker** / **CRM Checker** (Twenty or ERPNext Sales; help **40**) |
+| Voice support (WhatsApp notes or live WebRTC) | **Slow Caller** / **Realtime Caller** (help **46**) |
 | Books (quote → order → invoice → cash / PO → bill) | **ERP Maker A/B** / **ERP Checker** (ERPNext; help **39**) |
 | Job discovery → apply pipeline | Job pipeline agents (via Job profiles/workflows) |
 
@@ -37,7 +38,7 @@ Prefer the **COO** for work that should be planned or handed to a specialist. Va
 4. **Tool icons** under replies show which tools ran for that turn: **Agent OS content tools** (Master Data, notify, email, workflows, `speech_tts`, `generate_image`, `market_history`, …) **and native AgentSystem tools** when they appear in the agent session transcript (`browser`, `image`, `cron`). Expand a chip to see request/response (large browser payloads are truncated).
 5. **Generated media plays inline** while you are logged in: images, audio (TTS), and video use authenticated fetch (not a public link). Bare `/api/media` URLs without a session return 401. TTS plays **once** per clip — the `MEDIA:` line and the `speech_tts` tool result are the same file (not a second WAV artifact player). Gateway **Message failed** banners (native `message` tool, not the web copy) are hidden.
 6. Agents should paste **`MEDIA:/abs/path`** (tool `paste_exactly`) for WhatsApp parity — not world-open HTTPS. See [11-content-tools-scripts-profile.md](./11-content-tools-scripts-profile.md) and [24-agent-channels.md](./24-agent-channels.md). Do **not** have the employee call native `message` with `target: "whatsapp"`; scheduled-goal / PA copies are sent by the platform.
-7. Optional **mic** (Whisper) and **Speak reply** (Piper) when free speech is deployed — [25-speech-and-published-scenes.md](./25-speech-and-published-scenes.md).
+7. Optional **mic** (Whisper) and **Speak reply** (Piper) when free speech is deployed — [25-speech-and-published-scenes.md](./25-speech-and-published-scenes.md). **Call** starts a live WebRTC session (OpenAI Realtime BYOK) — [46-voice-caller-employees.md](./46-voice-caller-employees.md).
 8. Sessions are per agent (and per tenant); history is stored for you.
 
 Tips:

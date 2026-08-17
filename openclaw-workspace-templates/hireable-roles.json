@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "note": "Listed on Hire AI employee as optional role templates. Folders live beside this file.",
+  "roles": [
+    {
+      "id": "slow-caller",
+      "name": "Slow Caller",
+      "role": "Turn-based voice support",
+      "department": "Support",
+      "description": "WhatsApp voice notes and Agent Chat mic. Whisper transcribes, Piper speaks. Not a live phone call."
+    },
+    {
+      "id": "realtime-caller",
+      "name": "Realtime Caller",
+      "role": "Live voice support",
+      "department": "Support",
+      "description": "WebRTC click-to-call (in-app and public widget). Needs an OpenAI Realtime-capable BYOK key. Phone numbers later via telephony MCP."
+    }
+  ]
+}

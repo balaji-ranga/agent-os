@@ -15,7 +15,7 @@ Home (`/`) opens chat with the **COO**. Use **Chat with** to switch employees. *
 
 **History** and **Browser session** side panes start closed. Use the icons next to **New chat**. **New chat** archives the current thread.
 
-Optional **mic** and **Speak reply** appear when speech is enabled for your environment.
+Optional **mic** and **Speak reply** appear when speech is enabled for your environment. **Call** starts a live browser session when that employee has Voice / OpenAI Realtime.
 
 ## How the COO delegates
 

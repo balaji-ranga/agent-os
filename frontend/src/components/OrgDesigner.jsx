@@ -31,7 +31,9 @@ export default function OrgDesigner({
     error_budget_pct: '',
     hourly_rate_usd: '10',
     avatar_image: '',
+    template_base_id: '',
   });
+  const [hireTemplates, setHireTemplates] = useState([]);
   const [dragId, setDragId] = useState(null);
 
   const loadDepts = async () => {
@@ -56,6 +58,10 @@ export default function OrgDesigner({
       .orgPeople()
       .then((r) => setPeople(r.people || []))
       .catch(() => setPeople([]));
+    api
+      .agentHireTemplates()
+      .then((r) => setHireTemplates(Array.isArray(r?.templates) ? r.templates : []))
+      .catch(() => setHireTemplates([]));
   }, []);
 
   const byDept = useMemo(() => {
@@ -148,6 +154,7 @@ export default function OrgDesigner({
         error_budget_pct: draft.error_budget_pct || null,
         hourly_rate_usd: draft.hourly_rate_usd === '' ? 10 : Number(draft.hourly_rate_usd),
         avatar_image: draft.avatar_image || '',
+        template_base_id: draft.template_base_id || undefined,
       });
       setShowAdd(false);
       setDraft({
@@ -159,6 +166,7 @@ export default function OrgDesigner({
         error_budget_pct: '',
         hourly_rate_usd: '10',
         avatar_image: '',
+        template_base_id: '',
       });
       await onChanged?.();
       flash(`Agent “${draft.name.trim()}” created`);
@@ -469,6 +477,39 @@ export default function OrgDesigner({
                   color: 'var(--text)',
                 }}
               />
+            </label>
+            <label style={{ fontSize: '0.85rem' }}>
+              Role template (optional)
+              <select
+                value={draft.template_base_id}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  const tpl = hireTemplates.find((t) => t.id === id);
+                  setDraft((d) => ({
+                    ...d,
+                    template_base_id: id,
+                    role: d.role.trim() ? d.role : tpl?.role || d.role,
+                    department: tpl?.department || d.department,
+                  }));
+                }}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  marginTop: 4,
+                  padding: '0.5rem',
+                  borderRadius: 6,
+                  border: '1px solid var(--border)',
+                  background: 'var(--bg, #121216)',
+                  color: 'var(--text)',
+                }}
+              >
+                <option value="">Custom (blank workspace)</option>
+                {hireTemplates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
             </label>
             <label style={{ fontSize: '0.85rem' }}>
               Role

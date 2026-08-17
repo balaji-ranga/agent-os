@@ -1,12 +1,12 @@
-﻿# Agent channels (Slack / WhatsApp)
+﻿# Agent channels (Slack / WhatsApp / Voice)
 
-**Audience:** CEOs enabling Slack or WhatsApp for an org agent.
+**Audience:** CEOs enabling Slack, WhatsApp, or Voice for an org agent.
 
 ## What it does
 
 Per-CEO **bring-your-own-key (BYOK)** channel enablement. You paste Slack tokens (or scan a WhatsApp QR) in a Dashboard wizard. Flolah stores secrets in your **API Keys** vault and binds that channel to the chosen AI employee in your tenant only.
 
-Telegram / Discord are not in V1 (wizard may show “coming soon”).
+Telegram / Discord are not in V1 (wizard may show “coming soon”). **Voice** is a generic Channels type (WebRTC widget + Agent Chat **Call**), not a phone-number call center. See [46-voice-caller-employees.md](./46-voice-caller-employees.md).
 
 ## Reliability
 
@@ -19,7 +19,7 @@ Channel bindings are stored with your account. If AgentSystem is restarted, Flol
 
 ## Wizard steps
 
-1. **Choose channel** — Slack or WhatsApp  
+1. **Choose channel** — Slack, WhatsApp, or **Voice (WebRTC)**  
 2. **Prep** — Slack app tokens checklist, or WhatsApp phone ready  
 3. **Credentials** — Slack: Bot + App tokens → vault; WhatsApp: none (QR later)  
 4. **Who can message** — pairing / allowlist / open + optional allowFrom list. For WhatsApp, **group chats default to disabled** (`groupPolicy: disabled`) so `@g.us` traffic is rejected before media download — DM `allowFrom` alone does not cover groups.  
@@ -85,4 +85,5 @@ Authenticated CEO routes under `/api/agent-channels`:
 - [03-dashboard-agents-chat.md](./03-dashboard-agents-chat.md)  
 - [11-content-tools-scripts-profile.md](./11-content-tools-scripts-profile.md) (MEDIA: lockdown)  
 - [25-speech-and-published-scenes.md](./25-speech-and-published-scenes.md)  
-- [23-avatars-virtual-room.md](./23-avatars-virtual-room.md) (Published Scenes are separate from Slack/WA)
+- [46-voice-caller-employees.md](./46-voice-caller-employees.md) (Slow Caller / Realtime Caller + Voice widget)
+- [23-avatars-virtual-room.md](./23-avatars-virtual-room.md) (Published Scenes are separate from Slack/WA/Voice)

@@ -2,6 +2,8 @@
 
 Production stack for Agent OS: **nginx**, **frontend**, **backend**, **OpenClaw gateway**, **OpenSearch** (+ Dashboards BFF), plus optional **init**, **MCP**, **OpenConnector**, **Ollama**, and **browser-login** services.
 
+Open-source licenses and NOTICE text: repository root [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md). Public summary: `/legal/open-source.html`.
+
 Works with **Docker Compose** and **Podman Compose** on CentOS/RHEL, Ubuntu (Hostinger VPS), and other Linux hosts.
 
 ## Containers
@@ -284,7 +286,7 @@ Gets the same gateway LLM vars plus:
 | `OPENSEARCH_EMBEDDING_MODEL` / `OPENSEARCH_EMBEDDING_DIMS` | Default `Qwen/Qwen3-Embedding-0.6B` / `1024` |
 | `OPENSEARCH_EMBEDDING_API_KEY` | Optional bearer (default `local`; local server does not require a real key) |
 | `OPENSEARCH_JAVA_OPTS` | Heap for OpenSearch container (default `-Xms512m -Xmx512m`) |
-| `WORKFLOW_FS_ROOTS` | Allowed roots for **local-disk** filesystem workflow nodes on the server (default `/data/workflow-fs`). Desktop packages use the laptop path instead. FTP/SFTP credentials are on the node (vault). |
+| `WORKFLOW_FS_ROOTS` | Allowed roots for filesystem workflow nodes (default `/data/workflow-fs`) |
 | `WORKFLOW_CERTIFY_USE_LLM_CHECKER` | Autonomous Maker/Checker certify: `0`/unset = LLM Checker **OFF** (default; deterministic Checker always runs). `1` = enable soft LLM Checker (secondary model unless `WORKFLOW_CERTIFY_CHECKER_MODEL` set) |
 | `WORKFLOW_CERTIFY_MAX_ATTEMPTS`, `WORKFLOW_CERTIFY_*_MODEL`, `WORKFLOW_CERTIFY_*_MS` | Optional certify budgets / model overrides (see `.env.example`) |
 | `A2A_ACCESS_TOKEN_TTL_SEC`, `A2A_SYNC_TIMEOUT_MS`, `A2A_ASYNC_WATCH_TIMEOUT_MS`, `A2A_CALLBACK_TIMEOUT_MS` | Published workflow A2A: OAuth token TTL, sync hold, async background watch, outbound callback POST timeout |
@@ -389,8 +391,9 @@ All proxied under `/api` (rebuild backend + frontend images after upgrade):
 | Org Storage (MB) | `GET /api/efficiency/storage` (+ `storage_mb` / `storage_breakdown` on summary) → Efficiency View **Org** tile. Counts chats, runs, Master Data files, **owner OpenSearch RAG indices**, generated media, OpenClaw tenant. Click **i** for breakdown. |
 | Cron env reference | `deploy/scripts/ensure-cron-env.sh` appends the commented cron block (all platform timers, including `TOOL_API_RATE_LIMIT_RESET_CRON`) to `deploy/.env` on every deploy; docs: `knowledgebase/platform-help/19-scheduled-jobs-and-crons.md` |
 | Free STT/TTS (optional-voice) | `ensure-voice-env.sh` writes `SPEECH_STT_URL` / `SPEECH_TTS_URL` and starts `whisper` + `piper`; Agent Chat mic + `speech_stt`/`speech_tts` nodes. Skip: `SKIP_VOICE=1`. Docs: platform-help **25** |
+| Voice channel / Realtime widget | No extra Compose service. HTTPS + owner OpenAI Realtime BYOK (or platform OpenAI). Public `/p/voice/:slug`; session mint `POST /api/public/voice/:slug/session`; CEO `POST /api/agents/:id/voice/session`. Optional `OPENAI_REALTIME_*` env as last-resort platform fallback. Help **46**. PSTN deferred to a telephony MCP. |
 | Published Scenes / public VR | Guest `/p/vr/:slug` + `/api/public/vr/*` (no auth); publish from Avatars / Published Scenes nav. Guest artifact tokens ≠ `MEDIA_PUBLIC_SIGNED` |
-| Agent channels | Slack/WhatsApp BYOK wizard → vault + OpenClaw bindings; outbound **`MEDIA:`** attach; inbound → `inbound/attachments/` (OpenClaw `media/inbound` staging deleted after mirror). WhatsApp replies prepend **`From: {employee name}`** (`channels.whatsapp.responsePrefix` + `identity.name`). Scheduled-goal WhatsApp copies send `MEDIA:` TTS as a **follow-up voice note** (OGG/Opus PTT, `audio/ogg; codecs=opus` — WAV/MP3 PTT shows Media error). WhatsApp **`groupPolicy` defaults to `disabled`** so `@g.us` group traffic is rejected before media download (DM `allowFrom` alone does not cover groups; set allowlist/open in Channels wizard if intentional). `/api/agent-channels`; platform-help **24**; `OPENCLAW_MEDIA_MAX_MB` (default 128) applied by `configure-openclaw-docker.js` |
+| Agent channels | Slack/WhatsApp/Voice BYOK wizard → vault + OpenClaw bindings (Voice skips OpenClaw); outbound **`MEDIA:`** attach; inbound → `inbound/attachments/` (OpenClaw `media/inbound` staging deleted after mirror). WhatsApp replies prepend **`From: {employee name}`** (`channels.whatsapp.responsePrefix` + `identity.name`). Scheduled-goal WhatsApp copies send `MEDIA:` TTS as a **follow-up voice note** (OGG/Opus PTT, `audio/ogg; codecs=opus` — WAV/MP3 PTT shows Media error). WhatsApp **`groupPolicy` defaults to `disabled`** so `@g.us` group traffic is rejected before media download (DM `allowFrom` alone does not cover groups; set allowlist/open in Channels wizard if intentional). `/api/agent-channels`; platform-help **24** / **46**; `OPENCLAW_MEDIA_MAX_MB` (default 128) applied by `configure-openclaw-docker.js` |
 | Content Explorer | CEO file browser `/content-explorer` → list/download + `POST /api/workspace/content-explorer/delete` (hard delete selected/all); `wa-*` channel media labeled WhatsApp/Telegram; platform-help **26** |
 | CEO home chat + My Org | Post-login home `/` is agent chat (default COO + agent picker); former dashboard org chart/standups at `/org` nav **My Org** |
 | Chat side panes | History + Browser session collapsible; **hidden by default**; clock / window icons next to New chat |
@@ -831,7 +834,7 @@ AGENT_OS_BASE_URL=https://your-domain cd ../backend && npm run test:smoke
 
 Top-nav **Digest** (/this-week) loads owner-scoped GET /api/this-week-digest (KPIs, workflows, activity). Time Saved uses THIS_WEEK_MINUTES_PER_TASK (default 45). Est. Value = sum((minutes/60) * agent.hourly_rate_usd) for completed Kanban; workflows/unassigned use THIS_WEEK_VALUE_USD_PER_HOUR (default 10). Hire form sets hourly_rate_usd (default 10). Insights assessor is separate. COO tool this_week_digest for chat explainability.
 
-**Home OEI (not Digest):** owner-scoped GET /api/operational-effectiveness + COO tool operational_effectiveness. Score 0–100, Green ≥ 75, 14-day equal-weight domains (vision, org, goals, workflows, autonomy, CRM platform-or-MCA, governance). Rules-only (no LLM). **Goal runs (14d)** counts rows in scheduled_goal_runs (firings), separate from distinct-goals-that-ran. Left nav sections default **collapsed** (AppNavMenu agent-os-nav-section-v2). Help: platform-help **36** (also 02, 28). Legal at register: AGENT_OS_TERMS_VERSION / AGENT_OS_PRIVACY_VERSION (defaults 2026-08-09 in legal-terms.js); public pages under deploy/static/flolah-home/legal and frontend/public/legal.
+**Home OEI (not Digest):** owner-scoped GET /api/operational-effectiveness + COO tool operational_effectiveness. Score 0–100, Green ≥ 75, 14-day equal-weight domains (vision, org, goals, workflows, autonomy, CRM platform-or-MCA, governance). Rules-only (no LLM). **Goal runs (14d)** counts rows in scheduled_goal_runs (firings), separate from distinct-goals-that-ran. Left nav sections default **collapsed** (AppNavMenu agent-os-nav-section-v2). Help: platform-help **36** (also 02, 28). Legal at register: AGENT_OS_TERMS_VERSION / AGENT_OS_PRIVACY_VERSION (defaults 2026-08-09 in legal-terms.js); public pages under deploy/static/flolah-home/legal and frontend/public/legal (open-source notices include OpenSearch, Open Connector, Node.js, Docker; full file `THIRD_PARTY_NOTICES.md`).
 
 ### Workspace Builder
 

@@ -21,7 +21,7 @@
 # help docs 11/19/28/42 must ship in platform-help COPY; seed tools in seed-content-tools-meta.js.
 # ISO 3166 country/region on Profile/Register/Company setup (iso-3166 dep; platform_users.country).
 # Also: public VR routes, speech STT/TTS APIs + COO content tools speech_tts/speech_stt,
-# agent channels, optional-voice (whisper+piper),
+# agent channels (Slack/WhatsApp/Voice), optional-voice (whisper+piper), Voice Realtime sessions,
 # platform MCP OAuth (mcp-oauth tables) + Meta Graph seed (seed-meta-graph-mcp.js) +
 # Connectors → MCPs (mcp-integrations routes).
 FROM node:22-bookworm-slim
@@ -49,6 +49,8 @@ COPY openclaw-extensions ./openclaw-extensions
 COPY deploy ./deploy
 # Seeded as Master Data "Flolah User Guide" for every CEO (register + startup backfill; protected from purge/delete)
 COPY README.md ./README.md
+COPY LICENSE ./LICENSE
+COPY THIRD_PARTY_NOTICES.md ./THIRD_PARTY_NOTICES.md
 # Platform Help corpus → Master Data RAG (Platform Help agent / master_data_rag; protected from purge/delete)
 COPY knowledgebase/platform-help ./knowledgebase/platform-help
 COPY knowledgebase/video-tours ./knowledgebase/video-tours

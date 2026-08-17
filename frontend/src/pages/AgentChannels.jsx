@@ -9,7 +9,7 @@ const WIZARD_STEPS = [
   { id: 3, title: 'Credentials' },
   { id: 4, title: 'Who can message' },
   { id: 5, title: 'Enable' },
-  { id: 6, title: 'Link phone' },
+  { id: 6, title: 'Done' },
 ];
 
 const SLACK_CHECKLIST = [
@@ -19,11 +19,11 @@ const SLACK_CHECKLIST = [
   'Enable Socket Mode and copy the App-Level Token (xapp-…).',
 ];
 
-const WHATSAPP_CHECKLIST = [
-  'Have your WhatsApp phone nearby — you will scan a QR on the last step.',
-  'Decide who may message the agent: pairing (approve new people) or allowlist (only listed numbers).',
-  'After Enable, scan the QR shown here with WhatsApp → Linked devices.',
-  'Then send a WhatsApp message — this agent replies.',
+const VOICE_CHECKLIST = [
+  'Realtime Caller uses browser WebRTC — not a phone number.',
+  'Profile BYOK (or platform secondary) must be OpenAI Realtime-capable. OpenRouter / Ollama / DeepSeek cannot mint live sessions.',
+  'Enable publishes a public /p/voice/:slug widget. Agent Chat also has Call.',
+  'Inbound PSTN numbers are later (telephony MCP). Hangup runs wrap-up in this employee’s chat.',
 ];
 
 function WizardStepper({ step }) {
@@ -298,7 +298,7 @@ function AgentChannelsPanel() {
       if (channelType === 'whatsapp' && out.channel?.id) {
         setTimeout(() => startQr(false, out.channel.id), 0);
       }
-    }, channelType === 'whatsapp' ? 'Enabled — scan the QR next' : 'Channel enabled');
+    }, channelType === 'whatsapp' ? 'Enabled — scan the QR next' : channelType === 'voice' ? 'Voice published' : 'Channel enabled');
 
   const doTest = () =>
     run(async () => {
@@ -319,7 +319,7 @@ function AgentChannelsPanel() {
   };
 
   const canNext = () => {
-    if (wizardStep === 1) return channelType === 'slack' || channelType === 'whatsapp';
+    if (wizardStep === 1) return channelType === 'slack' || channelType === 'whatsapp' || channelType === 'voice';
     if (wizardStep === 2) return setupConfirmed;
     if (wizardStep === 3) {
       if (channelType === 'slack') return !!(botToken.trim() || record?.credentials_present?.slack_bot_token);
@@ -334,7 +334,7 @@ function AgentChannelsPanel() {
       const ok = await saveCredentials();
       if (!ok) return;
     }
-    if (wizardStep === 4) {
+    if (wizardStep === 4 && channelType !== 'voice') {
       const ok = await savePolicies();
       if (!ok) return;
     }
@@ -357,8 +357,8 @@ function AgentChannelsPanel() {
 
       <h1 style={{ marginTop: 0 }}>Channels — {agent?.name || agentId}</h1>
       <p style={{ color: 'var(--muted)', marginBottom: '1.25rem' }}>
-        Connect Slack or WhatsApp so people can chat with this agent from those apps. For WhatsApp, enable the channel
-        then scan a QR with your phone.
+        Connect Slack, WhatsApp, or Voice so people can reach this employee. WhatsApp uses a phone QR. Voice is browser
+        WebRTC (click-to-call), not a PSTN number.
       </p>
 
       {error && (
@@ -431,9 +431,24 @@ function AgentChannelsPanel() {
                     <strong style={{ textTransform: 'capitalize' }}>{ch.channel}</strong>{' '}
                     {statusBadge(ch.status)}
                     <div style={{ fontSize: '0.85rem', color: 'var(--muted)', marginTop: 4 }}>
-                      DM policy: {ch.config?.dmPolicy || 'pairing'}
-                      {ch.channel === 'whatsapp' && (
-                        <> · Groups: {ch.config?.groupPolicy || 'disabled'}</>
+                      {ch.channel === 'voice' ? (
+                        <>
+                          Widget:{' '}
+                          {ch.public_url ? (
+                            <a href={ch.public_url} target="_blank" rel="noreferrer">
+                              {ch.public_url}
+                            </a>
+                          ) : (
+                            ch.config?.public_slug || 'not published'
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          DM policy: {ch.config?.dmPolicy || 'pairing'}
+                          {ch.channel === 'whatsapp' && (
+                            <> · Groups: {ch.config?.groupPolicy || 'disabled'}</>
+                          )}
+                        </>
                       )}
                       {ch.last_test_at && <> · Last test: {new Date(ch.last_test_at).toLocaleString()}</>}
                     </div>
@@ -506,7 +521,7 @@ function AgentChannelsPanel() {
             <>
               <h2 style={{ marginTop: 0, fontSize: '1.1rem' }}>Choose channel</h2>
               <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                {['slack', 'whatsapp'].map((id) => (
+                {['slack', 'whatsapp', 'voice'].map((id) => (
                   <button
                     key={id}
                     type="button"
@@ -522,7 +537,7 @@ function AgentChannelsPanel() {
                       textTransform: 'capitalize',
                     }}
                   >
-                    {id}
+                    {id === 'voice' ? 'Voice (WebRTC)' : id}
                   </button>
                 ))}
                 <button
@@ -548,10 +563,15 @@ function AgentChannelsPanel() {
           {wizardStep === 2 && (
             <>
               <h2 style={{ marginTop: 0, fontSize: '1.1rem' }}>
-                {channelType === 'slack' ? 'Slack setup' : 'WhatsApp prep'}
+                {channelType === 'slack' ? 'Slack setup' : channelType === 'voice' ? 'Voice prep' : 'WhatsApp prep'}
               </h2>
               <ol style={{ margin: '0 0 1rem', paddingLeft: '1.25rem', color: 'var(--text)' }}>
-                {(channelType === 'slack' ? SLACK_CHECKLIST : WHATSAPP_CHECKLIST).map((line) => (
+                {(channelType === 'slack'
+                  ? SLACK_CHECKLIST
+                  : channelType === 'voice'
+                    ? VOICE_CHECKLIST
+                    : WHATSAPP_CHECKLIST
+                ).map((line) => (
                   <li key={line} style={{ marginBottom: 8, fontSize: '0.9rem' }}>
                     {line}
                   </li>
@@ -563,7 +583,9 @@ function AgentChannelsPanel() {
                   checked={setupConfirmed}
                   onChange={(e) => setSetupConfirmed(e.target.checked)}
                 />
-                I have my phone ready (or Slack tokens ready).
+                {channelType === 'voice'
+                  ? 'I have an OpenAI Realtime-capable key (Profile BYOK or platform OpenAI).'
+                  : 'I have my phone ready (or Slack tokens ready).'}
               </label>
             </>
           )}
@@ -589,6 +611,11 @@ function AgentChannelsPanel() {
                     <input value={teamId} onChange={(e) => setTeamId(e.target.value)} style={inputStyle} placeholder="T01234567" />
                   </label>
                 </>
+              ) : channelType === 'voice' ? (
+                <p style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>
+                  No vendor tokens in this wizard. Voice uses your Profile OpenAI Realtime key (or platform OpenAI). Enable
+                  publishes a public widget slug.
+                </p>
               ) : (
                 <p style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>
                   No API tokens needed. On the last step you will scan a QR code with WhatsApp on your phone.
@@ -599,7 +626,16 @@ function AgentChannelsPanel() {
 
           {wizardStep === 4 && (
             <>
-              <h2 style={{ marginTop: 0, fontSize: '1.1rem' }}>Who can message</h2>
+              <h2 style={{ marginTop: 0, fontSize: '1.1rem' }}>
+                {channelType === 'voice' ? 'Public widget' : 'Who can message'}
+              </h2>
+              {channelType === 'voice' ? (
+                <p style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>
+                  Guests who open the published URL can call this employee in the browser. Tools still run as you (the
+                  CEO). Rate limits apply. Do not share the slug if you are not ready for public callers.
+                </p>
+              ) : (
+              <>
               <label style={fieldLabel}>
                 Access rule
                 <select value={dmPolicy} onChange={(e) => setDmPolicy(e.target.value)} style={inputStyle}>
@@ -632,6 +668,8 @@ function AgentChannelsPanel() {
                   </span>
                 </label>
               )}
+              </>
+              )}
             </>
           )}
 
@@ -641,7 +679,9 @@ function AgentChannelsPanel() {
               <p style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>
                 {channelType === 'slack'
                   ? 'This connects your Slack bot to the agent and stores tokens securely.'
-                  : 'This turns on WhatsApp for the agent. Next you will scan a QR with your phone.'}
+                  : channelType === 'voice'
+                    ? 'This publishes a /p/voice/… widget and allows Agent Chat Call. Not a phone number.'
+                    : 'This turns on WhatsApp for the agent. Next you will scan a QR with your phone.'}
               </p>
               {applyInfo && (
                 <p style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
@@ -654,9 +694,29 @@ function AgentChannelsPanel() {
           {wizardStep === 6 && (
             <>
               <h2 style={{ marginTop: 0, fontSize: '1.1rem' }}>
-                {channelType === 'whatsapp' ? 'Link your phone' : 'Test'}
+                {channelType === 'whatsapp' ? 'Link your phone' : channelType === 'voice' ? 'Voice live' : 'Test'}
               </h2>
-              {channelType === 'whatsapp' ? (
+              {channelType === 'voice' ? (
+                <div>
+                  <p style={{ fontSize: '0.9rem' }}>
+                    Public URL:{' '}
+                    {record?.public_url || applyInfo?.public_url ? (
+                      <a href={record?.public_url || applyInfo?.public_url} target="_blank" rel="noreferrer">
+                        {record?.public_url || applyInfo?.public_url}
+                      </a>
+                    ) : (
+                      '—'
+                    )}
+                  </p>
+                  <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>
+                    Embed: copy the URL into your site. Agent Chat also has <strong>Call</strong>. Hangup wraps up in this
+                    employee’s workspace.
+                  </p>
+                  {applyInfo?.gateway_note && (
+                    <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>{applyInfo.gateway_note}</p>
+                  )}
+                </div>
+              ) : channelType === 'whatsapp' ? (
                 <div>
                   <ol style={{ margin: '0 0 1rem', paddingLeft: '1.25rem', fontSize: '0.9rem' }}>
                     <li style={{ marginBottom: 6 }}>Open WhatsApp on your phone</li>
@@ -750,7 +810,7 @@ function AgentChannelsPanel() {
             )}
             {wizardStep === 5 && (
               <button type="button" disabled={busy} onClick={doApply} style={primaryBtn}>
-                Enable messaging
+                {channelType === 'voice' ? 'Publish Voice' : 'Enable messaging'}
               </button>
             )}
           </div>

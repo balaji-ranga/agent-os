@@ -35,3 +35,5 @@ Facebook Page via **Connectors → MCPs**, then operate workflows for publish, c
 ## Speech
 
 When enabled, Agent Chat can use on-platform speech-to-text and text-to-speech (mic and Speak reply). WhatsApp voice notes use the same family of tools.
+
+**Call** on Agent Chat is a live WebRTC session (OpenAI Realtime), not Whisper/Piper. See [Channels](./channels.md).

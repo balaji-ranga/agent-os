@@ -19,6 +19,8 @@ import * as workspace from '../workspace/adapter.js';
 import { normalizeReplyContent } from '../services/delegation-queue.js';
 import { mirrorChatMediaToInbound } from '../services/inbound-attachments.js';
 import { createFullAgent } from '../services/create-full-agent.js';
+import { listHireableRoleTemplates } from '../services/hireable-role-templates.js';
+import agentVoiceRoutes from './agent-voice.js';
 import { normalizeAgentAvatar } from '../lib/agent-avatar.js';
 import {
   getPublicationForAgent,
@@ -234,6 +236,17 @@ router.get('/workspace-templates', requireAuth, requireCeoOrAdmin, (req, res) =>
     res.status(500).json({ error: e.message });
   }
 });
+
+/** Hireable role packs (filesystem templates: Slow Caller, Realtime Caller, …). */
+router.get('/hire-templates', requireAuth, requireCeoOrAdmin, (req, res) => {
+  try {
+    res.json({ templates: listHireableRoleTemplates() });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.use('/:id/voice', agentVoiceRoutes);
 
 router.get('/workspace-templates/:templateId', requireAuth, requireCeoOrAdmin, (req, res) => {
   try {
@@ -503,6 +516,9 @@ router.post('/', requireAuth, requireCeoOrAdmin, async (req, res) => {
       hourly_rate_usd,
       hourlyRateUsd,
       avatar_image,
+      template_base_id,
+      templateBaseId,
+      template_id,
     } = req.body || {};
     let ownerUserId = null;
     if (req.authUser.role === 'ceo') {
@@ -530,6 +546,7 @@ router.post('/', requireAuth, requireCeoOrAdmin, async (req, res) => {
       error_budget_pct: error_budget_pct ?? null,
       hourly_rate_usd: hourly_rate_usd ?? hourlyRateUsd ?? null,
       avatar_image: avatar_image || '',
+      template_base_id: template_base_id || templateBaseId || template_id || '',
     });
     res.status(201).json(row);
   } catch (e) {

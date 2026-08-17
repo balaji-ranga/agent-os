@@ -624,6 +624,8 @@ No separate migration folder; schema changes use `ALTER TABLE` blocks in `schema
 ```
 agent-os/
 ├── README.md
+├── LICENSE
+├── THIRD_PARTY_NOTICES.md      # Open-source / dependency attribution
 ├── knowledgebase/              # Extended docs (see index below)
 ├── scripts/                    # AgentSystem/workspace; onboard-api-tool.js; tool-definitions/
 ├── tools/local-mcp-random-sse/ # Dev MCP + SSE test server (port 3099)
@@ -702,4 +704,6 @@ See **knowledgebase/README.md** for the full index.
 
 ## License
 
-Same as parent project.
+Flolah application code is proprietary — see [`LICENSE`](./LICENSE).
+
+Open-source and third-party components (Node.js, Docker, Nginx, OpenSearch, Open Connector, OpenClaw, React, Express, optional Twenty/ERPNext, and others) remain under their own licenses. **Attribution:** [`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md). Public summary: [`/legal/open-source.html`](https://flolah.cloud/legal/open-source.html) (also on the login host).

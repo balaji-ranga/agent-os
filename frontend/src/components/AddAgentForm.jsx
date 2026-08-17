@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '../api';
 import DepartmentPicker from './DepartmentPicker';
 import AgentAvatarPicker from './AgentAvatarPicker.jsx';
@@ -10,6 +10,8 @@ import AgentAvatarPicker from './AgentAvatarPicker.jsx';
 export default function AddAgentForm({ agents = [], onCreated, compact = false }) {
   const [name, setName] = useState('');
   const [role, setRole] = useState('');
+  const [hireTemplateId, setHireTemplateId] = useState('');
+  const [hireTemplates, setHireTemplates] = useState([]);
   const [department, setDepartment] = useState('Operations');
   const [parentId, setParentId] = useState('');
   const [tokenBudget, setTokenBudget] = useState('');
@@ -19,6 +21,15 @@ export default function AddAgentForm({ agents = [], onCreated, compact = false }
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    api
+      .agentHireTemplates()
+      .then((r) => setHireTemplates(Array.isArray(r?.templates) ? r.templates : []))
+      .catch(() => setHireTemplates([]));
+  }, []);
+
+  const selectedHire = hireTemplates.find((t) => t.id === hireTemplateId) || null;
 
   const inputStyle = {
     padding: '0.5rem 0.75rem',
@@ -40,19 +51,21 @@ export default function AddAgentForm({ agents = [], onCreated, compact = false }
     const coo = agents.find((a) => a.is_coo);
     const body = {
       name: name.trim(),
-      role: role.trim() || 'AI employee',
-      department: department.trim() || '',
+      role: role.trim() || selectedHire?.role || 'AI employee',
+      department: department.trim() || selectedHire?.department || '',
       monthly_token_budget: tokenBudget || null,
       error_budget_pct: errorBudget || null,
       hourly_rate_usd: hourlyRate === '' ? 10 : Number(hourlyRate),
       parent_id: parentId || coo?.id || undefined,
       avatar_image: avatarImage || '',
+      template_base_id: hireTemplateId || undefined,
     };
     api
       .agentCreate(body)
       .then((agent) => {
         setName('');
         setRole('');
+        setHireTemplateId('');
         setParentId('');
         setDepartment('Operations');
         setTokenBudget('');
@@ -88,6 +101,30 @@ export default function AddAgentForm({ agents = [], onCreated, compact = false }
           style={inputStyle}
         />
         <AgentAvatarPicker value={avatarImage} name={name} onChange={setAvatarImage} size={48} />
+        {hireTemplates.length > 0 && (
+          <select
+            value={hireTemplateId}
+            onChange={(e) => {
+              const id = e.target.value;
+              setHireTemplateId(id);
+              const tpl = hireTemplates.find((t) => t.id === id);
+              if (tpl) {
+                if (!role.trim()) setRole(tpl.role || '');
+                if (tpl.department) setDepartment(tpl.department);
+              }
+            }}
+            aria-label="Role template"
+            title={selectedHire?.description || 'Optional role template'}
+            style={{ ...inputStyle, minWidth: compact ? 160 : 180 }}
+          >
+            <option value="">Role template (optional)</option>
+            {hireTemplates.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        )}
         <input
           type="text"
           placeholder="Role (optional)"

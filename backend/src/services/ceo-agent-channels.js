@@ -20,9 +20,10 @@ import {
   removeAgentChannelFromOpenClaw,
   channelBindingIds,
 } from './openclaw-channels-config.js';
+import { getPublicBaseUrl } from '../config/public-url.js';
 import { openclawAdminRpc } from '../gateway/openclaw-admin-rpc.js';
 
-const CHANNELS = new Set(['slack', 'whatsapp']);
+const CHANNELS = new Set(['slack', 'whatsapp', 'voice']);
 const STATUSES = new Set(['draft', 'pairing', 'enabled', 'disabled']);
 
 /** In-memory WhatsApp QR cache keyed by channel id (data URLs are large; not persisted). */
@@ -110,6 +111,7 @@ function hydrateChannel(row) {
   const keys = vaultKeyNames(row.agent_id);
   const hasSlackBot = !!tryResolveUserApiKey(row.owner_user_id, vaultRefs.slackBotToken || keys.slackBotToken);
   const hasSlackApp = !!tryResolveUserApiKey(row.owner_user_id, vaultRefs.slackAppToken || keys.slackAppToken);
+  const slug = config.public_slug || null;
   return {
     id: row.id,
     owner_user_id: row.owner_user_id,
@@ -122,6 +124,10 @@ function hydrateChannel(row) {
       slack_bot_token: hasSlackBot,
       slack_app_token: hasSlackApp,
     },
+    public_url:
+      row.channel === 'voice' && slug && String(row.status).toLowerCase() === 'enabled'
+        ? voicePublicUrl(slug)
+        : null,
     last_test_at: row.last_test_at || null,
     created_at: row.created_at,
     updated_at: row.updated_at,
@@ -158,7 +164,7 @@ export function isWhatsAppSessionPaired(ownerUserId, agentId) {
 function normalizeChannelInput(body = {}) {
   const channel = String(body.channel || '').trim().toLowerCase();
   if (!CHANNELS.has(channel)) {
-    throw Object.assign(new Error('channel must be slack or whatsapp'), { status: 400 });
+    throw Object.assign(new Error('channel must be slack, whatsapp, or voice'), { status: 400 });
   }
   return channel;
 }
@@ -197,7 +203,51 @@ function normalizeConfigInput(config = {}) {
           .filter(Boolean);
   }
   if (out.teamId != null) out.teamId = String(out.teamId).trim();
+  if (out.public_slug != null || out.publicSlug != null) {
+    const slug = slugifyVoice(out.public_slug ?? out.publicSlug);
+    if (slug) out.public_slug = slug;
+  }
+  if (out.published != null) out.published = !!out.published;
   return out;
+}
+
+function slugifyVoice(raw) {
+  return String(raw || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48);
+}
+
+function allocateVoiceSlug(ownerUserId, agentId, preferred) {
+  let base = slugifyVoice(preferred) || slugifyVoice(agentId) || `voice-${randomBytes(4).toString('hex')}`;
+  let slug = base;
+  let n = 2;
+  while (voiceSlugTaken(slug, ownerUserId, agentId)) {
+    slug = `${base}-${n}`.slice(0, 48);
+    n += 1;
+  }
+  return slug;
+}
+
+function voiceSlugTaken(slug, ownerUserId, agentId) {
+  const rows = getDb()
+    .prepare(
+      `SELECT owner_user_id, agent_id, config_json FROM ceo_agent_channels WHERE channel = 'voice'`
+    )
+    .all();
+  const want = String(slug || '').toLowerCase();
+  return rows.some((r) => {
+    const cfg = parseJson(r.config_json, {});
+    if (String(cfg.public_slug || '').toLowerCase() !== want) return false;
+    return !(r.owner_user_id === ownerUserId && r.agent_id === agentId);
+  });
+}
+
+function voicePublicUrl(slug) {
+  const base = getPublicBaseUrl().replace(/\/api$/i, '');
+  return `${base}/p/voice/${encodeURIComponent(slug)}`;
 }
 
 function storeCredentials(ownerUserId, agentId, channel, credentials = {}) {
@@ -226,6 +276,9 @@ export function createAgentChannel(ownerUserId, body = {}) {
   assertAgentGrantedToCeo(owner, agentId);
   const channel = normalizeChannelInput(body);
   const config = normalizeConfigInput(body.config || {});
+  if (channel === 'voice' && !config.public_slug) {
+    config.public_slug = allocateVoiceSlug(owner, agentId, config.public_slug);
+  }
 
   const existing = getDb()
     .prepare(`SELECT id FROM ceo_agent_channels WHERE owner_user_id = ? AND agent_id = ? AND channel = ?`)
@@ -289,10 +342,12 @@ export function deleteAgentChannel(ownerUserId, channelId) {
   const row = getRow(ownerUserId, channelId);
   if (!row) throw Object.assign(new Error('Channel not found'), { status: 404 });
   const agent = assertAgentGrantedToCeo(row.owner_user_id, row.agent_id);
-  try {
-    removeAgentChannelFromOpenClaw({ ownerUserId: row.owner_user_id, agent, channel: row.channel });
-  } catch (e) {
-    console.warn('[agent-channels] openclaw remove on delete failed id=%s:', row.id, e?.message || e);
+  if (row.channel !== 'voice') {
+    try {
+      removeAgentChannelFromOpenClaw({ ownerUserId: row.owner_user_id, agent, channel: row.channel });
+    } catch (e) {
+      console.warn('[agent-channels] openclaw remove on delete failed id=%s:', row.id, e?.message || e);
+    }
   }
   getDb().prepare(`DELETE FROM ceo_agent_channels WHERE id = ? AND owner_user_id = ?`).run(row.id, row.owner_user_id);
   console.info('[agent-channels] deleted id=%s', row.id);
@@ -331,6 +386,7 @@ export function syncEnabledAgentChannelsToOpenClaw() {
   const accounts = [];
   for (const row of rows) {
     try {
+      if (row.channel === 'voice') continue;
       const agent = assertAgentGrantedToCeo(row.owner_user_id, row.agent_id);
       ensureTenantOpenClawAgent(agent, row.owner_user_id);
       const config = parseJson(row.config_json, {});
@@ -381,6 +437,29 @@ export function applyAgentChannel(ownerUserId, channelId) {
   const agent = assertAgentGrantedToCeo(row.owner_user_id, row.agent_id);
   const config = parseJson(row.config_json, {});
   const channel = row.channel;
+
+  if (channel === 'voice') {
+    const slug = allocateVoiceSlug(row.owner_user_id, row.agent_id, config.public_slug);
+    const nextConfig = { ...config, public_slug: slug, published: true };
+    getDb()
+      .prepare(
+        `UPDATE ceo_agent_channels SET status = 'enabled', config_json = ?, updated_at = datetime('now')
+         WHERE id = ? AND owner_user_id = ?`
+      )
+      .run(JSON.stringify(nextConfig), row.id, row.owner_user_id);
+    const publicUrl = voicePublicUrl(slug);
+    console.info('[agent-channels] voice enabled id=%s slug=%s', row.id, slug);
+    return {
+      channel: hydrateChannel(getRow(row.owner_user_id, row.id)),
+      apply: {
+        runtime_agent_id: row.agent_id,
+        account_id: null,
+        public_url: publicUrl,
+        public_slug: slug,
+        gateway_note: 'Voice is live in Flolah (WebRTC). Inbound phone numbers are not in this channel — later via a telephony MCP.',
+      },
+    };
+  }
 
   ensureTenantOpenClawAgent(agent, row.owner_user_id);
 
@@ -435,7 +514,9 @@ export function disableAgentChannel(ownerUserId, channelId) {
   const row = getRow(ownerUserId, channelId);
   if (!row) throw Object.assign(new Error('Channel not found'), { status: 404 });
   const agent = assertAgentGrantedToCeo(row.owner_user_id, row.agent_id);
-  disableAgentChannelInOpenClaw({ ownerUserId: row.owner_user_id, agent, channel: row.channel });
+  if (row.channel !== 'voice') {
+    disableAgentChannelInOpenClaw({ ownerUserId: row.owner_user_id, agent, channel: row.channel });
+  }
   getDb()
     .prepare(
       `UPDATE ceo_agent_channels SET status = 'disabled', updated_at = datetime('now') WHERE id = ? AND owner_user_id = ?`
@@ -522,6 +603,17 @@ export async function testAgentChannel(ownerUserId, channelId) {
       hint: sessionDir
         ? 'WhatsApp is linked — you can message this agent from the paired phone.'
         : 'Not linked yet. Open the QR step and scan with WhatsApp on your phone.',
+    };
+  } else if (row.channel === 'voice') {
+    const config = parseJson(row.config_json, {});
+    const slug = config.public_slug || null;
+    result = {
+      ok: row.status === 'enabled' && !!slug,
+      public_slug: slug,
+      public_url: slug ? voicePublicUrl(slug) : null,
+      hint: slug
+        ? 'Voice widget URL is ready. Callers use WebRTC in the browser — not a phone number.'
+        : 'Enable the Voice channel to publish a public slug.',
     };
   } else {
     throw Object.assign(new Error('Unsupported channel'), { status: 400 });

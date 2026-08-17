@@ -19,6 +19,7 @@ import { writeAgentToolsMd } from './openclaw-agent-tools.js';
 import { clearAgentTombstone } from './agent-delete.js';
 import { getOpenClawDir } from '../config/openclaw-paths.js';
 import { resolveWorkspaceTemplateBaseId } from './company-blueprints/standard-prefabs.js';
+import { getHireableRoleTemplate } from './hireable-role-templates.js';
 import { normalizeAgentAvatar } from '../lib/agent-avatar.js';
 
 const REPO_TEMPLATES = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'openclaw-workspace-templates');
@@ -160,11 +161,12 @@ ${department || 'Unassigned'}
 }
 
 /**
- * @param {{ name: string, role?: string, parent_id?: string, reportingTo?: string, department?: string, id?: string, ownerUserId?: string, tools?: string[], monthly_token_budget?: number|string|null, error_budget_pct?: number|string|null, hourly_rate_usd?: number|string|null, hourlyRateUsd?: number|string|null, avatar_image?: string, source_kind?: string, source_publish_id?: string }} input
+ * @param {{ name: string, role?: string, parent_id?: string, reportingTo?: string, department?: string, id?: string, ownerUserId?: string, tools?: string[], monthly_token_budget?: number|string|null, error_budget_pct?: number|string|null, hourly_rate_usd?: number|string|null, hourlyRateUsd?: number|string|null, avatar_image?: string, source_kind?: string, source_publish_id?: string, template_base_id?: string, templateBaseId?: string, workspace_template?: string }} input
  */
 export async function createFullAgent(input) {
   const name = (input.name || 'Unnamed').trim();
   if (!name) throw new Error('name is required');
+  const hireTpl = getHireableRoleTemplate(input.template_base_id || input.templateBaseId || input.template_id);
 
   const ownerUserId = input.ownerUserId ? String(input.ownerUserId).trim() : null;
   if (!ownerUserId) {
@@ -192,8 +194,12 @@ export async function createFullAgent(input) {
   const coo = db.prepare('SELECT * FROM agents WHERE is_coo = 1 LIMIT 1').get();
   if (!parentId && coo) parentId = coo.id;
 
-  const role = (input.role || 'Agent').trim();
-  const department = String(input.department || '').trim();
+  const role = (input.role || hireTpl?.role || 'Agent').trim();
+  const department = String(input.department || hireTpl?.department || '').trim();
+  const templateBaseIdInput =
+    hireTpl?.template_base_id ||
+    String(input.template_base_id || input.templateBaseId || '').trim() ||
+    null;
   const rawRate = input.hourly_rate_usd ?? input.hourlyRateUsd;
   let hourlyRateUsd = 10;
   if (rawRate != null && rawRate !== '') {
@@ -228,8 +234,8 @@ export async function createFullAgent(input) {
 
   // Custom agents belong to the creating CEO and are NOT auto-granted to all CEOs on signup.
   db.prepare(
-    `INSERT INTO agents (id, name, role, parent_id, workspace_path, openclaw_agent_id, is_coo, agent_type, owner_user_id, department, hourly_rate_usd, avatar_image, source_kind, source_publish_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 'custom', ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO agents (id, name, role, parent_id, workspace_path, openclaw_agent_id, is_coo, agent_type, owner_user_id, department, hourly_rate_usd, avatar_image, source_kind, source_publish_id, template_base_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'custom', ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     name,
@@ -243,11 +249,17 @@ export async function createFullAgent(input) {
     hourlyRateUsd,
     avatarImage,
     sourceKind,
-    sourcePublishId
+    sourcePublishId,
+    templateBaseIdInput || ''
   );
 
   let row = db.prepare('SELECT * FROM agents WHERE id = ?').get(id);
-  const toolsToGrant = Array.isArray(input.tools) && input.tools.length ? input.tools : DEFAULT_TOOLS_ALLOW;
+  const toolsToGrant =
+    Array.isArray(input.tools) && input.tools.length
+      ? input.tools
+      : Array.isArray(hireTpl?.tools) && hireTpl.tools.length
+        ? hireTpl.tools
+        : DEFAULT_TOOLS_ALLOW;
   try {
     setAgentToolGrants(row, toolsToGrant);
   } catch (e) {
@@ -262,8 +274,13 @@ export async function createFullAgent(input) {
   const ensured = ensureTenantOpenClawAgent(
     {
       ...row,
-      template_base_id: input.template_base_id || input.templateBaseId || row.template_base_id,
-      workspace_template: input.workspace_template || input.workspaceTemplate || row.workspace_template,
+      template_base_id:
+        templateBaseIdInput || input.template_base_id || input.templateBaseId || row.template_base_id,
+      workspace_template:
+        hireTpl?.workspace_template ||
+        input.workspace_template ||
+        input.workspaceTemplate ||
+        row.workspace_template,
     },
     ownerUserId
   );
@@ -272,8 +289,9 @@ export async function createFullAgent(input) {
   // Do not stomp those with generic createFullAgent stubs (CRM/ERP maker-checker, etc.).
   const templateBaseId = resolveWorkspaceTemplateBaseId({
     id,
-    template_base_id: input.template_base_id || input.templateBaseId,
-    workspace_template: input.workspace_template || input.workspaceTemplate,
+    template_base_id: templateBaseIdInput || input.template_base_id || input.templateBaseId,
+    workspace_template:
+      hireTpl?.workspace_template || input.workspace_template || input.workspaceTemplate,
   });
   const packSoul = join(REPO_TEMPLATES, templateBaseId, 'SOUL.md');
   const preservePackDocs =

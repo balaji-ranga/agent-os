@@ -5,6 +5,7 @@
 import { readFileSync, existsSync } from 'fs';
 import { join, dirname, basename } from 'path';
 import { fileURLToPath } from 'url';
+import { listHireableRoleTemplates } from '../hireable-role-templates.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 export const STANDARD_DIR = join(__dirname, 'standard');
@@ -105,6 +106,8 @@ export function resolveWorkspaceTemplateBaseId(agentOrId) {
   if (id === 'video-story' || id.startsWith('video-story-')) return 'video-story';
   if (id === 'video-scene' || id.startsWith('video-scene-')) return 'video-scene';
   if (id === 'video-prompt' || id.startsWith('video-prompt-')) return 'video-prompt';
+  const hire = listHireableRoleTemplates().find((r) => id === r.id || id.startsWith(`${r.id}-`));
+  if (hire) return hire.id;
   return id;
 }
 
