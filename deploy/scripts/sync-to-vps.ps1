@@ -335,6 +335,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-a2a-leaf-kanban-complete.js" `
     "$Repo\backend\scripts\vps-test-private-ops-echo-delegation.js" `
     "$Repo\backend\scripts\test-org-member-delegation-e2e.js" `
+    "$Repo\backend\scripts\test-org-people.js" `
     "$Repo\backend\scripts\test-help-doc-accuracy.js" `
     "$Repo\backend\scripts\heal-platform-help-docs.js" `
     "$Repo\backend\scripts\heal-stuck-kanban-delegations.js" `
@@ -409,6 +410,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\verify-module-graph.js" `
     "$Repo\backend\scripts\verify-agent-view-api.js" `
     "$Repo\backend\scripts\test-org-member-delegation-e2e.js" `
+    "$Repo\backend\scripts\test-org-people.js" `
     "$Repo\backend\scripts\test-a2a-private-visibility.js" `
     "$Repo\backend\scripts\test-balaji-org-delegation-live.js" `
     "$Repo\backend\scripts\repair-live-echo-workflows.js" `
