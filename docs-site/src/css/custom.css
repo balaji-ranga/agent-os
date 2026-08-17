@@ -1,0 +1,37 @@
+:root {
+  --ifm-color-primary: #2f68ff;
+  --ifm-color-primary-dark: #1f58ef;
+  --ifm-color-primary-darker: #1a4fe0;
+  --ifm-color-primary-darkest: #1540b8;
+  --ifm-color-primary-light: #4b7cff;
+  --ifm-color-primary-lighter: #628cff;
+  --ifm-color-primary-lightest: #8babff;
+  --ifm-code-font-size: 95%;
+  --ifm-font-family-base: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --docusaurus-highlighted-code-line-bg: rgba(47, 104, 255, 0.08);
+  --ifm-footer-background-color: #17233c;
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: #6d8dff;
+  --ifm-color-primary-dark: #5478ff;
+  --ifm-color-primary-darker: #456cff;
+  --ifm-color-primary-darkest: #1f4dff;
+  --ifm-color-primary-light: #86a2ff;
+  --ifm-color-primary-lighter: #95aeff;
+  --ifm-color-primary-lightest: #c0d0ff;
+  --docusaurus-highlighted-code-line-bg: rgba(109, 141, 255, 0.18);
+}
+
+.navbar__title {
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+
+.hero--primary {
+  background: linear-gradient(135deg, #2f68ff, #755cff);
+}
+
+.footer__copyright {
+  color: #91a4c6;
+}

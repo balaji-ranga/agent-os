@@ -64,7 +64,7 @@ Use the tools; do not only coach.
 Yes - apply override now. Call onboarding_apply_proposal with confirm_override true for the MarketWatcher proposal.
 ```
 
-Expect: Trading department + agent id like `marketwatcher`; Onboarding status `applied`; draft `proposal_source=openclaw_onboardinghelper`.
+Expect: Trading department + agent id like `marketwatcher`; Onboarding status `applied`; draft `proposal_source=onboardinghelper`.
 
 ### B - Workflow Builder: agent + Ollama validate loop
 

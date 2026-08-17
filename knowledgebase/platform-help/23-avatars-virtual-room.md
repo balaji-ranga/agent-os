@@ -47,7 +47,7 @@ Do **not** rely on world-open absolute HTTPS media URLs — generated media is a
 
 Never use a Demo/`[1,3,2,5]` placeholder chart. Multi-ask (image + chart) must produce **every** item — stacked cards, newest on top.
 
-Shared agent guidance: `openclaw-workspace-templates/_shared/AGENT-OS-OPS.md` (§ Virtual Room / avatar media) and TechResearcher `TOOLS.md`.
+Shared agent guidance: workspace **AGENT-OS-OPS** (§ Virtual Room / avatar media) and TechResearcher `TOOLS.md`.
 
 ## Scenes & media overlays
 Scene JSON example:

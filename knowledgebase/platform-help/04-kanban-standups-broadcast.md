@@ -3,7 +3,8 @@
 ## Kanban (`/kanban`)
 
 - **Task details** show the **task ID** (numeric id) next to assignee and status.
-- **Agent filter** in the top toolbar narrows the board (and mobile list) to one AI employee, Unassigned, or All.
+- **Agent filter** in the top toolbar narrows the board (and mobile list) to one AI employee, a **person**, Unassigned, or All.
+- **Company people:** everyone **sees all cards**. Department employees may **act / reopen / task-chat / approve** only when the assignee is in **their department**. Unassigned cards are view-only for members. CEO and CEO Delegate can act on any card. Help **45**.
 - **Select all** is a toolbar button next to **+ New task** (selects / clears visible tasks for the current filter). Per-card checkboxes remain for multi-select; the old left checkbox column was removed so agent names have more room and no longer wrap tightly.
 
 Board of tasks by agent and status — shared for agent work, workflow steps, and pipeline tasks.
@@ -71,7 +72,7 @@ Specialists follow shared ops rules (`AGENT-OS-OPS.md`):
 | You (or the COO) asked a **specialist** to contact you — **that specialist** calls `notify_ceo` with a link to **their** chat | The **COO** notifying on behalf of a specialist (COO should hand off so the specialist notifies) |
 | | Spam / every tiny status tweak — one clear notify per ask |
 
-- **Get work from team** creates one Kanban card per specialist and rings the bell (`Kanban: Provide your status…`). That is the Dashboard button on a **visible** standup — it is not a silent background job. Operator deploy checks verify the same fan-out as a **dry-run** (no cards, no OpenClaw jobs, no bell) so a deploy cannot leave bells with no Org standup row.
+- **Get work from team** creates one Kanban card per specialist and rings the bell (`Kanban: Provide your status…`). That is the Dashboard button on a **visible** standup — it is not a silent background job. Operator deploy checks verify the same fan-out as a **dry-run** (no cards, no AgentSystem jobs, no bell) so a deploy cannot leave bells with no Org standup row.
 - Creating a Kanban card may also raise a platform bell. Status moves alone do **not** replace `notify_ceo` when you asked to be reached.
 
 **Ops Reporter / scheduled rollups** use `notify_ceo` → **bell only**. They do **not** send email unless you separately grant and prompt `email_send` with SMTP configured. See [30-content-creator-ops.md](./30-content-creator-ops.md).

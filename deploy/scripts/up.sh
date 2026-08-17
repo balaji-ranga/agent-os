@@ -70,6 +70,11 @@ else
   echo "WARN: static/flolah-home missing — apex marketing page will 404 until tree is present" >&2
 fi
 
+if [[ -f scripts/build-public-docs.sh ]]; then
+  sed -i 's/\r$//' scripts/build-public-docs.sh 2>/dev/null || true
+  bash scripts/build-public-docs.sh || echo "WARN: public docs build failed — /docs/ may 404" >&2
+fi
+
 echo "Building images..."
 ${COMPOSE} build
 

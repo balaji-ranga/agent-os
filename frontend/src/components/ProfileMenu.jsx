@@ -143,6 +143,19 @@ export default function ProfileMenu({ user, logout, onNavigate }) {
               <div className="profile-menu-section" role="presentation">
                 Help
               </div>
+              <a
+                href="/docs/"
+                role="menuitem"
+                className="profile-menu-item"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => {
+                  close();
+                  onNavigate?.();
+                }}
+              >
+                User guide
+              </a>
               <NavLink
                 to="/video-tours"
                 role="menuitem"

@@ -248,7 +248,7 @@ Confirm **Job profile** is complete and pipeline/cron is enabled for your enviro
 
 ## Agent Chat 502 / Unknown model
 
-1. Chat returns **502** with `Unknown model: openai/…` after an OpenClaw recreate — the live `openclaw.json` catalog was wiped. Ops: `bash deploy/scripts/vps-verify-openclaw-chat.sh` (restores catalog + re-runs configure). Help for CEOs: wait for ops; do not invent a new model on Profile.
+1. Chat returns **502** with `Unknown model: openai/…` after a gateway recreate — the live model catalog was wiped. **CEOs:** wait for ops; do not invent a new model on Profile.
 
 ## Agent Chat queued then fails
 
@@ -260,7 +260,7 @@ Confirm **Job profile** is complete and pipeline/cron is enabled for your enviro
 
 1. Agents must paste **`MEDIA:/abs/path`** (`paste_exactly` from the tool) on its **own line** so WhatsApp attaches from the shared AgentSystem disk. Auth-only `https://…/api/media/…` links fail without a browser session.
 2. Leave ops flag **`MEDIA_PUBLIC_SIGNED`** off unless you deliberately need legacy signed public fetch.
-3. For TTS on WhatsApp, the file must be **OGG/Opus, 48 kHz, mono**, sent with MIME **`audio/ogg; codecs=opus`**. OpenClaw sends all audio as a voice note (PTT); WAV/MP3 PTT shows **Media error**. Platform `speech_tts` dual-writes OGG/Opus for `MEDIA:` paste.
+3. For TTS on WhatsApp, the file must be **OGG/Opus, 48 kHz, mono**, sent with MIME **`audio/ogg; codecs=opus`**. The gateway sends all audio as a voice note (PTT); WAV/MP3 PTT shows **Media error**. Platform `speech_tts` dual-writes OGG/Opus for `MEDIA:` paste.
 4. Scheduled-goal WhatsApp copies: if the text says a voice note is attached but there is no bubble, the platform extracts `MEDIA:` (own line or markdown) and sends the file as a follow-up voice note. If the employee called the native `message` tool with `target: "whatsapp"` instead of pasting `MEDIA:`, that send fails — the copy still goes out from the final reply.
 5. Dashboard blank / broken media — hard-refresh while logged in; players need Bearer. “Open full size” opening a new tab for audio meant an older UI bug (audio should show an inline player).
 6. Full delivery rules: [11-content-tools-scripts-profile.md](./11-content-tools-scripts-profile.md), [24-agent-channels.md](./24-agent-channels.md).
@@ -268,7 +268,7 @@ Confirm **Job profile** is complete and pipeline/cron is enabled for your enviro
 ## Inbound voice / image not seen by the agent
 
 1. Confirm the agent’s **Channels** row is **enabled** (WhatsApp / Slack).
-2. Wait a few seconds for mirror into workspace **`inbound/attachments/`** (AgentSystem stages under `~/.openclaw/media/inbound` first).
+2. Wait a few seconds for mirror into workspace **`inbound/attachments/`** (AgentSystem stages inbound media first).
 3. If the chat shows “[whatsapp attachment unavailable]”, still try the latest file under `inbound/attachments/` with `speech_stt` or the summarize-inbound workflow.
 4. Web paperclip uploads always go to Master Data + `inbound/attachments/` for that CEO.
 

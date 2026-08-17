@@ -162,7 +162,7 @@ Quick intents add common CRM/ERP maker-checker and help steps without writing ra
 | **Ends** | Calendar end date, or perpetual until pause/delete |
 | **Status** | `active` (fires), `draft` (plan not approved yet—does not fire), `paused` (off), `completed` (auto after end date) |
 
-**Deliver-to (web + optional WhatsApp/Slack):** Default is **web** (that employee’s chat). Add `whatsapp` / `slack` on the schedule (`deliver_to` or COO `also_whatsapp`) so platform announces the **final outcome** on the bound channel — same OpenClaw send path as channel announce, prefixed `From: {agent name}`. Chat-mode fires send the assistant reply; plan-mode waits for the completion nudge. `MEDIA:` TTS/image/video in that reply is attached as a follow-up (audio as a voice note: OGG/Opus, `audio/ogg; codecs=opus`). If `MEDIA:` was only in markdown or the employee failed to paste it after `speech_tts`, the copy still attaches recent generated audio. Workflow terminal bells are not copied.
+**Deliver-to (web + optional WhatsApp/Slack):** Default is **web** (that employee’s chat). Add `whatsapp` / `slack` on the schedule (`deliver_to` or COO `also_whatsapp`) so platform announces the **final outcome** on the bound channel — same channel announce path, prefixed `From: {agent name}`. Chat-mode fires send the assistant reply; plan-mode waits for the completion nudge. `MEDIA:` TTS/image/video in that reply is attached as a follow-up (audio as a voice note: OGG/Opus, `audio/ogg; codecs=opus`). If `MEDIA:` was only in markdown or the employee failed to paste it after `speech_tts`, the copy still attaches recent generated audio. Workflow terminal bells are not copied.
 
 ## COO tools
 

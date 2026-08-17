@@ -241,6 +241,14 @@ else
   echo "ERROR: deploy/static/flolah-home missing — marketing homepage not in tree"
   exit 1
 fi
+
+if [[ -f "$ROOT/deploy/scripts/build-public-docs.sh" ]]; then
+  sed -i 's/\r$//' "$ROOT/deploy/scripts/build-public-docs.sh" 2>/dev/null || true
+  echo "==> public Docusaurus docs"
+  bash "$ROOT/deploy/scripts/build-public-docs.sh"
+else
+  echo "WARN: build-public-docs.sh missing — /docs/ may 404"
+fi
 # shellcheck disable=SC2086
 docker compose up -d --force-recreate $SERVICES
 # nginx depends_on backend service_healthy. Recreating nginx immediately after a backend
@@ -374,6 +382,13 @@ elif curl -kfsS "${APEX_URL%/}/vision.html" 2>/dev/null | grep -qi 'Flolah Visio
 else
   echo "    WARN: marketing vision page marker missing (/vision.html nginx location?)"
 fi
+if curl -kfsS -H "Host: flolah.cloud" https://127.0.0.1/docs/ 2>/dev/null | grep -qi 'Flolah user guide'; then
+  echo "    marketing docs (Host flolah.cloud /docs/): OK"
+elif curl -kfsS "${APEX_URL%/}/docs/" 2>/dev/null | grep -qi 'Flolah user guide'; then
+  echo "    marketing docs ${APEX_URL}/docs/: OK"
+else
+  echo "    WARN: public docs missing (/docs/ on flolah-home? run build-public-docs.sh)"
+fi
 if curl -kfsS -H "Host: flolah.cloud" https://127.0.0.1/legal/terms.html 2>/dev/null | grep -qi 'Terms of Service'; then
   echo "    marketing legal terms (Host flolah.cloud /legal/terms.html): OK"
 elif curl -kfsS "${APEX_URL%/}/legal/terms.html" 2>/dev/null | grep -qi 'Terms of Service'; then
@@ -397,10 +412,10 @@ if docker compose exec -T nginx test -f /usr/share/nginx/flolah-home/index.html 
 else
   echo "    WARN: /usr/share/nginx/flolah-home/index.html missing in nginx container"
 fi
-if docker compose exec -T nginx test -f /usr/share/nginx/flolah-home/vision.html 2>/dev/null; then
-  echo "    nginx mount: /usr/share/nginx/flolah-home/vision.html OK"
+if docker compose exec -T nginx test -f /usr/share/nginx/flolah-home/docs/index.html 2>/dev/null; then
+  echo "    nginx mount: /usr/share/nginx/flolah-home/docs/index.html OK"
 else
-  echo "    WARN: /usr/share/nginx/flolah-home/vision.html missing in nginx container"
+  echo "    WARN: /usr/share/nginx/flolah-home/docs/index.html missing (build-public-docs.sh?)"
 fi
 
 if docker compose exec -T frontend sh -c 'cat /usr/share/nginx/html/assets/*.css' 2>/dev/null | grep -q 'app-mobile-topbar'; then
@@ -768,6 +783,11 @@ if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-
   docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-department-efficiency.js >/tmp/dept-eff.log 2>&1 \
     && echo "    Department efficiency rollup OK" \
     || echo "    WARN: department efficiency failed (see /tmp/dept-eff.log)"
+fi
+if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-org-people.js 2>/dev/null; then
+  docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-org-people.js >/tmp/org-people.log 2>&1 \
+    && echo "    Company people RBAC (employees / sub-users) OK" \
+    || echo "    WARN: org people RBAC failed (see /tmp/org-people.log)"
 fi
 if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-token-usage-reset.js 2>/dev/null; then
   docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-token-usage-reset.js >/tmp/token-reset.log 2>&1 \

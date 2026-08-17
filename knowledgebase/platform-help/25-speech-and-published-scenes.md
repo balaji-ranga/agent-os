@@ -7,7 +7,7 @@
 1. **3D Avatars** → Virtual Rooms → add members → **Publish**.  
 2. Copy the public URL (`/p/vr/:slug`) or open **Published Scenes** in the nav.  
 3. Guests need **no login**. Chat is stored only in the browser (`sessionStorage`) — nothing is written to the CEO transcript DB.  
-4. **@handle** in guest chat routes to that member’s outbound workflow (not intent fallback). TTS audio for guests is served via a **slug-scoped public VR token** (`/api/public/vr/:slug/artifacts/…?t=…`) — this is **not** the same as ops `MEDIA_PUBLIC_SIGNED` for AgentSystem `/api/media/openclaw/…`. Lip/gesture animation plays on the addressed avatar.  
+4. **@handle** in guest chat routes to that member’s outbound workflow (not intent fallback). TTS audio for guests is served via a **slug-scoped public VR token** (`/api/public/vr/:slug/artifacts/…?t=…`) — this is **not** the same as ops `MEDIA_PUBLIC_SIGNED` for AgentSystem `/api/media/…`. Lip/gesture animation plays on the addressed avatar.  
 5. **Unpublish** disables guest access (slug may be kept for republish).
 
 Guest chat is rate-limited and only runs outbound workflows of room members. Vault / workflow edit is not exposed.

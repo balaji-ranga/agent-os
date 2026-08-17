@@ -269,6 +269,10 @@ export default function Login() {
         <span style={{ fontSize: '0.8rem' }}>Automate, Innovate, Elevate</span>
         <br />
         <span style={{ fontSize: '0.78rem', display: 'inline-block', marginTop: 8 }}>
+          <a href="/docs/" target="_blank" rel="noopener noreferrer">
+            Docs
+          </a>
+          {' · '}
           <a href="/legal/terms.html" target="_blank" rel="noopener noreferrer">
             Terms
           </a>

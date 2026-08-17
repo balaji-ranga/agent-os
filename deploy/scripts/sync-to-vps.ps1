@@ -171,8 +171,25 @@ if (Test-Path "$Repo\deploy\static\erp-handoff") {
 }
 # nginx worker needs world-readable trees (scp often leaves 700 dirs → 403 on /flolah-handoff/)
 ssh @ssh "root@$HostIp" "chmod -R a+rX $RemoteRoot/deploy/static/flolah-home; chmod 755 $RemoteRoot/deploy/static/crm-handoff $RemoteRoot/deploy/static/erp-handoff 2>/dev/null; chmod 644 $RemoteRoot/deploy/static/crm-handoff/* $RemoteRoot/deploy/static/erp-handoff/* 2>/dev/null; true"
+
+Write-Host "==> Sync docs-site (public Docusaurus source)"
+ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/docs-site/docs $RemoteRoot/docs-site/src/css $RemoteRoot/docs-site/static/img"
+scp @ssh `
+  "$Repo\docs-site\package.json" `
+  "$Repo\docs-site\docusaurus.config.js" `
+  "$Repo\docs-site\sidebars.js" `
+  "$Repo\docs-site\babel.config.js" `
+  "$Repo\docs-site\README.md" `
+  "root@${HostIp}:$RemoteRoot/docs-site/"
+if (Test-Path "$Repo\docs-site\package-lock.json") {
+  scp @ssh "$Repo\docs-site\package-lock.json" "root@${HostIp}:$RemoteRoot/docs-site/"
+}
+scp @ssh -r "$Repo\docs-site\docs" "root@${HostIp}:$RemoteRoot/docs-site/"
+scp @ssh -r "$Repo\docs-site\src" "root@${HostIp}:$RemoteRoot/docs-site/"
+scp @ssh -r "$Repo\docs-site\static" "root@${HostIp}:$RemoteRoot/docs-site/"
 scp @ssh `
   "$Repo\deploy\scripts\vps-deploy-latest.sh" `
+  "$Repo\deploy\scripts\build-public-docs.sh" `
   "$Repo\deploy\scripts\compose-file-defaults.sh" `
   "$Repo\deploy\scripts\assert-vps-ingress.sh" `
   "$Repo\deploy\scripts\vps-expand-login-cert.sh" `

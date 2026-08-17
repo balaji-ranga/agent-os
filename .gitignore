@@ -24,6 +24,8 @@ npm-debug.log*
 dist/
 build/
 .vite/
+docs-site/.docusaurus/
+deploy/static/flolah-home/docs/
 
 # OS
 .DS_Store

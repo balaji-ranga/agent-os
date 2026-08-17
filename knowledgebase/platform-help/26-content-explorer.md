@@ -35,7 +35,7 @@ Profile **Data persistence** (default 90 days) also hard-deletes aged Content Ex
 
 ## WhatsApp / AgentSystem staging
 
-Channel media is mirrored into **Uploaded** (inbound/attachments/). Once mirrored, Agent OS **removes** the temporary AgentSystem file under `~/.openclaw/media/inbound/`. Clean space from Content Explorer (delete here); staging will not keep re-creating files after delete (ledger suppresses remirror).
+Channel media is mirrored into **Uploaded** (inbound/attachments/). Once mirrored, Flolah **removes** the temporary AgentSystem staging file. Clean space from Content Explorer (delete here); staging will not keep re-creating files after delete (ledger suppresses remirror).
 
 ## Related places
 

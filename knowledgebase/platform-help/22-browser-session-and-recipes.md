@@ -4,7 +4,7 @@
 
 **Browser Session** (`/browser-session`) lets you run natural-language browser work in:
 
-1. **Managed Playwright** (`openclaw` profile) ? server-side Chromium on the platform.
+1. **Managed Playwright** (platform profile) — server-side Chromium on the platform.
 2. **Client Chrome** ? your desktop Chrome with the AgentSystem Browser Relay extension (shared gateway WSS; exclusive lease).
 3. **Desktop Local worker** (recommended multi-user) ? long-lived Windows Playwright on **your** PC, online via Connectors package. Concurrent CEOs each run their own worker; no shared tab lease.
 
@@ -70,7 +70,7 @@ While the worker runs: `POST http://127.0.0.1:3020/v1/open` (and snapshot/act/st
 
 | Tool | Purpose |
 |------|---------|
-| `browse_session_status` | Profile (`chrome` / `openclaw` / desktop worker), gateway, chrome lease, setup hints |
+| `browse_session_status` | Profile (Chrome / managed platform / desktop worker), gateway, chrome lease, setup hints |
 | `browse_task_start` | Free-form NL goal (`mode: autonomous`); async `task_id` |
 | `browse_task_status` | Poll / wait (`wait_ms` up to 90000) |
 | `browse_snapshot` / `browse_act` | Single-step observe / act |

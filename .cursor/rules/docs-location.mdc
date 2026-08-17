@@ -7,6 +7,7 @@ alwaysApply: true
 # Agent OS documentation location
 
 - **Main entry:** `agent-os/README.md` (quick start, API, DB scripts, project layout).
+- **Public user guide (website):** `docs-site/` — Docusaurus, served at `https://flolah.cloud/docs/` (open access). No OpenClaw or operator secrets.
 - **All other docs** are under **`agent-os/knowledgebase/`**:
   - **knowledgebase/AI-COMPANY-OS.md** — **Canonical** AI Company OS messaging, terminology (AI employee vs agent API), OS primitives, screen map, design rule for new features, Phase A–F roadmap. Use for website, portal copy, nav labels, and positioning.
   - **knowledgebase/PHASE-D-E-F-OPERATE.md** — Operate track: Day 0 operating model, Day 1 autonomy install, Phase E/F.

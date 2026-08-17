@@ -111,7 +111,7 @@ Sync copies Flolah **departments** (Master Data) + **entitled AI employees** int
 
 When Profile selects platform CRM/ERP, Maker/Checker packs receive **`crm_*` / `erp_*` content tools** (including sync). **CRM person/company delete** (`crm_delete_person`, `crm_delete_company`) is **Checker-only**. AgentSystem uses content tools (same endpoints as MCP); workflows use MCP nodes with `X-Ceo-User-Id`.
 
-Workspace MD (TOOLS / AGENTS / SOUL / MEMORY) lives under **`openclaw-workspace-templates/`** role folders (`crm-maker-a`, `crm-maker-b`, `crm-checker`, `erp-maker-a`, `erp-maker-b`, `erp-checker`, `erp-pnl`, `erp-invoice`, `erp-project`). Runtime agent ids stay owner-scoped (`crm-s1-{slug}`, …); the backend maps them via `resolveWorkspaceTemplateBaseId`. Profile enable + Admin refresh force-push those templates into each CEO tenant workspace, including **DOMAIN.md** (Twenty CRM / ERPNext SME card from `_shared/TWENTY-CRM-SME.md` / `_shared/ERPNEXT-SME.md` — full Lead→Order / O2C–P2P process maps). Makers/Checkers **`master_data_rag`** includes Platform Help **39** / **40** (`corpus=platform-help`) even when the CEO has no uploads.
+Workspace MD (TOOLS / AGENTS / SOUL / MEMORY) lives under platform **workspace templates** role folders (`crm-maker-a`, `crm-maker-b`, `crm-checker`, `erp-maker-a`, `erp-maker-b`, `erp-checker`, `erp-pnl`, `erp-invoice`, `erp-project`). Runtime agent ids stay owner-scoped (`crm-s1-{slug}`, …); the backend maps them via `resolveWorkspaceTemplateBaseId`. Profile enable + Admin refresh force-push those templates into each CEO tenant workspace, including **DOMAIN.md** (Twenty CRM / ERPNext SME card from `_shared/TWENTY-CRM-SME.md` / `_shared/ERPNEXT-SME.md` — full Lead→Order / O2C–P2P process maps). Makers/Checkers **`master_data_rag`** includes Platform Help **39** / **40** (`corpus=platform-help`) even when the CEO has no uploads.
 
 ### CRM deletes (duplicates / inactive)
 
@@ -131,7 +131,7 @@ Same protocol in workspace **AGENT-OS-OPS.md** / **DOMAIN.md** and help **38** /
 **On CRM click (`/crm`):**
 1. Resolve authenticated owner (never body `ceo_user_id` for auth).
 2. Ensure company workspace (create if missing / non-UUID).
-3. JIT-add the signed-in Flolah user into **that** workspace only.
+3. JIT-add the **signed-in Flolah user** (CEO or invited employee email) into **that** workspace only.
 4. Mint LOGIN JWT for **that** `workspaceId` (`APP_SECRET` + workspace + `LOGIN`).
 5. Browser handoff on the **workspace origin** `https://{subdomain}.crm.<apex>/flolah-handoff/?next=/verify?loginToken=…` then `/verify`.
 
@@ -338,4 +338,4 @@ Automated **cost + income → ERP** is planned: meters and income events in Flol
 - **Coordination:** Kanban primary + optional seeded workflows; ERP Checker hard-owns submit/cancel; CRM Checker owns high-risk process gates **and CRM person/company delete**. Full playbook: [38-maker-checker-coordination.md](./38-maker-checker-coordination.md).
 - **Org sync** is **optional** (departments + AI employees as people/employees). Not required for customer pipeline or posting invoices — usually **skip** unless you want a roster mirror in the desk.
 - **COO** may use company-scoped **read-only** `crm_*` / `erp_*` list/report tools to query and to route Makers/Checkers.
-- **Platform Help** answers product how-to from RAG (**39 ERPNext SME**, **40 Twenty CRM SME**, this file); live data → COO or prefab agents. CRM/ERP Maker and Checker workspaces also get **DOMAIN.md** (Twenty/ERPNext SME card) from `openclaw-workspace-templates/_shared/`.
+- **Platform Help** answers product how-to from RAG (**39 ERPNext SME**, **40 Twenty CRM SME**, this file); live data → COO or prefab agents. CRM/ERP Maker and Checker workspaces also get **DOMAIN.md** (Twenty/ERPNext SME card) from shared workspace templates.

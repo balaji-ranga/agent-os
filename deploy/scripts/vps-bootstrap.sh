@@ -75,6 +75,11 @@ else
   exit 1
 fi
 
+if [[ -f scripts/build-public-docs.sh ]]; then
+  sed -i 's/\r$//' scripts/build-public-docs.sh 2>/dev/null || true
+  bash scripts/build-public-docs.sh || echo "WARN: public docs build failed — /docs/ may 404" >&2
+fi
+
 echo "==> Ensure deploy secrets"
 if command -v node >/dev/null 2>&1; then
   node ../scripts/ensure-deploy-secrets.js --env-file .env || true

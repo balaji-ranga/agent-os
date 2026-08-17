@@ -8,6 +8,12 @@ Source pack: flolah-existing-design-updated.zip
 Pages:
   / or /index.html  — marketing homepage
   /vision or /vision.html — vision subpage
+  /docs/            — public Docusaurus user guide (open access; built from docs-site/)
+  /legal/           — Terms, Privacy, Cookies, Open source
+
+"Start with Flolah" CTA → https://login.flolah.cloud
+"Docs" nav → /docs/
+"Vision" nav / "Our vision" → vision.html
 
 "Start with Flolah" CTA → https://login.flolah.cloud
 "Vision" nav / "Our vision" → vision.html

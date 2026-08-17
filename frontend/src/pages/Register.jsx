@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
-import { LEGAL_PATHS, FALLBACK_LEGAL_VERSIONS } from '../utils/legalLinks';
+import { LEGAL_PATHS, FALLBACK_LEGAL_VERSIONS, PUBLIC_DOCS_PATH } from '../utils/legalLinks';
 import TotpEnrollmentDetails from '../components/TotpEnrollmentDetails';
 import { resolveTotpEnrollment } from '../utils/totpEnrollment';
 import IsoCountryRegionSelect from '../components/IsoCountryRegionSelect.jsx';
@@ -500,6 +500,10 @@ export default function Register() {
           color: 'var(--muted)',
         }}
       >
+        <a href={PUBLIC_DOCS_PATH} target="_blank" rel="noopener noreferrer">
+          Docs
+        </a>
+        {' · '}
         <a href={LEGAL_PATHS.terms} target="_blank" rel="noopener noreferrer">
           Terms
         </a>

@@ -1,33 +1,16 @@
 ﻿# Agent channels (Slack / WhatsApp)
 
-**Audience:** CEOs enabling Slack or WhatsApp for an org agent; ops installing gateway plugins.
+**Audience:** CEOs enabling Slack or WhatsApp for an org agent.
 
 ## What it does
 
-Per-CEO **bring-your-own-key (BYOK)** channel enablement. You paste Slack tokens (or scan a WhatsApp QR) in a Dashboard wizard. Agent OS stores secrets in your **API Keys** vault and patches the shared gateway with tenant-scoped `channels` + `bindings` for `t-{ceo}--{agent}`.
+Per-CEO **bring-your-own-key (BYOK)** channel enablement. You paste Slack tokens (or scan a WhatsApp QR) in a Dashboard wizard. Flolah stores secrets in your **API Keys** vault and binds that channel to the chosen AI employee in your tenant only.
 
 Telegram / Discord are not in V1 (wizard may show “coming soon”).
 
-## Deploy / ops (no config drift)
+## Reliability
 
-Channel routing is re-applied automatically so recreating AgentSystem does not drop WhatsApp/Slack:
-
-1. **DB** (`ceo_agent_channels`) is source of truth for enabled/pairing channels.  
-2. **Sidecar** `~/.openclaw/agent-os-channel-routing.json` snapshots `channels` + `bindings`.  
-3. **configure-openclaw-docker.js** / **apply-openclaw-agents-config.js** restore from the sidecar if `openclaw.json` lost routing.  
-4. **openclaw-entrypoint** runs `restore-openclaw-channel-routing.js` after configure.  
-5. **Backend startup** calls `syncEnabledAgentChannelsToAgentSystem()`.  
-6. **Every VPS deploy** runs `vps-verify-agent-channels.sh` (fatal on drift).
-7. **Every VPS deploy** runs `vps-verify-openclaw-chat.sh` (fatal if `POST /v1/chat/completions` is **404** — usually wiped `gateway` in `openclaw.json`). Repair: `ensure-openclaw-gateway-config.js` + restart AgentSystem. Backend rewrites must use `openclaw-config-safe.js`.
-
-Manual repair:
-
-```bash
-docker compose exec -T -w /opt/agent-os/backend backend node scripts/sync-agent-channels-to-openclaw.js
-bash deploy/scripts/vps-verify-agent-channels.sh
-bash deploy/scripts/vps-verify-openclaw-chat.sh
-```
-
+Channel bindings are stored with your account. If AgentSystem is restarted, Flolah restores Slack/WhatsApp routing automatically. If a channel drops after a platform update, re-open **Channels** and **Apply**, or contact support — do not paste tokens into chat.
 ## Where in the UI
 
 - Org chart agent row → **Channels**
@@ -55,7 +38,7 @@ When an agent sends an image, video, or TTS audio on WhatsApp:
 4. Dashboard chat still plays the same file inline via `/api/media/…` while you are logged in.
 5. TTS: prefer **OGG/Opus or MP3** for WhatsApp; WAV often fails attach.
 
-**Personal assistant (COO on WhatsApp):** The COO listens to **text and voice notes** (`speech_stt`) and replies with a readable text body and a TTS voice note (`speech_tts` + `MEDIA:` attach). The platform prepends **`From: {employee name}`** on every WhatsApp reply (OpenClaw `responsePrefix`; keep `MEDIA:` on its own line). That is existing COO tools + Channels — not a separate PA app. Free speech needs platform `optional-voice` (Whisper + Piper). See [25-speech-and-published-scenes.md](./25-speech-and-published-scenes.md).
+**Personal assistant (COO on WhatsApp):** The COO listens to **text and voice notes** (`speech_stt`) and replies with a readable text body and a TTS voice note (`speech_tts` + `MEDIA:` attach). The platform prepends **`From: {employee name}`** on every WhatsApp reply (keep `MEDIA:` on its own line). That is existing COO tools + Channels — not a separate PA app. Free speech needs platform `optional-voice` (Whisper + Piper). See [25-speech-and-published-scenes.md](./25-speech-and-published-scenes.md).
 
 **Scheduled-goal outcomes on WhatsApp:** On **Scheduled goals**, opt in **Also send the final outcome on WhatsApp**. Platform copies the finished brief (chat reply, or the once-only completed/failed plan nudge) to that employee’s bound WhatsApp. `MEDIA:` TTS (own line or markdown link) is sent as a **follow-up voice note** (OGG/Opus PTT). If the reply forgot `MEDIA:` but `speech_tts` just wrote a file, the copy still attaches that recent audio. Employees must **not** call the native `message` tool with `target: "whatsapp"` — that is not a phone number. Mid-step workflow terminals stay web-only. Unpaired / no DM: web still works. Help **28**.
 
@@ -65,7 +48,7 @@ See [11-content-tools-scripts-profile.md](./11-content-tools-scripts-profile.md)
 
 ## Inbound media (WhatsApp → workspace)
 
-1. AgentSystem stages inbound bytes briefly under `~/.openclaw/media/inbound/…` **only for messages that pass channel access control** (DM policy + WhatsApp `groupPolicy`).
+1. AgentSystem stages inbound bytes briefly **only for messages that pass channel access control** (DM policy + WhatsApp group policy).
 2. Backend mirrors them into the CEO workspace as **`inbound/attachments/<file>`** (Content Explorer) when Channels are enabled.
 3. **After a successful mirror, the AgentSystem staging file is deleted** so Content Explorer is the only durable copy (no double disk use / re-sync).
 4. Agents can run **`analyze_image`** (images), **`speech_stt`**, or a summarize-inbound workflow with that relative path / `MEDIA:` line.
@@ -90,13 +73,11 @@ Authenticated CEO routes under `/api/agent-channels`:
 | POST | `/:id/whatsapp-qr/start` | Start QR login (`{ force?: true }`) |
 | POST | `/:id/whatsapp-qr/wait` | Wait / refresh QR until scanned |
 
-## Ops notes (shared gateway)
+## Notes
 
-- Gateway must load **`whatsapp`** (`openclaw plugins install clawhub:@openclaw/whatsapp`) and **`admin-http-rpc`** (bundled; enabled by `configure-openclaw-docker.js`).
-- Entrypoint runs `deploy/scripts/ensure-openclaw-channel-plugins.sh` so WhatsApp is installed on the volume if missing.
-- Backend calls private `POST http://openclaw:18789/api/v1/admin/rpc` for `web.login.start` / `web.login.wait`. Do **not** expose `/api/v1/admin/rpc` on public nginx.
-- Bindings use tenant agent ids from `openclaw-tenant` (`t-{ceo}--{base}`).
-- Secrets never leave the vault into `ceo_agent_channels.config_json` — only vault key **names** in `vault_refs_json`.
+- Bindings are tenant-scoped to your CEO account and that employee.
+- Secrets stay in the vault; channel config stores **key names**, not the secret values.
+- WhatsApp pairing uses the in-app QR wizard. Platform operators keep the WhatsApp plugin on the gateway — CEOs do not install plugins.
 
 ## Related
 

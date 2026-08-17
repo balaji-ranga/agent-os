@@ -9,6 +9,9 @@ export const LEGAL_PATHS = {
   openSource: '/legal/open-source.html',
 };
 
+/** Public Docusaurus user guide (apex + login nginx; no auth). */
+export const PUBLIC_DOCS_PATH = '/docs/';
+
 /** Fallback versions if /auth/legal-versions is unreachable. */
 export const FALLBACK_LEGAL_VERSIONS = {
   terms_version: '2026-08-09',

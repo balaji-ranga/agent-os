@@ -110,7 +110,7 @@ The system pack **Flolah demo (Meridian College)** (`demo_education`) is a deep 
 - Last live snapshot: **16 Aug 2026** from `ceo-meridian-college-f101c7` (CRM/ERP 11-node Maker–Checker, WhatsApp PA goals, thought_inbox). Manifest: `exports/demo_education.manifest.json`.
 - Thin Company setup card **Education** still `maps_to` **`general_ops`**. Ops bootstrap: `backend/scripts/bootstrap-education-demo-ceo.js`.
 
-Admin → **Refresh default agents** pushes lean tools from `platform-agents.json` (COO / Workflow Builder / Platform Help) and optionally re-syncs Business Core prefabs + Maker/Checker workflows from `standard/business-core/` when the CEO has CRM/ERP enabled on Profile. Workspace MD for CRM/ERP roles is pushed from `openclaw-workspace-templates/crm-*` and `erp-*` (see `business-core-template-map.json`).
+Admin → **Refresh default agents** pushes lean tools from `platform-agents.json` (COO / Workflow Builder / Platform Help) and optionally re-syncs Business Core prefabs + Maker/Checker workflows from `standard/business-core/` when the CEO has CRM/ERP enabled on Profile. Workspace MD for CRM/ERP roles is pushed from the CRM/ERP workspace templates.
 
 
 ## Related

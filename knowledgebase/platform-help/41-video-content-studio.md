@@ -26,7 +26,7 @@ Social Facebook/LinkedIn posting remains the separate **content_creator** pack.
 1. Company setup → industry **Video content (shorts / animated / Veo)**, **or** apply **Flolah demo (Balaji Ranganathan)** (companions the same tested pack), or ask an admin to run the video install for your account. Re-apply extends the org; it does not wipe other employees.
 2. Open chat with **Content Orchestrator** (only front door — do **not** chat Story/Scene/Prompt agents for stories).
 3. Ask for a storyboard in plain language (e.g. Thenaliraman for kids, cinematic live-action). Orchestrator first checks **story status / RAG**; if a prior board is still **pending CEO approval**, it asks you to finish that Kanban card before starting a new run.
-4. Approve **CEO review: video cast** — confirms `character_id` → name mapping and **portraits** (generated or reused). Cast Summary includes portrait `/api/media/openclaw/…` lines so **Artifacts** can render faces (not WhatsApp-only `MEDIA:` paths).
+4. Approve **CEO review: video cast** — confirms `character_id` → name mapping and **portraits** (generated or reused). Cast Summary includes portrait `/api/media/…` lines so **Artifacts** can render faces (not WhatsApp-only `MEDIA:` paths).
 5. **Upload a character face** (optional): attach an image; Orchestrator asks for the **character name**, then stores it in Master Data `video_characters` (`ref_media` + `image_id`). Prefer upload **before** storyboard so Story cannot invent placeholder refs like `MEDIA:/api/media/<slug>`.
 6. Approve **CEO review: video storyboard** — Summary lists scenes + character_ids; **Artifacts** shows cast **portraits** (from Master Data) plus storyboard **PDF / HTML / contact sheet**. Platform prefers library portraits over any invented `ref_media` in agent JSON. Cast + storyboard each write a knowledge row for the same run — approval updates the **export** row (PDF/scenes); the cast-only row is marked superseded.
 7. After **`ceo_approved`**, run Phase 2:
@@ -94,7 +94,7 @@ Story details + PDF + final summary are indexed into your **RAG** documents.
 
 | Asset | Path |
 |-------|------|
-| Agent MD | `openclaw-workspace-templates/video-orchestrator/` · `video-story/` · `video-scene/` · `video-prompt/` |
+| Agent MD | Video orchestrator / story / scene / prompt workspace templates |
 | Pack | `backend/src/services/company-blueprints/packs/video_content.json` |
 | Workflows | `backend/src/services/company-blueprints/standard/video-content/` |
 | Services | `backend/src/services/video-media.js`, `video-assemble.js`, `video-characters.js`, `video-storyboard-export.js` |
