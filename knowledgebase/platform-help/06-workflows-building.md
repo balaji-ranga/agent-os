@@ -22,7 +22,7 @@ This doc is about **custom Workflows**.
 8. On fullscreen audit: click a **node** → **Retry from this step** re-dispatches that node (and clears downstream), sets the run to **running** (also if it was **paused**). Toolbar **Retry stuck/failed step** uses the latest failed/stuck node. **Retry from start** creates a new run.
 9. **Import / Export JSON** for backup or sharing definitions.
 10. Optional: **Publish as A2A** (Public or Secured OAuth) to list on AgentExchange.
-11. Optional: **Download for Windows** — run a published workflow from a laptop (local graph + localhost/filesystem; state and remote nodes on Flolah). See [17-desktop-windows-download.md](./17-desktop-windows-download.md).
+11. Optional: **Download for Windows** — run a published workflow from a laptop (local graph + **laptop filesystem** read/write + localhost APIs; FTP from the laptop; SFTP and other remote nodes on Flolah). See [17-desktop-windows-download.md](./17-desktop-windows-download.md).
 
 ## Workflow Builder agent
 

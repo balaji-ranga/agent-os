@@ -1,6 +1,6 @@
 # Download for Windows (desktop workflow package)
 
-Run a **published** Flolah workflow from a Windows laptop or desktop. Graph orchestration runs **locally**; run/step state and most node work stay on Flolah. Use this when you need **local** loopback APIs (e.g. IBKR gateway on `127.0.0.1`) or **local filesystem** paths, while Brain / Connectors / remote APIs still execute on the service.
+Run a **published** Flolah workflow from a Windows laptop or desktop. Graph orchestration runs **locally**; run/step state and most node work stay on Flolah. Use this when you need **local** loopback APIs (e.g. IBKR gateway on `127.0.0.1`) or **local filesystem** paths (Windows `C:\…` or Unix `/home/…` read **and write**), while Brain / Connectors / remote APIs still execute on the service. FTP from the laptop can reach a LAN site; SFTP uses Flolah (vault credentials).
 
 ## What you get
 
@@ -46,7 +46,8 @@ Calls go to HTTPS Flolah (`/api/agent-workflows/desktop/v1/...`) via nginx, same
 |------------------------|---------------------|
 | Graph walk (IF / While / Parallel / Merge / End) | Run + step **state** persistence |
 | **API** node when URL is `localhost` / `127.*` | **API** node for remote URLs |
-| **Filesystem** node (local paths) | Brain, Tool, Email, Connector, MCP, custom script, masterdata, external agent, … |
+| **Filesystem** local disk (read/write Windows or Unix paths) and **FTP/FTPS** | **Filesystem SFTP** (and FTP if Execute on = Flolah) |
+| | Brain, Tool, Email, Connector, MCP, custom script, masterdata, external agent, … |
 | | (Agent / CEO Approval / SSE listen / sub-workflow: not supported in desktop packages yet) |
 
 **Triggers on desktop:** manual (you run the PS1) or **your** Windows Task Scheduler. Flolah schedule / chat / webhook triggers still use the **server** runner.

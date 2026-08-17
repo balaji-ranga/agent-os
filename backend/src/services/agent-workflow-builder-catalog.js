@@ -19,7 +19,8 @@ const NODE_PURPOSE = {
   externalAgent: 'Invokes a registered external agent via A2A JSON-RPC (skillId, message).',
   custom_script: 'Runs an approved Python/JS script in a sandbox (customScriptId).',
   masterdata: 'Query this CEO master-data tables (CSV) or RAG over uploaded documents. Owner is always the workflow owner — never spoof.',
-  filesystem: 'List/stat/read/move files under WORKFLOW_FS_ROOTS. Prefer schedule trigger to poll a folder instead of a separate file-poller service.',
+  filesystem:
+    'Read/write local disk (Windows or Unix paths) or a remote FTP/SFTP site. Server runs stay under WORKFLOW_FS_ROOTS. Desktop packages read/write the laptop. Prefer schedule trigger to poll a folder.',
   web_scrape:
     'Crawl an HTTPS site/domain (Crawlee sidecar) with optional search phrases. Caps pages/depth, robots.txt, same-origin. Prefer this over chaining summarize_url. Logged-in Chrome still uses browse_*.',
   parallel: 'Fans out to multiple branches concurrently.',

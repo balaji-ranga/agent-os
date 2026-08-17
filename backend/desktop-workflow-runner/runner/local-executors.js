@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync, mkdirSync } from 'fs';
 import { resolve, relative, isAbsolute, join, dirname } from 'path';
 import { renderWorkflowTemplates, resolveNodeInputs } from './templates.js';
+import { executeFtpOperations } from './workflow-ftp-client.js';
 
 export function isLoopbackUrl(url, localHosts = ['localhost', '127.0.0.1', '::1']) {
   try {
@@ -79,14 +80,54 @@ function assertAllowedPath(targetPath, packageRoot) {
   return abs;
 }
 
-export function executeLocalFilesystem(node, graph, context, packageRoot) {
+export function shouldRunFilesystemLocally(node) {
+  const cfg = node?.data?.taskConfig || node?.data?.config || {};
+  const transport = String(cfg.transport || cfg.protocol || 'local').trim().toLowerCase();
+  const executeOn = String(cfg.executeOn || cfg.execute_on || 'auto').trim().toLowerCase();
+  if (executeOn === 'server' || executeOn === 'remote') return false;
+  if (executeOn === 'local' || executeOn === 'desktop') return true;
+  if (transport === 'sftp' || transport === 'ssh') return false;
+  if (transport === 'ftp' || transport === 'ftps') return true;
+  return true;
+}
+
+export async function executeLocalFilesystem(node, graph, context, packageRoot) {
   const { resolved } = resolveNodeInputs(node, graph, context);
   const cfg = node.data?.taskConfig || node.data?.config || {};
   const render = (v) => (v != null ? renderWorkflowTemplates(String(v), context) : v == null ? '' : String(v));
+  const transport = String(cfg.transport || cfg.protocol || resolved.transport || 'local').trim().toLowerCase();
   const op = String(cfg.operation || resolved.operation || 'list').toLowerCase();
-  const pathInput = render(resolved.path || cfg.path || '.');
-  const absPath = assertAllowedPath(pathInput || '.', packageRoot);
+  const pathInput = render(resolved.path || cfg.path || (transport === 'sftp' || transport === 'ftp' || transport === 'ftps' ? '/' : '.'));
   const glob = render(resolved.glob || cfg.glob || '*') || '*';
+  const content = render(resolved.content || resolved.body || resolved.text || cfg.content || '');
+  const destination = render(resolved.destination || resolved.dest || cfg.destination || cfg.dest || '');
+
+          if (transport === 'ftp' || transport === 'ftps') {
+    const host = render(cfg.host || resolved.host || '');
+    if (!host) throw new Error('FTP host is required');
+    return executeFtpOperations({
+      host,
+      port: Number(cfg.port || resolved.port || 0) || undefined,
+      user: render(cfg.username || cfg.user || resolved.username || ''),
+      pass: render(cfg.password || resolved.password || ''),
+      secure: transport === 'ftps' || cfg.ftpSecure || cfg.secure,
+      op,
+      path: pathInput,
+      glob,
+      content,
+      destination,
+      maxBytes: Number(cfg.maxBytes || 65536),
+      timeoutMs: Number(cfg.timeoutMs) || 30000,
+    });
+  }
+
+  if (transport === 'sftp' || transport === 'ssh') {
+    throw new Error(
+      'SFTP from a desktop package runs on Flolah (password/key stay in vault). Set Execute on = Flolah, or leave Auto.'
+    );
+  }
+
+  const absPath = assertAllowedPath(pathInput || '.', packageRoot);
 
   if (op === 'list') {
     if (!existsSync(absPath)) {
@@ -124,16 +165,17 @@ export function executeLocalFilesystem(node, graph, context, packageRoot) {
     return { ok: true, operation: 'read_text', path: absPath, text, body: text, truncated: buf.length > maxBytes };
   }
   if (op === 'write_text') {
-    const content = render(resolved.content || resolved.body || cfg.content || '');
     mkdirSync(dirname(absPath), { recursive: true });
     writeFileSync(absPath, content, 'utf8');
     return { ok: true, operation: 'write_text', path: absPath, bytes: Buffer.byteLength(content, 'utf8'), text: 'written' };
   }
   if (op === 'move') {
-    const dest = assertAllowedPath(render(resolved.dest || cfg.dest || ''), packageRoot);
+    const destRaw = destination || render(resolved.dest || cfg.dest || '');
+    if (!destRaw) throw new Error('destination required for move');
+    const dest = assertAllowedPath(destRaw, packageRoot);
     mkdirSync(dirname(dest), { recursive: true });
     renameSync(absPath, dest);
-    return { ok: true, operation: 'move', path: absPath, dest, text: dest };
+    return { ok: true, operation: 'move', path: absPath, dest, destination: dest, text: dest };
   }
   throw new Error(`Unsupported filesystem operation: ${op}`);
 }

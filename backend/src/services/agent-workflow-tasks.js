@@ -3,13 +3,15 @@
  */
 import { createConnection } from 'net';
 import { connect as tlsConnect } from 'tls';
-import { readdirSync, existsSync, statSync, readFileSync, renameSync, mkdirSync } from 'fs';
-import { resolve, relative, join, basename, isAbsolute } from 'path';
+import { readdirSync, existsSync, statSync, readFileSync, renameSync, mkdirSync, writeFileSync } from 'fs';
+import { resolve, relative, join, basename, dirname, isAbsolute } from 'path';
 import { renderWorkflowTemplates } from './agent-workflow-io.js';
 import { buildApiRequestHeaders, renderApiNodeConfig } from './agent-workflow-api-auth.js';
 import { assertHttpSuccess, wrapFetchError } from './workflow-http-errors.js';
 import { resolveLiteralOrKeyRef } from './user-api-keys.js';
 import { resolveWorkflowFsRoots } from '../lib/workflow-fs-roots.js';
+import { executeFtpOperations } from '../../desktop-workflow-runner/runner/workflow-ftp-client.js';
+import { executeSftpOperations } from '../lib/workflow-sftp-client.js';
 
 export function smtpFromEnv() {
   return {
@@ -407,12 +409,33 @@ function matchSimpleGlob(name, pattern) {
   return re.test(name);
 }
 
-export function executeFilesystemTask(resolvedInputs = {}, nodeConfig = {}, context = null) {
+export function isWindowsAbsPath(p) {
+  return /^[A-Za-z]:[\\/]/.test(String(p || '').trim()) || String(p || '').startsWith('\\\\');
+}
+
+export function normalizeFilesystemTransport(raw) {
+  const t = String(raw || 'local').trim().toLowerCase();
+  if (t === 'ftp' || t === 'ftps') return t === 'ftps' ? 'ftps' : 'ftp';
+  if (t === 'sftp' || t === 'ssh') return 'sftp';
+  if (t === 'disk' || t === 'fs' || t === 'file' || t === 'local' || t === '') return 'local';
+  return t;
+}
+
+function writeCap(nodeConfig) {
+  return Math.min(Number(nodeConfig.maxBytes) || 65536, 2 * 1024 * 1024);
+}
+
+function executeLocalDiskFilesystem(resolvedInputs, nodeConfig, context) {
   const render = (v) =>
     context && v != null ? renderWorkflowTemplates(String(v), context) : v == null ? '' : String(v);
   const roots = workflowFsRoots();
   const op = String(nodeConfig.operation || resolvedInputs.operation || 'list').toLowerCase();
   const pathInput = render(resolvedInputs.path || nodeConfig.path || '.');
+  if (isWindowsAbsPath(pathInput) && process.platform !== 'win32') {
+    throw new Error(
+      'Windows paths (C:\\…) run on the laptop via Download for Windows, not on the Flolah server. Use a Unix path under WORKFLOW_FS_ROOTS, or run this workflow as a desktop package.'
+    );
+  }
   const absPath = assertPathInRoots(pathInput || '.', roots);
   const glob = render(resolvedInputs.glob || nodeConfig.glob || '*') || '*';
 
@@ -508,5 +531,108 @@ export function executeFilesystemTask(resolvedInputs = {}, nodeConfig = {}, cont
     return { ok: true, operation: 'move', path: absPath, destination: finalDest, text: finalDest };
   }
 
+  if (op === 'write_text') {
+    const content = render(
+      resolvedInputs.content || resolvedInputs.body || resolvedInputs.text || nodeConfig.content || ''
+    );
+    const cap = writeCap(nodeConfig);
+    const bytes = Buffer.byteLength(String(content), 'utf8');
+    if (bytes > cap) throw new Error(`write_text exceeds maxBytes (${cap})`);
+    mkdirSync(dirname(absPath), { recursive: true });
+    writeFileSync(absPath, String(content), 'utf8');
+    console.info('[workflow-fs] write_text path=%s bytes=%s', absPath, bytes);
+    return { ok: true, operation: 'write_text', path: absPath, bytes, text: 'written' };
+  }
+
   throw new Error(`Unknown filesystem operation: ${op}`);
+}
+
+/**
+ * Filesystem ops for scheduled/manual/desktop workflows.
+ * transport=local → WORKFLOW_FS_ROOTS (server) or laptop disk (desktop package).
+ * transport=ftp|sftp → remote site (password from vault key ref).
+ */
+export async function executeFilesystemTask(
+  resolvedInputs = {},
+  nodeConfig = {},
+  context = null,
+  { ownerUserId = null } = {}
+) {
+  const render = (v) =>
+    context && v != null ? renderWorkflowTemplates(String(v), context) : v == null ? '' : String(v);
+  const transport = normalizeFilesystemTransport(
+    nodeConfig.transport || nodeConfig.protocol || resolvedInputs.transport
+  );
+  const op = String(nodeConfig.operation || resolvedInputs.operation || 'list').toLowerCase();
+  const pathInput = render(resolvedInputs.path || nodeConfig.path || (transport === 'local' ? '.' : '/'));
+  const glob = render(resolvedInputs.glob || nodeConfig.glob || '*') || '*';
+  const content = render(
+    resolvedInputs.content || resolvedInputs.body || resolvedInputs.text || nodeConfig.content || ''
+  );
+  const destination = render(resolvedInputs.destination || nodeConfig.destination || '');
+  const owner = ownerUserId || context?.owner_user_id || null;
+
+  if (transport === 'local') {
+    return executeLocalDiskFilesystem(resolvedInputs, nodeConfig, context);
+  }
+
+  const host = render(nodeConfig.host || resolvedInputs.host || '');
+  if (!host) throw new Error(`${transport.toUpperCase()} host is required`);
+  const user = render(nodeConfig.username || nodeConfig.user || resolvedInputs.username || '');
+  const pass = resolveLiteralOrKeyRef(owner, {
+    literal: nodeConfig.password || resolvedInputs.password || '',
+    keyRef: nodeConfig.passwordRef || nodeConfig.password_ref,
+  });
+  const port = Number(nodeConfig.port || resolvedInputs.port || 0) || undefined;
+  console.info(
+    '[workflow-fs] %s op=%s host=%s path=%s',
+    transport,
+    op,
+    host,
+    String(pathInput).slice(0, 120)
+  );
+
+  if (transport === 'ftp' || transport === 'ftps') {
+    return executeFtpOperations({
+      host,
+      port,
+      user,
+      pass,
+      secure: transport === 'ftps' || nodeConfig.ftpSecure || nodeConfig.secure,
+      op,
+      path: pathInput,
+      glob,
+      content,
+      destination,
+      maxBytes: writeCap(nodeConfig),
+      timeoutMs: Number(nodeConfig.timeoutMs) || 30000,
+    });
+  }
+
+  if (transport === 'sftp') {
+    const privateKey = resolveLiteralOrKeyRef(owner, {
+      literal: nodeConfig.privateKey || '',
+      keyRef: nodeConfig.privateKeyRef || nodeConfig.private_key_ref,
+    });
+    return executeSftpOperations({
+      host,
+      port,
+      user,
+      pass,
+      privateKey,
+      passphrase: resolveLiteralOrKeyRef(owner, {
+        literal: nodeConfig.passphrase || '',
+        keyRef: nodeConfig.passphraseRef,
+      }),
+      op,
+      path: pathInput,
+      glob,
+      content,
+      destination,
+      maxBytes: writeCap(nodeConfig),
+      timeoutMs: Number(nodeConfig.timeoutMs) || 20000,
+    });
+  }
+
+  throw new Error(`Unknown filesystem transport: ${transport}`);
 }

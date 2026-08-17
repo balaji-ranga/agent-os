@@ -284,7 +284,7 @@ Gets the same gateway LLM vars plus:
 | `OPENSEARCH_EMBEDDING_MODEL` / `OPENSEARCH_EMBEDDING_DIMS` | Default `Qwen/Qwen3-Embedding-0.6B` / `1024` |
 | `OPENSEARCH_EMBEDDING_API_KEY` | Optional bearer (default `local`; local server does not require a real key) |
 | `OPENSEARCH_JAVA_OPTS` | Heap for OpenSearch container (default `-Xms512m -Xmx512m`) |
-| `WORKFLOW_FS_ROOTS` | Allowed roots for filesystem workflow nodes (default `/data/workflow-fs`) |
+| `WORKFLOW_FS_ROOTS` | Allowed roots for **local-disk** filesystem workflow nodes on the server (default `/data/workflow-fs`). Desktop packages use the laptop path instead. FTP/SFTP credentials are on the node (vault). |
 | `WORKFLOW_CERTIFY_USE_LLM_CHECKER` | Autonomous Maker/Checker certify: `0`/unset = LLM Checker **OFF** (default; deterministic Checker always runs). `1` = enable soft LLM Checker (secondary model unless `WORKFLOW_CERTIFY_CHECKER_MODEL` set) |
 | `WORKFLOW_CERTIFY_MAX_ATTEMPTS`, `WORKFLOW_CERTIFY_*_MODEL`, `WORKFLOW_CERTIFY_*_MS` | Optional certify budgets / model overrides (see `.env.example`) |
 | `A2A_ACCESS_TOKEN_TTL_SEC`, `A2A_SYNC_TIMEOUT_MS`, `A2A_ASYNC_WATCH_TIMEOUT_MS`, `A2A_CALLBACK_TIMEOUT_MS` | Published workflow A2A: OAuth token TTL, sync hold, async background watch, outbound callback POST timeout |

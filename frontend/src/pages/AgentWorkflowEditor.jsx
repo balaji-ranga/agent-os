@@ -977,6 +977,18 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
       {node.type === 'filesystem' && (
         <>
           <label className="wf-field">
+            Location
+            <select
+              value={data.taskConfig?.transport || 'local'}
+              onChange={(e) => set({ taskConfig: { ...data.taskConfig, transport: e.target.value } })}
+            >
+              <option value="local">Local disk (Windows or Unix path)</option>
+              <option value="ftp">FTP</option>
+              <option value="ftps">FTPS</option>
+              <option value="sftp">SFTP</option>
+            </select>
+          </label>
+          <label className="wf-field">
             Operation
             <select
               value={data.taskConfig?.operation || 'list'}
@@ -986,6 +998,7 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
               <option value="exists">Exists</option>
               <option value="stat">Stat</option>
               <option value="read_text">Read text</option>
+              <option value="write_text">Write text</option>
               <option value="move">Move</option>
             </select>
           </label>
@@ -994,12 +1007,88 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
             <input
               value={data.taskConfig?.path || ''}
               onChange={(e) => set({ taskConfig: { ...data.taskConfig, path: e.target.value } })}
-              placeholder="inbox or absolute path under WORKFLOW_FS_ROOTS"
+              placeholder={
+                (data.taskConfig?.transport || 'local') === 'local'
+                  ? 'C:\\data\\inbox\\file.txt  or  /var/data/inbox/file.txt'
+                  : '/remote/inbox/file.txt'
+              }
             />
             <small>
-              Use with <strong>schedule</strong> trigger to poll a folder. Paths must be under{' '}
-              <code>WORKFLOW_FS_ROOTS</code>.
+              {(data.taskConfig?.transport || 'local') === 'local' ? (
+                <>
+                  On Flolah, paths stay under <code>WORKFLOW_FS_ROOTS</code>. With{' '}
+                  <strong>Download for Windows</strong>, this path is on the laptop (Windows or Unix).
+                </>
+              ) : (
+                <>Remote path on the FTP/SFTP host (always POSIX, e.g. <code>/inbox/file.csv</code>).</>
+              )}
             </small>
+          </label>
+          {(data.taskConfig?.transport || 'local') !== 'local' && (
+            <>
+              <label className="wf-field">
+                Host
+                <input
+                  value={data.taskConfig?.host || ''}
+                  onChange={(e) => set({ taskConfig: { ...data.taskConfig, host: e.target.value } })}
+                  placeholder="ftp.example.com"
+                />
+              </label>
+              <label className="wf-field">
+                Port
+                <input
+                  type="number"
+                  value={data.taskConfig?.port ?? ''}
+                  onChange={(e) =>
+                    set({
+                      taskConfig: {
+                        ...data.taskConfig,
+                        port: e.target.value === '' ? '' : Number(e.target.value),
+                      },
+                    })
+                  }
+                  placeholder={(data.taskConfig?.transport || '') === 'sftp' ? '22' : '21'}
+                />
+              </label>
+              <label className="wf-field">
+                Username
+                <input
+                  value={data.taskConfig?.username || ''}
+                  onChange={(e) => set({ taskConfig: { ...data.taskConfig, username: e.target.value } })}
+                />
+              </label>
+              <VaultOrLiteralSecret
+                label="Password"
+                literalValue={data.taskConfig?.password || ''}
+                keyRef={data.taskConfig?.passwordRef || ''}
+                onLiteralChange={(v) => set({ taskConfig: { ...data.taskConfig, password: v } })}
+                onKeyRefChange={(v) => set({ taskConfig: { ...data.taskConfig, passwordRef: v } })}
+                vaultKeys={vaultKeys}
+                MaskedInput={MaskedSecretInput}
+              />
+              {(data.taskConfig?.transport || '') === 'sftp' && (
+                <VaultOrLiteralSecret
+                  label="Private key (optional)"
+                  literalValue={data.taskConfig?.privateKey || ''}
+                  keyRef={data.taskConfig?.privateKeyRef || ''}
+                  onLiteralChange={(v) => set({ taskConfig: { ...data.taskConfig, privateKey: v } })}
+                  onKeyRefChange={(v) => set({ taskConfig: { ...data.taskConfig, privateKeyRef: v } })}
+                  vaultKeys={vaultKeys}
+                  MaskedInput={MaskedSecretInput}
+                />
+              )}
+            </>
+          )}
+          <label className="wf-field">
+            When run as a desktop package
+            <select
+              value={data.taskConfig?.executeOn || 'auto'}
+              onChange={(e) => set({ taskConfig: { ...data.taskConfig, executeOn: e.target.value } })}
+            >
+              <option value="auto">Auto (laptop disk + FTP; SFTP on Flolah)</option>
+              <option value="local">This machine (laptop)</option>
+              <option value="server">Flolah server</option>
+            </select>
           </label>
           <label className="wf-field">
             Glob (list)
@@ -1009,6 +1098,17 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
               placeholder="*.txt"
             />
           </label>
+          {(data.taskConfig?.operation || 'list') === 'write_text' && (
+            <label className="wf-field">
+              Default content (or bind Input <code>content</code>)
+              <textarea
+                rows={4}
+                value={data.taskConfig?.content || ''}
+                onChange={(e) => set({ taskConfig: { ...data.taskConfig, content: e.target.value } })}
+                placeholder="Text to write, or bind from an upstream node"
+              />
+            </label>
+          )}
           {(data.taskConfig?.operation || 'list') === 'move' && (
             <label className="wf-field">
               Destination
@@ -1019,6 +1119,18 @@ function PropertiesPanel({ node, agents, tools, mcpServers, mcpLoadError, connec
               />
             </label>
           )}
+          <label className="wf-field">
+            Max read/write bytes
+            <input
+              type="number"
+              min={1}
+              max={2097152}
+              value={data.taskConfig?.maxBytes ?? 65536}
+              onChange={(e) =>
+                set({ taskConfig: { ...data.taskConfig, maxBytes: Number(e.target.value) || 65536 } })
+              }
+            />
+          </label>
         </>
       )}
 

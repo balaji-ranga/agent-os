@@ -124,6 +124,7 @@ export async function buildDesktopPackageZip(
       '',
       ...runtimeReadme,
       'Runner has no extra npm dependencies.',
+      'Filesystem local disk and FTP run on this PC; SFTP (Auto) runs on Flolah.',
       '',
       'Run:',
       '  .\\Run-Workflow.ps1',

@@ -1,6 +1,6 @@
 import { evaluateCondition } from './conditions.js';
 import { resolveNodeInputs } from './templates.js';
-import { executeLocalApi, executeLocalFilesystem, shouldRunApiLocally } from './local-executors.js';
+import { executeLocalApi, executeLocalFilesystem, shouldRunApiLocally, shouldRunFilesystemLocally } from './local-executors.js';
 
 const LOCAL_CONTROL = new Set(['trigger', 'if', 'while', 'parallel', 'merge', 'end']);
 const LOCAL_IO = new Set(['filesystem']);
@@ -143,13 +143,16 @@ export async function runDesktopOrchestration({ params, client, log, input, pack
         continue;
       }
 
-      if (node.type === 'filesystem' || (node.type === 'api' && shouldRunApiLocally(node, graph, context, params))) {
+      if (
+        (node.type === 'filesystem' && shouldRunFilesystemLocally(node)) ||
+        (node.type === 'api' && shouldRunApiLocally(node, graph, context, params))
+      ) {
         log.info(`Local execute ${node.type}`, { nodeId });
         let outputs;
         if (node.type === 'api') {
           outputs = await executeLocalApi(node, graph, context, params);
         } else {
-          outputs = executeLocalFilesystem(node, graph, context, packageRoot);
+          outputs = await executeLocalFilesystem(node, graph, context, packageRoot);
         }
         context.node_outputs = { ...(context.node_outputs || {}), [nodeId]: outputs };
         const { summary } = resolveNodeInputs(node, graph, context);

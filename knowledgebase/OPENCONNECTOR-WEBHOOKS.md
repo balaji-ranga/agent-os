@@ -37,7 +37,7 @@ Also:
 
 ## Filesystem — schedule the workflow (not a separate poller)
 
-Use a **Filesystem** node (`list` / `exists` / `stat` / `read_text` / `move`) plus **schedule** on the Trigger node (cron). Paths must be under `WORKFLOW_FS_ROOTS` (or default `<cwd>/tmp/workflow-fs`).
+Use a **Filesystem** node (`list` / `exists` / `stat` / `read_text` / `write_text` / `move`) plus **schedule** on the Trigger node (cron). Local disk on Flolah must be under `WORKFLOW_FS_ROOTS` (or default `<cwd>/tmp/workflow-fs`). Desktop packages read/write the laptop. FTP/SFTP use host + vault password (or SFTP key).
 
 Example: Trigger (schedule `*/5 * * * *`) → Filesystem (list `inbox/*.txt`) → IF `has_files` → …
 

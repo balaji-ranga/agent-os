@@ -1658,7 +1658,10 @@ async function executeNode(runId, nodeId, graph, context, def, runRow) {
     const config = node.data?.taskConfig || node.data?.config || {};
     upsertStep(runId, node, 'in_progress', { input: inputRecord });
     try {
-      const outputs = executeFilesystemTask(inputRecord.resolved, config, context);
+      const outputs = await executeFilesystemTask(inputRecord.resolved, config, {
+        ...context,
+        owner_user_id: runRow.owner_user_id,
+      }, { ownerUserId: runRow.owner_user_id });
       outputs.result = { ...outputs };
       storeNodeOutput(context, node.id, outputs);
       saveContext(runId, context);

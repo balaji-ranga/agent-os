@@ -263,6 +263,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-media-url.js" `
     "$Repo\backend\scripts\seed-inbound-media-summarize-workflow.js" `
     "$Repo\backend\scripts\test-workflow-desktop-package.js" `
+    "$Repo\backend\scripts\test-workflow-filesystem.mjs" `
     "$Repo\backend\scripts\test-local-ibkr-bridge-package.js" `
     "$Repo\backend\scripts\vps-test-platform-help.js" `
     "$Repo\backend\scripts\seed-workflow-builder-agent.js" `

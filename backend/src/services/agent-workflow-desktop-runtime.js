@@ -9,7 +9,7 @@ import { isUserEnabled } from './users.js';
 import { resolveNodeInputs, resolveInputText, storeNodeOutput, renderPayloadTemplates } from './agent-workflow-io.js';
 import { getTaskTypeDef } from './agent-workflow-task-catalog.js';
 import { executeBrainTask } from './agent-workflow-brain.js';
-import { executeEmailTask, executeApiTask } from './agent-workflow-tasks.js';
+import { executeEmailTask, executeApiTask, executeFilesystemTask } from './agent-workflow-tasks.js';
 import { executeWebScrapeTask } from './agent-workflow-web-scrape.js';
 import { executeConnectorAction } from './openconnector.js';
 import { executeCustomScriptTask } from './custom-scripts.js';
@@ -318,7 +318,7 @@ export async function executeDesktopRemoteNode(runId, ownerUserId, nodeId, { con
       `Node type "${node.type}" is not supported in desktop packages yet — run this workflow on the server`
     );
   }
-  if (!REMOTE_NODE_TYPES.has(node.type)) {
+  if (node.type !== 'filesystem' && !REMOTE_NODE_TYPES.has(node.type)) {
     throw new Error(
       `Node type "${node.type}" should execute on the desktop client (local orchestrator), not via execute-node`
     );
@@ -517,6 +517,10 @@ async function runRemoteNodeWork(node, graph, context, inputRecord, meta) {
     }
     case 'externalAgent':
       return executeExternalAgentTask(inputRecord.resolved, config, context, meta.ownerUserId);
+    case 'filesystem':
+      return executeFilesystemTask(inputRecord.resolved, config, { ...context, owner_user_id: meta.ownerUserId }, {
+        ownerUserId: meta.ownerUserId,
+      });
     default:
       throw new Error(`Unsupported remote node type: ${node.type}`);
   }

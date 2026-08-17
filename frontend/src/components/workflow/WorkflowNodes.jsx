@@ -223,6 +223,7 @@ export function MasterDataNode({ id, data }) {
 export function FilesystemNode({ id, data }) {
   const cfg = data.taskConfig || {};
   const op = cfg.operation || 'list';
+  const transport = cfg.transport || 'local';
   const path = cfg.path || data.inputBindings?.find((b) => b.id === 'path')?.value || '';
   return (
     <NodeShell
@@ -230,7 +231,7 @@ export function FilesystemNode({ id, data }) {
       color="#57534e"
       icon="📁"
       title={data.label || 'Filesystem'}
-      subtitle={`${op}${path ? ` · ${String(path).slice(0, 28)}` : ''}`}
+      subtitle={`${transport} · ${op}${path ? ` · ${String(path).slice(0, 22)}` : ''}`}
     />
   );
 }
@@ -408,7 +409,7 @@ export const PALETTE_ITEMS = [
   { type: 'externalAgent', label: 'External Agent (A2A)', color: '#059669', desc: 'Invoke external agent via A2A protocol' },
   { type: 'custom_script', label: 'Custom Script', color: '#b45309', desc: 'Run approved LangGraph / Python / JS in sandbox' },
   { type: 'masterdata', label: 'Master Data', color: '#0f766e', desc: 'Query CEO tables (CSV) or RAG over uploaded documents' },
-  { type: 'filesystem', label: 'Filesystem', color: '#57534e', desc: 'List/stat/read/move files (use with schedule to poll a folder)' },
+  { type: 'filesystem', label: 'Filesystem', color: '#57534e', desc: 'Read/write Windows or Unix paths; FTP/SFTP; laptop disk when run as desktop package' },
   { type: 'web_scrape', label: 'Web Scrape', color: '#c2410c', desc: 'Crawl a site/domain with optional search phrases (Crawlee)' },
   { type: 'tool', label: 'Content Tool', color: '#9333ea', desc: 'Invoke a content tool' },
   { type: 'mcp_tool', label: 'MCP', color: '#0ea5e9', desc: 'Call MCP tool, prompt, or resource' },
@@ -437,6 +438,8 @@ export function defaultNodeData(type, extra = {}) {
   if (type === 'filesystem') {
     data.taskConfig = {
       operation: 'list',
+      transport: 'local',
+      executeOn: 'auto',
       path: '',
       glob: '*',
       destination: '',

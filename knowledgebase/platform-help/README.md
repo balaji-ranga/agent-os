@@ -12,7 +12,7 @@
 | [04-kanban-standups-broadcast.md](./04-kanban-standups-broadcast.md) | Kanban (**Weekly default**, agent filter, Select all, task ID, deep-link `?task=`), standups → COO, Broadcast, `notify_ceo` when/when-not |
 | [05-master-data-rag.md](./05-master-data-rag.md) | Tables (incl. **company_memory**, **agent_workflow_notify_prefs**), CSV, documents, RAG; **Inbound attachments**; **Purge all uploads**; Help lives in **platform** OpenSearch (not CEO Documents UI); specialists merge `corpus=platform-help` |
 | [06-workflows-building.md](./06-workflows-building.md) | Create / edit / publish / run workflows, I/O mapping, templates, **WF run id**, agent wake opt-in prefs |
-| [07-workflow-nodes-reference.md](./07-workflow-nodes-reference.md) | Every node type incl. **Connector**; attributes, inputs, outputs |
+| [07-workflow-nodes-reference.md](./07-workflow-nodes-reference.md) | Every node type incl. **Filesystem** (local disk + FTP/SFTP) and **Connector**; attributes, inputs, outputs |
 | [08-mcp-integrations.md](./08-mcp-integrations.md) | Register MCP, test, use in workflows / Brain (vs Connectors OAuth tab) |
 | [09-a2a-agent-exchange.md](./09-a2a-agent-exchange.md) | External agents, Publish A2A (sync/async, callback, deny_all/whitelist), **publish AI employees** (Flolah / Public), AgentExchange **Test agent**, Admin **A2A invocation logs**, mock callback inbox |
 | [10-policies-guardrails.md](./10-policies-guardrails.md) | CEO common guardrails for all agents + Brain nodes |

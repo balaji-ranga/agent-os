@@ -130,7 +130,7 @@ export default function DesktopPackageModal({ workflowId, workflowName, open, on
           <div>
             <h2>Download for Windows</h2>
             <p className="wf-a2a-modal-sub">
-              Localhost API and filesystem run on the laptop; other nodes and run state use Flolah.
+              Localhost API and laptop files (read/write) run on the PC; FTP can stay on the laptop; SFTP and other nodes plus run state use Flolah.
               Choose a package size, review contents, then confirm to download.
             </p>
           </div>
