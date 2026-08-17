@@ -13,7 +13,7 @@ This corpus is written for the public website. It does **not** include operator 
 
 Keep public pages sequenced: access → register → setup → run → operate.
 
-**Connectors:** public [Connectors and MCP](./docs/systems/connectors-and-mcp.md) documents the **~1,300** SaaS apps available through [Open Connector](https://openconnector.dev/#connectors) (credit and live catalog on that site). In-app copy: `knowledgebase/platform-help/16-connectors-openconnector.md`.
+**Connectors catalog:** the public [Connectors and MCP](./docs/systems/connectors-and-mcp.md) page credits **[Open Connector](https://github.com/oomol-lab/open-connector)** (~1,300 connectors; live list at [openconnector.dev/#connectors](https://openconnector.dev/#connectors)).
 
 ## Build
 

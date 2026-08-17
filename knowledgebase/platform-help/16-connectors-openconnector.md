@@ -1,12 +1,8 @@
 # Connectors (OpenConnector + MCPs overview)
 
-Path: **Agentic Workflows → Connectors** (`/connectors`).
+Path: **Connectors** (`/connectors`).
 
-## Catalog (about 1,300 apps)
-
-Flolah’s **OpenConnector** tab searches the **[Open Connector](https://openconnector.dev/#connectors)** SaaS catalog — **about 1,300 connectors** (GitHub, Slack, Gmail, Google Drive, Notion, Linear, HubSpot, Salesforce, Jira, Stripe, Shopify, Discord, LinkedIn, Facebook, and many more). You connect an app once (OAuth, API key, or no-auth), then call it from workflow **Connector** nodes and `connector_*` tools.
-
-**Credit:** Integration coverage is provided by [Open Connector](https://openconnector.dev/#connectors) (open-source AI integration platform). Browse the live list there; Flolah does not duplicate that catalog as a static page. Search from **Connectors** in the product.
+Flolah Connectors is backed by **[Open Connector](https://openconnector.dev/#connectors)** ([github.com/oomol-lab/open-connector](https://github.com/oomol-lab/open-connector), Apache-2.0, OOMOL Lab). The catalog in Flolah is about **1,300 connectors** (upstream project: **1,000+ providers** and **10,000+ prebuilt actions**). Search in **Connectors**, connect with OAuth or an API key, then call the app from a workflow **Connector** node. Provider names and trademarks belong to their respective owners.
 
 Two tabs on the same page:
 
@@ -27,13 +23,13 @@ Registry vs Connectors:
 
 ## OpenConnector tab (SaaS apps)
 
-Connect **SaaS apps** to your CEO account via **OpenConnector**. Connected apps are then callable from workflow **Connector** nodes.
+Connect **SaaS apps** to your CEO account via **OpenConnector** (about **1,300** catalog entries — GitHub, Gmail, Slack, Drive, Notion, HubSpot, and many more; full public list: [openconnector.dev/#connectors](https://openconnector.dev/#connectors)). Connected apps are then callable from workflow **Connector** nodes.
 
 ### First-time setup (CEO)
 
 1. Open **Connectors**.
 2. Click **Provision runtime token** (or equivalent “ensure linked”) so workflows can call apps as you.
-3. Use a **starter** (Hacker News, GitHub, Gmail, Google Drive) or **search** the Open Connector catalog (about **1,300** apps — [openconnector.dev/#connectors](https://openconnector.dev/#connectors)).
+3. Use a **starter** (Hacker News, GitHub, Gmail, Google Drive) or **search** the Open Connector catalog (about **1,300** apps — [github.com/oomol-lab/open-connector](https://github.com/oomol-lab/open-connector), [openconnector.dev/#connectors](https://openconnector.dev/#connectors)).
 4. Open an app → follow **OAuth** (browser popup / redirect) or paste an **API key** when the provider requires it.
 5. Confirm the app appears under **Your connections**.
 

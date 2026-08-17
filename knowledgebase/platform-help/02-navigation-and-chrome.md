@@ -70,7 +70,7 @@ Top-level (always shown; cannot hide in Menu visibility):
 | Workflows | `/workflows` | Custom visual workflows; editor at `/workflows/:id/edit` |
 | **AI Employees** | `/workspace` | Hire AI employees (icon/image), list team → workspace MD / tools / **templates** / **Publish to Agent Exchange** |
 | Tools | `/content-tools` | Catalog, test invoke, logs, **Tools → Model** overrides, **Tools → Rate limits** (per-user daily/monthly API call caps) |
-| **Connectors** | `/connectors` | Link SaaS apps via OpenConnector (**~1,300** apps — [Open Connector catalog](https://openconnector.dev/#connectors)) for **Connector** workflow nodes |
+| **Connectors** | `/connectors` | Link SaaS apps via **OpenConnector** (~**1,300** apps — [Open Connector](https://github.com/oomol-lab/open-connector), [catalog](https://openconnector.dev/#connectors)) for **Connector** workflow nodes |
 | MCP | `/integrations/mcp` | Register and test MCP servers |
 | Custom scripts | `/integrations/custom-scripts` | Sandboxed Python/JS/LangGraph scripts |
 | AgentExchange | `/agent-exchange` | Browse published **AI employees** (Flolah / Public) and workflow A2A (Public / Private / Secured) |

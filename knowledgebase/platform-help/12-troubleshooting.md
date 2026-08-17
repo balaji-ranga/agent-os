@@ -120,7 +120,7 @@ Open **Kanban**, find the approval card, approve or reject with a comment. IF no
 
 ## Connectors / Connector node fails
 
-The **Connectors** catalog is about **1,300** SaaS apps via [Open Connector](https://openconnector.dev/#connectors). Search there in-product; we do not list every app in this help file.
+The **Connectors** catalog is about **1,300** SaaS apps via [Open Connector](https://github.com/oomol-lab/open-connector) ([openconnector.dev/#connectors](https://openconnector.dev/#connectors)). Search there in-product; we do not list every app in this help file.
 
 1. Provision runtime token on **Connectors**.
 2. App connected for **this** CEO? OAuth expired → reconnect.
@@ -273,6 +273,13 @@ Confirm **Job profile** is complete and pipeline/cron is enabled for your enviro
 2. Wait a few seconds for mirror into workspace **`inbound/attachments/`** (AgentSystem stages inbound media first).
 3. If the chat shows “[whatsapp attachment unavailable]”, still try the latest file under `inbound/attachments/` with `speech_stt` or the summarize-inbound workflow.
 4. Web paperclip uploads always go to Master Data + `inbound/attachments/` for that CEO.
+
+## Voice Call / public widget fails
+
+1. **Call** and `/p/voice/:slug` need an **OpenAI Realtime** key (Profile BYOK or platform OpenAI). OpenRouter, Ollama, and DeepSeek cannot mint live sessions — you get **503** with that message. Help **46**.
+2. Browser needs **HTTPS** (or localhost) and microphone permission.
+3. Public widget guests may look up FAQs/CRM lists only. Hangup on the widget stores the transcript; it does **not** run CRM wrap-up. Use in-app **Call** as the CEO for wrap-up.
+4. Phone numbers are not in this product — that is a later telephony MCP.
 
 ## Platform feedback status
 
