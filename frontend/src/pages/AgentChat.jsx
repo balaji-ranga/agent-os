@@ -337,11 +337,13 @@ export default function AgentChat() {
     setSpeakReply,
     calling,
     setCalling,
+    liveCallEnabled,
     micBusy,
     mintVoiceSession,
     playAssistantSpeech,
     toggleRecord,
   } = useChatVoice({ agentId, sending, setError });
+  const sendRef = useRef(null);
   const sidePanelOpen = showHistoryPanel || showBrowserPanel;
   const homeChatSheetOpen = !isHome || !isNarrow || mobileChatOpen;
 
@@ -536,7 +538,8 @@ export default function AgentChat() {
   const send = async (e, overrideText) => {
     e?.preventDefault?.();
     const userText = String(overrideText != null ? overrideText : input).trim();
-    if ((!userText && !attachments.length) || sending || micBusy || !agentId) return;
+    if ((!userText && !attachments.length) || sending || !agentId) return;
+    if (micBusy && overrideText == null) return;
     const pendingFiles = [...attachments];
     const displayAttachments = buildDisplayAttachmentsFromFiles(pendingFiles);
     const tempId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -638,6 +641,7 @@ export default function AgentChat() {
       }
     }
   };
+  sendRef.current = send;
 
   // Workspace / deep-link: ?message=...&autosend=1 or location.state.prefill
   const inboundPrefillKey = useRef('');
@@ -1050,14 +1054,18 @@ export default function AgentChat() {
                     toolbarExtra={
                       <ChatVoiceBar
                         sending={sending || !agentId}
-                        micBusy={micBusy}
                         recording={recording}
                         transcribing={transcribing}
                         calling={calling}
                         speakReply={speakReply}
                         setSpeakReply={setSpeakReply}
+                        showCall={liveCallEnabled}
                         onMic={() =>
-                          toggleRecord((text) => setInput((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text)))
+                          toggleRecord((text) => {
+                            const next = String(text || '').trim();
+                            if (!next) return;
+                            sendRef.current?.(null, next);
+                          })
                         }
                         onCall={() => setCalling(true)}
                       />
@@ -1254,14 +1262,18 @@ export default function AgentChat() {
                   toolbarExtra={
                     <ChatVoiceBar
                       sending={sending || !agentId}
-                      micBusy={micBusy}
                       recording={recording}
                       transcribing={transcribing}
                       calling={calling}
                       speakReply={speakReply}
                       setSpeakReply={setSpeakReply}
+                      showCall={liveCallEnabled}
                       onMic={() =>
-                        toggleRecord((text) => setInput((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text)))
+                        toggleRecord((text) => {
+                          const next = String(text || '').trim();
+                          if (!next) return;
+                          sendRef.current?.(null, next);
+                        })
                       }
                       onCall={() => setCalling(true)}
                     />

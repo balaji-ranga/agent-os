@@ -28,7 +28,14 @@ router.post('/session', requireAuth, requireCeoOrAdmin, async (req, res) => {
     const agentId = String(req.params.id || '').trim();
     assertUserAgentAccess(req.authUser, agentId);
     const ch = getVoiceChannelForAgent(owner, agentId);
-    const config = ch ? parseConfig(ch.config_json) : {};
+    if (!ch || String(ch.status).toLowerCase() !== 'enabled') {
+      console.info('[voice] call refused agent=%s owner=%s reason=no_enabled_voice_channel', agentId, owner);
+      return res.status(400).json({
+        error:
+          'Live Call needs an enabled Voice channel on this employee (Realtime Caller). Slow Caller uses the microphone icon — speak, pause 3 seconds, and the message sends.',
+      });
+    }
+    const config = parseConfig(ch.config_json);
     const out = await createVoiceSession({
       ownerUserId: owner,
       agentId,

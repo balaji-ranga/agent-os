@@ -15,19 +15,50 @@ Hire from **AI Employees** or **My Org → Design**. Pick a **role template**:
 
 WhatsApp voice is **not** a live call. The customer sends a voice note; the employee transcribes, thinks, and replies with text plus a Piper voice note (`MEDIA:`). See [24-agent-channels.md](./24-agent-channels.md) and [25-speech-and-published-scenes.md](./25-speech-and-published-scenes.md).
 
-## Slow Caller setup
+## Slow Caller — web (Home)
+
+On Home (`/`), **Chat with** Slow Caller. Controls are **icons** in the message box next to the paperclip:
+
+| Control | What it does | How to use |
+|---------|----------------|------------|
+| **Microphone** | Whisper → chat message | Click, allow mic, **speak**, then **pause 3 seconds**. The transcript **sends automatically**. Click the icon again to send sooner. |
+| **Speak** checkbox | Piper reads the reply | Check it before you talk. The next assistant reply plays as audio. |
+| **Phone / Call** | Live WebRTC | **Not on Slow Caller.** Hire Realtime Caller and enable **Channels → Voice**. |
+
+HTTPS is required (already true on `login.flolah.cloud`). Platform `optional-voice` (Whisper + Piper) must be up.
+
+### How to test web mic
+
+1. Home → **Chat with** Slow Caller. Hard-refresh once so you see the microphone icon (not a “Mic” text button).
+2. Check **Speak** if you want to hear the reply.
+3. Click the **microphone**. Browser asks for permission → Allow.
+4. Say a short FAQ (“what are your hours?”). Stay quiet for **3 seconds**.
+5. Your turn appears, then the employee replies (and Piper plays if Speak is on).
+6. If you hear nothing transcribed: speak closer, wait for “Listening — pause 3s to send” to clear, then “Transcribing…”. Empty/noise shows **No speech detected**.
+
+## Slow Caller — WhatsApp
+
+WhatsApp is **voice notes**, not a live phone call.
+
+1. Employee **Channels** → WhatsApp → pair QR from the phone that should receive DMs. Set **allow-from** to your E.164 number.
+2. From that number, send **text**: `what are your hours?` — expect a text reply starting with **From:** the employee name.
+3. Send a **voice note** (hold the WhatsApp mic). Expect a text reply plus a **Piper voice note** (`MEDIA:` attach).
+4. If inbound says attachment unavailable, wait a few seconds and check Content Explorer `inbound/attachments/`.
+5. Groups are off by default. Keep them off for this test.
+
+## Slow Caller hire (once)
 
 1. Upload FAQs / scripts to **Knowledge**.
 2. Optional: Profile CRM (Twenty) if you want leads/people logged.
 3. Hire **Slow Caller** (template grants `speech_*`, RAG, CRM list/create, Kanban, `agent_goal_*`).
-4. Employee **Channels** → WhatsApp BYOK. Platform `optional-voice` must be up. On Home (`/`), **Chat with** this employee — the **microphone** icon next to the paperclip in the message box transcribes into compose (same Whisper path as Agent Chat).
+4. Bind **WhatsApp** (above) and use Home **microphone** for CEO testing.
 5. Clone workflow **Caller wrap-up** (chat: `run caller wrap up`) or let the employee create a **goal plan** after each conversation.
 
 ## Realtime Caller setup
 
 1. Same Knowledge / CRM / wrap-up as Slow Caller.
 2. Hire **Realtime Caller**.
-3. **Channels → Voice (WebRTC)** → Enable. Copies a public widget URL (`/p/voice/:slug`). Agent Chat **Call** uses the same realtime path (CEO login). Home (`/`) **Chat with** that employee: **microphone** (Whisper), **Speak**, and **phone** (live Call) are in the compose toolbar next to the paperclip.
+3. **Channels → Voice (WebRTC)** → Enable. Copies a public widget URL (`/p/voice/:slug`). The **phone** icon appears in the compose toolbar only when Voice is enabled. Home **microphone** is still Whisper (turn-based); **Call** is the live path.
 4. **BYOK:** Profile (or platform) must expose an **OpenAI Realtime** endpoint (`api.openai.com`). OpenRouter, Ollama, and DeepSeek **cannot** mint live sessions — you get a clear 503. Optional env: `OPENAI_REALTIME_BASE_URL`, `OPENAI_REALTIME_API_KEY`, `OPENAI_REALTIME_MODEL` (default `gpt-4o-realtime-preview`). Prefer owner Profile OpenAI keys; do not hardwire a platform-only model.
 5. Guests on the widget do **not** log in. Live tools are **read-only lookups** (RAG + CRM list). Session tokens expire (~15 min). **CEO Call** hangup posts the transcript into that employee for wrap-up (CRM/Kanban/goal). **Public widget** hangup **stores the transcript only** — it does not run a tool wrap-up, so a guest cannot inject a fake transcript into CRM.
 

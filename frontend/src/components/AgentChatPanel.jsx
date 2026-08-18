@@ -32,11 +32,13 @@ export default function AgentChatPanel({
     setSpeakReply,
     calling,
     setCalling,
+    liveCallEnabled,
     micBusy,
     mintVoiceSession,
     playAssistantSpeech,
     toggleRecord,
   } = useChatVoice({ agentId, sending, setError });
+  const sendMessageRef = useRef(null);
 
   useEffect(
     () => () => {
@@ -130,6 +132,7 @@ export default function AgentChatPanel({
       }
     }
   };
+  sendMessageRef.current = sendMessage;
 
   const cancelSend = () => {
     const controller = abortControllerRef.current;
@@ -239,14 +242,18 @@ export default function AgentChatPanel({
           toolbarExtra={
             <ChatVoiceBar
               sending={sending}
-              micBusy={micBusy}
               recording={recording}
               transcribing={transcribing}
               calling={calling}
               speakReply={speakReply}
               setSpeakReply={setSpeakReply}
+              showCall={liveCallEnabled}
               onMic={() =>
-                toggleRecord((text) => setInput((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text)))
+                toggleRecord((text) => {
+                  const next = String(text || '').trim();
+                  if (!next) return;
+                  sendMessageRef.current?.(next);
+                })
               }
               onCall={() => setCalling(true)}
             />

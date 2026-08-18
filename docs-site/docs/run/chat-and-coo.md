@@ -17,9 +17,9 @@ Home (`/`) opens chat with the **COO**. Use **Chat with** to switch employees. *
 
 On Home (`/`) and employee chat, the message box toolbar (next to the paperclip) includes:
 
-- **Microphone** — speak into the compose box (Whisper). Pick **Slow Caller** in **Chat with** for voice-note style work.
-- **Speak** — hear the last assistant turn (Piper).
-- **Phone** — live WebRTC with **Realtime Caller** (needs an OpenAI Realtime-capable key). Not a phone number.
+- **Microphone icon** — click, speak, **pause 3 seconds**; the transcript **sends**. Slow Caller uses this path (not a live call).
+- **Speak** checkbox — Piper plays the assistant reply.
+- **Phone icon** — live WebRTC, **only if that employee has Voice enabled** (Realtime Caller). Slow Caller does not show Call.
 
 See [Channels](../systems/channels.md) and [Hire AI employees](../setup/hire-ai-employees.md).
 
@@ -35,7 +35,9 @@ If you want a specialist to **reach you**, say so (“have Research contact me�
 
 ## WhatsApp and Slack
 
-Configure **Channels** on the employee. Replies start with the employee name. See [Channels](../systems/channels.md).
+Configure **Channels** on the employee. Replies start with the employee name.
+
+**Slow Caller WhatsApp test:** pair QR → from the allow-from number send text, then a voice note. Expect **From:** + text, and a voice-note reply. Not a live call. See [Channels](../systems/channels.md).
 
 ## Platform Help
 
