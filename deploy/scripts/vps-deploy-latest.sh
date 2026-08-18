@@ -274,6 +274,25 @@ if echo " $SERVICES " | grep -q " backend "; then
 fi
 docker compose up -d --force-recreate nginx
 
+echo "==> CRM workspace TLS SAN coverage (apex crm.* does not cover {sub}.crm.*)"
+CERT="$ROOT/deploy/nginx/certs/fullchain.pem"
+if [[ -f "$CERT" ]] && docker ps --format '{{.Names}}' | grep -q '^agent-os-twenty-db-1$'; then
+  SANS="$(openssl x509 -in "$CERT" -noout -ext subjectAltName 2>/dev/null || true)"
+  while IFS= read -r sub; do
+    sub="$(echo "$sub" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')"
+    [[ -z "$sub" ]] && continue
+    host="${sub}.crm.flolah.cloud"
+    if echo "$SANS" | grep -qi "DNS:${host}"; then
+      echo "    SAN OK  $host"
+    else
+      echo "    SAN MISS $host  (Chrome will say the CRM page moved; run vps-ensure-crm-workspace-dns-cert.sh)"
+    fi
+  done < <(docker exec agent-os-twenty-db-1 psql -U twenty -d twenty -t -A -c \
+    "SELECT subdomain FROM core.workspace WHERE \"activationStatus\"='ACTIVE' AND \"deletedAt\" IS NULL AND coalesce(subdomain,'')<>''" 2>/dev/null || true)
+else
+  echo "    skip (no fullchain or twenty-db)"
+fi
+
 # OpenSearch + Dashboards (document RAG) — always ensure running; not in default SERVICES rebuild list
 echo "==> ensure OpenSearch + Dashboards (internal only)"
 docker compose up -d opensearch opensearch-dashboards || echo "WARN: OpenSearch up failed"
@@ -815,6 +834,11 @@ if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-
   docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-twenty-sso-handoff.js >/tmp/twenty-sso-handoff.log 2>&1 \
     && echo "    Twenty CRM SSO handoff tokens OK" \
     || echo "    WARN: twenty CRM SSO handoff failed (see /tmp/twenty-sso-handoff.log)"
+fi
+if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-cert-san-covers.js 2>/dev/null; then
+  docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-cert-san-covers.js >/tmp/cert-san-covers.log 2>&1 \
+    && echo "    CRM TLS SAN matcher OK" \
+    || echo "    WARN: cert SAN matcher failed (see /tmp/cert-san-covers.log)"
 fi
 if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-token-usage-reset.js 2>/dev/null; then
   docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-token-usage-reset.js >/tmp/token-reset.log 2>&1 \

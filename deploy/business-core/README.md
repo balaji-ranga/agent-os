@@ -72,7 +72,7 @@ Compose wires these into **backend** (`deploy/docker-compose.yml`) and into Twen
 **DNS for multi-workspace:** A/CNAME `crm` → VPS **and** A `*.crm` → VPS (or per-workspace `{sub}.crm`).  
 Cert: `bash deploy/scripts/vps-expand-crm-cert.sh` (apex + optional workspace SANs). After workspace DNS is live: `bash deploy/scripts/vps-ensure-crm-workspace-dns-cert.sh`. Ops refresh: `bash deploy/scripts/vps-refresh-tls-certs.sh [all|platform|crm]`.
 
-**Automated SANs for every new company:** Platform cron **`crm_tls_workspace_certs`** (Admin → Crons) + post-workspace-create debounce expand LE SANs when ACTIVE Twenty workspace hosts are missing from the cert (`CRM_TLS_WORKSPACE_CERT_CRON`, default hourly). Still needs DNS `*.crm` (or per-sub) → VPS.
+**Automated SANs for every new company:** Platform cron **`crm_tls_workspace_certs`** (Admin → Crons) + post-workspace-create debounce + **backend boot re-sync**. Gap detection requires an **exact** `{sub}.crm.*` SAN (apex `crm.*` does not count). Deploy logs SAN MISS after nginx recreate.
 
 ## Start ERPNext (ERP)
 

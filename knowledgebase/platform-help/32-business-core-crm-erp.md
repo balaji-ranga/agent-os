@@ -160,6 +160,8 @@ Twenty multi-workspace opens each company at https://{workspace-subdomain}.crm.f
 
 **CRM workspace DNS** — ops publishes an A record for `*.crm` (wildcard preferred) or one A record per workspace host, pointing at the public CRM host. Apex `crm.flolah.cloud` alone is not enough. Use generic names such as `your-company.crm`, not live workspace slugs.
 
+**Chrome “this page might be temporarily down or it may have moved”** on `https://{sub}.crm.…/flolah-handoff/…` is almost always **TLS**, not SSO. Let’s Encrypt lists each workspace host as its own SAN. Apex `crm.<apex>` on the cert does **not** cover `{sub}.crm.<apex>`. A gap-detector bug used to treat apex as covering every workspace, so new companies never got a SAN (cron and post-create debounce no-op’d). That matcher now requires an exact host SAN (or a true `*.crm` wildcard). Backend boot also re-runs SAN sync so a deploy that restarts the API cannot drop an in-memory debounce. Until the SAN exists, CRM embed **does not** load that host (avoids the Chrome error) and shows a Flolah message instead.
+
 **Refresh TLS (after DNS works):**
 
 - **Admin UI (preferred):** sign in as platform admin → **TLS certs** (`/admin/tls-certs`) → unlock with OTP (authenticator or email; 30-minute privileged session, shared with AgentSystem recovery / Tools Onboarding) → **Run Let's Encrypt refresh** (scope **all** or **crm**). Same acme.sh TLS-ALPN path as the VPS bash scripts; brief nginx downtime for ALPN. Shows current SANs, Twenty workspace hosts, and job logs.

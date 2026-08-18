@@ -729,6 +729,36 @@ export async function buildCrmSsoHandoff(ownerUserId, opts = {}) {
   const base = companyWs.public_base || frontBase;
   const email = strip(companyWs.email || opts.flolahUser?.email || '');
 
+  try {
+    const { probeHttpsCertificate } = await import('./twenty-public.js');
+    const tlsProbe = await probeHttpsCertificate(base);
+    if (tlsProbe.certMismatch || tlsProbe.reason === 'tls_san_missing') {
+      console.warn(
+        '[twenty-sso] workspace TLS SAN missing host=%s — scheduling expand',
+        tlsProbe.host || '?'
+      );
+      try {
+        const { scheduleCrmWorkspaceTlsSansSync } = await import('./tls-cert-admin.js');
+        scheduleCrmWorkspaceTlsSansSync(`crm_embed_tls_gap:${tlsProbe.host || 'host'}`);
+      } catch (schedErr) {
+        console.warn('[twenty-sso] schedule TLS expand failed', schedErr?.message || schedErr);
+      }
+      return {
+        ok: false,
+        mode: 'tls_san_missing',
+        reason:
+          `CRM host ${tlsProbe.host || 'workspace'} is not on the TLS certificate yet. Wait a minute and open CRM again, or Admin → TLS certs → refresh CRM. Do not use Twenty email login.`,
+        iframe_url: null,
+        open_url: null,
+        workspace_id: workspaceId,
+        subdomain: companyWs.subdomain,
+        public_base: base,
+      };
+    }
+  } catch (tlsErr) {
+    console.warn('[twenty-sso] TLS probe failed', tlsErr?.message || tlsErr);
+  }
+
   if (!isTwentySsoEnabled()) {
     return {
       ok: true,

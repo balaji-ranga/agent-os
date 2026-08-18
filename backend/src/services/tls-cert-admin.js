@@ -29,6 +29,36 @@ export function tlsCertsStepupPurpose() {
   return PURPOSE;
 }
 
+/**
+ * Whether a Let's Encrypt SAN list covers a CRM workspace host.
+ * Apex `crm.example.com` does **not** cover `sub.crm.example.com`.
+ * Wildcard `*.crm.example.com` covers one label only.
+ * @param {string[]} sans
+ * @param {string} host
+ */
+export function certSanCoversHost(sans, host) {
+  const h = String(host || '')
+    .trim()
+    .toLowerCase();
+  if (!h) return false;
+  const list = Array.isArray(sans) ? sans : [];
+  for (const raw of list) {
+    const s = String(raw || '')
+      .trim()
+      .toLowerCase();
+    if (!s) continue;
+    if (s === h) return true;
+    if (s.startsWith('*.')) {
+      const suffix = s.slice(1); // .crm.example.com
+      if (h.endsWith(suffix) && h.length > suffix.length) {
+        const rest = h.slice(0, h.length - suffix.length);
+        if (rest && !rest.includes('.')) return true;
+      }
+    }
+  }
+  return false;
+}
+
 function hostRoot() {
   return String(process.env.AGENT_OS_HOST_ROOT || process.env.AGENT_OS_ROOT || DEFAULT_HOST_ROOT)
     .trim()
@@ -247,6 +277,7 @@ export async function getTlsCertStatus() {
       'Wildcard LE certs require DNS-01; this tool issues per-FQDN SANs.',
       'Cron `crm_tls_workspace_certs` (Admin → Crons) expands LE SANs when ACTIVE workspaces are missing from the cert (no-op when already covered).',
       'New Twenty workspace provision debounces the same expand after setup.',
+      'Apex crm.<apex> on the cert does NOT cover {sub}.crm.<apex> — each workspace host needs its own SAN (or a true wildcard).',
     ],
   };
 
@@ -332,22 +363,12 @@ export async function getTlsCertStatus() {
         .map((line) => {
           const [subdomain, displayName, activationStatus] = line.split('|');
           const host = subdomain ? `${subdomain}.${crmApex}` : null;
-          const wild = `*.${crmApex}`;
           return {
             subdomain: subdomain || '',
             display_name: displayName || '',
             activation_status: activationStatus || '',
             host,
-            on_cert: Boolean(
-              host &&
-                out.certificate?.sans?.some(
-                  (s) =>
-                    s === host ||
-                    s === wild ||
-                    s === crmApex ||
-                    String(s).toLowerCase() === host.toLowerCase()
-                )
-            ),
+            on_cert: certSanCoversHost(out.certificate?.sans || [], host),
           };
         });
     }

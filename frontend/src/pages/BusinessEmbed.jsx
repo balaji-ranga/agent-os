@@ -104,7 +104,9 @@ export function BusinessEmbedPage({ kind }) {
 
   const ssoHelp = isErpnextEmbed
     ? 'ERPNext SSO needs ERPNEXT_API_KEY + ERPNEXT_API_SECRET (Administrator API Access), ERPNEXT_SSO_ENABLED=1, and a bound company. Then reload; handoff uses /flolah-erp-handoff.'
-    : 'Twenty SSO needs TWENTY_APP_SECRET / TWENTY_SSO_ENABLED / TWENTY_DATABASE_URL / TWENTY_FRONT_AUTO_BASE_URL and the company user provisioned in Twenty.';
+    : data?.sso?.mode === 'tls_san_missing'
+      ? 'This company’s CRM host is not on the TLS certificate yet. Wait a minute and reload CRM, or ask an admin to refresh CRM TLS. Do not type email into Twenty.'
+      : 'Twenty SSO needs TWENTY_APP_SECRET / TWENTY_SSO_ENABLED / TWENTY_DATABASE_URL / TWENTY_FRONT_AUTO_BASE_URL and the company user provisioned in Twenty.';
 
   return (
     <div

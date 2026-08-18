@@ -908,4 +908,21 @@ app.listen(PORT, () => {
   } catch (e) {
     console.warn('[startup] openclaw inbound media sync:', e?.message || e);
   }
+  // Recover CRM workspace TLS SANs after backend recreate (in-memory debounce is lost).
+  setTimeout(() => {
+    import('./services/tls-cert-admin.js')
+      .then(({ syncCrmWorkspaceTlsSans }) => syncCrmWorkspaceTlsSans({ source: 'backend_boot' }))
+      .then((out) => {
+        if (out?.started) {
+          console.info(
+            '[startup] CRM TLS SAN expand job=%s missing=%s',
+            out.job_id,
+            (out.missing || []).join(',')
+          );
+        } else if (out?.skipped && out.skipped !== 'all_sans_present') {
+          console.info('[startup] CRM TLS SAN sync skipped=%s', out.skipped);
+        }
+      })
+      .catch((e) => console.warn('[startup] CRM TLS SAN sync', e?.message || e));
+  }, 15000).unref?.();
 });

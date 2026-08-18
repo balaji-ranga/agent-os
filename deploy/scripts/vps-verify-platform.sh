@@ -87,6 +87,8 @@ check "nginx host-network apex" grep -q 'server_name flolah.cloud www.flolah.clo
 check "nginx host-network login" grep -q 'server_name login.flolah.cloud' "$ROOT/deploy/nginx/nginx.host-network.conf"
 check "nginx CRM SSO apply" grep -q 'location = /flolah-crm-sso' "$ROOT/deploy/nginx/nginx.host-network.conf"
 check "nginx CRM SSO apply backend" grep -q 'crm-sso-apply' "$ROOT/deploy/nginx/nginx.host-network.conf"
+check "CRM SAN covers helper" grep -q 'export function certSanCoversHost' "$ROOT/backend/src/services/tls-cert-admin.js"
+check "CRM SAN not apex-cover-all" grep -q 'on_cert: certSanCoversHost' "$ROOT/backend/src/services/tls-cert-admin.js"
 check "compose marketing volume" grep -q 'static/flolah-home' "$ROOT/deploy/docker-compose.yml"
 check "vps-client-ip marketing volume" grep -q 'static/flolah-home' "$ROOT/deploy/docker-compose.vps-client-ip.yml"
 check "expand login cert script" test -f "$ROOT/deploy/scripts/vps-expand-login-cert.sh"

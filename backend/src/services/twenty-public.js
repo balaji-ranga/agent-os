@@ -2,6 +2,7 @@
  * Shared Twenty public URL helpers (minimal deps).
  */
 import { createHash } from 'crypto';
+import tls from 'tls';
 
 export function strip(s) {
   return String(s || '').trim();
@@ -56,6 +57,47 @@ export function getTwentyWorkspacePublicBase(subdomain) {
   } catch {
     return origin;
   }
+}
+
+/**
+ * Probe HTTPS for a CRM workspace origin. Apex crm.* on the cert does not
+ * cover {sub}.crm.* — Chrome then shows “page may have moved”.
+ */
+export function probeHttpsCertificate(origin, timeoutMs = 6000) {
+  let host = '';
+  try {
+    const u = new URL(strip(origin));
+    host = u.hostname;
+  } catch {
+    return Promise.resolve({ ok: false, reason: 'bad_url' });
+  }
+  if (!host) return Promise.resolve({ ok: false, reason: 'bad_url' });
+  return new Promise((resolve) => {
+    const sock = tls.connect(
+      { host, port: 443, servername: host, rejectUnauthorized: true },
+      () => {
+        sock.end();
+        resolve({ ok: true, host });
+      }
+    );
+    sock.setTimeout(Math.max(1000, Number(timeoutMs) || 6000), () => {
+      sock.destroy();
+      resolve({ ok: false, reason: 'timeout', host });
+    });
+    sock.on('error', (e) => {
+      const msg = String(e?.message || e || '');
+      const code = String(e?.code || '');
+      const certMismatch =
+        code === 'ERR_TLS_CERT_ALTNAME_INVALID' ||
+        /hostname\/ip does not match|altnames|certificate.*does not match/i.test(msg);
+      resolve({
+        ok: false,
+        reason: certMismatch ? 'tls_san_missing' : code || msg.slice(0, 180),
+        host,
+        certMismatch,
+      });
+    });
+  });
 }
 
 export function subdomainForOwner(ownerUserId, displayName = '') {
