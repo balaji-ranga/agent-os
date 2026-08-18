@@ -369,6 +369,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-living-twenty-crm-holds.js" `
     "$Repo\backend\scripts\test-twenty-sso-handoff.js" `
     "$Repo\backend\scripts\vps-verify-crm-sso.js" `
+    "$Repo\backend\scripts\e2e-crm-embed-ui.mjs" `
     "$Repo\backend\scripts\test-cert-san-covers.js" `
     "$Repo\backend\scripts\onboard-vedic-astrology-agent.js" `
     "$Repo\backend\scripts\vps-onboard-specialty-agents-bala.js" `

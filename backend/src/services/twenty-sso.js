@@ -589,6 +589,30 @@ export async function ensureTwentyUserForEmail({
       );
     }
 
+    // Twenty 2.29: CheckUserExists / GetCurrentUser walk every userWorkspace and
+    // crash on `workspace.workspaceDiscoverability` when the desk was reclaimed
+    // (TypeORM hides soft-deleted workspace → null). That sends SSO to /welcome
+    // and shows "An error occurred while checking user existence".
+    const stale = await pgQuery(
+      `UPDATE core."userWorkspace" uw
+       SET "deletedAt" = NOW()
+       WHERE uw."userId" = $1
+         AND uw."deletedAt" IS NULL
+         AND NOT EXISTS (
+           SELECT 1 FROM core.workspace w
+           WHERE w.id = uw."workspaceId" AND w."deletedAt" IS NULL
+         )
+       RETURNING uw.id`,
+      [user.id]
+    );
+    if (stale?.rowCount) {
+      console.info(
+        '[twenty-sso] detached %s memberships on deleted CRM desks user=%s',
+        stale.rowCount,
+        user.id
+      );
+    }
+
     let uw = (
       await pgQuery(
         `SELECT id FROM core."userWorkspace"

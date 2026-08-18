@@ -215,7 +215,7 @@ node scripts/test-twenty-sso-handoff.js
 
 VPS (after backend image has the script): `bash deploy/scripts/vps-verify-crm-sso.sh`
 
-Manual: Profile CRM = Twenty → **CRM**. The desk loads in the Flolah iframe signed in. Do not type Twenty email/password.
+Manual: Profile CRM = Twenty → **CRM**. The desk loads in the Flolah iframe signed in. Do not type Twenty email/password. If you still see `/welcome` and **An error occurred while checking user existence**, Twenty still had memberships on reclaimed desks — CRM open now detaches those before SSO.
 
 ## Admin User Insights
 

@@ -157,7 +157,16 @@ async function softDeleteTwentyWorkspace(workspaceId) {
     `UPDATE core.workspace SET "deletedAt" = NOW() WHERE id = $1 AND "deletedAt" IS NULL`,
     [id]
   );
-  return (r?.rowCount || 0) > 0;
+  if ((r?.rowCount || 0) < 1) return false;
+  // Twenty 2.29 GetCurrentUser / CheckUserExists crash if userWorkspace still
+  // points at a soft-deleted desk (workspace relation is null).
+  await pgQuery(
+    `UPDATE core."userWorkspace"
+     SET "deletedAt" = NOW()
+     WHERE "workspaceId" = $1 AND "deletedAt" IS NULL`,
+    [id]
+  );
+  return true;
 }
 
 /**

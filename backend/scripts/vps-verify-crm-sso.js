@@ -63,6 +63,25 @@ assert(!iframe.includes('loginToken'), 'must not send loginToken JWT to the brow
 assert(!iframe.includes('/verify'), 'must not send browser to Twenty /verify');
 assert(open.includes('/flolah-handoff/'), 'open_url is workspace handoff');
 
+const cueRes = await fetch(`${parsed.origin}/metadata`, {
+  method: 'POST',
+  headers: {
+    'content-type': 'application/json',
+    origin: parsed.origin,
+  },
+  body: JSON.stringify({
+    operationName: 'CheckUserExists',
+    variables: { email: user.email },
+    query:
+      'query CheckUserExists($email: String!, $captchaToken: String) { checkUserExists(email: $email, captchaToken: $captchaToken) { exists } }',
+  }),
+});
+const cue = await cueRes.json().catch(() => ({}));
+assert(
+  !cue.errors,
+  `CheckUserExists crashed (stale deleted-desk memberships?): ${String(cue.errors?.[0]?.message || cueRes.status).slice(0, 180)}`
+);
+
 console.log('PASS: crm sso apply-handoff', {
   owner,
   mode: launch.mode,
