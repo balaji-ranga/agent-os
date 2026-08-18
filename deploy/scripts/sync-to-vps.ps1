@@ -359,7 +359,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\vps-test-application-masterdata-notify.js" `
     "$Repo\backend\scripts\offboard-users-except-keepers.js" `
     "$Repo\backend\scripts\offboard-users-by-name-prefix.js" `
-    "$Repo\backend\scripts\test-user-insights.js" `
+    "$Repo\backend\scripts\test-admin-user-insights.js" `
     "$Repo\backend\scripts\onboard-vedic-astrology-agent.js" `
     "$Repo\backend\scripts\vps-onboard-specialty-agents-bala.js" `
     "$Repo\backend\scripts\test-vedic-compute-chart.js" `

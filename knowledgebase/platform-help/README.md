@@ -53,7 +53,7 @@
 | [44-web-scrape.md](./44-web-scrape.md) | **Web Scrape** workflow node + Crawlee MCP sidecar (`scrape_url` / `scrape_domain`, phrase filter, Playwright opt-in) |
 | [45-company-people.md](./45-company-people.md) | **People** — invite employees (sub-users), roles (CEO Delegate / Member), department placement, inherit CEO entitlements, Kanban department act, Efficiency User View |
 | [46-voice-caller-employees.md](./46-voice-caller-employees.md) | **Voice channel** + **Slow Caller** (WhatsApp notes + chat mic) / **Realtime Caller** (WebRTC). No PSTN in core; telephony MCP later. |
-| [47-admin-user-insights.md](./47-admin-user-insights.md) | **Admin User Insights** — new CEOs today/this week, inactive 7+ days, adoption highlights |
+| [47-admin-user-insights.md](./47-admin-user-insights.md) | **Admin** — User Insights (`/admin/user-insights`): registrations today/week, inactive 7+ days, adoption highlights |
 
 **Video Tours (UI):** User menu → **Help → Video Tours** (/video-tours) — playlist of short CEO tours (script/captions now; mp4 when exported). Not ingested as RAG docs.
 

@@ -89,6 +89,7 @@ Top-level (always shown; cannot hide in Menu visibility):
 | Label | Route | Use for |
 |-------|-------|---------|
 | Admin | `/admin` | Users, platform LLM switch, workspace templates admin |
+| **User Insights** | `/admin/user-insights` | Platform adoption: registrations today/week, inactive 7+ days, CRM/ERP/setup highlights (help **47**) |
 | A2A logs | `/admin/a2a-invocations` | Every A2A card / token / invoke attempt, including denials |
 | **Crons** | `/admin/crons` | Platform cron **and event watcher** registry — **Pause**, **Resume**, **Run now**; pause survives restarts. Includes workflow terminal watch, goal-plan completion nudge, timeout reaper, **tool API rate-limit reset** (help **11** / **19**) |
 | Documents RAG | `/admin/documents-rag` | Platform OpenSearch help corpus |

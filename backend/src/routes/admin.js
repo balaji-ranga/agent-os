@@ -11,6 +11,7 @@ import {
   listAllAgentsGrouped,
   grantStandardAgents,
 } from '../services/users.js';
+import { getAdminUserInsights } from '../services/admin-user-insights.js';
 import {
   listAllBlueprintsAdmin,
   listIndustries,
@@ -98,6 +99,16 @@ router.get('/users', (req, res) => {
     res.json(listUsers({ limit, offset }));
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+/** Platform adoption: registrations, inactivity, CRM/ERP/setup highlights. Admin only. */
+router.get('/user-insights', (req, res) => {
+  try {
+    res.json(getAdminUserInsights());
+  } catch (e) {
+    console.warn('[admin] user-insights failed: %s', e?.message || e);
+    res.status(500).json({ error: e.message || 'Failed to load user insights' });
   }
 });
 

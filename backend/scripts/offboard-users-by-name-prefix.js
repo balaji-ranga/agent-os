@@ -1,13 +1,11 @@
 /**
- * Offboard platform users whose display name starts with "Connector Test"
- * (OpenConnector e2e leftovers): DB rows, tenant files, OpenClaw tenant workspaces.
+ * Offboard platform users whose display name starts with given prefixes
+ * (Social Research import leftovers, OpenConnector e2e leftovers, etc.).
  *
- * Prefer: node scripts/offboard-users-by-name-prefix.js --confirm
- * (defaults include "Connector Test" and "SR Import").
- *
- * This wrapper still offboards "Connector Test*" only:
- *   node scripts/offboard-connector-test-users.js --dry-run
- *   node scripts/offboard-connector-test-users.js --confirm
+ * Usage (inside backend container or with AGENT_OS_DATA_DIR set):
+ *   node scripts/offboard-users-by-name-prefix.js --dry-run
+ *   node scripts/offboard-users-by-name-prefix.js --confirm
+ *   node scripts/offboard-users-by-name-prefix.js --confirm --prefix="SR Import" --prefix="Connector Test"
  */
 import { config } from 'dotenv';
 import { dirname, join } from 'path';
@@ -19,25 +17,40 @@ config({ path: join(__dirname, '..', '.env') });
 import { initDb, getDb } from '../src/db/schema.js';
 import { offboardUser, isProtectedFromOffboard } from '../src/services/user-offboard.js';
 
-const PREFIX = 'Connector Test';
+const DEFAULT_PREFIXES = ['SR Import', 'Connector Test'];
 const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run') || !args.includes('--confirm');
+const prefixes = args
+  .filter((a) => a.startsWith('--prefix='))
+  .map((a) => a.slice('--prefix='.length).trim())
+  .filter(Boolean);
+const PREFIXES = prefixes.length ? prefixes : DEFAULT_PREFIXES;
 
 initDb();
 const db = getDb();
-const candidates = db
-  .prepare(
-    `SELECT id, name, email, role, enabled
-     FROM platform_users
-     WHERE name LIKE ?
-     ORDER BY name, id`
-  )
-  .all(`${PREFIX}%`);
+
+const seen = new Set();
+const candidates = [];
+for (const prefix of PREFIXES) {
+  const rows = db
+    .prepare(
+      `SELECT id, name, email, role, enabled
+       FROM platform_users
+       WHERE name LIKE ?
+       ORDER BY name, id`
+    )
+    .all(`${prefix}%`);
+  for (const u of rows) {
+    if (seen.has(u.id)) continue;
+    seen.add(u.id);
+    candidates.push({ ...u, matched_prefix: prefix });
+  }
+}
 
 console.log(
   dryRun
-    ? `DRY RUN — would offboard ${candidates.length} user(s) matching name LIKE '${PREFIX}%'`
-    : `CONFIRM — offboarding ${candidates.length} user(s) matching name LIKE '${PREFIX}%'`
+    ? `DRY RUN — would offboard ${candidates.length} user(s) matching prefixes ${JSON.stringify(PREFIXES)}`
+    : `CONFIRM — offboarding ${candidates.length} user(s) matching prefixes ${JSON.stringify(PREFIXES)}`
 );
 
 const removed = [];
@@ -53,7 +66,7 @@ for (const u of candidates) {
   try {
     const result = offboardUser(u.id, {
       dryRun,
-      actor: { id: 'system', name: 'offboard-connector-test-users' },
+      actor: { id: 'system', name: 'offboard-users-by-name-prefix' },
     });
     removed.push({ id: u.id, name: u.name, email: u.email, result });
     console.log(dryRun ? 'WOULD RM' : 'REMOVED', u.id, u.name, u.email || '-');
@@ -74,20 +87,24 @@ for (const u of candidates) {
   }
 }
 
+const remaining = {};
+for (const prefix of PREFIXES) {
+  remaining[prefix] = dryRun
+    ? null
+    : db.prepare(`SELECT COUNT(*) AS n FROM platform_users WHERE name LIKE ?`).get(`${prefix}%`)?.n;
+}
+
 console.log(
   JSON.stringify(
     {
       ok: errors.length === 0,
       dry_run: dryRun,
+      prefixes: PREFIXES,
       matched: candidates.length,
       removed: removed.length,
       skipped: skipped.length,
       errors: errors.length,
-      remaining_connector_test: dryRun
-        ? null
-        : db
-            .prepare(`SELECT COUNT(*) AS n FROM platform_users WHERE name LIKE ?`)
-            .get(`${PREFIX}%`)?.n,
+      remaining,
     },
     null,
     2

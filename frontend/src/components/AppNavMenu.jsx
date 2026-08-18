@@ -178,6 +178,13 @@ export function AdminNavMenu({ collapsed }) {
         {collapsed ? 'A' : 'Admin'}
       </NavLink>
       <NavLink
+        to="/admin/user-insights"
+        className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+        title="User Insights"
+      >
+        {collapsed ? 'UI' : 'User Insights'}
+      </NavLink>
+      <NavLink
         to="/admin/a2a-invocations"
         className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
         title="A2A invocation logs"

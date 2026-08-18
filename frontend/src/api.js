@@ -704,6 +704,7 @@ export const api = {
     const qs = q.toString();
     return get(`/admin/users${qs ? `?${qs}` : ''}`);
   },
+  adminUserInsights: () => get('/admin/user-insights'),
   adminUserGet: (userId) => get(`/admin/users/${encodeURIComponent(userId)}`),
   adminUserSetEnabled: (userId, enabled) => patch(`/admin/users/${encodeURIComponent(userId)}/enabled`, { enabled }),
   adminUserOffboard: (userId, body) => post(`/admin/users/${encodeURIComponent(userId)}/offboard`, body),

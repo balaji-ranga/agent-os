@@ -204,6 +204,15 @@ Creates a temporary CEO + two employees, then checks tenant inherit (no `user_ag
 
 Manual: **My Org → People** invite → set password from email → login as employee → Home/Kanban always on; other menus follow the role. Department member can chat with COO + same-dept AI employees only. Kanban: see all, act only same department. Efficiency **User View** lists people task counts. CRM/ERP (if granted) SSO uses **that person’s email** in the CEO company workspace.
 
+## Admin User Insights
+
+```powershell
+cd backend
+node scripts/test-admin-user-insights.js
+```
+
+Inserts temporary CEO/employee fixtures, asserts today/week/inactive KPIs, and excludes `SR Import*` names. Manual: sign in as admin → **User Insights** (`/admin/user-insights`). Help **47**.
+
 ## Smoke test (quick)
 
 ```powershell

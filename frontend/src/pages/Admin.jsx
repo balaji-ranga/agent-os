@@ -440,6 +440,7 @@ function AdminPanel() {
             {osConsoleBusy ? 'Opening…' : 'OpenSearch console'}
           </button>
           <Link to="/admin/documents-rag" className="wf-btn">Documents RAG</Link>
+          <Link to="/admin/user-insights" className="wf-btn">User Insights</Link>
           <Link to="/admin/platform-feedback" className="wf-btn">Platform feedback</Link>
           <Link to="/integrations/mcp" className="wf-btn">MCP Integrations</Link>
           <Link to="/" className="wf-btn">Dashboard</Link>

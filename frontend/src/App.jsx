@@ -26,6 +26,7 @@ import Connectors from './pages/Connectors';
 import Login from './pages/Login';
 import ResetPassword from './pages/ResetPassword';
 import AdminPlatformFeedback from './pages/AdminPlatformFeedback';
+import AdminUserInsights from './pages/AdminUserInsights';
 import Register from './pages/Register';
 import Admin from './pages/Admin';
 import AdminA2AInvocations from './pages/AdminA2AInvocations';
@@ -351,6 +352,7 @@ function Shell() {
                 <Route path="/admin/tls-certs" element={<AdminTlsCerts />} />
                 <Route path="/admin/openclaw-recovery" element={<AdminOpenclawRecovery />} />
                 <Route path="/admin/platform-feedback" element={<AdminPlatformFeedback />} />
+                <Route path="/admin/user-insights" element={<AdminUserInsights />} />
                 <Route path="/integrations/mcp/*" element={<McpIntegrations />} />
                 <Route path="/integrations/custom-scripts" element={<CustomScripts />} />
                 <Route path="/integrations/external-agents" element={<ExternalAgents />} />
