@@ -38,6 +38,10 @@ Many screens **page** results. Use Next/Prev or scroll; search on Content Explor
 
 Wait a few seconds for the file to appear in Content Explorer / inbound attachments. Confirm the sender is allowed (DMs vs groups). Groups are off by default.
 
+**Read ticks but no reply:** the message arrived. Profile OpenAI/OpenRouter `Platform_BYOK` is often invalid — AgentSystem will not answer on a 401 key. On **Profile**, set provider to **Platform default**, or paste a working key under **API Keys**.
+
+## Lists look incomplete
+
 ## CRM / ERP desk will not load
 
 Confirm Profile has Twenty or ERPNext selected. If the embed host is not found, contact support (company subdomain DNS).

@@ -8,6 +8,27 @@ import { getOpenClawConfigPath, getOpenClawDir } from '../config/openclaw-paths.
 /** Sections that must not disappear when Agent OS rewrites openclaw.json. */
 const CRITICAL_SECTIONS = ['gateway', 'tools', 'plugins', 'browser'];
 
+/** True when an AgentSystem model slug still points at this models.providers key. */
+function providerStillReferenced(config, providerKey) {
+  const key = String(providerKey || '').trim();
+  if (!key) return false;
+  const needle = `${key}/`;
+  const hit = (slug) => {
+    const s = String(slug || '').trim();
+    return s === key || s.startsWith(needle);
+  };
+  const walk = (model) => {
+    if (!model || typeof model !== 'object') return false;
+    if (hit(model.primary)) return true;
+    return Array.isArray(model.fallbacks) && model.fallbacks.some(hit);
+  };
+  if (walk(config?.agents?.defaults?.model)) return true;
+  for (const entry of config?.agents?.list || []) {
+    if (walk(entry?.model)) return true;
+  }
+  return false;
+}
+
 function readDiskConfig() {
   const path = getOpenClawConfigPath();
   if (!existsSync(path)) return null;
@@ -52,6 +73,10 @@ export function preserveOpenClawCriticalSections(nextConfig) {
       } else {
         for (const [k, v] of Object.entries(prevProviders)) {
           if (c.models.providers[k] == null && v != null) {
+            if (String(k).startsWith('byok-') && !providerStillReferenced(c, k)) {
+              console.info('[openclaw-config] skip restore unused byok provider %s', k);
+              continue;
+            }
             c.models.providers[k] = v;
             console.warn('[openclaw-config] restored missing models.providers.%s from disk', k);
           }

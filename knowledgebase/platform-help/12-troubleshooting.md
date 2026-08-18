@@ -258,6 +258,15 @@ Confirm **Job profile** is complete and pipeline/cron is enabled for your enviro
 2. **CEOs:** wait; do not spam retry. Pause your own scheduled goals if you started a noisy loop.
 3. **Admins:** **Admin → AgentSystem recovery** — OTP unlock (30 min), **Unblock lane** for the CEO, optional gateway restart. Details: [43-admin-agentsystem-recovery.md](./43-admin-agentsystem-recovery.md). You can also pause `delegation_queue` / `scheduled_goals` / `kanban_orphan_watcher` on **Admin → Crons**.
 
+## WhatsApp shows Read but no reply
+
+The channel received the message (blue ticks / read). The employee did not produce a reply.
+
+1. **Invalid Profile BYOK** — OpenAI/OpenRouter `Platform_BYOK` 401s. AgentSystem does **not** fall back on a bad key, so WhatsApp stays silent. **Profile** → provider **Platform default**, or paste a working key in **API Keys** → `Platform_BYOK` then keep OpenAI/`gpt-4o-mini`.
+2. Confirm COO **Channels → WhatsApp** is **enabled** and your number is on **allow-from** (E.164).
+3. Groups are off by default. DM the paired employee number, do not use a group.
+4. If web chat with that COO also fails, it is the same model key — not a WhatsApp pairing problem.
+
 ## WhatsApp / Slack “Media failed” or no audio
 
 1. Agents must paste **`MEDIA:/abs/path`** (`paste_exactly` from the tool) on its **own line** so WhatsApp attaches from the shared AgentSystem disk. Auth-only `https://…/api/media/…` links fail without a browser session.

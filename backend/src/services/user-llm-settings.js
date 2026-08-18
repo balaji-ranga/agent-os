@@ -354,6 +354,20 @@ function openClawModelSlug(providerKey, modelId) {
   return `${providerKey}/${m}`;
 }
 
+function platformDefaultModelSlug(config) {
+  return String(config?.agents?.defaults?.model?.primary || '').trim();
+}
+
+function assignByokModelOnEntry(entry, byokSlug, config) {
+  const plat = platformDefaultModelSlug(config);
+  if (plat && plat !== byokSlug) {
+    entry.model = { primary: byokSlug, fallbacks: [plat] };
+  } else {
+    entry.model = { primary: byokSlug };
+  }
+  return entry;
+}
+
 /**
  * Sync CEO BYOK into OpenClaw: models.providers[byok-{ceo}] + tenant model.primary
  * + per-agent auth profiles (SQLite). platform_decided clears overrides.
@@ -421,7 +435,7 @@ export function syncUserLlmToOpenClaw(ceoUserId) {
   const modelSlug = openClawModelSlug(providerKey, primary.model);
   for (const entry of config.agents.list) {
     if (!String(entry.id || '').toLowerCase().startsWith(tenantPrefix)) continue;
-    entry.model = { primary: modelSlug };
+    assignByokModelOnEntry(entry, modelSlug, config);
   }
 
   const authSync = syncByokAuthProfiles(id, {
@@ -449,8 +463,8 @@ export function applyByokModelToAgentEntry(entry, ceoUserId) {
     return entry;
   }
   const providerKey = byokProviderId(ceoUserId);
-  entry.model = { primary: openClawModelSlug(providerKey, resolved.primary.model) };
-  return entry;
+  const config = readOpenClawConfig();
+  return assignByokModelOnEntry(entry, openClawModelSlug(providerKey, resolved.primary.model), config);
 }
 
 /**
