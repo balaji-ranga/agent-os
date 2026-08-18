@@ -169,8 +169,28 @@ function clearTwentySessionCookies(res) {
   }
 }
 
-function prepareCrmSsoApplyHeaders(res) {
+function applyTwentySsoCookies(res, tokenPair) {
   clearTwentySessionCookies(res);
+  const access = String(tokenPair?.accessOrWorkspaceAgnosticToken?.token || '').trim();
+  const refresh = String(tokenPair?.refreshToken?.token || '').trim();
+  const maxAge = 60 * 60 * 12;
+  const pairs = [];
+  // Dual Partitioned cookies match ERP iframe SSO (CHIPS under login.*).
+  // Never Set-Cookie the full tokenPair JSON (nginx 502: upstream sent too big header).
+  if (access && access.length < 2800 && !/[\s;,\\"]/.test(access)) {
+    pairs.push([`accessToken=${access}`, false]);
+  }
+  if (refresh && refresh.length < 2800 && !/[\s;,\\"]/.test(refresh)) {
+    pairs.push([`refreshToken=${refresh}`, false]);
+  }
+  for (const [nv, httpOnly] of pairs) {
+    const ho = httpOnly ? 'HttpOnly; ' : '';
+    res.append('Set-Cookie', `${nv}; Path=/; ${ho}Secure; SameSite=None; Max-Age=${maxAge}`);
+    res.append(
+      'Set-Cookie',
+      `${nv}; Path=/; ${ho}Secure; SameSite=None; Max-Age=${maxAge}; Partitioned`
+    );
+  }
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   res.setHeader('Pragma', 'no-cache');
 }
@@ -180,17 +200,22 @@ function renderCrmSsoApplyHtml(tokenPair) {
     tokenPair,
     isCookieAuthActiveState: false,
   }).replace(/</g, '\\u003c');
-  // Always `/` — do not send the browser to Twenty `/verify`. That page clears
-  // tokenPair and shows /welcome when getAuthTokensFromLoginToken throws.
+  // Always `/` inside the iframe — do not send Twenty `/verify`.
   return (
     `<!doctype html><html lang="en"><head><meta charset="utf-8"/><title>CRM</title>` +
-    `<style>body{font-family:system-ui,sans-serif;margin:2rem;color:#222}.m{opacity:.6}</style></head>` +
-    `<body><p class="m">Signing into CRM…</p><script>` +
+    `<style>body{font-family:system-ui,sans-serif;margin:2rem;color:#222}.m{opacity:.6}.e{color:#a00}</style></head>` +
+    `<body><p class="m" id="m">Signing into CRM…</p><script>` +
     `(function(){var p=${payload};try{` +
     `localStorage.setItem("tokenPairState",JSON.stringify(p.tokenPair));` +
     `localStorage.setItem("tokenPair",JSON.stringify(p.tokenPair));` +
     `localStorage.setItem("isCookieAuthActiveState",JSON.stringify(false));` +
-    `}catch(e){}location.replace("/");})();` +
+    `var raw=JSON.stringify(p.tokenPair);` +
+    `if(raw.length<3500){` +
+    `document.cookie="tokenPair="+encodeURIComponent(raw)+"; Path=/; Secure; SameSite=None; Max-Age=43200";` +
+    `document.cookie="tokenPair="+encodeURIComponent(raw)+"; Path=/; Secure; SameSite=None; Partitioned; Max-Age=43200";` +
+    `}` +
+    `location.replace("/");` +
+    `}catch(e){var el=document.getElementById("m");if(el){el.className="e";el.textContent="CRM sign-in could not store the session. Reload CRM from Flolah.";}}})();` +
     `</script></body></html>`
   );
 }
@@ -205,7 +230,7 @@ router.get('/crm-sso-apply', (req, res) => {
   try {
     const token = req.query?.token || req.query?.t;
     const out = consumeTwentySsoBrowserToken(token, { hostname: requestHostname(req) });
-    prepareCrmSsoApplyHeaders(res);
+    applyTwentySsoCookies(res, out.tokenPair);
     console.info(
       '[business-core] crm-sso-apply ok owner=%s host=%s',
       String(out.owner_user_id || '').slice(0, 32),

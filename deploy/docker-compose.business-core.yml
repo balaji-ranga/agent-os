@@ -51,7 +51,7 @@ services:
       SERVER_URL: ${TWENTY_SERVER_URL:-http://localhost:3100}
       # Workspace hosts {sub}.crm.* must call API same-origin (multi-workspace). Without this,
       # front pins REACT_APP_SERVER_BASE_URL to apex → CORS / "Unable to Reach Back-end".
-      # CRM SSO still must apply the session first-party on {sub}.crm.* (not Flolah iframe /verify).
+      # CRM SSO applies in the Flolah iframe via /flolah-crm-sso (not Twenty /verify).
       FRONT_AUTO_BASE_URL: ${TWENTY_FRONT_AUTO_BASE_URL:-true}
       REDIS_URL: redis://twenty-redis:6379
       STORAGE_TYPE: local

@@ -133,7 +133,7 @@ Same protocol in workspace **AGENT-OS-OPS.md** / **DOMAIN.md** and help **38** /
 2. Ensure company workspace (create if missing / non-UUID).
 3. JIT-add the **signed-in Flolah user** (CEO or invited employee email) into **that** workspace only.
 4. Mint LOGIN JWT for **that** `workspaceId` (`APP_SECRET` + workspace + `LOGIN`) and **exchange it server-side**.
-5. Browser handoff on the **workspace origin** (first-party, not the Flolah iframe): `https://{subdomain}.crm.<apex>/flolah-handoff/?owner=…&wipe=1&t=…`. After a storage wipe, `/flolah-crm-sso` writes Twenty `tokenPairState` and opens `/`. **Do not** send the browser to Twenty `/verify?loginToken=` — that SPA calls `getAuthTokensFromLoginToken`, shows **Authentication failed**, and lands on `/welcome` even when server-side exchange succeeded. The CRM menu opens the workspace **top-level** so localStorage is first-party. Do not type a password into Twenty email login.
+5. Browser handoff **in the Flolah CRM iframe** (same shell as ERP) on the workspace origin: `https://{subdomain}.crm.<apex>/flolah-handoff/?owner=…&wipe=1&t=…`. After a storage wipe, `/flolah-crm-sso` writes Twenty `tokenPairState` and opens `/` **inside that iframe**. **Do not** send Twenty `/verify?loginToken=` — that SPA shows **Authentication failed** and `/welcome`. **Do not** replace the Flolah window with the CRM host. Do not type a password into Twenty email login.
 
 **Mitigation (always):** handoff wipes cookies/localStorage on owner change / `wipe=1` / SSO token (`deploy/static/crm-handoff/`). IndexedDB is wiped only on logout so SSO apply is not raced.
 
@@ -190,13 +190,13 @@ You still see Twenty password / email UI when:
 1. SSO handoff failed or expired (e.g. after brief outages, or before FRONT_AUTO_BASE_URL / certs were fixed).
 2. `TWENTY_SSO_ENABLED=0` or `TWENTY_APP_SECRET` does not match Twenty `APP_SECRET`.
 3. Browser stayed on an old failing session — use **Open in new tab** or **Switch CRM account** from the CRM toolbar.
-4. **Iframe /verify (fixed):** Twenty `/verify?loginToken=` inside the Flolah iframe calls `getAuthTokensFromLoginToken`. On failure the SPA shows **Authentication failed** and `/welcome` even when server-side exchange succeeded. `/verify` also clears `tokenPair` first. CRM now opens the **workspace host top-level** and applies the exchanged pair via `/flolah-crm-sso` (short `t=`, no JWT in the URL). Do not submit Twenty’s email form.
-5. **502 Bad Gateway on CRM open (fixed):** nginx error `upstream sent too big header` on `/flolah-crm-sso` means the apply response put Twenty JWTs in `Set-Cookie`. Apply now uses localStorage only. This is **not** Twenty being down (the desk `/` can still return 200).
+4. **Iframe /verify (do not use):** Twenty `/verify?loginToken=` inside the Flolah iframe calls `getAuthTokensFromLoginToken`. On failure the SPA shows **Authentication failed** and `/welcome`. CRM stays **in the Flolah iframe** (like ERP) and applies the exchanged pair via `/flolah-crm-sso` (short `t=`). Do not submit Twenty’s email form.
+5. **502 Bad Gateway on CRM open (fixed):** nginx error `upstream sent too big header` on `/flolah-crm-sso` means the apply response put Twenty JWTs in a large `tokenPair` `Set-Cookie`. Apply writes localStorage and only small `accessToken`/`refreshToken` cookies (Partitioned, like ERP). This is **not** Twenty being down (the desk `/` can still return 200).
 6. **Membership gap (fixed in SSO JIT):** The bootstrap admin can own newly created CRM workspaces; other CEOs need a `workspaceMember` row in **their** workspace’s `databaseSchema`. If that row was written into the wrong schema, mint still “succeeds” but the desk shows password. Backend now maps schema via `core.workspace.databaseSchema`, provisions owners as Admin, and preflights token exchange. After membership SQL, Flolah also invalidates Twenty Redis `flatWorkspaceMemberMaps` (`TWENTY_REDIS_URL`) so REST/MCP tools do not return `FORBIDDEN` / “User is not a member of the workspace”.
 
 Required env: `TWENTY_SSO_ENABLED=1`, shared secret, `TWENTY_DATABASE_URL`, `TWENTY_REDIS_URL` (default docker hostname), `TWENTY_FRONT_AUTO_BASE_URL=true`, workspace DNS + cert SANs.
 
-CRM menu **leaves Flolah** and opens your company desk on `{sub}.crm.<apex>` (first-party). Use the browser Back button or open Flolah again for the rest of the OS. **Open in new tab** is the same SSO URL.
+CRM menu keeps you in Flolah and loads the company desk **in the iframe** (same as ERP). **Open in new tab** uses the same SSO URL.
 
 **Note:** CRM REST tools mint **per-company** workspace access tokens (LOGIN exchange for the CEO email + bound workspace). They do **not** use a single shared `TWENTY_API_KEY` when SSO is enabled — that previously wrote Agent/MCP creates into the bootstrap admin workspace by mistake.
 

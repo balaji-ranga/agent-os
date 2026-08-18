@@ -2,18 +2,14 @@
  * True CRM browser SSO for platform Twenty (self-hosted).
  *
  * Mints Twenty LOGIN JWTs, exchanges them **server-side** (membership proof),
- * then sends the **browser** to the company workspace origin with a short
- * apply token (`/flolah-handoff/?t=` → `/flolah-crm-sso`). That page writes
- * Twenty `tokenPairState` and opens `/`.
+ * then sends the **iframe** (same Flolah CRM page as ERP) to the company
+ * workspace origin with a short apply token (`/flolah-handoff/?t=` →
+ * `/flolah-crm-sso`). That page writes Twenty `tokenPairState` and opens `/`
+ * inside the iframe.
  *
- * Do **not** send the Flolah iframe to Twenty `/verify?loginToken=`. That SPA
- * calls `getAuthTokensFromLoginToken`, and on any failure shows
- * "Authentication failed" and `/welcome`. Server exchange can succeed while
- * the third-party iframe still fails. `/verify` also `setTokenPair(null)`
- * before the mutation, so a failed verify wipes a working apply.
- *
- * CRM menu must open the workspace **top-level** (first-party) so localStorage
- * is not a third-party iframe partition.
+ * Do **not** send Twenty `/verify?loginToken=` (clears the session and shows
+ * Authentication failed → /welcome). Do **not** navigate the Flolah window
+ * away from the CRM iframe shell.
  *
  * Requires TWENTY_APP_SECRET (same value as Twenty APP_SECRET). Optional
  * TWENTY_DATABASE_URL enables JIT provisioning of user + workspace membership.
@@ -296,6 +292,19 @@ function hostnameFromPublicBase(base) {
   }
 }
 
+function jwtExpIso(token) {
+  try {
+    const parts = String(token || '').split('.');
+    if (parts.length < 2) return null;
+    const json = Buffer.from(parts[1], 'base64url').toString('utf8');
+    const exp = JSON.parse(json)?.exp;
+    if (!Number.isFinite(exp)) return null;
+    return new Date(exp * 1000).toISOString();
+  } catch {
+    return null;
+  }
+}
+
 function normalizeTokenPair(tokens) {
   const accessObj = tokens?.accessOrWorkspaceAgnosticToken;
   const access =
@@ -310,8 +319,9 @@ function normalizeTokenPair(tokens) {
     },
     refreshToken: refresh ? { token: refresh } : null,
   };
-  const expA = accessObj?.expiresAt;
-  const expR = refreshObj && typeof refreshObj === 'object' ? refreshObj.expiresAt : null;
+  const expA = accessObj?.expiresAt || jwtExpIso(access);
+  const expR =
+    (refreshObj && typeof refreshObj === 'object' ? refreshObj.expiresAt : null) || jwtExpIso(refresh);
   if (expA) pair.accessOrWorkspaceAgnosticToken.expiresAt = expA;
   if (expR && pair.refreshToken) pair.refreshToken.expiresAt = expR;
   return pair;

@@ -206,7 +206,7 @@ Manual: **My Org → People** invite → set password from email → login as em
 
 ## Twenty CRM SSO
 
-Passwordless CRM must open the **company workspace host** first-party (`/flolah-handoff/?t=` → `/flolah-crm-sso` → desk `/`). Do not iframe Twenty `/verify?loginToken=` (Authentication failed → `/welcome`).
+Passwordless CRM must load **in the Flolah iframe** (same as ERP): workspace host `/flolah-handoff/?t=` → `/flolah-crm-sso` → desk `/`. Do not iframe Twenty `/verify?loginToken=` (Authentication failed → `/welcome`). Do not replace the Flolah window with the CRM host.
 
 ```powershell
 cd backend
@@ -215,7 +215,7 @@ node scripts/test-twenty-sso-handoff.js
 
 VPS (after backend image has the script): `bash deploy/scripts/vps-verify-crm-sso.sh`
 
-Manual: Profile CRM = Twenty → **CRM**. The tab should land on `{sub}.crm.<apex>` signed in. Do not type Twenty email/password.
+Manual: Profile CRM = Twenty → **CRM**. The desk loads in the Flolah iframe signed in. Do not type Twenty email/password.
 
 ## Admin User Insights
 

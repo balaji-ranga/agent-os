@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { api } from '../api';
 import { rememberCrmSessionOrigin } from '../lib/crmSessionCleanup';
 
 /**
- * Compact platform CRM/ERP shell.
- * Twenty CRM opens **top-level** on the company workspace host (first-party
- * apply of the exchanged token pair). Do not iframe Twenty /verify — that
- * path shows Authentication failed → /welcome inside Flolah.
+ * Compact platform CRM/ERP iframe shell (same UX for CRM and ERP).
+ * Twenty SSO applies inside the iframe on the workspace origin
+ * (`/flolah-handoff/?t=` → `/flolah-crm-sso`). Do not send `/verify?loginToken=`
+ * and do not navigate the Flolah window away from this page.
  */
 export function BusinessEmbedPage({ kind }) {
   const isCrm = kind === 'crm';
@@ -18,7 +18,6 @@ export function BusinessEmbedPage({ kind }) {
   const [forbidden, setForbidden] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
-  const twentyTopNavOnce = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -60,21 +59,6 @@ export function BusinessEmbedPage({ kind }) {
     if (!data) return null;
     return data.iframe_url || data.open_url || null;
   }, [data]);
-
-  const twentyNavUrl = useMemo(() => {
-    if (!data) return null;
-    return data.open_url || data.iframe_url || null;
-  }, [data]);
-
-  const providerEarly = String(data?.provider || (isCrm ? 'twenty' : 'erpnext')).toLowerCase();
-  const twentyTopLevel =
-    isCrm && providerEarly === 'twenty' && data?.sso?.ok !== false && Boolean(twentyNavUrl);
-
-  useEffect(() => {
-    if (!twentyTopLevel || twentyTopNavOnce.current) return;
-    twentyTopNavOnce.current = true;
-    window.location.replace(twentyNavUrl);
-  }, [twentyTopLevel, twentyNavUrl]);
 
   async function onSyncOrg() {
     setSyncing(true);
@@ -201,12 +185,6 @@ export function BusinessEmbedPage({ kind }) {
         </div>
       ) : null}
 
-      {isCrm && ssoOk && !twentyTopLevel ? (
-        <p className="page-muted" style={{ margin: '0.35rem 0.85rem', fontSize: '0.85rem' }}>
-          Signed in with your Flolah account.
-        </p>
-      ) : null}
-
       {syncResult ? (
         <div
           className={syncResult.ok === false ? 'page-banner page-banner-error' : 'page-banner'}
@@ -217,11 +195,7 @@ export function BusinessEmbedPage({ kind }) {
         </div>
       ) : null}
 
-      {twentyTopLevel ? (
-        <p className="page-muted" style={{ padding: '1rem' }}>
-          Opening your company CRM… If nothing happens, use <strong>Open in new tab</strong>.
-        </p>
-      ) : iframeSrc ? (
+      {iframeSrc ? (
         <iframe
           key={`${iframeSrc}|${data?.owner_user_id || data?.company_name || ''}|${isCrm ? 'crm' : 'erp'}`}
           title={title}

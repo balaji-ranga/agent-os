@@ -1,29 +1,30 @@
 ---
-description: Twenty CRM SSO must apply exchanged tokens first-party — never iframe /verify
+description: Twenty CRM SSO stays in the Flolah iframe like ERP — never /verify, never full-window redirect
 globs: backend/src/services/twenty-sso.js,backend/src/routes/business-core.js,frontend/src/pages/BusinessEmbed.jsx,deploy/static/crm-handoff/**
 alwaysApply: true
 ---
 
 # Twenty CRM SSO (do not regress)
 
-Clicking **CRM** must not land on Twenty `/welcome` or show **Authentication failed**.
+Clicking **CRM** must stay on the Flolah CRM page in an **iframe**, same as **ERP**. Do not `window.location.replace` the Flolah tab onto Twenty.
 
 ## Required flow
 
 1. Server mints a Twenty LOGIN JWT and **exchanges it server-side** (`getAuthTokensFromLoginToken` on the **company workspace origin** `{sub}.crm.<apex>` — not apex `crm.<apex>`).
-2. Persist the exchanged pair; browser gets a **short apply token** `t=` (no JWT in the URL).
-3. Open **top-level first-party** `{sub}.crm.<apex>/flolah-handoff/?owner=&wipe=1&t=` → `/flolah-crm-sso` writes `tokenPairState` / `tokenPair` and `location.replace("/")`.
-4. ERP may stay iframed. Twenty CRM must **not** run inside the Flolah iframe.
+2. Persist the exchanged pair; iframe gets a **short apply token** `t=` (no JWT in the URL).
+3. Iframe loads `{sub}.crm.<apex>/flolah-handoff/?owner=&wipe=1&t=` → `/flolah-crm-sso` writes `tokenPairState` / `tokenPair` (and dual Partitioned cookies like ERP, without a huge `tokenPair` JSON Set-Cookie) then `location.replace("/")` **inside the iframe**.
+4. Flolah chrome (Sync org / Open in new tab / Workspace) stays around the iframe.
 
-## Never do this (repeats as Authentication Error → /welcome)
+## Never do this
 
-- Send the browser to Twenty `/verify?loginToken=` (iframe, nested `next=`, hash `lt=`, or handoff fallback).
+- Send the iframe or window to Twenty `/verify?loginToken=` (Authentication failed → `/welcome`).
 - Nest `/verify?loginToken=` inside another query (browsers split on `?`).
-- `Set-Cookie` Twenty JWTs from Flolah (nginx 502: upstream sent too big header).
+- Navigate the **Flolah window** to the CRM host (breaks the iframe shell users already have).
+- `Set-Cookie` the full Twenty tokenPair JSON (nginx 502: upstream sent too big header).
 - Trust body `ceo_user_id` / workspace ids for authorization.
 
 ## After changing SSO
 
-- Update `knowledgebase/platform-help/32-business-core-crm-erp.md`, `docs-site/docs/systems/crm-and-erp.md`, `deploy/business-core/README.md`, compose/env examples, nginx comments.
+- Update `knowledgebase/platform-help/32-business-core-crm-erp.md`, `docs-site/docs/systems/crm-and-erp.md`, `deploy/business-core/README.md`.
 - Keep `backend/scripts/test-twenty-sso-handoff.js` and `vps-verify-crm-sso.js` asserting `t=` and **no** `loginToken` / `/verify`.
 - Deploy via `sync-to-vps.ps1` (frontend + backend). No VPS hotfixes.

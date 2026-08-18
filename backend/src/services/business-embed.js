@@ -344,7 +344,7 @@ export async function getCrmEmbedForOwner(ownerUserId, { flolahUser } = {}) {
         public_base: launch.public_base || null,
         note:
           launch.mode === 'login_token_sso'
-            ? 'Passwordless CRM login via Flolah session. The workspace host applies the exchanged token pair (first-party). Twenty /verify is not used.'
+            ? 'Passwordless CRM login via Flolah session. The CRM iframe applies the exchanged token pair on the workspace host (same pattern as ERP). Twenty /verify is not used.'
             : 'Session isolation handoff only; passwordless SSO unavailable for this request.',
       };
     } catch (e) {

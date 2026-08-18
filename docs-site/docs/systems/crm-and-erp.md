@@ -24,7 +24,7 @@ If you enable **Twenty CRM**, those employees are added even when the CRM desk i
 
 Makers draft. **Checkers** review and perform high-risk actions (including CRM **deletes** after a review card). See [Maker and Checker](../operate/maker-checker.md).
 
-**CRM** and **ERP** menu items appear when the matching provider is selected. Twenty CRM opens **your company desk** in the same browser tab (passwordless via your Flolah login). If you still see Twenty email login, use **Open in new tab** and do not type a password (that form is not Flolah SSO). If the browser says the CRM page **moved or is temporarily down**, that host is waiting on TLS. Reload CRM after a minute. A **Bad Gateway** on the CRM sign-in hop is not the desk being down — reload **CRM**.
+**CRM** and **ERP** menu items appear when the matching provider is selected. Both load **in Flolah** (iframe), passwordless via your Flolah login. If you still see Twenty email login, use **Open in new tab** and do not type a password (that form is not Flolah SSO). If the browser says the CRM page **moved or is temporarily down**, that host is waiting on TLS. Reload CRM after a minute. A **Bad Gateway** on the CRM sign-in hop is not the desk being down — reload **CRM**.
 
 ## How to work
 
