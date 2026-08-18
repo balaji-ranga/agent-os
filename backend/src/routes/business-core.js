@@ -357,9 +357,14 @@ router.patch('/profile', async (req, res) => {
     // Sync org membership regardless of workspace provision flag
     if (wantProvision) {
       if (profile.crm_provider === 'twenty') {
-        twenty = await ensureTwentyWorkspaceForCompany(ownerUserId, {
-          displayName: profile.twenty.workspace_name || displayName,
-        });
+        try {
+          twenty = await ensureTwentyWorkspaceForCompany(ownerUserId, {
+            displayName: profile.twenty.workspace_name || displayName,
+          });
+        } catch (e) {
+          console.warn('[business-core] twenty workspace provision', e?.message || e);
+          twenty = { ok: false, error: e.message, status: e.status || 500 };
+        }
       }
       prefab = await syncPrefabCrmAgentsForOwner(ownerUserId);
 

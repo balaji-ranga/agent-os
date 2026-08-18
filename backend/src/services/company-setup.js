@@ -939,31 +939,38 @@ export async function applyCompanySetup(ownerUserId, { confirm_override: confirm
   try {
     if (crmProvider === 'twenty') {
       const { ensureTwentyWorkspaceForCompany } = await import('./twenty-crm.js');
-      const { ensurePrefabCrmAgents } = await import('./prefab-crm-agents.js');
       const twenty = await ensureTwentyWorkspaceForCompany(ownerUserId, { displayName });
-      const prefab = await ensurePrefabCrmAgents(ownerUserId);
-      businessCore = { ...(businessCore || {}), profile: getBusinessProfile(ownerUserId), twenty, prefab };
+      businessCore = { ...(businessCore || {}), profile: getBusinessProfile(ownerUserId), twenty };
       console.info(
-        '[company-setup] business core CRM twenty owner=%s workspace=%s prefab=%s',
+        '[company-setup] business core CRM twenty owner=%s workspace=%s',
         ownerUserId,
-        twenty?.workspace_id,
-        (prefab?.agents || []).join(',')
+        twenty?.workspace_id
       );
     } else if (crmProvider === 'erpnext') {
       const { ensureErpnextCompanyForOwner } = await import('./erpnext-erp.js');
-      const { ensurePrefabCrmAgents } = await import('./prefab-crm-agents.js');
       const erpnextCrm = await ensureErpnextCompanyForOwner(ownerUserId, { displayName });
-      const prefab = await ensurePrefabCrmAgents(ownerUserId);
       businessCore = {
         ...(businessCore || {}),
         profile: getBusinessProfile(ownerUserId),
         erpnext: erpnextCrm,
-        prefab,
       };
       console.info(
-        '[company-setup] business core CRM erpnext owner=%s company=%s prefab=%s',
+        '[company-setup] business core CRM erpnext owner=%s company=%s',
         ownerUserId,
-        erpnextCrm?.company_id,
+        erpnextCrm?.company_id
+      );
+    }
+  } catch (e) {
+    console.warn('[company-setup] business core CRM desk provision (non-fatal):', e?.message || e);
+  }
+  try {
+    if (crmProvider === 'twenty' || crmProvider === 'erpnext') {
+      const { ensurePrefabCrmAgents } = await import('./prefab-crm-agents.js');
+      const prefab = await ensurePrefabCrmAgents(ownerUserId);
+      businessCore = { ...(businessCore || {}), profile: getBusinessProfile(ownerUserId), prefab };
+      console.info(
+        '[company-setup] business core CRM prefab owner=%s agents=%s',
+        ownerUserId,
         (prefab?.agents || []).join(',')
       );
     } else {
@@ -972,7 +979,7 @@ export async function applyCompanySetup(ownerUserId, { confirm_override: confirm
       businessCore = { ...(businessCore || {}), profile: getBusinessProfile(ownerUserId), prefab };
     }
   } catch (e) {
-    console.warn('[company-setup] business core CRM provision (non-fatal):', e?.message || e);
+    console.warn('[company-setup] business core CRM prefab (non-fatal):', e?.message || e);
   }
 
   try {

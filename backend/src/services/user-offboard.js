@@ -233,6 +233,12 @@ function purgeOwnerScopedRows(db, ownerUserId) {
   counts.browser_tasks = tryRun(db, `DELETE FROM browser_tasks WHERE owner_user_id = ?`, [ownerUserId]);
   counts.browser_recipes = tryRun(db, `DELETE FROM browser_recipes WHERE owner_user_id = ?`, [ownerUserId]);
   counts.published_scenes = tryRun(db, `DELETE FROM published_scenes WHERE owner_user_id = ?`, [ownerUserId]);
+  counts.company_erpnext_user_map = tryRun(db, `DELETE FROM company_erpnext_user_map WHERE owner_user_id = ?`, [
+    ownerUserId,
+  ]);
+  counts.company_business_profiles = tryRun(db, `DELETE FROM company_business_profiles WHERE owner_user_id = ?`, [
+    ownerUserId,
+  ]);
 
   counts.custom_agents = deleteOwnedCustomAgents(db, ownerUserId);
   counts.user_agents = tryRun(db, `DELETE FROM user_agents WHERE user_id = ?`, [ownerUserId]);
@@ -286,6 +292,20 @@ export function offboardUser(userId, opts = {}) {
     user: { id: row.id, name: row.name, email: row.email, role: row.role },
     steps: {},
   };
+
+  const twentyWsToRelease = (() => {
+    try {
+      const p = db
+        .prepare(
+          `SELECT twenty_workspace_id FROM company_business_profiles
+           WHERE owner_user_id = ? AND crm_provider = 'twenty' AND ifnull(twenty_workspace_id,'') != ''`
+        )
+        .get(row.id);
+      return String(p?.twenty_workspace_id || '').trim();
+    } catch {
+      return '';
+    }
+  })();
 
   // 1) Disable + clear schedule registry + sessions
   try {
@@ -363,6 +383,19 @@ export function offboardUser(userId, opts = {}) {
     summary.steps.openclaw_tenant_error = e?.message || String(e);
   }
   summary.steps.openclaw_agents = scrubOpenClawTenantAgents(row.id);
+
+  if (twentyWsToRelease) {
+    void import('./twenty-workspace.js')
+      .then((m) =>
+        m.releaseTwentyWorkspaceIfUnheld(twentyWsToRelease, { reason: `offboard:${row.id}` })
+      )
+      .then((r) => {
+        summary.steps.twenty_workspace_release = r;
+      })
+      .catch((e) => {
+        console.warn('[offboard] twenty workspace release', e?.message || e);
+      });
+  }
 
   // 6) Delete platform_users row last — must succeed or surface a real error
   let deleted = 0;

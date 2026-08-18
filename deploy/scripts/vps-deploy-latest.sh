@@ -806,6 +806,11 @@ if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-
     && echo "    Admin User Insights OK" \
     || echo "    WARN: user insights failed (see /tmp/user-insights.log)"
 fi
+if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-living-twenty-crm-holds.js 2>/dev/null; then
+  docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-living-twenty-crm-holds.js >/tmp/twenty-holds.log 2>&1 \
+    && echo "    Twenty CRM workspace holds OK" \
+    || echo "    WARN: twenty CRM holds failed (see /tmp/twenty-holds.log)"
+fi
 if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-token-usage-reset.js 2>/dev/null; then
   docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-token-usage-reset.js >/tmp/token-reset.log 2>&1 \
     && echo "    Token usage reset (one / all) OK" \

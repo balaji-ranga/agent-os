@@ -7,6 +7,8 @@ import {
   setTwentyBind,
   assertCrmEntitled,
   isTwentyWorkspaceBoundToOtherOwner,
+  listLivingTwentyCrmWorkspaceIds,
+  clearTwentyBindsForWorkspace,
 } from './company-business-profile.js';
 import {
   isTwentyUuid,
@@ -138,6 +140,83 @@ export async function loadTwentyWorkspaceRow(workspaceId) {
     [workspaceId]
   );
   return r?.rows?.[0] || null;
+}
+
+async function softDeleteTwentyWorkspace(workspaceId) {
+  const id = strip(workspaceId);
+  if (!isTwentyUuid(id)) return false;
+  const r = await pgQuery(
+    `UPDATE core.workspace SET "deletedAt" = NOW() WHERE id = $1 AND "deletedAt" IS NULL`,
+    [id]
+  );
+  return (r?.rowCount || 0) > 0;
+}
+
+/**
+ * Soft-delete a Twenty workspace only if no living CEO still has CRM=Twenty bound to it.
+ * Never reassign another company's workspace.
+ */
+export async function releaseTwentyWorkspaceIfUnheld(workspaceId, { reason } = {}) {
+  const id = strip(workspaceId);
+  if (!isTwentyUuid(id)) return { ok: false, skipped: true, reason: 'invalid_id' };
+  if (listLivingTwentyCrmWorkspaceIds().includes(id)) {
+    console.info('[twenty-workspace] keep held ws=%s', id);
+    return { ok: true, skipped: true, reason: 'held_by_living_twenty_crm' };
+  }
+  const admin = await findBootstrapAdmin();
+  if (admin?.workspaceId && admin.workspaceId === id) {
+    console.info('[twenty-workspace] keep bootstrap ws=%s', id);
+    return { ok: true, skipped: true, reason: 'bootstrap' };
+  }
+  const deleted = await softDeleteTwentyWorkspace(id);
+  const cleared = clearTwentyBindsForWorkspace(id);
+  console.info(
+    '[twenty-workspace] released unused ws=%s deleted=%s binds_cleared=%s reason=%s',
+    id,
+    deleted,
+    cleared,
+    reason || 'unheld'
+  );
+  return { ok: true, deleted, cleared, reason: reason || 'unheld' };
+}
+
+/** Soft-delete live Twenty workspaces that no living CRM=Twenty CEO holds. */
+export async function reclaimOrphanTwentyWorkspaces() {
+  const keep = new Set(listLivingTwentyCrmWorkspaceIds());
+  const admin = await findBootstrapAdmin();
+  if (admin?.workspaceId) keep.add(admin.workspaceId);
+  const live = await pgQuery(
+    `SELECT id, subdomain, "displayName" FROM core.workspace WHERE "deletedAt" IS NULL`
+  );
+  const reclaimed = [];
+  for (const row of live?.rows || []) {
+    if (keep.has(row.id)) continue;
+    const deleted = await softDeleteTwentyWorkspace(row.id);
+    if (!deleted) continue;
+    const cleared = clearTwentyBindsForWorkspace(row.id);
+    reclaimed.push({
+      id: row.id,
+      subdomain: row.subdomain || null,
+      displayName: row.displayName || null,
+      binds_cleared: cleared,
+    });
+    console.info(
+      '[twenty-workspace] reclaimed unused ws=%s sub=%s binds_cleared=%s',
+      row.id,
+      row.subdomain,
+      cleared
+    );
+  }
+  return reclaimed;
+}
+
+function twentyCapError(cause) {
+  return Object.assign(
+    new Error(
+      'CRM desk could not be created: the platform Twenty workspace limit is full. Prefab CRM employees still join your company. Ask a platform admin if you need the CRM desk opened.'
+    ),
+    { status: 409, cause }
+  );
 }
 
 async function findBootstrapAdmin() {
@@ -375,14 +454,32 @@ export async function ensureCompanyTwentyWorkspace(ownerUserId, { displayName } 
   } catch (e) {
     const msg = String(e?.message || e);
     if (/more than \d+ workspaces/i.test(msg) || /enterprise key/i.test(msg)) {
-      throw Object.assign(
-        new Error(
-          'Twenty self-hosted workspace cap reached (typically 5 without an enterprise key). Soft-delete an unused workspace (core.workspace.deletedAt) and retry. Never bind another CEO’s workspace.'
-        ),
-        { status: 409, cause: e }
-      );
+      let reclaimed = [];
+      try {
+        reclaimed = await reclaimOrphanTwentyWorkspaces();
+      } catch (re) {
+        console.warn('[twenty-workspace] reclaim failed', re?.message || re);
+      }
+      if (reclaimed.length) {
+        console.info(
+          '[twenty-workspace] retry create after reclaim n=%s owner=%s',
+          reclaimed.length,
+          owner
+        );
+        try {
+          created = await createAndActivateTwentyWorkspace({
+            displayName: name,
+            subdomain: trySub,
+          });
+        } catch (e2) {
+          throw twentyCapError(e2);
+        }
+      } else {
+        throw twentyCapError(e);
+      }
+    } else {
+      throw e;
     }
-    throw e;
   }
 
   setTwentyBind(owner, {

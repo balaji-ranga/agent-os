@@ -179,11 +179,21 @@ export function updateBusinessProviders(ownerUserId, { crm_provider, erp_provide
     crm_provider !== undefined ? normalizeCrm(crm_provider) : normalizeCrm(cur.crm_provider);
   const nextErp =
     erp_provider !== undefined ? normalizeErp(erp_provider) : normalizeErp(cur.erp_provider);
+  const prevCrm = normalizeCrm(cur.crm_provider);
+  const prevWs = String(cur.twenty_workspace_id || '').trim();
   db.prepare(
     `UPDATE company_business_profiles
      SET crm_provider = ?, erp_provider = ?, updated_at = datetime('now')
      WHERE owner_user_id = ?`
   ).run(nextCrm, nextErp, id);
+  if (prevCrm === 'twenty' && nextCrm !== 'twenty' && prevWs) {
+    setTwentyBind(id, { workspace_id: '', workspace_name: '', api_key_hint: '', bind: {} });
+    void import('./twenty-workspace.js')
+      .then((m) =>
+        m.releaseTwentyWorkspaceIfUnheld(prevWs, { reason: `crm_provider=${nextCrm}` })
+      )
+      .catch((e) => console.warn('[business-profile] twenty release skipped', e?.message || e));
+  }
   return getBusinessProfile(id);
 }
 
@@ -208,6 +218,36 @@ export function setTwentyBind(
       id
     );
   return getBusinessProfile(id);
+}
+
+/** Living CEOs whose CRM provider is Twenty (holds a self-hosted workspace slot). */
+export function listLivingTwentyCrmWorkspaceIds() {
+  ensureCompanyBusinessProfileSchema();
+  const rows = getDb()
+    .prepare(
+      `SELECT p.twenty_workspace_id AS id
+       FROM company_business_profiles p
+       INNER JOIN platform_users u ON u.id = p.owner_user_id
+       WHERE p.crm_provider = 'twenty' AND ifnull(p.twenty_workspace_id, '') != ''`
+    )
+    .all();
+  return [...new Set(rows.map((r) => String(r.id || '').trim()).filter(Boolean))];
+}
+
+export function clearTwentyBindsForWorkspace(workspaceId) {
+  ensureCompanyBusinessProfileSchema();
+  const ws = String(workspaceId || '').trim();
+  if (!ws) return 0;
+  return (
+    getDb()
+      .prepare(
+        `UPDATE company_business_profiles
+         SET twenty_workspace_id = '', twenty_workspace_name = '', twenty_bind_json = '{}',
+             updated_at = datetime('now')
+         WHERE twenty_workspace_id = ?`
+      )
+      .run(ws).changes || 0
+  );
 }
 
 export function setErpnextBind(ownerUserId, { company_id, company_name = '', bind = {} } = {}) {
