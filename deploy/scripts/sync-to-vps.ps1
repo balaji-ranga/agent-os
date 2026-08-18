@@ -576,29 +576,20 @@ $cacheEnv = if ($NoCache) { "NO_CACHE=1" } else { "NO_CACHE=0" }
 Write-Host "==> Run vps-deploy-latest.sh (SERVICES=$Services $smokeEnv $cacheEnv)"
 # docker compose logs progress on stderr; with ErrorActionPreference=Stop that would abort the
 # deploy mid-flight, so fold stderr into stdout and gate on the remote exit code instead.
+# Do not use a multiline remote here-doc with `\` continuations: scp from Windows leaves CRLF,
+# and a CR after `\` makes bash treat each listed script as a command (bash\r / Permission denied).
 $ErrorActionPreference = "Continue"
-ssh @ssh "root@$HostIp" @"
-sed -i 's/\r`$//' \
-  $RemoteRoot/deploy/scripts/vps-deploy-latest.sh \
-  $RemoteRoot/deploy/scripts/vps-verify-platform.sh \
-  $RemoteRoot/deploy/scripts/vps-verify-frontend-media.sh \
-  $RemoteRoot/deploy/scripts/vps-verify-org-delegation.sh \
-  $RemoteRoot/deploy/scripts/vps-smoke-new-features.sh \
-  $RemoteRoot/deploy/scripts/vps-smoke-broadcast-notify.sh \
-  $RemoteRoot/deploy/scripts/vps-smoke-deepseek-brain.sh \
-  $RemoteRoot/deploy/scripts/vps-smoke-brain-mcp.sh \
-  $RemoteRoot/deploy/scripts/vps-smoke-openconnector.sh \
-  $RemoteRoot/deploy/scripts/vps-smoke-budgets-org-members.sh \
-  $RemoteRoot/deploy/scripts/vps-regression-full.sh \
-  $RemoteRoot/deploy/scripts/ensure-deepseek-env.sh \
-  $RemoteRoot/deploy/scripts/ensure-local-openclaw-ollama.sh \
-  $RemoteRoot/deploy/scripts/ensure-platform-mcps.sh \
-  $RemoteRoot/deploy/scripts/vps-smoke-meta-graph-mcp.sh \
-  $RemoteRoot/deploy/scripts/vps-rebuild-frontend.sh \
-  $RemoteRoot/deploy/scripts/up.sh \
-  $RemoteRoot/deploy/scripts/build-public-docs.sh
+$remoteDeploy = @"
+python3 -c "from pathlib import Path
+root = Path('$RemoteRoot') / 'deploy' / 'scripts'
+for p in list(root.glob('*.sh')) + list(root.glob('*.js')):
+    p.write_bytes(p.read_bytes().replace(b'\r\n', b'\n').replace(b'\r', b'\n'))
+    if p.suffix == '.sh':
+        p.chmod(0o755)
+"
 SKIP_GIT=1 $smokeEnv $cacheEnv SERVICES='$Services' bash $RemoteRoot/deploy/scripts/vps-deploy-latest.sh
-"@ 2>&1
+"@
+ssh @ssh "root@$HostIp" $remoteDeploy 2>&1
 if ($LASTEXITCODE -ne 0) {
   Write-Error "vps-deploy-latest.sh failed with exit code $LASTEXITCODE"
   exit $LASTEXITCODE
