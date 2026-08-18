@@ -17,7 +17,7 @@ export function isSecretishBlueprintKey(key) {
   ) {
     return false;
   }
-  return /(?:api[_-]?key|bearer|password|passwd|secret|access_token|refresh_token|client_secret|private[_-]?key|authorization|local_bridge_token|bridge_token|runtime_token|x[-_]?agent[-_]?os[-_]?internal|brain_api_key|brave_api_key|apikey)/i.test(
+  return /(?:api[_-]?key|bearer|password|passwd|smtp[_-]?pass|smtp[_-]?user|secret|access_token|refresh_token|client_secret|private[_-]?key|authorization|local_bridge_token|bridge_token|runtime_token|x[-_]?agent[-_]?os[-_]?internal|brain_api_key|brave_api_key|apikey)/i.test(
     k
   );
 }
@@ -45,6 +45,8 @@ export function looksLikeLiveSecret(value) {
   if (isAllowlistedSecretPlaceholder(s)) return false;
   if (/^sk-proj-[A-Za-z0-9_\-]{20,}/.test(s)) return true;
   if (/^sk-[a-zA-Z0-9]{16,}/.test(s)) return true;
+  if (/^xsmtpsib-[A-Za-z0-9\-]+/i.test(s)) return true;
+  if (/^xkeysib-[A-Za-z0-9\-]+/i.test(s)) return true;
   if (/^AKIA[0-9A-Z]{16}/.test(s)) return true;
   if (/^ghp_[A-Za-z0-9]{20,}/.test(s)) return true;
   if (/^xox[baprs]-/i.test(s)) return true;
@@ -61,6 +63,8 @@ function scrubSecretSubstrings(text) {
   let s = String(text);
   s = s.replace(/sk-proj-[A-Za-z0-9_\-]{20,}/g, '');
   s = s.replace(/sk-[a-zA-Z0-9]{16,}/g, '');
+  s = s.replace(/xsmtpsib-[A-Za-z0-9\-]+/gi, '');
+  s = s.replace(/xkeysib-[A-Za-z0-9\-]+/gi, '');
   s = s.replace(/AKIA[0-9A-Z]{16}/g, '');
   s = s.replace(/ghp_[A-Za-z0-9]{20,}/g, '');
   s = s.replace(/xox[baprs]-[A-Za-z0-9-]{10,}/gi, '');
@@ -103,7 +107,7 @@ export function sanitizeBlueprintSecrets(value, stats = { cleared: 0, scrubbed: 
         if (looksLikeLiveSecret(v)) {
           value[k] = '';
           stats.cleared += 1;
-        } else if (/sk-[a-zA-Z0-9]{10,}|sk-proj-|AKIA[0-9A-Z]{16}|Bearer\s+[A-Za-z0-9\-._~+/]{16,}|eyJ[A-Za-z0-9_-]{10,}\./i.test(v)) {
+        } else if (/sk-[a-zA-Z0-9]{10,}|sk-proj-|xsmtpsib-|xkeysib-|AKIA[0-9A-Z]{16}|Bearer\s+[A-Za-z0-9\-._~+/]{16,}|eyJ[A-Za-z0-9_-]{10,}\./i.test(v)) {
           const next = scrubSecretSubstrings(v);
           if (next !== v) {
             value[k] = next;
@@ -153,10 +157,13 @@ export function findResidualLiveSecrets(value) {
   const findings = [];
   if (/sk-proj-[A-Za-z0-9_\-]{20,}/.test(txt)) findings.push('sk-proj');
   if (/(?:^|[^A-Za-z0-9])sk-[a-zA-Z0-9]{16,}/.test(txt)) findings.push('sk-');
+  if (/xsmtpsib-[A-Za-z0-9\-]+/i.test(txt)) findings.push('brevo-smtp');
+  if (/xkeysib-[A-Za-z0-9\-]+/i.test(txt)) findings.push('brevo-api');
   if (/AKIA[0-9A-Z]{16}/.test(txt)) findings.push('aws-key');
   if (/ghp_[A-Za-z0-9]{20,}/.test(txt)) findings.push('github-pat');
   if (/"local_bridge_token"\s*:\s*"[a-f0-9]{20,}"/i.test(txt)) findings.push('bridge-token');
   if (/"apiKey"\s*:\s*"(?!\{\{)[^"]{12,}"/.test(txt)) findings.push('apiKey-nonempty');
   if (/"bearerToken"\s*:\s*"(?!\{\{)[^"]{12,}"/i.test(txt)) findings.push('bearerToken-nonempty');
+  if (/"smtpPass"\s*:\s*"(?!\{\{)[^"]{8,}"/.test(txt)) findings.push('smtpPass-nonempty');
   return findings;
 }

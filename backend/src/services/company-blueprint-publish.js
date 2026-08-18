@@ -256,6 +256,8 @@ export function portableWorkflowGraph(graph, agents) {
     // Drop inline credentials from brain/tool config; keep *Ref vault bindings
     if (typeof data.apiKey === 'string' && !isAllowlistedSecretPlaceholder(data.apiKey)) data.apiKey = '';
     if (typeof data.bearerToken === 'string' && !isAllowlistedSecretPlaceholder(data.bearerToken)) data.bearerToken = '';
+    if (typeof data.smtpPass === 'string' && !isAllowlistedSecretPlaceholder(data.smtpPass)) data.smtpPass = '';
+    if (typeof data.smtpUser === 'string' && !isAllowlistedSecretPlaceholder(data.smtpUser)) data.smtpUser = '';
     if (data.taskConfig && typeof data.taskConfig === 'object') {
       sanitizeBlueprintSecrets(data.taskConfig);
     }

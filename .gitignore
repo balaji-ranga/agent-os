@@ -49,3 +49,8 @@ deploy/nginx/certs/*.pem
 deploy/.admin-password.txt
 .env.bak*
 *.bak-merge
+*.bak
+
+# Local dumps, probes, and copies of live snapshots — never commit
+tmp/
+backend/tmp/

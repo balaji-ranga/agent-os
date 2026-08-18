@@ -1781,7 +1781,7 @@
                 "smtpHost": "smtp-relay.brevo.com",
                 "smtpPort": 587,
                 "smtpSecure": false,
-                "smtpUser": "b1b650001@smtp-brevo.com",
+                "smtpUser": "",
                 "smtpPass": "",
                 "fromAddress": "admin@flolah.com"
               }
@@ -3429,7 +3429,7 @@
                 "smtpHost": "smtp-relay.brevo.com",
                 "smtpPort": 587,
                 "smtpSecure": false,
-                "smtpUser": "b1b650001@smtp-brevo.com",
+                "smtpUser": "",
                 "smtpPass": "",
                 "fromAddress": "admin@flolah.com"
               }
@@ -6412,7 +6412,7 @@
                 "smtpHost": "smtp-relay.brevo.com",
                 "smtpPort": 587,
                 "smtpSecure": false,
-                "smtpUser": "b1b650001@smtp-brevo.com",
+                "smtpUser": "",
                 "smtpPass": "",
                 "fromAddress": "balaji.x.ranga@gmail.com"
               }
