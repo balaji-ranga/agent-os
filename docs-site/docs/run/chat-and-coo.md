@@ -4,7 +4,7 @@ title: Chat with the COO
 
 # Chat with the COO
 
-Home (`/`) opens chat with the **COO**. Use **Chat with** to switch employees. **My Org** holds the org chart and standups.
+Home (`/`) opens chat with the **COO**. Use **Chat with** to switch employees. **My Org** holds the org chart, departments (**Design**), and standups — [Org and departments](../setup/org-and-departments.md).
 
 ## Send work
 

@@ -11,6 +11,8 @@
 
 To **add a new agent**, use **AI Employees** (nav → **Hire AI employee**, optional **role template**: Slow Caller / Realtime Caller), or Org chart → **Design** on My Org.
 
+Public walkthrough (create departments, drag tiles, Resync): [https://flolah.cloud/docs/setup/org-and-departments/](https://flolah.cloud/docs/setup/org-and-departments/).
+
 ## Who to ask
 
 | Need | Agent |

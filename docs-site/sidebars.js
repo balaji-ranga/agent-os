@@ -20,6 +20,7 @@ const sidebars = {
       collapsed: false,
       items: [
         'setup/company-setup',
+        'setup/org-and-departments',
         'setup/profile-and-model',
         'setup/api-keys',
         'setup/hire-ai-employees',

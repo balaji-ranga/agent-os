@@ -20,7 +20,7 @@ New CEOs may be asked to complete or skip setup before using the rest of the pro
 3. **Identity** — company name, headcount band, country and region
 4. **Mission** — what success looks like
 5. **Org DNA** — how the company should feel (startup, enterprise, cost-conscious, creative, and similar)
-6. **Preview team** — proposed AI employees and departments (adjust checkboxes)
+6. **Design organization** then **Meet your team** — proposed AI employees and departments (adjust checkboxes). How to change this later: [Org and departments](./org-and-departments.md)
 7. **Systems** — apps and optional **CRM / ERP** (Twenty and/or ERPNext)
 8. **Management style**
 9. Review → **Apply**
@@ -54,6 +54,7 @@ See [CRM and ERP](../systems/crm-and-erp.md).
 
 ## After setup
 
+- Arrange departments and reporting lines → [Org and departments](./org-and-departments.md) (**My Org → Design**)
 - Recurring work → [Scheduled goals](../run/scheduled-goals.md)
 - Mission or DNA tweaks without re-running the full wizard → [Update company details](./update-company-details.md)
 - Facebook / content packs → Connectors, then [Content and media](../systems/content-and-media.md)

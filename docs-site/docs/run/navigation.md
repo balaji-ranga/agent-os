@@ -24,7 +24,9 @@ Left-nav **sections** (Settings, Run & Operate, and so on) start **collapsed**. 
 
 ## Run & Operate (typical)
 
-My Org, Kanban, Scheduled goals, Goal plans, Broadcast, Knowledge, Content Explorer, Policies, Browser Session, Efficiency View, CRM/ERP (when enabled), Avatars.
+**My Org** (`/org`) — org chart (**Chart** / **Design** / **People**), standups, **Resync**. How to set departments and reporting lines: [Org and departments](../setup/org-and-departments.md).
+
+Also: Kanban, Scheduled goals, Goal plans, Broadcast, Knowledge, Content Explorer, Policies, Browser Session, Efficiency View, CRM/ERP (when enabled), Avatars.
 
 ## Company Tools
 

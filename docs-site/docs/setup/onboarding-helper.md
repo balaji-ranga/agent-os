@@ -8,7 +8,7 @@ Path: avatar → **Onboarding** (`/onboarding`), or chat with **Onboarding Helpe
 
 This is **freeform** org design: you describe departments and AI employees in chat. The helper proposes a plan. You **Review** with checkboxes and **Apply** only what you selected.
 
-Use it **after** (or instead of skipping) [Company setup](./company-setup.md) when you want extra roles that the industry pack did not include.
+Use it **after** (or instead of skipping) [Company setup](./company-setup.md) when you want extra roles that the industry pack did not include. To rearrange departments by hand afterward, use [Org and departments](./org-and-departments.md).
 
 Tips:
 

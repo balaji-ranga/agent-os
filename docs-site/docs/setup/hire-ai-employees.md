@@ -9,7 +9,7 @@ AI employees are durable roles: name, purpose, workspace instructions, and **too
 ## Where to hire
 
 - **AI Employees** (`/workspace`) → **Hire** / add employee
-- **My Org** (`/org`) → org chart **Design**
+- **My Org** (`/org`) → org chart **Design** (create departments, drag tiles) — [Org and departments](./org-and-departments.md)
 - **Company setup** / **Onboarding Helper** for packs and proposals
 
 Pick an **icon or image** (a default robot icon is used if you skip). The same icon appears in chat, the workspace, and AgentExchange.

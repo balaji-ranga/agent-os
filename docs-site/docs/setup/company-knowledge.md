@@ -10,7 +10,7 @@ This is the company memory AI employees can search: **tables** (rows and columns
 
 ## Tables
 
-Your account starts with a **departments** table. Add or edit departments here; they appear when you assign employees.
+Your account starts with a **departments** table. Add or edit departments here; they appear when you assign employees. Full walkthrough (chart, Design mode, Resync): [Org and departments](./org-and-departments.md).
 
 Other tables appear as you use the product (for example company memory after Update Company Details, or discovery lists from Business Discovery).
 

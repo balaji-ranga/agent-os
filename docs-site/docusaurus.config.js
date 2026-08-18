@@ -81,6 +81,7 @@ const config = {
             { label: 'Access Flolah', to: '/start/access' },
             { label: 'Register', to: '/start/register' },
             { label: 'Company setup', to: '/setup/company-setup' },
+            { label: 'Org and departments', to: '/setup/org-and-departments' },
             { label: 'Run day to day', to: '/run/chat-and-coo' },
           ],
         },
