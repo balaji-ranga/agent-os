@@ -20,14 +20,14 @@ WhatsApp voice is **not** a live call. The customer sends a voice note; the empl
 1. Upload FAQs / scripts to **Knowledge**.
 2. Optional: Profile CRM (Twenty) if you want leads/people logged.
 3. Hire **Slow Caller** (template grants `speech_*`, RAG, CRM list/create, Kanban, `agent_goal_*`).
-4. Employee **Channels** → WhatsApp BYOK. Platform `optional-voice` must be up. On Home (`/`), **Chat with** this employee — **Mic** transcribes into the compose box (same Whisper path as Agent Chat).
+4. Employee **Channels** → WhatsApp BYOK. Platform `optional-voice` must be up. On Home (`/`), **Chat with** this employee — the **microphone** icon next to the paperclip in the message box transcribes into compose (same Whisper path as Agent Chat).
 5. Clone workflow **Caller wrap-up** (chat: `run caller wrap up`) or let the employee create a **goal plan** after each conversation.
 
 ## Realtime Caller setup
 
 1. Same Knowledge / CRM / wrap-up as Slow Caller.
 2. Hire **Realtime Caller**.
-3. **Channels → Voice (WebRTC)** → Enable. Copies a public widget URL (`/p/voice/:slug`). Agent Chat **Call** uses the same realtime path (CEO login). Home (`/`) **Chat with** that employee also has **Mic**, **Speak reply**, and **Call**.
+3. **Channels → Voice (WebRTC)** → Enable. Copies a public widget URL (`/p/voice/:slug`). Agent Chat **Call** uses the same realtime path (CEO login). Home (`/`) **Chat with** that employee: **microphone** (Whisper), **Speak**, and **phone** (live Call) are in the compose toolbar next to the paperclip.
 4. **BYOK:** Profile (or platform) must expose an **OpenAI Realtime** endpoint (`api.openai.com`). OpenRouter, Ollama, and DeepSeek **cannot** mint live sessions — you get a clear 503. Optional env: `OPENAI_REALTIME_BASE_URL`, `OPENAI_REALTIME_API_KEY`, `OPENAI_REALTIME_MODEL` (default `gpt-4o-realtime-preview`). Prefer owner Profile OpenAI keys; do not hardwire a platform-only model.
 5. Guests on the widget do **not** log in. Live tools are **read-only lookups** (RAG + CRM list). Session tokens expire (~15 min). **CEO Call** hangup posts the transcript into that employee for wrap-up (CRM/Kanban/goal). **Public widget** hangup **stores the transcript only** — it does not run a tool wrap-up, so a guest cannot inject a fake transcript into CRM.
 

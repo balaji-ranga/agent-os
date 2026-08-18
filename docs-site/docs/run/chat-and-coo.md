@@ -15,11 +15,11 @@ Home (`/`) opens chat with the **COO**. Use **Chat with** to switch employees. *
 
 **History** and **Browser session** side panes start closed. Use the icons next to **New chat**. **New chat** archives the current thread.
 
-On Home (`/`) and employee chat you may see:
+On Home (`/`) and employee chat, the message box toolbar (next to the paperclip) includes:
 
-- **Mic** — speak into the compose box (Whisper). Pick **Slow Caller** in **Chat with** for voice-note style work.
-- **Speak reply** — hear the last assistant turn (Piper).
-- **Call** — live WebRTC with **Realtime Caller** (needs an OpenAI Realtime-capable key). Not a phone number.
+- **Microphone** — speak into the compose box (Whisper). Pick **Slow Caller** in **Chat with** for voice-note style work.
+- **Speak** — hear the last assistant turn (Piper).
+- **Phone** — live WebRTC with **Realtime Caller** (needs an OpenAI Realtime-capable key). Not a phone number.
 
 See [Channels](../systems/channels.md) and [Hire AI employees](../setup/hire-ai-employees.md).
 

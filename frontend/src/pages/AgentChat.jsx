@@ -1038,19 +1038,6 @@ export default function AgentChat() {
               </div>
 
               <form onSubmit={send} style={{ flexShrink: 0 }}>
-                <ChatVoiceBar
-                  sending={sending || !agentId}
-                  micBusy={micBusy}
-                  recording={recording}
-                  transcribing={transcribing}
-                  calling={calling}
-                  speakReply={speakReply}
-                  setSpeakReply={setSpeakReply}
-                  onMic={() =>
-                    toggleRecord((text) => setInput((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text)))
-                  }
-                  onCall={() => setCalling(true)}
-                />
                 <div className="chat-compose-row">
                   <ChatComposeInput
                     placeholder={`Message ${agentLabel}…`}
@@ -1060,6 +1047,21 @@ export default function AgentChat() {
                     disabled={sending || micBusy || !agentId}
                     attachments={attachments}
                     onAttachmentsChange={setAttachments}
+                    toolbarExtra={
+                      <ChatVoiceBar
+                        sending={sending || !agentId}
+                        micBusy={micBusy}
+                        recording={recording}
+                        transcribing={transcribing}
+                        calling={calling}
+                        speakReply={speakReply}
+                        setSpeakReply={setSpeakReply}
+                        onMic={() =>
+                          toggleRecord((text) => setInput((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text)))
+                        }
+                        onCall={() => setCalling(true)}
+                      />
+                    }
                     rows={2}
                     style={{
                       padding: '0.65rem 0.85rem',
@@ -1240,19 +1242,6 @@ export default function AgentChat() {
             </div>
 
             <form onSubmit={send} style={{ flexShrink: 0 }}>
-              <ChatVoiceBar
-                sending={sending || !agentId}
-                micBusy={micBusy}
-                recording={recording}
-                transcribing={transcribing}
-                calling={calling}
-                speakReply={speakReply}
-                setSpeakReply={setSpeakReply}
-                onMic={() =>
-                  toggleRecord((text) => setInput((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text)))
-                }
-                onCall={() => setCalling(true)}
-              />
               <div className="chat-compose-row">
                 <ChatComposeInput
                   placeholder="Message… (Shift+Enter for new line)"
@@ -1262,6 +1251,21 @@ export default function AgentChat() {
                   disabled={sending || micBusy || !agentId}
                   attachments={attachments}
                   onAttachmentsChange={setAttachments}
+                  toolbarExtra={
+                    <ChatVoiceBar
+                      sending={sending || !agentId}
+                      micBusy={micBusy}
+                      recording={recording}
+                      transcribing={transcribing}
+                      calling={calling}
+                      speakReply={speakReply}
+                      setSpeakReply={setSpeakReply}
+                      onMic={() =>
+                        toggleRecord((text) => setInput((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text)))
+                      }
+                      onCall={() => setCalling(true)}
+                    />
+                  }
                   rows={3}
                   style={{
                     padding: '0.75rem 1rem',

@@ -227,19 +227,6 @@ export default function AgentChatPanel({
           ))}
         </div>
       )}
-      <ChatVoiceBar
-        sending={sending}
-        micBusy={micBusy}
-        recording={recording}
-        transcribing={transcribing}
-        calling={calling}
-        speakReply={speakReply}
-        setSpeakReply={setSpeakReply}
-        onMic={() =>
-          toggleRecord((text) => setInput((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text)))
-        }
-        onCall={() => setCalling(true)}
-      />
       <form onSubmit={send} style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end' }}>
         <ChatComposeInput
           placeholder={`${placeholder} (Shift+Enter for new line)`}
@@ -249,6 +236,21 @@ export default function AgentChatPanel({
           disabled={sending || micBusy}
           attachments={attachments}
           onAttachmentsChange={setAttachments}
+          toolbarExtra={
+            <ChatVoiceBar
+              sending={sending}
+              micBusy={micBusy}
+              recording={recording}
+              transcribing={transcribing}
+              calling={calling}
+              speakReply={speakReply}
+              setSpeakReply={setSpeakReply}
+              onMic={() =>
+                toggleRecord((text) => setInput((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text)))
+              }
+              onCall={() => setCalling(true)}
+            />
+          }
           rows={3}
           style={{
             flex: 1,

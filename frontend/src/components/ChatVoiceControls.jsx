@@ -6,15 +6,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, resolveFetchUrl } from '../api';
 import AgentVoiceCall from './AgentVoiceCall.jsx';
 
-const barBtn = {
-  padding: '0.35rem 0.65rem',
-  fontSize: '0.8rem',
-  borderRadius: 6,
-  border: '1px solid var(--border)',
-  background: 'var(--surface)',
-  color: 'var(--text)',
-};
-
 export function useChatVoice({ agentId, sending, setError }) {
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
@@ -129,6 +120,26 @@ export function useChatVoice({ agentId, sending, setError }) {
   };
 }
 
+function MicIcon() {
+  return (
+    <svg className="chat-attach-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+      <line x1="12" y1="19" x2="12" y2="23" />
+      <line x1="8" y1="23" x2="16" y2="23" />
+    </svg>
+  );
+}
+
+function CallIcon() {
+  return (
+    <svg className="chat-attach-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.81.36 1.6.68 2.35a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.73-1.73a2 2 0 0 1 2.11-.45c.75.32 1.54.55 2.35.68A2 2 0 0 1 22 16.92z" />
+    </svg>
+  );
+}
+
+/** Mic / Call / Speak sit in the compose toolbar next to the paperclip (Home and employee chat). */
 export function ChatVoiceBar({
   sending,
   micBusy,
@@ -141,47 +152,40 @@ export function ChatVoiceBar({
   onCall,
 }) {
   const disabled = sending || micBusy;
+  const micLabel = transcribing ? 'Transcribing' : recording ? 'Stop microphone' : 'Microphone';
   return (
-    <div className="chat-voice-bar" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem', flexWrap: 'wrap' }}>
+    <>
       <button
         type="button"
+        className={`chat-attach-icon-btn${recording ? ' is-recording' : ''}`}
         disabled={disabled}
         onClick={onMic}
-        title={recording ? 'Stop recording' : 'Record voice (local Whisper STT)'}
+        title={recording ? 'Stop recording' : 'Record voice into the message box (Whisper)'}
+        aria-label={micLabel}
         aria-pressed={recording}
-        style={{
-          ...barBtn,
-          border: recording ? '1px solid #f87171' : '1px solid var(--border)',
-          background: recording ? 'rgba(248,113,113,0.15)' : 'var(--surface)',
-          color: recording ? '#f87171' : 'var(--text)',
-          cursor: disabled ? 'not-allowed' : 'pointer',
-        }}
       >
-        {transcribing ? 'Transcribing…' : recording ? 'Stop mic' : 'Mic'}
+        <MicIcon />
       </button>
       <button
         type="button"
+        className={`chat-attach-icon-btn${calling ? ' is-active-call' : ''}`}
         disabled={disabled || calling}
         onClick={onCall}
         title="Live WebRTC call. Needs an OpenAI Realtime-capable key (Realtime Caller)."
-        style={{
-          ...barBtn,
-          background: calling ? 'color-mix(in srgb, var(--accent) 12%, transparent)' : 'var(--surface)',
-          cursor: disabled || calling ? 'not-allowed' : 'pointer',
-        }}
+        aria-label="Start live call"
       >
-        Call
+        <CallIcon />
       </button>
-      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', color: 'var(--muted)', cursor: 'pointer' }}>
+      <label className="chat-compose-speak" title="Play assistant replies with Piper TTS">
         <input
           type="checkbox"
           checked={speakReply}
           onChange={(e) => setSpeakReply(e.target.checked)}
           disabled={sending}
         />
-        Speak reply (Piper)
+        Speak
       </label>
-    </div>
+    </>
   );
 }
 

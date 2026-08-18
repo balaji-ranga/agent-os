@@ -15,7 +15,7 @@ A short path so the product feels like a company, not a blank chat.
 6. **Knowledge** — Open **Knowledge** (Master Data). You should see a **departments** table (same names as the org). Upload policies later; Platform Help already knows the product guide.
 7. **Ask Platform Help** — Switch **Chat with** to **Platform Help** and ask: “How do I build a workflow?” or “What is Company setup?”
 8. **Kanban** — Open **Kanban**. The default view is **Weekly**. Cards appear when the COO delegates work.
-9. **Optional** — Avatar → **Onboarding** for extra departments and employees beyond the blueprint. **Management → Scheduled goals** when you want a recurring daily brief. On Home, **Mic** / **Speak reply** / **Call** when speech and Caller employees are enabled.
+9. **Optional** — Avatar → **Onboarding** for extra departments and employees beyond the blueprint. **Management → Scheduled goals** when you want a recurring daily brief. On Home, the compose **microphone** / **Speak** / **phone** icons when speech and Caller employees are enabled.
 
 ## Who to ask
 

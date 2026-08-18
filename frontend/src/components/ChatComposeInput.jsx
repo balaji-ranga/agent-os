@@ -4,7 +4,8 @@ import { isImageMime } from '../utils/chatAttachments.js';
 
 /**
  * Multiline chat input with optional file attachments (images/docs).
- * Attach control is a paperclip icon inside the composer — Enter to send, Shift+Enter for a new line.
+ * Attach control is a paperclip icon inside the composer; optional toolbarExtra
+ * (mic / call) sits next to it. Enter to send, Shift+Enter for a new line.
  */
 export default function ChatComposeInput({
   value,
@@ -18,6 +19,7 @@ export default function ChatComposeInput({
   attachments = [],
   onAttachmentsChange,
   accept = '.pdf,.doc,.docx,.txt,.md,.csv,.xlsx,.xls,.png,.jpg,.jpeg,.gif,.webp,.bmp,.mp3,.wav,.m4a,.ogg,.opus,.aac,.flac,.mp4,.webm,.mov,.avi',
+  toolbarExtra = null,
   ...rest
 }) {
   const fileRef = useRef(null);
@@ -206,8 +208,9 @@ export default function ChatComposeInput({
               </span>
             )}
           </button>
+          {toolbarExtra}
           <span className="chat-compose-hint">
-            {dragOver ? 'Drop files to attach' : 'Paperclip or drop files · Shift+Enter for new line'}
+            {dragOver ? 'Drop files to attach' : 'Paperclip, mic, or drop files · Shift+Enter for new line'}
           </span>
         </div>
       </div>

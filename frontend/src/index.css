@@ -1808,8 +1808,26 @@ html.auth-route #root {
   gap: 0.5rem;
   align-items: flex-end;
 }
-.chat-voice-bar {
+.chat-attach-icon-btn.is-recording {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.15);
+}
+.chat-attach-icon-btn.is-active-call {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.chat-compose-speak {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  cursor: pointer;
   flex-shrink: 0;
+  user-select: none;
+}
+.chat-compose-speak input {
+  margin: 0;
 }
 .chat-compose-row input,
 .chat-compose-row textarea {
