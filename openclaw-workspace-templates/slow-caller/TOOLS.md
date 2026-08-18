@@ -8,7 +8,7 @@ Follow **AGENT-OS-OPS.md** for learnings, Kanban, WhatsApp PA (text + voice note
 
 - **list_inbound_attachments** — find the latest WhatsApp / chat audio (`relative_path`).
 - **speech_stt** — transcribe that path / `MEDIA:` line.
-- **speech_tts** — short spoken reply; paste `MEDIA:` / `paste_exactly` alone for WhatsApp attach (OGG/Opus).
+- **speech_tts** — WhatsApp only: short spoken reply; paste `MEDIA:` / `paste_exactly` alone for attach (OGG/Opus). Do **not** use on Agent Chat web — Speak streams audio.
 
 ## Knowledge and CRM
 

@@ -8,7 +8,9 @@ import { readMediaArtifactBuffer } from '../services/ceo-media-artifacts.js';
 import {
   transcribeAudioBuffer,
   createSpeechTtsArtifact,
+  synthesizeSpeechText,
 } from '../services/agent-workflow-speech.js';
+import { extractSpokenAvatarReply } from '../services/avatar-speak-text.js';
 
 const router = Router();
 
@@ -162,11 +164,25 @@ router.post('/tts', requireAuth, requireCeoOrAdmin, express.json({ limit: '1mb' 
     if (!owner) return;
     const text = String(req.body?.text || '').trim();
     if (!text) return res.status(400).json({ error: 'text required' });
-    const artifact = await createSpeechTtsArtifact(owner, text, {
+    const spoken = extractSpokenAvatarReply(text) || text;
+    const stream =
+      req.body?.stream === true ||
+      req.body?.persist === false ||
+      /audio\//i.test(String(req.headers.accept || ''));
+    const opts = {
       voice: req.body?.voice,
       lengthScale: req.body?.lengthScale,
-    });
-    res.json({ ok: true, text, audio: artifact, url: artifact.url });
+    };
+    if (stream) {
+      const { buffer, mime } = await synthesizeSpeechText(spoken, opts);
+      console.info('[speech] TTS stream', { owner, bytes: buffer.length, chars: spoken.length });
+      res.setHeader('Content-Type', mime || 'audio/wav');
+      res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('X-Speech-Chars', String(spoken.length));
+      return res.send(buffer);
+    }
+    const artifact = await createSpeechTtsArtifact(owner, spoken, opts);
+    res.json({ ok: true, text: spoken, audio: artifact, url: artifact.url });
   } catch (e) {
     const status = e.status || 500;
     if (status >= 500) console.error('[speech] TTS route failed', e?.message || e);

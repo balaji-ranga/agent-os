@@ -622,7 +622,7 @@ export default function AgentChat() {
           tool_calls: r.tool_calls || [],
         },
       ]);
-      if (speakReply && r.reply) {
+      if (speakReply && r.reply && !calling) {
         playAssistantSpeech(r.reply);
       }
     } catch (err) {
@@ -1030,6 +1030,7 @@ export default function AgentChat() {
                     attachments={t.attachments}
                     agentName={agentLabel}
                     agentAvatar={agent?.avatar_image}
+                    hideAudioAttachments={speakReply || calling}
                   />
                 ))}
                 {sending && <div style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>…</div>}
@@ -1238,6 +1239,7 @@ export default function AgentChat() {
                   attachments={t.attachments}
                   agentName={agentLabel}
                   agentAvatar={agent?.avatar_image}
+                  hideAudioAttachments={speakReply || calling}
                 />
               ))}
               {sending && <div style={{ color: 'var(--muted)' }}>…</div>}

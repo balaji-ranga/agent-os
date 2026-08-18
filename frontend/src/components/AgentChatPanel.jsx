@@ -116,7 +116,7 @@ export default function AgentChatPanel({
           tool_calls: r.tool_calls || [],
         },
       ]);
-      if (speakReply && reply) {
+      if (speakReply && reply && !calling) {
         playAssistantSpeech(reply);
       }
     } catch (e) {
@@ -197,6 +197,7 @@ export default function AgentChatPanel({
             attachments={t.attachments}
             agentName={agentMeta?.name}
             agentAvatar={agentMeta?.avatar_image}
+            hideAudioAttachments={speakReply || calling}
           />
         ))}
         {sending && <div style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>…</div>}

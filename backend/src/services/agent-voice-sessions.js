@@ -98,12 +98,19 @@ function stripV1(baseUrl) {
     .replace(/\/$/, '');
 }
 
+function canonicalRealtimeModel(raw) {
+  const s = String(raw || '').trim();
+  if (/gpt-4o-realtime-preview/i.test(s)) return 'gpt-realtime';
+  if (/realtime/i.test(s)) return s;
+  return '';
+}
+
 function pickRealtimeModel(endpointModel) {
-  const fromEp = String(endpointModel || '').trim();
-  if (/realtime/i.test(fromEp)) return fromEp;
-  const fromEnv = String(process.env.OPENAI_REALTIME_MODEL || '').trim();
-  if (fromEnv) return fromEnv;
-  return 'gpt-realtime';
+  return (
+    canonicalRealtimeModel(endpointModel) ||
+    canonicalRealtimeModel(process.env.OPENAI_REALTIME_MODEL) ||
+    'gpt-realtime'
+  );
 }
 
 function ownerVaultOpenAiCandidates(ownerUserId) {
@@ -134,22 +141,34 @@ function toRealtimeOption(c) {
 }
 
 /**
- * Owner vault OpenAI first (chat can stay platform DeepSeek), then Profile/platform OpenAI, then OPENAI_REALTIME_* env.
+ * Platform OpenAI secondary / Realtime env first (deploy/.env), then owner vault, then Profile.
+ * Chat can stay on DeepSeek primary; Realtime still needs api.openai.com.
  */
 export function resolveRealtimeConfig(ownerUserId) {
   const cfg = getLlmConfig(ownerUserId);
-  const envBase = String(process.env.OPENAI_REALTIME_BASE_URL || '').trim();
-  const envKey = String(process.env.OPENAI_REALTIME_API_KEY || '').trim();
+  const envRtBase = String(process.env.OPENAI_REALTIME_BASE_URL || '').trim();
+  const envRtKey = String(process.env.OPENAI_REALTIME_API_KEY || '').trim();
+  const envSecBase = String(process.env.OPENAI_SECONDARY_BASE_URL || '').trim();
+  const envSecKey = String(process.env.OPENAI_SECONDARY_API_KEY || '').trim();
 
-  const candidates = [...ownerVaultOpenAiCandidates(ownerUserId)];
-  if (cfg?.primary?.baseUrl && cfg?.primary?.apiKey) {
+  const candidates = [];
+  if (envRtBase && envRtKey) {
     candidates.push({
-      baseUrl: cfg.primary.baseUrl,
-      apiKey: cfg.primary.apiKey,
-      model: cfg.primary.model,
-      source: cfg.using_byok ? 'owner_byok_primary' : 'platform_primary',
+      baseUrl: envRtBase,
+      apiKey: envRtKey,
+      model: process.env.OPENAI_REALTIME_MODEL,
+      source: 'env_realtime',
     });
   }
+  if (envSecBase && envSecKey) {
+    candidates.push({
+      baseUrl: envSecBase,
+      apiKey: envSecKey,
+      model: process.env.OPENAI_SECONDARY_MODEL || process.env.OPENAI_REALTIME_MODEL,
+      source: 'env_secondary',
+    });
+  }
+  candidates.push(...ownerVaultOpenAiCandidates(ownerUserId));
   if (cfg?.secondary?.baseUrl && cfg?.secondary?.apiKey) {
     candidates.push({
       baseUrl: cfg.secondary.baseUrl,
@@ -158,21 +177,25 @@ export function resolveRealtimeConfig(ownerUserId) {
       source: cfg.using_byok ? 'owner_byok_secondary' : 'platform_secondary',
     });
   }
-  if (envBase && envKey) {
+  if (cfg?.primary?.baseUrl && cfg?.primary?.apiKey) {
     candidates.push({
-      baseUrl: envBase,
-      apiKey: envKey,
-      model: process.env.OPENAI_REALTIME_MODEL,
-      source: 'env_realtime',
+      baseUrl: cfg.primary.baseUrl,
+      apiKey: cfg.primary.apiKey,
+      model: cfg.primary.model,
+      source: cfg.using_byok ? 'owner_byok_primary' : 'platform_primary',
     });
   }
 
   const options = [];
+  const seen = new Set();
   for (const c of candidates) {
     if (!isRealtimeCapableBase(c.baseUrl) && c.source !== 'env_realtime') continue;
     if (c.source === 'env_realtime' && !isRealtimeCapableBase(c.baseUrl) && !/openai/i.test(c.baseUrl)) {
       continue;
     }
+    const dedupe = `${stripV1(c.baseUrl)}:${String(c.apiKey || '').slice(-8)}`;
+    if (seen.has(dedupe)) continue;
+    seen.add(dedupe);
     options.push(toRealtimeOption(c));
   }
   if (!options.length) {

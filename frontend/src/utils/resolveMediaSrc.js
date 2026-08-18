@@ -154,3 +154,11 @@ export function guessChatMediaType(url) {
   if (/\/api\/media\/openclaw\//i.test(resolved) && /\.html?/i.test(resolved)) return 'html';
   return 'image';
 }
+
+/** True for Piper/Whisper voice-note files that should stream, not sit as chat attachments. */
+export function isChatAudioAttachment(url, mime = '') {
+  if (String(mime || '').toLowerCase().startsWith('audio/')) return true;
+  const raw = String(url || '');
+  if (/speech-tts|speech_tts/i.test(raw)) return true;
+  return guessChatMediaType(raw) === 'audio';
+}

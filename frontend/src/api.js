@@ -63,6 +63,25 @@ async function postForm(path, formData) {
   return res.json();
 }
 
+/** POST JSON and return a binary body (streamed Piper TTS — no saved media file). */
+async function postForBlob(path, body, accept) {
+  const url = path.startsWith('http') ? path : `${API_BASE}${path}`;
+  const headers = {
+    'Content-Type': 'application/json',
+    Accept: accept || 'audio/wav',
+  };
+  if (_authToken) headers.Authorization = `Bearer ${_authToken}`;
+  const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body || {}) });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    const error = new Error(err.error || res.statusText);
+    error.status = res.status;
+    error.data = err;
+    throw error;
+  }
+  return res.blob();
+}
+
 /**
  * Resolve a path for authenticated fetch without doubling /api.
  * `/api/media/...` stays `/api/media/...` when VITE_API_URL is `/api`.
@@ -957,6 +976,7 @@ export const api = {
       ? postForm('/speech/stt', formOrBody)
       : post('/speech/stt', formOrBody || {}),
   speechTts: (body) => post('/speech/tts', body || {}),
+  speechTtsStream: (body) => postForBlob('/speech/tts', { ...(body || {}), stream: true }, 'audio/wav'),
 
   agentChannelsList: (params = {}) => {
     const q = new URLSearchParams();

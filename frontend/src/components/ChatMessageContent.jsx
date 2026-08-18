@@ -54,7 +54,7 @@ const pdfExt = /\.pdf(\?[^\s"'<>]*)?$/i;
 const htmlExt = /\.html?(\?[^\s"'<>]*)?$/i;
 const imageInPath = /\.(png|jpe?g|gif|webp|bmp|svg)([\?&]|$)/i;
 
-export default function ChatMessageContent({ content }) {
+export default function ChatMessageContent({ content, hideAudio = false }) {
   const text = toText(content);
   if (!text) return null;
   let contentStr = stripGatewayDeliveryBanners(typeof text === 'string' ? text : String(text));
@@ -185,6 +185,7 @@ export default function ChatMessageContent({ content }) {
   for (const med of media) {
     const key = resolveMediaSrc(med.src) || med.src;
     if (!key) continue;
+    if (hideAudio && med.type === 'audio') med.type = 'omit';
     if (seenResolved.has(key)) med.type = 'omit';
     else seenResolved.add(key);
   }

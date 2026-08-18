@@ -8,8 +8,9 @@
  * Call is shown only when that employee has an enabled Voice channel (Realtime Caller).
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api, resolveFetchUrl } from '../api';
+import { api } from '../api';
 import AgentVoiceCall from './AgentVoiceCall.jsx';
+import { extractSpokenAvatarReply } from '../utils/avatarSpeakText.js';
 
 const SILENCE_MS = 3000;
 const MAX_RECORD_MS = 60000;
@@ -119,15 +120,29 @@ export function useChatVoice({ agentId, sending, setError }) {
 
   const playAssistantSpeech = useCallback(
     async (text) => {
-      const spoken = String(text || '').trim();
+      const spoken = extractSpokenAvatarReply(text) || String(text || '').trim();
       if (!spoken) return;
       try {
-        const r = await api.speechTts({ text: spoken });
-        const url = resolveFetchUrl(r.url || r.audio?.url);
-        if (!url) return;
+        const blob = await api.speechTtsStream({ text: spoken });
+        if (!blob || blob.size < 64) throw new Error('Empty speech stream');
         speakAudioRef.current?.pause();
+        if (speakAudioRef.current?.src?.startsWith('blob:')) {
+          try {
+            URL.revokeObjectURL(speakAudioRef.current.src);
+          } catch {
+            /* ignore */
+          }
+        }
+        const url = URL.createObjectURL(blob);
         const audio = new Audio(url);
         speakAudioRef.current = audio;
+        audio.onended = () => {
+          try {
+            URL.revokeObjectURL(url);
+          } catch {
+            /* ignore */
+          }
+        };
         await audio.play();
       } catch (e) {
         console.warn('[chat] speak reply failed', e?.message || e);
@@ -361,7 +376,7 @@ export function ChatVoiceBar({
       ) : null}
       {recording ? <span className="chat-compose-listening">Listening — pause after you finish</span> : null}
       {transcribing ? <span className="chat-compose-listening">Transcribing…</span> : null}
-      <label className="chat-compose-speak" title="Play assistant replies with Piper TTS">
+      <label className="chat-compose-speak" title="Play assistant replies as streamed speech (not a chat attachment)">
         <input
           type="checkbox"
           checked={speakReply}

@@ -9,7 +9,7 @@ import AuthenticatedMediaImage, {
   AuthenticatedMediaAudio,
   AuthenticatedMediaVideo,
 } from './AuthenticatedMediaImage';
-import { guessChatMediaType, resolveMediaSrc, extractMediaUrlsFromText } from '../utils/resolveMediaSrc';
+import { guessChatMediaType, resolveMediaSrc, extractMediaUrlsFromText, isChatAudioAttachment } from '../utils/resolveMediaSrc';
 import { splitChatAttachmentContent } from '../utils/chatAttachments.js';
 
 /**
@@ -31,6 +31,7 @@ export default function ChatMessageRow({
   attachments: attachmentsProp = null,
   agentName = null,
   agentAvatar = null,
+  hideAudioAttachments = false,
 }) {
   const isUser = role === 'user';
   const label = roleLabel || (!isUser && agentName) || role;
@@ -40,14 +41,19 @@ export default function ChatMessageRow({
       ? { text: content, attachments: attachmentsProp }
       : splitChatAttachmentContent(content);
   const displayText = parsed.text;
-  const attachments = parsed.attachments || [];
+  const attachments = (parsed.attachments || []).filter((a) => {
+    if (!hideAudioAttachments) return true;
+    return !isChatAudioAttachment(a.url || a.relative_path || a.filename, a.mime_type || a.mime);
+  });
   const textMediaKeys = new Set(
     extractMediaUrlsFromText(displayText || '').map((u) => resolveMediaSrc(u) || u)
   );
   const mediaUrls = !isUser
     ? collectGeneratedMediaUrlsFromToolCalls(toolCalls).filter((src) => {
         const key = resolveMediaSrc(src) || src;
-        return !textMediaKeys.has(key);
+        if (textMediaKeys.has(key)) return false;
+        if (hideAudioAttachments && isChatAudioAttachment(src)) return false;
+        return true;
       })
     : [];
   const goalRunIds = !isUser
@@ -104,7 +110,7 @@ export default function ChatMessageRow({
         </div>
       )}
       {(displayText || (!attachments.length && content)) && (
-        <ChatMessageContent content={displayText || content} />
+        <ChatMessageContent content={displayText || content} hideAudio={hideAudioAttachments} />
       )}
       {!isUser &&
         liveIds.map((id) => (

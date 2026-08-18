@@ -18,7 +18,7 @@ Home (`/`) opens chat with the **COO**. Use **Chat with** to switch employees. *
 On Home (`/`) and employee chat, the message box toolbar (next to the paperclip) includes:
 
 - **Microphone icon** — click, speak, **pause 3 seconds after you finish**; the transcript **sends**. Slow Caller uses this path (not a live call).
-- **Speak** checkbox — Piper plays the assistant reply.
+- **Speak** checkbox — Piper **streams** the assistant reply (no audio attachment in the thread).
 - **Phone icon** — live WebRTC, **only if that employee has Voice enabled** (Realtime Caller). Slow Caller does not show Call.
 
 See [Channels](../systems/channels.md) and [Hire AI employees](../setup/hire-ai-employees.md).

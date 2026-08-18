@@ -22,7 +22,7 @@ On Home (`/`), **Chat with** Slow Caller. Controls are **icons** in the message 
 | Control | What it does | How to use |
 |---------|----------------|------------|
 | **Microphone** | Whisper → chat message | Click, allow mic, **speak**, then **pause 3 seconds after you finish**. The 3s timer starts only after speech is heard. Click the icon again to send sooner. |
-| **Speak** checkbox | Piper reads the reply | Check it before you talk. The next assistant reply plays as audio. |
+| **Speak** checkbox | Piper streams the reply | Check it before you talk. The next assistant reply **plays in the browser** — it is not an audio attachment in the thread. |
 | **Phone / Call** | Live WebRTC | **Not on Slow Caller.** Hire Realtime Caller and enable **Channels → Voice**. |
 
 HTTPS is required (already true on `login.flolah.cloud`). Platform `optional-voice` (Whisper + Piper) must be up.
