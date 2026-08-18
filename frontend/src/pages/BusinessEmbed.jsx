@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { api } from '../api';
 import { rememberCrmSessionOrigin } from '../lib/crmSessionCleanup';
 
 /**
- * Compact platform CRM/ERP iframe shell (no long briefing copy).
- * CRM uses /flolah-handoff so switching Flolah company clears prior Twenty session.
- * Passwordless SSO: workspace-origin handoff wipe, then Twenty /verify?loginToken=
- * (token is `lt` on the handoff URL, not nested inside next).
+ * Compact platform CRM/ERP shell.
+ * Twenty CRM opens **top-level** on the company workspace host (first-party
+ * apply of the exchanged token pair). Do not iframe Twenty /verify — that
+ * path shows Authentication failed → /welcome inside Flolah.
  */
 export function BusinessEmbedPage({ kind }) {
   const isCrm = kind === 'crm';
@@ -18,6 +18,7 @@ export function BusinessEmbedPage({ kind }) {
   const [forbidden, setForbidden] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
+  const twentyTopNavOnce = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,6 +56,21 @@ export function BusinessEmbedPage({ kind }) {
     if (!isCrm && openUrl) rememberCrmSessionOrigin(openUrl);
   }, [isCrm, data]);
 
+  const iframeSrc = useMemo(() => {
+    if (!data) return null;
+    return data.iframe_url || data.open_url || null;
+  }, [data]);
+
+  const providerEarly = String(data?.provider || (isCrm ? 'twenty' : 'erpnext')).toLowerCase();
+  const twentyTopLevel =
+    isCrm && providerEarly === 'twenty' && data?.sso?.ok !== false && Boolean(iframeSrc);
+
+  useEffect(() => {
+    if (!twentyTopLevel || twentyTopNavOnce.current) return;
+    twentyTopNavOnce.current = true;
+    window.location.replace(iframeSrc);
+  }, [twentyTopLevel, iframeSrc]);
+
   async function onSyncOrg() {
     setSyncing(true);
     setSyncResult(null);
@@ -69,11 +85,6 @@ export function BusinessEmbedPage({ kind }) {
       setSyncing(false);
     }
   }
-
-  const iframeSrc = useMemo(() => {
-    if (!data) return null;
-    return data.iframe_url || data.open_url || null;
-  }, [data]);
 
   if (forbidden) {
     return <Navigate to="/profile" replace />;
@@ -185,11 +196,9 @@ export function BusinessEmbedPage({ kind }) {
         </div>
       ) : null}
 
-      {isCrm && ssoOk ? (
+      {isCrm && ssoOk && !twentyTopLevel ? (
         <p className="page-muted" style={{ margin: '0.35rem 0.85rem', fontSize: '0.85rem' }}>
-          Signed in with your Flolah account. If Twenty still asks for email, use Open in new
-          tab — do not submit that form (it is not Flolah SSO and often fails with “error
-          occurred validating user”).
+          Signed in with your Flolah account.
         </p>
       ) : null}
 
@@ -203,7 +212,11 @@ export function BusinessEmbedPage({ kind }) {
         </div>
       ) : null}
 
-      {iframeSrc ? (
+      {twentyTopLevel ? (
+        <p className="page-muted" style={{ padding: '1rem' }}>
+          Opening your company CRM… If nothing happens, use <strong>Open in new tab</strong>.
+        </p>
+      ) : iframeSrc ? (
         <iframe
           key={`${iframeSrc}|${data?.owner_user_id || data?.company_name || ''}|${isCrm ? 'crm' : 'erp'}`}
           title={title}

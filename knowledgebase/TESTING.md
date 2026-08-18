@@ -204,6 +204,19 @@ Creates a temporary CEO + two employees, then checks tenant inherit (no `user_ag
 
 Manual: **My Org → People** invite → set password from email → login as employee → Home/Kanban always on; other menus follow the role. Department member can chat with COO + same-dept AI employees only. Kanban: see all, act only same department. Efficiency **User View** lists people task counts. CRM/ERP (if granted) SSO uses **that person’s email** in the CEO company workspace.
 
+## Twenty CRM SSO
+
+Passwordless CRM must open the **company workspace host** first-party (`/flolah-handoff/?t=` → `/flolah-crm-sso` → desk `/`). Do not iframe Twenty `/verify?loginToken=` (Authentication failed → `/welcome`).
+
+```powershell
+cd backend
+node scripts/test-twenty-sso-handoff.js
+```
+
+VPS (after backend image has the script): `bash deploy/scripts/vps-verify-crm-sso.sh`
+
+Manual: Profile CRM = Twenty → **CRM**. The tab should land on `{sub}.crm.<apex>` signed in. Do not type Twenty email/password.
+
 ## Admin User Insights
 
 ```powershell

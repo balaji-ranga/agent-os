@@ -208,6 +208,7 @@ scp @ssh `
   "$Repo\deploy\scripts\docker-disk-hygiene.sh" `
   "$Repo\deploy\scripts\vps-verify-platform.sh" `
   "$Repo\deploy\scripts\vps-verify-scheduled-goals.sh" `
+  "$Repo\deploy\scripts\vps-verify-crm-sso.sh" `
   "$Repo\deploy\scripts\vps-verify-a2a-private.sh" `
   "$Repo\deploy\scripts\vps-verify-org-delegation.sh" `
   "$Repo\deploy\scripts\vps-verify-frontend-media.sh" `
@@ -367,6 +368,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-admin-user-insights.js" `
     "$Repo\backend\scripts\test-living-twenty-crm-holds.js" `
     "$Repo\backend\scripts\test-twenty-sso-handoff.js" `
+    "$Repo\backend\scripts\vps-verify-crm-sso.js" `
     "$Repo\backend\scripts\test-cert-san-covers.js" `
     "$Repo\backend\scripts\onboard-vedic-astrology-agent.js" `
     "$Repo\backend\scripts\vps-onboard-specialty-agents-bala.js" `

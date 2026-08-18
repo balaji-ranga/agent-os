@@ -175,23 +175,22 @@ function prepareCrmSsoApplyHeaders(res) {
   res.setHeader('Pragma', 'no-cache');
 }
 
-function renderCrmSsoApplyHtml(tokenPair, loginToken) {
+function renderCrmSsoApplyHtml(tokenPair) {
   const payload = JSON.stringify({
     tokenPair,
     isCookieAuthActiveState: false,
   }).replace(/</g, '\\u003c');
-  const next = loginToken
-    ? `/verify?loginToken=${encodeURIComponent(String(loginToken))}`
-    : '/';
+  // Always `/` — do not send the browser to Twenty `/verify`. That page clears
+  // tokenPair and shows /welcome when getAuthTokensFromLoginToken throws.
   return (
     `<!doctype html><html lang="en"><head><meta charset="utf-8"/><title>CRM</title>` +
     `<style>body{font-family:system-ui,sans-serif;margin:2rem;color:#222}.m{opacity:.6}</style></head>` +
     `<body><p class="m">Signing into CRM…</p><script>` +
-    `(function(){var p=${payload};var n=${JSON.stringify(next)};try{` +
+    `(function(){var p=${payload};try{` +
     `localStorage.setItem("tokenPairState",JSON.stringify(p.tokenPair));` +
     `localStorage.setItem("tokenPair",JSON.stringify(p.tokenPair));` +
     `localStorage.setItem("isCookieAuthActiveState",JSON.stringify(false));` +
-    `}catch(e){}location.replace(n);})();` +
+    `}catch(e){}location.replace("/");})();` +
     `</script></body></html>`
   );
 }
@@ -212,7 +211,7 @@ router.get('/crm-sso-apply', (req, res) => {
       String(out.owner_user_id || '').slice(0, 32),
       requestHostname(req)
     );
-    res.status(200).type('html').send(renderCrmSsoApplyHtml(out.tokenPair, out.loginToken));
+    res.status(200).type('html').send(renderCrmSsoApplyHtml(out.tokenPair));
   } catch (e) {
     console.warn('[business-core] crm-sso-apply failed', e.message);
     res
@@ -316,15 +315,13 @@ router.get('/embed/crm', async (req, res) => {
     const embed = await getCrmEmbedForOwner(ownerUserId, { flolahUser });
     try {
       const parsed = embed.iframe_url ? new URL(embed.iframe_url) : null;
-      const hasLt = Boolean(
-        parsed && (parsed.searchParams.has('lt') || /[#&]lt=/.test(embed.iframe_url || ''))
-      );
+      const hasApplyTok = Boolean(parsed && parsed.searchParams.has('t'));
       console.info(
-        '[business-core] embed/crm owner=%s mode=%s host=%s has_lt=%s ok=%s',
+        '[business-core] embed/crm owner=%s mode=%s host=%s has_t=%s ok=%s',
         String(ownerUserId || '').slice(0, 32),
         embed.sso?.mode || '?',
         parsed?.hostname || 'none',
-        hasLt,
+        hasApplyTok,
         embed.sso?.ok !== false
       );
     } catch {

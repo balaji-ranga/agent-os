@@ -119,6 +119,7 @@ upsert TWENTY_DB_USER 'twenty'
 upsert TWENTY_DB_NAME 'twenty'
 upsert TWENTY_DB_PASSWORD 'twenty'
 upsert TWENTY_SSO_ENABLED "1"
+# Browser CRM SSO: server exchange + first-party /flolah-crm-sso apply (not iframe /verify).
 # Same Redis as twenty-server — Flolah DELs flatWorkspaceMemberMaps after JIT membership SQL.
 upsert TWENTY_REDIS_URL "redis://twenty-redis:6379"
 upsert TWENTY_IS_MULTIWORKSPACE_ENABLED "true"

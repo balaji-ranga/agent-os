@@ -87,7 +87,16 @@ try {
   assert(hu.searchParams.get('next') === '/verify', 'handoff next is /verify only');
   assert(hu.searchParams.get('lt') === sampleTok, 'handoff lt is top-level');
   assert(!String(hu.searchParams.get('next') || '').includes('loginToken'), 'loginToken not nested in next');
-  assert(hu.hash.includes(sampleTok), 'handoff hash carries loginToken');
+
+  const applyHu = new URL(
+    buildCrmHandoffUrl('https://wise-test.crm.example.com', owner, '/', {
+      wipe: true,
+      t: 'deadbeef',
+    })
+  );
+  assert(applyHu.searchParams.get('t') === 'deadbeef', 'apply handoff uses short t=');
+  assert(applyHu.searchParams.get('next') === '/', 'apply next is desk root');
+  assert(!applyHu.search.includes('loginToken'), 'apply handoff has no loginToken JWT');
 
   console.log('PASS: twenty sso handoff tokens', { suffix });
 } finally {
