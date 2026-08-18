@@ -19,7 +19,7 @@ import {
   getBusinessMenuFlags,
   getBusinessCoreStackStatus,
 } from '../services/business-embed.js';
-import { buildCrmSessionLogoutUrls } from '../services/twenty-sso.js';
+import { buildCrmSessionLogoutUrls, consumeTwentySsoBrowserToken } from '../services/twenty-sso.js';
 import {
   buildErpSessionLogoutUrls,
   consumeErpSsoToken,
@@ -150,6 +150,101 @@ router.get('/erp-sso-apply', (req, res) => {
         `<!doctype html><meta charset="utf-8"/><title>ERP SSO</title>` +
           `<p style="font-family:system-ui">ERP single sign-on failed: ${String(e.message || e).replace(/[<>]/g, '')}</p>` +
           `<p><a href="/login">ERP login</a></p>`
+      );
+  }
+});
+
+function requestHostname(req) {
+  const xf = String(req.headers['x-forwarded-host'] || '').split(',')[0].trim();
+  const raw = xf || req.hostname || String(req.headers.host || '');
+  return String(raw).split(':')[0].trim().toLowerCase();
+}
+
+function clearTwentySessionCookies(res) {
+  const names = ['tokenPair', 'accessToken', 'refreshToken', 'twenty-session', 'isCookieAuthActiveState'];
+  for (const n of names) {
+    for (const httpOnly of [true, false]) {
+      const ho = httpOnly ? 'HttpOnly; ' : '';
+      res.append('Set-Cookie', `${n}=; Path=/; ${ho}Secure; SameSite=None; Max-Age=0`);
+      res.append(
+        'Set-Cookie',
+        `${n}=; Path=/; ${ho}Secure; SameSite=None; Max-Age=0; Partitioned`
+      );
+    }
+  }
+}
+
+function applyTwentySsoCookies(res, tokenPair) {
+  clearTwentySessionCookies(res);
+  const access = String(tokenPair?.accessOrWorkspaceAgnosticToken?.token || '').trim();
+  const refresh = String(tokenPair?.refreshToken?.token || '').trim();
+  const maxAge = 60 * 60 * 12;
+  const pairs = [];
+  if (access && !/[\s;,\\"]/.test(access)) {
+    pairs.push([`accessToken=${access}`, false]);
+  }
+  if (refresh && !/[\s;,\\"]/.test(refresh)) {
+    pairs.push([`refreshToken=${refresh}`, false]);
+  }
+  const json = encodeURIComponent(JSON.stringify(tokenPair));
+  if (json.length < 3500) {
+    pairs.push([`tokenPair=${json}`, false]);
+  }
+  for (const [nv, httpOnly] of pairs) {
+    const ho = httpOnly ? 'HttpOnly; ' : '';
+    res.append('Set-Cookie', `${nv}; Path=/; ${ho}Secure; SameSite=None; Max-Age=${maxAge}`);
+    res.append(
+      'Set-Cookie',
+      `${nv}; Path=/; ${ho}Secure; SameSite=None; Max-Age=${maxAge}; Partitioned`
+    );
+  }
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.setHeader('Pragma', 'no-cache');
+}
+
+function renderCrmSsoApplyHtml(tokenPair) {
+  const payload = JSON.stringify({
+    tokenPair,
+    isCookieAuthActiveState: false,
+  }).replace(/</g, '\\u003c');
+  return (
+    `<!doctype html><html lang="en"><head><meta charset="utf-8"/><title>CRM</title>` +
+    `<style>body{font-family:system-ui,sans-serif;margin:2rem;color:#222}.m{opacity:.6}</style></head>` +
+    `<body><p class="m">Signing into CRM…</p><script>` +
+    `(function(){var p=${payload};try{` +
+    `localStorage.setItem("tokenPairState",JSON.stringify(p.tokenPair));` +
+    `localStorage.setItem("tokenPair",JSON.stringify(p.tokenPair));` +
+    `localStorage.setItem("isCookieAuthActiveState",JSON.stringify(false));` +
+    `}catch(e){}location.replace("/");})();` +
+    `</script></body></html>`
+  );
+}
+
+/**
+ * Public CRM SSO apply (handoff before Flolah auth).
+ * Nginx on {sub}.crm.* proxies here so Set-Cookie + localStorage are first-party
+ * to the Twenty workspace host (iframe under login.* cannot keep Twenty /verify cookies).
+ */
+router.get('/crm-sso-apply', (req, res) => {
+  try {
+    const token = req.query?.token || req.query?.t;
+    const out = consumeTwentySsoBrowserToken(token, { hostname: requestHostname(req) });
+    applyTwentySsoCookies(res, out.tokenPair);
+    console.info(
+      '[business-core] crm-sso-apply ok owner=%s host=%s',
+      String(out.owner_user_id || '').slice(0, 32),
+      requestHostname(req)
+    );
+    res.status(200).type('html').send(renderCrmSsoApplyHtml(out.tokenPair));
+  } catch (e) {
+    console.warn('[business-core] crm-sso-apply failed', e.message);
+    res
+      .status(e.status || 500)
+      .type('html')
+      .send(
+        `<!doctype html><meta charset="utf-8"/><title>CRM SSO</title>` +
+          `<p style="font-family:system-ui">CRM single sign-on failed: ${String(e.message || e).replace(/[<>]/g, '')}</p>` +
+          `<p>Open CRM from the Flolah menu. Do not use Twenty email/password — that form is not Flolah SSO.</p>`
       );
   }
 });

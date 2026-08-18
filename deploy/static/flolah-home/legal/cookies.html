@@ -69,7 +69,7 @@
     </table>
     <h2>6. Related storage (not Flolah login-host cookies)</h2>
     <ul>
-      <li><strong>CRM (Twenty)</strong> on a separate host (for example crm.flolah.cloud) may set auth cookies (accessToken, refreshToken, tokenPair, etc.) and local storage. Flolah handoff pages clear those when switching owner or logging out.</li>
+      <li><strong>CRM (Twenty)</strong> on a separate host (for example crm.flolah.cloud) may set auth cookies (accessToken, refreshToken, tokenPair, including partitioned copies for the in-app embed) and local storage. Flolah handoff pages clear those when switching owner or logging out.</li>
       <li><strong>OAuth providers</strong> may set cookies on their domains during Connect flows.</li>
       <li><strong>Browser automation:</strong> managed browser session cookies live in a server-side Chromium profile, not as site cookies on Flolah.</li>
     </ul>

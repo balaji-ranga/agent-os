@@ -2,15 +2,18 @@
  * True CRM browser SSO for platform Twenty (self-hosted).
  *
  * Mints Twenty LOGIN JWTs with the same legacy HS256 secret derivation the
- * server verifies (SHA256 of APP_SECRET + workspaceId + "LOGIN"), then routes
- * the browser through /flolah-handoff → /verify?loginToken=… so the Twenty SPA
- * exchanges the token for a session — passwordless for the Flolah user email.
+ * server verifies (SHA256 of APP_SECRET + workspaceId + "LOGIN"), exchanges
+ * them server-side, then routes the browser through /flolah-handoff →
+ * /flolah-crm-sso (workspace origin). That apply page writes Twenty
+ * tokenPairState in first-party / CHIPS storage so the Flolah iframe can sign
+ * in without Twenty's email/password form (Chrome blocks unpartitioned cookies
+ * on /verify GraphQL). Passwordless for the Flolah user email.
  *
  * Requires TWENTY_APP_SECRET (same value as Twenty APP_SECRET). Optional
  * TWENTY_DATABASE_URL enables JIT provisioning of user + workspace membership.
  * Authorization remains CEO-scoped on Flolah; body workspace ids are never trusted.
  */
-import { createHash, createHmac, randomUUID } from 'crypto';
+import { createHash, createHmac, randomBytes, randomUUID } from 'crypto';
 import net from 'net';
 import {
   getBusinessProfile,
@@ -18,6 +21,7 @@ import {
   assertCrmEntitled,
 } from './company-business-profile.js';
 import { getUserById } from './users.js';
+import { getDb } from '../db/schema.js';
 
 function getTwentyPublicBaseLocal() {
   for (const raw of [
@@ -253,6 +257,148 @@ export function mintTwentyLoginToken({ email, workspaceId, authProvider = 'SSO',
 
 export function buildVerifyNextPath(loginToken) {
   return `/verify?loginToken=${encodeURIComponent(loginToken)}`;
+}
+
+const TWENTY_SSO_TOKEN_TTL_MS = 5 * 60_000;
+
+function ensureTwentySsoTokenTable() {
+  const db = getDb();
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS twenty_sso_tokens (
+      token TEXT PRIMARY KEY,
+      owner_user_id TEXT NOT NULL,
+      email TEXT NOT NULL DEFAULT '',
+      workspace_id TEXT NOT NULL DEFAULT '',
+      expected_host TEXT NOT NULL DEFAULT '',
+      token_pair_json TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      used_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_twenty_sso_owner ON twenty_sso_tokens(owner_user_id);
+  `);
+}
+
+function hostnameFromPublicBase(base) {
+  try {
+    return new URL(strip(base)).hostname.toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
+function normalizeTokenPair(tokens) {
+  const accessObj = tokens?.accessOrWorkspaceAgnosticToken;
+  const access =
+    strip(accessObj?.token) || (typeof tokens?.accessToken === 'string' ? strip(tokens.accessToken) : '');
+  if (!access) return null;
+  const refreshObj = tokens?.refreshToken;
+  const refresh =
+    strip(refreshObj?.token) || (typeof refreshObj === 'string' ? strip(refreshObj) : '');
+  const pair = {
+    accessOrWorkspaceAgnosticToken: {
+      token: access,
+    },
+    refreshToken: refresh ? { token: refresh } : null,
+  };
+  const expA = accessObj?.expiresAt;
+  const expR = refreshObj && typeof refreshObj === 'object' ? refreshObj.expiresAt : null;
+  if (expA) pair.accessOrWorkspaceAgnosticToken.expiresAt = expA;
+  if (expR && pair.refreshToken) pair.refreshToken.expiresAt = expR;
+  return pair;
+}
+
+/**
+ * Store exchanged Twenty tokens for same-origin /flolah-crm-sso apply.
+ * Two rows (iframe + Open tab) so remounts do not share a single consume race.
+ */
+export function persistTwentySsoBrowserTokens({
+  ownerUserId,
+  email,
+  workspaceId,
+  publicBase,
+  tokens,
+} = {}) {
+  const pair = normalizeTokenPair(tokens);
+  if (!pair) throw Object.assign(new Error('token pair missing access token'), { status: 500 });
+  ensureTwentySsoTokenTable();
+  const expires = new Date(Date.now() + TWENTY_SSO_TOKEN_TTL_MS).toISOString();
+  const json = JSON.stringify(pair);
+  const owner = strip(ownerUserId);
+  const host = hostnameFromPublicBase(publicBase);
+  const insert = getDb().prepare(
+    `INSERT INTO twenty_sso_tokens
+      (token, owner_user_id, email, workspace_id, expected_host, token_pair_json, expires_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  );
+  const iframeToken = randomBytes(24).toString('hex');
+  const openToken = randomBytes(24).toString('hex');
+  for (const token of [iframeToken, openToken]) {
+    insert.run(token, owner, strip(email).toLowerCase(), strip(workspaceId), host, json, expires);
+  }
+  return {
+    iframeToken,
+    openToken,
+    expectedHost: host,
+    ttl_ms: TWENTY_SSO_TOKEN_TTL_MS,
+  };
+}
+
+/**
+ * Exchange one-time CRM SSO handoff token for the Twenty Recoil token pair.
+ * Idempotent until expires_at (iframe remount / Open tab).
+ * @param {string} token
+ * @param {{ hostname?: string }} [opts]
+ */
+export function consumeTwentySsoBrowserToken(token, opts = {}) {
+  ensureTwentySsoTokenTable();
+  const t = strip(token);
+  if (!t) throw Object.assign(new Error('token required'), { status: 400 });
+  const db = getDb();
+  const row = db.prepare('SELECT * FROM twenty_sso_tokens WHERE token = ?').get(t);
+  if (!row) throw Object.assign(new Error('invalid token'), { status: 404 });
+  if (new Date(row.expires_at).getTime() < Date.now()) {
+    throw Object.assign(new Error('token expired'), { status: 410 });
+  }
+  const wantHost = strip(row.expected_host).toLowerCase();
+  const gotHost = strip(opts.hostname).toLowerCase().split(':')[0];
+  if (wantHost && gotHost && wantHost !== gotHost) {
+    throw Object.assign(new Error('CRM SSO host mismatch'), { status: 403 });
+  }
+  let pair = null;
+  try {
+    pair = JSON.parse(row.token_pair_json);
+  } catch {
+    throw Object.assign(new Error('token pair corrupt'), { status: 500 });
+  }
+  pair = normalizeTokenPair(pair);
+  if (!pair) throw Object.assign(new Error('token pair missing access token'), { status: 500 });
+  const alreadyUsed = Boolean(row.used_at);
+  if (!alreadyUsed) {
+    db.prepare("UPDATE twenty_sso_tokens SET used_at = datetime('now') WHERE token = ? AND used_at IS NULL").run(
+      t
+    );
+  } else {
+    console.info(
+      '[twenty-sso] consume replay (token still valid) owner=%s',
+      String(row.owner_user_id || '').slice(0, 24)
+    );
+  }
+  return {
+    ok: true,
+    tokenPair: pair,
+    expectedHost: wantHost,
+    owner_user_id: row.owner_user_id,
+    email: row.email,
+    workspace_id: row.workspace_id,
+    replay: alreadyUsed,
+  };
+}
+
+function handoffUrlsForTokenPair(base, owner, persisted) {
+  const iframe = handoffUrl(base, owner, '/', { wipe: true, t: persisted.iframeToken });
+  const open = handoffUrl(base, owner, '/', { wipe: true, t: persisted.openToken });
+  return { iframe_url: iframe, open_url: open };
 }
 
 let pgPool = null;
@@ -621,9 +767,10 @@ export async function buildCrmSsoHandoff(ownerUserId, opts = {}) {
   try {
     const loginToken = mintTwentyLoginToken({ email, workspaceId, authProvider: 'SSO' });
     // Server-side proof: LOGIN JWT must exchange (catches missing workspaceMember).
+    let exchanged = null;
     try {
       const { exchangeLoginToken } = await import('./twenty-workspace.js');
-      await exchangeLoginToken(loginToken, base);
+      exchanged = await exchangeLoginToken(loginToken, base);
     } catch (exErr) {
       console.warn(
         '[twenty-sso] loginToken exchange preflight failed email=%s ws=%s %s — re-ensure + retry',
@@ -637,9 +784,15 @@ export async function buildCrmSsoHandoff(ownerUserId, opts = {}) {
       const retryToken = mintTwentyLoginToken({ email, workspaceId, authProvider: 'SSO' });
       try {
         const { exchangeLoginToken } = await import('./twenty-workspace.js');
-        await exchangeLoginToken(retryToken, base);
-        const next = buildVerifyNextPath(retryToken);
-        const url = handoffUrl(base, owner, next, { wipe: true });
+        const retried = await exchangeLoginToken(retryToken, base);
+        const persisted = persistTwentySsoBrowserTokens({
+          ownerUserId: owner,
+          email,
+          workspaceId,
+          publicBase: base,
+          tokens: retried.tokens || retried,
+        });
+        const urls = handoffUrlsForTokenPair(base, owner, persisted);
         console.info(
           '[twenty-sso] mint loginToken (after heal) owner=%s email=%s workspace=%s sub=%s',
           owner,
@@ -650,8 +803,8 @@ export async function buildCrmSsoHandoff(ownerUserId, opts = {}) {
         return {
           ok: true,
           mode: 'login_token_sso',
-          iframe_url: url,
-          open_url: url,
+          iframe_url: urls.iframe_url,
+          open_url: urls.open_url,
           switch_account_url: handoffUrl(base, `${owner}:switch:${Date.now()}`, '/welcome', {
             wipe: true,
           }),
@@ -678,8 +831,14 @@ export async function buildCrmSsoHandoff(ownerUserId, opts = {}) {
       }
     }
 
-    const next = buildVerifyNextPath(loginToken);
-    const url = handoffUrl(base, owner, next, { wipe: true });
+    const persisted = persistTwentySsoBrowserTokens({
+      ownerUserId: owner,
+      email,
+      workspaceId,
+      publicBase: base,
+      tokens: exchanged.tokens || exchanged,
+    });
+    const urls = handoffUrlsForTokenPair(base, owner, persisted);
     console.info(
       '[twenty-sso] mint loginToken owner=%s email=%s workspace=%s sub=%s ensure=%s',
       owner,
@@ -691,8 +850,8 @@ export async function buildCrmSsoHandoff(ownerUserId, opts = {}) {
     return {
       ok: true,
       mode: 'login_token_sso',
-      iframe_url: url,
-      open_url: url,
+      iframe_url: urls.iframe_url,
+      open_url: urls.open_url,
       switch_account_url: handoffUrl(base, `${owner}:switch:${Date.now()}`, '/welcome', {
         wipe: true,
       }),
@@ -718,7 +877,7 @@ export async function buildCrmSsoHandoff(ownerUserId, opts = {}) {
   }
 }
 
-function handoffUrl(base, owner, nextPath, { wipe = false, logout = false } = {}) {
+function handoffUrl(base, owner, nextPath, { wipe = false, logout = false, t = '' } = {}) {
   // base may be origin only
   const root = strip(base).replace(/\/+$/, '');
   if (!root) return '';
@@ -727,6 +886,7 @@ function handoffUrl(base, owner, nextPath, { wipe = false, logout = false } = {}
   q.set('next', nextPath.startsWith('/') ? nextPath : `/${nextPath}`);
   if (wipe || logout) q.set('wipe', '1');
   if (logout) q.set('logout', '1');
+  if (t) q.set('t', strip(t));
   return `${root}/flolah-handoff/?${q.toString()}`;
 }
 

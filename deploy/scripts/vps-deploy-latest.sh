@@ -811,6 +811,11 @@ if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-
     && echo "    Twenty CRM workspace holds OK" \
     || echo "    WARN: twenty CRM holds failed (see /tmp/twenty-holds.log)"
 fi
+if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-twenty-sso-handoff.js 2>/dev/null; then
+  docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-twenty-sso-handoff.js >/tmp/twenty-sso-handoff.log 2>&1 \
+    && echo "    Twenty CRM SSO handoff tokens OK" \
+    || echo "    WARN: twenty CRM SSO handoff failed (see /tmp/twenty-sso-handoff.log)"
+fi
 if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-token-usage-reset.js 2>/dev/null; then
   docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-token-usage-reset.js >/tmp/token-reset.log 2>&1 \
     && echo "    Token usage reset (one / all) OK" \

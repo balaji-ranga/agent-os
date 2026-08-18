@@ -91,12 +91,20 @@ export async function exchangeLoginToken(loginToken, workspaceOrigin) {
     { loginToken, origin },
     origin
   );
-  const access =
-    data?.getAuthTokensFromLoginToken?.tokens?.accessOrWorkspaceAgnosticToken?.token;
+  const tokens = data?.getAuthTokensFromLoginToken?.tokens || {};
+  const access = tokens?.accessOrWorkspaceAgnosticToken?.token;
+  const refresh = tokens?.refreshToken?.token || null;
   if (!access) {
     throw Object.assign(new Error('Twenty loginToken exchange failed'), { status: 502 });
   }
-  return { accessToken: access };
+  return {
+    accessToken: access,
+    refreshToken: refresh,
+    tokens: {
+      accessOrWorkspaceAgnosticToken: tokens.accessOrWorkspaceAgnosticToken,
+      refreshToken: tokens.refreshToken || null,
+    },
+  };
 }
 
 async function accessFor(email, workspaceId, workspaceOrigin) {

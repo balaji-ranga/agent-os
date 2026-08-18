@@ -14,8 +14,9 @@
   var owner = (p.get("owner") || "").trim();
   var next = p.get("next") || "/";
   if (next.charAt(0) !== "/" || next.indexOf("//") === 0) next = "/";
+  var ssoTok = (p.get("t") || p.get("token") || "").trim();
   var forceLogout = p.get("logout") === "1";
-  var forceWipe = forceLogout || p.get("wipe") === "1" || /loginToken=/.test(next);
+  var forceWipe = forceLogout || p.get("wipe") === "1" || !!ssoTok || /loginToken=/.test(next);
   var key = "flolah_crm_owner";
   var prev = "";
   try {
@@ -36,7 +37,7 @@
     });
   }
 
-  function wipeAuth(clearOwnerKey) {
+  function wipeAuth(clearOwnerKey, wipeIndexedDb) {
     try {
       var keys = [];
       for (var i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i));
@@ -48,19 +49,23 @@
       if (clearOwnerKey) localStorage.removeItem(key);
       sessionStorage.clear();
     } catch (e) {}
-    try {
-      if (window.indexedDB && indexedDB.databases) {
-        indexedDB.databases().then(function (dbs) {
-          (dbs || []).forEach(function (db) {
-            if (db && db.name) {
-              try {
-                indexedDB.deleteDatabase(db.name);
-              } catch (e2) {}
-            }
-          });
-        }).catch(function () {});
-      }
-    } catch (e) {}
+    // IndexedDB delete is async and continues after navigation — only on logout
+    // so SSO apply localStorage is not wiped mid-login.
+    if (wipeIndexedDb) {
+      try {
+        if (window.indexedDB && indexedDB.databases) {
+          indexedDB.databases().then(function (dbs) {
+            (dbs || []).forEach(function (db) {
+              if (db && db.name) {
+                try {
+                  indexedDB.deleteDatabase(db.name);
+                } catch (e2) {}
+              }
+            });
+          }).catch(function () {});
+        }
+      } catch (e) {}
+    }
     try {
       var domains = cookieDomains();
       var names = {};
@@ -68,7 +73,6 @@
         var n = c.split("=")[0].trim();
         if (n) names[n] = true;
       });
-      // Common Twenty / generic auth cookie names even if HttpOnly not listed on document.cookie
       [
         "tokenPair",
         "accessToken",
@@ -78,6 +82,7 @@
         "session",
         "authToken",
         "twenty_token",
+        "twenty-session"
       ].forEach(function (n) {
         names[n] = true;
       });
@@ -100,7 +105,7 @@
   }
 
   if (forceWipe || (owner && prev && prev !== owner)) {
-    wipeAuth(forceLogout || (owner && prev && prev !== owner));
+    wipeAuth(forceLogout || (owner && prev && prev !== owner), forceLogout);
   }
 
   if (forceLogout) {
@@ -115,6 +120,15 @@
   try {
     if (owner) localStorage.setItem(key, owner);
   } catch (e) {}
+
+  if (ssoTok) {
+    location.replace(
+      "/flolah-crm-sso?t=" +
+        encodeURIComponent(ssoTok) +
+        (owner ? "&owner=" + encodeURIComponent(owner) : "")
+    );
+    return;
+  }
   location.replace(next);
 })();
 </script>

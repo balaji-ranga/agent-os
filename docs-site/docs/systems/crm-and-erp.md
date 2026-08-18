@@ -24,7 +24,7 @@ If you enable **Twenty CRM**, those employees are added even when the CRM desk i
 
 Makers draft. **Checkers** review and perform high-risk actions (including CRM **deletes** after a review card). See [Maker and Checker](../operate/maker-checker.md).
 
-**CRM** and **ERP** menu items appear when the matching provider is selected. The desk opens in an embed for your company only — not a shared global CRM.
+**CRM** and **ERP** menu items appear when the matching provider is selected. The desk opens in an embed for your company only — not a shared global CRM. Twenty CRM is **passwordless via your Flolah login**. If the desk still asks for email, use **Open in new tab**; do not type a password into that form (it is not Flolah SSO).
 
 ## How to work
 

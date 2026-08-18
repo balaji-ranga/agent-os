@@ -6,7 +6,7 @@ import { rememberCrmSessionOrigin } from '../lib/crmSessionCleanup';
 /**
  * Compact platform CRM/ERP iframe shell (no long briefing copy).
  * CRM uses /flolah-handoff so switching Flolah company clears prior Twenty session.
- * Passwordless SSO loads in the in-app iframe (workspace origin handoff + loginToken).
+ * Passwordless SSO: workspace-origin handoff then /flolah-crm-sso (tokenPair in iframe storage).
  */
 export function BusinessEmbedPage({ kind }) {
   const isCrm = kind === 'crm';
@@ -141,7 +141,7 @@ export function BusinessEmbedPage({ kind }) {
         </button>
         {data?.open_url ? (
           <a className="btn-ghost" href={data.open_url} target="_blank" rel="noopener noreferrer">
-            Open
+            Open in new tab
           </a>
         ) : null}
         {data?.switch_account_url ? (
@@ -180,6 +180,14 @@ export function BusinessEmbedPage({ kind }) {
             {provider ? `; provider=${provider}` : ''}). {ssoHelp}
           </span>
         </div>
+      ) : null}
+
+      {isCrm && ssoOk ? (
+        <p className="page-muted" style={{ margin: '0.35rem 0.85rem', fontSize: '0.85rem' }}>
+          Signed in with your Flolah account. If Twenty still asks for email, use Open in new
+          tab — do not submit that form (it is not Flolah SSO and often fails with “error
+          occurred validating user”).
+        </p>
       ) : null}
 
       {syncResult ? (

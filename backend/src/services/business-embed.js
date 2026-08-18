@@ -344,7 +344,7 @@ export async function getCrmEmbedForOwner(ownerUserId, { flolahUser } = {}) {
         public_base: launch.public_base || null,
         note:
           launch.mode === 'login_token_sso'
-            ? 'Passwordless CRM login via Flolah session (Twenty LOGIN token + company workspace).'
+            ? 'Passwordless CRM login via Flolah session. The workspace host applies the session (localStorage + partitioned cookies) so the in-app iframe can sign in.'
             : 'Session isolation handoff only; passwordless SSO unavailable for this request.',
       };
     } catch (e) {
