@@ -21,7 +21,7 @@ On Home (`/`), **Chat with** Slow Caller. Controls are **icons** in the message 
 
 | Control | What it does | How to use |
 |---------|----------------|------------|
-| **Microphone** | Whisper → chat message | Click, allow mic, **speak**, then **pause 3 seconds**. The transcript **sends automatically**. Click the icon again to send sooner. |
+| **Microphone** | Whisper → chat message | Click, allow mic, **speak**, then **pause 3 seconds after you finish**. The 3s timer starts only after speech is heard. Click the icon again to send sooner. |
 | **Speak** checkbox | Piper reads the reply | Check it before you talk. The next assistant reply plays as audio. |
 | **Phone / Call** | Live WebRTC | **Not on Slow Caller.** Hire Realtime Caller and enable **Channels → Voice**. |
 
@@ -32,9 +32,9 @@ HTTPS is required (already true on `login.flolah.cloud`). Platform `optional-voi
 1. Home → **Chat with** Slow Caller. Hard-refresh once so you see the microphone icon (not a “Mic” text button).
 2. Check **Speak** if you want to hear the reply.
 3. Click the **microphone**. Browser asks for permission → Allow.
-4. Say a short FAQ (“what are your hours?”). Stay quiet for **3 seconds**.
+4. Say a short FAQ (“what are your hours?”). Keep the mic open while you talk; **pause 3 seconds when you finish**.
 5. Your turn appears, then the employee replies (and Piper plays if Speak is on).
-6. If you hear nothing transcribed: speak closer, wait for “Listening — pause 3s to send” to clear, then “Transcribing…”. Empty/noise shows **No speech detected**.
+6. If you hear nothing transcribed: speak closer, wait for “Listening” to clear, then “Transcribing…”. A real STT error shows that message (not a generic empty clip). Empty/noise shows **No speech detected**.
 
 ## Slow Caller — WhatsApp
 

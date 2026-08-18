@@ -163,6 +163,16 @@ app.use(
   openSearchConsoleProxy()
 );
 
+// Multipart STT must be read as raw bytes before the global JSON parser.
+// Otherwise req.body is {} and /api/speech/stt returns "No audio file in multipart body".
+app.use(
+  '/api/speech/stt',
+  express.raw({
+    type: (req) => String(req.headers['content-type'] || '').toLowerCase().includes('multipart/form-data'),
+    limit: '40mb',
+  })
+);
+
 app.use(express.json({ limit: '100mb' }));
 app.use(express.text({ type: 'text/*', limit: '10mb' }));
 

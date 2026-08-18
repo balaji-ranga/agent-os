@@ -210,7 +210,7 @@ export default function ChatComposeInput({
           </button>
           {toolbarExtra}
           <span className="chat-compose-hint">
-            {dragOver ? 'Drop files to attach' : 'Mic auto-sends after 3s silence · Shift+Enter for new line'}
+            {dragOver ? 'Drop files to attach' : 'Mic: speak, pause when done · Shift+Enter for new line'}
           </span>
         </div>
       </div>

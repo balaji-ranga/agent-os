@@ -2,8 +2,9 @@
  * Mic (Whisper STT), Speak (Piper), and live Call (WebRTC) for Agent Chat.
  * Used on Home `/` and `/agents/:id/chat` as well as embed panels.
  *
- * Mic stays clickable while recording. After 3s of silence (or click again),
- * audio is transcribed and the parent auto-sends it as a chat message.
+ * Mic stays clickable while recording. After you speak, 3s of silence (or click again)
+ * transcribes and auto-sends. Silence is measured only after speech is heard — clicking
+ * mic does not start a 3s countdown.
  * Call is shown only when that employee has an enabled Voice channel (Realtime Caller).
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -12,7 +13,19 @@ import AgentVoiceCall from './AgentVoiceCall.jsx';
 
 const SILENCE_MS = 3000;
 const MAX_RECORD_MS = 60000;
-const SPEECH_RMS = 0.02;
+const SPEECH_RMS = 0.008;
+
+function blobToBase64(blob) {
+  return blob.arrayBuffer().then((buf) => {
+    const bytes = new Uint8Array(buf);
+    let binary = '';
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    }
+    return btoa(binary);
+  });
+}
 
 function analyserRms(analyser, buf) {
   analyser.getByteTimeDomainData(buf);
@@ -34,17 +47,12 @@ export function useChatVoice({ agentId, sending, setError }) {
   const chunksRef = useRef([]);
   const speakAudioRef = useRef(null);
   const onTranscriptRef = useRef(null);
-  const silenceTimerRef = useRef(null);
   const maxTimerRef = useRef(null);
   const pollRef = useRef(null);
   const audioCtxRef = useRef(null);
   const streamRef = useRef(null);
 
   const clearWatchers = useCallback(() => {
-    if (silenceTimerRef.current) {
-      clearTimeout(silenceTimerRef.current);
-      silenceTimerRef.current = null;
-    }
     if (maxTimerRef.current) {
       clearTimeout(maxTimerRef.current);
       maxTimerRef.current = null;
@@ -138,15 +146,21 @@ export function useChatVoice({ agentId, sending, setError }) {
       setTranscribing(true);
       setError?.(null);
       try {
-        const form = new FormData();
-        form.append('file', blob, 'voice.webm');
-        const r = await api.speechStt(form);
+        const contentBase64 = await blobToBase64(blob);
+        const mimeType = blob.type || 'audio/webm';
+        const filename = mimeType.includes('ogg')
+          ? 'voice.ogg'
+          : mimeType.includes('mp4') || mimeType.includes('m4a')
+            ? 'voice.m4a'
+            : 'voice.webm';
+        const r = await api.speechStt({ contentBase64, filename, mimeType });
         const text = String(r.text || '').trim();
-        console.info('[chat] mic transcribed chars=%s', text.length);
+        console.info('[chat] mic transcribed chars=%s bytes=%s', text.length, blob.size);
         return text;
       } catch (e) {
+        console.warn('[chat] mic transcribe failed', e?.message || e);
         setError?.(e.message || 'Transcription failed');
-        return '';
+        throw e;
       } finally {
         setTranscribing(false);
       }
@@ -161,6 +175,7 @@ export function useChatVoice({ agentId, sending, setError }) {
       if (rec && rec.state !== 'inactive') {
         console.info('[chat] mic stop reason=%s', reason);
         try {
+          if (typeof rec.requestData === 'function') rec.requestData();
           rec.stop();
         } catch {
           /* ignore */
@@ -174,29 +189,39 @@ export function useChatVoice({ agentId, sending, setError }) {
   const startSilenceWatch = useCallback(
     (stream) => {
       let lastSpeechAt = 0;
-      const startedAt = Date.now();
+      maxTimerRef.current = setTimeout(() => finishRecording('max'), MAX_RECORD_MS);
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) {
+        console.warn('[chat] mic: no AudioContext — click the microphone to send');
+        return;
+      }
+      const ctx = new Ctx();
+      audioCtxRef.current = ctx;
       try {
-        const Ctx = window.AudioContext || window.webkitAudioContext;
-        if (!Ctx) throw new Error('no-audio-context');
-        const ctx = new Ctx();
-        audioCtxRef.current = ctx;
-        void ctx.resume?.();
         const source = ctx.createMediaStreamSource(stream);
         const analyser = ctx.createAnalyser();
         analyser.fftSize = 2048;
+        analyser.smoothingTimeConstant = 0.2;
         source.connect(analyser);
         const buf = new Uint8Array(analyser.fftSize);
-        pollRef.current = setInterval(() => {
-          const rms = analyserRms(analyser, buf);
-          const now = Date.now();
-          if (rms >= SPEECH_RMS) lastSpeechAt = now;
-          const quietFor = lastSpeechAt ? now - lastSpeechAt : now - startedAt;
-          if (quietFor >= SILENCE_MS) finishRecording(lastSpeechAt ? 'silence' : 'no-speech');
-        }, 120);
-      } catch {
-        silenceTimerRef.current = setTimeout(() => finishRecording('fallback-3s'), SILENCE_MS);
+        const beginPoll = () => {
+          pollRef.current = setInterval(() => {
+            const rms = analyserRms(analyser, buf);
+            const now = Date.now();
+            if (rms >= SPEECH_RMS) lastSpeechAt = now;
+            if (!lastSpeechAt) return;
+            if (now - lastSpeechAt >= SILENCE_MS) finishRecording('silence');
+          }, 100);
+        };
+        const start = ctx.resume?.();
+        if (start && typeof start.then === 'function') {
+          start.then(beginPoll).catch(beginPoll);
+        } else {
+          beginPoll();
+        }
+      } catch (e) {
+        console.warn('[chat] mic analyser unavailable', e?.message || e);
       }
-      maxTimerRef.current = setTimeout(() => finishRecording('max'), MAX_RECORD_MS);
     },
     [finishRecording]
   );
@@ -226,9 +251,13 @@ export function useChatVoice({ agentId, sending, setError }) {
           clearWatchers();
           stopStream();
           const blob = new Blob(chunksRef.current, { type: rec.mimeType || 'audio/webm' });
-          const text = await transcribeBlob(blob);
-          if (text) onTranscriptRef.current?.(text);
-          else setError?.('No speech detected — click the microphone and speak, then pause.');
+          try {
+            const text = await transcribeBlob(blob);
+            if (text) onTranscriptRef.current?.(text);
+            else setError?.('No speech detected — click the microphone, speak, then pause when you finish.');
+          } catch {
+            /* transcribeBlob already setError */
+          }
         };
         mediaRecRef.current = rec;
         rec.start(250);
@@ -310,8 +339,8 @@ export function ChatVoiceBar({
         onClick={onMic}
         title={
           recording
-            ? 'Stop now (or pause 3 seconds to auto-send)'
-            : 'Microphone: speak, pause 3 seconds, message sends automatically'
+            ? 'Stop now (or pause 3 seconds after you finish speaking)'
+            : 'Microphone: speak, then pause 3 seconds after you finish — message sends automatically'
         }
         aria-label={micLabel}
         aria-pressed={recording}
@@ -330,7 +359,7 @@ export function ChatVoiceBar({
           <CallIcon />
         </button>
       ) : null}
-      {recording ? <span className="chat-compose-listening">Listening — pause 3s to send</span> : null}
+      {recording ? <span className="chat-compose-listening">Listening — pause after you finish</span> : null}
       {transcribing ? <span className="chat-compose-listening">Transcribing…</span> : null}
       <label className="chat-compose-speak" title="Play assistant replies with Piper TTS">
         <input

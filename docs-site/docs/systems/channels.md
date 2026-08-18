@@ -14,7 +14,7 @@ Open the employee → **Channels** and complete the wizard. Tokens stay in your 
 - **Group chats are ignored by default.** Enable groups in the wizard only if you intend to.
 - Replies start with **From:** the employee name.
 - The COO can act as a personal assistant: text and voice notes in, readable text plus optional voice note out.
-- **Slow Caller** uses this path (not a live phone call). Test: pair QR, send text, then a voice note. Web test: Home microphone icon, speak, pause 3 seconds.
+- **Slow Caller** uses this path (not a live phone call). Test: pair QR, send text, then a voice note. Web test: Home microphone icon, speak, pause 3 seconds after you finish.
 - Inbound files appear under Knowledge / inbound attachments and Content Explorer.
 
 ## Slack

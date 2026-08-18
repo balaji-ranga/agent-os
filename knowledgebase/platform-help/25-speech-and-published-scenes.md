@@ -31,7 +31,7 @@ Env (written by `ensure-voice-env.sh` if missing — see `deploy/.env.example`):
 
 ### Agent Chat
 
-- **Microphone** (compose toolbar, next to paperclip) — records audio → `POST /api/speech/stt` → **auto-sends** after **3 seconds of silence** (or click the icon again). Same control on Home (`/`) after **Chat with** Slow Caller.
+- **Microphone** (compose toolbar, next to paperclip) — records audio → `POST /api/speech/stt` → **auto-sends** after **3 seconds of silence after you speak** (or click the icon again). Clicking mic does not start the 3s countdown. Same control on Home (`/`) after **Chat with** Slow Caller.
 - **Speak** (Piper) — `POST /api/speech/tts` for the last assistant message (not ElevenLabs). Check **Speak** before you talk.
 
 ### Content tools + WhatsApp

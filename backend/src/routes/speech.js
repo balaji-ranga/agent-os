@@ -27,7 +27,18 @@ function parseMultipartFile(rawBody, contentType) {
   boundary = boundary.replace(/^"|"$/g, '');
   if (!boundary) throw Object.assign(new Error('Invalid multipart boundary'), { status: 400 });
 
-  const body = Buffer.isBuffer(rawBody) ? rawBody : Buffer.from(rawBody || []);
+  if (!Buffer.isBuffer(rawBody)) {
+    throw Object.assign(
+      new Error('Audio upload was not read as bytes. Retry the microphone, or send JSON contentBase64.'),
+      { status: 400 }
+    );
+  }
+  const body = rawBody;
+  if (!body.length) {
+    throw Object.assign(new Error('Empty audio upload — speak, then pause after you finish (or click the mic to send).'), {
+      status: 400,
+    });
+  }
   const delim = Buffer.from('--' + boundary);
   const parts = [];
   let start = body.indexOf(delim);
@@ -87,13 +98,13 @@ async function resolveSttAudio(owner, req) {
     };
   }
 
-  if (body.contentBase64) {
-    const buffer = Buffer.from(String(body.contentBase64), 'base64');
+  if (body.contentBase64 || body.content_base64) {
+    const buffer = Buffer.from(String(body.contentBase64 || body.content_base64), 'base64');
     if (!buffer.length) throw Object.assign(new Error('empty contentBase64'), { status: 400 });
     return {
       buffer,
       filename: body.filename || 'audio.webm',
-      mimeType: body.mimeType || 'audio/webm',
+      mimeType: body.mimeType || body.mime_type || 'audio/webm',
     };
   }
 
@@ -119,6 +130,12 @@ router.post(
       const owner = ownerOr403(req, res);
       if (!owner) return;
       const { buffer, filename, mimeType } = await resolveSttAudio(owner, req);
+      console.info('[speech] STT inbound', {
+        owner,
+        bytes: buffer?.length || 0,
+        filename,
+        mime: String(mimeType || '').slice(0, 48),
+      });
       const maxMb = Number(process.env.MEDIA_ARTIFACT_MAX_MB || 40);
       if (buffer.length > maxMb * 1024 * 1024) {
         return res.status(413).json({ error: 'Audio exceeds ' + maxMb + 'MB limit' });
