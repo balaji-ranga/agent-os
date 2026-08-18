@@ -314,6 +314,22 @@ router.get('/embed/crm', async (req, res) => {
     const ownerUserId = ownerOf(req);
     const flolahUser = embedActorUser(req, ownerUserId);
     const embed = await getCrmEmbedForOwner(ownerUserId, { flolahUser });
+    try {
+      const parsed = embed.iframe_url ? new URL(embed.iframe_url) : null;
+      const hasLt = Boolean(
+        parsed && (parsed.searchParams.has('lt') || /[#&]lt=/.test(embed.iframe_url || ''))
+      );
+      console.info(
+        '[business-core] embed/crm owner=%s mode=%s host=%s has_lt=%s ok=%s',
+        String(ownerUserId || '').slice(0, 32),
+        embed.sso?.mode || '?',
+        parsed?.hostname || 'none',
+        hasLt,
+        embed.sso?.ok !== false
+      );
+    } catch {
+      /* ignore url parse */
+    }
     let stack_status = null;
     try {
       stack_status = (await getBusinessCoreStackStatus()).crm;

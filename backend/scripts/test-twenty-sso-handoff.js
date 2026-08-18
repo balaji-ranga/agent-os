@@ -16,6 +16,7 @@ import {
   persistTwentySsoBrowserTokens,
   consumeTwentySsoBrowserToken,
   buildVerifyNextPath,
+  buildCrmHandoffUrl,
 } from '../src/services/twenty-sso.js';
 
 function assert(cond, msg) {
@@ -75,6 +76,18 @@ try {
     buildVerifyNextPath('abc.def.ghi') === '/verify?loginToken=abc.def.ghi',
     'verify next path encodes loginToken'
   );
+
+  const sampleTok = 'aaa.bbb.ccc';
+  const hu = new URL(
+    buildCrmHandoffUrl('https://wise-test.crm.example.com', owner, '/verify', {
+      wipe: true,
+      loginToken: sampleTok,
+    })
+  );
+  assert(hu.searchParams.get('next') === '/verify', 'handoff next is /verify only');
+  assert(hu.searchParams.get('lt') === sampleTok, 'handoff lt is top-level');
+  assert(!String(hu.searchParams.get('next') || '').includes('loginToken'), 'loginToken not nested in next');
+  assert(hu.hash.includes(sampleTok), 'handoff hash carries loginToken');
 
   console.log('PASS: twenty sso handoff tokens', { suffix });
 } finally {

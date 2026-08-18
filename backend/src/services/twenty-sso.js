@@ -4,7 +4,8 @@
  * Mints Twenty LOGIN JWTs with the same legacy HS256 secret derivation the
  * server verifies (SHA256 of APP_SECRET + workspaceId + "LOGIN"), exchanges
  * them server-side (membership proof), then routes the browser through
- * /flolah-handoff wipe → Twenty /verify?loginToken= on the workspace origin.
+ * /flolah-handoff wipe → Twenty /verify?loginToken= on the workspace origin
+ * (login JWT is a top-level `lt` query param, not nested inside `next`).
  * Twenty v2.29 stores the pair in memory + localStorage on that page.
  * A separate apply HTML that only writes localStorage then goes to / does
  * not SSO in the Flolah iframe (third-party storage) and skips /verify.
@@ -401,8 +402,8 @@ export function consumeTwentySsoBrowserToken(token, opts = {}) {
 /** Workspace-origin wipe, then Twenty's own /verify (sets token pair in the SPA). */
 function handoffUrlsForLoginVerify(base, owner, iframeLogin, openLogin) {
   return {
-    iframe_url: handoffUrl(base, owner, buildVerifyNextPath(iframeLogin), { wipe: true }),
-    open_url: handoffUrl(base, owner, buildVerifyNextPath(openLogin), { wipe: true }),
+    iframe_url: handoffUrl(base, owner, '/verify', { wipe: true, loginToken: iframeLogin }),
+    open_url: handoffUrl(base, owner, '/verify', { wipe: true, loginToken: openLogin }),
   };
 }
 
@@ -901,7 +902,11 @@ export async function buildCrmSsoHandoff(ownerUserId, opts = {}) {
   }
 }
 
-function handoffUrl(base, owner, nextPath, { wipe = false, logout = false, t = '' } = {}) {
+export function buildCrmHandoffUrl(base, owner, nextPath, opts = {}) {
+  return handoffUrl(base, owner, nextPath, opts);
+}
+
+function handoffUrl(base, owner, nextPath, { wipe = false, logout = false, t = '', loginToken = '' } = {}) {
   // base may be origin only
   const root = strip(base).replace(/\/+$/, '');
   if (!root) return '';
@@ -911,7 +916,12 @@ function handoffUrl(base, owner, nextPath, { wipe = false, logout = false, t = '
   if (wipe || logout) q.set('wipe', '1');
   if (logout) q.set('logout', '1');
   if (t) q.set('t', strip(t));
-  return `${root}/flolah-handoff/?${q.toString()}`;
+  // Own query + hash — do not nest /verify?loginToken= inside next (browsers split on ?).
+  const tok = strip(loginToken);
+  if (tok) q.set('lt', tok);
+  const url = `${root}/flolah-handoff/?${q.toString()}`;
+  if (tok) return `${url}#lt=${encodeURIComponent(tok)}`;
+  return url;
 }
 
 /**
