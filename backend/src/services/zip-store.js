@@ -142,6 +142,47 @@ export function extractZipEntryBySuffix(zipBuf, suffix) {
   return null;
 }
 
+/**
+ * List zip entries as utf8 text (for secret scans). Skips unreadable/binary names.
+ * @param {Buffer} zipBuf
+ * @returns {Array<{ name: string, text: string }>}
+ */
+export function listZipUtf8Entries(zipBuf) {
+  const out = [];
+  if (!Buffer.isBuffer(zipBuf) || zipBuf.length < 30) return out;
+  let offset = 0;
+  while (offset + 30 <= zipBuf.length) {
+    const sig = zipBuf.readUInt32LE(offset);
+    if (sig === 0x02014b50 || sig === 0x06054b50) break;
+    if (sig !== 0x04034b50) {
+      offset += 1;
+      continue;
+    }
+    const method = zipBuf.readUInt16LE(offset + 8);
+    const compSize = zipBuf.readUInt32LE(offset + 18);
+    const nameLen = zipBuf.readUInt16LE(offset + 26);
+    const extraLen = zipBuf.readUInt16LE(offset + 28);
+    const nameStart = offset + 30;
+    const name = zipBuf.slice(nameStart, nameStart + nameLen).toString('utf8').replace(/\\/g, '/');
+    const dataStart = nameStart + nameLen + extraLen;
+    const dataEnd = dataStart + compSize;
+    if (dataEnd > zipBuf.length) break;
+    if (!name.endsWith('/')) {
+      try {
+        const compressed = zipBuf.slice(dataStart, dataEnd);
+        let raw = compressed;
+        if (method === 8) raw = inflateRawSync(compressed);
+        else if (method !== 0) raw = compressed;
+        out.push({ name, text: raw.toString('utf8') });
+      } catch {
+        /* skip binary / corrupt entry */
+      }
+    }
+    offset = dataEnd;
+  }
+  return out;
+}
+
 export function contentSha256(buf) {
   return createHash('sha256').update(buf).digest('hex');
 }

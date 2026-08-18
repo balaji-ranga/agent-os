@@ -288,6 +288,8 @@ check "PLATFORM_LOG_LEVEL in compose" grep -q 'PLATFORM_LOG_LEVEL' "$ROOT/deploy
 check "secret redaction util" test -f "$ROOT/backend/src/utils/redact-secrets.js"
 check "redaction unit tests" test -f "$ROOT/backend/scripts/test-security-hardening-unit.js"
 check "blueprint secret sanitize tests" test -f "$ROOT/backend/scripts/test-blueprint-secret-sanitize.js"
+check "blueprint secret scan script" test -f "$ROOT/backend/scripts/scan-blueprint-secrets.js"
+check "github blueprint secret scan workflow" test -f "$ROOT/.github/workflows/blueprint-secret-scan.yml"
 check "blueprint secret sanitize module" test -f "$ROOT/backend/src/services/company-blueprints/secret-sanitize.js"
 check "help doc: scheduled goals" test -f "$ROOT/knowledgebase/platform-help/28-scheduled-goals.md"
 check "help doc: company setup" test -f "$ROOT/knowledgebase/platform-help/29-company-setup.md"
@@ -453,7 +455,9 @@ if (!platformHelp) throw new Error('platformhelp agent missing from agents table
 if (helpGrants < 2) throw new Error('platformhelp missing master_data_rag / list_documents grants');
 NODE
 
-echo "==> platform-help image + OpenSearch RAG smoke"
+echo "==> blueprint secret scan (committed packs + export zips)"
+docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-blueprint-secret-sanitize.js
+docker compose exec -T -w /opt/agent-os/backend backend node scripts/scan-blueprint-secrets.js
 docker compose exec -T backend sh -c 'test -f /opt/agent-os/knowledgebase/platform-help/07-workflow-nodes-reference.md'
 docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-opensearch-rag-smoke.js
 # Legacy per-CEO SQLite help smoke may WARN after OpenSearch migration — keep soft.

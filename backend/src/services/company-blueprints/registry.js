@@ -8,7 +8,12 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { getDb } from '../../db/schema.js';
 import { buildZipBuffer } from '../zip-store.js';
-import { sanitizeBlueprintSecrets, cloneAndSanitizeBlueprint, findResidualLiveSecrets } from './secret-sanitize.js';
+import {
+  sanitizeBlueprintSecrets,
+  cloneAndSanitizeBlueprint,
+  findResidualLiveSecrets,
+  assertNoResidualLiveSecrets,
+} from './secret-sanitize.js';
 import { overlayTestedVideoStudio } from './video-content-pack.js';
 import { overlayTestedIbkrWorkflows } from './ibkr-trading-pack.js';
 
@@ -755,6 +760,7 @@ export function buildCompanyBlueprintExportZip(blueprintId) {
   // Second scrub pass for defense-in-depth (in case of future mutations)
   const { value: bp, stats: zipScrub } = cloneAndSanitizeBlueprint(pack.blueprint);
   const residual = findResidualLiveSecrets(bp);
+  assertNoResidualLiveSecrets(bp, `blueprint zip export ${blueprintId}`);
   const coverage = {
     knowledge: Array.isArray(bp.knowledge_tables) && bp.knowledge_tables.length > 0,
     policies: !!(bp.policy_text || Object.keys(bp.policy_templates || {}).length),
@@ -788,13 +794,6 @@ export function buildCompanyBlueprintExportZip(blueprintId) {
     note:
       'Live API keys, tokens, and passwords redacted. Vault *Ref and {{template}} placeholders retained for re-bind.',
   };
-  if (residual.length) {
-    console.warn(
-      '[company-blueprints] zip residual secret patterns id=%s findings=%s',
-      meta.id,
-      residual.join(',')
-    );
-  }
   const safe =
     String(meta.id || 'blueprint')
       .toLowerCase()
@@ -909,7 +908,6 @@ export function publishBlueprintFromPayload(
   const { value: cleanPayload, stats: scrubStats } = cloneAndSanitizeBlueprint(
     payload && typeof payload === 'object' ? payload : {}
   );
-  const residualPre = findResidualLiveSecrets(cleanPayload);
   if (scrubStats.cleared || scrubStats.scrubbed) {
     console.info(
       '[company-blueprints] publish scrub cleared=%s scrubbed=%s by=%s',
@@ -918,12 +916,7 @@ export function publishBlueprintFromPayload(
       actor?.id || published_by || 'system'
     );
   }
-  if (residualPre.length) {
-    console.warn(
-      '[company-blueprints] publish residual secret patterns before normalize findings=%s',
-      residualPre.join(',')
-    );
-  }
+  assertNoResidualLiveSecrets(cleanPayload, 'blueprint publish (pre-normalize)');
 
   const provisionalId =
     forcedId ||
@@ -968,6 +961,7 @@ export function publishBlueprintFromPayload(
   const packScrub = { cleared: 0, scrubbed: 0 };
   sanitizeBlueprintSecrets(pack, packScrub);
   const residual = findResidualLiveSecrets(pack);
+  assertNoResidualLiveSecrets(pack, `blueprint publish ${id || title}`);
 
   const db = getDb();
   if (set_default) {

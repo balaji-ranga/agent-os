@@ -26,6 +26,7 @@ export {
   sanitizeBlueprintSecrets,
   cloneAndSanitizeBlueprint,
   findResidualLiveSecrets,
+  assertNoResidualLiveSecrets,
 } from './secret-sanitize.js';
 
 // Lazy COMPAN_TYPE_CARDS for any legacy read of the constant

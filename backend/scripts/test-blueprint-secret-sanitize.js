@@ -11,6 +11,7 @@ import {
   cloneAndSanitizeBlueprint,
   findResidualLiveSecrets,
   looksLikeLiveSecret,
+  assertNoResidualLiveSecrets,
 } from '../src/services/company-blueprints/secret-sanitize.js';
 
 const FAKE_OPENAI = 'sk-proj-EXAMPLEKEYNOTREAL000000000000';
@@ -66,5 +67,15 @@ assert.doesNotMatch(packTxt, /@smtp-brevo\.com/);
 
 sanitizeBlueprintSecrets(pack);
 assert.deepEqual(findResidualLiveSecrets(pack), []);
+
+assert.throws(
+  () =>
+    assertNoResidualLiveSecrets(
+      { taskConfig: { smtpPass: FAKE_BREVO_SMTP, apiKey: FAKE_OPENAI } },
+      'unit'
+    ),
+  (err) => err?.code === 'blueprint_secrets_residual' && err.status === 400
+);
+assert.deepEqual(assertNoResidualLiveSecrets({ apiKey: '', smtpPass: '' }, 'unit'), []);
 
 console.log('OK blueprint secret sanitize unit checks');

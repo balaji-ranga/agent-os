@@ -128,6 +128,11 @@ if (Test-Path "$Repo\THIRD_PARTY_NOTICES.md") {
 if (Test-Path "$Repo\LICENSE") {
   scp @ssh "$Repo\LICENSE" "root@${HostIp}:$RemoteRoot/"
 }
+Write-Host "==> Sync GitHub blueprint secret-scan workflow"
+ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/.github/workflows"
+if (Test-Path "$Repo\.github\workflows\blueprint-secret-scan.yml") {
+  scp @ssh "$Repo\.github\workflows\blueprint-secret-scan.yml" "root@${HostIp}:$RemoteRoot/.github/workflows/"
+}
 scp @ssh -r "$Repo\frontend\src" "root@${HostIp}:$RemoteRoot/frontend/"
 if (Test-Path "$Repo\frontend\public") {
   scp @ssh -r "$Repo\frontend\public" "root@${HostIp}:$RemoteRoot/frontend/"
@@ -407,6 +412,8 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-content-ops-org-e2e.js" `
     "$Repo\backend\scripts\republish-content-ops-blueprint.js" `
     "$Repo\backend\scripts\validate-company-blueprint-export.mjs" `
+    "$Repo\backend\scripts\scan-blueprint-secrets.js" `
+    "$Repo\backend\scripts\test-blueprint-secret-sanitize.js" `
     "$Repo\backend\scripts\bootstrap-content-publish-phase01.js" `
     "$Repo\backend\scripts\bootstrap-education-demo-ceo.js" `
     "$Repo\backend\scripts\e2e-content-publish-social-li.js" `

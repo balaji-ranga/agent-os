@@ -37,7 +37,7 @@ New CEOs may be asked to complete or skip setup before using the rest of the pro
 
 Apply **creates or extends** departments and AI employees from the selected blueprint. It does **not** wipe an existing org by default. You can re-run later to add a pack.
 
-Published industry packs are templates: they must not contain live API keys, SMTP passwords, or SMTP account logins. Email workflow nodes bind to platform SMTP (`WORKFLOW_SMTP_*`) after install.
+Published industry packs are templates: they must not contain live API keys, SMTP passwords, or SMTP account logins. Email workflow nodes bind to platform SMTP (`WORKFLOW_SMTP_*`) after install. Admin **publish** and **export zip** refuse to complete if any live key pattern remains after scrub.
 
 Optional CRM/ERP on the systems step (or later on **Profile**):
 

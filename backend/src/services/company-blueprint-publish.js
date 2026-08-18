@@ -27,12 +27,14 @@ import {
   isAllowlistedSecretPlaceholder,
   looksLikeLiveSecret,
   isSecretishBlueprintKey,
+  findResidualLiveSecrets,
 } from './company-blueprints/secret-sanitize.js';
 export {
   sanitizeBlueprintSecrets,
   isAllowlistedSecretPlaceholder,
   looksLikeLiveSecret,
   isSecretishBlueprintKey,
+  findResidualLiveSecrets,
 } from './company-blueprints/secret-sanitize.js';
 
 /** Workspace MD keys exported into agents_md.files (ops is AGENT-OS-OPS.md). */
@@ -1251,6 +1253,16 @@ export function validateContentBlueprintPayload(payload, { expectedCompanyHint =
     ok: !!(d01.day0 && d01.day1),
     detail: JSON.stringify(d01).slice(0, 200),
   });
+
+  const secretFindings = findResidualLiveSecrets(p);
+  checks.push({
+    id: 'no_live_secrets',
+    ok: secretFindings.length === 0,
+    detail: secretFindings.length ? secretFindings.join(',') : 'clean',
+  });
+  if (secretFindings.length) {
+    issues.push(`Live secret patterns remain after scrub: ${secretFindings.join(', ')}`);
+  }
 
   return {
     ok: issues.length === 0,

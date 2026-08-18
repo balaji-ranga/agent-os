@@ -165,5 +165,27 @@ export function findResidualLiveSecrets(value) {
   if (/"apiKey"\s*:\s*"(?!\{\{)[^"]{12,}"/.test(txt)) findings.push('apiKey-nonempty');
   if (/"bearerToken"\s*:\s*"(?!\{\{)[^"]{12,}"/i.test(txt)) findings.push('bearerToken-nonempty');
   if (/"smtpPass"\s*:\s*"(?!\{\{)[^"]{8,}"/.test(txt)) findings.push('smtpPass-nonempty');
+  if (/"smtpUser"\s*:\s*"(?!\{\{)[^"]{3,}"/.test(txt)) findings.push('smtpUser-nonempty');
   return findings;
+}
+
+/**
+ * Fail closed: never persist / zip / commit a blueprint that still matches live key patterns.
+ * Finding labels only — never include secret values in the error.
+ * @param {any} value
+ * @param {string} [context]
+ * @returns {string[]}
+ */
+export function assertNoResidualLiveSecrets(value, context = 'blueprint') {
+  const findings = findResidualLiveSecrets(value);
+  if (!findings.length) return findings;
+  const err = new Error(
+    `${context} still contains secret patterns after scrub (${findings.join(
+      ', '
+    )}). Refusing to publish, export, or write source packs.`
+  );
+  err.status = 400;
+  err.code = 'blueprint_secrets_residual';
+  err.findings = findings;
+  throw err;
 }
