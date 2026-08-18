@@ -108,4 +108,4 @@ A solo CEO can hire (provision) specialists, ask the COO to get work done, see i
 
 ---
 
-*Related: [`AI-COMPANY-OS.md`](./AI-COMPANY-OS.md) (messaging + primitives), [`PITCH.md`](./PITCH.md) (one-pager), root [`README.md`](../README.md) (product entry), [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) (roadmap history), [`platform-help/`](./platform-help/) (CEO how-to).*
+*Related: [`AI-COMPANY-OS.md`](./AI-COMPANY-OS.md) (messaging + primitives), [`PITCH.md`](./PITCH.md) (one-pager), [`PROJECT.md`](./PROJECT.md) (full product/API map), root [`README.md`](../README.md) (landing), [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) (roadmap history), [`platform-help/`](./platform-help/) (CEO how-to).*

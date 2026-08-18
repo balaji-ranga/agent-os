@@ -1,11 +1,11 @@
 # Third-party / open-source notices
 
-Flolah (Agent OS) is a **commercial product**. See repository root [`LICENSE`](./LICENSE). This file attributes **open-source and third-party software** that Flolah embeds, ships in container images, or runs as optional sidecars. Those projects remain under **their own licenses**. Using hosted Flolah does **not** grant rights to Flolah proprietary source.
+Flolah (Agent OS) application code is licensed under the **Apache License 2.0** — see repository root [`LICENSE`](./LICENSE) and [`NOTICE`](./NOTICE). This file attributes **other open-source and third-party software** that Flolah embeds, ships in container images, or runs as optional sidecars. Those projects remain under **their own licenses**. Hosted [flolah.cloud](https://flolah.cloud) is also governed by the site Terms of Service.
 
 **User-facing summary:** `/legal/open-source.html` (marketing + login hosts).  
 **This file:** engineering attribution, Apache NOTICE reproduction, and named first-party dependencies.
 
-Last reviewed: **2026-08-17**. Licenses below are the upstream SPDX / project licenses as of that date. Confirm the tag or lockfile you actually run if you need a compliance snapshot.
+Last reviewed: **2026-08-18**. Licenses below are the upstream SPDX / project licenses as of that date. Confirm the tag or lockfile you actually run if you need a compliance snapshot.
 
 ## Scope
 
@@ -19,7 +19,7 @@ Provider and app **names, trademarks, logos, and APIs** belong to their owners. 
 
 ## Product license
 
-Flolah application code, branding, and proprietary services: see [`LICENSE`](./LICENSE). Open-source components listed here keep their respective licenses.
+Flolah application code: **Apache-2.0** ([`LICENSE`](./LICENSE), [`NOTICE`](./NOTICE)). Components listed here keep their respective licenses. Branding and trademarks are not licensed for confusingly similar products except as Apache §6 allows.
 
 ---
 
@@ -148,7 +148,7 @@ OpenClaw’s own `THIRD_PARTY_NOTICES.md` covers code it incorporates. Playwrigh
 
 ## 5. Optional Business Core (copyleft)
 
-These run only with `docker-compose.business-core.yml` profiles. **Copyleft applies to those programs**, not to Flolah proprietary code that talks to them over HTTP/SSO.
+These run only with `docker-compose.business-core.yml` profiles. **Copyleft applies to those programs**, not to Flolah Apache-2.0 code that talks to them over HTTP/SSO.
 
 | Component | Image / upstream | License | Notes |
 |-----------|------------------|---------|-------|
@@ -243,7 +243,7 @@ Licenses taken from each package’s `package-lock.json` (or declared license wh
 | Name | License | Role |
 |------|---------|------|
 | **Model Context Protocol (MCP)** | Apache-2.0 · [modelcontextprotocol.io](https://modelcontextprotocol.io/) | MCP servers and workflow MCP nodes |
-| **A2A** (Agent-to-Agent HTTP) | Protocol docs as published by upstream; Flolah’s implementation is proprietary | AgentExchange |
+| **A2A** (Agent-to-Agent HTTP) | Protocol docs as published by upstream; Flolah’s implementation is Apache-2.0 with this repository | AgentExchange |
 
 ---
 

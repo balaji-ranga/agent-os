@@ -82,4 +82,4 @@ The metaphor stays clear: *an AI company*—not a pile of anonymous jobs. One pe
 
 See Flolah as the **home base** where AI-native companies are built, operated, audited, and offered outward as first-class protocol services—so a one-person company can operate like a team.
 
-*Vision: [`VISION.md`](./VISION.md) · Messaging & primitives: [`AI-COMPANY-OS.md`](./AI-COMPANY-OS.md) · Product entry: [`../README.md`](../README.md)*
+*Vision: [`VISION.md`](./VISION.md) · Messaging & primitives: [`AI-COMPANY-OS.md`](./AI-COMPANY-OS.md) · Full map: [`PROJECT.md`](./PROJECT.md) · Landing: [`../README.md`](../README.md)*

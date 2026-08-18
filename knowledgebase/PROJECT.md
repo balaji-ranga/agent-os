@@ -1,0 +1,719 @@
+﻿# Flolah — AI Company OS (full project guide)
+
+This is the **long-form** product, API, and repo map. It used to live at the repository root so GitHub’s landing page stayed short. **Landing README:** [`../README.md`](../README.md).
+
+Paths such as `backend/` and `deploy/` are from the **repository root**. Sibling docs in this folder are linked relatively.
+
+**Flolah (Automate, Innovate, Elevate)** is the **AI Company OS**: hire and run digital employees (AI workers) on **AgentSystem** with org structure, human–AI chat, workspace identity docs, **custom visual workflows**, **AgentExchange (A2A)**, **Job Applicant pipeline**, **MCP integrations**, Kanban, standups, content tools, and multi-tenant CEO isolation. Metadata is stored in a **lightweight SQLite** database.
+
+> **Messaging, terminology, and OS primitives:** [`AI-COMPANY-OS.md`](./AI-COMPANY-OS.md)  
+> Browser tab title: **Flolah — AI Company OS**. Login: **Sign in to run your AI company**.
+
+When you register as a CEO, Flolah automatically sets up your standard AI employees (including **Platform Help** and **Workflow Builder**), a starter **departments** list, and indexes the **Flolah User Guide** plus **Platform Help** into the **shared platform** OpenSearch corpus so employees can look them up via `master_data_rag` (specialists merge that corpus with your own uploads; the Master Data UI lists your uploads only).
+
+---
+
+## Using Flolah — guide for CEOs (from the UI)
+
+This section is a short overview. For the complete end-user guide (navigation, every workflow node, input/output mapping, MCP, A2A, Job pipeline, troubleshooting), use:
+
+- **In-app:** chat with the **Platform Help** agent (`platformhelp`) — it searches Master Data help docs with `master_data_rag`.
+- **Public docs (no login):** [https://flolah.cloud/docs/](https://flolah.cloud/docs/) (Docusaurus; same guide on the login host at `/docs/`).
+- **Source:** [`docs-site/`](../docs-site/README.md) (public) and [`platform-help/`](./platform-help/README.md) (in-app RAG).
+
+You do not need to know APIs or Docker for everyday use.
+
+### Sign in and first look
+
+1. Open **https://login.flolah.cloud** (or **Register** if you are new). Marketing site is **https://flolah.cloud**.
+2. If your org requires **authenticator (TOTP)** MFA and you have not enrolled yet, the first login (and register) screen shows a **QR code** and the **security key**. Scan the QR with your authenticator app, or type the security key manually, then enter the 6-digit code.
+3. After login you land on **home chat** (`/`) with the **COO** selected by default. Switch agents from the **Chat with** picker. **History** and **Browser session** side panes start closed — use the icons next to **New chat** to open them. **New chat** archives the current thread; on local Ollama the archive title is heuristic so **Archiving…** does not wait on the same CPU model. Org chart and standups are under **My Org** (`/org`).
+4. The **bell** in the top bar is your notification center (agent replies and messages pushed to you).
+5. **New CEOs** may open **Company setup** first (`/company-setup`, also avatar → **Company setup**) to pick company type, mission, DNA, team pack, and management style — or skip and finish later. Platform Help guide: `knowledgebase/platform-help/29-company-setup.md`.
+
+### Company setup (first-run wizard)
+
+1. Open **Profile menu → Company setup** or go to `/company-setup`.
+2. Complete the funnel: company type → identity (name, headcount, **ISO country + region**) → mission → org DNA → preview AI employees → systems → management style → review → **Apply**.
+3. Apply provisions departments / AI employees from a blueprint pack; you can re-run later to extend (does not wipe the existing org by default).
+4. This is **not** the freeform **Onboarding Helper** page (`/onboarding`) — that is separate selective Apply chat (help doc **27**). Full Company setup FAQ: help doc **29**.
+
+### Scheduled goals (recurring CEO prompts)
+
+1. Open **Management → Scheduled goals** (`/scheduled-goals`), **or** ask the **COO** in plain language (examples: “Every weekday at 9, prepare market insights…” or “Every hour, check MAGS; notify me if down 2%”).
+2. Each goal stores a prompt plus cadence (**hourly** / daily / weekdays / weekly), local time (for hourly only the **minute** of the hour is used), perpetual or end date, target AI employee (default COO), and optional **deliver-to** (web always; WhatsApp/Slack copy the **final outcome**).
+3. Multi-intent prompts on the **COO** get a **draft execution plan** (workflows + specialty + notify). On the page: **Generate draft plan** (COO only; other employees run the prompt directly) → **Amend plan manually** (or **Build plan manually**) if intent→step mapping is wrong → **Save draft** / **Approve plan & schedule**. COO tools auto-approve. **Each schedule fire (plan mode)** creates a **new** `agr-…` from the approved step template (not chat reuse of yesterday's plan). A **Business Discovery** (or other non-COO) schedule uses **Save & schedule** — no nested CRM specialty; Act with `handoff: true` so Kanban + the orphan watcher start CRM Maker. Ad-hoc multiphase in chat: COO **`agent_goal_create`** (**async ack** — plan + `agr-…`, platform advances steps; new multiphase asks create a **new** plan unless CEO says status/continue). Digest shows last **2** plans (with run timestamps) → **View all** `/goal-plans`.
+4. **Create** and **edit** on the page (Edit → Save changes), or via COO tools. **Pause** / **Delete** stops automatic fires and **survives backend restarts**; only **active** goals run. **Run now** fires immediately. Optional **Enrich with AI** on create/edit. Optional **Also send the final outcome on WhatsApp** (Channels must be paired; unpaired skips WhatsApp).
+5. Platform master tick: `SCHEDULED_GOALS_CRON` (default every minute). CEO tools: `scheduled_goal_*` + COO multiphase `agent_goal_*`. Full guide: `knowledgebase/platform-help/28-scheduled-goals.md` and **38**. Market-condition watches ≈ scheduled check + tools + `notify_ceo` (not a real-time tick feed).
+
+### Chat with an agent
+
+1. From home chat, pick an AI employee (COO is default) — or open **Chat** from **My Org** / **AI Employees**.
+2. Type your request in plain language and send. Optionally **attach** files (paperclip) — documents/images/audio/video are stored under Knowledge and `inbound/attachments/`.
+3. When the AI employee uses tools (Master Data, notify, email, generate image/TTS, market history, **native AgentSystem `browser`**, etc.), small **tool icons** may appear under the reply so you can see what it did. Replies render markdown (**bold**, lists, code, links). Generated media plays **inline** in the chat (you must be logged in).
+4. Prefer asking the **COO** for work that should be planned or handed to a specialist (research, applications, etc.).
+5. To reach an AI employee from **WhatsApp / Slack**, open that employee’s **Channels** wizard (see Platform Help **24**). WhatsApp **group chats are ignored by default** unless you enable groups there. Agent WhatsApp replies start with **`From: {employee name}`**.
+
+### Ask Platform Help (how-to)
+
+1. Open **Chat** with **Platform Help** (home picker, My Org org chart, or AI Employees).
+2. Ask product questions in plain language (examples: “How do I register an MCP server?”, “How do I capture contacts and leads?”, “How do scheduled goals work?”, “What is Company setup?”, “What does the IF node output?”).
+3. Platform Help **answers with product steps first** via Master Data / OpenSearch RAG (`Flolah Help — …`, including Business Core **32** / **38–40**, scheduled goals **28**, company setup **29**). It may soft-recommend COO, CRM Maker, or Workflow Builder for **live data or execution**, but will not hand you off with only “talk to agent X”.
+4. For *building* or *repairing* a workflow graph, prefer **Workflow Builder** after the how-to; for standups/delegation/recurring goals or live CRM/ERP status, prefer the **COO**.
+
+### Ask the COO to delegate specialty work
+
+1. Open **Chat** with your **COO**.
+2. Describe the outcome you want (for example: research a topic, draft something, check company data).
+3. The COO matches your ask to the right specialist using each AI employee’s purpose (from org docs), starts a Kanban card, and tracks the work.
+4. Watch progress on **Kanban**; when something is ready for you, check the **bell**.
+
+Tips:
+- One clear request works best (“Research X and summarize findings”).
+- Vague “help me” messages may stay with the COO instead of going to a specialist.
+- COO-native asks (workflows, tools, Kanban, standups) usually stay with the COO.
+
+### Broadcast to several AI employees
+
+1. Open **Broadcast** from the navigation.
+2. Write a message to send to multiple AI employees (for example a status check or announcement).
+3. If you want each to **notify you** when they finish (bell), say so clearly in the message (e.g. “report status and notify me”).
+4. Review results in chats and in the **bell**.
+
+### Notifications (bell)
+
+1. Click the **bell** to see recent items (platform alerts and agent responses).
+2. Hover a short snippet to read the **full** title or message.
+3. Open the linked chat when you want to continue the conversation.
+4. Use **Clear** / dismiss to tidy items you have already handled.
+
+### Master Data (tables) and documents (RAG)
+
+1. Open **Master Data**.
+2. **Tables** — structured lists (rows and columns). Your account starts with a **departments** table (Executive, Research, Finance, and so on). Add or edit departments here; they appear when you assign agents to a department.
+3. **Documents** — upload files your agents can search (policies, guides, handbooks). New accounts include this **Flolah User Guide** plus the **Platform Help** set (`Flolah Help — …`) so agents (especially Platform Help) can answer product how-to questions.
+4. When you chat with an agent that has Master Data tools, ask in plain language (“list departments”, “what does our PTO policy say?”, “how do I publish A2A?”).
+5. Documents: upload **PDF, Word (.docx), Excel, or text** — content is extracted for keyword RAG. Reindex older office uploads from the Documents panel if needed.
+6. **Purge all uploads** (Documents panel) permanently deletes your uploaded files from the database and disk. **Platform Help** (`Flolah Help — …`) and the **Flolah User Guide** are protected — they cannot be deleted or purged (startup re-seeds them if missing).
+
+### Org chart and Resync
+
+1. On the **Dashboard**, review who reports to whom.
+2. After you add, rename, or reorganize agents, use **Resync ORG.md & AGENTS.md** so every agent’s org docs stay current (who the CEO is, peers, and who the COO may delegate to).
+3. Open an agent’s **Workspace** to review or edit personality and tool instructions (`SOUL`, `AGENTS`, `TOOLS`, etc.).
+
+### Kanban and standups
+
+1. **Kanban** — board of tasks by agent and status. Open a card for detail, artifacts, and task chat. Video storyboard CEO-approval cards include a PDF of the board on Artifacts.
+2. **Standups** — team check-ins with COO chat. Daily standups can also run on a schedule when configured by your admin.
+3. Tasks created when the COO delegates appear on the board so you can track specialty work end to end.
+4. **Run status checker** (Dashboard) — opens an HTML CEO report of what needs attention: cards awaiting you, **every failed card with its failure reason** and A2A / workflow run ids, plus recent completions. The same report is posted to your standup and emailed to you daily.
+
+### Workflows and AgentExchange
+
+1. **Workflows** — build visual automations (triggers, agents, APIs, approvals). Publish a run and watch it on Kanban.
+2. **Publish as A2A** from a published workflow to list it for others:
+   - **Visibility:** **Public** (default — listed on AgentExchange) or **Private** (public calling disabled; only COO or the org reports-to lead can invoke after **Add to org**; hidden from other CEOs).
+   - **Invoke mode:** **Sync** (HTTP holds until the run finishes, ~2 min cap) or **Async** (immediate `working` + `task.id`; poll with **`enquire-progress`** / `tasks/get`, or receive a **callback URL** webhook when the run completes/fails/cancels). Final step text: enquire/sync → **`result.parts[0].text`**; callback webhook → **`final_output`**.
+   - **Callback URL** at publish time, or per-invoke override via `params.metadata.callbackUrl` (plain JSON webhook — not A2A JSON-RPC).
+   - **Access (IP):** new listings default to **Deny all** (card, invoke, OAuth token, and enquiry return `403` until you open access). Switch to **Allow all** or an **IP whitelist** under **AgentExchange → ⋯ → Security** (ignored while Visibility is Private). IP entries are owner-scoped in the **central IP whitelist** (also **Settings → IP Whitelists**).
+   - **Auth:** **Public auth** (no token) or **Secured** (OAuth `client_id` + `client_secret` → Bearer access token; secret shown once). **Publish as new agent** or update an existing listing with `publish_id`.
+3. **AgentExchange** — browse **AI employees** (Flolah / Public, icon + published-by i-button) and workflow A2A (Public / Private / Secured). Publish employees from **AI Employees**. Workflow **Add to org** remains a leaf only; employee **Add to org** imports a copy into the buyer’s workspace + org. Card **⋯**: copy/open, **Test agent**, **Add to org**, **Security** (workflows), **Unpublish**. **Test agent** autofills sample input; workflow **owners bypass IP/OAuth/private** for testing — non-owners still hit policy. Flolah employee listings are not internet-callable. Mock callback inbox: `POST/GET /api/a2a-callback-inbox`. **Admins** see history at **`/admin/a2a-invocations`**.
+
+### Job search pipeline (optional)
+
+1. Set up a **Job profile** with preferences and resume context.
+2. Use **Job workflows** for discovery → scoring → tailoring → application, tracked on Kanban.
+3. Review candidates and applications in the Job UIs when the pipeline finds matches.
+
+### Tools, email, and “notify me”
+
+Agents you grant tools to can:
+- Send email (when mail is configured for your environment)
+- **Notify you** in the bell (`notify_ceo`)
+- Read/update Master Data and search documents
+- Move Kanban cards and trigger workflows (when allowed)
+
+Grant or revoke tools on each agent’s **Workspace → Tools access**.
+
+### Profile and AI model
+
+1. Open your **Profile**.
+2. **Appearance** (top of Profile, also Profile menu → Appearance): choose **Day** / **Night** (default) or advanced themes **Aurora Glass** (3D glass neon) / **Vivid Board** (elevated colorful boards). Saved in this browser; top-bar sun/moon still toggles Day ↔ Night.
+3. Set **country** (ISO 3166-1) and optional **region** (ISO 3166-2) from the dropdowns — same pickers as Register and Company setup. Legacy free-text values (e.g. “Singapore”) map on read and save as codes (`SG`).
+4. Choose **provider** (platform default, Ollama/DeepSeek free, or OpenAI/OpenRouter via **API Keys** → `Platform_BYOK`). Non-platform Profiles auto-seed recommended vault slots as unset.
+5. For OpenAI/OpenRouter (and optionally Ollama), also choose a **chat model** from the curated list (or a custom model id). Saving Profile syncs provider + model into AgentSystem for your tenant agents. Catalog: `GET /api/auth/llm-catalog`.
+6. Optional **per-tool model**: **Tools** → **Tools → Model** overrides Profile (or platform) model for specific BYOK-aware tools only (keys still from Profile/vault). Optional **Tools → Rate limits** sets per-user daily/monthly **call** caps for API-key tools (on top of per-agent token budgets). Help: `knowledgebase/platform-help/11-content-tools-scripts-profile.md`.
+7. Browse uploads and generated media under **Content Explorer** (`/content-explorer`).
+8. Optional: avatar → **Company setup** (`/company-setup`) for the structured company wizard (help **29**), and/or **Onboarding** / **Onboarding Helper** for freeform dept/agent proposals (help **27**).
+9. Optional: **Management → Scheduled goals** or COO chat for lasting daily/weekly prompts (help **28**).
+10. Optional (content creator): **Connectors → MCPs** for Facebook Page OAuth (help **31** setup; optional CEO App ID/secret override); publish / community / weekly ops rollup (help **30**). Ops rollup uses the **bell** (`notify_ceo`), not email.
+11. Keep MFA settings as required by your organization.
+12. Set **Data persistence** (30 / 60 / 90 / 120 / 365 days). A nightly job permanently deletes your chats, chat history, standup conversations and workflow runs older than that; **Purge aged data now** does it immediately. Watch the effect on **Efficiency View → Org → Storage (MB)**.
+
+---
+
+## What’s new (recent product highlights)
+
+> **Milestone (pre–local desktop workflow):** commit [`487f236`](https://github.com/balaji-ranga/agent-os/commit/487f236) — platform API logging (`PLATFORM_LOG_LEVEL=off|error|info`) + secret redaction. Use this as the baseline **before** local-desktop workflow changes.
+
+| Area | What you get in the UI |
+|------|-------------------------|
+| **TOTP first-login enrollment** | When MFA mode is **TOTP** and you are not enrolled yet, login and register show a **QR code** and the **security key** (copyable) plus an authenticator link. Scan or type the key, then enter the 6-digit code. Enrolled users only enter the code. |
+| **Kanban board + orphan watcher** | Default filter is **Weekly** (current week); switch **All** for every card of any age (Daily / Monthly / custom range also available). Toolbar **Agent** filter, **Select all** next to **+ New task** (no left checkbox column), **Task ID** in the detail drawer. Specialty cards stuck `in_progress` are re-pended/reinitiated every 5 minutes (`KANBAN_ORPHAN_WATCHER_CRON`) and from the delegation cron. **status_checker** reports only (does not also run the orphan watcher). **status_checker** always counts **All** ages — deleting only the Weekly slice leaves older awaiting/failed cards in the report. Deleting a card cancels its pending agent run. |
+| **Global search (Ctrl+K)** | Top-bar search: chats, agents, workflow defs, master tables/docs, **Kanban task id**, and **workflow run id** / run number (`GET /api/home/search`). Task hits open `/kanban?task=` (drawer); runs open `/workflows?run_id=`. Pure numeric queries work from 1 digit. |
+| **Kanban timezone + archived-chat activity** | Every Kanban date (board tooltips, card **Created**/**Updated**, task chat) renders in the platform timezone (`PLATFORM_TIMEZONE`, else `TZ`) with the zone shown in the board header — no raw UTC. A card's **Activity** tab now also pulls the linked agent-chat turns, so work done in a chat that was later **archived** still shows (tagged `archived`); cards with genuinely no activity say so instead of rendering blank, and a failed detail load shows an error + **Retry**. |
+| **COO status checker** | Dashboard → **Run status checker** (COO-entitled `status_checker` tool) opens an HTML CEO report: needs-attention, awaiting-you, **all failed Kanban cards of any age** with failure reason / A2A task + workflow run ids, and recent completions. Also runs daily (`COO_STATUS_CHECKER_CRON`, default 09:00) → standup chat post + HTML email. |
+| **Appearance themes** | Profile → **Appearance** (or avatar → Appearance): **Day** / **Night** defaults plus advanced **Aurora Glass** (glass + purple–pink glow) and **Vivid Board** (elevated colorful cards). Browser-local (`agent-os-theme`). Top-bar sun/moon toggles Day ↔ Night. Help: platform-help **02**. |
+| **Storage (MB)** | Efficiency View → **Org** tab shows estimated storage for your tenant (chats, standups, workflow runs, Master Data files, **OpenSearch RAG indices**, AgentSystem workspace). Click **i** for breakdown. |
+| **Admin → User Insights** | `/admin/user-insights` — platform adoption: registrations today / this week / this month, inactive (no login 7+ days), active 7 days, company setup / CRM / ERP / Connectors highlights. Admin only. Help **47**. |
+| **Company people** | **My Org → People**: invite employees (email), **CEO Delegate** vs **Member**, department placement. Members always get Home / Kanban / Profile. Kanban: everyone sees cards; members act only on same-department assignees. Efficiency **User View**. Help **45**. Public: `/docs/setup/people`. |
+| **Admin → Crons** | `/admin/crons` lists every platform cron (standup dispatcher, legacy standup, delegation queue, job pipeline, COO status checker, data retention, workflow scheduler, **CRM workspace TLS SANs**) with **Pause** / **Resume** / **Run now**. Pause state persists across restarts. |
+| **Admin → AgentSystem recovery** | Admin sidebar: diagnose gateway + CEO feeder queues; OTP privileged session (30 min) to drain queues, restart gateway, repair config / workspaces, clear sessions, remove leftover gateway crons, and toggle goal-plan recovery Kanban. Help **43**. |
+| **Platform API logging** | `PLATFORM_LOG_LEVEL=off\|error\|info` controls backend access/error logs. Keys, tokens, `Authorization` headers, passwords and MFA codes are redacted, and sensitive paths (API Keys, auth) log method + route only. |
+| **Company setup** | Profile → **Company setup** (`/company-setup`): first-run (or re-run) funnel for company type, mission, DNA, team blueprint Apply, systems, management style. Gate may redirect new CEOs until complete/skip. Help: platform-help **29**. Distinct from Onboarding Helper (**27**). |
+| **Update Company Details** | Profile avatar → **Update Company Details** (`/update-company-details`): edit mission/DNA/name/industry into Knowledge `company_memory` (creates table if needed). Help **35**. |
+| **Scheduled goals + goal plans** | Management → **Scheduled goals** (`/scheduled-goals`): recurring CEO prompts (**hourly** / daily / weekdays / weekly). Create/**edit**/list/pause/run-now or COO `scheduled_goal_*`. Optional **`deliver_to`** (`whatsapp` / `slack`) copies the **final** outcome to that employee’s bound channel (web chat always; TTS `MEDIA:` is a follow-up WhatsApp voice note). Multi-intent uses durable **`agent_goal_runs`** (`agr-…`): **async** first step, remaining steps advance on workflow/specialty terminal (watch notifies name **goal plan id + title** when bound). On **completed/failed**, a **once-only** COO chat completion nudge posts the step ladder (plus CEO bell) — `GOAL_PLAN_COO_COMPLETION_NUDGE`; plan **failed** can enqueue recovery Kanban (`GOAL_PLAN_FAILURE_KANBAN`). Chat soft-polls while `agr-…` is open. Stored plans keep workflow phrases + specialty residual (Platform Help). **UI:** Generate draft (COO only; other employees **Save & schedule** with no specialty ladder; BD Act `handoff` uses Kanban orphan watcher) → **Amend plan manually** / Build plan manually → Save draft / Approve (CEO UI draft; COO tools auto-approve). Each schedule fire (plan mode) → **new** `agr-…` (template steps only reused). Ad-hoc: **`agent_goal_create`** always **new** `agr-…` for new multiphase asks. Multiphase freeflow on **`agent_workflow_trigger`** can auto-upgrade to a plan. **`agent_tool` data steps** fill missing params from goal prose (MAG7/MAGS/tickers for `market_history`, multi-symbol multi-call). **Compositional tools** (`email_send`, …) after prior work rewrite to **`agent_continue`**. When a prior tool already produced **HTML/markdown**, the **platform sends that artifact once** via `email_send` (agent must not invent plain-text substitutes or re-send). Scheduled/goal-plan fires use a **fresh-run** prompt (no MEMORY/“already done today?” dedupe). **Workflow-terminal wakes** target the triggering orchestrator (COO / Workflow Builder / Content Orchestrator); Knowledge **`agent_workflow_notify_prefs`** allowlists wakes when rows exist (default no rows = all); unbound video/storyboard wakes prefer Content Orchestrator and are **status-only** (no digest/`status_checker`/`email_send` from the wake alone). CRM→ERP continuation still wakes COO when applicable. Parallel schedule ticks + unique AgentSystem sessions per fire. Plan intent/args LLM = owner BYOK `chatCompletions`; continue = AgentSystem agent when still needed. Workflow integer **`run_id` ≠ goal plan**. Inspect: Digest **2** plan-vs-progress **with run timestamps** + `/goal-plans`, chat Goal Plan panel, `agent_goal_*`, `GET /api/agent-goal-runs`. Env: `GOAL_PLAN_MAX_SPECIALTY`, `GOAL_PLAN_MAX_INTENTS`, `SCHEDULED_GOALS_CRON`, `SCHEDULED_GOAL_CHAT_TIMEOUT_MS`, `WORKFLOW_COO_WAKE_ON_TERMINAL`, `GOAL_PLAN_*` (all in compose backend-env). Help **28**/**38**/**19**/**41**/**42**. E2E: `npm run test:e2e:goal-plan`, `npm run test:goal-plan:async-ui` (`REGRESSION_GOAL_PLAN=0` to skip pack). |
+| **Workflow runs UI** | **Workflows → Run instances** shows **#run_number** and **run {id}**; detail panel shows **WF run id**. Fullscreen audit `/workflows/runs/:id` also lists the numeric id. Search/global search can jump by that id. Help **06**. |
+| **Home snapshot + Workspace activity** | Home Today Snapshot counts completed tasks, **completed goal plans**, and failed Kanban/goals/workflows (platform TZ day); 7d success rate blends those units. Operating Workspace / board **Recent AI activity** merges terminal Kanban, **agr-…** goals, and workflow runs with deep links. |
+| **Content creator ops** | Company Operate + `content_creator` pack: production loop, **Facebook Page** publish via platform MCP **`mcp-meta-graph`** (Connectors → MCPs OAuth; Page posts only; optional CEO App ID override), OpenConnector for other SaaS, **content-comments-ingest** + community triage, Channel Publisher **`agent_workflow_trigger`** → `content-publish-social`. Help: **30** (ops) + **31** (MCP OAuth setup). Operators: `ensure-platform-mcps.sh`, optional `SEED_CONTENT_MEDIA_OWNER`. |
+| **Video content studio** | Industry pack `video_content`: **Content Orchestrator**; phrases **run video storyboard** / **run video media** / **run video assembly**. S4 clips ≤8s/scene (`flow_browser` **serial, one scene at a time**, or `replicate_api`); S5 FFmpeg → status `video_generated`. Flow login: Desktop Local Chrome channel or `Start-ChromeForGoogleLogin.ps1` + CDP. Help **41** / **22**. |
+| **MCP OAuth connectors** | **Connectors → MCPs**: platform (or CEO-override) OAuth **app** credentials in `mcp_oauth_configs` (`owner_user_id` empty = platform; CEO id = override). Secrets encrypted with `USER_API_KEYS_KEK`. Per-CEO access tokens after **Connect**. Facebook: **`mcp-meta-graph`**. Help: **31**. |
+| **OpenConnector BYOA** | **Connectors → OpenConnector**: platform OAuth clients (admin **Provider OAuth apps**) + optional CEO **App ID/secret override** (`openconnector_oauth_client_overrides`). On Connect, Flolah passes `clientId`/`clientSecret` for connection-scoped BYOA (`OOMOL_CONNECT_ALLOWED_CUSTOM_OAUTH`). Deploy image **`OPENCONNECTOR_IMAGE_TAG=tip`** (official `v1.3.5`/`latest` ignores authorize `clientId`; Flolah seed-lease fallback then applies). Connector-tab **API keys** go to OC connections — **not** the API Keys vault. Smoke: `test-openconnector-oauth-override.js`, `probe-oc-custom-oauth.js`. Help **16** + `OPENCONNECTOR-WEBHOOKS.md`. |
+| **Admin crons & event watchers** | **Admin → Crons** lists timers + event jobs: `workflow_terminal_watch`, `goal_plan_completion_nudge`, `workflow_timeout_watchdog` (pause kill-switch / Run now / safety schedule). Help **19**. |
+| **Scheduled jobs reference** | All platform crons and user-level schedules documented in `knowledgebase/platform-help/19-scheduled-jobs-and-crons.md` (+ **28** for CEO scheduled goals); commented defaults kept in `.env` by `deploy/scripts/ensure-cron-env.sh`. |
+| **API Keys vault** | Settings → API Keys — named secrets, optional encryption. Non-platform Profiles auto-seed unset slots (`Platform_BYOK`, `Replicate_BYOK`, `BRAVE_SEARCH_BYOK`, `GOOGLE_PLACES_BYOK`, `X_API_BYOK`, `INSTAGRAM_SESSIONID`, `elevenlabs-key`). OpenAI/OpenRouter need a filled `Platform_BYOK` plus a **chat model** on Profile. Platform default Places uses `GOOGLE_PLACES_API_KEY`, or vault **`GOOGLE_PLACES_BYOK`** if the platform key is unset. Optional **Tools → Model** overrides model per content tool without changing vault keys. Optional **Tools → Rate limits** caps vendor API **calls** per CEO (daily/monthly). |
+| **List API pagination** | Large CEO lists use server paging (`limit`/`offset`, envelope `total` + `has_more`): Content Explorer, inbound attachments, workflow definitions + run steps, Kanban/standup threads, agent chat turns/archives, Master Data documents, AgentExchange, admin users, job spreadsheet/review-queue. Helpers: `backend/src/lib/pagination.js`. |
+| **Content Explorer** | Management → Content Explorer — browse/preview/download your uploaded + generated files (`inbound/attachments/`, tool media). Server-paged (`limit`/`offset`); UI Prev/Next. See platform-help **26**. |
+| **Onboarding Helper** | Avatar → **Onboarding** + Dashboard **Onboarding Helper** chat. Agent saves proposals via `onboarding_save_proposal`; Review checkboxes; Apply creates selected depts/agents. Prompt recipes + E2E script: platform-help **27**, `backend/scripts/e2e-onboarding-wf-prompts.mjs`. |
+| **IP Whitelists / package tokens** | **Settings → IP Whitelists** (IBKR bridge, Workflow desktop, A2A, Browser Session worker — help **33**) and **Settings → Tokens management** (list/revoke dsk_ / IBKR / bwk_ — help **34**). |
+| **Connectors** | **OpenConnector** (~**1,300** SaaS apps via [Open Connector](https://github.com/oomol-lab/open-connector); live catalog [openconnector.dev/#connectors](https://openconnector.dev/#connectors); OAuth / API key / no-auth + optional CEO App override — help **16**) + **MCPs** (help **31**). Downloads: **Browser Session package** (multi-user local worker, help **22**, BROWSER-SESSION-DESKTOP-LOCAL.md) and **Local IBKR bridge** (help **20**). |
+| **Efficiency View** | **Org** tab: agents, automated tasks, feedback, workflow run success/fail, Storage (MB) (7d–All). **Department** tab: month-to-date tokens vs each department's budget **plus people task counts**. **Agent View** tab: per-agent activity, outcomes, token/error budget gauges, **Reset usage** / **Reset all usage** to zero month-to-date tokens without changing budgets. **User View** tab: Kanban performance for people (`/efficiency?tab=user`). |
+| **Agent budgets** | Monthly **token budget** + **error budget %** per agent (and per department, as a planning figure). Warn at 80% via bell, **block** new chat/delegated work at 100% tokens or at the error budget (min 10 terminal calls). Refused calls never spend the error budget. Backed by a durable `token_usage` ledger. |
+| **External/A2A agents in your org** | **Add to org** on External Agents / AgentExchange places them as **leaf members** (department + reports-to an internal agent). They show in the org chart, sync into ORG.md / COO AGENTS.md, and the **COO can delegate to them** with Kanban mirroring and budget guard. **Private** A2A listings stay off public endpoints — only COO or the reports-to lead can invoke. Leaves registered as an **External Agent pointing back at your own publication** (`…/api/a2a/<publishId>`) are invoked in-process, so Private / `deny_all` publications no longer fail delegation with `A2A HTTP 403`. |
+| **Workspace templates** | Apply / publish SOUL–OPS templates from Agent Workspace (ORG/POLICY preserved). |
+| **Platform Help agent** | Dedicated `platformhelp` agent + Master Data help corpus (`knowledgebase/platform-help/`) via keyword RAG. |
+| **COO specialty routing** | COO chat routes specialty asks using agent purposes (org docs), not guesswork keywords (multi-intent up to 2). Over-budget internal agents are refused with **Blocked by budget** before any Kanban card or cron job is created. |
+| **COO AGENTS.md keeps your edits** | **Resync ORG.md & AGENTS.md** refreshes only the org-generated roster sections of the COO's `AGENTS.md`; your manual Role / Priorities / Tools / Guardrails / custom sections are merged back, and workspace template sync no longer clobbers the generated file. |
+| **Get work from team** | The Dashboard standup button fans status requests out to every agent under the COO (budget-aware), instead of classifying the button label as a specialty ask. Each specialist gets a Kanban card and a bell. VPS deploy smoke verifies this path as a **dry-run** (no cards, no AgentSystem jobs, no bell). |
+| **Broadcast + notify** | Broadcast can ask agents to report back and ping your bell; quieter when you only want a rollup. |
+| **Master Data + document search** | Tables with purposes; documents agents can search; starter **departments** + User Guide + Platform Help docs on register. |
+| **Chat tool icons** | See which tools an agent used under a reply (Agent OS content tools + native AgentSystem `browser` / `image` / `cron` from session logs). |
+| **Notification tooltips** | Hover the bell snippet for the full message. |
+| **Tenant Workspace docs** | Your CEO workspace files stay in your space; Resync keeps ORG/AGENTS accurate. |
+| **Shared notification dismiss** | Clear/dismiss keeps the bell feed tidy across platform + agent items. |
+| **Agent channels (Slack / WhatsApp / Voice)** | Per-agent **Channels** wizard (BYOK vault + AgentSystem bindings). Outbound media must use `MEDIA:/abs/path` so WhatsApp attaches from disk; inbound WhatsApp media is mirrored to `inbound/attachments/` for chat/STT. WhatsApp **groups are disabled by default** (`groupPolicy: disabled`) so group chats are not ingested even when the linked phone is in them — only DMs per `dmPolicy`/`allowFrom`. **Voice** publishes `/p/voice/:slug` (WebRTC; not PSTN). See platform-help **24** / **46**. |
+| **Chat attachments + inline media** | Paperclip on Agent Chat uploads files into Master Data + `inbound/attachments/`. Generated image/audio/video play **inline** in chat (login required). Generated media is **auth-only** by default — not world-public (`MEDIA_PUBLIC_SIGNED=1` opt-in). See platform-help **03**, **11**. |
+| **Free speech (Whisper + Piper)** | Chat mic + Speak reply; content tools / workflow nodes `speech_stt` / `speech_tts`. WhatsApp TTS attach is OGG/Opus (`audio/ogg; codecs=opus` PTT). Published Scenes guests use slug-scoped public VR tokens (not the signed AgentSystem media flag). See **25**. Slow Caller uses this path; live **Call** does not. |
+| **Platform feedback (Admin)** | COO / Platform Help can file bugs via `platform_feedback_*`. Admins triage at **Platform feedback** (`/admin/platform-feedback`): open → implemented / rejected. |
+
+---
+
+## Interface: AgentSystem Gateway
+
+The backend uses the AgentSystem Gateway HTTP API:
+
+- **Chat:** `POST /v1/chat/completions` (OpenAI-compatible)
+  - Auth: `Authorization: Bearer <token>`
+  - Agent: `x-openclaw-agent-id: main` (or agent id)
+  - Session: `user` in body for stable session (per-agent, per-user)
+- Enable in AgentSystem config: `gateway.http.endpoints.chatCompletions.enabled: true`
+- Default gateway port: **18789**
+- **Per-CEO tenants:** each CEO gets isolated AgentSystem agent runtimes and workspaces (`openclaw-tenant`); prompts are tagged with `owner_user_id` / `ceo_user_id`.
+- **Deploy repair:** `deploy/scripts/ensure-openclaw-gateway-config.js` restores wiped `gateway` / `tools` / `plugins` / `browser` **and** an empty **model catalog**. `vps-verify-openclaw-chat.sh` re-runs `configure-openclaw-docker.js` when the catalog is empty (Agent Chat **502** `Unknown model: openai/…`). Production primary is paid **DeepSeek Flash** (`openai/deepseek-v4-flash`); Admin secondary is **OpenAI gpt-4o-mini**. Optional **free local** AgentSystem + platform LLM: `APPLY_LOCAL_OLLAMA=1 bash deploy/scripts/ensure-local-openclaw-ollama.sh` (wanted `mistral-medium-3.5` 128B; CPU 16GB uses `llama3.2`; never Ollama Cloud). See [knowledgebase/LOCAL-OPENCLAW-OLLAMA.md](knowledgebase/LOCAL-OPENCLAW-OLLAMA.md).
+- **Admin recovery:** when chats **queue then fail**, use **Admin → AgentSystem recovery** — OTP privileged session (30 min). Help **43**. There is no AgentSystem Control UI link.
+
+## Prerequisites
+
+- **Node.js 18+** (Node **22.12+** for AgentSystem CLI)
+- **AgentSystem** installed and (for chat) **gateway** running with chat completions enabled
+- **Workspace path** where SOUL.md, AGENTS.md, MEMORY.md live (for MD editor)
+- **OPENAI_API_KEY** in backend `.env` for **Run COO** (standup + CEO summary via OpenAI). Optional: `OPENAI_COO_MODEL` (default `gpt-4o-mini`).
+- Optional: **cron schedules** — every job has a code default, so nothing is required. Commented reference block lives in `backend/.env.example` / `deploy/.env.example` (and is appended to `deploy/.env` by `deploy/scripts/ensure-cron-env.sh`): `STANDUP_SCHEDULE_CRON`, `STANDUP_CRON_SCHEDULE`, `DELEGATION_CRON_SCHEDULE`, `AGENT_WORKFLOW_SCHEDULER_CRON`, `JOB_PIPELINE_CRON_SCHEDULE`, `COO_STATUS_CHECKER_CRON`, `TOOL_API_RATE_LIMIT_RESET_CRON`, `DATA_RETENTION_CRON`, `KANBAN_ORPHAN_WATCHER_CRON`, `SCHEDULED_GOALS_CRON`, `CRM_TLS_WORKSPACE_CERT_CRON`. See [Schedulers and crons](#multi-tenancy--schedulers-platform-crons-vs-user-schedules).
+- Optional: **AGENT_OS_BASE_URL**, **AGENT_OS_PUBLIC_URL**, or **PUBLIC_URL** — public DNS/HTTPS base URL for workflow event hooks, cron webhooks, A2A cards, and artifact links. Defaults to `http://127.0.0.1:3001` for local dev.
+- Optional: **AGENT_OS_DATA_DIR** — directory for SQLite DB (default: `backend/data`).
+- Optional: **PLATFORM_LOG_LEVEL** — `off` (silent), `error` (failures only), or `info` (default; one line per API call). Secrets are redacted at every level.
+- Optional: **AGENT_OS_ADMIN_EMAIL** / **AGENT_OS_ADMIN_PASSWORD** — platform admin seeded on first startup.
+- Optional: **ADMIN_PRIVILEGED_SESSION_TTL_MS** — OTP session length for Admin AgentSystem recovery, Tools Onboarding, and TLS refresh (default `1800000` = 30 min). Fallback: `DOCKER_TOOLS_STEPUP_TTL_MS`.
+- Optional: **AGENT_OS_BALA_CEO_*** — default CEO user for legacy job profiles and workflows.
+
+## Quick start
+
+### 1. Backend
+
+```bash
+cd backend
+cp .env.example .env
+# Edit .env: set OPENCLAW_WORKSPACE_PATH, OPENCLAW_GATEWAY_TOKEN, OPENAI_API_KEY
+npm install
+# On Windows, if npm install fails on better-sqlite3 (EPERM), run in a normal terminal or with elevated permissions.
+npm run dev
+```
+
+Backend runs at **http://127.0.0.1:3001**. Health: `GET /health`.
+
+### 2. Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Frontend runs at **http://127.0.0.1:3000** and proxies `/api` to the backend (override with `VITE_API_PROXY_TARGET` in dev; set `VITE_API_URL` for production builds).
+
+### 3. Log in
+
+Open **http://127.0.0.1:3000/login**. Default admin is seeded from `.env` (`AGENT_OS_ADMIN_*`). CEO users see home chat, **My Org**, Workflows, Kanban, Job profiles, AgentExchange, etc. Admin users manage platform accounts, MCP registry, TLS certs, Tools Onboarding, and **AgentSystem recovery**. New CEOs register at `/register` and get provisioned AgentSystem agents, org context, starter **departments**, and this README as a Master Data document.
+
+### 4. AgentSystem gateway (for chat)
+
+AgentSystem is installed globally (`npm install -g openclaw@latest`). A config with **chat completions enabled** is at `~/.openclaw/openclaw.json` (copy from `agent-os/openclaw-config.example.json`).
+
+Start the gateway:
+
+```bash
+openclaw setup          # first time only: bootstrap workspace
+openclaw gateway --port 18789
+```
+
+Set in backend `.env`:
+
+- `OPENCLAW_GATEWAY_URL=http://127.0.0.1:18789`
+- `OPENCLAW_GATEWAY_TOKEN=<your gateway token or password>` (if you set `gateway.auth` in AgentSystem config). **If you see "gateway closed (1008): pairing required"**, see **knowledgebase/GATEWAY-PAIRING-1008.md**.
+
+**Setting up AgentSystem from scratch:** Run `.\scripts\setup-openclaw-from-scratch.ps1` from the `agent-os` folder. It bootstraps AgentSystem, seeds the DB (all agents + ExpenseManager), installs agent-send and content-tools skills and extension, applies `openclaw.json` (agents, plugins, Ollama), ensures workspace templates (SOUL/MEMORY/TOOLS) and COO AGENTS.md, and ensures agent dirs. Then run `openclaw gateway --port 18789` and start backend + frontend.
+
+## What’s included
+
+| Feature | Description |
+|--------|-------------|
+| **Auth & roles** | Login/register; **admin** (platform), **ceo** (root / company owner), and **org_user** (invited employees / sub-users). Employees inherit the CEO company (tools, Knowledge, CRM/ERP, AgentSystem tenant) — no separate `user_agents` grants. JWT sessions. Privileged admin mutations use OTP then a 30-minute session (`ADMIN_PRIVILEGED_SESSION_TTL_MS`). New CEO registration provisions AgentSystem agents, syncs org context, seeds **departments** + default **User Guide** document. Help **45**. |
+| **Admin platform crons** | `/admin/crons` — registry of every platform timer with **Pause** / **Resume** / **Run now**; pause state is persisted so a paused job stays paused after a restart. |
+| **Admin User Insights** | `/admin/user-insights` — registrations today/week/month, inactive 7+ days, CRM/ERP/setup/connectors highlights. Help **47**. |
+| **Admin company blueprints** | `/admin` → **Company industry blueprints** — snapshot/publish a CEO company pack + **Download zip** (`agent-os-company-blueprint-v2`). **Secrets always redacted**; publish and zip **fail closed** if residual OpenAI / SMTP / token patterns remain (vault `*Ref` kept). GitHub Action `blueprint-secret-scan` blocks dirty packs. Help **29**. Demo packs: `demo_balaji_ranganathan` (IBKR/monthly W1–W5 include BUY `entry_discount_pct_max`; **companions tested `video_content` studio** — Content Orchestrator + W-Reasoning/Media/Assembly from `standard/video-content/`; surgical pack refresh: `patch-demo-blueprint-ibkr-quote-band.js` then `FROM_PACK_FILE=1 publish-balaji-demo-blueprint.js`), **`demo_brightbox_gifts`** (golden CRM/ERP), **`demo_education`** (Meridian College — WhatsApp PA, thought inbox, Twenty + ERPNext; `publish-education-demo-blueprint.js`; do **not** regenerate `standard/business-core` from this owner). Thin **Education** card still `maps_to` `general_ops`. Ops bootstrap: `backend/scripts/bootstrap-education-demo-ceo.js`. Standard lean+BC packs under `company-blueprints/standard/` (regenerate: `publish-brightbox-and-regenerate-standard.js`). **Refresh default agents** applies `platform-agents.json` tools + optional Business Core re-sync. |
+| **Platform logging & redaction** | `PLATFORM_LOG_LEVEL=off\|error\|info` for backend request/error logs. Secrets (API keys, bearer tokens, `Authorization`, passwords, MFA codes) are redacted from URLs, JSON bodies and headers; API Keys / auth routes log method + route only. Unit tests: `backend/scripts/test-security-hardening-unit.js`, `backend/scripts/test-blueprint-secret-sanitize.js`, `backend/scripts/scan-blueprint-secrets.js`. |
+| **Multi-tenant isolation** | Standups and delegation tasks carry `owner_user_id`. Standup cron and delegation cron loop **per enabled CEO** so one CEO never sees another’s standups, chats, or queued agent work. APIs filter by authenticated CEO. |
+| **Org-aware agents** | Every agent in a CEO’s org gets **ORG.md** (CEO, departments, peers with soul/purpose/skills) plus a tenant-specific COO **AGENTS.md** (delegatees). Synced on provision, agent create, and backend startup. Bootstrap watcher reloads `ORG.md` each turn. |
+| **Home chat** | `/` — COO chat by default; agent picker; history/browser panes; compose **microphone** (speak, pause 3s, auto-send) / **Speak** / **phone** (Realtime Caller Voice channel only); **OEI** KPI + explain popover (help **36** / **25** / **46**). On phones: overview first, **Chat** opens a full-screen sheet; history/browser icons open a side drawer (desktop unchanged). |
+| **My Org** | `/org` — Org chart; standups with COO chat (owner-scoped only); **People** (invite employees / sub-users, roles, department); **Resync ORG.md & AGENTS.md**. Profile **Your title** is display-only. Add agents from **Agent Workspaces**. Help **45**. |
+| **Agent Workspaces** | List agents; **Hire AI employee** (optional **role template**: Slow Caller / Realtime Caller; optional icon/image, default robot); per-agent **SOUL.md, AGENTS.md, ORG.md, MEMORY.md, TOOLS.md** editor; **Tools access**; **Publish to Agent Exchange** (Flolah / Public). |
+| **Chat** | 1:1 chat with an AgentSystem agent via gateway; session affinity per agent; history stored in SQLite; **tool-call icons** on assistant replies when Agent OS tools ran; assistant turns show **icon + name**. |
+| **Notifications** | **Bell icon** in nav: agent responses + platform notifications; hover for full text; link to agent Chat; clear/dismiss (shared feed). |
+| **Kanban** | Board view (tasks by agent, **person**, and status); everyone in the company sees all cards; department employees act/reopen only on same-department assignees. Task detail with **task chat**, artifacts, workflow run links, and linked agent-chat turns. Reopen task; create task (COO or direct to agent or person). Auto-completes when COO chat delegations finish. All dates in the platform timezone. |
+| **Custom workflows** | Visual **Workflows** editor: trigger (manual / schedule / chat / event webhook), agent, API, **Filesystem** (read/write Windows or Unix paths; FTP/SFTP), **Web Scrape** (Crawlee sidecar), MCP tool, **SSE listen**, **sub-workflow**, Brain (LLM + optional MCP tool calling; **Thinking mode** for DeepSeek/OpenRouter), email, IF/While, parallel/merge, CEO approval, **external agent (A2A)**. Publish, run instances, paginated run history, search, **stop SSE listen** on active runs. |
+| **Download for Windows** | From a **published** workflow: download a PS1 + params package (optional portable Node 18). Local graph + laptop filesystem read/write + localhost API; FTP from the laptop; SFTP and other nodes on Flolah. Desktop token + optional IP whitelist. See `knowledgebase/platform-help/17-desktop-windows-download.md`. |
+| **Publish as A2A** | **Publish A2A** exposes a workflow as an A2A agent (agent card + JSON-RPC). **Visibility** Public (default) or **Private** (org-only). **Sync** or **Async** invoke; optional **callback URL**. **Deny all** IP access by default; **Allow all** or **IP whitelist**. **Public auth** or **Secured** (OAuth). **Publish as new agent** or update by `publish_id`. |
+| **AgentExchange** | Browse **AI employees** (Flolah / Public) and workflow A2A (`/agent-exchange`). Default Flolah listings include **Social Researcher** and **Business Discovery** (Discover → Research → Track → Act via existing goal plan + tools; Add to org — not auto-hired). Employee **Add to org** imports into the buyer’s workspace + org; workflow **Add to org** stays a leaf. Card **⋯** for copy/open, **Security** (workflows), **Test agent**, **Add to org**, **Unpublish**. i-button shows published by / date. Admin **A2A logs** (`/admin/a2a-invocations`). |
+| **Workflow Builder chat** | LLM assistant in the workflow editor to create/edit graphs via natural language. |
+| **Job profiles** | CEO job search profiles (intake, resume, preferences); gate for Job Applicant pipeline. |
+| **Job workflows** | Multi-agent **Job Applicant** pipeline (Discovery → Fit Scoring → Resume Tailoring → Application); Kanban-tracked stages; browser/Playwright apply path. See **knowledgebase/JOB-APPLICANT-WORKFLOW.md**. |
+| **MCP integrations** | Register MCP servers (admin/CEO); connect, test tools, playground; use in workflow **MCP Tool** and **SSE Listen** nodes. Local test server: `tools/local-mcp-random-sse/`. Bundled **Brave Search MCP** (`optional-brave-mcp`, header BYOK). **Meta Graph MCP** (`optional-meta-graph-mcp`, Connectors OAuth — help **31**). **Business Core MCP** (`optional-business-core-mcp`) seeds **`mcp-flolah-crm`** + **`mcp-flolah-erp`** (Twenty/ERPNext tools; help **32**). **Social Research MCP** (`optional-social-research-mcp`) seeds **`mcp-social-research`** (Places + self-hosted Instaloader sidecar that still calls instagram.com + X/Instagram post hydrate; help **42**). **Web Scrape MCP** (`optional-web-scrape-mcp`) seeds **`mcp-web-scrape`** (Crawlee domain crawl + phrases; workflow **Web Scrape** node; help **44**). Agent content tool **`brave_web_search`** uses platform `BRAVE_API_KEY` or vault **`BRAVE_SEARCH_BYOK`**. Places tools use platform `GOOGLE_PLACES_API_KEY` (falls back to vault **`GOOGLE_PLACES_BYOK`** if unset) or vault-only on other Profiles. Instagram captions: vault **`INSTAGRAM_SESSIONID`**. X official timeline: `X_BEARER_TOKEN` or vault **`X_API_BYOK`**. Deploy: `deploy/scripts/ensure-platform-mcps.sh`. |
+| **Digest (This Week)** | Top-nav `/this-week`: Time Saved, Est. Value Delivered (sum of completed work x each AI employee `hourly_rate_usd`, hire default $10/hr), **2 most recent durable goal plans** (`agr-…`) for the week (**View all** → `/goal-plans` with optional week `start`/`end`), insights. Env: `THIS_WEEK_MINUTES_PER_TASK`, fallback `THIS_WEEK_VALUE_USD_PER_HOUR`. COO tool `this_week_digest`. Platform Help **02** / **28**. |
+| **Operating Workspace** | Top-nav `/work`: open Kanban work (same owner cards as **/kanban**, including unassigned), AI team, activity, command bar. Designed boards via Workspace Builder; task data from `listKanbanTasksForOwner` (platform DB + tenant merge for multi-tenant CEOs). Help **02** / **04** / **12**. |
+| **Operational effectiveness (OEI)** | Home score **0–100** (Green≥**75**, Amber 50–74, Red 0–49) over **14 days**, equal-weight domains (vision, org, goals, workflows, autonomy, CRM platform-or-MCA, governance). Rules-only. **Goal runs (14d)** = firings from `scheduled_goal_runs` (not distinct-goals-only). `GET /api/operational-effectiveness` + COO tool `operational_effectiveness`. Help **36**. Not Digest dollars. |
+| **Workspace Builder** | `/workspace-designer` designs owner boards for /work (not Digest). REST/MD/RAG bindings, default publish. |
+| **Business Core (CRM/ERP)** | Optional **Twenty** or **ERPNext** CRM / **ERPNext** ERP on Profile or Company setup. CRM=Twenty -> Twenty SSO + Maker/Checker (`crm_*`). CRM=ERPNext -> ERPNext desk SSO + sales `erp_*`. ERP=ERPNext -> Maker A/B, Checker, P&L/Invoice/Project specialists. Prefab workspace MD under **`openclaw-workspace-templates/crm-*` and `erp-*`** (role-stable; runtime ids `crm-s1-{slug}` … via `resolveWorkspaceTemplateBaseId`) plus **DOMAIN.md** SME cards: CRM **Lead→Prospect→Won→ERP Order**; ERP **O2C/P2P**. **Option 1 coordination:** Kanban control plane; ERP Checker hard-submit; CRM Checker-only person/company delete + high-risk process gate; seed workflows (`run erp/crm maker checker`) with Maker `needs_ceo` -> **ceo_approval** for e.g. 5% discount (not free-form CEO Kanban HITL). Multi-phase O2C via durable **goal plans** (`agent_goal_create` async ack + new plan default; scheduled plan-mode = new `agr-…` each fire; multiphase-trigger upgrade — help **28**/**38**). **COO:** company-scoped **read-only** list/report; **`agent_workflow_trigger` is async** (prefer goal plans for CRM→ERP). **Golden pack:** `demo_brightbox_gifts` (BrightBox Demo CEO). Docs: platform-help **32**/**38** + **ERPNext SME 39** / **Twenty CRM SME 40**, `deploy/business-core/README.md`, `company-blueprints/standard/`. |
+| **Automated company P&L (design)** | Planned run-cost + income pipelines (usage meters, CRM/channel/IBKR income events, period ERP postings, operating vs trading success). Design: [`knowledgebase/AUTOMATED-PNL.md`](knowledgebase/AUTOMATED-PNL.md). CEO pointer: platform-help **37**. |
+| **External agents (A2A)** | Register external agent endpoints; invoke from workflow **External Agent** node. |
+| **Tools** (UI `/content-tools`) | Agent-callable **content tools**: summarize URL, image/video gen, Kanban, **intent_classify_and_delegate**, workflow trigger/enquire/mutate, **agent_goal_create/list/status/complete_step** (COO/WFB multiphase plans), job applicant tools, **email_send**, **notify_ceo**, **Master Data**, learnings, etc.; owner-scoped logs UI; **Tools → Model** (per-CEO tool→model overrides for BYOK-aware tools; excludes custom-script review and embeddings); **Tools → Rate limits** (per-CEO daily/monthly call caps for API-key tools; audit on reset; `tool_api_rate_limits` / `tool_api_rate_limit_resets`); onboard new APIs via script. Goal tools are granted on COO allowlists and AgentSystem plugin contracts (`openclaw-extensions/agent-os-content-tools`). |
+| **Browser Session** | `/browser-session` — managed Playwright, **Client Chrome** (Browser Relay, exclusive lease), or **Desktop Local worker** (Connectors package: headed Playwright + persistent browser-profile; multi-CEO). Agents use **`browse_*`** tools (`browse_recipe_list` / `browse_recipe_run`); grant list vs run in Workspace → Tool access. CDP `browser-cdp` when worker offline. Guides: CLIENT-BROWSER-SESSION.md, BROWSER-SESSION-DESKTOP-LOCAL.md, platform-help **22**. |
+| **Master Data & RAG** | Per-CEO tables + documents (OpenSearch BM25 + **local Qwen** k-NN embeddings via Compose `optional-embeddings`; no OpenAI embedding API). UI captures **purpose/description** per table. Agents list tables with purpose and CRUD rows / RAG docs via content tools — **no create/alter/drop table**. On register: starter **departments** table. **Platform Help** + User Guide live in the **platform** OpenSearch index; specialist `master_data_rag` merges that corpus read-only (`corpus=platform-help`). **Inbound attachments** + **Content Explorer** for chat/channel files. **Purge all uploads** removes CEO uploads only; help/guide docs are protected. |
+| **Profile LLM catalog** | Provider + model picker on **Register** and **Profile** (`llm_provider` / `llm_model`); `GET /api/auth/llm-catalog`; AgentSystem sync on Profile save. BYOK keys only via API Keys vault after login. |
+| **ISO country / region** | Profile, Register, Admin “Register CEO”, and Company setup identity use **ISO 3166-1 / 3166-2 dropdowns** (not free text). Stored as country alpha-2 (`SG`) and optional region (`US-CA`). |
+| **Platform Help** | Standard agent `platformhelp` — product how-to via `master_data_rag` over `knowledgebase/platform-help/`. **Answer-first:** always explains from help docs; optional soft-recommend of COO/CRM/Workflow Builder after help. Hard peer specialty referral is disabled for `platformhelp`. CRM/ERP how-to uses **39** (ERPNext SME: O2C/P2P) and **40** (Twenty CRM SME: Lead→Order). See [`knowledgebase/platform-help/README.md`](knowledgebase/platform-help/README.md). |
+| **COO specialty delegation** | COO chat hard-path: **specialty-first** routing from AGENTS.md purposes → specialist(s) (cap 2 multi-intent chat; higher for durable goal plans) + Kanban with the **full work unit** (prior Mag7/research context on thin follow-ups). Peer specialty referral for specialist peers (**not** Platform Help / Workflow Builder / Onboarding Helper); COO-native work stays with COO; how-to → Platform Help; graph build → Workflow Builder. |
+| **Email send** | `email_send` content tool — agents can send email via configured mail integration (owner-scoped logging). |
+| **Notify CEO** | `notify_ceo` content tool — agents push a platform notification to their CEO (bell feed). **Not email** (ops rollups and community escalations use this by default). |
+| **Broadcast** | Send messages to multiple agents; LLM intent for status+notify; paced fan-out; exclude COO by default. |
+| **Tools onboarding** | Script `scripts/onboard-api-tool.js` onboards a new API as a tool from JSON (updates DB, AgentSystem tool list). See `scripts/tool-definitions/README.md`. |
+| **Workspace (legacy MD)** | Global workspace MD editor (older path); prefer **Agent workspace** per agent. |
+| **DB** | SQLite: agents, users, chat, standups (`owner_user_id`), delegations (`owner_user_id`), kanban, content tools, job profiles/applications, MCP servers, agent workflow definitions/runs, A2A publications, external agents, platform notifications, audit. |
+| **Agent memory** | Backend injects each agent’s MEMORY.md into delegation prompts and appends summaries on task completion (tenant workspace path). |
+
+### Multi-tenancy & schedulers (platform crons vs user schedules)
+
+**One timer per job per backend process (platform level); each tick loops enabled CEOs and applies that CEO’s own settings (user level).** There is no OS cron entry per CEO. All keys optional — defaults shown.
+
+| Env var (platform timer) | Default | Behavior | Per-user input |
+|--------------------------|---------|----------|----------------|
+| `STANDUP_SCHEDULE_CRON` | `* * * * *` | Dispatcher for user-created standups | standup `scheduled_at` (daily, once/day, owner enabled) |
+| `STANDUP_CRON_SCHEDULE` | *(empty = off)* | Legacy auto-collect standup per enabled CEO (`owner_user_id` + owner-tagged prompts) | — |
+| `DELEGATION_CRON_SCHEDULE` | `* * * * *` | Claims only that CEO’s `pending` `agent_delegation_tasks`, runs agents in that CEO’s AgentSystem tenant, posts callbacks only for that CEO’s request IDs | queued COO→agent tasks |
+| `AGENT_WORKFLOW_SCHEDULER_CRON` | `* * * * *` | Master tick for custom agent workflows | definition `schedule_cron` + `schedule` trigger mode |
+| `JOB_PIPELINE_CRON_SCHEDULE` | `0 * * * *` | Job Applicant pipeline tick across active profiles | profile `workflow_schedule` (hourly/daily/weekly) |
+| `COO_STATUS_CHECKER_CRON` | `0 9 * * *` | COO status digest per enabled CEO → standup post + HTML email | CEO email, own Kanban/A2A state |
+| `TOOL_API_RATE_LIMIT_RESET_CRON` | `5 0 * * *` | Audit then zero per-user tool API **call** actuals at day/month roll | **Tools → Rate limits** caps (`max_calls_per_day` / `max_calls_per_month`); lazy reset on next call too |
+| `SCHEDULED_GOALS_CRON` | `* * * * *` | Fire **active** scheduled goals (CEO prompts) to target AI employees | goal `time_local` / cadence (hourly\|daily\|weekdays\|weekly) / ends_at; pause/delete = off across restarts |
+| `CRM_TLS_WORKSPACE_CERT_CRON` | `40 * * * *` | Expand LE SANs when ACTIVE Twenty `{sub}.crm.*` hosts missing from cert (no-op if covered) | DNS `*.crm` / per-sub must resolve; `CRM_TLS_WORKSPACE_CERT_AUTO` post-create debounce |
+| `DATA_RETENTION_CRON` | `15 3 * * *` | Retention purge per enabled CEO (chat turns, standup messages, workflow runs/steps) | Profile `data_retention_days` (30/60/90/120/365, default 90) |
+
+Cron expressions use the container clock (`TZ`). Dates **shown to users** (Kanban, task chat, reports) use `PLATFORM_TIMEZONE` when set, otherwise `TZ` — so the UI never renders raw UTC.
+
+Not crons: workflow **timeout watchdog** (30s `setInterval`, reaps timed-out steps after restarts) and **one-shot AgentSystem Gateway cron jobs** created per delegated task (fire once, then gone).
+
+Manual triggers: `POST /api/cron/run-standup`, `/cron/process-delegations`, `/cron/run-status-checker`, `/cron/run-data-retention`; UI buttons **Run COO**, **Run status checker**, **Purge data older than N days**, **Scheduled goals → Run now**. Crons guide: `knowledgebase/platform-help/19-scheduled-jobs-and-crons.md`. CEO scheduled goals: `knowledgebase/platform-help/28-scheduled-goals.md`.
+
+New CEOs start with **empty** standups (no other user’s chats or agents), starter Master Data (**departments** + User Guide document). Dashboard does not auto-open another CEO’s standup.
+
+### Custom Agent Workflows (high level)
+
+- **Editor:** `/workflows` → create from template or blank → `/workflows/:id/edit`
+- **Triggers:** manual, cron schedule, chat phrase, **event webhook** (hook URL on Start node when event mode enabled; uses `AGENT_OS_BASE_URL`)
+- **Node types:** Trigger, Agent, Content Tool, MCP Tool, **SSE Listen** (long-running stream; dispatches downstream on each event), **Sub-workflow**, Call API (Basic/Bearer/API-key auth + custom headers), Brain, Email, IF, While, Parallel, Merge, CEO Approval, External Agent
+- **Data binding:** `{{nodeId.outputKey}}` and nested paths (e.g. `{{api-1.body.accessToken}}`, `{{trigger-1.trigger_input.query}}`); workflow variables `{{var.key}}` (editor **Workflow variables** panel — shared static config for that definition, not platform-wide globals). Content Tool **toolPayload** JSON is interpolated the same way (so `indexSymbol: "{{var.index_symbol}}"` is never sent to vendors as a literal). Full guide: `knowledgebase/platform-help/14-workflow-dynamic-values.md`.
+- **Dynamic auth:** API / MCP / Brain `apiKey` / External Agent override / SSE headers accept the same `{{…}}` templates (values look static in the UI; runner substitutes at execute time). Brave Search MCP is **BYOK** (workflow headers only — no container `BRAVE_API_KEY` fallback). Agent tool `brave_web_search` uses platform `BRAVE_API_KEY` or vault `BRAVE_SEARCH_BYOK` by Profile.
+- **A2A publish:** Publish → AgentExchange + agent card / JSON-RPC under `/api/a2a/:publishId`. **Visibility** `public` (default) or `private` (public endpoints always denied; COO / reports-to lead via org path only). **Sync** or **Async**; optional callback URL. **Deny all** IP default; **Allow all** or IP whitelist. **Public auth** or **Secured** OAuth.
+- **Download for Windows:** Published workflow → **Download for Windows** (lite or with portable Node 18). Local orchestrator (laptop files + localhost); Flolah holds run state + SFTP/remote nodes. Guide: `knowledgebase/platform-help/17-desktop-windows-download.md`.
+- **IBKR Monthly Positive Return:** Cloud plans (W1/W3/W5) + laptop execute (W2) + local bridge. Bridge **polls** Gateway (default 5 min) and POSTs to ingest `/api/ibkr-trading/local-bridge-webhook` (W3 hook secret); **W3 workflow runs on EOD** (starts W1), not every snapshot. W1 Maker **chooses** full bracket (stop+tp) **or** hold-for-weeks (`later_day_plan`, omit tp so a later day plan decides the sell) using FMP screener stats (PE, SMA, 3m/6m momentum, earnings YoY) with Brave Search as fallback when those fields are missing. Hard gates size new buys to min(daily budget, cash, `position_size_pct_max` of equity). W2 places `bracket` / `stop_only` / `entry_only` and still skips BUY limits far from last (`entry_discount_pct_max`, default 3%). **IBKR Summary** UI `/ibkr-summary` (owner-scoped portfolio & plan vs done; **Clear data…** wipes transactional rows only). CEO help **20**; ops `knowledgebase/IBKR-MONTHLY-WORKFLOWS.md`; bridge `backend/local-ibkr-bridge/`.
+- **Runs:** Kanban tasks per step; fail run on API/MCP errors (non-2xx HTTP, SSL errors, MCP `is_error`)
+- **Help:** Platform Help agent RAG over `knowledgebase/platform-help/` (re-upload with `node backend/scripts/reupload-platform-help-docs.js` after doc changes).
+- **Tests:** `node backend/scripts/test-sse-workflow.js`, `node backend/scripts/test-balaji-brave-byok-workflow.js`, `node backend/scripts/test-workflow-auth-templates.js`, `node backend/scripts/test-workflow-desktop-package.js`
+
+### Job Applicant vs Custom Workflows
+
+| | **Job workflows** (`/job-workflows`) | **Workflows** (`/workflows`) |
+|--|--------------------------------------|------------------------------|
+| Purpose | Fixed multi-agent job search/apply pipeline | User-defined graphs |
+| Orchestration | COO + specialist agents + pipeline cron | Backend workflow runner |
+| Setup | `node scripts/setup-job-applicant-agents.js` | UI or Workflow Builder chat |
+
+### Tools access vs TOOLS.md
+
+- **Tools access** (Workspace UI): enforcement — which Agent OS tools AgentSystem exposes to the agent (`agent_tool_grants`, `~/.openclaw/agent-tool-allowlists.json`).
+- **TOOLS.md**: instructions for the LLM — when and how to use granted tools. Sync from template via Workspace UI.
+- **COO defaults:** if a COO has no grants, backend applies `COO_CONTENT_TOOLS_ALLOW` (includes delegation, Kanban, `email_send`, `notify_ceo`).
+
+### Hosting / DNS
+
+For production, set in backend `.env`:
+
+```env
+AGENT_OS_BASE_URL=https://your-domain.example
+```
+
+For frontend production build:
+
+```env
+VITE_API_URL=https://your-domain.example/api
+```
+
+Workflow hook URLs, cron webhooks, A2A cards, and MCP/API endpoints in graphs should use your public DNS — not `127.0.0.1`. See `backend/.env.example` and `deploy/.env.example`.
+
+## Production deploy (Docker / Podman)
+
+Container stack: **nginx** + **frontend** + **backend** + **AgentSystem gateway**, with optional **init**, **Ollama**, **MCP / OpenConnector mock**, and **browser-login** profiles.
+
+Hosts (production):
+
+| Host | Content |
+|------|---------|
+| `https://flolah.cloud` | Marketing homepage (`deploy/static/flolah-home`) |
+| `https://flolah.cloud/docs/` | Public user guide (Docusaurus, open access; source `docs-site/`) |
+| `https://login.flolah.cloud` | Login + React SPA + API (`AGENT_OS_PUBLIC_URL`) |
+
+```bash
+cd deploy
+cp .env.example .env   # set AGENT_OS_PUBLIC_URL=https://login.flolah.cloud, tokens, OPENAI_API_KEY
+./scripts/up.sh        # auto-fills TOOLS_API_KEY + AGENT_OS_INTERNAL_TOKEN; USE_PODMAN=1 on CentOS
+```
+
+Laptop sync (when VPS cannot `git pull`):
+
+```powershell
+.\deploy\scripts\sync-to-vps.ps1
+.\deploy\scripts\sync-to-vps.ps1 -Services frontend
+.\deploy\scripts\sync-to-vps.ps1 -Services "backend openclaw"
+.\deploy\scripts\sync-to-vps.ps1 -NoCache   # stale Docker layers
+```
+
+Public API / app host = `AGENT_OS_PUBLIC_URL` in `deploy/.env` (`https://login.flolah.cloud`). Marketing apex is separate static content — not a parked domain.
+
+On VPS after sync / `git pull`:
+
+```bash
+bash /opt/agent-os/deploy/scripts/vps-deploy-latest.sh
+# First time after DNS A for login points to VPS (uses acme.sh TLS-ALPN on :443; not certbot HTTP-01):
+bash /opt/agent-os/deploy/scripts/vps-expand-login-cert.sh
+SERVICES=frontend bash /opt/agent-os/deploy/scripts/vps-rebuild-frontend.sh
+bash /opt/agent-os/deploy/scripts/assert-vps-ingress.sh   # must PASS (loopback :3001 + public /api/health + login not 502)
+bash /opt/agent-os/deploy/scripts/vps-verify-frontend-media.sh   # hPanel + fullscreen + CTAs
+bash /opt/agent-os/deploy/scripts/vps-verify-platform.sh         # Platform Help + Master Data + marketing hosts + ingress
+bash /opt/agent-os/deploy/scripts/vps-verify-status-retention-ui.sh  # status checker + retention + Storage UI
+```
+
+**VPS reproducibility rule:** always keep `COMPOSE_FILE` including `docker-compose.vps-client-ip.yml` (see `deploy/.env.example` and `deploy/scripts/compose-file-defaults.sh`). Host-network nginx talks to **`127.0.0.1:3001`**, not `backend:3001`. A backend recreate that drops that loopback publish returns **502 on all logins** while the container still looks healthy — fixed by base compose loopback ports + `assert-vps-ingress.sh` (details: `deploy/README.md` → *VPS client IP overlay*).
+
+Onboarding Helper + Workflow Builder **chat E2E** (CEO token; prompts in platform-help **27**):
+
+```powershell
+$env:BASE_URL = "https://login.flolah.cloud"
+$env:TOKEN = "<ceo-session>"
+node backend/scripts/e2e-onboarding-wf-prompts.mjs
+```
+
+`vps-deploy-latest.sh` already chains these: `ensure-cron-env.sh` (cron reference block in `deploy/.env`),
+the status/retention checks, `reupload-platform-help-docs.js` (help corpus → every CEO's Master Data),
+then the smoke suite (`test-standup-get-work-from-team.js` is a **dry-run** against the live CEO — it must not create Kanban cards or bells), (`vps-smoke-new-features.sh`, `vps-smoke-budgets-org-members.sh`,
+`vps-smoke-brave-byok.sh` when `BRAVE_API_KEY` is set, `vps-smoke-social-research.sh`,
+`vps-verify-platform.sh`). Social research live Places uses platform `GOOGLE_PLACES_API_KEY` or vault `GOOGLE_PLACES_BYOK`. OpenClaw chat gate also restores an empty model catalog.
+
+- **deploy/README.md** — Compose services, volumes, profiles, UI redeploy markers, OpenConnector / email-inbound, repeatable sync
+- **knowledgebase/DEPLOY-CENTOS-PODMAN.md** — CentOS, Podman, SELinux, Chromium/browser login
+- **scripts/setup-openclaw-from-scratch.sh** — Linux bootstrap (also runs in the `init` container)
+
+## Tools onboarding (script)
+
+Create a JSON file in `scripts/tool-definitions/` with `name`, `description`, `endpoint`, `method`, optional `api_key_bearer`, and `applicable_agents`. Run from the `agent-os` folder:
+
+```bash
+node scripts/onboard-api-tool.js scripts/tool-definitions/your-tool.json
+```
+
+Restart the AgentSystem gateway. See `scripts/tool-definitions/README.md`.
+
+## API (backend)
+
+All routes below are also available under **`/api/...`** (frontend uses `/api` proxy or `VITE_API_URL`).
+
+Authenticated list endpoints that can grow unbounded use **server pagination**. Pass `limit` + `offset` (or domain aliases such as `steps_limit` / `messages_limit`). Response envelope:
+
+`{ <domainKey>, total, limit, offset, has_more }`
+
+Examples: `workflows`, `tasks`, `standups`, `documents`, `items`, `users`, `agents`, `turns`/`sessions`, job spreadsheet `rows`. Helpers live in `backend/src/lib/pagination.js`. Default pages are typically 50–100 (max often 200–500). Kanban board UI loads pages until complete; Content Explorer shows Prev/Next.
+
+### Core
+
+- `GET /health` — liveness
+- **Auth:** `POST /auth/login`, `POST /auth/register`, `GET /auth/me`, profile update
+- **Admin:** `GET /admin/users?limit=&offset=` (paged user list), enable/disable users, grant agents; **`GET /admin/user-insights`** — adoption KPIs (registrations, inactive 7d); **`GET /admin/a2a-invocations`** — A2A card/token/invoke audit (denials included)
+- **Admin crons:** `GET /admin/crons`, `GET /admin/crons/:id`, `POST /admin/crons/:id/pause`, `.../resume`, `.../run` — platform timer registry, persisted pause state, one-shot run
+
+### Agents & workspace
+
+- `GET/POST /agents` — agent CRUD
+- `GET/POST /agents/:id/chat` — chat history and send message (→ gateway); history turns paged (`?limit=&offset=`, default 200)
+- `GET /agents/:id/chat/history` — archived sessions (`?limit=&offset=&days=`)
+- `GET/PUT /agents/:id/workspace/:file` — soul, agents, **org**, memory, tools MD
+- `GET/PUT /agents/:id/tools` — per-agent content tool grants
+
+### Standups, Kanban, cron
+
+- `GET/POST/PATCH/DELETE /standups`, `/standups/:id/messages`, `/standups/:id/run-coo` — **owner-scoped**; list and messages are paged (`standups` array + total/has_more)
+- `GET /standups/notifications` — bell feed (delegation responses for this CEO)
+- `GET/PATCH /kanban/tasks` — paged (`tasks`, `total`, `has_more`; offset; higher max for All view), task messages, reopen, artifacts
+- `POST /cron/run-standup`, `POST /cron/process-delegations` — standup per CEO; delegations per CEO
+- `POST /cron/run-status-checker` — COO status report now (CEO session = own tenant, returns `html` + `digest` for the Dashboard popup; admin/internal = all CEOs)
+- `POST /cron/run-data-retention` — retention purge now (CEO session = own data; admin/internal = all CEOs)
+- `GET /platform-notifications` — CEO notify feed (`notify_ceo`)
+
+### Tools (content tools API)
+
+- UI: **Tools** nav → `/content-tools` (catalog, test, logs, **Tools → Model**, **Tools → Rate limits**).
+- `GET /tools/meta`, `POST /tools/invoke`, workflow chat tools (`agent_workflow_*`), job applicant tools
+- `GET/PUT /tools/model-mappings` — CEO-scoped tool→model overrides (BYOK-aware tools; owner keys unchanged)
+- `GET/PUT /tools/rate-limits` — CEO-scoped daily/monthly API **call** caps (`max_calls_per_day` / `max_calls_per_month`; empty = unlimited)
+- `POST /tools/rate-limits/reset` — audit budget vs actuals then zero day/month/both
+- `GET /tools/rate-limits/resets` — reset audit log (owner-scoped)
+- `POST /tools/intent-classify-and-delegate` — COO delegation (stamps `owner_user_id` on standup/tasks)
+- `POST /tools/...` — `email_send`, `notify_ceo`, Kanban helpers, etc. (owner resolved from auth / tenant, not spoofable body ids)
+- `POST /tools/crm-delete-person`, `POST /tools/crm-delete-company` — **CRM Checker only**; body `{ id, confirm: true }`; owner-scoped Twenty soft-delete (ERPNext Contact/Customer when Profile CRM = erpnext). Maker proposes via Kanban. Help **32** / **38** / **40**.
+
+### Job applicant
+
+- `/job-applicant/*` — profiles, applications, pipeline runs, browser auth, CEO review. Spreadsheet `GET …/spreadsheet?limit=&offset=`; review-queue per-bucket cap via `?limit=`. See **knowledgebase/JOB-APPLICANT-WORKFLOW.md**.
+
+### Custom agent workflows
+
+- `GET/POST/PATCH/DELETE /agent-workflows` — definitions list is paged and omits graph JSON (`?q=&limit=&offset=`); full graph on `GET :id`. Publish, audit
+- `POST /agent-workflows/:id/run` — start run
+- `GET /agent-workflows/runs` — paginated runs (`?page=&limit=&q=`)
+- `GET /agent-workflows/runs/:runId?steps_limit=&steps_offset=` — run detail with paged steps
+- `POST /agent-workflows/runs/:runId/listen/:nodeId/stop` — stop SSE listen
+- `POST /agent-workflows/hooks/:definitionId` — event trigger (webhook secret header)
+- `POST /agent-workflows/agent-chat` — Workflow Builder LLM
+- `POST /agent-workflows/approval/respond` — CEO approval from Kanban
+- **A2A publish:** `POST /agent-workflows/:id/publish-a2a` with `auth_mode: public|secured` (optional `rotate_credentials`); `DELETE .../a2a-publication` to unpublish
+- **Desktop Windows package (CEO session):** `GET /agent-workflows/:id/desktop-package?include_runtime=0|1` — zip (mints token); `GET/DELETE .../desktop-tokens`; `GET/POST/DELETE .../desktop-ip-whitelist` (writes central `owner_ip_whitelists`)
+- **Central IP whitelists (CEO session):** `GET/POST /settings/ip-whitelists`, `PUT/DELETE /settings/ip-whitelists/:entryId` — apply flags: `apply_ibkr_bridge`, `apply_workflow_desktop`, `apply_a2a`, `apply_browser_worker` (+ optional `definition_id` / `publish_id` scope). Same store as federated desktop / A2A / browser worker UIs. Help **33**.
+- **External package tokens (CEO session):** `GET /settings/external-tokens`, `DELETE /settings/external-tokens/:kind/:id`. Help **34**.
+- **Company memory capture (CEO session):** `GET/PUT /company-setup/company-memory` — Update Company Details UI. Help **35**.
+- **Browser Session desktop worker:** `GET /integrations/browser-worker/package` + status/tokens; worker API `/api/browser-worker/v1/*`.
+- **Desktop client API (Bearer `dsk_…` + optional IP whitelist):** `/agent-workflows/desktop/v1/runs`, `.../steps`, `.../execute-node`, `.../complete`
+
+### AgentExchange & A2A
+
+- `GET /agent-exchange?limit=&offset=` — list published workflow A2A **and** AI-employee listings (CEO/Admin); `listing_kind`, owner `can_manage`, `can_add_to_org`, `imported_agent_id`
+- `POST /agent-exchange/:publishId/add-to-org` — import a published **AI employee** into this CEO’s workspace + org (not used for workflow A2A; those still use `POST /org-members`)
+- `GET /agent-exchange/:publishId/test-sample` — sample input from agent card `inputSchema` (Test UI autofill)
+- `POST /agent-exchange/:publishId/test` — authenticated test invoke (workflow owners bypass IP deny/whitelist and OAuth; Flolah employee listings: owner-only; logged as `source=agent_exchange_test`)
+- `GET /admin/a2a-invocations` — admin report of all A2A attempts (`denied` / `error` / `success` / `failed`), including blocks before a workflow run starts
+- `GET/PUT /agent-exchange/:publishId/access` — access policy (`deny_all` | `allow_all` | `whitelist`); body may also set `visibility` (**workflow listings**)
+- `PUT /agent-exchange/:publishId/visibility` — `public` (default) | `private` (disables public calling; org COO / reports-to lead only) — **workflow listings**
+- `POST/DELETE /agent-exchange/:publishId/ip-whitelist` — whitelist entries (IPv4 CIDR ok; IPv6 exact only)
+- `DELETE /agent-exchange/:publishId` — unpublish listing (workflow remains published; AI employee stays in the publisher’s workspace)
+- `POST /agents/:id/publish-a2a` — publish this AI employee to Exchange (`visibility`: `flolah` \| `public`)
+- `GET/DELETE /agents/:id/a2a-publication` — current employee listing / unpublish
+- `GET /a2a/:publishId/.well-known/agent-card.json` — agent card (403 when workflow visibility=private, AI-employee visibility=flolah, or IP denied)
+- `POST /a2a/:publishId/oauth/token` — `grant_type=client_credentials` + `client_id` / `client_secret` → Bearer access token
+- `POST /a2a/:publishId` — A2A JSON-RPC invoke. **Workflow:** blocked when `visibility=private`, `deny_all`, or IP not whitelisted. **AI employee:** blocked when `visibility=flolah`; Public listings accept `message/send`. Async enquire / `tasks/get` apply to **workflow** listings.
+- `POST/GET /a2a-callback-inbox` — mock async callback receiver (GET requires CEO auth; sample webhook JSON in response)
+- **Workflow publish body:** `visibility: public|private`, `invoke_mode: sync|async`, `callback_url`, `as_new_agent`, `publish_id` (update), `auth_mode: public|secured`
+- **AI employee publish body:** `visibility: flolah|public`, `name`, `description`, `avatar_image`
+- Optional env: `A2A_ACCESS_TOKEN_TTL_SEC` (default `3600`), `A2A_SYNC_TIMEOUT_MS`, `A2A_ASYNC_WATCH_TIMEOUT_MS`, `A2A_CALLBACK_TIMEOUT_MS`
+
+### MCP & external agents
+
+- `/integrations/mcp/*` — MCP server registry, connect, test, call tool
+- `/external-agents/*` — A2A agent registry and task invoke
+
+### Org members (external / A2A leaf agents)
+
+- `GET /org-members` — leaf members in the CEO's org chart
+- `POST /org-members` — add/update a leaf member (`kind: external|a2a_publish`, `ref_id`, `display_name`, `purpose`, `department`, `parent_id` internal agent, `monthly_token_budget`, `error_budget_pct`)
+- `DELETE /org-members/:id` — remove from the org chart (registry entry untouched)
+
+### Efficiency & budgets
+
+- `GET /efficiency/summary?days=7|14|30|90|all` — Org tab metrics + timeline
+- `GET /efficiency/departments` — month-to-date tokens vs `monthly_token_budget` per department (Department tab)
+- `GET /efficiency/agents` — selectable members (internal + leaf) with current-month budget state
+- `GET /efficiency/agents/:memberKey?days=30` — Agent View metrics (activity, outcomes, tokens, reliability, top tools)
+- `PUT /efficiency/agents/:memberKey/budget` — set `monthly_token_budget` / `error_budget_pct`
+- `POST /efficiency/usage/reset` — zero month-to-date `token_usage` for one `member_key` (omit for all); budgets unchanged
+- `GET /efficiency/storage` — tenant storage estimate (`storage_mb`, `components[]` incl. OpenSearch RAG); also folded into `GET /efficiency/summary` totals (`storage_mb`, `storage_breakdown`) for the Org **Storage (MB)** tile (click **i** for popup)
+- `GET/PUT /efficiency/retention` — read / set `data_retention_days` (30, 60, 90, 120, 365)
+- `POST /efficiency/retention/purge` — purge this CEO's aged chats, chat history, standup conversations and workflow runs now
+- Ledger `token_usage` sources: `openclaw_chat`, `delegation`, `workflow_brain`, `a2a_outbound`; provider usage when returned, otherwise a flagged `chars/4` estimate
+
+### Master Data
+
+- `/master-data/*` — tables, rows, documents, RAG (per CEO). Default User Guide document + departments seeded on CEO register / backend startup backfill.
+- `departments` table carries `name`, `purpose`, `monthly_token_budget`; purpose is synced into agent workspaces via ORG.md.
+- `POST /master-data/documents/purge-all` — delete all **user-uploaded** documents (DB + disk); Platform Help / User Guide retained.
+- `DELETE /master-data/documents/:id` — blocked with `403` / `PROTECTED_DOCUMENT` for help/guide docs (`is_protected` on list responses).
+
+### Media
+
+- `GET /api/media/openclaw/*` — AgentSystem-generated media for Dashboard chat / Kanban. **Requires login (Bearer)** by default. Optional anonymous `?exp=&sig=` only when ops sets `MEDIA_PUBLIC_SIGNED=1` (off by default; see `deploy/.env.example`).
+- Content tools (`generate_image`, `generate_video`, `speech_tts`, …) return `paste_exactly` / `media_uri` as **`MEDIA:/abs/path`** for **WhatsApp file attach** on the shared AgentSystem volume, plus auth-only `relative_url` (`/api/media/…`) for the web UI.
+- Dashboard chat renders `MEDIA:` and `/api/media` as **inline** image / audio / video players (authenticated blob fetch). Each TTS clip plays **once** (the `MEDIA:` line and the `speech_tts` tool result are the same file). Do **not** paste bare auth HTTPS media URLs into WhatsApp (shows “Media failed”). Native `message` failures can inject a **Message failed** banner; the platform strips that from chat and channel copies.
+- Guest Published Scenes use separate `/api/public/vr/:slug/artifacts/…?t=…` tokens — unrelated to `MEDIA_PUBLIC_SIGNED`.
+- Docs: `knowledgebase/platform-help/11-content-tools-scripts-profile.md`, `24-agent-channels.md`, `25-speech-and-published-scenes.md`.
+
+## Restart and test
+
+```bash
+cd backend && npm run test:smoke   # quick: health, agents, standups
+cd backend && npm run test:full    # full suite (set SKIP_CHAT=1 if gateway not running)
+node backend/scripts/test-sse-workflow.js   # SSE + workflow E2E (local MCP on 3099)
+```
+
+PowerShell helpers: `scripts/stop-and-restart-backend-frontend.ps1`, `scripts/stop-and-restart-gateway.ps1`, `scripts/stop-and-restart-all.ps1`.
+
+See **knowledgebase/TESTING.md** for full test cases and restart steps.
+
+## Database and scripts
+
+- **Schema:** `backend/src/db/schema.js` — `initDb()`, `getDb()`. DB: `backend/data/agent-os.db` (or `AGENT_OS_DATA_DIR`). Includes `standups.owner_user_id`, `agent_delegation_tasks.owner_user_id`, A2A publications, platform notifications.
+- **Seeds:** `seed-default-agents.js`, `seed-content-tools-meta.js` (email_send, notify_ceo, Kanban, workflow tools), `seed-job-applicant-tools.js`, `seed-workflow-builder-agent.js`, `seed-platform-help-agent.js`
+- **Default CEO Master Data:** `backend/src/services/ceo-default-master-data.js` — departments table + Flolah User Guide (`knowledgebase/PROJECT.md`) + Platform Help docs (`knowledgebase/platform-help/`) on register and startup backfill
+- **Protected docs:** `backend/src/services/master-data-protected-docs.js` — help/guide titles & filenames cannot be deleted by CEOs (seed refresh uses `{ force: true }`)
+- **Agent delete:** `backend/src/services/agent-delete.js` — `deleteAgentCascade()` runs in one transaction and clears every table that references `agents(id)` (kanban cards are **unassigned**, not deleted; children reparent to the deleted agent's parent). Deletes are recorded in `deleted_agents`, so the startup catalog re-grant (`grantStandardAgents`) and `POST /api/openclaw/sync` will not recreate the agent; an explicit create clears the tombstone
+- **Backend scripts:** `backend/scripts/` — seeds, E2E tests (`test-purge-all-documents.js`, `test-agent-delete-cascade.js`, learnings/history cache, …), MCP seed, workflow tests, COO org/delegation smoke, `cleanup-workflow-runs.js`
+- **AgentSystem scripts:** `scripts/` — `setup-openclaw-from-scratch.ps1`, `onboard-api-tool.js`, `apply-openclaw-agents-config.js`, `setup-job-applicant-agents.js`, `sync-browser-tools-md.js`, `install-agent-os-content-tools-extension.js`, kill/restart helpers
+- **Allowlists:** `backend/src/lib/content-tools-allow.js` (Docker-safe; keep in sync with `scripts/lib/content-tools-allow.js`)
+
+No separate migration folder; schema changes use `ALTER TABLE` blocks in `schema.js`.
+
+## Project layout
+
+```
+agent-os/
+├── README.md                   # short GitHub landing
+├── LICENSE                     # Apache-2.0
+├── NOTICE
+├── THIRD_PARTY_NOTICES.md      # dependency attribution
+├── knowledgebase/
+│   ├── PROJECT.md              # this file (full product / API / repo map)
+│   └── README.md               # knowledgebase index
+├── scripts/                    # AgentSystem/workspace; onboard-api-tool.js; tool-definitions/
+├── tools/local-mcp-random-sse/ # Dev MCP + SSE test server (port 3099)
+├── tools/brave-search-mcp-byok/   # Brave Search REST → HTTP MCP wrapper (BYOK headers only)
+├── tools/meta-graph-mcp/          # Facebook/IG Graph → HTTP MCP
+├── tools/business-core-mcp/       # Flolah CRM/ERP tools → HTTP MCP (workflows)
+├── openclaw-workspace-templates/  # SOUL, AGENTS, MEMORY, TOOLS per agent type (lean: balserve/… + Business Core: crm-*/erp-*)
+├── openclaw-skills/            # agent-send, agent-os-content-tools, etc.
+├── openclaw-extensions/        # agent-os-content-tools plugin, bootstrap watcher (ORG.md)
+├── docs-site/                  # Public Docusaurus user guide → /docs/ on flolah.cloud + login host
+├── deploy/                     # Docker Compose, nginx dual-vhost, static/flolah-home marketing,
+│                               #   sync-to-vps.ps1, vps-deploy-latest.sh, vps-expand-login-cert.sh
+├── backend/
+│   ├── .env.example
+│   ├── data/                   # SQLite
+│   ├── local-browser-worker/   # Windows Browser Session package (Playwright ≥1.55.1 persistent profile)
+│   ├── local-ibkr-bridge/      # Windows IBKR bridge package for Connectors
+│   ├── desktop-workflow-runner/# Download for Windows runner sources
+│   ├── scripts/                # seeds, E2E, workflow tests
+│   └── src/
+│       ├── index.js            # standup + delegation + job pipeline crons
+│       ├── config/             # llm, public-url, tools
+│       ├── db/
+│       ├── lib/                # content-tools-allow (COO / global / workflow builder)
+│       ├── routes/             # auth, admin, agents, kanban, job-applicant,
+│       │                         # agent-workflows, workflow-a2a, agent-exchange,
+│       │                         # platform-notifications, mcp-integrations, …
+│       ├── services/           # org-context, openclaw-tenant, delegation-queue,
+│       │                         # email-send, notify-ceo, ceo-default-master-data, …
+│       └── gateway/openclaw.js
+└── frontend/
+    └── src/
+        ├── pages/              # Dashboard, Login (Flolah footer), AgentChat,
+        │                         # AgentWorkspace, Kanban, AgentWorkflows,
+        │                         # AgentWorkflowEditor, AgentExchange, JobProfiles,
+        │                         # JobWorkflows, MasterData, Broadcast, ApiKeys,
+        │                         # Connectors, BrowserSession, IpWhitelists, TokensManagement,
+        │                         # AiSnipper, EfficiencyView,
+        │                         # AdminCrons, AdminA2AInvocations, …
+        └── components/         # NotificationBell, PublishA2AModal, ChatComposeInput,
+                                # ChatToolCalls, workflow editor nodes, Kanban artifacts
+```
+
+## Documentation (knowledge base)
+
+All project docs except this README live in **`knowledgebase/`**:
+
+| File | Purpose |
+|------|---------|
+| **platform-help/** | CEO Platform Help RAG corpus (incl. **22** Browser Session desktop worker, **41** Video content S1–S5, **33** IP Whitelists, **34** Tokens; **35** Update Company Details) |
+| **TESTING.md** | Restart, API tests, frontend manual tests, smoke test |
+| **JOB-APPLICANT-WORKFLOW.md** | Job pipeline agents, tools, profile intake, setup |
+| **GATEWAY-PAIRING-1008.md** | Fix gateway pairing / token |
+| **SESSION-HISTORY-VISIBILITY-TREE.md** | AgentSystem session visibility |
+| **AGENT_REVIEW_AND_SKILLS.md** | Agent roles and skills |
+| **CONFIGURE-CLAUDE-OPUS.md** | Anthropic model in openclaw.json |
+| **IMPLEMENTATION_PLAN.md** | Roadmap and phases |
+| **GITHUB-SETUP.md** | Push to GitHub |
+| **SOCIAL_POSTING_OPTIONS.md** | SocialAssistant posting options |
+| **ADD-AGENT-VS-RECENT-FIXES-VALIDATION.md** | Agent creation vs config scripts |
+| **DEPLOY-CENTOS-PODMAN.md** | CentOS / Podman / Docker production |
+| **OPENCONNECTOR-WEBHOOKS.md** | OpenConnector MCP, email-inbound, file pollers |
+| **IBKR-TRADING-WORKFLOW.md** | Legacy IBKR maker/checker paper day-plan workflow |
+| **IBKR-MONTHLY-WORKFLOWS.md** | Monthly Positive Return **W1–W5** (+ bridge): names, goals, outcomes; Summary UI + clear-transactional APIs |
+| **IBKR-MONTHLY-TRADING-PLAN.md** | Monthly system architecture, phases, strategy appendix |
+| **IBKR-MONTHLY-EXECUTION-MODEL.md** | Cloud vs laptop execution + laptop↔VPS recovery |
+| **IBKR-LOCAL-BRIDGE.md** | Laptop HTTP bridge, Connectors zip, Gateway, ingest webhook vs W3 EOD run |
+| **CLIENT-BROWSER-SESSION.md** / **BROWSER-SESSION-DESKTOP-LOCAL.md** | Client Chrome + multi-user local Browser Session worker (sign-in / `BROWSER_USER_DATA_DIR` profile) |
+| **VIDEO-CONTENT-GENERATION-PLAN.md** / **platform-help/41** | Video pack S1–S5: storyboard, dual S4 flavours, S5 FFmpeg → `video_generated` |
+| **platform-help/22**, **33**, **34**, **35** | Browser Session; IP Whitelists; Tokens; Update Company Details |
+| **platform-help/20-ibkr-monthly-trading.md** | **CEO help:** W1–W5 defs, flow diagrams, isolation, ingest URL vs W3 run, **IBKR Summary / Clear data**, bridge setup |
+| **IBKR-MONTHLY-PHASE4.md** | Paper E2E + certify runbook before live |
+| **knowledgeGraph.md** | Neo4j knowledge graph / self-improvement |
+
+See **[README.md](./README.md)** for the full knowledgebase index.
+
+## License
+
+Flolah application code is licensed under the **Apache License 2.0** — see [`LICENSE`](../LICENSE) and [`NOTICE`](../NOTICE).
+
+Open-source and third-party components (Node.js, Docker, Nginx, OpenSearch, Open Connector, AgentSystem gateway, React, Express, optional Twenty/ERPNext, and others) remain under their own licenses. **Attribution:** [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md). Public summary: [`/legal/open-source.html`](https://flolah.cloud/legal/open-source.html) (also on the login host).

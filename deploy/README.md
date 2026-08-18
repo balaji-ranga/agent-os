@@ -769,7 +769,7 @@ Never treat `docker compose exec backend curl …/health` alone as proof that lo
 
 Local dev (non-VPS) can omit the overlay when using bridge nginx (`nginx.conf` → `backend:3001`). Loopback publishes remain harmless.
 
-**API list pagination:** CEO SPA list endpoints return `{ domainKey, total, limit, offset, has_more }` (shared helpers in `backend/src/lib/pagination.js`). Rebuild **backend** + **frontend** after changes. Details: root `README.md` → API (backend).
+**API list pagination:** CEO SPA list endpoints return `{ domainKey, total, limit, offset, has_more }` (shared helpers in `backend/src/lib/pagination.js`). Rebuild **backend** + **frontend** after changes. Details: `knowledgebase/PROJECT.md` → API (backend).
 
 ## A2A / AgentExchange testing
 

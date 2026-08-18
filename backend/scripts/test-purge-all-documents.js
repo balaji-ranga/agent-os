@@ -28,7 +28,8 @@ try {
   const OWNER = 'ceo-purge-test';
 
   console.log('== protection detector ==');
-  check(isProtectedPlatformDocument({ title: 'Flolah User Guide', filename: 'README.md' }), 'User Guide protected');
+  check(isProtectedPlatformDocument({ title: 'Flolah User Guide', filename: 'PROJECT.md' }), 'User Guide protected');
+  check(isProtectedPlatformDocument({ title: 'Flolah User Guide', filename: 'README.md' }), 'legacy README filename protected');
   check(isProtectedPlatformDocument({ title: 'Flolah Help — Getting Started', filename: 'platform-help-01-getting-started.md' }), 'Help doc protected');
   check(isProtectedPlatformDocument({ title: 'Flowlah Help — Old', filename: 'x.md' }), 'legacy help protected');
   check(!isProtectedPlatformDocument({ title: 'My Policy', filename: 'policy.pdf' }), 'user upload not protected');
@@ -36,7 +37,7 @@ try {
   console.log('== seed docs + user upload ==');
   const guide = await md.uploadDocument(OWNER, {
     title: 'Flolah User Guide',
-    filename: 'README.md',
+    filename: 'PROJECT.md',
     contentText: '# Guide\nProtected.',
   });
   const help = await md.uploadDocument(OWNER, {

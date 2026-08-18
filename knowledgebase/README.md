@@ -1,11 +1,12 @@
 ﻿# Agent OS — Knowledge base
 
-Documentation lives here so Cursor and humans can find it. **Root README.md** stays at `agent-os/README.md` and is the main entry point.
+Documentation lives here so Cursor and humans can find it. **GitHub landing:** repository root [`README.md`](../README.md) (short). **Full product / API / repo map:** [`PROJECT.md`](./PROJECT.md).
 
 ## Index (for Cursor / future reference)
 
 | File | Purpose |
 |------|---------|
+| **PROJECT.md** | Full product map, CEO UI overview, API, DB scripts, project layout (moved from root README). |
 | **AI-COMPANY-OS.md** | **Canonical** category (AI Company OS), golden messaging layers, terminology (AI employee vs agent API), OS primitives, screen map, design rule for new features, Phase A–F roadmap. Refer for portal/website copy. |
 | **PHASE-D-E-F-OPERATE.md** | Phase D Day 0 operating model + Day 1 autonomy install; Phase E harden; Phase F self-improve. |
 | **BUSINESS-CORE-WORKSPACE-PLAN.md** | Business Core (Twenty/ERPNext + optional profile), tenancy maps, prefab CRM/ERP agents, Home vs Workspace (`/work`), Phase 1–2; entitlements rules. **Validate Phase 1 before Phase 2.** Prefab packs: `backend/src/services/company-blueprints/standard/`. |
@@ -44,8 +45,9 @@ Documentation lives here so Cursor and humans can find it. **Root README.md** st
 
 ## Not in knowledgebase (stay at repo root or other paths)
 
-- **README.md** — at `agent-os/README.md` (main project doc).
-- **THIRD_PARTY_NOTICES.md** — open-source / dependency attribution (OpenSearch, Open Connector, Docker, Node.js, OpenClaw, npm packages, optional Twenty/ERPNext). Public: `/legal/open-source.html` and `/legal/THIRD_PARTY_NOTICES.md`.
+- **README.md** — short GitHub landing at repo root.
+- **LICENSE** / **NOTICE** — Apache-2.0 for Flolah application code.
+- **THIRD_PARTY_NOTICES.md** — open-source / dependency attribution (OpenSearch, Open Connector, Docker, Node.js, AgentSystem gateway, npm packages, optional Twenty/ERPNext). Public: `/legal/open-source.html` and `/legal/THIRD_PARTY_NOTICES.md`.
 - **openclaw-workspace-templates/** — SOUL/MEMORY/AGENTS per agent type: lean (`balserve`, `workflowbuilder`, `platformhelp`, …) + **Business Core** role packs (`crm-maker-a`, `crm-maker-b`, `crm-checker`, `erp-maker-a`, `erp-maker-b`, `erp-checker`, `erp-pnl`, `erp-invoice`, `erp-project`) and `business-core-template-map.json`. Do not move.
 - **openclaw-skills/** — SKILL.md and README per skill; install scripts reference these paths.
 - **.cursor/agents/** — Cursor subagent instructions (code-review, remote-host-config, etc.).

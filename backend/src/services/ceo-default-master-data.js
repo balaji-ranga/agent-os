@@ -45,7 +45,7 @@ export const DEPARTMENT_PRESET_ROWS = [
 export const DEPARTMENT_PRESETS = DEPARTMENT_PRESET_ROWS.map((d) => d.name);
 
 export const FLOLAH_GUIDE_TITLE = 'Flolah User Guide';
-export const FLOLAH_GUIDE_FILENAME = 'README.md';
+export const FLOLAH_GUIDE_FILENAME = 'PROJECT.md';
 
 /** Title prefix for Platform Help RAG documents. */
 export const PLATFORM_HELP_TITLE_PREFIX = 'Flolah Help —';
@@ -184,12 +184,14 @@ export const PLATFORM_HELP_DOCUMENTS = Object.freeze([
   },
 ]);
 
-/** Resolve repo README.md (local: agent-os/README.md; Docker: /opt/agent-os/README.md). */
+/** Resolve long-form project guide (knowledgebase/PROJECT.md; Docker: /opt/agent-os/knowledgebase/PROJECT.md). */
 export function resolveDefaultReadmePath() {
   const candidates = [
     process.env.AGENT_OS_README_PATH,
+    join(REPO_ROOT, 'knowledgebase', 'PROJECT.md'),
     join(REPO_ROOT, 'README.md'),
-    join(__dirname, '..', '..', 'README.md'), // backend/README.md fallback
+    join(__dirname, '..', '..', 'README.md'),
+    '/opt/agent-os/knowledgebase/PROJECT.md',
     '/opt/agent-os/README.md',
   ].filter(Boolean);
   for (const p of candidates) {

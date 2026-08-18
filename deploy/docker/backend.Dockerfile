@@ -49,7 +49,9 @@ COPY openclaw-extensions ./openclaw-extensions
 COPY deploy ./deploy
 # Seeded as Master Data "Flolah User Guide" for every CEO (register + startup backfill; protected from purge/delete)
 COPY README.md ./README.md
+COPY knowledgebase/PROJECT.md ./knowledgebase/PROJECT.md
 COPY LICENSE ./LICENSE
+COPY NOTICE ./NOTICE
 COPY THIRD_PARTY_NOTICES.md ./THIRD_PARTY_NOTICES.md
 # Platform Help corpus → Master Data RAG (Platform Help agent / master_data_rag; protected from purge/delete)
 COPY knowledgebase/platform-help ./knowledgebase/platform-help

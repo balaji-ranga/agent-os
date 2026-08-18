@@ -38,7 +38,7 @@ Optional Business Core runs **open-source** CRM/ERP next to Flolah:
 - **Twenty CRM** — [github.com/twentyhq/twenty](https://github.com/twentyhq/twenty), AGPL-3.0
 - **ERPNext** — [github.com/frappe/erpnext](https://github.com/frappe/erpnext), GPL-3.0
 
-Those licenses apply to Twenty and ERPNext, not to Flolah proprietary code. See [Open source notices](https://flolah.cloud/legal/open-source.html).
+Those licenses apply to Twenty and ERPNext, not to Flolah’s Apache-2.0 application code. See [Open source notices](https://flolah.cloud/legal/open-source.html).
 
 Never invent customers to “fill” the pipeline. Real enquiries only (website, chat, WhatsApp, Business Discovery Act, or your ask).
 
