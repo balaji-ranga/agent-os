@@ -15,7 +15,7 @@ Home (`/`) opens chat with the **COO**. Use **Chat with** to switch employees. *
 
 **History** and **Browser session** side panes start closed. Use the icons next to **New chat**. **New chat** archives the current thread.
 
-Optional **mic** and **Speak reply** appear when speech is enabled for your environment. **Call** starts a live browser session when that employee has Voice / OpenAI Realtime.
+Optional **mic** and **Speak reply** appear on Home (`/`) and employee chat (`/agents/:id/chat`) when speech is enabled. Use **Chat with** to pick Slow Caller, then **Mic**. **Call** is live WebRTC (Realtime Caller / OpenAI Realtime).
 
 ## How the COO delegates
 

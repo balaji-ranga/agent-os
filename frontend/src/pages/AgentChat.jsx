@@ -8,6 +8,7 @@ import BrowserTasksLive from '../components/BrowserTasksLive';
 import RobotAvatar from '../components/RobotAvatar.jsx';
 import { buildMessageWithAttachments, uploadChatAttachments, buildDisplayAttachmentsFromFiles, revokeAttachmentPreviews } from '../utils/chatAttachments.js';
 import { parseApiDate } from '../utils/formatDateTime.js';
+import { useChatVoice, ChatVoiceBar, ChatVoiceCallOverlay } from '../components/ChatVoiceControls.jsx';
 
 const secondaryBtn = {
   padding: '0.45rem 0.85rem',
@@ -329,6 +330,18 @@ export default function AgentChat() {
   const [operateBanner, setOperateBanner] = useState(null);
   const scrollRef = useRef(null);
   const abortControllerRef = useRef(null);
+  const {
+    recording,
+    transcribing,
+    speakReply,
+    setSpeakReply,
+    calling,
+    setCalling,
+    micBusy,
+    mintVoiceSession,
+    playAssistantSpeech,
+    toggleRecord,
+  } = useChatVoice({ agentId, sending, setError });
   const sidePanelOpen = showHistoryPanel || showBrowserPanel;
   const homeChatSheetOpen = !isHome || !isNarrow || mobileChatOpen;
 
@@ -523,7 +536,7 @@ export default function AgentChat() {
   const send = async (e, overrideText) => {
     e?.preventDefault?.();
     const userText = String(overrideText != null ? overrideText : input).trim();
-    if ((!userText && !attachments.length) || sending || !agentId) return;
+    if ((!userText && !attachments.length) || sending || micBusy || !agentId) return;
     const pendingFiles = [...attachments];
     const displayAttachments = buildDisplayAttachmentsFromFiles(pendingFiles);
     const tempId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -606,6 +619,9 @@ export default function AgentChat() {
           tool_calls: r.tool_calls || [],
         },
       ]);
+      if (speakReply && r.reply) {
+        playAssistantSpeech(r.reply);
+      }
     } catch (err) {
       const cancelled = controller.signal.aborted || err?.name === 'AbortError';
       setError(cancelled ? 'Cancelled' : err.message);
@@ -1013,16 +1029,35 @@ export default function AgentChat() {
                   />
                 ))}
                 {sending && <div style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>…</div>}
+                <ChatVoiceCallOverlay
+                  calling={calling}
+                  agentName={agentLabel}
+                  mintSession={mintVoiceSession}
+                  onClose={() => setCalling(false)}
+                />
               </div>
 
               <form onSubmit={send} style={{ flexShrink: 0 }}>
+                <ChatVoiceBar
+                  sending={sending || !agentId}
+                  micBusy={micBusy}
+                  recording={recording}
+                  transcribing={transcribing}
+                  calling={calling}
+                  speakReply={speakReply}
+                  setSpeakReply={setSpeakReply}
+                  onMic={() =>
+                    toggleRecord((text) => setInput((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text)))
+                  }
+                  onCall={() => setCalling(true)}
+                />
                 <div className="chat-compose-row">
                   <ChatComposeInput
                     placeholder={`Message ${agentLabel}…`}
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onSend={send}
-                    disabled={sending || !agentId}
+                    disabled={sending || micBusy || !agentId}
                     attachments={attachments}
                     onAttachmentsChange={setAttachments}
                     rows={2}
@@ -1040,11 +1075,11 @@ export default function AgentChat() {
                   />
                   <button
                     type="submit"
-                    disabled={sending || !agentId || (!input.trim() && !attachments.length)}
+                    disabled={sending || micBusy || !agentId || (!input.trim() && !attachments.length)}
                     style={{
                       padding: '0.65rem 1.1rem',
                       background:
-                        sending || !agentId || (!input.trim() && !attachments.length) ? 'var(--border)' : 'var(--accent)',
+                        sending || micBusy || !agentId || (!input.trim() && !attachments.length) ? 'var(--border)' : 'var(--accent)',
                       border: 'none',
                       borderRadius: 8,
                       color: '#fff',
@@ -1196,16 +1231,35 @@ export default function AgentChat() {
                 />
               ))}
               {sending && <div style={{ color: 'var(--muted)' }}>…</div>}
+              <ChatVoiceCallOverlay
+                calling={calling}
+                agentName={agentLabel}
+                mintSession={mintVoiceSession}
+                onClose={() => setCalling(false)}
+              />
             </div>
 
             <form onSubmit={send} style={{ flexShrink: 0 }}>
+              <ChatVoiceBar
+                sending={sending || !agentId}
+                micBusy={micBusy}
+                recording={recording}
+                transcribing={transcribing}
+                calling={calling}
+                speakReply={speakReply}
+                setSpeakReply={setSpeakReply}
+                onMic={() =>
+                  toggleRecord((text) => setInput((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text)))
+                }
+                onCall={() => setCalling(true)}
+              />
               <div className="chat-compose-row">
                 <ChatComposeInput
                   placeholder="Message… (Shift+Enter for new line)"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onSend={send}
-                  disabled={sending || !agentId}
+                  disabled={sending || micBusy || !agentId}
                   attachments={attachments}
                   onAttachmentsChange={setAttachments}
                   rows={3}
@@ -1222,11 +1276,11 @@ export default function AgentChat() {
                 />
                 <button
                   type="submit"
-                  disabled={sending || !agentId || (!input.trim() && !attachments.length)}
+                  disabled={sending || micBusy || !agentId || (!input.trim() && !attachments.length)}
                   style={{
                     padding: '0.75rem 1.25rem',
                     background:
-                      sending || !agentId || (!input.trim() && !attachments.length) ? 'var(--border)' : 'var(--accent)',
+                      sending || micBusy || !agentId || (!input.trim() && !attachments.length) ? 'var(--border)' : 'var(--accent)',
                     border: 'none',
                     borderRadius: 8,
                     color: '#fff',

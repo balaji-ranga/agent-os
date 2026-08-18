@@ -1808,6 +1808,9 @@ html.auth-route #root {
   gap: 0.5rem;
   align-items: flex-end;
 }
+.chat-voice-bar {
+  flex-shrink: 0;
+}
 .chat-compose-row input,
 .chat-compose-row textarea {
   flex: 1;
