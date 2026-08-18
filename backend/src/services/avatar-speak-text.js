@@ -1,7 +1,8 @@
 /**
  * Avatar reply helpers:
- * - extractSpokenAvatarReply → TTS only (short, speakable)
- * - extractAvatarTranscriptReply → chat transcript (keep the real deliverable)
+ * - extractSpokenAvatarReply → short TTS line for 3D avatars
+ * - speakableChatReply → full chat Speak (strip MEDIA, keep the whole answer)
+ * - extractAvatarTranscriptReply → chat transcript
  */
 
 function stripMediaAndCode(text) {
@@ -23,6 +24,18 @@ function stripSpokenLabels(text) {
     ' '
   );
   return t;
+}
+
+/** Full assistant reply for Agent Chat Speak — not the 2-sentence avatar snippet. */
+export function speakableChatReply(raw, maxChars = 8000) {
+  let t = stripMediaAndCode(String(raw || ''));
+  t = stripSpokenLabels(t);
+  t = t.replace(/\*\*([^*]+)\*\*/g, '$1');
+  t = t.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '$1');
+  t = t.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  const n = Number(maxChars);
+  const cap = Number.isFinite(n) && n > 0 ? n : 8000;
+  return t.slice(0, cap);
 }
 
 function isMetaLine(line) {

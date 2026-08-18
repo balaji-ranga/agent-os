@@ -32,7 +32,7 @@ Env (written by `ensure-voice-env.sh` if missing — see `deploy/.env.example`):
 ### Agent Chat
 
 - **Microphone** (compose toolbar, next to paperclip) — records audio → `POST /api/speech/stt` → **auto-sends** after **3 seconds of silence after you speak** (or click the icon again). Clicking mic does not start the 3s countdown. Same control on Home (`/`) after **Chat with** Slow Caller.
-- **Speak** (Piper) — check **Speak** before you talk. The reply is **streamed** (`POST /api/speech/tts` with `stream: true`) and played in the browser. No audio file is saved or shown as a chat attachment. WhatsApp still uses `speech_tts` + `MEDIA:`.
+- **Speak** (Piper) — check **Speak** before you talk. The **full** assistant reply is spoken in sentence chunks (`POST /api/speech/tts` with `stream: true` and `full: true`) while the next chunk is fetched. It is not the short 3D-avatar line. No audio file is saved or shown as a chat attachment. WhatsApp still uses `speech_tts` + `MEDIA:`.
 
 ### Content tools + WhatsApp
 

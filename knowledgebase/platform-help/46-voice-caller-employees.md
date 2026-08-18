@@ -23,7 +23,7 @@ On Home (`/`), **Chat with** Slow Caller. Controls are **icons** in the message 
 |---------|----------------|------------|
 | **Microphone** | Whisper → chat message | Click, allow mic, **speak**, then **pause 3 seconds after you finish**. The 3s timer starts only after speech is heard. Click the icon again to send sooner. |
 | **Speak** checkbox | Piper streams the reply | Check it before you talk. The next assistant reply **plays in the browser** — it is not an audio attachment in the thread. |
-| **Phone / Call** | Live WebRTC | **Not on Slow Caller.** Hire Realtime Caller and enable **Channels → Voice**. |
+| **Phone / Call** | Live WebRTC | Shown when **Channels → Voice** is enabled on **that** employee (COO, Realtime Caller, or any other). Slow Caller without Voice still uses the microphone only. |
 
 HTTPS is required (already true on `login.flolah.cloud`). Platform `optional-voice` (Whisper + Piper) must be up.
 
@@ -63,6 +63,16 @@ WhatsApp is **voice notes**, not a live phone call.
 5. Guests on the widget do **not** log in. Live tools are **read-only lookups** (RAG + CRM list). Session tokens expire (~15 min). **CEO Call** hangup posts the transcript into that employee for wrap-up (CRM/Kanban/goal). **Public widget** hangup **stores the transcript only** — it does not run a tool wrap-up, so a guest cannot inject a fake transcript into CRM.
 
 HTTPS is required for browser microphone (already true on `login.flolah.cloud`).
+
+## Live Call on the COO
+
+The COO is a normal employee for Channels. You do **not** hire a second COO.
+
+1. Open the COO → **Channels** → **Voice (WebRTC)** → work through the wizard → **Publish Voice**.
+2. Home **Chat with** the COO: the **phone** icon appears next to the paperclip. That is live OpenAI Realtime (same as Realtime Caller).
+3. Needs the same OpenAI Realtime key as Call on Realtime Caller (platform **secondary** OpenAI on `api.openai.com`, or vault OpenAI).
+
+Mic + Speak on the COO stay Whisper + Piper (turn-based). Call is the barge-in path.
 
 ## APIs
 

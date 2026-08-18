@@ -10,7 +10,7 @@ import {
   createSpeechTtsArtifact,
   synthesizeSpeechText,
 } from '../services/agent-workflow-speech.js';
-import { extractSpokenAvatarReply } from '../services/avatar-speak-text.js';
+import { extractSpokenAvatarReply, speakableChatReply } from '../services/avatar-speak-text.js';
 
 const router = Router();
 
@@ -164,11 +164,12 @@ router.post('/tts', requireAuth, requireCeoOrAdmin, express.json({ limit: '1mb' 
     if (!owner) return;
     const text = String(req.body?.text || '').trim();
     if (!text) return res.status(400).json({ error: 'text required' });
-    const spoken = extractSpokenAvatarReply(text) || text;
     const stream =
       req.body?.stream === true ||
       req.body?.persist === false ||
       /audio\//i.test(String(req.headers.accept || ''));
+    const full = req.body?.full !== false;
+    const spoken = stream && full ? speakableChatReply(text) || text : extractSpokenAvatarReply(text) || text;
     const opts = {
       voice: req.body?.voice,
       lengthScale: req.body?.lengthScale,

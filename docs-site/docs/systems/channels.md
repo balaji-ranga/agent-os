@@ -23,7 +23,7 @@ Same idea: bind the employee, set allowed channels or DMs, test a round-trip.
 
 ## Voice (WebRTC)
 
-Hire **Realtime Caller**, then Channels → **Voice**. Enable publishes a public `/p/voice/:slug` page. Agent Chat has **Call**. Needs OpenAI Realtime (not OpenRouter/Ollama). Guests do not log in. Not a phone number — inbound PSTN is a later telephony MCP.
+Hire **Realtime Caller**, then Channels → **Voice**. The same Voice wizard works on the **COO** (no extra hire). Enable publishes a public `/p/voice/:slug` page. Agent Chat has **Call**. Needs OpenAI Realtime (not OpenRouter/Ollama). Guests do not log in. Not a phone number — inbound PSTN is a later telephony MCP.
 
 ## Scheduled goals
 

@@ -5,16 +5,71 @@
  * Mic stays clickable while recording. After you speak, 3s of silence (or click again)
  * transcribes and auto-sends. Silence is measured only after speech is heard — clicking
  * mic does not start a 3s countdown.
- * Call is shown only when that employee has an enabled Voice channel (Realtime Caller).
+ * Call is shown only when that employee has an enabled Voice channel (COO included).
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import AgentVoiceCall from './AgentVoiceCall.jsx';
-import { extractSpokenAvatarReply } from '../utils/avatarSpeakText.js';
+import { speakableChatReply } from '../utils/avatarSpeakText.js';
 
 const SILENCE_MS = 3000;
 const MAX_RECORD_MS = 60000;
-const SPEECH_RMS = 0.008;
+const POLL_MS = 80;
+const CALIBRATE_MS = 400;
+
+function analyserRms(analyser, floatBuf, byteBuf) {
+  let peak = 0;
+  try {
+    analyser.getFloatTimeDomainData(floatBuf);
+    let sum = 0;
+    for (let i = 0; i < floatBuf.length; i += 1) {
+      const v = floatBuf[i];
+      const a = Math.abs(v);
+      if (a > peak) peak = a;
+      sum += v * v;
+    }
+    if (peak > 1e-6) return Math.sqrt(sum / floatBuf.length);
+  } catch {
+    /* some browsers only fill byte time-domain data */
+  }
+  analyser.getByteTimeDomainData(byteBuf);
+  let sum = 0;
+  for (let i = 0; i < byteBuf.length; i += 1) {
+    const v = (byteBuf[i] - 128) / 128;
+    sum += v * v;
+  }
+  return Math.sqrt(sum / byteBuf.length);
+}
+
+function splitSpeakChunks(text, maxLen = 420) {
+  const raw = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!raw) return [];
+  const sentences = raw.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [raw];
+  const parts = [];
+  let buf = '';
+  const pushPiece = (piece) => {
+    const p = String(piece || '').trim();
+    if (!p) return;
+    if (p.length <= maxLen) {
+      parts.push(p);
+      return;
+    }
+    for (let i = 0; i < p.length; i += maxLen) parts.push(p.slice(i, i + maxLen));
+  };
+  for (const s of sentences) {
+    const piece = String(s || '').trim();
+    if (!piece) continue;
+    const next = buf ? `${buf} ${piece}` : piece;
+    if (next.length <= maxLen) buf = next;
+    else {
+      if (buf) parts.push(buf);
+      buf = '';
+      pushPiece(piece);
+    }
+  }
+  if (buf) parts.push(buf);
+  return parts;
+}
 
 function blobToBase64(blob) {
   return blob.arrayBuffer().then((buf) => {
@@ -26,16 +81,6 @@ function blobToBase64(blob) {
     }
     return btoa(binary);
   });
-}
-
-function analyserRms(analyser, buf) {
-  analyser.getByteTimeDomainData(buf);
-  let sum = 0;
-  for (let i = 0; i < buf.length; i += 1) {
-    const v = (buf[i] - 128) / 128;
-    sum += v * v;
-  }
-  return Math.sqrt(sum / buf.length);
 }
 
 export function useChatVoice({ agentId, sending, setError }) {
@@ -52,6 +97,9 @@ export function useChatVoice({ agentId, sending, setError }) {
   const pollRef = useRef(null);
   const audioCtxRef = useRef(null);
   const streamRef = useRef(null);
+  const analyseStreamRef = useRef(null);
+  const analyseNodesRef = useRef(null);
+  const speakSeqRef = useRef(0);
 
   const clearWatchers = useCallback(() => {
     if (maxTimerRef.current) {
@@ -62,6 +110,7 @@ export function useChatVoice({ agentId, sending, setError }) {
       clearInterval(pollRef.current);
       pollRef.current = null;
     }
+    analyseNodesRef.current = null;
     try {
       audioCtxRef.current?.close();
     } catch {
@@ -73,6 +122,8 @@ export function useChatVoice({ agentId, sending, setError }) {
   const stopStream = useCallback(() => {
     streamRef.current?.getTracks()?.forEach((t) => t.stop());
     streamRef.current = null;
+    analyseStreamRef.current?.getTracks()?.forEach((t) => t.stop());
+    analyseStreamRef.current = null;
   }, []);
 
   useEffect(
@@ -82,9 +133,10 @@ export function useChatVoice({ agentId, sending, setError }) {
       } catch {
         /* ignore */
       }
+      speakSeqRef.current += 1;
+      speakAudioRef.current?.pause();
       clearWatchers();
       stopStream();
-      speakAudioRef.current?.pause();
     },
     [clearWatchers, stopStream]
   );
@@ -120,31 +172,58 @@ export function useChatVoice({ agentId, sending, setError }) {
 
   const playAssistantSpeech = useCallback(
     async (text) => {
-      const spoken = extractSpokenAvatarReply(text) || String(text || '').trim();
+      const spoken = speakableChatReply(text);
       if (!spoken) return;
+      const seq = (speakSeqRef.current += 1);
+      const chunks = splitSpeakChunks(spoken);
+      const playBlob = (blob) =>
+        new Promise((resolve, reject) => {
+          if (seq !== speakSeqRef.current) {
+            resolve();
+            return;
+          }
+          speakAudioRef.current?.pause();
+          if (speakAudioRef.current?.src?.startsWith('blob:')) {
+            try {
+              URL.revokeObjectURL(speakAudioRef.current.src);
+            } catch {
+              /* ignore */
+            }
+          }
+          const url = URL.createObjectURL(blob);
+          const audio = new Audio(url);
+          speakAudioRef.current = audio;
+          audio.onended = () => {
+            try {
+              URL.revokeObjectURL(url);
+            } catch {
+              /* ignore */
+            }
+            resolve();
+          };
+          audio.onerror = () => {
+            try {
+              URL.revokeObjectURL(url);
+            } catch {
+              /* ignore */
+            }
+            reject(new Error('Speech playback failed'));
+          };
+          audio.play().catch(reject);
+        });
       try {
-        const blob = await api.speechTtsStream({ text: spoken });
-        if (!blob || blob.size < 64) throw new Error('Empty speech stream');
-        speakAudioRef.current?.pause();
-        if (speakAudioRef.current?.src?.startsWith('blob:')) {
-          try {
-            URL.revokeObjectURL(speakAudioRef.current.src);
-          } catch {
-            /* ignore */
-          }
+        console.info('[chat] speak start chunks=%s chars=%s', chunks.length, spoken.length);
+        let pending = chunks.length ? api.speechTtsStream({ text: chunks[0] }) : null;
+        for (let i = 0; i < chunks.length; i += 1) {
+          if (seq !== speakSeqRef.current) return;
+          const blob = await pending;
+          if (seq !== speakSeqRef.current) return;
+          if (!blob || blob.size < 64) throw new Error('Empty speech stream');
+          pending = i + 1 < chunks.length ? api.speechTtsStream({ text: chunks[i + 1] }) : null;
+          await playBlob(blob);
         }
-        const url = URL.createObjectURL(blob);
-        const audio = new Audio(url);
-        speakAudioRef.current = audio;
-        audio.onended = () => {
-          try {
-            URL.revokeObjectURL(url);
-          } catch {
-            /* ignore */
-          }
-        };
-        await audio.play();
       } catch (e) {
+        if (seq !== speakSeqRef.current) return;
         console.warn('[chat] speak reply failed', e?.message || e);
         setError?.(e.message || 'Speak reply failed');
       }
@@ -202,38 +281,49 @@ export function useChatVoice({ agentId, sending, setError }) {
   );
 
   const startSilenceWatch = useCallback(
-    (stream) => {
-      let lastSpeechAt = 0;
+    (analyseStream, ctx) => {
+      let heard = false;
+      let quietMs = 0;
+      const calib = [];
+      let thresh = 0.01;
+      const startedAt = Date.now();
+      let loggedWait = false;
       maxTimerRef.current = setTimeout(() => finishRecording('max'), MAX_RECORD_MS);
-      const Ctx = window.AudioContext || window.webkitAudioContext;
-      if (!Ctx) {
-        console.warn('[chat] mic: no AudioContext — click the microphone to send');
-        return;
-      }
-      const ctx = new Ctx();
-      audioCtxRef.current = ctx;
       try {
-        const source = ctx.createMediaStreamSource(stream);
+        const source = ctx.createMediaStreamSource(analyseStream);
         const analyser = ctx.createAnalyser();
-        analyser.fftSize = 2048;
-        analyser.smoothingTimeConstant = 0.2;
+        analyser.fftSize = 1024;
+        analyser.smoothingTimeConstant = 0;
         source.connect(analyser);
-        const buf = new Uint8Array(analyser.fftSize);
-        const beginPoll = () => {
-          pollRef.current = setInterval(() => {
-            const rms = analyserRms(analyser, buf);
-            const now = Date.now();
-            if (rms >= SPEECH_RMS) lastSpeechAt = now;
-            if (!lastSpeechAt) return;
-            if (now - lastSpeechAt >= SILENCE_MS) finishRecording('silence');
-          }, 100);
-        };
-        const start = ctx.resume?.();
-        if (start && typeof start.then === 'function') {
-          start.then(beginPoll).catch(beginPoll);
-        } else {
-          beginPoll();
-        }
+        analyseNodesRef.current = { source, analyser };
+        const floatBuf = new Float32Array(analyser.fftSize);
+        const byteBuf = new Uint8Array(analyser.fftSize);
+        pollRef.current = setInterval(() => {
+          if (ctx.state === 'suspended') void ctx.resume();
+          const rms = analyserRms(analyser, floatBuf, byteBuf);
+          const now = Date.now();
+          if (now - startedAt < CALIBRATE_MS) {
+            calib.push(rms);
+            return;
+          }
+          if (calib.length) {
+            const sorted = calib.slice().sort((a, b) => a - b);
+            const p = sorted[Math.max(0, Math.floor(sorted.length * 0.3))] || 0.003;
+            thresh = Math.min(0.04, Math.max(0.008, p * 2.8));
+            calib.length = 0;
+            console.info('[chat] mic silence thresh=%s', thresh.toFixed(4));
+          }
+          if (rms >= thresh) {
+            heard = true;
+            quietMs = 0;
+          } else if (heard) {
+            quietMs += POLL_MS;
+            if (quietMs >= SILENCE_MS) finishRecording('silence');
+          } else if (!loggedWait && now - startedAt > 2000) {
+            loggedWait = true;
+            console.info('[chat] mic waiting for speech rms=%s thresh=%s', rms.toFixed(4), thresh.toFixed(4));
+          }
+        }, POLL_MS);
       } catch (e) {
         console.warn('[chat] mic analyser unavailable', e?.message || e);
       }
@@ -250,8 +340,16 @@ export function useChatVoice({ agentId, sending, setError }) {
       if (transcribing || sending) return;
       onTranscriptRef.current = onTranscript;
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        const ctx = Ctx ? new Ctx() : null;
+        if (ctx) audioCtxRef.current = ctx;
+        void ctx?.resume?.();
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: true },
+        });
         streamRef.current = stream;
+        const analyse = typeof stream.clone === 'function' ? stream.clone() : stream;
+        analyseStreamRef.current = analyse === stream ? null : analyse;
         const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
           ? 'audio/webm;codecs=opus'
           : MediaRecorder.isTypeSupported('audio/webm')
@@ -278,7 +376,14 @@ export function useChatVoice({ agentId, sending, setError }) {
         rec.start(250);
         setRecording(true);
         console.info('[chat] mic start');
-        startSilenceWatch(stream);
+        if (ctx) {
+          try {
+            await ctx.resume();
+          } catch {
+            /* ignore */
+          }
+          startSilenceWatch(analyse, ctx);
+        }
       } catch (e) {
         stopStream();
         setError?.(e.message || 'Microphone unavailable');
@@ -368,7 +473,7 @@ export function ChatVoiceBar({
           className={`chat-attach-icon-btn${calling ? ' is-active-call' : ''}`}
           disabled={sending || recording || transcribing || calling}
           onClick={onCall}
-          title="Live call (WebRTC). Realtime Caller with an enabled Voice channel."
+          title="Live call (WebRTC). Enable Channels → Voice on this employee (COO included)."
           aria-label="Start live call"
         >
           <CallIcon />

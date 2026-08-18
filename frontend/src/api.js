@@ -976,7 +976,8 @@ export const api = {
       ? postForm('/speech/stt', formOrBody)
       : post('/speech/stt', formOrBody || {}),
   speechTts: (body) => post('/speech/tts', body || {}),
-  speechTtsStream: (body) => postForBlob('/speech/tts', { ...(body || {}), stream: true }, 'audio/wav'),
+  speechTtsStream: (body) =>
+    postForBlob('/speech/tts', { ...(body || {}), stream: true, full: true }, 'audio/wav'),
 
   agentChannelsList: (params = {}) => {
     const q = new URLSearchParams();

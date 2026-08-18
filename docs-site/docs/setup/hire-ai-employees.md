@@ -16,7 +16,7 @@ Pick an **icon or image** (a default robot icon is used if you skip). The same i
 
 Optional at hire: pick a **role template** (Slow Caller, Realtime Caller) so workspace files and default tools are applied. Monthly **token budget** and **error budget** are also optional. See [Budgets](../operate/budgets.md).
 
-- **Slow Caller** uses WhatsApp voice notes + the chat **microphone** icon (speak, pause 3s after you finish, auto-send; Whisper/Piper). **Realtime Caller** uses the **phone** icon (Call) and a public Voice widget (`/p/voice/:slug`) after Channels → Voice; needs an OpenAI Realtime-capable key. Phone numbers are not included. See [Channels](../systems/channels.md).
+- **Slow Caller** uses WhatsApp voice notes + the chat **microphone** icon (speak, pause 3s after you finish, auto-send; Whisper/Piper). **Realtime Caller** uses the **phone** icon (Call) and a public Voice widget (`/p/voice/:slug`) after Channels → Voice; needs an OpenAI Realtime-capable key. The **same Voice wizard** on the **COO** enables Call on Home chat — no extra hire. Phone numbers are not included. See [Channels](../systems/channels.md).
 
 ## Workspace files (identity)
 

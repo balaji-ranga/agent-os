@@ -20,10 +20,10 @@ const SLACK_CHECKLIST = [
 ];
 
 const VOICE_CHECKLIST = [
-  'Realtime Caller uses browser WebRTC — not a phone number.',
-  'Profile BYOK (or platform secondary) must be OpenAI Realtime-capable. OpenRouter / Ollama / DeepSeek cannot mint live sessions.',
-  'Enable publishes a public /p/voice/:slug widget. Agent Chat also has Call.',
-  'Inbound PSTN numbers are later (telephony MCP). Hangup runs wrap-up in this employee’s chat.',
+  'Any employee can have Voice — including the COO. Realtime Caller is the dedicated hire; COO uses the same channel.',
+  'Browser WebRTC — not a phone number. Profile or platform secondary must be OpenAI Realtime-capable (api.openai.com).',
+  'Enable publishes a public /p/voice/:slug widget. Agent Chat shows Call when Voice is enabled.',
+  'Inbound PSTN numbers are later (telephony MCP). Hangup posts a wrap-up transcript into this employee’s chat.',
 ];
 
 function WizardStepper({ step }) {

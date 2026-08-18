@@ -19,12 +19,12 @@ Channel bindings are stored with your account. If AgentSystem is restarted, Flol
 
 ## Wizard steps
 
-1. **Choose channel** — Slack, WhatsApp, or **Voice (WebRTC)**  
-2. **Prep** — Slack app tokens checklist, or WhatsApp phone ready  
-3. **Credentials** — Slack: Bot + App tokens → vault; WhatsApp: none (QR later)  
-4. **Who can message** — pairing / allowlist / open + optional allowFrom list. For WhatsApp, **group chats default to disabled** (`groupPolicy: disabled`) so `@g.us` traffic is rejected before media download — DM `allowFrom` alone does not cover groups.  
-5. **Enable** — write gateway channels/bindings  
-6. **Link phone** (WhatsApp) — show live QR → scan in WhatsApp → Linked devices; Slack: Run test
+1. **Choose channel** — Slack, WhatsApp, or **Voice (WebRTC)** (any employee, including the COO)
+2. **Prep** — Slack app tokens checklist, WhatsApp phone ready, or Voice OpenAI Realtime checklist
+3. **Credentials** — Slack: Bot + App tokens → vault; WhatsApp / Voice: none in the wizard (Voice uses Profile or platform OpenAI)
+4. **Who can message** — pairing / allowlist / open + optional allowFrom list. For WhatsApp, **group chats default to disabled** (`groupPolicy: disabled`) so `@g.us` traffic is rejected before media download — DM `allowFrom` alone does not cover groups. Voice guests use the public widget; CEO **Call** is in Agent Chat.
+5. **Enable** — Slack/WhatsApp write gateway channels/bindings; Voice publishes `/p/voice/:slug` and shows **Call** in chat
+6. **Link phone** (WhatsApp) — show live QR → scan in WhatsApp → Linked devices; Slack: Run test; Voice: copy public URL
 
 Status badges: `draft` | `pairing` | `enabled` | `disabled`.
 
