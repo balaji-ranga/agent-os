@@ -9,7 +9,7 @@ Public help for running an AI company on Flolah. **No sign-in required.**
 
 Follow the sections in order if you are new:
 
-1. [Welcome](/start/welcome) — what Flolah is
+1. [Welcome](/start/welcome) — what Flolah is (open source)
 2. [Access](/start/access) — websites and what you need
 3. [Register](/start/register) — create your isolated company
 4. [Sign in and MFA](/start/sign-in-and-mfa)

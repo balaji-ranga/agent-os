@@ -66,6 +66,11 @@ const config = {
           position: 'right',
         },
         {
+          href: 'https://github.com/balaji-ranga/agent-os',
+          label: 'GitHub',
+          position: 'right',
+        },
+        {
           href: 'https://login.flolah.cloud',
           label: 'Sign in',
           position: 'right',
@@ -90,6 +95,7 @@ const config = {
           items: [
             { label: 'Home', href: 'https://flolah.cloud' },
             { label: 'Vision', href: 'https://flolah.cloud/vision' },
+            { label: 'GitHub', href: 'https://github.com/balaji-ranga/agent-os' },
             { label: 'Sign in', href: 'https://login.flolah.cloud' },
           ],
         },

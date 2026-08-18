@@ -7,6 +7,8 @@ title: Welcome to Flolah
 
 **Flolah** is the **AI Company OS**. You are the CEO. You hire **AI employees**, give them roles and tools, store company knowledge, and supervise work the way you would a small team.
 
+Flolah is **open source**. The source is on GitHub: [https://github.com/balaji-ranga/agent-os](https://github.com/balaji-ranga/agent-os).
+
 This public guide walks you from first access through running the company:
 
 1. **Access** the product and create your account
@@ -34,7 +36,7 @@ You can hire more specialists, **invite human people**, enable optional CRM/ERP,
 | **This site** (`/docs`) | Open, public walkthrough — start here before or after you sign in |
 | **Platform Help** (in the app) | Ask in plain language while you are logged in; it searches the same product how-to corpus |
 
-Legal documents (Terms, Privacy, Cookies, Open source) live under [Legal](https://flolah.cloud/legal/terms.html) and in the login footer. Named component attribution: [Open source notices](https://flolah.cloud/legal/open-source.html).
+Legal documents (Terms, Privacy, Cookies) live under [Legal](https://flolah.cloud/legal/terms.html) and in the login footer. Flolah source: [github.com/balaji-ranga/agent-os](https://github.com/balaji-ranga/agent-os). Named component attribution: [Open source notices](https://flolah.cloud/legal/open-source.html).
 
 ## What this guide does not cover
 
