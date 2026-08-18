@@ -579,16 +579,7 @@ Write-Host "==> Run vps-deploy-latest.sh (SERVICES=$Services $smokeEnv $cacheEnv
 # Do not use a multiline remote here-doc with `\` continuations: scp from Windows leaves CRLF,
 # and a CR after `\` makes bash treat each listed script as a command (bash\r / Permission denied).
 $ErrorActionPreference = "Continue"
-$remoteDeploy = @"
-python3 -c "from pathlib import Path
-root = Path('$RemoteRoot') / 'deploy' / 'scripts'
-for p in list(root.glob('*.sh')) + list(root.glob('*.js')):
-    p.write_bytes(p.read_bytes().replace(b'\r\n', b'\n').replace(b'\r', b'\n'))
-    if p.suffix == '.sh':
-        p.chmod(0o755)
-"
-SKIP_GIT=1 $smokeEnv $cacheEnv SERVICES='$Services' bash $RemoteRoot/deploy/scripts/vps-deploy-latest.sh
-"@
+$remoteDeploy = "for f in $RemoteRoot/deploy/scripts/*.sh; do tr -d '\r' < `$f > /tmp/crlf-strip.sh && cat /tmp/crlf-strip.sh > `$f && chmod +x `$f; done; SKIP_GIT=1 $smokeEnv $cacheEnv SERVICES='$Services' bash $RemoteRoot/deploy/scripts/vps-deploy-latest.sh"
 ssh @ssh "root@$HostIp" $remoteDeploy 2>&1
 if ($LASTEXITCODE -ne 0) {
   Write-Error "vps-deploy-latest.sh failed with exit code $LASTEXITCODE"
