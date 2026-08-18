@@ -17,6 +17,7 @@ import { ensureTenantOpenClawAgent, tenantOpenClawAgentId } from './openclaw-ten
 import * as openclaw from '../gateway/openclaw.js';
 import { registerOpenClawSessionOwner } from './tool-owner-scope.js';
 import { ensureCeoAgentChannelsSchema } from './ceo-agent-channels.js';
+import { tryResolveUserApiKey } from './user-api-keys.js';
 
 const SPEECH_LIVE_DENY = new Set(['speech_stt', 'speech_tts', 'list_inbound_attachments']);
 /** Public widget: lookups only — guests must not create CRM/Kanban/email/goals. */
@@ -105,15 +106,42 @@ function pickRealtimeModel(endpointModel) {
   return 'gpt-realtime';
 }
 
+function ownerVaultOpenAiCandidates(ownerUserId) {
+  const names = ['Platform_BYOK', 'openAI_key', 'OPENAI_API_KEY'];
+  for (const keyName of names) {
+    const apiKey = String(tryResolveUserApiKey(ownerUserId, keyName) || '').trim();
+    if (!apiKey) continue;
+    return [
+      {
+        baseUrl: 'https://api.openai.com',
+        apiKey,
+        model: process.env.OPENAI_REALTIME_MODEL || '',
+        source: 'owner_vault_openai',
+      },
+    ];
+  }
+  return [];
+}
+
+function toRealtimeOption(c) {
+  return {
+    ok: true,
+    baseUrl: stripV1(c.baseUrl),
+    apiKey: c.apiKey,
+    model: pickRealtimeModel(c.model),
+    source: c.source,
+  };
+}
+
 /**
- * Owner BYOK OpenAI first, then platform OpenAI, then optional OPENAI_REALTIME_* env.
+ * Owner vault OpenAI first (chat can stay platform DeepSeek), then Profile/platform OpenAI, then OPENAI_REALTIME_* env.
  */
 export function resolveRealtimeConfig(ownerUserId) {
   const cfg = getLlmConfig(ownerUserId);
   const envBase = String(process.env.OPENAI_REALTIME_BASE_URL || '').trim();
   const envKey = String(process.env.OPENAI_REALTIME_API_KEY || '').trim();
 
-  const candidates = [];
+  const candidates = [...ownerVaultOpenAiCandidates(ownerUserId)];
   if (cfg?.primary?.baseUrl && cfg?.primary?.apiKey) {
     candidates.push({
       baseUrl: cfg.primary.baseUrl,
@@ -139,25 +167,23 @@ export function resolveRealtimeConfig(ownerUserId) {
     });
   }
 
+  const options = [];
   for (const c of candidates) {
     if (!isRealtimeCapableBase(c.baseUrl) && c.source !== 'env_realtime') continue;
     if (c.source === 'env_realtime' && !isRealtimeCapableBase(c.baseUrl) && !/openai/i.test(c.baseUrl)) {
       continue;
     }
+    options.push(toRealtimeOption(c));
+  }
+  if (!options.length) {
     return {
-      ok: true,
-      baseUrl: stripV1(c.baseUrl),
-      apiKey: c.apiKey,
-      model: pickRealtimeModel(c.model),
-      source: c.source,
+      ok: false,
+      error:
+        'Realtime Voice needs an OpenAI Realtime-capable key. OpenRouter, Ollama, and DeepSeek cannot mint WebRTC sessions. Set an OpenAI key in API Keys (vault), or platform OPENAI_SECONDARY_* / OPENAI_REALTIME_* to api.openai.com.',
+      status: 503,
     };
   }
-  return {
-    ok: false,
-    error:
-      'Realtime Voice needs an OpenAI Realtime-capable key. OpenRouter, Ollama, and DeepSeek cannot mint WebRTC sessions. Set Profile BYOK to OpenAI, or platform OPENAI_SECONDARY_* / OPENAI_REALTIME_* to api.openai.com.',
-    status: 503,
-  };
+  return { ok: true, options, ...options[0] };
 }
 
 function toolParametersFor(name) {
@@ -375,10 +401,11 @@ export async function createVoiceSession({ ownerUserId, agentId, channelId = nul
   const owner = String(ownerUserId || '').trim();
   if (guest) assertGuestMintBudget(owner);
   const agent = assertAgentForOwner(owner, agentId);
-  const realtime = resolveRealtimeConfig(owner);
-  if (!realtime.ok) {
-    throw Object.assign(new Error(realtime.error), { status: realtime.status || 503 });
+  const resolved = resolveRealtimeConfig(owner);
+  if (!resolved.ok) {
+    throw Object.assign(new Error(resolved.error), { status: resolved.status || 503 });
   }
+  const options = Array.isArray(resolved.options) && resolved.options.length ? resolved.options : [resolved];
 
   const ensured = ensureTenantOpenClawAgent(agent, owner);
   const soul = readSoulSnippet(ensured.workspacePath);
@@ -388,12 +415,31 @@ export async function createVoiceSession({ ownerUserId, agentId, channelId = nul
     'Never invent policy. Never ask the guest for CEO credentials.',
   ].join('\n\n');
   const tools = realtimeToolsForAgent(agent.id, { guest: !!guest });
-  const minted = await mintOpenAiRealtimeSession({
-    realtime,
-    instructions,
-    tools,
-    ownerUserId: owner,
-  });
+  let minted = null;
+  let realtime = options[0];
+  let lastMintErr = null;
+  for (const opt of options) {
+    try {
+      minted = await mintOpenAiRealtimeSession({
+        realtime: opt,
+        instructions,
+        tools,
+        ownerUserId: owner,
+      });
+      realtime = opt;
+      break;
+    } catch (e) {
+      lastMintErr = e;
+      if (Number(e.status) === 401 || Number(e.status) === 403) {
+        console.warn('[voice] mint skipped source=%s status=%s', opt.source, e.status);
+        continue;
+      }
+      throw e;
+    }
+  }
+  if (!minted) {
+    throw lastMintErr || Object.assign(new Error('Realtime session mint failed'), { status: 502 });
+  }
 
   const sessionId = newId('vs');
   const token = `vst_${randomBytes(24).toString('hex')}`;
