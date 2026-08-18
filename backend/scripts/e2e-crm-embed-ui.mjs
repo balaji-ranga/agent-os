@@ -1,8 +1,8 @@
 /**
- * End-user CRM embed UI check (Playwright).
+ * End-user CRM + ERP embed UI check (Playwright).
  *
- * Opens Flolah, goes to /crm (same as clicking CRM), waits for the iframe,
- * and fails if Twenty /welcome is still showing.
+ * Opens Flolah, clicks CRM then ERP (same shell/iframe as a CEO), and fails if
+ * Twenty /welcome or the ERPNext login form is still showing.
  *
  *   FLOLAH_E2E_SESSION=<ceo session> FLOLAH_E2E_BASE=https://login.flolah.cloud node backend/scripts/e2e-crm-embed-ui.mjs
  *
@@ -55,26 +55,87 @@ try {
   if (/\/welcome/i.test(frameUrl)) failures.push(`iframe still on /welcome (${frameUrl.split('?')[0]})`);
   if (welcomeVisible && !deskVisible) failures.push('Twenty email welcome still visible in CRM iframe');
 
+  const crm = {
+    iframe_host: (() => {
+      try {
+        return new URL(src).hostname;
+      } catch {
+        return null;
+      }
+    })(),
+    frame_path: (() => {
+      try {
+        return frameUrl ? new URL(frameUrl).pathname : null;
+      } catch {
+        return null;
+      }
+    })(),
+    deskVisible,
+    welcomeVisible,
+    flolah_path: new URL(page.url()).pathname,
+  };
+  if (!/^\/crm/i.test(crm.flolah_path)) {
+    failures.push(`Flolah left the CRM page (${crm.flolah_path})`);
+  }
+
+  const erpLink = page.getByRole('link', { name: /^ERP$/ });
+  if (await erpLink.count()) {
+    await erpLink.first().click();
+  } else {
+    await page.goto(`${base}/erp`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  }
+
+  const erpIframe = page.locator('iframe[title="ERP"]');
+  await erpIframe.waitFor({ state: 'attached', timeout: 30000 });
+  const erpSrc = (await erpIframe.getAttribute('src')) || '';
+  if (!/flolah-erp-handoff/i.test(erpSrc) && !/erp\.crm\./i.test(erpSrc)) {
+    failures.push('ERP iframe src missing erp handoff');
+  }
+
+  await page.waitForTimeout(10000);
+  const erpFrame = page.frameLocator('iframe[title="ERP"]');
+  const erpLogin = erpFrame.getByRole('button', { name: /^login$/i });
+  const erpLoginVisible = await erpLogin.first().isVisible().catch(() => false);
+  const erpDesk = erpFrame.getByText(/awesome bar|workspaces|home|modules|accounting|selling/i);
+  const erpDeskVisible = await erpDesk.first().isVisible().catch(() => false);
+  const erpFrameUrl =
+    page.frames().find((f) => /erp\.crm\./i.test(f.url()) || /flolah-erp/i.test(f.url()))?.url() || '';
+  if (/\/login/i.test(erpFrameUrl) && erpLoginVisible) {
+    failures.push(`ERP iframe still on login (${String(erpFrameUrl).split('?')[0]})`);
+  }
+  if (erpLoginVisible && !erpDeskVisible) {
+    failures.push('ERPNext login still visible in ERP iframe');
+  }
+
+  const erp = {
+    iframe_host: (() => {
+      try {
+        return new URL(erpSrc).hostname;
+      } catch {
+        return null;
+      }
+    })(),
+    frame_path: (() => {
+      try {
+        return erpFrameUrl ? new URL(erpFrameUrl).pathname : null;
+      } catch {
+        return null;
+      }
+    })(),
+    deskVisible: erpDeskVisible,
+    loginVisible: erpLoginVisible,
+    flolah_path: new URL(page.url()).pathname,
+  };
+  if (!/^\/erp/i.test(erp.flolah_path)) {
+    failures.push(`Flolah left the ERP page (${erp.flolah_path})`);
+  }
+
   console.log(
     JSON.stringify({
       ok: failures.length === 0,
       failures,
-      iframe_host: (() => {
-        try {
-          return new URL(src).hostname;
-        } catch {
-          return null;
-        }
-      })(),
-      frame_path: (() => {
-        try {
-          return frameUrl ? new URL(frameUrl).pathname : null;
-        } catch {
-          return null;
-        }
-      })(),
-      deskVisible,
-      welcomeVisible,
+      crm,
+      erp,
     })
   );
   if (failures.length) process.exit(1);

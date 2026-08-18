@@ -215,7 +215,7 @@ node scripts/test-twenty-sso-handoff.js
 
 VPS (after backend image has the script): `bash deploy/scripts/vps-verify-crm-sso.sh`
 
-Manual: Profile CRM = Twenty → **CRM**. The desk loads in the Flolah iframe signed in. Do not type Twenty email/password. If you still see `/welcome` and **An error occurred while checking user existence**, Twenty still had memberships on reclaimed desks — CRM open now detaches those before SSO.
+Manual: Profile CRM = Twenty → **CRM**. The desk loads in the Flolah iframe signed in. Do not type Twenty email/password. If you still see `/welcome` and **An error occurred while checking user existence**, Twenty still had memberships on reclaimed desks — CRM open now detaches those before SSO. Then open **ERP** in the same Flolah chrome and confirm the desk stays in the iframe (no ERPNext login form). Playwright: `backend/scripts/e2e-crm-embed-ui.mjs` (session env, no token in logs).
 
 ## Admin User Insights
 

@@ -596,20 +596,17 @@ export async function ensureTwentyUserForEmail({
     const stale = await pgQuery(
       `UPDATE core."userWorkspace" uw
        SET "deletedAt" = NOW()
-       WHERE uw."userId" = $1
-         AND uw."deletedAt" IS NULL
+       WHERE uw."deletedAt" IS NULL
          AND NOT EXISTS (
            SELECT 1 FROM core.workspace w
            WHERE w.id = uw."workspaceId" AND w."deletedAt" IS NULL
          )
-       RETURNING uw.id`,
-      [user.id]
+       RETURNING uw.id`
     );
     if (stale?.rowCount) {
       console.info(
-        '[twenty-sso] detached %s memberships on deleted CRM desks user=%s',
-        stale.rowCount,
-        user.id
+        '[twenty-sso] detached %s stale CRM memberships on deleted desks',
+        stale.rowCount
       );
     }
 
