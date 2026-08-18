@@ -263,6 +263,7 @@ export function mintTwentyLoginToken({ email, workspaceId, authProvider = 'SSO',
   return `${h}.${p}.${sig}`;
 }
 
+/** @deprecated Never send the browser here — Authentication failed → /welcome. */
 export function buildVerifyNextPath(loginToken) {
   return `/verify?loginToken=${encodeURIComponent(loginToken)}`;
 }
@@ -911,22 +912,18 @@ export function buildCrmHandoffUrl(base, owner, nextPath, opts = {}) {
   return handoffUrl(base, owner, nextPath, opts);
 }
 
-function handoffUrl(base, owner, nextPath, { wipe = false, logout = false, t = '', loginToken = '' } = {}) {
+function handoffUrl(base, owner, nextPath, { wipe = false, logout = false, t = '' } = {}) {
   // base may be origin only
   const root = strip(base).replace(/\/+$/, '');
   if (!root) return '';
   const q = new URLSearchParams();
   q.set('owner', strip(owner) || '_logout');
-  q.set('next', nextPath.startsWith('/') ? nextPath : `/${nextPath}`);
+  const next = nextPath.startsWith('/') ? nextPath : `/${nextPath}`;
+  q.set('next', next === '/verify' || String(next).includes('loginToken') ? '/' : next);
   if (wipe || logout) q.set('wipe', '1');
   if (logout) q.set('logout', '1');
   if (t) q.set('t', strip(t));
-  // Own query + hash — do not nest /verify?loginToken= inside next (browsers split on ?).
-  const tok = strip(loginToken);
-  if (tok) q.set('lt', tok);
-  const url = `${root}/flolah-handoff/?${q.toString()}`;
-  if (tok) return `${url}#lt=${encodeURIComponent(tok)}`;
-  return url;
+  return `${root}/flolah-handoff/?${q.toString()}`;
 }
 
 /**

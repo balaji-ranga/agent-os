@@ -74,19 +74,15 @@ try {
 
   assert(
     buildVerifyNextPath('abc.def.ghi') === '/verify?loginToken=abc.def.ghi',
-    'verify next path encodes loginToken'
+    'deprecated helper still documents the broken Twenty path'
   );
 
-  const sampleTok = 'aaa.bbb.ccc';
-  const hu = new URL(
-    buildCrmHandoffUrl('https://wise-test.crm.example.com', owner, '/verify', {
-      wipe: true,
-      loginToken: sampleTok,
-    })
+  const blocked = new URL(
+    buildCrmHandoffUrl('https://wise-test.crm.example.com', owner, '/verify', { wipe: true })
   );
-  assert(hu.searchParams.get('next') === '/verify', 'handoff next is /verify only');
-  assert(hu.searchParams.get('lt') === sampleTok, 'handoff lt is top-level');
-  assert(!String(hu.searchParams.get('next') || '').includes('loginToken'), 'loginToken not nested in next');
+  assert(blocked.searchParams.get('next') === '/', 'handoff must not send /verify');
+  assert(!blocked.search.includes('loginToken'), 'handoff must not include loginToken');
+  assert(!blocked.hash.includes('lt='), 'handoff must not hash loginToken');
 
   const applyHu = new URL(
     buildCrmHandoffUrl('https://wise-test.crm.example.com', owner, '/', {

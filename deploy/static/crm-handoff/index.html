@@ -15,16 +15,10 @@
   var next = p.get("next") || "/";
   if (next.charAt(0) !== "/" || next.indexOf("//") === 0) next = "/";
   var ssoTok = (p.get("t") || p.get("token") || "").trim();
-  var hashP = new URLSearchParams((location.hash || "").replace(/^#/, ""));
-  var loginTok = (
-    p.get("lt") ||
-    p.get("loginToken") ||
-    hashP.get("lt") ||
-    hashP.get("loginToken") ||
-    ""
-  ).trim();
   var forceLogout = p.get("logout") === "1";
-  var forceWipe = forceLogout || p.get("wipe") === "1" || !!ssoTok || !!loginTok || /loginToken=/.test(next);
+  // Never send the browser to Twenty /verify?loginToken= — that SPA shows
+  // Authentication failed and /welcome even when server exchange succeeded.
+  var forceWipe = forceLogout || p.get("wipe") === "1" || !!ssoTok;
   var key = "flolah_crm_owner";
   var prev = "";
   try {
@@ -137,11 +131,7 @@
     );
     return;
   }
-  if (loginTok) {
-    location.replace("/verify?loginToken=" + encodeURIComponent(loginTok));
-    return;
-  }
-  location.replace(next);
+  location.replace(next === "/verify" ? "/" : next);
 })();
 </script>
 </body>

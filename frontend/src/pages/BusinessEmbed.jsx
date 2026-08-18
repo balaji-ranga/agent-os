@@ -61,15 +61,20 @@ export function BusinessEmbedPage({ kind }) {
     return data.iframe_url || data.open_url || null;
   }, [data]);
 
+  const twentyNavUrl = useMemo(() => {
+    if (!data) return null;
+    return data.open_url || data.iframe_url || null;
+  }, [data]);
+
   const providerEarly = String(data?.provider || (isCrm ? 'twenty' : 'erpnext')).toLowerCase();
   const twentyTopLevel =
-    isCrm && providerEarly === 'twenty' && data?.sso?.ok !== false && Boolean(iframeSrc);
+    isCrm && providerEarly === 'twenty' && data?.sso?.ok !== false && Boolean(twentyNavUrl);
 
   useEffect(() => {
     if (!twentyTopLevel || twentyTopNavOnce.current) return;
     twentyTopNavOnce.current = true;
-    window.location.replace(iframeSrc);
-  }, [twentyTopLevel, iframeSrc]);
+    window.location.replace(twentyNavUrl);
+  }, [twentyTopLevel, twentyNavUrl]);
 
   async function onSyncOrg() {
     setSyncing(true);

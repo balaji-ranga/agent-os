@@ -1,6 +1,6 @@
 /**
  * One Flolah company (CEO owner) -> one real Twenty workspace (UUID + subdomain).
- * CRM click uses this bind for loginToken SSO (workspace origin = subdomain.crm.*).
+ * CRM click uses this bind for first-party token-pair SSO (workspace origin = subdomain.crm.*).
  */
 import {
   getBusinessProfile,
