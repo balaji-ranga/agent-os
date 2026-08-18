@@ -15,7 +15,7 @@ Enable under **Profile** or **Company setup → Systems**:
 
 Prefab **Maker A / Maker B / Checker** employees for **your company only**, plus Maker/Checker workflows (`run crm maker checker` / `run erp maker checker`). Switching the provider off removes those prefab employees.
 
-If you enable **Twenty CRM**, those employees are added even when the CRM desk is still being created. The platform keeps **one Twenty workspace per company**. Unused desks (for example after you switch CRM away from Twenty) are released so a new company can open CRM. The desk is never shared with another company.
+If you enable **Twenty CRM**, those employees are added even when the CRM desk is still being created. The platform keeps **one Twenty workspace per company**. Unused desks (for example after you switch CRM away from Twenty) are released so a new company can open CRM. The desk is never shared with another company. Invited **People** use that same company desk — they are not extra Twenty workspaces. Self-hosted Twenty allows **five company desks** unless you add a Twenty Enterprise key.
 
 | Track | Process |
 |-------|---------|

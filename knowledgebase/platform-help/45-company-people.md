@@ -28,7 +28,7 @@ Only the CEO and **CEO Delegate** can invite, disable, or change roles (`people.
 | **CEO Delegate** | On par with the CEO for company features (nav, setup, people, tools). Not platform Admin. Cannot destroy the CEO. |
 | **Member** | Always-on Home / Kanban / Profile, plus checkboxes you grant (My Org, Efficiency, CRM, ERP, Knowledge, …). |
 
-Permissions are **platform features** (nav screens) plus **CRM / ERP access** (open `/crm` and `/erp`). They are **not** Twenty workspace roles or ERPNext Desk roles. Desk SSO still uses **that person’s email** inside the company workspace / company.
+Permissions are **platform features** (nav screens) plus **CRM / ERP access** (open `/crm` and `/erp`). They are **not** Twenty workspace roles or ERPNext Desk roles. Desk SSO still uses **that person’s email** inside the **company** Twenty workspace / ERPNext company. Inviting people does **not** consume another Twenty workspace slot — only a new Flolah company (CEO) does.
 
 ## Kanban
 

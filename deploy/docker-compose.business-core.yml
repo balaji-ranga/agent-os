@@ -57,6 +57,9 @@ services:
       APP_SECRET: ${TWENTY_APP_SECRET:-change-me-twenty-app-secret-min-32-chars}
       IS_MULTIWORKSPACE_ENABLED: ${TWENTY_IS_MULTIWORKSPACE_ENABLED:-true}
       SIGN_IN_PREFILLED: ${TWENTY_SIGN_IN_PREFILLED:-false}
+      # Optional Twenty enterprise (lifts the self-hosted 5-workspace cap). Empty = community cap.
+      ENTERPRISE_KEY: ${TWENTY_ENTERPRISE_KEY:-}
+      ENTERPRISE_VALIDITY_TOKEN: ${TWENTY_ENTERPRISE_VALIDITY_TOKEN:-}
     volumes:
       - twenty_data:/app/packages/twenty-server/.local-storage:Z
     ports:
@@ -86,6 +89,8 @@ services:
       STORAGE_TYPE: local
       APP_SECRET: ${TWENTY_APP_SECRET:-change-me-twenty-app-secret-min-32-chars}
       IS_MULTIWORKSPACE_ENABLED: ${TWENTY_IS_MULTIWORKSPACE_ENABLED:-true}
+      ENTERPRISE_KEY: ${TWENTY_ENTERPRISE_KEY:-}
+      ENTERPRISE_VALIDITY_TOKEN: ${TWENTY_ENTERPRISE_VALIDITY_TOKEN:-}
     volumes:
       - twenty_data:/app/packages/twenty-server/.local-storage:Z
 

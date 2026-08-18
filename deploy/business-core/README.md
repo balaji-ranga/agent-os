@@ -153,7 +153,7 @@ Pass `X-Ceo-User-Id` on workflow MCP auth. Deploy hook: `deploy/scripts/ensure-p
 | TWENTY_DATABASE_URL | Postgres for JIT user/workspaceMember provision |
 | TWENTY_REDIS_URL | Same as Twenty `REDIS_URL`; invalidate flat member maps after JIT join |
 | TWENTY_IS_MULTIWORKSPACE_ENABLED | `true` on Twenty + backend (required for additional company workspaces) |
-| Twenty workspace cap | Self-hosted without a valid enterprise key: **5 workspaces**. Soft-delete unused `core.workspace` (`deletedAt`) to free a slot; never share across CEOs. ERP provision is independent of CRM. |
+| Twenty workspace cap | Self-hosted without a valid enterprise key: **5 company desks** (not 5 people). One Flolah company = one workspace; People share it. Lift with Twenty Enterprise env `TWENTY_ENTERPRISE_KEY` + `TWENTY_ENTERPRISE_VALIDITY_TOKEN`. Soft-delete unused `core.workspace` (`deletedAt`) to free a community slot; never share across CEOs. ERP provision is independent of CRM. |
 | TWENTY_BOOTSTRAP_EMAIL | Optional admin used for signUpInNewWorkspace |
 | TWENTY_WORKSPACE_ID | Optional/legacy — not shared across CEOs |
 | ERPNEXT_URL | Internal Frappe base (prefer `http://erpnext-frontend:8080`) |

@@ -144,7 +144,7 @@ Same protocol in workspace **AGENT-OS-OPS.md** / **DOMAIN.md** and help **38** /
 | `TWENTY_DATABASE_URL` | JIT user + membership in company workspace |
 | `TWENTY_REDIS_URL` | Same Redis as Twenty (`redis://twenty-redis:6379`) — invalidate member flat-maps after JIT join |
 | `TWENTY_IS_MULTIWORKSPACE_ENABLED` | **`true`** on Twenty server/worker — required to create additional workspaces |
-| Twenty workspace cap | Self-hosted Twenty without an enterprise key allows **5** live workspaces. Flolah **reclaims unused desks** (offboarded companies, or CRM no longer set to Twenty) then retries. It never binds you onto another company’s workspace. Prefab CRM Maker/Checker still join your org even if the desk is still provisioning. |
+| Twenty workspace cap | Self-hosted Twenty without an enterprise key allows **5 company desks** on the whole platform (not 5 people). **One Flolah company = one Twenty workspace.** Invited People and the CEO all SSO into that same desk. Flolah **reclaims unused desks** (offboarded companies, or CRM no longer set to Twenty) then retries. It never binds you onto another company’s workspace. To go beyond 5 desks: Twenty Enterprise (`TWENTY_ENTERPRISE_KEY` + `TWENTY_ENTERPRISE_VALIDITY_TOKEN`). Prefab CRM Maker/Checker still join your org even if the desk is still provisioning. |
 | `TWENTY_BOOTSTRAP_EMAIL` | Optional admin used to call `signUpInNewWorkspace` (else first ACTIVE member) |
 | `TWENTY_EMBED_URL` / `TWENTY_SERVER_URL` | Platform front origin `https://crm.<apex>` (subdomains built from this host) |
 | `ERPNEXT_DEFAULT_CURRENCY` | Fallback when country has no mapped ISO currency. New companies use country currency when known (Singapore → SGD) so Debtors and invoices match. |

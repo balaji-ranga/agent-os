@@ -122,6 +122,9 @@ upsert TWENTY_SSO_ENABLED "1"
 # Same Redis as twenty-server — Flolah DELs flatWorkspaceMemberMaps after JIT membership SQL.
 upsert TWENTY_REDIS_URL "redis://twenty-redis:6379"
 upsert TWENTY_IS_MULTIWORKSPACE_ENABLED "true"
+if ! grep -q 'TWENTY_ENTERPRISE_KEY' "$ENV_FILE" 2>/dev/null; then
+  printf '\n# Optional Twenty Enterprise (lifts the 5 company-desk cap). Leave unset on community.\n# TWENTY_ENTERPRISE_KEY=\n# TWENTY_ENTERPRISE_VALIDITY_TOKEN=\n' >> "$ENV_FILE"
+fi
 # Multi-workspace: browser API base = current origin ({sub}.crm.*) not fixed apex URL
 if grep -qE '^TWENTY_FRONT_AUTO_BASE_URL=' "$ENV_FILE" 2>/dev/null; then
   sed -i "s#^TWENTY_FRONT_AUTO_BASE_URL=.*#TWENTY_FRONT_AUTO_BASE_URL=true#" "$ENV_FILE" 2>/dev/null \
