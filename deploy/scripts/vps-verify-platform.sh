@@ -89,7 +89,7 @@ check "nginx CRM SSO apply" grep -q 'location = /flolah-crm-sso' "$ROOT/deploy/n
 check "nginx CRM SSO apply backend" grep -q 'crm-sso-apply' "$ROOT/deploy/nginx/nginx.host-network.conf"
 check "nginx CRM SSO header buffers" grep -A20 'location = /flolah-crm-sso' "$ROOT/deploy/nginx/nginx.host-network.conf" | grep -q 'proxy_buffer_size 32k'
 check "CRM SSO apply handoff" grep -q 'handoffUrlsForTokenApply' "$ROOT/backend/src/services/twenty-sso.js"
-check "CRM handoff never /verify" ! grep -q 'location.replace("/verify?loginToken=' "$ROOT/deploy/static/crm-handoff/index.html"
+check "CRM handoff never /verify" grep -q 'Never send the browser to Twenty /verify' "$ROOT/deploy/static/crm-handoff/index.html"
 check "CRM SSO apply-handoff log" grep -q 'apply-handoff' "$ROOT/backend/src/services/twenty-sso.js"
 check "CRM SSO verify script" test -f "$ROOT/backend/scripts/vps-verify-crm-sso.js"
 check "CRM SSO verify deploy" test -f "$ROOT/deploy/scripts/vps-verify-crm-sso.sh"
