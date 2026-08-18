@@ -400,11 +400,12 @@ All proxied under `/api` (rebuild backend + frontend images after upgrade):
 | COO channel inbound SOUL | BalServe `SOUL.md` hard rule: list_inbound → index RAG-able docs → master_data_rag; media via analyze/STT. Org resync injects same tools line into COO AGENTS |
 | COO ad-hoc file work | Hard-path skips **"don't delegate"** and find/download/attach of existing files (`isRefuseDelegationRequest` / `isCooNativeWork`); `list_inbound_attachments` returns `paste_in_chat` download links |
 | Profile role title | Display-only `platform_users.role_title` via `PATCH /auth/me` (presets/custom); org chart root + profile menu; auth role stays `ceo` |
-| Onboarding Helper | OpenClaw `onboardinghelper` + `/onboarding` Review checkboxes; tools `onboarding_save_proposal` / `onboarding_apply_proposal` (seeded at startup); templates `openclaw-workspace-templates/onboardinghelper/`; E2E prompts + `backend/scripts/e2e-onboarding-wf-prompts.mjs` → platform-help **27** |
+| Onboarding Helper | AgentSystem `onboardinghelper` + `/onboarding` Review checkboxes; tools `onboarding_save_proposal` / `onboarding_apply_proposal` (seeded at startup); templates `openclaw-workspace-templates/onboardinghelper/`; E2E prompts + `backend/scripts/e2e-onboarding-wf-prompts.mjs` → platform-help **27** |
 | Profile LLM catalog | Provider + model on **Register** and **Profile** (`llm_model`); `GET /api/auth/llm-catalog`; registry `backend/src/config/llm-provider-registry.js`; BYOK vault after login; soft fallbacks `OPENAI_BYOK_MODEL` / `OPENROUTER_MODEL` |
 | Generated media lockdown | `/api/media/openclaw/*` auth-only by default; WhatsApp uses disk `MEDIA:`; Dashboard inline players (Bearer→blob). Opt-in signed public: `MEDIA_PUBLIC_SIGNED=1` in `deploy/.env`. Docs: platform-help **11** |
 | Platform feedback (Admin) | `/admin/platform-feedback` + COO tools `platform_feedback_*`; statuses open / implemented / rejected |
 | User Insights (Admin) | `/admin/user-insights` + `GET /admin/user-insights` — new CEOs today/week, inactive 7d, adoption highlights (help **47**) |
+| Company people | **My Org → People** — invite employees, CEO Delegate / Member, inherit CEO company (help **45**); Efficiency **User View**; Kanban department act |
 | Admin AgentSystem recovery | `/admin/openclaw-recovery` — diagnose gateway + CEO feeder queues; OTP privileged session (30 min) to drain, restart gateway, repair config/workspaces, clear sessions, remove leftover gateway crons, toggle goal-plan recovery Kanban. No Control UI link. Help **43**. |
 
 **Repeatable deploy (laptop → VPS):**

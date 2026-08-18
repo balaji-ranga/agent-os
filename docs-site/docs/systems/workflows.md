@@ -40,6 +40,10 @@ Examples: `{{brain-1.text}}`, `{{trigger-1.trigger_input}}`, `{{var.budget_usd}}
 
 Prefer **API Keys** vault names for long-lived secrets. Connector nodes need a saved [Connector](./connectors-and-mcp.md) first.
 
+## Filesystem, FTP, and SFTP
+
+A **Filesystem** node can read/write a **local path** (including the Windows desktop package) or talk to **FTP / FTPS / SFTP**. Put passwords in **API Keys**, not in the node or in chat. Pair with a schedule trigger to poll a folder.
+
 Optional **input JSON Schema** on the Trigger validates Run / webhook / A2A payloads.
 
 ## Maker / Checker certify

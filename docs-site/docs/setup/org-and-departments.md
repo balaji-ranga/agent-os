@@ -66,7 +66,7 @@ The name in Knowledge must match the department you assign on the chart (same sp
 
 ## Human people vs AI employees
 
-**People** are humans you invite into **your** company (they do not get a separate tenant). Place them in a department like AI employees. Members typically work with the COO and AI employees **in their department**. CEO and **CEO Delegate** see the full company.
+**People** are humans you invite into **your** company (they do not get a separate tenant). Place them in a department like AI employees. Full roles (CEO Delegate vs Member), Kanban rules, and Efficiency User View: [People](./people.md).
 
 Invite: **My Org → People** (name, email, phone → invite email). Then drop them into a department in **Design**.
 

@@ -25,7 +25,7 @@ After you register, Flolah provisions a starter organisation that typically incl
 - **Workflow Builder** — helps you design visual automations
 - **Platform Help** — answers product how-to questions inside the app
 
-You can hire more specialists, enable optional CRM/ERP, and connect WhatsApp, Slack, or business apps when you are ready.
+You can hire more specialists, **invite human people**, enable optional CRM/ERP, and connect WhatsApp, Slack, Voice, or business apps when you are ready.
 
 ## Two ways to get help
 

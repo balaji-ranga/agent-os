@@ -158,10 +158,7 @@ Twenty multi-workspace opens each company at https://{workspace-subdomain}.crm.f
 | Browser: host server IP address could not be found | No A/CNAME for workspace host (NXDOMAIN). Apex crm.flolah.cloud alone is not enough. |
 | TLS error after DNS works | Cert SANs missing that host |
 
-**Hostinger DNS (zone flolah.cloud) — do one of:**
-
-1. **Wildcard (preferred)** — Type A, Name `*.crm`, Points to `76.13.209.30`, TTL 300
-2. **Per workspace** — Type A, Name e.g. `wise-mustard-elephant.crm` (also `faru18d2addc.crm`, `fcomskc0w0r.crm`), Points to `76.13.209.30`
+**CRM workspace DNS** — ops publishes an A record for `*.crm` (wildcard preferred) or one A record per workspace host, pointing at the public CRM host. Apex `crm.flolah.cloud` alone is not enough. Use generic names such as `your-company.crm`, not live workspace slugs.
 
 **Refresh TLS (after DNS works):**
 
@@ -191,7 +188,7 @@ You still see Twenty password UI when:
 1. SSO handoff failed or expired (e.g. after brief outages, or before FRONT_AUTO_BASE_URL / certs were fixed).
 2. `TWENTY_SSO_ENABLED=0` or `TWENTY_APP_SECRET` does not match Twenty `APP_SECRET`.
 3. Browser stayed on an old failing session — use **Open** (new tab) or **Switch CRM account** from the CRM toolbar.
-4. **Membership gap (fixed in SSO JIT):** Bootstrap admin (often the first Flolah CEO such as Balaji) owns newly created Twenty workspaces; other CEOs need a `workspaceMember` row in **their** workspace’s `databaseSchema`. If that row was written into the wrong schema, mint still “succeeds” but `/verify` shows password. Backend now maps schema via `core.workspace.databaseSchema`, provisions owners as Admin, and preflights token exchange. After membership SQL, Flolah also invalidates Twenty Redis `flatWorkspaceMemberMaps` (`TWENTY_REDIS_URL`) so REST/MCP tools do not return `FORBIDDEN` / “User is not a member of the workspace”.
+4. **Membership gap (fixed in SSO JIT):** The bootstrap admin can own newly created CRM workspaces; other CEOs need a `workspaceMember` row in **their** workspace’s `databaseSchema`. If that row was written into the wrong schema, mint still “succeeds” but `/verify` shows password. Backend now maps schema via `core.workspace.databaseSchema`, provisions owners as Admin, and preflights token exchange. After membership SQL, Flolah also invalidates Twenty Redis `flatWorkspaceMemberMaps` (`TWENTY_REDIS_URL`) so REST/MCP tools do not return `FORBIDDEN` / “User is not a member of the workspace”.
 
 Required env: `TWENTY_SSO_ENABLED=1`, shared secret, `TWENTY_DATABASE_URL`, `TWENTY_REDIS_URL` (default docker hostname), `TWENTY_FRONT_AUTO_BASE_URL=true`, workspace DNS + cert SANs.
 

@@ -2,7 +2,7 @@
 
 **Audience:** platform admins. CEOs do not use this screen.
 
-When Agent Chat **queues then fails**, the AgentSystem gateway lane is usually saturated by feeder work (delegations, goal-plan recovery, scheduled goals, browser tasks) — not a missing Control UI. Admins recover from **Admin → AgentSystem recovery** (`/admin/openclaw-recovery`). There is **no** AgentSystem Control UI link.
+When Agent Chat **queues then fails**, the AgentSystem gateway lane is usually saturated by feeder work (delegations, goal-plan recovery, scheduled goals, browser tasks) — not a missing Control UI. Admins recover from **Admin → AgentSystem recovery**. There is **no** AgentSystem Control UI link.
 
 ## Privileged OTP session
 

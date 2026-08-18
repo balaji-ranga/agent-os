@@ -46,7 +46,7 @@ Every public surface should answer: **What does this let me do?** — hire, orga
 |----------|-------------------------|-------------|-----------------|
 | **User-facing UI** (nav, heroes, empty states, auth) | **AI employee** / **AI employees** (or digital employee) | **Hire** / **Hire AI employee** | **Knowledge** (Master Data is secondary parenthetical when needed) |
 | **Platform Help (CEO)** | AI employee; first mention may add "(agent)" | Hire, staff, delegate | Company knowledge / Master Data |
-| **API, DB, OpenClaw, logs** | `agent`, `agent_id`, `agents` | `POST /api/agents` etc. | master data tables / documents |
+| **API, DB, AgentSystem, logs** | `agent`, `agent_id`, `agents` | `POST /api/agents` etc. | master data tables / documents |
 | **Technical pitch only** | multi-agent, A2A agent | provision | RAG / embeddings |
 
 ### Rules

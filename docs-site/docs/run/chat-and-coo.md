@@ -15,7 +15,13 @@ Home (`/`) opens chat with the **COO**. Use **Chat with** to switch employees. *
 
 **History** and **Browser session** side panes start closed. Use the icons next to **New chat**. **New chat** archives the current thread.
 
-Optional **mic** and **Speak reply** appear on Home (`/`) and employee chat (`/agents/:id/chat`) when speech is enabled. Use **Chat with** to pick Slow Caller, then **Mic**. **Call** is live WebRTC (Realtime Caller / OpenAI Realtime).
+On Home (`/`) and employee chat you may see:
+
+- **Mic** — speak into the compose box (Whisper). Pick **Slow Caller** in **Chat with** for voice-note style work.
+- **Speak reply** — hear the last assistant turn (Piper).
+- **Call** — live WebRTC with **Realtime Caller** (needs an OpenAI Realtime-capable key). Not a phone number.
+
+See [Channels](../systems/channels.md) and [Hire AI employees](../setup/hire-ai-employees.md).
 
 ## How the COO delegates
 

@@ -95,7 +95,7 @@ Top-level (always shown; cannot hide in Menu visibility):
 | Documents RAG | `/admin/documents-rag` | Platform OpenSearch help corpus |
 | Tools Onboarding | `/admin/tool-onboarding` | Docker content-tool containers (privileged OTP session, 30 min) |
 | **TLS certs** | `/admin/tls-certs` | Let's Encrypt SAN status + refresh (same privileged OTP session) |
-| **AgentSystem recovery** | `/admin/openclaw-recovery` | Diagnose/unblock gateway lane, drain queues, restart gateway, repair config/workspaces (help **43**). Privileged OTP, 30 min. |
+| **AgentSystem recovery** | Admin sidebar | Diagnose/unblock gateway lane, drain queues, restart gateway, repair config/workspaces (help **43**). Privileged OTP, 30 min. |
 | **Platform feedback** | `/admin/platform-feedback` | Triage bugs / feedback / enhancements from COO tools (`open` → `implemented` / `rejected`) |
 
 Admins also see Connectors (OAuth client config), MCP, Custom scripts, AgentExchange, External AI, and Profile.

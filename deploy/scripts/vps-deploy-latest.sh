@@ -801,8 +801,8 @@ if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-
     && echo "    Company people RBAC (employees / sub-users) OK" \
     || echo "    WARN: org people RBAC failed (see /tmp/org-people.log)"
 fi
-if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-user-insights.js 2>/dev/null; then
-  docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-user-insights.js >/tmp/user-insights.log 2>&1 \
+if docker compose exec -T -w /opt/agent-os/backend backend test -f scripts/test-admin-user-insights.js 2>/dev/null; then
+  docker compose exec -T -w /opt/agent-os/backend backend node scripts/test-admin-user-insights.js >/tmp/user-insights.log 2>&1 \
     && echo "    Admin User Insights OK" \
     || echo "    WARN: user insights failed (see /tmp/user-insights.log)"
 fi

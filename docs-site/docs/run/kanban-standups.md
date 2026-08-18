@@ -9,10 +9,12 @@ title: Kanban and standups
 Path: **Kanban** (`/kanban`).
 
 - Default view: **Weekly**. Switch filters as needed. **All** loads further pages as you scroll.
-- **Agent** filter and row checkboxes / **Select all**
+- **Agent** filter (AI employee, **person**, Unassigned, All) and row checkboxes / **Select all**
 - Each card has a **Task ID**. Top-bar search finds it. Links can open `/kanban?task=`
 - Open a card for detail, artifacts, and task chat
 - CEO-approval cards (for example video cast review) may include a PDF on Artifacts
+
+**Invited people:** everyone **sees all cards**. Department members may **act, chat, approve, or reopen** only when the assignee is in **their department**. Unassigned cards are view-only for members. The CEO and **CEO Delegate** can act on any card. See [People](../setup/people.md).
 
 Tasks appear when the COO delegates, when a goal plan needs recovery, or when you create work yourself.
 

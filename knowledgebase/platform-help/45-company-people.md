@@ -7,7 +7,7 @@ CEOs (the **root** / company owner) can invite **human employees** (also called 
 Employees **do not** get their own tenant, AgentSystem workspace, or `user_agents` grants. They work inside the **CEO company**:
 
 - AI employees, tools, Knowledge folders, BYOK / API Keys, CRM/ERP company binds
-- OpenClaw / agent workspaces stay on the **CEO (root)** tenant
+- AgentSystem workspaces stay on the **CEO (root)** tenant
 - Home (COO chat), Profile, and Kanban are **always on**
 
 Department members chat and delegate only with the **COO** and **AI employees in their department**. CEO and **CEO Delegate** see the full entitled roster.

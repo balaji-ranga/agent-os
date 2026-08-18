@@ -21,6 +21,7 @@ const sidebars = {
       items: [
         'setup/company-setup',
         'setup/org-and-departments',
+        'setup/people',
         'setup/profile-and-model',
         'setup/api-keys',
         'setup/hire-ai-employees',

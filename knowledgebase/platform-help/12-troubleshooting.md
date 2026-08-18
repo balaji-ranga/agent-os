@@ -256,7 +256,7 @@ Confirm **Job profile** is complete and pipeline/cron is enabled for your enviro
 
 1. The AgentSystem gateway lane is full (delegations, goal-plan recovery, scheduled goals). New chat sits in queue and then errors.
 2. **CEOs:** wait; do not spam retry. Pause your own scheduled goals if you started a noisy loop.
-3. **Admins:** **Admin → AgentSystem recovery** (`/admin/openclaw-recovery`) — OTP unlock (30 min), **Unblock lane** for the CEO, optional gateway restart. Details: [43-admin-agentsystem-recovery.md](./43-admin-agentsystem-recovery.md). You can also pause `delegation_queue` / `scheduled_goals` / `kanban_orphan_watcher` on **Admin → Crons**.
+3. **Admins:** **Admin → AgentSystem recovery** — OTP unlock (30 min), **Unblock lane** for the CEO, optional gateway restart. Details: [43-admin-agentsystem-recovery.md](./43-admin-agentsystem-recovery.md). You can also pause `delegation_queue` / `scheduled_goals` / `kanban_orphan_watcher` on **Admin → Crons**.
 
 ## WhatsApp / Slack “Media failed” or no audio
 

@@ -11,11 +11,11 @@ A short path so the product feels like a company, not a blank chat.
 2. **Meet the COO** — Home chat (`/`) talks to the COO by default. Introduce yourself and ask which AI employees you have.
 3. **Bell** — The top-bar bell is your notification center. It stays quiet until someone notifies you or a standup produces an update.
 4. **Profile** — Set display name, country/region, and appearance (Day / Night). If you chose OpenAI or OpenRouter at register, add your key under **Settings → API Keys** (`Platform_BYOK`), then confirm provider and model on Profile.
-5. **My Org** — Open **My Org** (`/org`). Use **Chart** to see reporting lines, **Design** to create departments and drag AI employees, **People** to invite humans. Then **Resync ORG.md & AGENTS.md**. See [Org and departments](../setup/org-and-departments.md).
+5. **My Org** — Open **My Org** (`/org`). Use **Chart** to see reporting lines, **Design** to create departments and drag AI employees, **People** to invite humans. Then **Resync ORG.md & AGENTS.md**. See [Org and departments](../setup/org-and-departments.md) and [People](../setup/people.md).
 6. **Knowledge** — Open **Knowledge** (Master Data). You should see a **departments** table (same names as the org). Upload policies later; Platform Help already knows the product guide.
 7. **Ask Platform Help** — Switch **Chat with** to **Platform Help** and ask: “How do I build a workflow?” or “What is Company setup?”
 8. **Kanban** — Open **Kanban**. The default view is **Weekly**. Cards appear when the COO delegates work.
-9. **Optional** — Avatar → **Onboarding** for extra departments and employees beyond the blueprint. **Management → Scheduled goals** when you want a recurring daily brief.
+9. **Optional** — Avatar → **Onboarding** for extra departments and employees beyond the blueprint. **Management → Scheduled goals** when you want a recurring daily brief. On Home, **Mic** / **Speak reply** / **Call** when speech and Caller employees are enabled.
 
 ## Who to ask
 
@@ -28,4 +28,4 @@ A short path so the product feels like a company, not a blank chat.
 
 Prefer one clear outcome per message (“Research X and summarise findings”) so the COO can route work.
 
-Next: [Company setup](../setup/company-setup.md) → [Org and departments](../setup/org-and-departments.md).
+Next: [Company setup](../setup/company-setup.md) → [Org and departments](../setup/org-and-departments.md) → [People](../setup/people.md).
