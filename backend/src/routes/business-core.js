@@ -161,43 +161,16 @@ function requestHostname(req) {
 }
 
 function clearTwentySessionCookies(res) {
-  const names = ['tokenPair', 'accessToken', 'refreshToken', 'twenty-session', 'isCookieAuthActiveState'];
+  // Few Max-Age=0 lines only — do not emit JWT Set-Cookie (nginx 502: "upstream sent too big header").
+  const names = ['tokenPair', 'accessToken', 'refreshToken', 'twenty-session'];
   for (const n of names) {
-    for (const httpOnly of [true, false]) {
-      const ho = httpOnly ? 'HttpOnly; ' : '';
-      res.append('Set-Cookie', `${n}=; Path=/; ${ho}Secure; SameSite=None; Max-Age=0`);
-      res.append(
-        'Set-Cookie',
-        `${n}=; Path=/; ${ho}Secure; SameSite=None; Max-Age=0; Partitioned`
-      );
-    }
+    res.append('Set-Cookie', `${n}=; Path=/; Secure; SameSite=None; Max-Age=0`);
+    res.append('Set-Cookie', `${n}=; Path=/; Secure; SameSite=None; Max-Age=0; Partitioned`);
   }
 }
 
-function applyTwentySsoCookies(res, tokenPair) {
+function prepareCrmSsoApplyHeaders(res) {
   clearTwentySessionCookies(res);
-  const access = String(tokenPair?.accessOrWorkspaceAgnosticToken?.token || '').trim();
-  const refresh = String(tokenPair?.refreshToken?.token || '').trim();
-  const maxAge = 60 * 60 * 12;
-  const pairs = [];
-  if (access && !/[\s;,\\"]/.test(access)) {
-    pairs.push([`accessToken=${access}`, false]);
-  }
-  if (refresh && !/[\s;,\\"]/.test(refresh)) {
-    pairs.push([`refreshToken=${refresh}`, false]);
-  }
-  const json = encodeURIComponent(JSON.stringify(tokenPair));
-  if (json.length < 3500) {
-    pairs.push([`tokenPair=${json}`, false]);
-  }
-  for (const [nv, httpOnly] of pairs) {
-    const ho = httpOnly ? 'HttpOnly; ' : '';
-    res.append('Set-Cookie', `${nv}; Path=/; ${ho}Secure; SameSite=None; Max-Age=${maxAge}`);
-    res.append(
-      'Set-Cookie',
-      `${nv}; Path=/; ${ho}Secure; SameSite=None; Max-Age=${maxAge}; Partitioned`
-    );
-  }
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   res.setHeader('Pragma', 'no-cache');
 }
@@ -222,14 +195,15 @@ function renderCrmSsoApplyHtml(tokenPair) {
 
 /**
  * Public CRM SSO apply (handoff before Flolah auth).
- * Nginx on {sub}.crm.* proxies here so Set-Cookie + localStorage are first-party
- * to the Twenty workspace host (iframe under login.* cannot keep Twenty /verify cookies).
+ * Nginx on {sub}.crm.* proxies here so localStorage is first-party
+ * to the Twenty workspace host. Do not Set-Cookie Twenty JWTs — nginx
+ * then returns 502 "upstream sent too big header".
  */
 router.get('/crm-sso-apply', (req, res) => {
   try {
     const token = req.query?.token || req.query?.t;
     const out = consumeTwentySsoBrowserToken(token, { hostname: requestHostname(req) });
-    applyTwentySsoCookies(res, out.tokenPair);
+    prepareCrmSsoApplyHeaders(res);
     console.info(
       '[business-core] crm-sso-apply ok owner=%s host=%s',
       String(out.owner_user_id || '').slice(0, 32),

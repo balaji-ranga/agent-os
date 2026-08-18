@@ -52,7 +52,7 @@ TWENTY_HOST_PORT=3100
 
 Compose wires these into **backend** (`deploy/docker-compose.yml`) and into Twenty as `APP_SECRET` / `SERVER_URL` (`docker-compose.business-core.yml`).
 
-**Passwordless CRM SSO (true SSO):** with `TWENTY_APP_SECRET` + SSO enabled, authenticated Flolah users open CRM **in-app** via iframe handoff `/flolah-handoff/?t=…` on the **company workspace host** `{sub}.crm.<apex>`, then same-origin **`/flolah-crm-sso`** (nginx → backend `crm-sso-apply`). The apply page writes Twenty `tokenPairState` and Partitioned cookies so the Flolah iframe can stay signed in (Chrome blocks Twenty `/verify` GraphQL cookies as third-party). Backend JIT provision requires `TWENTY_DATABASE_URL` and writes `workspaceMember` into the workspace’s real `core.workspace.databaseSchema` (not the first `workspace_*` schema — that bug caused non-bootstrap CEOs such as Aru to hit “password” while Balaji worked). Company owners are provisioned as **Admin**. Server preflights `getAuthTokensFromLoginToken` then stores the exchanged pair for the short-lived `t=` token.
+**Passwordless CRM SSO (true SSO):** with `TWENTY_APP_SECRET` + SSO enabled, authenticated Flolah users open CRM **in-app** via iframe handoff `/flolah-handoff/?t=…` on the **company workspace host** `{sub}.crm.<apex>`, then same-origin **`/flolah-crm-sso`** (nginx → backend `crm-sso-apply`). The apply page writes Twenty `tokenPairState` in **localStorage** (first-party on the workspace host). It does **not** Set-Cookie Twenty JWTs — those headers overflow nginx (`upstream sent too big header` → **502**). Chrome still cannot keep Twenty `/verify` GraphQL cookies inside the Flolah iframe; localStorage apply is the session. Backend JIT provision requires `TWENTY_DATABASE_URL` and writes `workspaceMember` into the workspace’s real `core.workspace.databaseSchema` (not the first `workspace_*` schema — that bug caused non-bootstrap CEOs such as Aru to hit “password” while Balaji worked). Company owners are provisioned as **Admin**. Server preflights `getAuthTokensFromLoginToken` then stores the exchanged pair for the short-lived `t=` token.
 
 **JIT membership + Redis:** Twenty caches `flatWorkspaceMemberMaps` in Redis. Flolah JIT SQL does not go through Twenty’s GraphQL layer, so after join/role changes backend **DELs** those keys via `TWENTY_REDIS_URL` (default `redis://twenty-redis:6379`) so REST tools do not return `FORBIDDEN` / “User is not a member of the workspace”.
 
@@ -67,7 +67,7 @@ Compose wires these into **backend** (`deploy/docker-compose.yml`) and into Twen
 - Server block: `deploy/nginx/nginx.host-network.conf` → `crm.flolah.cloud` and `*.crm.flolah.cloud` → `127.0.0.1:3100`
 - SSO/isolation page: `deploy/static/crm-handoff/` mounted at `/usr/share/nginx/crm-handoff` (see `docker-compose.yml` and `docker-compose.vps-client-ip.yml`)
 - Location: `^~ /flolah-handoff/` → alias that directory (dir mode **755**, files **644**)
-- SSO apply: `location = /flolah-crm-sso` → `http://127.0.0.1:3001/api/business-core/crm-sso-apply` (must stay **before** `location /` Twenty proxy)
+- SSO apply: `location = /flolah-crm-sso` → `http://127.0.0.1:3001/api/business-core/crm-sso-apply` (must stay **before** `location /` Twenty proxy). Keep `proxy_buffer_size 32k` (and matching buffers) so a future header regression cannot 502.
 
 **DNS for multi-workspace:** A/CNAME `crm` → VPS **and** A `*.crm` → VPS (or per-workspace `{sub}.crm`).  
 Cert: `bash deploy/scripts/vps-expand-crm-cert.sh` (apex + optional workspace SANs). After workspace DNS is live: `bash deploy/scripts/vps-ensure-crm-workspace-dns-cert.sh`. Ops refresh: `bash deploy/scripts/vps-refresh-tls-certs.sh [all|platform|crm]`.
@@ -104,7 +104,7 @@ ERPNEXT_PUBLIC_URL=https://erp.crm.example.com
 ERPNEXT_ADMIN_PASSWORD=admin   # initial Administrator password from create-site
 ```
 
-**SSO:** CRM menu → Twenty handoff **`/flolah-crm-sso`** (token pair + partitioned cookies) **or** ERPNext desk (`/app/crm`) when CRM=ERPNext. ERP menu → `/flolah-erp-handoff/?t=…` → same-origin `/flolah-erp-sso` (Set-Cookie `sid` + 302 Desk) for company-scoped user. Requires nginx proxy to backend `crm-sso-apply` / `erp-sso-apply` (see `nginx.host-network.conf`). Each apply clears prior session cookies so CEOs do not keep another user’s session.
+**SSO:** CRM menu → Twenty handoff **`/flolah-crm-sso`** (token pair in workspace-origin localStorage) **or** ERPNext desk (`/app/crm`) when CRM=ERPNext. ERP menu → `/flolah-erp-handoff/?t=…` → same-origin `/flolah-erp-sso` (Set-Cookie `sid` + 302 Desk) for company-scoped user. Requires nginx proxy to backend `crm-sso-apply` / `erp-sso-apply` (see `nginx.host-network.conf`). CRM apply only clears leftover cookie names; ERP apply still sets `sid`.
 
 **Tenant isolation (desk + agents share CEO scope):**
 

@@ -5,9 +5,10 @@
  * server verifies (SHA256 of APP_SECRET + workspaceId + "LOGIN"), exchanges
  * them server-side, then routes the browser through /flolah-handoff →
  * /flolah-crm-sso (workspace origin). That apply page writes Twenty
- * tokenPairState in first-party / CHIPS storage so the Flolah iframe can sign
- * in without Twenty's email/password form (Chrome blocks unpartitioned cookies
- * on /verify GraphQL). Passwordless for the Flolah user email.
+ * tokenPairState in first-party localStorage so the Flolah iframe can sign
+ * in without Twenty's email/password form (Chrome blocks /verify GraphQL
+ * cookies as third-party). Do not Set-Cookie the JWT pair (nginx 502).
+ * Passwordless for the Flolah user email.
  *
  * Requires TWENTY_APP_SECRET (same value as Twenty APP_SECRET). Optional
  * TWENTY_DATABASE_URL enables JIT provisioning of user + workspace membership.

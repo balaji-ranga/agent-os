@@ -233,7 +233,7 @@ Never mark CRM “Won + invoiced” unless ERP documents exist (or CEO explicitl
 ## CEO how-to (Platform Help)
 
 1. Profile or Company setup → CRM **Twenty** → Save / Apply (prefab Makers/Checker appear).
-2. Open **CRM** (`/work` embed) — passwordless SSO into **your** workspace (do not use Twenty’s email/password form).
+2. Open **CRM** (`/work` embed) — passwordless SSO into **your** workspace (do not use Twenty’s email/password form). If the embed shows **Bad Gateway**, reload **CRM** once; that hop is Flolah sign-in, not the CRM desk being offline.
 3. People / Companies / Opportunities in the desk, or chat **CRM Maker A**.
 4. High-risk / Won / ERP billing → **CRM Checker** then ERP Maker/Checker (**38**, **39**).
 
