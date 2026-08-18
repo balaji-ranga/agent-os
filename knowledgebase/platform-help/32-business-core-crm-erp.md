@@ -133,7 +133,7 @@ Same protocol in workspace **AGENT-OS-OPS.md** / **DOMAIN.md** and help **38** /
 2. Ensure company workspace (create if missing / non-UUID).
 3. JIT-add the **signed-in Flolah user** (CEO or invited employee email) into **that** workspace only.
 4. Mint LOGIN JWT for **that** `workspaceId` (`APP_SECRET` + workspace + `LOGIN`) and **exchange it server-side**.
-5. Browser handoff on the **workspace origin** `https://{subdomain}.crm.<apex>/flolah-handoff/?t=…` then same-origin **`/flolah-crm-sso`** (nginx → `GET /api/business-core/crm-sso-apply`). That page writes Twenty `tokenPairState` in the workspace origin. It does **not** Set-Cookie the JWT pair (that overflowed nginx and returned **502 Bad Gateway**). Partitioned cookies are only used to clear old names.
+5. Browser handoff on the **workspace origin** `https://{subdomain}.crm.<apex>/flolah-handoff/?next=/verify?loginToken=…`. After a storage wipe, Twenty’s own `/verify` page exchanges that LOGIN token in the desk SPA (in-memory + localStorage). Do **not** send the iframe to `/` after a separate apply HTML — that hop skips `/verify` and Chrome often drops third-party iframe storage, which shows Twenty **email login** (`/welcome`). `/flolah-crm-sso` remains as a fallback apply URL.
 
 **Mitigation (always):** handoff wipes cookies/localStorage on owner change / `wipe=1` / SSO token (`deploy/static/crm-handoff/`). IndexedDB is wiped only on logout so SSO apply is not raced.
 
@@ -190,7 +190,7 @@ You still see Twenty password / email UI when:
 1. SSO handoff failed or expired (e.g. after brief outages, or before FRONT_AUTO_BASE_URL / certs were fixed).
 2. `TWENTY_SSO_ENABLED=0` or `TWENTY_APP_SECRET` does not match Twenty `APP_SECRET`.
 3. Browser stayed on an old failing session — use **Open in new tab** or **Switch CRM account** from the CRM toolbar.
-4. **Iframe cookies blocked (fixed via `/flolah-crm-sso`):** Chrome third-party cookie rules drop Twenty `/verify` Set-Cookie inside the Flolah iframe. The desk then shows **email login**. Typing your Flolah email there often shows **“error occurred validating user”** because JIT CRM users are passwordless (or the password is not your Flolah password). Do not use that form — reload **CRM** or **Open in new tab**.
+4. **Iframe cookies blocked (fixed via workspace `/verify`):** Chrome third-party cookie rules drop Twenty `/verify` Set-Cookie inside the Flolah iframe. Twenty v2.29 still signs in from the `/verify` **GraphQL body** (localStorage + in-memory). A Flolah apply page that only wrote localStorage then navigated to `/` showed **email login**. Reload **CRM** or **Open in new tab**. Do not submit Twenty’s email form.
 5. **502 Bad Gateway on CRM open (fixed):** nginx error `upstream sent too big header` on `/flolah-crm-sso` means the apply response put Twenty JWTs in `Set-Cookie`. Apply now uses localStorage only. This is **not** Twenty being down (the desk `/` can still return 200).
 6. **Membership gap (fixed in SSO JIT):** The bootstrap admin can own newly created CRM workspaces; other CEOs need a `workspaceMember` row in **their** workspace’s `databaseSchema`. If that row was written into the wrong schema, mint still “succeeds” but `/verify` shows password. Backend now maps schema via `core.workspace.databaseSchema`, provisions owners as Admin, and preflights token exchange. After membership SQL, Flolah also invalidates Twenty Redis `flatWorkspaceMemberMaps` (`TWENTY_REDIS_URL`) so REST/MCP tools do not return `FORBIDDEN` / “User is not a member of the workspace”.
 

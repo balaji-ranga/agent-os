@@ -15,6 +15,7 @@ import { initDb, getDb } from '../src/db/schema.js';
 import {
   persistTwentySsoBrowserTokens,
   consumeTwentySsoBrowserToken,
+  buildVerifyNextPath,
 } from '../src/services/twenty-sso.js';
 
 function assert(cond, msg) {
@@ -69,6 +70,11 @@ try {
     missing = e;
   }
   assert(missing && missing.status === 404, 'unknown token rejected');
+
+  assert(
+    buildVerifyNextPath('abc.def.ghi') === '/verify?loginToken=abc.def.ghi',
+    'verify next path encodes loginToken'
+  );
 
   console.log('PASS: twenty sso handoff tokens', { suffix });
 } finally {

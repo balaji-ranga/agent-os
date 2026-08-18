@@ -3,12 +3,11 @@
  *
  * Mints Twenty LOGIN JWTs with the same legacy HS256 secret derivation the
  * server verifies (SHA256 of APP_SECRET + workspaceId + "LOGIN"), exchanges
- * them server-side, then routes the browser through /flolah-handoff →
- * /flolah-crm-sso (workspace origin). That apply page writes Twenty
- * tokenPairState in first-party localStorage so the Flolah iframe can sign
- * in without Twenty's email/password form (Chrome blocks /verify GraphQL
- * cookies as third-party). Do not Set-Cookie the JWT pair (nginx 502).
- * Passwordless for the Flolah user email.
+ * them server-side (membership proof), then routes the browser through
+ * /flolah-handoff wipe → Twenty /verify?loginToken= on the workspace origin.
+ * Twenty v2.29 stores the pair in memory + localStorage on that page.
+ * A separate apply HTML that only writes localStorage then goes to / does
+ * not SSO in the Flolah iframe (third-party storage) and skips /verify.
  *
  * Requires TWENTY_APP_SECRET (same value as Twenty APP_SECRET). Optional
  * TWENTY_DATABASE_URL enables JIT provisioning of user + workspace membership.
@@ -245,6 +244,8 @@ export function mintTwentyLoginToken({ email, workspaceId, authProvider = 'SSO',
     sub,
     workspaceId: ws,
     authProvider: authProvider || 'SSO',
+    // Distinct each mint so server preflight cannot collide with browser /verify.
+    jti: randomUUID(),
     iat: now,
     exp: now + Math.max(60, Math.min(3600, Number(expiresSec) || 300)),
   };
@@ -388,6 +389,7 @@ export function consumeTwentySsoBrowserToken(token, opts = {}) {
   return {
     ok: true,
     tokenPair: pair,
+    loginToken: strip(row.login_token),
     expectedHost: wantHost,
     owner_user_id: row.owner_user_id,
     email: row.email,
@@ -396,10 +398,12 @@ export function consumeTwentySsoBrowserToken(token, opts = {}) {
   };
 }
 
-function handoffUrlsForTokenPair(base, owner, persisted) {
-  const iframe = handoffUrl(base, owner, '/', { wipe: true, t: persisted.iframeToken });
-  const open = handoffUrl(base, owner, '/', { wipe: true, t: persisted.openToken });
-  return { iframe_url: iframe, open_url: open };
+/** Workspace-origin wipe, then Twenty's own /verify (sets token pair in the SPA). */
+function handoffUrlsForLoginVerify(base, owner, iframeLogin, openLogin) {
+  return {
+    iframe_url: handoffUrl(base, owner, buildVerifyNextPath(iframeLogin), { wipe: true }),
+    open_url: handoffUrl(base, owner, buildVerifyNextPath(openLogin), { wipe: true }),
+  };
 }
 
 let pgPool = null;
@@ -798,10 +802,9 @@ export async function buildCrmSsoHandoff(ownerUserId, opts = {}) {
   try {
     const loginToken = mintTwentyLoginToken({ email, workspaceId, authProvider: 'SSO' });
     // Server-side proof: LOGIN JWT must exchange (catches missing workspaceMember).
-    let exchanged = null;
     try {
       const { exchangeLoginToken } = await import('./twenty-workspace.js');
-      exchanged = await exchangeLoginToken(loginToken, base);
+      await exchangeLoginToken(loginToken, base);
     } catch (exErr) {
       console.warn(
         '[twenty-sso] loginToken exchange preflight failed email=%s ws=%s %s — re-ensure + retry',
@@ -815,15 +818,10 @@ export async function buildCrmSsoHandoff(ownerUserId, opts = {}) {
       const retryToken = mintTwentyLoginToken({ email, workspaceId, authProvider: 'SSO' });
       try {
         const { exchangeLoginToken } = await import('./twenty-workspace.js');
-        const retried = await exchangeLoginToken(retryToken, base);
-        const persisted = persistTwentySsoBrowserTokens({
-          ownerUserId: owner,
-          email,
-          workspaceId,
-          publicBase: base,
-          tokens: retried.tokens || retried,
-        });
-        const urls = handoffUrlsForTokenPair(base, owner, persisted);
+        await exchangeLoginToken(retryToken, base);
+        const iframeLogin = mintTwentyLoginToken({ email, workspaceId, authProvider: 'SSO' });
+        const openLogin = mintTwentyLoginToken({ email, workspaceId, authProvider: 'SSO' });
+        const urls = handoffUrlsForLoginVerify(base, owner, iframeLogin, openLogin);
         console.info(
           '[twenty-sso] mint loginToken (after heal) owner=%s email=%s workspace=%s sub=%s',
           owner,
@@ -862,14 +860,9 @@ export async function buildCrmSsoHandoff(ownerUserId, opts = {}) {
       }
     }
 
-    const persisted = persistTwentySsoBrowserTokens({
-      ownerUserId: owner,
-      email,
-      workspaceId,
-      publicBase: base,
-      tokens: exchanged.tokens || exchanged,
-    });
-    const urls = handoffUrlsForTokenPair(base, owner, persisted);
+    const iframeLogin = mintTwentyLoginToken({ email, workspaceId, authProvider: 'SSO' });
+    const openLogin = mintTwentyLoginToken({ email, workspaceId, authProvider: 'SSO' });
+    const urls = handoffUrlsForLoginVerify(base, owner, iframeLogin, openLogin);
     console.info(
       '[twenty-sso] mint loginToken owner=%s email=%s workspace=%s sub=%s ensure=%s',
       owner,

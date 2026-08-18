@@ -175,20 +175,23 @@ function prepareCrmSsoApplyHeaders(res) {
   res.setHeader('Pragma', 'no-cache');
 }
 
-function renderCrmSsoApplyHtml(tokenPair) {
+function renderCrmSsoApplyHtml(tokenPair, loginToken) {
   const payload = JSON.stringify({
     tokenPair,
     isCookieAuthActiveState: false,
   }).replace(/</g, '\\u003c');
+  const next = loginToken
+    ? `/verify?loginToken=${encodeURIComponent(String(loginToken))}`
+    : '/';
   return (
     `<!doctype html><html lang="en"><head><meta charset="utf-8"/><title>CRM</title>` +
     `<style>body{font-family:system-ui,sans-serif;margin:2rem;color:#222}.m{opacity:.6}</style></head>` +
     `<body><p class="m">Signing into CRM…</p><script>` +
-    `(function(){var p=${payload};try{` +
+    `(function(){var p=${payload};var n=${JSON.stringify(next)};try{` +
     `localStorage.setItem("tokenPairState",JSON.stringify(p.tokenPair));` +
     `localStorage.setItem("tokenPair",JSON.stringify(p.tokenPair));` +
     `localStorage.setItem("isCookieAuthActiveState",JSON.stringify(false));` +
-    `}catch(e){}location.replace("/");})();` +
+    `}catch(e){}location.replace(n);})();` +
     `</script></body></html>`
   );
 }
@@ -209,7 +212,7 @@ router.get('/crm-sso-apply', (req, res) => {
       String(out.owner_user_id || '').slice(0, 32),
       requestHostname(req)
     );
-    res.status(200).type('html').send(renderCrmSsoApplyHtml(out.tokenPair));
+    res.status(200).type('html').send(renderCrmSsoApplyHtml(out.tokenPair, out.loginToken));
   } catch (e) {
     console.warn('[business-core] crm-sso-apply failed', e.message);
     res

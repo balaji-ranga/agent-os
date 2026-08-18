@@ -6,7 +6,7 @@ import { rememberCrmSessionOrigin } from '../lib/crmSessionCleanup';
 /**
  * Compact platform CRM/ERP iframe shell (no long briefing copy).
  * CRM uses /flolah-handoff so switching Flolah company clears prior Twenty session.
- * Passwordless SSO: workspace-origin handoff then /flolah-crm-sso (tokenPair in iframe storage).
+ * Passwordless SSO: workspace-origin handoff wipe, then Twenty /verify?loginToken=.
  */
 export function BusinessEmbedPage({ kind }) {
   const isCrm = kind === 'crm';
