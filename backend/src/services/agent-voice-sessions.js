@@ -102,7 +102,7 @@ function pickRealtimeModel(endpointModel) {
   if (/realtime/i.test(fromEp)) return fromEp;
   const fromEnv = String(process.env.OPENAI_REALTIME_MODEL || '').trim();
   if (fromEnv) return fromEnv;
-  return 'gpt-4o-realtime-preview';
+  return 'gpt-realtime';
 }
 
 /**
@@ -305,43 +305,53 @@ export function getPublishedVoiceBySlug(slug) {
   return { row, config, agent };
 }
 
-async function mintOpenAiRealtimeSession({ realtime, instructions, tools, voice }) {
-  const url = `${realtime.baseUrl}/v1/realtime/sessions`;
-  const body = {
+async function mintOpenAiRealtimeSession({ realtime, instructions, tools, voice, ownerUserId }) {
+  const url = `${realtime.baseUrl}/v1/realtime/client_secrets`;
+  const session = {
+    type: 'realtime',
     model: realtime.model,
-    voice: voice || 'alloy',
-    modalities: ['audio', 'text'],
     instructions: String(instructions || '').slice(0, 8000),
     tools: tools || [],
     tool_choice: 'auto',
-    input_audio_transcription: { model: 'whisper-1' },
+    audio: {
+      output: { voice: voice || 'alloy' },
+      input: { transcription: { model: 'whisper-1' } },
+    },
   };
+  const headers = {
+    Authorization: `Bearer ${realtime.apiKey}`,
+    'Content-Type': 'application/json',
+  };
+  if (ownerUserId) {
+    headers['OpenAI-Safety-Identifier'] = createHash('sha256')
+      .update(`flolah:${ownerUserId}`)
+      .digest('hex');
+  }
   const res = await fetch(url, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${realtime.apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
+    headers,
+    body: JSON.stringify({ session }),
     signal: AbortSignal.timeout(20000),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const msg = data?.error?.message || data?.error || `Realtime session mint failed (${res.status})`;
+    console.warn('[voice] client_secret mint failed status=%s model=%s', res.status, realtime.model);
     throw Object.assign(new Error(typeof msg === 'string' ? msg : 'Realtime session mint failed'), {
       status: res.status >= 400 && res.status < 500 ? res.status : 502,
     });
   }
-  const secret = data?.client_secret?.value || data?.client_secret || data?.value;
+  const secret = data?.value || data?.client_secret?.value || data?.client_secret;
   if (!secret) {
     throw Object.assign(new Error('Realtime provider did not return an ephemeral client secret'), {
       status: 502,
     });
   }
+  console.info('[voice] client_secret minted model=%s', realtime.model);
   return {
     client_secret: secret,
-    expires_at: data?.client_secret?.expires_at || data?.expires_at || null,
-    session: { id: data?.id || null, model: data?.model || realtime.model },
+    expires_at: data?.expires_at || data?.client_secret?.expires_at || null,
+    session: { id: data?.id || data?.session?.id || null, model: data?.session?.model || realtime.model },
   };
 }
 
@@ -378,7 +388,12 @@ export async function createVoiceSession({ ownerUserId, agentId, channelId = nul
     'Never invent policy. Never ask the guest for CEO credentials.',
   ].join('\n\n');
   const tools = realtimeToolsForAgent(agent.id, { guest: !!guest });
-  const minted = await mintOpenAiRealtimeSession({ realtime, instructions, tools });
+  const minted = await mintOpenAiRealtimeSession({
+    realtime,
+    instructions,
+    tools,
+    ownerUserId: owner,
+  });
 
   const sessionId = newId('vs');
   const token = `vst_${randomBytes(24).toString('hex')}`;
@@ -418,7 +433,7 @@ export async function createVoiceSession({ ownerUserId, agentId, channelId = nul
     agent: { id: agent.id, name: agent.name, role: agent.role },
     realtime: {
       model: realtime.model,
-      webrtc_url: `${realtime.baseUrl}/v1/realtime?model=${encodeURIComponent(realtime.model)}`,
+      webrtc_url: `${realtime.baseUrl}/v1/realtime/calls`,
       client_secret: minted.client_secret,
       expires_at: minted.expires_at,
     },

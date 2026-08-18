@@ -59,7 +59,7 @@ WhatsApp is **voice notes**, not a live phone call.
 1. Same Knowledge / CRM / wrap-up as Slow Caller.
 2. Hire **Realtime Caller**.
 3. **Channels → Voice (WebRTC)** → Enable. Copies a public widget URL (`/p/voice/:slug`). The **phone** icon appears in the compose toolbar only when Voice is enabled. Home **microphone** is still Whisper (turn-based); **Call** is the live path.
-4. **BYOK:** Profile (or platform) must expose an **OpenAI Realtime** endpoint (`api.openai.com`). OpenRouter, Ollama, and DeepSeek **cannot** mint live sessions — you get a clear 503. Optional env: `OPENAI_REALTIME_BASE_URL`, `OPENAI_REALTIME_API_KEY`, `OPENAI_REALTIME_MODEL` (default `gpt-4o-realtime-preview`). Prefer owner Profile OpenAI keys; do not hardwire a platform-only model.
+4. **BYOK:** Profile (or platform) must expose an **OpenAI Realtime** endpoint (`api.openai.com`). OpenRouter, Ollama, and DeepSeek **cannot** mint live sessions — you get a clear 503. Optional env: `OPENAI_REALTIME_BASE_URL`, `OPENAI_REALTIME_API_KEY`, `OPENAI_REALTIME_MODEL` (default `gpt-realtime`). Flolah mints `POST /v1/realtime/client_secrets` and the browser connects at `/v1/realtime/calls` (the retired `/v1/realtime/sessions` path is not used). Prefer owner Profile OpenAI keys; do not hardwire a platform-only model.
 5. Guests on the widget do **not** log in. Live tools are **read-only lookups** (RAG + CRM list). Session tokens expire (~15 min). **CEO Call** hangup posts the transcript into that employee for wrap-up (CRM/Kanban/goal). **Public widget** hangup **stores the transcript only** — it does not run a tool wrap-up, so a guest cannot inject a fake transcript into CRM.
 
 HTTPS is required for browser microphone (already true on `login.flolah.cloud`).

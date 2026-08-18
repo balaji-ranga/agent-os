@@ -16,7 +16,8 @@
     "test:goal-plan:unit": "node scripts/_test-goal-plan-multistep.mjs",
     "test:goal-plan:acceptance": "node scripts/_test-goal-plan-acceptance.mjs",
     "test:goal-plan:async-ui": "node scripts/test-goal-plan-async-ui.mjs",
-    "test:blueprint-secrets": "node scripts/test-blueprint-secret-sanitize.js && node scripts/scan-blueprint-secrets.js",
+    "test:goal-plan:intent": "node scripts/test-goal-plan-intent-classify.mjs",
+    "test:blueprint-secrets": "node scripts/test-blueprint-secret-sanitize.js && node scripts/scan-blueprint-secrets.js"
   },
   "dependencies": {
     "@stoqey/ib": "^1.6.3",
