@@ -19,7 +19,7 @@ Path: avatar → **Edit profile** (`/profile`).
 | Choice | What you do |
 |--------|-------------|
 | **Platform default** | Nothing — Flolah uses the platform language model |
-| **OpenAI / OpenRouter** | Pick provider + chat model here (or at Register). Put the secret in **API Keys** as **`Platform_BYOK`**. Do not paste keys on the Profile form. |
+| **OpenAI / OpenRouter** | Pick provider + chat model here (or at Register). Put the secret in **API Keys** as **`Platform_BYOK`**. Claude and Gemini are OpenRouter model ids on that same key. Live Call needs an **OpenAI** key. Do not paste keys on the Profile form. See [API keys](./api-keys.md). |
 | **Local / free options** | When offered (for example Ollama). No paid LLM key. Archive titles for **New chat** may be heuristic so the UI does not wait on a slow local model. |
 
 Saving Profile syncs provider and model for **your** AI employees. An invalid `Platform_BYOK` key (401) makes **WhatsApp go silent** (read ticks, no reply). Switch back to **Platform default** or paste a working key.

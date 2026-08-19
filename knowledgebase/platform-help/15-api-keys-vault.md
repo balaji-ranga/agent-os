@@ -49,6 +49,44 @@ Slots appear with hint **`unset`** until you **Edit** and paste a real secret. R
 
 **Platform default** Profile does not seed these — ops `.env` covers Brave / Replicate / Places for that mode. Exception: if platform `GOOGLE_PLACES_API_KEY` is unset, you can still fill vault **`GOOGLE_PLACES_BYOK`** and Places tools will use it.
 
+## Inventory — tools vs vault key vs issuer
+
+Chat, vision, image gen, and **live Call / Realtime Caller** share **`Platform_BYOK`** when you BYOK. Fill other names only for features you use.
+
+| Tools / scope | BYOK key | Possible keys (issuer) |
+|---------------|----------|------------------------|
+| **Chat completions** — employees, COO, `summarize_url`, RAG answers, intent, certify, job LLM steps, autonomous browser | **`Platform_BYOK`** | **OpenAI** · **OpenRouter** (OpenAI / **Claude** / Gemini / DeepSeek on one key) · or **no key**: Platform default / local Ollama |
+| **Vision** — `analyze_image` | **`Platform_BYOK`** | **OpenAI** or **OpenRouter** vision models. Text-only local chat often cannot see images |
+| **Image generation** — `generate_image` | **`Platform_BYOK`** | **OpenAI** (GPT-image). OpenRouter / Claude / Ollama typically not used for this tool |
+| **Realtime Caller + live Call** (WebRTC) | **`Platform_BYOK`** must be **OpenAI** on `api.openai.com` | **OpenAI only**. OpenRouter, Claude, DeepSeek, Ollama cannot mint a live session |
+| `brave_web_search` | **`BRAVE_SEARCH_BYOK`** | **Brave Search** (or platform Brave on Platform default) |
+| `google_places_*` / `business_discover` | **`GOOGLE_PLACES_BYOK`** | **Google** Places API (New) |
+| `generate_video` | **`Replicate_BYOK`** | **Replicate** (or platform token on Platform default) |
+| Avatar / workflow TTS | **`elevenlabs-key`** | **ElevenLabs**. Slow Caller / Speak can use free Piper (no key) |
+| Instagram captions | **`INSTAGRAM_SESSIONID`** | Instagram `sessionid` cookie |
+| X official timeline | **`X_API_BYOK`** | **X** API v2 bearer |
+| `email_send` | *(platform SMTP)* | **Brevo** / SMTP — ops, not this vault |
+| CRM / ERP | *(Business Core)* | No extra LLM key |
+| Mic / Slow Caller STT-TTS | *(none)* | Whisper + Piper |
+| Knowledge embeddings | *(none)* | Local embeddings, not OpenAI |
+
+**Claude on Profile:** choose **OpenRouter** + a Claude model, paste the **OpenRouter** secret as `Platform_BYOK`. Direct Anthropic is not a Profile option yet.
+
+### Rough SME monthly vendor spend (BYOK, USD, order of magnitude)
+
+Not a Flolah fee. Example: 8–15 AI employees, daily COO chat, some Places/Brave.
+
+| Mix | Typical fill | Ballpark / month |
+|-----|----------------|------------------|
+| Lean (platform default chat) | Optional Places/Brave | $0–40 |
+| Core SME | `Platform_BYOK` mini-class + Places + Brave | $40–150 |
+| + live voice 5–15 h | OpenAI Realtime on the same OpenAI key | +$80–400 |
+| + light images/video | GPT-image + a few Replicate clips | +$30–150 |
+| Claude-class on most chats | OpenRouter Claude or GPT-4o | $200–600+ |
+| Full stack | Core + voice + media + FMP | $250–700 |
+
+Cap **calls** on **Tools → Rate limits**. Live Call on OpenAI mini realtime is often about **$0.15–$0.40 per minute** of audio. Public guide: [API keys](https://flolah.cloud/docs/setup/api-keys/).
+
 ## Platform_BYOK (required for OpenAI / OpenRouter)
 
 For agent chat with **your** OpenAI or OpenRouter key:
