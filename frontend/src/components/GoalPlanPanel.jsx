@@ -99,6 +99,9 @@ export default function GoalPlanPanel({
                 : ''}
               {goal.outcome.budget_usd != null ? ` · cap $${goal.outcome.budget_usd}` : ''}
               {goal.outcome.plan_version ? ` · plan v${goal.outcome.plan_version}` : ''}
+              {goal.outcome.retrospective
+                ? ` · ${goal.outcome.retrospective.kpi_achieved ? 'KPI met' : 'shortfall recorded'}`
+                : ''}
             </div>
           ) : null}
           <div style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>

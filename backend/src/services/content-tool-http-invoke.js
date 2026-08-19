@@ -5,6 +5,7 @@
 import { getToolMeta } from './content-tools-meta.js';
 import { getPublicBaseUrl } from '../config/public-url.js';
 import { internalAuthHeaders } from '../middleware/internal-auth.js';
+import { withBoundedRetry } from './tool-failure-class.js';
 
 function backendBaseUrl() {
   // Prefer internal loopback so container self-dispatch does not hairpin public HTTPS (502).
@@ -65,13 +66,25 @@ export async function invokeContentToolHttp(toolName, body, ownerUserId = null, 
   }
 
   const timeoutMs = Number(opts.timeoutMs) > 0 ? Number(opts.timeoutMs) : 120000;
-  const response = await fetch(targetUrl, {
-    method,
-    headers,
-    body: isGetLike ? undefined : JSON.stringify(payload),
-    signal: AbortSignal.timeout(timeoutMs),
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || `Tool ${toolName} failed (${response.status})`);
-  return data;
+  const runOnce = async () => {
+    const response = await fetch(targetUrl, {
+      method,
+      headers,
+      body: isGetLike ? undefined : JSON.stringify(payload),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const err = new Error(data.error || `Tool ${toolName} failed (${response.status})`);
+      err.status = response.status;
+      throw err;
+    }
+    return data;
+  };
+  // GET/HEAD only — mutating tools stay single-shot (idempotency wraps CRM creates).
+  if (isGetLike) {
+    const wrapped = await withBoundedRetry(runOnce, { ownerUserId, toolName, backoffMs: 50 });
+    return wrapped.result;
+  }
+  return runOnce();
 }

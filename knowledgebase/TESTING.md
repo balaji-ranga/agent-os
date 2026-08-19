@@ -37,9 +37,11 @@ Expect: consume → 429 when capped → manual/auto reset audit → skip Kanban/
 ```powershell
 cd backend
 node scripts/test-phase1-management-layer.mjs
+node scripts/test-t123-acceptance.mjs
+node scripts/test-twenty-sso-handoff.js
 ```
 
-Expect `PHASE1_MANAGEMENT_LAYER_OK`. One case each for T1–T3 and N1–N3. Rollback SHA: see [`MANAGEMENT-LAYER-PHASE1.md`](./MANAGEMENT-LAYER-PHASE1.md).
+Expect `PHASE1_MANAGEMENT_LAYER_OK`, `T123_ACCEPTANCE_OK`, and Twenty SSO handoff PASS. T123 proves the document T1–T3 acceptance bars on existing Goal Plans / tools / recipes (no live CRM writes, SSO unchanged). Rollback SHA: see [`MANAGEMENT-LAYER-PHASE1.md`](./MANAGEMENT-LAYER-PHASE1.md).
 
 ## Video content studio (storyboard CEO PDF)
 

@@ -37,3 +37,24 @@ Run from backend:
 - Owner-scoped `goal_mission_events`.
 
 No demo-only tools. All list/get/mutate paths stay CEO-entitled.
+
+## Document acceptance (T1 T2 T3)
+
+Run from backend (temp sqlite, no live CRM/ERP, does not touch SSO):
+
+`node scripts/test-t123-acceptance.mjs`
+
+Pass = `T123_ACCEPTANCE_OK`
+
+| ID | Document bar | How it is proved |
+|----|--------------|------------------|
+| **T1** | 30 management goals, ≥80% valid executable plan | `MANAGEMENT_GOAL_BENCHMARK` through existing `planGoalStepsFromText` + `validateExecutablePlan` |
+| **T1** | Injected recoverable failures ≥90% recover or escalate; no silent abandon | 429 on a live goal step → retry/switch/escalate + `decision` event |
+| **T1** | Completed goal has criteria, evidence, retrospective | `completeGoalRun` writes `outcome.retrospective` |
+| **T1** | CEO is exception-based | Accepted/429 = no CEO; auth = escalate |
+| **T2** | Scorecard gates | Bounded retry, 0 unapproved sends, CRM create replay, owner-scoped evidence, completion/trace |
+| **T3** | Chat lead→CRM→approval→outreach without graph editor | Capability map + existing CRM Maker/Checker phrase |
+| **T3** | Provider substitution without changing the goal | `find_lead` stays; executor `business_discover` → `browse_task_start` |
+| **T3** | ≥80% standard recipes from NL without node edits | `planRecipePublishFromChat` + graph schema / template id |
+
+CRM/ERP SSO is unchanged (`node scripts/test-twenty-sso-handoff.js`).

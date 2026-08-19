@@ -20,7 +20,7 @@ Documentation lives here so Cursor and humans can find it. **GitHub landing:** r
 | **TESTING.md** | Restart steps, full API test, frontend manual tests, smoke test, standup→COO→TechResearcher test, standup UI checklist. |
 | **GITHUB-SETUP.md** | One-time: create agent-os repo on GitHub and push (Options A/B, security check). |
 | **IMPLEMENTATION_PLAN.md** | Product/roadmap: vision, architecture, phases (1–5), skills, TTS, token monitoring, references. |
-| **MANAGEMENT-LAYER-PHASE1.md** | Phase 1 outcome/runtime + Action control; rollback SHA `6f94d58`; six test cases (`test-phase1-management-layer.mjs`). |
+| **MANAGEMENT-LAYER-PHASE1.md** | Phase 1 outcome/runtime + Action control; rollback SHA `6f94d58`; six gates + document T1–T3 acceptance (`test-t123-acceptance.mjs`). |
 | **AGENT_REVIEW_AND_SKILLS.md** | Agent review (COO, TechResearcher, SocialAssistant); secure skill recommendations and where skills live. |
 | **CONFIGURE-CLAUDE-OPUS.md** | How to set Claude Opus (or other Anthropic models) in `~/.AgentSystem/AgentSystem.json` and API key. |
 | **LOCAL-OPENCLAW-OLLAMA.md** | Free local OpenClaw + platform LLM via self-hosted Ollama (wanted 128B `mistral-medium-3.5`; auto-select on small VPS; no Ollama Cloud). |

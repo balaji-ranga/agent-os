@@ -506,6 +506,23 @@ export function buildRecipeActionBatch(recipe, message, runtime) {
   return { actions, spec };
 }
 
+/** Chat → existing recipe graph + publish (+ optional sandbox test). No node-level edits. */
+export function planRecipePublishFromChat(message, runtime = {}) {
+  const recipe = matchWorkflowRecipe(message, { minScore: 4 });
+  if (!recipe) return { ok: false, reason: 'no_recipe' };
+  const { actions, spec } = buildRecipeActionBatch(recipe, message, runtime);
+  const mutatesNodes = (actions || []).some((a) =>
+    ['add_node', 'update_node', 'add_edge', 'connect', 'connect_nodes'].includes(a.action)
+  );
+  return {
+    ok: true,
+    recipe_id: recipe.id,
+    actions,
+    spec,
+    node_edits: mutatesNodes,
+  };
+}
+
 /** When the LLM only emits create_workflow with a bare trigger, substitute a matching recipe graph. */
 export function enrichCreateWorkflowActions(message, actions, runtime) {
   const list = Array.isArray(actions) ? [...actions] : [];

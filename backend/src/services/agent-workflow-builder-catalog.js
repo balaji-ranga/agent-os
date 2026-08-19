@@ -139,6 +139,29 @@ export function getWorkflowNodeTypeSpec(nodeType) {
   };
 }
 
+export function validateWorkflowGraphSchema(graph) {
+  const errors = [];
+  const nodes = graph?.nodes || [];
+  const edges = graph?.edges || [];
+  if (!nodes.length) errors.push('Workflow has no nodes.');
+  const ids = new Set();
+  for (const n of nodes) {
+    if (!n?.id) errors.push('Node missing id.');
+    else if (ids.has(n.id)) errors.push(`Duplicate node id ${n.id}`);
+    else ids.add(n.id);
+    if (!n?.type) errors.push(`Node ${n.id || '?'} missing type.`);
+    if (!n?.position || typeof n.position.x !== 'number' || typeof n.position.y !== 'number') {
+      errors.push(`Node ${n.id || '?'} missing position.`);
+    }
+  }
+  if (!nodes.some((n) => n.type === 'trigger')) errors.push('Workflow must include a Trigger node.');
+  for (const e of edges) {
+    if (e?.source && !ids.has(e.source)) errors.push(`Edge source missing: ${e.source}`);
+    if (e?.target && !ids.has(e.target)) errors.push(`Edge target missing: ${e.target}`);
+  }
+  return { ok: errors.length === 0, errors };
+}
+
 export function validateWorkflowForPublish(graph, ownerUserId = null) {
   const errors = [];
   const nodes = graph?.nodes || [];

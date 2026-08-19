@@ -66,3 +66,67 @@ function pack(failure_class, status, extra) {
     message: extra.message || null,
   };
 }
+
+const _circuits = new Map();
+
+function circuitKey(ownerUserId, toolName) {
+  return `${String(ownerUserId || 'anon')}:${String(toolName || '*')}`;
+}
+
+export function resetToolCircuits() {
+  _circuits.clear();
+}
+
+function circuitState(ownerUserId, toolName) {
+  const key = circuitKey(ownerUserId, toolName);
+  const row = _circuits.get(key) || { fails: 0, openUntil: 0 };
+  if (row.openUntil && Date.now() > row.openUntil) {
+    row.fails = 0;
+    row.openUntil = 0;
+    _circuits.set(key, row);
+  }
+  return { key, row };
+}
+
+/**
+ * Bounded retry with exponential backoff. Writes should still go through idempotency.
+ * Circuit opens after 5 consecutive failures for 30s (per owner+tool).
+ */
+export async function withBoundedRetry(execute, opts = {}) {
+  const ownerUserId = opts.ownerUserId || null;
+  const toolName = opts.toolName || null;
+  const sleep = typeof opts.sleep === 'function' ? opts.sleep : (ms) => new Promise((r) => setTimeout(r, ms));
+  const { key, row } = circuitState(ownerUserId, toolName);
+  if (row.openUntil && Date.now() < row.openUntil) {
+    const err = new Error('circuit_open');
+    err.failure_class = 'transient';
+    err.retryable = false;
+    throw err;
+  }
+
+  let lastClass = null;
+  let attempt = 0;
+  for (;;) {
+    try {
+      const out = await execute(attempt);
+      row.fails = 0;
+      row.openUntil = 0;
+      _circuits.set(key, row);
+      return { result: out, attempts: attempt + 1, recovered: attempt > 0, failure_class: lastClass };
+    } catch (e) {
+      lastClass = classifyToolFailure(e, { status: e?.status, message: e?.message, policyDenied: e?.policyDenied });
+      const max = Number(opts.maxRetries != null ? opts.maxRetries : lastClass.bounded_retries);
+      if (!lastClass.retryable || attempt >= max) {
+        row.fails += 1;
+        if (row.fails >= 5) row.openUntil = Date.now() + 30000;
+        _circuits.set(key, row);
+        e.classified = lastClass;
+        e.attempts = attempt + 1;
+        throw e;
+      }
+      const backoff = Math.min(4000, 200 * 2 ** attempt);
+      await sleep(opts.backoffMs != null ? opts.backoffMs : backoff);
+      attempt += 1;
+    }
+  }
+}
