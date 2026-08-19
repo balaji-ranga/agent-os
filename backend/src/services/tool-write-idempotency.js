@@ -4,6 +4,7 @@
  */
 import { createHash } from 'crypto';
 import { getDb } from '../db/schema.js';
+import { recordMissionEvent } from './goal-outcome.js';
 
 let _ready = false;
 
@@ -128,7 +129,14 @@ export function listWriteEvidence(ownerUserId, { limit = 50 } = {}) {
     .all(owner, Math.min(Math.max(Number(limit) || 50, 1), 200));
 }
 
-export async function withWriteIdempotency({ ownerUserId, toolName, idempotencyKey, identity = null, execute }) {
+export async function withWriteIdempotency({
+  ownerUserId,
+  toolName,
+  idempotencyKey,
+  identity = null,
+  execute,
+  goalRunId = null,
+}) {
   const key =
     String(idempotencyKey || '').trim() ||
     (identity ? stableIdempotencyKey({ owner: ownerUserId, tool: toolName, ...identity }) : '');
@@ -156,6 +164,12 @@ export async function withWriteIdempotency({ ownerUserId, toolName, idempotencyK
       output: { ok: true, object_id: objectId },
       sideEffectId: objectId,
       reviewerDecision: 'executed',
+    });
+    recordMissionEvent({
+      ownerUserId,
+      goalRunId,
+      event_type: 'tool_side_effect',
+      payload: { tool: toolName, object_id: objectId, replay: false },
     });
   } catch (e) {
     console.warn('[idempotency] evidence skip', e?.message || e);

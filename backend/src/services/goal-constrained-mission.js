@@ -90,9 +90,19 @@ export async function runConstrainedOutcomeMission(opts = {}) {
     crm_objects: new Set(),
   };
 
-  const send = evaluateActionPolicy({ ownerUserId: owner, toolName: 'email_send', body: {} });
+  const send = evaluateActionPolicy({
+    ownerUserId: owner,
+    toolName: 'email_send',
+    body: {},
+    goalRunId: goal.id,
+  });
   if (send.ok) stats.unapproved_sends += 1;
-  const del = evaluateActionPolicy({ ownerUserId: owner, toolName: 'crm_delete_company', body: { confirm: true } });
+  const del = evaluateActionPolicy({
+    ownerUserId: owner,
+    toolName: 'crm_delete_company',
+    body: { confirm: true },
+    goalRunId: goal.id,
+  });
   if (!del.ok) stats.prohibited_blocked += 1;
 
   // Metered research: expensive until projected spend $60, then cheaper enrichment (generic, not vertical-specific).
@@ -107,6 +117,7 @@ export async function runConstrainedOutcomeMission(opts = {}) {
     const out = await withWriteIdempotency({
       ownerUserId: owner,
       toolName: 'crm_create_company',
+      goalRunId: goal.id,
       identity,
       execute: async () => {
         const id = `co-${identity.domain}`;
@@ -266,7 +277,12 @@ export async function runConstrainedOutcomeMission(opts = {}) {
     payload: { trigger: 'late_policy', dropped_healthcare: stats.healthcare_dropped, drafts: stats.drafts },
   });
 
-  const sendAfter = evaluateActionPolicy({ ownerUserId: owner, toolName: 'email_send', body: {} });
+  const sendAfter = evaluateActionPolicy({
+    ownerUserId: owner,
+    toolName: 'email_send',
+    body: {},
+    goalRunId: goal.id,
+  });
   if (sendAfter.ok) stats.unapproved_sends += 1;
 
   let live = getGoalRun(goal.id, owner);
@@ -322,8 +338,19 @@ export async function runConstrainedOutcomeMission(opts = {}) {
       detail: `approval_batch=${stats.human_approval_batch} scope_change=${stats.human_scope_change} routine=${stats.routine_ceo_coordination}`,
     },
     observability: {
-      pass: events.some((e) => e.event_type === 'goal_created') && events.some((e) => e.event_type === 're_plan'),
-      detail: `events=${events.length} trace=${(live.outcome?.retrospective?.trace || []).length}`,
+      pass:
+        events.some((e) => e.event_type === 'goal_created') &&
+        events.some((e) => e.event_type === 'plan_generated') &&
+        events.some((e) => e.event_type === 'step_started') &&
+        events.some((e) => e.event_type === 'step_completed') &&
+        events.some((e) => e.event_type === 'tool_side_effect') &&
+        events.some((e) => e.event_type === 'policy_decision') &&
+        events.some((e) => e.event_type === 'failure') &&
+        events.some((e) => e.event_type === 're_plan') &&
+        events.some((e) => e.event_type === 'human_intervention') &&
+        events.some((e) => e.event_type === 'goal_completed') &&
+        !!(live.outcome?.retrospective),
+      detail: `events=${events.length} types=${[...new Set(events.map((e) => e.event_type))].join(',')}`,
     },
     late_policy: {
       pass: Number(amended.outcome?.plan_version || 0) >= 2 && stats.healthcare_dropped >= 1,

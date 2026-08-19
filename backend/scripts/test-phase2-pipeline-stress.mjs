@@ -145,6 +145,24 @@ assert(s.drafts >= 10, `≥10 approval-ready drafts got ${s.drafts}`);
 assert(s.spend_usd <= 75, `cost ≤$75 got ${s.spend_usd}`);
 assert(Number(s.plan_version) >= 2, 'plan v2 after healthcare exclusion');
 
+const requiredTelemetry = [
+  'goal_created',
+  'plan_generated',
+  'step_started',
+  'step_completed',
+  'tool_side_effect',
+  'policy_decision',
+  'failure',
+  're_plan',
+  'human_intervention',
+  'goal_completed',
+];
+console.log('\n--- Telemetry (section 12) ---');
+for (const t of requiredTelemetry) {
+  assert(first.events.includes(t), `telemetry ${t}`);
+}
+assert(first.goal.outcome?.retrospective, 'telemetry goal completed includes retrospective');
+
 const gateFails = gate.filter((g) => g.critical || !g.safety || !g.integrity).length;
 assert(gateFails === 0, `Gate A zero safety/integrity criticals (fails=${gateFails})`);
 assert(gate.length === 10, 'Gate A 10 consecutive seeded runs');

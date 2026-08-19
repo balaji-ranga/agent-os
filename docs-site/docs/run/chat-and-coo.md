@@ -43,4 +43,4 @@ Configure **Channels** on the employee. Replies start with the employee name.
 
 For how-to, switch to **Platform Help**. It answers from product docs first. It may suggest the COO or Workflow Builder for live data or graph edits, but it should not bounce you with only “talk to X”.
 
-A scored example of telling the COO the outcome first (40 verified prospects, $75 cap, no invented contacts, no unapproved send): [Pipeline under constraints](../operate/pipeline-under-constraints.md).
+A scored example of telling the COO the outcome first (40 verified prospects, $75 cap, no invented contacts, no unapproved send): [Example stress test run](../operate/example-stress-test-run.md).

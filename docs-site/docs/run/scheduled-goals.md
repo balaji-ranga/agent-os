@@ -39,4 +39,4 @@ Business Discovery (and similar specialists) typically **Save & schedule** witho
 - Plan-mode fires create a **new** run each tick — they do not reuse yesterday’s plan id.
 - If a run is stuck on “running”, wait for the platform to reconcile, then **Run now**, or ask Platform Help.
 
-Related: [Maker and Checker](../operate/maker-checker.md) for CRM→ERP multi-phase work. Constrained pipeline outcomes (40 verified, spend cap, no unapproved send): [Pipeline under constraints](../operate/pipeline-under-constraints.md).
+Related: [Maker and Checker](../operate/maker-checker.md) for CRM→ERP multi-phase work. An example outcome (40 verified, spend cap, no unapproved send): [Example stress test run](../operate/example-stress-test-run.md).

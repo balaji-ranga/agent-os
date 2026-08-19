@@ -33,7 +33,7 @@ Your org may **require** MFA or leave it optional (**inherit** platform default)
 7. Open **Kanban** (`/kanban`) — defaults to **Weekly**. Use **Agent** filter and card checkboxes / **Select all**; task drawer shows **Task ID**. Top-bar **Search (Ctrl+K)** finds tasks and **workflow run ids**.
 8. Optional — avatar menu → **Onboarding**, or chat **Onboarding Helper**, for freeform departments/AI employees (selective Review + Apply). Prompt recipes: [27-onboarding-helper.md](./27-onboarding-helper.md).
 9. Optional — multi-user browser / social logins: **Connectors → Browser Session package**, start the Windows worker headed, confirm **Online**. Tokens & IP: **Settings → Tokens management** / **IP Whitelists**. Guide: [22-browser-session-and-recipes.md](./22-browser-session-and-recipes.md).
-10. Optional — ask the COO to **schedule a lasting goal** (“every weekday at 9…” / “every hour check…”), **edit** it later, or open **Management → Scheduled goals** (**Generate plan → Amend plan manually**). Guide: [28-scheduled-goals.md](./28-scheduled-goals.md). For a constrained pipeline outcome (verified CRM, spend cap, approval-required send): [48-pipeline-under-constraints.md](./48-pipeline-under-constraints.md).
+10. Optional — ask the COO to **schedule a lasting goal** (“every weekday at 9…” / “every hour check…”), **edit** it later, or open **Management → Scheduled goals** (**Generate plan → Amend plan manually**). Guide: [28-scheduled-goals.md](./28-scheduled-goals.md). Example outcome (verified CRM, spend cap): [48-pipeline-under-constraints.md](./48-pipeline-under-constraints.md).
 
 ## Profile and AI model (BYOK)
 

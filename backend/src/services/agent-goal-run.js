@@ -696,10 +696,20 @@ export function createGoalRun({
      (id, goal_run_id, step_index, step_type, label, spec_json, status)
      VALUES (?, ?, ?, ?, ?, ?, 'pending')`
   );
+  let firstStepId = null;
   planned.forEach((step, idx) => {
     const stepId = `ags-${randomUUID().replace(/-/g, '').slice(0, 16)}`;
+    if (idx === 0) firstStepId = stepId;
     ins.run(stepId, id, idx, step.type, step.label || step.type, JSON.stringify(step.spec || {}));
   });
+  if (firstStepId) {
+    recordMissionEvent({
+      ownerUserId: owner,
+      goalRunId: id,
+      event_type: 'step_started',
+      payload: { step_id: firstStepId, label: planned[0]?.label || planned[0]?.type },
+    });
+  }
 
   console.info('[goal-run] created', { id, owner, agent, steps: planned.length, source });
   return getGoalRun(id, owner);
@@ -2031,6 +2041,12 @@ export function completeGoalStep({ goalRunId, stepId, ownerUserId, result = null
   }
 
   touchGoalRun(goalRunId, { current_step_index: open.step_index, status: 'running' });
+  recordMissionEvent({
+    ownerUserId: goal.owner_user_id,
+    goalRunId,
+    event_type: 'step_started',
+    payload: { step_id: open.id, step_type: open.step_type, label: open.label },
+  });
   return { ok: true, done: false, goal: getGoalRun(goalRunId, ownerUserId) };
 }
 

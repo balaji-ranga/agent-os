@@ -26,6 +26,6 @@ A short path so the product feels like a company, not a blank chat.
 | Build or repair a visual workflow | **Workflow Builder** |
 | Live CRM pipeline / ERP books | **CRM** or **ERP** Maker (after you enable Business Core) |
 
-Prefer one clear **outcome** per message so the COO can plan and delegate. Open Workflow Builder only after you inspect a Goal Plan step. A scored example (40 verified prospects, $75 cap, no invented contacts): [Pipeline under constraints](../operate/pipeline-under-constraints.md).
+Prefer one clear **outcome** per message so the COO can plan and delegate. Open Workflow Builder only after you inspect a Goal Plan step. A scored example (40 verified prospects, $75 cap, no invented contacts): [Example stress test run](../operate/example-stress-test-run.md).
 
 Next: [Company setup](../setup/company-setup.md) → [Org and departments](../setup/org-and-departments.md) → [People](../setup/people.md).

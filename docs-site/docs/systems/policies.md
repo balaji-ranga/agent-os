@@ -14,4 +14,4 @@ After you change policies, Resync org docs if the product asks you to, and start
 
 Policies are not a substitute for **tool grants**, **Maker/Checker**, or **IP allowlists**. Stack them: policy says what *should* happen; Action control, tools and Checker enforce what *can* happen.
 
-See [Pipeline under constraints](../operate/pipeline-under-constraints.md) for a scored outcome (verified CRM, spend cap, approval-required send).
+See [Example stress test run](../operate/example-stress-test-run.md) for a scored outcome (verified CRM, spend cap, approval-required send).

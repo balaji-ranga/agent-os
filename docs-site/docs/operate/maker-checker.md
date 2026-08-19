@@ -21,6 +21,6 @@ High-risk examples: large discounts, document submit/cancel, **deleting** a CRM 
 
 Ask the COO to run `run crm maker checker` or `run erp maker checker` when those graphs are installed.
 
-A constrained pipeline outcome (verified records, spend cap, no unapproved send) is scored in [Pipeline under constraints](./pipeline-under-constraints.md).
+A constrained pipeline outcome (verified records, spend cap, no unapproved send) is scored in [Example stress test run](./example-stress-test-run.md).
 
 Do not ask Platform Help to post to live books — use COO / Maker / Checker.

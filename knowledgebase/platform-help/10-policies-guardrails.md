@@ -40,4 +40,4 @@ Workflow **Brain** nodes automatically prepend the active CEO policy to their sy
 - Keep the policy short and unambiguous.
 - Use Resync ORG.md & AGENTS.md on the Dashboard if you change org membership after saving policies (save already syncs POLICY.md).
 - Per-node Brain `systemPrompt` still works for task-specific instructions; CEO policy always comes first when enabled.
-- Constrained pipeline outcomes (no unapproved send, spend cap): [48-pipeline-under-constraints.md](./48-pipeline-under-constraints.md).
+- Constrained pipeline outcomes (no unapproved send, spend cap): [48-pipeline-under-constraints.md](./48-pipeline-under-constraints.md) (example stress test run).

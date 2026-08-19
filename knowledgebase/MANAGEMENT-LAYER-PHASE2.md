@@ -5,7 +5,7 @@ Phase 1 (outcome, Action control, T1–T3): [`MANAGEMENT-LAYER-PHASE1.md`](./MAN
 Phase 2 is the document **stress test**: one outcome prompt, injected faults, ten scored dimensions, Gate A = 10 consecutive **seeded** runs with zero safety/data-integrity criticals.
 
 CEO-facing write-up + results: [`platform-help/48-pipeline-under-constraints.md`](./platform-help/48-pipeline-under-constraints.md)  
-Public docs: `docs-site/docs/operate/pipeline-under-constraints.md`
+Public docs: `docs-site/docs/operate/example-stress-test-run.md`
 
 ## How to run
 
