@@ -59,6 +59,14 @@ router.get('/:id', (req, res) => {
     if (!ownerUserId) return;
     const goal = getGoalRun(req.params.id, ownerUserId);
     if (!goal) return res.status(404).json({ error: 'Not found' });
+    const includeEvents =
+      req.query.include_events === '1' ||
+      req.query.events === '1' ||
+      String(req.query.include || '') === 'events';
+    if (includeEvents) {
+      const events = listMissionEvents(ownerUserId, { goalRunId: req.params.id, limit: 200 });
+      return res.json({ goal: withProgress(goal), events, event_count: events.length });
+    }
     res.json({ goal: withProgress(goal) });
   } catch (e) {
     console.warn('[agent-goal-runs] get', e?.message || e);
@@ -73,6 +81,7 @@ router.get('/:id/events', (req, res) => {
     const goal = getGoalRun(req.params.id, ownerUserId);
     if (!goal) return res.status(404).json({ error: 'Not found' });
     const events = listMissionEvents(ownerUserId, { goalRunId: req.params.id, limit: 200 });
+    console.info('[agent-goal-runs] events', { goalRunId: String(req.params.id).slice(0, 24), count: events.length });
     res.json({ events, count: events.length });
   } catch (e) {
     console.warn('[agent-goal-runs] events', e?.message || e);

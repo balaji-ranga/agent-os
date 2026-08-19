@@ -4,6 +4,9 @@
  */
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync, createHash } from 'crypto';
 import { randomUUID } from 'crypto';
+import { existsSync } from 'fs';
+import { join } from 'path';
+import Database from 'better-sqlite3';
 import { getDb } from '../db/schema.js';
 
 export const PLATFORM_BYOK_KEY_NAME = 'Platform_BYOK';
@@ -240,6 +243,41 @@ function decryptSecretRow(row) {
   decipher.setAuthTag(tag);
   const data = Buffer.from(row.secret_value, 'base64');
   return Buffer.concat([decipher.update(data), decipher.final()]).toString('utf8');
+}
+
+/**
+ * Read a vault secret from a data directory without opening the process default DB.
+ * Used when platform env is unset and an isolated test tenant needs the same key
+ * a CEO already stored as BYOK. Never logs the secret.
+ */
+export function resolveFirstVaultSecretFromDataDir(dataDir, keyName) {
+  const name = normalizeKeyName(keyName);
+  const root = String(dataDir || '').trim();
+  const dbPath = join(root, 'agent-os.db');
+  if (!root || !existsSync(dbPath)) return '';
+  let extra = null;
+  try {
+    extra = new Database(dbPath, { readonly: true, fileMustExist: true });
+    const rows = extra.prepare(`SELECT * FROM user_api_keys WHERE key_name = ?`).all(name);
+    for (const row of rows) {
+      if (isUnsetApiKeyRow(row)) continue;
+      try {
+        const value = String(decryptSecretRow(row) || '').trim();
+        if (value && !isUnsetApiKeySecret(value)) return value;
+      } catch {
+        /* try next owner */
+      }
+    }
+  } catch {
+    return '';
+  } finally {
+    try {
+      extra?.close();
+    } catch {
+      /* ignore */
+    }
+  }
+  return '';
 }
 
 function hintFor(secret) {

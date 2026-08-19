@@ -32,6 +32,13 @@ export function buildCeoNavCatalog({ showCrm = false, showErp = false } = {}) {
   }
   run.push(
     { id: 'scheduled-goals', label: 'Scheduled goals', to: '/scheduled-goals', group: 'Run & Operate' },
+    {
+      id: 'goal-plans',
+      label: 'Goal plans',
+      to: '/goal-plans',
+      group: 'Run & Operate',
+      permission: 'this-week',
+    },
     { id: 'broadcast', label: 'Broadcast', to: '/broadcast', group: 'Run & Operate' },
     { id: 'master-data', label: 'Knowledge', to: '/master-data', group: 'Run & Operate' },
     { id: 'content-explorer', label: 'Content Explorer', to: '/content-explorer', group: 'Run & Operate' },

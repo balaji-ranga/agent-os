@@ -88,6 +88,10 @@ export function parsePlacesSearchText(text, opts = {}) {
   const t = String(blob || '').replace(/\s+/g, ' ').trim();
   let locality = String(opts.locality || opts.location || '').trim();
   if (!locality) {
+    const based = t.match(/\b([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+){0,3})-based\b/);
+    if (based) locality = based[1].replace(/\s+/g, ' ').trim();
+  }
+  if (!locality) {
     const within = t.match(
       /\bwithin\s+\d+(?:\.\d+)?\s*k(?:m|ilomet(?:er|re)s?)\s+of\s+([^.\n]+?)(?:\.|$)/i
     );
@@ -122,7 +126,10 @@ export function parsePlacesSearchText(text, opts = {}) {
   let max_results = null;
   if (opts.max_results != null && opts.max_results !== '') max_results = Number(opts.max_results);
   else {
-    const m = t.match(/\bup to\s+(\d+)\s+business/i) || t.match(/\bfind\s+(?:up to\s+)?(\d+)\s+business/i);
+    const m =
+      t.match(/\bup to\s+(\d+)\s+business/i) ||
+      t.match(/\bfind\s+(?:up to\s+)?(\d+)\s+business/i) ||
+      t.match(/\bfind\s+(\d+)\s+(?:genuinely\s+)?qualified/i);
     if (m) max_results = Number(m[1]);
   }
   return {

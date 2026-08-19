@@ -52,6 +52,21 @@ node scripts/test-phase2-pipeline-stress.mjs
 
 Provisions a **new** entitled CEO in temp sqlite (second CEO cannot read the goal). Expect `PHASE2_PIPELINE_STRESS_OK`. Scenario and scored results: [`platform-help/48-pipeline-under-constraints.md`](./platform-help/48-pipeline-under-constraints.md), [`MANAGEMENT-LAYER-PHASE2.md`](./MANAGEMENT-LAYER-PHASE2.md). Does not touch live CRM/ERP or SSO.
 
+## Management-layer Gates B and C (live research + CRM path)
+
+```powershell
+cd backend
+node scripts/test-gate-bc-live.mjs
+```
+
+On VPS (Places via the new CEO’s vault in temp sqlite; no production user; no CRM desk):
+
+```bash
+docker exec -w /opt/agent-os/backend agent-os-backend-1 node scripts/test-gate-bc-live.mjs
+```
+
+Expect `GATE_BC_LIVE_OK`. Gate B is live Places (no seed list). Gate C uses the production `create company` path and **fail-closes** when CRM is not enabled (0 live CRM writes, 0 cross-tenant writes). Gate D (30-day weekly pipeline) is documented, not executed.
+
 ## Video content studio (storyboard CEO PDF)
 
 After changing `standard/video-content/workflow-reasoning.json` or the CEO-gate PDF attach path:

@@ -135,7 +135,7 @@ export function buildWorkspaceRecentActivity(ownerUserId, opts = {}) {
         status: st,
         snippet,
         text: snippet,
-        href: `/goal-plans?highlight=${encodeURIComponent(g.id)}`,
+        href: `/goal-plans/${encodeURIComponent(g.id)}`,
         created_at: g.completed_at || g.updated_at || g.created_at,
         sort_at: g.completed_at || g.updated_at || g.created_at,
       });

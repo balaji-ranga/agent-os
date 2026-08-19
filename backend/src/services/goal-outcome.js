@@ -57,17 +57,19 @@ export function parseOutcomeFromPrompt(prompt) {
 
   let target = null;
   const createN = text.match(/\b(?:create|find|source|add|close|collect|complete)\s+(\d{1,5})\b/i);
-  const nNoun = text.match(/\b(\d{1,5})\s+(?:genuinely\s+)?(?:qualified\s+)?(?:prospects?|leads?|invoices?|orders?|items?|records?)\b/i);
+  const nNoun = text.match(/\b(\d{1,5})\s+(?:genuinely\s+)?(?:qualified\s+)?(?:prospects?|leads?|companies|invoices?|orders?|items?|records?)\b/i);
   const atLeast = text.match(/\bat least\s+(\d{1,5})\b/i);
   if (createN) target = Number(createN[1]);
   else if (nNoun) target = Number(nNoun[1]);
   else if (atLeast) target = Number(atLeast[1]);
 
   let budget_usd = null;
-  const spend = text.match(/(?:under|below|cap(?:ped)?(?: at)?|keep(?: total)?(?: .{0,24})?under|spend)\s*\$?\s*(\d+(?:\.\d+)?)/i);
+  const spend = text.match(
+    /(?:under|below|no more than|cap(?:ped)?(?: at)?|keep(?: total)?(?: .{0,24})?under|spend(?:\s+no more than)?)\s*\$?\s*(\d+(?:\.\d+)?)/i
+  );
   const dollar = text.match(/\$(\d+(?:\.\d+)?)/);
   if (spend) budget_usd = Number(spend[1]);
-  else if (dollar && /spend|budget|cost|under/.test(lower)) budget_usd = Number(dollar[1]);
+  else if (dollar && /spend|budget|cost|under|no more than/.test(lower)) budget_usd = Number(dollar[1]);
 
   let deadline = null;
   const days = text.match(/(\d{1,3})\s+business days/i) || text.match(/next\s+(\d{1,3})\s+days/i);

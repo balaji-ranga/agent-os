@@ -40,7 +40,7 @@ Top-level (always shown; cannot hide in Menu visibility):
 | My Org / Dashboard | `/org` | Org chart, standups + COO chat, **People** (invite employees / sub-users — help **45**), Resync ORG/AGENTS |
 | Kanban | `/kanban` | Work tasks (Weekly default; agent filter / Select all / task ID), CEO approvals, artifacts; deep-link `?task=` from global search |
 | **Scheduled goals** | `/scheduled-goals` | Recurring CEO prompts (**hourly** / daily / weekdays / weekly); create **and edit**; **Generate draft plan is COO-only** (other employees **Save & schedule**); pause survives restarts. Also via COO chat. See [28-scheduled-goals.md](./28-scheduled-goals.md) |
-| **Goal plans** | `/goal-plans` | Full weekly list of durable multiphase plans (`agr-…`); week filters; linked from Digest **View all plans** |
+| **Goal plans** | `/goal-plans` | Week list of durable plans (`agr-…`); **Execution trace** (`/goal-plans/:id`) shows KPI, plan version, and telemetry for ad-hoc and scheduled fires |
 | Broadcast | `/broadcast` | Message many AI employees at once |
 | **Knowledge** | `/master-data` | Company knowledge: tables, documents, RAG, **Inbound attachments** (Master Data) |
 | **Content Explorer** | `/content-explorer` | Browse uploaded + generated files (preview/download) |
@@ -128,7 +128,7 @@ Positioning: **AI Company OS** — see [`../AI-COMPANY-OS.md`](../AI-COMPANY-OS.
 
 ## Digest (This Week Digest)
 
-Top-nav **Digest** (`/this-week`) shows KPIs (AI workers, tasks completed, estimated Time Saved and Est. Value Delivered), organization and AI worker highlights, **goal plans (plan vs progress)** (2 most recent for the selected week, each with **goal run timestamp**; **View all plans** opens `/goal-plans?offset=` for that week), top workflows, task performance donut, activity timeline, and **Insights & recommendations**. Click the **i** on Time Saved / Est. Value for formulas.
+Top-nav **Digest** (`/this-week`) shows KPIs (AI workers, tasks completed, estimated Time Saved and Est. Value Delivered), organization and AI worker highlights, **goal plans (plan vs progress)** (2 most recent for the selected week, each with **goal run timestamp** and **Execution trace**; **View all plans** opens `/goal-plans?offset=` for that week), top workflows, task performance donut, activity timeline, and **Insights & recommendations**. Click the **i** on Time Saved / Est. Value for formulas.
 
 ### Metric formulas
 

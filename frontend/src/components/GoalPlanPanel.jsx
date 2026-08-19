@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { formatChatTimestamp } from '../utils/formatDateTime.js';
+import { goalOriginLabel, goalPlanTracePath } from './GoalPlanTelemetry';
 
 function statusColor(status) {
   const s = String(status || '').toLowerCase();
@@ -17,6 +18,7 @@ export default function GoalPlanPanel({
   goal: goalProp = null,
   compact = false,
   pollMs = 0,
+  showTraceLink = true,
 }) {
   const [goal, setGoal] = useState(goalProp);
   const [err, setErr] = useState(null);
@@ -97,6 +99,7 @@ export default function GoalPlanPanel({
               {goal.outcome.target != null
                 ? `: ${goal.outcome.current_value ?? 0} / ${goal.outcome.target}`
                 : ''}
+              {goal.outcome.spend_usd != null ? ` · spend $${goal.outcome.spend_usd}` : ''}
               {goal.outcome.budget_usd != null ? ` · cap $${goal.outcome.budget_usd}` : ''}
               {goal.outcome.plan_version ? ` · plan v${goal.outcome.plan_version}` : ''}
               {goal.outcome.retrospective
@@ -106,7 +109,8 @@ export default function GoalPlanPanel({
           ) : null}
           <div style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>
             <code style={{ fontSize: '0.7rem' }}>{goal.id}</code>
-            {goal.source ? ` · ${goal.source}` : ''}
+            {' · '}
+            {goalOriginLabel(goal)}
             {' · '}
             <span style={{ color: statusColor(goal.status) }}>{goal.status}</span>
             {` · ${pct}%`}
@@ -124,6 +128,14 @@ export default function GoalPlanPanel({
                 <time dateTime={String(goal.completed_at)} title="Goal run completed">
                   {formatChatTimestamp(goal.completed_at)}
                 </time>
+              </>
+            ) : null}
+            {showTraceLink && goal.id ? (
+              <>
+                {' · '}
+                <Link to={goalPlanTracePath(goal.id)} title="Steps, plan versions, and telemetry">
+                  Execution trace
+                </Link>
               </>
             ) : null}
           </div>

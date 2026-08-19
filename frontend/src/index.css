@@ -6841,3 +6841,55 @@ button.ai-snip-info-btn:hover {
   .wsb-body { grid-template-columns: 1fr; }
   .ws-metrics { grid-template-columns:1fr 1fr; }
 }
+
+/* Goal execution telemetry */
+.goal-exec { display: flex; flex-direction: column; gap: 0.9rem; max-width: 780px; }
+.goal-exec-meta { display: flex; flex-wrap: wrap; gap: 0.5rem 0.85rem; align-items: center; font-size: 0.85rem; }
+.goal-exec-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin: 0;
+}
+.goal-exec-kpis div {
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, rgba(0,0,0,0.08));
+  border-radius: 10px;
+  padding: 0.65rem 0.75rem;
+}
+.goal-exec-kpis dt { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.goal-exec-kpis dd { margin: 0.2rem 0 0; font-weight: 650; font-size: 0.92rem; }
+.goal-tel { margin-top: 0.35rem; }
+.goal-tel-section { margin-top: 0.65rem; }
+.goal-tel-h { margin: 0 0 0.4rem; font-size: 0.82rem; }
+.goal-tel-toggle {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+  padding: 0;
+}
+.goal-tel-muted { color: var(--muted); font-size: 0.78rem; font-weight: 400; }
+.goal-tel-versions { margin: 0; padding-left: 1.15rem; font-size: 0.82rem; }
+.goal-tel-versions li { margin-bottom: 0.45rem; }
+.goal-tel-filters { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.45rem 0 0.55rem; }
+.goal-tel-chip {
+  border: 1px solid var(--border, rgba(0,0,0,0.12));
+  background: var(--surface, #fff);
+  color: inherit;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+.goal-tel-chip.on { border-color: var(--accent, #673de6); background: rgba(103, 61, 230, 0.08); }
+.goal-tel-timeline { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.55rem; }
+.goal-tel-timeline li { display: grid; grid-template-columns: 12px 1fr; gap: 0.55rem; align-items: start; }
+.goal-tel-dot { width: 8px; height: 8px; border-radius: 999px; margin-top: 0.4rem; }
+.goal-tel-row { display: flex; flex-wrap: wrap; gap: 0.35rem 0.75rem; align-items: baseline; font-size: 0.82rem; }
+.goal-tel-summary { font-size: 0.78rem; color: var(--muted); margin-top: 0.1rem; }
+@media (max-width: 720px) {
+  .goal-exec-kpis { grid-template-columns: 1fr 1fr; }
+}

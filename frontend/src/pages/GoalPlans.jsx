@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import GoalPlanPanel from '../components/GoalPlanPanel';
+import { goalOriginLabel, goalPlanTracePath } from '../components/GoalPlanTelemetry';
 import { formatChatTimestamp } from '../utils/formatDateTime.js';
 
 function pad2(n) {
@@ -44,10 +45,12 @@ function resolveWeekWindow(offsetWeeks = 0) {
  * Week follows Digest filter via ?offset= (0 = this calendar week).
  */
 export default function GoalPlans() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const offset = Number(searchParams.get('offset') || 0) || 0;
   const startQ = searchParams.get('start') || '';
   const endQ = searchParams.get('end') || '';
+  const highlight = searchParams.get('highlight') || '';
 
   const week = useMemo(() => {
     if (/^\d{4}-\d{2}-\d{2}$/.test(startQ) && /^\d{4}-\d{2}-\d{2}$/.test(endQ) && startQ <= endQ) {
@@ -69,6 +72,13 @@ export default function GoalPlans() {
   const [goals, setGoals] = useState([]);
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const id = String(highlight || '').trim();
+    if (/^agr-[a-f0-9]{8,}$/i.test(id)) {
+      navigate(goalPlanTracePath(id), { replace: true });
+    }
+  }, [highlight, navigate]);
 
   useEffect(() => {
     let cancelled = false;
@@ -106,7 +116,8 @@ export default function GoalPlans() {
         <div>
           <h1 className="digest-title">Goal plans</h1>
           <p className="digest-sub">
-            Durable multi-intent plans for {week.label}. Digest shows the 2 most recent for the week.
+            Ad-hoc (COO chat) and scheduled fires for {week.label}. Open <strong>Execution trace</strong> on a
+            plan for KPI, plan version, and telemetry. Digest shows the 2 most recent for the week.
           </p>
         </div>
         <div className="digest-header-tools">
@@ -153,7 +164,7 @@ export default function GoalPlans() {
           {goals.map((g) => (
             <div key={g.id} className="digest-card" style={{ padding: '0.75rem 1rem' }}>
               <div style={{ fontSize: '0.78rem', color: 'var(--muted)', marginBottom: 4 }}>
-                {g.source || 'goal'} · {g.status}
+                {goalOriginLabel(g)} · {g.status}
                 {g.scheduled_goal_id ? (
                   <>
                     {' · '}

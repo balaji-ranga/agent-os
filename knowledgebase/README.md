@@ -21,7 +21,7 @@ Documentation lives here so Cursor and humans can find it. **GitHub landing:** r
 | **GITHUB-SETUP.md** | One-time: create agent-os repo on GitHub and push (Options A/B, security check). |
 | **IMPLEMENTATION_PLAN.md** | Product/roadmap: vision, architecture, phases (1–5), skills, TTS, token monitoring, references. |
 | **MANAGEMENT-LAYER-PHASE1.md** | Phase 1 outcome/runtime + Action control; rollback SHA `6f94d58`; six gates + document T1–T3 acceptance (`test-t123-acceptance.mjs`). |
-| **MANAGEMENT-LAYER-PHASE2.md** | Phase 2 Pipeline under constraints stress test; Gate A seeded results; `test-phase2-pipeline-stress.mjs`. |
+| **MANAGEMENT-LAYER-PHASE2.md** | Phase 2 Pipeline under constraints; Gates A–C results; Gate D not run; `test-phase2-pipeline-stress.mjs` + `test-gate-bc-live.mjs`. |
 | **AGENT_REVIEW_AND_SKILLS.md** | Agent review (COO, TechResearcher, SocialAssistant); secure skill recommendations and where skills live. |
 | **CONFIGURE-CLAUDE-OPUS.md** | How to set Claude Opus (or other Anthropic models) in `~/.AgentSystem/AgentSystem.json` and API key. |
 | **LOCAL-OPENCLAW-OLLAMA.md** | Free local OpenClaw + platform LLM via self-hosted Ollama (wanted 128B `mistral-medium-3.5`; auto-select on small VPS; no Ollama Cloud). |
@@ -64,7 +64,7 @@ Documentation lives here so Cursor and humans can find it. **GitHub landing:** r
 | [VIDEO-CONTENT-GENERATION-PLAN.md](./VIDEO-CONTENT-GENERATION-PLAN.md) | **Shipped:** `video_content` pack; S1–S5; Balaji demo companions the tested studio |
 | [ONBOARDING-HELPER-PLAN.md](./ONBOARDING-HELPER-PLAN.md) | Onboarding Helper plan (UI + AgentSystem bridge) |
 | [platform-help/27-onboarding-helper.md](./platform-help/27-onboarding-helper.md) | CEO help: selective apply + E2E chat prompt recipes |
-| [platform-help/28-scheduled-goals.md](./platform-help/28-scheduled-goals.md) | CEO help: scheduled goals + durable multiphase **goal plans** (**Generate draft is COO-only**; other employees Save & schedule; BD Act Kanban handoff; Amend plan manually, async ack, new agr per create/fire, Digest `/goal-plans`) |
+| [platform-help/28-scheduled-goals.md](./platform-help/28-scheduled-goals.md) | CEO help: scheduled goals + durable multiphase **goal plans** (**Generate draft is COO-only**; other employees Save & schedule; BD Act Kanban handoff; Amend plan manually, async ack, new agr per create/fire, Digest `/goal-plans` **Execution trace**) |
 | [platform-help/29-company-setup.md](./platform-help/29-company-setup.md) | CEO help: Company setup first-run wizard vs Onboarding Helper |
 | [platform-help/35-update-company-details.md](./platform-help/35-update-company-details.md) | Update Company Details → company_memory Knowledge table |
 | [platform-help/36-operational-effectiveness.md](./platform-help/36-operational-effectiveness.md) | Home OEI score, domains, goal-run KPIs, COO tool |

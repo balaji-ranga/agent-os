@@ -31,6 +31,16 @@ assert(structured.business_type === 'gym', 'structured type wins');
 assert(structured.radius_km === 2, 'structured radius wins');
 assert(structured.max_results === 8, 'structured max wins');
 
+const based = parsePlacesSearchText(
+  'Find 20 genuinely qualified Singapore-based B2B service companies. Spend no more than $25.'
+);
+assert(based.locality === 'Singapore', 'Country-based locality, got ' + based.locality);
+assert(based.max_results === 20, 'Find N qualified max, got ' + based.max_results);
+assert(
+  parsePlacesSearchText('Find 8 Hong Kong-based firms').locality === 'Hong Kong',
+  'multi-word Country-based'
+);
+
 assert(!PLACE_FIELD_MASK.includes('nextPageToken'), 'Nearby FieldMask must not include nextPageToken');
 assert(TEXT_SEARCH_FIELD_MASK.includes('nextPageToken'), 'Text Search FieldMask includes nextPageToken');
 

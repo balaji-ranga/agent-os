@@ -755,6 +755,7 @@ function ScheduledGoalsPanel() {
                       style={{ marginTop: 4, fontSize: '0.72rem', padding: '0.15rem 0.45rem' }}
                       disabled={planBusy === g.id}
                       onClick={() => loadLastPlan(g.id)}
+                      title="Show recent fires: steps, then Execution trace for telemetry"
                     >
                       {planOpenId === g.id ? 'Hide plan' : 'Last plan'}
                     </button>
@@ -854,7 +855,8 @@ function ScheduledGoalsPanel() {
                         <p style={{ color: 'var(--danger, #c44)', fontSize: '0.85rem' }}>{planCache[g.id].error}</p>
                       ) : !(planCache[g.id] || []).length ? (
                         <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>
-                          No fire-time goal plan yet. Multi-intent or multi-workflow prompts create a durable plan on fire after the schedule plan is approved; specialty steps show as specialty_task.
+                          No fire-time goal plan yet. After a fire, open <strong>Last plan</strong> then{' '}
+                          <strong>Execution trace</strong> for steps, plan version, and telemetry.
                         </p>
                       ) : (
                         (planCache[g.id] || []).map((plan) => (

@@ -7,6 +7,7 @@ import { Router } from 'express';
 import { resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
 import { resolveToolOwnerUserId } from '../services/tool-owner-scope.js';
 import { getBusinessProfile, assertCrmEntitled } from '../services/company-business-profile.js';
+import { createCompanyForOwner } from '../services/crm-owner-write.js';
 import {
   getTwentyStatusForOwner,
   crmListPeople,
@@ -110,17 +111,11 @@ router.post('/crm-list-companies', (req, res) =>
 router.post('/crm-create-company', (req, res) =>
   run(res, async () => {
     const ownerUserId = owner(req, req.body || {});
-    assertCrmEntitled(ownerUserId);
     const b = req.body || {};
-    if (isErpnextCrmOwner(ownerUserId)) {
-      return erpCrmCreateCompany(ownerUserId, {
-        name: b.name,
-        domainUrl: b.domain_url || b.domainUrl || b.website,
-      });
-    }
-    return crmCreateCompany(ownerUserId, {
+    return createCompanyForOwner(ownerUserId, {
       name: b.name,
       domainUrl: b.domain_url || b.domainUrl || b.website,
+      website: b.website,
       employees: b.employees,
     });
   })

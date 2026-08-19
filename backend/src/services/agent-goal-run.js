@@ -1656,7 +1656,7 @@ async function executeNotifyCeoStep(goal, step) {
     userIds: [goal.owner_user_id],
     title,
     body: clip(body, 4000),
-    linkUrl: `/goal-plans?highlight=${encodeURIComponent(goal.id)}`,
+    linkUrl: `/goal-plans/${encodeURIComponent(goal.id)}`,
     createdBy: String(goal.agent_id || 'goal-run').slice(0, 64),
     source: 'agent_goal_run',
     sourceKey: `goal-run:${goal.id}:notify`,

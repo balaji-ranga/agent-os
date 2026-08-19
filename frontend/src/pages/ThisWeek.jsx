@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import { formatChatTimestamp } from '../utils/formatDateTime.js';
 import GoalPlanPanel from '../components/GoalPlanPanel';
+import { goalOriginLabel } from '../components/GoalPlanTelemetry';
 
 function KpiIcon({ name }) {
   const common = { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' };
@@ -503,8 +504,8 @@ export default function ThisWeek() {
               <h2 className="digest-card-title">Goal plans (plan vs progress)</h2>
               {!(data.goal_plans || []).length ? (
                 <p className="digest-muted">
-                  No durable multi-intent goal plans this week. Scheduled multi-phase goals (e.g. CRM → ERP) and COO{' '}
-                  <code>agent_goal_create</code> create them.
+                  No durable multi-intent goal plans this week. Ad-hoc COO chat and scheduled multi-phase goals create
+                  them. Open a plan’s <strong>Execution trace</strong> for telemetry and plan version.
                 </p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -512,7 +513,7 @@ export default function ThisWeek() {
                   {(data.goal_plans || []).slice(0, 2).map((g) => (
                     <div key={g.id}>
                       <div style={{ fontSize: '0.78rem', color: 'var(--muted)', marginBottom: 4 }}>
-                        {g.source || 'goal'} · {g.status}
+                        {goalOriginLabel(g)} · {g.status}
                         {g.scheduled_goal_id ? (
                           <>
                             {' · '}
