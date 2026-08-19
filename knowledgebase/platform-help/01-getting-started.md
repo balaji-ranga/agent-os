@@ -24,12 +24,12 @@ Your org may **require** MFA or leave it optional (**inherit** platform default)
 
 ## First five minutes
 
-1. If redirected to **Company setup** (`/company-setup`), complete or skip the wizard (avatar → **Company setup** anytime after). Guide: [29-company-setup.md](./29-company-setup.md).
-2. Chat with the **COO** — introduce yourself and ask what AI employees you have.
+1. If redirected to **Company setup** (`/company-setup`), complete or skip the wizard (avatar → **Company setup** anytime after). For pipeline work pick **Revenue Company**. Guide: [29-company-setup.md](./29-company-setup.md).
+2. Chat with the **COO** — **tell the COO the outcome first** (what success looks like, deadline, spend cap, what must not happen). Do not open Workflow Builder until you inspect a step on the Goal Plan.
 3. Open the **bell** (top bar) — empty until the team notifies you or standups produce updates.
 4. Open **Profile** (avatar menu) — set name and MFA prefs. For OpenAI/OpenRouter BYOK, open **Settings → API Keys**, edit the seeded **`Platform_BYOK`** slot, then on Profile choose **provider + chat model** (do not paste keys on Profile).
 5. Open **Knowledge** (Master Data) — confirm **departments** and Platform Help documents exist. Optionally open **Content Explorer** to browse uploads and generated media.
-6. Open **Workflows** or ask **Platform Help**: "How do I build a workflow?", "How do scheduled goals work?", "What is Company setup?"
+6. Ask **Platform Help**: "How do scheduled goals work?", "What is Company setup?" Open **Workflows** only after the COO has a plan you want to inspect.
 7. Open **Kanban** (`/kanban`) — defaults to **Weekly**. Use **Agent** filter and card checkboxes / **Select all**; task drawer shows **Task ID**. Top-bar **Search (Ctrl+K)** finds tasks and **workflow run ids**.
 8. Optional — avatar menu → **Onboarding**, or chat **Onboarding Helper**, for freeform departments/AI employees (selective Review + Apply). Prompt recipes: [27-onboarding-helper.md](./27-onboarding-helper.md).
 9. Optional — multi-user browser / social logins: **Connectors → Browser Session package**, start the Windows worker headed, confirm **Online**. Tokens & IP: **Settings → Tokens management** / **IP Whitelists**. Guide: [22-browser-session-and-recipes.md](./22-browser-session-and-recipes.md).

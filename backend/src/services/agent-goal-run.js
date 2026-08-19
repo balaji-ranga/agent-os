@@ -36,6 +36,21 @@ import {
   toolNeedsAgentInterpretation,
   goalWantsChatSynthesis,
 } from './goal-plan-tool-args.js';
+import { mergeCapabilitySteps } from './business-capabilities.js';
+import {
+  ensureGoalOutcomeTables,
+  parseOutcomeFromPrompt,
+  observeStepResult,
+  applyObservation,
+  recordMissionEvent,
+  loadOutcome,
+  loadPlanHistory,
+  persistOutcome,
+  persistPlanHistory,
+  snapshotPlanVersion,
+  mergeConstraintText,
+  listMissionEvents,
+} from './goal-outcome.js';
 
 const TERMINAL_WF = new Set(['completed', 'failed', 'cancelled', 'paused']);
 let _tablesReady = false;
@@ -106,6 +121,7 @@ export function ensureAgentGoalRunTables() {
   try {
     db().exec('CREATE INDEX IF NOT EXISTS idx_agent_goal_steps_del ON agent_goal_steps(child_delegation_task_id)');
   } catch (_) {}
+  ensureGoalOutcomeTables();
   _tablesReady = true;
 }
 
@@ -137,6 +153,7 @@ export function normalizeStepSpec(raw) {
         phrase: phrase || "run workflow",
         phase: raw.phase || raw.workflow_phase || nested.phase || "generic",
         workflow_id: raw.workflow_id || nested.workflow_id || null,
+        capability_id: raw.capability_id || nested.capability_id || null,
       },
     };
   }
@@ -182,6 +199,7 @@ export function normalizeStepSpec(raw) {
       spec: {
         tool_name: toolName || null,
         args,
+        capability_id: raw.capability_id || nested.capability_id || null,
       },
     };
   }
@@ -221,7 +239,9 @@ export function normalizeStepSpec(raw) {
 
 export function planGoalStepsFromText(prompt, { explicitSteps } = {}) {
   if (Array.isArray(explicitSteps) && explicitSteps.length) {
-    const steps = explicitSteps.map(normalizeStepSpec);
+    const steps = mergeCapabilitySteps(explicitSteps.map(normalizeStepSpec), prompt).map(
+      normalizeStepSpec
+    );
     if (steps.length >= 1 && !steps.some((s) => s.type === 'notify_ceo')) {
       steps.push(normalizeStepSpec({ type: 'notify_ceo' }));
     }
@@ -281,11 +301,12 @@ export function planGoalStepsFromText(prompt, { explicitSteps } = {}) {
     steps.push(normalizeStepSpec({ type: 'agent_continue' }));
   }
 
-  if (steps.length >= 1 && !steps.some((s) => s.type === 'notify_ceo')) {
-    steps.push(normalizeStepSpec({ type: 'notify_ceo' }));
+  const merged = mergeCapabilitySteps(steps, text).map(normalizeStepSpec);
+  if (merged.length >= 1 && !merged.some((s) => s.type === 'notify_ceo')) {
+    merged.push(normalizeStepSpec({ type: 'notify_ceo' }));
   }
 
-  return steps;
+  return merged.length ? merged : steps;
 }
 
 
@@ -365,7 +386,9 @@ export async function planGoalStepsAsync(prompt, opts = {}) {
         orchestratorAgentId: opts.orchestratorAgentId || null,
       });
       if (Array.isArray(classified) && classified.length) {
-        const steps = classified.map(normalizeStepSpec);
+        const steps = mergeCapabilitySteps(classified.map(normalizeStepSpec), fullPrompt).map(
+          normalizeStepSpec
+        );
         console.info('[goal-run] plan via intent classifier', {
           steps: steps.map((x) => x.type + ':' + (x.label || '')).slice(0, 12),
         });
@@ -397,6 +420,7 @@ export async function planGoalStepsAsync(prompt, opts = {}) {
     }
   }
 
+  steps = mergeCapabilitySteps(steps, fullPrompt).map(normalizeStepSpec);
   if (!steps.length) {
     steps.push(normalizeStepSpec({ type: 'agent_continue' }));
   }
@@ -452,6 +476,8 @@ export function serializeGoalRun(row, steps = null) {
     created_at: row.created_at,
     updated_at: row.updated_at,
     completed_at: row.completed_at,
+    outcome: loadOutcome(row),
+    plan_history: loadPlanHistory(row),
     steps: stepRows.map((s) => ({
       id: s.id,
       step_index: s.step_index,
@@ -474,6 +500,41 @@ export function getGoalRun(goalRunId, ownerUserId = null) {
   if (!row) return null;
   return serializeGoalRun(row);
 }
+
+export function amendGoalRunConstraints(goalRunId, ownerUserId, { constraint = '', rationale = '' } = {}) {
+  ensureAgentGoalRunTables();
+  const owner = String(ownerUserId || '').trim();
+  const goal = loadGoalRunRow(goalRunId, owner);
+  if (!goal) {
+    const err = new Error('Goal run not found');
+    err.status = 404;
+    throw err;
+  }
+  const extra = String(constraint || rationale || '').trim();
+  if (!extra) {
+    const err = new Error('constraint required');
+    err.status = 400;
+    throw err;
+  }
+  const snap = snapshotPlanVersion({
+    goalRow: goal,
+    steps: loadGoalSteps(goalRunId),
+    rationale: rationale || extra,
+  });
+  const outcome = mergeConstraintText(snap.outcome, extra);
+  persistOutcome(goalRunId, owner, outcome);
+  persistPlanHistory(goalRunId, owner, snap.history);
+  recordMissionEvent({
+    ownerUserId: owner,
+    goalRunId,
+    event_type: 're_plan',
+    payload: { from: snap.from, to: snap.to, rationale: extra },
+  });
+  console.info('[goal-run] re-plan', { goalRunId, from: snap.from, to: snap.to });
+  return getGoalRun(goalRunId, owner);
+}
+
+export { listMissionEvents };
 
 /** Step-level progress for CEO UI / digest (% completed of planned steps). */
 export function summarizeGoalProgress(goal) {
@@ -557,7 +618,7 @@ export function createGoalRun({
   }
 
   const plannedRaw = Array.isArray(steps) && steps.length
-    ? steps.map(normalizeStepSpec)
+    ? mergeCapabilitySteps(steps.map(normalizeStepSpec), prompt).map(normalizeStepSpec)
     : planGoalStepsFromText(prompt, {});
   // Honor explicit "do not call notify_ceo" in CEO / scheduled prompts.
   const planned = promptForbidsNotifyCeo(prompt)
@@ -585,6 +646,40 @@ export function createGoalRun({
       scheduledGoalRunId || null,
       JSON.stringify(context || {})
     );
+
+  const outcome = parseOutcomeFromPrompt(prompt);
+  persistOutcome(id, owner, outcome);
+  persistPlanHistory(id, owner, [
+    {
+      version: 1,
+      at: new Date().toISOString(),
+      rationale: 'Initial plan from CEO intent',
+      outcome: { ...outcome },
+      step_labels: planned.map((s) => s.label || s.type),
+    },
+  ]);
+  recordMissionEvent({
+    ownerUserId: owner,
+    goalRunId: id,
+    event_type: 'goal_created',
+    payload: {
+      intent: outcome.intent,
+      kpi: outcome.kpi,
+      target: outcome.target,
+      constraints: outcome.constraints,
+      budget_usd: outcome.budget_usd,
+      approval_policy: outcome.approval_policy,
+    },
+  });
+  recordMissionEvent({
+    ownerUserId: owner,
+    goalRunId: id,
+    event_type: 'plan_generated',
+    payload: {
+      plan_version: 1,
+      steps: planned.map((s) => ({ type: s.type, label: s.label, capability_id: s.spec?.capability_id || null })),
+    },
+  });
 
   const ins = db().prepare(
     `INSERT INTO agent_goal_steps
@@ -1556,6 +1651,32 @@ export function completeGoalRun(goalRunId, { status = 'completed', error = null 
     completed_at: status === 'completed' || status === 'failed' ? new Date().toISOString() : null,
   });
   console.info('[goal-run] finished', { goalRunId, status });
+  try {
+    const row = loadGoalRunRow(goalRunId);
+    if (row) {
+      const outcome = loadOutcome(row);
+      recordMissionEvent({
+        ownerUserId: row.owner_user_id,
+        goalRunId,
+        event_type: 'goal_completed',
+        payload: {
+          status,
+          kpi: outcome.kpi,
+          current_value: outcome.current_value,
+          target: outcome.target,
+          rejected_count: outcome.rejected_count,
+          unknown_count: outcome.unknown_count,
+          plan_version: outcome.plan_version,
+          shortfall:
+            outcome.target != null && Number(outcome.current_value || 0) < Number(outcome.target)
+              ? 'explained_or_open'
+              : null,
+        },
+      });
+    }
+  } catch (e) {
+    console.warn('[goal-run] mission complete event failed', e?.message || e);
+  }
   // Once-only COO chat nudge so the CEO sees a final ladder update without re-asking.
   if (status === 'completed' || status === 'failed') {
     void nudgeCooOnGoalPlanTerminal(goalRunId, { status }).catch((e) =>
@@ -1773,12 +1894,34 @@ export function completeGoalStep({ goalRunId, stepId, ownerUserId, result = null
   }
 
   const status = failed ? 'failed' : 'completed';
+  const observation = observeStepResult(result || {});
   db()
     .prepare(
       `UPDATE agent_goal_steps SET status = ?, result_json = ?, error_message = ?, completed_at = datetime('now')
        WHERE id = ?`
     )
-    .run(status, result != null ? JSON.stringify(result) : null, error ? String(error).slice(0, 1000) : null, stepId);
+    .run(
+      status,
+      JSON.stringify({ ...(result && typeof result === 'object' ? result : { result }), observation }),
+      error ? String(error).slice(0, 1000) : null,
+      stepId
+    );
+
+  const outcome = applyObservation(loadOutcome(goal), observation);
+  persistOutcome(goalRunId, goal.owner_user_id, outcome);
+  recordMissionEvent({
+    ownerUserId: goal.owner_user_id,
+    goalRunId,
+    event_type: 'step_completed',
+    payload: {
+      step_id: stepId,
+      step_type: step.step_type,
+      label: step.label,
+      failed: !!failed,
+      observation,
+      kpi: { current: outcome.current_value, target: outcome.target },
+    },
+  });
 
   if (failed) {
     completeGoalRun(goalRunId, { status: 'failed', error: error || 'step failed' });

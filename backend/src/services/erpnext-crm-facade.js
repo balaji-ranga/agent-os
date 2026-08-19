@@ -17,6 +17,7 @@ import {
   erpCreateTask,
   erpDelete,
 } from './erpnext-erp.js';
+import { withWriteIdempotency } from './tool-write-idempotency.js';
 
 function lim(n, d = 20) {
   return Math.min(100, Math.max(1, Number(n) || d));
@@ -73,7 +74,16 @@ export async function erpCrmListPeople(ownerUserId, { limit } = {}) {
   };
 }
 
-export async function erpCrmCreatePerson(ownerUserId, { name, email, phone, companyId } = {}) {
+export async function erpCrmCreatePerson(ownerUserId, { name, email, phone, companyId, idempotency_key } = {}) {
+  return withWriteIdempotency({
+    ownerUserId,
+    toolName: 'crm_create_person',
+    idempotencyKey: idempotency_key,
+    identity: {
+      name: String(name || '').trim().toLowerCase(),
+      email: String(email || '').trim().toLowerCase(),
+    },
+    execute: async () => {
   assertCrmEntitled(ownerUserId);
   const parts = String(name || '')
     .trim()
@@ -91,6 +101,8 @@ export async function erpCrmCreatePerson(ownerUserId, { name, email, phone, comp
   }
   const r = await erpCreateContact(ownerUserId, doc);
   return { ...r, source: 'erpnext', doctype: 'Contact' };
+    },
+  });
 }
 
 export async function erpCrmListCompanies(ownerUserId, { limit } = {}) {
@@ -108,15 +120,26 @@ export async function erpCrmListCompanies(ownerUserId, { limit } = {}) {
   };
 }
 
-export async function erpCrmCreateCompany(ownerUserId, { name, domainUrl } = {}) {
-  assertCrmEntitled(ownerUserId);
-  if (!name) throw Object.assign(new Error('name required'), { status: 400 });
-  const r = await erpCreateCustomer(ownerUserId, {
-    customer_name: name,
-    customer_type: 'Company',
-    website: domainUrl || undefined,
+export async function erpCrmCreateCompany(ownerUserId, { name, domainUrl, idempotency_key } = {}) {
+  return withWriteIdempotency({
+    ownerUserId,
+    toolName: 'crm_create_company',
+    idempotencyKey: idempotency_key,
+    identity: {
+      name: String(name || '').trim().toLowerCase(),
+      domain: String(domainUrl || '').trim().toLowerCase(),
+    },
+    execute: async () => {
+      assertCrmEntitled(ownerUserId);
+      if (!name) throw Object.assign(new Error('name required'), { status: 400 });
+      const r = await erpCreateCustomer(ownerUserId, {
+        customer_name: name,
+        customer_type: 'Company',
+        website: domainUrl || undefined,
+      });
+      return { ...r, source: 'erpnext', doctype: 'Customer' };
+    },
   });
-  return { ...r, source: 'erpnext', doctype: 'Customer' };
 }
 
 export async function erpCrmListOpportunities(ownerUserId, { limit } = {}) {
@@ -176,14 +199,25 @@ export async function erpCrmListLeads(ownerUserId, { limit } = {}) {
 }
 
 export async function erpCrmCreateLead(ownerUserId, body = {}) {
-  assertCrmEntitled(ownerUserId);
-  const r = await erpCreateLead(ownerUserId, {
-    lead_name: body.name || body.lead_name,
-    email_id: body.email || body.email_id,
-    company_name: body.company_name || body.company,
-    ...body,
+  return withWriteIdempotency({
+    ownerUserId,
+    toolName: 'crm_create_lead',
+    idempotencyKey: body.idempotency_key,
+    identity: {
+      name: String(body.name || body.lead_name || '').trim().toLowerCase(),
+      email: String(body.email || body.email_id || '').trim().toLowerCase(),
+    },
+    execute: async () => {
+      assertCrmEntitled(ownerUserId);
+      const r = await erpCreateLead(ownerUserId, {
+        lead_name: body.name || body.lead_name,
+        email_id: body.email || body.email_id,
+        company_name: body.company_name || body.company,
+        ...body,
+      });
+      return { ...r, source: 'erpnext', doctype: 'Lead' };
+    },
   });
-  return { ...r, source: 'erpnext', doctype: 'Lead' };
 }
 
 export async function erpCrmListNotes(ownerUserId, { limit } = {}) {

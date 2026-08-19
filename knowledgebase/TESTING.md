@@ -32,6 +32,15 @@ node scripts/test-tool-api-rate-limits.js
 
 Expect: consume → 429 when capped → manual/auto reset audit → skip Kanban/browse. UI: **Tools → Rate limits** on `/content-tools` (help **11**). Cron: `TOOL_API_RATE_LIMIT_RESET_CRON` (default `5 0 * * *`).
 
+## Management-layer Phase 1 (outcome, Action control, capabilities)
+
+```powershell
+cd backend
+node scripts/test-phase1-management-layer.mjs
+```
+
+Expect `PHASE1_MANAGEMENT_LAYER_OK`. One case each for T1–T3 and N1–N3. Rollback SHA: see [`MANAGEMENT-LAYER-PHASE1.md`](./MANAGEMENT-LAYER-PHASE1.md).
+
 ## Video content studio (storyboard CEO PDF)
 
 After changing `standard/video-content/workflow-reasoning.json` or the CEO-gate PDF attach path:

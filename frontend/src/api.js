@@ -483,6 +483,7 @@ export const api = {
   ceoGuardrailsGet: () => get('/ceo-guardrails'),
   ceoGuardrailsSave: (body) => put('/ceo-guardrails', body),
   ceoGuardrailsEnrich: (body) => post('/ceo-guardrails/enrich', body),
+  ceoActionControlSave: (body) => put('/ceo-guardrails/action-control', body),
   submitFeedback: (body) => post('/feedback', body),
   listFeedback: (params = {}) => {
     const q = new URLSearchParams();
@@ -1270,6 +1271,8 @@ export const api = {
     return get(q ? `/agent-goal-runs?${q}` : '/agent-goal-runs');
   },
   agentGoalRunsGet: (id) => get(`/agent-goal-runs/${encodeURIComponent(id)}`),
+  agentGoalRunsEvents: (id) => get(`/agent-goal-runs/${encodeURIComponent(id)}/events`),
+  agentGoalRunsAmend: (id, body) => post(`/agent-goal-runs/${encodeURIComponent(id)}/amend`, body),
 
   /** IBKR Summary dashboard (portfolio + day-wise planned vs executed). */
   ibkrSummary: (params = {}) => {

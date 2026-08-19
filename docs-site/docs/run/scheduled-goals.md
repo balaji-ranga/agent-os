@@ -25,7 +25,7 @@ Optional **Enrich with AI** when composing. Optional **Also send the final outco
 
 ## Plans (COO)
 
-On the **COO**, a multi-intent prompt can become a **draft execution plan** (workflows + specialty + notify).
+On the **COO**, a multi-intent prompt can become a **draft execution plan** (workflows + specialty + notify). **Tell the COO the outcome first**; inspect the Goal Plan (KPI current/target, plan version) before opening Workflow Builder.
 
 - **Generate draft plan** is **COO-only**. Other employees **Save & schedule** and run their own prompt/tools.
 - Review steps → **Amend plan manually** if mapping is wrong → **Save draft** → **Approve plan & schedule**.

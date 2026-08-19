@@ -21,6 +21,7 @@ import { listChatTriggerableWorkflows, listPublishedWorkflows } from './agent-wo
 import { getAgentToolGrants } from './openclaw-agent-tools.js';
 import { listEnabledContentTools } from './content-tools-meta.js';
 import { getDb } from '../db/schema.js';
+import { mergeCapabilitySteps } from './business-capabilities.js';
 
 const MAX_INTENTS = Math.max(4, Math.min(20, Number(process.env.GOAL_PLAN_MAX_INTENTS) || 12));
 
@@ -1200,6 +1201,7 @@ export async function classifyGoalPlanIntents(ownerUserId, prompt, opts = {}) {
   }
 
   if (!steps.length) return null;
+  steps = mergeCapabilitySteps(steps, text);
   console.info('[goal-plan-intent] classified', {
     owner: owner.slice(0, 24),
     steps: steps.map((x) => x.type + ':' + (x.label || x.tool_name || x.agent_id || '')).slice(0, 12),

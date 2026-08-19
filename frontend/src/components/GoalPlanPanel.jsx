@@ -91,6 +91,16 @@ export default function GoalPlanPanel({
             GOAL PLAN
           </div>
           <div style={{ fontSize: '0.88rem', fontWeight: 600 }}>{title}</div>
+          {goal.outcome ? (
+            <div style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: 2 }}>
+              {goal.outcome.kpi || 'outcome'}
+              {goal.outcome.target != null
+                ? `: ${goal.outcome.current_value ?? 0} / ${goal.outcome.target}`
+                : ''}
+              {goal.outcome.budget_usd != null ? ` · cap $${goal.outcome.budget_usd}` : ''}
+              {goal.outcome.plan_version ? ` · plan v${goal.outcome.plan_version}` : ''}
+            </div>
+          ) : null}
           <div style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>
             <code style={{ fontSize: '0.7rem' }}>{goal.id}</code>
             {goal.source ? ` · ${goal.source}` : ''}

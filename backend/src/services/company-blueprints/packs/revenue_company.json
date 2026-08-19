@@ -1,0 +1,110 @@
+{
+  "aliases": ["revenue", "pipeline", "b2b_services"],
+  "depth": "thin",
+  "is_default": true,
+  "source": "system",
+  "featured": true,
+  "departments": [
+    {
+      "name": "Executive",
+      "purpose": "Outcomes, approvals, and exception handling."
+    },
+    {
+      "name": "Revenue",
+      "purpose": "Source and progress qualified pipeline with evidence."
+    },
+    {
+      "name": "Qualification",
+      "purpose": "Verify contacts against ICP; reject unverifiable records."
+    }
+  ],
+  "agents": [
+    {
+      "name": "Research Analyst",
+      "role": "Find companies and contacts with source evidence; never invent data",
+      "department": "Revenue",
+      "tools": [
+        "business_discover",
+        "brave_web_search",
+        "summarize_url",
+        "master_data_rag",
+        "kanban_create_task",
+        "notify_ceo"
+      ]
+    },
+    {
+      "name": "Lead QA",
+      "role": "Qualify against ICP and mark unverifiable fields unknown",
+      "department": "Qualification",
+      "tools": [
+        "master_data_rag",
+        "kanban_get_task",
+        "kanban_move_status",
+        "notify_ceo"
+      ]
+    },
+    {
+      "name": "Outreach Drafter",
+      "role": "Draft personalised outreach for CEO approval; do not send",
+      "department": "Revenue",
+      "tools": [
+        "kanban_create_task",
+        "master_data_rag",
+        "notify_ceo"
+      ]
+    }
+  ],
+  "workflows": [
+    "CEO outcome → COO plan → research → qualify → CRM Maker/Checker → outreach draft → CEO approval"
+  ],
+  "channels": [
+    "Tell the COO the business outcome first. Open Workflow Builder only to inspect a step.",
+    "Connect CRM on Company setup Systems if you want verified records in the system of record.",
+    "Set Policies → Action control: external messages = Approval required."
+  ],
+  "knowledge_tables": [],
+  "sop_documents": [
+    {
+      "title": "Revenue pack — first outcome",
+      "body": "Time-to-value: first qualified lead approved by the CEO.\n1. Import ICP, disqualifiers, and offer notes into Knowledge.\n2. Chat the COO with the outcome (count, deadline, spend cap, never invent, no send without approval).\n3. Review the Goal Plan. Approve exceptions only.\n4. Do not start in Workflow Builder."
+    }
+  ],
+  "systems_recommended": [
+    {
+      "id": "workspace",
+      "label": "AI Employees",
+      "path": "/workspace"
+    },
+    {
+      "id": "knowledge",
+      "label": "Knowledge (Master Data)",
+      "path": "/master-data"
+    },
+    {
+      "id": "policies",
+      "label": "Policies",
+      "path": "/policies"
+    },
+    {
+      "id": "scheduled-goals",
+      "label": "Scheduled goals",
+      "path": "/scheduled-goals"
+    },
+    {
+      "id": "crm",
+      "label": "CRM",
+      "path": "/crm"
+    }
+  ],
+  "policy_templates": {
+    "suggest": "## Management style: AI suggests\n- Drafts only; CEO decides.\n- Never invent contact data. Unverifiable fields stay unknown.\n- External messages need CEO approval.",
+    "after_approval": "## Management style: AI executes after approval\n- Source and qualify autonomously.\n- CRM writes are reversible internal records.\n- External outreach waits for CEO approval.\n- Prefer an honest shortfall over fabricated KPI counts.",
+    "autonomous": "## Management style: AI executes autonomously\n- Execute within tool grants, Action control, and budgets.\n- Still never invent contacts. Escalate legal/PR risk."
+  },
+  "platforms": [],
+  "id": "revenue_company",
+  "industry": "revenue_company",
+  "name": "Revenue Company",
+  "label": "Revenue Company (pipeline)",
+  "description": "Create and progress qualified pipeline with minimal founder coordination. COO + research + qualification + CRM + outreach drafts."
+}

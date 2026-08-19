@@ -16,7 +16,7 @@ New CEOs may be asked to complete or skip setup before using the rest of the pro
 ## Wizard steps
 
 1. Welcome
-2. **Company type** (industry card — for example Education or content creator)
+2. **Company type** (industry card — for example Education, **Revenue Company**, or content creator)
 3. **Identity** — company name, headcount band, country and region
 4. **Mission** — what success looks like
 5. **Org DNA** — how the company should feel (startup, enterprise, cost-conscious, creative, and similar)

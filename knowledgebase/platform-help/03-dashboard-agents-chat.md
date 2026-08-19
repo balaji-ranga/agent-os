@@ -28,7 +28,7 @@ Public walkthrough (create departments, drag tiles, Resync): [https://flolah.clo
 | Books (quote → order → invoice → cash / PO → bill) | **ERP Maker A/B** / **ERP Checker** (ERPNext; help **39**) |
 | Job discovery → apply pipeline | Job pipeline agents (via Job profiles/workflows) |
 
-Prefer the **COO** for work that should be planned or handed to a specialist. Vague “help me” may stay with the COO; clear specialty asks get routed using agent purposes from org docs.
+Prefer the **COO** for work that should be planned or handed to a specialist. **Tell the COO the outcome first** (count, deadline, budget, never-invent / no-send rules). Inspect the Goal Plan; open Workflow Builder only to inspect a step. Vague “help me” may stay with the COO; clear specialty asks get routed using agent purposes from org docs.
 
 **Specialty-first (all CEOs):** When you name a clear research/market/design/etc. outcome (including Mag7-style one-shots), the COO **delegates full context** to the matching specialty agent — not a thin “Delegate to MarketWatcher…” paraphrase and not a long solo answer. Follow-ups like “what about marketwatcher?” keep the **original deliverable** (e.g. Mag7 insights) in the handoff. See COO workspace `AGENTS.md` **Specialty-first** + shared `AGENT-OS-OPS.md`.
 

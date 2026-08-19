@@ -4,7 +4,7 @@
  */
 import { Router } from 'express';
 import { attachAuthUser, requireAuth, requireCeoOrAdmin, resolveAuthenticatedCeoUserId } from '../middleware/auth.js';
-import { listGoalRuns, getGoalRun, summarizeGoalProgress } from '../services/agent-goal-run.js';
+import { listGoalRuns, getGoalRun, summarizeGoalProgress, amendGoalRunConstraints, listMissionEvents } from '../services/agent-goal-run.js';
 
 const router = Router();
 router.use(attachAuthUser, requireAuth, requireCeoOrAdmin);
@@ -62,6 +62,34 @@ router.get('/:id', (req, res) => {
     res.json({ goal: withProgress(goal) });
   } catch (e) {
     console.warn('[agent-goal-runs] get', e?.message || e);
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+router.get('/:id/events', (req, res) => {
+  try {
+    const ownerUserId = ownerOr403(req, res);
+    if (!ownerUserId) return;
+    const goal = getGoalRun(req.params.id, ownerUserId);
+    if (!goal) return res.status(404).json({ error: 'Not found' });
+    const events = listMissionEvents(ownerUserId, { goalRunId: req.params.id, limit: 200 });
+    res.json({ events, count: events.length });
+  } catch (e) {
+    console.warn('[agent-goal-runs] events', e?.message || e);
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+router.post('/:id/amend', (req, res) => {
+  try {
+    const ownerUserId = ownerOr403(req, res);
+    if (!ownerUserId) return;
+    const constraint = req.body?.constraint || req.body?.constraints || '';
+    const rationale = req.body?.rationale || '';
+    const goal = amendGoalRunConstraints(req.params.id, ownerUserId, { constraint, rationale });
+    res.json({ goal: withProgress(goal) });
+  } catch (e) {
+    console.warn('[agent-goal-runs] amend', e?.message || e);
     res.status(e.status || 500).json({ error: e.message });
   }
 });

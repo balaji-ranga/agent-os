@@ -92,6 +92,7 @@ import {
   listToolApiRateLimitResets,
   toolApiRateLimitMiddleware,
 } from '../services/tool-api-rate-limits.js';
+import { actionPolicyMiddleware, evaluateActionPolicy } from '../services/action-policy.js';
 import {
   notifyKanbanTaskCreated,
   clearKanbanTaskNotification,
@@ -665,6 +666,7 @@ router.delete('/logs', attachAuthUser, requireAuth, (req, res) => {
 });
 
 router.use(optionalAuth);
+router.use(actionPolicyMiddleware);
 router.use(toolApiRateLimitMiddleware);
 
 router.use(jobApplicantTools);
@@ -3252,6 +3254,16 @@ router.post('/invoke', requireToolsAccess, async (req, res) => {
         params.ceo_user_id = ownerUserId;
       }
       if (!headers['x-ceo-user-id']) headers['x-ceo-user-id'] = ownerUserId;
+    }
+    const policy = evaluateActionPolicy({
+      ownerUserId,
+      toolName,
+      body: params,
+      goalRunId: params.goal_run_id || params.goalRunId || null,
+    });
+    if (policy?.ok === false) {
+      logTool(req, toolName, req.body, policy, 'error', source);
+      return res.status(Number(policy.status) || 403).json(policy);
     }
     if (row.auth_header && typeof row.auth_header === 'string' && row.auth_header.trim()) {
       headers['Authorization'] = row.auth_header.trim();

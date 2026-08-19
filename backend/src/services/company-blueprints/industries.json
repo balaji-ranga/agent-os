@@ -7,6 +7,13 @@
     "description": "Facebook, Instagram, LinkedIn, and blogs. For short-form / animated / Veo video studio use Video content."
   },
   {
+    "id": "revenue_company",
+    "label": "Revenue Company (pipeline)",
+    "featured": true,
+    "default_blueprint_id": "revenue_company",
+    "description": "Qualified pipeline with minimal founder coordination. COO plans the outcome; research, qualification, CRM, and outreach drafts run underneath."
+  },
+  {
     "id": "video_content",
     "label": "Video content (shorts / animated / Veo)",
     "featured": true,

@@ -12,6 +12,8 @@ function PoliciesPanel() {
   const [policyText, setPolicyText] = useState('');
   const [enabled, setEnabled] = useState(true);
   const [updatedAt, setUpdatedAt] = useState(null);
+  const [actionControl, setActionControl] = useState([]);
+  const [controlBusy, setControlBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [enrichBusy, setEnrichBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -28,6 +30,7 @@ function PoliciesPanel() {
         setPolicyText(g.policy_text || '');
         setEnabled(g.enabled !== false);
         setUpdatedAt(g.updated_at || null);
+        setActionControl(Array.isArray(data.action_control) ? data.action_control : []);
       })
       .catch((e) => setError(e.message || String(e)))
       .finally(() => setLoading(false));
@@ -60,6 +63,27 @@ function PoliciesPanel() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const saveControl = async () => {
+    setControlBusy(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const data = await api.ceoActionControlSave({ policies: actionControl });
+      setActionControl(Array.isArray(data.action_control) ? data.action_control : actionControl);
+      setMessage('Action control saved. Tool invokes for your company now use these three states.');
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setControlBusy(false);
+    }
+  };
+
+  const setFamilyMode = (family, mode) => {
+    setActionControl((prev) =>
+      (prev || []).map((row) => (row.family === family ? { ...row, mode } : row))
+    );
   };
 
   const enrichWithAi = async () => {
@@ -169,6 +193,66 @@ function PoliciesPanel() {
           </div>
         </form>
       )}
+
+      {!loading && actionControl.length > 0 ? (
+        <section style={{ marginTop: '1.75rem' }}>
+          <h2 style={{ fontSize: '1.05rem', margin: '0 0 0.35rem' }}>Action control</h2>
+          <p style={{ margin: '0 0 0.75rem', color: 'var(--muted)', fontSize: '0.88rem', maxWidth: 560 }}>
+            Three states per action family for your company. Tool invokes are blocked when Prohibited, or when
+            Approval required and the call has no CEO approval. Applies to every entitled employee — not a
+            second policy product.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+            {actionControl.map((row) => (
+              <label
+                key={row.family}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  padding: '0.55rem 0.65rem',
+                  border: '1px solid var(--border)',
+                  borderRadius: 8,
+                }}
+              >
+                <span>
+                  <strong>{row.label}</strong>
+                  <span style={{ color: 'var(--muted)', fontSize: '0.8rem' }}>
+                    {' '}
+                    ({row.default_tier})
+                  </span>
+                </span>
+                <select
+                  value={row.mode}
+                  onChange={(ev) => setFamilyMode(row.family, ev.target.value)}
+                  style={{
+                    padding: '0.35rem 0.5rem',
+                    borderRadius: 6,
+                    border: '1px solid var(--border)',
+                    background: 'var(--surface)',
+                    color: 'var(--text)',
+                  }}
+                >
+                  <option value="autonomous">Autonomous</option>
+                  <option value="approval_required">Approval required</option>
+                  <option value="prohibited">Prohibited</option>
+                </select>
+              </label>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="btn-primary"
+            style={{ marginTop: '0.85rem' }}
+            disabled={controlBusy}
+            onClick={saveControl}
+          >
+            {controlBusy ? 'Saving…' : 'Save action control'}
+          </button>
+        </section>
+      ) : null}
     </div>
   );
 }

@@ -8,7 +8,7 @@ Home (`/`) opens chat with the **COO**. Use **Chat with** to switch employees. *
 
 ## Send work
 
-1. State the **outcome** in one message when you can.
+1. State the **outcome** in one message when you can (**tell the COO the outcome first** — count, deadline, budget, what must not happen). Do not open Workflow Builder until you inspect a Goal Plan step.
 2. Attach files with the **paperclip** (documents, images, audio, video). Attachments go to Knowledge and inbound files.
 3. Replies render markdown. Generated images, audio, and video play **inline while you are logged in**.
 4. Small **tool icons** under a reply show what the employee used (knowledge search, email, notify, browser, and so on).

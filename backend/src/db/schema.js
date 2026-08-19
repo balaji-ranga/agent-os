@@ -2296,6 +2296,47 @@ export function initDb() {
     if (!agCols.includes('child_delegation_task_id')) {
       _db.exec('ALTER TABLE agent_goal_steps ADD COLUMN child_delegation_task_id INTEGER');
     }
+    const runCols = _db.prepare('PRAGMA table_info(agent_goal_runs)').all().map((c) => c.name);
+    if (runCols.length && !runCols.includes('outcome_json')) {
+      _db.exec('ALTER TABLE agent_goal_runs ADD COLUMN outcome_json TEXT');
+    }
+    if (runCols.length && !runCols.includes('plan_history_json')) {
+      _db.exec('ALTER TABLE agent_goal_runs ADD COLUMN plan_history_json TEXT');
+    }
+  } catch (_) {}
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS goal_mission_events (
+        id TEXT PRIMARY KEY,
+        owner_user_id TEXT NOT NULL,
+        goal_run_id TEXT,
+        event_type TEXT NOT NULL,
+        payload_json TEXT DEFAULT '{}',
+        created_at TEXT DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_goal_mission_events_owner
+        ON goal_mission_events(owner_user_id, created_at DESC);
+    `);
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS action_family_policies (
+        owner_user_id TEXT NOT NULL,
+        family TEXT NOT NULL,
+        mode TEXT NOT NULL DEFAULT 'autonomous',
+        updated_at TEXT DEFAULT (datetime('now')),
+        PRIMARY KEY (owner_user_id, family)
+      );
+    `);
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS tool_write_idempotency (
+        owner_user_id TEXT NOT NULL,
+        tool_name TEXT NOT NULL,
+        idempotency_key TEXT NOT NULL,
+        object_id TEXT,
+        result_json TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        PRIMARY KEY (owner_user_id, tool_name, idempotency_key)
+      );
+    `);
   } catch (_) {}
 
   /**

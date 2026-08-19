@@ -13,6 +13,7 @@ import {
 } from './company-business-profile.js';
 import { getUserById } from './users.js';
 import { isTwentySsoEnabled, mintTwentyLoginToken } from './twenty-sso.js';
+import { withWriteIdempotency } from './tool-write-idempotency.js';
 
 function baseUrl() {
   return String(process.env.TWENTY_API_URL || '')
@@ -308,7 +309,20 @@ export async function crmListPeople(ownerUserId, { limit = 25 } = {}) {
   }
 }
 
-export async function crmCreatePerson(ownerUserId, { name, email, phone, companyId } = {}) {
+export async function crmCreatePerson(ownerUserId, { name, email, phone, companyId, idempotency_key } = {}) {
+  return withWriteIdempotency({
+    ownerUserId,
+    toolName: 'crm_create_person',
+    idempotencyKey: idempotency_key,
+    identity: {
+      name: String(name || '').trim().toLowerCase(),
+      email: String(email || '').trim().toLowerCase(),
+    },
+    execute: () => crmCreatePersonUniq(ownerUserId, { name, email, phone, companyId }),
+  });
+}
+
+async function crmCreatePersonUniq(ownerUserId, { name, email, phone, companyId } = {}) {
   if (!isTwentyConfigured()) {
     throw Object.assign(new Error('TWENTY_API_URL not configured'), { status: 503 });
   }
@@ -358,7 +372,20 @@ export async function crmListCompanies(ownerUserId, { limit = 25 } = {}) {
   }
 }
 
-export async function crmCreateCompany(ownerUserId, { name, domainUrl, employees } = {}) {
+export async function crmCreateCompany(ownerUserId, { name, domainUrl, employees, idempotency_key } = {}) {
+  return withWriteIdempotency({
+    ownerUserId,
+    toolName: 'crm_create_company',
+    idempotencyKey: idempotency_key,
+    identity: {
+      name: String(name || '').trim().toLowerCase(),
+      domain: String(domainUrl || '').trim().toLowerCase(),
+    },
+    execute: () => crmCreateCompanyUniq(ownerUserId, { name, domainUrl, employees }),
+  });
+}
+
+async function crmCreateCompanyUniq(ownerUserId, { name, domainUrl, employees } = {}) {
   if (!isTwentyConfigured()) {
     throw Object.assign(new Error('TWENTY_API_URL not configured'), { status: 503 });
   }
@@ -415,6 +442,32 @@ export async function crmListOpportunities(ownerUserId, { limit = 25, stage } = 
 }
 
 export async function crmCreateOpportunity(
+  ownerUserId,
+  { name, amount, currencyCode = 'USD', stage = 'NEW', companyId, closeDate, pointOfContactId, idempotency_key } = {}
+) {
+  return withWriteIdempotency({
+    ownerUserId,
+    toolName: 'crm_create_opportunity',
+    idempotencyKey: idempotency_key,
+    identity: {
+      name: String(name || '').trim().toLowerCase(),
+      companyId: String(companyId || ''),
+      stage: String(stage || 'NEW'),
+    },
+    execute: () =>
+      crmCreateOpportunityUniq(ownerUserId, {
+        name,
+        amount,
+        currencyCode,
+        stage,
+        companyId,
+        closeDate,
+        pointOfContactId,
+      }),
+  });
+}
+
+async function crmCreateOpportunityUniq(
   ownerUserId,
   { name, amount, currencyCode = 'USD', stage = 'NEW', companyId, closeDate, pointOfContactId } = {}
 ) {

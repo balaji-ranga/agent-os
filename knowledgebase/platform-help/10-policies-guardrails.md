@@ -12,6 +12,19 @@ CEO account setting: rules that apply to **every agent** and **every workflow Br
 
 Saving writes **`POLICY.md`** into each of your agent workspaces and updates org docs. Brain nodes read the same policy from the database on every run and prepend it to the system prompt.
 
+## Action control
+
+On the same **Policies** page, set three states per action family for **your company**:
+
+| Family | Default | Examples |
+|--------|---------|----------|
+| Read / research | Autonomous | Search, CRM list, Business Discovery |
+| Internal writes | Autonomous | Create CRM records, Kanban drafts |
+| External messages / publish | Approval required | `email_send`, public posts |
+| Financial / destructive | Prohibited until you allow | Delete, refund, live trade |
+
+**Approval required** blocks the tool unless the call includes CEO approval (`ceo_approved` / `confirm`). **Prohibited** always blocks. These rules are enforced on tool invoke for the entitled CEO — they do not replace tool grants or Maker/Checker.
+
 ## How agents see it
 
 - Workspace file: `POLICY.md` (also referenced from `ORG.md`).
