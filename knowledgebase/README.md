@@ -21,6 +21,7 @@ Documentation lives here so Cursor and humans can find it. **GitHub landing:** r
 | **GITHUB-SETUP.md** | One-time: create agent-os repo on GitHub and push (Options A/B, security check). |
 | **IMPLEMENTATION_PLAN.md** | Product/roadmap: vision, architecture, phases (1–5), skills, TTS, token monitoring, references. |
 | **MANAGEMENT-LAYER-PHASE1.md** | Phase 1 outcome/runtime + Action control; rollback SHA `6f94d58`; six gates + document T1–T3 acceptance (`test-t123-acceptance.mjs`). |
+| **MANAGEMENT-LAYER-PHASE2.md** | Phase 2 Pipeline under constraints stress test; Gate A seeded results; `test-phase2-pipeline-stress.mjs`. |
 | **AGENT_REVIEW_AND_SKILLS.md** | Agent review (COO, TechResearcher, SocialAssistant); secure skill recommendations and where skills live. |
 | **CONFIGURE-CLAUDE-OPUS.md** | How to set Claude Opus (or other Anthropic models) in `~/.AgentSystem/AgentSystem.json` and API key. |
 | **LOCAL-OPENCLAW-OLLAMA.md** | Free local OpenClaw + platform LLM via self-hosted Ollama (wanted 128B `mistral-medium-3.5`; auto-select on small VPS; no Ollama Cloud). |

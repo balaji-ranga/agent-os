@@ -43,6 +43,15 @@ node scripts/test-twenty-sso-handoff.js
 
 Expect `PHASE1_MANAGEMENT_LAYER_OK`, `T123_ACCEPTANCE_OK`, and Twenty SSO handoff PASS. T123 proves the document T1–T3 acceptance bars on existing Goal Plans / tools / recipes (no live CRM writes, SSO unchanged). Rollback SHA: see [`MANAGEMENT-LAYER-PHASE1.md`](./MANAGEMENT-LAYER-PHASE1.md).
 
+## Management-layer Phase 2 (Pipeline under constraints)
+
+```powershell
+cd backend
+node scripts/test-phase2-pipeline-stress.mjs
+```
+
+Provisions a **new** entitled CEO in temp sqlite (second CEO cannot read the goal). Expect `PHASE2_PIPELINE_STRESS_OK`. Scenario and scored results: [`platform-help/48-pipeline-under-constraints.md`](./platform-help/48-pipeline-under-constraints.md), [`MANAGEMENT-LAYER-PHASE2.md`](./MANAGEMENT-LAYER-PHASE2.md). Does not touch live CRM/ERP or SSO.
+
 ## Video content studio (storyboard CEO PDF)
 
 After changing `standard/video-content/workflow-reasoning.json` or the CEO-gate PDF attach path:

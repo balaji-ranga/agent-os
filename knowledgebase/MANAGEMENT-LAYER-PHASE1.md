@@ -58,3 +58,5 @@ Pass = `T123_ACCEPTANCE_OK`
 | **T3** | ≥80% standard recipes from NL without node edits | `planRecipePublishFromChat` + graph schema / template id |
 
 CRM/ERP SSO is unchanged (`node scripts/test-twenty-sso-handoff.js`).
+
+Phase 2 stress test: [`MANAGEMENT-LAYER-PHASE2.md`](./MANAGEMENT-LAYER-PHASE2.md) (`test-phase2-pipeline-stress.mjs`, help **48**).

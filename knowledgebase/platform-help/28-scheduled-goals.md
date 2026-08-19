@@ -213,6 +213,7 @@ Home **Operational Effectiveness (OEI)** counts **scheduled goal runs** in 14 da
 - Content ops rollup / publish: [30-content-creator-ops.md](./30-content-creator-ops.md)
 - Kanban / standups / bell: [04-kanban-standups-broadcast.md](./04-kanban-standups-broadcast.md)
 - Business Discovery Act / CRM handoff: [42-social-research-business-discovery.md](./42-social-research-business-discovery.md)
+- Pipeline under constraints (outcome KPI, $75 cap, Gate A): [48-pipeline-under-constraints.md](./48-pipeline-under-constraints.md)
 
 ## Regression / e2e
 

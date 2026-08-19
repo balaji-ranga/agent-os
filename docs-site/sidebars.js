@@ -62,6 +62,7 @@ const sidebars = {
       label: '5. Operate and grow',
       items: [
         'operate/maker-checker',
+        'operate/pipeline-under-constraints',
         'operate/budgets',
         'operate/security-tokens',
         'operate/desktop-windows',

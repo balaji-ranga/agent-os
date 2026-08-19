@@ -289,6 +289,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\_smoke-scheduled-goals.mjs" `
     "$Repo\backend\scripts\test-phase1-management-layer.mjs" `
     "$Repo\backend\scripts\test-t123-acceptance.mjs" `
+    "$Repo\backend\scripts\test-phase2-pipeline-stress.mjs" `
     "$Repo\backend\scripts\test-agent-channel-announce.mjs" `
     "$Repo\backend\scripts\test-openclaw-delivery-noise.mjs" `
     "$Repo\backend\scripts\test-platform-help-seed.js" `
@@ -558,6 +559,8 @@ if ($Services -match "backend|openclaw") {
   }
   scp @ssh `
     "$Repo\knowledgebase\AUTOMATED-PNL.md" `
+    "$Repo\knowledgebase\MANAGEMENT-LAYER-PHASE1.md" `
+    "$Repo\knowledgebase\MANAGEMENT-LAYER-PHASE2.md" `
     "$Repo\knowledgebase\LOCAL-OPENCLAW-OLLAMA.md" `
     "$Repo\knowledgebase\ONBOARDING-HELPER-PLAN.md" `
     "$Repo\knowledgebase\VIDEO-TOURS-CEO-CURRICULUM.md" `

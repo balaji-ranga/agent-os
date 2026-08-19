@@ -221,6 +221,23 @@ export function persistOutcome(goalRunId, ownerUserId, outcome) {
     .run(JSON.stringify(outcome || {}), goalRunId, ownerUserId);
 }
 
+/** Generic mission spend meter (USD). Owner-scoped. */
+export function addGoalSpend(goalRunId, ownerUserId, usd) {
+  ensureGoalOutcomeTables();
+  const owner = String(ownerUserId || '').trim();
+  const id = String(goalRunId || '').trim();
+  const add = Number(usd);
+  if (!owner || !id || !Number.isFinite(add) || add === 0) return null;
+  const row = getDb()
+    .prepare('SELECT * FROM agent_goal_runs WHERE id = ? AND owner_user_id = ?')
+    .get(id, owner);
+  if (!row) return null;
+  const outcome = loadOutcome(row);
+  outcome.spend_usd = Math.round((Number(outcome.spend_usd || 0) + add) * 100) / 100;
+  persistOutcome(id, owner, outcome);
+  return outcome.spend_usd;
+}
+
 export function persistPlanHistory(goalRunId, ownerUserId, history) {
   ensureGoalOutcomeTables();
   getDb()

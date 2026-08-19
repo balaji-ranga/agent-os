@@ -17,7 +17,7 @@ Follow the sections in order if you are new:
 6. [Company setup](/setup/company-setup) then [org](/setup/org-and-departments) and [people](/setup/people)
 7. [Run day to day](/run/chat-and-coo) — COO, Kanban, goals
 8. [Tools and systems](/systems/workflows) — workflows, [~1,300 Connectors](/systems/connectors-and-mcp), CRM, channels
-9. [Operate and grow](/operate/maker-checker) — approvals, budgets, troubleshooting
+9. [Operate and grow](/operate/maker-checker) — approvals, [pipeline under constraints](/operate/pipeline-under-constraints), budgets, troubleshooting
 
 Already logged in? Open **Platform Help** in the product for the same topics in chat, or use the sidebar here.
 
