@@ -23,6 +23,14 @@
 #   SKIP_VOICE=1 / SKIP_EMBEDDINGS=1     # skip optional-voice / embeddings
 set -euo pipefail
 
+# Windows scp leaves CRLF. A CR on `|| true` makes bash search for command $'true\r' (exit 127).
+if grep -q $'\r' "$0" 2>/dev/null; then
+  _crlf=$(mktemp)
+  tr -d '\r' < "$0" > "$_crlf"
+  chmod +x "$_crlf"
+  exec bash "$_crlf" "$@"
+fi
+
 ROOT="${AGENT_OS_ROOT:-/opt/agent-os}"
 cd "$ROOT"
 # shellcheck source=compose-file-defaults.sh
