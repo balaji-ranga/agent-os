@@ -26,7 +26,7 @@ The COO uses `scheduled_goal_create` (and related tools) and confirms the schedu
 
 **Do schedules block each other?** No. Each due scheduled goal is launched **independently in parallel** on the minute tick, with its **own AgentSystem session/context** for that agent (even when several goals target the same COO). A hung digest cannot delay a market report at 9:05, and long-running fires do not hold the cron (so later minutes still fire). Steps *inside* one goal still run in plan order.
 
-**How do I see whether the goal actually hit the KPI?** Goal Plans show **outcome** (current / target, spend cap, plan version) — not just step activity. Unverifiable or rejected records do not increment the KPI. When a step hits a recoverable failure (for example rate limit), the plan **retries** or **switches** to a fallback tool (Find Lead: Business Discovery → Browser Session) without asking you; auth or policy blocks **escalate** with a reason. On completion the plan stores a short **retrospective** (KPI met or explained shortfall, evidence count, trace). CEO constraint changes (for example “exclude healthcare”) snapshot plan v1 → v2 with a reason. Telemetry is owner-scoped (`GET /api/agent-goal-runs/:id/events`).
+**How do I see whether the goal actually hit the KPI?** Open **Run & Operate → Goal plans** (`/goal-plans`) or Digest → **View all plans**. Each ladder has **Ad-hoc** vs **Scheduled**, KPI current/target, spend vs cap, and **plan version**. Click **Execution trace** (`/goal-plans/agr-…`) for the event log (goal created, plan generated, steps, tool side effects, policy decisions, failures, re-plans, human intervention, completion + retrospective). Unverifiable or rejected records do not increment the KPI. When a step hits a recoverable failure (for example rate limit), the plan **retries** or **switches** to a fallback tool (Find Lead: Business Discovery → Browser Session) without asking you; auth or policy blocks **escalate** with a reason. On completion the plan stores a short **retrospective** (KPI met or explained shortfall, evidence count, trace). CEO constraint changes (for example “exclude healthcare”) snapshot plan v1 → v2 with a reason. The same owner-scoped API is `GET /api/agent-goal-runs/:id/events`.
 
 **How do multi-intent scheduled goals work?** On the **COO**, creating a schedule from the CEO UI first builds a **draft execution plan** (workflow steps, specialty tasks, notify). Review the step list, then **Amend plan manually** if intent→step mapping is wrong (or **Build plan manually** from empty). Optional regenerate-with-feedback re-plans via LLM. **Save draft**, then **Approve plan & schedule** to make it **active**. Until approved, status is **draft** and tick/Run now are blocked. **Generate draft plan** is COO-only (hover the disabled control on other employees). A specialty employee **Save & schedule**s without a ladder and runs the prompt directly. COO/chat tools default to an approved plan so plain-language schedules still activate immediately.
 
@@ -98,9 +98,11 @@ For "alert me when..." market conditions, combine hourly (or weekdays) + tools (
 | Scheduled goals page | `/scheduled-goals` | Create, **edit**, list, pause, resume, run now, delete |
 | COO chat | `/` or `/agents/balserve/chat` | Plain-language create / list / update / pause / delete / run now |
 | Target employee chat | `/agents/:id/chat` | Automatic and Run now replies appear here; multi-intent plans show as Goal Plan panel when `agr-…` id is present |
-| Digest | `/this-week` | **2** most recent **goal plans** for selected week; **View all plans** → `/goal-plans` for full week list |
-| Goal plans page | `/goal-plans` | Paginated week list of `agent_goal_runs` (`from`/`to` or week start/end query) |
-| API | `GET /api/agent-goal-runs` (± `from`/`to`) and `GET /api/agent-goal-runs/:id` | CEO owner-scoped list/get of durable plans |
+| Digest | `/this-week` | **2** most recent **goal plans** for selected week; **Execution trace** on each; **View all plans** → `/goal-plans` |
+| Goal plans page | `/goal-plans` | Week list of `agent_goal_runs` (`from`/`to` or week start/end query); Ad-hoc and Scheduled labeled |
+| Goal execution trace | `/goal-plans/:id` | One run: steps, plan versions, KPI/spend, telemetry timeline (`goal_created` … `goal_completed`) |
+| Scheduled goals → Last plan | `/scheduled-goals` | Recent fires for that schedule; each panel links **Execution trace** |
+| API | `GET /api/agent-goal-runs` (± `from`/`to`) and `GET /api/agent-goal-runs/:id` (+ `/events`) | CEO owner-scoped list/get of durable plans and telemetry |
 
 ## Create via COO (recommended)
 

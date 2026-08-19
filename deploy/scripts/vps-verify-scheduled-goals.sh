@@ -101,6 +101,18 @@ if grep -qE 'Edit|edit' "$ROOT/knowledgebase/platform-help/28-scheduled-goals.md
 else
   bad "help 28 missing edit"
 fi
+if grep -q 'Execution trace' "$ROOT/knowledgebase/platform-help/28-scheduled-goals.md" 2>/dev/null \
+  && grep -q 'goal_created' "$ROOT/knowledgebase/platform-help/28-scheduled-goals.md" 2>/dev/null; then
+  ok "help 28 documents execution trace / telemetry"
+else
+  bad "help 28 missing execution trace / telemetry"
+fi
+if test -f "$ROOT/frontend/src/pages/GoalPlanDetail.jsx" \
+  && grep -q 'Execution telemetry' "$ROOT/frontend/src/components/GoalPlanTelemetry.jsx" 2>/dev/null; then
+  ok "frontend Goal execution trace page"
+else
+  bad "frontend missing GoalPlanDetail / GoalPlanTelemetry"
+fi
 if grep -q "28-scheduled-goals.md" "$ROOT/backend/src/services/ceo-default-master-data.js" 2>/dev/null; then
   ok "PLATFORM_HELP catalog includes 28"
 else

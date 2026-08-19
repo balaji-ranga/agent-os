@@ -99,7 +99,7 @@ To try it: paste that outcome to the COO, then **Generate plan** on [Scheduled g
 
 ## Telemetry captured on every run
 
-Every significant action is written on **your** Goal Plan (Digest and the Goal Plan view).
+Every significant action is written on **your** Goal Plan. Open **Digest**, **Run & Operate → Goal plans**, or **Execution trace** (`/goal-plans/agr-…`). Scheduled fires also show under **Scheduled goals → Last plan**.
 
 | What the run must log | Gate A evidence | Gate B / C evidence |
 |-----------------------|-----------------|---------------------|

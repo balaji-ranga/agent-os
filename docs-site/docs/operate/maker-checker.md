@@ -17,7 +17,7 @@ High-risk examples: large discounts, document submit/cancel, **deleting** a CRM 
 
 - Kanban cards labelled for CEO approval
 - Checker chat for “approve / reject / send back”
-- Multi-phase **goal plans** (CRM then ERP): the COO creates a plan; the platform advances when each step finishes; Digest and `/goal-plans` show progress
+- Multi-phase **goal plans** (CRM then ERP): the COO creates a plan; the platform advances when each step finishes; Digest and **Goal plans → Execution trace** show progress and telemetry
 
 Ask the COO to run `run crm maker checker` or `run erp maker checker` when those graphs are installed.
 

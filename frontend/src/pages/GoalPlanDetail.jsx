@@ -52,6 +52,10 @@ export default function GoalPlanDetail() {
         })
         .catch((e) => {
           if (!cancelled) setErr(e?.message || 'Failed to load goal plan');
+          if (timer) {
+            clearInterval(timer);
+            timer = null;
+          }
         })
         .finally(() => {
           if (!cancelled) setLoading(false);

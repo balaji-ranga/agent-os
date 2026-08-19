@@ -31,6 +31,8 @@ On the **COO**, a multi-intent prompt can become a **draft execution plan** (wor
 - Review steps → **Amend plan manually** if mapping is wrong → **Save draft** → **Approve plan & schedule**.
 - Until approved, the schedule stays **draft** and will not tick.
 
+After a fire, **Last plan** on this page (and **Goal plans → Execution trace**) show how that run executed: steps, plan version, KPI, and telemetry. Ad-hoc COO chat plans use the same Goal Plan panel and trace.
+
 Business Discovery (and similar specialists) typically **Save & schedule** without a nested CRM ladder. When they **Act** with handoff, Kanban + the orphan watcher can start CRM Maker.
 
 ## What to expect

@@ -106,6 +106,9 @@ Every Flolah capability should map to one or more of these primitives. Orphan fe
 | `/` home chat | Employees, Tasks, Memory | Chat with AI employees |
 | `/org` My Org | People, Employees, Departments | My Org (org chart, standups, **People**) |
 | `/kanban` | Tasks, Approvals, People | Kanban (all cards visible; department employees act on own department) |
+| `/this-week` Digest | Tasks, Employees | Digest (weekly pulse; goal plans) |
+| `/scheduled-goals` | Tasks | Scheduled goals |
+| `/goal-plans`, `/goal-plans/:id` | Tasks | Goal plans + execution trace (telemetry) |
 | `/broadcast` | Employees, Tasks | Broadcast |
 | `/master-data` | Knowledge | **Knowledge** (Master Data) |
 | `/content-explorer` | Knowledge | Content Explorer |
