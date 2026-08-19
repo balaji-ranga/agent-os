@@ -25,7 +25,7 @@ Run from backend:
 | **T3** | Outcome language maps to Find Lead → `business_discover` and CRM → existing Maker/Checker phrase (no new tool). | same |
 | **N1** | Featured **Revenue Company** pack loads with research + qualification roles and outcome-first channels. | same |
 | **N2** | Mission events (`goal_created`, `re_plan`, `policy_decision`) exist for the owner; other owner sees none. | same |
-| **N3** | Help / first-15-minutes tell the CEO to give the COO the outcome first; they do not say to open Workflow Builder first. | same |
+| **N3** | CEO help (`01-getting-started`, `03-dashboard-agents-chat`, `10-policies-guardrails`) tells the CEO to give the COO the outcome first; they do not say to open Workflow Builder first. Public docs-site matches. | same |
 
 ## What shipped (generic)
 

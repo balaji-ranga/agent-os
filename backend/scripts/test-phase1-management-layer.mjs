@@ -202,8 +202,8 @@ function assert(cond, msg) {
   const repoRoot = join(__dirname, '../..');
   const getting = readFileSync(join(repoRoot, 'knowledgebase/platform-help/01-getting-started.md'), 'utf8');
   const chat = readFileSync(join(repoRoot, 'knowledgebase/platform-help/03-dashboard-agents-chat.md'), 'utf8');
-  const first15 = readFileSync(join(repoRoot, 'docs-site/docs/start/first-15-minutes.md'), 'utf8');
-  const blob = `${getting}\n${chat}\n${first15}`;
+  const policies = readFileSync(join(repoRoot, 'knowledgebase/platform-help/10-policies-guardrails.md'), 'utf8');
+  const blob = `${getting}\n${chat}\n${policies}`;
   assert(/tell the COO the (business )?outcome first/i.test(blob) || /outcome first/i.test(blob), 'N3 help says outcome first');
   assert(!/open Workflow Builder first/i.test(blob), 'N3 does not tell CEOs to open Workflow Builder first');
 }
