@@ -431,6 +431,15 @@ docker compose --env-file .env exec -T -w /opt/agent-os/backend backend node scr
 
 Help **44**. Default target is a **public post permalink** (`/p/…`). Profile grids often 302 to login. The test requires a completed run plus usable page text (caption/title), not only a 429 visit. SSRF allows **public IPv6** (Instagram AAAA); private/link-local stays blocked.
 
+## summarize_url SSRF guard (unit)
+
+```powershell
+cd backend
+npm run test:ssrf
+```
+
+Blocks loopback, RFC1918, link-local, metadata, URL credentials, and integer IPv4 encodings. Public HTTPS hosts still allowed.
+
 ## CRM Maker/Checker deletes (Twenty)
 
 Maker **proposes**; Checker **deletes**. Do not archive in the Twenty UI.

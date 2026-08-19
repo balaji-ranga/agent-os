@@ -10,6 +10,8 @@ title: Content and media
 
 Grant tools per employee on **Workspace → Tools access**.
 
+`summarize_url` loads **HTTPS public pages** only. Loopback, private, and cloud-metadata addresses are blocked. Ops can further restrict hosts with `TOOLS_SUMMARIZE_ALLOWED_DOMAINS`.
+
 ## Content Explorer
 
 Browse, preview, download, or delete uploads and generated files. Channel media (WhatsApp and similar) appears here after it is mirrored.

@@ -6,7 +6,7 @@ Bounded **HTTPS** crawl of a website or domain, with optional **search phrases**
 
 | Need | Use |
 |------|-----|
-| One page summary | Content tool `summarize_url` |
+| One page summary | Content tool `summarize_url` (HTTPS public hosts only; private/link-local blocked) |
 | Open-web search | `brave_web_search` / Brave MCP |
 | Logged-in Chrome / recipes | Browser Session `browse_*` |
 | Domain crawl + phrases | **Web Scrape** node, or MCP `scrape_domain`, or content tools `web_scrape_url` / `web_scrape_domain` |

@@ -339,31 +339,57 @@ const SUMMARIZE_FETCH_HEADERS = {
   'Accept-Language': 'en-US,en;q=0.9',
 };
 
-async function fetchSummarizeUrlBody(url, { timeoutMs, maxBytes }) {
+const SUMMARIZE_MAX_REDIRECTS = 5;
+
+async function fetchSummarizeUrlBody(url, { timeoutMs, maxBytes, allowedDomains }) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  const ssrfOpts = { httpsOnly: true, allowedDomains };
   try {
-    const response = await fetch(url, {
-      signal: controller.signal,
-      redirect: 'follow',
-      headers: SUMMARIZE_FETCH_HEADERS,
-    });
-    if (!response.ok) {
-      return { ok: false, status: response.status, finalUrl: response.url || url };
+    let current = await assertSafeOutboundHttpsUrl(url, ssrfOpts);
+    const seen = new Set();
+    for (let hop = 0; hop <= SUMMARIZE_MAX_REDIRECTS; hop++) {
+      if (seen.has(current)) {
+        return { ok: false, status: 310, finalUrl: current };
+      }
+      seen.add(current);
+      const response = await fetch(current, {
+        signal: controller.signal,
+        redirect: 'manual',
+        headers: SUMMARIZE_FETCH_HEADERS,
+      });
+      const loc = response.headers.get('location');
+      if (loc && [301, 302, 303, 307, 308].includes(response.status)) {
+        if (hop === SUMMARIZE_MAX_REDIRECTS) {
+          return { ok: false, status: 310, finalUrl: current };
+        }
+        let next;
+        try {
+          next = new URL(loc, current).href;
+        } catch {
+          return { ok: false, status: response.status, finalUrl: current };
+        }
+        current = await assertSafeOutboundHttpsUrl(next, ssrfOpts);
+        continue;
+      }
+      if (!response.ok) {
+        return { ok: false, status: response.status, finalUrl: current };
+      }
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8', { fatal: false });
+      let body = '';
+      let contentLength = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        contentLength += value.length;
+        if (contentLength > maxBytes) break;
+        body += decoder.decode(value, { stream: true });
+      }
+      if (contentLength > maxBytes) body = body.slice(0, maxBytes);
+      return { ok: true, status: response.status, body, finalUrl: current };
     }
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder('utf-8', { fatal: false });
-    let body = '';
-    let contentLength = 0;
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      contentLength += value.length;
-      if (contentLength > maxBytes) break;
-      body += decoder.decode(value, { stream: true });
-    }
-    if (contentLength > maxBytes) body = body.slice(0, maxBytes);
-    return { ok: true, status: response.status, body, finalUrl: response.url || url };
+    return { ok: false, status: 310, finalUrl: current };
   } finally {
     clearTimeout(timeoutId);
   }
@@ -737,6 +763,12 @@ router.post('/summarize-url', async (req, res) => {
     }
 
     if (!body) {
+      const blocked = tried.length > 0 && tried.every((t) => /not allowed|Only HTTPS|Invalid URL/i.test(String(t.error || '')));
+      if (blocked) {
+        const msg = fetchErr || 'URL host is not allowed';
+        logTool(req, 'summarize_url', requestPayload, { error: msg, tried_urls: tried }, 'error', source);
+        return res.status(400).json({ error: msg });
+      }
       const remapped = candidates.find((c) => c !== url);
       const err = {
         error: lastStatus ? `Upstream returned ${lastStatus}` : fetchErr || 'Failed to fetch URL',

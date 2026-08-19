@@ -41,4 +41,4 @@ This skill is installed into **~/.openclaw/skills/agent-os-content-tools** so al
 
 ## Backend
 
-The Agent OS backend must be running and expose `/api/tools/summarize-url` (Phase 1). See `backend/.env.example` for `TOOLS_SUMMARIZE_*` and `TOOLS_API_KEY`.
+The Agent OS backend must be running and expose `/api/tools/summarize-url` (Phase 1). See `backend/.env.example` for `TOOLS_SUMMARIZE_*` and `TOOLS_API_KEY`. The backend fetches **HTTPS public hosts only** (private/loopback/metadata blocked).

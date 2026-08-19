@@ -4,7 +4,7 @@
 
 Catalog of Agent OS tools agents and workflows can call, for example:
 
-- `summarize_url`, `generate_image`, `generate_video`, `speech_tts` — return `paste_exactly` / `media_uri` (`MEDIA:/abs/path` for **WhatsApp file attach**) and auth-only `/api/media/…` for **Dashboard chat** (inline image/audio/video players with your login). Media is **not** world-public. Optional legacy signed URLs require ops `MEDIA_PUBLIC_SIGNED=1` (off by default).
+- `summarize_url`, `generate_image`, `generate_video`, `speech_tts` — return `paste_exactly` / `media_uri` (`MEDIA:/abs/path` for **WhatsApp file attach**) and auth-only `/api/media/…` for **Dashboard chat** (inline image/audio/video players with your login). Media is **not** world-public. Optional legacy signed URLs require ops `MEDIA_PUBLIC_SIGNED=1` (off by default). `summarize_url` fetches **HTTPS public pages only** (no loopback, private, or cloud-metadata hosts). Optional ops allowlist: `TOOLS_SUMMARIZE_ALLOWED_DOMAINS`.
 - **WhatsApp TTS tip:** prefer OGG/Opus (or MP3) from `speech_tts`; WAV often fails WhatsApp attach. Dashboard still plays WAV inline.
 - **Platform feedback:** `platform_feedback_submit` / `platform_feedback_enquire` (COO / Platform Help) — file bugs, feedback, or enhancements; Admins triage at **Platform feedback** (`/admin/platform-feedback`).
 - **Chat / channel attachments:** Web paperclip and WhatsApp inbound media land under **`inbound/attachments/`** (plus Master Data for web uploads). Summarize or transcribe with `speech_stt` / inbound-media workflow using the relative path or `MEDIA:` line.

@@ -274,6 +274,7 @@ if ($Services -match "backend|openclaw") {
   scp @ssh `
     "$Repo\backend\scripts\sync-agent-channels-to-openclaw.js" `
     "$Repo\backend\scripts\test-media-url.js" `
+    "$Repo\backend\scripts\test-ssrf-outbound.js" `
     "$Repo\backend\scripts\seed-inbound-media-summarize-workflow.js" `
     "$Repo\backend\scripts\test-workflow-desktop-package.js" `
     "$Repo\backend\scripts\test-local-ibkr-bridge-package.js" `

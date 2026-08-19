@@ -61,6 +61,9 @@ export function parsePublicHttpsUrl(raw) {
   if (proto !== 'https' && proto !== 'http') {
     throw Object.assign(new Error('Only HTTP(S) URLs are allowed'), { status: 400 });
   }
+  if (u.username || u.password) {
+    throw Object.assign(new Error('URL host is not allowed'), { status: 400 });
+  }
   const host = u.hostname.replace(/^\[|\]$/g, '').toLowerCase();
   if (!host || BLOCKED_HOSTS.has(host) || host.endsWith('.local') || host.endsWith('.localhost')) {
     throw Object.assign(new Error('URL host is not allowed'), { status: 400 });
