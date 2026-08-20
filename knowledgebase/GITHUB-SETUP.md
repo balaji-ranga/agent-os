@@ -79,4 +79,4 @@ Replace `YOUR_USERNAME` with your GitHub username. If your default branch is `ma
 
 - Add a **Topics** on GitHub (e.g. `openclaw`, `agents`, `node`, `react`).
 - If the repo is public, the URL will be: `https://github.com/YOUR_USERNAME/agent-os`
-- **Code scanning:** GitHub default setup scans Actions YAML. JavaScript/TypeScript (including `js/request-forgery` on `summarize_url`) is scanned by `.github/workflows/codeql-javascript.yml` so alerts re-run on every `main` push.
+- **Code scanning:** GitHub **default setup** currently scans Actions YAML only, so JavaScript alerts (including `summarize_url` SSRF) do not re-run on push. To refresh JS findings: **Settings → Code security → CodeQL → Edit → add JavaScript/TypeScript**. Do not add a CodeQL Actions workflow while default setup is enabled (GitHub rejects that SARIF upload). `.github/codeql/codeql-config.yml` is ready if you later switch to advanced setup.

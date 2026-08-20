@@ -128,13 +128,10 @@ if (Test-Path "$Repo\THIRD_PARTY_NOTICES.md") {
 if (Test-Path "$Repo\LICENSE") {
   scp @ssh "$Repo\LICENSE" "root@${HostIp}:$RemoteRoot/"
 }
-Write-Host "==> Sync GitHub blueprint secret-scan + CodeQL JS workflows"
+Write-Host "==> Sync GitHub blueprint secret-scan workflow"
 ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/.github/workflows $RemoteRoot/.github/codeql"
 if (Test-Path "$Repo\.github\workflows\blueprint-secret-scan.yml") {
   scp @ssh "$Repo\.github\workflows\blueprint-secret-scan.yml" "root@${HostIp}:$RemoteRoot/.github/workflows/"
-}
-if (Test-Path "$Repo\.github\workflows\codeql-javascript.yml") {
-  scp @ssh "$Repo\.github\workflows\codeql-javascript.yml" "root@${HostIp}:$RemoteRoot/.github/workflows/"
 }
 if (Test-Path "$Repo\.github\codeql\codeql-config.yml") {
   scp @ssh "$Repo\.github\codeql\codeql-config.yml" "root@${HostIp}:$RemoteRoot/.github/codeql/"
