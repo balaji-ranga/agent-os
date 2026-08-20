@@ -63,7 +63,9 @@ function ensureMonthlyBandVars(variables) {
   if (!variables || typeof variables !== 'object') return;
   if (variables.entry_slip_pct_max == null) variables.entry_slip_pct_max = 0.25;
   variables.entry_discount_pct_max = 3;
-  if (variables.screener_enrich_limit == null) variables.screener_enrich_limit = 8;
+  if (variables.screener_enrich_limit == null || variables.screener_enrich_limit === 8) {
+    variables.screener_enrich_limit = 25;
+  }
 }
 
 function ensureMonthlyRiskPerTradePct(variables) {
@@ -113,8 +115,8 @@ export function patchDemoBalajiIbkrQuoteBand(pack) {
     screener.data.toolPayload.enrich = true;
     screener.data.toolPayload.enrichLimit = '{{var.screener_enrich_limit}}';
   }
-  if (w1.variables && w1.variables.screener_enrich_limit == null) {
-    w1.variables.screener_enrich_limit = 8;
+  if (w1.variables && (w1.variables.screener_enrich_limit == null || w1.variables.screener_enrich_limit === 8)) {
+    w1.variables.screener_enrich_limit = 25;
   }
 
   const parseChecker = nodeById(w1, 'parse-checker');

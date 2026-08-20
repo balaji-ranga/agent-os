@@ -36,8 +36,8 @@ export const MONTHLY_TRADING_VARIABLES = {
   order_history_days: 30,
   open_plans_limit: 14,
   screener_limit: 25,
-  /** FMP history + fundamentals attached to the top N screener names (PE, SMA, 3m/6m momentum, YoY). */
-  screener_enrich_limit: 8,
+  /** FMP history + fundamentals attached to screener names (PE, SMA, 3m/6m momentum, YoY). Default matches screener_limit. */
+  screener_enrich_limit: 25,
   digest_email_to: '',
   /** BUY limit may not exceed last by this % (chase). */
   entry_slip_pct_max: 0.25,
@@ -50,19 +50,29 @@ export const MONTHLY_TRADING_VARIABLES = {
 
 /** Previous seed default — bump to 5 on re-seed unless the CEO already changed it. */
 export const LEGACY_RISK_PER_TRADE_PCT_DEFAULT = 0.75;
+/** Previous enrich default — bump to match screener_limit (25) on re-seed. */
+export const LEGACY_SCREENER_ENRICH_LIMIT_DEFAULT = 8;
 
 function isLegacyRiskPerTradeDefault(value) {
   return value === LEGACY_RISK_PER_TRADE_PCT_DEFAULT || value === '0.75';
 }
 
+function isLegacyScreenerEnrichLimit(value) {
+  return value === LEGACY_SCREENER_ENRICH_LIMIT_DEFAULT || value === '8';
+}
+
 /**
  * Merge seed defaults under existing CEO variables.
  * Blank/0 `risk_per_trade_pct` is preserved (Maker decides). Old 0.75 default becomes 5.
+ * Old `screener_enrich_limit` of 8 becomes 25 (full screener). Other CEO overrides stay.
  */
 export function mergeMonthlyTradingVariables(existing = {}) {
   const merged = { ...MONTHLY_TRADING_VARIABLES, ...existing };
   if (isLegacyRiskPerTradeDefault(existing.risk_per_trade_pct)) {
     merged.risk_per_trade_pct = MONTHLY_TRADING_VARIABLES.risk_per_trade_pct;
+  }
+  if (existing.screener_enrich_limit == null || isLegacyScreenerEnrichLimit(existing.screener_enrich_limit)) {
+    merged.screener_enrich_limit = MONTHLY_TRADING_VARIABLES.screener_enrich_limit;
   }
   return merged;
 }

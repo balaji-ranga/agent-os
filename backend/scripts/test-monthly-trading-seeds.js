@@ -53,9 +53,12 @@ async function main() {
   assert.ok(MONTHLY_TRADING_VARIABLES.cron_post_close_fallback);
   assert.ok(MONTHLY_TRADING_VARIABLES.local_bridge_base_url.includes('127.0.0.1'));
   assert.strictEqual(MONTHLY_TRADING_VARIABLES.risk_per_trade_pct, 5);
+  assert.strictEqual(MONTHLY_TRADING_VARIABLES.screener_enrich_limit, 25);
   assert.strictEqual(mergeMonthlyTradingVariables({ risk_per_trade_pct: 0.75 }).risk_per_trade_pct, 5);
   assert.strictEqual(mergeMonthlyTradingVariables({ risk_per_trade_pct: '' }).risk_per_trade_pct, '');
   assert.strictEqual(mergeMonthlyTradingVariables({ risk_per_trade_pct: 3 }).risk_per_trade_pct, 3);
+  assert.strictEqual(mergeMonthlyTradingVariables({ screener_enrich_limit: 8 }).screener_enrich_limit, 25);
+  assert.strictEqual(mergeMonthlyTradingVariables({ screener_enrich_limit: 12 }).screener_enrich_limit, 12);
 
   const { MAKER_STRATEGY_SYSTEM_PROMPT } = await import('./lib/trading-strategy-prompt.js');
   const { CHECKER_STRATEGY_SYSTEM_PROMPT } = await import('./lib/trading-checker-prompt.js');

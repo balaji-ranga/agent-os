@@ -650,7 +650,7 @@ export async function runScreener({
   priceMoreThan = null,
   isActivelyTrading = true,
   enrich = false,
-  enrichLimit = 8,
+  enrichLimit = 25,
   enrich_limit = null,
   include_history = false,
   include_fundamentals = false,
@@ -663,13 +663,14 @@ export async function runScreener({
   const kind = 'screener';
   const doEnrich =
     truthyFlag(enrich) || truthyFlag(include_history) || truthyFlag(include_fundamentals);
+  const screenerLimit = Math.min(Math.max(num(limit, 100) || 100, 1), 200);
   const enrichCap = Math.min(
-    Math.max(num(enrichLimit ?? enrich_limit, 8) || 8, 1),
-    25
+    Math.max(num(enrichLimit ?? enrich_limit, 25) || 25, 1),
+    screenerLimit
   );
   const filters = {
     minMarketCap: num(minMarketCap, 5e10),
-    limit: Math.min(Math.max(num(limit, 100) || 100, 1), 200),
+    limit: screenerLimit,
     exchange,
     country,
     volumeMoreThan: num(volumeMoreThan),
@@ -949,8 +950,9 @@ async function enrichOneCandidate(c, { force = false } = {}) {
   return out;
 }
 
-async function enrichScreenerCandidates(candidates, { enrichLimit = 8, force = false } = {}) {
-  const lim = Math.min(Math.max(Number(enrichLimit) || 8, 1), 25);
+async function enrichScreenerCandidates(candidates, { enrichLimit = 25, force = false } = {}) {
+  const maxN = Array.isArray(candidates) ? candidates.length : 0;
+  const lim = Math.min(Math.max(Number(enrichLimit) || 25, 1), Math.max(maxN, 1));
   const head = candidates.slice(0, lim);
   const tail = candidates.slice(lim).map((c) => ({ ...c, stats_enriched: false, stats_source: null }));
   const enriched = await Promise.all(head.map((c) => enrichOneCandidate(c, { force })));

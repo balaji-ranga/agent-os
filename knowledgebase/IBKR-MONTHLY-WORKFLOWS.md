@@ -49,11 +49,11 @@ Default crons and **budget caps** live in workflow **Variables** (seed: `backend
 | `cash_band_pct_*` | 30 / 80 | Target cash band % |
 | `entry_slip_pct_max` | `0.25` | Max % a BUY limit may sit **above** last (chase) |
 | `entry_discount_pct_max` | `3` | Max % a BUY limit may sit **below** last (unfillable / invented prices). W1 hard gates reject; W2 skips the buy if Gateway/FMP last disagrees |
-| `screener_enrich_limit` | `8` | Top N screener names get FMP PE, SMA50/200, 3m/6m momentum, 52w distance, revenue/EPS YoY. Missing stats → Brave Search fallback. |
+| `screener_enrich_limit` | `25` | FMP PE, SMA50/200, 3m/6m momentum, 52w distance, revenue/EPS YoY on screener names (default matches `screener_limit`). Missing stats → Brave Search fallback. |
 | `monthly_drawdown_stop_pct` | `4` | Guardrail halt new entries |
 | `cron_post_close_fallback` | `5 21 * * 1-5` | W1 schedule seed. Interpreted in **server `TZ`**, not US Eastern. On Asia/Singapore hosts use a converted post-close cron such as `40 4 * * 2-6` (04:40 Tue–Sat ≈ 16:40 US Eastern previous weekday). |
 
-Override in Workflows → W1 → Variables (then Publish). Blank or `0` on `risk_per_trade_pct` leaves stop distance to the Maker. Re-seed bumps the old `0.75` default to `5` and keeps other CEO overrides.
+Override in Workflows → W1 → Variables (then Publish). Blank or `0` on `risk_per_trade_pct` leaves stop distance to the Maker. Re-seed bumps the old `0.75` default to `5`, old `screener_enrich_limit` of `8` to `25`, and keeps other CEO overrides.
 
 Maker **chooses** on each `new_entry`: full IBKR bracket (stop+tp) **or** hold-for-weeks (`bracket` false, `exit_plan` later_day_plan, `forecast_up_weeks` ≥ 1, omit tp). A later W1 day plan then decides sell / hold / raise_stop. W2 places `bracket`, `stop_only`, or `entry_only`.
 

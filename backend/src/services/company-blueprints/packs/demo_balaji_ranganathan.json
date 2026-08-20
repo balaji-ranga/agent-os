@@ -1261,7 +1261,7 @@
         "order_history_days": 30,
         "open_plans_limit": 14,
         "screener_limit": 25,
-        "screener_enrich_limit": 8,
+        "screener_enrich_limit": 25,
         "digest_email_to": "",
         "entry_slip_pct_max": 0.25,
         "entry_discount_pct_max": 3,
@@ -2940,7 +2940,7 @@
         "local_bridge_token": "",
         "entry_slip_pct_max": 0.25,
         "entry_discount_pct_max": 3,
-        "screener_enrich_limit": 8
+        "screener_enrich_limit": 25
       },
       "graph": {
         "nodes": [
@@ -3275,7 +3275,7 @@
         "local_bridge_token": "",
         "entry_slip_pct_max": 0.25,
         "entry_discount_pct_max": 3,
-        "screener_enrich_limit": 8
+        "screener_enrich_limit": 25
       },
       "graph": {
         "nodes": [
@@ -3516,7 +3516,7 @@
         "local_bridge_token": "",
         "entry_slip_pct_max": 0.25,
         "entry_discount_pct_max": 3,
-        "screener_enrich_limit": 8
+        "screener_enrich_limit": 25
       },
       "graph": {
         "nodes": [
@@ -4103,7 +4103,7 @@
           "PAXOS:ETH"
         ],
         "entry_discount_pct_max": 3,
-        "screener_enrich_limit": 8
+        "screener_enrich_limit": 25
       },
       "graph": {
         "nodes": [
@@ -6790,7 +6790,7 @@
           "PAXOS:ETH"
         ],
         "entry_discount_pct_max": 3,
-        "screener_enrich_limit": 8
+        "screener_enrich_limit": 25
       },
       "graph": {
         "nodes": [
