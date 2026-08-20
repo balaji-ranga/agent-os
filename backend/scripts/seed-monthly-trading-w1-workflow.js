@@ -305,7 +305,7 @@ export function buildMonthlyTradingW1Graph({
               id: 'userMessage',
               mode: 'static',
               value:
-                '=== CHECKER FEEDBACK ===\n{{parse-checker.adjustments}}\n\n=== MARKET REGIME ===\n{{tool-regime.text}}\n\n=== MONTHLY GUARDRAIL ===\n{{tool-guardrail.text}}\n\n=== OPEN DAY PLANS (recovery) ===\n{{api-open-plans.bodyText}}\n\n=== ACCOUNT SNAPSHOT (last laptop IBKR session) ===\n{{api-snapshot.bodyText}}\n\n=== SCREENER ===\n{{tool-screener.text}}\n\n=== ORDER LEARNINGS ===\n{{tool-learnings.text}}\n\n=== BRAIN HISTORY ===\n{{api-brain-history.body.context_text}}\n\n=== RUN / EVENT INPUT ===\n{{input}}',
+                '=== PREVIOUS MAKER PLAN (empty on first pass; revise this JSON) ===\n{{maker-1.text}}\n\n=== CHECKER FEEDBACK (empty on first pass; apply every item) ===\n{{parse-checker.adjustments}}\n\nIf checker feedback is non-empty: output a complete replacement plan JSON only. Do not write essays, procedures, or markdown. Patch the previous maker plan in place.\n\n=== MARKET REGIME ===\n{{tool-regime.text}}\n\n=== MONTHLY GUARDRAIL ===\n{{tool-guardrail.text}}\n\n=== OPEN DAY PLANS (recovery) ===\n{{api-open-plans.bodyText}}\n\n=== ACCOUNT SNAPSHOT (last laptop IBKR session) ===\n{{api-snapshot.bodyText}}\n\n=== SCREENER ===\n{{tool-screener.text}}\n\n=== ORDER LEARNINGS ===\n{{tool-learnings.text}}\n\n=== BRAIN HISTORY ===\n{{api-brain-history.body.context_text}}\n\n=== RUN / EVENT INPUT ===\n{{input}}',
             },
           ],
           taskConfig: {

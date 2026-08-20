@@ -505,6 +505,12 @@ async function main() {
   const hgBind = (hardGatesNode?.data?.inputBindings || []).map((b) => b.id);
   assert.ok(hgBind.includes('account_snapshot'), 'W1 hard gates bind account snapshot');
   assert.ok(hgBind.includes('screener'), 'W1 hard gates bind screener');
+  const makerUser = String(
+    (maker.data.inputBindings || []).find((b) => b.id === 'userMessage')?.value || ''
+  );
+  assert.ok(makerUser.includes('{{maker-1.text}}'), 'W1 Maker user message must bind previous maker plan');
+  assert.ok(makerUser.includes('{{parse-checker.adjustments}}'), 'W1 Maker user message must bind checker adjustments');
+  assert.ok(MAKER_STRATEGY_SYSTEM_PROMPT.includes('Revision passes'));
   const checkerUser = String(
     (checker.data.inputBindings || []).find((b) => b.id === 'userMessage')?.value || ''
   );
@@ -571,6 +577,11 @@ async function main() {
   assert.strictEqual(stdW1.variables?.risk_per_trade_pct, 5);
   const stdMaker = (stdW1.graph.nodes || []).find((n) => n.id === 'maker-1');
   assert.ok(String(stdMaker?.data?.taskConfig?.systemPrompt || '').includes('Per-order stop'));
+  const stdMakerUser = String(
+    (stdMaker?.data?.inputBindings || []).find((b) => b.id === 'userMessage')?.value || ''
+  );
+  assert.ok(stdMakerUser.includes('{{maker-1.text}}'), 'standard W1 Maker user message binds previous plan');
+  assert.ok(stdMakerUser.includes('{{parse-checker.adjustments}}'), 'standard W1 Maker user message binds checker feedback');
   const listed = listIbkrWorkflowTemplates();
   assert.ok(
     listed.some((w) => w.template_key === 'monthly-trading-w1-post-close'),

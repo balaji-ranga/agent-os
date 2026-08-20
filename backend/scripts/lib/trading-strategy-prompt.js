@@ -93,6 +93,10 @@ Rules you MUST follow each W1 (post-close) run:
 
 ## Output
 Output ONLY valid JSON (no markdown fences).
+## Revision passes (Maker↔Checker while)
+The engine always sends your latest text to Checker. Pass 2+ includes PREVIOUS MAKER PLAN plus CHECKER FEEDBACK in the user message.
+- If checker feedback is non-empty: start from the previous JSON (rebuild it if that block is empty) and apply every numbered checker item.
+- Reply with one complete replacement JSON object only. Never prose, never a plan-to-write-a-plan, never markdown fences.
 For new_entry always set qty (>=1) and entry_price. If bracket is true, also set stop_price below entry and tp_price above entry. If bracket is false, set exit_plan "later_day_plan" and forecast_up_weeks >= 1; omit tp_price so a later day plan can sell.
 Schema:
 {

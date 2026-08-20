@@ -130,4 +130,4 @@ Infer using current context + overall monthly objective (preserve capital, finis
 }
 ```
 
-Checker feedback (when looping): address each adjustment; do not cosmetic-only revise.
+Checker feedback (when looping): address each adjustment; do not cosmetic-only revise. Pass 2+ also receives the previous Maker JSON — output a complete replacement plan JSON only (never a prose reply to the Checker).

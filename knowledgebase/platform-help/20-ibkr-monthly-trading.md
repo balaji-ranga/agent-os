@@ -70,7 +70,7 @@ flowchart TB
 
 Plain language:
 
-1. **Evening (cloud):** W1 looks at the market, **your** last IBKR positions, and past learnings → proposes a day plan (Maker + Checker).
+1. **Evening (cloud):** W1 looks at the market, **your** last IBKR positions, and past learnings → Maker proposes a day plan → Checker reviews. If Checker rejects, Maker runs again (up to 3 times) with Checker notes **and** the previous plan JSON, and must output a full replacement JSON plan.
 2. **You approve** what needs CEO approval (e.g. discretionary loss sells).
 3. **Next open (laptop):** W2 downloads **your** approved plan → local bridge → IB Gateway places orders.
 4. **All day (laptop → cloud):** the bridge **polls** Gateway (default every **5 minutes**) and after W2/place, then POSTs snapshots/fills to Flolah for **your** account. That updates Summary/W1 cache. It does **not** start a W3 workflow run on every tick.
@@ -130,7 +130,7 @@ The monthly suite uses **W1, W2, W3, and W5**. There is **no W4** in this produc
 
 | ID | Name in UI / system | Where it runs | Goal (purpose) | Expected outcome |
 |----|---------------------|---------------|----------------|------------------|
-| **W1** | **Post-Close Review & Plan** · id `monthly-trading-w1-post-close` | **Cloud (VPS)** | After the market day, review regime, your positions, learnings, and screener → Maker builds a plan → Checker + hard gates validate → optional CEO approval on loss sells → save the next trading-day plan | Your **day plan** is stored (`approved` or waiting CEO); you get a **digest / notify**; plan is ready for W2 |
+| **W1** | **Post-Close Review & Plan** · id `monthly-trading-w1-post-close` | **Cloud (VPS)** | After the market day, review regime, your positions, learnings, and screener → Maker builds a plan → Checker + hard gates validate → optional CEO approval on loss sells → save the next trading-day plan. Maker↔Checker may loop (default 3). Pass 2+ injects Checker adjustments **and** the previous Maker JSON; Maker must emit a full replacement plan JSON (not a prose reply). | Your **day plan** is stored (`approved` or waiting CEO); you get a **digest / notify**; plan is ready for W2 |
 | **W2** | **Execute** · id `monthly-trading-w2-execute` | **Your laptop** (desktop package) | At US open (or when you run it), fetch **your** open/approved plan and send actions to the local IBKR bridge. Buys whose limit is far from the live last are **skipped** (not placed) | IB Gateway receives place / stop / sell instructions; plan status becomes **`executing` → `partial` / `executed` / `failed`** with an execution report |
 | **W3** | **IBKR Events** · id `monthly-trading-w3-events` | **Cloud (VPS)** | Owns the **webhook secret** that binds the laptop to **you**. Runs the event graph for **EOD** (and optional `fanout_w3`): journal, `notify_ceo`, guardrail, **start W1**. Default 5‑minute snapshots and fills persist on the ingest API **without** starting this workflow | Book/order events already on disk from ingest; on EOD you get journal/notify + **W1 kicked off** |
 | **W4** | — | — | **Not used** in the Monthly Positive Return suite (no workflow id) | — |
