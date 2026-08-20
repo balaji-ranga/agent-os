@@ -77,6 +77,24 @@ cd backend\local-ibkr-bridge
 
 W2 market-open execution is a **separate** desktop-package scheduled task. Full certify/E2E checklist: [IBKR-MONTHLY-PHASE4.md](IBKR-MONTHLY-PHASE4.md).
 
+If Task Scheduler **On logon** is denied, put a Startup-folder shortcut to `scripts\run-bridge.ps1` so the bridge returns after reboot. Keep this Windows session (or the Startup process) running through US cash hours.
+
+**W2 (US open)** and **EOD (US close)** are laptop-local clocks. Convert `America/New_York` 09:30 and ~16:10 to the laptop timezone (example: Asia/Singapore is **21:30** weekdays for open, **04:10** Tue–Sat for close).
+
+```powershell
+# After US cash close — pushes eod_snapshot so cloud W3 starts W1
+.\scripts\push-eod-snapshot.ps1
+```
+
+Register example (laptop TZ already set to Singapore):
+
+```powershell
+# W2 desktop package (path is wherever you unzipped Download for Windows)
+schtasks /Create /TN AgentOsIbkrW2 /SC WEEKLY /D MON,TUE,WED,THU,FRI /ST 21:30 /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Users\<you>\ibkr-monthly\w2-execute\Run-Workflow.ps1"
+# EOD ingest
+schtasks /Create /TN AgentOsIbkrEod /SC WEEKLY /D TUE,WED,THU,FRI,SAT /ST 04:10 /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\path\to\agent-os\backend\local-ibkr-bridge\scripts\push-eod-snapshot.ps1"
+```
+
 ## Offline test
 
 ```bash

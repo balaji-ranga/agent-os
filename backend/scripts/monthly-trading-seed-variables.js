@@ -28,7 +28,7 @@ export const MONTHLY_TRADING_VARIABLES = {
   monthly_target_pct_max: 5,
   monthly_drawdown_stop_pct: 4,
   discretionary_loss_sell_pct: 3,
-  /** US post-close fallback; cron is interpreted in server local TZ */
+  /** US post-close fallback; cron is interpreted in server local TZ (not US Eastern). */
   cron_post_close_fallback: '5 21 * * 1-5',
   cron_weekly_review: '0 10 * * 6',
   checker_max_loops: 3,

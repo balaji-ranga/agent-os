@@ -18,7 +18,7 @@ Act with handoff creates Kanban work for CRM Maker — do not duplicate leads bl
 
 ## IBKR monthly trading
 
-If your company uses the paper/live trading pack: Connectors download a **local bridge**, workflows W1–W5 cover plan vs execute, and **IBKR Summary** shows portfolio and day plans. **Clear data** resets transactional rows and keeps budget variables.
+If your company uses the paper/live trading pack: Connectors download a **local bridge**, workflows W1–W5 cover plan vs execute, and **IBKR Summary** shows portfolio and day plans. **Clear data** resets transactional rows and keeps budget variables. W1/W3/W5 run in the cloud on a schedule (cron is the **server timezone**); W2 and the bridge run on your laptop at US open / through the session. After about a month, use IBKR Summary plus the weekly review to judge P&L and trades.
 
 Treat live trading as high risk. Use Maker/Checker and budgets. This guide does not document brokerage credentials or server layout.
 
