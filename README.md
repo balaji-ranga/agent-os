@@ -1,5 +1,7 @@
 ﻿# Flolah — AI Company OS
 
+> **Experimental / testing.** Flolah is in an experimental testing phase. Features, APIs, and behavior can change without notice. Validate your use cases thoroughly before adopting it for production or other important work.
+
 **Flolah** (Automate, Innovate, Elevate) is an open-source **AI Company OS**: hire **AI employees**, give them roles and tools, store company knowledge, and run the company with chat, Kanban, workflows, and connectors.
 
 - **Hosted:** [https://flolah.cloud](https://flolah.cloud) · sign in [https://login.flolah.cloud](https://login.flolah.cloud)
