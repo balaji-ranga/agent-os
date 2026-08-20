@@ -7,7 +7,7 @@ import { getIbkrTradingConfig, findAllowlistEntry } from '../services/ibkr-tradi
 import * as ledger from '../services/ibkr-trading-ledger.js';
 import { getDb } from '../db/schema.js';
 import * as store from '../services/agent-workflow-store.js';
-import { resolveIbkrPolicy } from '../services/ibkr-workflow-variables.js';
+import { resolveIbkrPolicy, pickIbkrPolicySource } from '../services/ibkr-workflow-variables.js';
 import { resolveEntitledOwnerUserId } from '../services/tool-owner-scope.js';
 import { parseForceFlag } from '../services/tool-summary-cache.js';
 import {
@@ -30,13 +30,20 @@ import { toolApiRateLimitMiddleware } from '../services/tool-api-rate-limits.js'
 const router = Router();
 
 /**
- * Policy from the IBKR day-plan workflow definition variables only.
+ * Policy from the owner's monthly W1 Variables when that pack exists.
+ * Legacy `ibkr-maker-checker-paper` is only a fallback when monthly W1 is absent.
  * Request body must not override allowlist/budget/limits (hardening).
  */
-function resolveWorkflowBudgetOpts(_req) {
-  const def = store.getDefinition('ibkr-maker-checker-paper');
-  const policy = resolveIbkrPolicy(def?.variables || {});
+function resolveWorkflowBudgetOpts(req, ownerOverride = null) {
+  const owner = ownerOverride || entitledOwnerId(req);
+  const monthly = store.getDefinition('monthly-trading-w1-post-close', owner);
+  const legacy = store.getDefinition('ibkr-maker-checker-paper', owner);
+  const picked = pickIbkrPolicySource({ monthlyW1: monthly, legacyPaper: legacy });
+  const policy = resolveIbkrPolicy(picked.variables || {});
   return {
+    owner,
+    policySource: picked.source,
+    policyWorkflowId: picked.workflowId,
     policy,
     dailyBudgetUsd: policy.daily_budget_usd,
     maxTradesPerDay: policy.max_trades_per_day,
@@ -235,6 +242,8 @@ router.get('/config', (req, res) => {
     allowlist: budgetOpts.allowlist,
     allowlist_keys: budgetOpts.allowlistKeys,
     source: 'workflow_variables',
+    policy_source: budgetOpts.policySource,
+    policy_workflow_id: budgetOpts.policyWorkflowId,
   });
 });
 
@@ -312,7 +321,14 @@ router.post('/account-snapshot/ingest', async (req, res) => {
 router.get('/account-snapshot/latest', async (req, res) => {
   try {
     const owner = entitledOwnerId(req);
-    const budgetOpts = resolveWorkflowBudgetOpts(req);
+    const budgetOpts = resolveWorkflowBudgetOpts(req, owner);
+    console.info(
+      '[ibkr-trading] snapshot-latest policy owner=%s source=%s workflow=%s allowlist_n=%s',
+      owner,
+      budgetOpts.policySource,
+      budgetOpts.policyWorkflowId || '-',
+      (budgetOpts.allowlistKeys || []).length
+    );
     const { getLatestAccountSnapshot, ensureIbkrAnalyticsTables } = await import(
       '../services/ibkr-analytics.js'
     );

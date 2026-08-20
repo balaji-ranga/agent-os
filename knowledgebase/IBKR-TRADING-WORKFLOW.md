@@ -23,6 +23,8 @@ Tradable instruments and trading policy are **workflow Variables** on the day-pl
 
 Seed scripts write an initial example universe into the definition once (`backend/scripts/ibkr-seed-variables.js`). After that, change tickers only in the Variables UI (or API) — not in code or `.env`.
 
+The **monthly W1–W5** pack does not use this paper allowlist. Snapshot and budget APIs read **monthly-trading-w1-post-close** Variables when that workflow exists (empty allowlist = screener universe). `ibkr-maker-checker-paper` is legacy fallback only.
+
 Gateway connection secrets stay in `.env`: `IBKR_HOST`, `IBKR_PORT`, `IBKR_CLIENT_ID`, `IBKR_ACCOUNT_ID`, `IBKR_IS_PAPER`, `IBKR_TRADING_ENABLED`.
 
 ### Capital & budget

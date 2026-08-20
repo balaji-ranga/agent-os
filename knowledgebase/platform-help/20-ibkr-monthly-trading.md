@@ -130,7 +130,7 @@ The monthly suite uses **W1, W2, W3, and W5**. There is **no W4** in this produc
 
 | ID | Name in UI / system | Where it runs | Goal (purpose) | Expected outcome |
 |----|---------------------|---------------|----------------|------------------|
-| **W1** | **Post-Close Review & Plan** · id `monthly-trading-w1-post-close` | **Cloud (VPS)** | After the market day, review regime, your positions, learnings, and screener → Maker builds a plan → Checker + hard gates validate → optional CEO approval on loss sells → save the next trading-day plan. Maker↔Checker may loop (default 3). Pass 2+ injects Checker adjustments **and** the previous Maker JSON; Maker must emit a full replacement plan JSON (not a prose reply). New buys must be on the **active allowlist** (workflow variable, or snapshot `allowlist_keys` if the variable is empty) **and** have a real last for that same symbol. If that set is empty, W1 can approve a **no-new-entry** plan instead of inventing a name. | Your **day plan** is stored (`approved` or waiting CEO); you get a **digest / notify**; plan is ready for W2 |
+| **W1** | **Post-Close Review & Plan** · id `monthly-trading-w1-post-close` | **Cloud (VPS)** | After the market day, review regime, your positions, learnings, and screener → Maker builds a plan → Checker + hard gates validate → optional CEO approval on loss sells → save the next trading-day plan. Maker↔Checker may loop (default 3). Pass 2+ injects Checker adjustments **and** the previous Maker JSON; Maker must emit a full replacement plan JSON (not a prose reply). New buys come from the **screener** (liquid large-caps). An optional `allowlist` on **this W1** Variables can narrow that set. Monthly W1–W5 do **not** read the legacy **IBKR Maker/Checker Paper** workflow. If you do set a W1 allowlist and it does not overlap the screener, W1 can approve a **no-new-entry** plan. | Your **day plan** is stored (`approved` or waiting CEO); you get a **digest / notify**; plan is ready for W2 |
 | **W2** | **Execute** · id `monthly-trading-w2-execute` | **Your laptop** (desktop package) | At US open (or when you run it), fetch **your** open/approved plan and send actions to the local IBKR bridge. Buys whose limit is far from the live last are **skipped** (not placed) | IB Gateway receives place / stop / sell instructions; plan status becomes **`executing` → `partial` / `executed` / `failed`** with an execution report |
 | **W3** | **IBKR Events** · id `monthly-trading-w3-events` | **Cloud (VPS)** | Owns the **webhook secret** that binds the laptop to **you**. Runs the event graph for **EOD** (and optional `fanout_w3`): journal, `notify_ceo`, guardrail, **start W1**. Default 5‑minute snapshots and fills persist on the ingest API **without** starting this workflow | Book/order events already on disk from ingest; on EOD you get journal/notify + **W1 kicked off** |
 | **W4** | — | — | **Not used** in the Monthly Positive Return suite (no workflow id) | — |
@@ -187,6 +187,8 @@ Full ops tables (tools, crons): [IBKR-MONTHLY-WORKFLOWS.md](../IBKR-MONTHLY-WORK
 
 Open **Workflows → monthly-trading-w1-post-close → Variables**:
 
+Budget, risk, and (optional) tradable names for the **monthly** pack live here. IBKR snapshot APIs use this W1 definition when it exists. They do **not** use legacy **IBKR Maker/Checker Paper** (`ibkr-maker-checker-paper`).
+
 | Variable | Meaning |
 |----------|---------|
 | `daily_budget_usd` | Max **USD notional for new buys** (`new_entry`) in a plan |
@@ -197,6 +199,7 @@ Open **Workflows → monthly-trading-w1-post-close → Variables**:
 | `monthly_drawdown_stop_pct` | Halt new entries after drawdown from **your** month high-water mark |
 | `entry_slip_pct_max` / `entry_discount_pct_max` | BUY limit vs last: not more than 0.25% **above** / 3% **below** (default). Stops invented cheap limits that would never fill. Company setup from the Flolah demo pack installs the same W1 bindings. |
 | `screener_enrich_limit` | Top N screener names get FMP PE / SMA / 3m–6m momentum / YoY (default 8). Missing fields → Maker may use Brave Search. |
+| `allowlist` / `allowlist_keys` | **Optional.** Empty (the monthly default) = trade the screener universe. Set only if you want to restrict W1/W2 to specific `EXCHANGE:SYMBOL` keys. |
 
 Budget applies to **buys only**, not sells. Prefer an IBKR **Cash** account so the broker itself blocks margin borrowing.
 

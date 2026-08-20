@@ -67,6 +67,66 @@ async function main() {
   assert.ok(CHECKER_STRATEGY_SYSTEM_PROMPT.includes('prior_plan_reconcile'));
   assert.ok(CHECKER_STRATEGY_SYSTEM_PROMPT.includes('Maker chooses the stop distance'));
 
+  const { pickIbkrPolicySource, inferInstrumentFromKey, resolveIbkrPolicy } = await import(
+    '../src/services/ibkr-workflow-variables.js'
+  );
+  const { IBKR_DAY_PLAN_VARIABLES } = await import('./ibkr-seed-variables.js');
+  const monthlyPick = pickIbkrPolicySource({
+    monthlyW1: { id: 'monthly-trading-w1-post-close', variables: { daily_budget_usd: 1000, max_trades_per_day: 5 } },
+    legacyPaper: { id: 'ibkr-maker-checker-paper', variables: IBKR_DAY_PLAN_VARIABLES },
+  });
+  assert.strictEqual(monthlyPick.source, 'monthly-w1');
+  assert.strictEqual(resolveIbkrPolicy(monthlyPick.variables).allowlist_keys.length, 0);
+  const legacyPick = pickIbkrPolicySource({
+    monthlyW1: null,
+    legacyPaper: { id: 'ibkr-maker-checker-paper', variables: IBKR_DAY_PLAN_VARIABLES },
+  });
+  assert.strictEqual(legacyPick.source, 'ibkr-paper');
+  assert.ok(resolveIbkrPolicy(legacyPick.variables).allowlist_keys.includes('NASDAQ:NVDA'));
+  assert.strictEqual(inferInstrumentFromKey('NASDAQ:AMZN')?.symbol, 'AMZN');
+
+  const { validateTradePlan } = await import('../src/services/ibkr-trading-rules.js');
+  const openAmzn = {
+    trades: [
+      {
+        key: 'NASDAQ:AMZN',
+        side: 'BUY',
+        qty: 1,
+        reference_price: 265.84,
+        entry_price: 265.84,
+        stop_pct: 2,
+        tp_pct: 1,
+        rationale: 'Screener momentum name with cash available for a one-share paper probe within daily budget.',
+        thesis: 'AMZN is a liquid large-cap with positive 3m/6m momentum above the 50 and 200 day averages.',
+        risks: 'Consumer spend and cloud growth can reverse; a stop limits the paper probe.',
+        why_now: 'Screener last is inside the quote band and cash covers one share.',
+      },
+    ],
+    notes: 'monthly screener',
+  };
+  const monthlyValidate = validateTradePlan(openAmzn, {
+    cashUsd: 9000,
+    allowlist: [],
+    allowlistKeys: [],
+    minRationaleChars: 40,
+  });
+  assert.strictEqual(
+    monthlyValidate.ok,
+    true,
+    `empty monthly allowlist should accept screener AMZN: ${monthlyValidate.error || JSON.stringify(monthlyValidate.errors)}`
+  );
+  const legacyValidate = validateTradePlan(openAmzn, {
+    cashUsd: 9000,
+    allowlist: IBKR_DAY_PLAN_VARIABLES.allowlist,
+    allowlistKeys: IBKR_DAY_PLAN_VARIABLES.allowlist_keys,
+    minRationaleChars: 40,
+  });
+  assert.strictEqual(legacyValidate.ok, false);
+  assert.ok(
+    String(legacyValidate.error || (legacyValidate.errors || []).join(' ')).includes('allowlist'),
+    legacyValidate.error || JSON.stringify(legacyValidate.errors)
+  );
+
   const {
     PLAN_STATUSES,
     OPEN_PLAN_STATUSES,

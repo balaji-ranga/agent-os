@@ -128,6 +128,44 @@ export function findInAllowlist(symbolOrKey, catalog) {
   );
 }
 
+/**
+ * Infer IBKR instrument meta from EXCHANGE:SYMBOL (or a bare ticker → SMART:TICKER).
+ * Used when the active workflow has an empty allowlist (monthly W1 screener universe).
+ */
+export function inferInstrumentFromKey(symbolOrKey) {
+  const raw = String(symbolOrKey || '').trim().toUpperCase();
+  if (!raw) return null;
+  const fromCatalog = findInAllowlist(raw, [raw.includes(':') ? raw : `SMART:${raw}`]);
+  if (fromCatalog) return fromCatalog;
+  if (!raw.includes(':')) {
+    return normalizeInstrument({ key: `SMART:${raw}`, symbol: raw, exchange: 'SMART', market: 'US' });
+  }
+  return null;
+}
+
+/**
+ * Monthly W1–W5 is the live pack. Legacy `ibkr-maker-checker-paper` is only used when
+ * the owner has no monthly W1 definition.
+ */
+export function pickIbkrPolicySource({ monthlyW1 = null, legacyPaper = null } = {}) {
+  if (monthlyW1 && typeof monthlyW1 === 'object') {
+    return {
+      source: 'monthly-w1',
+      workflowId: monthlyW1.id || 'monthly-trading-w1-post-close',
+      variables: monthlyW1.variables && typeof monthlyW1.variables === 'object' ? monthlyW1.variables : monthlyW1,
+    };
+  }
+  if (legacyPaper && typeof legacyPaper === 'object') {
+    return {
+      source: 'ibkr-paper',
+      workflowId: legacyPaper.id || 'ibkr-maker-checker-paper',
+      variables:
+        legacyPaper.variables && typeof legacyPaper.variables === 'object' ? legacyPaper.variables : legacyPaper,
+    };
+  }
+  return { source: 'defaults', workflowId: null, variables: {} };
+}
+
 function num(v, fallback) {
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;

@@ -105,4 +105,4 @@ CEO help: [platform-help/20-ibkr-monthly-trading.md](platform-help/20-ibkr-month
 | Maker/Checker day plan | `ibkr-maker-checker-paper` | Chat `run ibkr day plan` / manual | Allowlist paper day plan → CEO → place |
 | Position poller | `ibkr-position-poller-paper` | Schedule / manual | Poll paper positions & orders |
 
-Prefer the **monthly** W1–W3 / W5 suite for the Positive Return system.
+Prefer the **monthly** W1–W3 / W5 suite for the Positive Return system. Snapshot budget/allowlist APIs follow **W1 Variables** when that workflow exists; they do not read this legacy paper allowlist.

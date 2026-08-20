@@ -7,6 +7,7 @@ import {
   normalizeAllowlist,
   allowlistKeysFrom,
   resolveIbkrPolicy,
+  inferInstrumentFromKey,
   IBKR_POLICY_DEFAULTS,
 } from './ibkr-workflow-variables.js';
 import { computeSpendableUsd } from './ibkr-cash-resolve.js';
@@ -34,10 +35,13 @@ export function getIbkrTradingConfig() {
 
 /**
  * Resolve instrument meta from a workflow allowlist catalog.
- * catalog required — empty/missing → not found.
+ * Empty catalog: infer EXCHANGE:SYMBOL (monthly W1 screener universe).
  */
 export function findAllowlistEntry(symbolOrKey, catalog = []) {
-  return findInAllowlist(symbolOrKey, catalog);
+  const found = findInAllowlist(symbolOrKey, catalog);
+  if (found) return found;
+  if (!catalog || !catalog.length) return inferInstrumentFromKey(symbolOrKey);
+  return null;
 }
 
 export { normalizeAllowlist, allowlistKeysFrom, resolveIbkrPolicy, IBKR_POLICY_DEFAULTS };
@@ -256,9 +260,16 @@ export function validateTradePlan(planInput, opts = {}) {
 
   for (let i = 0; i < trades.length; i++) {
     const t = trades[i] || {};
-    const entryMeta = findAllowlistEntry(t.key || t.symbol || t.ticker, catalog);
-    if (!entryMeta || !allowlistKeys.includes(entryMeta.key)) {
-      errors.push(`Trade ${i + 1}: symbol not on allowlist (${t.key || t.symbol})`);
+    const entryMeta =
+      findAllowlistEntry(t.key || t.symbol || t.ticker, catalog) ||
+      (allowlistKeys.length === 0 ? inferInstrumentFromKey(t.key || t.symbol || t.ticker) : null);
+    if (allowlistKeys.length > 0) {
+      if (!entryMeta || !allowlistKeys.includes(entryMeta.key)) {
+        errors.push(`Trade ${i + 1}: symbol not on allowlist (${t.key || t.symbol})`);
+        continue;
+      }
+    } else if (!entryMeta) {
+      errors.push(`Trade ${i + 1}: cannot resolve instrument (${t.key || t.symbol})`);
       continue;
     }
 
