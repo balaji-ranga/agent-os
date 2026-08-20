@@ -220,9 +220,10 @@ export function patchDemoBalajiIbkrQuoteBand(pack) {
     );
   }
   const checkerUser = (checker.data.inputBindings || []).find((b) => b.id === 'userMessage');
-  if (checkerUser?.value && !String(checkerUser.value).includes('{{tool-screener.text}}')) {
+  const checkerUserNeed = '{{var.allowlist_keys}}';
+  if (checkerUser?.value && !String(checkerUser.value).includes(checkerUserNeed)) {
     checkerUser.value =
-      '=== MAKER PLAN (JSON) ===\n{{maker-1.text}}\n\n=== MARKET REGIME ===\n{{tool-regime.text}}\n\n=== GUARDRAIL ===\n{{tool-guardrail.text}}\n\n=== OPEN PLANS ===\n{{api-open-plans.bodyText}}\n\n=== ACCOUNT SNAPSHOT ===\n{{api-snapshot.bodyText}}\n\n=== SCREENER ===\n{{tool-screener.text}}\n\n=== ORDER LEARNINGS ===\n{{tool-learnings.text}}';
+      '=== MAKER PLAN (JSON) ===\n{{maker-1.text}}\n\n=== ALLOWLIST KEYS (workflow var; may be empty — then honor snapshot allowlist_keys) ===\n{{var.allowlist_keys}}\n\n=== MARKET REGIME ===\n{{tool-regime.text}}\n\n=== GUARDRAIL ===\n{{tool-guardrail.text}}\n\n=== OPEN PLANS ===\n{{api-open-plans.bodyText}}\n\n=== ACCOUNT SNAPSHOT ===\n{{api-snapshot.bodyText}}\n\n=== SCREENER ===\n{{tool-screener.text}}\n\n=== ORDER LEARNINGS ===\n{{tool-learnings.text}}';
   }
 
   for (const key of ['ibkr-maker-checker-paper', 'ibkr-position-poller-paper']) {
@@ -257,9 +258,33 @@ export function patchDemoBalajiIbkrQuoteBand(pack) {
   return pack;
 }
 
-function main() {
+export async function syncDemoPackW1MakerCheckerFromSeed(pack) {
+  const { buildMonthlyTradingW1Graph } = await import('./seed-monthly-trading-w1-workflow.js');
+  const g = buildMonthlyTradingW1Graph();
+  const srcMaker = g.nodes.find((n) => n.id === 'maker-1');
+  const srcChecker = g.nodes.find((n) => n.id === 'checker-1');
+  const w1 = wf(pack, 'monthly-trading-w1-post-close');
+  const dstMaker = nodeById(w1, 'maker-1');
+  const dstChecker = nodeById(w1, 'checker-1');
+  if (!srcMaker || !srcChecker || !dstMaker || !dstChecker) {
+    throw new Error('W1 maker/checker nodes missing; cannot sync demo pack from seed');
+  }
+  const copyBind = (dst, src, id) => {
+    const s = (src.data.inputBindings || []).find((b) => b.id === id);
+    const d = (dst.data.inputBindings || []).find((b) => b.id === id);
+    if (s && d) d.value = s.value;
+  };
+  copyBind(dstMaker, srcMaker, 'userMessage');
+  copyBind(dstChecker, srcChecker, 'userMessage');
+  dstMaker.data.taskConfig.systemPrompt = srcMaker.data.taskConfig.systemPrompt;
+  dstChecker.data.taskConfig.systemPrompt = srcChecker.data.taskConfig.systemPrompt;
+  return pack;
+}
+
+async function main() {
   const pack = JSON.parse(readFileSync(PACK_PATH, 'utf8'));
   patchDemoBalajiIbkrQuoteBand(pack);
+  await syncDemoPackW1MakerCheckerFromSeed(pack);
   writeFileSync(PACK_PATH, `${JSON.stringify(pack, null, 2)}\n`);
   const w1 = wf(pack, 'monthly-trading-w1-post-close');
   const hg = nodeById(w1, 'hard-gates');

@@ -7,7 +7,9 @@
  * guardrail halt_new blocks new_entry, position caps, CEO approval flags,
  * bookable IBKR bracket (qty, entry, stop below, tp above), BUY limit within
  * slip/discount of snapshot or screener last, spendable notional uses
- * min(daily_budget, cash, equity × position_size_pct_max%).
+ * min(daily_budget, cash, equity × position_size_pct_max%). Empty new_entry is allowed
+ * when the bookable set (active allowlist ∩ priced screener/snapshot names, minus
+ * duplicate holds) is empty.
  */
 function parseMakerPlan(text) {
   const raw = String(text || '').trim();
@@ -59,6 +61,111 @@ function parseJsonish(raw) {
   }
 }
 
+function unwrapSnapshot(snap) {
+  if (!snap || typeof snap !== 'object') return {};
+  const body = snap.body;
+  if (
+    body &&
+    typeof body === 'object' &&
+    (body.cash_usd != null ||
+      body.equity_usd != null ||
+      body.positions ||
+      body.allowlist_keys ||
+      body.reference_prices ||
+      body.day_status)
+  ) {
+    return body;
+  }
+  const payload = snap.payload;
+  if (
+    payload &&
+    typeof payload === 'object' &&
+    (payload.cash_usd != null || payload.positions || payload.allowlist_keys || payload.reference_prices)
+  ) {
+    return payload;
+  }
+  return snap;
+}
+
+function normalizeInstrKey(v) {
+  return String(v || '').trim().toUpperCase();
+}
+
+function instrSymbol(v) {
+  const k = normalizeInstrKey(v);
+  return k.includes(':') ? k.split(':').pop() : k;
+}
+
+function asKeyList(raw) {
+  if (raw == null || raw === '') return [];
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === 'string') {
+    try {
+      const p = JSON.parse(raw);
+      if (Array.isArray(p)) return p;
+    } catch {
+      return raw
+        .split(/[,;\s]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+  }
+  return [];
+}
+
+function pushInstr(outKeys, outSyms, item) {
+  const raw =
+    typeof item === 'string' || typeof item === 'number'
+      ? item
+      : item?.key || item?.symbol || '';
+  const k = normalizeInstrKey(raw);
+  if (!k) return;
+  outKeys.add(k);
+  const sym = instrSymbol(k);
+  if (sym) outSyms.add(sym);
+}
+
+function collectAllowlist(snap, vars = {}) {
+  const keys = new Set();
+  const syms = new Set();
+  const fromVar = asKeyList(vars.allowlist_keys).length ? vars.allowlist_keys : vars.allowlist;
+  const fromSnap =
+    asKeyList(snap?.allowlist_keys).length
+      ? snap.allowlist_keys
+      : asKeyList(snap?.day_status?.allowlist_keys).length
+        ? snap.day_status.allowlist_keys
+        : snap?.allowlist || snap?.day_status?.allowlist;
+  for (const item of asKeyList(fromVar)) pushInstr(keys, syms, item);
+  if (keys.size === 0) {
+    for (const item of asKeyList(fromSnap)) pushInstr(keys, syms, item);
+  }
+  return { keys, syms, size: keys.size };
+}
+
+function collectHeld(snap) {
+  const keys = new Set();
+  const syms = new Set();
+  const positions = Array.isArray(snap?.positions) ? snap.positions : [];
+  for (const p of positions) {
+    const qty = num(p?.qty ?? p?.position ?? p?.shares, 0);
+    if (!(qty > 0)) continue;
+    pushInstr(keys, syms, p);
+  }
+  return { keys, syms };
+}
+
+function instrIn(set, key) {
+  const k = normalizeInstrKey(key);
+  if (!k || !set) return false;
+  return set.keys.has(k) || set.syms.has(instrSymbol(k));
+}
+
+function blockDuplicateBuys(snap, vars = {}) {
+  const v = vars.block_duplicate_buys ?? snap?.block_duplicate_buys ?? snap?.day_status?.block_duplicate_buys;
+  if (v == null) return true;
+  return truthy(v);
+}
+
 function collectReferencePrices(inputs = {}) {
   const refs = {};
   const add = (key, px) => {
@@ -69,11 +176,13 @@ function collectReferencePrices(inputs = {}) {
     const sym = k.includes(':') ? k.split(':').pop() : k;
     if (sym) refs[sym] = n;
   };
-  const snap = parseJsonish(
-    inputs.account_snapshot ??
-      inputs.snapshot ??
-      inputs.api_snapshot ??
-      inputs.reference_prices
+  const snap = unwrapSnapshot(
+    parseJsonish(
+      inputs.account_snapshot ??
+        inputs.snapshot ??
+        inputs.api_snapshot ??
+        inputs.reference_prices
+    )
   );
   const rp =
     (snap && typeof snap === 'object' && (snap.reference_prices || snap.payload?.reference_prices)) ||
@@ -108,6 +217,25 @@ function screenerCandidates(inputs = {}) {
   if (Array.isArray(scr?.candidates)) return scr.candidates;
   if (Array.isArray(scr?.result?.candidates)) return scr.result.candidates;
   return [];
+}
+
+function countBookableCandidates(inputs, snap, vars, refs) {
+  const allow = collectAllowlist(snap, vars);
+  const held = blockDuplicateBuys(snap, vars) ? collectHeld(snap) : { keys: new Set(), syms: new Set() };
+  const bookable = new Set();
+  const addIfBookable = (key) => {
+    const k = normalizeInstrKey(key);
+    if (!k) return;
+    if (allow.size > 0 && !instrIn(allow, k)) return;
+    if (instrIn(held, k)) return;
+    if (!(lookupRef(refs, k) > 0)) return;
+    bookable.add(instrSymbol(k) || k);
+  };
+  for (const c of screenerCandidates(inputs)) addIfBookable(c?.key || c?.symbol);
+  if (allow.size > 0) {
+    for (const k of allow.keys) addIfBookable(k);
+  }
+  return bookable.size;
 }
 
 function isLaterDayPlanExit(a = {}) {
@@ -172,11 +300,11 @@ export function run(inputs = {}, context = {}) {
     inputs.market_screener != null ||
     inputs.reference_prices != null;
 
-  // Snapshot arrives as API bodyText (JSON string). Parse before reading cash/equity.
+  // Snapshot arrives as API bodyText (JSON string). Unwrap {ok,status,body} envelopes.
   const snapBag = parseJsonish(
     inputs.account_snapshot ?? inputs.snapshot ?? inputs.api_snapshot ?? inputs.book
   );
-  const snapObj = snapBag && typeof snapBag === 'object' ? snapBag : {};
+  const snapObj = unwrapSnapshot(snapBag && typeof snapBag === 'object' ? snapBag : {});
   const snapPayload =
     snapObj.payload && typeof snapObj.payload === 'object' ? snapObj.payload : {};
 
@@ -408,16 +536,17 @@ export function run(inputs = {}, context = {}) {
     errors.push(`new_entry count ${newEntryCount} exceeds max_trades_per_day=${maxTrades}`);
   }
   const candidates = screenerCandidates(inputs);
+  const bookableCount = countBookableCandidates(inputs, snapObj, vars, refs);
   if (
     newEntryCount === 0 &&
     riskOn &&
     !haltNew &&
     cashUsd != null &&
     cashUsd > 0 &&
-    candidates.length > 0
+    bookableCount > 0
   ) {
     errors.push(
-      `risk_on with cash_usd=${cashUsd} and ${candidates.length} screener candidates requires at least one bookable new_entry sized to spendable ≈ ${targetCap}; empty actions[] only when halt_new, risk_off, or screener is empty`
+      `risk_on with cash_usd=${cashUsd} and ${bookableCount} bookable candidates (allowlist ∩ priced names, excluding duplicate holds) requires at least one bookable new_entry sized to spendable ≈ ${targetCap}; empty new_entry only when halt_new, risk_off, screener is empty, or that intersection is empty (${candidates.length} screener rows)`
     );
   }
   if (spendableCap != null && newEntryNotional > spendableCap + 1e-6) {

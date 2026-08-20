@@ -61,7 +61,10 @@ Output **ONLY** valid JSON (no markdown fences).
 
 ### Discipline
 - No news/emotion/revenge trading. Honor regime, guardrail, screener, fundamentals, snapshot, journal, order_learnings.
-- When `risk_on`, not `halt_new`, cash available, and screener has candidates: emit at least one bookable `new_entry` sized to spendable. Empty `actions[]` is not allowed in that case.
+- Active allowlist = workflow `allowlist_keys` when set; otherwise snapshot `allowlist_keys` / `day_status.allowlist_keys`; otherwise the screener is the universe.
+- Bookable `new_entry` = on the active allowlist (when that list is non-empty) **and** priced for **that same key** in snapshot `reference_prices` or a screener row. Never copy another symbol's last.
+- When `risk_on`, not `halt_new`, cash available, and at least one bookable candidate exists: emit at least one bookable `new_entry` sized to spendable.
+- If that intersection is empty (for example allowlist ∩ screener is only names you already hold): no `new_entry`. Notes must say why. Do not pick an off-allowlist screener name.
 
 ---
 

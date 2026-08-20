@@ -305,7 +305,7 @@ export function buildMonthlyTradingW1Graph({
               id: 'userMessage',
               mode: 'static',
               value:
-                '=== PREVIOUS MAKER PLAN (empty on first pass; revise this JSON) ===\n{{maker-1.text}}\n\n=== CHECKER FEEDBACK (empty on first pass; apply every item) ===\n{{parse-checker.adjustments}}\n\nIf checker feedback is non-empty: output a complete replacement plan JSON only. Do not write essays, procedures, or markdown. Patch the previous maker plan in place.\n\n=== MARKET REGIME ===\n{{tool-regime.text}}\n\n=== MONTHLY GUARDRAIL ===\n{{tool-guardrail.text}}\n\n=== OPEN DAY PLANS (recovery) ===\n{{api-open-plans.bodyText}}\n\n=== ACCOUNT SNAPSHOT (last laptop IBKR session) ===\n{{api-snapshot.bodyText}}\n\n=== SCREENER ===\n{{tool-screener.text}}\n\n=== ORDER LEARNINGS ===\n{{tool-learnings.text}}\n\n=== BRAIN HISTORY ===\n{{api-brain-history.body.context_text}}\n\n=== RUN / EVENT INPUT ===\n{{input}}',
+                '=== ALLOWLIST KEYS (workflow var; may be empty — then honor snapshot allowlist_keys if present) ===\n{{var.allowlist_keys}}\n\n=== PREVIOUS MAKER PLAN (empty on first pass; revise this JSON) ===\n{{maker-1.text}}\n\n=== CHECKER FEEDBACK (empty on first pass; apply every item) ===\n{{parse-checker.adjustments}}\n\nIf checker feedback is non-empty: output a complete replacement plan JSON only. Do not write essays, procedures, or markdown. Patch the previous maker plan in place.\n\n=== MARKET REGIME ===\n{{tool-regime.text}}\n\n=== MONTHLY GUARDRAIL ===\n{{tool-guardrail.text}}\n\n=== OPEN DAY PLANS (recovery) ===\n{{api-open-plans.bodyText}}\n\n=== ACCOUNT SNAPSHOT (last laptop IBKR session; honor day_status.allowlist_keys when the workflow var is empty) ===\n{{api-snapshot.bodyText}}\n\n=== SCREENER ===\n{{tool-screener.text}}\n\n=== ORDER LEARNINGS ===\n{{tool-learnings.text}}\n\n=== BRAIN HISTORY ===\n{{api-brain-history.body.context_text}}\n\n=== RUN / EVENT INPUT ===\n{{input}}',
             },
           ],
           taskConfig: {
@@ -333,7 +333,7 @@ export function buildMonthlyTradingW1Graph({
               id: 'userMessage',
               mode: 'static',
               value:
-                '=== MAKER PLAN (JSON) ===\n{{maker-1.text}}\n\n=== MARKET REGIME ===\n{{tool-regime.text}}\n\n=== GUARDRAIL ===\n{{tool-guardrail.text}}\n\n=== OPEN PLANS ===\n{{api-open-plans.bodyText}}\n\n=== ACCOUNT SNAPSHOT ===\n{{api-snapshot.bodyText}}\n\n=== SCREENER ===\n{{tool-screener.text}}\n\n=== ORDER LEARNINGS ===\n{{tool-learnings.text}}',
+                '=== MAKER PLAN (JSON) ===\n{{maker-1.text}}\n\n=== ALLOWLIST KEYS (workflow var; may be empty — then honor snapshot allowlist_keys) ===\n{{var.allowlist_keys}}\n\n=== MARKET REGIME ===\n{{tool-regime.text}}\n\n=== GUARDRAIL ===\n{{tool-guardrail.text}}\n\n=== OPEN PLANS ===\n{{api-open-plans.bodyText}}\n\n=== ACCOUNT SNAPSHOT ===\n{{api-snapshot.bodyText}}\n\n=== SCREENER ===\n{{tool-screener.text}}\n\n=== ORDER LEARNINGS ===\n{{tool-learnings.text}}',
             },
           ],
           taskConfig: {

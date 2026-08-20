@@ -391,6 +391,89 @@ async function main() {
   assert.strictEqual(emptyWithScreener.ok, false);
   assert.ok(emptyWithScreener.errors.some((e) => /requires at least one bookable new_entry/i.test(e)), emptyWithScreener.errors);
 
+  const emptyNoBookable = hardGates({
+    plan_text: JSON.stringify({
+      prior_plan_reconcile: { notes: 'no bookable candidate' },
+      actions: [],
+      risk_summary: { risk_mode: 'normal' },
+    }),
+    regime: { risk_on: true },
+    account_snapshot: JSON.stringify({
+      cash_usd: 10000,
+      equity_usd: 10000,
+      allowlist_keys: ['NASDAQ:NVDA', 'BATS:MAGS', 'NASDAQ:AMD'],
+      block_duplicate_buys: true,
+      positions: [{ key: 'NASDAQ:NVDA', symbol: 'NVDA', qty: 3 }],
+      reference_prices: {},
+    }),
+    screener: JSON.stringify({
+      ok: true,
+      count: 3,
+      candidates: [
+        { symbol: 'AMZN', price: 265.84 },
+        { symbol: 'AAPL', price: 316.83 },
+        { symbol: 'NVDA', price: 217.56 },
+      ],
+    }),
+  });
+  assert.strictEqual(
+    emptyNoBookable.ok,
+    true,
+    `empty new_entry should pass when allowlist ∩ screener is only a held name: ${JSON.stringify(emptyNoBookable.errors)}`
+  );
+
+  const emptyWrappedNoBookable = hardGates({
+    plan_text: JSON.stringify({
+      prior_plan_reconcile: { notes: 'no bookable candidate' },
+      actions: [],
+      risk_summary: { risk_mode: 'normal' },
+    }),
+    regime: { risk_on: true },
+    account_snapshot: JSON.stringify({
+      ok: true,
+      status: 200,
+      body: {
+        cash_usd: 10000,
+        equity_usd: 10000,
+        allowlist_keys: ['NASDAQ:NVDA', 'BATS:MAGS'],
+        positions: [{ key: 'NASDAQ:NVDA', symbol: 'NVDA', qty: 3 }],
+        reference_prices: {},
+      },
+    }),
+    screener: JSON.stringify({
+      result: { ok: true, candidates: [{ symbol: 'AMZN', price: 265.84 }] },
+    }),
+  });
+  assert.strictEqual(
+    emptyWrappedNoBookable.ok,
+    true,
+    `API envelope snapshot must unwrap allowlist/positions: ${JSON.stringify(emptyWrappedNoBookable.errors)}`
+  );
+
+  const emptyWithBookableMags = hardGates({
+    plan_text: JSON.stringify({
+      prior_plan_reconcile: { notes: 'x' },
+      actions: [],
+      risk_summary: { risk_mode: 'normal' },
+    }),
+    regime: { risk_on: true },
+    account_snapshot: JSON.stringify({
+      cash_usd: 10000,
+      equity_usd: 10000,
+      allowlist_keys: ['NASDAQ:NVDA', 'BATS:MAGS'],
+      positions: [{ key: 'NASDAQ:NVDA', symbol: 'NVDA', qty: 3 }],
+    }),
+    screener: JSON.stringify({
+      ok: true,
+      candidates: [{ symbol: 'MAGS', price: 50 }],
+    }),
+  });
+  assert.strictEqual(emptyWithBookableMags.ok, false);
+  assert.ok(
+    emptyWithBookableMags.errors.some((e) => /bookable candidates/i.test(e)),
+    emptyWithBookableMags.errors
+  );
+
   const {
     evaluateBuyLimitVsReference,
     filterBuyTradesByReference,
@@ -510,12 +593,16 @@ async function main() {
   );
   assert.ok(makerUser.includes('{{maker-1.text}}'), 'W1 Maker user message must bind previous maker plan');
   assert.ok(makerUser.includes('{{parse-checker.adjustments}}'), 'W1 Maker user message must bind checker adjustments');
+  assert.ok(makerUser.includes('{{var.allowlist_keys}}'), 'W1 Maker user message must bind allowlist keys');
   assert.ok(MAKER_STRATEGY_SYSTEM_PROMPT.includes('Revision passes'));
+  assert.ok(MAKER_STRATEGY_SYSTEM_PROMPT.includes('bookable candidate'));
   const checkerUser = String(
     (checker.data.inputBindings || []).find((b) => b.id === 'userMessage')?.value || ''
   );
   assert.ok(checkerUser.includes('{{tool-screener.text}}'), 'W1 Checker user message must include screener');
   assert.ok(checkerUser.includes('{{api-snapshot.bodyText}}'), 'W1 Checker user message must include snapshot');
+  assert.ok(checkerUser.includes('{{var.allowlist_keys}}'), 'W1 Checker user message must bind allowlist keys');
+  assert.ok(CHECKER_STRATEGY_SYSTEM_PROMPT.includes('bookable candidate'));
   assert.ok(MAKER_STRATEGY_SYSTEM_PROMPT.includes('entry_discount_pct_max'));
   assert.ok(MAKER_STRATEGY_SYSTEM_PROMPT.includes('Entry protective orders'));
   assert.ok(MAKER_STRATEGY_SYSTEM_PROMPT.includes('How to decide grind vs swing'));
@@ -557,6 +644,14 @@ async function main() {
     (demoChecker?.data?.inputBindings || []).find((b) => b.id === 'userMessage')?.value || ''
   );
   assert.ok(demoCheckerUser.includes('{{tool-screener.text}}'), 'demo pack Checker user message must include screener');
+  assert.ok(demoCheckerUser.includes('{{var.allowlist_keys}}'), 'demo pack Checker user message must bind allowlist');
+  const demoMakerUser = String(
+    (demoMaker?.data?.inputBindings || []).find((b) => b.id === 'userMessage')?.value || ''
+  );
+  assert.ok(demoMakerUser.includes('{{maker-1.text}}'), 'demo pack Maker user message binds previous plan');
+  assert.ok(demoMakerUser.includes('{{var.allowlist_keys}}'), 'demo pack Maker user message binds allowlist');
+  assert.ok(String(demoMaker?.data?.taskConfig?.systemPrompt || '').includes('bookable candidate'));
+  assert.ok(String(demoChecker?.data?.taskConfig?.systemPrompt || '').includes('bookable candidate'));
 
   const { writeStandardIbkrWorkflows } = await import('./lib/write-standard-ibkr-workflows.js');
   const dryIbkr = writeStandardIbkrWorkflows(demoPack, {
@@ -582,6 +677,12 @@ async function main() {
   );
   assert.ok(stdMakerUser.includes('{{maker-1.text}}'), 'standard W1 Maker user message binds previous plan');
   assert.ok(stdMakerUser.includes('{{parse-checker.adjustments}}'), 'standard W1 Maker user message binds checker feedback');
+  assert.ok(stdMakerUser.includes('{{var.allowlist_keys}}'), 'standard W1 Maker user message binds allowlist');
+  const stdChecker = (stdW1.graph.nodes || []).find((n) => n.id === 'checker-1');
+  const stdCheckerUser = String(
+    (stdChecker?.data?.inputBindings || []).find((b) => b.id === 'userMessage')?.value || ''
+  );
+  assert.ok(stdCheckerUser.includes('{{var.allowlist_keys}}'), 'standard W1 Checker user message binds allowlist');
   const listed = listIbkrWorkflowTemplates();
   assert.ok(
     listed.some((w) => w.template_key === 'monthly-trading-w1-post-close'),
