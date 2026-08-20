@@ -1,0 +1,8 @@
+name: agent-os-js
+# Keep test/operator scripts out of CodeQL so production sinks stay visible.
+paths-ignore:
+  - tests/**
+  - backend/scripts/**
+  - scripts/**
+  - '**/*.test.js'
+  - '**/node_modules/**'

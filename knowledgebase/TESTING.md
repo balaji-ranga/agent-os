@@ -175,6 +175,7 @@ Restart **backend**, **frontend**, and **OpenClaw gateway** so the latest code a
    cd c:\Users\balaj\projects\agents\agent-os\frontend
    npm run dev
    ```
+   Vite **6.4.3+** (GHSA-fx2h-pf6j-xcff). Dev server binds **127.0.0.1** by default; set `VITE_DEV_HOST=0.0.0.0` only if you need LAN access.
 3. **OpenClaw gateway** (port 18789): stop, then:
    ```powershell
    openclaw gateway --port 18789

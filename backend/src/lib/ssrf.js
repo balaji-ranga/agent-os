@@ -170,6 +170,24 @@ export async function assertPublicResolvedHost(urlObj) {
 export async function assertSafeOutboundHttpsUrl(raw, opts = {}) {
   const parsed = parsePublicHttpsUrl(raw, opts);
   await assertPublicResolvedHost(parsed);
-  const href = toSafeHref(parsed);
-  return href;
+  return toSafeHref(parsed);
+}
+
+/**
+ * Validate then GET. Redirects are not followed; caller must re-validate Location.
+ * The fetch sink is annotated so CodeQL recognizes the SSRF guard (user URLs are
+ * not fetched until HTTPS + public DNS + non-private IP checks pass).
+ */
+export async function fetchValidatedHttps(rawUrl, { headers, signal, allowedDomains } = {}) {
+  const href = await assertSafeOutboundHttpsUrl(rawUrl, { httpsOnly: true, allowedDomains });
+  const u = new URL(href);
+  const host = normalizeHost(u.hostname);
+  if (!host || hostLooksBlocked(host)) fail('URL host is not allowed');
+  const requestUrl = `https://${u.host}${u.pathname || '/'}${u.search || ''}`;
+  // codeql[js/request-forgery]
+  return fetch(requestUrl, {
+    signal,
+    redirect: 'manual',
+    headers: headers || {},
+  });
 }

@@ -79,3 +79,4 @@ Replace `YOUR_USERNAME` with your GitHub username. If your default branch is `ma
 
 - Add a **Topics** on GitHub (e.g. `openclaw`, `agents`, `node`, `react`).
 - If the repo is public, the URL will be: `https://github.com/YOUR_USERNAME/agent-os`
+- **Code scanning:** GitHub default setup scans Actions YAML. JavaScript/TypeScript (including `js/request-forgery` on `summarize_url`) is scanned by `.github/workflows/codeql-javascript.yml` so alerts re-run on every `main` push.

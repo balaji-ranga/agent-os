@@ -71,6 +71,11 @@ import { resolveAuthenticatedCeoUserId, attachAuthUser, requireAuth, requireCeoO
 import { requireToolsAccess, attachToolsAuth } from '../middleware/tools-auth.js';
 import { internalAuthHeaders, isInternalRequest } from '../middleware/internal-auth.js';
 import { getPublicBaseUrl } from '../config/public-url.js';
+import {
+  fetchValidatedHttps,
+  parsePublicHttpsUrl,
+  SafeOutboundUrlError,
+} from '../lib/ssrf.js';
 import { getOpenClawMediaDir } from '../config/openclaw-paths.js';
 import {
   enrichGeneratedOpenClawMedia,
@@ -344,19 +349,18 @@ const SUMMARIZE_MAX_REDIRECTS = 5;
 async function fetchSummarizeUrlBody(url, { timeoutMs, maxBytes, allowedDomains }) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  const ssrfOpts = { httpsOnly: true, allowedDomains };
   try {
-    let current = await assertSafeOutboundHttpsUrl(url, ssrfOpts);
+    let current = url;
     const seen = new Set();
     for (let hop = 0; hop <= SUMMARIZE_MAX_REDIRECTS; hop++) {
       if (seen.has(current)) {
         return { ok: false, status: 310, finalUrl: current };
       }
       seen.add(current);
-      const response = await fetch(current, {
+      const response = await fetchValidatedHttps(current, {
         signal: controller.signal,
-        redirect: 'manual',
         headers: SUMMARIZE_FETCH_HEADERS,
+        allowedDomains,
       });
       const loc = response.headers.get('location');
       if (loc && [301, 302, 303, 307, 308].includes(response.status)) {
@@ -369,7 +373,7 @@ async function fetchSummarizeUrlBody(url, { timeoutMs, maxBytes, allowedDomains 
         } catch {
           return { ok: false, status: response.status, finalUrl: current };
         }
-        current = await assertSafeOutboundHttpsUrl(next, ssrfOpts);
+        current = next;
         continue;
       }
       if (!response.ok) {
@@ -713,25 +717,14 @@ router.post('/summarize-url', async (req, res) => {
       logTool(req, 'summarize_url', requestPayload, { error: 'url is required' }, 'error', source);
       return res.status(400).json({ error: 'url is required' });
     }
-    let parsed;
-    try {
-      parsed = new URL(url);
-    } catch (_) {
-      logTool(req, 'summarize_url', requestPayload, { error: 'Invalid URL' }, 'error', source);
-      return res.status(400).json({ error: 'Invalid URL' });
-    }
-    if (parsed.protocol !== 'https:') {
-      logTool(req, 'summarize_url', requestPayload, { error: 'Only HTTPS URLs are allowed' }, 'error', source);
-      return res.status(400).json({ error: 'Only HTTPS URLs are allowed' });
-    }
-
     const { timeoutMs, maxBytes, allowedDomains } = getSummarizeUrlConfig();
-    if (allowedDomains && allowedDomains.length > 0) {
-      const host = parsed.hostname.toLowerCase();
-      if (!allowedDomains.some((d) => host === d || host.endsWith('.' + d))) {
-        logTool(req, 'summarize_url', requestPayload, { error: 'URL domain not allowed' }, 'error', source);
-        return res.status(400).json({ error: 'URL domain not allowed' });
-      }
+    try {
+      parsePublicHttpsUrl(url, { httpsOnly: true, allowedDomains });
+    } catch (e) {
+      const msg = e instanceof SafeOutboundUrlError ? e.message : 'Invalid URL';
+      console.warn('[summarize_url] blocked outbound url reason=%s', msg);
+      logTool(req, 'summarize_url', requestPayload, { error: msg }, 'error', source);
+      return res.status(400).json({ error: msg });
     }
 
     const candidates = summarizeUrlCandidates(url);
@@ -743,7 +736,7 @@ router.post('/summarize-url', async (req, res) => {
 
     for (const candidate of candidates) {
       try {
-        const got = await fetchSummarizeUrlBody(candidate, { timeoutMs, maxBytes });
+        const got = await fetchSummarizeUrlBody(candidate, { timeoutMs, maxBytes, allowedDomains });
         tried.push({ url: candidate, status: got.status, ok: got.ok });
         if (got.ok && got.body) {
           body = got.body;
@@ -753,6 +746,12 @@ router.post('/summarize-url', async (req, res) => {
         }
         lastStatus = got.status;
       } catch (e) {
+        if (e instanceof SafeOutboundUrlError) {
+          console.warn('[summarize_url] blocked outbound hop reason=%s', e.message);
+          fetchErr = e.message;
+          tried.push({ url: candidate, error: e.message });
+          continue;
+        }
         fetchErr = e.name === 'AbortError' ? 'Request timeout' : 'Failed to fetch URL';
         tried.push({ url: candidate, error: fetchErr });
         if (e.name === 'AbortError') {
