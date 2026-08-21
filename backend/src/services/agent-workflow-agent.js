@@ -44,6 +44,10 @@ import {
   isWorkflowCreateIntent,
 } from './agent-workflow-recipes.js';
 import {
+  buildIntentCreateActionBatch,
+  actionsHaveSubstantialCreate,
+} from './agent-workflow-intent-graph.js';
+import {
   findWorkflowsReferencedInMessage,
   formatWorkflowDescriptionBlock,
   tryDescribeWorkflowResponse,
@@ -192,6 +196,7 @@ Brain nodes (CRITICAL):
 - After building, the reply MUST include a short **API Keys (BYOK)** summary: which vault names to store, or that none are needed because Ollama is free.
 
 End-user language: infer nodes from intent (look up, summarize, news, email me). Do not ask for node types, JSON, curl, or command syntax.
+When the user asks to create/build a workflow, you MUST emit create_workflow with a full wired graph in the same turn — never a plan-only chat reply. Public upload/publish steps wait for CEO approval. Prefer registered content tools, this CEO's employees, Connectors, MCP, or Browser Session browse_task_start — never invent APIs or paste secrets.
 
 Lifecycle in plain English:
 - "go live" / "make it available" → publish
@@ -426,6 +431,35 @@ async function executeRecipePath(ownerUserId, workflowId, message, actor) {
     workflow,
     result,
     workflowTriggered,
+  });
+}
+
+async function executeIntentCreatePath(ownerUserId, workflowId, message, actor) {
+  if (!isWorkflowCreateIntent(message)) return null;
+  const runtime = buildWorkflowAgentRuntimeContext(ownerUserId);
+  const { actions, spec } = buildIntentCreateActionBatch(message, runtime);
+  if (!spec?.graph?.nodes?.length) return null;
+
+  const result = await applyWorkflowBuilderActions(ownerUserId, workflowId, actions, actor, {
+    message,
+  });
+  const effectiveWorkflowId = result.workflow_id || workflowId;
+  const workflow = effectiveWorkflowId ? store.getDefinition(effectiveWorkflowId, ownerUserId) : null;
+  const reply = `Created **${spec.name}**. ${spec.summary} Say "try it" or "go live" when you are ready.`;
+  const withKeys = result?.keys_summary ? `${reply}\n\n${result.keys_summary}` : reply;
+
+  console.info('[workflow-builder] create-intent compiler applied', {
+    workflow_id: effectiveWorkflowId,
+    nodes: spec.graph.nodes.map((n) => n.type),
+  });
+
+  return buildChatResultPayload({
+    reply: withKeys,
+    modelUsed: null,
+    effectiveWorkflowId,
+    workflow,
+    result,
+    workflowTriggered: null,
   });
 }
 
@@ -1080,6 +1114,30 @@ export async function runWorkflowBuilderChat({
 
   }
 
+  const intentCreateResult = await executeIntentCreatePath(ownerUserId, workflowId, trimmed, actorNorm);
+
+  if (intentCreateResult) {
+
+    const assistantText = formatAssistantReply(intentCreateResult.reply, intentCreateResult);
+
+    if (persist) {
+
+      appendWorkflowChatExchange(ownerUserId, intentCreateResult.workflow_id || workflowId, trimmed, assistantText);
+
+    }
+
+    return {
+
+      ...intentCreateResult,
+
+      reply: assistantText,
+
+      thread_workflow_id: workflowChatThreadKey(intentCreateResult.workflow_id || workflowId),
+
+    };
+
+  }
+
 
 
   const messages = [
@@ -1111,6 +1169,10 @@ export async function runWorkflowBuilderChat({
   const runtime = buildWorkflowAgentRuntimeContext(ownerUserId);
 
   actions = enrichCreateWorkflowActions(trimmed, actions, runtime);
+  if (isWorkflowCreateIntent(trimmed) && !actionsHaveSubstantialCreate(actions)) {
+    const { actions: compiled } = buildIntentCreateActionBatch(trimmed, runtime);
+    actions = compiled;
+  }
 
   const untilIntent = parseUntilSuccessIntent(trimmed);
   const certifyIntent =

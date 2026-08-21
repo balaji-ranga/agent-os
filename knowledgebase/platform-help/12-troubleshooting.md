@@ -29,6 +29,16 @@ That title is the **Get work from team** status prompt. A visible standup should
 5. Verify **Tools access** if the agent should call tools but tool icons never appear. Content tools need grants + successful `/api/tools` log rows; native AgentSystem tools (especially **`browser`**) need session transcripts under the shared AgentSystem agents directory (backend `AgentSystem_DIR` volume).
 6. Ask **COO** or **Platform Help**; for gateway pairing errors ops use `knowledgebase/GATEWAY-PAIRING-1008.md`.
 
+## Workflow Builder only replies in chat (no graph)
+
+Create/build asks should **create a workflow**, not a plan. If you only get prose:
+
+1. Phrase the outcome (“build a workflow that will …”). Avoid “what if / how would you”.
+2. Hard-refresh Workflows and check the list for a new draft/published graph.
+3. Public upload/publish steps pause for **your approval** on Kanban — that is expected, not a missing graph.
+4. Sites without a Connector (YouTube, TikTok, …) need **Browser Session** signed in (`browse_task_start`).
+5. If it still only chats, ops: redeploy **backend** so the generic create-intent compiler is live.
+
 ## Agent gave wrong how-to steps
 
 1. Ask **Platform Help** explicitly; it should call `master_data_rag` on the **platform** help corpus (not your Master Data uploads).

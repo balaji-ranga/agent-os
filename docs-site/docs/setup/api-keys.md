@@ -6,7 +6,7 @@ title: API keys
 
 Path: **Settings → API Keys**.
 
-This is your **named secret vault**. Keys are shown once at save time; the list only shows the name and a hint. Never paste production secrets into chat. Workflow Builder binds these **names** into graphs (it will list which names to fill after a build). Brain steps that use free Ollama need no key. Medium drafts bind **`MEDIUM_INTEGRATION_TOKEN`**. Hacker News uses Connectors.
+This is your **named secret vault**. Keys are shown once at save time; the list only shows the name and a hint. Never paste production secrets into chat. Workflow Builder **creates a graph** from a create/build ask and binds these **names** (it will list which names to fill after a build). Brain steps that use free Ollama need no key. Medium drafts bind **`MEDIUM_INTEGRATION_TOKEN`**. Hacker News uses Connectors. YouTube-style upload uses Browser Session.
 
 **Platform default** on Profile uses the platform language model — you do **not** need `Platform_BYOK`. Fill other rows only for features you use. **Tools → Rate limits** caps daily/monthly **calls** (not dollars).
 

@@ -103,7 +103,7 @@ Code paths:
 
 Docs + copy-paste prompts: `knowledgebase/platform-help/27-onboarding-helper.md`.
 
-End-user stress (plain English build + secrets/BYOK + publish/draft/A2A/delete): [`WORKFLOW-BUILDER-ENDUSER-STRESS.md`](./WORKFLOW-BUILDER-ENDUSER-STRESS.md).
+End-user stress (plain English build + secrets/BYOK + publish/draft/A2A/delete + **generic create-intent compiler** S9): [`WORKFLOW-BUILDER-ENDUSER-STRESS.md`](./WORKFLOW-BUILDER-ENDUSER-STRESS.md).
 
 ```powershell
 cd backend

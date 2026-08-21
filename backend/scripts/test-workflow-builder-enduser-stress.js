@@ -20,6 +20,11 @@ import { runWorkflowBuilderChat } from '../src/services/agent-workflow-agent.js'
 import { parseWorkflowAgentCommand, waitForRunTerminal } from '../src/services/agent-workflow-chat-tools.js';
 import { matchWorkflowRecipe, isWorkflowCreateIntent, isContentPromoteIntent, extractPromoteTopic } from '../src/services/agent-workflow-recipes.js';
 import {
+  synthesizeIntentWorkflow,
+  splitIntentStages,
+  isPublishStage,
+} from '../src/services/agent-workflow-intent-graph.js';
+import {
   looksLikeSecretLiteral,
   sanitizeWorkflowGraphSecrets,
   probeOllamaAvailable,
@@ -137,6 +142,22 @@ console.log('\n— Unit: English lifecycle parsers');
     'promote + channels is create/promote intent'
   );
   assert(extractPromoteTopic('blogs about acme analytics it can be about platform intro') === 'acme analytics', 'topic from about X');
+  const ytAsk = 'build a workflow that will generate story scenes and reviews and uploads to youtube';
+  assert(isWorkflowCreateIntent(ytAsk), 'youtube/story ask is create intent');
+  assert(!matchWorkflowRecipe(ytAsk), 'youtube/story ask is not a curated recipe');
+  const stages = splitIntentStages(ytAsk);
+  assert(stages.length >= 3, `stages=${stages.join('|')}`);
+  assert(isPublishStage(stages[stages.length - 1]), 'last stage is upload/publish');
+  const compiled = synthesizeIntentWorkflow(ytAsk, {
+    contentTools: [
+      { name: 'generate_video', display_name: 'Generate Video', purpose: 'Generate a short video from a text prompt' },
+      { name: 'browse_task_start', display_name: 'Browse task start', purpose: 'start a natural-language browser task' },
+    ],
+    agents: [],
+  });
+  const compiledTypes = compiled.graph.nodes.map((n) => n.type);
+  assert(compiledTypes.includes('trigger') && compiledTypes.includes('ceo_approval'), `compiled nodes=${compiledTypes.join(',')}`);
+  assert(/youtube/i.test(JSON.stringify(compiled.graph)), 'compiled graph mentions YouTube');
 }
 
 // --------------------------------------------------------------------------
@@ -287,6 +308,25 @@ console.log('\n— S8: Promote on Hacker News + Medium (plain English blogs)');
   assert(/acme analytics/i.test(JSON.stringify(nodes.find((n) => n.id === 'brain-draft')?.data?.taskConfig?.systemPrompt || '')), 'draft is about the named product');
   assert(/MEDIUM_INTEGRATION_TOKEN|API Keys|Medium/i.test(`${res.reply}\n${res.keys_summary || ''}`), 'summarizes Medium key');
   assert(!hasSecretLiteral(def), 'promote graph has no secret literals');
+}
+
+// --------------------------------------------------------------------------
+console.log('\n— S9: Generic create intent (story scenes + review + YouTube)');
+{
+  const msg = `build a workflow that will generate story scenes and reviews and uploads to youtube. Call it Story YouTube ${stamp}.`;
+  assert(!matchWorkflowRecipe(msg), 'not a curated recipe — compiler must handle it');
+  const res = await chat(msg);
+  const id = remember(res.workflow_id);
+  const def = store.getDefinition(id, owner);
+  assert(!!id && !!def, 'created definition from generic intent (not chat-only)');
+  const nodes = def?.draft_graph?.nodes || def?.published_graph?.nodes || [];
+  const types = nodes.map((n) => n.type);
+  assert(types.includes('trigger'), `has trigger types=${types.join(',')}`);
+  assert(nodes.length >= 4, `wired graph nodeCount=${nodes.length}`);
+  assert(types.includes('ceo_approval'), 'upload waits for CEO approval');
+  assert(/youtube|browse_task_start|studio\.youtube/i.test(JSON.stringify(nodes)), 'YouTube or Browser Session wired');
+  assert(/Created|Built from your ask/i.test(res.reply || ''), 'reply confirms creation');
+  assert(!hasSecretLiteral(def), 'generic graph has no secret literals');
 }
 
 // --------------------------------------------------------------------------

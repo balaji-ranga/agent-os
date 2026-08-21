@@ -1081,6 +1081,9 @@ export function isWorkflowCreateIntent(message) {
 
   const strongCreate =
     /(?:create|build|make|add|new|setup|set\s+up)\s+(?:a\s+)?(?:new\s+)?workflow/i.test(t) ||
+    /(?:i\s+(?:want|need)|help\s+me|can\s+you)\s+(?:to\s+)?(?:create|build|make)\s+(?:a\s+)?(?:new\s+)?workflow/i.test(t) ||
+    (/\b(?:a\s+)?workflow\s+that\s+(?:will|can|should)\b/i.test(t) &&
+      !/^(?:what|which|how|why|who|where|explain|describe)\b/i.test(t)) ||
     /^workflow\s*:/i.test(t) ||
     (/(?:i\s+(?:want|need)|help\s+me|can\s+you)\b/i.test(t) &&
       /(?:summar|recap|briefing|automat|look\s+up|research|note|news|connector|connected)/i.test(t)) ||
