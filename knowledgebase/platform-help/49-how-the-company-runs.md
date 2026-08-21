@@ -9,8 +9,8 @@ You stay the **CEO**. Flolah is an **AI Company OS**: you give outcomes in plain
 | Surface | What you see |
 |---------|----------------|
 | **Home** (`/`) | Compact strip **above the dashboard**: You → COO → AI employees → Kanban / bell. Expand **Show diagram** for the operating model. |
-| **My Org** (`/org`) | Full diagrams **above the org chart**: Operating model, or Components and capabilities. |
-| **Public docs** | [https://flolah.cloud/docs/start/how-the-company-runs/](https://flolah.cloud/docs/start/how-the-company-runs/) (no login) |
+| **My Org** (`/org`) | Full diagrams **above the org chart**: Platform map poster, Operating model, or Components and capabilities. |
+| **Public docs** | [https://flolah.cloud/docs/start/how-the-company-runs/](https://flolah.cloud/docs/start/how-the-company-runs/) — platform poster plus interactive diagrams (no login) |
 
 ## Operating model (read top to bottom)
 

@@ -207,7 +207,7 @@ function CompactStrip() {
 }
 
 export default function CompanyArchitecturePanel({ variant = 'full' }) {
-  const [tab, setTab] = useState('run');
+  const [tab, setTab] = useState('poster');
   if (variant === 'compact') return <CompactStrip />;
 
   return (
@@ -221,6 +221,15 @@ export default function CompanyArchitecturePanel({ variant = 'full' }) {
           </p>
         </div>
         <div className="flolah-arch-tabs" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'poster'}
+            className={tab === 'poster' ? 'is-on' : ''}
+            onClick={() => setTab('poster')}
+          >
+            Platform map
+          </button>
           <button
             type="button"
             role="tab"
@@ -241,7 +250,24 @@ export default function CompanyArchitecturePanel({ variant = 'full' }) {
           </button>
         </div>
       </div>
-      {tab === 'run' ? <OperatingFlow /> : <CapabilityLayers />}
+      {tab === 'poster' ? (
+        <a
+          className="flolah-arch-poster-link"
+          href="/img/how-the-company-runs.png"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <img
+            className="flolah-arch-poster"
+            src="/img/how-the-company-runs.png"
+            alt="How the company runs on Flolah: AI-native operating system for the modern enterprise"
+          />
+        </a>
+      ) : tab === 'run' ? (
+        <OperatingFlow />
+      ) : (
+        <CapabilityLayers />
+      )}
       <p className="flolah-arch-more">
         Same diagrams in the public guide:{' '}
         <a href="/docs/start/how-the-company-runs/" target="_blank" rel="noreferrer">

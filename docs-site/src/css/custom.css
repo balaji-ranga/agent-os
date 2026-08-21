@@ -148,6 +148,14 @@
   background: var(--ifm-background-color);
   color: var(--ifm-color-content-secondary);
 }
+.markdown img[src*='how-the-company-runs'] {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 8px;
+  margin: 0.75rem 0 0.35rem;
+}
 @media (max-width: 720px) {
   .docs-arch-rank {
     grid-template-columns: 1fr;

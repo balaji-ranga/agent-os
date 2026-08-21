@@ -7092,6 +7092,16 @@ button.ai-snip-info-btn:hover {
 .flolah-arch-more a {
   color: var(--accent);
 }
+.flolah-arch-poster-link {
+  display: block;
+}
+.flolah-arch-poster {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
 @media (max-width: 720px) {
   .flolah-arch-rank {
     grid-template-columns: 1fr;

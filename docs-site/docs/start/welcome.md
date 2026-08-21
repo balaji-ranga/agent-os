@@ -23,7 +23,7 @@ You do not need APIs or infrastructure knowledge for everyday use.
 
 You stay CEO. The **COO** is your chief of staff: you give an outcome, the COO plans and delegates to named **AI employees**, and you supervise on Kanban and the bell.
 
-Interactive diagrams (operating model + capability layers): [How the company runs](./how-the-company-runs.mdx). In the product they also sit **above the Home dashboard** and at the top of **My Org**.
+Full platform poster plus interactive diagrams: [How the company runs](./how-the-company-runs.mdx). In the product they also sit **above the Home dashboard** and at the top of **My Org**.
 
 ## What you get on day one
 
