@@ -30,7 +30,7 @@ Chat with **Workflow Builder** (or the in-editor agent chat) to create/update gr
 
 **Agent + Ollama validate loop:** ask Workflow Builder for trigger → **agent** → **brain** (`modelSource: ollama`) → **if/while** fail branch back to the agent until PASS. Copy-paste E2E prompts: [27-onboarding-helper.md](./27-onboarding-helper.md).
 
-Talk in **plain English** (“look this up and send me a recap”). You do not need node names, curl, or JSON. After a build, Workflow Builder lists any **Settings → API Keys** names to store. Secrets must never be pasted into chat or node fields — bind a key name instead. Brain uses **free Ollama** and picks a model that is already installed (no key). It does not copy the platform’s paid/cloud model name into the graph. If Ollama is down, the graph binds `Platform_BYOK` and tells you to fill it.
+Talk in **plain English** (“look this up and send me a recap”, “promote this product on Medium and Hacker News with blogs”). You do not need node names, curl, or JSON. After a build, Workflow Builder lists any **Settings → API Keys** names to store. Secrets must never be pasted into chat or node fields — bind a key name instead. Brain uses **free Ollama** and picks a model that is already installed (no key). It does not copy the platform’s paid/cloud model name into the graph. If Ollama is down, the graph binds `Platform_BYOK` and tells you to fill it. Public posting waits for **your approval** on Kanban. Medium uses vault name `MEDIUM_INTEGRATION_TOKEN`; Hacker News uses **Connectors** (no secret in the graph).
 
 Lifecycle in the same chat: “take it live”, “put it back in draft”, “share this so other companies can call it”, “delete this workflow”.
 

@@ -53,6 +53,7 @@ const PROVIDER_BIND_KEYS = {
   deepseek: 'deepseek_key',
   elevenlabs: 'elevenlabs-key',
   brave: 'BRAVE_SEARCH_BYOK',
+  medium: 'MEDIUM_INTEGRATION_TOKEN',
 };
 
 const LITERAL_SECRET_RE =
@@ -135,6 +136,7 @@ export function suggestedBindKeyName({ provider = '', field = '', hint = '' } = 
   if (provider && PROVIDER_BIND_KEYS[String(provider).toLowerCase()]) return fromProvider;
   const h = `${field} ${hint}`.toLowerCase();
   if (/brave/.test(h)) return 'BRAVE_SEARCH_BYOK';
+  if (/medium/.test(h)) return 'MEDIUM_INTEGRATION_TOKEN';
   if (/eleven/.test(h)) return 'elevenlabs-key';
   if (/deepseek/.test(h)) return 'deepseek_key';
   if (/smtp|mail/.test(h)) return 'SMTP_PASSWORD';

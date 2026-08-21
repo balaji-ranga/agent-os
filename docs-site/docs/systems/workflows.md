@@ -17,7 +17,7 @@ Visual automations: triggers, employees, APIs, approvals, connectors. This is di
 5. On audit: **Retry from this step**, retry stuck/failed, or **Retry from start** (new run).
 6. Optional: **Publish as A2A**, **Download for Windows**, import/export JSON.
 
-Chat with **Workflow Builder** in everyday language (“look this up and send me a recap”). It infers APIs, Connectors, and MCP for you. After a build it lists any **Settings → API Keys** names to store — never paste secrets into the chat. Brain steps use **free Ollama** and an **installed** local model (not the platform’s paid/cloud model name). Then: **take it live**, **put it back in draft**, **share so other companies can call it** (A2A), or **delete this workflow**.
+Chat with **Workflow Builder** in everyday language (“look this up and send me a recap”, “promote this product on Medium and Hacker News with blogs”). It infers APIs, Connectors, and MCP for you. After a build it lists any **Settings → API Keys** names to store — never paste secrets into the chat. Brain steps use **free Ollama** and an **installed** local model (not the platform’s paid/cloud model name). Public posts wait for **your approval**. Medium binds `MEDIUM_INTEGRATION_TOKEN`; Hacker News uses Connectors. Then: **take it live**, **put it back in draft**, **share so other companies can call it** (A2A), or **delete this workflow**.
 
 Use **Platform Help** to *explain* a node; use Workflow Builder to *change* the graph.
 

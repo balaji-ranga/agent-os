@@ -18,7 +18,7 @@ import * as store from '../src/services/agent-workflow-store.js';
 import { applyWorkflowBuilderActions } from '../src/services/agent-workflow-builder.js';
 import { runWorkflowBuilderChat } from '../src/services/agent-workflow-agent.js';
 import { parseWorkflowAgentCommand, waitForRunTerminal } from '../src/services/agent-workflow-chat-tools.js';
-import { matchWorkflowRecipe, isWorkflowCreateIntent } from '../src/services/agent-workflow-recipes.js';
+import { matchWorkflowRecipe, isWorkflowCreateIntent, isContentPromoteIntent, extractPromoteTopic } from '../src/services/agent-workflow-recipes.js';
 import {
   looksLikeSecretLiteral,
   sanitizeWorkflowGraphSecrets,
@@ -131,9 +131,12 @@ console.log('\n— Unit: English lifecycle parsers');
     'plain-English create intent'
   );
   assert(
-    !parseWorkflowAgentCommand('I need something that takes a note and go live')?.cmd,
-    'create+go-live does not steal publish fast-path'
+    isContentPromoteIntent(
+      'build a workflow that will promote flolah platform on Hackernews, Medium with blogs about flolah'
+    ),
+    'promote + channels is create/promote intent'
   );
+  assert(extractPromoteTopic('blogs about flolah it can be about platform intro') === 'flolah', 'topic from about X');
 }
 
 // --------------------------------------------------------------------------
@@ -261,6 +264,29 @@ console.log('\n— S7: Explicit OpenRouter still binds a vault name');
   assert(!brain.data.taskConfig.apiKey, 'no literal OpenRouter key');
   assert(brain.data.taskConfig.apiKeyRef === PLATFORM_BYOK_KEY_NAME, 'binds Platform_BYOK');
   assert(/Platform_BYOK|API Keys/i.test(`${res.reply}\n${res.keys_summary || ''}`), 'summarizes BYOK key');
+}
+
+// --------------------------------------------------------------------------
+console.log('\n— S8: Promote on Hacker News + Medium (plain English blogs)');
+{
+  const msg =
+    'build a workflow that will promote flolah platform on Hackernews, Medium with blogs about flolah it can be about platform intro, platform features and usercase examples.';
+  const recipe = matchWorkflowRecipe(msg);
+  assert(recipe?.id === 'enduser-content-promote', `recipe ${recipe?.id || 'none'} (must not be HN reader)`);
+  const res = await chat(msg);
+  const def = store.getDefinition(remember(res.workflow_id), owner);
+  const nodes = def?.draft_graph?.nodes || [];
+  const types = nodes.map((n) => n.type);
+  assert(types.includes('brain') && types.includes('ceo_approval'), `nodes=${types.join(',')}`);
+  const medium = nodes.find((n) => n.id === 'api-medium-post');
+  assert(medium?.data?.taskConfig?.bearerTokenRef === 'MEDIUM_INTEGRATION_TOKEN', 'Medium binds vault key');
+  assert(!String(medium?.data?.taskConfig?.bearerToken || ''), 'no Medium token literal');
+  const hn = nodes.find((n) => n.id === 'connector-hn');
+  assert(hn?.data?.taskConfig?.appId === 'hackernews', 'Hacker News connector present');
+  assert(hn?.data?.taskConfig?.actionId !== 'hackernews.get_top_stories', 'HN is submit not top-stories reader');
+  assert(/flolah/i.test(JSON.stringify(nodes.find((n) => n.id === 'brain-draft')?.data?.taskConfig?.systemPrompt || '')), 'draft is about the named product');
+  assert(/MEDIUM_INTEGRATION_TOKEN|API Keys|Medium/i.test(`${res.reply}\n${res.keys_summary || ''}`), 'summarizes Medium key');
+  assert(!hasSecretLiteral(def), 'promote graph has no secret literals');
 }
 
 // --------------------------------------------------------------------------

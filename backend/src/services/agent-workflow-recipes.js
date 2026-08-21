@@ -7,6 +7,7 @@ import { JOB_APPLICANT_TEMPLATE_ID, JOB_APPLICANT_CHAT_PHRASE } from './agent-wo
 import { defaultBrainConfig } from './agent-workflow-agent-runtime-context.js';
 import { BRAIN_PROVIDERS } from './agent-workflow-brain-providers.js';
 import { PLATFORM_BYOK_KEY_NAME } from './user-api-keys.js';
+import { suggestedBindKeyName } from './agent-workflow-secrets.js';
 
 function slugify(name) {
   return String(name || 'workflow')
@@ -190,7 +191,316 @@ function wantsAutoTest(message) {
   return /\b(test|e2e|verify|working|validate)\b/i.test(String(message || ''));
 }
 
+export function extractPromoteChannels(message) {
+  const t = String(message || '').toLowerCase();
+  const channels = [];
+  if (/hacker\s*news|hackernews/.test(t)) channels.push('hackernews');
+  if (/\bmedium\b/.test(t)) channels.push('medium');
+  if (/linked\s*in/.test(t)) channels.push('linkedin');
+  if (/\bfacebook\b|\bfb\b/.test(t)) channels.push('facebook');
+  return channels;
+}
+
+export function isContentPromoteIntent(message) {
+  const t = String(message || '').toLowerCase();
+  if (!/\b(promote|publish|post|blog|article|announce|market)\b/i.test(t)) return false;
+  return extractPromoteChannels(t).length > 0 || /\b(social|channels?)\b/i.test(t);
+}
+
+export function extractPromoteTopic(message) {
+  const t = String(message || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  let m = t.match(/\babout\s+([a-z0-9][^.,\n]{0,60}?)(?:\s+it\s+can\b|\s*$)/i);
+  if (m?.[1]) return m[1].trim().slice(0, 80);
+  m = t.match(/\bpromote\s+(.+?)\s+on\s+/i);
+  if (m?.[1]) return m[1].trim().slice(0, 80);
+  return 'this product';
+}
+
+function ceoApprovalNode(id, x, y, sourceNodeId, title, instructions) {
+  return {
+    id,
+    type: 'ceo_approval',
+    position: { x, y },
+    data: {
+      label: 'Your approval',
+      inputBindings: [
+        {
+          id: 'summary',
+          label: 'Summary',
+          mode: 'dynamic',
+          sourceNodeId,
+          sourceOutputKey: 'text',
+        },
+      ],
+      taskConfig: { title, instructions },
+    },
+  };
+}
+
+function ifApprovedNode(id, x, y, sourceNodeId = 'ceo-1') {
+  return {
+    id,
+    type: 'if',
+    position: { x, y },
+    data: {
+      label: 'If approved',
+      taskConfig: {
+        sourceNodeId,
+        sourceOutputKey: 'decision',
+        operator: 'eq',
+        compareValue: 'approved',
+      },
+    },
+  };
+}
+
+function bearerApiNode(id, label, x, y, { url, method = 'GET', bodyValue = '', bodySourceNodeId = '', bodySourceKey = 'text', keyRef }) {
+  const bindings = [
+    { id: 'url', label: 'URL', mode: 'static', value: url },
+    { id: 'headers', label: 'Headers', mode: 'static', value: '{"Content-Type":"application/json","Accept":"application/json"}' },
+  ];
+  if (bodySourceNodeId) {
+    bindings.push({
+      id: 'body',
+      label: 'Request body',
+      mode: 'dynamic',
+      sourceNodeId: bodySourceNodeId,
+      sourceOutputKey: bodySourceKey,
+      value: '',
+    });
+  } else if (bodyValue) {
+    bindings.push({ id: 'body', label: 'Request body', mode: 'static', value: bodyValue });
+  }
+  return {
+    id,
+    type: 'api',
+    position: { x, y },
+    data: {
+      label,
+      inputBindings: bindings,
+      outputs: [
+        { id: 'status', label: 'HTTP status' },
+        { id: 'body', label: 'Response body' },
+        { id: 'ok', label: 'Success' },
+      ],
+      taskConfig: {
+        method,
+        authType: 'bearer',
+        bearerToken: '',
+        bearerTokenRef: keyRef,
+        timeoutMs: 120000,
+        timeoutAction: 'fail',
+        defaultTimeoutOutput: '{}',
+      },
+    },
+  };
+}
+
+function connectorPublishNode(id, label, x, y, { appId, appName, actionId, inputValue, inputSourceNodeId, inputSourceKey = 'text' }) {
+  const inputBinding = inputSourceNodeId
+    ? {
+        id: 'input',
+        label: 'Action input',
+        mode: 'dynamic',
+        sourceNodeId: inputSourceNodeId,
+        sourceOutputKey: inputSourceKey,
+        value: '',
+      }
+    : {
+        id: 'input',
+        label: 'Action input',
+        mode: 'static',
+        value: inputValue || '{}',
+      };
+  return {
+    id,
+    type: 'connector',
+    position: { x, y },
+    data: {
+      label,
+      inputBindings: [inputBinding],
+      taskConfig: {
+        appId,
+        appName,
+        actionId,
+        timeoutMs: 120000,
+        timeoutAction: 'fail',
+      },
+    },
+  };
+}
+
 export const WORKFLOW_RECIPES = [
+  {
+    id: 'enduser-content-promote',
+    label: 'Write blogs and promote on named channels',
+    score(message) {
+      const t = message.toLowerCase();
+      if (isOpsOrLifecycleIntent(t)) return 0;
+      if (!isContentPromoteIntent(t)) return 0;
+      let s = 10;
+      if (extractPromoteChannels(t).length >= 2) s += 4;
+      if (/\b(blog|intro|feature|use\s*case|usercase)\b/i.test(t)) s += 2;
+      if (/openrouter|job\s+applicant/i.test(t)) s -= 6;
+      return s;
+    },
+    build(message) {
+      const topic = extractPromoteTopic(message);
+      const channels = extractPromoteChannels(message);
+      const wantMedium = channels.includes('medium') || !channels.length;
+      const wantHn = channels.includes('hackernews');
+      const wantLi = channels.includes('linkedin');
+      const name =
+        extractWorkflowName(message) ||
+        `Promote ${topic}`.slice(0, 60);
+      const phrase = `promote ${slugify(topic)}`;
+      const modes = inferTriggerModes(message);
+      const mediumKey = suggestedBindKeyName({ provider: 'medium', hint: 'medium' });
+
+      const nodes = [
+        triggerNode(phrase, modes),
+        ollamaBrainNode(
+          'brain-draft',
+          'Write the blog draft',
+          280,
+          40,
+          `Write one markdown blog the CEO can publish. Cover (1) a short intro, (2) the main features, (3) two realistic use-case examples.\nTopic / product: ${topic}\nAlso use anything in the run input:\n{{input}}\nStart with a markdown H1 title. No secrets, no invented pricing, no hype. Plain English.`,
+          'trigger-1',
+          'trigger_input'
+        ),
+      ];
+      nodes[1].data.taskConfig.maxTokens = 1200;
+      nodes.push(
+        ceoApprovalNode(
+          'ceo-1',
+          520,
+          40,
+          'brain-draft',
+          'Approve blog before publishing',
+          'Review the draft. Approve to create channel posts (Medium as a draft). Reject to stop.'
+        ),
+        ifApprovedNode('if-1', 760, 40)
+      );
+      const edges = [
+        { id: 'e-draft', source: 'trigger-1', target: 'brain-draft' },
+        { id: 'e-ceo', source: 'brain-draft', target: 'ceo-1' },
+        { id: 'e-if', source: 'ceo-1', target: 'if-1' },
+      ];
+
+      let lastPublishId = 'if-1';
+      let x = 1000;
+      if (wantMedium) {
+        nodes.push(
+          bearerApiNode('api-medium-me', 'Find Medium author', x, 0, {
+            url: 'https://api.medium.com/v1/me',
+            method: 'GET',
+            keyRef: mediumKey,
+          }),
+          bearerApiNode('api-medium-post', 'Create Medium draft', x, 160, {
+            url: 'https://api.medium.com/v1/users/{{api-medium-me.body.data.id}}/posts',
+            method: 'POST',
+            keyRef: mediumKey,
+            bodyValue: JSON.stringify({
+              title: topic,
+              contentFormat: 'markdown',
+              content: '{{brain-draft.text}}',
+              publishStatus: 'draft',
+              tags: ['product', 'platform'],
+            }),
+          })
+        );
+        edges.push({ id: 'e-med-me', source: 'if-1', target: 'api-medium-me', sourceHandle: 'true' });
+        edges.push({ id: 'e-med-post', source: 'api-medium-me', target: 'api-medium-post' });
+        lastPublishId = 'api-medium-post';
+        x += 260;
+      }
+      if (wantHn) {
+        nodes.push(
+          ollamaBrainNode(
+            'brain-hn',
+            'Hacker News title',
+            x,
+            40,
+            wantMedium
+              ? `Write one Hacker News story title (max 80 characters) for this article. Return the title only.\nArticle:\n{{brain-draft.text}}\nMedium URL (if any):\n{{api-medium-post.body.data.url}}`
+              : `Write one Hacker News story title (max 80 characters) plus a 2-sentence text post. Return title on line 1, body after.\nArticle:\n{{brain-draft.text}}`,
+            'brain-draft'
+          )
+        );
+        nodes.push(
+          connectorPublishNode('connector-hn', 'Submit on Hacker News', x, 220, {
+            appId: 'hackernews',
+            appName: 'Hacker News',
+            actionId: 'hackernews.submit_story',
+            inputValue: JSON.stringify({
+              title: '{{brain-hn.text}}',
+              url: wantMedium ? '{{api-medium-post.body.data.url}}' : '',
+              text: '{{brain-draft.text}}',
+            }),
+          })
+        );
+        const hnFrom = lastPublishId === 'if-1' ? 'if-1' : lastPublishId;
+        edges.push({
+          id: 'e-hn-brain',
+          source: hnFrom,
+          target: 'brain-hn',
+          ...(hnFrom === 'if-1' ? { sourceHandle: 'true' } : {}),
+        });
+        edges.push({ id: 'e-hn-post', source: 'brain-hn', target: 'connector-hn' });
+        lastPublishId = 'connector-hn';
+        x += 260;
+      }
+      if (wantLi) {
+        nodes.push(
+          connectorPublishNode('connector-li', 'Share on LinkedIn', x, 160, {
+            appId: 'linkedin',
+            appName: 'LinkedIn',
+            actionId: 'linkedin.create_share',
+            inputValue: JSON.stringify({
+              commentary: '{{brain-draft.text}}',
+              text: '{{brain-draft.text}}',
+            }),
+          })
+        );
+        const liFrom = lastPublishId === 'if-1' ? 'if-1' : lastPublishId;
+        edges.push({
+          id: 'e-li',
+          source: liFrom,
+          target: 'connector-li',
+          ...(liFrom === 'if-1' ? { sourceHandle: 'true' } : {}),
+        });
+      }
+
+      nodes.push(
+        ollamaBrainNode(
+          'brain-rejected',
+          'Stopped after reject',
+          760,
+          260,
+          'One sentence: the CEO rejected the draft, so nothing was posted.\n{{ceo-1.comment}}',
+          'ceo-1',
+          'comment'
+        )
+      );
+      edges.push({ id: 'e-reject', source: 'if-1', target: 'brain-rejected', sourceHandle: 'false' });
+
+      const channelBits = [];
+      if (wantMedium) channelBits.push('Medium draft (store API Keys name MEDIUM_INTEGRATION_TOKEN)');
+      if (wantHn) channelBits.push('Hacker News via Connectors (connect the app; no secret in the graph)');
+      if (wantLi) channelBits.push('LinkedIn via Connectors');
+
+      return {
+        name,
+        chat_phrase: phrase,
+        trigger_modes: modes,
+        graph: { nodes, edges, viewport: { x: 0, y: 0, zoom: 0.7 } },
+        autoTest: false,
+        summary: `Writes a ${topic} blog (intro, features, use cases) with free Ollama, waits for your approval, then ${channelBits.join(' and ')}.`,
+      };
+    },
+  },
   {
     id: 'brain-ceo-approval',
     label: 'Brain → CEO Approval → If approved',
@@ -553,7 +863,7 @@ export const WORKFLOW_RECIPES = [
     label: 'Look up a public page and write a short briefing',
     score(message) {
       const t = message.toLowerCase();
-      if (isOpsOrLifecycleIntent(t)) return 0;
+      if (isOpsOrLifecycleIntent(t) || isContentPromoteIntent(t)) return 0;
       let s = 0;
       if (/\b(look\s+up|look\s+this\s+up|research|find\s+out|check\s+(?:the\s+)?(?:web|news|weather|site))\b/i.test(t)) s += 4;
       if (/\b(summar|recap|briefing|plain\s+english|tell\s+me)\b/i.test(t)) s += 3;
@@ -606,7 +916,7 @@ export const WORKFLOW_RECIPES = [
     label: 'Read connected app news and summarize',
     score(message) {
       const t = message.toLowerCase();
-      if (isOpsOrLifecycleIntent(t)) return 0;
+      if (isOpsOrLifecycleIntent(t) || isContentPromoteIntent(t)) return 0;
       let s = 0;
       if (/\b(connector|connected\s+app|hacker\s*news|github|gmail|slack)\b/i.test(t)) s += 5;
       if (/\b(news|stories|inbox|profile)\b/i.test(t)) s += 2;
@@ -652,7 +962,7 @@ export const WORKFLOW_RECIPES = [
     label: 'Public API + connected news + optional MCP, then a plain-English recap',
     score(message) {
       const t = message.toLowerCase();
-      if (isOpsOrLifecycleIntent(t)) return 0;
+      if (isOpsOrLifecycleIntent(t) || isContentPromoteIntent(t)) return 0;
       let s = 0;
       const mentionsApi = /\b(api|website|web|http|look\s+up|public)\b/i.test(t);
       const mentionsMcp = /\b(mcp|connected\s+tool|my\s+tools|extra\s+tools|wired\s+up)\b/i.test(t);
@@ -717,7 +1027,7 @@ export const WORKFLOW_RECIPES = [
     label: 'Turn my note into a short friendly summary',
     score(message) {
       const t = message.toLowerCase();
-      if (isOpsOrLifecycleIntent(t)) return 0;
+      if (isOpsOrLifecycleIntent(t) || isContentPromoteIntent(t)) return 0;
       let s = 0;
       if (/\b(i\s+(?:want|need)|help\s+me|can\s+you|please)\b/i.test(t)) s += 3;
       if (/\b(note|notes|message|text|something)\b/i.test(t) && /\b(summar|recap|short|friendly)\b/i.test(t)) s += 5;
@@ -779,6 +1089,7 @@ export function isWorkflowCreateIntent(message) {
     (/call\s+it\s+/i.test(t) && /\b(summar|briefing|recap|news|look\s+up|note|stories)\b/i.test(t));
 
   if (strongCreate) return true;
+  if (isContentPromoteIntent(t)) return true;
   if (isOpsOrLifecycleIntent(t)) return false;
   if (
     /(?:every\s+(?:morning|day)|when\s+(?:a\s+)?(?:customer|someone)|look\s+(?:this|it)\s+up|send\s+me\s+a\s+(?:recap|summary|briefing))/i.test(
