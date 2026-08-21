@@ -8,6 +8,7 @@ const sidebars = {
       collapsed: false,
       items: [
         'start/welcome',
+        'start/how-the-company-runs',
         'start/access',
         'start/register',
         'start/sign-in-and-mfa',

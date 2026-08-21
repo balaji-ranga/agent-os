@@ -18,7 +18,7 @@ Top-level (always shown; cannot hide in Menu visibility):
 
 | Label | Route | Use for |
 |-------|-------|---------|
-| Home | `/` | Executive chat (COO / default). On phones: overview first; **Chat** opens a full-screen sheet (help section below). |
+| Home | `/` | Executive chat (COO / default). Compact **How your company runs** strip above the dashboard. On phones: overview first; **Chat** opens a full-screen sheet (help section below). |
 | **Digest** | `/this-week` | Weekly company pulse: AI workers, tasks, Time Saved, Est. Value (per-agent $/hr), **2 goal plans** + **View all** → `/goal-plans`, insights. |
 | Workspace | `/work` | Daily operating workspace — **open Kanban tasks**, AI team, activity, command bar (same task source as **/kanban**) |
 
@@ -37,7 +37,7 @@ Top-level (always shown; cannot hide in Menu visibility):
 
 | Label | Route | Use for |
 |-------|-------|---------|
-| My Org / Dashboard | `/org` | Org chart, standups + COO chat, **People** (invite employees / sub-users — help **45**), Resync ORG/AGENTS |
+| My Org / Dashboard | `/org` | Architecture diagrams, org chart, standups + COO chat, **People** (invite employees / sub-users — help **45**), Resync ORG/AGENTS |
 | Kanban | `/kanban` | Work tasks (Weekly default; agent filter / Select all / task ID), CEO approvals, artifacts; deep-link `?task=` from global search |
 | **Scheduled goals** | `/scheduled-goals` | Recurring CEO prompts (**hourly** / daily / weekdays / weekly); create **and edit**; **Generate draft plan is COO-only** (other employees **Save & schedule**); pause survives restarts. Also via COO chat. See [28-scheduled-goals.md](./28-scheduled-goals.md) |
 | **Goal plans** | `/goal-plans` | Week list of durable plans (`agr-…`); **Execution trace** (`/goal-plans/:id`) shows KPI, plan version, and telemetry for ad-hoc and scheduled fires |

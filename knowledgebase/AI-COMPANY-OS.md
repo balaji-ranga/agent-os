@@ -103,8 +103,8 @@ Every Flolah capability should map to one or more of these primitives. Orphan fe
 
 | Route / surface | Primitives | User-facing label baseline |
 |-----------------|------------|----------------------------|
-| `/` home chat | Employees, Tasks, Memory | Chat with AI employees |
-| `/org` My Org | People, Employees, Departments | My Org (org chart, standups, **People**) |
+| `/` home chat | Employees, Tasks, Memory | Chat with AI employees; compact architecture strip above the dashboard |
+| `/org` My Org | People, Employees, Departments | My Org (architecture diagrams, org chart, standups, **People**) |
 | `/kanban` | Tasks, Approvals, People | Kanban (all cards visible; department employees act on own department) |
 | `/this-week` Digest | Tasks, Employees | Digest (weekly pulse; goal plans) |
 | `/scheduled-goals` | Tasks | Scheduled goals |

@@ -2,6 +2,7 @@
 
 ## Dashboard (`/org` — My Org)
 
+- **How this company runs** — architecture diagrams **above the org chart** (operating model + capability layers). Compact strip also sits **above the Home dashboard**. Public page: [https://flolah.cloud/docs/start/how-the-company-runs/](https://flolah.cloud/docs/start/how-the-company-runs/). Help **49**.
 - **Org chart** of your AI employees (COO and specialists) and **people** (human employees). Home chat is at **`/`** (COO by default).
 - **People** tab — invite employees (name, email, phone → invite email), assign **CEO Delegate** or **Member** (or a custom role), place them in a department. Employees inherit the **CEO company** (tools, Knowledge, CRM/ERP binds). AgentSystem workspaces stay on the CEO. Guide: [45-company-people.md](./45-company-people.md).
 - **Standups** — create standup, chat with COO, get work from team, run COO summary, approve, delete.

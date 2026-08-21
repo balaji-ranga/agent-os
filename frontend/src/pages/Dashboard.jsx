@@ -13,6 +13,7 @@ import OrgPeoplePanel from '../components/OrgPeoplePanel';
 import { formatLocalDateTime, formatChatTimestamp, toLocalDateTimeInputValue } from '../utils/formatDateTime.js';
 import { buildMessageWithAttachments, uploadChatAttachments } from '../utils/chatAttachments.js';
 import { userRoleTitle } from '../utils/userRoleTitle.js';
+import CompanyArchitecturePanel from '../components/CompanyArchitecturePanel.jsx';
 
 // Voice: browser Speech Synthesis API (Edge/Chrome TTS)
 function useEdgeTTS() {
@@ -503,6 +504,8 @@ export default function Dashboard() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
         <h1 style={{ marginTop: 0, marginBottom: 0 }}>My Org</h1>
       </div>
+
+      <CompanyArchitecturePanel />
 
       {/* Org chart: recursive hierarchy with List | Graph */}
       <section style={{ marginBottom: '2rem' }}>

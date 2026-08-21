@@ -5,7 +5,7 @@ title: Your first 15 minutes
 
 # Your first 15 minutes
 
-A short path so the product feels like a company, not a blank chat.
+A short path so the product feels like a company, not a blank chat. Architecture (COO, specialists, layers): [How the company runs](./how-the-company-runs.mdx).
 
 1. **Company setup** — If the wizard opens, complete it or skip. For pipeline work choose **Revenue Company**. **Design organization** proposes departments and AI employees; **Apply** creates them. You can reopen it anytime: avatar → **Company setup**. See [Company setup](../setup/company-setup.md) and [Org and departments](../setup/org-and-departments.md).
 2. **Meet the COO** — Home chat (`/`) talks to the COO by default. **Tell the COO the outcome first** (what “done” means, deadline, spend cap, what must not happen). Do not start in Workflow Builder.

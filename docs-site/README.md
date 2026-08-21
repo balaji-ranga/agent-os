@@ -15,6 +15,8 @@ Keep public pages sequenced: access → register → setup → run → operate.
 
 **Org, departments, and people:** [Org and departments](./docs/setup/org-and-departments.md) · [People](./docs/setup/people.md) — Chart / Design / People, CEO Delegate vs Member.
 
+**Architecture (CEO):** [How the company runs](./docs/start/how-the-company-runs.mdx) — operating model (You → COO → specialists) and capability layers. Same diagrams sit above the Home dashboard and at the top of My Org.
+
 **Connectors catalog:** the public [Connectors and MCP](./docs/systems/connectors-and-mcp.md) page credits **[Open Connector](https://github.com/oomol-lab/open-connector)** (~1,300 connectors; Apache-2.0; live list at [openconnector.dev/#connectors](https://openconnector.dev/#connectors)). Full stack attribution: repo [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md) and [flolah.cloud/legal/open-source.html](https://flolah.cloud/legal/open-source.html).
 
 ## Build

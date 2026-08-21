@@ -12,9 +12,9 @@ if [[ ! -f "${DOCS_SRC}/package.json" ]]; then
   exit 1
 fi
 
-if grep -Rqi --include='*.md' --include='*.js' 'openclaw' "${DOCS_SRC}/docs" "${DOCS_SRC}/docusaurus.config.js" "${DOCS_SRC}/sidebars.js"; then
+if grep -Rqi --include='*.md' --include='*.mdx' --include='*.js' 'openclaw' "${DOCS_SRC}/docs" "${DOCS_SRC}/docusaurus.config.js" "${DOCS_SRC}/sidebars.js"; then
   echo "ERROR: public docs source still mentions OpenClaw" >&2
-  grep -Rni --include='*.md' --include='*.js' 'openclaw' "${DOCS_SRC}/docs" "${DOCS_SRC}/docusaurus.config.js" "${DOCS_SRC}/sidebars.js" || true
+  grep -Rni --include='*.md' --include='*.mdx' --include='*.js' 'openclaw' "${DOCS_SRC}/docs" "${DOCS_SRC}/docusaurus.config.js" "${DOCS_SRC}/sidebars.js" || true
   exit 1
 fi
 

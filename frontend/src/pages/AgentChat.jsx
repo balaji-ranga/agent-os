@@ -9,6 +9,7 @@ import RobotAvatar from '../components/RobotAvatar.jsx';
 import { buildMessageWithAttachments, uploadChatAttachments, buildDisplayAttachmentsFromFiles, revokeAttachmentPreviews } from '../utils/chatAttachments.js';
 import { parseApiDate } from '../utils/formatDateTime.js';
 import { useChatVoice, ChatVoiceBar, ChatVoiceCallOverlay } from '../components/ChatVoiceControls.jsx';
+import CompanyArchitecturePanel from '../components/CompanyArchitecturePanel.jsx';
 
 const secondaryBtn = {
   padding: '0.45rem 0.85rem',
@@ -855,6 +856,8 @@ export default function AgentChat() {
       className={`page-chat page-chat-inner${sidePanelOpen ? ' page-chat-with-history' : ''}${isHome ? ' page-chat-home' : ''}${isHome && isNarrow && mobileChatOpen ? ' mobile-chat-open' : ''}${sidePanelOpen ? ' chat-side-open' : ''}`}
     >
       {isHome && (
+        <div className="home-dashboard-with-arch">
+        <CompanyArchitecturePanel variant="compact" />
         <div className="home-dashboard-layout">
           <div className="home-primary-column">
             <div className="home-mobile-greet">
@@ -1117,6 +1120,7 @@ export default function AgentChat() {
             />
           )}
           {sidePanelEl}
+        </div>
         </div>
       )}
       {!isHome && (

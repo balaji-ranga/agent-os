@@ -6893,3 +6893,213 @@ button.ai-snip-info-btn:hover {
 @media (max-width: 720px) {
   .goal-exec-kpis { grid-template-columns: 1fr 1fr; }
 }
+
+/* Company architecture (Home strip + My Org diagrams) */
+.home-dashboard-with-arch {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  gap: 0.65rem;
+}
+.home-dashboard-with-arch > .home-dashboard-layout {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+.flolah-arch {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text);
+}
+.flolah-arch-compact {
+  flex-shrink: 0;
+}
+.flolah-arch-compact-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.85rem;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.flolah-arch-compact-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.45rem 0.85rem;
+  min-width: 0;
+}
+.flolah-arch-compact-flow {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.flolah-arch-compact-cta {
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  color: var(--accent);
+  font-weight: 650;
+}
+.flolah-arch-compact-body {
+  padding: 0 0.85rem 0.85rem;
+  border-top: 1px solid var(--border);
+}
+.flolah-arch-full {
+  padding: 1rem 1.1rem 0.85rem;
+  margin-bottom: 1.25rem;
+}
+.flolah-arch-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-bottom: 0.85rem;
+}
+.flolah-arch-h2 {
+  font-size: 1.15rem;
+  margin: 0 0 0.35rem;
+}
+.flolah-arch-lead {
+  margin: 0.65rem 0 0.85rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+.flolah-arch-tabs {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.flolah-arch-tabs button {
+  padding: 0.3rem 0.7rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+}
+.flolah-arch-tabs button.is-on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.flolah-arch-rank {
+  display: grid;
+  grid-template-columns: 132px 1fr;
+  gap: 0.7rem;
+  padding: 0.7rem 0.8rem;
+  background: var(--bg, var(--surface-2, transparent));
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.flolah-arch-rank.is-accent {
+  border-left: 3px solid var(--accent);
+}
+.flolah-arch-rank-label {
+  font-weight: 650;
+  font-size: 0.88rem;
+}
+.flolah-arch-rank.is-accent .flolah-arch-rank-label {
+  color: var(--accent);
+}
+.flolah-arch-rank-hint {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 0.15rem;
+}
+.flolah-arch-rank-boxes {
+  display: grid;
+  gap: 0.45rem;
+}
+.flolah-arch-box {
+  padding: 0.5rem 0.6rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.flolah-arch-box-title {
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+.flolah-arch-box-body {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 0.15rem;
+}
+.flolah-arch-arrow {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.1;
+  padding: 0.1rem 0;
+}
+.flolah-arch-layers {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.flolah-arch-layer {
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg, transparent);
+}
+.flolah-arch-layer.is-accent {
+  border-left: 3px solid var(--accent);
+}
+.flolah-arch-layer-kicker {
+  font-size: 0.72rem;
+  font-weight: 650;
+  color: var(--muted);
+  letter-spacing: 0.01em;
+}
+.flolah-arch-layer.is-accent .flolah-arch-layer-kicker {
+  color: var(--accent);
+}
+.flolah-arch-layer-title {
+  font-size: 0.88rem;
+  font-weight: 650;
+  margin: 0.15rem 0 0.45rem;
+}
+.flolah-arch-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.flolah-arch-chip {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--muted);
+}
+.flolah-arch-more {
+  margin: 0.75rem 0 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.flolah-arch-more a {
+  color: var(--accent);
+}
+@media (max-width: 720px) {
+  .flolah-arch-rank {
+    grid-template-columns: 1fr;
+  }
+  .flolah-arch-rank-boxes {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .flolah-arch-compact-flow {
+    display: none;
+  }
+}

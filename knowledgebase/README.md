@@ -16,6 +16,7 @@ Documentation lives here so Cursor and humans can find it. **GitHub landing:** r
 | **VISION.md** | Product purpose, vision, core strengths, differentiator, and strategic focuses (AI Company OS + governed A2A). |
 | **PITCH.md** | One-pager pitch: problem, solution, differentiators, audience, and success journey (from VISION + AI-COMPANY-OS). |
 | **platform-help/** | CEO end-user Platform Help corpus (RAG). **Public website:** sequenced Docusaurus guide at `docs-site/` → `https://flolah.cloud/docs/` (open access, no OpenClaw, no operator secrets). In-app RAG remains this folder. |
+| **platform-help/49-how-the-company-runs.md** | CEO architecture: operating model + capability layers; Home strip and My Org diagrams; public `/docs/start/how-the-company-runs/` |
 | **AGENT-WORKSPACE-TEMPLATES.md** | Platform-shared agent workspace MD templates: apply in Agent Workspace, Admin CRUD, CEO publish-as-template. |
 | **TESTING.md** | Restart steps, full API test, frontend manual tests, smoke test, standup→COO→TechResearcher test, standup UI checklist. |
 | **GITHUB-SETUP.md** | One-time: create agent-os repo on GitHub and push (Options A/B, security check). |
@@ -28,6 +29,7 @@ Documentation lives here so Cursor and humans can find it. **GitHub landing:** r
 | **GATEWAY-PAIRING-1008.md** | Fix "gateway closed (1008): pairing required" — token in AgentSystem.json and OPENCLAW_GATEWAY_TOKEN. |
 | **SESSION-HISTORY-VISIBILITY-TREE.md** | Fix "Session history visibility is restricted to the current session tree" — use injected session key or set `tools.sessions.visibility`. |
 | **JOB-APPLICANT-WORKFLOW.md** | Job Applicant pipeline: four agents, profile intake, tools, Sheets/GDrive/Playwright plan, setup via `scripts/setup-job-applicant-agents.js`. |
+| **WORKFLOW-BUILDER-ENDUSER-STRESS.md** | Plain-English Workflow Builder stress plan (APIs, Connectors, MCP, Ollama, BYOK, publish/draft/A2A/delete). |
 | **DEPLOY-CENTOS-PODMAN.md** | Production deploy on CentOS/RHEL/Hostinger with Podman or Docker Compose: SELinux, firewall, volumes, AgentSystem/Chromium, OpenConnector, browser login, optional profiles. |
 | **knowledgeGraph.md** | Neo4j knowledge graph for internal AgentSystem agent behavior, Kanban feedback, autonomous self-improvement, and progressive improvement dashboard. |
 | **IBKR-TRADING-WORKFLOW.md** | IBKR MCP options, maker/checker paper workflow (budget, brackets, CEO day plan), Agent OS wiring, env vars, and security guardrails. |

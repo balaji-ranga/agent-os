@@ -24,7 +24,7 @@ Left-nav **sections** (Settings, Run & Operate, and so on) start **collapsed**. 
 
 ## Run & Operate (typical)
 
-**My Org** (`/org`) — org chart (**Chart** / **Design** / **People**), standups, **Resync**. How to set departments and reporting lines: [Org and departments](../setup/org-and-departments.md).
+**My Org** (`/org`) — architecture diagrams at the top, then org chart (**Chart** / **Design** / **People**), standups, **Resync**. How the COO and specialists fit together: [How the company runs](../start/how-the-company-runs.mdx). How to set departments and reporting lines: [Org and departments](../setup/org-and-departments.md).
 
 Also: Kanban, Scheduled goals, **Goal plans** (execution trace / telemetry), Broadcast, Knowledge, Content Explorer, Policies, Browser Session, Efficiency View (**Org / Department / Agent View / User View**), CRM/ERP (when enabled), Avatars.
 

@@ -25,7 +25,7 @@ Your org may **require** MFA or leave it optional (**inherit** platform default)
 ## First five minutes
 
 1. If redirected to **Company setup** (`/company-setup`), complete or skip the wizard (avatar → **Company setup** anytime after). For pipeline work pick **Revenue Company**. Guide: [29-company-setup.md](./29-company-setup.md).
-2. Chat with the **COO** — **tell the COO the outcome first** (what success looks like, deadline, spend cap, what must not happen). Do not open Workflow Builder until you inspect a step on the Goal Plan.
+2. Chat with the **COO** — **tell the COO the outcome first** (what success looks like, deadline, spend cap, what must not happen). Do not open Workflow Builder until you inspect a step on the Goal Plan. Expand **How your company runs** above the Home dashboard if the org picture is unclear (help **49**).
 3. Open the **bell** (top bar) — empty until the team notifies you or standups produce updates.
 4. Open **Profile** (avatar menu) — set name and MFA prefs. For OpenAI/OpenRouter BYOK, open **Settings → API Keys**, edit the seeded **`Platform_BYOK`** slot, then on Profile choose **provider + chat model** (do not paste keys on Profile).
 5. Open **Knowledge** (Master Data) — confirm **departments** and Platform Help documents exist. Optionally open **Content Explorer** to browse uploads and generated media.

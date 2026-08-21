@@ -4,7 +4,7 @@ title: Chat with the COO
 
 # Chat with the COO
 
-Home (`/`) opens chat with the **COO**. Use **Chat with** to switch employees. **My Org** holds the org chart, departments (**Design**), and standups — [Org and departments](../setup/org-and-departments.md).
+Home (`/`) opens chat with the **COO**. A compact **How your company runs** strip sits above the Home dashboard (expand it for the operating diagram). Use **Chat with** to switch employees. **My Org** holds the full architecture diagrams, org chart, departments (**Design**), and standups — [How the company runs](../start/how-the-company-runs.mdx) · [Org and departments](../setup/org-and-departments.md).
 
 ## Send work
 

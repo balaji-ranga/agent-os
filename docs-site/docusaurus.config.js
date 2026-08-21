@@ -84,6 +84,7 @@ const config = {
           title: 'Guide',
           items: [
             { label: 'Access Flolah', to: '/start/access' },
+            { label: 'How the company runs', to: '/start/how-the-company-runs' },
             { label: 'Register', to: '/start/register' },
             { label: 'Company setup', to: '/setup/company-setup' },
             { label: 'Org and departments', to: '/setup/org-and-departments' },

@@ -35,3 +35,124 @@
 .footer__copyright {
   color: #91a4c6;
 }
+
+/* Company architecture diagrams */
+.docs-arch {
+  margin: 1rem 0 1.5rem;
+}
+.docs-arch-tabs {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.85rem;
+}
+.docs-arch-tabs button {
+  padding: 0.3rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--ifm-color-emphasis-300);
+  background: transparent;
+  color: var(--ifm-font-color-base);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.85rem;
+}
+.docs-arch-tabs button.is-on {
+  background: var(--ifm-color-primary);
+  border-color: var(--ifm-color-primary);
+  color: #fff;
+}
+.docs-arch-rank {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  background: var(--ifm-background-surface-color);
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 8px;
+}
+.docs-arch-rank.is-accent {
+  border-left: 3px solid var(--ifm-color-primary);
+}
+.docs-arch-rank-label {
+  font-weight: 650;
+}
+.docs-arch-rank.is-accent .docs-arch-rank-label {
+  color: var(--ifm-color-primary);
+}
+.docs-arch-rank-hint {
+  font-size: 0.8rem;
+  color: var(--ifm-color-content-secondary);
+  margin-top: 0.15rem;
+}
+.docs-arch-rank-boxes {
+  display: grid;
+  gap: 0.45rem;
+}
+.docs-arch-box {
+  padding: 0.5rem 0.65rem;
+  background: var(--ifm-background-color);
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 6px;
+}
+.docs-arch-box-title {
+  font-size: 0.85rem;
+  font-weight: 650;
+}
+.docs-arch-box-body {
+  font-size: 0.8rem;
+  color: var(--ifm-color-content-secondary);
+  margin-top: 0.15rem;
+}
+.docs-arch-arrow {
+  text-align: center;
+  color: var(--ifm-color-content-secondary);
+  line-height: 1.2;
+  padding: 0.15rem 0;
+}
+.docs-arch-layers {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.docs-arch-layer {
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 8px;
+  background: var(--ifm-background-surface-color);
+}
+.docs-arch-layer.is-accent {
+  border-left: 3px solid var(--ifm-color-primary);
+}
+.docs-arch-layer-kicker {
+  font-size: 0.75rem;
+  font-weight: 650;
+  color: var(--ifm-color-content-secondary);
+}
+.docs-arch-layer.is-accent .docs-arch-layer-kicker {
+  color: var(--ifm-color-primary);
+}
+.docs-arch-layer-title {
+  font-weight: 650;
+  margin: 0.15rem 0 0.45rem;
+}
+.docs-arch-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.docs-arch-chip {
+  font-size: 0.78rem;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 4px;
+  background: var(--ifm-background-color);
+  color: var(--ifm-color-content-secondary);
+}
+@media (max-width: 720px) {
+  .docs-arch-rank {
+    grid-template-columns: 1fr;
+  }
+  .docs-arch-rank-boxes {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}

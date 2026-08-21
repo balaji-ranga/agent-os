@@ -8,7 +8,7 @@
 - **User guide (no login):** [https://flolah.cloud/docs/](https://flolah.cloud/docs/)
 - **Source:** [github.com/balaji-ranga/agent-os](https://github.com/balaji-ranga/agent-os)
 
-You do not need APIs or Docker for everyday use as a CEO. Public walkthrough: [Welcome](https://flolah.cloud/docs/start/welcome/). Vendor keys (chat / vision / live Call share one `Platform_BYOK`): [API keys](https://flolah.cloud/docs/setup/api-keys/).
+You do not need APIs or Docker for everyday use as a CEO. Public walkthrough: [Welcome](https://flolah.cloud/docs/start/welcome/). How COO and specialists fit together: [How the company runs](https://flolah.cloud/docs/start/how-the-company-runs/). Vendor keys (chat / vision / live Call share one `Platform_BYOK`): [API keys](https://flolah.cloud/docs/setup/api-keys/).
 
 ## License
 

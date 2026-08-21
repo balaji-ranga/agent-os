@@ -1,0 +1,51 @@
+---
+sidebar_position: 2
+title: How the company runs
+---
+
+import ArchitectureDiagrams from '@site/src/components/ArchitectureDiagrams';
+
+# How the company runs
+
+You stay the **CEO**. Flolah is an **AI Company OS**: you give outcomes in plain language, the **COO** runs the company, named **AI employees** do the work, and you supervise on Kanban, Digest, and the bell.
+
+The same diagrams appear in the product: a compact strip **above the Home dashboard**, and the full view at the top of **My Org**.
+
+<ArchitectureDiagrams />
+
+## Who you talk to
+
+| Need | Ask | What happens |
+|------|-----|----------------|
+| Get this outcome done | **COO** (Home chat, default) | Plans, hands off to a specialist, opens a Kanban card, notifies you when ready |
+| How do I use Flolah? | **Platform Help** | Answers from the product guide. Does not run the company for you |
+| Build or repair a workflow | **Workflow Builder** | Turns plain English into a visual workflow. Secrets stay in API Keys |
+| Leads and pipeline | **CRM Maker / Checker** | Maker proposes; Checker (and you, when gated) confirm |
+| Orders, invoices, books | **ERP Maker / Checker** | Quote → order → invoice under Maker/Checker, with CEO gates on spend |
+| Same ask every weekday | **Scheduled goals** → COO | COO drafts a plan; you approve once; it fires on cadence |
+
+Prefer one clear **outcome** per message. You do not need to pick a specialist first.
+
+## A typical journey
+
+1. **Hire the company** — Company setup (or Hire AI employee) gives you a COO, departments, and specialists with roles and memory.
+2. **Give direction** — Home chat, scheduled goals, or Broadcast.
+3. **COO routes work** — Matches each employee’s purpose, starts Kanban, keeps goals and standups itself.
+4. **Work uses your systems** — Knowledge, Tools, Workflows, CRM/ERP, Browser Session, channels — only what you granted.
+5. **You supervise** — Kanban, Digest, the bell, and approval cards. Policies set what can run alone vs what needs you.
+
+## What the layers mean
+
+| Layer | Meaning |
+|-------|---------|
+| **Experience** | Screens you open: Home, Digest, Workspace, My Org, Kanban |
+| **Direct & supervise** | COO routing, goals, standups, Maker/Checker, approvals, bell |
+| **OS primitives** | People, Employees, Departments, Knowledge, Tools, Policies, Workflows, Tasks, Approvals, Memory |
+| **Capabilities** | Tools, Connectors, MCP, Browser, CRM/ERP, channels |
+| **Compose & productize** | Visual workflows, AgentExchange, Windows package |
+| **Governance** | Entitlements, API Keys, budgets, IP allowlists, Deny-all published services |
+| **Runtime** | AgentSystem, Flolah APIs, schedulers, your isolated company data |
+
+The unit of value is a **named AI employee** in your org, not a workflow node. Workflows are how you compose a capability; AgentExchange is how you offer it outward — still under your policy.
+
+Next: [Your first 15 minutes](/start/first-15-minutes) · [Chat with the COO](/run/chat-and-coo) · [Org and departments](/setup/org-and-departments)

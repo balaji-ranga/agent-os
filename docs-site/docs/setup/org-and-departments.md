@@ -25,7 +25,7 @@ New accounts also get a starter **departments** table in Knowledge (typically Ex
 
 Path: **My Org** (`/org`).
 
-Three modes:
+The page opens with **How this company runs** (operating model and capability layers — same diagrams as [How the company runs](../start/how-the-company-runs.mdx)). Then three modes:
 
 | Mode | Use for |
 |------|---------|
