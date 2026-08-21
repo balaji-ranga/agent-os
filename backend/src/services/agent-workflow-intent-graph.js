@@ -55,6 +55,21 @@ const CONNECTOR_HINTS = [
   { re: /\blinkedin\b/i, appId: 'linkedin', appName: 'LinkedIn', actionId: 'linkedin.create_share' },
 ];
 
+/** Public sites the compiler can scrape/search without inventing APIs. */
+const KNOWN_SITES = [
+  { re: /\bimdb\b/i, label: 'IMDb', url: 'https://www.imdb.com' },
+  { re: /\brotten\s*tomatoes?\b/i, label: 'Rotten Tomatoes', url: 'https://www.rottentomatoes.com' },
+  { re: /\bwikipedia\b/i, label: 'Wikipedia', url: 'https://en.wikipedia.org' },
+  { re: /\breddit\b/i, label: 'Reddit', url: 'https://www.reddit.com' },
+  { re: /\bnews\.ycombinator|hacker\s*news\b/i, label: 'Hacker News', url: 'https://news.ycombinator.com' },
+];
+
+const AGENT_STOPWORDS = new Set([
+  'the', 'and', 'for', 'with', 'from', 'that', 'will', 'can', 'get', 'all', 'this', 'into',
+]);
+
+const BUSINESS_AGENT_RE = /\berp\b|\bcrm\b|invoice|ledger|\bpnl\b|maker.?checker|erp.?checker|crm.?checker/;
+
 const STAGE_SPLIT =
   /\s+(?:and\s+then|then|,?\s*then)\s+|\s*→\s*|\s*->\s*|\s+and\s+(?=(?:generate|creates?|write|writes|draft|review|reviews|upload|uploads|publish|post|posts|send|share|notify|email|summar|look\s+up))/i;
 
@@ -112,8 +127,78 @@ export function isPublishStage(text) {
   return /\b(upload|uploads|publish|post|posts|share|send|submit)\b/i.test(text);
 }
 
+export function isScrapeIntent(text) {
+  const t = String(text || '');
+  return (
+    /scrap/i.test(t) ||
+    /\b(crawl|crawler|web\s*scrape|harvest\s+pages?|extract\s+from\s+(?:the\s+)?(?:web|site|page|imdb|rottentomatoes))\b/i.test(
+      t
+    )
+  );
+}
+
+export function isWebSearchIntent(text) {
+  return /\b(web\s+search|search\s+the\s+web|google\s+search|brave\s+search|search\s+online|search\s+the\s+internet)\b/i.test(
+    String(text || '')
+  );
+}
+
+export function extractSites(text) {
+  const t = String(text || '');
+  const out = [];
+  const seen = new Set();
+  const add = (label, url) => {
+    const key = String(url || '').toLowerCase();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    out.push({ label, url });
+  };
+  for (const site of KNOWN_SITES) {
+    if (site.re.test(t)) add(site.label, site.url);
+  }
+  for (const m of t.matchAll(/https?:\/\/[^\s,;]+/gi)) {
+    try {
+      const u = new URL(m[0].replace(/[),.\]]+$/, ''));
+      if (u.protocol === 'https:') add(u.hostname.replace(/^www\./, ''), u.origin);
+    } catch {
+      /* skip */
+    }
+  }
+  return out;
+}
+
+function extractScrapePhrases(text) {
+  const phrases = [];
+  if (/\breviews?\b/i.test(text)) phrases.push('reviews');
+  if (/\bratings?\b/i.test(text)) phrases.push('ratings');
+  if (/\bcritic/i.test(text)) phrases.push('critic reviews');
+  if (/\buser\s+reviews?\b/i.test(text)) phrases.push('user reviews');
+  return phrases.join(', ');
+}
+
+/** Collecting reviews/data from the web — not a QA employee step. */
+export function isCollectContentStage(text) {
+  const t = String(text || '');
+  if (isScrapeIntent(t) || extractSites(t).length) return true;
+  return /\b(get|collect|fetch|pull|gather)\s+(?:all\s+)?(?:the\s+)?reviews?\b/i.test(t);
+}
+
+/** Quality-check the previous generate step. Never used for "scrape reviews from a site". */
 export function isReviewStage(text) {
-  return /\b(review|reviews|reviewer|qa|quality\s+check|approve)\b/i.test(text) && !isPublishStage(text);
+  const t = String(text || '').trim();
+  if (!t || isPublishStage(t) || isCollectContentStage(t)) return false;
+  if (/^\s*reviews?\s*$/i.test(t)) return true;
+  return /\b(review them|review the|quality\s+check|\bqa\b|peer review|approve)\b/i.test(t);
+}
+
+function catalogHas(runtime, type) {
+  const types = runtime?.nodeTypes;
+  if (!Array.isArray(types) || !types.length) return true;
+  return types.includes(type);
+}
+
+function isBusinessCheckerAgent(agent) {
+  return BUSINESS_AGENT_RE.test(`${agent?.id || ''} ${agent?.name || ''} ${agent?.role || ''}`);
 }
 
 function matchWebDestination(text) {
@@ -143,23 +228,25 @@ function scoreHay(hay, stageTokens) {
 
 function matchAgent(stage, runtime) {
   const agents = runtime?.agents || [];
-  const stageTokens = tokens(stage);
+  const stageTokens = tokens(stage).filter((t) => !AGENT_STOPWORDS.has(t));
   if (!agents.length || !stageTokens.length) return null;
+  const askedBiz = BUSINESS_AGENT_RE.test(stage);
   let best = null;
   let bestScore = 0;
   for (const a of agents) {
+    if (!askedBiz && isBusinessCheckerAgent(a)) continue;
     const hay = `${a.id} ${a.name} ${a.role}`.toLowerCase();
     let s = scoreHay(hay, stageTokens);
     if (/scene/.test(stage) && /scene/.test(hay)) s += 4;
-    if (/story/.test(stage) && /story/.test(hay)) s += 4;
-    if (/review/.test(stage) && /review|checker|qa/.test(hay)) s += 4;
-    if (/video/.test(stage) && /video|orch/.test(hay)) s += 3;
+    if (/story/.test(stage) && /story/.test(hay) && !/storyboard/.test(stage)) s += 4;
+    if (isReviewStage(stage) && /reviewer/.test(hay) && !/checker/.test(hay)) s += 3;
+    if (/video/.test(stage) && /video/.test(hay)) s += 3;
     if (s > bestScore) {
       bestScore = s;
       best = a;
     }
   }
-  return bestScore >= 3 ? best : null;
+  return bestScore >= 5 ? best : null;
 }
 
 function rankContentTools(query, runtime) {
@@ -182,13 +269,15 @@ function rankContentTools(query, runtime) {
 }
 
 function matchTool(stage, runtime) {
-  if (isReviewStage(stage) || isPublishStage(stage)) return null;
+  if (isReviewStage(stage) || isPublishStage(stage) || isScrapeIntent(stage)) return null;
   const ranked = rankContentTools(stage, runtime);
   if (!ranked.length) return null;
   const boosted = ranked.map((t) => {
     let s = t.score || 0;
     if (/video|scene|story/.test(stage) && /generate_video|video_storyboard/.test(t.name)) s += 6;
     if (/image|picture|illustration/.test(stage) && t.name === 'generate_image') s += 6;
+    if (isWebSearchIntent(stage) && t.name === 'brave_web_search') s += 8;
+    if (/\bsummariz/.test(stage) && t.name === 'summarize_url') s += 6;
     return { ...t, score: s };
   }).sort((a, b) => b.score - a.score);
   const top = boosted[0];
@@ -226,6 +315,8 @@ function outputKeyFor(node) {
   if (node.type === 'api') return 'body';
   if (node.type === 'ceo_approval') return 'decision';
   if (node.type === 'trigger') return 'trigger_input';
+  if (node.type === 'merge') return 'merged';
+  if (node.type === 'web_scrape') return 'text';
   return 'text';
 }
 
@@ -391,7 +482,136 @@ function ifApprovedNode(id, x, y) {
   };
 }
 
+function scrapeNode(id, label, x, y, url, phrases) {
+  return {
+    id,
+    type: 'web_scrape',
+    position: { x, y },
+    data: {
+      label,
+      inputBindings: [
+        { id: 'startUrl', label: 'Start URL / domain', mode: 'static', value: url },
+        { id: 'phrases', label: 'Search phrases', mode: 'static', value: phrases || '' },
+        { id: 'cookie', label: 'Cookie header (optional)', mode: 'static', value: '' },
+      ],
+      outputs: [
+        { id: 'ok', label: 'Success' },
+        { id: 'text', label: 'Summary text' },
+        { id: 'matches', label: 'Matching pages JSON' },
+        { id: 'pages', label: 'Visited pages JSON' },
+        { id: 'stats', label: 'Crawl stats JSON' },
+        { id: 'result', label: 'Full result JSON' },
+      ],
+      taskConfig: {
+        render: 'auto',
+        maxPages: 25,
+        maxDepth: 2,
+        sameOriginOnly: true,
+        respectRobotsTxt: true,
+        timeoutMs: 180000,
+        timeoutAction: 'fail',
+        defaultTimeoutOutput: '{}',
+      },
+    },
+  };
+}
+
+function parallelNode(id, x, y) {
+  return {
+    id,
+    type: 'parallel',
+    position: { x, y },
+    data: { label: 'Fan out', inputBindings: [], outputs: [{ id: 'out', label: 'Branch signal' }] },
+  };
+}
+
+function mergeNode(id, x, y) {
+  return {
+    id,
+    type: 'merge',
+    position: { x, y },
+    data: { label: 'Join sites', inputBindings: [], outputs: [{ id: 'merged', label: 'Merged context' }] },
+  };
+}
+
+function filesystemNode(id, label, x, y) {
+  return {
+    id,
+    type: 'filesystem',
+    position: { x, y },
+    data: {
+      label,
+      inputBindings: [{ id: 'path', label: 'Path', mode: 'static', value: '' }],
+      taskConfig: {
+        transport: 'local',
+        operation: 'list',
+        timeoutMs: 120000,
+        timeoutAction: 'fail',
+      },
+    },
+  };
+}
+
+function masterdataNode(id, label, x, y, sourceNodeId, sourceOutputKey) {
+  return {
+    id,
+    type: 'masterdata',
+    position: { x, y },
+    data: {
+      label,
+      inputBindings: [
+        {
+          id: 'query',
+          label: 'Query / question',
+          mode: 'dynamic',
+          sourceNodeId,
+          sourceOutputKey,
+        },
+      ],
+      taskConfig: { mode: 'auto', topK: 5, summarize: true, timeoutMs: 120000, timeoutAction: 'fail' },
+    },
+  };
+}
+
 function bindStage(stage, runtime) {
+  const sites = extractSites(stage);
+  const wantsSiteData =
+    isScrapeIntent(stage) ||
+    (sites.length > 0 && /\b(reviews?|ratings?|crawl|extract|harvest|pages?)\b/i.test(stage));
+  if (wantsSiteData && catalogHas(runtime, 'web_scrape')) {
+    const scrapeSites = sites.length
+      ? sites
+      : [{ label: 'Start URL', url: '{{trigger-1.trigger_input}}' }];
+    return {
+      kind: 'scrape',
+      sites: scrapeSites,
+      phrases: extractScrapePhrases(stage),
+      label: scrapeSites.length > 1 ? 'Scrape named sites' : `Scrape ${scrapeSites[0].label}`,
+    };
+  }
+
+  if (isWebSearchIntent(stage)) {
+    const brave = findToolByName(runtime, 'brave_web_search');
+    if (brave) {
+      return {
+        kind: 'tool',
+        tool: { name: brave },
+        label: 'Web search',
+        searchQuery: stage,
+      };
+    }
+    const mcpSearch = matchMcp(stage, runtime);
+    if (mcpSearch) return { kind: 'mcp', mcp: mcpSearch, label: 'Web search' };
+  }
+
+  if (catalogHas(runtime, 'filesystem') && /\b(folder|directory|ftp|sftp|local files)\b/i.test(stage)) {
+    return { kind: 'filesystem', label: titleCaseLabel(stage) };
+  }
+
+  if (catalogHas(runtime, 'masterdata') && /\b(master data|knowledge base|\brag\b|our documents)\b/i.test(stage)) {
+    return { kind: 'masterdata', label: titleCaseLabel(stage) };
+  }
+
   if (isPublishStage(stage)) {
     const dest = matchWebDestination(stage);
     const conn = matchConnector(stage, runtime);
@@ -440,16 +660,6 @@ function bindStage(stage, runtime) {
     };
   }
 
-  const agent = matchAgent(stage, runtime);
-  if (agent) {
-    return {
-      kind: 'agent',
-      agent,
-      label: titleCaseLabel(stage),
-      prompt: `Complete this step: ${stage}. Use the prior output and the run input.\n\n{{input}}`,
-    };
-  }
-
   const tool = matchTool(stage, runtime);
   if (tool) {
     return { kind: 'tool', tool, label: titleCaseLabel(stage) };
@@ -458,6 +668,16 @@ function bindStage(stage, runtime) {
   const mcp = matchMcp(stage, runtime);
   if (mcp) {
     return { kind: 'mcp', mcp, label: titleCaseLabel(stage) };
+  }
+
+  const agent = matchAgent(stage, runtime);
+  if (agent) {
+    return {
+      kind: 'agent',
+      agent,
+      label: titleCaseLabel(stage),
+      prompt: `Complete this step: ${stage}. Use the prior output and the run input.\n\n{{input}}`,
+    };
   }
 
   return {
@@ -505,6 +725,9 @@ function toolPayloadFor(binding, stage) {
       start_url: dest?.url || '',
       mode: 'autonomous',
     };
+  }
+  if (binding.tool?.name === 'brave_web_search') {
+    return { query: binding.searchQuery || binding.stage || '{{input}}', count: 10 };
   }
   if (binding.tool?.name === 'generate_video') {
     return { prompt: '{{input}}' };
@@ -593,6 +816,67 @@ export function synthesizeIntentWorkflow(message, runtime = {}) {
     const y = fromIf ? 40 : 120;
     const srcKey = outputKeyFor(dataPrev);
 
+    if (b.kind === 'scrape') {
+      const sites = b.sites || [];
+      const phrases = b.phrases || '';
+      const scrapeNodes = [];
+      if (sites.length >= 2) {
+        const par = parallelNode(nextId('parallel'), x, y);
+        attach(par, { extraEdge });
+        sites.forEach((site, i) => {
+          const sn = scrapeNode(
+            nextId('scrape'),
+            `Scrape ${site.label}`,
+            x + 80,
+            y + i * 140,
+            site.url,
+            phrases
+          );
+          nodes.push(sn);
+          addEdge(par, sn);
+          scrapeNodes.push(sn);
+        });
+        const mg = mergeNode(nextId('merge'), x + 320, y);
+        nodes.push(mg);
+        scrapeNodes.forEach((sn) => addEdge(sn, mg));
+        flowPrev = mg;
+        dataPrev = scrapeNodes[0];
+        x += 480;
+      } else {
+        const site = sites[0] || { label: 'Site', url: '{{trigger-1.trigger_input}}' };
+        const sn = scrapeNode(nextId('scrape'), `Scrape ${site.label}`, x, y, site.url, phrases);
+        attach(sn, { extraEdge });
+        scrapeNodes.push(sn);
+      }
+      const refs = scrapeNodes.map((n) => `${n.data.label}:\n{{${n.id}.text}}`).join('\n\n');
+      const compile = brainNode(
+        nextId('brain'),
+        'Compile reviews',
+        x,
+        y,
+        `Compile a structured review digest from the scrape output. Group by source. Quote titles, scores, and short excerpts. Do not invent reviews.\n\n${refs}\n\nAlso use:\n{{input}}`,
+        scrapeNodes[0].id,
+        'text'
+      );
+      compile.data.taskConfig.maxTokens = 1200;
+      attach(compile);
+      notes.push(`web_scrape ×${scrapeNodes.length}${phrases ? ` (${phrases})` : ''}`);
+      continue;
+    }
+    if (b.kind === 'filesystem') {
+      const fs = filesystemNode(nextId('fs'), b.label, x, y);
+      nodes.push(fs);
+      addEdge(flowPrev, fs, extraEdge);
+      flowPrev = fs;
+      dataPrev = fs;
+      notes.push('filesystem');
+      continue;
+    }
+    if (b.kind === 'masterdata') {
+      attach(masterdataNode(nextId('md'), b.label, x, y, dataPrev.id, srcKey), { extraEdge });
+      notes.push('master data');
+      continue;
+    }
     if (b.kind === 'agent') {
       attach(
         agentNode(nextId('agent'), b.label, x, y, b.agent, b.prompt, dataPrev.id, srcKey),

@@ -358,4 +358,4 @@ Stop listen from run UI when needed.
 4. **API → Agent:** Agent prompt `Summarize: {{api-1.body}}`.
 5. **MCP tool → Brain:** Brain `userMessage` from MCP `text` or `result`.
 6. **Connector → Brain:** Brain summarizes `{{connector-1.text}}` after a GitHub/Gmail action.
-8. **Create from English:** “build a workflow that will …” always produces a graph. Generate steps use employees or content tools (`generate_video`, storyboard export, …); review is a brain/employee; public upload uses Connectors when connected, otherwise **Browser Session** `browse_task_start`, after **CEO approval**.
+8. **Create from English:** “build a workflow that will …” always produces a graph. **Catalog first:** scrape/crawl named sites → **Web Scrape** (`web_scrape`); search the web → `brave_web_search`; generate media → content tools; public upload → Connectors or Browser Session after **CEO approval**. Do not wire ERP/CRM Checker for “get reviews from a website”.

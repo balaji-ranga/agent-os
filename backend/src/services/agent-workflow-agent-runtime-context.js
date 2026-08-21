@@ -5,7 +5,7 @@ import { listEnabledContentTools } from './content-tools-meta.js';
 import { listAgentsForUser, getUserById } from './users.js';
 import { listMcpServersForWorkflow } from './mcp-servers.js';
 import { getWorkflowTemplates } from './agent-workflow-templates.js';
-import { defaultNodeConfig } from './agent-workflow-task-catalog.js';
+import { defaultNodeConfig, getTaskCatalog } from './agent-workflow-task-catalog.js';
 import { listUserApiKeys } from './user-api-keys.js';
 import {
   lastOllamaAvailable,
@@ -77,6 +77,7 @@ export function buildWorkflowAgentRuntimeContext(ownerUserId) {
     agents,
     mcpServers,
     contentTools,
+    nodeTypes: getTaskCatalog().map((t) => t.type),
     templates,
     vaultKeys,
     defaults: {
@@ -101,6 +102,13 @@ export function formatRuntimeContextForPrompt(ctx) {
     );
   } else {
     lines.push('\nAgents: (none granted — use brain nodes instead of agent nodes)');
+  }
+
+  if (ctx.nodeTypes?.length) {
+    lines.push(
+      '\nGraph node types (prefer these over unrelated employees):',
+      ctx.nodeTypes.join(', ')
+    );
   }
 
   if (ctx.mcpServers?.length) {

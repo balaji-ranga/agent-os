@@ -23,6 +23,8 @@ import {
   synthesizeIntentWorkflow,
   splitIntentStages,
   isPublishStage,
+  isScrapeIntent,
+  extractSites,
 } from '../src/services/agent-workflow-intent-graph.js';
 import {
   looksLikeSecretLiteral,
@@ -158,6 +160,21 @@ console.log('\n— Unit: English lifecycle parsers');
   const compiledTypes = compiled.graph.nodes.map((n) => n.type);
   assert(compiledTypes.includes('trigger') && compiledTypes.includes('ceo_approval'), `compiled nodes=${compiledTypes.join(',')}`);
   assert(/youtube/i.test(JSON.stringify(compiled.graph)), 'compiled graph mentions YouTube');
+  const scrapeAsk = 'Create a workflow that will scrape imdb and rottentomatoes to get all reviews';
+  assert(isWorkflowCreateIntent(scrapeAsk), 'scrape reviews is create intent');
+  assert(isScrapeIntent(scrapeAsk), 'scrape intent detected');
+  assert(extractSites(scrapeAsk).some((s) => /imdb/i.test(s.label)), 'extracts IMDb');
+  assert(extractSites(scrapeAsk).some((s) => /rotten/i.test(s.label)), 'extracts Rotten Tomatoes');
+  const scraped = synthesizeIntentWorkflow(scrapeAsk, {
+    nodeTypes: ['trigger', 'web_scrape', 'brain', 'parallel', 'merge', 'agent'],
+    agents: [{ id: 'erp-checker', name: 'ERP Checker', role: 'ERP maker checker' }],
+    contentTools: [{ name: 'brave_web_search', purpose: 'web search via Brave' }],
+  });
+  const scrapeTypes = scraped.graph.nodes.map((n) => n.type);
+  const scrapeAgents = scraped.graph.nodes.filter((n) => n.type === 'agent').map((n) => n.data?.agentName || n.data?.agentId);
+  assert(!scrapeAgents.some((n) => /erp/i.test(String(n))), `must not use ERP Checker (${scrapeAgents.join(',')})`);
+  assert(scrapeTypes.filter((t) => t === 'web_scrape').length >= 2, `web_scrape nodes=${scrapeTypes.join(',')}`);
+  assert(/imdb|rottentomatoes/i.test(JSON.stringify(scraped.graph)), 'scrape graph names both sites');
 }
 
 // --------------------------------------------------------------------------
@@ -327,6 +344,24 @@ console.log('\n— S9: Generic create intent (story scenes + review + YouTube)')
   assert(/youtube|browse_task_start|studio\.youtube/i.test(JSON.stringify(nodes)), 'YouTube or Browser Session wired');
   assert(/Created|Built from your ask/i.test(res.reply || ''), 'reply confirms creation');
   assert(!hasSecretLiteral(def), 'generic graph has no secret literals');
+}
+
+// --------------------------------------------------------------------------
+console.log('\n— S10: Scrape IMDb + Rotten Tomatoes reviews (catalog web_scrape)');
+{
+  const msg = `Create a workflow that will scrape imdb and rottentomatoes to get all reviews. Call it Movie Reviews ${stamp}.`;
+  assert(!matchWorkflowRecipe(msg), 'scrape reviews is not a curated recipe');
+  const res = await chat(msg);
+  const id = remember(res.workflow_id);
+  const def = store.getDefinition(id, owner);
+  assert(!!id && !!def, 'created scrape workflow (not chat-only)');
+  const nodes = def?.draft_graph?.nodes || def?.published_graph?.nodes || [];
+  const types = nodes.map((n) => n.type);
+  const agentNames = nodes.filter((n) => n.type === 'agent').map((n) => `${n.data?.agentName || ''} ${n.data?.agentId || ''}`);
+  assert(!agentNames.some((n) => /erp|crm.?checker/i.test(n)), `must not bind ERP/CRM checker (${agentNames.join(',')})`);
+  assert(types.filter((t) => t === 'web_scrape').length >= 2, `web_scrape count types=${types.join(',')}`);
+  assert(/imdb\.com/i.test(JSON.stringify(nodes)) && /rottentomatoes/i.test(JSON.stringify(nodes)), 'both site URLs');
+  assert(types.includes('brain'), 'compile brain after scrapes');
 }
 
 // --------------------------------------------------------------------------

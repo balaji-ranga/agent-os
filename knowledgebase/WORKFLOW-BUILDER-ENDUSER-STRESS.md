@@ -27,6 +27,7 @@ Talk to Workflow Builder the way a non-technical CEO would. Do **not** use node 
 | S7 | Explicit paid provider: “Make the Brain use OpenRouter and then call an API to echo the answer.” | OpenRouter + `apiKeyRef=Platform_BYOK`, no literal key. |
 | S8 | “Build a workflow that will promote [any product] on Hacker News and Medium with blogs (intro, features, use cases).” | Same generic recipe for any topic. Draft blogs → CEO approval → Medium API (`MEDIUM_INTEGRATION_TOKEN`) + HN submit connector. Not the HN *reader* recipe. |
 | S9 | “Build a workflow that will generate story scenes and reviews and uploads to youtube.” | **Not** a curated recipe. Generic compiler still **creates** a graph: generate/review steps from tools or employees → CEO approval → YouTube via Browser Session (`browse_task_start`). Chat-only replies fail. |
+| S10 | “Create a workflow that will scrape IMDb and Rotten Tomatoes to get all reviews.” | **Web Scrape** nodes for both sites + compile brain. Must **not** bind ERP/CRM Checker. |
 | L1 | “Please take it live.” | Status published. |
 | L2 | “Put it back in draft.” | Status draft. |
 | L3 | “Share this so other companies can call it.” | A2A publication + card URL. |
