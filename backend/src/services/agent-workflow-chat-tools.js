@@ -5,6 +5,7 @@ import { getDb } from '../db/schema.js';
 import * as store from './agent-workflow-store.js';
 import { tryTriggerWorkflowFromChat, startAgentWorkflowRun } from './agent-workflow-runner.js';
 import { resolveToolOwnerUserId, bodyWithoutSpoofedOwner } from './tool-owner-scope.js';
+import { isWorkflowCreateIntent } from './agent-workflow-recipes.js';
 
 export function resolveWorkflowOwnerUserId(req, body = {}, resolveAuthenticatedCeoUserId) {
   return resolveToolOwnerUserId(req, bodyWithoutSpoofedOwner(body), resolveAuthenticatedCeoUserId);
@@ -354,7 +355,8 @@ function parseStatusChangeIntent(t, workflowId) {
       t
     ) ||
     /(?:make|set)\s+(?:workflow\s+)?(?:id\s*[:=]\s*)?["']?([^"'\n]+?)["']?\s+(?:a\s+)?draft/i.test(t) ||
-    /(?:unpublish|revert)\s+(?:workflow\s+)?(?:id\s*[:=]\s*)?["']?([^"'\n]+?)["']?/i.test(t);
+    /(?:unpublish|revert)\s+(?:workflow\s+)?(?:id\s*[:=]\s*)?["']?([^"'\n]+?)["']?/i.test(t) ||
+    /put\s+(?:it|this)\s+back\s+in\s+draft/i.test(t);
 
   if (!toDraft && !/draft/i.test(t)) return null;
   if (!/(?:draft|unpublish|revert)/i.test(t)) return null;
@@ -396,12 +398,72 @@ function parseStatusChangeIntent(t, workflowId) {
   return null;
 }
 
+function parsePublishIntent(t, workflowId) {
+  const wantsPublish =
+    /(?:go\s+live|take\s+(?:it|this)\s+live|make\s+(?:it|this)\s+(?:live|published|available)|turn\s+(?:it|this)\s+on|publish(?:\s+(?:this|the)\s+workflow)?)\b/i.test(
+      t
+    ) && !/a2a|agent\s+exchange|marketplace/i.test(t);
+  if (!wantsPublish) return null;
+  const explicitId = extractWorkflowIdFromText(t);
+  const named = t.match(
+    /publish(?:\s+(?:the\s+)?workflow)?\s+["']([^"']+)["']/i
+  );
+  return {
+    cmd: 'publish_workflow',
+    workflow_id: explicitId || workflowId || undefined,
+    workflow_name: named?.[1]?.trim() || undefined,
+  };
+}
+
+function parseDeleteIntent(t, workflowId) {
+  if (/\brun\s+#?\d+/i.test(t)) return null;
+  if (/\b(?:node|step|edge|run)\b/i.test(t) && !/\b(?:workflow|flow)\b/i.test(t)) return null;
+  const wantsDelete =
+    /(?:delete|remove)\s+(?:this\s+)?(?:workflow|flow)\b/i.test(t) ||
+    /(?:throw\s+(?:this|it)\s+away|i\s+don'?t\s+need\s+(?:this|it)(?:\s+anymore)?)/i.test(t);
+  if (!wantsDelete) return null;
+  const explicitId = extractWorkflowIdFromText(t);
+  const named =
+    t.match(/(?:delete|remove)\s+(?:the\s+)?(?:workflow|flow)\s+(?:named|called)\s+["']?([^"'\n.]+)["']?/i) ||
+    t.match(/(?:delete|remove)\s+["']([^"']+)["']/i);
+  return {
+    cmd: 'delete_workflow',
+    workflow_id: explicitId || workflowId || undefined,
+    workflow_name: named?.[1]?.trim() || undefined,
+  };
+}
+
+function parseA2APublishIntent(t, workflowId) {
+  const wants =
+    /(?:publish\s+as\s+a2a|share\s+(?:this|it|the\s+workflow)\s+as\s+an?\s+agent|list\s+(?:this|it)\s+on\s+(?:the\s+)?(?:agent\s+)?exchange|put\s+(?:this|it)\s+on\s+agent\s+exchange|marketplace|share\s+(?:this|it)\s+so\s+other\s+(?:companies|people|teams)|let\s+other\s+(?:companies|people)\s+call\s+(?:it|this))\b/i.test(
+      t
+    );
+  if (!wants) return null;
+  const explicitId = extractWorkflowIdFromText(t);
+  return {
+    cmd: 'publish_a2a',
+    workflow_id: explicitId || workflowId || undefined,
+    visibility: /public/i.test(t) ? 'public' : undefined,
+  };
+}
+
 export function parseWorkflowAgentCommand(message, { workflowId = null } = {}) {
   const t = String(message || '').trim();
   if (!t) return null;
 
   const statusIntent = parseStatusChangeIntent(t, workflowId);
   if (statusIntent) return statusIntent;
+
+  const creating = isWorkflowCreateIntent(t);
+
+  const a2aIntent = !creating ? parseA2APublishIntent(t, workflowId) : null;
+  if (a2aIntent) return a2aIntent;
+
+  const publishIntent = !creating ? parsePublishIntent(t, workflowId) : null;
+  if (publishIntent) return publishIntent;
+
+  const deleteIntent = !creating ? parseDeleteIntent(t, workflowId) : null;
+  if (deleteIntent) return deleteIntent;
 
   // clone / copy / duplicate workflow X as Y
   let cloneAs = t.match(/^(?:clone|copy|duplicate)\s+(?:workflow\s+)?(.+?)\s+(?:as|to)\s+(.+?)\s*$/i);
@@ -488,13 +550,13 @@ export function parseWorkflowAgentCommand(message, { workflowId = null } = {}) {
   m = t.match(/^(?:inspect|status)\s+(?:latest|last)\s+run\s*$/i);
   if (m) return { cmd: 'inspect_run', workflow_id: workflowId };
 
+  if (/^(?:unpublish|revert\s+to\s+draft|make\s+draft|put\s+(?:it|this)\s+back\s+in\s+draft)\s*[.]?\s*$/i.test(t)) {
+    return { cmd: 'unpublish_workflow', workflow_id: workflowId };
+  }
   m = t.match(/^(?:unpublish|revert\s+to\s+draft|make\s+draft|set\s+to\s+draft)(?:\s+(?:workflow\s+)?)?["']?(.+?)["']?\s*$/i);
   if (m) {
     const name = (m[1] || '').trim();
     return { cmd: 'unpublish_workflow', workflow_name: name || undefined, workflow_id: workflowId };
-  }
-  if (/^(?:unpublish|revert\s+to\s+draft|make\s+draft)\s*$/i.test(t)) {
-    return { cmd: 'unpublish_workflow', workflow_id: workflowId };
   }
 
   return null;

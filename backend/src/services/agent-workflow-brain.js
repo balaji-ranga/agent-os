@@ -5,6 +5,10 @@
 
 import { resolveWorkflowBrainProviderConfig, isOllamaServiceBaseUrl } from './agent-workflow-brain-providers.js';
 import {
+  probeOllamaAvailable,
+  resolveOllamaChatModel,
+} from './agent-workflow-secrets.js';
+import {
   buildMcpToolRegistry,
   dispatchToolCall,
   entriesToAnthropicTools,
@@ -510,8 +514,21 @@ export async function executeBrainTask(taskConfig = {}, resolved = {}, context =
       }
     }
   }
-  const { source: modelSource, baseUrl, apiKey, model, protocol, requiresKey, extraHeaders, configuredKey } =
+  const { source: modelSource, baseUrl, apiKey, model: resolvedModel, protocol, requiresKey, extraHeaders, configuredKey } =
     resolveWorkflowBrainProviderConfig(renderedCfg.modelSource, renderedCfg, ownerId);
+  let model = resolvedModel;
+  if (modelSource === 'ollama' || isLocalOllama(baseUrl) || isOllamaServiceBaseUrl(baseUrl)) {
+    try {
+      await probeOllamaAvailable({ timeoutMs: 1500 });
+    } catch {
+      /* non-blocking */
+    }
+    const installed = resolveOllamaChatModel(model);
+    if (installed && installed !== model) {
+      console.info('[workflow-brain] using installed Ollama model', { requested: model, using: installed });
+      model = installed;
+    }
+  }
   const thinkingFields = buildBrainThinkingFields(modelSource, cfg);
 
   if (requiresKey && !configuredKey && !isLocalOllama(baseUrl) && !isOllamaServiceBaseUrl(baseUrl)) {

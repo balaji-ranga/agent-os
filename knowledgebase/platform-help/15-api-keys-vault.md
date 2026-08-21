@@ -12,6 +12,8 @@ A per-CEO **named secret vault** for:
 
 **Note:** Connectors → OpenConnector **Save API key** stores the key on the **OpenConnector connection**, not in this vault. Optional CEO **App ID/secret override** for OAuth apps is also separate (help **16**). Secrets are **never** shown again after save (list shows name + hint only). Platform access logs redact API Keys routes and never print Authorization headers or key bodies.
 
+**Workflow Builder:** when you describe a flow in plain English, the builder **never stores the secret in the graph**. It binds a key **name** (often `Platform_BYOK`) and ends with a short list of names to add here. Free Ollama Brain steps need no key.
+
 ## Add a key
 
 1. Open **API Keys**.

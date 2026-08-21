@@ -1,0 +1,2 @@
+# Checkout LF for shell scripts so Windows sync does not break bash heredocs on the VPS.
+*.sh text eol=lf

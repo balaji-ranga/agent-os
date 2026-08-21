@@ -5,6 +5,12 @@ import { getTaskCatalog, getTaskTypeDef } from './agent-workflow-task-catalog.js
 import { validateWorkflowBrainCredentials } from './agent-workflow-brain-providers.js';
 import { defaultBrainConfig } from './agent-workflow-agent-runtime-context.js';
 import { enquireContentTools, listEnabledContentTools } from './content-tools-meta.js';
+import {
+  bindKeyForProvider,
+  looksLikeSecretLiteral,
+  resolveOllamaChatModel,
+  sanitizeWorkflowGraphSecrets,
+} from './agent-workflow-secrets.js';
 
 const NODE_PURPOSE = {
   trigger: 'Entry point. Starts runs via manual button, chat phrase, cron schedule, or webhook.',
@@ -28,7 +34,8 @@ const NODE_PURPOSE = {
   ceo_approval: 'Pauses for CEO approve/reject; outputs decision (approved/rejected).',
   if: 'Branches on condition — true/false source handles.',
   while: 'Loops while condition holds — loop/exit source handles.',
-  brain: 'Direct LLM call. Set systemPrompt for guardrails/instructions. Default to ollama (local, no API key). Only use openai/anthropic/openrouter when apiKey is set on the node.',
+  connector: 'Calls a connected SaaS app (Connectors). Prefer apps the CEO already connected; Hacker News needs no key.',
+  brain: 'Direct LLM call. Default to free local Ollama (no API key). For paid providers bind apiKeyRef to Settings → API Keys — never paste the secret into the node.',
 };
 
 const BRAIN_EXAMPLES = {
@@ -47,18 +54,27 @@ const BRAIN_EXAMPLES = {
   },
 };
 
-/** Normalize brain taskConfig — prefer ollama when no API key (avoids publish failures). */
+/** Normalize brain taskConfig — prefer ollama; bind vault refs instead of secret literals. */
 export function normalizeBrainTaskConfig(cfg = {}, runtimeDefaults = null) {
   const defaults = runtimeDefaults || defaultBrainConfig();
   const merged = { ...defaults, ...cfg };
-  const apiKey = String(merged.apiKey || merged.api_key || '').trim();
+  let apiKey = String(merged.apiKey || merged.api_key || '').trim();
+  let apiKeyRef = String(merged.apiKeyRef || merged.api_key_ref || '').trim();
   const source = String(merged.modelSource || 'ollama').toLowerCase();
   const keyedProviders = new Set(['openai', 'anthropic', 'openrouter']);
 
-  if (keyedProviders.has(source) && !apiKey) {
+  if (looksLikeSecretLiteral(apiKey)) {
+    apiKeyRef = apiKeyRef || bindKeyForProvider(source);
+    merged.apiKeyRef = apiKeyRef;
+    merged.apiKey = '';
+    merged.api_key = '';
+    apiKey = '';
+  }
+
+  if (keyedProviders.has(source) && !apiKey && !apiKeyRef) {
     merged.modelSource = 'ollama';
     merged.apiEndpoint = defaults.apiEndpoint || process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434/v1';
-    merged.model = defaults.model || process.env.OLLAMA_MODEL || 'llama3.2';
+    merged.model = resolveOllamaChatModel(defaults.model || process.env.OLLAMA_MODEL || 'llama3.2');
     merged.apiKey = '';
   }
 
@@ -66,7 +82,7 @@ export function normalizeBrainTaskConfig(cfg = {}, runtimeDefaults = null) {
     merged.apiEndpoint = defaults.apiEndpoint || 'http://127.0.0.1:11434/v1';
   }
   if (merged.modelSource === 'ollama' && !merged.model) {
-    merged.model = defaults.model || 'llama3.2';
+    merged.model = resolveOllamaChatModel(defaults.model || 'llama3.2');
   }
   if (merged.modelSource === 'deepseek' && !merged.apiEndpoint) {
     merged.apiEndpoint =
@@ -91,7 +107,15 @@ export function normalizeBrainTaskConfig(cfg = {}, runtimeDefaults = null) {
   }
 
   delete merged.api_key;
+  if (looksLikeSecretLiteral(merged.apiKey)) {
+    merged.apiKeyRef = String(merged.apiKeyRef || bindKeyForProvider(merged.modelSource)).trim();
+    merged.apiKey = '';
+  }
   return merged;
+}
+
+export function sanitizeGraphForPersist(graph) {
+  return sanitizeWorkflowGraphSecrets(graph).graph;
 }
 
 export function buildWorkflowNodeCatalog() {

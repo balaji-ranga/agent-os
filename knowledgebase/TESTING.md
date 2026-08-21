@@ -103,6 +103,14 @@ Code paths:
 
 Docs + copy-paste prompts: `knowledgebase/platform-help/27-onboarding-helper.md`.
 
+End-user stress (plain English build + secrets/BYOK + publish/draft/A2A/delete): [`WORKFLOW-BUILDER-ENDUSER-STRESS.md`](./WORKFLOW-BUILDER-ENDUSER-STRESS.md).
+
+```powershell
+cd backend
+node scripts/test-workflow-builder-enduser-stress.js
+# Expect: WORKFLOW_BUILDER_ENDUSER_STRESS_OK
+```
+
 ```powershell
 # Against VPS (public URL from AGENT_OS_PUBLIC_URL, e.g. https://flolah.cloud):
 $env:BASE_URL = "https://flolah.cloud"

@@ -6,6 +6,13 @@ import { listAgentsForUser, getUserById } from './users.js';
 import { listMcpServersForWorkflow } from './mcp-servers.js';
 import { getWorkflowTemplates } from './agent-workflow-templates.js';
 import { defaultNodeConfig } from './agent-workflow-task-catalog.js';
+import { listUserApiKeys } from './user-api-keys.js';
+import {
+  lastOllamaAvailable,
+  lastOllamaModel,
+  ollamaAvailabilitySnapshot,
+  resolveOllamaChatModel,
+} from './agent-workflow-secrets.js';
 
 export function defaultBrainConfig() {
   const cfg = defaultNodeConfig('brain');
@@ -13,11 +20,7 @@ export function defaultBrainConfig() {
     ...cfg,
     modelSource: process.env.BRAIN_MCP_TEST_PROVIDER === 'openai' ? 'openai' : 'ollama',
     apiEndpoint: process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434/v1',
-    model:
-      process.env.OPENAI_PRIMARY_MODEL ||
-      process.env.OLLAMA_MODEL ||
-      process.env.OPENCLAW_OLLAMA_MODEL ||
-      'llama3.2',
+    model: resolveOllamaChatModel(process.env.OLLAMA_MODEL || process.env.OPENCLAW_OLLAMA_MODEL || 'llama3.2'),
     maxTokens: 512,
     systemPrompt: 'You are a concise assistant.\n\nContext:\n{{input}}',
     mcpToolCalling: false,
@@ -59,17 +62,31 @@ export function buildWorkflowAgentRuntimeContext(ownerUserId) {
   const brain = defaultBrainConfig();
   const firstMcp = mcpServers[0]?.id || null;
 
+  let vaultKeys = [];
+  try {
+    vaultKeys = listUserApiKeys(ownerUserId).map((k) => ({
+      name: k.key_name,
+      set: !k.is_unset && k.key_hint !== 'unset',
+    }));
+  } catch {
+    vaultKeys = [];
+  }
+  const ollama = ollamaAvailabilitySnapshot();
+
   return {
     agents,
     mcpServers,
     contentTools,
     templates,
+    vaultKeys,
     defaults: {
       brain,
       firstMcpId: firstMcp,
       trigger_modes: ['manual', 'chat'],
       ollama_base: process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434/v1',
-      ollama_model: process.env.OLLAMA_MODEL || 'llama3.2',
+      ollama_model: lastOllamaModel() || resolveOllamaChatModel(process.env.OLLAMA_MODEL || 'llama3.2'),
+      ollama_available: lastOllamaAvailable() || ollama.ok,
+      no_key_connector: { appId: 'hackernews', actionId: 'hackernews.get_top_stories' },
     },
   };
 }
@@ -126,10 +143,18 @@ export function formatRuntimeContextForPrompt(ctx) {
 
   lines.push(
     '\nDefault brain config (copy into task_config unless user specifies otherwise):',
-    'Brain nodes must include apiKey on the node — platform .env API keys are never used for workflow runs.',
+    'Brain nodes default to free Ollama — never paste API keys. Bind paid providers with apiKeyRef to a Settings → API Keys name.',
     JSON.stringify(ctx.defaults?.brain || {}, null, 2),
-    `\nDefault MCP server if needed: ${ctx.defaults?.firstMcpId || '(none)'}`
+    `\nOllama available: ${ctx.defaults?.ollama_available ? 'yes (prefer this, no key)' : 'unknown/no — bind apiKeyRef=Platform_BYOK if a paid model is required'}`,
+    `\nDefault MCP server if needed: ${ctx.defaults?.firstMcpId || '(none)'}`,
+    `\nNo-key connector for news: ${JSON.stringify(ctx.defaults?.no_key_connector || {})}`
   );
+  if (ctx.vaultKeys?.length) {
+    lines.push(
+      '\nAPI Keys vault (names only — never copy secret values into the graph):',
+      ctx.vaultKeys.map((k) => `- ${k.name}${k.set ? '' : ' (unset)'}`).join('\n')
+    );
+  }
 
   return lines.join('\n');
 }

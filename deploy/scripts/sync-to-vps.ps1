@@ -284,6 +284,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\vps-test-platform-help.js" `
     "$Repo\backend\scripts\seed-workflow-builder-agent.js" `
     "$Repo\backend\scripts\seed-platform-help-agent.js" `
+    "$Repo\backend\scripts\test-workflow-builder-enduser-stress.js" `
     "$Repo\backend\scripts\seed-onboarding-helper-agent.js" `
     "$Repo\backend\scripts\e2e-onboarding-wf-prompts.mjs" `
     "$Repo\backend\scripts\export-video-tours.js" `
@@ -558,6 +559,9 @@ if ($Services -match "backend|openclaw") {
   scp @ssh -r "$Repo\knowledgebase\platform-help" "root@${HostIp}:$RemoteRoot/knowledgebase/"
   scp @ssh "$Repo\knowledgebase\README.md" "root@${HostIp}:$RemoteRoot/knowledgebase/README.md"
   scp @ssh "$Repo\knowledgebase\TESTING.md" "root@${HostIp}:$RemoteRoot/knowledgebase/TESTING.md"
+  if (Test-Path "$Repo\knowledgebase\WORKFLOW-BUILDER-ENDUSER-STRESS.md") {
+    scp @ssh "$Repo\knowledgebase\WORKFLOW-BUILDER-ENDUSER-STRESS.md" "root@${HostIp}:$RemoteRoot/knowledgebase/WORKFLOW-BUILDER-ENDUSER-STRESS.md"
+  }
   if (Test-Path "$Repo\knowledgebase\AI-COMPANY-OS.md") {
     scp @ssh "$Repo\knowledgebase\AI-COMPANY-OS.md" "root@${HostIp}:$RemoteRoot/knowledgebase/AI-COMPANY-OS.md"
   }

@@ -28,6 +28,14 @@ import {
 } from './agent-workflow-builder-catalog.js';
 import { defaultBrainConfig } from './agent-workflow-agent-runtime-context.js';
 import { enquireContentTools, listEnabledContentTools } from './content-tools-meta.js';
+import {
+  collectRequiredVaultKeys,
+  formatVaultKeysSummary,
+  graphUsesOllama,
+  sanitizeWorkflowGraphSecrets,
+} from './agent-workflow-secrets.js';
+import { publishWorkflowAsA2A, unpublishWorkflowA2A } from './workflow-a2a-publish.js';
+import { setA2AAccessPolicy } from './workflow-a2a-access.js';
 
 function ensureDraftForEdit(def, currentId, ownerUserId, actor) {
   if (!def || def.status !== 'published') return def;
@@ -134,11 +142,11 @@ export function normalizeWorkflowGraph(graph) {
     }
   }
 
-  return {
+  return sanitizeWorkflowGraphSecrets({
     nodes,
     edges,
     viewport: raw.viewport || { x: 0, y: 0, zoom: 1 },
-  };
+  }).graph;
 }
 
 /**
@@ -169,15 +177,24 @@ export function prepareBuilderActions(actions, { workflowId = null, message = ''
       'until_certified',
       'check_goal',
       'certify_workflow',
+      'publish_a2a',
+      'unpublish_a2a',
     ].includes(op);
   };
   const isCreate = (a) => {
     const op = String(a?.action || a?.op || a?.type || '').toLowerCase();
     return ['create_workflow', 'create_from_template', 'clone_workflow', 'copy_workflow', 'duplicate_workflow'].includes(op);
   };
+  const isOpen = (a) => {
+    const op = String(a?.action || a?.op || a?.type || '').toLowerCase();
+    return ['open_workflow', 'load_workflow', 'reload_workflow'].includes(op);
+  };
 
   const createIdx = list.findIndex(isCreate);
   const firstMutIdx = list.findIndex(needsContext);
+  const openIdx = list.findIndex(isOpen);
+
+  if (openIdx >= 0 && createIdx < 0) return list;
 
   if (createIdx >= 0 && firstMutIdx >= 0 && createIdx > firstMutIdx) {
     const [createAction] = list.splice(createIdx, 1);
@@ -874,6 +891,72 @@ export async function applyWorkflowBuilderActions(ownerUserId, workflowId, actio
       continue;
     }
 
+    if (op === 'publish' || op === 'publish_workflow') {
+      const target = resolveWorkflowForTrigger(ownerUserId, {
+        workflow_id: action.workflow_id || currentId,
+        workflow_name: action.workflow_name || action.name,
+      });
+      if (!target) throw new Error('Workflow not found');
+      currentId = target.id;
+      def = store.publishDefinition(currentId, ownerUserId, actor);
+      refreshAgentWorkflowSchedules();
+      results.push({ action: 'publish', ok: true, status: def.status, workflow_id: currentId, name: def.name });
+      continue;
+    }
+
+    if (op === 'publish_a2a' || op === 'publish_as_a2a') {
+      const target = resolveWorkflowForTrigger(ownerUserId, {
+        workflow_id: action.workflow_id || currentId,
+        workflow_name: action.workflow_name || action.name,
+      });
+      if (!target) throw new Error('Workflow not found');
+      currentId = target.id;
+      def = store.getDefinition(currentId, ownerUserId);
+      if (def.status !== 'published') {
+        def = store.publishDefinition(currentId, ownerUserId, actor);
+        refreshAgentWorkflowSchedules();
+      }
+      const pub = publishWorkflowAsA2A(
+        ownerUserId,
+        currentId,
+        {
+          name: action.agent_name || action.name || def.name,
+          description: action.description || def.description || '',
+          skill_id: action.skill_id || 'default',
+          visibility: action.visibility || 'public',
+        },
+        actor
+      );
+      try {
+        setA2AAccessPolicy(pub.id, ownerUserId, action.access_policy || 'allow_all');
+      } catch (e) {
+        console.warn('[workflow-builder] A2A access policy:', e.message);
+      }
+      results.push({
+        action: 'publish_a2a',
+        ok: true,
+        workflow_id: currentId,
+        publish_id: pub.id,
+        card_url: pub.card_url,
+        endpoint_url: pub.endpoint_url,
+        name: pub.name || def.name,
+      });
+      continue;
+    }
+
+    if (op === 'unpublish_a2a') {
+      const target = resolveWorkflowForTrigger(ownerUserId, {
+        workflow_id: action.workflow_id || currentId,
+        workflow_name: action.workflow_name || action.name,
+      });
+      if (!target) throw new Error('Workflow not found');
+      unpublishWorkflowA2A(ownerUserId, target.id, actor, {
+        publish_id: action.publish_id || action.publishId,
+      });
+      results.push({ action: 'unpublish_a2a', ok: true, workflow_id: target.id });
+      continue;
+    }
+
     if (!currentId || !def) throw new Error('No workflow in context — use create_workflow or open_workflow first');
 
     const graph = normalizeWorkflowGraph(def.draft_graph);
@@ -997,13 +1080,6 @@ export async function applyWorkflowBuilderActions(ownerUserId, workflowId, actio
       continue;
     }
 
-    if (op === 'publish') {
-      def = store.publishDefinition(currentId, ownerUserId, actor);
-      refreshAgentWorkflowSchedules();
-      results.push({ action: op, ok: true, status: def.status });
-      continue;
-    }
-
     throw new Error(`Unknown action: ${op}`);
     } catch (err) {
       results.push({ action: op, ok: false, error: err.message });
@@ -1011,6 +1087,33 @@ export async function applyWorkflowBuilderActions(ownerUserId, workflowId, actio
   }
 
   def = currentId ? store.getDefinition(currentId, ownerUserId) : def;
+  let keysRequired = [];
+  let keysSummary = '';
+  if (def?.draft_graph) {
+    const sanitized = sanitizeWorkflowGraphSecrets(def.draft_graph);
+    keysRequired = sanitized.keys;
+    if (sanitized.stripped.length) {
+      def = store.updateDraft(currentId, ownerUserId, { graph: sanitized.graph }, actor);
+      console.info('[workflow-builder] stripped secret literals from graph; bind API Keys instead', {
+        workflow_id: currentId,
+        stripped: sanitized.stripped.map((s) => s.field),
+        keys: keysRequired,
+      });
+    }
+    keysRequired = collectRequiredVaultKeys(def.draft_graph || sanitized.graph);
+    keysSummary = formatVaultKeysSummary(keysRequired, {
+      ollamaUsed: graphUsesOllama(def.draft_graph),
+      strippedCount: sanitized.stripped.length,
+    });
+    if (sanitized.stripped.length) {
+      results.push({
+        action: 'sanitize_secrets',
+        ok: true,
+        stripped: sanitized.stripped.length,
+        keys_required: keysRequired,
+      });
+    }
+  }
   return {
     workflow_id: currentId,
     workflow: def,
@@ -1018,6 +1121,8 @@ export async function applyWorkflowBuilderActions(ownerUserId, workflowId, actio
     graph_summary: summarizeGraphForAgent(def?.draft_graph),
     results,
     has_errors: results.some((r) => r.ok === false),
+    keys_required: keysRequired,
+    keys_summary: keysSummary,
   };
 }
 

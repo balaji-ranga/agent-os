@@ -34,8 +34,9 @@ Palette types in the visual editor. Use this when configuring nodes or answering
 
 **Key attributes:**
 
-- `modelSource`: openai | anthropic | ollama | openrouter | deepseek
-- `apiEndpoint`, `apiKey`, `model`, `maxTokens`, `systemPrompt`
+- `modelSource`: openai | anthropic | ollama | openrouter | deepseek — **default ollama (free, no key)**
+- `apiEndpoint`, `model`, `maxTokens`, `systemPrompt`
+- `apiKeyRef` — Settings → API Keys name for paid providers. **Never paste the secret** into `apiKey`.
 - `thinkingMode` / `thinkingEffort` — **DeepSeek & OpenRouter only** (see below)
 - `mcpToolCalling`, `mcpServerIds`, `mcpToolAllowlist`, `mcpMaxToolRounds`, `mcpServerAuth`
 - `customScriptMode`: off | fallback | post | only; `customScriptId`

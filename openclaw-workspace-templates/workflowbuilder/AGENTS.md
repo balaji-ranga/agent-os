@@ -46,7 +46,7 @@ When wiring attributes, use canvas **node ids** (not `steps.*`):
 - Workflow variables panel: `{{var.budget_usd}}`
 - Auth on API / MCP / Brain `apiKey` / External Agent override / SSE headers: same `{{…}}` syntax
 
-Prefer variables for shared static config; prefer prior-step/trigger templates for tokens and run data. Brave MCP is BYOK (pass headers from the workflow — no platform env key).
+Prefer variables for shared static config; prefer prior-step/trigger templates for tokens and run data. **Never paste API keys into the graph.** Bind Settings → API Keys names (`apiKeyRef` / `{ "$keyRef": "Platform_BYOK" }`). Default Brain is free Ollama using an **installed** local tag (never the platform cloud model name). After a build, summarize vault names the CEO should store.
 
 ### Content tool nodes
 

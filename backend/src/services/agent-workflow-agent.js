@@ -41,6 +41,7 @@ import {
   matchWorkflowRecipe,
   buildRecipeActionBatch,
   enrichCreateWorkflowActions,
+  isWorkflowCreateIntent,
 } from './agent-workflow-recipes.js';
 import {
   findWorkflowsReferencedInMessage,
@@ -62,6 +63,13 @@ import {
   formatUntilSuccessReply,
 } from './agent-workflow-agent-until-success.js';
 import { formatCertifyReply } from './agent-workflow-certify.js';
+import {
+  lastOllamaAvailable,
+  lastOllamaModel,
+  probeOllamaAvailable,
+  extractPastedSecrets,
+} from './agent-workflow-secrets.js';
+import { PLATFORM_BYOK_KEY_NAME } from './user-api-keys.js';
 
 
 
@@ -124,9 +132,9 @@ Do NOT invent tool names or raw /api/tools/... api nodes when a registered conte
 ## Definition lifecycle (CRITICAL)
 
 - publish — { "action": "publish" } — draft → published
-
-- unpublish / revert_to_draft — { "action": "unpublish" } OR { "action": "revert_to_draft", "workflow_id": "..." } — published → draft (REQUIRED before treating workflow as draft again)
-
+- unpublish / revert_to_draft — { "action": "unpublish" } OR { "action": "revert_to_draft", "workflow_id": "..." }
+- publish_a2a — { "action": "publish_a2a", "workflow_id": "..." } — list on Agent Exchange (auto-publishes the workflow if still draft)
+- delete_workflow — { "action": "delete_workflow", "workflow_id": "..." }
 - pause_workflow — disables triggers + pauses active runs
 
 - resume_workflow — re-enables triggers
@@ -175,10 +183,21 @@ For tool nodes: set toolName to an exact Content tools catalog name (from Runtim
 
 Brain nodes (CRITICAL):
 - Default modelSource=ollama (local, no API key). Platform .env keys are NEVER used for workflow runs.
-- Only set openai/anthropic/openrouter when task_config.apiKey is provided on the node.
+- Never write a secret, token, or API key as a literal in task_config, headers, or chat. Use apiKeyRef / bearerTokenRef bound to Settings → API Keys names (e.g. Platform_BYOK).
+- Only set openai/anthropic/openrouter when the CEO named that provider; then set apiKeyRef (not apiKey). If they ask which model, choose ollama.
+- If Ollama is unavailable, still bind apiKeyRef=Platform_BYOK and summarize the key the CEO must store.
 - For guardrails/content safety: use systemPrompt with clear rules; connect_from trigger-1; wire input via {{input}}.
 - On published workflows, graph edits auto-unpublish to draft — then publish when done.
 - Call validate_publish before publish if unsure; fix reported errors first.
+- After building, the reply MUST include a short **API Keys (BYOK)** summary: which vault names to store, or that none are needed because Ollama is free.
+
+End-user language: infer nodes from intent (look up, summarize, news, email me). Do not ask for node types, JSON, curl, or command syntax.
+
+Lifecycle in plain English:
+- "go live" / "make it available" → publish
+- "put it back in draft" → unpublish
+- "share this so others can call it" → publish_a2a
+- "delete this workflow" → delete_workflow
 
 
 
@@ -397,10 +416,11 @@ async function executeRecipePath(ownerUserId, workflowId, message, actor) {
     workflowTriggered = { run_id: tr.run_id, run_number: tr.run_number, definition_id: tr.definition_id };
   }
 
-  const reply = `Created **${spec.name}** (${recipe.label}). ${spec.summary}${spec.autoTest ? ' — test run included.' : ' — say "test workflow" to verify.'}`;
+  const reply = `Created **${spec.name}** (${recipe.label}). ${spec.summary}${spec.autoTest ? ' — test run included.' : ' — say "try it" or "go live" when you are ready.'}`;
+  const withKeys = result?.keys_summary ? `${reply}\n\n${result.keys_summary}` : reply;
 
   return buildChatResultPayload({
-    reply,
+    reply: withKeys,
     modelUsed: null,
     effectiveWorkflowId,
     workflow,
@@ -491,6 +511,11 @@ function formatAssistantReply(baseReply, result) {
 
   }
 
+  const keysSummary = result?.keys_summary || '';
+  if (keysSummary && !text.includes('Settings → API Keys')) {
+    text += `\n\n${keysSummary}`;
+  }
+
   return text;
 
 }
@@ -533,6 +558,9 @@ function buildChatResultPayload({ reply, modelUsed, effectiveWorkflowId, workflo
 
       : null,
 
+    keys_required: result?.keys_required || [],
+    keys_summary: result?.keys_summary || '',
+
   };
 
 }
@@ -566,6 +594,12 @@ async function executeFastPathCommand(ownerUserId, workflowId, command, actor) {
     pause_all_runs: 'pause_all_runs',
 
     clone_workflow: 'clone_workflow',
+
+    publish_workflow: 'publish',
+
+    delete_workflow: 'delete_workflow',
+
+    publish_a2a: 'publish_a2a',
 
   };
 
@@ -677,6 +711,24 @@ async function executeFastPathCommand(ownerUserId, workflowId, command, actor) {
       return cl?.error ? `Clone failed: ${cl.error}` : 'Clone completed.';
     },
 
+    publish_workflow: () => {
+      const p = result.results?.find((r) => r.action === 'publish');
+      return p?.ok ? `"${p.name || workflow?.name}" is live (published).` : 'Publish failed.';
+    },
+
+    delete_workflow: () => {
+      const d = result.results?.find((r) => r.action === 'delete_workflow');
+      return d?.ok ? 'That workflow was deleted.' : d?.error || 'Delete failed.';
+    },
+
+    publish_a2a: () => {
+      const p = result.results?.find((r) => r.action === 'publish_a2a');
+      if (p?.ok) {
+        return `Shared as an Agent Exchange listing (\`${p.publish_id}\`). Card: ${p.card_url || 'saved'}.`;
+      }
+      return p?.error || 'Could not share as an agent.';
+    },
+
   };
 
 
@@ -721,8 +773,30 @@ async function executeFastPathCommand(ownerUserId, workflowId, command, actor) {
 
 
 
-export async function runWorkflowBuilderChat({
+function tryModelChoiceResponse(message) {
+  const t = String(message || '').trim();
+  if (!t) return null;
+  if (isWorkflowCreateIntent(t)) return null;
+  const asks =
+    /(?:which|what)\s+model/i.test(t) ||
+    /(?:do\s+i\s+need\s+(?:an?\s+)?(?:api\s+)?key)/i.test(t) ||
+    /^(?:use|pick|choose)\s+(?:the\s+)?(?:free\s+)?(?:ollama|local)\b/i.test(t);
+  if (!asks) return null;
+  const ollamaOk = lastOllamaAvailable();
+  const installed = lastOllamaModel();
+  if (ollamaOk) {
+    return {
+      reply: installed
+        ? `Use the **free local Ollama** model \`${installed}\` — no API key. If a step later needs a paid provider, store it under **Settings → API Keys** as \`Platform_BYOK\` instead of pasting the secret into the workflow.`
+        : 'Use the **free local Ollama** model — no API key. If a step later needs a paid provider, store it under **Settings → API Keys** as `Platform_BYOK` instead of pasting the secret into the workflow.',
+    };
+  }
+  return {
+    reply: `Ollama is not reachable right now, so the workflow will **bind** paid-model steps to **Settings → API Keys** name \`${PLATFORM_BYOK_KEY_NAME}\` (no secret stored in the graph). Add that key when you are ready, or start Ollama to stay on the free model.`,
+  };
+}
 
+export async function runWorkflowBuilderChat({
   ownerUserId,
 
   workflowId = null,
@@ -740,6 +814,19 @@ export async function runWorkflowBuilderChat({
   const trimmed = String(message || '').trim();
 
   if (!trimmed) throw new Error('message required');
+
+  try {
+    await probeOllamaAvailable();
+  } catch {
+    /* non-blocking */
+  }
+
+  const pasted = extractPastedSecrets(trimmed);
+  if (pasted.length) {
+    console.info('[workflow-builder] ignored pasted secret(s) in chat; bind API Keys instead', {
+      count: pasted.length,
+    });
+  }
 
 
 
@@ -808,6 +895,26 @@ export async function runWorkflowBuilderChat({
       }),
       reply: assistantText,
       thread_workflow_id: workflowChatThreadKey(describeResult.workflow_id || workflowId),
+    };
+  }
+
+  const modelChoice = tryModelChoiceResponse(trimmed);
+  if (modelChoice) {
+    const assistantText = modelChoice.reply;
+    if (persist) {
+      appendWorkflowChatExchange(ownerUserId, workflowId, trimmed, assistantText);
+    }
+    return {
+      ...buildChatResultPayload({
+        reply: assistantText,
+        modelUsed: null,
+        effectiveWorkflowId: workflowId,
+        workflow: workflowId ? store.getDefinition(workflowId, ownerUserId) : null,
+        result: null,
+        workflowTriggered: null,
+      }),
+      reply: assistantText,
+      thread_workflow_id: workflowChatThreadKey(workflowId),
     };
   }
 

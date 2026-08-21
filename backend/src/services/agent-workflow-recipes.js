@@ -6,6 +6,7 @@ import { buildBrainMcpLoopGraph } from '../../scripts/seed-brain-mcp-loop-workfl
 import { JOB_APPLICANT_TEMPLATE_ID, JOB_APPLICANT_CHAT_PHRASE } from './agent-workflow-templates.js';
 import { defaultBrainConfig } from './agent-workflow-agent-runtime-context.js';
 import { BRAIN_PROVIDERS } from './agent-workflow-brain-providers.js';
+import { PLATFORM_BYOK_KEY_NAME } from './user-api-keys.js';
 
 function slugify(name) {
   return String(name || 'workflow')
@@ -17,11 +18,11 @@ function slugify(name) {
 
 function extractWorkflowName(message) {
   const t = String(message || '');
-  let m = t.match(/(?:called|named)\s+["']([^"']+)["']/i);
+  let m = t.match(/(?:called|named|call\s+it)\s+["']([^"']+)["']/i);
   if (m) return m[1].trim();
-  m = t.match(/(?:called|named)\s+([^"'\n.]+?)(?:\s*[.,]|\s+(?:get|make|trigger|set|use|with)\b)/i);
+  m = t.match(/(?:called|named|call\s+it)\s+([^"'\n.]+?)(?:\s*[.,]|\s+(?:get|make|trigger|set|use|with)\b)/i);
   if (m) return m[1].trim();
-  m = t.match(/(?:called|named)\s+["']?([^"'\n]+?)["']?\s*$/i);
+  m = t.match(/(?:called|named|call\s+it)\s+["']?([^"'\n]+?)["']?\s*$/i);
   if (m) return m[1].trim();
   m = t.match(/workflow\s*:\s*(.+)$/i);
   if (m) return m[1].trim().slice(0, 80);
@@ -45,11 +46,114 @@ function openRouterBrainConfig() {
     modelSource: 'openrouter',
     apiEndpoint: preset.baseUrl,
     apiKey: '',
+    apiKeyRef: PLATFORM_BYOK_KEY_NAME,
     model: preset.model,
     maxTokens: 512,
     systemPrompt: 'You are a helpful assistant. Respond clearly and concisely.\n\nUser input:\n{{input}}',
     mcpToolCalling: false,
     mcpServerIds: [],
+  };
+}
+
+function triggerNode(phrase, modes = ['manual', 'chat'], extra = {}) {
+  return {
+    id: 'trigger-1',
+    type: 'trigger',
+    position: { x: 40, y: 120 },
+    data: {
+      label: 'Start',
+      triggerModes: modes,
+      scheduleCron: extra.scheduleCron || '',
+      chatPhrase: modes.includes('chat') ? phrase : '',
+      outputs: [{ id: 'trigger_input', label: 'Trigger payload' }],
+    },
+  };
+}
+
+function ollamaBrainNode(id, label, x, y, systemPrompt, sourceNodeId = 'trigger-1', sourceOutputKey = 'text') {
+  return {
+    id,
+    type: 'brain',
+    position: { x, y },
+    data: {
+      label,
+      inputBindings: [
+        {
+          id: 'userMessage',
+          label: 'User message',
+          mode: 'dynamic',
+          sourceNodeId,
+          sourceOutputKey,
+        },
+      ],
+      taskConfig: {
+        ...defaultBrainConfig(),
+        maxTokens: 400,
+        systemPrompt,
+      },
+    },
+  };
+}
+
+function publicApiNode(id, label, x, y, url, method = 'GET') {
+  return {
+    id,
+    type: 'api',
+    position: { x, y },
+    data: {
+      label,
+      inputBindings: [
+        { id: 'url', label: 'URL', mode: 'static', value: url },
+        { id: 'headers', label: 'Headers', mode: 'static', value: '{"Accept":"application/json"}' },
+      ],
+      outputs: [
+        { id: 'status', label: 'HTTP status' },
+        { id: 'body', label: 'Response body' },
+        { id: 'ok', label: 'Success' },
+      ],
+      taskConfig: { method, authType: 'none', timeoutMs: 120000, timeoutAction: 'fail', defaultTimeoutOutput: '{}' },
+    },
+  };
+}
+
+function connectorHnNode(id, x, y) {
+  return {
+    id,
+    type: 'connector',
+    position: { x, y },
+    data: {
+      label: 'Latest stories',
+      inputBindings: [
+        { id: 'input', label: 'Action input', mode: 'static', value: '{"limit":5}' },
+      ],
+      taskConfig: {
+        appId: 'hackernews',
+        appName: 'Hacker News',
+        actionId: 'hackernews.get_top_stories',
+        timeoutMs: 120000,
+        timeoutAction: 'fail',
+      },
+    },
+  };
+}
+
+function mcpToolNode(id, x, y, mcp) {
+  const toolName = mcp?.tools?.[0] || 'get_random_number';
+  return {
+    id,
+    type: 'mcp_tool',
+    position: { x, y },
+    data: {
+      label: 'Connected tool',
+      inputBindings: [],
+      taskConfig: {
+        mcpInvokeKind: 'tool',
+        mcpServerId: mcp?.id || '',
+        toolName,
+        staticArguments: '{}',
+        httpHeadersJson: '{}',
+      },
+    },
   };
 }
 
@@ -444,16 +548,248 @@ export const WORKFLOW_RECIPES = [
       };
     },
   },
+  {
+    id: 'enduser-research-briefing',
+    label: 'Look up a public page and write a short briefing',
+    score(message) {
+      const t = message.toLowerCase();
+      if (isOpsOrLifecycleIntent(t)) return 0;
+      let s = 0;
+      if (/\b(look\s+up|look\s+this\s+up|research|find\s+out|check\s+(?:the\s+)?(?:web|news|weather|site))\b/i.test(t)) s += 4;
+      if (/\b(summar|recap|briefing|plain\s+english|tell\s+me)\b/i.test(t)) s += 3;
+      if (/\b(i\s+(?:want|need)|help\s+me|can\s+you|please)\b/i.test(t)) s += 2;
+      if (/\b(api|http|url|website)\b/i.test(t)) s += 1;
+      if (/openrouter|mcp|connector|job\s+applicant/i.test(t)) s -= 4;
+      return s;
+    },
+    build(message) {
+      const name = extractWorkflowName(message) || 'Research briefing';
+      const phrase = `run ${slugify(name)}`;
+      const modes = inferTriggerModes(message);
+      return {
+        name,
+        chat_phrase: phrase,
+        trigger_modes: modes,
+        graph: {
+          nodes: [
+            triggerNode(phrase, modes),
+            publicApiNode(
+              'api-1',
+              'Fetch public sample',
+              280,
+              40,
+              'https://jsonplaceholder.typicode.com/todos/1'
+            ),
+            ollamaBrainNode(
+              'brain-1',
+              'Write a short briefing',
+              520,
+              120,
+              'Write a friendly 3-sentence briefing in plain English from the data below. No jargon.\n\n{{api-1.body}}\n\nOriginal request:\n{{input}}',
+              'api-1',
+              'body'
+            ),
+          ],
+          edges: [
+            { id: 'e1', source: 'trigger-1', target: 'api-1' },
+            { id: 'e2', source: 'api-1', target: 'brain-1' },
+          ],
+          viewport: { x: 0, y: 0, zoom: 1 },
+        },
+        autoTest: wantsAutoTest(message),
+        summary: 'Fetches a public API (no key) then writes a short briefing with free Ollama',
+      };
+    },
+  },
+  {
+    id: 'enduser-connector-briefing',
+    label: 'Read connected app news and summarize',
+    score(message) {
+      const t = message.toLowerCase();
+      if (isOpsOrLifecycleIntent(t)) return 0;
+      let s = 0;
+      if (/\b(connector|connected\s+app|hacker\s*news|github|gmail|slack)\b/i.test(t)) s += 5;
+      if (/\b(news|stories|inbox|profile)\b/i.test(t)) s += 2;
+      if (/\b(summar|recap|briefing|plain\s+english)\b/i.test(t)) s += 2;
+      if (/\b(i\s+(?:want|need)|help\s+me|can\s+you)\b/i.test(t)) s += 1;
+      if (/openrouter|job\s+applicant/i.test(t)) s -= 3;
+      return s;
+    },
+    build(message) {
+      const name = extractWorkflowName(message) || 'Connected app briefing';
+      const phrase = `run ${slugify(name)}`;
+      const modes = inferTriggerModes(message);
+      return {
+        name,
+        chat_phrase: phrase,
+        trigger_modes: modes,
+        graph: {
+          nodes: [
+            triggerNode(phrase, modes),
+            connectorHnNode('connector-1', 280, 120),
+            ollamaBrainNode(
+              'brain-1',
+              'Summarize stories',
+              540,
+              120,
+              'Summarize the top stories in 4 friendly bullets. No technical jargon.\n\n{{connector-1.text}}\n\n{{connector-1.result}}',
+              'connector-1'
+            ),
+          ],
+          edges: [
+            { id: 'e1', source: 'trigger-1', target: 'connector-1' },
+            { id: 'e2', source: 'connector-1', target: 'brain-1' },
+          ],
+          viewport: { x: 0, y: 0, zoom: 1 },
+        },
+        autoTest: wantsAutoTest(message),
+        summary: 'Hacker News connector (no API key) → free Ollama summary',
+      };
+    },
+  },
+  {
+    id: 'enduser-complex-ops',
+    label: 'Public API + connected news + optional MCP, then a plain-English recap',
+    score(message) {
+      const t = message.toLowerCase();
+      if (isOpsOrLifecycleIntent(t)) return 0;
+      let s = 0;
+      const mentionsApi = /\b(api|website|web|http|look\s+up|public)\b/i.test(t);
+      const mentionsMcp = /\b(mcp|connected\s+tool|my\s+tools|extra\s+tools|wired\s+up)\b/i.test(t);
+      const mentionsConn = /\b(connector|hacker\s*news|connected\s+app)\b/i.test(t);
+      const combo = [mentionsApi, mentionsMcp, mentionsConn].filter(Boolean).length;
+      if (combo >= 2) s += 8;
+      if (combo === 3) s += 4;
+      if (/\b(summar|recap|briefing|plain\s+english)\b/i.test(t)) s += 2;
+      if (/openrouter|job\s+applicant/i.test(t)) s -= 6;
+      return s;
+    },
+    build(message, ctx) {
+      const name = extractWorkflowName(message) || 'Ops recap';
+      const phrase = `run ${slugify(name)}`;
+      const modes = inferTriggerModes(message);
+      const mcp = ctx?.mcpServers?.[0];
+      const nodes = [
+        triggerNode(phrase, modes),
+        publicApiNode(
+          'api-1',
+          'Public sample lookup',
+          260,
+          40,
+          'https://jsonplaceholder.typicode.com/todos/1'
+        ),
+        connectorHnNode('connector-1', 260, 220),
+      ];
+      const edges = [
+        { id: 'e1', source: 'trigger-1', target: 'api-1' },
+        { id: 'e2', source: 'trigger-1', target: 'connector-1' },
+      ];
+      if (mcp?.id) {
+        nodes.push(mcpToolNode('mcp-1', 260, 400, mcp));
+        edges.push({ id: 'e3', source: 'trigger-1', target: 'mcp-1' });
+      }
+      nodes.push(
+        ollamaBrainNode(
+          'brain-1',
+          'Plain-English recap',
+          560,
+          180,
+          'Combine the lookup, news, and any tool result into one short recap a non-technical person can act on.\n\nAPI:\n{{api-1.body}}\n\nNews:\n{{connector-1.text}}\n\nTool:\n{{mcp-1.text}}',
+          'api-1'
+        )
+      );
+      edges.push({ id: 'e-brain-api', source: 'api-1', target: 'brain-1' });
+      edges.push({ id: 'e-brain-conn', source: 'connector-1', target: 'brain-1' });
+      if (mcp?.id) edges.push({ id: 'e-brain-mcp', source: 'mcp-1', target: 'brain-1' });
+      return {
+        name,
+        chat_phrase: phrase,
+        trigger_modes: modes,
+        graph: { nodes, edges, viewport: { x: 0, y: 0, zoom: 1 } },
+        autoTest: wantsAutoTest(message),
+        summary:
+          'Public API (no key) + Hacker News connector + optional MCP, then free Ollama recap. Store no secrets in the graph.',
+      };
+    },
+  },
+  {
+    id: 'enduser-note-summary',
+    label: 'Turn my note into a short friendly summary',
+    score(message) {
+      const t = message.toLowerCase();
+      if (isOpsOrLifecycleIntent(t)) return 0;
+      let s = 0;
+      if (/\b(i\s+(?:want|need)|help\s+me|can\s+you|please)\b/i.test(t)) s += 3;
+      if (/\b(note|notes|message|text|something)\b/i.test(t) && /\b(summar|recap|short|friendly)\b/i.test(t)) s += 5;
+      if (/\bworkflow\b/i.test(t)) s += 1;
+      if (/brain|mcp|openrouter|connector|job\s+applicant|api\s+echo/i.test(t)) s -= 5;
+      return s;
+    },
+    build(message) {
+      const name = extractWorkflowName(message) || 'Morning Recap';
+      const phrase = `run ${slugify(name)}`;
+      const modes = inferTriggerModes(message);
+      return {
+        name,
+        chat_phrase: phrase,
+        trigger_modes: modes,
+        graph: {
+          nodes: [
+            triggerNode(phrase, modes),
+            ollamaBrainNode(
+              'brain-1',
+              'Friendly summary',
+              280,
+              120,
+              'Rewrite the note in 2-3 warm, non-technical sentences.\n\n{{input}}'
+            ),
+          ],
+          edges: [{ id: 'e1', source: 'trigger-1', target: 'brain-1' }],
+          viewport: { x: 0, y: 0, zoom: 1 },
+        },
+        autoTest: wantsAutoTest(message),
+        summary: 'Trigger → free Ollama summary (no API key)',
+      };
+    },
+  },
 ];
+
+export function isOpsOrLifecycleIntent(message) {
+  const t = String(message || '').toLowerCase();
+  return (
+    /(?:failed\s+run|why\s+(?:did|does)|root\s*cause|\brca\b)/i.test(t) ||
+    /(?:unpublish|revert\s+to\s+draft|make\s+draft|set\s+to\s+draft|put\s+(?:it|this)\s+back\s+in\s+draft)/i.test(t) ||
+    /(?:delete|remove)\s+(?:this\s+)?(?:workflow|flow)/i.test(t) ||
+    /(?:publish\s+as\s+a2a|agent\s+exchange|share\s+(?:this|it)\s+as\s+an?\s+agent)/i.test(t) ||
+    /(?:inspect|status)\s+(?:latest|last|run)/i.test(t)
+  );
+}
 
 export function isWorkflowCreateIntent(message) {
   const t = String(message || '').trim();
   if (!t) return false;
-  return (
+
+  const strongCreate =
     /(?:create|build|make|add|new|setup|set\s+up)\s+(?:a\s+)?(?:new\s+)?workflow/i.test(t) ||
     /^workflow\s*:/i.test(t) ||
-    (/(?:brain|mcp|approval|agent|email|sse|api|openrouter)/i.test(t) &&
-      /(?:→|->|then|workflow|trigger|provider|invoke|echo)/i.test(t))
+    (/(?:i\s+(?:want|need)|help\s+me|can\s+you)\b/i.test(t) &&
+      /(?:summar|recap|briefing|automat|look\s+up|research|note|news|connector|connected)/i.test(t)) ||
+    (/\b(look\s+up|look\s+something\s+up|public\s+webpage|hacker\s*news|connected\s+apps?)\b/i.test(t) &&
+      /\b(briefing|summar|recap|explain|plain\s+english|stories|act\s+on)\b/i.test(t)) ||
+    (/call\s+it\s+/i.test(t) && /\b(summar|briefing|recap|news|look\s+up|note|stories)\b/i.test(t));
+
+  if (strongCreate) return true;
+  if (isOpsOrLifecycleIntent(t)) return false;
+  if (
+    /(?:every\s+(?:morning|day)|when\s+(?:a\s+)?(?:customer|someone)|look\s+(?:this|it)\s+up|send\s+me\s+a\s+(?:recap|summary|briefing))/i.test(
+      t
+    )
+  ) {
+    return true;
+  }
+  return (
+    /(?:brain|mcp|approval|agent|email|sse|api|openrouter|connector)/i.test(t) &&
+    /(?:→|->|then|workflow|trigger|provider|invoke|echo)/i.test(t)
   );
 }
 
