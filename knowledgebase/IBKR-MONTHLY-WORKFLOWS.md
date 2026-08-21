@@ -55,7 +55,7 @@ Default crons and **budget caps** live in workflow **Variables** (seed: `backend
 
 Override in Workflows → W1 → Variables (then Publish). Blank or `0` on `risk_per_trade_pct` leaves stop distance to the Maker. Re-seed bumps the old `0.75` default to `5`, old `screener_enrich_limit` of `8` to `25`, and keeps other CEO overrides.
 
-Maker **chooses** on each `new_entry`: full IBKR bracket (stop+tp) **or** hold-for-weeks (`bracket` false, `exit_plan` later_day_plan, `forecast_up_weeks` ≥ 1, omit tp). A later W1 day plan then decides sell / hold / raise_stop. W2 places `bracket`, `stop_only`, or `entry_only`.
+Maker **chooses** on each `new_entry`: full IBKR bracket (stop+tp) **or** hold-for-weeks (`bracket` false, `exit_plan` later_day_plan, `forecast_up_weeks` ≥ 1, omit tp). A full bracket may still set `forecast_up_weeks` as thesis horizon — that does not make it hold-for-weeks. A later W1 day plan then decides sell / hold / raise_stop. W2 places `bracket`, `stop_only`, or `entry_only`.
 
 Company setup deep pack `demo_balaji_ranganathan` embeds the same graphs from the frozen JSON (not only the seed scripts). Keep that pack’s W1 hard-gates bindings and `entry_discount_pct_max` in sync (`patch-demo-blueprint-ibkr-quote-band.js` + `FROM_PACK_FILE=1 publish-balaji-demo-blueprint.js`). Refresh golden templates: `node scripts/export-standard-ibkr-workflows.js` → `company-blueprints/standard/trading/`. Thin industry pack `trading_ops` is org-only.
 

@@ -44,6 +44,7 @@ On every new_entry you MUST choose one style and set it on the action:
 1. **Full IBKR bracket** (bracket: true): use when the setup is a swing or you expect a defined target inside days (not a multi-week grind). Set qty, entry_price, stop_price below entry, and tp_price above entry (default first target about {{var.partial_profit_pct_min}}% unless the setup is tighter). W2 places parent BUY + stop + take-profit.
 
 2. **Hold for weeks** (bracket: false, exit_plan: "later_day_plan", forecast_up_weeks >= 1): use when you predict the name continues higher over the next week or few weeks. Do **not** attach a take-profit that would sell a winner early. Leave tp_price null. A later W1 day plan (about a week out, or sooner if thesis breaks) decides hold / raise_stop / partial_profit / exit. You may keep a protective stop_price if a breakdown would invalidate the thesis; omit stop only when the multi-week upside thesis is explicit in thesis/why_now.
+On a **full bracket**, forecast_up_weeks is only a thesis horizon — keep bracket true, keep tp_price, and do not switch to hold-for-weeks just because the horizon is ≥ 1 week.
 
 Never leave the choice implicit. If you cannot forecast a week-plus grind, prefer a full bracket.
 

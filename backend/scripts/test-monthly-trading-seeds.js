@@ -379,6 +379,38 @@ async function main() {
   assert.strictEqual(laterDayPlanWithTp.ok, false);
   assert.ok(laterDayPlanWithTp.errors.some((e) => /omit tp_price/i.test(e)), laterDayPlanWithTp.errors);
 
+  const fullBracketWithForecastWeeks = hardGates({
+    plan_text: JSON.stringify({
+      prior_plan_reconcile: { notes: 'x' },
+      actions: [
+        {
+          type: 'new_entry',
+          key: 'NASDAQ:AMD',
+          qty: 8,
+          entry_price: 100,
+          stop_price: 97,
+          tp_price: 115,
+          notional_usd: 800,
+          bracket: true,
+          exit_plan: 'bracket_tp',
+          forecast_up_weeks: 2,
+        },
+      ],
+      risk_summary: { risk_mode: 'normal' },
+    }),
+    regime: { risk_on: true },
+    account_snapshot: JSON.stringify({
+      cash_usd: 10000,
+      equity_usd: 10000,
+      reference_prices: { 'NASDAQ:AMD': { reference_price: 100 } },
+    }),
+  });
+  assert.strictEqual(
+    fullBracketWithForecastWeeks.ok,
+    true,
+    `full bracket with forecast_up_weeks should pass: ${JSON.stringify(fullBracketWithForecastWeeks.errors)}`
+  );
+
   const undersized = hardGates({
     plan_text: JSON.stringify({
       prior_plan_reconcile: { notes: 'x' },

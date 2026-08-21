@@ -163,6 +163,14 @@ export function buildMonthlyTradingW5Graph({ weeklyScriptId = WEEKLY_SCRIPT_ID }
 async function upsertScript(authUser, { id, name, description, sourcePath }) {
   const source = readFileSync(sourcePath, 'utf8');
   const existing = getCustomScript(id, authUser, { includeSource: true });
+  if (
+    existing &&
+    existing.source === source &&
+    existing.scan_status === 'approved' &&
+    existing.status === 'approved'
+  ) {
+    return existing;
+  }
   if (existing) deleteCustomScript(id, authUser);
   return createCustomScript(authUser, {
     id,

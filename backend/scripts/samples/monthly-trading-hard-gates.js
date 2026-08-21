@@ -239,9 +239,11 @@ function countBookableCandidates(inputs, snap, vars, refs) {
 }
 
 function isLaterDayPlanExit(a = {}) {
+  if (a.bracket === true || a.use_bracket === true || a.useBracket === true) return false;
   const exit = String(a.exit_plan || a.exitPlan || '')
     .toLowerCase()
     .replace(/-/g, '_');
+  if (['bracket_tp', 'full_bracket', 'bracket'].includes(exit)) return false;
   if (['later_day_plan', 'hold_for_weeks', 'no_bracket', 'entry_only'].includes(exit)) return true;
   if (a.bracket === false || a.use_bracket === false || a.useBracket === false) return true;
   const weeks = num(a.forecast_up_weeks ?? a.forecastUpWeeks ?? a.horizon_weeks);

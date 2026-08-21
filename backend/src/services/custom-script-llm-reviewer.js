@@ -42,8 +42,11 @@ export function isCustomScriptLlmReviewRequired() {
 }
 
 function parseReviewJson(content) {
-  const text = String(content || '').trim();
+  let text = String(content || '').trim();
   if (!text) return null;
+  text = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+  const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence) text = fence[1].trim();
   try {
     return JSON.parse(text);
   } catch {
@@ -141,19 +144,25 @@ ${String(source || '').slice(0, 12000)}
 
   try {
     const maxTokens = Number(process.env.CUSTOM_SCRIPT_LLM_REVIEW_MAX_TOKENS) || 768;
-    const { content, modelUsed } = await chatCompletions({
-      messages: [
-        { role: 'system', content: REVIEW_SYSTEM },
-        { role: 'user', content: userContent },
-      ],
-      maxTokens,
-    });
-
-    const parsed = parseReviewJson(content);
+    const maxAttempts = 2;
+    let lastModelUsed = null;
+    let parsed = null;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const { content, modelUsed } = await chatCompletions({
+        messages: [
+          { role: 'system', content: REVIEW_SYSTEM },
+          { role: 'user', content: userContent },
+        ],
+        maxTokens,
+      });
+      lastModelUsed = modelUsed;
+      parsed = parseReviewJson(content);
+      if (parsed) break;
+    }
     if (!parsed) {
       const msg = 'LLM review returned unparseable response';
       if (isCustomScriptLlmReviewRequired()) {
-        return normalizeReview(null, { modelUsed, error: msg });
+        return normalizeReview(null, { modelUsed: lastModelUsed, error: msg });
       }
       return {
         enabled: true,
@@ -163,14 +172,14 @@ ${String(source || '').slice(0, 12000)}
         summary: `${msg} — falling back to static scan only`,
         concerns: [],
         positive_signals: [],
-        model_used: modelUsed,
+        model_used: lastModelUsed,
         reviewed_at: new Date().toISOString(),
         parse_error: true,
         fallback: true,
       };
     }
 
-    return normalizeReview(parsed, { modelUsed });
+    return normalizeReview(parsed, { modelUsed: lastModelUsed });
   } catch (err) {
     const msg = `LLM review unavailable: ${err.message}`;
     if (isCustomScriptLlmReviewRequired()) {
