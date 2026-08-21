@@ -132,11 +132,11 @@ console.log('\n— Unit: English lifecycle parsers');
   );
   assert(
     isContentPromoteIntent(
-      'build a workflow that will promote flolah platform on Hackernews, Medium with blogs about flolah'
+      'build a workflow that will promote our product on Hackernews, Medium with blogs about the product'
     ),
     'promote + channels is create/promote intent'
   );
-  assert(extractPromoteTopic('blogs about flolah it can be about platform intro') === 'flolah', 'topic from about X');
+  assert(extractPromoteTopic('blogs about acme analytics it can be about platform intro') === 'acme analytics', 'topic from about X');
 }
 
 // --------------------------------------------------------------------------
@@ -270,7 +270,7 @@ console.log('\n— S7: Explicit OpenRouter still binds a vault name');
 console.log('\n— S8: Promote on Hacker News + Medium (plain English blogs)');
 {
   const msg =
-    'build a workflow that will promote flolah platform on Hackernews, Medium with blogs about flolah it can be about platform intro, platform features and usercase examples.';
+    'build a workflow that will promote acme analytics on Hackernews, Medium with blogs about acme analytics it can be about platform intro, platform features and usercase examples.';
   const recipe = matchWorkflowRecipe(msg);
   assert(recipe?.id === 'enduser-content-promote', `recipe ${recipe?.id || 'none'} (must not be HN reader)`);
   const res = await chat(msg);
@@ -284,7 +284,7 @@ console.log('\n— S8: Promote on Hacker News + Medium (plain English blogs)');
   const hn = nodes.find((n) => n.id === 'connector-hn');
   assert(hn?.data?.taskConfig?.appId === 'hackernews', 'Hacker News connector present');
   assert(hn?.data?.taskConfig?.actionId !== 'hackernews.get_top_stories', 'HN is submit not top-stories reader');
-  assert(/flolah/i.test(JSON.stringify(nodes.find((n) => n.id === 'brain-draft')?.data?.taskConfig?.systemPrompt || '')), 'draft is about the named product');
+  assert(/acme analytics/i.test(JSON.stringify(nodes.find((n) => n.id === 'brain-draft')?.data?.taskConfig?.systemPrompt || '')), 'draft is about the named product');
   assert(/MEDIUM_INTEGRATION_TOKEN|API Keys|Medium/i.test(`${res.reply}\n${res.keys_summary || ''}`), 'summarizes Medium key');
   assert(!hasSecretLiteral(def), 'promote graph has no secret literals');
 }

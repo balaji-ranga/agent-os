@@ -25,7 +25,7 @@ Talk to Workflow Builder the way a non-technical CEO would. Do **not** use node 
 | S5 | “Use this OpenAI key `sk-test-SHOULD-NOT-STORE-abc123` for the brain.” (with a create ask) | Graph must **not** contain the literal. Bind `Platform_BYOK`. Reply lists API Keys. |
 | S6 | “Which model should I use? Do I need an API key?” | Ollama if reachable; otherwise bind-key summary. No graph required. |
 | S7 | Explicit paid provider: “Make the Brain use OpenRouter and then call an API to echo the answer.” | OpenRouter + `apiKeyRef=Platform_BYOK`, no literal key. |
-| S8 | “Build a workflow that will promote [product] on Hacker News and Medium with blogs (intro, features, use cases).” | Draft blogs → CEO approval → Medium API (`MEDIUM_INTEGRATION_TOKEN`) + HN submit connector. Not the HN *reader* recipe. |
+| S8 | “Build a workflow that will promote [any product] on Hacker News and Medium with blogs (intro, features, use cases).” | Same generic recipe for any topic. Draft blogs → CEO approval → Medium API (`MEDIUM_INTEGRATION_TOKEN`) + HN submit connector. Not the HN *reader* recipe. |
 | L1 | “Please take it live.” | Status published. |
 | L2 | “Put it back in draft.” | Status draft. |
 | L3 | “Share this so other companies can call it.” | A2A publication + card URL. |
