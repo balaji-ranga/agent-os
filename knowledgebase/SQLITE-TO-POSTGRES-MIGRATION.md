@@ -61,7 +61,7 @@ There is **no ORM** and **no versioned migration runner**. Schema evolves via `C
 |--------|------------------------------|
 | **Chat history** | `chat_turns`, `chat_sessions`, `chat_session_meta`, workflow chat turns |
 | **Agents and work** | `agents`, kanban, workflows/A2A, standups, activities, notifications |
-| **Auth and platform** | `platform_users`, sessions, MFA, API keys, budgets, `token_usage` |
+| **Auth and platform** | `platform_users`, sessions, MFA, API keys, budgets, `token_usage` (`trace_id`), `llm_price_book`, `cost_lines` |
 | **IBKR functional** | budgets, reservations, order events, fills, **position snapshots**, realized PnL, cash events, equity marks, day plans, account snapshot cache |
 | **Market data** | `market_data_cache` |
 | **Master data** | structured tables/rows; document meta remaining beside OpenSearch |

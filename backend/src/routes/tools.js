@@ -14,6 +14,7 @@ import * as meta from '../services/content-tools-meta.js';
 import { assertCallerMayUseTool, getAgentToolGrants } from '../services/openclaw-agent-tools.js';
 import { parseTenantOpenClawAgentId, resolveAgentFromOpenClawCallerId } from '../services/openclaw-tenant.js';
 import { resolveOwnerFromOpenClawSession } from '../services/tool-owner-scope.js';
+import { withLlmopsContext, getLlmopsContext, inferTraceId } from '../services/llmops-context.js';
 import {
   startBrowserTask,
   getBrowserTask,
@@ -114,6 +115,7 @@ import { applyProposal, getState as getOnboardingState, saveAgentProposal, saveD
 import { runCooStatusChecker } from '../services/coo-status-checker.js';
 import { buildThisWeekDigest } from '../services/this-week-digest.js';
 import { buildOperationalEffectiveness } from '../services/operational-effectiveness.js';
+import { getLlmopsSummary } from '../services/llmops-summary.js';
 import {
   executeScheduledGoalCreate,
   executeScheduledGoalList,
@@ -230,15 +232,18 @@ function getBackendBaseUrl() {
 function logContentTool(toolName, requestPayload, responsePayload, status, source = null, ownerUserId = null) {
   try {
     const db = getDb();
+    const ctx = getLlmopsContext() || {};
+    const traceId = inferTraceId(ctx);
     db.prepare(
-      `INSERT INTO content_tool_logs (tool_name, source, request_payload, response_payload, status, owner_user_id) VALUES (?, ?, ?, ?, ?, ?)`
+      `INSERT INTO content_tool_logs (tool_name, source, request_payload, response_payload, status, owner_user_id, trace_id) VALUES (?, ?, ?, ?, ?, ?, ?)`
     ).run(
       toolName,
-      source || null,
+      source || ctx.memberKey || ctx.agentId || null,
       typeof requestPayload === 'string' ? requestPayload : JSON.stringify(requestPayload || {}),
       typeof responsePayload === 'string' ? responsePayload : JSON.stringify(responsePayload || {}),
       status,
-      ownerUserId || null
+      ownerUserId || ctx.ownerUserId || null,
+      traceId
     );
   } catch (_) {}
 }
@@ -649,14 +654,14 @@ router.get('/logs', attachAuthUser, requireAuth, (req, res) => {
         .get(ownerUserId, tool).n;
       rows = db
         .prepare(
-          'SELECT id, tool_name, source, request_payload, response_payload, status, owner_user_id, created_at FROM content_tool_logs WHERE owner_user_id = ? AND tool_name = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
+          'SELECT id, tool_name, source, request_payload, response_payload, status, owner_user_id, created_at, trace_id FROM content_tool_logs WHERE owner_user_id = ? AND tool_name = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
         )
         .all(ownerUserId, tool, limit, offset);
     } else {
       total = db.prepare('SELECT COUNT(*) AS n FROM content_tool_logs WHERE owner_user_id = ?').get(ownerUserId).n;
       rows = db
         .prepare(
-          'SELECT id, tool_name, source, request_payload, response_payload, status, owner_user_id, created_at FROM content_tool_logs WHERE owner_user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
+          'SELECT id, tool_name, source, request_payload, response_payload, status, owner_user_id, created_at, trace_id FROM content_tool_logs WHERE owner_user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
         )
         .all(ownerUserId, limit, offset);
     }
@@ -696,6 +701,38 @@ router.delete('/logs', attachAuthUser, requireAuth, (req, res) => {
 });
 
 router.use(optionalAuth);
+router.use((req, res, next) => {
+  const header = String(
+    req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || req.headers['x-request-source'] || ''
+  ).trim();
+  let ownerUserId = null;
+  try {
+    ownerUserId = resolveToolOwnerUserIdOrNull(req, req.body || {}, resolveAuthenticatedCeoUserId);
+  } catch (_) {
+    ownerUserId = null;
+  }
+  const parsed = parseTenantOpenClawAgentId(header);
+  if (!ownerUserId && parsed?.ceoUserId) ownerUserId = parsed.ceoUserId;
+  const agent = header ? resolveAgentFromOpenClawCallerId(header) : null;
+  const memberKey = agent?.id || parsed?.baseOpenClawId || null;
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const incoming = String(
+    body.goal_run_id || body.trace_id || req.headers['x-llmops-trace-id'] || ''
+  ).trim();
+  withLlmopsContext(
+    {
+      ownerUserId,
+      memberKey,
+      agentId: memberKey,
+      source: 'content_tool',
+      sessionId: incoming.startsWith('sess:') ? incoming : null,
+      runId: incoming && /^\d+$/.test(incoming) ? incoming : null,
+      traceId: incoming || null,
+      goalRunId: incoming.startsWith('agr-') ? incoming : null,
+    },
+    () => next()
+  );
+});
 router.use(actionPolicyMiddleware);
 router.use(toolApiRateLimitMiddleware);
 
@@ -2047,6 +2084,64 @@ router.post('/operational-effectiveness', optionalAuth, async (req, res) => {
   } catch (e) {
     const err = { error: e.message };
     logTool(req, 'operational_effectiveness', requestPayload, err, 'error', source);
+    res.status(e.status || 500).json(err);
+  }
+});
+
+/**
+ * llmops_summary — COO only. Owner-scoped tokens, estimated $, traces, quality.
+ * Body: { days?: number } (default 30)
+ */
+router.post('/llmops-summary', optionalAuth, async (req, res) => {
+  const source = req.headers['x-openclaw-agent-id'] || req.headers['x-agent-id'] || null;
+  const requestPayload = bodyWithoutSpoofedOwner(req.body || {});
+  try {
+    const caller = getCallerAgent(req);
+    if (!caller || !caller.is_coo) {
+      const err = { error: 'Only COO can use llmops_summary' };
+      logTool(req, 'llmops_summary', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const ownerUserId = resolveToolOwnerUserId(req, requestPayload, resolveAuthenticatedCeoUserId);
+    if (!ownerUserId) {
+      const err = { error: 'Could not resolve CEO user for this session' };
+      logTool(req, 'llmops_summary', requestPayload, err, 'error', source);
+      return res.status(403).json(err);
+    }
+    const daysRaw = requestPayload.days ?? requestPayload.window_days;
+    const days = daysRaw != null && Number.isFinite(Number(daysRaw)) ? Number(daysRaw) : 30;
+    const summary = getLlmopsSummary(ownerUserId, { days });
+    const result = {
+      ok: true,
+      owner_user_id: ownerUserId,
+      range: summary.range,
+      tokens: summary.tokens,
+      by_source: summary.by_source,
+      by_model: summary.by_model,
+      cost: {
+        llm_estimated_usd: summary.cost.llm_estimated_usd,
+        manual_usd: summary.cost.manual_usd,
+        total_estimated_usd: summary.cost.total_estimated_usd,
+        payer: summary.cost.payer,
+        disclaimer: summary.cost.disclaimer,
+      },
+      quality: summary.quality,
+      traces: (summary.traces || []).slice(0, 12),
+      agent_howto:
+        'Explain token burn and estimated $ from the price book. Say estimates are not invoices. Point the CEO to Efficiency → LLMOps and Goal plans → Execution trace. Do not mix with Digest Est. Value or Home OEI. Do not invent spend. Operator recovery is Admin-only.',
+    };
+    logTool(
+      req,
+      'llmops_summary',
+      { ...requestPayload, owner_user_id: ownerUserId },
+      { ok: true, tokens: result.tokens?.total_tokens, usd: result.cost.llm_estimated_usd },
+      'ok',
+      source
+    );
+    res.json(result);
+  } catch (e) {
+    const err = { error: e.message };
+    logTool(req, 'llmops_summary', requestPayload, err, 'error', source);
     res.status(e.status || 500).json(err);
   }
 });

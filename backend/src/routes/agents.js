@@ -60,6 +60,7 @@ import {
 import { resolveLlmConfigForUser } from '../services/user-llm-settings.js';
 import { isPlatformLocalOllama } from '../services/platform-llm-settings.js';
 import { meterOpenClawUsage } from '../services/token-usage.js';
+import { withLlmopsContext } from '../services/llmops-context.js';
 import { BudgetBlockedError, enforceBudget } from '../services/agent-budgets.js';
 import {
   listPublishedTemplates,
@@ -972,12 +973,23 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       /* keep defaults */
     }
     try {
-      ({ content: reply, usage } = await openclaw.chatCompletions(
-        openclawAgentId,
-        messages,
-        sessionUser,
-        false,
-        chatOpts
+      ({ content: reply, usage } = await withLlmopsContext(
+        {
+          ownerUserId,
+          memberKey: agentId,
+          agentId,
+          source: 'openclaw_chat',
+          sessionId: threadId,
+          traceId: threadId ? `sess:${threadId}` : null,
+        },
+        () =>
+          openclaw.chatCompletions(
+            openclawAgentId,
+            messages,
+            sessionUser,
+            false,
+            chatOpts
+          )
       ));
       // Closed tools.allow without runtime builtins can yield empty payloads → this placeholder.
       // Re-ensure tenant allowlist (sessions_*/read/…) and retry once.
@@ -993,12 +1005,23 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
           console.warn('[agents] tenant re-sync after empty reply:', syncErr?.message || syncErr);
         }
         await new Promise((r) => setTimeout(r, 400));
-        ({ content: reply, usage } = await openclaw.chatCompletions(
-          openclawAgentId,
-          messages,
-          sessionUser,
-          false,
-          chatOpts
+        ({ content: reply, usage } = await withLlmopsContext(
+          {
+            ownerUserId,
+            memberKey: agentId,
+            agentId,
+            source: 'openclaw_chat',
+            sessionId: threadId,
+            traceId: threadId ? `sess:${threadId}` : null,
+          },
+          () =>
+            openclaw.chatCompletions(
+              openclawAgentId,
+              messages,
+              sessionUser,
+              false,
+              chatOpts
+            )
         ));
       }
     } finally {
@@ -1010,6 +1033,7 @@ router.post('/:id/chat', requireAuth, async (req, res) => {
       promptText: messages.map((m) => m.content || '').join('\n'),
       replyText: reply,
       sessionId: threadId,
+      traceId: threadId ? `sess:${threadId}` : null,
     });
     const replyText = toAgentSystemUserMessage(
       isOpenClawEmptyResponse(reply)

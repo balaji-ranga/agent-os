@@ -47,7 +47,7 @@ Top-level (always shown; cannot hide in Menu visibility):
 | Policies | `/policies` | CEO common guardrails for all AI employees + Brain nodes |
 | AI Snipper | `/ai-snipper` | Prompt / token / tool-call usage timeline |
 | **Browser Session** | `/browser-session` | Managed Playwright, Client Chrome relay, recipes; multi-user also uses Connectors **Browser Session package** (local worker) |
-| **Efficiency View** | `/efficiency` | **Org** tab: AI employees, automated tasks, feedback, workflow run success/fail, Storage (MB). **Department** tab: month-to-date tokens vs department budget **plus people task counts**. **Agent View** tab: per-employee activity, outcomes, token/error budgets, **Reset usage**. **User View** tab: Kanban performance for people (`/efficiency?tab=user`) |
+| **Efficiency View** | `/efficiency` | **Org** tab: AI employees, automated tasks, feedback, workflow run success/fail, Storage (MB). **Department** tab: month-to-date tokens vs department budget **plus people task counts**. **Agent View** tab: per-employee activity, outcomes, token/error budgets, **Reset usage**. **User View** tab: Kanban performance for people (`/efficiency?tab=user`). **LLMOps** tab: tokens, estimated $, traces, price book (help **50**) |
 | **CRM** | `/crm` | Shown when Profile CRM = Twenty or ERPNext (desk embed). Pipeline work: CRM Maker/Checker (Lead→Order — help **40**) |
 | **ERP** | `/erp` | Shown when Profile ERP = ERPNext (desk embed). Books: ERP Maker/Checker (O2C/P2P — help **39**) |
 | **3D Avatars** | `/avatars` | Avatar models, Virtual Rooms, publish public scenes |
@@ -117,8 +117,9 @@ Positioning: **AI Company OS** — see [`../AI-COMPANY-OS.md`](../AI-COMPANY-OS.
 - **Integrate SaaS** → Connectors  
 - **Integrate tools/protocol** → MCP, External AI, Custom scripts, Tools  
 - **3D / public rooms** → Avatars / Published Scenes  
-- **Measure** → AI Snipper (usage) + Efficiency View (ops outcomes, per-employee budgets)
-- **Cap spend / failures** → Efficiency View → Agent View → Edit budget  
+- **Measure** → AI Snipper (usage) + Efficiency View (ops outcomes, per-employee budgets, **LLMOps**)
+- **Cap spend / failures** → Efficiency View → Agent View → Edit budget
+- **Watch LLM tokens / estimated $** → Efficiency View → LLMOps (help **50**)  
 - **Unblock a capped AI employee** → Efficiency View → Agent View → Reset usage  
 - **Shrink your data footprint** → Profile → Data persistence, then Efficiency View → Org → Storage (MB)  
 - **How do I…?** → Platform Help (docs **28** Scheduled goals, **29** Company setup, **32** Business Core, **39** ERPNext SME O2C/P2P, **40** Twenty CRM SME Lead→Order, **35** Update Company Details, and the rest of this corpus)

@@ -1,6 +1,6 @@
 # Automated company P&L (Flolah / Agent OS)
 
-**Status:** Design plan (not fully shipped). Captures how CEO tenants measure **cost of running an AI company**, **income streams**, and **success** — with meters in Flolah and books in ERP (ERPNext) when Business Core is on.
+**Status:** Design plan for **income + ERP books**. The **estimated LLM cost** layer is shipped: Efficiency → **LLMOps** (help **50**) meters `token_usage`, applies an owner-scoped price book, and records optional manual outside costs. Captures how CEO tenants measure **cost of running an AI company**, **income streams**, and **success** — with meters in Flolah and books in ERP (ERPNext) when Business Core is on.
 
 **Audience:** product, engineering, Finance/ERP Maker agents, Cursor.
 
@@ -8,7 +8,7 @@
 
 | Area | What exists | Docs |
 |------|-------------|------|
-| Token meters + budgets | `token_usage` ledger; agent/department monthly token + error budgets | platform-help **18** |
+| Token meters + budgets + estimated $ | `token_usage`; Agent View budgets; Efficiency → **LLMOps** price book + traces | platform-help **18**, **50** |
 | BYOK vs platform LLM | Profile + vault (`Platform_BYOK`, Replicate, Brave, …) | platform-help **15**, **11** |
 | CRM opportunities/deals | Twenty + `crm_*` tools | platform-help **32**, BUSINESS-CORE-WORKSPACE-PLAN |
 | ERP embeds + `erp_*` | ERPNext (optional) | platform-help **32** |

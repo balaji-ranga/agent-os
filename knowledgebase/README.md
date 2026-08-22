@@ -10,13 +10,13 @@ Documentation lives here so Cursor and humans can find it. **GitHub landing:** r
 | **AI-COMPANY-OS.md** | **Canonical** category (AI Company OS), golden messaging layers, terminology (AI employee vs agent API), OS primitives, screen map, design rule for new features, Phase A–F roadmap. Refer for portal/website copy. |
 | **PHASE-D-E-F-OPERATE.md** | Phase D Day 0 operating model + Day 1 autonomy install; Phase E harden; Phase F self-improve. |
 | **BUSINESS-CORE-WORKSPACE-PLAN.md** | Business Core (Twenty/ERPNext + optional profile), tenancy maps, prefab CRM/ERP agents, Home vs Workspace (`/work`), Phase 1–2; entitlements rules. **Validate Phase 1 before Phase 2.** Prefab packs: `backend/src/services/company-blueprints/standard/`. |
-| **AUTOMATED-PNL.md** | **Design plan** — automated company P&L: run-cost (platform · BYOK · outside) + income (CRM · channels · IBKR · manual), meters vs books, CoA sample, period close, phases C0–C5 / R0–R5. Not a shipped feature claim. |
+| **AUTOMATED-PNL.md** | Company P&L: **estimated LLM $** (Efficiency LLMOps / price book) shipped; income events + ERP period close still design. |
 | **SQLITE-TO-POSTGRES-MIGRATION.md** | **End-to-end** Flolah App SQLite (`agent-os.db` + `ceo.db`) → PostgreSQL DB `flolah` on shared `twenty-db` (separate from Twenty CRM schemas). Architecture, packages A–G, cutover, parity, out-of-scope stores. |
 
 | **VISION.md** | Product purpose, vision, core strengths, differentiator, and strategic focuses (AI Company OS + governed A2A). |
 | **PITCH.md** | One-pager pitch: problem, solution, differentiators, audience, and success journey (from VISION + AI-COMPANY-OS). |
 | **platform-help/** | CEO end-user Platform Help corpus (RAG). **Public website:** sequenced Docusaurus guide at `docs-site/` → `https://flolah.cloud/docs/` (open access, no OpenClaw, no operator secrets). In-app RAG remains this folder. |
-| **platform-help/49-how-the-company-runs.md** | CEO architecture: operating model + capability layers; Home strip and My Org diagrams; public `/docs/start/how-the-company-runs/` |
+| **platform-help/50-monitoring-and-llmops.md** | Efficiency **LLMOps**: token meter, estimated $, traces, price book vs Admin recovery |
 | **AGENT-WORKSPACE-TEMPLATES.md** | Platform-shared agent workspace MD templates: apply in Agent Workspace, Admin CRUD, CEO publish-as-template. |
 | **TESTING.md** | Restart steps, full API test, frontend manual tests, smoke test, standup→COO→TechResearcher test, standup UI checklist. |
 | **GITHUB-SETUP.md** | One-time: create agent-os repo on GitHub and push (Options A/B, security check). |

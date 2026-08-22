@@ -11,9 +11,9 @@ On **My Org** / Efficiency View you can set:
 - Department **purpose** and **monthly token budget**
 - Per-employee **token** and **error** budgets (warn, then block)
 
-**Efficiency View** has **Org**, **Department** (AI employees **and** people task counts), **Agent View** (activity, outcomes, **Reset usage**), and **User View** (`/efficiency?tab=user`) for invited people’s Kanban this month.
+**Efficiency View** has **Org**, **Department**, **Agent View**, **User View**, and **LLMOps** (`/efficiency?tab=llmops`) for tokens, estimated LLM $, and traces.
 
-Token budgets are not the same as **Tools → Rate limits**.
+Token budgets are not the same as **Tools → Rate limits**. Estimated LLM $ on LLMOps is not a vendor invoice — see [Monitoring and LLMOps](./monitoring-and-llmops.md).
 
 ## Tool API rate limits
 

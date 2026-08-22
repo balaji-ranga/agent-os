@@ -34,6 +34,9 @@ export function ensureGoalOutcomeTables() {
     CREATE INDEX IF NOT EXISTS idx_goal_mission_events_run
       ON goal_mission_events(goal_run_id, created_at ASC);
   `);
+  try {
+    db.exec('ALTER TABLE goal_mission_events ADD COLUMN trace_id TEXT');
+  } catch (_) {}
   _ready = true;
 }
 
@@ -167,10 +170,17 @@ export function recordMissionEvent({ ownerUserId, goalRunId = null, event_type, 
   const id = `gme-${randomUUID().replace(/-/g, '').slice(0, 16)}`;
   getDb()
     .prepare(
-      `INSERT INTO goal_mission_events (id, owner_user_id, goal_run_id, event_type, payload_json)
-       VALUES (?, ?, ?, ?, ?)`
+      `INSERT INTO goal_mission_events (id, owner_user_id, goal_run_id, event_type, payload_json, trace_id)
+       VALUES (?, ?, ?, ?, ?, ?)`
     )
-    .run(id, owner, goalRunId || null, type, JSON.stringify(payload || {}));
+    .run(
+      id,
+      owner,
+      goalRunId || null,
+      type,
+      JSON.stringify(payload || {}),
+      goalRunId || null
+    );
   return id;
 }
 

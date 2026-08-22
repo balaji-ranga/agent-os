@@ -62,10 +62,13 @@ Tokens come from the durable `token_usage` ledger. It records:
 
 | Source | When |
 |--------|------|
-| `AgentSystem_chat` | Dashboard / agent chat turns |
+| `openclaw_chat` | Dashboard / AgentSystem chat turns |
 | `delegation` | COO-delegated runs executed by an agent |
 | `workflow_brain` | Brain node LLM calls |
 | `a2a_outbound` | Calls out to an external / published-A2A leaf member |
+| `content_tool` | Content tools that call chat LLM |
+| `goal_planner` | Goal-plan intent classification |
+| `chat_completions` | Other platform chat LLM (fallback) |
 
 Provider-reported usage is used whenever the model API returns it. When it does not, the row is an
 estimate (`chars/4`) and is flagged as estimated — the Agent View tooltip tells you how much of the
@@ -116,7 +119,7 @@ next month, or **Reset usage** / **Reset all usage** to clear month-to-date toke
 
 ## 3. Efficiency View → Org / Department / Agent View
 
-**Efficiency View** (`/efficiency`) has three tabs:
+**Efficiency View** (`/efficiency`) has five tabs:
 
 - **Org** — fleet-level view (tasks, feedback, workflow runs) plus **Storage (MB)** for your account's estimated data footprint.
 - **Department** — month-to-date tokens used by every agent (and external / A2A leaf member) in a
@@ -124,6 +127,8 @@ next month, or **Reset usage** / **Reset all usage** to clear month-to-date toke
   department to see the gauge and a per-member breakdown. Department budgets are planning figures —
   they do not block work by themselves; per-agent budgets still enforce.
 - **Agent View** — one agent at a time.
+- **User View** — people Kanban (help **45**).
+- **LLMOps** — company-wide tokens, estimated $, traces, price book (help **50**).
 
 On **Agent View** you can also **Reset usage** (selected agent) or **Reset all usage** (every
 agent and leaf member). That deletes this month's `token_usage` ledger rows so gauges and budget
@@ -225,8 +230,14 @@ AGENTS.md. The COO's intent classifier can then pick leaf members for matching w
 | `PUT` | `/api/efficiency/agents/:memberKey/budget` | Set monthly token / error budget |
 | `GET` | `/api/efficiency/departments` | Month-to-date tokens vs budget, by department |
 | `POST` | `/api/efficiency/usage/reset` | Zero month-to-date tokens (`member_key` omitted = all members) |
+| `GET` | `/api/efficiency/llmops?days=` | LLMOps: tokens, estimated $, traces, quality |
+| `GET` / `PUT` | `/api/efficiency/price-book` | List / replace this CEO’s USD-per-1M rates |
+| `GET` / `POST` | `/api/efficiency/cost-lines` | Manual outside costs this month |
+| `DELETE` | `/api/efficiency/cost-lines/:id` | Delete one of this CEO’s manual lines |
 | `GET` | `/api/org-members` | List org leaf members |
 | `POST` | `/api/org-members` | Add / update a leaf member (kind, ref_id, department, parent_id, budgets) |
 | `DELETE` | `/api/org-members/:id` | Remove a leaf member from the org chart only (does not delete External/A2A agent; does not auto-sync ORG.md / AGENTS.md) |
 
 All routes are CEO-scoped: reads and writes are filtered by the signed-in CEO's owner id.
+
+Monitoring, estimated LLM $, traces: [50-monitoring-and-llmops.md](./50-monitoring-and-llmops.md).

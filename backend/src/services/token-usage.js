@@ -7,6 +7,12 @@
  * can say so honestly.
  */
 import { getDb } from '../db/schema.js';
+import {
+  getLlmopsContext,
+  inferTraceId,
+  resolveMeterMemberKey,
+  resolveMeterSource,
+} from './llmops-context.js';
 
 /** Rough token estimate when the provider does not return usage. */
 export function estimateTokens(text) {
@@ -65,34 +71,42 @@ export function recordTokenUsage(
     estimated = false,
     sessionId = null,
     runId = null,
+    traceId = null,
   } = {}
 ) {
   const owner = String(ownerUserId || '').trim();
-  const key = String(memberKey || agentId || '').trim();
+  const ctx = getLlmopsContext() || {};
+  const key = String(memberKey || agentId || ctx.memberKey || ctx.agentId || '').trim();
   if (!owner || !key) return false;
   const inTok = Math.max(0, Math.round(Number(inputTokens) || 0));
   const outTok = Math.max(0, Math.round(Number(outputTokens) || 0));
   if (!inTok && !outTok) return false;
+  const sid = sessionId != null && String(sessionId).trim() ? String(sessionId) : ctx.sessionId || null;
+  const rid = runId != null && String(runId).trim() ? String(runId) : ctx.runId || ctx.goalRunId || null;
+  const tid =
+    (traceId != null && String(traceId).trim() ? String(traceId) : null) ||
+    inferTraceId({ ...ctx, sessionId: sid, runId: rid, traceId, goalRunId: ctx.goalRunId });
   try {
     getDb()
       .prepare(
         `INSERT INTO token_usage
            (owner_user_id, member_key, agent_id, source, model_id, input_tokens, output_tokens,
-            total_tokens, tokens_estimated, session_id, run_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            total_tokens, tokens_estimated, session_id, run_id, trace_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         owner,
         key,
-        agentId ? String(agentId) : null,
-        String(source || 'unknown'),
+        agentId ? String(agentId) : ctx.agentId ? String(ctx.agentId) : null,
+        String(source || ctx.source || 'unknown'),
         modelId ? String(modelId) : null,
         inTok,
         outTok,
         inTok + outTok,
         estimated ? 1 : 0,
-        sessionId ? String(sessionId) : null,
-        runId == null ? null : String(runId)
+        sid,
+        rid == null ? null : String(rid),
+        tid
       );
     return true;
   } catch (e) {
@@ -112,11 +126,13 @@ export function recordTokenUsage(
 export function meterOpenClawUsage(ownerUserId, agentId, opts = {}) {
   const {
     usage = null,
-    source = 'openclaw',
+    source = 'openclaw_chat',
     promptText = '',
     replyText = '',
     modelId = null,
     sessionId = null,
+    runId = null,
+    traceId = null,
   } = opts;
   try {
     const provided = normalizeProviderUsage(usage);
@@ -141,6 +157,8 @@ export function meterOpenClawUsage(ownerUserId, agentId, opts = {}) {
       outputTokens: resolved.output_tokens,
       estimated: !provided,
       sessionId,
+      runId,
+      traceId,
     });
     return { ...resolved, estimated: !provided };
   } catch (e) {
@@ -210,7 +228,50 @@ export function getTokenTimeline(ownerUserId, memberKey, { since = null, until =
     .map((r) => ({ day: r.day, tokens: Number(r.tokens) || 0, calls: Number(r.calls) || 0 }));
 }
 
-/** Token split by source (openclaw / workflow_brain / delegation / a2a_outbound / …). */
+/**
+ * Meter a platform `chatCompletions` call (BYOK / platform LLM).
+ * Uses provider usage when present, else chars/4. Never throws.
+ */
+export function meterChatCompletionsUsage(ownerUserId, opts = {}) {
+  const owner = String(ownerUserId || getLlmopsContext()?.ownerUserId || '').trim();
+  if (!owner) return null;
+  try {
+    const ctx = getLlmopsContext() || {};
+    const provided = normalizeProviderUsage(opts.usage);
+    const resolved =
+      provided ||
+      (() => {
+        const input = estimateTokens(opts.promptText || '');
+        const output = estimateTokens(
+          typeof opts.replyText === 'string' ? opts.replyText : JSON.stringify(opts.replyText ?? '')
+        );
+        return input || output
+          ? { input_tokens: input, output_tokens: output, total_tokens: input + output }
+          : null;
+      })();
+    if (!resolved) return null;
+    const memberKey = resolveMeterMemberKey(owner, opts.memberKey);
+    const source = resolveMeterSource(opts.source, opts.toolName || ctx.toolName);
+    recordTokenUsage(owner, {
+      memberKey,
+      agentId: opts.agentId || ctx.agentId || null,
+      source,
+      modelId: opts.modelId || null,
+      inputTokens: resolved.input_tokens,
+      outputTokens: resolved.output_tokens,
+      estimated: !provided,
+      sessionId: opts.sessionId,
+      runId: opts.runId,
+      traceId: opts.traceId,
+    });
+    return { ...resolved, estimated: !provided, member_key: memberKey, source };
+  } catch (e) {
+    console.warn('[token-usage] chatCompletions metering failed', e?.message || e);
+    return null;
+  }
+}
+
+/** Token split by source (openclaw_chat / workflow_brain / delegation / a2a_outbound / …). */
 export function getTokensBySource(ownerUserId, memberKey, { since = null, until = null } = {}) {
   if (!ownerUserId || !memberKey) return [];
   const params = [String(ownerUserId), String(memberKey)];
@@ -229,6 +290,125 @@ export function getTokensBySource(ownerUserId, memberKey, { since = null, until 
     )
     .all(...params)
     .map((r) => ({ source: r.source, tokens: Number(r.tokens) || 0, calls: Number(r.calls) || 0 }));
+}
+
+function dateFilterSql(since, until, params) {
+  if (!since || !until) return '';
+  params.push(since, until);
+  return ` AND date(created_at, 'localtime') >= ? AND date(created_at, 'localtime') <= ?`;
+}
+
+/** Owner-wide token totals (all members) for LLMOps Org view. */
+export function getOwnerTokenTotals(ownerUserId, { since = null, until = null } = {}) {
+  if (!ownerUserId) {
+    return { total_tokens: 0, input_tokens: 0, output_tokens: 0, estimated_tokens: 0, calls: 0 };
+  }
+  const params = [String(ownerUserId)];
+  const filter = dateFilterSql(since, until, params);
+  const row = getDb()
+    .prepare(
+      `SELECT
+         COALESCE(SUM(total_tokens), 0) AS total_tokens,
+         COALESCE(SUM(input_tokens), 0) AS input_tokens,
+         COALESCE(SUM(output_tokens), 0) AS output_tokens,
+         COALESCE(SUM(CASE WHEN tokens_estimated = 1 THEN total_tokens ELSE 0 END), 0) AS estimated_tokens,
+         COUNT(*) AS calls
+       FROM token_usage
+       WHERE owner_user_id = ?${filter}`
+    )
+    .get(...params);
+  return {
+    total_tokens: Number(row?.total_tokens) || 0,
+    input_tokens: Number(row?.input_tokens) || 0,
+    output_tokens: Number(row?.output_tokens) || 0,
+    estimated_tokens: Number(row?.estimated_tokens) || 0,
+    calls: Number(row?.calls) || 0,
+  };
+}
+
+/** Owner-wide split by source (no member filter). */
+export function getOwnerTokensBySource(ownerUserId, { since = null, until = null } = {}) {
+  if (!ownerUserId) return [];
+  const params = [String(ownerUserId)];
+  const filter = dateFilterSql(since, until, params);
+  return getDb()
+    .prepare(
+      `SELECT source, COALESCE(SUM(total_tokens), 0) AS tokens, COUNT(*) AS calls
+       FROM token_usage
+       WHERE owner_user_id = ?${filter}
+       GROUP BY source
+       ORDER BY tokens DESC`
+    )
+    .all(...params)
+    .map((r) => ({ source: r.source, tokens: Number(r.tokens) || 0, calls: Number(r.calls) || 0 }));
+}
+
+/** Owner-wide split by model. */
+export function getOwnerTokensByModel(ownerUserId, { since = null, until = null } = {}) {
+  if (!ownerUserId) return [];
+  const params = [String(ownerUserId)];
+  const filter = dateFilterSql(since, until, params);
+  return getDb()
+    .prepare(
+      `SELECT COALESCE(NULLIF(model_id, ''), '(unknown)') AS model_id,
+              COALESCE(SUM(input_tokens), 0) AS input_tokens,
+              COALESCE(SUM(output_tokens), 0) AS output_tokens,
+              COALESCE(SUM(total_tokens), 0) AS tokens,
+              COUNT(*) AS calls
+       FROM token_usage
+       WHERE owner_user_id = ?${filter}
+       GROUP BY COALESCE(NULLIF(model_id, ''), '(unknown)')
+       ORDER BY tokens DESC`
+    )
+    .all(...params)
+    .map((r) => ({
+      model_id: r.model_id,
+      input_tokens: Number(r.input_tokens) || 0,
+      output_tokens: Number(r.output_tokens) || 0,
+      tokens: Number(r.tokens) || 0,
+      calls: Number(r.calls) || 0,
+    }));
+}
+
+/** Recent correlated traces for the CEO (token_usage.trace_id). */
+export function listRecentTraces(ownerUserId, { limit = 40, since = null, until = null } = {}) {
+  if (!ownerUserId) return [];
+  const lim = Math.min(Math.max(Number(limit) || 40, 1), 200);
+  const params = [String(ownerUserId)];
+  const filter = dateFilterSql(since, until, params);
+  return getDb()
+    .prepare(
+      `SELECT trace_id,
+              MAX(created_at) AS last_at,
+              MIN(created_at) AS first_at,
+              COALESCE(SUM(total_tokens), 0) AS tokens,
+              COUNT(*) AS calls,
+              GROUP_CONCAT(source) AS sources
+       FROM token_usage
+       WHERE owner_user_id = ? AND trace_id IS NOT NULL AND TRIM(trace_id) != ''${filter}
+       GROUP BY trace_id
+       ORDER BY datetime(last_at) DESC
+       LIMIT ${lim}`
+    )
+    .all(...params)
+    .map((r) => {
+      const id = String(r.trace_id);
+      let href = null;
+      if (id.startsWith('agr-')) href = `/goal-plans/${encodeURIComponent(id)}`;
+      else if (id.startsWith('wf:')) href = `/workflows/runs/${encodeURIComponent(id.slice(3))}`;
+      return {
+        trace_id: id,
+        last_at: r.last_at,
+        first_at: r.first_at,
+        tokens: Number(r.tokens) || 0,
+        calls: Number(r.calls) || 0,
+        sources: String(r.sources || '')
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+        href,
+      };
+    });
 }
 
 /**

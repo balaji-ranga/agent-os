@@ -9,6 +9,13 @@ const RANGE_OPTIONS = [
   { value: 'all', label: 'All' },
 ];
 
+function formatUsd(n) {
+  const v = Number(n) || 0;
+  if (v === 0) return '$0.00';
+  if (Math.abs(v) < 0.01) return `$${v.toFixed(4)}`;
+  return `$${v.toFixed(2)}`;
+}
+
 function formatCompact(n) {
   const v = Number(n) || 0;
   if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
@@ -767,6 +774,25 @@ function AgentView({ range, rangeLabelText }) {
         )}
       </section>
 
+      {data?.tokens_by_source?.length ? (
+        <section className="ai-snip-card">
+          <div className="ai-snip-card-head">
+            <h2>Tokens by source</h2>
+          </div>
+          <div className="eff-tool-list">
+            {data.tokens_by_source.map((s) => (
+              <div key={s.source} className="eff-tool-row">
+                <span>{s.source}</span>
+                <span>
+                  {formatCompact(s.tokens)} tokens
+                  <span className="ai-snip-note"> · {s.calls || 0} calls</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       {data?.top_tools?.length ? (
         <section className="ai-snip-card">
           <div className="ai-snip-card-head">
@@ -1209,6 +1235,379 @@ function UserView() {
   );
 }
 
+function LlmopsView({ range, rangeLabelText }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [bookRows, setBookRows] = useState([]);
+  const [savingBook, setSavingBook] = useState(false);
+  const [manualAmount, setManualAmount] = useState('');
+  const [manualNote, setManualNote] = useState('');
+  const [savingManual, setSavingManual] = useState(false);
+
+  const reload = () =>
+    api.efficiencyLlmops(range).then((res) => {
+      setData(res);
+      const ceoRows = (res?.price_book?.rows || []).filter((r) => r.scope === 'ceo');
+      setBookRows(
+        ceoRows.length
+          ? ceoRows.map((r) => ({
+              model_id: r.model_id,
+              input_usd_per_1m: r.input_usd_per_1m,
+              output_usd_per_1m: r.output_usd_per_1m,
+            }))
+          : [{ model_id: '*', input_usd_per_1m: 1, output_usd_per_1m: 3 }]
+      );
+      return res;
+    });
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    reload()
+      .catch((e) => {
+        if (cancelled) return;
+        setError(e.message || 'Failed to load LLMOps');
+        setData(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [range]);
+
+  const tokens = data?.tokens || {};
+  const cost = data?.cost || {};
+  const quality = data?.quality || {};
+  const platformBook = (data?.price_book?.rows || []).filter((r) => r.scope === 'platform');
+
+  const saveBook = async () => {
+    setSavingBook(true);
+    setError(null);
+    try {
+      await api.efficiencyPriceBookSave(bookRows.filter((r) => String(r.model_id || '').trim()));
+      await reload();
+    } catch (e) {
+      setError(e.message || 'Failed to save price book');
+    } finally {
+      setSavingBook(false);
+    }
+  };
+
+  const addManual = async () => {
+    setSavingManual(true);
+    setError(null);
+    try {
+      await api.efficiencyCostLineAdd({
+        amount_usd: Number(manualAmount),
+        note: manualNote,
+      });
+      setManualAmount('');
+      setManualNote('');
+      await reload();
+    } catch (e) {
+      setError(e.message || 'Failed to add cost line');
+    } finally {
+      setSavingManual(false);
+    }
+  };
+
+  const removeManual = async (id) => {
+    setError(null);
+    try {
+      await api.efficiencyCostLineDelete(id);
+      await reload();
+    } catch (e) {
+      setError(e.message || 'Failed to delete cost line');
+    }
+  };
+
+  return (
+    <>
+      {error && <div className="ai-snip-error">{error}</div>}
+      {loading && !data && <div className="ai-snip-loading">Loading…</div>}
+
+      <section className="ai-snip-card">
+        <div className="ai-snip-card-head">
+          <h2>Summary</h2>
+          <div className="ai-snip-range-static">{rangeLabelText}</div>
+        </div>
+        <p className="ai-snip-note">
+          {cost.disclaimer ||
+            'Estimated LLM $ uses your price book. Not a provider invoice. Digest Est. Value and Home OEI are separate.'}
+        </p>
+        <div className="eff-metrics">
+          <div className="ai-snip-metric">
+            <div className="ai-snip-metric-value">{formatCompact(tokens.total_tokens)}</div>
+            <div className="ai-snip-metric-label">
+              Tokens{' '}
+              <InfoTip
+                text={`${formatCompact(tokens.estimated_tokens)} estimated (chars/4 when the provider did not return usage). ${tokens.calls || 0} metered calls.`}
+              />
+            </div>
+          </div>
+          <div className="ai-snip-metric">
+            <div className="ai-snip-metric-value">{formatUsd(cost.llm_estimated_usd)}</div>
+            <div className="ai-snip-metric-label">
+              Estimated LLM $ <InfoTip text={`Payer: ${cost.payer || 'unknown'} (BYOK vs platform).`} />
+            </div>
+          </div>
+          <div className="ai-snip-metric">
+            <div className="ai-snip-metric-value">{formatUsd(cost.manual_usd)}</div>
+            <div className="ai-snip-metric-label">Outside costs (this month)</div>
+          </div>
+          <div className="ai-snip-metric">
+            <div className="ai-snip-metric-value">
+              {quality.feedback?.positive_pct != null ? `${quality.feedback.positive_pct}%` : '—'}
+            </div>
+            <div className="ai-snip-metric-label">
+              Feedback positive{' '}
+              <InfoTip
+                text={`${quality.feedback?.up || 0} up / ${quality.feedback?.down || 0} down. Goals completed ${quality.goals?.completed || 0}, failed ${quality.goals?.failed || 0}. Policy decisions ${quality.policy_decisions || 0}.`}
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="eff-llmops-grid">
+        <section className="ai-snip-card">
+          <div className="ai-snip-card-head">
+            <h2>By source</h2>
+          </div>
+          {(data?.by_source || []).length ? (
+            <div className="eff-tool-list">
+              {data.by_source.map((s) => (
+                <div key={s.source} className="eff-tool-row">
+                  <span>{s.source}</span>
+                  <span>
+                    {formatCompact(s.tokens)}
+                    <span className="ai-snip-note"> · {s.calls || 0}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="ai-snip-note">No metered LLM calls in this range yet.</p>
+          )}
+        </section>
+        <section className="ai-snip-card">
+          <div className="ai-snip-card-head">
+            <h2>By model</h2>
+          </div>
+          {(data?.by_model || []).length ? (
+            <div className="eff-tool-list">
+              {data.by_model.map((s) => (
+                <div key={s.model_id} className="eff-tool-row">
+                  <span>{s.model_id}</span>
+                  <span>
+                    {formatCompact(s.tokens)}
+                    <span className="ai-snip-note"> · {s.calls || 0}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="ai-snip-note">No model split yet.</p>
+          )}
+        </section>
+      </div>
+
+      <section className="ai-snip-card">
+        <div className="ai-snip-card-head">
+          <h2>Traces</h2>
+        </div>
+        <p className="ai-snip-note">
+          Correlation ids across chat, tools, goal plans, and workflows. Open a goal or workflow run to see the
+          execution audit.
+        </p>
+        {(data?.traces || []).length ? (
+          <table className="eff-table">
+            <thead>
+              <tr>
+                <th>Trace</th>
+                <th>Last</th>
+                <th>Tokens</th>
+                <th>Sources</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.traces.map((t) => (
+                <tr key={t.trace_id}>
+                  <td>
+                    {t.href ? (
+                      <a href={t.href}>{t.trace_id}</a>
+                    ) : (
+                      <code>{t.trace_id}</code>
+                    )}
+                  </td>
+                  <td>{String(t.last_at || '').replace('T', ' ').slice(0, 19)}</td>
+                  <td>{formatCompact(t.tokens)}</td>
+                  <td>{(t.sources || []).join(', ')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className="ai-snip-note">No traces in this range. Chat, tools, and goal plans write a trace id when they run.</p>
+        )}
+      </section>
+
+      <section className="ai-snip-card">
+        <div className="ai-snip-card-head">
+          <h2>Price book (USD per 1M tokens)</h2>
+          <button type="button" className="ai-snip-btn" onClick={saveBook} disabled={savingBook}>
+            {savingBook ? 'Saving…' : 'Save my rates'}
+          </button>
+        </div>
+        <p className="ai-snip-note">
+          Your rows override the platform estimate catalog. Empty the table and save to use platform defaults only.
+        </p>
+        <table className="eff-table">
+          <thead>
+            <tr>
+              <th>Model id</th>
+              <th>Input / 1M</th>
+              <th>Output / 1M</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {bookRows.map((row, idx) => (
+              <tr key={`${row.model_id}-${idx}`}>
+                <td>
+                  <input
+                    className="ai-snip-input"
+                    value={row.model_id}
+                    onChange={(e) => {
+                      const next = [...bookRows];
+                      next[idx] = { ...next[idx], model_id: e.target.value };
+                      setBookRows(next);
+                    }}
+                    aria-label="Model id"
+                  />
+                </td>
+                <td>
+                  <input
+                    className="ai-snip-input"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={row.input_usd_per_1m}
+                    onChange={(e) => {
+                      const next = [...bookRows];
+                      next[idx] = { ...next[idx], input_usd_per_1m: e.target.value };
+                      setBookRows(next);
+                    }}
+                    aria-label="Input USD per 1M"
+                  />
+                </td>
+                <td>
+                  <input
+                    className="ai-snip-input"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={row.output_usd_per_1m}
+                    onChange={(e) => {
+                      const next = [...bookRows];
+                      next[idx] = { ...next[idx], output_usd_per_1m: e.target.value };
+                      setBookRows(next);
+                    }}
+                    aria-label="Output USD per 1M"
+                  />
+                </td>
+                <td>
+                  <button
+                    type="button"
+                    className="ai-snip-btn-ghost"
+                    onClick={() => setBookRows(bookRows.filter((_, i) => i !== idx))}
+                  >
+                    Remove
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <button
+          type="button"
+          className="ai-snip-btn-ghost"
+          onClick={() =>
+            setBookRows([...bookRows, { model_id: '', input_usd_per_1m: 1, output_usd_per_1m: 3 }])
+          }
+        >
+          Add model rate
+        </button>
+        {platformBook.length ? (
+          <p className="ai-snip-note" style={{ marginTop: '0.75rem' }}>
+            Platform catalog (read-only):{' '}
+            {platformBook
+              .slice(0, 8)
+              .map((r) => `${r.model_id} ${r.input_usd_per_1m}/${r.output_usd_per_1m}`)
+              .join(' · ')}
+          </p>
+        ) : null}
+      </section>
+
+      <section className="ai-snip-card">
+        <div className="ai-snip-card-head">
+          <h2>Outside costs this month</h2>
+        </div>
+        <p className="ai-snip-note">
+          Manual lines for ads, contractors, or other opex. Not posted to ERP automatically.
+        </p>
+        <div className="eff-manual-row">
+          <input
+            className="ai-snip-input"
+            type="number"
+            step="0.01"
+            placeholder="Amount USD"
+            value={manualAmount}
+            onChange={(e) => setManualAmount(e.target.value)}
+            aria-label="Manual amount USD"
+          />
+          <input
+            className="ai-snip-input"
+            placeholder="Note"
+            value={manualNote}
+            onChange={(e) => setManualNote(e.target.value)}
+            aria-label="Manual cost note"
+          />
+          <button type="button" className="ai-snip-btn" onClick={addManual} disabled={savingManual}>
+            {savingManual ? 'Adding…' : 'Add'}
+          </button>
+        </div>
+        {(cost.manuals || []).length ? (
+          <div className="eff-tool-list" style={{ marginTop: '0.75rem' }}>
+            {cost.manuals.map((m) => (
+              <div key={m.id} className="eff-tool-row">
+                <span>
+                  {formatUsd(m.amount_usd)}
+                  {m.note ? <span className="ai-snip-note"> · {m.note}</span> : null}
+                </span>
+                <button type="button" className="ai-snip-btn-ghost" onClick={() => removeManual(m.id)}>
+                  Delete
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="ai-snip-note">No outside cost lines this month.</p>
+        )}
+      </section>
+
+      <p className="ai-snip-note">
+        Product monitoring is this tab, Agent View, Goal execution trace, and workflow run audit. Gateway recovery
+        and cron pause live under <strong>Admin</strong> — they are not mixed into this CEO view.
+      </p>
+    </>
+  );
+}
+
 export default function EfficiencyView() {
   const [view, setView] = useState(() => {
     if (typeof window === 'undefined') return 'org';
@@ -1216,6 +1615,7 @@ export default function EfficiencyView() {
     if (tab === 'agent') return 'agent';
     if (tab === 'department' || tab === 'dept') return 'department';
     if (tab === 'user' || tab === 'people') return 'user';
+    if (tab === 'llmops' || tab === 'monitoring') return 'llmops';
     return 'org';
   });
   const [range, setRange] = useState('14');
@@ -1292,6 +1692,8 @@ export default function EfficiencyView() {
         ? 'Department monthly token budget vs tokens used by AI employees, plus people task performance.'
         : view === 'user'
           ? 'Kanban task performance for people in your company (this month).'
+          : view === 'llmops'
+            ? 'Token meters, estimated LLM cost, traces, and quality — not provider invoices.'
           : 'Agents, automated tasks, feedback quality, and AI workflow run outcomes.';
 
   return (
@@ -1337,9 +1739,18 @@ export default function EfficiencyView() {
             >
               User View
             </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={view === 'llmops'}
+              className={`ai-snip-pill${view === 'llmops' ? ' active' : ''}`}
+              onClick={() => setView('llmops')}
+            >
+              LLMOps
+            </button>
           </div>
         </div>
-        {view === 'org' || view === 'agent' ? (
+        {view === 'org' || view === 'agent' || view === 'llmops' ? (
           <select
             className="ai-snip-select eff-range-select"
             value={range}
@@ -1360,6 +1771,7 @@ export default function EfficiencyView() {
       {view === 'agent' && <AgentView range={range} rangeLabelText={label} />}
       {view === 'department' && <DepartmentView />}
       {view === 'user' && <UserView />}
+      {view === 'llmops' && <LlmopsView range={range} rangeLabelText={label} />}
 
       {view === 'org' && (
         <>

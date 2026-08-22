@@ -114,7 +114,7 @@ Every Flolah capability should map to one or more of these primitives. Orphan fe
 | `/content-explorer` | Knowledge | Content Explorer |
 | `/api-keys` | Tools, Policies | API Keys |
 | `/policies` | Policies | Policies |
-| `/efficiency` | Policies, Employees, Departments, People | Efficiency View (Org / Department / Agent View / **User View**) |
+| `/efficiency` | Policies, Employees, Departments, People | Efficiency View (Org / Department / Agent View / User View / **LLMOps**) |
 | `/workspace` | Employees | **AI Employees** |
 | `/agents/:id/*` | Employees, Tools, Memory | Employee workspace / chat / channels |
 | `/workflows*` | Workflows | Workflows |

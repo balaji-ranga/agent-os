@@ -705,6 +705,11 @@ export const api = {
   efficiencyUser: (userId, days = 30) =>
     get(`/efficiency/users/${encodeURIComponent(userId)}?days=${encodeURIComponent(days)}`),
   efficiencyUsers: () => get('/efficiency/users'),
+  efficiencyLlmops: (days = 30) => get(`/efficiency/llmops?days=${encodeURIComponent(days)}`),
+  efficiencyPriceBookGet: () => get('/efficiency/price-book'),
+  efficiencyPriceBookSave: (rows) => put('/efficiency/price-book', { rows }),
+  efficiencyCostLineAdd: (body) => post('/efficiency/cost-lines', body),
+  efficiencyCostLineDelete: (id) => del(`/efficiency/cost-lines/${encodeURIComponent(id)}`),
   orgPeople: () => get('/org-people'),
   orgPeopleCatalog: () => get('/org-people/catalog'),
   orgPeopleInvite: (body) => post('/org-people', body),

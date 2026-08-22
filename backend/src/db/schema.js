@@ -1841,6 +1841,7 @@ export function initDb() {
         tokens_estimated INTEGER DEFAULT 0,
         session_id TEXT,
         run_id TEXT,
+        trace_id TEXT,
         created_at TEXT DEFAULT (datetime('now'))
       )
     `);
@@ -1849,6 +1850,82 @@ export function initDb() {
     );
     _db.exec(
       `CREATE INDEX IF NOT EXISTS idx_token_usage_member ON token_usage(owner_user_id, member_key, created_at DESC)`
+    );
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_token_usage_trace ON token_usage(owner_user_id, trace_id, created_at DESC)`
+    );
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE token_usage ADD COLUMN trace_id TEXT`);
+  } catch (_) {}
+  try {
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_token_usage_trace ON token_usage(owner_user_id, trace_id, created_at DESC)`
+    );
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE content_tool_logs ADD COLUMN trace_id TEXT`);
+  } catch (_) {}
+  try {
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_content_tool_logs_trace ON content_tool_logs(owner_user_id, trace_id)`
+    );
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE agent_workflow_runs ADD COLUMN trace_id TEXT`);
+  } catch (_) {}
+  try {
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_agent_wf_runs_trace ON agent_workflow_runs(owner_user_id, trace_id)`
+    );
+  } catch (_) {}
+  try {
+    _db.exec(`ALTER TABLE goal_mission_events ADD COLUMN trace_id TEXT`);
+  } catch (_) {}
+
+  /** CEO price book (owner_user_id empty = platform estimate catalog). */
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS llm_price_book (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        owner_user_id TEXT NOT NULL DEFAULT '',
+        model_id TEXT NOT NULL,
+        input_usd_per_1m REAL NOT NULL DEFAULT 1,
+        output_usd_per_1m REAL NOT NULL DEFAULT 3,
+        currency TEXT NOT NULL DEFAULT 'USD',
+        updated_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(owner_user_id, model_id)
+      )
+    `);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_llm_price_book_owner ON llm_price_book(owner_user_id)`
+    );
+  } catch (_) {}
+
+  /** Cost lines: live LLM estimates plus CEO-entered outside costs. Owner-scoped. */
+  try {
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS cost_lines (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        owner_user_id TEXT NOT NULL,
+        period TEXT NOT NULL,
+        category TEXT NOT NULL,
+        source TEXT DEFAULT '',
+        model_id TEXT DEFAULT '',
+        member_key TEXT DEFAULT '',
+        units_input INTEGER DEFAULT 0,
+        units_output INTEGER DEFAULT 0,
+        amount_usd REAL NOT NULL DEFAULT 0,
+        currency TEXT NOT NULL DEFAULT 'USD',
+        confidence TEXT NOT NULL DEFAULT 'estimated',
+        payer TEXT DEFAULT '',
+        note TEXT DEFAULT '',
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
+    _db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_cost_lines_owner_period ON cost_lines(owner_user_id, period DESC)`
     );
   } catch (_) {}
 

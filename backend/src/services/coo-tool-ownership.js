@@ -66,6 +66,7 @@ Rules:
 - **This Week Digest metrics ownership:** Questions about Digest Time Saved, Est. Value Delivered, weekly digest dollars/hours, "how is value calculated on Digest", or "About this week digest:" prefaces are **owned by the COO** when **this_week_digest** is in the catalog. Return that tool. Do not treat as Platform Help / specialist work.
 - **CRM / ERP status and data (read tools):** Questions about pipeline, open deals, AR, invoices, customers, P&L figures (when erp_profit_and_loss / crm_list_* are in the catalog) are **COO-owned** for reporting. Return the best matching list/report tool. Mutations (draft/submit) → return {} so specialty CRM/ERP agents get work via delegation.
 - **Operational effectiveness score ownership:** Questions about company operational effectiveness, OEI, effectiveness score Green/Amber/Red, "how effective is my AI company", or improve the ops score on Home are **owned by the COO** when **operational_effectiveness** is in the catalog. Return that tool. Not Digest dollar metrics.
+- **LLMOps / token monitoring ownership:** Questions about token usage, LLM spend, LLMOps, traces, price book, or Efficiency LLMOps are **owned by the COO** when **llmops_summary** is in the catalog. Return that tool. Estimates are not invoices. Not Digest Est. Value and not OEI.
 - If the message is specialist domain work (research, social content, coding, finance analysis, etc.) with no matching COO tool, return {}.
 - If the CEO explicitly asks to delegate/assign to a specialist, return {}.
 - If the CEO says **don't / do not delegate**, handle yourself, find/list/download/attach a file, PDF, resume, inbound attachment, or previously uploaded document — prefer **list_inbound_attachments**, **master_data_list_documents**, **master_data_index_document**, or **master_data_rag** when those are in the catalog. Do **not** return {}.
@@ -113,6 +114,20 @@ export async function classifyCooOwnedToolIntent(ownerUserId, ceoMessage) {
       deterministic: true,
     });
     return { tool: oeiTool.name };
+  }
+
+  const llmopsTool = tools.find((t) => String(t.name).toLowerCase() === 'llmops_summary');
+  if (
+    llmopsTool &&
+    /\b(llmops|llm\s*ops|token\s+usage|token\s+spend|llm\s+spend|price\s+book|efficiency\s+llmops|agent\s+monitoring|trace_id|estimated\s+\$)\b/i.test(
+      text
+    )
+  ) {
+    console.info('[coo-tool-ownership] COO owns message via tool', {
+      tool: llmopsTool.name,
+      deterministic: true,
+    });
+    return { tool: llmopsTool.name };
   }
 
   const cfg = getLlmConfig(ownerUserId || null);

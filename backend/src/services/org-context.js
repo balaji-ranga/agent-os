@@ -374,6 +374,7 @@ function defaultCooAgentsUserSections(ctx) {
         '- **status_checker**: Task-count digest (HTML) to standup — not Digest dollars. Email only from the daily batch.',
         '- **this_week_digest**: Time Saved / Est. Value. Answer yourself — do not send the CEO to Platform Help.',
         '- **operational_effectiveness**: Home OEI score and improve actions. Not Digest dollars.',
+        '- **llmops_summary**: Token usage, estimated LLM $, traces. Estimates are not invoices. Not Digest Est. Value or OEI. Point the CEO to Efficiency → LLMOps.',
       ],
     },
     {

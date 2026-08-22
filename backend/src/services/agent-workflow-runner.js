@@ -45,6 +45,7 @@ import { getMcpServerForWorkflow, callMcpServerTool, callMcpServerPrompt, callMc
 import { parseMcpAuthFromNodeConfig } from './mcp-auth.js';
 import { executeConnectorAction } from './openconnector.js';
 import { isUserEnabled } from './user-enabled.js';
+import { withLlmopsContext, getLlmopsContext } from './llmops-context.js';
 import { notifyA2ARunTerminal } from './workflow-a2a-async.js';
 import {
   registerPendingListener,
@@ -845,6 +846,21 @@ export async function startAgentWorkflowRun(
 
   const runId = db().prepare('SELECT id FROM agent_workflow_runs ORDER BY id DESC LIMIT 1').get()?.id;
 
+  const inherited = getLlmopsContext() || {};
+  const goalRunId = context.goal_run_id || inherited.goalRunId || null;
+  const traceId = String(goalRunId || inherited.traceId || `wf:${runId}`);
+  try {
+    db().prepare('UPDATE agent_workflow_runs SET trace_id = ? WHERE id = ? AND owner_user_id = ?').run(
+      traceId,
+      runId,
+      ownerUserId
+    );
+  } catch (e) {
+    console.warn('[llmops] workflow trace persist failed', e?.message || e);
+  }
+  context.trace_id = traceId;
+  context.run_id = runId;
+
   store.appendAudit(definitionId, {
     action: 'run_started',
     summary: `Run #${runNumber} started (${trigger})`,
@@ -867,7 +883,19 @@ export async function startAgentWorkflowRun(
   saveContext(runId, context);
   updateRunProgress(runId);
 
-  void advanceFromNode(runId, triggerNode.id)
+  void withLlmopsContext(
+    {
+      ownerUserId,
+      memberKey: inherited.memberKey || actor?.id || `wf:${definitionId}`,
+      agentId: inherited.agentId || actor?.id || null,
+      source: inherited.source || 'workflow_brain',
+      sessionId: inherited.sessionId || null,
+      runId: String(runId),
+      traceId,
+      goalRunId: goalRunId ? String(goalRunId) : null,
+    },
+    () => advanceFromNode(runId, triggerNode.id)
+  )
     .catch((err) => {
       console.error(`[agent-workflow] run ${runId} advance failed:`, err);
       failRun(runId, err?.message || 'Workflow execution failed');

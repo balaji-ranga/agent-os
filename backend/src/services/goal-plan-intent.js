@@ -36,6 +36,7 @@ export const GOAL_PLAN_SELF_TOOLS_PREFER = [
   'status_checker',
   'this_week_digest',
   'operational_effectiveness',
+  'llmops_summary',
   'ceo_profile',
   'kanban_create_task',
   'learnings_summary',
@@ -363,6 +364,7 @@ export function listOrchestratorToolsForGoalPlan(ownerUserId, orchestratorAgentI
     'status_checker',
     'this_week_digest',
     'operational_effectiveness',
+    'llmops_summary',
     'ceo_profile',
     'kanban_create_task',
   ];
@@ -824,6 +826,7 @@ async function classifyToolsMultiLabel(ownerUserId, prompt, tools) {
     'status_checker',
     'this_week_digest',
     'operational_effectiveness',
+    'llmops_summary',
     'ceo_profile',
     'kanban_create_task',
     'learnings_summary',

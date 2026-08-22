@@ -455,6 +455,7 @@ function meterBrainUsage({ ownerId, context, result, model, systemPrompt, userMe
     outputTokens: usage.output_tokens,
     estimated: !provided,
     runId: context?.run_id ?? null,
+    traceId: context?.trace_id || (context?.goal_run_id ? String(context.goal_run_id) : null),
   });
   return { ...usage, estimated: !provided };
 }

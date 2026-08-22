@@ -28,6 +28,7 @@ import {
 import { invokeContentToolHttp } from './content-tool-http-invoke.js';
 import { listPublishedWorkflows } from './agent-workflow-chat-tools.js';
 import { getOrCreateDelegationHubStandup } from './standup-hub.js';
+import { withLlmopsContext } from './llmops-context.js';
 import { deliverScheduledGoalOutcome } from './agent-channel-announce.js';
 import { scheduleCeoRequestViaOpenClawCron } from './delegation-queue.js';
 import {
@@ -373,6 +374,20 @@ export function extractStructuralWorkflowSteps(prompt) {
  * Full planner: workflow_trigger + specialty_task (N intents) + notify_ceo.
  */
 export async function planGoalStepsAsync(prompt, opts = {}) {
+  const memberKey = opts.orchestratorAgentId || opts.agentId || null;
+  return withLlmopsContext(
+    {
+      ownerUserId: opts.ownerUserId,
+      memberKey,
+      agentId: memberKey,
+      source: 'goal_planner',
+      toolName: 'goal_plan_intent',
+    },
+    () => planGoalStepsAsyncInner(prompt, opts)
+  );
+}
+
+async function planGoalStepsAsyncInner(prompt, opts = {}) {
   const { explicitSteps, ownerUserId = null, maxSpecialty = GOAL_PLAN_MAX_SPECIALTY, feedback = null } = opts;
   if (Array.isArray(explicitSteps) && explicitSteps.length) {
     return planGoalStepsFromText(prompt, { explicitSteps });
@@ -2490,8 +2505,18 @@ export async function createAndStartGoalRun(opts = {}) {
     });
   }
   const goal = createGoalRun({ ...opts, steps });
-  // First child starts and returns; remaining steps advance on terminal callbacks (async).
-  const exec = await startGoalRunExecution(goal.id, { ownerUserId: goal.owner_user_id });
+  const exec = await withLlmopsContext(
+    {
+      ownerUserId: goal.owner_user_id,
+      memberKey: goal.agent_id,
+      agentId: goal.agent_id,
+      source: 'goal_planner',
+      runId: goal.id,
+      traceId: goal.id,
+      goalRunId: goal.id,
+    },
+    () => startGoalRunExecution(goal.id, { ownerUserId: goal.owner_user_id })
+  );
   return {
     async: true,
     goal_run_id: goal.id,

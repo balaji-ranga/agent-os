@@ -65,6 +65,7 @@ const sidebars = {
         'operate/maker-checker',
         'operate/example-stress-test-run',
         'operate/budgets',
+        'operate/monitoring-and-llmops',
         'operate/security-tokens',
         'operate/desktop-windows',
         'operate/optional-packs',

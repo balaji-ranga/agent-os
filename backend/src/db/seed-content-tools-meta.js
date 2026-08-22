@@ -500,6 +500,17 @@ const BUILTIN_TOOLS = [
     is_builtin: 1,
   },
   {
+    name: 'llmops_summary',
+    display_name: 'LLMOps & monitoring',
+    endpoint: '/api/tools/llmops-summary',
+    method: 'POST',
+    purpose:
+      'COO: token usage, estimated LLM $, traces, thumbs/goal quality. Optional days (default 30). Estimates are not invoices. Not Digest Est. Value or Home OEI. CEO UI: Efficiency → LLMOps.',
+    model_used: '',
+    enabled: 1,
+    is_builtin: 1,
+  },
+  {
     name: 'status_checker',
     display_name: 'COO Status Checker',
     endpoint: '/api/tools/status-checker',
@@ -902,6 +913,7 @@ const CEO_PROFILE_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'ceo_profile');
 const STATUS_CHECKER_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'status_checker');
 const THIS_WEEK_DIGEST_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'this_week_digest');
 const OPERATIONAL_EFFECTIVENESS_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'operational_effectiveness');
+const LLMOPS_SUMMARY_TOOLS = BUILTIN_TOOLS.filter((t) => t.name === 'llmops_summary');
 const SCHEDULED_GOAL_TOOLS = BUILTIN_TOOLS.filter((t) => String(t.name).startsWith('scheduled_goal_'));
 const CONNECTOR_TOOLS = BUILTIN_TOOLS.filter((t) => String(t.name).startsWith('connector_'));
 const MASTER_DATA_TOOLS = BUILTIN_TOOLS.filter(
@@ -1194,6 +1206,32 @@ export function seedOperationalEffectivenessToolIfMissing() {
     '[seed] operational_effectiveness granted to %s COO agent(s)',
     coos.length
   );
+}
+
+/** Add llmops_summary tool if missing (COO; for existing DBs). */
+export function seedLlmopsSummaryToolIfMissing() {
+  const db = getDb();
+  const stmt = db.prepare(
+    `INSERT OR IGNORE INTO content_tools_meta (name, display_name, endpoint, method, purpose, model_used, enabled, is_builtin)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  for (const t of LLMOPS_SUMMARY_TOOLS) {
+    stmt.run(t.name, t.display_name, t.endpoint, t.method, t.purpose, t.model_used, t.enabled, t.is_builtin);
+  }
+  const update = db.prepare(
+    'UPDATE content_tools_meta SET purpose = ?, display_name = ?, endpoint = ?, method = ? WHERE name = ?'
+  );
+  for (const t of LLMOPS_SUMMARY_TOOLS) {
+    update.run(t.purpose, t.display_name, t.endpoint, t.method, t.name);
+  }
+  const ins = db.prepare('INSERT OR IGNORE INTO agent_tool_grants (agent_id, tool_name) VALUES (?, ?)');
+  const coos = db.prepare('SELECT id FROM agents WHERE is_coo = 1').all();
+  for (const a of coos) {
+    for (const t of LLMOPS_SUMMARY_TOOLS) {
+      ins.run(a.id, t.name);
+    }
+  }
+  console.info('[seed] llmops_summary granted to %s COO agent(s)', coos.length);
 }
 
 /** Add scheduled goal tools if missing (COO; for existing DBs). */

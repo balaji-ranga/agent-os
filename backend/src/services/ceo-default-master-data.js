@@ -182,6 +182,30 @@ export const PLATFORM_HELP_DOCUMENTS = Object.freeze([
     filename: '44-web-scrape.md',
     title: `${PLATFORM_HELP_TITLE_PREFIX}Web Scrape`,
   },
+  {
+    filename: '45-company-people.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}Company People`,
+  },
+  {
+    filename: '46-voice-caller-employees.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}Voice Caller Employees`,
+  },
+  {
+    filename: '47-admin-user-insights.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}Admin User Insights`,
+  },
+  {
+    filename: '48-pipeline-under-constraints.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}Pipeline Under Constraints`,
+  },
+  {
+    filename: '49-how-the-company-runs.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}How The Company Runs`,
+  },
+  {
+    filename: '50-monitoring-and-llmops.md',
+    title: `${PLATFORM_HELP_TITLE_PREFIX}Monitoring And LLMOps`,
+  },
 ]);
 
 /** Resolve long-form project guide (knowledgebase/PROJECT.md; Docker: /opt/agent-os/knowledgebase/PROJECT.md). */

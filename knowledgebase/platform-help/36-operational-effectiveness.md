@@ -14,6 +14,8 @@
 
 **Is OEI the same as Digest Time Saved / Est. Value?** No. Digest is weekly hours x hourly rates (dollar proxy). OEI is ops readiness and fire-loop health.
 
+**Is OEI the same as Efficiency LLMOps estimated $?** No. LLMOps estimates LLM spend from tokens × a price book (help **50**). OEI is not money.
+
 ## Domains (equal weight average)
 
 | Domain | What it scores (examples) |

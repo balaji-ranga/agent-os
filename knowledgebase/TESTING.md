@@ -32,6 +32,17 @@ node scripts/test-tool-api-rate-limits.js
 
 Expect: consume → 429 when capped → manual/auto reset audit → skip Kanban/browse. UI: **Tools → Rate limits** on `/content-tools` (help **11**). Cron: `TOOL_API_RATE_LIMIT_RESET_CRON` (default `5 0 * * *`).
 
+## LLMOps metering (tokens, traces, price book)
+
+After changing `token-usage.js`, `llmops-cost.js`, `llmops-summary.js`, or Efficiency LLMOps routes:
+
+```powershell
+cd backend
+node scripts/test-llmops-metering.js
+```
+
+Expect: `LLMOPS_METERING_OK`. Uses disposable `ceo-llmops-meter-probe` / `ceo-llmops-other-probe` only. UI: **Efficiency → LLMOps** (help **50**).
+
 ## Management-layer Phase 1 (outcome, Action control, capabilities)
 
 ```powershell
@@ -107,8 +118,6 @@ End-user stress (plain English build + secrets/BYOK + publish/draft/A2A/delete +
 
 ```powershell
 cd backend
-node scripts/test-llm-chat-endpoints.js
-# Expect: LLM_CHAT_ENDPOINTS_OK
 node scripts/test-workflow-builder-enduser-stress.js
 # Expect: WORKFLOW_BUILDER_ENDUSER_STRESS_OK
 ```

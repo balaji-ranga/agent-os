@@ -5083,6 +5083,43 @@ button.ai-snip-info-btn:hover {
   }
 }
 
+.eff-llmops-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+.eff-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+.eff-table th,
+.eff-table td {
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+  vertical-align: middle;
+}
+.eff-table input.ai-snip-input {
+  width: 100%;
+  min-width: 0;
+}
+.eff-manual-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.eff-manual-row .ai-snip-input {
+  min-width: 8rem;
+  flex: 1;
+}
+@media (max-width: 720px) {
+  .eff-llmops-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Efficiency ? Agent View */
 .eff-agent-controls {
   display: flex;

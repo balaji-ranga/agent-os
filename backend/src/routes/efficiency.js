@@ -13,6 +13,14 @@ import { getDepartmentEfficiency } from '../services/department-efficiency.js';
 import { getUserEfficiency, getUsersEfficiencySummary } from '../services/user-efficiency.js';
 import { getMemberBudgetStatus, listAgentBudgets, setAgentBudget } from '../services/agent-budgets.js';
 import { resetTokenUsage, monthPeriod } from '../services/token-usage.js';
+import { getLlmopsSummary } from '../services/llmops-summary.js';
+import {
+  getPriceBook,
+  saveCeoPriceBook,
+  addManualCostLine,
+  deleteManualCostLine,
+  listManualCostLines,
+} from '../services/llmops-cost.js';
 import { purgeOwnerRetention, RETENTION_DAY_OPTIONS, normalizeRetentionDays } from '../services/data-retention.js';
 import { estimateOwnerStorage } from '../services/owner-storage.js';
 import { updateUserProfile, getUserById } from '../services/users.js';
@@ -64,6 +72,74 @@ router.get('/users/:userId', (req, res) => {
     res.json(getUserEfficiency(ownerUserId, req.params.userId, { days }));
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+/**
+ * GET /api/efficiency/llmops?days=7|14|30|90|all
+ * Tokens, estimated $, traces, quality. Owner-scoped.
+ */
+router.get('/llmops', (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.query || {});
+    const days = req.query.days != null ? req.query.days : 30;
+    res.json(getLlmopsSummary(ownerUserId, { days }));
+  } catch (e) {
+    console.warn('[efficiency] llmops failed:', e?.message || e);
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+router.get('/price-book', (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.query || {});
+    res.json(getPriceBook(ownerUserId));
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+router.put('/price-book', (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.body || {});
+    res.json(saveCeoPriceBook(ownerUserId, req.body?.rows || []));
+  } catch (e) {
+    console.warn('[efficiency] price-book save failed:', e?.message || e);
+    res.status(e.status || 400).json({ error: e.message });
+  }
+});
+
+router.get('/cost-lines', (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.query || {});
+    const period = req.query.period || monthPeriod();
+    res.json({ period, lines: listManualCostLines(ownerUserId, { period }) });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+router.post('/cost-lines', (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.body || {});
+    const line = addManualCostLine(ownerUserId, {
+      amount_usd: req.body?.amount_usd,
+      note: req.body?.note,
+      period: req.body?.period,
+    });
+    res.json({ ok: true, ...line });
+  } catch (e) {
+    console.warn('[efficiency] cost-line add failed:', e?.message || e);
+    res.status(e.status || 400).json({ error: e.message });
+  }
+});
+
+router.delete('/cost-lines/:id', (req, res) => {
+  try {
+    const ownerUserId = resolveAuthenticatedCeoUserId(req, req.query || {});
+    res.json(deleteManualCostLine(ownerUserId, req.params.id));
+  } catch (e) {
+    res.status(e.status || 404).json({ error: e.message });
   }
 });
 
