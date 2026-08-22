@@ -100,7 +100,7 @@ export const NODE_SELECTION_GUIDE = `Choose nodes by understanding the CEO's out
 
 - Start with a trigger. Give every node id, type, position {x,y}, and data.
 - Prefer a catalog capability whose purpose matches the work (crawl a site → web_scrape; search the web → a search content tool; call HTTP → api; connected SaaS → connector; logged-in click-path → browse_* content tool; transform text → brain with Ollama).
-- Use an agent node only when a listed employee's role is actually that job. A word overlap (for example "reviews") is not a reason to pick ERP/CRM Checker.
+- Use an agent node only when a listed employee's role is actually that job. A word overlap in the ask is not a reason to pick an unrelated employee.
 - Fan-out independent fetches with parallel + merge. Pause with ceo_approval before any public post or upload.
 - toolName, agentId, mcpServerId, and connector appId/actionId must be exact IDs from Runtime environment. Never invent them. Never paste secrets; bind Settings → API Keys names.
 - Public sites without a Connector use Browser Session content tools after the CEO is signed in.`;

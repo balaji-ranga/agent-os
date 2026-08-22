@@ -7,6 +7,7 @@ import { listMcpServersForWorkflow } from './mcp-servers.js';
 import { getWorkflowTemplates } from './agent-workflow-templates.js';
 import { defaultNodeConfig, getTaskCatalog } from './agent-workflow-task-catalog.js';
 import { listUserApiKeys } from './user-api-keys.js';
+import { getConnectedConnectorApps } from './openconnector.js';
 import {
   lastOllamaAvailable,
   lastOllamaModel,
@@ -32,7 +33,49 @@ export function defaultBrainConfig() {
   };
 }
 
-export function buildWorkflowAgentRuntimeContext(ownerUserId) {
+/** Keep connected apps plus OpenConnector's public no-key Hacker News — not a guessed SaaS list. */
+export function selectConnectorsForWorkflowPrompt(apps = []) {
+  const list = Array.isArray(apps) ? apps : [];
+  return list
+    .map((a) => {
+      const id = String(a?.id || a?.app_id || '').trim();
+      if (!id) return null;
+      const noKey = id.toLowerCase() === 'hackernews';
+      const connected = a.connected === true;
+      if (!connected && !noKey) return null;
+      const name = String(a.name || a.provider_name || id).trim();
+      const account = String(a.account_name || '').trim();
+      return {
+        id,
+        name,
+        needsKey: !noKey,
+        connected: connected || noKey,
+        purpose: account
+          ? `Connected as ${account}`
+          : noKey
+            ? 'Public Hacker News (no API key)'
+            : 'Connected SaaS app — use this exact id',
+      };
+    })
+    .filter(Boolean);
+}
+
+async function loadConnectorsForOwner(ownerUserId) {
+  try {
+    const { apps } = await Promise.race([
+      getConnectedConnectorApps(ownerUserId),
+      new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('connector catalog timeout')), 2500);
+      }),
+    ]);
+    return selectConnectorsForWorkflowPrompt(apps);
+  } catch (e) {
+    console.warn('[workflow-builder] connector catalog skipped: %s', e?.message || e);
+    return [];
+  }
+}
+
+export async function buildWorkflowAgentRuntimeContext(ownerUserId) {
   const authUser = getUserById(ownerUserId) || { id: ownerUserId, role: 'ceo' };
 
   const agents = listAgentsForUser(ownerUserId).map((a) => ({
@@ -61,6 +104,8 @@ export function buildWorkflowAgentRuntimeContext(ownerUserId) {
 
   const brain = defaultBrainConfig();
   const firstMcp = mcpServers[0]?.id || null;
+  const connectors = await loadConnectorsForOwner(ownerUserId);
+  const hn = connectors.find((c) => String(c.id).toLowerCase() === 'hackernews');
 
   let vaultKeys = [];
   try {
@@ -80,33 +125,7 @@ export function buildWorkflowAgentRuntimeContext(ownerUserId) {
     nodeTypes: getTaskCatalog().map((t) => t.type),
     templates,
     vaultKeys,
-    connectors: [
-      {
-        id: 'hackernews',
-        name: 'Hacker News',
-        needsKey: false,
-        purpose: 'Read or submit public Hacker News items. No API key.',
-      },
-      {
-        id: 'github',
-        name: 'GitHub',
-        needsKey: true,
-        purpose: 'Repos and issues when the CEO has connected GitHub.',
-      },
-      {
-        id: 'gmail',
-        name: 'Gmail',
-        needsKey: true,
-        purpose: 'Mail when the CEO has connected Gmail.',
-      },
-      {
-        id: 'youtube',
-        name: 'YouTube',
-        needsKey: true,
-        purpose:
-          'Only if a YouTube connector is connected. Otherwise use a Browser Session content tool (browse_task_start) after the CEO is signed in.',
-      },
-    ],
+    connectors,
     defaults: {
       brain,
       firstMcpId: firstMcp,
@@ -114,7 +133,7 @@ export function buildWorkflowAgentRuntimeContext(ownerUserId) {
       ollama_base: process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434/v1',
       ollama_model: lastOllamaModel() || resolveOllamaChatModel(process.env.OLLAMA_MODEL || 'llama3.2'),
       ollama_available: lastOllamaAvailable() || ollama.ok,
-      no_key_connector: { appId: 'hackernews', actionId: 'hackernews.get_top_stories' },
+      no_key_connector: hn ? { appId: hn.id, actionId: `${hn.id}.get_top_stories` } : null,
     },
   };
 }
@@ -139,13 +158,17 @@ export function formatRuntimeContextForPrompt(ctx) {
 
   if (ctx.connectors?.length) {
     lines.push(
-      '\nConnectors (connector nodes — use exact id; skip if the CEO has not connected a keyed app):',
+      '\nConnectors (connector nodes — exact ids from this CEO\'s OpenConnector connections; do not invent apps):',
       ctx.connectors
         .map(
           (c) =>
-            `- ${c.name} (id: ${c.id}) ${c.needsKey ? 'needs connection/key' : 'no key'}: ${c.purpose}`
+            `- ${c.name} (id: ${c.id}) ${c.needsKey ? 'connected' : 'no key'}: ${c.purpose}`
         )
         .join('\n')
+    );
+  } else {
+    lines.push(
+      '\nConnectors: none connected for this CEO — skip connector nodes; use Browser Session content tools for signed-in sites'
     );
   }
 

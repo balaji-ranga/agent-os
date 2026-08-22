@@ -24,7 +24,7 @@ import {
   formatNodeSelectionGuide,
   LLM_CREATE_GRAPH_CONTRACT,
 } from '../src/services/agent-workflow-builder-catalog.js';
-import { formatRuntimeContextForPrompt } from '../src/services/agent-workflow-agent-runtime-context.js';
+import { formatRuntimeContextForPrompt, selectConnectorsForWorkflowPrompt } from '../src/services/agent-workflow-agent-runtime-context.js';
 import {
   looksLikeSecretLiteral,
   sanitizeWorkflowGraphSecrets,
@@ -157,7 +157,16 @@ console.log('\n— Unit: English lifecycle parsers');
   assert(/web_scrape/.test(compact) && compact.length < catalog.length, 'compact catalog is shorter');
   const guide = formatNodeSelectionGuide();
   assert(/not by matching words/i.test(guide), 'node selection is purpose-based, not keyword tables');
+  assert(!/ERP\/CRM Checker/i.test(guide), 'selection guide does not name a specific employee');
   assert(/CREATE CONTRACT/.test(LLM_CREATE_GRAPH_CONTRACT), 'create contract tells LLM to emit a graph');
+  const picked = selectConnectorsForWorkflowPrompt([
+    { id: 'hackernews', name: 'Hacker News', connected: false, suggested: true },
+    { id: 'github', name: 'GitHub', connected: false, suggested: true },
+    { id: 'gmail', name: 'Gmail', connected: true },
+  ]);
+  assert(picked.some((c) => c.id === 'hackernews'), 'keeps no-key Hacker News');
+  assert(picked.some((c) => c.id === 'gmail'), 'keeps connected Gmail');
+  assert(!picked.some((c) => c.id === 'github'), 'drops unconnected GitHub');
   const runtimePrompt = formatRuntimeContextForPrompt({
     agents: [{ id: 'erp-checker', name: 'ERP Checker', role: 'ERP maker checker' }],
     nodeTypes: ['trigger', 'web_scrape', 'brain', 'agent'],

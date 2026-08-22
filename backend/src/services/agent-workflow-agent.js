@@ -293,7 +293,7 @@ function formatWorkflowLine(w) {
 
 
 
-function buildUserContext({ workflowId, ownerUserId, message, compactCatalog = false, createIntent = false }) {
+async function buildUserContext({ workflowId, ownerUserId, message, compactCatalog = false, createIntent = false }) {
 
   const parts = [];
   if (createIntent) {
@@ -307,7 +307,7 @@ function buildUserContext({ workflowId, ownerUserId, message, compactCatalog = f
   parts.push(`CEO request:\n${message}`);
 
   try {
-    const runtime = buildWorkflowAgentRuntimeContext(ownerUserId);
+    const runtime = await buildWorkflowAgentRuntimeContext(ownerUserId);
     parts.push(formatRuntimeContextForPrompt(runtime));
   } catch {
     parts.push('\n(Runtime environment unavailable)');
@@ -424,7 +424,7 @@ function buildUserContext({ workflowId, ownerUserId, message, compactCatalog = f
 
 
 async function executeRecipePath(ownerUserId, workflowId, message, actor) {
-  const runtime = buildWorkflowAgentRuntimeContext(ownerUserId);
+  const runtime = await buildWorkflowAgentRuntimeContext(ownerUserId);
   const recipe = matchWorkflowRecipe(message);
   if (!recipe) return null;
 
@@ -1113,7 +1113,7 @@ export async function runWorkflowBuilderChat({
     ...historyMessages,
     {
       role: 'user',
-      content: buildUserContext({
+      content: await buildUserContext({
         workflowId,
         ownerUserId,
         message: trimmed,
@@ -1134,7 +1134,7 @@ export async function runWorkflowBuilderChat({
   let reply = parsed.reply || content;
   let actions = Array.isArray(parsed.actions) ? parsed.actions : [];
 
-  const runtime = buildWorkflowAgentRuntimeContext(ownerUserId);
+  const runtime = await buildWorkflowAgentRuntimeContext(ownerUserId);
   actions = enrichCreateWorkflowActions(trimmed, actions, runtime);
 
   if (createIntent && !actionsHaveSubstantialCreate(actions)) {
@@ -1143,7 +1143,7 @@ export async function runWorkflowBuilderChat({
       { role: 'system', content: SYSTEM_PROMPT },
       {
         role: 'user',
-        content: buildUserContext({
+        content: await buildUserContext({
           workflowId,
           ownerUserId,
           message: trimmed,
