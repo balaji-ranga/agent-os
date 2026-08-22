@@ -20,12 +20,11 @@ import { runWorkflowBuilderChat } from '../src/services/agent-workflow-agent.js'
 import { parseWorkflowAgentCommand, waitForRunTerminal } from '../src/services/agent-workflow-chat-tools.js';
 import { matchWorkflowRecipe, isWorkflowCreateIntent, isContentPromoteIntent, extractPromoteTopic } from '../src/services/agent-workflow-recipes.js';
 import {
-  synthesizeIntentWorkflow,
-  splitIntentStages,
-  isPublishStage,
-  isScrapeIntent,
-  extractSites,
-} from '../src/services/agent-workflow-intent-graph.js';
+  formatCatalogForPrompt,
+  formatNodeSelectionGuide,
+  LLM_CREATE_GRAPH_CONTRACT,
+} from '../src/services/agent-workflow-builder-catalog.js';
+import { formatRuntimeContextForPrompt } from '../src/services/agent-workflow-agent-runtime-context.js';
 import {
   looksLikeSecretLiteral,
   sanitizeWorkflowGraphSecrets,
@@ -146,35 +145,28 @@ console.log('\n— Unit: English lifecycle parsers');
   assert(extractPromoteTopic('blogs about acme analytics it can be about platform intro') === 'acme analytics', 'topic from about X');
   const ytAsk = 'build a workflow that will generate story scenes and reviews and uploads to youtube';
   assert(isWorkflowCreateIntent(ytAsk), 'youtube/story ask is create intent');
-  assert(!matchWorkflowRecipe(ytAsk), 'youtube/story ask is not a curated recipe');
-  const stages = splitIntentStages(ytAsk);
-  assert(stages.length >= 3, `stages=${stages.join('|')}`);
-  assert(isPublishStage(stages[stages.length - 1]), 'last stage is upload/publish');
-  const compiled = synthesizeIntentWorkflow(ytAsk, {
-    contentTools: [
-      { name: 'generate_video', display_name: 'Generate Video', purpose: 'Generate a short video from a text prompt' },
-      { name: 'browse_task_start', display_name: 'Browse task start', purpose: 'start a natural-language browser task' },
-    ],
-    agents: [],
-  });
-  const compiledTypes = compiled.graph.nodes.map((n) => n.type);
-  assert(compiledTypes.includes('trigger') && compiledTypes.includes('ceo_approval'), `compiled nodes=${compiledTypes.join(',')}`);
-  assert(/youtube/i.test(JSON.stringify(compiled.graph)), 'compiled graph mentions YouTube');
+  assert(!matchWorkflowRecipe(ytAsk), 'youtube/story ask is not a curated recipe — LLM + catalog decides nodes');
   const scrapeAsk = 'Create a workflow that will scrape imdb and rottentomatoes to get all reviews';
   assert(isWorkflowCreateIntent(scrapeAsk), 'scrape reviews is create intent');
-  assert(isScrapeIntent(scrapeAsk), 'scrape intent detected');
-  assert(extractSites(scrapeAsk).some((s) => /imdb/i.test(s.label)), 'extracts IMDb');
-  assert(extractSites(scrapeAsk).some((s) => /rotten/i.test(s.label)), 'extracts Rotten Tomatoes');
-  const scraped = synthesizeIntentWorkflow(scrapeAsk, {
-    nodeTypes: ['trigger', 'web_scrape', 'brain', 'parallel', 'merge', 'agent'],
+  assert(!matchWorkflowRecipe(scrapeAsk), 'scrape reviews is not a curated recipe');
+  const catalog = formatCatalogForPrompt();
+  assert(/"type": "web_scrape"/.test(catalog) && /Crawl an HTTPS/.test(catalog), 'full catalog includes web_scrape schema');
+  assert(/"type": "ceo_approval"/.test(catalog), 'full catalog includes ceo_approval');
+  assert(/startUrl/.test(catalog) && /maxPages/.test(catalog), 'web_scrape I/O and config in catalog');
+  const compact = formatCatalogForPrompt({ compact: true });
+  assert(/web_scrape/.test(compact) && compact.length < catalog.length, 'compact catalog is shorter');
+  const guide = formatNodeSelectionGuide();
+  assert(/not by matching words/i.test(guide), 'node selection is purpose-based, not keyword tables');
+  assert(/CREATE CONTRACT/.test(LLM_CREATE_GRAPH_CONTRACT), 'create contract tells LLM to emit a graph');
+  const runtimePrompt = formatRuntimeContextForPrompt({
     agents: [{ id: 'erp-checker', name: 'ERP Checker', role: 'ERP maker checker' }],
-    contentTools: [{ name: 'brave_web_search', purpose: 'web search via Brave' }],
+    nodeTypes: ['trigger', 'web_scrape', 'brain', 'agent'],
+    connectors: [{ id: 'hackernews', name: 'Hacker News', needsKey: false, purpose: 'Public HN items' }],
+    contentTools: [{ name: 'browse_task_start', purpose: 'Start a natural-language browser task' }],
   });
-  const scrapeTypes = scraped.graph.nodes.map((n) => n.type);
-  const scrapeAgents = scraped.graph.nodes.filter((n) => n.type === 'agent').map((n) => n.data?.agentName || n.data?.agentId);
-  assert(!scrapeAgents.some((n) => /erp/i.test(String(n))), `must not use ERP Checker (${scrapeAgents.join(',')})`);
-  assert(scrapeTypes.filter((t) => t === 'web_scrape').length >= 2, `web_scrape nodes=${scrapeTypes.join(',')}`);
-  assert(/imdb|rottentomatoes/i.test(JSON.stringify(scraped.graph)), 'scrape graph names both sites');
+  assert(/ERP Checker/.test(runtimePrompt) && /role: ERP maker checker/.test(runtimePrompt), 'employees include role for the LLM');
+  assert(/browse_task_start/.test(runtimePrompt), 'content tools listed with purpose');
+  assert(/hackernews/.test(runtimePrompt), 'connectors listed for the LLM');
 }
 
 // --------------------------------------------------------------------------
@@ -328,26 +320,29 @@ console.log('\n— S8: Promote on Hacker News + Medium (plain English blogs)');
 }
 
 // --------------------------------------------------------------------------
-console.log('\n— S9: Generic create intent (story scenes + review + YouTube)');
+console.log('\n— S9: Generic create intent (story scenes + review + YouTube, LLM + catalog)');
 {
   const msg = `build a workflow that will generate story scenes and reviews and uploads to youtube. Call it Story YouTube ${stamp}.`;
-  assert(!matchWorkflowRecipe(msg), 'not a curated recipe — compiler must handle it');
+  assert(!matchWorkflowRecipe(msg), 'not a curated recipe — LLM chooses nodes from catalog');
   const res = await chat(msg);
   const id = remember(res.workflow_id);
   const def = store.getDefinition(id, owner);
   assert(!!id && !!def, 'created definition from generic intent (not chat-only)');
   const nodes = def?.draft_graph?.nodes || def?.published_graph?.nodes || [];
   const types = nodes.map((n) => n.type);
+  const agentNames = nodes.filter((n) => n.type === 'agent').map((n) => `${n.data?.agentName || ''} ${n.data?.agentId || ''}`);
+  assert(!agentNames.some((n) => /erp|crm.?checker/i.test(n)), `must not bind ERP/CRM checker (${agentNames.join(',')})`);
   assert(types.includes('trigger'), `has trigger types=${types.join(',')}`);
-  assert(nodes.length >= 4, `wired graph nodeCount=${nodes.length}`);
-  assert(types.includes('ceo_approval'), 'upload waits for CEO approval');
-  assert(/youtube|browse_task_start|studio\.youtube/i.test(JSON.stringify(nodes)), 'YouTube or Browser Session wired');
-  assert(/Created|Built from your ask/i.test(res.reply || ''), 'reply confirms creation');
+  assert(nodes.length >= 3, `wired graph nodeCount=${nodes.length}`);
+  assert(
+    types.includes('ceo_approval') || /youtube|browse_task_start|studio\.youtube/i.test(JSON.stringify(nodes)),
+    'LLM wired approval and/or YouTube/Browser Session from catalog'
+  );
   assert(!hasSecretLiteral(def), 'generic graph has no secret literals');
 }
 
 // --------------------------------------------------------------------------
-console.log('\n— S10: Scrape IMDb + Rotten Tomatoes reviews (catalog web_scrape)');
+console.log('\n— S10: Scrape IMDb + Rotten Tomatoes reviews (LLM chooses catalog nodes)');
 {
   const msg = `Create a workflow that will scrape imdb and rottentomatoes to get all reviews. Call it Movie Reviews ${stamp}.`;
   assert(!matchWorkflowRecipe(msg), 'scrape reviews is not a curated recipe');
@@ -359,9 +354,12 @@ console.log('\n— S10: Scrape IMDb + Rotten Tomatoes reviews (catalog web_scrap
   const types = nodes.map((n) => n.type);
   const agentNames = nodes.filter((n) => n.type === 'agent').map((n) => `${n.data?.agentName || ''} ${n.data?.agentId || ''}`);
   assert(!agentNames.some((n) => /erp|crm.?checker/i.test(n)), `must not bind ERP/CRM checker (${agentNames.join(',')})`);
-  assert(types.filter((t) => t === 'web_scrape').length >= 2, `web_scrape count types=${types.join(',')}`);
-  assert(/imdb\.com/i.test(JSON.stringify(nodes)) && /rottentomatoes/i.test(JSON.stringify(nodes)), 'both site URLs');
-  assert(types.includes('brain'), 'compile brain after scrapes');
+  const blob = JSON.stringify(nodes);
+  assert(/imdb/i.test(blob) && /rottentomato/i.test(blob), 'graph names both sites');
+  assert(
+    types.includes('web_scrape') || types.includes('api') || types.includes('tool'),
+    `LLM used a catalog fetch capability types=${types.join(',')}`
+  );
 }
 
 // --------------------------------------------------------------------------

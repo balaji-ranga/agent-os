@@ -21,6 +21,48 @@ function isLocalOllama(baseUrl) {
   }
 }
 
+function endpointHost(baseUrl) {
+  try {
+    return new URL(String(baseUrl || '')).hostname.toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
+/** Official OpenAI must not receive DeepSeek / local-only model ids (causes "model does not exist"). */
+export function modelFitsChatEndpoint(baseUrl, model) {
+  const m = String(model || '').trim();
+  if (!m || !baseUrl) return false;
+  const host = endpointHost(baseUrl);
+  const lower = m.toLowerCase();
+  if (host === 'api.openai.com' || host.endsWith('.openai.com')) {
+    return !/deepseek|llama|qwen|mistral|mixtral|phi-|gemma|codellama|ollama/.test(lower);
+  }
+  return true;
+}
+
+/**
+ * Primary keeps the requested model when it fits that host; secondary keeps its own model
+ * unless the requested id also fits (never copy deepseek-v4-flash onto api.openai.com).
+ */
+export function buildChatCompletionEndpoints(cfg, effectiveModel) {
+  const wanted = String(effectiveModel || cfg?.primary?.model || '').trim();
+  const list = [];
+  if (cfg?.primary?.baseUrl) {
+    const model = modelFitsChatEndpoint(cfg.primary.baseUrl, wanted)
+      ? wanted
+      : String(cfg.primary.model || '').trim();
+    list.push({ ...cfg.primary, model });
+  }
+  if (cfg?.secondary?.baseUrl) {
+    const secWanted = modelFitsChatEndpoint(cfg.secondary.baseUrl, wanted)
+      ? wanted
+      : String(cfg.secondary.model || '').trim();
+    if (secWanted) list.push({ ...cfg.secondary, model: secWanted });
+  }
+  return list;
+}
+
 /**
  * @param {string} [ownerUserId] - CEO user id; when set, user BYOK takes precedence over .env
  */
@@ -29,11 +71,30 @@ export function getLlmConfig(ownerUserId = null) {
   // Platform-decided: honor admin primary/secondary switch
   if (!resolved.using_byok || resolved.provider === 'platform_decided') {
     const effective = getEffectivePlatformLlmEndpoints();
+    const primary = { ...effective.primary };
+    if (primary.baseUrl && primary.model && !modelFitsChatEndpoint(primary.baseUrl, primary.model)) {
+      const fallback =
+        (effective.secondary?.model && modelFitsChatEndpoint(primary.baseUrl, effective.secondary.model)
+          ? effective.secondary.model
+          : '') || 'gpt-4o-mini';
+      console.warn('[llm] platform primary model does not fit host; using compatible model', {
+        host: (() => {
+          try {
+            return new URL(primary.baseUrl).hostname;
+          } catch {
+            return '';
+          }
+        })(),
+        from: primary.model,
+        to: fallback,
+      });
+      primary.model = fallback;
+    }
     return {
       primary: {
-        baseUrl: effective.primary.baseUrl,
-        apiKey: effective.primary.apiKey,
-        model: effective.primary.model,
+        baseUrl: primary.baseUrl,
+        apiKey: primary.apiKey,
+        model: primary.model,
       },
       secondary: effective.secondary
         ? {
@@ -62,8 +123,8 @@ export function getLlmConfig(ownerUserId = null) {
 /**
  * Call OpenAPI-compliant chat/completions with optional model override. Tries primary then secondary endpoint.
  * Optional toolName applies CEO Tools-menu model mapping (overrides modelOverride / profile primary).
- * @param {{ messages: Array<{ role: string, content: string }>, modelOverride?: string, maxTokens?: number, ownerUserId?: string, toolName?: string }}
- * @returns {Promise<{ content: string, modelUsed: string }>}
+ * @param {{ messages: Array<{ role: string, content: string }>, modelOverride?: string, maxTokens?: number, ownerUserId?: string, toolName?: string, memberKey?: string, source?: string, sessionId?: string, runId?: string, traceId?: string }}
+ * @returns {Promise<{ content: string, modelUsed: string, usage?: object|null }>}
  */
 export async function chatCompletions({
   messages,
@@ -73,6 +134,11 @@ export async function chatCompletions({
   toolName = null,
   temperature = null,
   responseFormat = null,
+  memberKey = null,
+  source = null,
+  sessionId = null,
+  runId = null,
+  traceId = null,
 }) {
   const cfg = getLlmConfig(ownerUserId);
   let effectiveModel = modelOverride || cfg.primary.model;
@@ -85,10 +151,7 @@ export async function chatCompletions({
       console.warn('[llm] tool model override skipped: %s', e?.message || e);
     }
   }
-  const endpoints = [
-    { ...cfg.primary, model: effectiveModel },
-    cfg.secondary ? { ...cfg.secondary, model: effectiveModel || cfg.secondary.model } : null,
-  ].filter(Boolean);
+  const endpoints = buildChatCompletionEndpoints(cfg, effectiveModel);
 
   const primary = endpoints[0];
   if (!primary?.baseUrl) throw new Error('OPENAI_PRIMARY_BASE_URL not set');
@@ -103,6 +166,13 @@ export async function chatCompletions({
   let lastErr;
   for (const ep of endpoints) {
     if (!ep.apiKey && !isLocalOllama(ep.baseUrl)) continue;
+    console.info('[llm] chatCompletions try', {
+      host: endpointHost(ep.baseUrl),
+      model: ep.model,
+      provider: cfg.provider,
+      byok: !!cfg.using_byok,
+      tool: toolName || null,
+    });
     const chatUrl = `${ep.baseUrl.replace(/\/$/, '')}/chat/completions`;
     const headers = { 'Content-Type': 'application/json' };
     if (ep.apiKey) headers.Authorization = `Bearer ${ep.apiKey}`;
@@ -159,7 +229,33 @@ export async function chatCompletions({
         if (!String(content || '').trim() && msg.reasoning) {
           content = msg.reasoning;
         }
-        return { content: typeof content === 'string' ? content : String(content ?? ''), modelUsed: ep.model };
+        const text =
+          typeof content === 'string' ? content : String(content ?? '');
+        let usage = null;
+        try {
+          const { normalizeProviderUsage, meterChatCompletionsUsage } = await import(
+            '../services/token-usage.js'
+          );
+          usage = normalizeProviderUsage(data?.usage);
+          const promptText = (messages || [])
+            .map((m) => (typeof m?.content === 'string' ? m.content : JSON.stringify(m?.content ?? '')))
+            .join('\n');
+          meterChatCompletionsUsage(ownerUserId, {
+            usage: data?.usage || null,
+            promptText,
+            replyText: text,
+            modelId: ep.model,
+            toolName,
+            memberKey,
+            source,
+            sessionId,
+            runId,
+            traceId,
+          });
+        } catch (meterErr) {
+          console.warn('[llm] token meter skipped: %s', meterErr?.message || meterErr);
+        }
+        return { content: text, modelUsed: ep.model, usage };
       }
 
       const errText = await res.text();
@@ -167,7 +263,14 @@ export async function chatCompletions({
       try {
         errJson = JSON.parse(errText);
       } catch (_) {}
-      lastErr = new Error(errJson?.error?.message || errText || res.statusText);
+      const msg = errJson?.error?.message || errText || res.statusText;
+      console.warn('[llm] chatCompletions failed', {
+        host: endpointHost(ep.baseUrl),
+        model: ep.model,
+        status: res.status,
+        message: String(msg || '').slice(0, 240),
+      });
+      lastErr = new Error(msg);
     } catch (e) {
       lastErr = e instanceof Error ? e : new Error(String(e));
     }

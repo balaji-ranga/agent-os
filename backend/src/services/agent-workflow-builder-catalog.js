@@ -54,6 +54,79 @@ const BRAIN_EXAMPLES = {
   },
 };
 
+const NODE_EXAMPLES = {
+  brain: BRAIN_EXAMPLES,
+  web_scrape: {
+    crawlSite: {
+      label: 'Crawl a site',
+      startUrl: 'https://example.com',
+      phrases: 'reviews',
+      maxPages: 25,
+      maxDepth: 2,
+      sameOriginOnly: true,
+      respectRobotsTxt: true,
+    },
+  },
+  tool: {
+    namedTool: {
+      label: 'Run content tool',
+      toolName: '(exact name from Content tools catalog)',
+    },
+  },
+  connector: {
+    connectedApp: {
+      label: 'Connected app',
+      appId: '(exact id from Connectors catalog)',
+      actionId: '(exact action id)',
+    },
+  },
+  agent: {
+    employee: {
+      label: 'Workspace employee',
+      agentId: '(exact id from Agents list — only if their role is the work)',
+      prompt: '{{input}}',
+    },
+  },
+  ceo_approval: {
+    beforePublic: {
+      label: 'CEO approval',
+      prompt: 'Approve this before any public post or upload.',
+    },
+  },
+};
+
+/** How the Workflow Builder LLM should pick nodes — purpose-based, not keyword tables. */
+export const NODE_SELECTION_GUIDE = `Choose nodes by understanding the CEO's outcome against each type's purpose, inputs, outputs, and config — not by matching words in the ask to employee names.
+
+- Start with a trigger. Give every node id, type, position {x,y}, and data.
+- Prefer a catalog capability whose purpose matches the work (crawl a site → web_scrape; search the web → a search content tool; call HTTP → api; connected SaaS → connector; logged-in click-path → browse_* content tool; transform text → brain with Ollama).
+- Use an agent node only when a listed employee's role is actually that job. A word overlap (for example "reviews") is not a reason to pick ERP/CRM Checker.
+- Fan-out independent fetches with parallel + merge. Pause with ceo_approval before any public post or upload.
+- toolName, agentId, mcpServerId, and connector appId/actionId must be exact IDs from Runtime environment. Never invent them. Never paste secrets; bind Settings → API Keys names.
+- Public sites without a Connector use Browser Session content tools after the CEO is signed in.`;
+
+export const LLM_CREATE_GRAPH_CONTRACT = `## CREATE CONTRACT (this turn)
+The CEO asked to CREATE a workflow. Return a single JSON object with "reply" and "actions". actions MUST include create_workflow (or create_from_template) with a complete wired graph in the same turn — never a plan-only reply (actions: []).
+
+Each graph node: { "id", "type", "position": { "x": number, "y": number }, "data": { "label", "taskConfig": { ... }, "inputBindings"?: [...] } }.
+Include graph.edges [{ "id", "source", "target" }].
+
+Example shape (replace types/config from the catalog to fit THIS ask):
+{
+  "action": "create_workflow",
+  "name": "Short name from the ask",
+  "chat_phrase": "short trigger phrase",
+  "trigger_modes": ["manual", "chat"],
+  "graph": {
+    "nodes": [
+      { "id": "trigger-1", "type": "trigger", "position": { "x": 80, "y": 180 }, "data": { "label": "Start", "taskConfig": { "triggerModes": ["manual", "chat"] } } },
+      { "id": "brain-1", "type": "brain", "position": { "x": 360, "y": 180 }, "data": { "label": "Summarize", "taskConfig": { "modelSource": "ollama", "systemPrompt": "Do the work.\\n\\n{{input}}" } } }
+    ],
+    "edges": [{ "id": "e-trigger-brain", "source": "trigger-1", "target": "brain-1" }]
+  }
+}`;
+
+
 /** Normalize brain taskConfig — prefer ollama; bind vault refs instead of secret literals. */
 export function normalizeBrainTaskConfig(cfg = {}, runtimeDefaults = null) {
   const defaults = runtimeDefaults || defaultBrainConfig();
@@ -144,7 +217,7 @@ export function buildWorkflowNodeCatalog() {
       placeholder: f.placeholder || '',
       description: f.description || '',
     })),
-    examples: t.type === 'brain' ? BRAIN_EXAMPLES : undefined,
+    examples: NODE_EXAMPLES[t.type],
   }));
 }
 
@@ -210,11 +283,30 @@ export function validateWorkflowForPublish(graph, ownerUserId = null) {
   return errors;
 }
 
-export function formatCatalogForPrompt({ nodeType = null } = {}) {
+export function formatCatalogForPrompt({ nodeType = null, compact = false } = {}) {
   if (nodeType) {
     return JSON.stringify(getWorkflowNodeTypeSpec(nodeType), null, 2);
   }
-  return JSON.stringify(buildWorkflowNodeCatalog(), null, 2);
+  const catalog = buildWorkflowNodeCatalog();
+  if (compact) {
+    return JSON.stringify(
+      catalog.map((c) => ({
+        type: c.type,
+        label: c.label,
+        purpose: c.purpose,
+        inputs: (c.inputs || []).map((i) => i.id),
+        outputs: (c.outputs || []).map((o) => o.id),
+        config: (c.configFields || []).map((f) => f.id),
+      })),
+      null,
+      2
+    );
+  }
+  return JSON.stringify(catalog, null, 2);
+}
+
+export function formatNodeSelectionGuide() {
+  return NODE_SELECTION_GUIDE;
 }
 
 /** Fast-path: user asks about node types / attributes without mutating workflow. */

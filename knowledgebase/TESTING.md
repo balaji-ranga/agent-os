@@ -103,10 +103,12 @@ Code paths:
 
 Docs + copy-paste prompts: `knowledgebase/platform-help/27-onboarding-helper.md`.
 
-End-user stress (plain English build + secrets/BYOK + publish/draft/A2A/delete + **generic create-intent compiler** S9/S10): [`WORKFLOW-BUILDER-ENDUSER-STRESS.md`](./WORKFLOW-BUILDER-ENDUSER-STRESS.md).
+End-user stress (plain English build + secrets/BYOK + publish/draft/A2A/delete + **LLM catalog create** S9/S10): [`WORKFLOW-BUILDER-ENDUSER-STRESS.md`](./WORKFLOW-BUILDER-ENDUSER-STRESS.md).
 
 ```powershell
 cd backend
+node scripts/test-llm-chat-endpoints.js
+# Expect: LLM_CHAT_ENDPOINTS_OK
 node scripts/test-workflow-builder-enduser-stress.js
 # Expect: WORKFLOW_BUILDER_ENDUSER_STRESS_OK
 ```

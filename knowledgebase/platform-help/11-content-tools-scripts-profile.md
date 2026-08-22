@@ -40,7 +40,7 @@ On **Tools**, open **Tools → Model**. Map a **chat / vision / image / video mo
 | **Overrides** | When set, that tool uses your chosen model instead of Profile primary (or platform primary when Profile is Platform default) |
 | **Does not change** | API keys and base URL — still Profile platform vs BYOK vault (`Platform_BYOK`, `Replicate_BYOK`, …) |
 | **Profile default** | Empty mapping = keep using Profile primary / tool env defaults |
-| **Included** | e.g. `summarize_url`, `analyze_image`, `generate_image`, `generate_video`, `learnings_summary`, `brain_history`, `master_data_rag` (**LLM summarize only**), intent/classify, browser autonomous task, IBKR order learnings, selected job-applicant LLM steps, workflow certify Maker/Checker chat |
+| **Included** | e.g. `summarize_url`, `analyze_image`, `generate_image`, `generate_video`, `learnings_summary`, `brain_history`, `master_data_rag` (**LLM summarize only**), intent/classify, browser autonomous task, IBKR order learnings, selected job-applicant LLM steps, workflow certify Maker chat, **Workflow Builder chat** |
 | **Excluded** | Custom-script LLM review (platform-only), master-data **embeddings** indexing, local `speech_tts` / `speech_stt` (Whisper/Piper — not chat models) |
 
 Save applies immediately for later tool runs (no gateway restart). Image models (e.g. `gpt-image-1`) and video (Replicate model/version id) use **Custom…** when not in the chat model list.

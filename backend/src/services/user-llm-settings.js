@@ -82,7 +82,13 @@ function pickUserModel(provider, row) {
   const chosen = row?.llm_model != null ? String(row.llm_model).trim() : '';
   if (chosen) {
     const norm = normalizeLlmModelForProvider(provider, chosen, { required: false });
-    if (norm.ok && norm.model) return norm.model;
+    if (norm.ok && norm.model) {
+      if (provider === 'openai' && isNonOpenAiCloudModel(norm.model)) {
+        // leftover platform DeepSeek / Ollama id on an OpenAI BYOK profile
+      } else {
+        return norm.model;
+      }
+    }
   }
   if (provider === 'openai') return resolveOpenAiByokModelFallback();
   if (provider === 'openrouter') return resolveOpenRouterByokModelFallback();

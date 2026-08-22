@@ -37,7 +37,16 @@ Create/build asks should **create a workflow**, not a plan. If you only get pros
 2. Hard-refresh Workflows and check the list for a new draft/published graph.
 3. Public upload/publish steps pause for **your approval** on Kanban — that is expected, not a missing graph.
 4. Sites without a Connector (YouTube, TikTok, …) need **Browser Session** signed in (`browse_task_start`).
-5. If it still only chats, ops: redeploy **backend** so the generic create-intent compiler is live.
+5. If it still only chats, ops: redeploy **backend** so Workflow Builder’s LLM create path (full node catalog in the prompt) is live.
+
+## Workflow Builder: “The model … does not exist”
+
+The designer chat uses **Profile BYOK** or **platform primary** (same as other post-login LLM tools). A leftover DeepSeek model name on an OpenAI key produces this error.
+
+1. Profile → pick the provider you actually have a key for, and a model that provider lists.
+2. Confirm **Settings → API Keys** `Platform_BYOK` if you chose OpenAI / OpenRouter.
+3. Optional: **Tools → Model** → Workflow Builder chat — set a model that matches that provider, or clear the mapping.
+4. Platform default users: Admin primary must match the primary host (DeepSeek model on the DeepSeek URL; OpenAI model on `api.openai.com`).
 
 ## Agent gave wrong how-to steps
 

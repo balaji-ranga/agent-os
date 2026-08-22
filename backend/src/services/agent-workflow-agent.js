@@ -43,10 +43,7 @@ import {
   enrichCreateWorkflowActions,
   isWorkflowCreateIntent,
 } from './agent-workflow-recipes.js';
-import {
-  buildIntentCreateActionBatch,
-  actionsHaveSubstantialCreate,
-} from './agent-workflow-intent-graph.js';
+import { actionsHaveSubstantialCreate } from './agent-workflow-intent-graph.js';
 import {
   findWorkflowsReferencedInMessage,
   formatWorkflowDescriptionBlock,
@@ -60,7 +57,12 @@ import {
   tryListRunsQueryResponse,
 } from './agent-workflow-agent-runs.js';
 import { tryTroubleshootWorkflowResponse } from './agent-workflow-agent-troubleshoot.js';
-import { tryCatalogQueryResponse, formatCatalogForPrompt } from './agent-workflow-builder-catalog.js';
+import {
+  tryCatalogQueryResponse,
+  formatCatalogForPrompt,
+  formatNodeSelectionGuide,
+  LLM_CREATE_GRAPH_CONTRACT,
+} from './agent-workflow-builder-catalog.js';
 import {
   parseUntilSuccessIntent,
   executeUntilSuccess,
@@ -78,6 +80,7 @@ import { PLATFORM_BYOK_KEY_NAME } from './user-api-keys.js';
 
 
 const WORKFLOW_BUILDER_AGENT_ID = 'workflowbuilder';
+const WORKFLOW_BUILDER_CHAT_TOOL = 'workflow_builder_chat';
 
 
 
@@ -195,8 +198,8 @@ Brain nodes (CRITICAL):
 - Call validate_publish before publish if unsure; fix reported errors first.
 - After building, the reply MUST include a short **API Keys (BYOK)** summary: which vault names to store, or that none are needed because Ollama is free.
 
-End-user language: infer nodes from intent (look up, summarize, news, email me). Do not ask for node types, JSON, curl, or command syntax.
-When the user asks to create/build a workflow, you MUST emit create_workflow with a full wired graph in the same turn — never a plan-only chat reply. Match the graph catalog first: web_scrape for named sites, brave_web_search for web search, connectors, MCP, Browser Session, content tools — not an unrelated ERP/CRM Checker because the user said “reviews”. Public upload/publish steps wait for CEO approval. Never invent APIs or paste secrets.
+End-user language: infer the outcome. Do not ask for node types, JSON, curl, or command syntax.
+When the user asks to create/build a workflow, you MUST emit create_workflow with a full wired graph in the same turn — never a plan-only chat reply. Read the node catalog JSON (purpose, inputs, outputs, config) plus this CEO's employees, content tools, MCP servers, and connectors. Choose nodes by understanding the work against those descriptions — never by matching a word in the ask to an employee name. Public upload/publish steps wait for CEO approval. Never invent IDs, APIs, or paste secrets.
 
 Lifecycle in plain English:
 - "go live" / "make it available" → publish
@@ -290,9 +293,18 @@ function formatWorkflowLine(w) {
 
 
 
-function buildUserContext({ workflowId, ownerUserId, message }) {
+function buildUserContext({ workflowId, ownerUserId, message, compactCatalog = false, createIntent = false }) {
 
-  const parts = [`CEO request:\n${message}`];
+  const parts = [];
+  if (createIntent) {
+    parts.push(LLM_CREATE_GRAPH_CONTRACT);
+    if (compactCatalog) {
+      parts.push(
+        'RETRY: Your previous JSON had no complete create_workflow graph. This turn MUST include actions with create_workflow and full graph.nodes + graph.edges. Pick types from the catalog by purpose, not by matching employee names to words in the request.'
+      );
+    }
+  }
+  parts.push(`CEO request:\n${message}`);
 
   try {
     const runtime = buildWorkflowAgentRuntimeContext(ownerUserId);
@@ -396,8 +408,14 @@ function buildUserContext({ workflowId, ownerUserId, message }) {
 
 
   parts.push(`\nStep types: ${getTaskCatalog().map((t) => t.type).join(', ')}`);
-  parts.push('\nNode catalog summary (use get_node_type action for full spec):');
-  parts.push(formatCatalogForPrompt());
+  parts.push('\n## Node selection guide');
+  parts.push(formatNodeSelectionGuide());
+  parts.push(
+    compactCatalog
+      ? '\nNode catalog (compact — type, purpose, I/O and config ids):'
+      : '\nFull node catalog (schemas, purpose, inputs, outputs, config, examples):'
+  );
+  parts.push(formatCatalogForPrompt({ compact: compactCatalog }));
 
   return parts.join('\n');
 
@@ -431,35 +449,6 @@ async function executeRecipePath(ownerUserId, workflowId, message, actor) {
     workflow,
     result,
     workflowTriggered,
-  });
-}
-
-async function executeIntentCreatePath(ownerUserId, workflowId, message, actor) {
-  if (!isWorkflowCreateIntent(message)) return null;
-  const runtime = buildWorkflowAgentRuntimeContext(ownerUserId);
-  const { actions, spec } = buildIntentCreateActionBatch(message, runtime);
-  if (!spec?.graph?.nodes?.length) return null;
-
-  const result = await applyWorkflowBuilderActions(ownerUserId, workflowId, actions, actor, {
-    message,
-  });
-  const effectiveWorkflowId = result.workflow_id || workflowId;
-  const workflow = effectiveWorkflowId ? store.getDefinition(effectiveWorkflowId, ownerUserId) : null;
-  const reply = `Created **${spec.name}**. ${spec.summary} Say "try it" or "go live" when you are ready.`;
-  const withKeys = result?.keys_summary ? `${reply}\n\n${result.keys_summary}` : reply;
-
-  console.info('[workflow-builder] create-intent compiler applied', {
-    workflow_id: effectiveWorkflowId,
-    nodes: spec.graph.nodes.map((n) => n.type),
-  });
-
-  return buildChatResultPayload({
-    reply: withKeys,
-    modelUsed: null,
-    effectiveWorkflowId,
-    workflow,
-    result,
-    workflowTriggered: null,
   });
 }
 
@@ -1114,64 +1103,75 @@ export async function runWorkflowBuilderChat({
 
   }
 
-  const intentCreateResult = await executeIntentCreatePath(ownerUserId, workflowId, trimmed, actorNorm);
-
-  if (intentCreateResult) {
-
-    const assistantText = formatAssistantReply(intentCreateResult.reply, intentCreateResult);
-
-    if (persist) {
-
-      appendWorkflowChatExchange(ownerUserId, intentCreateResult.workflow_id || workflowId, trimmed, assistantText);
-
-    }
-
-    return {
-
-      ...intentCreateResult,
-
-      reply: assistantText,
-
-      thread_workflow_id: workflowChatThreadKey(intentCreateResult.workflow_id || workflowId),
-
-    };
-
-  }
-
-
-
+  const createIntent = isWorkflowCreateIntent(trimmed);
+  const historyMessages = effectiveHistory.slice(-20).map((t) => ({
+    role: t.role === 'assistant' ? 'assistant' : 'user',
+    content: String(t.content || ''),
+  }));
   const messages = [
-
     { role: 'system', content: SYSTEM_PROMPT },
-
-    ...effectiveHistory.slice(-20).map((t) => ({
-
-      role: t.role === 'assistant' ? 'assistant' : 'user',
-
-      content: String(t.content || ''),
-
-    })),
-
-    { role: 'user', content: buildUserContext({ workflowId, ownerUserId, message: trimmed }) },
-
+    ...historyMessages,
+    {
+      role: 'user',
+      content: buildUserContext({
+        workflowId,
+        ownerUserId,
+        message: trimmed,
+        createIntent,
+      }),
+    },
   ];
 
-
-
-  const { content, modelUsed } = await chatCompletions({ messages, maxTokens: 4096, ownerUserId });
-
-  const parsed = parseAgentJson(content);
-
-  const reply = parsed.reply || content;
-
+  const createTokens = createIntent ? 8192 : 4096;
+  let { content, modelUsed } = await chatCompletions({
+    messages,
+    maxTokens: createTokens,
+    ownerUserId,
+    toolName: WORKFLOW_BUILDER_CHAT_TOOL,
+    source: 'workflow_builder',
+  });
+  let parsed = parseAgentJson(content);
+  let reply = parsed.reply || content;
   let actions = Array.isArray(parsed.actions) ? parsed.actions : [];
 
   const runtime = buildWorkflowAgentRuntimeContext(ownerUserId);
-
   actions = enrichCreateWorkflowActions(trimmed, actions, runtime);
-  if (isWorkflowCreateIntent(trimmed) && !actionsHaveSubstantialCreate(actions)) {
-    const { actions: compiled } = buildIntentCreateActionBatch(trimmed, runtime);
-    actions = compiled;
+
+  if (createIntent && !actionsHaveSubstantialCreate(actions)) {
+    console.info('[workflow-builder] LLM create missing graph; retrying with catalog contract');
+    const retryMessages = [
+      { role: 'system', content: SYSTEM_PROMPT },
+      {
+        role: 'user',
+        content: buildUserContext({
+          workflowId,
+          ownerUserId,
+          message: trimmed,
+          createIntent: true,
+          compactCatalog: true,
+        }),
+      },
+    ];
+    try {
+      const retry = await chatCompletions({
+        messages: retryMessages,
+        maxTokens: 8192,
+        ownerUserId,
+        toolName: WORKFLOW_BUILDER_CHAT_TOOL,
+        source: 'workflow_builder',
+      });
+      content = retry.content;
+      modelUsed = retry.modelUsed || modelUsed;
+      parsed = parseAgentJson(content);
+      reply = parsed.reply || content;
+      actions = Array.isArray(parsed.actions) ? parsed.actions : [];
+      actions = enrichCreateWorkflowActions(trimmed, actions, runtime);
+    } catch (e) {
+      console.warn('[workflow-builder] LLM create retry failed:', e?.message || e);
+    }
+    if (!actionsHaveSubstantialCreate(actions)) {
+      console.warn('[workflow-builder] LLM create-intent produced no graph (no keyword fallback)');
+    }
   }
 
   const untilIntent = parseUntilSuccessIntent(trimmed);
@@ -1267,6 +1267,8 @@ export async function runWorkflowBuilderChat({
             messages: fixMessages,
             maxTokens: 2048,
             ownerUserId,
+            toolName: WORKFLOW_BUILDER_CHAT_TOOL,
+            source: 'workflow_builder',
           });
           return parseAgentJson(fixContent).actions || [];
         } catch {

@@ -57,7 +57,7 @@ Chat, vision, image gen, and **live Call / Realtime Caller** share **`Platform_B
 
 | Tools / scope | BYOK key | Possible keys (issuer) |
 |---------------|----------|------------------------|
-| **Chat completions** — employees, COO, `summarize_url`, RAG answers, intent, certify, job LLM steps, autonomous browser | **`Platform_BYOK`** | **OpenAI** · **OpenRouter** (OpenAI / **Claude** / Gemini / DeepSeek on one key) · or **no key**: Platform default / local Ollama |
+| **Chat completions** — employees, COO, Workflow Builder designer chat, `summarize_url`, RAG answers, intent, certify, job LLM steps, autonomous browser | **`Platform_BYOK`** | **OpenAI** · **OpenRouter** (OpenAI / **Claude** / Gemini / DeepSeek on one key) · or **no key**: Platform default / local Ollama |
 | **Vision** — `analyze_image` | **`Platform_BYOK`** | **OpenAI** or **OpenRouter** vision models. Text-only local chat often cannot see images |
 | **Image generation** — `generate_image` | **`Platform_BYOK`** | **OpenAI** (GPT-image). OpenRouter / Claude / Ollama typically not used for this tool |
 | **Realtime Caller + live Call** (WebRTC) | **`Platform_BYOK`** must be **OpenAI** on `api.openai.com` | **OpenAI only**. OpenRouter, Claude, DeepSeek, Ollama cannot mint a live session |

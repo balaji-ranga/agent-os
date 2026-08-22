@@ -80,6 +80,33 @@ export function buildWorkflowAgentRuntimeContext(ownerUserId) {
     nodeTypes: getTaskCatalog().map((t) => t.type),
     templates,
     vaultKeys,
+    connectors: [
+      {
+        id: 'hackernews',
+        name: 'Hacker News',
+        needsKey: false,
+        purpose: 'Read or submit public Hacker News items. No API key.',
+      },
+      {
+        id: 'github',
+        name: 'GitHub',
+        needsKey: true,
+        purpose: 'Repos and issues when the CEO has connected GitHub.',
+      },
+      {
+        id: 'gmail',
+        name: 'Gmail',
+        needsKey: true,
+        purpose: 'Mail when the CEO has connected Gmail.',
+      },
+      {
+        id: 'youtube',
+        name: 'YouTube',
+        needsKey: true,
+        purpose:
+          'Only if a YouTube connector is connected. Otherwise use a Browser Session content tool (browse_task_start) after the CEO is signed in.',
+      },
+    ],
     defaults: {
       brain,
       firstMcpId: firstMcp,
@@ -97,17 +124,28 @@ export function formatRuntimeContextForPrompt(ctx) {
 
   if (ctx.agents?.length) {
     lines.push(
-      '\nAgents:',
-      ctx.agents.map((a) => `- ${a.name} (id: ${a.id})`).join('\n')
+      '\nEmployees (agent nodes — use only when this role is the actual work; never because a word in the ask overlaps the name):',
+      ctx.agents
+        .map((a) => `- ${a.name} (id: ${a.id}) role: ${a.role || '(none listed)'}`)
+        .join('\n')
     );
   } else {
-    lines.push('\nAgents: (none granted — use brain nodes instead of agent nodes)');
+    lines.push('\nEmployees: (none granted — use brain / catalog nodes instead of agent nodes)');
   }
 
   if (ctx.nodeTypes?.length) {
+    lines.push('\nGraph node types available:', ctx.nodeTypes.join(', '));
+  }
+
+  if (ctx.connectors?.length) {
     lines.push(
-      '\nGraph node types (prefer these over unrelated employees):',
-      ctx.nodeTypes.join(', ')
+      '\nConnectors (connector nodes — use exact id; skip if the CEO has not connected a keyed app):',
+      ctx.connectors
+        .map(
+          (c) =>
+            `- ${c.name} (id: ${c.id}) ${c.needsKey ? 'needs connection/key' : 'no key'}: ${c.purpose}`
+        )
+        .join('\n')
     );
   }
 

@@ -1,6 +1,6 @@
 /**
- * Generic create-intent compiler: English outcome → wired workflow graph.
- * Uses this CEO's agents, content tools, MCP, and connectors — not a per-product recipe.
+ * Legacy keyword intent→graph helper (not used by Workflow Builder chat).
+ * Chat create-intent is LLM + full node/agent/tool catalog (`agent-workflow-agent.js`).
  */
 import { defaultBrainConfig } from './agent-workflow-agent-runtime-context.js';
 import { enquireContentTools } from './content-tools-meta.js';

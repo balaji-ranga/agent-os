@@ -23,6 +23,7 @@ export const TOOL_MODEL_MAPPABLE = Object.freeze([
   { name: 'master_data_rag', label: 'Master Data RAG (summarize)', kind: 'chat', description: 'Optional LLM answer on RAG (not embeddings)' },
   { name: 'intent_classify_and_delegate', label: 'Intent classify & delegate', kind: 'chat', description: 'COO intent classification' },
   { name: 'agent_workflow_certify_start', label: 'Workflow certify (Maker)', kind: 'chat', description: 'Autonomous certify Maker LLM' },
+  { name: 'workflow_builder_chat', label: 'Workflow Builder chat', kind: 'chat', description: 'Visual workflow designer (create/edit graphs)' },
   { name: 'browse_task_start', label: 'Browser task (autonomous)', kind: 'chat', description: 'Autonomous browser agent decisions' },
   { name: 'ibkr_order_learnings', label: 'IBKR order learnings', kind: 'chat', description: 'Order history LLM summary' },
   { name: 'job_fit_score', label: 'Job fit score', kind: 'chat', description: 'Job vs profile scoring' },

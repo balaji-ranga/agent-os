@@ -1,4 +1,4 @@
-﻿# Workflow nodes reference (attributes, inputs, outputs)
+# Workflow nodes reference (attributes, inputs, outputs)
 
 Palette types in the visual editor. Use this when configuring nodes or answering “what does X node output?”.
 
@@ -358,4 +358,4 @@ Stop listen from run UI when needed.
 4. **API → Agent:** Agent prompt `Summarize: {{api-1.body}}`.
 5. **MCP tool → Brain:** Brain `userMessage` from MCP `text` or `result`.
 6. **Connector → Brain:** Brain summarizes `{{connector-1.text}}` after a GitHub/Gmail action.
-8. **Create from English:** “build a workflow that will …” always produces a graph. **Catalog first:** scrape/crawl named sites → **Web Scrape** (`web_scrape`); search the web → `brave_web_search`; generate media → content tools; public upload → Connectors or Browser Session after **CEO approval**. Do not wire ERP/CRM Checker for “get reviews from a website”.
+8. **Create from English:** “build a workflow that will …” always produces a graph. Workflow Builder sends the **full node catalog**, employee roles, tools, MCP, and connectors to the model and lets it choose nodes from those descriptions. It does not keyword-match employee names (so “reviews” is not ERP/CRM Checker).
