@@ -744,6 +744,9 @@ export default function AgentWorkflows() {
       </section>
 
       <WorkflowAgentChat
+        onWorkflowCreated={(id) => {
+          if (id) navigate(`/workflows/${id}/edit`);
+        }}
         onAgentEffects={(effects) => {
           if (effects.toast) showSuccess(effects.toast);
           if (effects.shouldRefreshList) refreshAll();

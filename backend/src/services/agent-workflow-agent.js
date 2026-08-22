@@ -36,6 +36,7 @@ import { buildAgentSystemKnowledge } from './agent-workflow-agent-knowledge.js';
 import {
   buildWorkflowAgentRuntimeContext,
   formatRuntimeContextForPrompt,
+  defaultBrainConfig,
 } from './agent-workflow-agent-runtime-context.js';
 import {
   matchWorkflowRecipe,
@@ -221,6 +222,13 @@ ${buildAgentSystemKnowledge()}`;
 
 
 
+function stripMarkdownFences(text) {
+  const t = String(text || '').trim();
+  const fenced = t.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced) return String(fenced[1] || '').trim();
+  return t.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+}
+
 function normalizeParsedAgentResponse(parsed, fallbackText = '') {
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
     return { reply: fallbackText, actions: [] };
@@ -235,52 +243,90 @@ function normalizeParsedAgentResponse(parsed, fallbackText = '') {
   return { reply, actions };
 }
 
-function parseAgentJson(content) {
-  const text = String(content || '').trim();
-  if (!text) return { reply: '', actions: [] };
+export function parseAgentJson(content) {
+  const raw = String(content || '').trim();
+  if (!raw) return { reply: '', actions: [] };
+  const text = stripMarkdownFences(raw);
 
   try {
-    return normalizeParsedAgentResponse(JSON.parse(text), text);
+    return normalizeParsedAgentResponse(JSON.parse(text), raw);
   } catch {
-    const blocks = [...text.matchAll(/\{[\s\S]*?\}/g)];
-    const actionObjects = [];
-    let wrapper = null;
-
-    for (const block of blocks) {
-      try {
-        const obj = JSON.parse(block[0]);
-        if (obj?.reply !== undefined || Array.isArray(obj?.actions)) {
-          wrapper = obj;
-        } else if (obj?.action) {
-          actionObjects.push(obj);
-        }
-      } catch {
-        /* try next block */
-      }
-    }
-
-    if (!wrapper) {
-      const greedy = text.match(/\{[\s\S]*\}/);
-      if (greedy) {
-        try {
-          const obj = JSON.parse(greedy[0]);
-          if (obj?.reply !== undefined || obj?.action || Array.isArray(obj?.actions)) {
-            return normalizeParsedAgentResponse(obj, text);
-          }
-        } catch {
-          /* fall through */
-        }
-      }
-    }
-
-    if (wrapper) return normalizeParsedAgentResponse(wrapper, text);
-    if (actionObjects.length) {
-      const prose = text.replace(/\{[\s\S]*?\}/g, '').trim();
-      return { reply: prose || 'Done.', actions: actionObjects };
-    }
-
-    return { reply: text, actions: [] };
+    /* try slice */
   }
+
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if (start >= 0 && end > start) {
+    try {
+      return normalizeParsedAgentResponse(JSON.parse(text.slice(start, end + 1)), raw);
+    } catch {
+      /* fall through */
+    }
+  }
+
+  const blocks = [...text.matchAll(/\{[\s\S]*?\}/g)];
+  const actionObjects = [];
+  let wrapper = null;
+
+  for (const block of blocks) {
+    try {
+      const obj = JSON.parse(block[0]);
+      if (obj?.reply !== undefined || Array.isArray(obj?.actions)) {
+        wrapper = obj;
+      } else if (obj?.action) {
+        actionObjects.push(obj);
+      }
+    } catch {
+      /* try next block */
+    }
+  }
+
+  if (wrapper) return normalizeParsedAgentResponse(wrapper, raw);
+  if (actionObjects.length) {
+    const prose = text.replace(/\{[\s\S]*?\}/g, '').trim();
+    return { reply: prose || 'Done.', actions: actionObjects };
+  }
+
+  return { reply: raw, actions: [] };
+}
+
+function inferCreatedWorkflowName(message) {
+  const t = String(message || '').trim();
+  const named = t.match(/(?:called|named|call\s+it)\s+["']?([^"'\n.]+)/i);
+  if (named) return named[1].trim().slice(0, 80);
+  const clipped = t.replace(/\s+/g, ' ').slice(0, 56).trim();
+  return clipped || 'New workflow';
+}
+
+function buildScaffoldCreateActions(message, runtime) {
+  const name = inferCreatedWorkflowName(message);
+  const brain = { ...(runtime?.defaults?.brain || defaultBrainConfig()) };
+  brain.systemPrompt = `Carry out the CEO's request using the run input.\n\nRequest:\n${String(message || '').trim()}\n\nInput:\n{{input}}`;
+  return [
+    {
+      action: 'create_workflow',
+      name,
+      chat_phrase: `run ${name}`.toLowerCase().slice(0, 80),
+      trigger_modes: ['manual', 'chat'],
+      graph: {
+        nodes: [
+          {
+            id: 'trigger-1',
+            type: 'trigger',
+            position: { x: 80, y: 180 },
+            data: { label: 'Start', taskConfig: { triggerModes: ['manual', 'chat'] } },
+          },
+          {
+            id: 'brain-1',
+            type: 'brain',
+            position: { x: 360, y: 180 },
+            data: { label: 'Do the work', taskConfig: brain },
+          },
+        ],
+        edges: [{ id: 'e-trigger-brain', source: 'trigger-1', target: 'brain-1' }],
+      },
+    },
+  ];
 }
 
 
@@ -1103,11 +1149,13 @@ export async function runWorkflowBuilderChat({
 
   }
 
-  const createIntent = isWorkflowCreateIntent(trimmed);
-  const historyMessages = effectiveHistory.slice(-20).map((t) => ({
-    role: t.role === 'assistant' ? 'assistant' : 'user',
-    content: String(t.content || ''),
-  }));
+  const createIntent = isWorkflowCreateIntent(trimmed, { noWorkflowOpen: !workflowId });
+  const historyMessages = createIntent
+    ? []
+    : effectiveHistory.slice(-20).map((t) => ({
+        role: t.role === 'assistant' ? 'assistant' : 'user',
+        content: String(t.content || ''),
+      }));
   const messages = [
     { role: 'system', content: SYSTEM_PROMPT },
     ...historyMessages,
@@ -1118,6 +1166,7 @@ export async function runWorkflowBuilderChat({
         ownerUserId,
         message: trimmed,
         createIntent,
+        compactCatalog: createIntent,
       }),
     },
   ];
@@ -1129,6 +1178,7 @@ export async function runWorkflowBuilderChat({
     ownerUserId,
     toolName: WORKFLOW_BUILDER_CHAT_TOOL,
     source: 'workflow_builder',
+    responseFormat: createIntent ? 'json_object' : null,
   });
   let parsed = parseAgentJson(content);
   let reply = parsed.reply || content;
@@ -1159,6 +1209,7 @@ export async function runWorkflowBuilderChat({
         ownerUserId,
         toolName: WORKFLOW_BUILDER_CHAT_TOOL,
         source: 'workflow_builder',
+        responseFormat: 'json_object',
       });
       content = retry.content;
       modelUsed = retry.modelUsed || modelUsed;
@@ -1170,7 +1221,11 @@ export async function runWorkflowBuilderChat({
       console.warn('[workflow-builder] LLM create retry failed:', e?.message || e);
     }
     if (!actionsHaveSubstantialCreate(actions)) {
-      console.warn('[workflow-builder] LLM create-intent produced no graph (no keyword fallback)');
+      console.warn('[workflow-builder] LLM create-intent produced no graph; applying start graph');
+      actions = buildScaffoldCreateActions(trimmed, runtime);
+      if (!String(reply || '').trim() || reply === content) {
+        reply = `Created **${inferCreatedWorkflowName(trimmed)}**. Open the editor to review the graph; tell me what to add next.`;
+      }
     }
   }
 

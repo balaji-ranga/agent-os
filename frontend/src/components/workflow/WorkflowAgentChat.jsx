@@ -153,7 +153,16 @@ export default function WorkflowAgentChat({
 
       if (res.workflow_id && res.workflow_id !== workflowId) {
         setWorkflowId(res.workflow_id);
-        onWorkflowCreated?.(res.workflow_id, res.workflow);
+        const created = (res.actions_applied || []).some((a) =>
+          [
+            'create_workflow',
+            'create_from_template',
+            'clone_workflow',
+            'copy_workflow',
+            'duplicate_workflow',
+          ].includes(a.action) && a.ok !== false
+        );
+        if (created) onWorkflowCreated?.(res.workflow_id, res.workflow);
       }
 
       let graph = res.draft_graph;

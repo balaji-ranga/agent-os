@@ -1075,7 +1075,7 @@ export function isOpsOrLifecycleIntent(message) {
   );
 }
 
-export function isWorkflowCreateIntent(message) {
+export function isWorkflowCreateIntent(message, { noWorkflowOpen = false } = {}) {
   const t = String(message || '').trim();
   if (!t) return false;
 
@@ -1101,10 +1101,20 @@ export function isWorkflowCreateIntent(message) {
   ) {
     return true;
   }
-  return (
+  if (
     /(?:brain|mcp|approval|agent|email|sse|api|openrouter|connector)/i.test(t) &&
     /(?:→|->|then|workflow|trigger|provider|invoke|echo)/i.test(t)
-  );
+  ) {
+    return true;
+  }
+  // List-page chat with no workflow open: treat an outcome ask as create (not a question).
+  if (noWorkflowOpen) {
+    if (/^(?:what|which|how|why|who|where|explain|describe|list|show)\b/i.test(t)) return false;
+    if (/(?:create|build|make|scrape|crawl|search|summar|email|upload|publish|automat|fetch|collect|generate)\b/i.test(t)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export function matchWorkflowRecipe(message, { minScore = 4 } = {}) {

@@ -31,13 +31,13 @@ That title is the **Get work from team** status prompt. A visible standup should
 
 ## Workflow Builder only replies in chat (no graph)
 
-Create/build asks should **create a workflow**, not a plan. If you only get prose:
+Create/build asks should **create a workflow** and **open the editor**. If you only get prose:
 
 1. Phrase the outcome (“build a workflow that will …”). Avoid “what if / how would you”.
-2. Hard-refresh Workflows and check the list for a new draft/published graph.
+2. Hard-refresh Workflows and check the list for a new draft, then open **Edit**.
 3. Public upload/publish steps pause for **your approval** on Kanban — that is expected, not a missing graph.
 4. Sites without a Connector (YouTube, TikTok, …) need **Browser Session** signed in (`browse_task_start`).
-5. If it still only chats, ops: redeploy **backend** so Workflow Builder’s LLM create path (full node catalog in the prompt) is live.
+5. If it still only chats, ops: redeploy **backend** (and **frontend** so the list page opens the new editor).
 
 ## Workflow Builder: “The model … does not exist”
 

@@ -116,10 +116,13 @@ export function deriveWorkflowAgentUiEffects(res, ctx = {}) {
     lifecycleChanged && !deleted && !!workflowId;
 
   let navigate = null;
+  const createdId = created?.workflow_id || (created ? res?.workflow_id : null) || null;
   if (deleted && onEditor) {
     navigate = { type: 'list' };
-  } else if (created?.workflow_id && created.workflow_id !== ctx.currentWorkflowId) {
-    navigate = { type: 'editor', workflowId: created.workflow_id };
+  } else if (createdId && createdId !== ctx.currentWorkflowId) {
+    navigate = { type: 'editor', workflowId: createdId };
+  } else if (res?.workflow_id && names.includes('create_workflow') && res.workflow_id !== ctx.currentWorkflowId) {
+    navigate = { type: 'editor', workflowId: res.workflow_id };
   } else if (opened?.workflow_id && !onEditor) {
     navigate = { type: 'editor', workflowId: opened.workflow_id };
   } else if (workflowId && created?.workflow_id === workflowId && !onEditor) {
