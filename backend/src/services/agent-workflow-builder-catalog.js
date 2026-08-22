@@ -126,6 +126,24 @@ Example shape (replace types/config from the catalog to fit THIS ask):
   }
 }`;
 
+export const LLM_EDIT_GRAPH_CONTRACT = `## EDIT CONTRACT (this turn)
+The CEO asked to EDIT the open workflow. Return JSON { "reply", "actions" }. Do NOT create_workflow unless they asked for a brand-new workflow.
+
+Allowed graph mutations: add_node, update_node, delete_node, add_edge/connect, delete_edge, set_metadata.
+
+Catalog lookups (read-only — never invent IDs):
+- search_connectors { "query": "github" } then add_node node_type=connector with task_config.appId + actionId from the hit
+- list_connectors — this CEO's connected apps
+- list_connector_actions { "app_id": "github" }
+- list_content_tools / enquire_content_tools { "query": "..." } then add_node node_type=tool toolName=<exact name>
+- list_agents then add_node node_type=agent agent_id=<exact id>
+- list_mcp then add_node node_type=mcp_tool with task_config.mcpServerId + toolName
+- summarize_learnings { "topic": "..." } — optional, once (NOT a graph node)
+
+NEVER put content-tool names in actions (connector_search_actions, connector_list_apps, connector_execute_action, learnings_summary). Map those to the lookups above, then ALWAYS include a graph mutation in the same turn.
+Example: { "action": "add_node", "node_type": "connector", "label": "GitHub", "connect_from": "trigger-1", "task_config": { "appId": "github", "appName": "GitHub", "actionId": "<exact action id>" } }
+If GitHub is not connected yet, still add the connector node and tell the CEO to connect it under Connectors.`;
+
 
 /** Normalize brain taskConfig — prefer ollama; bind vault refs instead of secret literals. */
 export function normalizeBrainTaskConfig(cfg = {}, runtimeDefaults = null) {

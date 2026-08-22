@@ -285,6 +285,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\seed-workflow-builder-agent.js" `
     "$Repo\backend\scripts\seed-platform-help-agent.js" `
     "$Repo\backend\scripts\test-workflow-builder-enduser-stress.js" `
+    "$Repo\backend\scripts\test-workflow-builder-create-edit.js" `
     "$Repo\backend\scripts\seed-onboarding-helper-agent.js" `
     "$Repo\backend\scripts\e2e-onboarding-wf-prompts.mjs" `
     "$Repo\backend\scripts\export-video-tours.js" `

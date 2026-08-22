@@ -1117,6 +1117,21 @@ export function isWorkflowCreateIntent(message, { noWorkflowOpen = false } = {})
   return false;
 }
 
+export function isWorkflowEditIntent(message, { workflowOpen = false } = {}) {
+  if (!workflowOpen) return false;
+  const t = String(message || '').trim();
+  if (!t) return false;
+  if (isOpsOrLifecycleIntent(t)) return false;
+  const asksNewWorkflow =
+    /(?:create|build|make|new)\s+(?:a\s+)?(?:new\s+)?workflow/i.test(t) &&
+    !/(?:to|on|in)\s+(?:this|the|current)\s+workflow/i.test(t);
+  if (asksNewWorkflow) return false;
+  return (
+    /(?:add|insert|wire|include|attach|fix|change|update|replace|remove|connect)\b/i.test(t) ||
+    /\b(connector|github|gmail|slack|tool|agent|mcp|node|brain|approval)\b/i.test(t)
+  );
+}
+
 export function matchWorkflowRecipe(message, { minScore = 4 } = {}) {
   if (!isWorkflowCreateIntent(message)) return null;
   let best = null;

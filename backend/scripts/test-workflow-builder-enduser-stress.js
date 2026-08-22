@@ -15,14 +15,15 @@ import { initDb } from '../src/db/schema.js';
 import { seedWorkflowBuilderAgent } from './seed-workflow-builder-agent.js';
 import { getBalaCeoAuthId } from '../src/services/job-applicant-ceo.js';
 import * as store from '../src/services/agent-workflow-store.js';
-import { applyWorkflowBuilderActions } from '../src/services/agent-workflow-builder.js';
+import { applyWorkflowBuilderActions, canonicalizeBuilderActionName, buildEditFallbackActions } from '../src/services/agent-workflow-builder.js';
 import { runWorkflowBuilderChat, parseAgentJson } from '../src/services/agent-workflow-agent.js';
 import { parseWorkflowAgentCommand, waitForRunTerminal } from '../src/services/agent-workflow-chat-tools.js';
-import { matchWorkflowRecipe, isWorkflowCreateIntent, isContentPromoteIntent, extractPromoteTopic } from '../src/services/agent-workflow-recipes.js';
+import { matchWorkflowRecipe, isWorkflowCreateIntent, isWorkflowEditIntent, isContentPromoteIntent, extractPromoteTopic } from '../src/services/agent-workflow-recipes.js';
 import {
   formatCatalogForPrompt,
   formatNodeSelectionGuide,
   LLM_CREATE_GRAPH_CONTRACT,
+  LLM_EDIT_GRAPH_CONTRACT,
 } from '../src/services/agent-workflow-builder-catalog.js';
 import { formatRuntimeContextForPrompt, selectConnectorsForWorkflowPrompt } from '../src/services/agent-workflow-agent-runtime-context.js';
 import {
@@ -164,6 +165,62 @@ console.log('\n— Unit: English lifecycle parsers');
   assert(/not by matching words/i.test(guide), 'node selection is purpose-based, not keyword tables');
   assert(!/ERP\/CRM Checker/i.test(guide), 'selection guide does not name a specific employee');
   assert(/CREATE CONTRACT/.test(LLM_CREATE_GRAPH_CONTRACT), 'create contract tells LLM to emit a graph');
+  assert(/EDIT CONTRACT/.test(LLM_EDIT_GRAPH_CONTRACT), 'edit contract tells LLM to add_node');
+  assert(
+    isWorkflowEditIntent('Add a GitHub connector to this workflow', { workflowOpen: true }),
+    'add github connector is edit intent'
+  );
+  assert(
+    canonicalizeBuilderActionName('connectorsearchactions') === 'search_connectors',
+    'connectorsearchactions aliases to search_connectors'
+  );
+  assert(
+    canonicalizeBuilderActionName('learnings_summary') === 'summarize_learnings',
+    'learnings_summary aliases to summarize_learnings'
+  );
+  {
+    const created = await applyWorkflowBuilderActions(
+      owner,
+      null,
+      [{ action: 'create_workflow', name: `Edit Probe ${stamp}`, trigger_modes: ['manual'] }],
+      actor
+    );
+    const wfId = created.workflow_id;
+    remember(wfId);
+    const mapped = await applyWorkflowBuilderActions(
+      owner,
+      wfId,
+      [
+        { action: 'connectorsearchactions', query: 'github' },
+        { action: 'connectorsearchactions', query: 'github' },
+        { action: 'learnings_summary', topic: 'github connector' },
+      ],
+      actor,
+      { message: 'Add a GitHub connector to this workflow' }
+    );
+    assert(
+      mapped.results.every((r) => r.ok !== false || !/Unknown action/i.test(r.error || '')),
+      `mapped lookups must not be unknown (${mapped.results.map((r) => `${r.action}:${r.error || 'ok'}`).join(',')})`
+    );
+    assert(
+      mapped.results.some((r) => r.action === 'search_connectors'),
+      'deduped search_connectors ran'
+    );
+    const def = store.getDefinition(wfId, owner);
+    const fallback = buildEditFallbackActions(
+      'Add a GitHub connector to this workflow',
+      def,
+      mapped.results
+    );
+    assert(fallback[0]?.node_type === 'connector', `fallback adds connector (${JSON.stringify(fallback[0])})`);
+    const wired = await applyWorkflowBuilderActions(owner, wfId, fallback, actor, {
+      message: 'Add a GitHub connector to this workflow',
+    });
+    const after = store.getDefinition(wfId, owner);
+    const types = (after.draft_graph?.nodes || []).map((n) => n.type);
+    assert(types.includes('connector'), `graph has connector after edit types=${types.join(',')}`);
+    assert(wired.results.some((r) => r.action === 'add_node' && r.ok), 'add_node applied');
+  }
   const picked = selectConnectorsForWorkflowPrompt([
     { id: 'hackernews', name: 'Hacker News', connected: false, suggested: true },
     { id: 'github', name: 'GitHub', connected: false, suggested: true },

@@ -16,6 +16,16 @@ import {
 
   summarizeGraphForAgent,
 
+  canonicalizeBuilderActionName,
+
+  LOOKUP_BUILDER_ACTIONS,
+
+  GRAPH_EDIT_ACTIONS,
+
+  actionsHaveGraphEdit,
+
+  buildEditFallbackActions,
+
 } from './agent-workflow-builder.js';
 
 import * as store from './agent-workflow-store.js';
@@ -43,6 +53,7 @@ import {
   buildRecipeActionBatch,
   enrichCreateWorkflowActions,
   isWorkflowCreateIntent,
+  isWorkflowEditIntent,
 } from './agent-workflow-recipes.js';
 import { actionsHaveSubstantialCreate } from './agent-workflow-intent-graph.js';
 import {
@@ -63,6 +74,7 @@ import {
   formatCatalogForPrompt,
   formatNodeSelectionGuide,
   LLM_CREATE_GRAPH_CONTRACT,
+  LLM_EDIT_GRAPH_CONTRACT,
 } from './agent-workflow-builder-catalog.js';
 import {
   parseUntilSuccessIntent,
@@ -91,7 +103,7 @@ You work like Cursor for workflows: user gives INTENT + optional SUCCESS CRITERI
 
 ENTITLEMENTS: You may only read/mutate/trigger workflows owned by the current entitled CEO. Never invent another owner's workflows or ask the user to spoof ceo_user_id.
 
-LEARNINGS: Before starting any non-trivial create/fix/until_success task, prefer calling the learnings_summary content tool (topic = short description of the request, days default 30) so you avoid past mistakes and honor this CEO's prior feedback and Kanban approve/reject comments. If the tool is unavailable in this chat path, still respect any learnings included in context.
+LEARNINGS: Optional once per turn: { "action": "summarize_learnings", "topic": "short description" }. Never put content-tool names (learnings_summary, connector_search_actions, connector_list_apps) in actions.
 
 Respond with a single JSON object (no markdown fences):
 { "reply": "...", "actions": [ ... ] }
@@ -123,6 +135,14 @@ Respond with a single JSON object (no markdown fences):
 
 - enquire_content_tools — { "action": "enquire_content_tools", "query": "summarize a web page" } — rank tools by user intent; returns top_recommendation
 
+- list_connectors / search_connectors — { "action": "search_connectors", "query": "github" } — OpenConnector apps + actions for this CEO
+
+- list_connector_actions — { "action": "list_connector_actions", "app_id": "github" }
+
+- list_agents / list_mcp — employees and healthy MCP servers (exact ids)
+
+- summarize_learnings — { "action": "summarize_learnings", "topic": "..." } — optional, once; not a graph node
+
 - validate_publish — { "action": "validate_publish" } — preflight publish errors before publishing
 
 
@@ -135,6 +155,7 @@ Runtime environment lists every enabled content tool with its purpose. When the 
 3. To wire it into a workflow: add_node with node_type "tool", toolName "<exact name>", optional toolPayload.
 Example: { "action": "add_node", "node_type": "tool", "label": "Summarize URL", "toolName": "summarize_url", "connect_from": "trigger-1" }
 Do NOT invent tool names or raw /api/tools/... api nodes when a registered content tool exists.
+Do NOT emit connector_search_actions / connector_list_apps / connector_execute_action as actions — use search_connectors then add_node node_type=connector.
 
 
 ## Definition lifecycle (CRITICAL)
@@ -339,7 +360,7 @@ function formatWorkflowLine(w) {
 
 
 
-async function buildUserContext({ workflowId, ownerUserId, message, compactCatalog = false, createIntent = false }) {
+async function buildUserContext({ workflowId, ownerUserId, message, compactCatalog = false, createIntent = false, editIntent = false }) {
 
   const parts = [];
   if (createIntent) {
@@ -347,6 +368,13 @@ async function buildUserContext({ workflowId, ownerUserId, message, compactCatal
     if (compactCatalog) {
       parts.push(
         'RETRY: Your previous JSON had no complete create_workflow graph. This turn MUST include actions with create_workflow and full graph.nodes + graph.edges. Pick types from the catalog by purpose, not by matching employee names to words in the request.'
+      );
+    }
+  } else if (editIntent) {
+    parts.push(LLM_EDIT_GRAPH_CONTRACT);
+    if (compactCatalog) {
+      parts.push(
+        'RETRY: Your previous JSON had no graph mutation. This turn MUST include add_node / update_node (and optional one search_connectors). Do not emit connector_search_actions or learnings_summary.'
       );
     }
   }
@@ -537,7 +565,12 @@ function formatAssistantReply(baseReply, result) {
   const failed = applied.filter((a) => a.ok === false && a.error);
   if (failed.length) {
     text += `\n\n**Errors:**\n${failed.map((f) => `- **${f.action}**: ${f.error}`).join('\n')}`;
-    text += '\n\nGraph changes before the failed step were saved. Fix the error and retry publish.';
+    const mutationFailed = failed.some((f) =>
+      GRAPH_EDIT_ACTIONS.has(canonicalizeBuilderActionName(f.action))
+    );
+    if (mutationFailed) {
+      text += '\n\nGraph changes before the failed step were saved. Fix the error and retry.';
+    }
   }
 
   const untilResult = applied.find((a) => a.action === 'until_success');
@@ -1149,8 +1182,11 @@ export async function runWorkflowBuilderChat({
 
   }
 
-  const createIntent = isWorkflowCreateIntent(trimmed, { noWorkflowOpen: !workflowId });
-  const historyMessages = createIntent
+  const editIntent = isWorkflowEditIntent(trimmed, { workflowOpen: !!workflowId });
+  const createIntent =
+    !editIntent && isWorkflowCreateIntent(trimmed, { noWorkflowOpen: !workflowId });
+  const structuredTurn = createIntent || editIntent;
+  const historyMessages = structuredTurn
     ? []
     : effectiveHistory.slice(-20).map((t) => ({
         role: t.role === 'assistant' ? 'assistant' : 'user',
@@ -1166,19 +1202,20 @@ export async function runWorkflowBuilderChat({
         ownerUserId,
         message: trimmed,
         createIntent,
-        compactCatalog: createIntent,
+        editIntent,
+        compactCatalog: structuredTurn,
       }),
     },
   ];
 
-  const createTokens = createIntent ? 8192 : 4096;
+  const createTokens = createIntent ? 8192 : editIntent ? 4096 : 4096;
   let { content, modelUsed } = await chatCompletions({
     messages,
     maxTokens: createTokens,
     ownerUserId,
     toolName: WORKFLOW_BUILDER_CHAT_TOOL,
     source: 'workflow_builder',
-    responseFormat: createIntent ? 'json_object' : null,
+    responseFormat: structuredTurn ? 'json_object' : null,
   });
   let parsed = parseAgentJson(content);
   let reply = parsed.reply || content;
@@ -1225,6 +1262,87 @@ export async function runWorkflowBuilderChat({
       actions = buildScaffoldCreateActions(trimmed, runtime);
       if (!String(reply || '').trim() || reply === content) {
         reply = `Created **${inferCreatedWorkflowName(trimmed)}**. Open the editor to review the graph; tell me what to add next.`;
+      }
+    }
+  }
+
+  let preApplied = null;
+  if (editIntent && !actionsHaveGraphEdit(actions)) {
+    console.info('[workflow-builder] LLM edit missing graph mutation; looking up catalog then wiring');
+    let lookupActions = actions.filter((a) =>
+      LOOKUP_BUILDER_ACTIONS.has(canonicalizeBuilderActionName(a?.action || a?.op))
+    );
+    if (!lookupActions.length) {
+      lookupActions = [{ action: 'search_connectors', query: trimmed }];
+      if (/\b(tool|content\s+tool)\b/i.test(trimmed)) {
+        lookupActions.push({ action: 'enquire_content_tools', query: trimmed });
+      }
+      if (/\bagent\b/i.test(trimmed)) lookupActions.push({ action: 'list_agents' });
+      if (/\bmcp\b/i.test(trimmed)) lookupActions.push({ action: 'list_mcp' });
+    }
+    try {
+      preApplied = await applyWorkflowBuilderActions(ownerUserId, workflowId, lookupActions, actorNorm, {
+        message: trimmed,
+      });
+    } catch (e) {
+      console.warn('[workflow-builder] catalog lookup failed:', e?.message || e);
+    }
+    try {
+      const lookupBlob = JSON.stringify(
+        (preApplied?.results || []).map((r) => ({
+          action: r.action,
+          ok: r.ok,
+          apps: r.apps,
+          actions: r.actions,
+          agents: r.agents,
+          servers: r.servers,
+          tools: r.tools,
+          top_recommendation: r.top_recommendation,
+          hint: r.hint,
+          error: r.error,
+        }))
+      ).slice(0, 5000);
+      const retry = await chatCompletions({
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          {
+            role: 'user',
+            content: [
+              await buildUserContext({
+                workflowId,
+                ownerUserId,
+                message: trimmed,
+                editIntent: true,
+                compactCatalog: true,
+              }),
+              `\nCatalog lookup results:\n${lookupBlob}`,
+              '\nReturn add_node / update_node now. Do not repeat unknown tool names.',
+            ].join('\n'),
+          },
+        ],
+        maxTokens: 4096,
+        ownerUserId,
+        toolName: WORKFLOW_BUILDER_CHAT_TOOL,
+        source: 'workflow_builder',
+        responseFormat: 'json_object',
+      });
+      modelUsed = retry.modelUsed || modelUsed;
+      const parsed2 = parseAgentJson(retry.content);
+      if (actionsHaveGraphEdit(parsed2.actions)) {
+        actions = parsed2.actions;
+        if (parsed2.reply) reply = parsed2.reply;
+      }
+    } catch (e) {
+      console.warn('[workflow-builder] LLM edit retry failed:', e?.message || e);
+    }
+    if (!actionsHaveGraphEdit(actions)) {
+      const def = workflowId ? store.getDefinition(workflowId, ownerUserId) : null;
+      const fallback = buildEditFallbackActions(trimmed, def, preApplied?.results || []);
+      if (fallback.length) {
+        actions = fallback;
+        if (!String(reply || '').trim() || reply === content) {
+          reply = `Added a **${fallback[0].label || fallback[0].node_type}** step to this workflow.`;
+        }
       }
     }
   }
@@ -1297,6 +1415,17 @@ export async function runWorkflowBuilderChat({
       }
     }
 
+    if (preApplied) {
+      result = {
+        ...(preApplied || {}),
+        ...(result || {}),
+        results: [...(preApplied.results || []), ...((result && result.results) || [])],
+        workflow_id: result?.workflow_id || preApplied.workflow_id || effectiveWorkflowId,
+        draft_graph: result?.draft_graph || preApplied.draft_graph,
+      };
+      effectiveWorkflowId = result.workflow_id || effectiveWorkflowId;
+    }
+
     if (untilAction && effectiveWorkflowId) {
       const llmFixFn = async (ctx) => {
         const fixMessages = [
@@ -1365,6 +1494,9 @@ export async function runWorkflowBuilderChat({
       result = await applyWorkflowBuilderActions(ownerUserId, null, actions, actorNorm);
       effectiveWorkflowId = result.workflow_id;
     }
+  } else if (preApplied) {
+    result = preApplied;
+    effectiveWorkflowId = preApplied.workflow_id || effectiveWorkflowId;
   }
 
 

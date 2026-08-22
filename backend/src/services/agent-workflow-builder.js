@@ -36,6 +36,185 @@ import {
 } from './agent-workflow-secrets.js';
 import { publishWorkflowAsA2A, unpublishWorkflowA2A } from './workflow-a2a-publish.js';
 import { setA2AAccessPolicy } from './workflow-a2a-access.js';
+import { getConnectedConnectorApps, searchConnectorApps, listConnectorActions, getConnectorActionGuide } from './openconnector.js';
+import { listAgentsForUser, getUserById } from './users.js';
+import { listMcpServersForWorkflow } from './mcp-servers.js';
+
+const ACTION_ALIASES = {
+  connectorsearchactions: 'search_connectors',
+  connector_search_actions: 'search_connectors',
+  search_actions: 'search_connectors',
+  searchconnectors: 'search_connectors',
+  search_connector_actions: 'search_connectors',
+  connectorlistapps: 'list_connectors',
+  connector_list_apps: 'list_connectors',
+  listapps: 'list_connectors',
+  list_apps: 'list_connectors',
+  listconnectors: 'list_connectors',
+  list_connector_apps: 'list_connectors',
+  listconnectoractions: 'list_connector_actions',
+  list_connector_actions: 'list_connector_actions',
+  connectorgetactionguide: 'get_connector_action',
+  connector_get_action_guide: 'get_connector_action',
+  get_connector_action_guide: 'get_connector_action',
+  listagents: 'list_agents',
+  list_employees: 'list_agents',
+  listmcp: 'list_mcp',
+  list_mcp_servers: 'list_mcp',
+  listmcpservers: 'list_mcp',
+  learningssummary: 'summarize_learnings',
+  learnings_summary: 'summarize_learnings',
+  enquirecontenttools: 'enquire_content_tools',
+  listcontenttools: 'list_content_tools',
+  getcontenttools: 'list_content_tools',
+  getnodecatalog: 'get_node_catalog',
+  getnodetype: 'get_node_type',
+  recommend_content_tools: 'enquire_content_tools',
+  connectorexecuteaction: 'connector_execute_action',
+  connector_execute_action: 'connector_execute_action',
+};
+
+export const LOOKUP_BUILDER_ACTIONS = new Set([
+  'get_node_catalog',
+  'get_node_type',
+  'list_content_tools',
+  'enquire_content_tools',
+  'list_connectors',
+  'search_connectors',
+  'list_connector_actions',
+  'get_connector_action',
+  'list_agents',
+  'list_mcp',
+  'summarize_learnings',
+  'validate_publish',
+]);
+
+export const GRAPH_EDIT_ACTIONS = new Set([
+  'create_workflow',
+  'create_from_template',
+  'clone_workflow',
+  'copy_workflow',
+  'duplicate_workflow',
+  'add_node',
+  'update_node',
+  'delete_node',
+  'add_edge',
+  'connect',
+  'connect_nodes',
+  'delete_edge',
+  'set_metadata',
+  'update_metadata',
+]);
+
+export function canonicalizeBuilderActionName(op) {
+  const raw = String(op || '').trim();
+  if (!raw) return '';
+  const underscored = raw.toLowerCase().replace(/[\s-]+/g, '_');
+  const compact = underscored.replace(/_/g, '');
+  return ACTION_ALIASES[underscored] || ACTION_ALIASES[compact] || underscored;
+}
+
+export function actionsHaveGraphEdit(actions) {
+  return (Array.isArray(actions) ? actions : []).some((a) =>
+    GRAPH_EDIT_ACTIONS.has(canonicalizeBuilderActionName(a?.action || a?.op || a?.type))
+  );
+}
+
+function pickConnectFromNodeId(graph) {
+  const nodes = Array.isArray(graph?.nodes) ? graph.nodes : [];
+  if (!nodes.length) return null;
+  const outgoing = new Set((graph.edges || []).map((e) => e.source));
+  const leaf = [...nodes].reverse().find((n) => n?.id && !outgoing.has(n.id));
+  return leaf?.id || nodes[nodes.length - 1]?.id || null;
+}
+
+export function buildEditFallbackActions(message, def, lookupResults = []) {
+  const t = String(message || '').trim();
+  const graph = def?.draft_graph || def?.published_graph || { nodes: [], edges: [] };
+  const connectFrom = pickConnectFromNodeId(graph);
+  const rows = Array.isArray(lookupResults) ? lookupResults : [];
+  const search = rows.find((r) => r.ok && r.action === 'search_connectors');
+  const listed = rows.find((r) => r.ok && r.action === 'list_connectors');
+  const apps = search?.apps || listed?.apps || [];
+  const connectorActs = search?.actions || rows.find((r) => r.ok && r.action === 'list_connector_actions')?.actions || [];
+  const slug =
+    (t.match(/\b(github|gmail|slack|hackernews|hacker\s*news|linkedin|google_drive|google_sheets)\b/i) || [])[0] ||
+    '';
+  const slugId = String(slug).toLowerCase().replace(/\s+/g, '');
+  const app =
+    apps.find((a) => {
+      const blob = `${a.id || ''} ${a.name || ''}`.toLowerCase();
+      return slugId ? blob.includes(slugId.replace('hackernews', 'hacker')) || blob.includes(slugId) : false;
+    }) ||
+    (slugId ? { id: slugId === 'hackernews' ? 'hackernews' : slugId, name: slug || slugId } : null) ||
+    apps[0] ||
+    null;
+
+  if (app && (/\bconnector\b/i.test(t) || slugId || search || listed)) {
+    const act =
+      connectorActs.find((x) => String(x.app_id || x.service || '').toLowerCase() === String(app.id).toLowerCase()) ||
+      connectorActs[0];
+    return [
+      {
+        action: 'add_node',
+        node_type: 'connector',
+        label: app.name || app.id,
+        connect_from: connectFrom || undefined,
+        task_config: {
+          appId: app.id,
+          appName: app.name || app.id,
+          actionId: act?.id || '',
+        },
+      },
+    ];
+  }
+
+  const enquire = rows.find((r) => r.ok && r.action === 'enquire_content_tools');
+  const toolName = enquire?.top_recommendation?.name;
+  if (toolName && /tool|summar|search|generate|learn/i.test(t)) {
+    return [
+      {
+        action: 'add_node',
+        node_type: 'tool',
+        toolName,
+        label: enquire.top_recommendation.display_name || toolName,
+        connect_from: connectFrom || undefined,
+      },
+    ];
+  }
+
+  const agents = rows.find((r) => r.ok && r.action === 'list_agents')?.agents || [];
+  if (agents.length && /\bagent\b/i.test(t)) {
+    const a = agents[0];
+    return [
+      {
+        action: 'add_node',
+        node_type: 'agent',
+        agent_id: a.id,
+        agent_name: a.name,
+        label: a.name,
+        connect_from: connectFrom || undefined,
+      },
+    ];
+  }
+
+  const mcps = rows.find((r) => r.ok && r.action === 'list_mcp')?.servers || [];
+  if (mcps.length && /\bmcp\b/i.test(t)) {
+    const s = mcps[0];
+    const tool = (s.tools || [])[0] || '';
+    return [
+      {
+        action: 'add_node',
+        node_type: 'mcp_tool',
+        label: s.name || 'MCP',
+        connect_from: connectFrom || undefined,
+        task_config: { mcpServerId: s.id, toolName: tool },
+      },
+    ];
+  }
+
+  return [];
+}
 
 function ensureDraftForEdit(def, currentId, ownerUserId, actor) {
   if (!def || def.status !== 'published') return def;
@@ -149,12 +328,81 @@ export function normalizeWorkflowGraph(graph) {
   }).graph;
 }
 
+function normalizeOneBuilderAction(action, message = '') {
+  const next = { ...(action || {}) };
+  let op = canonicalizeBuilderActionName(next.action || next.op || next.type);
+  if (op === 'connector_execute_action') {
+    const actionId = next.action_id || next.actionId || next.task_config?.actionId;
+    const appId = next.app_id || next.appId || String(actionId || '').split('.')[0];
+    if (actionId || appId) {
+      return {
+        action: 'add_node',
+        node_type: 'connector',
+        label: next.label || appId || 'Connector',
+        connect_from: next.connect_from,
+        task_config: {
+          ...(next.task_config || {}),
+          appId,
+          appName: next.app_name || next.appName,
+          actionId,
+        },
+      };
+    }
+    op = 'search_connectors';
+    next.query = next.query || next.q || message;
+  }
+  if (!LOOKUP_BUILDER_ACTIONS.has(op) && !GRAPH_EDIT_ACTIONS.has(op)) {
+    const tools = listEnabledContentTools();
+    const hit = tools.find(
+      (t) => t.name === op || String(t.name).replace(/_/g, '') === String(op).replace(/_/g, '')
+    );
+    if (hit) {
+      if (hit.name === 'learnings_summary') {
+        op = 'summarize_learnings';
+      } else if (/^(connector_|browse_|content_tools_)/.test(hit.name) || /search|list|enquire/.test(hit.name)) {
+        op = hit.name.startsWith('connector_') ? 'search_connectors' : 'enquire_content_tools';
+        next.query = next.query || next.q || message;
+      } else if (/(?:add|wire|insert|include|attach)\b/i.test(message)) {
+        return {
+          action: 'add_node',
+          node_type: 'tool',
+          toolName: hit.name,
+          label: hit.display_name || hit.name,
+          connect_from: next.connect_from,
+        };
+      } else {
+        op = 'enquire_content_tools';
+        next.query = next.query || message;
+      }
+    }
+  }
+  next.action = op;
+  return next;
+}
+
+function dedupeLookupActions(list) {
+  const out = [];
+  const seen = new Set();
+  for (const a of list) {
+    const op = canonicalizeBuilderActionName(a.action);
+    if (LOOKUP_BUILDER_ACTIONS.has(op)) {
+      const key = `${op}:${a.query || a.q || a.app_id || a.appId || a.topic || ''}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+    }
+    out.push(a);
+  }
+  return out;
+}
+
 /**
  * Ensure create_workflow runs before mutations when no workflow is open.
  * Injects a create_workflow if the batch mutates without one.
  */
 export function prepareBuilderActions(actions, { workflowId = null, message = '' } = {}) {
-  const list = Array.isArray(actions) ? actions.map((a) => ({ ...a })) : [];
+  let list = Array.isArray(actions) ? actions.map((a) => ({ ...a })) : [];
+  list = list.map((a) => normalizeOneBuilderAction(a, message)).filter(Boolean);
+  list = dedupeLookupActions(list);
   if (!list.length) return list;
   if (workflowId) return list;
 
@@ -392,7 +640,7 @@ export async function applyWorkflowBuilderActions(ownerUserId, workflowId, actio
   const results = [];
 
   for (const action of prepared) {
-    const op = action.action || action.op || action.type;
+    const op = canonicalizeBuilderActionName(action.action || action.op || action.type);
     if (!op) {
       results.push({ action: '(missing)', ok: false, error: 'Each action needs action/op/type' });
       continue;
@@ -438,6 +686,158 @@ export async function applyWorkflowBuilderActions(ownerUserId, workflowId, actio
           ? `Prefer toolName="${out.top_recommendation.name}" for this intent.`
           : 'No strong match — list_content_tools or broaden the query.',
       });
+      continue;
+    }
+
+    if (op === 'list_connectors') {
+      const q = String(action.query || action.q || '').trim();
+      const connected = await getConnectedConnectorApps(ownerUserId);
+      let apps = connected.apps || [];
+      if (q) {
+        try {
+          const searched = await searchConnectorApps(ownerUserId, q);
+          apps = searched.apps?.length ? searched.apps : apps.filter((a) =>
+            `${a.id} ${a.name}`.toLowerCase().includes(q.toLowerCase())
+          );
+        } catch (e) {
+          apps = apps.filter((a) => `${a.id} ${a.name}`.toLowerCase().includes(q.toLowerCase()));
+          console.warn('[workflow-builder] list_connectors search: %s', e?.message || e);
+        }
+      }
+      results.push({
+        action: op,
+        ok: true,
+        count: apps.length,
+        apps: apps.slice(0, 40),
+        hint: 'Wire with add_node node_type=connector and task_config.appId (exact id). If not connected, add the node then Connectors → connect.',
+      });
+      continue;
+    }
+
+    if (op === 'search_connectors') {
+      const q = String(action.query || action.q || action.app || opts.message || '').trim();
+      let apps = [];
+      let source = 'none';
+      try {
+        const out = await searchConnectorApps(ownerUserId, q);
+        apps = out.apps || [];
+        source = out.source;
+      } catch (e) {
+        console.warn('[workflow-builder] search_connectors: %s', e?.message || e);
+      }
+      const appId = String(action.app_id || action.appId || apps[0]?.id || '').trim();
+      let connectorActions = [];
+      if (appId) {
+        try {
+          const listed = await listConnectorActions(ownerUserId, appId, q);
+          connectorActions = listed.actions || [];
+        } catch (e) {
+          console.warn('[workflow-builder] list_connector_actions: %s', e?.message || e);
+        }
+      }
+      results.push({
+        action: op,
+        ok: true,
+        query: q,
+        source,
+        apps: apps.slice(0, 20),
+        actions: connectorActions.slice(0, 20).map((a) => ({
+          id: a.id,
+          app_id: a.app_id || a.service,
+          description: a.description,
+        })),
+        hint: 'Next: add_node node_type=connector with task_config.appId + actionId from this list.',
+      });
+      continue;
+    }
+
+    if (op === 'list_connector_actions') {
+      const appId = String(action.app_id || action.appId || '').trim();
+      if (!appId) throw new Error('list_connector_actions requires app_id');
+      const listed = await listConnectorActions(ownerUserId, appId, action.query || action.q || '');
+      results.push({
+        action: op,
+        ok: true,
+        app_id: appId,
+        actions: (listed.actions || []).slice(0, 40),
+        hint: 'Use an exact action id on add_node task_config.actionId.',
+      });
+      continue;
+    }
+
+    if (op === 'get_connector_action') {
+      const actionId = String(action.action_id || action.actionId || action.id || '').trim();
+      if (!actionId) throw new Error('get_connector_action requires action_id');
+      const guide = await getConnectorActionGuide(ownerUserId, actionId);
+      results.push({
+        action: op,
+        ok: true,
+        action_id: actionId,
+        guide: typeof guide === 'string' ? guide.slice(0, 4000) : guide,
+        hint: 'Wire with add_node node_type=connector task_config.actionId.',
+      });
+      continue;
+    }
+
+    if (op === 'list_agents') {
+      const agents = (listAgentsForUser(ownerUserId) || []).slice(0, 40).map((a) => ({
+        id: a.id,
+        name: a.name,
+        role: a.role_title || a.role || a.agent_type,
+        purpose: String(a.purpose || a.description || '').slice(0, 160),
+      }));
+      results.push({
+        action: op,
+        ok: true,
+        count: agents.length,
+        agents,
+        hint: 'Wire with add_node node_type=agent agent_id=<exact id>.',
+      });
+      continue;
+    }
+
+    if (op === 'list_mcp') {
+      const authUser = getUserById(ownerUserId) || { id: ownerUserId, role: 'ceo' };
+      const servers = (listMcpServersForWorkflow(authUser) || []).slice(0, 20).map((s) => ({
+        id: s.id,
+        name: s.name,
+        tools: (s.tools || []).slice(0, 12),
+      }));
+      results.push({
+        action: op,
+        ok: true,
+        count: servers.length,
+        servers,
+        hint: 'Wire with add_node node_type=mcp_tool task_config.mcpServerId + toolName.',
+      });
+      continue;
+    }
+
+    if (op === 'summarize_learnings') {
+      try {
+        const { summarizeLearnings } = await import('./agent-feedback.js');
+        const out = await summarizeLearnings({
+          ownerUserId,
+          agentId: 'workflowbuilder',
+          topic: action.topic || action.query || opts.message || 'workflow edit',
+          days: Number(action.days) || 30,
+        });
+        results.push({
+          action: op,
+          ok: true,
+          summary: String(out?.summary || out?.text || '').slice(0, 2500),
+          hint: 'Not a graph node. Continue with add_node / update_node.',
+        });
+      } catch (e) {
+        results.push({
+          action: op,
+          ok: true,
+          summary: '',
+          skipped: true,
+          error: e?.message || String(e),
+          hint: 'Learnings unavailable; continue with graph edits.',
+        });
+      }
       continue;
     }
 
@@ -988,10 +1388,25 @@ export async function applyWorkflowBuilderActions(ownerUserId, workflowId, actio
           node.data.taskConfig = normalizeBrainTaskConfig(node.data.taskConfig, defaultBrainConfig());
         }
       }
-      if (action.connect_from) {
+      if (type === 'connector') {
+        const appId = action.app_id || action.appId || node.data.taskConfig?.appId;
+        const appName = action.app_name || action.appName || node.data.taskConfig?.appName;
+        const actionId = action.action_id || action.actionId || node.data.taskConfig?.actionId;
+        node.data.taskConfig = {
+          ...node.data.taskConfig,
+          ...(appId ? { appId } : {}),
+          ...(appName ? { appName } : {}),
+          ...(actionId ? { actionId } : {}),
+        };
+      }
+      let connectFrom = action.connect_from;
+      if (!connectFrom && graph.nodes.length && /(?:add|wire|insert|include|attach|fix)\b/i.test(opts.message || '')) {
+        connectFrom = pickConnectFromNodeId(graph);
+      }
+      if (connectFrom) {
         const edge = {
           id: nextEdgeId(graph),
-          source: action.connect_from,
+          source: connectFrom,
           target: node.id,
           sourceHandle: action.source_handle,
         };
