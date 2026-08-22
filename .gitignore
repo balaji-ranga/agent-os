@@ -54,3 +54,19 @@ deploy/.admin-password.txt
 # Local dumps, probes, and copies of live snapshots — never commit
 tmp/
 backend/tmp/
+backend/scripts/_chk*
+backend/scripts/_diag*
+backend/scripts/_tmp*
+backend/scripts/_t.mjs
+backend/scripts/_t2.mjs
+backend/scripts/_t3.mjs
+backend/scripts/_mint*
+backend/scripts/_probe*
+scripts/_mint*
+scripts/_vps-*
+scripts/_chk*
+scripts/_inspect*
+tmp-oc-*
+tmp-cf-*
+tmp-cheapflights-*
+t.js

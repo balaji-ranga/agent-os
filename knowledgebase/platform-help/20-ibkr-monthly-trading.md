@@ -142,7 +142,7 @@ The monthly suite uses **W1, W2, W3, and W5**. There is **no W4** in this produc
 | ID | Typical trigger |
 |----|-----------------|
 | **W1** | Bridge **EOD snapshot** (via W3); schedule fallback after US close; chat phrase `run monthly trading review`; manual run. Cron is **server timezone** (`TZ` in deploy `.env`, e.g. Asia/Singapore). Seed default `5 21 * * 1-5` is 21:05 *on the server clock* — on a Singapore VPS that is 09:05 US Eastern, not post-close. Convert US 16:10 Eastern to server local time (Singapore: `40 4 * * 2-6` = 04:40 Tue–Sat). |
-| **W2** | Windows Task Scheduler / desktop **Run-Workflow** at **US cash open** (09:30 America/New_York). On an Asia/Singapore laptop that is **21:30 (9:30 PM) Mon–Fri**, not 09:30 AM. Keep the PC awake or allow wake timers; the task should run on battery and catch a missed slot after sleep. Manual **Run-Workflow.ps1** still works. |
+| **W2** | Windows Task Scheduler / desktop **Run-Workflow** around US open (convert 09:30 America/New_York to laptop local); manual |
 | **W3** | **`eod_snapshot`** from the bridge (default). Also manual **Run**, or `fanout_w3=1` on the ingest URL. Not every 5‑minute snapshot. Laptop: `scripts\push-eod-snapshot.ps1` after US close. |
 | **W5** | Saturday cron (variable `cron_weekly_review`, default `0 10 * * 6` server local morning); manual |
 
