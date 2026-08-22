@@ -130,7 +130,7 @@ if (process.env.WF_BUILDER_LIVE_CHAT === '1') {
   const createdChat = await runWorkflowBuilderChat({
     ownerUserId: owner,
     workflowId: null,
-    message: `Create a workflow called ${liveName} that summarizes the run input.`,
+    message: `Create a draft workflow called ${liveName} that summarizes the run input. Do not publish or test yet.`,
     history: [],
     actor,
     persist: false,

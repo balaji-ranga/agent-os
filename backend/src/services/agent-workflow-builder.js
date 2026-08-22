@@ -404,7 +404,15 @@ export function prepareBuilderActions(actions, { workflowId = null, message = ''
   list = list.map((a) => normalizeOneBuilderAction(a, message)).filter(Boolean);
   list = dedupeLookupActions(list);
   if (!list.length) return list;
-  if (workflowId) return list;
+  if (workflowId) {
+    const strippedCreate = list.filter(
+      (a) =>
+        !['create_workflow', 'create_from_template', 'clone_workflow', 'copy_workflow', 'duplicate_workflow'].includes(
+          canonicalizeBuilderActionName(a.action)
+        )
+    );
+    return strippedCreate.length ? strippedCreate : list;
+  }
 
   const needsContext = (a) => {
     const op = String(a?.action || a?.op || a?.type || '').toLowerCase();

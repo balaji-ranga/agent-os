@@ -1158,7 +1158,10 @@ export async function runWorkflowBuilderChat({
 
   }
 
-  const recipeResult = await executeRecipePath(ownerUserId, workflowId, trimmed, actorNorm);
+  const editIntentEarly = isWorkflowEditIntent(trimmed, { workflowOpen: !!workflowId });
+  const recipeResult = editIntentEarly
+    ? null
+    : await executeRecipePath(ownerUserId, workflowId, trimmed, actorNorm);
 
   if (recipeResult) {
 
@@ -1267,6 +1270,14 @@ export async function runWorkflowBuilderChat({
   }
 
   let preApplied = null;
+  if (editIntent && workflowId) {
+    actions = (actions || []).filter((a) => {
+      const op = canonicalizeBuilderActionName(a?.action || a?.op);
+      return !['create_workflow', 'create_from_template', 'clone_workflow', 'copy_workflow', 'duplicate_workflow'].includes(
+        op
+      );
+    });
+  }
   if (editIntent && !actionsHaveGraphEdit(actions)) {
     console.info('[workflow-builder] LLM edit missing graph mutation; looking up catalog then wiring');
     let lookupActions = actions.filter((a) =>
