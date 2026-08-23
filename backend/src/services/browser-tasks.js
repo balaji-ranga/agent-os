@@ -2060,7 +2060,7 @@ export async function resumeBrowserTask(ceoUserId, taskId, { approved = true } =
   return updateTask(ceoUserId, taskId, { status: 'running', wait_reason: null });
 }
 
-export async function captureRecorderStep(ceoUserId, taskId, { label = '', action, args = {}, url } = {}) {
+export async function captureRecorderStep(ceoUserId, taskId, { label = '', action, args = {}, url, execute = false } = {}) {
   const task = getTask(ceoUserId, taskId);
   if (!task || task.mode !== 'recorder') {
     const err = new Error('Recorder task not found');
@@ -2073,7 +2073,7 @@ export async function captureRecorderStep(ceoUserId, taskId, { label = '', actio
     throw err;
   }
   const agentId = task.agent_id || 'workflowbuilder';
-  const snap = await takeSnapshot(ceoUserId, agentId);
+  let snap = await takeSnapshot(ceoUserId, agentId);
   const pageUrl =
     String(url || args.url || '').trim() ||
     (await getCurrentPageUrl(ceoUserId, agentId)) ||
@@ -2112,7 +2112,13 @@ export async function captureRecorderStep(ceoUserId, taskId, { label = '', actio
     stepArgs = { url: openUrl, snapshot_excerpt: String(snap).slice(0, 1200) };
     stepLabel = stepLabel || `Open ${openUrl}`;
   } else {
-    stepArgs = { ...stepArgs, snapshot_excerpt: String(snap).slice(0, 1500) };
+    if (execute) {
+      const result = await browserInvoke(ceoUserId, recordedAction, stepArgs, agentId);
+      snap = await takeSnapshot(ceoUserId, agentId);
+      stepArgs = { ...stepArgs, recorded_result: result, snapshot_excerpt: String(snap).slice(0, 1500) };
+    } else {
+      stepArgs = { ...stepArgs, snapshot_excerpt: String(snap).slice(0, 1500) };
+    }
     stepLabel = stepLabel || `${recordedAction} at ${new Date().toISOString()}`;
   }
 

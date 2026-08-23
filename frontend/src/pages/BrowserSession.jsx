@@ -68,6 +68,9 @@ function BrowserSessionPanel() {
   const [activeTask, setActiveTask] = useState(null);
   const [recordingSteps, setRecordingSteps] = useState([]);
   const [captureLabel, setCaptureLabel] = useState('');
+  const [recordActionKind, setRecordActionKind] = useState('click');
+  const [recordActionTarget, setRecordActionTarget] = useState('');
+  const [recordActionValue, setRecordActionValue] = useState('');
   const [lastCapturedUrl, setLastCapturedUrl] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -227,6 +230,39 @@ function BrowserSessionPanel() {
       const url = out?.captured?.url || out?.captured?.args?.url;
       if (url) setLastCapturedUrl(url);
     }, 'Page captured');
+
+  const executeAndCaptureAction = () =>
+    run(async () => {
+      if (!activeTask?.id) throw new Error('No active recording');
+      const kind = recordActionKind;
+      const target = recordActionTarget.trim();
+      const value = recordActionValue;
+      if (kind === 'click' && !target) throw new Error('Enter visible button/link text or a snapshot ref');
+      if (kind === 'type' && !value) throw new Error('Enter the text to type');
+      if (kind === 'press' && !value.trim()) throw new Error('Enter a key such as Enter or Escape');
+      if (kind === 'click' && /^(post|publish|submit|send)$/i.test(target)) {
+        const ok = window.confirm(`This will execute “${target}” now and may make an external change. Continue?`);
+        if (!ok) return;
+      }
+      const request = { kind };
+      if (kind === 'click') request.text = target;
+      if (kind === 'type') {
+        if (target) request.ref = target;
+        request.text = value;
+      }
+      if (kind === 'press') request.key = value.trim();
+      const out = await api.browserSessionCapture(activeTask.id, {
+        label: captureLabel.trim() || `${kind} ${target || value}`,
+        action: 'act',
+        args: { request },
+        execute: true,
+      });
+      setCaptureLabel('');
+      setRecordActionTarget('');
+      if (kind !== 'type') setRecordActionValue('');
+      const recipeId = activeTask.recipe_id || out?.task?.recipe_id;
+      if (recipeId) await loadRecipeSteps(recipeId);
+    }, 'Action executed and recorded');
 
   const finishWizard = () =>
     run(async () => {
@@ -800,6 +836,39 @@ function BrowserSessionPanel() {
                   >
                     Capture this page
                   </button>
+                </div>
+
+                <div style={{ padding: '0.75rem', border: '1px solid var(--border)', borderRadius: 8, marginBottom: '1rem' }}>
+                  <strong style={{ display: 'block', marginBottom: '0.5rem' }}>Execute and record an action</strong>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <select value={recordActionKind} onChange={(e) => setRecordActionKind(e.target.value)}>
+                      <option value="click">Click</option>
+                      <option value="type">Type</option>
+                      <option value="press">Press key</option>
+                    </select>
+                    {recordActionKind !== 'press' && (
+                      <input
+                        value={recordActionTarget}
+                        onChange={(e) => setRecordActionTarget(e.target.value)}
+                        placeholder={recordActionKind === 'click' ? 'Visible text (e.g. Start a post)' : 'Optional snapshot ref'}
+                        style={{ flex: '1 1 190px', padding: '0.55rem' }}
+                      />
+                    )}
+                    {recordActionKind !== 'click' && (
+                      <input
+                        value={recordActionValue}
+                        onChange={(e) => setRecordActionValue(e.target.value)}
+                        placeholder={recordActionKind === 'type' ? 'Text to type' : 'Key (e.g. Enter)'}
+                        style={{ flex: '2 1 260px', padding: '0.55rem' }}
+                      />
+                    )}
+                    <button type="button" disabled={busy || !activeTask?.id} onClick={executeAndCaptureAction}>
+                      Execute + record
+                    </button>
+                  </div>
+                  <small style={{ color: 'var(--muted)' }}>
+                    Post/Publish/Submit/Send clicks require confirmation. Recorded actions replay in this order.
+                  </small>
                 </div>
 
                 <h4 style={{ margin: '0 0 0.5rem', fontSize: '0.95rem' }}>
