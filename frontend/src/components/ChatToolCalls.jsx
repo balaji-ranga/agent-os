@@ -123,7 +123,7 @@ export function collectGeneratedMediaUrlsFromToolCalls(toolCalls) {
       // `task.result.artifacts` array was beyond the log truncation boundary.
       const serialized = typeof tc.response === 'string' ? tc.response : JSON.stringify(resp);
       const artifactUrls = serialized.match(/\/api\/media\/artifacts\/[a-zA-Z0-9_-]+\/download/g) || [];
-      artifactUrls.forEach(push);
+      artifactUrls.forEach((url) => push(`${url}?filename=browser-screenshot.png`));
       continue;
     }
     push(resp.relative_url || resp.paste_exactly || resp.media_uri || resp.url || resp.image_url || resp.video_url);
