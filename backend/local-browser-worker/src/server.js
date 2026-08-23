@@ -320,11 +320,79 @@ async function clickByTextOrSelector(p, label) {
   } catch {
     /* next */
   }
+  if (await clickByTextViaCdp(p, target).catch(() => false)) return;
   if (target.startsWith('#') || target.startsWith('.') || target.startsWith('[')) {
     await p.click(target, { timeout: 10000 });
     return;
   }
   throw new Error('Element not found or not visible for "' + target.slice(0, 80) + '"');
+}
+
+/**
+ * Chromium fallback for controls hidden behind closed/encapsulated shadow roots.
+ * DOM.getFlattenedDocument with pierce=true sees those nodes; Input mouse events
+ * preserve a real user-like click instead of invoking an untrusted JS click.
+ */
+async function clickByTextViaCdp(p, label) {
+  const session = await p.context().newCDPSession(p);
+  try {
+    await session.send('DOM.enable');
+    const { nodes = [] } = await session.send('DOM.getFlattenedDocument', { depth: -1, pierce: true });
+    const byId = new Map(nodes.map((node) => [node.nodeId, node]));
+    const children = new Map();
+    for (const node of nodes) {
+      if (!node.parentId) continue;
+      if (!children.has(node.parentId)) children.set(node.parentId, []);
+      children.get(node.parentId).push(node.nodeId);
+    }
+    const textMemo = new Map();
+    const nodeText = (id) => {
+      if (textMemo.has(id)) return textMemo.get(id);
+      const node = byId.get(id);
+      if (!node) return '';
+      const own = node.nodeType === 3 ? String(node.nodeValue || '') : '';
+      const nested = (children.get(id) || []).map(nodeText).join(' ');
+      const value = `${own} ${nested}`.replace(/\s+/g, ' ').trim();
+      textMemo.set(id, value);
+      return value;
+    };
+    const wanted = String(label || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    const candidates = [];
+    for (const node of nodes) {
+      if (node.nodeType !== 1) continue;
+      const attrs = {};
+      for (let i = 0; i < (node.attributes || []).length; i += 2) {
+        attrs[String(node.attributes[i] || '').toLowerCase()] = String(node.attributes[i + 1] || '');
+      }
+      const tag = String(node.nodeName || '').toLowerCase();
+      const interactive = tag === 'button' || tag === 'a' || ['button', 'link', 'menuitem'].includes(String(attrs.role || '').toLowerCase());
+      if (!interactive) continue;
+      const rendered = [attrs['aria-label'], attrs.title, attrs.value, nodeText(node.nodeId)]
+        .filter(Boolean).join(' ').replace(/\s+/g, ' ').trim().toLowerCase();
+      if (!rendered) continue;
+      const exact = rendered === wanted || String(attrs['aria-label'] || '').trim().toLowerCase() === wanted;
+      if (exact || rendered.includes(wanted)) candidates.push({ node, exact, length: rendered.length });
+    }
+    candidates.sort((a, b) => Number(b.exact) - Number(a.exact) || a.length - b.length);
+    for (const { node } of candidates) {
+      try {
+        const { model } = await session.send('DOM.getBoxModel', { backendNodeId: node.backendNodeId });
+        const quad = model?.border || model?.content;
+        if (!quad || quad.length < 8) continue;
+        const x = (quad[0] + quad[2] + quad[4] + quad[6]) / 4;
+        const y = (quad[1] + quad[3] + quad[5] + quad[7]) / 4;
+        await session.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
+        await session.send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+        await session.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+        return true;
+      } catch {
+        /* try next matching control */
+      }
+    }
+    return false;
+  } finally {
+    await session.detach().catch(() => {});
+  }
 }
 
 async function locatorForRef(p, ref) {
