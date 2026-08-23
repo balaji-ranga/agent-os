@@ -71,6 +71,8 @@ function BrowserSessionPanel() {
   const [recordActionKind, setRecordActionKind] = useState('click');
   const [recordActionTarget, setRecordActionTarget] = useState('');
   const [recordActionValue, setRecordActionValue] = useState('');
+  const [recordActionDynamic, setRecordActionDynamic] = useState(false);
+  const [recordActionInputName, setRecordActionInputName] = useState('post_content');
   const [lastCapturedUrl, setLastCapturedUrl] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -239,6 +241,9 @@ function BrowserSessionPanel() {
       const value = recordActionValue;
       if (kind === 'click' && !target) throw new Error('Enter visible button/link text or a snapshot ref');
       if (kind === 'type' && !value) throw new Error('Enter the text to type');
+      if (kind === 'type' && recordActionDynamic && !/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(recordActionInputName.trim())) {
+        throw new Error('Dynamic input name must start with a letter and contain only letters, numbers, or underscores');
+      }
       if (kind === 'press' && !value.trim()) throw new Error('Enter a key such as Enter or Escape');
       if (kind === 'click' && /^(post|publish|submit|send)$/i.test(target)) {
         const ok = window.confirm(`This will execute “${target}” now and may make an external change. Continue?`);
@@ -254,10 +259,14 @@ function BrowserSessionPanel() {
         request.text = value;
       }
       if (kind === 'press') request.key = value.trim();
+      const templateRequest = kind === 'type' && recordActionDynamic
+        ? { ...request, text: `{{${recordActionInputName.trim()}}}` }
+        : request;
       const out = await api.browserSessionCapture(activeTask.id, {
         label: captureLabel.trim() || `${kind} ${target || value}`,
         action: 'act',
         args: { request },
+        template_args: { request: templateRequest },
         execute: true,
       });
       setCaptureLabel('');
@@ -869,7 +878,30 @@ function BrowserSessionPanel() {
                       Execute + record
                     </button>
                   </div>
+                  {recordActionKind === 'type' && (
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', marginTop: '0.65rem' }}>
+                      <label style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={recordActionDynamic}
+                          onChange={(e) => setRecordActionDynamic(e.target.checked)}
+                        />
+                        Replace this text with agent input when replayed
+                      </label>
+                      {recordActionDynamic && (
+                        <input
+                          value={recordActionInputName}
+                          onChange={(e) => setRecordActionInputName(e.target.value)}
+                          placeholder="Input name (e.g. post_content)"
+                          style={{ flex: '1 1 220px', padding: '0.45rem' }}
+                        />
+                      )}
+                    </div>
+                  )}
                   <small style={{ color: 'var(--muted)' }}>
+                    {recordActionKind === 'type' && recordActionDynamic
+                      ? `The sample is typed now; the recipe stores {{${recordActionInputName || 'input_name'}}}. `
+                      : ''}
                     Post/Publish/Submit/Send clicks require confirmation. Recorded actions replay in this order.
                   </small>
                 </div>
@@ -890,6 +922,9 @@ function BrowserSessionPanel() {
                           {' '}
                           — <code style={{ wordBreak: 'break-all' }}>{s.args.url}</code>
                         </>
+                      ) : null}
+                      {s.args?.request?.text && /\{\{\s*[A-Za-z][A-Za-z0-9_]*\s*\}\}/.test(s.args.request.text) ? (
+                        <> — dynamic <code>{s.args.request.text}</code></>
                       ) : null}
                     </li>
                   ))}
@@ -1062,16 +1097,28 @@ function BrowserSessionPanel() {
                   {r.actionable_steps != null ? ` · ${r.actionable_steps} actionable` : ''}
                   {r.step_count != null ? ` / ${r.step_count} steps` : ''})
                 </span>
+                {Array.isArray(r.required_inputs) && r.required_inputs.length > 0 && (
+                  <span style={{ color: 'var(--muted)' }}>
+                    Inputs: {r.required_inputs.map((name) => <code key={name} style={{ marginLeft: 4 }}>{name}</code>)}
+                  </span>
+                )}
                 <button
                   type="button"
                   disabled={busy}
                   onClick={() =>
                     run(async () => {
+                      const inputs = {};
+                      for (const name of r.required_inputs || []) {
+                        const value = window.prompt(`Value for recipe input “${name}”`);
+                        if (value == null) throw new Error(`Replay cancelled: ${name} is required`);
+                        inputs[name] = value;
+                      }
                       const { task } = await api.browserSessionStartTask({
                         mode: 'recipe_replay',
                         recipe_name: r.name,
                         recipe_id: r.id,
                         goal: `Replay ${r.name}`,
+                        inputs,
                       });
                       setActiveTask(task);
                       setMainTab('run');

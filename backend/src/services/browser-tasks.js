@@ -25,6 +25,9 @@ import {
   getRecipeByName,
   publishRecipe,
   countActionableRecipeSteps,
+  normalizeRecipeInputs,
+  recipeRequiredInputs,
+  substituteRecipeInputs,
 } from './browser-recipes.js';
 import { storeFeedback } from './agent-feedback.js';
 import { assertUrlAllowed } from './browser-url-policy.js';
@@ -1332,6 +1335,11 @@ export async function startBrowserTask(ceoUserId, body = {}) {
   }
   if (mode === 'recorder' && !goal) goal = body.name || 'Recorded browser session';
 
+  const taskInput = mode === 'recipe_replay'
+    ? normalizeRecipeInputs(body.inputs ?? body.input ?? {})
+    : body.input && typeof body.input === 'object'
+      ? body.input
+      : {};
   const db = getDb();
   const id = `bt-${randomUUID()}`;
   const agentId = String(body.agent_id || 'workflowbuilder');
@@ -1378,7 +1386,7 @@ export async function startBrowserTask(ceoUserId, body = {}) {
     mode === 'recorder' ? 'recording' : 'pending',
     goal,
     startUrl,
-    JSON.stringify(body.input || {}),
+    JSON.stringify(taskInput),
     selectedExecutor?.id || null,
     selectedExecutor?.driver_mode || 'managed_playwright',
     selectedExecutor?.protocol_version || 1,
@@ -1971,6 +1979,18 @@ async function runRecipeReplay(ceoUserId, taskId) {
   if (!task?.recipe_id) throw new Error('missing recipe');
   const recipe = getRecipe(ceoUserId, task.recipe_id);
   if (!recipe) throw new Error('recipe not found');
+  const inputs = normalizeRecipeInputs(task.input || {});
+  const requiredInputs = recipeRequiredInputs(recipe);
+  const missingInputs = requiredInputs.filter((name) => !Object.prototype.hasOwnProperty.call(inputs, name));
+  if (missingInputs.length) {
+    const error = `Missing required recipe input(s): ${missingInputs.join(', ')}`;
+    updateTask(ceoUserId, taskId, {
+      status: 'failed',
+      error,
+      result: { summary: error, recipe_id: recipe.id, recipe_name: recipe.name, required_inputs: requiredInputs },
+    });
+    return;
+  }
   updateTask(ceoUserId, taskId, { status: 'running' });
   const agentId = task.agent_id || 'workflowbuilder';
   const actionable = (recipe.steps || []).filter((s) =>
@@ -1994,7 +2014,7 @@ async function runRecipeReplay(ceoUserId, taskId) {
   }
   const steps = [];
   for (const step of recipe.steps) {
-    const args = step.args || {};
+    const args = substituteRecipeInputs(step.args || {}, inputs);
     const act = String(step.action || '').toLowerCase();
     if (act === 'snapshot') {
       // Checkpoints are not replayed as browser actions
@@ -2025,6 +2045,7 @@ async function runRecipeReplay(ceoUserId, taskId) {
       recipe_id: recipe.id,
       recipe_name: recipe.name,
       actionable_steps: actionable.length,
+      used_inputs: requiredInputs,
       snapshot_excerpt: snap.slice(0, 4000),
     },
   });
@@ -2060,7 +2081,11 @@ export async function resumeBrowserTask(ceoUserId, taskId, { approved = true } =
   return updateTask(ceoUserId, taskId, { status: 'running', wait_reason: null });
 }
 
-async function captureRecorderStepPinned(ceoUserId, taskId, { label = '', action, args = {}, url, execute = false } = {}) {
+async function captureRecorderStepPinned(
+  ceoUserId,
+  taskId,
+  { label = '', action, args = {}, template_args: templateArgs, url, execute = false } = {}
+) {
   const task = getTask(ceoUserId, taskId);
   if (!task || task.mode !== 'recorder') {
     const err = new Error('Recorder task not found');
@@ -2115,7 +2140,10 @@ async function captureRecorderStepPinned(ceoUserId, taskId, { label = '', action
     if (execute) {
       const result = await browserInvoke(ceoUserId, recordedAction, stepArgs, agentId);
       snap = await takeSnapshot(ceoUserId, agentId);
-      stepArgs = { ...stepArgs, recorded_result: result, snapshot_excerpt: String(snap).slice(0, 1500) };
+      const storedArgs = templateArgs && typeof templateArgs === 'object' && !Array.isArray(templateArgs)
+        ? templateArgs
+        : stepArgs;
+      stepArgs = { ...storedArgs, recorded_result: result, snapshot_excerpt: String(snap).slice(0, 1500) };
     } else {
       stepArgs = { ...stepArgs, snapshot_excerpt: String(snap).slice(0, 1500) };
     }

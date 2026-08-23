@@ -63,7 +63,7 @@ const BROWSER_TOOLS = [
     endpoint: '/api/tools/browse-recipe-list',
     method: 'POST',
     purpose:
-      'API tool: list saved browser recipes (recorded trails) for this CEO. Returns name, status, actionable_steps. To play a recipe, call browse_recipe_run with recipe_name (preferred) or recipe_id. Grant browse_recipe_run separately in Agent Workspace → Tool access. Do not use exec.',
+      'API tool: list saved browser recipes (recorded trails) for this CEO. Returns name, status, actionable_steps, and required_inputs. To play a recipe, call browse_recipe_run with recipe_name (preferred) or recipe_id and supply every required input in inputs. Grant browse_recipe_run separately in Agent Workspace → Tool access. Do not use exec.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,
@@ -74,7 +74,7 @@ const BROWSER_TOOLS = [
     endpoint: '/api/tools/browse-recipe-run',
     method: 'POST',
     purpose:
-      'API tool: play/run a saved browser recipe for this CEO (async). Pass recipe_name (exact, preferred) or recipe_id, optional start_url and wait_ms (up to 90000). Returns task_id; then use browse_task_status if needed. Requires tool grant browse_recipe_run (list alone is not enough). Do not use exec.',
+      'API tool: play/run a saved browser recipe for this CEO (async). Pass recipe_name (exact, preferred) or recipe_id, inputs as an object containing every name returned in required_inputs, and optional start_url and wait_ms (up to 90000). Example: {"recipe_name":"LinkedIn post","inputs":{"post_content":"Text to publish"}}. Missing required inputs fail before any browser action. Returns task_id; then use browse_task_status if needed. Requires tool grant browse_recipe_run (list alone is not enough). Do not use exec.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,

@@ -16,6 +16,61 @@ function parseJson(raw, fallback) {
   }
 }
 
+const RECIPE_INPUT_NAME = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
+const RECIPE_INPUT_TOKEN = /\{\{\s*([A-Za-z][A-Za-z0-9_]{0,63})\s*\}\}/g;
+
+function collectInputNames(value, names = new Set()) {
+  if (typeof value === 'string') {
+    for (const match of value.matchAll(RECIPE_INPUT_TOKEN)) names.add(match[1]);
+  } else if (Array.isArray(value)) {
+    for (const item of value) collectInputNames(item, names);
+  } else if (value && typeof value === 'object') {
+    for (const item of Object.values(value)) collectInputNames(item, names);
+  }
+  return names;
+}
+
+export function recipeRequiredInputs(recipe) {
+  return [...collectInputNames((recipe?.steps || []).map((step) => step.args || {}))].sort();
+}
+
+export function normalizeRecipeInputs(value) {
+  if (value == null) return {};
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    const err = new Error('recipe inputs must be an object');
+    err.status = 400;
+    throw err;
+  }
+  const out = {};
+  for (const [key, input] of Object.entries(value)) {
+    if (!RECIPE_INPUT_NAME.test(key)) {
+      const err = new Error(`invalid recipe input name "${String(key).slice(0, 80)}"`);
+      err.status = 400;
+      throw err;
+    }
+    if (input == null || ['string', 'number', 'boolean'].includes(typeof input)) out[key] = input ?? '';
+    else {
+      const err = new Error(`recipe input "${key}" must be a string, number, or boolean`);
+      err.status = 400;
+      throw err;
+    }
+  }
+  return out;
+}
+
+export function substituteRecipeInputs(value, inputs) {
+  if (typeof value === 'string') {
+    const exact = value.match(/^\{\{\s*([A-Za-z][A-Za-z0-9_]{0,63})\s*\}\}$/);
+    if (exact) return inputs[exact[1]];
+    return value.replace(RECIPE_INPUT_TOKEN, (_token, name) => String(inputs[name]));
+  }
+  if (Array.isArray(value)) return value.map((item) => substituteRecipeInputs(item, inputs));
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, substituteRecipeInputs(item, inputs)]));
+  }
+  return value;
+}
+
 function mapRecipeRow(row) {
   if (!row) return null;
   return {
@@ -40,7 +95,11 @@ export function listRecipes(ceoUserId, { limit = 10, offset = 0 } = {}) {
        ORDER BY updated_at DESC LIMIT ? OFFSET ?`
     )
     .all(ceoUserId, lim, off);
-  return { recipes, total, limit: lim, offset: off, has_more: off + recipes.length < total };
+  const withInputs = recipes.map((recipe) => ({
+    ...recipe,
+    required_inputs: recipeRequiredInputs(getRecipe(ceoUserId, recipe.id)),
+  }));
+  return { recipes: withInputs, total, limit: lim, offset: off, has_more: off + recipes.length < total };
 }
 
 export function getRecipe(ceoUserId, recipeId) {
@@ -59,10 +118,11 @@ export function getRecipe(ceoUserId, recipeId) {
       ...s,
       args: parseJson(s.args_json, {}),
     }));
-  return {
+  const recipe = {
     ...mapRecipeRow(row),
     steps,
   };
+  return { ...recipe, required_inputs: recipeRequiredInputs(recipe) };
 }
 
 /** Resolve by exact name (case-insensitive); prefer published. */
