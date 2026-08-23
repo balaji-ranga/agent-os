@@ -117,6 +117,13 @@ export function collectGeneratedMediaUrlsFromToolCalls(toolCalls) {
         const filename = String(artifact?.filename || 'browser-screenshot.png');
         push(String(artifact?.mimeType || '').startsWith('image/') ? `${url}?filename=${encodeURIComponent(filename)}` : url);
       }
+      // OpenClaw tool logs may retain large responses as a truncated `_preview`
+      // string. Browser artifact URLs are deliberately placed in the result
+      // summary, so recover those owner-scoped URLs even when the structured
+      // `task.result.artifacts` array was beyond the log truncation boundary.
+      const serialized = typeof tc.response === 'string' ? tc.response : JSON.stringify(resp);
+      const artifactUrls = serialized.match(/\/api\/media\/artifacts\/[a-zA-Z0-9_-]+\/download/g) || [];
+      artifactUrls.forEach(push);
       continue;
     }
     push(resp.relative_url || resp.paste_exactly || resp.media_uri || resp.url || resp.image_url || resp.video_url);
