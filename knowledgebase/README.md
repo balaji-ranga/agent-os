@@ -21,6 +21,7 @@ Documentation lives here so Cursor and humans can find it. **GitHub landing:** r
 | **TESTING.md** | Restart steps, full API test, frontend manual tests, smoke test, standup→COO→TechResearcher test, standup UI checklist. |
 | **GITHUB-SETUP.md** | One-time: create agent-os repo on GitHub and push (Options A/B, security check). |
 | **IMPLEMENTATION_PLAN.md** | Product/roadmap: vision, architecture, phases (1–5), skills, TTS, token monitoring, references. |
+| **FREE-AI-TOOLS-AND-MCP-DISCOVERY-PLAN.md** | Public acquisition plan: anonymous embeddable FAQ/help widget, MCP Explorer, browser-local AI utilities, abuse controls, SEO, metrics, and phased delivery. |
 | **MANAGEMENT-LAYER-PHASE1.md** | Phase 1 outcome/runtime + Action control; rollback SHA `6f94d58`; six gates + document T1–T3 acceptance (`test-t123-acceptance.mjs`). |
 | **MANAGEMENT-LAYER-PHASE2.md** | Phase 2 Pipeline under constraints; Gates A–C results; Gate D not run; `test-phase2-pipeline-stress.mjs` + `test-gate-bc-live.mjs`. |
 | **AGENT_REVIEW_AND_SKILLS.md** | Agent review (COO, TechResearcher, SocialAssistant); secure skill recommendations and where skills live. |
