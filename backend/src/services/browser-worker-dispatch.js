@@ -2,6 +2,7 @@
 import { randomUUID } from 'crypto';
 import { getDb } from '../db/schema.js';
 import { assertUrlAllowed } from './browser-url-policy.js';
+import { createMediaArtifact } from './ceo-media-artifacts.js';
 
 function db() { return getDb(); }
 const OFFLINE_MS = () => Math.max(15_000, Number(process.env.BROWSER_WORKER_OFFLINE_MS || 90_000));
@@ -179,12 +180,35 @@ export function completeBrowserWorkerJob(ownerUserId, nodeId, jobId, {
   const row = db().prepare(`SELECT id, status FROM browser_worker_jobs WHERE id = ? AND owner_user_id = ? AND selected_node_id = ?`).get(id, owner, node);
   if (!row) return { ok: false, error: 'job not found for this node' };
   if (row.status === 'completed' || row.status === 'failed') return { ok: true, already: true };
+  let storedResult = result;
+  if (ok && result?.screenshot_base64) {
+    const encoded = String(result.screenshot_base64);
+    const maxBytes = Math.max(1, Number(process.env.BROWSER_SCREENSHOT_MAX_MB || 10)) * 1024 * 1024;
+    const buffer = Buffer.from(encoded, 'base64');
+    if (!buffer.length || buffer.length > maxBytes) {
+      ok = false;
+      error = buffer.length ? 'Screenshot exceeds configured size limit' : 'Screenshot payload is empty';
+      failureCode = 'SCREENSHOT_INVALID';
+      resultState = 'outcome_not_observed';
+      storedResult = null;
+    } else {
+      const { ref } = createMediaArtifact(owner, {
+        buffer,
+        filename: result.filename || `browser-${id}.png`,
+        mimeType: 'image/png',
+        kind: 'other',
+        meta: { source: 'browser_task', browser_worker_job_id: id, node_id: node, url: result.url || '' },
+      });
+      const { screenshot_base64: _discard, ...rest } = result;
+      storedResult = { ...rest, artifact: ref, artifact_url: ref.url };
+    }
+  }
   const status = ok ? 'completed' : 'failed';
   const ts = nowIso();
   db().prepare(
     `UPDATE browser_worker_jobs SET status = ?, result_json = ?, error = ?, failure_code = ?, result_state = ?, completed_at = ?, updated_at = ?
      WHERE id = ? AND owner_user_id = ? AND selected_node_id = ?`
-  ).run(status, result != null ? JSON.stringify(result) : null, error ? String(error).slice(0, 2000) : null,
+  ).run(status, storedResult != null ? JSON.stringify(storedResult) : null, error ? String(error).slice(0, 2000) : null,
     failureCode ? String(failureCode).slice(0, 80) : null, resultState ? String(resultState).slice(0, 80) : null,
     ts, ts, id, owner, node);
   return { ok: true };

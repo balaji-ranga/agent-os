@@ -13,7 +13,7 @@ import { chromium } from 'playwright';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
-const WORKER_VERSION = '2.0.0';
+const WORKER_VERSION = '2.1.0';
 const PROTOCOL_VERSION = 1;
 
 function loadEnvFile() {
@@ -82,6 +82,21 @@ let context = null;
 let page = null;
 /** Stable task-to-page pins. Popups are registered but never steal another task's page. */
 const taskPages = new Map();
+/** Pages created by this worker may be closed at task end; attached user tabs must never be closed. */
+const taskOwnedPages = new Set();
+
+async function closeTaskPage(taskId) {
+  const taskKey = String(taskId || '').trim();
+  if (!taskKey) return { ok: true, closed: false, reason: 'task_id_missing' };
+  const pinned = taskPages.get(taskKey);
+  taskPages.delete(taskKey);
+  const owned = taskOwnedPages.delete(taskKey);
+  if (!pinned || pinned.isClosed()) return { ok: true, closed: false, reason: 'already_closed' };
+  if (!owned) return { ok: true, closed: false, reason: 'not_worker_owned' };
+  await pinned.close({ runBeforeUnload: false }).catch(() => {});
+  if (page === pinned) page = null;
+  return { ok: true, closed: pinned.isClosed(), reason: 'task_complete' };
+}
 
 function profileHasLocalState() {
   return (
@@ -99,6 +114,7 @@ async function ensureBrowser(taskId = '') {
     try {
       const dedicated = await context.newPage();
       taskPages.set(taskKey, dedicated);
+      taskOwnedPages.add(taskKey);
       return dedicated;
     } catch {
       // Reconnect or relaunch below when the prior context is no longer usable.
@@ -173,7 +189,10 @@ async function ensureBrowser(taskId = '') {
   const pages = context.pages();
   page = pages.length ? pages[0] : await context.newPage();
   context.on('page', (p) => { if (!page || page.isClosed()) page = p; });
-  if (taskKey) taskPages.set(taskKey, page);
+  if (taskKey) {
+    taskPages.set(taskKey, page);
+    taskOwnedPages.add(taskKey);
+  }
   console.info(
     '[browser-worker] browser ready headless=%s channel=%s persistent=true',
     HEADLESS,
@@ -321,8 +340,14 @@ async function locatorForRef(p, ref) {
 async function runAction(action, args = {}) {
   const act = String(action || '').toLowerCase();
   const taskKey = String(args.task_id || '').trim();
+  if (act === 'task_cleanup' || act === 'close_task') {
+    return closeTaskPage(taskKey);
+  }
   let p = await ensureBrowser(taskKey);
-  if (taskKey && taskPages.get(taskKey)?.isClosed()) taskPages.delete(taskKey);
+  if (taskKey && taskPages.get(taskKey)?.isClosed()) {
+    taskPages.delete(taskKey);
+    taskOwnedPages.delete(taskKey);
+  }
   if (act === 'status' || act === 'browser_status') {
     return {
       ok: true,
@@ -347,6 +372,19 @@ async function runAction(action, args = {}) {
       return { protocol_version: 1, page: { url: p.url(), title: await p.title().catch(() => '') }, elements: [], text };
     });
     return { ok: true, text: snapshot.text, snapshot: snapshot.text, structured_snapshot: snapshot };
+  }
+  if (act === 'screenshot') {
+    const fullPage = args.full_page !== false && args.fullPage !== false;
+    const image = await p.screenshot({ type: 'png', fullPage, animations: 'disabled' });
+    return {
+      ok: true,
+      mime_type: 'image/png',
+      filename: `browser-${taskKey || Date.now()}.png`,
+      screenshot_base64: image.toString('base64'),
+      url: p.url(),
+      title: await p.title().catch(() => ''),
+      full_page: fullPage,
+    };
   }
   if (act === 'action_batch' || act === 'batch') {
     const actions = Array.isArray(args.actions) ? args.actions.slice(0, 20) : [];
@@ -428,10 +466,10 @@ async function runAction(action, args = {}) {
 function workerCapabilities() {
   return {
     protocol_version: PROTOCOL_VERSION,
-    actions: ['open', 'snapshot', 'act', 'action_batch', 'status', 'evaluate', 'wait', 'start'],
+    actions: ['open', 'snapshot', 'screenshot', 'act', 'action_batch', 'status', 'evaluate', 'wait', 'start', 'task_cleanup'],
     structured_snapshot: true,
     action_batch: true,
-    screenshots: false,
+    screenshots: true,
     persistent_profile: true,
     headless: HEADLESS,
     user_data_dir_configured: true,

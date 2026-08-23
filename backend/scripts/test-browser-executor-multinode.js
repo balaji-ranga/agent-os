@@ -8,8 +8,10 @@ const {
   enqueueBrowserWorkerJob,
   claimNextBrowserWorkerJob,
   completeBrowserWorkerJob,
+  getBrowserWorkerJob,
   listBrowserExecutorNodes,
 } = await import('../src/services/browser-worker-dispatch.js');
+const { getMediaArtifact, deleteMediaArtifact } = await import('../src/services/ceo-media-artifacts.js');
 const {
   createBrowserWorkerToken,
   revokeBrowserWorkerToken,
@@ -64,6 +66,38 @@ assert.equal(
 
 assert.equal(revokeBrowserWorkerToken(extensionToken.id, 'browser-owner-a'), true);
 assert.equal(selectBrowserExecutor('browser-owner-a').id, 'desktop-a', 'revoked extension falls back before a new task');
+
+const screenshotJob = enqueueBrowserWorkerJob('browser-owner-a', 'screenshot', { task_id: 'bt-shot-test' });
+assert.equal(claimNextBrowserWorkerJob('browser-owner-a', 'desktop-a').id, screenshotJob.id);
+const onePixelPng =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2n+0AAAAASUVORK5CYII=';
+assert.equal(
+  completeBrowserWorkerJob('browser-owner-a', 'desktop-a', screenshotJob.id, {
+    ok: true,
+    result: {
+      ok: true,
+      mime_type: 'image/png',
+      filename: 'browser-test.png',
+      screenshot_base64: onePixelPng,
+      url: 'https://example.com/',
+    },
+    resultState: 'outcome_verified',
+  }).ok,
+  true
+);
+const storedScreenshotJob = getBrowserWorkerJob('browser-owner-a', screenshotJob.id);
+assert.ok(storedScreenshotJob.result.artifact?.artifactId, 'screenshot becomes an owner-scoped artifact');
+assert.equal(storedScreenshotJob.result.screenshot_base64, undefined, 'base64 is not retained in the job row');
+assert.ok(
+  getMediaArtifact('browser-owner-a', storedScreenshotJob.result.artifact.artifactId),
+  'artifact belongs to the job owner'
+);
+assert.equal(
+  getMediaArtifact('browser-owner-b', storedScreenshotJob.result.artifact.artifactId),
+  null,
+  'another owner cannot read the screenshot artifact'
+);
+deleteMediaArtifact('browser-owner-a', storedScreenshotJob.result.artifact.artifactId);
 
 const pairing = createBrowserExtensionPairingCode('browser-owner-a', { ttlMs: 60_000 });
 const consumed = consumeBrowserExtensionPairingCode(pairing.code, { deviceName: 'test extension' });

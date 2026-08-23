@@ -51,6 +51,40 @@ simultaneously; jobs are addressed to exactly one node.
 - Central IP API: `/api/settings/ip-whitelists`
 - Env (cloud): `BROWSER_WORKER_OFFLINE_MS`, `BROWSER_WORKER_JOB_TIMEOUT_MS`
 - Package env (laptop `.env`): `BROWSER_WORKER_TOKEN`, `AGENT_OS_BASE_URL`, `BROWSER_HEADLESS=0`, `BROWSER_CHANNEL=chrome`, `BROWSER_USER_DATA_DIR`, optional `BROWSER_CDP_URL`
-- Package source: `backend/local-browser-worker/` (worker `1.1.0`, Playwright **1.55.1+**, persistent profile)
+- Package source: `backend/local-browser-worker/` (worker `2.1.0`, Playwright **1.55.1+**, persistent profile)
 
 See also: [CLIENT-BROWSER-SESSION.md](./CLIENT-BROWSER-SESSION.md), Connectors UI, platform-help [22-browser-session-and-recipes.md](./platform-help/22-browser-session-and-recipes.md), [33-ip-whitelists.md](./platform-help/33-ip-whitelists.md).
+
+## Record and replay a Track 1 recipe
+
+Recipes use the same owner-scoped Desktop Local worker as autonomous Track 1 tasks. They do not require the legacy
+shared Client Chrome lease.
+
+1. Start `Start-BrowserWorker.ps1` and confirm **Browser Session → Desktop Local** shows **online**.
+2. Open **Browser Session → Record recipe → New recording**.
+3. Give the recipe a unique, descriptive name. Agents replay by exact name, so prefer names such as
+   `GitHub repository vulnerability pages` over `My recipe`.
+4. Optionally provide the first URL, then choose **Begin capturing pages**. The backend pins the recorder task to the
+   currently selected Desktop Local node and will not silently switch to managed Playwright.
+5. In the Playwright Chrome window, navigate to each stable page in the desired order. Back in Flolah, select
+   **Capture this page** after every navigation and add a short checkpoint label.
+6. Choose **Done — save recipe**. Confirm that the recipe contains at least one actionable `open` step.
+7. Grant the intended COO or specialist both `browse_recipe_list` and `browse_recipe_run` in
+   **Agent Workspace → Tool access**.
+8. Ask the agent: `Run the saved recipe "GitHub repository vulnerability pages" using my Desktop Local worker.`
+   The agent should list recipes, choose the exact name, call `browse_recipe_run`, then wait with
+   `browse_task_status`.
+
+Current recorder scope is deterministic navigation checkpoints (URLs). It does not passively intercept arbitrary
+mouse clicks or typed secrets. Use autonomous mode for element discovery between checkpoints, and never store passwords,
+tokens, payment data, or other secrets in a recipe.
+
+## Task planning, evidence, and tab lifecycle
+
+- Autonomous tasks create a compact observable plan before acting.
+- Every successful action is stored with execution evidence. Screenshot goals require a real screenshot artifact.
+- A separate completion check validates current page state and evidence before a task can become `completed`.
+- Missing mandatory evidence fails the task instead of accepting an unsupported `done` claim.
+- Desktop-worker tabs created for completed or failed tasks remain available briefly for review, then close automatically.
+  Set `input.keep_tab_open=true` only when a caller deliberately needs the task-owned tab retained.
+- Tabs not created by the worker, and tasks blocked for login or approval, are not automatically closed.

@@ -34,6 +34,10 @@ import {
 } from './browser-social-publish.js';
 
 const MAX_STEPS_DEFAULT = 18;
+const TASK_TAB_RETENTION_MS = Math.max(
+  0,
+  Number(process.env.BROWSER_TASK_TAB_RETENTION_MS || 60000) || 0
+);
 // Backend CDP invokes use this OpenClaw agent (must have built-in browser allowed).
 // Chat agents like techresearcher keep browser denied and use browse_* only.
 const BROWSER_CDP_AGENT_ID = process.env.BROWSER_TASK_CDP_AGENT_ID || 'browser-cdp';
@@ -83,7 +87,32 @@ function updateTask(ceoUserId, taskId, patch) {
       recipe_id = ?, updated_at = ?
      WHERE id = ? AND ceo_user_id = ?`
   ).run(status, resultJson, stepsJson, error, waitReason, recipeId, nowIso(), taskId, ceoUserId);
-  return getTask(ceoUserId, taskId);
+  const updated = getTask(ceoUserId, taskId);
+  const terminal = new Set(['completed', 'failed']);
+  if (updated && terminal.has(String(updated.status || '')) && !terminal.has(String(cur.status || ''))) {
+    scheduleTaskTabCleanup(updated);
+  }
+  return updated;
+}
+
+function scheduleTaskTabCleanup(task) {
+  if (!task?.selected_node_id || task?.input?.keep_tab_open === true) return;
+  const timer = setTimeout(async () => {
+    try {
+      const node = getBrowserExecutorNode(task.ceo_user_id, task.selected_node_id);
+      if (!node?.online) return;
+      await invokeViaBrowserWorker(
+        task.ceo_user_id,
+        'task_cleanup',
+        { task_id: task.id },
+        { node, timeoutMs: 15000 }
+      );
+      console.info('[browser-task] cleaned task tab id=%s node=%s', task.id, node.id);
+    } catch (error) {
+      console.warn('[browser-task] task tab cleanup failed id=%s: %s', task.id, error.message);
+    }
+  }, TASK_TAB_RETENTION_MS);
+  timer.unref?.();
 }
 
 const TASK_HISTORY_DAYS_DEFAULT = 7;
@@ -853,7 +882,7 @@ async function decideNextAction({ ceoUserId, goal, snapshot, history, startUrl, 
   const interactive = goalLooksInteractive(goal);
   const flowGoal = goalLooksGoogleFlow(goal);
   const system = `You drive a browser for a CEO. Reply with ONLY one minified JSON object. No markdown fences, no commentary.
-Schema: {"action":"click|type|press|scroll|open|done|wait_login|wait_approval","ref":"","text":"","url":"","key":"","summary":"","reason":""}
+Schema: {"action":"click|type|press|scroll|open|screenshot|done|wait_login|wait_approval","ref":"","text":"","url":"","key":"","summary":"","reason":""}
 Rules:
 - Prefer refs from the CURRENT accessibility snapshot only. Never reuse a ref that just failed.
 - If recent steps show act_failed / not found, pick a different control or use text of the control label if the schema allows (put label in reason and leave ref empty to try freeform).
@@ -862,6 +891,7 @@ Rules:
 - wait_approval only for pay, purchase, bank transfer, or sending money — NOT for social post Publish after the goal already says publish/post the copy.
 - For publish/post/compose goals: open composer → type the EXACT body from the goal → click Post/Publish. Put the live post URL in summary when done.
 - done when the goal is satisfied; put the answer (or post URL / honest blocker) in summary.
+- If the goal requests a screenshot or PNG, choose screenshot before done. Never claim a screenshot exists without screenshot artifact evidence in recent steps.
 - Never invent credentials or fake post URLs. Keep JSON under 500 characters when possible.
 ${interactive ? '- This goal is interactive (publish/compose/reply). Do not mark done after only opening the page.' : ''}
 ${
@@ -869,6 +899,7 @@ ${
     ? `- Google Flow video goal: open/create a project, type the scene prompt into the prompt box (use text="__FLOW_PROMPT__"), click Generate, wait for the clip, then download. done only with download filename/path — never done from the home/projects list alone.`
     : ''
 }
+
 ${
   modalOpen
     ? `- CRITICAL: A post/share composer MODAL/DIALOG is open. Do NOT scroll the background feed. Do NOT click "Start a post" again.
@@ -910,6 +941,92 @@ ${String(snapshot || '').slice(0, 12000)}`;
     parsed.text = extractFlowPromptFromGoal(goal) || parsed.text;
   }
   return parsed;
+}
+
+async function createExecutionPlan(ceoUserId, goal, startUrl) {
+  try {
+    const { content } = await chatCompletions({
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Create a compact browser execution plan. Reply with only JSON: ' +
+            '{"steps":[{"goal":"","evidence":""}],"completion_evidence":[""]}. ' +
+            'Use 2-8 observable checkpoints. Never claim an action or artifact exists before it is observed.',
+        },
+        { role: 'user', content: `Goal: ${goal}\nStart URL: ${startUrl || '(current page)'}` },
+      ],
+      maxTokens: 700,
+      ownerUserId: ceoUserId,
+      toolName: 'browse_task_start',
+    });
+    const parsed = extractJsonObject(content);
+    if (Array.isArray(parsed?.steps) && parsed.steps.length) {
+      return {
+        steps: parsed.steps.slice(0, 8),
+        completion_evidence: Array.isArray(parsed.completion_evidence)
+          ? parsed.completion_evidence.slice(0, 8)
+          : [],
+      };
+    }
+  } catch (error) {
+    console.warn('[browser-task] plan generation failed: %s', error.message);
+  }
+  return {
+    steps: [
+      { goal: 'Open the requested page', evidence: 'Observed final URL and title' },
+      { goal: 'Perform the requested browser actions', evidence: 'Successful action results' },
+      { goal: 'Verify the requested outcome', evidence: 'Current page snapshot supports completion' },
+    ],
+    completion_evidence: ['Current page state supports the requested goal'],
+    fallback: true,
+  };
+}
+
+async function verifyGoalCompletion({ ceoUserId, goal, plan, snapshot, history, proposedSummary }) {
+  const screenshotRequested = /\b(screen\s*shot|png|image capture)\b/i.test(String(goal || ''));
+  const screenshotObserved = history.some(
+    (entry) => entry?.action === 'screenshot' && (entry?.artifact?.url || entry?.artifact_url)
+  );
+  if (screenshotRequested && !screenshotObserved) {
+    return {
+      satisfied: false,
+      reason: 'The goal requires a screenshot artifact, but no screenshot evidence was produced.',
+      missing_evidence: ['screenshot_artifact'],
+      hard_guard: true,
+    };
+  }
+  try {
+    const { content } = await chatCompletions({
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Independently verify whether a browser goal is complete. Reply with only JSON: ' +
+            '{"satisfied":true|false,"reason":"","evidence":[""],"missing_evidence":[""]}. ' +
+            'Require observable evidence from the snapshot and action history. Reject unsupported success claims.',
+        },
+        {
+          role: 'user',
+          content:
+            `Goal: ${goal}\nPlan: ${JSON.stringify(plan)}\nProposed summary: ${proposedSummary || ''}\n` +
+            `Recent history: ${JSON.stringify(history.slice(-12))}\nSnapshot:\n${String(snapshot || '').slice(0, 12000)}`,
+        },
+      ],
+      maxTokens: 700,
+      ownerUserId: ceoUserId,
+      toolName: 'browse_task_start',
+    });
+    const parsed = extractJsonObject(content);
+    if (typeof parsed?.satisfied === 'boolean') return parsed;
+  } catch (error) {
+    console.warn('[browser-task] completion verification failed: %s', error.message);
+  }
+  return {
+    satisfied: false,
+    reason: 'Completion could not be independently verified.',
+    missing_evidence: ['verification_result'],
+  };
 }
 
 function invokeLooksFailed(result) {
@@ -969,6 +1086,9 @@ async function executeDecision(ceoUserId, decision, agentId) {
   }
   if (action === 'scroll') {
     return browserInvoke(ceoUserId, 'act', { request: { kind: 'scroll', direction: 'down' } }, agentId);
+  }
+  if (action === 'screenshot') {
+    return browserInvoke(ceoUserId, 'screenshot', { full_page: true }, agentId);
   }
   if (decision.reason || decision.text) {
     // Structured freeform is not supported as raw string by Chrome Relay ("request required").
@@ -1342,6 +1462,19 @@ function completedTaskSummary(summary, task) {
   return String(summary || '').trim() || fallbackTaskSummary(task);
 }
 
+function browserArtifactsFromSteps(steps) {
+  const seen = new Set();
+  const artifacts = [];
+  for (const entry of steps || []) {
+    const artifact = entry?.artifact || entry?.evidence?.artifact;
+    const url = artifact?.url || entry?.artifact_url || entry?.evidence?.artifact_url;
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
+    artifacts.push(artifact && typeof artifact === 'object' ? artifact : { url, kind: 'other' });
+  }
+  return artifacts;
+}
+
 /**
  * Goals that require click/type/submit (publish, compose, reply) must run the act loop.
  * early_page_summarize only helps pure read/research (and Cheapflights accelerator).
@@ -1409,6 +1542,9 @@ async function runAutonomous(ceoUserId, taskId) {
   let exitNote = 'max_steps_reached';
   const socialPublish = goalLooksSocialPublish(task.goal_text);
   const publishBody = extractPublishBodyFromGoal(task.goal_text);
+  const executionPlan = await createExecutionPlan(ceoUserId, task.goal_text, task.start_url);
+  steps.push({ t: nowIso(), action: 'plan', plan: executionPlan });
+  updateTask(ceoUserId, taskId, { steps });
 
   // Autonomous social publish: tab focus, open composer, shadow fill+Post, recycle tab.
   // No human mid-workflow for tab focus or Start a post (only Client Chrome lease is one-time setup).
@@ -1657,9 +1793,52 @@ async function runAutonomous(ceoUserId, taskId) {
     parseFallbackStreak = 0;
     if (act === 'done') {
       const summary = completedTaskSummary(decision.summary || decision.reason, task);
+      const verificationSnapshot = await takeSnapshot(ceoUserId, agentId);
+      const verification = await verifyGoalCompletion({
+        ceoUserId,
+        goal: task.goal_text,
+        plan: executionPlan,
+        snapshot: verificationSnapshot,
+        history: steps,
+        proposedSummary: summary,
+      });
+      steps.push({ t: nowIso(), action: 'completion_verification', verification });
+      if (!verification.satisfied) {
+        const rejected = steps.filter(
+          (entry) => entry.action === 'completion_verification' && entry.verification?.satisfied === false
+        ).length;
+        updateTask(ceoUserId, taskId, { steps });
+        if (verification.hard_guard || rejected >= 3) {
+          const reason = verification.reason || 'Goal completion could not be verified.';
+          updateTask(ceoUserId, taskId, {
+            status: 'failed',
+            error: reason,
+            result: {
+              summary: reason,
+              note: 'completion_evidence_missing',
+              missing_evidence: verification.missing_evidence || [],
+              steps: steps.length,
+            },
+            steps,
+          });
+          recordBrowserTaskOutcome(ceoUserId, getTask(ceoUserId, taskId), {
+            rating: 'down',
+            comment: reason,
+            note: 'completion_evidence_missing',
+          });
+          return;
+        }
+        await sleep(800);
+        continue;
+      }
       updateTask(ceoUserId, taskId, {
         status: 'completed',
-        result: { summary, steps: steps.length },
+        result: {
+          summary,
+          verification,
+          artifacts: browserArtifactsFromSteps(steps),
+          steps: steps.length,
+        },
         steps,
         wait_reason: null,
       });
@@ -1721,6 +1900,22 @@ async function runAutonomous(ceoUserId, taskId) {
       await sleep(1200);
       continue;
     }
+    const rawEvidence = String(parseInvokeText(execRes) || execRes?.text || '').slice(0, 4000);
+    let evidence = rawEvidence;
+    try {
+      evidence = JSON.parse(rawEvidence);
+    } catch {
+      /* retain text evidence */
+    }
+    steps.push({
+      t: nowIso(),
+      action: act,
+      outcome: 'ok',
+      evidence,
+      artifact: evidence && typeof evidence === 'object' ? evidence.artifact || null : null,
+      artifact_url: evidence && typeof evidence === 'object' ? evidence.artifact_url || null : null,
+    });
+    updateTask(ceoUserId, taskId, { steps });
     await sleep(1500);
   }
 
@@ -1741,12 +1936,29 @@ async function runAutonomous(ceoUserId, taskId) {
   });
   console.warn('[browser-task] loop exit id=%s note=%s steps=%s', taskId, exitNote, steps.length);
   const completedSummary = completedTaskSummary(summary, task);
-  updateTask(ceoUserId, taskId, {
-    status: 'completed',
-    steps,
-    result: { summary: completedSummary, note: exitNote, steps: steps.length },
+  const finalVerification = await verifyGoalCompletion({
+    ceoUserId,
+    goal: task.goal_text,
+    plan: executionPlan,
+    snapshot: finalSnap,
+    history: steps,
+    proposedSummary: completedSummary,
   });
-  const rating = exitNote === 'parse_fallback_exhausted' ? 'down' : 'up';
+  steps.push({ t: nowIso(), action: 'completion_verification', verification: finalVerification });
+  const finalStatus = finalVerification.satisfied ? 'completed' : 'failed';
+  updateTask(ceoUserId, taskId, {
+    status: finalStatus,
+    steps,
+    error: finalVerification.satisfied ? null : finalVerification.reason || 'Goal incomplete at step limit',
+    result: {
+      summary: completedSummary,
+      note: finalVerification.satisfied ? exitNote : 'completion_evidence_missing',
+      verification: finalVerification,
+      artifacts: browserArtifactsFromSteps(steps),
+      steps: steps.length,
+    },
+  });
+  const rating = finalVerification.satisfied && exitNote !== 'parse_fallback_exhausted' ? 'up' : 'down';
   recordBrowserTaskOutcome(ceoUserId, getTask(ceoUserId, taskId), {
     rating,
     comment: completedSummary,

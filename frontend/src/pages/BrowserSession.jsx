@@ -279,6 +279,8 @@ function BrowserSessionPanel() {
   const setupSteps = status?.client_setup?.steps || [];
   const clientReady = !!status?.session?.session_ready;
   const gatewayUp = !!status?.gateway_reachable;
+  const desktopWorker = status?.desktop_worker || workerStatus?.selected || null;
+  const desktopOnline = Boolean(desktopWorker?.online);
   const chromeLease = status?.chrome_lease || null;
   const leaseHeldByOther = Boolean(
     chromeLease?.holder_ceo_user_id && !chromeLease?.is_holder
@@ -686,35 +688,37 @@ function BrowserSessionPanel() {
             {wizardStep === 2 && (
               <div>
                 <p style={{ fontSize: '0.9rem', color: 'var(--muted)' }}>
-                  Recording uses your attached Chrome tab. Confirm the session is ready before capturing.
+                  Track 1 recording uses your owner-scoped Desktop Local worker. Keep its Playwright Chrome window open
+                  while you capture the trail.
                 </p>
-                {leaseHeldByOther && (
+                {!desktopOnline && (
                   <p style={{ fontSize: '0.88rem', color: 'var(--warn, #a16207)' }}>
-                    {chromeLease?.note ||
-                      'Another user holds Client Chrome. Recording will use managed Playwright until they release the lease.'}
+                    Desktop Local is offline. Start <code>Start-BrowserWorker.ps1</code> before recording; this wizard will
+                    not silently record against managed Playwright.
                   </p>
                 )}
                 <ul style={{ fontSize: '0.9rem', lineHeight: 1.6 }}>
                   <li>
-                    Gateway: {gatewayUp ? <strong style={{ color: 'var(--ok, #15803d)' }}>up</strong> : <strong style={{ color: 'var(--danger, #b91c1c)' }}>down</strong>}
+                    Desktop Local:{' '}
+                    {desktopOnline ? (
+                      <strong style={{ color: 'var(--ok, #15803d)' }}>
+                        online · {desktopWorker?.driver_mode || 'playwright'}
+                      </strong>
+                    ) : (
+                      <strong style={{ color: 'var(--danger, #b91c1c)' }}>offline</strong>
+                    )}
                   </li>
                   <li>
-                    Client ready:{' '}
-                    {clientReady && chromeLease?.is_holder ? (
-                      <strong style={{ color: 'var(--ok, #15803d)' }}>yes</strong>
-                    ) : (
-                      <strong style={{ color: 'var(--warn, #a16207)' }}>
-                        {leaseHeldByOther ? 'blocked — lease held by another user' : 'no — Mark ready above'}
-                      </strong>
-                    )}
+                    Selected profile: <strong>{status?.resolved_profile || 'unknown'}</strong>
                   </li>
                   <li>
                     Recipe: <strong>{recipeName || '(unnamed)'}</strong>
                   </li>
                 </ul>
                 <p style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
-                  Tip: share only the tab you will use for this trail. You navigate; the wizard only saves URLs when you
-                  click Capture.
+                  You navigate in the Desktop Local Playwright window. Capture each stable page URL in order. Current
+                  recording stores deterministic navigation checkpoints; autonomous element discovery remains available
+                  outside recipe replay.
                 </p>
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                   <button type="button" disabled={busy} onClick={() => setWizardStep(1)}>
@@ -722,19 +726,7 @@ function BrowserSessionPanel() {
                   </button>
                   <button
                     type="button"
-                    disabled={busy || leaseHeldByOther}
-                    title={
-                      leaseHeldByOther
-                        ? `Client Chrome held by ${chromeLease?.holder_label || 'another user'}`
-                        : undefined
-                    }
-                    onClick={() => run(() => api.browserSessionMarkReady({ ready: true }), 'Marked ready')}
-                  >
-                    Mark ready now
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy}
+                    disabled={busy || !desktopOnline}
                     onClick={startWizardRecording}
                     style={{
                       padding: '0.55rem 1.1rem',

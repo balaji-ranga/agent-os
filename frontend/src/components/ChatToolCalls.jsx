@@ -87,7 +87,13 @@ export function collectGeneratedMediaUrlsFromToolCalls(toolCalls) {
   };
   for (const tc of toolCalls || []) {
     const name = String(tc.tool_name || '');
-    if (name !== 'generate_image' && name !== 'generate_video' && name !== 'speech_tts') continue;
+    if (
+      name !== 'generate_image' &&
+      name !== 'generate_video' &&
+      name !== 'speech_tts' &&
+      name !== 'browse_task_status' &&
+      name !== 'browse_task_start'
+    ) continue;
     if (String(tc.status || '').toLowerCase() !== 'ok') continue;
     const resp = parseJsonMaybe(tc.response);
     if (!resp || typeof resp !== 'object') continue;
@@ -101,6 +107,16 @@ export function collectGeneratedMediaUrlsFromToolCalls(toolCalls) {
           resp.audio?.media_uri ||
           resp.url
       );
+      continue;
+    }
+    if (name === 'browse_task_status' || name === 'browse_task_start') {
+      const artifacts = resp.task?.result?.artifacts || resp.result?.artifacts || [];
+      for (const artifact of artifacts) {
+        const url = artifact?.url || artifact?.relative_url;
+        if (!url) continue;
+        const filename = String(artifact?.filename || 'browser-screenshot.png');
+        push(String(artifact?.mimeType || '').startsWith('image/') ? `${url}?filename=${encodeURIComponent(filename)}` : url);
+      }
       continue;
     }
     push(resp.relative_url || resp.paste_exactly || resp.media_uri || resp.url || resp.image_url || resp.video_url);
