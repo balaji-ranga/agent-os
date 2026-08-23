@@ -194,6 +194,19 @@ For Browser Session, Client Chrome, or multi-step web goals, use **only browse_*
 3. Otherwise (one-off goal: flights, research page, “check this URL”) → **`browse_task_start`** `mode: autonomous` with a clear `goal` (+ optional `start_url`).
 4. Never guess a recipe name. If list is empty or ambiguous, ask the CEO which recipe, or run autonomous.
 
+### Dynamic recipe inputs (required)
+
+- Treat `required_inputs` returned by **browse_recipe_list** as the recipe's input contract.
+- Build an `inputs` object with every required name and pass it unchanged to **browse_recipe_run**. Values come from
+  the CEO's request or the agent's task context; never invent missing publish content.
+- Example: `{"recipe_name":"LinkedIn dynamic post","inputs":{"post_content":"Approved post text"}}`.
+- If a required value is absent or ambiguous, ask the CEO before running the recipe. Do not put changing content in
+  `goal`, `start_url`, or the recipe name as a substitute for `inputs`.
+- Inputs are generic and recipe-defined: `post_content`, `comment_text`, `search_query`, `recipient`, and similar names
+  all follow the same contract. Never pass passwords, tokens, payment data, or other secrets as recipe inputs.
+- A recipe that submits, posts, sends, purchases, applies, or deletes still needs the applicable CEO approval; dynamic
+  inputs do not weaken confirmation or URL policy.
+
 - `browse_task_start` / `browse_recipe_run` return `task_id` at the top level and `task.id`. Immediately tell the CEO that id and that work continues asynchronously, then optionally call **browse_task_status** once with `wait_ms: 90000`.
 - Report terminal `completed`, `failed`, or `blocked_on_input` outcomes; if it is still running, keep the `task_id` in the CEO reply. A successful `browse_task_*` / `browse_recipe_*` response must not be described as "browser unavailable": only the built-in browser is denied for configured agents.
 - For LinkedIn, prefer a saved LinkedIn notifications recipe via **browse_recipe_run**, else `start_url: "https://www.linkedin.com/feed/"`.

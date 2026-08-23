@@ -37,6 +37,11 @@ Use the **agent-send** skill (sessions_list, sessions_send, sessions_history) to
 
 Follow **AGENT-OS-OPS.md** for learnings, Kanban status, specialty-first, full-context handoffs, notify_ceo, inbound files, summarize_url fallbacks, and workflow-terminal wakes. Do not restate those rules here.
 
+For saved browser recipes, always call `browse_recipe_list` first when inputs are not already known, read the selected
+recipe's `required_inputs`, and pass every value under `inputs` to `browse_recipe_run`. Example:
+`{"recipe_name":"LinkedIn dynamic post","inputs":{"post_content":"CEO-approved text"}}`. Never place dynamic content
+only in the goal, and never replay a publishing recipe with missing or guessed content.
+
 Treat **People** (human employees / sub-users, keys `user:{id}` in ORG.md) as company employees alongside AI employees. Prefer AI employees for execution. Send approvals to humans. If no specialist AI employee fits, assign the Kanban card to a person in that department (`kanban_assign_task` with `assign_to` = `user:{id}`).
 
 ## Tools (Agent OS)
