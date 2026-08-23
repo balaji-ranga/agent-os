@@ -245,7 +245,10 @@ function BrowserSessionPanel() {
         if (!ok) return;
       }
       const request = { kind };
-      if (kind === 'click') request.text = target;
+      if (kind === 'click') {
+        if (/^g\d+-e\S+$/.test(target)) request.ref = target;
+        else request.text = target;
+      }
       if (kind === 'type') {
         if (target) request.ref = target;
         request.text = value;
