@@ -136,14 +136,7 @@ export default function ChatToolCalls({ toolCalls, showChartPreviews = true, sho
   const list = Array.isArray(toolCalls) ? toolCalls : [];
   if (!list.length) return null;
   const chartUrls = showChartPreviews ? collectChartUrlsFromToolCalls(list) : [];
-  const browserArtifactCalls = list.filter((tc) =>
-    ['browse_task_status', 'browse_task_start'].includes(String(tc.tool_name || ''))
-  );
-  // Message rows suppress general previews to avoid duplicating MEDIA: content. Browser screenshots are returned only
-  // as task artifacts, so keep those visible even when other generated-media previews are disabled.
-  const mediaUrls = showMediaPreviews
-    ? collectGeneratedMediaUrlsFromToolCalls(list)
-    : collectGeneratedMediaUrlsFromToolCalls(browserArtifactCalls);
+  const mediaUrls = showMediaPreviews ? collectGeneratedMediaUrlsFromToolCalls(list) : [];
 
   const labelFor = (name) => {
     if (name === 'agent_goal_create') return 'Goal plan create';
