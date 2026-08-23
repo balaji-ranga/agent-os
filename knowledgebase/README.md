@@ -43,6 +43,7 @@ Documentation lives here so Cursor and humans can find it. **GitHub landing:** r
 | **IBKR-MONTHLY-PHASE4.md** | Phase 4 runbook: certify env (Opus + deepseek-v4-flash), paper E2E script, W1/W3/W5 certify helper (not W2), Task Scheduler, multi-week paper before live. |
 | **CLIENT-BROWSER-SESSION.md** | Client Chrome Browser Relay + NL browser tasks, `browse_*` tools, recipes, desktop local worker pointer, AgentSystem `browser-cdp`. |
 | **BROWSER-SESSION-DESKTOP-LOCAL.md** | Implemented: Connectors Browser Session package; headed Playwright + persistent profile (BROWSER_HEADLESS=0, BROWSER_USER_DATA_DIR); owner jobs / IP whitelist. |
+| **BROWSER-AUTOMATION-MATURITY-PLAN.md** | Review-gated Tracks 1–3 plan: mature Desktop Local Playwright, add Flolah MV3 Chrome extension, preserve managed Playwright; shared protocol, multi-node routing, testing, VPS rollout and rollback. |
 | **platform-help/22-browser-session-and-recipes.md** | CEO Platform Help: Browser Session UI, tool grants, recipe vs autonomous, feedback. |
 | **IBKR-LOCAL-BRIDGE.md** | Laptop Phase 2 local HTTP bridge (`backend/local-ibkr-bridge/`): loopback auth, Gateway wrappers, webhook events, Task Scheduler, offline test. |
 | **OPENCONNECTOR-WEBHOOKS.md** | OpenConnector MCP setup, event webhooks, email-inbound webhooks, disk file pollers, entitlements, e2e test. |
