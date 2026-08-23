@@ -438,6 +438,7 @@ All proxied under `/api` (rebuild backend + frontend images after upgrade):
 |------|--------|
 | `https://flolah.cloud` | Marketing homepage (`deploy/static/flolah-home`) |
 | `https://flolah.cloud/docs/` | Public Docusaurus user guide (open access; built from `docs-site/`) |
+| `https://flolah.cloud/blog/` | Public blog; `/blog/forum/` discussion hub → GitHub Discussions |
 | `https://login.flolah.cloud` | Login + React SPA + `/api` (set `AGENT_OS_PUBLIC_URL` here) |
 | `https://login.flolah.cloud/docs/` | Same user guide (static mount, no login) |
 

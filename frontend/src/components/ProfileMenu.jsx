@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { userRoleTitle } from '../utils/userRoleTitle.js';
+import { PUBLIC_BLOG_PATH, PUBLIC_DOCS_PATH, PUBLIC_FORUM_PATH } from '../utils/legalLinks.js';
 import RobotAvatar from './RobotAvatar.jsx';
 
 function initialsFromName(name) {
@@ -144,7 +145,7 @@ export default function ProfileMenu({ user, logout, onNavigate }) {
                 Help
               </div>
               <a
-                href="/docs/"
+                href={PUBLIC_DOCS_PATH}
                 role="menuitem"
                 className="profile-menu-item"
                 target="_blank"
@@ -155,6 +156,32 @@ export default function ProfileMenu({ user, logout, onNavigate }) {
                 }}
               >
                 User guide
+              </a>
+              <a
+                href={PUBLIC_BLOG_PATH}
+                role="menuitem"
+                className="profile-menu-item"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => {
+                  close();
+                  onNavigate?.();
+                }}
+              >
+                Blog
+              </a>
+              <a
+                href={PUBLIC_FORUM_PATH}
+                role="menuitem"
+                className="profile-menu-item"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => {
+                  close();
+                  onNavigate?.();
+                }}
+              >
+                Forum
               </a>
               <NavLink
                 to="/video-tours"

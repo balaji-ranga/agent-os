@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
 import TotpEnrollmentDetails from '../components/TotpEnrollmentDetails';
 import { resolveTotpEnrollment } from '../utils/totpEnrollment';
+import { PUBLIC_BLOG_PATH, PUBLIC_DOCS_PATH, PUBLIC_FORUM_PATH } from '../utils/legalLinks';
 
 export default function Login() {
   const { login, completeMfa, resendMfa } = useAuth();
@@ -269,8 +270,16 @@ export default function Login() {
         <span style={{ fontSize: '0.8rem' }}>Automate, Innovate, Elevate</span>
         <br />
         <span style={{ fontSize: '0.78rem', display: 'inline-block', marginTop: 8 }}>
-          <a href="/docs/" target="_blank" rel="noopener noreferrer">
+          <a href={PUBLIC_DOCS_PATH} target="_blank" rel="noopener noreferrer">
             Docs
+          </a>
+          {' · '}
+          <a href={PUBLIC_BLOG_PATH} target="_blank" rel="noopener noreferrer">
+            Blog
+          </a>
+          {' · '}
+          <a href={PUBLIC_FORUM_PATH} target="_blank" rel="noopener noreferrer">
+            Forum
           </a>
           {' · '}
           <a href="/legal/terms.html" target="_blank" rel="noopener noreferrer">

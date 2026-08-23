@@ -6,6 +6,7 @@
 
 - **Hosted:** [https://flolah.cloud](https://flolah.cloud) · sign in [https://login.flolah.cloud](https://login.flolah.cloud)
 - **User guide (no login):** [https://flolah.cloud/docs/](https://flolah.cloud/docs/)
+- **Blog and forum (no login):** [https://flolah.cloud/blog/](https://flolah.cloud/blog/) · [forum](https://flolah.cloud/blog/forum/)
 - **Source:** [github.com/balaji-ranga/agent-os](https://github.com/balaji-ranga/agent-os)
 
 You do not need APIs or Docker for everyday use as a CEO. Public walkthrough: [Welcome](https://flolah.cloud/docs/start/welcome/). How COO and specialists fit together: [How the company runs](https://flolah.cloud/docs/start/how-the-company-runs/). Vendor keys (chat / vision / live Call share one `Platform_BYOK`): [API keys](https://flolah.cloud/docs/setup/api-keys/). Profile **Efficiency mode** (Yes) sends short jobs such as learnings and archive titles to local Ollama instead of that key.
@@ -21,7 +22,7 @@ Third-party and optional sidecars (OpenSearch, Open Connector, optional Twenty/E
 | Doc | What it is |
 |-----|------------|
 | **[knowledgebase/PROJECT.md](knowledgebase/PROJECT.md)** | Full product map, API, database scripts, and repo layout (moved here from this README) |
-| **[docs-site/](docs-site/README.md)** | Public Docusaurus user guide (`/docs/`) |
+| **[docs-site/](docs-site/README.md)** | Public Docusaurus user guide (`/docs/`) plus blog and forum (`/blog/`) |
 | **[knowledgebase/platform-help/](knowledgebase/platform-help/README.md)** | In-app Platform Help (RAG) |
 | **[knowledgebase/AI-COMPANY-OS.md](knowledgebase/AI-COMPANY-OS.md)** | Messaging and OS primitives |
 | **[knowledgebase/README.md](knowledgebase/README.md)** | Index of all knowledgebase files |

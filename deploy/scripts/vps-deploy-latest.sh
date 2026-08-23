@@ -416,6 +416,20 @@ elif curl -kfsS "${APEX_URL%/}/docs/" 2>/dev/null | grep -qi 'Flolah user guide'
 else
   echo "    WARN: public docs missing (/docs/ on flolah-home? run build-public-docs.sh)"
 fi
+if curl -kfsS -H "Host: flolah.cloud" https://127.0.0.1/blog/ 2>/dev/null | grep -qi 'Flolah Blog'; then
+  echo "    marketing blog (Host flolah.cloud /blog/): OK"
+elif curl -kfsS "${APEX_URL%/}/blog/" 2>/dev/null | grep -qi 'Flolah Blog'; then
+  echo "    marketing blog ${APEX_URL}/blog/: OK"
+else
+  echo "    WARN: public blog missing (/blog/ on flolah-home? run build-public-docs.sh)"
+fi
+if curl -kfsS -H "Host: flolah.cloud" https://127.0.0.1/blog/forum/ 2>/dev/null | grep -qi 'GitHub Discussions'; then
+  echo "    marketing forum (Host flolah.cloud /blog/forum/): OK"
+elif curl -kfsS "${APEX_URL%/}/blog/forum/" 2>/dev/null | grep -qi 'GitHub Discussions'; then
+  echo "    marketing forum ${APEX_URL}/blog/forum/: OK"
+else
+  echo "    WARN: public forum missing (/blog/forum/ on flolah-home?)"
+fi
 if curl -kfsS -H "Host: flolah.cloud" https://127.0.0.1/legal/terms.html 2>/dev/null | grep -qi 'Terms of Service'; then
   echo "    marketing legal terms (Host flolah.cloud /legal/terms.html): OK"
 elif curl -kfsS "${APEX_URL%/}/legal/terms.html" 2>/dev/null | grep -qi 'Terms of Service'; then
@@ -455,6 +469,11 @@ if docker compose exec -T nginx test -f /usr/share/nginx/flolah-home/docs/index.
   echo "    nginx mount: /usr/share/nginx/flolah-home/docs/index.html OK"
 else
   echo "    WARN: /usr/share/nginx/flolah-home/docs/index.html missing (build-public-docs.sh?)"
+fi
+if docker compose exec -T nginx test -f /usr/share/nginx/flolah-home/blog/index.html 2>/dev/null; then
+  echo "    nginx mount: /usr/share/nginx/flolah-home/blog/index.html OK"
+else
+  echo "    WARN: /usr/share/nginx/flolah-home/blog/index.html missing (build-public-docs.sh blog?)"
 fi
 
 if docker compose exec -T frontend sh -c 'cat /usr/share/nginx/html/assets/*.css' 2>/dev/null | grep -q 'app-mobile-topbar'; then

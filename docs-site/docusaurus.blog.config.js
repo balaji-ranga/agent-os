@@ -1,17 +1,17 @@
 // @ts-check
-/** Public Flolah user guide — served at https://flolah.cloud/docs/ (open access). */
+/** Public Flolah blog + forum hub — served at https://flolah.cloud/blog/ (open access). */
 
 const config = {
-  title: 'Flolah Docs',
-  tagline: 'Run your AI company — from first sign-in to day-to-day operations',
+  title: 'Flolah Blog',
+  tagline: 'Product notes, stories, and community discussion',
   favicon: 'img/flolah-mark.png',
 
   url: 'https://flolah.cloud',
-  baseUrl: '/docs/',
+  baseUrl: '/blog/',
   trailingSlash: true,
 
   organizationName: 'flolah',
-  projectName: 'flolah-docs',
+  projectName: 'flolah-blog',
 
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'throw',
@@ -25,14 +25,27 @@ const config = {
     [
       'classic',
       {
-        docs: {
-          path: 'docs',
+        docs: false,
+        blog: {
+          path: 'blog',
           routeBasePath: '/',
-          sidebarPath: require.resolve('./sidebars.js'),
-          editUrl: undefined,
+          showReadingTime: true,
+          blogTitle: 'Flolah Blog',
+          blogDescription: 'Product notes from Flolah and a public forum for builders.',
+          postsPerPage: 10,
+          exclude: ['README.md', 'README.mdx'],
+          blogSidebarTitle: 'Recent posts',
+          blogSidebarCount: 12,
+          feedOptions: {
+            type: 'all',
+            title: 'Flolah Blog',
+            description: 'Flolah product notes and community posts',
+            copyright: `© ${new Date().getFullYear()} Flolah`,
+          },
         },
-        blog: false,
-        pages: false,
+        pages: {
+          path: 'blog-pages',
+        },
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
         },
@@ -47,7 +60,7 @@ const config = {
       respectPrefersColorScheme: true,
     },
     navbar: {
-      title: 'Flolah Docs',
+      title: 'Flolah Blog',
       logo: {
         alt: 'Flolah',
         src: 'img/flolah-mark.png',
@@ -55,15 +68,11 @@ const config = {
         target: '_self',
       },
       items: [
+        { to: '/', label: 'Posts', position: 'left' },
+        { to: '/forum', label: 'Forum', position: 'left' },
         {
-          type: 'docSidebar',
-          sidebarId: 'guideSidebar',
-          position: 'left',
+          href: 'https://flolah.cloud/docs/',
           label: 'User guide',
-        },
-        {
-          href: 'https://flolah.cloud/blog/',
-          label: 'Blog',
           position: 'left',
         },
         {
@@ -72,8 +81,8 @@ const config = {
           position: 'right',
         },
         {
-          href: 'https://github.com/balaji-ranga/agent-os',
-          label: 'GitHub',
+          href: 'https://github.com/balaji-ranga/agent-os/discussions',
+          label: 'GitHub Discussions',
           position: 'right',
         },
         {
@@ -87,24 +96,21 @@ const config = {
       style: 'dark',
       links: [
         {
-          title: 'Guide',
+          title: 'Community',
           items: [
-            { label: 'Access Flolah', to: '/start/access' },
-            { label: 'How the company runs', to: '/start/how-the-company-runs' },
-            { label: 'Register', to: '/start/register' },
-            { label: 'Company setup', to: '/setup/company-setup' },
-            { label: 'Org and departments', to: '/setup/org-and-departments' },
-            { label: 'Run day to day', to: '/run/chat-and-coo' },
+            { label: 'Blog', to: '/' },
+            { label: 'Forum', to: '/forum' },
+            {
+              label: 'GitHub Discussions',
+              href: 'https://github.com/balaji-ranga/agent-os/discussions',
+            },
           ],
         },
         {
           title: 'Product',
           items: [
             { label: 'Home', href: 'https://flolah.cloud' },
-            { label: 'Vision', href: 'https://flolah.cloud/vision' },
-            { label: 'Blog', href: 'https://flolah.cloud/blog/' },
-            { label: 'Forum', href: 'https://flolah.cloud/blog/forum/' },
-            { label: 'GitHub', href: 'https://github.com/balaji-ranga/agent-os' },
+            { label: 'User guide', href: 'https://flolah.cloud/docs/' },
             { label: 'Sign in', href: 'https://login.flolah.cloud' },
           ],
         },
@@ -114,7 +120,6 @@ const config = {
             { label: 'Terms', href: 'https://flolah.cloud/legal/terms.html' },
             { label: 'Privacy', href: 'https://flolah.cloud/legal/privacy.html' },
             { label: 'Cookies', href: 'https://flolah.cloud/legal/cookies.html' },
-            { label: 'Open source', href: 'https://flolah.cloud/legal/open-source.html' },
           ],
         },
       ],

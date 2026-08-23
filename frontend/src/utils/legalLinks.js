@@ -12,6 +12,10 @@ export const LEGAL_PATHS = {
 /** Public Docusaurus user guide (apex + login nginx; no auth). */
 export const PUBLIC_DOCS_PATH = '/docs/';
 
+/** Public blog + forum hub (apex + login nginx; no auth). */
+export const PUBLIC_BLOG_PATH = '/blog/';
+export const PUBLIC_FORUM_PATH = '/blog/forum/';
+
 /** Fallback versions if /auth/legal-versions is unreachable. */
 export const FALLBACK_LEGAL_VERSIONS = {
   terms_version: '2026-08-09',

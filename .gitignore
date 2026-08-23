@@ -26,6 +26,7 @@ build/
 .vite/
 docs-site/.docusaurus/
 deploy/static/flolah-home/docs/
+deploy/static/flolah-home/blog/
 
 # OS
 .DS_Store

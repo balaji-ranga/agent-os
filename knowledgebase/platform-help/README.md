@@ -1,12 +1,12 @@
 ﻿# Flolah Platform Help — Index
 
 **Audience:** CEOs (end users) and the **Platform Help** agent.  
-**Public website:** sequenced open-access guide at [`docs-site/`](../../docs-site/README.md) → [https://flolah.cloud/docs/](https://flolah.cloud/docs/) (also `/docs/` on the login host). No sign-in.  
+**Public website:** sequenced open-access guide at [`docs-site/`](../../docs-site/README.md) → [https://flolah.cloud/docs/](https://flolah.cloud/docs/) (also `/docs/` on the login host). Blog and forum: [https://flolah.cloud/blog/](https://flolah.cloud/blog/). No sign-in.  
 **Consumption (in-app):** Indexed into the **platform** OpenSearch corpus (`aos-docs-*-platform`) and searched with `master_data_rag`. **Platform Help** searches help only. **CRM/ERP/COO and other specialists** also retrieve this corpus read-only (`corpus=platform-help`) alongside the CEO’s own uploads. Help is **not** copied into each CEO Master Data UI. Do not paste this entire tree into an agent’s SOUL.
 
 | Doc | Topics |
 |-----|--------|
-| [01-getting-started.md](./01-getting-started.md) | Register, login, MFA (TOTP QR + security key on first enrollment), Profile / BYOK + **chat model** + **Efficiency mode** via **API Keys**; legal + **open-source notices** (`/legal/open-source.html`) |
+| [01-getting-started.md](./01-getting-started.md) | Register, login, MFA (TOTP QR + security key on first enrollment), Profile / BYOK + **chat model** + **Efficiency mode** via **API Keys**; legal + **open-source notices** (`/legal/open-source.html`); public [blog and forum](https://flolah.cloud/blog/) |
 | [02-navigation-and-chrome.md](./02-navigation-and-chrome.md) | Left nav map, sections **collapsed by default**, **Global search** (task id / WF run id), Digest (goal plans + timestamps + Execution trace + View all), Operating Workspace open tasks + activity (= Kanban/goals/runs), Workspace Builder, Home **OEI** pointer (**36**), **Appearance** themes (Day/Night + Aurora Glass / Vivid Board), **Admin** TLS certs + **AgentSystem recovery** (help **43**) + **User Insights** (help **47**), Tools **Rate limits** |
 | [03-dashboard-agents-chat.md](./03-dashboard-agents-chat.md) | Org chart, chat **attachments**, inline auth media players, workspace MD, **templates** Apply/Publish, tools access, Resync; **who to ask** includes CRM/ERP SMEs (Lead→Order / O2C); architecture diagrams on Home / My Org |
 | [49-how-the-company-runs.md](./49-how-the-company-runs.md) | CEO architecture: COO operating model + capability layers; diagrams above Home dashboard and My Org; public docs page |

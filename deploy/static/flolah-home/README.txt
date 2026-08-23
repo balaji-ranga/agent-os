@@ -9,10 +9,13 @@ Pages:
   / or /index.html  — marketing homepage
   /vision or /vision.html — vision subpage
   /docs/            — public Docusaurus user guide (open access; built from docs-site/)
+  /blog/            — public blog (docs-site/blog/)
+  /blog/forum/      — discussion forum hub → GitHub Discussions
   /legal/           — Terms, Privacy, Cookies, Open source
 
 "Start with Flolah" CTA → https://login.flolah.cloud
 "Docs" nav → /docs/
+"Blog" nav → /blog/
 "Vision" nav / "Our vision" → vision.html
 
 "Start with Flolah" CTA → https://login.flolah.cloud

@@ -188,10 +188,11 @@ if (Test-Path "$Repo\deploy\static\erp-handoff") {
 ssh @ssh "root@$HostIp" "chmod -R a+rX $RemoteRoot/deploy/static/flolah-home; chmod 755 $RemoteRoot/deploy/static/crm-handoff $RemoteRoot/deploy/static/erp-handoff 2>/dev/null; chmod 644 $RemoteRoot/deploy/static/crm-handoff/* $RemoteRoot/deploy/static/erp-handoff/* 2>/dev/null; true"
 
 Write-Host "==> Sync docs-site (public Docusaurus source)"
-ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/docs-site/docs $RemoteRoot/docs-site/src/css $RemoteRoot/docs-site/static/img"
+ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/docs-site/docs $RemoteRoot/docs-site/src/css $RemoteRoot/docs-site/static/img $RemoteRoot/docs-site/blog $RemoteRoot/docs-site/blog-pages"
 scp @ssh `
   "$Repo\docs-site\package.json" `
   "$Repo\docs-site\docusaurus.config.js" `
+  "$Repo\docs-site\docusaurus.blog.config.js" `
   "$Repo\docs-site\sidebars.js" `
   "$Repo\docs-site\babel.config.js" `
   "$Repo\docs-site\README.md" `
@@ -200,6 +201,8 @@ if (Test-Path "$Repo\docs-site\package-lock.json") {
   scp @ssh "$Repo\docs-site\package-lock.json" "root@${HostIp}:$RemoteRoot/docs-site/"
 }
 scp @ssh -r "$Repo\docs-site\docs" "root@${HostIp}:$RemoteRoot/docs-site/"
+scp @ssh -r "$Repo\docs-site\blog" "root@${HostIp}:$RemoteRoot/docs-site/"
+scp @ssh -r "$Repo\docs-site\blog-pages" "root@${HostIp}:$RemoteRoot/docs-site/"
 scp @ssh -r "$Repo\docs-site\src" "root@${HostIp}:$RemoteRoot/docs-site/"
 scp @ssh -r "$Repo\docs-site\static" "root@${HostIp}:$RemoteRoot/docs-site/"
 scp @ssh `

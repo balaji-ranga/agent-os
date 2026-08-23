@@ -9,10 +9,10 @@ Flolah uses two public websites:
 
 | Address | What it is |
 |---------|------------|
-| [https://flolah.cloud](https://flolah.cloud) | Marketing site, vision page, **this user guide**, and legal pages |
+| [https://flolah.cloud](https://flolah.cloud) | Marketing site, vision page, **this user guide**, **blog**, **forum**, and legal pages |
 | [https://login.flolah.cloud](https://login.flolah.cloud) | **Register**, **Sign in**, and the full product (your AI company) |
 
-Bookmarks: use **login.flolah.cloud** for daily work. Use **flolah.cloud/docs** whenever you want this guide without signing in.
+Bookmarks: use **login.flolah.cloud** for daily work. Use **flolah.cloud/docs** for this guide without signing in. Product notes and the public forum: [flolah.cloud/blog/](https://flolah.cloud/blog/).
 
 ## Open the product
 

@@ -2,6 +2,10 @@
 
 Open-access help for CEOs, published at **https://flolah.cloud/docs/** (also `/docs/` on the login host). No sign-in required.
 
+Public **blog + forum** (same Docusaurus package, second build): **https://flolah.cloud/blog/** and **https://flolah.cloud/blog/forum/**. Posts live in `blog/` (dated markdown). The forum hub is `blog-pages/forum.md` and sends discussion to [GitHub Discussions](https://github.com/balaji-ranga/agent-os/discussions).
+
+To publish a post: add `docs-site/blog/YYYY-MM-DD-slug.md` with `title`, `authors: [flolah]`, `tags`, and a `<!-- truncate -->` after the teaser, then deploy.
+
 This corpus is written for the public website. It does **not** include operator runbooks, internal hostnames, secrets, or vendor runtime names.
 
 ## Source vs in-app help
@@ -33,6 +37,7 @@ Or locally:
 cd docs-site
 npm ci
 npm run build
+npm run build:blog
 ```
 
-Output: `docs-site/build/` copied to `deploy/static/flolah-home/docs/`.
+Output: `docs-site/build/` copied to `deploy/static/flolah-home/docs/`, and `docs-site/build-blog/` copied to `deploy/static/flolah-home/blog/`.

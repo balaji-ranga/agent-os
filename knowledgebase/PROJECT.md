@@ -19,6 +19,7 @@ This section is a short overview. For the complete end-user guide (navigation, e
 
 - **In-app:** chat with the **Platform Help** agent (`platformhelp`) — it searches Master Data help docs with `master_data_rag`.
 - **Public docs (no login):** [https://flolah.cloud/docs/](https://flolah.cloud/docs/) (Docusaurus; same guide on the login host at `/docs/`).
+- **Public blog and forum (no login):** [https://flolah.cloud/blog/](https://flolah.cloud/blog/) · [forum](https://flolah.cloud/blog/forum/) (GitHub Discussions).
 - **Source:** [`docs-site/`](../docs-site/README.md) (public) and [`platform-help/`](./platform-help/README.md) (in-app RAG).
 
 You do not need to know APIs or Docker for everyday use.
@@ -412,6 +413,7 @@ Hosts (production):
 |------|---------|
 | `https://flolah.cloud` | Marketing homepage (`deploy/static/flolah-home`) |
 | `https://flolah.cloud/docs/` | Public user guide (Docusaurus, open access; source `docs-site/`) |
+| `https://flolah.cloud/blog/` | Public blog; `/blog/forum/` → GitHub Discussions |
 | `https://login.flolah.cloud` | Login + React SPA + API (`AGENT_OS_PUBLIC_URL`) |
 
 ```bash

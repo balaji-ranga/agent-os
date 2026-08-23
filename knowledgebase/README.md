@@ -15,7 +15,7 @@ Documentation lives here so Cursor and humans can find it. **GitHub landing:** r
 
 | **VISION.md** | Product purpose, vision, core strengths, differentiator, and strategic focuses (AI Company OS + governed A2A). |
 | **PITCH.md** | One-pager pitch: problem, solution, differentiators, audience, and success journey (from VISION + AI-COMPANY-OS). |
-| **platform-help/** | CEO end-user Platform Help corpus (RAG). **Public website:** sequenced Docusaurus guide at `docs-site/` → `https://flolah.cloud/docs/` (open access, no OpenClaw, no operator secrets). In-app RAG remains this folder. |
+| **platform-help/** | CEO end-user Platform Help corpus (RAG). **Public website:** sequenced Docusaurus guide at `docs-site/` → `https://flolah.cloud/docs/` (open access, no OpenClaw, no operator secrets) plus blog/forum at `https://flolah.cloud/blog/`. In-app RAG remains this folder. |
 | **platform-help/50-monitoring-and-llmops.md** | Efficiency **LLMOps**: token meter, estimated $, traces, price book vs Admin recovery |
 | **AGENT-WORKSPACE-TEMPLATES.md** | Platform-shared agent workspace MD templates: apply in Agent Workspace, Admin CRUD, CEO publish-as-template. |
 | **TESTING.md** | Restart steps, full API test, frontend manual tests, smoke test, standup→COO→TechResearcher test, standup UI checklist. |

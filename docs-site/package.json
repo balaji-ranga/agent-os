@@ -6,6 +6,7 @@
   "scripts": {
     "start": "docusaurus start",
     "build": "docusaurus build",
+    "build:blog": "docusaurus build --config docusaurus.blog.config.js --out-dir build-blog",
     "serve": "docusaurus serve --port 3300"
   },
   "dependencies": {
