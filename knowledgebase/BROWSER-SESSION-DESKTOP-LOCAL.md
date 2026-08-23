@@ -66,18 +66,29 @@ shared Client Chrome lease.
    `GitHub repository vulnerability pages` over `My recipe`.
 4. Optionally provide the first URL, then choose **Begin capturing pages**. The backend pins the recorder task to the
    currently selected Desktop Local node and will not silently switch to managed Playwright.
-5. In the Playwright Chrome window, navigate to each stable page in the desired order. Back in Flolah, select
-   **Capture this page** after every navigation and add a short checkpoint label.
-6. Choose **Done — save recipe**. Confirm that the recipe contains at least one actionable `open` step.
-7. Grant the intended COO or specialist both `browse_recipe_list` and `browse_recipe_run` in
+5. In the Playwright Chrome window, navigate to each stable page in the desired order. Back in Flolah, use
+   **Capture this page** for navigation checkpoints and **Execute + record** for click, type, and key actions.
+6. For changing text such as a social post, select **Type**, enter a safe sample, enable
+   **Replace this text with agent input when replayed**, and name the input (for example `post_content`). The sample
+   is executed during recording, while the recipe stores `{{post_content}}`.
+7. Choose **Done — save recipe**. Confirm that the recipe shows its required input names.
+8. Grant the intended COO or specialist both `browse_recipe_list` and `browse_recipe_run` in
    **Agent Workspace → Tool access**.
-8. Ask the agent: `Run the saved recipe "GitHub repository vulnerability pages" using my Desktop Local worker.`
-   The agent should list recipes, choose the exact name, call `browse_recipe_run`, then wait with
-   `browse_task_status`.
+9. Ask the agent to run the exact recipe with the changing value. The tool call is:
 
-Current recorder scope is deterministic navigation checkpoints (URLs). It does not passively intercept arbitrary
-mouse clicks or typed secrets. Use autonomous mode for element discovery between checkpoints, and never store passwords,
-tokens, payment data, or other secrets in a recipe.
+   ```json
+   {
+     "recipe_name": "LinkedIn dynamic post",
+     "inputs": { "post_content": "The text to publish" }
+   }
+   ```
+
+   The agent should call `browse_recipe_list`, supply every returned `required_inputs` name to `browse_recipe_run`,
+   then wait with `browse_task_status`. Missing inputs fail before Flolah performs any browser action.
+
+The recorder executes only actions explicitly entered in the wizard; it does not passively intercept arbitrary mouse
+clicks or typing. Placeholders work across supported action arguments and are resolved from the replay task's owner-scoped
+`inputs` object. Never use dynamic inputs for passwords, tokens, payment data, or other secrets.
 
 ## Task planning, evidence, and tab lifecycle
 
