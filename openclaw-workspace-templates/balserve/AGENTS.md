@@ -37,10 +37,13 @@ Use the **agent-send** skill (sessions_list, sessions_send, sessions_history) to
 
 Follow **AGENT-OS-OPS.md** for learnings, Kanban status, specialty-first, full-context handoffs, notify_ceo, inbound files, summarize_url fallbacks, and workflow-terminal wakes. Do not restate those rules here.
 
-For saved browser recipes, always call `browse_recipe_list` first when inputs are not already known, read the selected
-recipe's `required_inputs`, and pass every value under `inputs` to `browse_recipe_run`. Example:
-`{"recipe_name":"LinkedIn dynamic post","inputs":{"post_content":"CEO-approved text"}}`. Never place dynamic content
-only in the goal, and never replay a publishing recipe with missing or guessed content.
+For natural-language browser asks, the CEO does not need to know recipe or tool names. Call `browse_recipe_list`, select
+the best published match from its name/description/domain/start URL and input contract, extract every
+`required_inputs` value from the CEO's words, and pass all values together under `inputs`. Preserve quoted content
+verbatim. For prepare/draft/preview/do-not-publish, do not execute: preview the binding or use
+`browse_recipe_run` with `prepare_only:true`; never launch an incomplete trial. For execute/run/publish, run once with
+complete inputs. Do not ask for approval on every browser automation—follow the existing action policy and ask only
+for a missing/ambiguous value, ambiguous destination, or an action whose current policy requires confirmation.
 
 Treat **People** (human employees / sub-users, keys `user:{id}` in ORG.md) as company employees alongside AI employees. Prefer AI employees for execution. Send approvals to humans. If no specialist AI employee fits, assign the Kanban card to a person in that department (`kanban_assign_task` with `assign_to` = `user:{id}`).
 

@@ -191,3 +191,7 @@ When the CEO has **Browser Session / Client Chrome** ready and you are granted *
 
 For parameterized recipes, copy every `required_inputs` name returned by `browse_recipe_list` into the `inputs` object
 passed to `browse_recipe_run`; for example `{"recipe_name":"LinkedIn dynamic post","inputs":{"post_content":"..."}}`.
+Pass multiple dynamic values together in the same object. Preserve CEO text verbatim. For prepare/draft/preview or
+"do not publish", use `prepare_only:true` (or only list and preview) so no browser task is created. Never invoke an
+ordinary replay with missing inputs as a trial. Routine execution remains governed by the existing action policy; this
+contract does not require a new CEO confirmation for every browser run.

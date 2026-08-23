@@ -23,7 +23,12 @@ import {
   toolBrowseSnapshot,
   toolBrowseAct,
 } from '../services/browser-tasks.js';
-import { listRecipes } from '../services/browser-recipes.js';
+import {
+  getRecipe,
+  getRecipeByName,
+  listRecipes,
+  prepareRecipeInputs,
+} from '../services/browser-recipes.js';
 import { getBrowserSessionStatus } from '../services/client-browser-session.js';
 import { loadKanbanTaskContent, loadKanbanTaskWithMessages, runKanbanWatchTick } from '../services/kanban-watch.js';
 import { executeSpeechSttTool, executeSpeechTtsTool } from '../services/speech-content-tools.js';
@@ -3655,14 +3660,53 @@ router.post('/browse-recipe-run', optionalAuth, async (req, res) => {
       return res.status(400).json(err);
     }
     const ownerUserId = resolveToolOwnerUserId(req, requestPayload);
+    const recipe = recipeId
+      ? getRecipe(ownerUserId, recipeId)
+      : getRecipeByName(ownerUserId, recipeName);
+    if (!recipe) {
+      const err = { error: 'Recipe not found for this CEO', code: 'RECIPE_NOT_FOUND' };
+      logTool(req, 'browse_recipe_run', requestPayload, err, 'error', source);
+      return res.status(404).json(err);
+    }
+    const prepared = prepareRecipeInputs(recipe, requestPayload.inputs || requestPayload.input || {});
+    const preparation = {
+      recipe_id: recipe.id,
+      recipe_name: recipe.name,
+      required_inputs: prepared.required_inputs,
+      resolved_inputs: prepared.resolved_inputs,
+      missing_inputs: prepared.missing_inputs,
+      ready: prepared.ready,
+      browser_task_created: false,
+    };
+    const prepareOnly = requestPayload.prepare_only === true || requestPayload.prepareOnly === true;
+    if (prepareOnly) {
+      logTool(req, 'browse_recipe_run', requestPayload, { ok: true, prepare_only: true, ready: prepared.ready }, 'ok', source);
+      return res.json({
+        ok: true,
+        prepare_only: true,
+        preparation,
+        agent_hint: prepared.ready
+          ? 'Prepared only; no browser task was created. Execute only when the CEO requested execution.'
+          : `Prepared only; ask for missing input(s): ${prepared.missing_inputs.join(', ')}.`,
+      });
+    }
+    if (!prepared.ready) {
+      const err = {
+        error: `Missing required recipe input(s): ${prepared.missing_inputs.join(', ')}`,
+        code: 'RECIPE_INPUTS_MISSING',
+        ...preparation,
+      };
+      logTool(req, 'browse_recipe_run', requestPayload, err, 'error', source);
+      return res.status(400).json(err);
+    }
     const task = await startBrowserTask(ownerUserId, {
       mode: 'recipe_replay',
-      recipe_name: recipeName || undefined,
-      recipe_id: recipeId || undefined,
+      recipe_name: recipe.name,
+      recipe_id: recipe.id,
       start_url: requestPayload.start_url || requestPayload.startUrl,
       goal: requestPayload.goal || (recipeName ? `Replay recipe: ${recipeName}` : `Replay recipe ${recipeId}`),
       agent_id: source || requestPayload.agent_id || 'workflowbuilder',
-      inputs: requestPayload.inputs || requestPayload.input || {},
+      inputs: prepared.resolved_inputs,
     });
     const waitMs = Math.min(90000, Math.max(Number(requestPayload.wait_ms ?? requestPayload.waitMs) || 0, 0));
     const finalTask = waitMs ? await waitForBrowserTask(ownerUserId, String(task.id), waitMs) : task;

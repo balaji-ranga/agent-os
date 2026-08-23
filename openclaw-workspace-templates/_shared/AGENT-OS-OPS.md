@@ -196,16 +196,34 @@ For Browser Session, Client Chrome, or multi-step web goals, use **only browse_*
 
 ### Dynamic recipe inputs (required)
 
+- CEOs speak in business language; do not require them to name tools, recipes, driver modes, task fields, or input keys.
+- For a natural-language goal, call `browse_recipe_list` and choose the strongest match using platform/domain, recipe
+  name and description, start URL, published status, actionable steps, and whether the CEO supplied the
+  `required_inputs`. Ask a short business question only when destination or missing content is genuinely ambiguous.
 - Treat `required_inputs` returned by **browse_recipe_list** as the recipe's input contract.
-- Build an `inputs` object with every required name and pass it unchanged to **browse_recipe_run**. Values come from
+- Extract and bind all required values from the CEO's message before any run. Build one `inputs` object with every
+  required name and pass it unchanged to **browse_recipe_run**. Values come from
   the CEO's request or the agent's task context; never invent missing publish content.
 - Example: `{"recipe_name":"LinkedIn dynamic post","inputs":{"post_content":"Approved post text"}}`.
+- Multiple placeholders are one contract, not separate runs. Example:
+  `{"inputs":{"post_content":"Exact post","first_comment":"Exact comment","link_url":"https://example.com"}}`.
+  A repeated placeholder receives the same value everywhere it appears.
+- Preserve quoted/user-supplied values verbatim. Do not correct, summarize, translate, truncate, or retype them from
+  memory; copy them directly into the matching input.
 - If a required value is absent or ambiguous, ask the CEO before running the recipe. Do not put changing content in
   `goal`, `start_url`, or the recipe name as a substitute for `inputs`.
+- **Prepare/draft/preview/do-not-publish is read-only:** list and select the recipe, bind the inputs, and either report
+  the preview without calling a run tool or call `browse_recipe_run` with `prepare_only:true`. Never start an ordinary
+  replay as a trial. `prepare_only:true` must return `browser_task_created:false`.
+- **Execute/run/publish requests:** call once with the complete `inputs` object. Do not add a confirmation step to
+  every browser automation. Follow the existing action-family policy and the CEO's explicit request; ask only when
+  that policy, a missing value, an ambiguous destination, or a consequential action without authorization requires it.
+- Never call `browse_recipe_run` with known missing inputs to learn what validation will say. Missing inputs are a
+  question for the CEO, not a test run.
 - Inputs are generic and recipe-defined: `post_content`, `comment_text`, `search_query`, `recipient`, and similar names
   all follow the same contract. Never pass passwords, tokens, payment data, or other secrets as recipe inputs.
-- A recipe that submits, posts, sends, purchases, applies, or deletes still needs the applicable CEO approval; dynamic
-  inputs do not weaken confirmation or URL policy.
+- Dynamic inputs do not weaken the existing action-family policy or URL policy, and do not create a new blanket
+  approval requirement.
 
 - `browse_task_start` / `browse_recipe_run` return `task_id` at the top level and `task.id`. Immediately tell the CEO that id and that work continues asynchronously, then optionally call **browse_task_status** once with `wait_ms: 90000`.
 - Report terminal `completed`, `failed`, or `blocked_on_input` outcomes; if it is still running, keep the `task_id` in the CEO reply. A successful `browse_task_*` / `browse_recipe_*` response must not be described as "browser unavailable": only the built-in browser is denied for configured agents.

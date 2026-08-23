@@ -74,7 +74,7 @@ const BROWSER_TOOLS = [
     endpoint: '/api/tools/browse-recipe-run',
     method: 'POST',
     purpose:
-      'API tool: play/run a saved browser recipe for this CEO (async). Pass recipe_name (exact, preferred) or recipe_id, inputs as an object containing every name returned in required_inputs, and optional start_url and wait_ms (up to 90000). Example: {"recipe_name":"LinkedIn post","inputs":{"post_content":"Text to publish"}}. Missing required inputs fail before any browser action. Returns task_id; then use browse_task_status if needed. Requires tool grant browse_recipe_run (list alone is not enough). Do not use exec.',
+      'API tool: prepare or run a saved browser recipe for this CEO. For draft/prepare/preview/do-not-publish requests, pass prepare_only:true with recipe_name or recipe_id and all inferred inputs; it validates bindings and never creates a browser task. For execution, omit prepare_only, supply every required input under inputs, and optionally wait_ms up to 90000. Missing inputs are rejected before task creation. Multiple placeholders are passed together, e.g. {"recipe_name":"Social post","inputs":{"post_content":"Exact text","first_comment":"Exact comment"}}. This tool does not add blanket approval: follow the existing action policy and the CEO request. Do not use exec.',
     model_used: '',
     enabled: 1,
     is_builtin: 1,

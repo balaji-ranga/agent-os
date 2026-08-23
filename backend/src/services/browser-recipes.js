@@ -58,6 +58,26 @@ export function normalizeRecipeInputs(value) {
   return out;
 }
 
+/** Validate and preview a recipe's complete input binding without executing it. */
+export function prepareRecipeInputs(recipe, value) {
+  const inputs = normalizeRecipeInputs(value);
+  const required_inputs = recipeRequiredInputs(recipe);
+  const missing_inputs = required_inputs.filter(
+    (name) => !Object.prototype.hasOwnProperty.call(inputs, name)
+  );
+  const resolved_inputs = Object.fromEntries(
+    required_inputs
+      .filter((name) => Object.prototype.hasOwnProperty.call(inputs, name))
+      .map((name) => [name, inputs[name]])
+  );
+  return {
+    required_inputs,
+    resolved_inputs,
+    missing_inputs,
+    ready: missing_inputs.length === 0,
+  };
+}
+
 export function substituteRecipeInputs(value, inputs) {
   if (typeof value === 'string') {
     const exact = value.match(/^\{\{\s*([A-Za-z][A-Za-z0-9_]{0,63})\s*\}\}$/);
