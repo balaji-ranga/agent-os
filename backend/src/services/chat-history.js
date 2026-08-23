@@ -350,6 +350,7 @@ async function generateSessionTitleAndSummary(turns, ownerUserId) {
     const { content } = await chatCompletions({
       ownerUserId,
       maxTokens: 220,
+      toolName: 'chat_archive_title',
       messages: [
         {
           role: 'system',

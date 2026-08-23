@@ -31,6 +31,7 @@ import {
 } from './company-blueprints/standard-prefabs.js';
 import { normalizeCountryRegion, parseIsoLocation } from '../lib/iso-country-region.js';
 import { ensureBuiltInRoles, hydrateOrgFields } from './org-permissions.js';
+import { parseEfficiencyModeFlag } from './llm-efficiency-mode.js';
 
 export { isUserEnabled } from './user-enabled.js';
 
@@ -433,6 +434,7 @@ export function userPublic(row) {
     llm_model: llm.llm_model,
     llm_api_key_set: llm.llm_api_key_set,
     llm_api_key_hint: llm.llm_api_key_hint,
+    llm_efficiency_mode: !!llm.llm_efficiency_mode,
     terms_accepted_at: row.terms_accepted_at || null,
     terms_version: row.terms_version || null,
     privacy_version: row.privacy_version || null,
@@ -607,6 +609,7 @@ export function updateUserProfile(
     llm_model,
     llm_api_key,
     clear_llm_api_key,
+    llm_efficiency_mode,
     industry,
     industry_other,
     business_name,
@@ -677,6 +680,15 @@ export function updateUserProfile(
     if (!verifyPassword(current_password, row.password_hash)) throw new Error('Current password is incorrect');
     if (String(new_password).length < 8) throw new Error('new_password must be at least 8 characters');
     updates.password_hash = hashPassword(new_password);
+  }
+
+  if (llm_efficiency_mode !== undefined) {
+    updates.llm_efficiency_mode = parseEfficiencyModeFlag(llm_efficiency_mode) ? 1 : 0;
+    console.info(
+      '[updateUserProfile] efficiency mode user=%s on=%s',
+      userId,
+      updates.llm_efficiency_mode
+    );
   }
 
   const keys = Object.keys(updates);

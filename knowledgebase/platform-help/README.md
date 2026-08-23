@@ -6,7 +6,7 @@
 
 | Doc | Topics |
 |-----|--------|
-| [01-getting-started.md](./01-getting-started.md) | Register, login, MFA (TOTP QR + security key on first enrollment), Profile / BYOK + **chat model** via **API Keys**; legal + **open-source notices** (`/legal/open-source.html`) |
+| [01-getting-started.md](./01-getting-started.md) | Register, login, MFA (TOTP QR + security key on first enrollment), Profile / BYOK + **chat model** + **Efficiency mode** via **API Keys**; legal + **open-source notices** (`/legal/open-source.html`) |
 | [02-navigation-and-chrome.md](./02-navigation-and-chrome.md) | Left nav map, sections **collapsed by default**, **Global search** (task id / WF run id), Digest (goal plans + timestamps + Execution trace + View all), Operating Workspace open tasks + activity (= Kanban/goals/runs), Workspace Builder, Home **OEI** pointer (**36**), **Appearance** themes (Day/Night + Aurora Glass / Vivid Board), **Admin** TLS certs + **AgentSystem recovery** (help **43**) + **User Insights** (help **47**), Tools **Rate limits** |
 | [03-dashboard-agents-chat.md](./03-dashboard-agents-chat.md) | Org chart, chat **attachments**, inline auth media players, workspace MD, **templates** Apply/Publish, tools access, Resync; **who to ask** includes CRM/ERP SMEs (Lead→Order / O2C); architecture diagrams on Home / My Org |
 | [49-how-the-company-runs.md](./49-how-the-company-runs.md) | CEO architecture: COO operating model + capability layers; diagrams above Home dashboard and My Org; public docs page |

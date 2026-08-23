@@ -31,6 +31,7 @@ function UserProfilePanel() {
     llm_model: '',
     llm_api_key: '',
     clear_llm_api_key: false,
+    llm_efficiency_mode: false,
     data_retention_days: 90,
   });
   const [roleTitleCustom, setRoleTitleCustom] = useState(false);
@@ -145,6 +146,7 @@ function UserProfilePanel() {
       llm_model: user.llm_model || '',
       llm_api_key: '',
       clear_llm_api_key: false,
+      llm_efficiency_mode: !!user.llm_efficiency_mode,
       data_retention_days: user.data_retention_days || 90,
     }));
     const title = userRoleTitle(user);
@@ -180,6 +182,7 @@ function UserProfilePanel() {
           mfa_mode: data.user?.mfa_mode || m.user_mfa_mode || 'inherit',
           llm_provider: nextProvider,
           llm_model: nextModel,
+          llm_efficiency_mode: !!data.user?.llm_efficiency_mode,
           industry: data.user?.industry || f.industry || 'personal',
           industry_other: data.user?.industry_other || '',
           business_name: data.user?.business_name || '',
@@ -245,6 +248,7 @@ function UserProfilePanel() {
           form.llm_provider === 'platform_decided'
             ? null
             : form.llm_model || undefined,
+        llm_efficiency_mode: !!form.llm_efficiency_mode,
         data_retention_days: Number(form.data_retention_days) || 90,
       };
       if (form.new_password) {
@@ -302,6 +306,7 @@ function UserProfilePanel() {
         clear_llm_api_key: false,
         llm_provider: data.user?.llm_provider || f.llm_provider,
         llm_model: data.user?.llm_model || f.llm_model,
+        llm_efficiency_mode: !!data.user?.llm_efficiency_mode,
       }));
     } catch (err) {
       setError(err.message);
@@ -845,6 +850,23 @@ function UserProfilePanel() {
             <code>ollama pull {form.llm_model || 'deepseek-v3'}</code>.
           </p>
         )}
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Efficiency mode</span>
+          <select
+            value={form.llm_efficiency_mode ? 'yes' : 'no'}
+            onChange={(e) => set('llm_efficiency_mode', e.target.value === 'yes')}
+            style={{ padding: '0.6rem 0.75rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+          >
+            <option value="no">No</option>
+            <option value="yes">Yes</option>
+          </select>
+        </label>
+        <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--muted)' }}>
+          Yes: short jobs (learnings summary, chat archive titles, Brain / IBKR recaps, broadcast/COO classify,
+          leftover goal-plan args, policy/goal text enrich) use local Ollama instead of Platform_BYOK.
+          Agent Chat, Workflow Builder, certify, browser, vision, and image/video stay on your Profile provider.
+          Needs a running Ollama service. No = existing paid / platform model (no change).
+        </p>
 
         <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '0.5rem 0' }} />
         <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--muted)' }}>

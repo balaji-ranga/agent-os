@@ -10,6 +10,8 @@ This is your **named secret vault**. Keys are shown once at save time; the list 
 
 **Platform default** on Profile uses the platform language model — you do **not** need `Platform_BYOK`. Fill other rows only for features you use. **Tools → Rate limits** caps daily/monthly **calls** (not dollars).
 
+**Efficiency mode** (Profile Yes/No): when **Yes**, learnings summary, chat archive titles, Brain / IBKR recaps, broadcast/COO classify, leftover goal-plan args, and policy/goal enrich use **local Ollama** instead of this vault key. Agent Chat stays on your Profile provider.
+
 ## Language models (one vault key)
 
 Chat, vision, image generation, and **live Call / Realtime Caller** share **`Platform_BYOK`** when you bring your own key. Profile chooses the provider; the secret stays in this vault.

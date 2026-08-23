@@ -2178,6 +2178,11 @@ export function initDb() {
     _db.exec(`ALTER TABLE platform_users ADD COLUMN profile_image TEXT DEFAULT ''`);
   } catch (_) {}
 
+  /** Profile Efficiency mode: 1 = wave-1 utility LLM jobs use local Ollama. */
+  try {
+    _db.exec(`ALTER TABLE platform_users ADD COLUMN llm_efficiency_mode INTEGER DEFAULT 0`);
+  } catch (_) {}
+
   /**
    * Legal acceptance at registration (Terms + Privacy).
    * Null for legacy / admin-created users until they re-accept (future gate).

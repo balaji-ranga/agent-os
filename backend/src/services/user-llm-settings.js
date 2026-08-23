@@ -27,6 +27,7 @@ import {
   getProviderModelCatalog,
   getLlmCatalogPublic,
 } from '../config/llm-provider-registry.js';
+import { parseEfficiencyModeFlag } from './llm-efficiency-mode.js';
 export { getLlmCatalogPublic } from '../config/llm-provider-registry.js';
 export const LLM_PROVIDERS = Object.freeze([
   'platform_decided',
@@ -222,6 +223,7 @@ export function userLlmPublic(row) {
       llm_api_key_set: false,
       llm_api_key_hint: null,
       platform_byok_key_name: PLATFORM_BYOK_KEY_NAME,
+      llm_efficiency_mode: false,
     };
   }
   const provider = normalizeLlmProvider(row.llm_provider || 'platform_decided');
@@ -234,6 +236,7 @@ export function userLlmPublic(row) {
     llm_api_key_set: vaultSet,
     llm_api_key_hint: vaultSet ? vaultRow.key_hint || null : vaultRow ? 'unset' : null,
     platform_byok_key_name: PLATFORM_BYOK_KEY_NAME,
+    llm_efficiency_mode: parseEfficiencyModeFlag(row.llm_efficiency_mode),
   };
 }
 

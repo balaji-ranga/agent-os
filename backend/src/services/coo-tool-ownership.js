@@ -9,6 +9,9 @@
 import { getLlmConfig, chatCompletions } from '../config/llm.js';
 import { COO_CONTENT_TOOLS_ALLOW } from '../lib/content-tools-allow.js';
 import { listEnabledContentTools } from './content-tools-meta.js';
+import { shouldUseEfficiencyOllama } from './llm-efficiency-mode.js';
+
+const COO_TOOL_OWNERSHIP_TOOL = 'coo_tool_ownership';
 
 function getIntentModelOverride() {
   return (process.env.OPENAI_INTENT_MODEL || process.env.OPENAI_COO_MODEL || '').trim() || undefined;
@@ -132,7 +135,8 @@ export async function classifyCooOwnedToolIntent(ownerUserId, ceoMessage) {
 
   const cfg = getLlmConfig(ownerUserId || null);
   const apiKey = cfg.primary?.apiKey || cfg.secondary?.apiKey;
-  if (!apiKey) {
+  const efficiencyOllama = shouldUseEfficiencyOllama(ownerUserId, COO_TOOL_OWNERSHIP_TOOL);
+  if (!apiKey && !efficiencyOllama) {
     console.warn('[coo-tool-ownership] no LLM API key — cannot classify tool ownership');
     return null;
   }
@@ -153,6 +157,7 @@ export async function classifyCooOwnedToolIntent(ownerUserId, ceoMessage) {
       modelOverride: getIntentModelOverride(),
       maxTokens: 128,
       ownerUserId: ownerUserId || null,
+      toolName: COO_TOOL_OWNERSHIP_TOOL,
     });
     const parsed = extractJsonObject(String(content || ''));
     if (!parsed || typeof parsed !== 'object') return null;

@@ -393,6 +393,7 @@ if ($Services -match "backend|openclaw") {
     "$Repo\backend\scripts\test-purge-all-documents.js" `
     "$Repo\backend\scripts\test-agent-delete-cascade.js" `
     "$Repo\backend\scripts\test-learnings-cache.js" `
+    "$Repo\backend\scripts\test-llm-efficiency-mode.js" `
     "$Repo\backend\scripts\test-history-summary-cache.js" `
     "$Repo\backend\scripts\test-workflow-auth-templates.js" `
     "$Repo\backend\scripts\seed-brave-search-mcp.js" `
@@ -559,6 +560,7 @@ if ($Services -match "backend|openclaw") {
   ssh @ssh "root@$HostIp" "mkdir -p $RemoteRoot/knowledgebase"
   scp @ssh -r "$Repo\knowledgebase\platform-help" "root@${HostIp}:$RemoteRoot/knowledgebase/"
   scp @ssh "$Repo\knowledgebase\README.md" "root@${HostIp}:$RemoteRoot/knowledgebase/README.md"
+  scp @ssh "$Repo\knowledgebase\PROJECT.md" "root@${HostIp}:$RemoteRoot/knowledgebase/PROJECT.md"
   scp @ssh "$Repo\knowledgebase\TESTING.md" "root@${HostIp}:$RemoteRoot/knowledgebase/TESTING.md"
   if (Test-Path "$Repo\knowledgebase\WORKFLOW-BUILDER-ENDUSER-STRESS.md") {
     scp @ssh "$Repo\knowledgebase\WORKFLOW-BUILDER-ENDUSER-STRESS.md" "root@${HostIp}:$RemoteRoot/knowledgebase/WORKFLOW-BUILDER-ENDUSER-STRESS.md"

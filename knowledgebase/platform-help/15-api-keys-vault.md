@@ -49,6 +49,8 @@ When Profile LLM is **not** Platform default (Ollama free, DeepSeek, OpenAI, Ope
 
 Slots appear with hint **`unset`** until you **Edit** and paste a real secret. Resolvers treat unset as missing (no platform fall-back for Brave/Replicate on BYOK Profiles). Seeding runs on CEO register (non-platform provider), Profile provider change, and when opening **API Keys**.
 
+**Efficiency mode** (Profile Yes): learnings summary, chat archive titles, Brain / IBKR recaps, classify JSON, leftover goal-plan args, and policy/goal enrich use local Ollama and do **not** spend `Platform_BYOK`. Agent Chat still uses this vault key when Profile is OpenAI/OpenRouter.
+
 **Platform default** Profile does not seed these — ops `.env` covers Brave / Replicate / Places for that mode. Exception: if platform `GOOGLE_PLACES_API_KEY` is unset, you can still fill vault **`GOOGLE_PLACES_BYOK`** and Places tools will use it.
 
 ## Inventory — tools vs vault key vs issuer

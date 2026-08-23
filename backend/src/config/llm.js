@@ -6,6 +6,10 @@
  */
 import { resolveLlmConfigForUser } from '../services/user-llm-settings.js';
 import { getEffectivePlatformLlmEndpoints } from '../services/platform-llm-settings.js';
+import {
+  shouldUseEfficiencyOllama,
+  getEfficiencyOllamaLlmConfig,
+} from '../services/llm-efficiency-mode.js';
 
 function isLocalOllama(baseUrl) {
   if (!baseUrl || typeof baseUrl !== 'string') return false;
@@ -121,6 +125,42 @@ export function getLlmConfig(ownerUserId = null) {
 }
 
 /**
+ * Pick endpoint + model for a chatCompletions call.
+ * Efficiency mode (Profile Yes) sends wave-1 utility tools to local Ollama.
+ */
+export async function resolveChatCompletionsConfig({
+  ownerUserId = null,
+  toolName = null,
+  modelOverride = null,
+} = {}) {
+  if (shouldUseEfficiencyOllama(ownerUserId, toolName)) {
+    const cfg = getEfficiencyOllamaLlmConfig();
+    console.info('[llm] efficiency mode → ollama', {
+      tool: toolName,
+      host: endpointHost(cfg.primary?.baseUrl),
+      model: cfg.primary?.model || null,
+    });
+    return {
+      cfg,
+      effectiveModel: String(cfg.primary?.model || '').trim(),
+      efficiencyMode: true,
+    };
+  }
+  const cfg = getLlmConfig(ownerUserId);
+  let effectiveModel = modelOverride || cfg.primary.model;
+  if (toolName && ownerUserId) {
+    try {
+      const { getToolModelOverride } = await import('../services/tool-model-overrides.js');
+      const toolOv = getToolModelOverride(ownerUserId, toolName);
+      if (toolOv) effectiveModel = toolOv;
+    } catch (e) {
+      console.warn('[llm] tool model override skipped: %s', e?.message || e);
+    }
+  }
+  return { cfg, effectiveModel, efficiencyMode: false };
+}
+
+/**
  * Call OpenAPI-compliant chat/completions with optional model override. Tries primary then secondary endpoint.
  * Optional toolName applies CEO Tools-menu model mapping (overrides modelOverride / profile primary).
  * @param {{ messages: Array<{ role: string, content: string }>, modelOverride?: string, maxTokens?: number, ownerUserId?: string, toolName?: string, memberKey?: string, source?: string, sessionId?: string, runId?: string, traceId?: string }}
@@ -140,17 +180,11 @@ export async function chatCompletions({
   runId = null,
   traceId = null,
 }) {
-  const cfg = getLlmConfig(ownerUserId);
-  let effectiveModel = modelOverride || cfg.primary.model;
-  if (toolName && ownerUserId) {
-    try {
-      const { getToolModelOverride } = await import('../services/tool-model-overrides.js');
-      const toolOv = getToolModelOverride(ownerUserId, toolName);
-      if (toolOv) effectiveModel = toolOv;
-    } catch (e) {
-      console.warn('[llm] tool model override skipped: %s', e?.message || e);
-    }
-  }
+  const { cfg, effectiveModel, efficiencyMode } = await resolveChatCompletionsConfig({
+    ownerUserId,
+    toolName,
+    modelOverride,
+  });
   const endpoints = buildChatCompletionEndpoints(cfg, effectiveModel);
 
   const primary = endpoints[0];
@@ -171,6 +205,7 @@ export async function chatCompletions({
       model: ep.model,
       provider: cfg.provider,
       byok: !!cfg.using_byok,
+      efficiency: !!efficiencyMode,
       tool: toolName || null,
     });
     const chatUrl = `${ep.baseUrl.replace(/\/$/, '')}/chat/completions`;

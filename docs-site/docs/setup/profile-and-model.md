@@ -12,6 +12,7 @@ Path: avatar → **Edit profile** (`/profile`).
 - **Country** and **region** (same lists as Register)
 - **Appearance** — Day / Night (also the sun/moon in the top bar). Advanced themes **Aurora Glass** and **Vivid Board** are under Profile → Appearance (saved in this browser).
 - **Display timezone** — Kanban, Digest, and workspace times use this
+- **Efficiency mode** — Yes/No. **Yes** sends short platform jobs (learnings summary, chat archive titles, Brain / IBKR recaps, broadcast and COO classify JSON, leftover goal-plan args, policy/goal text enrich) to **local Ollama** so they do not spend `Platform_BYOK`. Agent Chat, Workflow Builder, certify, browser, vision, and image/video stay on your Profile provider. **No** keeps those jobs on BYOK / platform (unchanged). Needs a running Ollama service (`OLLAMA_BASE_URL`).
 - **Data persistence** — how long chats, standup history, and workflow runs are kept (for example 30–365 days). A nightly job deletes older items; **Purge aged data now** does it immediately.
 
 ## How AI employees get a model

@@ -35,6 +35,7 @@ export async function classifyBroadcastNotifyIntent(message, ownerUserId = null)
       ],
       maxTokens: 120,
       ownerUserId,
+      toolName: 'broadcast_notify_intent',
     });
     const raw = String(content || '').trim();
     const start = raw.indexOf('{');

@@ -96,6 +96,8 @@ Three tools call an LLM to summarize history. All three cache the summary **once
 
 **Same-day, no new data:** if the watermark (newest feedback id / kanban timestamp / order id / brain step) is unchanged, a later call on the same UTC day returns the cached summary with `cache_mode: cache_hit` — **no LLM call**.
 
+**Profile Efficiency mode:** when **Yes**, `learnings_summary`, `brain_history`, `ibkr_order_learnings`, chat archive titles, broadcast/COO classify JSON, leftover goal-plan args, and policy/goal enrich use **local Ollama** (not `Platform_BYOK`). Agent Chat is unchanged. Default is **No**.
+
 **New UTC day, no new data:** the cache extends `valid_date` to today and returns the existing summary with `cache_mode: no_new` — still **no LLM call**. This is the usual “same-day no rebuild” path extended across midnight when nothing changed.
 
 **When data moves:** watermark change or stale base age triggers `cache_mode: rebuild` and a fresh (or incremental) LLM summary.

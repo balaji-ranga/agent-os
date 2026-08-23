@@ -129,6 +129,7 @@ export async function enrichPolicyTextWithAi(ownerUserId, draftText = '', { comp
   const context = String(companyContext || '').trim().slice(0, 2000);
   const { content, modelUsed } = await chatCompletions({
     ownerUserId,
+    toolName: 'ceo_guardrails_enrich',
     maxTokens: 2048,
     messages: [
       { role: 'system', content: 'You improve CEO company policy / guardrail text for an AI company OS. Output ONLY the revised policy markdown (no preamble). Must keep or strengthen: ban sexual content; ban abusive/harassing content; ban discriminatory/hate content; refuse+escalate on violations. If empty, create a solid default with those safety rules plus practical ops (approvals, spend, publish). Be concise. Do not invent company-specific facts not in the draft or context.' },
@@ -150,6 +151,7 @@ export async function enrichGoalTextWithAi(ownerUserId, draftText = '', { title 
   const titleLine = String(title || '').trim();
   const { content, modelUsed } = await chatCompletions({
     ownerUserId,
+    toolName: 'ceo_guardrails_enrich',
     maxTokens: 1200,
     messages: [
       { role: 'system', content: 'You enrich a CEO scheduled-goal prompt for an AI employee (often the COO). Output ONLY the improved prompt text (no title line, no markdown fences, no preamble). Keep the CEO intent; make it clear and actionable. Always remind: no sexual, abusive, or discriminatory content. Keep concise. Do not invent company facts not provided.' },
